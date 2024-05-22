@@ -5048,6 +5048,11 @@ contains
     !    so they can be written to the binary budget files, but these internal
     !    flows are not included as part of the budget table.
     nbudterm = 8
+    !
+    ! -- GWF models with a single reach should not have an entry
+    if (this%nconn == 0) nbudterm = nbudterm - 1
+    !
+    ! -- Account for mover connection and aux vars in budget object
     if (this%imover == 1) nbudterm = nbudterm + 2
     if (this%naux > 0) nbudterm = nbudterm + 1
     !
@@ -5058,29 +5063,33 @@ contains
     idx = 0
     !
     ! -- Go through and set up each budget term
-    text = '    FLOW-JA-FACE'
-    idx = idx + 1
-    maxlist = this%nconn
-    naux = 1
-    auxtxt(1) = '       FLOW-AREA'
-    call this%budobj%budterm(idx)%initialize(text, &
-                                             this%name_model, &
-                                             this%packName, &
-                                             this%name_model, &
-                                             this%packName, &
-                                             maxlist, .false., .false., &
-                                             naux, auxtxt)
     !
-    ! -- store connectivity
-    call this%budobj%budterm(idx)%reset(this%nconn)
-    q = DZERO
-    do n = 1, this%maxbound
-      n1 = n
-      do i = this%ia(n) + 1, this%ia(n + 1) - 1
-        n2 = this%ja(i)
-        call this%budobj%budterm(idx)%update_term(n1, n2, q)
+    ! -- GWF models with a single reach do not have flow-ja-face connections
+    if (this%nconn /= 0) then
+      text = '    FLOW-JA-FACE'
+      idx = idx + 1
+      maxlist = this%nconn
+      naux = 1
+      auxtxt(1) = '       FLOW-AREA'
+      call this%budobj%budterm(idx)%initialize(text, &
+                                               this%name_model, &
+                                               this%packName, &
+                                               this%name_model, &
+                                               this%packName, &
+                                               maxlist, .false., .false., &
+                                               naux, auxtxt)
+      !
+      ! -- store connectivity
+      call this%budobj%budterm(idx)%reset(this%nconn)
+      q = DZERO
+      do n = 1, this%maxbound
+        n1 = n
+        do i = this%ia(n) + 1, this%ia(n + 1) - 1
+          n2 = this%ja(i)
+          call this%budobj%budterm(idx)%update_term(n1, n2, q)
+        end do
       end do
-    end do
+    end if
     !
     ! --
     text = '             GWF'
@@ -5267,40 +5276,42 @@ contains
     idx = 0
     !
     ! -- FLOW JA FACE
-    idx = idx + 1
-    call this%budobj%budterm(idx)%reset(this%nconn)
-    do n = 1, this%maxbound
-      n1 = n
-      q = DZERO
-      ca = DZERO
-      do i = this%ia(n) + 1, this%ia(n + 1) - 1
-        n2 = this%ja(i)
-        if (this%iboundpak(n) /= 0) then
-          ! flow to downstream reaches
-          if (this%idir(i) < 0) then
-            qt = this%dsflow(n)
-            q = -this%qconn(i)
-            ! flow from upstream reaches
+    if (this%nconn /= 0) then
+      idx = idx + 1
+      call this%budobj%budterm(idx)%reset(this%nconn)
+      do n = 1, this%maxbound
+        n1 = n
+        q = DZERO
+        ca = DZERO
+        do i = this%ia(n) + 1, this%ia(n + 1) - 1
+          n2 = this%ja(i)
+          if (this%iboundpak(n) /= 0) then
+            ! flow to downstream reaches
+            if (this%idir(i) < 0) then
+              qt = this%dsflow(n)
+              q = -this%qconn(i)
+              ! flow from upstream reaches
+            else
+              qt = this%usflow(n)
+              do ii = this%ia(n2) + 1, this%ia(n2 + 1) - 1
+                if (this%idir(ii) > 0) cycle
+                if (this%ja(ii) /= n) cycle
+                q = this%qconn(ii)
+                exit
+              end do
+            end if
+            ! calculate flow area
+            call this%sfr_calc_reach_depth(n, qt, d)
+            ca = this%calc_area_wet(n, d)
           else
-            qt = this%usflow(n)
-            do ii = this%ia(n2) + 1, this%ia(n2 + 1) - 1
-              if (this%idir(ii) > 0) cycle
-              if (this%ja(ii) /= n) cycle
-              q = this%qconn(ii)
-              exit
-            end do
+            q = DZERO
+            ca = DZERO
           end if
-          ! calculate flow area
-          call this%sfr_calc_reach_depth(n, qt, d)
-          ca = this%calc_area_wet(n, d)
-        else
-          q = DZERO
-          ca = DZERO
-        end if
-        this%qauxcbc(1) = ca
-        call this%budobj%budterm(idx)%update_term(n1, n2, q, this%qauxcbc)
+          this%qauxcbc(1) = ca
+          call this%budobj%budterm(idx)%update_term(n1, n2, q, this%qauxcbc)
+        end do
       end do
-    end do
+    end if
     !
     ! -- GWF (LEAKAGE)
     idx = idx + 1
