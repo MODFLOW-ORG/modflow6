@@ -1,7 +1,6 @@
 """
 Tests ability to run a GWF model then a PRT model
 in separate simulations via flow model interface,
-as well as
 
 The grid is a 10x10 square with a single layer,
 the same flow system shown on the FloPy readme.

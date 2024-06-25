@@ -110,10 +110,11 @@ contains
   !! any PRP-level files with PRP index matching the particle's
   !! PRP index.
   !<
-  subroutine save(this, particle, kper, kstp, reason, level)
+  subroutine save(this, particle, dis, kper, kstp, reason, level)
     ! dummy
     class(TrackControlType), intent(inout) :: this
     type(ParticleType), pointer, intent(in) :: particle
+    class(DisBaseType), pointer, intent(in) :: dis
     integer(I4B), intent(in) :: kper
     integer(I4B), intent(in) :: kstp
     integer(I4B), intent(in) :: reason
@@ -146,7 +147,7 @@ contains
       if (file%iun > 0 .and. &
           (file%iprp == -1 .or. &
            file%iprp == particle%iprp)) &
-        call save_record(file%iun, particle, &
+        call save_record(file%iun, particle, dis, &
                          kper, kstp, reason, csv=file%csv)
     end do
   end subroutine save
