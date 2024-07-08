@@ -341,9 +341,11 @@ def add_gwe_model(sim, gwename):
         gwe,
         save_flows=True,
         porosity=prsity,
+        heat_capacity_water=cpw,
+        density_water=rhow,
+        latent_heat_vaporization=lhv,
         cps=cps,
         rhos=rhos,
-        packagedata=[cpw, rhow, lhv],
         pname="EST",
         filename="{}.est".format(gwename),
     )
