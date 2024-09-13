@@ -35,6 +35,8 @@ module TspAdvModule
     procedure, private :: read_options
     procedure, private :: advqtvd
     procedure, private :: advtvd_bd
+    procedure, private :: advqtvd_experimental
+    procedure, private :: compute_cell_gradient
     procedure :: adv_weight
     procedure :: advtvd
 
@@ -249,7 +251,8 @@ contains
       if (this%dis%con%mask(ipos) == 0) cycle
       m = this%dis%con%ja(ipos)
       if (m > n .and. this%ibound(m) /= 0) then
-        qtvd = this%advqtvd(n, m, ipos, cnew)
+        ! qtvd = this%advqtvd(n, m, ipos, cnew)
+        qtvd = this%advqtvd_experimental(n, m, ipos, cnew)
         rhs(n) = rhs(n) - qtvd
         rhs(m) = rhs(m) + qtvd
       end if
@@ -357,6 +360,128 @@ contains
     end if
   end function advqtvd
 
+  function advqtvd_experimental(this, n, m, iposnm, cnew) result(qtvd)
+    ! -- return
+    real(DP) :: qtvd
+    ! -- dummy
+    class(TspAdvType) :: this
+    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: m
+    integer(I4B), intent(in) :: iposnm
+    real(DP), dimension(:), intent(in) :: cnew
+    ! -- local
+    integer(I4B) :: isympos, iup, idn
+    real(DP) :: qnm
+    real(DP), dimension(2) :: grad_c
+    real(DP) :: smooth, alimiter
+    real(DP) :: x_dir, y_dir, z_dir, length
+    !
+    ! -- initialize
+    qtvd = DZERO
+    !
+    ! -- Find upstream node
+    isympos = this%dis%con%jas(iposnm)
+    qnm = this%fmi%gwfflowja(iposnm)
+    if (qnm > DZERO) then
+      ! -- positive flow into n means m is upstream
+      iup = m
+      idn = n
+    else
+      iup = n
+      idn = m
+    end if
+    !
+    ! Return if straddled cells have same value
+    if (abs(cnew(idn) - cnew(iup)) < 1e-5_dp) return
+    !
+    ! -- Compute cell concentration gradient
+    call this%compute_cell_gradient(iup, cnew, grad_c)
+    !
+    ! -- Compute smoothness factor
+    call this%dis%connection_vector(iup, idn, .true., 1.0_dp, 1.0_dp, 1, x_dir, y_dir, z_dir, length)
+    smooth = 2.0_dp * (grad_c(1) * x_dir * length + grad_c(2) * y_dir * length) / (cnew(idn) - cnew(iup)) - 1.0_dp
+    !
+    ! -- Compute limiter
+    alimiter = max(0.0_dp, min((smooth + dabs(smooth)) / (1.0_dp + dabs(smooth)), 2.0_dp))
+    !
+    ! -- Compute limited flux
+    qtvd = DHALF * alimiter * qnm * (cnew(idn) - cnew(iup)) 
+    qtvd = qtvd * this%eqnsclfac
+
+  end function advqtvd_experimental
+
+  subroutine compute_cell_gradient(this, n, cnew, grad_c)
+     ! -- dummy
+    class(TspAdvType) :: this
+    integer(I4B), intent(in) :: n
+    real(DP), dimension(:), intent(in) :: cnew
+    real(DP), dimension(2), intent(out) :: grad_c
+    ! -- local
+    integer(I4B) :: ipos, isympos, ihc, local_pos
+    integer(I4B) :: number_connections
+    real(DP), dimension(:, :), allocatable :: d
+    real(DP), dimension(:, :), allocatable :: d_trans
+    real(DP), dimension(:, :), allocatable :: grad_op
+    real(DP), dimension(2, 2) :: g
+    real(DP), dimension(2, 2) :: g_inv
+    integer(I4B) :: m
+    real(DP) :: x_dir, y_dir, z_dir, length
+
+    real(DP), dimension(:), allocatable :: dc
+
+    number_connections = this%dis%con%ia(n + 1) - this%dis%con%ia(n) - 1
+    allocate(d(number_connections, 2))
+    allocate(d_trans(2, number_connections))
+    allocate(grad_op(2, number_connections))
+
+    local_pos = 1
+    do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
+      m = this%dis%con%ja(ipos)
+      isympos = this%dis%con%jas(ipos)
+      ihc = this%dis%con%ihc(isympos)
+     
+      call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, ihc, x_dir, y_dir, z_dir, length)
+      d(local_pos, 1) = x_dir * length
+      d(local_pos, 2) = y_dir * length
+
+      d_trans(1, local_pos) = x_dir * length
+      d_trans(2, local_pos) = y_dir * length
+      local_pos = local_pos + 1
+    end do
+
+    g = matmul(d_trans, d)
+    g_inv = matinv2(g)
+    grad_op = matmul(g_inv, d_trans)
+
+    allocate(dc(number_connections))
+    local_pos = 1
+    do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
+      m = this%dis%con%ja(ipos)
+      dc(local_pos) = cnew(m) - cnew(n)
+      local_pos = local_pos + 1
+    end do
+
+    grad_c = matmul(grad_op, dc)
+
+  end subroutine compute_cell_gradient
+
+  pure function matinv2(A) result(B)
+    !! https://fortranwiki.org/fortran/show/Matrix+inversion
+    !! Performs a direct calculation of the inverse of a 2×2 matrix.
+    real(DP), intent(in) :: A(2,2)   !! Matrix
+    real(DP)             :: B(2,2)   !! Inverse matrix
+    real(DP)             :: detinv
+
+    ! Calculate the inverse determinant of the matrix
+    detinv = 1/(A(1,1)*A(2,2) - A(1,2)*A(2,1))
+
+    ! Calculate the inverse of the matrix
+    B(1,1) = +detinv * A(2,2)
+    B(2,1) = -detinv * A(2,1)
+    B(1,2) = -detinv * A(1,2)
+    B(2,2) = +detinv * A(1,1)
+  end function
+
   !> @brief Calculate advection contribution to flowja
   !<
   subroutine adv_cq(this, cnew, flowja)
@@ -408,7 +533,8 @@ contains
         m = this%dis%con%ja(ipos)
         if (this%ibound(m) /= 0) then
           qnm = this%fmi%gwfflowja(ipos)
-          qtvd = this%advqtvd(n, m, ipos, cnew)
+          ! qtvd = this%advqtvd(n, m, ipos, cnew)
+          qtvd = this%advqtvd_experimental(n, m, ipos, cnew)
           flowja(ipos) = flowja(ipos) + qtvd
         end if
       end do
