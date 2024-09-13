@@ -276,6 +276,10 @@ contains
     integer(I4B) :: ipos, isympos, iup, idn, i2up, j
     real(DP) :: qnm, qmax, qupj, elupdn, elup2up
     real(DP) :: smooth, cdiff, alimiter
+    integer(I4B) :: ihc
+    integer(I4B) :: ihc2
+    real(DP) :: nx, ny, nz
+    real(DP) :: nx2, ny2, nz2
     !
     ! -- initialize
     qtvd = DZERO
@@ -293,14 +297,24 @@ contains
     end if
     elupdn = this%dis%con%cl1(isympos) + this%dis%con%cl2(isympos)
     !
+    ! -- Find connection direction
+    ihc = this%dis%con%ihc(isympos)
+    call this%dis%connection_normal(n, m, ihc, nx, ny, nz, ipos)
+    !
     ! -- Find second node upstream to iup
     i2up = 0
     qmax = DZERO
     do ipos = this%dis%con%ia(iup) + 1, this%dis%con%ia(iup + 1) - 1
       j = this%dis%con%ja(ipos)
+      isympos = this%dis%con%jas(ipos)
+      ihc2 = this%dis%con%ihc(isympos)
+      call this%dis%connection_normal(iup, j, ihc, nx2, ny2, nz2, ipos)
+
+      if (((abs(nx) - abs(nx2)) > 1e-5) .or. (abs(ny) - abs(ny2) > 1e-5)) cycle
+
       if (this%ibound(j) == 0) cycle
       qupj = this%fmi%gwfflowja(ipos)
-      isympos = this%dis%con%jas(ipos)
+     
       if (qupj > qmax) then
         qmax = qupj
         i2up = j
