@@ -430,6 +430,16 @@ contains
     real(DP), dimension(:), allocatable :: dc
 
     number_connections = this%dis%con%ia(n + 1) - this%dis%con%ia(n) - 1
+    if (number_connections == 1) then
+      ipos = this%dis%con%ia(n) + 1
+      m = this%dis%con%ja(ipos)
+      call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, ihc, x_dir, y_dir, z_dir, length)
+      
+      grad_c(1) = (cnew(m) - cnew(n)) / (x_dir * length)
+      grad_c(2) = (cnew(m) - cnew(n)) / (y_dir * length)
+      return
+    end if
+
     allocate(d(number_connections, 2))
     allocate(d_trans(2, number_connections))
     allocate(grad_op(2, number_connections))
