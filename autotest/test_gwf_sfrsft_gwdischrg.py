@@ -1,13 +1,11 @@
 # Test groundwater discharge to a stream and then go on to test
 # that a transport model with a single reach works.
 
-import math
 import pathlib as pl
 
 import flopy
 import numpy as np
 import pytest
-
 from framework import TestFramework
 
 cases = ["sfr-gwfout", "sfr-gwf-trnsprt"]
@@ -224,7 +222,8 @@ def check_output(idx, test):
         try:
             # load simulated concentration in SFT
             cobj = flopy.utils.HeadFile(
-                sft_obs_fl, text="CONCENTRATION"  # precision="double"
+                sft_obs_fl,
+                text="CONCENTRATION",  # precision="double"
             )
             sim_conc_sft = cobj.get_alldata()
         except:
@@ -236,7 +235,8 @@ def check_output(idx, test):
         try:
             # load simulated concentration of groundwater
             cobj = flopy.utils.HeadFile(
-                gwt_sim_conc, text="CONCENTRATION"  # precision="double"
+                gwt_sim_conc,
+                text="CONCENTRATION",  # precision="double"
             )
             conc_gw = cobj.get_alldata()
         except:
