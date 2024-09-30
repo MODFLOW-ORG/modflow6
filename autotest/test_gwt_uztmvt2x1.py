@@ -33,10 +33,10 @@ Channel-> ====================
 # Imports
 
 import os
+
+import flopy
 import numpy as np
 import pytest
-import flopy
-
 from framework import TestFramework
 
 # Base simulation and model name and workspace
@@ -177,12 +177,11 @@ for i in np.arange(nper):
 
 
 def build_models(idx, test):
-
     # Base MF6 GWF model type
     ws = test.workspace
     name = cases[idx]
 
-    print("Building MF6 model...()".format(name))
+    print("Building MF6 model...{}".format(name))
 
     # generate names for each model
     gwfname = "gwf-" + name
