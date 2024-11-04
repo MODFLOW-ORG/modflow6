@@ -370,7 +370,7 @@ contains
     integer(I4B), intent(in) :: iposnm
     real(DP), dimension(:), intent(in) :: cnew
     ! -- local
-    integer(I4B) :: isympos, iup, idn
+    integer(I4B) :: isympos, iup, idn, ihc
     real(DP) :: qnm
     real(DP), dimension(2) :: grad_c
     real(DP) :: smooth, alimiter
@@ -381,6 +381,7 @@ contains
     !
     ! -- Find upstream node
     isympos = this%dis%con%jas(iposnm)
+    ihc = this%dis%con%ihc(isympos)
     qnm = this%fmi%gwfflowja(iposnm)
     if (qnm > DZERO) then
       ! -- positive flow into n means m is upstream
@@ -398,15 +399,20 @@ contains
     call this%compute_cell_gradient(iup, cnew, grad_c)
     !
     ! -- Compute smoothness factor
-    call this%dis%connection_vector(iup, idn, .true., 1.0_dp, 1.0_dp, 1, x_dir, y_dir, z_dir, length)
+    call this%dis%connection_vector(iup, idn, .true., 1.0_dp, 1.0_dp, ihc, x_dir, y_dir, z_dir, length)
     smooth = 2.0_dp * (grad_c(1) * x_dir * length + grad_c(2) * y_dir * length) / (cnew(idn) - cnew(iup)) - 1.0_dp
     !
     ! -- Compute limiter
-    alimiter = max(0.0_dp, min((smooth + dabs(smooth)) / (1.0_dp + dabs(smooth)), 2.0_dp))
-    !
+    ! - TVD
+    ! alimiter = max(0.0_dp, min((smooth + dabs(smooth)) / (1.0_dp + dabs(smooth)), 2.0_dp))
+    ! - Koren
+    ! alimiter = max(0.0_dp, min(2.0_dp*smooth, 1.0_dp/3.0_dp + 2.0_dp/3.0_dp*smooth, 2.0_dp))
+    ! - Superbee
+    alimiter = max(0.0_dp,max(min(2.0_dp*smooth, 1.0_dp), min(smooth, 2.0_dp)))
     ! -- Compute limited flux
     qtvd = DHALF * alimiter * qnm * (cnew(idn) - cnew(iup)) 
     qtvd = qtvd * this%eqnsclfac
+
 
   end function advqtvd_experimental
 
@@ -431,8 +437,13 @@ contains
 
     number_connections = this%dis%con%ia(n + 1) - this%dis%con%ia(n) - 1
     if (number_connections == 1) then
+      ! If a cell only has 1 neigbour compute the gradient using finite difference
+      ! This case can happen if a triangle element is located in a cornor of a square domain
+      ! with two sides being domain boundaries
       ipos = this%dis%con%ia(n) + 1
       m = this%dis%con%ja(ipos)
+      isympos = this%dis%con%jas(ipos)
+      ihc = this%dis%con%ihc(isympos)
       call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, ihc, x_dir, y_dir, z_dir, length)
       
       grad_c(1) = (cnew(m) - cnew(n)) / (x_dir * length)
