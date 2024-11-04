@@ -220,7 +220,7 @@ contains
     end do
     !
     ! -- TVD
-    if (this%iadvwt == 2) then
+    if (this%iadvwt >= 2) then
       do n = 1, nodes
         if (this%ibound(n) == 0) cycle
         call this%advtvd(n, cnew, rhs)
@@ -311,14 +311,33 @@ contains
     ! -- Calculate flux limiting term
     if (i2up > 0) then
       smooth = DZERO
-      cdiff = ABS(cnew(idn) - cnew(iup))
+      cdiff = ABS(cnew(iup) - cnew(i2up)) ! adjusted code
+      ! cdiff = ABS(cnew(idn) - cnew(iup)) ! original code
       if (cdiff > DPREC) then
-        smooth = (cnew(iup) - cnew(i2up)) / elup2up * &
-                 elupdn / (cnew(idn) - cnew(iup))
+        smooth = (cnew(idn) - cnew(iup)) / elupdn * &
+          elup2up / (cnew(iup) - cnew(i2up)) ! adjusted code
+        ! smooth = (cnew(iup) - cnew(i2up)) / elup2up * &
+        !          elupdn / (cnew(idn) - cnew(iup)) ! original code
       end if
       if (smooth > DZERO) then
-        alimiter = DTWO * smooth / (DONE + smooth)
-        qtvd = DHALF * alimiter * qnm * (cnew(idn) - cnew(iup))
+        select case (this%iadvwt)
+        case (2) ! van Leer
+          ! alimiter = DTWO * smooth / (DONE + smooth)
+          alimiter = min((smooth + dabs(smooth)) / (1.0_dp + dabs(smooth)), 2.0_dp)
+        case (3) ! Koren
+          alimiter = min(2.0_dp*smooth, 1.0_dp/3.0_dp + 2.0_dp/3.0_dp*smooth, 2.0_dp)
+        case (4) ! Superbee
+          alimiter = max(min(2.0_dp*smooth, 1.0_dp), min(smooth, 2.0_dp))
+        case (5) ! van Albada
+          alimiter =  (smooth * smooth + smooth) / (smooth * smooth + 1.0_dp)
+        case (6) ! Koren modified
+          alimiter = min(4.0_dp*smooth*smooth+smooth,1.0_dp/3.0_dp+2.0_dp/3.0_dp*smooth, 2.0_dp)
+        CASE DEFAULT
+          alimiter = DZERO
+        end select
+       
+        qtvd = DHALF * alimiter * qnm * (cnew(iup) - cnew(i2up)) ! adjusted code
+        ! qtvd = DHALF * alimiter * qnm * (cnew(idn) - cnew(iup)) ! original code
         qtvd = qtvd * this%eqnsclfac
       end if
     end if
@@ -354,7 +373,7 @@ contains
     end do
     !
     ! -- TVD
-    if (this%iadvwt == 2) call this%advtvd_bd(cnew, flowja)
+    if (this%iadvwt >= 2) call this%advtvd_bd(cnew, flowja)
   end subroutine adv_cq
 
   !> @brief Add TVD contribution to flowja
@@ -472,6 +491,18 @@ contains
           case ('TVD')
             this%iadvwt = 2
             write (this%iout, fmtiadvwt) 'TVD'
+          case ('KOREN')
+            this%iadvwt = 3
+            write (this%iout, fmtiadvwt) 'KOREN'
+          case ('SUPERBEE')
+            this%iadvwt = 4
+            write (this%iout, fmtiadvwt) 'SUPERBEE'
+          case ('ALBADA')
+            this%iadvwt = 5
+            write (this%iout, fmtiadvwt) 'ALBADA'
+          case ('KORENMOD')
+            this%iadvwt = 6
+            write (this%iout, fmtiadvwt) 'KORENMOD'
           case default
             write (errmsg, '(a, a)') &
               'Unknown scheme: ', trim(keyword)
@@ -528,7 +559,7 @@ contains
         lmn = this%dis%con%cl2(this%dis%con%jas(ipos))
       end if
       omega = lmn / (lnm + lmn)
-    case (0, 2)
+    case (0, 2 :)
       ! -- use upstream weighting for upstream and tvd schemes
       if (qnm > DZERO) then
         omega = DZERO
