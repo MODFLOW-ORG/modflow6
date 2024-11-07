@@ -149,9 +149,18 @@ contains
 
   end subroutine calculate_coeffs
 
-  subroutine uft_fn(this, n)
+  subroutine uft_fn(this, n, matrix_sln, rhs, idxglo, h_old, h_new)
+    use GwfStorageUtilsModule, only: SsCapacity
     class(UzrStorageType), intent(inout) :: this
     integer(I4B), intent(in) :: n
+    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
+    real(DP), dimension(:), intent(inout) :: rhs
+    integer(I4B), dimension(:), intent(in) :: idxglo
+    real(DP), dimension(:), intent(in) :: h_old
+    real(DP), dimension(:), intent(in) :: h_new
+
+    ! TODO_UZR
+
   end subroutine uft_fn
 
   subroutine uft_cq(this, n, flowja, h_new, h_old)

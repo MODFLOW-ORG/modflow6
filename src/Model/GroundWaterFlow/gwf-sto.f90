@@ -414,6 +414,14 @@ contains
     do n = 1, this%dis%nodes
       idiag = this%dis%con%ia(n)
       if (this%ibound(n) <= 0) cycle
+
+      if (associated(this%storage_extension)) then
+        if (this%storage_extension%is_active(n)) then
+          call this%storage_extension%fn(n, matrix_sln, rhs, idxglo, hold, hnew)
+          cycle
+        end if
+      end if
+
       !
       ! -- aquifer elevations and thickness
       tp = this%dis%top(n)

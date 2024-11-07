@@ -650,6 +650,15 @@ contains
           isymcon = this%dis%con%isym(ii)
           ! work on upper triangle
           if (m < n) cycle
+
+          if (associated(this%flow_extension)) then
+            if (this%flow_extension%is_active(n, m)) then
+              call this%flow_extension%fn(n, m, ii, matrix_sln, &
+                                          rhs, idxglo, hnew)
+              cycle
+            end if
+          end if
+
           if (this%dis%con%ihc(this%dis%con%jas(ii)) == 0 .and. &
               this%ivarcv == 0) then
             !call this%vcond(n,m,hnew(n),hnew(m),ii,cond)

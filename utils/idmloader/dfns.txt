@@ -22,6 +22,7 @@ gwf-rch.dfn
 gwf-rcha.dfn
 gwf-riv.dfn
 gwf-sto.dfn
+gwf-spf.dfn
 gwf-uzr.dfn
 gwf-wel.dfn
 

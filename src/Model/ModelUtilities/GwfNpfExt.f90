@@ -31,12 +31,16 @@ module GwfNpfExtModule
       integer(I4B), dimension(:), intent(in) :: idxglo
       real(DP), dimension(:), intent(in) :: hnew
     end subroutine
-    subroutine fn_if(this, n, m, ipos)
-      import GwfNpfExtType, I4B
+    subroutine fn_if(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
+      import GwfNpfExtType, MatrixBaseType, I4B, DP
       class(GwfNpfExtType), intent(inout) :: this
       integer(I4B), intent(in) :: n
       integer(I4B), intent(in) :: m
       integer(I4B), intent(in) :: ipos
+      class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
+      real(DP), dimension(:), intent(inout) :: rhs
+      integer(I4B), dimension(:), intent(in) :: idxglo
+      real(DP), dimension(:), intent(in) :: hnew
     end subroutine
     subroutine cq_if(this, n, m, ipos, flowja, h_new)
       import GwfNpfExtType, I4B, DP

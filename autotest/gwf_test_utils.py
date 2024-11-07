@@ -3,7 +3,8 @@ PLOT_UZR_TESTS = False  # flag to control plotting of UZR results, when not CI
 
 def get_uzr_soil_data(record_name):
     """
-    Returns a set of soil data for the specified record
+    Returns a set of soil data for the specified record valid for
+    unit of cm (TODO_UZR: check this)
     """
 
     record = {}

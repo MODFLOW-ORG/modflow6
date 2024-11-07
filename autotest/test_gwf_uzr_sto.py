@@ -45,8 +45,6 @@ def build_models(idx, test):
     nouter, ninner = 100, 300
     hclose, rclose, relax = 1e-6, 1e-6, 1.0
 
-    sto_scheme = "chord-slope"
-
     tdis_rc = []
     for i in range(nper):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))

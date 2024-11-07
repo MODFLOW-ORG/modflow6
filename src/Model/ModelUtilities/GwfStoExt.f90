@@ -29,10 +29,15 @@ module GwfStoExtModule
       real(DP), dimension(:), intent(in) :: h_old
       real(DP), dimension(:), intent(in) :: h_new
     end subroutine
-    subroutine fn_if(this, n)
-      import GwfStoExtType, I4B
+    subroutine fn_if(this, n, matrix_sln, rhs, idxglo, h_old, h_new)
+      import GwfStoExtType, MatrixBaseType, I4B, DP
       class(GwfStoExtType), intent(inout) :: this
       integer(I4B), intent(in) :: n
+      class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
+      real(DP), dimension(:), intent(inout) :: rhs
+      integer(I4B), dimension(:), intent(in) :: idxglo
+      real(DP), dimension(:), intent(in) :: h_old
+      real(DP), dimension(:), intent(in) :: h_new
     end subroutine
     subroutine cq_if(this, n, flowja, h_new, h_old)
       import GwfStoExtType, I4B, DP

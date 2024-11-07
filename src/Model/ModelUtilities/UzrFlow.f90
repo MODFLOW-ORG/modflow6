@@ -141,11 +141,18 @@ contains
 
   end subroutine calculate_coeffs
 
-  subroutine uft_fn(this, n, m, ipos)
+  subroutine uft_fn(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
     class(UzrFlowType), intent(inout) :: this
     integer(I4B), intent(in) :: n
     integer(I4B), intent(in) :: m
     integer(I4B), intent(in) :: ipos
+    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
+    real(DP), dimension(:), intent(inout) :: rhs
+    integer(I4B), dimension(:), intent(in) :: idxglo
+    real(DP), dimension(:), intent(in) :: hnew
+
+    ! TODO_UZR
+
   end subroutine uft_fn
 
   subroutine uft_cq(this, n, m, ipos, flowja, h_new)

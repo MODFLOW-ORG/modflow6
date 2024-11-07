@@ -20,6 +20,7 @@ module IdmGwfDfnSelectorModule
   use GwfRchaInputModule
   use GwfRivInputModule
   use GwfStoInputModule
+  use GwfSpfInputModule
   use GwfUzrInputModule
   use GwfWelInputModule
 
@@ -87,6 +88,8 @@ contains
       call set_param_pointer(input_definition, gwf_riv_param_definitions)
     case ('STO')
       call set_param_pointer(input_definition, gwf_sto_param_definitions)
+    case ('SPF')
+      call set_param_pointer(input_definition, gwf_spf_param_definitions)
     case ('UZR')
       call set_param_pointer(input_definition, gwf_uzr_param_definitions)
     case ('WEL')
@@ -131,6 +134,8 @@ contains
       call set_param_pointer(input_definition, gwf_riv_aggregate_definitions)
     case ('STO')
       call set_param_pointer(input_definition, gwf_sto_aggregate_definitions)
+    case ('SPF')
+      call set_param_pointer(input_definition, gwf_spf_aggregate_definitions)
     case ('UZR')
       call set_param_pointer(input_definition, gwf_uzr_aggregate_definitions)
     case ('WEL')
@@ -175,6 +180,8 @@ contains
       call set_block_pointer(input_definition, gwf_riv_block_definitions)
     case ('STO')
       call set_block_pointer(input_definition, gwf_sto_block_definitions)
+    case ('SPF')
+      call set_block_pointer(input_definition, gwf_spf_block_definitions)
     case ('UZR')
       call set_block_pointer(input_definition, gwf_uzr_block_definitions)
     case ('WEL')
@@ -218,6 +225,8 @@ contains
       multi_package = gwf_riv_multi_package
     case ('STO')
       multi_package = gwf_sto_multi_package
+    case ('SPF')
+      multi_package = gwf_spf_multi_package
     case ('UZR')
       multi_package = gwf_uzr_multi_package
     case ('WEL')
@@ -264,6 +273,8 @@ contains
       call set_subpkg_pointer(subpackages, gwf_riv_subpackages)
     case ('STO')
       call set_subpkg_pointer(subpackages, gwf_sto_subpackages)
+    case ('SPF')
+      call set_subpkg_pointer(subpackages, gwf_spf_subpackages)
     case ('UZR')
       call set_subpkg_pointer(subpackages, gwf_uzr_subpackages)
     case ('WEL')
@@ -307,6 +318,8 @@ contains
     case ('RIV')
       integrated = .true.
     case ('STO')
+      integrated = .true.
+    case ('SPF')
       integrated = .true.
     case ('UZR')
       integrated = .true.
