@@ -37,6 +37,7 @@ module TspAdvModule
     procedure, private :: advtvd_bd
     procedure, private :: advqtvd_experimental
     procedure, private :: compute_cell_gradient
+    procedure, private :: node_distance
     procedure :: adv_weight
     procedure :: advtvd
 
@@ -370,18 +371,18 @@ contains
     integer(I4B), intent(in) :: iposnm
     real(DP), dimension(:), intent(in) :: cnew
     ! -- local
-    integer(I4B) :: isympos, iup, idn, ihc
+    integer(I4B) :: iup, idn
     real(DP) :: qnm
-    real(DP), dimension(2) :: grad_c
-    real(DP) :: smooth, alimiter
-    real(DP) :: x_dir, y_dir, z_dir, length
+    real(DP), dimension(2) :: grad_c, dnm
+    real(DP) :: smooth, alimiter, beta
+    integer(I4B) :: nnodes, number_connections
+    real(DP), allocatable :: polyverts(:, :)
+
     !
     ! -- initialize
     qtvd = DZERO
     !
     ! -- Find upstream node
-    isympos = this%dis%con%jas(iposnm)
-    ihc = this%dis%con%ihc(isympos)
     qnm = this%fmi%gwfflowja(iposnm)
     if (qnm > DZERO) then
       ! -- positive flow into n means m is upstream
@@ -392,23 +393,31 @@ contains
       idn = m
     end if
     !
-    ! Return if straddled cells have same value
-    if (abs(cnew(idn) - cnew(iup)) < 1e-5_dp) return
+    ! -- Return if straddled cells have same value
+    if (abs(cnew(idn) - cnew(iup)) < 1e-8_dp) return
+    ! -- Return if upstream cell is a boundary
+    call this%fmi%dis%get_polyverts(iup, polyverts)
+    nnodes = size(polyverts, dim = 2)
+    number_connections = this%dis%con%ia(iup + 1) - this%dis%con%ia(iup) - 1
+    if (number_connections < nnodes) return
     !
     ! -- Compute cell concentration gradient
     call this%compute_cell_gradient(iup, cnew, grad_c)
     !
-    ! -- Compute smoothness factor
-    call this%dis%connection_vector(iup, idn, .true., 1.0_dp, 1.0_dp, ihc, x_dir, y_dir, z_dir, length)
-    smooth = 2.0_dp * (grad_c(1) * x_dir * length + grad_c(2) * y_dir * length) / (cnew(idn) - cnew(iup)) - 1.0_dp
+    ! -- Compute smoothness factor    
+    dnm = this%node_distance(iup, idn)
+    smooth = 2.0_dp * (dot_product(grad_c, dnm)) / (cnew(idn) - cnew(iup)) - 1.0_dp
     !
     ! -- Compute limiter
-    ! - TVD
-    ! alimiter = max(0.0_dp, min((smooth + dabs(smooth)) / (1.0_dp + dabs(smooth)), 2.0_dp))
+    ! - Van Leer
+    alimiter = max(0.0_dp, min((smooth + dabs(smooth)) / (1.0_dp + dabs(smooth)), 2.0_dp))
     ! - Koren
     ! alimiter = max(0.0_dp, min(2.0_dp*smooth, 1.0_dp/3.0_dp + 2.0_dp/3.0_dp*smooth, 2.0_dp))
+    ! - Sweby
+    ! beta = 1.5
+    ! alimiter = max(0.0_dp, min(beta * smooth, 1.0_dp), min(smooth, beta))
     ! - Superbee
-    alimiter = max(0.0_dp,max(min(2.0_dp*smooth, 1.0_dp), min(smooth, 2.0_dp)))
+    ! alimiter = max(0.0_dp, min(2.0_dp*smooth, 1.0_dp), min(smooth, 2.0_dp))
     ! -- Compute limited flux
     qtvd = DHALF * alimiter * qnm * (cnew(idn) - cnew(iup)) 
     qtvd = qtvd * this%eqnsclfac
@@ -416,14 +425,40 @@ contains
 
   end function advqtvd_experimental
 
+  function node_distance(this, n, m) result(d)
+    ! -- return
+    real(DP), dimension(2) :: d
+    ! -- dummy
+    class(TspAdvType) :: this
+    integer(I4B), intent(in) :: n, m
+    ! -- local
+    real(DP) :: xc_n, yc_n
+    real(DP) :: xc_m, yc_m
+    real(DP) :: x_dir, y_dir, z_dir, length
+
+    ! call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, 1, x_dir, y_dir, z_dir, length)
+    ! d(1) =  x_dir * length
+    ! d(2) =  y_dir * length
+
+    xc_n =  this%dis%xc(n)
+    yc_n =  this%dis%yc(n)
+
+    xc_m =  this%dis%xc(m)
+    yc_m =  this%dis%yc(m)
+
+    d(1) = xc_m - xc_n
+    d(2) = yc_m - yc_n
+
+  end function node_distance
+
   subroutine compute_cell_gradient(this, n, cnew, grad_c)
-     ! -- dummy
+    ! -- dummy
     class(TspAdvType) :: this
     integer(I4B), intent(in) :: n
     real(DP), dimension(:), intent(in) :: cnew
     real(DP), dimension(2), intent(out) :: grad_c
     ! -- local
-    integer(I4B) :: ipos, isympos, ihc, local_pos
+    integer(I4B) :: ipos, local_pos
     integer(I4B) :: number_connections
     real(DP), dimension(:, :), allocatable :: d
     real(DP), dimension(:, :), allocatable :: d_trans
@@ -431,7 +466,7 @@ contains
     real(DP), dimension(2, 2) :: g
     real(DP), dimension(2, 2) :: g_inv
     integer(I4B) :: m
-    real(DP) :: x_dir, y_dir, z_dir, length
+    real(DP), dimension(2) :: dnm
 
     real(DP), dimension(:), allocatable :: dc
 
@@ -442,12 +477,10 @@ contains
       ! with two sides being domain boundaries
       ipos = this%dis%con%ia(n) + 1
       m = this%dis%con%ja(ipos)
-      isympos = this%dis%con%jas(ipos)
-      ihc = this%dis%con%ihc(isympos)
-      call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, ihc, x_dir, y_dir, z_dir, length)
-      
-      grad_c(1) = (cnew(m) - cnew(n)) / (x_dir * length)
-      grad_c(2) = (cnew(m) - cnew(n)) / (y_dir * length)
+      dnm = this%node_distance(n, m)
+
+      grad_c(1) = (cnew(m) - cnew(n)) / dnm(1)
+      grad_c(2) = (cnew(m) - cnew(n)) / dnm(2)
       return
     end if
 
@@ -455,25 +488,29 @@ contains
     allocate(d_trans(2, number_connections))
     allocate(grad_op(2, number_connections))
 
+    ! Assemble the distance and transposed distance matrices
     local_pos = 1
     do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
       m = this%dis%con%ja(ipos)
-      isympos = this%dis%con%jas(ipos)
-      ihc = this%dis%con%ihc(isympos)
-     
-      call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, ihc, x_dir, y_dir, z_dir, length)
-      d(local_pos, 1) = x_dir * length
-      d(local_pos, 2) = y_dir * length
+      dnm = this%node_distance(n, m)
 
-      d_trans(1, local_pos) = x_dir * length
-      d_trans(2, local_pos) = y_dir * length
+      d(local_pos, 1) = dnm(1)
+      d(local_pos, 2) = dnm(2)
+
+      d_trans(1, local_pos) = d(local_pos, 1)
+      d_trans(2, local_pos) = d(local_pos, 2)
+
       local_pos = local_pos + 1
     end do
 
+    ! Compute the G and inverse G matrices
     g = matmul(d_trans, d)
     g_inv = matinv2(g)
-    grad_op = matmul(g_inv, d_trans)
 
+    ! Compute the gradient operator
+    grad_op = matmul(g_inv,d_trans)
+
+    ! Assemble the concentration difference matrix
     allocate(dc(number_connections))
     local_pos = 1
     do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
@@ -482,6 +519,7 @@ contains
       local_pos = local_pos + 1
     end do
 
+    ! Compute the cells gradient
     grad_c = matmul(grad_op, dc)
 
   end subroutine compute_cell_gradient
