@@ -371,10 +371,11 @@ contains
     integer(I4B), intent(in) :: iposnm
     real(DP), dimension(:), intent(in) :: cnew
     ! -- local
-    integer(I4B) :: iup, idn
+    integer(I4B) :: iup, idn, isympos
     real(DP) :: qnm
     real(DP), dimension(2) :: grad_c, dnm
     real(DP) :: smooth, alimiter, beta
+    real(DP) :: cl1, cl2, rel_dist
     integer(I4B) :: nnodes, number_connections
     real(DP), allocatable :: polyverts(:, :)
 
@@ -383,18 +384,26 @@ contains
     qtvd = DZERO
     !
     ! -- Find upstream node
+    isympos = this%dis%con%jas(iposnm)
     qnm = this%fmi%gwfflowja(iposnm)
     if (qnm > DZERO) then
       ! -- positive flow into n means m is upstream
       iup = m
       idn = n
+      
+      cl1 = this%dis%con%cl2(isympos) 
+      cl2 = this%dis%con%cl1(isympos)
     else
       iup = n
       idn = m
+
+      cl1 = this%dis%con%cl1(isympos) 
+      cl2 = this%dis%con%cl2(isympos)
     end if
     !
     ! -- Return if straddled cells have same value
     if (abs(cnew(idn) - cnew(iup)) < 1e-8_dp) return
+    !
     ! -- Return if upstream cell is a boundary
     call this%fmi%dis%get_polyverts(iup, polyverts)
     nnodes = size(polyverts, dim = 2)
@@ -418,8 +427,12 @@ contains
     ! alimiter = max(0.0_dp, min(beta * smooth, 1.0_dp), min(smooth, beta))
     ! - Superbee
     ! alimiter = max(0.0_dp, min(2.0_dp*smooth, 1.0_dp), min(smooth, 2.0_dp))
+
+    !
+    ! -- Compute relative distance
+    rel_dist = cl1 / (cl1 + cl2)
     ! -- Compute limited flux
-    qtvd = DHALF * alimiter * qnm * (cnew(idn) - cnew(iup)) 
+    qtvd = rel_dist * alimiter * qnm * (cnew(idn) - cnew(iup)) 
     qtvd = qtvd * this%eqnsclfac
 
 
@@ -532,7 +545,7 @@ contains
     real(DP)             :: detinv
 
     ! Calculate the inverse determinant of the matrix
-    detinv = 1/(A(1,1)*A(2,2) - A(1,2)*A(2,1))
+    detinv = 1.0_dp/(A(1,1)*A(2,2) - A(1,2)*A(2,1))
 
     ! Calculate the inverse of the matrix
     B(1,1) = +detinv * A(2,2)
