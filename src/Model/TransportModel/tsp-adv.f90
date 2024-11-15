@@ -475,6 +475,7 @@ contains
     integer(I4B) :: number_connections
     real(DP), dimension(:, :), allocatable :: d
     real(DP), dimension(:, :), allocatable :: d_trans
+    real(DP), dimension(:, :), allocatable :: W2
     real(DP), dimension(:, :), allocatable :: grad_op
     real(DP), dimension(2, 2) :: g
     real(DP), dimension(2, 2) :: g_inv
@@ -500,8 +501,10 @@ contains
     allocate(d(number_connections, 2))
     allocate(d_trans(2, number_connections))
     allocate(grad_op(2, number_connections))
+    allocate(W2(number_connections, number_connections))
 
     ! Assemble the distance and transposed distance matrices
+    W2 = 0
     local_pos = 1
     do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
       m = this%dis%con%ja(ipos)
@@ -513,15 +516,17 @@ contains
       d_trans(1, local_pos) = d(local_pos, 1)
       d_trans(2, local_pos) = d(local_pos, 2)
 
+      W2(local_pos, local_pos) = 1.0_dp / (dnm(1)**2 + dnm(2)**2)
+
       local_pos = local_pos + 1
     end do
 
     ! Compute the G and inverse G matrices
-    g = matmul(d_trans, d)
+    g = matmul(d_trans, matmul(W2, d))
     g_inv = matinv2(g)
 
     ! Compute the gradient operator
-    grad_op = matmul(g_inv,d_trans)
+    grad_op = matmul(g_inv,matmul(d_trans, W2))
 
     ! Assemble the concentration difference matrix
     allocate(dc(number_connections))
