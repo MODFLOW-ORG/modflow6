@@ -375,7 +375,7 @@ contains
     real(DP) :: qnm
     real(DP), dimension(2) :: grad_c, dnm
     real(DP) :: smooth, alimiter, beta
-    real(DP) :: cl1, cl2, rel_dist
+    real(DP) :: cl1, cl2, rel_dist, c_virtual
     integer(I4B) :: nnodes, number_connections
     real(DP), allocatable :: polyverts(:, :)
 
@@ -405,10 +405,10 @@ contains
     if (abs(cnew(idn) - cnew(iup)) < 1e-8_dp) return
     !
     ! -- Return if upstream cell is a boundary
-    call this%fmi%dis%get_polyverts(iup, polyverts)
-    nnodes = size(polyverts, dim = 2)
-    number_connections = this%dis%con%ia(iup + 1) - this%dis%con%ia(iup) - 1
-    if (number_connections < nnodes) return
+    ! call this%fmi%dis%get_polyverts(iup, polyverts)
+    ! nnodes = size(polyverts, dim = 2)
+    ! number_connections = this%dis%con%ia(iup + 1) - this%dis%con%ia(iup) - 1
+    ! if (number_connections < nnodes) return
     !
     ! -- Compute cell concentration gradient
     call this%compute_cell_gradient(iup, cnew, grad_c)
@@ -416,12 +416,18 @@ contains
     ! -- Compute smoothness factor    
     dnm = this%node_distance(iup, idn)
     smooth = 2.0_dp * (dot_product(grad_c, dnm)) / (cnew(idn) - cnew(iup)) - 1.0_dp
+    ! -- Correct smoothness factor to prevent negative concentration
+    ! c_virtual = cnew(idn) - 2.0_dp * dot_product(grad_c, dnm)
+    c_virtual = cnew(iup) - smooth * (cnew(idn) - cnew(iup))
+    if (c_virtual < DZERO) then
+      smooth = cnew(iup) /  (cnew(idn) - cnew(iup))
+    end if
     !
     ! -- Compute limiter
     ! - Van Leer
-    alimiter = max(0.0_dp, min((smooth + dabs(smooth)) / (1.0_dp + dabs(smooth)), 2.0_dp))
+    ! alimiter = max(0.0_dp, min((smooth + dabs(smooth)) / (1.0_dp + dabs(smooth)), 2.0_dp))
     ! - Koren
-    ! alimiter = max(0.0_dp, min(2.0_dp*smooth, 1.0_dp/3.0_dp + 2.0_dp/3.0_dp*smooth, 2.0_dp))
+    alimiter = max(0.0_dp, min(2.0_dp*smooth, 1.0_dp/3.0_dp + 2.0_dp/3.0_dp*smooth, 2.0_dp))
     ! - Sweby
     ! beta = 1.5
     ! alimiter = max(0.0_dp, min(beta * smooth, 1.0_dp), min(smooth, beta))
@@ -429,7 +435,7 @@ contains
     ! alimiter = max(0.0_dp, min(2.0_dp*smooth, 1.0_dp), min(smooth, 2.0_dp))
 
     !
-    ! -- Compute relative distance
+    ! -- Compute relative distance to face
     rel_dist = cl1 / (cl1 + cl2)
     ! -- Compute limited flux
     qtvd = rel_dist * alimiter * qnm * (cnew(idn) - cnew(iup)) 
