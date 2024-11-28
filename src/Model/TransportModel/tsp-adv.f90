@@ -8,6 +8,7 @@ module TspAdvModule
   use TspFmiModule, only: TspFmiType
   use TspAdvOptionsModule, only: TspAdvOptionsType
   use MatrixBaseModule
+  use ForsytheMalcolmMoler
 
   implicit none
   private
@@ -373,7 +374,7 @@ contains
     ! -- local
     integer(I4B) :: iup, idn, isympos
     real(DP) :: qnm
-    real(DP), dimension(2) :: grad_c, dnm
+    real(DP), dimension(3) :: grad_c, dnm
     real(DP) :: smooth, alimiter, beta
     real(DP) :: cl1, cl2, rel_dist, c_virtual
     integer(I4B) :: nnodes, number_connections
@@ -419,15 +420,15 @@ contains
     ! -- Correct smoothness factor to prevent negative concentration
     ! c_virtual = cnew(idn) - 2.0_dp * dot_product(grad_c, dnm)
     c_virtual = cnew(iup) - smooth * (cnew(idn) - cnew(iup))
-    if (c_virtual < DZERO) then
+    if (c_virtual <= DPREC) then
       smooth = cnew(iup) /  (cnew(idn) - cnew(iup))
     end if
     !
     ! -- Compute limiter
     ! - Van Leer
-    ! alimiter = max(0.0_dp, min((smooth + dabs(smooth)) / (1.0_dp + dabs(smooth)), 2.0_dp))
+    alimiter = max(0.0_dp, min((smooth + dabs(smooth)) / (1.0_dp + dabs(smooth)), 2.0_dp))
     ! - Koren
-    alimiter = max(0.0_dp, min(2.0_dp*smooth, 1.0_dp/3.0_dp + 2.0_dp/3.0_dp*smooth, 2.0_dp))
+    ! alimiter = max(0.0_dp, min(2.0_dp*smooth, 1.0_dp/3.0_dp + 2.0_dp/3.0_dp*smooth, 2.0_dp))
     ! - Sweby
     ! beta = 1.5
     ! alimiter = max(0.0_dp, min(beta * smooth, 1.0_dp), min(smooth, beta))
@@ -446,27 +447,17 @@ contains
 
   function node_distance(this, n, m) result(d)
     ! -- return
-    real(DP), dimension(2) :: d
+    real(DP), dimension(3) :: d
     ! -- dummy
     class(TspAdvType) :: this
     integer(I4B), intent(in) :: n, m
     ! -- local
-    real(DP) :: xc_n, yc_n
-    real(DP) :: xc_m, yc_m
     real(DP) :: x_dir, y_dir, z_dir, length
 
-    ! call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, 1, x_dir, y_dir, z_dir, length)
-    ! d(1) =  x_dir * length
-    ! d(2) =  y_dir * length
-
-    xc_n =  this%dis%xc(n)
-    yc_n =  this%dis%yc(n)
-
-    xc_m =  this%dis%xc(m)
-    yc_m =  this%dis%yc(m)
-
-    d(1) = xc_m - xc_n
-    d(2) = yc_m - yc_n
+    call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, 1, x_dir, y_dir, z_dir, length)
+    d(1) =  x_dir * length
+    d(2) =  y_dir * length
+    d(3) =  z_dir * length
 
   end function node_distance
 
@@ -475,7 +466,7 @@ contains
     class(TspAdvType) :: this
     integer(I4B), intent(in) :: n
     real(DP), dimension(:), intent(in) :: cnew
-    real(DP), dimension(2), intent(out) :: grad_c
+    real(DP), dimension(3), intent(out) :: grad_c
     ! -- local
     integer(I4B) :: ipos, local_pos
     integer(I4B) :: number_connections
@@ -483,10 +474,10 @@ contains
     real(DP), dimension(:, :), allocatable :: d_trans
     real(DP), dimension(:, :), allocatable :: W2
     real(DP), dimension(:, :), allocatable :: grad_op
-    real(DP), dimension(2, 2) :: g
-    real(DP), dimension(2, 2) :: g_inv
+    real(DP), dimension(3, 3) :: g
+    real(DP), dimension(3, 3) :: g_inv
     integer(I4B) :: m
-    real(DP), dimension(2) :: dnm
+    real(DP), dimension(3) :: dnm
 
     real(DP), dimension(:), allocatable :: dc
 
@@ -501,12 +492,13 @@ contains
 
       grad_c(1) = (cnew(m) - cnew(n)) / dnm(1)
       grad_c(2) = (cnew(m) - cnew(n)) / dnm(2)
+      grad_c(3) = (cnew(m) - cnew(n)) / dnm(3)
       return
     end if
 
-    allocate(d(number_connections, 2))
-    allocate(d_trans(2, number_connections))
-    allocate(grad_op(2, number_connections))
+    allocate(d(number_connections, 3))
+    allocate(d_trans(3, number_connections))
+    allocate(grad_op(3, number_connections))
     allocate(W2(number_connections, number_connections))
 
     ! Assemble the distance and transposed distance matrices
@@ -518,23 +510,25 @@ contains
 
       d(local_pos, 1) = dnm(1)
       d(local_pos, 2) = dnm(2)
+      d(local_pos, 3) = dnm(3)
 
       d_trans(1, local_pos) = d(local_pos, 1)
       d_trans(2, local_pos) = d(local_pos, 2)
+      d_trans(3, local_pos) = d(local_pos, 3)
 
-      W2(local_pos, local_pos) = 1.0_dp / (dnm(1)**2 + dnm(2)**2)
+      W2(local_pos, local_pos) = 1.0_dp / (dnm(1)**2 + dnm(2)**2 + dnm(3)**2)
 
       local_pos = local_pos + 1
     end do
 
     ! Compute the G and inverse G matrices
     g = matmul(d_trans, matmul(W2, d))
-    g_inv = matinv2(g)
+    g_inv = pinv(g)
 
     ! Compute the gradient operator
     grad_op = matmul(g_inv,matmul(d_trans, W2))
 
-    ! Assemble the concentration difference matrix
+    ! Assemble the concentration difference vector
     allocate(dc(number_connections))
     local_pos = 1
     do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
@@ -548,21 +542,25 @@ contains
 
   end subroutine compute_cell_gradient
 
-  pure function matinv2(A) result(B)
-    !! https://fortranwiki.org/fortran/show/Matrix+inversion
-    !! Performs a direct calculation of the inverse of a 2×2 matrix.
-    real(DP), intent(in) :: A(2,2)   !! Matrix
-    real(DP)             :: B(2,2)   !! Inverse matrix
-    real(DP)             :: detinv
+  function pinv(A) result(B)
+    real(DP), intent(in) :: A(3,3)   !! Matrix
+    real(DP)             :: B(3,3)   !! Inverse matrix
 
-    ! Calculate the inverse determinant of the matrix
-    detinv = 1.0_dp/(A(1,1)*A(2,2) - A(1,2)*A(2,1))
+    integer(I4B) :: pos, ierr
+    real(DP), dimension(SIZE( A, DIM = 2), SIZE( A, DIM = 2)) :: U
+    real(DP), dimension(SIZE( A, DIM = 1), SIZE( A, DIM = 1)) :: V
+    real(DP), dimension(SIZE( A, DIM = 2)) :: sigma
+    real(DP), dimension(SIZE( A, DIM = 2), SIZE( A, DIM = 2)) :: sigma_plus
 
-    ! Calculate the inverse of the matrix
-    B(1,1) = +detinv * A(2,2)
-    B(2,1) = -detinv * A(2,1)
-    B(1,2) = -detinv * A(1,2)
-    B(2,2) = +detinv * A(1,1)
+    CALL SVD(A, sigma, .TRUE., U, .TRUE., V, ierr)
+
+    sigma_plus = 0
+    do pos = 1, min(SIZE( A, DIM = 1), SIZE( A, DIM = 2))  
+      if (DABS(sigma(pos)) > 2.0_dp * DPREC) sigma_plus(pos,pos) = 1.0_dp / sigma(pos)
+    end do
+
+    B = matmul(V, matmul(sigma_plus, transpose(U)))
+
   end function
 
   !> @brief Calculate advection contribution to flowja

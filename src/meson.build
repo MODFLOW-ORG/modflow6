@@ -4,6 +4,7 @@ external_libraries = files(
     'Utilities' / 'Libraries' / 'sparsekit' / 'sparsekit.f90',
     'Utilities' / 'Libraries' / 'blas' / 'blas1_d.f90',
     'Utilities' / 'Libraries' / 'sparskit2' / 'ilut.f90',
+    'Utilities' / 'Libraries' / 'fmm' / 'fmm.f90',
 )
 
 modflow_sources = files(
