@@ -41,6 +41,7 @@ module TspAdvModule
     procedure, private :: node_distance
     procedure :: adv_weight
     procedure :: advtvd
+    procedure :: limiter
 
   end type TspAdvType
 
@@ -319,7 +320,7 @@ contains
 
       if (this%ibound(j) == 0) cycle
       qupj = this%fmi%gwfflowja(ipos)
-     
+
       if (qupj > qmax) then
         qmax = qupj
         i2up = j
@@ -334,33 +335,45 @@ contains
       ! cdiff = ABS(cnew(idn) - cnew(iup)) ! original code
       if (cdiff > DPREC) then
         smooth = (cnew(idn) - cnew(iup)) / elupdn * &
-          elup2up / (cnew(iup) - cnew(i2up)) ! adjusted code
+                 elup2up / (cnew(iup) - cnew(i2up)) ! adjusted code
         ! smooth = (cnew(iup) - cnew(i2up)) / elup2up * &
         !          elupdn / (cnew(idn) - cnew(iup)) ! original code
       end if
+
       if (smooth > DZERO) then
-        select case (this%iadvwt)
-        case (2) ! van Leer
-          ! alimiter = DTWO * smooth / (DONE + smooth)
-          alimiter = min((smooth + dabs(smooth)) / (1.0_dp + dabs(smooth)), 2.0_dp)
-        case (3) ! Koren
-          alimiter = min(2.0_dp*smooth, 1.0_dp/3.0_dp + 2.0_dp/3.0_dp*smooth, 2.0_dp)
-        case (4) ! Superbee
-          alimiter = max(min(2.0_dp*smooth, 1.0_dp), min(smooth, 2.0_dp))
-        case (5) ! van Albada
-          alimiter =  (smooth * smooth + smooth) / (smooth * smooth + 1.0_dp)
-        case (6) ! Koren modified
-          alimiter = min(4.0_dp*smooth*smooth+smooth,1.0_dp/3.0_dp+2.0_dp/3.0_dp*smooth, 2.0_dp)
-        CASE DEFAULT
-          alimiter = DZERO
-        end select
-       
+        alimiter = this%limiter(smooth)
+
         qtvd = DHALF * alimiter * qnm * (cnew(iup) - cnew(i2up)) ! adjusted code
         ! qtvd = DHALF * alimiter * qnm * (cnew(idn) - cnew(iup)) ! original code
         qtvd = qtvd * this%eqnsclfac
       end if
     end if
   end function advqtvd
+
+  function limiter(this, r) result(theta)
+    ! -- return
+    real(DP) :: theta ! limited slope
+    ! -- dummy
+    class(TspAdvType) :: this
+    real(DP) :: r ! ratio of successive gradients
+
+    select case (this%iadvwt)
+    case (2) ! van Leer
+      ! alimiter = DTWO * smooth / (DONE + smooth)
+      theta = max(0.0_dp, min((r + dabs(r)) / (1.0_dp + dabs(r)), 2.0_dp))
+    case (3) ! Koren
+        theta = max(0.0_dp, min(2.0_dp * r, 1.0_dp / 3.0_dp + 2.0_dp / 3.0_dp * r, 2.0_dp))
+    case (4) ! Superbee
+      theta = max(0.0_dp, min(2.0_dp * r, 1.0_dp), min(r, 2.0_dp))
+    case (5) ! van Albada
+      theta = max(0.0_dp, (r * r + r) / (r * r + 1.0_dp))
+    case (6) ! Koren modified
+        theta = max(0.0_dp, min(4.0_dp * r * r + r, 1.0_dp/3.0_dp + 2.0_dp/3.0_dp * r, 2.0_dp))
+    CASE DEFAULT
+      theta = DZERO
+    end select
+
+  end function
 
   function advqtvd_experimental(this, n, m, iposnm, cnew) result(qtvd)
     ! -- return
@@ -391,14 +404,14 @@ contains
       ! -- positive flow into n means m is upstream
       iup = m
       idn = n
-      
-      cl1 = this%dis%con%cl2(isympos) 
+
+      cl1 = this%dis%con%cl2(isympos)
       cl2 = this%dis%con%cl1(isympos)
     else
       iup = n
       idn = m
 
-      cl1 = this%dis%con%cl1(isympos) 
+      cl1 = this%dis%con%cl1(isympos)
       cl2 = this%dis%con%cl2(isympos)
     end if
     !
@@ -414,34 +427,24 @@ contains
     ! -- Compute cell concentration gradient
     call this%compute_cell_gradient(iup, cnew, grad_c)
     !
-    ! -- Compute smoothness factor    
+    ! -- Compute smoothness factor
     dnm = this%node_distance(iup, idn)
-    smooth = 2.0_dp * (dot_product(grad_c, dnm)) / (cnew(idn) - cnew(iup)) - 1.0_dp
+   smooth = 2.0_dp * (dot_product(grad_c, dnm)) / (cnew(idn) - cnew(iup)) - 1.0_dp
+    !
     ! -- Correct smoothness factor to prevent negative concentration
-    ! c_virtual = cnew(idn) - 2.0_dp * dot_product(grad_c, dnm)
     c_virtual = cnew(iup) - smooth * (cnew(idn) - cnew(iup))
     if (c_virtual <= DPREC) then
-      smooth = cnew(iup) /  (cnew(idn) - cnew(iup))
+      smooth = cnew(iup) / (cnew(idn) - cnew(iup))
     end if
     !
     ! -- Compute limiter
-    ! - Van Leer
-    alimiter = max(0.0_dp, min((smooth + dabs(smooth)) / (1.0_dp + dabs(smooth)), 2.0_dp))
-    ! - Koren
-    ! alimiter = max(0.0_dp, min(2.0_dp*smooth, 1.0_dp/3.0_dp + 2.0_dp/3.0_dp*smooth, 2.0_dp))
-    ! - Sweby
-    ! beta = 1.5
-    ! alimiter = max(0.0_dp, min(beta * smooth, 1.0_dp), min(smooth, beta))
-    ! - Superbee
-    ! alimiter = max(0.0_dp, min(2.0_dp*smooth, 1.0_dp), min(smooth, 2.0_dp))
-
+    alimiter = this%limiter(smooth)
     !
     ! -- Compute relative distance to face
     rel_dist = cl1 / (cl1 + cl2)
     ! -- Compute limited flux
-    qtvd = rel_dist * alimiter * qnm * (cnew(idn) - cnew(iup)) 
+    qtvd = rel_dist * alimiter * qnm * (cnew(idn) - cnew(iup))
     qtvd = qtvd * this%eqnsclfac
-
 
   end function advqtvd_experimental
 
@@ -455,9 +458,9 @@ contains
     real(DP) :: x_dir, y_dir, z_dir, length
 
     call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, 1, x_dir, y_dir, z_dir, length)
-    d(1) =  x_dir * length
-    d(2) =  y_dir * length
-    d(3) =  z_dir * length
+    d(1) = x_dir * length
+    d(2) = y_dir * length
+    d(3) = z_dir * length
 
   end function node_distance
 
@@ -496,10 +499,10 @@ contains
       return
     end if
 
-    allocate(d(number_connections, 3))
-    allocate(d_trans(3, number_connections))
-    allocate(grad_op(3, number_connections))
-    allocate(W2(number_connections, number_connections))
+    allocate (d(number_connections, 3))
+    allocate (d_trans(3, number_connections))
+    allocate (grad_op(3, number_connections))
+    allocate (W2(number_connections, number_connections))
 
     ! Assemble the distance and transposed distance matrices
     W2 = 0
@@ -526,10 +529,10 @@ contains
     g_inv = pinv(g)
 
     ! Compute the gradient operator
-    grad_op = matmul(g_inv,matmul(d_trans, W2))
+    grad_op = matmul(g_inv, matmul(d_trans, W2))
 
     ! Assemble the concentration difference vector
-    allocate(dc(number_connections))
+    allocate (dc(number_connections))
     local_pos = 1
     do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
       m = this%dis%con%ja(ipos)
@@ -543,20 +546,22 @@ contains
   end subroutine compute_cell_gradient
 
   function pinv(A) result(B)
-    real(DP), intent(in) :: A(3,3)   !! Matrix
-    real(DP)             :: B(3,3)   !! Inverse matrix
+    real(DP), intent(in) :: A(3, 3) !! Matrix
+    real(DP) :: B(3, 3) !! Inverse matrix
 
     integer(I4B) :: pos, ierr
-    real(DP), dimension(SIZE( A, DIM = 2), SIZE( A, DIM = 2)) :: U
-    real(DP), dimension(SIZE( A, DIM = 1), SIZE( A, DIM = 1)) :: V
-    real(DP), dimension(SIZE( A, DIM = 2)) :: sigma
-    real(DP), dimension(SIZE( A, DIM = 2), SIZE( A, DIM = 2)) :: sigma_plus
+    real(DP), dimension(SIZE(A, DIM=2), SIZE(A, DIM=2)) :: U
+    real(DP), dimension(SIZE(A, DIM=1), SIZE(A, DIM=1)) :: V
+    real(DP), dimension(SIZE(A, DIM=2)) :: sigma
+    real(DP), dimension(SIZE(A, DIM=2), SIZE(A, DIM=2)) :: sigma_plus
 
     CALL SVD(A, sigma, .TRUE., U, .TRUE., V, ierr)
 
     sigma_plus = 0
-    do pos = 1, min(SIZE( A, DIM = 1), SIZE( A, DIM = 2))  
-      if (DABS(sigma(pos)) > 2.0_dp * DPREC) sigma_plus(pos,pos) = 1.0_dp / sigma(pos)
+    do pos = 1, min(SIZE(A, DIM=1), SIZE(A, DIM=2))
+      if (DABS(sigma(pos)) > 2.0_dp * DPREC) then
+        sigma_plus(pos, pos) = 1.0_dp / sigma(pos)
+      end if
     end do
 
     B = matmul(V, matmul(sigma_plus, transpose(U)))
@@ -780,7 +785,7 @@ contains
         lmn = this%dis%con%cl2(this%dis%con%jas(ipos))
       end if
       omega = lmn / (lnm + lmn)
-    case (0, 2 :)
+    case (0, 2:)
       ! -- use upstream weighting for upstream and tvd schemes
       if (qnm > DZERO) then
         omega = DZERO
