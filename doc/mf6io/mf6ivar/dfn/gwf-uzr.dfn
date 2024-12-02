@@ -15,7 +15,7 @@ type string
 valid hvk_yolo_1977 hvk_sand_1977
 reader urword
 optional true
-longname set a soil parameterization from a labeled parameter set and custom functions
+longname set a soil parameterization
 description is a text keyword to specify the soil parameterization from a parameter set and custom functions for the soil characteristics. This is a development option so the program can be validated using various reference results.
 
 block options

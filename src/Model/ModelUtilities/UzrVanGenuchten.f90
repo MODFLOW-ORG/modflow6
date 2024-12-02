@@ -105,7 +105,8 @@ contains
     integer(I4B) :: i !< the cell number
     real(DP) :: kr !< the saturation
     ! local
-    real(DP) :: s_eff, term
+    real(DP) :: se !< effective saturation
+    real(DP) :: term
     real(DP) :: m
 
     m = DONE - DONE / this%n(i)
@@ -113,19 +114,28 @@ contains
     if (psi > DZERO) then
       kr = DONE
     else
-    s_eff = (this%saturation(psi, i) - this%sat_res(i)) / (DONE - this%sat_res(i))
-      term = DONE - s_eff**(DONE / m)
-      kr = sqrt(s_eff) * ((DONE - term**m)**DTWO)
-
-      ! TODO_UZR: figure out the error here:
-      ! term1 = DONE - ((-this%alpha(i)*psi) ** (this%n(i) - DONE))
-      ! term2 = (DONE + ((-this%alpha(i)*psi) ** this%n(i))) ** (-this%m(i))
-      ! num = (term1 * term2) ** DTWO
-      ! denom = (DONE + ((-this%alpha(i)*psi) ** this%n(i))) ** (DHALF * this%m(i))
-      ! kr = num / denom
+      se = (this%saturation(psi, i) - this%sat_res(i)) / (DONE - this%sat_res(i))
+      term = DONE - se**(DONE / m)
+      kr = sqrt(se) * ((DONE - term**m)**DTWO)
+      ! TODO_UZR: formalize this:
+      ! kr = kr_smoothing(kr, s_eff, 0.999_DP, 0.0001_DP)
     end if
 
   end function krelative_vangenuchten
+
+  function kr_smoothing(kr, s, s0, omega) result(kr_smooth)
+    real(DP) :: kr
+    real(DP) :: s
+    real(DP) :: s0
+    real(DP) :: omega
+    real(DP) :: kr_smooth
+    ! local
+    real(DP) :: t !< transition function
+
+    t = DHALF + DHALF * tanh((s - s0) / omega)
+    kr_smooth = (DONE - t) * kr + t * DONE
+
+  end function kr_smoothing
 
   !> @brief clean up
   !<

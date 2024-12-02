@@ -33,8 +33,8 @@ contains
     this%sat_res => sat_res
 
     this%dev_soil_param = ""
-  call mem_set_value(this%dev_soil_param, 'DEV_SOIL_PARAM', this%input_mem_path, &
-                       found%dev_soil_param)
+    call mem_set_value(this%dev_soil_param, 'DEV_SOIL_PARAM', &
+                       this%input_mem_path, found%dev_soil_param)
     if (.not. found%dev_soil_param) then
       call store_error('Soil parameter set not specified in input', .true.)
     end if
@@ -82,8 +82,8 @@ contains
 
     select case (this%dev_soil_param)
     case ("HVK_YOLO_1977")
-     num = (739 * 4) * (this%porosity(i) - this%porosity(i) * this%sat_res(i)) * &
-            (log(-psi))**3.0
+      num = (739 * 4) * (this%porosity(i) - this%porosity(i) * &
+                         this%sat_res(i)) * (log(-psi))**3.0
       denom = psi * (739 + (log(-psi))**4)**2
       Cm = num / denom
     case ("HVK_SAND_1977")

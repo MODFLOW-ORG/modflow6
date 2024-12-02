@@ -143,7 +143,7 @@ module GwfNpfModule
     procedure, private :: check_options
     procedure, private :: prepcheck
     procedure, private :: preprocess_input
-    procedure, private :: fc_standard_conductance
+    procedure, private :: fc_std_conductance
     procedure, private :: calc_condsat
     procedure, private :: calc_initial_sat
 
@@ -515,8 +515,8 @@ contains
           end if
 
           ! standard flow
-          call this%fc_standard_conductance(n, m, ipos, matrix_sln, &
-                                            rhs, idxglo, hnew)
+          call this%fc_std_conductance(n, m, ipos, matrix_sln, &
+                                       rhs, idxglo, hnew)
           cycle
         end do
       end do
@@ -529,7 +529,7 @@ contains
 
   !> @brief Calculate and add coefficients using the
   !< standard conductance formulation
-  subroutine fc_standard_conductance(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
+  subroutine fc_std_conductance(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
     class(GwfNpfType) :: this !< this instance
     integer(I4B) :: n !< node number n
     integer(I4B) :: m !< node number m
@@ -607,7 +607,7 @@ contains
     call matrix_sln%add_value_pos(idxglo(isymcon), cond)
     call matrix_sln%add_value_pos(idxglo(idiagm), -cond)
 
-  end subroutine fc_standard_conductance
+  end subroutine fc_std_conductance
 
   !> @brief Fill newton terms
   !<

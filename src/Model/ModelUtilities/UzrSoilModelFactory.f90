@@ -20,10 +20,9 @@ module UzrSoilModelFactoryModule
   ! the available models
   integer(I4B), parameter :: NR_SOIL_MODELS = 4
   character(len=LENVARNAME), parameter, dimension(NR_SOIL_MODELS) &
-    :: soil_model_name = [character(len=LENVARNAME) :: 'BROOKS-COREY', &
-                                                                    'HAVERKAMP', &
-                                                                 'VANGENUCHTEN', &
-                                                                   'DEVSOILMODEL']
+    :: soil_model_name = &
+       [character(len=LENVARNAME) :: 'BROOKS-COREY', 'HAVERKAMP', &
+                                      'VANGENUCHTEN', 'DEVSOILMODEL']
   enum, bind(C)
     enumerator :: BROOKS_COREY = 1 !< Brooks-Corey soil model
     enumerator :: HAVERKAMP = 2 !< Haverkamp soil model

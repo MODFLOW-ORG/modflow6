@@ -71,7 +71,7 @@ module GwfUzrInputModule
     'DEV_SOIL_PARAM', & ! fortran variable
     'STRING', & ! type
     '', & ! shape
-    'set a soil parameterization from a labeled parameter set and custom functions', & ! longname
+    'set a soil parameterization', & ! longname
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case

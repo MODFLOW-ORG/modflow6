@@ -27,6 +27,7 @@ module UzrStorageModule
     procedure :: destroy
     ! private
     procedure, private :: calculate_coeffs
+    procedure, private :: calculate_coeffs_nwt
   end type UzrStorageType
 
 contains
@@ -74,7 +75,11 @@ contains
     real(DP), dimension(4) :: coeffs !< the coefficients to add to the linear system
     integer(I4B) :: idiag !< the position of the diagonal element
 
-    call this%calculate_coeffs(n, h_old, h_new, coeffs)
+    if (this%gwf_sto%inewton == 0) then
+      call this%calculate_coeffs(n, h_old, h_new, coeffs)
+    else
+      call this%calculate_coeffs_nwt(n, h_old, h_new, coeffs)
+    end if
 
     idiag = this%gwf_dis%con%ia(n)
     call matrix_sln%add_value_pos(idxglo(idiag), coeffs(1))
@@ -149,6 +154,68 @@ contains
 
   end subroutine calculate_coeffs
 
+  !> @brief Calculate the matrix and RHS coefficients for newton formulation
+  !<
+  subroutine calculate_coeffs_nwt(this, n, h_old, h_new, coeffs)
+    use TdisModule, only: delt
+    use GwfStorageUtilsModule, only: SsCapacity
+    class(UzrStorageType), intent(inout) :: this !< this instance
+    integer(I4B), intent(in) :: n !< the node number
+    real(DP), dimension(:), intent(in) :: h_old !< the old head
+    real(DP), dimension(:), intent(in) :: h_new !< the new head
+    real(DP), dimension(4), intent(inout) :: coeffs !< the coefficients: aterm_1, rhs_1, aterm_2, rhs_2
+    ! local
+    real(DP) :: sc1 !< specific storage capacity
+    real(DP) :: top !< the top of the cell
+    real(DP) :: bot !< the bottom of the cell
+    real(DP) :: area !< area of the cell
+    real(DP) :: thk !< cell thickness
+    real(DP) :: z !< the nodal elevation for n
+    real(DP) :: s1 !< the current saturation
+    real(DP) :: s0 !< the saturation at the previous time level
+    real(DP) :: Cm !< the current moisture capacity
+    real(DP) :: dsdh_lim !< slope
+    real(DP) :: h1 !< the current saturation
+    real(DP) :: h0 !< the saturation at the previous time level
+    real(DP) :: psi1 !< the current saturation
+    real(DP) :: psi0 !< the saturation at the previous time level
+    real(DP) :: phi !< the cell porosity
+    real(DP) :: Q_n, dQdh_n !< the storage rate and derivative
+
+    coeffs(:) = DZERO
+
+    top = this%gwf_dis%top(n)
+    bot = this%gwf_dis%bot(n)
+    thk = top - bot
+    area = this%gwf_dis%area(n)
+
+    h1 = h_new(n)
+    h0 = h_old(n)
+    z = DHALF * (top + bot)
+    psi1 = h1 - z
+    psi0 = h0 - z
+
+    phi = this%soil_model%porosity(n)
+    s1 = this%soil_model%saturation(psi1, n)
+    s0 = this%soil_model%saturation(psi0, n)
+    Cm = this%soil_model%capacity(psi1, n)
+    dsdh_lim = Cm / phi
+
+    sc1 = SsCapacity(this%gwf_sto%istor_coef, top, bot, area, this%gwf_sto%ss(n))
+
+    Q_n = sc1 * s1 * (h1 - h0) / delt
+    Q_n = Q_n + phi * area * thk * (s1 - s0) / delt
+
+    dQdh_n = (sc1 / delt) * (s1 + (h1 - h0) * dsdh_lim)
+    dQdh_n = dQdh_n + phi * area * thk * dsdh_lim / delt
+
+    coeffs(1) = -dQdh_n
+    coeffs(2) = Q_n - dQdh_n * h1
+
+    ! TODO_UZR: deal with the sign difference between this and existing Q's
+
+  end subroutine calculate_coeffs_nwt
+
   subroutine uft_fn(this, n, matrix_sln, rhs, idxglo, h_old, h_new)
     use GwfStorageUtilsModule, only: SsCapacity
     class(UzrStorageType), intent(inout) :: this
@@ -209,8 +276,8 @@ contains
 
   end subroutine get_specific_storage_terms
 
-subroutine get_unsat_storage_terms_CS(s_new, s_old, h_new, h_old, dsdh_lim, phi, &
-                                        z, area, thk, aterm, rhsterm)
+  subroutine get_unsat_storage_terms_CS(s_new, s_old, h_new, h_old, dsdh_lim, &
+                                        phi, z, area, thk, aterm, rhsterm)
     use TdisModule, only: delt
     real(DP), intent(in) :: s_new
     real(DP), intent(in) :: s_old

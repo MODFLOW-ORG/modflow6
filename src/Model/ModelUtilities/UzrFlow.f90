@@ -36,6 +36,7 @@ module UzrFlowModule
     procedure :: destroy
     ! private
     procedure, private :: calculate_coeffs
+    procedure, private :: calculate_coeffs_nwt
   end type UzrFlowType
 
 contains
@@ -80,22 +81,48 @@ contains
     integer(I4B), dimension(:), intent(in) :: idxglo
     real(DP), dimension(:), intent(in) :: hnew
     ! local
-    integer(I4B) :: idiag !<  diagonal position
+    integer(I4B) :: idiag !< diagonal position
+    integer(I4B) :: isym !< transposed connection
     integer(I4B) :: isymcon !< position of reverse connection m-n
-    real(DP), dimension(2) :: coeffs !< the linear system coefficients for the flow
+    real(DP), dimension(3) :: coeffs !< the linear system coefficients for the flow
 
-    call this%calculate_coeffs(n, m, ipos, hnew, coeffs)
+    if (this%gwf_npf%inewton == 0) then
 
-    ! Fill row n
-    idiag = this%gwf_dis%con%ia(n)
-    call matrix_sln%add_value_pos(idxglo(idiag), coeffs(1))
-    call matrix_sln%add_value_pos(idxglo(ipos), coeffs(2))
+      ! calculate system coefficients
+      call this%calculate_coeffs(n, m, ipos, hnew, coeffs)
 
-    ! Fill row m
-    isymcon = this%gwf_dis%con%isym(ipos)
-    idiag = this%gwf_dis%con%ia(m)
-    call matrix_sln%add_value_pos(idxglo(idiag), coeffs(1))
-    call matrix_sln%add_value_pos(idxglo(isymcon), coeffs(2))
+      ! Fill row n
+      idiag = this%gwf_dis%con%ia(n)
+      call matrix_sln%add_value_pos(idxglo(idiag), coeffs(1))
+      call matrix_sln%add_value_pos(idxglo(ipos), coeffs(2))
+
+      ! Fill row m
+      isymcon = this%gwf_dis%con%isym(ipos)
+      idiag = this%gwf_dis%con%ia(m)
+      call matrix_sln%add_value_pos(idxglo(idiag), coeffs(1))
+      call matrix_sln%add_value_pos(idxglo(isymcon), coeffs(2))
+    else
+
+      ! calculate system coefficients for newton formulation for n
+      call this%calculate_coeffs_nwt(n, m, ipos, hnew, coeffs)
+
+      ! Fill row n and add to RHS
+      idiag = this%gwf_dis%con%ia(n)
+      call matrix_sln%add_value_pos(idxglo(idiag), coeffs(1))
+      call matrix_sln%add_value_pos(idxglo(ipos), coeffs(2))
+      rhs(n) = rhs(n) + coeffs(3)
+
+      ! calculate system coefficients for newton formulation for tranposed: m
+      isym = this%gwf_dis%con%isym(ipos)
+      call this%calculate_coeffs_nwt(m, n, isym, hnew, coeffs)
+
+      ! Fill row m and add to RHS
+      idiag = this%gwf_dis%con%ia(m)
+      call matrix_sln%add_value_pos(idxglo(idiag), coeffs(1))
+      call matrix_sln%add_value_pos(idxglo(isym), coeffs(2))
+      rhs(m) = rhs(m) + coeffs(3)
+
+    end if
 
   end subroutine uft_fc
 
@@ -105,7 +132,7 @@ contains
     integer(I4B), intent(in) :: m !< node m
     integer(I4B), intent(in) :: ipos !< index in ja array for connection n-m
     real(DP), dimension(:), intent(in) :: hnew !< the new head
-    real(DP), dimension(2), intent(inout) :: coeffs !< the coefficients for the linear system: A_nn, A_nm
+    real(DP), dimension(3), intent(inout) :: coeffs !< the coefficients for the linear system: A_nn, A_nm
     ! local
     real(DP) :: sat_cond !< conductance at full saturation
     real(DP) :: cond !< conductance at current saturation
@@ -141,6 +168,66 @@ contains
 
   end subroutine calculate_coeffs
 
+  subroutine calculate_coeffs_nwt(this, n, m, ipos, hnew, coeffs)
+    class(UzrFlowType), intent(inout) :: this !, this instance
+    integer(I4B), intent(in) :: n !< node n
+    integer(I4B), intent(in) :: m !< node m
+    integer(I4B), intent(in) :: ipos !< index in ja array for connection n-m
+    real(DP), dimension(:), intent(in) :: hnew !< the new head
+    real(DP), dimension(3), intent(inout) :: coeffs !< the coefficients for the linear system: A_nn, A_nm, rhs_n
+    ! local
+    integer(I4B) :: iup !< the upstream node
+    real(DP) :: sat_cond !< conductance at full saturation
+    real(DP) :: z_up !< the nodal elevation for n
+    real(DP) :: psi !< the pressure head
+    real(DP) :: kr_up !< upstream weighted rel. permeability between nodes
+    real(DP) :: shift !< the shift for the numerical derivative
+    real(DP) :: dkrdh_n, dkrdh_m !< numerical derivative of upstream weighted kr
+    real(DP) :: Q_nm, dQdh_n, dQdh_m !< newton rates and derivatives
+
+    coeffs(:) = DZERO
+
+    sat_cond = this%gwf_npf%condsat(this%gwf_dis%con%jas(ipos))
+
+    ! determine upstream
+    if (hnew(n) > hnew(m)) then
+      iup = n
+    else
+      iup = m
+    end if
+
+    ! calculate k_up
+    z_up = DHALF * (this%gwf_dis%bot(iup) + this%gwf_dis%top(iup))
+    psi = hnew(iup) - z_up
+    kr_up = this%soil_model%krelative(psi, iup)
+
+    ! dkr/dh
+    shift = 1.0e-6
+    if (iup == m) then
+      dkrdh_n = DZERO
+      dkrdh_m = (this%soil_model%krelative(psi + shift, iup) - &
+                 this%soil_model%krelative(psi - shift, iup)) / (2.0 * shift)
+    else
+      dkrdh_n = (this%soil_model%krelative(psi + shift, iup) - &
+                 this%soil_model%krelative(psi - shift, iup)) / (2.0 * shift)
+      dkrdh_m = DZERO
+    end if
+
+    Q_nm = kr_up * sat_cond * (hnew(m) - hnew(n))
+    dQdh_n = -kr_up * sat_cond
+    dQdh_m = kr_up * sat_cond
+    if (n == iup) then
+      dQdh_n = dQdh_n + dkrdh_n * sat_cond * (hnew(m) - hnew(n))
+    else
+      dQdh_m = dQdh_m + dkrdh_m * sat_cond * (hnew(m) - hnew(n))
+    end if
+
+    coeffs(1) = dQdh_n ! diagonal
+    coeffs(2) = dQdh_m ! off-diagonal
+    coeffs(3) = -Q_nm + dQdh_n * hnew(n) + dQdh_m * hnew(m) ! RHS
+
+  end subroutine calculate_coeffs_nwt
+
   subroutine uft_fn(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
     class(UzrFlowType), intent(inout) :: this
     integer(I4B), intent(in) :: n
@@ -163,7 +250,7 @@ contains
     real(DP), dimension(:), intent(inout) :: flowja
     real(DP), dimension(:), intent(in) :: h_new
     ! local
-    real(DP), dimension(2) :: coeffs !< the linear system coefficients
+    real(DP), dimension(3) :: coeffs !< the linear system coefficients
     real(DP) :: flow_nm !< the flow rate into node n from m
 
     call this%calculate_coeffs(n, m, ipos, h_new, coeffs)

@@ -203,7 +203,8 @@ contains
     if (this%soil_model_kr_id > 0) then
       call dev_feature('MODEL_KR is a development feature, install the &
             &nightly build or compile from source with IDEVELOPMODE = 1.')
-      write (this%iout, '(4x,2a)') 'Soil model for relative permeability set to ', &
+      write (this%iout, '(4x,2a)') &
+        'Soil model for relative permeability set to ', &
         trim(soil_model_name(this%soil_model_kr_id))
     else
       this%soil_model_kr_id = this%soil_model_id
@@ -292,7 +293,7 @@ contains
 
     do n = 1, this%dis%nodes
       if (this%iunsat(n) == 0) cycle
-        
+
       ! calculate psi
       z = DHALF * (this%dis%bot(n) + this%dis%top(n))
       psi = hnew(n) - z
@@ -328,7 +329,7 @@ contains
                                    nwidthp, editdesc, DHNOFLO)
       end if
     end if
-    
+
   end subroutine uzr_ot_dv
 
   !< @brief Clean up

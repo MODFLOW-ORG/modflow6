@@ -9,13 +9,13 @@ module SpfModule
   use BndModule, only: BndType
   use BndExtModule, only: BndExtType
   use MatrixBaseModule
-  
+
   implicit none
   private
 
   public :: spf_create
   public :: SpfType
-  
+
   character(len=LENFTYPE) :: ftype = 'SPF'
   character(len=LENPACKAGENAME) :: text = '             SPF'
   !
@@ -49,21 +49,21 @@ contains
     character(len=*), intent(in) :: mempath
     ! local
     type(SpfType), pointer :: spfobj
-    
+
     ! allocate the object and assign values to object variables
     allocate (spfobj)
     packobj => spfobj
-    
+
     ! create name and memory path
     call packobj%set_names(ibcnum, namemodel, pakname, ftype, mempath)
     packobj%text = text
-    
+
     ! allocate scalars
     call packobj%allocate_scalars()
-    
+
     ! initialize package
     call packobj%pack_initialize()
-    
+
     packobj%inunit = inunit
     packobj%iout = iout
     packobj%id = id
@@ -71,7 +71,7 @@ contains
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF') ! TOD_UZR: why do we have this?
 
     spfobj%some_option = .false.
-    
+
   end subroutine spf_create
 
   subroutine spf_source_options(this)
@@ -80,7 +80,7 @@ contains
     class(SpfType), intent(inout) :: this
     ! local
     type(GwfSpfParamFoundType) :: found
-    
+
     ! source common bound options
     call this%BndExtType%source_options()
 
@@ -107,20 +107,20 @@ contains
     class(SpfType) :: this
     integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist
     real(DP), dimension(:, :), pointer, contiguous, optional :: auxvar
-    
+
     ! call base type allocate arrays
     call this%BndExtType%allocate_arrays(nodelist, auxvar)
-    
+
     ! set spf input context pointers
     call mem_setptr(this%distance, 'DIST', this%input_mempath)
     call mem_setptr(this%area, 'AREA', this%input_mempath)
-    
+
     ! checkin spf input context pointers
     call mem_checkin(this%distance, 'FACEDIST', this%memoryPath, &
                      'DIST', this%input_mempath)
     call mem_checkin(this%area, 'FACEAREA', this%memoryPath, &
                      'AREA', this%input_mempath)
-  
+
   end subroutine spf_allocate_arrays
 
   !> @brief Formulate the HCOF and RHS terms
@@ -131,11 +131,11 @@ contains
     integer(I4B) :: i, node
     real(DP) :: z, head
     real(DP), dimension(:), contiguous, pointer :: condsat
-    
+
     if (this%nbound .eq. 0) return
 
     call mem_setptr(condsat, 'CONDSAT', this%ictMemPath) ! TODO_UZR: remove this HACK
-    
+
     ! Calculate hcof and rhs for each seepage face
     do i = 1, this%nbound
       node = this%nodelist(i)
@@ -154,9 +154,9 @@ contains
         this%hcof(i) = DZERO
         this%rhs(i) = DZERO
       end if
-      
+
     end do
-    
+
   end subroutine spf_cf
 
   !> @brief Copy rhs and hcof into solution rhs and amat
@@ -174,31 +174,31 @@ contains
     if (this%imover == 1) then
       call this%pakmvrobj%fc()
     end if
-    
+
     ! Copy package rhs and hcof into solution rhs and amat
     do i = 1, this%nbound
       n = this%nodelist(i)
       rhs(n) = rhs(n) + this%rhs(i)
       ipos = ia(n)
       call matrix_sln%add_value_pos(idxglo(ipos), this%hcof(i))
-      
+
       ! If mover is active and this boundary is discharging,
       ! store available water (as positive value).
       ! TODO_UZR: implement mover
       if (this%imover == 1) then
-        write(errmsg, '(a,a)') "Seepage Mover not supported: ", this%packName
+        write (errmsg, '(a,a)') "Seepage Mover not supported: ", this%packName
         call store_error(errmsg, terminate=.true.)
       end if
     end do
-    
+
   end subroutine spf_fc
 
   !> @brief Define the list heading that is written to iout when PRINT_INPUT
   !< option is used
   subroutine define_listlabel(this)
-    
+
     class(SpfType), intent(inout) :: this
-    
+
     ! create the header list label
     this%listlabel = trim(this%filtyp)//' NO.'
     if (this%dis%ndim == 3) then
@@ -216,21 +216,21 @@ contains
     if (this%inamedbound == 1) then
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
-    
+
   end subroutine define_listlabel
-  
+
   !> @brief Deallocate memory
   !<
   subroutine spf_da(this)
     class(SpfType) :: this
-    
+
     call this%BndExtType%bnd_da()
-    
+
     call mem_deallocate(this%distance, 'FACEDIST', this%memoryPath)
     call mem_deallocate(this%area, 'FACEAREA', this%memoryPath)
 
     call mem_deallocate(this%some_option)
-   
+
   end subroutine spf_da
 
 end module SpfModule
