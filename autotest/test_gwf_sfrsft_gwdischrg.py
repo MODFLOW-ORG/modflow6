@@ -23,9 +23,7 @@ dvclose, rclose, relax = 1e-10, 1e-10, 1.0
 
 
 def add_gwt_model(sim, gwtname):
-    gwt = flopy.mf6.ModflowGwt(
-        sim, modelname=gwtname, model_nam_file="{}.nam".format(gwtname)
-    )
+    gwt = flopy.mf6.ModflowGwt(sim, modelname=gwtname, model_nam_file=f"{gwtname}.nam")
     gwt.name_file.save_flows = True
 
     imsgwt = flopy.mf6.ModflowIms(
@@ -41,7 +39,7 @@ def add_gwt_model(sim, gwtname):
         scaling_method="NONE",
         reordering_method="NONE",
         relaxation_factor=relax,
-        filename="{}.ims".format(gwtname),
+        filename=f"{gwtname}.ims",
     )
     sim.register_ims_package(imsgwt, [gwt.name])
 
@@ -65,7 +63,7 @@ def add_gwt_model(sim, gwtname):
         gwt,
         sources=sourcerecarray,
         pname="SSM",
-        filename="{}.ssm".format(gwtname),
+        filename=f"{gwtname}.ssm",
     )
 
     # Instantiate Streamflow Transport package
@@ -90,16 +88,14 @@ def add_gwt_model(sim, gwtname):
         reachperioddata=sft_perioddata,
         flow_package_name=flwpckname,
         pname="SFT",
-        filename="{}.sft".format(gwtname),
+        filename=f"{gwtname}.sft",
     )
 
     flopy.mf6.ModflowGwtoc(
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -150,10 +146,8 @@ def build_models(idx, test):
     )
 
     # sfr data
-    # <ifno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> <man> <ncon> <ustrf> <ndv>
-    package_data = [
-        (0, (0, 0, 0), delr, 1.0, 1e-3, 0.0, 1.0, 1.0, 0.001, 0, 0.0, 0)
-    ]
+    # <ifno> <cellid> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> <man> <ncon> <ustrf> <ndv>
+    package_data = [(0, (0, 0, 0), delr, 1.0, 1e-3, 0.0, 1.0, 1.0, 0.001, 0, 0.0, 0)]
     connection_data = [(0)]
 
     sfr_obs = {
@@ -191,7 +185,7 @@ def build_models(idx, test):
             exgmnamea=name,
             exgmnameb=gwtname,
             pname="GWFGWT1",
-            filename="{}.gwfgwt1".format(gwtname),
+            filename=f"{gwtname}.gwfgwt1",
         )
 
     return sim, None
@@ -227,9 +221,7 @@ def check_output(idx, test):
             )
             sim_conc_sft = cobj.get_alldata()
         except:
-            assert (
-                False
-            ), f'could not load concentration data from "{sft_obs_fl}"'
+            assert False, f'could not load concentration data from "{sft_obs_fl}"'
 
         gwt_sim_conc = pl.Path(f"{test.workspace}/{gwtname}.ucn")
         try:
@@ -240,9 +232,7 @@ def check_output(idx, test):
             )
             conc_gw = cobj.get_alldata()
         except:
-            assert (
-                False
-            ), f'could not load temperature data from "{sft_obs_fl}"'
+            assert False, f'could not load temperature data from "{sft_obs_fl}"'
 
         msg0 = "The simulation is not matching the established answer"
         msg1 = (
