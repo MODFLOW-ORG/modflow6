@@ -429,7 +429,7 @@ contains
     !
     ! -- Compute smoothness factor
     dnm = this%node_distance(iup, idn)
-   smooth = 2.0_dp * (dot_product(grad_c, dnm)) / (cnew(idn) - cnew(iup)) - 1.0_dp
+    smooth = 2.0_dp * (dot_product(grad_c, dnm)) / (cnew(idn) - cnew(iup)) - 1.0_dp
     !
     ! -- Correct smoothness factor to prevent negative concentration
     c_virtual = cnew(iup) - smooth * (cnew(idn) - cnew(iup))
@@ -456,8 +456,22 @@ contains
     integer(I4B), intent(in) :: n, m
     ! -- local
     real(DP) :: x_dir, y_dir, z_dir, length
+    integer(I4B) :: ipos, isympos, ihc
 
-    call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, 1, x_dir, y_dir, z_dir, length)
+    isympos = -1
+    do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
+      if (this%dis%con%ja(ipos) == m) then
+        isympos = this%dis%con%jas(ipos)
+        exit
+      end if
+    end do
+
+    if (isympos == -1) then
+      ! handle exception
+    end if
+
+    ihc = this%dis%con%ihc(isympos)
+    call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, ihc, x_dir, y_dir, z_dir, length)
     d(1) = x_dir * length
     d(2) = y_dir * length
     d(3) = z_dir * length
