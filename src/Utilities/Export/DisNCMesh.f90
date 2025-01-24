@@ -508,13 +508,12 @@ contains
     cell_x = NF90_FILL_DOUBLE
     cell_y = NF90_FILL_DOUBLE
     do j = 1, this%dis%nrow
-      x = this%dis%xorigin
       y = this%dis%celly(j) + this%dis%yorigin
       do i = 1, this%dis%ncol
+        x = this%dis%cellx(i) + this%dis%xorigin
         cell_x(cnt) = x
         cell_y(cnt) = y
         cnt = cnt + 1
-        x = this%dis%cellx(i) + this%dis%xorigin
       end do
     end do
 
