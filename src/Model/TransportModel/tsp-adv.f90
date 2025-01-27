@@ -2,7 +2,7 @@ module TspAdvModule
 
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DONE, DZERO, DHALF, DTWO, DNODATA, DPREC, &
-                             LINELENGTH
+                             DPRECSQRT, LINELENGTH
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
@@ -15,6 +15,10 @@ module TspAdvModule
   public :: TspAdvType
   public :: adv_cr
 
+  type Array2D
+    real(DP), dimension(:, :), allocatable :: data
+  end type Array2D
+
   type, extends(NumericalPackageType) :: TspAdvType
 
     integer(I4B), pointer :: iadvwt => null() !< advection scheme (0 up, 1 central, 2 tvd)
@@ -22,6 +26,7 @@ module TspAdvModule
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
     real(DP), pointer :: eqnsclfac => null() !< governing equation scale factor; =1. for solute; =rhow*cpw for energy
+    type(Array2D), allocatable, dimension(:) :: grad_op
 
   contains
 
@@ -42,6 +47,7 @@ module TspAdvModule
     procedure :: adv_weight
     procedure :: advtvd
     procedure :: limiter
+    procedure, private :: create_grad_operator
 
   end type TspAdvType
 
@@ -119,11 +125,19 @@ contains
     class(DisBaseType), pointer, intent(in) :: dis
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: ibound
     ! -- local
+    integer(I4B) :: n, nodes
     ! -- formats
     !
     ! -- adv pointers to arguments that were passed in
     this%dis => dis
     this%ibound => ibound
+
+    ! -- Compute the gradient operator
+    nodes = dis%nodes
+    allocate (this%grad_op(dis%nodes))
+    do n = 1, nodes
+      this%grad_op(n)%data = this%create_grad_operator(n)
+    end do
   end subroutine adv_ar
 
   !> @brief  Calculate maximum time step length
@@ -388,10 +402,8 @@ contains
     integer(I4B) :: iup, idn, isympos
     real(DP) :: qnm
     real(DP), dimension(3) :: grad_c, dnm
-    real(DP) :: smooth, alimiter, beta
+    real(DP) :: smooth, alimiter
     real(DP) :: cl1, cl2, rel_dist, c_virtual
-    integer(I4B) :: nnodes, number_connections
-    real(DP), allocatable :: polyverts(:, :)
 
     !
     ! -- initialize
@@ -418,18 +430,12 @@ contains
     ! -- Return if straddled cells have same value
     if (abs(cnew(idn) - cnew(iup)) < 1e-8_dp) return
     !
-    ! -- Return if upstream cell is a boundary
-    ! call this%fmi%dis%get_polyverts(iup, polyverts)
-    ! nnodes = size(polyverts, dim = 2)
-    ! number_connections = this%dis%con%ia(iup + 1) - this%dis%con%ia(iup) - 1
-    ! if (number_connections < nnodes) return
-    !
     ! -- Compute cell concentration gradient
     call this%compute_cell_gradient(iup, cnew, grad_c)
     !
     ! -- Compute smoothness factor
     dnm = this%node_distance(iup, idn)
-    smooth = 2.0_dp * (dot_product(grad_c, dnm)) / (cnew(idn) - cnew(iup)) - 1.0_dp
+   smooth = 2.0_dp * (dot_product(grad_c, dnm)) / (cnew(idn) - cnew(iup)) - 1.0_dp
     !
     ! -- Correct smoothness factor to prevent negative concentration
     c_virtual = cnew(iup) - smooth * (cnew(idn) - cnew(iup))
@@ -480,36 +486,67 @@ contains
 
   subroutine compute_cell_gradient(this, n, cnew, grad_c)
     ! -- dummy
-    class(TspAdvType) :: this
+    class(TspAdvType), target :: this
     integer(I4B), intent(in) :: n
     real(DP), dimension(:), intent(in) :: cnew
     real(DP), dimension(3), intent(out) :: grad_c
     ! -- local
+    real(DP), dimension(:, :), pointer :: grad_op
     integer(I4B) :: ipos, local_pos
     integer(I4B) :: number_connections
+
+    integer(I4B) :: m
+    real(DP), dimension(:), allocatable :: dc
+
+    ! Assemble the concentration difference vector
+    number_connections = this%dis%con%ia(n + 1) - this%dis%con%ia(n) - 1
+    allocate (dc(number_connections))
+    local_pos = 1
+    do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
+      m = this%dis%con%ja(ipos)
+      dc(local_pos) = cnew(m) - cnew(n)
+      local_pos = local_pos + 1
+    end do
+
+    ! Compute the cells gradient
+    grad_op => this%grad_op(n)%data
+    grad_c = matmul(grad_op, dc)
+
+  end subroutine compute_cell_gradient
+
+  function create_grad_operator(this, n) result(grad_op)
+    ! -- dummy
+    class(TspAdvType) :: this
+    integer(I4B), intent(in) :: n
+    real(DP), dimension(:, :), allocatable :: grad_op
+    ! -- local
+    integer(I4B) :: number_connections
+    integer(I4B) :: ipos, local_pos, m
+    real(DP), dimension(3) :: dnm
     real(DP), dimension(:, :), allocatable :: d
     real(DP), dimension(:, :), allocatable :: d_trans
     real(DP), dimension(:, :), allocatable :: W2
-    real(DP), dimension(:, :), allocatable :: grad_op
     real(DP), dimension(3, 3) :: g
     real(DP), dimension(3, 3) :: g_inv
-    integer(I4B) :: m
-    real(DP), dimension(3) :: dnm
-
-    real(DP), dimension(:), allocatable :: dc
 
     number_connections = this%dis%con%ia(n + 1) - this%dis%con%ia(n) - 1
+
     if (number_connections == 1) then
       ! If a cell only has 1 neigbour compute the gradient using finite difference
       ! This case can happen if a triangle element is located in a cornor of a square domain
       ! with two sides being domain boundaries
+
+      allocate (grad_op(3, 1))
+      grad_op = 0
+
       ipos = this%dis%con%ia(n) + 1
       m = this%dis%con%ja(ipos)
       dnm = this%node_distance(n, m)
 
-      grad_c(1) = (cnew(m) - cnew(n)) / dnm(1)
-      grad_c(2) = (cnew(m) - cnew(n)) / dnm(2)
-      grad_c(3) = (cnew(m) - cnew(n)) / dnm(3)
+      if (dabs(dnm(1)) > DPRECSQRT) grad_op(1, 1) = 1.0_dp / dnm(1)
+      if (dabs(dnm(2)) > DPRECSQRT) grad_op(2, 1) = 1.0_dp / dnm(2)
+      if (dabs(dnm(3)) > DPRECSQRT) grad_op(3, 1) = 1.0_dp / dnm(3)
+
       return
     end if
 
@@ -545,19 +582,7 @@ contains
     ! Compute the gradient operator
     grad_op = matmul(g_inv, matmul(d_trans, W2))
 
-    ! Assemble the concentration difference vector
-    allocate (dc(number_connections))
-    local_pos = 1
-    do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
-      m = this%dis%con%ja(ipos)
-      dc(local_pos) = cnew(m) - cnew(n)
-      local_pos = local_pos + 1
-    end do
-
-    ! Compute the cells gradient
-    grad_c = matmul(grad_op, dc)
-
-  end subroutine compute_cell_gradient
+  end function create_grad_operator
 
   function pinv(A) result(B)
     real(DP), intent(in) :: A(3, 3) !! Matrix
@@ -625,7 +650,8 @@ contains
     ! -- local
     real(DP) :: qtvd, qnm
     integer(I4B) :: nodes, n, m, ipos
-    !
+
+    ! -- Compute TVD
     nodes = this%dis%nodes
     do n = 1, nodes
       if (this%ibound(n) == 0) cycle
@@ -659,6 +685,9 @@ contains
     ! -- Scalars
     call mem_deallocate(this%iadvwt)
     call mem_deallocate(this%ats_percel)
+    !
+    ! -- Deallocate the gradient operator
+    deallocate (this%grad_op)
     !
     ! -- deallocate parent
     call this%NumericalPackageType%da()
