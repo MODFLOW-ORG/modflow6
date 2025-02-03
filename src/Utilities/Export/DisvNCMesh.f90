@@ -434,6 +434,7 @@ contains
   !> @brief netcdf export add mesh information
   !<
   subroutine add_mesh_data(this)
+    use BaseDisModule, only: dis_transform_xy
     class(Mesh2dDisvExportType), intent(inout) :: this
     integer(I4B), dimension(:), contiguous, pointer :: icell2d => null()
     integer(I4B), dimension(:), contiguous, pointer :: ncvert => null()
@@ -442,6 +443,11 @@ contains
     real(DP), dimension(:), contiguous, pointer :: cell_y => null()
     real(DP), dimension(:), contiguous, pointer :: vert_x => null()
     real(DP), dimension(:), contiguous, pointer :: vert_y => null()
+    real(DP), dimension(:), contiguous, pointer :: cell_xt => null()
+    real(DP), dimension(:), contiguous, pointer :: cell_yt => null()
+    real(DP), dimension(:), contiguous, pointer :: vert_xt => null()
+    real(DP), dimension(:), contiguous, pointer :: vert_yt => null()
+    real(DP) :: x_transform, y_transform
     integer(I4B) :: n, m, idx, cnt, iv, maxvert
     integer(I4B), dimension(:), allocatable :: verts
     real(DP), dimension(:), allocatable :: bnds
@@ -456,28 +462,56 @@ contains
     call mem_setptr(vert_x, 'XV', this%dis_mempath)
     call mem_setptr(vert_y, 'YV', this%dis_mempath)
 
-    ! initialize max vertices required to define cell
-    maxvert = maxval(ncvert)
+    ! allocate x, y transform arrays
+    allocate (cell_xt(size(cell_x)))
+    allocate (cell_yt(size(cell_y)))
+    allocate (vert_xt(size(vert_x)))
+    allocate (vert_yt(size(vert_y)))
 
     ! set mesh container variable value to 1
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%mesh, 1), &
                    this%nc_fname)
 
-    ! allocate temporary arrays
-    allocate (verts(maxvert))
-    allocate (bnds(maxvert))
+    ! transform vert x and y
+    do n = 1, size(vert_x)
+      call dis_transform_xy(vert_x(n), vert_y(n), &
+                            this%disv%xorigin, &
+                            this%disv%yorigin, &
+                            this%disv%angrot, &
+                            x_transform, y_transform)
+      vert_xt(n) = x_transform
+      vert_yt(n) = y_transform
+    end do
+
+    ! transform cell x and y
+    do n = 1, size(cell_x)
+      call dis_transform_xy(cell_x(n), cell_y(n), &
+                            this%disv%xorigin, &
+                            this%disv%yorigin, &
+                            this%disv%angrot, &
+                            x_transform, y_transform)
+      cell_xt(n) = x_transform
+      cell_yt(n) = y_transform
+    end do
 
     ! write node_x and node_y arrays to netcdf file
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%mesh_node_x, &
-                                vert_x + this%disv%xorigin), this%nc_fname)
+                                vert_xt), this%nc_fname)
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%mesh_node_y, &
-                                vert_y + this%disv%yorigin), this%nc_fname)
+                                vert_yt), this%nc_fname)
 
     ! write face_x and face_y arrays to netcdf file
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%mesh_face_x, &
-                                cell_x + this%disv%xorigin), this%nc_fname)
+                                cell_xt), this%nc_fname)
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%mesh_face_y, &
-                                cell_y + this%disv%yorigin), this%nc_fname)
+                                cell_yt), this%nc_fname)
+
+    ! initialize max vertices required to define cell
+    maxvert = maxval(ncvert)
+
+    ! allocate temporary arrays
+    allocate (verts(maxvert))
+    allocate (bnds(maxvert))
 
     ! set face nodes array
     cnt = 0
@@ -502,7 +536,7 @@ contains
       bnds = NF90_FILL_DOUBLE
       do m = 1, size(bnds)
         if (verts(m) /= NF90_FILL_INT) then
-          bnds(m) = vert_y(verts(m))
+          bnds(m) = vert_yt(verts(m))
         end if
         ! write face y bounds array to netcdf file
         call nf_verify(nf90_put_var(this%ncid, this%var_ids%mesh_face_ybnds, &
@@ -515,7 +549,7 @@ contains
       bnds = NF90_FILL_DOUBLE
       do m = 1, size(bnds)
         if (verts(m) /= NF90_FILL_INT) then
-          bnds(m) = vert_x(verts(m))
+          bnds(m) = vert_xt(verts(m))
         end if
         ! write face x bounds array to netcdf file
         call nf_verify(nf90_put_var(this%ncid, this%var_ids%mesh_face_xbnds, &
@@ -528,6 +562,10 @@ contains
     ! cleanup
     deallocate (bnds)
     deallocate (verts)
+    deallocate (cell_xt)
+    deallocate (cell_yt)
+    deallocate (vert_xt)
+    deallocate (vert_yt)
   end subroutine add_mesh_data
 
   !> @brief netcdf export 1D integer array
