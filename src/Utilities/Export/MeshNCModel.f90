@@ -158,10 +158,10 @@ contains
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'source', &
                                 this%annotation%source), this%nc_fname)
     ! export type (MODFLOW 6)
-    call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow6_grid', &
+    call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow_grid', &
                                 this%annotation%grid), this%nc_fname)
     ! MODFLOW 6 model type
-    call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow6_model', &
+    call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow_model', &
                                 this%annotation%model), this%nc_fname)
     ! generation datetime
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'history', &
