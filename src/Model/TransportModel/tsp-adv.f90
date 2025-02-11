@@ -7,6 +7,7 @@ module TspAdvModule
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
   use TspAdvOptionsModule, only: TspAdvOptionsType
+  use SVDModule, only: SVD2
   use MatrixBaseModule
   use ForsytheMalcolmMoler
 
@@ -589,21 +590,20 @@ contains
     real(DP) :: B(3, 3) !! Inverse matrix
 
     integer(I4B) :: pos, ierr
-    real(DP), dimension(SIZE(A, DIM=2), SIZE(A, DIM=2)) :: U
-    real(DP), dimension(SIZE(A, DIM=1), SIZE(A, DIM=1)) :: V
-    real(DP), dimension(SIZE(A, DIM=2)) :: sigma
-    real(DP), dimension(SIZE(A, DIM=2), SIZE(A, DIM=2)) :: sigma_plus
+    real(DP), dimension(:, :) , allocatable:: U
+    real(DP), dimension(:, :), allocatable :: V
+    real(DP), dimension(:, :), allocatable :: sigma
 
-    CALL SVD(A, sigma, .TRUE., U, .TRUE., V, ierr)
+    ! CALL SVD(A, sigma, .TRUE., U, .TRUE., V, ierr)
+    CALL SVD2(A, U, sigma, V)
 
-    sigma_plus = 0
     do pos = 1, min(SIZE(A, DIM=1), SIZE(A, DIM=2))
-      if (DABS(sigma(pos)) > 2.0_dp * DPREC) then
-        sigma_plus(pos, pos) = 1.0_dp / sigma(pos)
+      if (DABS(sigma(pos, pos)) > 2.0_dp * DPREC) then
+        sigma(pos, pos) = 1.0_dp / sigma(pos, pos)
       end if
     end do
 
-    B = matmul(V, matmul(sigma_plus, transpose(U)))
+    B = matmul(transpose(V), matmul(sigma, transpose(U)))
 
   end function
 

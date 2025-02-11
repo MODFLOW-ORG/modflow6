@@ -8,7 +8,7 @@ module MathUtilModule
   implicit none
   private
   public :: f1d, is_close, mod_offset, zero_ch, zero_br, &
-            get_perturbation, arange, linspace
+            get_perturbation, arange, linspace, eye, zeros, outer_product
 
   interface mod_offset
     module procedure :: mod_offset_int, mod_offset_dbl
@@ -432,5 +432,42 @@ contains
       array(i) = start + range * (i - 1) / (num - 1)
     end do
   end function linspace
+
+  pure function zeros(n) result(A)
+    ! dummy
+    integer(I4B), intent(in) :: n
+    real(DP), dimension(n) :: A
+  
+    A = 0.0_DP
+  
+  end function zeros
+  
+  pure function eye(n) RESULT(A)
+    ! dummy
+    integer(I4B), intent(IN) :: n
+    real(DP), dimension(n,n) :: A
+    ! locals
+    integer(I4B) :: i
+  
+    A = 0.0_DP
+    do i = 1, n
+      A(i,i) = 1.0_DP
+    end do
+  
+  end function eye
+  
+  pure function outer_product(A,B) result(AB)
+    ! dummy
+    real(DP), intent(in) :: A(:),B(:)
+    real(DP) :: AB(size(A), size(B))
+    ! locals
+    integer :: nA,nB
+  
+    nA=size(A)
+    nB=size(B)
+  
+    AB = spread(source = A, dim = 2, ncopies = nB) * &
+         spread(source = B, dim = 1, ncopies = nA)
+  end function outer_product
 
 end module MathUtilModule
