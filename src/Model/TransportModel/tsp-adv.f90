@@ -373,16 +373,17 @@ contains
 
     select case (this%iadvwt)
     case (2) ! van Leer
-      ! alimiter = DTWO * smooth / (DONE + smooth)
       theta = max(0.0_dp, min((r + dabs(r)) / (1.0_dp + dabs(r)), 2.0_dp))
     case (3) ! Koren
-        theta = max(0.0_dp, min(2.0_dp * r, 1.0_dp / 3.0_dp + 2.0_dp / 3.0_dp * r, 2.0_dp))
+      theta = max(0.0_dp, min(2.0_dp * r, &
+                              1.0_dp / 3.0_dp + 2.0_dp / 3.0_dp * r, 2.0_dp))
     case (4) ! Superbee
       theta = max(0.0_dp, min(2.0_dp * r, 1.0_dp), min(r, 2.0_dp))
     case (5) ! van Albada
       theta = max(0.0_dp, (r * r + r) / (r * r + 1.0_dp))
     case (6) ! Koren modified
-        theta = max(0.0_dp, min(4.0_dp * r * r + r, 1.0_dp/3.0_dp + 2.0_dp/3.0_dp * r, 2.0_dp))
+      theta = max(0.0_dp, min(4.0_dp * r * r + r, &
+                              1.0_dp / 3.0_dp + 2.0_dp / 3.0_dp * r, 2.0_dp))
     CASE DEFAULT
       theta = DZERO
     end select
@@ -435,7 +436,8 @@ contains
     !
     ! -- Compute smoothness factor
     dnm = this%node_distance(iup, idn)
-   smooth = 2.0_dp * (dot_product(grad_c, dnm)) / (cnew(idn) - cnew(iup)) - 1.0_dp
+    smooth = 2.0_dp * (dot_product(grad_c, dnm)) / &
+             (cnew(idn) - cnew(iup)) - 1.0_dp
     !
     ! -- Correct smoothness factor to prevent negative concentration
     c_virtual = cnew(iup) - smooth * (cnew(idn) - cnew(iup))
@@ -477,7 +479,8 @@ contains
     end if
 
     ihc = this%dis%con%ihc(isympos)
-    call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, ihc, x_dir, y_dir, z_dir, length)
+    call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, ihc, x_dir, &
+                                    y_dir, z_dir, length)
     d(1) = x_dir * length
     d(2) = y_dir * length
     d(3) = z_dir * length
@@ -589,7 +592,7 @@ contains
     real(DP) :: B(3, 3) !! Inverse matrix
 
     integer(I4B) :: pos
-    real(DP), dimension(:, :) , allocatable:: U
+    real(DP), dimension(:, :), allocatable :: U
     real(DP), dimension(:, :), allocatable :: Vt
     real(DP), dimension(:, :), allocatable :: sigma
 

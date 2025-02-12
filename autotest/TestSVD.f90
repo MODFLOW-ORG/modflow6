@@ -1,30 +1,41 @@
 module TestSVD
-    use KindModule, only: I4B, DP
-    use ConstantsModule, only: DSAME
-    use testdrive, only: error_type, unittest_type, new_unittest, check, test_failed
-    use SVDModule, only: SVD2, bidiagonal_decomposition, bidiagonal_qr_decomposition
-    use MathUtilModule, only: eye
-    use TesterUtils, only: check_same_matrix, check_matrix_row_orthogonal, check_matrix_column_orthogonal, &
-      check_matrix_is_diagonal, check_matrix_bidiagonal
-    
-    implicit none
-    private
-    public :: collect_svd
+  use KindModule, only: I4B, DP
+  use ConstantsModule, only: DSAME
+  use testdrive, only: error_type, unittest_type, new_unittest, check, test_failed
+  use SVDModule, only: SVD2, bidiagonal_decomposition, bidiagonal_qr_decomposition
+  use MathUtilModule, only: eye
+  use TesterUtils, only: check_same_matrix, &
+                         check_matrix_row_orthogonal, &
+                         check_matrix_column_orthogonal, &
+                         check_matrix_is_diagonal, &
+                         check_matrix_bidiagonal
 
-    contains
+  implicit none
+  private
+  public :: collect_svd
+
+contains
 
   subroutine collect_svd(testsuite)
     type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
     testsuite = [ &
-                new_unittest("bidiagonal_decomposition", test_bidiagonal_decomposition),  &
-                new_unittest("diagonalize_matrix", test_diagonalize_matrix),  &
-                new_unittest("svd_input_bidiagonal", test_svd_input_bidiagonal),  &
-                new_unittest("svd_input_square_matrix", test_svd_input_square_matrix),  &
-                new_unittest("svd_input_M_GT_N_matrix", test_svd_input_M_GT_N_matrix),  &
-                new_unittest("svd_input_N_GT_M_matrix", test_svd_input_N_GT_M_matrix),  &
-                new_unittest("svd_zero_on_last_diagonal", test_svd_zero_on_last_diagonal),  &
-                new_unittest("svd_zero_on_inner_diagonal", test_svd_zero_on_inner_diagonal)  &
+                new_unittest("bidiagonal_decomposition", &
+                             test_bidiagonal_decomposition), &
+                new_unittest("diagonalize_matrix", &
+                             test_diagonalize_matrix), &
+                new_unittest("svd_input_bidiagonal", &
+                             test_svd_input_bidiagonal), &
+                new_unittest("svd_input_square_matrix", &
+                             test_svd_input_square_matrix), &
+                new_unittest("svd_input_M_GT_N_matrix", &
+                             test_svd_input_M_GT_N_matrix), &
+                new_unittest("svd_input_N_GT_M_matrix", &
+                             test_svd_input_N_GT_M_matrix), &
+                new_unittest("svd_zero_on_last_diagonal", &
+                             test_svd_zero_on_last_diagonal), &
+                new_unittest("svd_zero_on_inner_diagonal", &
+                             test_svd_zero_on_inner_diagonal) &
                 ]
   end subroutine collect_svd
 
@@ -40,37 +51,37 @@ module TestSVD
   subroutine test_bidiagonal_decomposition(error)
     type(error_type), allocatable, intent(out) :: error
     ! - locals
-    real(DP), dimension(4,3) :: A1, A1_reconstructed, A1_mod
-    real(DP), dimension(3,4) :: A2, A2_reconstructed, A2_mod
-    real(DP), dimension(4,4) :: A3, A3_reconstructed, A3_mod
+    real(DP), dimension(4, 3) :: A1, A1_reconstructed, A1_mod
+    real(DP), dimension(3, 4) :: A2, A2_reconstructed, A2_mod
+    real(DP), dimension(4, 4) :: A3, A3_reconstructed, A3_mod
 
-    REAL(DP), DIMENSION(:,:), allocatable :: P1, Qt1
-    REAL(DP), DIMENSION(:,:), allocatable :: P2, Qt2
-    REAL(DP), DIMENSION(:,:), allocatable :: P3, Qt3
+    REAL(DP), DIMENSION(:, :), allocatable :: P1, Qt1
+    REAL(DP), DIMENSION(:, :), allocatable :: P2, Qt2
+    REAL(DP), DIMENSION(:, :), allocatable :: P3, Qt3
 
     ! - Arrange.
     A1 = reshape( &
-      [ 1.0_DP, 0.0_DP, 1.0_DP, 1.0_DP, &
-        0.0_DP, 1.0_DP, 1.0_DP, 1.0_DP, &
-        0.0_DP, 1.0_DP, 1.0_DP, 0.0_DP &
-      ], [4,3])
+         [1.0_DP, 0.0_DP, 1.0_DP, 1.0_DP, &
+          0.0_DP, 1.0_DP, 1.0_DP, 1.0_DP, &
+          0.0_DP, 1.0_DP, 1.0_DP, 0.0_DP &
+          ], [4, 3])
     A1_mod = A1
 
     A2 = reshape( &
-      [ 1.0_DP, 0.0_DP, 0.0_DP, &
-        0.0_DP, 1.0_DP, 1.0_DP, &
-        1.0_DP, 1.0_DP, 1.0_DP, &
-        1.0_DP, 1.0_DP, 0.0_DP &
-      ], [3,4])
-      A2_mod = A2
+         [1.0_DP, 0.0_DP, 0.0_DP, &
+          0.0_DP, 1.0_DP, 1.0_DP, &
+          1.0_DP, 1.0_DP, 1.0_DP, &
+          1.0_DP, 1.0_DP, 0.0_DP &
+          ], [3, 4])
+    A2_mod = A2
 
-      A3 = reshape( &
-      [ 1.0_DP, 0.0_DP, 0.0_DP, 1.0_DP, &
-        0.0_DP, 1.0_DP, 1.0_DP, 1.0_DP, &
-        1.0_DP, 1.0_DP, 1.0_DP, 1.0_DP, &
-        1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP &
-      ], [4,4])
-      A3_mod = A3
+    A3 = reshape( &
+         [1.0_DP, 0.0_DP, 0.0_DP, 1.0_DP, &
+          0.0_DP, 1.0_DP, 1.0_DP, 1.0_DP, &
+          1.0_DP, 1.0_DP, 1.0_DP, 1.0_DP, &
+          1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP &
+          ], [4, 4])
+    A3_mod = A3
 
     ! - Act.
     call bidiagonal_decomposition(A1_mod, P1, Qt1)
@@ -133,39 +144,39 @@ module TestSVD
   subroutine test_diagonalize_matrix(error)
     type(error_type), allocatable, intent(out) :: error
     ! - locals
-    real(DP), dimension(4,4) :: A1, A1_reconstructed, A1_mod
-    real(DP), dimension(3,4) :: A2, A2_reconstructed, A2_mod
-    real(DP), dimension(4,3) :: A3, A3_reconstructed, A3_mod
-    REAL(DP), DIMENSION(:,:), allocatable :: U1, Vt1
-    REAL(DP), DIMENSION(:,:), allocatable :: U2, Vt2
-    REAL(DP), DIMENSION(:,:), allocatable :: U3, Vt3
+    real(DP), dimension(4, 4) :: A1, A1_reconstructed, A1_mod
+    real(DP), dimension(3, 4) :: A2, A2_reconstructed, A2_mod
+    real(DP), dimension(4, 3) :: A3, A3_reconstructed, A3_mod
+    REAL(DP), DIMENSION(:, :), allocatable :: U1, Vt1
+    REAL(DP), DIMENSION(:, :), allocatable :: U2, Vt2
+    REAL(DP), DIMENSION(:, :), allocatable :: U3, Vt3
 
     ! - Arrange.
     A1 = reshape( &
-      [ 1.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
-        1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, &
-        0.0_DP, 1.0_DP, 1.0_DP, 0.0_DP, &
-        0.0_DP, 0.0_DP, 1.0_DP, 1.0_DP &
-      ], [4,4])
+         [1.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
+          1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, &
+          0.0_DP, 1.0_DP, 1.0_DP, 0.0_DP, &
+          0.0_DP, 0.0_DP, 1.0_DP, 1.0_DP &
+          ], [4, 4])
     A1_mod = A1
     U1 = Eye(4)
     Vt1 = Eye(4)
 
     A2 = reshape( &
-    [ 1.0_DP, 0.0_DP, 0.0_DP, &
-      1.0_DP, 1.0_DP, 0.0_DP, &
-      0.0_DP, 1.0_DP, 1.0_DP, &
-      0.0_DP, 0.0_DP, 1.0_DP &
-    ], [3,4])
+         [1.0_DP, 0.0_DP, 0.0_DP, &
+          1.0_DP, 1.0_DP, 0.0_DP, &
+          0.0_DP, 1.0_DP, 1.0_DP, &
+          0.0_DP, 0.0_DP, 1.0_DP &
+          ], [3, 4])
     A2_mod = A2
     U2 = Eye(3)
     Vt2 = Eye(4)
 
     A3 = reshape( &
-    [ 1.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
-      1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, &
-      0.0_DP, 1.0_DP, 1.0_DP, 0.0_DP &
-    ], [4,3])
+         [1.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
+          1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, &
+          0.0_DP, 1.0_DP, 1.0_DP, 0.0_DP &
+          ], [4, 3])
     A3_mod = A3
     U3 = Eye(4)
     Vt3 = Eye(3)
@@ -174,7 +185,7 @@ module TestSVD
     call bidiagonal_qr_decomposition(A1_mod, U1, Vt1)
     call bidiagonal_qr_decomposition(A2_mod, U2, Vt2)
     call bidiagonal_qr_decomposition(A3_mod, U3, Vt3)
-    
+
     ! - Assert.
     ! Test A1
     ! A1_reconstructed = U1 * A1_mod * Vt1
@@ -232,16 +243,16 @@ module TestSVD
   subroutine test_svd_input_bidiagonal(error)
     type(error_type), allocatable, intent(out) :: error
     ! - locals
-    real(DP), dimension(4,4) :: A, A_reconstructed
-    REAL(DP), DIMENSION(:,:), allocatable :: U, S, Vt
+    real(DP), dimension(4, 4) :: A, A_reconstructed
+    REAL(DP), DIMENSION(:, :), allocatable :: U, S, Vt
 
     ! - Arrange.
     A = reshape( &
-    [ 1.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
-      1.0_DP, 2.0_DP, 0.0_DP, 0.0_DP, &
-      0.0_DP, 1.0_DP, 3.0_DP, 0.0_DP, &
-      0.0_DP, 0.0_DP, 1.0_DP, 4.0_DP &
-    ], [4,4])
+        [1.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
+         1.0_DP, 2.0_DP, 0.0_DP, 0.0_DP, &
+         0.0_DP, 1.0_DP, 3.0_DP, 0.0_DP, &
+         0.0_DP, 0.0_DP, 1.0_DP, 4.0_DP &
+         ], [4, 4])
 
     ! - Act.
     call SVD2(A, U, S, Vt)
@@ -261,16 +272,16 @@ module TestSVD
   subroutine test_svd_input_square_matrix(error)
     type(error_type), allocatable, intent(out) :: error
     ! - locals
-    real(DP), dimension(4,4) :: A, A_reconstructed
-    REAL(DP), DIMENSION(:,:), allocatable :: U, S, Vt
+    real(DP), dimension(4, 4) :: A, A_reconstructed
+    REAL(DP), DIMENSION(:, :), allocatable :: U, S, Vt
 
     ! - Arrange.
     A = reshape( &
-    [ 1.0_DP, 0.0_DP, 0.0_DP, 1.0_DP, &
-      0.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, &
-      1.0_DP, 0.0_DP, 1.0_DP, 0.0_DP, &
-      1.0_DP, 1.0_DP, 1.0_DP, 1.0_DP &
-    ], [4,4])
+        [1.0_DP, 0.0_DP, 0.0_DP, 1.0_DP, &
+         0.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, &
+         1.0_DP, 0.0_DP, 1.0_DP, 0.0_DP, &
+         1.0_DP, 1.0_DP, 1.0_DP, 1.0_DP &
+         ], [4, 4])
 
     ! - Act.
     call SVD2(A, U, S, Vt)
@@ -293,15 +304,15 @@ module TestSVD
   subroutine test_svd_input_M_GT_N_matrix(error)
     type(error_type), allocatable, intent(out) :: error
     ! - locals
-    real(DP), dimension(4,3) :: A, A_reconstructed
-    REAL(DP), DIMENSION(:,:), allocatable :: U, S, Vt
+    real(DP), dimension(4, 3) :: A, A_reconstructed
+    REAL(DP), DIMENSION(:, :), allocatable :: U, S, Vt
 
     ! - Arrange.
     A = reshape( &
-    [ 1.0_DP, 0.0_DP, 0.0_DP, 1.0_DP, &
-      0.0_DP, 1.0_DP, 0.0_DP, 1.0_DP, &
-      1.0_DP, 0.0_DP, 1.0_DP, 1.0_DP &
-    ], [4,3])
+        [1.0_DP, 0.0_DP, 0.0_DP, 1.0_DP, &
+         0.0_DP, 1.0_DP, 0.0_DP, 1.0_DP, &
+         1.0_DP, 0.0_DP, 1.0_DP, 1.0_DP &
+         ], [4, 3])
 
     ! - Act.
     call SVD2(A, U, S, Vt)
@@ -314,7 +325,7 @@ module TestSVD
     call check_matrix_is_diagonal(error, S)
     if (allocated(error)) return
 
-  end subroutine test_svd_input_M_GT_N_matrix 
+  end subroutine test_svd_input_M_GT_N_matrix
 
   !> Test the SVD decomposition of a square matrix
   !!
@@ -322,17 +333,17 @@ module TestSVD
   subroutine test_svd_input_N_GT_M_matrix(error)
     type(error_type), allocatable, intent(out) :: error
     ! - locals
-    real(DP), dimension(3,5) :: A, A_reconstructed
-    REAL(DP), DIMENSION(:,:), allocatable :: U, S, Vt
+    real(DP), dimension(3, 5) :: A, A_reconstructed
+    REAL(DP), DIMENSION(:, :), allocatable :: U, S, Vt
 
     ! - Arrange.
     A = reshape( &
-    [ 1.0_DP, 0.0_DP, 1.0_DP, &
-      0.0_DP, 1.0_DP, 0.0_DP, &
-      1.0_DP, 0.0_DP, 0.0_DP, &
-      1.0_DP, 1.0_DP, 1.0_DP, &
-      1.0_DP, 1.0_DP, 0.0_DP &
-    ], [3,5])
+        [1.0_DP, 0.0_DP, 1.0_DP, &
+         0.0_DP, 1.0_DP, 0.0_DP, &
+         1.0_DP, 0.0_DP, 0.0_DP, &
+         1.0_DP, 1.0_DP, 1.0_DP, &
+         1.0_DP, 1.0_DP, 0.0_DP &
+         ], [3, 5])
 
     ! - Act.
     call SVD2(A, U, S, Vt)
@@ -346,22 +357,21 @@ module TestSVD
     if (allocated(error)) return
   end subroutine test_svd_input_N_GT_M_matrix
 
-
   !> Test the SVD decomposition of a square matrix
   !!
   !! Test zero on last diagonal element
   subroutine test_svd_zero_on_last_diagonal(error)
     type(error_type), allocatable, intent(out) :: error
     ! - locals
-    real(DP), dimension(4,4) :: A, A_reconstructed
-    REAL(DP), DIMENSION(:,:), allocatable :: U, S, Vt
+    real(DP), dimension(4, 4) :: A, A_reconstructed
+    REAL(DP), DIMENSION(:, :), allocatable :: U, S, Vt
 
     A = reshape( &
-    [ 1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, &
-      1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, &
-      0.0_DP, 1.0_DP, 1.0_DP, 0.0_DP, &
-      0.0_DP, 0.0_DP, 1.0_DP, 0.0_DP &
-    ], [4,4])
+        [1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, &
+         1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, &
+         0.0_DP, 1.0_DP, 1.0_DP, 0.0_DP, &
+         0.0_DP, 0.0_DP, 1.0_DP, 0.0_DP &
+         ], [4, 4])
     ! - Act.
     call SVD2(A, U, S, Vt)
 
@@ -375,24 +385,23 @@ module TestSVD
 
   end subroutine test_svd_zero_on_last_diagonal
 
-
-    !> Test the SVD decomposition of a square matrix
+  !> Test the SVD decomposition of a square matrix
   !!
   !! Test zero on last diagonal element
   subroutine test_svd_zero_on_inner_diagonal(error)
     type(error_type), allocatable, intent(out) :: error
     ! - locals
-    real(DP), dimension(6,6) :: A, A_reconstructed
-    REAL(DP), DIMENSION(:,:), allocatable :: U, S, Vt
+    real(DP), dimension(6, 6) :: A, A_reconstructed
+    REAL(DP), DIMENSION(:, :), allocatable :: U, S, Vt
 
     A = reshape( &
-    [ 1.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
-      1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
-      0.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
-      0.0_DP, 0.0_DP, 1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, &
-      0.0_DP, 0.0_DP, 0.0_DP, 1.0_DP, 1.0_DP, 0.0_DP, &
-      0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, 1.0_DP, 1.0_DP &
-    ], [6,6])
+        [1.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
+         1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
+         0.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
+         0.0_DP, 0.0_DP, 1.0_DP, 1.0_DP, 0.0_DP, 0.0_DP, &
+         0.0_DP, 0.0_DP, 0.0_DP, 1.0_DP, 1.0_DP, 0.0_DP, &
+         0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, 1.0_DP, 1.0_DP &
+         ], [6, 6])
     ! - Act.
     call SVD2(A, U, S, Vt)
 
