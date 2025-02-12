@@ -12,18 +12,17 @@ module SVDModule
 
 contains
 
-  function HouseholderMatrix(x, I) result(Q)
+  function HouseholderMatrix(x) result(Q)
     ! dummy
     REAL(DP), INTENT(IN) :: x(:)
-    integer(I4B), INTENT(IN) :: I
     REAL(DP), allocatable, DIMENSION(:, :) :: Q
     ! locals
     REAL(DP) :: x_norm, y_norm
     REAL(DP), allocatable :: v(:)
     REAL(DP), allocatable :: w(:)
 
-    x_norm = NORM2(x(I:SIZE(x)))
-    y_norm = NORM2(x(I + 1:SIZE(x)))
+    x_norm = NORM2(x)
+    y_norm = NORM2(x(2:))
 
     Q = Eye(SIZE(x))
 
@@ -32,11 +31,11 @@ contains
     end if
 
     v = x
-    if (x(I) > 0) then
+    if (x(1) > 0) then
       ! Parlett (1971) suggested this modification to avoid cancellation
-      v(I) = -(y_norm**2) / (X(I) + x_norm)
+      v(1) = -(y_norm**2) / (X(1) + x_norm)
     else
-      v(I) = v(I) - x_norm
+      v(1) = v(1) - x_norm
     end if
 
     w = v / NORM2(v)
@@ -66,19 +65,17 @@ contains
 
     DO I = 1, min(M, N)
       ! columns
-      h = zeros(M)
-      h(I:M) = A(I:M, I)
-      Pi = HouseholderMatrix(h, I)
-      A = MATMUL(Pi, A) ! Apply householder transformation from left
-      P = MATMUL(P, Pi)
+      h = A(I:M, I)
+      Pi = HouseholderMatrix(h)
+      A(I:M, :) = MATMUL(Pi, A(I:M, :)) ! Apply householder transformation from left
+      P(:, I:M) = MATMUL(P(:, I:M), Pi)
 
       ! rows
       if (I < N) then
-        h = zeros(N)
-        h(I + 1:N) = A(I, I + 1:N)
-        Qi = TRANSPOSE(HouseholderMatrix(h, I + 1))
-        A = MATMUL(A, Qi) ! Apply householder transformation from right
-        Qt = MATMUL(Qi, Qt)
+        h = A(I, I + 1:N)
+        Qi = TRANSPOSE(HouseholderMatrix(h))
+        A(:, I + 1:N) = MATMUL(A(:, I + 1:N), Qi) ! Apply householder transformation from right
+        Qt(I + 1:N, :) = MATMUL(Qi, Qt(I + 1:N, :))
       end if
 
     END DO
@@ -353,7 +350,6 @@ contains
     REAL(DP), INTENT(OUT), DIMENSION(:, :), allocatable :: S
     REAL(DP), INTENT(OUT), DIMENSION(:, :), allocatable :: VT
     ! locals
-    REAL(DP), DIMENSION(:, :), allocatable :: P, Qt
     integer(I4B) :: i, m, n
     integer(I4B) :: max_itr = 100
     real(DP) :: error
@@ -363,14 +359,11 @@ contains
     n = SIZE(A, DIM=2) ! Number of columns
     S = A
 
-    call bidiagonal_decomposition(S, P, Qt)
+    call bidiagonal_decomposition(S, U, Vt)
 
     if (n > m) then
-      call make_matrix_square(S, Qt)
+      call make_matrix_square(S, Vt)
     end if
-
-    Vt = Eye(n)
-    U = Eye(m)
 
     do i = 1, max_itr
       call find_nonzero_superdiagonal(S, r, q)
@@ -388,9 +381,6 @@ contains
         if (error < DPREC) exit
       end if
     end do
-
-    U = matmul(P, U)
-    Vt = matmul(Vt, Qt)
 
   END SUBROUTINE SVD2
 
