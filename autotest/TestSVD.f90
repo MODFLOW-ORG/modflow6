@@ -4,7 +4,8 @@ module TestSVD
     use testdrive, only: error_type, unittest_type, new_unittest, check, test_failed
     use SVDModule, only: SVD2, bidiagonal_decomposition, bidiagonal_qr_decomposition
     use MathUtilModule, only: eye
-    use TesterUtils, only: check_same_matrix, check_matrix_row_orthogonal, check_matrix_column_orthogonal
+    use TesterUtils, only: check_same_matrix, check_matrix_row_orthogonal, check_matrix_column_orthogonal, &
+      check_matrix_is_diagonal, check_matrix_bidiagonal
     
     implicit none
     private
@@ -21,73 +22,11 @@ module TestSVD
                 new_unittest("svd_input_bidiagonal", test_svd_input_bidiagonal),  &
                 new_unittest("svd_input_square_matrix", test_svd_input_square_matrix),  &
                 new_unittest("svd_input_M_GT_N_matrix", test_svd_input_M_GT_N_matrix),  &
+                new_unittest("svd_input_N_GT_M_matrix", test_svd_input_N_GT_M_matrix),  &
                 new_unittest("svd_zero_on_last_diagonal", test_svd_zero_on_last_diagonal),  &
                 new_unittest("svd_zero_on_inner_diagonal", test_svd_zero_on_inner_diagonal)  &
                 ]
   end subroutine collect_svd
-
-  !>  Checks if the given matrix A is diagonal within a specified tolerance.
-  !!
-  !! This subroutine verifies whether the input matrix A is diagonal by
-  !! comparing its off-diagonal elements to zero within a given tolerance.
-  subroutine check_matrix_is_diagonal(error, A, tolerance)
-    type(error_type), allocatable, intent(out) :: error
-    real(DP), dimension(:,:), intent(in) :: A
-    !- Locals
-    integer(I4B) :: i, j
-    real(DP), optional :: tolerance
-    real(DP) :: tol
-    real(DP) :: err
-
-    if (.not. present(tolerance)) then
-       tol = DSAME
-    else
-       tol = tolerance
-    end if
-
-    do i = 1, size(A, 1)
-      do j = 1, size(A, 2)
-        if (i /= j) then
-          err = abs(A(i,j))
-          call check(error, err, 0.0_DP, thr=DSAME)
-          if (allocated(error)) return
-        end if
-      end do
-    end do
-    
-  end subroutine check_matrix_is_diagonal
-
-  !>  Checks if the given matrix A is bidiagonal within a specified tolerance.
-  !!
-  !! This subroutine verifies whether the input matrix A is bidiagonal by
-  !! comparing its off-diagonal and off-superdiagonal elements to zero within
-  !! a given tolerance.
-  subroutine check_matrix_bidiagonal(error, A, tolerance)
-    type(error_type), allocatable, intent(out) :: error
-    real(DP), dimension(:,:), intent(in) :: A
-    !- Locals
-    integer(I4B) :: i, j
-    real(DP), optional :: tolerance
-    real(DP) :: tol
-    real(DP) :: err
-
-    if (.not. present(tolerance)) then
-       tol = DSAME
-    else
-       tol = tolerance
-    end if
-
-    do i = 1, size(A, 1)
-      do j = 1, size(A, 2)
-        if (i /= j .and. i + 1 /= j) then
-          err = abs(A(i,j))
-          call check(error, err, 0.0_DP, thr=DSAME)
-          if (allocated(error)) return
-        end if
-      end do
-    end do
-    
-  end subroutine check_matrix_bidiagonal
 
   !> Test the bidiagonal decomposition
   !!
@@ -383,7 +322,7 @@ module TestSVD
   subroutine test_svd_input_N_GT_M_matrix(error)
     type(error_type), allocatable, intent(out) :: error
     ! - locals
-    real(DP), dimension(3,4) :: A, A_reconstructed
+    real(DP), dimension(3,5) :: A, A_reconstructed
     REAL(DP), DIMENSION(:,:), allocatable :: U, S, Vt
 
     ! - Arrange.
@@ -391,8 +330,9 @@ module TestSVD
     [ 1.0_DP, 0.0_DP, 1.0_DP, &
       0.0_DP, 1.0_DP, 0.0_DP, &
       1.0_DP, 0.0_DP, 0.0_DP, &
-      1.0_DP, 1.0_DP, 1.0_DP &
-    ], [3,4])
+      1.0_DP, 1.0_DP, 1.0_DP, &
+      1.0_DP, 1.0_DP, 0.0_DP &
+    ], [3,5])
 
     ! - Act.
     call SVD2(A, U, S, Vt)

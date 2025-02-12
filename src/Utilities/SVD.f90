@@ -54,29 +54,30 @@ SUBROUTINE bidiagonal_decomposition(A, P, Qt)
   REAL(DP), INTENT(INOUT), DIMENSION(:,:) :: A
   REAL(DP), INTENT(OUT), DIMENSION(:,:), allocatable :: P, Qt
   ! locals
-  integer(I4B) :: N, M
+  integer(I4B) :: M, N
   integer(I4B) :: I, J
   REAL(DP), allocatable, DIMENSION(:,:) :: Qi, Pi
+  REAL(DP), DIMENSION(:,:), allocatable :: G
   REAL(DP), allocatable, DIMENSION(:) :: h
 
-  N = SIZE(A, DIM=1) ! Number of rows
-  M = SIZE(A, DIM=2) ! Number of columns
+  M = SIZE(A, DIM=1) ! Number of rows
+  N = SIZE(A, DIM=2) ! Number of columns
 
-  Qt = Eye(M)
-  P = Eye(N)
+  Qt = Eye(N)
+  P = Eye(M)
 
-  DO I = 1, M
+  DO I = 1, min(M,N)
     ! columns
-    h = zeros(N)
-    h(I:N) = A(I:N,I)
+    h = zeros(M)
+    h(I:M) = A(I:M,I)
     Pi = HouseholderMatrix(h, I)
     A = MATMUL(Pi, A) ! Apply householder transformation from left
     P = MATMUL(P, Pi)
 
     ! rows
-    if ( I < M) then 
-      h = zeros(M)
-      h(I+1:M) = A(I,I+1:M)
+    if ( I < N) then 
+      h = zeros(N)
+      h(I+1:N) = A(I,I+1:N)
       Qi = TRANSPOSE(HouseholderMatrix(h, I+1))
       A = MATMUL(A, Qi) ! Apply householder transformation from right
       Qt = MATMUL(Qi, Qt)
@@ -244,14 +245,16 @@ subroutine find_nonzero_superdiagonal(A, p, q)
   REAL(DP), INTENT(IN), DIMENSION(:,:) :: A
   INTEGER(I4B), INTENT(OUT) :: p, q
   ! locals
-  INTEGER(I4B) :: n, j
+  INTEGER(I4B) :: m, n, j, min_mn
 
-  p=1
-  q=n
-
+  m = SIZE(A, DIM=1)  ! Number of rows
   n = SIZE(A, DIM=2)  ! Number of columns
 
-  Do j = n, 2, -1
+  min_mn = MIN(m, n)
+  p=1
+  q=min_mn
+
+  Do j = min_mn, 2, -1
     if (abs(A(j - 1, j)) > DPREC) then
       q = j
       exit
@@ -286,6 +289,25 @@ function has_zero_diagonal(A) result(has_zero)
 
 END function has_zero_diagonal
 
+subroutine make_matrix_square(A, Qt)
+  ! dummy
+  REAL(DP), INTENT(INOUT), DIMENSION(:,:) :: A
+  REAL(DP), INTENT(INOUT), DIMENSION(:,:), allocatable :: Qt
+  ! locals
+  REAL(DP), DIMENSION(:,:), allocatable :: G
+  INTEGER(I4B) :: m, n, I
+
+  m = SIZE(A, DIM=1)  ! Number of rows
+  n = SIZE(A, DIM=2)  ! Number of columns
+
+  DO I = m, 1, -1
+    G = GivensRotation(A(I, I), A(I, M+1))
+    A(:, [I,M+1]) = MATMUL(A(:, [I,M+1]), transpose(G))
+    Qt([I,M+1], :) = MATMUL( G, Qt([I,M+1], :))
+  END DO
+
+end subroutine make_matrix_square
+
 !> @brief Singular Value Decomposition
 !!
 !! This method decomposes the matrix A into U, S and VT.
@@ -316,7 +338,7 @@ SUBROUTINE SVD2(A, U, S, VT)
     integer(I4B) :: i, j, m, n
     integer(I4B) :: max_itr = 100
     real(DP) :: error
-    integer(I4B) :: r, q, min_qm
+    integer(I4B) :: r, q
 
     m = SIZE(A, DIM=1)  ! Number of rows
     n = SIZE(A, DIM=2)  ! Number of columns
@@ -324,22 +346,24 @@ SUBROUTINE SVD2(A, U, S, VT)
 
     call bidiagonal_decomposition(S, P, Qt)
 
+    if (n > m) then
+      call make_matrix_square(S, Qt)
+    end if
+
     Vt = Eye(n)
     U = Eye(m)
     
     do i = 1, max_itr
       call find_nonzero_superdiagonal(S, r, q)
 
-      min_qm = min(q,m)
       ! find zero diagonal
-      if (has_zero_diagonal(S(r:min_qm,r:q))) then
-        ! write(*,*) 'Iteration: ', i, ' handle zero diagonal element'
-        call handle_zero_diagonal(S(r:min_qm,r:q), U(:,r:min_qm), Vt(r:q,:))
+      if (has_zero_diagonal(S(r:q,r:q))) then
+        write(*,*) 'Iteration: ', i, ' handle zero diagonal element'
+        call handle_zero_diagonal(S(r:q,r:q), U(:,r:q), Vt(r:q,:))
         cycle
       end if
-     
       
-      call bidiagonal_qr_decomposition(S(r:min_qm,r:q), U(:,r:min_qm), Vt(r:q,:))
+      call bidiagonal_qr_decomposition(S(r:q,r:q), U(:,r:q), Vt(r:q,:))
 
       ! remove zeros on the superdiagonal
       do j = 1, min(n,m) - 1
@@ -349,7 +373,7 @@ SUBROUTINE SVD2(A, U, S, VT)
       end do
 
       error = superdiagonal_norm(S)
-      ! write(*,*) 'Iteration: ', i, ' Error: ', error
+      write(*,*) 'Iteration: ', i, ' Error: ', error
       if (error < DPREC) exit
     end do
 
