@@ -112,21 +112,19 @@ function GivensRotation(a, b) result(G)
 
 END function GivensRotation
 
-subroutine bidiagonal_qr_decomposition(A, U, VT)
+function compute_shift(A) result(mu)
   ! dummy
   REAL(DP), INTENT(INOUT), DIMENSION(:,:) :: A
-  REAL(DP), INTENT(INOUT), DIMENSION(:,:) :: U, Vt
+  Real(DP) :: mu
   ! locals
-  INTEGER(I4B) :: m, n, I, J
-  REAL(DP), DIMENSION(:,:), allocatable :: G
+  INTEGER(I4B) :: m, n
   REAL(DP) T11, T12, T21, T22
   REAL(DP) dm, fmmin, fm, dn
-  REAL(DP) :: mean, product, mu, mu1, mu2
-  REAL(DP) :: y, z
+  REAL(DP) :: mean, product, mu1, mu2
 
   m = SIZE(A, DIM=1)  ! Number of rows
   n = SIZE(A, DIM=2)  ! Number of columns
- 
+
   if (n <= m) then 
     dn = A(n, n)
   else
@@ -155,14 +153,30 @@ subroutine bidiagonal_qr_decomposition(A, U, VT)
     mu = mu2
   end if
 
-  y = A(1,1) ** 2 - mu
-  z = A(1,1) * A(1,2)
+end function compute_shift
+
+subroutine bidiagonal_qr_decomposition(A, U, VT)
+  ! dummy
+  REAL(DP), INTENT(INOUT), DIMENSION(:,:) :: A
+  REAL(DP), INTENT(INOUT), DIMENSION(:,:) :: U, Vt
+  ! locals
+  INTEGER(I4B) :: m, n, I, J
+  REAL(DP), DIMENSION(:,:), allocatable :: G
+  REAL(DP) :: t11, t12, mu
+
+  m = SIZE(A, DIM=1)  ! Number of rows
+  n = SIZE(A, DIM=2)  ! Number of columns
 
   DO I = 1, n - 1
     J = I + 1
-    if (I == 1) then
-      G = GivensRotation(y, z)
-      ! G = GivensRotation(A(I,I), A(I,J))
+    if (I == 1) then  
+      ! For the first iteration use the implicit shift
+      mu = compute_shift(A)
+      ! Apply the shift to the full tri-diagonal matrix.
+      t11 = A(1,1) ** 2 - mu  
+      t12 = A(1,1) * A(1,2)
+
+      G = GivensRotation(t11, t12)
     else
       G = GivensRotation(A(I - 1,I), A(I - 1,J))
     end if
@@ -201,7 +215,6 @@ subroutine handle_zero_diagonal(A, U, VT)
     end if
   end do
   
-
   if (zero_index == min(n,m)) then
     ! If the zero index is the last element of the diagonal then zero out the column
     DO I = zero_index - 1, 1, -1
@@ -218,8 +231,6 @@ subroutine handle_zero_diagonal(A, U, VT)
       U(:,[zero_index,I]) = MATMUL(U(:,[zero_index,I]), G)
     end do
   end if
-
-
 END SUBROUTINE handle_zero_diagonal
 
 
@@ -308,6 +319,23 @@ subroutine make_matrix_square(A, Qt)
 
 end subroutine make_matrix_square
 
+subroutine clean_superdiagonal(A)
+  ! dummy
+  REAL(DP), INTENT(INOUT), DIMENSION(:,:) :: A
+  ! locals
+  INTEGER(I4B) :: n, m, j
+
+  m = SIZE(A, DIM=1)  ! Number of rows
+  n = SIZE(A, DIM=2)  ! Number of columns
+
+  do j = 1, min(n,m) - 1
+    if (abs(A(j,j+1)) <= DPREC * (abs(A(j,j)) + abs(A(j+1,j+1)))) then
+      A(j,j+1) = 0.0_DP
+    end if
+  end do
+
+end subroutine clean_superdiagonal
+
 !> @brief Singular Value Decomposition
 !!
 !! This method decomposes the matrix A into U, S and VT.
@@ -358,23 +386,16 @@ SUBROUTINE SVD2(A, U, S, VT)
 
       ! find zero diagonal
       if (has_zero_diagonal(S(r:q,r:q))) then
-        write(*,*) 'Iteration: ', i, ' handle zero diagonal element'
+        ! write(*,*) 'Iteration: ', i, ' handle zero diagonal element'
         call handle_zero_diagonal(S(r:q,r:q), U(:,r:q), Vt(r:q,:))
-        cycle
+      else
+        call bidiagonal_qr_decomposition(S(r:q,r:q), U(:,r:q), Vt(r:q,:))
+        call clean_superdiagonal(S(r:q,r:q))
+
+        error = superdiagonal_norm(S)
+        ! write(*,*) 'Iteration: ', i, ' Error: ', error
+        if (error < DPREC) exit
       end if
-      
-      call bidiagonal_qr_decomposition(S(r:q,r:q), U(:,r:q), Vt(r:q,:))
-
-      ! remove zeros on the superdiagonal
-      do j = 1, min(n,m) - 1
-        if (abs(S(j,j+1)) <= DPREC * (abs(S(j,j)) + abs(S(j+1,j+1)))) then
-          S(j,j+1) = 0.0_DP
-        end if
-      end do
-
-      error = superdiagonal_norm(S)
-      write(*,*) 'Iteration: ', i, ' Error: ', error
-      if (error < DPREC) exit
     end do
 
     U = matmul(P, U)
