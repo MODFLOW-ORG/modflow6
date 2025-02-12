@@ -688,7 +688,7 @@ contains
     call mem_deallocate(this%ats_percel)
     !
     ! -- Deallocate the gradient operator
-    deallocate (this%grad_op)
+    if (allocated(this%grad_op)) deallocate (this%grad_op)
     !
     ! -- deallocate parent
     call this%NumericalPackageType%da()
