@@ -267,7 +267,7 @@ contains
   !> Test the SVD decomposition of a square matrix
   !!
   !! This test checks that the SVD decomposition of a square matrix is correct.
-  !! The input matrix is choosen such that the returned S-matrix
+  !! The input matrix is chosen such that the returned S-matrix
   !! has elements on the entire diagonal.
   subroutine test_svd_input_square_matrix(error)
     type(error_type), allocatable, intent(out) :: error
@@ -299,7 +299,7 @@ contains
   !> Test the SVD decomposition of a square matrix
   !!
   !! This test checks that the SVD decomposition of a square matrix is correct.
-  !! The input matrix is choosen such that the returned S-matrix
+  !! The input matrix is chosen such that the returned S-matrix
   !! has elements on the entire diagonal.
   subroutine test_svd_input_M_GT_N_matrix(error)
     type(error_type), allocatable, intent(out) :: error

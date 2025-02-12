@@ -535,7 +535,7 @@ contains
     number_connections = this%dis%con%ia(n + 1) - this%dis%con%ia(n) - 1
 
     if (number_connections == 1) then
-      ! If a cell only has 1 neigbour compute the gradient using finite difference
+      ! If a cell only has 1 neighbour compute the gradient using finite difference
       ! This case can happen if a triangle element is located in a cornor of a square domain
       ! with two sides being domain boundaries
 
