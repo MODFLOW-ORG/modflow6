@@ -9,7 +9,6 @@ module TspAdvModule
   use TspAdvOptionsModule, only: TspAdvOptionsType
   use SVDModule, only: SVD2
   use MatrixBaseModule
-  use ForsytheMalcolmMoler
 
   implicit none
   private
@@ -589,13 +588,12 @@ contains
     real(DP), intent(in) :: A(3, 3) !! Matrix
     real(DP) :: B(3, 3) !! Inverse matrix
 
-    integer(I4B) :: pos, ierr
+    integer(I4B) :: pos
     real(DP), dimension(:, :) , allocatable:: U
-    real(DP), dimension(:, :), allocatable :: V
+    real(DP), dimension(:, :), allocatable :: Vt
     real(DP), dimension(:, :), allocatable :: sigma
 
-    ! CALL SVD(A, sigma, .TRUE., U, .TRUE., V, ierr)
-    CALL SVD2(A, U, sigma, V)
+    CALL SVD2(A, U, sigma, Vt)
 
     do pos = 1, min(SIZE(A, DIM=1), SIZE(A, DIM=2))
       if (DABS(sigma(pos, pos)) > 2.0_dp * DPREC) then
@@ -603,7 +601,7 @@ contains
       end if
     end do
 
-    B = matmul(transpose(V), matmul(sigma, transpose(U)))
+    B = matmul(transpose(Vt), matmul(sigma, transpose(U)))
 
   end function
 
