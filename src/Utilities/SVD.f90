@@ -12,7 +12,7 @@ module SVDModule
 
 contains
 
-  function HouseholderMatrix(x) result(Q)
+  pure function HouseholderMatrix(x) result(Q)
     ! dummy
     REAL(DP), INTENT(IN) :: x(:)
     REAL(DP), allocatable, DIMENSION(:, :) :: Q
@@ -47,7 +47,7 @@ contains
 !> @brief bidiagonal matrix  decomposition
 !!
 !! Decompose the matrix A into a bidiagonal matrix using Householder transformations
-  SUBROUTINE bidiagonal_decomposition(A, P, Qt)
+  pure SUBROUTINE bidiagonal_decomposition(A, P, Qt)
     ! dummy
     REAL(DP), INTENT(INOUT), DIMENSION(:, :) :: A
     REAL(DP), INTENT(OUT), DIMENSION(:, :), allocatable :: P, Qt
@@ -82,7 +82,7 @@ contains
 
   END SUBROUTINE bidiagonal_decomposition
 
-  function GivensRotation(a, b) result(G)
+  pure function GivensRotation(a, b) result(G)
     ! dummy
     REAL(DP), INTENT(IN) :: a, b
     REAL(DP), DIMENSION(2, 2) :: G
@@ -106,12 +106,12 @@ contains
 
   END function GivensRotation
 
-  function compute_shift(A) result(mu)
+  pure function compute_shift(A) result(mu)
     ! dummy
-    REAL(DP), INTENT(INOUT), DIMENSION(:, :) :: A
+    REAL(DP), INTENT(IN), DIMENSION(:, :) :: A
     Real(DP) :: mu
     ! locals
-    INTEGER(I4B) :: m, n
+    INTEGER(I4B) :: m, n, min_mn
     REAL(DP) T11, T12, T21, T22
     REAL(DP) dm, fmmin, fm, dn
     REAL(DP) :: mean, product, mu1, mu2
@@ -119,15 +119,13 @@ contains
     m = SIZE(A, DIM=1) ! Number of rows
     n = SIZE(A, DIM=2) ! Number of columns
 
-    if (n <= m) then
-      dn = A(n, n)
-    else
-      dn = 0.0_DP
-    end if
-    dm = A(n - 1, n - 1)
-    fm = A(n - 1, n)
-    if (n > 2) then
-      fmmin = A(n - 2, n - 1)
+    min_mn = MIN(m, n)
+
+    dn = A(min_mn, min_mn)
+    dm = A(min_mn - 1, min_mn - 1)
+    fm = A(min_mn - 1, min_mn)
+    if (min_mn > 2) then
+      fmmin = A(min_mn - 2, min_mn - 1)
     else
       fmmin = 0.0_DP
     end if
@@ -149,7 +147,7 @@ contains
 
   end function compute_shift
 
-  subroutine bidiagonal_qr_decomposition(A, U, VT)
+  pure subroutine bidiagonal_qr_decomposition(A, U, VT)
     ! dummy
     REAL(DP), INTENT(INOUT), DIMENSION(:, :) :: A
     REAL(DP), INTENT(INOUT), DIMENSION(:, :) :: U, Vt
@@ -186,7 +184,7 @@ contains
 
   END SUBROUTINE bidiagonal_qr_decomposition
 
-  subroutine handle_zero_diagonal(A, U, VT)
+  pure subroutine handle_zero_diagonal(A, U, VT)
     ! dummy
     REAL(DP), INTENT(INOUT), DIMENSION(:, :) :: A
     REAL(DP), INTENT(INOUT), DIMENSION(:, :) :: U, Vt
@@ -223,7 +221,7 @@ contains
     end if
   END SUBROUTINE handle_zero_diagonal
 
-  function superdiagonal_norm(A) result(norm)
+  pure function superdiagonal_norm(A) result(norm)
     ! Calculate the infinity norm of the superdiagonal elements
     REAL(DP), INTENT(IN) :: A(:, :)
     REAL(DP) :: norm
@@ -240,7 +238,7 @@ contains
 
   END function superdiagonal_norm
 
-  subroutine find_nonzero_superdiagonal(A, p, q)
+  pure subroutine find_nonzero_superdiagonal(A, p, q)
     ! dummy
     REAL(DP), INTENT(IN), DIMENSION(:, :) :: A
     INTEGER(I4B), INTENT(OUT) :: p, q
@@ -269,7 +267,7 @@ contains
     end do
   end subroutine find_nonzero_superdiagonal
 
-  function has_zero_diagonal(A) result(has_zero)
+  pure function has_zero_diagonal(A) result(has_zero)
     ! Check if the matrix has a zero diagonal element
     REAL(DP), INTENT(IN) :: A(:, :)
     LOGICAL(LGP) :: has_zero
@@ -289,7 +287,7 @@ contains
 
   END function has_zero_diagonal
 
-  subroutine make_matrix_square(A, Qt)
+  pure subroutine make_matrix_square(A, Qt)
     ! dummy
     REAL(DP), INTENT(INOUT), DIMENSION(:, :) :: A
     REAL(DP), INTENT(INOUT), DIMENSION(:, :), allocatable :: Qt
@@ -308,7 +306,7 @@ contains
 
   end subroutine make_matrix_square
 
-  subroutine clean_superdiagonal(A)
+  pure subroutine clean_superdiagonal(A)
     ! dummy
     REAL(DP), INTENT(INOUT), DIMENSION(:, :) :: A
     ! locals
@@ -343,7 +341,7 @@ contains
 !! The matrix S is the square root of the eigenvalues of A*A^T or A^T*A
 !!
 !<
-  SUBROUTINE SVD2(A, U, S, VT)
+  pure SUBROUTINE SVD2(A, U, S, VT)
     ! dummy
     REAL(DP), INTENT(IN), DIMENSION(:, :) :: A
     REAL(DP), INTENT(OUT), DIMENSION(:, :), allocatable :: U
@@ -351,9 +349,11 @@ contains
     REAL(DP), INTENT(OUT), DIMENSION(:, :), allocatable :: VT
     ! locals
     integer(I4B) :: i, m, n
-    integer(I4B) :: max_itr = 100
+    integer(I4B) :: max_itr
     real(DP) :: error
     integer(I4B) :: r, q
+
+    max_itr = 100
 
     m = SIZE(A, DIM=1) ! Number of rows
     n = SIZE(A, DIM=2) ! Number of columns
