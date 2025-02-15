@@ -69,7 +69,7 @@ contains
 
     ! initialize base class
     call this%mesh_init(modelname, modeltype, modelfname, nc_fname, disenum, &
-                        nctype, iout)
+                        nctype, this%dis%lenuni, iout)
   end subroutine dis_export_init
 
   !> @brief netcdf export dis destroy

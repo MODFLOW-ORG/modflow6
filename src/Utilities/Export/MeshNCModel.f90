@@ -96,7 +96,7 @@ contains
   !> @brief initialize
   !<
   subroutine mesh_init(this, modelname, modeltype, modelfname, nc_fname, &
-                       disenum, nctype, iout)
+                       disenum, nctype, lenuni, iout)
     use MemoryManagerExtModule, only: mem_set_value
     class(MeshModelType), intent(inout) :: this
     character(len=*), intent(in) :: modelname
@@ -105,6 +105,7 @@ contains
     character(len=*), intent(in) :: nc_fname
     integer(I4B), intent(in) :: disenum
     integer(I4B), intent(in) :: nctype
+    integer(I4B), intent(in) :: lenuni
     integer(I4B), intent(in) :: iout
     logical(LGP) :: found
 
@@ -129,6 +130,12 @@ contains
       write (warnmsg, '(a)') 'Ignoring user provided NetCDF chunking parameter. &
         &Define chunk_time and chunk_face input parameters to see an effect.'
       call store_warning(warnmsg)
+    end if
+
+    if (lenuni == 1) then
+      this%lenunits = 'ft'
+    else
+      this%lenunits = 'm'
     end if
 
     ! create the netcdf file
@@ -298,7 +305,7 @@ contains
 
       ! assign variable attributes
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &
-                                  'units', 'm'), this%nc_fname)
+                                  'units', this%lenunits), this%nc_fname)
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &
                                   'standard_name', this%annotation%stdname), &
                      this%nc_fname)
@@ -377,7 +384,7 @@ contains
 
     ! assign mesh x node variable attributes
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_node_x, &
-                                'units', 'm'), this%nc_fname)
+                                'units', this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_node_x, &
                                 'standard_name', 'projection_x_coordinate'), &
                    this%nc_fname)
@@ -398,7 +405,7 @@ contains
 
     ! assign mesh y variable attributes
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_node_y, &
-                                'units', 'm'), this%nc_fname)
+                                'units', this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_node_y, &
                                 'standard_name', 'projection_y_coordinate'), &
                    this%nc_fname)
@@ -419,7 +426,7 @@ contains
 
     ! assign mesh x face variable attributes
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_face_x, &
-                                'units', 'm'), this%nc_fname)
+                                'units', this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_face_x, &
                                 'standard_name', 'projection_x_coordinate'), &
                    this%nc_fname)
@@ -448,7 +455,7 @@ contains
 
     ! assign mesh y face variable attributes
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_face_y, &
-                                'units', 'm'), this%nc_fname)
+                                'units', this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_face_y, &
                                 'standard_name', 'projection_y_coordinate'), &
                    this%nc_fname)

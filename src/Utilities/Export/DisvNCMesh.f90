@@ -67,7 +67,7 @@ contains
 
     ! initialize base class
     call this%mesh_init(modelname, modeltype, modelfname, nc_fname, disenum, &
-                        nctype, iout)
+                        nctype, this%disv%lenuni, iout)
   end subroutine disv_export_init
 
   !> @brief netcdf export disv destroy
