@@ -9,7 +9,7 @@ module DisNCStructuredModule
 
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, LENBIGLINE, LENCOMPONENTNAME, &
-                             LENMEMPATH, LENVARNAME
+                             LENMEMPATH, LENVARNAME, DNODATA, DZERO
   use SimVariablesModule, only: errmsg, warnmsg
   use SimModule, only: store_error, store_warning, store_error_filename
   use MemoryManagerModule, only: mem_setptr
@@ -127,6 +127,7 @@ contains
     ! initialize base class
     call this%NCModelExportType%init(modelname, modeltype, modelfname, nc_fname, &
                                      disenum, nctype, iout)
+
     ! update values from input context
     if (this%ncf_mempath /= '') then
       call mem_set_value(this%chunk_z, 'CHUNK_Z', this%ncf_mempath, found)
@@ -162,6 +163,14 @@ contains
         end if
         call mem_setptr(this%latitude, 'LATITUDE', this%ncf_mempath)
         call mem_setptr(this%longitude, 'LONGITUDE', this%ncf_mempath)
+      end if
+
+      if (this%wkt /= '') then
+        if (this%dis%angrot /= DZERO) then
+          write (warnmsg, '(a)') 'WKT parameter set with structured rotated &
+            &grid. Projected coordinates will have grid local values.'
+          call store_warning(warnmsg)
+        end if
       end if
     end if
 
@@ -380,7 +389,6 @@ contains
   !> @brief netcdf export package dynamic input with ilayer index variable
   !<
   subroutine package_step_ilayer(this, export_pkg, ilayer_varname, ilayer)
-    use ConstantsModule, only: DNODATA, DZERO
     use TdisModule, only: kper
     use NCModelExportModule, only: ExportPackageType
     use DefinitionSelectModule, only: get_param_definition_type
@@ -528,7 +536,6 @@ contains
   !<
   subroutine export_layer_3d(this, export_pkg, idt, ilayer_read, ialayer, &
                              dbl1d, nc_varname, input_attr, iaux)
-    use ConstantsModule, only: DNODATA, DZERO
     use TdisModule, only: kper
     use NCModelExportModule, only: ExportPackageType
     class(DisNCStructuredType), intent(inout) :: this
@@ -878,7 +885,6 @@ contains
   !> @brief add grid coordinates
   !<
   subroutine add_grid_data(this)
-    use ConstantsModule, only: DZERO
     class(DisNCStructuredType), intent(inout) :: this
     integer(I4B) :: ibnd, n !, k, i, j
     real(DP), dimension(:, :), pointer, contiguous :: dbl2d
