@@ -145,7 +145,7 @@ contains
         this%chunk_x = -1
         write (warnmsg, '(a)') 'Ignoring user provided NetCDF chunking &
           &parameters. Define chunk_time, chunk_x, chunk_y and chunk_z input &
-          &parameters to see an effect.'
+          &parameters to see an effect in file "'//trim(nc_fname)//'".'
         call store_warning(warnmsg)
       end if
 
@@ -156,7 +156,8 @@ contains
         this%latlon = .true.
         if (this%wkt /= '') then
           write (warnmsg, '(a)') 'Ignoring user provided NetCDF wkt parameter &
-            &as longitude and latitude arrays have been provided.'
+            &as longitude and latitude arrays have been provided. &
+            &Applies to file "'//trim(nc_fname)//'".'
           call store_warning(warnmsg)
           this%wkt = ''
           this%gridmap_name = ''
@@ -168,7 +169,8 @@ contains
       if (this%wkt /= '') then
         if (this%dis%angrot /= DZERO) then
           write (warnmsg, '(a)') 'WKT parameter set with structured rotated &
-            &grid. Projected coordinates will have grid local values.'
+            &grid. Projected coordinates will have grid local values. &
+            &Applies to file "'//trim(nc_fname)//'".'
           call store_warning(warnmsg)
         end if
       end if

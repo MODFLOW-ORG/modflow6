@@ -128,7 +128,8 @@ contains
       this%chunk_face = -1
       this%chunk_time = -1
       write (warnmsg, '(a)') 'Ignoring user provided NetCDF chunking parameter. &
-        &Define chunk_time and chunk_face input parameters to see an effect.'
+        &Define chunk_time and chunk_face input parameters to see an effect in &
+        &file "'//trim(nc_fname)//'".'
       call store_warning(warnmsg)
     end if
 
