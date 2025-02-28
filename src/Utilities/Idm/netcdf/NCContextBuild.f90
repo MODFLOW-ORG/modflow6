@@ -137,7 +137,7 @@ contains
       ! set grid to upper case
       call upcase(grid)
     else
-      errmsg = 'NetCDF input file global attribute "grid" not found.'
+      errmsg = 'NetCDF input file global attribute "modflow_grid" not found.'
       call store_error(errmsg)
       call store_error_filename(nc_fname)
     end if
