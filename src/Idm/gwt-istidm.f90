@@ -29,11 +29,6 @@ module GwtIstInputModule
     logical :: cimfile = .false.
     logical :: cimprintrecord = .false.
     logical :: print_format = .false.
-    logical :: formatrecord = .false.
-    logical :: columns = .false.
-    logical :: width = .false.
-    logical :: digits = .false.
-    logical :: format = .false.
     logical :: sorbate_rec = .false.
     logical :: sorbate = .false.
     logical :: sorbatefile = .false.
@@ -336,7 +331,7 @@ module GwtIstInputModule
     'OPTIONS', & ! block
     'CIMPRINTRECORD', & ! tag name
     'CIMPRINTRECORD', & ! fortran variable
-    'RECORD CIM6F PRINT_FORMAT FORMATRECORD', & ! type
+    'RECORD CIM6F PRINT_FORMAT', & ! type
     '', & ! shape
     '', & ! longname
     .false., & ! required
@@ -354,101 +349,11 @@ module GwtIstInputModule
     'OPTIONS', & ! block
     'PRINT_FORMAT', & ! tag name
     'PRINT_FORMAT', & ! fortran variable
-    'KEYWORD', & ! type
-    ':', & ! shape
-    'keyword to indicate that a print format follows', & ! longname
-    .true., & ! required
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    gwtist_formatrecord = InputParamDefinitionType &
-    ( &
-    'GWT', & ! component
-    'IST', & ! subcomponent
-    'OPTIONS', & ! block
-    'FORMATRECORD', & ! tag name
-    'FORMATRECORD', & ! fortran variable
-    'RECORD COLUMNS WIDTH DIGITS FORMAT', & ! type
-    '', & ! shape
-    '', & ! longname
-    .true., & ! required
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    gwtist_columns = InputParamDefinitionType &
-    ( &
-    'GWT', & ! component
-    'IST', & ! subcomponent
-    'OPTIONS', & ! block
-    'COLUMNS', & ! tag name
-    'COLUMNS', & ! fortran variable
-    'INTEGER', & ! type
-    '', & ! shape
-    'number of columns', & ! longname
-    .true., & ! required
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    gwtist_width = InputParamDefinitionType &
-    ( &
-    'GWT', & ! component
-    'IST', & ! subcomponent
-    'OPTIONS', & ! block
-    'WIDTH', & ! tag name
-    'WIDTH', & ! fortran variable
-    'INTEGER', & ! type
-    '', & ! shape
-    'width for each number', & ! longname
-    .true., & ! required
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    gwtist_digits = InputParamDefinitionType &
-    ( &
-    'GWT', & ! component
-    'IST', & ! subcomponent
-    'OPTIONS', & ! block
-    'DIGITS', & ! tag name
-    'DIGITS', & ! fortran variable
-    'INTEGER', & ! type
-    '', & ! shape
-    'number of digits', & ! longname
-    .true., & ! required
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    gwtist_format = InputParamDefinitionType &
-    ( &
-    'GWT', & ! component
-    'IST', & ! subcomponent
-    'OPTIONS', & ! block
-    'FORMAT', & ! tag name
-    'FORMAT', & ! fortran variable
     'STRING', & ! type
-    '', & ! shape
-    'write format', & ! longname
+    ':', & ! shape
+    'print format string', & ! longname
     .true., & ! required
-    .true., & ! multi-record
+    .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
@@ -726,11 +631,6 @@ module GwtIstInputModule
     gwtist_cimfile, &
     gwtist_cimprintrecord, &
     gwtist_print_format, &
-    gwtist_formatrecord, &
-    gwtist_columns, &
-    gwtist_width, &
-    gwtist_digits, &
-    gwtist_format, &
     gwtist_sorbate_rec, &
     gwtist_sorbate, &
     gwtist_sorbatefile, &
@@ -773,7 +673,7 @@ module GwtIstInputModule
     [ &
     InputBlockDefinitionType( &
     'OPTIONS', & ! blockname
-    .false., & ! required
+    .true., & ! required
     .false., & ! aggregate
     .false. & ! block_variable
     ), &

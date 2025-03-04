@@ -372,17 +372,12 @@ contains
     end if
 
     if (.not. found) then
-      if (idt%shape == ':') then
-        call load_string_type(this%parser, idt, this%mf6_input%mempath, this%iout)
-      else
-        ! load standard keyword tag
-        call load_keyword_type(this%parser, idt, this%mf6_input%mempath, &
-                               this%iout)
-        ! check/set as dev option
-        if (idt%tagname(1:4) == 'DEV_' .and. &
-            this%mf6_input%block_dfns(iblk)%blockname == 'OPTIONS') then
-          call this%parser%DevOpt()
-        end if
+      ! load standard keyword tag
+      call load_keyword_type(this%parser, idt, this%mf6_input%mempath, this%iout)
+      ! check/set as dev option
+      if (idt%tagname(1:4) == 'DEV_' .and. &
+          this%mf6_input%block_dfns(iblk)%blockname == 'OPTIONS') then
+        call this%parser%DevOpt()
       end if
     end if
   end subroutine parse_keyword_tag
@@ -401,7 +396,6 @@ contains
     logical(LGP), intent(in) :: recursive_call !< true if recursive call
     character(len=LINELENGTH) :: tag
     type(InputParamDefinitionType), pointer :: idt !< input data type object describing this record
-    integer(I4B) :: itag
 
     ! read tag name
     call this%parser%GetStringCaps(tag)
@@ -423,7 +417,6 @@ contains
     select case (idt%datatype)
     case ('KEYWORD')
       call this%parse_keyword_tag(iblk, tag, idt)
-      if (idt%shape == ':') return
     case ('STRING')
       if (idt%shape == 'NAUX') then
         call load_auxvar_names(this%parser, idt, this%mf6_input%mempath, &
@@ -463,8 +456,7 @@ contains
     end select
 
     call expandarray(this%block_tags)
-    itag = size(this%block_tags)
-    this%block_tags(itag) = trim(idt%tagname)
+    this%block_tags(size(this%block_tags)) = trim(idt%tagname)
 
     ! continue line if in same record
     if (idt%in_record) then
@@ -628,17 +620,17 @@ contains
     character(len=:), allocatable :: line
     integer(I4B) :: ilen
     select case (idt%shape)
-    case (':')
-      ilen = LENBIGLINE
-      call parser%GetRemainingLine(line)
-      call mem_allocate(bigcstr, ilen, idt%mf6varname, memoryPath)
-      bigcstr = line
-      call idm_log_var(bigcstr, idt%tagname, memoryPath, iout)
-      deallocate (line)
     case ('LENBIGLINE')
       ilen = LENBIGLINE
       call mem_allocate(bigcstr, ilen, idt%mf6varname, memoryPath)
       call parser%GetString(bigcstr, (.not. idt%preserve_case))
+      call idm_log_var(bigcstr, idt%tagname, memoryPath, iout)
+    case (':')
+      ilen = LINELENGTH
+      call mem_allocate(cstr, ilen, idt%mf6varname, memoryPath)
+      call parser%GetRemainingLine(line)
+      cstr = line
+      deallocate (line)
       call idm_log_var(bigcstr, idt%tagname, memoryPath, iout)
     case default
       ilen = LINELENGTH
