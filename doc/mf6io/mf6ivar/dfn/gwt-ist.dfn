@@ -176,7 +176,7 @@ reader urword
 tagged true
 optional false
 longname print format string
-description format specification string of the type: COLUMNS $<$columns$>$ WIDTH $<$width$>$ DIGITS $<$digits$>$ $<$format$>$, where columns is number of colums, width applies to each number written and digit refers to digits in each number. Supported formats are EXPONENTIAL, FIXED, GENERAL, and SCIENTIFIC.
+description format specification string of the type: COLUMNS $<$columns$>$ WIDTH $<$width$>$ DIGITS $<$digits$>$ $<$format$>$, where columns is number of columns, width applies to each number written and digit refers to digits in each number. Supported formats are EXPONENTIAL, FIXED, GENERAL, and SCIENTIFIC.
 
 block options
 name sorbate_filerecord
