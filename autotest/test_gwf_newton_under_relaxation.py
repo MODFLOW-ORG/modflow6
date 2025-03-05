@@ -97,7 +97,7 @@ def build_models(idx, test):
         split_array = np.tri(nrow, ncol).astype(int)
         new_sim = mfsplit.split_model(split_array)
         new_sim.set_sim_path(test.workspace)
-        mfsplit.save_node_mapping(pl.Path(f"{test.workspace}/mapping.json"))
+        mfsplit.save_node_mapping(pl.Path(f"{test.workspace}/mapping.h5"))
         return new_sim, None
     else:
         return sim, None
@@ -106,8 +106,7 @@ def build_models(idx, test):
 def check_output(idx, test):
     mf6sim = flopy.mf6.MFSimulation.load(sim_ws=test.workspace)
     if idx == 1:
-        mfsplit = flopy.mf6.utils.Mf6Splitter(mf6sim)
-        mfsplit.load_node_mapping(mf6sim, pl.Path(f"{test.workspace}/mapping.json"))
+        mfsplit = load_node_mapping(pl.Path(f"{test.workspace}/mapping.h5"))
         head_dict = {}
         for modelname in mf6sim.model_names:
             mnum = int(modelname.split("_")[-1])
