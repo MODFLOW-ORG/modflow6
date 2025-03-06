@@ -342,6 +342,7 @@ contains
 
   !> @brief Read the SHF-specific options from the OPTIONS block
   !<
+<<<<<<< HEAD
   !subroutine read_options(this)
   !  ! -- dummy
   !  class(PbstBaseType) :: this
@@ -406,6 +407,73 @@ contains
   !      'END OF '//trim(adjustl(this%packName))//' OPTIONS'
   !  end if
   !end subroutine read_options
+=======
+  subroutine read_options(this)
+    ! -- dummy
+    class(PbstBaseType) :: this
+    ! -- local
+    character(len=LINELENGTH) :: keyword
+    character(len=MAXCHARLEN) :: fname
+    logical :: isfound
+    logical :: endOfBlock
+    logical(LGP) :: found
+    integer(I4B) :: ierr
+    ! -- formats
+    character(len=*), parameter :: fmtts = &
+      &"(4x, 'TIME-SERIES DATA WILL BE READ FROM FILE: ', a)"
+    !
+    ! -- Get options block
+    call this%parser%GetBlock('OPTIONS', isfound, ierr, &
+                              blockRequired=.false., supportOpenClose=.true.)
+    !
+    ! -- Parse options block if detected
+    if (isfound) then
+      write (this%iout, '(1x,a)') &
+        'PROCESSING '//trim(adjustl(this%packName))//' OPTIONS'
+      do
+        call this%parser%GetNextLine(endOfBlock)
+        if (endOfBlock) then
+          exit
+        end if
+        call this%parser%GetStringCaps(keyword)
+        select case (keyword)
+        case ('PRINT_INPUT')
+          this%iprpak = 1
+          write (this%iout, '(4x,a)') 'TIME-VARYING INPUT WILL BE PRINTED.'
+        case ('TS6')
+          !
+          ! -- Add a time series file
+          call this%parser%GetStringCaps(keyword)
+          if (trim(adjustl(keyword)) /= 'FILEIN') then
+            errmsg = &
+              'TS6 keyword must be followed by "FILEIN" then by filename.'
+            call store_error(errmsg)
+            call this%parser%StoreErrorUnit()
+            call ustop()
+          end if
+          call this%parser%GetString(fname)
+          write (this%iout, fmtts) trim(fname)
+          call this%tsmanager%add_tsfile(fname, this%inunit)
+        case default
+          !
+          ! -- Check for child class options
+          call this%pbst_options(keyword, found)
+          !
+          ! -- Defer to subtype to read the option;
+          ! -- if the subtype can't handle it, report an error
+          if (.not. found) then
+            write (errmsg, '(a,3(1x,a),a)') &
+              'Unknown', trim(adjustl(this%packName)), "option '", &
+              trim(keyword), "'."
+            call store_error(errmsg)
+          end if
+        end select
+      end do
+      write (this%iout, '(1x,a)') &
+        'END OF '//trim(adjustl(this%packName))//' OPTIONS'
+    end if
+  end subroutine read_options
+>>>>>>> 4baf8469ab (read shf options block; will need to circle back and test TS functionality later)
 
   !> @ brief Read additional options for sub-package
   !!

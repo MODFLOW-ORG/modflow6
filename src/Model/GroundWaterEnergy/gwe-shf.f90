@@ -167,6 +167,7 @@ contains
   !!
   !! This routine overrides PbstBaseType%bnd_options
   !<
+<<<<<<< HEAD
   !subroutine shf_options(this, option, found)
   !  ! -- dummy
   !  class(ShfType), intent(inout) :: this
@@ -233,6 +234,56 @@ contains
     shflx = shf_const * this%wspd(ifno) * (this%tatm(ifno) - tstrm)
   end subroutine shf_cq
 
+=======
+  subroutine shf_options(this, option, found)
+    ! -- dummy
+    class(ShfType), intent(inout) :: this
+    character(len=*), intent(inout) :: option
+    logical, intent(inout) :: found
+    !
+    found = .true.
+    select case (option)
+    case ('DENSITY_AIR')
+      this%rhoa = this%parser%GetDouble()
+      if (this%rhoa <= 0.0) then
+        write (errmsg, '(a)') 'Specified value for the density of &
+          &the atmosphere must be greater than 0.0.'
+        call store_error(errmsg)
+        call this%parser%StoreErrorUnit()
+      else
+        write (this%iout, '(4x,a,1pg15.6)') &
+          "The density of the atmosphere has been set to: ", this%rhoa
+      end if
+    case ('HEAT_CAPACITY_AIR')
+      this%cpa = this%parser%GetDouble()
+      if (this%cpa <= 0.0) then
+        write (errmsg, '(a)') 'Specified value for the heat capacity of &
+          &the atmosphere must be greater than 0.0.'
+        call store_error(errmsg)
+        call this%parser%StoreErrorUnit()
+      else
+        write (this%iout, '(4x,a,1pg15.6)') &
+          "The heat capacity of the atmosphere has been set to: ", this%cpa
+      end if
+    case ('DRAG_COEFFICIENT')
+      this%cd = this%parser%GetDouble()
+      if (this%cd <= 0.0) then
+        write (errmsg, '(a)') 'Specified value for the drag coefficient &
+          &must be greater than 0.0.'
+        call store_error(errmsg)
+        call this%parser%StoreErrorUnit()
+      else
+        write (this%iout, '(4x,a,1pg15.6)') &
+          "The heat capacity of the atmosphere has been set to: ", this%cpa
+      end if
+    case default
+      write (errmsg, '(a,a)') 'Unknown SHF option: ', trim(option)
+      call store_error(errmsg)
+      call this%parser%StoreErrorUnit()
+    end select
+  end subroutine shf_options
+  
+>>>>>>> 4baf8469ab (read shf options block; will need to circle back and test TS functionality later)
   !> @brief Deallocate package memory
   !!
   !! Deallocate TVK package scalars and arrays.
