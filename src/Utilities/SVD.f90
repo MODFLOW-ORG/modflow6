@@ -114,7 +114,7 @@ contains
     INTEGER(I4B) :: m, n, min_mn
     REAL(DP) T11, T12, T21, T22
     REAL(DP) dm, fmmin, fm, dn
-    REAL(DP) :: mean, product, mu1, mu2
+    REAL(DP) :: mean, product, mean_product, mu1, mu2
 
     m = SIZE(A, DIM=1) ! Number of rows
     n = SIZE(A, DIM=2) ! Number of columns
@@ -137,8 +137,12 @@ contains
 
     mean = (T11 + T22) / 2.0_DP
     product = T11 * T22 - T12 * T21
-    mu1 = mean - SQRT(mean**2 - product)
-    mu2 = mean + SQRT(mean**2 - product)
+    mean_product = mean**2 - product
+    if (abs(mean_product) < DSAME) then
+      mean_product = 0.0_DP
+    end if
+    mu1 = mean - SQRT(mean_product)
+    mu2 = mean + SQRT(mean_product)
     if (abs(T22 - mu1) < abs(T22 - mu2)) then
       mu = mu1
     else

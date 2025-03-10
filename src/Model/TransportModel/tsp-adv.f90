@@ -2,7 +2,7 @@ module TspAdvModule
 
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DONE, DZERO, DHALF, DTWO, DNODATA, DPREC, &
-                             DPRECSQRT, LINELENGTH
+                             LINELENGTH, DSAME
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
@@ -48,6 +48,7 @@ module TspAdvModule
     procedure :: advtvd
     procedure :: limiter
     procedure, private :: create_grad_operator
+    procedure, private :: is_source_cell
 
   end type TspAdvType
 
@@ -390,7 +391,42 @@ contains
 
   end function
 
+  function number_connected_nodes(dis, node_id) result(number_connections)
+    ! -- dummy
+    class(DisBaseType), pointer, intent(in) :: dis
+    integer(I4B), intent(in) :: node_id
+    integer(I4B) :: number_connections
+
+    number_connections = dis%con%ia(node_id + 1) - dis%con%ia(node_id) - 1
+  end function
+
+  function is_source_cell(this, node_id) result(is_source)
+    use BndModule, only: BndType, GetBndFromList
+    ! -- return
+    logical :: is_source
+    ! -- dummy
+    class(TspAdvType) :: this
+    integer(I4B), intent(in) :: node_id
+    ! -- local
+    type(BndType), pointer :: packobj
+    integer(I4B) :: i, j
+
+    is_source = .false.
+    if (.not. associated(this%fmi%gwfbndlist)) return
+    do i = 1, this%fmi%gwfbndlist%Count()
+      packobj => GetBndFromList(this%fmi%gwfbndlist, i)
+      if (packobj%naux == 0) cycle
+      do j = 1, packobj%nbound
+        if (packobj%nodelist(j) == node_id) then
+          is_source = .true.
+          exit
+        end if
+      end do
+    end do
+  end function
+
   function advqtvd_experimental(this, n, m, iposnm, cnew) result(qtvd)
+    
     ! -- return
     real(DP) :: qtvd
     ! -- dummy
@@ -405,7 +441,6 @@ contains
     real(DP), dimension(3) :: grad_c, dnm
     real(DP) :: smooth, alimiter
     real(DP) :: cl1, cl2, rel_dist, c_virtual
-
     !
     ! -- initialize
     qtvd = DZERO
@@ -428,8 +463,17 @@ contains
       cl2 = this%dis%con%cl2(isympos)
     end if
     !
+    ! -- return if upwind cell is a boundary cell
+    ! if (this%ibound(iup) <= 0) return
+    !
+    ! -- LSG needs at least two connected nodes
+    if (number_connected_nodes(this%dis, iup) <= 1) return
+    !
+    ! -- return if cell is source cell
+    if (this%is_source_cell(iup)) return
+    !
     ! -- Return if straddled cells have same value
-    if (abs(cnew(idn) - cnew(iup)) < 1e-8_dp) return
+    if (abs(cnew(idn) - cnew(iup)) < DSAME) return
     !
     ! -- Compute cell concentration gradient
     call this%compute_cell_gradient(iup, cnew, grad_c)
@@ -441,7 +485,7 @@ contains
     !
     ! -- Correct smoothness factor to prevent negative concentration
     c_virtual = cnew(iup) - smooth * (cnew(idn) - cnew(iup))
-    if (c_virtual <= DPREC) then
+    if (c_virtual < DZERO) then
       smooth = cnew(iup) / (cnew(idn) - cnew(iup))
     end if
     !
@@ -451,7 +495,7 @@ contains
     ! -- Compute relative distance to face
     rel_dist = cl1 / (cl1 + cl2)
     ! -- Compute limited flux
-    qtvd = rel_dist * alimiter * qnm * (cnew(idn) - cnew(iup))
+    qtvd = DHALF * alimiter * qnm * (cnew(idn) - cnew(iup))
     qtvd = qtvd * this%eqnsclfac
 
   end function advqtvd_experimental
@@ -464,6 +508,7 @@ contains
     integer(I4B), intent(in) :: n, m
     ! -- local
     real(DP) :: x_dir, y_dir, z_dir, length
+    real(DP) :: satn, satm
     integer(I4B) :: ipos, isympos, ihc
 
     isympos = -1
@@ -479,7 +524,15 @@ contains
     end if
 
     ihc = this%dis%con%ihc(isympos)
-    call this%dis%connection_vector(n, m, .true., 1.0_dp, 1.0_dp, ihc, x_dir, &
+    if (associated(this%fmi%gwfsat)) then
+      satn = this%fmi%gwfsat(n)
+      satm = this%fmi%gwfsat(m)
+    else
+      satn = DONE
+      satm = DONE
+    end if
+
+    call this%dis%connection_vector(n, m, .true., satn, satm, ihc, x_dir, &
                                     y_dir, z_dir, length)
     d(1) = x_dir * length
     d(2) = y_dir * length
@@ -502,7 +555,7 @@ contains
     real(DP), dimension(:), allocatable :: dc
 
     ! Assemble the concentration difference vector
-    number_connections = this%dis%con%ia(n + 1) - this%dis%con%ia(n) - 1
+    number_connections = number_connected_nodes(this%dis, n)
     allocate (dc(number_connections))
     local_pos = 1
     do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
@@ -532,7 +585,7 @@ contains
     real(DP), dimension(3, 3) :: g
     real(DP), dimension(3, 3) :: g_inv
 
-    number_connections = this%dis%con%ia(n + 1) - this%dis%con%ia(n) - 1
+    number_connections = number_connected_nodes(this%dis, n)
 
     if (number_connections == 1) then
       ! If a cell only has 1 neighbour compute the gradient using finite difference
@@ -546,9 +599,9 @@ contains
       m = this%dis%con%ja(ipos)
       dnm = this%node_distance(n, m)
 
-      if (dabs(dnm(1)) > DPRECSQRT) grad_op(1, 1) = 1.0_dp / dnm(1)
-      if (dabs(dnm(2)) > DPRECSQRT) grad_op(2, 1) = 1.0_dp / dnm(2)
-      if (dabs(dnm(3)) > DPRECSQRT) grad_op(3, 1) = 1.0_dp / dnm(3)
+      if (dabs(dnm(1)) > DPREC) grad_op(1, 1) = 1.0_dp / dnm(1)
+      if (dabs(dnm(2)) > DPREC) grad_op(2, 1) = 1.0_dp / dnm(2)
+      if (dabs(dnm(3)) > DPREC) grad_op(3, 1) = 1.0_dp / dnm(3)
 
       return
     end if
@@ -573,7 +626,7 @@ contains
       d_trans(2, local_pos) = d(local_pos, 2)
       d_trans(3, local_pos) = d(local_pos, 3)
 
-      W2(local_pos, local_pos) = 1.0_dp / (dnm(1)**2 + dnm(2)**2 + dnm(3)**2)
+      W2(local_pos, local_pos) = 1.0_dp / (dnm(1)**2.0_dp + dnm(2)**2.0_dp + dnm(3)**2.0_dp)
 
       local_pos = local_pos + 1
     end do
@@ -599,7 +652,9 @@ contains
     CALL SVD2(A, U, sigma, Vt)
 
     do pos = 1, min(SIZE(A, DIM=1), SIZE(A, DIM=2))
-      if (DABS(sigma(pos, pos)) > 2.0_dp * DPREC) then
+      if (DABS(sigma(pos, pos)) < DPREC) then
+        sigma(pos, pos) = 0.0_dp
+      else
         sigma(pos, pos) = 1.0_dp / sigma(pos, pos)
       end if
     end do
