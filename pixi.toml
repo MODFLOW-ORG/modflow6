@@ -41,6 +41,7 @@ shapely = "*"
 syrupy = "*"
 tomli = ">=2.2.1,<3"
 xmipy = "*"
+h5py = "*"
 
 
 [feature.rtd.dependencies]
