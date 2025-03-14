@@ -106,7 +106,9 @@ def build_models(idx, test):
 def check_output(idx, test):
     mf6sim = flopy.mf6.MFSimulation.load(sim_ws=test.workspace)
     if idx == 1:
-        mfsplit = Mf6Spliiter.load_node_mapping(pl.Path(f"{test.workspace}/mapping.h5"))
+        mfsplit = flopy.mf6.utils.Mf6Splitter.load_node_mapping(
+            pl.Path(f"{test.workspace}/mapping.h5")
+        )
         head_dict = {}
         for modelname in mf6sim.model_names:
             mnum = int(modelname.split("_")[-1])
