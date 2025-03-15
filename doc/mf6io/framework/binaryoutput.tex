@@ -208,8 +208,8 @@ For each stress period, time step, and layer for which data are saved to the bin
 \begin{description} \itemsep0pt \parskip0pt \parsep0pt
 \item \texttt{KSTP} is the time step number;
 \item \texttt{KPER} is the stress period number;
-\item \texttt{PERTIM} is the time value for the current stress period; 
-\item \texttt{TOTIM} is the total simulation time;
+\item \texttt{PERTIM} is the time relative to the start of the current stress period; 
+\item \texttt{TOTIM} is the time relative to the start of the simulation;
 \item \texttt{TEXT} is a character string (character*16);
 \item \texttt{NCOL} is the number of columns;
 \item \texttt{NROW} is the number of rows;
@@ -230,8 +230,8 @@ For each stress period, time step, and layer for which data are saved to the bin
 \begin{description} \itemsep0pt \parskip0pt \parsep0pt
 \item \texttt{KSTP} is the time step number;
 \item \texttt{KPER} is the stress period number;
-\item \texttt{PERTIM} is the time value for the current stress period; 
-\item \texttt{TOTIM} is the total simulation time;
+\item \texttt{PERTIM} is the time relative to the start of the current stress period; 
+\item \texttt{TOTIM} is the time relative to the start of the simulation;
 \item \texttt{TEXT} is a character string (character*16);
 \item \texttt{NCPL} is the number of cells per layer;
 \item \texttt{ILAY} is the layer number; and
@@ -252,8 +252,8 @@ For each stress period, time step, and layer for which data are saved to the bin
 \begin{description} \itemsep0pt \parskip0pt \parsep0pt
 \item \texttt{KSTP} is the time step number;
 \item \texttt{KPER} is the stress period number;
-\item \texttt{PERTIM} is the time value for the current stress period; 
-\item \texttt{TOTIM} is the total simulation time;
+\item \texttt{PERTIM} is the time relative to the start of the current stress period; 
+\item \texttt{TOTIM} is the time relative to the start of the simulation;
 \item \texttt{TEXT} is a character string (character*16);
 \item \texttt{NODES} is the number cells in the model grid;
 \item \texttt{DATA} is unstructured head data of size (NODES).
@@ -303,8 +303,8 @@ For each stress period, time step, and layer for which data are saved to the bin
 \begin{description} \itemsep0pt \parskip0pt \parsep0pt
 \item \texttt{KSTP} is the time step number;
 \item \texttt{KPER} is the stress period number;
-\item \texttt{PERTIM} is the time value for the current stress period; 
-\item \texttt{TOTIM} is the total simulation time;
+\item \texttt{PERTIM} is the time relative to the start of the current stress period; 
+\item \texttt{TOTIM} is the time relative to the start of the simulation;
 \item \texttt{TEXT} is a character string (\texttt{character*16});
 \item \texttt{MAXBOUND} is the number advanced boundary items in the package;
 \item \texttt{DATA} is unstructured dependent variable data of size (\texttt{MAXBOUND}).
@@ -345,15 +345,13 @@ Record 10: \texttt{((ID1(N),ID2(N),(DATA2D(I,N),I=1,NDAT)),N=1,NLIST)}\\
 \item \texttt{KSTP} is the integer time step number;
 \item \texttt{KPER} is the integer stress period number;
 \item \texttt{TEXT} is a character string (character*16) indicating the flow type;
-\item \texttt{PERTIM} is the double precision time value for the current stress period; 
-\item \texttt{TOTIM} is the double precision total simulation time;
+\item \texttt{PERTIM} is the double precision time relative to the start of the current stress period; 
+\item \texttt{TOTIM} is the double precision time relative to the start of the simulation;
 \item \texttt{NDIM1} is the integer size of first dimension; 
 \item \texttt{NDIM2} is the integer size of second dimension;
 \item \texttt{NDIM3} is the integer size of third dimension;
 \item \texttt{IMETH} is an integer code that specifies the form of the remaining data;
 \item \texttt{DELT} is the double precision length of the timestep;
-\item \texttt{PERTIM} is the double precision time value for the current stress period;
-\item \texttt{TOTIM} is the double precision total simulation time;
 \item \texttt{DATA} is a double precision array of budget values;
 \item \texttt{TXT1ID1} is a character string (character*16) containing the first text identifier for information in ID1;
 \item \texttt{TXT2ID1} is a character string (character*16) containing the second text identifier for information in ID1;
