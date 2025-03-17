@@ -82,7 +82,8 @@ module InputLoadTypeModule
     character(len=LINELENGTH) :: component_input_name !< component input name, e.g. model name file
     character(len=LINELENGTH) :: input_name !< input name, e.g. package *.chd file
     character(len=LINELENGTH), dimension(:), allocatable :: param_names !< dynamic param tagnames
-    logical(LGP) :: readasarrays !< is this array based input
+    logical(LGP) :: readarray_layer
+    logical(LGP) :: readarray_grid
     integer(I4B) :: iperblock !< index of period block on block definition list
     integer(I4B) :: iout !< inunit number for logging
     integer(I4B) :: nparam !< number of in scope params
@@ -349,11 +350,14 @@ contains
     integer(I4B), intent(in) :: iperblock
     integer(I4B), intent(in) :: iout
     type(InputParamDefinitionType), pointer :: idt
+    integer(I4B) :: iparam
 
     this%mf6_input = mf6_input
     this%component_name = component_name
     this%component_input_name = component_input_name
     this%input_name = input_name
+    this%readarray_layer = .false.
+    this%readarray_grid = .false.
     this%iperblock = iperblock
     this%nparam = 0
     this%iout = iout
@@ -369,8 +373,21 @@ contains
       call store_error_filename(this%input_name)
     end if
 
-    ! set readasarrays
-    this%readasarrays = (.not. mf6_input%block_dfns(iperblock)%aggregate)
+    ! set readarray_layer and readarray_grid
+    if (mf6_input%block_dfns(iperblock)%aggregate) then
+      ! no-op, list based input
+    else
+      do iparam = 1, size(mf6_input%param_dfns)
+        idt => mf6_input%param_dfns(iparam)
+        if (idt%blockname == 'OPTIONS') then
+          if (idt%tagname == 'READASARRAYS') then
+            this%readarray_layer = .true.
+            exit
+          end if
+        end if
+      end do
+      if (.not. this%readarray_layer) this%readarray_grid = .true.
+    end if
   end subroutine dynamic_init
 
   !> @brief dynamic package loader define

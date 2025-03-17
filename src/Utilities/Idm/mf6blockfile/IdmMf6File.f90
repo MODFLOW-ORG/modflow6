@@ -150,7 +150,6 @@ contains
                           input_name, iperblock, iout)
     use MemoryManagerModule, only: mem_allocate
     use InputDefinitionModule, only: InputParamDefinitionType
-    use DefinitionSelectModule, only: get_param_definition_type
     class(Mf6FileDynamicPkgLoadType), intent(inout) :: this
     type(ModflowInputType), intent(in) :: mf6_input
     character(len=*), intent(in) :: component_name
@@ -268,24 +267,29 @@ contains
   !> @brief allocate a dynamic loader based on load context
   !<
   subroutine dynamic_create_loader(this)
-    use Mf6FileGridInputModule, only: BoundGridInputType
-    use Mf6FileListInputModule, only: BoundListInputType
+    use LayerArrayLoadModule, only: LayerArrayLoadType
+    use GridArrayLoadModule, only: GridArrayLoadType
+    use ListLoadModule, only: ListLoadType
     use Mf6FileStoInputModule, only: StoInputType
     class(Mf6FileDynamicPkgLoadType), intent(inout) :: this
-    class(BoundListInputType), pointer :: bndlist_loader
-    class(BoundGridInputType), pointer :: bndgrid_loader
+    class(ListLoadType), pointer :: list_loader
+    class(GridArrayLoadType), pointer :: arrgrid_loader
+    class(LayerArrayLoadType), pointer :: arrlayer_loader
     class(StoInputType), pointer :: sto_loader
 
     ! allocate and set loader
     if (this%mf6_input%subcomponent_type == 'STO') then
       allocate (sto_loader)
       this%rp_loader => sto_loader
-    else if (this%readasarrays) then
-      allocate (bndgrid_loader)
-      this%rp_loader => bndgrid_loader
+    else if (this%readarray_layer) then
+      allocate (arrlayer_loader)
+      this%rp_loader => arrlayer_loader
+    else if (this%readarray_grid) then
+      allocate (arrgrid_loader)
+      this%rp_loader => arrgrid_loader
     else
-      allocate (bndlist_loader)
-      this%rp_loader => bndlist_loader
+      allocate (list_loader)
+      this%rp_loader => list_loader
     end if
 
     ! set nc_vars pointer

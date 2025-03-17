@@ -234,6 +234,7 @@ contains
     use BndModule, only: BndType
     use DrnModule, only: DrnType
     use GhbModule, only: GhbType
+    use GhbaModule, only: GhbaType
     use RivModule, only: RivType
     use LakModule, only: LakType
     use SfrModule, only: SfrType
@@ -253,14 +254,21 @@ contains
       end select
     case ('GHB')
       !
-      ! -- activate viscosity for the drain package
+      ! -- activate viscosity for the general head boundary package
       select type (packobj)
       type is (GhbType)
         call packobj%bnd_activate_viscosity()
       end select
+    case ('GHBA')
+      !
+      ! -- activate viscosity for the general head boundary array package
+      select type (packobj)
+      type is (GhbaType)
+        call packobj%bnd_activate_viscosity()
+      end select
     case ('RIV')
       !
-      ! -- activate viscosity for the drain package
+      ! -- activate viscosity for the river package
       select type (packobj)
       type is (RivType)
         call packobj%bnd_activate_viscosity()
@@ -413,7 +421,7 @@ contains
     !
     ! -- apply viscosity terms to inflow from boundary based on package type
     select case (packobj%filtyp)
-    case ('GHB', 'DRN', 'RIV')
+    case ('GHB', 'GHBA', 'DRN', 'RIV')
       !
       ! -- general head, drain, and river boundary
       call vsc_ad_standard_bnd(packobj, hnew, this%visc, this%viscref, &
@@ -467,6 +475,7 @@ contains
     use DrnModule, only: DrnType
     use RivModule, only: RivType
     use GhbModule, only: GhbType
+    use GhbaModule, only: GhbaType
     class(BndType), pointer :: packobj
     ! -- dummy
     real(DP), intent(in), dimension(:) :: hnew
@@ -482,7 +491,7 @@ contains
     real(DP), dimension(:), intent(inout) :: ctemp
     ! -- local
     integer(I4B) :: n
-    integer(I4B) :: node
+    integer(I4B) :: node, nodeuser
     real(DP) :: viscbnd
     !
     ! -- Process density terms for each GHB
@@ -510,6 +519,13 @@ contains
         type is (GhbType)
           packobj%cond(n) = update_bnd_cond(viscbnd, viscref, &
                                             packobj%condinput(n))
+        end select
+      case ('GHBA')
+        select type (packobj)
+        type is (GhbaType)
+          nodeuser = packobj%dis%get_nodeuser(node)
+          packobj%cond(nodeuser) = update_bnd_cond(viscbnd, viscref, &
+                                                   packobj%condinput(n))
         end select
       case ('RIV')
         select type (packobj)
