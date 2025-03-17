@@ -57,7 +57,6 @@ contains
     type(BlockParserType), pointer, intent(inout) :: parser
     integer(I4B), intent(in) :: iout
     type(LoadMf6FileType) :: loader
-    integer(I4B) :: n
 
     ! initialize base type
     call this%DynamicPkgLoadType%init(mf6_input, component_name, &
@@ -97,8 +96,7 @@ contains
     logical(LGP) :: endOfBlock, netcdf, layered
     character(len=LINELENGTH) :: keyword, param_tag
     type(InputParamDefinitionType), pointer :: idt
-    integer(I4B) :: iaux, iparam
-    integer(I4B), dimension(:), pointer, contiguous :: int1d
+    integer(I4B) :: iaux
 
     ! reset for this period
     call this%reset()
