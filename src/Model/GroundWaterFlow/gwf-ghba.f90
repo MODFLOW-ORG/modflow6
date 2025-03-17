@@ -163,7 +163,6 @@ contains
     class(GhbaType) :: this
     integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist
     real(DP), dimension(:, :), pointer, contiguous, optional :: auxvar
-    integer(I4B) :: n
     !
     ! -- call base type allocate arrays
     call this%BndType%allocate_arrays(nodelist, auxvar)
@@ -195,7 +194,6 @@ contains
     real(DP), dimension(:, :), pointer, contiguous :: auxvar
     integer(I4B) :: i, j, noder, nodeuser
     character(len=LINELENGTH) :: nodestr
-    logical(LGP) :: found
     !
     if (this%iper /= kper) return
     !
@@ -255,8 +253,7 @@ contains
     ! -- local
     character(len=LINELENGTH) :: errmsg
     integer(I4B) :: i
-    integer(I4B) :: node, noder, nodeuser
-    character(len=LINELENGTH) :: nodestr
+    integer(I4B) :: noder, nodeuser
     real(DP) :: bt
     ! -- formats
     character(len=*), parameter :: fmtghberr = &
@@ -280,11 +277,11 @@ contains
     !
     ! -- check stress period data
     do i = 1, this%nbound
-      node = this%nodelist(i)
-      nodeuser = this%dis%get_nodeuser(node)
-      bt = this%dis%bot(node)
+      noder = this%nodelist(i)
+      nodeuser = this%dis%get_nodeuser(noder)
+      bt = this%dis%bot(noder)
       ! -- accumulate errors
-      if (this%bhead(nodeuser) < bt .and. this%icelltype(node) /= 0) then
+      if (this%bhead(nodeuser) < bt .and. this%icelltype(noder) /= 0) then
         write (errmsg, fmt=fmtghberr) nodeuser, this%bhead(nodeuser), bt
         call store_error(errmsg)
       end if
@@ -315,17 +312,17 @@ contains
     ! -- dummy
     class(GhbaType) :: this
     ! -- local
-    integer(I4B) :: i, node, noder, nodeuser
+    integer(I4B) :: i, noder, nodeuser
     !
     do i = 1, this%nbound
-      node = this%nodelist(i)
-      if (this%ibound(node) .le. 0) then
+      noder = this%nodelist(i)
+      if (this%ibound(noder) .le. 0) then
         this%hcof(i) = DZERO
         this%rhs(i) = DZERO
         cycle
       end if
       ! TODO or use bound_value?
-      nodeuser = this%dis%get_nodeuser(node)
+      nodeuser = this%dis%get_nodeuser(noder)
       this%hcof(i) = -this%cond_mult(i)
       this%rhs(i) = -this%cond_mult(i) * this%bhead(nodeuser)
     end do
@@ -341,7 +338,7 @@ contains
     integer(I4B), dimension(:), intent(in) :: idxglo
     class(MatrixBaseType), pointer :: matrix_sln
     ! -- local
-    integer(I4B) :: i, n, noder, nodeuser, ipos
+    integer(I4B) :: i, noder, nodeuser, ipos
     real(DP) :: cond, bhead, qghb
     !
     ! -- pakmvrobj fc
@@ -350,19 +347,19 @@ contains
     end if
 
     do i = 1, this%nbound
-      n = this%nodelist(i)
-      nodeuser = this%dis%get_nodeuser(n)
-      rhs(n) = rhs(n) + this%rhs(i)
-      ipos = ia(n)
+      noder = this%nodelist(i)
+      nodeuser = this%dis%get_nodeuser(noder)
+      rhs(noder) = rhs(noder) + this%rhs(i)
+      ipos = ia(noder)
       call matrix_sln%add_value_pos(idxglo(ipos), this%hcof(i))
       !
       ! -- If mover is active and this boundary is discharging,
       !    store available water (as positive value).
       ! TODO or use bound_value?
       bhead = this%bhead(nodeuser)
-      if (this%imover == 1 .and. this%xnew(n) > bhead) then
+      if (this%imover == 1 .and. this%xnew(noder) > bhead) then
         cond = this%cond_mult(i)
-        qghb = cond * (this%xnew(n) - bhead)
+        qghb = cond * (this%xnew(noder) - bhead)
         call this%pakmvrobj%accumulate_qformvr(i, qghb)
       end if
     end do

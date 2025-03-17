@@ -520,7 +520,7 @@ contains
     integer(I4B), intent(in) :: iform
     ! -- local
     integer(I4B) :: n
-    integer(I4B) :: node, nodeuser
+    integer(I4B) :: node
     real(DP) :: denseghb
     real(DP) :: elevghb
     real(DP) :: hghb
