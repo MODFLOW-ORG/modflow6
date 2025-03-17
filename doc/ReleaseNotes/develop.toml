@@ -19,4 +19,4 @@ description = "The binary grid file's name may now be specified in all discretiz
 
 [[items]]
 section = "examples"
-description = "A new example was added demonstrating thermal loading of multiple borehole heat exchangers with the Groundwater Energy (GWE) model."
+description = "A new example was added demonstrating transient thermal loading of multiple borehole heat exchangers with the Groundwater Energy (GWE) model. The simulated GWE results match the temperature change predicted by the analytical solution for the multiple borehole heat exchangers used in this problem."
