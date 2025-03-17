@@ -43,6 +43,7 @@ module BoundInputContextModule
     integer(I4B), pointer :: iprpak => null() ! print input option
     integer(I4B), pointer :: nbound => null() !< number of bounds in period
     integer(I4B), pointer :: ncpl => null() !< number of cells per layer
+    integer(I4B) :: nodes
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: auxname_cst => null() !< array of auxiliary names
     type(CharacterStringType), dimension(:), pointer, &
@@ -125,6 +126,9 @@ contains
     else if (size(this%mshape) == 3) then
       this%ncpl = this%mshape(2) * this%mshape(3)
     end if
+
+    ! set total user nodes
+    this%nodes = product(this%mshape)
 
     ! initialize package params object
     call this%package_params%init(this%mf6_input, 'PERIOD', this%readasarrays, &
@@ -237,7 +241,7 @@ contains
     integer(I4B), intent(in) :: nparam
     character(len=*), intent(in) :: input_name
     type(InputParamDefinitionType), pointer :: idt
-    integer(I4B) :: iparam
+    integer(I4B) :: iparam, asize
 
     ! allocate dfn input params
     do iparam = 1, nparam
@@ -247,24 +251,32 @@ contains
                                        this%mf6_input%component_type, &
                                        this%mf6_input%subcomponent_type, &
                                        'PERIOD', params(iparam), '')
-      if (idt%blockname == 'PERIOD') then
-        select case (idt%datatype)
-        case ('INTEGER1D')
-          call allocate_param_int1d(this%ncpl, idt%mf6varname, &
-                                    this%mf6_input%mempath)
-        case ('DOUBLE1D')
-          call allocate_param_dbl1d(this%ncpl, idt%mf6varname, &
-                                    this%mf6_input%mempath)
-        case ('DOUBLE2D')
-          call allocate_param_dbl2d(this%naux, this%ncpl, idt%mf6varname, &
-                                    this%mf6_input%mempath)
-        case default
-          errmsg = 'IDM unimplemented. BoundInputContext::array_params_create &
-                   &datatype='//trim(idt%datatype)
-          call store_error(errmsg)
-          call store_error_filename(input_name)
-        end select
-      end if
+
+      select case (idt%shape)
+      case ('NCPL', 'NAUX NCPL')
+        asize = this%ncpl
+      case ('NODES', 'NAUX NODES')
+        asize = this%nodes
+      case default
+        asize = 0
+      end select
+
+      select case (idt%datatype)
+      case ('INTEGER1D')
+        call allocate_param_int1d(asize, idt%mf6varname, &
+                                  this%mf6_input%mempath)
+      case ('DOUBLE1D')
+        call allocate_param_dbl1d(asize, idt%mf6varname, &
+                                  this%mf6_input%mempath)
+      case ('DOUBLE2D')
+        call allocate_param_dbl2d(this%naux, asize, idt%mf6varname, &
+                                  this%mf6_input%mempath)
+      case default
+        errmsg = 'IDM unimplemented. BoundInputContext::array_params_create &
+                 &datatype='//trim(idt%datatype)
+        call store_error(errmsg)
+        call store_error_filename(input_name)
+      end select
     end do
   end subroutine array_params_create
 

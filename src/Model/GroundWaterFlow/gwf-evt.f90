@@ -372,7 +372,7 @@ contains
     !
     if (this%read_as_arrays) then
       !
-      ! -- update nodelist based on IRCH input
+      ! -- update nodelist based on IEVT input
       call nodelist_update(this%nodelist, this%nbound, this%maxbound, &
                            this%dis, this%input_mempath)
       !
