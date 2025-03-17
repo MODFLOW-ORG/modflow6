@@ -16,3 +16,7 @@ parallel = "PARALLEL"
 section = "features"
 subsection = "basic"
 description = "The binary grid file's name may now be specified in all discretization packages with option GRB6 FILEOUT followed by a file path. If this option is not provided, the binary grid file will be named as before, identical to the discretization file name plus a ``.grb'' extension. Note that renaming the binary grid file may break downstream integrations which expect the default name."
+
+[[items]]
+section = "examples"
+description = "A new example was added demonstrating thermal loading of multiple borehole heat exchangers with the Groundwater Energy (GWE) model."
