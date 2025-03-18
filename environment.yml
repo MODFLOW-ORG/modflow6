@@ -15,6 +15,7 @@ dependencies:
   - fprettify
   - fortran-language-server
   - gitpython
+  - h5py
   - Jinja2>=3.1.5,<4
   - jupytext
   - matplotlib
