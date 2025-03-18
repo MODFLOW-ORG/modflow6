@@ -3,7 +3,7 @@ import os
 import flopy
 import numpy as np
 import pytest
-from flopy.utils.binaryfile import write_budget, write_head
+from binary_util import write_budget, write_head
 from framework import TestFramework
 
 cases = ["dsp01a_fmi", "dsp01b_fmi"]
