@@ -455,14 +455,14 @@ contains
       call this%parser%StoreErrorUnit()
     end select
 
+    call expandarray(this%block_tags)
+    this%block_tags(size(this%block_tags)) = trim(idt%tagname)
+
     ! continue line if in same record
     if (idt%in_record) then
       ! recursively call parse tag again to read rest of line
       call this%parse_tag(iblk, .true.)
     end if
-
-    call expandarray(this%block_tags)
-    this%block_tags(size(this%block_tags)) = trim(idt%tagname)
   end subroutine parse_tag
 
   function block_index_dfn(this, iblk) result(idt)
@@ -617,12 +617,20 @@ contains
     integer(I4B), intent(in) :: iout !< unit number for output
     character(len=LINELENGTH), pointer :: cstr
     character(len=LENBIGLINE), pointer :: bigcstr
+    character(len=:), allocatable :: line
     integer(I4B) :: ilen
     select case (idt%shape)
     case ('LENBIGLINE')
       ilen = LENBIGLINE
       call mem_allocate(bigcstr, ilen, idt%mf6varname, memoryPath)
       call parser%GetString(bigcstr, (.not. idt%preserve_case))
+      call idm_log_var(bigcstr, idt%tagname, memoryPath, iout)
+    case (':')
+      ilen = LINELENGTH
+      call mem_allocate(cstr, ilen, idt%mf6varname, memoryPath)
+      call parser%GetRemainingLine(line)
+      cstr = line
+      deallocate (line)
       call idm_log_var(bigcstr, idt%tagname, memoryPath, iout)
     case default
       ilen = LINELENGTH

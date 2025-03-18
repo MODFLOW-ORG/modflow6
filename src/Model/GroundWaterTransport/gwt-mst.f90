@@ -99,8 +99,10 @@ module GwtMstModule
     procedure :: addto_volfracim
     procedure :: get_volfracm
     procedure, private :: allocate_arrays
-    procedure, private :: read_options
-    procedure, private :: read_data
+    procedure, private :: log_options
+    procedure, private :: log_data
+    procedure, private :: source_options
+    procedure, private :: source_data
 
   end type GwtMstType
 
@@ -110,10 +112,11 @@ contains
   !!
   !!  Create a new MST object
   !<
-  subroutine mst_cr(mstobj, name_model, inunit, iout, fmi)
+  subroutine mst_cr(mstobj, name_model, input_mempath, inunit, iout, fmi)
     ! -- dummy
     type(GwtMstType), pointer :: mstobj !< unallocated new mst object to create
     character(len=*), intent(in) :: name_model !< name of the model
+    character(len=*), intent(in) :: input_mempath !< memory path of input
     integer(I4B), intent(in) :: inunit !< unit number of WEL package input file
     integer(I4B), intent(in) :: iout !< unit number of model listing file
     type(TspFmiType), intent(in), target :: fmi !< fmi package for this GWT model
@@ -122,7 +125,7 @@ contains
     allocate (mstobj)
     !
     ! -- create name and memory path
-    call mstobj%set_names(1, name_model, 'MST', 'MST')
+    call mstobj%set_names(1, name_model, 'MST', 'MST', input_mempath)
     !
     ! -- Allocate scalars
     call mstobj%allocate_scalars()
@@ -150,13 +153,13 @@ contains
     ! -- formats
     character(len=*), parameter :: fmtmst = &
       "(1x,/1x,'MST -- MOBILE STORAGE AND TRANSFER PACKAGE, VERSION 1, &
-      &7/29/2020 INPUT READ FROM UNIT ', i0, //)"
+      &7/29/2020 INPUT READ FROM MEMPATH: ', A, //)"
     !
     ! --print a message identifying the mobile storage and transfer package.
-    write (this%iout, fmtmst) this%inunit
+    write (this%iout, fmtmst) this%input_mempath
     !
-    ! -- Read options
-    call this%read_options()
+    ! -- Source options
+    call this%source_options()
     !
     ! -- store pointers to arguments that were passed in
     this%dis => dis
@@ -165,8 +168,8 @@ contains
     ! -- Allocate arrays
     call this%allocate_arrays(dis%nodes)
     !
-    ! -- read the data block
-    call this%read_data()
+    ! -- source the data block
+    call this%source_data()
   end subroutine mst_ar
 
   !> @ brief Fill coefficient method for package
@@ -1111,7 +1114,7 @@ contains
       call mem_allocate(this%ratedcys, 1, 'RATEDCYS', this%memoryPath)
       call mem_allocate(this%decayslast, 1, 'DECAYSLAST', this%memoryPath)
     end if
-    call mem_allocate(this%decay_sorbed, 1, 'DECAY_SORBED', &
+    call mem_allocate(this%decay_sorbed, this%dis%nodes, 'DECAY_SORBED', &
                       this%memoryPath)
     !
     ! -- srb
@@ -1160,22 +1163,65 @@ contains
     end do
   end subroutine allocate_arrays
 
-  !> @ brief Read options for package
+  !> @ brief Source options for package
   !!
-  !!  Method to read options for the package.
+  !!  Method to source options for the package.
   !<
-  subroutine read_options(this)
+  subroutine source_options(this)
     ! -- modules
+    use ConstantsModule, only: LENVARNAME
     use OpenSpecModule, only: access, form
     use InputOutputModule, only: getunit, openfile
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwtMstInputModule, only: GwtMstParamFoundType
     ! -- dummy
-    class(GwtMstType) :: this !< GwtMstType object
-    ! -- local
-    character(len=LINELENGTH) :: keyword
-    character(len=LINELENGTH) :: sorption
-    character(len=MAXCHARLEN) :: fname
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
+    class(GwtMstType) :: this
+    ! -- locals
+    type(GwtMstParamFoundType) :: found
+    character(len=LENVARNAME), dimension(3) :: sorption_method = &
+      &[character(len=LENVARNAME) :: 'LINEAR', 'FREUNDLICH', 'LANGMUIR']
+    character(len=LINELENGTH) :: fname
+    !
+    ! -- update defaults with memory sourced values
+    call mem_set_value(this%ipakcb, 'SAVE_FLOWS', this%input_mempath, &
+                       found%save_flows)
+    call mem_set_value(this%idcy, 'ORD1_DECAY', this%input_mempath, &
+                       found%ord1_decay)
+    call mem_set_value(this%idcy, 'ZERO_ORDER_DECAY', this%input_mempath, &
+                       found%zero_order_decay)
+    call mem_set_value(this%isrb, 'SORPTION', this%input_mempath, &
+                       sorption_method, found%sorption)
+    call mem_set_value(fname, 'SORBATEFILE', this%input_mempath, &
+                       found%sorbatefile)
+
+    ! -- found side effects
+    if (found%save_flows) this%ipakcb = -1
+    if (found%ord1_decay) this%idcy = DECAY_FIRST_ORDER
+    if (found%zero_order_decay) this%idcy = DECAY_ZERO_ORDER
+    if (found%sorption) then
+      if (this%isrb == IZERO) then
+        this%isrb = SORPTION_LINEAR
+      end if
+    end if
+    if (found%sorbatefile) then
+      this%ioutsorbate = getunit()
+      call openfile(this%ioutsorbate, this%iout, fname, 'DATA(BINARY)', &
+                    form, access, 'REPLACE', mode_opt=MNORMAL)
+    end if
+    !
+    ! -- log options
+    if (this%iout > 0) then
+      call this%log_options(found, fname)
+    end if
+  end subroutine source_options
+
+  !> @brief Write user options to list file
+  !<
+  subroutine log_options(this, found, sorbate_fname)
+    use GwtMstInputModule, only: GwtMstParamFoundType
+    class(GwTMstType) :: this
+    type(GwtMstParamFoundType), intent(in) :: found
+    character(len=*), intent(in) :: sorbate_fname
     ! -- formats
     character(len=*), parameter :: fmtisvflow = &
       "(4x,'CELL-BY-CELL FLOW INFORMATION WILL BE SAVED TO BINARY FILE &
@@ -1193,194 +1239,126 @@ contains
     character(len=*), parameter :: fmtfileout = &
       "(4x,'MST ',1x,a,1x,' WILL BE SAVED TO FILE: ',a,/4x,&
       &'OPENED ON UNIT: ',I7)"
-    !
-    ! -- get options block
-    call this%parser%GetBlock('OPTIONS', isfound, ierr, blockRequired=.false., &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse options block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING MOBILE STORAGE AND TRANSFER OPTIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('SAVE_FLOWS')
-          this%ipakcb = -1
-          write (this%iout, fmtisvflow)
-        case ('SORBTION')
-          call store_error('SORBTION is not a valid option.  Use &
-                           &SORPTION instead.')
-          call this%parser%StoreErrorUnit()
-        case ('SORPTION')
-          call this%parser%GetStringCaps(sorption)
-          select case (sorption)
-          case ('LINEAR', '')
-            this%isrb = SORPTION_LINEAR
-            write (this%iout, fmtlinear)
-          case ('FREUNDLICH')
-            this%isrb = SORPTION_FREUND
-            write (this%iout, fmtfreundlich)
-          case ('LANGMUIR')
-            this%isrb = SORPTION_LANG
-            write (this%iout, fmtlangmuir)
-          case default
-            call store_error('Unknown sorption type was specified ' &
-                             & //'('//trim(adjustl(sorption))//').'// &
-                             &' Sorption must be specified as LINEAR, &
-                             &FREUNDLICH, or LANGMUIR.')
-            call this%parser%StoreErrorUnit()
-          end select
-        case ('FIRST_ORDER_DECAY')
-          this%idcy = DECAY_FIRST_ORDER
-          write (this%iout, fmtidcy1)
-        case ('ZERO_ORDER_DECAY')
-          this%idcy = DECAY_ZERO_ORDER
-          write (this%iout, fmtidcy2)
-        case ('SORBATE')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            this%ioutsorbate = getunit()
-            call openfile(this%ioutsorbate, this%iout, fname, 'DATA(BINARY)', &
-                          form, access, 'REPLACE', mode_opt=MNORMAL)
-            write (this%iout, fmtfileout) &
-              'SORBATE', fname, this%ioutsorbate
-          else
-            errmsg = 'Optional SORBATE keyword must be '// &
-                     'followed by FILEOUT.'
-            call store_error(errmsg)
-          end if
-        case default
-          write (errmsg, '(a,a)') 'Unknown MST option: ', trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END OF MOBILE STORAGE AND TRANSFER OPTIONS'
-    end if
-  end subroutine read_options
 
-  !> @ brief Read data for package
+    write (this%iout, '(1x,a)') 'PROCESSING MOBILE STORAGE AND TRANSFER OPTIONS'
+    if (found%save_flows) then
+      write (this%iout, fmtisvflow)
+    end if
+    if (found%ord1_decay) then
+      write (this%iout, fmtidcy1)
+    end if
+    if (found%zero_order_decay) then
+      write (this%iout, fmtidcy2)
+    end if
+    if (found%sorption) then
+      select case (this%isrb)
+      case (SORPTION_LINEAR)
+        write (this%iout, fmtlinear)
+      case (SORPTION_FREUND)
+        write (this%iout, fmtfreundlich)
+      case (SORPTION_LANG)
+        write (this%iout, fmtlangmuir)
+      end select
+    end if
+    if (found%sorbatefile) then
+      write (this%iout, fmtfileout) &
+        'SORBATE', sorbate_fname, this%ioutsorbate
+    end if
+    write (this%iout, '(1x,a)') 'END OF MOBILE STORAGE AND TRANSFER OPTIONS'
+  end subroutine log_options
+
+  !> @ brief Source data for package
   !!
-  !!  Method to read data for the package.
+  !!  Method to source data for the package.
   !<
-  subroutine read_data(this)
+  subroutine source_data(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
-    use MemoryManagerModule, only: mem_reallocate, mem_reassignptr
+    use SimModule, only: count_errors, store_error
+    use MemoryManagerModule, only: get_isize, mem_reallocate
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwtMstInputModule, only: GwtMstParamFoundType
     ! -- dummy
-    class(GwtMstType) :: this !< GwtMstType object
-    ! -- local
-    character(len=LINELENGTH) :: keyword
-    character(len=:), allocatable :: line
-    integer(I4B) :: istart, istop, lloc, ierr, n
-    logical :: isfound, endOfBlock
-    logical, dimension(6) :: lname
-    character(len=24), dimension(6) :: aname
-    ! -- data
-    data aname(1)/'  MOBILE DOMAIN POROSITY'/
-    data aname(2)/'            BULK DENSITY'/
-    data aname(3)/'DISTRIBUTION COEFFICIENT'/
-    data aname(4)/'              DECAY RATE'/
-    data aname(5)/'       DECAY SORBED RATE'/
-    data aname(6)/'   SECOND SORPTION PARAM'/
+    class(GwtMsttype) :: this
+    ! -- locals
+    character(len=LINELENGTH) :: errmsg
+    type(GwtMstParamFoundType) :: found
+    integer(I4B) :: n, asize
+    integer(I4B), dimension(:), pointer, contiguous :: map
     !
-    ! -- initialize
-    isfound = .false.
-    lname(:) = .false.
+    ! -- set map to convert user input data into reduced data
+    map => null()
+    if (this%dis%nodes < this%dis%nodesuser) map => this%dis%nodeuser
     !
-    ! -- get griddata block
-    call this%parser%GetBlock('GRIDDATA', isfound, ierr)
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING GRIDDATA'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        call this%parser%GetRemainingLine(line)
-        lloc = 1
-        select case (keyword)
-        case ('POROSITY')
-          call this%dis%read_grid_array(line, lloc, istart, istop, this%iout, &
-                                        this%parser%iuactive, this%porosity, &
-                                        aname(1))
-          lname(1) = .true.
-        case ('BULK_DENSITY')
-          if (this%isrb == SORPTION_OFF) &
-            call mem_reallocate(this%bulk_density, this%dis%nodes, &
-                                'BULK_DENSITY', trim(this%memoryPath))
-          call this%dis%read_grid_array(line, lloc, istart, istop, this%iout, &
-                                        this%parser%iuactive, &
-                                        this%bulk_density, aname(2))
-          lname(2) = .true.
-        case ('DISTCOEF')
-          if (this%isrb == SORPTION_OFF) &
-            call mem_reallocate(this%distcoef, this%dis%nodes, 'DISTCOEF', &
-                                trim(this%memoryPath))
-          call this%dis%read_grid_array(line, lloc, istart, istop, this%iout, &
-                                        this%parser%iuactive, this%distcoef, &
-                                        aname(3))
-          lname(3) = .true.
-        case ('DECAY')
-          if (this%idcy == DECAY_OFF) &
-            call mem_reallocate(this%decay, this%dis%nodes, 'DECAY', &
-                                trim(this%memoryPath))
-          call this%dis%read_grid_array(line, lloc, istart, istop, this%iout, &
-                                        this%parser%iuactive, this%decay, &
-                                        aname(4))
-          lname(4) = .true.
-        case ('DECAY_SORBED')
-          call mem_reallocate(this%decay_sorbed, this%dis%nodes, &
-                              'DECAY_SORBED', trim(this%memoryPath))
-          call this%dis%read_grid_array(line, lloc, istart, istop, this%iout, &
-                                        this%parser%iuactive, &
-                                        this%decay_sorbed, aname(5))
-          lname(5) = .true.
-        case ('SP2')
-          if (this%isrb == SORPTION_OFF .or. this%isrb == SORPTION_LINEAR) &
-            call mem_reallocate(this%sp2, this%dis%nodes, 'SP2', &
-                                trim(this%memoryPath))
-          call this%dis%read_grid_array(line, lloc, istart, istop, this%iout, &
-                                        this%parser%iuactive, this%sp2, &
-                                        aname(6))
-          lname(6) = .true.
-        case default
-          write (errmsg, '(a,a)') 'Unknown GRIDDATA tag: ', trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END PROCESSING GRIDDATA'
-    else
-      write (errmsg, '(a)') 'Required GRIDDATA block not found.'
-      call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
+    ! -- reallocate
+    if (this%isrb == SORPTION_OFF) then
+      call get_isize('BULK_DENSITY', this%input_mempath, asize)
+      if (asize >= 0) &
+        call mem_reallocate(this%bulk_density, this%dis%nodes, &
+                            'BULK_DENSITY', trim(this%memoryPath))
+      call get_isize('DISTCOEF', this%input_mempath, asize)
+      if (asize >= 0) &
+        call mem_reallocate(this%distcoef, this%dis%nodes, 'DISTCOEF', &
+                            trim(this%memoryPath))
+    end if
+    if (this%idcy == DECAY_OFF) then
+      call get_isize('DECAY', this%input_mempath, asize)
+      if (asize >= 0) &
+        call mem_reallocate(this%decay, this%dis%nodes, 'DECAY', &
+                            trim(this%memoryPath))
+    end if
+    call get_isize('DECAY_SORBED', this%input_mempath, asize)
+    if (asize >= 0) then
+      call mem_reallocate(this%decay_sorbed, this%dis%nodes, &
+                          'DECAY_SORBED', trim(this%memoryPath))
+    end if
+    if (this%isrb == SORPTION_OFF .or. this%isrb == SORPTION_LINEAR) then
+      call get_isize('SP2', this%input_mempath, asize)
+      if (asize >= 0) &
+        call mem_reallocate(this%sp2, this%dis%nodes, 'SP2', &
+                            trim(this%memoryPath))
     end if
     !
+    ! -- update defaults with memory sourced values
+    call mem_set_value(this%porosity, 'POROSITY', this%input_mempath, map, &
+                       found%porosity)
+    call mem_set_value(this%decay, 'DECAY', this%input_mempath, map, &
+                       found%decay)
+    call mem_set_value(this%decay_sorbed, 'DECAY_SORBED', this%input_mempath, &
+                       map, found%decay_sorbed)
+    call mem_set_value(this%bulk_density, 'BULK_DENSITY', this%input_mempath, &
+                       map, found%bulk_density)
+    call mem_set_value(this%distcoef, 'DISTCOEF', this%input_mempath, map, &
+                       found%distcoef)
+    call mem_set_value(this%sp2, 'SP2', this%input_mempath, map, &
+                       found%sp2)
+
+    ! -- log options
+    if (this%iout > 0) then
+      call this%log_data(found)
+    end if
+
     ! -- Check for required porosity
-    if (.not. lname(1)) then
+    if (.not. found%porosity) then
       write (errmsg, '(a)') 'POROSITY not specified in GRIDDATA block.'
       call store_error(errmsg)
     end if
-    !
+
     ! -- Check for required sorption variables
     if (this%isrb == SORPTION_LINEAR .or. this%isrb == SORPTION_FREUND .or. &
         this%isrb == SORPTION_LANG) then
-      if (.not. lname(2)) then
+      if (.not. found%bulk_density) then
         write (errmsg, '(a)') 'Sorption is active but BULK_DENSITY &
           &not specified.  BULK_DENSITY must be specified in GRIDDATA block.'
         call store_error(errmsg)
       end if
-      if (.not. lname(3)) then
+      if (.not. found%distcoef) then
         write (errmsg, '(a)') 'Sorption is active but distribution &
           &coefficient not specified.  DISTCOEF must be specified in &
           &GRIDDATA block.'
         call store_error(errmsg)
       end if
       if (this%isrb == SORPTION_FREUND .or. this%isrb == SORPTION_LANG) then
-        if (.not. lname(6)) then
+        if (.not. found%sp2) then
           write (errmsg, '(a)') 'Freundlich or langmuir sorption is active &
             &but SP2 not specified.  SP2 must be specified in &
             &GRIDDATA block.'
@@ -1388,21 +1366,21 @@ contains
         end if
       end if
     else
-      if (lname(2)) then
+      if (found%bulk_density) then
         write (warnmsg, '(a)') 'Sorption is not active but &
           &BULK_DENSITY was specified.  BULK_DENSITY will have no affect on &
           &simulation results.'
         call store_warning(warnmsg)
         write (this%iout, '(1x,a)') 'WARNING.  '//warnmsg
       end if
-      if (lname(3)) then
+      if (found%distcoef) then
         write (warnmsg, '(a)') 'Sorption is not active but &
           &distribution coefficient was specified.  DISTCOEF will have &
           &no affect on simulation results.'
         call store_warning(warnmsg)
         write (this%iout, '(1x,a)') 'WARNING.  '//warnmsg
       end if
-      if (lname(6)) then
+      if (found%sp2) then
         write (warnmsg, '(a)') 'Sorption is not active but &
           &SP2 was specified.  SP2 will have &
           &no affect on simulation results.'
@@ -1410,16 +1388,16 @@ contains
         write (this%iout, '(1x,a)') 'WARNING.  '//warnmsg
       end if
     end if
-    !
+
     ! -- Check for required decay/production rate coefficients
     if (this%idcy /= DECAY_OFF) then
-      if (.not. lname(4)) then
+      if (.not. found%decay) then
         write (errmsg, '(a)') 'First or zero order decay is &
           &active but the first rate coefficient is not specified.  DECAY &
           &must be specified in GRIDDATA block.'
         call store_error(errmsg)
       end if
-      if (.not. lname(5)) then
+      if (.not. found%decay_sorbed) then
         !
         ! -- If DECAY_SORBED not specified and sorption is active, then
         !    terminate with an error
@@ -1432,14 +1410,14 @@ contains
         end if
       end if
     else
-      if (lname(4)) then
+      if (found%decay) then
         write (warnmsg, '(a)') 'First- or zero-order decay &
           &is not active but decay was specified.  DECAY will &
           &have no affect on simulation results.'
         call store_warning(warnmsg)
         write (this%iout, '(1x,a)') 'WARNING.  '//warnmsg
       end if
-      if (lname(5)) then
+      if (found%decay_sorbed) then
         write (warnmsg, '(a)') 'First- or zero-order decay &
           &is not active but DECAY_SORBED was specified.  &
           &DECAY_SORBED will have no affect on simulation results.'
@@ -1447,17 +1425,46 @@ contains
         write (this%iout, '(1x,a)') 'WARNING.  '//warnmsg
       end if
     end if
-    !
+
     ! -- terminate if errors
     if (count_errors() > 0) then
       call this%parser%StoreErrorUnit()
     end if
-    !
+
     ! -- initialize thetam from porosity
     do n = 1, size(this%porosity)
       this%thetam(n) = this%porosity(n)
     end do
-  end subroutine read_data
+  end subroutine source_data
+
+  !> @brief Write user options to list file
+  !<
+  subroutine log_data(this, found)
+    use GwtMstInputModule, only: GwtMstParamFoundType
+    class(GwTMstType) :: this
+    type(GwtMstParamFoundType), intent(in) :: found
+
+    write (this%iout, '(1x,a)') 'PROCESSING GRIDDATA'
+    if (found%porosity) then
+      write (this%iout, '(4x,a)') 'MOBILE DOMAIN POROSITY set from input file'
+    end if
+    if (found%decay) then
+      write (this%iout, '(4x,a)') 'DECAY RATE set from input file'
+    end if
+    if (found%decay_sorbed) then
+      write (this%iout, '(4x,a)') 'DECAY SORBED RATE set from input file'
+    end if
+    if (found%bulk_density) then
+      write (this%iout, '(4x,a)') 'BULK DENSITY set from input file'
+    end if
+    if (found%distcoef) then
+      write (this%iout, '(4x,a)') 'DISTRIBUTION COEFFICIENT set from input file'
+    end if
+    if (found%sp2) then
+      write (this%iout, '(4x,a)') 'SECOND SORPTION PARAM set from input file'
+    end if
+    write (this%iout, '(1x,a)') 'END PROCESSING GRIDDATA'
+  end subroutine log_data
 
   !> @ brief Add volfrac values to volfracim
   !!

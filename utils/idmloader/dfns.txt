@@ -32,6 +32,8 @@ gwt-disv.dfn
 gwt-dsp.dfn
 gwt-cnc.dfn
 gwt-ic.dfn
+gwt-ist.dfn
+gwt-mst.dfn
 
 # gwe model
 gwe-nam.dfn
