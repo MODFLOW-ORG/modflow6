@@ -32,6 +32,7 @@ botm = np.loadtxt(data_path / "bottom.txt").reshape(shape3d)
 chd_spd = [[0, i, 0, H1] for i in range(nrow)]
 chd_spd += [[0, i, ncol - 1, H2] for i in range(nrow)]
 base_heads = flopy.utils.HeadFile(data_path / "results.hds.cmp").get_data()
+mfsplit = None
 
 
 def build_models(idx, test):
@@ -92,12 +93,12 @@ def build_models(idx, test):
     )
 
     if idx == 1:
+        global mfsplit
         sim.write_simulation(silent=True)
         mfsplit = flopy.mf6.utils.Mf6Splitter(sim)
         split_array = np.tri(nrow, ncol).astype(int)
         new_sim = mfsplit.split_model(split_array)
         new_sim.set_sim_path(test.workspace)
-        mfsplit.save_node_mapping(pl.Path(f"{test.workspace}/mapping.h5"))
         return new_sim, None
     else:
         return sim, None
@@ -106,9 +107,6 @@ def build_models(idx, test):
 def check_output(idx, test):
     mf6sim = flopy.mf6.MFSimulation.load(sim_ws=test.workspace)
     if idx == 1:
-        mfsplit = flopy.mf6.utils.Mf6Splitter.load_node_mapping(
-            pl.Path(f"{test.workspace}/mapping.h5")
-        )
         head_dict = {}
         for modelname in mf6sim.model_names:
             mnum = int(modelname.split("_")[-1])
