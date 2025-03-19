@@ -8,7 +8,6 @@ with a serial model.
 This test also checks that Newton under_relaxation works in parallel.
 """
 
-
 import flopy
 import numpy as np
 import pytest
