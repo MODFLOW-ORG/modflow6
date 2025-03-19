@@ -60,12 +60,6 @@ jobs:
         with:
           path: modflow6
 
-      - name: Checkout modflow6-largetestmodels
-        uses: actions/checkout@v4
-        with:
-          repository: MODFLOW-ORG/modflow6-largetestmodels
-          path: modflow6-largetestmodels
-
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.8.4
         with:

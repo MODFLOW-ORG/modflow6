@@ -150,3 +150,5 @@ autotest/notebooks/
 **.DS_Store
 # pixi environments
 .pixi
+
+**/*.lock

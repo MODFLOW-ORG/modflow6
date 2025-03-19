@@ -228,12 +228,6 @@ jobs:
         with:
           path: modflow6
 
-      - name: Checkout test models
-        uses: actions/checkout@v4
-        with:
-          repository: MODFLOW-ORG/modflow6-testmodels
-          path: modflow6-testmodels
-
       - name: Checkout examples
         uses: actions/checkout@v4
         with:
@@ -393,12 +387,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: modflow6
-
-      - name: Checkout test models
-        uses: actions/checkout@v4
-        with:
-          repository: MODFLOW-ORG/modflow6-testmodels
-          path: modflow6-testmodels
 
       - name: Checkout examples
         uses: actions/checkout@v4

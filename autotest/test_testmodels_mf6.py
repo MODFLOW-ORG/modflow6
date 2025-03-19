@@ -1,10 +1,17 @@
 from shutil import copytree
 
+import modflow_devtools.models as models
 import pytest
-from common_regression import get_mf6_comparison, setup_mf6, setup_mf6_comparison
+from compare import (
+    Comparison,
+    detect_comparison,
+    setup_comparison,
+    setup_simulation,
+)
 from framework import TestFramework
 
-excluded_models = [
+MODELS = [m for m in models.get_models().keys() if m.startswith("test/")]
+SKIP = [
     "alt_model",
     "test205_gwtbuy-henrytidal",
     # todo reinstate after 6.5.0 release
@@ -23,29 +30,43 @@ excluded_models = [
 ]
 
 
-@pytest.mark.repo
 @pytest.mark.regression
+@pytest.mark.parametrize("model_name", MODELS)
 def test_model(
+    model_name,
+    tmp_path,
     function_tmpdir,
     markers,
     original_regression,
     targets,
-    # https://modflow-devtools.readthedocs.io/en/latest/md/fixtures.html#modflow-6-test-models
-    test_model_mf6,
 ):
-    model_path = test_model_mf6.parent
-    model_name = model_path.name
-    excluded = model_name in excluded_models
-    compare = (
-        get_mf6_comparison(model_path) if original_regression else "mf6_regression"
-    )
-    dev_only = "dev" in model_name and "not developmode" in markers
-    if excluded or dev_only:
-        reason = "excluded" if excluded else "developmode only"
+    models.copy_to(tmp_path, model_name)
+
+    skip = any(s in model_name for s in SKIP)
+    devonly = "dev" in model_name and "not developmode" in markers
+    if skip or devonly:
+        reason = "excluded" if skip else "developmode only"
         pytest.skip(f"Skipping: {model_name} ({reason})")
 
     # setup test workspace and framework
-    setup_mf6(src=model_path, dst=function_tmpdir)
+    setup_simulation(src=tmp_path, dst=function_tmpdir)
+
+    # setup comparison workspace
+    if (
+        compare := detect_comparison(tmp_path)
+        if original_regression
+        else Comparison.MF6_REGRESSION
+    ) == Comparison.MF6_REGRESSION:
+        copytree(function_tmpdir, function_tmpdir / compare.value)
+    else:
+        setup_comparison(
+            function_tmpdir,
+            function_tmpdir / compare.value,
+            compare.value,
+            overwrite=True,
+        )
+
+    # run the test
     test = TestFramework(
         name=model_name,
         workspace=function_tmpdir,
@@ -53,12 +74,4 @@ def test_model(
         compare=compare,
         verbose=False,
     )
-
-    # setup comparison workspace
-    if compare == "mf6_regression":
-        copytree(function_tmpdir, function_tmpdir / compare)
-    else:
-        setup_mf6_comparison(model_path, function_tmpdir, compare, overwrite=True)
-
-    # run the test
     test.run()

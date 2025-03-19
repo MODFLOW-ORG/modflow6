@@ -1,20 +1,24 @@
 import os
 import shutil
-from collections.abc import Iterator
+from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 from warnings import warn
 
-COMPARE_PROGRAMS = (
-    "mf2005",
-    "mfnwt",
-    "mfusg",
-    "mflgr",
-    "libmf6",
-    "mf6",
-    "mf6_regression",
-    # todo: "mp7"
-)
+
+class Comparison(Enum):
+    """Comparison types for MODFLOW 6 regression testing."""
+
+    AUTO = "auto"
+    MF2005 = "mf2005"
+    MFNWT = "mfnwt"
+    MFUSG = "mfusg"
+    MFLGR = "mflgr"
+    LIBMF6 = "libmf6"
+    MF6 = "mf6"
+    MF6_REGRESSION = "mf6_regression"
+
+
 EXTTEXT = {
     "hds": "head",
     "hed": "head",
@@ -200,37 +204,16 @@ def get_namefiles(pth, exclude=None):
     return namefiles
 
 
-def get_matching_files(
-    workspace: Union[str, os.PathLike], extensions: Union[str, Iterator[str]]
-) -> Iterator[str]:
+def detect_comparison(ws: os.PathLike) -> Comparison | None:
     """
-    Get MF6 regression files in the specified workspace,
-    optionally filtering by one or more file extensions.
-    Parameters
-    ----------
-    workspace : str or PathLike
-        MODFLOW 6 simulation workspace path
-    extensions : str or list of str
-        file extensions to filter
-    Returns
-    -------
-    An iterator of regression files found
-    """
+    Determine the comparison type for a MODFLOW 6 regression
+    test based on files present in the simulation workspace.
+    This function is used to determine which legacy program
+    a comparison should be made against, e.g. MODFLOW 2005,
+    MODFLOW-NWT, MODFLOW-USG, or MODFLOW-LGR.
 
-    workspace = Path(workspace).expanduser().absolute()
-    if isinstance(extensions, str):
-        extensions = [extensions]
-
-    for ext in extensions:
-        yield from workspace.glob(f"*.{ext}")
-
-
-def get_mf6_comparison(src):
-    """
-    Determine the comparison type for a MODFLOW 6 simulation
-    based on files present in the simulation workspace. Some
-    files take precedence over others according to the order
-    specified in `COMPARE_PROGRAMS`.
+    Some files take precedence over others according to the
+    order specified in the `Comparison` enum.
 
     Parameters
     ----------
@@ -244,11 +227,13 @@ def get_mf6_comparison(src):
 
     """
 
-    for _, dirs, _ in os.walk(src):
+    comparisons = [c.value for c in Comparison]
+    for _, dirs, _ in os.walk(ws):
         dl = [d.lower() for d in dirs]
-        for pattern in COMPARE_PROGRAMS:
-            if any(pattern in s for s in dl):
-                return pattern
+        for c in comparisons:
+            if any(c in s for s in dl):
+                return Comparison(c)
+    return None
 
 
 def get_mf6_files(namefile, verbose=False):
@@ -320,7 +305,7 @@ def get_mf6_files(namefile, verbose=False):
     flist = pkg_files
     while True:
         olist = []
-        flist, olist = get_mf6_external_files(srcdir, olist, flist)
+        flist, olist = get_external_files(srcdir, olist, flist)
         pkg_files += flist
         out_files += olist
         # terminate loop if no additional files
@@ -339,7 +324,7 @@ def get_mf6_files(namefile, verbose=False):
     return pkg_files, out_files
 
 
-def get_mf6_external_files(srcdir, outplist, files):
+def get_external_files(srcdir, outplist, files):
     """Get list of external files in a MODFLOW 6 simulation.
 
     Parameters
@@ -438,7 +423,7 @@ def get_mf6_external_files(srcdir, outplist, files):
     return extfiles, outplist
 
 
-def get_mf6_ftypes(namefile, ftypekeys):
+def get_ftypes(namefile, ftypekeys):
     """Return a list of FTYPES that are in the name file and in ftypekeys.
 
     Parameters
@@ -473,7 +458,7 @@ def get_mf6_ftypes(namefile, ftypekeys):
     return ftypes
 
 
-def get_regression_files(
+def get_comparison_files(
     workspace: os.PathLike, extensions
 ) -> tuple[list[str], list[str]]:
     if isinstance(extensions, str):
@@ -577,7 +562,9 @@ def setup_model(namefile, dst, remove_existing=True, extrafiles=None):
             print(f"{srcf} does not exist")
 
 
-def setup_mf6(src, dst, mfnamefile="mfsim.nam", extrafiles=None, remove_existing=True):
+def setup_simulation(
+    src, dst, mfnamefile="mfsim.nam", extrafiles=None, remove_existing=True
+):
     """
     Setup an MF6 simulation test, copying input files from the source
     to the destination workspace.
@@ -660,7 +647,7 @@ def setup_mf6(src, dst, mfnamefile="mfsim.nam", extrafiles=None, remove_existing
     return mf6inp, mf6outp
 
 
-def setup_mf6_comparison(src, dst, cmp_exe="mf6", overwrite=True, verbose=False):
+def setup_comparison(src, dst, cmp_exe="mf6", overwrite=True, verbose=False):
     """Setup an output comparison for MODFLOW 6 simulation.
 
     Parameters
@@ -670,7 +657,7 @@ def setup_mf6_comparison(src, dst, cmp_exe="mf6", overwrite=True, verbose=False)
     dst : path-like
         Directory to copy MODFLOW 6 input files to.
     cmp_exe : str or PathLike, optional
-        Program to compare with, for supported see `COMPARE_PROGRAMSa.
+        Program to compare with, for supported see the `Comparison` enum.
     overwrite : bool, optional
         Whether to overwrite the destination directory if it exists (default is True).
     verbose : bool, optional
@@ -718,7 +705,7 @@ def setup_mf6_comparison(src, dst, cmp_exe="mf6", overwrite=True, verbose=False)
                 srcf = os.path.join(cmppth, os.path.basename(file))
                 files2copy.append(srcf)
                 srcdir = os.path.join(src, cmp_exe)
-                setup_mf6(srcdir, dst, remove_existing=overwrite)
+                setup_simulation(srcdir, dst, remove_existing=overwrite)
                 break
     else:
         for file in files:

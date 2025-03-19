@@ -75,12 +75,6 @@ jobs:
         with:
           path: modflow6
 
-      - name: Checkout modflow6-testmodels
-        uses: actions/checkout@v4
-        with:
-          repository: MODFLOW-ORG/modflow6-testmodels
-          path: modflow6-testmodels
-    
       - name: Checkout modflow6-examples
         uses: actions/checkout@v4
         with:

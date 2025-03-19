@@ -10,14 +10,14 @@ from warnings import warn
 
 import flopy
 import numpy as np
-from common_regression import (
-    COMPARE_PROGRAMS,
+from compare import (
+    Comparison,
     adjust_htol,
-    get_mf6_comparison,
+    detect_comparison,
+    get_comparison_files,
     get_mf6_files,
     get_namefiles,
     get_rclose,
-    get_regression_files,
 )
 from flopy.mbase import BaseModel
 from flopy.mf6 import MFSimulation
@@ -160,14 +160,22 @@ def write_input(*sims, overwrite: bool = True, verbose: bool = True):
 
 class TestFramework:
     """
-    Defines a MODFLOW 6 test and its lifecycle, with configurable
-    hooks to evaluate results or run other models for comparison:
+    Defines a MODFLOW 6 end-to-end integration test. Configurable
+    hooks are available to build models and evaluate/plot results.
+    Regression testing is also supported, allowing for comparisons
+    with previous versions of MODFLOW 6 or other MODFLOW programs.
 
-        - MODFLOW 6 (directly or via API)
-        - MODFLOW-2005
-        - MODFLOW-NWT
-        - MODFLOW-USG
-        - MODFLOW-LGR
+    There are three main hooks:
+
+        - `build`: function to build the simulation(s) or model(s)
+        - `check`: function to evaluate the results of the model(s)
+        - `plot`: function to create plots of the results
+
+    There are several supported comparison scenarios: typically,
+    the test framework compares the output of the MF6 under test
+    to the latest MF6 release. The "original" regression testing
+    approach is also still supported, in which MF6 is compared to
+    another program, e.g. MODFLOW-2005, MODFLOW-NWT, MODFLOW-USG.
 
     Parameters
     ----------
@@ -181,14 +189,26 @@ class TestFramework:
         found, comparisons and regression tests will be skipped).
         Dictionary maps target names to paths. The test framework
         will refuse to run a program if it is not a known target.
-    build : function, optional
+    api_func: callable, optional
+        User defined function to invoke the MODFLOW API, accepting
+        the MF6 library path and the test workspace as parameters.
+    build : callable, optional
         User defined function returning one or more simulations/models.
         Takes `self` as input. This is the place to build simulations.
         If no build function is provided, input files must be written
         to the test `workspace` prior to calling `run()`.
-    check : function, optional
+    check : callable, optional
         User defined function to evaluate results of the simulation.
         Takes `self` as input. This is a good place for assertions.
+    plot: callable, optional
+        User defined function to create plots of the results.
+    compare: str or Comparison, optional
+        Selects the comparison type or program name. If a string,
+        must be a key into the `targets` dictionary, i.e. a valid
+        program to use for comparison. Acceptable values: auto,
+        mf6, mf6_regression, libmf6, mf2005, mfnwt, mflgr, mfnwt.
+        If 'auto', the program to use is determined automatically
+        by the contents of the comparison model/simulation folder.
     parallel : bool, optional
         Whether to test mf6 parallel capabilities.
     ncpus : int, optional
@@ -197,20 +217,13 @@ class TestFramework:
         Tolerance for result comparisons.
     rclose : float, optional
         Residual tolerance for convergence
+    overwrite : bool, optional
+        Whether to overwrite existing output files in the workspace.
     verbose: bool, optional
         Whether to show verbose output
     xfail : bool, optional
         Whether the test is expected to fail
-    api_func: function, optional
-        User defined function invoking the MODFLOW API, accepting
-        the MF6 library path and the test workspace as parameters
-    compare: str, optional
-        String selecting the comparison executable. Must be a key
-        into the `targets` dictionary, i.e. the name of a program
-        to use for the comparison model. Acceptable values: auto,
-        mf6, mf6_regression, libmf6, mf2005, mfnwt, mflgr, mfnwt.
-        If 'auto', the program to use is determined automatically
-        by contents of the comparison model/simulation workspace.
+
     """
 
     # tell pytest this class doesn't contain tests, don't collect it
@@ -249,7 +262,7 @@ class TestFramework:
         self.parallel = parallel
         self.ncpus = [ncpus] if isinstance(ncpus, int) else ncpus
         self.api_func = api_func
-        self.compare = compare
+        self.compare = Comparison(compare) if compare else None
         self.outp = None
         self.htol = 0.001 if htol is None else htol
         self.rclose = 0.001 if rclose is None else rclose
@@ -299,7 +312,8 @@ class TestFramework:
             nf = next(iter(get_namefiles(cpth)), None)
             cmp_namefile = (
                 None
-                if "mf6" in self.compare or "libmf6" in self.compare
+                if self.compare
+                in [Comparison.MF6, Comparison.MF6_REGRESSION, Comparison.LIBMF6]
                 else os.path.basename(nf)
                 if nf
                 else None
@@ -344,7 +358,7 @@ class TestFramework:
             return True
 
         # otherwise it's a regression comparison
-        files0, files1 = get_regression_files(self.workspace, extensions)
+        files0, files1 = get_comparison_files(self.workspace, extensions)
         extension = "hds"
         for i, (fpth0, fpth1) in enumerate(zip(files0, files1)):
             outfile = os.path.splitext(os.path.basename(fpth0))[0]
@@ -372,7 +386,7 @@ class TestFramework:
         if isinstance(extensions, str):
             extensions = [extensions]
 
-        files0, files1 = get_regression_files(self.workspace, extensions)
+        files0, files1 = get_comparison_files(self.workspace, extensions)
         extension = "ucn"
         for i, (fpth0, fpth1) in enumerate(zip(files0, files1)):
             outfile = os.path.splitext(os.path.basename(fpth0))[0]
@@ -401,7 +415,7 @@ class TestFramework:
     def _compare_budgets(self, extensions="cbc", rclose=0.001) -> bool:
         if isinstance(extensions, str):
             extensions = [extensions]
-        files0, files1 = get_regression_files(self.workspace, extensions)
+        files0, files1 = get_comparison_files(self.workspace, extensions)
         extension = "cbc"
         for i, (fpth0, fpth1) in enumerate(zip(files0, files1)):
             print(
@@ -498,7 +512,7 @@ class TestFramework:
         fcmp.close()
         return success
 
-    def _compare_output(self, compare):
+    def _compare(self, comparison: Comparison):
         """
         Compare the main simulation's output with that of another simulation or model.
 
@@ -507,17 +521,14 @@ class TestFramework:
             mfnwt, mflgr, or mfusg.
         """
 
-        if compare not in COMPARE_PROGRAMS:
-            raise ValueError(f"Unsupported comparison program: {compare}")
-
         if self.verbose:
             print("Comparison test", self.name)
 
         # adjust htol if < IMS outer_dvclose, and rclose for budget comparisons
         htol = adjust_htol(self.workspace, self.htol)
         rclose = get_rclose(self.workspace)
-        cmp_path = self.workspace / compare
-        if "mf6_regression" in compare:
+        cmp_path = self.workspace / comparison.value
+        if comparison == Comparison.MF6_REGRESSION:
             assert self._compare_heads(extensions=HDS_EXT, htol=htol), (
                 "head comparison failed"
             )
@@ -531,11 +542,11 @@ class TestFramework:
             assert self._compare_heads(
                 cpth=cmp_path,
                 extensions=HDS_EXT,
-                mf6="mf6" in compare,
+                mf6=comparison in [Comparison.MF6, Comparison.LIBMF6],
                 htol=htol,
             ), "head comparison failed"
 
-    def _run_sim_or_model(
+    def _run(
         self,
         workspace: Union[str, os.PathLike],
         target: Union[str, os.PathLike],
@@ -692,7 +703,7 @@ class TestFramework:
             )
             xfail = self.xfail[i]
             ncpus = self.ncpus[i]
-            success, buff = self._run_sim_or_model(workspace, target, xfail, ncpus)
+            success, buff = self._run(workspace, target, xfail, ncpus)
             self.buffs[i] = buff  # store model output for assertions later
             assert success, (
                 f"{'Simulation' if 'mf6' in str(target) else 'Model'} "
@@ -705,17 +716,17 @@ class TestFramework:
             _, self.outp = get_mf6_files(self.workspace / "mfsim.nam", self.verbose)
 
             # try to autodetect comparison type if enabled
-            if self.compare == "auto":
+            if self.compare == Comparison.AUTO:
                 if self.verbose:
                     print("Auto-detecting comparison type")
-                self.compare = get_mf6_comparison(self.workspace)
+                self.compare = detect_comparison(self.workspace)
             if self.compare:
                 if self.verbose:
                     print(f"Using comparison type: {self.compare}")
 
                 # copy simulation files to comparison workspace if mf6 regression
-                if self.compare == "mf6_regression":
-                    cmp_path = self.workspace / self.compare
+                if self.compare == Comparison.MF6_REGRESSION:
+                    cmp_path = self.workspace / self.compare.value
                     if os.path.isdir(cmp_path):
                         if self.verbose:
                             print(f"Cleaning {cmp_path}")
@@ -728,8 +739,8 @@ class TestFramework:
                     shutil.copytree(self.workspace, cmp_path)
 
                 # run comparison simulation if libmf6 or mf6 regression
-                if self.compare in ["mf6_regression", "libmf6"]:
-                    if self.compare not in self.targets:
+                if self.compare in [Comparison.MF6_REGRESSION, Comparison.LIBMF6]:
+                    if self.compare.value not in self.targets:
                         warn(
                             f"Couldn't find comparison program '{self.compare}', "
                             "skipping comparison"
@@ -738,26 +749,26 @@ class TestFramework:
                         # todo: don't hardcode workspace or assume agreement with
                         # test case simulation workspace, set & access simulation
                         # workspaces directly
-                        workspace = self.workspace / self.compare
-                        success, _ = self._run_sim_or_model(
+                        workspace = self.workspace / self.compare.value
+                        success, _ = self._run(
                             workspace,
-                            self.targets.get(self.compare, self.targets["mf6"]),
+                            self.targets.get(self.compare.value, self.targets["mf6"]),
                         )
                         assert success, f"Comparison model failed: {workspace}"
 
                 # compare model results, if enabled
-                if self.verbose and self.compare in self.targets:
-                    print("Comparing outputs")
-                self._compare_output(self.compare)
+                if self.verbose and self.compare.value in self.targets:
+                    print("Comparing results")
+                self._compare(self.compare)
 
         # check results, if enabled
         if self.check:
             if self.verbose:
-                print("Checking outputs")
+                print("Checking results")
             self.check(self)
 
         # plot results, if enabled
         if self.plot:
             if self.verbose:
-                print("Plotting outputs")
+                print("Plotting results")
             self.plot(self)

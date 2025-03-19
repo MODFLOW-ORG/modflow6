@@ -265,13 +265,6 @@ jobs:
           name: bin-${{ steps.ostag.outputs.ostag }}
           path: modflow6/bin
 
-      - name: Checkout modflow6-testmodels
-        if: inputs.run_tests == true && runner.os != 'Windows'
-        uses: actions/checkout@v4
-        with:
-          repository: MODFLOW-ORG/modflow6-testmodels
-          path: modflow6-testmodels
-
       - name: Checkout modflow6-examples
         if: inputs.run_tests == true && runner.os != 'Windows'
         uses: actions/checkout@v4
