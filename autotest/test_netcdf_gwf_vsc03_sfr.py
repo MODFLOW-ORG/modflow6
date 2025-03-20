@@ -230,7 +230,7 @@ def check_output(idx, test, export, gridded_input):
         auxarr = xds["rcha-1_auxvar_l1_p1a1"].data.flatten()
     elif export == "structured":
         rarr = xds["rcha-1_recharge_p1"].data[0].flatten()
-        auxarr = xds["rcha-1_auxvar_p1a1"].data[0].flatten()
+        auxarr = xds["rcha-1_temperature_p1"].data[0].flatten()
     assert np.allclose(
         np.array(irch[0]).flatten() + 1,
         xds["rcha-1_irch_p1"].data,
