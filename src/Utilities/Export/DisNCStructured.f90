@@ -305,7 +305,7 @@ contains
     iaux = 0
 
     ! set variable name and input attribute string
-    nc_varname = export_varname(pkgname, idt)
+    nc_varname = export_varname(pkgname, idt%mf6varname)
     input_attr = this%input_attribute(pkgname, idt)
 
     select case (idt%datatype)
@@ -434,8 +434,8 @@ contains
                                   'PERIOD', export_pkg%param_names(iparam), &
                                   this%nc_fname)
       ! set variable name and input attrs
-      nc_varname = export_varname(export_pkg%mf6_input%subcomponent_name, idt, &
-                                  iper=kper)
+      nc_varname = export_varname(export_pkg%mf6_input%subcomponent_name, &
+                                  idt%mf6varname, iper=kper)
       input_attr = this%input_attribute(export_pkg%mf6_input%subcomponent_name, &
                                         idt)
       ! export arrays
@@ -480,13 +480,19 @@ contains
     use TdisModule, only: kper
     use NCModelExportModule, only: ExportPackageType
     use DefinitionSelectModule, only: get_param_definition_type
+    use ConstantsModule, only: DNODATA, LENAUXNAME
     class(DisNCStructuredType), intent(inout) :: this
     class(ExportPackageType), pointer, intent(in) :: export_pkg
     integer(I4B), dimension(:), pointer, contiguous :: int1d
     real(DP), dimension(:), pointer, contiguous :: dbl1d
+    real(DP), dimension(:, :), pointer, contiguous :: dbl2d
+    real(DP), dimension(:, :, :), pointer, contiguous :: dbl3d
     type(InputParamDefinitionType), pointer :: idt
     character(len=LINELENGTH) :: nc_varname, input_attr
-    integer(I4B) :: iparam
+    character(len=LENAUXNAME) :: aux
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: auxname_cst
+    integer(I4B) :: iparam, n
 
     do iparam = 1, export_pkg%nparam
       ! set input definition
@@ -497,8 +503,8 @@ contains
                                        this%nc_fname)
 
       ! set variable name and input attribute string
-      nc_varname = export_varname(export_pkg%mf6_input%subcomponent_name, idt, &
-                                  iper=kper)
+      nc_varname = export_varname(export_pkg%mf6_input%subcomponent_name, &
+                                  idt%mf6varname, iper=kper)
       input_attr = this%input_attribute(export_pkg%mf6_input%subcomponent_name, &
                                         idt)
 
@@ -524,6 +530,26 @@ contains
                              this%gridmap_name, this%latlon, this%deflate, &
                              this%shuffle, this%chunk_z, this%chunk_y, &
                              this%chunk_x, kper, this%nc_fname)
+      case ('DOUBLE2D')
+        call mem_setptr(dbl2d, idt%mf6varname, export_pkg%mf6_input%mempath)
+        call mem_setptr(auxname_cst, 'AUXILIARY', export_pkg%mf6_input%mempath)
+        do n = 1, size(dbl2d, dim=1) ! naux
+          ! reset varname to auxname
+          aux = auxname_cst(n)
+          nc_varname = export_varname(export_pkg%mf6_input%subcomponent_name, &
+                                      aux, iper=kper)
+
+          ! export the 1d array as a structured 3d array
+          dbl3d(1:export_pkg%mshape(3), 1:export_pkg%mshape(2), &
+                1:export_pkg%mshape(1)) => dbl2d(n, :)
+          call nc_export_array(this%ncid, this%dim_ids, this%var_ids, &
+                               this%dis, dbl3d, nc_varname, &
+                               export_pkg%mf6_input%subcomponent_name, &
+                               aux, 'NCOL NROW NLAY', idt%longname, input_attr, &
+                               this%gridmap_name, this%latlon, this%deflate, &
+                               this%shuffle, this%chunk_z, this%chunk_y, &
+                               this%chunk_x, kper, n, this%nc_fname)
+        end do
       case default
         errmsg = 'EXPORT unsupported datatype='//trim(idt%datatype)
         call store_error(errmsg, .true.)
@@ -538,6 +564,7 @@ contains
   !<
   subroutine export_layer_3d(this, export_pkg, idt, ilayer_read, ialayer, &
                              dbl1d, nc_varname, input_attr, iaux)
+    use ConstantsModule, only: DNODATA, DZERO, LENAUXNAME
     use TdisModule, only: kper
     use NCModelExportModule, only: ExportPackageType
     class(DisNCStructuredType), intent(inout) :: this
@@ -552,12 +579,17 @@ contains
     real(DP), dimension(:, :, :), pointer, contiguous :: dbl3d
     integer(I4B) :: n, i, j, k, nvals, idxaux
     real(DP), dimension(:, :), contiguous, pointer :: dbl2d_ptr
+    character(len=LENAUXNAME) :: aux
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: auxname_cst
 
     ! initialize
     idxaux = 0
     if (present(iaux)) then
+      call mem_setptr(auxname_cst, 'AUXILIARY', export_pkg%mf6_input%mempath)
+      aux = auxname_cst(iaux)
       nc_varname = export_varname(export_pkg%mf6_input%subcomponent_name, &
-                                  idt, iper=kper, iaux=iaux)
+                                  aux, iper=kper)
       idxaux = iaux
     end if
 
@@ -1483,27 +1515,21 @@ contains
 
   !> @brief build netcdf variable name
   !<
-  function export_varname(pkgname, idt, iper, iaux) result(varname)
+  function export_varname(pkgname, varname, iper) result(fullname)
     use InputOutputModule, only: lowcase
     character(len=*), intent(in) :: pkgname
-    type(InputParamDefinitionType), pointer, intent(in) :: idt
+    character(len=*), intent(in) :: varname
     integer(I4B), optional, intent(in) :: iper
-    integer(I4B), optional, intent(in) :: iaux
-    character(len=LINELENGTH) :: varname
+    character(len=LINELENGTH) :: fullname
     character(len=LINELENGTH) :: pname, vname
     pname = pkgname
-    vname = idt%mf6varname
+    vname = varname
     call lowcase(pname)
     call lowcase(vname)
     if (present(iper)) then
-      if (present(iaux)) then
-        write (varname, '(a,i0,a,i0)') trim(pname)//'_'//trim(vname)// &
-          '_p', iper, 'a', iaux
-      else
-        write (varname, '(a,i0)') trim(pname)//'_'//trim(vname)//'_p', iper
-      end if
+      write (fullname, '(a,i0)') trim(pname)//'_'//trim(vname)//'_p', iper
     else
-      varname = trim(pname)//'_'//trim(vname)
+      fullname = trim(pname)//'_'//trim(vname)
     end if
   end function export_varname
 
