@@ -34,6 +34,7 @@ module GridFileReaderModule
     procedure, public :: read_dbl
     procedure, public :: read_int_1d
     procedure, public :: read_dbl_1d
+    procedure, public :: read_charstr
     procedure, public :: read_grid_shape
     procedure, private :: read_header
     procedure, private :: read_header_meta
@@ -161,6 +162,8 @@ contains
         call this%typ%add(key, 1)
       else if (dtype == "DOUBLE") then
         call this%typ%add(key, 2)
+      else if (dtype == "CHARACTER") then
+        call this%typ%add(key, 3)
       end if
 
       ! dims
@@ -195,6 +198,8 @@ contains
         if (dtype == "INTEGER") then
           pos = pos + (product(shp) * 4)
         else if (dtype == "DOUBLE") then
+          pos = pos + (product(shp) * 8)
+        else if (dtype == "CHARACTER") then
           pos = pos + (product(shp) * 8)
         end if
       end if
@@ -313,6 +318,34 @@ contains
     rewind (this%inunit)
 
   end function read_dbl_1d
+
+  !> @brief Read a character string from a grid file.
+  function read_charstr(this, key) result(charstr)
+    class(GridFileReaderType), intent(inout) :: this
+    character(len=*), intent(in) :: key
+    character(len=:), allocatable :: charstr
+    ! local
+    integer(I4B) :: idx, ndim, nvals, pos, typ
+    character(len=:), allocatable :: msg
+
+    msg = 'Variable '//trim(key)//' is not a character array'
+    ndim = this%dim%get(key)
+    if (ndim /= 1) then
+      write (errmsg, '(a)') msg
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+    typ = this%typ%get(key)
+    if (typ /= 3) then
+      write (errmsg, '(a)') msg
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+    idx = this%shp_idx%get(key)
+    pos = this%pos%get(key)
+    nvals = this%shp(idx)
+    allocate (character(nvals) :: charstr)
+    read (this%inunit, pos=pos) charstr
+    rewind (this%inunit)
+  end function read_charstr
 
   !> @brief Read the grid shape from a grid file.
   function read_grid_shape(this) result(v)
