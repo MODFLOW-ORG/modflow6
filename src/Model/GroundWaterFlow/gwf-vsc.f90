@@ -491,7 +491,7 @@ contains
     real(DP), dimension(:), intent(inout) :: ctemp
     ! -- local
     integer(I4B) :: n
-    integer(I4B) :: node, nodeuser
+    integer(I4B) :: node
     real(DP) :: viscbnd
     !
     ! -- Process density terms for each GHB
@@ -499,6 +499,7 @@ contains
       node = packobj%nodelist(n)
       !
       ! -- Check if boundary cell is active, cycle if not
+      if (node == 0) cycle
       if (packobj%ibound(node) <= 0) cycle
       !
       ! -- calculate the viscosity associated with the boundary
@@ -523,9 +524,8 @@ contains
       case ('GHBA')
         select type (packobj)
         type is (GhbaType)
-          nodeuser = packobj%dis%get_nodeuser(node)
-          packobj%cond(nodeuser) = update_bnd_cond(viscbnd, viscref, &
-                                                   packobj%condinput(n))
+          packobj%cond(n) = update_bnd_cond(viscbnd, viscref, &
+                                            packobj%condinput(n))
         end select
       case ('RIV')
         select type (packobj)

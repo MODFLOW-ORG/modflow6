@@ -532,6 +532,7 @@ contains
     type is (GhbaType)
       do n = 1, packobj%nbound
         node = packobj%nodelist(n)
+        if (node == 0) cycle
         if (packobj%ibound(node) <= 0) cycle
         !
         ! -- density
