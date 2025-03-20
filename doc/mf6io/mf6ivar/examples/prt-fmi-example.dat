@@ -2,6 +2,6 @@ BEGIN OPTIONS
 END OPTIONS
 
 BEGIN PACKAGEDATA
-  PRTBUDGET FILEIN ../flow/mygwfmodel.bud
-  PRTHEAD FILEIN   ../flow/mygwfmodel.hds
+  GWFBUDGET FILEIN ../flow/mygwfmodel.bud
+  GWFHEAD FILEIN   ../flow/mygwfmodel.hds
 END PACKAGEDATA
