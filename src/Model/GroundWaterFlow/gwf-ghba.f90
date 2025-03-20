@@ -19,8 +19,8 @@ module ghbamodule
   character(len=LENPACKAGENAME) :: text = '            GHBA'
   !
   type, extends(BndExtType) :: GhbaType
-    real(DP), dimension(:), pointer, contiguous :: bhead => null() !< GHB boundary head
-    real(DP), dimension(:), pointer, contiguous :: cond => null() !< GHB hydraulic conductance
+    real(DP), dimension(:), pointer, contiguous :: bhead => null() !< GHBA boundary head
+    real(DP), dimension(:), pointer, contiguous :: cond => null() !< GHBA hydraulic conductance
   contains
     procedure :: allocate_arrays => ghba_allocate_arrays
     procedure :: source_options => ghba_options
@@ -147,7 +147,8 @@ contains
     class(GhbaType), intent(inout) :: this
     ! -- local
     !
-    this%maxbound = this%dis%nodes
+    this%maxbound = this%dis%nodesuser
+    this%nbound = this%dis%nodesuser
     !
     ! -- Call define_listlabel to construct the list label that is written
     !    when PRINT_INPUT option is used.
@@ -165,7 +166,7 @@ contains
     real(DP), dimension(:, :), pointer, contiguous, optional :: auxvar
     !
     ! -- call base type allocate arrays
-    call this%BndType%allocate_arrays(nodelist, auxvar)
+    call this%BndExtType%allocate_arrays(nodelist, auxvar)
     !
     ! -- set ghb input context pointers
     call mem_setptr(this%bhead, 'BHEAD', this%input_mempath)
@@ -176,10 +177,6 @@ contains
                      'BHEAD', this%input_mempath)
     call mem_checkin(this%cond, 'COND', this%memoryPath, &
                      'COND', this%input_mempath)
-    !
-    ! -- checkin auxvar input context pointer
-    call mem_checkin(this%auxvar, 'AUXVAR_IDM', this%memoryPath, &
-                     'AUXVAR', this%input_mempath)
   end subroutine ghba_allocate_arrays
 
   !> @brief Read and prepare
@@ -191,31 +188,21 @@ contains
     use MemoryManagerModule, only: mem_setptr
     ! -- dummy
     class(GhbaType), intent(inout) :: this
-    real(DP), dimension(:, :), pointer, contiguous :: auxvar
-    integer(I4B) :: i, j, noder, nodeuser
+    integer(I4B) :: i, noder
     character(len=LINELENGTH) :: nodestr
     !
     if (this%iper /= kper) return
     !
-    ! -- set auxvar input context pointer
-    call mem_setptr(auxvar, 'AUXVAR', this%input_mempath)
-    !
     ! -- Update the nodelist
-    this%nbound = 0
-    do i = 1, this%dis%nodesuser
+    do i = 1, this%nbound
       if (this%bhead(i) == DNODATA) then
-        ! no-op
+        this%nodelist(i) = 0
       else
         noder = this%dis%get_nodenumber(i, 1)
         if (noder > 0) then
-          this%nbound = this%nbound + 1
-          this%nodelist(this%nbound) = noder
-          do j = 1, this%naux
-            this%auxvar(j, this%nbound) = auxvar(j, i)
-          end do
+          this%nodelist(i) = noder
         else
-          nodeuser = this%dis%get_nodeuser(noder)
-          call this%dis%nodeu_to_string(nodeuser, nodestr)
+          call this%dis%nodeu_to_string(i, nodestr)
           write (errmsg, *) &
             ' Cell is outside active grid domain: '// &
             trim(adjustl(nodestr))
@@ -253,36 +240,27 @@ contains
     ! -- local
     character(len=LINELENGTH) :: errmsg
     integer(I4B) :: i
-    integer(I4B) :: noder, nodeuser
+    integer(I4B) :: noder
     real(DP) :: bt
     ! -- formats
     character(len=*), parameter :: fmtghberr = &
-      "('GHB BOUNDARY (',i0,') HEAD (',f10.3,') IS LESS THAN CELL &
+      "('GHBA BOUNDARY (',i0,') HEAD (',f10.3,') IS LESS THAN CELL &
       &BOTTOM (',f10.3,')')"
     character(len=*), parameter :: fmtcondmulterr = &
-      "('GHB BOUNDARY (',i0,') CONDUCTANCE MULTIPLIER (',g10.3,') IS &
+      "('GHBA BOUNDARY (',i0,') CONDUCTANCE MULTIPLIER (',g10.3,') IS &
       &LESS THAN ZERO')"
     character(len=*), parameter :: fmtconderr = &
-      "('GHB BOUNDARY (',i0,') CONDUCTANCE (',g10.3,') IS LESS THAN &
+      "('GHBA BOUNDARY (',i0,') CONDUCTANCE (',g10.3,') IS LESS THAN &
       &ZERO')"
-    !
-    ! -- Check cond data
-    do i = 1, this%dis%nodes
-      if (this%nodelist(i) == 0) then
-        ! verify cond consistent
-      else
-        ! verify cond consistent
-      end if
-    end do
     !
     ! -- check stress period data
     do i = 1, this%nbound
       noder = this%nodelist(i)
-      nodeuser = this%dis%get_nodeuser(noder)
+      if (noder == 0) cycle
       bt = this%dis%bot(noder)
       ! -- accumulate errors
-      if (this%bhead(nodeuser) < bt .and. this%icelltype(noder) /= 0) then
-        write (errmsg, fmt=fmtghberr) nodeuser, this%bhead(nodeuser), bt
+      if (this%bhead(i) < bt .and. this%icelltype(noder) /= 0) then
+        write (errmsg, fmt=fmtghberr) i, this%bhead(i), bt
         call store_error(errmsg)
       end if
       if (this%iauxmultcol > 0) then
@@ -292,8 +270,9 @@ contains
           call store_error(errmsg)
         end if
       end if
-      if (this%cond(nodeuser) < DZERO) then
-        write (errmsg, fmt=fmtconderr) nodeuser, this%cond(nodeuser)
+      ! TODO update to include error for DNODATA
+      if (this%cond(i) < DZERO) then
+        write (errmsg, fmt=fmtconderr) i, this%cond(i)
         call store_error(errmsg)
       end if
     end do
@@ -312,19 +291,18 @@ contains
     ! -- dummy
     class(GhbaType) :: this
     ! -- local
-    integer(I4B) :: i, noder, nodeuser
+    integer(I4B) :: i, noder
     !
     do i = 1, this%nbound
       noder = this%nodelist(i)
+      if (noder == 0) cycle
       if (this%ibound(noder) .le. 0) then
         this%hcof(i) = DZERO
         this%rhs(i) = DZERO
         cycle
       end if
-      ! TODO or use bound_value?
-      nodeuser = this%dis%get_nodeuser(noder)
       this%hcof(i) = -this%cond_mult(i)
-      this%rhs(i) = -this%cond_mult(i) * this%bhead(nodeuser)
+      this%rhs(i) = -this%cond_mult(i) * this%bhead(i)
     end do
   end subroutine ghba_cf
 
@@ -338,7 +316,7 @@ contains
     integer(I4B), dimension(:), intent(in) :: idxglo
     class(MatrixBaseType), pointer :: matrix_sln
     ! -- local
-    integer(I4B) :: i, noder, nodeuser, ipos
+    integer(I4B) :: i, noder, ipos
     real(DP) :: cond, bhead, qghb
     !
     ! -- pakmvrobj fc
@@ -348,15 +326,14 @@ contains
 
     do i = 1, this%nbound
       noder = this%nodelist(i)
-      nodeuser = this%dis%get_nodeuser(noder)
+      if (noder == 0) cycle
       rhs(noder) = rhs(noder) + this%rhs(i)
       ipos = ia(noder)
       call matrix_sln%add_value_pos(idxglo(ipos), this%hcof(i))
       !
       ! -- If mover is active and this boundary is discharging,
       !    store available water (as positive value).
-      ! TODO or use bound_value?
-      bhead = this%bhead(nodeuser)
+      bhead = this%bhead(i)
       if (this%imover == 1 .and. this%xnew(noder) > bhead) then
         cond = this%cond_mult(i)
         qghb = cond * (this%xnew(noder) - bhead)
@@ -393,7 +370,7 @@ contains
 
   ! -- Procedures related to observations
 
-  !> @brief Return true because GHB package supports observations
+  !> @brief Return true because GHBA package supports observations
   !!
   !! Overrides BndType%bnd_obs_supported()
   !<
@@ -405,7 +382,7 @@ contains
     ghba_obs_supported = .true.
   end function ghba_obs_supported
 
-  !> @brief Store observation type supported by GHB package
+  !> @brief Store observation type supported by GHBA package
   !!
   !! Overrides BndType%bnd_df_obs
   !<
@@ -425,7 +402,7 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => DefaultObsIdProcessor
   end subroutine ghba_df_obs
 
-  !> @brief Store user-specified conductance for GHB boundary type
+  !> @brief Store user-specified conductance for GHBA boundary type
   !<
   subroutine ghba_store_user_cond(this)
     ! -- modules
@@ -440,7 +417,7 @@ contains
     end do
   end subroutine ghba_store_user_cond
 
-  !> @brief Apply multiplier to GHB conductance if option AUXMULTCOL is used
+  !> @brief Apply multiplier to GHBA conductance if option AUXMULTCOL is used
   !<
   function cond_mult(this, row) result(cond)
     ! -- modules
@@ -450,15 +427,11 @@ contains
     integer(I4B), intent(in) :: row
     ! -- result
     real(DP) :: cond
-    ! -- local
-    integer(I4B) :: noder, nodeuser
     !
-    noder = this%nodelist(row)
-    nodeuser = this%dis%get_nodeuser(noder)
     if (this%iauxmultcol > 0) then
-      cond = this%cond(nodeuser) * this%auxvar(this%iauxmultcol, row)
+      cond = this%cond(row) * this%auxvar(this%iauxmultcol, row)
     else
-      cond = this%cond(nodeuser)
+      cond = this%cond(row)
     end if
   end function cond_mult
 
@@ -473,18 +446,14 @@ contains
     integer(I4B), intent(in) :: row
     ! -- result
     real(DP) :: bndval
-    ! -- local
-    integer(I4B) :: noder, nodeuser
     !
     select case (col)
     case (1)
-      noder = this%nodelist(row)
-      nodeuser = this%dis%get_nodeuser(noder)
-      bndval = this%bhead(nodeuser)
+      bndval = this%bhead(row)
     case (2)
       bndval = this%cond_mult(row)
     case default
-      errmsg = 'Programming error. GHB bound value requested column '&
+      errmsg = 'Programming error. GHBA bound value requested column '&
                &'outside range of ncolbnd (2).'
       call store_error(errmsg)
       call store_error_filename(this%input_fname)
