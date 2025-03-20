@@ -23,6 +23,7 @@ module GweDisInputModule
     logical :: angrot = .false.
     logical :: export_ascii = .false.
     logical :: export_nc = .false.
+    logical :: crs = .false.
     logical :: ncf_filerecord = .false.
     logical :: ncf6 = .false.
     logical :: filein = .false.
@@ -239,6 +240,24 @@ module GweDisInputModule
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwedis_crs = InputParamDefinitionType &
+    ( &
+    'GWE', & ! component
+    'DIS', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -473,6 +492,7 @@ module GweDisInputModule
     gwedis_angrot, &
     gwedis_export_ascii, &
     gwedis_export_nc, &
+    gwedis_crs, &
     gwedis_ncf_filerecord, &
     gwedis_ncf6, &
     gwedis_filein, &

@@ -23,6 +23,7 @@ module GwfDisInputModule
     logical :: angrot = .false.
     logical :: export_ascii = .false.
     logical :: export_nc = .false.
+    logical :: crs = .false.
     logical :: ncf_filerecord = .false.
     logical :: ncf6 = .false.
     logical :: filein = .false.
@@ -239,6 +240,24 @@ module GwfDisInputModule
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfdis_crs = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'DIS', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -473,6 +492,7 @@ module GwfDisInputModule
     gwfdis_angrot, &
     gwfdis_export_ascii, &
     gwfdis_export_nc, &
+    gwfdis_crs, &
     gwfdis_ncf_filerecord, &
     gwfdis_ncf6, &
     gwfdis_filein, &
