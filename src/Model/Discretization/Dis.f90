@@ -547,15 +547,18 @@ contains
   subroutine write_grb(this, icelltype)
     ! -- modules
     use OpenSpecModule, only: access, form
+    use ConstantsModule, only: LENBIGLINE
     ! -- dummy
     class(DisType) :: this
     integer(I4B), dimension(:), intent(in) :: icelltype
     ! -- local
-    integer(I4B) :: iunit, ntxt, ncpl
+    integer(I4B) :: iunit, ntxt, ncpl, version
     integer(I4B), parameter :: lentxt = 100
     character(len=50) :: txthdr
     character(len=lentxt) :: txt
     character(len=LINELENGTH) :: fname
+    character(len=LENBIGLINE) :: crs
+    logical(LGP) :: found_crs
     character(len=*), parameter :: fmtgrdsave = &
       "(4X,'BINARY GRID INFORMATION WILL BE WRITTEN TO:', &
        &/,6X,'UNIT NUMBER: ', I0,/,6X, 'FILE NAME: ', A)"
@@ -563,6 +566,16 @@ contains
     ! -- Initialize
     ntxt = 16
     ncpl = this%nrow * this%ncol
+    !
+    call mem_set_value(crs, 'CRS', this%input_mempath, found_crs)
+    !
+    ! -- set version
+    if (found_crs) then
+      ntxt = ntxt + 1
+      version = 2
+    else
+      version = 1
+    end if
     !
     ! -- Open the file
     fname = trim(this%output_fname)
@@ -575,7 +588,7 @@ contains
     write (txthdr, '(a)') 'GRID DIS'
     txthdr(50:50) = new_line('a')
     write (iunit) txthdr
-    write (txthdr, '(a)') 'VERSION 1'
+    write (txthdr, '(a, i0)') 'VERSION ', version
     txthdr(50:50) = new_line('a')
     write (iunit) txthdr
     write (txthdr, '(a, i0)') 'NTXT ', ntxt
@@ -634,6 +647,12 @@ contains
     write (txt, '(3a, i0)') 'ICELLTYPE ', 'INTEGER ', 'NDIM 1 ', this%nodesuser
     txt(lentxt:lentxt) = new_line('a')
     write (iunit) txt
+    if (version == 2) then
+      write (txt, '(3a, i0, a, i0)') 'CRS ', 'CHARACTER ', 'NDIM 1 ', &
+        len_trim(crs)
+      txt(lentxt:lentxt) = new_line('a')
+      write (iunit) txt
+    end if
     !
     ! -- write data
     write (iunit) this%nodesuser ! ncells
@@ -652,6 +671,7 @@ contains
     write (iunit) this%con%jausr ! jausr
     write (iunit) this%idomain ! idomain
     write (iunit) icelltype ! icelltype
+    if (version == 2) write (iunit) trim(crs) ! crs user input
     !
     ! -- Close the file
     close (iunit)
