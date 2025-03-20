@@ -648,7 +648,7 @@ contains
     txt(lentxt:lentxt) = new_line('a')
     write (iunit) txt
     if (version == 2) then
-      write (txt, '(3a, i0, a, i0)') 'CRS ', 'CHARACTER ', 'NDIM 1 ', &
+      write (txt, '(3a, i0)') 'CRS ', 'CHARACTER ', 'NDIM 1 ', &
         len_trim(crs)
       txt(lentxt:lentxt) = new_line('a')
       write (iunit) txt
