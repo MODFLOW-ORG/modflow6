@@ -17,36 +17,37 @@ SOURCEDIR10=../src/Model/Geometry
 SOURCEDIR11=../src/Model/GroundWaterEnergy
 SOURCEDIR12=../src/Model/GroundWaterFlow
 SOURCEDIR13=../src/Model/GroundWaterFlow/submodules
-SOURCEDIR14=../src/Model/GroundWaterTransport
-SOURCEDIR15=../src/Model/ModelUtilities
-SOURCEDIR16=../src/Model/OverlandFlow
-SOURCEDIR17=../src/Model/ParticleTracking
-SOURCEDIR18=../src/Model/SurfaceWaterFlow
-SOURCEDIR19=../src/Model/TransportModel
-SOURCEDIR20=../src/Solution
-SOURCEDIR21=../src/Solution/LinearMethods
-SOURCEDIR22=../src/Solution/PETSc
-SOURCEDIR23=../src/Solution/ParticleTracker
-SOURCEDIR24=../src/Timing
-SOURCEDIR25=../src/Utilities
-SOURCEDIR26=../src/Utilities/ArrayRead
-SOURCEDIR27=../src/Utilities/Export
-SOURCEDIR28=../src/Utilities/Idm
-SOURCEDIR29=../src/Utilities/Idm/mf6blockfile
-SOURCEDIR30=../src/Utilities/Idm/netcdf
-SOURCEDIR31=../src/Utilities/Libraries
-SOURCEDIR32=../src/Utilities/Libraries/blas
-SOURCEDIR33=../src/Utilities/Libraries/daglib
-SOURCEDIR34=../src/Utilities/Libraries/rcm
-SOURCEDIR35=../src/Utilities/Libraries/sparsekit
-SOURCEDIR36=../src/Utilities/Libraries/sparskit2
-SOURCEDIR37=../src/Utilities/Matrix
-SOURCEDIR38=../src/Utilities/Memory
-SOURCEDIR39=../src/Utilities/Observation
-SOURCEDIR40=../src/Utilities/OutputControl
-SOURCEDIR41=../src/Utilities/Performance
-SOURCEDIR42=../src/Utilities/TimeSeries
-SOURCEDIR43=../src/Utilities/Vector
+SOURCEDIR14=../src/Model/GroundWaterFlow/tmp
+SOURCEDIR15=../src/Model/GroundWaterTransport
+SOURCEDIR16=../src/Model/ModelUtilities
+SOURCEDIR17=../src/Model/OverlandFlow
+SOURCEDIR18=../src/Model/ParticleTracking
+SOURCEDIR19=../src/Model/SurfaceWaterFlow
+SOURCEDIR20=../src/Model/TransportModel
+SOURCEDIR21=../src/Solution
+SOURCEDIR22=../src/Solution/LinearMethods
+SOURCEDIR23=../src/Solution/PETSc
+SOURCEDIR24=../src/Solution/ParticleTracker
+SOURCEDIR25=../src/Timing
+SOURCEDIR26=../src/Utilities
+SOURCEDIR27=../src/Utilities/ArrayRead
+SOURCEDIR28=../src/Utilities/Export
+SOURCEDIR29=../src/Utilities/Idm
+SOURCEDIR30=../src/Utilities/Idm/mf6blockfile
+SOURCEDIR31=../src/Utilities/Idm/netcdf
+SOURCEDIR32=../src/Utilities/Libraries
+SOURCEDIR33=../src/Utilities/Libraries/blas
+SOURCEDIR34=../src/Utilities/Libraries/daglib
+SOURCEDIR35=../src/Utilities/Libraries/rcm
+SOURCEDIR36=../src/Utilities/Libraries/sparsekit
+SOURCEDIR37=../src/Utilities/Libraries/sparskit2
+SOURCEDIR38=../src/Utilities/Matrix
+SOURCEDIR39=../src/Utilities/Memory
+SOURCEDIR40=../src/Utilities/Observation
+SOURCEDIR41=../src/Utilities/OutputControl
+SOURCEDIR42=../src/Utilities/Performance
+SOURCEDIR43=../src/Utilities/TimeSeries
+SOURCEDIR44=../src/Utilities/Vector
 
 VPATH = \
 ${SOURCEDIR1} \
@@ -91,7 +92,8 @@ ${SOURCEDIR39} \
 ${SOURCEDIR40} \
 ${SOURCEDIR41} \
 ${SOURCEDIR42} \
-${SOURCEDIR43} 
+${SOURCEDIR43} \
+${SOURCEDIR44} 
 
 .SUFFIXES: .f90 .F90 .o
 
@@ -173,6 +175,7 @@ $(OBJDIR)/gwf-npfidm.o \
 $(OBJDIR)/gwf-namidm.o \
 $(OBJDIR)/gwf-icidm.o \
 $(OBJDIR)/gwf-ghbidm.o \
+$(OBJDIR)/gwf-ghbaidm.o \
 $(OBJDIR)/gwf-evtidm.o \
 $(OBJDIR)/gwf-evtaidm.o \
 $(OBJDIR)/gwf-drnidm.o \
@@ -287,7 +290,6 @@ $(OBJDIR)/SfrCrossSectionUtils.o \
 $(OBJDIR)/TernarySolveTrack.o \
 $(OBJDIR)/SubcellTri.o \
 $(OBJDIR)/Method.o \
-$(OBJDIR)/MethodCell.o \
 $(OBJDIR)/SubcellRect.o \
 $(OBJDIR)/VirtualBase.o \
 $(OBJDIR)/STLVecInt.o \
@@ -314,10 +316,12 @@ $(OBJDIR)/mf6lists.o \
 $(OBJDIR)/gwf-lak.o \
 $(OBJDIR)/GwfVscInputData.o \
 $(OBJDIR)/gwf-ghb.o \
+$(OBJDIR)/gwf-ghba.o \
 $(OBJDIR)/gwf-drn.o \
 $(OBJDIR)/IndexMap.o \
 $(OBJDIR)/ArrayReaderBase.o \
 $(OBJDIR)/MethodSubcellPool.o \
+$(OBJDIR)/MethodCell.o \
 $(OBJDIR)/CellPoly.o \
 $(OBJDIR)/CellRectQuad.o \
 $(OBJDIR)/CellRect.o \
@@ -471,8 +475,9 @@ $(OBJDIR)/NumericalSolution.o \
 $(OBJDIR)/MappedMemory.o \
 $(OBJDIR)/NCModel.o \
 $(OBJDIR)/Mf6FileStoInput.o \
-$(OBJDIR)/Mf6FileListInput.o \
-$(OBJDIR)/Mf6FileGridInput.o \
+$(OBJDIR)/Mf6FileList.o \
+$(OBJDIR)/Mf6FileLayerArray.o \
+$(OBJDIR)/Mf6FileGridArray.o \
 $(OBJDIR)/prt.o \
 $(OBJDIR)/olf.o \
 $(OBJDIR)/chf.o \
@@ -521,6 +526,7 @@ $(OBJDIR)/GwfSfrCommon.o \
 $(OBJDIR)/gwf-sfr-transient.o \
 $(OBJDIR)/gwf-sfr-steady.o \
 $(OBJDIR)/gwf-sfr-constant.o \
+$(OBJDIR)/gwf-ghba.o \
 $(OBJDIR)/RectangularGeometry.o \
 $(OBJDIR)/CircularGeometry.o \
 $(OBJDIR)/ExplicitModel.o \
