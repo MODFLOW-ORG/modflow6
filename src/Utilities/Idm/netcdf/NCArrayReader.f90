@@ -462,11 +462,11 @@ contains
     character(len=*), intent(in) :: input_fname
     integer(I4B), optional, intent(in) :: iaux
     real(DP), dimension(:, :, :), contiguous, pointer :: dbl3d
-    integer(I4B) :: nvals, varid
+    integer(I4B) :: varid
     integer(I4B) :: n, i, j, k
 
     ! initialize
-    nvals = 0
+    n = 0
 
     ! set varid
     if (present(iaux)) then
@@ -475,20 +475,22 @@ contains
       varid = nc_vars%varid(idt%mf6varname, period=iper)
     end if
 
-    if (idt%shape == 'NODES') then
-      ! TODO future support
-      write (errmsg, '(a)') &
-        'IDM NetCDF load_double1d_spd NODES var shape not supported => '// &
-        trim(idt%tagname)
-      call store_error(errmsg)
-      call store_error_filename(input_fname)
-    else if (idt%shape == 'NCPL' .or. idt%shape == 'NAUX NCPL') then
+    if (size(mshape) == 3) then
+      allocate (dbl3d(mshape(3), mshape(2), mshape(1)))
+      call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl3d), &
+                     nc_vars%nc_fname)
 
-      if (size(mshape) == 3) then
-        allocate (dbl3d(mshape(3), mshape(2), mshape(1)))
-        call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl3d), &
-                       nc_vars%nc_fname)
-        n = 0
+      if (idt%shape == 'NODES' .or. idt%shape == 'NAUX NODES') then
+        do k = 1, size(dbl3d, dim=3)
+          do i = 1, size(dbl3d, dim=2)
+            do j = 1, size(dbl3d, dim=1)
+              n = n + 1
+              dbl1d(n) = dbl3d(j, i, k)
+            end do
+          end do
+        end do
+
+      else if (idt%shape == 'NCPL' .or. idt%shape == 'NAUX NCPL') then
         do k = 1, size(dbl3d, dim=3)
           do i = 1, size(dbl3d, dim=2)
             do j = 1, size(dbl3d, dim=1)
@@ -503,15 +505,10 @@ contains
             end do
           end do
         end do
-
-      else if (size(mshape) == 2) then
-        ! TODO
-        write (errmsg, '(a)') &
-          'IDM NetCDF load_double1d_spd DISV model not supported => '// &
-          trim(idt%tagname)
-        call store_error(errmsg)
-        call store_error_filename(input_fname)
       end if
+
+      ! clean up
+      deallocate (dbl3d)
     end if
   end subroutine load_double1d_spd
 
@@ -561,8 +558,7 @@ contains
     integer(I4B), optional, intent(in) :: iaux
     integer(I4B), dimension(:), allocatable :: layer_shape
     integer(I4B) :: nlay, varid
-    integer(I4B) :: k, n, ncpl
-    integer(I4B) :: index_start, index_stop
+    integer(I4B) :: k, n, ncpl, idx
     real(DP), dimension(:), contiguous, pointer :: dbl1d_ptr
 
     call get_layered_shape(mshape, nlay, layer_shape)
@@ -570,8 +566,6 @@ contains
     allocate (dbl1d_ptr(ncpl))
 
     do k = 1, nlay
-      index_start = 1
-      index_stop = index_start + ncpl - 1
       if (present(iaux)) then
         varid = nc_vars%varid(idt%mf6varname, layer=k, period=iper, iaux=iaux)
       else
@@ -579,11 +573,18 @@ contains
       end if
       call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d_ptr), &
                      nc_vars%nc_fname)
-      do n = 1, ncpl
-        if (dbl1d_ptr(n) /= DNODATA) then
-          dbl1d(n) = dbl1d_ptr(n)
-        end if
-      end do
+      if (idt%shape == 'NODES' .or. idt%shape == 'NAUX NODES') then
+        do n = 1, ncpl
+          idx = (k - 1) * ncpl + n
+          dbl1d(idx) = dbl1d_ptr(n)
+        end do
+      else if (idt%shape == 'NCPL' .or. idt%shape == 'NAUX NCPL') then
+        do n = 1, ncpl
+          if (dbl1d_ptr(n) /= DNODATA) then
+            dbl1d(n) = dbl1d_ptr(n)
+          end if
+        end do
+      end if
     end do
 
     ! cleanup

@@ -24,7 +24,7 @@ module NCModelExportModule
   public :: NCExportAnnotation
   public :: ExportPackageType
   public :: NETCDF_UNDEF, NETCDF_STRUCTURED, NETCDF_MESH2D
-  public :: export_longname
+  public :: export_longname, export_varname
 
   !> @brief netcdf export types enumerator
   !<
@@ -412,6 +412,54 @@ contains
     end if
   end function input_attribute
 
+  !> @brief build netcdf variable name
+  !<
+  function export_varname(pkgname, tagname, mempath, layer, iper, iaux) &
+    result(varname)
+    use MemoryManagerModule, only: mem_setptr
+    use CharacterStringModule, only: CharacterStringType
+    use InputOutputModule, only: lowcase
+    character(len=*), intent(in) :: pkgname
+    character(len=*), intent(in) :: tagname
+    character(len=*), intent(in) :: mempath
+    integer(I4B), optional, intent(in) :: layer
+    integer(I4B), optional, intent(in) :: iper
+    integer(I4B), optional, intent(in) :: iaux
+    character(len=LINELENGTH) :: varname
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: auxnames
+    character(len=LINELENGTH) :: pname, vname
+    vname = tagname
+    pname = pkgname
+
+    if (present(iaux)) then
+      if (iaux > 0) then
+        if (tagname == 'AUX') then
+          ! reset vname to auxiliary variable name
+          call mem_setptr(auxnames, 'AUXILIARY', mempath)
+          vname = auxnames(iaux)
+        end if
+      end if
+    end if
+
+    call lowcase(vname)
+    call lowcase(pname)
+    varname = trim(pname)//'_'//trim(vname)
+
+    if (present(layer)) then
+      if (layer > 0) then
+        !write (varname, '(a,i0)') trim(varname)//'_L', layer
+        write (varname, '(a,i0)') trim(varname)//'_l', layer
+      end if
+    end if
+    if (present(iper)) then
+      if (iper > 0) then
+        !write (varname, '(a,i0)') trim(varname)//'_SP', iper
+        write (varname, '(a,i0)') trim(varname)//'_p', iper
+      end if
+    end if
+  end function export_varname
+
   !> @brief build netcdf variable longname
   !<
   function export_longname(longname, pkgname, tagname, layer, iper) result(lname)
@@ -419,7 +467,7 @@ contains
     character(len=*), intent(in) :: longname
     character(len=*), intent(in) :: pkgname
     character(len=*), intent(in) :: tagname
-    integer(I4B), intent(in) :: layer
+    integer(I4B), optional, intent(in) :: layer
     integer(I4B), optional, intent(in) :: iper
     character(len=LINELENGTH) :: lname
     character(len=LINELENGTH) :: pname, vname
@@ -432,8 +480,10 @@ contains
     else
       lname = longname
     end if
-    if (layer > 0) then
-      write (lname, '(a,i0)') trim(lname)//' layer=', layer
+    if (present(layer)) then
+      if (layer > 0) then
+        write (lname, '(a,i0)') trim(lname)//' layer=', layer
+      end if
     end if
     if (present(iper)) then
       if (iper > 0) then

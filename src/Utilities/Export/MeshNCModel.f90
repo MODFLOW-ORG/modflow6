@@ -26,7 +26,6 @@ module MeshModelModule
   public :: ncvar_deflate
   public :: ncvar_gridmap
   public :: ncvar_mf6attr
-  public :: export_varname
 
   !> @brief type for storing model export dimension ids
   !<
@@ -571,36 +570,5 @@ contains
       end if
     end if
   end subroutine ncvar_mf6attr
-
-  !> @brief build netcdf variable name
-  !<
-  function export_varname(varname, layer, iper, iaux) result(vname)
-    use InputOutputModule, only: lowcase
-    character(len=*), intent(in) :: varname
-    integer(I4B), optional, intent(in) :: layer
-    integer(I4B), optional, intent(in) :: iper
-    integer(I4B), optional, intent(in) :: iaux
-    character(len=LINELENGTH) :: vname
-    vname = ''
-    if (varname /= '') then
-      vname = varname
-      call lowcase(vname)
-      if (present(layer)) then
-        if (layer > 0) then
-          write (vname, '(a,i0)') trim(vname)//'_l', layer
-        end if
-      end if
-      if (present(iper)) then
-        if (iper > 0) then
-          write (vname, '(a,i0)') trim(vname)//'_p', iper
-        end if
-      end if
-      if (present(iaux)) then
-        if (iaux > 0) then
-          write (vname, '(a,i0)') trim(vname)//'a', iaux
-        end if
-      end if
-    end if
-  end function export_varname
 
 end module MeshModelModule
