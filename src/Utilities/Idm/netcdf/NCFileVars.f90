@@ -116,7 +116,7 @@ contains
         write (errmsg, '(a)') &
           'NetCDF variable not found, tagname="'//trim(tagname)//'"'
         if (present(layer)) then
-          write (errmsg, '(a,i0)') trim(errmsg)//', ilayer=', layer
+          write (errmsg, '(a,i0)') trim(errmsg)//', layer=', layer
         end if
         if (present(period)) then
           write (errmsg, '(a,i0)') trim(errmsg)//', period=', period

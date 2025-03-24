@@ -17,8 +17,8 @@ module MeshDisModelModule
   use CharacterStringModule, only: CharacterStringType
   use MeshModelModule, only: Mesh2dModelType, MeshNCDimIdType, MeshNCVarIdType, &
                              ncvar_chunk, ncvar_deflate, ncvar_gridmap, &
-                             ncvar_mf6attr, export_varname
-  use NCModelExportModule, only: export_longname
+                             ncvar_mf6attr
+  use NCModelExportModule, only: export_longname, export_varname
   use DisModule, only: DisType
   use NetCDFCommonModule, only: nf_verify
   use netcdf
@@ -193,7 +193,7 @@ contains
     real(DP), dimension(:, :), pointer, contiguous :: dbl2d
     integer(I4B), dimension(:), pointer, contiguous :: ialayer
     real(DP), dimension(:), contiguous, pointer :: dbl1d_ptr
-    character(len=LINELENGTH) :: nc_varname, input_attr
+    character(len=LINELENGTH) :: nc_tag
     integer(I4B) :: n, iparam, nvals
     logical(LGP) :: ilayer_read
 
@@ -221,35 +221,32 @@ contains
                                   export_pkg%mf6_input%component_type, &
                                   export_pkg%mf6_input%subcomponent_type, &
                                   'PERIOD', export_pkg%param_names(iparam), '')
-      ! set variable name and input string
-      nc_varname = trim(export_pkg%mf6_input%subcomponent_name)//'_'// &
-                   trim(idt%mf6varname)
-      input_attr = this%input_attribute(export_pkg%mf6_input%subcomponent_name, &
-                                        idt)
+      ! set variable input tag
+      nc_tag = this%input_attribute(export_pkg%mf6_input%subcomponent_name, &
+                                    idt)
       ! export arrays
       select case (idt%datatype)
       case ('INTEGER1D')
         call mem_setptr(int1d, idt%mf6varname, export_pkg%mf6_input%mempath)
-        call nc_export_int1d(this%ncid, this%dim_ids, this%x_dim, this%y_dim, &
-                             this%var_ids, this%dis, int1d, nc_varname, &
+        call nc_export_int1d(int1d, this%ncid, this%dim_ids, this%x_dim, &
+                             this%y_dim, this%var_ids, this%dis, idt, &
+                             export_pkg%mf6_input%mempath, nc_tag, &
                              export_pkg%mf6_input%subcomponent_name, &
-                             idt%tagname, this%gridmap_name, idt%shape, &
-                             idt%longname, input_attr, this%deflate, &
-                             this%shuffle, this%chunk_face, kper, this%nc_fname)
+                             this%gridmap_name, this%deflate, this%shuffle, &
+                             this%chunk_face, kper, this%nc_fname)
       case ('DOUBLE1D')
         call mem_setptr(dbl1d, idt%mf6varname, export_pkg%mf6_input%mempath)
         call this%export_layer_3d(export_pkg, idt, ilayer_read, ialayer, &
-                                  dbl1d, nc_varname, input_attr)
+                                  dbl1d, nc_tag)
       case ('DOUBLE2D')
         call mem_setptr(dbl2d, idt%mf6varname, export_pkg%mf6_input%mempath)
         nvals = this%dis%ncol * this%dis%nrow
-
         do n = 1, size(dbl2d, dim=1) !naux
           dbl1d_ptr(1:nvals) => dbl2d(n, :)
           if (all(dbl1d_ptr == DZERO)) then
           else
             call this%export_layer_3d(export_pkg, idt, ilayer_read, ialayer, &
-                                      dbl1d_ptr, nc_varname, input_attr, n)
+                                      dbl1d_ptr, nc_tag, n)
           end if
         end do
       case default
@@ -265,13 +262,72 @@ contains
   !> @brief netcdf export package dynamic input
   !<
   subroutine package_step(this, export_pkg)
+    use ConstantsModule, only: DNODATA, DZERO
+    use TdisModule, only: kper
+    use DefinitionSelectModule, only: get_param_definition_type
     use NCModelExportModule, only: ExportPackageType
     class(Mesh2dDisExportType), intent(inout) :: this
     class(ExportPackageType), pointer, intent(in) :: export_pkg
-    errmsg = 'NetCDF period export not supported for model='// &
-             trim(this%modelname)//', package='// &
-             trim(export_pkg%mf6_input%subcomponent_name)
-    call store_error(errmsg, .true.)
+    type(InputParamDefinitionType), pointer :: idt
+    integer(I4B), dimension(:), pointer, contiguous :: int1d
+    real(DP), dimension(:), pointer, contiguous :: dbl1d
+    real(DP), dimension(:, :), pointer, contiguous :: dbl2d
+    character(len=LINELENGTH) :: nc_tag
+    integer(I4B) :: iaux, iparam, nvals
+
+    ! initialize
+    iaux = 0
+
+    ! export defined period input
+    do iparam = 1, export_pkg%nparam
+      ! check if variable was read this period
+      if (export_pkg%param_reads(iparam)%invar < 1) cycle
+
+      ! set input definition
+      idt => &
+        get_param_definition_type(export_pkg%mf6_input%param_dfns, &
+                                  export_pkg%mf6_input%component_type, &
+                                  export_pkg%mf6_input%subcomponent_type, &
+                                  'PERIOD', export_pkg%param_names(iparam), '')
+
+      ! set variable input tag
+      nc_tag = this%input_attribute(export_pkg%mf6_input%subcomponent_name, &
+                                    idt)
+
+      ! export arrays
+      select case (idt%datatype)
+      case ('INTEGER1D')
+        call mem_setptr(int1d, idt%mf6varname, export_pkg%mf6_input%mempath)
+        call nc_export_int1d(int1d, this%ncid, this%dim_ids, this%x_dim, &
+                             this%y_dim, this%var_ids, this%dis, idt, &
+                             export_pkg%mf6_input%mempath, nc_tag, &
+                             export_pkg%mf6_input%subcomponent_name, &
+                             this%gridmap_name, this%deflate, this%shuffle, &
+                             this%chunk_face, kper, this%nc_fname)
+      case ('DOUBLE1D')
+        call mem_setptr(dbl1d, idt%mf6varname, export_pkg%mf6_input%mempath)
+        call nc_export_dbl1d(dbl1d, this%ncid, this%dim_ids, this%x_dim, &
+                             this%y_dim, this%var_ids, this%dis, idt, &
+                             export_pkg%mf6_input%mempath, nc_tag, &
+                             export_pkg%mf6_input%subcomponent_name, &
+                             this%gridmap_name, this%deflate, this%shuffle, &
+                             this%chunk_face, kper, iaux, this%nc_fname)
+      case ('DOUBLE2D')
+        call mem_setptr(dbl2d, idt%mf6varname, export_pkg%mf6_input%mempath)
+        nvals = this%dis%ncol * this%dis%nrow
+        do iaux = 1, size(dbl2d, dim=1) !naux
+          dbl1d(1:nvals) => dbl2d(iaux, :)
+          call nc_export_dbl1d(dbl1d, this%ncid, this%dim_ids, this%x_dim, &
+                               this%y_dim, this%var_ids, this%dis, idt, &
+                               export_pkg%mf6_input%mempath, nc_tag, &
+                               export_pkg%mf6_input%subcomponent_name, &
+                               this%gridmap_name, this%deflate, this%shuffle, &
+                               this%chunk_face, kper, iaux, this%nc_fname)
+        end do
+      case default
+        ! no-op, no other datatypes exported
+      end select
+    end do
 
     ! synchronize file
     call nf_verify(nf90_sync(this%ncid), this%nc_fname)
@@ -280,7 +336,7 @@ contains
   !> @brief export layer variable as full grid
   !<
   subroutine export_layer_3d(this, export_pkg, idt, ilayer_read, ialayer, &
-                             dbl1d, nc_varname, input_attr, iaux)
+                             dbl1d, nc_tag, iaux)
     use ConstantsModule, only: DNODATA, DZERO
     use NCModelExportModule, only: ExportPackageType
     class(Mesh2dDisExportType), intent(inout) :: this
@@ -289,8 +345,7 @@ contains
     logical(LGP), intent(in) :: ilayer_read
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: ialayer
     real(DP), dimension(:), pointer, contiguous, intent(in) :: dbl1d
-    character(len=*), intent(in) :: nc_varname
-    character(len=*), intent(in) :: input_attr
+    character(len=*), intent(in) :: nc_tag
     integer(I4B), optional, intent(in) :: iaux
     real(DP), dimension(:, :, :), pointer, contiguous :: dbl3d
     integer(I4B) :: n, i, j, k, nvals, idxaux
@@ -326,10 +381,10 @@ contains
       dbl3d(:, :, 1) = dbl2d_ptr(:, :)
     end if
 
-    call nc_export_dbl3d(this%ncid, this%dim_ids, this%var_ids, this%dis, dbl3d, &
-                         nc_varname, export_pkg%mf6_input%subcomponent_name, &
-                         idt%tagname, this%gridmap_name, idt%shape, &
-                         idt%longname, input_attr, this%deflate, this%shuffle, &
+    call nc_export_dbl3d(dbl3d, this%ncid, this%dim_ids, this%var_ids, this%dis, &
+                         idt, export_pkg%mf6_input%mempath, nc_tag, &
+                         export_pkg%mf6_input%subcomponent_name, &
+                         this%gridmap_name, this%deflate, this%shuffle, &
                          this%chunk_face, export_pkg%iper, idxaux, this%nc_fname)
 
     deallocate (dbl3d)
@@ -349,59 +404,52 @@ contains
     real(DP), dimension(:), pointer, contiguous :: dbl1d
     real(DP), dimension(:, :), pointer, contiguous :: dbl2d
     real(DP), dimension(:, :, :), pointer, contiguous :: dbl3d
-    character(len=LINELENGTH) :: nc_varname, input_attr
+    character(len=LINELENGTH) :: nc_tag
     integer(I4B) :: iper, iaux
 
     iper = 0
     iaux = 0
 
-    ! set package base name
-    nc_varname = trim(pkgname)//'_'//trim(idt%mf6varname)
-    ! put input attributes
-    input_attr = this%input_attribute(pkgname, idt)
+    ! set package input tag
+    nc_tag = this%input_attribute(pkgname, idt)
 
     select case (idt%datatype)
     case ('INTEGER1D')
       call mem_setptr(int1d, idt%mf6varname, mempath)
-      call nc_export_int1d(this%ncid, this%dim_ids, this%x_dim, this%y_dim, &
-                           this%var_ids, this%dis, int1d, nc_varname, pkgname, &
-                           idt%tagname, this%gridmap_name, idt%shape, &
-                           idt%longname, input_attr, this%deflate, this%shuffle, &
-                           this%chunk_face, iper, this%nc_fname)
+      call nc_export_int1d(int1d, this%ncid, this%dim_ids, this%x_dim, &
+                           this%y_dim, this%var_ids, this%dis, idt, mempath, &
+                           nc_tag, pkgname, this%gridmap_name, this%deflate, &
+                           this%shuffle, this%chunk_face, iper, this%nc_fname)
     case ('INTEGER2D')
       call mem_setptr(int2d, idt%mf6varname, mempath)
-      call nc_export_int2d(this%ncid, this%dim_ids, this%var_ids, this%dis, &
-                           int2d, nc_varname, pkgname, idt%tagname, &
-                           this%gridmap_name, idt%shape, idt%longname, &
-                           input_attr, this%deflate, this%shuffle, &
+      call nc_export_int2d(int2d, this%ncid, this%dim_ids, this%var_ids, &
+                           this%dis, idt, mempath, nc_tag, pkgname, &
+                           this%gridmap_name, this%deflate, this%shuffle, &
                            this%chunk_face, this%nc_fname)
     case ('INTEGER3D')
       call mem_setptr(int3d, idt%mf6varname, mempath)
-      call nc_export_int3d(this%ncid, this%dim_ids, this%var_ids, this%dis, &
-                           int3d, nc_varname, pkgname, idt%tagname, &
-                           this%gridmap_name, idt%shape, idt%longname, &
-                           input_attr, this%deflate, this%shuffle, &
+      call nc_export_int3d(int3d, this%ncid, this%dim_ids, this%var_ids, &
+                           this%dis, idt, mempath, nc_tag, pkgname, &
+                           this%gridmap_name, this%deflate, this%shuffle, &
                            this%chunk_face, this%nc_fname)
     case ('DOUBLE1D')
       call mem_setptr(dbl1d, idt%mf6varname, mempath)
-      call nc_export_dbl1d(this%ncid, this%dim_ids, this%x_dim, this%y_dim, &
-                           this%var_ids, this%dis, dbl1d, nc_varname, pkgname, &
-                           idt%tagname, this%gridmap_name, idt%shape, &
-                           idt%longname, input_attr, this%deflate, this%shuffle, &
-                           this%chunk_face, this%nc_fname)
+      call nc_export_dbl1d(dbl1d, this%ncid, this%dim_ids, this%x_dim, &
+                           this%y_dim, this%var_ids, this%dis, idt, mempath, &
+                           nc_tag, pkgname, this%gridmap_name, this%deflate, &
+                           this%shuffle, this%chunk_face, iper, iaux, &
+                           this%nc_fname)
     case ('DOUBLE2D')
       call mem_setptr(dbl2d, idt%mf6varname, mempath)
-      call nc_export_dbl2d(this%ncid, this%dim_ids, this%var_ids, this%dis, &
-                           dbl2d, nc_varname, pkgname, idt%tagname, &
-                           this%gridmap_name, idt%shape, idt%longname, &
-                           input_attr, this%deflate, this%shuffle, &
+      call nc_export_dbl2d(dbl2d, this%ncid, this%dim_ids, this%var_ids, &
+                           this%dis, idt, mempath, nc_tag, pkgname, &
+                           this%gridmap_name, this%deflate, this%shuffle, &
                            this%chunk_face, this%nc_fname)
     case ('DOUBLE3D')
       call mem_setptr(dbl3d, idt%mf6varname, mempath)
-      call nc_export_dbl3d(this%ncid, this%dim_ids, this%var_ids, this%dis, &
-                           dbl3d, nc_varname, pkgname, idt%tagname, &
-                           this%gridmap_name, idt%shape, idt%longname, &
-                           input_attr, this%deflate, this%shuffle, &
+      call nc_export_dbl3d(dbl3d, this%ncid, this%dim_ids, this%var_ids, &
+                           this%dis, idt, mempath, nc_tag, pkgname, &
+                           this%gridmap_name, this%deflate, this%shuffle, &
                            this%chunk_face, iper, iaux, this%nc_fname)
     case default
       ! no-op, no other datatypes exported
@@ -595,24 +643,21 @@ contains
 
   !> @brief netcdf export 1D integer
   !<
-  subroutine nc_export_int1d(ncid, dim_ids, x_dim, y_dim, var_ids, dis, p_mem, &
-                             nc_varname, pkgname, tagname, gridmap_name, &
-                             shapestr, longname, nc_tag, deflate, shuffle, &
-                             chunk_face, iper, nc_fname)
+  subroutine nc_export_int1d(p_mem, ncid, dim_ids, x_dim, y_dim, var_ids, dis, &
+                             idt, mempath, nc_tag, pkgname, gridmap_name, &
+                             deflate, shuffle, chunk_face, iper, nc_fname)
+    integer(I4B), dimension(:), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(MeshNCDimIdType), intent(inout) :: dim_ids
     integer(I4B), intent(in) :: x_dim
     integer(I4B), intent(in) :: y_dim
     type(MeshNCVarIdType), intent(inout) :: var_ids
     type(DisType), pointer, intent(in) :: dis
-    integer(I4B), dimension(:), pointer, contiguous, intent(in) :: p_mem
-    character(len=*), intent(in) :: nc_varname
-    character(len=*), intent(in) :: pkgname
-    character(len=*), intent(in) :: tagname
-    character(len=*), intent(in) :: gridmap_name
-    character(len=*), intent(in) :: shapestr
-    character(len=*), intent(in) :: longname
+    type(InputParamDefinitionType), pointer :: idt
+    character(len=*), intent(in) :: mempath
     character(len=*), intent(in) :: nc_tag
+    character(len=*), intent(in) :: pkgname
+    character(len=*), intent(in) :: gridmap_name
     integer(I4B), intent(in) :: deflate
     integer(I4B), intent(in) :: shuffle
     integer(I4B), intent(in) :: chunk_face
@@ -624,13 +669,13 @@ contains
     integer(I4B), dimension(:), pointer, contiguous :: int1d
     integer(I4B) :: axis_dim, nvals, k
     integer(I4B), dimension(:), allocatable :: var_id
-    character(len=LINELENGTH) :: longname_l, varname_l
+    character(len=LINELENGTH) :: longname, varname
 
-    if (shapestr == 'NROW' .or. &
-        shapestr == 'NCOL' .or. &
-        shapestr == 'NCPL') then
+    if (idt%shape == 'NROW' .or. &
+        idt%shape == 'NCOL' .or. &
+        idt%shape == 'NCPL') then
 
-      select case (shapestr)
+      select case (idt%shape)
       case ('NROW')
         axis_dim = y_dim
       case ('NCOL')
@@ -640,14 +685,15 @@ contains
       end select
 
       ! set names
-      varname_l = export_varname(nc_varname, layer=0, iper=iper)
-      longname_l = export_longname(longname, pkgname, tagname, layer=0, iper=iper)
+      varname = export_varname(pkgname, idt%tagname, mempath, iper=iper)
+      longname = export_longname(idt%longname, pkgname, idt%tagname, &
+                                 iper=iper)
 
       allocate (var_id(1))
 
       ! reenter define mode and create variable
       call nf_verify(nf90_redef(ncid), nc_fname)
-      call nf_verify(nf90_def_var(ncid, varname_l, NF90_INT, &
+      call nf_verify(nf90_def_var(ncid, varname, NF90_INT, &
                                   (/axis_dim/), var_id(1)), &
                      nc_fname)
 
@@ -658,7 +704,7 @@ contains
       call nf_verify(nf90_put_att(ncid, var_id(1), '_FillValue', &
                                   (/NF90_FILL_INT/)), nc_fname)
       call nf_verify(nf90_put_att(ncid, var_id(1), 'long_name', &
-                                  longname_l), nc_fname)
+                                  longname), nc_fname)
 
       ! add mf6 attr
       call ncvar_mf6attr(ncid, var_id(1), 0, iper, 0, nc_tag, nc_fname)
@@ -675,11 +721,12 @@ contains
       call nf_verify(nf90_redef(ncid), nc_fname)
       do k = 1, dis%nlay
         ! set names
-        varname_l = export_varname(nc_varname, layer=k, iper=iper)
-        longname_l = export_longname(longname, pkgname, tagname, layer=k, &
-                                     iper=iper)
+        varname = export_varname(pkgname, idt%tagname, mempath, &
+                                 layer=k, iper=iper)
+        longname = export_longname(idt%longname, pkgname, idt%tagname, &
+                                   layer=k, iper=iper)
 
-        call nf_verify(nf90_def_var(ncid, varname_l, NF90_INT, &
+        call nf_verify(nf90_def_var(ncid, varname, NF90_INT, &
                                     (/dim_ids%nmesh_face/), var_id(k)), &
                        nc_fname)
 
@@ -692,7 +739,7 @@ contains
         call nf_verify(nf90_put_att(ncid, var_id(k), '_FillValue', &
                                     (/NF90_FILL_INT/)), nc_fname)
         call nf_verify(nf90_put_att(ncid, var_id(k), 'long_name', &
-                                    longname_l), nc_fname)
+                                    longname), nc_fname)
 
         ! add grid mapping and mf6 attr
         call ncvar_gridmap(ncid, var_id(k), gridmap_name, nc_fname)
@@ -721,21 +768,19 @@ contains
 
   !> @brief netcdf export 2D integer
   !<
-  subroutine nc_export_int2d(ncid, dim_ids, var_ids, dis, p_mem, nc_varname, &
-                             pkgname, tagname, gridmap_name, shapestr, longname, &
-                             nc_tag, deflate, shuffle, chunk_face, nc_fname)
+  subroutine nc_export_int2d(p_mem, ncid, dim_ids, var_ids, dis, idt, mempath, &
+                             nc_tag, pkgname, gridmap_name, deflate, shuffle, &
+                             chunk_face, nc_fname)
+    integer(I4B), dimension(:, :), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(MeshNCDimIdType), intent(inout) :: dim_ids
     type(MeshNCVarIdType), intent(inout) :: var_ids
     type(DisType), pointer, intent(in) :: dis
-    integer(I4B), dimension(:, :), pointer, contiguous, intent(in) :: p_mem
-    character(len=*), intent(in) :: nc_varname
-    character(len=*), intent(in) :: pkgname
-    character(len=*), intent(in) :: tagname
-    character(len=*), intent(in) :: gridmap_name
-    character(len=*), intent(in) :: shapestr
-    character(len=*), intent(in) :: longname
+    type(InputParamDefinitionType), pointer :: idt
+    character(len=*), intent(in) :: mempath
     character(len=*), intent(in) :: nc_tag
+    character(len=*), intent(in) :: pkgname
+    character(len=*), intent(in) :: gridmap_name
     integer(I4B), intent(in) :: deflate
     integer(I4B), intent(in) :: shuffle
     integer(I4B), intent(in) :: chunk_face
@@ -743,15 +788,15 @@ contains
     integer(I4B) :: var_id
     integer(I4B), dimension(:), pointer, contiguous :: int1d
     integer(I4B), dimension(1) :: layer_shape
-    character(len=LINELENGTH) :: longname_l, varname_l
+    character(len=LINELENGTH) :: longname, varname
 
     ! set names
-    varname_l = export_varname(nc_varname)
-    longname_l = export_longname(longname, pkgname, tagname, 0)
+    varname = export_varname(pkgname, idt%tagname, mempath)
+    longname = export_longname(idt%longname, pkgname, idt%tagname)
 
     ! reenter define mode and create variable
     call nf_verify(nf90_redef(ncid), nc_fname)
-    call nf_verify(nf90_def_var(ncid, varname_l, NF90_INT, &
+    call nf_verify(nf90_def_var(ncid, varname, NF90_INT, &
                                 (/dim_ids%nmesh_face/), var_id), &
                    nc_fname)
 
@@ -764,7 +809,7 @@ contains
     call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
                                 (/NF90_FILL_INT/)), nc_fname)
     call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
-                                longname_l), nc_fname)
+                                longname), nc_fname)
 
     ! add grid mapping and mf6 attr
     call ncvar_gridmap(ncid, var_id, gridmap_name, nc_fname)
@@ -779,28 +824,26 @@ contains
 
   !> @brief netcdf export 3D integer
   !<
-  subroutine nc_export_int3d(ncid, dim_ids, var_ids, dis, p_mem, nc_varname, &
-                             pkgname, tagname, gridmap_name, shapestr, longname, &
-                             nc_tag, deflate, shuffle, chunk_face, nc_fname)
+  subroutine nc_export_int3d(p_mem, ncid, dim_ids, var_ids, dis, idt, mempath, &
+                             nc_tag, pkgname, gridmap_name, deflate, shuffle, &
+                             chunk_face, nc_fname)
+    integer(I4B), dimension(:, :, :), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(MeshNCDimIdType), intent(inout) :: dim_ids
     type(MeshNCVarIdType), intent(inout) :: var_ids
     type(DisType), pointer, intent(in) :: dis
-    integer(I4B), dimension(:, :, :), pointer, contiguous, intent(in) :: p_mem
-    character(len=*), intent(in) :: nc_varname
-    character(len=*), intent(in) :: pkgname
-    character(len=*), intent(in) :: tagname
-    character(len=*), intent(in) :: gridmap_name
-    character(len=*), intent(in) :: shapestr
-    character(len=*), intent(in) :: longname
+    type(InputParamDefinitionType), pointer :: idt
+    character(len=*), intent(in) :: mempath
     character(len=*), intent(in) :: nc_tag
+    character(len=*), intent(in) :: pkgname
+    character(len=*), intent(in) :: gridmap_name
     integer(I4B), intent(in) :: deflate
     integer(I4B), intent(in) :: shuffle
     integer(I4B), intent(in) :: chunk_face
     character(len=*), intent(in) :: nc_fname
     integer(I4B), dimension(:), allocatable :: var_id
     integer(I4B), dimension(:), pointer, contiguous :: int1d
-    character(len=LINELENGTH) :: longname_l, varname_l
+    character(len=LINELENGTH) :: longname, varname
     integer(I4B), dimension(1) :: layer_shape
     integer(I4B) :: k
 
@@ -810,10 +853,10 @@ contains
     call nf_verify(nf90_redef(ncid), nc_fname)
     do k = 1, dis%nlay
       ! set names
-      varname_l = export_varname(nc_varname, layer=k)
-      longname_l = export_longname(longname, pkgname, tagname, k)
+      varname = export_varname(pkgname, idt%tagname, mempath, layer=k)
+      longname = export_longname(idt%longname, pkgname, idt%tagname, layer=k)
 
-      call nf_verify(nf90_def_var(ncid, varname_l, NF90_INT, &
+      call nf_verify(nf90_def_var(ncid, varname, NF90_INT, &
                                   (/dim_ids%nmesh_face/), var_id(k)), &
                      nc_fname)
 
@@ -826,7 +869,7 @@ contains
       call nf_verify(nf90_put_att(ncid, var_id(k), '_FillValue', &
                                   (/NF90_FILL_INT/)), nc_fname)
       call nf_verify(nf90_put_att(ncid, var_id(k), 'long_name', &
-                                  longname_l), nc_fname)
+                                  longname), nc_fname)
 
       ! add grid mapping and mf6 attr
       call ncvar_gridmap(ncid, var_id(k), gridmap_name, nc_fname)
@@ -847,27 +890,26 @@ contains
 
   !> @brief netcdf export 1D double
   !<
-  subroutine nc_export_dbl1d(ncid, dim_ids, x_dim, y_dim, var_ids, dis, p_mem, &
-                             nc_varname, pkgname, tagname, gridmap_name, &
-                             shapestr, longname, nc_tag, deflate, shuffle, &
-                             chunk_face, nc_fname)
+  subroutine nc_export_dbl1d(p_mem, ncid, dim_ids, x_dim, y_dim, var_ids, dis, &
+                             idt, mempath, nc_tag, pkgname, gridmap_name, &
+                             deflate, shuffle, chunk_face, iper, iaux, nc_fname)
+    real(DP), dimension(:), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(MeshNCDimIdType), intent(inout) :: dim_ids
     integer(I4B), intent(in) :: x_dim
     integer(I4B), intent(in) :: y_dim
     type(MeshNCVarIdType), intent(inout) :: var_ids
     type(DisType), pointer, intent(in) :: dis
-    real(DP), dimension(:), pointer, contiguous, intent(in) :: p_mem
-    character(len=*), intent(in) :: nc_varname
-    character(len=*), intent(in) :: pkgname
-    character(len=*), intent(in) :: tagname
-    character(len=*), intent(in) :: gridmap_name
-    character(len=*), intent(in) :: shapestr
-    character(len=*), intent(in) :: longname
+    type(InputParamDefinitionType), pointer :: idt
+    character(len=*), intent(in) :: mempath
     character(len=*), intent(in) :: nc_tag
+    character(len=*), intent(in) :: pkgname
+    character(len=*), intent(in) :: gridmap_name
     integer(I4B), intent(in) :: deflate
     integer(I4B), intent(in) :: shuffle
     integer(I4B), intent(in) :: chunk_face
+    integer(I4B), intent(in) :: iper
+    integer(I4B), intent(in) :: iaux
     character(len=*), intent(in) :: nc_fname
     integer(I4B), dimension(3) :: dis_shape
     integer(I4B), dimension(1) :: layer_shape
@@ -875,13 +917,13 @@ contains
     real(DP), dimension(:), pointer, contiguous :: dbl1d
     integer(I4B) :: axis_dim, nvals, k
     integer(I4B), dimension(:), allocatable :: var_id
-    character(len=LINELENGTH) :: longname_l, varname_l
+    character(len=LINELENGTH) :: longname, varname
 
-    if (shapestr == 'NROW' .or. &
-        shapestr == 'NCOL') then ! .or. &
-      !shapestr == 'NCPL') then
+    if (idt%shape == 'NROW' .or. &
+        idt%shape == 'NCOL') then ! .or. &
+      !idt%shape == 'NCPL') then
 
-      select case (shapestr)
+      select case (idt%shape)
       case ('NROW')
         axis_dim = y_dim
       case ('NCOL')
@@ -891,14 +933,16 @@ contains
       end select
 
       ! set names
-      varname_l = export_varname(nc_varname)
-      longname_l = export_longname(longname, pkgname, tagname, 0)
+      varname = export_varname(pkgname, idt%tagname, mempath, iper=iper, &
+                               iaux=iaux)
+      longname = export_longname(idt%longname, pkgname, idt%tagname, &
+                                 iper=iper)
 
       allocate (var_id(1))
 
       ! reenter define mode and create variable
       call nf_verify(nf90_redef(ncid), nc_fname)
-      call nf_verify(nf90_def_var(ncid, varname_l, NF90_DOUBLE, &
+      call nf_verify(nf90_def_var(ncid, varname, NF90_DOUBLE, &
                                   (/axis_dim/), var_id(1)), &
                      nc_fname)
 
@@ -909,10 +953,10 @@ contains
       call nf_verify(nf90_put_att(ncid, var_id(1), '_FillValue', &
                                   (/NF90_FILL_DOUBLE/)), nc_fname)
       call nf_verify(nf90_put_att(ncid, var_id(1), 'long_name', &
-                                  longname_l), nc_fname)
+                                  longname), nc_fname)
 
       ! add mf6 attr
-      call ncvar_mf6attr(ncid, var_id(1), 0, 0, 0, nc_tag, nc_fname)
+      call ncvar_mf6attr(ncid, var_id(1), 0, iper, iaux, nc_tag, nc_fname)
 
       ! exit define mode and write data
       call nf_verify(nf90_enddef(ncid), nc_fname)
@@ -926,10 +970,12 @@ contains
       call nf_verify(nf90_redef(ncid), nc_fname)
       do k = 1, dis%nlay
         ! set names
-        varname_l = export_varname(nc_varname, layer=k)
-        longname_l = export_longname(longname, pkgname, tagname, k)
+        varname = export_varname(pkgname, idt%tagname, mempath, layer=k, &
+                                 iper=iper, iaux=iaux)
+        longname = export_longname(idt%longname, pkgname, idt%tagname, &
+                                   layer=k, iper=iper)
 
-        call nf_verify(nf90_def_var(ncid, varname_l, NF90_DOUBLE, &
+        call nf_verify(nf90_def_var(ncid, varname, NF90_DOUBLE, &
                                     (/dim_ids%nmesh_face/), var_id(k)), &
                        nc_fname)
 
@@ -942,11 +988,11 @@ contains
         call nf_verify(nf90_put_att(ncid, var_id(k), '_FillValue', &
                                     (/NF90_FILL_DOUBLE/)), nc_fname)
         call nf_verify(nf90_put_att(ncid, var_id(k), 'long_name', &
-                                    longname_l), nc_fname)
+                                    longname), nc_fname)
 
         ! add grid mapping and mf6 attr
         call ncvar_gridmap(ncid, var_id(k), gridmap_name, nc_fname)
-        call ncvar_mf6attr(ncid, var_id(k), k, 0, 0, nc_tag, nc_fname)
+        call ncvar_mf6attr(ncid, var_id(k), k, iper, iaux, nc_tag, nc_fname)
       end do
 
       ! reshape input
@@ -971,37 +1017,35 @@ contains
 
   !> @brief netcdf export 2D double
   !<
-  subroutine nc_export_dbl2d(ncid, dim_ids, var_ids, dis, p_mem, nc_varname, &
-                             pkgname, tagname, gridmap_name, shapestr, longname, &
-                             nc_tag, deflate, shuffle, chunk_face, nc_fname)
+  subroutine nc_export_dbl2d(p_mem, ncid, dim_ids, var_ids, dis, idt, mempath, &
+                             nc_tag, pkgname, gridmap_name, deflate, shuffle, &
+                             chunk_face, nc_fname)
+    real(DP), dimension(:, :), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(MeshNCDimIdType), intent(inout) :: dim_ids
     type(MeshNCVarIdType), intent(inout) :: var_ids
     type(DisType), pointer, intent(in) :: dis
-    real(DP), dimension(:, :), pointer, contiguous, intent(in) :: p_mem
-    character(len=*), intent(in) :: nc_varname
-    character(len=*), intent(in) :: pkgname
-    character(len=*), intent(in) :: tagname
-    character(len=*), intent(in) :: gridmap_name
-    character(len=*), intent(in) :: shapestr
-    character(len=*), intent(in) :: longname
+    type(InputParamDefinitionType), pointer :: idt
+    character(len=*), intent(in) :: mempath
     character(len=*), intent(in) :: nc_tag
+    character(len=*), intent(in) :: pkgname
+    character(len=*), intent(in) :: gridmap_name
     integer(I4B), intent(in) :: deflate
     integer(I4B), intent(in) :: shuffle
     integer(I4B), intent(in) :: chunk_face
     character(len=*), intent(in) :: nc_fname
     integer(I4B) :: var_id
-    character(len=LINELENGTH) :: longname_l, varname_l
+    character(len=LINELENGTH) :: longname, varname
     real(DP), dimension(:), pointer, contiguous :: dbl1d
     integer(I4B), dimension(1) :: layer_shape
 
     ! set names
-    varname_l = export_varname(nc_varname)
-    longname_l = export_longname(longname, pkgname, tagname, 0)
+    varname = export_varname(pkgname, idt%tagname, mempath)
+    longname = export_longname(idt%longname, pkgname, idt%tagname)
 
     ! reenter define mode and create variable
     call nf_verify(nf90_redef(ncid), nc_fname)
-    call nf_verify(nf90_def_var(ncid, varname_l, NF90_DOUBLE, &
+    call nf_verify(nf90_def_var(ncid, varname, NF90_DOUBLE, &
                                 (/dim_ids%nmesh_face/), var_id), &
                    nc_fname)
 
@@ -1014,7 +1058,7 @@ contains
     call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
                                 (/NF90_FILL_DOUBLE/)), nc_fname)
     call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
-                                longname_l), nc_fname)
+                                longname), nc_fname)
 
     ! add grid mapping and mf6 attr
     call ncvar_gridmap(ncid, var_id, gridmap_name, nc_fname)
@@ -1029,23 +1073,20 @@ contains
 
   !> @brief netcdf export 3D double
   !<
-  subroutine nc_export_dbl3d(ncid, dim_ids, var_ids, dis, p_mem, nc_varname, &
-                             pkgname, tagname, gridmap_name, shapestr, longname, &
-                             nc_tag, deflate, shuffle, chunk_face, iper, iaux, &
-                             nc_fname)
+  subroutine nc_export_dbl3d(p_mem, ncid, dim_ids, var_ids, dis, idt, mempath, &
+                             nc_tag, pkgname, gridmap_name, deflate, shuffle, &
+                             chunk_face, iper, iaux, nc_fname)
     use ConstantsModule, only: DNODATA
+    real(DP), dimension(:, :, :), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(MeshNCDimIdType), intent(inout) :: dim_ids
     type(MeshNCVarIdType), intent(inout) :: var_ids
     type(DisType), pointer, intent(in) :: dis
-    real(DP), dimension(:, :, :), pointer, contiguous, intent(in) :: p_mem
-    character(len=*), intent(in) :: nc_varname
-    character(len=*), intent(in) :: pkgname
-    character(len=*), intent(in) :: tagname
-    character(len=*), intent(in) :: gridmap_name
-    character(len=*), intent(in) :: shapestr
-    character(len=*), intent(in) :: longname
+    type(InputParamDefinitionType), pointer :: idt
+    character(len=*), intent(in) :: mempath
     character(len=*), intent(in) :: nc_tag
+    character(len=*), intent(in) :: pkgname
+    character(len=*), intent(in) :: gridmap_name
     integer(I4B), intent(in) :: deflate
     integer(I4B), intent(in) :: shuffle
     integer(I4B), intent(in) :: chunk_face
@@ -1054,7 +1095,7 @@ contains
     character(len=*), intent(in) :: nc_fname
     integer(I4B), dimension(:), allocatable :: var_id
     real(DP), dimension(:), pointer, contiguous :: dbl1d
-    character(len=LINELENGTH) :: longname_l, varname_l
+    character(len=LINELENGTH) :: longname, varname
     integer(I4B), dimension(1) :: layer_shape
     integer(I4B) :: k
     real(DP) :: fill_value
@@ -1071,10 +1112,12 @@ contains
     call nf_verify(nf90_redef(ncid), nc_fname)
     do k = 1, dis%nlay
       ! set names
-      varname_l = export_varname(nc_varname, layer=k, iper=iper, iaux=iaux)
-      longname_l = export_longname(longname, pkgname, tagname, layer=k, iper=iper)
+      varname = export_varname(pkgname, idt%tagname, mempath, layer=k, &
+                               iper=iper, iaux=iaux)
+      longname = export_longname(idt%longname, pkgname, idt%tagname, &
+                                 layer=k, iper=iper)
 
-      call nf_verify(nf90_def_var(ncid, varname_l, NF90_DOUBLE, &
+      call nf_verify(nf90_def_var(ncid, varname, NF90_DOUBLE, &
                                   (/dim_ids%nmesh_face/), var_id(k)), &
                      nc_fname)
 
@@ -1087,7 +1130,7 @@ contains
       call nf_verify(nf90_put_att(ncid, var_id(k), '_FillValue', &
                                   (/fill_value/)), nc_fname)
       call nf_verify(nf90_put_att(ncid, var_id(k), 'long_name', &
-                                  longname_l), nc_fname)
+                                  longname), nc_fname)
 
       ! add grid mapping and mf6 attr
       call ncvar_gridmap(ncid, var_id(k), gridmap_name, nc_fname)
