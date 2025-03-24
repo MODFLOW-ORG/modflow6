@@ -18,9 +18,9 @@ module BoundaryCellsModule
   end type BoundaryCellsType
 
   type BoundaryType
-    real(DP), dimension(3) :: normal  ! Normal vector of the boundary
-    real(DP), dimension(3) :: v1      ! First vertex of the boundary
-    real(DP), dimension(3) :: v2      ! Second vertex of the boundary
+    real(DP), dimension(3) :: normal ! Normal vector of the boundary
+    real(DP), dimension(3) :: v1 ! First vertex of the boundary
+    real(DP), dimension(3) :: v2 ! Second vertex of the boundary
   end type BoundaryType
 
   interface BoundaryCellsType
@@ -30,17 +30,17 @@ module BoundaryCellsModule
 contains
 
   function constructor(dis) result(boundary_cells)
-  ! -- return
-  type(BoundaryCellsType) :: boundary_cells
-  ! -- dummy
-  class(DisBaseType), intent(in) :: dis
+    ! -- return
+    type(BoundaryCellsType) :: boundary_cells
+    ! -- dummy
+    class(DisBaseType), intent(in) :: dis
 
-  select type(dis)
-  class is (DisuType)
-    print*, "DisU not implemented"
-  class default
-    call create_boundary_cells(boundary_cells, dis)
-  end select
+    select type (dis)
+    class is (DisuType)
+      print *, "DisU not implemented"
+    class default
+      call create_boundary_cells(boundary_cells, dis)
+    end select
 
   end function constructor
 
@@ -52,7 +52,7 @@ contains
     integer(I4B) :: nodes
     integer(I4B) :: n, ipos
     integer(I4B) :: number_boundarycells, number_local_boundarycells
-    real(DP) , dimension(:, :, :), allocatable :: boundary_edges
+    real(DP), dimension(:, :, :), allocatable :: boundary_edges
     integer(I4B) :: boundary_cell_id, size_boundary_edges
     real(DP), dimension(:), allocatable :: v1, v2
     real(DP), dimension(3) :: cell_centroid, normal, V, PV
@@ -67,8 +67,8 @@ contains
     end do
 
     ! Allocate memory
-    allocate(this%ia(nodes + 1))
-    allocate(this%boundaries(number_boundarycells))
+    allocate (this%ia(nodes + 1))
+    allocate (this%boundaries(number_boundarycells))
 
     ! Create boundary cells
     this%ia(1) = 1
@@ -93,10 +93,18 @@ contains
         v1 = boundary_edges(ipos, 1, :)
         v2 = boundary_edges(ipos, 2, :)
 
-        V = v2-v1
-        PV = cell_centroid-v1
+        V = v2 - v1
+        PV = cell_centroid - v1
         normal = dot_product(V, PV) * V - PV
-        normal = normal / norm2(normal)
+
+        if (norm2(normal) > DSAME) then
+          normal = normal / norm2(normal)
+        else
+          ! If the normal is zero then the cell centroid is on the boundary.
+          ! This happen when using Voronoi cells
+          ! In this case we set compute the using the cross product
+          normal = cross_product(V, [0.0_dp, 0.0_dp, -1.0_dp])
+        end if
 
         this%boundaries(boundary_cell_id)%v1 = v1
         this%boundaries(boundary_cell_id)%v2 = v2
@@ -107,13 +115,13 @@ contains
     end do
   end subroutine create_boundary_cells
 
-  function  find_boundary_edges(dis, n) result(boundary_edges)
+  function find_boundary_edges(dis, n) result(boundary_edges)
     ! -- dummy
     class(DisBaseType), intent(in) :: dis
     integer(I4B), intent(in) :: n
-    real(DP), allocatable :: boundary_edges(:,:,:)
+    real(DP), allocatable :: boundary_edges(:, :, :)
     ! -- local
-    real(DP), dimension(:,:), allocatable :: polyverts
+    real(DP), dimension(:, :), allocatable :: polyverts
     integer(I4B) :: m, num_sides, iedge, ipos
     logical, dimension(:), allocatable :: is_ghost_boundary
     real(DP) :: x_dir, y_dir, z_dir, prod
@@ -121,24 +129,23 @@ contains
     integer(I4B) :: num_ghostcells
     integer(I4B) :: isympos, ihc
     real(DP) :: node_z
-   
 
     call dis%get_polyverts(n, polyverts)
     num_sides = size(polyverts, 2)
 
     ! We start of by flagging all boundaries as ghost cells.
     ! Later we will check if they are connected to a real cell
-    allocate(is_ghost_boundary(num_sides + 2))
+    allocate (is_ghost_boundary(num_sides + 2))
     is_ghost_boundary = .true.
     node_z = (dis%top(n) + dis%bot(n)) / 2.0_dp
-  
+
     ! Check to which edge the connection belongs.
     ! When we find the edge we unflag it as a ghost cell
     do ipos = dis%con%ia(n) + 1, dis%con%ia(n + 1) - 1
       m = dis%con%ja(ipos)
-      call dis%connection_normal(n, m, 1,x_dir, y_dir, z_dir, ipos)
+      call dis%connection_normal(n, m, 1, x_dir, y_dir, z_dir, ipos)
 
-      ! Determine connection direction. 
+      ! Determine connection direction.
       ! Horizontal and vertical connections are treated differently
       isympos = dis%con%jas(ipos)
       ihc = dis%con%ihc(isympos)
@@ -151,7 +158,8 @@ contains
         ! If the dot product of this vector and the connection direction is 1
         ! the connection is not a ghost cell
         do iedge = 1, num_sides
-          edge_dir(1:2) = polyverts(:, mod(iedge, num_sides) + 1) - polyverts(:,iedge)
+          edge_dir(1:2) = polyverts(:, mod(iedge, num_sides) + 1) &
+                          - polyverts(:, iedge)
           edge_dir(3) = DZERO
           edge_dir = edge_dir / norm2(edge_dir)
           cross = cross_product(edge_dir, [0.0_dp, 0.0_dp, -1.0_dp])
@@ -177,7 +185,7 @@ contains
     end do
 
     num_ghostcells = count(is_ghost_boundary)
-    allocate(boundary_edges(num_ghostcells, 2, 3))
+    allocate (boundary_edges(num_ghostcells, 2, 3))
 
     ! Collect all the ghost cell edges
     ipos = 1
@@ -193,13 +201,13 @@ contains
 
     ! The top and the bottom are not really edges but we treat them as such
     ! We only need a line on the top/bottom to reflect the centroid over
-    if (is_ghost_boundary(num_sides + 1 )) then 
+    if (is_ghost_boundary(num_sides + 1)) then
       boundary_edges(ipos, 1, :) = [dis%xc(n), dis%yc(n), dis%bot(n)]
       boundary_edges(ipos, 2, :) = [dis%xc(n), dis%yc(n), dis%bot(n)]
       ipos = ipos + 1
     end if
 
-    if (is_ghost_boundary(num_sides +2  )) then 
+    if (is_ghost_boundary(num_sides + 2)) then
       boundary_edges(ipos, 1, :) = [dis%xc(n), dis%yc(n), dis%top(n)]
       boundary_edges(ipos, 2, :) = [dis%xc(n), dis%yc(n), dis%top(n)]
       ipos = ipos + 1
@@ -213,12 +221,11 @@ contains
     integer(I4B), intent(in) :: n
     integer(I4B) :: number_sides
     ! -- local
-    real(DP), dimension(:,:), allocatable :: polyverts
+    real(DP), dimension(:, :), allocatable :: polyverts
 
     call dis%get_polyverts(n, polyverts)
     number_sides = size(polyverts, 2) + 2 ! We add 2 for the top and bottom
   end function get_number_sides
-
 
   function boundary_cell_count(dis, n) result(number_local_boundary_cells)
     ! -- dummy

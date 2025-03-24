@@ -49,7 +49,6 @@ module TspAdvModule
     procedure :: advtvd
     procedure :: limiter
     procedure, private :: create_grad_operator
-    procedure, private :: is_source_cell
 
   end type TspAdvType
 
@@ -404,33 +403,8 @@ contains
     number_connections = dis%con%ia(node_id + 1) - dis%con%ia(node_id) - 1
   end function
 
-  function is_source_cell(this, node_id) result(is_source)
-    use BndModule, only: BndType, GetBndFromList
-    ! -- return
-    logical :: is_source
-    ! -- dummy
-    class(TspAdvType) :: this
-    integer(I4B), intent(in) :: node_id
-    ! -- local
-    type(BndType), pointer :: packobj
-    integer(I4B) :: i, j
-
-    is_source = .false.
-    if (.not. associated(this%fmi%gwfbndlist)) return
-    do i = 1, this%fmi%gwfbndlist%Count()
-      packobj => GetBndFromList(this%fmi%gwfbndlist, i)
-      if (packobj%naux == 0) cycle
-      do j = 1, packobj%nbound
-        if (packobj%nodelist(j) == node_id) then
-          is_source = .true.
-          exit
-        end if
-      end do
-    end do
-  end function
-
   function advqtvd_experimental(this, n, m, iposnm, cnew) result(qtvd)
-    
+
     ! -- return
     real(DP) :: qtvd
     ! -- dummy
@@ -444,7 +418,7 @@ contains
     real(DP) :: qnm
     real(DP), dimension(3) :: grad_c, dnm
     real(DP) :: smooth, alimiter
-    real(DP) :: cl1, cl2, rel_dist, c_virtual
+    real(DP) :: cl1, cl2, c_virtual
     !
     ! -- initialize
     qtvd = DZERO
@@ -467,15 +441,6 @@ contains
       cl2 = this%dis%con%cl2(isympos)
     end if
     !
-    ! -- return if upwind cell is a boundary cell
-    ! if (this%ibound(iup) <= 0) return
-    !
-    ! -- LSG needs at least two connected nodes
-    if (number_connected_nodes(this%dis, iup) <= 1) return
-    !
-    ! -- return if cell is source cell
-    if (this%is_source_cell(iup)) return
-    !
     ! -- Return if straddled cells have same value
     if (abs(cnew(idn) - cnew(iup)) < DSAME) return
     !
@@ -496,8 +461,6 @@ contains
     ! -- Compute limiter
     alimiter = this%limiter(smooth)
     !
-    ! -- Compute relative distance to face
-    rel_dist = cl1 / (cl1 + cl2)
     ! -- Compute limited flux
     qtvd = DHALF * alimiter * qnm * (cnew(idn) - cnew(iup))
     qtvd = qtvd * this%eqnsclfac
@@ -610,7 +573,7 @@ contains
 
       dnm = this%node_distance(n, m)
       length = norm2(dnm)
-      
+
       d(local_pos, 1) = dnm(1) / length
       d(local_pos, 2) = dnm(2) / length
       d(local_pos, 3) = dnm(3) / length
