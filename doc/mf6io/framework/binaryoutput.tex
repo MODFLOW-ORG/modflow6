@@ -192,7 +192,7 @@ The binary grid file for DISU grids may contain information on the vertices and 
 
 \newpage
 \subsubsection{Version 2 Binary Grid File}
-\mf~will write a version 2 binary grid file when the discretization supports the user input option CRS and that option is defined.  If the discretization supports the CRS option but it is not defined in the discretization OPTIONS block, the version 1 file will be generated.  Version 2 binary grid files contain an additional definition string and data record associated with the CRS input.  An example for the DIS grid follows.
+\mf~will write a version 2 binary grid file when the discretization supports the CRS input option and that option is defined.  If the discretization supports the CRS option but it is not defined in the discretization OPTIONS block, the version 1 file will be generated.  Version 2 binary grid files contain an additional definition string and data record associated with the CRS input.  The length of the data CHARACTER array record will be the trimmed length (TRIMLEN) of the provided input string.  An example for the DIS grid follows.
 
 \vspace{5mm}
 \noindent Header 1: \texttt{`GRID DIS'}  {\color{red} \footnotesize{CHARACTER(LEN=50)}} \\
@@ -219,7 +219,7 @@ The binary grid file for DISU grids may contain information on the vertices and 
 \noindent Definition 14: \texttt{`JA INTEGER NDIM 1 nja'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
 \noindent Definition 15: \texttt{`IDOMAIN INTEGER NDIM 1 ncells'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
 \noindent Definition 16: \texttt{`ICELLTYPE INTEGER NDIM 1 ncells'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
-\noindent Definition 17: \texttt{`CRS CHARACTER NDIM 1 len\_trim'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 17: \texttt{`CRS CHARACTER NDIM 1 trimlen'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
 
 \vspace{5mm}
 \noindent Read \texttt{NDAT} data variables using the definitions defined above. \\
@@ -239,7 +239,7 @@ The binary grid file for DISU grids may contain information on the vertices and 
 \noindent Record 14: \texttt{(JA(J),J=1,NJA)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NJA)}} \\
 \noindent Record 15: \texttt{(IDOMAIN(J),J=1,NCELLS)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NCELLS)}} \\
 \noindent Record 16: \texttt{(ICELLTYPE(J),J=1,NCELLS)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NCELLS)}} \\
-\noindent Record 17: \texttt{(CRS(J),J=1,LEN\_TRIM)} {\color{red} \footnotesize{CHARACTER ARRAY SIZE(LEN\_TRIM)}} \\
+\noindent Record 17: \texttt{(CRS(J),J=1,TRIMLEN)} {\color{red} \footnotesize{CHARACTER ARRAY SIZE(TRIMLEN)}} \\
 
 \newpage
 \subsection{Dependent Variable File}
