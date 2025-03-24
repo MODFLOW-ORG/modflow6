@@ -727,6 +727,7 @@ contains
        &/,6X,'UNIT NUMBER: ', I0,/,6X, 'FILE NAME: ', A)"
     !
     ! -- Initialize
+    version = 1
     ntxt = 20
     !
     call mem_set_value(crs, 'CRS', this%input_mempath, found_crs)
@@ -735,8 +736,6 @@ contains
     if (found_crs) then
       ntxt = ntxt + 1
       version = 2
-    else
-      version = 1
     end if
     !
     ! -- Open the file
@@ -823,11 +822,15 @@ contains
     write (txt, '(3a, i0)') 'ICELLTYPE ', 'INTEGER ', 'NDIM 1 ', this%nodesuser
     txt(lentxt:lentxt) = new_line('a')
     write (iunit) txt
+    !
+    ! -- if version 2 write character array headers
     if (version == 2) then
-      write (txt, '(3a, i0)') 'CRS ', 'CHARACTER ', 'NDIM 1 ', &
-        len_trim(crs)
-      txt(lentxt:lentxt) = new_line('a')
-      write (iunit) txt
+      if (found_crs) then
+        write (txt, '(3a, i0)') 'CRS ', 'CHARACTER ', 'NDIM 1 ', &
+          len_trim(crs)
+        txt(lentxt:lentxt) = new_line('a')
+        write (iunit) txt
+      end if
     end if
     !
     ! -- write data
@@ -851,7 +854,11 @@ contains
     write (iunit) this%con%jausr ! jausr
     write (iunit) this%idomain ! idomain
     write (iunit) icelltype ! icelltype
-    if (version == 2) write (iunit) trim(crs) ! crs user input
+    !
+    ! -- if version 2 write character array data
+    if (version == 2) then
+      if (found_crs) write (iunit) trim(crs) ! crs user input
+    end if
     !
     ! -- Close the file
     close (iunit)
