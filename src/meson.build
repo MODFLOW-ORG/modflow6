@@ -155,6 +155,7 @@ modflow_sources = files(
     'Model' / 'Connection' / 'GwtInterfaceModel.f90',
     'Model' / 'Connection' / 'SpatialModelConnection.f90',
     'Model' / 'Connection' / 'DistributedVariable.f90',
+    'Model' / 'Discretization' / 'BoundaryCells.f90',
     'Model' / 'Discretization' / 'Dis.f90',
     'Model' / 'Discretization' / 'Dis2d.f90',
     'Model' / 'Discretization' / 'Disu.f90',

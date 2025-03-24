@@ -9,6 +9,7 @@ module TspAdvModule
   use TspAdvOptionsModule, only: TspAdvOptionsType
   use SVDModule, only: SVD2
   use MatrixBaseModule
+  use BoundaryCellsModule, only: BoundaryCellsType, get_number_sides
 
   implicit none
   private
@@ -27,7 +28,7 @@ module TspAdvModule
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
     real(DP), pointer :: eqnsclfac => null() !< governing equation scale factor; =1. for solute; =rhow*cpw for energy
     type(Array2D), allocatable, dimension(:) :: grad_op
-
+    type(BoundaryCellsType), allocatable :: boundary_cells
   contains
 
     procedure :: adv_df
@@ -132,6 +133,9 @@ contains
     ! -- adv pointers to arguments that were passed in
     this%dis => dis
     this%ibound => ibound
+
+    ! -- Create boundary Cells
+    this%boundary_cells = BoundaryCellsType(dis)
 
     ! -- Compute the gradient operator
     nodes = dis%nodes
@@ -582,39 +586,25 @@ contains
     real(DP), dimension(3) :: dnm
     real(DP), dimension(:, :), allocatable :: d
     real(DP), dimension(:, :), allocatable :: d_trans
-    real(DP), dimension(:, :), allocatable :: W
+    real(DP), dimension(:, :), allocatable :: grad_scale
     real(DP), dimension(3, 3) :: g
     real(DP), dimension(3, 3) :: g_inv
+    integer(I4B) :: number_sides
 
     number_connections = number_connected_nodes(this%dis, n)
+    number_sides = get_number_sides(this%dis, n)
 
-    if (number_connections == 1) then
-      ! If a cell only has 1 neighbour compute the gradient using finite difference
-      ! This case can happen if a triangle element is located in a cornor of a square domain
-      ! with two sides being domain boundaries
-
-      allocate (grad_op(3, 1))
-      grad_op = 0
-
-      ipos = this%dis%con%ia(n) + 1
-      m = this%dis%con%ja(ipos)
-      dnm = this%node_distance(n, m)
-
-      if (dabs(dnm(1)) > DPREC) grad_op(1, 1) = 1.0_dp / dnm(1)
-      if (dabs(dnm(2)) > DPREC) grad_op(2, 1) = 1.0_dp / dnm(2)
-      if (dabs(dnm(3)) > DPREC) grad_op(3, 1) = 1.0_dp / dnm(3)
-
-      return
-    end if
-
-    allocate (d(number_connections, 3))
-    allocate (d_trans(3, number_connections))
-    allocate (grad_op(3, number_connections))
-    allocate (W(number_connections, number_connections))
+    allocate (d(number_sides, 3))
+    allocate (d_trans(3, number_sides))
+    allocate (grad_op(3, number_sides))
+    allocate (grad_scale(number_sides, number_connections))
 
     ! Assemble the distance and transposed distance matrices
-    W = 0
+    grad_scale = 0
+    d = 0
+    d_trans = 0
     local_pos = 1
+    ! Handle the internal connections
     do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
       m = this%dis%con%ja(ipos)
 
@@ -629,17 +619,29 @@ contains
       d_trans(2, local_pos) = d(local_pos, 2)
       d_trans(3, local_pos) = d(local_pos, 3)
 
-      W(local_pos, local_pos) = 1.0_dp / length
+      grad_scale(local_pos, local_pos) = 1.0_dp / length
 
       local_pos = local_pos + 1
     end do
 
+    ! Handle the ghost cells
+    do ipos = this%boundary_cells%ia(n), this%boundary_cells%ia(n + 1) - 1
+      d(local_pos, 1) = this%boundary_cells%boundaries(ipos)%normal(1)
+      d(local_pos, 2) = this%boundary_cells%boundaries(ipos)%normal(2)
+      d(local_pos, 3) = this%boundary_cells%boundaries(ipos)%normal(3)
+
+      d_trans(1, local_pos) = d(local_pos, 1)
+      d_trans(2, local_pos) = d(local_pos, 2)
+      d_trans(3, local_pos) = d(local_pos, 3)
+
+      local_pos = local_pos + 1
+    end do
     ! Compute the G and inverse G matrices
     g = matmul(d_trans, d)
     g_inv = pinv(g)
 
     ! Compute the gradient operator
-    grad_op = matmul(matmul(g_inv, d_trans), W)
+    grad_op = matmul(matmul(g_inv, d_trans), grad_scale)
 
   end function create_grad_operator
 
