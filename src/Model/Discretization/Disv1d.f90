@@ -4,7 +4,8 @@ module Disv1dModule
   use ConstantsModule, only: LENMEMPATH, LENVARNAME, DZERO, DONE, LINELENGTH
   use SimVariablesModule, only: errmsg, warnmsg
   use MemoryHelperModule, only: create_mem_path
-  use MemoryManagerModule, only: mem_allocate
+  use MemoryManagerModule, only: mem_allocate, mem_setptr
+  use MemoryManagerExtModule, only: mem_set_value
   use SimModule, only: count_errors, store_error, store_warning, &
                        store_error_filename
   use InputOutputModule, only: urword
@@ -88,7 +89,6 @@ contains
   subroutine disv1d_cr(dis, name_model, input_mempath, inunit, iout)
     ! -- modules
     use KindModule, only: LGP
-    use MemoryManagerExtModule, only: mem_set_value
     ! -- dummy
     class(DisBaseType), pointer :: dis
     character(len=*), intent(in) :: name_model
@@ -271,7 +271,6 @@ contains
   subroutine source_options(this)
     ! -- modules
     use KindModule, only: LGP
-    use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
     ! -- dummy
     class(Disv1dType) :: this
@@ -340,7 +339,6 @@ contains
   !<
   subroutine source_dimensions(this)
     use KindModule, only: LGP
-    use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
     ! -- dummy
     class(Disv1dType) :: this
@@ -428,7 +426,6 @@ contains
 
   subroutine source_griddata(this)
     ! modules
-    use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
     ! dummy
     class(Disv1dType) :: this
@@ -496,8 +493,6 @@ contains
   !<
   subroutine source_vertices(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_setptr
-    use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
     ! -- dummy
     class(Disv1dType) :: this
@@ -538,8 +533,6 @@ contains
   subroutine source_cell1d(this)
     ! -- modules
     use MemoryHelperModule, only: create_mem_path
-    use MemoryManagerModule, only: mem_setptr
-    use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
     ! -- dummy
     class(Disv1dType) :: this
@@ -854,22 +847,34 @@ contains
     ! -- modules
     use InputOutputModule, only: getunit, openfile
     use OpenSpecModule, only: access, form
+    use ConstantsModule, only: LENBIGLINE
     ! -- dummy
     class(Disv1dType) :: this
     integer(I4B), dimension(:), intent(in) :: icelltype
     ! -- local
-    integer(I4B) :: i, iunit, ntxt
+    integer(I4B) :: i, iunit, ntxt, version
     integer(I4B), parameter :: lentxt = 100
     character(len=50) :: txthdr
     character(len=lentxt) :: txt
     character(len=LINELENGTH) :: fname
+    character(len=LENBIGLINE) :: crs
+    logical(LGP) :: found_crs
     character(len=*), parameter :: fmtgrdsave = &
       "(4X,'BINARY GRID INFORMATION WILL BE WRITTEN TO:', &
        &/,6X,'UNIT NUMBER: ', I0,/,6X, 'FILE NAME: ', A)"
     !
     ! -- Initialize
+    version = 1
     ntxt = 10
     if (this%nvert > 0) ntxt = ntxt + 5
+    !
+    call mem_set_value(crs, 'CRS', this%input_mempath, found_crs)
+    !
+    ! -- set version
+    if (found_crs) then
+      ntxt = ntxt + 1
+      version = 2
+    end if
     !
     ! -- Open the file
     fname = trim(this%output_fname)
@@ -943,6 +948,16 @@ contains
       write (iunit) txt
     end if
     !
+    ! -- if version 2 write character array headers
+    if (version == 2) then
+      if (found_crs) then
+        write (txt, '(3a, i0)') 'CRS ', 'CHARACTER ', 'NDIM 1 ', &
+          len_trim(crs)
+        txt(lentxt:lentxt) = new_line('a')
+        write (iunit) txt
+      end if
+    end if
+    !
     ! -- write data
     write (iunit) this%nodesuser ! nodes
     write (iunit) this%nja ! nja
@@ -962,6 +977,11 @@ contains
       write (iunit) (this%cellxy(2, i), i=1, this%nodesuser) ! celly
       write (iunit) this%iavert ! iavert
       write (iunit) this%javert ! javert
+    end if
+    !
+    ! -- if version 2 write character array data
+    if (version == 2) then
+      if (found_crs) write (iunit) trim(crs) ! crs user input
     end if
     !
     ! -- Close the file
