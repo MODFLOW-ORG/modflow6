@@ -22,6 +22,7 @@ module OlfDis2DInputModule
     logical :: yorigin = .false.
     logical :: angrot = .false.
     logical :: export_ascii = .false.
+    logical :: crs = .false.
     logical :: nrow = .false.
     logical :: ncol = .false.
     logical :: delr = .false.
@@ -219,6 +220,24 @@ module OlfDis2DInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    olfdis2d_crs = InputParamDefinitionType &
+    ( &
+    'OLF', & ! component
+    'DIS2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .false., & ! multi-record
+    .true., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     olfdis2d_nrow = InputParamDefinitionType &
     ( &
     'OLF', & ! component
@@ -339,6 +358,7 @@ module OlfDis2DInputModule
     olfdis2d_yorigin, &
     olfdis2d_angrot, &
     olfdis2d_export_ascii, &
+    olfdis2d_crs, &
     olfdis2d_nrow, &
     olfdis2d_ncol, &
     olfdis2d_delr, &

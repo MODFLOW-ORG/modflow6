@@ -91,6 +91,16 @@ mf6internal export_ascii
 longname export array variables to layered ascii files.
 description keyword that specifies input griddata arrays should be written to layered ascii output files.
 
+block options
+name crs
+type string
+shape lenbigline
+preserve_case true
+reader urword
+optional true
+longname CRS user input string
+description is a real-world coordinate reference system (CRS) for the model, for example, an EPSG integer code (e.g. 26915), authority string (i.e. epsg:26915), or Open Geospatial Consortium Well-Known Text (WKT) specification. Limited to 5000 characters. The entry for CRS does not affect the model simulation, but it is written to the binary grid file so that postprocessors can locate the grid in space.
+
 # --------------------- swf disv2d dimensions ---------------------
 
 block dimensions
