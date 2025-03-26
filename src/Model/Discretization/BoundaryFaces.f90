@@ -1,119 +1,159 @@
-module BoundaryCellsModule
+module BoundaryFacesModule
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DONE, DZERO, DSAME
+  use SimModule, only: store_warning
 
   use BaseDisModule, only: DisBaseType
   use DisuModule, only: DisuType
+  use DisInfoModule, only: number_connected_faces, number_boundary_faces, &
+                           number_faces, cell_centroid
+  use MathUtilModule, only: cross_product
 
   implicit none
   private
-  public :: BoundaryCellsType
-  public :: get_number_sides
+  public :: BoundaryFacesType
 
-  type BoundaryCellsType
-    integer(I4B), dimension(:), allocatable :: ia
-    type(BoundaryType), dimension(:), allocatable :: boundaries
+  type BoundaryFacesType
+    ! public
+    integer(I4B), public, dimension(:), allocatable :: ia
+    ! private
+    type(BoundaryFaceType), private, allocatable, dimension(:) :: faces
+    real(DP), private, allocatable, dimension(:, :) :: normal ! Normal vector of the boundary
   contains
+    ! public
+    procedure, public :: get_normal
+    ! private
     procedure, private :: create_boundary_cells
-  end type BoundaryCellsType
+  end type BoundaryFacesType
 
-  type BoundaryType
-    real(DP), dimension(3) :: normal ! Normal vector of the boundary
-    real(DP), dimension(3) :: v1 ! First vertex of the boundary
-    real(DP), dimension(3) :: v2 ! Second vertex of the boundary
-  end type BoundaryType
+  type, private :: BoundaryFaceType
+    ! public
+    real(DP), dimension(3) :: normal
+  end type BoundaryFaceType
 
-  interface BoundaryCellsType
+  interface BoundaryFacesType
     module procedure constructor
-  end interface BoundaryCellsType
+  end interface BoundaryFacesType
 
 contains
 
   function constructor(dis) result(boundary_cells)
     ! -- return
-    type(BoundaryCellsType) :: boundary_cells
+    type(BoundaryFacesType) :: boundary_cells
     ! -- dummy
     class(DisBaseType), intent(in) :: dis
 
     select type (dis)
     class is (DisuType)
-      print *, "DisU not implemented"
+      call store_warning("Boundary cells for DisU not implemented")
+      call create_empty_boundary_cells(boundary_cells, dis)
+
     class default
       call create_boundary_cells(boundary_cells, dis)
     end select
 
   end function constructor
 
+  function get_normal(this, ipos) result(normal)
+    ! -- return
+    real(DP), dimension(3) :: normal
+    ! -- dummy
+    class(BoundaryFacesType) :: this
+    integer(I4B), intent(in) :: ipos
+
+    normal = this%faces(ipos)%normal
+  end function get_normal
+
+  subroutine create_empty_boundary_cells(this, dis)
+    ! -- dummy
+    class(BoundaryFacesType) :: this
+    class(DisBaseType), intent(in) :: dis
+    ! -- local
+    integer(I4B) :: nodes
+
+    nodes = dis%nodes
+    allocate (this%ia(nodes + 1))
+    this%ia = 1
+  end subroutine create_empty_boundary_cells
+
   subroutine create_boundary_cells(this, dis)
     ! -- dummy
-    class(BoundaryCellsType) :: this
+    class(BoundaryFacesType) :: this
     class(DisBaseType), intent(in) :: dis
     ! -- local
     integer(I4B) :: nodes
     integer(I4B) :: n, ipos
-    integer(I4B) :: number_boundarycells, number_local_boundarycells
+    integer(I4B) :: boundary_face_count, local_boundary_face_count
     real(DP), dimension(:, :, :), allocatable :: boundary_edges
     integer(I4B) :: boundary_cell_id, size_boundary_edges
     real(DP), dimension(:), allocatable :: v1, v2
-    real(DP), dimension(3) :: cell_centroid, normal, V, PV
-
-    nodes = dis%nodes
-    number_boundarycells = 0
-
-    ! Total number of boundary cells
-    do n = 1, nodes
-      number_local_boundarycells = boundary_cell_count(dis, n)
-      number_boundarycells = number_boundarycells + number_local_boundarycells
-    end do
+    real(DP), dimension(3) :: centroid
 
     ! Allocate memory
+    nodes = dis%nodes
+    boundary_face_count = number_boundary_faces(dis)
     allocate (this%ia(nodes + 1))
-    allocate (this%boundaries(number_boundarycells))
+    allocate (this%faces(boundary_face_count))
 
     ! Create boundary cells
     this%ia(1) = 1
     boundary_cell_id = 1
     do n = 1, nodes
       ! Increment ia for the new boundary cells
-      number_local_boundarycells = boundary_cell_count(dis, n)
-      this%ia(n + 1) = this%ia(n) + number_local_boundarycells
+      local_boundary_face_count = number_boundary_faces(dis, n)
+      this%ia(n + 1) = this%ia(n) + local_boundary_face_count
 
-      if (number_local_boundarycells == 0) cycle
+      if (local_boundary_face_count == 0) cycle
 
       ! Get the edges belonging to the ghost cells
       boundary_edges = find_boundary_edges(dis, n)
 
       ! Compute the normal of the boundary
-      cell_centroid(1) = dis%xc(n)
-      cell_centroid(2) = dis%yc(n)
-      cell_centroid(3) = (dis%top(n) + dis%bot(n)) / 2.0_dp
-
+      centroid = cell_centroid(dis, n)
       size_boundary_edges = size(boundary_edges, dim=1)
+
       do ipos = 1, size_boundary_edges
         v1 = boundary_edges(ipos, 1, :)
         v2 = boundary_edges(ipos, 2, :)
 
-        V = v2 - v1
-        PV = cell_centroid - v1
-        normal = dot_product(V, PV) * V - PV
-
-        if (norm2(normal) > DSAME) then
-          normal = normal / norm2(normal)
-        else
-          ! If the normal is zero then the cell centroid is on the boundary.
-          ! This happen when using Voronoi cells
-          ! In this case we set compute the using the cross product
-          normal = cross_product(V, [0.0_dp, 0.0_dp, -1.0_dp])
-        end if
-
-        this%boundaries(boundary_cell_id)%v1 = v1
-        this%boundaries(boundary_cell_id)%v2 = v2
-        this%boundaries(boundary_cell_id)%normal = normal
+        this%faces(boundary_cell_id)%normal = compute_normal(v1, v2, centroid)
 
         boundary_cell_id = boundary_cell_id + 1
       end do
     end do
   end subroutine create_boundary_cells
+
+  function compute_normal(v1, v2, centroid) result(normal)
+    ! -- return
+    real(DP), dimension(3) :: normal
+    ! -- dummy
+    real(DP), dimension(3), intent(in) :: v1, v2, centroid
+    ! -- local
+
+    normal = compute_point_to_line_vector(v1, v2, centroid)
+
+    if (norm2(normal) < DSAME) then
+      ! If the normal is zero then the cell centroid is on the boundary.
+      ! This occurs when using Voronoi cells.
+      ! In this case we compute the normal using the cross product.
+      normal = cross_product(v2 - v1, [0.0_dp, 0.0_dp, -1.0_dp])
+    end if
+
+    normal = normal / norm2(normal)
+  end function compute_normal
+
+  function compute_point_to_line_vector(v1, v2, p) result(vec)
+    ! -- return
+    real(DP), dimension(3) :: vec
+    ! -- dummy
+    real(DP), dimension(3) :: v1, v2, p
+    ! -- local
+    real(DP), dimension(3) :: PV1, V21
+
+    V21 = v2 - v1
+    PV1 = p - v1
+    vec = dot_product(V21, PV1) * V21 - PV1
+  end function compute_point_to_line_vector
 
   function find_boundary_edges(dis, n) result(boundary_edges)
     ! -- dummy
@@ -215,51 +255,4 @@ contains
 
   end function find_boundary_edges
 
-  function get_number_sides(dis, n) result(number_sides)
-    ! -- dummy
-    class(DisBaseType), intent(in) :: dis
-    integer(I4B), intent(in) :: n
-    integer(I4B) :: number_sides
-    ! -- local
-    real(DP), dimension(:, :), allocatable :: polyverts
-
-    call dis%get_polyverts(n, polyverts)
-    number_sides = size(polyverts, 2) + 2 ! We add 2 for the top and bottom
-  end function get_number_sides
-
-  function boundary_cell_count(dis, n) result(number_local_boundary_cells)
-    ! -- dummy
-    class(DisBaseType), intent(in) :: dis
-    integer(I4B), intent(in) :: n
-    integer(I4B) :: number_local_boundary_cells
-    ! -- local
-    integer(I4B) :: number_sides, number_connections
-
-    number_sides = get_number_sides(dis, n)
-    number_connections = number_connected_nodes(dis, n)
-
-    number_local_boundary_cells = number_sides - number_connections
-
-  end function boundary_cell_count
-
-  function number_connected_nodes(dis, n) result(number_connections)
-    ! -- dummy
-    class(DisBaseType), intent(in) :: dis
-    integer(I4B), intent(in) :: n
-    integer(I4B) :: number_connections
-
-    number_connections = dis%con%ia(n + 1) - dis%con%ia(n) - 1
-  end function
-
-  function cross_product(a, b) result(c)
-    ! -- return
-    real(DP), dimension(3) :: c
-    ! -- dummy
-    real(DP), dimension(3), intent(in) :: a
-    real(DP), dimension(3), intent(in) :: b
-
-    c(1) = a(2) * b(3) - a(3) * b(2)
-    c(2) = a(3) * b(1) - a(1) * b(3)
-    c(3) = a(1) * b(2) - a(2) * b(1)
-  end function cross_product
-end module BoundaryCellsModule
+end module BoundaryFacesModule

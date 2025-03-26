@@ -9,7 +9,8 @@ module TspAdvModule
   use TspAdvOptionsModule, only: TspAdvOptionsType
   use SVDModule, only: SVD2
   use MatrixBaseModule
-  use BoundaryCellsModule, only: BoundaryCellsType, get_number_sides
+  use BoundaryFacesModule, only: BoundaryFacesType
+  use DisInfoModule, only: number_connected_faces, number_faces
 
   implicit none
   private
@@ -28,7 +29,7 @@ module TspAdvModule
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
     real(DP), pointer :: eqnsclfac => null() !< governing equation scale factor; =1. for solute; =rhow*cpw for energy
     type(Array2D), allocatable, dimension(:) :: grad_op
-    type(BoundaryCellsType), allocatable :: boundary_cells
+    type(BoundaryFacesType), allocatable :: boundary_faces
   contains
 
     procedure :: adv_df
@@ -134,7 +135,7 @@ contains
     this%ibound => ibound
 
     ! -- Create boundary Cells
-    this%boundary_cells = BoundaryCellsType(dis)
+    this%boundary_faces = BoundaryFacesType(dis)
 
     ! -- Compute the gradient operator
     nodes = dis%nodes
@@ -394,15 +395,6 @@ contains
 
   end function
 
-  function number_connected_nodes(dis, node_id) result(number_connections)
-    ! -- dummy
-    class(DisBaseType), pointer, intent(in) :: dis
-    integer(I4B), intent(in) :: node_id
-    integer(I4B) :: number_connections
-
-    number_connections = dis%con%ia(node_id + 1) - dis%con%ia(node_id) - 1
-  end function
-
   function advqtvd_experimental(this, n, m, iposnm, cnew) result(qtvd)
 
     ! -- return
@@ -522,7 +514,7 @@ contains
     real(DP), dimension(:), allocatable :: dc
 
     ! Assemble the concentration difference vector
-    number_connections = number_connected_nodes(this%dis, n)
+    number_connections = number_connected_faces(this%dis, n)
     allocate (dc(number_connections))
     local_pos = 1
     do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
@@ -554,51 +546,40 @@ contains
     real(DP), dimension(3, 3) :: g_inv
     integer(I4B) :: number_sides
 
-    number_connections = number_connected_nodes(this%dis, n)
-    number_sides = get_number_sides(this%dis, n)
+    number_connections = number_connected_faces(this%dis, n)
+    number_sides = number_faces(this%dis, n)
 
     allocate (d(number_sides, 3))
     allocate (d_trans(3, number_sides))
     allocate (grad_op(3, number_sides))
     allocate (grad_scale(number_sides, number_connections))
 
-    ! Assemble the distance and transposed distance matrices
     grad_scale = 0
     d = 0
-    d_trans = 0
-    local_pos = 1
+
+    ! Assemble the distance matrix
     ! Handle the internal connections
+    local_pos = 1
     do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
       m = this%dis%con%ja(ipos)
 
       dnm = this%node_distance(n, m)
       length = norm2(dnm)
 
-      d(local_pos, 1) = dnm(1) / length
-      d(local_pos, 2) = dnm(2) / length
-      d(local_pos, 3) = dnm(3) / length
-
-      d_trans(1, local_pos) = d(local_pos, 1)
-      d_trans(2, local_pos) = d(local_pos, 2)
-      d_trans(3, local_pos) = d(local_pos, 3)
-
+      d(local_pos, :) = dnm / length
       grad_scale(local_pos, local_pos) = 1.0_dp / length
 
       local_pos = local_pos + 1
     end do
 
-    ! Handle the ghost cells
-    do ipos = this%boundary_cells%ia(n), this%boundary_cells%ia(n + 1) - 1
-      d(local_pos, 1) = this%boundary_cells%boundaries(ipos)%normal(1)
-      d(local_pos, 2) = this%boundary_cells%boundaries(ipos)%normal(2)
-      d(local_pos, 3) = this%boundary_cells%boundaries(ipos)%normal(3)
-
-      d_trans(1, local_pos) = d(local_pos, 1)
-      d_trans(2, local_pos) = d(local_pos, 2)
-      d_trans(3, local_pos) = d(local_pos, 3)
-
+    ! Handle the boundary cells
+    do ipos = this%boundary_faces%ia(n), this%boundary_faces%ia(n + 1) - 1
+      d(local_pos, :) = this%boundary_faces%get_normal(ipos)
       local_pos = local_pos + 1
     end do
+
+    d_trans = transpose(d)
+
     ! Compute the G and inverse G matrices
     g = matmul(d_trans, d)
     g_inv = pinv(g)

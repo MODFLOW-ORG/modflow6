@@ -8,7 +8,8 @@ module MathUtilModule
   implicit none
   private
   public :: f1d, is_close, mod_offset, zero_ch, zero_br, &
-            get_perturbation, arange, linspace, eye, zeros, outer_product
+            get_perturbation, arange, linspace, eye, zeros, outer_product, &
+            cross_product
 
   interface mod_offset
     module procedure :: mod_offset_int, mod_offset_dbl
@@ -469,5 +470,17 @@ contains
     AB = spread(source=A, dim=2, ncopies=nB) * &
          spread(source=B, dim=1, ncopies=nA)
   end function outer_product
+
+  function cross_product(a, b) result(c)
+    ! -- return
+    real(DP), dimension(3) :: c
+    ! -- dummy
+    real(DP), dimension(3), intent(in) :: a
+    real(DP), dimension(3), intent(in) :: b
+
+    c(1) = a(2) * b(3) - a(3) * b(2)
+    c(2) = a(3) * b(1) - a(1) * b(3)
+    c(3) = a(1) * b(2) - a(2) * b(1)
+  end function cross_product
 
 end module MathUtilModule
