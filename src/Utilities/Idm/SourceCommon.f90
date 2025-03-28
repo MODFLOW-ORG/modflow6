@@ -377,12 +377,11 @@ contains
   !! to read.
   !!
   !<
-  subroutine check_model_shape(mshape, mf6_input, idt, input_fname)
+  subroutine check_model_shape(mshape, idt, model_name, input_fname)
     use InputDefinitionModule, only: InputParamDefinitionType
-    use ModflowInputModule, only: ModflowInputType
     integer(I4B), dimension(:), contiguous, pointer, intent(in) :: mshape !< model shape
-    type(ModflowInputType), intent(in) :: mf6_input !< description of input
     type(InputParamDefinitionType), intent(in) :: idt !< input data type describing current read
+    character(len=*), intent(in) :: model_name !< name of model
     character(len=*), intent(in) :: input_fname !< ascii input file name
 
     select case (idt%datatype)
@@ -392,12 +391,14 @@ contains
           'DOUBLE1D', &
           'DOUBLE2D', &
           'DOUBLE3D')
-      if (.not. associated(mshape)) then
-        write (errmsg, '(a)') &
-          'Model "'//trim(mf6_input%component_name)//'" discretization shape &
-          &not known for package gridded input read.'
-        call store_error(errmsg)
-        call store_error_filename(input_fname)
+      if (idt%shape == 'NODES') then
+        if (.not. associated(mshape)) then
+          write (errmsg, '(a)') &
+            'Model "'//trim(model_name)//'" discretization shape &
+            &not known for package gridded input read.'
+          call store_error(errmsg)
+          call store_error_filename(input_fname)
+        end if
       end if
     case default
       ! other data types reads not dependent on model shape

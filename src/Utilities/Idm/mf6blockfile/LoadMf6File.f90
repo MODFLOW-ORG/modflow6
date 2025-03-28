@@ -415,7 +415,8 @@ contains
                                      tag, this%filename)
 
     ! verify model shape
-    call check_model_shape(this%mshape, this%mf6_input, idt, this%filename)
+    call check_model_shape(this%mshape, idt, this%mf6_input%component_name, &
+                           this%filename)
 
     ! allocate and load data type
     select case (idt%datatype)
