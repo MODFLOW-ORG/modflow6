@@ -17,9 +17,9 @@ module SourceCommonModule
   public :: package_source_type
   public :: idm_component_type, idm_subcomponent_type, idm_subcomponent_name
   public :: set_model_shape
+  public :: check_model_shape
   public :: get_shape_from_string
   public :: get_layered_shape
-  public :: check_model_shape
   public :: file_ext
   public :: ifind_charstr
   public :: filein_fname
@@ -178,32 +178,6 @@ contains
       array_shape(i) = int_ptr
     end do
   end subroutine get_shape_from_string
-
-  subroutine check_model_shape(mshape, mf6_input, idt, input_fname)
-    use InputDefinitionModule, only: InputParamDefinitionType
-    use ModflowInputModule, only: ModflowInputType
-    integer(I4B), dimension(:), contiguous, pointer, intent(in) :: mshape !< model shape
-    type(ModflowInputType), intent(in) :: mf6_input !< description of input
-    type(InputParamDefinitionType), intent(in) :: idt !< input data type object describing this record
-    character(len=*), intent(in) :: input_fname !< ascii input file name
-
-    select case (idt%datatype)
-    case ('INTEGER1D', &
-          'INTEGER2D', &
-          'INTEGER3D', &
-          'DOUBLE1D', &
-          'DOUBLE2D', &
-          'DOUBLE3D')
-      if (.not. associated(mshape)) then
-        write (errmsg, '(a)') &
-          'Model "'//trim(mf6_input%component_name)//'" shape not known &
-          &for package gridded input read.'
-        call store_error(errmsg)
-        call store_error_filename(input_fname)
-      end if
-    case default
-    end select
-  end subroutine check_model_shape
 
   subroutine get_layered_shape(mshape, nlay, layer_shape)
     integer(I4B), dimension(:), intent(in) :: mshape
@@ -395,6 +369,40 @@ contains
     call mem_allocate(distype, 'DISENUM', model_mempath)
     distype = dis_type
   end subroutine set_model_shape
+
+  !> @brief routine to verify the model shape is set
+  !!
+  !! The model shape must be set in the memory manager because
+  !! individual packages need to know the shape of the arrays
+  !! to read.
+  !!
+  !<
+  subroutine check_model_shape(mshape, mf6_input, idt, input_fname)
+    use InputDefinitionModule, only: InputParamDefinitionType
+    use ModflowInputModule, only: ModflowInputType
+    integer(I4B), dimension(:), contiguous, pointer, intent(in) :: mshape !< model shape
+    type(ModflowInputType), intent(in) :: mf6_input !< description of input
+    type(InputParamDefinitionType), intent(in) :: idt !< input data type describing current read
+    character(len=*), intent(in) :: input_fname !< ascii input file name
+
+    select case (idt%datatype)
+    case ('INTEGER1D', &
+          'INTEGER2D', &
+          'INTEGER3D', &
+          'DOUBLE1D', &
+          'DOUBLE2D', &
+          'DOUBLE3D')
+      if (.not. associated(mshape)) then
+        write (errmsg, '(a)') &
+          'Model "'//trim(mf6_input%component_name)//'" discretization shape &
+          &not known for package gridded input read.'
+        call store_error(errmsg)
+        call store_error_filename(input_fname)
+      end if
+    case default
+      ! other data types reads not dependent on model shape
+    end select
+  end subroutine check_model_shape
 
   function ifind_charstr(array, str)
     use CharacterStringModule, only: CharacterStringType
