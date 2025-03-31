@@ -18,7 +18,6 @@ module DisInfoModule
 
 contains
 
-  ! TODO: Does not work for DISU. Add support for DISU
   function number_faces(dis, n) result(faces_count)
     ! -- dummy
     class(DisBaseType), intent(in) :: dis
@@ -69,7 +68,6 @@ contains
 
   end function number_global_boundary_faces
 
-  ! TODO: Does not work for DISU. Add support for DISU
   function cell_centroid(dis, n) result(centroid)
     ! -- dummy
     class(DisBaseType), intent(in) :: dis

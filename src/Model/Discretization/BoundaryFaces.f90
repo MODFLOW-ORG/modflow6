@@ -43,14 +43,7 @@ contains
     ! -- dummy
     class(DisBaseType), intent(in) :: dis
 
-    select type (dis)
-    class is (DisuType)
-      call store_warning("Boundary cells for DisU not implemented")
-      call create_empty_boundary_cells(boundary_cells, dis)
-
-    class default
-      call create_boundary_cells(boundary_cells, dis)
-    end select
+    call create_boundary_cells(boundary_cells, dis)
 
   end function constructor
 
@@ -63,18 +56,6 @@ contains
 
     normal = this%faces(ipos)%normal
   end function get_normal
-
-  subroutine create_empty_boundary_cells(this, dis)
-    ! -- dummy
-    class(BoundaryFacesType) :: this
-    class(DisBaseType), intent(in) :: dis
-    ! -- local
-    integer(I4B) :: nodes
-
-    nodes = dis%nodes
-    allocate (this%ia(nodes + 1))
-    this%ia = 1
-  end subroutine create_empty_boundary_cells
 
   subroutine create_boundary_cells(this, dis)
     ! -- dummy
