@@ -544,10 +544,11 @@ contains
     real(DP), dimension(:, :), allocatable :: grad_scale
     real(DP), dimension(3, 3) :: g
     real(DP), dimension(3, 3) :: g_inv
-    integer(I4B) :: number_sides
+    integer(I4B) :: number_boundaries, number_sides
 
     number_connections = number_connected_faces(this%dis, n)
-    number_sides = number_faces(this%dis, n)
+    number_boundaries = this%boundary_faces%ia(n + 1) - this%boundary_faces%ia(n)
+    number_sides = number_connections + number_boundaries
 
     allocate (d(number_sides, 3))
     allocate (d_trans(3, number_sides))

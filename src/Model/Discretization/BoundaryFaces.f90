@@ -42,6 +42,35 @@ contains
     type(BoundaryFacesType) :: boundary_cells
     ! -- dummy
     class(DisBaseType), intent(in) :: dis
+    logical :: has_warnings
+
+    has_warnings = .false.
+    select type (dis)
+    class is (DisuType)
+      ! Check if the discretization package is compatible with the TVD scheme
+      if (dis%icondir == 0) then
+        has_warnings = .true.
+        call store_warning('Vertices not specified for discretization ' // &
+        'package, but TVD is active. Vertices must be specified in ' // &
+        'discretization package in order to use TVD. Failing to do so may ' // &
+        'result in inaccurate results at the boundary.')
+      end if
+      if (dis%con%ianglex == 0) then
+        has_warnings = .true.
+        call store_warning('ANGLDEGX not specified for discretization ' // &
+        'package, but TVD is active. ANGLDEGX must be specified in ' // &
+        'discretization package in order to use TVD. Failing to do so may ' // &
+        'result in inaccurate results at the boundary.')
+      end if
+
+      ! If the discretization doesn't has all the info needed we don't create the boundary faces.
+      ! This may impact the results because the cell gradient at the boundary is not computed
+      ! correctly.
+      if (has_warnings) then  
+        call create_empty_boundary_cells(boundary_cells, dis)
+        return
+      end if
+    end select
 
     call create_boundary_cells(boundary_cells, dis)
 
@@ -56,6 +85,18 @@ contains
 
     normal = this%faces(ipos)%normal
   end function get_normal
+
+  subroutine create_empty_boundary_cells(this, dis)
+    ! -- dummy
+    class(BoundaryFacesType) :: this
+    class(DisBaseType), intent(in) :: dis
+    ! -- local
+    integer(I4B) :: nodes
+
+    nodes = dis%nodes
+    allocate (this%ia(nodes + 1))
+    this%ia = 1
+  end subroutine create_empty_boundary_cells
 
   subroutine create_boundary_cells(this, dis)
     ! -- dummy
