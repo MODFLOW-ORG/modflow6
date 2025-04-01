@@ -55,7 +55,7 @@ contains
         'discretization package in order to use TVD. Failing to do so may ' // &
         'result in inaccurate results at the boundary.')
       end if
-      if (dis%con%ianglex == 0) then
+      if (dis%iangledegx == 0) then
         has_warnings = .true.
         call store_warning('ANGLDEGX not specified for discretization ' // &
         'package, but TVD is active. ANGLDEGX must be specified in ' // &
