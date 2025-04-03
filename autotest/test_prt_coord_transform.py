@@ -2,7 +2,7 @@
 Tests ability to transform release point coordinates from
 global, local, or local offset coordinate representations
 to model coordinates, as well as to transform output data
-from model to global cooordinates.
+from model to global coordinates.
 
 The grid is a 10x10 square with a single layer,
 the same flow system shown on the FloPy readme.
