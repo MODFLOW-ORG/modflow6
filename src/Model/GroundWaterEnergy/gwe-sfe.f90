@@ -890,13 +890,9 @@ contains
     ! -- dummy
     class(GweSfeType) :: this
     integer(I4B), intent(in) :: ientry
-    real(DP), intent(inout), optional :: rrate
-    ! -- local
-    integer(I4B) :: i
-    real(DP) :: qbnd
+    real(DP), intent(inout) :: rrate
     !
-    qbnd = this%budobj%budterm(this%idxbudsbcd)%flow(ientry)
-    rrate = qbnd
+    rrate = this%budobj%budterm(this%idxbudsbcd)%flow(ientry)
   end subroutine sfe_strmbd_cond_amt
 
   !> @brief Observations
