@@ -205,14 +205,15 @@ contains
     ! When we find the edge we unflag it as a ghost cell
     do ipos = dis%con%ia(n) + 1, dis%con%ia(n + 1) - 1
       m = dis%con%ja(ipos)
-      call dis%connection_normal(n, m, 1, x_dir, y_dir, z_dir, ipos)
-
+      
       ! Determine connection direction.
       ! Horizontal and vertical connections are treated differently
       isympos = dis%con%jas(ipos)
       ihc = dis%con%ihc(isympos)
 
-      if (ihc == 1) then
+      call dis%connection_normal(n, m, ihc, x_dir, y_dir, z_dir, ipos)
+
+      if (ihc >= 1) then
         ! Check if the horizontal connection is a ghost cell
         ! We first find the edge to which the connection belongs
         ! Then we take the cross product of the edge direction and the z unit vector
