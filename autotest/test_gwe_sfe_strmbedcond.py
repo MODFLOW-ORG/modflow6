@@ -11,6 +11,7 @@ import os
 
 import flopy
 import numpy as np
+import pandas as pd
 import pytest
 from framework import TestFramework
 
@@ -540,6 +541,23 @@ def build_models(idx, test):
             sfeperioddata.append((irno, "INFLOW", strm_temp[idx]))
         # sfeperioddata.append((irno, sfr_applied_bnd[idx], sfe_applied_temp[idx]))
 
+    sfe_obs = {
+        (gwename + ".sfe.obs.csv",): [
+            (f"sfe-{i + 1}-temp", "TEMPERATURE", i + 1) for i in range(3)
+        ]
+        + [
+            ("sfe-extin", "EXT-INFLOW", 1),
+            ("sfe-rain", "RAINFALL", 1),
+            ("sfe-roff", "RUNOFF", 1),
+            ("sfe-evap", "EVAPORATION", 1),
+            ("sfe-extout", "EXT-OUTFLOW", 3),
+            ("sfe-sfe", "SFE", 2),
+            ("sfe-strmbd", "STRMBD-COND", 1),
+            ("sfe-strmbd", "STRMBD-COND", 2),
+            ("sfe-strmbd", "STRMBD-COND", 3),
+        ],
+    }
+
     flopy.mf6.modflow.ModflowGwesfe(
         gwe,
         boundnames=False,
@@ -552,6 +570,7 @@ def build_models(idx, test):
         packagedata=sfepackagedata,
         reachperioddata=sfeperioddata,
         flow_package_name="SFR-1",
+        observations=sfe_obs,
         pname="SFE-1",
         filename=f"{gwename}.sfe",
     )
@@ -584,6 +603,7 @@ def check_output(idx, test):
     # read flow results from model
     name = cases[idx]
     gwfname = "gwf-" + name
+    gwename = "gwe-" + name
 
     fname = gwfname + ".sfr.cbc"
     fname = os.path.join(test.workspace, fname)
@@ -627,9 +647,30 @@ def check_output(idx, test):
     fname = "gwe-" + name + ".lst"
     fname = os.path.join(test.workspace, fname)
 
+    # pull in SFE CSV output for comparison with lst file budget term
+    fpth = os.path.join(test.workspace, gwename + ".sfe.obs.csv")
+    df = pd.read_csv(fpth)
+
     # gw exchng (item 'GWF') should be zero in heat transport budget
     T_in, T_out, in_bud_lst, out_bud_lst = get_bud(fname, srchStr)
     assert np.isclose(T_in, T_out, atol=0.1), "There is a heat budget discrepancy"
+
+    # compare individual streambed conduction obs with total
+    df["sum_strmbd_cond"] = df.iloc[:, -3:].sum(axis=1)
+    if name[-1] != "m":
+        assert np.isclose(
+            out_bud_lst["STREAMBED-COND"],
+            abs(df.loc[0, "sum_strmbd_cond"]),
+            atol=0.0001,
+        ), "There is a streambed conductance discrepancy " + str(
+            out_bud_lst["STREAMBED-COND"] - abs(df.loc[0, "sum_strmbd_cond"])
+        )
+    else:
+        assert np.isclose(
+            in_bud_lst["STREAMBED-COND"], abs(df.loc[0, "sum_strmbd_cond"]), atol=0.0001
+        ), "There is a streambed conductance discrepancy " + str(
+            out_bud_lst["STREAMBED-COND"] - abs(df.loc[0, "sum_strmbd_cond"])
+        )
 
     # Get temperature of streamwater
     fname1 = "gwe-" + name + ".sfe.bin"

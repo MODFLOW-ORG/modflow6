@@ -25,3 +25,7 @@ description = "A new example was added demonstrating transient thermal loading o
 section = "features"
 subsection = "internal"
 description = "Added interbed-compaction-pct observation to the CSUB package."
+
+[[items]]
+section = "fixes"
+description = "The mf6io.pdf guide for the SFE Package lists the availability of the STRMBD-COND observation type.  However, the SFE Package did not actually support this observation type and if listed would cause the program to exit with error message.  Functionality has been added to SFE for writing the amount of streambed conductive heat exchange to the CSV output file that contains the user-specified observations."

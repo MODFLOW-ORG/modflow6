@@ -89,6 +89,7 @@ module GweSfeModule
     procedure :: sfe_roff_term
     procedure :: sfe_iflw_term
     procedure :: sfe_outf_term
+    procedure :: sfe_strmbd_cond_amt
     procedure :: pak_df_obs => sfe_df_obs
     procedure :: pak_rp_obs => sfe_rp_obs
     procedure :: pak_bd_obs => sfe_bd_obs
@@ -274,9 +275,6 @@ contains
         '   MAX NO. OF ENTRIES = ', this%flowbudptr%budterm(ip)%maxlist
     end do
     write (this%iout, '(a, //)') 'DONE PROCESSING '//ftype//' INFORMATION'
-    !
-    ! -- Streambed conduction term
-    this%idxbudsbcd = this%idxbudgwf
   end subroutine find_sfe_package
 
   !> @brief Add matrix terms related to SFE
@@ -544,7 +542,11 @@ contains
     ! -- Conduction through the wetted streambed
     text = '  STREAMBED-COND'
     idx = idx + 1
-    maxlist = this%flowbudptr%budterm(this%idxbudsbcd)%maxlist
+    ! -- Set the budget index for streambed conductance since it cannot be
+    !    set in find_sfe_package() routine - there is no associated flow term
+    !    for FMI to identify.
+    this%idxbudsbcd = idx
+    maxlist = this%flowbudptr%budterm(this%idxbudgwf)%maxlist
     naux = 0
     call this%budobj%budterm(idx)%initialize(text, &
                                              this%name_model, &
@@ -634,14 +636,15 @@ contains
       call this%apt_accumulate_ccterm(n1, q, ccratin, ccratout)
     end do
     !
-    ! -- Strmbd-cond
+    ! -- Strmbd-cond. The idxbudgwf index is used since it contains the
+    !    sfe/cell mapping information
     idx = idx + 1
     call this%budobj%budterm(idx)%reset(this%maxbound)
-    do j = 1, this%flowbudptr%budterm(this%idxbudsbcd)%nlist
+    do j = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
       q = DZERO
-      n1 = this%flowbudptr%budterm(this%idxbudsbcd)%id1(j)
+      n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(j)
       if (this%iboundpak(n1) /= 0) then
-        igwfnode = this%flowbudptr%budterm(this%idxbudsbcd)%id2(j)
+        igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(j)
         ! -- For now, there is only 1 aux variable under 'GWF'
         auxpos = this%flowbudptr%budterm(this%idxbudgwf)%naux
         wa = this%flowbudptr%budterm(this%idxbudgwf)%auxvar(auxpos, j)
@@ -878,6 +881,24 @@ contains
     if (present(hcofval)) hcofval = qbnd * this%eqnsclfac
   end subroutine sfe_outf_term
 
+  !> @brief Streambed conduction term
+  !!
+  !! Returns the energy entering or leaving the channel through conductive
+  !! exchange with the streambed.
+  !<
+  subroutine sfe_strmbd_cond_amt(this, ientry, rrate)
+    ! -- dummy
+    class(GweSfeType) :: this
+    integer(I4B), intent(in) :: ientry
+    real(DP), intent(inout), optional :: rrate
+    ! -- local
+    integer(I4B) :: i
+    real(DP) :: qbnd
+    !
+    qbnd = this%budobj%budterm(this%idxbudsbcd)%flow(ientry)
+    rrate = qbnd
+  end subroutine sfe_strmbd_cond_amt
+
   !> @brief Observations
   !!
   !! Store the observation type supported by the APT package and override
@@ -949,6 +970,11 @@ contains
     !    for ext-outflow observation type.
     call this%obs%StoreObsType('ext-outflow', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+    !
+    ! -- Store obs type and assign procedure pointer
+    !    for strmbd-cond observation type.
+    call this%obs%StoreObsType('strmbd-cond', .true., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
   end subroutine sfe_df_obs
 
   !> @brief Process package specific obs
@@ -975,6 +1001,8 @@ contains
     case ('EXT-OUTFLOW')
       call this%rp_obs_byfeature(obsrv)
     case ('TO-MVR')
+      call this%rp_obs_byfeature(obsrv)
+    case ('STRMBD-COND')
       call this%rp_obs_byfeature(obsrv)
     case default
       found = .false.
@@ -1014,6 +1042,10 @@ contains
     case ('EXT-OUTFLOW')
       if (this%iboundpak(jj) /= 0) then
         call this%sfe_outf_term(jj, n1, n2, v)
+      end if
+    case ('STRMBD-COND')
+      if (this%iboundpak(jj) /= 0) then
+        call this%sfe_strmbd_cond_amt(jj, v) ! jj, n1, n2, v
       end if
     case default
       found = .false.
