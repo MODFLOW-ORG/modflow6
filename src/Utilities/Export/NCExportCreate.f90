@@ -182,6 +182,7 @@ contains
             allocate (export_pkg)
             call export_pkg%init(rp_loader%mf6_input, &
                                  rp_loader%bound_context%mshape, &
+                                 rp_loader%bound_context%naux, &
                                  rp_loader%param_names, rp_loader%nparam)
             obj => export_pkg
             call pkglist%add(obj)
@@ -190,6 +191,7 @@ contains
             allocate (export_pkg)
             call export_pkg%init(rp_loader%mf6_input, &
                                  rp_loader%bound_context%mshape, &
+                                 rp_loader%bound_context%naux, &
                                  rp_loader%param_names, rp_loader%nparam)
             obj => export_pkg
             call pkglist%add(obj)

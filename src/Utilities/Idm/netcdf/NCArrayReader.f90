@@ -56,23 +56,34 @@ contains
     type(NCPackageVarsType), pointer, intent(in) :: nc_vars
     character(len=*), intent(in) :: input_fname
     integer(I4B), intent(in) :: iout
-    integer(I4B), optional, intent(in) :: kper
-    integer(I4B) :: varid
+    integer(I4B), optional, intent(in) :: kper !< flag if set > 0 indicates ts
+    integer(I4B) :: varid, iper
     logical(LGP) :: layered
 
+    iper = 0
     layered = (idt%layered .and. is_layered(nc_vars%grid))
 
+    if (present(kper)) then
+      iper = kper
+    end if
+
     if (layered) then
-      call load_integer1d_layered(int1d, mf6_input, mshape, idt, nc_vars, &
-                                  input_fname)
+      if (iper > 0) then
+        call load_integer1d_layered_spd(int1d, mf6_input, mshape, idt, nc_vars, &
+                                        iper, input_fname)
+      else
+        call load_integer1d_layered(int1d, mf6_input, mshape, idt, nc_vars, &
+                                    input_fname)
+      end if
     else
-      if (present(kper)) then
-        varid = nc_vars%varid(idt%mf6varname, period=kper)
+      if (iper > 0) then
+        call load_integer1d_spd(int1d, mf6_input, mshape, idt, nc_vars, &
+                                iper, input_fname)
       else
         varid = nc_vars%varid(idt%mf6varname)
+        call load_integer1d_type(int1d, mf6_input, mshape, idt, nc_vars, &
+                                 varid, input_fname)
       end if
-      call load_integer1d_type(int1d, mf6_input, mshape, idt, nc_vars, &
-                               varid, input_fname)
     end if
   end subroutine nc_array_load_int1d
 
@@ -139,29 +150,30 @@ contains
     type(NCPackageVarsType), pointer, intent(in) :: nc_vars
     character(len=*), intent(in) :: input_fname
     integer(I4B), intent(in) :: iout
-    integer(I4B), optional, intent(in) :: kper
+    integer(I4B), optional, intent(in) :: kper !< flag if set > 0 indicates ts
     integer(I4B), optional, intent(in) :: iaux
-    integer(I4B) :: varid
+    integer(I4B) :: varid, iper
     logical(LGP) :: layered
 
+    iper = 0
+    layered = (idt%layered .and. is_layered(nc_vars%grid))
+
     if (present(kper)) then
-      layered = (kper > 0 .and. is_layered(nc_vars%grid))
-    else
-      layered = (idt%layered .and. is_layered(nc_vars%grid))
+      iper = kper
     end if
 
     if (layered) then
-      if (present(kper)) then
+      if (iper > 0) then
         call load_double1d_layered_spd(dbl1d, mf6_input, mshape, idt, nc_vars, &
-                                       kper, input_fname, iaux)
+                                       iper, input_fname, iaux)
       else
         call load_double1d_layered(dbl1d, mf6_input, mshape, idt, nc_vars, &
                                    input_fname)
       end if
     else
-      if (present(kper)) then
+      if (iper > 0) then
         call load_double1d_spd(dbl1d, mf6_input, mshape, idt, nc_vars, &
-                               kper, input_fname, iaux)
+                               iper, input_fname, iaux)
       else
         varid = nc_vars%varid(idt%mf6varname)
         call load_double1d_type(dbl1d, mf6_input, mshape, idt, nc_vars, &
@@ -265,6 +277,53 @@ contains
     end if
   end subroutine load_integer1d_type
 
+  !> @brief load type 1d double
+  !<
+  subroutine load_integer1d_spd(int1d, mf6_input, mshape, idt, nc_vars, &
+                                iper, input_fname)
+    use ConstantsModule, only: DNODATA
+    use NetCDFCommonModule, only: gstp
+    integer(I4B), dimension(:), contiguous, pointer, intent(in) :: int1d
+    type(ModflowInputType), intent(in) :: mf6_input
+    integer(I4B), dimension(:), contiguous, pointer, intent(in) :: mshape
+    type(InputParamDefinitionType), intent(in) :: idt
+    type(NCPackageVarsType), pointer, intent(in) :: nc_vars
+    integer(I4B), intent(in) :: iper
+    character(len=*), intent(in) :: input_fname
+    integer(I4B), dimension(:), allocatable :: layer_shape
+    integer(I4B) :: varid, nlay, ncpl, istp
+
+    istp = gstp()
+
+    ! set varid
+    varid = nc_vars%varid(idt%mf6varname)
+
+    call get_layered_shape(mshape, nlay, layer_shape)
+    ncpl = product(layer_shape)
+
+    if (size(mshape) == 3) then
+      select case (idt%shape)
+      case ('NCPL', 'NAUX NCPL')
+        if (nc_vars%grid == 'STRUCTURED') then
+          call nf_verify(nf90_get_var(nc_vars%ncid, varid, int1d, &
+                                      start=(/1, 1, istp/), &
+                                      count=(/mshape(3), mshape(2), 1/)), &
+                         nc_vars%nc_fname)
+        else if (nc_vars%grid == 'LAYERED MESH') then
+          call nf_verify(nf90_get_var(nc_vars%ncid, varid, int1d, &
+                                      start=(/1, istp/), count=(/ncpl, 1/)), &
+                         nc_vars%nc_fname)
+        end if
+      case ('NODES', 'NAUX NODES')
+        ! TODO implement or set error?
+        if (nc_vars%grid == 'STRUCTURED') then
+        else if (nc_vars%grid == 'LAYERED MESH') then
+        end if
+      case default
+      end select
+    end if
+  end subroutine load_integer1d_spd
+
   !> @brief load type 1d integer layered
   !<
   subroutine load_integer1d_layered(int1d, mf6_input, mshape, idt, nc_vars, &
@@ -296,6 +355,43 @@ contains
       index_start = index_stop + 1
     end do
   end subroutine load_integer1d_layered
+
+  !> @brief load type 1d integer layered
+  !<
+  subroutine load_integer1d_layered_spd(int1d, mf6_input, mshape, idt, nc_vars, &
+                                        iper, input_fname)
+    use ConstantsModule, only: DNODATA
+    use NetCDFCommonModule, only: gstp
+    integer(I4B), dimension(:), contiguous, pointer, intent(in) :: int1d
+    type(ModflowInputType), intent(in) :: mf6_input
+    integer(I4B), dimension(:), contiguous, pointer, intent(in) :: mshape
+    type(InputParamDefinitionType), intent(in) :: idt
+    type(NCPackageVarsType), pointer, intent(in) :: nc_vars
+    integer(I4B), intent(in) :: iper
+    character(len=*), intent(in) :: input_fname
+    integer(I4B), dimension(:), allocatable :: layer_shape
+    integer(I4B) :: nlay, varid
+    integer(I4B) :: ncpl, nvals, istp
+
+    istp = gstp()
+
+    call get_layered_shape(mshape, nlay, layer_shape)
+    nvals = product(mshape)
+    ncpl = product(layer_shape)
+
+    varid = nc_vars%varid(idt%mf6varname)
+    select case (idt%shape)
+    case ('NCPL', 'NAUX NCPL')
+      call nf_verify(nf90_get_var(nc_vars%ncid, varid, int1d, &
+                                  start=(/1, istp/), count=(/ncpl, 1/)), &
+                     nc_vars%nc_fname)
+    case ('NODES', 'NAUX NODES')
+      call nf_verify(nf90_get_var(nc_vars%ncid, varid, int1d, &
+                                  start=(/1, istp/), count=(/nvals, 1/)), &
+                     nc_vars%nc_fname)
+    case default
+    end select
+  end subroutine load_integer1d_layered_spd
 
   !> @brief load type 2d integer
   !<
@@ -453,6 +549,7 @@ contains
   subroutine load_double1d_spd(dbl1d, mf6_input, mshape, idt, nc_vars, &
                                iper, input_fname, iaux)
     use ConstantsModule, only: DNODATA
+    use NetCDFCommonModule, only: gstp
     real(DP), dimension(:), contiguous, pointer, intent(in) :: dbl1d
     type(ModflowInputType), intent(in) :: mf6_input
     integer(I4B), dimension(:), contiguous, pointer, intent(in) :: mshape
@@ -461,54 +558,53 @@ contains
     integer(I4B), intent(in) :: iper
     character(len=*), intent(in) :: input_fname
     integer(I4B), optional, intent(in) :: iaux
+    integer(I4B), dimension(:), allocatable :: layer_shape
     real(DP), dimension(:, :, :), contiguous, pointer :: dbl3d
-    integer(I4B) :: varid
-    integer(I4B) :: n, i, j, k
+    integer(I4B) :: varid, nlay, ncpl, nvals
+    integer(I4B) :: n, istp
 
     ! initialize
     n = 0
+    istp = gstp()
 
     ! set varid
     if (present(iaux)) then
-      varid = nc_vars%varid(idt%mf6varname, period=iper, iaux=iaux)
+      varid = nc_vars%varid(idt%mf6varname, iaux=iaux)
     else
-      varid = nc_vars%varid(idt%mf6varname, period=iper)
+      varid = nc_vars%varid(idt%mf6varname)
     end if
 
+    call get_layered_shape(mshape, nlay, layer_shape)
+    ncpl = product(layer_shape)
+    nvals = product(mshape)
+
     if (size(mshape) == 3) then
-      allocate (dbl3d(mshape(3), mshape(2), mshape(1)))
-      call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl3d), &
-                     nc_vars%nc_fname)
-
-      if (idt%shape == 'NODES' .or. idt%shape == 'NAUX NODES') then
-        do k = 1, size(dbl3d, dim=3)
-          do i = 1, size(dbl3d, dim=2)
-            do j = 1, size(dbl3d, dim=1)
-              n = n + 1
-              dbl1d(n) = dbl3d(j, i, k)
-            end do
-          end do
-        end do
-
-      else if (idt%shape == 'NCPL' .or. idt%shape == 'NAUX NCPL') then
-        do k = 1, size(dbl3d, dim=3)
-          do i = 1, size(dbl3d, dim=2)
-            do j = 1, size(dbl3d, dim=1)
-              if (n < size(dbl1d)) then
-                n = n + 1
-              else
-                n = 1
-              end if
-              if (dbl3d(j, i, k) /= DNODATA) then
-                dbl1d(n) = dbl3d(j, i, k)
-              end if
-            end do
-          end do
-        end do
-      end if
-
-      ! clean up
-      deallocate (dbl3d)
+      select case (idt%shape)
+      case ('NCPL', 'NAUX NCPL')
+        if (nc_vars%grid == 'STRUCTURED') then
+          call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d, &
+                                      start=(/1, 1, istp/), &
+                                      count=(/mshape(3), mshape(2), 1/)), &
+                         nc_vars%nc_fname)
+        else if (nc_vars%grid == 'LAYERED MESH') then
+          call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d, &
+                                      start=(/1, istp/), count=(/ncpl, 1/)), &
+                         nc_vars%nc_fname)
+        end if
+      case ('NODES', 'NAUX NODES')
+        if (nc_vars%grid == 'STRUCTURED') then
+          dbl3d(1:mshape(3), 1:mshape(2), 1:mshape(1)) => dbl1d(1:nvals)
+          call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl3d, &
+                                      start=(/1, 1, 1, istp/), &
+                                      count=(/mshape(3), mshape(2), mshape(1), &
+                                              1/)), nc_vars%nc_fname)
+        else if (nc_vars%grid == 'LAYERED MESH') then
+          call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d, &
+                                      start=(/1, istp/), count=(/nvals, 1/)), &
+                         nc_vars%nc_fname)
+        end if
+      case default
+      end select
     end if
   end subroutine load_double1d_spd
 
@@ -548,6 +644,7 @@ contains
   subroutine load_double1d_layered_spd(dbl1d, mf6_input, mshape, idt, nc_vars, &
                                        iper, input_fname, iaux)
     use ConstantsModule, only: DNODATA
+    use NetCDFCommonModule, only: gstp
     real(DP), dimension(:), contiguous, pointer, intent(in) :: dbl1d
     type(ModflowInputType), intent(in) :: mf6_input
     integer(I4B), dimension(:), contiguous, pointer, intent(in) :: mshape
@@ -558,8 +655,10 @@ contains
     integer(I4B), optional, intent(in) :: iaux
     integer(I4B), dimension(:), allocatable :: layer_shape
     integer(I4B) :: nlay, varid
-    integer(I4B) :: k, n, ncpl, idx
+    integer(I4B) :: k, n, ncpl, idx, istp
     real(DP), dimension(:), contiguous, pointer :: dbl1d_ptr
+
+    istp = gstp()
 
     call get_layered_shape(mshape, nlay, layer_shape)
     ncpl = product(layer_shape)
@@ -567,11 +666,12 @@ contains
 
     do k = 1, nlay
       if (present(iaux)) then
-        varid = nc_vars%varid(idt%mf6varname, layer=k, period=iper, iaux=iaux)
+        varid = nc_vars%varid(idt%mf6varname, layer=k, iaux=iaux)
       else
-        varid = nc_vars%varid(idt%mf6varname, layer=k, period=iper)
+        varid = nc_vars%varid(idt%mf6varname, layer=k)
       end if
-      call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d_ptr), &
+      call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d_ptr, &
+                                  start=(/1, istp/), count=(/ncpl, 1/)), &
                      nc_vars%nc_fname)
       if (idt%shape == 'NODES' .or. idt%shape == 'NAUX NODES') then
         do n = 1, ncpl
@@ -580,9 +680,7 @@ contains
         end do
       else if (idt%shape == 'NCPL' .or. idt%shape == 'NAUX NCPL') then
         do n = 1, ncpl
-          if (dbl1d_ptr(n) /= DNODATA) then
-            dbl1d(n) = dbl1d_ptr(n)
-          end if
+          dbl1d(n) = dbl1d_ptr(n)
         end do
       end if
     end do

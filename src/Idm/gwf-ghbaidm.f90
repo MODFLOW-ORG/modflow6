@@ -17,12 +17,9 @@ module GwfGhbaInputModule
     logical :: iprpak = .false.
     logical :: iprflow = .false.
     logical :: ipakcb = .false.
-    logical :: tas_filerecord = .false.
-    logical :: tas6 = .false.
-    logical :: filein = .false.
-    logical :: tas6_filename = .false.
     logical :: obs_filerecord = .false.
     logical :: obs6 = .false.
+    logical :: filein = .false.
     logical :: obs6_filename = .false.
     logical :: mover = .false.
     logical :: export_nc = .false.
@@ -130,78 +127,6 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_tas_filerecord = InputParamDefinitionType &
-    ( &
-    'GWF', & ! component
-    'GHBA', & ! subcomponent
-    'OPTIONS', & ! block
-    'TAS_FILERECORD', & ! tag name
-    'TAS_FILERECORD', & ! fortran variable
-    'RECORD TAS6 FILEIN TAS6_FILENAME', & ! type
-    '', & ! shape
-    '', & ! longname
-    .false., & ! required
-    .false., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    gwfghba_tas6 = InputParamDefinitionType &
-    ( &
-    'GWF', & ! component
-    'GHBA', & ! subcomponent
-    'OPTIONS', & ! block
-    'TAS6', & ! tag name
-    'TAS6', & ! fortran variable
-    'KEYWORD', & ! type
-    '', & ! shape
-    'head keyword', & ! longname
-    .true., & ! required
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    gwfghba_filein = InputParamDefinitionType &
-    ( &
-    'GWF', & ! component
-    'GHBA', & ! subcomponent
-    'OPTIONS', & ! block
-    'FILEIN', & ! tag name
-    'FILEIN', & ! fortran variable
-    'KEYWORD', & ! type
-    '', & ! shape
-    'file keyword', & ! longname
-    .true., & ! required
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    gwfghba_tas6_filename = InputParamDefinitionType &
-    ( &
-    'GWF', & ! component
-    'GHBA', & ! subcomponent
-    'OPTIONS', & ! block
-    'TAS6_FILENAME', & ! tag name
-    'TAS6_FILENAME', & ! fortran variable
-    'STRING', & ! type
-    '', & ! shape
-    'file name of time series information', & ! longname
-    .true., & ! required
-    .true., & ! multi-record
-    .true., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
     gwfghba_obs_filerecord = InputParamDefinitionType &
     ( &
     'GWF', & ! component
@@ -230,6 +155,24 @@ module GwfGhbaInputModule
     'KEYWORD', & ! type
     '', & ! shape
     'obs keyword', & ! longname
+    .true., & ! required
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfghba_filein = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'GHBA', & ! subcomponent
+    'OPTIONS', & ! block
+    'FILEIN', & ! tag name
+    'FILEIN', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'file keyword', & ! longname
     .true., & ! required
     .true., & ! multi-record
     .false., & ! preserve case
@@ -337,7 +280,7 @@ module GwfGhbaInputModule
     'AUXVAR', & ! fortran variable
     'DOUBLE2D', & ! type
     'NAUX NODES', & ! shape
-    'recharge auxiliary variable iaux', & ! longname
+    'general-head boundary auxiliary variable iaux', & ! longname
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
@@ -353,12 +296,9 @@ module GwfGhbaInputModule
     gwfghba_iprpak, &
     gwfghba_iprflow, &
     gwfghba_ipakcb, &
-    gwfghba_tas_filerecord, &
-    gwfghba_tas6, &
-    gwfghba_filein, &
-    gwfghba_tas6_filename, &
     gwfghba_obs_filerecord, &
     gwfghba_obs6, &
+    gwfghba_filein, &
     gwfghba_obs6_filename, &
     gwfghba_mover, &
     gwfghba_export_nc, &
