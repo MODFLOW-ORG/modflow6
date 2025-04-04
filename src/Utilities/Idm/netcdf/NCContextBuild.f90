@@ -63,7 +63,7 @@ contains
     character(len=NETCDF_ATTR_STRLEN) :: input_str
     character(len=LENCOMPONENTNAME) :: c_name, sc_name
     character(len=LINELENGTH) :: mempath, varname
-    integer(I4B) :: layer, period, iaux, mf6_layer, mf6_period, mf6_iaux
+    integer(I4B) :: layer, period, iaux, mf6_layer, mf6_iaux
     logical(LGP) :: success
 
     ! initialize
@@ -75,7 +75,7 @@ contains
     sc_name = ''
 
     ! process mf6_input attribute
-    if (nf90_get_att(nc_vars%ncid, varid, 'modflow6_input', &
+    if (nf90_get_att(nc_vars%ncid, varid, 'modflow_input', &
                      input_str) == NF90_NOERR) then
       ! mf6_input should provide a memory address
       call split_mem_address(input_str, mempath, varname, success)
@@ -89,26 +89,20 @@ contains
         call upcase(sc_name)
         ! check for optional layer attribute
         if (nf90_get_att(nc_vars%ncid, varid, &
-                         'modflow6_layer', mf6_layer) == NF90_NOERR) then
+                         'layer', mf6_layer) == NF90_NOERR) then
           layer = mf6_layer
         end if
 
-        ! check for optional period attribute
+        ! check for optional iaux attribute
         if (nf90_get_att(nc_vars%ncid, varid, &
-                         'modflow6_iper', mf6_period) == NF90_NOERR) then
-          period = mf6_period
-        end if
-
-        ! check for optional period attribute
-        if (nf90_get_att(nc_vars%ncid, varid, &
-                         'modflow6_iaux', mf6_iaux) == NF90_NOERR) then
+                         'modflow_iaux', mf6_iaux) == NF90_NOERR) then
           iaux = mf6_iaux
         end if
 
         ! add the variable to netcdf description
         call nc_vars%add(sc_name, varname, layer, period, iaux, varid)
       else
-        errmsg = 'NetCDF variable invalid modflow6_input attribute: "'// &
+        errmsg = 'NetCDF variable invalid modflow_input attribute: "'// &
                  trim(input_str)//'".'
         call store_error(errmsg)
         call store_error_filename(nc_vars%nc_fname)

@@ -17,6 +17,7 @@ module NetCDFCommonModule
   public :: NETCDF_MAX_DIM
   public :: NETCDF_ATTR_STRLEN
   public :: nf_verify
+  public :: gstp
 
   integer(I4B), parameter :: NETCDF_MAX_DIM = 6
   integer(I4B), parameter :: NETCDF_ATTR_STRLEN = 80
@@ -106,5 +107,18 @@ contains
       call store_error_filename(nc_fname)
     end if
   end subroutine nf_verify
+
+  !> @brief global step count
+  !<
+  function gstp()
+    use TdisModule, only: kstp, kper, nstp
+    integer(I4B) :: n, gstp
+    gstp = kstp
+    if (kper > 1) then
+      do n = 1, kper - 1
+        gstp = gstp + nstp(n)
+      end do
+    end if
+  end function gstp
 
 end module NetCDFCommonModule
