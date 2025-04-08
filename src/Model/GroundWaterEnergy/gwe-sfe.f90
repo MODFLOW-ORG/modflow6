@@ -1157,7 +1157,7 @@ contains
     call mem_allocate(this%rfeatthk, this%ncv, 'RFEATTHK', this%memoryPath)
     call mem_allocate(this%lauxvar, this%naux, this%ncv, 'LAUXVAR', &
                       this%memoryPath)
-    call mem_allocate(this%gwtemp, this%dis%nodes, 'GWTEMP', this%memoryPath)
+    call mem_allocate(this%gwtemp, this%dis%njas, 'GWTEMP', this%memoryPath)
     !
     ! -- stream boundary and temperatures
     if (this%imatrows == 0) then
