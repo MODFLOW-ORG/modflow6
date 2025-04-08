@@ -628,7 +628,7 @@ contains
     !
     ! -- Strmbd-cond. The idxbudgwf index is used since it contains the
     !    sfe/cell mapping information
-    this%gwtemp = x
+    this%gwtemp = x(1:this%dis%nodes)
     idx = idx + 1
     nlist = this%flowbudptr%budterm(this%idxbudgwf)%nlist
     call this%budobj%budterm(idx)%reset(nlist)
@@ -1157,7 +1157,7 @@ contains
     call mem_allocate(this%rfeatthk, this%ncv, 'RFEATTHK', this%memoryPath)
     call mem_allocate(this%lauxvar, this%naux, this%ncv, 'LAUXVAR', &
                       this%memoryPath)
-    call mem_allocate(this%gwtemp, this%dis%njas, 'GWTEMP', this%memoryPath)
+    call mem_allocate(this%gwtemp, this%dis%nodes, 'GWTEMP', this%memoryPath)
     !
     ! -- stream boundary and temperatures
     if (this%imatrows == 0) then
