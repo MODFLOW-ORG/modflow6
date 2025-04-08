@@ -64,7 +64,6 @@ module GweSfeModule
     integer(I4B), pointer :: idxbudroff => null() !< index of runoff terms in flowbudptr
     integer(I4B), pointer :: idxbudiflw => null() !< index of inflow terms in flowbudptr
     integer(I4B), pointer :: idxbudoutf => null() !< index of outflow terms in flowbudptr
-    integer(I4B), pointer :: idxbudsbcd => null() !< index of streambed conduction terms in flowbudptr
 
     real(DP), dimension(:), pointer, contiguous :: temprain => null() !< rainfall temperature
     real(DP), dimension(:), pointer, contiguous :: tempevap => null() !< evaporation temperature
@@ -72,6 +71,7 @@ module GweSfeModule
     real(DP), dimension(:), pointer, contiguous :: tempiflw => null() !< inflow temperature
     real(DP), dimension(:), pointer, contiguous :: ktf => null() !< thermal conductivity between the sfe and groundwater cell
     real(DP), dimension(:), pointer, contiguous :: rfeatthk => null() !< thickness of streambed material through which thermal conduction occurs
+    real(DP), dimension(:), pointer, contiguous :: gwtemp => null() !<  gw concentration required for streambed conduction calculations
 
   contains
 
@@ -89,7 +89,7 @@ module GweSfeModule
     procedure :: sfe_roff_term
     procedure :: sfe_iflw_term
     procedure :: sfe_outf_term
-    procedure :: sfe_strmbd_cond_amt
+    procedure, private :: sfe_sbcd_term
     procedure :: pak_df_obs => sfe_df_obs
     procedure :: pak_rp_obs => sfe_rp_obs
     procedure :: pak_bd_obs => sfe_bd_obs
@@ -542,10 +542,6 @@ contains
     ! -- Conduction through the wetted streambed
     text = '  STREAMBED-COND'
     idx = idx + 1
-    ! -- Set the budget index for streambed conductance since it cannot be
-    !    set in find_sfe_package() routine - there is no associated flow term
-    !    for FMI to identify.
-    this%idxbudsbcd = idx
     maxlist = this%flowbudptr%budterm(this%idxbudgwf)%maxlist
     naux = 0
     call this%budobj%budterm(idx)%initialize(text, &
@@ -579,12 +575,7 @@ contains
     integer(I4B) :: nlist
     integer(I4B) :: igwfnode
     integer(I4B) :: idiag
-    integer(I4B) :: auxpos
     real(DP) :: q
-    real(DP) :: ctherm
-    real(DP) :: wa !< wetted area
-    real(DP) :: ktf !< thermal conductivity of streambed material
-    real(DP) :: s !< thickness of conductive streambed materia
     !
     ! -- Rain
     idx = idx + 1
@@ -638,27 +629,19 @@ contains
     !
     ! -- Strmbd-cond. The idxbudgwf index is used since it contains the
     !    sfe/cell mapping information
+    this%gwtemp = x
     idx = idx + 1
-    call this%budobj%budterm(idx)%reset(this%maxbound)
-    do j = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
-      q = DZERO
-      n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(j)
-      if (this%iboundpak(n1) /= 0) then
-        igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(j)
-        ! -- For now, there is only 1 aux variable under 'GWF'
-        auxpos = this%flowbudptr%budterm(this%idxbudgwf)%naux
-        wa = this%flowbudptr%budterm(this%idxbudgwf)%auxvar(auxpos, j)
-        ktf = this%ktf(n1)
-        s = this%rfeatthk(n1)
-        ctherm = ktf * wa / s
-        q = ctherm * (x(igwfnode) - this%xnewpak(n1))
-      end if
-      call this%budobj%budterm(idx)%update_term(n1, igwfnode, q)
+    nlist = this%flowbudptr%budterm(this%idxbudgwf)%nlist
+    call this%budobj%budterm(idx)%reset(nlist)
+    do j = 1, nlist
+      call this%sfe_sbcd_term(j, n1, n2, q)
+      call this%budobj%budterm(idx)%update_term(n1, n2, q)
       call this%apt_accumulate_ccterm(n1, q, ccratin, ccratout)
       if (this%iboundpak(n1) /= 0) then
-        ! -- Contribution to gwe cell budget
+        ! -- Contribution to gwe cell budget, which is different than the
+        !    other terms (i.e., ext-inflow, evap, etc.)
         this%simvals(n1) = this%simvals(n1) - q
-        idiag = this%dis%con%ia(igwfnode)
+        idiag = this%dis%con%ia(n2)
         flowja(idiag) = flowja(idiag) - q
       end if
     end do
@@ -682,7 +665,6 @@ contains
     call mem_allocate(this%idxbudroff, 'IDXBUDROFF', this%memoryPath)
     call mem_allocate(this%idxbudiflw, 'IDXBUDIFLW', this%memoryPath)
     call mem_allocate(this%idxbudoutf, 'IDXBUDOUTF', this%memoryPath)
-    call mem_allocate(this%idxbudsbcd, 'IDXBUDSBCD', this%memoryPath)
     !
     ! -- Initialize
     this%idxbudrain = 0
@@ -690,7 +672,6 @@ contains
     this%idxbudroff = 0
     this%idxbudiflw = 0
     this%idxbudoutf = 0
-    this%idxbudsbcd = 0
   end subroutine allocate_scalars
 
   !> @brief Allocate arrays specific to the streamflow energy transport (SFE)
@@ -736,7 +717,6 @@ contains
     call mem_deallocate(this%idxbudroff)
     call mem_deallocate(this%idxbudiflw)
     call mem_deallocate(this%idxbudoutf)
-    call mem_deallocate(this%idxbudsbcd)
     !
     ! -- Deallocate time series
     call mem_deallocate(this%temprain)
@@ -747,6 +727,7 @@ contains
     ! -- Deallocate arrays
     call mem_deallocate(this%ktf)
     call mem_deallocate(this%rfeatthk)
+    call mem_deallocate(this%gwtemp)
     !
     ! -- Deallocate scalars in TspAptType
     call this%TspAptType%bnd_da()
@@ -886,14 +867,33 @@ contains
   !! Returns the energy entering or leaving the channel through conductive
   !! exchange with the streambed.
   !<
-  subroutine sfe_strmbd_cond_amt(this, ientry, rrate)
+  subroutine sfe_sbcd_term(this, ientry, n1, n2, rrate)
     ! -- dummy
     class(GweSfeType) :: this
     integer(I4B), intent(in) :: ientry
+    integer(I4B), intent(inout) :: n1
+    integer(I4B), intent(inout) :: n2
     real(DP), intent(inout) :: rrate
+    ! -- local
+    integer(I4B) :: auxpos
+    real(DP) :: ctherm
+    real(DP) :: wa !< wetted area
+    real(DP) :: ktf !< thermal conductivity of streambed material
+    real(DP) :: s !< thickness of conductive streambed material
     !
-    rrate = this%budobj%budterm(this%idxbudsbcd)%flow(ientry)
-  end subroutine sfe_strmbd_cond_amt
+    rrate = DZERO
+    n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(ientry)
+    if (this%iboundpak(n1) /= 0) then
+      n2 = this%flowbudptr%budterm(this%idxbudgwf)%id2(ientry)
+      ! -- For now, there is only 1 aux variable under 'GWF'
+      auxpos = this%flowbudptr%budterm(this%idxbudgwf)%naux
+      wa = this%flowbudptr%budterm(this%idxbudgwf)%auxvar(auxpos, ientry)
+      ktf = this%ktf(n1)
+      s = this%rfeatthk(n1)
+      ctherm = ktf * wa / s
+      rrate = ctherm * (this%gwtemp(n2) - this%xnewpak(n1))
+    end if
+  end subroutine sfe_sbcd_term
 
   !> @brief Observations
   !!
@@ -1014,6 +1014,7 @@ contains
     real(DP), intent(inout) :: v
     integer(I4B), intent(in) :: jj
     logical, intent(inout) :: found
+    real(DP), dimension(:), pointer :: x
     ! -- local
     integer(I4B) :: n1, n2
     !
@@ -1041,7 +1042,7 @@ contains
       end if
     case ('STRMBD-COND')
       if (this%iboundpak(jj) /= 0) then
-        call this%sfe_strmbd_cond_amt(jj, v) ! jj, n1, n2, v
+        call this%sfe_sbcd_term(jj, n1, n2, v)
       end if
     case default
       found = .false.
@@ -1158,8 +1159,9 @@ contains
     call mem_allocate(this%rfeatthk, this%ncv, 'RFEATTHK', this%memoryPath)
     call mem_allocate(this%lauxvar, this%naux, this%ncv, 'LAUXVAR', &
                       this%memoryPath)
+    call mem_allocate(this%gwtemp, this%dis%nodes, 'GWTEMP', this%memoryPath)
     !
-    ! -- lake boundary and concentrations
+    ! -- stream boundary and temperatures
     if (this%imatrows == 0) then
       call mem_allocate(this%iboundpak, this%ncv, 'IBOUND', this%memoryPath)
       call mem_allocate(this%xnewpak, this%ncv, 'XNEWPAK', this%memoryPath)
@@ -1180,6 +1182,10 @@ contains
         this%iboundpak(n) = 1
         this%xnewpak(n) = DEP20
       end if
+    end do
+    !
+    do n = 1, this%dis%nodes
+      this%gwtemp(n) = DZERO
     end do
     !
     ! -- allocate local storage for aux variables
