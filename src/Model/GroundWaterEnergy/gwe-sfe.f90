@@ -573,7 +573,6 @@ contains
     ! -- local
     integer(I4B) :: j, n1, n2
     integer(I4B) :: nlist
-    integer(I4B) :: igwfnode
     integer(I4B) :: idiag
     real(DP) :: q
     !
@@ -1014,7 +1013,6 @@ contains
     real(DP), intent(inout) :: v
     integer(I4B), intent(in) :: jj
     logical, intent(inout) :: found
-    real(DP), dimension(:), pointer :: x
     ! -- local
     integer(I4B) :: n1, n2
     !
