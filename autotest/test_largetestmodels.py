@@ -19,6 +19,7 @@ SKIP = [
 ]
 
 
+@pytest.mark.large
 @pytest.mark.regression
 @pytest.mark.slow
 @pytest.mark.parametrize("model_name", MODELS)
