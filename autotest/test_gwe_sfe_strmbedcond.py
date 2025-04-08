@@ -15,21 +15,23 @@ import pandas as pd
 import pytest
 from framework import TestFramework
 
-cases = ["sfe-conductn", "sfe-conducti", "sfe-conducto", "sfe-conductm"]
+cases = ["sfe-conductn", "sfe-conducti", "sfe-conducto", "sfe-conductm", "sfe_conductk"]
 #
 # The last letter in the names above indicates the following
 # n = "no gw/sw exchange"
 # i = "gwf into strm"
 # o = "strm to gw"
 # m = "mixed" (i.e., convection one direction, conductive gradient the other direction?)
+# k = "known answer"
 
 k11 = 500.0
-rhk = [0.0, k11, k11, k11]
-strt_gw_temp = [4.0, 4.0, 4.0, 20.0]
-strm_temp = [18.0, 18.0, 20.0, 4.0]
-chd_condition = ["n", "i", "o", "m"]
+rhk = [0.0, k11, k11, k11, 0.0]
+strt_gw_temp = [4.0, 4.0, 4.0, 20.0, 1.0]
+strm_temp = [18.0, 18.0, 20.0, 4.0, 10.0]
+chd_condition = ["n", "i", "o", "m", "k"]
 surf_Q_in = [
     [8.64, 0.0],
+    [8640.0, 0.0],
     [8640.0, 0.0],
     [8640.0, 0.0],
     [8640.0, 0.0],
@@ -201,7 +203,7 @@ Cps = 880  # Heat capacity of the solids ($J/kg/C$)
 lhv = 2454000.0  # Latent heat of vaporization ($J/kg$)
 # Thermal conductivity of the streambed material ($W/m/C$)
 K_therm_strmbed = [1.5, 1.75, 2.0]
-rbthcnd = [0.0001, 0.0001, 0.0001, 0.0001]
+rbthcnd = [0.0001, 0.0001, 0.0001, 0.0001, 0.0001]
 
 # time params
 steady = {0: False, 1: False}
@@ -325,6 +327,9 @@ def build_models(idx, test):
     elif chd_condition[idx] == "m":
         chdelev1 = top[0, 0] - 3.0  # convection from stream to gw,
         chdelev2 = top[0, -1] - 3.0  # conduction from gw to strm
+    elif chd_condition[idx] == "k":
+        chdelev1 = top[0, 0] - 3.0
+        chdelev2 = top[0, -1] - 3.0
 
     # Instantiate constant head boundary package
     if chd_on:
@@ -552,9 +557,9 @@ def build_models(idx, test):
             ("sfe-evap", "EVAPORATION", 1),
             ("sfe-extout", "EXT-OUTFLOW", 3),
             ("sfe-sfe", "SFE", 2),
-            ("sfe-strmbd", "STRMBD-COND", 1),
-            ("sfe-strmbd", "STRMBD-COND", 2),
-            ("sfe-strmbd", "STRMBD-COND", 3),
+            ("sfe-strmbd1", "STRMBD-COND", 1),
+            ("sfe-strmbd2", "STRMBD-COND", 2),
+            ("sfe-strmbd3", "STRMBD-COND", 3),
         ],
     }
 
@@ -628,6 +633,7 @@ def check_output(idx, test):
     shared_area = np.array(shared_area)
 
     # Calculate wetted streambed area for comparison
+    wa_lst = []
     for j, stg in enumerate(list(sfrstg[0])[1:]):
         wp = calc_wp(j, stg)
         wa = wp * delr
@@ -638,6 +644,7 @@ def check_output(idx, test):
         )
 
         assert np.isclose(wa, shared_area[0, j], atol=1e-4), msg
+        wa_lst.append(wa)
 
     # Sub-scenario checks
     # initialize search term
@@ -695,6 +702,10 @@ def check_output(idx, test):
         "the row of cells hosting the stream owing to increasing "
         "conductive losses from the stream to the aquifer "
         "(i.e., greater shared wetted areas)"
+    )
+    msg5 = (
+        "The conductive exchange of energy calculated by GWE in the 5th "
+        "sub-test does not match an externally calculated solution"
     )
     if name[-1] == "n":
         # no gw/sw convective exchange, simulates conductive exchange only
@@ -792,6 +803,31 @@ def check_output(idx, test):
 
             slp = trenddetector(np.arange(0, gw_temps.shape[-2]), gw_temps[0, 0, 1, :])
             assert slp > 0.0, msg4
+
+    if name[-1] == "k":  # 'k' for known
+        wa = shared_area[0][0]
+        K_t_sb = K_therm_strmbed[0]
+        sbthermthk = rbthcnd[idx]
+
+        # final stream temperature, reach 1
+        strm_temp = df.at[0, "SFE-1-TEMP"]
+        gw_temp = gw_temps[0, 0, 1, 0]
+
+        thermcond = wa * K_t_sb / sbthermthk * (gw_temp - strm_temp)
+
+        assert np.isclose(thermcond, df.at[0, "SFE-STRMBD1"], atol=1e-4), (
+            msg5
+            + ". Values are thermcond: "
+            + str(thermcond)
+            + "   GWE: "
+            + str(df.at[0, "SFE-STRMBD1"])
+            + "   wa: "
+            + str(wa)
+            + "   ktsb: "
+            + str(K_t_sb)
+            + "   sbthk: "
+            + str(sbthermthk)
+        )
 
 
 # - No need to change any code below
