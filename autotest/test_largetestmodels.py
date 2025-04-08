@@ -19,6 +19,7 @@ SKIP = [
 ]
 
 
+@pytest.mark.large
 @pytest.mark.external
 @pytest.mark.regression
 @pytest.mark.slow
