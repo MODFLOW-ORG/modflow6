@@ -45,6 +45,7 @@ def build_models(idx, test, export, gridded_input):
     sim.tdis.start_date_time = "2041-01-01T00:00:00-05:00"
     gwf = sim.gwf[0]
     gwf.dis.export_array_netcdf = True
+    gwf.dis.crs = wkt
     gwf.ic.export_array_netcdf = True
     gwf.npf.export_array_netcdf = True
     gwf.sto.export_array_netcdf = True
@@ -81,6 +82,12 @@ def build_models(idx, test, export, gridded_input):
 
 def check_output(idx, test, export, gridded_input):
     from test_gwf_sto01 import check_output as check
+
+    # verify crs data string in grb version 2 file
+    fname = os.path.join(test.workspace, test.name + ".dis.grb")
+    grbobj = flopy.mf6.utils.MfGrdFile(fname)
+    crs = grbobj._datadict["CRS"]
+    assert crs == wkt
 
     # verify format of generated netcdf file
     with nc.Dataset(test.workspace / "gwf_sto01.nc") as ds:
