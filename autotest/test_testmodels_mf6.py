@@ -30,6 +30,7 @@ SKIP = [
 ]
 
 
+@pytest.mark.external
 @pytest.mark.regression
 @pytest.mark.parametrize("model_name", MODELS)
 def test_model(
@@ -53,16 +54,16 @@ def test_model(
 
     # setup comparison workspace
     if (
-        compare := detect_comparison(tmp_path)
+        comparison := detect_comparison(tmp_path)
         if original_regression
         else Comparison.MF6_REGRESSION
     ) == Comparison.MF6_REGRESSION:
-        copytree(function_tmpdir, function_tmpdir / compare.value)
+        copytree(function_tmpdir, function_tmpdir / comparison.value)
     else:
         setup_comparison(
             function_tmpdir,
-            function_tmpdir / compare.value,
-            compare.value,
+            function_tmpdir / comparison.value,
+            comparison.value,
             overwrite=True,
         )
 
@@ -71,7 +72,7 @@ def test_model(
         name=model_name,
         workspace=function_tmpdir,
         targets=targets,
-        compare=compare,
+        compare=comparison,
         verbose=False,
     )
     test.run()
