@@ -48,7 +48,7 @@ runs:
       run: |
         brew install netcdf-fortran
         nc-config --all
-        nf-config
+        nf-config --all
 
     - name: Build modflow6
       shell: bash
