@@ -170,11 +170,14 @@ contains
     ! -- dummy
     real(DP), dimension(3) :: v1, v2, p
     ! -- local
-    real(DP), dimension(3) :: PV1, V21
+    real(DP), dimension(3) :: PV1, V21, S
+    real(DP) :: proj
 
     V21 = v2 - v1
     PV1 = p - v1
-    vec = dot_product(V21, PV1) * V21 - PV1
+    proj = dot_product(V21, PV1) / norm2(V21)
+    S = proj * V21 / norm2(V21)
+    vec = S - PV1
   end function compute_point_to_line_vector
 
   function find_boundary_edges(dis, n) result(boundary_edges)
@@ -265,14 +268,14 @@ contains
     ! The top and the bottom are not really edges but we treat them as such
     ! We only need a line on the top/bottom to reflect the centroid over
     if (is_ghost_boundary(num_sides + 1)) then
-      boundary_edges(ipos, 1, :) = [dis%xc(n), dis%yc(n), dis%bot(n)]
-      boundary_edges(ipos, 2, :) = [dis%xc(n), dis%yc(n), dis%bot(n)]
+      boundary_edges(ipos, 1, :) = [dis%xc(n)-0.5_dp, dis%yc(n)-0.5_dp, dis%bot(n)]
+      boundary_edges(ipos, 2, :) = [dis%xc(n)+0.5_dp, dis%yc(n)+0.5_dp, dis%bot(n)]
       ipos = ipos + 1
     end if
 
     if (is_ghost_boundary(num_sides + 2)) then
-      boundary_edges(ipos, 1, :) = [dis%xc(n), dis%yc(n), dis%top(n)]
-      boundary_edges(ipos, 2, :) = [dis%xc(n), dis%yc(n), dis%top(n)]
+      boundary_edges(ipos, 1, :) = [dis%xc(n)-0.5_dp, dis%yc(n)-0.5_dp, dis%top(n)]
+      boundary_edges(ipos, 2, :) = [dis%xc(n)+0.5_dp, dis%yc(n)+0.5_dp, dis%top(n)]
       ipos = ipos + 1
     end if
 
