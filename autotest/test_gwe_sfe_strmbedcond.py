@@ -666,17 +666,17 @@ def check_output(idx, test):
     df["sum_strmbd_cond"] = df.iloc[:, -3:].sum(axis=1)
     if name[-1] != "m":
         assert np.isclose(
-            out_bud_lst["STREAMBED-COND"],
+            out_bud_lst["STRMBD-COND"],
             abs(df.loc[0, "sum_strmbd_cond"]),
             atol=0.0001,
         ), "There is a streambed conductance discrepancy " + str(
-            out_bud_lst["STREAMBED-COND"] - abs(df.loc[0, "sum_strmbd_cond"])
+            out_bud_lst["STRMBD-COND"] - abs(df.loc[0, "sum_strmbd_cond"])
         )
     else:
         assert np.isclose(
-            in_bud_lst["STREAMBED-COND"], abs(df.loc[0, "sum_strmbd_cond"]), atol=0.0001
+            in_bud_lst["STRMBD-COND"], abs(df.loc[0, "sum_strmbd_cond"]), atol=0.0001
         ), "There is a streambed conductance discrepancy " + str(
-            out_bud_lst["STREAMBED-COND"] - abs(df.loc[0, "sum_strmbd_cond"])
+            out_bud_lst["STRMBD-COND"] - abs(df.loc[0, "sum_strmbd_cond"])
         )
 
     # Get temperature of streamwater
@@ -715,8 +715,8 @@ def check_output(idx, test):
         # Determine gw/sfe temperature gradient direction
         if sfe_temps[0, 0, 0, 0] > gw_temps[0, 0, 0, 0]:
             # conduction will be from stream to gw
-            assert in_bud_lst["STREAMBED-COND"] == 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] > 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] == 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] > 0.0, msg2
 
             slp = trenddetector(
                 np.arange(0, sfe_temps.shape[-1]), sfe_temps[0, 0, 0, :]
@@ -727,8 +727,8 @@ def check_output(idx, test):
             assert slp > 0.0, msg4
 
         else:
-            assert in_bud_lst["STREAMBED-COND"] > 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] == 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] > 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] == 0.0, msg2
 
     # streamflow gain from aquifer ("into stream")
     if name[-1] == "i":
@@ -739,8 +739,8 @@ def check_output(idx, test):
         # Determine gw/sfe temperature gradient direction
         if sfe_temps[0, 0, 0, 0] > gw_temps[0, 0, 0, 0]:
             # conduction will be from stream to gw
-            assert in_bud_lst["STREAMBED-COND"] == 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] > 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] == 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] > 0.0, msg2
 
             slp = trenddetector(
                 np.arange(0, sfe_temps.shape[-1]), sfe_temps[0, 0, 0, :]
@@ -751,8 +751,8 @@ def check_output(idx, test):
             assert slp > 0.0, msg4
 
         else:
-            assert in_bud_lst["STREAMBED-COND"] > 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] == 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] > 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] == 0.0, msg2
 
     # streamflow loss to aquifer ("out of stream")
     if name[-1] == "o":
@@ -763,8 +763,8 @@ def check_output(idx, test):
         # Determine gw/sfe temperature gradient direction
         if sfe_temps[0, 0, 0, 0] > gw_temps[0, 0, 0, 0]:
             # conduction will be from stream to gw
-            assert in_bud_lst["STREAMBED-COND"] == 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] > 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] == 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] > 0.0, msg2
 
             slp = trenddetector(
                 np.arange(0, sfe_temps.shape[-1]), sfe_temps[0, 0, 0, :]
@@ -775,8 +775,8 @@ def check_output(idx, test):
             assert slp < 0.0, msg4
 
         else:
-            assert in_bud_lst["STREAMBED-COND"] > 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] == 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] > 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] == 0.0, msg2
 
     # Reverse temperature gradient  (cold stream, warm aquifer)
     # Loss of streamwater to aquifer
@@ -789,12 +789,12 @@ def check_output(idx, test):
         # Determine gw/sfe temperature gradient direction
         if sfe_temps[0, 0, 0, 0] > gw_temps[0, 0, 0, 0]:
             # conduction will be from stream to gw
-            assert in_bud_lst["STREAMBED-COND"] == 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] > 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] == 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] > 0.0, msg2
 
         else:
-            assert in_bud_lst["STREAMBED-COND"] > 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] == 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] > 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] == 0.0, msg2
 
             slp = trenddetector(
                 np.arange(0, sfe_temps.shape[-1]), sfe_temps[0, 0, 0, :]
