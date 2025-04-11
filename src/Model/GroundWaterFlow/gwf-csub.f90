@@ -7078,7 +7078,6 @@ contains
                 v = this%tcomp(n)
               case ('INTERBED-COMPACTION-PCT')
                 b0 = this%thickini(n)
-                ! b1 = this%csub_calc_interbed_thickness(n)
                 if (this%idelay(n) /= 0) then
                   b0 = b0 * this%rnb(n)
                 end if
