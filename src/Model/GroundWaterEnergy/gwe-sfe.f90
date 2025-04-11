@@ -291,11 +291,10 @@ contains
     integer(I4B), dimension(:), intent(in) :: idxglo
     class(MatrixBaseType), pointer :: matrix_sln
     ! -- local
-    integer(I4B) :: j, n, n1, n2
+    integer(I4B) :: j, n1, n2
     integer(I4B) :: iloc
     integer(I4B) :: iposd, iposoffd
     integer(I4B) :: ipossymd, ipossymoffd
-    integer(I4B) :: auxpos
     real(DP) :: rrate
     real(DP) :: rhsval
     real(DP) :: hcofval
