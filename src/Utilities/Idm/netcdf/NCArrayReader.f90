@@ -315,10 +315,11 @@ contains
                          nc_vars%nc_fname)
         end if
       case ('NODES', 'NAUX NODES')
-        ! TODO implement or set error?
-        if (nc_vars%grid == 'STRUCTURED') then
-        else if (nc_vars%grid == 'LAYERED MESH') then
-        end if
+        write (errmsg, '(a,a,a)') &
+          'Timeseries netcdf input read not supported for DIS full grid int1d &
+          &type ('//trim(idt%tagname)//').'
+        call store_error(errmsg)
+        call store_error_filename(input_fname)
       case default
       end select
     end if

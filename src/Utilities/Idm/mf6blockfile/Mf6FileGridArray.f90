@@ -164,7 +164,6 @@ contains
     ! explicitly reset auxvar array each period
     do m = 1, this%bound_context%nodes
       do n = 1, this%bound_context%naux
-        !this%bound_context%auxvar(n, m) = DNODATA
         this%bound_context%auxvar(n, m) = DZERO
       end do
     end do

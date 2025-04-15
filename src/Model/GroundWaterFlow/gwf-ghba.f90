@@ -42,7 +42,7 @@ module ghbamodule
 
 contains
 
-  !> @brief Create a New Ghb Package and point bndobj to the new package
+  !> @brief Create a New Ghba Package and point bndobj to the new package
   !<
   subroutine ghba_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
                          mempath)
@@ -56,11 +56,11 @@ contains
     character(len=*), intent(in) :: pakname
     character(len=*), intent(in) :: mempath
     ! -- local
-    type(GhbaType), pointer :: ghbobj
+    type(GhbaType), pointer :: ghbaobj
     !
     ! -- allocate the object and assign values to object variables
-    allocate (ghbobj)
-    packobj => ghbobj
+    allocate (ghbaobj)
+    packobj => ghbaobj
     !
     ! -- create name and memory path
     call packobj%set_names(ibcnum, namemodel, pakname, ftype, mempath)
@@ -101,11 +101,11 @@ contains
     ! -- modules
     use MemoryManagerExtModule, only: mem_set_value
     use CharacterStringModule, only: CharacterStringType
-    use GwfGhbInputModule, only: GwfGhbParamFoundType
+    use GwfGhbaInputModule, only: GwfGhbaParamFoundType
     ! -- dummy
     class(GhbaType), intent(inout) :: this
     ! -- local
-    type(GwfGhbParamFoundType) :: found
+    type(GwfGhbaParamFoundType) :: found
     !
     ! -- source base class options
     call this%BndExtType%source_options()
@@ -113,7 +113,7 @@ contains
     ! -- source options from input context
     call mem_set_value(this%imover, 'MOVER', this%input_mempath, found%mover)
     !
-    ! -- log ghb specific options
+    ! -- log ghba specific options
     call this%log_ghba_options(found)
   end subroutine ghba_options
 
@@ -121,10 +121,10 @@ contains
   !<
   subroutine log_ghba_options(this, found)
     ! -- modules
-    use GwfGhbInputModule, only: GwfGhbParamFoundType
+    use GwfGhbaInputModule, only: GwfGhbaParamFoundType
     ! -- dummy
     class(GhbaType), intent(inout) :: this !< BndExtType object
-    type(GwfGhbParamFoundType), intent(in) :: found
+    type(GwfGhbaParamFoundType), intent(in) :: found
     !
     ! -- log found options
     write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text)) &
@@ -168,11 +168,11 @@ contains
     ! -- call base type allocate arrays
     call this%BndExtType%allocate_arrays(nodelist, auxvar)
     !
-    ! -- set ghb input context pointers
+    ! -- set ghba input context pointers
     call mem_setptr(this%bhead, 'BHEAD', this%input_mempath)
     call mem_setptr(this%cond, 'COND', this%input_mempath)
     !
-    ! --checkin ghb input context pointers
+    ! --checkin ghba input context pointers
     call mem_checkin(this%bhead, 'BHEAD', this%memoryPath, &
                      'BHEAD', this%input_mempath)
     call mem_checkin(this%cond, 'COND', this%memoryPath, &
@@ -229,7 +229,7 @@ contains
     end if
   end subroutine ghba_rp
 
-  !> @brief Check ghb boundary condition data
+  !> @brief Check ghba boundary condition data
   !<
   subroutine ghba_ck(this)
     ! -- modules
@@ -248,10 +248,10 @@ contains
       &BOTTOM (',f10.3,')')"
     character(len=*), parameter :: fmtcondmulterr = &
       "('GHBA BOUNDARY (',i0,') CONDUCTANCE MULTIPLIER (',g10.3,') IS &
-      &LESS THAN ZERO')"
+      &NO DATA VALUE OR LESS THAN ZERO')"
     character(len=*), parameter :: fmtconderr = &
-      "('GHBA BOUNDARY (',i0,') CONDUCTANCE (',g10.3,') IS LESS THAN &
-      &ZERO')"
+      "('GHBA BOUNDARY (',i0,') CONDUCTANCE (',g10.3,') IS NO DATA VALUE &
+      &OR LESS THAN ZERO')"
     !
     ! -- check stress period data
     do i = 1, this%nbound
@@ -264,14 +264,15 @@ contains
         call store_error(errmsg)
       end if
       if (this%iauxmultcol > 0) then
-        if (this%auxvar(this%iauxmultcol, i) < DZERO) then
+        if (this%auxvar(this%iauxmultcol, i) == DNODATA .or. &
+            this%auxvar(this%iauxmultcol, i) < DZERO) then
           write (errmsg, fmt=fmtcondmulterr) &
             i, this%auxvar(this%iauxmultcol, i)
           call store_error(errmsg)
         end if
       end if
-      ! TODO update to include error for DNODATA
-      if (this%cond(i) < DZERO) then
+      if (this%cond(i) == DNODATA .or. &
+          this%cond(i) < DZERO) then
         write (errmsg, fmt=fmtconderr) i, this%cond(i)
         call store_error(errmsg)
       end if
@@ -317,7 +318,7 @@ contains
     class(MatrixBaseType), pointer :: matrix_sln
     ! -- local
     integer(I4B) :: i, noder, ipos
-    real(DP) :: cond, bhead, qghb
+    real(DP) :: cond, bhead, qghba
     !
     ! -- pakmvrobj fc
     if (this%imover == 1) then
@@ -336,8 +337,8 @@ contains
       bhead = this%bhead(i)
       if (this%imover == 1 .and. this%xnew(noder) > bhead) then
         cond = this%cond_mult(i)
-        qghb = cond * (this%xnew(noder) - bhead)
-        call this%pakmvrobj%accumulate_qformvr(i, qghb)
+        qghba = cond * (this%xnew(noder) - bhead)
+        call this%pakmvrobj%accumulate_qformvr(i, qghba)
       end if
     end do
   end subroutine ghba_fc
@@ -393,7 +394,7 @@ contains
     ! -- local
     integer(I4B) :: indx
     !
-    call this%obs%StoreObsType('ghb', .true., indx)
+    call this%obs%StoreObsType('ghba', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => DefaultObsIdProcessor
     !
     ! -- Store obs type and assign procedure pointer

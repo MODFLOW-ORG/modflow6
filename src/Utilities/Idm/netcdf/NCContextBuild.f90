@@ -63,12 +63,11 @@ contains
     character(len=NETCDF_ATTR_STRLEN) :: input_str
     character(len=LENCOMPONENTNAME) :: c_name, sc_name
     character(len=LINELENGTH) :: mempath, varname
-    integer(I4B) :: layer, period, iaux, mf6_layer, mf6_iaux
+    integer(I4B) :: layer, iaux, mf6_layer, mf6_iaux
     logical(LGP) :: success
 
     ! initialize
     layer = -1
-    period = -1
     iaux = -1
     varname = ''
     c_name = ''
@@ -100,7 +99,7 @@ contains
         end if
 
         ! add the variable to netcdf description
-        call nc_vars%add(sc_name, varname, layer, period, iaux, varid)
+        call nc_vars%add(sc_name, varname, layer, iaux, varid)
       else
         errmsg = 'NetCDF variable invalid modflow_input attribute: "'// &
                  trim(input_str)//'".'
