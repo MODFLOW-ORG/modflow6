@@ -378,7 +378,7 @@ contains
       this%datetime = 'days since 1970-01-01T00:00:00'
     end if
 
-    ! TODO: verify this will be set at this point
+    ! Set error and exit if ATS is on
     if (inats > 0) then
       errmsg = 'Adaptive time stepping not currently supported &
                &with NetCDF exports.'
