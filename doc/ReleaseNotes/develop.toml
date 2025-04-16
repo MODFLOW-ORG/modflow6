@@ -33,3 +33,7 @@ description = "The mf6io.pdf guide for the SFE Package lists the availability of
 [[items]]
 section = "fixes"
 description = "Fixed a variable overflow in the MPI communication for parallel simulations that could cause a memory exception when running a parallel simulation with truly large subdomains (~20M nodes or more)."
+
+[[items]]
+section = "fixes"
+description = "The DISV particle tracking method did not correctly determine whether to pass particles through lateral or vertical subcell faces. It also did not properly ensure that particles' relative z coordinates fell within the unit interval, causing particles to be moved to the cell bottom. These issues have been fixed."
