@@ -431,7 +431,7 @@ contains
     end if
 
     ! Compute travel time to exit face. Return with status = 0
-    dt = log(vr) / dvdx
+    dt = log(abs(vr)) / dvdx
     status = 0
   end subroutine calculate_dt
 
