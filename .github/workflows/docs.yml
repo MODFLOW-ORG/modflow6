@@ -26,7 +26,7 @@ jobs:
       - name: Checkout modflow6
         uses: actions/checkout@v4
 
-      - uses: prefix-dev/setup-pixi@v0.8.7
+      - uses: prefix-dev/setup-pixi@v0.8.8
         with:
           pixi-version: v0.41.4
 
@@ -63,7 +63,7 @@ jobs:
           path: usgslatex
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.7
+        uses: prefix-dev/setup-pixi@v0.8.8
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
@@ -235,7 +235,7 @@ jobs:
           sudo apt-get install doxygen graphviz
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.7
+        uses: prefix-dev/setup-pixi@v0.8.8
         with:
           pixi-version: v0.41.4
 
