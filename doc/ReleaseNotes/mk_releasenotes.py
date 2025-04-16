@@ -13,11 +13,11 @@ date = datetime.date.today().strftime("%b %d, %Y")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("toml_path")
-    parser.add_argument("tex_path")
+    parser.add_argument("--toml", default="develop.toml")
+    parser.add_argument("--tex", default="develop.tex")
     args = parser.parse_args()
-    toml_path = Path(args.toml_path).expanduser().absolute()
-    tex_path = Path(args.tex_path).expanduser().absolute()
+    toml_path = Path(args.toml).expanduser().absolute()
+    tex_path = Path(args.tex).expanduser().absolute()
     if not toml_path.is_file():
         warn(f"Release notes TOML file not found: {toml_path}")
         sys.exit(0)

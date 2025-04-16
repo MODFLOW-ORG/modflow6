@@ -78,7 +78,7 @@ These should occur roughly in the order presented above. The procedure is automa
 
 ### Update release notes
 
-The release notes document is constructed from the `doc/ReleaseNotes/ReleaseNotes.tex` LaTeX file. During each development cycle, release notes should be maintained in `doc/ReleaseNotes/develop.tex` &mdash; this file is referenced from `doc/ReleaseNotes/ReleaseNotes.tex`.
+The release notes PDF document is constructed from the `doc/ReleaseNotes/ReleaseNotes.tex` LaTeX file. During development, release notes should be maintained in `doc/ReleaseNotes/develop.toml` &mdash; this file is turned into a LaTeX file by `doc/ReleaseNotes/mk_releasenotes.py`. A pixi task is available for this, e.g. `pixi run make-release-notes`. The resulting LaTex file is referenced from `doc/ReleaseNotes/ReleaseNotes.tex`.
 
 Before making a release, add a line to the Release History section of `ReleaseNotes.tex` providing the version number, date and DOI of the current release, e.g. `6.4.4 & February 13, 2024 & \url{https://doi.org/10.5066/P9FL1JCC}`.
 
@@ -86,9 +86,9 @@ After each release is made, several steps are required to reset the release note
 
 - copy `develop.tex` into a new file `doc/ReleaseNotes/previous/vx.y.z.tex` (where `x.y.z` is the semantic version just released)
 - add a new entry like `\input{./previous/vx.y.z.tex}` to line 3 of `doc/ReleaseNotes/appendixA.tex`
-- overwrite `develop.tex` with the contents of `doc/ReleaseNotes/vx.y.z-template.tex`
+- clear `develop.toml`
 
-Now new changes can be added to `develop.tex` as development proceeds.
+Now new changes can be added to `develop.toml` as development proceeds until the next release.
 
 **Note**: Newly deprecated MF6IO options are included in the release notes. See the [developer docs](../DEVELOPER.md#deprecation-policy) for more info on MF6's deprecation policy, searching for deprecations among DFNs, and generating a deprecations table for insertion into the release notes.
 

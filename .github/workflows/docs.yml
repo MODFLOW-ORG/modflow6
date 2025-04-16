@@ -152,7 +152,7 @@ jobs:
 
       - name: Collect deprecations
         working-directory: modflow6
-        run: pixi run deprecations
+        run: pixi run collect-deprecations
 
       - name: Show deprecations
         working-directory: modflow6/doc/mf6io/mf6ivar/md

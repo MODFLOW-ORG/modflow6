@@ -113,8 +113,9 @@ build-docs = { cmd = "python build_docs.py", cwd = "distribution" }
 build-dist = { cmd = "python build_dist.py", cwd = "distribution" }
 test-dist-scripts = { cmd = "pytest -v --durations 0", cwd = "distribution" }
 update-version = { cmd = "python update_version.py", cwd = "distribution" }
-deprecations = { cmd = "python deprecations.py", cwd = "doc/mf6io/mf6ivar" }
+collect-deprecations = { cmd = "python deprecations.py", cwd = "doc/mf6io/mf6ivar" }
 check-citations = "cffconvert --validate -i CITATION.cff"
+make-release-notes = { cmd = "python mk_releasenotes.py", cwd = "doc/ReleaseNotes" }
 
 [feature.rtd.tasks]
 sphinx = { cmd = "make html", cwd = ".build_rtd_docs" }
