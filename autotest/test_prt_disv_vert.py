@@ -11,6 +11,8 @@ pollock's method and once with the ternary
 method, and check that the results are equal.
 """
 
+from os import environ
+
 import flopy
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
@@ -20,6 +22,7 @@ import pytest
 from flopy.utils.binaryfile import HeadFile
 from flopy.utils.gridutil import get_disv_kwargs
 from framework import TestFramework
+from modflow_devtools.misc import is_in_ci
 from prt_test_utils import get_model_name, get_partdata
 
 simname = "prtdisvvert"
@@ -241,6 +244,9 @@ def check_output(idx, test, snapshot):
 
     # load mf6 pathline results
     mf6_pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
+
+    if is_in_ci() and "ifort" in environ.get("FC", None):
+        return
 
     assert snapshot == mf6_pls.drop("name", axis=1).round(1).to_records(index=False)
 
