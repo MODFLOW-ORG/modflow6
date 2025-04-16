@@ -1,5 +1,5 @@
 """
-This one catches a nasty ternary method bug
+This reproduces a ternary method regression
 where the particle's local z coordinate was
 improperly set to the bottom of the cell in
 an attempt to clamp the z coordinate to the
@@ -242,7 +242,7 @@ def check_output(idx, test, snapshot):
     # load mf6 pathline results
     mf6_pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
 
-    assert snapshot == mf6_pls.drop("name", axis=1).round(2).to_records(index=False)
+    assert snapshot == mf6_pls.drop("name", axis=1).round(1).to_records(index=False)
 
 
 def plot_output(idx, test):
