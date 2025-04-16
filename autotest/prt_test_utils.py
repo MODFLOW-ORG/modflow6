@@ -178,6 +178,8 @@ class FlopyReadmeCase:
             nlay=FlopyReadmeCase.nlay,
             nrow=FlopyReadmeCase.nrow,
             ncol=FlopyReadmeCase.ncol,
+            top=FlopyReadmeCase.top,
+            botm=FlopyReadmeCase.botm,
         )
 
         # create gwf initial conditions package
