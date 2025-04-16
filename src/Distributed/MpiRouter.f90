@@ -297,6 +297,7 @@ contains
         write (this%imon, '(4x,a,i0)') "receiving from process: ", rnk
       end if
 
+      ! call extended type size function (*_x) to avoid overflow for large submodels
       call MPI_Type_size_x(body_rcv_t(i), msg_size, ierr)
       if (msg_size > 0) then
         call MPI_Irecv(MPI_BOTTOM, 1, body_rcv_t(i), rnk, stage, &
@@ -316,6 +317,7 @@ contains
         write (this%imon, '(4x,a,i0)') "sending to process: ", rnk
       end if
 
+      ! call extended type size function (*_x) to avoid overflow for large submodels
       call MPI_Type_size_x(body_snd_t(i), msg_size, ierr)
       if (msg_size > 0) then
         call MPI_Isend(MPI_Bottom, 1, body_snd_t(i), rnk, stage, &
