@@ -145,7 +145,12 @@ def build_notes_tex(force: bool = False):
         tex_path.unlink(missing_ok=True)
         with set_dir(RELEASE_NOTES_PATH):
             out, err, ret = run_py_script(
-                "mk_releasenotes.py", "--toml", toml_path, "--tex", tex_path, verbose=True
+                "mk_releasenotes.py",
+                "--toml",
+                toml_path,
+                "--tex",
+                tex_path,
+                verbose=True,
             )
             assert not ret, out + err
 
