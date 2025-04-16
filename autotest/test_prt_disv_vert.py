@@ -248,7 +248,7 @@ def check_output(idx, test, snapshot):
     if is_in_ci() and "ifort" in environ.get("FC", None):
         return
 
-    assert snapshot == mf6_pls.drop("name", axis=1).round(1).to_records(index=False)
+    assert snapshot == mf6_pls.drop("name", axis=1).round(2).to_records(index=False)
 
 
 def plot_output(idx, test):
