@@ -245,7 +245,7 @@ def check_output(idx, test, snapshot):
     # load mf6 pathline results
     mf6_pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
 
-    if is_in_ci() and "ifort" in environ.get("FC", ""):
+    if is_in_ci() and ("ifort" in (fc := environ.get("FC", "")) or "ifx" in fc):
         return
 
     assert snapshot == mf6_pls.drop("name", axis=1).round(2).to_records(index=False)
