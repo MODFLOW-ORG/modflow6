@@ -240,6 +240,14 @@ contains
       end if
     end if
 
+    ! -- Make sure dt is positive
+    if (dtexit < DZERO) then
+      particle%istatus = TERM_NO_EXITS_SUB
+      particle%advancing = .false.
+      call this%save(particle, reason=3)
+      return
+    end if
+
     texit = particle%ttrack + dtexit
     t0 = particle%ttrack
 
