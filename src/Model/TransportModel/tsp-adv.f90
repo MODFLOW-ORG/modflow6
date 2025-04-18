@@ -454,7 +454,7 @@ contains
     alimiter = this%limiter(smooth)
     !
     ! -- Compute limited flux
-    qtvd = DHALF * alimiter * qnm * (cnew(idn) - cnew(iup))
+    qtvd = cl1 / (cl1 + cl2) * alimiter * qnm * (cnew(idn) - cnew(iup))
     qtvd = qtvd * this%eqnsclfac
 
   end function advqtvd_experimental
