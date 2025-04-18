@@ -10,7 +10,7 @@ from compare import (
 )
 from framework import TestFramework
 
-MODELS = [m for m in models.get_models().keys() if m.startswith("large/")]
+MODELS = [m for m in models.get_models().keys() if m.startswith("mf6/large/")]
 SKIP = [
     "test1002_biscqtg_disv_gnc_nr_dev",
     "test1002_biscqtg_disv_nr_MD_dev",

@@ -10,7 +10,7 @@ from compare import (
 )
 from framework import TestFramework
 
-MODELS = [m for m in models.get_models().keys() if m.startswith("test/")]
+MODELS = [m for m in models.get_models().keys() if m.startswith("mf6/test/")]
 SKIP = [
     "alt_model",
     "test205_gwtbuy-henrytidal",
