@@ -355,7 +355,7 @@ def test_build_pdfs_from_tex(tmp_path):
 
 
 def fetch_example_docs(
-    out_path: PathLike, force: bool = False, repo_owner: str = "MODFLOW-USGS"
+    out_path: PathLike, force: bool = False, repo_owner: str = "MODFLOW-ORG"
 ):
     pdf_name = "mf6examples.pdf"
     if force or not (out_path / pdf_name).is_file():

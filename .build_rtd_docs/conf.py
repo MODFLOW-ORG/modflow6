@@ -89,6 +89,12 @@ src = os.path.join("..", "doc", "mf6io", "mf6ivar", fpth)
 dst = os.path.join(dstdir, "dfn.md")
 shutil.copy(src, dst)
 
+# -- copy migration guides (add any more below as necessary)
+fpth = "mf6_6_0_prt_migration_guide.md"
+src = os.path.join("..", "src", "Solution", "ParticleTracker", fpth)
+dst = os.path.join(dstdir, fpth)
+shutil.copy(src, dst)
+
 # -- build the deprecations table --------------------------------------------
 print("Build the deprecations markdown table")
 pth = os.path.join("..", "doc", "mf6io", "mf6ivar")
