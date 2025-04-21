@@ -98,9 +98,9 @@ os.makedirs(dstdir)
 
 print(f"Copy migration guides to {dstdir}")
 fpth = "mf6_6_0_prt_migration_guide.md"
-src = os.path.join("..", "src", "Solution", "ParticleTracker", fpth)
+src = os.path.join(fpth)
 dst = os.path.join(dstdir, fpth)
-shutil.copy(src, dst)
+shutil.move(src, dst)
 
 # -- build the deprecations table --------------------------------------------
 print("Build the deprecations markdown table")
