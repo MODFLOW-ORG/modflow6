@@ -1,8 +1,8 @@
 # Developing MODFLOW 6
 
-This document describes how to set up a development environment to modify, build and test MODFLOW 6. Details on how to contribute your code to the repository are found in the separate document [CONTRIBUTING.md](CONTRIBUTING.md). 
+This document describes how to set up a development environment to modify, build and test MODFLOW 6. Details on how to contribute your code to the repository are found in the separate document [CONTRIBUTING.md](./CONTRIBUTING.md). 
 
-To build and test an extended version of the program, first read the instructions below and then continue in [EXTENDED.md](EXTENDED.md).
+To build and test an extended version of the program, first read the instructions below and then continue in [EXTENDED.md](./EXTENDED.md).
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->

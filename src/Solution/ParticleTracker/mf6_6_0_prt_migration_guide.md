@@ -133,7 +133,7 @@ Diagrams use the following conventions.
 * Green outcome boxes indicate the particle remains active.
 * Red outcome boxes indicate the particle terminates.
 
-```mermaid
+```{mermaid}
 flowchart LR
      OPTION[Outcome]
     OPTION(OPTION) ==> |Yes| STEP([Step])
@@ -158,7 +158,7 @@ If the cell into which the particle is being released is active, the particle wi
 
 Note that for a dry-but-active cell the `DRAPE` option has no effect. In that case, the particle is released into the cell, and its subsequent behavior can be configured using the `DRY_TRACKING_METHOD` option discussed below.
 
-```mermaid
+```{mermaid}
 flowchart LR
     ACTIVE --> |No| DRAPE(DRAPE)
     ACTIVE{Cell active?} --> |Yes| RELEASE[Release in specified cell]:::release
@@ -189,7 +189,7 @@ If `STOP` is selected, dry particles will be terminated.
 
 If `STAY` is selected, a dry particle will remain stationary until a) the water table rises and tracking can continue, b) the particle terminates due to reaching its `STOPTIME` or `STOPTRAVELTIME`, or c) the simulation ends.
 
-```mermaid
+```{mermaid}
 flowchart LR
     ACTIVE{Cell active?} --> |No| TERMINATE{Terminate}
     ACTIVE{Cell active?} --> |Yes| PARTICLE_DRY

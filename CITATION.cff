@@ -3,7 +3,7 @@ message: If you use this software, please cite the software itself.
 type: software
 title: MODFLOW 6 Modular Hydrologic Model
 version: 6.7.0.dev1
-date-released: '2025-02-10'
+date-released: '2025-04-21'
 doi: 10.5066/F76Q1VQV
 abstract: MODFLOW 6 is an object-oriented program and framework developed to provide
   a platform for supporting multiple models and multiple types of models within the

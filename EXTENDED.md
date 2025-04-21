@@ -1,4 +1,4 @@
-# Developing in extended MODFLOW 6
+# Developing extended MODFLOW 6
 
 This document describes how to set up your build environment for developing and testing the extended version of MODFLOW. It further builds on the instructions given in [DEVELOPER.md](DEVELOPER.md) so make sure to read those first.
 
@@ -118,7 +118,7 @@ Extended MODFLOW was designed to have all third party functionality (MPI, PETSc 
 
 ---
 
-## Testing the extended of MODFLOW 6
+## Testing the extended version of MODFLOW 6
 
 Extended MODFLOW can be tested using the same test framework as the serial program, with just a few modifications. To run a test inside the `autotest` folder in parallel mode, make sure to add a marker `@pytest.mark.parallel` so that the test is only executed in the Continuous Integration when running a configuration with an extended build of MODFLOW. Similarly, adding the marker `@pytest.mark.netcdf` to a test ensures that the test will only be executed when intended by specifying NetCDF test mode.
 
