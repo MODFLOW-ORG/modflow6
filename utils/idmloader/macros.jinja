@@ -1,0 +1,28 @@
+{% macro block_statement(name, required=False, aggregate=False, block_var=False) %}
+InputBlockDefinitionType( &
+  '{{ name }}', & ! blockname
+{% if required %}
+  .true., & ! required
+{% else %}
+  .false., & ! required
+{% endif %}
+{% if aggregate %}
+  .true., & ! aggregate
+{% else %}
+  .false., & ! aggregate
+{% endif %}
+{% if block_var %}
+  .true. & ! block_variable
+{% else %}
+  .false. & ! block_variable
+{% endif %}
+)
+{% endmacro %}
+
+{% macro param_statement(attrs) %}
+InputParamDefinitionType( &
+{% for attr_name, attr_value in attrs %}
+  {attr_value|value}{% if not loop.last %},{% endif %} & ! {attr_name}
+{% endfor %} 
+)
+{% endmacro %}
