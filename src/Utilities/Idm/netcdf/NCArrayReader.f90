@@ -282,7 +282,7 @@ contains
   subroutine load_integer1d_spd(int1d, mf6_input, mshape, idt, nc_vars, &
                                 iper, input_fname)
     use ConstantsModule, only: DNODATA
-    use NetCDFCommonModule, only: gstp
+    use NetCDFCommonModule, only: ixstp
     integer(I4B), dimension(:), contiguous, pointer, intent(in) :: int1d
     type(ModflowInputType), intent(in) :: mf6_input
     integer(I4B), dimension(:), contiguous, pointer, intent(in) :: mshape
@@ -293,7 +293,7 @@ contains
     integer(I4B), dimension(:), allocatable :: layer_shape
     integer(I4B) :: varid, nlay, ncpl, istp
 
-    istp = gstp()
+    istp = ixstp()
 
     ! set varid
     varid = nc_vars%varid(idt%mf6varname)
@@ -362,7 +362,7 @@ contains
   subroutine load_integer1d_layered_spd(int1d, mf6_input, mshape, idt, nc_vars, &
                                         iper, input_fname)
     use ConstantsModule, only: DNODATA
-    use NetCDFCommonModule, only: gstp
+    use NetCDFCommonModule, only: ixstp
     integer(I4B), dimension(:), contiguous, pointer, intent(in) :: int1d
     type(ModflowInputType), intent(in) :: mf6_input
     integer(I4B), dimension(:), contiguous, pointer, intent(in) :: mshape
@@ -374,7 +374,7 @@ contains
     integer(I4B) :: nlay, varid
     integer(I4B) :: ncpl, nvals, istp
 
-    istp = gstp()
+    istp = ixstp()
 
     call get_layered_shape(mshape, nlay, layer_shape)
     nvals = product(mshape)
@@ -550,7 +550,7 @@ contains
   subroutine load_double1d_spd(dbl1d, mf6_input, mshape, idt, nc_vars, &
                                iper, input_fname, iaux)
     use ConstantsModule, only: DNODATA
-    use NetCDFCommonModule, only: gstp
+    use NetCDFCommonModule, only: ixstp
     real(DP), dimension(:), contiguous, pointer, intent(in) :: dbl1d
     type(ModflowInputType), intent(in) :: mf6_input
     integer(I4B), dimension(:), contiguous, pointer, intent(in) :: mshape
@@ -566,7 +566,7 @@ contains
 
     ! initialize
     n = 0
-    istp = gstp()
+    istp = ixstp()
 
     ! set varid
     if (present(iaux)) then
@@ -645,7 +645,7 @@ contains
   subroutine load_double1d_layered_spd(dbl1d, mf6_input, mshape, idt, nc_vars, &
                                        iper, input_fname, iaux)
     use ConstantsModule, only: DNODATA
-    use NetCDFCommonModule, only: gstp
+    use NetCDFCommonModule, only: ixstp
     real(DP), dimension(:), contiguous, pointer, intent(in) :: dbl1d
     type(ModflowInputType), intent(in) :: mf6_input
     integer(I4B), dimension(:), contiguous, pointer, intent(in) :: mshape
@@ -659,7 +659,7 @@ contains
     integer(I4B) :: k, n, ncpl, idx, istp
     real(DP), dimension(:), contiguous, pointer :: dbl1d_ptr
 
-    istp = gstp()
+    istp = ixstp()
 
     call get_layered_shape(mshape, nlay, layer_shape)
     ncpl = product(layer_shape)

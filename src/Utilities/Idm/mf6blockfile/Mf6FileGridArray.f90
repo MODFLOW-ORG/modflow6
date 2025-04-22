@@ -235,10 +235,7 @@ contains
       end if
       call idm_log_var(int1d, idt%tagname, mempath, this%iout)
     case ('DOUBLE1D')
-      ! set pointer to managed memory input variable
       call mem_setptr(dbl1d, idt%mf6varname, mempath)
-
-      ! read user input
       if (netcdf) then
         call netcdf_read_array(dbl1d, this%bound_context%mshape, idt, &
                                this%mf6_input, this%nc_vars, this%input_name, &
@@ -249,17 +246,11 @@ contains
       else
         call read_dbl1d(parser, dbl1d, idt%mf6varname)
       end if
-
-      ! log user input
       call idm_log_var(dbl1d, idt%tagname, mempath, this%iout)
     case ('DOUBLE2D')
-      ! set pointer to managed memory input variable
       call mem_setptr(dbl2d, idt%mf6varname, mempath)
-
-      ! allocate local array
       allocate (dbl1d(this%bound_context%nodes))
 
-      ! read user input
       if (netcdf) then
         call netcdf_read_array(dbl1d, this%bound_context%mshape, idt, &
                                this%mf6_input, this%nc_vars, this%input_name, &
@@ -271,15 +262,11 @@ contains
         call read_dbl1d(parser, dbl1d, idt%mf6varname)
       end if
 
-      ! copy into 2d array
       do n = 1, this%bound_context%nodes
         dbl2d(iaux, n) = dbl1d(n)
       end do
 
-      ! log user input
       call idm_log_var(dbl1d, idt%tagname, mempath, this%iout)
-
-      ! cleanup
       deallocate (dbl1d)
     case default
       errmsg = 'IDM unimplemented. GridArrayLoad::param_load &

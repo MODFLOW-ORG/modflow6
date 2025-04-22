@@ -9,7 +9,7 @@ module MeshDisvModelModule
 
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, LENBIGLINE, LENCOMPONENTNAME, &
-                             LENMEMPATH
+                             LENMEMPATH, DNODATA, DZERO
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, store_error_filename
   use MemoryManagerModule, only: mem_setptr
@@ -114,7 +114,7 @@ contains
   subroutine step(this)
     use ConstantsModule, only: DHNOFLO
     use TdisModule, only: totim
-    use NetCDFCommonModule, only: gstp
+    use NetCDFCommonModule, only: ixstp
     class(Mesh2dDisvExportType), intent(inout) :: this
     real(DP), dimension(:), pointer, contiguous :: dbl1d
     integer(I4B) :: n, k, nvals, istp
@@ -126,7 +126,7 @@ contains
     nullify (dbl2d)
 
     ! set global step index
-    istp = gstp()
+    istp = ixstp()
 
     dis_shape(1) = this%disv%ncpl
     dis_shape(2) = this%disv%nlay
@@ -180,7 +180,6 @@ contains
   !> @brief netcdf export package dynamic input
   !<
   subroutine package_step(this, export_pkg)
-    use ConstantsModule, only: DNODATA, DZERO
     use TdisModule, only: kper
     use DefinitionSelectModule, only: get_param_definition_type
     use NCModelExportModule, only: ExportPackageType
@@ -512,7 +511,7 @@ contains
   subroutine nc_export_int1d(p_mem, ncid, dim_ids, var_ids, disv, idt, mempath, &
                              nc_tag, pkgname, gridmap_name, deflate, shuffle, &
                              chunk_face, iper, nc_fname)
-    use NetCDFCommonModule, only: gstp
+    use NetCDFCommonModule, only: ixstp
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(MeshNCDimIdType), intent(inout) :: dim_ids
@@ -572,7 +571,7 @@ contains
                        nc_fname)
       else
         ! timeseries
-        istp = gstp()
+        istp = ixstp()
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export(1), p_mem, &
                                     start=(/1, istp/), &
@@ -624,7 +623,7 @@ contains
         deallocate (var_id)
       else
         ! timeseries, add period data
-        istp = gstp()
+        istp = ixstp()
         do k = 1, disv%nlay
           int1d(1:disv%ncpl) => int2d(:, k)
           call nf_verify(nf90_put_var(ncid, &
@@ -703,8 +702,7 @@ contains
   subroutine nc_export_dbl1d(p_mem, ncid, dim_ids, var_ids, disv, idt, mempath, &
                              nc_tag, pkgname, gridmap_name, deflate, shuffle, &
                              chunk_face, iper, iaux, nc_fname)
-    use ConstantsModule, only: DNODATA
-    use NetCDFCommonModule, only: gstp
+    use NetCDFCommonModule, only: ixstp
     real(DP), dimension(:), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(MeshNCDimIdType), intent(inout) :: dim_ids
@@ -767,7 +765,7 @@ contains
                        nc_fname)
       else
         ! timeseries
-        istp = gstp()
+        istp = ixstp()
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export(1), p_mem, &
                                     start=(/1, istp/), &
@@ -820,7 +818,7 @@ contains
         deallocate (var_id)
       else
         ! timeseries, add period data
-        istp = gstp()
+        istp = ixstp()
         do k = 1, disv%nlay
           dbl1d(1:disv%ncpl) => dbl2d(:, k)
           call nf_verify(nf90_put_var(ncid, &
@@ -837,7 +835,6 @@ contains
   subroutine nc_export_dbl2d(p_mem, ncid, dim_ids, var_ids, disv, idt, mempath, &
                              nc_tag, pkgname, gridmap_name, deflate, shuffle, &
                              chunk_face, nc_fname)
-    use ConstantsModule, only: DNODATA
     real(DP), dimension(:, :), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(MeshNCDimIdType), intent(inout) :: dim_ids

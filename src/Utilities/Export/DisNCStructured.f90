@@ -9,7 +9,7 @@ module DisNCStructuredModule
 
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, LENBIGLINE, LENCOMPONENTNAME, &
-                             LENMEMPATH, LENVARNAME, DNODATA, DZERO
+                             LENMEMPATH, DNODATA, DZERO
   use SimVariablesModule, only: errmsg, warnmsg
   use SimModule, only: store_error, store_warning, store_error_filename
   use MemoryManagerModule, only: mem_setptr
@@ -257,13 +257,13 @@ contains
   subroutine step(this)
     use ConstantsModule, only: DHNOFLO
     use TdisModule, only: totim
-    use NetCDFCommonModule, only: gstp
+    use NetCDFCommonModule, only: ixstp
     class(DisNCStructuredType), intent(inout) :: this
     real(DP), dimension(:), pointer, contiguous :: dbl1d
     integer(I4B) :: n, istp
 
     ! set global step index
-    istp = gstp()
+    istp = ixstp()
 
     if (size(this%dis%nodeuser) < &
         size(this%dis%nodereduced)) then
@@ -410,7 +410,6 @@ contains
   !> @brief create timeseries export variable
   !<
   subroutine create_timeseries(this, idt, iparam, iaux, export_pkg)
-    use ConstantsModule, only: DNODATA
     use NCModelExportModule, only: ExportPackageType
     class(DisNCStructuredType), intent(inout) :: this
     type(InputParamDefinitionType), pointer, intent(in) :: idt
@@ -491,7 +490,7 @@ contains
 
     ! variable attributes
     call nf_verify(nf90_put_att(this%ncid, varid, &
-                                'units', 'm'), this%nc_fname)
+                                'units', this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, varid, &
                                 'long_name', longname), this%nc_fname)
 
@@ -537,7 +536,6 @@ contains
   !> @brief netcdf export package dynamic input
   !<
   subroutine package_step(this, export_pkg)
-    use ConstantsModule, only: DNODATA, DZERO
     use TdisModule, only: kper
     use DefinitionSelectModule, only: get_param_definition_type
     use NCModelExportModule, only: ExportPackageType
@@ -1068,7 +1066,7 @@ contains
   subroutine nc_export_int1d(p_mem, ncid, dim_ids, var_ids, dis, idt, mempath, &
                              nc_tag, pkgname, gridmap_name, latlon, deflate, &
                              shuffle, chunk_z, chunk_y, chunk_x, iper, nc_fname)
-    use NetCDFCommonModule, only: gstp
+    use NetCDFCommonModule, only: ixstp
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(StructuredNCDimIdType), intent(inout) :: dim_ids
@@ -1133,7 +1131,7 @@ contains
                        nc_fname)
       else
         ! timeseries
-        istp = gstp()
+        istp = ixstp()
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export, p_mem, &
                                     start=(/1, istp/), &
@@ -1171,7 +1169,7 @@ contains
                        nc_fname)
       else
         ! timeseries
-        istp = gstp()
+        istp = ixstp()
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export, p_mem, &
                                     start=(/1, 1, 1, istp/), &
@@ -1297,8 +1295,7 @@ contains
                              nc_tag, pkgname, gridmap_name, latlon, deflate, &
                              shuffle, chunk_z, chunk_y, chunk_x, iper, iaux, &
                              nc_fname)
-    use ConstantsModule, only: DNODATA
-    use NetCDFCommonModule, only: gstp
+    use NetCDFCommonModule, only: ixstp
     real(DP), dimension(:), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(StructuredNCDimIdType), intent(inout) :: dim_ids
@@ -1364,7 +1361,7 @@ contains
                        nc_fname)
       else
         ! timeseries
-        istp = gstp()
+        istp = ixstp()
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export, p_mem, &
                                     start=(/1, istp/), &
@@ -1406,7 +1403,7 @@ contains
                        nc_fname)
       else
         ! timeseries
-        istp = gstp()
+        istp = ixstp()
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export, p_mem, &
                                     start=(/1, 1, 1, istp/), &
@@ -1476,7 +1473,6 @@ contains
   subroutine nc_export_dbl3d(p_mem, ncid, dim_ids, var_ids, dis, idt, mempath, &
                              nc_tag, pkgname, gridmap_name, latlon, deflate, &
                              shuffle, chunk_z, chunk_y, chunk_x, nc_fname)
-    use ConstantsModule, only: DNODATA
     real(DP), dimension(:, :, :), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(StructuredNCDimIdType), intent(inout) :: dim_ids
