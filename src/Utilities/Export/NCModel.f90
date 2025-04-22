@@ -408,7 +408,7 @@ contains
     end if
   end function export_get
 
-  !> @brief build modflow6_input attribute string
+  !> @brief build modflow_input attribute string
   !<
   function input_attribute(this, pkgname, idt) result(attr)
     use InputOutputModule, only: lowcase

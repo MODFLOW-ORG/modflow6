@@ -51,8 +51,6 @@ module MeshModelModule
     integer(I4B) :: mesh_face_ybnds !< mesh faces 2D y bounds array
     integer(I4B) :: mesh_face_nodes !< mesh faces 2D nodes array
     integer(I4B) :: time !< time coordinate variable
-    !integer(I4B) :: export !< in scope export
-    !integer(I4B), dimension(:), allocatable :: export_layer !< in scope layer export
     integer(I4B), dimension(:), allocatable :: export !< in scope layer export
     integer(I4B), dimension(:), allocatable :: dependent !< layered dependent variables array
   contains
@@ -283,7 +281,7 @@ contains
 
     ! assign variable attributes
     call nf_verify(nf90_put_att(this%ncid, varid, &
-                                'units', 'm'), this%nc_fname)
+                                'units', this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, varid, &
                                 'long_name', longname), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, varid, &

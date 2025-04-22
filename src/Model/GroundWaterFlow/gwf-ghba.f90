@@ -147,7 +147,10 @@ contains
     class(GhbaType), intent(inout) :: this
     ! -- local
     !
+    ! -- set maxbound
     this%maxbound = this%dis%nodesuser
+    !
+    ! -- set nbound, which applies for duration of simulation
     this%nbound = this%dis%nodesuser
     !
     ! -- Call define_listlabel to construct the list label that is written
