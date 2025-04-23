@@ -1,12 +1,5 @@
-# Add a new DFN parameter set to MF6
-# by adding a new entry to this list
-# ----------------------------------
-
-# simulation
 sim-nam.dfn
 sim-tdis.dfn
-
-# gwf model
 gwf-nam.dfn
 gwf-chd.dfn
 gwf-dis.dfn
@@ -23,8 +16,6 @@ gwf-rcha.dfn
 gwf-riv.dfn
 gwf-sto.dfn
 gwf-wel.dfn
-
-# gwt model
 gwt-nam.dfn
 gwt-dis.dfn
 gwt-disu.dfn
@@ -32,8 +23,6 @@ gwt-disv.dfn
 gwt-dsp.dfn
 gwt-cnc.dfn
 gwt-ic.dfn
-
-# gwe model
 gwe-nam.dfn
 gwe-ic.dfn
 gwe-ctp.dfn
@@ -41,8 +30,6 @@ gwe-cnd.dfn
 gwe-disv.dfn
 gwe-disu.dfn
 gwe-dis.dfn
-
-# swf model
 swf-nam.dfn
 swf-disv1d.dfn
 swf-dis2d.dfn
@@ -57,8 +44,6 @@ swf-pcp.dfn
 swf-evp.dfn
 swf-sto.dfn
 swf-zdg.dfn
-
-# chf model
 chf-nam.dfn
 chf-disv1d.dfn
 chf-cxs.dfn
@@ -71,8 +56,6 @@ chf-pcp.dfn
 chf-evp.dfn
 chf-sto.dfn
 chf-zdg.dfn
-
-# olf model
 olf-nam.dfn
 olf-dis2d.dfn
 olf-disv2d.dfn
@@ -85,14 +68,10 @@ olf-pcp.dfn
 olf-evp.dfn
 olf-sto.dfn
 olf-zdg.dfn
-
-# prt model
 prt-nam.dfn
 prt-dis.dfn
 prt-disv.dfn
 prt-mip.dfn
-
-# exchanges
 exg-chfgwf.dfn
 exg-gwfgwf.dfn
 exg-gwfgwt.dfn
@@ -101,7 +80,5 @@ exg-gwfgwe.dfn
 exg-gwegwe.dfn
 exg-gwfprt.dfn
 exg-olfgwf.dfn
-
-# utils
 utl-hpc.dfn
 utl-ncf.dfn

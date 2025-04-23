@@ -102,7 +102,7 @@ get-exes = { cmd = "pytest -v --durations 0 get_exes.py", cwd = "autotest" }
 autotest = { cmd = "pytest -v -n auto --durations 0 --keep-failed .failed", cwd = "autotest" }
 
 # common developer tasks
-update-fortran-definitions = { cmd = "python dfn2f90.py", cwd = "utils/idmloader/scripts" }
+update-fortran-definitions = { cmd = "cat dfns.txt | xargs python scripts/dfn2f90.py", cwd = "utils/idmloader" }
 update-flopy = { cmd = "python update_flopy.py", cwd = "autotest" }
 build-makefiles = { cmd = "python build_makefiles.py", cwd = "distribution" }
 run-mf6ivar = { cmd = "python mf6ivar.py", cwd = "doc/mf6io/mf6ivar" }
