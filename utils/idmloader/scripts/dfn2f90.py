@@ -999,7 +999,7 @@ if __name__ == "__main__":
         dfn = [Path(dfn)]
     else:
         raise ValueError(f"Unexpected dfn type: {type(dfn)}")
-    
+
     # dfns might be dirs, expand to list of files
     exts = [
         "*.dfn",
@@ -1018,7 +1018,7 @@ if __name__ == "__main__":
             if len(p.parts) == 1:
                 p = DFN_PATH / p
             dfns.append(p)
-    
+
     pprint(dfns)
     assert all(p.is_file() for p in dfns)
 
