@@ -136,9 +136,9 @@ def get_model(idx, ws, array_input=False):
     # Instantiating GHB
     ghbcond = hydraulic_conductivity[idx] * delv * delc / (0.5 * delr)
     if array_input:
-        bhead = {0: np.full((nlay, nrow, ncol), DNODATA, dtype=np.float64)}
-        cond = {0: np.full((nlay, nrow, ncol), DNODATA, dtype=np.float64)}
-        temp = {0: np.full((nlay, nrow, ncol), DNODATA, dtype=np.float64)}
+        bhead = {0: np.full((nlay, nrow, ncol), DNODATA, dtype=float)}
+        cond = {0: np.full((nlay, nrow, ncol), DNODATA, dtype=float)}
+        temp = {0: np.full((nlay, nrow, ncol), DNODATA, dtype=float)}
         for i in range(nrow):
             bhead[0][0, i, ncol - 1] = top
             cond[0][0, i, ncol - 1] = ghbcond

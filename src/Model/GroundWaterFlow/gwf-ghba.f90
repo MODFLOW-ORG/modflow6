@@ -162,7 +162,7 @@ contains
   !<
   subroutine ghba_allocate_arrays(this, nodelist, auxvar)
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate, mem_setptr, mem_checkin
+    use MemoryManagerModule, only: mem_setptr, mem_checkin
     ! -- dummy
     class(GhbaType) :: this
     integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist
@@ -188,7 +188,6 @@ contains
     ! -- modules
     use TdisModule, only: kper
     use ConstantsModule, only: LINELENGTH
-    use MemoryManagerModule, only: mem_setptr
     ! -- dummy
     class(GhbaType), intent(inout) :: this
     integer(I4B) :: i, noder
@@ -236,12 +235,10 @@ contains
   !<
   subroutine ghba_ck(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
     use SimModule, only: store_error, count_errors, store_error_unit
     ! -- dummy
     class(GhbaType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: errmsg
     integer(I4B) :: i
     integer(I4B) :: noder
     real(DP) :: bt
@@ -367,9 +364,6 @@ contains
     end if
     write (this%listlabel, '(a, a16)') trim(this%listlabel), 'STAGE'
     write (this%listlabel, '(a, a16)') trim(this%listlabel), 'CONDUCTANCE'
-    if (this%inamedbound == 1) then
-      write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
-    end if
   end subroutine define_listlabel
 
   ! -- Procedures related to observations
@@ -425,7 +419,6 @@ contains
   !<
   function cond_mult(this, row) result(cond)
     ! -- modules
-    use ConstantsModule, only: DZERO
     ! -- dummy variables
     class(GhbaType), intent(inout) :: this !< BndExtType object
     integer(I4B), intent(in) :: row
@@ -443,7 +436,6 @@ contains
   !<
   function ghba_bound_value(this, col, row) result(bndval)
     ! -- modules
-    use ConstantsModule, only: DZERO
     ! -- dummy
     class(GhbaType), intent(inout) :: this !< BndExtType object
     integer(I4B), intent(in) :: col
