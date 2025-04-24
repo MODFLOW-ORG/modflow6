@@ -43,7 +43,7 @@ name save_flows
 type keyword
 reader urword
 optional true
-longname save CHD flows to budget file
+longname save GHBA flows to budget file
 description REPLACE save_flows {'{#1}': 'general-head boundary'}
 mf6internal ipakcb
 

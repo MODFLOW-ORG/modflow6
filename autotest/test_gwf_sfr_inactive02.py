@@ -67,8 +67,8 @@ def get_model(ws, name, array_input=False):
     flopy.mf6.ModflowGwfic(gwf, strt=1.0)
     if array_input:
         # if False:
-        bhead = np.full(nlay * nrow * ncol, DNODATA, dtype=np.float64)
-        cond = np.full(nlay * nrow * ncol, DNODATA, dtype=np.float64)
+        bhead = np.full(nlay * nrow * ncol, DNODATA, dtype=float)
+        cond = np.full(nlay * nrow * ncol, DNODATA, dtype=float)
         bhead[0] = 1.0
         cond[0] = 1e6
         flopy.mf6.ModflowGwfghba(gwf, bhead=bhead, cond=cond)

@@ -104,8 +104,8 @@ def get_model(ws, name, array_input=False):
     # ghb / ghba
     if array_input:
         ghb_obs = {f"{name}.ghb.obs.csv": [("100_1_1", "GHBA", (99, 0, 0))]}
-        bhead = np.full(nlay * nrow * ncol, DNODATA, dtype=np.float64)
-        cond = np.full(nlay * nrow * ncol, DNODATA, dtype=np.float64)
+        bhead = np.full(nlay * nrow * ncol, DNODATA, dtype=float)
+        cond = np.full(nlay * nrow * ncol, DNODATA, dtype=float)
         bhead[nlay - 1] = 1.5
         cond[nlay - 1] = 1.0
         ghb = flopy.mf6.ModflowGwfghba(

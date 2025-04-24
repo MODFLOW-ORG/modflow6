@@ -178,10 +178,10 @@ def get_model(ws, name, array_input=False):
             sl = sealevelts[kper]
         drnlist = []
         if array_input:
-            abhead = np.full((nlay, nrow, ncol), DNODATA, dtype=np.float64)
-            acond = np.full((nlay, nrow, ncol), DNODATA, dtype=np.float64)
-            aconc = np.full((nlay, nrow, ncol), DNODATA, dtype=np.float64)
-            adens = np.full((nlay, nrow, ncol), DNODATA, dtype=np.float64)
+            abhead = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            acond = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            aconc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            adens = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
         else:
             ghblist = []
         nbound = 0

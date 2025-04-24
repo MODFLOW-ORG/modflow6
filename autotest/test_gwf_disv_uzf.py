@@ -112,8 +112,8 @@ for t in np.arange(0, nper, 1):
 # Work up the GHB / GHBA boundary
 ghb_ids = [(ncol - 1) + i * ncol for i in range(nrow)]
 ghb_spd = []
-abhead = np.full((nlay, ncpl), DNODATA, dtype=np.float64)
-acond = np.full((nlay, ncpl), DNODATA, dtype=np.float64)
+abhead = np.full((nlay, ncpl), DNODATA, dtype=float)
+acond = np.full((nlay, ncpl), DNODATA, dtype=float)
 cond = 1e4
 for k in np.arange(3, 5, 1):
     for i in ghb_ids:
