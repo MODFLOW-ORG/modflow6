@@ -451,6 +451,7 @@ def check_output(idx, test):
     assert os.path.isfile(fpth2)
     df2 = pd.read_csv(fpth2)
 
+
     # confirm 1 deg C rise in temp
     msg1 = (
         "The MF6 simulated rise in river temperature does not match \
