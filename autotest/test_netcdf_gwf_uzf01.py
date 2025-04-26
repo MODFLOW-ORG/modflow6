@@ -191,6 +191,7 @@ def check_output(idx, test, export):
 
 
 @pytest.mark.netcdf
+@pytest.mark.developmode
 @pytest.mark.parametrize(
     "idx, name",
     list(enumerate(cases)),
