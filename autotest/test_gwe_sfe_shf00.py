@@ -1,4 +1,4 @@
-# Test the use of the sensible heat flux utility used in conjuction with the
+# Test the use of the sensible heat flux utility used in conjunction with the
 # SFE advanced package.  This test is a single cell with a single reach.  
 # Channel flow characteristics are unrealistic: Manning's n is unrealistically
 # low and slope is extremely high. These conditions result in an extremely high
