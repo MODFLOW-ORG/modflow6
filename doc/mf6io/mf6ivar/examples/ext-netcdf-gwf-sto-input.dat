@@ -1,0 +1,42 @@
+# gwf_sto01.nam
+BEGIN options
+  SAVE_FLOWS
+  NEWTON
+  NETCDF  FILEIN gwf_sto01.mesh.nc
+END options
+
+BEGIN packages
+  DIS6  gwf_sto01.dis  dis
+  IC6  gwf_sto01.ic  ic
+  NPF6  gwf_sto01.npf  npf
+  STO6  gwf_sto01.sto  sto
+  RCH6  gwf_sto01.rcha  rcha_0
+  WEL6  gwf_sto01.wel  wel_0
+  CHD6  gwf_sto01.chd  chd_0
+  OC6  gwf_sto01.oc  oc
+END packages
+
+# gwf_sto01.dis
+BEGIN options
+END options
+
+BEGIN dimensions
+  NLAY  3
+  NROW  10
+  NCOL  10
+END dimensions
+
+BEGIN griddata
+  delr NETCDF
+  delc NETCDF
+  top NETCDF
+  botm NETCDF
+END griddata
+
+# gwf_sto01.ic
+BEGIN options
+END options
+
+BEGIN griddata
+  strt NETCDF
+END griddata
