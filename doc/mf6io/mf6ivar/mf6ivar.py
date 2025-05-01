@@ -404,7 +404,7 @@ def write_desc(vardict, block, blk_var_list, varexcludeprefix=None):
                 if "extended" in v:
                     if v["extended"] == "true":
                         fmt = "\\textcolor{red}\{\}"
-                        ss = "\\textcolor{red}{" + ss + "}"
+                        ss = "\\textcolor{red}{\\texttt{\\textit{" + n + "}}---" + desc + "}"
                 s += "\\item " + ss + "\n\n"
 
                 t = v["type"]
