@@ -308,11 +308,11 @@ The tests use a set of shared fixtures and utilities provided by the [`modflow-d
 
 Meson is the recommended build tool for MODFLOW 6. [Meson](https://mesonbuild.com/Getting-meson.html) must be installed and on your [PATH](https://en.wikipedia.org/wiki/PATH_(variable)). Creating and activating the provided Pixi or Conda environment should be sufficient for this.
 
-Meson build configuration files are provided for MODFLOW 6, for the ZONEBUDGET and MODFLOW 2005 to 6 converter utility programs, and for Fortran unit tests (see [Testing](#testing) section below).
+### MODFLOW 6 and ZONEBUDGET
+Meson build configuration files are provided for MODFLOW 6 and the ZONEBUDGET utility program, and for Fortran unit tests (see [Testing](#testing) section below).
 
 - `meson.build`
 - `utils/zonebudget/meson.build`
-- `utils/mf5to6/meson.build`
 - `autotest/meson.build`
 
 Building MODFLOW 6 requires two steps:
@@ -351,6 +351,50 @@ or using pixi:
 
 ```shell
 pixi run build builddir
+```
+
+### MODFLOW 2005 to 6 converter
+Meson build configuration files are provided for the MODFLOW 2005 to 6 converter utility program.
+
+- `utils/mf5to6/meson.build`
+- `utils/mf5to6/src/meson.build`
+
+Building MODFLOW 2005 to 6 converter programrequires two steps:
+
+- configure the build directory
+- build the project
+
+To configure the build directory for a debug version from the `<project root>/utils/mf5to6` directory:
+
+```shell
+meson setup --prefix=$(pwd)/../../  builddir -Ddebug=true
+```
+Or to configure the build directory for an optimized release version from the `<project root>/utils/mf5to6` directory:
+
+```shell
+meson setup --prefix=$(pwd)/../../ builddir
+```
+
+or using pixi to setup the build directory from the `<project root>` directory:
+
+```shell
+pixi run setup-mf5to6 builddir
+```
+
+Debug versions can be built using pixi by adding `-Ddebug=true` at the end of the pixi command. Other meson commands (for example, `--wipe`, _etc._) added to the pixi command are passed through to Meson.
+
+Substitute `%CD%` as necessary on Windows.
+
+To build MODFLOW 6 and install binaries to `<project root>/bin/` from the `<project root>/utils/mf5to6` directory:
+
+```shell
+meson install -C builddir
+```
+
+or using pixi from the `<project root>` directory:
+
+```shell
+pixi run build-mf5to6 builddir
 ```
 
 **Note:** If using Visual Studio Code, you can use tasks as described [here](.vscode/README.md) to automate the above.

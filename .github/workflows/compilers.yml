@@ -108,6 +108,8 @@ jobs:
         run: |
           pixi run setup builddir
           pixi run build builddir
+          pixi run setup-mf5to6 builddir
+          pixi run build-mf5to6 builddir
 
       - name: Show build log
         if: failure()

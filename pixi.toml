@@ -17,7 +17,7 @@ gitpython = "*"
 jinja2 = ">=3.1.5,<4"
 jupytext = "*"
 matplotlib = "*"
-meson = "==1.3.0"
+meson = "==1.8.0"
 networkx = "*"
 ninja = "*"
 numpy = "<2.0.0"    # modflowapi has a resriction on the numpy version
@@ -92,11 +92,15 @@ fix-style = { cmd = "pixi run check-format --write-changes; pixi run check-spell
 fix-python-format = { cmd = "ruff format ." }
 fix-python-style = { cmd = "pixi run check-python-lint --fix; pixi run fix-python-format" }
 
-# meson build/test
+# meson build/test for mf6 and zbud6
 builddir = "echo _builddir"
 setup = "meson setup --prefix=$(pwd) --libdir=bin --bindir=bin"
 build = "meson install -C"
 test = "meson test --verbose --no-rebuild -C"
+
+# meson build mf5to6
+setup-mf5to6 = { cmd = "meson setup --prefix=$PIXI_PROJECT_ROOT", cwd = "utils/mf5to6"}
+build-mf5to6 = { cmd = "meson install -C", cwd = "utils/mf5to6"}
 
 # pytest tasks
 get-exes = { cmd = "pytest -v --durations 0 get_exes.py", cwd = "autotest" }
