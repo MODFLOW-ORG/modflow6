@@ -1,6 +1,6 @@
+from pathlib import Path
 from shutil import copytree
 
-import modflow_devtools.models as models
 import pytest
 from compare import (
     Comparison,
@@ -9,8 +9,8 @@ from compare import (
     setup_simulation,
 )
 from framework import TestFramework
+from modflow_devtools.models import DEFAULT_REGISTRY, LocalRegistry
 
-MODELS = [m for m in models.get_models().keys() if m.startswith("mf6/test/")]
 SKIP = [
     "alt_model",
     "test205_gwtbuy-henrytidal",
@@ -30,29 +30,48 @@ SKIP = [
 ]
 
 
+def pytest_generate_tests(metafunc):
+    paths = [
+        Path(p).expanduser().resolve().absolute()
+        for p in metafunc.config.getoption("--models-path") or []
+    ]
+    if any(paths):
+        registry = LocalRegistry()
+        for path in paths:
+            registry.index(path)
+        models = list(registry.models.keys())
+        metafunc.parametrize("registry", [registry], ids=["local-registry"])
+    else:
+        registry = DEFAULT_REGISTRY
+        models = [m for m in registry.models.keys() if m.startswith("mf6/test/")]
+        metafunc.parametrize("registry", [registry], ids=["default-registry"])
+    if "model_name" in metafunc.fixturenames:
+        metafunc.parametrize("model_name", models, ids=models)
+
+
 @pytest.mark.external
 @pytest.mark.regression
-@pytest.mark.parametrize("model_name", MODELS)
 def test_model(
+    registry,
     model_name,
     tmp_path,
-    function_tmpdir,
     markers,
-    original_regression,
     targets,
+    function_tmpdir,
+    original_regression,
 ):
-    models.copy_to(tmp_path, model_name)
-
     skip = any(s in model_name for s in SKIP)
     devonly = "dev" in model_name and "not developmode" in markers
     if skip or devonly:
         reason = "excluded" if skip else "developmode only"
         pytest.skip(f"Skipping: {model_name} ({reason})")
 
-    # setup test workspace and framework
+    # TODO: avoid this intermediate copy? it's needed
+    # because the simulation workspace should only be
+    # a subset of all the model directory contents in
+    # some cases. maybe allow filtering in `copy_to`?
+    registry.copy_to(tmp_path, model_name)
     setup_simulation(src=tmp_path, dst=function_tmpdir)
-
-    # setup comparison workspace
     if (
         comparison := detect_comparison(tmp_path)
         if original_regression
@@ -67,7 +86,6 @@ def test_model(
             overwrite=True,
         )
 
-    # run the test
     test = TestFramework(
         name=model_name,
         workspace=function_tmpdir,
