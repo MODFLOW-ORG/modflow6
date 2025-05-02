@@ -64,6 +64,13 @@ runs:
       working-directory: modflow6
       run: cat builddir/meson-logs/meson-log.txt
 
+    - name: Build mf5to6
+      shell: bash
+      working-directory: modflow6
+      run: |
+        pixi run setup-mf5to6 builddir
+        pixi run build-mf5to6 builddir
+
     - name: Update flopy
       shell: bash
       working-directory: modflow6
