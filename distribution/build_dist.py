@@ -95,7 +95,7 @@ def test_copy_sources(tmp_path):
 
     assert (tmp_path / "src" / "meson.build").is_file()
     assert (tmp_path / "srcbmi" / "meson.build").is_file()
-    assert (tmp_path / "utils" / "meson.build").is_file()
+    assert (tmp_path / "utils" / "mf5to6" / "meson.build").is_file()
     assert (tmp_path / "msvs" / "mf6.sln").is_file()
 
     assert (tmp_path / "utils").is_dir()
@@ -207,6 +207,11 @@ def build_programs_meson(build_path: PathLike, bin_path: PathLike, force: bool =
         print(f"Building binaries in {build_path}, installing to {bin_path}")
         meson_build(
             project_path=PROJ_ROOT_PATH,
+            build_path=build_path,
+            bin_path=bin_path,
+        )
+        meson_build(
+            project_path=PROJ_ROOT_PATH / "utils/mf5to6",
             build_path=build_path,
             bin_path=bin_path,
         )
