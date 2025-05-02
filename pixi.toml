@@ -17,7 +17,7 @@ gitpython = "*"
 jinja2 = ">=3.1.5,<4"
 jupytext = "*"
 matplotlib = "*"
-meson = "==1.8.0"
+meson = "==1.7.1"
 networkx = "*"
 ninja = "*"
 numpy = "<2.0.0"    # modflowapi has a resriction on the numpy version
