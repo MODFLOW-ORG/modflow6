@@ -228,6 +228,12 @@ jobs:
         with:
           path: modflow6
 
+      - name: Checkout test models
+        uses: actions/checkout@v4
+        with:
+          repository: MODFLOW-ORG/modflow6-testmodels
+          path: modflow6-testmodels
+
       - name: Checkout examples
         uses: actions/checkout@v4
         with:
@@ -305,7 +311,9 @@ jobs:
             filters="not test028_sfr_rewet"
           fi
 
-          pixi run autotest -m "$markers" -k "$filters"
+          pixi run autotest -m "$markers and not external" -k "$filters"
+          pixi run autotest -m "$markers and external" --models-path modflow6-testmodels/mf6
+          pixi run autotest -m "$markers and external" --models-path modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 
       - name: Install executables
         uses: modflowpy/install-modflow-action@v1
@@ -388,6 +396,12 @@ jobs:
         with:
           path: modflow6
 
+      - name: Checkout test models
+        uses: actions/checkout@v4
+        with:
+          repository: MODFLOW-ORG/modflow6-testmodels
+          path: modflow6-testmodels
+
       - name: Checkout examples
         uses: actions/checkout@v4
         with:
@@ -444,11 +458,16 @@ jobs:
         env:
           REPOS_PATH: ${{ github.workspace }}
         run: |
+          markers=""
           if [ "${{ github.ref_name }}" == "master" ]; then
-            pixi run autotest -m "not large and not developmode"
+            markers="not large and not developmode"
           else
-            pixi run autotest -m "not large"
+            markers="not large"
           fi
+        
+          pixi run autotest -m "$markers and not external"
+          pixi run autotest -m "$markers and external" --models-path modflow6-testmodels/mf6
+          pixi run autotest -m "$markers and external" --models-path modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 
       - name: Install executables
         if: runner.os == 'Linux'

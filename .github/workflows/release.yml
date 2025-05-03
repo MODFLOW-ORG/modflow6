@@ -265,6 +265,13 @@ jobs:
           name: bin-${{ steps.ostag.outputs.ostag }}
           path: modflow6/bin
 
+      - name: Checkout modflow6-testmodels
+        if: inputs.run_tests == true && runner.os != 'Windows'
+        uses: actions/checkout@v4
+        with:
+          repository: MODFLOW-ORG/modflow6-testmodels
+          path: modflow6-testmodels
+
       - name: Checkout modflow6-examples
         if: inputs.run_tests == true && runner.os != 'Windows'
         uses: actions/checkout@v4
@@ -301,7 +308,9 @@ jobs:
             filters="not test028_sfr_rewet"
           fi
 
-          pytest -v -n auto --durations 0 -m "$markers" -k "$filters"
+          pytest -v -n auto -m "$markers and not external" -k "$filters"
+          pytest -v -n auto -m "$markers and external" --models-path modflow6-testmodels/mf6
+          pytest -v -n auto -m "$markers and external" --models-path modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
       
       - name: Upload failed test output
         if: failure()

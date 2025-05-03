@@ -75,6 +75,12 @@ jobs:
         with:
           path: modflow6
 
+      - name: Checkout test models
+        uses: actions/checkout@v4
+        with:
+          repository: MODFLOW-ORG/modflow6-testmodels
+          path: modflow6-testmodels
+
       - name: Checkout modflow6-examples
         uses: actions/checkout@v4
         with:
@@ -157,7 +163,10 @@ jobs:
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest
+        run: |
+          pixi run autotest -m "not external"
+          pixi run autotest -m "external" --models-path modflow6-testmodels/mf6
+          pixi run autotest -m "external" --models-path modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
     
       - name: Create test report
         if: success() || failure()
