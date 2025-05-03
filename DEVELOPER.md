@@ -579,7 +579,7 @@ Some autotests load models from external repositories:
 - [`MODFLOW-ORG/modflow6-largetestmodels`](https://github.com/MODFLOW-ORG/modflow6-largetestmodels)
 - [`MODFLOW-ORG/modflow6-examples`](https://github.com/MODFLOW-ORG/modflow6-examples)
 
-By default, the test framework will test MODFLOW 6 against these models as accessed via the [MODFLOW devtools models API](https://modflow-devtools.readthedocs.io/en/latest/md/models.html). It can be necessary to test MODFLOW 6 against models on the local filesystem. See the [MODFLOW devtools documentation](https://modflow-devtools.readthedocs.io/en/latest/md/install.html#installing-external-model-repositories) for instructions to clone and install external model repositories.
+By default, the test framework will test MODFLOW 6 against these models as accessed via the [MODFLOW devtools models API](https://modflow-devtools.readthedocs.io/en/latest/md/models.html). It may be necessary to test MODFLOW 6 against models on the local filesystem. See the [MODFLOW devtools documentation](https://modflow-devtools.readthedocs.io/en/latest/md/install.html#installing-external-model-repositories) for instructions to clone and install external model repositories.
 
 ### Running tests
 
@@ -638,8 +638,8 @@ The Pixi `autotest` task includes options to run tests in parallel, show test ru
 Markers can be used to select subsets of tests. Markers provided in `pytest.ini` include:
 
 - `slow`: tests that take longer than a few seconds to complete
-- `repo`: tests that require external model repositories
-- `large`: tests using large models (from the `modflow6-examples` and `modflow6-largetestmodels` repos)
+- `external`: tests that use models in external repositories
+- `large`: tests that use large models
 - `regression`: tests comparing results from multiple versions
 
 Markers can be used with the `-m <marker>` option, and can be applied in boolean combinations with `and`, `or` and `not`. For instance, to run fast tests in parallel, excluding regression tests:
@@ -662,16 +662,28 @@ pixi run autotest -S
 
 [Smoke testing](https://modflow-devtools.readthedocs.io/en/latest/md/markers.html#smoke-testing) is a form of integration testing which aims to test a decent fraction of the codebase quickly enough to run often during development.
 
-Tests using models from external repositories can be selected with the `repo` marker:
+Tests using models from external repositories can be selected with the `external` marker:
 
 ```shell
-pytest -v -n auto -m "repo"
+pixi run autotest -m "external"
 ```
 
-The `large` marker is a subset of the `repo` marker. To test models excluded from commit-triggered CI and only run on GitHub Actions nightly:
+By default, these will run against test models pulled from the GitHub repositories. To run the tests against local models, use `--models-path` once or more to specify directories to search for model input files. For instance, to test MF6 models from the test models repository:
 
 ```shell
-pytest -v -n auto -m "large"
+pixi run autotest -m "external" --models-path /path/to/modflow6-testmodels/mf6
+```
+
+By defaultk, only MF6 models are found. To test the mf5to6 converter with mf2005 models in the same repository, relax the namefile search pattern:
+
+```shell
+pixi run autotest -m "external" --models-path /path/to/modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+```
+
+Large test models are excluded from commit-triggered CI and only run on GitHub Actions nightly. To run the models from a local clone of the repository:
+
+```shell
+pixi run autotest -m "external" --models-path /path/to/modflow6-largetestmodels
 ```
 
 Tests load external models from fixtures provided by `modflow-devtools`. External model tests can be selected by model or simulation name, or by packages used. See the [`modflow-devtools` documentation](https://modflow-devtools.readthedocs.io/en/latest/md/fixtures.html#filtering) for usage examples. Note that filtering options only apply to tests using external models, and will not filter tests defining models in code &mdash; for that, the `pytest` built-in `-k` option may be used.
@@ -737,7 +749,7 @@ Integration tests should ideally follow a few conventions for easier maintenance
 
 - Use markers for convenient (de-)selection:
   - `@pytest.mark.slow` if the test doesn't complete in a few seconds (this preserves the ability to quickly [`--smoke` test](https://modflow-devtools.readthedocs.io/en/latest/md/markers.html#smoke-testing)
-  - `@pytest.mark.repo` if the test relies on external model repositories
+  - `@pytest.mark.external` if the test relies on external model repositories
   - `@pytest.mark.regression` if the test compares results from different versions
 
 **Note:** If all three external model repositories are not installed as described above, some tests will be skipped. The full test suite includes >750 cases. All must pass before changes can be merged into this repository.
