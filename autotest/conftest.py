@@ -182,7 +182,8 @@ def pytest_addoption(parser):
         action="store",
         type=str,
         default="mfsim.nam",
-        help="namefile pattern to use when indexing models",
+        help="namefile pattern to use when indexing models when --models-path is set."
+        "does nothing otherwise. default is 'mfsim.nam'.",
     )
 
 
