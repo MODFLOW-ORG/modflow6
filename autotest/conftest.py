@@ -172,9 +172,17 @@ def pytest_addoption(parser):
     parser.addoption(
         "--models-path",
         action="append",
+        type=str,
         help="directory containing model subdirectories. set this to run external "
         "tests (i.e. those using models from an external repo) against local model "
         "input files rather than input files from the official model registry.",
+    )
+    parser.addoption(
+        "--namefile-pattern",
+        action="store",
+        type=str,
+        default="mfsim.nam",
+        help="namefile pattern to use when indexing models",
     )
 
 

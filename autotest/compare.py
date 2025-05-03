@@ -715,3 +715,35 @@ def setup_comparison(src, dst, cmp_exe="mf6", overwrite=True, verbose=False):
                 nf = os.path.join(src, cmp_exe, os.path.basename(file))
                 setup_model(nf, dst, remove_existing=overwrite)
                 break
+
+
+def setup_mf5to6(src, dst) -> Path:
+    Path(dst).mkdir(exist_ok=True)
+    lgrpth = None
+
+    # determine if compare directory exists in directory or if mflgr control
+    # file is in directory
+    listdir = os.listdir(src)
+    for value in listdir:
+        fpth = os.path.join(src, value)
+        if os.path.isfile(fpth):
+            ext = os.path.splitext(fpth)[1]
+            if ".lgr" in ext.lower():
+                lgrpth = fpth
+
+    print(f"Copying files to target workspace: {dst}")
+    # copy lgr files to working directory
+    if lgrpth is not None:
+        npth = lgrpth
+        setup_model(lgrpth, dst)
+    # copy MODFLOW-2005, MODFLOW-NWT, or MODFLOW-USG files to working directory
+    else:
+        npths = get_namefiles(src)
+        if len(npths) < 1:
+            msg = f"No name files in source workspace: {src}"
+            print(msg)
+            assert False
+        npth = npths[0]
+        setup_model(npth, dst)
+
+    return Path(npth)
