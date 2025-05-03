@@ -579,7 +579,7 @@ Some autotests load models from external repositories:
 - [`MODFLOW-ORG/modflow6-largetestmodels`](https://github.com/MODFLOW-ORG/modflow6-largetestmodels)
 - [`MODFLOW-ORG/modflow6-examples`](https://github.com/MODFLOW-ORG/modflow6-examples)
 
-See the [MODFLOW devtools documentation](https://modflow-devtools.readthedocs.io/en/latest/md/install.html#installing-external-model-repositories) for instructions to install external model repositories.
+By default, the test framework will test MODFLOW 6 against these models as accessed via the [MODFLOW devtools models API](https://modflow-devtools.readthedocs.io/en/latest/md/models.html). It can be necessary to test MODFLOW 6 against models on the local filesystem. See the [MODFLOW devtools documentation](https://modflow-devtools.readthedocs.io/en/latest/md/install.html#installing-external-model-repositories) for instructions to clone and install external model repositories.
 
 ### Running tests
 
