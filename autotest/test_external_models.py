@@ -65,6 +65,7 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("model_name", models, ids=models)
 
 
+@pytest.mark.slow
 @pytest.mark.external
 @pytest.mark.regression
 def test_model(
