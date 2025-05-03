@@ -100,7 +100,7 @@ jobs:
 
       - name: Run tests
         working-directory: modflow6
-        run: pixi run autotest -m "external" --models-path modflow6-largetestmodels
+        run: pixi run autotest -m "external" --models-path ../../modflow6-largetestmodels
       
       - name: Upload failed test output
         if: failure()

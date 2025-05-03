@@ -312,8 +312,8 @@ jobs:
           fi
 
           pixi run autotest -m "$markers and not external" -k "$filters"
-          pixi run autotest -m "$markers and external" --models-path modflow6-testmodels/mf6
-          pixi run autotest -m "$markers and external" --models-path modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+          pixi run autotest -m "$markers and external" --models-path ../../modflow6-testmodels/mf6
+          pixi run autotest -m "$markers and external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 
       - name: Install executables
         uses: modflowpy/install-modflow-action@v1
@@ -466,8 +466,8 @@ jobs:
           fi
         
           pixi run autotest -m "$markers and not external"
-          pixi run autotest -m "$markers and external" --models-path modflow6-testmodels/mf6
-          pixi run autotest -m "$markers and external" --models-path modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+          pixi run autotest -m "$markers and external" --models-path ../../modflow6-testmodels/mf6
+          pixi run autotest -m "$markers and external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 
       - name: Install executables
         if: runner.os == 'Linux'

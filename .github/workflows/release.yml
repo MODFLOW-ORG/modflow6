@@ -309,8 +309,8 @@ jobs:
           fi
 
           pytest -v -n auto -m "$markers and not external" -k "$filters"
-          pytest -v -n auto -m "$markers and external" --models-path modflow6-testmodels/mf6
-          pytest -v -n auto -m "$markers and external" --models-path modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+          pytest -v -n auto -m "$markers and external" --models-path ../../modflow6-testmodels/mf6
+          pytest -v -n auto -m "$markers and external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
       
       - name: Upload failed test output
         if: failure()

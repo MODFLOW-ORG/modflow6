@@ -165,8 +165,8 @@ jobs:
           REPOS_PATH: ${{ github.workspace }}
         run: |
           pixi run autotest -m "not external"
-          pixi run autotest -m "external" --models-path modflow6-testmodels/mf6
-          pixi run autotest -m "external" --models-path modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+          pixi run autotest -m "external" --models-path ../../modflow6-testmodels/mf6
+          pixi run autotest -m "external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
     
       - name: Create test report
         if: success() || failure()
