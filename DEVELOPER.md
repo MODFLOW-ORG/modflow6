@@ -359,7 +359,7 @@ Meson build configuration files are provided for the MODFLOW 2005 to 6 converter
 - `utils/mf5to6/meson.build`
 - `utils/mf5to6/src/meson.build`
 
-Building MODFLOW 2005 to 6 converter programrequires two steps:
+Building MODFLOW 2005 to 6 converter program requires two steps:
 
 - configure the build directory
 - build the project
