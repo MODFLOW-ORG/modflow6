@@ -293,10 +293,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: pixi run get-exes
 
-      - name: Test MF6
-        working-directory: modflow6
-        env:
-          REPOS_PATH: ${{ github.workspace }}
+      - name: Set markers
+        id: set_markers
         run: |
           markers=""
           if [[ "${{ github.ref_name }}" == "master" ]]; then
@@ -304,16 +302,35 @@ jobs:
           else
             markers="not large"
           fi
+          echo "markers=$markers" >> $GITHUB_OUTPUT
 
+      - name: Set filters
+        id: set_filters
+        run: |
           filters=""
           if [[ "${{ matrix.os }}" == "macos-14" ]]; then
             # comparison fails on macos-14 with optimization=1
             filters="not test028_sfr_rewet"
           fi
+          echo "filters=$filters" >> $GITHUB_OUTPUT
 
-          pixi run autotest -m "$markers and not external" -k "$filters"
-          pixi run autotest -m "$markers and external" --models-path ../../modflow6-testmodels/mf6
-          pixi run autotest -m "$markers and external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+      - name: Test MF6
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
+
+      - name: Test MF6 models
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
+
+      - name: Test converter models
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 
       - name: Install executables
         uses: modflowpy/install-modflow-action@v1
@@ -453,27 +470,41 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: pixi run get-exes
 
-      - name: Test MF6
-        working-directory: modflow6
-        env:
-          REPOS_PATH: ${{ github.workspace }}
+      - name: Set markers
+        id: set_markers
         run: |
           markers=""
-          if [ "${{ github.ref_name }}" == "master" ]; then
+          if [[ "${{ github.ref_name }}" == "master" ]]; then
             markers="not large and not developmode"
           else
             markers="not large"
           fi
-        
-          pixi run autotest -m "$markers and not external"
-          pixi run autotest -m "$markers and external" --models-path ../../modflow6-testmodels/mf6
-          pixi run autotest -m "$markers and external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+          echo "markers=$markers" >> $GITHUB_OUTPUT
 
+      - name: Test MF6
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external"
+
+      - name: Test MF6 models
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf6
+
+      - name: Test converter models
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+
+      # if on linux, test example models too
       - name: Install executables
         if: runner.os == 'Linux'
         uses: modflowpy/install-modflow-action@v1
 
-      - name: Test examples
+      - name: Test MF6 examples
         if: runner.os == 'Linux'
         working-directory: modflow6
         shell: pixi run bash -e {0}
