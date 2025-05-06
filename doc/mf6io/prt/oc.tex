@@ -11,7 +11,7 @@ The PRT Model distinguishes a number of tracking events that can trigger writing
  
 The Output Control package provides keyword options that correspond to the various types of tracking events that can trigger output. The keywords are of the form TRACK\_\textit{event}, where \textit{event} indicates the type of event. If no tracking event keywords are provided, output is triggered by all types of tracking events. If any tracking event keywords are provided, only the selected types of events trigger output. This mechanism can be used to filter out events that are not of interest, thereby limiting the size of output files and reducing the runtime spent on writing output.
  
-For instance, to configure PRT output for an endpoint analysis, provide the TRACK\_RELEASE and TRACK\_TERMINATE keywords. To configure PRT output for a timeseries analysis, provide the TRACK\_USERTIME keyword as well as a tracking time selection via the TRACK\_TIMES or TRACK\_TIMESFILE keyword.
+For instance, to configure PRT output for an endpoint analysis, provide the TRACK\_RELEASE and TRACK\_TERMINATE keywords. To configure PRT output for a timeseries analysis, provide the TRACK\_USERTIME keyword as well as a tracking time selection via the TRACKTIMES block.
 
 \vspace{5mm}
 \subsubsection{Structure of Blocks}
