@@ -1,12 +1,13 @@
 \subsection{Version mf(( version ))---(( date ))}
 
 ([ for section_key, section_items in items|groupby("section") ])
-\textbf{\underline{(( sections[section_key] ))}}
+\underline{(( sections[section_key] ))}
 
 ([ for subsection_key, subsection_items in section_items|groupby("subsection") ])
 ([ set subsection = subsections[subsection_key] ])
 ([ if subsection|length > 0 ])
-\underline{(( subsection ))}
+\\[12pt]
+\textbf{(( subsection ))}
 ([ endif ])
 
 \begin{itemize}
