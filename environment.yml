@@ -43,4 +43,5 @@ dependencies:
   - shapely
   - syrupy
   - tomli>=2.2.1,<3
+  - tomli-w>=1.2.0,<2
   
