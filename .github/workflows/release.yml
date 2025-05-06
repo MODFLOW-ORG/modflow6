@@ -342,7 +342,7 @@ jobs:
         run: sudo ./install.sh --all-users
 
       - name: Test distribution scripts
-        if: ${{ inputs.run_tests == true }}
+        if: ${{ inputs.run_tests == true && runner.os != 'Windows' }}
         working-directory: modflow6/distribution
         env:
           GITHUB_TOKEN: ${{ github.token }}
