@@ -49,7 +49,7 @@ def create_deprecations_file(dfndir, mddir, verbose):
             s += "|:--------------|:-------|:-----------|:--------|\n"
             for file, option, deprecated, removed in deprecations:
                 s += (
-                    f"| {file.stem} | {option} | {deprecated} "
+                    f"| {file.stem} | {option} | {deprecated if deprecated else removed if removed else ''} "
                     f"| {removed if removed else ''} |\n"
                 )
             if len(s) > 0:
