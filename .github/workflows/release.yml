@@ -200,6 +200,13 @@ jobs:
           meson install -C builddir
           meson test --verbose --no-rebuild -C builddir
 
+      - name: Build mf5to6 converter
+        if: (!(runner.os == 'Windows' && matrix.extended))
+        working-directory: modflow6/utils/mf5to6
+        run: |
+          meson setup builddir --prefix=$(pwd)/../../ --libdir=bin -Doptimization=${{ matrix.optimization }}
+          meson install -C builddir
+
       - name: Check architecture (macOS)
         working-directory: modflow6/bin
         if: runner.os == 'macOS'
