@@ -6,7 +6,7 @@
 ([ for subsection_key, subsection_items in section_items|groupby("subsection") ])
 ([ set subsection = subsections[subsection_key] ])
 ([ if subsection|length > 0 ])
-\\[12pt]
+\vspace{5mm}
 \textbf{(( subsection ))}
 ([ endif ])
 
