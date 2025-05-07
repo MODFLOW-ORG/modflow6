@@ -33,7 +33,7 @@ if __name__ == "__main__":
         trim_blocks=True,
         lstrip_blocks=True,
         line_statement_prefix="_",
-        keep_trailing_newline=True,
+        keep_trailing_newline=False,
         # since latex uses curly brackets,
         # replace block/var start/end tags
         block_start_string="([",
