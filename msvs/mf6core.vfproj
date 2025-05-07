@@ -667,6 +667,7 @@
 		<File RelativePath="..\src\Utilities\STLStackInt.f90"/>
 		<File RelativePath="..\src\Utilities\STLVecInt.f90"/>
 		<File RelativePath="..\src\Utilities\StringList.f90"/>
+		<File RelativePath="..\src\Utilities\SVD.f90"/>
 		<File RelativePath="..\src\Utilities\Table.f90"/>
 		<File RelativePath="..\src\Utilities\TableTerm.f90"/>
 		<File RelativePath="..\src\Utilities\Timer.f90"/>
