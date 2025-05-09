@@ -82,15 +82,7 @@ The release notes PDF document is constructed from the `doc/ReleaseNotes/Release
 
 Before making a release, add a line to the Release History section of `ReleaseNotes.tex` providing the version number, date and DOI of the current release, e.g. `6.4.4 & February 13, 2024 & \url{https://doi.org/10.5066/P9FL1JCC}`.
 
-After each release is made, several steps are required to reset the release notes for the next development cycle:
-
-- copy `develop.tex` into a new file `doc/ReleaseNotes/previous/vx.y.z.tex` (where `x.y.z` is the semantic version just released)
-- add a new entry like `\input{./previous/vx.y.z.tex}` to line 3 of `doc/ReleaseNotes/appendixA.tex`
-- clear `develop.toml`
-
-Now new changes can be added to `develop.toml` as development proceeds until the next release.
-
-**Note**: Newly deprecated MF6IO options are included in the release notes. See the [developer docs](../DEVELOPER.md#deprecation-policy) for more info on MF6's deprecation policy, searching for deprecations among DFNs, and generating a deprecations table for insertion into the release notes.
+**Note**: Deprecated and removed MF6IO options are included in the release notes. See the [developer docs](../DEVELOPER.md#deprecation-policy) for more info on deprecation policy, searching for deprecations among DFNs, and generating a deprecations/removals table for insertion into the release notes.
 
 ### Update version info
 
@@ -204,7 +196,13 @@ To release an official version of MODFLOW 6 via the release branch method:
     Visit the USGS "MODFLOW and Related Programs" site for information on MODFLOW 6 and related software: https://doi.org/10.5066/F76Q1VQV
     ```
 
-5. Create a branch from `master`, naming it something like `post-release-x.y.z-reset`. Run `distribution/update_version.py -v x.y.z.devN`, substituting `x`, `y`, `z` and `N` as appropriate for the next development cycle's version number. This will substitute the version number into all necessary files and will also set `IDEVELOPMODE` back to 1. Reset release notes as described [above](#update-release-notes). Open a pull request into `master` from the reset branch. Merge (**do not squash**) the PR.
+5. Create a branch from `master`, naming it something like `post-release-x.y.z-reset`. Run `distribution/update_version.py -v x.y.z.devN`, substituting `x`, `y`, `z` and `N` as appropriate for the next development cycle's version number. This will substitute the version number into all necessary files and will also set `IDEVELOPMODE` back to 1. Reset the release notes by
+
+    - copying the `develop.tex` file generated from `develop.toml` to `doc/ReleaseNotes/previous/vx.y.z.tex` (where `x.y.z` is the semantic version just released), then
+    - inserting a new line `\input{./previous/vx.y.z.tex}` at the top of `doc/ReleaseNotes/appendixA.tex`, then
+    - clearing `develop.toml`.
+
+Open a pull request into `master` from the reset branch. Merge (**do not squash**) the PR.
 
 **Note**: Squashing the release PR into `master` or the post-release reset PR into `develop` causes `develop` and `master` to diverge, leading to conflicts at the next release time. Both pull requests should be **merged with a merge commit**, *not* squashed.
 
