@@ -3,7 +3,7 @@
 
 This is the development repository for the USGS MODFLOW 6 Hydrologic Model. The  official USGS distribution is available at [USGS Release Page](https://water.usgs.gov/ogw/modflow/MODFLOW.html).
 
-### Version 6.7.0.dev1 (preliminary)
+### Version 6.6.2
 
 [![GitHub release](https://img.shields.io/github/release/MODFLOW-ORG/modflow6.svg)](https://github.com/MODFLOW-ORG/modflow6/releases/latest)
 [![MODFLOW 6 continuous integration](https://github.com/MODFLOW-ORG/modflow6/actions/workflows/ci.yml/badge.svg)](https://github.com/MODFLOW-ORG/modflow6/actions/workflows/ci.yml)
@@ -114,12 +114,13 @@ Citations for specific versions are included with the [releases](https://github.
 Disclaimer
 ----------
 
-This software is preliminary or provisional and is subject to revision. It is
-being provided to meet the need for timely best science. The software has not
-received final approval by the U.S. Geological Survey (USGS). No warranty,
-expressed or implied, is made by the USGS or the U.S. Government as to the
-functionality of the software and related material nor shall the fact of release
-constitute any such warranty. The software is provided on the condition that
-neither the USGS nor the U.S. Government shall be held liable for any damages
-resulting from the authorized or unauthorized use of the software.
+This software has been approved for release by the U.S. Geological Survey
+(USGS). Although the software has been subjected to rigorous review, the USGS
+reserves the right to update the software as needed pursuant to further analysis
+and review. No warranty, expressed or implied, is made by the USGS or the U.S.
+Government as to the functionality of the software and related material nor
+shall the fact of release constitute any such warranty. Furthermore, the
+software is released on condition that neither the USGS nor the U.S. Government
+shall be held liable for any damages resulting from its authorized or
+unauthorized use.
 
