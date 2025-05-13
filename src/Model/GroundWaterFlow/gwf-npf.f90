@@ -950,7 +950,8 @@ contains
     class(GwfNpftype) :: this
 
     ! free spdis work structure
-    if (this%icalcspdis == 1) call this%spdis_wa%destroy()
+    if (this%icalcspdis == 1 .and. this%spdis_wa%is_created()) &
+      call this%spdis_wa%destroy()
     deallocate (this%spdis_wa)
     !
     ! -- Deallocate input memory
