@@ -109,6 +109,16 @@ longname export array variables to netcdf output files.
 description keyword that specifies input griddata arrays should be written to the model output netcdf file.
 extended true
 
+# --------------------- gwf ghba dimensions ---------------------
+
+block dimensions
+name maxbound
+type integer
+reader urword
+optional false
+longname maximum number of general-head boundaries in any stress period
+description REPLACE maxbound {'{#1}': 'general-head boundary'}
+
 # --------------------- gwf ghba period ---------------------
 
 block period

@@ -23,6 +23,7 @@ module GwfGhbaInputModule
     logical :: obs6_filename = .false.
     logical :: mover = .false.
     logical :: export_nc = .false.
+    logical :: maxbound = .false.
     logical :: bhead = .false.
     logical :: cond = .false.
     logical :: auxvar = .false.
@@ -235,6 +236,24 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    gwfghba_maxbound = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'GHBA', & ! subcomponent
+    'DIMENSIONS', & ! block
+    'MAXBOUND', & ! tag name
+    'MAXBOUND', & ! fortran variable
+    'INTEGER', & ! type
+    '', & ! shape
+    'maximum number of general-head boundaries in any stress period', & ! longname
+    .true., & ! required
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     gwfghba_bhead = InputParamDefinitionType &
     ( &
     'GWF', & ! component
@@ -302,6 +321,7 @@ module GwfGhbaInputModule
     gwfghba_obs6_filename, &
     gwfghba_mover, &
     gwfghba_export_nc, &
+    gwfghba_maxbound, &
     gwfghba_bhead, &
     gwfghba_cond, &
     gwfghba_auxvar &
@@ -334,6 +354,12 @@ module GwfGhbaInputModule
     InputBlockDefinitionType( &
     'OPTIONS', & ! blockname
     .false., & ! required
+    .false., & ! aggregate
+    .false. & ! block_variable
+    ), &
+    InputBlockDefinitionType( &
+    'DIMENSIONS', & ! blockname
+    .true., & ! required
     .false., & ! aggregate
     .false. & ! block_variable
     ), &

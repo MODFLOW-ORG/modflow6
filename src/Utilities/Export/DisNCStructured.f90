@@ -543,10 +543,11 @@ contains
     class(ExportPackageType), pointer, intent(in) :: export_pkg
     type(InputParamDefinitionType), pointer :: idt
     integer(I4B), dimension(:), pointer, contiguous :: int1d
-    real(DP), dimension(:), pointer, contiguous :: dbl1d
+    real(DP), dimension(:), pointer, contiguous :: dbl1d, nodes
     real(DP), dimension(:, :), pointer, contiguous :: dbl2d
     character(len=LINELENGTH) :: nc_tag
     integer(I4B) :: iaux, iparam, nvals, n
+    integer(I4B), pointer :: nbound
 
     ! initialize
     iaux = 0
@@ -581,35 +582,74 @@ contains
       case ('DOUBLE1D')
         call mem_setptr(dbl1d, idt%mf6varname, export_pkg%mf6_input%mempath)
         this%var_ids%export = export_pkg%varids_param(iparam, 1)
-        call nc_export_array(dbl1d, this%ncid, this%dim_ids, this%var_ids, &
-                             this%dis, idt, export_pkg%mf6_input%mempath, &
-                             nc_tag, export_pkg%mf6_input%subcomponent_name, &
-                             this%gridmap_name, this%latlon, this%deflate, &
-                             this%shuffle, this%chunk_z, this%chunk_y, &
-                             this%chunk_x, kper, iaux, this%nc_fname)
-      case ('DOUBLE2D')
-        call mem_setptr(dbl2d, idt%mf6varname, export_pkg%mf6_input%mempath)
         select case (idt%shape)
-        case ('NAUX NCPL')
-          nvals = this%dis%nrow * this%dis%ncol
-        case ('NAUX NODES')
-          nvals = this%dis%nodesuser
-        case default
-        end select
-        allocate (dbl1d(nvals))
-        do iaux = 1, size(dbl2d, dim=1) !naux
-          this%var_ids%export = export_pkg%varids_aux(iaux, 1)
-          do n = 1, nvals
-            dbl1d(n) = dbl2d(iaux, n)
-          end do
+        case ('NCPL')
           call nc_export_array(dbl1d, this%ncid, this%dim_ids, this%var_ids, &
                                this%dis, idt, export_pkg%mf6_input%mempath, &
                                nc_tag, export_pkg%mf6_input%subcomponent_name, &
                                this%gridmap_name, this%latlon, this%deflate, &
                                this%shuffle, this%chunk_z, this%chunk_y, &
                                this%chunk_x, kper, iaux, this%nc_fname)
-        end do
-        deallocate (dbl1d)
+        case ('NODES')
+          nvals = this%dis%nodesuser
+          allocate (nodes(nvals))
+          nodes = DNODATA
+          call mem_setptr(dbl1d, idt%mf6varname, export_pkg%mf6_input%mempath)
+          call mem_setptr(int1d, 'NODEULIST', export_pkg%mf6_input%mempath)
+          call mem_setptr(nbound, 'NBOUND', export_pkg%mf6_input%mempath)
+          do n = 1, nbound
+            nodes(int1d(n)) = dbl1d(n)
+          end do
+          call nc_export_array(nodes, this%ncid, this%dim_ids, this%var_ids, &
+                               this%dis, idt, export_pkg%mf6_input%mempath, &
+                               nc_tag, export_pkg%mf6_input%subcomponent_name, &
+                               this%gridmap_name, this%latlon, this%deflate, &
+                               this%shuffle, this%chunk_z, this%chunk_y, &
+                               this%chunk_x, kper, iaux, this%nc_fname)
+          deallocate (nodes)
+        case default
+        end select
+      case ('DOUBLE2D')
+        call mem_setptr(dbl2d, idt%mf6varname, export_pkg%mf6_input%mempath)
+        select case (idt%shape)
+        case ('NAUX NCPL')
+          nvals = this%dis%nrow * this%dis%ncol
+          allocate (nodes(nvals))
+          do iaux = 1, size(dbl2d, dim=1) !naux
+            this%var_ids%export = export_pkg%varids_aux(iaux, 1)
+            do n = 1, nvals
+              nodes(n) = dbl2d(iaux, n)
+            end do
+            call nc_export_array(nodes, this%ncid, this%dim_ids, this%var_ids, &
+                                 this%dis, idt, export_pkg%mf6_input%mempath, &
+                                 nc_tag, export_pkg%mf6_input%subcomponent_name, &
+                                 this%gridmap_name, this%latlon, this%deflate, &
+                                 this%shuffle, this%chunk_z, this%chunk_y, &
+                                 this%chunk_x, kper, iaux, this%nc_fname)
+          end do
+          deallocate (nodes)
+        case ('NAUX NODES')
+          nvals = this%dis%nodesuser
+          allocate (nodes(nvals))
+          call mem_setptr(int1d, 'NODEULIST', export_pkg%mf6_input%mempath)
+          call mem_setptr(nbound, 'NBOUND', export_pkg%mf6_input%mempath)
+          do iaux = 1, size(dbl2d, dim=1) ! naux
+            nodes = DNODATA
+            this%var_ids%export = export_pkg%varids_aux(iaux, 1)
+            do n = 1, nbound
+              nodes(int1d(n)) = dbl2d(iaux, n)
+            end do
+            call nc_export_array(nodes, this%ncid, this%dim_ids, this%var_ids, &
+                                 this%dis, idt, export_pkg%mf6_input%mempath, &
+                                 nc_tag, export_pkg%mf6_input%subcomponent_name, &
+                                 this%gridmap_name, this%latlon, this%deflate, &
+                                 this%shuffle, this%chunk_z, this%chunk_y, &
+                                 this%chunk_x, kper, iaux, this%nc_fname)
+
+          end do
+          deallocate (nodes)
+        case default
+        end select
       case default
         ! no-op, no other datatypes exported
       end select

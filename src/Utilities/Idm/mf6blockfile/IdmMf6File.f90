@@ -14,7 +14,7 @@ module IdmMf6FileModule
   use ConstantsModule, only: LINELENGTH
   use SimModule, only: store_error, store_error_filename
   use BlockParserModule, only: BlockParserType
-  use ModflowInputModule, only: ModflowInputType, getModflowInput
+  use ModflowInputModule, only: ModflowInputType
   use InputLoadTypeModule, only: StaticPkgLoadBaseType, DynamicPkgLoadBaseType
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
   use NCFileVarsModule, only: NCPackageVarsType

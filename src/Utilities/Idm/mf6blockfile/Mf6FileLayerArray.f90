@@ -16,7 +16,7 @@ module LayerArrayLoadModule
   use MemoryManagerModule, only: mem_allocate, mem_reallocate, mem_setptr
   use CharacterStringModule, only: CharacterStringType
   use BlockParserModule, only: BlockParserType
-  use ModflowInputModule, only: ModflowInputType, getModflowInput
+  use ModflowInputModule, only: ModflowInputType
   use BoundInputContextModule, only: BoundInputContextType, ReadStateVarType
   use TimeArraySeriesManagerModule, only: TimeArraySeriesManagerType, &
                                           tasmanager_cr
@@ -104,7 +104,9 @@ contains
     end if
 
     ! initialize input context memory
-    call this%bound_context%create(mf6_input, this%readarray_layer)
+    call this%bound_context%create(mf6_input, &
+                                   readarray_grid=.false., &
+                                   readarray_layer=.true.)
 
     ! allocate dfn params
     call this%params_alloc()

@@ -173,7 +173,9 @@ def get_model(ws, name, array_input=False):
 
     # general-head boundary
     if array_input:
-        ghb = flopy.mf6.ModflowGwfghba(gwf, print_flows=True, bhead=abhead, cond=acond)
+        ghb = flopy.mf6.ModflowGwfghba(
+            gwf, print_flows=True, maxbound=20, bhead=abhead, cond=acond
+        )
     else:
         ghb = flopy.mf6.ModflowGwfghb(gwf, print_flows=True, stress_period_data=ghb_spd)
 
