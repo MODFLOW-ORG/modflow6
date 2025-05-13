@@ -23,6 +23,7 @@ module GwtDisuInputModule
     logical :: angrot = .false.
     logical :: voffsettol = .false.
     logical :: export_ascii = .false.
+    logical :: crs = .false.
     logical :: nodes = .false.
     logical :: nja = .false.
     logical :: nvert = .false.
@@ -248,6 +249,24 @@ module GwtDisuInputModule
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtdisu_crs = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'DISU', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -644,6 +663,7 @@ module GwtDisuInputModule
     gwtdisu_angrot, &
     gwtdisu_voffsettol, &
     gwtdisu_export_ascii, &
+    gwtdisu_crs, &
     gwtdisu_nodes, &
     gwtdisu_nja, &
     gwtdisu_nvert, &
