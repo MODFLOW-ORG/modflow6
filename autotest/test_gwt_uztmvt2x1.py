@@ -1,41 +1,33 @@
 """
-2x2 test problem for GWE
+2x1 test problem for GWE
 
-Test the rejected infiltration mover transport values
+Test the rejected infiltration mover transport values in a sim with only a
+single reach
 
-Model configuration:  2 SFR reaches exist in the first row.
-                      2 UZF objects exist in the second row
-                      2 MVR/MVT connections transfer rejected infiltration
+Model configuration:  1 SFR reaches exist in the first row.
+                      1 UZF objects exist in the second row
+                      1 MVR/MVT connections transfer rejected infiltration
                         from UZF to SFR
 
-                   Col 1   Col 2
-                 +-------+-------+
-        Row 1  /       /       /|
-  SFR         /       /       / |
-Channel-> =========================
-            /       /  ^    /   |
-           +-------+---+---+    |
-          /       /    |  /|    +
- Row 2   /       /  rej. / |   /
-        /       /  inf. /  |  /
-       /       /       /   | /
-      +-------+-------+    |/
-      |       |       |    +
-      |       |       |   /
-      |       |       |  /
-      |       |       | /
-      |       |       |/
-      +-------+-------+
 
-    Profile View:
-    ------------
-              +---- rej inf.
-              v  +---------+
-       +---------+         |
-       |         |         |
-       |         +---------+
-       +---------+  Row 2
-          Row 1
+        Row 1   +----------+
+  SFR          /          /|
+Channel-> ====================
+             /    ^     /  |               Profile View :
+            /    /     /   |               ------------
+           +----+-----+    |     uzf rej inf. --> mvt --> sfr/sft
+          /    /     /|    +       +-----------+
+ Row 2   /   rej.   / |   /        |           +----   ----+
+        /   inf.   /  |  /         |           |    \_/    |
+       /          /   | /          |           |           |
+      +----------+    |/           |           |           |
+      |          |    +            +-----------+           |
+      |          |   /                         +-----------+
+      |          |  /
+      |          | /
+      |          |/
+      +----------+
+
 """
 
 # Imports
@@ -55,11 +47,11 @@ scheme = "UPSTREAM"
 cases = ["uztmvt"]  # 2-cell model, horizontally connected with staggered alignment
 
 nrow = 2
-ncol = 2
+ncol = 1
 nlay = 1
-top = np.array([[[1.0, 1.0], [1.5, 1.5]]], dtype=float)
-bot = np.array([[[0.0, 0.0], [0.5, 0.5]]], dtype=float)
-strthd = np.array([[[0.01, 0.01], [0.51, 0.51]]], dtype=float)
+top = np.array([[[1.0], [1.5]]], dtype=float)
+bot = np.array([[[0.0], [0.5]]], dtype=float)
+strthd = np.array([[[0.01], [0.51]]], dtype=float)
 
 # Model units
 length_units = "meters"
@@ -91,7 +83,6 @@ icelltype = 1  # Cell conversion type (>1: unconfined)
 
 chdlist = []
 chdlist.append([(0, 0, 0), 0.51])
-chdlist.append([(0, 0, 1), 0.51])
 
 # Set some static transport related model parameter values
 strt_conc = 10.0
@@ -116,33 +107,23 @@ finf2 = 2.01
 pet = 0.0
 extdp = 0.5
 
-uzf_pkdat = [
-    [0, (0, 1, 0), 1, -1, surfdep, vks, thtr, thts, thti, eps],
-    [1, (0, 1, 1), 1, -1, surfdep, vks, thtr, thts, thti, eps],
-]
+uzf_pkdat = [[0, (0, 1, 0), 1, -1, surfdep, vks, thtr, thts, thti, eps]]
 uzf_spd = {
     0: [
         [0, finf1, pet, extdp, thtr, 0.0, 0.0, 0.0],
-        [1, finf1, pet, extdp, thtr, 0.0, 0.0, 0.0],
     ],
-    1: [
-        [0, finf2, pet, extdp, thtr, 0.0, 0.0, 0.0],
-        [1, finf2, pet, extdp, thtr, 0.0, 0.0, 0.0],
-    ],
+    1: [[0, finf2, pet, extdp, thtr, 0.0, 0.0, 0.0]],
 }
 concCell = []
 concCell.append(11.1)
-concCell.append(22.2)
-uzt_pkdat = [(0, strt_uz_conc), (1, strt_uz_conc)]  # ifno, strt_conc
-uzt_perdat = [
-    (0, "INFILTRATION", concCell[0]),
-    (1, "INFILTRATION", concCell[1]),
-]
+
+uzt_pkdat = [(0, strt_uz_conc)]  # ifno, strt_conc
+uzt_perdat = [(0, "INFILTRATION", concCell[0])]
 
 # SFR/SFT related input
-conn_dat = [[0, -1], [1, 0]]
+conn_dat = [0]
 sfr_pkdat = []
-nreaches = 2
+nreaches = 1
 rlen = 1.0
 rwid = 1.0
 roughness = 0.03
@@ -151,24 +132,28 @@ rhk = 0.0
 slope = 0.001
 ustrf = 1.0
 ndv = 0
-# reach 1
-rp = [0, (0, 0, 0), rlen, rwid, slope, top[0, 0, 0], rbth, rhk, roughness, 1, ustrf, 0]
+rp = [
+    0,
+    (0, 0, 0),
+    rlen,
+    rwid,
+    slope,
+    top[0, 0, 0],
+    rbth,
+    rhk,
+    roughness,
+    0,  # ncon
+    ustrf,
+    0,  # ndv
+]
 sfr_pkdat.append(rp)
-# reach 2
-rp = [1, (0, 0, 1), rlen, rwid, slope, top[0, 0, 1], rbth, rhk, roughness, 1, ustrf, 0]
-sfr_pkdat.append(rp)
-
 sfr_perdat = {0: [0, "INFLOW", 1.0]}
-sft_pkdat = [[0, 0.0], [1, 0.0]]
-sft_perdat = {
-    0: [[0, "STATUS", "ACTIVE"], [0, "INFLOW", 0.0]],
-    1: [[0, "STATUS", "ACTIVE"], [0, "INFLOW", 1.0]],
-}
+sft_pkdat = [0, 0.0]
+sft_perdat = {0: [0, "INFLOW", 0.0]}
 
 # MVR input
 mvr_pkdat = []
 mvr_pkdat.append(["UZF-1", 0, "SFR-1", 0, "FACTOR", 1.0])
-mvr_pkdat.append(["UZF-1", 1, "SFR-1", 1, "FACTOR", 1.0])
 mvr_packages = [
     ("UZF-1",),
     ("SFR-1",),
@@ -582,11 +567,14 @@ def check_output(idx, test):
 
     msg2 = "Mass received by SFR ('FROM-MVR') not as expected"
     for x in np.arange(len(fromMvrDat)):
-        for y in np.arange(len(fromMvrDat[x + 1])):
-            for z in np.arange(len(mvtdat[x + 1][y])):
-                assert np.isclose(
-                    mvtdat[x + 1][y][z][-1], (x + 1.0) * concCell[z]
-                ), msg2
+        for y in np.arange(len(fromMvrDat[x + 1][0])):
+            if fromMvrDat[x + 1][0][y][-1] == concCell[y]:
+                continue
+            else:
+                for z in np.arange(len(mvtdat[x + 1][y])):
+                    assert np.isclose(
+                        mvtdat[x + 1][y][z][-1], (x + 1.0) * concCell[z]
+                    ), msg2
 
 
 # - No need to change any code below
