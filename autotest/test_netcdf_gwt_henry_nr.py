@@ -101,6 +101,9 @@ def check_output(idx, test, export):
         f.write("  PRINT_INPUT\n")
         f.write("  PRINT_FLOWS\n")
         f.write("END options\n\n")
+        f.write("BEGIN dimensions\n")
+        f.write("  MAXBOUND  20\n")
+        f.write("END dimensions\n\n")
         for i in range(1001):
             f.write(f"BEGIN period {i + 1}\n")
             f.write("  bhead NETCDF\n")

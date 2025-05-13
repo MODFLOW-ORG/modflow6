@@ -109,6 +109,7 @@ def get_model(ws, name, array_input=False):
             gwf,
             print_input=True,
             print_flows=True,
+            maxbound=1,
             bhead=bhead,
             cond=cond,
             save_flows=False,

@@ -147,11 +147,8 @@ contains
     class(GhbaType), intent(inout) :: this
     ! -- local
     !
-    ! -- set maxbound
-    this%maxbound = this%dis%nodesuser
-    !
-    ! -- set nbound, which applies for duration of simulation
-    this%nbound = this%dis%nodesuser
+    ! -- source dimensions
+    call this%BndExtType%source_dimensions()
     !
     ! -- Call define_listlabel to construct the list label that is written
     !    when PRINT_INPUT option is used.
@@ -188,28 +185,31 @@ contains
     ! -- modules
     use TdisModule, only: kper
     use ConstantsModule, only: LINELENGTH
+    use MemoryManagerExtModule, only: mem_set_value
     ! -- dummy
     class(GhbaType), intent(inout) :: this
-    integer(I4B) :: i, noder
+    integer(I4B) :: i, noder, nodeuser
     character(len=LINELENGTH) :: nodestr
+    logical(LGP) :: found
     !
     if (this%iper /= kper) return
     !
-    ! -- Update the nodelist
+    ! update nbound
+    call mem_set_value(this%nbound, 'NBOUND', this%input_mempath, &
+                       found)
+    !
+    ! -- Set the nodelist
     do i = 1, this%nbound
-      if (this%bhead(i) == DNODATA) then
-        this%nodelist(i) = 0
+      nodeuser = this%nodeulist(i)
+      noder = this%dis%get_nodenumber(nodeuser, 1)
+      if (noder >= 0) then
+        this%nodelist(i) = noder
       else
-        noder = this%dis%get_nodenumber(i, 1)
-        if (noder > 0) then
-          this%nodelist(i) = noder
-        else
-          call this%dis%nodeu_to_string(i, nodestr)
-          write (errmsg, *) &
-            ' Cell is outside active grid domain: '// &
-            trim(adjustl(nodestr))
-          call store_error(errmsg)
-        end if
+        call this%dis%nodeu_to_string(i, nodestr)
+        write (errmsg, *) &
+          ' Cell is outside active grid domain: '// &
+          trim(adjustl(nodestr))
+        call store_error(errmsg)
       end if
     end do
     !
@@ -235,50 +235,49 @@ contains
   !<
   subroutine ghba_ck(this)
     ! -- modules
+    use ConstantsModule, only: LINELENGTH
     use SimModule, only: store_error, count_errors, store_error_unit
     ! -- dummy
     class(GhbaType), intent(inout) :: this
     ! -- local
+    character(len=LINELENGTH) :: errmsg
     integer(I4B) :: i
-    integer(I4B) :: noder
+    integer(I4B) :: node
     real(DP) :: bt
     ! -- formats
-    character(len=*), parameter :: fmtghberr = &
+    character(len=*), parameter :: fmtghbaerr = &
       "('GHBA BOUNDARY (',i0,') HEAD (',f10.3,') IS LESS THAN CELL &
       &BOTTOM (',f10.3,')')"
     character(len=*), parameter :: fmtcondmulterr = &
       "('GHBA BOUNDARY (',i0,') CONDUCTANCE MULTIPLIER (',g10.3,') IS &
-      &NO DATA VALUE OR LESS THAN ZERO')"
+      &LESS THAN ZERO')"
     character(len=*), parameter :: fmtconderr = &
-      "('GHBA BOUNDARY (',i0,') CONDUCTANCE (',g10.3,') IS NO DATA VALUE &
-      &OR LESS THAN ZERO')"
+      "('GHBA BOUNDARY (',i0,') CONDUCTANCE (',g10.3,') IS LESS THAN &
+      &ZERO')"
     !
     ! -- check stress period data
     do i = 1, this%nbound
-      noder = this%nodelist(i)
-      if (noder == 0) cycle
-      bt = this%dis%bot(noder)
+      node = this%nodelist(i)
+      bt = this%dis%bot(node)
       ! -- accumulate errors
-      if (this%bhead(i) < bt .and. this%icelltype(noder) /= 0) then
-        write (errmsg, fmt=fmtghberr) i, this%bhead(i), bt
+      if (this%bhead(i) < bt .and. this%icelltype(node) /= 0) then
+        write (errmsg, fmt=fmtghbaerr) i, this%bhead(i), bt
         call store_error(errmsg)
       end if
       if (this%iauxmultcol > 0) then
-        if (this%auxvar(this%iauxmultcol, i) == DNODATA .or. &
-            this%auxvar(this%iauxmultcol, i) < DZERO) then
+        if (this%auxvar(this%iauxmultcol, i) < DZERO) then
           write (errmsg, fmt=fmtcondmulterr) &
             i, this%auxvar(this%iauxmultcol, i)
           call store_error(errmsg)
         end if
       end if
-      if (this%cond(i) == DNODATA .or. &
-          this%cond(i) < DZERO) then
+      if (this%cond(i) < DZERO) then
         write (errmsg, fmt=fmtconderr) i, this%cond(i)
         call store_error(errmsg)
       end if
     end do
     !
-    !write summary of ghb package error messages
+    !write summary of ghba package error messages
     if (count_errors() > 0) then
       call store_error_unit(this%inunit)
     end if
@@ -286,18 +285,21 @@ contains
 
   !> @brief Formulate the HCOF and RHS terms
   !!
-  !! Skip if no GHBs
+  !! Skip if no GHBAs
   !<
   subroutine ghba_cf(this)
     ! -- dummy
     class(GhbaType) :: this
     ! -- local
-    integer(I4B) :: i, noder
+    integer(I4B) :: i, node
     !
+    ! -- Return if no ghbas
+    if (this%nbound .eq. 0) return
+    !
+    ! -- Calculate hcof and rhs for each ghba entry
     do i = 1, this%nbound
-      noder = this%nodelist(i)
-      if (noder == 0) cycle
-      if (this%ibound(noder) .le. 0) then
+      node = this%nodelist(i)
+      if (this%ibound(node) .le. 0) then
         this%hcof(i) = DZERO
         this%rhs(i) = DZERO
         cycle
@@ -317,27 +319,27 @@ contains
     integer(I4B), dimension(:), intent(in) :: idxglo
     class(MatrixBaseType), pointer :: matrix_sln
     ! -- local
-    integer(I4B) :: i, noder, ipos
+    integer(I4B) :: i, n, ipos
     real(DP) :: cond, bhead, qghba
     !
     ! -- pakmvrobj fc
     if (this%imover == 1) then
       call this%pakmvrobj%fc()
     end if
-
+    !
+    ! -- Copy package rhs and hcof into solution rhs and amat
     do i = 1, this%nbound
-      noder = this%nodelist(i)
-      if (noder == 0) cycle
-      rhs(noder) = rhs(noder) + this%rhs(i)
-      ipos = ia(noder)
+      n = this%nodelist(i)
+      rhs(n) = rhs(n) + this%rhs(i)
+      ipos = ia(n)
       call matrix_sln%add_value_pos(idxglo(ipos), this%hcof(i))
       !
       ! -- If mover is active and this boundary is discharging,
       !    store available water (as positive value).
       bhead = this%bhead(i)
-      if (this%imover == 1 .and. this%xnew(noder) > bhead) then
+      if (this%imover == 1 .and. this%xnew(n) > bhead) then
         cond = this%cond_mult(i)
-        qghba = cond * (this%xnew(noder) - bhead)
+        qghba = cond * (this%xnew(n) - bhead)
         call this%pakmvrobj%accumulate_qformvr(i, qghba)
       end if
     end do

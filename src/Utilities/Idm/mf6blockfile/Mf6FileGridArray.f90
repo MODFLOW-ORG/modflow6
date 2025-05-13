@@ -13,10 +13,10 @@ module GridArrayLoadModule
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, store_error_filename
   use InputDefinitionModule, only: InputParamDefinitionType
-  use MemoryManagerModule, only: mem_allocate, mem_reallocate, mem_setptr
+  use MemoryManagerModule, only: mem_allocate, mem_setptr
   use CharacterStringModule, only: CharacterStringType
   use BlockParserModule, only: BlockParserType
-  use ModflowInputModule, only: ModflowInputType, getModflowInput
+  use ModflowInputModule, only: ModflowInputType
   use BoundInputContextModule, only: BoundInputContextType, ReadStateVarType
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
 
@@ -29,6 +29,7 @@ module GridArrayLoadModule
   type, extends(AsciiDynamicPkgLoadBaseType) :: GridArrayLoadType
     type(ReadStateVarType), dimension(:), allocatable :: param_reads !< read states for current load
     type(BoundInputContextType) :: bound_context
+    integer(I4B), dimension(:), pointer, contiguous :: nodeulist
   contains
     procedure :: ainit
     procedure :: df
@@ -69,7 +70,13 @@ contains
     call loader%load(parser, mf6_input, this%nc_vars, this%input_name, iout)
 
     ! initialize input context memory
-    call this%bound_context%create(mf6_input, this%readarray_grid)
+    call this%bound_context%create(mf6_input, &
+                                   readarray_grid=.true., &
+                                   readarray_layer=.false.)
+
+    ! allocate user nodelist
+    call mem_allocate(this%nodeulist, this%bound_context%maxbound, &
+                      'NODEULIST', mf6_input%mempath)
 
     ! allocate dfn params
     call this%params_alloc()
@@ -84,7 +91,6 @@ contains
   end subroutine ad
 
   subroutine rp(this, parser)
-    use MemoryManagerModule, only: mem_setptr
     use BlockParserModule, only: BlockParserType
     use InputDefinitionModule, only: InputParamDefinitionType
     use DefinitionSelectModule, only: get_param_definition_type
@@ -148,7 +154,9 @@ contains
   end subroutine rp
 
   subroutine destroy(this)
+    use MemoryManagerModule, only: mem_deallocate
     class(GridArrayLoadType), intent(inout) :: this
+    call mem_deallocate(this%nodeulist)
   end subroutine destroy
 
   subroutine reset(this)
@@ -156,13 +164,15 @@ contains
     class(GridArrayLoadType), intent(inout) :: this
     integer(I4B) :: n, m
 
+    this%bound_context%nbound = 0
+
     do n = 1, this%nparam
       ! reset read state
       this%param_reads(n)%invar = 0
     end do
 
     ! explicitly reset auxvar array each period
-    do m = 1, this%bound_context%nodes
+    do m = 1, this%bound_context%maxbound
       do n = 1, this%bound_context%naux
         this%bound_context%auxvar(n, m) = DZERO
       end do
@@ -196,15 +206,12 @@ contains
   subroutine param_load(this, parser, idt, mempath, layered, netcdf, iaux)
     use TdisModule, only: kper
     use ConstantsModule, only: DNODATA
-    use MemoryManagerModule, only: mem_setptr
     use ArrayHandlersModule, only: ifind
     use InputDefinitionModule, only: InputParamDefinitionType
     use DefinitionSelectModule, only: get_param_definition_type
     use Double1dReaderModule, only: read_dbl1d
     use Double2dReaderModule, only: read_dbl2d
-    use Integer1dReaderModule, only: read_int1d
-    use LayeredArrayReaderModule, only: read_dbl1d_layered, &
-                                        read_int1d_layered
+    use LayeredArrayReaderModule, only: read_dbl1d_layered
     use LoadNCInputModule, only: netcdf_read_array
     use SourceCommonModule, only: get_shape_from_string, get_layered_shape
     use IdmLoggerModule, only: idm_log_var
@@ -214,66 +221,86 @@ contains
     character(len=*), intent(in) :: mempath
     logical(LGP), intent(in) :: layered
     logical(LGP), intent(in) :: netcdf
-    integer(I4B), dimension(:), pointer, contiguous :: int1d
-    real(DP), dimension(:), pointer, contiguous :: dbl1d
+    real(DP), dimension(:), pointer, contiguous :: dbl1d, nodes
     real(DP), dimension(:, :), pointer, contiguous :: dbl2d
     integer(I4B), dimension(:), allocatable :: layer_shape
-    integer(I4B) :: iaux, iparam, n, nlay
+    integer(I4B) :: iaux, iparam, n, nlay, nnode
+
+    nnode = 0
 
     select case (idt%datatype)
-    case ('INTEGER1D')
-      call mem_setptr(int1d, idt%mf6varname, mempath)
-      if (netcdf) then
-        call netcdf_read_array(int1d, this%bound_context%mshape, idt, &
-                               this%mf6_input, this%nc_vars, this%input_name, &
-                               this%iout, kper)
-      else if (layered) then
-        call get_layered_shape(this%bound_context%mshape, nlay, layer_shape)
-        call read_int1d_layered(parser, int1d, idt%mf6varname, nlay, layer_shape)
-      else
-        call read_int1d(parser, int1d, idt%mf6varname)
-      end if
-      call idm_log_var(int1d, idt%tagname, mempath, this%iout)
     case ('DOUBLE1D')
       call mem_setptr(dbl1d, idt%mf6varname, mempath)
+      allocate (nodes(this%bound_context%nodes))
       if (netcdf) then
-        call netcdf_read_array(dbl1d, this%bound_context%mshape, idt, &
+        call netcdf_read_array(nodes, this%bound_context%mshape, idt, &
                                this%mf6_input, this%nc_vars, this%input_name, &
                                this%iout, kper)
       else if (layered) then
         call get_layered_shape(this%bound_context%mshape, nlay, layer_shape)
-        call read_dbl1d_layered(parser, dbl1d, idt%mf6varname, nlay, layer_shape)
+        call read_dbl1d_layered(parser, nodes, idt%mf6varname, nlay, layer_shape)
       else
-        call read_dbl1d(parser, dbl1d, idt%mf6varname)
+        call read_dbl1d(parser, nodes, idt%mf6varname)
       end if
-      call idm_log_var(dbl1d, idt%tagname, mempath, this%iout)
+
+      call idm_log_var(nodes, idt%tagname, mempath, this%iout)
+
+      do n = 1, this%bound_context%nodes
+        if (nodes(n) /= DNODATA) then
+          nnode = nnode + 1
+          dbl1d(nnode) = nodes(n)
+          if (this%bound_context%nbound == 0) then
+            this%nodeulist(nnode) = n
+          else if (this%nodeulist(nnode) /= n) then
+            write (errmsg, '(a,i0)') 'Grid input position mismatch param='// &
+              trim(idt%tagname)//', period=', kper
+            call store_error(errmsg)
+            call store_error_filename(this%input_name)
+          end if
+        end if
+      end do
+      deallocate (nodes)
     case ('DOUBLE2D')
       call mem_setptr(dbl2d, idt%mf6varname, mempath)
-      allocate (dbl1d(this%bound_context%nodes))
+      allocate (nodes(this%bound_context%nodes))
 
       if (netcdf) then
-        call netcdf_read_array(dbl1d, this%bound_context%mshape, idt, &
+        call netcdf_read_array(nodes, this%bound_context%mshape, idt, &
                                this%mf6_input, this%nc_vars, this%input_name, &
                                this%iout, kper, iaux)
       else if (layered) then
         call get_layered_shape(this%bound_context%mshape, nlay, layer_shape)
-        call read_dbl1d_layered(parser, dbl1d, idt%mf6varname, nlay, layer_shape)
+        call read_dbl1d_layered(parser, nodes, idt%mf6varname, nlay, layer_shape)
       else
-        call read_dbl1d(parser, dbl1d, idt%mf6varname)
+        call read_dbl1d(parser, nodes, idt%mf6varname)
       end if
 
-      do n = 1, this%bound_context%nodes
-        dbl2d(iaux, n) = dbl1d(n)
-      end do
+      call idm_log_var(nodes, idt%tagname, mempath, this%iout)
 
-      call idm_log_var(dbl1d, idt%tagname, mempath, this%iout)
-      deallocate (dbl1d)
+      do n = 1, this%bound_context%nodes
+        if (nodes(n) /= DNODATA) then
+          nnode = nnode + 1
+          dbl2d(iaux, nnode) = nodes(n)
+          if (this%bound_context%nbound == 0) then
+            this%nodeulist(nnode) = n
+          else if (this%nodeulist(nnode) /= n) then
+            write (errmsg, '(a,i0)') 'Grid input position mismatch param='// &
+              trim(idt%tagname)//', period=', kper
+            call store_error(errmsg)
+            call store_error_filename(this%input_name)
+          end if
+        end if
+      end do
+      deallocate (nodes)
     case default
       errmsg = 'IDM unimplemented. GridArrayLoad::param_load &
                &datatype='//trim(idt%datatype)
       call store_error(errmsg)
       call store_error_filename(this%input_name)
     end select
+
+    ! set nbound
+    if (this%bound_context%nbound == 0) this%bound_context%nbound = nnode
 
     ! if param is tracked set read state
     iparam = ifind(this%param_names, idt%tagname)

@@ -226,6 +226,7 @@ def get_model(ws, name, array_input=False):
             print_input=True,
             print_flows=True,
             save_flows=False,
+            maxbound=20,
             pname="GHB-1",
             auxiliary=["CONCENTRATION", "DENSITY"],
             bhead=bheadspd,

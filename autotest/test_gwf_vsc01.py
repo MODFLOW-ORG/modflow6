@@ -145,6 +145,7 @@ def get_model(idx, ws, array_input=False):
             temp[0][0, i, ncol - 1] = initial_temperature
         flopy.mf6.ModflowGwfghba(
             gwf,
+            maxbound=nrow,
             pname="GHB-1",
             auxiliary="temperature",
             bhead=bhead,

@@ -11,7 +11,7 @@ module ListLoadModule
   use InputDefinitionModule, only: InputParamDefinitionType
   use MemoryManagerModule, only: mem_setptr
   use CharacterStringModule, only: CharacterStringType
-  use ModflowInputModule, only: ModflowInputType, getModflowInput
+  use ModflowInputModule, only: ModflowInputType
   use TimeSeriesManagerModule, only: TimeSeriesManagerType, tsmanager_cr
   use StructArrayModule, only: StructArrayType, constructStructArray, &
                                destructStructArray
@@ -98,7 +98,9 @@ contains
     end if
 
     ! initialize package input context
-    call this%bound_context%create(mf6_input, .false.)
+    call this%bound_context%create(mf6_input, &
+                                   readarray_grid=.false., &
+                                   readarray_layer=.false.)
 
     ! store in scope SA cols for list input
     call this%bound_context%bound_params(this%param_names, this%nparam, &
