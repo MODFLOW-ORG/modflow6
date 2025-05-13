@@ -254,6 +254,37 @@ optional false
 longname obs6 input filename
 description REPLACE obs6_filename {'{#1}': 'SFE'}
 
+block options
+name shf_filerecord
+type record shf6 filein shf6_filename
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name shf6
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname shf keyword
+description keyword to specify that record corresponds to the sensible heat flux (SHF) file.  The behavior of the SHF utility and a description of the input file is provided separately.
+
+block options
+name shf6_filename
+type string
+preserve_case true
+in_record true
+reader urword
+optional false
+tagged false
+longname file name of SHF information
+description defines a sensible heat flux (SHF) input file.  Records in the SHF file are used to calculate the flux of thermal energy in or out of a stream reach resulting from sensible heat exchange.
 
 # --------------------- gwe sfe packagedata ---------------------
 
