@@ -1,35 +1,36 @@
 import argparse
 from os import PathLike
-import sys
 import textwrap
 from pathlib import Path
 from pprint import pprint
-from typing import Optional
 
-import yaml
 from jinja2 import Environment, FileSystemLoader
 
-from modflow_devtools.dfn import Dfn
 
 from filters import Filters
 
 MF6_LENVARNAME = 16
 F90_LINELEN = 82
 PROJ_ROOT_PATH = Path(__file__).parents[3]
+TEMPLATES_PATH = Path(__file__).parent / "templates"
 DEFAULT_DFNS_PATH = Path(__file__).parents[1] / "dfns.txt"
 DFN_PATH = PROJ_ROOT_PATH / "doc" / "mf6io" / "mf6ivar" / "dfn"
 SRC_PATH = PROJ_ROOT_PATH / "src"
 IDM_PATH = SRC_PATH / "Idm"
 
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 6d9a1472 (work on templates)
 def _get_template_env():
-    template_loader = FileSystemLoader(Path(__file__).parent)
+    template_loader = FileSystemLoader(TEMPLATES_PATH)
     template_env = Environment(
-    loader=template_loader,
-    trim_blocks=True,
-    lstrip_blocks=True,
-    line_statement_prefix="_",
-    keep_trailing_newline=True,
+        loader=template_loader,
+        trim_blocks=True,
+        lstrip_blocks=True,
+        line_statement_prefix="_",
+        keep_trailing_newline=True,
     )
     template_env.filters["value"] = Filters.value
     return template_env
@@ -46,6 +47,37 @@ def make_all(dfndir: PathLike, outdir: PathLike, verbose: bool = False, version:
     # TODO all component and selector files
     # TODO master selector file
     pass
+
+
+def _expand_dfns(dfns: str | PathLike | list[str | PathLike]) -> list[Path]:
+    """Expand DFN file or directory paths to a list of DFN file paths"""
+    if isinstance(dfns, list):
+        dfns = [Path(p) for p in dfns]
+    elif isinstance(dfn, (str, Path)):
+        dfns = [Path(dfns)]
+    else:
+        raise TypeError(f"Unexpected dfn type: {type(dfns)}")
+
+    extensions = [
+        "*.dfn",
+        # TODO support toml
+    ]
+    dfns_ = []
+    for path in dfns:
+        if path.is_dir():
+            for ext in extensions:
+                dfns_.extend(path.glob(ext))
+        else:
+            # if we only have a filename, assume
+            # it's in the default dfn directory.
+            # TODO remove when idm supports all dfns
+            # and we no longer have to specify files.
+            if len(path.parts) == 1:
+                path = DFN_PATH / path
+            dfns_.append(path)
+
+    assert all(p.is_file() for p in dfns_)
+    return dfns_
 
 
 if __name__ == "__main__":
@@ -66,11 +98,10 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "-d",
-        "--dfn",
-        required=False,
-        default=DEFAULT_DFNS_PATH,
-        help="Path to a DFN file, a directory containing DFN files, or to a text or YAML file listing DFN files (one per line)",
+        "dfn",
+        nargs="*",
+        default=DFN_PATH,
+        help="Path to one or more DFN files or directories containing DFN files",
     )
     parser.add_argument(
         "-o",
@@ -88,28 +119,25 @@ if __name__ == "__main__":
         help="Whether to show verbose output",
     )
     args = parser.parse_args()
-    dfn = Path(args.dfn)
+    dfns = _expand_dfns(args.dfn)
     outdir = Path(args.outdir) if args.outdir else Path.cwd()
-    verbose = args.verbose
+    if verbose := args.verbose:
+        print("Generating Fortran source files from DFNs:")
+        pprint(dfns) 
 
-    if dfn.suffix.lower() in [".txt"]:
-        dfns = open(dfn, "r").readlines()
-        dfns = [l.strip() for l in dfns]
-        dfns = [l for l in dfns if not l.startswith("#") and l.lower().endswith(".dfn")]
-        if dfn == DEFAULT_DFNS_PATH:
-            dfns = [DFN_PATH / p for p in dfns]
-    elif dfn.suffix.lower() in [".yml", ".yaml"]:
-        dfns = yaml.safe_load(open(dfn, "r"))
-    elif dfn.suffix.lower() in [".dfn"]:
-        dfns = [dfn]
-
-    assert all(p.is_file() for p in dfns), (
-        f"DFNs not found: {[p for p in dfns if not p.is_file()]}"
-    )
-
-    if verbose:
-        print("Converting DFNs:")
-        pprint(dfns)
-
+    selectors = []
+    template_env = _get_template_env
+    component_idm_template = template_env().get_template("Componentidm.f90.jinja")
+    component_selector_template = template_env().get_template("IdmComponentDfnSelector.f90.jinja")
+    selector_template = template_env().get_template("IdmDfnSelector.f90.jinja")
     
-    # TODO make targets
+    for dfn in dfns:
+        with open(outdir / f"{dfn.stem}idm.f90", "w") as f:
+            f.write(component_idm_template.render(dfn=dfn))
+
+    for selector in selectors:
+        with open(outdir / f"Idm{selector['name']}DfnSelector.f90", "w") as f:
+            f.write(component_selector_template.render(selector=selector))
+
+    with open(outdir / "IdmDfnSelector.f90", "w") as f:
+        f.write(selector_template.render(selectors=selectors))

@@ -1,0 +1,17 @@
+{% macro block_statement(name, required=False, aggregate=False, block_var=False) %}
+{% set required = '.true.' if required else '.false.' %}
+InputBlockDefinitionType( &
+  '{{ name }}', & ! blockname
+  {% if required %}.true.{% else %}.false.{% endif %}, & ! required
+  {% if aggregate %}.true.{% else %}.false.{% endif%}, & ! aggregate
+  {% if block_var %}.true.{% else %}.false.{% endif %} & ! block_variable
+)
+{% endmacro %}
+
+{% macro param_statement(attrs) %}
+InputParamDefinitionType( &
+  {% for name, value in attrs %}
+  {{ value|value }}{% if not loop.last %},{% endif %} & ! {{ name }}
+  {% endfor %} 
+)
+{% endmacro %}

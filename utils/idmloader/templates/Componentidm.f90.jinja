@@ -1,0 +1,62 @@
+! ** Do Not Modify! MODFLOW 6 system generated file. **
+module {{ dfn.component.title() }}{{ dfn.subcomponent.title() }}InputModule
+  use ConstantsModule, only: LENVARNAME
+  use InputDefinitionModule, only: InputParamDefinitionType, &
+                                   InputBlockDefinitionType
+  private
+  public {{ dfn.component.capitalize() }}{{ dfn.subcomponent.capitalize() }} ParamFoundType
+  public {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }} param_definitions
+  public {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }} aggregate_definitions
+  public {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }} block_definitions
+  public {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }} multi_package
+  public {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }} subpackages
+
+  type {{ dfn.component.capitalize() }}{{ dfn.subcomponent.capitalize() }}ParamFoundType
+    {% for var in param_varnames %}
+    logical :: {{ var.name }} = .false.
+    {% endfor %}
+  end type {{ dfn.component.capitalize() }}{{ dfn.subcomponent.capitalize() }}ParamFoundType
+
+  logical :: {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }}_multi_package = {{ dfn.multi_package|value }}
+
+  character(len=16), parameter :: &
+    {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }}_subpackages(*) = &
+    [ &
+      {% for subpackage in dfn.subpackages %}
+      {{ subpackage }}{% if not loop.last %},{% endif %} &
+      {% endfor %}
+    ]
+
+  {% for param in dfn.params if not param.aggregate %}
+  {% macros.param_statement(param) %}{% if not loop.last %},{% endif %} &
+  {% endfor %}
+
+  type(InputParamDefinitionType), parameter :: &
+    {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }}_param_definitions(*) = &
+    [ &
+      {% for param in dfn.params if not param.aggregate %}
+      {{ param.name }}{% if not loop.last %},{% endif %} &
+      {% endfor %}
+    ]
+
+  {% for param in dfn.params if param.aggregate %}
+  {% macros.param_statement(param) %}{% if not loop.last %},{% endif %} &
+  {% endfor %}
+
+  type(InputBlockDefinitionType), parameter :: &
+    {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }}_aggregate_definitions(*) = &
+    [ &
+      {% for param in dfn.params if param.aggregate %}
+      {{ param.name }}{% if not loop.last %},{% endif %} &
+      {% endfor %}
+    ]
+
+  type(InputBlockDefinitionType), parameter :: &
+    {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }}_block_definitions(*) = &
+    [ &
+      {% for block in dfn.blocks %}
+      {% macros.block_statement(block.name, block.required, block.aggregate, block.block_var)%}{% if not loop.last %},{% endif %} &
+      {% endfor %}
+    ]
+
+end module {{ dfn.component.title() }}{{ dfn.subcomponent.title() }}InputModule
