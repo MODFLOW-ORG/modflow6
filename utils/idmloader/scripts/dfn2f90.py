@@ -1,423 +1,32 @@
 import argparse
 from os import PathLike
-import sys
 import textwrap
 from pathlib import Path
 from pprint import pprint
-from typing import Optional
 
-import yaml
 from jinja2 import Environment, FileSystemLoader
 
-from modflow_devtools.dfn import Dfn
 
 from filters import Filters
 
 MF6_LENVARNAME = 16
 F90_LINELEN = 82
 PROJ_ROOT_PATH = Path(__file__).parents[3]
+TEMPLATES_PATH = Path(__file__).parent / "templates"
 DEFAULT_DFNS_PATH = Path(__file__).parents[1] / "dfns.txt"
 DFN_PATH = PROJ_ROOT_PATH / "doc" / "mf6io" / "mf6ivar" / "dfn"
 SRC_PATH = PROJ_ROOT_PATH / "src"
 IDM_PATH = SRC_PATH / "Idm"
 
         
-
-    
-
-    def _write_master(self):
-        ofspec = SRC_PATH / "Idm" / "selector" / "IdmDfnSelector.f90"
-        with open(ofspec, "w") as fh:
-            self._write_master_decl(fh)
-            self._write_master_defn(fh, defn="param", dtype="param")
-            self._write_master_defn(fh, defn="aggregate", dtype="param")
-            self._write_master_defn(fh, defn="block", dtype="block")
-            self._write_master_multi(fh)
-            self._write_master_sub(fh)
-            self._write_master_integration(fh)
-            self._write_master_component(fh)
-            fh.write("end module IdmDfnSelectorModule\n")
-
-    def _write_selectors(self):
-        for c in self._d:
-            ofspec = SRC_PATH / "Idm" / "selector" / f"Idm{c.title()}DfnSelector.f90"
-            with open(ofspec, "w") as fh:
-                self._write_selector_decl(fh, component=c, sc_list=self._d[c])
-                self._write_selector_helpers(fh)
-                self._write_selector_defn(
-                    fh, component=c, sc_list=self._d[c], defn="param", dtype="param"
-                )
-                self._write_selector_defn(
-                    fh, component=c, sc_list=self._d[c], defn="aggregate", dtype="param"
-                )
-                self._write_selector_defn(
-                    fh, component=c, sc_list=self._d[c], defn="block", dtype="block"
-                )
-                self._write_selector_multi(fh, component=c, sc_list=self._d[c])
-                self._write_selector_sub(fh, component=c, sc_list=self._d[c])
-                self._write_selector_integration(fh, component=c, sc_list=self._d[c])
-                fh.write(f"end module Idm{c.title()}DfnSelectorModule\n")
-
-    def _write_selector_decl(self, fh=None, component=None, sc_list=None):
-        space = " "
-        c = component
-        len_c = len(c)
-
-        s = (
-            f"! ** Do Not Modify! MODFLOW 6 system generated file. **\n"
-            f"module Idm{c.title()}DfnSelectorModule\n\n"
-            f"  use ConstantsModule, only: LENVARNAME\n"
-            f"  use SimModule, only: store_error\n"
-            f"  use InputDefinitionModule, only: InputParamDefinitionType, &\n"
-            f"                                   InputBlockDefinitionType\n"
-        )
-
-        for sc in sc_list:
-            len_sc = len(sc)
-            spacer = space * (len_c + len_sc)
-
-            s += f"  use {c.title()}{sc.title()}InputModule\n"
-
-        s += (
-            f"\n  implicit none\n"
-            f"  private\n"
-            f"  public :: {c.lower()}_param_definitions\n"
-            f"  public :: {c.lower()}_aggregate_definitions\n"
-            f"  public :: {c.lower()}_block_definitions\n"
-            f"  public :: {c.lower()}_idm_multi_package\n"
-            f"  public :: {c.lower()}_idm_subpackages\n"
-            f"  public :: {c.lower()}_idm_integrated\n\n"
-        )
-        s += "contains\n\n"
-
-        fh.write(s)
-
-    def _write_selector_helpers(self, fh=None):
-        s = (
-            "  subroutine set_param_pointer(input_dfn, input_dfn_target)\n"
-            "    type(InputParamDefinitionType), dimension(:), "
-            "pointer :: input_dfn\n"
-            "    type(InputParamDefinitionType), dimension(:), "
-            "target :: input_dfn_target\n"
-            "    input_dfn => input_dfn_target\n"
-            "  end subroutine set_param_pointer\n\n"
-        )
-
-        s += (
-            "  subroutine set_block_pointer(input_dfn, input_dfn_target)\n"
-            "    type(InputBlockDefinitionType), dimension(:), "
-            "pointer :: input_dfn\n"
-            "    type(InputBlockDefinitionType), dimension(:), "
-            "target :: input_dfn_target\n"
-            "    input_dfn => input_dfn_target\n"
-            "  end subroutine set_block_pointer\n\n"
-        )
-
-        s += (
-            "  subroutine set_subpkg_pointer(subpkg_list, subpkg_list_target)\n"
-            "    character(len=16), dimension(:), "
-            "pointer :: subpkg_list\n"
-            "    character(len=16), dimension(:), "
-            "target :: subpkg_list_target\n"
-            "    subpkg_list => subpkg_list_target\n"
-            "  end subroutine set_subpkg_pointer\n\n"
-        )
-
-        fh.write(s)
-
-    def _write_selector_defn(
-        self, fh=None, component=None, sc_list=None, defn=None, dtype=None
-    ):
-        c = component
-
-        s = (
-            f"  function {c.lower()}_{defn.lower()}_definitions(subcomponent) "
-            f"result(input_definition)\n"
-            f"    character(len=*), intent(in) :: subcomponent\n"
-            f"    type(Input{dtype.title()}DefinitionType), dimension(:), "
-            f"pointer :: input_definition\n"
-            f"    nullify (input_definition)\n"
-            f"    select case (subcomponent)\n"
-        )
-
-        for sc in sc_list:
-            s += (
-                f"    case ('{sc}')\n"
-                f"      call set_{dtype.lower()}_pointer(input_definition, "
-                f"{c.lower()}_{sc.lower()}_{defn.lower()}_definitions)\n"
-            )
-
-        s += (
-            f"    case default\n"
-            f"    end select\n"
-            f"    return\n"
-            f"  end function {c.lower()}_{defn.lower()}_definitions\n\n"
-        )
-
-        fh.write(s)
-
-    def _write_selector_multi(self, fh=None, component=None, sc_list=None):
-        c = component
-
-        s = (
-            f"  function {c.lower()}_idm_multi_package(subcomponent) "
-            f"result(multi_package)\n"
-            f"    character(len=*), intent(in) :: subcomponent\n"
-            f"    logical :: multi_package\n"
-            f"    select case (subcomponent)\n"
-        )
-
-        for sc in sc_list:
-            s += (
-                f"    case ('{sc}')\n"
-                f"      multi_package = {c.lower()}_{sc.lower()}_"
-                f"multi_package\n"
-            )
-
-        s += (
-            f"    case default\n"
-            f"      call store_error('Idm selector subcomponent "
-            f"not found; '//&\n"
-            f"                       &'component=\"{c.upper()}\"'//&\n"
-            f"                       &', subcomponent=\"'//trim(subcomponent)"
-            f"//'\".', .true.)\n"
-            f"    end select\n"
-            f"    return\n"
-            f"  end function {c.lower()}_idm_multi_package\n\n"
-        )
-
-        fh.write(s)
-
-    def _write_selector_sub(self, fh=None, component=None, sc_list=None):
-        c = component
-
-        s = (
-            f"  function {c.lower()}_idm_subpackages(subcomponent) "
-            f"result(subpackages)\n"
-            f"    character(len=*), intent(in) :: subcomponent\n"
-            f"    character(len=16), dimension(:), pointer :: subpackages\n"
-            f"    select case (subcomponent)\n"
-        )
-
-        for sc in sc_list:
-            s += (
-                f"    case ('{sc}')\n"
-                f"      call set_subpkg_pointer(subpackages, "
-                f"{c.lower()}_{sc.lower()}_subpackages)\n"
-            )
-
-        s += (
-            f"    case default\n"
-            f"    end select\n"
-            f"    return\n"
-            f"  end function {c.lower()}_idm_subpackages\n\n"
-        )
-
-        fh.write(s)
-
-    def _write_selector_integration(self, fh=None, component=None, sc_list=None):
-        c = component
-
-        s = (
-            f"  function {c.lower()}_idm_integrated(subcomponent) "
-            f"result(integrated)\n"
-            f"    character(len=*), intent(in) :: subcomponent\n"
-            f"    logical :: integrated\n"
-            f"    integrated = .false.\n"
-            f"    select case (subcomponent)\n"
-        )
-
-        for sc in sc_list:
-            s += f"    case ('{sc}')\n"
-            s += "      integrated = .true.\n"
-
-        s += (
-            f"    case default\n"
-            f"    end select\n"
-            f"    return\n"
-            f"  end function {c.lower()}_idm_integrated\n\n"
-        )
-
-        fh.write(s)
-
-    def _write_master_decl(self, fh=None):
-        space = " "
-
-        s = (
-            "! ** Do Not Modify! MODFLOW 6 system generated file. **\n"
-            "module IdmDfnSelectorModule\n\n"
-            "  use ConstantsModule, only: LENVARNAME\n"
-            "  use SimModule, only: store_error\n"
-            "  use InputDefinitionModule, only: InputParamDefinitionType, &\n"
-            "                                   InputBlockDefinitionType\n"
-        )
-
-        for c in self._d:
-            len_c = len(c)
-            spacer = space * (len_c)
-            s += f"  use Idm{c.title()}DfnSelectorModule\n"
-
-        s += (
-            "\n  implicit none\n"
-            "  private\n"
-            "  public :: param_definitions\n"
-            "  public :: aggregate_definitions\n"
-            "  public :: block_definitions\n"
-            "  public :: idm_multi_package\n"
-            "  public :: idm_subpackages\n"
-            "  public :: idm_integrated\n"
-            "  public :: idm_component\n\n"
-            "contains\n\n"
-        )
-
-        fh.write(s)
-
-    def _write_master_defn(self, fh=None, defn=None, dtype=None):
-        s = (
-            f"  function {defn.lower()}_definitions(component, subcomponent) "
-            f"result(input_definition)\n"
-            f"    character(len=*), intent(in) :: component\n"
-            f"    character(len=*), intent(in) :: subcomponent\n"
-            f"    type(Input{dtype.title()}DefinitionType), dimension(:), "
-            f"pointer :: input_definition\n"
-            f"    nullify (input_definition)\n"
-            f"    select case (component)\n"
-        )
-
-        for c in dfn_d:
-            s += (
-                f"    case ('{c}')\n"
-                f"      input_definition => {c.lower()}_{defn.lower()}_"
-                f"definitions(subcomponent)\n"
-            )
-
-        s += (
-            f"    case default\n"
-            f"    end select\n"
-            f"    return\n"
-            f"  end function {defn.lower()}_definitions\n\n"
-        )
-
-        fh.write(s)
-
-    def _write_master_multi(self, fh=None):
-        s = (
-            "  function idm_multi_package(component, subcomponent) "
-            "result(multi_package)\n"
-            "    character(len=*), intent(in) :: component\n"
-            "    character(len=*), intent(in) :: subcomponent\n"
-            "    logical :: multi_package\n"
-            "    select case (component)\n"
-        )
-
-        for c in dfn_d:
-            s += (
-                f"    case ('{c}')\n"
-                f"      multi_package = {c.lower()}_idm_multi_"
-                f"package(subcomponent)\n"
-            )
-
-        s += (
-            "    case default\n"
-            "      call store_error('Idm selector component not found; '//&\n"
-            "                       &'component=\"'//trim(component)//&\n"
-            "                       &'\", subcomponent=\"'//trim(subcomponent)"
-            "//'\".', .true.)\n"
-            "    end select\n"
-            "    return\n"
-            "  end function idm_multi_package\n\n"
-        )
-
-        fh.write(s)
-
-    def _write_master_sub(self, fh=None):
-        s = (
-            "  function idm_subpackages(component, subcomponent) "
-            "result(subpackages)\n"
-            "    character(len=*), intent(in) :: component\n"
-            "    character(len=*), intent(in) :: subcomponent\n"
-            "    character(len=16), dimension(:), pointer :: subpackages\n"
-            "    select case (component)\n"
-        )
-
-        for c in dfn_d:
-            s += (
-                f"    case ('{c}')\n"
-                f"      subpackages => {c.lower()}_idm_"
-                f"subpackages(subcomponent)\n"
-            )
-
-        s += (
-            "    case default\n"
-            "      call store_error('Idm selector component not found; '//&\n"
-            "                       &'component=\"'//trim(component)//&\n"
-            "                       &'\", subcomponent=\"'//trim(subcomponent)"
-            "//'\".', .true.)\n"
-            "    end select\n"
-            "    return\n"
-            "  end function idm_subpackages\n\n"
-        )
-
-        fh.write(s)
-
-    def _write_master_integration(self, fh=None):
-        s = (
-            "  function idm_integrated(component, subcomponent) "
-            "result(integrated)\n"
-            "    character(len=*), intent(in) :: component\n"
-            "    character(len=*), intent(in) :: subcomponent\n"
-            "    logical :: integrated\n"
-            "    integrated = .false.\n"
-            "    select case (component)\n"
-        )
-
-        for c in dfn_d:
-            s += (
-                f"    case ('{c}')\n"
-                f"      integrated = {c.lower()}_idm_"
-                f"integrated(subcomponent)\n"
-            )
-
-        s += (
-            "    case default\n"
-            "    end select\n"
-            "    return\n"
-            "  end function idm_integrated\n\n"
-        )
-
-        fh.write(s)
-
-    def _write_master_component(self, fh=None):
-        s = (
-            "  function idm_component(component) "
-            "result(integrated)\n"
-            "    character(len=*), intent(in) :: component\n"
-            "    logical :: integrated\n"
-            "    integrated = .false.\n"
-            "    select case (component)\n"
-        )
-
-        for c in dfn_d:
-            s += f"    case ('{c}')\n      integrated = .true.\n"
-
-        s += (
-            "    case default\n"
-            "    end select\n"
-            "    return\n"
-            "  end function idm_component\n\n"
-        )
-
-        fh.write(s)
-
-
 def _get_template_env():
-    template_loader = FileSystemLoader(Path(__file__).parent)
+    template_loader = FileSystemLoader(TEMPLATES_PATH)
     template_env = Environment(
-    loader=template_loader,
-    trim_blocks=True,
-    lstrip_blocks=True,
-    line_statement_prefix="_",
-    keep_trailing_newline=True,
+        loader=template_loader,
+        trim_blocks=True,
+        lstrip_blocks=True,
+        line_statement_prefix="_",
+        keep_trailing_newline=True,
     )
     template_env.filters["value"] = Filters.value
     return template_env
@@ -434,6 +43,37 @@ def make_all(dfndir: PathLike, outdir: PathLike, verbose: bool = False, version:
     # TODO all component and selector files
     # TODO master selector file
     pass
+
+
+def _expand_dfns(dfns: str | PathLike | list[str | PathLike]) -> list[Path]:
+    """Expand DFN file or directory paths to a list of DFN file paths"""
+    if isinstance(dfns, list):
+        dfns = [Path(p) for p in dfns]
+    elif isinstance(dfn, (str, Path)):
+        dfns = [Path(dfns)]
+    else:
+        raise TypeError(f"Unexpected dfn type: {type(dfns)}")
+
+    extensions = [
+        "*.dfn",
+        # TODO support toml
+    ]
+    dfns_ = []
+    for path in dfns:
+        if path.is_dir():
+            for ext in extensions:
+                dfns_.extend(path.glob(ext))
+        else:
+            # if we only have a filename, assume
+            # it's in the default dfn directory.
+            # TODO remove when idm supports all dfns
+            # and we no longer have to specify files.
+            if len(path.parts) == 1:
+                path = DFN_PATH / path
+            dfns_.append(path)
+
+    assert all(p.is_file() for p in dfns_)
+    return dfns_
 
 
 if __name__ == "__main__":
@@ -454,11 +94,10 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "-d",
-        "--dfn",
-        required=False,
-        default=DEFAULT_DFNS_PATH,
-        help="Path to a DFN file, a directory containing DFN files, or to a text or YAML file listing DFN files (one per line)",
+        "dfn",
+        nargs="*",
+        default=DFN_PATH,
+        help="Path to one or more DFN files or directories containing DFN files",
     )
     parser.add_argument(
         "-o",
@@ -476,51 +115,25 @@ if __name__ == "__main__":
         help="Whether to show verbose output",
     )
     args = parser.parse_args()
-    dfn = Path(args.dfn)
+    dfns = _expand_dfns(args.dfn)
     outdir = Path(args.outdir) if args.outdir else Path.cwd()
-    verbose = args.verbose
+    if verbose := args.verbose:
+        print("Generating Fortran source files from DFNs:")
+        pprint(dfns) 
 
-    if dfn.suffix.lower() in [".txt"]:
-        dfns = open(dfn, "r").readlines()
-        dfns = [l.strip() for l in dfns]
-        dfns = [l for l in dfns if not l.startswith("#") and l.lower().endswith(".dfn")]
-        if dfn == DEFAULT_DFNS_PATH:
-            dfns = [DFN_PATH / p for p in dfns]
-    elif dfn.suffix.lower() in [".yml", ".yaml"]:
-        dfns = yaml.safe_load(open(dfn, "r"))
-    elif dfn.suffix.lower() in [".dfn"]:
-        dfns = [dfn]
-
-    assert all(p.is_file() for p in dfns), (
-        f"DFNs not found: {[p for p in dfns if not p.is_file()]}"
-    )
-
-    if verbose:
-        print("Converting DFNs:")
-        pprint(dfns)
-
+    selectors = []
+    template_env = _get_template_env
+    component_idm_template = template_env().get_template("Componentidm.f90.jinja")
+    component_selector_template = template_env().get_template("IdmComponentDfnSelector.f90.jinja")
+    selector_template = template_env().get_template("IdmDfnSelector.f90.jinja")
     
+    for dfn in dfns:
+        with open(outdir / f"{dfn.stem}idm.f90", "w") as f:
+            f.write(component_idm_template.render(dfn=dfn))
 
-    with open(ofspec, "w") as f:
+    for selector in selectors:
+        with open(outdir / f"Idm{selector['name']}DfnSelector.f90", "w") as f:
+            f.write(component_selector_template.render(selector=selector))
 
-        param_varnames = [
-            var.split(
-                f"{self.component.lower()}{self.subcomponent.lower()}_"
-            )[1]
-            for var in self._param_varnames
-        ]
-
-        if not len(self._subpackage):
-            self._subpackage.append("".ljust(16))
-
-        f.write(
-            self._template.render(
-                component=self.component,
-                subcomponent=self.subcomponent,
-                param_varnames=param_varnames,
-                aggregate_varnames=self._aggregate_varnames,
-                multi_package=self._multi_package,
-                subpackage=self._subpackage,
-            )
-        )
-
+    with open(outdir / "IdmDfnSelector.f90", "w") as f:
+        f.write(selector_template.render(selectors=selectors))
