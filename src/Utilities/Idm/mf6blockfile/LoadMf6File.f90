@@ -391,6 +391,7 @@ contains
   !<
   recursive subroutine parse_tag(this, iblk, recursive_call)
     use ArrayHandlersModule, only: expandarray
+    use SourceCommonModule, only: check_model_shape
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
     logical(LGP), intent(in) :: recursive_call !< true if recursive call
@@ -412,6 +413,10 @@ contains
                                      this%mf6_input%subcomponent_type, &
                                      this%mf6_input%block_dfns(iblk)%blockname, &
                                      tag, this%filename)
+
+    ! verify model shape
+    call check_model_shape(this%mshape, idt, this%mf6_input%component_name, &
+                           this%filename)
 
     ! allocate and load data type
     select case (idt%datatype)
