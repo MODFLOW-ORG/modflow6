@@ -1,0 +1,132 @@
+! ** Do Not Modify! MODFLOW 6 system generated file. **
+module IdmDfndfnModule
+
+  use ConstantsModule, only: LENVARNAME
+  use SimModule, only: store_error
+  use InputDefinitionModule, only: InputParamDefinitionType, &
+                                   InputBlockDefinitionType
+  {% for dfn in dfns %}
+  use Idm{{ dfn.component }}DfndfnModule
+  {% endfor %}
+
+  implicit none
+  private
+  public :: param_definitions
+  public :: aggregate_definitions
+  public :: block_definitions
+  public :: idm_multi_package
+  public :: idm_subpackages
+  public :: idm_integrated
+  public :: idm_component
+
+contains
+
+  function param_definitions(component, subcomponent) result(input_definition)
+    character(len=*), intent(in) :: component
+    character(len=*), intent(in) :: subcomponent
+    type(InputParamDefinitionType), dimension(:), pointer :: input_definition
+    nullify (input_definition)
+    select case (component)
+    {% for dfn in dfns %}
+    case ('{{ dfn.component.upper() }}')
+      input_definition => {{ dfn.component.lower() }}_param_definitions(subcomponent)
+    {% endfor %}
+    case default
+    end select
+    return
+  end function param_definitions
+
+  function aggregate_definitions(component, subcomponent) result(input_definition)
+    character(len=*), intent(in) :: component
+    character(len=*), intent(in) :: subcomponent
+    type(InputParamDefinitionType), dimension(:), pointer :: input_definition
+    nullify (input_definition)
+    select case (component)
+    {% for dfn in dfns %}
+    case ('{{ dfn.component.upper() }}')
+      input_definition => {{ dfn.component.lower() }}_aggregate_definitions(subcomponent)
+    {% endfor %}
+    case default
+    end select
+    return
+  end function aggregate_definitions
+
+  function block_definitions(component, subcomponent) result(input_definition)
+    character(len=*), intent(in) :: component
+    character(len=*), intent(in) :: subcomponent
+    type(InputBlockDefinitionType), dimension(:), pointer :: input_definition
+    nullify (input_definition)
+    select case (component)
+    {% for dfn in dfns %}
+    case ('{{ dfn.component.upper() }}')
+      input_definition => {{ dfn.component.lower() }}_block_definitions(subcomponent)
+    {% endfor %}
+    case default
+    end select
+    return
+  end function block_definitions
+
+  function idm_multi_package(component, subcomponent) result(multi_package)
+    character(len=*), intent(in) :: component
+    character(len=*), intent(in) :: subcomponent
+    logical :: multi_package
+    select case (component)
+    {% for dfn in dfns %}
+    case ('{{ dfn.component.upper() }}')
+      multi_package => {{ dfn.component.lower() }}_idm_multi_package(subcomponent)
+    {% endfor %}
+    case default
+      call store_error('Idm dfn component not found; '//&
+                       &'component="'//trim(component)//&
+                       &'", subcomponent="'//trim(subcomponent)//'".', .true.)
+    end select
+    return
+  end function idm_multi_package
+
+  function idm_subpackages(component, subcomponent) result(subpackages)
+    character(len=*), intent(in) :: component
+    character(len=*), intent(in) :: subcomponent
+    character(len=16), dimension(:), pointer :: subpackages
+    select case (component)
+    {% for dfn in dfns %}
+    case ('{{ dfn.component.upper() }}')
+      subpackages => {{ dfn.component.lower() }}_idm_subpackages(subcomponent)
+    {% endfor %}
+    case default
+      call store_error('Idm dfn component not found; '//&
+                       &'component="'//trim(component)//&
+                       &'", subcomponent="'//trim(subcomponent)//'".', .true.)
+    end select
+    return
+  end function idm_subpackages
+
+  function idm_integrated(component, subcomponent) result(integrated)
+    character(len=*), intent(in) :: component
+    character(len=*), intent(in) :: subcomponent
+    logical :: integrated
+    integrated = .false.
+    select case (component)
+    {% for dfn in dfns %}
+    case ('{{ dfn.component.upper() }}')
+      integrated => {{ dfn.component.lower() }}_idm_integrated(subcomponent)
+    {% endfor %}
+    case default
+    end select
+    return
+  end function idm_integrated
+
+  function idm_component(component) result(integrated)
+    character(len=*), intent(in) :: component
+    logical :: integrated
+    integrated = .false.
+    select case (component)
+    {% for dfn in dfns %}
+    case ('{{ dfn.component.upper() }}')
+      integrated = .true.
+    {% endfor %}
+    case default
+    end select
+    return
+  end function idm_component
+
+end module IdmDfndfnModule
