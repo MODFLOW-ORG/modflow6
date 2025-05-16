@@ -34,7 +34,6 @@ tagged true
 optional false
 longname grb keyword
 description keyword to specify that record corresponds to a binary grid file.
-extended true
 
 block options
 name fileout
@@ -56,7 +55,6 @@ optional false
 tagged false
 longname file name of GRB information
 description defines a binary grid output file.
-extended true
 
 block options
 name xorigin

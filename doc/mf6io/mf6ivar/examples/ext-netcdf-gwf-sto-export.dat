@@ -1,0 +1,51 @@
+# gwf_sto01.nam
+BEGIN options
+  SAVE_FLOWS
+  NEWTON
+  NETCDF_MESH2D  FILEOUT  gwf_sto01.mesh.nc
+END options
+
+BEGIN packages
+  DIS6  gwf_sto01.dis  dis
+  IC6  gwf_sto01.ic  ic
+  NPF6  gwf_sto01.npf  npf
+  STO6  gwf_sto01.sto  sto
+  RCH6  gwf_sto01.rcha  rcha_0
+  WEL6  gwf_sto01.wel  wel_0
+  CHD6  gwf_sto01.chd  chd_0
+  OC6  gwf_sto01.oc  oc
+END packages
+
+# gwf_sto01.dis
+BEGIN options
+  EXPORT_ARRAY_NETCDF
+END options
+
+BEGIN dimensions
+  NLAY  3
+  NROW  10
+  NCOL  10
+END dimensions
+
+BEGIN griddata
+  delr
+    CONSTANT    1000.00000000
+  delc
+    CONSTANT    2000.00000000
+  top
+    CONSTANT       0.00000000
+  botm  LAYERED
+    CONSTANT    -100.00000000
+    CONSTANT    -150.00000000
+    CONSTANT    -350.00000000
+END griddata
+
+# gwf_sto01.ic
+BEGIN options
+  EXPORT_ARRAY_NETCDF
+END options
+
+BEGIN griddata
+  strt
+    CONSTANT       0.00000000
+END griddata
