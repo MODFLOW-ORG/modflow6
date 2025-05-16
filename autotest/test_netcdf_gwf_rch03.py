@@ -200,19 +200,16 @@ def check_output(idx, test, export, gridded_input):
     irch = getattr(rch, "irch").array
     recharge = getattr(rch, "recharge").array
     if export == "ugrid":
-        rl1 = xds["rcha_0_recharge_l1_p1"].data.flatten()
-        rl2 = xds["rcha_0_recharge_l2_p1"].data.flatten()
+        r = xds["rcha_0_recharge"].data.flatten()
     elif export == "structured":
-        rl1 = xds["rcha_0_recharge_p1"].data[0].flatten()
-        rl2 = xds["rcha_0_recharge_p1"].data[1].flatten()
+        r = xds["rcha_0_recharge"].data[0].flatten()
     assert np.allclose(
         np.array(irch).flatten() + 1,
-        xds["rcha_0_irch_p1"].data,
+        xds["rcha_0_irch"].data.flatten(),
     ), "NetCDF-irch comparison failure"
-    rarr = np.where(~np.isnan(rl1), rl1, rl2)
     assert np.allclose(
         np.array(recharge).flatten(),
-        rarr,
+        r,
     ), "NetCDF-recharge comparison failure"
 
     vlist = [
