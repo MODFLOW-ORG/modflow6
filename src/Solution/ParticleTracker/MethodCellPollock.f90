@@ -69,12 +69,13 @@ contains
       trackctl=this%trackctl, &
       tracktimes=this%tracktimes)
     submethod => method_subcell_plck
-    particle%idomain(next_level) = 1
+    particle%itrdomain(next_level) = 1
   end subroutine load_mcp
 
   !> @brief Having exited the lone subcell, pass the particle to the cell face
   !! In this case the lone subcell is the cell.
   subroutine pass_mcp(this, particle)
+    use ParticleModule, only: LVL_CELL, LVL_SUBCELL
     ! dummy
     class(MethodCellPollockType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -82,7 +83,7 @@ contains
     integer(I4B) :: exitface
     integer(I4B) :: entryface
 
-    exitface = particle%iboundary(3)
+    exitface = particle%iboundary(LVL_SUBCELL)
     ! Map subcell exit face to cell face
     select case (exitface) ! note: exitFace uses Dave's iface convention
     case (0)
@@ -101,7 +102,7 @@ contains
       entryface = 7
     end select
     if (entryface .eq. -1) then
-      particle%iboundary(2) = 0
+      particle%iboundary(LVL_CELL) = 0
     else
       if ((entryface .ge. 1) .and. (entryface .le. 4)) then
         ! Account for local cell rotation
@@ -111,7 +112,7 @@ contains
         end select
         if (entryface .gt. 4) entryface = entryface - 4
       end if
-      particle%iboundary(2) = entryface
+      particle%iboundary(LVL_CELL) = entryface
     end if
   end subroutine pass_mcp
 
