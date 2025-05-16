@@ -13,6 +13,7 @@ module ObsBlockModule
                                        GetObserveFromList, ConstructObservation
   use SimPHMFModule,             only: store_error, store_error_unit, ustop
   use UtilitiesModule,           only: CalcContribFactors
+  use GeomUtilModule,            only: get_node
   
   implicit none
   
@@ -74,7 +75,7 @@ contains
     type(BlockParserType), intent(inout) :: parser
     ! local
     integer :: ierr, ioutmf, layer
-    integer :: irow, jcol, lloc2, iadjrow, jadjcol, ncol, nrow
+    integer :: irow, jcol, lloc2, iadjrow, jadjcol, ncol, nrow, node
     double precision :: time, xcoord, xnode, ycoord, ynode, xoff, yoff
     double precision :: gridX, gridY
     character(len=MAXCHARLEN) :: ermsg
@@ -168,6 +169,9 @@ contains
         newobs%gridX = gridX
         newobs%gridY = gridY
         !
+        ! Determine node number based on indices
+        node = get_node(layer, irow, jcol, dis3d%nlay, dis3d%nrow, dis3d%ncol)
+        !
         ! Get coordinates of node and calculate X and Y offsets from node.
         call dis3d%get_node_coords_idx2(irow, jcol, xnode, ynode)
         xoff = gridX - xnode
@@ -187,14 +191,14 @@ contains
         if (.not. is_close(xoff, DZERO)) then
           if (xoff > DZERO) then
             if (jcol < ncol) then
-              if (dis3d%idomain(jcol+1, irow, layer) == 1) then
+              if (dis3d%idomain(node) == 1) then
                 jadjcol = jcol + 1
                 newobs%jcoladj = jadjcol
               endif
             endif
           else
             if (jcol > 1) then
-              if (dis3d%idomain(jcol-1, irow, layer) == 1) then
+              if (dis3d%idomain(node) == 1) then
                 jadjcol = jcol - 1
                 newobs%jcoladj = jadjcol
               endif
@@ -205,14 +209,14 @@ contains
         if (.not. is_close(yoff, DZERO)) then
           if (yoff > DZERO) then
             if (irow > 1) then
-              if (dis3d%idomain(jcol, irow-1, layer) == 1) then
+              if (dis3d%idomain(node) == 1) then
                 iadjrow = irow - 1
                 newobs%irowadj = iadjrow
               endif
             endif
           else
             if (irow < nrow) then
-              if (dis3d%idomain(jcol, irow+1, layer) == 1) then
+              if (dis3d%idomain(node) == 1) then
                 iadjrow = irow + 1
                 newobs%irowadj = iadjrow
               endif
@@ -223,7 +227,8 @@ contains
         ! If both jadjcol and iadjrow are not 0, and diagonal cell is active,
         ! assign newobs%idiag flag.
         if (jadjcol /= 0 .and. iadjrow /= 0) then
-          if (dis3d%idomain(jadjcol,iadjrow,layer) == 1) then
+          node = get_node(layer, iadjrow, jadjcol, dis3d%nlay, dis3d%nrow, dis3d%ncol)
+          if (dis3d%idomain(node) == 1) then
             newobs%idiag = 1
           endif
         endif
