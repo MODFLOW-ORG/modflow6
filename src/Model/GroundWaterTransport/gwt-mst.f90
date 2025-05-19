@@ -504,7 +504,7 @@ contains
           !
           ! -- first order decay rate is a function of concentration, so add
           !    to left hand side
-          if (cnew(n) < DZERO) then
+          if (cnew(n) > DZERO) then
             hhcof = -term * distcoef
           end if
         case (SORPTION_FREUND)
