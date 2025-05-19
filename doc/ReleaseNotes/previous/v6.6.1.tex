@@ -3,7 +3,8 @@
 	
 \subsection{Version mf6.6.1---February 7, 2025}
 
-\underline{NEW FUNCTIONALITY}
+\textbf{\underline{NEW FUNCTIONALITY}}
+
 \begin{itemize}
 	\item Support for adjusting time step lengths using the adaptive time stepping (ATS) capability was added to the GWT Advection (ADV) Package of the Groundwater Transport (GWT) Model in release 6.6.0.  The same functionality that was added to GWT is now available with the Groundwater Energy Transport (GWE) Model.  A description of how this functionality works and how to activate it can be found in the release notes for version 6.6.0 (Appendix A) and in the MODFLOW 6 input-output guide.
 	\item The binary grid file written by MODFLOW 6 for DISU models did not include the IDOMAIN array.  The binary grid file now includes IDOMAIN for all discretization types, including DISU.
@@ -18,7 +19,8 @@
 %	\item xxx
 %\end{itemize}
 
-\textbf{\underline{BUG FIXES AND OTHER CHANGES TO EXISTING FUNCTIONALITY}} \\
+\textbf{\underline{BUG FIXES AND OTHER CHANGES TO EXISTING FUNCTIONALITY}}
+
 \underline{BASIC FUNCTIONALITY}
 \begin{itemize}
 	\item GWT, GWE and PRT Models require a grid identical to the grid of the corresponding GWF Model. Previously, GWT, GWE and PRT exchanges performed a minimal check that the grids have the same number of active nodes. Exchanges will now also perform an additional check that grid IDOMAIN arrays are identical.
