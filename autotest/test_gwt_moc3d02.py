@@ -54,7 +54,9 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=tdis_rc, time_units=time_units)
+    tdis = flopy.mf6.ModflowTdis(sim, nper=nper,
+                                 perioddata=tdis_rc,
+                                 time_units=time_units)
 
     # create gwf model
     gwfname = "gwf_" + name

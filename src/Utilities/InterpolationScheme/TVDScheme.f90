@@ -58,7 +58,8 @@ contains
     real(DP), pointer :: coef_up, coef_dn
     real(DP), dimension(3) :: grad_c, dnm, normal
     real(DP) :: smooth, alimiter
-    real(DP) :: cl1, cl2, c_virtual, relative_distance
+    real(DP) :: cl1, cl2, relative_distance
+    ! real(DP) :: c_virtual
 
     isympos = this%dis%con%jas(iposnm)
     qnm = this%fmi%gwfflowja(iposnm)
