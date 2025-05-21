@@ -48,12 +48,12 @@ contains
     integer(I4B) :: ipos, count, idx
     integer(I4B) :: m, isympos, ihc
     integer(I4B) :: number_connections
-    real(DP), dimension(:, :), allocatable  :: normal_vectors
+    real(DP), dimension(:, :), allocatable :: normal_vectors
     real(DP) :: x_dir, y_dir, z_dir
     logical :: normal_exists
 
     number_connections = number_connected_faces(dis, n)
-    allocate(normal_vectors(3, number_connections))
+    allocate (normal_vectors(3, number_connections))
     number_connections = 0
 
     count = 0
@@ -67,11 +67,11 @@ contains
       normal_exists = .false.
       do idx = 1, count
         if (abs(x_dir - normal_vectors(1, idx)) < DSAME .and. &
-           abs(y_dir - normal_vectors(2, idx)) < DSAME .and. &
-           abs(z_dir - normal_vectors(3, idx)) < DSAME) then
+            abs(y_dir - normal_vectors(2, idx)) < DSAME .and. &
+            abs(z_dir - normal_vectors(3, idx)) < DSAME) then
 
           normal_exists = .true.
-          exit            
+          exit
         end if
       end do
 

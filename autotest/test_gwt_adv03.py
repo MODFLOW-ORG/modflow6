@@ -113,16 +113,13 @@ def build_models(idx, test):
     imsgwf = flopy.mf6.ModflowIms(
         sim,
         print_option="SUMMARY",
-        outer_dvclose=hclose,
         outer_maximum=nouter,
-        under_relaxation="NONE",
         inner_maximum=ninner,
+        outer_dvclose=hclose,
         inner_dvclose=hclose,
         rcloserecord=rclose,
-        linear_acceleration="BICGSTAB",
-        scaling_method="NONE",
-        reordering_method="NONE",
         relaxation_factor=relax,
+        linear_acceleration="BICGSTAB",
         filename=f"{gwfname}.ims",
     )
     sim.register_ims_package(imsgwf, [gwf.name])
@@ -271,7 +268,7 @@ def build_models(idx, test):
     adv = flopy.mf6.ModflowGwtadv(gwt, scheme=scheme[idx], filename=f"{gwtname}.adv")
 
     # mass storage and transfer
-    mst = flopy.mf6.ModflowGwtmst(gwt, porosity=0.1)
+    mst = flopy.mf6.ModflowGwtmst(gwt, porosity=porosity)
 
     # sources
     sourcerecarray = [("WEL-1", "AUX", "CONCENTRATION")]

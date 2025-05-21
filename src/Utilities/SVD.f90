@@ -9,6 +9,7 @@ module SVDModule
   public :: SVD2
   public :: bidiagonal_decomposition
   public :: bidiagonal_qr_decomposition
+  public :: pinv
 
 contains
 
@@ -387,5 +388,28 @@ contains
     end do
 
   END SUBROUTINE SVD2
+
+  function pinv(A) result(B)
+    real(DP), intent(in) :: A(3, 3) !! Matrix
+    real(DP) :: B(3, 3) !! Inverse matrix
+
+    integer(I4B) :: pos
+    real(DP), dimension(:, :), allocatable :: U
+    real(DP), dimension(:, :), allocatable :: Vt
+    real(DP), dimension(:, :), allocatable :: sigma
+
+    CALL SVD2(A, U, sigma, Vt)
+
+    do pos = 1, min(SIZE(A, DIM=1), SIZE(A, DIM=2))
+      if (DABS(sigma(pos, pos)) < DPREC) then
+        sigma(pos, pos) = 0.0_dp
+      else
+        sigma(pos, pos) = 1.0_dp / sigma(pos, pos)
+      end if
+    end do
+
+    B = matmul(transpose(Vt), matmul(sigma, transpose(U)))
+
+  end function pinv
 
 end module
