@@ -374,48 +374,29 @@ def check_output(idx, test):
     times = bobj.get_times()
     records = bobj.get_data(totim=times[-1])
     adt = [("node", "<i4"), ("node2", "<i4"), ("q", "<f8")]
-    assert len(records) == 25
-    assert records[0].shape == (0,)
+    assert len(records) == 5
+
+    assert records[0].shape == (2,)
+    a = np.array([(1, 2, -0.0), (2, 2, -0.0)], dtype=adt)
+    assert np.array_equal(records[0], a)
 
     assert records[1].shape == (2,)
-    a = np.array([(1, 2, -0.0), (2, 2, -0.0)], dtype=adt)
+    a = np.array([(1, 1, -0.0), (2, 1, -0.0)], dtype=adt)
     assert np.array_equal(records[1], a)
 
     assert records[2].shape == (2,)
-    a = np.array([(1, 1, -0.0), (2, 1, -0.0)], dtype=adt)
-    assert np.array_equal(records[2], a)
-
-    assert records[3].shape == (2,)
     a = np.array([(1, 3, -0.00545875), (2, 3, -0.00468419)], dtype=adt)
-    assert np.allclose(records[3]["node"], a["node"])
-    assert np.allclose(records[3]["node2"], a["node2"])
-    assert np.allclose(records[3]["q"], a["q"], atol=0.001), "{}\n{}".format(
-        records[3]["q"], a["q"]
+    assert np.allclose(records[2]["node"], a["node"])
+    assert np.allclose(records[2]["node2"], a["node2"])
+    assert np.allclose(records[2]["q"], a["q"], atol=0.001), "{}\n{}".format(
+        records[2]["q"], a["q"]
     )
 
-    assert records[4].shape == (0,)
-    assert records[5].shape == (0,)
-    assert records[6].shape == (0,)
-    assert records[7].shape == (0,)
-    assert records[8].shape == (3,)
+    assert records[3].shape == (3,)
     a = np.array([(1, 1, -0.0), (1, 2, -0.0005), (1, 3, -0.0)], dtype=adt)
-    assert np.array_equal(records[8], a)
+    assert np.array_equal(records[3], a)
 
-    assert records[9].shape == (0,)
-    assert records[10].shape == (0,)
-    assert records[11].shape == (0,)
-    assert records[12].shape == (0,)
-    assert records[13].shape == (0,)
-    assert records[14].shape == (0,)
-    assert records[15].shape == (0,)
-    assert records[16].shape == (0,)
-    assert records[17].shape == (0,)
-    assert records[18].shape == (0,)
-    assert records[19].shape == (0,)
-    assert records[20].shape == (0,)
-    assert records[21].shape == (0,)
-    assert records[22].shape == (0,)
-    assert records[23].shape == (9,)
+    assert records[4].shape == (9,)
     a = np.array(
         [
             (1, 1, -1.0e-04),
@@ -430,13 +411,11 @@ def check_output(idx, test):
         ],
         dtype=adt,
     )
-    assert np.allclose(records[23]["node"], a["node"])
-    assert np.allclose(records[23]["node2"], a["node2"])
-    assert np.allclose(records[23]["q"], a["q"], atol=0.001), "{}\n{}".format(
-        records[23]["q"], a["q"]
+    assert np.allclose(records[4]["node"], a["node"])
+    assert np.allclose(records[4]["node2"], a["node2"])
+    assert np.allclose(records[4]["q"], a["q"], atol=0.001), "{}\n{}".format(
+        records[4]["q"], a["q"]
     )
-
-    assert records[24].shape == (0,)
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
