@@ -238,7 +238,7 @@ contains
   !<
   subroutine adv_fc(this, nodes, matrix_sln, idxglo, cnew, rhs)
     ! -- modules
-    use TdisModule, only: delt, kstp
+    use TdisModule, only: delt
     ! -- dummy
     class(TspAdvType) :: this
     integer, intent(in) :: nodes
