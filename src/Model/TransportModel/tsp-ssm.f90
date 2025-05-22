@@ -155,11 +155,12 @@ contains
     ! -- Check to make sure that there are flow packages
     if (this%fmi%nflowpack == 0) then
       write (errmsg, '(a)') 'SSM package does not detect any boundary flows &
-                            &that require SSM terms.  Activate GWF-GWT &
-                            &exchange or activate FMI package and provide a &
-                            &budget file that contains boundary flows.  If no &
-                            &boundary flows are present in corresponding GWF &
-                            &model then this SSM package should be removed.'
+                            &that require SSM terms.  Activate GWF-GWT (or &
+                            &GWF-GWE, as appropriate) exchange or activate &
+                            &FMI package and provide a budget file that &
+                            &contains boundary flows.  If no boundary flows &
+                            &are present in corresponding GWF model then this &
+                            &SSM package should be removed.'
       call store_error(errmsg)
       call this%parser%StoreErrorUnit()
     end if

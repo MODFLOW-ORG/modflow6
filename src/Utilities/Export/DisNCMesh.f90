@@ -69,7 +69,7 @@ contains
 
     ! initialize base class
     call this%mesh_init(modelname, modeltype, modelfname, nc_fname, disenum, &
-                        nctype, iout)
+                        nctype, this%dis%lenuni, iout)
   end subroutine dis_export_init
 
   !> @brief netcdf export dis destroy
@@ -457,12 +457,13 @@ contains
   !> @brief netcdf export add mesh information
   !<
   subroutine add_mesh_data(this)
+    use BaseDisModule, only: dis_transform_xy
     class(Mesh2dDisExportType), intent(inout) :: this
     integer(I4B) :: cnt, maxvert, m
     integer(I4B), dimension(:), allocatable :: verts
     real(DP), dimension(:), allocatable :: bnds
     integer(I4B) :: i, j
-    real(DP) :: x, y
+    real(DP) :: x, y, x_transform, y_transform
     real(DP), dimension(:), allocatable :: node_x, node_y
     real(DP), dimension(:), allocatable :: cell_x, cell_y
 
@@ -485,13 +486,18 @@ contains
     cnt = 0
     node_x = NF90_FILL_DOUBLE
     node_y = NF90_FILL_DOUBLE
-    y = this%dis%yorigin + sum(this%dis%delc)
+    y = sum(this%dis%delc)
     do j = this%dis%nrow, 0, -1
-      x = this%dis%xorigin
+      x = 0
       do i = this%dis%ncol, 0, -1
         cnt = cnt + 1
-        node_x(cnt) = x
-        node_y(cnt) = y
+        call dis_transform_xy(x, y, &
+                              this%dis%xorigin, &
+                              this%dis%yorigin, &
+                              this%dis%angrot, &
+                              x_transform, y_transform)
+        node_x(cnt) = x_transform
+        node_y(cnt) = y_transform
         if (i > 0) x = x + this%dis%delr(i)
       end do
       if (j > 0) y = y - this%dis%delc(j)
@@ -508,13 +514,17 @@ contains
     cell_x = NF90_FILL_DOUBLE
     cell_y = NF90_FILL_DOUBLE
     do j = 1, this%dis%nrow
-      x = this%dis%xorigin
-      y = this%dis%celly(j) + this%dis%yorigin
+      y = this%dis%celly(j)
       do i = 1, this%dis%ncol
-        cell_x(cnt) = x
-        cell_y(cnt) = y
+        x = this%dis%cellx(i)
+        call dis_transform_xy(x, y, &
+                              this%dis%xorigin, &
+                              this%dis%yorigin, &
+                              this%dis%angrot, &
+                              x_transform, y_transform)
+        cell_x(cnt) = x_transform
+        cell_y(cnt) = y_transform
         cnt = cnt + 1
-        x = this%dis%cellx(i) + this%dis%xorigin
       end do
     end do
 

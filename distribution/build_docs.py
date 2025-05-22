@@ -145,7 +145,12 @@ def build_notes_tex(force: bool = False):
         tex_path.unlink(missing_ok=True)
         with set_dir(RELEASE_NOTES_PATH):
             out, err, ret = run_py_script(
-                "mk_releasenotes.py", toml_path, tex_path, verbose=True
+                "mk_releasenotes.py",
+                "--toml",
+                toml_path,
+                "--tex",
+                tex_path,
+                verbose=True,
             )
             assert not ret, out + err
 
@@ -350,7 +355,7 @@ def test_build_pdfs_from_tex(tmp_path):
 
 
 def fetch_example_docs(
-    out_path: PathLike, force: bool = False, repo_owner: str = "MODFLOW-USGS"
+    out_path: PathLike, force: bool = False, repo_owner: str = "MODFLOW-ORG"
 ):
     pdf_name = "mf6examples.pdf"
     if force or not (out_path / pdf_name).is_file():

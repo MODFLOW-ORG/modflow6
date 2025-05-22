@@ -419,9 +419,6 @@ contains
     !
     ! - observation data
     call this%obs%obs_ar()
-
-    ! setup tables
-    call this%csub_initialize_tables()
     !
     ! -- terminate if errors dimensions block data
     if (count_errors() > 0) then
@@ -543,6 +540,9 @@ contains
     if (this%ninterbeds > 0) then
       call this%csub_read_packagedata()
     end if
+    !
+    ! setup package convergence tables
+    call this%csub_initialize_tables()
     !
     ! -- calculate the coarse-grained material thickness without the interbeds
     do node = 1, this%dis%nodes
@@ -6889,6 +6889,11 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => csub_process_obsID
     !
     ! -- Store obs type and assign procedure pointer
+    !    for interbed-compaction-pct observation type.
+    call this%obs%StoreObsType('interbed-compaction-pct', .false., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => csub_process_obsID
+    !
+    ! -- Store obs type and assign procedure pointer
     !    for delay-preconstress observation type.
     call this%obs%StoreObsType('delay-preconstress', .false., indx)
     this%obs%obsData(indx)%ProcessIdPtr => csub_process_obsID
@@ -6953,6 +6958,7 @@ contains
     real(DP) :: v
     real(DP) :: r
     real(DP) :: f
+    real(DP) :: b0
     !
     ! -- Fill simulated values for all csub observations
     if (this%obs%npakobs > 0) then
@@ -7070,6 +7076,12 @@ contains
                 v = this%cg_es(n)
               case ('INTERBED-COMPACTION')
                 v = this%tcomp(n)
+              case ('INTERBED-COMPACTION-PCT')
+                b0 = this%thickini(n)
+                if (this%idelay(n) /= 0) then
+                  b0 = b0 * this%rnb(n)
+                end if
+                v = DHUNDRED * this%tcomp(n) / b0
               case ('INELASTIC-COMPACTION')
                 v = this%tcompi(n)
               case ('ELASTIC-COMPACTION')
@@ -7249,7 +7261,8 @@ contains
                  obsrv%ObsTypeId == 'THETA' .or. &
                  obsrv%ObsTypeId == 'INTERBED-COMPACTION' .or. &
                  obsrv%ObsTypeId == 'INELASTIC-COMPACTION' .or. &
-                 obsrv%ObsTypeId == 'ELASTIC-COMPACTION') then
+                 obsrv%ObsTypeId == 'ELASTIC-COMPACTION' .or. &
+                 obsrv%ObsTypeId == 'INTERBED-COMPACTION-PCT') then
           if (this%ninterbeds > 0) then
             j = obsrv%NodeNumber
             if (j < 1 .or. j > this%ninterbeds) then
@@ -7368,6 +7381,7 @@ contains
         obsrv%ObsTypeId == 'THETA' .or. &
         obsrv%ObsTypeId == 'THICKNESS' .or. &
         obsrv%ObsTypeId == 'INTERBED-COMPACTION' .or. &
+        obsrv%ObsTypeId == 'INTERBED-COMPACTION-PCT' .or. &
         obsrv%ObsTypeId == 'INELASTIC-COMPACTION' .or. &
         obsrv%ObsTypeId == 'ELASTIC-COMPACTION' .or. &
         obsrv%ObsTypeId == 'DELAY-HEAD' .or. &

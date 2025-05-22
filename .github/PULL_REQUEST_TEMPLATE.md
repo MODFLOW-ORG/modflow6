@@ -11,7 +11,7 @@ Checklist of items for pull request
 - [ ] Added doxygen comments to new and modified procedures
 - [ ] Updated meson files, makefiles, and Visual Studio project files for new source files
 - [ ] Updated [definition files](/MODFLOW-ORG/modflow6/tree/develop/doc/mf6io/mf6ivar)
-- [ ] Updated [develop.tex](/MODFLOW-ORG/modflow6/doc/ReleaseNotes/develop.tex) with a plain-language description of the bug fix, change, feature; required for changes that may affect users
+- [ ] Updated [develop.toml](/MODFLOW-ORG/modflow6/doc/ReleaseNotes/develop.toml) with a plain-language description of the bug fix, change, feature; required for changes that may affect users
 - [ ] Updated [input and output guide](/MODFLOW-ORG/modflow6/doc/mf6io)
 - [ ] Removed checklist items not relevant to this pull request
 

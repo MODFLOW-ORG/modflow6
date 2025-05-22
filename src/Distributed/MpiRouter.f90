@@ -242,7 +242,8 @@ contains
     ! local
     integer(I4B) :: i
     integer(I4B) :: rnk
-    integer :: ierr, msg_size
+    integer :: ierr
+    integer(kind=MPI_COUNT_KIND) :: msg_size !< need a longer int here, msg size can be > 2^31
     logical(LGP) :: from_cache
     ! mpi handles
     integer, dimension(:), allocatable :: rcv_req
@@ -296,7 +297,8 @@ contains
         write (this%imon, '(4x,a,i0)') "receiving from process: ", rnk
       end if
 
-      call MPI_Type_size(body_rcv_t(i), msg_size, ierr)
+      ! call extended type size function (*_x) to avoid overflow for large submodels
+      call MPI_Type_size_x(body_rcv_t(i), msg_size, ierr)
       if (msg_size > 0) then
         call MPI_Irecv(MPI_BOTTOM, 1, body_rcv_t(i), rnk, stage, &
                        this%mpi_world%comm, rcv_req(i), ierr)
@@ -315,7 +317,8 @@ contains
         write (this%imon, '(4x,a,i0)') "sending to process: ", rnk
       end if
 
-      call MPI_Type_size(body_snd_t(i), msg_size, ierr)
+      ! call extended type size function (*_x) to avoid overflow for large submodels
+      call MPI_Type_size_x(body_snd_t(i), msg_size, ierr)
       if (msg_size > 0) then
         call MPI_Isend(MPI_Bottom, 1, body_snd_t(i), rnk, stage, &
                        this%mpi_world%comm, snd_req(i), ierr)

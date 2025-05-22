@@ -77,6 +77,7 @@ module NCModelExportModule
     character(len=LENBIGLINE) :: wkt !< wkt user string
     character(len=LINELENGTH) :: datetime !< export file creation time
     character(len=LINELENGTH) :: xname !< dependent variable name
+    character(len=LINELENGTH) :: lenunits !< unidata udunits length units
     type(NCExportAnnotation) :: annotation !< export file annotation
     real(DP), dimension(:), pointer, contiguous :: x !< dependent variable pointer
     integer(I4B) :: disenum !< type of discretization
@@ -296,6 +297,7 @@ contains
     this%wkt = ''
     this%datetime = ''
     this%xname = ''
+    this%lenunits = ''
     this%disenum = disenum
     this%ncid = 0
     this%stepcnt = 0

@@ -18,7 +18,7 @@ dependencies:
   - Jinja2>=3.1.5,<4
   - jupytext
   - matplotlib
-  - meson=1.3.0
+  - meson=1.7.1
   - ninja
   - numpy
   - pip
@@ -43,4 +43,5 @@ dependencies:
   - shapely
   - syrupy
   - tomli>=2.2.1,<3
+  - tomli-w>=1.2.0,<2
   

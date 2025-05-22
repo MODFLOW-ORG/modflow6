@@ -5,8 +5,6 @@ from pathlib import Path
 from pprint import pprint
 from typing import Optional
 
-import yaml
-
 MF6_LENVARNAME = 16
 F90_LINELEN = 82
 PROJ_ROOT_PATH = Path(__file__).parents[3]
@@ -970,12 +968,10 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "-d",
-        "--dfn",
-        required=False,
-        default=DEFAULT_DFNS_PATH,
-        help="Path to a DFN file, or to a text or YAML file listing DFN files "
-        "(one per line)",
+        "dfn",
+        nargs="*",
+        default=DFN_PATH,
+        help="Path to one or more DFN files or directories containing DFN files",
     )
     parser.add_argument(
         "-o",
@@ -993,27 +989,41 @@ if __name__ == "__main__":
         help="Whether to show verbose output",
     )
     args = parser.parse_args()
-    dfn = Path(args.dfn)
+    dfn = args.dfn
     outdir = Path(args.outdir) if args.outdir else Path.cwd()
     verbose = args.verbose
 
-    if dfn.suffix.lower() in [".txt"]:
-        dfns = open(dfn, "r").readlines()
-        dfns = [l.strip() for l in dfns]
-        dfns = [l for l in dfns if not l.startswith("#") and l.lower().endswith(".dfn")]
-        if dfn == DEFAULT_DFNS_PATH:
-            dfns = [DFN_PATH / p for p in dfns]
-    elif dfn.suffix.lower() in [".yml", ".yaml"]:
-        dfns = yaml.safe_load(open(dfn, "r"))
-    elif dfn.suffix.lower() in [".dfn"]:
-        dfns = [dfn]
+    if isinstance(dfn, list):
+        dfn = [Path(p) for p in dfn]
+    elif isinstance(dfn, (str, Path)):
+        dfn = [Path(dfn)]
+    else:
+        raise ValueError(f"Unexpected dfn type: {type(dfn)}")
 
-    assert all(p.is_file() for p in dfns), (
-        f"DFNs not found: {[p for p in dfns if not p.is_file()]}"
-    )
+    # dfns might be dirs, expand to list of files
+    exts = [
+        "*.dfn",
+        # TODO support toml
+    ]
+    dfns = []
+    for p in dfn:
+        if p.is_dir():
+            for ext in exts:
+                dfns.extend(p.glob(ext))
+        else:
+            # if we only have a filename, assume
+            # it's in the default dfn directory.
+            # TODO remove when idm supports all dfns
+            # and we no longer have to specify files.
+            if len(p.parts) == 1:
+                p = DFN_PATH / p
+            dfns.append(p)
+
+    pprint(dfns)
+    assert all(p.is_file() for p in dfns)
 
     if verbose:
-        print("Converting DFNs:")
+        print("Generating Fortran source files from DFNs:")
         pprint(dfns)
 
     dfn_d = {}

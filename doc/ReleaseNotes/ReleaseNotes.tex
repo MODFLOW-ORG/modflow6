@@ -152,7 +152,7 @@ MODFLOW~6 is tested with a large number of example problems, and new capabilitie
 
 % -------------------------------------------------
 \section{Release History}
-A list of all MODFLOW 6 releases is shown in table \ref{tab:releases}.  Changes introduced in previous releases are described in Appendix~\ref{app:A}.
+A list of all previous MODFLOW 6 releases is shown in table \ref{tab:releases}.  Changes introduced in previous releases are described in Appendix~\ref{app:A}.
 
 \begin{table}[h]
 \begin{center}
@@ -182,6 +182,7 @@ A list of all MODFLOW 6 releases is shown in table \ref{tab:releases}.  Changes 
 6.5.0 & May 23, 2024 & \url{https://doi.org/10.5066/P13COJJM} \\
 6.6.0 & December 19, 2024 & \url{https://doi.org/10.5066/P1DXFBUR} \\
 6.6.1 & February 7, 2025 & \url{https://doi.org/10.5066/P1DXFBUR} \\
+6.6.2 & May 12, 2025 & \url{https://doi.org/10.5066/P1DXFBUR} \\
 \hline
 \label{tab:releases}
 \end{tabular*}
@@ -230,7 +231,7 @@ The Time-Variable Hydraulic Conductivity (TVK) Package is incompatible with the 
 If a GWF-GWF Exchange is active, then neither of the connected GWF Models can have an active Viscosity (VSC) Package.
 
 \item 
-If a GWT-GWT Exchange is active, then constant concentration conditions cannot be assigned on the interface between the two connected models.  
+If a GWT-GWT or GWE-GWE Exchange is active, then constant concentration (CNC) or constant temperature (CTP) conditions should not be assigned on the interface between the two connected models because the budget reported in the listing file will contain errors.  
 
 \end{enumerate}
 
@@ -306,6 +307,12 @@ Details on the numerical methods and the underlying theory for MODFLOW~6 are des
 \item \bibentry{modflow6csub}
 
 \item \bibentry{langevin2024}
+
+\item \bibentry{larsen2024}
+
+\item \bibentry{provost2025}
+
+\item \bibentry{morway2025}
 
 \end{itemize}
  

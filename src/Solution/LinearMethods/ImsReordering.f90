@@ -300,12 +300,13 @@ contains
     ! -- local
     integer(I4B) :: tag
     integer(I4B) :: dmin
-    integer(I4B) :: vk
-    integer(I4B) :: ek
+    integer(I4B), pointer :: vk
+    integer(I4B), pointer :: ek
     integer(I4B) :: tail
     integer(I4B) :: k
 
-    equivalence(vk, ek)
+    allocate (vk)
+    ek => vk
     !
     ! initialization
     tag = 0
@@ -352,6 +353,8 @@ contains
       next(k) = -next(k)
       last(next(k)) = k
     end do
+    !
+    deallocate (vk)
     !
     return
   end subroutine ims_md
@@ -482,15 +485,16 @@ contains
     integer(I4B) :: tag
     integer(I4B) :: s
     integer(I4B) :: ls
-    integer(I4B) :: vs
-    integer(I4B) :: es
+    integer(I4B), pointer :: vs
+    integer(I4B), pointer :: es
     integer(I4B) :: b
     integer(I4B) :: lb
     integer(I4B) :: vb
     integer(I4B) :: blp
     integer(I4B) :: blpmax
 
-    equivalence(vs, es)
+    allocate (vs)
+    es => vs
     !
     ! initialize tag and list of uneliminated neighbors
     tag = mark(vk)
@@ -535,6 +539,8 @@ contains
     !
     ! terminate list of uneliminated neighbors
 5   l(tail) = 0
+    !
+    deallocate (vs)
     !
     return
   end subroutine ims_mdm
@@ -681,8 +687,8 @@ contains
     integer(I4B) :: evi
     integer(I4B) :: dvi
     integer(I4B) :: s
-    integer(I4B) :: vs
-    integer(I4B) :: es
+    integer(I4B), pointer :: vs
+    integer(I4B), pointer :: es
     integer(I4B) :: b
     integer(I4B) :: vb
     integer(I4B) :: ilp
@@ -691,7 +697,8 @@ contains
     integer(I4B) :: blpmax
     integer(I4B) :: i
 
-    equivalence(vs, es)
+    allocate (vs)
+    es => vs
     !
     ! initialize tag
     tag = mark(ek) - last(ek)
@@ -768,7 +775,9 @@ contains
       !
     end do louter !10
     !
-11  return
+11  deallocate (vs)
+    !
+    return
   end subroutine ims_mdu
 
 end module IMSReorderingModule

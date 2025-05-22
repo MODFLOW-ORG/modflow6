@@ -193,7 +193,7 @@ contains
     zirel = (zi - zbot) / dz
     if (zirel > DONE) then
       zirel = DONE
-    else
+    else if (zirel < DZERO) then
       zirel = DZERO
     end if
     call calculate_dt(vzbot, vztop, dz, zirel, vzi, &
@@ -218,28 +218,36 @@ contains
       return
     end if
 
-    ! Determine the particle's exit face and travel time to exit.
-    ! The exit face is the face through which it would exit first,
-    ! considering only the velocity component in the direction of
-    ! the face. Then compute the particle's exit time.
-    if (itrifaceexit /= 0) then
-      ! Exit through lateral subcell face
+    ! -- Determine (earliest) exit face and corresponding travel time to exit
+    if (itopbotexit == 0) then
+      ! -- Exits through triangle face first
       exitFace = itrifaceexit
       dtexit = dtexitxy
-    else if (dtexitz < dtexitxy .and. dtexitz >= 0.0_DP) then
-      ! Exit through top or bottom
+    else if (itrifaceexit == 0 .or. dtexitz < dtexitxy) then
+      ! -- Exits through top/bottom first
+      exitFace = 45
+      dtexit = dtexitz
+    else
+      ! -- Exits through triangle face first
+      exitFace = itrifaceexit
+      dtexit = dtexitxy
+    end if
+    if (exitFace == 45) then
       if (itopbotexit == -1) then
         exitFace = 4
       else
         exitFace = 5
       end if
-      dtexit = dtexitz
-    else
+    end if
+
+    ! -- Make sure dt is positive
+    if (dtexit < DZERO) then
       particle%istatus = TERM_NO_EXITS_SUB
       particle%advancing = .false.
       call this%save(particle, reason=3)
       return
     end if
+
     texit = particle%ttrack + dtexit
     t0 = particle%ttrack
 

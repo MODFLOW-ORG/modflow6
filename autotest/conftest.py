@@ -49,6 +49,12 @@ _binaries = {
 
 @pytest.fixture(scope="session")
 def bin_path() -> Path:
+    """
+    The directory containing binaries. Binaries under test live at the top
+    level of this directory. Binaries downloaded from GitHub and/or built
+    from the last official release are in subdirectories of this directory
+    named "downloaded" and "rebuilt", respectively.
+    """
     return _binaries_path
 
 
@@ -97,17 +103,45 @@ def try_get_target(targets: dict[str, Path], name: str) -> Path:
 
 @pytest.fixture
 def original_regression(request) -> bool:
+    """
+    Whether to use the legacy regression test mechanism. This will run MF6
+    models alongside non-MF6 model codes (e.g. MF2005) and compare results.
+
+    The default regression test mechanism compares the MF6 under test with
+    the latest MF6 release rebuilt in develop mode.
+    """
     return request.config.getoption("--original-regression")
 
 
 @pytest.fixture
 def plot(request) -> bool:
+    """
+    Whether to make plots of model output. Useful for debugging.
+    Disabled by default, enable with --plot on the command line.
+    """
     return request.config.getoption("--plot")
 
 
 @pytest.fixture(scope="session")
 def markers(pytestconfig) -> str:
+    """The markers used on the command line to filter tests."""
     return pytestconfig.getoption("-m")
+
+
+@pytest.fixture(scope="session")
+def models_path(request) -> list[Path]:
+    """
+    A directories containing model subdirectories. Use
+    the --models-path command line option once or more to specify
+    model directories. If at least one --models_path is provided,
+    external tests (i.e. those using models from an external repo)
+    will run against model input files found in the given location
+    on the local filesystem rather than model input files from the
+    official model registry. This is useful for testing changes to
+    test model input files during MF6 development.
+    """
+    paths = request.config.getoption("--models-path") or []
+    return [Path(p).expanduser().resolve().absolute() for p in paths]
 
 
 def pytest_addoption(parser):
@@ -134,6 +168,22 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
         help="make plots of model output",
+    )
+    parser.addoption(
+        "--models-path",
+        action="append",
+        type=str,
+        help="directory containing model subdirectories. set this to run external "
+        "tests (i.e. those using models from an external repo) against local model "
+        "input files rather than input files from the official model registry.",
+    )
+    parser.addoption(
+        "--namefile-pattern",
+        action="store",
+        type=str,
+        default="mfsim.nam",
+        help="namefile pattern to use when indexing models when --models-path is set."
+        "does nothing otherwise. default is 'mfsim.nam'.",
     )
 
 

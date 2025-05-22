@@ -108,7 +108,7 @@ jobs:
           ref: ${{ inputs.branch }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.3
+        uses: prefix-dev/setup-pixi@v0.8.8
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
@@ -199,6 +199,13 @@ jobs:
           meson setup builddir --prefix=$(pwd) --libdir=bin -Doptimization=${{ matrix.optimization }}
           meson install -C builddir
           meson test --verbose --no-rebuild -C builddir
+
+      - name: Build mf5to6 converter
+        if: (!(runner.os == 'Windows' && matrix.extended))
+        working-directory: modflow6/utils/mf5to6
+        run: |
+          meson setup builddir --prefix=$(pwd)/../../ --libdir=bin -Doptimization=${{ matrix.optimization }}
+          meson install -C builddir
 
       - name: Check architecture (macOS)
         working-directory: modflow6/bin
@@ -291,24 +298,47 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: pytest -v --durations 0 get_exes.py
 
-      - name: Test modflow6
+      - name: Set markers
         if: inputs.run_tests == true && runner.os != 'Windows'
-        working-directory: modflow6/autotest
-        env:
-          REPOS_PATH: ${{ github.workspace }}
+        id: set_markers
         run: |
           markers="not large"
           if [[ "${{ inputs.developmode }}" == "false" ]]; then
             markers="$markers and not developmode"
           fi
+          echo "markers=$markers" >> $GITHUB_OUTPUT
 
+      - name: Set filters
+        if: inputs.run_tests == true && runner.os != 'Windows'
+        id: set_filters
+        run: |
           filters=""
           if [[ "${{ matrix.os }}" == "macos-14" ]]; then
             # comparison fails on macos-14 with optimization=1
             filters="not test028_sfr_rewet"
           fi
+          echo "filters=$filters" >> $GITHUB_OUTPUT
 
-          pytest -v -n auto --durations 0 -m "$markers" -k "$filters"
+      - name: Test MF6
+        if: inputs.run_tests == true && runner.os != 'Windows'
+        working-directory: modflow6/autotest
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pytest -v -n auto -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
+
+      - name: Test MF6 models
+        if: inputs.run_tests == true && runner.os != 'Windows'
+        working-directory: modflow6/autotest
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pytest -v -n auto -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
+
+      - name: Test converter models
+        if: inputs.run_tests == true && runner.os != 'Windows'
+        working-directory: modflow6/autotest
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pytest -v -n auto -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
       
       - name: Upload failed test output
         if: failure()
@@ -342,7 +372,7 @@ jobs:
         run: sudo ./install.sh --all-users
 
       - name: Test distribution scripts
-        if: ${{ inputs.run_tests == true }}
+        if: ${{ inputs.run_tests == true && runner.os != 'Windows' }}
         working-directory: modflow6/distribution
         env:
           GITHUB_TOKEN: ${{ github.token }}

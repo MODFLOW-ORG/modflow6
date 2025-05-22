@@ -1,146 +1,93 @@
-mf5to6_sources = files(
-    'src' / 'LGR' / 'GwfLgrModule.f',
-    'src' / 'LGR' / 'GwfLgrSubs.f',
-    'src' / 'LGR' / 'GwfSfrSubs.f',
-    'src' / 'MF2005' / 'de47.f',
-    'src' / 'MF2005' / 'gmg7.f',
-    'src' / 'MF2005' / 'gwf2mnw17.f',
-    'src' / 'MF2005' / 'gwf2mnw2i7.f',
-    'src' / 'MF2005' / 'GwfBasModule.f90',
-    'src' / 'MF2005' / 'GwfBasOcSubs.f',
-    'src' / 'MF2005' / 'GwfBasSubs.f',
-    'src' / 'MF2005' / 'GwfBcfModule.f',
-    'src' / 'MF2005' / 'GwfBcfSubs.f',
-    'src' / 'MF2005' / 'GwfChdModule.f90',
-    'src' / 'MF2005' / 'GwfChdSubs.f',
-    'src' / 'MF2005' / 'GwfDrnModule.f',
-    'src' / 'MF2005' / 'GwfDrnSubs.f',
-    'src' / 'MF2005' / 'GwfEtsModule.f',
-    'src' / 'MF2005' / 'GwfEtsSubs.f',
-    'src' / 'MF2005' / 'GwfEvtModule.f',
-    'src' / 'MF2005' / 'GwfEvtSubs.f',
-    'src' / 'MF2005' / 'GwfFhbModule.f90',
-    'src' / 'MF2005' / 'GwfFhbSubs.f90',
-    'src' / 'MF2005' / 'GwfGhbModule.f',
-    'src' / 'MF2005' / 'GwfGhbSubs.f',
-    'src' / 'MF2005' / 'GwfLakModule.f90',
-    'src' / 'MF2005' / 'GwfLakSubs.f',
-    'src' / 'MF2005' / 'GwfLpfModule.f',
-    'src' / 'MF2005' / 'GwfLpfSubs.f',
-    'src' / 'MF2005' / 'GwfMnwModule.f',
-    'src' / 'MF2005' / 'GwfMnwSubs.f',    
-    'src' / 'MF2005' / 'GwfRchModule.f',
-    'src' / 'MF2005' / 'GwfRchSubs.f',
-    'src' / 'MF2005' / 'GwfResModule.f',
-    'src' / 'MF2005' / 'GwfResSubs.f',
-    'src' / 'MF2005' / 'GwfRivModule.f',
-    'src' / 'MF2005' / 'GwfRivSubs.f',
-    'src' / 'MF2005' / 'GwfSfrCheck.f',
-    'src' / 'MF2005' / 'GwfSfrModule.f',
-    'src' / 'MF2005' / 'GwfWelModule.f90',
-    'src' / 'MF2005' / 'obs2bas7.f',
-    'src' / 'MF2005' / 'obs2chd7.f',
-    'src' / 'MF2005' / 'obs2drn7.f',
-    'src' / 'MF2005' / 'obs2ghb7.f',
-    'src' / 'MF2005' / 'obs2riv7.f',
-    'src' / 'MF2005' / 'parutl7.f',
-    'src' / 'MF2005' / 'pcg7.f',
-    'src' / 'MF2005' / 'pcgn2.f90',
-    'src' / 'MF2005' / 'precutls.f90',
-    'src' / 'MF2005' / 'sip7.f',
-    'src' / 'MF2005' / 'utl7.f',
-    'src' / 'NWT' / 'gwf2hfb7_NWT.f',
-    'src' / 'NWT' / 'gwf2wel7_NWT.f',
-    'src' / 'NWT' / 'GwfHfbSubs_NWT.f90',
-    'src' / 'NWT' / 'GwfUpwModule.f90',
-    'src' / 'NWT' / 'GwfUpwSubs.f90',
-    'src' / 'NWT' / 'GwfUzfModule_NWT.f',
-    'src' / 'NWT' / 'GwfUzfSubs_NWT.f',
-    'src' / 'NWT' / 'NWT1_gmres.f90',
-    'src' / 'NWT' / 'NWT1_ilupc_mod.f90',
-    'src' / 'NWT' / 'NWT1_module.f',
-    'src' / 'NWT' / 'NWT1_solver.f',
-    'src' / 'NWT' / 'NWT1_xmd.f',
-    'src' / 'NWT' / 'NWT1_xmdlib.f',
-    'src' / 'Preproc' / 'ConstantsPHMF.f90',
-    'src' / 'Preproc' / 'Discretization3D.f90',
-    'src' / 'Preproc' / 'DiscretizationBasePHMF.f90',
-    'src' / 'Preproc' / 'File.f90',
-    'src' / 'Preproc' / 'FileList.f90',
-    'src' / 'Preproc' / 'Global.f90',
-    'src' / 'Preproc' / 'GlobalPHMF.f90',
-    'src' / 'Preproc' / 'GlobalVariables.f90',
-    'src' / 'Preproc' / 'GlobalVariablesPHMF.f90',
-    'src' / 'Preproc' / 'ObsBlock.f90',
-    'src' / 'Preproc' / 'ObservePHMF.f90',
-    'src' / 'Preproc' / 'Preproc.f90',
-    'src' / 'Preproc' / 'SimListVariables.f90',
-    'src' / 'Preproc' / 'SimPHMF.f90',
-    'src' / 'Preproc' / 'SimVariablesPHMF.f90',
-    'src' / 'Preproc' / 'Utilities.f90',
-    'src' / 'ArrayReadersMF5.f90',
-    'src' / 'Auxiliary.f90',
-    'src' / 'CharacterContainer.f90',
-    'src' / 'ChdObsWriter.f90',
-    'src' / 'ChdPackageWriter.f90',
-    'src' / 'ChdType.f90',
-    'src' / 'Connection.f90',
-    'src' / 'ConverterCommon.f90',
-    'src' / 'DisWriter.f90',
-    'src' / 'DrnObsWriter.f90',
-    'src' / 'DrnPackageWriter.f90',
-    'src' / 'EvtPackageWriter.f90',
-    'src' / 'Exchange.f90',
-    'src' / 'ExchangeWriter.f90',
-    'src' / 'FhbPackageWriter.f90',
-    'src' / 'FileWriter.f90',
-    'src' / 'GhbObsWriter.f90',
-    'src' / 'GhbPackageWriter.f90',
-    'src' / 'HfbPackageWriter.f90',
-    'src' / 'IcWriter.f90',
-    'src' / 'ImsPackageWriter.f90',
-    'src' / 'Lake.f90',
-    'src' / 'LakeConnection.f90',
-    'src' / 'LakeOutlet.f90',
-    'src' / 'LakeTributary.f90',
-    'src' / 'LakPackageWriter.f90',
-    'src' / 'LineList.f90',
-    'src' / 'mach_mod.f90',
-    'src' / 'MawPackageWriter.f90',
-    'src' / 'mf5to6.f90',
-    'src' / 'Model.f90',
-    'src' / 'ModelConverter.f90',
-    'src' / 'ModelPackage.f90',
-    'src' / 'Mover.f90',
-    'src' / 'MultiLayerObsModule.f90',
-    'src' / 'MvrPackageWriter.f90',
-    'src' / 'NpfWriter.f90',
-    'src' / 'ObsWriter.f90',
-    'src' / 'OutputControlWriter.f90',
-    'src' / 'PackageWriter.f90',
-    'src' / 'ParamModule.f90',
-    'src' / 'RchPackageWriter.f90',
-    'src' / 'RivObsWriter.f90',
-    'src' / 'RivPackageWriter.f90',
-    'src' / 'SfrDiversion.f90',
-    'src' / 'SfrPackageWriter.f90',
-    'src' / 'SfrReach.f90',
-    'src' / 'SfrSegment.f90',
-    'src' / 'SimFileWriter.f90',
-    'src' / 'StoWriter.f90',
-    'src' / 'StressPeriod.f90',
-    'src' / 'TdisVariables.f90',
-    'src' / 'TdisWriter.f90',
-    'src' / 'UzfPackageWriter.f90',
-    'src' / 'WelPackageWriter.f90',
-)
+project(
+  'mf5to6',
+  'fortran',
+  version: '6.7.0.dev1',
+  license: 'CC0',
+  meson_version: '>= 1.7.1',
+  default_options : [
+    'b_vscrt=static_from_buildtype', # Link runtime libraries statically on Windows
+    'buildtype=release',
+    'debug=false',
+    'fortran_std=legacy',
+])
 
-mf6convname = 'mf5to6'
-message('MODFLOW 5 to 6 converter name:', mf6convname)
+if get_option('buildtype') == 'release'
+  profile = 'release'
+else
+  profile = 'develop'
+endif
+message('Profile:', profile)
 
-executable(mf6convname,
-            mf5to6_sources,
-            link_with: mf6core,
-            install: true,
-            override_options: ['fortran_std=none'],
-            fortran_args: util_args)
+# parse compiler options
+fc = meson.get_compiler('fortran')
+fc_id = fc.get_id()
+message('Compiler ID:', fc_id)
+compile_args = []
+link_args = []
+
+# Command line options for gfortran
+if fc_id == 'gcc'
+  # General options
+  compile_args += [
+                   '-fall-intrinsics',
+                   '-pedantic',
+                   '-cpp',
+                   ]
+  
+  # Define OS with gfortran for OS specific code
+  # These are identical to pre-defined macros available with ifort
+  system = build_machine.system()
+  if system == 'linux'
+    compile_args += '-D__linux__'
+  elif system == 'darwin'
+    compile_args += '-D__APPLE__'
+  elif system == 'windows'
+    compile_args += '-D_WIN32'
+  endif
+endif
+
+# Command line options for ifort
+if fc_id == 'intel-cl'
+  # windows
+  compile_args += ['/fpe:0',              # Activate all floating point exceptions
+                   '/heap-arrays:0',
+                   '/traceback',
+                   '/fpp',                # Activate preprocessing
+                  ]
+  link_args += ['/ignore:4217', # access through ddlimport might be inefficient
+                '/ignore:4286'  # same as 4217, but more general
+               ]
+elif fc_id == 'intel'
+  # linux and macOS
+  compile_args += ['-fpe0',              # Activate all floating point exceptions
+                   '-no-heap-arrays',
+                   '-traceback',
+                  ]
+  link_args += '-static-intel'
+  
+# Command line options for ifx
+elif fc_id == 'intel-llvm-cl'
+  # windows
+  compile_args += ['/fpe:0',              # Activate all floating point exceptions
+                   '/heap-arrays:0',
+                   '/traceback',
+                   '/fpp',                # Activate preprocessing
+                  ]
+  link_args += ['/ignore:4217', # access through ddlimport might be inefficient
+                '/ignore:4286'  # same as 4217, but more general
+               ]
+
+endif
+
+# Suppress all warnings on mf5to6
+if fc_id == 'gcc' or fc_id == 'intel'
+  compile_args += '-w'
+elif fc_id == 'intel-cl'
+  compile_args += '/w'
+endif 
+
+add_project_arguments(fc.get_supported_arguments(compile_args), language: 'fortran')
+add_project_link_arguments(fc.get_supported_arguments(link_args), language: 'fortran')
+
+# build mf5to6 utility programs
+subdir('src')

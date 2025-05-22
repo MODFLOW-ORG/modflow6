@@ -1,21 +1,17 @@
 project(
   'MODFLOW 6',
   'fortran',
-  version: '6.7.0.dev1',
+  version: '6.7.0.dev2',
   license: 'CC0',
-  meson_version: '>= 1.1.0',
+  meson_version: '>= 1.7.1',
   default_options : [
     'b_vscrt=static_from_buildtype', # Link runtime libraries statically on Windows
-    'optimization=2',
+    'buildtype=release',
     'debug=false',
-    'fortran_std=f2008',
+    'fortran_std=f2018',
 ])
 
-if get_option('optimization') == '3'
-  error('Only optimization levels <= 2 are supported')
-endif
-
-if get_option('optimization') == '2'
+if get_option('buildtype') == 'release'
   profile = 'release'
 else
   profile = 'develop'
@@ -263,7 +259,7 @@ subdir('src')
 subdir('srcbmi')
 
 # build zbud6 and mf5to6 utility programs
-subdir('utils')
+subdir('utils/zonebudget')
 
 # add autotest directory
 fs = import('fs')

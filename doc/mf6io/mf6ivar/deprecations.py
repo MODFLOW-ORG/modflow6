@@ -48,10 +48,9 @@ def create_deprecations_file(dfndir, mddir, verbose):
             s += "| Model-Package | Option | Deprecated | Removed |\n"
             s += "|:--------------|:-------|:-----------|:--------|\n"
             for file, option, deprecated, removed in deprecations:
-                s += (
-                    f"| {file.stem} | {option} | {deprecated} "
-                    f"| {removed if removed else ''} |\n"
-                )
+                deprecated = deprecated if deprecated else removed if removed else ""
+                removed = removed if removed else ""
+                s += f"| {file.stem} | {option} | {deprecated} | {removed} |\n"
             if len(s) > 0:
                 s += "\n"
         f.write(s)

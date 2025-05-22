@@ -114,6 +114,7 @@ CMakeFiles/
 .build_rtd_docs/_mf6src
 .build_rtd_docs/_mf6run
 .build_rtd_docs/_dev
+.build_rtd_docs/_migration
 latex/
 html/
 xml/
@@ -150,3 +151,5 @@ autotest/notebooks/
 **.DS_Store
 # pixi environments
 .pixi
+
+**/*.lock

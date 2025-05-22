@@ -116,7 +116,7 @@ contains
     end if
   end subroutine add_package_var
 
-  !> @brief verify global attribute modflow6_grid is present and return value
+  !> @brief verify global attribute modflow_grid is present and return value
   !<
   function verify_global_attr(modeltype, modelname, input_name, nc_fname, ncid) &
     result(grid)
@@ -132,12 +132,12 @@ contains
     grid = ''
 
     ! verify expected mf6_modeltype file attribute
-    if (nf90_get_att(ncid, NF90_GLOBAL, "modflow6_grid", &
+    if (nf90_get_att(ncid, NF90_GLOBAL, "modflow_grid", &
                      grid) == NF90_NOERR) then
       ! set grid to upper case
       call upcase(grid)
     else
-      errmsg = 'NetCDF input file global attribute "grid" not found.'
+      errmsg = 'NetCDF input file global attribute "modflow_grid" not found.'
       call store_error(errmsg)
       call store_error_filename(nc_fname)
     end if

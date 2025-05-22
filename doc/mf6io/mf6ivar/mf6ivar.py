@@ -320,19 +320,16 @@ def write_block(vardict, block, blk_var_list, varexcludeprefix=None, indent=None
                 n = name.upper()
                 if n.startswith(varexcludeprefix.upper()):
                     addv = False
-            if "in_record" in v:
-                if v["in_record"] == "true":
-                    # do not separately include this variable
-                    # because it is part of a record
-                    addv = False
-            if "block_variable" in v:
-                if v["block_variable"] == "true":
-                    # do not separately include this variable
-                    # because it is part of a record
-                    addv = False
-            if "deprecated" in v:
-                if v["deprecated"] != "":
-                    addv = False
+            if v.get("in_record", "") == "true":
+                # do not separately include this variable
+                # because it is part of a record
+                addv = False
+            if v.get("block_variable", "") == "true":
+                # do not separately include this variable
+                # because it is part of a record
+                addv = False
+            if v.get("deprecated", "") != "" or v.get("removed", "") != "":
+                addv = False
             if addv:
                 ts = block_entry(name, block, vardict, prefix="  " + prepend)
                 s += f"{ts}\n"
@@ -376,12 +373,10 @@ def write_desc(vardict, block, blk_var_list, varexcludeprefix=None):
                     addv = False
             if v["type"].startswith("rec"):
                 addv = False
-            if "deprecated" in v:
-                if v["deprecated"] != "":
-                    addv = False
-            if "removed" in v:
-                if v["removed"] != "":
-                    addv = False
+            if v.get("deprecated", "") != "":
+                addv = False
+            if v.get("removed", "") != "":
+                addv = False
             if addv:
                 if v["type"] == "keyword":
                     n = name.upper()
@@ -447,12 +442,10 @@ def write_desc_md(vardict, block, blk_var_list, varexcludeprefix=None):
                     addv = False
             if v["type"].startswith("rec"):
                 addv = False
-            if "deprecated" in v:
-                if v["deprecated"] != "":
-                    addv = False
-            if "removed" in v:
-                if v["removed"] != "":
-                    addv = False
+            if v.get("deprecated", "") != "":
+                addv = False
+            if v.get("removed", "") != "":
+                addv = False
             if addv:
                 if v["type"] == "keyword":
                     n = name.upper()

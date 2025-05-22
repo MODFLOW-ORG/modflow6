@@ -10,16 +10,18 @@
 ! FLOW-JA-FACE              idxbudfjf     FLOW-JA-FACE          cv2cv
 ! GWF (aux FLOW-AREA)       idxbudgwf     GWF                   cv2gwf
 ! STORAGE (aux VOLUME)      idxbudsto     none                  used for cv volumes
-! FROM-MVR                  idxbudfmvr    FROM-MVR              q * tmpext = this%qfrommvr(:)  ! kluge note: include rhow*cpw in comments for various terms
-! TO-MVR                    idxbudtmvr    TO-MVR                q * tfeat
+! FROM-MVR                  idxbudfmvr    FROM-MVR              rhow * cpw * q * tmpext = this%qfrommvr(:)
+! TO-MVR                    idxbudtmvr    TO-MVR                rhow * cpw * q * tfeat
 
-! -- SFR terms
-! RAINFALL                  idxbudrain    RAINFALL              q * train
-! EVAPORATION               idxbudevap    EVAPORATION           tfeat<tevap: q*tfeat, else: q*tevap (latent heat will likely need to modify these calcs in the future) ! kluge note
-! RUNOFF                    idxbudroff    RUNOFF                q * troff
-! EXT-INFLOW                idxbudiflw    EXT-INFLOW            q * tiflw
-! EXT-OUTFLOW               idxbudoutf    EXT-OUTFLOW           q * tfeat
-! STRMBD-COND               idxbudsbcd    STRMBD-COND           ! kluge note: expression for this
+! -- terms from SFR that will be handled by SFE
+! RAINFALL                  idxbudrain    RAINFALL              rhow * cpw * q * train
+! EVAPORATION               idxbudevap    EVAPORATION           rhow * latheatvap * q
+! RUNOFF                    idxbudroff    RUNOFF                rhow * cpw * q * troff
+! EXT-INFLOW                idxbudiflw    EXT-INFLOW            rhow * cpw * q * tiflw
+! EXT-OUTFLOW               idxbudoutf    EXT-OUTFLOW           rhow * cpw * q * tfeat
+
+! -- terms not associated with SFR
+! STRMBD-COND               none          STRMBD-COND           ctherm * (tcell - tfeat) (ctherm is a thermal conductance for the streambed)
 
 ! -- terms from a flow file that should be skipped
 ! CONSTANT                  none          none                  none
@@ -64,7 +66,6 @@ module GweSfeModule
     integer(I4B), pointer :: idxbudroff => null() !< index of runoff terms in flowbudptr
     integer(I4B), pointer :: idxbudiflw => null() !< index of inflow terms in flowbudptr
     integer(I4B), pointer :: idxbudoutf => null() !< index of outflow terms in flowbudptr
-    integer(I4B), pointer :: idxbudsbcd => null() !< index of streambed conduction terms in flowbudptr
 
     real(DP), dimension(:), pointer, contiguous :: temprain => null() !< rainfall temperature
     real(DP), dimension(:), pointer, contiguous :: tempevap => null() !< evaporation temperature
@@ -89,6 +90,7 @@ module GweSfeModule
     procedure :: sfe_roff_term
     procedure :: sfe_iflw_term
     procedure :: sfe_outf_term
+    procedure, private :: sfe_sbcd_term
     procedure :: pak_df_obs => sfe_df_obs
     procedure :: pak_rp_obs => sfe_rp_obs
     procedure :: pak_bd_obs => sfe_bd_obs
@@ -274,9 +276,6 @@ contains
         '   MAX NO. OF ENTRIES = ', this%flowbudptr%budterm(ip)%maxlist
     end do
     write (this%iout, '(a, //)') 'DONE PROCESSING '//ftype//' INFORMATION'
-    !
-    ! -- Streambed conduction term
-    this%idxbudsbcd = this%idxbudgwf
   end subroutine find_sfe_package
 
   !> @brief Add matrix terms related to SFE
@@ -292,18 +291,13 @@ contains
     integer(I4B), dimension(:), intent(in) :: idxglo
     class(MatrixBaseType), pointer :: matrix_sln
     ! -- local
-    integer(I4B) :: j, n, n1, n2
+    integer(I4B) :: j, n1, n2
     integer(I4B) :: iloc
     integer(I4B) :: iposd, iposoffd
     integer(I4B) :: ipossymd, ipossymoffd
-    integer(I4B) :: auxpos
     real(DP) :: rrate
     real(DP) :: rhsval
     real(DP) :: hcofval
-    real(DP) :: ctherm
-    real(DP) :: wa !< wetted area
-    real(DP) :: ktf !< thermal conductivity of streambed material
-    real(DP) :: s !< thickness of conductive streambed material
     !
     ! -- Add rainfall contribution
     if (this%idxbudrain /= 0) then
@@ -364,27 +358,22 @@ contains
     do j = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
       !
       ! -- Set n to feature number and process if active feature
-      n = this%flowbudptr%budterm(this%idxbudgwf)%id1(j)
-      if (this%iboundpak(n) /= 0) then
+      n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(j)
+      if (this%iboundpak(n1) /= 0) then
         !
-        ! -- Set acoef and rhs to negative so they are relative to sfe and not gwe
-        auxpos = this%flowbudptr%budterm(this%idxbudgwf)%naux
-        wa = this%flowbudptr%budterm(this%idxbudgwf)%auxvar(auxpos, j)
-        ktf = this%ktf(n)
-        s = this%rfeatthk(n)
-        ctherm = ktf * wa / s
+        call this%sfe_sbcd_term(j, n1, n2, rrate, rhsval, hcofval)
         !
         ! -- Add to sfe row
         iposd = this%idxdglo(j)
         iposoffd = this%idxoffdglo(j)
-        call matrix_sln%add_value_pos(iposd, -ctherm)
-        call matrix_sln%add_value_pos(iposoffd, ctherm)
+        call matrix_sln%add_value_pos(iposd, -hcofval)
+        call matrix_sln%add_value_pos(iposoffd, hcofval)
         !
         ! -- Add to gwe row for sfe connection
         ipossymd = this%idxsymdglo(j)
         ipossymoffd = this%idxsymoffdglo(j)
-        call matrix_sln%add_value_pos(ipossymd, -ctherm)
-        call matrix_sln%add_value_pos(ipossymoffd, ctherm)
+        call matrix_sln%add_value_pos(ipossymd, -hcofval)
+        call matrix_sln%add_value_pos(ipossymoffd, hcofval)
       end if
     end do
   end subroutine sfe_fc_expanded
@@ -458,7 +447,7 @@ contains
     !    3. runoff
     !    4. ext-inflow
     !    5. ext-outflow
-    !    6. streambed-cond
+    !    6. strmbd-cond
     nbudterms = 6
   end function sfe_get_nbudterms
 
@@ -542,9 +531,9 @@ contains
                                              naux)
     !
     ! -- Conduction through the wetted streambed
-    text = '  STREAMBED-COND'
+    text = '     STRMBD-COND'
     idx = idx + 1
-    maxlist = this%flowbudptr%budterm(this%idxbudsbcd)%maxlist
+    maxlist = this%flowbudptr%budterm(this%idxbudgwf)%maxlist
     naux = 0
     call this%budobj%budterm(idx)%initialize(text, &
                                              this%name_model, &
@@ -574,15 +563,10 @@ contains
     real(DP), intent(inout) :: ccratout
     ! -- local
     integer(I4B) :: j, n1, n2
-    integer(I4B) :: nlist
     integer(I4B) :: igwfnode
+    integer(I4B) :: nlist
     integer(I4B) :: idiag
-    integer(I4B) :: auxpos
     real(DP) :: q
-    real(DP) :: ctherm
-    real(DP) :: wa !< wetted area
-    real(DP) :: ktf !< thermal conductivity of streambed material
-    real(DP) :: s !< thickness of conductive streambed materia
     !
     ! -- Rain
     idx = idx + 1
@@ -634,26 +618,21 @@ contains
       call this%apt_accumulate_ccterm(n1, q, ccratin, ccratout)
     end do
     !
-    ! -- Strmbd-cond
+    ! -- Strmbd-cond. The idxbudgwf index is used since it contains the
+    !    sfe/cell mapping information
     idx = idx + 1
-    call this%budobj%budterm(idx)%reset(this%maxbound)
-    do j = 1, this%flowbudptr%budterm(this%idxbudsbcd)%nlist
-      q = DZERO
-      n1 = this%flowbudptr%budterm(this%idxbudsbcd)%id1(j)
+    nlist = this%flowbudptr%budterm(this%idxbudgwf)%nlist
+    call this%budobj%budterm(idx)%reset(nlist)
+    do j = 1, nlist
+      n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(j)
       if (this%iboundpak(n1) /= 0) then
-        igwfnode = this%flowbudptr%budterm(this%idxbudsbcd)%id2(j)
-        ! -- For now, there is only 1 aux variable under 'GWF'
-        auxpos = this%flowbudptr%budterm(this%idxbudgwf)%naux
-        wa = this%flowbudptr%budterm(this%idxbudgwf)%auxvar(auxpos, j)
-        ktf = this%ktf(n1)
-        s = this%rfeatthk(n1)
-        ctherm = ktf * wa / s
-        q = ctherm * (x(igwfnode) - this%xnewpak(n1))
-      end if
-      call this%budobj%budterm(idx)%update_term(n1, igwfnode, q)
-      call this%apt_accumulate_ccterm(n1, q, ccratin, ccratout)
-      if (this%iboundpak(n1) /= 0) then
-        ! -- Contribution to gwe cell budget
+        ! -- use igwfnode instead of n2 for consistency with usage in apt;
+        !    helps highlight that cell number is sought and used
+        call this%sfe_sbcd_term(j, n1, igwfnode, q)
+        call this%budobj%budterm(idx)%update_term(n1, igwfnode, q)
+        call this%apt_accumulate_ccterm(n1, q, ccratin, ccratout)
+        ! -- Contribution to gwe cell budget, which is different than the
+        !    other terms (i.e., ext-inflow, evap, etc.)
         this%simvals(n1) = this%simvals(n1) - q
         idiag = this%dis%con%ia(igwfnode)
         flowja(idiag) = flowja(idiag) - q
@@ -679,7 +658,6 @@ contains
     call mem_allocate(this%idxbudroff, 'IDXBUDROFF', this%memoryPath)
     call mem_allocate(this%idxbudiflw, 'IDXBUDIFLW', this%memoryPath)
     call mem_allocate(this%idxbudoutf, 'IDXBUDOUTF', this%memoryPath)
-    call mem_allocate(this%idxbudsbcd, 'IDXBUDSBCD', this%memoryPath)
     !
     ! -- Initialize
     this%idxbudrain = 0
@@ -687,7 +665,6 @@ contains
     this%idxbudroff = 0
     this%idxbudiflw = 0
     this%idxbudoutf = 0
-    this%idxbudsbcd = 0
   end subroutine allocate_scalars
 
   !> @brief Allocate arrays specific to the streamflow energy transport (SFE)
@@ -733,7 +710,6 @@ contains
     call mem_deallocate(this%idxbudroff)
     call mem_deallocate(this%idxbudiflw)
     call mem_deallocate(this%idxbudoutf)
-    call mem_deallocate(this%idxbudsbcd)
     !
     ! -- Deallocate time series
     call mem_deallocate(this%temprain)
@@ -768,7 +744,7 @@ contains
     n2 = this%flowbudptr%budterm(this%idxbudrain)%id2(ientry)
     qbnd = this%flowbudptr%budterm(this%idxbudrain)%flow(ientry)
     ctmp = this%temprain(n1)
-    if (present(rrate)) rrate = ctmp * qbnd * this%eqnsclfac ! kluge note: think about budget / sensible heat issue
+    if (present(rrate)) rrate = ctmp * qbnd * this%eqnsclfac
     if (present(rhsval)) rhsval = -rrate
     if (present(hcofval)) hcofval = DZERO
   end subroutine sfe_rain_term
@@ -794,7 +770,6 @@ contains
     qbnd = this%flowbudptr%budterm(this%idxbudevap)%flow(ientry)
     heatlat = this%gwecommon%gwerhow * this%gwecommon%gwelatheatvap
     if (present(rrate)) rrate = qbnd * heatlat
-    !!if (present(rhsval)) rhsval = -rrate / this%eqnsclfac  ! kluge note: divided by eqnsclfac for fc purposes because rrate is in terms of energy
     if (present(rhsval)) rhsval = -rrate
     if (present(hcofval)) hcofval = DZERO
   end subroutine sfe_evap_term
@@ -878,6 +853,45 @@ contains
     if (present(hcofval)) hcofval = qbnd * this%eqnsclfac
   end subroutine sfe_outf_term
 
+  !> @brief Streambed conduction term
+  !!
+  !! Accounts for the energy entering or leaving a stream channel by
+  !! thermal conduction through the streambed.
+  !<
+  subroutine sfe_sbcd_term(this, ientry, n1, igwfnode, rrate, rhsval, hcofval)
+    ! -- dummy
+    class(GweSfeType) :: this
+    integer(I4B), intent(in) :: ientry
+    integer(I4B), intent(inout) :: n1
+    integer(I4B), intent(inout) :: igwfnode
+    real(DP), intent(inout), optional :: rrate
+    real(DP), intent(inout), optional :: rhsval
+    real(DP), intent(inout), optional :: hcofval
+    ! -- local
+    integer(I4B) :: auxpos
+    real(DP) :: wa !< wetted area
+    real(DP) :: ktf !< thermal conductivity of streambed material
+    real(DP) :: s !< thickness of conductive streambed material
+    real(DP) :: ctherm
+    !
+    rrate = DZERO
+    n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(ientry)
+    ! -- use igwfnode instead of n2 for consistency with usage in apt;
+    !    helps highlight that cell number is sought and used
+    igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(ientry)
+    ! -- For now, there is only 1 aux variable under 'GWF'
+    auxpos = this%flowbudptr%budterm(this%idxbudgwf)%naux
+    wa = this%flowbudptr%budterm(this%idxbudgwf)%auxvar(auxpos, ientry)
+    ktf = this%ktf(n1)
+    s = this%rfeatthk(n1)
+    ctherm = ktf * wa / s
+    ! -- this%xnew available b/c set in parent class (TspAptType) using
+    !    routine set_pointers from the "grandparent" class BndType
+    if (present(rrate)) rrate = ctherm * (this%xnew(igwfnode) - this%xnewpak(n1))
+    if (present(rhsval)) rhsval = DZERO
+    if (present(hcofval)) hcofval = ctherm
+  end subroutine sfe_sbcd_term
+
   !> @brief Observations
   !!
   !! Store the observation type supported by the APT package and override
@@ -949,6 +963,11 @@ contains
     !    for ext-outflow observation type.
     call this%obs%StoreObsType('ext-outflow', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+    !
+    ! -- Store obs type and assign procedure pointer
+    !    for strmbd-cond observation type.
+    call this%obs%StoreObsType('strmbd-cond', .true., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
   end subroutine sfe_df_obs
 
   !> @brief Process package specific obs
@@ -975,6 +994,8 @@ contains
     case ('EXT-OUTFLOW')
       call this%rp_obs_byfeature(obsrv)
     case ('TO-MVR')
+      call this%rp_obs_byfeature(obsrv)
+    case ('STRMBD-COND')
       call this%rp_obs_byfeature(obsrv)
     case default
       found = .false.
@@ -1014,6 +1035,10 @@ contains
     case ('EXT-OUTFLOW')
       if (this%iboundpak(jj) /= 0) then
         call this%sfe_outf_term(jj, n1, n2, v)
+      end if
+    case ('STRMBD-COND')
+      if (this%iboundpak(jj) /= 0) then
+        call this%sfe_sbcd_term(jj, n1, n2, v)
       end if
     case default
       found = .false.
@@ -1131,7 +1156,7 @@ contains
     call mem_allocate(this%lauxvar, this%naux, this%ncv, 'LAUXVAR', &
                       this%memoryPath)
     !
-    ! -- lake boundary and concentrations
+    ! -- stream boundary and temperatures
     if (this%imatrows == 0) then
       call mem_allocate(this%iboundpak, this%ncv, 'IBOUND', this%memoryPath)
       call mem_allocate(this%xnewpak, this%ncv, 'XNEWPAK', this%memoryPath)

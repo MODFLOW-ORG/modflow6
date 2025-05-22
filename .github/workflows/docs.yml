@@ -26,7 +26,7 @@ jobs:
       - name: Checkout modflow6
         uses: actions/checkout@v4
 
-      - uses: prefix-dev/setup-pixi@v0.8.3
+      - uses: prefix-dev/setup-pixi@v0.8.8
         with:
           pixi-version: v0.41.4
 
@@ -63,7 +63,7 @@ jobs:
           path: usgslatex
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.3
+        uses: prefix-dev/setup-pixi@v0.8.8
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
@@ -106,13 +106,6 @@ jobs:
           path: modflow6-examples/examples
           key: modflow6-examples-${{ hashFiles('modflow6-examples/scripts/**') }}
 
-      - name: Install extra Python packages
-        if: steps.cache-examples.outputs.cache-hit != 'true'
-        working-directory: modflow6
-        run: |
-          pixi run pip install -r ../modflow6-examples/etc/requirements.pip.txt
-          pixi run pip install -r ../modflow6-examples/etc/requirements.usgs.txt
-
       - name: Update FloPy
         if: steps.cache-examples.outputs.cache-hit != 'true'
         working-directory: modflow6/autotest
@@ -152,7 +145,7 @@ jobs:
 
       - name: Collect deprecations
         working-directory: modflow6
-        run: pixi run deprecations
+        run: pixi run collect-deprecations
 
       - name: Show deprecations
         working-directory: modflow6/doc/mf6io/mf6ivar/md
@@ -174,9 +167,11 @@ jobs:
           name: rtd-files-for-${{ github.sha }}
           path: |
             modflow6/.build_rtd_docs/dev.rst
+            modflow6/.build_rtd_docs/migration.rst
             modflow6/.build_rtd_docs/index.rst
             modflow6/.build_rtd_docs/mf6io.rst
             modflow6/.build_rtd_docs/_dev/
+            modflow6/.build_rtd_docs/_migration/
             modflow6/.build_rtd_docs/_mf6io/
             modflow6/.build_rtd_docs/_mf6run/
             modflow6/.build_rtd_docs/_static/
@@ -235,7 +230,7 @@ jobs:
           sudo apt-get install doxygen graphviz
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.3
+        uses: prefix-dev/setup-pixi@v0.8.8
         with:
           pixi-version: v0.41.4
 

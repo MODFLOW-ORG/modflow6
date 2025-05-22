@@ -57,7 +57,7 @@ module VirtualBaseModule
   end type
 
   type, public, extends(VirtualDataType) :: VirtualIntType
-    integer(I4B), private, pointer :: intsclr
+    integer(I4B), private, pointer :: intsclr => null()
   contains
     procedure :: vm_allocate => vm_allocate_int
     procedure :: vm_deallocate => vm_deallocate_int
@@ -65,7 +65,7 @@ module VirtualBaseModule
   end type
 
   type, public, extends(VirtualDataType) :: VirtualInt1dType
-    integer(I4B), dimension(:), pointer, contiguous :: int1d
+    integer(I4B), dimension(:), pointer, contiguous :: int1d => null()
   contains
     procedure :: vm_allocate => vm_allocate_int1d
     procedure :: vm_deallocate => vm_deallocate_int1d
@@ -74,7 +74,7 @@ module VirtualBaseModule
   end type
 
   type, public, extends(VirtualDataType) :: VirtualDblType
-    real(DP), private, pointer :: dblsclr
+    real(DP), private, pointer :: dblsclr => null()
   contains
     procedure :: vm_allocate => vm_allocate_dbl
     procedure :: vm_deallocate => vm_deallocate_dbl
@@ -82,7 +82,7 @@ module VirtualBaseModule
   end type
 
   type, public, extends(VirtualDataType) :: VirtualDbl1dType
-    real(DP), dimension(:), pointer, contiguous :: dbl1d
+    real(DP), dimension(:), pointer, contiguous :: dbl1d => null()
   contains
     procedure :: vm_allocate => vm_allocate_dbl1d
     procedure :: vm_deallocate => vm_deallocate_dbl1d
@@ -91,7 +91,7 @@ module VirtualBaseModule
   end type
 
   type, public, extends(VirtualDataType) :: VirtualDbl2dType
-    real(DP), dimension(:, :), pointer, contiguous :: dbl2d
+    real(DP), dimension(:, :), pointer, contiguous :: dbl2d => null()
   contains
     procedure :: vm_allocate => vm_allocate_dbl2D
     procedure :: vm_deallocate => vm_deallocate_dbl2D

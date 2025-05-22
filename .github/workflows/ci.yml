@@ -49,7 +49,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.3
+        uses: prefix-dev/setup-pixi@v0.8.8
         with:
           pixi-version: v0.41.4
 
@@ -85,7 +85,7 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.3
+        uses: prefix-dev/setup-pixi@v0.8.8
         with:
           pixi-version: v0.41.4
 
@@ -94,6 +94,12 @@ jobs:
 
       - name: Build MF6
         run: pixi run build builddir
+
+      - name: Setup mf5to6
+        run: pixi run setup-mf5to6 -Dwerror=true builddir
+
+      - name: Build mf5to6
+        run: pixi run build-mf5to6 builddir
 
       - name: Show build log
         if: failure()
@@ -130,7 +136,7 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.3
+        uses: prefix-dev/setup-pixi@v0.8.8
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
@@ -151,6 +157,8 @@ jobs:
         run: |
           pixi run setup builddir
           pixi run build builddir
+          pixi run setup-mf5to6 builddir
+          pixi run build-mf5to6 builddir
 
       - name: Show build log
         if: failure()
@@ -247,7 +255,7 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.3
+        uses: prefix-dev/setup-pixi@v0.8.8
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
@@ -273,6 +281,8 @@ jobs:
           fi
           pixi run setup builddir $setupargs
           pixi run build builddir
+          pixi run setup-mf5to6 builddir $setupargs
+          pixi run build-mf5to6 builddir
 
       - name: Show build log
         if: failure()
@@ -293,10 +303,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: pixi run get-exes
 
-      - name: Test MF6
-        working-directory: modflow6
-        env:
-          REPOS_PATH: ${{ github.workspace }}
+      - name: Set markers
+        id: set_markers
         run: |
           markers=""
           if [[ "${{ github.ref_name }}" == "master" ]]; then
@@ -304,14 +312,35 @@ jobs:
           else
             markers="not large"
           fi
+          echo "markers=$markers" >> $GITHUB_OUTPUT
 
+      - name: Set filters
+        id: set_filters
+        run: |
           filters=""
           if [[ "${{ matrix.os }}" == "macos-14" ]]; then
             # comparison fails on macos-14 with optimization=1
             filters="not test028_sfr_rewet"
           fi
+          echo "filters=$filters" >> $GITHUB_OUTPUT
 
-          pixi run autotest -m "$markers" -k "$filters"
+      - name: Test MF6
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
+
+      - name: Test MF6 models
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
+
+      - name: Test converter models
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 
       - name: Install executables
         uses: modflowpy/install-modflow-action@v1
@@ -407,7 +436,7 @@ jobs:
           path: modflow6-examples
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.3
+        uses: prefix-dev/setup-pixi@v0.8.8
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
@@ -431,6 +460,8 @@ jobs:
         run: |
           pixi run setup builddir
           pixi run build builddir
+          pixi run setup-mf5to6 builddir
+          pixi run build-mf5to6 builddir
 
       - name: Show build log
         if: failure()
@@ -451,22 +482,41 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: pixi run get-exes
 
+      - name: Set markers
+        id: set_markers
+        run: |
+          markers=""
+          if [[ "${{ github.ref_name }}" == "master" ]]; then
+            markers="not large and not developmode"
+          else
+            markers="not large"
+          fi
+          echo "markers=$markers" >> $GITHUB_OUTPUT
+
       - name: Test MF6
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: |
-          if [ "${{ github.ref_name }}" == "master" ]; then
-            pixi run autotest -m "not large and not developmode"
-          else
-            pixi run autotest -m "not large"
-          fi
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external"
 
+      - name: Test MF6 models
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf6
+
+      - name: Test converter models
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+
+      # if on linux, test example models too
       - name: Install executables
         if: runner.os == 'Linux'
         uses: modflowpy/install-modflow-action@v1
 
-      - name: Test examples
+      - name: Test MF6 examples
         if: runner.os == 'Linux'
         working-directory: modflow6
         shell: pixi run bash -e {0}
@@ -510,7 +560,7 @@ jobs:
           path: modflow6
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.3
+        uses: prefix-dev/setup-pixi@v0.8.8
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"

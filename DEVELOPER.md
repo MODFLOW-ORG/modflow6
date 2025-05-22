@@ -1,8 +1,8 @@
 # Developing MODFLOW 6
 
-This document describes how to set up a development environment to modify, build and test MODFLOW 6. Details on how to contribute your code to the repository are found in the separate document [CONTRIBUTING.md](CONTRIBUTING.md). 
+This document describes how to set up a development environment to modify, build and test MODFLOW 6. Details on how to contribute your code to the repository are found in the separate document [CONTRIBUTING.md](./CONTRIBUTING.md). 
 
-To build and test an extended version of the program, first read the instructions below and then continue in [EXTENDED.md](EXTENDED.md).
+To build and test an extended version of the program, first read the instructions below and then continue in [EXTENDED.md](./EXTENDED.md).
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -308,11 +308,11 @@ The tests use a set of shared fixtures and utilities provided by the [`modflow-d
 
 Meson is the recommended build tool for MODFLOW 6. [Meson](https://mesonbuild.com/Getting-meson.html) must be installed and on your [PATH](https://en.wikipedia.org/wiki/PATH_(variable)). Creating and activating the provided Pixi or Conda environment should be sufficient for this.
 
-Meson build configuration files are provided for MODFLOW 6, for the ZONEBUDGET and MODFLOW 2005 to 6 converter utility programs, and for Fortran unit tests (see [Testing](#testing) section below).
+### MODFLOW 6 and ZONEBUDGET
+Meson build configuration files are provided for MODFLOW 6 and the ZONEBUDGET utility program, and for Fortran unit tests (see [Testing](#testing) section below).
 
 - `meson.build`
 - `utils/zonebudget/meson.build`
-- `utils/mf5to6/meson.build`
 - `autotest/meson.build`
 
 Building MODFLOW 6 requires two steps:
@@ -351,6 +351,50 @@ or using pixi:
 
 ```shell
 pixi run build builddir
+```
+
+### MODFLOW 2005 to 6 converter
+Meson build configuration files are provided for the MODFLOW 2005 to 6 converter utility program.
+
+- `utils/mf5to6/meson.build`
+- `utils/mf5to6/src/meson.build`
+
+Building MODFLOW 2005 to 6 converter program requires two steps:
+
+- configure the build directory
+- build the project
+
+To configure the build directory for a debug version from the `<project root>/utils/mf5to6` directory:
+
+```shell
+meson setup --prefix=$(pwd)/../../  builddir -Ddebug=true
+```
+Or to configure the build directory for an optimized release version from the `<project root>/utils/mf5to6` directory:
+
+```shell
+meson setup --prefix=$(pwd)/../../ builddir
+```
+
+or using pixi to setup the build directory from the `<project root>` directory:
+
+```shell
+pixi run setup-mf5to6 builddir
+```
+
+Debug versions can be built using pixi by adding `-Ddebug=true` at the end of the pixi command. Other meson commands (for example, `--wipe`, _etc._) added to the pixi command are passed through to Meson.
+
+Substitute `%CD%` as necessary on Windows.
+
+To build MODFLOW 6 and install binaries to `<project root>/bin/` from the `<project root>/utils/mf5to6` directory:
+
+```shell
+meson install -C builddir
+```
+
+or using pixi from the `<project root>` directory:
+
+```shell
+pixi run build-mf5to6 builddir
 ```
 
 **Note:** If using Visual Studio Code, you can use tasks as described [here](.vscode/README.md) to automate the above.
@@ -579,7 +623,7 @@ Some autotests load models from external repositories:
 - [`MODFLOW-ORG/modflow6-largetestmodels`](https://github.com/MODFLOW-ORG/modflow6-largetestmodels)
 - [`MODFLOW-ORG/modflow6-examples`](https://github.com/MODFLOW-ORG/modflow6-examples)
 
-See the [MODFLOW devtools documentation](https://modflow-devtools.readthedocs.io/en/latest/md/install.html#installing-external-model-repositories) for instructions to install external model repositories.
+By default, the test framework will test MODFLOW 6 against these models as accessed via the [MODFLOW devtools models API](https://modflow-devtools.readthedocs.io/en/latest/md/models.html). It may be necessary to test MODFLOW 6 against models on the local filesystem. See the [MODFLOW devtools documentation](https://modflow-devtools.readthedocs.io/en/latest/md/install.html#installing-external-model-repositories) for instructions to clone and install external model repositories.
 
 ### Running tests
 
@@ -638,8 +682,8 @@ The Pixi `autotest` task includes options to run tests in parallel, show test ru
 Markers can be used to select subsets of tests. Markers provided in `pytest.ini` include:
 
 - `slow`: tests that take longer than a few seconds to complete
-- `repo`: tests that require external model repositories
-- `large`: tests using large models (from the `modflow6-examples` and `modflow6-largetestmodels` repos)
+- `external`: tests that use models in external repositories
+- `large`: tests that use large models
 - `regression`: tests comparing results from multiple versions
 
 Markers can be used with the `-m <marker>` option, and can be applied in boolean combinations with `and`, `or` and `not`. For instance, to run fast tests in parallel, excluding regression tests:
@@ -662,16 +706,28 @@ pixi run autotest -S
 
 [Smoke testing](https://modflow-devtools.readthedocs.io/en/latest/md/markers.html#smoke-testing) is a form of integration testing which aims to test a decent fraction of the codebase quickly enough to run often during development.
 
-Tests using models from external repositories can be selected with the `repo` marker:
+Tests using models from external repositories can be selected with the `external` marker:
 
 ```shell
-pytest -v -n auto -m "repo"
+pixi run autotest -m "external"
 ```
 
-The `large` marker is a subset of the `repo` marker. To test models excluded from commit-triggered CI and only run on GitHub Actions nightly:
+By default, these will run against test models pulled from the GitHub repositories. To run the tests against local models, use `--models-path` once or more to specify directories to search for model input files. For instance, to test MF6 models from the test models repository:
 
 ```shell
-pytest -v -n auto -m "large"
+pixi run autotest -m "external" --models-path /path/to/modflow6-testmodels/mf6
+```
+
+By defaultk, only MF6 models are found. To test the mf5to6 converter with mf2005 models in the same repository, relax the namefile search pattern:
+
+```shell
+pixi run autotest -m "external" --models-path /path/to/modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+```
+
+Large test models are excluded from commit-triggered CI and only run on GitHub Actions nightly. To run the models from a local clone of the repository:
+
+```shell
+pixi run autotest -m "external" --models-path /path/to/modflow6-largetestmodels
 ```
 
 Tests load external models from fixtures provided by `modflow-devtools`. External model tests can be selected by model or simulation name, or by packages used. See the [`modflow-devtools` documentation](https://modflow-devtools.readthedocs.io/en/latest/md/fixtures.html#filtering) for usage examples. Note that filtering options only apply to tests using external models, and will not filter tests defining models in code &mdash; for that, the `pytest` built-in `-k` option may be used.
@@ -737,7 +793,7 @@ Integration tests should ideally follow a few conventions for easier maintenance
 
 - Use markers for convenient (de-)selection:
   - `@pytest.mark.slow` if the test doesn't complete in a few seconds (this preserves the ability to quickly [`--smoke` test](https://modflow-devtools.readthedocs.io/en/latest/md/markers.html#smoke-testing)
-  - `@pytest.mark.repo` if the test relies on external model repositories
+  - `@pytest.mark.external` if the test relies on external model repositories
   - `@pytest.mark.regression` if the test compares results from different versions
 
 **Note:** If all three external model repositories are not installed as described above, some tests will be skipped. The full test suite includes >750 cases. All must pass before changes can be merged into this repository.

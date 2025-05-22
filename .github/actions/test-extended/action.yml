@@ -10,20 +10,11 @@ runs:
         version: 13
 
     - name: Checkout PETSc
-      if: runner.os == 'Linux'
       uses: actions/checkout@v4
       with:
         repository: petsc/petsc
         path: petsc
-        ref: release
-
-    - name: Checkout PETSc
-      if: runner.os == 'macOS'
-      uses: actions/checkout@v4
-      with:
-        repository: petsc/petsc
-        path: petsc
-        ref: v3.22.1
+        ref: v3.22.5
 
     - name: Configure environment
       shell: bash
@@ -57,7 +48,7 @@ runs:
       run: |
         brew install netcdf-fortran
         nc-config --all
-        nf-config
+        nf-config --all
 
     - name: Build modflow6
       shell: bash
@@ -72,6 +63,13 @@ runs:
       shell: bash
       working-directory: modflow6
       run: cat builddir/meson-logs/meson-log.txt
+
+    - name: Build mf5to6
+      shell: bash
+      working-directory: modflow6
+      run: |
+        pixi run setup-mf5to6 builddir
+        pixi run build-mf5to6 builddir
 
     - name: Update flopy
       shell: bash

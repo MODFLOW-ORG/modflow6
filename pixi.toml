@@ -2,7 +2,7 @@
 name = "modflow6"
 channels = ["conda-forge"]
 platforms = ["win-64", "linux-64", "linux-aarch64", "osx-arm64", "osx-64"]
-version = "6.7.0.dev1"
+version = "6.7.0.dev2"
 
 [dependencies]
 appdirs = "*"
@@ -17,7 +17,7 @@ gitpython = "*"
 jinja2 = ">=3.1.5,<4"
 jupytext = "*"
 matplotlib = "*"
-meson = "==1.3.0"
+meson = "==1.7.1"
 networkx = "*"
 ninja = "*"
 numpy = "<2.0.0"    # modflowapi has a resriction on the numpy version
@@ -40,6 +40,7 @@ scipy = "*"
 shapely = "*"
 syrupy = "*"
 tomli = ">=2.2.1,<3"
+tomli-w = ">=1.2.0,<2"
 xmipy = "*"
 
 
@@ -51,6 +52,7 @@ ipython = "*"
 ipykernel = "*"
 myst-parser = "*"
 sphinx_rtd_theme = ">=1"
+sphinxcontrib-mermaid = "*"
 pytest = "*"
 filelock = "*"
 modflow-devtools = "*"
@@ -90,18 +92,22 @@ fix-style = { cmd = "pixi run check-format --write-changes; pixi run check-spell
 fix-python-format = { cmd = "ruff format ." }
 fix-python-style = { cmd = "pixi run check-python-lint --fix; pixi run fix-python-format" }
 
-# meson build/test
+# meson build/test for mf6 and zbud6
 builddir = "echo _builddir"
 setup = "meson setup --prefix=$(pwd) --libdir=bin --bindir=bin"
 build = "meson install -C"
 test = "meson test --verbose --no-rebuild -C"
+
+# meson build mf5to6
+setup-mf5to6 = { cmd = "meson setup --prefix=$PIXI_PROJECT_ROOT", cwd = "utils/mf5to6"}
+build-mf5to6 = { cmd = "meson install -C", cwd = "utils/mf5to6"}
 
 # pytest tasks
 get-exes = { cmd = "pytest -v --durations 0 get_exes.py", cwd = "autotest" }
 autotest = { cmd = "pytest -v -n auto --durations 0 --keep-failed .failed", cwd = "autotest" }
 
 # common developer tasks
-update-fortran-definitions = { cmd = "python dfn2f90.py", cwd = "utils/idmloader/scripts" }
+update-fortran-definitions = { cmd = "cat dfns.txt | xargs python scripts/dfn2f90.py", cwd = "utils/idmloader" }
 update-flopy = { cmd = "python update_flopy.py", cwd = "autotest" }
 build-makefiles = { cmd = "python build_makefiles.py", cwd = "distribution" }
 run-mf6ivar = { cmd = "python mf6ivar.py", cwd = "doc/mf6io/mf6ivar" }
@@ -113,8 +119,9 @@ build-docs = { cmd = "python build_docs.py", cwd = "distribution" }
 build-dist = { cmd = "python build_dist.py", cwd = "distribution" }
 test-dist-scripts = { cmd = "pytest -v --durations 0", cwd = "distribution" }
 update-version = { cmd = "python update_version.py", cwd = "distribution" }
-deprecations = { cmd = "python deprecations.py", cwd = "doc/mf6io/mf6ivar" }
+collect-deprecations = { cmd = "python deprecations.py", cwd = "doc/mf6io/mf6ivar" }
 check-citations = "cffconvert --validate -i CITATION.cff"
+make-release-notes = { cmd = "python mk_releasenotes.py", cwd = "doc/ReleaseNotes" }
 
 [feature.rtd.tasks]
 sphinx = { cmd = "make html", cwd = ".build_rtd_docs" }

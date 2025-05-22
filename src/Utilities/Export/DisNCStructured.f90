@@ -9,7 +9,7 @@ module DisNCStructuredModule
 
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, LENBIGLINE, LENCOMPONENTNAME, &
-                             LENMEMPATH, LENVARNAME
+                             LENMEMPATH, LENVARNAME, DNODATA, DZERO
   use SimVariablesModule, only: errmsg, warnmsg
   use SimModule, only: store_error, store_warning, store_error_filename
   use MemoryManagerModule, only: mem_setptr
@@ -75,7 +75,7 @@ module DisNCStructuredModule
     procedure :: define_dim
     procedure :: define_dependent
     procedure :: define_gridmap
-    procedure :: define_projection
+    procedure :: define_geocoords
     procedure :: add_proj_data
     procedure :: add_grid_data
   end type DisNCStructuredType
@@ -127,6 +127,7 @@ contains
     ! initialize base class
     call this%NCModelExportType%init(modelname, modeltype, modelfname, nc_fname, &
                                      disenum, nctype, iout)
+
     ! update values from input context
     if (this%ncf_mempath /= '') then
       call mem_set_value(this%chunk_z, 'CHUNK_Z', this%ncf_mempath, found)
@@ -144,7 +145,7 @@ contains
         this%chunk_x = -1
         write (warnmsg, '(a)') 'Ignoring user provided NetCDF chunking &
           &parameters. Define chunk_time, chunk_x, chunk_y and chunk_z input &
-          &parameters to see an effect.'
+          &parameters to see an effect in file "'//trim(nc_fname)//'".'
         call store_warning(warnmsg)
       end if
 
@@ -153,9 +154,32 @@ contains
 
       if (latsz > 0 .and. lonsz > 0) then
         this%latlon = .true.
+        if (this%wkt /= '') then
+          write (warnmsg, '(a)') 'Ignoring user provided NetCDF wkt parameter &
+            &as longitude and latitude arrays have been provided. &
+            &Applies to file "'//trim(nc_fname)//'".'
+          call store_warning(warnmsg)
+          this%wkt = ''
+          this%gridmap_name = ''
+        end if
         call mem_setptr(this%latitude, 'LATITUDE', this%ncf_mempath)
         call mem_setptr(this%longitude, 'LONGITUDE', this%ncf_mempath)
       end if
+
+      if (this%wkt /= '') then
+        if (this%dis%angrot /= DZERO) then
+          write (warnmsg, '(a)') 'WKT parameter set with structured rotated &
+            &grid. Projected coordinates will have grid local values. &
+            &Applies to file "'//trim(nc_fname)//'".'
+          call store_warning(warnmsg)
+        end if
+      end if
+    end if
+
+    if (this%dis%lenuni == 1) then
+      this%lenunits = 'ft'
+    else
+      this%lenunits = 'm'
     end if
 
     ! create the netcdf file
@@ -191,7 +215,7 @@ contains
     ! define root group dimensions and coordinate variables
     call this%define_dim()
     ! define grid projection variables
-    call this%define_projection()
+    call this%define_geocoords()
     if (isim_mode /= MVALIDATE) then
       ! define the dependent variable
       call this%define_dependent()
@@ -367,7 +391,6 @@ contains
   !> @brief netcdf export package dynamic input with ilayer index variable
   !<
   subroutine package_step_ilayer(this, export_pkg, ilayer_varname, ilayer)
-    use ConstantsModule, only: DNODATA, DZERO
     use TdisModule, only: kper
     use NCModelExportModule, only: ExportPackageType
     use DefinitionSelectModule, only: get_param_definition_type
@@ -515,7 +538,6 @@ contains
   !<
   subroutine export_layer_3d(this, export_pkg, idt, ilayer_read, ialayer, &
                              dbl1d, nc_varname, input_attr, iaux)
-    use ConstantsModule, only: DNODATA, DZERO
     use TdisModule, only: kper
     use NCModelExportModule, only: ExportPackageType
     class(DisNCStructuredType), intent(inout) :: this
@@ -640,10 +662,10 @@ contains
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'source', &
                                 this%annotation%source), this%nc_fname)
     ! export type (MODFLOW 6)
-    call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow6_grid', &
+    call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow_grid', &
                                 this%annotation%grid), this%nc_fname)
     ! MODFLOW 6 model type
-    call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow6_model', &
+    call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow_model', &
                                 this%annotation%model), this%nc_fname)
     ! generation datetime
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'history', &
@@ -707,8 +729,8 @@ contains
                    this%nc_fname)
     call nf_verify(nf90_def_var(this%ncid, 'y', NF90_DOUBLE, this%dim_ids%y, &
                                 this%var_ids%y), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%y, 'units', 'm'), &
-                   this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%y, 'units', &
+                                this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%y, 'axis', 'Y'), &
                    this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%y, 'standard_name', &
@@ -730,8 +752,8 @@ contains
                    this%nc_fname)
     call nf_verify(nf90_def_var(this%ncid, 'x', NF90_DOUBLE, this%dim_ids%x, &
                                 this%var_ids%x), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%x, 'units', 'm'), &
-                   this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%x, 'units', &
+                                this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%x, 'axis', 'X'), &
                    this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%x, 'standard_name', &
@@ -782,7 +804,7 @@ contains
 
     ! put attr
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, &
-                                'units', 'm'), this%nc_fname)
+                                'units', this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, &
                                 'standard_name', this%annotation%stdname), &
                    this%nc_fname)
@@ -816,9 +838,9 @@ contains
 
   !> @brief define grid projection variables
   !<
-  subroutine define_projection(this)
+  subroutine define_geocoords(this)
     class(DisNCStructuredType), intent(inout) :: this
-    if (this%latlon .and. this%wkt /= '') then
+    if (this%latlon) then
       ! lat
       call nf_verify(nf90_def_var(this%ncid, 'lat', NF90_DOUBLE, &
                                   (/this%dim_ids%x, this%dim_ids%y/), &
@@ -841,13 +863,13 @@ contains
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%longitude, &
                                   'long_name', 'longitude'), this%nc_fname)
     end if
-  end subroutine define_projection
+  end subroutine define_geocoords
 
   !> @brief add grid projection data
   !<
   subroutine add_proj_data(this)
     class(DisNCStructuredType), intent(inout) :: this
-    if (this%latlon .and. this%wkt /= '') then
+    if (this%latlon) then
       ! lat
       call nf_verify(nf90_put_var(this%ncid, this%var_ids%latitude, &
                                   this%latitude, start=(/1, 1/), &
@@ -869,16 +891,25 @@ contains
     integer(I4B) :: ibnd, n !, k, i, j
     real(DP), dimension(:, :), pointer, contiguous :: dbl2d
     real(DP), dimension(:), allocatable :: x, y
+    real(DP) :: xoff, yoff
+
+    if (this%dis%angrot /= DZERO) then
+      xoff = DZERO
+      yoff = DZERO
+    else
+      xoff = this%dis%xorigin
+      yoff = this%dis%yorigin
+    end if
 
     allocate (x(size(this%dis%cellx)))
     allocate (y(size(this%dis%celly)))
 
     do n = 1, size(this%dis%cellx)
-      x(n) = this%dis%cellx(n) + this%dis%xorigin
+      x(n) = this%dis%cellx(n) + xoff
     end do
 
     do n = 1, size(this%dis%celly)
-      y(n) = this%dis%celly(n) + this%dis%yorigin
+      y(n) = this%dis%celly(n) + yoff
     end do
 
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%x, x), &
@@ -897,8 +928,8 @@ contains
     ibnd = 1
     do n = 1, size(this%dis%cellx)
       if (ibnd == 1) then
-        dbl2d(1, ibnd) = this%dis%xorigin
-        dbl2d(2, ibnd) = this%dis%xorigin + this%dis%delr(ibnd)
+        dbl2d(1, ibnd) = xoff
+        dbl2d(2, ibnd) = xoff + this%dis%delr(ibnd)
       else
         dbl2d(1, ibnd) = dbl2d(1, ibnd - 1) + this%dis%delr(ibnd)
         dbl2d(2, ibnd) = dbl2d(2, ibnd - 1) + this%dis%delr(ibnd)
@@ -914,8 +945,8 @@ contains
     ibnd = 1
     do n = size(this%dis%celly), 1, -1
       if (ibnd == 1) then
-        dbl2d(1, ibnd) = this%dis%yorigin + sum(this%dis%delc) - this%dis%delc(n)
-        dbl2d(2, ibnd) = this%dis%yorigin + sum(this%dis%delc)
+        dbl2d(1, ibnd) = yoff + sum(this%dis%delc) - this%dis%delc(n)
+        dbl2d(2, ibnd) = yoff + sum(this%dis%delc)
       else
         dbl2d(1, ibnd) = dbl2d(1, ibnd - 1) - this%dis%delc(n)
         dbl2d(2, ibnd) = dbl2d(2, ibnd - 1) - this%dis%delc(n)
@@ -982,14 +1013,12 @@ contains
     logical(LGP), intent(in) :: latlon
     character(len=*), intent(in) :: nc_fname
     if (gridmap_name /= '') then
-      if (latlon) then
-        call nf_verify(nf90_put_att(ncid, varid, 'coordinates', 'lon lat'), &
-                       nc_fname)
-      else
-        call nf_verify(nf90_put_att(ncid, varid, 'coordinates', 'x y'), &
-                       nc_fname)
-      end if
+      call nf_verify(nf90_put_att(ncid, varid, 'coordinates', 'x y'), &
+                     nc_fname)
       call nf_verify(nf90_put_att(ncid, varid, 'grid_mapping', gridmap_name), &
+                     nc_fname)
+    else if (latlon) then
+      call nf_verify(nf90_put_att(ncid, varid, 'coordinates', 'lon lat'), &
                      nc_fname)
     end if
   end subroutine ncvar_gridmap

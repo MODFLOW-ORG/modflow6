@@ -44,50 +44,63 @@ update_version()
 # -- import version from doc/version.py -------------------------------------
 from version import __version__
 
-# -- copy run-time comparison markdown --------------------------------------
-print("Copy the run-time comparison table")
 dstdir = "_mf6run"
+if os.path.isdir(dstdir):
+    shutil.rmtree(dstdir)
+os.makedirs(dstdir)
+
+print(f"Copy run-time comparison table to {dstdir}")
 fpth = "run-time-comparison.md"
 src = os.path.join("..", "distribution", fpth)
 dst = os.path.join(dstdir, fpth)
-# clean up an existing _mf6run directory
-if os.path.isdir(dstdir):
-    shutil.rmtree(dstdir)
-# make the _mf6run directory
-os.makedirs(dstdir)
-# copy the file
 shutil.copy(src, dst)
 
-# -- copy developer docs
 dstdir = "_dev"
+if os.path.isdir(dstdir):
+    shutil.rmtree(dstdir)
+os.makedirs(dstdir)
+
+print(f"Copy developer docs to {dstdir}")
 fpth = "DEVELOPER.md"
 src = os.path.join("..", fpth)
-dst = os.path.join(dstdir, fpth.lower())
-# clean up an existing _mf6run directory
-if os.path.isdir(dstdir):
-    shutil.rmtree(dstdir)
-# make the directory
-os.makedirs(dstdir)
-# copy the file
+dst = os.path.join(dstdir, fpth)
 shutil.copy(src, dst)
 
-# -- copy contributor docs
 fpth = "CONTRIBUTING.md"
 src = os.path.join("..", fpth)
-dst = os.path.join(dstdir, fpth.lower())
+dst = os.path.join(dstdir, fpth)
 shutil.copy(src, dst)
 
-# -- copy style guide
 fpth = "styleguide.md"
 src = os.path.join(fpth)
 dst = os.path.join(dstdir, fpth)
 shutil.copy(src, dst)
 
-# -- copy DFN spec
 fpth = "readme.md"
 src = os.path.join("..", "doc", "mf6io", "mf6ivar", fpth)
 dst = os.path.join(dstdir, "dfn.md")
 shutil.copy(src, dst)
+
+fpth = "EXTENDED.md"
+src = os.path.join("..", fpth)
+dst = os.path.join(dstdir, fpth)
+shutil.copy(src, dst)
+
+fpth = "CODE_OF_CONDUCT.md"
+src = os.path.join("..", fpth)
+dst = os.path.join(dstdir, fpth)
+shutil.copy(src, dst)
+
+dstdir = "_migration"
+if os.path.isdir(dstdir):
+    shutil.rmtree(dstdir)
+os.makedirs(dstdir)
+
+print(f"Copy migration guides to {dstdir}")
+fpth = "mf6_6_0_prt_migration_guide.md"
+src = os.path.join(fpth)
+dst = os.path.join(dstdir, fpth)
+shutil.move(src, dst)
 
 # -- build the deprecations table --------------------------------------------
 print("Build the deprecations markdown table")
@@ -168,11 +181,13 @@ extensions = [
     "nbsphinx_link",
     "myst_parser",
     "sphinx_markdown_tables",
+    "sphinxcontrib.mermaid",
 ]
+
+myst_fence_as_directive = ["mermaid"]
 
 # # Tell sphinx what the pygments highlight language should be.
 # highlight_language = 'fortran'
-
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 
 # Add any paths that contain templates here, relative to this directory.

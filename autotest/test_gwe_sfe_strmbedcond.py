@@ -11,24 +11,27 @@ import os
 
 import flopy
 import numpy as np
+import pandas as pd
 import pytest
 from framework import TestFramework
 
-cases = ["sfe-conductn", "sfe-conducti", "sfe-conducto", "sfe-conductm"]
+cases = ["sfe-conductn", "sfe-conducti", "sfe-conducto", "sfe-conductm", "sfe_conductk"]
 #
 # The last letter in the names above indicates the following
 # n = "no gw/sw exchange"
 # i = "gwf into strm"
 # o = "strm to gw"
 # m = "mixed" (i.e., convection one direction, conductive gradient the other direction?)
+# k = "known answer"
 
 k11 = 500.0
-rhk = [0.0, k11, k11, k11]
-strt_gw_temp = [4.0, 4.0, 4.0, 20.0]
-strm_temp = [18.0, 18.0, 20.0, 4.0]
-chd_condition = ["n", "i", "o", "m"]
+rhk = [0.0, k11, k11, k11, 0.0]
+strt_gw_temp = [4.0, 4.0, 4.0, 20.0, 1.0]
+strm_temp = [18.0, 18.0, 20.0, 4.0, 10.0]
+chd_condition = ["n", "i", "o", "m", "k"]
 surf_Q_in = [
     [8.64, 0.0],
+    [8640.0, 0.0],
     [8640.0, 0.0],
     [8640.0, 0.0],
     [8640.0, 0.0],
@@ -200,7 +203,7 @@ Cps = 880  # Heat capacity of the solids ($J/kg/C$)
 lhv = 2454000.0  # Latent heat of vaporization ($J/kg$)
 # Thermal conductivity of the streambed material ($W/m/C$)
 K_therm_strmbed = [1.5, 1.75, 2.0]
-rbthcnd = [0.0001, 0.0001, 0.0001, 0.0001]
+rbthcnd = [0.0001, 0.0001, 0.0001, 0.0001, 0.0001]
 
 # time params
 steady = {0: False, 1: False}
@@ -324,6 +327,9 @@ def build_models(idx, test):
     elif chd_condition[idx] == "m":
         chdelev1 = top[0, 0] - 3.0  # convection from stream to gw,
         chdelev2 = top[0, -1] - 3.0  # conduction from gw to strm
+    elif chd_condition[idx] == "k":
+        chdelev1 = top[0, 0] - 3.0
+        chdelev2 = top[0, -1] - 3.0
 
     # Instantiate constant head boundary package
     if chd_on:
@@ -540,6 +546,23 @@ def build_models(idx, test):
             sfeperioddata.append((irno, "INFLOW", strm_temp[idx]))
         # sfeperioddata.append((irno, sfr_applied_bnd[idx], sfe_applied_temp[idx]))
 
+    sfe_obs = {
+        (gwename + ".sfe.obs.csv",): [
+            (f"sfe-{i + 1}-temp", "TEMPERATURE", i + 1) for i in range(3)
+        ]
+        + [
+            ("sfe-extin", "EXT-INFLOW", 1),
+            ("sfe-rain", "RAINFALL", 1),
+            ("sfe-roff", "RUNOFF", 1),
+            ("sfe-evap", "EVAPORATION", 1),
+            ("sfe-extout", "EXT-OUTFLOW", 3),
+            ("sfe-sfe", "SFE", 2),
+            ("sfe-strmbd1", "STRMBD-COND", 1),
+            ("sfe-strmbd2", "STRMBD-COND", 2),
+            ("sfe-strmbd3", "STRMBD-COND", 3),
+        ],
+    }
+
     flopy.mf6.modflow.ModflowGwesfe(
         gwe,
         boundnames=False,
@@ -552,6 +575,7 @@ def build_models(idx, test):
         packagedata=sfepackagedata,
         reachperioddata=sfeperioddata,
         flow_package_name="SFR-1",
+        observations=sfe_obs,
         pname="SFE-1",
         filename=f"{gwename}.sfe",
     )
@@ -584,6 +608,7 @@ def check_output(idx, test):
     # read flow results from model
     name = cases[idx]
     gwfname = "gwf-" + name
+    gwename = "gwe-" + name
 
     fname = gwfname + ".sfr.cbc"
     fname = os.path.join(test.workspace, fname)
@@ -608,6 +633,7 @@ def check_output(idx, test):
     shared_area = np.array(shared_area)
 
     # Calculate wetted streambed area for comparison
+    wa_lst = []
     for j, stg in enumerate(list(sfrstg[0])[1:]):
         wp = calc_wp(j, stg)
         wa = wp * delr
@@ -618,6 +644,7 @@ def check_output(idx, test):
         )
 
         assert np.isclose(wa, shared_area[0, j], atol=1e-4), msg
+        wa_lst.append(wa)
 
     # Sub-scenario checks
     # initialize search term
@@ -627,9 +654,30 @@ def check_output(idx, test):
     fname = "gwe-" + name + ".lst"
     fname = os.path.join(test.workspace, fname)
 
+    # pull in SFE CSV output for comparison with lst file budget term
+    fpth = os.path.join(test.workspace, gwename + ".sfe.obs.csv")
+    df = pd.read_csv(fpth)
+
     # gw exchng (item 'GWF') should be zero in heat transport budget
     T_in, T_out, in_bud_lst, out_bud_lst = get_bud(fname, srchStr)
     assert np.isclose(T_in, T_out, atol=0.1), "There is a heat budget discrepancy"
+
+    # compare individual streambed conduction obs with total
+    df["sum_strmbd_cond"] = df.iloc[:, -3:].sum(axis=1)
+    if name[-1] != "m":
+        assert np.isclose(
+            out_bud_lst["STRMBD-COND"],
+            abs(df.loc[0, "sum_strmbd_cond"]),
+            atol=0.0001,
+        ), "There is a streambed conductance discrepancy " + str(
+            out_bud_lst["STRMBD-COND"] - abs(df.loc[0, "sum_strmbd_cond"])
+        )
+    else:
+        assert np.isclose(
+            in_bud_lst["STRMBD-COND"], abs(df.loc[0, "sum_strmbd_cond"]), atol=0.0001
+        ), "There is a streambed conductance discrepancy " + str(
+            out_bud_lst["STRMBD-COND"] - abs(df.loc[0, "sum_strmbd_cond"])
+        )
 
     # Get temperature of streamwater
     fname1 = "gwe-" + name + ".sfe.bin"
@@ -655,6 +703,10 @@ def check_output(idx, test):
         "conductive losses from the stream to the aquifer "
         "(i.e., greater shared wetted areas)"
     )
+    msg5 = (
+        "The conductive exchange of energy calculated by GWE in the 5th "
+        "sub-test does not match an externally calculated solution"
+    )
     if name[-1] == "n":
         # no gw/sw convective exchange, simulates conductive exchange only
         assert in_bud_lst["GWF"] == 0.0, msg1
@@ -663,8 +715,8 @@ def check_output(idx, test):
         # Determine gw/sfe temperature gradient direction
         if sfe_temps[0, 0, 0, 0] > gw_temps[0, 0, 0, 0]:
             # conduction will be from stream to gw
-            assert in_bud_lst["STREAMBED-COND"] == 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] > 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] == 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] > 0.0, msg2
 
             slp = trenddetector(
                 np.arange(0, sfe_temps.shape[-1]), sfe_temps[0, 0, 0, :]
@@ -675,8 +727,8 @@ def check_output(idx, test):
             assert slp > 0.0, msg4
 
         else:
-            assert in_bud_lst["STREAMBED-COND"] > 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] == 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] > 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] == 0.0, msg2
 
     # streamflow gain from aquifer ("into stream")
     if name[-1] == "i":
@@ -687,8 +739,8 @@ def check_output(idx, test):
         # Determine gw/sfe temperature gradient direction
         if sfe_temps[0, 0, 0, 0] > gw_temps[0, 0, 0, 0]:
             # conduction will be from stream to gw
-            assert in_bud_lst["STREAMBED-COND"] == 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] > 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] == 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] > 0.0, msg2
 
             slp = trenddetector(
                 np.arange(0, sfe_temps.shape[-1]), sfe_temps[0, 0, 0, :]
@@ -699,8 +751,8 @@ def check_output(idx, test):
             assert slp > 0.0, msg4
 
         else:
-            assert in_bud_lst["STREAMBED-COND"] > 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] == 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] > 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] == 0.0, msg2
 
     # streamflow loss to aquifer ("out of stream")
     if name[-1] == "o":
@@ -711,8 +763,8 @@ def check_output(idx, test):
         # Determine gw/sfe temperature gradient direction
         if sfe_temps[0, 0, 0, 0] > gw_temps[0, 0, 0, 0]:
             # conduction will be from stream to gw
-            assert in_bud_lst["STREAMBED-COND"] == 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] > 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] == 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] > 0.0, msg2
 
             slp = trenddetector(
                 np.arange(0, sfe_temps.shape[-1]), sfe_temps[0, 0, 0, :]
@@ -723,8 +775,8 @@ def check_output(idx, test):
             assert slp < 0.0, msg4
 
         else:
-            assert in_bud_lst["STREAMBED-COND"] > 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] == 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] > 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] == 0.0, msg2
 
     # Reverse temperature gradient  (cold stream, warm aquifer)
     # Loss of streamwater to aquifer
@@ -737,12 +789,12 @@ def check_output(idx, test):
         # Determine gw/sfe temperature gradient direction
         if sfe_temps[0, 0, 0, 0] > gw_temps[0, 0, 0, 0]:
             # conduction will be from stream to gw
-            assert in_bud_lst["STREAMBED-COND"] == 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] > 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] == 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] > 0.0, msg2
 
         else:
-            assert in_bud_lst["STREAMBED-COND"] > 0.0, msg2
-            assert out_bud_lst["STREAMBED-COND"] == 0.0, msg2
+            assert in_bud_lst["STRMBD-COND"] > 0.0, msg2
+            assert out_bud_lst["STRMBD-COND"] == 0.0, msg2
 
             slp = trenddetector(
                 np.arange(0, sfe_temps.shape[-1]), sfe_temps[0, 0, 0, :]
@@ -751,6 +803,31 @@ def check_output(idx, test):
 
             slp = trenddetector(np.arange(0, gw_temps.shape[-2]), gw_temps[0, 0, 1, :])
             assert slp > 0.0, msg4
+
+    if name[-1] == "k":  # 'k' for known
+        wa = shared_area[0][0]
+        K_t_sb = K_therm_strmbed[0]
+        sbthermthk = rbthcnd[idx]
+
+        # final stream temperature, reach 1
+        strm_temp = df.at[0, "SFE-1-TEMP"]
+        gw_temp = gw_temps[0, 0, 1, 0]
+
+        thermcond = wa * K_t_sb / sbthermthk * (gw_temp - strm_temp)
+
+        assert np.isclose(thermcond, df.at[0, "SFE-STRMBD1"], atol=1e-4), (
+            msg5
+            + ". Values are thermcond: "
+            + str(thermcond)
+            + "   GWE: "
+            + str(df.at[0, "SFE-STRMBD1"])
+            + "   wa: "
+            + str(wa)
+            + "   ktsb: "
+            + str(K_t_sb)
+            + "   sbthk: "
+            + str(sbthermthk)
+        )
 
 
 # - No need to change any code below

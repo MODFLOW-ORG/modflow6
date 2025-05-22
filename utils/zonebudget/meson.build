@@ -12,5 +12,4 @@ message('ZONEBUDGET 6 executable name: ' + zbud6name + '\n')
 executable(zbud6name,
            zonebudget_sources,
            link_with: mf6core, 
-           install: true,
-           fortran_args: util_args)
+           install: true,)
