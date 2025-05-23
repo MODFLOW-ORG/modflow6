@@ -43,9 +43,7 @@ module DisuModule
     integer(I4B), pointer :: iangledegx => null() ! =1 when angle information was present in input, 0 otherwise
     integer(I4B), dimension(:), pointer, contiguous :: iavert => null() ! cell vertex pointer ia array
     integer(I4B), dimension(:), pointer, contiguous :: javert => null() ! cell vertex pointer ja array
-    integer(I4B), dimension(:), pointer, contiguous :: idomain => null() ! idomain (nodes)
     logical(LGP) :: readFromFile ! True, when DIS is read from file (almost always)
-
   contains
 
     procedure :: dis_df => disu_df

@@ -58,6 +58,7 @@ module BaseDisModule
     integer(I4B), dimension(:), pointer, contiguous :: ibuff => null() !< helper int array of size nodesuser
     integer(I4B), dimension(:), pointer, contiguous :: nodereduced => null() !< (size:nodesuser)contains reduced nodenumber (size 0 if not reduced); -1 means vertical pass through, 0 is idomain = 0
     integer(I4B), dimension(:), pointer, contiguous :: nodeuser => null() !< (size:nodes) given a reduced nodenumber, provide the user nodenumber (size 0 if not reduced)
+    integer(I4B), dimension(:), pointer, contiguous :: idomain => null() !< (size:nodesuser)
   contains
     procedure :: dis_df
     procedure :: dis_ac

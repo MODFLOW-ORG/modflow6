@@ -23,7 +23,6 @@ module Disv1dModule
     real(DP), dimension(:), pointer, contiguous :: length => null() !< length of each reach (of size nodesuser)
     real(DP), dimension(:), pointer, contiguous :: width => null() !< reach width
     real(DP), dimension(:), pointer, contiguous :: bottom => null() !< reach bottom elevation
-    integer(I4B), dimension(:), pointer, contiguous :: idomain => null() !< idomain (of size nodesuser)
     real(DP), dimension(:, :), pointer, contiguous :: vertices => null() !< cell vertices stored as 2d array with columns of x, y
     real(DP), dimension(:, :), pointer, contiguous :: cellxy => null() !< reach midpoints stored as 2d array with columns of x, y
     real(DP), dimension(:), pointer, contiguous :: fdc => null() !< fdc stored as array
