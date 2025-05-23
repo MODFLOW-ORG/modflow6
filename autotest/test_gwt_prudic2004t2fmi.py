@@ -734,7 +734,7 @@ def run_transport_model(dir, exe):
     for name1, i in zip(csvra.dtype.names, imap):
         name2 = lstra.dtype.names[i]
         if i == 18:
-            # percent difference is writen with 2 decimal places (F15.2)
+            # percent difference is written with 2 decimal places (F15.2)
             success = np.allclose(csvra[name1], lstra[name2], atol=1.0e-2)
         else:
             success = np.allclose(csvra[name1], lstra[name2], rtol=0.01)
