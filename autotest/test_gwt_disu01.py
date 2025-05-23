@@ -95,7 +95,9 @@ def build_models(idx, test):
     sim.register_ims_package(imsgwf, [gwf.name])
 
     # use utility to make a disu version of a regular grid
-    disu_kwargs = get_disu_kwargs(nlay, nrow, ncol, delr, delc, top, botm)
+    disu_kwargs = get_disu_kwargs(
+        nlay, nrow, ncol, delr, delc, top, botm, return_vertices=True
+    )
     disu = flopy.mf6.ModflowGwfdisu(gwf, **disu_kwargs)
 
     # initial conditions
@@ -158,7 +160,9 @@ def build_models(idx, test):
     sim.register_ims_package(imsgwt, [gwt.name])
 
     # use utility to make a disu version of a regular grid
-    disu_kwargs = get_disu_kwargs(nlay, nrow, ncol, delr, delc, top, botm)
+    disu_kwargs = get_disu_kwargs(
+        nlay, nrow, ncol, delr, delc, top, botm, return_vertices=True
+    )
     disu = flopy.mf6.ModflowGwtdisu(gwt, **disu_kwargs)
 
     # initial conditions

@@ -24,18 +24,23 @@ def build_models(idx, test):
     strt = 0.0
     hnoflo = 1e30
     hdry = -1e30
-    hk = 0.0125 / delz
+    hk = 0.0125
     laytyp = 0
     diffc = 0.0
     alphal = 0.6
     alphath = 0.03
     alphatv = 0.006
     porosity = 0.25
-    # ss = 0.
-    # sy = 0.1
+    source_Q = 1.0
+    source_C0 = 2.5
+    solute_mass_flux = source_Q * source_C0  # Solute mass flux ($g d^{-1}$)
+    source_location0 = (0, 11, 7)  # Location of the source term
 
     nouter, ninner = 100, 300
-    hclose, rclose, relax = 1e-4, 1e-3, 0.97
+    hclose, rclose, relax = 1e-6, 1e-6, 0.97
+
+    length_units = "meters"
+    time_units = "days"
 
     tdis_rc = []
     for i in range(nper):
@@ -49,7 +54,9 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
+    tdis = flopy.mf6.ModflowTdis(
+        sim, nper=nper, perioddata=tdis_rc, time_units=time_units
+    )
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -80,6 +87,7 @@ def build_models(idx, test):
 
     dis = flopy.mf6.ModflowGwfdis(
         gwf,
+        length_units=length_units,
         nlay=nlay,
         nrow=nrow,
         ncol=ncol,
@@ -101,7 +109,6 @@ def build_models(idx, test):
         save_specific_discharge=True,
         icelltype=laytyp,
         k=hk,
-        k33=hk,
     )
 
     # chd files
@@ -117,11 +124,10 @@ def build_models(idx, test):
     # wel files
     wellist = []
     j = 0
-    qwell = 0.1 * delz * delc * porosity
+    specific_discharge = 0.1 * delz * delc * porosity
     for k in range(nlay):
         for i in range(nrow):
-            wellist.append([(k, i, j), qwell, 0.0])
-    wellist.append([(0, 0, 7), 1.0e-6, 2.5e6])  # source well
+            wellist.append([(k, i, j), specific_discharge])
 
     wel = flopy.mf6.ModflowGwfwel(
         gwf,
@@ -129,8 +135,6 @@ def build_models(idx, test):
         print_flows=True,
         stress_period_data=wellist,
         save_flows=False,
-        auxiliary="CONCENTRATION",
-        pname="WEL-1",
     )
 
     # output control
@@ -184,9 +188,7 @@ def build_models(idx, test):
     )
 
     # initial conditions
-    strt = np.zeros((nlay, nrow, ncol))
-    strt[0, 0, 0] = 0.0
-    ic = flopy.mf6.ModflowGwtic(gwt, strt=strt, filename=f"{gwtname}.ic")
+    ic = flopy.mf6.ModflowGwtic(gwt, strt=0, filename=f"{gwtname}.ic")
 
     # advection
     adv = flopy.mf6.ModflowGwtadv(gwt, scheme="TVD", filename=f"{gwtname}.adv")
@@ -196,9 +198,7 @@ def build_models(idx, test):
     dsp = flopy.mf6.ModflowGwtdsp(
         gwt,
         xt3d_off=xt3d_off,
-        diffc=diffc,
         alh=alphal,
-        alv=alphal,
         ath1=alphath,
         ath2=alphatv,
         filename=f"{gwtname}.dsp",
@@ -208,10 +208,13 @@ def build_models(idx, test):
     mst = flopy.mf6.ModflowGwtmst(gwt, porosity=porosity)
 
     # sources
-    sourcerecarray = [("WEL-1", "AUX", "CONCENTRATION")]
+    sourcerecarray = [[]]
     ssm = flopy.mf6.ModflowGwtssm(
         gwt, sources=sourcerecarray, filename=f"{gwtname}.ssm"
     )
+
+    srcspd = {0: [[source_location0, solute_mass_flux]]}
+    flopy.mf6.ModflowGwtsrc(gwt, stress_period_data=srcspd)
 
     # output control
     oc = flopy.mf6.ModflowGwtoc(
@@ -250,46 +253,48 @@ def check_output(idx, test):
 
     cres = np.array(
         [
-            6.19536860e01,
-            6.10977621e01,
-            5.94331187e01,
-            5.70585587e01,
-            5.41016012e01,
-            5.06360797e01,
-            4.67594881e01,
-            4.26131186e01,
-            3.83506623e01,
-            3.41052863e01,
-            2.99834184e01,
-            2.60685066e01,
-            2.24239296e01,
-            1.90924262e01,
-            1.60976346e01,
-            1.34466507e01,
-            1.11331123e01,
-            9.14042952e00,
-            7.44487655e00,
-            6.01834933e00,
-            4.83067716e00,
-            3.85144623e00,
-            3.05134631e00,
-            2.40308745e00,
-            1.88195336e00,
-            1.46606535e00,
-            1.13642906e00,
-            8.76828593e-01,
-            6.73622452e-01,
-            5.15484358e-01,
-            3.93121351e-01,
-            2.98992183e-01,
-            2.27041270e-01,
-            1.72457391e-01,
-            1.31461916e-01,
-            1.01128195e-01,
-            7.92317943e-02,
-            6.41300864e-02,
-            5.46692350e-02,
-            5.01165648e-02,
+            [
+                0.0406744,
+                0.04032164,
+                0.039626,
+                0.03860675,
+                0.0372916,
+                0.03571532,
+                0.0339181,
+                0.03194377,
+                0.02983792,
+                0.02764607,
+                0.02541209,
+                0.02317674,
+                0.02097661,
+                0.01884333,
+                0.01680308,
+                0.01487649,
+                0.01307865,
+                0.01141953,
+                0.00990436,
+                0.0085343,
+                0.00730704,
+                0.00621749,
+                0.00525842,
+                0.0044211,
+                0.00369579,
+                0.00307226,
+                0.00254018,
+                0.00208939,
+                0.00171019,
+                0.00139351,
+                0.00113101,
+                0.00091514,
+                0.00073924,
+                0.00059746,
+                0.0004848,
+                0.00039709,
+                0.00033089,
+                0.00028354,
+                0.00025306,
+                0.00023814,
+            ]
         ]
     )
 

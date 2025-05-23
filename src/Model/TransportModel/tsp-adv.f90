@@ -2,17 +2,34 @@ module TspAdvModule
 
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DONE, DZERO, DHALF, DTWO, DNODATA, DPREC, &
-                             LINELENGTH
+                             LINELENGTH, DSAME, DPI
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
   use TspAdvOptionsModule, only: TspAdvOptionsType
+  use SVDModule, only: SVD2
   use MatrixBaseModule
+  use BoundaryFacesModule, only: BoundaryFacesType
+  use DisInfoModule, only: number_connected_faces, number_faces
+  use IGradient, only: IGradientType
+  use ExtendedLeastSquaredGradientModule, only: ExtendedLeastSquaredGradientType
+  use LeastSquaredGradientBoundaryModule, only: LeastSquaredGradientBoundaryType
+  use LeastSquaredGradientModule, only: LeastSquaredGradientType
+  use GreenGaussGradientModule, only: GreenGaussGradientType
+  use IInterpolationSchemeModule, only: IInterpolationSchemeType, CoefficientsType
+  use UpwindSchemeModule, only: UpwindSchemeType
+  use CentralDifferenceSchemeModule, only: CentralDifferenceSchemeType
+  use TVDSchemeModule, only: TVDSchemeType
+  use BarthJespersenSchemeModule, only: BarthJespersenSchemeType
 
   implicit none
   private
   public :: TspAdvType
   public :: adv_cr
+
+  type Array1D
+    integer(I4B), dimension(:), allocatable :: data
+  end type Array1D
 
   type, extends(NumericalPackageType) :: TspAdvType
 
@@ -21,7 +38,10 @@ module TspAdvModule
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
     real(DP), pointer :: eqnsclfac => null() !< governing equation scale factor; =1. for solute; =rhow*cpw for energy
-
+    type(BoundaryFacesType), allocatable :: boundary_faces
+    class(IInterpolationSchemeType), allocatable :: face_interpolation
+    class(IGradientType), allocatable :: gradient
+    class(IGradientType), allocatable :: gradient2
   contains
 
     procedure :: adv_df
@@ -33,10 +53,8 @@ module TspAdvModule
 
     procedure :: allocate_scalars
     procedure, private :: read_options
-    procedure, private :: advqtvd
-    procedure, private :: advtvd_bd
-    procedure :: adv_weight
-    procedure :: advtvd
+
+    procedure, private :: get_cell_position
 
   end type TspAdvType
 
@@ -114,11 +132,39 @@ contains
     class(DisBaseType), pointer, intent(in) :: dis
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: ibound
     ! -- local
+    integer(I4B) :: nodes
     ! -- formats
     !
     ! -- adv pointers to arguments that were passed in
     this%dis => dis
     this%ibound => ibound
+
+    ! -- Create boundary Cells
+    this%boundary_faces = BoundaryFacesType(dis)
+
+    ! -- Compute the gradient operator
+    nodes = dis%nodes
+
+    ! this%gradient = ExtendedLeastSquaredGradientType(this%dis, this%fmi)
+    this%gradient = LeastSquaredGradientBoundaryType(this%dis, this%fmi)
+    this%gradient2 = ExtendedLeastSquaredGradientType(this%dis, this%fmi)
+    ! this%gradient = LeastSquaredGradientType(this%dis, this%fmi)
+    ! this%gradient = GreenGaussGradientType(this%dis, this%fmi)
+
+    ! -- Select interpolation scheme
+    if (this%iadvwt == 0) then
+      this%face_interpolation = &
+        UpwindSchemeType(this%dis, this%fmi, this%gradient)
+    elseif (this%iadvwt == 1) then
+      this%face_interpolation = &
+        CentralDifferenceSchemeType(this%dis, this%fmi, this%gradient)
+    elseif (this%iadvwt == 2) then
+      this%face_interpolation = &
+        TVDSchemeType(this%dis, this%fmi, this%gradient)
+    elseif (this%iadvwt == 3) then
+      this%face_interpolation = &
+        BarthJespersenSchemeType(this%dis, this%fmi, this%gradient)
+    end if
   end subroutine adv_ar
 
   !> @brief  Calculate maximum time step length
@@ -201,128 +247,76 @@ contains
     real(DP), dimension(:), intent(inout) :: rhs
     ! -- local
     integer(I4B) :: n, m, idiag, ipos
-    real(DP) :: omega, qnm
-    !
-    ! -- Calculate advection terms and add to solution rhs and hcof.  qnm
-    !    is the volumetric flow rate and has dimensions of L^/T.
+    real(DP) :: qnm
+    integer(I4B) :: ip, i
+    real(DP), dimension(3) :: normal, q, grad_c, dnm, xn, xf
+    real(DP) :: area, qn, flow
+    type(CoefficientsType) :: coefficients
+
     do n = 1, nodes
       if (this%ibound(n) == 0) cycle
       idiag = this%dis%con%ia(n)
       do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
-        if (this%dis%con%mask(ipos) == 0) cycle
         m = this%dis%con%ja(ipos)
         if (this%ibound(m) == 0) cycle
+        if (this%dis%con%mask(ipos) == 0) cycle
+
         qnm = this%fmi%gwfflowja(ipos) * this%eqnsclfac
-        omega = this%adv_weight(this%iadvwt, ipos, n, m, qnm)
-        call matrix_sln%add_value_pos(idxglo(ipos), qnm * (DONE - omega))
-        call matrix_sln%add_value_pos(idxglo(idiag), qnm * omega)
+
+        coefficients = this%face_interpolation%compute(n, m, ipos, cnew)
+        call matrix_sln%add_value_pos(idxglo(idiag), qnm * coefficients%c_n)
+        call matrix_sln%add_value_pos(idxglo(ipos), qnm * coefficients%c_m)
+        rhs(n) = rhs(n) + qnm * coefficients%rhs
       end do
     end do
-    !
-    ! -- TVD
-    if (this%iadvwt == 2) then
-      do n = 1, nodes
-        if (this%ibound(n) == 0) cycle
-        call this%advtvd(n, cnew, rhs)
+
+    ! -- Calculate and add high order flux contribution for sinks
+    if (this%iadvwt >= 2) then
+      do ip = 1, this%fmi%nflowpack
+        if (this%fmi%iatp(ip) /= 0) cycle
+        do i = 1, this%fmi%gwfpackages(ip)%nbound
+          n = this%fmi%gwfpackages(ip)%nodelist(i)
+          flow = this%fmi%gwfpackages(ip)%flow(i)
+          if (n <= 0) cycle
+          if (flow >= DZERO) cycle
+
+          xn = this%get_cell_position(n)
+          do ipos = this%boundary_faces%ia(n), this%boundary_faces%ia(n + 1) - 1
+            area = this%boundary_faces%get_area(ipos)
+            normal = this%boundary_faces%get_normal(ipos)
+            xf = this%boundary_faces%get_xf(ipos)
+
+            q = this%fmi%gwfspdis(:, n)
+            qn = dot_product(q, normal)
+            qnm = qn * area * this%eqnsclfac
+
+            if (qnm <= DZERO) cycle
+
+            ! High order flux
+            grad_c = this%gradient2%get(n, cnew)
+            dnm = xf - xn
+
+            rhs(n) = rhs(n) + qnm * dot_product(grad_c, dnm)
+          end do
+          !
+        end do
       end do
     end if
   end subroutine adv_fc
 
-  !> @brief  Calculate TVD
-  !!
-  !! Use explicit scheme to calculate the advective component of transport.
-  !! TVD is an acronym for Total-Variation Diminishing
-  !<
-  subroutine advtvd(this, n, cnew, rhs)
-    ! -- modules
-    ! -- dummy
-    class(TspAdvType) :: this
-    integer(I4B), intent(in) :: n
-    real(DP), dimension(:), intent(in) :: cnew
-    real(DP), dimension(:), intent(inout) :: rhs
-    ! -- local
-    real(DP) :: qtvd
-    integer(I4B) :: m, ipos
-    !
-    ! -- Loop through each n connection.  This will
-    do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
-      if (this%dis%con%mask(ipos) == 0) cycle
-      m = this%dis%con%ja(ipos)
-      if (m > n .and. this%ibound(m) /= 0) then
-        qtvd = this%advqtvd(n, m, ipos, cnew)
-        rhs(n) = rhs(n) - qtvd
-        rhs(m) = rhs(m) + qtvd
-      end if
-    end do
-  end subroutine advtvd
-
-  !> @brief  Calculate TVD
-  !!
-  !! Use explicit scheme to calculate the advective component of transport.
-  !! TVD is an acronym for Total-Variation Diminishing
-  !<
-  function advqtvd(this, n, m, iposnm, cnew) result(qtvd)
-    ! -- modules
-    use ConstantsModule, only: DPREC
+  function get_cell_position(this, n) result(xn)
     ! -- return
-    real(DP) :: qtvd
+    real(DP), dimension(3) :: xn
     ! -- dummy
     class(TspAdvType) :: this
     integer(I4B), intent(in) :: n
-    integer(I4B), intent(in) :: m
-    integer(I4B), intent(in) :: iposnm
-    real(DP), dimension(:), intent(in) :: cnew
     ! -- local
-    integer(I4B) :: ipos, isympos, iup, idn, i2up, j
-    real(DP) :: qnm, qmax, qupj, elupdn, elup2up
-    real(DP) :: smooth, cdiff, alimiter
-    !
-    ! -- initialize
-    qtvd = DZERO
-    !
-    ! -- Find upstream node
-    isympos = this%dis%con%jas(iposnm)
-    qnm = this%fmi%gwfflowja(iposnm)
-    if (qnm > DZERO) then
-      ! -- positive flow into n means m is upstream
-      iup = m
-      idn = n
-    else
-      iup = n
-      idn = m
-    end if
-    elupdn = this%dis%con%cl1(isympos) + this%dis%con%cl2(isympos)
-    !
-    ! -- Find second node upstream to iup
-    i2up = 0
-    qmax = DZERO
-    do ipos = this%dis%con%ia(iup) + 1, this%dis%con%ia(iup + 1) - 1
-      j = this%dis%con%ja(ipos)
-      if (this%ibound(j) == 0) cycle
-      qupj = this%fmi%gwfflowja(ipos)
-      isympos = this%dis%con%jas(ipos)
-      if (qupj > qmax) then
-        qmax = qupj
-        i2up = j
-        elup2up = this%dis%con%cl1(isympos) + this%dis%con%cl2(isympos)
-      end if
-    end do
-    !
-    ! -- Calculate flux limiting term
-    if (i2up > 0) then
-      smooth = DZERO
-      cdiff = ABS(cnew(idn) - cnew(iup))
-      if (cdiff > DPREC) then
-        smooth = (cnew(iup) - cnew(i2up)) / elup2up * &
-                 elupdn / (cnew(idn) - cnew(iup))
-      end if
-      if (smooth > DZERO) then
-        alimiter = DTWO * smooth / (DONE + smooth)
-        qtvd = DHALF * alimiter * qnm * (cnew(idn) - cnew(iup))
-        qtvd = qtvd * this%eqnsclfac
-      end if
-    end if
-  end function advqtvd
+
+    xn(1) = this%dis%xc(n)
+    xn(2) = this%dis%yc(n)
+    xn(3) = (this%dis%top(n) + this%dis%bot(n)) / 2.0_dp
+
+  end function get_cell_position
 
   !> @brief Calculate advection contribution to flowja
   !<
@@ -334,53 +328,30 @@ contains
     real(DP), intent(inout), dimension(:) :: flowja
     ! -- local
     integer(I4B) :: nodes
-    integer(I4B) :: n, m, idiag, ipos
-    real(DP) :: omega, qnm
+    integer(I4B) :: n, m, ipos
+    real(DP) :: qnm
+    type(CoefficientsType) :: coefficients
     !
     ! -- Calculate advection and add to flowja. qnm is the volumetric flow
     !    rate and has dimensions of L^/T.
     nodes = this%dis%nodes
+
     do n = 1, nodes
       if (this%ibound(n) == 0) cycle
-      idiag = this%dis%con%ia(n)
       do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
         m = this%dis%con%ja(ipos)
         if (this%ibound(m) == 0) cycle
         qnm = this%fmi%gwfflowja(ipos) * this%eqnsclfac
-        omega = this%adv_weight(this%iadvwt, ipos, n, m, qnm)
-        flowja(ipos) = flowja(ipos) + qnm * omega * cnew(n) + &
-                       qnm * (DONE - omega) * cnew(m)
-      end do
-    end do
-    !
-    ! -- TVD
-    if (this%iadvwt == 2) call this%advtvd_bd(cnew, flowja)
-  end subroutine adv_cq
 
-  !> @brief Add TVD contribution to flowja
-  subroutine advtvd_bd(this, cnew, flowja)
-    ! -- modules
-    ! -- dummy
-    class(TspAdvType) :: this
-    real(DP), dimension(:), intent(in) :: cnew
-    real(DP), dimension(:), intent(inout) :: flowja
-    ! -- local
-    real(DP) :: qtvd, qnm
-    integer(I4B) :: nodes, n, m, ipos
-    !
-    nodes = this%dis%nodes
-    do n = 1, nodes
-      if (this%ibound(n) == 0) cycle
-      do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
-        m = this%dis%con%ja(ipos)
-        if (this%ibound(m) /= 0) then
-          qnm = this%fmi%gwfflowja(ipos)
-          qtvd = this%advqtvd(n, m, ipos, cnew)
-          flowja(ipos) = flowja(ipos) + qtvd
-        end if
+        coefficients = this%face_interpolation%compute(n, m, ipos, cnew)
+        flowja(ipos) = flowja(ipos) &
+                       + qnm * coefficients%c_n * cnew(n) &
+                       + qnm * coefficients%c_m * cnew(m) &
+                       - qnm * coefficients%rhs
       end do
     end do
-  end subroutine advtvd_bd
+
+  end subroutine adv_cq
 
   !> @brief Deallocate memory
   !<
@@ -472,6 +443,9 @@ contains
           case ('TVD')
             this%iadvwt = 2
             write (this%iout, fmtiadvwt) 'TVD'
+          case ('BARTH')
+            this%iadvwt = 3
+            write (this%iout, fmtiadvwt) 'BARTH'
           case default
             write (errmsg, '(a, a)') &
               'Unknown scheme: ', trim(keyword)
@@ -496,46 +470,5 @@ contains
       write (this%iout, '(1x,a)') 'END OF ADVECTION OPTIONS'
     end if
   end subroutine read_options
-
-  !> @ brief Advection weight
-  !!
-  !! Calculate the advection weight
-  !<
-  function adv_weight(this, iadvwt, ipos, n, m, qnm) result(omega)
-    ! -- return
-    real(DP) :: omega
-    ! -- dummy
-    class(TspAdvType) :: this
-    integer, intent(in) :: iadvwt
-    integer, intent(in) :: ipos
-    integer, intent(in) :: n
-    integer, intent(in) :: m
-    real(DP), intent(in) :: qnm
-    ! -- local
-    real(DP) :: lnm, lmn
-
-    select case (iadvwt)
-    case (1)
-      ! -- calculate weight based on distances between nodes and the shared
-      !    face of the connection
-      if (this%dis%con%ihc(this%dis%con%jas(ipos)) == 0) then
-        ! -- vertical connection; assume cell is fully saturated
-        lnm = DHALF * (this%dis%top(n) - this%dis%bot(n))
-        lmn = DHALF * (this%dis%top(m) - this%dis%bot(m))
-      else
-        ! -- horizontal connection
-        lnm = this%dis%con%cl1(this%dis%con%jas(ipos))
-        lmn = this%dis%con%cl2(this%dis%con%jas(ipos))
-      end if
-      omega = lmn / (lnm + lmn)
-    case (0, 2)
-      ! -- use upstream weighting for upstream and tvd schemes
-      if (qnm > DZERO) then
-        omega = DZERO
-      else
-        omega = DONE
-      end if
-    end select
-  end function adv_weight
 
 end module TspAdvModule
