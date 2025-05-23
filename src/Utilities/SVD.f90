@@ -1,6 +1,6 @@
 module SVDModule
   use KindModule, only: DP, LGP, I4B
-  use ConstantsModule, only: DONE, DZERO, DPREC, DSAME
+  use ConstantsModule, only: DONE, DZERO, DPREC, DSAME, DEM6
   use MathUtilModule, only: eye, zeros, outer_product
 
   implicit none
@@ -139,7 +139,7 @@ contains
     mean = (T11 + T22) / 2.0_DP
     product = T11 * T22 - T12 * T21
     mean_product = mean**2 - product
-    if (abs(mean_product) < DSAME) then
+    if (abs(mean_product) < DEM6) then
       mean_product = 0.0_DP
     end if
     mu1 = mean - SQRT(mean_product)

@@ -39,8 +39,8 @@ def run_flow_model(dir, exe):
     gwf = flopy.mf6.ModflowGwf(sim, modelname=gwfname, save_flows=True)
 
     # ims
-    hclose = 0.0001
-    rclose = 0.1
+    hclose = 1e-6
+    rclose = 1e-6
     nouter = 1000
     ninner = 100
     relax = 0.99
@@ -734,8 +734,8 @@ def run_transport_model(dir, exe):
     for name1, i in zip(csvra.dtype.names, imap):
         name2 = lstra.dtype.names[i]
         if i == 18:
-            # percent difference needs to compare small numbers
-            success = np.allclose(csvra[name1], lstra[name2], atol=1.0e-7)
+            # percent difference is writen with 2 decimal places (F15.2)
+            success = np.allclose(csvra[name1], lstra[name2], atol=1.0e-2)
         else:
             success = np.allclose(csvra[name1], lstra[name2], rtol=0.01)
         if not success:

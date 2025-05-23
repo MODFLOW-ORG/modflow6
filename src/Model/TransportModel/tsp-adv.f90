@@ -238,7 +238,6 @@ contains
   !<
   subroutine adv_fc(this, nodes, matrix_sln, idxglo, cnew, rhs)
     ! -- modules
-    use TdisModule, only: delt
     ! -- dummy
     class(TspAdvType) :: this
     integer, intent(in) :: nodes
@@ -251,7 +250,7 @@ contains
     real(DP) :: qnm
     integer(I4B) :: ip, i
     real(DP), dimension(3) :: normal, q, grad_c, dnm, xn, xf
-    real(DP) :: area, cl1, qn, flow
+    real(DP) :: area, qn, flow
     type(CoefficientsType) :: coefficients
 
     do n = 1, nodes
@@ -285,7 +284,6 @@ contains
           do ipos = this%boundary_faces%ia(n), this%boundary_faces%ia(n + 1) - 1
             area = this%boundary_faces%get_area(ipos)
             normal = this%boundary_faces%get_normal(ipos)
-            cl1 = this%boundary_faces%get_cl1(ipos)
             xf = this%boundary_faces%get_xf(ipos)
 
             q = this%fmi%gwfspdis(:, n)
@@ -293,13 +291,10 @@ contains
             qnm = qn * area * this%eqnsclfac
 
             if (qnm <= DZERO) cycle
-            ! if (dabs(qnm) < DSAME) cycle
 
             ! High order flux
             grad_c = this%gradient2%get(n, cnew)
-
-            dnm = xf - xn - 0.5_dp * normal * delt * qn
-            ! dnm = normal * cl1
+            dnm = xf - xn
 
             rhs(n) = rhs(n) + qnm * dot_product(grad_c, dnm)
           end do
