@@ -22,6 +22,7 @@ module ExtendedLeastSquaredGradientModule
   end type Array2D
 
   type, extends(IGradientType) :: ExtendedLeastSquaredGradientType
+    private
     class(DisBaseType), pointer :: dis
     type(TspFmiType), pointer :: fmi
     type(Array2D), allocatable, dimension(:) :: grad_op

@@ -19,6 +19,7 @@ module LeastSquaredGradientBoundaryModule
   end type Array2D
 
   type, extends(IGradientType) :: LeastSquaredGradientBoundaryType
+    private
     class(DisBaseType), pointer :: dis
     type(TspFmiType), pointer :: fmi
     type(Array2D), allocatable, dimension(:) :: grad_op
