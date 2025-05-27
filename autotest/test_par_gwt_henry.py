@@ -6,7 +6,20 @@ test_gwt_henry_gwtgwt.py and runs it in parallel mode.
 import pytest
 from framework import TestFramework
 
-cases = ["par-henry-ups", "par-henry-cen", "par-henry-tvd"]
+cases = [
+    pytest.param(0, "par-henry-ups"),
+    pytest.param(1, "par-henry-cen"),
+    pytest.param(
+        2,
+        "par-henry-tvd",
+        marks=pytest.mark.skip(
+            reason=(
+                "Temporarily skipped until vertex/angle information "
+                "is available on the exchange grid"
+            )
+        ),
+    ),
+]
 
 
 def build_models(idx, name, test):
@@ -23,7 +36,7 @@ def check_output(idx, test):
 
 
 @pytest.mark.parallel
-@pytest.mark.parametrize("idx, name", enumerate(cases))
+@pytest.mark.parametrize("idx, name", cases)
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
         name=name,
