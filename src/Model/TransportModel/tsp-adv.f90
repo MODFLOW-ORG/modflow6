@@ -3,6 +3,7 @@ module TspAdvModule
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DONE, DZERO, DHALF, DTWO, DNODATA, DPREC, &
                              LINELENGTH, DSAME, DPI
+  use SimModule, only: store_warning
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
@@ -34,6 +35,7 @@ module TspAdvModule
   type, extends(NumericalPackageType) :: TspAdvType
 
     integer(I4B), pointer :: iadvwt => null() !< advection scheme (0 up, 1 central, 2 tvd)
+    logical :: use_high_order_sinks = .false. !< Add a correction to the sink term
     real(DP), pointer :: ats_percel => null() !< user-specified fractional number of cells advection can move a particle during one time step
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
@@ -165,6 +167,19 @@ contains
       this%face_interpolation = &
         BarthJespersenSchemeType(this%dis, this%fmi, this%gradient)
     end if
+
+    ! -- Determine if the high order sink term should be used
+    if (this%iadvwt >= 2) then
+      if (associated(this%fmi%gwfspdis)) then
+        this%use_high_order_sinks = .true.
+      else
+        call store_warning( &
+          'High order sinks cannot be applied due to missing specific '// &
+          'discharge. To use it enable the save_specific_discharge '// &
+          'flag in the NPF package.' &
+          )
+      end if
+    end if
   end subroutine adv_ar
 
   !> @brief  Calculate maximum time step length
@@ -271,7 +286,7 @@ contains
     end do
 
     ! -- Calculate and add high order flux contribution for sinks
-    if (this%iadvwt >= 2) then
+    if (this%use_high_order_sinks) then
       do ip = 1, this%fmi%nflowpack
         if (this%fmi%iatp(ip) /= 0) cycle
         do i = 1, this%fmi%gwfpackages(ip)%nbound
