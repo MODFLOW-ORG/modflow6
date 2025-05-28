@@ -1,36 +1,163 @@
+module TspAdvOutflowCorrectorModule
+  use TspFmiModule, only: TspFmiType
+  use IGradient, only: IGradientType
+  use BaseDisModule, only: DisBaseType
+  use KindModule, only: DP, I4B
+  use SimModule, only: store_warning
+  use BoundaryFacesModule, only: BoundaryFacesType
+  use ExtendedLeastSquaredGradientModule, only: ExtendedLeastSquaredGradientType
+  use ConstantsModule, only: DONE, DZERO
+
+  implicit none
+  private
+
+  public :: TspAdvOutflowCorrectorType
+
+  type TspAdvOutflowCorrectorType
+    private
+    class(DisBaseType), pointer :: dis
+    type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
+    integer(I4B), pointer :: iadvwt => null()
+    real(DP), pointer :: eqnsclfac => null()
+
+    type(BoundaryFacesType), allocatable :: boundary_faces
+    class(IGradientType), allocatable :: gradient2
+    logical :: is_initialized = .false. !< flag to indicate if the corrector is initialized
+    logical :: can_compute = .false. !< flag to indicate if the corrector can compute the outflow correction
+  contains
+    procedure :: fc !< method to calculate the outflow correction
+
+    procedure, private :: get_cell_position
+
+  end type TspAdvOutflowCorrectorType
+
+  interface TspAdvOutflowCorrectorType
+    module procedure Constructor
+  end interface TspAdvOutflowCorrectorType
+
+contains
+
+  function Constructor(dis, fmi, iadvwt, eqnsclfac) result(corrector)
+    ! -- return
+    type(TspAdvOutflowCorrectorType) :: corrector
+    ! --dummy
+    class(DisBaseType), pointer, intent(in) :: dis
+    type(TspFmiType), pointer, intent(in) :: fmi
+    integer(I4B), pointer, intent(in) :: iadvwt
+    real(DP), pointer, intent(in) :: eqnsclfac
+
+    corrector%dis => dis
+    corrector%fmi => fmi
+    corrector%iadvwt => iadvwt
+    corrector%eqnsclfac => eqnsclfac
+
+  end function Constructor
+
+  subroutine fc(this, cnew, rhs)
+    ! -- dummy
+    class(TspAdvOutflowCorrectorType) :: this
+    real(DP), intent(in), dimension(:) :: cnew
+    real(DP), dimension(:), intent(inout) :: rhs
+    ! -- local
+    integer(I4B) :: ip, n, i, ipos
+    real(DP), dimension(3) :: normal, q, grad_c, dnm, xn, xf
+    real(DP) :: area, qn, flow, qnm
+
+    ! The gwfspdis in initialized after the models are initialized. Therefore we have to
+    ! do a runtime check to see if the fmi is associated before we can use it.
+    if (.not. this%is_initialized) then
+      if (this%iadvwt >= 2 .and. associated(this%fmi%gwfspdis)) then
+        this%gradient2 = ExtendedLeastSquaredGradientType(this%dis, this%fmi)
+        this%boundary_faces = BoundaryFacesType(this%dis)
+
+        this%can_compute = .true.
+      else
+        call store_warning( &
+          'High order sinks cannot be applied due to missing specific '// &
+          'discharge. To use it enable the save_specific_discharge '// &
+          'flag in the NPF package.' &
+          )
+
+        this%can_compute = .false.
+      end if
+
+      this%is_initialized = .true.
+    end if
+
+    ! Nothing to do. Return
+    if (.not. this%can_compute) return
+
+    ! Compute the higher order terms
+    do ip = 1, this%fmi%nflowpack
+      if (this%fmi%iatp(ip) /= 0) cycle
+      do i = 1, this%fmi%gwfpackages(ip)%nbound
+        n = this%fmi%gwfpackages(ip)%nodelist(i)
+        flow = this%fmi%gwfpackages(ip)%flow(i)
+        if (n <= 0) cycle
+        if (flow >= DZERO) cycle
+
+        xn = this%get_cell_position(n)
+        do ipos = this%boundary_faces%ia(n), this%boundary_faces%ia(n + 1) - 1
+          area = this%boundary_faces%get_area(ipos)
+          normal = this%boundary_faces%get_normal(ipos)
+          xf = this%boundary_faces%get_xf(ipos)
+
+          q = this%fmi%gwfspdis(:, n)
+          qn = dot_product(q, normal)
+          qnm = qn * area * this%eqnsclfac
+
+          if (qnm <= DZERO) cycle
+
+          ! High order flux
+          grad_c = this%gradient2%get(n, cnew)
+          dnm = xf - xn
+
+          rhs(n) = rhs(n) + qnm * dot_product(grad_c, dnm)
+        end do
+        !
+      end do
+    end do
+  end subroutine fc
+
+  function get_cell_position(this, n) result(xn)
+    ! -- return
+    real(DP), dimension(3) :: xn
+    ! -- dummy
+    class(TspAdvOutflowCorrectorType) :: this
+    integer(I4B), intent(in) :: n
+    ! -- local
+
+    xn(1) = this%dis%xc(n)
+    xn(2) = this%dis%yc(n)
+    xn(3) = (this%dis%top(n) + this%dis%bot(n)) / 2.0_dp
+
+  end function get_cell_position
+
+end module TspAdvOutflowCorrectorModule
+
 module TspAdvModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DONE, DZERO, DHALF, DTWO, DNODATA, DPREC, &
-                             LINELENGTH, DSAME, DPI
+  use ConstantsModule, only: DONE, DZERO, DNODATA, DPREC, LINELENGTH
   use SimModule, only: store_warning
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
   use TspAdvOptionsModule, only: TspAdvOptionsType
-  use SVDModule, only: SVD2
   use MatrixBaseModule
-  use BoundaryFacesModule, only: BoundaryFacesType
-  use DisInfoModule, only: number_connected_faces, number_faces
   use IGradient, only: IGradientType
-  use ExtendedLeastSquaredGradientModule, only: ExtendedLeastSquaredGradientType
   use LeastSquaredGradientBoundaryModule, only: LeastSquaredGradientBoundaryType
-  use LeastSquaredGradientModule, only: LeastSquaredGradientType
-  use GreenGaussGradientModule, only: GreenGaussGradientType
   use IInterpolationSchemeModule, only: IInterpolationSchemeType, CoefficientsType
   use UpwindSchemeModule, only: UpwindSchemeType
   use CentralDifferenceSchemeModule, only: CentralDifferenceSchemeType
   use TVDSchemeModule, only: TVDSchemeType
   use BarthJespersenSchemeModule, only: BarthJespersenSchemeType
+  use TspAdvOutflowCorrectorModule, only: TspAdvOutflowCorrectorType
 
   implicit none
   private
   public :: TspAdvType
   public :: adv_cr
-
-  type Array1D
-    integer(I4B), dimension(:), allocatable :: data
-  end type Array1D
 
   type, extends(NumericalPackageType) :: TspAdvType
 
@@ -40,10 +167,10 @@ module TspAdvModule
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
     real(DP), pointer :: eqnsclfac => null() !< governing equation scale factor; =1. for solute; =rhow*cpw for energy
-    type(BoundaryFacesType), allocatable :: boundary_faces
+
     class(IInterpolationSchemeType), allocatable :: face_interpolation
     class(IGradientType), allocatable :: gradient
-    class(IGradientType), allocatable :: gradient2
+    type(TspAdvOutflowCorrectorType), allocatable :: outflow_corrector
   contains
 
     procedure :: adv_df
@@ -55,8 +182,6 @@ module TspAdvModule
 
     procedure :: allocate_scalars
     procedure, private :: read_options
-
-    procedure, private :: get_cell_position
 
   end type TspAdvType
 
@@ -141,17 +266,10 @@ contains
     this%dis => dis
     this%ibound => ibound
 
-    ! -- Create boundary Cells
-    this%boundary_faces = BoundaryFacesType(dis)
-
     ! -- Compute the gradient operator
     nodes = dis%nodes
 
-    ! this%gradient = ExtendedLeastSquaredGradientType(this%dis, this%fmi)
     this%gradient = LeastSquaredGradientBoundaryType(this%dis, this%fmi)
-    this%gradient2 = ExtendedLeastSquaredGradientType(this%dis, this%fmi)
-    ! this%gradient = LeastSquaredGradientType(this%dis, this%fmi)
-    ! this%gradient = GreenGaussGradientType(this%dis, this%fmi)
 
     ! -- Select interpolation scheme
     if (this%iadvwt == 0) then
@@ -169,17 +287,9 @@ contains
     end if
 
     ! -- Determine if the high order sink term should be used
-    if (this%iadvwt >= 2) then
-      if (associated(this%fmi%gwfspdis)) then
-        this%use_high_order_sinks = .true.
-      else
-        call store_warning( &
-          'High order sinks cannot be applied due to missing specific '// &
-          'discharge. To use it enable the save_specific_discharge '// &
-          'flag in the NPF package.' &
-          )
-      end if
-    end if
+    this%outflow_corrector = &
+      TspAdvOutflowCorrectorType(this%dis, this%fmi, this%iadvwt, this%eqnsclfac)
+
   end subroutine adv_ar
 
   !> @brief  Calculate maximum time step length
@@ -263,9 +373,6 @@ contains
     ! -- local
     integer(I4B) :: n, m, idiag, ipos
     real(DP) :: qnm
-    integer(I4B) :: ip, i
-    real(DP), dimension(3) :: normal, q, grad_c, dnm, xn, xf
-    real(DP) :: area, qn, flow
     type(CoefficientsType) :: coefficients
 
     do n = 1, nodes
@@ -277,8 +384,8 @@ contains
         if (this%dis%con%mask(ipos) == 0) cycle
 
         qnm = this%fmi%gwfflowja(ipos) * this%eqnsclfac
-
         coefficients = this%face_interpolation%compute(n, m, ipos, cnew)
+
         call matrix_sln%add_value_pos(idxglo(idiag), qnm * coefficients%c_n)
         call matrix_sln%add_value_pos(idxglo(ipos), qnm * coefficients%c_m)
         rhs(n) = rhs(n) + qnm * coefficients%rhs
@@ -286,52 +393,9 @@ contains
     end do
 
     ! -- Calculate and add high order flux contribution for sinks
-    if (this%use_high_order_sinks) then
-      do ip = 1, this%fmi%nflowpack
-        if (this%fmi%iatp(ip) /= 0) cycle
-        do i = 1, this%fmi%gwfpackages(ip)%nbound
-          n = this%fmi%gwfpackages(ip)%nodelist(i)
-          flow = this%fmi%gwfpackages(ip)%flow(i)
-          if (n <= 0) cycle
-          if (flow >= DZERO) cycle
+    call this%outflow_corrector%fc(cnew, rhs)
 
-          xn = this%get_cell_position(n)
-          do ipos = this%boundary_faces%ia(n), this%boundary_faces%ia(n + 1) - 1
-            area = this%boundary_faces%get_area(ipos)
-            normal = this%boundary_faces%get_normal(ipos)
-            xf = this%boundary_faces%get_xf(ipos)
-
-            q = this%fmi%gwfspdis(:, n)
-            qn = dot_product(q, normal)
-            qnm = qn * area * this%eqnsclfac
-
-            if (qnm <= DZERO) cycle
-
-            ! High order flux
-            grad_c = this%gradient2%get(n, cnew)
-            dnm = xf - xn
-
-            rhs(n) = rhs(n) + qnm * dot_product(grad_c, dnm)
-          end do
-          !
-        end do
-      end do
-    end if
   end subroutine adv_fc
-
-  function get_cell_position(this, n) result(xn)
-    ! -- return
-    real(DP), dimension(3) :: xn
-    ! -- dummy
-    class(TspAdvType) :: this
-    integer(I4B), intent(in) :: n
-    ! -- local
-
-    xn(1) = this%dis%xc(n)
-    xn(2) = this%dis%yc(n)
-    xn(3) = (this%dis%top(n) + this%dis%bot(n)) / 2.0_dp
-
-  end function get_cell_position
 
   !> @brief Calculate advection contribution to flowja
   !<
