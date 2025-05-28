@@ -296,8 +296,10 @@ contains
         !
         ! -- first order decay rate is a function of concentration, so add
         !    to left hand side
-        hhcof = -this%decay(n) * vcell * swtpdt * this%thetam(n)
-        call matrix_sln%add_value_pos(idxglo(idiag), hhcof)
+        if (cnew(n) > DZERO) then
+          hhcof = -this%decay(n) * vcell * swtpdt * this%thetam(n)
+          call matrix_sln%add_value_pos(idxglo(idiag), hhcof)
+        end if
       case (DECAY_ZERO_ORDER)
         !
         ! -- Call function to get zero-order decay rate, which may be changed
@@ -497,13 +499,14 @@ contains
       ! -- add sorbed mass decay rate terms to accumulators
       select case (this%idcy)
       case (DECAY_FIRST_ORDER)
-        !
         select case (this%isrb)
         case (SORPTION_LINEAR)
           !
           ! -- first order decay rate is a function of concentration, so add
           !    to left hand side
-          hhcof = -term * distcoef
+          if (cnew(n) > DZERO) then
+            hhcof = -term * distcoef
+          end if
         case (SORPTION_FREUND)
           !
           ! -- nonlinear Freundlich sorption, so add to RHS
@@ -671,7 +674,9 @@ contains
       hhcof = DZERO
       rrhs = DZERO
       if (this%idcy == DECAY_FIRST_ORDER) then
-        hhcof = -this%decay(n) * vcell * swtpdt * this%thetam(n)
+        if (cnew(n) > DZERO) then
+          hhcof = -this%decay(n) * vcell * swtpdt * this%thetam(n)
+        end if
       elseif (this%idcy == DECAY_ZERO_ORDER) then
         decay_rate = get_zero_order_decay(this%decay(n), this%decaylast(n), &
                                           0, cold(n), cnew(n), delt)
@@ -795,13 +800,16 @@ contains
       ! -- add sorbed mass decay rate terms to accumulators
       select case (this%idcy)
       case (DECAY_FIRST_ORDER)
+
         !
         select case (this%isrb)
         case (SORPTION_LINEAR)
           !
           ! -- first order decay rate is a function of concentration, so add
           !    to left hand side
-          hhcof = -term * distcoef
+          if (cnew(n) > DZERO) then
+            hhcof = -term * distcoef
+          end if
         case (SORPTION_FREUND)
           !
           ! -- nonlinear Freundlich sorption, so add to RHS
