@@ -1,0 +1,18 @@
+[sections]
+features = "NEW FUNCTIONALITY"
+fixes = "BUG FIXES AND OTHER CHANGES TO EXISTING FUNCTIONALITY"
+examples = "EXAMPLES"
+
+[subsections]
+basic = "BASIC FUNCTIONALITY"
+internal = "INTERNAL FLOW PACKAGES"
+stress = "STRESS PACKAGES"
+advanced = "ADVANCED STRESS PACKAGES"
+solution = "SOLUTION"
+exchanges = "EXCHANGES"
+parallel = "PARALLEL"
+
+[[items]]
+section = "fixes"
+subsection = "internal"
+description = "Fixed first-order decay in GWT so that production/decay does not occur when aqueous or sorbed concentration are negative."
