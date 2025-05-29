@@ -152,7 +152,7 @@ contains
     real(DP) :: flow !< Sink (outflow) rate for the boundary cell
     real(DP) :: qnm !< Outflow through the face (scaled by area and eqnsclfac)
 
-    if (package%naux > 0) return
+    if (has_aux(package)) return
 
     do i = 1, package%nbound
       n = package%nodelist(i)
@@ -187,6 +187,20 @@ contains
       end do
     end do
   end subroutine apply_correction_for_package
+
+  function has_aux(package) result(res)
+    ! -- return
+    logical :: res
+    ! -- dummy
+    type(PackageBudgetType), pointer :: package
+
+    res = .false.
+
+    if (.not. associated(package%naux)) return
+    if (package%naux == 0) return
+
+    res = .true.
+  end function has_aux
 
   function get_cell_position(this, n) result(xn)
     ! -- return
