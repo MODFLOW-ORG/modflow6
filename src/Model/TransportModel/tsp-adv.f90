@@ -7,6 +7,7 @@ module TspAdvOutflowCorrectorModule
   use BoundaryFacesModule, only: BoundaryFacesType
   use ExtendedLeastSquaredGradientModule, only: ExtendedLeastSquaredGradientType
   use ConstantsModule, only: DONE, DZERO
+  use PackageBudgetModule, only: PackageBudgetType
 
   implicit none
   private
@@ -62,6 +63,7 @@ contains
     integer(I4B) :: ip, n, i, ipos
     real(DP), dimension(3) :: normal, q, grad_c, dnm, xn, xf
     real(DP) :: area, qn, flow, qnm
+    type(PackageBudgetType), pointer :: package
 
     ! The gwfspdis in initialized after the models are initialized. Therefore we have to
     ! do a runtime check to see if the fmi is associated before we can use it.
@@ -89,10 +91,15 @@ contains
 
     ! Compute the higher order terms
     do ip = 1, this%fmi%nflowpack
+      package => this%fmi%gwfpackages(ip)
       if (this%fmi%iatp(ip) /= 0) cycle
-      do i = 1, this%fmi%gwfpackages(ip)%nbound
-        n = this%fmi%gwfpackages(ip)%nodelist(i)
-        flow = this%fmi%gwfpackages(ip)%flow(i)
+      ! If there is an auxiliary variable, then the concentration may be fixed in the cell,
+      ! so we cannot use the high order correction
+      if (package%naux > 0) cycle
+
+      do i = 1, package%nbound
+        n = package%nodelist(i)
+        flow = package%flow(i)
         if (n <= 0) cycle
         if (flow >= DZERO) cycle
 
