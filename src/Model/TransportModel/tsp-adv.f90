@@ -2,30 +2,35 @@ module TspAdvModule
 
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DONE, DZERO, DNODATA, DPREC, LINELENGTH
-  use SimModule, only: store_warning
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
   use TspAdvOptionsModule, only: TspAdvOptionsType
-  use MatrixBaseModule
+  use MatrixBaseModule, only: MatrixBaseType
+  use TspAdvOutflowCorrectorModule, only: TspAdvOutflowCorrectorType
+  ! -- Gradient schemes
   use IGradient, only: IGradientType
   use LeastSquaredGradientBoundaryModule, only: LeastSquaredGradientBoundaryType
+  ! -- Interpolation schemes
   use IInterpolationSchemeModule, only: IInterpolationSchemeType, CoefficientsType
   use UpwindSchemeModule, only: UpwindSchemeType
   use CentralDifferenceSchemeModule, only: CentralDifferenceSchemeType
   use TVDSchemeModule, only: TVDSchemeType
   use BarthJespersenSchemeModule, only: BarthJespersenSchemeType
-  use TspAdvOutflowCorrectorModule, only: TspAdvOutflowCorrectorType
 
   implicit none
   private
   public :: TspAdvType
   public :: adv_cr
 
-  type, extends(NumericalPackageType) :: TspAdvType
+  ! Advection scheme codes
+  integer(I4B), parameter :: ADV_SCHEME_UPSTREAM = 0
+  integer(I4B), parameter :: ADV_SCHEME_CENTRAL = 1
+  integer(I4B), parameter :: ADV_SCHEME_TVD = 2
+  integer(I4B), parameter :: ADV_SCHEME_BARTH = 3
 
-    integer(I4B), pointer :: iadvwt => null() !< advection scheme (0 up, 1 central, 2 tvd)
-    logical :: use_high_order_sinks = .false. !< Add a correction to the sink term
+  type, extends(NumericalPackageType) :: TspAdvType
+    integer(I4B), pointer :: iadvwt => null() !< advection scheme. See ADV_SCHEME_* constants
     real(DP), pointer :: ats_percel => null() !< user-specified fractional number of cells advection can move a particle during one time step
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
@@ -122,34 +127,33 @@ contains
     class(DisBaseType), pointer, intent(in) :: dis
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: ibound
     ! -- local
-    integer(I4B) :: nodes
-    ! -- formats
     !
     ! -- adv pointers to arguments that were passed in
     this%dis => dis
     this%ibound => ibound
-
+    !
     ! -- Compute the gradient operator
-    nodes = dis%nodes
-
     this%gradient = LeastSquaredGradientBoundaryType(this%dis, this%fmi)
-
-    ! -- Select interpolation scheme
-    if (this%iadvwt == 0) then
+    !
+    ! -- Create interpolation scheme
+    select case (this%iadvwt)
+    case (ADV_SCHEME_UPSTREAM)
       this%face_interpolation = &
         UpwindSchemeType(this%dis, this%fmi, this%gradient)
-    elseif (this%iadvwt == 1) then
+    case (ADV_SCHEME_CENTRAL)
       this%face_interpolation = &
         CentralDifferenceSchemeType(this%dis, this%fmi, this%gradient)
-    elseif (this%iadvwt == 2) then
+    case (ADV_SCHEME_TVD)
       this%face_interpolation = &
         TVDSchemeType(this%dis, this%fmi, this%gradient)
-    elseif (this%iadvwt == 3) then
+    case (ADV_SCHEME_BARTH)
       this%face_interpolation = &
         BarthJespersenSchemeType(this%dis, this%fmi, this%gradient)
-    end if
-
-    ! -- Determine if the high order sink term should be used
+    case default
+      error stop "Unknown advection scheme"
+    end select
+    !
+    ! -- Create outflow corrector
     this%outflow_corrector = &
       TspAdvOutflowCorrectorType(this%dis, this%fmi, this%iadvwt, this%eqnsclfac)
 
@@ -227,24 +231,25 @@ contains
   subroutine adv_fc(this, nodes, matrix_sln, idxglo, cnew, rhs)
     ! -- modules
     ! -- dummy
-    class(TspAdvType) :: this
-    integer, intent(in) :: nodes
-    class(MatrixBaseType), pointer :: matrix_sln
-    integer(I4B), intent(in), dimension(:) :: idxglo
-    real(DP), intent(in), dimension(:) :: cnew
-    real(DP), dimension(:), intent(inout) :: rhs
+    class(TspAdvType) :: this !< this instance
+    integer(I4B), intent(in) :: nodes !< number of nodes
+    class(MatrixBaseType), pointer :: matrix_sln !< pointer to solution matrix
+    integer(I4B), intent(in), dimension(:) :: idxglo !< global indices for matrix
+    real(DP), intent(in), dimension(:) :: cnew !< new concentration/temperature values
+    real(DP), dimension(:), intent(inout) :: rhs !< right-hand side vector
     ! -- local
     integer(I4B) :: n, m, idiag, ipos
-    real(DP) :: qnm
+    real(DP) :: qnm !< volumetric flow rate
     type(CoefficientsType) :: coefficients
 
+    ! Calculate internal domain fluxes and add to matrix_sln and rhs.
     do n = 1, nodes
-      if (this%ibound(n) == 0) cycle
+      if (this%ibound(n) == 0) cycle !<-- skip inactive nodes
       idiag = this%dis%con%ia(n)
       do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
         m = this%dis%con%ja(ipos)
-        if (this%ibound(m) == 0) cycle
-        if (this%dis%con%mask(ipos) == 0) cycle
+        if (this%ibound(m) == 0) cycle !<-- skip inactive nodes
+        if (this%dis%con%mask(ipos) == 0) cycle !<-- skip masked connections
 
         qnm = this%fmi%gwfflowja(ipos) * this%eqnsclfac
         coefficients = this%face_interpolation%compute(n, m, ipos, cnew)
@@ -377,16 +382,16 @@ contains
           call this%parser%GetStringCaps(keyword)
           select case (keyword)
           case ('UPSTREAM')
-            this%iadvwt = 0
+            this%iadvwt = ADV_SCHEME_UPSTREAM
             write (this%iout, fmtiadvwt) 'UPSTREAM'
           case ('CENTRAL')
-            this%iadvwt = 1
+            this%iadvwt = ADV_SCHEME_CENTRAL
             write (this%iout, fmtiadvwt) 'CENTRAL'
           case ('TVD')
-            this%iadvwt = 2
+            this%iadvwt = ADV_SCHEME_TVD
             write (this%iout, fmtiadvwt) 'TVD'
           case ('BARTH')
-            this%iadvwt = 3
+            this%iadvwt = ADV_SCHEME_BARTH
             write (this%iout, fmtiadvwt) 'BARTH'
           case default
             write (errmsg, '(a, a)') &
