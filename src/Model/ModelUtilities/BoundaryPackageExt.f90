@@ -32,7 +32,8 @@ module BndExtModule
     ! -- scalars
     integer(I4B), pointer :: iper
     ! -- arrays
-    integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null()
+    integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null() !< input user cellid list
+    integer(I4B), dimension(:), pointer, contiguous :: nodeulist => null() !< input user nodelist
   contains
     procedure :: bnd_df => bndext_df
     procedure :: bnd_rp => bndext_rp
@@ -163,6 +164,7 @@ contains
     !
     ! -- deallocate checkin paths
     call mem_deallocate(this%cellid, 'CELLID', this%memoryPath)
+    call mem_deallocate(this%nodeulist, 'NODEULIST', this%memoryPath)
     call mem_deallocate(this%boundname_cst, 'BOUNDNAME_IDM', this%memoryPath)
     call mem_deallocate(this%auxvar, 'AUXVAR_IDM', this%memoryPath)
     !
@@ -226,11 +228,14 @@ contains
     !
     ! -- set input context pointers
     call mem_setptr(this%cellid, 'CELLID', this%input_mempath)
+    call mem_setptr(this%nodeulist, 'NODEULIST', this%input_mempath)
     call mem_setptr(this%boundname_cst, 'BOUNDNAME', this%input_mempath)
     !
     ! -- checkin input context pointers
     call mem_checkin(this%cellid, 'CELLID', this%memoryPath, &
                      'CELLID', this%input_mempath)
+    call mem_checkin(this%nodeulist, 'NODEULIST', this%memoryPath, &
+                     'NODEULIST', this%input_mempath)
     call mem_checkin(this%boundname_cst, LENBOUNDNAME, 'BOUNDNAME_IDM', &
                      this%memoryPath, 'BOUNDNAME', this%input_mempath)
     !

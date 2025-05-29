@@ -26,7 +26,7 @@ module LoadMf6FileModule
   use InputDefinitionModule, only: InputParamDefinitionType
   use DefinitionSelectModule, only: get_param_definition_type, &
                                     get_aggregate_definition_type
-  use ModflowInputModule, only: ModflowInputType, getModflowInput
+  use ModflowInputModule, only: ModflowInputType
   use MemoryManagerModule, only: mem_allocate, mem_setptr
   use MemoryHelperModule, only: create_mem_path
   use StructArrayModule, only: StructArrayType

@@ -9,7 +9,7 @@ module Mf6FileStoInputModule
   use ConstantsModule, only: LINELENGTH
   use InputDefinitionModule, only: InputParamDefinitionType
   use MemoryManagerModule, only: mem_setptr, mem_allocate
-  use ModflowInputModule, only: ModflowInputType, getModflowInput
+  use ModflowInputModule, only: ModflowInputType
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
 
   implicit none

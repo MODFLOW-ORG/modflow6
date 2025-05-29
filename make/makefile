@@ -173,6 +173,7 @@ $(OBJDIR)/gwf-npfidm.o \
 $(OBJDIR)/gwf-namidm.o \
 $(OBJDIR)/gwf-icidm.o \
 $(OBJDIR)/gwf-ghbidm.o \
+$(OBJDIR)/gwf-ghbaidm.o \
 $(OBJDIR)/gwf-evtidm.o \
 $(OBJDIR)/gwf-evtaidm.o \
 $(OBJDIR)/gwf-drnidm.o \
@@ -287,7 +288,6 @@ $(OBJDIR)/SfrCrossSectionUtils.o \
 $(OBJDIR)/TernarySolveTrack.o \
 $(OBJDIR)/SubcellTri.o \
 $(OBJDIR)/Method.o \
-$(OBJDIR)/MethodCell.o \
 $(OBJDIR)/SubcellRect.o \
 $(OBJDIR)/VirtualBase.o \
 $(OBJDIR)/STLVecInt.o \
@@ -314,10 +314,12 @@ $(OBJDIR)/mf6lists.o \
 $(OBJDIR)/gwf-lak.o \
 $(OBJDIR)/GwfVscInputData.o \
 $(OBJDIR)/gwf-ghb.o \
+$(OBJDIR)/gwf-ghba.o \
 $(OBJDIR)/gwf-drn.o \
 $(OBJDIR)/IndexMap.o \
 $(OBJDIR)/ArrayReaderBase.o \
 $(OBJDIR)/MethodSubcellPool.o \
+$(OBJDIR)/MethodCell.o \
 $(OBJDIR)/CellPoly.o \
 $(OBJDIR)/CellRectQuad.o \
 $(OBJDIR)/CellRect.o \
@@ -471,8 +473,9 @@ $(OBJDIR)/NumericalSolution.o \
 $(OBJDIR)/MappedMemory.o \
 $(OBJDIR)/NCModel.o \
 $(OBJDIR)/Mf6FileStoInput.o \
-$(OBJDIR)/Mf6FileListInput.o \
-$(OBJDIR)/Mf6FileGridInput.o \
+$(OBJDIR)/Mf6FileList.o \
+$(OBJDIR)/Mf6FileLayerArray.o \
+$(OBJDIR)/Mf6FileGridArray.o \
 $(OBJDIR)/prt.o \
 $(OBJDIR)/olf.o \
 $(OBJDIR)/chf.o \
