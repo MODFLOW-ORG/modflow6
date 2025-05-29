@@ -296,7 +296,9 @@ $(OBJDIR)/VirtualBase.o \
 $(OBJDIR)/STLVecInt.o \
 $(OBJDIR)/BaseModel.o \
 $(OBJDIR)/PrintSaveManager.o \
+$(OBJDIR)/tsp-fmi.o \
 $(OBJDIR)/SVD.o \
+$(OBJDIR)/IGradient.o \
 $(OBJDIR)/DisInfo.o \
 $(OBJDIR)/SfrCrossSectionManager.o \
 $(OBJDIR)/dag_module.o \
@@ -309,9 +311,8 @@ $(OBJDIR)/SimStages.o \
 $(OBJDIR)/NumericalModel.o \
 $(OBJDIR)/OutputControlData.o \
 $(OBJDIR)/gwf-ic.o \
-$(OBJDIR)/tsp-fmi.o \
 $(OBJDIR)/IInterpolationScheme.o \
-$(OBJDIR)/IGradient.o \
+$(OBJDIR)/ExtendedLeastSquaredGradient.o \
 $(OBJDIR)/BoundaryFaces.o \
 $(OBJDIR)/UzfEtUtil.o \
 $(OBJDIR)/Xt3dAlgorithm.o \
@@ -340,11 +341,9 @@ $(OBJDIR)/OutputControl.o \
 $(OBJDIR)/tsp-ic.o \
 $(OBJDIR)/UpwindScheme.o \
 $(OBJDIR)/TVDScheme.o \
+$(OBJDIR)/TspAdvOutflowCorrector.o \
 $(OBJDIR)/TspAdvOptions.o \
-$(OBJDIR)/LeastSquaredGradient.o \
 $(OBJDIR)/LeastSquaredGradientBoundary.o \
-$(OBJDIR)/GreenGaussGradient.o \
-$(OBJDIR)/ExtendedLeastSquaredGradient.o \
 $(OBJDIR)/CentralDifferenceScheme.o \
 $(OBJDIR)/BarthJespersenScheme.o \
 $(OBJDIR)/UzfCellGroup.o \
@@ -534,6 +533,8 @@ $(OBJDIR)/sparsekit.o \
 $(OBJDIR)/rcm.o \
 $(OBJDIR)/blas1_d.o \
 $(OBJDIR)/Iunit.o \
+$(OBJDIR)/LeastSquaredGradient.o \
+$(OBJDIR)/GreenGaussGradient.o \
 $(OBJDIR)/GwfSfrCommon.o \
 $(OBJDIR)/gwf-sfr-transient.o \
 $(OBJDIR)/gwf-sfr-steady.o \

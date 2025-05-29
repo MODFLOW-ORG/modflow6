@@ -258,6 +258,7 @@ modflow_sources = files(
     'Model' / 'ModelUtilities' / 'SpdisWorkArray.f90',
     'Model' / 'ModelUtilities' / 'SwfCxsUtils.f90',
     'Model' / 'ModelUtilities' / 'TspAdvOptions.f90',
+    'Model' / 'ModelUtilities' / 'TspAdvOutflowCorrector.f90',
     'Model' / 'ModelUtilities' / 'TspSpc.f90',
     'Model' / 'ModelUtilities' / 'TimeSelect.f90',
     'Model' / 'ModelUtilities' / 'TimeStepSelect.f90',
