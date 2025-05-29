@@ -122,11 +122,13 @@ contains
   !<
   subroutine adv_ar(this, dis, ibound)
     ! -- modules
+    use SimModule, only: store_error
     ! -- dummy
     class(TspAdvType) :: this
     class(DisBaseType), pointer, intent(in) :: dis
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: ibound
     ! -- local
+    integer(I4B) :: iadvwt_value
     !
     ! -- adv pointers to arguments that were passed in
     this%dis => dis
@@ -136,21 +138,22 @@ contains
     this%gradient = LeastSquaredGradientBoundaryType(this%dis, this%fmi)
     !
     ! -- Create interpolation scheme
-    select case (this%iadvwt)
-    case (ADV_SCHEME_UPSTREAM)
-      this%face_interpolation = &
-        UpwindSchemeType(this%dis, this%fmi, this%gradient)
-    case (ADV_SCHEME_CENTRAL)
-      this%face_interpolation = &
-        CentralDifferenceSchemeType(this%dis, this%fmi, this%gradient)
-    case (ADV_SCHEME_TVD)
-      this%face_interpolation = &
-        TVDSchemeType(this%dis, this%fmi, this%gradient)
-    case (ADV_SCHEME_BARTH)
-      this%face_interpolation = &
-        BarthJespersenSchemeType(this%dis, this%fmi, this%gradient)
-    case default
-      error stop "Unknown advection scheme"
+    iadvwt_value = this%iadvwt ! Dereference iadvwt to work with case statement
+    select case (iadvwt_value)
+      case (ADV_SCHEME_UPSTREAM)
+        this%face_interpolation = &
+          UpwindSchemeType(this%dis, this%fmi, this%gradient)
+      case (ADV_SCHEME_CENTRAL)
+        this%face_interpolation = &
+          CentralDifferenceSchemeType(this%dis, this%fmi, this%gradient)
+      case (ADV_SCHEME_TVD)
+        this%face_interpolation = &
+          TVDSchemeType(this%dis, this%fmi, this%gradient)
+      case (ADV_SCHEME_BARTH)
+        this%face_interpolation = &
+          BarthJespersenSchemeType(this%dis, this%fmi, this%gradient)
+      case default
+        call store_error("Unknown advection scheme" , terminate=.TRUE.)
     end select
     !
     ! -- Create outflow corrector
