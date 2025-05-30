@@ -1,6 +1,6 @@
 # Distributing MODFLOW 6
 
-This document describes release procedures for MODFLOW 6. This folder contains scripts to automate MODFLOW 6 distribution tasks.
+This document describes release procedures for MODFLOW 6.
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
