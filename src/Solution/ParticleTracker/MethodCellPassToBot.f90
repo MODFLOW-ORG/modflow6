@@ -43,7 +43,7 @@ contains
 
   !> @brief Pass particle vertically and instantaneously to the cell bottom
   subroutine apply_ptb(this, particle, tmax)
-    use ParticleModule, only: TERM_NO_EXITS
+    use ParticleModule, only: TERM_NO_EXITS, LVL_CELL
     ! dummy
     class(MethodCellPassToBotType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -57,7 +57,7 @@ contains
 
     ! Pass to bottom face
     particle%z = this%cell%defn%bot
-    particle%iboundary(2) = this%cell%defn%npolyverts + 2
+    particle%iboundary(LVL_CELL) = this%cell%defn%npolyverts + 2
 
     ! Terminate if in bottom layer
     select type (dis => this%fmi%dis)
