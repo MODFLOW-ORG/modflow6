@@ -37,7 +37,7 @@ runs:
         sudo apt-get update
         sudo apt-get install build-essential \
           libnetcdf-dev \
-          libnetcdff-dev=4.6.1 \
+          libnetcdff-dev=4.6.0 \
           netcdf-bin
         nc-config --all
         nf-config --all
