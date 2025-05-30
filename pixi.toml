@@ -108,7 +108,7 @@ autotest = { cmd = "pytest -v -n auto --durations 0 --keep-failed .failed", cwd 
 
 # common developer tasks
 update-fortran-definitions = { cmd = "cat dfns.txt | xargs python scripts/dfn2f90.py", cwd = "utils/idmloader" }
-update-flopy = { cmd = "python update_flopy.py", cwd = "autotest" }
+update-flopy = "python -m flopy.mf6.utils.generate_classes --dfnpath doc/mf6io/mf6ivar/dfn"
 build-makefiles = { cmd = "python build_makefiles.py", cwd = "distribution" }
 run-mf6ivar = { cmd = "python mf6ivar.py", cwd = "doc/mf6io/mf6ivar" }
 prepare-pull-request = {depends-on = ["fix-style", "fix-python-style", "build-makefiles", "run-mf6ivar", "update-fortran-definitions"]}
