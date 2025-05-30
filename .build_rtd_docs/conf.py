@@ -91,6 +91,11 @@ src = os.path.join("..", fpth)
 dst = os.path.join(dstdir, fpth)
 shutil.copy(src, dst)
 
+fpth = "IDM.md"
+src = os.path.join("..", "utils", "idmloader", fpth)
+dst = os.path.join(dstdir, fpth)
+shutil.copy(src, dst)
+
 dstdir = "_migration"
 if os.path.isdir(dstdir):
     shutil.rmtree(dstdir)
