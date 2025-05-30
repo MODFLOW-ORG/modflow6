@@ -24,7 +24,7 @@ module DnmDis3dModule
     double precision                            :: gridYmin = DZERO
     double precision, dimension(:), allocatable :: delr
     double precision, dimension(:), allocatable :: delc
-    integer,      dimension(:,:,:), allocatable :: idomain
+    integer,      dimension(:), allocatable :: idomain
   contains
     procedure :: dis_df => dis3d_df
     procedure :: dis_da => dis3d_da
@@ -293,7 +293,7 @@ module DnmDis3dModule
 !    double precision, dimension(:),     allocatable  :: delr
 !    double precision, dimension(:),     allocatable  :: delc
     double precision, dimension(:,:,:), allocatable  :: botm
-!    integer,          dimension(:,:,:), allocatable  :: idomain
+    integer,          dimension(:,:,:), allocatable  :: idomain
     character(len=LINELENGTH) :: keyword
     integer :: lloc, istart, istop, n, node, noder, i, j, k
     integer :: ierr, ival
@@ -324,9 +324,10 @@ module DnmDis3dModule
     ! -- Allocate temporary arrays used in this subroutine
     allocate(this%delr(this%ncol))
     allocate(this%delc(this%nrow))
-    allocate(this%idomain(this%ncol, this%nrow, this%nlay))
-    allocate(botm(this%ncol, this%nrow, 0:this%nlay))
     this%nodesuser = this%nlay * this%nrow * this%ncol
+    allocate(idomain(this%ncol, this%nrow, this%nlay))
+    allocate(this%idomain(this%nodesuser))
+    allocate(botm(this%ncol, this%nrow, 0:this%nlay))
     !
     ! --Read GRIDDATA block
     call this%parser%GetBlock('GRIDDATA', isfound, ierr, supportOpenClose=.true.)
@@ -363,10 +364,11 @@ module DnmDis3dModule
           call this%parser%GetStringCaps(keyword)
           if (keyword.EQ.'LAYERED') then
             call ReadArray(this%inunit, this%iout, this%nlay, this%nrow,        &
-                           this%ncol, this%nodesuser, this%idomain(:, :, :),         &
+                           this%ncol, this%nodesuser, idomain(:, :, :),         &
                            aname(5))
+            this%idomain = reshape(idomain, [this%nodesuser])
           else
-            call ReadArray(this%idomain(:, :, :), aname(5), this%nodesuser,          &
+            call ReadArray(idomain, aname(5), this%nodesuser,          &
                         this%inunit, this%iout)
           end if
           lname(5) = .true.
@@ -401,22 +403,14 @@ module DnmDis3dModule
     ! -- If IDOMAIN was not read, then set all values to 1, otherwise
     !    count active cells
     if(.not. lname(5)) then
-      do k = 1, this%nlay
-        do i = 1, this%nrow
-          do j = 1, this%ncol
-            this%idomain(j, i, k) = 1
-          enddo
-        enddo
+      do node = 1, this%nodesuser
+        this%idomain(node) = 1
       enddo
       this%nodes = this%nodesuser
     else
       this%nodes = 0
-      do k = 1, this%nlay
-        do i = 1, this%nrow
-          do j = 1, this%ncol
-            if(this%idomain(j, i, k) > 0) this%nodes = this%nodes + 1
-          enddo
-        enddo
+      do node = 1, this%nodesuser
+        if(this%idomain(node) > 0) this%nodes = this%nodes + 1
       enddo
     endif
     !
@@ -424,8 +418,9 @@ module DnmDis3dModule
     do k = 1, this%nlay
       do i = 1, this%nrow
         do j = 1, this%ncol
-          if (this%idomain(j, i, k) == 0) cycle
-          if (this%idomain(j, i, k) > 0) then
+          node = get_node(k, i, j, this%nlay, this%nrow, this%ncol)
+          if (this%idomain(node) == 0) cycle
+          if (this%idomain(node) > 0) then
             dz = botm(j, i, k - 1) - botm(j, i, k)
             if (dz <= DZERO) then
               write(ermsg, fmt=fmtdz) k, i, j, botm(j, i, k - 1), botm(j, i, k)
@@ -455,10 +450,10 @@ module DnmDis3dModule
       do k = 1, this%nlay
         do i = 1, this%nrow
           do j = 1, this%ncol
-            if(this%idomain(j, i, k) > 0) then
+            if(this%idomain(node) > 0) then
               this%nodereduced(node) = noder
               noder = noder + 1
-            elseif(this%idomain(j, i, k) < 0) then
+            elseif(this%idomain(node) < 0) then
               this%nodereduced(node) = -1
             else
               this%nodereduced(node) = 0
@@ -476,7 +471,7 @@ module DnmDis3dModule
       do k = 1, this%nlay
         do i = 1, this%nrow
           do j = 1, this%ncol
-            if(this%idomain(j, i, k) > 0) then
+            if(this%idomain(node) > 0) then
               this%nodeuser(noder) = node
               noder = noder + 1
             endif
