@@ -140,20 +140,20 @@ contains
     ! -- Create interpolation scheme
     iadvwt_value = this%iadvwt ! Dereference iadvwt to work with case statement
     select case (iadvwt_value)
-      case (ADV_SCHEME_UPSTREAM)
-        this%face_interpolation = &
-          UpwindSchemeType(this%dis, this%fmi, this%gradient)
-      case (ADV_SCHEME_CENTRAL)
-        this%face_interpolation = &
-          CentralDifferenceSchemeType(this%dis, this%fmi, this%gradient)
-      case (ADV_SCHEME_TVD)
-        this%face_interpolation = &
-          TVDSchemeType(this%dis, this%fmi, this%gradient)
-      case (ADV_SCHEME_BARTH)
-        this%face_interpolation = &
-          BarthJespersenSchemeType(this%dis, this%fmi, this%gradient)
-      case default
-        call store_error("Unknown advection scheme" , terminate=.TRUE.)
+    case (ADV_SCHEME_UPSTREAM)
+      this%face_interpolation = &
+        UpwindSchemeType(this%dis, this%fmi, this%gradient)
+    case (ADV_SCHEME_CENTRAL)
+      this%face_interpolation = &
+        CentralDifferenceSchemeType(this%dis, this%fmi, this%gradient)
+    case (ADV_SCHEME_TVD)
+      this%face_interpolation = &
+        TVDSchemeType(this%dis, this%fmi, this%gradient)
+    case (ADV_SCHEME_BARTH)
+      this%face_interpolation = &
+        BarthJespersenSchemeType(this%dis, this%fmi, this%gradient)
+    case default
+      call store_error("Unknown advection scheme", terminate=.TRUE.)
     end select
     !
     ! -- Create outflow corrector
