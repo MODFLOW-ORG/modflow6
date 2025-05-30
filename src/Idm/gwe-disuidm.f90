@@ -23,6 +23,7 @@ module GweDisuInputModule
     logical :: angrot = .false.
     logical :: voffsettol = .false.
     logical :: export_ascii = .false.
+    logical :: crs = .false.
     logical :: nodes = .false.
     logical :: nja = .false.
     logical :: nvert = .false.
@@ -248,6 +249,24 @@ module GweDisuInputModule
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwedisu_crs = InputParamDefinitionType &
+    ( &
+    'GWE', & ! component
+    'DISU', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -644,6 +663,7 @@ module GweDisuInputModule
     gwedisu_angrot, &
     gwedisu_voffsettol, &
     gwedisu_export_ascii, &
+    gwedisu_crs, &
     gwedisu_nodes, &
     gwedisu_nja, &
     gwedisu_nvert, &

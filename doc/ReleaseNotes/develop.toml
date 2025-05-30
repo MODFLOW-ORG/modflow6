@@ -16,3 +16,8 @@ parallel = "PARALLEL"
 section = "fixes"
 subsection = "internal"
 description = "Fixed first-order decay in GWT so that production/decay does not occur when aqueous or sorbed concentration are negative."
+
+[[items]]
+section = "features"
+subsection = "basic"
+description = "Add a discretization text input option CRS for a real-world model coordinate reference system, for example, an EPSG integer code, authority string, or Open Geospatial Consortium Well-Known Text (WKT) specification. The entry for CRS does not affect the model simulation, but it is written to a version 2 binary grid file so that postprocessors can locate the grid in space."
