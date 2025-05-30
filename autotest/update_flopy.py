@@ -23,16 +23,6 @@ def test_delete_mf6():
     delete_files(files, pth, exclude="mfsimulation.py")
 
 
-@pytest.mark.order(after="test_delete_mf6")
-def test_delete_dfn():
-    pth = os.path.join(fpy_path, "mf6", "data", "dfn")
-    files = [
-        entry for entry in os.listdir(pth) if os.path.isfile(os.path.join(pth, entry))
-    ]
-    delete_files(files, pth, exclude="flopy.dfn")
-
-
-@pytest.mark.order(after="test_delete_dfn")
 @pytest.mark.parametrize("path", [dfn_path])
 def test_copy_dfn(path):
     files = [
@@ -89,7 +79,7 @@ def list_files(pth, exts=["py"]):
             print(f"    {idx:5d} - {fn}")
 
 
-def delete_files(files, pth, allow_failure=False, exclude=None):
+def delete_files(files, pth, exclude=None):
     if exclude is None:
         exclude = []
     else:
@@ -105,9 +95,6 @@ def delete_files(files, pth, allow_failure=False, exclude=None):
             os.remove(fpth)
         except:
             print(f"could not remove...{fn}")
-            if not allow_failure:
-                return False
-    return True
 
 
 if __name__ == "__main__":
@@ -119,6 +106,5 @@ if __name__ == "__main__":
     print(f"Updating flopy packages from DFN files in: {path}")
 
     test_delete_mf6()
-    test_delete_dfn()
     test_copy_dfn(path)
     test_create_packages()
