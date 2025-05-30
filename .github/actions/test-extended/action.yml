@@ -46,7 +46,9 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        brew install netcdf-fortran@4.6.1
+        brew tap-new $USER/oldformulae || true
+        brew extract --version=4.6.1 netcdf-fortran $USER/oldformulae || true
+        brew install $USER/oldformulae/netcdf-fortran@4.6.1
         nc-config --all
         nf-config --all
 
