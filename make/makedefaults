@@ -57,11 +57,11 @@ OPTLEVEL ?= -O2
 # set the fortran flags
 ifeq ($(detected_OS), Windows)
 	ifeq ($(FC), gfortran)
-		FFLAGS ?= -static -fbacktrace -ffpe-summary=overflow -ffpe-trap=overflow,zero,invalid -fall-intrinsics -pedantic -Wcharacter-truncation $(OS_macro) -Wtabs -Wline-truncation -Wunused-label -Wunused-variable -std=f2008 -cpp
+		FFLAGS ?= -static -fbacktrace -ffpe-summary=overflow -ffpe-trap=overflow,zero,invalid -fall-intrinsics -pedantic -Wcharacter-truncation $(OS_macro) -Wtabs -Wline-truncation -Wunused-label -Wunused-variable -std=f2018 -cpp
 	endif
 else
 	ifeq ($(FC), gfortran)
-		FFLAGS ?= -fbacktrace -ffpe-summary=overflow -ffpe-trap=overflow,zero,invalid -fall-intrinsics -pedantic -Wcharacter-truncation $(OS_macro) -Wtabs -Wline-truncation -Wunused-label -Wunused-variable -std=f2008 -cpp
+		FFLAGS ?= -fbacktrace -ffpe-summary=overflow -ffpe-trap=overflow,zero,invalid -fall-intrinsics -pedantic -Wcharacter-truncation $(OS_macro) -Wtabs -Wline-truncation -Wunused-label -Wunused-variable -std=f2018 -cpp
 	endif
 	ifeq ($(FC), $(filter $(FC), ifort mpiifort))
 		FFLAGS ?= -no-heap-arrays -fpe0 -traceback -Qdiag-disable:7416 -Qdiag-disable:7025 -Qdiag-disable:5268 -fpp

@@ -106,7 +106,14 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt, filename=f"{gwfname}.ic")
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=laytyp, k=hk, k33=hk)
+    npf = flopy.mf6.ModflowGwfnpf(
+        gwf,
+        save_flows=False,
+        icelltype=laytyp,
+        k=hk,
+        k33=hk,
+        save_specific_discharge=True,
+    )
     # storage
     # sto = flopy.mf6.ModflowGwfsto(gwf, save_flows=False,
     #                              iconvert=laytyp[idx],
