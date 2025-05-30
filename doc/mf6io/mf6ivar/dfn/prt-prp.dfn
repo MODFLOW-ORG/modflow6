@@ -177,7 +177,7 @@ tagged true
 optional true
 longname
 description
-removed 6.6.1
+removed 6.6.0
 
 block options
 name release_times
@@ -188,7 +188,7 @@ tagged true
 shape
 longname
 description keyword indicating release times will follow
-removed 6.6.1
+removed 6.6.0
 
 block options
 name times
@@ -200,7 +200,7 @@ tagged false
 repeating true
 longname release times
 description times to release, relative to the beginning of the simulation.  RELEASE\_TIMES and RELEASE\_TIMESFILE are mutually exclusive.
-removed 6.6.1
+removed 6.6.0
 
 block options
 name release_timesfilerecord
@@ -211,7 +211,7 @@ tagged true
 optional true
 longname
 description
-removed 6.6.1
+removed 6.6.0
 
 block options
 name release_timesfile
@@ -222,7 +222,7 @@ tagged true
 shape
 longname
 description keyword indicating release times file name will follow
-removed 6.6.1
+removed 6.6.0
 
 block options
 name timesfile
@@ -235,7 +235,7 @@ tagged false
 optional false
 longname file keyword
 description name of the release times file.  RELEASE\_TIMES and RELEASE\_TIMESFILE are mutually exclusive.
-removed 6.6.1
+removed 6.6.0
 
 block options
 name dry_tracking_method
