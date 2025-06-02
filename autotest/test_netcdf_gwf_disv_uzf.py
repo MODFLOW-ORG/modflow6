@@ -1,7 +1,7 @@
 """
 NetCDF test version of test_gwf_disv_uzf.  The primary aim is to test
-that GHBA package NetCDF array input (bhead and cond) gives the same
-results as test_gwf_disv_uzf list based (GHB) and array based (GHBA)
+that GHBG package NetCDF array input (bhead and cond) gives the same
+results as test_gwf_disv_uzf list based (GHB) and array based (GHBG)
 ascii input runs.  This test compares heads in the the NetCDF file to
 those in the FloPy binary output head file.
 """
@@ -35,7 +35,7 @@ def build_models(idx, test):
 
     sim, mc = build(idx, test)
     gwf = mc.gwf[0]
-    gwf.get_package("GHBA_0").export_array_netcdf = True
+    gwf.get_package("GHBG_0").export_array_netcdf = True
 
     name = cases[idx]
 
@@ -50,7 +50,7 @@ def check_output(idx, test):
     name = test.name
     ws = Path(test.workspace / "mf6")
 
-    # check outputs of GHB / GHBA ascii input runs
+    # check outputs of GHB / GHBG ascii input runs
     check(test.workspace, name)
     check(ws, name)
 
@@ -77,14 +77,15 @@ def check_output(idx, test):
         f.write(f"  IC6  {name}.ic  ic\n")
         f.write(f"  NPF6  {name}.npf  npf\n")
         f.write(f"  STO6  {name}.sto  sto\n")
-        f.write(f"  GHBA6  {name}.ghba  ghba_0\n")
+        f.write(f"  GHB6  {name}.ghbg  ghbg_0\n")
         f.write(f"  UZF6  {name}.uzf  uzf_0\n")
         f.write(f"  OC6  {name}.oc  oc\n")
         f.write(f"  OBS6  {name}.obs  head_obs\n")
         f.write("END packages\n")
 
-    with open(ws / f"{name}.ghba", "w") as f:
+    with open(ws / f"{name}.ghbg", "w") as f:
         f.write("BEGIN options\n")
+        f.write("  READARRAYGRID\n")
         f.write("  PRINT_INPUT\n")
         f.write("  PRINT_FLOWS\n")
         f.write("END options\n\n")

@@ -1,8 +1,8 @@
 """
 NetCDF test version of test_gwf_vsc01.  The primary aim is to test
-that GHBA package NetCDF array input (bhead, cond, and temperature
+that GHBG package NetCDF array input (bhead, cond, and temperature
 auxiliary arrays) gives the same results as test_gwf_vsc01 list based
-(GHB) and array based (GHBA) ascii input runs.  This test compares
+(GHB) and array based (GHBG) ascii input runs.  This test compares
 heads in the the NetCDF file to those in the FloPy binary output
 head file.
 """
@@ -55,7 +55,7 @@ def check_output(idx, test, export):
     name = "gwf-" + test.name
     ws = Path(test.workspace / "mf6")
 
-    # check outputs of GHB / GHBA ascii input runs
+    # check outputs of GHB / GHBG ascii input runs
     check(idx, test.workspace, array_input=False)
     check(idx, ws, array_input=True)
 
@@ -85,13 +85,14 @@ def check_output(idx, test, export):
         f.write(f"  IC6  {name}.ic  ic\n")
         if viscosity_on[idx]:
             f.write(f"  VSC6  {name}.vsc  vsc\n")
-        f.write(f"  GHBA6  {name}.ghba  ghb-1\n")
+        f.write(f"  GHB6  {name}.ghbg ghb-1\n")
         f.write(f"  CHD6  {name}.chd  chd-1\n")
         f.write(f"  OC6  {name}.oc  oc\n")
         f.write("END packages\n")
 
-    with open(ws / f"{name}.ghba", "w") as f:
+    with open(ws / f"{name}.ghbg", "w") as f:
         f.write("BEGIN options\n")
+        f.write("  READARRAYGRID\n")
         f.write("  auxiliary  TEMPERATURE\n")
         f.write("END options\n\n")
         f.write("BEGIN dimensions\n")

@@ -71,7 +71,7 @@ def get_model(ws, name, array_input=False):
         cond = np.full(nlay * nrow * ncol, DNODATA, dtype=float)
         bhead[0] = 1.0
         cond[0] = 1e6
-        flopy.mf6.ModflowGwfghba(gwf, maxbound=1, bhead=bhead, cond=cond)
+        flopy.mf6.ModflowGwfghbg(gwf, maxbound=1, bhead=bhead, cond=cond)
     else:
         flopy.mf6.ModflowGwfghb(gwf, stress_period_data=[((0, 0, 0), 1.0, 1e6)])
 

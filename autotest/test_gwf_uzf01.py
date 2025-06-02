@@ -101,14 +101,14 @@ def get_model(ws, name, array_input=False):
         transient={0: True},
     )
 
-    # ghb / ghba
+    # ghb / ghbg
     if array_input:
-        ghb_obs = {f"{name}.ghb.obs.csv": [("100_1_1", "GHBA", (99, 0, 0))]}
+        ghb_obs = {f"{name}.ghb.obs.csv": [("100_1_1", "GHB", (99, 0, 0))]}
         bhead = np.full(nlay * nrow * ncol, DNODATA, dtype=float)
         cond = np.full(nlay * nrow * ncol, DNODATA, dtype=float)
         bhead[nlay - 1] = 1.5
         cond[nlay - 1] = 1.0
-        ghb = flopy.mf6.ModflowGwfghba(
+        ghb = flopy.mf6.ModflowGwfghbg(
             gwf,
             print_input=True,
             print_flows=True,

@@ -99,8 +99,8 @@ contains
 
     ! initialize package input context
     call this%bound_context%create(mf6_input, &
-                                   readarray_grid=.false., &
-                                   readarray_layer=.false.)
+                                   readarraygrid=.false., &
+                                   readarraylayer=.false.)
 
     ! store in scope SA cols for list input
     call this%bound_context%bound_params(this%param_names, this%nparam, &

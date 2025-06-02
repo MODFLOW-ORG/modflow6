@@ -219,9 +219,9 @@ def get_model(ws, name, array_input=False):
         auxiliary="CONCENTRATION",
     )
 
-    # ghb / ghba
+    # ghb / ghbg
     if array_input:
-        ghb1 = flopy.mf6.ModflowGwfghba(
+        ghb1 = flopy.mf6.ModflowGwfghbg(
             gwf,
             print_input=True,
             print_flows=True,

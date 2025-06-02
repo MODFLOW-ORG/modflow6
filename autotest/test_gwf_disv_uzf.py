@@ -109,7 +109,7 @@ for t in np.arange(0, nper, 1):
     uzf_spd.update({t: spd})
 
 
-# Work up the GHB / GHBA boundary
+# Work up the GHB / GHBG boundary
 ghb_ids = [(ncol - 1) + i * ncol for i in range(nrow)]
 ghb_spd = []
 abhead = np.full((nlay, ncpl), DNODATA, dtype=float)
@@ -173,7 +173,7 @@ def get_model(ws, name, array_input=False):
 
     # general-head boundary
     if array_input:
-        ghb = flopy.mf6.ModflowGwfghba(
+        ghb = flopy.mf6.ModflowGwfghbg(
             gwf, print_flows=True, maxbound=20, bhead=abhead, cond=acond
         )
     else:

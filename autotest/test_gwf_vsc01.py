@@ -143,7 +143,7 @@ def get_model(idx, ws, array_input=False):
             bhead[0][0, i, ncol - 1] = top
             cond[0][0, i, ncol - 1] = ghbcond
             temp[0][0, i, ncol - 1] = initial_temperature
-        flopy.mf6.ModflowGwfghba(
+        flopy.mf6.ModflowGwfghbg(
             gwf,
             maxbound=nrow,
             pname="GHB-1",
@@ -269,10 +269,7 @@ def check_output(idx, ws, array_input=False):
     fname = os.path.join(ws, fname)
     assert os.path.isfile(fname)
     budobj = flopy.utils.CellBudgetFile(fname, precision="double")
-    if array_input:
-        outbud = budobj.get_data(text="            GHBA")
-    else:
-        outbud = budobj.get_data(text="             GHB")
+    outbud = budobj.get_data(text="             GHB")
 
     # Establish known answer:
     stored_ans = -151.63446156218242

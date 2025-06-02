@@ -171,7 +171,7 @@ contains
       call mem_set_value(export_arrays, 'EXPORT_NC', &
                          dynamic_pkg%mf6_input%mempath, found)
 
-      readasarrays = (dynamic_pkg%readarray_layer .or. dynamic_pkg%readarray_grid)
+      readasarrays = (dynamic_pkg%readarraylayer .or. dynamic_pkg%readarraygrid)
       if (export_arrays > 0 .and. readasarrays) then
         select type (dynamic_pkg)
         type is (Mf6FileDynamicPkgLoadType)

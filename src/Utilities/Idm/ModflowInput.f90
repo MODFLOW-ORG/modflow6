@@ -99,7 +99,7 @@ contains
     character(len=LENPACKAGETYPE) :: sc_type
     sc_type = subcomponent_type
     select case (subcomponent_type)
-    case ('RCH', 'EVT', 'SCP')
+    case ('RCH', 'EVT', 'SCP', 'GHB')
       sc_type = read_as_arrays(filetype, filename, component_type, &
                                subcomponent_type)
     case default
@@ -138,10 +138,15 @@ contains
         call parser%GetNextLine(endOfBlock)
         if (endOfBlock) exit
         call parser%GetStringCaps(keyword)
-        if (keyword == 'READASARRAYS') then
+        select case (keyword)
+        case ('READASARRAYS')
           write (sc_type, '(a)') trim(subcomponent_type)//'A'
-          exit
-        end if
+        case ('READARRAYLAYER')
+          write (sc_type, '(a)') trim(subcomponent_type)//'L'
+        case ('READARRAYGRID')
+          write (sc_type, '(a)') trim(subcomponent_type)//'G'
+        case default
+        end select
       end do
     end if
 

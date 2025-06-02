@@ -31,6 +31,8 @@ module BndExtModule
     ! -- characters
     ! -- scalars
     integer(I4B), pointer :: iper
+    logical(LGP), pointer :: readarraygrid
+    logical(LGP), pointer :: readarraylayer
     ! -- arrays
     integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null() !< input user cellid list
     integer(I4B), dimension(:), pointer, contiguous :: nodeulist => null() !< input user nodelist
@@ -135,22 +137,48 @@ contains
     class(BndExtType), intent(inout) :: this !< BndExtType object
     ! -- local variables
     logical(LGP) :: found
-    integer(I4B) :: n
+    integer(I4B) :: n, noder, nodeuser
+    character(len=LINELENGTH) :: nodestr
     !
     if (this%iper /= kper) return
     !
     ! -- copy nbound from input context
     call mem_set_value(this%nbound, 'NBOUND', this%input_mempath, &
                        found)
-    !
-    ! -- convert cellids to node numbers
-    call this%nodelist_update()
-    !
-    ! -- update boundname string list
-    if (this%inamedbound /= 0) then
-      do n = 1, size(this%boundname_cst)
-        this%boundname(n) = this%boundname_cst(n)
+
+    if (this%readarraygrid) then
+      ! -- Set the nodelist
+      do n = 1, this%nbound
+        nodeuser = this%nodeulist(n)
+        noder = this%dis%get_nodenumber(nodeuser, 1)
+        if (noder >= 0) then
+          this%nodelist(n) = noder
+        else
+          call this%dis%nodeu_to_string(n, nodestr)
+          write (errmsg, *) &
+            ' Cell is outside active grid domain: '// &
+            trim(adjustl(nodestr))
+          call store_error(errmsg)
+        end if
       end do
+      !
+      ! -- exit if errors were found
+      if (count_errors() > 0) then
+        write (errmsg, *) count_errors(), ' errors encountered.'
+        call store_error(errmsg)
+        call store_error_filename(this%input_fname)
+      end if
+    else
+      !
+      ! -- convert cellids to node numbers
+      call this%nodelist_update()
+      !
+      ! -- update boundname string list
+      if (this%inamedbound /= 0) then
+        do n = 1, size(this%boundname_cst)
+          this%boundname(n) = this%boundname_cst(n)
+        end do
+      end if
     end if
   end subroutine bndext_rp
 
@@ -196,6 +224,7 @@ contains
     class(BndExtType) :: this !< BndExtType object
     ! -- local variables
     character(len=LENMEMPATH) :: input_mempath
+    logical(LGP) :: found
     !
     ! -- set memory path
     input_mempath = create_mem_path(this%name_model, this%packName, idm_context)
@@ -203,8 +232,28 @@ contains
     ! -- allocate base BndType scalars
     call this%BndType%allocate_scalars()
     !
-    ! -- set pointers to period input data scalars
+    ! -- set IPER pointer
     call mem_setptr(this%iper, 'IPER', input_mempath)
+
+    ! -- allocate internal scalars
+    allocate (this%readarraygrid)
+    allocate (this%readarraylayer)
+
+    ! -- initialize internal scalars
+    this%readarraygrid = .false.
+    this%readarraylayer = .false.
+
+    ! -- update internal scalars based on user input
+    call mem_set_value(this%readarraygrid, 'READARRAYGRID', input_mempath, found)
+    call mem_set_value(this%readarraylayer, 'READARRAYLAYER', &
+                       input_mempath, found)
+
+    ! -- no packages currently use READARRAYLAYER
+    if (this%readarraylayer) then
+      write (errmsg, '(a)') 'READARRAYLAYER is not currently supported.'
+      call store_error(errmsg)
+      call store_error_filename(this%input_fname)
+    end if
   end subroutine bndext_allocate_scalars
 
   !> @ brief Allocate package arrays

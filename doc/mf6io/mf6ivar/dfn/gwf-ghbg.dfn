@@ -1,6 +1,15 @@
-# --------------------- gwf ghba options ---------------------
+# --------------------- gwf ghbg options ---------------------
 # flopy multi-package
 # package-type stress-package
+
+block options
+name readarraygrid
+type keyword
+reader urword
+optional false
+longname use array-based grid input
+description indicates that array-based grid input will be used for the general-head boundary package.  This keyword must be specified to use array-based grid input.  When READARRAYGRID is specified, values must be provided for every cell within a model grid, even those cells that have an IDOMAIN value less than one.  Values assigned to cells with IDOMAIN values less than one are not used and have no effect on simulation results. No data cells should contain the value DNODATA (3.0E+30). 
+default_value True
 
 block options
 name auxiliary
@@ -43,7 +52,7 @@ name save_flows
 type keyword
 reader urword
 optional true
-longname save GHBA flows to budget file
+longname save GHBG flows to budget file
 description REPLACE save_flows {'{#1}': 'general-head boundary'}
 mf6internal ipakcb
 
@@ -109,7 +118,7 @@ longname export array variables to netcdf output files.
 description keyword that specifies input griddata arrays should be written to the model output netcdf file.
 extended true
 
-# --------------------- gwf ghba dimensions ---------------------
+# --------------------- gwf ghbg dimensions ---------------------
 
 block dimensions
 name maxbound
@@ -119,7 +128,7 @@ optional false
 longname maximum number of general-head boundaries in any stress period
 description REPLACE maxbound {'{#1}': 'general-head boundary'}
 
-# --------------------- gwf ghba period ---------------------
+# --------------------- gwf ghbg period ---------------------
 
 block period
 name iper

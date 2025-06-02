@@ -52,8 +52,8 @@ module BoundInputContextModule
       contiguous :: auxvar => null() !< auxiliary variable array
     integer(I4B), dimension(:), pointer, contiguous :: mshape => null() !< model shape
     logical(LGP) :: readasarrays !< grid or layer array input
-    logical(LGP) :: readarray_layer !< array layer reader
-    logical(LGP) :: readarray_grid !< array grid reader
+    logical(LGP) :: readarraylayer !< array layer reader
+    logical(LGP) :: readarraygrid !< array grid reader
     type(DynamicPackageParamsType) :: package_params
     type(ModflowInputType) :: mf6_input !< description of input
   contains
@@ -72,16 +72,16 @@ contains
   !> @brief create boundary input context
   !!
   !<
-  subroutine create(this, mf6_input, readarray_grid, readarray_layer)
+  subroutine create(this, mf6_input, readarraygrid, readarraylayer)
     class(BoundInputContextType) :: this
     type(ModflowInputType), intent(in) :: mf6_input
-    logical(LGP), intent(in) :: readarray_grid
-    logical(LGP), intent(in) :: readarray_layer
+    logical(LGP), intent(in) :: readarraygrid
+    logical(LGP), intent(in) :: readarraylayer
 
     this%mf6_input = mf6_input
-    this%readarray_grid = readarray_grid
-    this%readarray_layer = readarray_layer
-    this%readasarrays = readarray_grid .or. readarray_layer
+    this%readarraygrid = readarraygrid
+    this%readarraylayer = readarraylayer
+    this%readasarrays = readarraygrid .or. readarraylayer
 
     ! create the dynamic package input context
     call this%allocate_scalars()
@@ -166,7 +166,7 @@ contains
     end if
 
     ! allocate nodeulist
-    if (.not. this%readarray_grid) then
+    if (.not. this%readarraygrid) then
       call mem_allocate(nodeulist, 0, 'NODEULIST', this%mf6_input%mempath)
     end if
 

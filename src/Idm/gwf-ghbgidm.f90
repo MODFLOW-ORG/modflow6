@@ -1,17 +1,18 @@
 ! ** Do Not Modify! MODFLOW 6 system generated file. **
-module GwfGhbaInputModule
+module GwfGhbgInputModule
   use ConstantsModule, only: LENVARNAME
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
   private
-  public gwf_ghba_param_definitions
-  public gwf_ghba_aggregate_definitions
-  public gwf_ghba_block_definitions
-  public GwfGhbaParamFoundType
-  public gwf_ghba_multi_package
-  public gwf_ghba_subpackages
+  public gwf_ghbg_param_definitions
+  public gwf_ghbg_aggregate_definitions
+  public gwf_ghbg_block_definitions
+  public GwfGhbgParamFoundType
+  public gwf_ghbg_multi_package
+  public gwf_ghbg_subpackages
 
-  type GwfGhbaParamFoundType
+  type GwfGhbgParamFoundType
+    logical :: readarraygrid = .false.
     logical :: auxiliary = .false.
     logical :: auxmultname = .false.
     logical :: iprpak = .false.
@@ -27,21 +28,39 @@ module GwfGhbaInputModule
     logical :: bhead = .false.
     logical :: cond = .false.
     logical :: auxvar = .false.
-  end type GwfGhbaParamFoundType
+  end type GwfGhbgParamFoundType
 
-  logical :: gwf_ghba_multi_package = .true.
+  logical :: gwf_ghbg_multi_package = .true.
 
   character(len=16), parameter :: &
-    gwf_ghba_subpackages(*) = &
+    gwf_ghbg_subpackages(*) = &
     [ &
     '                ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_auxiliary = InputParamDefinitionType &
+    gwfghbg_readarraygrid = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
+    'OPTIONS', & ! block
+    'READARRAYGRID', & ! tag name
+    'READARRAYGRID', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'use array-based grid input', & ! longname
+    .true., & ! required
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfghbg_auxiliary = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'GHBG', & ! subcomponent
     'OPTIONS', & ! block
     'AUXILIARY', & ! tag name
     'AUXILIARY', & ! fortran variable
@@ -56,10 +75,10 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_auxmultname = InputParamDefinitionType &
+    gwfghbg_auxmultname = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'OPTIONS', & ! block
     'AUXMULTNAME', & ! tag name
     'AUXMULTNAME', & ! fortran variable
@@ -74,10 +93,10 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_iprpak = InputParamDefinitionType &
+    gwfghbg_iprpak = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_INPUT', & ! tag name
     'IPRPAK', & ! fortran variable
@@ -92,10 +111,10 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_iprflow = InputParamDefinitionType &
+    gwfghbg_iprflow = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_FLOWS', & ! tag name
     'IPRFLOW', & ! fortran variable
@@ -110,16 +129,16 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_ipakcb = InputParamDefinitionType &
+    gwfghbg_ipakcb = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'OPTIONS', & ! block
     'SAVE_FLOWS', & ! tag name
     'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'save GHBA flows to budget file', & ! longname
+    'save GHBG flows to budget file', & ! longname
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
@@ -128,10 +147,10 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_obs_filerecord = InputParamDefinitionType &
+    gwfghbg_obs_filerecord = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'OPTIONS', & ! block
     'OBS_FILERECORD', & ! tag name
     'OBS_FILERECORD', & ! fortran variable
@@ -146,10 +165,10 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_obs6 = InputParamDefinitionType &
+    gwfghbg_obs6 = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'OPTIONS', & ! block
     'OBS6', & ! tag name
     'OBS6', & ! fortran variable
@@ -164,10 +183,10 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_filein = InputParamDefinitionType &
+    gwfghbg_filein = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'OPTIONS', & ! block
     'FILEIN', & ! tag name
     'FILEIN', & ! fortran variable
@@ -182,10 +201,10 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_obs6_filename = InputParamDefinitionType &
+    gwfghbg_obs6_filename = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'OPTIONS', & ! block
     'OBS6_FILENAME', & ! tag name
     'OBS6_FILENAME', & ! fortran variable
@@ -200,10 +219,10 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_mover = InputParamDefinitionType &
+    gwfghbg_mover = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'OPTIONS', & ! block
     'MOVER', & ! tag name
     'MOVER', & ! fortran variable
@@ -218,10 +237,10 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_export_nc = InputParamDefinitionType &
+    gwfghbg_export_nc = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'OPTIONS', & ! block
     'EXPORT_ARRAY_NETCDF', & ! tag name
     'EXPORT_NC', & ! fortran variable
@@ -236,10 +255,10 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_maxbound = InputParamDefinitionType &
+    gwfghbg_maxbound = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'DIMENSIONS', & ! block
     'MAXBOUND', & ! tag name
     'MAXBOUND', & ! fortran variable
@@ -254,10 +273,10 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_bhead = InputParamDefinitionType &
+    gwfghbg_bhead = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'PERIOD', & ! block
     'BHEAD', & ! tag name
     'BHEAD', & ! fortran variable
@@ -272,10 +291,10 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_cond = InputParamDefinitionType &
+    gwfghbg_cond = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'PERIOD', & ! block
     'COND', & ! tag name
     'COND', & ! fortran variable
@@ -290,10 +309,10 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfghba_auxvar = InputParamDefinitionType &
+    gwfghbg_auxvar = InputParamDefinitionType &
     ( &
     'GWF', & ! component
-    'GHBA', & ! subcomponent
+    'GHBG', & ! subcomponent
     'PERIOD', & ! block
     'AUX', & ! tag name
     'AUXVAR', & ! fortran variable
@@ -308,27 +327,28 @@ module GwfGhbaInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwf_ghba_param_definitions(*) = &
+    gwf_ghbg_param_definitions(*) = &
     [ &
-    gwfghba_auxiliary, &
-    gwfghba_auxmultname, &
-    gwfghba_iprpak, &
-    gwfghba_iprflow, &
-    gwfghba_ipakcb, &
-    gwfghba_obs_filerecord, &
-    gwfghba_obs6, &
-    gwfghba_filein, &
-    gwfghba_obs6_filename, &
-    gwfghba_mover, &
-    gwfghba_export_nc, &
-    gwfghba_maxbound, &
-    gwfghba_bhead, &
-    gwfghba_cond, &
-    gwfghba_auxvar &
+    gwfghbg_readarraygrid, &
+    gwfghbg_auxiliary, &
+    gwfghbg_auxmultname, &
+    gwfghbg_iprpak, &
+    gwfghbg_iprflow, &
+    gwfghbg_ipakcb, &
+    gwfghbg_obs_filerecord, &
+    gwfghbg_obs6, &
+    gwfghbg_filein, &
+    gwfghbg_obs6_filename, &
+    gwfghbg_mover, &
+    gwfghbg_export_nc, &
+    gwfghbg_maxbound, &
+    gwfghbg_bhead, &
+    gwfghbg_cond, &
+    gwfghbg_auxvar &
     ]
 
   type(InputParamDefinitionType), parameter :: &
-    gwf_ghba_aggregate_definitions(*) = &
+    gwf_ghbg_aggregate_definitions(*) = &
     [ &
     InputParamDefinitionType &
     ( &
@@ -349,11 +369,11 @@ module GwfGhbaInputModule
     ]
 
   type(InputBlockDefinitionType), parameter :: &
-    gwf_ghba_block_definitions(*) = &
+    gwf_ghbg_block_definitions(*) = &
     [ &
     InputBlockDefinitionType( &
     'OPTIONS', & ! blockname
-    .false., & ! required
+    .true., & ! required
     .false., & ! aggregate
     .false. & ! block_variable
     ), &
@@ -371,4 +391,4 @@ module GwfGhbaInputModule
     ) &
     ]
 
-end module GwfGhbaInputModule
+end module GwfGhbgInputModule

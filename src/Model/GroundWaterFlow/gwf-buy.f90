@@ -353,12 +353,6 @@ contains
       call buy_cf_ghb(packobj, hnew, this%dense, this%elev, this%denseref, &
                       locelev, locdense, locconc, this%drhodc, this%crhoref, &
                       this%ctemp, this%iform)
-    case ('GHBA')
-      !
-      ! -- general head boundary
-      call buy_cf_ghba(packobj, hnew, this%dense, this%elev, this%denseref, &
-                       locelev, locdense, locconc, this%drhodc, this%crhoref, &
-                       this%ctemp, this%iform)
     case ('RIV')
       !
       ! -- river
@@ -496,67 +490,6 @@ contains
       end do
     end select
   end subroutine buy_cf_ghb
-
-  !> @brief Fill ghb coefficients
-  !<
-  subroutine buy_cf_ghba(packobj, hnew, dense, elev, denseref, locelev, &
-                         locdense, locconc, drhodc, crhoref, ctemp, &
-                         iform)
-    ! -- modules
-    use BndModule, only: BndType
-    use GhbaModule, only: GhbaType
-    class(BndType), pointer :: packobj
-    ! -- dummy
-    real(DP), intent(in), dimension(:) :: hnew
-    real(DP), intent(in), dimension(:) :: dense
-    real(DP), intent(in), dimension(:) :: elev
-    real(DP), intent(in) :: denseref
-    integer(I4B), intent(in) :: locelev
-    integer(I4B), intent(in) :: locdense
-    integer(I4B), dimension(:), intent(in) :: locconc
-    real(DP), dimension(:), intent(in) :: drhodc
-    real(DP), dimension(:), intent(in) :: crhoref
-    real(DP), dimension(:), intent(inout) :: ctemp
-    integer(I4B), intent(in) :: iform
-    ! -- local
-    integer(I4B) :: n
-    integer(I4B) :: node
-    real(DP) :: denseghb
-    real(DP) :: elevghb
-    real(DP) :: hghb
-    real(DP) :: cond
-    real(DP) :: hcofterm, rhsterm
-    !
-    ! -- Process density terms for each GHB
-    select type (packobj)
-    type is (GhbaType)
-      do n = 1, packobj%nbound
-        node = packobj%nodelist(n)
-        if (node == 0) cycle
-        if (packobj%ibound(node) <= 0) cycle
-        !
-        ! -- density
-        denseghb = get_bnd_density(n, locdense, locconc, denseref, &
-                                   drhodc, crhoref, ctemp, packobj%auxvar)
-        !
-        ! -- elevation
-        elevghb = elev(node)
-        if (locelev > 0) elevghb = packobj%auxvar(locelev, n)
-        !
-        ! -- boundary head and conductance
-        hghb = packobj%bound_value(1, n)
-        cond = packobj%bound_value(2, n)
-        !
-        ! -- calculate HCOF and RHS terms
-        call calc_ghb_hcof_rhs_terms(denseref, denseghb, dense(node), &
-                                     elevghb, elev(node), hghb, hnew(node), &
-                                     cond, iform, rhsterm, hcofterm)
-        packobj%hcof(n) = packobj%hcof(n) + hcofterm
-        packobj%rhs(n) = packobj%rhs(n) - rhsterm
-        !
-      end do
-    end select
-  end subroutine buy_cf_ghba
 
   !> @brief Calculate density hcof and rhs terms for ghb conditions
   !<

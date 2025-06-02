@@ -1,8 +1,8 @@
 """
 NetCDF test version of test_gwt_henry_nr.  The primary aim is to test
-that GHBA package NetCDF array input (bhead, cond, concentration and
+that GHBG package NetCDF array input (bhead, cond, concentration and
 density auxiliary arrays) gives the same results as test_gwt_henry_nr
-list based (GHB) and array based (GHBA) ascii input runs.  This test
+list based (GHB) and array based (GHBG) ascii input runs.  This test
 compares heads in the the NetCDF file to those in the FloPy binary
 output head file.
 """
@@ -54,14 +54,14 @@ def check_output(idx, test, export):
     from test_gwt_henry_nr import check_output as check
 
     name = "gwf_" + test.name
-    ghba_ws = Path(test.workspace / "mf6")
+    ghbg_ws = Path(test.workspace / "mf6")
     ws = Path(test.workspace / "mf6" / "netcdf")
-    shutil.copytree(ghba_ws, ws)
+    shutil.copytree(ghbg_ws, ws)
 
-    # check outputs of GHB / GHBA ascii input runs
+    # check outputs of GHB / GHBG ascii input runs
     check(test.workspace, test.name, test.sims[0])
     # check(ws, test.name, test.sims[0])
-    check(ghba_ws, test.name, test.sims[0])
+    check(ghbg_ws, test.name, test.sims[0])
 
     # verify format of generated netcdf file
     with nc.Dataset(ws / f"{name}.nc") as ds:
@@ -90,13 +90,14 @@ def check_output(idx, test, export):
         f.write(f"  STO6  {name}.sto  sto\n")
         f.write(f"  BUY6  {name}.buy  buy\n")
         f.write(f"  DRN6  {name}.drn  drn-1\n")
-        f.write(f"  GHBA6  {name}.ghba  ghb-1\n")
+        f.write(f"  GHB6  {name}.ghbg  ghb-1\n")
         f.write(f"  WEL6  {name}.wel  wel-1\n")
         f.write(f"  OC6  {name}.oc  oc\n")
         f.write("END packages\n")
 
-    with open(ws / f"{name}.ghba", "w") as f:
+    with open(ws / f"{name}.ghbg", "w") as f:
         f.write("BEGIN options\n")
+        f.write("  READARRAYGRID\n")
         f.write("  auxiliary  CONCENTRATION  DENSITY\n")
         f.write("  PRINT_INPUT\n")
         f.write("  PRINT_FLOWS\n")
@@ -132,7 +133,7 @@ def check_output(idx, test, export):
     names = [name, "gwt_" + test.name]
     for i, e in enumerate(ext):
         fpth1 = os.path.join(
-            ghba_ws,
+            ghbg_ws,
             f"{names[i]}.{e}",
         )
         fpth2 = os.path.join(ws, f"{names[i]}.{e}")

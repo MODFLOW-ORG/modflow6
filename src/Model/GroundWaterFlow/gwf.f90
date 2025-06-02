@@ -118,7 +118,7 @@ module GwfModule
   !<
   integer(I4B), parameter :: GWF_NMULTIPKG = 50
   character(len=LENPACKAGETYPE), dimension(GWF_NMULTIPKG) :: GWF_MULTIPKG
-  data GWF_MULTIPKG/'WEL6 ', 'DRN6 ', 'RIV6 ', 'GHB6 ', 'GHBA6', & !  5
+  data GWF_MULTIPKG/'WEL6 ', 'DRN6 ', 'RIV6 ', 'GHB6 ', '     ', & !  5
                    &'RCH6 ', 'EVT6 ', 'CHD6 ', 'CSUB6', '     ', & ! 10
                    &'MAW6 ', 'SFR6 ', 'LAK6 ', 'UZF6 ', 'API6 ', & ! 15
                    &35*'     '/ ! 50
@@ -1219,7 +1219,6 @@ contains
     use DrnModule, only: drn_create
     use RivModule, only: riv_create
     use GhbModule, only: ghb_create
-    use GhbaModule, only: ghba_create
     use RchModule, only: rch_create
     use EvtModule, only: evt_create
     use MawModule, only: maw_create
@@ -1258,9 +1257,6 @@ contains
     case ('GHB6')
       call ghb_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath)
-    case ('GHBA6')
-      call ghba_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
-                       pakname, mempath)
     case ('RCH6')
       call rch_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath)
@@ -1498,9 +1494,9 @@ contains
         this%inoc = inunit
       case ('OBS6')
         this%inobs = inunit
-      case ('WEL6', 'DRN6', 'RIV6', 'GHB6', 'GHBA6', &
-            'RCH6', 'EVT6', 'API6', 'CHD6', 'MAW6', &
-            'SFR6', 'LAK6', 'UZF6')
+      case ('WEL6', 'DRN6', 'RIV6', 'GHB6', 'RCH6', &
+            'EVT6', 'API6', 'CHD6', 'MAW6', 'SFR6', &
+            'LAK6', 'UZF6')
         call expandarray(bndpkgs)
         bndpkgs(size(bndpkgs)) = n
       case default
