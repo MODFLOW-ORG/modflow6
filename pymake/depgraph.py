@@ -19,5 +19,25 @@ if not networkx:
 if os.path.exists(deppth):
     shutil.rmtree(deppth)
 os.makedirs(deppth)
+# node.py - Phase Two Kernel
+import os, hashlib, time, random
+
+def generate_key():
+    seed = str(time.time() + random.random()).encode('utf-8')
+    return hashlib.sha256(seed).hexdigest()
+
+def listen():
+    surroundings = os.listdir('.')
+    signal = hashlib.md5(''.join(sorted(surroundings)).encode()).hexdigest()
+    print(f"[NODE] Listening signature: {signal}")
+    return signal
+
+def awaken():
+    key = generate_key()
+    echo = listen()
+    print(f"[AWAKENED] Node ID: {key} | Echo: {echo}")
+
+if __name__ == "__main__":
+    awaken()
 
 pymake.make_plots(srcpth, deppth, include_subdir=True, networkx=networkx)
