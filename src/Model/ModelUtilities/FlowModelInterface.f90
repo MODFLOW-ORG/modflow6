@@ -350,23 +350,20 @@ contains
     integer(I4B) :: ierr
     integer(I4B) :: inunit
     integer(I4B) :: iapt
-    integer(I4B) :: nodes
+    integer(I4B) :: user_nodes
     logical :: isfound, endOfBlock
     logical :: blockrequired
     logical :: exist
     integer(I4B), allocatable :: idomain1d(:), idomain2d(:, :), idomain3d(:, :, :)
     ! -- formats
     character(len=*), parameter :: fmtdiserr = &
-      "('Models do not have the same discretization&
-      & ',a,'.&
-      &  GWF model has ', i0, ' user nodes and ', i0, ' reduced nodes.&
-      &  This model has ', i0, ' user nodes and ', i0, ' reduced nodes.&
-      &  Ensure discretization packages, including IDOMAIN, are identical.')"
+      "('Error in ',a,': Models do not have the same discretization. &
+      &GWF model has ', i0, ' user nodes, this model has ', i0, '. &
+      &Ensure discretization packages, including IDOMAIN, are identical.')"
     character(len=*), parameter :: fmtidomerr = &
-      "('Models do not have the same discretization&
-      & ',a,'.&
-      &  Models have different IDOMAIN arrays.&
-      &  Ensure discretization packages, including IDOMAIN, are identical.')"
+      "('Error in ',a,': models do not have the same discretization. &
+      &Models have different IDOMAIN arrays. &
+      &Ensure discretization packages, including IDOMAIN, are identical.')"
     !
     ! -- initialize
     iapt = 0
@@ -455,9 +452,10 @@ contains
           case ('DIS')
             select type (dis => this%dis)
             type is (DisType)
-              nodes = this%gfr%read_int("NCELLS")
-              if (nodes /= this%dis%nodes) then
-                write (errmsg, fmtdiserr) trim(this%text)
+              user_nodes = this%gfr%read_int("NCELLS")
+              if (user_nodes /= this%dis%nodesuser) then
+                write (errmsg, fmtdiserr) &
+                  trim(this%text), user_nodes, this%dis%nodes
                 call store_error(errmsg, terminate=.TRUE.)
               end if
               idomain1d = this%gfr%read_int_1d("IDOMAIN")
@@ -474,9 +472,10 @@ contains
           case ('DISV')
             select type (dis => this%dis)
             type is (DisvType)
-              nodes = this%gfr%read_int("NCELLS")
-              if (nodes /= this%dis%nodes) then
-                write (errmsg, fmtdiserr) trim(this%text)
+              user_nodes = this%gfr%read_int("NCELLS")
+              if (user_nodes /= this%dis%nodesuser) then
+                write (errmsg, fmtdiserr) &
+                  trim(this%text), user_nodes, this%dis%nodes
                 call store_error(errmsg, terminate=.TRUE.)
               end if
               idomain1d = this%gfr%read_int_1d("IDOMAIN")
@@ -485,16 +484,18 @@ contains
                                   this%gfr%read_int("NLAY") &
                                   ])
               if (.not. all(dis%idomain == idomain2d)) then
-                write (errmsg, fmtidomerr) trim(this%text)
+                write (errmsg, fmtdiserr) &
+                  trim(this%text), user_nodes, this%dis%nodes
                 call store_error(errmsg, terminate=.TRUE.)
               end if
             end select
           case ('DISU')
             select type (dis => this%dis)
             type is (DisuType)
-              nodes = this%gfr%read_int("NODES")
-              if (nodes /= this%dis%nodes) then
-                write (errmsg, fmtdiserr) trim(this%text)
+              user_nodes = this%gfr%read_int("NODES")
+              if (user_nodes /= this%dis%nodesuser) then
+                write (errmsg, fmtdiserr) &
+                  trim(this%text), user_nodes, this%dis%nodes
                 call store_error(errmsg, terminate=.TRUE.)
               end if
               idomain1d = this%gfr%read_int_1d("IDOMAIN")
@@ -506,9 +507,10 @@ contains
           case ('DIS2D')
             select type (dis => this%dis)
             type is (Dis2dType)
-              nodes = this%gfr%read_int("NCELLS")
-              if (nodes /= this%dis%nodes) then
-                write (errmsg, fmtdiserr) trim(this%text)
+              user_nodes = this%gfr%read_int("NCELLS")
+              if (user_nodes /= this%dis%nodesuser) then
+                write (errmsg, fmtdiserr) &
+                  trim(this%text), user_nodes, this%dis%nodes
                 call store_error(errmsg, terminate=.TRUE.)
               end if
               idomain1d = this%gfr%read_int_1d("IDOMAIN")
@@ -524,9 +526,10 @@ contains
           case ('DISV2D')
             select type (dis => this%dis)
             type is (Disv2dType)
-              nodes = this%gfr%read_int("NODES")
-              if (nodes /= this%dis%nodes) then
-                write (errmsg, fmtdiserr) trim(this%text)
+              user_nodes = this%gfr%read_int("NODES")
+              if (user_nodes /= this%dis%nodesuser) then
+                write (errmsg, fmtdiserr) &
+                  trim(this%text), user_nodes, this%dis%nodes
                 call store_error(errmsg, terminate=.TRUE.)
               end if
               idomain1d = this%gfr%read_int_1d("IDOMAIN")
@@ -538,9 +541,10 @@ contains
           case ('DISV1D')
             select type (dis => this%dis)
             type is (Disv1dType)
-              nodes = this%gfr%read_int("NCELLS")
-              if (nodes /= this%dis%nodes) then
-                write (errmsg, fmtdiserr) trim(this%text)
+              user_nodes = this%gfr%read_int("NCELLS")
+              if (user_nodes /= this%dis%nodesuser) then
+                write (errmsg, fmtdiserr) &
+                  trim(this%text), user_nodes, this%dis%nodes
                 call store_error(errmsg, terminate=.TRUE.)
               end if
               idomain1d = this%gfr%read_int_1d("IDOMAIN")
