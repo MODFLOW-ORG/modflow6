@@ -455,7 +455,7 @@ contains
               user_nodes = this%gfr%read_int("NCELLS")
               if (user_nodes /= this%dis%nodesuser) then
                 write (errmsg, fmtdiserr) &
-                  trim(this%text), user_nodes, this%dis%nodes
+                  trim(this%text), user_nodes, this%dis%nodesuser
                 call store_error(errmsg, terminate=.TRUE.)
               end if
               idomain1d = this%gfr%read_int_1d("IDOMAIN")
@@ -475,7 +475,7 @@ contains
               user_nodes = this%gfr%read_int("NCELLS")
               if (user_nodes /= this%dis%nodesuser) then
                 write (errmsg, fmtdiserr) &
-                  trim(this%text), user_nodes, this%dis%nodes
+                  trim(this%text), user_nodes, this%dis%nodesuser
                 call store_error(errmsg, terminate=.TRUE.)
               end if
               idomain1d = this%gfr%read_int_1d("IDOMAIN")
@@ -484,8 +484,7 @@ contains
                                   this%gfr%read_int("NLAY") &
                                   ])
               if (.not. all(dis%idomain == idomain2d)) then
-                write (errmsg, fmtdiserr) &
-                  trim(this%text), user_nodes, this%dis%nodes
+                write (errmsg, fmtidomerr) trim(this%text)
                 call store_error(errmsg, terminate=.TRUE.)
               end if
             end select
@@ -495,7 +494,7 @@ contains
               user_nodes = this%gfr%read_int("NODES")
               if (user_nodes /= this%dis%nodesuser) then
                 write (errmsg, fmtdiserr) &
-                  trim(this%text), user_nodes, this%dis%nodes
+                  trim(this%text), user_nodes, this%dis%nodesuser
                 call store_error(errmsg, terminate=.TRUE.)
               end if
               idomain1d = this%gfr%read_int_1d("IDOMAIN")
@@ -510,7 +509,7 @@ contains
               user_nodes = this%gfr%read_int("NCELLS")
               if (user_nodes /= this%dis%nodesuser) then
                 write (errmsg, fmtdiserr) &
-                  trim(this%text), user_nodes, this%dis%nodes
+                  trim(this%text), user_nodes, this%dis%nodesuser
                 call store_error(errmsg, terminate=.TRUE.)
               end if
               idomain1d = this%gfr%read_int_1d("IDOMAIN")
@@ -529,7 +528,7 @@ contains
               user_nodes = this%gfr%read_int("NODES")
               if (user_nodes /= this%dis%nodesuser) then
                 write (errmsg, fmtdiserr) &
-                  trim(this%text), user_nodes, this%dis%nodes
+                  trim(this%text), user_nodes, this%dis%nodesuser
                 call store_error(errmsg, terminate=.TRUE.)
               end if
               idomain1d = this%gfr%read_int_1d("IDOMAIN")
@@ -544,7 +543,7 @@ contains
               user_nodes = this%gfr%read_int("NCELLS")
               if (user_nodes /= this%dis%nodesuser) then
                 write (errmsg, fmtdiserr) &
-                  trim(this%text), user_nodes, this%dis%nodes
+                  trim(this%text), user_nodes, this%dis%nodesuser
                 call store_error(errmsg, terminate=.TRUE.)
               end if
               idomain1d = this%gfr%read_int_1d("IDOMAIN")
