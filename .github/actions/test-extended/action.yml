@@ -47,10 +47,10 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        brew link gcc@13
-        brew tap-new $USER/oldformulae
-        brew extract --version=4.6.1 netcdf-fortran $USER/oldformulae
-        brew install --ignore-dependencies $USER/oldformulae/netcdf-fortran@4.6.1
+        # patch netcdf-fortran formula to use gcc@13, then install from source
+        FORMULA_PATH=$(brew --repo homebrew/core)/Formula/netcdf-fortran.rb
+        sed -i.bak 's/depends_on "gcc"/depends_on "gcc@13"/' "$FORMULA_PATH"
+        brew reinstall --build-from-source netcdf-fortran
         nc-config --all
         nf-config --all
 
