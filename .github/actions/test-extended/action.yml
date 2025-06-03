@@ -20,6 +20,7 @@ runs:
       shell: bash
       run: |
         echo "PKG_CONFIG_PATH=$GITHUB_WORKSPACE/petsc/arch-gcc-opt/lib/pkgconfig" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/petsc/arch-gcc-opt/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
         echo "$GITHUB_WORKSPACE/petsc/arch-gcc-opt/bin" >> $GITHUB_PATH
 
     - name: Configure PETSc
