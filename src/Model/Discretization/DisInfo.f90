@@ -176,7 +176,7 @@ contains
     real(DP), dimension(3) :: d
     ! -- dummy
     class(DisBaseType), intent(in) :: dis
-    class(TspFmiType), pointer, intent(in) :: fmi
+    type(TspFmiType), pointer, intent(in) :: fmi
     integer(I4B), intent(in) :: n, m
     ! -- local
     real(DP) :: x_dir, y_dir, z_dir, length
