@@ -5,6 +5,7 @@ module TVDSchemeModule
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
   use IGradient, only: IGradientType
+  use DisInfoModule, only: node_distance
 
   implicit none
   private
@@ -20,7 +21,6 @@ module TVDSchemeModule
   contains
     procedure :: compute
 
-    procedure, private :: node_distance
     procedure, private :: limiter
   end type TVDSchemeType
 
@@ -105,7 +105,7 @@ contains
     grad_c = this%gradient%get(iup, phi)
     !
     ! -- Compute smoothness factor
-    dnm = this%node_distance(iup, idn)
+    dnm = node_distance(this%dis, this%fmi, iup, idn)
     ! dnm = normal * (cl1 + cl2)
     smooth = 2.0_dp * (dot_product(grad_c, dnm)) / &
              (phi(idn) - phi(iup)) - 1.0_dp
@@ -156,45 +156,5 @@ contains
     end select
 
   end function
-
-  function node_distance(this, n, m) result(d)
-    ! -- return
-    real(DP), dimension(3) :: d
-    ! -- dummy
-    class(TVDSchemeType) :: this
-    integer(I4B), intent(in) :: n, m
-    ! -- local
-    real(DP) :: x_dir, y_dir, z_dir, length
-    real(DP) :: satn, satm
-    integer(I4B) :: ipos, isympos, ihc
-
-    isympos = -1
-    do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
-      if (this%dis%con%ja(ipos) == m) then
-        isympos = this%dis%con%jas(ipos)
-        exit
-      end if
-    end do
-
-    if (isympos == -1) then
-      ! handle exception
-    end if
-
-    ihc = this%dis%con%ihc(isympos)
-    if (associated(this%fmi%gwfsat)) then
-      satn = this%fmi%gwfsat(n)
-      satm = this%fmi%gwfsat(m)
-    else
-      satn = DONE
-      satm = DONE
-    end if
-
-    call this%dis%connection_vector(n, m, .true., satn, satm, ihc, x_dir, &
-                                    y_dir, z_dir, length)
-    d(1) = x_dir * length
-    d(2) = y_dir * length
-    d(3) = z_dir * length
-
-  end function node_distance
 
 end module TVDSchemeModule

@@ -6,7 +6,7 @@ module BoundaryFacesModule
   use BaseDisModule, only: DisBaseType
   use DisuModule, only: DisuType
   use DisInfoModule, only: number_connected_faces, number_boundary_faces, &
-                           number_faces, cell_centroid
+                           cell_centroid
   use MathUtilModule, only: cross_product
   use SVDModule, only: SVD2
 

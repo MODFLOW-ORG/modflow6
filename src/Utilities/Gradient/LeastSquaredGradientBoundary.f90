@@ -7,7 +7,8 @@ module LeastSquaredGradientBoundaryModule
   use TspFmiModule, only: TspFmiType
   use BoundaryFacesModule, only: BoundaryFacesType
   use SVDModule, only: pinv
-  use DisInfoModule, only: number_connected_faces, number_faces
+  use DisInfoModule, only: number_connected_faces
+  use DisInfoModule, only: node_distance
 
   implicit none
   private
@@ -29,7 +30,6 @@ module LeastSquaredGradientBoundaryModule
 
     procedure, private :: compute_cell_gradient
     procedure, private :: create_grad_operator
-    procedure, private :: node_distance
   end type LeastSquaredGradientBoundaryType
 
   interface LeastSquaredGradientBoundaryType
@@ -97,7 +97,7 @@ contains
     do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
       m = this%dis%con%ja(ipos)
 
-      dnm = this%node_distance(n, m)
+      dnm = node_distance(this%dis, this%fmi, n, m)
       length = norm2(dnm)
 
       d(local_pos, :) = dnm / length
@@ -122,57 +122,6 @@ contains
     grad_op = matmul(matmul(g_inv, d_trans), grad_scale)
 
   end function create_grad_operator
-
-  function node_distance(this, n, m) result(d)
-    ! -- return
-    real(DP), dimension(3) :: d
-    ! -- dummy
-    class(LeastSquaredGradientBoundaryType) :: this
-    integer(I4B), intent(in) :: n, m
-    ! -- local
-    real(DP) :: x_dir, y_dir, z_dir, length
-    real(DP) :: satn, satm
-    integer(I4B) :: ipos, isympos, ihc
-    real(DP), dimension(3) :: xn, xm
-
-    isympos = -1
-    do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
-      if (this%dis%con%ja(ipos) == m) then
-        isympos = this%dis%con%jas(ipos)
-        exit
-      end if
-    end do
-
-    if (isympos == -1) then
-      ! -- if the connection is not found, then return the distance between the two nodes
-      xn(1) = this%dis%xc(n)
-      xn(2) = this%dis%yc(n)
-      xn(3) = (this%dis%top(n) + this%dis%bot(n)) / 2.0_dp
-
-      xm(1) = this%dis%xc(m)
-      xm(2) = this%dis%yc(m)
-      xm(3) = (this%dis%top(m) + this%dis%bot(m)) / 2.0_dp
-
-      d = xm - xn
-      return
-    end if
-
-    ihc = this%dis%con%ihc(isympos)
-    if (associated(this%fmi%gwfsat)) then
-      satn = this%fmi%gwfsat(n)
-      satm = this%fmi%gwfsat(m)
-    else
-      satn = DONE
-      satm = DONE
-    end if
-
-    call this%dis%connection_vector(n, m, .true., satn, satm, ihc, x_dir, &
-                                    y_dir, z_dir, length)
-    d(1) = x_dir * length
-    d(2) = y_dir * length
-    d(3) = z_dir * length
-
-  end function node_distance
 
   function get(this, n, c) result(grad_c)
     ! -- dummy

@@ -25,11 +25,6 @@ module IGradient
       real(DP), dimension(3) :: grad_c
     end function
 
-    ! subroutine compute_cell_gradient_if(this)
-    !   import IGradientType
-    !   class(IGradientType) :: this
-    ! end subroutine
-
   end interface
 
 contains
