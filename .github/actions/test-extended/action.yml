@@ -50,6 +50,7 @@ runs:
         # patch netcdf-fortran formula to use gcc@13, then install from source
         FORMULA_PATH=$(brew --repo homebrew/core)/Formula/n/netcdf-fortran.rb
         sed -i.bak 's/depends_on "gcc"/depends_on "gcc@13"/' "$FORMULA_PATH"
+        cat $FORMULA_PATH
         brew reinstall --build-from-source netcdf-fortran
         nc-config --all
         nf-config --all
