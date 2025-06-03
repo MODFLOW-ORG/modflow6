@@ -41,509 +41,509 @@ concurrency:
 env:
   PIXI_BETA_WARNING_OFF: true
 jobs:
-  # lint:
-  #   name: Check format
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout MF6
-  #       uses: actions/checkout@v4
-
-  #     - name: Setup pixi
-  #       uses: prefix-dev/setup-pixi@v0.8.8
-  #       with:
-  #         pixi-version: v0.41.4
-
-  #     - name: Check Fortran source formatting
-  #       run: pixi run check-format
-
-  #     - name: Check MSVS project files
-  #       run: pixi run check-vfproj
-
-  #     - name: Check python lint
-  #       run: pixi run check-python-lint
-
-  #     - name: Check python format
-  #       run: pixi run check-python-format
-
-  #     - name: Check CITATION.cff
-  #       run: pixi run check-citations
-
-  # build:
-  #   name: Build
-  #   runs-on: ubuntu-22.04
-  #   env:
-  #     FC: gfortran
-  #     FC_V: 13
-  #   steps:
-  #     - name: Checkout MF6
-  #       uses: actions/checkout@v4
-
-  #     - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-  #       uses: fortran-lang/setup-fortran@v1
-  #       with:
-  #         compiler: gcc
-  #         version: ${{ env.FC_V }}
-
-  #     - name: Setup pixi
-  #       uses: prefix-dev/setup-pixi@v0.8.8
-  #       with:
-  #         pixi-version: v0.41.4
-
-  #     - name: Setup MF6
-  #       run: pixi run setup -Dwerror=true builddir
-
-  #     - name: Build MF6
-  #       run: pixi run build builddir
-
-  #     - name: Setup mf5to6
-  #       run: pixi run setup-mf5to6 -Dwerror=true builddir
-
-  #     - name: Build mf5to6
-  #       run: pixi run build-mf5to6 builddir
-
-  #     - name: Show build log
-  #       if: failure()
-  #       run: cat builddir/meson-logs/meson-log.txt
-
-  #     - name: Unit test MF6
-  #       run: pixi run test builddir
-
-  # smoke_test:
-  #   name: Smoke test
-  #   runs-on: ubuntu-22.04
-  #   defaults:
-  #     run:
-  #       shell: bash
-  #   env:
-  #     FC: gfortran
-  #     FC_V: 13
-  #   steps:
-  #     - name: Checkout MF6
-  #       uses: actions/checkout@v4
-  #       with:
-  #         path: modflow6
-
-  #     - name: Checkout test-drive
-  #       uses: actions/checkout@v4
-  #       with:
-  #         repository: fortran-lang/test-drive
-  #         path: test-drive
-
-  #     - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-  #       uses: fortran-lang/setup-fortran@v1
-  #       with:
-  #         compiler: gcc
-  #         version: ${{ env.FC_V }}
-
-  #     - name: Setup pixi
-  #       uses: prefix-dev/setup-pixi@v0.8.8
-  #       with:
-  #         pixi-version: v0.41.4
-  #         manifest-path: "modflow6/pixi.toml"
-
-  #     - name: Custom pixi install
-  #       working-directory: modflow6
-  #       run: pixi run install
-
-  #     - name: Build test-drive
-  #       working-directory: test-drive
-  #       run: |
-  #         pixi run --manifest-path=../modflow6/pixi.toml meson setup builddir --prefix=$(pwd) --libdir=lib
-  #         pixi run --manifest-path=../modflow6/pixi.toml meson install -C builddir
-  #         echo "PKG_CONFIG_PATH=$(pwd)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
-
-  #     - name: Build MF6
-  #       working-directory: modflow6
-  #       run: |
-  #         pixi run setup builddir
-  #         pixi run build builddir
-  #         pixi run setup-mf5to6 builddir
-  #         pixi run build-mf5to6 builddir
-
-  #     - name: Show build log
-  #       if: failure()
-  #       working-directory: modflow6
-  #       run: cat builddir/meson-logs/meson-log.txt
-
-  #     - name: Unit test MF6
-  #       working-directory: modflow6
-  #       run: pixi run test builddir
-
-  #     - name: Update flopy
-  #       working-directory: modflow6
-  #       run: pixi run update-flopy
-
-  #     - name: Get executables
-  #       working-directory: modflow6
-  #       env:
-  #         GITHUB_TOKEN: ${{ github.token }}
-  #       run: pixi run get-exes
-
-  #     - name: Test MF6
-  #       working-directory: modflow6
-  #       run: |
-  #         if [ "${{ github.ref_name }}" == "master" ]; then
-  #           pixi run autotest -m "not slow and not regression and not developmode"
-  #         else
-  #           pixi run autotest --smoke
-  #         fi
-
-  #     - name: Upload failed test output
-  #       if: failure()
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: failed-smoke-${{ runner.os }}-${{ env.FC }}-${{ env.FC_V }}
-  #         path: modflow6/autotest/.failed
-
-  # test_gfortran:
-  #   name: Test GNU fortran
-  #   needs:
-  #     - lint
-  #     - build
-  #     - smoke_test
-  #   runs-on: ${{ matrix.os }}
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       include:
-  #         # intel mac, release mode
-  #         - os: macos-13
-  #           debug: false
-  #         # arm mac, release mode
-  #         - os: macos-14
-  #           debug: false
-  #         # arm mac, debug mode
-  #         - os: macos-14
-  #           debug: true
-  #         # ubuntu, release mode
-  #         - os: ubuntu-22.04
-  #           debug: false
-  #         # ubuntu, debug mode
-  #         - os: ubuntu-22.04
-  #           debug: true
-  #         # windows, release mode
-  #         - os: windows-2022
-  #           debug: false
-  #   defaults:
-  #     run:
-  #       shell: bash
-  #   env:
-  #     FC: gfortran
-  #     FC_V: 13
-  #   steps:
-  #     - name: Checkout MF6
-  #       uses: actions/checkout@v4
-  #       with:
-  #         path: modflow6
-
-  #     - name: Checkout test models
-  #       uses: actions/checkout@v4
-  #       with:
-  #         repository: MODFLOW-ORG/modflow6-testmodels
-  #         path: modflow6-testmodels
-
-  #     - name: Checkout examples
-  #       uses: actions/checkout@v4
-  #       with:
-  #         repository: MODFLOW-ORG/modflow6-examples
-  #         path: modflow6-examples
-
-  #     - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-  #       uses: fortran-lang/setup-fortran@v1
-  #       with:
-  #         compiler: gcc
-  #         version: ${{ env.FC_V }}
-
-  #     - name: Setup pixi
-  #       uses: prefix-dev/setup-pixi@v0.8.8
-  #       with:
-  #         pixi-version: v0.41.4
-  #         manifest-path: "modflow6/pixi.toml"
-
-  #     - name: Custom pixi install
-  #       working-directory: modflow6
-  #       run: pixi run install
-
-  #     - name: Set LDFLAGS (macOS)
-  #       if: runner.os == 'macOS'
-  #       run: |
-  #         ldflags="$LDFLAGS -Wl,-ld_classic"
-  #         echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
-
-  #     - name: Build MF6
-  #       working-directory: modflow6
-  #       run: |
-  #         setupargs=""
-  #         if [[ "${{ matrix.debug }}" == "true" ]]; then
-  #           setupargs="-Ddebug=true -Doptimization=0"
-  #         elif [[ "${{ matrix.os }}" == "macos-14" ]]; then
-  #           setupargs="-Doptimization=1"
-  #         fi
-  #         pixi run setup builddir $setupargs
-  #         pixi run build builddir
-  #         pixi run setup-mf5to6 builddir $setupargs
-  #         pixi run build-mf5to6 builddir
-
-  #     - name: Show build log
-  #       if: failure()
-  #       working-directory: modflow6
-  #       run: cat builddir/meson-logs/meson-log.txt
-
-  #     - name: Unit test MF6
-  #       working-directory: modflow6
-  #       run: pixi run test builddir
-
-  #     - name: Update flopy
-  #       working-directory: modflow6
-  #       run: pixi run update-flopy
-
-  #     - name: Get executables
-  #       working-directory: modflow6/autotest
-  #       env:
-  #         GITHUB_TOKEN: ${{ github.token }}
-  #       run: pixi run get-exes
-
-  #     - name: Set markers
-  #       id: set_markers
-  #       run: |
-  #         markers=""
-  #         if [[ "${{ github.ref_name }}" == "master" ]]; then
-  #           markers="not large and not developmode"
-  #         else
-  #           markers="not large"
-  #         fi
-  #         echo "markers=$markers" >> $GITHUB_OUTPUT
-
-  #     - name: Set filters
-  #       id: set_filters
-  #       run: |
-  #         filters=""
-  #         if [[ "${{ matrix.os }}" == "macos-14" ]]; then
-  #           # comparison fails on macos-14 with optimization=1
-  #           filters="not test028_sfr_rewet"
-  #         fi
-  #         echo "filters=$filters" >> $GITHUB_OUTPUT
-
-  #     - name: Test MF6
-  #       working-directory: modflow6
-  #       env:
-  #         REPOS_PATH: ${{ github.workspace }}
-  #       run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
-
-  #     - name: Test MF6 models
-  #       working-directory: modflow6
-  #       env:
-  #         REPOS_PATH: ${{ github.workspace }}
-  #       run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
-
-  #     - name: Test converter models
-  #       working-directory: modflow6
-  #       env:
-  #         REPOS_PATH: ${{ github.workspace }}
-  #       run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
-
-  #     - name: Install executables
-  #       uses: modflowpy/install-modflow-action@v1
-
-  #     - name: Test examples
-  #       working-directory: modflow6
-  #       shell: pixi run bash -e {0}
-  #       run: |
-  #         cp -R bin/* ~/.local/bin/modflow/
-  #         cd ../modflow6-examples/autotest
-  #         pytest -v -n auto test_scripts.py
-
-  #     - name: Upload failed test output
-  #       if: failure()
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: failed-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}
-  #         path: modflow6/autotest/.failed
-
-  #     - name: Checkout usgslatex
-  #       if: runner.os == 'Linux'
-  #       uses: actions/checkout@v4
-  #       with:
-  #         repository: MODFLOW-ORG/usgslatex
-  #         path: usgslatex
-
-  #     - name: Install TeX Live
-  #       if: runner.os == 'Linux'
-  #       run: |
-  #         sudo apt-get update
-  #         sudo apt install texlive-science \
-  #           texlive-latex-extra \
-  #           texlive-font-utils \
-  #           texlive-fonts-recommended \
-  #           texlive-fonts-extra
-
-  #     - name: Install USGS LaTeX style files and Univers font
-  #       if: runner.os == 'Linux'
-  #       working-directory: usgslatex/usgsLaTeX
-  #       run: sudo ./install.sh --all-users
-
-  #     - name: Test distribution scripts
-  #       working-directory: modflow6
-  #       env:
-  #         GITHUB_TOKEN: ${{ github.token }}
-  #       run: pixi run test-dist-scripts
-
-  # test_intel_fortran:
-  #   name: Test Intel fortran
-  #   needs:
-  #     - lint
-  #     - build
-  #     - smoke_test
-  #   runs-on: ${{ matrix.os }}
-  #   env:
-  #     FC: intel-classic
-  #     FC_V: "2021.7"
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       os: [ubuntu-22.04, macos-13, windows-2022]
-  #   defaults:
-  #     run:
-  #       shell: bash
-  #   steps:
-  #     - name: Free disk space (Ubuntu)
-  #       if: runner.os == 'Linux'
-  #       uses: jlumbroso/free-disk-space@main
-  #       with:
-  #         tool-cache: true
-  #         android: true
-  #         dotnet: true
-  #         haskell: true
-  #         large-packages: true
-  #         docker-images: true
-  #         swap-storage: true
-
-  #     - name: Checkout MF6
-  #       uses: actions/checkout@v4
-  #       with:
-  #         path: modflow6
-
-  #     - name: Checkout test models
-  #       uses: actions/checkout@v4
-  #       with:
-  #         repository: MODFLOW-ORG/modflow6-testmodels
-  #         path: modflow6-testmodels
-
-  #     - name: Checkout examples
-  #       uses: actions/checkout@v4
-  #       with:
-  #         repository: MODFLOW-ORG/modflow6-examples
-  #         path: modflow6-examples
-
-  #     - name: Setup pixi
-  #       uses: prefix-dev/setup-pixi@v0.8.8
-  #       with:
-  #         pixi-version: v0.41.4
-  #         manifest-path: "modflow6/pixi.toml"
-
-  #     - name: Custom pixi install
-  #       working-directory: modflow6
-  #       run: pixi run install
-
-  #     - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-  #       uses: fortran-lang/setup-fortran@v1
-  #       with:
-  #         compiler: ${{ env.FC }}
-  #         version: ${{ env.FC_V }}
-
-  #     - name: Update version files
-  #       working-directory: modflow6
-  #       run: pixi run update-version
-
-  #     - name: Build MF6
-  #       working-directory: modflow6
-  #       run: |
-  #         pixi run setup builddir
-  #         pixi run build builddir
-  #         pixi run setup-mf5to6 builddir
-  #         pixi run build-mf5to6 builddir
-
-  #     - name: Show build log
-  #       if: failure()
-  #       working-directory: modflow6
-  #       run: cat builddir/meson-logs/meson-log.txt
-
-  #     - name: Unit test MF6
-  #       working-directory: modflow6
-  #       run: pixi run test builddir
-
-  #     - name: Update flopy
-  #       working-directory: modflow6
-  #       run: pixi run update-flopy
-
-  #     - name: Get executables
-  #       working-directory: modflow6
-  #       env:
-  #         GITHUB_TOKEN: ${{ github.token }}
-  #       run: pixi run get-exes
-
-  #     - name: Set markers
-  #       id: set_markers
-  #       run: |
-  #         markers=""
-  #         if [[ "${{ github.ref_name }}" == "master" ]]; then
-  #           markers="not large and not developmode"
-  #         else
-  #           markers="not large"
-  #         fi
-  #         echo "markers=$markers" >> $GITHUB_OUTPUT
-
-  #     - name: Test MF6
-  #       working-directory: modflow6
-  #       env:
-  #         REPOS_PATH: ${{ github.workspace }}
-  #       run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external"
-
-  #     - name: Test MF6 models
-  #       working-directory: modflow6
-  #       env:
-  #         REPOS_PATH: ${{ github.workspace }}
-  #       run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf6
-
-  #     - name: Test converter models
-  #       working-directory: modflow6
-  #       env:
-  #         REPOS_PATH: ${{ github.workspace }}
-  #       run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
-
-  #     # if on linux, test example models too
-  #     - name: Install executables
-  #       if: runner.os == 'Linux'
-  #       uses: modflowpy/install-modflow-action@v1
-
-  #     - name: Test MF6 examples
-  #       if: runner.os == 'Linux'
-  #       working-directory: modflow6
-  #       shell: pixi run bash -e {0}
-  #       run: |
-  #         cp -R bin/* ~/.local/bin/modflow/
-  #         cd ../modflow6-examples/autotest
-  #         pytest -v -n auto test_scripts.py
-
-  #     - name: Upload failed test output
-  #       if: failure()
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: failed-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}
-  #         path: modflow6/autotest/.failed
-
-  #     - name: Test scripts
-  #       working-directory: modflow6
-  #       env:
-  #         GITHUB_TOKEN: ${{ github.token }}
-  #       run: pixi run test-dist-scripts
+  lint:
+    name: Check format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout MF6
+        uses: actions/checkout@v4
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.8.8
+        with:
+          pixi-version: v0.41.4
+
+      - name: Check Fortran source formatting
+        run: pixi run check-format
+
+      - name: Check MSVS project files
+        run: pixi run check-vfproj
+
+      - name: Check python lint
+        run: pixi run check-python-lint
+
+      - name: Check python format
+        run: pixi run check-python-format
+
+      - name: Check CITATION.cff
+        run: pixi run check-citations
+
+  build:
+    name: Build
+    runs-on: ubuntu-22.04
+    env:
+      FC: gfortran
+      FC_V: 13
+    steps:
+      - name: Checkout MF6
+        uses: actions/checkout@v4
+
+      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: ${{ env.FC_V }}
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.8.8
+        with:
+          pixi-version: v0.41.4
+
+      - name: Setup MF6
+        run: pixi run setup -Dwerror=true builddir
+
+      - name: Build MF6
+        run: pixi run build builddir
+
+      - name: Setup mf5to6
+        run: pixi run setup-mf5to6 -Dwerror=true builddir
+
+      - name: Build mf5to6
+        run: pixi run build-mf5to6 builddir
+
+      - name: Show build log
+        if: failure()
+        run: cat builddir/meson-logs/meson-log.txt
+
+      - name: Unit test MF6
+        run: pixi run test builddir
+
+  smoke_test:
+    name: Smoke test
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+    env:
+      FC: gfortran
+      FC_V: 13
+    steps:
+      - name: Checkout MF6
+        uses: actions/checkout@v4
+        with:
+          path: modflow6
+
+      - name: Checkout test-drive
+        uses: actions/checkout@v4
+        with:
+          repository: fortran-lang/test-drive
+          path: test-drive
+
+      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: ${{ env.FC_V }}
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.8.8
+        with:
+          pixi-version: v0.41.4
+          manifest-path: "modflow6/pixi.toml"
+
+      - name: Custom pixi install
+        working-directory: modflow6
+        run: pixi run install
+
+      - name: Build test-drive
+        working-directory: test-drive
+        run: |
+          pixi run --manifest-path=../modflow6/pixi.toml meson setup builddir --prefix=$(pwd) --libdir=lib
+          pixi run --manifest-path=../modflow6/pixi.toml meson install -C builddir
+          echo "PKG_CONFIG_PATH=$(pwd)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+
+      - name: Build MF6
+        working-directory: modflow6
+        run: |
+          pixi run setup builddir
+          pixi run build builddir
+          pixi run setup-mf5to6 builddir
+          pixi run build-mf5to6 builddir
+
+      - name: Show build log
+        if: failure()
+        working-directory: modflow6
+        run: cat builddir/meson-logs/meson-log.txt
+
+      - name: Unit test MF6
+        working-directory: modflow6
+        run: pixi run test builddir
+
+      - name: Update flopy
+        working-directory: modflow6
+        run: pixi run update-flopy
+
+      - name: Get executables
+        working-directory: modflow6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run get-exes
+
+      - name: Test MF6
+        working-directory: modflow6
+        run: |
+          if [ "${{ github.ref_name }}" == "master" ]; then
+            pixi run autotest -m "not slow and not regression and not developmode"
+          else
+            pixi run autotest --smoke
+          fi
+
+      - name: Upload failed test output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-smoke-${{ runner.os }}-${{ env.FC }}-${{ env.FC_V }}
+          path: modflow6/autotest/.failed
+
+  test_gfortran:
+    name: Test GNU fortran
+    needs:
+      - lint
+      - build
+      - smoke_test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # intel mac, release mode
+          - os: macos-13
+            debug: false
+          # arm mac, release mode
+          - os: macos-14
+            debug: false
+          # arm mac, debug mode
+          - os: macos-14
+            debug: true
+          # ubuntu, release mode
+          - os: ubuntu-22.04
+            debug: false
+          # ubuntu, debug mode
+          - os: ubuntu-22.04
+            debug: true
+          # windows, release mode
+          - os: windows-2022
+            debug: false
+    defaults:
+      run:
+        shell: bash
+    env:
+      FC: gfortran
+      FC_V: 13
+    steps:
+      - name: Checkout MF6
+        uses: actions/checkout@v4
+        with:
+          path: modflow6
+
+      - name: Checkout test models
+        uses: actions/checkout@v4
+        with:
+          repository: MODFLOW-ORG/modflow6-testmodels
+          path: modflow6-testmodels
+
+      - name: Checkout examples
+        uses: actions/checkout@v4
+        with:
+          repository: MODFLOW-ORG/modflow6-examples
+          path: modflow6-examples
+
+      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: ${{ env.FC_V }}
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.8.8
+        with:
+          pixi-version: v0.41.4
+          manifest-path: "modflow6/pixi.toml"
+
+      - name: Custom pixi install
+        working-directory: modflow6
+        run: pixi run install
+
+      - name: Set LDFLAGS (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          ldflags="$LDFLAGS -Wl,-ld_classic"
+          echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
+
+      - name: Build MF6
+        working-directory: modflow6
+        run: |
+          setupargs=""
+          if [[ "${{ matrix.debug }}" == "true" ]]; then
+            setupargs="-Ddebug=true -Doptimization=0"
+          elif [[ "${{ matrix.os }}" == "macos-14" ]]; then
+            setupargs="-Doptimization=1"
+          fi
+          pixi run setup builddir $setupargs
+          pixi run build builddir
+          pixi run setup-mf5to6 builddir $setupargs
+          pixi run build-mf5to6 builddir
+
+      - name: Show build log
+        if: failure()
+        working-directory: modflow6
+        run: cat builddir/meson-logs/meson-log.txt
+
+      - name: Unit test MF6
+        working-directory: modflow6
+        run: pixi run test builddir
+
+      - name: Update flopy
+        working-directory: modflow6
+        run: pixi run update-flopy
+
+      - name: Get executables
+        working-directory: modflow6/autotest
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run get-exes
+
+      - name: Set markers
+        id: set_markers
+        run: |
+          markers=""
+          if [[ "${{ github.ref_name }}" == "master" ]]; then
+            markers="not large and not developmode"
+          else
+            markers="not large"
+          fi
+          echo "markers=$markers" >> $GITHUB_OUTPUT
+
+      - name: Set filters
+        id: set_filters
+        run: |
+          filters=""
+          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
+            # comparison fails on macos-14 with optimization=1
+            filters="not test028_sfr_rewet"
+          fi
+          echo "filters=$filters" >> $GITHUB_OUTPUT
+
+      - name: Test MF6
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
+
+      - name: Test MF6 models
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
+
+      - name: Test converter models
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+
+      - name: Install executables
+        uses: modflowpy/install-modflow-action@v1
+
+      - name: Test examples
+        working-directory: modflow6
+        shell: pixi run bash -e {0}
+        run: |
+          cp -R bin/* ~/.local/bin/modflow/
+          cd ../modflow6-examples/autotest
+          pytest -v -n auto test_scripts.py
+
+      - name: Upload failed test output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}
+          path: modflow6/autotest/.failed
+
+      - name: Checkout usgslatex
+        if: runner.os == 'Linux'
+        uses: actions/checkout@v4
+        with:
+          repository: MODFLOW-ORG/usgslatex
+          path: usgslatex
+
+      - name: Install TeX Live
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt install texlive-science \
+            texlive-latex-extra \
+            texlive-font-utils \
+            texlive-fonts-recommended \
+            texlive-fonts-extra
+
+      - name: Install USGS LaTeX style files and Univers font
+        if: runner.os == 'Linux'
+        working-directory: usgslatex/usgsLaTeX
+        run: sudo ./install.sh --all-users
+
+      - name: Test distribution scripts
+        working-directory: modflow6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run test-dist-scripts
+
+  test_intel_fortran:
+    name: Test Intel fortran
+    needs:
+      - lint
+      - build
+      - smoke_test
+    runs-on: ${{ matrix.os }}
+    env:
+      FC: intel-classic
+      FC_V: "2021.7"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-13, windows-2022]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Free disk space (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Checkout MF6
+        uses: actions/checkout@v4
+        with:
+          path: modflow6
+
+      - name: Checkout test models
+        uses: actions/checkout@v4
+        with:
+          repository: MODFLOW-ORG/modflow6-testmodels
+          path: modflow6-testmodels
+
+      - name: Checkout examples
+        uses: actions/checkout@v4
+        with:
+          repository: MODFLOW-ORG/modflow6-examples
+          path: modflow6-examples
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.8.8
+        with:
+          pixi-version: v0.41.4
+          manifest-path: "modflow6/pixi.toml"
+
+      - name: Custom pixi install
+        working-directory: modflow6
+        run: pixi run install
+
+      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: ${{ env.FC }}
+          version: ${{ env.FC_V }}
+
+      - name: Update version files
+        working-directory: modflow6
+        run: pixi run update-version
+
+      - name: Build MF6
+        working-directory: modflow6
+        run: |
+          pixi run setup builddir
+          pixi run build builddir
+          pixi run setup-mf5to6 builddir
+          pixi run build-mf5to6 builddir
+
+      - name: Show build log
+        if: failure()
+        working-directory: modflow6
+        run: cat builddir/meson-logs/meson-log.txt
+
+      - name: Unit test MF6
+        working-directory: modflow6
+        run: pixi run test builddir
+
+      - name: Update flopy
+        working-directory: modflow6
+        run: pixi run update-flopy
+
+      - name: Get executables
+        working-directory: modflow6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run get-exes
+
+      - name: Set markers
+        id: set_markers
+        run: |
+          markers=""
+          if [[ "${{ github.ref_name }}" == "master" ]]; then
+            markers="not large and not developmode"
+          else
+            markers="not large"
+          fi
+          echo "markers=$markers" >> $GITHUB_OUTPUT
+
+      - name: Test MF6
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external"
+
+      - name: Test MF6 models
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf6
+
+      - name: Test converter models
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+
+      # if on linux, test example models too
+      - name: Install executables
+        if: runner.os == 'Linux'
+        uses: modflowpy/install-modflow-action@v1
+
+      - name: Test MF6 examples
+        if: runner.os == 'Linux'
+        working-directory: modflow6
+        shell: pixi run bash -e {0}
+        run: |
+          cp -R bin/* ~/.local/bin/modflow/
+          cd ../modflow6-examples/autotest
+          pytest -v -n auto test_scripts.py
+
+      - name: Upload failed test output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}
+          path: modflow6/autotest/.failed
+
+      - name: Test scripts
+        working-directory: modflow6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run test-dist-scripts
 
   extended_test:
     name: Extended testing
-    # needs:
-    #   - lint
-    #   - build
-    #   - smoke_test
+    needs:
+      - lint
+      - build
+      - smoke_test
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
