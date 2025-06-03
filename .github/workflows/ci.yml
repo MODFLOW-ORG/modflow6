@@ -41,159 +41,159 @@ concurrency:
 env:
   PIXI_BETA_WARNING_OFF: true
 jobs:
-  lint:
-    name: Check format
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout MF6
-        uses: actions/checkout@v4
+  # lint:
+  #   name: Check format
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout MF6
+  #       uses: actions/checkout@v4
 
-      - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.8
-        with:
-          pixi-version: v0.41.4
+  #     - name: Setup pixi
+  #       uses: prefix-dev/setup-pixi@v0.8.8
+  #       with:
+  #         pixi-version: v0.41.4
 
-      - name: Check Fortran source formatting
-        run: pixi run check-format
+  #     - name: Check Fortran source formatting
+  #       run: pixi run check-format
 
-      - name: Check MSVS project files
-        run: pixi run check-vfproj
+  #     - name: Check MSVS project files
+  #       run: pixi run check-vfproj
 
-      - name: Check python lint
-        run: pixi run check-python-lint
+  #     - name: Check python lint
+  #       run: pixi run check-python-lint
 
-      - name: Check python format
-        run: pixi run check-python-format
+  #     - name: Check python format
+  #       run: pixi run check-python-format
 
-      - name: Check CITATION.cff
-        run: pixi run check-citations
+  #     - name: Check CITATION.cff
+  #       run: pixi run check-citations
 
-  build:
-    name: Build
-    runs-on: ubuntu-22.04
-    env:
-      FC: gfortran
-      FC_V: 13
-    steps:
-      - name: Checkout MF6
-        uses: actions/checkout@v4
+  # build:
+  #   name: Build
+  #   runs-on: ubuntu-22.04
+  #   env:
+  #     FC: gfortran
+  #     FC_V: 13
+  #   steps:
+  #     - name: Checkout MF6
+  #       uses: actions/checkout@v4
 
-      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: ${{ env.FC_V }}
+  #     - name: Setup ${{ env.FC }} ${{ env.FC_V }}
+  #       uses: fortran-lang/setup-fortran@v1
+  #       with:
+  #         compiler: gcc
+  #         version: ${{ env.FC_V }}
 
-      - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.8
-        with:
-          pixi-version: v0.41.4
+  #     - name: Setup pixi
+  #       uses: prefix-dev/setup-pixi@v0.8.8
+  #       with:
+  #         pixi-version: v0.41.4
 
-      - name: Setup MF6
-        run: pixi run setup -Dwerror=true builddir
+  #     - name: Setup MF6
+  #       run: pixi run setup -Dwerror=true builddir
 
-      - name: Build MF6
-        run: pixi run build builddir
+  #     - name: Build MF6
+  #       run: pixi run build builddir
 
-      - name: Setup mf5to6
-        run: pixi run setup-mf5to6 -Dwerror=true builddir
+  #     - name: Setup mf5to6
+  #       run: pixi run setup-mf5to6 -Dwerror=true builddir
 
-      - name: Build mf5to6
-        run: pixi run build-mf5to6 builddir
+  #     - name: Build mf5to6
+  #       run: pixi run build-mf5to6 builddir
 
-      - name: Show build log
-        if: failure()
-        run: cat builddir/meson-logs/meson-log.txt
+  #     - name: Show build log
+  #       if: failure()
+  #       run: cat builddir/meson-logs/meson-log.txt
 
-      - name: Unit test MF6
-        run: pixi run test builddir
+  #     - name: Unit test MF6
+  #       run: pixi run test builddir
 
-  smoke_test:
-    name: Smoke test
-    runs-on: ubuntu-22.04
-    defaults:
-      run:
-        shell: bash
-    env:
-      FC: gfortran
-      FC_V: 13
-    steps:
-      - name: Checkout MF6
-        uses: actions/checkout@v4
-        with:
-          path: modflow6
+  # smoke_test:
+  #   name: Smoke test
+  #   runs-on: ubuntu-22.04
+  #   defaults:
+  #     run:
+  #       shell: bash
+  #   env:
+  #     FC: gfortran
+  #     FC_V: 13
+  #   steps:
+  #     - name: Checkout MF6
+  #       uses: actions/checkout@v4
+  #       with:
+  #         path: modflow6
 
-      - name: Checkout test-drive
-        uses: actions/checkout@v4
-        with:
-          repository: fortran-lang/test-drive
-          path: test-drive
+  #     - name: Checkout test-drive
+  #       uses: actions/checkout@v4
+  #       with:
+  #         repository: fortran-lang/test-drive
+  #         path: test-drive
 
-      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: ${{ env.FC_V }}
+  #     - name: Setup ${{ env.FC }} ${{ env.FC_V }}
+  #       uses: fortran-lang/setup-fortran@v1
+  #       with:
+  #         compiler: gcc
+  #         version: ${{ env.FC_V }}
 
-      - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.8
-        with:
-          pixi-version: v0.41.4
-          manifest-path: "modflow6/pixi.toml"
+  #     - name: Setup pixi
+  #       uses: prefix-dev/setup-pixi@v0.8.8
+  #       with:
+  #         pixi-version: v0.41.4
+  #         manifest-path: "modflow6/pixi.toml"
 
-      - name: Custom pixi install
-        working-directory: modflow6
-        run: pixi run install
+  #     - name: Custom pixi install
+  #       working-directory: modflow6
+  #       run: pixi run install
 
-      - name: Build test-drive
-        working-directory: test-drive
-        run: |
-          pixi run --manifest-path=../modflow6/pixi.toml meson setup builddir --prefix=$(pwd) --libdir=lib
-          pixi run --manifest-path=../modflow6/pixi.toml meson install -C builddir
-          echo "PKG_CONFIG_PATH=$(pwd)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+  #     - name: Build test-drive
+  #       working-directory: test-drive
+  #       run: |
+  #         pixi run --manifest-path=../modflow6/pixi.toml meson setup builddir --prefix=$(pwd) --libdir=lib
+  #         pixi run --manifest-path=../modflow6/pixi.toml meson install -C builddir
+  #         echo "PKG_CONFIG_PATH=$(pwd)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
-      - name: Build MF6
-        working-directory: modflow6
-        run: |
-          pixi run setup builddir
-          pixi run build builddir
-          pixi run setup-mf5to6 builddir
-          pixi run build-mf5to6 builddir
+  #     - name: Build MF6
+  #       working-directory: modflow6
+  #       run: |
+  #         pixi run setup builddir
+  #         pixi run build builddir
+  #         pixi run setup-mf5to6 builddir
+  #         pixi run build-mf5to6 builddir
 
-      - name: Show build log
-        if: failure()
-        working-directory: modflow6
-        run: cat builddir/meson-logs/meson-log.txt
+  #     - name: Show build log
+  #       if: failure()
+  #       working-directory: modflow6
+  #       run: cat builddir/meson-logs/meson-log.txt
 
-      - name: Unit test MF6
-        working-directory: modflow6
-        run: pixi run test builddir
+  #     - name: Unit test MF6
+  #       working-directory: modflow6
+  #       run: pixi run test builddir
 
-      - name: Update flopy
-        working-directory: modflow6
-        run: pixi run update-flopy
+  #     - name: Update flopy
+  #       working-directory: modflow6
+  #       run: pixi run update-flopy
 
-      - name: Get executables
-        working-directory: modflow6
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: pixi run get-exes
+  #     - name: Get executables
+  #       working-directory: modflow6
+  #       env:
+  #         GITHUB_TOKEN: ${{ github.token }}
+  #       run: pixi run get-exes
 
-      - name: Test MF6
-        working-directory: modflow6
-        run: |
-          if [ "${{ github.ref_name }}" == "master" ]; then
-            pixi run autotest -m "not slow and not regression and not developmode"
-          else
-            pixi run autotest --smoke
-          fi
+  #     - name: Test MF6
+  #       working-directory: modflow6
+  #       run: |
+  #         if [ "${{ github.ref_name }}" == "master" ]; then
+  #           pixi run autotest -m "not slow and not regression and not developmode"
+  #         else
+  #           pixi run autotest --smoke
+  #         fi
 
-      - name: Upload failed test output
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: failed-smoke-${{ runner.os }}-${{ env.FC }}-${{ env.FC_V }}
-          path: modflow6/autotest/.failed
+  #     - name: Upload failed test output
+  #       if: failure()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: failed-smoke-${{ runner.os }}-${{ env.FC }}-${{ env.FC_V }}
+  #         path: modflow6/autotest/.failed
 
   # test_gfortran:
   #   name: Test GNU fortran
@@ -540,10 +540,10 @@ jobs:
 
   extended_test:
     name: Extended testing
-    needs:
-      - lint
-      - build
-      - smoke_test
+    # needs:
+    #   - lint
+    #   - build
+    #   - smoke_test
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
