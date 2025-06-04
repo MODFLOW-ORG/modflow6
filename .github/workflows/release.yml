@@ -260,7 +260,7 @@ jobs:
           copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.2-NC4-64\bin\libcurl.dll" .
           copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.2-NC4-64\bin\netcdf.dll" .
           copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.2-NC4-64\bin\zlib1.dll" .
-          copy "%GITHUB_WORKSPACE%\netcdf\netcdf-fortran-4.6.1\build\fortran\netcdff.dll" .
+          copy "%GITHUB_WORKSPACE%\netcdf\netcdf-fortran-4.6.2\build\fortran\netcdff.dll" .
 
           :: remove rebuilt and downloaded dirs
           if exist rebuilt rd /s /q rebuilt
