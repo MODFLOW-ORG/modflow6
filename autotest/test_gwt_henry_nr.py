@@ -167,8 +167,8 @@ def get_model(ws, name, array_input=False):
     drnspd = {}
     if array_input:
         bheadspd = {}
-        condspd = {}
-        auxspd = {}
+        ghbcondspd = {}
+        ghbauxspd = {}
     else:
         ghbspd = {}
     for kper in range(nper):
@@ -176,36 +176,40 @@ def get_model(ws, name, array_input=False):
             sl = sealevel
         else:
             sl = sealevelts[kper]
+        sl = np.round(sl, decimals=8)
         drnlist = []
         if array_input:
-            abhead = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
-            acond = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
-            aconc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
-            adens = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            bhead = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            ghbcond = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            ghbconc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            ghbdens = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
         else:
             ghblist = []
-        nbound = 0
+        ghbbnd = 0
+        drnbnd = 0
         for k, i, j in zip(kidx, iidx, jidx):
             zcell = zcellcenters[k, i, j]
             cond = 864.0 * (delz * delc) / (0.5 * delr)
             if zcell > sl:
                 drnlist.append([(k, i, j), zcell, 864.0, 0.0])
+                drnbnd += 1
             else:
                 if array_input:
-                    abhead[k, i, j] = sl
-                    acond[k, i, j] = 864.0
-                    aconc[k, i, j] = 35.0
-                    adens[k, i, j] = 1024.5
+                    bhead[k, i, j] = sl
+                    ghbcond[k, i, j] = 864.0
+                    ghbconc[k, i, j] = 35.0
+                    ghbdens[k, i, j] = 1024.5
                 else:
                     ghblist.append([(k, i, j), sl, 864.0, 35.0, 1024.5])
-                nbound += 1
-        if array_input and zcell <= sl:
-            bheadspd[kper] = abhead
-            condspd[kper] = acond
-            auxspd[kper] = [aconc, adens]
-        elif len(ghblist) > 0:
-            ghbspd[kper] = ghblist
-        if len(drnlist) > 0:
+                ghbbnd += 1
+        if ghbbnd > 0:
+            if array_input:
+                bheadspd[kper] = bhead
+                ghbcondspd[kper] = ghbcond
+                ghbauxspd[kper] = [ghbconc, ghbdens]
+            else:
+                ghbspd[kper] = ghblist
+        if drnbnd > 0:
             drnspd[kper] = drnlist
 
     # drn
@@ -230,8 +234,8 @@ def get_model(ws, name, array_input=False):
             pname="GHB-1",
             auxiliary=["CONCENTRATION", "DENSITY"],
             bhead=bheadspd,
-            cond=condspd,
-            aux=auxspd,
+            cond=ghbcondspd,
+            aux=ghbauxspd,
         )
     else:
         ghb1 = flopy.mf6.ModflowGwfghb(

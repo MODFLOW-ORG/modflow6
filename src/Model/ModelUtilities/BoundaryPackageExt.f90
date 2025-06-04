@@ -201,6 +201,10 @@ contains
     call mem_setptr(this%auxvar, 'AUXVAR', this%memoryPath)
     !
     ! -- scalars
+    deallocate (this%readarraygrid)
+    deallocate (this%readarraylayer)
+    nullify (this%readarraygrid)
+    nullify (this%readarraylayer)
     nullify (this%iper)
     !
     ! -- deallocate
