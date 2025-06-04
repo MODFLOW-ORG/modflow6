@@ -17,10 +17,10 @@ runs:
     - name: Download NetCDF-C
       shell: bash
       run: |
-        mkdir -p netcdf/netCDF4.9.2-NC4-64
-        cd netcdf/netCDF4.9.2-NC4-64
-        curl https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netCDF4.9.2-NC4-64.exe -O -J
-        7z x netCDF4.9.2-NC4-64.exe -aou
+        mkdir -p netcdf/netCDF4.9.3-NC4-64
+        cd netcdf/netCDF4.9.3-NC4-64
+        curl https://downloads.unidata.ucar.edu/netcdf-c/4.9.3/netCDF4.9.3-NC4-64.exe -O -J
+        7z x netCDF4.9.3-NC4-64.exe -aou
 
     - name: Download NetCDF-Fortran
       shell: bash
@@ -41,6 +41,6 @@ runs:
     - name: Update path for NetCDF libs
       shell: bash
       run: |
-        echo "$GITHUB_WORKSPACE/netcdf/netCDF4.9.2-NC4-64/bin" >> $GITHUB_PATH
-        echo "$GITHUB_WORKSPACE/netcdf/netCDF4.9.2-NC4-64/lib" >> $GITHUB_PATH
+        echo "$GITHUB_WORKSPACE/netcdf/netCDF4.9.3-NC4-64/bin" >> $GITHUB_PATH
+        echo "$GITHUB_WORKSPACE/netcdf/netCDF4.9.3-NC4-64/lib" >> $GITHUB_PATH
         echo "$GITHUB_WORKSPACE/netcdf/netcdf-fortran-4.6.2/build/fortran" >> $GITHUB_PATH
