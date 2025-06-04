@@ -25,10 +25,10 @@ runs:
     - name: Download NetCDF-Fortran
       shell: bash
       run: |
-        mkdir -p netcdf/netcdf-fortran-4.6.1/build
-        cd netcdf/netcdf-fortran-4.6.1
-        curl https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.1/netcdf-fortran-4.6.1.zip -O -J
-        unzip netcdf-fortran-4.6.1.zip
+        mkdir -p netcdf/netcdf-fortran-4.6.2/build
+        cd netcdf/netcdf-fortran-4.6.2
+        curl https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.2/netcdf-fortran-4.6.2.zip -O -J
+        unzip netcdf-fortran-4.6.2.zip
 
     - name: Setup oneAPI
       uses: ./modflow6/.github/actions/setup-par-oneapi
@@ -43,4 +43,4 @@ runs:
       run: |
         echo "$GITHUB_WORKSPACE/netcdf/netCDF4.9.2-NC4-64/bin" >> $GITHUB_PATH
         echo "$GITHUB_WORKSPACE/netcdf/netCDF4.9.2-NC4-64/lib" >> $GITHUB_PATH
-        echo "$GITHUB_WORKSPACE/netcdf/netcdf-fortran-4.6.1/build/fortran" >> $GITHUB_PATH
+        echo "$GITHUB_WORKSPACE/netcdf/netcdf-fortran-4.6.2/build/fortran" >> $GITHUB_PATH
