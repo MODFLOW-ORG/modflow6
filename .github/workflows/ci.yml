@@ -123,12 +123,6 @@ jobs:
         with:
           path: modflow6
 
-      - name: Checkout test-drive
-        uses: actions/checkout@v4
-        with:
-          repository: fortran-lang/test-drive
-          path: test-drive
-
       - name: Setup ${{ env.FC }} ${{ env.FC_V }}
         uses: fortran-lang/setup-fortran@v1
         with:
@@ -144,13 +138,6 @@ jobs:
       - name: Custom pixi install
         working-directory: modflow6
         run: pixi run install
-
-      - name: Build test-drive
-        working-directory: test-drive
-        run: |
-          pixi run --manifest-path=../modflow6/pixi.toml meson setup builddir --prefix=$(pwd) --libdir=lib
-          pixi run --manifest-path=../modflow6/pixi.toml meson install -C builddir
-          echo "PKG_CONFIG_PATH=$(pwd)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
       - name: Build MF6
         working-directory: modflow6
