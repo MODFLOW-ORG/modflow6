@@ -8,7 +8,7 @@ import os
 import flopy
 import numpy as np
 import pytest
-from framework import TestFramework
+from framework import DNODATA, TestFramework
 
 cases = ["gwf_uzf01a"]
 nlay, nrow, ncol = 100, 1, 1
@@ -16,9 +16,7 @@ nlay, nrow, ncol = 100, 1, 1
 crs = "EPSG:26916"
 
 
-def build_models(idx, test):
-    name = cases[idx]
-
+def get_model(ws, name, array_input=False):
     perlen = [500.0]
     nper = len(perlen)
     nstp = [10]
@@ -39,7 +37,6 @@ def build_models(idx, test):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
 
     # build MODFLOW 6 files
-    ws = test.workspace
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
@@ -104,16 +101,40 @@ def build_models(idx, test):
         transient={0: True},
     )
 
-    # ghb
-    ghbspdict = {
-        0: [[(nlay - 1, 0, 0), 1.5, 1.0]],
-    }
-    ghb = flopy.mf6.ModflowGwfghb(
-        gwf,
+    # ghb / ghbg
+    if array_input:
+        ghb_obs = {f"{name}.ghb.obs.csv": [("100_1_1", "GHB", (99, 0, 0))]}
+        bhead = np.full(nlay * nrow * ncol, DNODATA, dtype=float)
+        cond = np.full(nlay * nrow * ncol, DNODATA, dtype=float)
+        bhead[nlay - 1] = 1.5
+        cond[nlay - 1] = 1.0
+        ghb = flopy.mf6.ModflowGwfghbg(
+            gwf,
+            print_input=True,
+            print_flows=True,
+            maxbound=1,
+            bhead=bhead,
+            cond=cond,
+            save_flows=False,
+        )
+    else:
+        ghb_obs = {f"{name}.ghb.obs.csv": [("100_1_1", "GHB", (99, 0, 0))]}
+        ghbspdict = {
+            0: [[(nlay - 1, 0, 0), 1.5, 1.0]],
+        }
+        ghb = flopy.mf6.ModflowGwfghb(
+            gwf,
+            print_input=True,
+            print_flows=True,
+            stress_period_data=ghbspdict,
+            save_flows=False,
+        )
+
+    ghb.obs.initialize(
+        filename=f"{name}.ghb.obs",
+        digits=20,
         print_input=True,
-        print_flows=True,
-        stress_period_data=ghbspdict,
-        save_flows=False,
+        continuous=ghb_obs,
     )
 
     # note: for specifying lake number, use fortran indexing!
@@ -174,13 +195,10 @@ def build_models(idx, test):
     obs_dict = {f"{name}.obs.csv": obs_lst}
     obs = flopy.mf6.ModflowUtlobs(gwf, pname="head_obs", digits=20, continuous=obs_dict)
 
-    return sim, None
+    return sim
 
 
-def check_output(idx, test):
-    name = test.name
-    ws = test.workspace
-
+def check_output(ws, name):
     # check binary grid file
     fname = os.path.join(ws, name + ".dis.grb")
     grbobj = flopy.mf6.utils.MfGrdFile(fname)
@@ -228,13 +246,40 @@ def check_output(idx, test):
         )
 
 
+def build_models(idx, test):
+    # build MODFLOW 6 files
+    ws = test.workspace
+    name = cases[idx]
+    sim = get_model(ws, name)
+
+    # build comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    mc = get_model(ws, name, array_input=True)
+
+    return sim, mc
+
+
+def check_outputs(idx, test):
+    name = cases[idx]
+
+    # check output MODFLOW 6 files
+    ws = test.workspace
+    check_output(ws, name)
+
+    # check output comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    check_output(ws, name)
+
+
+@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        check=lambda t: check_outputs(idx, t),
         targets=targets,
+        compare="mf6",
     )
     test.run()

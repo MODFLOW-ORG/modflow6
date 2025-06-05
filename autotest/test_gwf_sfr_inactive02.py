@@ -1,20 +1,19 @@
 # Test evap in SFR reaches (no interaction with gwf)
 
+import os
 
 import flopy
 import numpy as np
 import pytest
-from framework import TestFramework
+from framework import DNODATA, TestFramework
 
 HDRY, HNOFLO = -1e30, 1e30
 
 cases = ["sfr-inactive02"]
 
 
-def build_models(idx, test):
+def get_model(ws, name, array_input=False):
     # Base simulation and model name and workspace
-    ws = test.workspace
-    name = cases[idx]
 
     length_units = "m"
     time_units = "sec"
@@ -66,7 +65,15 @@ def build_models(idx, test):
         icelltype=1,  # >0 means saturated thickness varies with computed head
     )
     flopy.mf6.ModflowGwfic(gwf, strt=1.0)
-    flopy.mf6.ModflowGwfghb(gwf, stress_period_data=[((0, 0, 0), 1.0, 1e6)])
+    if array_input:
+        # if False:
+        bhead = np.full(nlay * nrow * ncol, DNODATA, dtype=float)
+        cond = np.full(nlay * nrow * ncol, DNODATA, dtype=float)
+        bhead[0] = 1.0
+        cond[0] = 1e6
+        flopy.mf6.ModflowGwfghbg(gwf, maxbound=1, bhead=bhead, cond=cond)
+    else:
+        flopy.mf6.ModflowGwfghb(gwf, stress_period_data=[((0, 0, 0), 1.0, 1e6)])
 
     # sfr data
     nreaches = 4
@@ -116,7 +123,7 @@ def build_models(idx, test):
         print_stage=True,
         print_flows=True,
         print_input=True,
-        stage_filerecord=f"{name}.sfr.hds",
+        stage_filerecord=f"{name}.sfr.stg",
         budget_filerecord=f"{name}.sfr.cbc",
         length_conversion=1.0,
         time_conversion=1.0,
@@ -150,11 +157,11 @@ def build_models(idx, test):
         saverecord=[("head", "all"), ("budget", "all")],
     )
 
-    return sim, None
+    return sim
 
 
-def check_output(idx, test):
-    sim = flopy.mf6.MFSimulation.load(sim_ws=test.workspace)
+def check_output(ws, name):
+    sim = flopy.mf6.MFSimulation.load(sim_ws=ws)
     gwf = sim.get_model()
     sfr = gwf.get_package("SFR-1")
     stage = sfr.output.stage().get_alldata().squeeze()
@@ -214,6 +221,32 @@ def check_output(idx, test):
     )
 
 
+def build_models(idx, test):
+    # build MODFLOW 6 files
+    ws = test.workspace
+    name = cases[idx]
+    sim = get_model(ws, name)
+
+    # build comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    mc = get_model(ws, name, array_input=True)
+
+    return sim, mc
+
+
+def check_outputs(idx, test):
+    name = cases[idx]
+
+    # check output MODFLOW 6 files
+    ws = test.workspace
+    check_output(ws, name)
+
+    # check output comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    check_output(ws, name)
+
+
+@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
@@ -221,6 +254,7 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        check=lambda t: check_outputs(idx, t),
+        compare="mf6",
     )
     test.run()

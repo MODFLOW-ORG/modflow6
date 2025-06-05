@@ -366,13 +366,13 @@ class Dfn2F90:
                 shape = shape.replace(")", "")
                 shape = shape.replace(",", "")
                 shape = shape.upper()
-                if shape == "NCOL*NROW; NCPL":
-                    # grid array input syntax
-                    if mf6vn == "AUXVAR":
-                        # for grid, set AUX as DOUBLE2D
+                if mf6vn == "AUXVAR":
+                    if shape == "NCOL*NROW; NCPL":
                         shape = "NAUX NCPL"
-                    else:
-                        shape = "NCPL"
+                    elif shape == "NODES":
+                        shape = "NAUX NODES"
+                elif shape == "NCOL*NROW; NCPL":
+                    shape = "NCPL"
                 shapelist = shape.strip().split()
             ndim = len(shapelist)
 

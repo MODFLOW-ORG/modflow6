@@ -175,6 +175,7 @@
 		<File RelativePath="..\src\Idm\gwf-drnidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-evtaidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-evtidm.f90"/>
+		<File RelativePath="..\src\Idm\gwf-ghbgidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-ghbidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-icidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-namidm.f90"/>
@@ -511,8 +512,9 @@
 			<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration>
 			<FileConfiguration Name="Release|Win32">
 			<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration></File>
-		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\Mf6FileGridInput.f90"/>
-		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\Mf6FileListInput.f90"/>
+		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\Mf6FileGridArray.f90"/>
+		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\Mf6FileLayerArray.f90"/>
+		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\Mf6FileList.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\Mf6FileStoInput.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\StructArray.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\StructVector.f90"/></Filter>

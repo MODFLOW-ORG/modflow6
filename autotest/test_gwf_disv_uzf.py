@@ -14,7 +14,7 @@ import flopy.utils.cvfdutil
 import numpy as np
 import pytest
 from flopy.utils.gridutil import get_disv_kwargs
-from framework import TestFramework
+from framework import DNODATA, TestFramework
 
 cases = ["disv_with_uzf"]
 nlay = 5
@@ -109,20 +109,21 @@ for t in np.arange(0, nper, 1):
     uzf_spd.update({t: spd})
 
 
-# Work up the GHB boundary
+# Work up the GHB / GHBG boundary
 ghb_ids = [(ncol - 1) + i * ncol for i in range(nrow)]
 ghb_spd = []
+abhead = np.full((nlay, ncpl), DNODATA, dtype=float)
+acond = np.full((nlay, ncpl), DNODATA, dtype=float)
 cond = 1e4
 for k in np.arange(3, 5, 1):
     for i in ghb_ids:
         ghb_spd.append([(k, i), 14.0, cond])
+        abhead[k, i] = 14.0
+        acond[k, i] = cond
 
 
-def build_models(idx, test):
-    name = cases[idx]
-
+def get_model(ws, name, array_input=False):
     # build MODFLOW 6 files
-    ws = test.workspace
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
@@ -171,7 +172,12 @@ def build_models(idx, test):
     sto = flopy.mf6.ModflowGwfsto(gwf, iconvert=1, ss=1e-5, sy=0.2, transient=True)
 
     # general-head boundary
-    ghb = flopy.mf6.ModflowGwfghb(gwf, print_flows=True, stress_period_data=ghb_spd)
+    if array_input:
+        ghb = flopy.mf6.ModflowGwfghbg(
+            gwf, print_flows=True, maxbound=20, bhead=abhead, cond=acond
+        )
+    else:
+        ghb = flopy.mf6.ModflowGwfghb(gwf, print_flows=True, stress_period_data=ghb_spd)
 
     # unsaturated-zone flow
     etobs = []
@@ -220,18 +226,18 @@ def build_models(idx, test):
     obs_dict = {f"{name}.obs.csv": obs_lst}
     obs = flopy.mf6.ModflowUtlobs(gwf, pname="head_obs", digits=20, continuous=obs_dict)
 
-    return sim, None
+    return sim
 
 
-def check_output(idx, test):
+def check_output(ws, name):
     # Next, get the binary printed heads
-    fpth = os.path.join(test.workspace, test.name + ".hds")
+    fpth = os.path.join(ws, name + ".hds")
     hobj = flopy.utils.HeadFile(fpth, precision="double")
     hds = hobj.get_alldata()
     hds = hds.reshape((np.sum(nstp), 5, 10, 10))
 
     # Get the MF6 cell-by-cell fluxes
-    bpth = os.path.join(test.workspace, test.name + ".cbc")
+    bpth = os.path.join(ws, name + ".cbc")
     bobj = flopy.utils.CellBudgetFile(bpth, precision="double")
     bobj.get_unique_record_names()
     # '          STO-SS'
@@ -249,7 +255,7 @@ def check_output(idx, test):
     gwet = gwetv.reshape((np.sum(nstp), 5, 10, 10))
 
     # Also retrieve the binary UZET output
-    uzpth = os.path.join(test.workspace, test.name + ".uzf.bud")
+    uzpth = os.path.join(ws, name + ".uzf.bud")
     uzobj = flopy.utils.CellBudgetFile(uzpth, precision="double")
     uzobj.get_unique_record_names()
     #  b'    FLOW-JA-FACE',
@@ -353,7 +359,33 @@ def check_output(idx, test):
     print("Finished running checks")
 
 
+def build_models(idx, test):
+    # build MODFLOW 6 files
+    ws = test.workspace
+    name = cases[idx]
+    sim = get_model(ws, name)
+
+    # build comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    mc = get_model(ws, name, array_input=True)
+
+    return sim, mc
+
+
+def check_outputs(idx, test):
+    name = cases[idx]
+
+    # check output MODFLOW 6 files
+    ws = test.workspace
+    check_output(ws, name)
+
+    # check output comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    check_output(ws, name)
+
+
 @pytest.mark.slow
+@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
@@ -361,6 +393,7 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        check=lambda t: check_outputs(idx, t),
+        compare="mf6",
     )
     test.run()

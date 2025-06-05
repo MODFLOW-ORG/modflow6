@@ -12,7 +12,7 @@ import os
 import flopy
 import numpy as np
 import pytest
-from framework import TestFramework
+from framework import DNODATA, TestFramework
 
 cases = ["henrynr01"]
 
@@ -67,10 +67,7 @@ def sinfunc(a, b, c, d, x):
     return a * np.sin(b * (x - c)) + d
 
 
-def build_models(idx, test):
-    ws = test.workspace
-    name = cases[idx]
-
+def get_model(ws, name, array_input=False):
     nrow = 1
     delr = lx / ncol
     delc = 1.0
@@ -167,25 +164,52 @@ def build_models(idx, test):
     sealevelts = [sealevel] + list(
         sinfunc(amplitude, frequency * 2 * np.pi, 0, sealevel, times)
     )
-    ghbspd = {}
     drnspd = {}
+    if array_input:
+        bheadspd = {}
+        ghbcondspd = {}
+        ghbauxspd = {}
+    else:
+        ghbspd = {}
     for kper in range(nper):
         if kper == 0:
             sl = sealevel
         else:
             sl = sealevelts[kper]
-        ghblist = []
+        sl = np.round(sl, decimals=8)
         drnlist = []
+        if array_input:
+            bhead = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            ghbcond = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            ghbconc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            ghbdens = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+        else:
+            ghblist = []
+        ghbbnd = 0
+        drnbnd = 0
         for k, i, j in zip(kidx, iidx, jidx):
             zcell = zcellcenters[k, i, j]
             cond = 864.0 * (delz * delc) / (0.5 * delr)
             if zcell > sl:
                 drnlist.append([(k, i, j), zcell, 864.0, 0.0])
+                drnbnd += 1
             else:
-                ghblist.append([(k, i, j), sl, 864.0, 35.0, 1024.5])
-        if len(ghblist) > 0:
-            ghbspd[kper] = ghblist
-        if len(drnlist) > 0:
+                if array_input:
+                    bhead[k, i, j] = sl
+                    ghbcond[k, i, j] = 864.0
+                    ghbconc[k, i, j] = 35.0
+                    ghbdens[k, i, j] = 1024.5
+                else:
+                    ghblist.append([(k, i, j), sl, 864.0, 35.0, 1024.5])
+                ghbbnd += 1
+        if ghbbnd > 0:
+            if array_input:
+                bheadspd[kper] = bhead
+                ghbcondspd[kper] = ghbcond
+                ghbauxspd[kper] = [ghbconc, ghbdens]
+            else:
+                ghbspd[kper] = ghblist
+        if drnbnd > 0:
             drnspd[kper] = drnlist
 
     # drn
@@ -199,16 +223,30 @@ def build_models(idx, test):
         auxiliary="CONCENTRATION",
     )
 
-    # ghb
-    ghb1 = flopy.mf6.ModflowGwfghb(
-        gwf,
-        stress_period_data=ghbspd,
-        print_input=True,
-        print_flows=True,
-        save_flows=False,
-        pname="GHB-1",
-        auxiliary=["CONCENTRATION", "DENSITY"],
-    )
+    # ghb / ghbg
+    if array_input:
+        ghb1 = flopy.mf6.ModflowGwfghbg(
+            gwf,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            maxbound=20,
+            pname="GHB-1",
+            auxiliary=["CONCENTRATION", "DENSITY"],
+            bhead=bheadspd,
+            cond=ghbcondspd,
+            aux=ghbauxspd,
+        )
+    else:
+        ghb1 = flopy.mf6.ModflowGwfghb(
+            gwf,
+            stress_period_data=ghbspd,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            pname="GHB-1",
+            auxiliary=["CONCENTRATION", "DENSITY"],
+        )
 
     wellist1 = []
     qwell = 5.7024 * wellfact
@@ -338,7 +376,7 @@ def build_models(idx, test):
         filename=f"{name}.gwfgwt",
     )
 
-    return sim, None
+    return sim
 
 
 def get_patch_collection(modelgrid, head, conc, cmap="jet", zorder=None):
@@ -453,10 +491,7 @@ def plot_output(idx, test):
     plt.savefig(fname, bbox_inches="tight")
 
 
-def check_output(idx, test):
-    name = test.name
-    ws = test.workspace
-    sim = test.sims[0]
+def check_output(ws, name, sim):
     gwfname = "gwf_" + name
     gwtname = "gwt_" + name
     gwf = sim.get_model(gwfname)
@@ -503,7 +538,34 @@ def check_output(idx, test):
     assert np.allclose(hsim, hans, atol=1.0e-3), errmsg
 
 
+def build_models(idx, test):
+    # build MODFLOW 6 files
+    ws = test.workspace
+    name = cases[idx]
+    sim = get_model(ws, name)
+
+    # build comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    mc = get_model(ws, name, array_input=True)
+
+    return sim, mc
+
+
+def check_outputs(idx, test):
+    name = cases[idx]
+    sim = test.sims[0]
+
+    # check output MODFLOW 6 files
+    ws = test.workspace
+    check_output(ws, name, sim)
+
+    # check output comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    check_output(ws, name, sim)
+
+
 @pytest.mark.slow
+@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets, plot):
     test = TestFramework(
@@ -511,7 +573,8 @@ def test_mf6model(idx, name, function_tmpdir, targets, plot):
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        check=lambda t: check_outputs(idx, t),
         plot=lambda t: plot_output(idx, t) if plot else None,
+        compare="mf6",
     )
     test.run()
