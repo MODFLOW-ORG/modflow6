@@ -287,7 +287,6 @@ $(OBJDIR)/SfrCrossSectionUtils.o \
 $(OBJDIR)/TernarySolveTrack.o \
 $(OBJDIR)/SubcellTri.o \
 $(OBJDIR)/Method.o \
-$(OBJDIR)/MethodCell.o \
 $(OBJDIR)/SubcellRect.o \
 $(OBJDIR)/VirtualBase.o \
 $(OBJDIR)/STLVecInt.o \
@@ -318,6 +317,7 @@ $(OBJDIR)/gwf-drn.o \
 $(OBJDIR)/IndexMap.o \
 $(OBJDIR)/ArrayReaderBase.o \
 $(OBJDIR)/MethodSubcellPool.o \
+$(OBJDIR)/MethodCell.o \
 $(OBJDIR)/CellPoly.o \
 $(OBJDIR)/CellRectQuad.o \
 $(OBJDIR)/CellRect.o \
@@ -338,6 +338,7 @@ $(OBJDIR)/HGeoUtil.o \
 $(OBJDIR)/gwf-vsc.o \
 $(OBJDIR)/GwfNpfOptions.o \
 $(OBJDIR)/GwfConductanceUtils.o \
+$(OBJDIR)/PbstBase.o \
 $(OBJDIR)/InterfaceMap.o \
 $(OBJDIR)/SeqVector.o \
 $(OBJDIR)/ImsLinearSettings.o \
@@ -367,6 +368,7 @@ $(OBJDIR)/GwfMvrPeriodData.o \
 $(OBJDIR)/ImsLinearMisc.o \
 $(OBJDIR)/gwf-npf.o \
 $(OBJDIR)/GwfBuyInputData.o \
+$(OBJDIR)/gwe-shf.o \
 $(OBJDIR)/GweCndOptions.o \
 $(OBJDIR)/VirtualSolution.o \
 $(OBJDIR)/SparseMatrix.o \
@@ -521,6 +523,7 @@ $(OBJDIR)/GwfSfrCommon.o \
 $(OBJDIR)/gwf-sfr-transient.o \
 $(OBJDIR)/gwf-sfr-steady.o \
 $(OBJDIR)/gwf-sfr-constant.o \
+$(OBJDIR)/gwe-swr.o \
 $(OBJDIR)/RectangularGeometry.o \
 $(OBJDIR)/CircularGeometry.o \
 $(OBJDIR)/ExplicitModel.o \

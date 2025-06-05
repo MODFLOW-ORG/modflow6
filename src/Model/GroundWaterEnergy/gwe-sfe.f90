@@ -20,8 +20,10 @@
 ! EXT-INFLOW                idxbudiflw    EXT-INFLOW            rhow * cpw * q * tiflw
 ! EXT-OUTFLOW               idxbudoutf    EXT-OUTFLOW           rhow * cpw * q * tfeat
 
-! -- terms not associated with SFR
-! STRMBD-COND               none          STRMBD-COND           ctherm * (tcell - tfeat) (ctherm is a thermal conductance for the streambed)
+! -- SFE terms
+! STRMBD-COND               idxbudsbcd    STRMBD-COND           ktf * wa / sbthk * (t_cell - t_feat)
+! SENSIBLE HEAT FLUX        idxbudshf     SENS HEAT             cd * rho_a * C_p_a * wspd * (t_air - t_feat)
+! SHORTWAVE RADIATION       idxbudsWR     SHORTWAVE             (1 - shd) * (1 - swrefl) * solr
 
 ! -- terms from a flow file that should be skipped
 ! CONSTANT                  none          none                  none
@@ -43,10 +45,14 @@ module GweSfeModule
   use TspFmiModule, only: TspFmiType
   use SfrModule, only: SfrType
   use ObserveModule, only: ObserveType
+  use BaseDisModule, only: DisBaseType
   use TspAptModule, only: TspAptType, apt_process_obsID, &
                           apt_process_obsID12
   use GweInputDataModule, only: GweInputDataType
+  use SensHeatModule, only: ShfType, shf_cr
+  use ShortwaveModule, only: SwrType, swr_cr
   use MatrixBaseModule
+  use InputOutputModule, only: openfile
   !
   implicit none
   !
@@ -67,6 +73,9 @@ module GweSfeModule
     integer(I4B), pointer :: idxbudiflw => null() !< index of inflow terms in flowbudptr
     integer(I4B), pointer :: idxbudoutf => null() !< index of outflow terms in flowbudptr
 
+    logical, pointer, public :: shf_active => null() !< logical indicating if a sensible heat flux object is active
+    logical, pointer, public :: swr_active => null() !< logical indicating if a shortwave radition heat flux object is active
+
     real(DP), dimension(:), pointer, contiguous :: temprain => null() !< rainfall temperature
     real(DP), dimension(:), pointer, contiguous :: tempevap => null() !< evaporation temperature
     real(DP), dimension(:), pointer, contiguous :: temproff => null() !< runoff temperature
@@ -74,9 +83,18 @@ module GweSfeModule
     real(DP), dimension(:), pointer, contiguous :: ktf => null() !< thermal conductivity between the sfe and groundwater cell
     real(DP), dimension(:), pointer, contiguous :: rfeatthk => null() !< thickness of streambed material through which thermal conduction occurs
 
+    type(ShfType), pointer :: shf => null() ! sensible heat flux (shf) object
+    type(SwrType), pointer :: swr => null() ! shortwave radiation heat flux (swr) object
+
+    integer(I4B), pointer :: inshf => null() ! SHF (sensible heat flux utility) unit number (0 if unused)
+    integer(I4B), pointer :: inswr => null() ! SWR (shortwave radiation heat flux utility) unit number (0 if unused)
+
   contains
 
+    !procedure :: bnd_df => sfe_df
     procedure :: bnd_da => sfe_da
+    !procedure :: bnd_ar => sfe_ar
+    procedure :: ancil_rp => pbst_rp
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => sfe_allocate_arrays
     procedure :: find_apt_package => find_sfe_package
@@ -91,11 +109,14 @@ module GweSfeModule
     procedure :: sfe_iflw_term
     procedure :: sfe_outf_term
     procedure, private :: sfe_sbcd_term
+    procedure, private :: sfe_shf_term
+    procedure, private :: sfe_swr_term
     procedure :: pak_df_obs => sfe_df_obs
     procedure :: pak_rp_obs => sfe_rp_obs
     procedure :: pak_bd_obs => sfe_bd_obs
     procedure :: pak_set_stressperiod => sfe_set_stressperiod
     procedure :: apt_read_cvs => sfe_read_cvs
+    procedure :: gc_options => sfe_options
 
   end type GweSfeType
 
@@ -105,6 +126,8 @@ contains
   !<
   subroutine sfe_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
                         fmi, eqnsclfac, gwecommon, dvt, dvu, dvua)
+    ! -- modules
+    use InputOutputModule, only: getunit
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -161,6 +184,97 @@ contains
     sfeobj%depvarunit = dvu
     sfeobj%depvarunitabbrev = dvua
   end subroutine sfe_create
+
+  !> @brief Set options specific to the GweSfeType
+  !!
+  !! This routine overrides TspAptType%gc_options
+  !<
+  subroutine sfe_options(this, option, found)
+    ! -- modules
+    use ConstantsModule, only: MAXCHARLEN, LGP
+    use InputOutputModule, only: urword, getunit, assign_iounit, openfile
+    ! -- dummy
+    class(GweSfeType), intent(inout) :: this
+    character(len=*), intent(inout) :: option
+    logical, intent(inout) :: found
+    ! -- local
+    character(len=LINELENGTH) :: fname
+    character(len=MAXCHARLEN) :: keyword
+    ! -- formats
+    character(len=*), parameter :: fmtaptbin = &
+      "(4x, a, 1x, a, 1x, ' WILL BE SAVED TO FILE: ', a, &
+      &/4x, 'OPENED ON UNIT: ', I0)"
+    !
+    found = .true.
+    select case (option)
+    case ('SHF6')
+      !
+      call this%parser%GetStringCaps(keyword)
+      if (trim(adjustl(keyword)) /= 'FILEIN') then
+        errmsg = 'SHF6 keyword must be followed by "FILEIN" '// &
+                 'then by filename.'
+        call store_error(errmsg)
+        call this%parser%StoreErrorUnit()
+      end if
+      if (this%shf_active) then
+        errmsg = 'Multiple SHF6 keywords detected in OPTIONS block. '// &
+                 'Only one SHF6 entry allowed for a package.'
+        call store_error(errmsg)
+      end if
+      this%shf_active = .true.
+      call this%parser%GetString(fname)
+      !
+      ! -- create sensible heat flux object
+      call openfile(this%inshf, this%iout, fname, 'SHF')
+      call shf_cr(this%shf, this%name_model, this%inshf, this%iout, this%ncv)
+      this%shf%inputFilename = fname
+      !
+      ! -- call _ar routine for shf sub-package
+      !    note: this is the best place to call the sub-package (shf) for
+      !          now because SFE does not override apt_ar(), and since sfe
+      !          does not run its own customized set of _ar() functionality
+      !          there is no opportunity to run shf%ar() from a more
+      !          natural point.  In other words, one place to call shf%ar
+      !          would be from bnd_ar(), however, shf is only callable from
+      !          sfe and not apt.
+      call this%shf%ar()
+    case ('SWR6')
+      !
+      call this%parser%GetStringCaps(keyword)
+      if (trim(adjustl(keyword)) /= 'FILEIN') then
+        errmsg = 'SWR6 keyword must be followed by "FILEIN" '// &
+                 'then by filename.'
+        call store_error(errmsg)
+        call this%parser%StoreErrorUnit()
+      end if
+      if (this%swr_active) then
+        errmsg = 'Multiple SWR6 keywords detected in OPTIONS block. '// &
+                 'Only one SWR6 entry allowed for a package.'
+        call store_error(errmsg)
+      end if
+      this%swr_active = .true.
+      call this%parser%GetString(fname)
+      !
+      ! -- create sensible heat flux object
+      call openfile(this%inswr, this%iout, fname, 'SWR')
+      call swr_cr(this%swr, this%name_model, this%inswr, this%iout, this%ncv)
+      this%swr%inputFilename = fname
+      !
+      ! -- call _ar routine for swr sub-package
+      !    note: this is the best place to call the sub-package (swr) for
+      !          now because SFE does not override apt_ar(), and since sfe
+      !          does not run its own customized set of _ar() functionality
+      !          there is no opportunity to run swr%ar() from a more
+      !          natural point.  In other words, one place to call swr%ar
+      !          would be from bnd_ar(), however, swr is only callable from
+      !          sfe and not apt.
+      call this%swr%ar()
+    case default
+      !
+      ! -- No options found
+      found = .false.
+    end select
+  end subroutine sfe_options
 
   !> @brief Find corresponding sfe package
   !<
@@ -232,7 +346,9 @@ contains
     do ip = 1, this%flowbudptr%nbudterm
       select case (trim(adjustl(this%flowbudptr%budterm(ip)%flowtype)))
       case ('FLOW-JA-FACE')
-        this%idxbudfjf = ip
+        if (this%flowbudptr%budterm(ip)%maxlist /= 0) then
+          this%idxbudfjf = ip
+        end if
         this%idxbudssm(ip) = 0
       case ('GWF')
         this%idxbudgwf = ip
@@ -376,6 +492,27 @@ contains
         call matrix_sln%add_value_pos(ipossymoffd, hcofval)
       end if
     end do
+    !
+    ! -- Add sensible heat flux contribution
+    if (this%inshf /= 0) then
+      do j = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
+        call this%sfe_shf_term(j, n1, n2, rrate, rhsval, hcofval)
+        iloc = this%idxlocnode(n1)
+        iposd = this%idxpakdiag(n1)
+        call matrix_sln%add_value_pos(iposd, hcofval)
+        rhs(iloc) = rhs(iloc) + rhsval
+      end do
+    end if
+    ! -- Add shortwave radiation heat flux contribution
+    if (this%inswr /= 0) then
+      do j = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
+        call this%sfe_swr_term(j, n1, n2, rrate, rhsval, hcofval)
+        iloc = this%idxlocnode(n1)
+        iposd = this%idxpakdiag(n1)
+        call matrix_sln%add_value_pos(iposd, hcofval)
+        rhs(iloc) = rhs(iloc) + rhsval
+      end do
+    end if
   end subroutine sfe_fc_expanded
 
   !> @ brief Add terms specific to sfr to the explicit sfe solve
@@ -429,6 +566,7 @@ contains
     end if
     !
     ! Note: explicit streambed conduction terms???
+    ! Note: explicit sensible heat flux terms?
   end subroutine sfe_solve
 
   !> @brief Function to return the number of budget terms just for this package.
@@ -447,8 +585,20 @@ contains
     !    3. runoff
     !    4. ext-inflow
     !    5. ext-outflow
-    !    6. strmbd-cond
+    !    6. strmbed-cond
     nbudterms = 6
+    ! -- optional utilities
+    !    X. shortwave radiation
+    !    X. longwave radiation
+    !    X. sensible heat flux
+    !    X. latent heat
+    if (this%inshf /= 0) then
+      nbudterms = nbudterms + 1
+    end if
+    if (this%inswr /= 0) then
+      nbudterms = nbudterms + 1
+    end if
+    !
   end function sfe_get_nbudterms
 
   !> @brief Set up the budget object that stores all the sfe flows
@@ -549,6 +699,49 @@ contains
       n2 = this%flowbudptr%budterm(this%idxbudgwf)%id2(n)
       call this%budobj%budterm(idx)%update_term(n1, n2, q)
     end do
+    !
+    ! -- Sensible heat flux
+    if (this%inshf /= 0) then
+      text = '   SENSIBLE-HEAT'
+      idx = idx + 1
+      maxlist = this%flowbudptr%budterm(this%idxbudgwf)%maxlist
+      naux = 0
+      call this%budobj%budterm(idx)%initialize(text, &
+                                               this%name_model, &
+                                               this%packName, &
+                                               this%name_model, &
+                                               this%packName, &
+                                               maxlist, .false., .false., &
+                                               naux)
+      call this%budobj%budterm(idx)%reset(maxlist)
+      q = DZERO
+      do n = 1, maxlist
+        n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(n)
+        n2 = this%flowbudptr%budterm(this%idxbudgwf)%id2(n)
+        call this%budobj%budterm(idx)%update_term(n1, n2, q)
+      end do
+    end if
+    ! -- Shortwave radiation heat flux
+    if (this%inswr /= 0) then
+      text = 'SHRTWV-RADIATION'
+      idx = idx + 1
+      maxlist = this%flowbudptr%budterm(this%idxbudgwf)%maxlist
+      naux = 0
+      call this%budobj%budterm(idx)%initialize(text, &
+                                               this%name_model, &
+                                               this%packName, &
+                                               this%name_model, &
+                                               this%packName, &
+                                               maxlist, .false., .false., &
+                                               naux)
+      call this%budobj%budterm(idx)%reset(maxlist)
+      q = DZERO
+      do n = 1, maxlist
+        n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(n)
+        n2 = this%flowbudptr%budterm(this%idxbudgwf)%id2(n)
+        call this%budobj%budterm(idx)%update_term(n1, n2, q)
+      end do
+    end if
   end subroutine sfe_setup_budobj
 
   !> @brief Copy flow terms into this%budobj
@@ -638,6 +831,29 @@ contains
         flowja(idiag) = flowja(idiag) - q
       end if
     end do
+    !
+    ! -- Sensible-heat
+    if (this%inshf /= 0) then
+      idx = idx + 1
+      nlist = this%flowbudptr%budterm(this%idxbudgwf)%nlist
+      call this%budobj%budterm(idx)%reset(nlist)
+      do j = 1, nlist
+        call this%sfe_shf_term(j, n1, n2, q)
+        call this%budobj%budterm(idx)%update_term(n1, n2, q)
+        call this%apt_accumulate_ccterm(n1, q, ccratin, ccratout)
+      end do
+    end if
+    ! -- Shortwave-radiation
+    if (this%inswr /= 0) then
+      idx = idx + 1
+      nlist = this%flowbudptr%budterm(this%idxbudgwf)%nlist
+      call this%budobj%budterm(idx)%reset(nlist)
+      do j = 1, nlist
+        call this%sfe_swr_term(j, n1, n2, q)
+        call this%budobj%budterm(idx)%update_term(n1, n2, q)
+        call this%apt_accumulate_ccterm(n1, q, ccratin, ccratout)
+      end do
+    end if
   end subroutine sfe_fill_budobj
 
   !> @brief Allocate scalars specific to the streamflow energy transport (SFE)
@@ -658,6 +874,10 @@ contains
     call mem_allocate(this%idxbudroff, 'IDXBUDROFF', this%memoryPath)
     call mem_allocate(this%idxbudiflw, 'IDXBUDIFLW', this%memoryPath)
     call mem_allocate(this%idxbudoutf, 'IDXBUDOUTF', this%memoryPath)
+    call mem_allocate(this%shf_active, 'SHF_ACTIVE', this%memoryPath)
+    call mem_allocate(this%swr_active, 'SWR_ACTIVE', this%memoryPath)
+    call mem_allocate(this%inshf, 'INSHF', this%memoryPath)
+    call mem_allocate(this%inswr, 'INSWR', this%memoryPath)
     !
     ! -- Initialize
     this%idxbudrain = 0
@@ -665,6 +885,11 @@ contains
     this%idxbudroff = 0
     this%idxbudiflw = 0
     this%idxbudoutf = 0
+    !
+    this%shf_active = .false.
+    this%swr_active = .false.
+    this%inshf = 0
+    this%inswr = 0
   end subroutine allocate_scalars
 
   !> @brief Allocate arrays specific to the streamflow energy transport (SFE)
@@ -694,7 +919,35 @@ contains
       this%temproff(n) = DZERO
       this%tempiflw(n) = DZERO
     end do
+    !
+    ! -- Call sub-package(s) allocate arrays
+    if (this%inshf /= 0) then
+      call this%shf%pbst_allocate_arrays()
+    end if
+    if (this%inswr /= 0) then
+      call this%swr%pbst_allocate_arrays()
+    end if
   end subroutine sfe_allocate_arrays
+
+  !> @brief Call Read and prepare routines for any active pbst subpackages
+  !!
+  !! Overrides ancil_rp() subroutine in tsp-apt.  The idea being that for a
+  !! GWE model with add-on packages (like sensible heat flux, for example)
+  !! they can only be accessed from sfe and not apt.
+  !<
+  subroutine pbst_rp(this)
+    ! -- dummy
+    class(GweSfeType), intent(inout) :: this
+    !
+    ! -- call sensible heat flux sub-package _rp() routine
+    if (this%inshf /= 0) then
+      call this%shf%rp()
+    end if
+    ! -- call shortwave radiation heat flux sub-package _rp() routine
+    if (this%inswr /= 0) then
+      call this%swr%rp()
+    end if
+  end subroutine pbst_rp
 
   !> @brief Deallocate memory
   !<
@@ -704,12 +957,28 @@ contains
     ! -- dummy
     class(GweSfeType) :: this
     !
+    ! -- SHF (sensible heat flux)
+    if (this%inshf /= 0) then
+      call this%shf%da()
+      deallocate (this%shf)
+    end if
+    ! -- SWR (shortwave radiation heat flux)
+    if (this%inswr /= 0) then
+      call this%swr%da()
+      deallocate (this%swr)
+    end if
+    !
     ! -- Deallocate scalars
     call mem_deallocate(this%idxbudrain)
     call mem_deallocate(this%idxbudevap)
     call mem_deallocate(this%idxbudroff)
     call mem_deallocate(this%idxbudiflw)
     call mem_deallocate(this%idxbudoutf)
+    !
+    call mem_deallocate(this%shf_active)
+    call mem_deallocate(this%swr_active)
+    call mem_deallocate(this%inshf)
+    call mem_deallocate(this%inswr)
     !
     ! -- Deallocate time series
     call mem_deallocate(this%temprain)
@@ -892,6 +1161,66 @@ contains
     if (present(hcofval)) hcofval = ctherm
   end subroutine sfe_sbcd_term
 
+  !> @brief Sensible Heat Flux (SHF) term
+  !<
+  subroutine sfe_shf_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
+    ! -- dummy
+    class(GweSfeType) :: this
+    integer(I4B), intent(in) :: ientry
+    integer(I4B), intent(inout) :: n1
+    integer(I4B), intent(inout) :: n2
+    real(DP), intent(inout), optional :: rrate
+    real(DP), intent(inout), optional :: rhsval
+    real(DP), intent(inout), optional :: hcofval
+    ! -- local
+    real(DP) :: sensheat
+    real(DP) :: strmtemp
+    integer(I4B) :: auxpos
+    real(DP) :: sa !< surface area of stream reach, different than wetted area
+    !
+    n1 = this%flowbudptr%budterm(this%idxbudevap)%id1(ientry)
+    ! -- For now, there is only 1 aux variable under 'EVAPORATION'
+    auxpos = this%flowbudptr%budterm(this%idxbudevap)%naux
+    sa = this%flowbudptr%budterm(this%idxbudevap)%auxvar(auxpos, ientry)
+    !
+    strmtemp = this%xnewpak(n1)
+    call this%shf%shf_cq(n1, strmtemp, sensheat)
+    !
+    if (present(rrate)) rrate = sensheat * sa
+    if (present(rhsval)) rhsval = -rrate
+    if (present(hcofval)) hcofval = DZERO
+  end subroutine sfe_shf_term
+
+  !> @brief Shortwave Radiation (SWR) term
+  !<
+  subroutine sfe_swr_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
+    ! -- dummy
+    class(GweSfeType) :: this
+    integer(I4B), intent(in) :: ientry
+    integer(I4B), intent(inout) :: n1
+    integer(I4B), intent(inout) :: n2
+    real(DP), intent(inout), optional :: rrate
+    real(DP), intent(inout), optional :: rhsval
+    real(DP), intent(inout), optional :: hcofval
+    ! -- local
+    real(DP) :: shrtwvheat
+    real(DP) :: strmtemp
+    integer(I4B) :: auxpos
+    real(DP) :: sa !< surface area of stream reach, different than wetted area
+    !
+    n1 = this%flowbudptr%budterm(this%idxbudevap)%id1(ientry)
+    ! -- For now, there is only 1 aux variable under 'EVAPORATION'
+    auxpos = this%flowbudptr%budterm(this%idxbudevap)%naux
+    sa = this%flowbudptr%budterm(this%idxbudevap)%auxvar(auxpos, ientry)
+    !
+    strmtemp = this%xnewpak(n1)
+    call this%swr%swr_cq(n1, shrtwvheat)
+    !
+    if (present(rrate)) rrate = shrtwvheat * sa
+    if (present(rhsval)) rhsval = -rrate
+    if (present(hcofval)) hcofval = DZERO
+  end subroutine sfe_swr_term
+
   !> @brief Observations
   !!
   !! Store the observation type supported by the APT package and override
@@ -968,6 +1297,16 @@ contains
     !    for strmbd-cond observation type.
     call this%obs%StoreObsType('strmbd-cond', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+    !
+    ! -- Store obs type and assign procedure pointer
+    !    for sens-heat-flux observation type.
+    call this%obs%StoreObsType('shf', .true., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+    !
+    ! -- Store obs type and assign procedure pointer
+    !    for shortwave-radiation-flux observation type.
+    call this%obs%StoreObsType('swr', .true., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
   end subroutine sfe_df_obs
 
   !> @brief Process package specific obs
@@ -996,6 +1335,10 @@ contains
     case ('TO-MVR')
       call this%rp_obs_byfeature(obsrv)
     case ('STRMBD-COND')
+      call this%rp_obs_byfeature(obsrv)
+    case ('SHF')
+      call this%rp_obs_byfeature(obsrv)
+    case ('SWR')
       call this%rp_obs_byfeature(obsrv)
     case default
       found = .false.
@@ -1039,6 +1382,14 @@ contains
     case ('STRMBD-COND')
       if (this%iboundpak(jj) /= 0) then
         call this%sfe_sbcd_term(jj, n1, n2, v)
+      end if
+    case ('SHF')
+      if (this%iboundpak(jj) /= 0) then
+        call this%sfe_shf_term(jj, n1, n2, v)
+      end if
+    case ('SWR')
+      if (this%iboundpak(jj) /= 0) then
+        call this%sfe_swr_term(jj, n1, n2, v)
       end if
     case default
       found = .false.

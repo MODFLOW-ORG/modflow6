@@ -22,4 +22,5 @@ BEGIN continuous  FILEOUT  gwe_sfe02.sfe.obs.csv
   sfe-5-fjf          FLOW-JA-FACE   MYREACH1
   sfe-6-fjf          FLOW-JA-FACE   MYREACH2
   sfe-7-fjf          FLOW-JA-FACE   MYREACH3
+  sfe-1-shf          SHF            1
 END continuous
