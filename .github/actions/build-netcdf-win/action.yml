@@ -21,6 +21,7 @@ runs:
         cd netcdf/netCDF4.9.3-NC4-64
         curl https://downloads.unidata.ucar.edu/netcdf-c/4.9.3/netCDF4.9.3-NC4-64.exe -O -J
         7z x netCDF4.9.3-NC4-64.exe -aou
+        cp "$GITHUB_WORKSPACE/modflow6/.github/common/netcdf/netcdfc4.9.3/netCDFConfig.cmake" lib/cmake/netCDF/
 
     - name: Download NetCDF-Fortran
       shell: bash
@@ -29,6 +30,7 @@ runs:
         cd netcdf/netcdf-fortran-4.6.2
         curl https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.2/netcdf-fortran-4.6.2.zip -O -J
         unzip netcdf-fortran-4.6.2.zip
+        cp "$GITHUB_WORKSPACE/modflow6/.github/common/netcdf/netcdff4.6.2/CMakeLists.txt" netcdf-fortran-4.6.2
 
     - name: Setup oneAPI
       uses: ./modflow6/.github/actions/setup-par-oneapi
