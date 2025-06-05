@@ -23,7 +23,6 @@ ninja = "*"
 numpy = "<2.0.0"    # modflowapi has a resriction on the numpy version
 pandas = "*"
 pip = "*"
-pkg-config = "*"
 pooch = "*"
 pydotplus = "*"
 pyshp = "*"
@@ -96,7 +95,7 @@ fix-python-style = { cmd = "pixi run check-python-lint --fix; pixi run fix-pytho
 
 # meson build/test for mf6 and zbud6
 builddir = "echo _builddir"
-setup = "meson setup --prefix=$(pwd) --libdir=bin --bindir=bin"
+setup = { cmd = "meson setup --prefix=$(pwd) --libdir=bin --bindir=bin", env = { PKG_CONFIG_PATH = "$CONDA_PREFIX/lib/pkgconfig" } }
 build = "meson install -C"
 test = "meson test --verbose --no-rebuild -C"
 
