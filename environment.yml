@@ -28,6 +28,7 @@ dependencies:
       - git+https://github.com/Deltares/xmipy.git
       - git+https://github.com/MODFLOW-ORG/modflowapi.git
       - git+https://github.com/MODFLOW-ORG/modflow-devtools.git
+  - pkg-config
   - pooch
   - pyshp
   - pytest!=8.1.0
@@ -42,6 +43,7 @@ dependencies:
   - scipy
   - shapely
   - syrupy
+  - test-drive
   - tomli>=2.2.1,<3
   - tomli-w>=1.2.0,<2
   

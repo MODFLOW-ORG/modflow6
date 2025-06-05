@@ -530,21 +530,6 @@ Unit tests are [driven with Meson](https://mesonbuild.com/Unit-tests.html). A sm
 
 Additional Fortran unit tests are defined with [`test-drive`](https://github.com/fortran-lang/test-drive) in the `autotest/` folder, with test files named `Test*.f90`. If Meson fails to find the `test-drive` library via `pkg-config`, these will be skipped.
 
-To install `test-drive`:
-
-1. Clone the `test-drive` repository
-2. Setup/build with Meson, e.g. in a Unix shell from the `test-drive` project root:
-
-```shell
-meson setup builddir --prefix=$PWD --libdir=lib
-meson install -C builddir
-```
-
-3. Add `<test-drive project root>/lib/pkgconfig` to the `PKG_CONFIG_PATH` environment variable.
-4. To confirm that `test-drive` is detected by `pkg-config`, run `pkg-config --libs test-drive`.
-
-Meson should now detect the `test-drive` library when building MODFLOW 6.
-
 **Note:** the `test-drive` source code is not yet compatible with recent versions of Intel Fortran, building with `gfortran` is recommended.
 
 See the [Running unit tests](#running-unit-tests) section for instructions on running unit tests.
