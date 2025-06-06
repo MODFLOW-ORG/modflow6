@@ -255,12 +255,12 @@ jobs:
           copy "C:\Program Files (x86)\Intel\oneAPI\mpi\latest\bin\hydra_pmi_proxy.exe" .
           copy "C:\Program Files (x86)\Intel\oneAPI\mpi\latest\bin\hydra_service.exe" .
           copy "%GITHUB_WORKSPACE%\petsc\arch-mswin-c-opt\lib\libpetsc.dll" .
-          copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.2-NC4-64\bin\hdf5.dll" .
-          copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.2-NC4-64\bin\hdf5_hl.dll" .
-          copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.2-NC4-64\bin\libcurl.dll" .
-          copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.2-NC4-64\bin\netcdf.dll" .
-          copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.2-NC4-64\bin\zlib1.dll" .
-          copy "%GITHUB_WORKSPACE%\netcdf\netcdf-fortran-4.6.1\build\fortran\netcdff.dll" .
+          copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.3-NC4-64\bin\hdf5.dll" .
+          copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.3-NC4-64\bin\hdf5_hl.dll" .
+          copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.3-NC4-64\bin\libcurl.dll" .
+          copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.3-NC4-64\bin\netcdf.dll" .
+          copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.3-NC4-64\bin\zlib1.dll" .
+          copy "%GITHUB_WORKSPACE%\netcdf\netcdf-fortran-4.6.2\build\fortran\netcdff.dll" .
 
           :: remove rebuilt and downloaded dirs
           if exist rebuilt rd /s /q rebuilt
