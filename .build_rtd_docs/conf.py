@@ -92,7 +92,7 @@ dst = os.path.join(dstdir, fpth)
 shutil.copy(src, dst)
 
 fpth = "README.md"
-src = os.path.join("..", "distribution")
+src = os.path.join("..", "distribution", fpth)
 dst = os.path.join(dstdir, "DISTRIBUTION.md")
 shutil.copy(src, dst)
 
