@@ -28,7 +28,6 @@ dependencies:
       - git+https://github.com/Deltares/xmipy.git
       - git+https://github.com/MODFLOW-ORG/modflowapi.git
       - git+https://github.com/MODFLOW-ORG/modflow-devtools.git
-  - pkg-config
   - pooch
   - pyshp
   - pytest!=8.1.0
