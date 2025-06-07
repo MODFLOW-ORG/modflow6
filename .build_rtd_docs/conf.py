@@ -97,7 +97,7 @@ dst = os.path.join(dstdir, "DISTRIBUTION.md")
 shutil.copy(src, dst)
 
 fpth = "IDM.md"
-src = os.path.join("..", "utils", "idmloader", fpth)
+src = os.path.join("..", fpth)
 dst = os.path.join(dstdir, fpth)
 shutil.copy(src, dst)
 
