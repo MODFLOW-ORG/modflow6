@@ -2,7 +2,7 @@ module PrtPrpModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, DEM1, DEM5, DONE, LENFTYPE, LINELENGTH, &
                              LENBOUNDNAME, LENPAKLOC, TABLEFT, TABCENTER, &
-                             MNORMAL, DSAME, DEP3, DEP9
+                             MNORMAL, DSAME, DEP3, DEP9, DPIO180
   use BndModule, only: BndType
   use ObsModule, only: DefaultObsIdProcessor
   use TableModule, only: TableType, table_cr
@@ -18,10 +18,11 @@ module PrtPrpModule
                        store_warning
   use SimVariablesModule, only: errmsg, warnmsg
   use TrackControlModule, only: TrackControlType
-  use GeomUtilModule, only: point_in_polygon, get_ijk, get_jk
+  use GeomUtilModule, only: point_in_polygon, get_ijk, get_jk, transform
   use MemoryManagerModule, only: mem_allocate, mem_deallocate, &
                                  mem_reallocate
   use ReleaseScheduleModule, only: ReleaseScheduleType, create_release_schedule
+  use BaseDisModule, only: DisBaseType
   use DisModule, only: DisType
   use DisvModule, only: DisvType
   use ErrorUtilModule, only: pstop
@@ -48,6 +49,7 @@ module PrtPrpModule
     integer(I4B), pointer :: nparticles => null() !< number of particles released
     integer(I4B), pointer :: istopweaksink => null() !< weak sink option: 0 = no stop, 1 = stop
     integer(I4B), pointer :: istopzone => null() !< optional stop zone number: 0 = no stop zone
+    integer(I4B), pointer :: icoords => null() !< coordinate system option: 0 = model, 1 = global, 2 = local (unit-normalized, only for dis grids), 3 = local offset
     integer(I4B), pointer :: idrape => null() !< drape option: 0 = do not drape, 1 = drape to topmost active cell
     integer(I4B), pointer :: idrymeth => null() !< dry tracking method: 0 = drop, 1 = stop, 2 = stay
     integer(I4B), pointer :: itrkout => null() !< binary track file
@@ -158,6 +160,7 @@ contains
     call mem_deallocate(this%stoptraveltime)
     call mem_deallocate(this%istopweaksink)
     call mem_deallocate(this%istopzone)
+    call mem_deallocate(this%icoords)
     call mem_deallocate(this%idrape)
     call mem_deallocate(this%idrymeth)
     call mem_deallocate(this%nreleasepoints)
@@ -247,6 +250,7 @@ contains
     call mem_allocate(this%stoptraveltime, 'STOPTRAVELTIME', this%memoryPath)
     call mem_allocate(this%istopweaksink, 'ISTOPWEAKSINK', this%memoryPath)
     call mem_allocate(this%istopzone, 'ISTOPZONE', this%memoryPath)
+    call mem_allocate(this%icoords, 'ICOORDS', this%memoryPath)
     call mem_allocate(this%idrape, 'IDRAPE', this%memoryPath)
     call mem_allocate(this%idrymeth, 'IDRYMETH', this%memoryPath)
     call mem_allocate(this%nreleasepoints, 'NRELEASEPOINTS', this%memoryPath)
@@ -270,6 +274,7 @@ contains
     this%stoptraveltime = huge(1d0)
     this%istopweaksink = 0
     this%istopzone = 0
+    this%icoords = 0
     this%idrape = 0
     this%idrymeth = 0
     this%nreleasepoints = 0
@@ -453,8 +458,11 @@ contains
     ! local
     integer(I4B) :: irow, icol, ilay, icpl
     integer(I4B) :: ic, icu, ic_old
-    real(DP) :: x, y, z
+    integer(I4B) :: i, j, k
+    integer(I4B) :: icoords
+    real(DP) :: x, y, z, xout, yout, zout
     real(DP) :: top, bot, hds
+    real(DP), allocatable :: polyverts(:, :)
 
     ic = this%rptnode(ip)
     icu = this%dis%get_nodeuser(ic)
@@ -500,9 +508,52 @@ contains
       end if
     end if
 
-    ! Load coordinates and transform if needed
+    ! Load x/y coordinates and transform if needed
+    icoords = 0
     x = this%rptx(ip)
     y = this%rpty(ip)
+    if (this%icoords == 1 .and. ( &
+        this%dis%angrot /= DZERO .or. &
+        this%dis%xorigin /= DZERO .or. &
+        this%dis%yorigin /= DZERO)) then
+      icoords = 1
+      ! Transform x and y from global to model coordinates
+      call transform(x, y, z, &
+                     xout, yout, zout, &
+                     this%dis%xorigin, &
+                     this%dis%yorigin, &
+                     DZERO, &
+                     sin(this%dis%angrot * DPIO180), &
+                     cos(this%dis%angrot * DPIO180))
+      x = xout
+      y = yout
+    else if (this%icoords == 2) then
+      ! Transform x and y from local to model coordinates
+      select type (dis => this%fmi%dis)
+      type is (DisType)
+        call dis%get_polyverts(ic, polyverts)
+        call get_ijk(icu, dis%nrow, dis%ncol, dis%nlay, i, j, k)
+        x = minval(polyverts(1, :)) + x * dis%delc(j)
+        y = minval(polyverts(2, :)) + y * dis%delr(i)
+      type is (DisvType)
+        errmsg = 'Error: LOCAL_XY may only be used on structured grids.'
+        call store_error(errmsg, terminate=.false.)
+        call store_error_unit(this%inunit, terminate=.true.)
+      end select
+    else if (this%icoords == 3) then
+      ! Transform x and y from local offsets to model coordinates
+      select type (dis => this%fmi%dis)
+      type is (DisType)
+        call get_ijk(icu, dis%nrow, dis%ncol, dis%nlay, i, j, k)
+        x = dis%cellx(j) + x
+        y = dis%celly(i) + y
+      type is (DisvType)
+        x = dis%cellxy(ic, 1) + x
+        y = dis%cellxy(ic, 2) + y
+      end select
+    end if
+
+    ! Load z coordinates and transform if needed
     if (this%ilocalz > 0) then
       top = this%fmi%dis%top(ic)
       bot = this%fmi%dis%bot(ic)
@@ -537,6 +588,7 @@ contains
     particle%ifrctrn = this%ifrctrn
     particle%iexmeth = this%iexmeth
     particle%iextend = this%iextend
+    particle%icoords = icoords
     particle%extol = this%extol
   end subroutine initialize_particle
 
@@ -786,6 +838,12 @@ contains
     case ('LOCAL_Z')
       this%ilocalz = 1
       found = .true.
+    case ('LOCAL_XY')
+      this%icoords = 2
+      found = .true.
+    case ('LOCAL_XY_OFFSET')
+      this%icoords = 3
+      found = .true.
     case ('EXTEND_TRACKING')
       this%iextend = 1
       found = .true.
@@ -816,6 +874,10 @@ contains
       if (.not. (this%iexmeth /= 1 .or. this%iexmeth /= 2)) &
         call store_error('DEV_EXIT_SOLVE_METHOD MUST BE &
           &1 (BRENT) OR 2 (CHANDRUPATLA)')
+      found = .true.
+    case ('DEV_GLOBAL_XY')
+      call this%parser%DevOpt()
+      this%icoords = 1
       found = .true.
     case default
       found = .false.
@@ -959,8 +1021,19 @@ contains
         y(n) = this%parser%GetDouble()
         z(n) = this%parser%GetDouble()
 
+        ! check coordinates
+        ! TODO: factor out a routine?
+        if (this%icoords == 2) then
+          if (x(n) < 0 .or. x(n) > 1) then
+            call store_error('Local x coordinate must fall in the unit interval')
+            cycle
+          else if (x(n) < 0 .or. x(n) > 1) then
+            call store_error('Local x coordinate must fall in the unit interval')
+            cycle
+          end if
+        end if
         if (this%ilocalz > 0 .and. (z(n) < 0 .or. z(n) > 1)) then
-          call store_error('Local z coordinate must fall in the interval [0, 1]')
+          call store_error('Local z coordinate must fall in the unit interval')
           cycle
         end if
 
