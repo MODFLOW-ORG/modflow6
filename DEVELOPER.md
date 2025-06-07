@@ -600,7 +600,7 @@ Or manually run the `utils/idmloader/scripts/dfn2f90.py` script, e.g. from `util
 cat dfns.txt | xargs python scripts/dfn2f90.py
 ```
 
-While the Input Data Processor (IDP) remains under development, this script must be fed a subset of DFNs corresponding to the input components supported by the code generation framework.
+While the [Input Data Model (IDM)](./IDM.md) remains under development, this script must be fed a subset of DFNs corresponding to the input components supported by the code generation framework.
 
 **Note**: Fortran definition modules are checked into source control and should accompany any related DFN file changes when creating a pull request.
 
