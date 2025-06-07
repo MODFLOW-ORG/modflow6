@@ -25,7 +25,7 @@ message('Compiler ID:', fc_id)
 compile_args = []
 link_args = []
 
-# Command line options for gfortran
+# options for gfortran
 if fc_id == 'gcc'
   # General options
   compile_args += [
@@ -49,11 +49,9 @@ if fc_id == 'gcc'
   elif system == 'windows'
     compile_args += '-D_WIN32'
   endif
-endif
 
-# Command line options for ifort
-if fc_id == 'intel-cl'
-  # windows
+# options for ifort on windows
+elif fc_id == 'intel-cl'
   compile_args += ['/fpe:0',              # Activate all floating point exceptions
                    '/heap-arrays:0',
                    '/traceback',
@@ -66,8 +64,9 @@ if fc_id == 'intel-cl'
   link_args += ['/ignore:4217', # access through ddlimport might be inefficient
                 '/ignore:4286'  # same as 4217, but more general
                ]
+
+# options for ifort on linux and macos
 elif fc_id == 'intel'
-  # linux and macOS
   compile_args += ['-fpe0',              # Activate all floating point exceptions
                    '-no-heap-arrays',
                    '-traceback',
@@ -77,10 +76,11 @@ elif fc_id == 'intel'
                   ]
   link_args += '-static-intel'
   
-# Command line options for ifx
+# options for ifx on windows
 elif fc_id == 'intel-llvm-cl'
-  # windows
   compile_args += ['/fpe:0',              # Activate all floating point exceptions
+                   '/fp:fast',
+                   '/assume:nan_compares',
                    '/heap-arrays:0',
                    '/traceback',
                    '/fpp',                # Activate preprocessing
@@ -91,6 +91,20 @@ elif fc_id == 'intel-llvm-cl'
   link_args += ['/ignore:4217', # access through ddlimport might be inefficient
                 '/ignore:4286'  # same as 4217, but more general
                ]
+
+# options for ifx on linux
+elif fc_id == 'intel-llvm'
+  compile_args += [
+                   '-fpe0',              # Activate all floating point exceptions
+                   '-fp-model fast',
+                   '-assume nan_compares',
+                   '-no-heap-arrays',
+                   '-traceback',
+                   '-diag-disable:7416',  # f2008 warning
+                   '-diag-disable:7025',  # f2008 warning
+                   '-diag-disable:5268',  # Line too long
+                  ]
+  link_args += '-static-intel'
 
 endif
 
