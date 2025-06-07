@@ -28,11 +28,9 @@ module DisModule
     real(DP), dimension(:), pointer, contiguous :: delc => null() !< spacing along a column
     real(DP), dimension(:, :), pointer, contiguous :: top2d => null() !< top elevations for each cell at top of model (ncol, nrow)
     real(DP), dimension(:, :, :), pointer, contiguous :: bot3d => null() !< bottom elevations for each cell (ncol, nrow, nlay)
-    integer(I4B), dimension(:, :, :), pointer, contiguous :: idomain => null() !< idomain (ncol, nrow, nlay)
     real(DP), dimension(:, :, :), pointer :: botm => null() !< top and bottom elevations for each cell (ncol, nrow, nlay)
     real(DP), dimension(:), pointer, contiguous :: cellx => null() !< cell center x coordinate for column j
     real(DP), dimension(:), pointer, contiguous :: celly => null() !< cell center y coordinate for row i
-
   contains
 
     procedure :: dis_df => dis3d_df
@@ -244,7 +242,6 @@ contains
     ! -- dummy
     class(DisType) :: this
     ! -- locals
-    integer(I4B) :: i, j, k
     type(DisFoundType) :: found
     !
     ! -- update defaults with idm sourced values
@@ -280,22 +277,12 @@ contains
     ! -- Allocate delr, delc, and non-reduced vectors for dis
     call mem_allocate(this%delr, this%ncol, 'DELR', this%memoryPath)
     call mem_allocate(this%delc, this%nrow, 'DELC', this%memoryPath)
-    call mem_allocate(this%idomain, this%ncol, this%nrow, this%nlay, 'IDOMAIN', &
-                      this%memoryPath)
+    call mem_allocate(this%idomain, this%nodesuser, 'IDOMAIN', this%memoryPath)
     call mem_allocate(this%top2d, this%ncol, this%nrow, 'TOP2D', this%memoryPath)
     call mem_allocate(this%bot3d, this%ncol, this%nrow, this%nlay, 'BOT3D', &
                       this%memoryPath)
     call mem_allocate(this%cellx, this%ncol, 'CELLX', this%memoryPath)
     call mem_allocate(this%celly, this%nrow, 'CELLY', this%memoryPath)
-    !
-    ! -- initialize all cells to be active (idomain = 1)
-    do k = 1, this%nlay
-      do i = 1, this%nrow
-        do j = 1, this%ncol
-          this%idomain(j, i, k) = 1
-        end do
-      end do
-    end do
     !
   end subroutine source_dimensions
 
@@ -329,14 +316,29 @@ contains
   subroutine source_griddata(this)
     ! -- dummy
     class(DisType) :: this
+    ! -- local
     type(DisFoundType) :: found
+    integer(I4B) :: j, i, k
+    integer(I4B), contiguous, pointer :: idomain(:, :, :)
+    !
+    ! -- initialize all cells to be active (idomain = 1)
+    allocate (idomain(this%ncol, this%nrow, this%nlay))
+    do k = 1, this%nlay
+      do i = 1, this%nrow
+        do j = 1, this%ncol
+          idomain(j, i, k) = 1
+        end do
+      end do
+    end do
     !
     ! -- update defaults with idm sourced values
     call mem_set_value(this%delr, 'DELR', this%input_mempath, found%delr)
     call mem_set_value(this%delc, 'DELC', this%input_mempath, found%delc)
     call mem_set_value(this%top2d, 'TOP', this%input_mempath, found%top)
     call mem_set_value(this%bot3d, 'BOTM', this%input_mempath, found%botm)
-    call mem_set_value(this%idomain, 'IDOMAIN', this%input_mempath, found%idomain)
+    call mem_set_value(idomain, 'IDOMAIN', this%input_mempath, found%idomain)
+    this%idomain = reshape(idomain, [this%nodesuser])
+    deallocate (idomain)
     !
     ! -- log simulation values
     if (this%iout > 0) then
@@ -386,7 +388,7 @@ contains
     ! -- dummy
     class(DisType) :: this
     ! -- locals
-    integer(I4B) :: n, i, j, k
+    integer(I4B) :: n, nn, k, i, j
     integer(I4B) :: node
     integer(I4B) :: noder
     integer(I4B) :: nrsize
@@ -403,12 +405,8 @@ contains
     !
     ! -- count active cells
     this%nodes = 0
-    do k = 1, this%nlay
-      do i = 1, this%nrow
-        do j = 1, this%ncol
-          if (this%idomain(j, i, k) > 0) this%nodes = this%nodes + 1
-        end do
-      end do
+    do i = 1, this%nodesuser
+      if (this%idomain(i) > 0) this%nodes = this%nodes + 1
     end do
     !
     ! -- Check to make sure nodes is a valid number
@@ -424,7 +422,8 @@ contains
     do k = 1, this%nlay
       do i = 1, this%nrow
         do j = 1, this%ncol
-          if (this%idomain(j, i, k) < 1) cycle
+          nn = get_node(k, i, j, this%nlay, this%nrow, this%ncol)
+          if (this%idomain(nn) < 1) cycle
           if (k > 1) then
             top = this%bot3d(j, i, k - 1)
           else
@@ -461,10 +460,11 @@ contains
       do k = 1, this%nlay
         do i = 1, this%nrow
           do j = 1, this%ncol
-            if (this%idomain(j, i, k) > 0) then
+            nn = get_node(k, i, j, this%nlay, this%nrow, this%ncol)
+            if (this%idomain(nn) > 0) then
               this%nodereduced(node) = noder
               noder = noder + 1
-            elseif (this%idomain(j, i, k) < 0) then
+            elseif (this%idomain(nn) < 0) then
               this%nodereduced(node) = -1
             else
               this%nodereduced(node) = 0
@@ -482,7 +482,8 @@ contains
       do k = 1, this%nlay
         do i = 1, this%nrow
           do j = 1, this%ncol
-            if (this%idomain(j, i, k) > 0) then
+            nn = get_node(k, i, j, this%nlay, this%nrow, this%ncol)
+            if (this%idomain(nn) > 0) then
               this%nodeuser(noder) = node
               noder = noder + 1
             end if

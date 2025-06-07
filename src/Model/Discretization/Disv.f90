@@ -31,8 +31,6 @@ module DisvModule
     integer(I4B), dimension(:), pointer, contiguous :: javert => null() !< cell vertex pointer ja array
     real(DP), dimension(:), pointer, contiguous :: top1d => null() !< top elevations for each cell at top of model (ncpl)
     real(DP), dimension(:, :), pointer, contiguous :: bot2d => null() !< bottom elevations for each cell (ncpl, nlay)
-    integer(I4B), dimension(:, :), pointer, contiguous :: idomain => null() !< idomain (ncpl, nlay)
-
   contains
 
     procedure :: dis_df => disv_df
@@ -262,7 +260,6 @@ contains
     ! -- dummy
     class(DisvType) :: this
     ! -- locals
-    integer(I4B) :: j, k
     type(DisvFoundType) :: found
     !
     ! -- update defaults with idm sourced values
@@ -296,8 +293,7 @@ contains
     this%nodesuser = this%nlay * this%ncpl
     !
     ! -- Allocate non-reduced vectors for disv
-    call mem_allocate(this%idomain, this%ncpl, this%nlay, 'IDOMAIN', &
-                      this%memoryPath)
+    call mem_allocate(this%idomain, this%nodesuser, 'IDOMAIN', this%memoryPath)
     call mem_allocate(this%top1d, this%ncpl, 'TOP1D', this%memoryPath)
     call mem_allocate(this%bot2d, this%ncpl, this%nlay, 'BOT2D', &
                       this%memoryPath)
@@ -305,13 +301,6 @@ contains
     ! -- Allocate vertices array
     call mem_allocate(this%vertices, 2, this%nvert, 'VERTICES', this%memoryPath)
     call mem_allocate(this%cellxy, 2, this%ncpl, 'CELLXY', this%memoryPath)
-    !
-    ! -- initialize all cells to be active (idomain = 1)
-    do k = 1, this%nlay
-      do j = 1, this%ncpl
-        this%idomain(j, k) = 1
-      end do
-    end do
     !
   end subroutine source_dimensions
 
@@ -347,11 +336,23 @@ contains
     class(DisvType) :: this
     ! -- locals
     type(DisvFoundType) :: found
+    integer(I4B) :: j, k
+    integer(I4B), contiguous, pointer :: idomain(:, :)
+    !
+    ! -- initialize all cells to be active (idomain = 1)
+    allocate (idomain(this%ncpl, this%nlay))
+    do k = 1, this%nlay
+      do j = 1, this%ncpl
+        idomain(j, k) = 1
+      end do
+    end do
     !
     ! -- update defaults with idm sourced values
     call mem_set_value(this%top1d, 'TOP', this%input_mempath, found%top)
     call mem_set_value(this%bot2d, 'BOTM', this%input_mempath, found%botm)
-    call mem_set_value(this%idomain, 'IDOMAIN', this%input_mempath, found%idomain)
+    call mem_set_value(idomain, 'IDOMAIN', this%input_mempath, found%idomain)
+    this%idomain = reshape(idomain, [this%nodesuser])
+    deallocate (idomain)
     !
     ! -- log simulation values
     if (this%iout > 0) then
@@ -405,10 +406,8 @@ contains
     !
     ! -- count active cells
     this%nodes = 0
-    do k = 1, this%nlay
-      do j = 1, this%ncpl
-        if (this%idomain(j, k) > 0) this%nodes = this%nodes + 1
-      end do
+    do node = 1, this%nodesuser
+      if (this%idomain(node) > 0) this%nodes = this%nodes + 1
     end do
     !
     ! -- Check to make sure nodes is a valid number
@@ -420,10 +419,14 @@ contains
     end if
     !
     ! -- Check cell thicknesses
+    node = 1
     do k = 1, this%nlay
       do j = 1, this%ncpl
-        if (this%idomain(j, k) == 0) cycle
-        if (this%idomain(j, k) > 0) then
+        if (this%idomain(node) == 0) then
+          node = node + 1
+          cycle
+        end if
+        if (this%idomain(node) > 0) then
           if (k > 1) then
             top = this%bot2d(j, k - 1)
           else
@@ -435,6 +438,7 @@ contains
             call store_error(errmsg)
           end if
         end if
+        node = node + 1
       end do
     end do
     if (count_errors() > 0) then
@@ -458,10 +462,10 @@ contains
       noder = 1
       do k = 1, this%nlay
         do j = 1, this%ncpl
-          if (this%idomain(j, k) > 0) then
+          if (this%idomain(node) > 0) then
             this%nodereduced(node) = noder
             noder = noder + 1
-          elseif (this%idomain(j, k) < 0) then
+          elseif (this%idomain(node) < 0) then
             this%nodereduced(node) = -1
           else
             this%nodereduced(node) = 0
@@ -477,7 +481,7 @@ contains
       noder = 1
       do k = 1, this%nlay
         do j = 1, this%ncpl
-          if (this%idomain(j, k) > 0) then
+          if (this%idomain(node) > 0) then
             this%nodeuser(noder) = node
             noder = noder + 1
           end if

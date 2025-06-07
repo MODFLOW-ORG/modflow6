@@ -28,8 +28,6 @@ module Disv2dModule
     integer(I4B), dimension(:), pointer, contiguous :: iavert => null() !< cell vertex pointer ia array
     integer(I4B), dimension(:), pointer, contiguous :: javert => null() !< cell vertex pointer ja array
     real(DP), dimension(:), pointer, contiguous :: bottom => null() !< bottom elevations for each cell (nodes)
-    integer(I4B), dimension(:), pointer, contiguous :: idomain => null() !< idomain (nodes)
-
   contains
 
     procedure :: dis_df => disv2d_df
