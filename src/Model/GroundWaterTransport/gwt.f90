@@ -777,7 +777,7 @@ contains
                       pakname, dvt, mempath)
     case ('SRC6')
       call src_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
-                      this%depvartype, pakname)
+                      this%depvartype, pakname, this%fmi)
     case ('LKT6')
       call lkt_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, this%fmi, this%eqnsclfac, this%depvartype, &
