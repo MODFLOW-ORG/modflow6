@@ -50,8 +50,8 @@ contains
   !!
   !! This subroutine points bndobj to the newly created package
   !<
- subroutine src_create(packobj, id, ibcnum, inunit, iout, namemodel, depvartype, &
-                        pakname, fmi)
+  subroutine src_create(packobj, id, ibcnum, inunit, iout, namemodel, &
+                        depvartype, pakname, fmi)
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -177,7 +177,8 @@ contains
     !
     ! -- allocate the object and assign values to object variables
     if (this%highest_sat) then
-  call mem_allocate(this%nodesontop, this%maxbound, 'NODESONTOP', this%memoryPath)
+      call mem_allocate(this%nodesontop, this%maxbound, 'NODESONTOP', &
+                        this%memoryPath)
     end if
     !
     ! -- Set values
