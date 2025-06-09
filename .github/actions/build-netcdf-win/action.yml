@@ -21,7 +21,9 @@ runs:
         cd netcdf/netCDF4.9.3-NC4-64
         curl https://downloads.unidata.ucar.edu/netcdf-c/4.9.3/netCDF4.9.3-NC4-64.exe -O -J
         7z x netCDF4.9.3-NC4-64.exe -aou
+        # disable checks specific to standard install locations
         sed -i '32,34s/^/#/' lib/cmake/netCDF/netCDFConfig.cmake
+        # disable system hdf5 library check
         sed -i '67,70s/^/#/' lib/cmake/netCDF/netCDFConfig.cmake
 
     - name: Download NetCDF-Fortran
@@ -31,6 +33,7 @@ runs:
         cd netcdf/netcdf-fortran-4.6.2
         curl https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.2/netcdf-fortran-4.6.2.zip -O -J
         unzip netcdf-fortran-4.6.2.zip
+        # disable system hdf5 library check
         sed -i '485s/^/#/' netcdf-fortran-4.6.2/CMakeLists.txt
 
     - name: Setup oneAPI
