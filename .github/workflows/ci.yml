@@ -334,11 +334,20 @@ jobs:
 
       - name: Test examples
         working-directory: modflow6
+        if: runner.os != 'Windows'
         shell: pixi run bash -e {0}
         run: |
           cp -R bin/* ~/.local/bin/modflow/
           cd ../modflow6-examples/autotest
           pytest -v -n auto test_scripts.py
+
+      - name: Test examples
+        working-directory: modflow6
+        if: runner.os == 'Windows'
+        run: |
+          cp -R bin/* /c/Users/runneradmin/.local/bin/modflow/
+          cd ../modflow6-examples/autotest
+          pixi run --manifest-path ../../modflow6/pixi.toml pytest -v -n auto test_scripts.py
 
       - name: Upload failed test output
         if: failure()
