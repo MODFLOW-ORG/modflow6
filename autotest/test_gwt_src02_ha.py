@@ -4,11 +4,10 @@ with a decay rate of 1.  And a starting concentration of -10.  Results should
 remain -10 throughout the simulation.
 """
 
-import os
+import pathlib as pl
 
 import flopy
 import numpy as np
-import pathlib as pl
 import pytest
 from framework import TestFramework
 
@@ -30,8 +29,7 @@ def build_models(idx, test):
     sy = 1.0
     strt = -0.9
     hk = 10.0
-    recharge = 1.
-
+    recharge = 1.0
 
     nouter, ninner = 100, 300
     hclose, rclose, relax = 1e-6, 1e-6, 1.0
@@ -96,15 +94,21 @@ def build_models(idx, test):
 
     # node property flow
     npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_specific_discharge=True, save_saturation=True,
-        icelltype=laytyp, k=hk, k33=hk,
+        gwf,
+        save_specific_discharge=True,
+        save_saturation=True,
+        icelltype=laytyp,
+        k=hk,
+        k33=hk,
     )
 
-    sto = flopy.mf6.ModflowGwfsto(gwf, iconvert=laytyp, sy=sy, ss=ss, transient={0: True}, steady_state={0:False})
+    sto = flopy.mf6.ModflowGwfsto(
+        gwf, iconvert=laytyp, sy=sy, ss=ss, transient={0: True}, steady_state={0: False,}
+    )
 
-    rch = flopy.mf6.ModflowGwfrch(gwf, stress_period_data=[(0,0,0,recharge)])
+    rch = flopy.mf6.ModflowGwfrch(gwf, stress_period_data=[(0, 0, 0, recharge)])
 
-    drn = flopy.mf6.ModflowGwfdrn(gwf, stress_period_data=[(0, 0, ncol - 1, 0.1, 2.)])
+    drn = flopy.mf6.ModflowGwfdrn(gwf, stress_period_data=[(0, 0, ncol - 1, 0.1, 2.0)])
 
     # output control
     oc = flopy.mf6.ModflowGwfoc(
@@ -112,7 +116,7 @@ def build_models(idx, test):
         budget_filerecord=f"{gwfname}.cbc",
         head_filerecord=f"{gwfname}.hds",
         saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
-        printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")]
+        printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
     )
 
     # create gwt model
@@ -168,6 +172,7 @@ def build_models(idx, test):
     srcs = {0: [[(0, 0, 0), 1.00]]}
     src = flopy.mf6.ModflowGwtsrc(
         gwt,
+        highest_saturated=True,
         maxbound=len(srcs),
         stress_period_data=srcs,
         save_flows=False,

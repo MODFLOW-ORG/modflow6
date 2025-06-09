@@ -126,6 +126,16 @@ optional false
 longname obs6 input filename
 description REPLACE obs6_filename {'{#1}': 'Mass Source'}
 
+block options
+name highest_saturated
+type keyword
+reader urword
+optional true
+longname apply source to highest saturated cell
+description Apply source to specified CELLID or highest underlying cell with a cell saturation greater than zero.
+
+
+
 # --------------------- gwt src dimensions ---------------------
 
 block dimensions

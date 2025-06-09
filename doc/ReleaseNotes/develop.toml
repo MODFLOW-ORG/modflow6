@@ -21,3 +21,8 @@ description = "Fixed first-order decay in GWT so that production/decay does not 
 section = "features"
 subsection = "basic"
 description = "Add a discretization text input option CRS for a real-world model coordinate reference system, for example, an EPSG integer code, authority string, or Open Geospatial Consortium Well-Known Text (WKT) specification. The entry for CRS does not affect the model simulation, but it is written to a version 2 binary grid file so that postprocessors can locate the grid in space."
+
+[[items]]
+section = "features"
+subsection = "stress"
+description = "Add HIGHEST\\_SATURATED option to the GWT SRC package. When activated, the HIGHEST\\_SATURATED option will apply a specified source rate to the specified CELLID or the highest underlying cell with a non-zero cell saturation."

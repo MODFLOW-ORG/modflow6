@@ -21,16 +21,16 @@ module GwtSrcModule
   type, extends(BndType) :: GwtSrcType
 
     character(len=LENVARNAME) :: depvartype = '' !< stores string of dependent variable type, depending on model type
-    type(TspFmiType), pointer :: fmi => null() ! pointer to GWE fmi object  
-    logical(LGP), pointer :: highest_sat => NULL()  
+    type(TspFmiType), pointer :: fmi => null() ! pointer to GWE fmi object
+    logical(LGP), pointer :: highest_sat => NULL()
     integer(I4B), dimension(:), pointer, contiguous :: nodesontop => NULL() ! User provided cell numbers; nodelist is cells where recharge is applied)
 
   contains
 
     procedure :: allocate_scalars => src_allocate_scalars
     procedure :: allocate_arrays => src_allocate_arrays
-    ! procedure :: read_options => src_read_options  
-    procedure :: bnd_rp => src_rp  
+    procedure :: bnd_options => src_options
+    procedure :: bnd_rp => src_rp
     procedure :: bnd_cf => src_cf
     procedure :: bnd_fc => src_fc
     procedure :: bnd_da => src_da
@@ -50,7 +50,7 @@ contains
   !!
   !! This subroutine points bndobj to the newly created package
   !<
-  subroutine src_create(packobj, id, ibcnum, inunit, iout, namemodel, depvartype, &
+ subroutine src_create(packobj, id, ibcnum, inunit, iout, namemodel, depvartype, &
                         pakname, fmi)
     ! -- dummy
     class(BndType), pointer :: packobj
@@ -61,7 +61,7 @@ contains
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
     character(len=LENVARNAME), intent(in) :: depvartype
-    type(TspFmiType), intent(in), target :: fmi    
+    type(TspFmiType), intent(in), target :: fmi
     ! -- local
     type(GwtSrcType), pointer :: srcobj
     !
@@ -91,8 +91,33 @@ contains
 
     srcobj%fmi => fmi
 
-
   end subroutine src_create
+
+  !> @brief Set additional options specific to the GwtSrcType
+  !!
+  !! This routine overrides BndType%bnd_options
+  !<
+  subroutine src_options(this, option, found)
+    ! -- dummy
+    class(GwtSrcType), intent(inout) :: this
+    character(len=*), intent(inout) :: option
+    logical, intent(inout) :: found
+    ! -- local
+    ! -- formats
+
+    found = .true.
+    select case (option)
+    case ('HIGHEST_SATURATED')
+      this%highest_sat = .TRUE.
+      write (this%iout, '(4x,a)') &
+        'SOURCES WILL BE APPLIED TO THE HIGHEST CELL AT OR BELOW THE SPECIFIED &
+        &CELLID WITH A NON-ZERO CELL SATURATION'
+    case default
+      !
+      ! -- No options found
+      found = .false.
+    end select
+  end subroutine src_options
 
   !> @brief Deallocate memory
   !<
@@ -130,7 +155,7 @@ contains
     call mem_allocate(this%highest_sat, 'HIGHEST_SAT', this%memoryPath)
     !
     ! -- Set values
-    this%highest_sat = .TRUE.
+    this%highest_sat = .FALSE.
 
   end subroutine src_allocate_scalars
 
@@ -152,7 +177,7 @@ contains
     !
     ! -- allocate the object and assign values to object variables
     if (this%highest_sat) then
-      call mem_allocate(this%nodesontop, this%maxbound, 'NODESONTOP', this%memoryPath)
+  call mem_allocate(this%nodesontop, this%maxbound, 'NODESONTOP', this%memoryPath)
     end if
     !
     ! -- Set values
@@ -176,7 +201,7 @@ contains
 
     return
 
-  end subroutine src_rp  
+  end subroutine src_rp
 
   !> @brief Store nodelist in nodesontop
   !<
@@ -230,7 +255,6 @@ contains
           call this%dis%highest_saturated(node, this%fmi%gwfsat)
         this%nodelist(i) = node
       end if
-    
 
       this%hcof(i) = DZERO
       if (this%ibound(node) <= 0) then
