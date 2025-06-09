@@ -103,7 +103,12 @@ def build_models(idx, test):
     )
 
     sto = flopy.mf6.ModflowGwfsto(
-        gwf, iconvert=laytyp, sy=sy, ss=ss, transient={0: True}, steady_state={0: False,}
+        gwf, 
+        iconvert=laytyp, 
+        sy=sy, 
+        ss=ss, 
+        transient={0: True}, 
+        steady_state={0: False},
     )
 
     rch = flopy.mf6.ModflowGwfrch(gwf, stress_period_data=[(0, 0, 0, recharge)])
