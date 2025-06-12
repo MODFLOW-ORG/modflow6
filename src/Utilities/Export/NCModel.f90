@@ -55,6 +55,7 @@ module NCModelExportModule
   type :: NCExportAnnotation
     character(len=LINELENGTH) :: title !< file scoped title attribute
     character(len=LINELENGTH) :: model !< file scoped model attribute
+    character(len=LINELENGTH) :: mesh !< mesh type
     character(len=LINELENGTH) :: grid !< grid type
     character(len=LINELENGTH) :: history !< file scoped history attribute
     character(len=LINELENGTH) :: source !< file scoped source attribute
@@ -196,18 +197,20 @@ contains
 
   !> @brief set netcdf file scoped attributes
   !<
-  subroutine set(this, modelname, modeltype, modelfname, nctype)
+  subroutine set(this, modelname, modeltype, modelfname, nctype, disenum)
     use VersionModule, only: VERSION
     class(NCExportAnnotation), intent(inout) :: this
     character(len=*), intent(in) :: modelname
     character(len=*), intent(in) :: modeltype
     character(len=*), intent(in) :: modelfname
     integer(I4B), intent(in) :: nctype
+    integer(I4B), intent(in) :: disenum
     character(len=LINELENGTH) :: fullname
     integer :: values(8)
 
     this%title = ''
     this%model = ''
+    this%mesh = ''
     this%grid = ''
     this%history = ''
     this%source = ''
@@ -244,11 +247,16 @@ contains
       this%title = trim(this%title)//' array input'
     end if
 
-    ! set export type
+    ! set mesh type
     if (nctype == NETCDF_MESH2D) then
-      this%grid = 'LAYERED MESH'
-    else if (nctype == NETCDF_STRUCTURED) then
+      this%mesh = 'LAYERED'
+    end if
+
+    ! set grid type
+    if (disenum == DIS) then
       this%grid = 'STRUCTURED'
+    else if (disenum == DISV) then
+      this%grid = 'VERTEX'
     end if
 
     ! model description string
@@ -315,7 +323,7 @@ contains
     this%chunking_active = .false.
 
     ! set file scoped attributes
-    call this%annotation%set(modelname, modeltype, modelfname, nctype)
+    call this%annotation%set(modelname, modeltype, modelfname, nctype, disenum)
 
     ! set dependent variable basename
     select case (modeltype)

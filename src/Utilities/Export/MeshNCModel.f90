@@ -320,9 +320,15 @@ contains
     ! source (MODFLOW 6)
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'source', &
                                 this%annotation%source), this%nc_fname)
-    ! export type (MODFLOW 6)
+    ! grid type (MODFLOW 6)
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow_grid', &
                                 this%annotation%grid), this%nc_fname)
+    ! mesh type (MODFLOW 6)
+    if (this%annotation%mesh /= '') then
+      call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'mesh', &
+                                  this%annotation%mesh), this%nc_fname)
+
+    end if
     ! MODFLOW 6 model type
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow_model', &
                                 this%annotation%model), this%nc_fname)

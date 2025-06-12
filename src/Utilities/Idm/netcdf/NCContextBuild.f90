@@ -8,8 +8,8 @@ module NCContextBuildModule
 
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, LENCOMPONENTNAME
-  use SimModule, only: store_error, store_error_filename
-  use SimVariablesModule, only: errmsg
+  use SimModule, only: store_error, store_warning, store_error_filename
+  use SimVariablesModule, only: errmsg, warnmsg
   use NCFileVarsModule, only: NCFileVarsType
   use NetCDFCommonModule, only: nf_verify, NETCDF_ATTR_STRLEN
   use netcdf
@@ -112,23 +112,42 @@ contains
   !> @brief verify global attribute modflow_grid is present and return value
   !<
   function verify_global_attr(modeltype, modelname, input_name, nc_fname, ncid) &
-    result(grid)
+    result(nctype)
     use InputOutputModule, only: lowcase, upcase
     character(len=*), intent(in) :: modeltype
     character(len=*), intent(in) :: modelname
     character(len=*), intent(in) :: input_name
     character(len=*), intent(in) :: nc_fname
     integer(I4B), intent(in) :: ncid
-    character(len=NETCDF_ATTR_STRLEN) :: grid
+    character(len=NETCDF_ATTR_STRLEN) :: grid, mesh, nctype
 
     ! initialize grid
     grid = ''
+    mesh = ''
+    nctype = ''
 
     ! verify expected mf6_modeltype file attribute
     if (nf90_get_att(ncid, NF90_GLOBAL, "modflow_grid", &
                      grid) == NF90_NOERR) then
-      ! set grid to upper case
       call upcase(grid)
+      if (nf90_get_att(ncid, NF90_GLOBAL, "mesh", &
+                       mesh) == NF90_NOERR) then
+        call upcase(mesh)
+        if (mesh == 'LAYERED') then
+          nctype = 'LAYERED MESH'
+        else
+          errmsg = 'NetCDF unsupported mesh type: "'//trim(mesh)//'".'
+          call store_error(errmsg)
+          call store_error_filename(nc_fname)
+        end if
+      else if (grid == 'STRUCTURED') then
+        nctype = 'STRUCTURED'
+      else if (grid == 'VERTEX' .or. grid == 'LAYERED MESH') then
+        warnmsg = 'Verify "modflow_grid" and "mesh" global &
+                  &attributes in file: '//trim(nc_fname)
+        call store_warning(warnmsg)
+        nctype = 'LAYERED MESH'
+      end if
     else
       errmsg = 'NetCDF input file global attribute "modflow_grid" not found.'
       call store_error(errmsg)
