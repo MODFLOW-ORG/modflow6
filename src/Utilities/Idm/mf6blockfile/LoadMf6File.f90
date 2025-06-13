@@ -631,7 +631,7 @@ contains
       call parser%GetRemainingLine(line)
       cstr = line
       deallocate (line)
-      call idm_log_var(bigcstr, idt%tagname, memoryPath, iout)
+      call idm_log_var(cstr, idt%tagname, memoryPath, iout)
     case default
       ilen = LINELENGTH
       call mem_allocate(cstr, ilen, idt%mf6varname, memoryPath)

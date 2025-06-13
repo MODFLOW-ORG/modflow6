@@ -25,7 +25,7 @@ module GwtIstInputModule
     logical :: zero_order_decay = .false.
     logical :: cim_filerecord = .false.
     logical :: cim6 = .false.
-    logical :: cim6f = .false.
+    logical :: cimfmt = .false.
     logical :: cimfile = .false.
     logical :: cimprintrecord = .false.
     logical :: print_format = .false.
@@ -288,13 +288,13 @@ module GwtIstInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtist_cim6f = InputParamDefinitionType &
+    gwtist_cimfmt = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'IST', & ! subcomponent
     'OPTIONS', & ! block
-    'CIM6F', & ! tag name
-    'CIM6F', & ! fortran variable
+    'CIMFMT', & ! tag name
+    'CIMFMT', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'cim6 format keyword', & ! longname
@@ -331,7 +331,7 @@ module GwtIstInputModule
     'OPTIONS', & ! block
     'CIMPRINTRECORD', & ! tag name
     'CIMPRINTRECORD', & ! fortran variable
-    'RECORD CIM6F PRINT_FORMAT', & ! type
+    'RECORD CIMFMT PRINT_FORMAT', & ! type
     '', & ! shape
     '', & ! longname
     .false., & ! required
@@ -627,7 +627,7 @@ module GwtIstInputModule
     gwtist_zero_order_decay, &
     gwtist_cim_filerecord, &
     gwtist_cim6, &
-    gwtist_cim6f, &
+    gwtist_cimfmt, &
     gwtist_cimfile, &
     gwtist_cimprintrecord, &
     gwtist_print_format, &

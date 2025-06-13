@@ -136,7 +136,7 @@ longname cim6 keyword
 description keyword to specify that record corresponds to an immobile concentration output file specification.
 
 block options
-name cim6f
+name cimfmt
 type keyword
 shape
 in_record true
@@ -160,7 +160,7 @@ description name of the output file to write immobile concentrations.  This file
 
 block options
 name cimprintrecord
-type record cim6f print_format
+type record cimfmt print_format
 shape
 reader urword
 optional true

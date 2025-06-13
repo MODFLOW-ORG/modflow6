@@ -14,7 +14,7 @@ module GwtMstModule
                              MAXCHARLEN, MNORMAL, LINELENGTH, DHNOFLO
   use SimVariablesModule, only: errmsg, warnmsg
   use SimModule, only: store_error, count_errors, &
-                       store_warning
+                       store_warning, store_error_filename
   use MatrixBaseModule
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
@@ -1208,7 +1208,10 @@ contains
     if (found%zero_order_decay) this%idcy = DECAY_ZERO_ORDER
     if (found%sorption) then
       if (this%isrb == IZERO) then
-        this%isrb = SORPTION_LINEAR
+        call store_error('Unknown sorption type was specified. &
+                         &Sorption must be specified as LINEAR, &
+                         &FREUNDLICH, or LANGMUIR.')
+        call store_error_filename(this%input_fname)
       end if
     end if
     if (found%sorbatefile) then
@@ -1281,7 +1284,6 @@ contains
   !<
   subroutine source_data(this)
     ! -- modules
-    use SimModule, only: count_errors, store_error
     use MemoryManagerModule, only: get_isize, mem_reallocate
     use MemoryManagerExtModule, only: mem_set_value
     use GwtMstInputModule, only: GwtMstParamFoundType

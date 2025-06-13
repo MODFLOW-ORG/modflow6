@@ -96,12 +96,12 @@ module GwtIstModule
     procedure :: bnd_ot_bdsummary => ist_ot_bdsummary
     procedure :: bnd_da => ist_da
     procedure :: allocate_scalars
-    procedure :: read_dimensions => ist_read_dimensions
-    procedure :: source_data
-    procedure :: log_data
     procedure :: read_options
+    procedure :: read_dimensions => ist_read_dimensions
     procedure :: source_options
+    procedure :: source_data
     procedure :: log_options
+    procedure :: log_data
     procedure :: get_thetaim
     procedure :: ist_calc_csrb
     procedure, private :: ist_allocate_arrays
@@ -977,6 +977,7 @@ contains
   subroutine source_options(this)
     ! -- modules
     use ConstantsModule, only: LENVARNAME, LINELENGTH, MNORMAL, LENBIGLINE
+    use SimModule, only: store_error, store_error_filename
     use OpenSpecModule, only: access, form
     use InputOutputModule, only: getunit, assign_iounit, openfile
     use MemoryManagerExtModule, only: mem_set_value
@@ -988,8 +989,7 @@ contains
     character(len=LENVARNAME), dimension(3) :: sorption_method = &
       &[character(len=LENVARNAME) :: 'LINEAR', 'FREUNDLICH', 'LANGMUIR']
     character(len=LINELENGTH) :: sorbate_fname, cim6_fname, budget_fname, &
-                                 budgetcsv_fname
-    character(len=LENBIGLINE) :: print_format
+                                 budgetcsv_fname, print_format
     !
     ! -- update defaults with memory sourced values
     call mem_set_value(this%ipakcb, 'SAVE_FLOWS', this%input_mempath, &
@@ -1023,11 +1023,14 @@ contains
       call openfile(this%ibudcsv, this%iout, budgetcsv_fname, 'CSV', &
                     filstat_opt='REPLACE')
     end if
-    !if (found%sorption) then
-    !  if (this%isrb == 0) then
-    !    this%isrb = 1
-    !  end if
-    !end if
+    if (found%sorption) then
+      if (this%isrb == 0) then
+        call store_error('Unknown sorption type was specified. &
+                         &Sorption must be specified as LINEAR, &
+                         &FREUNDLICH, or LANGMUIR.')
+        call store_error_filename(this%input_fname)
+      end if
+    end if
     if (found%ord1_decay) this%idcy = 1
     if (found%zero_order_decay) this%idcy = 2
     if (found%cimfile) then
