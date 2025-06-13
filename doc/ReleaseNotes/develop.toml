@@ -25,4 +25,4 @@ description = "Add a discretization text input option CRS for a real-world model
 [[items]]
 section = "fixes"
 subsection = "basic"
-description = "GWT-IST package input keywords have been changed for two record options. Formally, the CIM keyword was used for both the FILEOUT and PRINT_FORMAT input record options. This update changes the FILEOUT keyword tag to CIM6 and the PRINT_FORMAT keyword tag to CIMFMT. These changes will impact existing MODFLOW 6 GWT-IST input files using these options. The behavior of these two options should otherwise not be impacted."
+description = "GWT-IST package input tags have been changed for two record options. Until now the CIM keyword was used for both FILEOUT and PRINT\_FORMAT input record options. This update changes the FILEOUT keyword tag to CIM6 and the PRINT\_FORMAT keyword tag to CIMFMT. These changes will impact existing MODFLOW 6 GWT-IST input files using these options. The behavior of these two options should otherwise not be impacted."
