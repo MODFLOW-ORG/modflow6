@@ -158,6 +158,8 @@ $(OBJDIR)/olf-dfwidm.o \
 $(OBJDIR)/olf-chdidm.o \
 $(OBJDIR)/olf-cdbidm.o \
 $(OBJDIR)/gwt-namidm.o \
+$(OBJDIR)/gwt-mstidm.o \
+$(OBJDIR)/gwt-istidm.o \
 $(OBJDIR)/gwt-icidm.o \
 $(OBJDIR)/gwt-dspidm.o \
 $(OBJDIR)/gwt-disvidm.o \
@@ -287,7 +289,6 @@ $(OBJDIR)/SfrCrossSectionUtils.o \
 $(OBJDIR)/TernarySolveTrack.o \
 $(OBJDIR)/SubcellTri.o \
 $(OBJDIR)/Method.o \
-$(OBJDIR)/MethodCell.o \
 $(OBJDIR)/SubcellRect.o \
 $(OBJDIR)/VirtualBase.o \
 $(OBJDIR)/STLVecInt.o \
@@ -318,6 +319,7 @@ $(OBJDIR)/gwf-drn.o \
 $(OBJDIR)/IndexMap.o \
 $(OBJDIR)/ArrayReaderBase.o \
 $(OBJDIR)/MethodSubcellPool.o \
+$(OBJDIR)/MethodCell.o \
 $(OBJDIR)/CellPoly.o \
 $(OBJDIR)/CellRectQuad.o \
 $(OBJDIR)/CellRect.o \
