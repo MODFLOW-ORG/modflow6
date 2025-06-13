@@ -225,15 +225,11 @@ def check_output(idx, test, export, gridded_input):
     irch = getattr(rch, "irch").array
     recharge = getattr(rch, "recharge").array
     aux = getattr(rch, "aux").array
-    if export == "ugrid":
-        rarr = xds["rcha-1_recharge_l1_p1"].data.flatten()
-        auxarr = xds["rcha-1_auxvar_l1_p1a1"].data.flatten()
-    elif export == "structured":
-        rarr = xds["rcha-1_recharge_p1"].data[0].flatten()
-        auxarr = xds["rcha-1_auxvar_p1a1"].data[0].flatten()
+    rarr = xds["rcha-1_recharge"].data[0].flatten()
+    auxarr = xds["rcha-1_temperature"][0].data.flatten()
     assert np.allclose(
         np.array(irch[0]).flatten() + 1,
-        xds["rcha-1_irch_p1"].data,
+        xds["rcha-1_irch"][0].data.flatten(),
     ), "NetCDF-irch comparison failure"
     assert np.allclose(
         np.array(recharge[0]).flatten(),

@@ -1,17 +1,17 @@
-!> @brief This module contains the Mf6FileListInputModule
+!> @brief This module contains the ListLoadModule
 !!
 !! This module contains the routines for reading period block
 !! list based input.
 !!
 !<
-module Mf6FileListInputModule
+module ListLoadModule
 
   use KindModule, only: I4B, DP, LGP
   use ConstantsModule, only: LINELENGTH, LENBOUNDNAME
   use InputDefinitionModule, only: InputParamDefinitionType
   use MemoryManagerModule, only: mem_setptr
   use CharacterStringModule, only: CharacterStringType
-  use ModflowInputModule, only: ModflowInputType, getModflowInput
+  use ModflowInputModule, only: ModflowInputType
   use TimeSeriesManagerModule, only: TimeSeriesManagerType, tsmanager_cr
   use StructArrayModule, only: StructArrayType, constructStructArray, &
                                destructStructArray
@@ -20,7 +20,7 @@ module Mf6FileListInputModule
 
   implicit none
   private
-  public :: BoundListInputType
+  public :: ListLoadType
 
   !> @brief Boundary package list loader.
   !!
@@ -29,35 +29,35 @@ module Mf6FileListInputModule
   !! read and prepare (RP) routines.
   !!
   !<
-  type, extends(AsciiDynamicPkgLoadBaseType) :: BoundListInputType
+  type, extends(AsciiDynamicPkgLoadBaseType) :: ListLoadType
     type(TimeSeriesManagerType), pointer :: tsmanager => null()
     type(StructArrayType), pointer :: structarray => null()
     type(BoundInputContextType) :: bound_context
     integer(I4B) :: ts_active
     integer(I4B) :: iboundname
   contains
-    procedure :: ainit => bndlist_init
-    procedure :: df => bndlist_df
-    procedure :: ad => bndlist_ad
-    procedure :: reset => bndlist_reset
-    procedure :: rp => bndlist_rp
-    procedure :: destroy => bndlist_destroy
-    procedure :: ts_link_bnd => bndlist_ts_link_bnd
-    procedure :: ts_link_aux => bndlist_ts_link_aux
-    procedure :: ts_link => bndlist_ts_link
-    procedure :: ts_update => bndlist_ts_update
-    procedure :: create_structarray => bndlist_create_structarray
-  end type BoundListInputType
+    procedure :: ainit
+    procedure :: df
+    procedure :: ad
+    procedure :: reset
+    procedure :: rp
+    procedure :: destroy
+    procedure :: ts_link_bnd
+    procedure :: ts_link_aux
+    procedure :: ts_link
+    procedure :: ts_update
+    procedure :: create_structarray
+  end type ListLoadType
 
 contains
 
-  subroutine bndlist_init(this, mf6_input, component_name, component_input_name, &
-                          input_name, iperblock, parser, iout)
+  subroutine ainit(this, mf6_input, component_name, component_input_name, &
+                   input_name, iperblock, parser, iout)
     use InputOutputModule, only: getunit
     use MemoryManagerModule, only: get_isize
     use BlockParserModule, only: BlockParserType
     use LoadMf6FileModule, only: LoadMf6FileType
-    class(BoundListInputType), intent(inout) :: this
+    class(ListLoadType), intent(inout) :: this
     type(ModflowInputType), intent(in) :: mf6_input
     character(len=*), intent(in) :: component_name
     character(len=*), intent(in) :: component_input_name
@@ -98,7 +98,9 @@ contains
     end if
 
     ! initialize package input context
-    call this%bound_context%create(mf6_input, this%readasarrays)
+    call this%bound_context%create(mf6_input, &
+                                   readarraygrid=.false., &
+                                   readarraylayer=.false.)
 
     ! store in scope SA cols for list input
     call this%bound_context%bound_params(this%param_names, this%nparam, &
@@ -108,32 +110,32 @@ contains
 
     ! finalize input context setup
     call this%bound_context%allocate_arrays()
-  end subroutine bndlist_init
+  end subroutine ainit
 
-  subroutine bndlist_df(this)
-    class(BoundListInputType), intent(inout) :: this !< ListInputType
+  subroutine df(this)
+    class(ListLoadType), intent(inout) :: this
     ! define tsmanager
     call this%tsmanager%tsmanager_df()
-  end subroutine bndlist_df
+  end subroutine df
 
-  subroutine bndlist_ad(this)
-    class(BoundListInputType), intent(inout) :: this !< ListInputType
+  subroutine ad(this)
+    class(ListLoadType), intent(inout) :: this
     ! advance timeseries
     call this%tsmanager%ad()
-  end subroutine bndlist_ad
+  end subroutine ad
 
-  subroutine bndlist_reset(this)
-    class(BoundListInputType), intent(inout) :: this !< ListInputType
+  subroutine reset(this)
+    class(ListLoadType), intent(inout) :: this
     ! reset tsmanager
     call this%tsmanager%reset(this%mf6_input%subcomponent_name)
-  end subroutine bndlist_reset
+  end subroutine reset
 
-  subroutine bndlist_rp(this, parser)
+  subroutine rp(this, parser)
     use BlockParserModule, only: BlockParserType
     use LoadMf6FileModule, only: read_control_record
     use StructVectorModule, only: StructVectorType
     use IdmLoggerModule, only: idm_log_header, idm_log_close
-    class(BoundListInputType), intent(inout) :: this
+    class(ListLoadType), intent(inout) :: this
     type(BlockParserType), pointer, intent(inout) :: parser
     integer(I4B) :: ibinary
     integer(I4B) :: oc_inunit
@@ -165,10 +167,10 @@ contains
     ! close logging statement
     call idm_log_close(this%mf6_input%component_name, &
                        this%mf6_input%subcomponent_name, this%iout)
-  end subroutine bndlist_rp
+  end subroutine rp
 
-  subroutine bndlist_destroy(this)
-    class(BoundListInputType), intent(inout) :: this !< BoundListInputType
+  subroutine destroy(this)
+    class(ListLoadType), intent(inout) :: this
     !
     ! deallocate tsmanager
     call this%tsmanager%da()
@@ -178,13 +180,13 @@ contains
     ! deallocate StructArray
     call destructStructArray(this%structarray)
     call this%bound_context%destroy()
-  end subroutine bndlist_destroy
+  end subroutine destroy
 
-  subroutine bndlist_ts_link_bnd(this, structvector, ts_strloc)
+  subroutine ts_link_bnd(this, structvector, ts_strloc)
     use TimeSeriesLinkModule, only: TimeSeriesLinkType
     use TimeSeriesManagerModule, only: read_value_or_time_series
     use StructVectorModule, only: StructVectorType, TSStringLocType
-    class(BoundListInputType), intent(inout) :: this
+    class(ListLoadType), intent(inout) :: this
     type(StructVectorType), pointer, intent(in) :: structvector
     type(TSStringLocType), pointer, intent(in) :: ts_strloc
     real(DP), pointer :: bndElem
@@ -213,13 +215,13 @@ contains
         tsLinkBnd%BndName = boundname
       end if
     end if
-  end subroutine bndlist_ts_link_bnd
+  end subroutine ts_link_bnd
 
-  subroutine bndlist_ts_link_aux(this, structvector, ts_strloc)
+  subroutine ts_link_aux(this, structvector, ts_strloc)
     use TimeSeriesLinkModule, only: TimeSeriesLinkType
     use TimeSeriesManagerModule, only: read_value_or_time_series
     use StructVectorModule, only: StructVectorType, TSStringLocType
-    class(BoundListInputType), intent(inout) :: this
+    class(ListLoadType), intent(inout) :: this
     type(StructVectorType), pointer, intent(in) :: structvector
     type(TSStringLocType), pointer, intent(in) :: ts_strloc
     real(DP), pointer :: bndElem
@@ -248,13 +250,13 @@ contains
         tsLinkAux%BndName = boundname
       end if
     end if
-  end subroutine bndlist_ts_link_aux
+  end subroutine ts_link_aux
 
-  subroutine bndlist_ts_update(this, structarray)
+  subroutine ts_update(this, structarray)
     use SimModule, only: count_errors, store_error_filename
     use StructVectorModule, only: TSStringLocType
     use StructVectorModule, only: StructVectorType
-    class(BoundListInputType), intent(inout) :: this
+    class(ListLoadType), intent(inout) :: this
     type(StructArrayType), pointer, intent(inout) :: structarray
     integer(I4B) :: n, m
     type(TSStringLocType), pointer :: ts_strloc
@@ -275,11 +277,11 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%input_name)
     end if
-  end subroutine bndlist_ts_update
+  end subroutine ts_update
 
-  subroutine bndlist_ts_link(this, structvector, ts_strloc)
+  subroutine ts_link(this, structvector, ts_strloc)
     use StructVectorModule, only: StructVectorType, TSStringLocType
-    class(BoundListInputType), intent(inout) :: this
+    class(ListLoadType), intent(inout) :: this
     type(StructVectorType), pointer, intent(in) :: structvector
     type(TSStringLocType), pointer, intent(in) :: ts_strloc
     select case (structvector%memtype)
@@ -289,12 +291,12 @@ contains
       call this%ts_link_aux(structvector, ts_strloc)
     case default
     end select
-  end subroutine bndlist_ts_link
+  end subroutine ts_link
 
-  subroutine bndlist_create_structarray(this)
+  subroutine create_structarray(this)
     use InputDefinitionModule, only: InputParamDefinitionType
     use DefinitionSelectModule, only: get_param_definition_type
-    class(BoundListInputType), intent(inout) :: this
+    class(ListLoadType), intent(inout) :: this
     type(InputParamDefinitionType), pointer :: idt
     integer(I4B) :: icol
 
@@ -315,6 +317,6 @@ contains
       ! store boundname index when found
       if (idt%mf6varname == 'BOUNDNAME') this%iboundname = icol
     end do
-  end subroutine bndlist_create_structarray
+  end subroutine create_structarray
 
-end module Mf6FileListInputModule
+end module ListLoadModule

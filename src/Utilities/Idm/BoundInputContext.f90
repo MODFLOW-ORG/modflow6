@@ -43,6 +43,7 @@ module BoundInputContextModule
     integer(I4B), pointer :: iprpak => null() ! print input option
     integer(I4B), pointer :: nbound => null() !< number of bounds in period
     integer(I4B), pointer :: ncpl => null() !< number of cells per layer
+    integer(I4B) :: nodes
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: auxname_cst => null() !< array of auxiliary names
     type(CharacterStringType), dimension(:), pointer, &
@@ -50,7 +51,9 @@ module BoundInputContextModule
     real(DP), dimension(:, :), pointer, &
       contiguous :: auxvar => null() !< auxiliary variable array
     integer(I4B), dimension(:), pointer, contiguous :: mshape => null() !< model shape
-    logical(LGP) :: readasarrays !< grid or list based input
+    logical(LGP) :: readasarrays !< grid or layer array input
+    logical(LGP) :: readarraylayer !< array layer reader
+    logical(LGP) :: readarraygrid !< array grid reader
     type(DynamicPackageParamsType) :: package_params
     type(ModflowInputType) :: mf6_input !< description of input
   contains
@@ -69,13 +72,16 @@ contains
   !> @brief create boundary input context
   !!
   !<
-  subroutine create(this, mf6_input, readasarrays)
+  subroutine create(this, mf6_input, readarraygrid, readarraylayer)
     class(BoundInputContextType) :: this
     type(ModflowInputType), intent(in) :: mf6_input
-    logical(LGP), intent(in) :: readasarrays
+    logical(LGP), intent(in) :: readarraygrid
+    logical(LGP), intent(in) :: readarraylayer
 
     this%mf6_input = mf6_input
-    this%readasarrays = readasarrays
+    this%readarraygrid = readarraygrid
+    this%readarraylayer = readarraylayer
+    this%readasarrays = readarraygrid .or. readarraylayer
 
     ! create the dynamic package input context
     call this%allocate_scalars()
@@ -126,6 +132,9 @@ contains
       this%ncpl = this%mshape(2) * this%mshape(3)
     end if
 
+    ! set total user nodes
+    this%nodes = product(this%mshape)
+
     ! initialize package params object
     call this%package_params%init(this%mf6_input, 'PERIOD', this%readasarrays, &
                                   this%naux, this%inamedbound)
@@ -141,6 +150,7 @@ contains
     use MemoryManagerExtModule, only: mem_set_value
     class(BoundInputContextType) :: this
     integer(I4B), dimension(:, :), pointer, contiguous :: cellid
+    integer(I4B), dimension(:), pointer, contiguous :: nodeulist
 
     ! set auxname_cst and iauxmultcol
     if (this%naux > 0) then
@@ -153,6 +163,11 @@ contains
     ! allocate cellid if this is not list input
     if (this%readasarrays) then
       call mem_allocate(cellid, 0, 0, 'CELLID', this%mf6_input%mempath)
+    end if
+
+    ! allocate nodeulist
+    if (.not. this%readarraygrid) then
+      call mem_allocate(nodeulist, 0, 'NODEULIST', this%mf6_input%mempath)
     end if
 
     ! set pointer to BOUNDNAME
@@ -237,7 +252,7 @@ contains
     integer(I4B), intent(in) :: nparam
     character(len=*), intent(in) :: input_name
     type(InputParamDefinitionType), pointer :: idt
-    integer(I4B) :: iparam
+    integer(I4B) :: iparam, asize
 
     ! allocate dfn input params
     do iparam = 1, nparam
@@ -247,24 +262,32 @@ contains
                                        this%mf6_input%component_type, &
                                        this%mf6_input%subcomponent_type, &
                                        'PERIOD', params(iparam), '')
-      if (idt%blockname == 'PERIOD') then
-        select case (idt%datatype)
-        case ('INTEGER1D')
-          call allocate_param_int1d(this%ncpl, idt%mf6varname, &
-                                    this%mf6_input%mempath)
-        case ('DOUBLE1D')
-          call allocate_param_dbl1d(this%ncpl, idt%mf6varname, &
-                                    this%mf6_input%mempath)
-        case ('DOUBLE2D')
-          call allocate_param_dbl2d(this%naux, this%ncpl, idt%mf6varname, &
-                                    this%mf6_input%mempath)
-        case default
-          errmsg = 'IDM unimplemented. BoundInputContext::array_params_create &
-                   &datatype='//trim(idt%datatype)
-          call store_error(errmsg)
-          call store_error_filename(input_name)
-        end select
-      end if
+
+      select case (idt%shape)
+      case ('NCPL', 'NAUX NCPL')
+        asize = this%ncpl
+      case ('NODES', 'NAUX NODES')
+        asize = this%maxbound
+      case default
+        asize = 0
+      end select
+
+      select case (idt%datatype)
+      case ('INTEGER1D')
+        call allocate_param_int1d(asize, idt%mf6varname, &
+                                  this%mf6_input%mempath)
+      case ('DOUBLE1D')
+        call allocate_param_dbl1d(asize, idt%mf6varname, &
+                                  this%mf6_input%mempath)
+      case ('DOUBLE2D')
+        call allocate_param_dbl2d(this%naux, asize, idt%mf6varname, &
+                                  this%mf6_input%mempath)
+      case default
+        errmsg = 'IDM unimplemented. BoundInputContext::array_params_create &
+                 &datatype='//trim(idt%datatype)
+        call store_error(errmsg)
+        call store_error_filename(input_name)
+      end select
     end do
   end subroutine array_params_create
 

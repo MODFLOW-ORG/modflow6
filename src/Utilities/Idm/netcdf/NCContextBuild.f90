@@ -8,8 +8,8 @@ module NCContextBuildModule
 
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, LENCOMPONENTNAME
-  use SimModule, only: store_error, store_error_filename
-  use SimVariablesModule, only: errmsg
+  use SimModule, only: store_error, store_warning, store_error_filename
+  use SimVariablesModule, only: errmsg, warnmsg
   use NCFileVarsModule, only: NCFileVarsType
   use NetCDFCommonModule, only: nf_verify, NETCDF_ATTR_STRLEN
   use netcdf
@@ -63,19 +63,18 @@ contains
     character(len=NETCDF_ATTR_STRLEN) :: input_str
     character(len=LENCOMPONENTNAME) :: c_name, sc_name
     character(len=LINELENGTH) :: mempath, varname
-    integer(I4B) :: layer, period, iaux, mf6_layer, mf6_period, mf6_iaux
+    integer(I4B) :: layer, iaux, mf6_layer, mf6_iaux
     logical(LGP) :: success
 
     ! initialize
     layer = -1
-    period = -1
     iaux = -1
     varname = ''
     c_name = ''
     sc_name = ''
 
     ! process mf6_input attribute
-    if (nf90_get_att(nc_vars%ncid, varid, 'modflow6_input', &
+    if (nf90_get_att(nc_vars%ncid, varid, 'modflow_input', &
                      input_str) == NF90_NOERR) then
       ! mf6_input should provide a memory address
       call split_mem_address(input_str, mempath, varname, success)
@@ -89,26 +88,20 @@ contains
         call upcase(sc_name)
         ! check for optional layer attribute
         if (nf90_get_att(nc_vars%ncid, varid, &
-                         'modflow6_layer', mf6_layer) == NF90_NOERR) then
+                         'layer', mf6_layer) == NF90_NOERR) then
           layer = mf6_layer
         end if
 
-        ! check for optional period attribute
+        ! check for optional iaux attribute
         if (nf90_get_att(nc_vars%ncid, varid, &
-                         'modflow6_iper', mf6_period) == NF90_NOERR) then
-          period = mf6_period
-        end if
-
-        ! check for optional period attribute
-        if (nf90_get_att(nc_vars%ncid, varid, &
-                         'modflow6_iaux', mf6_iaux) == NF90_NOERR) then
+                         'modflow_iaux', mf6_iaux) == NF90_NOERR) then
           iaux = mf6_iaux
         end if
 
         ! add the variable to netcdf description
-        call nc_vars%add(sc_name, varname, layer, period, iaux, varid)
+        call nc_vars%add(sc_name, varname, layer, iaux, varid)
       else
-        errmsg = 'NetCDF variable invalid modflow6_input attribute: "'// &
+        errmsg = 'NetCDF variable invalid modflow_input attribute: "'// &
                  trim(input_str)//'".'
         call store_error(errmsg)
         call store_error_filename(nc_vars%nc_fname)
@@ -119,23 +112,42 @@ contains
   !> @brief verify global attribute modflow_grid is present and return value
   !<
   function verify_global_attr(modeltype, modelname, input_name, nc_fname, ncid) &
-    result(grid)
+    result(nctype)
     use InputOutputModule, only: lowcase, upcase
     character(len=*), intent(in) :: modeltype
     character(len=*), intent(in) :: modelname
     character(len=*), intent(in) :: input_name
     character(len=*), intent(in) :: nc_fname
     integer(I4B), intent(in) :: ncid
-    character(len=NETCDF_ATTR_STRLEN) :: grid
+    character(len=NETCDF_ATTR_STRLEN) :: grid, mesh, nctype
 
     ! initialize grid
     grid = ''
+    mesh = ''
+    nctype = ''
 
     ! verify expected mf6_modeltype file attribute
     if (nf90_get_att(ncid, NF90_GLOBAL, "modflow_grid", &
                      grid) == NF90_NOERR) then
-      ! set grid to upper case
       call upcase(grid)
+      if (nf90_get_att(ncid, NF90_GLOBAL, "mesh", &
+                       mesh) == NF90_NOERR) then
+        call upcase(mesh)
+        if (mesh == 'LAYERED') then
+          nctype = 'LAYERED MESH'
+        else
+          errmsg = 'NetCDF unsupported mesh type: "'//trim(mesh)//'".'
+          call store_error(errmsg)
+          call store_error_filename(nc_fname)
+        end if
+      else if (grid == 'STRUCTURED') then
+        nctype = 'STRUCTURED'
+      else if (grid == 'VERTEX' .or. grid == 'LAYERED MESH') then
+        warnmsg = 'Verify "modflow_grid" and "mesh" global &
+                  &attributes in file: '//trim(nc_fname)
+        call store_warning(warnmsg)
+        nctype = 'LAYERED MESH'
+      end if
     else
       errmsg = 'NetCDF input file global attribute "modflow_grid" not found.'
       call store_error(errmsg)
