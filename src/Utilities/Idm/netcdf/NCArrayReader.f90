@@ -80,7 +80,7 @@ contains
         call load_integer1d_spd(int1d, mf6_input, mshape, idt, nc_vars, &
                                 iper, input_fname)
       else
-        varid = nc_vars%varid(idt%mf6varname)
+        varid = nc_vars%varid(idt%tagname)
         call load_integer1d_type(int1d, mf6_input, mshape, idt, nc_vars, &
                                  varid, input_fname)
       end if
@@ -107,7 +107,7 @@ contains
       call load_integer2d_layered(int2d, mf6_input, mshape, idt, nc_vars, &
                                   input_fname)
     else
-      varid = nc_vars%varid(idt%mf6varname)
+      varid = nc_vars%varid(idt%tagname)
       call load_integer2d_type(int2d, mf6_input, mshape, idt, nc_vars, &
                                varid, input_fname)
     end if
@@ -133,7 +133,7 @@ contains
       call load_integer3d_layered(int3d, mf6_input, mshape, idt, nc_vars, &
                                   input_fname)
     else
-      varid = nc_vars%varid(idt%mf6varname)
+      varid = nc_vars%varid(idt%tagname)
       call load_integer3d_type(int3d, mf6_input, mshape, idt, nc_vars, &
                                varid, input_fname)
     end if
@@ -175,7 +175,7 @@ contains
         call load_double1d_spd(dbl1d, mf6_input, mshape, idt, nc_vars, &
                                iper, input_fname, iaux)
       else
-        varid = nc_vars%varid(idt%mf6varname)
+        varid = nc_vars%varid(idt%tagname)
         call load_double1d_type(dbl1d, mf6_input, mshape, idt, nc_vars, &
                                 varid, input_fname)
       end if
@@ -202,7 +202,7 @@ contains
       call load_double2d_layered(dbl2d, mf6_input, mshape, idt, nc_vars, &
                                  input_fname)
     else
-      varid = nc_vars%varid(idt%mf6varname)
+      varid = nc_vars%varid(idt%tagname)
       call load_double2d_type(dbl2d, mf6_input, mshape, idt, nc_vars, &
                               varid, input_fname)
     end if
@@ -228,7 +228,7 @@ contains
       call load_double3d_layered(dbl3d, mf6_input, mshape, idt, nc_vars, &
                                  input_fname)
     else
-      varid = nc_vars%varid(idt%mf6varname)
+      varid = nc_vars%varid(idt%tagname)
       call load_double3d_type(dbl3d, mf6_input, mshape, idt, nc_vars, &
                               varid, input_fname)
     end if
@@ -296,7 +296,7 @@ contains
     istp = ixstp()
 
     ! set varid
-    varid = nc_vars%varid(idt%mf6varname)
+    varid = nc_vars%varid(idt%tagname)
 
     call get_layered_shape(mshape, nlay, layer_shape)
     ncpl = product(layer_shape)
@@ -348,7 +348,7 @@ contains
     ncpl = product(layer_shape)
     index_start = 1
     do k = 1, nlay
-      varid = nc_vars%varid(idt%mf6varname, layer=k)
+      varid = nc_vars%varid(idt%tagname, layer=k)
       index_stop = index_start + ncpl - 1
       int1d_ptr(1:ncpl) => int1d(index_start:index_stop)
       call nf_verify(nf90_get_var(nc_vars%ncid, varid, int1d_ptr), &
@@ -380,7 +380,7 @@ contains
     nvals = product(mshape)
     ncpl = product(layer_shape)
 
-    varid = nc_vars%varid(idt%mf6varname)
+    varid = nc_vars%varid(idt%tagname)
     select case (idt%shape)
     case ('NCPL', 'NAUX NCPL')
       call nf_verify(nf90_get_var(nc_vars%ncid, varid, int1d, &
@@ -449,7 +449,7 @@ contains
       call get_layered_shape(mshape, nlay, layer_shape)
       ncpl = layer_shape(1)
       do k = 1, nlay
-        varid = nc_vars%varid(idt%mf6varname, layer=k)
+        varid = nc_vars%varid(idt%tagname, layer=k)
         int1d_ptr(1:ncpl) => int2d(1:ncpl, k)
         call nf_verify(nf90_get_var(nc_vars%ncid, varid, int1d_ptr), &
                        nc_vars%nc_fname)
@@ -493,7 +493,7 @@ contains
     ncpl = product(layer_shape)
 
     do k = 1, nlay
-      varid = nc_vars%varid(idt%mf6varname, layer=k)
+      varid = nc_vars%varid(idt%tagname, layer=k)
       index_stop = index_start + ncpl - 1
       int1d_ptr(1:ncpl) => int3d(:, :, k:k)
       call nf_verify(nf90_get_var(nc_vars%ncid, varid, int1d_ptr), &
@@ -570,9 +570,9 @@ contains
 
     ! set varid
     if (present(iaux)) then
-      varid = nc_vars%varid(idt%mf6varname, iaux=iaux)
+      varid = nc_vars%varid(idt%tagname, iaux=iaux)
     else
-      varid = nc_vars%varid(idt%mf6varname)
+      varid = nc_vars%varid(idt%tagname)
     end if
 
     call get_layered_shape(mshape, nlay, layer_shape)
@@ -631,7 +631,7 @@ contains
     ncpl = product(layer_shape)
 
     do k = 1, nlay
-      varid = nc_vars%varid(idt%mf6varname, layer=k)
+      varid = nc_vars%varid(idt%tagname, layer=k)
       index_stop = index_start + ncpl - 1
       dbl1d_ptr(1:ncpl) => dbl1d(index_start:index_stop)
       call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d_ptr), &
@@ -667,9 +667,9 @@ contains
 
     do k = 1, nlay
       if (present(iaux)) then
-        varid = nc_vars%varid(idt%mf6varname, layer=k, iaux=iaux)
+        varid = nc_vars%varid(idt%tagname, layer=k, iaux=iaux)
       else
-        varid = nc_vars%varid(idt%mf6varname, layer=k)
+        varid = nc_vars%varid(idt%tagname, layer=k)
       end if
       call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d_ptr, &
                                   start=(/1, istp/), count=(/ncpl, 1/)), &
@@ -745,7 +745,7 @@ contains
       call get_layered_shape(mshape, nlay, layer_shape)
       ncpl = layer_shape(1)
       do k = 1, nlay
-        varid = nc_vars%varid(idt%mf6varname, layer=k)
+        varid = nc_vars%varid(idt%tagname, layer=k)
         dbl1d_ptr(1:ncpl) => dbl2d(1:ncpl, k)
         call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d_ptr), &
                        nc_vars%nc_fname)
@@ -791,7 +791,7 @@ contains
     ncpl = product(layer_shape)
     index_start = 1
     do k = 1, nlay
-      varid = nc_vars%varid(idt%mf6varname, layer=k)
+      varid = nc_vars%varid(idt%tagname, layer=k)
       index_stop = index_start + ncpl - 1
       dbl1d_ptr(1:ncpl) => dbl3d(:, :, k:k)
       call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d_ptr), &

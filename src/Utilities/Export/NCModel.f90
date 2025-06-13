@@ -429,7 +429,7 @@ contains
     attr = ''
     if (this%input_attr > 0) then
       attr = trim(this%modelname)//memPathSeparator//trim(pkgname)// &
-             memPathSeparator//trim(idt%mf6varname)
+             memPathSeparator//trim(idt%tagname)
     end if
   end function input_attribute
 
