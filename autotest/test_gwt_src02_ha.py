@@ -45,7 +45,6 @@ def build_models(idx, test):
         gwf_linaccel = "cg"
         newtonoptions = None
 
-
     tdis_rc = []
     for i in range(nper):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
@@ -117,11 +116,11 @@ def build_models(idx, test):
     )
 
     sto = flopy.mf6.ModflowGwfsto(
-        gwf, 
-        iconvert=laytyp, 
-        sy=sy, 
-        ss=ss, 
-        transient={0: True}, 
+        gwf,
+        iconvert=laytyp,
+        sy=sy,
+        ss=ss,
+        transient={0: True},
         steady_state={0: False},
     )
 
