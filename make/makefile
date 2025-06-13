@@ -31,22 +31,24 @@ SOURCEDIR24=../src/Timing
 SOURCEDIR25=../src/Utilities
 SOURCEDIR26=../src/Utilities/ArrayRead
 SOURCEDIR27=../src/Utilities/Export
-SOURCEDIR28=../src/Utilities/Idm
-SOURCEDIR29=../src/Utilities/Idm/mf6blockfile
-SOURCEDIR30=../src/Utilities/Idm/netcdf
-SOURCEDIR31=../src/Utilities/Libraries
-SOURCEDIR32=../src/Utilities/Libraries/blas
-SOURCEDIR33=../src/Utilities/Libraries/daglib
-SOURCEDIR34=../src/Utilities/Libraries/rcm
-SOURCEDIR35=../src/Utilities/Libraries/sparsekit
-SOURCEDIR36=../src/Utilities/Libraries/sparskit2
-SOURCEDIR37=../src/Utilities/Matrix
-SOURCEDIR38=../src/Utilities/Memory
-SOURCEDIR39=../src/Utilities/Observation
-SOURCEDIR40=../src/Utilities/OutputControl
-SOURCEDIR41=../src/Utilities/Performance
-SOURCEDIR42=../src/Utilities/TimeSeries
-SOURCEDIR43=../src/Utilities/Vector
+SOURCEDIR28=../src/Utilities/Gradient
+SOURCEDIR29=../src/Utilities/Idm
+SOURCEDIR30=../src/Utilities/Idm/mf6blockfile
+SOURCEDIR31=../src/Utilities/Idm/netcdf
+SOURCEDIR32=../src/Utilities/InterpolationScheme
+SOURCEDIR33=../src/Utilities/Libraries
+SOURCEDIR34=../src/Utilities/Libraries/blas
+SOURCEDIR35=../src/Utilities/Libraries/daglib
+SOURCEDIR36=../src/Utilities/Libraries/rcm
+SOURCEDIR37=../src/Utilities/Libraries/sparsekit
+SOURCEDIR38=../src/Utilities/Libraries/sparskit2
+SOURCEDIR39=../src/Utilities/Matrix
+SOURCEDIR40=../src/Utilities/Memory
+SOURCEDIR41=../src/Utilities/Observation
+SOURCEDIR42=../src/Utilities/OutputControl
+SOURCEDIR43=../src/Utilities/Performance
+SOURCEDIR44=../src/Utilities/TimeSeries
+SOURCEDIR45=../src/Utilities/Vector
 
 VPATH = \
 ${SOURCEDIR1} \
@@ -91,7 +93,9 @@ ${SOURCEDIR39} \
 ${SOURCEDIR40} \
 ${SOURCEDIR41} \
 ${SOURCEDIR42} \
-${SOURCEDIR43} 
+${SOURCEDIR43} \
+${SOURCEDIR44} \
+${SOURCEDIR45} 
 
 .SUFFIXES: .f90 .F90 .o
 
@@ -287,12 +291,15 @@ $(OBJDIR)/SfrCrossSectionUtils.o \
 $(OBJDIR)/TernarySolveTrack.o \
 $(OBJDIR)/SubcellTri.o \
 $(OBJDIR)/Method.o \
-$(OBJDIR)/MethodCell.o \
 $(OBJDIR)/SubcellRect.o \
 $(OBJDIR)/VirtualBase.o \
 $(OBJDIR)/STLVecInt.o \
 $(OBJDIR)/BaseModel.o \
 $(OBJDIR)/PrintSaveManager.o \
+$(OBJDIR)/tsp-fmi.o \
+$(OBJDIR)/SVD.o \
+$(OBJDIR)/IGradient.o \
+$(OBJDIR)/DisInfo.o \
 $(OBJDIR)/SfrCrossSectionManager.o \
 $(OBJDIR)/dag_module.o \
 $(OBJDIR)/BoundaryPackageExt.o \
@@ -304,6 +311,9 @@ $(OBJDIR)/SimStages.o \
 $(OBJDIR)/NumericalModel.o \
 $(OBJDIR)/OutputControlData.o \
 $(OBJDIR)/gwf-ic.o \
+$(OBJDIR)/IInterpolationScheme.o \
+$(OBJDIR)/ExtendedLeastSquaredGradient.o \
+$(OBJDIR)/BoundaryFaces.o \
 $(OBJDIR)/UzfEtUtil.o \
 $(OBJDIR)/Xt3dAlgorithm.o \
 $(OBJDIR)/TvBase.o \
@@ -318,6 +328,7 @@ $(OBJDIR)/gwf-drn.o \
 $(OBJDIR)/IndexMap.o \
 $(OBJDIR)/ArrayReaderBase.o \
 $(OBJDIR)/MethodSubcellPool.o \
+$(OBJDIR)/MethodCell.o \
 $(OBJDIR)/CellPoly.o \
 $(OBJDIR)/CellRectQuad.o \
 $(OBJDIR)/CellRect.o \
@@ -325,11 +336,16 @@ $(OBJDIR)/SwfCxsUtils.o \
 $(OBJDIR)/VirtualModel.o \
 $(OBJDIR)/BaseExchange.o \
 $(OBJDIR)/TspSpc.o \
-$(OBJDIR)/tsp-fmi.o \
 $(OBJDIR)/GweInputData.o \
 $(OBJDIR)/OutputControl.o \
 $(OBJDIR)/tsp-ic.o \
+$(OBJDIR)/UpwindScheme.o \
+$(OBJDIR)/TVDScheme.o \
+$(OBJDIR)/TspAdvOutflowCorrector.o \
 $(OBJDIR)/TspAdvOptions.o \
+$(OBJDIR)/LeastSquaredGradientBoundary.o \
+$(OBJDIR)/CentralDifferenceScheme.o \
+$(OBJDIR)/BarthJespersenScheme.o \
 $(OBJDIR)/UzfCellGroup.o \
 $(OBJDIR)/Xt3dInterface.o \
 $(OBJDIR)/gwf-tvk.o \
@@ -517,6 +533,8 @@ $(OBJDIR)/sparsekit.o \
 $(OBJDIR)/rcm.o \
 $(OBJDIR)/blas1_d.o \
 $(OBJDIR)/Iunit.o \
+$(OBJDIR)/LeastSquaredGradient.o \
+$(OBJDIR)/GreenGaussGradient.o \
 $(OBJDIR)/GwfSfrCommon.o \
 $(OBJDIR)/gwf-sfr-transient.o \
 $(OBJDIR)/gwf-sfr-steady.o \
