@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["src02_ha"]
+cases = ["src02_ha", "src02_hawd"]
 
 
 def build_models(idx, test):
@@ -34,6 +34,18 @@ def build_models(idx, test):
     nouter, ninner = 100, 300
     hclose, rclose, relax = 1e-6, 1e-6, 1.0
 
+    if idx == 0:
+        rewet_record = None
+        wetdry = None
+        gwf_linaccel = "bicgstab"
+        newtonoptions = "newton under_relaxation"
+    elif idx == 1:
+        rewet_record = [("WETFCT", 1.0, "IWETIT", 1, "IHDWET", 1)]
+        wetdry = -0.001  # [0.001, 0.001, 0.001]
+        gwf_linaccel = "cg"
+        newtonoptions = None
+
+
     tdis_rc = []
     for i in range(nper):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
@@ -54,7 +66,7 @@ def build_models(idx, test):
         sim,
         modelname=gwfname,
         model_nam_file=f"{gwfname}.nam",
-        newtonoptions="newton under_relaxation",
+        newtonoptions=newtonoptions,
         save_flows=True,
     )
 
@@ -68,7 +80,7 @@ def build_models(idx, test):
         inner_maximum=ninner,
         inner_dvclose=hclose,
         rcloserecord=rclose,
-        linear_acceleration="BICGSTAB",
+        linear_acceleration=gwf_linaccel,
         scaling_method="NONE",
         reordering_method="NONE",
         relaxation_factor=relax,
@@ -100,6 +112,8 @@ def build_models(idx, test):
         icelltype=laytyp,
         k=hk,
         k33=hk,
+        rewet_record=rewet_record,
+        wetdry=wetdry,
     )
 
     sto = flopy.mf6.ModflowGwfsto(

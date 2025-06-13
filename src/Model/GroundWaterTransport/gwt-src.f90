@@ -110,8 +110,8 @@ contains
     case ('HIGHEST_SATURATED')
       this%highest_sat = .TRUE.
       write (this%iout, '(4x,a)') &
-        'SOURCES WILL BE APPLIED TO THE HIGHEST CELL AT OR BELOW THE SPECIFIED &
-        &CELLID WITH A NON-ZERO CELL SATURATION'
+        'Mass source loading rate will be applied to the highest cell at or below &
+        &the specified cellid with a non-zero saturation.'
     case default
       !
       ! -- No options found
