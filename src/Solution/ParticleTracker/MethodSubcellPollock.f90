@@ -84,7 +84,7 @@ contains
   !! this context and for any modifications or errors.
   !<
   subroutine track_subcell(this, subcell, particle, tmax)
-    use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB
+    use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB, LVL_SUBCELL
     ! dummy
     class(MethodSubcellPollockType), intent(inout) :: this
     class(SubcellRectType), intent(in) :: subcell
@@ -260,7 +260,7 @@ contains
     particle%y = y * subcell%dy
     particle%z = z * subcell%dz
     particle%ttrack = t
-    particle%iboundary(3) = exitFace
+    particle%iboundary(LVL_SUBCELL) = exitFace
 
     ! Save particle track record
     if (reason >= 0) call this%save(particle, reason=reason)

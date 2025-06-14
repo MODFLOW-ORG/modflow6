@@ -405,6 +405,7 @@ contains
 
   !> @brief Calculate particle mass storage
   subroutine prt_cq_sto(this)
+    use ParticleModule, only: LVL_CELL
     ! modules
     use TdisModule, only: delt
     use PrtPrpModule, only: PrtPrpType
@@ -436,7 +437,7 @@ contains
           istatus = packobj%particles%istatus(np)
           ! this may need to change if istatus flags change
           if ((istatus > 0) .and. (istatus /= 8)) then
-            n = packobj%particles%idomain(np, 2)
+            n = packobj%particles%itrdomain(np, LVL_CELL)
             ! Each particle currently assigned unit mass
             this%masssto(n) = this%masssto(n) + DONE
           end if

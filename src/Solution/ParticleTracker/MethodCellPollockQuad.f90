@@ -72,6 +72,7 @@ contains
 
   !> @brief Pass particle to next subcell if there is one, or to the cell face
   subroutine pass_mcpq(this, particle)
+    use ParticleModule, only: LVL_CELL, LVL_SUBCELL
     ! dummy
     class(MethodCellPollockQuadType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -80,8 +81,8 @@ contains
 
     select type (cell => this%cell)
     type is (CellRectQuadType)
-      exitFace = particle%iboundary(3)
-      isc = particle%idomain(3)
+      exitFace = particle%iboundary(LVL_SUBCELL)
+      isc = particle%itrdomain(LVL_SUBCELL)
       npolyverts = cell%defn%npolyverts
 
       ! exitFace uses MODPATH 7 iface convention here
@@ -93,13 +94,13 @@ contains
         select case (isc)
         case (1)
           ! W face, subcell 1 --> E face, subcell 4  (cell interior)
-          particle%idomain(3) = 4
-          particle%iboundary(3) = 2
+          particle%itrdomain(LVL_SUBCELL) = 4
+          particle%iboundary(LVL_SUBCELL) = 2
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         case (2)
           ! W face, subcell 2 --> E face, subcell 3 (cell interior)
-          particle%idomain(3) = 3
-          particle%iboundary(3) = 2
+          particle%itrdomain(LVL_SUBCELL) = 3
+          particle%iboundary(LVL_SUBCELL) = 2
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         case (3)
           ! W face, subcell 3 (cell face)
@@ -122,21 +123,21 @@ contains
           infaceoff = -1
         case (3)
           ! E face, subcell 3 --> W face, subcell 2 (cell interior)
-          particle%idomain(3) = 2
-          particle%iboundary(3) = 1
+          particle%itrdomain(LVL_SUBCELL) = 2
+          particle%iboundary(LVL_SUBCELL) = 1
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         case (4)
           ! E face, subcell 4 --> W face subcell 1 (cell interior)
-          particle%idomain(3) = 1
-          particle%iboundary(3) = 1
+          particle%itrdomain(LVL_SUBCELL) = 1
+          particle%iboundary(LVL_SUBCELL) = 1
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         end select
       case (3)
         select case (isc)
         case (1)
           ! S face, subcell 1 --> N face, subcell 2 (cell interior)
-          particle%idomain(3) = 2
-          particle%iboundary(3) = 4
+          particle%itrdomain(LVL_SUBCELL) = 2
+          particle%iboundary(LVL_SUBCELL) = 4
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         case (2)
           ! S face, subcell 2 (cell face)
@@ -148,8 +149,8 @@ contains
           infaceoff = -1
         case (4)
           ! S face, subcell 4 --> N face, subcell 3 (cell interior)
-          particle%idomain(3) = 3
-          particle%iboundary(3) = 4
+          particle%itrdomain(LVL_SUBCELL) = 3
+          particle%iboundary(LVL_SUBCELL) = 4
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         end select
       case (4)
@@ -160,13 +161,13 @@ contains
           infaceoff = -1
         case (2)
           ! N face, subcell 2 --> S face, subcell 1 (cell interior)
-          particle%idomain(3) = 1
-          particle%iboundary(3) = 3
+          particle%itrdomain(LVL_SUBCELL) = 1
+          particle%iboundary(LVL_SUBCELL) = 3
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         case (3)
           ! N face, subcell 3 --> S face, subcell 4 (cell interior)
-          particle%idomain(3) = 4
-          particle%iboundary(3) = 3
+          particle%itrdomain(LVL_SUBCELL) = 4
+          particle%iboundary(LVL_SUBCELL) = 3
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         case (4)
           ! N face, subcell 4 (cell face)
@@ -182,9 +183,9 @@ contains
       end select
 
       if (inface .eq. -1) then
-        particle%iboundary(2) = 0
+        particle%iboundary(LVL_CELL) = 0
       else if (inface .eq. 0) then
-        particle%iboundary(2) = 0
+        particle%iboundary(LVL_CELL) = 0
       else
         if ((inface .ge. 1) .and. (inface .le. 4)) then
           ! Account for local cell rotation
@@ -193,7 +194,7 @@ contains
           inface = cell%irectvert(inface) + infaceoff
           if (inface .lt. 1) inface = inface + npolyverts
         end if
-        particle%iboundary(2) = inface
+        particle%iboundary(LVL_CELL) = inface
       end if
     end select
   end subroutine pass_mcpq
@@ -235,6 +236,7 @@ contains
 
   !> @brief Load the rectangular subcell from the rectangular cell
   subroutine load_subcell(this, particle, subcell)
+    use ParticleModule, only: LVL_SUBCELL
     ! dummy
     class(MethodCellPollockQuadType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -252,7 +254,7 @@ contains
       factor = factor / cell%defn%porosity
       npolyverts = cell%defn%npolyverts
 
-      isc = particle%idomain(3)
+      isc = particle%itrdomain(LVL_SUBCELL)
       ! Subcells 1, 2, 3, and 4 are Pollock's subcells A, B, C, and D,
       ! respectively
 
@@ -278,7 +280,7 @@ contains
         end if
 
         subcell%isubcell = isc
-        particle%idomain(3) = isc
+        particle%itrdomain(LVL_SUBCELL) = isc
       end if
       dx = 5d-1 * dx
       dy = 5d-1 * dy

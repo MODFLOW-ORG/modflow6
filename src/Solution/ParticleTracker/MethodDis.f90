@@ -144,7 +144,7 @@ contains
 
     select type (cell => this%cell)
     type is (CellRectType)
-      ic = particle%idomain(next_level)
+      ic = particle%itrdomain(next_level)
       call this%load_celldefn(ic, cell%defn)
       call this%load_cell(ic, cell)
       if (this%fmi%ibdgwfsat0(ic) == 0) then
@@ -168,7 +168,7 @@ contains
   !> @brief Load cell properties into the particle, including
   ! the z coordinate, entry face, and node and layer numbers.
   subroutine load_particle(this, cell, particle)
-    use ParticleModule, only: TERM_BOUNDARY
+    use ParticleModule, only: TERM_BOUNDARY, LVL_CELL
     ! dummy
     class(MethodDisType), intent(inout) :: this
     type(CellRectType), pointer, intent(inout) :: cell
@@ -194,7 +194,7 @@ contains
     select type (dis => this%fmi%dis)
     type is (DisType)
       ! compute reduced/user node numbers and layer
-      inface = particle%iboundary(2)
+      inface = particle%iboundary(LVL_CELL)
       inbr = cell%defn%facenbr(inface)
       idiag = this%fmi%dis%con%ia(cell%defn%icell)
       ipos = idiag + inbr
@@ -210,18 +210,18 @@ contains
       ! in the previous cell.
       if (ic == particle%icp .and. inface == 7 .and. ilay < particle%ilay) then
         particle%advancing = .false.
-        particle%idomain(2) = particle%icp
+        particle%itrdomain(LVL_CELL) = particle%icp
         particle%istatus = TERM_BOUNDARY
         particle%izone = particle%izp
         call this%save(particle, reason=3)
         return
       else
-        particle%icp = particle%idomain(2)
+        particle%icp = particle%itrdomain(LVL_CELL)
         particle%izp = particle%izone
       end if
 
       ! update node numbers and layer
-      particle%idomain(2) = ic
+      particle%itrdomain(LVL_CELL) = ic
       particle%icu = icu
       particle%ilay = ilay
 
@@ -239,7 +239,7 @@ contains
       else if (inface .eq. 7) then
         inface = 6
       end if
-      particle%iboundary(2) = inface
+      particle%iboundary(LVL_CELL) = inface
 
       ! map z between cells
       z = particle%z
@@ -259,6 +259,7 @@ contains
   !> @brief Update cell-cell flows of particle mass.
   !! Every particle is currently assigned unit mass.
   subroutine update_flowja(this, cell, particle)
+    use ParticleModule, only: LVL_CELL
     ! dummy
     class(MethodDisType), intent(inout) :: this
     type(CellRectType), pointer, intent(inout) :: cell
@@ -269,7 +270,7 @@ contains
     integer(I4B) :: inface
     integer(I4B) :: ipos
 
-    inface = particle%iboundary(2)
+    inface = particle%iboundary(LVL_CELL)
     inbr = cell%defn%facenbr(inface)
     idiag = this%fmi%dis%con%ia(cell%defn%icell)
     ipos = idiag + inbr
@@ -284,7 +285,7 @@ contains
 
   !> @brief Pass a particle to the next cell, if there is one
   subroutine pass_dis(this, particle)
-    use ParticleModule, only: TERM_BOUNDARY
+    use ParticleModule, only: TERM_BOUNDARY, LVL_CELL
     ! dummy
     class(MethodDisType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -297,7 +298,7 @@ contains
       ! If the entry face has no neighbors it's a
       ! boundary face, so terminate the particle.
       ! todo AMP: reconsider when multiple models supported
-      if (cell%defn%facenbr(particle%iboundary(2)) .eq. 0) then
+      if (cell%defn%facenbr(particle%iboundary(LVL_CELL)) .eq. 0) then
         particle%istatus = TERM_BOUNDARY
         particle%advancing = .false.
         call this%save(particle, reason=3)

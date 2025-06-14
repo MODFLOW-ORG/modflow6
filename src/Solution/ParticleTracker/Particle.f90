@@ -14,6 +14,18 @@ module ParticleModule
   !! more methods as appropriate for finer-grained levels.
   integer, parameter :: MAX_LEVEL = 4
 
+  !> @brief Particle tracking level.
+  !!
+  !! Identifies the domain over which a tracking method is responsible for
+  !! moving a particle. Tracking methods at lower levels (coarser-grained)
+  !! defer to higher-level (finer-grained) methods within their subdomains.
+  !<
+  enum, bind(C)
+    enumerator :: LVL_MODEL = 1
+    enumerator :: LVL_CELL = 2
+    enumerator :: LVL_SUBCELL = 3
+  end enum
+
   !> @brief Particle status enumeration.
   !!
   !! Particles begin in status 1 (active) at release time. Status may only
@@ -88,7 +100,7 @@ module ParticleModule
     integer(I4B), public :: istopzone !< stop zone number
     integer(I4B), public :: idrymeth !< dry tracking method
     ! state
-    integer(I4B), allocatable, public :: idomain(:) !< tracking domain hierarchy ! TODO: rename to itdomain? idomain
+    integer(I4B), allocatable, public :: itrdomain(:) !< tracking domain
     integer(I4B), allocatable, public :: iboundary(:) !< tracking domain boundaries
     integer(I4B), public :: icp !< previous cell number (reduced)
     integer(I4B), public :: icu !< user cell number
@@ -132,7 +144,7 @@ module ParticleModule
     integer(I4B), dimension(:), pointer, public, contiguous :: istopzone !< stop zone number
     integer(I4B), dimension(:), pointer, public, contiguous :: idrymeth !< stop in dry cells
     ! state
-    integer(I4B), dimension(:, :), pointer, public, contiguous :: idomain !< array of indices for domains in the tracking domain hierarchy
+    integer(I4B), dimension(:, :), pointer, public, contiguous :: itrdomain !< array of indices for domains in the tracking domain hierarchy
     integer(I4B), dimension(:, :), pointer, public, contiguous :: iboundary !< array of indices for tracking domain boundaries
     integer(I4B), dimension(:), pointer, public, contiguous :: icu !< cell number (user)
     integer(I4B), dimension(:), pointer, public, contiguous :: ilay !< layer
@@ -163,7 +175,7 @@ contains
   subroutine create_particle(particle)
     type(ParticleType), pointer :: particle !< particle
     allocate (particle)
-    allocate (particle%idomain(MAX_LEVEL))
+    allocate (particle%itrdomain(MAX_LEVEL))
     allocate (particle%iboundary(MAX_LEVEL))
   end subroutine create_particle
 
@@ -196,7 +208,7 @@ contains
     call mem_allocate(store%iexmeth, np, 'PLIEXMETH', mempath)
     call mem_allocate(store%extol, np, 'PLEXTOL', mempath)
     call mem_allocate(store%extend, np, 'PLIEXTEND', mempath)
-    call mem_allocate(store%idomain, np, MAX_LEVEL, 'PLIDOMAIN', mempath)
+    call mem_allocate(store%itrdomain, np, MAX_LEVEL, 'PLITRDOMAIN', mempath)
     call mem_allocate(store%iboundary, np, MAX_LEVEL, 'PLIBOUNDARY', mempath)
   end subroutine create_particle_store
 
@@ -227,7 +239,7 @@ contains
     call mem_deallocate(this%iexmeth, 'PLIEXMETH', mempath)
     call mem_deallocate(this%extol, 'PLEXTOL', mempath)
     call mem_deallocate(this%extend, 'PLIEXTEND', mempath)
-    call mem_deallocate(this%idomain, 'PLIDOMAIN', mempath)
+    call mem_deallocate(this%itrdomain, 'PLITRDOMAIN', mempath)
     call mem_deallocate(this%iboundary, 'PLIBOUNDARY', mempath)
   end subroutine destroy
 
@@ -261,7 +273,7 @@ contains
     call mem_reallocate(this%iexmeth, np, 'PLIEXMETH', mempath)
     call mem_reallocate(this%extol, np, 'PLEXTOL', mempath)
     call mem_reallocate(this%extend, np, 'PLIEXTEND', mempath)
-    call mem_reallocate(this%idomain, np, MAX_LEVEL, 'PLIDOMAIN', mempath)
+    call mem_reallocate(this%itrdomain, np, MAX_LEVEL, 'PLITRDOMAIN', mempath)
     call mem_reallocate(this%iboundary, np, MAX_LEVEL, 'PLIBOUNDARY', mempath)
   end subroutine resize
 
@@ -299,9 +311,9 @@ contains
     particle%tstop = this%tstop(ip)
     particle%ttrack = this%ttrack(ip)
     particle%advancing = .true.
-    particle%idomain(1:MAX_LEVEL) = &
-      this%idomain(ip, 1:MAX_LEVEL)
-    particle%idomain(1) = imdl
+    particle%itrdomain(1:MAX_LEVEL) = &
+      this%itrdomain(ip, 1:MAX_LEVEL)
+    particle%itrdomain(1) = imdl
     particle%iboundary(1:MAX_LEVEL) = &
       this%iboundary(ip, 1:MAX_LEVEL)
     particle%ifrctrn = this%ifrctrn(ip)
@@ -334,10 +346,10 @@ contains
     this%trelease(ip) = particle%trelease
     this%tstop(ip) = particle%tstop
     this%ttrack(ip) = particle%ttrack
-    this%idomain( &
+    this%itrdomain( &
       ip, &
       1:MAX_LEVEL) = &
-      particle%idomain(1:MAX_LEVEL)
+      particle%itrdomain(1:MAX_LEVEL)
     this%iboundary( &
       ip, &
       1:MAX_LEVEL) = &

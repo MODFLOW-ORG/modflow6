@@ -445,7 +445,7 @@ contains
   end subroutine release
 
   subroutine initialize_particle(this, particle, ip, trelease)
-    use ParticleModule, only: TERM_UNRELEASED
+    use ParticleModule, only: TERM_UNRELEASED, LVL_MODEL, LVL_CELL, LVL_SUBCELL
     class(PrtPrpType), intent(inout) :: this !< this instance
     type(ParticleType), pointer, intent(inout) :: particle !< the particle
     integer(I4B), intent(in) :: ip !< particle index
@@ -528,12 +528,12 @@ contains
     end if
 
     particle%ttrack = particle%trelease
-    particle%idomain(1) = 0
-    particle%iboundary(1) = 0
-    particle%idomain(2) = ic
-    particle%iboundary(2) = 0
-    particle%idomain(3) = 0
-    particle%iboundary(3) = 0
+    particle%itrdomain(LVL_MODEL) = 0
+    particle%iboundary(LVL_MODEL) = 0
+    particle%itrdomain(LVL_CELL) = ic
+    particle%iboundary(LVL_CELL) = 0
+    particle%itrdomain(LVL_SUBCELL) = 0
+    particle%iboundary(LVL_SUBCELL) = 0
     particle%ifrctrn = this%ifrctrn
     particle%iexmeth = this%iexmeth
     particle%iextend = this%iextend

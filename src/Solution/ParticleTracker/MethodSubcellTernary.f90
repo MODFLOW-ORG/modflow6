@@ -63,7 +63,7 @@ contains
 
   !> @brief Track a particle across a triangular subcell.
   subroutine track_subcell(this, subcell, particle, tmax)
-    use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB
+    use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB, LVL_SUBCELL
     ! dummy
     class(MethodSubcellTernaryType), intent(inout) :: this
     class(SubcellTriType), intent(in) :: subcell
@@ -202,7 +202,7 @@ contains
     vziodz = vzi / dz
 
     ! If possible, track the particle across the subcell.
-    itrifaceenter = particle%iboundary(3) - 1
+    itrifaceenter = particle%iboundary(LVL_SUBCELL) - 1
     if (itrifaceenter == -1) itrifaceenter = 999
     call traverse_triangle(isolv, tol, &
                            dtexitxy, alpexit, betexit, &
@@ -300,7 +300,7 @@ contains
     particle%y = y
     particle%z = z
     particle%ttrack = t
-    particle%iboundary(3) = exitFace
+    particle%iboundary(LVL_SUBCELL) = exitFace
 
     call this%save(particle, reason=reason)
   end subroutine track_subcell
