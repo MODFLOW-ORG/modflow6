@@ -391,13 +391,30 @@ jobs:
       - build
       - smoke_test
     runs-on: ${{ matrix.os }}
-    env:
-      FC: intel-classic
-      FC_V: "2021.7"
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-13, windows-2022]
+        include:
+          # intel mac, ifort
+          - os: macos-13
+            compiler: intel-classic
+            version: "2021.7"
+          # ubuntu, ifx
+          - os: ubuntu-22.04
+            compiler: intel
+            version: "2024.1"
+          # ubuntu, ifort
+          - os: ubuntu-22.04
+            compiler: intel-classic
+            version: "2021.7"
+          # windows, ifx
+          - os: windows-2022
+            compiler: intel
+            version: "2024.1"
+          # windows, ifort
+          - os: windows-2022
+            compiler: intel-classic
+            version: "2021.7"
     defaults:
       run:
         shell: bash
@@ -441,11 +458,11 @@ jobs:
         working-directory: modflow6
         run: pixi run install
 
-      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
+      - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
         uses: fortran-lang/setup-fortran@v1
         with:
-          compiler: ${{ env.FC }}
-          version: ${{ env.FC_V }}
+          compiler: ${{ matrix.compiler }}
+          version: ${{ matrix.version }}
 
       - name: Update version files
         working-directory: modflow6
@@ -525,7 +542,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: failed-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}
+          name: failed-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.version }}
           path: modflow6/autotest/.failed
 
       - name: Test scripts
