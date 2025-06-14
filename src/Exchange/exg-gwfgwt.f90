@@ -232,32 +232,10 @@ contains
     end if
     !
     ! -- Make sure idomains are identical
-    select type (gwfdis => gwfmodel%dis)
-    type is (DisType)
-      select type (gwtdis => gwtmodel%dis)
-      type is (DisType)
-        if (.not. all(gwfdis%idomain == gwtdis%idomain)) then
-          write (errmsg, fmtidomerr) trim(this%name)
-          call store_error(errmsg, terminate=.TRUE.)
-        end if
-      end select
-    type is (DisvType)
-      select type (gwtdis => gwtmodel%dis)
-      type is (DisvType)
-        if (.not. all(gwfdis%idomain == gwtdis%idomain)) then
-          write (errmsg, fmtidomerr) trim(this%name)
-          call store_error(errmsg, terminate=.TRUE.)
-        end if
-      end select
-    type is (DisuType)
-      select type (gwtdis => gwtmodel%dis)
-      type is (DisuType)
-        if (.not. all(gwfdis%idomain == gwtdis%idomain)) then
-          write (errmsg, fmtidomerr) trim(this%name)
-          call store_error(errmsg, terminate=.TRUE.)
-        end if
-      end select
-    end select
+    if (.not. all(gwfmodel%dis%idomain == gwtmodel%dis%idomain)) then
+      write (errmsg, fmtidomerr) trim(this%name)
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
     !
     ! -- setup pointers to gwf variables allocated in gwf_ar
     gwtmodel%fmi%gwfhead => gwfmodel%x

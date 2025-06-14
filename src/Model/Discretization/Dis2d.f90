@@ -26,7 +26,6 @@ module Dis2dModule
     real(DP), dimension(:), pointer, contiguous :: delr => null() !< spacing along a row
     real(DP), dimension(:), pointer, contiguous :: delc => null() !< spacing along a column
     real(DP), dimension(:, :), pointer, contiguous :: bottom => null() !< bottom elevations for each cell (ncol, nrow)
-    integer(I4B), dimension(:, :), pointer, contiguous :: idomain => null() !< idomain (ncol, nrow)
     real(DP), dimension(:), pointer, contiguous :: cellx => null() !< cell center x coordinate for column j
     real(DP), dimension(:), pointer, contiguous :: celly => null() !< cell center y coordinate for row i
 
@@ -237,7 +236,6 @@ contains
     ! -- dummy
     class(Dis2dType) :: this
     ! -- locals
-    integer(I4B) :: i, j
     type(DisFoundType) :: found
     !
     ! -- update defaults with idm sourced values
@@ -267,19 +265,11 @@ contains
     ! -- Allocate delr, delc, and non-reduced vectors for dis
     call mem_allocate(this%delr, this%ncol, 'DELR', this%memoryPath)
     call mem_allocate(this%delc, this%nrow, 'DELC', this%memoryPath)
-    call mem_allocate(this%idomain, this%ncol, this%nrow, 'IDOMAIN', &
-                      this%memoryPath)
+    call mem_allocate(this%idomain, this%nodesuser, 'IDOMAIN', this%memoryPath)
     call mem_allocate(this%bottom, this%ncol, this%nrow, 'BOTTOM', &
                       this%memoryPath)
     call mem_allocate(this%cellx, this%ncol, 'CELLX', this%memoryPath)
     call mem_allocate(this%celly, this%nrow, 'CELLY', this%memoryPath)
-    !
-    ! -- initialize all cells to be active (idomain = 1)
-    do i = 1, this%nrow
-      do j = 1, this%ncol
-        this%idomain(j, i) = 1
-      end do
-    end do
     !
   end subroutine source_dimensions
 
@@ -309,13 +299,26 @@ contains
   subroutine source_griddata(this)
     ! -- dummy
     class(Dis2dType) :: this
+    ! -- local
     type(DisFoundType) :: found
+    integer(I4B) :: i, j
+    integer(I4B), contiguous, pointer :: idomain(:, :)
+    !
+    ! -- initialize all cells to be active (idomain = 1)
+    allocate (idomain(this%ncol, this%nrow))
+    do i = 1, this%nrow
+      do j = 1, this%ncol
+        idomain(j, i) = 1
+      end do
+    end do
     !
     ! -- update defaults with idm sourced values
     call mem_set_value(this%delr, 'DELR', this%input_mempath, found%delr)
     call mem_set_value(this%delc, 'DELC', this%input_mempath, found%delc)
     call mem_set_value(this%bottom, 'BOTTOM', this%input_mempath, found%bottom)
-    call mem_set_value(this%idomain, 'IDOMAIN', this%input_mempath, found%idomain)
+    call mem_set_value(idomain, 'IDOMAIN', this%input_mempath, found%idomain)
+    this%idomain = reshape(idomain, [this%nodesuser])
+    deallocate (idomain)
     !
     ! -- log simulation values
     if (this%iout > 0) then
@@ -376,10 +379,8 @@ contains
     !
     ! -- count active cells
     this%nodes = 0
-    do i = 1, this%nrow
-      do j = 1, this%ncol
-        if (this%idomain(j, i) > 0) this%nodes = this%nodes + 1
-      end do
+    do i = 1, this%nodesuser
+      if (this%idomain(i) > 0) this%nodes = this%nodes + 1
     end do
     !
     ! -- Check to make sure nodes is a valid number
@@ -407,10 +408,10 @@ contains
       noder = 1
       do i = 1, this%nrow
         do j = 1, this%ncol
-          if (this%idomain(j, i) > 0) then
+          if (this%idomain(node) > 0) then
             this%nodereduced(node) = noder
             noder = noder + 1
-          elseif (this%idomain(j, i) < 0) then
+          elseif (this%idomain(node) < 0) then
             this%nodereduced(node) = -1
           else
             this%nodereduced(node) = 0
@@ -426,7 +427,7 @@ contains
       noder = 1
       do i = 1, this%nrow
         do j = 1, this%ncol
-          if (this%idomain(j, i) > 0) then
+          if (this%idomain(node) > 0) then
             this%nodeuser(noder) = node
             noder = noder + 1
           end if
