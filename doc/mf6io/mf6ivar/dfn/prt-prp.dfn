@@ -41,7 +41,31 @@ type keyword
 reader urword
 optional true
 longname whether to use local z coordinates
-description indicates that ``zrpt'' defines the local z coordinate of the release point within the cell, with value of 0 at the bottom and 1 at the top of the cell.  If the cell is partially saturated at release time, the top of the cell is considered to be the water table elevation (the head in the cell) rather than the top defined by the user.
+description indicates that ``zrpt'' defines the local z coordinate of the release point within the cell scaled to the unit interval, with value of 0 at the bottom and 1 at the top of the cell.  If the cell is partially saturated at release time, the top of the cell is considered to be the water table elevation (the head in the cell) rather than the top defined by the user.
+
+block options
+name local_xy
+type keyword
+reader urword
+optional true
+longname whether to use local x and y coordinates
+description indicates that ``xrpt'' and ``yrpt'' define the local x and y coordinates of the release point within the cell scaled to the unit interval, with value of 0 at the west and south faces and 1 at the east and north faces of the cell. This option may only be used with structured models.
+
+block options
+name local_xy_offset
+type keyword
+reader urword
+optional true
+longname whether to use local x and y offsets
+description indicates that ``xrpt'' and ``rpt'' define the local x and y offsets of the release point within the cell, where the local coordinate system's origin is the cell center and distances are not rescaled. This option may be used with structured or unstructured models.
+
+block options
+name dev_global_xy
+type keyword
+reader urword
+optional true
+longname whether to transform x and y coordinates
+description indicates that ``xrpt'' and ``yrpt'' define global coordinates and should be transformed to the model coordinate system if georeferencing information (origin and rotation) is available on the model grid. By default, release points are assumed to be in model coordinates. If this option is enabled, particle pathlines will also be reported in global coordinates in output files.
 
 block options
 name extend_tracking

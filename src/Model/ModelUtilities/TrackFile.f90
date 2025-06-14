@@ -2,6 +2,7 @@ module TrackFileModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, DPIO180
   use ParticleModule, only: ParticleType, ACTIVE
+  use BaseDisModule, only: DisBaseType
   use GeomUtilModule, only: transform
 
   implicit none
@@ -43,20 +44,38 @@ module TrackFileModule
 contains
 
   !> @brief Save a particle track record to a binary or CSV file.
-  subroutine save_record(iun, particle, kper, kstp, reason, csv)
+  subroutine save_record(iun, particle, dis, kper, kstp, reason, csv)
     ! dummy
     integer(I4B), intent(in) :: iun
     type(ParticleType), pointer, intent(in) :: particle
+    class(DisBaseType), pointer, intent(in) :: dis
     integer(I4B), intent(in) :: kper
     integer(I4B), intent(in) :: kstp
     integer(I4B), intent(in) :: reason
     logical(LGP), intent(in) :: csv
     ! local
-    real(DP) :: x, y, z
+    real(DP) :: x, y, z, xout, yout, zout
     integer(I4B) :: status
 
     ! Convert from cell-local to model coordinates if needed
     call particle%get_model_coords(x, y, z)
+
+    ! Apply model grid offset/rotation if needed
+    if (particle%icoords == 1 .and. &
+        (dis%angrot /= DZERO .or. &
+         dis%xorigin /= DZERO .or. &
+         dis%yorigin /= DZERO)) then
+      call transform(x, y, z, &
+                     xout, yout, zout, &
+                     dis%xorigin, &
+                     dis%yorigin, &
+                     DZERO, &
+                     sin(dis%angrot * DPIO180), &
+                     cos(dis%angrot * DPIO180), &
+                     invert=.true.)
+      x = xout
+      y = yout
+    end if
 
     ! Set status
     if (particle%istatus .lt. 0) then
