@@ -1,0 +1,126 @@
+! ** Do Not Modify! MODFLOW 6 system generated file. **
+module Idm{{ dfn.component.title() }}DfnSelectorModule
+
+  use ConstantsModule, only: LENVARNAME
+  use SimModule, only: store_error
+  use InputDefinitionModule, only: InputParamDefinitionType, &
+                                   InputBlockDefinitionType
+  {% for package in dfn.packages %}
+  use {% package.component.title() %}{% package.subcomponent.title() %}InputModule
+  {% endfor %}
+
+  implicit none
+  private
+  public :: {{ dfn.component.lower() }}_param_definitions
+  public :: {{ dfn.component.lower() }}_aggregate_definitions
+  public :: {{ dfn.component.lower() }}_block_definitions
+  public :: {{ dfn.component.lower() }}_idm_multi_package
+  public :: {{ dfn.component.lower() }}_idm_subpackages
+  public :: {{ dfn.component.lower() }}_idm_integrated
+
+contains
+
+  subroutine set_param_pointer(input_dfn, input_dfn_target)
+    type(InputParamDefinitionType), dimension(:), pointer :: input_dfn
+    type(InputParamDefinitionType), dimension(:), target :: input_dfn_target
+    input_dfn => input_dfn_target
+  end subroutine set_param_pointer
+
+  subroutine set_block_pointer(input_dfn, input_dfn_target)
+    type(InputBlockDefinitionType), dimension(:), pointer :: input_dfn
+    type(InputBlockDefinitionType), dimension(:), target :: input_dfn_target
+    input_dfn => input_dfn_target
+  end subroutine set_block_pointer
+
+  subroutine set_subpkg_pointer(subpkg_list, subpkg_list_target)
+    character(len=16), dimension(:), pointer :: subpkg_list
+    character(len=16), dimension(:), target :: subpkg_list_target
+    subpkg_list => subpkg_list_target
+  end subroutine set_subpkg_pointer
+
+  function {{ dfn.component.lower() }}_param_definitions(subcomponent) result(input_definition)
+    character(len=*), intent(in) :: subcomponent
+    type(InputParamDefinitionType), dimension(:), pointer :: input_definition
+    nullify (input_definition)
+    select case (subcomponent)
+    {% for package in dfn.packages %}
+    case ('{{ package.subcomponent.upper() }}')
+      call set_param_pointer(input_definition, {{ package.component.lower() }}{{ package.subcomponent.lower() }}_param_definitions)
+    {% endfor %}
+    case default
+    end select
+    return
+  end function {{ dfn.component.lower() }}_param_definitions
+
+  function {{ dfn.component.lower() }}_aggregate_definitions(subcomponent) result(input_definition)
+    character(len=*), intent(in) :: subcomponent
+    type(InputParamDefinitionType), dimension(:), pointer :: input_definition
+    nullify (input_definition)
+    select case (subcomponent)
+    {% for package in dfn.packages %}
+    case ('{{ package.subcomponent.upper() }}')
+        call set_param_pointer(input_definition, {{ package.component.lower() }}{{ package.subcomponent.lower() }}_aggregate_definitions)
+        {% endfor %}
+    case default
+    end select
+    return
+  end function {{ dfn.component.lower() }}_aggregate_definitions
+
+  function {{ dfn.component.lower() }}_block_definitions(subcomponent) result(input_definition)
+    character(len=*), intent(in) :: subcomponent
+    type(InputBlockDefinitionType), dimension(:), pointer :: input_definition
+    nullify (input_definition)
+    select case (subcomponent)
+    {% for package in dfn.packages %}
+    case ('{{ package.subcomponent.upper() }}')
+        call set_block_pointer(input_definition, {{ package.component.lower() }}{{ package.subcomponent.lower() }}_block_definitions)
+    {% endfor %}
+    case default
+    end select
+    return
+  end function {{ dfn.component.lower() }}_block_definitions
+
+  function {{ dfn.component.lower() }}_idm_multi_package(subcomponent) result(multi_package)
+    character(len=*), intent(in) :: subcomponent
+    logical :: multi_package
+    select case (subcomponent)
+    {% for package in dfn.packages %}
+    case ('{{ package.subcomponent.upper() }}')
+        multi_package = {{ package.component.lower() }}{{ package.subcomponent.lower() }}_multi_package
+    {% endfor %}
+    case default
+      call store_error('Idm selector subcomponent not found; '//&
+                       &'component="CHF"'//&
+                       &', subcomponent="'//trim(subcomponent)//'".', .true.)
+    end select
+    return
+  end function {{ dfn.component.lower() }}_idm_multi_package
+
+  function {{ dfn.component.lower() }}_idm_subpackages(subcomponent) result(subpackages)
+    character(len=*), intent(in) :: subcomponent
+    character(len=16), dimension(:), pointer :: subpackages
+    select case (subcomponent)
+    {% for package in dfn.packages %}
+    case ('{{ package.subcomponent.upper() }}')
+        call set_subpkg_pointer(subpackages, {{ package.component.lower() }}{{ package.subcomponent.lower() }}_subpackages)
+    {% endfor %}
+    case default
+    end select
+    return
+  end function {{ dfn.component.lower() }}_idm_subpackages
+
+  function {{ dfn.component.lower() }}_idm_integrated(subcomponent) result(integrated)
+    character(len=*), intent(in) :: subcomponent
+    logical :: integrated
+    integrated = .false.
+    select case (subcomponent)
+    {% for package in dfn.packages %}
+    case ('{{ package.subcomponent.upper() }}')
+        integrated = .true.
+    {% endfor %}
+    case default
+    end select
+    return
+  end function {{ dfn.component.lower() }}_idm_integrated
+
+end module IdmChfDfnSelectorModule
