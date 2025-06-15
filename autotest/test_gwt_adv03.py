@@ -64,27 +64,30 @@ def cvfd_to_cell2d(verts, iverts):
 
 def build_models(idx, test):
     nlay, nrow, ncol = 5, 10, 20
+    width = 5.0
+    length = 20.0
+    depth = 5.0
     nper = 1
-    delr = 1.0
-    delc = 1.0
-    delz = 1.0
+    delr = length / ncol
+    delc = width / nrow
+    delz = depth / nlay
     top = 1.0
     botm = np.linspace(top - delz, top - nlay * delz, nlay)
     strt = 1.0
     hk = 1.0
     laytyp = 0
     porosity = 0.1
-    qwell = 1.0
-    specific_discharge = qwell / delr / delz
-    timetoend = float(ncol) * delc * porosity / specific_discharge
+    velocity_x = 0.5
+    qwell = velocity_x * porosity * delc * delz
+    specific_discharge = 1.0  # concentration
+    timetoend = length / velocity_x
 
     perlen = [timetoend]
-    nstp = [50]
+    nstp = [100]
     tsmult = [1.0]
-    steady = [True]
 
     nouter, ninner = 100, 300
-    hclose, rclose, relax = 1e-6, 1e-6, 1.0
+    hclose, rclose, relax = 1e-6, 1e-6, 0.97
 
     tdis_rc = []
     for i in range(nper):
@@ -113,22 +116,20 @@ def build_models(idx, test):
     imsgwf = flopy.mf6.ModflowIms(
         sim,
         print_option="SUMMARY",
-        outer_dvclose=hclose,
         outer_maximum=nouter,
-        under_relaxation="NONE",
         inner_maximum=ninner,
+        outer_dvclose=hclose,
         inner_dvclose=hclose,
         rcloserecord=rclose,
-        linear_acceleration="BICGSTAB",
-        scaling_method="NONE",
-        reordering_method="NONE",
         relaxation_factor=relax,
+        linear_acceleration="BICGSTAB",
         filename=f"{gwfname}.ims",
     )
     sim.register_ims_package(imsgwf, [gwf.name])
 
     itri = np.zeros((nrow, ncol), dtype=int)
-    itri[:, 1 : ncol - 1] = 1
+    itri[: int(nrow / 2), 1 : ncol - 1] = 1
+    itri[int(nrow / 2) :, 1 : ncol - 1] = 2
     verts, iverts = grid_triangulator(itri, delr, delc)
     vertices, cell2d = cvfd_to_cell2d(verts, iverts)
     ncpl = len(cell2d)
@@ -156,7 +157,7 @@ def build_models(idx, test):
                     chdlist.append([(k, icellnum), 0.0])
                 if j == 0:
                     icellnum = itricellnum[i, j]
-                    wellist.append([(k, icellnum), qwell, 1.0])
+                    wellist.append([(k, icellnum), qwell, specific_discharge])
 
     c = {0: chdlist}
     w = {0: wellist}
@@ -187,7 +188,7 @@ def build_models(idx, test):
         gwf,
         save_flows=False,
         icelltype=laytyp,
-        xt3doptions=[()],
+        xt3doptions=True,
         k=hk,
         k33=hk,
         save_specific_discharge=True,
@@ -219,7 +220,7 @@ def build_models(idx, test):
         gwf,
         budget_filerecord=f"{gwfname}.cbc",
         head_filerecord=f"{gwfname}.hds",
-        headprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
+        headprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 16, "GENERAL")],
         saverecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
     )
@@ -238,15 +239,12 @@ def build_models(idx, test):
     imsgwt = flopy.mf6.ModflowIms(
         sim,
         print_option="SUMMARY",
-        outer_dvclose=hclose,
         outer_maximum=nouter,
-        under_relaxation="NONE",
         inner_maximum=ninner,
+        outer_dvclose=hclose,
         inner_dvclose=hclose,
         rcloserecord=rclose,
         linear_acceleration="BICGSTAB",
-        scaling_method="NONE",
-        reordering_method="NONE",
         relaxation_factor=relax,
         filename=f"{gwtname}.ims",
     )
@@ -271,7 +269,7 @@ def build_models(idx, test):
     adv = flopy.mf6.ModflowGwtadv(gwt, scheme=scheme[idx], filename=f"{gwtname}.adv")
 
     # mass storage and transfer
-    mst = flopy.mf6.ModflowGwtmst(gwt, porosity=0.1)
+    mst = flopy.mf6.ModflowGwtmst(gwt, porosity=porosity)
 
     # sources
     sourcerecarray = [("WEL-1", "AUX", "CONCENTRATION")]
@@ -284,7 +282,9 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
+        concentrationprintrecord=[
+            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 16, "GENERAL")
+        ],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -338,128 +338,128 @@ def check_output(idx, test):
     # This is the answer to this problem.  These concentrations are for
     # the time equal to 1/5 of perlen.
     cres1 = [
-        9.75305991e-01,
-        9.52167956e-01,
-        9.13498872e-01,
-        8.56445999e-01,
-        7.81408232e-01,
-        6.92105105e-01,
-        5.94528731e-01,
-        4.95411393e-01,
-        4.00833986e-01,
-        3.15336441e-01,
-        2.41600024e-01,
-        1.80579344e-01,
-        1.31891325e-01,
-        9.42846759e-02,
-        6.60695310e-02,
-        4.54473575e-02,
-        3.07275409e-02,
-        2.04445131e-02,
-        1.34007670e-02,
-        8.66203225e-03,
-        5.52640971e-03,
-        3.48306266e-03,
-        2.17022758e-03,
-        1.33775921e-03,
-        8.16313473e-04,
-        4.93397804e-04,
-        2.95551417e-04,
-        1.75541689e-04,
-        1.03427957e-04,
-        6.04769621e-05,
-        3.51080337e-05,
-        2.02416209e-05,
-        1.15945184e-05,
-        6.60031880e-06,
-        3.73515492e-06,
-        2.10185144e-06,
-        1.17640119e-06,
-        4.52726328e-07,
+        9.78263289e-01,
+        9.57380290e-01,
+        9.20736561e-01,
+        8.63547669e-01,
+        7.84433406e-01,
+        6.86656630e-01,
+        5.77462722e-01,
+        4.65996370e-01,
+        3.60895486e-01,
+        2.68525535e-01,
+        1.92265720e-01,
+        1.32729020e-01,
+        8.85249931e-02,
+        5.71602720e-02,
+        3.58029166e-02,
+        2.17953681e-02,
+        1.29183794e-02,
+        7.46747154e-03,
+        4.21630404e-03,
+        2.32864575e-03,
+        1.25968093e-03,
+        6.68238019e-04,
+        3.48018248e-04,
+        1.78123829e-04,
+        8.96820730e-05,
+        4.44565570e-05,
+        2.17153511e-05,
+        1.04598843e-05,
+        4.97187556e-06,
+        2.33361732e-06,
+        1.08222595e-06,
+        4.96169417e-07,
+        2.25006013e-07,
+        1.00977258e-07,
+        4.48660390e-08,
+        1.97452798e-08,
+        8.61063710e-09,
+        2.36739642e-09,
     ]
     cres1 = np.array(cres1)
 
     cres2 = [
-        9.91666434e-01,
-        9.86953589e-01,
-        9.80778200e-01,
-        9.56402197e-01,
-        8.95573236e-01,
-        7.94392952e-01,
-        6.64374858e-01,
-        5.24436564e-01,
-        3.92222699e-01,
-        2.79262303e-01,
-        1.90214211e-01,
-        1.24507826e-01,
-        7.86404693e-02,
-        4.81012219e-02,
-        2.85822809e-02,
-        1.65449352e-02,
-        9.35203645e-03,
-        5.17291859e-03,
-        2.80515816e-03,
-        1.49375662e-03,
-        7.82221788e-04,
-        4.03333373e-04,
-        2.05011749e-04,
-        1.02829466e-04,
-        5.09423767e-05,
-        2.49472500e-05,
-        1.20857205e-05,
-        5.79592865e-06,
-        2.75322526e-06,
-        1.29620095e-06,
-        6.05117190e-07,
-        2.80245975e-07,
-        1.28825482e-07,
-        5.87741819e-08,
-        2.66893805e-08,
-        1.19138575e-08,
-        5.57865554e-09,
-        1.01007992e-09,
+        9.93442038e-01,
+        9.84105708e-01,
+        9.87713273e-01,
+        9.86855338e-01,
+        9.37137325e-01,
+        8.18802375e-01,
+        6.51099078e-01,
+        4.72131123e-01,
+        3.14446530e-01,
+        1.93994660e-01,
+        1.11777379e-01,
+        6.05953583e-02,
+        3.11056611e-02,
+        1.52043152e-02,
+        7.11051614e-03,
+        3.19475823e-03,
+        1.38399441e-03,
+        5.79890983e-04,
+        2.35646810e-04,
+        9.30947306e-05,
+        3.58312040e-05,
+        1.34614571e-05,
+        4.94482150e-06,
+        1.77866717e-06,
+        6.27359199e-07,
+        2.17245229e-07,
+        7.39403669e-08,
+        2.47600493e-08,
+        8.16511904e-09,
+        2.65389075e-09,
+        8.50846266e-10,
+        2.69263613e-10,
+        8.41684793e-11,
+        2.60035024e-11,
+        7.94454510e-12,
+        2.40148829e-12,
+        7.19183766e-13,
+        8.25665661e-14,
     ]
     cres2 = np.array(cres2)
 
     cres3 = [
-        9.75305991e-01,
-        9.61567354e-01,
-        9.44318192e-01,
-        8.99780324e-01,
-        8.53444404e-01,
-        7.57522910e-01,
-        6.71042660e-01,
-        5.31510001e-01,
-        4.26626889e-01,
-        2.94209725e-01,
-        2.11149438e-01,
-        1.26488690e-01,
-        8.13031158e-02,
-        4.27834908e-02,
-        2.48703736e-02,
-        1.16850355e-02,
-        6.22057950e-03,
-        2.65348164e-03,
-        1.30994628e-03,
-        5.15075141e-04,
-        2.38494633e-04,
-        8.75806378e-05,
-        3.84075388e-05,
-        1.33165430e-05,
-        5.57286464e-06,
-        1.84101848e-06,
-        7.40051254e-07,
-        2.34149161e-07,
-        9.11456220e-08,
-        2.77537863e-08,
-        1.06492160e-08,
-        3.18846190e-09,
-        1.21166402e-09,
-        3.76715755e-10,
-        1.31716572e-10,
-        3.23063284e-11,
-        9.77588885e-12,
-        -1.56168535e-12,
+        9.78263289e-01,
+        9.64602117e-01,
+        9.52100342e-01,
+        9.05738549e-01,
+        8.71038362e-01,
+        7.60312327e-01,
+        6.83635709e-01,
+        4.97262462e-01,
+        3.88629846e-01,
+        2.10421365e-01,
+        1.31466051e-01,
+        4.84712709e-02,
+        2.25083551e-02,
+        5.29149297e-03,
+        1.70775757e-03,
+        2.35723950e-04,
+        4.81264694e-05,
+        3.32524217e-06,
+        2.78104706e-07,
+        -1.46890248e-08,
+        -1.06009800e-08,
+        -7.29893033e-09,
+        -3.19570174e-09,
+        -1.55626640e-09,
+        -5.21166446e-10,
+        -1.60129996e-10,
+        -5.26729496e-11,
+        -2.26445075e-11,
+        -1.02289090e-11,
+        -3.57047421e-12,
+        -1.41048657e-12,
+        -2.36086048e-13,
+        4.40920030e-15,
+        6.78407639e-14,
+        3.77485549e-14,
+        2.05570945e-14,
+        1.09960343e-14,
+        4.97448017e-15,
     ]
     cres3 = np.array(cres3)
 

@@ -1,0 +1,158 @@
+module LeastSquaredGradientModule
+  use KindModule, only: DP, I4B
+  use ConstantsModule, only: DONE
+
+  Use IGradient
+  use BaseDisModule, only: DisBaseType
+  use TspFmiModule, only: TspFmiType
+  use BoundaryFacesModule, only: BoundaryFacesType
+  use SVDModule, only: pinv
+  use DisInfoModule, only: number_connected_faces
+  use DisInfoModule, only: node_distance
+
+  implicit none
+  private
+
+  public :: LeastSquaredGradientType
+
+  type Array2D
+    real(DP), dimension(:, :), allocatable :: data
+  end type Array2D
+
+  type, extends(IGradientType) :: LeastSquaredGradientType
+    class(DisBaseType), pointer :: dis
+    type(TspFmiType), pointer :: fmi
+    type(Array2D), allocatable, dimension(:) :: grad_op
+    type(BoundaryFacesType), allocatable :: boundary_faces
+  contains
+    procedure :: get
+
+    procedure, private :: compute_cell_gradient
+    procedure, private :: create_grad_operator
+  end type LeastSquaredGradientType
+
+  interface LeastSquaredGradientType
+    module procedure Constructor
+  end interface LeastSquaredGradientType
+
+contains
+  function constructor(dis, fmi) Result(gradient)
+    ! --dummy
+    class(DisBaseType), pointer, intent(in) :: dis
+    type(TspFmiType), pointer, intent(in) :: fmi
+    !-- return
+    type(LeastSquaredGradientType) :: gradient
+    ! -- local
+    integer(I4B) :: n, nodes
+
+    gradient%dis => dis
+    gradient%fmi => fmi
+
+    nodes = dis%nodes
+
+    ! -- Create boundary Cells
+    gradient%boundary_faces = BoundaryFacesType(dis)
+
+    ! -- Compute the gradient operator
+    nodes = dis%nodes
+    allocate (gradient%grad_op(dis%nodes))
+    do n = 1, nodes
+      gradient%grad_op(n)%data = gradient%create_grad_operator(n)
+    end do
+  end function constructor
+
+  function create_grad_operator(this, n) result(grad_op)
+    ! -- dummy
+    class(LeastSquaredGradientType) :: this
+    integer(I4B), intent(in) :: n
+    real(DP), dimension(:, :), allocatable :: grad_op
+    ! -- local
+    integer(I4B) :: number_connections
+    integer(I4B) :: ipos, local_pos, m
+    real(DP) :: length
+    real(DP), dimension(3) :: dnm
+    real(DP), dimension(:, :), allocatable :: d
+    real(DP), dimension(:, :), allocatable :: d_trans
+    real(DP), dimension(:, :), allocatable :: grad_scale
+    real(DP), dimension(3, 3) :: g
+    real(DP), dimension(3, 3) :: g_inv
+
+    number_connections = number_connected_faces(this%dis, n)
+
+    allocate (d(number_connections, 3))
+    allocate (d_trans(3, number_connections))
+    allocate (grad_op(3, number_connections))
+    allocate (grad_scale(number_connections, number_connections))
+
+    grad_scale = 0
+    d = 0
+
+    ! Assemble the distance matrix
+    ! Handle the internal connections
+    local_pos = 1
+    do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
+      m = this%dis%con%ja(ipos)
+
+      dnm = node_distance(this%dis, this%fmi, n, m)
+      length = norm2(dnm)
+
+      d(local_pos, :) = dnm / length
+      grad_scale(local_pos, local_pos) = 1.0_dp / length
+
+      local_pos = local_pos + 1
+    end do
+
+    d_trans = transpose(d)
+
+    ! Compute the G and inverse G matrices
+    g = matmul(d_trans, d)
+    g_inv = pinv(g)
+
+    ! Compute the gradient operator
+    grad_op = matmul(matmul(g_inv, d_trans), grad_scale)
+
+  end function create_grad_operator
+
+  function get(this, n, c) result(grad_c)
+    ! -- dummy
+    class(LeastSquaredGradientType), target :: this
+    integer(I4B), intent(in) :: n
+    real(DP), dimension(:), intent(in) :: c
+    !-- return
+    real(DP), dimension(3) :: grad_c
+
+    grad_c = this%compute_cell_gradient(n, c)
+  end function get
+
+  function compute_cell_gradient(this, n, cnew) result(grad_c)
+    ! -- return
+    real(DP), dimension(3) :: grad_c
+    ! -- dummy
+    class(LeastSquaredGradientType), target :: this
+    integer(I4B), intent(in) :: n
+    real(DP), dimension(:), intent(in) :: cnew
+    ! -- local
+    real(DP), dimension(:, :), pointer :: grad_op
+    integer(I4B) :: ipos, local_pos
+    integer(I4B) :: number_connections
+
+    integer(I4B) :: m
+    real(DP), dimension(:), allocatable :: dc
+
+    ! Assemble the concentration difference vector
+    number_connections = number_connected_faces(this%dis, n)
+    allocate (dc(number_connections))
+    local_pos = 1
+    do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
+      m = this%dis%con%ja(ipos)
+      dc(local_pos) = cnew(m) - cnew(n)
+      local_pos = local_pos + 1
+    end do
+
+    ! Compute the cells gradient
+    grad_op => this%grad_op(n)%data
+    grad_c = matmul(grad_op, dc)
+
+  end function compute_cell_gradient
+
+end module LeastSquaredGradientModule

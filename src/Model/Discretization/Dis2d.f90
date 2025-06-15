@@ -1096,7 +1096,7 @@ contains
   !<
   subroutine get_polyverts(this, ic, polyverts, closed)
     ! -- dummy
-    class(Dis2dType), intent(inout) :: this
+    class(Dis2dType), intent(in) :: this
     integer(I4B), intent(in) :: ic !< cell number (reduced)
     real(DP), allocatable, intent(out) :: polyverts(:, :) !< polygon vertices (column-major indexing)
     logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex

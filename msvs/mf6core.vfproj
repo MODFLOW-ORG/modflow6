@@ -244,8 +244,10 @@
 		<File RelativePath="..\src\Model\Connection\qsort_inline.inc"/>
 		<File RelativePath="..\src\Model\Connection\SpatialModelConnection.f90"/></Filter>
 		<Filter Name="Discretization">
+		<File RelativePath="..\src\Model\Discretization\BoundaryFaces.f90"/>
 		<File RelativePath="..\src\Model\Discretization\Dis.f90"/>
 		<File RelativePath="..\src\Model\Discretization\Dis2d.f90"/>
+		<File RelativePath="..\src\Model\Discretization\DisInfo.f90"/>
 		<File RelativePath="..\src\Model\Discretization\Disu.f90"/>
 		<File RelativePath="..\src\Model\Discretization\Disv.f90"/>
 		<File RelativePath="..\src\Model\Discretization\Disv1d.f90"/>
@@ -338,6 +340,7 @@
 		<File RelativePath="..\src\Model\ModelUtilities\TrackFile.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\TrackControl.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\TspAdvOptions.f90"/>
+		<File RelativePath="..\src\Model\ModelUtilities\TspAdvOutflowCorrector.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\UzfCellGroup.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\UzfEtUtil.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\VectorInterpolation.f90"/>
@@ -497,6 +500,12 @@
 			<FileConfiguration Name="Debug|x64" ExcludedFromBuild="true"/>
 			<FileConfiguration Name="Release|Win32" ExcludedFromBuild="true"/></File>
 		<File RelativePath="..\src\Utilities\Export\NCModel.f90"/></Filter>
+		<Filter Name="Gradient">
+		<File RelativePath="..\src\Utilities\Gradient\ExtendedLeastSquaredGradient.f90"/>
+		<File RelativePath="..\src\Utilities\Gradient\GreenGaussGradient.f90"/>
+		<File RelativePath="..\src\Utilities\Gradient\IGradient.f90"/>
+		<File RelativePath="..\src\Utilities\Gradient\LeastSquaredGradient.f90"/>
+		<File RelativePath="..\src\Utilities\Gradient\LeastSquaredGradientBoundary.f90"/></Filter>
 		<Filter Name="Idm">
 		<Filter Name="mf6blockfile">
 		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\AsciiInputLoadType.f90"/>
@@ -535,6 +544,12 @@
 			<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration>
 			<FileConfiguration Name="Release|Win32">
 			<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration></File></Filter>
+		<Filter Name="InterpolationScheme">
+		<File RelativePath="..\src\Utilities\InterpolationScheme\BarthJespersenScheme.f90"/>
+		<File RelativePath="..\src\Utilities\InterpolationScheme\CentralDifferenceScheme.f90"/>
+		<File RelativePath="..\src\Utilities\InterpolationScheme\IInterpolationScheme.f90"/>
+		<File RelativePath="..\src\Utilities\InterpolationScheme\TVDScheme.f90"/>
+		<File RelativePath="..\src\Utilities\InterpolationScheme\UpwindScheme.f90"/></Filter>
 		<Filter Name="Libraries">
 		<File RelativePath="..\src\Utilities\Libraries\blas\blas1_d.f90"/>
 		<File RelativePath="..\src\Utilities\Libraries\daglib\dag_module.f90"/>
@@ -667,6 +682,7 @@
 		<File RelativePath="..\src\Utilities\STLStackInt.f90"/>
 		<File RelativePath="..\src\Utilities\STLVecInt.f90"/>
 		<File RelativePath="..\src\Utilities\StringList.f90"/>
+		<File RelativePath="..\src\Utilities\SVD.f90"/>
 		<File RelativePath="..\src\Utilities\Table.f90"/>
 		<File RelativePath="..\src\Utilities\TableTerm.f90"/>
 		<File RelativePath="..\src\Utilities\Timer.f90"/>
