@@ -1286,7 +1286,7 @@ contains
     do n = 1, this%dis%nodes
       do i = 1, this%nrhospecies
         if (this%modelconc(i)%icbund(n) == 0) then
-          this%ctemp = DZERO
+          this%ctemp(i) = DZERO
         else
           this%ctemp(i) = this%modelconc(i)%conc(n)
         end if
