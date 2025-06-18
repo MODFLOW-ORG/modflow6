@@ -214,7 +214,7 @@ contains
     end if
 
     ! -- Get the connection direction and length
-    call dis%connection_vector(n, m, .false., satn, satm, ihc, x_dir, &
+    call dis%connection_vector(n, m, .true., satn, satm, ihc, x_dir, &
                                y_dir, z_dir, length)
 
     ! -- Compute the distance vector
