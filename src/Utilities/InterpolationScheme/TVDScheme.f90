@@ -143,14 +143,15 @@ contains
     alimiter = this%limiter(smooth)
 
     ! High order term is:
-    ! cl1 / (cl1 + cl2) * alimiter * qnm * (phi(idn) - phi(iup))
-    ! This is split into two parts:
     relative_distance = cl1 / (cl1 + cl2)
-    coef_up = coef_up - relative_distance * alimiter
-    coef_dn = coef_dn + relative_distance * alimiter
+    phi_face%rhs = -relative_distance * alimiter * (phi(idn) - phi(iup))
 
-    ! Alternative way of writing the high order term by adding it to the rhs:
-    ! phi_face%rhs = -relative_distance * alimiter * (phi(idn) - phi(iup))
+    ! Alternative way of writing the high order term by adding it to the
+    ! coefficients matrix. The equation to be added is:
+    ! high_order = cl1 / (cl1 + cl2) * alimiter * qnm * (phi(idn) - phi(iup))
+    ! This is split into two parts:
+    ! coef_up = coef_up - relative_distance * alimiter
+    ! coef_dn = coef_dn + relative_distance * alimiter
 
   end function compute
 
