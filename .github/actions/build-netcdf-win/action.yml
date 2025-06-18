@@ -17,18 +17,24 @@ runs:
     - name: Download NetCDF-C
       shell: bash
       run: |
-        mkdir -p netcdf/netCDF4.9.2-NC4-64
-        cd netcdf/netCDF4.9.2-NC4-64
-        curl https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netCDF4.9.2-NC4-64.exe -O -J
-        7z x netCDF4.9.2-NC4-64.exe -aou
+        mkdir -p netcdf/netCDF4.9.3-NC4-64
+        cd netcdf/netCDF4.9.3-NC4-64
+        curl https://downloads.unidata.ucar.edu/netcdf-c/4.9.3/netCDF4.9.3-NC4-64.exe -O -J
+        7z x netCDF4.9.3-NC4-64.exe -aou
+        # disable checks specific to standard install locations
+        sed -i '32,34s/^/#/' lib/cmake/netCDF/netCDFConfig.cmake
+        # disable system hdf5 library check
+        sed -i '67,70s/^/#/' lib/cmake/netCDF/netCDFConfig.cmake
 
     - name: Download NetCDF-Fortran
       shell: bash
       run: |
-        mkdir -p netcdf/netcdf-fortran-4.6.1/build
-        cd netcdf/netcdf-fortran-4.6.1
-        curl https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.1/netcdf-fortran-4.6.1.zip -O -J
-        unzip netcdf-fortran-4.6.1.zip
+        mkdir -p netcdf/netcdf-fortran-4.6.2/build
+        cd netcdf/netcdf-fortran-4.6.2
+        curl https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.2/netcdf-fortran-4.6.2.zip -O -J
+        unzip netcdf-fortran-4.6.2.zip
+        # disable system hdf5 library check
+        sed -i '485s/^/#/' netcdf-fortran-4.6.2/CMakeLists.txt
 
     - name: Setup oneAPI
       uses: ./modflow6/.github/actions/setup-par-oneapi
@@ -41,6 +47,6 @@ runs:
     - name: Update path for NetCDF libs
       shell: bash
       run: |
-        echo "$GITHUB_WORKSPACE/netcdf/netCDF4.9.2-NC4-64/bin" >> $GITHUB_PATH
-        echo "$GITHUB_WORKSPACE/netcdf/netCDF4.9.2-NC4-64/lib" >> $GITHUB_PATH
-        echo "$GITHUB_WORKSPACE/netcdf/netcdf-fortran-4.6.1/build/fortran" >> $GITHUB_PATH
+        echo "$GITHUB_WORKSPACE/netcdf/netCDF4.9.3-NC4-64/bin" >> $GITHUB_PATH
+        echo "$GITHUB_WORKSPACE/netcdf/netCDF4.9.3-NC4-64/lib" >> $GITHUB_PATH
+        echo "$GITHUB_WORKSPACE/netcdf/netcdf-fortran-4.6.2/build/fortran" >> $GITHUB_PATH

@@ -22,6 +22,7 @@ module OlfDisv2DInputModule
     logical :: yorigin = .false.
     logical :: angrot = .false.
     logical :: export_ascii = .false.
+    logical :: crs = .false.
     logical :: nodes = .false.
     logical :: nvert = .false.
     logical :: bottom = .false.
@@ -220,6 +221,24 @@ module OlfDisv2DInputModule
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    olfdisv2d_crs = InputParamDefinitionType &
+    ( &
+    'OLF', & ! component
+    'DISV2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -453,6 +472,7 @@ module OlfDisv2DInputModule
     olfdisv2d_yorigin, &
     olfdisv2d_angrot, &
     olfdisv2d_export_ascii, &
+    olfdisv2d_crs, &
     olfdisv2d_nodes, &
     olfdisv2d_nvert, &
     olfdisv2d_bottom, &

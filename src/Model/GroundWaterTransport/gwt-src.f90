@@ -1,7 +1,8 @@
 module GwtSrcModule
   !
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, DEM1, DONE, LENFTYPE, LENVARNAME
+  use TspFmiModule, only: TspFmiType
   use BndModule, only: BndType
   use ObsModule, only: DefaultObsIdProcessor
   use TimeSeriesLinkModule, only: TimeSeriesLinkType, &
@@ -20,14 +21,21 @@ module GwtSrcModule
   type, extends(BndType) :: GwtSrcType
 
     character(len=LENVARNAME) :: depvartype = '' !< stores string of dependent variable type, depending on model type
+    type(TspFmiType), pointer :: fmi => null() ! pointer to GWE fmi object
+    logical(LGP), pointer :: highest_sat => NULL()
+    integer(I4B), dimension(:), pointer, contiguous :: nodesontop => NULL() ! User provided cell numbers; nodelist is cells where recharge is applied)
 
   contains
 
     procedure :: allocate_scalars => src_allocate_scalars
+    procedure :: allocate_arrays => src_allocate_arrays
+    procedure :: bnd_options => src_options
+    procedure :: bnd_rp => src_rp
     procedure :: bnd_cf => src_cf
     procedure :: bnd_fc => src_fc
     procedure :: bnd_da => src_da
     procedure :: define_listlabel
+    procedure :: set_nodesontop
     ! -- methods for observations
     procedure, public :: bnd_obs_supported => src_obs_supported
     procedure, public :: bnd_df_obs => src_df_obs
@@ -42,8 +50,8 @@ contains
   !!
   !! This subroutine points bndobj to the newly created package
   !<
-  subroutine src_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
-                        depvartype)
+  subroutine src_create(packobj, id, ibcnum, inunit, iout, namemodel, &
+                        depvartype, pakname, fmi)
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -53,6 +61,7 @@ contains
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
     character(len=LENVARNAME), intent(in) :: depvartype
+    type(TspFmiType), intent(in), target :: fmi
     ! -- local
     type(GwtSrcType), pointer :: srcobj
     !
@@ -79,7 +88,36 @@ contains
     !
     ! -- Store the appropriate label based on the dependent variable
     srcobj%depvartype = depvartype
+
+    srcobj%fmi => fmi
+
   end subroutine src_create
+
+  !> @brief Set additional options specific to the GwtSrcType
+  !!
+  !! This routine overrides BndType%bnd_options
+  !<
+  subroutine src_options(this, option, found)
+    ! -- dummy
+    class(GwtSrcType), intent(inout) :: this
+    character(len=*), intent(inout) :: option
+    logical, intent(inout) :: found
+    ! -- local
+    ! -- formats
+
+    found = .true.
+    select case (option)
+    case ('HIGHEST_SATURATED')
+      this%highest_sat = .TRUE.
+      write (this%iout, '(4x,a)') &
+        'Mass source loading rate will be applied to the highest cell at or below &
+        &the specified cellid with a non-zero saturation.'
+    case default
+      !
+      ! -- No options found
+      found = .false.
+    end select
+  end subroutine src_options
 
   !> @brief Deallocate memory
   !<
@@ -92,7 +130,13 @@ contains
     ! -- Deallocate parent package
     call this%BndType%bnd_da()
     !
+    ! -- arrays
+    if (this%highest_sat) then
+      call mem_deallocate(this%nodesontop, "NODESONTOP", this%memoryPath)
+    end if
+    !
     ! -- scalars
+    call mem_deallocate(this%highest_sat)
   end subroutine src_da
 
   !> @brief Allocate scalars
@@ -108,9 +152,77 @@ contains
     call this%BndType%allocate_scalars()
     !
     ! -- allocate the object and assign values to object variables
+    call mem_allocate(this%highest_sat, 'HIGHEST_SAT', this%memoryPath)
     !
     ! -- Set values
+    this%highest_sat = .FALSE.
+
   end subroutine src_allocate_scalars
+
+  !> @brief Allocate arrays
+  !!
+  !! Allocate scalars specific to this source loading package
+  !<
+  subroutine src_allocate_arrays(this, nodelist, auxvar)
+    use MemoryManagerModule, only: mem_allocate
+    ! -- dummy
+    class(GwtSrcType) :: this
+    integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist !< package nodelist
+    real(DP), dimension(:, :), pointer, contiguous, optional :: auxvar !< package aux variable array
+    ! local
+    integer(I4B) :: n
+    !
+    ! -- call standard BndType allocate scalars
+    call this%BndType%allocate_arrays(nodelist, auxvar)
+    !
+    ! -- allocate the object and assign values to object variables
+    if (this%highest_sat) then
+      call mem_allocate(this%nodesontop, this%maxbound, 'NODESONTOP', &
+                        this%memoryPath)
+    end if
+    !
+    ! -- Set values
+    if (this%highest_sat) then
+      do n = 1, this%maxbound
+        this%nodesontop(n) = 0
+      end do
+    end if
+
+  end subroutine src_allocate_arrays
+
+  subroutine src_rp(this)
+    ! -- modules
+    ! -- dummy
+    class(GwtSrcType), intent(inout) :: this !< BndType object
+
+    ! call standard BndType rp
+    call this%BndType%bnd_rp()
+
+    if (this%highest_sat) call this%set_nodesontop()
+
+    return
+
+  end subroutine src_rp
+
+  !> @brief Store nodelist in nodesontop
+  !<
+  subroutine set_nodesontop(this)
+    implicit none
+    ! -- dummy
+    class(GwtSrcType), intent(inout) :: this
+    ! -- local
+    integer(I4B) :: n
+    ! !
+    ! ! -- allocate if necessary
+    ! if (.not. associated(this%nodesontop)) then
+    !   allocate (this%nodesontop(this%maxbound))
+    ! end if
+    !
+    ! -- copy nodelist into nodesontop
+    do n = 1, this%nbound
+      this%nodesontop(n) = this%nodelist(n)
+    end do
+  end subroutine set_nodesontop
 
   !> @brief Formulate the HCOF and RHS terms
   !!
@@ -130,7 +242,21 @@ contains
     !
     ! -- Calculate hcof and rhs for each source entry
     do i = 1, this%nbound
-      node = this%nodelist(i)
+      !
+      ! -- Find the node number
+      if (this%highest_sat) then
+        node = this%nodesontop(i)
+      else
+        node = this%nodelist(i)
+      end if
+      !
+      ! -- reset nodelist to highest active
+      if (this%highest_sat) then
+        if (this%fmi%gwfsat(node) == 0) &
+          call this%dis%highest_saturated(node, this%fmi%gwfsat)
+        this%nodelist(i) = node
+      end if
+
       this%hcof(i) = DZERO
       if (this%ibound(node) <= 0) then
         this%rhs(i) = DZERO

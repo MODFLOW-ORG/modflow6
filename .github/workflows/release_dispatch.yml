@@ -252,7 +252,7 @@ jobs:
           cache-environment: true
 
       - name: Download artifacts
-        uses: dawidd6/action-download-artifact@v10
+        uses: dawidd6/action-download-artifact@v11
 
       - name: Draft release
         working-directory: modflow6

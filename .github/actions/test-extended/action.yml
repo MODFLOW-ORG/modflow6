@@ -3,7 +3,28 @@ description: Build and test Extended MODFLOW 6
 runs:
   using: "composite"
   steps:
+    - name: Install netcdf
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install build-essential \
+          libnetcdf-dev \
+          libnetcdff-dev \
+          netcdf-bin
+        nc-config --all
+        nf-config --all
+
+    - name: Install netcdf
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        brew install netcdf-fortran
+        nc-config --all
+        nf-config --all
+
     - name: Setup GNU Fortran
+      if: runner.os != 'macOS'
       uses: fortran-lang/setup-fortran@v1
       with:
         compiler: gcc
@@ -30,26 +51,6 @@ runs:
         sudo wget -P $GITHUB_WORKSPACE/petsc https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.2.tar.gz
         sudo ./configure PETSC_ARCH=arch-gcc-opt --download-fblaslapack --download-openmpi=$GITHUB_WORKSPACE/petsc/openmpi-5.0.2.tar.gz --with-debugging=0
         sudo make all
-
-    - name: Install netcdf
-      if: runner.os == 'Linux'
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install build-essential \
-          libnetcdf-dev \
-          libnetcdff-dev \
-          netcdf-bin
-        nc-config --all
-        nf-config --all
-
-    - name: Install netcdf
-      if: runner.os == 'macOS'
-      shell: bash
-      run: |
-        brew install netcdf-fortran
-        nc-config --all
-        nf-config --all
 
     - name: Build modflow6
       shell: bash

@@ -13,6 +13,8 @@ from framework import TestFramework
 cases = ["gwf_uzf01a"]
 nlay, nrow, ncol = 100, 1, 1
 
+crs = "EPSG:26916"
+
 
 def build_models(idx, test):
     name = cases[idx]
@@ -75,6 +77,7 @@ def build_models(idx, test):
 
     dis = flopy.mf6.ModflowGwfdis(
         gwf,
+        crs=crs,
         nlay=nlay,
         nrow=nrow,
         ncol=ncol,
@@ -183,6 +186,10 @@ def check_output(idx, test):
     grbobj = flopy.mf6.utils.MfGrdFile(fname)
     ia = grbobj._datadict["IA"] - 1
     ja = grbobj._datadict["JA"] - 1
+    grb_crs = grbobj._datadict["CRS"]
+
+    # verify crs data string in grb version 2 file
+    assert grb_crs == crs
 
     upth = os.path.join(ws, name + ".uzf.bud")
     uobj = flopy.utils.CellBudgetFile(upth, precision="double")

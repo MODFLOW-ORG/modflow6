@@ -11,5 +11,7 @@ This section contains developer documentation, including contributor conventions
    _dev/CONTRIBUTING.md
    _dev/DEVELOPER.md
    _dev/EXTENDED.md
+   _dev/DISTRIBUTION.md
    _dev/styleguide.md
    _dev/dfn.md
+   _dev/IDM.md

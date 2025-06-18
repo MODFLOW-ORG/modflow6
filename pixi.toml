@@ -39,6 +39,7 @@ ruff = "*"
 scipy = "*"
 shapely = "*"
 syrupy = "*"
+test-drive = "*"
 tomli = ">=2.2.1,<3"
 tomli-w = ">=1.2.0,<2"
 xmipy = "*"
@@ -94,7 +95,7 @@ fix-python-style = { cmd = "pixi run check-python-lint --fix; pixi run fix-pytho
 
 # meson build/test for mf6 and zbud6
 builddir = "echo _builddir"
-setup = "meson setup --prefix=$(pwd) --libdir=bin --bindir=bin"
+setup = { cmd = "meson setup --prefix=$(pwd) --libdir=bin --bindir=bin", env = { PKG_CONFIG_PATH = "$CONDA_PREFIX/lib/pkgconfig" } }
 build = "meson install -C"
 test = "meson test --verbose --no-rebuild -C"
 

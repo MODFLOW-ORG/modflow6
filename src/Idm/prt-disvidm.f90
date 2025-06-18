@@ -23,6 +23,7 @@ module PrtDisvInputModule
     logical :: angrot = .false.
     logical :: export_ascii = .false.
     logical :: export_nc = .false.
+    logical :: crs = .false.
     logical :: ncf_filerecord = .false.
     logical :: ncf6 = .false.
     logical :: filein = .false.
@@ -245,6 +246,24 @@ module PrtDisvInputModule
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    prtdisv_crs = InputParamDefinitionType &
+    ( &
+    'PRT', & ! component
+    'DISV', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -587,6 +606,7 @@ module PrtDisvInputModule
     prtdisv_angrot, &
     prtdisv_export_ascii, &
     prtdisv_export_nc, &
+    prtdisv_crs, &
     prtdisv_ncf_filerecord, &
     prtdisv_ncf6, &
     prtdisv_filein, &

@@ -190,6 +190,56 @@ The binary grid file for DISU grids may contain information on the vertices and 
 \noindent Record 15: \texttt{(IAVERT(J),J=1,NODES+1)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NODES+1)}} \\
 \noindent Record 16: \texttt{(JAVERT(J),J=1,NJAVERT)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NJAVERT)}} \\
 
+\newpage
+\subsubsection{Version 2 Binary Grid File}
+\mf~will write a version 2 binary grid file when the discretization supports the CRS input option and that option is defined.  If the discretization supports the CRS option but it is not defined in the discretization OPTIONS block, the version 1 file will be generated.  Version 2 binary grid files contain an additional definition string and data record associated with the CRS input.  The length of the data CHARACTER array record will be the trimmed length (TRIMLEN) of the provided input string.  An example for the DIS grid follows.
+
+\vspace{5mm}
+\noindent Header 1: \texttt{`GRID DIS'}  {\color{red} \footnotesize{CHARACTER(LEN=50)}} \\
+\noindent Header 2: \texttt{`VERSION 2'}  {\color{red} \footnotesize{CHARACTER(LEN=50)}} \\
+\noindent Header 3: \texttt{`NTXT 17'} {\color{red} \footnotesize{CHARACTER(LEN=50)}}\\
+\noindent Header 4: \texttt{`LENTXT 100'} {\color{red} \footnotesize{CHARACTER(LEN=50)}}\\
+
+\vspace{5mm}
+\noindent Read \texttt{NTXT} strings of size \texttt{LENTXT}. Set the number of data records (\texttt{NDAT}) equal to number of lines that do not begin with \#.  \\
+\noindent Definition 0: \texttt{`\#Comment ...'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}, comments not presently written} \\
+\noindent Definition 1: \texttt{`NCELLS INTEGER NDIM 0 \# ncells'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 2: \texttt{`NLAY INTEGER NDIM 0 \# nlay'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 3: \texttt{`NROW INTEGER NDIM 0 \# nrow'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 4: \texttt{`NCOL INTEGER NDIM 0 \# ncol'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 5: \texttt{`NJA INTEGER NDIM 0 \# nja'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 6: \texttt{`XORIGIN DOUBLE NDIM 0 \# xorigin'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 7: \texttt{`YORIGIN DOUBLE NDIM 0 \# yorigin'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 8: \texttt{`ANGROT DOUBLE NDIM 0 \# angrot'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 9: \texttt{`DELR DOUBLE NDIM 1 ncol'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 10: \texttt{`DELC DOUBLE NDIM 1 nrow'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 11: \texttt{`TOP DOUBLE NDIM 1 nrow*ncol'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 12: \texttt{`BOTM DOUBLE NDIM 1 ncells'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 13: \texttt{`IA INTEGER NDIM 1 ncells+1'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 14: \texttt{`JA INTEGER NDIM 1 nja'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 15: \texttt{`IDOMAIN INTEGER NDIM 1 ncells'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 16: \texttt{`ICELLTYPE INTEGER NDIM 1 ncells'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 17: \texttt{`CRS CHARACTER NDIM 1 trimlen'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+
+\vspace{5mm}
+\noindent Read \texttt{NDAT} data variables using the definitions defined above. \\
+\noindent Record 1: \texttt{NCELLS} {\color{red} \footnotesize{INTEGER}} \\
+\noindent Record 2: \texttt{NLAY} {\color{red} \footnotesize{INTEGER}} \\
+\noindent Record 3: \texttt{NROW} {\color{red} \footnotesize{INTEGER}} \\
+\noindent Record 4: \texttt{NCOL} {\color{red} \footnotesize{INTEGER}} \\
+\noindent Record 5: \texttt{NJA} {\color{red} \footnotesize{INTEGER}} \\
+\noindent Record 6: \texttt{XORIGIN} {\color{red} \footnotesize{DOUBLE}} \\
+\noindent Record 7: \texttt{YORIGIN} {\color{red} \footnotesize{DOUBLE}} \\
+\noindent Record 8: \texttt{ANGROT} {\color{red} \footnotesize{DOUBLE}} \\
+\noindent Record 9: \texttt{DELR} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE(NCOL)}} \\
+\noindent Record 10: \texttt{DELC} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE (NROW)}} \\
+\noindent Record 11: \texttt{(TOP(J),J=1,NROW*NCOL)} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE(NROW*NCOL)}} \\
+\noindent Record 12: \texttt{(BOTM(J),J=1,NCELLS)} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE(NCELLS)}} \\
+\noindent Record 13: \texttt{(IA(J),J=1,NCELLS+1)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NCELLS+1)}} \\
+\noindent Record 14: \texttt{(JA(J),J=1,NJA)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NJA)}} \\
+\noindent Record 15: \texttt{(IDOMAIN(J),J=1,NCELLS)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NCELLS)}} \\
+\noindent Record 16: \texttt{(ICELLTYPE(J),J=1,NCELLS)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NCELLS)}} \\
+\noindent Record 17: \texttt{(CRS(J),J=1,TRIMLEN)} {\color{red} \footnotesize{CHARACTER ARRAY SIZE(TRIMLEN)}} \\
 
 \newpage
 \subsection{Dependent Variable File}

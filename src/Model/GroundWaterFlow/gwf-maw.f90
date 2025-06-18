@@ -3645,9 +3645,9 @@ contains
     if (this%ivsc == 1) then
       ! flow out of well (flow is negative)
       if (flow < 0) then
-        vscratio = this%viscratios(1, igwfnode)
+        vscratio = this%viscratios(1, n)
       else
-        vscratio = this%viscratios(2, igwfnode)
+        vscratio = this%viscratios(2, n)
       end if
     end if
     !
@@ -3935,9 +3935,9 @@ contains
     if (this%ivsc == 1) then
       ! flow out of well (flow is negative)
       if (qnet < 0) then
-        vscratio = this%viscratios(1, igwfnode)
+        vscratio = this%viscratios(1, n)
       else
-        vscratio = this%viscratios(2, igwfnode)
+        vscratio = this%viscratios(2, n)
       end if
     end if
     !

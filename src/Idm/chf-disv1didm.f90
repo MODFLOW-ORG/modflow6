@@ -22,6 +22,7 @@ module ChfDisv1DInputModule
     logical :: yorigin = .false.
     logical :: angrot = .false.
     logical :: export_ascii = .false.
+    logical :: crs = .false.
     logical :: nodes = .false.
     logical :: nvert = .false.
     logical :: width = .false.
@@ -220,6 +221,24 @@ module ChfDisv1DInputModule
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    chfdisv1d_crs = InputParamDefinitionType &
+    ( &
+    'CHF', & ! component
+    'DISV1D', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -453,6 +472,7 @@ module ChfDisv1DInputModule
     chfdisv1d_yorigin, &
     chfdisv1d_angrot, &
     chfdisv1d_export_ascii, &
+    chfdisv1d_crs, &
     chfdisv1d_nodes, &
     chfdisv1d_nvert, &
     chfdisv1d_width, &

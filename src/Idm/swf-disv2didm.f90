@@ -22,6 +22,7 @@ module SwfDisv2DInputModule
     logical :: yorigin = .false.
     logical :: angrot = .false.
     logical :: export_ascii = .false.
+    logical :: crs = .false.
     logical :: nodes = .false.
     logical :: nvert = .false.
     logical :: bottom = .false.
@@ -220,6 +221,24 @@ module SwfDisv2DInputModule
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdisv2d_crs = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DISV2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -453,6 +472,7 @@ module SwfDisv2DInputModule
     swfdisv2d_yorigin, &
     swfdisv2d_angrot, &
     swfdisv2d_export_ascii, &
+    swfdisv2d_crs, &
     swfdisv2d_nodes, &
     swfdisv2d_nvert, &
     swfdisv2d_bottom, &

@@ -114,6 +114,7 @@ module BaseDisModule
     generic, public :: record_mf6_list_entry => record_srcdst_list_entry
     procedure, public :: nlarray_to_nodelist
     procedure, public :: highest_active
+    procedure, public :: highest_saturated
     procedure, public :: get_area
     procedure, public :: get_area_factor
     procedure, public :: get_flow_width
@@ -1110,6 +1111,44 @@ contains
       if (bottomcell) done = .true.
     end do
   end subroutine highest_active
+
+  !> @brief Find the first saturated cell beneath cell n
+  subroutine highest_saturated(this, n, sat)
+    ! -- dummy
+    class(DisBaseType) :: this
+    integer(I4B), intent(inout) :: n
+    real(DP), dimension(:), intent(in) :: sat
+    ! -- locals
+    integer(I4B) :: m, ii, iis
+    logical(LGP) :: is_done, bottomcell
+    !
+    ! -- Loop through connected cells until the highest saturated one (including a
+    !    constant head cell) is found.  Return that cell as n.
+    is_done = .false.
+    do while (.not. is_done)
+      bottomcell = .true.
+      cloop: do ii = this%con%ia(n) + 1, this%con%ia(n + 1) - 1
+        m = this%con%ja(ii)
+        iis = this%con%jas(ii)
+        if (this%con%ihc(iis) == 0 .and. m > n) then
+          !
+          ! -- this cannot be a bottom cell
+          bottomcell = .false.
+          !
+          ! -- vertical down
+          if (sat(m) > DZERO) then
+            n = m
+            is_done = .true.
+            exit cloop
+          else
+            n = m
+            exit cloop
+          end if
+        end if
+      end do cloop
+      if (bottomcell) is_done = .true.
+    end do
+  end subroutine highest_saturated
 
   !> @brief Return the cell area for the given node
   function get_area(this, node) result(area)

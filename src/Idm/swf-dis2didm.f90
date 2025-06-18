@@ -22,6 +22,7 @@ module SwfDis2DInputModule
     logical :: yorigin = .false.
     logical :: angrot = .false.
     logical :: export_ascii = .false.
+    logical :: crs = .false.
     logical :: nrow = .false.
     logical :: ncol = .false.
     logical :: delr = .false.
@@ -219,6 +220,24 @@ module SwfDis2DInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    swfdis2d_crs = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DIS2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .false., & ! multi-record
+    .true., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     swfdis2d_nrow = InputParamDefinitionType &
     ( &
     'SWF', & ! component
@@ -339,6 +358,7 @@ module SwfDis2DInputModule
     swfdis2d_yorigin, &
     swfdis2d_angrot, &
     swfdis2d_export_ascii, &
+    swfdis2d_crs, &
     swfdis2d_nrow, &
     swfdis2d_ncol, &
     swfdis2d_delr, &
