@@ -356,6 +356,8 @@
 		<File RelativePath="..\src\Model\ParticleTracking\prt-oc.f90"/>
 		<File RelativePath="..\src\Model\ParticleTracking\prt-prp.f90"/>
 		<File RelativePath="..\src\Model\ParticleTracking\prt.f90"/></Filter>
+		<Filter Name="Providers">
+		<File RelativePath="..\src\Model\Providers\TspSourceInfoProviderModule.f90"/></Filter>
 		<Filter Name="SurfaceWaterFlow">
 		<File RelativePath="..\src\Model\SurfaceWaterFlow\swf-cdb.f90"/>
 		<File RelativePath="..\src\Model\SurfaceWaterFlow\swf-cxs.f90"/>

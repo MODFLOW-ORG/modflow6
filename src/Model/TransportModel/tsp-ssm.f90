@@ -68,7 +68,7 @@ module TspSsmModule
     procedure, private :: pak_setup_outputtab
     procedure, private :: set_iauxpak
     procedure, private :: set_ssmivec
-    procedure, private :: get_ssm_conc
+    procedure :: get_ssm_conc
 
   end type TspSsmType
 

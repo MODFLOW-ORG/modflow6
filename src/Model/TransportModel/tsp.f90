@@ -20,6 +20,7 @@ module TransportModelModule
   use TspObsModule, only: TspObsType
   use BudgetModule, only: BudgetType
   use MatrixBaseModule
+  use TspSourceInfoProviderModule, only: TspSourceInfoProviderType
 
   implicit none
 
@@ -52,6 +53,8 @@ module TransportModelModule
     character(len=LENVARNAME) :: depvartype = '' !< "concentration" or "temperature"
     character(len=LENVARNAME) :: depvarunit = '' !< "mass" or "energy"
     character(len=LENVARNAME) :: depvarunitabbrev = '' !< "M" or "E"
+
+    type(TspSourceInfoProviderType), pointer :: source_info_provider => null() !< Pointer to source information provider
 
   contains
 

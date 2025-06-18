@@ -10,13 +10,14 @@ module TspAdvModule
   use TspAdvOutflowCorrectorModule, only: TspAdvOutflowCorrectorType
   ! -- Gradient schemes
   use IGradient, only: IGradientType
-  use LeastSquaredGradientBoundaryModule, only: LeastSquaredGradientBoundaryType
+  use LeastSquaredGradientModule, only: LeastSquaredGradientType
   ! -- Interpolation schemes
   use IInterpolationSchemeModule, only: IInterpolationSchemeType, CoefficientsType
   use UpwindSchemeModule, only: UpwindSchemeType
   use CentralDifferenceSchemeModule, only: CentralDifferenceSchemeType
   use TVDSchemeModule, only: TVDSchemeType
   use BarthJespersenSchemeModule, only: BarthJespersenSchemeType
+  use TspSourceInfoProviderModule, only: TspSourceInfoProviderType
 
   implicit none
   private
@@ -120,13 +121,14 @@ contains
   !!
   !!  Method to allocate and read static data for the ADV package.
   !<
-  subroutine adv_ar(this, dis, ibound)
+  subroutine adv_ar(this, dis, ibound, source_provider)
     ! -- modules
     use SimModule, only: store_error
     ! -- dummy
     class(TspAdvType) :: this
     class(DisBaseType), pointer, intent(in) :: dis
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: ibound
+    class(TspSourceInfoProviderType), pointer, intent(in) :: source_provider
     ! -- local
     integer(I4B) :: iadvwt_value
     !
@@ -135,7 +137,7 @@ contains
     this%ibound => ibound
     !
     ! -- Compute the gradient operator
-    this%gradient = LeastSquaredGradientBoundaryType(this%dis, this%fmi)
+    this%gradient = LeastSquaredGradientType(this%dis, this%fmi)
     !
     ! -- Create interpolation scheme
     iadvwt_value = this%iadvwt ! Dereference iadvwt to work with case statement
@@ -148,7 +150,7 @@ contains
         CentralDifferenceSchemeType(this%dis, this%fmi, this%gradient)
     case (ADV_SCHEME_TVD)
       this%face_interpolation = &
-        TVDSchemeType(this%dis, this%fmi, this%gradient)
+        TVDSchemeType(this%dis, this%fmi, this%gradient, source_provider)
     case (ADV_SCHEME_BARTH)
       this%face_interpolation = &
         BarthJespersenSchemeType(this%dis, this%fmi, this%gradient)

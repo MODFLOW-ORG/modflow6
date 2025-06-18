@@ -269,6 +269,7 @@ modflow_sources = files(
     'Model' / 'ModelUtilities' / 'VectorInterpolation.f90',
     'Model' / 'ModelUtilities' / 'Xt3dAlgorithm.f90',
     'Model' / 'ModelUtilities' / 'Xt3dInterface.f90',
+    'Model' / 'Providers' / 'TspSourceInfoProviderModule.f90',
     'Model' / 'TransportModel' / 'tsp.f90',
     'Model' / 'TransportModel' / 'tsp-adv.f90',
     'Model' / 'TransportModel' / 'tsp-apt.f90',

@@ -20,6 +20,7 @@ module GwtModule
   use BudgetModule, only: BudgetType
   use TransportModelModule
   use MatrixBaseModule
+  use TspSourceInfoProviderModule, only: TspSourceInfoProviderType
 
   implicit none
 
@@ -258,10 +259,17 @@ contains
     !
     ! -- Allocate and read modules attached to model
     call this%fmi%fmi_ar(this%ibound)
+
+    if (this%inadv > 0 .and. this%inssm > 0) then
+      allocate (this%source_info_provider)
+      this%source_info_provider = TspSourceInfoProviderType(this%ssm, this%fmi)
+    end if
+
     if (this%inmvt > 0) call this%mvt%mvt_ar()
     if (this%inic > 0) call this%ic%ic_ar(this%x)
     if (this%inmst > 0) call this%mst%mst_ar(this%dis, this%ibound)
-    if (this%inadv > 0) call this%adv%adv_ar(this%dis, this%ibound)
+    if (this%inadv > 0) &
+      call this%adv%adv_ar(this%dis, this%ibound, this%source_info_provider)
     if (this%indsp > 0) call this%dsp%dsp_ar(this%ibound, this%mst%thetam)
     if (this%inssm > 0) call this%ssm%ssm_ar(this%dis, this%ibound, this%x)
     if (this%inobs > 0) call this%obs%tsp_obs_ar(this%ic, this%x, this%flowja)
