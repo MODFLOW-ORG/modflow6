@@ -155,6 +155,9 @@ contains
     class(BndType), pointer :: packobj
     !
     ! -- Define packages and utility objects
+    allocate (this%source_info_provider, &
+              source=TspSourceInfoProviderType(this%ssm, this%fmi))
+
     call this%dis%dis_df()
     call this%fmi%fmi_df(this%dis, 0)
     if (this%inmvt > 0) call this%mvt%mvt_df(this%dis)
@@ -260,12 +263,6 @@ contains
     !
     ! -- Allocate and read modules attached to model
     call this%fmi%fmi_ar(this%ibound)
-
-    if (this%inadv > 0 .and. this%inssm > 0) then
-      allocate (this%source_info_provider)
-      this%source_info_provider = TspSourceInfoProviderType(this%ssm, this%fmi)
-    end if
-
     if (this%inmvt > 0) call this%mvt%mvt_ar()
     if (this%inic > 0) call this%ic%ic_ar(this%x)
     if (this%inest > 0) call this%est%est_ar(this%dis, this%ibound)
