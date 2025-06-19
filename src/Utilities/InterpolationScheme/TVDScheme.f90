@@ -18,7 +18,7 @@ module TVDSchemeModule
     class(DisBaseType), pointer :: dis
     type(TspFmiType), pointer :: fmi
     class(IGradientType), pointer :: gradient
-    class(TspSourceInfoProviderType), pointer :: source_info_provider => null()
+    type(TspSourceInfoProviderType), pointer :: source_info_provider => null()
     integer(I4B) :: limiter_id = 2 ! default to van Leer limiter
   contains
     procedure :: compute
@@ -39,7 +39,7 @@ contains
     class(DisBaseType), pointer, intent(in) :: dis
     type(TspFmiType), pointer, intent(in) :: fmi
     class(IGradientType), allocatable, target, intent(in) :: gradient
-    class(TspSourceInfoProviderType), pointer, intent(in) :: source_info_provider
+    type(TspSourceInfoProviderType), pointer, intent(in) :: source_info_provider
 
     interpolation_scheme%dis => dis
     interpolation_scheme%fmi => fmi

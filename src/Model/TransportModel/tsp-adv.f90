@@ -128,7 +128,7 @@ contains
     class(TspAdvType) :: this
     class(DisBaseType), pointer, intent(in) :: dis
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: ibound
-    class(TspSourceInfoProviderType), pointer, intent(in) :: source_provider
+    type(TspSourceInfoProviderType), pointer, intent(in) :: source_provider
     ! -- local
     integer(I4B) :: iadvwt_value
     !
