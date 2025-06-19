@@ -21,34 +21,35 @@ SOURCEDIR14=../src/Model/GroundWaterTransport
 SOURCEDIR15=../src/Model/ModelUtilities
 SOURCEDIR16=../src/Model/OverlandFlow
 SOURCEDIR17=../src/Model/ParticleTracking
-SOURCEDIR18=../src/Model/SurfaceWaterFlow
-SOURCEDIR19=../src/Model/TransportModel
-SOURCEDIR20=../src/Solution
-SOURCEDIR21=../src/Solution/LinearMethods
-SOURCEDIR22=../src/Solution/PETSc
-SOURCEDIR23=../src/Solution/ParticleTracker
-SOURCEDIR24=../src/Timing
-SOURCEDIR25=../src/Utilities
-SOURCEDIR26=../src/Utilities/ArrayRead
-SOURCEDIR27=../src/Utilities/Export
-SOURCEDIR28=../src/Utilities/Gradient
-SOURCEDIR29=../src/Utilities/Idm
-SOURCEDIR30=../src/Utilities/Idm/mf6blockfile
-SOURCEDIR31=../src/Utilities/Idm/netcdf
-SOURCEDIR32=../src/Utilities/InterpolationScheme
-SOURCEDIR33=../src/Utilities/Libraries
-SOURCEDIR34=../src/Utilities/Libraries/blas
-SOURCEDIR35=../src/Utilities/Libraries/daglib
-SOURCEDIR36=../src/Utilities/Libraries/rcm
-SOURCEDIR37=../src/Utilities/Libraries/sparsekit
-SOURCEDIR38=../src/Utilities/Libraries/sparskit2
-SOURCEDIR39=../src/Utilities/Matrix
-SOURCEDIR40=../src/Utilities/Memory
-SOURCEDIR41=../src/Utilities/Observation
-SOURCEDIR42=../src/Utilities/OutputControl
-SOURCEDIR43=../src/Utilities/Performance
-SOURCEDIR44=../src/Utilities/TimeSeries
-SOURCEDIR45=../src/Utilities/Vector
+SOURCEDIR18=../src/Model/Providers
+SOURCEDIR19=../src/Model/SurfaceWaterFlow
+SOURCEDIR20=../src/Model/TransportModel
+SOURCEDIR21=../src/Solution
+SOURCEDIR22=../src/Solution/LinearMethods
+SOURCEDIR23=../src/Solution/PETSc
+SOURCEDIR24=../src/Solution/ParticleTracker
+SOURCEDIR25=../src/Timing
+SOURCEDIR26=../src/Utilities
+SOURCEDIR27=../src/Utilities/ArrayRead
+SOURCEDIR28=../src/Utilities/Export
+SOURCEDIR29=../src/Utilities/Gradient
+SOURCEDIR30=../src/Utilities/Idm
+SOURCEDIR31=../src/Utilities/Idm/mf6blockfile
+SOURCEDIR32=../src/Utilities/Idm/netcdf
+SOURCEDIR33=../src/Utilities/InterpolationScheme
+SOURCEDIR34=../src/Utilities/Libraries
+SOURCEDIR35=../src/Utilities/Libraries/blas
+SOURCEDIR36=../src/Utilities/Libraries/daglib
+SOURCEDIR37=../src/Utilities/Libraries/rcm
+SOURCEDIR38=../src/Utilities/Libraries/sparsekit
+SOURCEDIR39=../src/Utilities/Libraries/sparskit2
+SOURCEDIR40=../src/Utilities/Matrix
+SOURCEDIR41=../src/Utilities/Memory
+SOURCEDIR42=../src/Utilities/Observation
+SOURCEDIR43=../src/Utilities/OutputControl
+SOURCEDIR44=../src/Utilities/Performance
+SOURCEDIR45=../src/Utilities/TimeSeries
+SOURCEDIR46=../src/Utilities/Vector
 
 VPATH = \
 ${SOURCEDIR1} \
@@ -95,7 +96,8 @@ ${SOURCEDIR41} \
 ${SOURCEDIR42} \
 ${SOURCEDIR43} \
 ${SOURCEDIR44} \
-${SOURCEDIR45} 
+${SOURCEDIR45} \
+${SOURCEDIR46} 
 
 .SUFFIXES: .f90 .F90 .o
 
@@ -287,6 +289,9 @@ $(OBJDIR)/TrackControl.o \
 $(OBJDIR)/TimeSelect.o \
 $(OBJDIR)/prt-fmi.o \
 $(OBJDIR)/TimeStepSelect.o \
+$(OBJDIR)/TspSpc.o \
+$(OBJDIR)/tsp-fmi.o \
+$(OBJDIR)/GweInputData.o \
 $(OBJDIR)/SfrCrossSectionUtils.o \
 $(OBJDIR)/TernarySolveTrack.o \
 $(OBJDIR)/SubcellTri.o \
@@ -296,7 +301,7 @@ $(OBJDIR)/VirtualBase.o \
 $(OBJDIR)/STLVecInt.o \
 $(OBJDIR)/BaseModel.o \
 $(OBJDIR)/PrintSaveManager.o \
-$(OBJDIR)/tsp-fmi.o \
+$(OBJDIR)/tsp-ssm.o \
 $(OBJDIR)/SVD.o \
 $(OBJDIR)/IGradient.o \
 $(OBJDIR)/DisInfo.o \
@@ -312,6 +317,7 @@ $(OBJDIR)/NumericalModel.o \
 $(OBJDIR)/OutputControlData.o \
 $(OBJDIR)/gwf-ic.o \
 $(OBJDIR)/IInterpolationScheme.o \
+$(OBJDIR)/TspSourceInfoProviderModule.o \
 $(OBJDIR)/ExtendedLeastSquaredGradient.o \
 $(OBJDIR)/BoundaryFaces.o \
 $(OBJDIR)/UzfEtUtil.o \
@@ -335,15 +341,13 @@ $(OBJDIR)/CellRect.o \
 $(OBJDIR)/SwfCxsUtils.o \
 $(OBJDIR)/VirtualModel.o \
 $(OBJDIR)/BaseExchange.o \
-$(OBJDIR)/TspSpc.o \
-$(OBJDIR)/GweInputData.o \
 $(OBJDIR)/OutputControl.o \
 $(OBJDIR)/tsp-ic.o \
 $(OBJDIR)/UpwindScheme.o \
 $(OBJDIR)/TVDScheme.o \
 $(OBJDIR)/TspAdvOutflowCorrector.o \
 $(OBJDIR)/TspAdvOptions.o \
-$(OBJDIR)/LeastSquaredGradientBoundary.o \
+$(OBJDIR)/LeastSquaredGradient.o \
 $(OBJDIR)/CentralDifferenceScheme.o \
 $(OBJDIR)/BarthJespersenScheme.o \
 $(OBJDIR)/UzfCellGroup.o \
@@ -367,7 +371,6 @@ $(OBJDIR)/VectorInterpolation.o \
 $(OBJDIR)/swf-cxs.o \
 $(OBJDIR)/CellWithNbrs.o \
 $(OBJDIR)/NumericalExchange.o \
-$(OBJDIR)/tsp-ssm.o \
 $(OBJDIR)/tsp-oc.o \
 $(OBJDIR)/tsp-obs.o \
 $(OBJDIR)/tsp-mvt.o \
@@ -533,7 +536,7 @@ $(OBJDIR)/sparsekit.o \
 $(OBJDIR)/rcm.o \
 $(OBJDIR)/blas1_d.o \
 $(OBJDIR)/Iunit.o \
-$(OBJDIR)/LeastSquaredGradient.o \
+$(OBJDIR)/LeastSquaredGradientBoundary.o \
 $(OBJDIR)/GreenGaussGradient.o \
 $(OBJDIR)/GwfSfrCommon.o \
 $(OBJDIR)/gwf-sfr-transient.o \
