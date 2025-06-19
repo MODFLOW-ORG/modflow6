@@ -36,4 +36,4 @@ description = "Fixed viscosity ratio assignment in the GWT MAW package when the 
 [[items]]
 section = "fixes"
 subsection = "internal"
-description = "Fixed bugs in the GWF VSC and BUY packages, affecting multispecies GWT simulations with inactive regions, which could erroneously set solute concentration to zero."
+description = "Fixed bugs in the GWF VSC and BUY packages, affecting GWT simulations with multiple species that have different inactive regions.  In this uncommon situation, the concentrations used to calculate fluid density could erroneously be set to zero in areas with different inactive regions."
