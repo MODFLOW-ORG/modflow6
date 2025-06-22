@@ -64,6 +64,7 @@ contains
       call this%load_subcell(particle, subcell)
     end select
     call method_subcell_plck%init( &
+      fmi=this%fmi, &
       cell=this%cell, &
       subcell=this%subcell, &
       trackctl=this%trackctl, &

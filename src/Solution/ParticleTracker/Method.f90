@@ -181,7 +181,10 @@ contains
       end if
     end if
 
-    call this%trackctl%save(particle, kper=per, kstp=stp, reason=reason)
+    ! Save the particle's state to any registered tracking output files
+    call this%trackctl%save(particle, this%fmi%dis, &
+                            kper=per, kstp=stp, &
+                            reason=reason)
   end subroutine save
 
 end module MethodModule
