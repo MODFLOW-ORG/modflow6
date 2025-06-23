@@ -368,6 +368,12 @@
 		<File RelativePath="..\src\Model\SurfaceWaterFlow\swf-zdg.f90"/>
 		<File RelativePath="..\src\Model\SurfaceWaterFlow\swf.f90"/></Filter>
 		<Filter Name="TransportModel">
+		<Filter Name="InterpolationScheme">
+		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\AdvSchemeEnum.f90"/>
+		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\CentralDifferenceScheme.f90"/>
+		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\IInterpolationScheme.f90"/>
+		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\TVDScheme.f90"/>
+		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\UpwindScheme.f90"/></Filter>
 		<File RelativePath="..\src\Model\TransportModel\tsp-adv.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\tsp-apt.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\tsp-fmi.f90"/>

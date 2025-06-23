@@ -16,6 +16,7 @@ module GwtGwtConnectionModule
   use DistVariableModule
   use SimStagesModule
   use MatrixBaseModule
+  use AdvSchemeEnumModule
 
   implicit none
   private
@@ -258,7 +259,7 @@ contains
     if (hasAdv) then
       if (this%iIfaceAdvScheme == 2) then
         this%exg_stencil_depth = 2
-        if (this%gwtModel%adv%iadvwt == 2) then
+        if (this%gwtModel%adv%iadvwt == ADV_SCHEME_TVD) then
           this%int_stencil_depth = 2
         end if
       end if

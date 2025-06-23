@@ -23,15 +23,15 @@ SOURCEDIR16=../src/Model/OverlandFlow
 SOURCEDIR17=../src/Model/ParticleTracking
 SOURCEDIR18=../src/Model/SurfaceWaterFlow
 SOURCEDIR19=../src/Model/TransportModel
-SOURCEDIR20=../src/Solution
-SOURCEDIR21=../src/Solution/LinearMethods
-SOURCEDIR22=../src/Solution/PETSc
-SOURCEDIR23=../src/Solution/ParticleTracker
-SOURCEDIR24=../src/Timing
-SOURCEDIR25=../src/Utilities
-SOURCEDIR26=../src/Utilities/ArrayRead
-SOURCEDIR27=../src/Utilities/Export
-SOURCEDIR28=../src/Utilities/Export/tmp
+SOURCEDIR20=../src/Model/TransportModel/InterpolationScheme
+SOURCEDIR21=../src/Solution
+SOURCEDIR22=../src/Solution/LinearMethods
+SOURCEDIR23=../src/Solution/PETSc
+SOURCEDIR24=../src/Solution/ParticleTracker
+SOURCEDIR25=../src/Timing
+SOURCEDIR26=../src/Utilities
+SOURCEDIR27=../src/Utilities/ArrayRead
+SOURCEDIR28=../src/Utilities/Export
 SOURCEDIR29=../src/Utilities/Idm
 SOURCEDIR30=../src/Utilities/Idm/mf6blockfile
 SOURCEDIR31=../src/Utilities/Idm/netcdf
@@ -306,6 +306,8 @@ $(OBJDIR)/SimStages.o \
 $(OBJDIR)/NumericalModel.o \
 $(OBJDIR)/OutputControlData.o \
 $(OBJDIR)/gwf-ic.o \
+$(OBJDIR)/tsp-fmi.o \
+$(OBJDIR)/IInterpolationScheme.o \
 $(OBJDIR)/UzfEtUtil.o \
 $(OBJDIR)/Xt3dAlgorithm.o \
 $(OBJDIR)/TvBase.o \
@@ -328,11 +330,14 @@ $(OBJDIR)/SwfCxsUtils.o \
 $(OBJDIR)/VirtualModel.o \
 $(OBJDIR)/BaseExchange.o \
 $(OBJDIR)/TspSpc.o \
-$(OBJDIR)/tsp-fmi.o \
 $(OBJDIR)/GweInputData.o \
 $(OBJDIR)/OutputControl.o \
 $(OBJDIR)/tsp-ic.o \
+$(OBJDIR)/UpwindScheme.o \
+$(OBJDIR)/TVDScheme.o \
 $(OBJDIR)/TspAdvOptions.o \
+$(OBJDIR)/CentralDifferenceScheme.o \
+$(OBJDIR)/AdvSchemeEnum.o \
 $(OBJDIR)/UzfCellGroup.o \
 $(OBJDIR)/Xt3dInterface.o \
 $(OBJDIR)/gwf-tvk.o \
