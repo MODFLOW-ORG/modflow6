@@ -17,6 +17,7 @@ module NetCDFCommonModule
   public :: NETCDF_MAX_DIM
   public :: NETCDF_ATTR_STRLEN
   public :: nf_verify
+  public :: ixstp
 
   integer(I4B), parameter :: NETCDF_MAX_DIM = 6
   integer(I4B), parameter :: NETCDF_ATTR_STRLEN = 80
@@ -106,5 +107,18 @@ contains
       call store_error_filename(nc_fname)
     end if
   end subroutine nf_verify
+
+  !> @brief step index for timeseries data
+  !<
+  function ixstp()
+    use TdisModule, only: kstp, kper, nstp
+    integer(I4B) :: n, ixstp
+    ixstp = kstp
+    if (kper > 1) then
+      do n = 1, kper - 1
+        ixstp = ixstp + nstp(n)
+      end do
+    end if
+  end function ixstp
 
 end module NetCDFCommonModule

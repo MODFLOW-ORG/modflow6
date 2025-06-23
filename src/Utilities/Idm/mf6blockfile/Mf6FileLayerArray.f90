@@ -1,10 +1,11 @@
-!> @brief This module contains the Mf6FileGridInputModule
+!> @brief This module contains the LayerArrayLoadModule
 !!
 !! This module contains the routines for reading period block
-!! array based input.
+!! array based input that is associated with a layer and an
+!! layer index array, such as with the EVTA and RCHA packages.
 !!
 !<
-module Mf6FileGridInputModule
+module LayerArrayLoadModule
 
   use KindModule, only: I4B, DP, LGP
   use ConstantsModule, only: DZERO, IZERO, LINELENGTH, LENVARNAME, &
@@ -15,7 +16,7 @@ module Mf6FileGridInputModule
   use MemoryManagerModule, only: mem_allocate, mem_reallocate, mem_setptr
   use CharacterStringModule, only: CharacterStringType
   use BlockParserModule, only: BlockParserType
-  use ModflowInputModule, only: ModflowInputType, getModflowInput
+  use ModflowInputModule, only: ModflowInputType
   use BoundInputContextModule, only: BoundInputContextType, ReadStateVarType
   use TimeArraySeriesManagerModule, only: TimeArraySeriesManagerType, &
                                           tasmanager_cr
@@ -23,11 +24,11 @@ module Mf6FileGridInputModule
 
   implicit none
   private
-  public :: BoundGridInputType
+  public :: LayerArrayLoadType
 
-  !> @brief Ascii grid based dynamic loader type
+  !> @brief Ascii array layer dynamic loader type
   !<
-  type, extends(AsciiDynamicPkgLoadBaseType) :: BoundGridInputType
+  type, extends(AsciiDynamicPkgLoadBaseType) :: LayerArrayLoadType
     integer(I4B) :: tas_active !< Are TAS6 inputs defined
     type(CharacterStringType), dimension(:), contiguous, &
       pointer :: aux_tasnames !< array of AUXVAR TAS names
@@ -37,28 +38,28 @@ module Mf6FileGridInputModule
     type(TimeArraySeriesManagerType), pointer :: tasmanager !< TAS manager
     type(BoundInputContextType) :: bound_context
   contains
-    procedure :: ainit => bndgrid_init
-    procedure :: df => bndgrid_df
-    procedure :: ad => bndgrid_ad
-    procedure :: rp => bndgrid_rp
-    procedure :: destroy => bndgrid_destroy
-    procedure :: reset => bndgrid_reset
+    procedure :: ainit
+    procedure :: df
+    procedure :: ad
+    procedure :: rp
+    procedure :: destroy
+    procedure :: reset
     procedure :: init_charstr1d
-    procedure :: params_alloc => bndgrid_params_alloc
-    procedure :: param_load => bndgrid_param_load
-    procedure :: tas_arrays_alloc => bndgrid_tas_arrays_alloc
-    procedure :: tas_links_create => bndgrid_tas_links_create
-  end type BoundGridInputType
+    procedure :: params_alloc
+    procedure :: param_load
+    procedure :: tas_arrays_alloc
+    procedure :: tas_links_create
+  end type LayerArrayLoadType
 
 contains
 
-  subroutine bndgrid_init(this, mf6_input, component_name, &
-                          component_input_name, input_name, &
-                          iperblock, parser, iout)
+  subroutine ainit(this, mf6_input, component_name, &
+                   component_input_name, input_name, &
+                   iperblock, parser, iout)
     use MemoryManagerModule, only: get_isize
     use BlockParserModule, only: BlockParserType
     use LoadMf6FileModule, only: LoadMf6FileType
-    class(BoundGridInputType), intent(inout) :: this
+    class(LayerArrayLoadType), intent(inout) :: this
     type(ModflowInputType), intent(in) :: mf6_input
     character(len=*), intent(in) :: component_name
     character(len=*), intent(in) :: component_input_name
@@ -103,26 +104,28 @@ contains
     end if
 
     ! initialize input context memory
-    call this%bound_context%create(mf6_input, this%readasarrays)
+    call this%bound_context%create(mf6_input, &
+                                   readarraygrid=.false., &
+                                   readarraylayer=.true.)
 
     ! allocate dfn params
     call this%params_alloc()
 
     ! allocate memory for storing TAS strings
     call this%tas_arrays_alloc()
-  end subroutine bndgrid_init
+  end subroutine ainit
 
-  subroutine bndgrid_df(this)
-    class(BoundGridInputType), intent(inout) :: this !< Mf6FileGridInputType
+  subroutine df(this)
+    class(LayerArrayLoadType), intent(inout) :: this
     call this%tasmanager%tasmanager_df()
-  end subroutine bndgrid_df
+  end subroutine df
 
-  subroutine bndgrid_ad(this)
-    class(BoundGridInputType), intent(inout) :: this !< Mf6FileGridInputType
+  subroutine ad(this)
+    class(LayerArrayLoadType), intent(inout) :: this
     call this%tasmanager%ad()
-  end subroutine bndgrid_ad
+  end subroutine ad
 
-  subroutine bndgrid_rp(this, parser)
+  subroutine rp(this, parser)
     use MemoryManagerModule, only: mem_setptr
     use BlockParserModule, only: BlockParserType
     use InputDefinitionModule, only: InputParamDefinitionType
@@ -130,7 +133,7 @@ contains
     use ArrayHandlersModule, only: ifind
     use SourceCommonModule, only: ifind_charstr
     use IdmLoggerModule, only: idm_log_header, idm_log_close, idm_log_var
-    class(BoundGridInputType), intent(inout) :: this !< Mf6FileGridInputType
+    class(LayerArrayLoadType), intent(inout) :: this
     type(BlockParserType), pointer, intent(inout) :: parser
     logical(LGP) :: endOfBlock, netcdf
     character(len=LINELENGTH) :: keyword, param_tag
@@ -215,19 +218,19 @@ contains
     ! log lst file header
     call idm_log_close(this%mf6_input%component_name, &
                        this%mf6_input%subcomponent_name, this%iout)
-  end subroutine bndgrid_rp
+  end subroutine rp
 
-  subroutine bndgrid_destroy(this)
-    class(BoundGridInputType), intent(inout) :: this !< Mf6FileGridInputType
+  subroutine destroy(this)
+    class(LayerArrayLoadType), intent(inout) :: this
     !
     ! deallocate tasmanager
     call this%tasmanager%da()
     deallocate (this%tasmanager)
     nullify (this%tasmanager)
-  end subroutine bndgrid_destroy
+  end subroutine destroy
 
-  subroutine bndgrid_reset(this)
-    class(BoundGridInputType), intent(inout) :: this !< BoundGridInputType
+  subroutine reset(this)
+    class(LayerArrayLoadType), intent(inout) :: this
     integer(I4B) :: n, m
 
     if (this%tas_active /= 0) then
@@ -249,11 +252,11 @@ contains
         this%bound_context%auxvar(n, m) = DZERO
       end do
     end do
-  end subroutine bndgrid_reset
+  end subroutine reset
 
   subroutine init_charstr1d(this, varname, input_name)
     use MemoryManagerModule, only: mem_setptr
-    class(BoundGridInputType) :: this
+    class(LayerArrayLoadType) :: this
     character(len=*), intent(in) :: varname
     character(len=*), intent(in) :: input_name
     type(CharacterStringType), dimension(:), pointer, &
@@ -265,8 +268,8 @@ contains
     end do
   end subroutine init_charstr1d
 
-  subroutine bndgrid_params_alloc(this)
-    class(BoundGridInputType), intent(inout) :: this !< BoundGridInputType
+  subroutine params_alloc(this)
+    class(LayerArrayLoadType), intent(inout) :: this
     character(len=LENVARNAME) :: rs_varname
     integer(I4B), pointer :: intvar
     integer(I4B) :: iparam
@@ -287,9 +290,9 @@ contains
       this%param_reads(iparam)%invar => intvar
       this%param_reads(iparam)%invar = 0
     end do
-  end subroutine bndgrid_params_alloc
+  end subroutine params_alloc
 
-  subroutine bndgrid_param_load(this, parser, idt, mempath, netcdf, iaux)
+  subroutine param_load(this, parser, idt, mempath, netcdf, iaux)
     use TdisModule, only: kper
     use MemoryManagerModule, only: mem_setptr
     use ArrayHandlersModule, only: ifind
@@ -300,7 +303,7 @@ contains
     use Integer1dReaderModule, only: read_int1d
     use LoadNCInputModule, only: netcdf_read_array
     use IdmLoggerModule, only: idm_log_var
-    class(BoundGridInputType), intent(inout) :: this !< BoundGridInputType
+    class(LayerArrayLoadType), intent(inout) :: this
     type(BlockParserType), intent(in) :: parser
     type(InputParamDefinitionType), intent(in) :: idt
     character(len=*), intent(in) :: mempath
@@ -348,7 +351,7 @@ contains
       call idm_log_var(dbl1d, idt%tagname, mempath, this%iout)
       deallocate (dbl1d)
     case default
-      errmsg = 'IDM unimplemented. Mf6FileGridInput::param_load &
+      errmsg = 'IDM unimplemented. LayerArrayLoad::param_load &
                &datatype='//trim(idt%datatype)
       call store_error(errmsg)
       call store_error_filename(this%input_name)
@@ -359,11 +362,11 @@ contains
     if (iparam > 0) then
       this%param_reads(iparam)%invar = 1
     end if
-  end subroutine bndgrid_param_load
+  end subroutine param_load
 
-  subroutine bndgrid_tas_arrays_alloc(this)
+  subroutine tas_arrays_alloc(this)
     use MemoryManagerModule, only: mem_allocate
-    class(BoundGridInputType), intent(inout) :: this !< BoundGridInputType
+    class(LayerArrayLoadType), intent(inout) :: this
 
     ! count params other than AUX
     if (this%tas_active /= 0) then
@@ -380,13 +383,13 @@ contains
       call mem_allocate(this%param_tasnames, LENTIMESERIESNAME, 0, &
                         'PARAMTASNAME', this%mf6_input%mempath)
     end if
-  end subroutine bndgrid_tas_arrays_alloc
+  end subroutine tas_arrays_alloc
 
   ! FLUX and SFAC are handled in model context
-  subroutine bndgrid_tas_links_create(this, inunit)
+  subroutine tas_links_create(this, inunit)
     use InputDefinitionModule, only: InputParamDefinitionType
     use DefinitionSelectModule, only: get_param_definition_type
-    class(BoundGridInputType), intent(inout) :: this !< BoundGridInputType
+    class(LayerArrayLoadType), intent(inout) :: this
     integer(I4B), intent(in) :: inunit
     type(InputParamDefinitionType), pointer :: idt
     ! non-contiguous because a slice of bound is passed
@@ -440,6 +443,6 @@ contains
         end if
       end if
     end do
-  end subroutine bndgrid_tas_links_create
+  end subroutine tas_links_create
 
-end module Mf6FileGridInputModule
+end module LayerArrayLoadModule

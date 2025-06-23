@@ -37,7 +37,6 @@ module NCFileVarsModule
     character(LINELENGTH) :: pkgname !< package name
     character(LINELENGTH) :: tagname !< tag name
     integer(I4B) :: layer !< variable layer
-    integer(I4B) :: period !< variable period
     integer(I4B) :: iaux !< variable aux index
     integer(I4B) :: varid !< NC file variable id
   contains
@@ -70,11 +69,10 @@ contains
 
   !> @brief return a netcdf variable id for a package tagname
   !<
-  function ncvars_varid(this, tagname, layer, period, iaux) result(varid)
+  function ncvars_varid(this, tagname, layer, iaux) result(varid)
     class(NCPackageVarsType) :: this
     character(len=*), intent(in) :: tagname
     integer(I4B), optional :: layer
-    integer(I4B), optional :: period
     integer(I4B), optional :: iaux
     integer(I4B) :: varid
     integer(I4B) :: n, l, p, a
@@ -91,10 +89,6 @@ contains
       l = layer
     end if
 
-    ! set search period if provided
-    if (present(period)) then
-      p = period
-    end if
     ! set search iaux if provided
     if (present(iaux)) then
       a = iaux
@@ -104,7 +98,6 @@ contains
       nc_var => ncvar_get(this%nc_vars, n)
       if (nc_var%tagname == tagname .and. &
           nc_var%layer == l .and. &
-          nc_var%period == p .and. &
           nc_var%iaux == a) then
         varid = nc_var%varid
       end if
@@ -116,10 +109,7 @@ contains
         write (errmsg, '(a)') &
           'NetCDF variable not found, tagname="'//trim(tagname)//'"'
         if (present(layer)) then
-          write (errmsg, '(a,i0)') trim(errmsg)//', ilayer=', layer
-        end if
-        if (present(period)) then
-          write (errmsg, '(a,i0)') trim(errmsg)//', period=', period
+          write (errmsg, '(a,i0)') trim(errmsg)//', layer=', layer
         end if
         if (present(iaux)) then
           write (errmsg, '(a,i0)') trim(errmsg)//', iaux=', iaux
@@ -185,13 +175,12 @@ contains
 
   !> @brief add netcdf modflow6 input variable to list
   !<
-  subroutine fv_add(this, pkgname, tagname, layer, period, iaux, varid)
+  subroutine fv_add(this, pkgname, tagname, layer, iaux, varid)
     use ArrayHandlersModule, only: expandarray
     class(NCFileVarsType) :: this
     character(len=*), intent(in) :: pkgname
     character(len=*), intent(in) :: tagname
     integer(I4B), intent(in) :: layer
-    integer(I4B), intent(in) :: period
     integer(I4B), intent(in) :: iaux
     integer(I4B), intent(in) :: varid
     class(NCFileMf6VarType), pointer :: invar
@@ -201,7 +190,6 @@ contains
     invar%pkgname = pkgname
     invar%tagname = tagname
     invar%layer = layer
-    invar%period = period
     invar%iaux = iaux
     invar%varid = varid
     obj => invar
@@ -241,7 +229,6 @@ contains
         nc_var%pkgname = invar%pkgname
         nc_var%tagname = invar%tagname
         nc_var%layer = invar%layer
-        nc_var%period = invar%period
         nc_var%iaux = invar%iaux
         nc_var%varid = invar%varid
         obj => nc_var

@@ -144,7 +144,8 @@ contains
     use InputLoadTypeModule, only: ModelDynamicPkgsType
     use InputLoadTypeModule, only: DynamicPkgLoadBaseType
     use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
-    use Mf6FileGridInputModule, only: BoundGridInputType
+    use LayerArrayLoadModule, only: LayerArrayLoadType
+    use GridArrayLoadModule, only: GridArrayLoadType
     use IdmMf6FileModule, only: Mf6FileDynamicPkgLoadType
     type(ListType), intent(inout) :: pkglist
     type(ModelDynamicPkgsType), pointer, intent(in) :: loaders
@@ -154,7 +155,7 @@ contains
     type(ExportPackageType), pointer :: export_pkg
     integer(I4B), pointer :: export_arrays
     class(*), pointer :: obj
-    logical(LGP) :: found
+    logical(LGP) :: found, readasarrays
     integer(I4B) :: n
 
     ! create list of in scope loaders
@@ -170,16 +171,27 @@ contains
       call mem_set_value(export_arrays, 'EXPORT_NC', &
                          dynamic_pkg%mf6_input%mempath, found)
 
-      if (export_arrays > 0 .and. dynamic_pkg%readasarrays) then
+      readasarrays = (dynamic_pkg%readarraylayer .or. dynamic_pkg%readarraygrid)
+      if (export_arrays > 0 .and. readasarrays) then
         select type (dynamic_pkg)
         type is (Mf6FileDynamicPkgLoadType)
           rp_loader => dynamic_pkg%rp_loader
           select type (rp_loader)
-          type is (BoundGridInputType)
+          type is (LayerArrayLoadType)
             ! create the export object
             allocate (export_pkg)
             call export_pkg%init(rp_loader%mf6_input, &
                                  rp_loader%bound_context%mshape, &
+                                 rp_loader%bound_context%naux, &
+                                 rp_loader%param_names, rp_loader%nparam)
+            obj => export_pkg
+            call pkglist%add(obj)
+          type is (GridArrayLoadType)
+            ! create the export object
+            allocate (export_pkg)
+            call export_pkg%init(rp_loader%mf6_input, &
+                                 rp_loader%bound_context%mshape, &
+                                 rp_loader%bound_context%naux, &
                                  rp_loader%param_names, rp_loader%nparam)
             obj => export_pkg
             call pkglist%add(obj)

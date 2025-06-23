@@ -14,7 +14,8 @@ module MeshModelModule
   use MemoryManagerModule, only: mem_setptr
   use InputDefinitionModule, only: InputParamDefinitionType
   use CharacterStringModule, only: CharacterStringType
-  use NCModelExportModule, only: NCBaseModelExportType
+  use NCModelExportModule, only: export_longname, export_varname, &
+                                 NCBaseModelExportType
   use NetCDFCommonModule, only: nf_verify
   use netcdf
 
@@ -26,7 +27,6 @@ module MeshModelModule
   public :: ncvar_deflate
   public :: ncvar_gridmap
   public :: ncvar_mf6attr
-  public :: export_varname
 
   !> @brief type for storing model export dimension ids
   !<
@@ -51,6 +51,7 @@ module MeshModelModule
     integer(I4B) :: mesh_face_ybnds !< mesh faces 2D y bounds array
     integer(I4B) :: mesh_face_nodes !< mesh faces 2D nodes array
     integer(I4B) :: time !< time coordinate variable
+    integer(I4B), dimension(:), allocatable :: export !< in scope layer export
     integer(I4B), dimension(:), allocatable :: dependent !< layered dependent variables array
   contains
   end type MeshNCVarIdType
@@ -65,6 +66,9 @@ module MeshModelModule
   contains
     procedure :: mesh_init
     procedure :: mesh_destroy
+    procedure :: df_export
+    procedure :: export_df
+    procedure :: create_timeseries
     procedure :: add_global_att
     procedure(nc_array_export_if), deferred :: export_input_array
     procedure :: export_input_arrays
@@ -77,7 +81,7 @@ module MeshModelModule
   !<
   abstract interface
     subroutine nc_array_export_if(this, pkgtype, pkgname, mempath, idt)
-      import MeshModelType, InputParamDefinitionType, LGP
+      import MeshModelType, InputParamDefinitionType
       class(MeshModelType), intent(inout) :: this
       character(len=*), intent(in) :: pkgtype
       character(len=*), intent(in) :: pkgname
@@ -155,6 +159,157 @@ contains
     nullify (this%chunk_face)
   end subroutine mesh_destroy
 
+  !> @brief define timeseries input variables
+  !<
+  subroutine df_export(this)
+    use NCModelExportModule, only: ExportPackageType
+    class(MeshModelType), intent(inout) :: this
+    class(ExportPackageType), pointer :: export_pkg
+    integer(I4B) :: idx
+    do idx = 1, this%pkglist%Count()
+      export_pkg => this%get(idx)
+      call this%export_df(export_pkg)
+    end do
+  end subroutine df_export
+
+  !> @brief define export package
+  !<
+  subroutine export_df(this, export_pkg)
+    use NCModelExportModule, only: ExportPackageType
+    use DefinitionSelectModule, only: get_param_definition_type
+    class(MeshModelType), intent(inout) :: this
+    class(ExportPackageType), pointer, intent(in) :: export_pkg
+    type(InputParamDefinitionType), pointer :: idt
+    integer(I4B) :: iparam, iaux, layer
+
+    ! export defined period input
+    do iparam = 1, export_pkg%nparam
+      ! initialize
+      iaux = 0
+      layer = 0
+      ! set input definition
+      idt => &
+        get_param_definition_type(export_pkg%mf6_input%param_dfns, &
+                                  export_pkg%mf6_input%component_type, &
+                                  export_pkg%mf6_input%subcomponent_type, &
+                                  'PERIOD', export_pkg%param_names(iparam), '')
+
+      select case (idt%shape)
+      case ('NCPL')
+        call this%create_timeseries(idt, iparam, iaux, layer, export_pkg)
+      case ('NODES')
+        do layer = 1, this%nlay
+          call this%create_timeseries(idt, iparam, iaux, layer, export_pkg)
+        end do
+      case ('NAUX NCPL')
+        do iaux = 1, export_pkg%naux
+          call this%create_timeseries(idt, iparam, iaux, layer, export_pkg)
+        end do
+      case ('NAUX NODES')
+        do iaux = 1, export_pkg%naux
+          do layer = 1, this%nlay
+            call this%create_timeseries(idt, iparam, iaux, layer, export_pkg)
+          end do
+        end do
+      case default
+      end select
+    end do
+  end subroutine export_df
+
+  !> @brief create timeseries export variable
+  !<
+  subroutine create_timeseries(this, idt, iparam, iaux, layer, export_pkg)
+    use ConstantsModule, only: DNODATA
+    use NCModelExportModule, only: ExportPackageType
+    class(MeshModelType), intent(inout) :: this
+    type(InputParamDefinitionType), pointer, intent(in) :: idt
+    integer(I4B), intent(in) :: iparam
+    integer(I4B), intent(in) :: iaux
+    integer(I4B), intent(in) :: layer
+    class(ExportPackageType), pointer, intent(in) :: export_pkg
+    character(len=LINELENGTH) :: varname, longname, nc_tag
+    integer(I4B) :: varid
+
+    ! set variable input tag
+    nc_tag = this%input_attribute(export_pkg%mf6_input%subcomponent_name, &
+                                  idt)
+
+    ! set names
+    varname = export_varname(export_pkg%mf6_input%subcomponent_name, &
+                             idt%tagname, export_pkg%mf6_input%mempath, &
+                             layer=layer, iaux=iaux)
+    longname = export_longname(idt%longname, &
+                               export_pkg%mf6_input%subcomponent_name, &
+                               idt%tagname, export_pkg%mf6_input%mempath, &
+                               layer=layer, iaux=iaux)
+
+    ! create the netcdf dependent layer variable
+    select case (idt%datatype)
+    case ('DOUBLE1D', 'DOUBLE2D')
+      call nf_verify(nf90_def_var(this%ncid, varname, NF90_DOUBLE, &
+                                  (/this%dim_ids%nmesh_face, &
+                                    this%dim_ids%time/), &
+                                  varid), &
+                     this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, varid, &
+                                  '_FillValue', (/DNODATA/)), &
+                     this%nc_fname)
+    case ('INTEGER1D')
+      call nf_verify(nf90_def_var(this%ncid, varname, NF90_INT, &
+                                  (/this%dim_ids%nmesh_face, &
+                                    this%dim_ids%time/), &
+                                  varid), &
+                     this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, varid, &
+                                  '_FillValue', (/NF90_FILL_INT/)), &
+                     this%nc_fname)
+    end select
+
+    ! apply chunking parameters
+    if (this%chunking_active) then
+      call nf_verify(nf90_def_var_chunking(this%ncid, &
+                                           varid, &
+                                           NF90_CHUNKED, &
+                                           (/this%chunk_face, &
+                                             this%chunk_time/)), &
+                     this%nc_fname)
+    end if
+
+    ! deflate and shuffle
+    call ncvar_deflate(this%ncid, varid, this%deflate, &
+                       this%shuffle, this%nc_fname)
+
+    ! assign variable attributes
+    call nf_verify(nf90_put_att(this%ncid, varid, &
+                                'units', this%lenunits), this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, varid, &
+                                'long_name', longname), this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, varid, &
+                                'mesh', this%mesh_name), this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, varid, &
+                                'location', 'face'), this%nc_fname)
+
+    ! add grid mapping and mf6 attr
+    call ncvar_gridmap(this%ncid, varid, &
+                       this%gridmap_name, this%nc_fname)
+    call ncvar_mf6attr(this%ncid, varid, layer, iaux, nc_tag, this%nc_fname)
+
+    ! store variable id
+    if (idt%tagname == 'AUX') then
+      if (layer > 0) then
+        export_pkg%varids_aux(iaux, layer) = varid
+      else
+        export_pkg%varids_aux(iaux, 1) = varid
+      end if
+    else
+      if (layer > 0) then
+        export_pkg%varids_param(iparam, layer) = varid
+      else
+        export_pkg%varids_param(iparam, 1) = varid
+      end if
+    end if
+  end subroutine create_timeseries
+
   !> @brief create file (group) attributes
   !<
   subroutine add_global_att(this)
@@ -165,9 +320,15 @@ contains
     ! source (MODFLOW 6)
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'source', &
                                 this%annotation%source), this%nc_fname)
-    ! export type (MODFLOW 6)
+    ! grid type (MODFLOW 6)
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow_grid', &
                                 this%annotation%grid), this%nc_fname)
+    ! mesh type (MODFLOW 6)
+    if (this%annotation%mesh /= '') then
+      call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'mesh', &
+                                  this%annotation%mesh), this%nc_fname)
+
+    end if
     ! MODFLOW 6 model type
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow_model', &
                                 this%annotation%model), this%nc_fname)
@@ -546,61 +707,25 @@ contains
 
   !> @brief put variable internal attributes
   !<
-  subroutine ncvar_mf6attr(ncid, varid, layer, iper, iaux, nc_tag, nc_fname)
+  subroutine ncvar_mf6attr(ncid, varid, layer, iaux, nc_tag, nc_fname)
     integer(I4B), intent(in) :: ncid
     integer(I4B), intent(in) :: varid
     integer(I4B), intent(in) :: layer
-    integer(I4B), intent(in) :: iper
     integer(I4B), intent(in) :: iaux
     character(len=*), intent(in) :: nc_tag
     character(len=*), intent(in) :: nc_fname
     if (nc_tag /= '') then
-      call nf_verify(nf90_put_att(ncid, varid, 'modflow6_input', &
+      call nf_verify(nf90_put_att(ncid, varid, 'modflow_input', &
                                   nc_tag), nc_fname)
       if (layer > 0) then
-        call nf_verify(nf90_put_att(ncid, varid, 'modflow6_layer', &
+        call nf_verify(nf90_put_att(ncid, varid, 'layer', &
                                     layer), nc_fname)
       end if
-      if (iper > 0) then
-        call nf_verify(nf90_put_att(ncid, varid, 'modflow6_iper', &
-                                    iper), nc_fname)
-      end if
       if (iaux > 0) then
-        call nf_verify(nf90_put_att(ncid, varid, 'modflow6_iaux', &
+        call nf_verify(nf90_put_att(ncid, varid, 'modflow_iaux', &
                                     iaux), nc_fname)
       end if
     end if
   end subroutine ncvar_mf6attr
-
-  !> @brief build netcdf variable name
-  !<
-  function export_varname(varname, layer, iper, iaux) result(vname)
-    use InputOutputModule, only: lowcase
-    character(len=*), intent(in) :: varname
-    integer(I4B), optional, intent(in) :: layer
-    integer(I4B), optional, intent(in) :: iper
-    integer(I4B), optional, intent(in) :: iaux
-    character(len=LINELENGTH) :: vname
-    vname = ''
-    if (varname /= '') then
-      vname = varname
-      call lowcase(vname)
-      if (present(layer)) then
-        if (layer > 0) then
-          write (vname, '(a,i0)') trim(vname)//'_l', layer
-        end if
-      end if
-      if (present(iper)) then
-        if (iper > 0) then
-          write (vname, '(a,i0)') trim(vname)//'_p', iper
-        end if
-      end if
-      if (present(iaux)) then
-        if (iaux > 0) then
-          write (vname, '(a,i0)') trim(vname)//'a', iaux
-        end if
-      end if
-    end if
-  end function export_varname
 
 end module MeshModelModule

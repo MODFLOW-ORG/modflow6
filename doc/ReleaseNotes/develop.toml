@@ -26,3 +26,14 @@ description = "Add a discretization text input option CRS for a real-world model
 section = "features"
 subsection = "stress"
 description = "Add HIGHEST\\_SATURATED option to the GWT SRC package. When activated, the HIGHEST\\_SATURATED option will apply a mass source loading rate to the specified CELLID or the highest underlying cell with a non-zero cell saturation. The HIGHEST\\_SATURATED option has an additional complication for certain types of grids specified using the DISU Package. When the DISU Package is used, a cell may have more than one cell underlying it. If the overlying cell were to become inactive, there is no straightforward method for determining how to apportion the mass source loading rate to the underlying cells. In this case, the approach described by \\cite{modflowusg} is used. The mass source loading rate is assigned to the first active cell encountered (determined by searching through the underlying cell numbers from the lowest number to the highest number). In this manner, the total mass source loading rate is conserved; however, the spatial distribution of the applied mass source loading rate may not be maintained as layers become dry or wet during a simulation."
+
+[[items]]
+section = "fixes"
+subsection = "stress"
+description = "Fixed viscosity ratio assignment in the GWT MAW package when the GWF VSC package is active."
+
+
+[[items]]
+section = "fixes"
+subsection = "internal"
+description = "Fixed bugs in the GWF VSC and BUY packages, affecting GWT simulations with multiple species that have different inactive regions.  In this uncommon situation, the concentrations used to calculate fluid density could erroneously be set to zero in areas with different inactive regions."

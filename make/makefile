@@ -179,6 +179,7 @@ $(OBJDIR)/gwf-npfidm.o \
 $(OBJDIR)/gwf-namidm.o \
 $(OBJDIR)/gwf-icidm.o \
 $(OBJDIR)/gwf-ghbidm.o \
+$(OBJDIR)/gwf-ghbgidm.o \
 $(OBJDIR)/gwf-evtidm.o \
 $(OBJDIR)/gwf-evtaidm.o \
 $(OBJDIR)/gwf-drnidm.o \
@@ -490,8 +491,9 @@ $(OBJDIR)/NumericalSolution.o \
 $(OBJDIR)/MappedMemory.o \
 $(OBJDIR)/NCModel.o \
 $(OBJDIR)/Mf6FileStoInput.o \
-$(OBJDIR)/Mf6FileListInput.o \
-$(OBJDIR)/Mf6FileGridInput.o \
+$(OBJDIR)/Mf6FileList.o \
+$(OBJDIR)/Mf6FileLayerArray.o \
+$(OBJDIR)/Mf6FileGridArray.o \
 $(OBJDIR)/prt.o \
 $(OBJDIR)/olf.o \
 $(OBJDIR)/chf.o \
