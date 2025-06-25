@@ -2,11 +2,17 @@ import os
 
 import flopy
 import geopandas as gpd
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
-from flopy.utils import binaryfile as bf
-from flopy.utils import PathlineFile
+from flopy.modpath import (
+    ParticleData,
+    ParticleGroup,
+)
+from flopy.plot.plotutil import to_mp7_pathlines
+from flopy.utils import EndpointFile, PathlineFile
 from flopy.utils.binaryfile import HeadFile
 from framework import TestFramework
 from prt_test_utils import get_model_name
@@ -14,14 +20,35 @@ from prt_test_utils import get_model_name
 simname = "prt2358"
 cases = [
     simname,  # stop_at_weak_sink=False, No istopzone, No iface or iflowface
-    f"{simname}if6iff-1", # stop_at_weak_sink=False, No istopzone, iface=6, iflowface=-1
-    f"{simname}isz-1iff-1", # stop_at_weak_sink=False, istopzone=-1, iflowface=-1
-    f"{simname}isz1iff-1", # stop_at_weak_sink=False, istopzone=1, iflowface=-1
-    f"{simname}saws", # stop_at_weak_sink=True, No istopzone, No iflowface
+    f"{simname}if6iff-1",  # stop_at_weak_sink=False, No istopzone, iface=6, iflowface=-1
+    f"{simname}isz-1iff-1",  # stop_at_weak_sink=False, istopzone=-1, iflowface=-1
+    f"{simname}isz1iff-1",  # stop_at_weak_sink=False, istopzone=1, iflowface=-1
+    f"{simname}saws",  # stop_at_weak_sink=True, No istopzone, No iflowface
 ]
+
+# grid info
 top = 20.0
 botm = 0
+nlay = 1
+nrow = 1
+ncol = 10
+nnodes = nlay * nrow * ncol
+delr = 100.0
+delc = 100.0
+
+# chd info
 chd_rec = [((0, 0, 0), 10.0)]
+
+# particle tracking info
+particledata = ParticleData(
+    partlocs=[(0, 0, i) for i in range(nnodes)],
+    structured=True,
+    particleids=list(range(nnodes)),
+    localx=0.5,
+    localy=0.5,
+    localz=0.5,
+)
+porosity = 0.1
 
 
 def build_gwf_sim(name, ws, mf6, iflowface=None):
@@ -36,15 +63,15 @@ def build_gwf_sim(name, ws, mf6, iflowface=None):
     dis = flopy.mf6.modflow.mfgwfdis.ModflowGwfdis(
         gwf,
         pname="dis",
-        nlay=1,
-        nrow=1,
-        ncol=10,
-        delr=100,
-        delc=100,
+        nlay=nlay,
+        nrow=nrow,
+        ncol=ncol,
+        delr=delr,
+        delc=delc,
         top=top,
         botm=botm,
     )
-    ic = flopy.mf6.modflow.mfgwfic.ModflowGwfic(gwf, pname="ic", strt=10)
+    ic = flopy.mf6.modflow.mfgwfic.ModflowGwfic(gwf, pname="ic", strt=10.0)
     # Create the node property flow package
     npf = flopy.mf6.modflow.mfgwfnpf.ModflowGwfnpf(
         gwf,
@@ -123,25 +150,16 @@ def build_prt_sim(
         sim, modelname=prt_name, model_nam_file=f"{prt_name}.nam"
     )
 
-    nlay, nrow, ncol = gwf.dis.botm.array.shape
-    # get external files for model bottoms
-    # (so that PRT can reference those directly)
-    botm_record = gwf.dis.botm.get_record()
-    idomain_record = gwf.dis.idomain.get_record()
     flopy.mf6.modflow.mfgwfdis.ModflowGwfdis(
         prt,
         pname="dis",
         nlay=nlay,
         nrow=nrow,
         ncol=ncol,
-        length_units=gwf.dis.length_units.array,
-        delr=gwf.dis.delr.array,
-        delc=gwf.dis.delc.array,
+        delr=delr,
+        delc=delc,
         top=top,
         botm=botm,
-        # idomain=1,
-        xorigin=gwf.dis.xorigin.array,
-        yorigin=gwf.dis.yorigin.array,
     )
 
     if istopzone is not None:
@@ -151,36 +169,16 @@ def build_prt_sim(
     else:
         izone_array = None
 
-    flopy.mf6.ModflowPrtmip(prt, pname="mip", porosity=0.1, izone=izone_array)
-    # Instantiate the MODFLOW 6 prt particle release point (prp) package
-    # release particles at each row, column location
-    prt_i, prt_j = np.indices(gwf.modelgrid.shape[1:])
-    prt_start_x, prt_start_y = gwf.modelgrid.get_local_coords(
-        gwf.modelgrid.xcellcenters, gwf.modelgrid.ycellcenters
-    )
+    flopy.mf6.ModflowPrtmip(prt, pname="mip", porosity=porosity, izone=izone_array)
 
-    prt_start_data = pd.DataFrame(
-        {
-            "irptno": np.arange(len(prt_start_x.ravel())),
-            "k": 0,
-            "i": prt_i.ravel(),
-            "j": prt_j.ravel(),
-            "xrpt": prt_start_x.ravel(),
-            "yrpt": prt_start_y.ravel(),
-            # start particles near top of saturation in cell with local_z=True
-            "zrpt": 0.0,
-            "boundname": [f"prt_{i}_{j}" for i, j in zip(prt_i.ravel(), prt_j.ravel())],
-        }
-    )
-
+    prpdata = list(particledata.to_prp(gwf.modelgrid, localz=True))
     flopy.mf6.ModflowPrtprp(
         prt,
         pname="prp",
-        nreleasepts=len(prt_start_data),
-        packagedata=prt_start_data.to_records(index=False).tolist(),
-        local_z=True,
-        boundnames=True,
+        nreleasepts=len(prpdata),
+        packagedata=prpdata,
         perioddata={0: ["FIRST"]},
+        local_z=True,
         exit_solve_tolerance=1e-5,
         stop_at_weak_sink=stop_at_weak_sink,
         extend_tracking=True,
@@ -231,55 +229,33 @@ def build_mp7_sim(name, ws, mp7, gwf, iface=None, stop_at_weak_sink=False):
     # make an equivalent MP7 simulation
     mp7_name = get_model_name(name, "mp7")
 
-    mp = flopy.modpath.Modpath7.create_mp7(
-        modelname=mp7_name,
-        trackdir="forward",
-        exe_name=mp7,
-        flowmodel=gwf,
-        model_ws=ws,
-        rowcelldivisions=1,
-        columncelldivisions=1,
-        layercelldivisions=1,
-        nodes=np.arange(gwf.modelgrid.top.size),
+    pg = ParticleGroup(
+        particledata=particledata,
     )
-    # use a dedicated TDIS file
-    # either for different time periods
-    # or because mp7 is incompatible with some MODFLOW 6 TDIS options
-    # tdis_file = f"{mp7_name}.tdis"  # f'{mp7_workspace.name}/{mp7_name}.tdis'
-    # mp.tdis_file = tdis_file
-
-    if stop_at_weak_sink:
-        mp.mpsim.weaksinkoption = 2
-    else:
-        mp.mpsim.weaksinkoption = 1
-
-    # set the reference time for when the particles start
-    # referencetimeOption:
-    # 1 = a value of time
-    # 2 = stress period, time step, and relative time position within the time step
-    mp.mpsim.referencetimeOption = 2
-    mp.mpsim.referencetime = (0, 0, 0.0)
-
-    # StopTimeOption for how long the particles can go
-    # 1 = start or end of MODFLOW sim
-    # 2 = until termination
-    # 3 = specific value
-    mp.mpsim.stoptimeoption = 3
-    mp.mpsim.stoptime = 1e15
-
-    # TimePointOption 1
-    # TimePointCount, TimePointInterval
-    mp.mpsim.timepointoption = 1
-    mp.mpsim.timepointdata = [20, np.array([365.25])]
-
-    mp.mpbas.porosity = 0.1
-    # set default iface for RIV and SFR
-    if iface is not None:
-        mp.mpbas.defaultiface["CHD"] = iface
-        mp.mpbas.defaultiface["RIV"] = iface
-    else:
-        mp.mpbas.defaultiface = dict()
-    mp.mpbas.defaultifacecount = len(mp.mpbas.defaultiface)
+    mp = flopy.modpath.Modpath7(
+        modelname=mp7_name,
+        flowmodel=gwf,
+        exe_name=mp7,
+        model_ws=ws,
+    )
+    defaultiface = dict() if iface is None else {"CHD": iface, "RIV": iface}
+    mpbas = flopy.modpath.Modpath7Bas(
+        mp,
+        porosity=porosity,
+        defaultiface=defaultiface,
+    )
+    mpsim = flopy.modpath.Modpath7Sim(
+        mp,
+        simulationtype="combined",
+        trackingdirection="forward",
+        budgetoutputoption="summary",
+        weaksinkoption="stop_at" if stop_at_weak_sink else "pass_through",
+        referencetime=(0, 0, 0.0),
+        stoptimeoption="specified",
+        stoptime=1e15,
+        timepointdata=[20, np.array([365.25])],
+        particlegroups=[pg],
+    )
     return mp
 
 
@@ -333,9 +309,11 @@ def check_output(idx, test):
     prp_track_file = f"{prt_name}.prp.trk"
     prp_track_csv_file = f"{prt_name}.prp.trk.csv"
     mp7_pathline_file = f"{mp7_name}.mppth"
+    mp7_endpoint_file = f"{mp7_name}.mpend"
 
     # extract head, budget, and specific discharge results from GWF model
-    hds = HeadFile(gwf_ws / gwf_head_file).get_data()
+    headfile = HeadFile(gwf_ws / gwf_head_file)
+    hds = headfile.get_data()
     bud = gwf.output.budget()
     spdis = bud.get_data(text="DATA-SPDIS")[0]
     qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
@@ -350,14 +328,21 @@ def check_output(idx, test):
     mp7_pls["node"] = mp7_pls["node"] + 1
     mp7_pls["k"] = mp7_pls["k"] + 1
 
+    # load mp7 endpoint results
+    epf = EndpointFile(mp7_ws / mp7_endpoint_file)
+    mp7_eps = pd.DataFrame(epf.get_destination_endpoint_data(range(mg.nnodes)))
+    # convert zero-based to one-based indexing in mp7 results
+    mp7_eps["particlegroup"] = mp7_eps["particlegroup"] + 1
+    mp7_eps["node"] = mp7_eps["node"] + 1
+    mp7_eps["k"] = mp7_eps["k"] + 1
+
     # load mf6 pathline results
     mf6_pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
+    mf6_eps = to_mp7_pathlines(mf6_pls[mf6_pls.ireason == 3])
 
-    import pdb; pdb.set_trace()
-    
     # make a geopackage to reproduce figure
     gdf = gpd.GeoDataFrame(
-        prt_results, geometry=gpd.points_from_xy(prt_results["x"], prt_results["y"])
+        mf6_pls, geometry=gpd.points_from_xy(mf6_pls["x"], mf6_pls["y"])
     )
     gdf.to_file(prt_ws / f"{prt_name}.trk.csv.gpkg", index=False)
     modelgrid_gdf = gwf.modelgrid.geo_dataframe
@@ -365,15 +350,143 @@ def check_output(idx, test):
     modelgrid_gdf.loc[[rec[0][2] for rec in chd_rec], "bc"] = "CHD"
     modelgrid_gdf.loc[[rec[0][2] for rec in riv_period_array], "bc"] = "RIV"
     modelgrid_gdf["head"] = headfile.get_data(totim=1)[0, 0, :]
-    modelgrid_gdf.to_file(prt_ws / "grid.gpkg")
+    modelgrid_gdf.to_file(gwf_ws / "grid.gpkg")
 
-    prt_results.loc[prt_results["name"] == "PRT_0_3"]
-    import pdb; pdb.set_trace()
-    mp7_results.loc[mp7_results["name"] == "PRT_0_3"]
+
+def plot_output(idx, test):
+    name = test.name
+    gwf_ws = test.workspace / "gwf"
+    prt_ws = test.workspace / "prt"
+    mp7_ws = test.workspace / "mp7"
+    gwf_name = get_model_name(name, "gwf")
+    prt_name = get_model_name(name, "prt")
+    mp7_name = get_model_name(name, "mp7")
+    gwf_sim = test.sims[0]
+    gwf = gwf_sim.get_model(gwf_name)
+    mg = gwf.modelgrid
+
+    # check mf6 output files exist
+    gwf_budget_file = f"{gwf_name}.bud"
+    gwf_head_file = f"{gwf_name}.hds"
+    prt_track_file = f"{prt_name}.trk"
+    prt_track_csv_file = f"{prt_name}.trk.csv"
+    prp_track_file = f"{prt_name}.prp.trk"
+    prp_track_csv_file = f"{prt_name}.prp.trk.csv"
+    mp7_pathline_file = f"{mp7_name}.mppth"
+    mp7_endpoint_file = f"{mp7_name}.mpend"
+
+    # extract head, budget, and specific discharge results from GWF model
+    headfile = HeadFile(gwf_ws / gwf_head_file)
+    hds = headfile.get_data()
+    bud = gwf.output.budget()
+    spdis = bud.get_data(text="DATA-SPDIS")[0]
+    qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
+
+    # load mp7 pathline results
+    plf = PathlineFile(mp7_ws / mp7_pathline_file)
+    mp7_pls = pd.DataFrame(
+        plf.get_destination_pathline_data(range(mg.nnodes), to_recarray=True)
+    )
+    # convert zero-based to one-based indexing in mp7 results
+    mp7_pls["particlegroup"] = mp7_pls["particlegroup"] + 1
+    mp7_pls["node"] = mp7_pls["node"] + 1
+    mp7_pls["k"] = mp7_pls["k"] + 1
+
+    # load mp7 endpoint results
+    epf = EndpointFile(mp7_ws / mp7_endpoint_file)
+    mp7_eps = pd.DataFrame(epf.get_destination_endpoint_data(range(mg.nnodes)))
+    # convert zero-based to one-based indexing in mp7 results
+    mp7_eps["particlegroup"] = mp7_eps["particlegroup"] + 1
+    mp7_eps["node"] = mp7_eps["node"] + 1
+    mp7_eps["k"] = mp7_eps["k"] + 1
+
+    # load mf6 pathline results
+    mf6_pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
+    mf6_eps = to_mp7_pathlines(mf6_pls[mf6_pls.ireason == 3])
+
+    # setup plot
+    fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(10, 10))
+    fig.tight_layout(pad=3.0)
+    for a in ax.ravel():
+        a.set_aspect("equal")
+
+    # plot mf6 pathlines in map view
+    pmv = flopy.plot.PlotMapView(modelgrid=mg, ax=ax[0][0])
+    pmv.plot_grid()
+    pmv.plot_array(hds[0], alpha=0.1)
+    pmv.plot_vector(qx, qy, normalize=True, color="white")
+    mf6_plines = mf6_pls.groupby(["iprp", "irpt", "trelease"])
+    for ipl, ((iprp, irpt, trelease), pl) in enumerate(mf6_plines):
+        pl.plot(
+            title="MF6, map view",
+            kind="line",
+            x="x",
+            y="y",
+            ax=ax[0][0],
+            legend=False,
+            color=cm.plasma(ipl / len(mf6_plines)),
+            lw=2,
+        )
+
+    # plot mp7 pathlines in map view
+    pmv = flopy.plot.PlotMapView(modelgrid=mg, ax=ax[0][1])
+    pmv.plot_grid()
+    pmv.plot_array(hds[0], alpha=0.1)
+    pmv.plot_vector(qx, qy, normalize=True, color="white")
+    mp7_plines = mp7_pls.groupby(["particleid"])
+    for ipl, (pid, pl) in enumerate(mp7_plines):
+        pl.plot(
+            title="MP7, map view",
+            kind="line",
+            x="x",
+            y="y",
+            ax=ax[0][1],
+            legend=False,
+            color=cm.plasma(ipl / len(mp7_plines)),
+            lw=2,
+        )
+
+    # plot mf6 pathlines in cross section
+    pxs = flopy.plot.PlotCrossSection(modelgrid=mg, ax=ax[1][0], line={"row": 0})
+    pxs.plot_grid()
+    pxs.plot_array(hds[0], alpha=0.1)
+    pxs.plot_vector(qx, qy, qz, normalize=True, color="white")
+    for ipl, ((iprp, irpt, trelease), pl) in enumerate(mf6_plines):
+        pl.plot(
+            title="MF6, cross section",
+            kind="line",
+            x="x",
+            y="z",
+            ax=ax[1][0],
+            legend=False,
+            color=cm.plasma(ipl / len(mf6_plines)),
+            lw=2,
+        )
+
+    # plot mp7 pathlines in cross section
+    pxs = flopy.plot.PlotCrossSection(modelgrid=mg, ax=ax[1][1], line={"row": 0})
+    pxs.plot_grid()
+    pxs.plot_array(hds[0], alpha=0.1)
+    pxs.plot_vector(qx, qy, qz, normalize=True, color="white")
+    for ipl, (pid, pl) in enumerate(mp7_plines):
+        pl.plot(
+            title="MP7, cross section",
+            kind="line",
+            x="x",
+            y="z",
+            ax=ax[1][1],
+            legend=False,
+            color=cm.plasma(ipl / len(mp7_plines)),
+            lw=2,
+        )
+
+    # view/save plot
+    plt.show()
+    plt.savefig(gwf_ws / f"{name}.png")
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases[:1]))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, function_tmpdir, targets, plot):
     iflowface = None
     iface = None
     istopzone = None
@@ -390,7 +503,9 @@ def test_mf6model(idx, name, function_tmpdir, targets):
             stop_at_weak_sink=stop_at_weak_sink,
         ),
         check=lambda t: check_output(idx, t),
+        plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
         compare=None,
+        xfail=[False, True, False],
     )
     test.run()
