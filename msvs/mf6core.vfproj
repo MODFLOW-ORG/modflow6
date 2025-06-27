@@ -655,6 +655,7 @@
 		<File RelativePath="..\src\Utilities\KeyValueListIterator.f90"/>
 		<File RelativePath="..\src\Utilities\KeyValueNode.f90"/>
 		<File RelativePath="..\src\Utilities\kind.f90"/>
+		<File RelativePath="..\src\Utilities\LinearAlgebraUtils.f90"/>
 		<File RelativePath="..\src\Utilities\List.f90"/>
 		<File RelativePath="..\src\Utilities\ListIterator.f90"/>
 		<File RelativePath="..\src\Utilities\ListNode.f90"/>
@@ -664,6 +665,7 @@
 		<File RelativePath="..\src\Utilities\Message.f90"/>
 		<File RelativePath="..\src\Utilities\OpenSpec.f90"/>
 		<File RelativePath="..\src\Utilities\PackageBudget.f90"/>
+		<File RelativePath="..\src\Utilities\PseudoInverse.f90"/>
 		<File RelativePath="..\src\Utilities\PtrHashTable.f90"/>
 		<File RelativePath="..\src\Utilities\PtrHashTableIterator.f90"/>
 		<File RelativePath="..\src\Utilities\Sim.f90"/>
@@ -675,6 +677,7 @@
 		<File RelativePath="..\src\Utilities\STLStackInt.f90"/>
 		<File RelativePath="..\src\Utilities\STLVecInt.f90"/>
 		<File RelativePath="..\src\Utilities\StringList.f90"/>
+		<File RelativePath="..\src\Utilities\SVD.f90"/>
 		<File RelativePath="..\src\Utilities\Table.f90"/>
 		<File RelativePath="..\src\Utilities\TableTerm.f90"/>
 		<File RelativePath="..\src\Utilities\Timer.f90"/>

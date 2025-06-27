@@ -13,8 +13,10 @@ if test_drive.found() and not fc_id.contains('intel')
     'MemoryContainerIterator',
     'MemoryStore',
     'Message',
+    'PseudoInverse',
     'PtrHashTable',
     'Sim',
+    'SVD',
     'SwfUtils',
     'TimeSelect',
     'TimeStepSelect',
@@ -23,6 +25,7 @@ if test_drive.found() and not fc_id.contains('intel')
 
   test_srcs = files(
     'tester.f90',
+    'tester_utils.f90',
   )
   foreach t : tests
     test_srcs += files('Test@0@.f90'.format(t.underscorify()))
