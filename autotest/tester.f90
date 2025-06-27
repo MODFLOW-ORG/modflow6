@@ -14,8 +14,10 @@ program tester
   use TestMemoryContainerIterator, only: collect_memorycontaineriterator
   use TestMemoryStore, only: collect_memorystore
   use TestMessage, only: collect_message
+  use TestPseudoInverse, only: collect_pinv
   use TestPtrHashTable, only: collect_ptrhashtable
   use TestSim, only: collect_sim
+  use TestSVD, only: collect_svd
   use TestSwfUtils, only: collect_swfutils
   use TestTimeSelect, only: collect_timeselect
   use TestTimeStepSelect, only: collect_timestepselect
@@ -42,8 +44,10 @@ program tester
                              collect_memorycontaineriterator), &
                new_testsuite("MemoryStore", collect_memorystore), &
                new_testsuite("Message", collect_message), &
+               new_testsuite("PseudoInverse", collect_pinv), &
                new_testsuite("PtrHashTable", collect_ptrhashtable), &
                new_testsuite("Sim", collect_sim), &
+               new_testsuite("SVD", collect_svd), &
                new_testsuite("SwfUtils", collect_swfutils), &
                new_testsuite("TimeSelect", collect_timeselect), &
                new_testsuite("TimeStepSelect", collect_timestepselect), &

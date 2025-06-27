@@ -31,23 +31,22 @@ SOURCEDIR24=../src/Timing
 SOURCEDIR25=../src/Utilities
 SOURCEDIR26=../src/Utilities/ArrayRead
 SOURCEDIR27=../src/Utilities/Export
-SOURCEDIR28=../src/Utilities/Export/tmp
-SOURCEDIR29=../src/Utilities/Idm
-SOURCEDIR30=../src/Utilities/Idm/mf6blockfile
-SOURCEDIR31=../src/Utilities/Idm/netcdf
-SOURCEDIR32=../src/Utilities/Libraries
-SOURCEDIR33=../src/Utilities/Libraries/blas
-SOURCEDIR34=../src/Utilities/Libraries/daglib
-SOURCEDIR35=../src/Utilities/Libraries/rcm
-SOURCEDIR36=../src/Utilities/Libraries/sparsekit
-SOURCEDIR37=../src/Utilities/Libraries/sparskit2
-SOURCEDIR38=../src/Utilities/Matrix
-SOURCEDIR39=../src/Utilities/Memory
-SOURCEDIR40=../src/Utilities/Observation
-SOURCEDIR41=../src/Utilities/OutputControl
-SOURCEDIR42=../src/Utilities/Performance
-SOURCEDIR43=../src/Utilities/TimeSeries
-SOURCEDIR44=../src/Utilities/Vector
+SOURCEDIR28=../src/Utilities/Idm
+SOURCEDIR29=../src/Utilities/Idm/mf6blockfile
+SOURCEDIR30=../src/Utilities/Idm/netcdf
+SOURCEDIR31=../src/Utilities/Libraries
+SOURCEDIR32=../src/Utilities/Libraries/blas
+SOURCEDIR33=../src/Utilities/Libraries/daglib
+SOURCEDIR34=../src/Utilities/Libraries/rcm
+SOURCEDIR35=../src/Utilities/Libraries/sparsekit
+SOURCEDIR36=../src/Utilities/Libraries/sparskit2
+SOURCEDIR37=../src/Utilities/Matrix
+SOURCEDIR38=../src/Utilities/Memory
+SOURCEDIR39=../src/Utilities/Observation
+SOURCEDIR40=../src/Utilities/OutputControl
+SOURCEDIR41=../src/Utilities/Performance
+SOURCEDIR42=../src/Utilities/TimeSeries
+SOURCEDIR43=../src/Utilities/Vector
 
 VPATH = \
 ${SOURCEDIR1} \
@@ -92,8 +91,7 @@ ${SOURCEDIR39} \
 ${SOURCEDIR40} \
 ${SOURCEDIR41} \
 ${SOURCEDIR42} \
-${SOURCEDIR43} \
-${SOURCEDIR44} 
+${SOURCEDIR43} 
 
 .SUFFIXES: .f90 .F90 .o
 
@@ -511,10 +509,13 @@ $(OBJDIR)/RunControlFactory.o \
 $(OBJDIR)/IdmLoad.o \
 $(OBJDIR)/ConnectionBuilder.o \
 $(OBJDIR)/comarg.o \
+$(OBJDIR)/LinearAlgebraUtils.o \
 $(OBJDIR)/mf6core.o \
+$(OBJDIR)/SVD.o \
 $(OBJDIR)/BaseGeometry.o \
 $(OBJDIR)/mf6.o \
 $(OBJDIR)/StringList.o \
+$(OBJDIR)/PseudoInverse.o \
 $(OBJDIR)/MemorySetHandler.o \
 $(OBJDIR)/ilut.o \
 $(OBJDIR)/sparsekit.o \
