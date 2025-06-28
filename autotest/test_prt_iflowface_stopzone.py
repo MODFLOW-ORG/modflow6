@@ -18,13 +18,38 @@ from framework import TestFramework
 from prt_test_utils import get_model_name
 
 simname = "prt2358"
-cases = [
-    simname,  # stop_at_weak_sink=False, No istopzone, No iface or iflowface
-    f"{simname}if6iff-1",  # stop_at_weak_sink=False, No istopzone, iface=6, iflowface=-1
-    f"{simname}isz-1iff-1",  # stop_at_weak_sink=False, istopzone=-1, iflowface=-1
-    f"{simname}isz1iff-1",  # stop_at_weak_sink=False, istopzone=1, iflowface=-1
-    f"{simname}saws",  # stop_at_weak_sink=True, No istopzone, No iflowface
-]
+cases = {
+    simname: {
+        "stop_at_weak_sink": False,
+        "istopzone": None,
+        "iflowface": None,
+        "iface": None,
+    },
+    f"{simname}if6iff-1": {
+        "stop_at_weak_sink": False,
+        "istopzone": None,
+        "iflowface": -1,
+        "iface": 6,
+    },
+    f"{simname}isz-1iff-1": {
+        "stop_at_weak_sink": False,
+        "istopzone": -1,
+        "iflowface": -1,
+        "iface": None,
+    },
+    f"{simname}isz1iff-1": {
+        "stop_at_weak_sink": False,
+        "istopzone": 1,
+        "iflowface": -1,
+        "iface": None,
+    },
+    f"{simname}saws": {
+        "stop_at_weak_sink": True,
+        "istopzone": None,
+        "iflowface": None,
+        "iface": None,
+    },
+}
 
 # grid info
 top = 20.0
@@ -171,7 +196,8 @@ def build_prt_sim(
 
     flopy.mf6.ModflowPrtmip(prt, pname="mip", porosity=porosity, izone=izone_array)
 
-    prpdata = list(particledata.to_prp(gwf.modelgrid, localz=True))
+    prpdata = list(particledata.to_prp(gwf.modelgrid, localz=True))  # [-1:]
+    # prpdata[0] = [0, *prpdata[0][1:]]
     flopy.mf6.ModflowPrtprp(
         prt,
         pname="prp",
@@ -181,7 +207,7 @@ def build_prt_sim(
         local_z=True,
         exit_solve_tolerance=1e-5,
         stop_at_weak_sink=stop_at_weak_sink,
-        extend_tracking=True,
+        # extend_tracking=True,
         istopzone=istopzone,
     )
     # Instantiate the MODFLOW 6 prt output control package
@@ -485,27 +511,23 @@ def plot_output(idx, test):
     plt.savefig(gwf_ws / f"{name}.png")
 
 
-@pytest.mark.parametrize("idx, name", enumerate(cases[:1]))
+@pytest.mark.parametrize("idx, name", enumerate(list(cases.keys())[:1]))
 def test_mf6model(idx, name, function_tmpdir, targets, plot):
-    iflowface = None
-    iface = None
-    istopzone = None
-    stop_at_weak_sink = False
+    case = cases[name]
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(
             idx,
             t,
-            iflowface=iflowface,
-            iface=iface,
-            istopzone=istopzone,
-            stop_at_weak_sink=stop_at_weak_sink,
+            iflowface=case["iflowface"],
+            iface=case["iface"],
+            istopzone=case["istopzone"],
+            stop_at_weak_sink=case["stop_at_weak_sink"],
         ),
         check=lambda t: check_output(idx, t),
         plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
         compare=None,
-        xfail=[False, True, False],
     )
     test.run()
