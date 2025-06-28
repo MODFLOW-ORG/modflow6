@@ -19,31 +19,31 @@ from prt_test_utils import get_model_name
 
 simname = "prt2358"
 cases = {
-    simname: {
+    f"{simname}a": {
         "stop_at_weak_sink": False,
         "istopzone": None,
         "iflowface": None,
         "iface": None,
     },
-    f"{simname}if6iff-1": {
+    f"{simname}b": {
         "stop_at_weak_sink": False,
         "istopzone": None,
         "iflowface": -1,
         "iface": 6,
     },
-    f"{simname}isz-1iff-1": {
+    f"{simname}c": {
         "stop_at_weak_sink": False,
         "istopzone": -1,
         "iflowface": -1,
         "iface": None,
     },
-    f"{simname}isz1iff-1": {
+    f"{simname}d": {
         "stop_at_weak_sink": False,
         "istopzone": 1,
         "iflowface": -1,
         "iface": None,
     },
-    f"{simname}saws": {
+    f"{simname}e": {
         "stop_at_weak_sink": True,
         "istopzone": None,
         "iflowface": None,
