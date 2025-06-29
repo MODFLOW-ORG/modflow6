@@ -27,27 +27,29 @@ SOURCEDIR20=../src/Solution
 SOURCEDIR21=../src/Solution/LinearMethods
 SOURCEDIR22=../src/Solution/PETSc
 SOURCEDIR23=../src/Solution/ParticleTracker
-SOURCEDIR24=../src/Timing
-SOURCEDIR25=../src/Utilities
-SOURCEDIR26=../src/Utilities/ArrayRead
-SOURCEDIR27=../src/Utilities/Export
-SOURCEDIR28=../src/Utilities/Export/tmp
-SOURCEDIR29=../src/Utilities/Idm
-SOURCEDIR30=../src/Utilities/Idm/mf6blockfile
-SOURCEDIR31=../src/Utilities/Idm/netcdf
-SOURCEDIR32=../src/Utilities/Libraries
-SOURCEDIR33=../src/Utilities/Libraries/blas
-SOURCEDIR34=../src/Utilities/Libraries/daglib
-SOURCEDIR35=../src/Utilities/Libraries/rcm
-SOURCEDIR36=../src/Utilities/Libraries/sparsekit
-SOURCEDIR37=../src/Utilities/Libraries/sparskit2
-SOURCEDIR38=../src/Utilities/Matrix
-SOURCEDIR39=../src/Utilities/Memory
-SOURCEDIR40=../src/Utilities/Observation
-SOURCEDIR41=../src/Utilities/OutputControl
-SOURCEDIR42=../src/Utilities/Performance
-SOURCEDIR43=../src/Utilities/TimeSeries
-SOURCEDIR44=../src/Utilities/Vector
+SOURCEDIR24=../src/Solution/ParticleTracker/Domain
+SOURCEDIR25=../src/Solution/ParticleTracker/Method
+SOURCEDIR26=../src/Solution/ParticleTracker/Particle
+SOURCEDIR27=../src/Timing
+SOURCEDIR28=../src/Utilities
+SOURCEDIR29=../src/Utilities/ArrayRead
+SOURCEDIR30=../src/Utilities/Export
+SOURCEDIR31=../src/Utilities/Idm
+SOURCEDIR32=../src/Utilities/Idm/mf6blockfile
+SOURCEDIR33=../src/Utilities/Idm/netcdf
+SOURCEDIR34=../src/Utilities/Libraries
+SOURCEDIR35=../src/Utilities/Libraries/blas
+SOURCEDIR36=../src/Utilities/Libraries/daglib
+SOURCEDIR37=../src/Utilities/Libraries/rcm
+SOURCEDIR38=../src/Utilities/Libraries/sparsekit
+SOURCEDIR39=../src/Utilities/Libraries/sparskit2
+SOURCEDIR40=../src/Utilities/Matrix
+SOURCEDIR41=../src/Utilities/Memory
+SOURCEDIR42=../src/Utilities/Observation
+SOURCEDIR43=../src/Utilities/OutputControl
+SOURCEDIR44=../src/Utilities/Performance
+SOURCEDIR45=../src/Utilities/TimeSeries
+SOURCEDIR46=../src/Utilities/Vector
 
 VPATH = \
 ${SOURCEDIR1} \
@@ -93,7 +95,9 @@ ${SOURCEDIR40} \
 ${SOURCEDIR41} \
 ${SOURCEDIR42} \
 ${SOURCEDIR43} \
-${SOURCEDIR44} 
+${SOURCEDIR44} \
+${SOURCEDIR45} \
+${SOURCEDIR46} 
 
 .SUFFIXES: .f90 .F90 .o
 
@@ -285,9 +289,10 @@ $(OBJDIR)/Subcell.o \
 $(OBJDIR)/TrackControl.o \
 $(OBJDIR)/TimeSelect.o \
 $(OBJDIR)/prt-fmi.o \
+$(OBJDIR)/ParticleEvents.o \
 $(OBJDIR)/TimeStepSelect.o \
 $(OBJDIR)/SfrCrossSectionUtils.o \
-$(OBJDIR)/TernarySolveTrack.o \
+$(OBJDIR)/TernarySolveUtils.o \
 $(OBJDIR)/SubcellTri.o \
 $(OBJDIR)/Method.o \
 $(OBJDIR)/SubcellRect.o \

@@ -889,6 +889,7 @@ contains
     use TdisModule, only: kper, kstp, totimc, delt, endofsimulation
     use PrtPrpModule, only: PrtPrpType
     use ParticleModule, only: ACTIVE, TERM_UNRELEASED, TERM_TIMEOUT
+    use ParticleEventsModule, only: RELEASE, TERMINATE
     ! dummy variables
     class(PrtModelType) :: this
     ! local variables
@@ -938,7 +939,7 @@ contains
           ! is not yet recorded, status 8 it has been.
           if (particle%istatus == (-1 * TERM_UNRELEASED)) then
             particle%istatus = TERM_UNRELEASED
-            call this%method%save(particle, reason=3)
+            call this%method%dispatch_terminate(particle)
             call packobj%particles%put(particle, np)
           end if
 
@@ -948,7 +949,7 @@ contains
           ! If particle was released this time step, record release
           particle%istatus = ACTIVE
           if (particle%trelease >= totimc) &
-            call this%method%save(particle, reason=0)
+            call this%method%dispatch_release(particle)
 
           ! Maximum time is the end of the time step or the particle
           ! stop time, whichever comes first, unless it's the final
@@ -979,7 +980,7 @@ contains
               (particle%ttrack == particle%tstop .or. &
                (endofsimulation .and. particle%iextend == 0))) then
             particle%istatus = TERM_TIMEOUT
-            call this%method%save(particle, reason=3)
+            call this%method%dispatch_terminate(particle)
           end if
 
           ! Update particle storage

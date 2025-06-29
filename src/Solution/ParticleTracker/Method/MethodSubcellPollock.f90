@@ -85,6 +85,7 @@ contains
   !<
   subroutine track_subcell(this, subcell, particle, tmax)
     use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB
+    use ParticleEventsModule, only: TERMINATE, USERTIME
     ! dummy
     class(MethodSubcellPollockType), intent(inout) :: this
     class(SubcellRectType), intent(in) :: subcell
@@ -138,7 +139,7 @@ contains
     if ((statusVX .eq. 3) .and. (statusVY .eq. 3) .and. (statusVZ .eq. 3)) then
       particle%istatus = TERM_NO_EXITS_SUB
       particle%advancing = .false.
-      call this%save(particle, reason=3)
+      call this%dispatch_terminate(particle)
       return
     end if
 
@@ -200,7 +201,7 @@ contains
         particle%z = z * subcell%dz
         particle%ttrack = t
         particle%istatus = ACTIVE
-        call this%save(particle, reason=5)
+        call this%dispatch_usertime(particle)
       end do
     end if
 

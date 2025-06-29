@@ -52,6 +52,13 @@ module MethodModule
     procedure :: save
     procedure :: track
     procedure :: try_pass
+    ! particle event handlers
+    procedure :: dispatch_exit
+    procedure :: dispatch_terminate
+    procedure :: dispatch_release
+    procedure :: dispatch_timestep
+    procedure :: dispatch_weaksink
+    procedure :: dispatch_usertime
   end type MethodType
 
   abstract interface
@@ -183,5 +190,100 @@ contains
 
     call this%trackctl%save(particle, kper=per, kstp=stp, reason=reason)
   end subroutine save
+
+  ! each of these temporarily delegates to the old save() routine.
+  ! TODO: event batching per domain level. flush each batch when the relevant method completes.
+
+  subroutine dispatch_exit(this, particle, context)
+    use ParticleEventsModule, only: EXIT, ExitEventType
+    ! dummy
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    character(len=*), intent(in), optional :: context
+
+    type(ExitEventType) :: event
+
+    event%code = EXIT
+    event%boundary = particle%iboundary
+    event%domain = particle%idomain
+    event%time = particle%ttrack
+    if (present(context)) event%context = context
+    call this%save(particle, reason=event%code)
+  end subroutine dispatch_exit
+
+  subroutine dispatch_terminate(this, particle, context)
+    use ParticleEventsModule, only: TERMINATE, TerminationEventType
+    ! dummy
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    character(len=*), intent(in), optional :: context
+
+    type(TerminationEventType) :: event
+
+    event%code = TERMINATE
+    event%time = particle%ttrack
+    if (present(context)) event%context = context
+    call this%save(particle, reason=event%code)
+  end subroutine dispatch_terminate
+
+  subroutine dispatch_release(this, particle, context)
+    use ParticleEventsModule, only: RELEASE, ReleaseEventType
+    ! dummy
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    character(len=*), intent(in), optional :: context
+
+    type(ReleaseEventType) :: event
+
+    event%code = RELEASE
+    event%time = particle%ttrack
+    if (present(context)) event%context = context
+    call this%save(particle, reason=event%code)
+  end subroutine dispatch_release
+
+  subroutine dispatch_timestep(this, particle, context)
+    use ParticleEventsModule, only: TIMESTEP, TimestepEventType
+    ! dummy
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    character(len=*), intent(in), optional :: context
+
+    type(TimestepEventType) :: event
+
+    event%code = TIMESTEP
+    event%time = particle%ttrack
+    if (present(context)) event%context = context
+    call this%save(particle, reason=event%code)
+  end subroutine dispatch_timestep
+
+  subroutine dispatch_weaksink(this, particle, context)
+    use ParticleEventsModule, only: WEAKSINK, WeakSinkEventType
+    ! dummy
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    character(len=*), intent(in), optional :: context
+
+    type(WeakSinkEventType) :: event
+
+    event%code = WEAKSINK
+    event%time = particle%ttrack
+    if (present(context)) event%context = context
+    call this%save(particle, reason=event%code)
+  end subroutine dispatch_weaksink
+
+  subroutine dispatch_usertime(this, particle, context)
+    use ParticleEventsModule, only: USERTIME, UserTimeEventType
+    ! dummy
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    character(len=*), intent(in), optional :: context
+
+    type(UserTimeEventType) :: event
+
+    event%code = USERTIME
+    event%time = particle%ttrack
+    if (present(context)) event%context = context
+    call this%save(particle, reason=event%code)
+  end subroutine dispatch_usertime
 
 end module MethodModule
