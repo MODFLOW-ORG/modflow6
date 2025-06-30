@@ -8,7 +8,8 @@ module TspAdvModule
   use TspAdvOptionsModule, only: TspAdvOptionsType
   use MatrixBaseModule, only: MatrixBaseType
   ! -- Interpolation schemes
-  use InterpolationSchemeInterfaceModule, only: InterpolationSchemeInterface, CoefficientsType
+  use InterpolationSchemeInterfaceModule, only: InterpolationSchemeInterface, &
+                                                CoefficientsType
   use AdvSchemeEnumModule
   use UpstreamSchemeModule, only: UpstreamSchemeType
   use CentralDifferenceSchemeModule, only: CentralDifferenceSchemeType

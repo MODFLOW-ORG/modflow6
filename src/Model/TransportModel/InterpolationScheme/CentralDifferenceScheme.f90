@@ -1,7 +1,8 @@
 module CentralDifferenceSchemeModule
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DHALF, DONE
-  use InterpolationSchemeInterfaceModule, only: InterpolationSchemeInterface, CoefficientsType
+  use InterpolationSchemeInterfaceModule, only: InterpolationSchemeInterface, &
+                                                CoefficientsType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
 
