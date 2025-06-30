@@ -40,25 +40,6 @@ module ParticleModule
     enumerator :: TERM_TIMEOUT = 10 !< terminated at stop time or end of simulation
   end enum
 
-  !> @brief Particle event enumeration.
-  !!
-  !! A number of events may occur to particles, each of which may (or may
-  !! not) be of interest to the user. The user selects among events to be
-  !! reported. A corresponding event code is reported with each record to
-  !! identify the record's cause.
-  !!
-  !! Records may be identical except for their event code, reflecting the
-  !! fact that multiple events of interest may occur at any given moment.
-  !<
-  enum, bind(C)
-    enumerator :: RELEASE = 0 !< particle was released
-    enumerator :: EXIT = 1 !< particle exited a cell
-    enumerator :: TIMESTEP = 2 !< time step ended
-    enumerator :: TERMINATE = 3 !< particle terminated
-    enumerator :: WEAKSINK = 4 !< particle entered a weak sink cell
-    enumerator :: USERTIME = 5 !< user-specified tracking time
-  end enum
-
   !> @brief Particle tracked by the PRT model.
   !!
   !! Record-type to conveniently shuffle a particle's

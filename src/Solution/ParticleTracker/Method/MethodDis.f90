@@ -169,6 +169,7 @@ contains
   ! the z coordinate, entry face, and node and layer numbers.
   subroutine load_particle(this, cell, particle)
     use ParticleModule, only: TERM_BOUNDARY
+    use ParticleEventsModule, only: TERMINATE
     ! dummy
     class(MethodDisType), intent(inout) :: this
     type(CellRectType), pointer, intent(inout) :: cell
@@ -213,7 +214,7 @@ contains
         particle%idomain(2) = particle%icp
         particle%istatus = TERM_BOUNDARY
         particle%izone = particle%izp
-        call this%save(particle, reason=3)
+        call this%dispatch_terminate(particle)
         return
       else
         particle%icp = particle%idomain(2)
@@ -285,6 +286,7 @@ contains
   !> @brief Pass a particle to the next cell, if there is one
   subroutine pass_dis(this, particle)
     use ParticleModule, only: TERM_BOUNDARY
+    use ParticleEventsModule, only: TERMINATE
     ! dummy
     class(MethodDisType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -300,7 +302,7 @@ contains
       if (cell%defn%facenbr(particle%iboundary(2)) .eq. 0) then
         particle%istatus = TERM_BOUNDARY
         particle%advancing = .false.
-        call this%save(particle, reason=3)
+        call this%dispatch_terminate(particle)
       else
         ! Update old to new cell properties
         call this%load_particle(cell, particle)

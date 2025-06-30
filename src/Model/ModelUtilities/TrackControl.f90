@@ -37,8 +37,10 @@ module TrackControlModule
   contains
     procedure :: expand
     procedure, public :: init_track_file
-    procedure, public :: save
     procedure, public :: set_track_events
+    procedure, public :: subscribes_to
+    procedure, public :: save
+    procedure, private :: should_save
   end type TrackControlType
 
 contains
@@ -104,53 +106,6 @@ contains
 
   end subroutine expand
 
-  !> @brief Save the particle's state to track output file(s).
-  !!
-  !! A record is saved to all enabled model-level files and to
-  !! any PRP-level files with PRP index matching the particle's
-  !! PRP index.
-  !<
-  subroutine save(this, particle, kper, kstp, reason, level)
-    ! dummy
-    class(TrackControlType), intent(inout) :: this
-    type(ParticleType), pointer, intent(in) :: particle
-    integer(I4B), intent(in) :: kper
-    integer(I4B), intent(in) :: kstp
-    integer(I4B), intent(in) :: reason
-    integer(I4B), intent(in), optional :: level
-    ! local
-    integer(I4B) :: i
-    type(TrackFileType) :: file
-
-    ! Only save if reporting is enabled for specified event.
-    if (.not. ((this%trackrelease .and. reason == 0) .or. &
-               (this%trackexit .and. reason == 1) .or. &
-               (this%tracktimestep .and. reason == 2) .or. &
-               (this%trackterminate .and. reason == 3) .or. &
-               (this%trackweaksink .and. reason == 4) .or. &
-               (this%trackusertime .and. reason == 5))) &
-      return
-
-    ! For now, only allow reporting from outside the tracking
-    ! algorithm (e.g. release time), in which case level will
-    ! not be provided, or if within the tracking solution, in
-    ! subcells (level 3) only. This may change if the subcell
-    ! ever delegates tracking to even smaller subcomponents.
-    if (present(level)) then
-      if (level .ne. 3) return
-    end if
-
-    ! Save to any enabled model-scoped or PRP-scoped files
-    do i = 1, this%ntrackfiles
-      file = this%trackfiles(i)
-      if (file%iun > 0 .and. &
-          (file%iprp == -1 .or. &
-           file%iprp == particle%iprp)) &
-        call save_record(file%iun, particle, &
-                         kper, kstp, reason, csv=file%csv)
-    end do
-  end subroutine save
-
   !> @brief Configure particle events to track.
   !!
   !! Each tracking event corresponds to an "ireason" code
@@ -177,5 +132,56 @@ contains
     this%trackweaksink = weaksink
     this%trackusertime = usertime
   end subroutine set_track_events
+
+  !> @brief Check if the tracker subscribes to the event code.
+  logical function subscribes_to(this, event_code) result(subs)
+    class(TrackControlType), intent(inout) :: this
+    integer(I4B), intent(in) :: event_code
+
+    subs = (this%trackrelease .and. event_code == 0) .or. &
+           (this%trackexit .and. event_code == 1) .or. &
+           (this%tracktimestep .and. event_code == 2) .or. &
+           (this%trackterminate .and. event_code == 3) .or. &
+           (this%trackweaksink .and. event_code == 4) .or. &
+           (this%trackusertime .and. event_code == 5)
+  end function subscribes_to
+
+  !> @brief Determine whether to save the particle in the file.
+  logical function should_save(this, particle, file) result(save)
+    class(TrackControlType), intent(inout) :: this
+    type(ParticleType), pointer, intent(in) :: particle
+    type(TrackFileType), intent(in) :: file
+
+    save = file%iun > 0 .and. (file%iprp == -1 .or. file%iprp == particle%iprp)
+  end function should_save
+
+  !> @brief Save the particle's state to track output file(s).
+  !!
+  !! A record is saved to all enabled model-level files and to
+  !! any PRP-level files with PRP index matching the particle's
+  !! PRP index.
+  !<
+  subroutine save(this, particle, kper, kstp, reason)
+    ! dummy
+    class(TrackControlType), intent(inout) :: this
+    type(ParticleType), pointer, intent(in) :: particle
+    integer(I4B), intent(in) :: kper
+    integer(I4B), intent(in) :: kstp
+    integer(I4B), intent(in) :: reason
+    ! local
+    integer(I4B) :: i
+    type(TrackFileType) :: file
+
+    ! Only save if reporting is enabled for specified event.
+    if (.not. this%subscribes_to(reason)) return
+
+    ! Save to any enabled model-scoped or PRP-scoped files
+    do i = 1, this%ntrackfiles
+      file = this%trackfiles(i)
+      if (this%should_save(particle, file)) &
+        call save_record(file%iun, particle, &
+                         kper, kstp, reason, csv=file%csv)
+    end do
+  end subroutine save
 
 end module TrackControlModule

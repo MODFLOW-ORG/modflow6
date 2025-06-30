@@ -29,6 +29,7 @@ contains
     use TdisModule, only: endofsimulation, totimc, totim
     use ParticleModule, only: TERM_WEAKSINK, TERM_NO_EXITS, &
                               TERM_STOPZONE, TERM_INACTIVE
+    use ParticleEventsModule, only: EXIT, TERMINATE, TIMESTEP, WEAKSINK, USERTIME
     ! dummy
     class(MethodCellType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -49,14 +50,14 @@ contains
     if (stop_zone) then
       particle%advancing = .false.
       particle%istatus = TERM_STOPZONE
-      call this%save(particle, reason=3)
+      call this%dispatch_terminate(particle)
       return
     end if
 
     if (no_exit_face .and. .not. dry_cell) then
       particle%advancing = .false.
       particle%istatus = TERM_NO_EXITS
-      call this%save(particle, reason=3)
+      call this%dispatch_terminate(particle)
       return
     end if
 
@@ -64,10 +65,10 @@ contains
       if (particle%istopweaksink > 0) then
         particle%advancing = .false.
         particle%istatus = TERM_WEAKSINK
-        call this%save(particle, reason=3)
+        call this%dispatch_terminate(particle)
         return
       else
-        call this%save(particle, reason=4)
+        call this%dispatch_weaksink(particle)
       end if
     end if
 
@@ -80,7 +81,7 @@ contains
         ! stop
         particle%advancing = .false.
         particle%istatus = TERM_INACTIVE
-        call this%save(particle, reason=3)
+        call this%dispatch_terminate(particle)
         return
       else if (particle%idrymeth == 2) then
         ! stay
@@ -98,7 +99,7 @@ contains
         ! update tracking time to time
         ! step end time and save record
         particle%ttrack = totim
-        call this%save(particle, reason=2)
+        call this%dispatch_timestep(particle)
 
         ! record user tracking times
         call this%tracktimes%advance()
@@ -108,7 +109,7 @@ contains
             if (t < totimc) cycle
             if (t >= tmax) exit
             particle%ttrack = t
-            call this%save(particle, reason=5)
+            call this%dispatch_usertime(particle)
             if (t > ttrackmax) ttrackmax = t
           end do
         end if
@@ -117,7 +118,7 @@ contains
         if (endofsimulation) then
           particle%istatus = TERM_NO_EXITS
           particle%ttrack = ttrackmax
-          call this%save(particle, reason=3)
+          call this%dispatch_terminate(particle)
           return
         end if
       end if
@@ -125,12 +126,12 @@ contains
       if (particle%idrymeth == 0) then
         ! drop to water table
         particle%z = cell_defn%top
-        call this%save(particle, reason=1)
+        call this%dispatch_exit(particle)
       else if (particle%idrymeth == 1) then
         ! stop
         particle%advancing = .false.
         particle%istatus = TERM_INACTIVE
-        call this%save(particle, reason=3)
+        call this%dispatch_terminate(particle)
         return
       else if (particle%idrymeth == 2) then
         ! stay
@@ -148,7 +149,7 @@ contains
         ! update tracking time to time
         ! step end time and save record
         particle%ttrack = totim
-        call this%save(particle, reason=2)
+        call this%dispatch_timestep(particle)
 
         ! record user tracking times
         call this%tracktimes%advance()
@@ -158,7 +159,7 @@ contains
             if (t < totimc) cycle
             if (t >= tmax) exit
             particle%ttrack = t
-            call this%save(particle, reason=5)
+            call this%dispatch_usertime(particle)
             if (t > ttrackmax) ttrackmax = t
           end do
         end if
@@ -168,7 +169,7 @@ contains
     if (no_exit_face) then
       particle%advancing = .false.
       particle%istatus = TERM_NO_EXITS
-      call this%save(particle, reason=3)
+      call this%dispatch_terminate(particle)
       return
     end if
 

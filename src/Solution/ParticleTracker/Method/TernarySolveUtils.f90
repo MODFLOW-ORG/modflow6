@@ -1,4 +1,4 @@
-module TernarySolveTrack
+module TernarySolveUtils
 
   use KindModule, only: I4B, DP, LGP
   use GeomUtilModule, only: skew
@@ -740,4 +740,4 @@ contains
 
   end subroutine
 
-end module TernarySolveTrack
+end module TernarySolveUtils

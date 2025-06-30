@@ -58,6 +58,8 @@ contains
     type(BlockParserType), pointer, intent(inout) :: parser
     integer(I4B), intent(in) :: iout
     type(LoadMf6FileType) :: loader
+    integer(I4B) :: isize
+    integer(I4B), pointer :: maxbound
 
     ! initialize base type
     call this%DynamicPkgLoadType%init(mf6_input, component_name, &
@@ -68,6 +70,14 @@ contains
 
     ! load static input
     call loader%load(parser, mf6_input, this%nc_vars, this%input_name, iout)
+
+    ! maxbound is optional
+    call get_isize('MAXBOUND', mf6_input%mempath, isize)
+    if (isize < 0) then
+      ! set maxbound to grid nodes
+      call mem_allocate(maxbound, 'MAXBOUND', mf6_input%mempath)
+      maxbound = product(loader%mshape)
+    end if
 
     ! initialize input context memory
     call this%bound_context%create(mf6_input, &
