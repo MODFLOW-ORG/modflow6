@@ -207,7 +207,7 @@ def build_prt_sim(
         local_z=True,
         exit_solve_tolerance=1e-5,
         stop_at_weak_sink=stop_at_weak_sink,
-        # extend_tracking=True,
+        extend_tracking=True,
         istopzone=istopzone,
     )
     # Instantiate the MODFLOW 6 prt output control package

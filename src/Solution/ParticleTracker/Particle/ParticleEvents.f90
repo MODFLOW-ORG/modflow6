@@ -48,12 +48,9 @@ module ParticleEventsModule
   end type ExitEventType
 
   type, extends(ParticleEventType) :: TerminationEventType
-    character(len=80) :: message = ""
   end type TerminationEventType
 
   type, extends(ParticleEventType) :: ReleaseEventType
-    real(DP) :: coords(3) = 0.0_DP
-    integer(I4B) :: domain(3) = 0
   end type ReleaseEventType
 
   type, extends(ParticleEventType) :: TimestepEventType
