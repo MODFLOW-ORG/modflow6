@@ -1,7 +1,7 @@
 module CentralDifferenceSchemeModule
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DHALF, DONE
-  use IInterpolationSchemeModule, only: IInterpolationSchemeType, CoefficientsType
+  use InterpolationSchemeInterfaceModule, only: InterpolationSchemeInterface, CoefficientsType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
 
@@ -10,7 +10,7 @@ module CentralDifferenceSchemeModule
 
   public :: CentralDifferenceSchemeType
 
-  type, extends(IInterpolationSchemeType) :: CentralDifferenceSchemeType
+  type, extends(InterpolationSchemeInterface) :: CentralDifferenceSchemeType
     private
     class(DisBaseType), pointer :: dis
     type(TspFmiType), pointer :: fmi

@@ -1,7 +1,7 @@
 module TVDSchemeModule
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DONE, DZERO, DPREC, DHALF, DTWO
-  use IInterpolationSchemeModule, only: IInterpolationSchemeType, CoefficientsType
+  use InterpolationSchemeInterfaceModule, only: InterpolationSchemeInterface, CoefficientsType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
 
@@ -10,7 +10,7 @@ module TVDSchemeModule
 
   public :: TVDSchemeType
 
-  type, extends(IInterpolationSchemeType) :: TVDSchemeType
+  type, extends(InterpolationSchemeInterface) :: TVDSchemeType
     private
     class(DisBaseType), pointer :: dis
     type(TspFmiType), pointer :: fmi

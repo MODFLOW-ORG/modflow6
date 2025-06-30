@@ -4,7 +4,7 @@
 include ./makedefaults
 
 # Define the source file directories
-SOURCEDIR1=../src
+SOURCEDIR1=..\src
 SOURCEDIR2=../src/Distributed
 SOURCEDIR3=../src/Exchange
 SOURCEDIR4=../src/Idm
@@ -23,33 +23,34 @@ SOURCEDIR16=../src/Model/OverlandFlow
 SOURCEDIR17=../src/Model/ParticleTracking
 SOURCEDIR18=../src/Model/SurfaceWaterFlow
 SOURCEDIR19=../src/Model/TransportModel
-SOURCEDIR20=../src/Solution
-SOURCEDIR21=../src/Solution/LinearMethods
-SOURCEDIR22=../src/Solution/PETSc
-SOURCEDIR23=../src/Solution/ParticleTracker
-SOURCEDIR24=../src/Solution/ParticleTracker/Domain
-SOURCEDIR25=../src/Solution/ParticleTracker/Method
-SOURCEDIR26=../src/Solution/ParticleTracker/Particle
-SOURCEDIR27=../src/Timing
-SOURCEDIR28=../src/Utilities
-SOURCEDIR29=../src/Utilities/ArrayRead
-SOURCEDIR30=../src/Utilities/Export
-SOURCEDIR31=../src/Utilities/Idm
-SOURCEDIR32=../src/Utilities/Idm/mf6blockfile
-SOURCEDIR33=../src/Utilities/Idm/netcdf
-SOURCEDIR34=../src/Utilities/Libraries
-SOURCEDIR35=../src/Utilities/Libraries/blas
-SOURCEDIR36=../src/Utilities/Libraries/daglib
-SOURCEDIR37=../src/Utilities/Libraries/rcm
-SOURCEDIR38=../src/Utilities/Libraries/sparsekit
-SOURCEDIR39=../src/Utilities/Libraries/sparskit2
-SOURCEDIR40=../src/Utilities/Matrix
-SOURCEDIR41=../src/Utilities/Memory
-SOURCEDIR42=../src/Utilities/Observation
-SOURCEDIR43=../src/Utilities/OutputControl
-SOURCEDIR44=../src/Utilities/Performance
-SOURCEDIR45=../src/Utilities/TimeSeries
-SOURCEDIR46=../src/Utilities/Vector
+SOURCEDIR20=../src/Model/TransportModel/InterpolationScheme
+SOURCEDIR21=../src/Solution
+SOURCEDIR22=../src/Solution/LinearMethods
+SOURCEDIR23=../src/Solution/PETSc
+SOURCEDIR24=../src/Solution/ParticleTracker
+SOURCEDIR25=../src/Solution/ParticleTracker/Domain
+SOURCEDIR26=../src/Solution/ParticleTracker/Method
+SOURCEDIR27=../src/Solution/ParticleTracker/Particle
+SOURCEDIR28=../src/Timing
+SOURCEDIR29=../src/Utilities
+SOURCEDIR30=../src/Utilities/ArrayRead
+SOURCEDIR31=../src/Utilities/Export
+SOURCEDIR32=../src/Utilities/Idm
+SOURCEDIR33=../src/Utilities/Idm/mf6blockfile
+SOURCEDIR34=../src/Utilities/Idm/netcdf
+SOURCEDIR35=../src/Utilities/Libraries
+SOURCEDIR36=../src/Utilities/Libraries/blas
+SOURCEDIR37=../src/Utilities/Libraries/daglib
+SOURCEDIR38=../src/Utilities/Libraries/rcm
+SOURCEDIR39=../src/Utilities/Libraries/sparsekit
+SOURCEDIR40=../src/Utilities/Libraries/sparskit2
+SOURCEDIR41=../src/Utilities/Matrix
+SOURCEDIR42=../src/Utilities/Memory
+SOURCEDIR43=../src/Utilities/Observation
+SOURCEDIR44=../src/Utilities/OutputControl
+SOURCEDIR45=../src/Utilities/Performance
+SOURCEDIR46=../src/Utilities/TimeSeries
+SOURCEDIR47=../src/Utilities/Vector
 
 VPATH = \
 ${SOURCEDIR1} \
@@ -97,7 +98,8 @@ ${SOURCEDIR42} \
 ${SOURCEDIR43} \
 ${SOURCEDIR44} \
 ${SOURCEDIR45} \
-${SOURCEDIR46} 
+${SOURCEDIR46} \
+${SOURCEDIR47} 
 
 .SUFFIXES: .f90 .F90 .o
 
@@ -311,6 +313,8 @@ $(OBJDIR)/SimStages.o \
 $(OBJDIR)/NumericalModel.o \
 $(OBJDIR)/OutputControlData.o \
 $(OBJDIR)/gwf-ic.o \
+$(OBJDIR)/tsp-fmi.o \
+$(OBJDIR)/InterpolationSchemeInterface.o \
 $(OBJDIR)/UzfEtUtil.o \
 $(OBJDIR)/Xt3dAlgorithm.o \
 $(OBJDIR)/TvBase.o \
@@ -333,11 +337,14 @@ $(OBJDIR)/SwfCxsUtils.o \
 $(OBJDIR)/VirtualModel.o \
 $(OBJDIR)/BaseExchange.o \
 $(OBJDIR)/TspSpc.o \
-$(OBJDIR)/tsp-fmi.o \
 $(OBJDIR)/GweInputData.o \
 $(OBJDIR)/OutputControl.o \
 $(OBJDIR)/tsp-ic.o \
+$(OBJDIR)/UpstreamScheme.o \
+$(OBJDIR)/TVDScheme.o \
 $(OBJDIR)/TspAdvOptions.o \
+$(OBJDIR)/CentralDifferenceScheme.o \
+$(OBJDIR)/AdvSchemeEnum.o \
 $(OBJDIR)/UzfCellGroup.o \
 $(OBJDIR)/Xt3dInterface.o \
 $(OBJDIR)/gwf-tvk.o \

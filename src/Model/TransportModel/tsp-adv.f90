@@ -8,9 +8,9 @@ module TspAdvModule
   use TspAdvOptionsModule, only: TspAdvOptionsType
   use MatrixBaseModule, only: MatrixBaseType
   ! -- Interpolation schemes
-  use IInterpolationSchemeModule, only: IInterpolationSchemeType, CoefficientsType
+  use InterpolationSchemeInterfaceModule, only: InterpolationSchemeInterface, CoefficientsType
   use AdvSchemeEnumModule
-  use UpwindSchemeModule, only: UpwindSchemeType
+  use UpstreamSchemeModule, only: UpstreamSchemeType
   use CentralDifferenceSchemeModule, only: CentralDifferenceSchemeType
   use TVDSchemeModule, only: TVDSchemeType
 
@@ -26,7 +26,7 @@ module TspAdvModule
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
     real(DP), pointer :: eqnsclfac => null() !< governing equation scale factor; =1. for solute; =rhow*cpw for energy
 
-    class(IInterpolationSchemeType), allocatable :: face_interpolation !< interpolation scheme for face values
+    class(InterpolationSchemeInterface), allocatable :: face_interpolation !< interpolation scheme for face values
   contains
 
     procedure :: adv_df
@@ -127,7 +127,7 @@ contains
     select case (iadvwt_value)
     case (ADV_SCHEME_UPSTREAM)
       this%face_interpolation = &
-        UpwindSchemeType(this%dis, this%fmi)
+        UpstreamSchemeType(this%dis, this%fmi)
     case (ADV_SCHEME_CENTRAL)
       this%face_interpolation = &
         CentralDifferenceSchemeType(this%dis, this%fmi)
