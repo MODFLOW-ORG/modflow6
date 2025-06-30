@@ -248,6 +248,7 @@
 		<File RelativePath="..\src\Model\Discretization\Dis.f90"/>
 		<File RelativePath="..\src\Model\Discretization\Dis2d.f90"/>
 		<File RelativePath="..\src\Model\Discretization\Disu.f90"/>
+		<File RelativePath="..\src\Model\Discretization\DisUtils.f90"/>
 		<File RelativePath="..\src\Model\Discretization\Disv.f90"/>
 		<File RelativePath="..\src\Model\Discretization\Disv1d.f90"/>
 		<File RelativePath="..\src\Model\Discretization\Disv2d.f90"/></Filter>
@@ -368,12 +369,16 @@
 		<File RelativePath="..\src\Model\SurfaceWaterFlow\swf-zdg.f90"/>
 		<File RelativePath="..\src\Model\SurfaceWaterFlow\swf.f90"/></Filter>
 		<Filter Name="TransportModel">
+		<Filter Name="Gradient">
+		<File RelativePath="..\src\Model\TransportModel\Gradient\IGradient.f90"/>
+		<File RelativePath="..\src\Model\TransportModel\Gradient\LeastSquaredGradient.f90"/></Filter>
 		<Filter Name="InterpolationScheme">
 		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\AdvSchemeEnum.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\CentralDifferenceScheme.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\IInterpolationScheme.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\TVDScheme.f90"/>
-		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\UpwindScheme.f90"/></Filter>
+		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\UpwindScheme.f90"/>
+		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\UTVDScheme.f90"/></Filter>
 		<File RelativePath="..\src\Model\TransportModel\tsp-adv.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\tsp-apt.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\tsp-fmi.f90"/>

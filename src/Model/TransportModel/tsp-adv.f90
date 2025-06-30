@@ -7,12 +7,16 @@ module TspAdvModule
   use TspFmiModule, only: TspFmiType
   use TspAdvOptionsModule, only: TspAdvOptionsType
   use MatrixBaseModule, only: MatrixBaseType
+  ! -- Gradient schemes
+  use IGradient, only: IGradientType
+  use LeastSquaredGradientModule, only: LeastSquaredGradientType
   ! -- Interpolation schemes
   use IInterpolationSchemeModule, only: IInterpolationSchemeType, CoefficientsType
   use AdvSchemeEnumModule
   use UpwindSchemeModule, only: UpwindSchemeType
   use CentralDifferenceSchemeModule, only: CentralDifferenceSchemeType
   use TVDSchemeModule, only: TVDSchemeType
+  use UTVDSchemeModule, only: UTVDSchemeType
 
   implicit none
   private
@@ -27,6 +31,7 @@ module TspAdvModule
     real(DP), pointer :: eqnsclfac => null() !< governing equation scale factor; =1. for solute; =rhow*cpw for energy
 
     class(IInterpolationSchemeType), allocatable :: face_interpolation !< interpolation scheme for face values
+    class(IGradientType), allocatable :: gradient !< cell centered gradient
   contains
 
     procedure :: adv_df
@@ -122,6 +127,9 @@ contains
     this%dis => dis
     this%ibound => ibound
     !
+    ! -- Compute the gradient operator
+    this%gradient = LeastSquaredGradientType(this%dis, this%fmi)
+    !
     ! -- Create interpolation scheme
     iadvwt_value = this%iadvwt ! Dereference iadvwt to work with case statement
     select case (iadvwt_value)
@@ -134,6 +142,9 @@ contains
     case (ADV_SCHEME_TVD)
       this%face_interpolation = &
         TVDSchemeType(this%dis, this%fmi, this%ibound)
+    case (ADV_SCHEME_UTVD)
+      this%face_interpolation = &
+        UTVDSchemeType(this%dis, this%fmi, this%gradient)
     case default
       call store_error("Unknown advection scheme", terminate=.TRUE.)
     end select
@@ -366,6 +377,9 @@ contains
           case ('TVD')
             this%iadvwt = ADV_SCHEME_TVD
             write (this%iout, fmtiadvwt) 'TVD'
+          case ('UTVD')
+            this%iadvwt = ADV_SCHEME_UTVD
+            write (this%iout, fmtiadvwt) 'UTVD'
           case default
             write (errmsg, '(a, a)') &
               'Unknown scheme: ', trim(keyword)

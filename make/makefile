@@ -23,30 +23,32 @@ SOURCEDIR16=../src/Model/OverlandFlow
 SOURCEDIR17=../src/Model/ParticleTracking
 SOURCEDIR18=../src/Model/SurfaceWaterFlow
 SOURCEDIR19=../src/Model/TransportModel
-SOURCEDIR20=../src/Solution
-SOURCEDIR21=../src/Solution/LinearMethods
-SOURCEDIR22=../src/Solution/PETSc
-SOURCEDIR23=../src/Solution/ParticleTracker
-SOURCEDIR24=../src/Timing
-SOURCEDIR25=../src/Utilities
-SOURCEDIR26=../src/Utilities/ArrayRead
-SOURCEDIR27=../src/Utilities/Export
-SOURCEDIR28=../src/Utilities/Idm
-SOURCEDIR29=../src/Utilities/Idm/mf6blockfile
-SOURCEDIR30=../src/Utilities/Idm/netcdf
-SOURCEDIR31=../src/Utilities/Libraries
-SOURCEDIR32=../src/Utilities/Libraries/blas
-SOURCEDIR33=../src/Utilities/Libraries/daglib
-SOURCEDIR34=../src/Utilities/Libraries/rcm
-SOURCEDIR35=../src/Utilities/Libraries/sparsekit
-SOURCEDIR36=../src/Utilities/Libraries/sparskit2
-SOURCEDIR37=../src/Utilities/Matrix
-SOURCEDIR38=../src/Utilities/Memory
-SOURCEDIR39=../src/Utilities/Observation
-SOURCEDIR40=../src/Utilities/OutputControl
-SOURCEDIR41=../src/Utilities/Performance
-SOURCEDIR42=../src/Utilities/TimeSeries
-SOURCEDIR43=../src/Utilities/Vector
+SOURCEDIR20=../src/Model/TransportModel/Gradient
+SOURCEDIR21=../src/Model/TransportModel/InterpolationScheme
+SOURCEDIR22=../src/Solution
+SOURCEDIR23=../src/Solution/LinearMethods
+SOURCEDIR24=../src/Solution/PETSc
+SOURCEDIR25=../src/Solution/ParticleTracker
+SOURCEDIR26=../src/Timing
+SOURCEDIR27=../src/Utilities
+SOURCEDIR28=../src/Utilities/ArrayRead
+SOURCEDIR29=../src/Utilities/Export
+SOURCEDIR30=../src/Utilities/Idm
+SOURCEDIR31=../src/Utilities/Idm/mf6blockfile
+SOURCEDIR32=../src/Utilities/Idm/netcdf
+SOURCEDIR33=../src/Utilities/Libraries
+SOURCEDIR34=../src/Utilities/Libraries/blas
+SOURCEDIR35=../src/Utilities/Libraries/daglib
+SOURCEDIR36=../src/Utilities/Libraries/rcm
+SOURCEDIR37=../src/Utilities/Libraries/sparsekit
+SOURCEDIR38=../src/Utilities/Libraries/sparskit2
+SOURCEDIR39=../src/Utilities/Matrix
+SOURCEDIR40=../src/Utilities/Memory
+SOURCEDIR41=../src/Utilities/Observation
+SOURCEDIR42=../src/Utilities/OutputControl
+SOURCEDIR43=../src/Utilities/Performance
+SOURCEDIR44=../src/Utilities/TimeSeries
+SOURCEDIR45=../src/Utilities/Vector
 
 VPATH = \
 ${SOURCEDIR1} \
@@ -91,7 +93,9 @@ ${SOURCEDIR39} \
 ${SOURCEDIR40} \
 ${SOURCEDIR41} \
 ${SOURCEDIR42} \
-${SOURCEDIR43} 
+${SOURCEDIR43} \
+${SOURCEDIR44} \
+${SOURCEDIR45} 
 
 .SUFFIXES: .f90 .F90 .o
 
@@ -284,6 +288,7 @@ $(OBJDIR)/TrackControl.o \
 $(OBJDIR)/TimeSelect.o \
 $(OBJDIR)/prt-fmi.o \
 $(OBJDIR)/TimeStepSelect.o \
+$(OBJDIR)/LinearAlgebraUtils.o \
 $(OBJDIR)/SfrCrossSectionUtils.o \
 $(OBJDIR)/TernarySolveTrack.o \
 $(OBJDIR)/SubcellTri.o \
@@ -293,6 +298,8 @@ $(OBJDIR)/VirtualBase.o \
 $(OBJDIR)/STLVecInt.o \
 $(OBJDIR)/BaseModel.o \
 $(OBJDIR)/PrintSaveManager.o \
+$(OBJDIR)/tsp-fmi.o \
+$(OBJDIR)/SVD.o \
 $(OBJDIR)/SfrCrossSectionManager.o \
 $(OBJDIR)/dag_module.o \
 $(OBJDIR)/BoundaryPackageExt.o \
@@ -304,6 +311,10 @@ $(OBJDIR)/SimStages.o \
 $(OBJDIR)/NumericalModel.o \
 $(OBJDIR)/OutputControlData.o \
 $(OBJDIR)/gwf-ic.o \
+$(OBJDIR)/IInterpolationScheme.o \
+$(OBJDIR)/IGradient.o \
+$(OBJDIR)/DisUtils.o \
+$(OBJDIR)/PseudoInverse.o \
 $(OBJDIR)/UzfEtUtil.o \
 $(OBJDIR)/Xt3dAlgorithm.o \
 $(OBJDIR)/TvBase.o \
@@ -326,11 +337,16 @@ $(OBJDIR)/SwfCxsUtils.o \
 $(OBJDIR)/VirtualModel.o \
 $(OBJDIR)/BaseExchange.o \
 $(OBJDIR)/TspSpc.o \
-$(OBJDIR)/tsp-fmi.o \
 $(OBJDIR)/GweInputData.o \
 $(OBJDIR)/OutputControl.o \
 $(OBJDIR)/tsp-ic.o \
+$(OBJDIR)/UTVDScheme.o \
+$(OBJDIR)/UpwindScheme.o \
+$(OBJDIR)/TVDScheme.o \
 $(OBJDIR)/TspAdvOptions.o \
+$(OBJDIR)/LeastSquaredGradient.o \
+$(OBJDIR)/CentralDifferenceScheme.o \
+$(OBJDIR)/AdvSchemeEnum.o \
 $(OBJDIR)/UzfCellGroup.o \
 $(OBJDIR)/Xt3dInterface.o \
 $(OBJDIR)/gwf-tvk.o \
@@ -509,13 +525,10 @@ $(OBJDIR)/RunControlFactory.o \
 $(OBJDIR)/IdmLoad.o \
 $(OBJDIR)/ConnectionBuilder.o \
 $(OBJDIR)/comarg.o \
-$(OBJDIR)/LinearAlgebraUtils.o \
 $(OBJDIR)/mf6core.o \
-$(OBJDIR)/SVD.o \
 $(OBJDIR)/BaseGeometry.o \
 $(OBJDIR)/mf6.o \
 $(OBJDIR)/StringList.o \
-$(OBJDIR)/PseudoInverse.o \
 $(OBJDIR)/MemorySetHandler.o \
 $(OBJDIR)/ilut.o \
 $(OBJDIR)/sparsekit.o \
