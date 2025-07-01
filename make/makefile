@@ -533,7 +533,6 @@ $(OBJDIR)/IdmLoad.o \
 $(OBJDIR)/ConnectionBuilder.o \
 $(OBJDIR)/comarg.o \
 $(OBJDIR)/mf6core.o \
-$(OBJDIR)/IInterpolationScheme.o \
 $(OBJDIR)/BaseGeometry.o \
 $(OBJDIR)/mf6.o \
 $(OBJDIR)/StringList.o \
@@ -543,7 +542,6 @@ $(OBJDIR)/sparsekit.o \
 $(OBJDIR)/rcm.o \
 $(OBJDIR)/blas1_d.o \
 $(OBJDIR)/Iunit.o \
-$(OBJDIR)/UpwindScheme.o \
 $(OBJDIR)/GwfSfrCommon.o \
 $(OBJDIR)/gwf-sfr-transient.o \
 $(OBJDIR)/gwf-sfr-steady.o \

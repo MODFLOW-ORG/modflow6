@@ -377,7 +377,8 @@
 		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\CentralDifferenceScheme.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\InterpolationSchemeInterface.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\TVDScheme.f90"/>
-		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\UpstreamScheme.f90"/></Filter>
+		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\UpstreamScheme.f90"/>
+		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\UTVDScheme.f90"/></Filter>
 		<File RelativePath="..\src\Model\TransportModel\tsp-adv.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\tsp-apt.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\tsp-fmi.f90"/>
