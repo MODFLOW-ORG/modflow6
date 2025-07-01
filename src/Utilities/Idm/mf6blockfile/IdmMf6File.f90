@@ -282,16 +282,7 @@ contains
     if (this%mf6_input%subcomponent_type == 'STO') then
       allocate (sto_loader)
       this%rp_loader => sto_loader
-    else if (this%readarraylayer) then
-      select case (this%mf6_input%subcomponent_type)
-      case ('EVTA', 'RCHA')
-        ! no-op
-      case default
-        call dev_feature('Input file "'//trim(this%input_name)// &
-          '" READARRAYLAYER option is still under development, install the &
-          &nightly build or compile from source with IDEVELOPMODE = 1.', &
-        this%iout)
-      end select
+    else if (this%readasarrays) then
       allocate (arrlayer_loader)
       this%rp_loader => arrlayer_loader
     else if (this%readarraygrid) then

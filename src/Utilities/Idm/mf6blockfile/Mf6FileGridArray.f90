@@ -82,7 +82,7 @@ contains
     ! initialize input context memory
     call this%bound_context%create(mf6_input, &
                                    readarraygrid=.true., &
-                                   readarraylayer=.false.)
+                                   readasarrays=.false.)
 
     ! allocate user nodelist
     call mem_allocate(this%nodeulist, this%bound_context%maxbound, &

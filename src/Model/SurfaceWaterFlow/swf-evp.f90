@@ -61,7 +61,7 @@ module SwfEvpModule
     procedure :: bnd_da => evp_da
     procedure :: define_listlabel => evp_define_listlabel
     procedure :: bound_value => evp_bound_value
-    procedure, private :: default_nodelist
+    procedure :: default_nodelist
     procedure, private :: reach_length_pointer
     procedure, private :: get_qevp
     procedure, private :: get_evap_reduce_mult
