@@ -523,10 +523,13 @@ $(OBJDIR)/RunControlFactory.o \
 $(OBJDIR)/IdmLoad.o \
 $(OBJDIR)/ConnectionBuilder.o \
 $(OBJDIR)/comarg.o \
+$(OBJDIR)/LinearAlgebraUtils.o \
 $(OBJDIR)/mf6core.o \
+$(OBJDIR)/SingularValueDecomposition.o \
 $(OBJDIR)/BaseGeometry.o \
 $(OBJDIR)/mf6.o \
 $(OBJDIR)/StringList.o \
+$(OBJDIR)/PseudoInverse.o \
 $(OBJDIR)/MemorySetHandler.o \
 $(OBJDIR)/ilut.o \
 $(OBJDIR)/sparsekit.o \
