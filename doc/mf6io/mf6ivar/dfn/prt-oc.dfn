@@ -260,6 +260,14 @@ longname file keyword
 description name of the tracking times file
 removed 6.6.0
 
+block options
+name dev_dump_event_trace
+type keyword
+reader urword
+optional true
+longname print particle tracking events
+description print a verbose particle tracking event trace to standard output
+
 # --------------------- prt oc dimensions ------------------
 
 block dimensions

@@ -64,7 +64,7 @@ contains
   !> @brief Track a particle across a triangular subcell.
   subroutine track_subcell(this, subcell, particle, tmax)
     use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB
-    use ParticleEventsModule, only: EXIT, TERMINATE, TIMESTEP, USERTIME
+    use ParticleEventModule, only: CELLEXIT, TERMINATE, TIMESTEP, USERTIME
     ! dummy
     class(MethodSubcellTernaryType), intent(inout) :: this
     class(SubcellTriType), intent(in) :: subcell
@@ -131,7 +131,7 @@ contains
     real(DP) :: dtexit
     real(DP) :: alpexit
     real(DP) :: betexit
-    integer(I4B) :: reason
+    integer(I4B) :: event_code
     integer(I4B) :: i
 
     ! Set solution method
@@ -143,7 +143,7 @@ contains
 
     ntmax = 10000
     tol = particle%extol
-    reason = -1
+    event_code = -1
 
     ! Set some local variables for convenience.
     xi = particle%x
@@ -213,9 +213,8 @@ contains
     ! If the subcell has no exit face, terminate the particle.
     ! todo: after initial release, consider ramifications
     if (itopbotexit == 0 .and. itrifaceexit == 0) then
-      particle%istatus = TERM_NO_EXITS_SUB
-      particle%advancing = .false.
-      call this%dispatch_terminate(particle)
+      call this%events%terminate(particle, &
+                                 status=TERM_NO_EXITS_SUB)
       return
     end if
 
@@ -243,9 +242,8 @@ contains
 
     ! -- Make sure dt is positive
     if (dtexit < DZERO) then
-      particle%istatus = TERM_NO_EXITS_SUB
-      particle%advancing = .false.
-      call this%dispatch_terminate(particle)
+      call this%events%terminate(particle, &
+                                 status=TERM_NO_EXITS_SUB)
       return
     end if
 
@@ -271,7 +269,7 @@ contains
         particle%z = z
         particle%ttrack = t
         particle%istatus = ACTIVE
-        call this%dispatch_usertime(particle)
+        call this%events%usertime(particle)
       end do
     end if
 
@@ -286,13 +284,13 @@ contains
       exitFace = 0
       particle%istatus = ACTIVE
       particle%advancing = .false.
-      reason = TIMESTEP
+      event_code = TIMESTEP
     else
       ! The computed exit time is less than or equal to the maximum time,
       ! so set final time for particle trajectory equal to exit time.
       t = texit
       dt = dtexit
-      reason = EXIT
+      event_code = CELLEXIT
     end if
     call calculate_xyz_position(dt, rxx, rxy, ryx, ryy, sxx, sxy, syy, &
                                 izstatus, x0, y0, az, vzi, vzbot, &
@@ -303,7 +301,7 @@ contains
     particle%ttrack = t
     particle%iboundary(3) = exitFace
 
-    call this%save(particle, reason=reason)
+    call this%dispatch(particle, event_code=event_code)
   end subroutine track_subcell
 
   !> @brief Do calculations related to analytical z solution

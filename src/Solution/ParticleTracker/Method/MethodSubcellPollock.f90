@@ -84,9 +84,9 @@ contains
   !! this context and for any modifications or errors.
   !<
   subroutine track_subcell(this, subcell, particle, tmax)
-    use ParticleEventsModule, only: TERMINATE, USERTIME
-    use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB, TERM_TIMEOUT
     use TdisModule, only: endofsimulation
+    use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB, TERM_TIMEOUT
+    use ParticleEventModule, only: TIMESTEP, CELLEXIT
     ! dummy
     class(MethodSubcellPollockType), intent(inout) :: this
     class(SubcellRectType), intent(in) :: subcell
@@ -118,9 +118,9 @@ contains
     real(DP) :: initialY
     real(DP) :: initialZ
     integer(I4B) :: exitFace
-    integer(I4B) :: reason
+    integer(I4B) :: event_code
 
-    reason = -1
+    event_code = -1
 
     ! Initial particle location in scaled subcell coordinates
     initialX = particle%x / subcell%dx
@@ -138,18 +138,14 @@ contains
     ! Subcell has no exit face, terminate the particle
     ! todo: after initial release, consider ramifications
     if ((statusVX .eq. 3) .and. (statusVY .eq. 3) .and. (statusVZ .eq. 3)) then
-      particle%istatus = TERM_NO_EXITS_SUB
-      particle%advancing = .false.
-      call this%dispatch_terminate(particle)
+      call this%events%terminate(particle, status=TERM_NO_EXITS_SUB)
       return
     end if
 
     ! Particle stationary, terminate it if it's the last timestep
     if ((statusVX .eq. 2) .and. (statusVY .eq. 2) .and. (statusVZ .eq. 2) .and. &
         endofsimulation) then
-      particle%istatus = TERM_TIMEOUT
-      particle%advancing = .false.
-      call this%dispatch_terminate(particle)
+      call this%events%terminate(particle, status=TERM_TIMEOUT)
       return
     end if
 
@@ -211,7 +207,7 @@ contains
         particle%z = z * subcell%dz
         particle%ttrack = t
         particle%istatus = ACTIVE
-        call this%dispatch_usertime(particle)
+        call this%events%usertime(particle)
       end do
     end if
 
@@ -230,7 +226,7 @@ contains
       exitFace = 0
       particle%istatus = ACTIVE
       particle%advancing = .false.
-      reason = 2 ! timestep end
+      event_code = TIMESTEP ! timestep end
     else
       ! The computed exit time is less than or equal to the maximum time,
       ! so set final time for particle trajectory equal to exit time and
@@ -262,7 +258,7 @@ contains
         print *, "programmer error, invalid exit face", exitFace
         call pstop(1)
       end if
-      reason = 1 ! cell transition
+      event_code = CELLEXIT
     end if
 
     ! Set final particle location in local (unscaled) subcell coordinates,
@@ -274,7 +270,7 @@ contains
     particle%iboundary(3) = exitFace
 
     ! Save particle track record
-    if (reason >= 0) call this%save(particle, reason=reason)
+    if (event_code >= 0) call this%dispatch(particle, event_code=event_code)
 
   end subroutine track_subcell
 

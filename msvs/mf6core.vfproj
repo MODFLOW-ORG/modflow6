@@ -329,15 +329,12 @@
 		<File RelativePath="..\src\Model\ModelUtilities\ModelPackageInput.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\Mover.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\PackageMover.f90"/>
-		<File RelativePath="..\src\Model\ModelUtilities\ReleaseSchedule.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\SfrCrossSectionManager.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\SfrCrossSectionUtils.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\SpdisWorkArray.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\SwfCxsUtils.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\TimeSelect.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\TimeStepSelect.f90"/>
-		<File RelativePath="..\src\Model\ModelUtilities\TrackFile.f90"/>
-		<File RelativePath="..\src\Model\ModelUtilities\TrackControl.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\TspAdvOptions.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\UzfCellGroup.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\UzfEtUtil.f90"/>
@@ -419,8 +416,11 @@
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodSubcellPool.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodSubcellTernary.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\TernarySolveUtils.f90"/></Filter>
-		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleEvents.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Particle.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleEvent.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleEvents.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleReleaseSchedule.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleTrackOutput.f90"/>
 		<Filter Name="PETSc">
 		<File RelativePath="..\src\Solution\PETSc\PetscConvergence.F90">
 			<FileConfiguration Name="Debug|Win32" ExcludedFromBuild="true"/>

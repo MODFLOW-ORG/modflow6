@@ -1,5 +1,5 @@
 !> @brief Particle release scheduling.
-module ReleaseScheduleModule
+module ParticleReleaseScheduleModule
 
   use ArrayHandlersModule, only: ExpandArray
   use ConstantsModule, only: DZERO, DONE, LINELENGTH
@@ -10,7 +10,7 @@ module ReleaseScheduleModule
 
   implicit none
   private
-  public :: ReleaseScheduleType
+  public :: ParticleReleaseScheduleType
   public :: create_release_schedule
 
   !> @brief Particle release scheduling utility.
@@ -26,7 +26,7 @@ module ReleaseScheduleModule
   !! achieved by calling `advance()`. After this, the `times` member
   !! is a debounced/consolidated schedule for the current time step.
   !<
-  type :: ReleaseScheduleType
+  type :: ParticleReleaseScheduleType
     real(DP), allocatable :: times(:) !< release times
     real(DP) :: tolerance !< release time coincidence tolerance
     type(TimeSelectType), pointer :: time_select !< time selection
@@ -38,14 +38,14 @@ module ReleaseScheduleModule
     procedure :: deallocate
     procedure :: log
     procedure :: schedule
-  end type ReleaseScheduleType
+  end type ParticleReleaseScheduleType
 
 contains
 
   !> @brief Create a new release schedule object.
   function create_release_schedule(tol) result(sched)
     real(DP), intent(in) :: tol !< coincident release time tolerance
-    type(ReleaseScheduleType), pointer :: sched !< schedule pointer
+    type(ParticleReleaseScheduleType), pointer :: sched !< schedule pointer
 
     allocate (sched)
     allocate (sched%times(0))
@@ -59,7 +59,7 @@ contains
 
   !> @brief Deallocate the release schedule.
   subroutine deallocate (this)
-    class(ReleaseScheduleType), intent(inout) :: this !< this instance
+    class(ParticleReleaseScheduleType), intent(inout) :: this !< this instance
 
     deallocate (this%times)
     call this%time_select%deallocate()
@@ -71,7 +71,7 @@ contains
 
   !> @brief Write the release schedule to the given output unit.
   subroutine log(this, iout)
-    class(ReleaseScheduleType), intent(inout) :: this !< this instance
+    class(ParticleReleaseScheduleType), intent(inout) :: this !< this instance
     integer(I4B), intent(in) :: iout !< output unit
     character(len=*), parameter :: fmt = &
       &"(6x,A,': ',50(G0,' '))"
@@ -91,7 +91,7 @@ contains
   !! a read-only property which the schedule maintains.
   !<
   subroutine schedule(this, trelease)
-    class(ReleaseScheduleType), intent(inout) :: this
+    class(ParticleReleaseScheduleType), intent(inout) :: this
     real(DP), intent(in) :: trelease
     call ExpandArray(this%times)
     this%times(size(this%times)) = trelease
@@ -109,7 +109,7 @@ contains
   !<
   subroutine advance(this, lines)
     use TdisModule, only: totimc, kstp, endofperiod
-    class(ReleaseScheduleType), intent(inout) :: this
+    class(ParticleReleaseScheduleType), intent(inout) :: this
     character(len=LINELENGTH), intent(in), optional :: lines(:)
     integer(I4B) :: it, i
     real(DP) :: tprevious
@@ -164,7 +164,7 @@ contains
   !! or the result may still be associated with a prior time step.
   !<
   logical function any(this) result(a)
-    class(ReleaseScheduleType) :: this
+    class(ParticleReleaseScheduleType) :: this
     a = this%count() > 0
   end function any
 
@@ -174,8 +174,8 @@ contains
   !! or the result may still be associated with a prior time step.
   !<
   integer function count(this) result(n)
-    class(ReleaseScheduleType) :: this
+    class(ParticleReleaseScheduleType) :: this
     n = size(this%times)
   end function count
 
-end module ReleaseScheduleModule
+end module ParticleReleaseScheduleModule
