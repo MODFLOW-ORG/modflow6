@@ -4,7 +4,7 @@
 include ./makedefaults
 
 # Define the source file directories
-SOURCEDIR1=..\src
+SOURCEDIR1=../src
 SOURCEDIR2=../src/Distributed
 SOURCEDIR3=../src/Exchange
 SOURCEDIR4=../src/Idm
