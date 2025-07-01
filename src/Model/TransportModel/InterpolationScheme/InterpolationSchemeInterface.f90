@@ -1,10 +1,10 @@
-module IInterpolationSchemeModule
+module InterpolationSchemeInterfaceModule
   use KindModule, only: DP, I4B
 
   implicit none
   private
 
-  public :: IInterpolationSchemeType
+  public :: InterpolationSchemeInterface
   public :: CoefficientsType
 
   type :: CoefficientsType
@@ -13,22 +13,22 @@ module IInterpolationSchemeModule
     real(DP) :: rhs = 0.0_dp
   end type CoefficientsType
 
-  type, abstract :: IInterpolationSchemeType
+  type, abstract :: InterpolationSchemeInterface
   contains
     procedure(compute_if), deferred :: compute
-  end type IInterpolationSchemeType
+  end type InterpolationSchemeInterface
 
   abstract interface
 
     function compute_if(this, n, m, iposnm, phi) result(phi_face)
       ! -- import
       import DP, I4B
-      import IInterpolationSchemeType
+      import InterpolationSchemeInterface
       import CoefficientsType
       ! -- return
       type(CoefficientsType) :: phi_face
       ! -- dummy
-      class(IInterpolationSchemeType), target :: this
+      class(InterpolationSchemeInterface), target :: this
       integer(I4B), intent(in) :: n
       integer(I4B), intent(in) :: m
       integer(I4B), intent(in) :: iposnm
@@ -37,4 +37,4 @@ module IInterpolationSchemeModule
 
   end interface
 
-end module IInterpolationSchemeModule
+end module InterpolationSchemeInterfaceModule

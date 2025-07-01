@@ -186,7 +186,7 @@ contains
     real(DP), intent(inout), dimension(:, :) :: U, Vt
     ! -- locals
     integer(I4B) :: m, n, I, J
-    real(DP), dimension(:, :), allocatable :: G
+    real(DP), dimension(2, 2) :: G
     real(DP) :: t11, t12, mu
 
     m = size(A, dim=1) ! Number of rows
@@ -233,7 +233,7 @@ contains
     real(DP), intent(inout), dimension(:, :) :: U, Vt
     ! -- locals
     integer(I4B) :: m, n, I
-    real(DP), dimension(:, :), allocatable :: G
+    real(DP), dimension(2, 2) :: G
     integer(I4B) :: zero_index
 
     m = size(A, dim=1) ! Number of rows
@@ -253,7 +253,6 @@ contains
         A(:, [I, zero_index]) = matmul(A(:, [I, zero_index]), transpose(G))
         Vt([I, zero_index], :) = matmul(G, Vt([I, zero_index], :))
       end do
-
     else
       ! Else zero out the row
       do I = zero_index + 1, n
@@ -358,7 +357,7 @@ contains
     real(DP), intent(inout), dimension(:, :) :: A
     real(DP), intent(inout), dimension(:, :), allocatable :: Qt
     ! -- locals
-    real(DP), dimension(:, :), allocatable :: G
+    real(DP), dimension(2, 2) :: G
     integer(I4B) :: m, n, I
 
     m = size(A, dim=1) ! Number of rows

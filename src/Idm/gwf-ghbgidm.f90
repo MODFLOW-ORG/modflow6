@@ -265,7 +265,7 @@ module GwfGhbgInputModule
     'INTEGER', & ! type
     '', & ! shape
     'maximum number of general-head boundaries in any stress period', & ! longname
-    .true., & ! required
+    .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -379,7 +379,7 @@ module GwfGhbgInputModule
     ), &
     InputBlockDefinitionType( &
     'DIMENSIONS', & ! blockname
-    .true., & ! required
+    .false., & ! required
     .false., & ! aggregate
     .false. & ! block_variable
     ), &

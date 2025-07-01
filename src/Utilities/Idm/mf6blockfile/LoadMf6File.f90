@@ -56,6 +56,7 @@ module LoadMf6FileModule
     logical(LGP) :: ts_active !< is timeseries active
     logical(LGP) :: export !< is array export active
     logical(LGP) :: readasarrays
+    logical(LGP) :: readarraygrid
     integer(I4B) :: inamedbound
     integer(I4B) :: iauxiliary
     integer(I4B) :: iout !< inunit for list log
@@ -129,6 +130,7 @@ contains
     this%ts_active = .false.
     this%export = .false.
     this%readasarrays = .false.
+    this%readarraygrid = .false.
     this%inamedbound = 0
     this%iauxiliary = 0
     this%iout = iout
@@ -212,6 +214,8 @@ contains
           this%inamedbound = 1
         else if (this%block_tags(iparam) == 'READASARRAYS') then
           this%readasarrays = .true.
+        else if (this%block_tags(iparam) == 'READARRAYGRID') then
+          this%readarraygrid = .true.
         else if (this%block_tags(iparam) == 'TS6') then
           this%ts_active = .true.
         else if (this%block_tags(iparam) == 'EXPORT_ARRAY_ASCII') then

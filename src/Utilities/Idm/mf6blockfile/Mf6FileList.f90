@@ -100,7 +100,7 @@ contains
     ! initialize package input context
     call this%bound_context%create(mf6_input, &
                                    readarraygrid=.false., &
-                                   readarraylayer=.false.)
+                                   readasarrays=.false.)
 
     ! store in scope SA cols for list input
     call this%bound_context%bound_params(this%param_names, this%nparam, &

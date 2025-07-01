@@ -8,7 +8,7 @@ module MethodSubcellTernaryModule
   use SubcellModule, only: SubcellType
   use SubcellTriModule, only: SubcellTriType, create_subcell_tri
   use ParticleModule, only: ParticleType
-  use TernarySolveTrack, only: traverse_triangle, step_analytical, canonical
+  use TernarySolveUtils, only: traverse_triangle, step_analytical, canonical
   use PrtFmiModule, only: PrtFmiType
   use BaseDisModule, only: DisBaseType
   use MathUtilModule, only: is_close
@@ -64,6 +64,7 @@ contains
   !> @brief Track a particle across a triangular subcell.
   subroutine track_subcell(this, subcell, particle, tmax)
     use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB
+    use ParticleEventsModule, only: EXIT, TERMINATE, TIMESTEP, USERTIME
     ! dummy
     class(MethodSubcellTernaryType), intent(inout) :: this
     class(SubcellTriType), intent(in) :: subcell
@@ -214,7 +215,7 @@ contains
     if (itopbotexit == 0 .and. itrifaceexit == 0) then
       particle%istatus = TERM_NO_EXITS_SUB
       particle%advancing = .false.
-      call this%save(particle, reason=3)
+      call this%dispatch_terminate(particle)
       return
     end if
 
@@ -244,7 +245,7 @@ contains
     if (dtexit < DZERO) then
       particle%istatus = TERM_NO_EXITS_SUB
       particle%advancing = .false.
-      call this%save(particle, reason=3)
+      call this%dispatch_terminate(particle)
       return
     end if
 
@@ -270,7 +271,7 @@ contains
         particle%z = z
         particle%ttrack = t
         particle%istatus = ACTIVE
-        call this%save(particle, reason=5)
+        call this%dispatch_usertime(particle)
       end do
     end if
 
@@ -285,13 +286,13 @@ contains
       exitFace = 0
       particle%istatus = ACTIVE
       particle%advancing = .false.
-      reason = 2 ! timestep end
+      reason = TIMESTEP
     else
       ! The computed exit time is less than or equal to the maximum time,
       ! so set final time for particle trajectory equal to exit time.
       t = texit
       dt = dtexit
-      reason = 1 ! (sub)cell transition
+      reason = EXIT
     end if
     call calculate_xyz_position(dt, rxx, rxy, ryx, ryy, sxx, sxy, syy, &
                                 izstatus, x0, y0, az, vzi, vzbot, &

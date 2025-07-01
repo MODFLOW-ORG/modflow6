@@ -1,7 +1,8 @@
 module UTVDSchemeModule
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DONE, DZERO, DSAME, DHALF
-  use IInterpolationSchemeModule, only: IInterpolationSchemeType, CoefficientsType
+  use InterpolationSchemeInterfaceModule, only: InterpolationSchemeInterface, &
+                                                CoefficientsType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
   use IGradient, only: IGradientType
@@ -31,7 +32,7 @@ module UTVDSchemeModule
   !!   which is used to enforce the TVD condition.
   !! - The `compute` method calculates the face coefficients for the transport equation.
   !<
-  type, extends(IInterpolationSchemeType) :: UTVDSchemeType
+  type, extends(InterpolationSchemeInterface) :: UTVDSchemeType
     private
     class(DisBaseType), pointer :: dis
     type(TspFmiType), pointer :: fmi

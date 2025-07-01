@@ -29,26 +29,29 @@ SOURCEDIR22=../src/Solution
 SOURCEDIR23=../src/Solution/LinearMethods
 SOURCEDIR24=../src/Solution/PETSc
 SOURCEDIR25=../src/Solution/ParticleTracker
-SOURCEDIR26=../src/Timing
-SOURCEDIR27=../src/Utilities
-SOURCEDIR28=../src/Utilities/ArrayRead
-SOURCEDIR29=../src/Utilities/Export
-SOURCEDIR30=../src/Utilities/Idm
-SOURCEDIR31=../src/Utilities/Idm/mf6blockfile
-SOURCEDIR32=../src/Utilities/Idm/netcdf
-SOURCEDIR33=../src/Utilities/Libraries
-SOURCEDIR34=../src/Utilities/Libraries/blas
-SOURCEDIR35=../src/Utilities/Libraries/daglib
-SOURCEDIR36=../src/Utilities/Libraries/rcm
-SOURCEDIR37=../src/Utilities/Libraries/sparsekit
-SOURCEDIR38=../src/Utilities/Libraries/sparskit2
-SOURCEDIR39=../src/Utilities/Matrix
-SOURCEDIR40=../src/Utilities/Memory
-SOURCEDIR41=../src/Utilities/Observation
-SOURCEDIR42=../src/Utilities/OutputControl
-SOURCEDIR43=../src/Utilities/Performance
-SOURCEDIR44=../src/Utilities/TimeSeries
-SOURCEDIR45=../src/Utilities/Vector
+SOURCEDIR26=../src/Solution/ParticleTracker/Domain
+SOURCEDIR27=../src/Solution/ParticleTracker/Method
+SOURCEDIR28=../src/Solution/ParticleTracker/Particle
+SOURCEDIR29=../src/Timing
+SOURCEDIR30=../src/Utilities
+SOURCEDIR31=../src/Utilities/ArrayRead
+SOURCEDIR32=../src/Utilities/Export
+SOURCEDIR33=../src/Utilities/Idm
+SOURCEDIR34=../src/Utilities/Idm/mf6blockfile
+SOURCEDIR35=../src/Utilities/Idm/netcdf
+SOURCEDIR36=../src/Utilities/Libraries
+SOURCEDIR37=../src/Utilities/Libraries/blas
+SOURCEDIR38=../src/Utilities/Libraries/daglib
+SOURCEDIR39=../src/Utilities/Libraries/rcm
+SOURCEDIR40=../src/Utilities/Libraries/sparsekit
+SOURCEDIR41=../src/Utilities/Libraries/sparskit2
+SOURCEDIR42=../src/Utilities/Matrix
+SOURCEDIR43=../src/Utilities/Memory
+SOURCEDIR44=../src/Utilities/Observation
+SOURCEDIR45=../src/Utilities/OutputControl
+SOURCEDIR46=../src/Utilities/Performance
+SOURCEDIR47=../src/Utilities/TimeSeries
+SOURCEDIR48=../src/Utilities/Vector
 
 VPATH = \
 ${SOURCEDIR1} \
@@ -95,7 +98,10 @@ ${SOURCEDIR41} \
 ${SOURCEDIR42} \
 ${SOURCEDIR43} \
 ${SOURCEDIR44} \
-${SOURCEDIR45} 
+${SOURCEDIR45} \
+${SOURCEDIR46} \
+${SOURCEDIR47} \
+${SOURCEDIR48} 
 
 .SUFFIXES: .f90 .F90 .o
 
@@ -287,10 +293,11 @@ $(OBJDIR)/Subcell.o \
 $(OBJDIR)/TrackControl.o \
 $(OBJDIR)/TimeSelect.o \
 $(OBJDIR)/prt-fmi.o \
+$(OBJDIR)/ParticleEvents.o \
 $(OBJDIR)/TimeStepSelect.o \
 $(OBJDIR)/LinearAlgebraUtils.o \
 $(OBJDIR)/SfrCrossSectionUtils.o \
-$(OBJDIR)/TernarySolveTrack.o \
+$(OBJDIR)/TernarySolveUtils.o \
 $(OBJDIR)/SubcellTri.o \
 $(OBJDIR)/Method.o \
 $(OBJDIR)/SubcellRect.o \
@@ -299,7 +306,7 @@ $(OBJDIR)/STLVecInt.o \
 $(OBJDIR)/BaseModel.o \
 $(OBJDIR)/PrintSaveManager.o \
 $(OBJDIR)/tsp-fmi.o \
-$(OBJDIR)/SVD.o \
+$(OBJDIR)/SingularValueDecomposition.o \
 $(OBJDIR)/SfrCrossSectionManager.o \
 $(OBJDIR)/dag_module.o \
 $(OBJDIR)/BoundaryPackageExt.o \
@@ -311,7 +318,7 @@ $(OBJDIR)/SimStages.o \
 $(OBJDIR)/NumericalModel.o \
 $(OBJDIR)/OutputControlData.o \
 $(OBJDIR)/gwf-ic.o \
-$(OBJDIR)/IInterpolationScheme.o \
+$(OBJDIR)/InterpolationSchemeInterface.o \
 $(OBJDIR)/IGradient.o \
 $(OBJDIR)/DisUtils.o \
 $(OBJDIR)/PseudoInverse.o \
@@ -341,7 +348,7 @@ $(OBJDIR)/GweInputData.o \
 $(OBJDIR)/OutputControl.o \
 $(OBJDIR)/tsp-ic.o \
 $(OBJDIR)/UTVDScheme.o \
-$(OBJDIR)/UpwindScheme.o \
+$(OBJDIR)/UpstreamScheme.o \
 $(OBJDIR)/TVDScheme.o \
 $(OBJDIR)/TspAdvOptions.o \
 $(OBJDIR)/LeastSquaredGradient.o \
@@ -526,6 +533,7 @@ $(OBJDIR)/IdmLoad.o \
 $(OBJDIR)/ConnectionBuilder.o \
 $(OBJDIR)/comarg.o \
 $(OBJDIR)/mf6core.o \
+$(OBJDIR)/IInterpolationScheme.o \
 $(OBJDIR)/BaseGeometry.o \
 $(OBJDIR)/mf6.o \
 $(OBJDIR)/StringList.o \
@@ -535,6 +543,7 @@ $(OBJDIR)/sparsekit.o \
 $(OBJDIR)/rcm.o \
 $(OBJDIR)/blas1_d.o \
 $(OBJDIR)/Iunit.o \
+$(OBJDIR)/UpwindScheme.o \
 $(OBJDIR)/GwfSfrCommon.o \
 $(OBJDIR)/gwf-sfr-transient.o \
 $(OBJDIR)/gwf-sfr-steady.o \

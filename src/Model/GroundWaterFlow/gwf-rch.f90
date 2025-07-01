@@ -28,14 +28,12 @@ module RchModule
     real(DP), dimension(:), pointer, contiguous :: recharge => null() !< boundary recharge array
     integer(I4B), dimension(:), pointer, contiguous :: nodesontop => NULL() ! User provided cell numbers; nodelist is cells where recharge is applied)
     logical, pointer, private :: fixed_cell
-    logical, pointer, private :: read_as_arrays
 
   contains
 
     procedure :: rch_allocate_scalars
     procedure :: allocate_arrays => rch_allocate_arrays
     procedure :: source_options => rch_source_options
-    procedure :: source_dimensions => rch_source_dimensions
     procedure :: log_rch_options
     procedure :: read_initial_attr => rch_read_initial_attr
     procedure :: bnd_rp => rch_rp
@@ -45,7 +43,6 @@ module RchModule
     procedure :: set_nodesontop
     procedure :: define_listlabel => rch_define_listlabel
     procedure :: bound_value => rch_bound_value
-    procedure, private :: default_nodelist
     ! -- for observations
     procedure, public :: bnd_obs_supported => rch_obs_supported
     procedure, public :: bnd_df_obs => rch_df_obs
@@ -104,11 +101,9 @@ contains
     !
     ! -- allocate internal members
     allocate (this%fixed_cell)
-    allocate (this%read_as_arrays)
     !
     ! -- Set values
     this%fixed_cell = .false.
-    this%read_as_arrays = .false.
   end subroutine rch_allocate_scalars
 
   !> @brief Allocate package arrays
@@ -142,7 +137,6 @@ contains
     class(RchType), intent(inout) :: this
     ! -- local
     logical(LGP) :: found_fixed_cell = .false.
-    logical(LGP) :: found_readasarrays = .false.
     !
     ! -- source common bound options
     call this%BndExtType%source_options()
@@ -150,37 +144,25 @@ contains
     ! -- update defaults with idm sourced values
     call mem_set_value(this%fixed_cell, 'FIXED_CELL', this%input_mempath, &
                        found_fixed_cell)
-    call mem_set_value(this%read_as_arrays, 'READASARRAYS', this%input_mempath, &
-                       found_readasarrays)
     !
-    if (found_readasarrays) then
-      if (this%dis%supports_layers()) then
-        this%text = texta
-      else
-        errmsg = 'READASARRAYS option is not compatible with selected'// &
-                 ' discretization type.'
-        call store_error(errmsg)
-        call store_error_filename(this%input_fname)
-      end if
+    if (this%readasarrays) then
+      this%text = texta
     end if
     !
     ! -- log rch params
-    call this%log_rch_options(found_fixed_cell, found_readasarrays)
+    call this%log_rch_options(found_fixed_cell)
   end subroutine rch_source_options
 
   !> @brief Log options specific to RchType
   !<
-  subroutine log_rch_options(this, found_fixed_cell, found_readasarrays)
+  subroutine log_rch_options(this, found_fixed_cell)
     implicit none
     ! -- dummy
     class(RchType), intent(inout) :: this
     logical(LGP), intent(in) :: found_fixed_cell
-    logical(LGP), intent(in) :: found_readasarrays
     ! -- formats
     character(len=*), parameter :: fmtfixedcell = &
       &"(4x, 'RECHARGE WILL BE APPLIED TO SPECIFIED CELL.')"
-    character(len=*), parameter :: fmtreadasarrays = &
-      &"(4x, 'RECHARGE INPUT WILL BE READ AS ARRAY(S).')"
     !
     ! -- log found options
     write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text)) &
@@ -190,46 +172,10 @@ contains
       write (this%iout, fmtfixedcell)
     end if
     !
-    if (found_readasarrays) then
-      write (this%iout, fmtreadasarrays)
-    end if
-    !
     ! -- close logging block
     write (this%iout, '(1x,a)') &
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
   end subroutine log_rch_options
-
-  !> @brief Source the dimensions for this package
-  !!
-  !! Dimensions block is not required if:
-  !!   (1) discretization is DIS or DISV, and
-  !!   (2) READASARRAYS option has been specified.
-  !<
-  subroutine rch_source_dimensions(this)
-    ! -- dummy
-    class(RchType), intent(inout) :: this
-    !
-    if (this%read_as_arrays) then
-      this%maxbound = this%dis%get_ncpl()
-      !
-      ! -- verify dimensions were set
-      if (this%maxbound <= 0) then
-        write (errmsg, '(a)') &
-          'MAXBOUND must be an integer greater than zero.'
-        call store_error(errmsg)
-        call store_error_filename(this%input_fname)
-      end if
-      !
-    else
-      !
-      ! -- source maxbound
-      call this%BndExtType%source_dimensions()
-    end if
-    !
-    ! -- Call define_listlabel to construct the list label that is written
-    !    when PRINT_INPUT option is used.
-    call this%define_listlabel()
-  end subroutine rch_source_dimensions
 
   !> @brief Part of allocate and read
   !<
@@ -237,9 +183,13 @@ contains
     ! -- dummy
     class(RchType), intent(inout) :: this
     !
-    if (this%read_as_arrays) then
+    if (this%readasarrays) then
       call this%default_nodelist()
     end if
+    !
+    ! -- if fixed_cell option not set, then need to store nodelist
+    !    in the nodesontop array
+    if (.not. this%fixed_cell) call this%set_nodesontop()
   end subroutine rch_read_initial_attr
 
   !> @brief Read and Prepare
@@ -255,24 +205,18 @@ contains
     !
     if (this%iper /= kper) return
     !
-    if (this%read_as_arrays) then
-      !
-      ! -- update nodelist based on IRCH input
-      call nodelist_update(this%nodelist, this%nbound, this%maxbound, &
-                           this%dis, this%input_mempath)
-      !
-    else
-      !
-      call this%BndExtType%bnd_rp()
-      !
-    end if
+    call this%BndExtType%bnd_rp()
     !
     ! -- copy nodelist to nodesontop if not fixed cell
     if (.not. this%fixed_cell) call this%set_nodesontop()
     !
-    ! -- Write the list to iout if requested
     if (this%iprpak /= 0) then
-      call this%write_list()
+      if (this%readasarrays) then
+        ! no-op
+      else
+        ! -- Write the list to iout
+        call this%write_list()
+      end if
     end if
   end subroutine rch_rp
 
@@ -393,7 +337,6 @@ contains
     !
     ! -- scalars
     deallocate (this%fixed_cell)
-    deallocate (this%read_as_arrays)
     !
     ! -- arrays
     if (associated(this%nodesontop)) deallocate (this%nodesontop)
@@ -426,47 +369,6 @@ contains
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
   end subroutine rch_define_listlabel
-
-  !> @brief Assign default nodelist when READASARRAYS is specified.
-  !!
-  !! Equivalent to reading IRCH as CONSTANT 1
-  !<
-  subroutine default_nodelist(this)
-    ! -- dummy
-    class(RchType) :: this
-    ! -- local
-    integer(I4B) :: il, ir, ic, ncol, nrow, nlay, nodeu, noder, ipos
-    !
-    ! -- set variables
-    if (this%dis%ndim == 3) then
-      nlay = this%dis%mshape(1)
-      nrow = this%dis%mshape(2)
-      ncol = this%dis%mshape(3)
-    elseif (this%dis%ndim == 2) then
-      nlay = this%dis%mshape(1)
-      nrow = 1
-      ncol = this%dis%mshape(2)
-    end if
-    !
-    ! -- Populate nodelist
-    ipos = 1
-    il = 1
-    do ir = 1, nrow
-      do ic = 1, ncol
-        nodeu = get_node(il, ir, ic, nlay, nrow, ncol)
-        noder = this%dis%get_nodenumber(nodeu, 0)
-        this%nodelist(ipos) = noder
-        ipos = ipos + 1
-      end do
-    end do
-    !
-    ! -- Assign nbound
-    this%nbound = ipos - 1
-    !
-    ! -- if fixed_cell option not set, then need to store nodelist
-    !    in the nodesontop array
-    if (.not. this%fixed_cell) call this%set_nodesontop()
-  end subroutine default_nodelist
 
   ! -- Procedures related to observations
 
@@ -524,50 +426,6 @@ contains
       call store_error_filename(this%input_fname)
     end select
   end function rch_bound_value
-
-  !> @brief Update the nodelist based on IRCH input
-  !!
-  !! This is a module scoped routine to check for IRCH
-  !! input. If array input was provided, INIRCH and IRCH
-  !! will be allocated in the input context.  If the read
-  !! state variable INIRCH is set to 1 during this period
-  !! update, IRCH input was read and is used here to update
-  !! the nodelist.
-  !!
-  !<
-  subroutine nodelist_update(nodelist, nbound, maxbound, &
-                             dis, input_mempath)
-    ! -- modules
-    use MemoryManagerModule, only: mem_setptr
-    use BaseDisModule, only: DisBaseType
-    ! -- dummy
-    integer(I4B), dimension(:), contiguous, &
-      pointer, intent(inout) :: nodelist
-    class(DisBaseType), pointer, intent(in) :: dis
-    character(len=*), intent(in) :: input_mempath
-    integer(I4B), intent(inout) :: nbound
-    integer(I4B), intent(in) :: maxbound
-    character(len=24) :: aname = '     LAYER OR NODE INDEX'
-    ! -- local
-    integer(I4B), dimension(:), contiguous, &
-      pointer :: irch => null()
-    integer(I4B), pointer :: inirch => NULL()
-    !
-    ! -- set pointer to input context INIRCH
-    call mem_setptr(inirch, 'INIRCH', input_mempath)
-    !
-    ! -- check INIRCH read state
-    if (inirch == 1) then
-      ! -- irch was read this period
-      !
-      ! -- set pointer to input context IRCH
-      call mem_setptr(irch, 'IRCH', input_mempath)
-      !
-      ! -- update nodelist
-      call dis%nlarray_to_nodelist(irch, nodelist, &
-                                   maxbound, nbound, aname)
-    end if
-  end subroutine nodelist_update
 
 end module RchModule
 

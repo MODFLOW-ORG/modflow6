@@ -52,8 +52,8 @@ module BoundInputContextModule
       contiguous :: auxvar => null() !< auxiliary variable array
     integer(I4B), dimension(:), pointer, contiguous :: mshape => null() !< model shape
     logical(LGP) :: readasarrays !< grid or layer array input
-    logical(LGP) :: readarraylayer !< array layer reader
     logical(LGP) :: readarraygrid !< array grid reader
+    logical(LGP) :: readarray
     type(DynamicPackageParamsType) :: package_params
     type(ModflowInputType) :: mf6_input !< description of input
   contains
@@ -72,16 +72,16 @@ contains
   !> @brief create boundary input context
   !!
   !<
-  subroutine create(this, mf6_input, readarraygrid, readarraylayer)
+  subroutine create(this, mf6_input, readarraygrid, readasarrays)
     class(BoundInputContextType) :: this
     type(ModflowInputType), intent(in) :: mf6_input
     logical(LGP), intent(in) :: readarraygrid
-    logical(LGP), intent(in) :: readarraylayer
+    logical(LGP), intent(in) :: readasarrays
 
     this%mf6_input = mf6_input
     this%readarraygrid = readarraygrid
-    this%readarraylayer = readarraylayer
-    this%readasarrays = readarraygrid .or. readarraylayer
+    this%readasarrays = readasarrays
+    this%readarray = readarraygrid .or. readasarrays
 
     ! create the dynamic package input context
     call this%allocate_scalars()
@@ -136,7 +136,7 @@ contains
     this%nodes = product(this%mshape)
 
     ! initialize package params object
-    call this%package_params%init(this%mf6_input, 'PERIOD', this%readasarrays, &
+    call this%package_params%init(this%mf6_input, 'PERIOD', this%readarray, &
                                   this%naux, this%inamedbound)
   end subroutine allocate_scalars
 
@@ -161,7 +161,7 @@ contains
     end if
 
     ! allocate cellid if this is not list input
-    if (this%readasarrays) then
+    if (this%readarray) then
       call mem_allocate(cellid, 0, 0, 'CELLID', this%mf6_input%mempath)
     end if
 
@@ -370,7 +370,7 @@ contains
     end do
 
     if (allocate_params) then
-      if (this%readasarrays) then
+      if (this%readarray) then
         call this%array_params_create(params, nparam, input_name)
       else
         call this%list_params_create(params, nparam, input_name)
