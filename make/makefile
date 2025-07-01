@@ -511,7 +511,7 @@ $(OBJDIR)/ConnectionBuilder.o \
 $(OBJDIR)/comarg.o \
 $(OBJDIR)/LinearAlgebraUtils.o \
 $(OBJDIR)/mf6core.o \
-$(OBJDIR)/SVD.o \
+$(OBJDIR)/SingularValueDecomposition.o \
 $(OBJDIR)/BaseGeometry.o \
 $(OBJDIR)/mf6.o \
 $(OBJDIR)/StringList.o \
