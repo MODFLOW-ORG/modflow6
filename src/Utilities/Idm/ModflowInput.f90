@@ -141,8 +141,6 @@ contains
         select case (keyword)
         case ('READASARRAYS')
           write (sc_type, '(a)') trim(subcomponent_type)//'A'
-        case ('READARRAYLAYER')
-          write (sc_type, '(a)') trim(subcomponent_type)//'L'
         case ('READARRAYGRID')
           write (sc_type, '(a)') trim(subcomponent_type)//'G'
         case default

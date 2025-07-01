@@ -82,7 +82,7 @@ module InputLoadTypeModule
     character(len=LINELENGTH) :: component_input_name !< component input name, e.g. model name file
     character(len=LINELENGTH) :: input_name !< input name, e.g. package *.chd file
     character(len=LINELENGTH), dimension(:), allocatable :: param_names !< dynamic param tagnames
-    logical(LGP) :: readarraylayer
+    logical(LGP) :: readasarrays
     logical(LGP) :: readarraygrid
     integer(I4B) :: iperblock !< index of period block on block definition list
     integer(I4B) :: iout !< inunit number for logging
@@ -356,7 +356,7 @@ contains
     this%component_name = component_name
     this%component_input_name = component_input_name
     this%input_name = input_name
-    this%readarraylayer = .false.
+    this%readasarrays = .false.
     this%readarraygrid = .false.
     this%iperblock = iperblock
     this%nparam = 0
@@ -373,7 +373,7 @@ contains
       call store_error_filename(this%input_name)
     end if
 
-    ! set readarraylayer and readarraygrid
+    ! set readasarrays and readarraygrid
     if (mf6_input%block_dfns(iperblock)%aggregate) then
       ! no-op, list based input
     else
@@ -381,8 +381,8 @@ contains
         idt => mf6_input%param_dfns(iparam)
         if (idt%blockname == 'OPTIONS') then
           select case (idt%tagname)
-          case ('READARRAYLAYER', 'READASARRAYS')
-            this%readarraylayer = .true.
+          case ('READASARRAYS')
+            this%readasarrays = .true.
           case ('READARRAYGRID')
             this%readarraygrid = .true.
           case default

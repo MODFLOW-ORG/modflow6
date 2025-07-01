@@ -106,7 +106,7 @@ contains
     ! initialize input context memory
     call this%bound_context%create(mf6_input, &
                                    readarraygrid=.false., &
-                                   readarraylayer=.true.)
+                                   readasarrays=.true.)
 
     ! allocate dfn params
     call this%params_alloc()

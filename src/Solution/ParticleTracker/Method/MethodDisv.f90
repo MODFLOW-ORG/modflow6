@@ -142,6 +142,7 @@ contains
     ! modules
     use DisvModule, only: DisvType
     use ParticleModule, only: TERM_BOUNDARY
+    use ParticleEventsModule, only: TERMINATE
     ! dummy
     class(MethodDisvType), intent(inout) :: this
     type(CellPolyType), pointer, intent(inout) :: cell
@@ -177,7 +178,7 @@ contains
         particle%idomain(2) = particle%icp
         particle%istatus = TERM_BOUNDARY
         particle%izone = particle%izp
-        call this%save(particle, reason=3)
+        call this%dispatch_terminate(particle)
         return
       else
         particle%icp = particle%idomain(2)
@@ -225,6 +226,7 @@ contains
   !> @brief Pass a particle to the next cell, if there is one
   subroutine pass_disv(this, particle)
     use ParticleModule, only: TERM_BOUNDARY
+    use ParticleEventsModule, only: TERMINATE
     ! dummy
     class(MethodDisvType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -240,7 +242,7 @@ contains
       if (cell%defn%facenbr(particle%iboundary(2)) .eq. 0) then
         particle%istatus = TERM_BOUNDARY
         particle%advancing = .false.
-        call this%save(particle, reason=3)
+        call this%dispatch_terminate(particle)
       else
         ! Otherwise, load cell properties into the
         ! particle. It may be marked to terminate.

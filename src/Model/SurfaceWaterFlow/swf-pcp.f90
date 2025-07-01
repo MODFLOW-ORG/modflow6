@@ -56,7 +56,7 @@ module SwfPcpModule
     procedure :: bnd_da => pcp_da
     procedure :: define_listlabel => pcp_define_listlabel
     procedure :: bound_value => pcp_bound_value
-    procedure, private :: default_nodelist
+    procedure :: default_nodelist
     procedure, private :: reach_length_pointer
     ! for observations
     procedure, public :: bnd_obs_supported => pcp_obs_supported
