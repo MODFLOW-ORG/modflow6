@@ -8,18 +8,18 @@ module LinearAlgebraUtilsModule
 
 contains
 
-  pure function eye(n) RESULT(A)
+  pure function eye(n) result(A)
     ! -- dummy
-    integer(I4B), intent(IN) :: n
-    real(DP), dimension(n, n) :: A
+    integer(I4B), intent(in) :: n
+    real(DP), dimension(:, :), allocatable :: A
     ! -- locals
     integer(I4B) :: i
 
+    allocate (A(n, n))
     A = 0.0_DP
     do i = 1, n
       A(i, i) = 1.0_DP
     end do
-
   end function eye
 
   pure function outer_product(A, B) result(AB)
