@@ -36,6 +36,8 @@ contains
                  'wrong value for '//to_string(i))
     end do
 
+    call hash_table_da(map)
+
   end subroutine test_add_and_get_value
 
 end module TestHashTable

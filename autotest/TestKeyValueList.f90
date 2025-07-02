@@ -60,6 +60,9 @@ contains
     call check(error, value2 == expected_value2)
     if (allocated(error)) return
 
+    ! - Clean up
+    call list%clear()
+
   end subroutine test_add_get_values
 
   !> @brief Test retrieving a value using a non-existing key
@@ -81,6 +84,9 @@ contains
     !- Assert
     call check(error,.not. associated(val_ptr))
     if (allocated(error)) return
+
+    ! - Clean up
+    call list%clear()
 
   end subroutine test_get_nonexisting_value
 
@@ -116,6 +122,9 @@ contains
     !- Assert
     call check(error, cnt == 3)
     if (allocated(error)) return
+
+    ! - Clean up
+    call list%clear()
 
   end subroutine test_count_items
 
