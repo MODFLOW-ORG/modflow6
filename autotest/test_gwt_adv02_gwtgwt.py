@@ -12,8 +12,8 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["adv02a_gwtgwt", "adv02b_gwtgwt", "adv02c_gwtgwt"]
-scheme = ["upstream", "central", "tvd"]
+cases = ["adv02a_gwtgwt", "adv02b_gwtgwt", "adv02c_gwtgwt", "adv02d_gwtgwt"]
+scheme = ["upstream", "central", "tvd", "utvd"]
 gdelr = 1.0
 
 # solver settings

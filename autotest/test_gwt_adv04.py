@@ -11,8 +11,8 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["adv04a", "adv04b", "adv04c"]
-scheme = ["upstream", "central", "tvd"]
+cases = ["adv04a", "adv04b", "adv04c", "adv04d"]
+scheme = ["upstream", "central", "tvd", "utvd"]
 
 
 def build_models(idx, test):

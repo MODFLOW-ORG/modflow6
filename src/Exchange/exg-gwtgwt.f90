@@ -679,8 +679,8 @@ contains
     integer(I4B), intent(in) :: iout
     ! -- local
     type(ExgGwtgwtParamFoundType) :: found
-    character(len=LENVARNAME), dimension(3) :: adv_scheme = &
-      &[character(len=LENVARNAME) :: 'UPSTREAM', 'CENTRAL', 'TVD']
+    character(len=LENVARNAME), dimension(4) :: adv_scheme = &
+      &[character(len=LENVARNAME) :: 'UPSTREAM', 'CENTRAL', 'TVD', 'UTVD']
     character(len=LINELENGTH) :: mvt_fname
     !
     ! -- update defaults with values sourced from input context
