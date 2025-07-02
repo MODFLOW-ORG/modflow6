@@ -33,7 +33,6 @@ module ParticleEventModule
     integer(I4B) :: code = -1 ! event code
     integer(I4B) :: kper = 0, kstp = 0 ! period and step
     real(DP) :: time = 0.0_DP ! simulation time
-    character(len=:), allocatable :: context ! optional context string
   contains
     procedure :: get_code
     procedure :: get_str

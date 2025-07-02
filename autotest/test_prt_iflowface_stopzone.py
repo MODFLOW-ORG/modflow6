@@ -1,7 +1,6 @@
 import os
 
 import flopy
-import geopandas as gpd
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,37 +16,79 @@ from flopy.utils.binaryfile import HeadFile
 from framework import TestFramework
 from prt_test_utils import get_model_name
 
+pd.set_option("display.max_columns", None)
+
 simname = "prt2358"
 cases = {
-    f"{simname}a": {
+    f"{simname}_a": {
         "stop_at_weak_sink": False,
         "istopzone": None,
         "iflowface": None,
         "iface": None,
+        "extend": False,
     },
-    f"{simname}b": {
+    f"{simname}_b": {
         "stop_at_weak_sink": False,
         "istopzone": None,
         "iflowface": -1,
         "iface": 6,
+        "extend": False,
     },
-    f"{simname}c": {
+    f"{simname}_c": {
         "stop_at_weak_sink": False,
         "istopzone": -1,
         "iflowface": -1,
-        "iface": None,
+        "iface": 6,
+        "extend": False,
     },
-    f"{simname}d": {
+    f"{simname}_d": {
         "stop_at_weak_sink": False,
         "istopzone": 1,
         "iflowface": -1,
-        "iface": None,
+        "iface": 6,
+        "extend": False,
     },
-    f"{simname}e": {
+    f"{simname}_e": {
         "stop_at_weak_sink": True,
         "istopzone": None,
         "iflowface": None,
         "iface": None,
+        "extend": False,
+    },
+    f"{simname}_aext": {
+        "stop_at_weak_sink": False,
+        "istopzone": None,
+        "iflowface": None,
+        "iface": None,
+        "extend": True,
+    },
+    f"{simname}_bext": {
+        "stop_at_weak_sink": False,
+        "istopzone": None,
+        "iflowface": -1,
+        "iface": 6,
+        "extend": True,
+    },
+    f"{simname}_cext": {
+        "stop_at_weak_sink": False,
+        "istopzone": -1,
+        "iflowface": -1,
+        "iface": 6,
+        "extend": True,
+    },
+    f"{simname}_dext": {
+        "stop_at_weak_sink": False,
+        "istopzone": 1,
+        "iflowface": -1,
+        "iface": 6,
+        "extend": True,
+    },
+    f"{simname}_eext": {
+        "stop_at_weak_sink": True,
+        "istopzone": None,
+        "iflowface": None,
+        "iface": None,
+        "extend": True,
     },
 }
 
@@ -61,13 +102,12 @@ nnodes = nlay * nrow * ncol
 delr = 100.0
 delc = 100.0
 
-# chd info
-chd_rec = [((0, 0, 0), 10.0)]
-
 # particle tracking info
 particledata = ParticleData(
+    # partlocs=[(0, 0, i) for i in range(0, 1)], # range(nnodes)],
     partlocs=[(0, 0, i) for i in range(nnodes)],
     structured=True,
+    # particleids=[0], # list(range(nnodes)),
     particleids=list(range(nnodes)),
     localx=0.5,
     localy=0.5,
@@ -116,6 +156,7 @@ def build_gwf_sim(name, ws, mf6, iflowface=None):
             ((0, 0, 8), 9.99, 1e6, 8.96, iflowface),
             ((0, 0, 9), 9.99, 1e6, 8.95, iflowface),
         ]
+        chd_rec = [((0, 0, 0), 10.0, iflowface)]
         auxiliary = ["iflowface"]
     else:
         riv_period_array = [
@@ -125,6 +166,7 @@ def build_gwf_sim(name, ws, mf6, iflowface=None):
             ((0, 0, 8), 9.99, 1e6, 8.96),
             ((0, 0, 9), 9.99, 1e6, 8.95),
         ]
+        chd_rec = [((0, 0, 0), 10.0)]
         auxiliary = None
     riv_period = {0: riv_period_array}
     riv = flopy.mf6.ModflowGwfriv(
@@ -133,13 +175,19 @@ def build_gwf_sim(name, ws, mf6, iflowface=None):
         stress_period_data=riv_period,
         auxiliary=auxiliary,
     )
-    rch1 = flopy.mf6.ModflowGwfrcha(gwf, recharge=5e-4)
+    rch1 = flopy.mf6.ModflowGwfrcha(
+        gwf,
+        recharge=5e-4,
+        auxiliary=auxiliary,
+        aux={0: [iflowface]} if iflowface is not None else None,
+    )
 
     chd = flopy.mf6.modflow.mfgwfchd.ModflowGwfchd(
         gwf,
         maxbound=len(chd_rec),
         stress_period_data=chd_rec,
         save_flows=True,
+        auxiliary=["iflowface"] if iflowface is not None else None,
     )
     headfile = f"{gwf_name}.hds"
     head_filerecord = [headfile]
@@ -159,7 +207,14 @@ def build_gwf_sim(name, ws, mf6, iflowface=None):
 
 
 def build_prt_sim(
-    name, gwf, prt_ws, mf6, iflowface=None, istopzone=None, stop_at_weak_sink=False
+    name,
+    gwf,
+    prt_ws,
+    mf6,
+    iflowface=None,
+    istopzone=None,
+    stop_at_weak_sink=False,
+    extend=False,
 ):
     prt_name = get_model_name(name, "prt")
     sim = flopy.mf6.MFSimulation(sim_name=prt_name, exe_name=mf6, sim_ws=prt_ws)
@@ -196,8 +251,7 @@ def build_prt_sim(
 
     flopy.mf6.ModflowPrtmip(prt, pname="mip", porosity=porosity, izone=izone_array)
 
-    prpdata = list(particledata.to_prp(gwf.modelgrid, localz=True))  # [-1:]
-    # prpdata[0] = [0, *prpdata[0][1:]]
+    prpdata = list(particledata.to_prp(gwf.modelgrid, localz=True))
     flopy.mf6.ModflowPrtprp(
         prt,
         pname="prp",
@@ -207,7 +261,7 @@ def build_prt_sim(
         local_z=True,
         exit_solve_tolerance=1e-5,
         stop_at_weak_sink=stop_at_weak_sink,
-        extend_tracking=True,
+        extend_tracking=extend,
         istopzone=istopzone,
     )
     # Instantiate the MODFLOW 6 prt output control package
@@ -218,17 +272,17 @@ def build_prt_sim(
     track_record = [trackfile_prt]
     trackcsv_record = [trackcsvfile_prt]
     # track positions every year for 100 years
-    track_nyears = 100
-    tracktimes = np.linspace(0, track_nyears * 365.25, track_nyears + 1)
     flopy.mf6.ModflowPrtoc(
         prt,
         pname="oc",
         budget_filerecord=budget_record,
         track_filerecord=track_record,
         trackcsv_filerecord=trackcsv_record,
-        ntracktimes=0,  # len(tracktimes),
-        tracktimes=None,  # [(t,) for t in tracktimes],
         saverecord=[("BUDGET", "ALL")],
+        dev_dump_event_trace=True,
+        track_release=True,
+        track_terminate=True,
+        track_exit=True,
     )
 
     gwf_ws = gwf.model_ws
@@ -251,7 +305,16 @@ def build_prt_sim(
     return sim
 
 
-def build_mp7_sim(name, ws, mp7, gwf, iface=None, stop_at_weak_sink=False):
+def build_mp7_sim(
+    name,
+    ws,
+    mp7,
+    gwf,
+    iface=None,
+    istopzone=None,
+    stop_at_weak_sink=False,
+    extend=False,
+):
     # make an equivalent MP7 simulation
     mp7_name = get_model_name(name, "mp7")
 
@@ -264,29 +327,46 @@ def build_mp7_sim(name, ws, mp7, gwf, iface=None, stop_at_weak_sink=False):
         exe_name=mp7,
         model_ws=ws,
     )
-    defaultiface = dict() if iface is None else {"CHD": iface, "RIV": iface}
+    defaultiface = (
+        dict() if iface is None else {"CHD": iface, "RIV": iface, "RCH": iface}
+    )
     mpbas = flopy.modpath.Modpath7Bas(
         mp,
         porosity=porosity,
         defaultiface=defaultiface,
     )
+    if istopzone is not None:
+        izone_array = np.zeros((nlay, nrow, ncol), dtype=int)
+        izone_array[:, 0, 0] = istopzone
+        izone_array[:, 0, 5:] = istopzone
+        zonedataoption = "on"
+    else:
+        zonedataoption = "off"
+        izone_array = None
     mpsim = flopy.modpath.Modpath7Sim(
         mp,
-        simulationtype="combined",
+        simulationtype="pathline",
         trackingdirection="forward",
         budgetoutputoption="summary",
         weaksinkoption="stop_at" if stop_at_weak_sink else "pass_through",
         referencetime=(0, 0, 0.0),
-        stoptimeoption="specified",
-        stoptime=1e15,
-        timepointdata=[20, np.array([365.25])],
+        stoptimeoption="extend" if extend else "total",
+        zonedataoption=zonedataoption,
+        stopzone=1,
+        zones=izone_array,
         particlegroups=[pg],
     )
     return mp
 
 
 def build_models(
-    idx, test, iflowface=None, iface=None, istopzone=None, stop_at_weak_sink=False
+    idx,
+    test,
+    iflowface=None,
+    iface=None,
+    istopzone=None,
+    stop_at_weak_sink=False,
+    extend=False,
 ):
     gwf_sim = build_gwf_sim(
         name=test.name,
@@ -303,6 +383,7 @@ def build_models(
         iflowface=iflowface,
         istopzone=istopzone,
         stop_at_weak_sink=stop_at_weak_sink,
+        extend=extend,
     )
     mp7_sim = build_mp7_sim(
         name=test.name,
@@ -310,9 +391,64 @@ def build_models(
         mp7=test.targets["mp7"],
         gwf=gwf,
         iface=iface,
+        istopzone=istopzone,
         stop_at_weak_sink=stop_at_weak_sink,
+        extend=extend,
     )
     return gwf_sim, prt_sim, mp7_sim
+
+
+def compare_output(mf6_pls, mp7_pls, mp7_eps, tolerance=1e-3):
+    mf6_eps = mf6_pls[(mf6_pls.ireason == 3)]  # get prt start/endpoints
+    mp7_eps = to_mp7_pathlines(mp7_eps)  # convert mp7 pathlines to mp7 format
+    mf6_pls = to_mp7_pathlines(mf6_pls)  # convert mf6 pathlines to mp7 format
+    mf6_eps = to_mp7_pathlines(mf6_eps)  # convert mf6 endpoints to mp7 format
+
+    # drop columns for which there is no direct correspondence between mf6 and mp7
+    columns_to_remove = [
+        "sequencenumber",
+        "particleidloc",
+        "xloc",
+        "yloc",
+        "zloc",
+        "node",
+        "stressperiod",
+        "timestep",
+        "xloc0",
+        "yloc0",
+        "zloc0",
+        "node0",
+        "time0",
+        "zone0",
+        "status",
+        "initialcellface",
+        "cellface",
+        "zone",
+        "x0",
+        "y0",
+        "z0",
+        "k0",
+    ]
+
+    def drop_cols(df, columns):
+        for col in columns:
+            if col in df.columns:
+                del df[col]
+
+    drop_cols(mf6_pls, columns_to_remove)
+    drop_cols(mp7_pls, columns_to_remove)
+    drop_cols(mf6_eps, columns_to_remove)
+    drop_cols(mp7_eps, columns_to_remove)
+
+    mf6_eps = mf6_eps.reindex(sorted(mf6_eps.columns), axis=1).sort_values(
+        by=["particleid", "time"]
+    )
+    mp7_eps = mp7_eps.reindex(sorted(mp7_eps.columns), axis=1).sort_values(
+        by=["particleid", "time"]
+    )
+
+    assert mf6_eps.shape == mp7_eps.shape
+    assert np.allclose(mf6_eps, mp7_eps, atol=tolerance)
 
 
 def check_output(idx, test):
@@ -349,7 +485,6 @@ def check_output(idx, test):
     mp7_pls = pd.DataFrame(
         plf.get_destination_pathline_data(range(mg.nnodes), to_recarray=True)
     )
-    # convert zero-based to one-based indexing in mp7 results
     mp7_pls["particlegroup"] = mp7_pls["particlegroup"] + 1
     mp7_pls["node"] = mp7_pls["node"] + 1
     mp7_pls["k"] = mp7_pls["k"] + 1
@@ -357,26 +492,16 @@ def check_output(idx, test):
     # load mp7 endpoint results
     epf = EndpointFile(mp7_ws / mp7_endpoint_file)
     mp7_eps = pd.DataFrame(epf.get_destination_endpoint_data(range(mg.nnodes)))
-    # convert zero-based to one-based indexing in mp7 results
     mp7_eps["particlegroup"] = mp7_eps["particlegroup"] + 1
     mp7_eps["node"] = mp7_eps["node"] + 1
     mp7_eps["k"] = mp7_eps["k"] + 1
 
     # load mf6 pathline results
     mf6_pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
-    mf6_eps = to_mp7_pathlines(mf6_pls[mf6_pls.ireason == 3])
 
-    # make a geopackage to reproduce figure
-    gdf = gpd.GeoDataFrame(
-        mf6_pls, geometry=gpd.points_from_xy(mf6_pls["x"], mf6_pls["y"])
+    compare_output(
+        mf6_pls, mp7_pls, mp7_eps, tolerance=1e-1 if "ext" in test.name else 1e-3
     )
-    gdf.to_file(prt_ws / f"{prt_name}.trk.csv.gpkg", index=False)
-    modelgrid_gdf = gwf.modelgrid.geo_dataframe
-    riv_period_array = gwf.riv.stress_period_data.get_data()[0]
-    modelgrid_gdf.loc[[rec[0][2] for rec in chd_rec], "bc"] = "CHD"
-    modelgrid_gdf.loc[[rec[0][2] for rec in riv_period_array], "bc"] = "RIV"
-    modelgrid_gdf["head"] = headfile.get_data(totim=1)[0, 0, :]
-    modelgrid_gdf.to_file(gwf_ws / "grid.gpkg")
 
 
 def plot_output(idx, test):
@@ -511,7 +636,7 @@ def plot_output(idx, test):
     plt.savefig(gwf_ws / f"{name}.png")
 
 
-@pytest.mark.parametrize("idx, name", enumerate(list(cases.keys())[:1]))
+@pytest.mark.parametrize("idx, name", enumerate(list(cases.keys())))
 def test_mf6model(idx, name, function_tmpdir, targets, plot):
     case = cases[name]
     test = TestFramework(
@@ -524,6 +649,7 @@ def test_mf6model(idx, name, function_tmpdir, targets, plot):
             iface=case["iface"],
             istopzone=case["istopzone"],
             stop_at_weak_sink=case["stop_at_weak_sink"],
+            extend=case["extend"],
         ),
         check=lambda t: check_output(idx, t),
         plot=lambda t: plot_output(idx, t) if plot else None,

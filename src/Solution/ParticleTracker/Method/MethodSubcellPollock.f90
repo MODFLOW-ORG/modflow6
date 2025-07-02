@@ -142,9 +142,14 @@ contains
       return
     end if
 
-    ! Particle stationary, terminate it if it's the last timestep
+    ! If particle stationary and extended tracking is on, terminate here if it's
+    ! the last timestep. TODO: temporary solution, consider where to catch this?
+    ! Should we really have to special case this here? We do diverge from MP7 in
+    ! guaranteeing that every particle terminates at the end of the simulation..
+    ! ideally that would be handled at a higher scope but with extended tracking
+    ! tmax is not the end of the simulation, it's just a wildly high upper bound.
     if ((statusVX .eq. 2) .and. (statusVY .eq. 2) .and. (statusVZ .eq. 2) .and. &
-        endofsimulation) then
+        particle%iextend > 0 .and. endofsimulation) then
       call this%events%terminate(particle, status=TERM_TIMEOUT)
       return
     end if
@@ -210,6 +215,8 @@ contains
         call this%events%usertime(particle)
       end do
     end if
+
+    print *, "texit: ", texit, " tmax: ", tmax
 
     if (texit .gt. tmax) then
       ! The computed exit time is greater than the maximum time, so set

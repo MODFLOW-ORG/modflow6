@@ -277,11 +277,13 @@ contains
       ' in (Layer: ', particle%ilay, &
       '  Cell: ', particle%icu, &
       '  Zone: ', particle%izone, &
-      ') at (Time ', particle%ttrack, &
-      '  Period ', event%kper, &
-      '  Timestep ', event%kstp, &
-      ') with (Status: ', particle%istatus, &
-      '  Context: ', trim(adjustl(event%context)), ')'
+      ') at (X: ', particle%x, &
+      '  Y: ', particle%y, &
+      '  Z: ', particle%z, &
+      '  Time: ', particle%ttrack, &
+      '  Period: ', event%kper, &
+      '  Timestep: ', event%kstp, &
+      ') with (Status: ', particle%istatus, ')'
   end subroutine log_event
 
   !> @brief Handle a particle event.

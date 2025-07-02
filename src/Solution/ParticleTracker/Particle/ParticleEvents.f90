@@ -51,13 +51,12 @@ contains
   end subroutine subscribe
 
   !> @brief Dispatch an event. Internal use only.
-  subroutine dispatch(this, particle, event, context)
+  subroutine dispatch(this, particle, event)
     use TdisModule, only: kper, kstp, totimc
     ! dummy
     class(ParticleEventDispatcherType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer, intent(inout) :: event
-    character(len=*), intent(in), optional :: context
     ! local
     integer(I4B) :: per, stp
 
@@ -82,10 +81,6 @@ contains
     event%time = particle%ttrack
     event%kper = per
     event%kstp = stp
-    if (present(context)) then
-      allocate (character(len=len(context)) :: event%context)
-      event%context = context
-    end if
 
     call this%consumer%handle_event(particle, event)
     deallocate (event)
@@ -99,33 +94,30 @@ contains
   end subroutine destroy
 
   !> @brief Particle is released.
-  subroutine release(this, particle, context)
+  subroutine release(this, particle)
     class(ParticleEventDispatcherType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    character(len=*), intent(in), optional :: context
     class(ParticleEventType), pointer :: event
 
     allocate (ReleaseEventType :: event)
-    call this%dispatch(particle, event, context)
+    call this%dispatch(particle, event)
   end subroutine release
 
   !> @brief Particle exits a cell.
-  subroutine cellexit(this, particle, context)
+  subroutine cellexit(this, particle)
     class(ParticleEventDispatcherType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    character(len=*), intent(in), optional :: context
     class(ParticleEventType), pointer :: event
 
     allocate (CellExitEventType :: event)
-    call this%dispatch(particle, event, context)
+    call this%dispatch(particle, event)
   end subroutine cellexit
 
   !> @brief Particle terminates.
-  subroutine terminate(this, particle, status, context)
+  subroutine terminate(this, particle, status)
     class(ParticleEventDispatcherType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     integer(I4B), intent(in), optional :: status
-    character(len=*), intent(in), optional :: context
     class(ParticleEventType), pointer :: event
 
     particle%advancing = .false.
@@ -134,40 +126,37 @@ contains
     end if
 
     allocate (TerminationEventType :: event)
-    call this%dispatch(particle, event, context)
+    call this%dispatch(particle, event)
   end subroutine terminate
 
   !> @brief Time step ends.
-  subroutine timestep(this, particle, context)
+  subroutine timestep(this, particle)
     class(ParticleEventDispatcherType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    character(len=*), intent(in), optional :: context
     class(ParticleEventType), pointer :: event
 
     allocate (TimeStepEventType :: event)
-    call this%dispatch(particle, event, context)
+    call this%dispatch(particle, event)
   end subroutine timestep
 
   !> @brief Particle leaves a weak sink.
-  subroutine weaksink(this, particle, context)
+  subroutine weaksink(this, particle)
     class(ParticleEventDispatcherType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    character(len=*), intent(in), optional :: context
     class(ParticleEventType), pointer :: event
 
     allocate (WeakSinkEventType :: event)
-    call this%dispatch(particle, event, context)
+    call this%dispatch(particle, event)
   end subroutine weaksink
 
   !> @brief User-defined tracking time occurs.
-  subroutine usertime(this, particle, context)
+  subroutine usertime(this, particle)
     class(ParticleEventDispatcherType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    character(len=*), intent(in), optional :: context
     class(ParticleEventType), pointer :: event
 
     allocate (UserTimeEventType :: event)
-    call this%dispatch(particle, event, context)
+    call this%dispatch(particle, event)
   end subroutine usertime
 
 end module ParticleEventsModule
