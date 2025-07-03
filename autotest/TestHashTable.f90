@@ -23,7 +23,6 @@ contains
     type(HashTableType), pointer :: map
     integer(I4B) :: i, n
 
-    allocate (map)
     call hash_table_cr(map)
 
     n = 3
