@@ -97,7 +97,7 @@ def build_model(idx, ws):
             nconn += 1
         rp = [
             irch,
-            "none",
+            (-1, -1, -1),
             rlen,
             rwid,
             slope,
