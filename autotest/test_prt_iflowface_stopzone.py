@@ -279,7 +279,6 @@ def build_prt_sim(
         track_filerecord=track_record,
         trackcsv_filerecord=trackcsv_record,
         saverecord=[("BUDGET", "ALL")],
-        dev_dump_event_trace=True,
         track_release=True,
         track_terminate=True,
         track_exit=True,

@@ -21,6 +21,7 @@ module ParticleEventsModule
     class(ParticleEventConsumerType), pointer :: consumer => null()
   contains
     procedure, public :: subscribe
+    procedure, public :: unsubscribe
     procedure :: dispatch
     procedure :: destroy
     ! particle events
@@ -46,9 +47,17 @@ contains
   subroutine subscribe(this, consumer)
     class(ParticleEventDispatcherType), intent(inout) :: this
     class(ParticleEventConsumerType), target, intent(inout) :: consumer
-
     this%consumer => consumer
   end subroutine subscribe
+
+  !> @brief Unsubscribe the consumer from the dispatcher.
+  subroutine unsubscribe(this)
+    class(ParticleEventDispatcherType), intent(inout) :: this
+    if (associated(this%consumer)) then
+      deallocate (this%consumer)
+      this%consumer => null()
+    end if
+  end subroutine unsubscribe
 
   !> @brief Dispatch an event. Internal use only.
   subroutine dispatch(this, particle, event)
@@ -81,7 +90,6 @@ contains
     event%time = particle%ttrack
     event%kper = per
     event%kstp = stp
-
     call this%consumer%handle_event(particle, event)
     deallocate (event)
   end subroutine dispatch
@@ -121,10 +129,7 @@ contains
     class(ParticleEventType), pointer :: event
 
     particle%advancing = .false.
-    if (present(status)) then
-      particle%istatus = status
-    end if
-
+    if (present(status)) particle%istatus = status
     allocate (TerminationEventType :: event)
     call this%dispatch(particle, event)
   end subroutine terminate

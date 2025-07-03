@@ -323,7 +323,7 @@ modflow_sources = files(
     'Solution' / 'ParticleTracker' / 'Particle' / 'ParticleEvent.f90',
     'Solution' / 'ParticleTracker' / 'Particle' / 'ParticleEvents.f90',
     'Solution' / 'ParticleTracker' / 'Particle' / 'ParticleReleaseSchedule.f90',
-    'Solution' / 'ParticleTracker' / 'Particle' / 'ParticleTrackOutput.f90',
+    'Solution' / 'ParticleTracker' / 'Particle' / 'ParticleTracks.f90',
     'Timing' / 'ats.f90',
     'Timing' / 'tdis.f90',
     'Utilities' / 'ArrayRead' / 'ArrayReaderBase.f90',

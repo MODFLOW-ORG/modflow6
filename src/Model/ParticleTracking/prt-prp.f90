@@ -17,8 +17,8 @@ module PrtPrpModule
   use SimModule, only: count_errors, store_error, store_error_unit, &
                        store_warning
   use SimVariablesModule, only: errmsg, warnmsg
-  use ParticleTrackOutputModule, only: ParticleTrackOutputType, &
-                                       TRACKHEADER, TRACKDTYPES
+  use ParticleTracksModule, only: ParticleTracksType, &
+                                  TRACKHEADER, TRACKDTYPES
   use GeomUtilModule, only: point_in_polygon, get_ijk, get_jk
   use MemoryManagerModule, only: mem_allocate, mem_deallocate, &
                                  mem_reallocate
@@ -184,7 +184,7 @@ contains
 
     ! Deallocate objects
     call this%particles%destroy(this%memoryPath)
-    call this%schedule%deallocate()
+    call this%schedule%destroy()
     deallocate (this%particles)
     deallocate (this%schedule)
   end subroutine prp_da
@@ -219,7 +219,8 @@ contains
     call mem_allocate(this%rptx, this%nreleasepoints, 'RPTX', this%memoryPath)
     call mem_allocate(this%rpty, this%nreleasepoints, 'RPTY', this%memoryPath)
     call mem_allocate(this%rptz, this%nreleasepoints, 'RPTZ', this%memoryPath)
-    call mem_allocate(this%rptm, this%nreleasepoints, 'RPTMASS', this%memoryPath)
+    call mem_allocate(this%rptm, this%nreleasepoints, 'RPTMASS', &
+                      this%memoryPath)
     call mem_allocate(this%rptnode, this%nreleasepoints, 'RPTNODER', &
                       this%memoryPath)
     call mem_allocate(this%rptname, LENBOUNDNAME, this%nreleasepoints, &
@@ -806,7 +807,7 @@ contains
       call this%parser%DevOpt()
       this%ifrctrn = 1
       write (this%iout, '(4x,a)') &
-        'TRACKING WILL BE DONE USING THE TERNARY METHOD REGARDLESS OF CELL TYPE'
+        'IF DISV, TRACKING WILL USE THE TERNARY METHOD REGARDLESS OF CELL TYPE'
       found = .true.
     case ('DEV_EXIT_SOLVE_METHOD')
       call this%parser%DevOpt()
@@ -828,7 +829,7 @@ contains
 
     ! Create release schedule now that we know
     ! the coincident release time tolerance
-    this%schedule => create_release_schedule(tol=this%rttol)
+    this%schedule => create_release_schedule(tolerance=this%rttol)
 
   end subroutine prp_options
 

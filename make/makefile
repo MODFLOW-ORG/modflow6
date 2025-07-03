@@ -441,7 +441,7 @@ $(OBJDIR)/StructArray.o \
 $(OBJDIR)/LoadNCInput.o \
 $(OBJDIR)/LayeredArrayReader.o \
 $(OBJDIR)/InputLoadType.o \
-$(OBJDIR)/ParticleTrackOutput.o \
+$(OBJDIR)/ParticleTracks.o \
 $(OBJDIR)/ParticleReleaseSchedule.o \
 $(OBJDIR)/MethodDisv.o \
 $(OBJDIR)/MethodDis.o \

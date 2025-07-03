@@ -96,8 +96,8 @@ contains
     if (present(retfactor)) this%retfactor => retfactor
   end subroutine init
 
-  !> @brief Track the particle over domains of the given
-  ! level until the particle terminates or tmax elapses.
+  !> @brief Track the particle over subdomains of the given
+  ! level until the particle terminates or tmax is reached.
   recursive subroutine track(this, particle, level, tmax)
     ! dummy
     class(MethodType), intent(inout) :: this

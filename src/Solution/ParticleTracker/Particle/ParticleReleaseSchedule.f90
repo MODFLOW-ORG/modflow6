@@ -23,7 +23,7 @@ module ParticleReleaseScheduleModule
   !! times closer than the tolerance are merged into a single time.
   !!
   !! The release schedule must be refreshed each time step. This is
-  !! achieved by calling `advance()`. After this, the `times` member
+  !! achieved by calling `advance()`. After this, the `times` array
   !! is a debounced/consolidated schedule for the current time step.
   !<
   type :: ParticleReleaseScheduleType
@@ -35,30 +35,29 @@ module ParticleReleaseScheduleModule
     procedure :: advance
     procedure :: any
     procedure :: count
-    procedure :: deallocate
+    procedure :: destroy
     procedure :: log
     procedure :: schedule
   end type ParticleReleaseScheduleType
 
 contains
 
-  !> @brief Create a new release schedule object.
-  function create_release_schedule(tol) result(sched)
-    real(DP), intent(in) :: tol !< coincident release time tolerance
-    type(ParticleReleaseScheduleType), pointer :: sched !< schedule pointer
+  !> @brief Create a new release schedule.
+  function create_release_schedule(tolerance) result(schedule_)
+    real(DP), intent(in) :: tolerance !< coincident release time tolerance
+    type(ParticleReleaseScheduleType), pointer :: schedule_ !< schedule pointer
 
-    allocate (sched)
-    allocate (sched%times(0))
-    allocate (sched%time_select)
-    allocate (sched%step_select)
-    call sched%time_select%init()
-    call sched%step_select%init()
-    sched%tolerance = tol
-
+    allocate (schedule_)
+    allocate (schedule_%times(0))
+    allocate (schedule_%time_select)
+    allocate (schedule_%step_select)
+    call schedule_%time_select%init()
+    call schedule_%step_select%init()
+    schedule_%tolerance = tolerance
   end function create_release_schedule
 
   !> @brief Deallocate the release schedule.
-  subroutine deallocate (this)
+  subroutine destroy(this)
     class(ParticleReleaseScheduleType), intent(inout) :: this !< this instance
 
     deallocate (this%times)
@@ -66,8 +65,7 @@ contains
     call this%step_select%deallocate()
     deallocate (this%time_select)
     deallocate (this%step_select)
-
-  end subroutine deallocate
+  end subroutine destroy
 
   !> @brief Write the release schedule to the given output unit.
   subroutine log(this, iout)

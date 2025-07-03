@@ -21,8 +21,8 @@ module PrtModule
   use ParticleModule, only: ParticleType, create_particle
   use ParticleEventsModule, only: ParticleEventDispatcherType, &
                                   ParticleEventConsumerType
-  use ParticleTrackOutputModule, only: ParticleTrackOutputType, &
-                                       ParticleTrackFileType
+  use ParticleTracksModule, only: ParticleTracksType, &
+                                  ParticleTrackFileType
   use SimModule, only: count_errors, store_error, store_error_filename
   use MemoryManagerModule, only: mem_allocate
   use MethodModule, only: MethodType
@@ -47,7 +47,7 @@ module PrtModule
     type(BudgetType), pointer :: budget => null() ! budget object
     class(MethodType), pointer :: method => null() ! tracking method
     type(ParticleEventDispatcherType), pointer :: events => null() ! event dispatcher
-    class(ParticleTrackOutputType), pointer :: tracks ! track output manager
+    class(ParticleTracksType), pointer :: tracks ! track output manager
     integer(I4B), pointer :: infmi => null() ! unit number FMI
     integer(I4B), pointer :: inmip => null() ! unit number MIP
     integer(I4B), pointer :: inmvt => null() ! unit number MVT
@@ -250,7 +250,7 @@ contains
     call this%budget%set_ibudcsv(this%oc%ibudcsv)
 
     ! Select tracking events
-    call this%tracks%select( &
+    call this%tracks%select_events( &
       this%oc%trackrelease, &
       this%oc%trackcellexit, &
       this%oc%tracktimestep, &
@@ -269,12 +269,12 @@ contains
         call packobj%bnd_ar()
         call packobj%bnd_ar()
         if (packobj%itrkout > 0) then
-          call this%tracks%init_track_file( &
+          call this%tracks%init_file( &
             packobj%itrkout, &
             iprp=nprp)
         end if
         if (packobj%itrkcsv > 0) then
-          call this%tracks%init_track_file( &
+          call this%tracks%init_file( &
             packobj%itrkcsv, &
             csv=.true., &
             iprp=nprp)
@@ -286,9 +286,9 @@ contains
 
     ! Set up model-scoped track files
     if (this%oc%itrkout > 0) &
-      call this%tracks%init_track_file(this%oc%itrkout)
+      call this%tracks%init_file(this%oc%itrkout)
     if (this%oc%itrkcsv > 0) &
-      call this%tracks%init_track_file(this%oc%itrkcsv, csv=.true.)
+      call this%tracks%init_file(this%oc%itrkcsv, csv=.true.)
 
     ! Set up the tracking method
     select type (dis => this%dis)
@@ -318,9 +318,7 @@ contains
     call this%events%subscribe(this%tracks)
 
     ! Set verbose tracing if requested
-    if (this%oc%dump_event_trace) then
-      this%tracks%iout = 0
-    end if
+    if (this%oc%dump_event_trace) this%tracks%iout = 0
   end subroutine prt_ar
 
   !> @brief Read and prepare (calls package read and prepare routines)
@@ -933,7 +931,7 @@ contains
     ! to avoid allocating and deallocating it each time.
     ! get() and put() retrieve and store particle state.
     call create_particle(particle)
-
+    ! Loop over PRP packages and particles within them.
     iprp = 0
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
@@ -941,8 +939,8 @@ contains
       type is (PrtPrpType)
         iprp = iprp + 1
         do np = 1, packobj%nparticles
+          ! Get the particle from the store
           call packobj%particles%get(particle, this%id, iprp, np)
-
           ! If particle is permanently unreleased, cycle.
           ! Raise a termination event if we haven't yet.
           ! TODO: when we have generic dynamic vectors,
@@ -954,13 +952,10 @@ contains
             call this%events%terminate(particle, status=TERM_UNRELEASED)
             call packobj%particles%put(particle, np)
           end if
-
           if (particle%istatus > ACTIVE) cycle ! Skip terminated particles
-
-          ! If particle was released this time step, raise a release event
-          particle%istatus = ACTIVE
+          particle%istatus = ACTIVE ! Set active status in case of release
+          ! If the particle was released this time step, emit a release event
           if (particle%trelease >= totimc) call this%events%release(particle)
-
           ! Maximum time is the end of the time step or the particle
           ! stop time, whichever comes first, unless it's the final
           ! time step and the extend option is on, in which case
@@ -970,34 +965,29 @@ contains
           else
             tmax = min(totimc + delt, particle%tstop)
           end if
-
-          ! Apply the tracking method
+          ! Apply the tracking method until the maximum time.
           call this%method%apply(particle, tmax)
-
-          ! Reset previous cell and zone numbers
-          ! TODO: remove when we have robust cycle detection
+          ! Reset cell/zone one-backs, used for cycle detection.
+          ! TODO can remove when we have better cycle detection
           particle%icp = 0
           particle%izp = 0
-
           ! If the particle timed out, terminate it.
-          ! "Timeout" means it remains active, but
+          ! "Timed out" means it's still active but
           !   - it reached its stop time, or
-          !   - the simulation is over and no extending.
+          !   - the simulation is over and not extended.
           ! We can't detect timeout within the tracking
           ! method because the method just receives the
           ! maximum time with no context on what it is.
           ! TODO maybe think about changing that?
           if (particle%istatus <= ACTIVE .and. &
               (particle%ttrack == particle%tstop .or. &
-               (endofsimulation .and. particle%iextend == 0))) then
+               (endofsimulation .and. particle%iextend == 0))) &
             call this%events%terminate(particle, status=TERM_TIMEOUT)
-          end if
-
+          ! Return the particle to the store
           call packobj%particles%put(particle, np)
         end do
       end select
     end do
-
     deallocate (particle)
   end subroutine prt_solve
 
