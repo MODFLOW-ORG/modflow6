@@ -1,0 +1,108 @@
+When discretizing the advection term of the transport or energy model, the value of the advected quantity is required at the face between cells.
+MODFLOW 6 uses a cell-centered finite volume method, which means that values are stored at the center of each cell.
+To obtain the value at a face, we must interpolate from the cell centers.
+MODFLOW 6 supports three such interpolation methods.
+
+The most basic approach is the upstream method. In this method, the value at the face is taken from the cell from which the flow originates. However, this method is only first-order accurate and introduces significant numerical diffusion, which smears out the solution.
+
+To improve accuracy, a second-order method is needed, such as the central differencing method.
+This method uses the average of the values in the two cells adjacent to the face. However, near steep gradients or discontinuities, this approach can lead to non-physical oscillations in the solution.
+
+To avoid these oscillations, a third method is used: the upwind Total Variation Diminishing (TVD) limiter method. The interpolation is written as a combination of a lower-order term (the upstream method) and a higher-order term. A limiter function is applied to the higher-order term, which is activated when the solution is non-smooth (i.e., near a steep gradient or discontinuity). The limiter reduces the contribution of the higher-order term, making the interpolation behave more like the robust upstream method in these regions.
+
+The standard TVD limiter implementation works well for 1D problems but can experience issues in 2D and 3D. The new limiter implementation, based on the work of Darwish, extends the classical TVD limiters to higher dimensions and unstructured grids.
+
+\subsubsection{Theory}
+
+The classical TVD limiter is defined as:
+\begin{equation}
+\phi_f = \phi_c + \frac{1}{2} \left({x_f-x_c}\right) \psi\left(r\right) \frac{\phi_d - \phi_c}{x_d-x_c}
+\end{equation}
+where $\phi_u$, $\phi_c$, and $\phi_d$ are the upwind, central, and downwind values, respectively. The limiter function, $\psi\left(r\right)$, depends on a smoothness indicator $r$, also known as the ratio of gradients:
+\begin{equation}
+r = \frac{\phi_c - \phi_u}{x_c - x_u} \frac{x_d - x_c}{\phi_d - \phi_c}
+\end{equation}
+
+While straightforward to apply in 1D, defining the upwind node $U$ is not obvious for 2D or 3D problems on an unstructured grid.
+The paper by Darwish resolves this issue by introducing a virtual node $U$.
+
+\begin{equation}
+  \begin{aligned}
+  \phi_d &= \phi_c + \nabla{\phi_c} \cdot \left(\mathbf{r}_d - \mathbf{r}_c\right) \\
+  \phi_u &= \phi_c + \nabla{\phi_c} \cdot \left(\mathbf{r}_u - \mathbf{r}_c\right) \\
+  \phi_u - \phi_d &= \nabla{\phi_c} \cdot \left(\left(\mathbf{r}_u - \mathbf{r}_c\right) - \left(\mathbf{r}_d - \mathbf{r}_c\right)\right) \\
+  \end{aligned}
+\end{equation}
+
+By setting the distance between cell $C$ and the virtual node $U$ equal to the distance between cell $C$ and cell $D$, this can be simplified to:
+\begin{equation}
+ \phi_u = \phi_d - 2 \nabla{\phi_c} \cdot \left(\mathbf{r}_d - \mathbf{r}_c\right)
+\end{equation}
+
+Finally, the smoothness indicator $r$ is rewritten as:
+\begin{equation}
+   \begin{aligned}
+      r &= \frac{\phi_c - \phi_u}{\phi_d - \phi_c} \\ 
+      &= \frac{\phi_c - \left(\phi_d - 2 \nabla{\phi_c} \cdot \left(\mathbf{r}_d - \mathbf{r}_c\right)\right)}{\phi_d - \phi_c} \\
+      &= \frac{2\nabla{\phi_c} \cdot \left(\mathbf{r}_d - \mathbf{r}_c\right)}{\phi_d - \phi_c} - 1
+  \end{aligned}
+\end{equation}
+
+\subsubsection{Weighted Least Squares Gradient}
+In the previous section, the unknown $\phi_u$ was replaced by another unknown, $\nabla \phi_c$. 
+Fortunately, established methods exist to calculate the gradient at cell centers.
+This implementation uses the weighted least-squares method to calculate the gradient, as it performs well on skewed or distorted cells.
+The weighted least-squares method uses values in neighboring cells to calculate the gradient at a cell center $p$ as follows:
+
+\begin{equation}
+  \vec{\nabla}\phi_p=\begin{bmatrix}G\end{bmatrix}^{-1}\begin{bmatrix}d\end{bmatrix}^{T}\begin{bmatrix}W\end{bmatrix}^{T}\begin{bmatrix}W\end{bmatrix}\vec{\Delta\phi_N}
+\end{equation}
+
+The least-squares matrix $\mathbf{G}$ is defined as:
+\begin{equation}
+  \begin{bmatrix}G\end{bmatrix} = \begin{bmatrix}d\end{bmatrix}^T\begin{bmatrix}W\end{bmatrix}^T\begin{bmatrix}W\end{bmatrix}\begin{bmatrix}d\end{bmatrix}
+\end{equation}
+
+The weighting matrix $\mathbf{W}$ is a diagonal matrix with entries $w_i = 1/\|d_i\|$:
+\begin{equation}
+  \begin{bmatrix}W\end{bmatrix}= 
+  \begin{bmatrix}
+  w_1 & & \\
+  & \ddots & \\
+  & & w_N
+  \end{bmatrix}
+\end{equation}
+
+The distance matrix $\mathbf{d}$ contains the components of the vectors from the central cell $p$ to its $N$ neighbors:
+\begin{equation}
+ \begin{bmatrix}d\end{bmatrix} = 
+\begin{bmatrix}
+ d_{1,x} & d_{1,y} & d_{1,z} \\
+ \vdots & \vdots & \vdots \\
+ d_{N,x} & d_{N,y} & d_{N,z}
+ \end{bmatrix}
+\end{equation}
+
+On non-deforming grids, most of this calculation can be performed during the initialization phase. We can therefore write the gradient calculation as:
+
+\begin{equation}
+  \vec{\nabla}\phi_p=\begin{bmatrix}R\end{bmatrix}\vec{\Delta\phi_N}
+\end{equation}
+
+with the gradient reconstruction matrix, $\begin{bmatrix}R\end{bmatrix}$, defined as:
+
+\begin{equation}
+  \begin{bmatrix}R\end{bmatrix}= \begin{bmatrix}G\end{bmatrix}^{-1}\begin{bmatrix}d\end{bmatrix}^{T}\begin{bmatrix}W\end{bmatrix}^{T}\begin{bmatrix}W\end{bmatrix}
+\end{equation}
+
+\subsubsection{A Unified Approach: The Pseudoinverse}
+
+As part of the gradient computation, we need to invert the least-squares matrix, $\begin{bmatrix}G\end{bmatrix}$. However, this is impossible for 1D or 2D problems because the matrix becomes singular. For example, in a 2D problem, the z-component of all distance vectors is zero. This results in the third column of the $\begin{bmatrix}d\end{bmatrix}$ matrix being zero, which in turn makes the $\begin{bmatrix}G\end{bmatrix}$ matrix singular.
+
+While we could detect these cases and handle them with separate code, a more elegant mathematical solution exists. We use the Moore-Penrose Pseudoinverse, denoted by $\begin{bmatrix}G\end{bmatrix}^{\dagger}$. The pseudoinverse provides a generalized solution for the inverse that is valid even when the matrix is singular. This allows for a unified implementation that works for 1D, 2D, and 3D problems without requiring separate logic for each case.
+
+The gradient reconstruction matrix, $\begin{bmatrix}R\end{bmatrix}$, can then be redefined using the pseudoinverse as:
+
+\begin{equation}
+  \begin{bmatrix}R\end{bmatrix}= \begin{bmatrix}G\end{bmatrix}^{\dagger}\begin{bmatrix}d\end{bmatrix}^{T}\begin{bmatrix}W\end{bmatrix}^{T}\begin{bmatrix}W\end{bmatrix}
+\end{equation}
