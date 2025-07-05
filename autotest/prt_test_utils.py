@@ -189,6 +189,7 @@ class FlopyReadmeCase:
         flopy.mf6.modflow.mfgwfnpf.ModflowGwfnpf(
             gwf,
             pname="npf",
+            save_flows=True,
             save_saturation=True,
             save_specific_discharge=True,
         )
@@ -203,6 +204,7 @@ class FlopyReadmeCase:
             pname="CHD-1",
             stress_period_data=spd,
             auxiliary=["concentration"],
+            save_flows=True,
         )
 
         # create gwf output control package
