@@ -616,6 +616,7 @@
 		<File RelativePath="..\src\Utilities\Vector\VectorBase.f90"/></Filter>
 		<File RelativePath="..\src\Utilities\ArrayHandlers.f90"/>
 		<File RelativePath="..\src\Utilities\ArrayReaders.f90"/>
+		<File RelativePath="..\src\Utilities\BinaryFileReader.f90"/>
 		<File RelativePath="..\src\Utilities\BlockParser.f90"/>
 		<File RelativePath="..\src\Utilities\Budget.f90"/>
 		<File RelativePath="..\src\Utilities\BudgetFileReader.f90"/>
@@ -644,6 +645,7 @@
 			<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration></File>
 		<File RelativePath="..\src\Utilities\DevFeature.f90"/>
 		<File RelativePath="..\src\Utilities\ErrorUtil.f90"/>
+		<File RelativePath="..\src\Utilities\ForwardBinaryFileReader.f90"/>
 		<File RelativePath="..\src\Utilities\GeomUtil.f90"/>
 		<File RelativePath="..\src\Utilities\GridFileReader.f90"/>
 		<File RelativePath="..\src\Utilities\HashTable.f90"/>

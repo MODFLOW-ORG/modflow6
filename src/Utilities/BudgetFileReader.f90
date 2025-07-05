@@ -3,22 +3,17 @@ module BudgetFileReaderModule
   use KindModule
   use SimModule, only: store_error, store_error_unit
   use ConstantsModule, only: LINELENGTH
+  use ForwardBinaryFileReaderModule, only: ForwardBinaryFileReaderType
 
   implicit none
 
   private
   public :: BudgetFileReaderType
+  private :: read_record_internal
 
-  type :: BudgetFileReaderType
-
+  type, extends(ForwardBinaryFileReaderType) :: BudgetFileReaderType
     logical :: hasimeth1flowja = .false.
-    integer(I4B) :: inunit
     integer(I4B) :: nbudterms
-    integer(I4B) :: kstp
-    integer(I4B) :: kper
-    integer(I4B) :: kstpnext
-    integer(I4B) :: kpernext
-    logical :: endoffile
     character(len=16) :: budtxt
     character(len=16), dimension(:), allocatable :: budtxtarray
     integer(I4B) :: nval
@@ -26,9 +21,6 @@ module BudgetFileReaderModule
     integer(I4B) :: idum2
     integer(I4B) :: imeth
     integer(I4B), dimension(:), allocatable :: imetharray
-    real(DP) :: delt
-    real(DP) :: pertim
-    real(DP) :: totim
     character(len=16) :: srcmodelname
     character(len=16) :: srcpackagename
     integer(I4B) :: ndat
@@ -45,13 +37,10 @@ module BudgetFileReaderModule
     character(len=16) :: dstmodelname
     character(len=16) :: dstpackagename
     character(len=16), dimension(:), allocatable :: dstpackagenamearray
-
   contains
-
     procedure :: initialize
-    procedure :: read_record
+    procedure :: read_record_internal
     procedure :: finalize
-
   end type BudgetFileReaderType
 
 contains
@@ -69,6 +58,7 @@ contains
     integer(I4B) :: kstp_last, kper_last
     integer(I4B) :: maxaux
     logical :: success
+    !
     this%inunit = iu
     this%endoffile = .false.
     this%nbudterms = 0
@@ -122,21 +112,28 @@ contains
 
   !< @brief read record
   !<
-  subroutine read_record(this, success, iout_opt)
+  subroutine read_record_internal(this, success, iout, header_only)
     ! -- modules
     use InputOutputModule, only: fseek_stream
     ! -- dummy
-    class(BudgetFileReaderType) :: this
+    class(BudgetFileReaderType), intent(inout) :: this
     logical, intent(out) :: success
-    integer(I4B), intent(in), optional :: iout_opt
+    integer(I4B), intent(in), optional :: iout
+    logical(LGP), intent(in), optional :: header_only
     ! -- local
-    integer(I4B) :: i, n, iostat, iout
+    integer(I4B) :: i, n, iostat, iout_opt
+    logical(LGP) :: header_only_opt
     character(len=LINELENGTH) :: errmsg
     !
-    if (present(iout_opt)) then
-      iout = iout_opt
+    if (present(iout)) then
+      iout_opt = iout
     else
-      iout = 0
+      iout_opt = 0
+    end if
+    if (present(header_only)) then
+      header_only_opt = header_only
+    else
+      header_only_opt = .false.
     end if
     !
     this%kstp = 0
@@ -191,16 +188,20 @@ contains
       allocate (this%auxtxt(this%naux))
       read (this%inunit) this%auxtxt
       read (this%inunit) this%nlist
-      if (allocated(this%nodesrc)) deallocate (this%nodesrc)
-      allocate (this%nodesrc(this%nlist))
-      if (allocated(this%nodedst)) deallocate (this%nodedst)
-      allocate (this%nodedst(this%nlist))
-      if (allocated(this%flow)) deallocate (this%flow)
-      allocate (this%flow(this%nlist))
-      if (allocated(this%auxvar)) deallocate (this%auxvar)
-      allocate (this%auxvar(this%naux, this%nlist))
-      read (this%inunit) (this%nodesrc(n), this%nodedst(n), this%flow(n), &
-                          (this%auxvar(i, n), i=1, this%naux), n=1, this%nlist)
+      if (.not. header_only_opt) then
+        if (allocated(this%nodesrc)) deallocate (this%nodesrc)
+        allocate (this%nodesrc(this%nlist))
+        if (allocated(this%nodedst)) deallocate (this%nodedst)
+        allocate (this%nodedst(this%nlist))
+        if (allocated(this%flow)) deallocate (this%flow)
+        allocate (this%flow(this%nlist))
+        if (allocated(this%auxvar)) deallocate (this%auxvar)
+        allocate (this%auxvar(this%naux, this%nlist))
+        read (this%inunit) (this%nodesrc(n), this%nodedst(n), this%flow(n), &
+                            (this%auxvar(i, n), i=1, this%naux), n=1, this%nlist)
+      else
+        read (this%inunit)
+      end if
     else
       write (errmsg, '(a, a)') 'ERROR READING: ', trim(this%budtxt)
       call store_error(errmsg)
@@ -208,21 +209,13 @@ contains
       call store_error(errmsg)
       call store_error_unit(this%inunit)
     end if
-    if (iout > 0) then
-      write (iout, '(1pg15.6, a, 1x, a)') this%totim, this%budtxt, &
+    if (iout_opt > 0) then
+      write (iout_opt, '(1pg15.6, a, 1x, a)') this%totim, this%budtxt, &
         this%dstpackagename
     end if
     !
-    ! -- look ahead to next kstp and kper, then backup if read successfully
-    if (.not. this%endoffile) then
-      read (this%inunit, iostat=iostat) this%kstpnext, this%kpernext
-      if (iostat == 0) then
-        call fseek_stream(this%inunit, -2 * I4B, 1, iostat)
-      else if (iostat < 0) then
-        this%endoffile = .true.
-      end if
-    end if
-  end subroutine read_record
+    call this%peek_record()
+  end subroutine read_record_internal
 
   !< @brief finalize
   !<

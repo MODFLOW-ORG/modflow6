@@ -2,33 +2,22 @@ module HeadFileReaderModule
 
   use KindModule
   use ConstantsModule, only: LINELENGTH
+  use ForwardBinaryFileReaderModule, only: ForwardBinaryFileReaderType
 
   implicit none
 
   private
   public :: HeadFileReaderType
+  private :: read_record_internal
 
-  type :: HeadFileReaderType
-
-    integer(I4B) :: inunit
+  type, extends(ForwardBinaryFileReaderType) :: HeadFileReaderType
     character(len=16) :: text
     integer(I4B) :: nlay
-    integer(I4B) :: kstp
-    integer(I4B) :: kper
-    integer(I4B) :: kstpnext
-    integer(I4B) :: kpernext
-    logical :: endoffile
-    real(DP) :: delt
-    real(DP) :: pertim
-    real(DP) :: totim
     real(DP), dimension(:), allocatable :: head
-
   contains
-
     procedure :: initialize
-    procedure :: read_record
+    procedure :: read_record_internal
     procedure :: finalize
-
   end type HeadFileReaderType
 
 contains
@@ -43,6 +32,7 @@ contains
     ! -- local
     integer(I4B) :: kstp_last, kper_last
     logical :: success
+    !
     this%inunit = iu
     this%endoffile = .false.
     this%nlay = 0
@@ -71,21 +61,28 @@ contains
 
   !< @brief read record
   !<
-  subroutine read_record(this, success, iout_opt)
+  subroutine read_record_internal(this, success, iout, header_only)
     ! -- modules
     use InputOutputModule, only: fseek_stream
     ! -- dummy
-    class(HeadFileReaderType) :: this
+    class(HeadFileReaderType), intent(inout) :: this
     logical, intent(out) :: success
-    integer(I4B), intent(in), optional :: iout_opt
+    integer(I4B), intent(in), optional :: iout
+    logical(LGP), intent(in), optional :: header_only
     ! -- local
-    integer(I4B) :: iostat, iout
+    integer(I4B) :: iostat, iout_opt
     integer(I4B) :: ncol, nrow, ilay
+    logical(LGP) :: header_only_opt
     !
-    if (present(iout_opt)) then
-      iout = iout_opt
+    if (present(iout)) then
+      iout_opt = iout
     else
-      iout = 0
+      iout_opt = 0
+    end if
+    if (present(header_only)) then
+      header_only_opt = header_only
+    else
+      header_only_opt = .false.
     end if
     !
     this%kstp = 0
@@ -112,18 +109,14 @@ contains
     end if
     !
     ! -- read the head array
-    read (this%inunit) this%head
-    !
-    ! -- look ahead to next kstp and kper, then backup if read successfully
-    if (.not. this%endoffile) then
-      read (this%inunit, iostat=iostat) this%kstpnext, this%kpernext
-      if (iostat == 0) then
-        call fseek_stream(this%inunit, -2 * I4B, 1, iostat)
-      else if (iostat < 0) then
-        this%endoffile = .true.
-      end if
+    if (header_only_opt) then
+      read (this%inunit)
+    else
+      read (this%inunit) this%head
     end if
-  end subroutine read_record
+    !
+    call this%peek_record()
+  end subroutine read_record_internal
 
   !< @brief finalize
   !<
