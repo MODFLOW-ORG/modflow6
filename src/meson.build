@@ -269,7 +269,7 @@ modflow_sources = files(
     'Model' / 'ModelUtilities' / 'Xt3dAlgorithm.f90',
     'Model' / 'ModelUtilities' / 'Xt3dInterface.f90',
     'Model' / 'TransportModel' / 'Gradient' / 'IGradient.f90',
-    'Model' / 'TransportModel' / 'Gradient' / 'LeastSquaredGradient.f90',
+    'Model' / 'TransportModel' / 'Gradient' / 'LeastSquaresGradient.f90',
     'Model' / 'TransportModel' / 'InterpolationScheme' / 'AdvSchemeEnum.f90',
     'Model' / 'TransportModel' / 'InterpolationScheme' / 'CentralDifferenceScheme.f90',
     'Model' / 'TransportModel' / 'InterpolationScheme' / 'InterpolationSchemeInterface.f90',

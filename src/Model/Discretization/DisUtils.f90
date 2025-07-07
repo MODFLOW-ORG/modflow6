@@ -35,18 +35,16 @@ contains
   !! the vector is simply the difference between their centroids: `d = centroid(m) - centroid(n)`.
   !! The returned vector always points from cell `n` to cell `m`.
   !<
-  function node_distance(dis, fmi, n, m) result(d)
+  function node_distance(dis, n, m) result(d)
     !-- modules
     use TspFmiModule, only: TspFmiType
     ! -- return
     real(DP), dimension(3) :: d
     ! -- dummy
     class(DisBaseType), intent(in) :: dis
-    type(TspFmiType), pointer, intent(in) :: fmi
     integer(I4B), intent(in) :: n, m
     ! -- local
     real(DP) :: x_dir, y_dir, z_dir, length
-    real(DP) :: satn, satm
     integer(I4B) :: ipos, isympos, ihc
     real(DP), dimension(3) :: xn, xm
 
@@ -60,7 +58,7 @@ contains
     end do
 
     ! -- if the connection is not found, then return the distance between the two nodes
-    ! -- Thi can happen when using an extended stencil (neighbours-of-neigbhours) to compute the gradients
+    ! -- This can happen when using an extended stencil (neighbours-of-neigbhours) to compute the gradients
     if (isympos == -1) then
       xn = cell_centroid(dis, n)
       xm = cell_centroid(dis, m)
@@ -69,18 +67,9 @@ contains
       return
     end if
 
-    ! -- Account for the saturation levels if available
-    ihc = dis%con%ihc(isympos)
-    if (associated(fmi%gwfsat)) then
-      satn = fmi%gwfsat(n)
-      satm = fmi%gwfsat(m)
-    else
-      satn = DONE
-      satm = DONE
-    end if
-
     ! -- Get the connection direction and length
-    call dis%connection_vector(n, m, .true., satn, satm, ihc, x_dir, &
+    ihc = dis%con%ihc(isympos)
+    call dis%connection_vector(n, m, .false., DONE, DONE, ihc, x_dir, &
                                y_dir, z_dir, length)
 
     ! -- Compute the distance vector

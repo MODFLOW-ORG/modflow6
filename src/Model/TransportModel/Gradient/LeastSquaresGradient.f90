@@ -1,17 +1,16 @@
-module LeastSquaredGradientModule
+module LeastSquaresGradientModule
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DONE
 
   Use IGradient
   use BaseDisModule, only: DisBaseType
-  use TspFmiModule, only: TspFmiType
   use PseudoInverseModule, only: pinv
   use DisUtilsModule, only: number_connected_faces, node_distance
 
   implicit none
   private
 
-  public :: LeastSquaredGradientType
+  public :: LeastSquaresGradientType
 
   type Array2D
     real(DP), dimension(:, :), allocatable :: data
@@ -20,9 +19,11 @@ module LeastSquaredGradientModule
   !> @brief Weighted least-squares gradient method for structured and unstructured grids.
   !!
   !! This class implements a least-squares gradient reconstruction for use on both structured and unstructured grids.
-  !! For each cell, it precomputes and caches a gradient operator using the Moore-Penrose pseudoinverse,
+  !! For each cell, it precomputes and caches a gradient reconstruction matrix using the Moore-Penrose pseudoinverse,
   !! based on the geometry and connectivity of the mesh. The operator is created once during initialization
   !! and can then be efficiently applied to any scalar field to compute the gradient in each cell.
+  !! The gradient can then be computed by multiplying the reconstruction matrix with the difference vector.
+  !! ∇ɸ = R * ∑(ɸ_i - ɸ_up), where i are the neighboring cells.
   !!
   !! - The gradient operator is constructed using normalized direction vectors between cell centers,
   !!   scaled by the inverse of the distance.
@@ -33,49 +34,45 @@ module LeastSquaredGradientModule
   !! @note Boundary cells are not handled in a special manner. This may impact the quality of the gradient
   !!       near boundaries, especially if a cell does not have enough neighbors (fewer than three in 3D).
   !<
-  type, extends(IGradientType) :: LeastSquaredGradientType
+  type, extends(IGradientType) :: LeastSquaresGradientType
     class(DisBaseType), pointer :: dis
-    type(TspFmiType), pointer :: fmi
-    type(Array2D), allocatable, dimension(:) :: grad_op
+    type(Array2D), allocatable, dimension(:) :: R ! Gradient reconstruction matrix
   contains
     procedure :: get
 
     procedure, private :: compute_cell_gradient
-    procedure, private :: create_grad_operator
-  end type LeastSquaredGradientType
+    procedure, private :: create_gradient_reconstruction_matrix
+  end type LeastSquaresGradientType
 
-  interface LeastSquaredGradientType
+  interface LeastSquaresGradientType
     module procedure Constructor
-  end interface LeastSquaredGradientType
+  end interface LeastSquaresGradientType
 
 contains
-  function constructor(dis, fmi) Result(gradient)
+  function constructor(dis) Result(gradient)
     ! --dummy
     class(DisBaseType), pointer, intent(in) :: dis
-    type(TspFmiType), pointer, intent(in) :: fmi
     !-- return
-    type(LeastSquaredGradientType) :: gradient
+    type(LeastSquaresGradientType) :: gradient
     ! -- local
     integer(I4B) :: n, nodes
 
     gradient%dis => dis
-    gradient%fmi => fmi
-
     nodes = dis%nodes
 
-    ! -- Compute the gradient operator
+    ! -- Compute the gradient rec
     nodes = dis%nodes
-    allocate (gradient%grad_op(dis%nodes))
+    allocate (gradient%R(dis%nodes))
     do n = 1, nodes
-      gradient%grad_op(n)%data = gradient%create_grad_operator(n)
+      gradient%R(n)%data = gradient%create_gradient_reconstruction_matrix(n)
     end do
   end function constructor
 
-  function create_grad_operator(this, n) result(grad_op)
+  function create_gradient_reconstruction_matrix(this, n) result(R)
     ! -- dummy
-    class(LeastSquaredGradientType) :: this
+    class(LeastSquaresGradientType) :: this
     integer(I4B), intent(in) :: n ! Cell index for which to create the operator
-    real(DP), dimension(:, :), allocatable :: grad_op ! The resulting gradient operator (3 x number_connections)
+    real(DP), dimension(:, :), allocatable :: R ! The resulting gradient reconstruction matrix (3 x number_connections)
     ! -- local
     integer(I4B) :: number_connections ! Number of connected neighboring cells
     integer(I4B) :: ipos, local_pos, m ! Loop indices and neighbor cell index
@@ -93,7 +90,7 @@ contains
 
     allocate (d(number_connections, 3))
     allocate (d_trans(3, number_connections))
-    allocate (grad_op(3, number_connections))
+    allocate (R(3, number_connections))
     allocate (grad_scale(number_connections, number_connections))
 
     grad_scale = 0
@@ -105,7 +102,7 @@ contains
     do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
       m = this%dis%con%ja(ipos)
 
-      dnm = node_distance(this%dis, this%fmi, n, m)
+      dnm = node_distance(this%dis, n, m)
       length = norm2(dnm)
 
       d(local_pos, :) = dnm / length
@@ -116,18 +113,18 @@ contains
 
     d_trans = transpose(d)
 
-    ! Compute the G and inverse G matrices
+    ! Compute the G and pseudo-inverse G matrices
     g = matmul(d_trans, d)
     g_inv = pinv(g)
 
-    ! Compute the gradient operator
-    grad_op = matmul(matmul(g_inv, d_trans), grad_scale)
+    ! Compute the gradient recontructions matrix
+    R = matmul(matmul(g_inv, d_trans), grad_scale)
 
-  end function create_grad_operator
+  end function create_gradient_reconstruction_matrix
 
   function get(this, n, c) result(grad_c)
     ! -- dummy
-    class(LeastSquaredGradientType), target :: this
+    class(LeastSquaresGradientType), target :: this
     integer(I4B), intent(in) :: n
     real(DP), dimension(:), intent(in) :: c
     !-- return
@@ -140,11 +137,11 @@ contains
     ! -- return
     real(DP), dimension(3) :: grad_c
     ! -- dummy
-    class(LeastSquaredGradientType), target :: this
+    class(LeastSquaresGradientType), target :: this
     integer(I4B), intent(in) :: n
     real(DP), dimension(:), intent(in) :: phi_new
     ! -- local
-    real(DP), dimension(:, :), pointer :: grad_op
+    real(DP), dimension(:, :), pointer :: R
     integer(I4B) :: ipos, local_pos
     integer(I4B) :: number_connections
 
@@ -162,9 +159,9 @@ contains
     end do
 
     ! Compute the cells gradient
-    grad_op => this%grad_op(n)%data
-    grad_c = matmul(grad_op, dc)
+    R => this%R(n)%data
+    grad_c = matmul(R, dc)
 
   end function compute_cell_gradient
 
-end module LeastSquaredGradientModule
+end module LeastSquaresGradientModule

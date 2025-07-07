@@ -124,7 +124,7 @@ contains
     grad_c = this%gradient%get(iup, phi)
     !
     ! Darwish's method to compute virtual node concentration
-    dnm = node_distance(this%dis, this%fmi, iup, idn)
+    dnm = node_distance(this%dis, iup, idn)
     c_virtual = phi(idn) - 2.0_dp * (dot_product(grad_c, dnm))
     !
     ! Enforce local TVD condition.

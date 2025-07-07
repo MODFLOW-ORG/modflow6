@@ -371,7 +371,7 @@
 		<Filter Name="TransportModel">
 		<Filter Name="Gradient">
 		<File RelativePath="..\src\Model\TransportModel\Gradient\IGradient.f90"/>
-		<File RelativePath="..\src\Model\TransportModel\Gradient\LeastSquaredGradient.f90"/></Filter>
+		<File RelativePath="..\src\Model\TransportModel\Gradient\LeastSquaresGradient.f90"/></Filter>
 		<Filter Name="InterpolationScheme">
 		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\AdvSchemeEnum.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\InterpolationScheme\CentralDifferenceScheme.f90"/>

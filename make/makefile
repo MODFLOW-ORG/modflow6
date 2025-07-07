@@ -351,7 +351,7 @@ $(OBJDIR)/UTVDScheme.o \
 $(OBJDIR)/UpstreamScheme.o \
 $(OBJDIR)/TVDScheme.o \
 $(OBJDIR)/TspAdvOptions.o \
-$(OBJDIR)/LeastSquaredGradient.o \
+$(OBJDIR)/LeastSquaresGradient.o \
 $(OBJDIR)/CentralDifferenceScheme.o \
 $(OBJDIR)/AdvSchemeEnum.o \
 $(OBJDIR)/UzfCellGroup.o \

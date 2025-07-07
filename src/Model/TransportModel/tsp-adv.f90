@@ -9,7 +9,7 @@ module TspAdvModule
   use MatrixBaseModule, only: MatrixBaseType
   ! -- Gradient schemes
   use IGradient, only: IGradientType
-  use LeastSquaredGradientModule, only: LeastSquaredGradientType
+  use LeastSquaresGradientModule, only: LeastSquaresGradientType
   ! -- Interpolation schemes
   use InterpolationSchemeInterfaceModule, only: InterpolationSchemeInterface, &
                                                 CoefficientsType
@@ -128,9 +128,6 @@ contains
     this%dis => dis
     this%ibound => ibound
     !
-    ! -- Compute the gradient operator
-    this%gradient = LeastSquaredGradientType(this%dis, this%fmi)
-    !
     ! -- Create interpolation scheme
     iadvwt_value = this%iadvwt ! Dereference iadvwt to work with case statement
     select case (iadvwt_value)
@@ -144,6 +141,7 @@ contains
       this%face_interpolation = &
         TVDSchemeType(this%dis, this%fmi, this%ibound)
     case (ADV_SCHEME_UTVD)
+      this%gradient = LeastSquaresGradientType(this%dis)
       this%face_interpolation = &
         UTVDSchemeType(this%dis, this%fmi, this%gradient)
     case default
