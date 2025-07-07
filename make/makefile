@@ -253,11 +253,10 @@ $(OBJDIR)/SmoothingFunctions.o \
 $(OBJDIR)/MatrixBase.o \
 $(OBJDIR)/ListReader.o \
 $(OBJDIR)/Connections.o \
-$(OBJDIR)/BinaryFileReader.o \
 $(OBJDIR)/TimeArray.o \
 $(OBJDIR)/ObsOutput.o \
 $(OBJDIR)/DiscretizationBase.o \
-$(OBJDIR)/ForwardBinaryFileReader.o \
+$(OBJDIR)/BinaryFileReader.o \
 $(OBJDIR)/TimeArraySeries.o \
 $(OBJDIR)/ObsOutputList.o \
 $(OBJDIR)/Observe.o \

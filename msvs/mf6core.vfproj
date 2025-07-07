@@ -645,7 +645,6 @@
 			<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration></File>
 		<File RelativePath="..\src\Utilities\DevFeature.f90"/>
 		<File RelativePath="..\src\Utilities\ErrorUtil.f90"/>
-		<File RelativePath="..\src\Utilities\ForwardBinaryFileReader.f90"/>
 		<File RelativePath="..\src\Utilities\GeomUtil.f90"/>
 		<File RelativePath="..\src\Utilities\GridFileReader.f90"/>
 		<File RelativePath="..\src\Utilities\HashTable.f90"/>

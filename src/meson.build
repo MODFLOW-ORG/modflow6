@@ -402,7 +402,6 @@ modflow_sources = files(
     'Utilities' / 'defmacro.F90',
     'Utilities' / 'DevFeature.f90',
     'Utilities' / 'ErrorUtil.f90',
-    'Utilities' / 'ForwardBinaryFileReader.f90',
     'Utilities' / 'GeomUtil.f90',
     'Utilities' / 'GridFileReader.f90',
     'Utilities' / 'HashTable.f90',

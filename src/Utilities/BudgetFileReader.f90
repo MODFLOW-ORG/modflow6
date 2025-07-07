@@ -3,15 +3,14 @@ module BudgetFileReaderModule
   use KindModule
   use SimModule, only: store_error, store_error_unit
   use ConstantsModule, only: LINELENGTH
-  use ForwardBinaryFileReaderModule, only: ForwardBinaryFileReaderType
+  use BinaryFileReaderModule, only: BinaryFileReaderType
 
   implicit none
 
   private
   public :: BudgetFileReaderType
-  private :: read_record_internal
 
-  type, extends(ForwardBinaryFileReaderType) :: BudgetFileReaderType
+  type, extends(BinaryFileReaderType) :: BudgetFileReaderType
     logical :: hasimeth1flowja = .false.
     integer(I4B) :: nbudterms
     character(len=16) :: budtxt
@@ -39,7 +38,7 @@ module BudgetFileReaderModule
     character(len=16), dimension(:), allocatable :: dstpackagenamearray
   contains
     procedure :: initialize
-    procedure :: read_record_internal
+    procedure :: read_record
     procedure :: finalize
   end type BudgetFileReaderType
 
@@ -112,28 +111,21 @@ contains
 
   !< @brief read record
   !<
-  subroutine read_record_internal(this, success, iout, header_only)
+  subroutine read_record(this, success, iout)
     ! -- modules
     use InputOutputModule, only: fseek_stream
     ! -- dummy
     class(BudgetFileReaderType), intent(inout) :: this
     logical, intent(out) :: success
     integer(I4B), intent(in), optional :: iout
-    logical(LGP), intent(in), optional :: header_only
     ! -- local
     integer(I4B) :: i, n, iostat, iout_opt
-    logical(LGP) :: header_only_opt
     character(len=LINELENGTH) :: errmsg
     !
     if (present(iout)) then
       iout_opt = iout
     else
       iout_opt = 0
-    end if
-    if (present(header_only)) then
-      header_only_opt = header_only
-    else
-      header_only_opt = .false.
     end if
     !
     this%kstp = 0
@@ -188,20 +180,16 @@ contains
       allocate (this%auxtxt(this%naux))
       read (this%inunit) this%auxtxt
       read (this%inunit) this%nlist
-      if (.not. header_only_opt) then
-        if (allocated(this%nodesrc)) deallocate (this%nodesrc)
-        allocate (this%nodesrc(this%nlist))
-        if (allocated(this%nodedst)) deallocate (this%nodedst)
-        allocate (this%nodedst(this%nlist))
-        if (allocated(this%flow)) deallocate (this%flow)
-        allocate (this%flow(this%nlist))
-        if (allocated(this%auxvar)) deallocate (this%auxvar)
-        allocate (this%auxvar(this%naux, this%nlist))
-        read (this%inunit) (this%nodesrc(n), this%nodedst(n), this%flow(n), &
-                            (this%auxvar(i, n), i=1, this%naux), n=1, this%nlist)
-      else
-        read (this%inunit)
-      end if
+      if (allocated(this%nodesrc)) deallocate (this%nodesrc)
+      allocate (this%nodesrc(this%nlist))
+      if (allocated(this%nodedst)) deallocate (this%nodedst)
+      allocate (this%nodedst(this%nlist))
+      if (allocated(this%flow)) deallocate (this%flow)
+      allocate (this%flow(this%nlist))
+      if (allocated(this%auxvar)) deallocate (this%auxvar)
+      allocate (this%auxvar(this%naux, this%nlist))
+      read (this%inunit) (this%nodesrc(n), this%nodedst(n), this%flow(n), &
+                          (this%auxvar(i, n), i=1, this%naux), n=1, this%nlist)
     else
       write (errmsg, '(a, a)') 'ERROR READING: ', trim(this%budtxt)
       call store_error(errmsg)
@@ -215,7 +203,7 @@ contains
     end if
     !
     call this%peek_record()
-  end subroutine read_record_internal
+  end subroutine read_record
 
   !< @brief finalize
   !<
