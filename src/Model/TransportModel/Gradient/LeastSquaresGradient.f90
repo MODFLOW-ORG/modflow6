@@ -117,7 +117,7 @@ contains
     g = matmul(d_trans, d)
     g_inv = pinv(g)
 
-    ! Compute the gradient recontructions matrix
+    ! Compute the gradient reconstructions matrix
     R = matmul(matmul(g_inv, d_trans), grad_scale)
 
   end function create_gradient_reconstruction_matrix
