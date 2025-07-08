@@ -7,7 +7,7 @@ module DisUtilsModule
   private
 
   public :: number_connected_faces
-  public :: cell_centroid
+  public :: cell_center
   public :: node_distance
 
 contains
@@ -60,8 +60,8 @@ contains
     ! -- if the connection is not found, then return the distance between the two nodes
     ! -- This can happen when using an extended stencil (neighbours-of-neigbhours) to compute the gradients
     if (isympos == -1) then
-      xn = cell_centroid(dis, n)
-      xm = cell_centroid(dis, m)
+      xn = cell_center(dis, n)
+      xm = cell_center(dis, m)
 
       d = xm - xn
       return
@@ -79,21 +79,21 @@ contains
 
   end function node_distance
 
-  !> @brief Returns the centroid coordinates of a given cell.
+  !> @brief Returns the center coordinates of a given cell.
   !!
-  !! This function computes the centroid (geometric center) of cell `n` in the discretization.
-  !! The centroid is returned as a 3-element vector containing the x, y, and z coordinates.
+  !! This function computes the center of cell `n` in the discretization.
+  !! The center is returned as a 3-element vector containing the x, y, and z coordinates.
   !! The x and y coordinates are taken directly from the cell center arrays, while the z coordinate
   !! is computed as the average of the cell's top and bottom elevations.
   !<
-  function cell_centroid(dis, n) result(centroid)
+  function cell_center(dis, n) result(center)
     ! -- dummy
     class(DisBaseType), intent(in) :: dis
     integer(I4B), intent(in) :: n
-    real(DP), dimension(3) :: centroid
+    real(DP), dimension(3) :: center
 
-    centroid(1) = dis%xc(n)
-    centroid(2) = dis%yc(n)
-    centroid(3) = (dis%top(n) + dis%bot(n)) / 2.0_dp
-  end function cell_centroid
+    center(1) = dis%xc(n)
+    center(2) = dis%yc(n)
+    center(3) = (dis%top(n) + dis%bot(n)) / 2.0_dp
+  end function cell_center
 end module DisUtilsModule
