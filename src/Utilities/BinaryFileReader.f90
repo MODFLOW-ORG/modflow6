@@ -4,18 +4,21 @@ module BinaryFileReaderModule
   use ErrorUtilModule, only: pstop
   use InputOutputModule, only: fseek_stream
 
-  public :: BinaryFileReaderType
+  public :: BinaryFileHeaderType, BinaryFileReaderType
+
+  type :: BinaryFileHeaderType
+    integer(I4B) :: pos
+    integer(I4B) :: kper, kstp
+    real(DP) :: delt, pertim, totim
+  contains
+    procedure :: get_str
+  end type BinaryFileHeaderType
 
   type, abstract :: BinaryFileReaderType
     integer(I4B) :: inunit
-    integer(I4B) :: kstp
-    integer(I4B) :: kper
-    integer(I4B) :: kstpnext
-    integer(I4B) :: kpernext
+    type(BinaryFileHeaderType) :: header
+    type(BinaryFileHeaderType) :: headernext
     logical(LGP) :: endoffile
-    real(DP) :: delt
-    real(DP) :: pertim
-    real(DP) :: totim
   contains
     procedure(read_record_if), deferred :: read_record
     procedure :: peek_record
@@ -32,13 +35,30 @@ module BinaryFileReaderModule
   end interface
 contains
 
+  !> @brief Get a string representation of the header.
+  function get_str(this) result(str)
+    class(BinaryFileHeaderType), intent(in) :: this
+    character(len=:), allocatable :: str
+
+    write (str, '(*(G0))') &
+      'Binary file header (pos: ', this%pos, &
+      ', kper: ', this%kper, &
+      ', kstp: ', this%kstp, &
+      ', delt: ', this%delt, &
+      ', pertim: ', this%pertim, &
+      ', totim: ', this%totim, &
+      ')'
+    str = trim(str)
+  end function get_str
+
+  !> @brief Peek to see if another record is available.
   subroutine peek_record(this)
     class(BinaryFileReaderType), intent(inout) :: this
     ! local
     integer(I4B) :: iostat
 
     if (.not. this%endoffile) then
-      read (this%inunit, iostat=iostat) this%kstpnext, this%kpernext
+      read (this%inunit, iostat=iostat) this%headernext%kstp, this%headernext%kper
       if (iostat == 0) then
         call fseek_stream(this%inunit, -2 * I4B, 1, iostat)
       else if (iostat < 0) then

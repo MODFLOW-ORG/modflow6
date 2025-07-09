@@ -38,8 +38,8 @@ contains
     !
     ! -- Read the first head data record to set kstp_last, kstp_last
     call this%read_record(success)
-    kstp_last = this%kstp
-    kper_last = this%kper
+    kstp_last = this%header%kstp
+    kper_last = this%header%kper
     rewind (this%inunit)
     !
     ! -- Determine number of records within a time step
@@ -49,7 +49,7 @@ contains
     do
       call this%read_record(success, iout)
       if (.not. success) exit
-      if (kstp_last /= this%kstp .or. kper_last /= this%kper) exit
+      if (kstp_last /= this%header%kstp .or. kper_last /= this%header%kper) exit
       this%nlay = this%nlay + 1
     end do
     rewind (this%inunit)
@@ -77,13 +77,13 @@ contains
       iout_opt = 0
     end if
     !
-    this%kstp = 0
-    this%kper = 0
+    this%header%kstp = 0
+    this%header%kper = 0
     success = .true.
-    this%kstpnext = 0
-    this%kpernext = 0
-    read (this%inunit, iostat=iostat) this%kstp, this%kper, this%pertim, &
-      this%totim, this%text, ncol, nrow, ilay
+    this%headernext%kstp = 0
+    this%headernext%kper = 0
+    read (this%inunit, iostat=iostat) this%header%kstp, this%header%kper, &
+      this%header%pertim, this%header%totim, this%text, ncol, nrow, ilay
     if (iostat /= 0) then
       success = .false.
       if (iostat < 0) this%endoffile = .true.
