@@ -77,7 +77,7 @@ contains
 
     ! Read through the first set of data for time step 1 and stress period 1
     do
-      call this%read_record(success, header_only=.true.)
+      call this%read_record(success, header_only=.false.)
       if (.not. success) exit
       this%nbudterms = this%nbudterms + 1
       if (this%naux > maxaux) maxaux = this%naux
