@@ -58,23 +58,23 @@ contains
     integer(I4B) :: kstp_last, kper_last
     integer(I4B) :: maxaux
     logical :: success
-    
+
     this%inunit = iu
     this%endoffile = .false.
     this%nbudterms = 0
     ncrbud = 0
     maxaux = 0
-    
+
     call this%build_index(iout)
     if (iout > 0) &
       write (iout, '(a, i0, a)') 'Indexed ', this%total, &
       ' total records in budget file.'
-    
+
     ! Determine number of budget terms within a time step
     if (iout > 0) &
       write (iout, '(a)') &
       'Reading budget file to determine number of terms per time step.'
-    
+
     ! Read through the first set of data for time step 1 and stress period 1
     do
       call this%read_record(success, header_only=.true.)
@@ -94,7 +94,7 @@ contains
     allocate (this%auxtxtarray(maxaux, this%nbudterms))
     this%auxtxtarray(:, :) = ''
     call this%rewind()
-    
+
     ! Now read through again and store budget text names
     do ibudterm = 1, this%nbudterms
       call this%read_record(success, iout, header_only=.true.)
@@ -130,7 +130,7 @@ contains
     logical(LGP) :: header_only_opt
     integer(I4B) :: i, n, iostat, iout_opt
     character(len=LINELENGTH) :: errmsg
-    
+
     if (present(header_only)) then
       header_only_opt = header_only
     else
@@ -141,7 +141,7 @@ contains
     else
       iout_opt = 0
     end if
-    
+
     this%header%kstp = 0
     this%header%kper = 0
     this%budtxt = ''
@@ -237,7 +237,7 @@ contains
       write (iout_opt, '(1pg15.6, a, 1x, a)') this%header%totim, this%budtxt, &
         this%dstpackagename
     end if
-    
+
     call this%peek_record()
   end subroutine read_record
 

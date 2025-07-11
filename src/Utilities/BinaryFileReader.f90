@@ -102,6 +102,7 @@ contains
     allocate (this%headers(this%total))
     i = 0
     do
+      if (i == this%total) exit
       call this%read_record(success, iout, header_only=.true.)
       if (this%endoffile) exit
       if (.not. success) call pstop(1, 'Error reading record header')
@@ -112,9 +113,9 @@ contains
     this%indexed = .true.
   end subroutine build_index
 
-  subroutine rewind(this)
+  subroutine rewind (this)
     class(BinaryFileReaderType), intent(inout) :: this
-    rewind(this%inunit)
+    rewind (this%inunit)
     this%current = 0
     this%endoffile = .false.
   end subroutine rewind

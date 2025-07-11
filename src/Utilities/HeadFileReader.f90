@@ -32,22 +32,22 @@ contains
     ! local
     integer(I4B) :: kstp_last, kper_last
     logical :: success
-    
+
     this%inunit = iu
     this%endoffile = .false.
     this%nlay = 0
-    
+
     call this%build_index(iout)
     if (iout > 0) &
       write (iout, '(a, i0, a)') 'Indexed ', this%total, &
       ' total records in head file.'
-    
+
     ! Read the first head data record to set kstp_last, kstp_last
     call this%read_record(success, header_only=.true.)
     kstp_last = this%header%kstp
     kper_last = this%header%kper
     call this%rewind()
-    
+
     ! Determine number of records within a time step
     if (iout > 0) &
       write (iout, '(a)') &
@@ -77,7 +77,7 @@ contains
     logical(LGP) :: header_only_opt
     integer(I4B) :: iostat, iout_opt
     integer(I4B) :: ncol, nrow, ilay
-    
+
     if (present(header_only)) then
       header_only_opt = header_only
     else
@@ -88,7 +88,7 @@ contains
     else
       iout_opt = 0
     end if
-    
+
     this%header%kstp = 0
     this%header%kper = 0
     success = .true.
@@ -108,7 +108,7 @@ contains
       call this%peek_record()
       return
     end if
-    
+
     ! allocate head to proper size
     if (.not. allocated(this%head)) then
       allocate (this%head(ncol * nrow))
@@ -118,10 +118,10 @@ contains
         allocate (this%head(ncol * nrow))
       end if
     end if
-    
+
     ! read the head array
     read (this%inunit) this%head
-    
+
     call this%peek_record()
   end subroutine read_record
 
