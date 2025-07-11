@@ -48,34 +48,34 @@ contains
   !< @brief initialize
   !<
   subroutine initialize(this, iu, iout, ncrbud)
-    ! -- dummy
+    ! dummy
     class(BudgetFileReaderType) :: this
     integer(I4B), intent(in) :: iu
     integer(I4B), intent(in) :: iout
     integer(I4B), intent(out) :: ncrbud
-    ! -- local
+    ! local
     integer(I4B) :: ibudterm
     integer(I4B) :: kstp_last, kper_last
     integer(I4B) :: maxaux
     logical :: success
-    !
+    
     this%inunit = iu
     this%endoffile = .false.
     this%nbudterms = 0
     ncrbud = 0
     maxaux = 0
-    !
+    
     call this%build_index(iout)
     if (iout > 0) &
       write (iout, '(a, i0, a)') 'Indexed ', this%total, &
       ' total records in budget file.'
-    !
-    ! -- Determine number of budget terms within a time step
+    
+    ! Determine number of budget terms within a time step
     if (iout > 0) &
       write (iout, '(a)') &
       'Reading budget file to determine number of terms per time step.'
-    !
-    ! -- Read through the first set of data for time step 1 and stress period 1
+    
+    ! Read through the first set of data for time step 1 and stress period 1
     do
       call this%read_record(success, header_only=.true.)
       if (.not. success) exit
@@ -93,10 +93,9 @@ contains
     allocate (this%nauxarray(this%nbudterms))
     allocate (this%auxtxtarray(maxaux, this%nbudterms))
     this%auxtxtarray(:, :) = ''
-    rewind (this%inunit)
-    this%current = 0
-    !
-    ! -- Now read through again and store budget text names
+    call this%rewind()
+    
+    ! Now read through again and store budget text names
     do ibudterm = 1, this%nbudterms
       call this%read_record(success, iout, header_only=.true.)
       if (.not. success) exit
@@ -111,26 +110,27 @@ contains
         if (allocated(this%nodesrc)) ncrbud = max(ncrbud, maxval(this%nodesrc))
       end if
     end do
-    rewind (this%inunit)
-    this%current = 0
+    call this%rewind()
+
     if (iout > 0) &
       write (iout, '(a, i0, a)') 'Detected ', this%nbudterms, &
       ' unique flow terms in budget file.'
+
   end subroutine initialize
 
   !< @brief read record
   !<
   subroutine read_record(this, success, iout, header_only)
-    ! -- dummy
+    ! dummy
     class(BudgetFileReaderType), intent(inout) :: this
     logical, intent(out) :: success
     integer(I4B), intent(in), optional :: iout
     logical(LGP), intent(in), optional :: header_only
-    ! -- local
+    ! local
     logical(LGP) :: header_only_opt
     integer(I4B) :: i, n, iostat, iout_opt
     character(len=LINELENGTH) :: errmsg
-    !
+    
     if (present(header_only)) then
       header_only_opt = header_only
     else
@@ -141,7 +141,7 @@ contains
     else
       iout_opt = 0
     end if
-    !
+    
     this%header%kstp = 0
     this%header%kper = 0
     this%budtxt = ''
@@ -196,7 +196,7 @@ contains
         end do
       end if
     elseif (this%imeth == 6) then
-      ! -- method code 6
+      ! method code 6
       read (this%inunit) this%srcmodelname
       read (this%inunit) this%srcpackagename
       read (this%inunit) this%dstmodelname
@@ -237,7 +237,7 @@ contains
       write (iout_opt, '(1pg15.6, a, 1x, a)') this%header%totim, this%budtxt, &
         this%dstpackagename
     end if
-    !
+    
     call this%peek_record()
   end subroutine read_record
 

@@ -33,6 +33,7 @@ module BinaryFileReaderModule
     procedure(read_record_if), deferred :: read_record
     procedure :: peek_record
     procedure :: build_index
+    procedure :: rewind
   end type BinaryFileReaderType
 
   abstract interface
@@ -87,9 +88,7 @@ contains
     logical(LGP) :: success
 
     if (this%indexed) return
-    rewind (this%inunit)
-    this%endoffile = .false.
-    this%current = 0
+    call this%rewind()
     this%total = 0
     i = 0
     do
@@ -98,9 +97,7 @@ contains
       if (this%endoffile) exit
       if (.not. success) call pstop(1, 'Error reading record header')
     end do
-    rewind (this%inunit)
-    this%endoffile = .false.
-    this%current = 0
+    call this%rewind()
     this%total = i
     allocate (this%headers(this%total))
     i = 0
@@ -111,10 +108,15 @@ contains
       i = i + 1
       allocate (this%headers(i)%header, source=this%header)
     end do
-    rewind (this%inunit)
-    this%current = 0
+    call this%rewind()
     this%indexed = .true.
-    this%endoffile = .false.
   end subroutine build_index
+
+  subroutine rewind(this)
+    class(BinaryFileReaderType), intent(inout) :: this
+    rewind(this%inunit)
+    this%current = 0
+    this%endoffile = .false.
+  end subroutine rewind
 
 end module BinaryFileReaderModule

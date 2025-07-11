@@ -25,31 +25,30 @@ contains
   !< @brief initialize
   !<
   subroutine initialize(this, iu, iout)
-    ! -- dummy
+    ! dummy
     class(HeadFileReaderType) :: this
     integer(I4B), intent(in) :: iu
     integer(I4B), intent(in) :: iout
-    ! -- local
+    ! local
     integer(I4B) :: kstp_last, kper_last
     logical :: success
-    !
+    
     this%inunit = iu
     this%endoffile = .false.
     this%nlay = 0
-    !
+    
     call this%build_index(iout)
     if (iout > 0) &
       write (iout, '(a, i0, a)') 'Indexed ', this%total, &
       ' total records in head file.'
-    !
-    ! -- Read the first head data record to set kstp_last, kstp_last
+    
+    ! Read the first head data record to set kstp_last, kstp_last
     call this%read_record(success, header_only=.true.)
     kstp_last = this%header%kstp
     kper_last = this%header%kper
-    rewind (this%inunit)
-    this%current = 0
-    !
-    ! -- Determine number of records within a time step
+    call this%rewind()
+    
+    ! Determine number of records within a time step
     if (iout > 0) &
       write (iout, '(a)') &
       'Reading binary file to determine number of records per time step.'
@@ -59,8 +58,8 @@ contains
       if (kstp_last /= this%header%kstp .or. kper_last /= this%header%kper) exit
       this%nlay = this%nlay + 1
     end do
-    rewind (this%inunit)
-    this%current = 0
+    call this%rewind()
+
     if (iout > 0) &
       write (iout, '(a, i0, a)') 'Detected ', this%nlay, &
       ' unique records in binary file.'
@@ -69,16 +68,16 @@ contains
   !< @brief read record
   !<
   subroutine read_record(this, success, iout, header_only)
-    ! -- dummy
+    ! dummy
     class(HeadFileReaderType), intent(inout) :: this
     logical, intent(out) :: success
     integer(I4B), intent(in), optional :: iout
     logical, intent(in), optional :: header_only
-    ! -- local
+    ! local
     logical(LGP) :: header_only_opt
     integer(I4B) :: iostat, iout_opt
     integer(I4B) :: ncol, nrow, ilay
-    !
+    
     if (present(header_only)) then
       header_only_opt = header_only
     else
@@ -89,7 +88,7 @@ contains
     else
       iout_opt = 0
     end if
-    !
+    
     this%header%kstp = 0
     this%header%kper = 0
     success = .true.
@@ -109,8 +108,8 @@ contains
       call this%peek_record()
       return
     end if
-    !
-    ! -- allocate head to proper size
+    
+    ! allocate head to proper size
     if (.not. allocated(this%head)) then
       allocate (this%head(ncol * nrow))
     else
@@ -119,10 +118,10 @@ contains
         allocate (this%head(ncol * nrow))
       end if
     end if
-    !
-    ! -- read the head array
+    
+    ! read the head array
     read (this%inunit) this%head
-    !
+    
     call this%peek_record()
   end subroutine read_record
 
