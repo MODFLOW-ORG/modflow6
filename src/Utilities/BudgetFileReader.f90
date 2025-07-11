@@ -77,7 +77,7 @@ contains
 
     ! Read through the first set of data for time step 1 and stress period 1
     do
-      call this%read_record(success, header_only=.false.)
+      call this%read_record(success, header_only=.true.)
       if (.not. success) exit
       this%nbudterms = this%nbudterms + 1
       if (this%naux > maxaux) maxaux = this%naux
@@ -97,7 +97,7 @@ contains
 
     ! Now read through again and store budget text names
     do ibudterm = 1, this%nbudterms
-      call this%read_record(success, iout, header_only=.true.)
+      call this%read_record(success, iout, header_only=.false.)
       if (.not. success) exit
       this%budtxtarray(ibudterm) = this%budtxt
       this%imetharray(ibudterm) = this%imeth

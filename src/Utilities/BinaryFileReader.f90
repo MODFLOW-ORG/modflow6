@@ -70,6 +70,11 @@ contains
     ! local
     integer(I4B) :: iostat
 
+    if (this%indexed .and. this%current == this%total) then
+      this%endoffile = .true.
+      return
+    end if
+
     if (.not. this%endoffile) then
       read (this%inunit, iostat=iostat) this%headernext%kstp, this%headernext%kper
       if (iostat == 0) then
