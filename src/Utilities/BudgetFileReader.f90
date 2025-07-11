@@ -65,6 +65,11 @@ contains
     ncrbud = 0
     maxaux = 0
     !
+    call this%build_index(iout)
+    if (iout > 0) &
+      write (iout, '(a, i0, a)') 'Indexed ', this%total, &
+      ' total records in budget file.'
+    !
     ! -- Determine number of budget terms within a time step
     if (iout > 0) &
       write (iout, '(a)') &
@@ -72,7 +77,7 @@ contains
     !
     ! -- Read through the first set of data for time step 1 and stress period 1
     do
-      call this%read_record(success, header_only=.false.)
+      call this%read_record(success, header_only=.true.)
       if (.not. success) exit
       this%nbudterms = this%nbudterms + 1
       if (this%naux > maxaux) maxaux = this%naux
@@ -89,10 +94,11 @@ contains
     allocate (this%auxtxtarray(maxaux, this%nbudterms))
     this%auxtxtarray(:, :) = ''
     rewind (this%inunit)
+    this%current = 0
     !
     ! -- Now read through again and store budget text names
     do ibudterm = 1, this%nbudterms
-      call this%read_record(success, iout, header_only=.false.)
+      call this%read_record(success, iout, header_only=.true.)
       if (.not. success) exit
       this%budtxtarray(ibudterm) = this%budtxt
       this%imetharray(ibudterm) = this%imeth
@@ -106,6 +112,7 @@ contains
       end if
     end do
     rewind (this%inunit)
+    this%current = 0
     if (iout > 0) &
       write (iout, '(a, i0, a)') 'Detected ', this%nbudterms, &
       ' unique flow terms in budget file.'
@@ -158,12 +165,14 @@ contains
       if (iostat < 0) this%endoffile = .true.
       return
     end if
+    this%current = this%current + 1
     read (this%inunit) this%imeth, this%header%delt, &
       this%header%pertim, this%header%totim
     if (this%imeth == 1) then
       if (trim(adjustl(this%budtxt)) == 'FLOW-JA-FACE') then
         if (header_only_opt) then
           call fseek_stream(this%inunit, this%nval * 8, 1, iostat)
+          call this%peek_record()
           return
         end if
         if (allocated(this%flowja)) deallocate (this%flowja)
@@ -174,6 +183,7 @@ contains
         this%nval = this%nval * this%idum1 * abs(this%idum2)
         if (header_only_opt) then
           call fseek_stream(this%inunit, this%nval * 8, 1, iostat)
+          call this%peek_record()
           return
         end if
         if (allocated(this%flow)) deallocate (this%flow)
@@ -203,6 +213,7 @@ contains
           (this%nlist * 2 * 8) + (this%nlist * this%naux * 8), &
           1, &
           iostat)
+        call this%peek_record()
         return
       end if
       if (allocated(this%nodesrc)) deallocate (this%nodesrc)

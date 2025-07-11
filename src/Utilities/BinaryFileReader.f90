@@ -4,24 +4,35 @@ module BinaryFileReaderModule
   use ErrorUtilModule, only: pstop
   use InputOutputModule, only: fseek_stream
 
-  public :: BinaryFileHeaderType, BinaryFileReaderType
+  public :: BinaryFileHeaderType, &
+            BinaryFileHeaderWrapperType, &
+            BinaryFileReaderType
 
   type :: BinaryFileHeaderType
-    integer(I4B) :: pos = 0
-    integer(I4B) :: kper, kstp = 0
-    real(DP) :: delt, pertim, totim = 0.0_DP
+    integer(I4B) :: pos
+    integer(I4B) :: kper, kstp
+    real(DP) :: delt, pertim, totim
   contains
     procedure :: get_str
   end type BinaryFileHeaderType
+
+  type :: BinaryFileHeaderWrapperType
+    class(BinaryFileHeaderType), allocatable :: header
+  end type BinaryFileHeaderWrapperType
 
   type, abstract :: BinaryFileReaderType
     integer(I4B) :: inunit
     type(BinaryFileHeaderType) :: header
     type(BinaryFileHeaderType) :: headernext
+    class(BinaryFileHeaderWrapperType), allocatable :: headers(:)
+    integer(I4B) :: current
+    integer(I4B) :: total
+    logical(LGP) :: indexed
     logical(LGP) :: endoffile
   contains
     procedure(read_record_if), deferred :: read_record
     procedure :: peek_record
+    procedure :: build_index
   end type BinaryFileReaderType
 
   abstract interface
@@ -67,5 +78,43 @@ contains
       end if
     end if
   end subroutine peek_record
+
+  subroutine build_index(this, iout)
+    class(BinaryFileReaderType), intent(inout) :: this
+    integer(I4B), intent(in), optional :: iout
+    ! local
+    integer(I4B) :: i
+    logical(LGP) :: success
+
+    if (this%indexed) return
+    rewind (this%inunit)
+    this%endoffile = .false.
+    this%current = 0
+    this%total = 0
+    i = 0
+    do
+      call this%read_record(success, iout, header_only=.true.)
+      if (success) i = i + 1
+      if (this%endoffile) exit
+      if (.not. success) call pstop(1, 'Error reading record header')
+    end do
+    rewind (this%inunit)
+    this%endoffile = .false.
+    this%current = 0
+    this%total = i
+    allocate (this%headers(this%total))
+    i = 0
+    do
+      call this%read_record(success, iout, header_only=.true.)
+      if (this%endoffile) exit
+      if (.not. success) call pstop(1, 'Error reading record header')
+      i = i + 1
+      allocate (this%headers(i)%header, source=this%header)
+    end do
+    rewind (this%inunit)
+    this%current = 0
+    this%indexed = .true.
+    this%endoffile = .false.
+  end subroutine build_index
 
 end module BinaryFileReaderModule

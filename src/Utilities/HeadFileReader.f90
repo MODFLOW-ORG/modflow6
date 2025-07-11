@@ -37,11 +37,17 @@ contains
     this%endoffile = .false.
     this%nlay = 0
     !
+    call this%build_index(iout)
+    if (iout > 0) &
+      write (iout, '(a, i0, a)') 'Indexed ', this%total, &
+      ' total records in head file.'
+    !
     ! -- Read the first head data record to set kstp_last, kstp_last
     call this%read_record(success, header_only=.true.)
     kstp_last = this%header%kstp
     kper_last = this%header%kper
     rewind (this%inunit)
+    this%current = 0
     !
     ! -- Determine number of records within a time step
     if (iout > 0) &
@@ -54,6 +60,7 @@ contains
       this%nlay = this%nlay + 1
     end do
     rewind (this%inunit)
+    this%current = 0
     if (iout > 0) &
       write (iout, '(a, i0, a)') 'Detected ', this%nlay, &
       ' unique records in binary file.'
@@ -96,8 +103,10 @@ contains
       if (iostat < 0) this%endoffile = .true.
       return
     end if
+    this%current = this%current + 1
     if (header_only_opt) then
       call fseek_stream(this%inunit, ncol * nrow * 8, 1, iostat)
+      call this%peek_record()
       return
     end if
     !
