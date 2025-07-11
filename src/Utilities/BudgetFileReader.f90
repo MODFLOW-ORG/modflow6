@@ -4,6 +4,7 @@ module BudgetFileReaderModule
   use SimModule, only: store_error, store_error_unit
   use ConstantsModule, only: LINELENGTH
   use BinaryFileReaderModule, only: BinaryFileReaderType
+  use InputOutputModule, only: fseek_stream
 
   implicit none
 
@@ -71,7 +72,7 @@ contains
     !
     ! -- Read through the first set of data for time step 1 and stress period 1
     do
-      call this%read_record(success)
+      call this%read_record(success, header_only=.false.)
       if (.not. success) exit
       this%nbudterms = this%nbudterms + 1
       if (this%naux > maxaux) maxaux = this%naux
@@ -91,7 +92,7 @@ contains
     !
     ! -- Now read through again and store budget text names
     do ibudterm = 1, this%nbudterms
-      call this%read_record(success, iout)
+      call this%read_record(success, iout, header_only=.false.)
       if (.not. success) exit
       this%budtxtarray(ibudterm) = this%budtxt
       this%imetharray(ibudterm) = this%imeth
@@ -112,17 +113,22 @@ contains
 
   !< @brief read record
   !<
-  subroutine read_record(this, success, iout)
-    ! -- modules
-    use InputOutputModule, only: fseek_stream
+  subroutine read_record(this, success, iout, header_only)
     ! -- dummy
     class(BudgetFileReaderType), intent(inout) :: this
     logical, intent(out) :: success
     integer(I4B), intent(in), optional :: iout
+    logical(LGP), intent(in), optional :: header_only
     ! -- local
+    logical(LGP) :: header_only_opt
     integer(I4B) :: i, n, iostat, iout_opt
     character(len=LINELENGTH) :: errmsg
     !
+    if (present(header_only)) then
+      header_only_opt = header_only
+    else
+      header_only_opt = .false.
+    end if
     if (present(iout)) then
       iout_opt = iout
     else
@@ -144,6 +150,7 @@ contains
     success = .true.
     this%headernext%kstp = 0
     this%headernext%kper = 0
+    inquire (unit=this%inunit, pos=this%header%pos)
     read (this%inunit, iostat=iostat) this%header%kstp, this%header%kper, &
       this%budtxt, this%nval, this%idum1, this%idum2
     if (iostat /= 0) then
@@ -155,12 +162,20 @@ contains
       this%header%pertim, this%header%totim
     if (this%imeth == 1) then
       if (trim(adjustl(this%budtxt)) == 'FLOW-JA-FACE') then
+        if (header_only_opt) then
+          call fseek_stream(this%inunit, this%nval * 8, 1, iostat)
+          return
+        end if
         if (allocated(this%flowja)) deallocate (this%flowja)
         allocate (this%flowja(this%nval))
         read (this%inunit) this%flowja
         this%hasimeth1flowja = .true.
       else
         this%nval = this%nval * this%idum1 * abs(this%idum2)
+        if (header_only_opt) then
+          call fseek_stream(this%inunit, this%nval * 8, 1, iostat)
+          return
+        end if
         if (allocated(this%flow)) deallocate (this%flow)
         allocate (this%flow(this%nval))
         if (allocated(this%nodesrc)) deallocate (this%nodesrc)
@@ -182,6 +197,14 @@ contains
       allocate (this%auxtxt(this%naux))
       read (this%inunit) this%auxtxt
       read (this%inunit) this%nlist
+      if (header_only_opt) then
+        call fseek_stream( &
+          this%inunit, &
+          (this%nlist * 2 * 8) + (this%nlist * this%naux * 8), &
+          1, &
+          iostat)
+        return
+      end if
       if (allocated(this%nodesrc)) deallocate (this%nodesrc)
       allocate (this%nodesrc(this%nlist))
       if (allocated(this%nodedst)) deallocate (this%nodedst)

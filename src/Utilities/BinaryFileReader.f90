@@ -7,9 +7,9 @@ module BinaryFileReaderModule
   public :: BinaryFileHeaderType, BinaryFileReaderType
 
   type :: BinaryFileHeaderType
-    integer(I4B) :: pos
-    integer(I4B) :: kper, kstp
-    real(DP) :: delt, pertim, totim
+    integer(I4B) :: pos = 0
+    integer(I4B) :: kper, kstp = 0
+    real(DP) :: delt, pertim, totim = 0.0_DP
   contains
     procedure :: get_str
   end type BinaryFileHeaderType
@@ -25,12 +25,13 @@ module BinaryFileReaderModule
   end type BinaryFileReaderType
 
   abstract interface
-    subroutine read_record_if(this, success, iout)
+    subroutine read_record_if(this, success, iout, header_only)
       import BinaryFileReaderType
       import I4B, LGP
       class(BinaryFileReaderType), intent(inout) :: this
       logical(LGP), intent(out) :: success
       integer(I4B), intent(in), optional :: iout
+      logical(LGP), intent(in), optional :: header_only
     end subroutine read_record_if
   end interface
 contains

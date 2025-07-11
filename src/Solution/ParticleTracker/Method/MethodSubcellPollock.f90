@@ -216,8 +216,6 @@ contains
       end do
     end if
 
-    print *, "texit: ", texit, " tmax: ", tmax
-
     if (texit .gt. tmax) then
       ! The computed exit time is greater than the maximum time, so set
       ! final time for particle trajectory equal to maximum time and

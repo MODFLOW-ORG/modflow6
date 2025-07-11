@@ -3,6 +3,7 @@ module HeadFileReaderModule
   use KindModule
   use ConstantsModule, only: LINELENGTH
   use BinaryFileReaderModule, only: BinaryFileReaderType
+  use InputOutputModule, only: fseek_stream
 
   implicit none
 
@@ -37,7 +38,7 @@ contains
     this%nlay = 0
     !
     ! -- Read the first head data record to set kstp_last, kstp_last
-    call this%read_record(success)
+    call this%read_record(success, header_only=.true.)
     kstp_last = this%header%kstp
     kper_last = this%header%kper
     rewind (this%inunit)
@@ -47,7 +48,7 @@ contains
       write (iout, '(a)') &
       'Reading binary file to determine number of records per time step.'
     do
-      call this%read_record(success, iout)
+      call this%read_record(success, iout, header_only=.true.)
       if (.not. success) exit
       if (kstp_last /= this%header%kstp .or. kper_last /= this%header%kper) exit
       this%nlay = this%nlay + 1
@@ -60,17 +61,22 @@ contains
 
   !< @brief read record
   !<
-  subroutine read_record(this, success, iout)
-    ! -- modules
-    use InputOutputModule, only: fseek_stream
+  subroutine read_record(this, success, iout, header_only)
     ! -- dummy
     class(HeadFileReaderType), intent(inout) :: this
     logical, intent(out) :: success
     integer(I4B), intent(in), optional :: iout
+    logical, intent(in), optional :: header_only
     ! -- local
+    logical(LGP) :: header_only_opt
     integer(I4B) :: iostat, iout_opt
     integer(I4B) :: ncol, nrow, ilay
     !
+    if (present(header_only)) then
+      header_only_opt = header_only
+    else
+      header_only_opt = .false.
+    end if
     if (present(iout)) then
       iout_opt = iout
     else
@@ -82,11 +88,16 @@ contains
     success = .true.
     this%headernext%kstp = 0
     this%headernext%kper = 0
+    inquire (unit=this%inunit, pos=this%header%pos)
     read (this%inunit, iostat=iostat) this%header%kstp, this%header%kper, &
       this%header%pertim, this%header%totim, this%text, ncol, nrow, ilay
     if (iostat /= 0) then
       success = .false.
       if (iostat < 0) this%endoffile = .true.
+      return
+    end if
+    if (header_only_opt) then
+      call fseek_stream(this%inunit, ncol * nrow * 8, 1, iostat)
       return
     end if
     !
