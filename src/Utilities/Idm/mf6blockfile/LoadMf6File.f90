@@ -68,8 +68,8 @@ module LoadMf6FileModule
     procedure :: parse_block
     procedure :: block_post_process
     procedure :: parse_io_tag
-    procedure :: parse_keyword_tag
-    procedure :: parse_tag
+    procedure :: parse_record_tag
+    procedure :: load_tag
     procedure :: block_index_dfn
     procedure :: parse_structarray_block
   end type LoadMf6FileType
@@ -266,6 +266,8 @@ contains
     integer(I4B) :: ierr
     logical(LGP) :: found, required
     type(MemoryType), pointer :: mt
+    character(len=LINELENGTH) :: tag
+    type(InputParamDefinitionType), pointer :: idt
 
     ! disu vertices/cell2d blocks are contingent on NVERT dimension
     if (this%mf6_input%pkgtype == 'DISU6' .or. &
@@ -300,7 +302,18 @@ contains
           call this%parser%GetNextLine(endOfBlock)
           if (endOfBlock) exit
           ! process line as tag(s)
-          call this%parse_tag(iblk, .false.)
+          call this%parser%GetStringCaps(tag)
+          idt => get_param_definition_type( &
+                 this%mf6_input%param_dfns, &
+                 this%mf6_input%component_type, &
+                 this%mf6_input%subcomponent_type, &
+                 this%mf6_input%block_dfns(iblk)%blockname, &
+                 tag, this%filename)
+          if (idt%in_record) then
+            call this%parse_record_tag(iblk, idt, .false.)
+          else
+            call this%load_tag(iblk, idt)
+          end if
         end do
       end if
     end if
@@ -331,96 +344,121 @@ contains
     call load_io_tag(this%parser, idt, this%mf6_input%mempath, which, this%iout)
   end subroutine parse_io_tag
 
-  subroutine parse_keyword_tag(this, iblk, tag, idt)
-    use DefinitionSelectModule, only: split_record_definition
+  recursive subroutine parse_record_tag(this, iblk, inidt, recursive_call)
+    use DefinitionSelectModule, only: split_record_dfn_tag1, &
+                                      split_record_dfn_tag2, &
+                                      idt_datatype
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
-    character(len=LINELENGTH), intent(in) :: tag
-    type(InputParamDefinitionType), pointer, intent(in) :: idt
+    type(InputParamDefinitionType), pointer, intent(in) :: inidt
+    logical(LGP), intent(in) :: recursive_call !< true if recursive call
+    type(InputParamDefinitionType), pointer :: idt
     character(len=40), dimension(:), allocatable :: words
-    integer(I4B) :: nwords
-    character(len=LINELENGTH) :: io_tag
-    logical(LGP) :: found
+    integer(I4B) :: n, istart, nwords
+    character(len=LINELENGTH) :: tag
 
-    ! initialization
-    found = .false.
+    nullify (idt)
+    istart = 1
 
-    ! if in record tag check and load if input/output file
-    if (idt%in_record) then
-      ! get tokens in matching definition
-      call split_record_definition(this%mf6_input%param_dfns, &
+    if (recursive_call) then
+      call split_record_dfn_tag1(this%mf6_input%param_dfns, &
+                                 this%mf6_input%component_type, &
+                                 this%mf6_input%subcomponent_type, &
+                                 inidt%tagname, nwords, words)
+      call this%load_tag(iblk, inidt)
+      istart = 3
+    else
+      call this%parser%GetStringCaps(tag)
+      if (tag /= '') then
+        call split_record_dfn_tag2(this%mf6_input%param_dfns, &
                                    this%mf6_input%component_type, &
                                    this%mf6_input%subcomponent_type, &
-                                   tag, nwords, words)
-      ! a filein/fileout record tag definition has 4 tokens
-      if (nwords == 4) then
-        ! verify third definition token is FILEIN/FILEOUT
-        if (words(3) == 'FILEIN' .or. words(3) == 'FILEOUT') then
-          ! read 3rd token
-          call this%parser%GetStringCaps(io_tag)
-          ! check if 3rd token matches definition
-          if (io_tag == words(3)) then
-            call this%parse_io_tag(iblk, words(2), words(3), words(4))
-            found = .true.
-          else
-            errmsg = 'Expected "'//trim(words(3))//'" following keyword "'// &
-                     trim(tag)//'" but instead found "'//trim(io_tag)//'"'
+                                   inidt%tagname, tag, nwords, words)
+        if (nwords == 4 .and. &
+            (tag == 'FILEIN' .or. &
+             tag == 'FILEOUT')) then
+          call this%parse_io_tag(iblk, words(2), words(3), words(4))
+          nwords = 0
+        else
+          idt => get_param_definition_type( &
+                 this%mf6_input%param_dfns, &
+                 this%mf6_input%component_type, &
+                 this%mf6_input%subcomponent_type, &
+                 this%mf6_input%block_dfns(iblk)%blockname, &
+                 tag, this%filename)
+          ! avoid namespace collisions (CIM)
+          if (tag /= 'PRINT_FORMAT') call this%load_tag(iblk, inidt)
+          call this%load_tag(iblk, idt)
+          istart = 4
+        end if
+      else
+        call this%load_tag(iblk, inidt)
+        nwords = 0
+      end if
+    end if
+
+    if (istart > 1 .and. nwords == 0) then
+      write (errmsg, '(5a)') &
+        '"', trim(this%mf6_input%block_dfns(iblk)%blockname), &
+        '" block input record that includes keyword "', trim(inidt%tagname), &
+        '" is not properly formed.'
+      call store_error(errmsg)
+      call this%parser%StoreErrorUnit()
+    end if
+
+    do n = istart, nwords
+      idt => get_param_definition_type( &
+             this%mf6_input%param_dfns, &
+             this%mf6_input%component_type, &
+             this%mf6_input%subcomponent_type, &
+             this%mf6_input%block_dfns(iblk)%blockname, &
+             words(n), this%filename)
+      if (idt_datatype(idt) == 'RECORD') then
+        call this%parser%GetStringCaps(tag)
+        idt => get_param_definition_type( &
+               this%mf6_input%param_dfns, &
+               this%mf6_input%component_type, &
+               this%mf6_input%subcomponent_type, &
+               this%mf6_input%block_dfns(iblk)%blockname, &
+               tag, this%filename)
+        call this%parse_record_tag(iblk, idt, .true.)
+        exit
+      else
+        if (idt%tagname /= 'FORMAT') then
+          call this%parser%GetStringCaps(tag)
+          if (tag == '') then
+            exit
+          else if (idt%tagname /= tag) then
+            write (errmsg, '(5a)') 'Expecting record input tag "', &
+              trim(idt%tagname), '" but instead found "', trim(tag), '".'
             call store_error(errmsg)
             call this%parser%StoreErrorUnit()
           end if
         end if
+        call this%load_tag(iblk, idt)
       end if
+    end do
 
-      ! deallocate words
-      if (allocated(words)) deallocate (words)
-    end if
+    if (allocated(words)) deallocate (words)
+  end subroutine parse_record_tag
 
-    if (.not. found) then
-      ! load standard keyword tag
+  !> @brief load input keyword
+  !! Load input associated with tag key into the memory manager.
+  !<
+  subroutine load_tag(this, iblk, idt)
+    use ArrayHandlersModule, only: expandarray
+    class(LoadMf6FileType) :: this
+    integer(I4B), intent(in) :: iblk
+    type(InputParamDefinitionType), pointer, intent(in) :: idt !< input data type object describing this record
+    ! allocate and load data type
+    select case (idt%datatype)
+    case ('KEYWORD')
       call load_keyword_type(this%parser, idt, this%mf6_input%mempath, this%iout)
       ! check/set as dev option
       if (idt%tagname(1:4) == 'DEV_' .and. &
           this%mf6_input%block_dfns(iblk)%blockname == 'OPTIONS') then
         call this%parser%DevOpt()
       end if
-    end if
-  end subroutine parse_keyword_tag
-
-  !> @brief load an individual input record into memory
-  !!
-  !! Load an individual input record into the memory
-  !! manager.  Allow for recursive calls in the case that multiple
-  !! tags are on a single line.
-  !!
-  !<
-  recursive subroutine parse_tag(this, iblk, recursive_call)
-    use ArrayHandlersModule, only: expandarray
-    class(LoadMf6FileType) :: this
-    integer(I4B), intent(in) :: iblk
-    logical(LGP), intent(in) :: recursive_call !< true if recursive call
-    character(len=LINELENGTH) :: tag
-    type(InputParamDefinitionType), pointer :: idt !< input data type object describing this record
-
-    ! read tag name
-    call this%parser%GetStringCaps(tag)
-    if (recursive_call) then
-      if (tag == '') then
-        ! no data on line so return
-        return
-      end if
-    end if
-
-    ! find keyword in input definition
-    idt => get_param_definition_type(this%mf6_input%param_dfns, &
-                                     this%mf6_input%component_type, &
-                                     this%mf6_input%subcomponent_type, &
-                                     this%mf6_input%block_dfns(iblk)%blockname, &
-                                     tag, this%filename)
-
-    ! allocate and load data type
-    select case (idt%datatype)
-    case ('KEYWORD')
-      call this%parse_keyword_tag(iblk, tag, idt)
     case ('STRING')
       if (idt%shape == 'NAUX') then
         call load_auxvar_names(this%parser, idt, this%mf6_input%mempath, &
@@ -454,20 +492,14 @@ contains
       call load_double3d_type(this%parser, idt, this%mf6_input, this%mshape, &
                               this%export, this%nc_vars, this%filename, this%iout)
     case default
-      write (errmsg, '(a,a)') 'Failure reading data for tag: ', trim(tag)
+      write (errmsg, '(a,a)') 'Failure reading data for tag: ', trim(idt%tagname)
       call store_error(errmsg)
       call this%parser%StoreErrorUnit()
     end select
 
-    ! continue line if in same record
-    if (idt%in_record) then
-      ! recursively call parse tag again to read rest of line
-      call this%parse_tag(iblk, .true.)
-    end if
-
     call expandarray(this%block_tags)
     this%block_tags(size(this%block_tags)) = trim(idt%tagname)
-  end subroutine parse_tag
+  end subroutine load_tag
 
   function block_index_dfn(this, iblk) result(idt)
     class(LoadMf6FileType) :: this

@@ -2,10 +2,12 @@ sim-nam.dfn
 sim-tdis.dfn
 gwf-nam.dfn
 gwf-chd.dfn
+gwf-csub.dfn
 gwf-dis.dfn
 gwf-disu.dfn
 gwf-disv.dfn
 gwf-drn.dfn
+gwf-drng.dfn
 gwf-evt.dfn
 gwf-evta.dfn
 gwf-ghb.dfn
@@ -24,6 +26,8 @@ gwt-disv.dfn
 gwt-dsp.dfn
 gwt-cnc.dfn
 gwt-ic.dfn
+gwt-ist.dfn
+gwt-mst.dfn
 gwe-nam.dfn
 gwe-ic.dfn
 gwe-ctp.dfn

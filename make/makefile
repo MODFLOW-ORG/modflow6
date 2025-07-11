@@ -168,6 +168,8 @@ $(OBJDIR)/olf-dfwidm.o \
 $(OBJDIR)/olf-chdidm.o \
 $(OBJDIR)/olf-cdbidm.o \
 $(OBJDIR)/gwt-namidm.o \
+$(OBJDIR)/gwt-mstidm.o \
+$(OBJDIR)/gwt-istidm.o \
 $(OBJDIR)/gwt-icidm.o \
 $(OBJDIR)/gwt-dspidm.o \
 $(OBJDIR)/gwt-disvidm.o \
@@ -187,9 +189,11 @@ $(OBJDIR)/gwf-ghbgidm.o \
 $(OBJDIR)/gwf-evtidm.o \
 $(OBJDIR)/gwf-evtaidm.o \
 $(OBJDIR)/gwf-drnidm.o \
+$(OBJDIR)/gwf-drngidm.o \
 $(OBJDIR)/gwf-disvidm.o \
 $(OBJDIR)/gwf-disuidm.o \
 $(OBJDIR)/gwf-disidm.o \
+$(OBJDIR)/gwf-csubidm.o \
 $(OBJDIR)/gwf-chdidm.o \
 $(OBJDIR)/gwe-namidm.o \
 $(OBJDIR)/gwe-icidm.o \
@@ -258,6 +262,7 @@ $(OBJDIR)/Connections.o \
 $(OBJDIR)/TimeArray.o \
 $(OBJDIR)/ObsOutput.o \
 $(OBJDIR)/DiscretizationBase.o \
+$(OBJDIR)/BinaryFileReader.o \
 $(OBJDIR)/TimeArraySeries.o \
 $(OBJDIR)/ObsOutputList.o \
 $(OBJDIR)/Observe.o \
@@ -272,7 +277,6 @@ $(OBJDIR)/TimeArraySeriesManager.o \
 $(OBJDIR)/PackageMover.o \
 $(OBJDIR)/Obs.o \
 $(OBJDIR)/NumericalPackage.o \
-$(OBJDIR)/Particle.o \
 $(OBJDIR)/PackageBudget.o \
 $(OBJDIR)/HeadFileReader.o \
 $(OBJDIR)/GridFileReader.o \
@@ -285,12 +289,12 @@ $(OBJDIR)/Dis2d.o \
 $(OBJDIR)/BudgetObject.o \
 $(OBJDIR)/BoundaryPackage.o \
 $(OBJDIR)/CellDefn.o \
-$(OBJDIR)/TrackFile.o \
+$(OBJDIR)/Particle.o \
 $(OBJDIR)/sort.o \
 $(OBJDIR)/FlowModelInterface.o \
 $(OBJDIR)/Cell.o \
+$(OBJDIR)/ParticleEvent.o \
 $(OBJDIR)/Subcell.o \
-$(OBJDIR)/TrackControl.o \
 $(OBJDIR)/TimeSelect.o \
 $(OBJDIR)/prt-fmi.o \
 $(OBJDIR)/ParticleEvents.o \
@@ -451,7 +455,8 @@ $(OBJDIR)/StructArray.o \
 $(OBJDIR)/LoadNCInput.o \
 $(OBJDIR)/LayeredArrayReader.o \
 $(OBJDIR)/InputLoadType.o \
-$(OBJDIR)/ReleaseSchedule.o \
+$(OBJDIR)/ParticleTracks.o \
+$(OBJDIR)/ParticleReleaseSchedule.o \
 $(OBJDIR)/MethodDisv.o \
 $(OBJDIR)/MethodDis.o \
 $(OBJDIR)/swf-zdg.o \

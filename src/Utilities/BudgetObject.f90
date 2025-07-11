@@ -644,7 +644,8 @@ contains
       if (this%bfr%endoffile) then
         readnext = .false.
       else
-        if (this%bfr%kpernext == kper + 1 .and. this%bfr%kstpnext == 1) &
+        if (this%bfr%headernext%kper == kper + 1 .and. &
+            this%bfr%headernext%kstp == 1) &
           readnext = .false.
       end if
     end if
@@ -661,7 +662,7 @@ contains
     else
       if (iout > 0) &
         write (iout, fmtbudkstpkper) trim(this%name), kstp, kper, &
-        this%bfr%kstp, this%bfr%kper
+        this%bfr%header%kstp, this%bfr%header%kper
     end if
   end subroutine bfr_advance
 

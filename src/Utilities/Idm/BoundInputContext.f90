@@ -95,9 +95,16 @@ contains
     use MemoryManagerExtModule, only: mem_set_value
     class(BoundInputContextType) :: this
     logical(LGP) :: found
+    integer(I4B) :: nauxsz
 
     ! set pointers to defined scalars
-    call mem_setptr(this%naux, 'NAUX', this%mf6_input%mempath)
+    call get_isize('NAUX', this%mf6_input%mempath, nauxsz)
+    if (nauxsz > -1) then
+      call mem_setptr(this%naux, 'NAUX', this%mf6_input%mempath)
+    else
+      allocate (this%naux)
+      this%naux = 0
+    end if
 
     ! allocate memory managed scalars
     call mem_allocate(this%nbound, 'NBOUND', this%mf6_input%mempath)
@@ -151,6 +158,7 @@ contains
     class(BoundInputContextType) :: this
     integer(I4B), dimension(:, :), pointer, contiguous :: cellid
     integer(I4B), dimension(:), pointer, contiguous :: nodeulist
+    integer(I4B) :: varsz
 
     ! set auxname_cst and iauxmultcol
     if (this%naux > 0) then
@@ -171,10 +179,20 @@ contains
     end if
 
     ! set pointer to BOUNDNAME
-    call mem_setptr(this%boundname_cst, 'BOUNDNAME', this%mf6_input%mempath)
+    call get_isize('BOUNDNAME', this%mf6_input%mempath, varsz)
+    if (varsz > -1) then
+      call mem_setptr(this%boundname_cst, 'BOUNDNAME', this%mf6_input%mempath)
+    else
+      allocate (this%boundname_cst(0))
+    end if
 
     ! set pointer to AUXVAR
-    call mem_setptr(this%auxvar, 'AUXVAR', this%mf6_input%mempath)
+    call get_isize('AUXVAR', this%mf6_input%mempath, varsz)
+    if (varsz > -1) then
+      call mem_setptr(this%auxvar, 'AUXVAR', this%mf6_input%mempath)
+    else
+      allocate (this%auxvar(0, 0))
+    end if
   end subroutine allocate_arrays
 
   subroutine list_params_create(this, params, nparam, input_name)

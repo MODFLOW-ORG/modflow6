@@ -17,11 +17,13 @@ module PrtPrpModule
   use SimModule, only: count_errors, store_error, store_error_unit, &
                        store_warning
   use SimVariablesModule, only: errmsg, warnmsg
-  use TrackControlModule, only: TrackControlType
+  use ParticleTracksModule, only: ParticleTracksType, &
+                                  TRACKHEADER, TRACKDTYPES
   use GeomUtilModule, only: point_in_polygon, get_ijk, get_jk
   use MemoryManagerModule, only: mem_allocate, mem_deallocate, &
                                  mem_reallocate
-  use ReleaseScheduleModule, only: ReleaseScheduleType, create_release_schedule
+  use ParticleReleaseScheduleModule, only: ParticleReleaseScheduleType, &
+                                           create_release_schedule
   use DisModule, only: DisType
   use DisvModule, only: DisvType
   use ErrorUtilModule, only: pstop
@@ -41,8 +43,7 @@ module PrtPrpModule
   type, extends(BndType) :: PrtPrpType
     type(PrtFmiType), pointer :: fmi => null() !< flow model interface
     type(ParticleStoreType), pointer :: particles => null() !< particle store
-    type(TrackControlType), pointer :: trackctl => null() !< track control
-    type(ReleaseScheduleType), pointer :: schedule !< particle release schedule
+    type(ParticleReleaseScheduleType), pointer :: schedule !< particle release schedule
     integer(I4B), pointer :: nreleasepoints => null() !< number of release points
     integer(I4B), pointer :: nreleasetimes => null() !< number of user-specified particle release times
     integer(I4B), pointer :: nparticles => null() !< number of particles released
@@ -183,21 +184,19 @@ contains
 
     ! Deallocate objects
     call this%particles%destroy(this%memoryPath)
-    call this%schedule%deallocate()
+    call this%schedule%destroy()
     deallocate (this%particles)
     deallocate (this%schedule)
   end subroutine prp_da
 
   !> @ brief Set pointers to model variables
-  subroutine prp_set_pointers(this, ibound, izone, trackctl)
+  subroutine prp_set_pointers(this, ibound, izone)
     class(PrtPrpType) :: this
     integer(I4B), dimension(:), pointer, contiguous :: ibound
     integer(I4B), dimension(:), pointer, contiguous :: izone
-    type(TrackControlType), pointer :: trackctl
 
     this%ibound => ibound
     this%rptzone => izone
-    this%trackctl => trackctl
   end subroutine prp_set_pointers
 
   !> @brief Allocate arrays
@@ -220,7 +219,8 @@ contains
     call mem_allocate(this%rptx, this%nreleasepoints, 'RPTX', this%memoryPath)
     call mem_allocate(this%rpty, this%nreleasepoints, 'RPTY', this%memoryPath)
     call mem_allocate(this%rptz, this%nreleasepoints, 'RPTZ', this%memoryPath)
-    call mem_allocate(this%rptm, this%nreleasepoints, 'RPTMASS', this%memoryPath)
+    call mem_allocate(this%rptm, this%nreleasepoints, 'RPTMASS', &
+                      this%memoryPath)
     call mem_allocate(this%rptnode, this%nreleasepoints, 'RPTNODER', &
                       this%memoryPath)
     call mem_allocate(this%rptname, LENBOUNDNAME, this%nreleasepoints, &
@@ -694,7 +694,6 @@ contains
     use OpenSpecModule, only: access, form
     use ConstantsModule, only: MAXCHARLEN, DZERO
     use InputOutputModule, only: urword, getunit, openfile
-    use TrackFileModule, only: TRACKHEADER, TRACKDTYPES
     ! dummy
     class(PrtPrpType), intent(inout) :: this
     character(len=*), intent(inout) :: option
@@ -808,7 +807,7 @@ contains
       call this%parser%DevOpt()
       this%ifrctrn = 1
       write (this%iout, '(4x,a)') &
-        'TRACKING WILL BE DONE USING THE TERNARY METHOD REGARDLESS OF CELL TYPE'
+        'IF DISV, TRACKING WILL USE THE TERNARY METHOD REGARDLESS OF CELL TYPE'
       found = .true.
     case ('DEV_EXIT_SOLVE_METHOD')
       call this%parser%DevOpt()
@@ -830,7 +829,7 @@ contains
 
     ! Create release schedule now that we know
     ! the coincident release time tolerance
-    this%schedule => create_release_schedule(tol=this%rttol)
+    this%schedule => create_release_schedule(tolerance=this%rttol)
 
   end subroutine prp_options
 

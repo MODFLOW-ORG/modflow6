@@ -65,7 +65,7 @@ contains
       fmi=this%fmi, &
       cell=this%cell, &
       subcell=this%subcell, &
-      trackctl=this%trackctl, &
+      events=this%events, &
       tracktimes=this%tracktimes)
     submethod => method_subcell_plck
   end subroutine load_mcpq

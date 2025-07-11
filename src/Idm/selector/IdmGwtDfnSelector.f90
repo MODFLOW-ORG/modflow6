@@ -12,6 +12,8 @@ module IdmGwtDfnSelectorModule
   use GwtDspInputModule
   use GwtCncInputModule
   use GwtIcInputModule
+  use GwtIstInputModule
+  use GwtMstInputModule
 
   implicit none
   private
@@ -61,6 +63,10 @@ contains
       call set_param_pointer(input_definition, gwt_cnc_param_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwt_ic_param_definitions)
+    case ('IST')
+      call set_param_pointer(input_definition, gwt_ist_param_definitions)
+    case ('MST')
+      call set_param_pointer(input_definition, gwt_mst_param_definitions)
     case default
     end select
     return
@@ -85,6 +91,10 @@ contains
       call set_param_pointer(input_definition, gwt_cnc_aggregate_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwt_ic_aggregate_definitions)
+    case ('IST')
+      call set_param_pointer(input_definition, gwt_ist_aggregate_definitions)
+    case ('MST')
+      call set_param_pointer(input_definition, gwt_mst_aggregate_definitions)
     case default
     end select
     return
@@ -109,6 +119,10 @@ contains
       call set_block_pointer(input_definition, gwt_cnc_block_definitions)
     case ('IC')
       call set_block_pointer(input_definition, gwt_ic_block_definitions)
+    case ('IST')
+      call set_block_pointer(input_definition, gwt_ist_block_definitions)
+    case ('MST')
+      call set_block_pointer(input_definition, gwt_mst_block_definitions)
     case default
     end select
     return
@@ -132,6 +146,10 @@ contains
       multi_package = gwt_cnc_multi_package
     case ('IC')
       multi_package = gwt_ic_multi_package
+    case ('IST')
+      multi_package = gwt_ist_multi_package
+    case ('MST')
+      multi_package = gwt_mst_multi_package
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="GWT"'//&
@@ -158,6 +176,10 @@ contains
       call set_subpkg_pointer(subpackages, gwt_cnc_subpackages)
     case ('IC')
       call set_subpkg_pointer(subpackages, gwt_ic_subpackages)
+    case ('IST')
+      call set_subpkg_pointer(subpackages, gwt_ist_subpackages)
+    case ('MST')
+      call set_subpkg_pointer(subpackages, gwt_mst_subpackages)
     case default
     end select
     return
@@ -181,6 +203,10 @@ contains
     case ('CNC')
       integrated = .true.
     case ('IC')
+      integrated = .true.
+    case ('IST')
+      integrated = .true.
+    case ('MST')
       integrated = .true.
     case default
     end select

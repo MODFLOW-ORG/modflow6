@@ -52,6 +52,8 @@ contains
     call check(error, mt_ptr%path == path)
     if (allocated(error)) return
 
+    !- Cleanup
+    call container%clear()
   end subroutine test_add_get_values
 
   !> @brief Test retrieving a MemoryType using a non-existing name and path
@@ -74,6 +76,8 @@ contains
     call check(error,.not. associated(mt_ptr))
     if (allocated(error)) return
 
+    !- Cleanup
+    call container%clear()
   end subroutine test_get_nonexisting_value
 
 end module TestMemoryStore

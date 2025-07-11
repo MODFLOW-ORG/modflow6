@@ -209,22 +209,15 @@ contains
   subroutine bndext_allocate_scalars(this)
     ! -- modules
     use MemoryManagerModule, only: mem_setptr
-    use MemoryManagerExtModule, only: mem_set_value
-    use MemoryHelperModule, only: create_mem_path
-    use SimVariablesModule, only: idm_context
     ! -- dummy variables
     class(BndExtType) :: this !< BndExtType object
     ! -- local variables
-    character(len=LENMEMPATH) :: input_mempath
-    !
-    ! -- set memory path
-    input_mempath = create_mem_path(this%name_model, this%packName, idm_context)
     !
     ! -- allocate base BndType scalars
     call this%BndType%allocate_scalars()
     !
     ! -- set IPER pointer
-    call mem_setptr(this%iper, 'IPER', input_mempath)
+    call mem_setptr(this%iper, 'IPER', this%input_mempath)
 
     ! -- allocate internal scalars
     allocate (this%readarraygrid)
@@ -559,33 +552,25 @@ contains
   subroutine nodeu_to_nlist(this)
     ! -- modules
     use MemoryManagerModule, only: mem_setptr
-    use ConstantsModule, only: LENVARNAME
     ! -- dummy
     class(BndExtType) :: this !< BndExtType object
-    integer(I4B) :: n, noder, nodeuser
-    character(len=LINELENGTH) :: nodestr
+    integer(I4B) :: n, noder, nodeuser, ninactive
+
+    ninactive = 0
 
     ! -- Set the nodelist
     do n = 1, this%nbound
       nodeuser = this%nodeulist(n)
-      noder = this%dis%get_nodenumber(nodeuser, 1)
-      if (noder >= 0) then
+      noder = this%dis%get_nodenumber(nodeuser, 0)
+      if (noder > 0) then
         this%nodelist(n) = noder
       else
-        call this%dis%nodeu_to_string(n, nodestr)
-        write (errmsg, *) &
-          ' Cell is outside active grid domain: '// &
-          trim(adjustl(nodestr))
-        call store_error(errmsg)
+        ninactive = ninactive + 1
       end if
     end do
-    !
-    ! -- exit if errors were found
-    if (count_errors() > 0) then
-      write (errmsg, *) count_errors(), ' errors encountered.'
-      call store_error(errmsg)
-      call store_error_filename(this%input_fname)
-    end if
+
+    ! update nbound
+    this%nbound = this%nbound - ninactive
   end subroutine nodeu_to_nlist
 
   !> @brief Update the nodelist based on layer number variable input

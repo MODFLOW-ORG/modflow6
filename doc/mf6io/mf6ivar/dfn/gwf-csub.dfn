@@ -59,6 +59,7 @@ reader urword
 optional true
 longname keyword to indicate that preconsolidation heads will be specified
 description keyword to indicate that preconsolidation heads will be specified for no-delay and delay interbeds in the PACKAGEDATA block. If the SPECIFIED\_INITIAL\_INTERBED\_STATE option is specified in the OPTIONS block, user-specified preconsolidation heads in the PACKAGEDATA block are absolute values. Otherwise, user-specified preconsolidation heads in the PACKAGEDATA block are relative to steady-state or initial heads.
+mf6internal precon_head
 
 block options
 name ndelaycells
@@ -75,6 +76,7 @@ reader urword
 optional true
 longname keyword to indicate CR and CC are read instead of SSE and SSV
 description keyword to indicate that the recompression (CR) and compression (CC) indices are specified instead of the elastic specific storage (SSE) and inelastic specific storage (SSV) coefficients. If not specified, then elastic specific storage (SSE) and inelastic specific storage (SSV) coefficients must be specified.
+mf6internal icompress
 
 block options
 name update_material_properties
@@ -83,6 +85,7 @@ reader urword
 optional true
 longname keyword to indicate material properties can change during the simulations
 description keyword to indicate that the thickness and void ratio of coarse-grained and interbed sediments (delay and no-delay) will vary during the simulation. If not specified, the thickness and void ratio of coarse-grained and interbed sediments will not vary during the simulation.
+mf6internal matprop
 
 block options
 name cell_fraction
@@ -99,6 +102,7 @@ reader urword
 optional true
 longname keyword to indicate that absolute initial states will be specified
 description keyword to indicate that absolute preconsolidation stresses (heads) and delay bed heads will be specified for interbeds defined in the PACKAGEDATA block. The SPECIFIED\_INITIAL\_INTERBED\_STATE option is equivalent to specifying the SPECIFIED\_INITIAL\_PRECONSOLITATION\_STRESS and SPECIFIED\_INITIAL\_DELAY\_HEAD. If SPECIFIED\_INITIAL\_INTERBED\_STATE is not specified then preconsolidation stress (head) and delay bed head values specified in the PACKAGEDATA block are relative to simulated values of the first stress period if steady-state or initial stresses and GWF heads if the first stress period is transient.
+mf6internal interbed_state
 
 block options
 name specified_initial_preconsolidation_stress
@@ -107,6 +111,7 @@ reader urword
 optional true
 longname keyword to indicate that absolute initial preconsolidation stresses (head) will be specified
 description keyword to indicate that absolute preconsolidation stresses (heads) will be specified for interbeds defined in the PACKAGEDATA block. If SPECIFIED\_INITIAL\_PRECONSOLITATION\_STRESS and SPECIFIED\_INITIAL\_INTERBED\_STATE are not specified then preconsolidation stress (head) values specified in the PACKAGEDATA block are relative to simulated values if the first stress period is steady-state or initial stresses (heads) if the first stress period is transient.
+mf6internal precon_stress
 
 block options
 name specified_initial_delay_head
@@ -115,6 +120,7 @@ reader urword
 optional true
 longname keyword to indicate that absolute initial delay bed heads will be specified
 description keyword to indicate that absolute initial delay bed head will be specified for interbeds defined in the PACKAGEDATA block. If SPECIFIED\_INITIAL\_DELAY\_HEAD and SPECIFIED\_INITIAL\_INTERBED\_STATE are not specified then delay bed head values specified in the PACKAGEDATA block are relative to simulated values if the first stress period is steady-state or initial GWF heads if the first stress period is transient.
+mf6internal delay_head
 
 block options
 name effective_stress_lag
@@ -123,6 +129,7 @@ reader urword
 optional true
 longname keyword to indicate that specific storage will be calculate using the effective stress from the previous time step
 description keyword to indicate the effective stress from the previous time step will be used to calculate specific storage values. This option can 1) help with convergence in models with thin cells and water table elevations close to land surface; 2) is identical to the approach used in the SUBWT package for MODFLOW-2005; and 3) is only used if the effective-stress formulation is being used. By default, current effective stress values are used to calculate specific storage values.
+mf6internal stress_lag
 
 
 # csub csv strain output
@@ -135,6 +142,7 @@ tagged true
 optional true
 longname
 description
+mf6internal strainibfr
 
 block options
 name strain_csv_interbed
@@ -146,6 +154,7 @@ tagged true
 optional false
 longname budget keyword
 description keyword to specify the record that corresponds to final interbed strain output.
+mf6internal csvinterbed
 
 block options
 name fileout
@@ -161,6 +170,7 @@ description keyword to specify that an output filename is expected next.
 block options
 name interbedstrain_filename
 type string
+preserve_case true
 shape
 in_record true
 reader urword
@@ -168,6 +178,7 @@ tagged false
 optional false
 longname file keyword
 description name of the comma-separated-values output file to write final interbed strain information.
+mf6internal interbedstrainfn
 
 block options
 name straincg_filerecord
@@ -178,6 +189,7 @@ tagged true
 optional true
 longname
 description
+mf6internal straincgfr
 
 block options
 name strain_csv_coarse
@@ -189,10 +201,12 @@ tagged true
 optional false
 longname budget keyword
 description keyword to specify the record that corresponds to final coarse-grained material strain output.
+mf6internal csvcoarse
 
 block options
 name coarsestrain_filename
 type string
+preserve_case true
 shape
 in_record true
 reader urword
@@ -200,6 +214,7 @@ tagged false
 optional false
 longname file keyword
 description name of the comma-separated-values output file to write final coarse-grained material strain information.
+mf6internal coarsestrainfn
 
 # binary compaction output
 block options
@@ -211,6 +226,7 @@ tagged true
 optional true
 longname
 description
+mf6internal cmpfr
 
 block options
 name compaction
@@ -226,6 +242,7 @@ description keyword to specify that record corresponds to the compaction.
 block options
 name compaction_filename
 type string
+preserve_case true
 shape
 in_record true
 reader urword
@@ -233,6 +250,7 @@ tagged false
 optional false
 longname file keyword
 description name of the binary output file to write compaction information.
+mf6internal cmpfn
 
 block options
 name compaction_elastic_filerecord
@@ -243,6 +261,7 @@ tagged true
 optional true
 longname
 description
+mf6internal cmpelasticfr
 
 block options
 name compaction_elastic
@@ -254,10 +273,12 @@ tagged true
 optional false
 longname elastic interbed compaction keyword
 description keyword to specify that record corresponds to the elastic interbed compaction binary file.
+mf6internal cmpelastic
 
 block options
 name elastic_compaction_filename
 type string
+preserve_case true
 shape
 in_record true
 reader urword
@@ -265,6 +286,7 @@ tagged false
 optional false
 longname file keyword
 description name of the binary output file to write elastic interbed compaction information.
+mf6internal elasticcmpfn
 
 block options
 name compaction_inelastic_filerecord
@@ -275,6 +297,7 @@ tagged true
 optional true
 longname
 description
+mf6internal cmpinelasticfr
 
 block options
 name compaction_inelastic
@@ -286,10 +309,12 @@ tagged true
 optional false
 longname inelastic interbed compaction keyword
 description keyword to specify that record corresponds to the inelastic interbed compaction binary file.
+mf6internal cmpinelastic
 
 block options
 name inelastic_compaction_filename
 type string
+preserve_case true
 shape
 in_record true
 reader urword
@@ -297,6 +322,7 @@ tagged false
 optional false
 longname file keyword
 description name of the binary output file to write inelastic interbed compaction information.
+mf6internal inelasticcmpfn
 
 block options
 name compaction_interbed_filerecord
@@ -307,6 +333,7 @@ tagged true
 optional true
 longname
 description
+mf6internal cmpinterbedfr
 
 block options
 name compaction_interbed
@@ -318,10 +345,12 @@ tagged true
 optional false
 longname interbed compaction keyword
 description keyword to specify that record corresponds to the interbed compaction binary file.
+mf6internal cmpinterbed
 
 block options
 name interbed_compaction_filename
 type string
+preserve_case true
 shape
 in_record true
 reader urword
@@ -329,6 +358,7 @@ tagged false
 optional false
 longname file keyword
 description name of the binary output file to write interbed compaction information.
+mf6internal interbedcmpfn
 
 block options
 name compaction_coarse_filerecord
@@ -339,6 +369,7 @@ tagged true
 optional true
 longname
 description
+mf6internal cmpcoarsefr
 
 block options
 name compaction_coarse
@@ -350,10 +381,12 @@ tagged true
 optional false
 longname coarse compaction keyword
 description keyword to specify that record corresponds to the elastic coarse-grained material compaction binary file.
+mf6internal cmpcoarse
 
 block options
 name coarse_compaction_filename
 type string
+preserve_case true
 shape
 in_record true
 reader urword
@@ -361,6 +394,7 @@ tagged false
 optional false
 longname file keyword
 description name of the binary output file to write elastic coarse-grained material compaction information.
+mf6internal cmpcoarsefn
 
 block options
 name zdisplacement_filerecord
@@ -371,6 +405,7 @@ tagged true
 optional true
 longname
 description
+mf6internal zdispfr
 
 block options
 name zdisplacement
@@ -386,6 +421,7 @@ description keyword to specify that record corresponds to the z-displacement bin
 block options
 name zdisplacement_filename
 type string
+preserve_case true
 shape
 in_record true
 reader urword
@@ -393,6 +429,7 @@ tagged false
 optional false
 longname file keyword
 description name of the binary output file to write z-displacement information.
+mf6internal zdispfn
 
 block options
 name package_convergence_filerecord
@@ -403,6 +440,7 @@ tagged true
 optional true
 longname
 description
+mf6internal pkgconvergefr
 
 block options
 name package_convergence
@@ -414,10 +452,12 @@ tagged true
 optional false
 longname package_convergence keyword
 description keyword to specify that record corresponds to the package convergence comma spaced values file. Package convergence data is for delay interbeds. A warning message will be issued if package convergence data is requested but delay interbeds are not included in the package.
+mf6internal pkgconverge
 
 block options
 name package_convergence_filename
 type string
+preserve_case true
 shape
 in_record true
 reader urword
@@ -425,6 +465,7 @@ tagged false
 optional false
 longname file keyword
 description name of the comma spaced values output file to write package convergence information.
+mf6internal pkgconvergefn
 
 block options
 name ts_filerecord
@@ -461,6 +502,7 @@ description keyword to specify that an input filename is expected next.
 block options
 name ts6_filename
 type string
+preserve_case true
 in_record true
 reader urword
 optional false
@@ -492,6 +534,7 @@ description keyword to specify that record corresponds to an observations file.
 block options
 name obs6_filename
 type string
+preserve_case true
 in_record true
 tagged false
 reader urword
@@ -516,6 +559,7 @@ reader urword
 optional true
 longname maximum number of stress offset cells
 description is the maximum number of cells that can have a specified stress offset.  More than 1 stress offset can be assigned to a GWF cell. By default, MAXSIG0 is 0.
+mf6internal maxbound
 
 
 # --------------------- gwf csub griddata ---------------------
@@ -526,6 +570,8 @@ type double precision
 shape (nodes)
 valid
 reader readarray
+layered true
+netcdf true
 longname elastic coarse specific storage
 description is the initial elastic coarse-grained material specific storage or recompression index. The recompression index is specified if COMPRESSION\_INDICES is specified in the OPTIONS block.  Specified or calculated elastic coarse-grained material specific storage values are not adjusted from initial values if HEAD\_BASED is specified in the OPTIONS block.
 default_value 1e-5
@@ -536,6 +582,8 @@ type double precision
 shape (nodes)
 valid
 reader readarray
+layered true
+netcdf true
 longname initial coarse-grained material porosity
 description is the initial porosity of coarse-grained materials.
 default_value 0.2
@@ -546,6 +594,8 @@ type double precision
 shape (nodes)
 valid
 reader readarray
+layered true
+netcdf true
 optional true
 longname specific gravity of moist sediments
 description is the specific gravity of moist or unsaturated sediments.  If not specified, then a default value of 1.7 is assigned.
@@ -556,6 +606,8 @@ type double precision
 shape (nodes)
 valid
 reader readarray
+layered true
+netcdf true
 optional true
 longname specific gravity of saturated sediments
 description is the specific gravity of saturated sediments. If not specified, then a default value of 2.0 is assigned.
@@ -567,6 +619,7 @@ name packagedata
 type recarray icsubno cellid cdelay pcs0 thick_frac rnb ssv_cc sse_cr theta kv h0 boundname
 shape (ninterbeds)
 reader urword
+optional true
 longname
 description
 
@@ -590,6 +643,7 @@ in_record true
 reader urword
 longname cell identifier
 description REPLACE cellid {}
+mf6internal cellid_pkgdata
 
 block packagedata
 name cdelay
@@ -715,6 +769,7 @@ shape (maxsig0)
 reader urword
 longname
 description
+mf6internal spd
 
 block period
 name cellid

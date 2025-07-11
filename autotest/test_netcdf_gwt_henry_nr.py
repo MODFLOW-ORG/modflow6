@@ -39,6 +39,7 @@ def build_models(idx, test, export):
     # mc.tdis.start_date_time = "2041-01-01T00:00:00-05:00"
     gwf = mc.gwf[0]
     gwf.get_package("GHB-1").export_array_netcdf = True
+    gwf.get_package("DRN-1").export_array_netcdf = True
 
     name = "gwf_" + cases[idx]
 
@@ -89,7 +90,7 @@ def check_output(idx, test, export):
         f.write(f"  NPF6  {name}.npf  npf\n")
         f.write(f"  STO6  {name}.sto  sto\n")
         f.write(f"  BUY6  {name}.buy  buy\n")
-        f.write(f"  DRN6  {name}.drn  drn-1\n")
+        f.write(f"  DRN6  {name}.drng  drn-1\n")
         f.write(f"  GHB6  {name}.ghbg  ghb-1\n")
         f.write(f"  WEL6  {name}.wel  wel-1\n")
         f.write(f"  OC6  {name}.oc  oc\n")
@@ -112,6 +113,32 @@ def check_output(idx, test, export):
             f.write("  concentration NETCDF\n")
             f.write("  density NETCDF\n")
             f.write(f"END period {i + 1}\n\n")
+
+    with open(ws / f"{name}.drng", "w") as f:
+        f.write("BEGIN options\n")
+        f.write("  READARRAYGRID\n")
+        f.write("  auxiliary  CONCENTRATION\n")
+        f.write("  PRINT_INPUT\n")
+        f.write("  PRINT_FLOWS\n")
+        f.write("END options\n\n")
+        f.write("BEGIN dimensions\n")
+        f.write("  MAXBOUND  11\n")
+        f.write("END dimensions\n\n")
+        for i in range(1001):
+            kper = i + 1
+            if (
+                (kper > 44 and kper < 83)
+                or (kper > 294 and kper < 333)
+                or (kper > 544 and kper < 583)
+                or (kper > 794 and kper < 833)
+            ):
+                pass
+            else:
+                f.write(f"BEGIN period {i + 1}\n")
+                f.write("  elev NETCDF\n")
+                f.write("  cond NETCDF\n")
+                f.write("  concentration NETCDF\n")
+                f.write(f"END period {i + 1}\n\n")
 
     success, buff = flopy.run_model(
         test.targets["mf6"],

@@ -107,7 +107,7 @@ module GwfModule
   character(len=LENPACKAGETYPE), dimension(GWF_NBASEPKG) :: GWF_BASEPKG
   data GWF_BASEPKG/'DIS6 ', 'DISV6', 'DISU6', '     ', '     ', & !  5
                   &'NPF6 ', 'BUY6 ', 'VSC6 ', 'GNC6 ', '     ', & ! 10
-                  &'HFB6 ', 'STO6 ', 'IC6  ', '     ', '     ', & ! 15
+                  &'HFB6 ', 'STO6 ', 'IC6  ', 'CSUB6', '     ', & ! 15
                   &'MVR6 ', 'OC6  ', 'OBS6 ', '     ', '     ', & ! 20
                   &30*'     '/ ! 50
 
@@ -119,7 +119,7 @@ module GwfModule
   integer(I4B), parameter :: GWF_NMULTIPKG = 50
   character(len=LENPACKAGETYPE), dimension(GWF_NMULTIPKG) :: GWF_MULTIPKG
   data GWF_MULTIPKG/'WEL6 ', 'DRN6 ', 'RIV6 ', 'GHB6 ', '     ', & !  5
-                   &'RCH6 ', 'EVT6 ', 'CHD6 ', 'CSUB6', '     ', & ! 10
+                   &'RCH6 ', 'EVT6 ', 'CHD6 ', '     ', '     ', & ! 10
                    &'MAW6 ', 'SFR6 ', 'LAK6 ', 'UZF6 ', 'API6 ', & ! 15
                    &35*'     '/ ! 50
 
@@ -1440,6 +1440,7 @@ contains
     character(len=LENMEMPATH) :: mempathnpf = ''
     character(len=LENMEMPATH) :: mempathic = ''
     character(len=LENMEMPATH) :: mempathsto = ''
+    character(len=LENMEMPATH) :: mempathcsub = ''
     !
     ! -- set input model memory path
     model_mempath = create_mem_path(component=this%name, context=idm_context)
@@ -1484,7 +1485,8 @@ contains
         this%insto = 1
         mempathsto = mempath
       case ('CSUB6')
-        this%incsub = inunit
+        this%incsub = 1
+        mempathcsub = mempath
       case ('IC6')
         this%inic = 1
         mempathic = mempath
@@ -1512,8 +1514,8 @@ contains
     call gnc_cr(this%gnc, this%name, this%ingnc, this%iout)
     call hfb_cr(this%hfb, this%name, this%inhfb, this%iout)
     call sto_cr(this%sto, this%name, mempathsto, this%insto, this%iout)
-    call csub_cr(this%csub, this%name, this%insto, this%sto%packName, &
-                 this%incsub, this%iout)
+    call csub_cr(this%csub, this%name, mempathcsub, this%insto, &
+                 this%sto%packName, this%incsub, this%iout)
     call ic_cr(this%ic, this%name, mempathic, this%inic, this%iout, this%dis)
     call mvr_cr(this%mvr, this%name, this%inmvr, this%iout, this%dis)
     call oc_cr(this%oc, this%name, this%inoc, this%iout)

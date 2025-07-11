@@ -796,7 +796,7 @@ contains
                       this%depvarunit, this%depvarunitabbrev)
     case ('IST6')
       call ist_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
-                      pakname, this%fmi, this%mst)
+                      pakname, mempath, this%fmi, this%mst)
     case ('API6')
       call api_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
     case default
@@ -918,6 +918,7 @@ contains
     integer(I4B), dimension(:), allocatable :: bndpkgs
     integer(I4B) :: n
     character(len=LENMEMPATH) :: mempathdsp = ''
+    character(len=LENMEMPATH) :: mempathmst = ''
     !
     ! -- set input memory paths, input/model and input/model/namfile
     model_mempath = create_mem_path(component=this%name, context=idm_context)
@@ -939,7 +940,8 @@ contains
       ! -- create dis package as it is a prerequisite for other packages
       select case (pkgtype)
       case ('MST6')
-        this%inmst = inunit
+        this%inmst = 1
+        mempathmst = mempath
       case ('DSP6')
         this%indsp = 1
         mempathdsp = mempath
@@ -953,7 +955,8 @@ contains
     end do
     !
     ! -- Create packages that are tied directly to model
-    call mst_cr(this%mst, this%name, this%inmst, this%iout, this%fmi)
+    call mst_cr(this%mst, this%name, mempathmst, this%inmst, this%iout, &
+                this%fmi)
     call dsp_cr(this%dsp, this%name, mempathdsp, this%indsp, this%iout, &
                 this%fmi)
     !

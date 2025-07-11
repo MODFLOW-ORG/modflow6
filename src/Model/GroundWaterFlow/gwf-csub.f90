@@ -27,20 +27,14 @@ module GwfCsubModule
   use NumericalPackageModule, only: NumericalPackageType
   use ObserveModule, only: ObserveType
   use ObsModule, only: ObsType, obs_cr
-  use BlockParserModule, only: BlockParserType
-  use TimeSeriesLinkModule, only: TimeSeriesLinkType, &
-                                  GetTimeSeriesLinkFromList
   use GeomUtilModule, only: get_node
   use InputOutputModule, only: extract_idnum_or_bndname
   use BaseDisModule, only: DisBaseType
-  use SimModule, only: count_errors, store_error, store_error_unit, &
-                       store_warning
+  use SimModule, only: count_errors, store_error, store_warning, &
+                       store_error_filename
   use SimVariablesModule, only: errmsg, warnmsg
-  use SortModule, only: qsort, selectn
+  use SortModule, only: selectn
   !
-  use TimeSeriesLinkModule, only: TimeSeriesLinkType
-  use TimeSeriesManagerModule, only: TimeSeriesManagerType, tsmanager_cr
-  use ListModule, only: ListType
   use TableModule, only: TableType, table_cr
   !
   use IMSLinearMisc, only: ims_misc_thomas
@@ -216,9 +210,6 @@ module GwfCsubModule
     integer(I4B), dimension(:), pointer, contiguous :: nodelistsig0 => null() !< vector of reduced node numbers
     real(DP), dimension(:), pointer, contiguous :: sig0 => null() !< array of package specific boundary numbers
     !
-    ! -- timeseries
-    type(TimeSeriesManagerType), pointer :: TsManager => null() !< time series manager
-    !
     ! -- observation data
     integer(I4B), pointer :: inobspkg => null() !< unit number for obs package
     type(ObsType), pointer :: obs => null() !< observation package
@@ -230,7 +221,8 @@ module GwfCsubModule
 
   contains
     procedure :: define_listlabel
-    procedure :: read_options
+    procedure :: source_options
+    procedure :: log_options
     procedure :: csub_ar
     procedure :: csub_da
     procedure :: csub_rp
@@ -243,10 +235,11 @@ module GwfCsubModule
     procedure :: csub_save_model_flows
     procedure :: csub_ot_dv
     procedure :: csub_fp
-    procedure :: read_dimensions => csub_read_dimensions
+    procedure :: source_dimensions => csub_source_dimensions
     procedure, private :: csub_allocate_scalars
     procedure, private :: csub_allocate_arrays
-    procedure, private :: csub_read_packagedata
+    procedure, private :: csub_source_griddata
+    procedure, private :: csub_source_packagedata
     !
     ! -- helper methods
     procedure, private :: csub_calc_void_ratio
@@ -321,10 +314,12 @@ contains
   !!  Create a new CSUB object
   !!
   !<
-  subroutine csub_cr(csubobj, name_model, istounit, stoPckName, inunit, iout)
+  subroutine csub_cr(csubobj, name_model, mempath, istounit, stoPckName, inunit, &
+                     iout)
     ! -- dummy variables
     type(GwfCsubType), pointer :: csubobj !< pointer to default package type
     character(len=*), intent(in) :: name_model !< model name
+    character(len=*), intent(in) :: mempath !< input context mem path
     integer(I4B), intent(in) :: inunit !< unit number of csub input file
     integer(I4B), intent(in) :: istounit !< unit number of storage package
     character(len=*), intent(in) :: stoPckName !< name of the storage package
@@ -335,7 +330,7 @@ contains
     allocate (csubobj)
 
     ! -- create name and memory path
-    call csubobj%set_names(1, name_model, 'CSUB', 'CSUB')
+    call csubobj%set_names(1, name_model, 'CSUB', 'CSUB', mempath)
     !
     ! -- Allocate scalars
     call csubobj%csub_allocate_scalars()
@@ -347,9 +342,6 @@ contains
     csubobj%istounit = istounit
     csubobj%inunit = inunit
     csubobj%iout = iout
-    !
-    ! -- Initialize block parser
-    call csubobj%parser%Initialize(csubobj%inunit, csubobj%iout)
   end subroutine csub_cr
 
   !> @ brief Allocate and read method for package
@@ -367,19 +359,8 @@ contains
     class(DisBaseType), pointer, intent(in) :: dis !< model discretization
     integer(I4B), dimension(:), pointer, contiguous :: ibound !< model ibound array
     ! -- local variables
-    logical(LGP) :: isfound, endOfBlock
-    character(len=:), allocatable :: line
-    character(len=LINELENGTH) :: keyword
     character(len=20) :: cellid
-    integer(I4B) :: iske
-    integer(I4B) :: istheta
-    integer(I4B) :: isgm
-    integer(I4B) :: isgs
     integer(I4B) :: idelay
-    integer(I4B) :: ierr
-    integer(I4B) :: lloc
-    integer(I4B) :: istart
-    integer(I4B) :: istop
     integer(I4B) :: ib
     integer(I4B) :: node
     integer(I4B) :: istoerr
@@ -392,109 +373,37 @@ contains
     ! -- format
     character(len=*), parameter :: fmtcsub = &
       "(1x,/1x,'CSUB -- COMPACTION PACKAGE, VERSION 1, 12/15/2019', &
-     &' INPUT READ FROM UNIT ', i0, //)"
+     &' INPUT READ FROM MEMPATH: ', A, /)"
     !
     ! --print a message identifying the csub package.
-    write (this%iout, fmtcsub) this%inunit
+    write (this%iout, fmtcsub) this%input_mempath
     !
     ! -- store pointers to arguments that were passed in
     this%dis => dis
     this%ibound => ibound
     !
-    ! -- Create time series managers
-    call tsmanager_cr(this%TsManager, this%iout)
-    !
     ! -- create obs package
     call obs_cr(this%obs, this%inobspkg)
     !
-    ! -- Read csub options
-    call this%read_options()
+    ! -- source csub options
+    call this%source_options()
     !
-    ! -- Now that time series will have been read, need to call the df
-    !    routine to define the manager
-    call this%tsmanager%tsmanager_df()
-    !
-    ! -- Read the csub dimensions
-    call this%read_dimensions()
+    ! -- source the csub dimensions
+    call this%source_dimensions()
     !
     ! - observation data
     call this%obs%obs_ar()
     !
     ! -- terminate if errors dimensions block data
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
 
     ! -- Allocate arrays in
     call this%csub_allocate_arrays()
     !
-    ! -- initialize local variables
-    iske = 0
-    istheta = 0
-    isgm = 0
-    isgs = 0
-    !
-    ! -- read griddata block
-    call this%parser%GetBlock('GRIDDATA', isfound, ierr)
-    if (isfound) then
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        call this%parser%GetRemainingLine(line)
-        lloc = 1
-        select case (keyword)
-        case ('CG_SKE_CR')
-          call this%dis%read_grid_array(line, lloc, istart, istop, &
-                                        this%iout, this%parser%iuactive, &
-                                        this%cg_ske_cr, 'CG_SKE_CR')
-          iske = 1
-        case ('CG_THETA')
-          call this%dis%read_grid_array(line, lloc, istart, istop, &
-                                        this%iout, this%parser%iuactive, &
-                                        this%cg_thetaini, 'CG_THETA')
-          istheta = 1
-        case ('SGM')
-          call this%dis%read_grid_array(line, lloc, istart, istop, &
-                                        this%iout, this%parser%iuactive, &
-                                        this%sgm, 'SGM')
-          isgm = 1
-        case ('SGS')
-          call this%dis%read_grid_array(line, lloc, istart, istop, &
-                                        this%iout, this%parser%iuactive, &
-                                        this%sgs, 'SGS')
-          isgs = 1
-        case default
-          write (errmsg, '(a,1x,a,a)') &
-            "Unknown GRIDDATA tag '", trim(keyword), "'."
-          call store_error(errmsg)
-        end select
-      end do
-    else
-      call store_error('Required GRIDDATA block not found.')
-    end if
-    !
-    ! -- determine if cg_ske and cg_theta have been specified
-    if (iske == 0) then
-      write (errmsg, '(a)') 'CG_SKE GRIDDATA must be specified.'
-      call store_error(errmsg)
-    end if
-    if (istheta == 0) then
-      write (errmsg, '(a)') 'CG_THETA GRIDDATA must be specified.'
-      call store_error(errmsg)
-    end if
-    !
-    ! -- determine if sgm and sgs have been specified, if not assign default values
-    if (isgm == 0) then
-      do node = 1, this%dis%nodes
-        this%sgm(node) = 1.7D0
-      end do
-    end if
-    if (isgs == 0) then
-      do node = 1, this%dis%nodes
-        this%sgs(node) = 2.0D0
-      end do
-    end if
+    ! -- source griddata
+    call this%csub_source_griddata()
     !
     ! -- evaluate the coarse-grained material properties and if
     !    non-zero specific storage values are specified in the
@@ -536,9 +445,9 @@ contains
       call store_error(errmsg)
     end if
     !
-    ! -- read interbed data
+    ! -- source interbed data
     if (this%ninterbeds > 0) then
-      call this%csub_read_packagedata()
+      call this%csub_source_packagedata()
     end if
     !
     ! setup package convergence tables
@@ -578,7 +487,7 @@ contains
     !
     ! -- terminate if errors griddata, packagedata blocks, TDIS, or STO data
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- set current coarse-grained thickness (cg_thick) and
@@ -592,35 +501,181 @@ contains
     end if
   end subroutine csub_ar
 
-  !> @ brief Read options for package
+  !> @ brief Source options for package
   !!
-  !!  Read options block for CSUB package.
+  !!  Source options for CSUB package.
   !!
   !<
-  subroutine read_options(this)
+  subroutine source_options(this)
     ! -- modules
     use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL
     use MemoryManagerModule, only: mem_reallocate
+    use MemoryManagerExtModule, only: mem_set_value
     use OpenSpecModule, only: access, form
     use InputOutputModule, only: getunit, urdaux, openfile
+    use GwfCsubInputModule, only: GwfCsubParamFoundType
+    use SourceCommonModule, only: filein_fname
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     ! -- local variables
-    character(len=LINELENGTH) :: keyword
-    character(len=:), allocatable :: line
-    character(len=MAXCHARLEN) :: fname
-    character(len=LENAUXNAME), dimension(:), allocatable :: caux
-    logical(LGP) :: isfound
-    logical(LGP) :: endOfBlock
-    integer(I4B) :: n
-    integer(I4B) :: lloc
-    integer(I4B) :: istart
-    integer(I4B) :: istop
-    integer(I4B) :: ierr
+    integer(I4B), pointer :: ibs
     integer(I4B) :: inobs
-    integer(I4B) :: ibrg
-    integer(I4B) :: ieslag
-    integer(I4B) :: isetgamma
+    character(len=LINELENGTH) :: csv_interbed, csv_coarse
+    character(len=LINELENGTH) :: cmp_fn, ecmp_fn, iecmp_fn, ibcmp_fn, cmpcoarse_fn
+    character(len=LINELENGTH) :: zdisp_fn, pkg_converge_fn
+    type(GwfCsubParamFoundType) :: found
+    logical(LGP) :: warn_estress_lag = .false.
+
+    ! -- allocate and initialize variables
+    allocate (ibs)
+    ibs = 0
+
+    ! -- update defaults from input context
+    call mem_set_value(this%inamedbound, 'BOUNDNAMES', this%input_mempath, &
+                       found%boundnames)
+    call mem_set_value(this%iprpak, 'PRINT_INPUT', this%input_mempath, &
+                       found%print_input)
+    call mem_set_value(this%ipakcb, 'SAVE_FLOWS', this%input_mempath, &
+                       found%save_flows)
+    call mem_set_value(this%gammaw, 'GAMMAW', this%input_mempath, found%gammaw)
+    call mem_set_value(this%beta, 'BETA', this%input_mempath, found%beta)
+    call mem_set_value(this%ipch, 'HEAD_BASED', this%input_mempath, &
+                       found%head_based)
+    call mem_set_value(this%ipch, 'PRECON_HEAD', this%input_mempath, &
+                       found%precon_head)
+    call mem_set_value(this%ndelaycells, 'NDELAYCELLS', this%input_mempath, &
+                       found%ndelaycells)
+    call mem_set_value(this%istoragec, 'ICOMPRESS', this%input_mempath, &
+                       found%icompress)
+    call mem_set_value(this%iupdatematprop, 'MATPROP', this%input_mempath, &
+                       found%matprop)
+    call mem_set_value(this%icellf, 'CELL_FRACTION', this%input_mempath, &
+                       found%cell_fraction)
+    call mem_set_value(ibs, 'INTERBED_STATE', this%input_mempath, &
+                       found%interbed_state)
+    call mem_set_value(this%ispecified_pcs, 'PRECON_STRESS', this%input_mempath, &
+                       found%precon_stress)
+    call mem_set_value(this%ispecified_dbh, 'DELAY_HEAD', this%input_mempath, &
+                       found%delay_head)
+    call mem_set_value(this%ieslag, 'STRESS_LAG', this%input_mempath, &
+                       found%stress_lag)
+    call mem_set_value(csv_interbed, 'INTERBEDSTRAINFN', this%input_mempath, &
+                       found%interbedstrainfn)
+    call mem_set_value(csv_coarse, 'COARSESTRAINFN', this%input_mempath, &
+                       found%coarsestrainfn)
+    call mem_set_value(cmp_fn, 'CMPFN', this%input_mempath, found%cmpfn)
+    call mem_set_value(ecmp_fn, 'ELASTICCMPFN', this%input_mempath, &
+                       found%elasticcmpfn)
+    call mem_set_value(iecmp_fn, 'INELASTICCMPFN', this%input_mempath, &
+                       found%inelasticcmpfn)
+    call mem_set_value(ibcmp_fn, 'INTERBEDCMPFN', this%input_mempath, &
+                       found%interbedcmpfn)
+    call mem_set_value(cmpcoarse_fn, 'CMPCOARSEFN', this%input_mempath, &
+                       found%cmpcoarsefn)
+    call mem_set_value(zdisp_fn, 'ZDISPFN', this%input_mempath, found%zdispfn)
+    call mem_set_value(pkg_converge_fn, 'PKGCONVERGEFN', this%input_mempath, &
+                       found%pkgconvergefn)
+
+    ! -- enforce 0 or 1 OBS6_FILENAME entries in option block
+    if (filein_fname(this%obs%inputFilename, 'OBS6_FILENAME', &
+                     this%input_mempath, this%input_fname)) then
+      this%obs%active = .true.
+      inobs = GetUnit()
+      call openfile(inobs, this%iout, this%obs%inputFilename, 'OBS')
+      this%obs%inUnitObs = inobs
+      this%inobspkg = inobs
+      call this%obs%obs_df(this%iout, this%packName, this%filtyp, this%dis)
+      call this%csub_df_obs()
+    end if
+
+    ! -- update input dependent internal state
+    if (found%save_flows) this%ipakcb = -1
+    if (found%head_based) then
+      this%lhead_based = .TRUE.
+      if (this%ieslag /= 0) then
+        this%ieslag = 0
+        warn_estress_lag = .true.
+      end if
+    end if
+    if (found%icompress) this%istoragec = 0
+    if (found%interbed_state) then
+      this%ispecified_pcs = 1
+      this%ispecified_dbh = 1
+    end if
+    if (found%gammaw .or. found%beta) then
+      this%brg = this%gammaw * this%beta
+    end if
+
+    ! fileout options
+    if (found%interbedstrainfn) then
+      this%istrainib = getunit()
+      call openfile(this%istrainib, this%iout, csv_interbed, 'CSV_OUTPUT', &
+                    filstat_opt='REPLACE', mode_opt=MNORMAL)
+    end if
+    if (found%coarsestrainfn) then
+      this%istrainsk = getunit()
+      call openfile(this%istrainsk, this%iout, csv_coarse, 'CSV_OUTPUT', &
+                    filstat_opt='REPLACE', mode_opt=MNORMAL)
+    end if
+    if (found%cmpfn) then
+      this%ioutcomp = getunit()
+      call openfile(this%ioutcomp, this%iout, cmp_fn, 'DATA(BINARY)', &
+                    form, access, 'REPLACE', mode_opt=MNORMAL)
+    end if
+    if (found%elasticcmpfn) then
+      this%ioutcompe = getunit()
+      call openfile(this%ioutcompe, this%iout, ecmp_fn, &
+                    'DATA(BINARY)', form, access, 'REPLACE', &
+                    mode_opt=MNORMAL)
+    end if
+    if (found%inelasticcmpfn) then
+      this%ioutcompi = getunit()
+      call openfile(this%ioutcompi, this%iout, iecmp_fn, &
+                    'DATA(BINARY)', form, access, 'REPLACE', &
+                    mode_opt=MNORMAL)
+    end if
+    if (found%interbedcmpfn) then
+      this%ioutcompib = getunit()
+      call openfile(this%ioutcompib, this%iout, ibcmp_fn, &
+                    'DATA(BINARY)', form, access, 'REPLACE', &
+                    mode_opt=MNORMAL)
+    end if
+    if (found%cmpcoarsefn) then
+      this%ioutcomps = getunit()
+      call openfile(this%ioutcomps, this%iout, cmpcoarse_fn, &
+                    'DATA(BINARY)', form, access, 'REPLACE', &
+                    mode_opt=MNORMAL)
+    end if
+    if (found%zdispfn) then
+      this%ioutzdisp = getunit()
+      call openfile(this%ioutzdisp, this%iout, zdisp_fn, &
+                    'DATA(BINARY)', form, access, 'REPLACE', &
+                    mode_opt=MNORMAL)
+    end if
+    if (found%pkgconvergefn) then
+      this%ipakcsv = getunit()
+      call openfile(this%ipakcsv, this%iout, pkg_converge_fn, 'CSV', &
+                    filstat_opt='REPLACE', mode_opt=MNORMAL)
+    end if
+
+    ! -- log user options
+    call this%log_options(warn_estress_lag)
+
+    ! -- cleanup
+    deallocate (ibs)
+  end subroutine source_options
+
+  !> @ brief log options for package
+  !!
+  !!  log options block for CSUB package.
+  !!
+  !<
+  subroutine log_options(this, warn_estress_lag)
+    ! -- modules
+    ! -- dummy variables
+    class(GwfCsubType), intent(inout) :: this
+    logical(LGP), intent(in) :: warn_estress_lag
+    ! -- local variables
     ! -- formats
     character(len=*), parameter :: fmtts = &
       &"(4x,'TIME-SERIES DATA WILL BE READ FROM FILE: ',a)"
@@ -641,290 +696,6 @@ contains
     character(len=*), parameter :: fmtfileout = &
       "(4x,'CSUB ',1x,a,1x,' WILL BE SAVED TO FILE: ',a,/4x,&
       &'OPENED ON UNIT: ',I7)"
-    !
-    ! -- initialize variables
-    ibrg = 0
-    ieslag = 0
-    isetgamma = 0
-    !
-    ! -- get options block
-    call this%parser%GetBlock('OPTIONS', isfound, ierr, blockRequired=.false., &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse options block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING CSUB OPTIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) then
-          exit
-        end if
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('AUX', 'AUXILIARY')
-          call this%parser%GetRemainingLine(line)
-          lloc = 1
-          call urdaux(this%naux, this%parser%iuactive, this%iout, lloc, &
-                      istart, istop, caux, line, this%packName)
-          call mem_reallocate(this%auxname, LENAUXNAME, this%naux, &
-                              'AUXNAME', this%memoryPath)
-          do n = 1, this%naux
-            this%auxname(n) = caux(n)
-          end do
-          deallocate (caux)
-        case ('SAVE_FLOWS')
-          this%ipakcb = -1
-          write (this%iout, fmtflow2)
-        case ('PRINT_INPUT')
-          this%iprpak = 1
-          write (this%iout, '(4x,a)') &
-            'LISTS OF '//trim(adjustl(this%packName))//' CELLS WILL BE PRINTED.'
-        case ('PRINT_FLOWS')
-          this%iprflow = 1
-          write (this%iout, '(4x,a)') trim(adjustl(this%packName))// &
-            ' FLOWS WILL BE PRINTED TO LISTING FILE.'
-        case ('BOUNDNAMES')
-          this%inamedbound = 1
-          write (this%iout, '(4x,a)') trim(adjustl(this%packName))// &
-            ' BOUNDARIES HAVE NAMES IN LAST COLUMN.' ! user specified boundnames
-        case ('TS6')
-          call this%parser%GetStringCaps(keyword)
-          if (trim(adjustl(keyword)) /= 'FILEIN') then
-            errmsg = 'TS6 keyword must be followed by "FILEIN" '// &
-                     'then by filename.'
-            call store_error(errmsg)
-            call this%parser%StoreErrorUnit()
-          end if
-          call this%parser%GetString(fname)
-          write (this%iout, fmtts) trim(fname)
-          call this%TsManager%add_tsfile(fname, this%inunit)
-        case ('OBS6')
-          call this%parser%GetStringCaps(keyword)
-          if (trim(adjustl(keyword)) /= 'FILEIN') then
-            errmsg = 'OBS6 keyword must be followed by "FILEIN" '// &
-                     'then by filename.'
-            call store_error(errmsg)
-          end if
-          if (this%obs%active) then
-            errmsg = 'Multiple OBS6 keywords detected in OPTIONS block. '// &
-                     'Only one OBS6 entry allowed for a package.'
-            call store_error(errmsg)
-          end if
-          this%obs%active = .true.
-          call this%parser%GetString(this%obs%inputFilename)
-          inobs = GetUnit()
-          call openfile(inobs, this%iout, this%obs%inputFilename, 'OBS')
-          this%obs%inUnitObs = inobs
-          this%inobspkg = inobs
-
-          call this%obs%obs_df(this%iout, this%packName, this%filtyp, this%dis)
-          call this%csub_df_obs()
-          !
-          ! -- CSUB specific options
-        case ('GAMMAW')
-          this%gammaw = this%parser%GetDouble()
-          ibrg = 1
-        case ('BETA')
-          this%beta = this%parser%GetDouble()
-          ibrg = 1
-        case ('HEAD_BASED')
-          this%ipch = 1
-          this%lhead_based = .TRUE.
-        case ('INITIAL_PRECONSOLIDATION_HEAD')
-          this%ipch = 1
-        case ('NDELAYCELLS')
-          this%ndelaycells = this%parser%GetInteger()
-          !
-          ! -- compression indices (CR amd CC) will be specified instead of
-          !    storage coefficients (SSE and SSV)
-        case ('COMPRESSION_INDICES')
-          this%istoragec = 0
-          !
-          ! -- variable thickness and void ratio
-        case ('UPDATE_MATERIAL_PROPERTIES')
-          this%iupdatematprop = 1
-          !
-          ! -- cell fraction will be specified instead of interbed thickness
-        case ('CELL_FRACTION')
-          this%icellf = 1
-          !
-          ! -- specified initial pcs and delay bed heads
-        case ('SPECIFIED_INITIAL_INTERBED_STATE')
-          this%ispecified_pcs = 1
-          this%ispecified_dbh = 1
-          !
-          ! -- specified initial pcs
-        case ('SPECIFIED_INITIAL_PRECONSOLIDATION_STRESS')
-          this%ispecified_pcs = 1
-          !
-          ! -- specified initial delay bed heads
-        case ('SPECIFIED_INITIAL_DELAY_HEAD')
-          this%ispecified_dbh = 1
-          !
-          ! -- lag the effective stress used to calculate storage properties
-        case ('EFFECTIVE_STRESS_LAG')
-          ieslag = 1
-          !
-          ! -- strain table options
-        case ('STRAIN_CSV_INTERBED')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            this%istrainib = getunit()
-            call openfile(this%istrainib, this%iout, fname, 'CSV_OUTPUT', &
-                          filstat_opt='REPLACE', mode_opt=MNORMAL)
-            write (this%iout, fmtfileout) &
-              'INTERBED STRAIN CSV', fname, this%istrainib
-          else
-            errmsg = 'Optional STRAIN_CSV_INTERBED keyword must be '// &
-                     'followed by FILEOUT.'
-            call store_error(errmsg)
-          end if
-        case ('STRAIN_CSV_COARSE')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            this%istrainsk = getunit()
-            call openfile(this%istrainsk, this%iout, fname, 'CSV_OUTPUT', &
-                          filstat_opt='REPLACE', mode_opt=MNORMAL)
-            write (this%iout, fmtfileout) &
-              'COARSE STRAIN CSV', fname, this%istrainsk
-          else
-            errmsg = 'Optional STRAIN_CSV_COARSE keyword must be '// &
-                     'followed by fileout.'
-            call store_error(errmsg)
-          end if
-          !
-          ! -- compaction output
-        case ('COMPACTION')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            this%ioutcomp = getunit()
-            call openfile(this%ioutcomp, this%iout, fname, 'DATA(BINARY)', &
-                          form, access, 'REPLACE', mode_opt=MNORMAL)
-            write (this%iout, fmtfileout) &
-              'COMPACTION', fname, this%ioutcomp
-          else
-            errmsg = 'Optional COMPACTION keyword must be '// &
-                     'followed by FILEOUT.'
-            call store_error(errmsg)
-          end if
-        case ('COMPACTION_INELASTIC')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            this%ioutcompi = getunit()
-            call openfile(this%ioutcompi, this%iout, fname, &
-                          'DATA(BINARY)', form, access, 'REPLACE', &
-                          mode_opt=MNORMAL)
-            write (this%iout, fmtfileout) &
-              'COMPACTION_INELASTIC', fname, this%ioutcompi
-          else
-            errmsg = 'Optional COMPACTION_INELASTIC keyword must be '// &
-                     'followed by fileout.'
-            call store_error(errmsg)
-          end if
-        case ('COMPACTION_ELASTIC')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            this%ioutcompe = getunit()
-            call openfile(this%ioutcompe, this%iout, fname, &
-                          'DATA(BINARY)', form, access, 'REPLACE', &
-                          mode_opt=MNORMAL)
-            write (this%iout, fmtfileout) &
-              'COMPACTION_ELASTIC', fname, this%ioutcompe
-          else
-            errmsg = 'Optional COMPACTION_ELASTIC keyword must be '// &
-                     'followed by FILEOUT.'
-            call store_error(errmsg)
-          end if
-        case ('COMPACTION_INTERBED')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            this%ioutcompib = getunit()
-            call openfile(this%ioutcompib, this%iout, fname, &
-                          'DATA(BINARY)', form, access, 'REPLACE', &
-                          mode_opt=MNORMAL)
-            write (this%iout, fmtfileout) &
-              'COMPACTION_INTERBED', fname, this%ioutcompib
-          else
-            errmsg = 'Optional COMPACTION_INTERBED keyword must be '// &
-                     'followed by FILEOUT.'
-            call store_error(errmsg)
-          end if
-        case ('COMPACTION_COARSE')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            this%ioutcomps = getunit()
-            call openfile(this%ioutcomps, this%iout, fname, &
-                          'DATA(BINARY)', form, access, 'REPLACE', &
-                          mode_opt=MNORMAL)
-            write (this%iout, fmtfileout) &
-              'COMPACTION_COARSE', fname, this%ioutcomps
-          else
-            errmsg = 'Optional COMPACTION_COARSE keyword must be '// &
-                     'followed by FILEOUT.'
-            call store_error(errmsg)
-          end if
-          !
-          ! -- zdisplacement output
-        case ('ZDISPLACEMENT')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            this%ioutzdisp = getunit()
-            call openfile(this%ioutzdisp, this%iout, fname, &
-                          'DATA(BINARY)', form, access, 'REPLACE', &
-                          mode_opt=MNORMAL)
-            write (this%iout, fmtfileout) &
-              'ZDISPLACEMENT', fname, this%ioutzdisp
-          else
-            errmsg = 'Optional ZDISPLACEMENT keyword must be '// &
-                     'followed by FILEOUT.'
-            call store_error(errmsg)
-          end if
-          ! -- package convergence
-        case ('PACKAGE_CONVERGENCE')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            this%ipakcsv = getunit()
-            call openfile(this%ipakcsv, this%iout, fname, 'CSV', &
-                          filstat_opt='REPLACE', mode_opt=MNORMAL)
-            write (this%iout, fmtfileout) &
-              'PACKAGE_CONVERGENCE', fname, this%ipakcsv
-          else
-            call store_error('Optional PACKAGE_CONVERGENCE keyword must be '// &
-                             'followed by FILEOUT.')
-          end if
-          !
-          ! -- right now these are options that are only available in the
-          !    development version and are not included in the documentation.
-          !    These options are only available when IDEVELOPMODE in
-          !    constants module is set to 1
-        case ('DEV_NO_FINAL_CHECK')
-          call this%parser%DevOpt()
-          this%iconvchk = 0
-          write (this%iout, '(4x,a)') &
-            'A FINAL CONVERGENCE CHECK OF THE CHANGE IN DELAY INTERBED '// &
-            'HEADS AND FLOWS WILL NOT BE MADE'
-
-          !
-          ! default case
-        case default
-          write (errmsg, '(a,3(1x,a),a)') &
-            'Unknown', trim(adjustl(this%packName)), "option '", &
-            trim(keyword), "'."
-          call store_error(errmsg)
-        end select
-      end do
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%packName))//' OPTIONS'
-    end if
     !
     ! -- write messages for options
     write (this%iout, '(//2(1X,A))') trim(adjustl(this%packName)), &
@@ -993,9 +764,8 @@ contains
         'OF RELATIVE TO INITIAL GWF HEADS'
     end if
     !
-    ! -- process effective_stress_lag, if effective stress formulation
     if (this%lhead_based .EQV. .FALSE.) then
-      if (ieslag /= 0) then
+      if (this%ieslag /= 0) then
         write (this%iout, '(4x,a,1(/,6x,a))') &
           'SPECIFIC STORAGE VALUES WILL BE CALCULATED USING THE EFFECTIVE', &
           'STRESS FROM THE PREVIOUS TIME STEP'
@@ -1004,100 +774,63 @@ contains
           'SPECIFIC STORAGE VALUES WILL BE CALCULATED USING THE CURRENT', &
           'EFFECTIVE STRESS'
       end if
-    else
-      if (ieslag /= 0) then
-        ieslag = 0
-        write (this%iout, '(4x,a,2(/,6x,a))') &
-          'EFFECTIVE_STRESS_LAG HAS BEEN SPECIFIED BUT HAS NO EFFECT WHEN', &
-          'USING THE HEAD-BASED FORMULATION (HEAD_BASED HAS BEEN SPECIFIED', &
-          'IN THE OPTIONS BLOCK)'
-      end if
+    else if (warn_estress_lag) then
+      write (this%iout, '(4x,a,2(/,6x,a))') &
+        'EFFECTIVE_STRESS_LAG HAS BEEN SPECIFIED BUT HAS NO EFFECT WHEN', &
+        'USING THE HEAD-BASED FORMULATION (HEAD_BASED HAS BEEN SPECIFIED', &
+        'IN THE OPTIONS BLOCK)'
     end if
-    this%ieslag = ieslag
     !
-    ! -- recalculate BRG if necessary and output
-    !    water compressibility values
-    if (ibrg /= 0) then
-      this%brg = this%gammaw * this%beta
-    end if
     write (this%iout, fmtoptr) 'GAMMAW        =', this%gammaw
     write (this%iout, fmtoptr) 'BETA          =', this%beta
     write (this%iout, fmtoptr) 'GAMMAW * BETA =', this%brg
-    !
-    ! -- terminate if errors encountered in reach block
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-  end subroutine read_options
+    write (this%iout, '((1X,A))') 'END PACKAGE SETTINGS'
+  end subroutine log_options
 
-  !> @ brief Read dimensions for package
+  !> @ brief Source dimensions for package
   !!
   !!  Read the number of interbeds and maximum number of cells with a specified
   !!  overlying geostatic stress.
   !!
   !<
-  subroutine csub_read_dimensions(this)
+  subroutine csub_source_dimensions(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH, LENBOUNDNAME
-    use KindModule, only: I4B
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwfCsubInputModule, only: GwfCsubParamFoundType
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     ! -- local variables
-    character(len=LENBOUNDNAME) :: keyword
-    integer(I4B) :: ierr
-    logical(LGP) :: isfound, endOfBlock
-    ! -- format
-    !
+    type(GwfCsubParamFoundType) :: found
+
     ! -- initialize dimensions to -1
     this%ninterbeds = -1
-    !
-    ! -- get dimensions block
-    call this%parser%GetBlock('DIMENSIONS', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse dimensions block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%packName))// &
-        ' DIMENSIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('NINTERBEDS')
-          this%ninterbeds = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i0)') 'NINTERBEDS = ', this%ninterbeds
-        case ('MAXSIG0')
-          this%maxsig0 = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i0)') 'MAXSIG0 = ', this%maxsig0
-        case default
-          write (errmsg, '(a,3(1x,a),a)') &
-            'Unknown', trim(this%packName), "dimension '", trim(keyword), "'."
-          call store_error(errmsg)
-        end select
-      end do
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%packName))//' DIMENSIONS'
-    else
-      call store_error('Required dimensions block not found.')
-    end if
-    !
+
+    ! -- update defaults from input context
+    call mem_set_value(this%ninterbeds, 'NINTERBEDS', this%input_mempath, &
+                       found%ninterbeds)
+    call mem_set_value(this%maxsig0, 'MAXBOUND', this%input_mempath, &
+                       found%maxbound)
+
+    ! - log dimensions
+    write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%packName))// &
+      ' DIMENSIONS'
+    write (this%iout, '(4x,a,i0)') 'NINTERBEDS = ', this%ninterbeds
+    write (this%iout, '(4x,a,i0)') 'MAXSIG0 = ', this%maxsig0
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%packName))//' DIMENSIONS'
+
     ! -- verify dimensions were set correctly
-    if (this%ninterbeds < 0) then
+    if (.not. found%ninterbeds) then
       write (errmsg, '(a)') &
-        'NINTERBEDS was not specified or was specified incorrectly.'
+        'NINTERBEDS is a required dimension.'
       call store_error(errmsg)
-    end if
-    !
-    ! -- stop if errors were encountered in the DIMENSIONS block
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_mempath)
     end if
 
     ! -- Call define_listlabel to construct the list label that is written
     !    when PRINT_INPUT option is used.
     call this%define_listlabel()
-  end subroutine csub_read_dimensions
+  end subroutine csub_source_dimensions
 
   !> @ brief Allocate scalars
   !!
@@ -1158,9 +891,6 @@ contains
     call mem_allocate(this%icellf, 'ICELLF', this%memoryPath)
     call mem_allocate(this%gwfiss0, 'GWFISS0', this%memoryPath)
     !
-    ! -- allocate TS object
-    allocate (this%TsManager)
-    !
     ! -- allocate text strings
     call mem_allocate(this%auxname, LENAUXNAME, 0, 'AUXNAME', this%memoryPath)
     !
@@ -1220,14 +950,13 @@ contains
   !<
   subroutine csub_allocate_arrays(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate, mem_setptr
+    use MemoryManagerModule, only: mem_allocate, mem_setptr, mem_checkin
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     ! -- local variables
     integer(I4B) :: j
     integer(I4B) :: n
     integer(I4B) :: iblen
-    integer(I4B) :: ilen
     integer(I4B) :: naux
     !
     ! -- grid based data
@@ -1339,7 +1068,7 @@ contains
       call mem_allocate(this%theta0, iblen, 'THETA0', trim(this%memoryPath))
     end if
     !
-    ! -- delay bed storage - allocated in csub_read_packagedata
+    ! -- delay bed storage - allocated in csub_source_packagedata
     !    after number of delay beds is defined
     !
     ! -- allocate boundname
@@ -1353,13 +1082,13 @@ contains
     end if
     !
     ! -- allocate the nodelist and bound arrays
-    if (this%maxsig0 > 0) then
-      ilen = this%maxsig0
-    else
-      ilen = 1
-    end if
-    call mem_allocate(this%nodelistsig0, ilen, 'NODELISTSIG0', this%memoryPath)
-    call mem_allocate(this%sig0, ilen, 'SIG0', this%memoryPath)
+    call mem_allocate(this%nodelistsig0, this%maxsig0, 'NODELISTSIG0', &
+                      this%memoryPath)
+
+    ! -- set sig0 input context pointer
+    call mem_setptr(this%sig0, 'SIG0', this%input_mempath)
+    call mem_checkin(this%sig0, 'SIG0', this%memoryPath, &
+                     'SIG0', this%input_mempath)
     !
     ! -- set pointers to gwf variables
     call mem_setptr(this%gwfiss, 'ISS', trim(this%name_model))
@@ -1382,329 +1111,270 @@ contains
       this%tcompi(n) = DZERO
       this%tcompe(n) = DZERO
     end do
-    do n = 1, max(1, this%maxsig0)
+    do n = 1, this%maxsig0
       this%nodelistsig0(n) = 0
-      this%sig0(n) = DZERO
     end do
   end subroutine csub_allocate_arrays
 
-  !> @ brief Read packagedata for package
+  !> @ brief Source griddata for package
+  !<
+  subroutine csub_source_griddata(this)
+    ! -- modules
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwfCsubInputModule, only: GwfCsubParamFoundType
+    ! -- dummy variables
+    class(GwfCsubType), intent(inout) :: this
+    ! -- locals
+    integer(I4B) :: node
+    type(GwfCsubParamFoundType) :: found
+    integer(I4B), dimension(:), pointer, contiguous :: map
+
+    ! -- set map to convert user input data into reduced data
+    map => null()
+    if (this%dis%nodes < this%dis%nodesuser) map => this%dis%nodeuser
+
+    ! -- update defaults from input context
+    call mem_set_value(this%cg_ske_cr, 'CG_SKE_CR', this%input_mempath, &
+                       map, found%cg_ske_cr)
+    call mem_set_value(this%cg_thetaini, 'CG_THETA', this%input_mempath, &
+                       map, found%cg_theta)
+    call mem_set_value(this%sgm, 'SGM', this%input_mempath, map, found%sgm)
+    call mem_set_value(this%sgs, 'SGS', this%input_mempath, map, found%sgs)
+
+    ! -- cg_ske and cg_theta are required input params
+    if (.not. found%cg_ske_cr) then
+      call store_error('CG_SKE GRIDDATA must be specified.')
+      call store_error_filename(this%input_fname)
+    end if
+    if (.not. found%cg_theta) then
+      call store_error('CG_THETA GRIDDATA must be specified.')
+      call store_error_filename(this%input_fname)
+    end if
+
+    ! -- if sgm and sgs have not been specified assign default values
+    if (.not. found%sgm) then
+      do node = 1, this%dis%nodes
+        this%sgm(node) = 1.7D0
+      end do
+    end if
+    if (.not. found%sgs) then
+      do node = 1, this%dis%nodes
+        this%sgs(node) = 2.0D0
+      end do
+    end if
+  end subroutine csub_source_griddata
+
+  !> @ brief source packagedata for package
   !!
   !!  Read delay and no-delay interbed input data for the CSUB package. Method
   !!  also validates interbed input data.
   !!
   !<
-  subroutine csub_read_packagedata(this)
+  subroutine csub_source_packagedata(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
-    use MemoryManagerModule, only: mem_allocate, mem_setptr
+    use MemoryManagerModule, only: mem_setptr, mem_allocate
+    use MemoryManagerExtModule, only: mem_set_value
+    use CharacterStringModule, only: CharacterStringType
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
-    ! -- local variables
-    character(len=LINELENGTH) :: cellid
-    character(len=LINELENGTH) :: title
-    character(len=LINELENGTH) :: tag
-    character(len=20) :: scellid
-    character(len=10) :: text
-    character(len=LENBOUNDNAME) :: bndName
-    character(len=7) :: cdelay
-    logical(LGP) :: isfound
-    logical(LGP) :: endOfBlock
-    integer(I4B) :: ival
-    integer(I4B) :: n
-    integer(I4B) :: nn
-    integer(I4B) :: ib
-    integer(I4B) :: itmp
-    integer(I4B) :: ierr
-    integer(I4B) :: ndelaybeds
-    integer(I4B) :: idelay
-    integer(I4B) :: ntabrows
-    integer(I4B) :: ntabcols
-    real(DP) :: rval
-    real(DP) :: top
-    real(DP) :: bot
-    real(DP) :: baq
-    real(DP) :: q
-    integer, allocatable, dimension(:) :: nboundchk
-    !
-    ! -- initialize temporary variables
-    ndelaybeds = 0
-    !
-    ! -- allocate temporary arrays
-    allocate (nboundchk(this%ninterbeds))
-    do n = 1, this%ninterbeds
-      nboundchk(n) = 0
-    end do
-    !
-    call this%parser%GetBlock('PACKAGEDATA', isfound, ierr, &
-                              supportopenclose=.true.)
-    !
-    ! -- parse locations block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%packName))// &
-        ' PACKAGEDATA'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) then
-          exit
-        end if
-        !
-        ! -- get interbed number
-        itmp = this%parser%GetInteger()
-        !
-        ! -- check for error condition
-        if (itmp < 1 .or. itmp > this%ninterbeds) then
-          write (errmsg, '(a,1x,i0,2(1x,a),1x,i0,a)') &
-            'Interbed number (', itmp, ') must be greater than 0 and ', &
-            'less than or equal to', this%ninterbeds, '.'
-          call store_error(errmsg)
-          cycle
-        end if
-        !
-        ! -- increment nboundchk
-        nboundchk(itmp) = nboundchk(itmp) + 1
-        !
-        ! -- read cellid
-        call this%parser%GetCellid(this%dis%ndim, cellid)
-        nn = this%dis%noder_from_cellid(cellid, &
-                                        this%parser%iuactive, this%iout)
-        n = this%dis%nodeu_from_cellid(cellid, &
-                                       this%parser%iuactive, this%iout)
-        top = this%dis%top(nn)
-        bot = this%dis%bot(nn)
-        baq = top - bot
-        !
-        ! -- determine if a valid cell location was provided
-        if (nn < 1) then
-          write (errmsg, '(a,1x,i0,a)') &
-            'Invalid cellid for packagedata entry', itmp, '.'
-          call store_error(errmsg)
-        end if
-        !
-        ! -- set nodelist and unodelist
-        this%nodelist(itmp) = nn
-        this%unodelist(itmp) = n
-        !
-        ! -- get cdelay
-        call this%parser%GetStringCaps(cdelay)
-        select case (cdelay)
-        case ('NODELAY')
-          ival = 0
-        case ('DELAY')
-          ndelaybeds = ndelaybeds + 1
-          ival = ndelaybeds
-        case default
-          write (errmsg, '(a,1x,a,1x,i0,1x,a)') &
-            'Invalid CDELAY ', trim(adjustl(cdelay)), &
-            'for packagedata entry', itmp, '.'
-          call store_error(errmsg)
-          cycle
-        end select
-        idelay = ival
-        this%idelay(itmp) = ival
-        !
-        ! -- get initial preconsolidation stress
-        this%pcs(itmp) = this%parser%GetDouble()
-        !
-        ! -- get thickness or cell fraction
-        rval = this%parser%GetDouble()
-        if (this%icellf == 0) then
-          if (rval < DZERO .or. rval > baq) then
-            write (errmsg, '(a,g0,2(a,1x),g0,1x,a,1x,i0,a)') &
-              'THICK (', rval, ') MUST BE greater than or equal to 0 ', &
-              'and less than or equal to than', baq, &
-              'for packagedata entry', itmp, '.'
-            call store_error(errmsg)
-          end if
-        else
-          if (rval < DZERO .or. rval > DONE) then
-            write (errmsg, '(a,1x,a,1x,i0,a)') &
-              'FRAC MUST BE greater than 0 and less than or equal to 1', &
-              'for packagedata entry', itmp, '.'
-            call store_error(errmsg)
-          end if
-          rval = rval * baq
-        end if
-        this%thickini(itmp) = rval
-        if (this%iupdatematprop /= 0) then
-          this%thick(itmp) = rval
-        end if
-        !
-        ! -- get rnb
-        rval = this%parser%GetDouble()
-        if (idelay > 0) then
-          if (rval < DONE) then
-            write (errmsg, '(a,g0,a,1x,a,1x,i0,a)') &
-              'RNB (', rval, ') must be greater than or equal to 1', &
-              'for packagedata entry', itmp, '.'
-            call store_error(errmsg)
-          end if
-        else
-          rval = DONE
-        end if
-        this%rnb(itmp) = rval
-        !
-        ! -- get skv or ci
-        rval = this%parser%GetDouble()
-        if (rval < DZERO) then
-          write (errmsg, '(2(a,1x),i0,a)') &
-            '(SKV,CI) must be greater than or equal to 0', &
-            'for packagedata entry', itmp, '.'
-          call store_error(errmsg)
-        end if
-        this%ci(itmp) = rval
-        !
-        ! -- get ske or rci
-        rval = this%parser%GetDouble()
-        if (rval < DZERO) then
-          write (errmsg, '(2(a,1x),i0,a)') &
-            '(SKE,RCI) must be greater than or equal to 0', &
-            'for packagedata entry', itmp, '.'
-          call store_error(errmsg)
-        end if
-        this%rci(itmp) = rval
-        !
-        ! -- set ielastic
-        if (this%ci(itmp) == this%rci(itmp)) then
-          this%ielastic(itmp) = 1
-        else
-          this%ielastic(itmp) = 0
-        end if
-        !
-        ! -- get porosity
-        rval = this%parser%GetDouble()
-        this%thetaini(itmp) = rval
-        if (this%iupdatematprop /= 0) then
-          this%theta(itmp) = rval
-        end if
-        if (rval <= DZERO .or. rval > DONE) then
-          write (errmsg, '(a,1x,a,1x,i0,a)') &
-            'THETA must be greater than 0 and less than or equal to 1', &
-            'for packagedata entry', itmp, '.'
-          call store_error(errmsg)
-        end if
-        !
-        ! -- get kv
-        rval = this%parser%GetDouble()
-        if (idelay > 0) then
-          if (rval <= 0.0) then
-            write (errmsg, '(a,1x,i0,a)') &
-              'KV must be greater than 0 for packagedata entry', itmp, '.'
-            call store_error(errmsg)
-          end if
-        end if
-        this%kv(itmp) = rval
-        !
-        ! -- get h0
-        rval = this%parser%GetDouble()
-        this%h0(itmp) = rval
-        !
-        ! -- get bound names
-        if (this%inamedbound /= 0) then
-          call this%parser%GetStringCaps(bndName)
-          if (len_trim(bndName) < 1) then
-            write (errmsg, '(a,1x,i0,a)') &
-              'BOUNDNAME must be specified for packagedata entry', itmp, '.'
-            call store_error(errmsg)
-          else
-            this%boundname(itmp) = bndName
-          end if
-        end if
-      end do
+    integer(I4B), dimension(:), pointer, contiguous :: icsubno
+    integer(I4B), dimension(:, :), pointer, contiguous :: cellid_pkgdata
+    integer(I4B), dimension(:), pointer :: cellid
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: cdelay
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: boundname
+    real(DP), dimension(:), pointer, contiguous :: pcs, thick_frac, rnb
+    real(DP), dimension(:), pointer, contiguous :: ssv_cc, sse_cr, theta, kv, h0
+    character(len=LINELENGTH) :: cdelaystr
+    character(len=LENBOUNDNAME) :: bndname
+    real(DP) :: top, botm, baq, q, thick, rval
+    integer(I4B) :: idelay, ndelaybeds, csubno
+    integer(I4B) :: ib, n, nodeu, noder
 
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%packName))//' PACKAGEDATA'
-    end if
-    !
-    ! -- write summary of interbed data
-    if (this%iprpak == 1) then
-      ! -- set title
-      title = trim(adjustl(this%packName))//' PACKAGE INTERBED DATA'
-      !
-      ! -- determine the number of columns and rows
-      ntabrows = this%ninterbeds
-      ntabcols = 11
-      if (this%inamedbound /= 0) then
-        ntabcols = ntabcols + 1
-      end if
-      !
-      ! -- setup table
-      call table_cr(this%inputtab, this%packName, title)
-      call this%inputtab%table_df(ntabrows, ntabcols, this%iout)
-      !
-      ! add columns
-      tag = 'INTERBED'
-      call this%inputtab%initialize_column(tag, 10, alignment=TABLEFT)
-      tag = 'CELLID'
-      call this%inputtab%initialize_column(tag, 20, alignment=TABCENTER)
-      tag = 'CDELAY'
-      call this%inputtab%initialize_column(tag, 10, alignment=TABCENTER)
-      tag = 'PCS'
-      call this%inputtab%initialize_column(tag, 10, alignment=TABCENTER)
-      tag = 'THICK'
-      call this%inputtab%initialize_column(tag, 10, alignment=TABCENTER)
-      tag = 'RNB'
-      call this%inputtab%initialize_column(tag, 10, alignment=TABCENTER)
-      tag = 'SSV_CC'
-      call this%inputtab%initialize_column(tag, 10, alignment=TABCENTER)
-      tag = 'SSV_CR'
-      call this%inputtab%initialize_column(tag, 10, alignment=TABCENTER)
-      tag = 'THETA'
-      call this%inputtab%initialize_column(tag, 10, alignment=TABCENTER)
-      tag = 'KV'
-      call this%inputtab%initialize_column(tag, 10, alignment=TABCENTER)
-      tag = 'H0'
-      call this%inputtab%initialize_column(tag, 10, alignment=TABCENTER)
-      if (this%inamedbound /= 0) then
-        tag = 'BOUNDNAME'
-        call this%inputtab%initialize_column(tag, LENBOUNDNAME, &
-                                             alignment=TABLEFT)
-      end if
-      !
-      ! -- write the data
-      do ib = 1, this%ninterbeds
-        call this%dis%noder_to_string(this%nodelist(ib), scellid)
-        if (this%idelay(ib) == 0) then
-          text = 'NODELAY'
-        else
-          text = 'DELAY'
-        end if
-        call this%inputtab%add_term(ib)
-        call this%inputtab%add_term(scellid)
-        call this%inputtab%add_term(text)
-        call this%inputtab%add_term(this%pcs(ib))
-        call this%inputtab%add_term(this%thickini(ib))
-        call this%inputtab%add_term(this%rnb(ib))
-        call this%inputtab%add_term(this%ci(ib))
-        call this%inputtab%add_term(this%rci(ib))
-        call this%inputtab%add_term(this%thetaini(ib))
-        if (this%idelay(ib) == 0) then
-          call this%inputtab%add_term('-')
-          call this%inputtab%add_term('-')
-        else
-          call this%inputtab%add_term(this%kv(ib))
-          call this%inputtab%add_term(this%h0(ib))
-        end if
-        if (this%inamedbound /= 0) then
-          call this%inputtab%add_term(this%boundname(ib))
-        end if
-      end do
-    end if
-    !
-    ! -- Check to make sure that every interbed is specified and that no
-    !    interbed is specified more than once.
-    do ib = 1, this%ninterbeds
-      if (nboundchk(ib) == 0) then
-        write (errmsg, '(a,1x,i0,a)') &
-          'Information for interbed', ib, 'not specified in packagedata block.'
+    ! -- set input context pointers
+    call mem_setptr(icsubno, 'ICSUBNO', this%input_mempath)
+    call mem_setptr(cellid_pkgdata, 'CELLID_PKGDATA', this%input_mempath)
+    call mem_setptr(cdelay, 'CDELAY', this%input_mempath)
+    call mem_setptr(pcs, 'PCS0', this%input_mempath)
+    call mem_setptr(thick_frac, 'THICK_FRAC', this%input_mempath)
+    call mem_setptr(rnb, 'RNB', this%input_mempath)
+    call mem_setptr(ssv_cc, 'SSV_CC', this%input_mempath)
+    call mem_setptr(sse_cr, 'SSE_CR', this%input_mempath)
+    call mem_setptr(theta, 'THETA', this%input_mempath)
+    call mem_setptr(kv, 'KV', this%input_mempath)
+    call mem_setptr(h0, 'H0', this%input_mempath)
+    call mem_setptr(boundname, 'BOUNDNAME', this%input_mempath)
+
+    ! initialize ndelaybeds
+    ndelaybeds = 0
+
+    ! -- update state
+    do n = 1, size(icsubno)
+
+      ! -- set cubno
+      csubno = icsubno(n)
+
+      ! -- check csubno
+      if (csubno < 1 .or. csubno > this%ninterbeds) then
+        write (errmsg, '(a,1x,i0,2(1x,a),1x,i0,a)') &
+          'Interbed number (', csubno, ') must be greater than 0 and ', &
+          'less than or equal to', this%ninterbeds, '.'
         call store_error(errmsg)
-      else if (nboundchk(ib) > 1) then
-        write (errmsg, '(2(a,1x,i0),a)') &
-          'Information specified', nboundchk(ib), 'times for interbed', ib, '.'
+        cycle
+      end if
+
+      ! -- set cellid
+      cellid => cellid_pkgdata(:, n)
+
+      ! -- set node user
+      if (this%dis%ndim == 1) then
+        nodeu = cellid(1)
+      elseif (this%dis%ndim == 2) then
+        nodeu = get_node(cellid(1), 1, cellid(2), &
+                         this%dis%mshape(1), 1, &
+                         this%dis%mshape(2))
+      else
+        nodeu = get_node(cellid(1), cellid(2), cellid(3), &
+                         this%dis%mshape(1), &
+                         this%dis%mshape(2), &
+                         this%dis%mshape(3))
+      end if
+
+      ! -- set node reduced
+      noder = this%dis%get_nodenumber(nodeu, 1)
+      if (noder <= 0) then
+        cycle
+      end if
+
+      ! -- update nodelists
+      this%nodelist(csubno) = noder
+      this%unodelist(csubno) = nodeu
+
+      ! -- set top, botm, baq
+      top = this%dis%top(noder)
+      botm = this%dis%bot(noder)
+      baq = top - botm
+
+      ! -- set cdelay
+      cdelaystr = cdelay(n)
+      select case (cdelaystr)
+      case ('NODELAY')
+        idelay = 0
+      case ('DELAY')
+        ndelaybeds = ndelaybeds + 1
+        idelay = ndelaybeds
+      case default
+        write (errmsg, '(a,1x,a,1x,i0,1x,a)') &
+          'Invalid CDELAY ', trim(adjustl(cdelaystr)), &
+          'for packagedata entry', csubno, '.'
         call store_error(errmsg)
+        cycle
+      end select
+      this%idelay(csubno) = idelay
+
+      ! -- set initial preconsolidation stress
+      this%pcs(csubno) = pcs(n)
+
+      ! -- set thickness
+      if (this%icellf == 0) then
+        if (thick_frac(n) < DZERO .or. thick_frac(n) > baq) then
+          write (errmsg, '(a,g0,2(a,1x),g0,1x,a,1x,i0,a)') &
+            'THICK (', thick_frac(n), ') MUST BE greater than or equal to 0 ', &
+            'and less than or equal to than', baq, &
+            'for packagedata entry', csubno, '.'
+          call store_error(errmsg)
+        end if
+        thick = thick_frac(n)
+      else
+        if (thick_frac(n) < DZERO .or. thick_frac(n) > DONE) then
+          write (errmsg, '(a,1x,a,1x,i0,a)') &
+            'FRAC MUST BE greater than 0 and less than or equal to 1', &
+            'for packagedata entry', csubno, '.'
+          call store_error(errmsg)
+        end if
+        thick = thick_frac(n) * baq
+      end if
+      this%thickini(csubno) = thick
+      if (this%iupdatematprop /= 0) then
+        this%thick(csubno) = thick
+      end if
+
+      ! -- set rnb
+      if (idelay > 0) then
+        if (rnb(n) < DONE) then
+          write (errmsg, '(a,g0,a,1x,a,1x,i0,a)') &
+            'RNB (', rnb(n), ') must be greater than or equal to 1', &
+            'for packagedata entry', csubno, '.'
+          call store_error(errmsg)
+        end if
+        this%rnb(csubno) = rnb(n)
+      else
+        this%rnb(csubno) = DONE
+      end if
+
+      ! -- set skv or ci
+      if (ssv_cc(n) < DZERO) then
+        write (errmsg, '(2(a,1x),i0,a)') &
+          '(SKV,CI) must be greater than or equal to 0', &
+          'for packagedata entry', csubno, '.'
+        call store_error(errmsg)
+      end if
+      this%ci(csubno) = ssv_cc(n)
+
+      ! -- set ske or rci
+      if (sse_cr(n) < DZERO) then
+        write (errmsg, '(2(a,1x),i0,a)') &
+          '(SKE,RCI) must be greater than or equal to 0', &
+          'for packagedata entry', csubno, '.'
+        call store_error(errmsg)
+      end if
+      this%rci(csubno) = sse_cr(n)
+
+      ! -- set ielastic
+      if (this%ci(csubno) == this%rci(csubno)) then
+        this%ielastic(csubno) = 1
+      else
+        this%ielastic(csubno) = 0
+      end if
+
+      ! -- set porosity
+      if (theta(n) <= DZERO .or. theta(n) > DONE) then
+        write (errmsg, '(a,1x,a,1x,i0,a)') &
+          'THETA must be greater than 0 and less than or equal to 1', &
+          'for packagedata entry', csubno, '.'
+        call store_error(errmsg)
+      end if
+      this%thetaini(csubno) = theta(n)
+      if (this%iupdatematprop /= 0) then
+        this%theta(csubno) = theta(n)
+      end if
+
+      ! -- set kv
+      if (idelay > 0) then
+        if (kv(n) <= 0.0) then
+          write (errmsg, '(a,1x,i0,a)') &
+            'KV must be greater than 0 for packagedata entry', csubno, '.'
+          call store_error(errmsg)
+        end if
+      end if
+      this%kv(csubno) = kv(n)
+
+      ! -- set h0
+      this%h0(csubno) = h0(n)
+
+      ! -- set bound name
+      if (this%inamedbound /= 0) then
+        bndname = boundname(n)
+        if (len_trim(bndname) < 1) then
+          write (errmsg, '(a,1x,i0,a)') &
+            'BOUNDNAME must be specified for packagedata entry', csubno, '.'
+          call store_error(errmsg)
+        end if
+        this%boundname(csubno) = bndname
       end if
     end do
-    deallocate (nboundchk)
+
     !
     ! -- set the number of delay interbeds
     this%ndelaybeds = ndelaybeds
@@ -1713,120 +1383,118 @@ contains
     if (ndelaybeds > 0) then
       !
       ! -- reallocate and initialize delay interbed arrays
-      if (ierr == 0) then
-        call mem_allocate(this%idb_nconv_count, 2, &
-                          'IDB_NCONV_COUNT', trim(this%memoryPath))
-        call mem_allocate(this%idbconvert, this%ndelaycells, ndelaybeds, &
-                          'IDBCONVERT', trim(this%memoryPath))
-        call mem_allocate(this%dbdhmax, ndelaybeds, &
-                          'DBDHMAX', trim(this%memoryPath))
-        call mem_allocate(this%dbz, this%ndelaycells, ndelaybeds, &
-                          'DBZ', trim(this%memoryPath))
-        call mem_allocate(this%dbrelz, this%ndelaycells, ndelaybeds, &
-                          'DBRELZ', trim(this%memoryPath))
-        call mem_allocate(this%dbh, this%ndelaycells, ndelaybeds, &
-                          'DBH', trim(this%memoryPath))
-        call mem_allocate(this%dbh0, this%ndelaycells, ndelaybeds, &
-                          'DBH0', trim(this%memoryPath))
-        call mem_allocate(this%dbgeo, this%ndelaycells, ndelaybeds, &
-                          'DBGEO', trim(this%memoryPath))
-        call mem_allocate(this%dbes, this%ndelaycells, ndelaybeds, &
-                          'DBES', trim(this%memoryPath))
-        call mem_allocate(this%dbes0, this%ndelaycells, ndelaybeds, &
-                          'DBES0', trim(this%memoryPath))
-        call mem_allocate(this%dbpcs, this%ndelaycells, ndelaybeds, &
-                          'DBPCS', trim(this%memoryPath))
-        call mem_allocate(this%dbflowtop, ndelaybeds, &
-                          'DBFLOWTOP', trim(this%memoryPath))
-        call mem_allocate(this%dbflowbot, ndelaybeds, &
-                          'DBFLOWBOT', trim(this%memoryPath))
-        call mem_allocate(this%dbdzini, this%ndelaycells, ndelaybeds, &
-                          'DBDZINI', trim(this%memoryPath))
-        call mem_allocate(this%dbthetaini, this%ndelaycells, ndelaybeds, &
-                          'DBTHETAINI', trim(this%memoryPath))
-        call mem_allocate(this%dbcomp, this%ndelaycells, ndelaybeds, &
-                          'DBCOMP', trim(this%memoryPath))
-        call mem_allocate(this%dbtcomp, this%ndelaycells, ndelaybeds, &
-                          'DBTCOMP', trim(this%memoryPath))
-        !
-        ! -- allocate delay bed arrays
-        if (this%iupdatematprop == 0) then
-          call mem_setptr(this%dbdz, 'DBDZINI', trim(this%memoryPath))
-          call mem_setptr(this%dbdz0, 'DBDZINI', trim(this%memoryPath))
-          call mem_setptr(this%dbtheta, 'DBTHETAINI', trim(this%memoryPath))
-          call mem_setptr(this%dbtheta0, 'DBTHETAINI', trim(this%memoryPath))
-        else
-          call mem_allocate(this%dbdz, this%ndelaycells, ndelaybeds, &
-                            'DBDZ', trim(this%memoryPath))
-          call mem_allocate(this%dbdz0, this%ndelaycells, ndelaybeds, &
-                            'DBDZ0', trim(this%memoryPath))
-          call mem_allocate(this%dbtheta, this%ndelaycells, ndelaybeds, &
-                            'DBTHETA', trim(this%memoryPath))
-          call mem_allocate(this%dbtheta0, this%ndelaycells, ndelaybeds, &
-                            'DBTHETA0', trim(this%memoryPath))
+      call mem_allocate(this%idb_nconv_count, 2, &
+                        'IDB_NCONV_COUNT', trim(this%memoryPath))
+      call mem_allocate(this%idbconvert, this%ndelaycells, ndelaybeds, &
+                        'IDBCONVERT', trim(this%memoryPath))
+      call mem_allocate(this%dbdhmax, ndelaybeds, &
+                        'DBDHMAX', trim(this%memoryPath))
+      call mem_allocate(this%dbz, this%ndelaycells, ndelaybeds, &
+                        'DBZ', trim(this%memoryPath))
+      call mem_allocate(this%dbrelz, this%ndelaycells, ndelaybeds, &
+                        'DBRELZ', trim(this%memoryPath))
+      call mem_allocate(this%dbh, this%ndelaycells, ndelaybeds, &
+                        'DBH', trim(this%memoryPath))
+      call mem_allocate(this%dbh0, this%ndelaycells, ndelaybeds, &
+                        'DBH0', trim(this%memoryPath))
+      call mem_allocate(this%dbgeo, this%ndelaycells, ndelaybeds, &
+                        'DBGEO', trim(this%memoryPath))
+      call mem_allocate(this%dbes, this%ndelaycells, ndelaybeds, &
+                        'DBES', trim(this%memoryPath))
+      call mem_allocate(this%dbes0, this%ndelaycells, ndelaybeds, &
+                        'DBES0', trim(this%memoryPath))
+      call mem_allocate(this%dbpcs, this%ndelaycells, ndelaybeds, &
+                        'DBPCS', trim(this%memoryPath))
+      call mem_allocate(this%dbflowtop, ndelaybeds, &
+                        'DBFLOWTOP', trim(this%memoryPath))
+      call mem_allocate(this%dbflowbot, ndelaybeds, &
+                        'DBFLOWBOT', trim(this%memoryPath))
+      call mem_allocate(this%dbdzini, this%ndelaycells, ndelaybeds, &
+                        'DBDZINI', trim(this%memoryPath))
+      call mem_allocate(this%dbthetaini, this%ndelaycells, ndelaybeds, &
+                        'DBTHETAINI', trim(this%memoryPath))
+      call mem_allocate(this%dbcomp, this%ndelaycells, ndelaybeds, &
+                        'DBCOMP', trim(this%memoryPath))
+      call mem_allocate(this%dbtcomp, this%ndelaycells, ndelaybeds, &
+                        'DBTCOMP', trim(this%memoryPath))
+      !
+      ! -- allocate delay bed arrays
+      if (this%iupdatematprop == 0) then
+        call mem_setptr(this%dbdz, 'DBDZINI', trim(this%memoryPath))
+        call mem_setptr(this%dbdz0, 'DBDZINI', trim(this%memoryPath))
+        call mem_setptr(this%dbtheta, 'DBTHETAINI', trim(this%memoryPath))
+        call mem_setptr(this%dbtheta0, 'DBTHETAINI', trim(this%memoryPath))
+      else
+        call mem_allocate(this%dbdz, this%ndelaycells, ndelaybeds, &
+                          'DBDZ', trim(this%memoryPath))
+        call mem_allocate(this%dbdz0, this%ndelaycells, ndelaybeds, &
+                          'DBDZ0', trim(this%memoryPath))
+        call mem_allocate(this%dbtheta, this%ndelaycells, ndelaybeds, &
+                          'DBTHETA', trim(this%memoryPath))
+        call mem_allocate(this%dbtheta0, this%ndelaycells, ndelaybeds, &
+                          'DBTHETA0', trim(this%memoryPath))
+      end if
+      !
+      ! -- allocate delay interbed solution arrays
+      call mem_allocate(this%dbal, this%ndelaycells, &
+                        'DBAL', trim(this%memoryPath))
+      call mem_allocate(this%dbad, this%ndelaycells, &
+                        'DBAD', trim(this%memoryPath))
+      call mem_allocate(this%dbau, this%ndelaycells, &
+                        'DBAU', trim(this%memoryPath))
+      call mem_allocate(this%dbrhs, this%ndelaycells, &
+                        'DBRHS', trim(this%memoryPath))
+      call mem_allocate(this%dbdh, this%ndelaycells, &
+                        'DBDH', trim(this%memoryPath))
+      call mem_allocate(this%dbaw, this%ndelaycells, &
+                        'DBAW', trim(this%memoryPath))
+      !
+      ! -- initialize delay bed counters
+      do n = 1, 2
+        this%idb_nconv_count(n) = 0
+      end do
+      !
+      ! -- initialize delay bed storage
+      do ib = 1, this%ninterbeds
+        idelay = this%idelay(ib)
+        if (idelay == 0) then
+          cycle
         end if
         !
-        ! -- allocate delay interbed solution arrays
-        call mem_allocate(this%dbal, this%ndelaycells, &
-                          'DBAL', trim(this%memoryPath))
-        call mem_allocate(this%dbad, this%ndelaycells, &
-                          'DBAD', trim(this%memoryPath))
-        call mem_allocate(this%dbau, this%ndelaycells, &
-                          'DBAU', trim(this%memoryPath))
-        call mem_allocate(this%dbrhs, this%ndelaycells, &
-                          'DBRHS', trim(this%memoryPath))
-        call mem_allocate(this%dbdh, this%ndelaycells, &
-                          'DBDH', trim(this%memoryPath))
-        call mem_allocate(this%dbaw, this%ndelaycells, &
-                          'DBAW', trim(this%memoryPath))
-        !
-        ! -- initialize delay bed counters
-        do n = 1, 2
-          this%idb_nconv_count(n) = 0
-        end do
-        !
-        ! -- initialize delay bed storage
-        do ib = 1, this%ninterbeds
-          idelay = this%idelay(ib)
-          if (idelay == 0) then
-            cycle
-          end if
-          !
-          ! -- initialize delay interbed variables
-          do n = 1, this%ndelaycells
-            rval = this%thickini(ib) / real(this%ndelaycells, DP)
-            this%dbdzini(n, idelay) = rval
-            this%dbh(n, idelay) = this%h0(ib)
-            this%dbh0(n, idelay) = this%h0(ib)
-            this%dbthetaini(n, idelay) = this%thetaini(ib)
-            this%dbgeo(n, idelay) = DZERO
-            this%dbes(n, idelay) = DZERO
-            this%dbes0(n, idelay) = DZERO
-            this%dbpcs(n, idelay) = this%pcs(ib)
-            this%dbcomp(n, idelay) = DZERO
-            this%dbtcomp(n, idelay) = DZERO
-            if (this%iupdatematprop /= 0) then
-              this%dbdz(n, idelay) = this%dbdzini(n, idelay)
-              this%dbdz0(n, idelay) = this%dbdzini(n, idelay)
-              this%dbtheta(n, idelay) = this%theta(ib)
-              this%dbtheta0(n, idelay) = this%theta(ib)
-            end if
-          end do
-          !
-          ! -- initialize elevation of delay bed cells
-          call this%csub_delay_init_zcell(ib)
-        end do
-        !
-        ! -- initialize delay bed solution arrays
+        ! -- initialize delay interbed variables
         do n = 1, this%ndelaycells
-          this%dbal(n) = DZERO
-          this%dbad(n) = DZERO
-          this%dbau(n) = DZERO
-          this%dbrhs(n) = DZERO
-          this%dbdh(n) = DZERO
-          this%dbaw(n) = DZERO
+          rval = this%thickini(ib) / real(this%ndelaycells, DP)
+          this%dbdzini(n, idelay) = rval
+          this%dbh(n, idelay) = this%h0(ib)
+          this%dbh0(n, idelay) = this%h0(ib)
+          this%dbthetaini(n, idelay) = this%thetaini(ib)
+          this%dbgeo(n, idelay) = DZERO
+          this%dbes(n, idelay) = DZERO
+          this%dbes0(n, idelay) = DZERO
+          this%dbpcs(n, idelay) = this%pcs(ib)
+          this%dbcomp(n, idelay) = DZERO
+          this%dbtcomp(n, idelay) = DZERO
+          if (this%iupdatematprop /= 0) then
+            this%dbdz(n, idelay) = this%dbdzini(n, idelay)
+            this%dbdz0(n, idelay) = this%dbdzini(n, idelay)
+            this%dbtheta(n, idelay) = this%theta(ib)
+            this%dbtheta0(n, idelay) = this%theta(ib)
+          end if
         end do
-      end if
+        !
+        ! -- initialize elevation of delay bed cells
+        call this%csub_delay_init_zcell(ib)
+      end do
+      !
+      ! -- initialize delay bed solution arrays
+      do n = 1, this%ndelaycells
+        this%dbal(n) = DZERO
+        this%dbad(n) = DZERO
+        this%dbau(n) = DZERO
+        this%dbrhs(n) = DZERO
+        this%dbdh(n) = DZERO
+        this%dbaw(n) = DZERO
+      end do
     end if
     !
     ! -- check that ndelaycells is odd when using
@@ -1840,7 +1508,7 @@ contains
         call store_error(errmsg)
       end if
     end if
-  end subroutine csub_read_packagedata
+  end subroutine csub_source_packagedata
 
   !> @ brief Final processing for package
   !!
@@ -2379,7 +2047,7 @@ contains
       !
       ! -- period data
       call mem_deallocate(this%nodelistsig0)
-      call mem_deallocate(this%sig0)
+      call mem_deallocate(this%sig0, 'SIG0', this%memoryPath)
       !
       ! -- pointers to gwf variables
       nullify (this%gwfiss)
@@ -2457,16 +2125,11 @@ contains
     ! -- deallocate methods on objects
     if (this%inunit > 0) then
       call this%obs%obs_da()
-      call this%TsManager%da()
       !
       ! -- deallocate and nullify observations
       deallocate (this%obs)
       nullify (this%obs)
     end if
-    !
-    ! -- deallocate TsManager
-    deallocate (this%TsManager)
-    nullify (this%TsManager)
 
     !
     ! -- deallocate parent
@@ -2482,151 +2145,93 @@ contains
   !<
   subroutine csub_rp(this)
     ! -- modules
+    use TdisModule, only: kper
     use ConstantsModule, only: LINELENGTH
-    use TdisModule, only: kper, nper
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
+    use MemoryManagerModule, only: mem_setptr
+    use MemoryManagerExtModule, only: mem_set_value
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     ! -- local variables
-    character(len=LINELENGTH) :: line
-    character(len=LINELENGTH) :: title
-    character(len=LINELENGTH) :: text
-    character(len=20) :: cellid
-    logical(LGP) :: isfound
-    logical(LGP) :: endOfBlock
-    integer(I4B) :: jj
-    integer(I4B) :: ierr
-    integer(I4B) :: node
-    integer(I4B) :: nlist
-    real(DP), pointer :: bndElem => null()
+    integer(I4B), dimension(:, :), pointer, contiguous :: cellids
+    integer(I4B), dimension(:), pointer, contiguous :: cellid
+    integer(I4B), pointer :: iper
+    integer(I4B) :: n, nodeu, noder
+    character(len=LINELENGTH) :: title, text
+    character(len=20) :: cellstr
+    logical(LGP) :: found
     ! -- formats
-    character(len=*), parameter :: fmtblkerr = &
-      &"('Looking for BEGIN PERIOD iper.  Found ',a,' instead.')"
     character(len=*), parameter :: fmtlsp = &
       &"(1X,/1X,'REUSING ',a,'S FROM LAST STRESS PERIOD')"
-    !
-    ! -- return if data is not read from file
-    if (this%inunit == 0) return
-    !
-    ! -- get stress period data
-    if (this%ionper < kper) then
-      !
-      ! -- get period block
-      call this%parser%GetBlock('PERIOD', isfound, ierr, &
-                                supportOpenClose=.true., &
-                                blockRequired=.false.)
-      if (isfound) then
-        !
-        ! -- read ionper and check for increasing period numbers
-        call this%read_check_ionper()
-      else
-        !
-        ! -- PERIOD block not found
-        if (ierr < 0) then
-          ! -- End of file found; data applies for remainder of simulation.
-          this%ionper = nper + 1
-        else
-          ! -- Found invalid block
-          call this%parser%GetCurrentLine(line)
-          write (errmsg, fmtblkerr) adjustl(trim(line))
-          call store_error(errmsg)
-        end if
-      end if
-    end if
-    !
-    ! -- read data if ionper == kper
-    if (this%ionper == kper) then
-      !
-      ! -- setup table for period data
-      if (this%iprpak /= 0) then
-        !
-        ! -- reset the input table object
-        title = 'CSUB'//' PACKAGE ('// &
-                trim(adjustl(this%packName))//') DATA FOR PERIOD'
-        write (title, '(a,1x,i6)') trim(adjustl(title)), kper
-        call table_cr(this%inputtab, this%packName, title)
-        call this%inputtab%table_df(1, 2, this%iout, finalize=.FALSE.)
-        text = 'CELLID'
-        call this%inputtab%initialize_column(text, 20)
-        text = 'SIG0'
-        call this%inputtab%initialize_column(text, 15, alignment=TABLEFT)
-      end if
-      !
-      ! -- initialize nlist
-      nlist = 0
-      !
-      ! -- Remove all time-series links associated with this package.
-      call this%TsManager%Reset(this%packName)
-      !
-      ! -- read data
-      readdata: do
-        call this%parser%GetNextLine(endOfBlock)
-        !
-        ! -- test for end of block
-        if (endOfBlock) then
-          exit readdata
-        end if
-        !
-        ! -- increment counter
-        nlist = nlist + 1
-        !
-        ! -- check for error condition with nlist
-        if (nlist > this%maxsig0) then
-          write (errmsg, '(a,i0,a,i0,a)') &
-            'The number of stress period entries (', nlist, &
-            ') exceeds the maximum number of stress period entries (', &
-            this%maxsig0, ').'
-          call store_error(errmsg)
-          exit readdata
-        end if
-        !
-        ! -- get cell i
-        call this%parser%GetCellid(this%dis%ndim, cellid)
-        node = this%dis%noder_from_cellid(cellid, &
-                                          this%parser%iuactive, this%iout)
-        !
-        !
-        if (node < 1) then
-          write (errmsg, '(a,2(1x,a))') &
-            'CELLID', cellid, 'is not in the active model domain.'
-          call store_error(errmsg)
-          cycle readdata
-        end if
-        this%nodelistsig0(nlist) = node
-        !
-        ! -- get sig0
-        call this%parser%GetString(text)
-        jj = 1 ! For 'SIG0'
-        bndElem => this%sig0(nlist)
-        call read_value_or_time_series_adv(text, nlist, jj, bndElem, &
-                                           this%packName, 'BND', &
-                                           this%tsManager, this%iprpak, &
-                                           'SIG0')
-        !
-        ! -- write line to table
-        if (this%iprpak /= 0) then
-          call this%dis%noder_to_string(node, cellid)
-          call this%inputtab%add_term(cellid)
-          call this%inputtab%add_term(bndElem)
-        end if
-      end do readdata
-      !
-      ! -- set nbound
-      this%nbound = nlist
-      !
-      ! -- finalize the table
-      if (this%iprpak /= 0) then
-        call this%inputtab%finalize_table()
-      end if
-      !
-      ! -- reuse data from last stress period
-    else
+
+    call mem_setptr(iper, 'IPER', this%input_mempath)
+    if (iper /= kper) then
       write (this%iout, fmtlsp) trim(this%filtyp)
+      call this%csub_rp_obs()
+      return
+    end if
+
+    call mem_setptr(cellids, 'CELLID', this%input_mempath)
+    call mem_set_value(this%nbound, 'NBOUND', this%input_mempath, &
+                       found)
+
+    ! -- setup table for period data
+    if (this%iprpak /= 0) then
+      ! -- reset the input table object
+      title = 'CSUB'//' PACKAGE ('// &
+              trim(adjustl(this%packName))//') DATA FOR PERIOD'
+      write (title, '(a,1x,i6)') trim(adjustl(title)), kper
+      call table_cr(this%inputtab, this%packName, title)
+      call this%inputtab%table_df(1, 2, this%iout, finalize=.FALSE.)
+      text = 'CELLID'
+      call this%inputtab%initialize_column(text, 20)
+      text = 'SIG0'
+      call this%inputtab%initialize_column(text, 15, alignment=TABLEFT)
+    end if
+
+    ! -- update nodelist
+    do n = 1, this%nbound
+
+      ! -- set cellid
+      cellid => cellids(:, n)
+
+      ! -- set user node number
+      if (this%dis%ndim == 1) then
+        nodeu = cellid(1)
+      elseif (this%dis%ndim == 2) then
+        nodeu = get_node(cellid(1), 1, cellid(2), &
+                         this%dis%mshape(1), 1, &
+                         this%dis%mshape(2))
+      else
+        nodeu = get_node(cellid(1), cellid(2), cellid(3), &
+                         this%dis%mshape(1), &
+                         this%dis%mshape(2), &
+                         this%dis%mshape(3))
+      end if
+
+      ! -- set noder
+      noder = this%dis%get_nodenumber(nodeu, 1)
+      if (noder <= 0) then
+        cycle
+      end if
+
+      this%nodelistsig0(n) = noder
+
+      ! -- write line to table
+      if (this%iprpak /= 0) then
+        call this%dis%noder_to_string(noder, cellstr)
+        call this%inputtab%add_term(cellstr)
+        call this%inputtab%add_term(this%sig0(n))
+      end if
+    end do
+    !
+    ! -- terminate if errors encountered
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
     end if
     !
-    ! -- terminate if errors encountered in reach block
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+    ! -- finalize the table
+    if (this%iprpak /= 0) then
+      call this%inputtab%finalize_table()
     end if
     !
     ! -- read observations
@@ -2744,9 +2349,6 @@ contains
     ! -- set gwfiss0
     this%gwfiss0 = this%gwfiss
     !
-    ! -- Advance the time series managers
-    call this%TsManager%ad()
-    !
     ! -- For each observation, push simulated value and corresponding
     !    simulation time from "current" to "preceding" and reset
     !    "current" value.
@@ -2862,7 +2464,7 @@ contains
     !
     ! -- terminate if errors encountered when updating material properties
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
   end subroutine csub_fc
 
@@ -3505,7 +3107,7 @@ contains
     ! -- terminate if errors encountered when updating material properties
     if (this%iupdatematprop /= 0) then
       if (count_errors() > 0) then
-        call this%parser%StoreErrorUnit()
+        call store_error_filename(this%input_fname)
       end if
     end if
   end subroutine csub_cq
@@ -4099,7 +3701,7 @@ contains
         'adding/modifying stress boundaries to prevent water-levels from', &
         'exceeding the top of the model.'
       call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
   end subroutine csub_cg_chk_stress
 
@@ -4670,7 +4272,7 @@ contains
     !
     ! -- terminate if any initialization errors have been detected
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- set initialized
@@ -5677,7 +5279,7 @@ contains
     !
     ! -- terminate if the aquifer head is below the top of delay interbeds
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- solve for delay bed heads
@@ -7159,7 +6761,7 @@ contains
       !
       ! -- write summary of package error messages
       if (count_errors() > 0) then
-        call this%parser%StoreErrorUnit()
+        call store_error_filename(this%input_fname)
       end if
     end if
   end subroutine csub_bd_obs
@@ -7326,7 +6928,7 @@ contains
       !
       ! -- evaluate if there are any observation errors
       if (count_errors() > 0) then
-        call store_error_unit(this%inunit)
+        call store_error_filename(this%input_fname)
       end if
     end if
   end subroutine csub_rp_obs

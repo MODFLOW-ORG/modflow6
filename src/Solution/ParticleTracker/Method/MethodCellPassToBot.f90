@@ -10,7 +10,6 @@ module MethodCellPassToBotModule
   use ParticleModule, only: ParticleType
   use CellModule, only: CellType
   use SubcellModule, only: SubcellType
-  use TrackControlModule, only: TrackControlType
   implicit none
 
   private
@@ -44,7 +43,6 @@ contains
   !> @brief Pass particle vertically and instantaneously to the cell bottom
   subroutine apply_ptb(this, particle, tmax)
     use ParticleModule, only: TERM_NO_EXITS
-    use ParticleEventsModule, only: EXIT, TERMINATE
     ! dummy
     class(MethodCellPassToBotType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -67,14 +65,10 @@ contains
     type is (DisvType)
       nlay = dis%nlay
     end select
-    if (particle%ilay == nlay) then
-      particle%advancing = .false.
-      particle%istatus = TERM_NO_EXITS
-      call this%dispatch_terminate(particle)
-    end if
+    if (particle%ilay == nlay) &
+      call this%events%terminate(particle, status=TERM_NO_EXITS)
 
-    ! Save record
-    call this%dispatch_exit(particle)
+    call this%events%cellexit(particle)
   end subroutine apply_ptb
 
 end module MethodCellPassToBotModule

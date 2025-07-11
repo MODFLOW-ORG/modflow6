@@ -169,10 +169,12 @@
 		<File RelativePath="..\src\Idm\gwe-icidm.f90"/>
 		<File RelativePath="..\src\Idm\gwe-namidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-chdidm.f90"/>
+		<File RelativePath="..\src\Idm\gwf-csubidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-disidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-disuidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-disvidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-drnidm.f90"/>
+		<File RelativePath="..\src\Idm\gwf-drngidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-evtaidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-evtidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-ghbgidm.f90"/>
@@ -191,6 +193,8 @@
 		<File RelativePath="..\src\Idm\gwt-disvidm.f90"/>
 		<File RelativePath="..\src\Idm\gwt-dspidm.f90"/>
 		<File RelativePath="..\src\Idm\gwt-icidm.f90"/>
+		<File RelativePath="..\src\Idm\gwt-istidm.f90"/>
+		<File RelativePath="..\src\Idm\gwt-mstidm.f90"/>
 		<File RelativePath="..\src\Idm\gwt-namidm.f90"/>
 		<File RelativePath="..\src\Idm\olf-cdbidm.f90"/>
 		<File RelativePath="..\src\Idm\olf-chdidm.f90"/>
@@ -330,15 +334,12 @@
 		<File RelativePath="..\src\Model\ModelUtilities\ModelPackageInput.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\Mover.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\PackageMover.f90"/>
-		<File RelativePath="..\src\Model\ModelUtilities\ReleaseSchedule.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\SfrCrossSectionManager.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\SfrCrossSectionUtils.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\SpdisWorkArray.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\SwfCxsUtils.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\TimeSelect.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\TimeStepSelect.f90"/>
-		<File RelativePath="..\src\Model\ModelUtilities\TrackFile.f90"/>
-		<File RelativePath="..\src\Model\ModelUtilities\TrackControl.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\TspAdvOptions.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\UzfCellGroup.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\UzfEtUtil.f90"/>
@@ -424,8 +425,11 @@
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodSubcellPool.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodSubcellTernary.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\TernarySolveUtils.f90"/></Filter>
-		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleEvents.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Particle.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleEvent.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleEvents.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleReleaseSchedule.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleTracks.f90"/>
 		<Filter Name="PETSc">
 		<File RelativePath="..\src\Solution\PETSc\PetscConvergence.F90">
 			<FileConfiguration Name="Debug|Win32" ExcludedFromBuild="true"/>
@@ -621,6 +625,7 @@
 		<File RelativePath="..\src\Utilities\Vector\VectorBase.f90"/></Filter>
 		<File RelativePath="..\src\Utilities\ArrayHandlers.f90"/>
 		<File RelativePath="..\src\Utilities\ArrayReaders.f90"/>
+		<File RelativePath="..\src\Utilities\BinaryFileReader.f90"/>
 		<File RelativePath="..\src\Utilities\BlockParser.f90"/>
 		<File RelativePath="..\src\Utilities\Budget.f90"/>
 		<File RelativePath="..\src\Utilities\BudgetFileReader.f90"/>

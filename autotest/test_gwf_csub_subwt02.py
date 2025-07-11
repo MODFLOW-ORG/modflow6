@@ -319,7 +319,7 @@ def get_model(idx, ws):
         gwf,
         # print_input=True,
         # interbed_stress_offset=True,
-        boundnames=True,
+        boundnames=False,
         compression_indices=True,
         update_material_properties=ump[idx],
         effective_stress_lag=True,
