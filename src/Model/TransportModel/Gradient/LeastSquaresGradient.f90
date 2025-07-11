@@ -79,17 +79,12 @@ contains
     real(DP) :: length ! Distance between cell centers
     real(DP), dimension(3) :: dnm ! Vector from cell n to neighbor m
     real(DP), dimension(:, :), allocatable :: d ! Matrix of normalized direction vectors (number_connections x 3)
-    real(DP), dimension(:, :), allocatable :: d_trans ! Transpose of d (3 x number_connections)
     real(DP), dimension(:, :), allocatable :: grad_scale ! Diagonal scaling matrix (number_connections x number_connections),
     ! where each diagonal entry is the inverse of the distance between
-    ! the cell center and its neighbor.
-    real(DP), dimension(3, 3) :: g
-    real(DP), dimension(3, 3) :: g_inv
 
     number_connections = number_connected_faces(this%dis, n)
 
     allocate (d(number_connections, 3))
-    allocate (d_trans(3, number_connections))
     allocate (R(3, number_connections))
     allocate (grad_scale(number_connections, number_connections))
 
@@ -111,14 +106,8 @@ contains
       local_pos = local_pos + 1
     end do
 
-    d_trans = transpose(d)
-
-    ! Compute the G and pseudo-inverse G matrices
-    g = matmul(d_trans, d)
-    g_inv = pinv(g)
-
     ! Compute the gradient reconstructions matrix
-    R = matmul(matmul(g_inv, d_trans), grad_scale)
+    R = matmul(pinv(d), grad_scale)
 
   end function create_gradient_reconstruction_matrix
 
