@@ -107,6 +107,47 @@ The gradient reconstruction matrix, $\begin{bmatrix}R\end{bmatrix}$, can then be
   \begin{bmatrix}R\end{bmatrix}= \begin{bmatrix}G\end{bmatrix}^{\dagger}\begin{bmatrix}d\end{bmatrix}^{T}\begin{bmatrix}W\end{bmatrix}^{T}\begin{bmatrix}W\end{bmatrix}
 \end{equation}
 
+\subsection{Alternative Form of the Weighted Least Squares Gradient}
+\noindent An alternative formulation of the weighted least squares gradient method can be developed to simplify the equations and optimize the computation.
+
+First, the weight and distance matrices are combined to form the normalized distance matrix $\tilde{d}$:
+\begin{equation}
+	\begin{bmatrix}\tilde{d}\end{bmatrix} = \begin{bmatrix}W\end{bmatrix} \begin{bmatrix}d\end{bmatrix} =
+	\begin{bmatrix}
+		d_{1,x}/\|d_1\| & d_{1,y}/\|d_1\| & d_{1,z}/\|d_1\| \\
+		\vdots & \vdots & \vdots \\
+		d_{N,x}/\|d_N\| & d_{N,y}/\|d_N\| & d_{N,z}/\|d_N\|
+	\end{bmatrix}
+\end{equation}
+
+\noindent Similarly, the weight matrix is applied to the difference vector to form the directional gradient vector $\tilde{\Delta\phi_N}$:
+\begin{equation}
+	\tilde{\Delta\phi_N} = \begin{bmatrix}W\end{bmatrix} \vec{\Delta\phi_N} = 
+	\begin{Bmatrix}
+		\left(\phi_1 - \phi_p\right) / \|d_1\| \\ 
+		\vdots  \\
+		\left(\phi_N - \phi_p\right) / \|d_N\|
+	\end{Bmatrix}
+\end{equation}	
+
+\noindent The gradient can then be expressed as:
+\begin{equation}
+	\vec{\nabla}\phi_p=\begin{bmatrix}\tilde{G}\end{bmatrix}^{-1}\begin{bmatrix}\tilde{d}\end{bmatrix}^{T}\tilde{\Delta\phi_N}
+\end{equation}
+
+\noindent where $\begin{bmatrix}\tilde{G}\end{bmatrix} = \begin{bmatrix}\tilde{d}\end{bmatrix}^{T}\begin{bmatrix}\tilde{d}\end{bmatrix}$. Since $\begin{bmatrix}\tilde{G}\end{bmatrix}^{-1}\begin{bmatrix}\tilde{d}\end{bmatrix}^{T} = \begin{bmatrix}\tilde{d}\end{bmatrix}^{\dagger}$, this simplifies to:
+\begin{equation}
+\vec{\nabla}\phi_p=\begin{bmatrix}\tilde{d}\end{bmatrix}^{\dagger}\tilde{\Delta\phi_N}
+\end{equation}
+
+\noindent This formulation is more computationally efficient as it directly uses the pseudoinverse of the normalized distance matrix, eliminating the need to compute the intermediate matrices $\begin{bmatrix}G\end{bmatrix}$ and $\begin{bmatrix}W\end{bmatrix}^{T}\begin{bmatrix}W\end{bmatrix}$. The pseudoinverse handles singular cases automatically, making this approach robust for problems of any dimensionality.
+
+For computational efficiency, it is beneficial to express the formulation using the original difference vector rather than the weighted directional gradient vector. This allows the weight matrix to be combined with the pseudoinverse of the normalized distance matrix to form the reconstruction matrix $\begin{bmatrix}R\end{bmatrix}$. Since this matrix only needs to be computed once during initialization, it is more efficient to write the gradient calculation in this form:
+\begin{equation}
+	\vec{\nabla}\phi_p=\begin{bmatrix}\tilde{d}\end{bmatrix}^{\dagger} \begin{bmatrix}W\end{bmatrix} \vec{\Delta\phi_N} = \begin{bmatrix}R\end{bmatrix} \vec{\Delta\phi_N}
+\end{equation}
+
+where $\begin{bmatrix}R\end{bmatrix} = \begin{bmatrix}\tilde{d}\end{bmatrix}^{\dagger} \begin{bmatrix}W\end{bmatrix}$ is the reconstruction matrix that can be precomputed and reused for all gradient calculations.
 
 \subsection{Limitations and recommendations}
 \begin{itemize}
