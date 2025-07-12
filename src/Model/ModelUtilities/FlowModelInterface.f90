@@ -612,9 +612,9 @@ contains
     readnext = .true.
     if (kstp * kper > 1) then
       if (this%bfr%header%kstp == 1) then
-        if (this%bfr%headernext%kper == kper + 1) then
+        if (this%bfr%endoffile) then
           readnext = .false.
-        else if (this%bfr%endoffile) then
+        else if (this%bfr%headernext%kper == kper + 1) then
           readnext = .false.
         end if
       else if (this%bfr%endoffile) then
@@ -769,9 +769,9 @@ contains
     readnext = .true.
     if (kstp * kper > 1) then
       if (this%hfr%header%kstp == 1) then
-        if (this%hfr%headernext%kper == kper + 1) then
+        if (this%hfr%endoffile) then
           readnext = .false.
-        else if (this%hfr%endoffile) then
+        else if (this%hfr%headernext%kper == kper + 1) then
           readnext = .false.
         end if
       else if (this%hfr%endoffile) then

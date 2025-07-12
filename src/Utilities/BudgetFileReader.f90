@@ -80,6 +80,7 @@ contains
         if (h%naux > maxaux) maxaux = h%naux
       end select
 
+      if (this%endoffile) exit
       if (this%header%kstp /= this%headernext%kstp .or. &
           this%header%kper /= this%headernext%kper) &
         exit
