@@ -3,38 +3,36 @@ module BudgetFileReaderModule
   use KindModule
   use SimModule, only: store_error, store_error_unit
   use ConstantsModule, only: LINELENGTH
-  use BinaryFileReaderModule, only: BinaryFileReaderType
+  use BinaryFileReaderModule, only: BinaryFileReaderType, BinaryFileHeaderType
 
   implicit none
 
   private
-  public :: BudgetFileReaderType
+  public :: BudgetFileReaderType, BudgetFileHeaderType
+
+  type, extends(BinaryFileHeaderType) :: BudgetFileHeaderType
+    character(len=16) :: budtxt
+    integer(I4B) :: nval, idum1, idum2, imeth
+    character(len=16) :: srcmodelname, srcpackagename
+    character(len=16) :: dstmodelname, dstpackagename
+    integer(I4B) :: ndat, naux, nlist
+    character(len=16), dimension(:), allocatable :: auxtxt
+  contains
+    procedure :: get_str
+  end type BudgetFileHeaderType
 
   type, extends(BinaryFileReaderType) :: BudgetFileReaderType
     logical :: hasimeth1flowja = .false.
     integer(I4B) :: nbudterms
-    character(len=16) :: budtxt
     character(len=16), dimension(:), allocatable :: budtxtarray
-    integer(I4B) :: nval
-    integer(I4B) :: idum1
-    integer(I4B) :: idum2
-    integer(I4B) :: imeth
     integer(I4B), dimension(:), allocatable :: imetharray
-    character(len=16) :: srcmodelname
-    character(len=16) :: srcpackagename
-    integer(I4B) :: ndat
-    integer(I4B) :: naux
     integer(I4B), dimension(:), allocatable :: nauxarray
-    character(len=16), dimension(:), allocatable :: auxtxt
     character(len=16), dimension(:, :), allocatable :: auxtxtarray
-    integer(I4B) :: nlist
     real(DP), dimension(:), allocatable :: flowja
     integer(I4B), dimension(:), allocatable :: nodesrc
     integer(I4B), dimension(:), allocatable :: nodedst
     real(DP), dimension(:), allocatable :: flow
     real(DP), dimension(:, :), allocatable :: auxvar
-    character(len=16) :: dstmodelname
-    character(len=16) :: dstpackagename
     character(len=16), dimension(:), allocatable :: dstpackagenamearray
   contains
     procedure :: initialize
@@ -64,6 +62,9 @@ contains
     ncrbud = 0
     maxaux = 0
     !
+    allocate (BudgetFileHeaderType :: this%header)
+    allocate (BudgetFileHeaderType :: this%headernext)
+    !
     ! -- Determine number of budget terms within a time step
     if (iout > 0) &
       write (iout, '(a)') &
@@ -74,7 +75,11 @@ contains
       call this%read_record(success)
       if (.not. success) exit
       this%nbudterms = this%nbudterms + 1
-      if (this%naux > maxaux) maxaux = this%naux
+      select type (h => this%header)
+      type is (BudgetFileHeaderType)
+        if (h%naux > maxaux) maxaux = h%naux
+      end select
+
       if (this%header%kstp /= this%headernext%kstp .or. &
           this%header%kper /= this%headernext%kper) &
         exit
@@ -93,16 +98,19 @@ contains
     do ibudterm = 1, this%nbudterms
       call this%read_record(success, iout)
       if (.not. success) exit
-      this%budtxtarray(ibudterm) = this%budtxt
-      this%imetharray(ibudterm) = this%imeth
-      this%dstpackagenamearray(ibudterm) = this%dstpackagename
-      this%nauxarray(ibudterm) = this%naux
-      if (this%naux > 0) then
-        this%auxtxtarray(1:this%naux, ibudterm) = this%auxtxt(:)
-      end if
-      if (this%srcmodelname == this%dstmodelname) then
-        if (allocated(this%nodesrc)) ncrbud = max(ncrbud, maxval(this%nodesrc))
-      end if
+      select type (h => this%header)
+      type is (BudgetFileHeaderType)
+        this%budtxtarray(ibudterm) = h%budtxt
+        this%imetharray(ibudterm) = h%imeth
+        this%dstpackagenamearray(ibudterm) = h%dstpackagename
+        this%nauxarray(ibudterm) = h%naux
+        if (h%naux > 0) then
+          this%auxtxtarray(1:h%naux, ibudterm) = h%auxtxt(:)
+        end if
+        if (h%srcmodelname == h%dstmodelname) then
+          if (allocated(this%nodesrc)) ncrbud = max(ncrbud, maxval(this%nodesrc))
+        end if
+      end select
     end do
     rewind (this%inunit)
     if (iout > 0) &
@@ -129,80 +137,85 @@ contains
       iout_opt = 0
     end if
     !
-    this%header%kstp = 0
-    this%header%kper = 0
-    this%budtxt = ''
-    this%nval = 0
-    this%naux = 0
-    this%idum1 = 0
-    this%idum2 = 0
-    this%srcmodelname = ''
-    this%srcpackagename = ''
-    this%dstmodelname = ''
-    this%dstpackagename = ''
-
     success = .true.
-    this%headernext%kstp = 0
-    this%headernext%kper = 0
-    read (this%inunit, iostat=iostat) this%header%kstp, this%header%kper, &
-      this%budtxt, this%nval, this%idum1, this%idum2
-    if (iostat /= 0) then
-      success = .false.
-      if (iostat < 0) this%endoffile = .true.
-      return
-    end if
-    read (this%inunit) this%imeth, this%header%delt, &
-      this%header%pertim, this%header%totim
-    if (this%imeth == 1) then
-      if (trim(adjustl(this%budtxt)) == 'FLOW-JA-FACE') then
-        if (allocated(this%flowja)) deallocate (this%flowja)
-        allocate (this%flowja(this%nval))
-        read (this%inunit) this%flowja
-        this%hasimeth1flowja = .true.
-      else
-        this%nval = this%nval * this%idum1 * abs(this%idum2)
-        if (allocated(this%flow)) deallocate (this%flow)
-        allocate (this%flow(this%nval))
-        if (allocated(this%nodesrc)) deallocate (this%nodesrc)
-        allocate (this%nodesrc(this%nval))
-        read (this%inunit) this%flow
-        do i = 1, this%nval
-          this%nodesrc(i) = i
-        end do
+    select type (h => this%header)
+    type is (BudgetFileHeaderType)
+      h%kstp = 0
+      h%kper = 0
+      h%budtxt = ''
+      h%nval = 0
+      h%idum1 = 0
+      h%idum2 = 0
+      h%imeth = 0
+      h%srcmodelname = ''
+      h%srcpackagename = ''
+      h%dstmodelname = ''
+      h%dstpackagename = ''
+      h%ndat = 0
+      h%naux = 0
+      h%nlist = 0
+      if (allocated(h%auxtxt)) deallocate (h%auxtxt)
+
+      read (this%inunit, iostat=iostat) h%kstp, h%kper, &
+        h%budtxt, h%nval, h%idum1, h%idum2
+      if (iostat /= 0) then
+        success = .false.
+        if (iostat < 0) this%endoffile = .true.
+        return
       end if
-    elseif (this%imeth == 6) then
-      ! -- method code 6
-      read (this%inunit) this%srcmodelname
-      read (this%inunit) this%srcpackagename
-      read (this%inunit) this%dstmodelname
-      read (this%inunit) this%dstpackagename
-      read (this%inunit) this%ndat
-      this%naux = this%ndat - 1
-      if (allocated(this%auxtxt)) deallocate (this%auxtxt)
-      allocate (this%auxtxt(this%naux))
-      read (this%inunit) this%auxtxt
-      read (this%inunit) this%nlist
-      if (allocated(this%nodesrc)) deallocate (this%nodesrc)
-      allocate (this%nodesrc(this%nlist))
-      if (allocated(this%nodedst)) deallocate (this%nodedst)
-      allocate (this%nodedst(this%nlist))
-      if (allocated(this%flow)) deallocate (this%flow)
-      allocate (this%flow(this%nlist))
-      if (allocated(this%auxvar)) deallocate (this%auxvar)
-      allocate (this%auxvar(this%naux, this%nlist))
-      read (this%inunit) (this%nodesrc(n), this%nodedst(n), this%flow(n), &
-                          (this%auxvar(i, n), i=1, this%naux), n=1, this%nlist)
-    else
-      write (errmsg, '(a, a)') 'ERROR READING: ', trim(this%budtxt)
-      call store_error(errmsg)
-      write (errmsg, '(a, i0)') 'INVALID METHOD CODE DETECTED: ', this%imeth
-      call store_error(errmsg)
-      call store_error_unit(this%inunit)
-    end if
-    if (iout_opt > 0) then
-      write (iout_opt, '(1pg15.6, a, 1x, a)') this%header%totim, this%budtxt, &
-        this%dstpackagename
-    end if
+      read (this%inunit) h%imeth, h%delt, h%pertim, h%totim
+      if (h%imeth == 1) then
+        if (trim(adjustl(h%budtxt)) == 'FLOW-JA-FACE') then
+          if (allocated(this%flowja)) deallocate (this%flowja)
+          allocate (this%flowja(h%nval))
+          read (this%inunit) this%flowja
+          this%hasimeth1flowja = .true.
+        else
+          h%nval = h%nval * h%idum1 * abs(h%idum2)
+          if (allocated(this%flow)) deallocate (this%flow)
+          allocate (this%flow(h%nval))
+          if (allocated(this%nodesrc)) deallocate (this%nodesrc)
+          allocate (this%nodesrc(h%nval))
+          read (this%inunit) this%flow
+          do i = 1, h%nval
+            this%nodesrc(i) = i
+          end do
+        end if
+      elseif (h%imeth == 6) then
+        ! -- method code 6
+        read (this%inunit) h%srcmodelname
+        read (this%inunit) h%srcpackagename
+        read (this%inunit) h%dstmodelname
+        read (this%inunit) h%dstpackagename
+        read (this%inunit) h%ndat
+        h%naux = h%ndat - 1
+        if (allocated(h%auxtxt)) deallocate (h%auxtxt)
+        allocate (h%auxtxt(h%naux))
+        read (this%inunit) h%auxtxt
+        read (this%inunit) h%nlist
+        if (allocated(this%nodesrc)) deallocate (this%nodesrc)
+        allocate (this%nodesrc(h%nlist))
+        if (allocated(this%nodedst)) deallocate (this%nodedst)
+        allocate (this%nodedst(h%nlist))
+        if (allocated(this%flow)) deallocate (this%flow)
+        allocate (this%flow(h%nlist))
+        if (allocated(this%auxvar)) deallocate (this%auxvar)
+        allocate (this%auxvar(h%naux, h%nlist))
+        read (this%inunit) (this%nodesrc(n), this%nodedst(n), this%flow(n), &
+                            (this%auxvar(i, n), i=1, h%naux), n=1, h%nlist)
+      else
+        write (errmsg, '(a, a)') 'ERROR READING: ', trim(h%budtxt)
+        call store_error(errmsg)
+        write (errmsg, '(a, i0)') 'INVALID METHOD CODE DETECTED: ', h%imeth
+        call store_error(errmsg)
+        call store_error_unit(this%inunit)
+      end if
+
+      if (iout_opt > 0) then
+        write (iout_opt, '(1pg15.6, a, 1x, a)') h%totim, h%budtxt, &
+          h%dstpackagename
+      end if
+    end select
     !
     call this%peek_record()
   end subroutine read_record
@@ -212,12 +225,41 @@ contains
   subroutine finalize(this)
     class(BudgetFileReaderType) :: this
     close (this%inunit)
-    if (allocated(this%auxtxt)) deallocate (this%auxtxt)
     if (allocated(this%flowja)) deallocate (this%flowja)
     if (allocated(this%nodesrc)) deallocate (this%nodesrc)
     if (allocated(this%nodedst)) deallocate (this%nodedst)
     if (allocated(this%flow)) deallocate (this%flow)
     if (allocated(this%auxvar)) deallocate (this%auxvar)
+    if (allocated(this%header)) deallocate (this%header)
+    if (allocated(this%headernext)) deallocate (this%headernext)
   end subroutine finalize
+
+  !> @brief Get a string representation of the budget file header.
+  function get_str(this) result(str)
+    class(BudgetFileHeaderType), intent(in) :: this
+    character(len=:), allocatable :: str
+
+    write (str, '(*(G0))') &
+      'Budget file header (pos: ', this%pos, &
+      ', kper: ', this%kper, &
+      ', kstp: ', this%kstp, &
+      ', delt: ', this%delt, &
+      ', pertim: ', this%pertim, &
+      ', totim: ', this%totim, &
+      ', budtxt: ', trim(this%budtxt), &
+      ', nval: ', this%nval, &
+      ', idum1: ', this%idum1, &
+      ', idum2: ', this%idum2, &
+      ', imeth: ', this%imeth, &
+      ', srcmodel: ', trim(this%srcmodelname), &
+      ', srcpackage: ', trim(this%srcpackagename), &
+      ', dstmodel: ', trim(this%dstmodelname), &
+      ', dstpackage: ', trim(this%dstpackagename), &
+      ', ndat: ', this%ndat, &
+      ', naux: ', this%naux, &
+      ', nlist: ', this%nlist, &
+      ')'
+    str = trim(str)
+  end function get_str
 
 end module BudgetFileReaderModule

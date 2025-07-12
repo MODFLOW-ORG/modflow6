@@ -16,8 +16,8 @@ module BinaryFileReaderModule
 
   type, abstract :: BinaryFileReaderType
     integer(I4B) :: inunit
-    type(BinaryFileHeaderType) :: header
-    type(BinaryFileHeaderType) :: headernext
+    class(BinaryFileHeaderType), allocatable :: header
+    class(BinaryFileHeaderType), allocatable :: headernext
     logical(LGP) :: endoffile
   contains
     procedure(read_record_if), deferred :: read_record
@@ -63,6 +63,7 @@ contains
         call fseek_stream(this%inunit, -2 * I4B, 1, iostat)
       else if (iostat < 0) then
         this%endoffile = .true.
+        if (allocated(this%headernext)) deallocate (this%headernext)
       end if
     end if
   end subroutine peek_record
