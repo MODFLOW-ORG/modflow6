@@ -6,7 +6,7 @@ module BinaryFileReaderModule
 
   public :: BinaryFileHeaderType, BinaryFileReaderType
 
-  type, abstract :: BinaryFileHeaderType
+  type :: BinaryFileHeaderType
     integer(I4B) :: pos
     integer(I4B) :: kper, kstp
     real(DP) :: pertim, totim
@@ -23,6 +23,7 @@ module BinaryFileReaderModule
     procedure(read_header_if), deferred :: read_header
     procedure(read_record_if), deferred :: read_record
     procedure :: peek_record
+    procedure :: rewind
   end type BinaryFileReaderType
 
   abstract interface
@@ -76,4 +77,17 @@ contains
     end if
   end subroutine peek_record
 
+  !> @brief Rewind the file to the beginning.
+  subroutine rewind (this)
+    class(BinaryFileReaderType), intent(inout) :: this
+
+    rewind (this%inunit)
+    if (allocated(this%header)) deallocate (this%header)
+    if (allocated(this%headernext)) deallocate (this%headernext)
+    allocate (BinaryFileHeaderType :: this%header)
+    allocate (BinaryFileHeaderType :: this%headernext)
+    this%header%pos = 1
+    this%headernext%pos = 1
+    this%endoffile = .false.
+  end subroutine rewind
 end module BinaryFileReaderModule

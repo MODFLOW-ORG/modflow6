@@ -1,7 +1,7 @@
 module HeadFileReaderModule
 
   use KindModule
-  use ConstantsModule, only: LINELENGTH, LENBIGLINE
+  use ConstantsModule, only: LINELENGTH, LENBIGLINE, LENHUGELINE
   use BinaryFileReaderModule, only: BinaryFileReaderType, BinaryFileHeaderType
 
   implicit none
@@ -23,6 +23,7 @@ module HeadFileReaderModule
     procedure :: initialize
     procedure :: read_header
     procedure :: read_record
+    procedure :: rewind
     procedure :: finalize
   end type HeadFileReaderType
 
@@ -40,17 +41,14 @@ contains
     logical :: success
     !
     this%inunit = iu
-    this%endoffile = .false.
     this%nlay = 0
-    !
-    allocate (HeadFileHeaderType :: this%header)
-    allocate (HeadFileHeaderType :: this%headernext)
+    call this%rewind()
     !
     ! -- Read the first head data record to set kstp_last, kstp_last
     call this%read_record(success)
     kstp_last = this%header%kstp
     kper_last = this%header%kper
-    rewind (this%inunit)
+    call this%rewind()
     !
     ! -- Determine number of records within a time step
     if (iout > 0) &
@@ -62,7 +60,7 @@ contains
       if (kstp_last /= this%header%kstp .or. kper_last /= this%header%kper) exit
       this%nlay = this%nlay + 1
     end do
-    rewind (this%inunit)
+    call this%rewind()
     if (iout > 0) &
       write (iout, '(a, i0, a)') 'Detected ', this%nlay, &
       ' unique records in binary file.'
@@ -87,6 +85,7 @@ contains
       h%ncol = 0
       h%nrow = 0
       h%ilay = 0
+      inquire (unit=this%inunit, pos=h%pos)
       read (this%inunit, iostat=iostat) h%kstp, h%kper, &
         h%pertim, h%totim, h%text, h%ncol, h%nrow, h%ilay
       if (iostat /= 0) then
@@ -170,5 +169,18 @@ contains
       ')'
     str = trim(temp)
   end function get_str
+
+  subroutine rewind (this)
+    class(HeadFileReaderType), intent(inout) :: this
+
+    rewind (this%inunit)
+    this%endoffile = .false.
+    if (allocated(this%header)) deallocate (this%header)
+    if (allocated(this%headernext)) deallocate (this%headernext)
+    allocate (HeadFileHeaderType :: this%header)
+    allocate (HeadFileHeaderType :: this%headernext)
+    this%header%pos = 1
+    this%headernext%pos = 1
+  end subroutine rewind
 
 end module HeadFileReaderModule
