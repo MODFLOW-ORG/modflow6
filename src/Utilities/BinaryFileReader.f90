@@ -7,7 +7,7 @@ module BinaryFileReaderModule
   public :: BinaryFileHeaderType, BinaryFileReaderType
 
   type :: BinaryFileHeaderType
-    integer(I4B) :: pos
+    integer(I4B) :: pos, size
     integer(I4B) :: kper, kstp
     real(DP) :: pertim, totim
   contains
@@ -16,12 +16,16 @@ module BinaryFileReaderModule
 
   type, abstract :: BinaryFileReaderType
     integer(I4B) :: inunit
+    integer(I4B) :: nrecords
+    logical(LGP) :: indexed
+    logical(LGP) :: endoffile
+    integer(I4B), allocatable :: record_sizes(:)
     class(BinaryFileHeaderType), allocatable :: header
     class(BinaryFileHeaderType), allocatable :: headernext
-    logical(LGP) :: endoffile
   contains
     procedure(read_header_if), deferred :: read_header
     procedure(read_record_if), deferred :: read_record
+    procedure :: build_index
     procedure :: peek_record
     procedure :: rewind
   end type BinaryFileReaderType
@@ -60,6 +64,39 @@ contains
     str = trim(str)
   end function get_str
 
+  !> @brief Build an index of data sizes in the file
+  subroutine build_index(this)
+    class(BinaryFileReaderType), intent(inout) :: this
+    ! local
+    logical(LGP) :: success
+    integer(I4B) :: pos, record_size
+
+    this%indexed = .false.
+    this%nrecords = 0
+    call this%rewind()
+    if (allocated(this%record_sizes)) deallocate (this%record_sizes)
+
+    ! first pass: count
+    do
+      call this%read_record(success)
+      if (.not. success) exit
+      this%nrecords = this%nrecords + 1
+    end do
+    call this%rewind()
+    allocate (this%record_sizes(this%nrecords))
+    ! second pass: save
+    do
+      call this%read_record(success)
+      inquire (this%inunit, pos=pos)
+      record_size = pos - this%header%pos
+      if (.not. success) exit
+      this%record_sizes(this%nrecords) = this%header%size + record_size
+    end do
+    call this%rewind()
+
+    this%indexed = .true.
+  end subroutine build_index
+
   !> @brief Peek to see if another record is available.
   subroutine peek_record(this)
     class(BinaryFileReaderType), intent(inout) :: this
@@ -67,6 +104,7 @@ contains
     integer(I4B) :: iostat
 
     if (.not. this%endoffile) then
+      inquire (this%inunit, pos=this%headernext%pos)
       read (this%inunit, iostat=iostat) this%headernext%kstp, this%headernext%kper
       if (iostat == 0) then
         call fseek_stream(this%inunit, -2 * I4B, 1, iostat)
@@ -90,4 +128,5 @@ contains
     this%headernext%pos = 1
     this%endoffile = .false.
   end subroutine rewind
+
 end module BinaryFileReaderModule

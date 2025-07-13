@@ -74,7 +74,7 @@ contains
     logical, intent(out) :: success
     integer(I4B), intent(in), optional :: iout
     ! -- local
-    integer(I4B) :: iostat
+    integer(I4B) :: iostat, pos
     !
     success = .true.
     select type (h => this%header)
@@ -93,6 +93,8 @@ contains
         if (iostat < 0) this%endoffile = .true.
         return
       end if
+      inquire (unit=this%inunit, pos=pos)
+      this%header%size = pos - this%header%pos
     end select
   end subroutine read_header
 

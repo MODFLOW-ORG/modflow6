@@ -127,7 +127,7 @@ contains
     logical, intent(out) :: success
     integer(I4B), intent(in), optional :: iout
     ! -- local
-    integer(I4B) :: iostat
+    integer(I4B) :: iostat, pos
     character(len=LINELENGTH) :: errmsg
     !
     success = .true.
@@ -177,6 +177,8 @@ contains
         call store_error_unit(this%inunit)
       end if
     end select
+    inquire (unit=this%inunit, pos=pos)
+    this%header%size = pos - this%header%pos
   end subroutine read_header
 
   !< @brief read record
