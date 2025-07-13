@@ -36,6 +36,7 @@ module BudgetFileReaderModule
     character(len=16), dimension(:), allocatable :: dstpackagenamearray
   contains
     procedure :: initialize
+    procedure :: read_header
     procedure :: read_record
     procedure :: finalize
   end type BudgetFileReaderType
@@ -119,24 +120,16 @@ contains
       ' unique flow terms in budget file.'
   end subroutine initialize
 
-  !< @brief read record
+  !< @brief read header only
   !<
-  subroutine read_record(this, success, iout)
-    ! -- modules
-    use InputOutputModule, only: fseek_stream
+  subroutine read_header(this, success, iout)
     ! -- dummy
     class(BudgetFileReaderType), intent(inout) :: this
     logical, intent(out) :: success
     integer(I4B), intent(in), optional :: iout
     ! -- local
-    integer(I4B) :: i, n, iostat, iout_opt
+    integer(I4B) :: iostat
     character(len=LINELENGTH) :: errmsg
-    !
-    if (present(iout)) then
-      iout_opt = iout
-    else
-      iout_opt = 0
-    end if
     !
     success = .true.
     select type (h => this%header)
@@ -165,6 +158,50 @@ contains
         return
       end if
       read (this%inunit) h%imeth, h%delt, h%pertim, h%totim
+      if (h%imeth == 6) then
+        read (this%inunit) h%srcmodelname
+        read (this%inunit) h%srcpackagename
+        read (this%inunit) h%dstmodelname
+        read (this%inunit) h%dstpackagename
+        read (this%inunit) h%ndat
+        h%naux = h%ndat - 1
+        if (allocated(h%auxtxt)) deallocate (h%auxtxt)
+        allocate (h%auxtxt(h%naux))
+        read (this%inunit) h%auxtxt
+        read (this%inunit) h%nlist
+      elseif (h%imeth /= 1) then
+        write (errmsg, '(a, a)') 'ERROR READING: ', trim(h%budtxt)
+        call store_error(errmsg)
+        write (errmsg, '(a, i0)') 'INVALID METHOD CODE DETECTED: ', h%imeth
+        call store_error(errmsg)
+        call store_error_unit(this%inunit)
+      end if
+    end select
+  end subroutine read_header
+
+  !< @brief read record
+  !<
+  subroutine read_record(this, success, iout)
+    ! -- modules
+    use InputOutputModule, only: fseek_stream
+    ! -- dummy
+    class(BudgetFileReaderType), intent(inout) :: this
+    logical, intent(out) :: success
+    integer(I4B), intent(in), optional :: iout
+    ! -- local
+    integer(I4B) :: i, n, iout_opt
+    !
+    if (present(iout)) then
+      iout_opt = iout
+    else
+      iout_opt = 0
+    end if
+    !
+    call this%read_header(success, iout_opt)
+    if (.not. success) return
+    !
+    select type (h => this%header)
+    type is (BudgetFileHeaderType)
       if (h%imeth == 1) then
         if (trim(adjustl(h%budtxt)) == 'FLOW-JA-FACE') then
           if (allocated(this%flowja)) deallocate (this%flowja)
@@ -183,17 +220,6 @@ contains
           end do
         end if
       elseif (h%imeth == 6) then
-        ! -- method code 6
-        read (this%inunit) h%srcmodelname
-        read (this%inunit) h%srcpackagename
-        read (this%inunit) h%dstmodelname
-        read (this%inunit) h%dstpackagename
-        read (this%inunit) h%ndat
-        h%naux = h%ndat - 1
-        if (allocated(h%auxtxt)) deallocate (h%auxtxt)
-        allocate (h%auxtxt(h%naux))
-        read (this%inunit) h%auxtxt
-        read (this%inunit) h%nlist
         if (allocated(this%nodesrc)) deallocate (this%nodesrc)
         allocate (this%nodesrc(h%nlist))
         if (allocated(this%nodedst)) deallocate (this%nodedst)
@@ -204,12 +230,6 @@ contains
         allocate (this%auxvar(h%naux, h%nlist))
         read (this%inunit) (this%nodesrc(n), this%nodedst(n), this%flow(n), &
                             (this%auxvar(i, n), i=1, h%naux), n=1, h%nlist)
-      else
-        write (errmsg, '(a, a)') 'ERROR READING: ', trim(h%budtxt)
-        call store_error(errmsg)
-        write (errmsg, '(a, i0)') 'INVALID METHOD CODE DETECTED: ', h%imeth
-        call store_error(errmsg)
-        call store_error_unit(this%inunit)
       end if
 
       if (iout_opt > 0) then

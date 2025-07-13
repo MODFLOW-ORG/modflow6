@@ -21,6 +21,7 @@ module HeadFileReaderModule
     real(DP), dimension(:), allocatable :: head
   contains
     procedure :: initialize
+    procedure :: read_header
     procedure :: read_record
     procedure :: finalize
   end type HeadFileReaderType
@@ -67,24 +68,15 @@ contains
       ' unique records in binary file.'
   end subroutine initialize
 
-  !< @brief read record
+  !< @brief read header only
   !<
-  subroutine read_record(this, success, iout)
-    ! -- modules
-    use InputOutputModule, only: fseek_stream
+  subroutine read_header(this, success, iout)
     ! -- dummy
     class(HeadFileReaderType), intent(inout) :: this
     logical, intent(out) :: success
     integer(I4B), intent(in), optional :: iout
     ! -- local
-    integer(I4B) :: iostat, iout_opt
-    integer(I4B) :: ncol, nrow, ilay
-    !
-    if (present(iout)) then
-      iout_opt = iout
-    else
-      iout_opt = 0
-    end if
+    integer(I4B) :: iostat
     !
     success = .true.
     select type (h => this%header)
@@ -102,9 +94,35 @@ contains
         if (iostat < 0) this%endoffile = .true.
         return
       end if
+    end select
+  end subroutine read_header
+
+  !< @brief read record
+  !<
+  subroutine read_record(this, success, iout)
+    ! -- modules
+    use InputOutputModule, only: fseek_stream
+    ! -- dummy
+    class(HeadFileReaderType), intent(inout) :: this
+    logical, intent(out) :: success
+    integer(I4B), intent(in), optional :: iout
+    ! -- local
+    integer(I4B) :: iout_opt
+    integer(I4B) :: ncol, nrow
+    !
+    if (present(iout)) then
+      iout_opt = iout
+    else
+      iout_opt = 0
+    end if
+    !
+    call this%read_header(success, iout_opt)
+    if (.not. success) return
+    !
+    select type (h => this%header)
+    type is (HeadFileHeaderType)
       ncol = h%ncol
       nrow = h%nrow
-      ilay = h%ilay
     end select
     !
     ! -- allocate head to proper size
