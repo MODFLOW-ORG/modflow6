@@ -94,7 +94,7 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.11
+        uses: prefix-dev/setup-pixi@v0.8.12
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
