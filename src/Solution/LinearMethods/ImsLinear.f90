@@ -29,9 +29,10 @@ MODULE IMSLinearModule
     integer(I4B), pointer :: ICNVGOPT => null() !< convergence option
     integer(I4B), pointer :: ITER1 => null() !< max. iterations
     integer(I4B), pointer :: ILINMETH => null() !< linear solver method
-    integer(I4B), pointer :: iSCL => null() !< scaling method
+    integer(I4B), pointer :: ISCL => null() !< scaling method
     integer(I4B), pointer :: IORD => null() !< reordering method
     integer(I4B), pointer :: NORTH => null() !< number of orthogonalizations
+    
     real(DP), pointer :: RELAX => null() !< relaxation factor
     integer(I4B), pointer :: LEVEL => null() !< nr. of preconditioner levels
     real(DP), pointer :: DROPTOL => null() !< drop tolerance for preconditioner
@@ -142,7 +143,7 @@ CONTAINS
     this%ICNVGOPT => linear_settings%icnvgopt
     this%ITER1 => linear_settings%iter1
     this%ILINMETH => linear_settings%ilinmeth
-    this%iSCL => linear_settings%iscl
+    this%ISCL => linear_settings%iscl
     this%IORD => linear_settings%iord
     this%NORTH => linear_settings%north
     this%RELAX => linear_settings%relax
@@ -351,6 +352,7 @@ CONTAINS
     CHARACTER(LEN=10) :: clin(0:2)
     CHARACTER(LEN=31) :: clintit(0:2)
     CHARACTER(LEN=20) :: cipc(0:4)
+    CHARACTER(LEN=20) :: cnorm(0:1)
     CHARACTER(LEN=20) :: cscale(0:2)
     CHARACTER(LEN=25) :: corder(0:2)
     CHARACTER(LEN=16), DIMENSION(0:4) :: ccnvgopt
@@ -370,6 +372,8 @@ CONTAINS
              &'MOD. INCOMPLETE LU  ', &
              &'INCOMPLETE LUT      ', &
              &'MOD. INCOMPLETE LUT '/
+    DATA cnorm/'FALSE               ', &
+               &'TRUE                '/
     DATA cscale/'NO SCALING          ', &
                &'SYMMETRIC SCALING   ', &
                &'L2 NORM SCALING     '/
