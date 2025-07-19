@@ -32,7 +32,7 @@ MODULE IMSLinearModule
     integer(I4B), pointer :: ISCL => null() !< scaling method
     integer(I4B), pointer :: IORD => null() !< reordering method
     integer(I4B), pointer :: NORTH => null() !< number of orthogonalizations
-    
+
     real(DP), pointer :: RELAX => null() !< relaxation factor
     integer(I4B), pointer :: LEVEL => null() !< nr. of preconditioner levels
     real(DP), pointer :: DROPTOL => null() !< drop tolerance for preconditioner

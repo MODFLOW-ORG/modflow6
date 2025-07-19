@@ -53,7 +53,7 @@ CONTAINS
   !
   !> @ brief Normalize X and RHS
   !!
-  !!  Normalize X and B to avoid too big or two small quantities. Normalization 
+  !!  Normalize X and B to avoid too big or two small quantities. Normalization
   !!  faction is maximum X.
   !<
   SUBROUTINE ims_misc_normalize(IOPT, NEQ, DSCALE, X, B)
@@ -85,6 +85,5 @@ CONTAINS
       END DO
     END IF
   end SUBROUTINE ims_misc_normalize
-
 
 END MODULE IMSLinearMisc

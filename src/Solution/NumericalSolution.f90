@@ -673,10 +673,10 @@ contains
           write (IOUT, '(3x,A,G0)') 'ADAPTIVE TIME STEP SETTING FOUND.  FRACTION &
             &OF OUTER MAXIMUM USED TO INCREASE OR DECREASE TIME STEP SIZE IS ',&
             &this%atsfrac
-        case('MT3D_NORMALIZE')
+        case ('MT3D_NORMALIZE')
           this%imt3d_normal = 1
           write (iout, '(3x,A)') 'X and RHS will be normalized using MT3DMS GCG &
-            &package approach. NOTE: Specified outer and inner DVCLOSE values will &
+          &package approach. NOTE: Specified outer and inner DVCLOSE values will &
             &be relative closure criteria.'
           !
           ! -- DEPRECATED OPTIONS
