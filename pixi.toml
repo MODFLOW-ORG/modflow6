@@ -19,6 +19,7 @@ jinja2 = ">=3.1.5,<4"
 jupytext = "*"
 matplotlib = "*"
 meson = "==1.7.1"
+modflow-devtools = "==1.7.0"
 networkx = "*"
 ninja = "*"
 numpy = "<2.0.0"    # modflowapi has a resriction on the numpy version
@@ -57,7 +58,6 @@ sphinx_rtd_theme = ">=1"
 sphinxcontrib-mermaid = "*"
 pytest = "*"
 filelock = "*"
-modflow-devtools = "*"
 
 [feature.rtd.pypi-dependencies]
 # These dependencies are added as pypi dependencies because an osx-arm64 version of them doesn't exist on conda
@@ -74,12 +74,10 @@ rtd = { features = ["rtd"], solve-group = "default" }
 install-flopy = "pip install --disable-pip-version-check git+https://github.com/modflowpy/flopy.git"
 install-pymake = "pip install --disable-pip-version-check git+https://github.com/modflowpy/pymake.git"
 install-modflowapi = "pip install --disable-pip-version-check git+https://github.com/MODFLOW-ORG/modflowapi.git"
-install-modflow-devtools = "pip install --disable-pip-version-check git+https://github.com/MODFLOW-ORG/modflow-devtools.git"
 install = { depends-on = [
     "install-flopy",
     "install-pymake",
     "install-modflowapi",
-    "install-modflow-devtools",
 ] }
 
 # check format
