@@ -34,6 +34,15 @@ longname save flows for all packages to budget file
 description REPLACE save_flows {'{#1}': 'all model package'}
 
 block options
+name dependent_variable_scaling
+type keyword
+reader urword
+optional true
+longname flag to scale X and RHS
+description flag to scale X and RHS to avoid very large positive or negative dependent variable values
+mf6internal idv_scale
+
+block options
 name nc_mesh2d_filerecord
 type record netcdf_mesh2d fileout ncmesh2dfile
 shape

@@ -128,7 +128,7 @@ contains
     use MemoryHelperModule, only: create_mem_path
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
-    use GwfNamInputModule, only: GwfNamParamFoundType
+    use PrtNamInputModule, only: PrtNamParamFoundType
     ! dummy
     character(len=*), intent(in) :: filename
     integer(I4B), intent(in) :: id
@@ -138,7 +138,7 @@ contains
     class(BaseModelType), pointer :: model
     character(len=LENMEMPATH) :: input_mempath
     character(len=LINELENGTH) :: lst_fname
-    type(GwfNamParamFoundType) :: found
+    type(PrtNamParamFoundType) :: found
 
     ! Allocate a new PRT Model (this)
     allocate (this)
@@ -1144,21 +1144,11 @@ contains
 
   !> @brief Write model namfile options to list file
   subroutine log_namfile_options(this, found)
-    use GwfNamInputModule, only: GwfNamParamFoundType
+    use PrtNamInputModule, only: PrtNamParamFoundType
     class(PrtModelType) :: this
-    type(GwfNamParamFoundType), intent(in) :: found
+    type(PrtNamParamFoundType), intent(in) :: found
 
     write (this%iout, '(1x,a)') 'NAMEFILE OPTIONS:'
-
-    if (found%newton) then
-      write (this%iout, '(4x,a)') &
-        'NEWTON-RAPHSON method enabled for the model.'
-      if (found%under_relaxation) then
-        write (this%iout, '(4x,a,a)') &
-          'NEWTON-RAPHSON UNDER-RELAXATION based on the bottom ', &
-          'elevation of the model will be applied to the model.'
-      end if
-    end if
 
     if (found%print_input) then
       write (this%iout, '(4x,a)') 'STRESS PACKAGE INPUT WILL BE PRINTED '// &

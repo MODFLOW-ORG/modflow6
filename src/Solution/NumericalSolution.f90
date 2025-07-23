@@ -39,7 +39,7 @@ module NumericalSolutionModule
   use VectorBaseModule
   use LinearSolverBaseModule
   use ImsLinearSettingsModule
-  use IMSLinearMisc, only: ims_misc_normalize
+  use IMSLinearMisc, only: ims_misc_dvscale
   use LinearSolverFactory, only: create_linear_solver
   use MatrixBaseModule
   use ConvergenceSummaryModule
@@ -122,8 +122,8 @@ module NumericalSolutionModule
     type(ImsLinearSettingsType), pointer :: linear_settings => null() !< IMS settings for linear solver
     !
     ! -- normalization of X and RHS
-    integer(I4B), pointer :: imt3d_normal => null() !< flag indicating if the X and right hand side will be normalized
-    real(DP), pointer :: dscale => null() !< normalization factor (maximum X)
+    integer(I4B), pointer :: idv_scale => null() !< flag indicating if the X and right hand side will be scaled
+    real(DP), pointer :: dscale => null() !< X and RHS scaling factor (maximum X)
     !
     ! -- pseudo-transient continuation
     integer(I4B), pointer :: iallowptc => null() !< flag indicating if ptc applied this time step
@@ -330,7 +330,7 @@ contains
     call mem_allocate(this%ptcdel0, 'PTCDEL0', this%memory_path)
     call mem_allocate(this%ptcexp, 'PTCEXP', this%memory_path)
     call mem_allocate(this%atsfrac, 'ATSFRAC', this%memory_path)
-    call mem_allocate(this%imt3d_normal, 'IMT3D_NORMAL', this%memory_path)
+    call mem_allocate(this%idv_scale, 'IDV_SCALE', this%memory_path)
     call mem_allocate(this%dscale, 'DSCALE', this%memory_path)
     !
     ! -- initialize scalars
@@ -374,7 +374,7 @@ contains
     this%ptcdel0 = DZERO
     this%ptcexp = done
     this%atsfrac = DONETHIRD
-    this%imt3d_normal = 0
+    this%idv_scale = 0
     this%dscale = DONE
   end subroutine allocate_scalars
 
@@ -673,11 +673,6 @@ contains
           write (IOUT, '(3x,A,G0)') 'ADAPTIVE TIME STEP SETTING FOUND.  FRACTION &
             &OF OUTER MAXIMUM USED TO INCREASE OR DECREASE TIME STEP SIZE IS ',&
             &this%atsfrac
-        case ('MT3D_NORMALIZE')
-          this%imt3d_normal = 1
-          write (iout, '(3x,A)') 'X and RHS will be normalized using MT3DMS GCG &
-          &package approach. NOTE: Specified outer and inner DVCLOSE values will &
-            &be relative closure criteria.'
           !
           ! -- DEPRECATED OPTIONS
         case ('CSV_OUTPUT')
@@ -982,6 +977,24 @@ contains
       end do
       !
     end if
+
+    !
+    ! determine if the x and rhs should be scaled
+    do i = 1, this%modellist%Count()
+      mp => GetNumericalModelFromList(this%modellist, i)
+      if (mp%get_idv_scale() /= 0) then
+        this%idv_scale = 1
+      end if
+    end do
+
+    if (this%idv_scale /= 0) then
+      write (iout, '(2(1x,a,/),1x,a,/,6x,a,/)') &
+        'X and RHS will be scaled to avoid very large positive or negative', &
+        'dependent variable values in the model IMS package.', &
+      'NOTE: Specified outer and inner DVCLOSE values in the model IMS package', &
+        'will be relative closure criteria.'
+    end if
+    !
     !
     ! -- write solver data to output file
     !
@@ -1291,7 +1304,7 @@ contains
     call mem_deallocate(this%ptcdel0)
     call mem_deallocate(this%ptcexp)
     call mem_deallocate(this%atsfrac)
-    call mem_deallocate(this%imt3d_normal)
+    call mem_deallocate(this%idv_scale)
     call mem_deallocate(this%dscale)
   end subroutine sln_da
 
@@ -1610,10 +1623,10 @@ contains
     call code_timer(1, ttform, this%ttform)
     call g_prof%stop(this%tmr_formulate)
 
-    ! normalization of x and rhs
-    if (this%imt3d_normal /= 0) then
+    ! x and rhs scaling
+    if (this%idv_scale /= 0) then
       call this%sln_maxval(this%neq, this%x, this%dscale)
-      call ims_misc_normalize(0, this%neq, this%dscale, this%x, this%rhs)
+      call ims_misc_dvscale(0, this%neq, this%dscale, this%x, this%rhs)
     end if
     !
     ! -- linear solve
@@ -1848,9 +1861,9 @@ contains
                                         kiter, iter, icsv0, kcsv0)
     end if
 
-    ! undo normalization of x and rhs
-    if (this%imt3d_normal /= 0) then
-      call ims_misc_normalize(1, this%neq, this%dscale, this%x, this%rhs)
+    ! undo x and rhs scaling
+    if (this%idv_scale /= 0) then
+      call ims_misc_dvscale(1, this%neq, this%dscale, this%x, this%rhs)
     end if
 
     ! stop timer

@@ -5,7 +5,7 @@ MODULE IMSLinearMisc
 
   private
   public :: ims_misc_thomas
-  public :: ims_misc_normalize
+  public :: ims_misc_dvscale
 
 CONTAINS
 
@@ -51,12 +51,12 @@ CONTAINS
   end subroutine ims_misc_thomas
 
   !
-  !> @ brief Normalize X and RHS
+  !> @ brief Scale X and RHS
   !!
-  !!  Normalize X and B to avoid too big or two small quantities. Normalization
-  !!  faction is maximum X.
+  !!  Scale X and B to avoid big or small values. Scaling value is the
+  !!  maximum ABS(X).
   !<
-  SUBROUTINE ims_misc_normalize(IOPT, NEQ, DSCALE, X, B)
+  SUBROUTINE ims_misc_dvscale(IOPT, NEQ, DSCALE, X, B)
     ! -- dummy variables
     integer(I4B), INTENT(IN) :: IOPT !< flag to scale (0) or unscale the system of equations
     integer(I4B), INTENT(IN) :: NEQ !< number of equations
@@ -84,6 +84,6 @@ CONTAINS
         X(n) = X(n) * DSCALE
       END DO
     END IF
-  end SUBROUTINE ims_misc_normalize
+  end SUBROUTINE ims_misc_dvscale
 
 END MODULE IMSLinearMisc

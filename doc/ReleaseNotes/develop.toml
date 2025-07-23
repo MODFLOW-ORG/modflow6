@@ -5,6 +5,7 @@ examples = "EXAMPLES"
 
 [subsections]
 basic = "BASIC FUNCTIONALITY"
+model = "MODEL"
 internal = "INTERNAL FLOW PACKAGES"
 stress = "STRESS PACKAGES"
 advanced = "ADVANCED STRESS PACKAGES"
@@ -51,3 +52,8 @@ description = "Fixed a memory access exception that can occur when writing conve
 section = "features"
 subsection = "solution"
 description = "Added an optional new COORDINATE\\_CHECK\\_METHOD option to the PRT model's Particle Release Package, accepting values 'EAGER' (default) or 'NONE'. 'NONE' disables release-time verification that release point coordinates and release point cell IDs match, which can significantly reduce runtime when releasing many particles."
+
+[[items]]
+section = "features"
+subsection = "model"
+description = "Add DEPENDENT\\_VARIABLE\\_SCALING option to scale the dependent variable and the right-hand side to avoid very large positive or negative values in the GWT and GWE models. Specified outer and inner DVCLOSE values in the model IMS package will be relative closure criteria. This option applies the same scaling approach used in the MT3DMS GCG package."
