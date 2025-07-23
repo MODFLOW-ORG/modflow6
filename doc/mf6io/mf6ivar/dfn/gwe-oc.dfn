@@ -191,7 +191,7 @@ description write format can be EXPONENTIAL, FIXED, GENERAL, or SCIENTIFIC.
 block period
 name iper
 type integer
-block_variable True
+block_variable true
 in_record true
 tagged false
 shape

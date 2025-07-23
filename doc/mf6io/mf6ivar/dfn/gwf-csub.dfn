@@ -752,7 +752,7 @@ description REPLACE boundname {'{#1}': 'CSUB'}
 block period
 name iper
 type integer
-block_variable True
+block_variable true
 in_record true
 tagged false
 shape

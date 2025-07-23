@@ -200,7 +200,7 @@ description is the name of the second model that is part of this exchange.
 block solutiongroup
 name group_num
 type integer
-block_variable True
+block_variable true
 in_record true
 tagged false
 shape

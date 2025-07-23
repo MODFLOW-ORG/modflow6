@@ -25,7 +25,7 @@ description integer value specifying the maximum number of horizontal flow barri
 block period
 name iper
 type integer
-block_variable True
+block_variable true
 in_record true
 tagged false
 shape

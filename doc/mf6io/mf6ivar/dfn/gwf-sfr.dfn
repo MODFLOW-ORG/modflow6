@@ -698,7 +698,7 @@ description real value that defines the initial stage for the reach. The program
 block period
 name iper
 type integer
-block_variable True
+block_variable true
 in_record true
 tagged false
 shape
