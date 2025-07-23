@@ -126,8 +126,10 @@ contains
                        found%print_input)
     call mem_set_value(this%iprflow, 'PRINT_FLOWS', input_mempath, &
                        found%print_flows)
-    call mem_set_value(this%ipakcb, 'SAVE_FLOWS', input_mempath, found%save_flows)
-   call mem_set_value(this%idv_scale, 'IDV_SCALE', input_mempath, found%idv_scale)
+    call mem_set_value(this%ipakcb, 'SAVE_FLOWS', input_mempath, &
+                       found%save_flows)
+    call mem_set_value(this%idv_scale, 'IDV_SCALE', input_mempath, &
+                       found%idv_scale)
     !
     ! -- create the list file
     call this%create_lstfile(lst_fname, filename, found%list, &
@@ -652,8 +654,8 @@ contains
       write (this%iout, '(2(3x,a,/),3x,a,/,9x,a,/)') &
         'X and RHS will be scaled to avoid very large positive or negative', &
         'dependent variable values in the model IMS package.', &
-      'NOTE: Specified outer and inner DVCLOSE values in the model IMS package', &
-        'will be relative closure criteria.'
+        'NOTE: Specified outer and inner DVCLOSE values in the model IMS &
+        &package', 'will be relative closure criteria.'
     end if
     !
     write (this%iout, '(1x,a)') 'END NAMEFILE OPTIONS:'

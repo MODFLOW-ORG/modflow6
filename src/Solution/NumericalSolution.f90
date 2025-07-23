@@ -991,8 +991,8 @@ contains
       write (iout, '(2(1x,a,/),1x,a,/,6x,a,/)') &
         'X and RHS will be scaled to avoid very large positive or negative', &
         'dependent variable values in the model IMS package.', &
-      'NOTE: Specified outer and inner DVCLOSE values in the model IMS package', &
-        'will be relative closure criteria.'
+        'NOTE: Specified outer and inner DVCLOSE values in the model IMS &
+        &package', 'will be relative closure criteria.'
     end if
     !
     !
