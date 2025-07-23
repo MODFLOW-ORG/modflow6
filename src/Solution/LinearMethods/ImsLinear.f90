@@ -352,7 +352,6 @@ CONTAINS
     CHARACTER(LEN=10) :: clin(0:2)
     CHARACTER(LEN=31) :: clintit(0:2)
     CHARACTER(LEN=20) :: cipc(0:4)
-    CHARACTER(LEN=20) :: cnorm(0:1)
     CHARACTER(LEN=20) :: cscale(0:2)
     CHARACTER(LEN=25) :: corder(0:2)
     CHARACTER(LEN=16), DIMENSION(0:4) :: ccnvgopt
@@ -372,8 +371,6 @@ CONTAINS
              &'MOD. INCOMPLETE LU  ', &
              &'INCOMPLETE LUT      ', &
              &'MOD. INCOMPLETE LUT '/
-    DATA cnorm/'FALSE               ', &
-               &'TRUE                '/
     DATA cscale/'NO SCALING          ', &
                &'SYMMETRIC SCALING   ', &
                &'L2 NORM SCALING     '/
