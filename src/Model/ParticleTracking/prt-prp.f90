@@ -208,6 +208,8 @@ contains
     ! local
     integer(I4B) :: nps
 
+    call this%BndType%allocate_arrays()
+
     ! Allocate particle store, starting with the number
     ! of release points (arrays resized if/when needed)
     call create_particle_store( &
@@ -295,7 +297,7 @@ contains
     integer(I4B) :: n
 
     call this%obs%obs_ar()
-    call this%BndType%allocate_arrays()
+    
     if (this%inamedbound /= 0) then
       do n = 1, this%nreleasepoints
         this%boundname(n) = this%rptname(n)
