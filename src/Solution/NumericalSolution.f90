@@ -1805,6 +1805,7 @@ contains
         !
         ! -- set convergence error, model number, user node number,
         !    and package name
+        write(*,*) 'Package convergence error: ', cmod
         outer_hncg = dpak
         ipos0 = index(cmod, '_')
         read (cmod(1:ipos0 - 1), *) m_idx
