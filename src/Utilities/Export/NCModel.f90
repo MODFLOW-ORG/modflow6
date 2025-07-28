@@ -15,7 +15,7 @@ module NCModelExportModule
   use SimModule, only: store_error, store_error_filename
   use InputLoadTypeModule, only: ModelDynamicPkgsType
   use ModflowInputModule, only: ModflowInputType
-  use BoundInputContextModule, only: ReadStateVarType, rsv_name
+  use LoadContextModule, only: ReadStateVarType, rsv_name
   use ListModule, only: ListType
 
   implicit none

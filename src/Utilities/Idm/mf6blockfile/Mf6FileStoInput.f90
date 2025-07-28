@@ -31,7 +31,6 @@ contains
 
   subroutine sto_init(this, mf6_input, component_name, component_input_name, &
                       input_name, iperblock, parser, iout)
-    use MemoryManagerExtModule, only: mem_set_value
     use BlockParserModule, only: BlockParserType
     use LoadMf6FileModule, only: LoadMf6FileType
     class(StoInputType), intent(inout) :: this

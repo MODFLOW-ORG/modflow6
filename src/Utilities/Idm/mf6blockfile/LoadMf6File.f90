@@ -28,7 +28,6 @@ module LoadMf6FileModule
                                     get_aggregate_definition_type
   use ModflowInputModule, only: ModflowInputType
   use MemoryManagerModule, only: mem_allocate, mem_setptr
-  use MemoryHelperModule, only: create_mem_path
   use StructArrayModule, only: StructArrayType
   use NCFileVarsModule, only: NCPackageVarsType
   use IdmLoggerModule, only: idm_log_var, idm_log_header, idm_log_close, &
@@ -538,10 +537,11 @@ contains
   !<
   subroutine parse_structarray_block(this, iblk)
     use StructArrayModule, only: StructArrayType, constructStructArray
-    use DynamicPackageParamsModule, only: DynamicPackageParamsType
+    use LoadContextModule, only: LoadContextType
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
-    type(DynamicPackageParamsType) :: block_params
+    type(LoadContextType) :: ctx
+    character(len=LINELENGTH), dimension(:), allocatable :: param_names
     type(InputParamDefinitionType), pointer :: idt !< input data type object describing this record
     type(InputParamDefinitionType), target :: blockvar_idt
     integer(I4B) :: blocknum
@@ -549,12 +549,13 @@ contains
     integer(I4B) :: nrows, nrowsread
     integer(I4B) :: ibinary, oc_inunit
     integer(I4B) :: icol, iparam
-    integer(I4B) :: ncol
+    integer(I4B) :: ncol, nparam
 
-    ! initialize package params object
-    call block_params%init(this%mf6_input, &
-                           this%mf6_input%block_dfns(iblk)%blockname, &
-                           this%readasarrays, this%iauxiliary, this%inamedbound)
+    ! initialize load context
+    call ctx%init(this%mf6_input, blockname= &
+                  this%mf6_input%block_dfns(iblk)%blockname)
+    ! set in scope params for load
+    call ctx%tags(param_names, nparam, this%filename)
     ! set input definition for this block
     idt => &
       get_aggregate_definition_type(this%mf6_input%aggregate_dfns, &
@@ -569,7 +570,7 @@ contains
     end if
 
     ! set ncol
-    ncol = block_params%nparam
+    ncol = nparam
     ! add col if block is reloadable
     if (blocknum > 0) ncol = ncol + 1
     ! use shape to set the max num of rows
@@ -607,10 +608,13 @@ contains
                                   this%mf6_input%component_type, &
                                   this%mf6_input%subcomponent_type, &
                                   this%mf6_input%block_dfns(iblk)%blockname, &
-                                  block_params%params(iparam), this%filename)
+                                  param_names(iparam), this%filename)
       ! allocate variable in memory manager
       call this%structarray%mem_create_vector(icol, idt)
     end do
+
+    ! finish context setup after allocating vectors
+    call ctx%allocate_arrays()
 
     ! read the block control record
     ibinary = read_control_record(this%parser, oc_inunit, this%iout)
@@ -627,7 +631,7 @@ contains
     end if
 
     ! clean up
-    call block_params%destroy()
+    call ctx%destroy()
   end subroutine parse_structarray_block
 
   !> @brief load type keyword

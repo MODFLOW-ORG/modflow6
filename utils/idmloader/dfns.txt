@@ -19,7 +19,9 @@ gwf-rcha.dfn
 gwf-riv.dfn
 gwf-sto.dfn
 gwf-wel.dfn
+gwf-welg.dfn
 gwt-nam.dfn
+gwt-adv.dfn
 gwt-dis.dfn
 gwt-disu.dfn
 gwt-disv.dfn
@@ -28,13 +30,16 @@ gwt-cnc.dfn
 gwt-ic.dfn
 gwt-ist.dfn
 gwt-mst.dfn
+gwt-ssm.dfn
 gwe-nam.dfn
+gwe-adv.dfn
 gwe-ic.dfn
 gwe-ctp.dfn
 gwe-cnd.dfn
 gwe-disv.dfn
 gwe-disu.dfn
 gwe-dis.dfn
+gwe-ssm.dfn
 swf-nam.dfn
 swf-disv1d.dfn
 swf-dis2d.dfn

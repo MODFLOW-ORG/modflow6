@@ -161,6 +161,7 @@
 		<File RelativePath="..\src\Idm\exg-gwtgwtidm.f90"/>
 		<File RelativePath="..\src\Idm\exg-olfgwfidm.f90"/>
 		<File RelativePath="..\src\Idm\exg-swfgwfidm.f90"/>
+		<File RelativePath="..\src\Idm\gwe-advidm.f90"/>
 		<File RelativePath="..\src\Idm\gwe-cndidm.f90"/>
 		<File RelativePath="..\src\Idm\gwe-ctpidm.f90"/>
 		<File RelativePath="..\src\Idm\gwe-disidm.f90"/>
@@ -168,6 +169,7 @@
 		<File RelativePath="..\src\Idm\gwe-disvidm.f90"/>
 		<File RelativePath="..\src\Idm\gwe-icidm.f90"/>
 		<File RelativePath="..\src\Idm\gwe-namidm.f90"/>
+		<File RelativePath="..\src\Idm\gwe-ssmidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-chdidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-csubidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-disidm.f90"/>
@@ -187,6 +189,8 @@
 		<File RelativePath="..\src\Idm\gwf-rividm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-stoidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-welidm.f90"/>
+		<File RelativePath="..\src\Idm\gwf-welgidm.f90"/>
+		<File RelativePath="..\src\Idm\gwt-advidm.f90"/>
 		<File RelativePath="..\src\Idm\gwt-cncidm.f90"/>
 		<File RelativePath="..\src\Idm\gwt-disidm.f90"/>
 		<File RelativePath="..\src\Idm\gwt-disuidm.f90"/>
@@ -196,6 +200,7 @@
 		<File RelativePath="..\src\Idm\gwt-istidm.f90"/>
 		<File RelativePath="..\src\Idm\gwt-mstidm.f90"/>
 		<File RelativePath="..\src\Idm\gwt-namidm.f90"/>
+		<File RelativePath="..\src\Idm\gwt-ssmidm.f90"/>
 		<File RelativePath="..\src\Idm\olf-cdbidm.f90"/>
 		<File RelativePath="..\src\Idm\olf-chdidm.f90"/>
 		<File RelativePath="..\src\Idm\olf-cxsidm.f90"/>
@@ -534,13 +539,12 @@
 		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\Mf6FileStoInput.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\StructArray.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\StructVector.f90"/></Filter>
-		<File RelativePath="..\src\Utilities\Idm\BoundInputContext.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\DefinitionSelect.f90"/>
-		<File RelativePath="..\src\Utilities\Idm\DynamicPackageParams.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\IdmLoad.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\IdmLogger.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\InputDefinition.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\InputLoadType.f90"/>
+		<File RelativePath="..\src\Utilities\Idm\LoadContext.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\ModelPackageInputs.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\ModflowInput.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\SourceCommon.f90"/>

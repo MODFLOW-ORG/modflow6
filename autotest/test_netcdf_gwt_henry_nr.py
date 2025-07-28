@@ -40,6 +40,7 @@ def build_models(idx, test, export):
     gwf = mc.gwf[0]
     gwf.get_package("GHB-1").export_array_netcdf = True
     gwf.get_package("DRN-1").export_array_netcdf = True
+    gwf.get_package("WEL-1").export_array_netcdf = True
 
     name = "gwf_" + cases[idx]
 
@@ -92,7 +93,7 @@ def check_output(idx, test, export):
         f.write(f"  BUY6  {name}.buy  buy\n")
         f.write(f"  DRN6  {name}.drng  drn-1\n")
         f.write(f"  GHB6  {name}.ghbg  ghb-1\n")
-        f.write(f"  WEL6  {name}.wel  wel-1\n")
+        f.write(f"  WEL6  {name}.welg  wel-1\n")
         f.write(f"  OC6  {name}.oc  oc\n")
         f.write("END packages\n")
 
@@ -139,6 +140,21 @@ def check_output(idx, test, export):
                 f.write("  cond NETCDF\n")
                 f.write("  concentration NETCDF\n")
                 f.write(f"END period {i + 1}\n\n")
+
+    with open(ws / f"{name}.welg", "w") as f:
+        f.write("BEGIN options\n")
+        f.write("  READARRAYGRID\n")
+        f.write("  auxiliary  CONCENTRATION\n")
+        f.write("  PRINT_INPUT\n")
+        f.write("  PRINT_FLOWS\n")
+        f.write("END options\n\n")
+        f.write("BEGIN dimensions\n")
+        f.write("  MAXBOUND  20\n")
+        f.write("END dimensions\n\n")
+        f.write("BEGIN period 1\n")
+        f.write("  q NETCDF\n")
+        f.write("  concentration NETCDF\n")
+        f.write("END period 1\n\n")
 
     success, buff = flopy.run_model(
         test.targets["mf6"],

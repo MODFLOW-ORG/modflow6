@@ -8,7 +8,7 @@ module FlowModelInterfaceModule
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
   use ListModule, only: ListType
-  use BudgetFileReaderModule, only: BudgetFileReaderType
+  use BudgetFileReaderModule, only: BudgetFileReaderType, BudgetFileHeaderType
   use HeadFileReaderModule, only: HeadFileReaderType
   use GridFileReaderModule, only: GridFileReaderType
   use PackageBudgetModule, only: PackageBudgetType
@@ -612,9 +612,9 @@ contains
     readnext = .true.
     if (kstp * kper > 1) then
       if (this%bfr%header%kstp == 1) then
-        if (this%bfr%headernext%kper == kper + 1) then
+        if (this%bfr%endoffile) then
           readnext = .false.
-        else if (this%bfr%endoffile) then
+        else if (this%bfr%headernext%kper == kper + 1) then
           readnext = .false.
         end if
       else if (this%bfr%endoffile) then
@@ -667,54 +667,57 @@ contains
         !
         ! -- parse based on the type of data, and compress all user node
         !    numbers into reduced node numbers
-        select case (trim(adjustl(this%bfr%budtxt)))
-        case ('FLOW-JA-FACE')
-          !
-          ! -- bfr%flowja contains only reduced connections so there is
-          !    a one-to-one match with this%gwfflowja
-          do ipos = 1, size(this%bfr%flowja)
-            this%gwfflowja(ipos) = this%bfr%flowja(ipos)
-          end do
-        case ('DATA-SPDIS')
-          do i = 1, this%bfr%nlist
-            nu = this%bfr%nodesrc(i)
-            nr = this%dis%get_nodenumber(nu, 0)
-            if (nr <= 0) cycle
-            this%gwfspdis(1, nr) = this%bfr%auxvar(1, i)
-            this%gwfspdis(2, nr) = this%bfr%auxvar(2, i)
-            this%gwfspdis(3, nr) = this%bfr%auxvar(3, i)
-          end do
-        case ('DATA-SAT')
-          do i = 1, this%bfr%nlist
-            nu = this%bfr%nodesrc(i)
-            nr = this%dis%get_nodenumber(nu, 0)
-            if (nr <= 0) cycle
-            this%gwfsat(nr) = this%bfr%auxvar(1, i)
-          end do
-        case ('STO-SS')
-          do nu = 1, this%dis%nodesuser
-            nr = this%dis%get_nodenumber(nu, 0)
-            if (nr <= 0) cycle
-            this%gwfstrgss(nr) = this%bfr%flow(nu)
-          end do
-        case ('STO-SY')
-          do nu = 1, this%dis%nodesuser
-            nr = this%dis%get_nodenumber(nu, 0)
-            if (nr <= 0) cycle
-            this%gwfstrgsy(nr) = this%bfr%flow(nu)
-          end do
-        case default
-          call this%gwfpackages(ip)%copy_values( &
-            this%bfr%nlist, &
-            this%bfr%nodesrc, &
-            this%bfr%flow, &
-            this%bfr%auxvar)
-          do i = 1, this%gwfpackages(ip)%nbound
-            nu = this%gwfpackages(ip)%nodelist(i)
-            nr = this%dis%get_nodenumber(nu, 0)
-            this%gwfpackages(ip)%nodelist(i) = nr
-          end do
-          ip = ip + 1
+        select type (h => this%bfr%header)
+        type is (BudgetFileHeaderType)
+          select case (trim(adjustl(h%budtxt)))
+          case ('FLOW-JA-FACE')
+            !
+            ! -- bfr%flowja contains only reduced connections so there is
+            !    a one-to-one match with this%gwfflowja
+            do ipos = 1, size(this%bfr%flowja)
+              this%gwfflowja(ipos) = this%bfr%flowja(ipos)
+            end do
+          case ('DATA-SPDIS')
+            do i = 1, h%nlist
+              nu = this%bfr%nodesrc(i)
+              nr = this%dis%get_nodenumber(nu, 0)
+              if (nr <= 0) cycle
+              this%gwfspdis(1, nr) = this%bfr%auxvar(1, i)
+              this%gwfspdis(2, nr) = this%bfr%auxvar(2, i)
+              this%gwfspdis(3, nr) = this%bfr%auxvar(3, i)
+            end do
+          case ('DATA-SAT')
+            do i = 1, h%nlist
+              nu = this%bfr%nodesrc(i)
+              nr = this%dis%get_nodenumber(nu, 0)
+              if (nr <= 0) cycle
+              this%gwfsat(nr) = this%bfr%auxvar(1, i)
+            end do
+          case ('STO-SS')
+            do nu = 1, this%dis%nodesuser
+              nr = this%dis%get_nodenumber(nu, 0)
+              if (nr <= 0) cycle
+              this%gwfstrgss(nr) = this%bfr%flow(nu)
+            end do
+          case ('STO-SY')
+            do nu = 1, this%dis%nodesuser
+              nr = this%dis%get_nodenumber(nu, 0)
+              if (nr <= 0) cycle
+              this%gwfstrgsy(nr) = this%bfr%flow(nu)
+            end do
+          case default
+            call this%gwfpackages(ip)%copy_values( &
+              h%nlist, &
+              this%bfr%nodesrc, &
+              this%bfr%flow, &
+              this%bfr%auxvar)
+            do i = 1, this%gwfpackages(ip)%nbound
+              nu = this%gwfpackages(ip)%nodelist(i)
+              nr = this%dis%get_nodenumber(nu, 0)
+              this%gwfpackages(ip)%nodelist(i) = nr
+            end do
+            ip = ip + 1
+          end select
         end select
       end do
     else
@@ -766,9 +769,9 @@ contains
     readnext = .true.
     if (kstp * kper > 1) then
       if (this%hfr%header%kstp == 1) then
-        if (this%hfr%headernext%kper == kper + 1) then
+        if (this%hfr%endoffile) then
           readnext = .false.
-        else if (this%hfr%endoffile) then
+        else if (this%hfr%headernext%kper == kper + 1) then
           readnext = .false.
         end if
       else if (this%hfr%endoffile) then

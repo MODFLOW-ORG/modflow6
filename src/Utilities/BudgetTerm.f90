@@ -363,7 +363,7 @@ contains
   !<
   subroutine fill_from_bfr(this, bfr, dis)
     ! -- modules
-    use BudgetFileReaderModule, only: BudgetFileReaderType
+    use BudgetFileReaderModule, only: BudgetFileReaderType, BudgetFileHeaderType
     ! -- dummy
     class(BudgetTermType) :: this
     type(BudgetFileReaderType) :: bfr
@@ -374,24 +374,27 @@ contains
     integer(I4B) :: n2
     real(DP) :: q
     !
-    this%flowtype = bfr%budtxt
-    this%text1id1 = bfr%srcmodelname
-    this%text2id1 = bfr%srcpackagename
-    this%text1id2 = bfr%dstmodelname
-    this%text2id2 = bfr%dstpackagename
-    this%naux = bfr%naux
-    !
-    if (.not. associated(this%auxtxt)) then
-      allocate (this%auxtxt(this%naux))
-    else
-      if (size(this%auxtxt) /= this%naux) then
-        deallocate (this%auxtxt)
+    select type (h => bfr%header)
+    type is (BudgetFileHeaderType)
+      this%flowtype = h%budtxt
+      this%text1id1 = h%srcmodelname
+      this%text2id1 = h%srcpackagename
+      this%text1id2 = h%dstmodelname
+      this%text2id2 = h%dstpackagename
+      this%naux = h%naux
+      !
+      if (.not. associated(this%auxtxt)) then
         allocate (this%auxtxt(this%naux))
+      else
+        if (size(this%auxtxt) /= this%naux) then
+          deallocate (this%auxtxt)
+          allocate (this%auxtxt(this%naux))
+        end if
       end if
-    end if
-    !
-    if (this%naux > 0) this%auxtxt(:) = bfr%auxtxt(:)
-    this%nlist = bfr%nlist
+      !
+      if (this%naux > 0) this%auxtxt(:) = h%auxtxt(:)
+      this%nlist = h%nlist
+    end select
     if (.not. associated(this%id1)) then
       this%maxlist = this%nlist
       allocate (this%id1(this%maxlist))

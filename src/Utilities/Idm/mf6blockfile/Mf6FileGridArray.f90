@@ -17,7 +17,7 @@ module GridArrayLoadModule
   use CharacterStringModule, only: CharacterStringType
   use BlockParserModule, only: BlockParserType
   use ModflowInputModule, only: ModflowInputType
-  use BoundInputContextModule, only: BoundInputContextType, ReadStateVarType
+  use LoadContextModule, only: LoadContextType, ReadStateVarType
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
 
   implicit none
@@ -28,7 +28,7 @@ module GridArrayLoadModule
   !<
   type, extends(AsciiDynamicPkgLoadBaseType) :: GridArrayLoadType
     type(ReadStateVarType), dimension(:), allocatable :: param_reads !< read states for current load
-    type(BoundInputContextType) :: bound_context
+    type(LoadContextType) :: ctx
     integer(I4B), dimension(:), pointer, contiguous :: nodeulist
   contains
     procedure :: ainit
@@ -80,12 +80,10 @@ contains
     end if
 
     ! initialize input context memory
-    call this%bound_context%create(mf6_input, &
-                                   readarraygrid=.true., &
-                                   readasarrays=.false.)
+    call this%ctx%init(mf6_input)
 
     ! allocate user nodelist
-    call mem_allocate(this%nodeulist, this%bound_context%maxbound, &
+    call mem_allocate(this%nodeulist, this%ctx%maxbound, &
                       'NODEULIST', mf6_input%mempath)
 
     ! allocate dfn params
@@ -135,7 +133,7 @@ contains
       call parser%GetStringCaps(param_tag)
 
       ! is param tag an auxvar?
-      iaux = ifind_charstr(this%bound_context%auxname_cst, param_tag)
+      iaux = ifind_charstr(this%ctx%auxname_cst, param_tag)
 
       ! any auvxar corresponds to the definition tag 'AUX'
       if (iaux > 0) param_tag = 'AUX'
@@ -174,7 +172,7 @@ contains
     class(GridArrayLoadType), intent(inout) :: this
     integer(I4B) :: n
 
-    this%bound_context%nbound = 0
+    this%ctx%nbound = 0
 
     do n = 1, this%nparam
       ! reset read state
@@ -189,9 +187,9 @@ contains
     integer(I4B) :: iparam
 
     ! set in scope param names
-    call this%bound_context%bound_params(this%param_names, this%nparam, &
-                                         this%input_name)
-    call this%bound_context%allocate_arrays()
+    call this%ctx%tags(this%param_names, this%nparam, this%input_name, &
+                       create=.true.)
+    call this%ctx%allocate_arrays()
 
     ! allocate and set param_reads pointer array
     allocate (this%param_reads(this%nparam))
@@ -199,7 +197,7 @@ contains
     ! store read state variable pointers
     do iparam = 1, this%nparam
       ! allocate and store name of read state variable
-      rs_varname = this%bound_context%rsv_alloc(this%param_names(iparam))
+      rs_varname = this%ctx%rsv_alloc(this%param_names(iparam))
       call mem_setptr(intvar, rs_varname, this%mf6_input%mempath)
       this%param_reads(iparam)%invar => intvar
       this%param_reads(iparam)%invar = 0
@@ -234,13 +232,13 @@ contains
     select case (idt%datatype)
     case ('DOUBLE1D')
       call mem_setptr(dbl1d, idt%mf6varname, mempath)
-      allocate (nodes(this%bound_context%nodes))
+      allocate (nodes(this%ctx%nodes))
       if (netcdf) then
-        call netcdf_read_array(nodes, this%bound_context%mshape, idt, &
+        call netcdf_read_array(nodes, this%ctx%mshape, idt, &
                                this%mf6_input, this%nc_vars, this%input_name, &
                                this%iout, kper)
       else if (layered) then
-        call get_layered_shape(this%bound_context%mshape, nlay, layer_shape)
+        call get_layered_shape(this%ctx%mshape, nlay, layer_shape)
         call read_dbl1d_layered(parser, nodes, idt%mf6varname, nlay, layer_shape)
       else
         call read_dbl1d(parser, nodes, idt%mf6varname)
@@ -248,11 +246,11 @@ contains
 
       call idm_log_var(nodes, idt%tagname, mempath, this%iout)
 
-      do n = 1, this%bound_context%nodes
+      do n = 1, this%ctx%nodes
         if (nodes(n) /= DNODATA) then
           nnode = nnode + 1
           dbl1d(nnode) = nodes(n)
-          if (this%bound_context%nbound == 0) then
+          if (this%ctx%nbound == 0) then
             this%nodeulist(nnode) = n
           else if (this%nodeulist(nnode) /= n) then
             write (errmsg, '(a,i0)') 'Grid input position mismatch param='// &
@@ -265,14 +263,14 @@ contains
       deallocate (nodes)
     case ('DOUBLE2D')
       call mem_setptr(dbl2d, idt%mf6varname, mempath)
-      allocate (nodes(this%bound_context%nodes))
+      allocate (nodes(this%ctx%nodes))
 
       if (netcdf) then
-        call netcdf_read_array(nodes, this%bound_context%mshape, idt, &
+        call netcdf_read_array(nodes, this%ctx%mshape, idt, &
                                this%mf6_input, this%nc_vars, this%input_name, &
                                this%iout, kper, iaux)
       else if (layered) then
-        call get_layered_shape(this%bound_context%mshape, nlay, layer_shape)
+        call get_layered_shape(this%ctx%mshape, nlay, layer_shape)
         call read_dbl1d_layered(parser, nodes, idt%mf6varname, nlay, layer_shape)
       else
         call read_dbl1d(parser, nodes, idt%mf6varname)
@@ -280,11 +278,11 @@ contains
 
       call idm_log_var(nodes, idt%tagname, mempath, this%iout)
 
-      do n = 1, this%bound_context%nodes
+      do n = 1, this%ctx%nodes
         if (nodes(n) /= DNODATA) then
           nnode = nnode + 1
           dbl2d(iaux, nnode) = nodes(n)
-          if (this%bound_context%nbound == 0) then
+          if (this%ctx%nbound == 0) then
             this%nodeulist(nnode) = n
           else if (this%nodeulist(nnode) /= n) then
             write (errmsg, '(a,i0)') 'Grid input position mismatch param='// &
@@ -303,7 +301,7 @@ contains
     end select
 
     ! set nbound
-    if (this%bound_context%nbound == 0) this%bound_context%nbound = nnode
+    if (this%ctx%nbound == 0) this%ctx%nbound = nnode
 
     ! if param is tracked set read state
     iparam = ifind(this%param_names, idt%tagname)

@@ -279,21 +279,42 @@ def get_model(ws, name, array_input=False):
             auxiliary=["CONCENTRATION", "DENSITY"],
         )
 
-    wellist1 = []
+    if array_input:
+        q = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+        welconc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+    else:
+        wellist1 = []
     qwell = 5.7024 * wellfact
     qwell = qwell / nlay
     for k in range(nlay):
-        wellist1.append([(k, 0, 0), qwell, 0.0])
-    wel1 = flopy.mf6.ModflowGwfwel(
-        gwf,
-        stress_period_data=wellist1,
-        print_input=True,
-        print_flows=True,
-        save_flows=False,
-        pname="WEL-1",
-        auxiliary="CONCENTRATION",
-        filename=f"{gwfname}.wel",
-    )
+        if array_input:
+            q[k, 0, 0] = qwell
+            welconc[k, 0, 0] = 0.0
+        else:
+            wellist1.append([(k, 0, 0), qwell, 0.0])
+    if array_input:
+        wel1 = flopy.mf6.ModflowGwfwelg(
+            gwf,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            pname="WEL-1",
+            auxiliary="CONCENTRATION",
+            filename=f"{gwfname}.welg",
+            q=q,
+            aux=[welconc],
+        )
+    else:
+        wel1 = flopy.mf6.ModflowGwfwel(
+            gwf,
+            stress_period_data=wellist1,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            pname="WEL-1",
+            auxiliary="CONCENTRATION",
+            filename=f"{gwfname}.wel",
+        )
 
     # output control
     oc = flopy.mf6.ModflowGwfoc(

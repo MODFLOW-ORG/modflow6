@@ -39,6 +39,7 @@ module ModflowInputModule
     character(len=LENCOMPONENTNAME) :: subcomponent_name
     character(len=LENMEMPATH) :: mempath
     character(len=LENMEMPATH) :: component_mempath
+    character(len=LENCOMPONENTNAME) :: load_scope
     type(InputBlockDefinitionType), dimension(:), pointer :: block_dfns
     type(InputParamDefinitionType), dimension(:), pointer :: aggregate_dfns
     type(InputParamDefinitionType), dimension(:), pointer :: param_dfns
@@ -49,13 +50,15 @@ contains
   !> @brief function to return ModflowInputType
   !<
   function getModflowInput(pkgtype, component_type, subcomponent_type, &
-                           component_name, subcomponent_name, filename) &
+                           component_name, subcomponent_name, &
+                           load_scope, filename) &
     result(mf6_input)
     character(len=*), intent(in) :: pkgtype !< package type to load, such as DIS6, DISV6, NPF6
     character(len=*), intent(in) :: component_type !< component type, such as GWF or GWT
     character(len=*), intent(in) :: subcomponent_type !< subcomponent type, such as DIS or NPF
     character(len=*), intent(in) :: component_name !< component name, such as MYGWFMODEL
     character(len=*), intent(in) :: subcomponent_name !< subcomponent name, such as MYWELLPACKAGE
+    character(len=*), intent(in) :: load_scope !< e.g. SIM, MODEL, EXCHANGE
     character(len=*), optional, intent(in) :: filename !< optional name of package input file
     type(ModflowInputType) :: mf6_input
     character(len=LENPACKAGETYPE) :: dfn_subcomponent_type
@@ -74,6 +77,7 @@ contains
     mf6_input%subcomponent_type = trim(dfn_subcomponent_type)
     mf6_input%component_name = trim(component_name)
     mf6_input%subcomponent_name = trim(subcomponent_name)
+    mf6_input%load_scope = trim(load_scope)
 
     ! set mempaths
     mf6_input%mempath = create_mem_path(component_name, subcomponent_name, &
@@ -99,7 +103,7 @@ contains
     character(len=LENPACKAGETYPE) :: sc_type
     sc_type = subcomponent_type
     select case (subcomponent_type)
-    case ('RCH', 'EVT', 'SCP', 'DRN', 'GHB')
+    case ('DRN', 'EVT', 'GHB', 'RCH', 'SCP', 'WEL')
       sc_type = read_as_arrays(filetype, filename, component_type, &
                                subcomponent_type)
     case default
