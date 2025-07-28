@@ -46,4 +46,4 @@ description = "With the PRT model's Particle Release Package's EXTEND\\_TRACKING
 [[items]]
 section = "fixes"
 subsection = "parallel"
-description = "Fixed a memory access exception that can occur when writing convergence information to a CSV file (through the CSV_OUTER_OUTPUT option in IMS) for a parallel solution."
+description = "Fixed a memory access exception that can occur when writing convergence information to a CSV file (through the CSV\\_OUTER\\_OUTPUT option in IMS) for a parallel solution."
