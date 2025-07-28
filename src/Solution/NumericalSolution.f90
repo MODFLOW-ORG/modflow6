@@ -1816,6 +1816,7 @@ contains
       ! -- write line to outer iteration csv file
       if (m_idx > 0) then
         mp => GetNumericalModelFromList(this%modellist, m_idx) ! TODO_MJR: right list?
+        write(*,*) 'Writing outer iteration csv file for model idx: ', m_idx, ' out of ', this%modellist%Count()
         model_id = mp%id
       else
         model_id = 0
