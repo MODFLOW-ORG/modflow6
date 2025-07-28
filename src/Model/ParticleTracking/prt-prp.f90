@@ -297,7 +297,7 @@ contains
     integer(I4B) :: n
 
     call this%obs%obs_ar()
-    
+
     if (this%inamedbound /= 0) then
       do n = 1, this%nreleasepoints
         this%boundname(n) = this%rptname(n)
