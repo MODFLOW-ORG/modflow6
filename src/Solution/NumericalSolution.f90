@@ -186,6 +186,7 @@ module NumericalSolutionModule
     procedure :: sln_backtracking_xupdate
     procedure :: get_backtracking_flag
     procedure :: apply_backtracking
+    procedure :: sln_get_idvscale
 
     ! private
     procedure, private :: sln_connect
@@ -980,19 +981,19 @@ contains
 
     !
     ! determine if the x and rhs should be scaled
-    do i = 1, this%modellist%Count()
-      mp => GetNumericalModelFromList(this%modellist, i)
-      if (mp%get_idv_scale() /= 0) then
-        this%idv_scale = 1
-      end if
-    end do
+    this%idv_scale = this%sln_get_idvscale()
 
-    if (this%idv_scale /= 0) then
+    if (this%idv_scale > 0) then
       write (iout, '(2(1x,a,/),1x,a,/,6x,a,/)') &
         'X and RHS will be scaled to avoid very large positive or negative', &
         'dependent variable values in the model IMS package.', &
         'NOTE: Specified outer and inner DVCLOSE values in the model IMS &
         &package', 'will be relative closure criteria.'
+    else if (this%idv_scale < 0) then
+      write (errmsg, '(2(a,1x))') &
+        'dependent_variable_scaling must be specified for all models in', &
+        'the solution and can only be used with GWT and GWE models. '
+      call store_error(errmsg)
     end if
     !
     !
@@ -2859,6 +2860,29 @@ contains
     end if
 
   end function get_backtracking_flag
+
+  !> @brief Check if dependent variable scalining should be applied for this solution,
+  !< returns 1: yes, 0: no, -1: error
+  function sln_get_idvscale(this) result(idv_scale)
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    integer(I4B) :: idv_scale !< backtracking flag (1) backtracking performed (0) backtracking not performed
+    ! local
+    class(NumericalModelType), pointer :: mp => null()
+    integer(I4B) :: i
+
+    idv_scale = 0
+    do i = 1, this%modellist%Count()
+      mp => GetNumericalModelFromList(this%modellist, i)
+      if (mp%get_idv_scale() /= 0) then
+        idv_scale = 1
+      else
+        if (idv_scale == 1) then
+          idv_scale = -1
+        end if
+      end if
+    end do
+
+  end function sln_get_idvscale
 
   !> @brief Update x with backtracking
   !<
