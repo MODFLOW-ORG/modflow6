@@ -37,9 +37,10 @@ module GwfExgMoverModule
 
 contains
 
-  subroutine exg_mvr_cr(exg_mvr, name_parent, inunit, iout, dis)
+  subroutine exg_mvr_cr(exg_mvr, name_parent, input_mempath, inunit, iout, dis)
     class(GwfExgMoverType), pointer :: exg_mvr
     character(len=*), intent(in) :: name_parent
+    character(len=*), intent(in) :: input_mempath
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
     class(DisBaseType), pointer :: dis
@@ -47,7 +48,7 @@ contains
     allocate (exg_mvr)
 
     ! Init through base
-    call exg_mvr%mvr_init(name_parent, inunit, iout, dis, 1)
+    call exg_mvr%mvr_init(name_parent, input_mempath, inunit, iout, dis, 1)
 
   end subroutine exg_mvr_cr
 

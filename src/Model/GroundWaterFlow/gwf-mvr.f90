@@ -107,12 +107,11 @@ module GwfMvrModule
                              LENBUDTXT, LENAUXNAME, LENPAKLOC, &
                              DZERO, DNODATA, MAXCHARLEN, TABCENTER, &
                              LINELENGTH
+  use SimModule, only: store_error, store_error_filename, count_errors
   use MvrModule, only: MvrType
   use BudgetModule, only: BudgetType, budget_cr
   use BudgetObjectModule, only: BudgetObjectType, budgetobject_cr
   use NumericalPackageModule, only: NumericalPackageType
-  use BlockParserModule, only: BlockParserType
-  use GwfMvrPeriodDataModule, only: GwfMvrPeriodDataType
   use PackageMoverModule, only: PackageMoverType, set_packagemover_pointer
   use BaseDisModule, only: DisBaseType
   use InputOutputModule, only: urword
@@ -138,7 +137,6 @@ module GwfMvrModule
     character(len=LENPACKAGENAME), &
       dimension(:), pointer, contiguous :: paknames => null() !< array of package names
     type(MvrType), dimension(:), pointer, contiguous :: mvr => null() !< array of movers
-    type(GwfMvrPeriodDataType), pointer :: gwfmvrperioddata => null() !< input data object
     type(BudgetType), pointer :: budget => null() !< mover budget object (used to write table)
     type(BudgetObjectType), pointer :: budobj => null() !< new budget container (used to write binary file)
     type(PackageMoverType), &
@@ -161,10 +159,11 @@ module GwfMvrModule
     procedure :: mvr_ot_printflow
     procedure :: mvr_ot_bdsummary
     procedure :: mvr_da
-    procedure :: read_options
+    procedure :: source_options
     procedure :: check_options
-    procedure :: read_dimensions
-    procedure :: read_packages
+    procedure :: log_options
+    procedure :: source_dimensions
+    procedure :: source_packages
     procedure :: check_packages
     procedure :: assign_packagemovers
     procedure :: initialize_movers
@@ -182,10 +181,12 @@ contains
 
   !> @brief Create a new mvr object
   !<
-  subroutine mvr_cr(mvrobj, name_parent, inunit, iout, dis, iexgmvr)
+  subroutine mvr_cr(mvrobj, name_parent, input_mempath, inunit, iout, dis, &
+                    iexgmvr)
     ! -- dummy
     type(GwfMvrType), pointer :: mvrobj
     character(len=*), intent(in) :: name_parent
+    character(len=*), intent(in) :: input_mempath
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
     class(DisBaseType), pointer, intent(in) :: dis
@@ -195,12 +196,14 @@ contains
     allocate (mvrobj)
     !
     ! -- Init
-    call mvrobj%mvr_init(name_parent, inunit, iout, dis, iexgmvr)
+    call mvrobj%mvr_init(name_parent, input_mempath, inunit, iout, dis, iexgmvr)
   end subroutine mvr_cr
 
-  subroutine mvr_init(this, name_parent, inunit, iout, dis, iexgmvr)
+  subroutine mvr_init(this, name_parent, input_mempath, inunit, iout, dis, &
+                      iexgmvr)
     class(GwfMvrType) :: this
     character(len=*), intent(in) :: name_parent
+    character(len=*), intent(in) :: input_mempath
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
     class(DisBaseType), pointer, intent(in) :: dis
@@ -208,7 +211,7 @@ contains
     !
     ! -- create name and memory paths. name_parent will either be model name or the
     !    exchange name.
-    call this%set_names(1, name_parent, 'MVR', 'MVR')
+    call this%set_names(1, name_parent, 'MVR', 'MVR', input_mempath)
     !
     ! -- Allocate scalars
     call this%allocate_scalars()
@@ -226,9 +229,6 @@ contains
     ! -- Create the budget object
     if (inunit > 0) then
       call budget_cr(this%budget, this%memoryPath)
-      !
-      ! -- Initialize block parser
-      call this%parser%Initialize(this%inunit, this%iout)
     end if
     !
     ! -- instantiate the budget object
@@ -242,22 +242,22 @@ contains
     class(GwfMvrType) :: this
     !
     ! -- Print a message identifying the water mover package.
-    write (this%iout, 1) this%inunit
+    write (this%iout, 1) this%input_mempath
 1   format(1x, /1x, 'MVR -- WATER MOVER PACKAGE, VERSION 8, 1/29/2016', &
-           ' INPUT READ FROM UNIT ', i0)
+           ' INPUT READ FROM MEMPATH: ', A)
     !
     ! -- Read and check options
-    call this%read_options()
+    call this%source_options()
     call this%check_options()
     !
     ! -- Read options
-    call this%read_dimensions()
+    call this%source_dimensions()
     !
     ! -- Allocate arrays
     call this%allocate_arrays()
     !
     ! -- Read and check package names
-    call this%read_packages()
+    call this%source_packages()
     call this%check_packages()
     !
     ! -- Define the budget object to be the size of package names
@@ -274,18 +274,23 @@ contains
   !<
   subroutine mvr_rp(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
-    use TdisModule, only: kper, nper
-    use SimModule, only: store_error, store_error_unit, count_errors
+    use TdisModule, only: kper
+    use MemoryManagerModule, only: mem_setptr
+    use MemoryManagerExtModule, only: mem_set_value
+    use CharacterStringModule, only: CharacterStringType
     use ArrayHandlersModule, only: ifind
     ! -- dummy
     class(GwfMvrType), intent(inout) :: this
     ! -- local
-    integer(I4B) :: i, ierr, nlist, ipos
-    integer(I4B) :: ii, jj
-    logical :: isfound
-    character(len=LINELENGTH) :: line, errmsg
-    character(len=LENMODELNAME) :: mname
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: mnames1, mnames2, pnames1, pnames2, mvrtypes
+    integer(I4B), dimension(:), pointer, contiguous :: id1, id2
+    real(DP), dimension(:), pointer, contiguous :: values
+    character(len=LINELENGTH) :: mname1, mname2, pname1, pname2, mvrtype
+    integer(I4B), pointer :: iper
+    integer(I4B) :: n, ii, jj, imvrtype, ipos
+    logical(LGP) :: found
+    character(len=LINELENGTH) :: errmsg
     ! -- formats
     character(len=*), parameter :: fmtblkerr = &
       &"('Error.  Looking for BEGIN PERIOD iper.  Found ', a, ' instead.')"
@@ -294,130 +299,123 @@ contains
     character(len=*), parameter :: fmtnbd = &
       "(1X,/1X,'THE NUMBER OF ACTIVE ',A,'S (',I6, &
        &') IS GREATER THAN MAXIMUM(',I6,')')"
-    !
-    ! -- Set ionper to the stress period number for which a new block of data
-    !    will be read.
-    if (this%inunit == 0) return
-    !
-    ! -- get stress period data
-    if (this%ionper < kper) then
-      !
-      ! -- get period block
-      call this%parser%GetBlock('PERIOD', isfound, ierr, &
-                                supportOpenClose=.true., &
-                                blockRequired=.false.)
-      if (isfound) then
-        !
-        ! -- read ionper and check for increasing period numbers
-        call this%read_check_ionper()
-      else
-        !
-        ! -- PERIOD block not found
-        if (ierr < 0) then
-          ! -- End of file found; data applies for remainder of simulation.
-          this%ionper = nper + 1
-        else
-          ! -- Found invalid block
-          call this%parser%GetCurrentLine(line)
-          write (errmsg, fmtblkerr) adjustl(trim(line))
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end if
-      end if
-    end if
-    !
-    ! -- read data if ionper == kper
-    if (this%ionper == kper) then
-      write (this%iout, '(/,2x,a,i0)') 'READING WATER MOVERS FOR PERIOD ', kper
-      nlist = -1
-      i = 1
-      this%reset_mapped_id = .true.
-      !
-      ! -- set mname to '' if this is an exchange mover, or to the model name
-      if (this%iexgmvr == 0) then
-        mname = this%name_model
-      else
-        mname = ''
-      end if
-      !
-      ! -- Assign a pointer to the package mover object.  The pointer assignment
-      !    will happen only the first time
-      call this%assign_packagemovers()
-      !
-      ! -- Call the period data input reader
-      call this%gwfmvrperioddata%read_from_parser(this%parser, nlist, mname)
-      !
-      ! -- Process the input data into the individual mover objects
-      call this%initialize_movers(nlist)
-      !
-      ! -- assign the pointers
-      do i = 1, nlist
-        call this%mvr(i)%prepare(this%parser%iuactive, &
-                                 this%pckMemPaths, &
-                                 this%pakmovers)
-        if (this%iprpak == 1) call this%mvr(i)%echo(this%iout)
-      end do
-      write (this%iout, '(/,1x,a,1x,i6,/)') 'END OF DATA FOR PERIOD', kper
-      !
-      ! -- Set the number of movers for this period to nlist
-      this%nmvr = nlist
-      write (this%iout, '(4x, i0, a, i0)') this%nmvr, &
-        ' MOVERS READ FOR PERIOD ', kper
-      !
-      ! -- Check to make sure all providers and receivers are properly stored
-      do i = 1, this%nmvr
-        ipos = ifind(this%pckMemPaths, this%mvr(i)%mem_path_src)
-        if (ipos < 1) then
-          write (errmsg, '(a,a,a)') 'Provider ', &
-            trim(this%mvr(i)%mem_path_src), ' not listed in packages block.'
-          call store_error(errmsg)
-        end if
-        ipos = ifind(this%pckMemPaths, this%mvr(i)%mem_path_tgt)
-        if (ipos < 1) then
-          write (errmsg, '(a,a,a)') 'Receiver ', &
-            trim(this%mvr(i)%mem_path_tgt), ' not listed in packages block.'
-          call store_error(errmsg)
-        end if
-      end do
-      if (count_errors() > 0) then
-        call this%parser%StoreErrorUnit()
-      end if
-      !
-      ! -- reset ientries
-      do i = 1, this%maxcomb
-        this%ientries(i) = 0
-      end do
-      !
-      ! --
-      do i = 1, this%nmvr
-        ii = ifind(this%pckMemPaths, this%mvr(i)%mem_path_src)
-        jj = ifind(this%pckMemPaths, this%mvr(i)%mem_path_tgt)
-        ipos = (ii - 1) * this%maxpackages + jj
-        this%ientries(ipos) = this%ientries(ipos) + 1
-      end do
-    else
+
+    ! -- Assign a pointer to the package mover object.  The pointer assignment
+    !    will happen only the first time
+    call this%assign_packagemovers()
+
+    call mem_setptr(iper, 'IPER', this%input_mempath)
+    if (iper /= kper) then
       write (this%iout, fmtlsp) 'MVR'
-      !
+      return
     end if
+
+    ! force mapped id reset
+    this%reset_mapped_id = .true.
+
+    ! reset and update nmvr
+    this%nmvr = 0
+    call mem_set_value(this%nmvr, 'NBOUND', this%input_mempath, &
+                       found)
+
+    ! set ponters to input context
+    if (this%imodelnames /= 0) then
+      call mem_setptr(mnames1, 'MNAME1', this%input_mempath)
+      call mem_setptr(mnames2, 'MNAME2', this%input_mempath)
+    end if
+    call mem_setptr(pnames1, 'PNAME1', this%input_mempath)
+    call mem_setptr(pnames2, 'PNAME2', this%input_mempath)
+    call mem_setptr(id1, 'ID1', this%input_mempath)
+    call mem_setptr(id2, 'ID2', this%input_mempath)
+    call mem_setptr(mvrtypes, 'MVRTYPE', this%input_mempath)
+    call mem_setptr(values, 'VALUE', this%input_mempath)
+
+    write (this%iout, '(/,1x,a,i0)') 'READING WATER MOVERS FOR PERIOD ', kper
+    !
+    ! process input
+    do n = 1, this%nmvr
+      if (this%imodelnames /= 0) then
+        mname1 = mnames1(n)
+        mname2 = mnames2(n)
+      else
+        mname1 = this%name_model
+        mname2 = this%name_model
+      end if
+      pname1 = pnames1(n)
+      pname2 = pnames2(n)
+      mvrtype = mvrtypes(n)
+
+      select case (mvrtype)
+      case ('FACTOR')
+        imvrtype = 1
+      case ('EXCESS')
+        imvrtype = 2
+      case ('THRESHOLD')
+        imvrtype = 3
+      case ('UPTO')
+        imvrtype = 4
+      case default
+        imvrtype = 0
+      end select
+
+      call this%mvr(n)%set_values(mname1, pname1, id1(n), &
+                                  mname2, pname2, id2(n), &
+                                  imvrtype, values(n))
+    end do
+
+    ! Process the input data into the individual mover objects
+    call this%initialize_movers(this%nmvr)
+
+    ! assign the pointers
+    do n = 1, this%nmvr
+      call this%mvr(n)%prepare(this%pckMemPaths, &
+                               this%pakmovers, &
+                               this%input_fname)
+      if (this%iprpak == 1) call this%mvr(n)%echo(this%iout)
+    end do
+
+    ! Check to make sure all providers and receivers are properly stored
+    do n = 1, this%nmvr
+      ipos = ifind(this%pckMemPaths, this%mvr(n)%mem_path_src)
+      if (ipos < 1) then
+        write (errmsg, '(a,a,a)') 'Provider ', &
+          trim(this%mvr(n)%mem_path_src), ' not listed in packages block.'
+        call store_error(errmsg)
+      end if
+      ipos = ifind(this%pckMemPaths, this%mvr(n)%mem_path_tgt)
+      if (ipos < 1) then
+        write (errmsg, '(a,a,a)') 'Receiver ', &
+          trim(this%mvr(n)%mem_path_tgt), ' not listed in packages block.'
+        call store_error(errmsg)
+      end if
+    end do
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+
+    ! reset ientries
+    do n = 1, this%maxcomb
+      this%ientries(n) = 0
+    end do
+
+    ! set ientries
+    do n = 1, this%nmvr
+      ii = ifind(this%pckMemPaths, this%mvr(n)%mem_path_src)
+      jj = ifind(this%pckMemPaths, this%mvr(n)%mem_path_tgt)
+      ipos = (ii - 1) * this%maxpackages + jj
+      this%ientries(ipos) = this%ientries(ipos) + 1
+      write (this%iout, '(3x,a,i0)') 'IENTRY ipos=', ipos
+    end do
+
+    write (this%iout, '(1x,a,1x,i6)') 'END OF INPUT FOR PERIOD', kper
+    write (this%iout, '(1x, i0, a, i0,/)') this%nmvr, &
+      ' MOVERS READ FOR PERIOD ', kper
   end subroutine mvr_rp
 
   subroutine initialize_movers(this, nr_active_movers)
     class(GwfMvrType) :: this
     integer(I4B) :: nr_active_movers
     ! local
-    integer(I4B) :: i
-
-    do i = 1, nr_active_movers
-      call this%mvr(i)%set_values(this%gwfmvrperioddata%mname1(i), &
-                                  this%gwfmvrperioddata%pname1(i), &
-                                  this%gwfmvrperioddata%id1(i), &
-                                  this%gwfmvrperioddata%mname2(i), &
-                                  this%gwfmvrperioddata%pname2(i), &
-                                  this%gwfmvrperioddata%id2(i), &
-                                  this%gwfmvrperioddata%imvrtype(i), &
-                                  this%gwfmvrperioddata%value(i))
-    end do
-
   end subroutine initialize_movers
 
   subroutine mvr_ad(this)
@@ -644,11 +642,6 @@ contains
       deallocate (this%paknames)
       deallocate (this%pakmovers)
       !
-      ! -- allocate the perioddata object
-      call this%gwfmvrperioddata%destroy()
-      deallocate (this%gwfmvrperioddata)
-      nullify (this%gwfmvrperioddata)
-      !
       ! -- budget object
       call this%budget%budget_da()
       deallocate (this%budget)
@@ -681,101 +674,108 @@ contains
     call this%NumericalPackageType%da()
   end subroutine mvr_da
 
-  !> @brief Read options specified in the input options block
-  !<
-  subroutine read_options(this)
+  subroutine source_options(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH, DZERO, DONE
     use OpenSpecModule, only: access, form
-    use SimModule, only: store_error, store_error_unit
-    use InputOutputModule, only: urword, assign_iounit, openfile
+    use InputOutputModule, only: assign_iounit, openfile
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwfMvrInputModule, only: GwfMvrParamFoundType
     ! -- dummy
     class(GwfMvrType) :: this
     ! -- local
-    character(len=LINELENGTH) :: errmsg
-    character(len=MAXCHARLEN) :: fname, keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
+    type(GwfMvrParamFoundType) :: found
+    character(len=LINELENGTH) :: budgetfile, budgetcsvfile
+
+    !
+    ! -- source package input
+    call mem_set_value(this%iprpak, 'PRINT_INPUT', this%input_mempath, &
+                       found%print_input)
+    call mem_set_value(this%iprflow, 'PRINT_FLOWS', this%input_mempath, &
+                       found%print_flows)
+    call mem_set_value(this%imodelnames, 'MODELNAMES', this%input_mempath, &
+                       found%modelnames)
+    call mem_set_value(budgetfile, 'BUDGETFILE', this%input_mempath, &
+                       found%budgetfile)
+    call mem_set_value(budgetcsvfile, 'BUDGETCSVFILE', this%input_mempath, &
+                       found%budgetcsvfile)
+
+    ! modelnames is validated in check_options()
+
+    ! fileout options
+    if (found%budgetfile) then
+      if (.not. this%suppress_fileout) then
+        call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
+        call openfile(this%ibudgetout, this%iout, budgetfile, 'DATA(BINARY)', &
+                      form, access, 'REPLACE')
+      end if
+    end if
+    if (found%budgetcsvfile) then
+      if (.not. this%suppress_fileout) then
+        call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
+        call openfile(this%ibudcsv, this%iout, budgetcsvfile, 'CSV', &
+                      filstat_opt='REPLACE')
+      end if
+    end if
+
+    call this%log_options(found, budgetfile, budgetcsvfile)
+  end subroutine source_options
+
+  !> @brief Log MVR options
+  !<
+  subroutine log_options(this, found, budgetfile, budgetcsvfile)
+    ! -- modules
+    use GwfMvrInputModule, only: GwfMvrParamFoundType
+    ! -- dummy
+    class(GwfMvrType) :: this
+    ! -- local
+    type(GwfMvrParamFoundType), intent(in) :: found
+    character(len=*), intent(in) :: budgetfile
+    character(len=*), intent(in) :: budgetcsvfile
     ! -- formats
     character(len=*), parameter :: fmtmvrbin = &
       "(4x, 'MVR ', 1x, a, 1x, ' WILL BE SAVED TO FILE: ', a, /4x, 'OPENED ON &
       &UNIT: ', I0)"
-    !
-    ! -- get options block
-    call this%parser%GetBlock('OPTIONS', isfound, ierr, &
-                              supportOpenClose=.true., blockRequired=.false.)
-    !
-    ! -- parse options block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING MVR OPTIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('BUDGET')
-          if (this%suppress_fileout) cycle
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
-            call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
-                          form, access, 'REPLACE')
-            write (this%iout, fmtmvrbin) 'BUDGET', trim(adjustl(fname)), &
-              this%ibudgetout
-          else
-            call store_error('OPTIONAL BUDGET KEYWORD MUST &
-                             &BE FOLLOWED BY FILEOUT')
-          end if
-        case ('BUDGETCSV')
-          if (this%suppress_fileout) cycle
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
-            call openfile(this%ibudcsv, this%iout, fname, 'CSV', &
-                          filstat_opt='REPLACE')
-            write (this%iout, fmtmvrbin) 'BUDGET CSV', trim(adjustl(fname)), &
-              this%ibudcsv
-          else
-            call store_error('OPTIONAL BUDGETCSV KEYWORD MUST BE FOLLOWED BY &
-              &FILEOUT')
-          end if
-        case ('PRINT_INPUT')
-          this%iprpak = 1
-          write (this%iout, '(4x,a)') 'WATER MOVER INPUT '// &
-            'WILL BE PRINTED TO LIST FILE.'
-        case ('PRINT_FLOWS')
-          this%iprflow = 1
-          write (this%iout, '(4x,a)') 'LISTS OF WATER MOVER FLOWS '// &
-            'WILL BE PRINTED TO LIST FILE.'
-        case ('MODELNAMES')
-          this%imodelnames = 1
-          write (this%iout, '(4x,a)') 'ALL PACKAGE NAMES ARE PRECEDED '// &
-            'BY THE NAME OF THE MODEL CONTAINING THE PACKAGE.'
-          if (this%iexgmvr == 0) then
-            write (errmsg, '(a,a)') &
-              'MODELNAMES cannot be specified unless the '// &
-              'mover package is for an exchange.'
-            call store_error(errmsg)
-            call this%parser%StoreErrorUnit()
-          end if
-        case default
-          write (errmsg, '(a,a)') 'Unknown MVR option: ', trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END OF MVR OPTIONS'
+
+    write (this%iout, '(1x,a)') 'PROCESSING MVR OPTIONS'
+
+    if (found%budgetfile) then
+      if (.not. this%suppress_fileout) then
+        write (this%iout, fmtmvrbin) 'BUDGET', trim(adjustl(budgetfile)), &
+          this%ibudgetout
+      end if
     end if
-  end subroutine read_options
+
+    if (found%budgetcsvfile) then
+      if (.not. this%suppress_fileout) then
+        write (this%iout, fmtmvrbin) 'BUDGET CSV', trim(adjustl(budgetcsvfile)), &
+          this%ibudcsv
+      end if
+    end if
+
+    if (found%print_input) then
+      write (this%iout, '(4x,a)') 'WATER MOVER INPUT '// &
+        'WILL BE PRINTED TO LIST FILE.'
+    end if
+
+    if (found%print_flows) then
+      write (this%iout, '(4x,a)') 'LISTS OF WATER MOVER FLOWS '// &
+        'WILL BE PRINTED TO LIST FILE.'
+    end if
+
+    if (found%modelnames) then
+      if (this%iexgmvr /= 0) then
+        write (this%iout, '(4x,a)') 'ALL PACKAGE NAMES ARE PRECEDED '// &
+          'BY THE NAME OF THE MODEL CONTAINING THE PACKAGE.'
+      end if
+    end if
+
+    write (this%iout, '(1x,a)') 'END OF MVR OPTIONS'
+  end subroutine log_options
 
   !> @brief Check MODELNAMES option set correctly
   !<
   subroutine check_options(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
-    use SimModule, only: store_error, store_error_unit
     ! -- dummy
     class(GwfMvrType) :: this
     ! -- local
@@ -787,7 +787,7 @@ contains
         'MODELNAMES cannot be specified unless the '// &
         'mover package is for an exchange.'
       call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- Check if exchange mover but model names not specified
@@ -796,56 +796,45 @@ contains
         'MODELNAMES option must be specified because '// &
         'mover package is for an exchange.'
       call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
   end subroutine check_options
 
-  !> @brief Read the dimensions for this package
-  !<
-  subroutine read_dimensions(this)
+  subroutine source_dimensions(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
-    use SimModule, only: store_error, count_errors, store_error_unit
+    use SimVariablesModule, only: errmsg
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwfMvrInputModule, only: GwfMvrParamFoundType
     ! -- dummy
-    class(GwfMvrType), intent(inout) :: this
+    class(GwfMvrType) :: this
     ! -- local
-    character(len=LINELENGTH) :: errmsg, keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
-    integer(I4B) :: i
-    integer(I4B) :: j
-    !
-    ! -- get dimensions block
-    call this%parser%GetBlock('DIMENSIONS', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse dimensions block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'PROCESSING MVR DIMENSIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('MAXMVR')
-          this%maxmvr = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i0)') 'MAXMVR = ', this%maxmvr
-        case ('MAXPACKAGES')
-          this%maxpackages = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i0)') 'MAXPACKAGES = ', this%maxpackages
-        case default
-          write (errmsg, '(a,a)') &
-            'Unknown MVR dimension: ', trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END OF MVR DIMENSIONS'
-    else
-      call store_error('Required DIMENSIONS block not found.')
-      call this%parser%StoreErrorUnit()
+    type(GwfMvrParamFoundType) :: found
+    integer(I4B) :: i, j
+
+    call mem_set_value(this%maxmvr, 'MAXBOUND', this%input_mempath, &
+                       found%maxbound)
+    call mem_set_value(this%maxpackages, 'NPACKAGES', this%input_mempath, &
+                       found%npackages)
+
+    write (this%iout, '(/1x,a)') 'PROCESSING MVR DIMENSIONS'
+    write (this%iout, '(4x,a,i0)') 'MAXMVR = ', this%maxmvr
+    write (this%iout, '(4x,a,i0)') 'MAXPACKAGES = ', this%maxpackages
+    write (this%iout, '(1x,a)') 'END OF MVR DIMENSIONS'
+
+    ! -- verify dimensions were set
+    if (this%maxmvr < 0) then
+      write (errmsg, '(a)') &
+        'MAXMVR was not specified or was specified incorrectly.'
+      call store_error(errmsg)
+      call store_error_filename(this%input_fname)
     end if
-    !
+    if (this%maxpackages < 0) then
+      write (errmsg, '(a)') &
+        'MAXPACKAGES was not specified or was specified incorrectly.'
+      call store_error(errmsg)
+      call store_error_filename(this%input_fname)
+    end if
+
     ! -- calculate maximum number of combinations
     this%maxcomb = 0
     do i = 1, this%maxpackages
@@ -853,90 +842,58 @@ contains
         this%maxcomb = this%maxcomb + 1
       end do
     end do
-    !
-    ! -- verify dimensions were set
-    if (this%maxmvr < 0) then
-      write (errmsg, '(a)') &
-        'MAXMVR was not specified or was specified incorrectly.'
-      call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
-    end if
-    if (this%maxpackages < 0) then
-      write (errmsg, '(a)') &
-        'MAXPACKAGES was not specified or was specified incorrectly.'
-      call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
-    end if
-  end subroutine read_dimensions
+  end subroutine source_dimensions
 
-  !> @brief Read the packages that will be managed by this mover
-  !<
-  subroutine read_packages(this)
+  subroutine source_packages(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
     use MemoryHelperModule, only: create_mem_path
-    use SimModule, only: store_error, count_errors, store_error_unit
+    use MemoryManagerModule, only: mem_setptr
+    use CharacterStringModule, only: CharacterStringType
     ! -- dummy
     class(GwfMvrType), intent(inout) :: this
-    ! -- local
-    character(len=LINELENGTH) :: errmsg, word, word1, word2
-    integer(I4B) :: lloc, ierr
-    integer(I4B) :: npak
-    logical :: isfound, endOfBlock
-    !
-    ! -- get packages block
-    call this%parser%GetBlock('PACKAGES', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse packages block
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'PROCESSING MVR PACKAGES'
-      npak = 0
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(word1)
-        lloc = 1
-        npak = npak + 1
-        if (npak > this%maxpackages) then
-          call store_error('ERROR.  MAXPACKAGES NOT SET LARGE ENOUGH.')
-          call this%parser%StoreErrorUnit()
-        end if
-        if (this%iexgmvr == 0) then
-          this%pckMemPaths(npak) = create_mem_path(this%name_model, word1)
-          word = word1
-        else
-          call this%parser%GetStringCaps(word2)
-          this%pckMemPaths(npak) = create_mem_path(word1, word2)
-          word = word2
-        end if
-        this%paknames(npak) = trim(word)
-        write (this%iout, '(3x,a,a)') 'INCLUDING PACKAGE: ', &
-          trim(this%pckMemPaths(npak))
-      end do
-      write (this%iout, '(1x,a)') 'END OF MVR PACKAGES'
-    else
-      call store_error('ERROR.  REQUIRED PACKAGES BLOCK NOT FOUND.')
-      call this%parser%StoreErrorUnit()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: mnames, pnames
+    character(len=LINELENGTH) :: mname, pname, errmsg
+    integer(I4B) :: n
+
+    ! -- set input context pointers
+    if (this%imodelnames /= 0) then
+      call mem_setptr(mnames, 'MNAME', this%input_mempath)
     end if
-    !
-    ! -- Check to make sure npak = this%maxpackages
-    if (npak /= this%maxpackages) then
-      write (errmsg, '(a, i0, a, i0, a)') &
-        'ERROR.  NUMBER OF PACKAGES (', npak, ') DOES NOT EQUAL '// &
-        'MAXPACKAGES (', this%maxpackages, ').'
-      call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
+    call mem_setptr(pnames, 'PNAME', this%input_mempath)
+
+    if (size(pnames) /= this%maxpackages) then
+      write (errmsg, '(a,i0,a)') 'ERROR: PACKAGES block number of rows (', &
+        size(pnames), ') is not equivalent to dimension MAXPACKAGES.'
+      call store_error_filename(this%input_fname)
     end if
-  end subroutine read_packages
+
+    write (this%iout, '(/1x,a)') 'PROCESSING MVR PACKAGES'
+
+    do n = 1, size(pnames)
+      if (this%imodelnames /= 0) mname = mnames(n)
+      pname = pnames(n)
+
+      if (this%imodelnames /= 0) then
+        this%pckMemPaths(n) = create_mem_path(mname, pname)
+      else
+        this%pckMemPaths(n) = create_mem_path(this%name_model, pname)
+      end if
+
+      this%paknames(n) = trim(pname)
+
+      write (this%iout, '(3x,a,a)') 'INCLUDING PACKAGE: ', &
+        trim(this%pckMemPaths(n))
+    end do
+
+    write (this%iout, '(1x,a)') 'END OF MVR PACKAGES'
+  end subroutine source_packages
 
   !> @brief Check to make sure packages have mover activated
   !<
   subroutine check_packages(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
     use MemoryManagerModule, only: mem_setptr
-    use SimModule, only: store_error, count_errors, store_error_unit
     ! -- dummy
     class(GwfMvrType), intent(inout) :: this
     ! -- local
@@ -959,7 +916,7 @@ contains
     !
     ! -- Terminate if errors detected.
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
   end subroutine check_packages
 
@@ -1015,9 +972,6 @@ contains
     this%nmvr = 0
     this%iexgmvr = 0
     this%imodelnames = 0
-    !
-    ! -- allocate the period data input object
-    allocate (this%gwfmvrperioddata)
   end subroutine allocate_scalars
 
   !> @brief Allocate package arrays
@@ -1042,10 +996,6 @@ contains
     do i = 1, this%maxpackages
       call nulllify_packagemover_pointer(this%pakmovers(i))
     end do
-    !
-    ! -- allocate the perioddata object
-    call this%gwfmvrperioddata%construct(this%maxmvr, this%memoryPath)
-    !
     !
     ! -- allocate the object and assign values to object variables
     call mem_allocate(this%ientries, this%maxcomb, 'IENTRIES', this%memoryPath)

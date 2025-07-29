@@ -168,6 +168,7 @@
 		<File RelativePath="..\src\Idm\gwe-disuidm.f90"/>
 		<File RelativePath="..\src\Idm\gwe-disvidm.f90"/>
 		<File RelativePath="..\src\Idm\gwe-icidm.f90"/>
+		<File RelativePath="..\src\Idm\gwe-mveidm.f90"/>
 		<File RelativePath="..\src\Idm\gwe-namidm.f90"/>
 		<File RelativePath="..\src\Idm\gwe-ssmidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-buyidm.f90"/>
@@ -183,6 +184,7 @@
 		<File RelativePath="..\src\Idm\gwf-ghbgidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-ghbidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-icidm.f90"/>
+		<File RelativePath="..\src\Idm\gwf-mvridm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-namidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-npfidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-rchaidm.f90"/>
@@ -201,6 +203,7 @@
 		<File RelativePath="..\src\Idm\gwt-icidm.f90"/>
 		<File RelativePath="..\src\Idm\gwt-istidm.f90"/>
 		<File RelativePath="..\src\Idm\gwt-mstidm.f90"/>
+		<File RelativePath="..\src\Idm\gwt-mvtidm.f90"/>
 		<File RelativePath="..\src\Idm\gwt-namidm.f90"/>
 		<File RelativePath="..\src\Idm\gwt-ssmidm.f90"/>
 		<File RelativePath="..\src\Idm\olf-cdbidm.f90"/>
@@ -330,7 +333,6 @@
 		<File RelativePath="..\src\Model\ModelUtilities\GweInputData.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\GwfBuyInputData.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\GwfConductanceUtils.f90"/>
-		<File RelativePath="..\src\Model\ModelUtilities\GwfMvrPeriodData.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\GwfNpfOptions.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\GwfSfrCommon.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\GwfStorageUtils.f90"/>

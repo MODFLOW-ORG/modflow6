@@ -46,7 +46,7 @@ module ExgGwtgwtInputModule
   character(len=16), parameter :: &
     exg_gwtgwt_subpackages(*) = &
     [ &
-    '                ' &
+    'GWT-MVT         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

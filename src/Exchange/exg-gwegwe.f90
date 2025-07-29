@@ -736,8 +736,7 @@ contains
     ! -- enforce 0 or 1 MVR6_FILENAME entries in option block
     if (filein_fname(mvt_fname, 'MVE6_FILENAME', this%input_mempath, &
                      this%filename)) then
-      this%inmvt = getunit()
-      call openfile(this%inmvt, iout, mvt_fname, 'MVT')
+      this%inmvt = 1
       write (iout, '(4x,a)') 'WATER MOVER ENERGY TRANSPORT &
         &INFORMATION WILL BE READ FROM ', trim(mvt_fname)
     end if
@@ -759,19 +758,26 @@ contains
   !<
   subroutine read_mvt(this, iout)
     ! -- modules
+    use SimVariablesModule, only: idm_context
+    use ConstantsModule, only: LENMEMPATH, LENMODELNAME, LENPACKAGENAME
+    use MemoryHelperModule, only: create_mem_path, split_mem_path
     use TspMvtModule, only: mvt_cr
     ! -- dummy
     class(GweExchangeType) :: this !<  GwtExchangeType
     integer(I4B), intent(in) :: iout
+    character(len=LENMODELNAME) :: mname
+    character(len=LENPACKAGENAME) :: pname
+    character(len=LENMEMPATH) :: mvemempath
     !
     ! -- Create and initialize the mover object  Here, fmi is set to the one
     !    for gwtmodel1 so that a call to save flows has an associated dis
     !    object.
-    call mvt_cr(this%mvt, this%name, this%inmvt, iout, this%gwemodel1%fmi, &
-                this%gwemodel1%eqnsclfac, this%gwemodel1%depvartype, &
-                gwfmodelname1=this%gwfmodelname1, &
-                gwfmodelname2=this%gwfmodelname2, &
-                fmi2=this%gwemodel2%fmi)
+    call split_mem_path(this%input_mempath, mname, pname)
+    mvemempath = create_mem_path(mname, 'MVE', idm_context)
+    call mvt_cr(this%mvt, this%name, mvemempath, this%inmvt, iout, &
+                this%gwemodel1%fmi, this%gwemodel1%eqnsclfac, &
+                this%gwemodel1%depvartype, gwfmodelname1=this%gwfmodelname1, &
+                gwfmodelname2=this%gwfmodelname2, fmi2=this%gwemodel2%fmi)
   end subroutine read_mvt
 
   !> @ brief Allocate scalars

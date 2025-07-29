@@ -1440,6 +1440,7 @@ contains
     character(len=LENMEMPATH) :: mempathbuy = ''
     character(len=LENMEMPATH) :: mempathcsub = ''
     character(len=LENMEMPATH) :: mempathic = ''
+    character(len=LENMEMPATH) :: mempathmvr = ''
     character(len=LENMEMPATH) :: mempathnpf = ''
     character(len=LENMEMPATH) :: mempathsto = ''
     character(len=LENMEMPATH) :: mempathvsc = ''
@@ -1495,7 +1496,8 @@ contains
         this%inic = 1
         mempathic = mempath
       case ('MVR6')
-        this%inmvr = inunit
+        this%inmvr = 1
+        mempathmvr = mempath
       case ('OC6')
         this%inoc = inunit
       case ('OBS6')
@@ -1521,7 +1523,7 @@ contains
     call csub_cr(this%csub, this%name, mempathcsub, this%insto, &
                  this%sto%packName, this%incsub, this%iout)
     call ic_cr(this%ic, this%name, mempathic, this%inic, this%iout, this%dis)
-    call mvr_cr(this%mvr, this%name, this%inmvr, this%iout, this%dis)
+    call mvr_cr(this%mvr, this%name, mempathmvr, this%inmvr, this%iout, this%dis)
     call oc_cr(this%oc, this%name, this%inoc, this%iout)
     call gwf_obs_cr(this%obs, this%inobs)
     !

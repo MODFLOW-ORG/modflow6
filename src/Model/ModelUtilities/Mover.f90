@@ -32,7 +32,7 @@ module MvrModule
     integer(I4B), pointer :: iRchNrSrc => null() !< provider reach number
     integer(I4B) :: iRchNrSrcMapped !< mapped provider reach number (currently for lake outlet)
     integer(I4B), pointer :: iRchNrTgt => null() !< receiver reach number
-    integer(I4B), pointer :: imvrtype => null() !< mover type (1, 2, 3, 4) corresponds to mvrtypes
+    integer(I4B) :: imvrtype !< mover type (1, 2, 3, 4) corresponds to mvrtypes
     real(DP), pointer :: value => null() !< factor or rate depending on mvrtype
     logical(LGP) :: is_provider_active = .true.
     logical(LGP) :: is_receiver_active = .true.
@@ -70,14 +70,14 @@ contains
     character(len=*), intent(in) :: mname2
     character(len=*), intent(in) :: pname2
     integer(I4B), intent(in), target :: id2
-    integer(I4B), intent(in), target :: imvrtype
+    integer(I4B), intent(in) :: imvrtype
     real(DP), intent(in), target :: value
 
     this%mem_path_src = create_mem_path(mname1, pname1)
     this%iRchNrSrc => id1
     this%mem_path_tgt = create_mem_path(mname2, pname2)
     this%iRchNrTgt => id2
-    this%imvrtype => imvrtype
+    this%imvrtype = imvrtype
     this%value => value
 
     ! to be set later
@@ -91,15 +91,16 @@ contains
   !! packages. They are composed of model names and package names. The mover
   !! entries must be in pckMemPaths, or this routine will terminate with an error.
   !<
-  subroutine prepare(this, inunit, pckMemPaths, pakmovers)
+  subroutine prepare(this, pckMemPaths, pakmovers, input_fname)
     ! -- modules
-    use SimModule, only: store_error, store_error_unit, count_errors
+    use SimModule, only: store_error, store_error_filename, count_errors
     ! -- dummy
     class(MvrType) :: this !< MvrType object
-    integer(I4B), intent(in) :: inunit !< input file unit number
     character(len=LENMEMPATH), &
       dimension(:), pointer, contiguous :: pckMemPaths !< array of strings
     type(PackageMoverType), dimension(:), pointer, contiguous :: pakmovers !< Array of package mover objects
+    character(len=*), intent(in) :: input_fname
+
     ! -- local
     real(DP), dimension(:), pointer, contiguous :: temp_ptr => null()
     logical :: found
@@ -111,7 +112,7 @@ contains
         this%iRchNrSrc == this%iRchNrTgt) then
       call store_error('Provider and receiver are the same: '// &
                        trim(this%mem_path_src)//' : '//trim(this%mem_path_tgt))
-      call store_error_unit(inunit)
+      call store_error_filename(input_fname)
     end if
     !
     ! -- Check to make sure pname1 and pname2 are both listed in pckMemPaths
@@ -143,7 +144,7 @@ contains
       call store_error('Add "MOVER" keyword to package options block.')
     end if
     if (count_errors() > 0) then
-      call store_error_unit(inunit)
+      call store_error_filename(input_fname)
     end if
 
     if (this%is_provider_active) then
@@ -155,7 +156,7 @@ contains
         write (errmsg, '(a,i0,a,i0)') 'Provider ID = ', this%iRchNrSrc, &
           '; Package size = ', size(temp_ptr)
         call store_error(trim(errmsg))
-        call store_error_unit(inunit)
+        call store_error_filename(input_fname)
       end if
       this%qtomvr_ptr => temp_ptr(this%iRchNrSrc)
       !
@@ -177,7 +178,7 @@ contains
         write (errmsg, '(a,i0,a,i0)') 'Receiver ID = ', this%iRchNrTgt, &
           '; package size = ', size(temp_ptr)
         call store_error(trim(errmsg))
-        call store_error_unit(inunit)
+        call store_error_filename(input_fname)
       end if
       this%qfrommvr_ptr => temp_ptr(this%iRchNrTgt)
     end if

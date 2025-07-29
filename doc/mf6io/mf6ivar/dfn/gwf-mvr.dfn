@@ -33,6 +33,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal budgetfr
 longname
 description
 
@@ -77,6 +78,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal budgetcsvfr
 longname
 description
 
@@ -110,6 +112,7 @@ name maxmvr
 type integer
 reader urword
 optional false
+mf6internal maxbound
 longname maximum number of movers
 description integer value specifying the maximum number of water mover entries that will specified for any stress period.
 
@@ -118,6 +121,7 @@ name maxpackages
 type integer
 reader urword
 optional false
+mf6internal npackages
 longname number of packages to be used with the mover
 description integer value specifying the number of unique packages that are included in this water mover input file.
 

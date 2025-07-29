@@ -13,6 +13,7 @@ module IdmGweDfnSelectorModule
   use GweDisvInputModule
   use GweDisuInputModule
   use GweDisInputModule
+  use GweMveInputModule
   use GweSsmInputModule
 
   implicit none
@@ -65,6 +66,8 @@ contains
       call set_param_pointer(input_definition, gwe_disu_param_definitions)
     case ('DIS')
       call set_param_pointer(input_definition, gwe_dis_param_definitions)
+    case ('MVE')
+      call set_param_pointer(input_definition, gwe_mve_param_definitions)
     case ('SSM')
       call set_param_pointer(input_definition, gwe_ssm_param_definitions)
     case default
@@ -93,6 +96,8 @@ contains
       call set_param_pointer(input_definition, gwe_disu_aggregate_definitions)
     case ('DIS')
       call set_param_pointer(input_definition, gwe_dis_aggregate_definitions)
+    case ('MVE')
+      call set_param_pointer(input_definition, gwe_mve_aggregate_definitions)
     case ('SSM')
       call set_param_pointer(input_definition, gwe_ssm_aggregate_definitions)
     case default
@@ -121,6 +126,8 @@ contains
       call set_block_pointer(input_definition, gwe_disu_block_definitions)
     case ('DIS')
       call set_block_pointer(input_definition, gwe_dis_block_definitions)
+    case ('MVE')
+      call set_block_pointer(input_definition, gwe_mve_block_definitions)
     case ('SSM')
       call set_block_pointer(input_definition, gwe_ssm_block_definitions)
     case default
@@ -148,6 +155,8 @@ contains
       multi_package = gwe_disu_multi_package
     case ('DIS')
       multi_package = gwe_dis_multi_package
+    case ('MVE')
+      multi_package = gwe_mve_multi_package
     case ('SSM')
       multi_package = gwe_ssm_multi_package
     case default
@@ -178,6 +187,8 @@ contains
       call set_subpkg_pointer(subpackages, gwe_disu_subpackages)
     case ('DIS')
       call set_subpkg_pointer(subpackages, gwe_dis_subpackages)
+    case ('MVE')
+      call set_subpkg_pointer(subpackages, gwe_mve_subpackages)
     case ('SSM')
       call set_subpkg_pointer(subpackages, gwe_ssm_subpackages)
     case default
@@ -205,6 +216,8 @@ contains
     case ('DISU')
       integrated = .true.
     case ('DIS')
+      integrated = .true.
+    case ('MVE')
       integrated = .true.
     case ('SSM')
       integrated = .true.

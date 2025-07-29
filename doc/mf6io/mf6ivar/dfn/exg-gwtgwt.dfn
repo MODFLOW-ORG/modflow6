@@ -1,5 +1,6 @@
 # --------------------- exg gwtgwt options ---------------------
 # flopy multi-package
+# mf6 subpackage gwt-mvt
 
 block options
 name gwfmodelname1

@@ -46,7 +46,7 @@ module ExgGwegweInputModule
   character(len=16), parameter :: &
     exg_gwegwe_subpackages(*) = &
     [ &
-    '                ' &
+    'GWE-MVE         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

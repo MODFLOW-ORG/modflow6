@@ -38,6 +38,7 @@ module LoadContextModule
     enumerator :: MODEL = 3 !< model context type
     enumerator :: MODELPKG = 4 !< model package context type
     enumerator :: EXCHANGE = 5 !< exchange context type
+    enumerator :: EXGPKG = 6 !< exchange package context type
   end enum
 
   !> @brief Pointer type for read state variable
@@ -124,6 +125,8 @@ contains
       end if
     case ('MODEL')
       this%ctxtype = MODELPKG
+    case ('EXCHANGE')
+      this%ctxtype = EXGPKG
     case default
     end select
 
@@ -187,11 +190,17 @@ contains
   !> @brief allocate scalars
   !<
   subroutine allocate_scalars(this)
+    use ConstantsModule, only: LENMEMPATH
+    use SimVariablesModule, only: idm_context
     use MemoryManagerModule, only: mem_setptr
+    use MemoryHelperModule, only: create_mem_path
     class(LoadContextType) :: this
+    integer(I4B), pointer :: intptr
+    character(len=LENMEMPATH) :: mempath
 
     if (this%ctxtype == EXCHANGE .or. &
-        this%ctxtype == MODELPKG) then
+        this%ctxtype == MODELPKG .or. &
+        this%ctxtype == EXGPKG) then
 
       call setptr(this%nbound, 'NBOUND', this%mf6_input%mempath)
       call setval(this%naux, 'NAUX', this%mf6_input%mempath)
@@ -203,6 +212,12 @@ contains
 
       ! reset nbound
       this%nbound = 0
+    end if
+
+    if (this%ctxtype == EXCHANGE) then
+      mempath = create_mem_path(this%mf6_input%component_name, &
+                                context=idm_context)
+      call setptr(intptr, 'DISENUM', mempath)
     end if
 
     if (this%ctxtype == MODELPKG .and. &
@@ -546,7 +561,8 @@ contains
     class(LoadContextType) :: this
 
     if (this%ctxtype == EXCHANGE .or. &
-        this%ctxtype == MODELPKG) then
+        this%ctxtype == MODELPKG .or. &
+        this%ctxtype == EXGPKG) then
       ! deallocate local
       deallocate (this%naux)
       deallocate (this%ncpl)

@@ -1299,8 +1299,7 @@ contains
     ! -- enforce 0 or 1 MVR6_FILENAME entries in option block
     if (filein_fname(mvr_fname, 'MVR6_FILENAME', this%input_mempath, &
                      this%filename)) then
-      this%inmvr = getunit()
-      call openfile(this%inmvr, iout, mvr_fname, 'MVR')
+      this%inmvr = 1
       write (iout, '(4x,a)') &
         'WATER MOVER INFORMATION WILL BE READ FROM ', trim(mvr_fname)
     end if
@@ -1384,11 +1383,17 @@ contains
   subroutine read_mvr(this, iout)
     ! -- modules
     use GwfExgMoverModule, only: exg_mvr_cr
+    use SimVariablesModule, only: idm_context
+    use ConstantsModule, only: LENMEMPATH, LENMODELNAME, LENPACKAGENAME
+    use MemoryHelperModule, only: create_mem_path, split_mem_path
     ! -- dummy
     class(GwfExchangeType) :: this !<  GwfExchangeType
     integer(I4B), intent(in) :: iout
     class(DisBaseType), pointer :: dis
     ! -- local
+    character(len=LENMODELNAME) :: mname
+    character(len=LENPACKAGENAME) :: pname
+    character(len=LENMEMPATH) :: mvrmempath
     !
     ! -- Create and initialize the mover object  Here, dis is set to the one
     !    for gwfmodel1 so that a call to save flows has an associated dis
@@ -1402,7 +1407,9 @@ contains
     else if (this%v_model2%is_local) then
       dis => this%gwfmodel2%dis
     end if
-    call exg_mvr_cr(this%mvr, this%name, this%inmvr, iout, dis)
+    call split_mem_path(this%input_mempath, mname, pname)
+    mvrmempath = create_mem_path(mname, 'MVR', idm_context)
+    call exg_mvr_cr(this%mvr, this%name, mvrmempath, this%inmvr, iout, dis)
     this%mvr%model1 => this%v_model1
     this%mvr%model2 => this%v_model2
     this%mvr%suppress_fileout = this%is_datacopy

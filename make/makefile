@@ -167,6 +167,7 @@ $(OBJDIR)/olf-chdidm.o \
 $(OBJDIR)/olf-cdbidm.o \
 $(OBJDIR)/gwt-ssmidm.o \
 $(OBJDIR)/gwt-namidm.o \
+$(OBJDIR)/gwt-mvtidm.o \
 $(OBJDIR)/gwt-mstidm.o \
 $(OBJDIR)/gwt-istidm.o \
 $(OBJDIR)/gwt-icidm.o \
@@ -185,6 +186,7 @@ $(OBJDIR)/gwf-rchidm.o \
 $(OBJDIR)/gwf-rchaidm.o \
 $(OBJDIR)/gwf-npfidm.o \
 $(OBJDIR)/gwf-namidm.o \
+$(OBJDIR)/gwf-mvridm.o \
 $(OBJDIR)/gwf-icidm.o \
 $(OBJDIR)/gwf-ghbidm.o \
 $(OBJDIR)/gwf-ghbgidm.o \
@@ -200,6 +202,7 @@ $(OBJDIR)/gwf-chdidm.o \
 $(OBJDIR)/gwf-buyidm.o \
 $(OBJDIR)/gwe-ssmidm.o \
 $(OBJDIR)/gwe-namidm.o \
+$(OBJDIR)/gwe-mveidm.o \
 $(OBJDIR)/gwe-icidm.o \
 $(OBJDIR)/gwe-disvidm.o \
 $(OBJDIR)/gwe-disuidm.o \
@@ -390,7 +393,6 @@ $(OBJDIR)/GwtDspOptions.o \
 $(OBJDIR)/gwf-tvs.o \
 $(OBJDIR)/GwfStorageUtils.o \
 $(OBJDIR)/Mover.o \
-$(OBJDIR)/GwfMvrPeriodData.o \
 $(OBJDIR)/ImsLinearMisc.o \
 $(OBJDIR)/gwf-npf.o \
 $(OBJDIR)/GwfBuyInputData.o \

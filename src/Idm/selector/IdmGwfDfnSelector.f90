@@ -19,6 +19,7 @@ module IdmGwfDfnSelectorModule
   use GwfGhbInputModule
   use GwfGhbgInputModule
   use GwfIcInputModule
+  use GwfMvrInputModule
   use GwfNpfInputModule
   use GwfRchInputModule
   use GwfRchaInputModule
@@ -90,6 +91,8 @@ contains
       call set_param_pointer(input_definition, gwf_ghbg_param_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwf_ic_param_definitions)
+    case ('MVR')
+      call set_param_pointer(input_definition, gwf_mvr_param_definitions)
     case ('NPF')
       call set_param_pointer(input_definition, gwf_npf_param_definitions)
     case ('RCH')
@@ -144,6 +147,8 @@ contains
       call set_param_pointer(input_definition, gwf_ghbg_aggregate_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwf_ic_aggregate_definitions)
+    case ('MVR')
+      call set_param_pointer(input_definition, gwf_mvr_aggregate_definitions)
     case ('NPF')
       call set_param_pointer(input_definition, gwf_npf_aggregate_definitions)
     case ('RCH')
@@ -198,6 +203,8 @@ contains
       call set_block_pointer(input_definition, gwf_ghbg_block_definitions)
     case ('IC')
       call set_block_pointer(input_definition, gwf_ic_block_definitions)
+    case ('MVR')
+      call set_block_pointer(input_definition, gwf_mvr_block_definitions)
     case ('NPF')
       call set_block_pointer(input_definition, gwf_npf_block_definitions)
     case ('RCH')
@@ -251,6 +258,8 @@ contains
       multi_package = gwf_ghbg_multi_package
     case ('IC')
       multi_package = gwf_ic_multi_package
+    case ('MVR')
+      multi_package = gwf_mvr_multi_package
     case ('NPF')
       multi_package = gwf_npf_multi_package
     case ('RCH')
@@ -307,6 +316,8 @@ contains
       call set_subpkg_pointer(subpackages, gwf_ghbg_subpackages)
     case ('IC')
       call set_subpkg_pointer(subpackages, gwf_ic_subpackages)
+    case ('MVR')
+      call set_subpkg_pointer(subpackages, gwf_mvr_subpackages)
     case ('NPF')
       call set_subpkg_pointer(subpackages, gwf_npf_subpackages)
     case ('RCH')
@@ -360,6 +371,8 @@ contains
     case ('GHBG')
       integrated = .true.
     case ('IC')
+      integrated = .true.
+    case ('MVR')
       integrated = .true.
     case ('NPF')
       integrated = .true.

@@ -33,6 +33,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal budgetfr
 longname
 description
 
@@ -77,6 +78,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal budgetcsvfr
 longname
 description
 

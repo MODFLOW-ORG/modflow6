@@ -15,6 +15,7 @@ module IdmGwtDfnSelectorModule
   use GwtIcInputModule
   use GwtIstInputModule
   use GwtMstInputModule
+  use GwtMvtInputModule
   use GwtSsmInputModule
 
   implicit none
@@ -71,6 +72,8 @@ contains
       call set_param_pointer(input_definition, gwt_ist_param_definitions)
     case ('MST')
       call set_param_pointer(input_definition, gwt_mst_param_definitions)
+    case ('MVT')
+      call set_param_pointer(input_definition, gwt_mvt_param_definitions)
     case ('SSM')
       call set_param_pointer(input_definition, gwt_ssm_param_definitions)
     case default
@@ -103,6 +106,8 @@ contains
       call set_param_pointer(input_definition, gwt_ist_aggregate_definitions)
     case ('MST')
       call set_param_pointer(input_definition, gwt_mst_aggregate_definitions)
+    case ('MVT')
+      call set_param_pointer(input_definition, gwt_mvt_aggregate_definitions)
     case ('SSM')
       call set_param_pointer(input_definition, gwt_ssm_aggregate_definitions)
     case default
@@ -135,6 +140,8 @@ contains
       call set_block_pointer(input_definition, gwt_ist_block_definitions)
     case ('MST')
       call set_block_pointer(input_definition, gwt_mst_block_definitions)
+    case ('MVT')
+      call set_block_pointer(input_definition, gwt_mvt_block_definitions)
     case ('SSM')
       call set_block_pointer(input_definition, gwt_ssm_block_definitions)
     case default
@@ -166,6 +173,8 @@ contains
       multi_package = gwt_ist_multi_package
     case ('MST')
       multi_package = gwt_mst_multi_package
+    case ('MVT')
+      multi_package = gwt_mvt_multi_package
     case ('SSM')
       multi_package = gwt_ssm_multi_package
     case default
@@ -200,6 +209,8 @@ contains
       call set_subpkg_pointer(subpackages, gwt_ist_subpackages)
     case ('MST')
       call set_subpkg_pointer(subpackages, gwt_mst_subpackages)
+    case ('MVT')
+      call set_subpkg_pointer(subpackages, gwt_mvt_subpackages)
     case ('SSM')
       call set_subpkg_pointer(subpackages, gwt_ssm_subpackages)
     case default
@@ -231,6 +242,8 @@ contains
     case ('IST')
       integrated = .true.
     case ('MST')
+      integrated = .true.
+    case ('MVT')
       integrated = .true.
     case ('SSM')
       integrated = .true.

@@ -107,29 +107,42 @@ contains
   !> @brief load an integrated model package from supported source
   !<
   recursive subroutine input_load(component_type, subcomponent_type, modelname, &
-                                  pkgname, pkgtype, filename, modelfname, &
-                                  nc_vars, iout)
+                                  pkgname, pkgtype, filename, compfname, &
+                                  parent_scope, nc_vars, iout)
     use ModelPackageInputsModule, only: ModelPackageInputsType
     use NCFileVarsModule, only: NCFileVarsType
     use SourceLoadModule, only: create_input_loader
     character(len=*), intent(in) :: component_type
     character(len=*), intent(in) :: subcomponent_type
+    character(len=*), intent(in) :: modelname
     character(len=*), intent(in) :: pkgname
     character(len=*), intent(in) :: pkgtype
     character(len=*), intent(in) :: filename
-    character(len=*), intent(in) :: modelname
-    character(len=*), intent(in) :: modelfname
+    character(len=*), intent(in) :: compfname
+    character(len=*), intent(in) :: parent_scope
     type(NCFileVarsType), pointer, intent(in) :: nc_vars
     integer(I4B), intent(in) :: iout
     class(StaticPkgLoadBaseType), pointer :: static_loader
     class(DynamicPkgLoadBaseType), pointer :: dynamic_loader
     class(ModelDynamicPkgsType), pointer :: dynamic_model
-    integer(I4B) :: n
+    character(len=LINELENGTH) :: nc_fname
+    integer(I4B) :: n, ncid
 
     ! create model package loader
-    static_loader => &
-      create_input_loader(component_type, subcomponent_type, modelname, pkgname, &
-                          pkgtype, 'MODEL', filename, modelfname, nc_vars)
+    if (associated(nc_vars)) then
+      nc_fname = nc_vars%nc_fname
+      ncid = nc_vars%ncid
+      static_loader => &
+        create_input_loader(component_type, subcomponent_type, modelname, &
+                            pkgname, pkgtype, parent_scope, filename, compfname, &
+                            nc_vars)
+    else
+      nc_fname = ''
+      ncid = 0
+      static_loader => &
+        create_input_loader(component_type, subcomponent_type, modelname, &
+                            pkgname, pkgtype, parent_scope, filename, compfname)
+    end if
 
     ! load static input and set dynamic loader
     dynamic_loader => static_loader%load(iout)
@@ -137,8 +150,7 @@ contains
     ! set pointer to model dynamic packages list
     dynamic_model => &
       dynamic_models(static_loader%mf6_input%component_type, modelname, &
-                     static_loader%component_input_name, nc_vars%nc_fname, &
-                     nc_vars%ncid, iout)
+                     static_loader%component_input_name, nc_fname, ncid, iout)
 
     if (associated(dynamic_loader)) then
       ! add dynamic pkg loader to list
@@ -157,7 +169,7 @@ contains
                       static_loader%subpkg_list%subcomponent_types(n), &
                       static_loader%subpkg_list%pkgtypes(n), &
                       static_loader%subpkg_list%filenames(n), &
-                      modelfname, nc_vars, iout)
+                      filename, parent_scope, nc_vars, iout)
     end do
 
     ! cleanup
@@ -195,7 +207,7 @@ contains
                           model_pkg_inputs%pkglist(itype)%pkgnames(ipkg), &
                           model_pkg_inputs%pkglist(itype)%pkgtype, &
                           model_pkg_inputs%pkglist(itype)%filenames(ipkg), &
-                          model_pkg_inputs%modelfname, nc_vars, iout)
+                          model_pkg_inputs%modelfname, 'MODEL', nc_vars, iout)
         else
           ! open input file for package parser
           model_pkg_inputs%pkglist(itype)%inunits(ipkg) = &
@@ -291,6 +303,7 @@ contains
     use SourceCommonModule, only: idm_subcomponent_type, ifind_charstr, &
                                   inlen_check
     use SourceLoadModule, only: create_input_loader, remote_model_ndim
+    use NCFileVarsModule, only: NCFileVarsType
     integer(I4B), intent(in) :: iout
     type(DistributedSimType), pointer :: ds
     integer(I4B), dimension(:), pointer :: model_loadmask
@@ -310,6 +323,7 @@ contains
       pointer :: mfnames !< model file names
     type(CharacterStringType), dimension(:), contiguous, &
       pointer :: mnames !< model names
+    type(NCFileVarsType), pointer :: nc_vars
     character(len=LENMEMPATH) :: input_mempath, mempath
     integer(I4B), pointer :: exgid, ncelldim
     character(len=LINELENGTH) :: exgtype, efname, mfname
@@ -317,7 +331,7 @@ contains
     character(len=LENCOMPONENTNAME) :: sc_type, sc_name, mtype
     class(StaticPkgLoadBaseType), pointer :: static_loader
     class(DynamicPkgLoadBaseType), pointer :: dynamic_loader
-    integer(I4B) :: n, m1_idx, m2_idx, irem, isize
+    integer(I4B) :: n, m, m1_idx, m2_idx, irem, isize
 
     ! get model mask
     ds => get_dsim()
@@ -398,7 +412,7 @@ contains
         write (sc_name, '(a,i0)') trim(sc_type)//'_', n
 
         ! create and set exchange mempath
-        mempath = create_mem_path('EXG', sc_name, idm_context)
+        mempath = create_mem_path(sc_name, 'EXG', idm_context)
         emempaths(n) = mempath
 
         ! allocate and set exgid
@@ -406,10 +420,25 @@ contains
         exgid = n
 
         ! create exchange loader
-        static_loader => create_input_loader('EXG', sc_type, 'EXG', sc_name, &
+        static_loader => create_input_loader('EXG', sc_type, sc_name, 'EXG', &
                                              exgtype, 'SIM', efname, simfile)
         ! load static input
         dynamic_loader => static_loader%load(iout)
+
+        ! create subpackage list
+        call static_loader%create_subpkg_list()
+
+        ! load idm integrated subpackages
+        nullify (nc_vars)
+        do m = 1, static_loader%subpkg_list%pnum
+          call input_load(static_loader%subpkg_list%component_types(m), &
+                          static_loader%subpkg_list%subcomponent_types(m), &
+                          static_loader%mf6_input%component_name, &
+                          static_loader%subpkg_list%subcomponent_types(m), &
+                          static_loader%subpkg_list%pkgtypes(m), &
+                          static_loader%subpkg_list%filenames(m), &
+                          efname, 'EXCHANGE', nc_vars, iout)
+        end do
 
         if (associated(dynamic_loader)) then
           errmsg = 'IDM unimplemented. Dynamic Exchanges not supported.'
@@ -505,7 +534,9 @@ contains
     integer(I4B) :: n
     do n = 1, model_inputs%Count()
       model_dynamic_input => GetDynamicModelFromList(model_inputs, n)
-      call nc_close(model_dynamic_input%ncid, model_dynamic_input%nc_fname)
+      if (model_dynamic_input%ncid > 0) then
+        call nc_close(model_dynamic_input%ncid, model_dynamic_input%nc_fname)
+      end if
       call model_dynamic_input%destroy()
       deallocate (model_dynamic_input)
       nullify (model_dynamic_input)
