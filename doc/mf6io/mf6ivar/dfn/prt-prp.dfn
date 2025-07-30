@@ -271,6 +271,16 @@ optional true
 longname release time frequency
 description real number indicating the time frequency at which to release particles. This option can be used to schedule releases at a regular interval for the duration of the simulation, starting at the simulation start time. The release schedule is the union of this option, the RELEASETIMES block, and PERIOD block RELEASESETTING selections. If none of these are provided, a single release time is configured at the beginning of the first time step of the simulation's first stress period.
 
+block options
+name coordinate_check_method
+type string
+valid none eager
+reader urword
+optional true
+longname coordinate checking method
+description approach for verifying that release point coordinates are in the cell with the specified ID. By default, release point coordinates are checked at release time.
+default eager
+
 # --------------------- prt prp dimensions ---------------------
 
 block dimensions

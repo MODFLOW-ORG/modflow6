@@ -59,6 +59,7 @@ module PrtPrpModule
     integer(I4B), pointer :: iextend => null() !< extend tracking beyond simulation's end
     integer(I4B), pointer :: ifrctrn => null() !< force ternary solution for quad grids
     integer(I4B), pointer :: iexmeth => null() !< method for iterative solution of particle exit location and time in generalized Pollock's method
+    integer(I4B), pointer :: ichkmeth => null() !< method for checking particle release coordinates are in the specified cells, 0 = none, 1 = eager
     real(DP), pointer :: extol => null() !< tolerance for iterative solution of particle exit location and time in generalized Pollock's method
     real(DP), pointer :: rttol => null() !< tolerance for coincident particle release times
     real(DP), pointer :: rtfreq => null() !< frequency for regularly spaced release times
@@ -170,6 +171,7 @@ contains
     call mem_deallocate(this%irlstls)
     call mem_deallocate(this%ifrctrn)
     call mem_deallocate(this%iexmeth)
+    call mem_deallocate(this%ichkmeth)
     call mem_deallocate(this%extol)
     call mem_deallocate(this%rttol)
     call mem_deallocate(this%rtfreq)
@@ -260,6 +262,7 @@ contains
     call mem_allocate(this%irlstls, 'IRLSTLS', this%memoryPath)
     call mem_allocate(this%ifrctrn, 'IFRCTRN', this%memoryPath)
     call mem_allocate(this%iexmeth, 'IEXMETH', this%memoryPath)
+    call mem_allocate(this%ichkmeth, 'ICHKMETH', this%memoryPath)
     call mem_allocate(this%extol, 'EXTOL', this%memoryPath)
     call mem_allocate(this%rttol, 'RTTOL', this%memoryPath)
     call mem_allocate(this%rtfreq, 'RTFREQ', this%memoryPath)
@@ -283,6 +286,7 @@ contains
     this%irlstls = 0
     this%ifrctrn = 0
     this%iexmeth = 0
+    this%ichkmeth = 1
     this%extol = DEM5
     this%rttol = DSAME * DEP9
     this%rtfreq = DZERO
@@ -514,7 +518,8 @@ contains
       z = this%rptz(ip)
     end if
 
-    call this%validate_release_point(ic, x, y, z)
+    if (this%ichkmeth > 0) &
+      call this%validate_release_point(ic, x, y, z)
 
     particle%x = x
     particle%y = y
@@ -817,6 +822,23 @@ contains
       if (.not. (this%iexmeth /= 1 .or. this%iexmeth /= 2)) &
         call store_error('DEV_EXIT_SOLVE_METHOD MUST BE &
           &1 (BRENT) OR 2 (CHANDRUPATLA)')
+      found = .true.
+    case ('COORDINATE_CHECK_METHOD')
+      call this%parser%GetStringCaps(keyword)
+      select case (keyword)
+      case ('NONE')
+        this%ichkmeth = 0
+      case ('EAGER')
+        this%ichkmeth = 1
+      case default
+        write (errmsg, '(a, a)') &
+          'Unsupported coordinate check method: ', trim(keyword)
+        call store_error(errmsg)
+        write (errmsg, '(a, a)') &
+          'COORDINATE_CHECK_METHOD must be "NONE" or "EAGER"'
+        call store_error(errmsg)
+        call this%parser%StoreErrorUnit()
+      end select
       found = .true.
     case default
       found = .false.
