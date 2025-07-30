@@ -3,7 +3,7 @@ This test reuses the simulation data and config in
 test_gwt_dvscale.py and runs it in parallel mode.
 
 The purpose of this test is to make sure that the dependent_variable_scaling 
-option works with paralle simulations.
+option works with parallel simulations.
 """
 
 import numpy as np
