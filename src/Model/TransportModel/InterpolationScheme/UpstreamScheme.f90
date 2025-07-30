@@ -60,8 +60,15 @@ contains
 
   end function compute
 
+  !> @brief Invalidate cached data
+  !!
+  !! This method is required by the InterpolationSchemeInterface but does
+  !! nothing for this scheme since it does not cache anything.
+  !>
   subroutine invalidate(this)
     ! -- dummy
     class(UpstreamSchemeType), target :: this
+    ! -- No cached data to invalidate
   end subroutine invalidate
+
 end module UpstreamSchemeModule

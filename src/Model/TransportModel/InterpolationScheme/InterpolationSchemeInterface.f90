@@ -36,7 +36,7 @@ module InterpolationSchemeInterfaceModule
       real(DP), intent(in), dimension(:) :: phi
     end function
 
-    subroutine invalidate_if(this) 
+    subroutine invalidate_if(this)
       ! -- import
       import InterpolationSchemeInterface
       ! -- dummy

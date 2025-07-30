@@ -39,18 +39,19 @@ module UTVDSchemeModule
     class(IGradientType), pointer :: gradient
     integer(I4B) :: limiter_id = 2 ! default to van Leer limiter
     logical :: cache_valid = .false. ! indicates if the cached gradients are valid
-    real(DP), dimension(:, :), allocatable :: cached_gradients
-    real(DP), dimension(:), allocatable :: cached_min_phi
-    real(DP), dimension(:), allocatable :: cached_max_phi
-    real(DP), dimension(:, :), allocatable :: cached_node_distance
+    real(DP), dimension(:, :), allocatable :: cached_gradients ! concentration gradients at nodes
+    real(DP), dimension(:), allocatable :: cached_min_phi ! minimum concentration among node and neighbors
+    real(DP), dimension(:), allocatable :: cached_max_phi ! maximum concentration among node and neighbors
+    real(DP), dimension(:, :), allocatable :: cached_node_distance ! distance vectors
   contains
     procedure :: compute
     procedure :: invalidate
+    procedure :: finalize
 
     procedure, private :: find_local_extrema
     procedure, private :: limiter
     procedure, private :: compute_gradients
-    procedure, private :: compute_local_extrama
+    procedure, private :: compute_local_extrema
     procedure, private :: compute_node_distance
   end type UTVDSchemeType
 
@@ -63,7 +64,7 @@ contains
     result(interpolation_scheme)
     ! -- return
     type(UTVDSchemeType) :: interpolation_scheme
-    ! --dummy
+    ! -- dummy
     class(DisBaseType), pointer, intent(in) :: dis
     type(TspFmiType), pointer, intent(in) :: fmi
     class(IGradientType), allocatable, target, intent(in) :: gradient
@@ -73,15 +74,28 @@ contains
     interpolation_scheme%gradient => gradient
 
     interpolation_scheme%cache_valid = .false.
-    allocate(interpolation_scheme%cached_gradients(dis%nodes, 3))
-    allocate(interpolation_scheme%cached_min_phi(dis%nodes))
-    allocate(interpolation_scheme%cached_max_phi(dis%nodes))
+    allocate (interpolation_scheme%cached_gradients(dis%nodes, 3))
+    allocate (interpolation_scheme%cached_min_phi(dis%nodes))
+    allocate (interpolation_scheme%cached_max_phi(dis%nodes))
 
-    allocate(interpolation_scheme%cached_node_distance(dis%njas, 3))
+    allocate (interpolation_scheme%cached_node_distance(dis%njas, 3))
     call compute_node_distance(interpolation_scheme)
 
   end function constructor
 
+  subroutine finalize(this)
+    ! -- dummy
+    class(UTVDSchemeType), intent(inout) :: this
+
+    deallocate (this%cached_gradients)
+    deallocate (this%cached_min_phi)
+    deallocate (this%cached_max_phi)
+    deallocate (this%cached_node_distance)
+  end subroutine finalize
+
+  !> @brief Invalidate cached data to force recomputation on next access
+  !!
+  !>
   subroutine invalidate(this)
     ! -- dummy
     class(UTVDSchemeType), target :: this
@@ -97,11 +111,11 @@ contains
     integer(I4B) :: n
 
     do n = 1, this%dis%nodes
-        this%cached_gradients(n, :) = this%gradient%get(n, phi)
+      this%cached_gradients(n, :) = this%gradient%get(n, phi)
     end do
   end subroutine compute_gradients
 
-    subroutine compute_local_extrama(this, phi)
+  subroutine compute_local_extrema(this, phi)
     ! -- dummy
     class(UTVDSchemeType), target :: this
     real(DP), intent(in), dimension(:) :: phi
@@ -114,7 +128,7 @@ contains
       this%cached_min_phi(n) = min_phi
       this%cached_max_phi(n) = max_phi
     end do
-  end subroutine compute_local_extrama
+  end subroutine compute_local_extrema
 
   subroutine compute_node_distance(this)
     ! -- dummy
@@ -127,7 +141,7 @@ contains
       do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
         m = this%dis%con%ja(ipos)
         if (m <= n) cycle
-        
+
         isympos = this%dis%con%jas(ipos)
         this%cached_node_distance(isympos, :) = node_distance(this%dis, n, m)
       end do
@@ -157,10 +171,9 @@ contains
     real(DP) :: c_virtual ! Virtual node concentration (Darwish method)
     real(DP), pointer :: min_phi, max_phi ! Local minimum and maximum among cell and neighbors
 
-
     if (.not. this%cache_valid) then
       call this%compute_gradients(phi)
-      call this%compute_local_extrama(phi)
+      call this%compute_local_extrema(phi)
       this%cache_valid = .true.
     end if
 
@@ -184,11 +197,16 @@ contains
 
       cl1 = this%dis%con%cl1(isympos)
       cl2 = this%dis%con%cl2(isympos)
-      
+
       coef_up => phi_face%c_n
       coef_dn => phi_face%c_m
     end if
 
+    ! Determine direction of distance vector from upwind to downwind cell
+    ! The cached_node_distance always stores vector from lower-numbered node to higher-numbered node.
+    ! Since we need dnm to point from upwind (iup) to downwind (idn), we must adjust the sign:
+    ! - If iup > idn: the cached vector points from idn to iup, so we negate it to get iup to idn
+    ! - If iup < idn: the cached vector already points from iup to idn, so use it as-is
     if (iup > idn) then
       dnm = -this%cached_node_distance(isympos, :)
     else
