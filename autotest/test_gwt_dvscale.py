@@ -1,6 +1,6 @@
 """
-Test the advection schemes in the gwt advection package for a one-dimensional
-model grid of square cells.
+Test the dependent_variable_scale option for gwt for a one-dimensional model grid
+of square cells.
 """
 
 import flopy
