@@ -1,6 +1,6 @@
 """
 Test the dependent_variable_scale option to make sure modflow fails if the option
-is not specified for all gwt/gwe models in the same IMS solution. Tested for for a 
+is not specified for all gwt/gwe models in the same IMS solution. Tested for for a
 one-dimensional model grid of square cells.
 """
 
