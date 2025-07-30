@@ -231,6 +231,7 @@ contains
     type(CoefficientsType) :: coefficients
 
     ! Calculate internal domain fluxes and add to matrix_sln and rhs.
+    call this%face_interpolation%invalidate()
     do n = 1, nodes
       if (this%ibound(n) == 0) cycle ! skip inactive nodes
       idiag = this%dis%con%ia(n)
@@ -267,6 +268,7 @@ contains
     !    rate and has dimensions of L^/T.
     nodes = this%dis%nodes
 
+    call this%face_interpolation%invalidate()
     do n = 1, nodes
       if (this%ibound(n) == 0) cycle
       do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1

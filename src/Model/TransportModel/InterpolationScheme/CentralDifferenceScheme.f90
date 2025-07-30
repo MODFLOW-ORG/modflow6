@@ -17,6 +17,7 @@ module CentralDifferenceSchemeModule
     type(TspFmiType), pointer :: fmi
   contains
     procedure :: compute
+    procedure :: invalidate
   end type CentralDifferenceSchemeType
 
   interface CentralDifferenceSchemeType
@@ -66,4 +67,10 @@ contains
     phi_face%c_m = DONE - omega
 
   end function compute
+
+  subroutine invalidate(this)
+    ! -- dummy
+    class(CentralDifferenceSchemeType), target :: this
+  end subroutine invalidate
+
 end module CentralDifferenceSchemeModule

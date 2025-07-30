@@ -16,6 +16,7 @@ module InterpolationSchemeInterfaceModule
   type, abstract :: InterpolationSchemeInterface
   contains
     procedure(compute_if), deferred :: compute
+    procedure(invalidate_if), deferred :: invalidate
   end type InterpolationSchemeInterface
 
   abstract interface
@@ -34,6 +35,13 @@ module InterpolationSchemeInterfaceModule
       integer(I4B), intent(in) :: iposnm
       real(DP), intent(in), dimension(:) :: phi
     end function
+
+    subroutine invalidate_if(this) 
+      ! -- import
+      import InterpolationSchemeInterface
+      ! -- dummy
+      class(InterpolationSchemeInterface), target :: this
+    end subroutine
 
   end interface
 

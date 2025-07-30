@@ -17,6 +17,7 @@ module UpstreamSchemeModule
     type(TspFmiType), pointer :: fmi
   contains
     procedure :: compute
+    procedure :: invalidate
   end type UpstreamSchemeType
 
   interface UpstreamSchemeType
@@ -58,4 +59,9 @@ contains
     end if
 
   end function compute
+
+  subroutine invalidate(this)
+    ! -- dummy
+    class(UpstreamSchemeType), target :: this
+  end subroutine invalidate
 end module UpstreamSchemeModule

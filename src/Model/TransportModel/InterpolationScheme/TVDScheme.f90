@@ -18,6 +18,7 @@ module TVDSchemeModule
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
   contains
     procedure :: compute
+    procedure :: invalidate
   end type TVDSchemeType
 
   interface TVDSchemeType
@@ -108,5 +109,10 @@ contains
     end if
 
   end function compute
+
+  subroutine invalidate(this)
+    ! -- dummy
+    class(TVDSchemeType), target :: this
+  end subroutine invalidate
 
 end module TVDSchemeModule
