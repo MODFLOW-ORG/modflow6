@@ -27,7 +27,7 @@ def build_models(idx, test):
     hk = 1.0
     laytyp = 0
 
-    c = {0: [[(0, 0, 99), 0.0000000]]}
+    c = {0: [[(0, 0, 99), 0.0000000, 100.0, 1.0]]}
     w = {0: [[(0, 0, 0), 1.0, 1e6]]}
 
     nouter, ninner = 100, 300
@@ -100,13 +100,14 @@ def build_models(idx, test):
         save_specific_discharge=True,
     )
 
-    # chd files
-    chd = flopy.mf6.modflow.mfgwfchd.ModflowGwfchd(
+    # ghb files
+    chd = flopy.mf6.ModflowGwfghb(
         gwf,
         maxbound=len(c),
         stress_period_data=c,
         save_flows=False,
-        pname="CHD-1",
+        auxiliary="CONCENTRATION",
+        pname="GHB-1",
     )
 
     # wel files
@@ -182,7 +183,10 @@ def build_models(idx, test):
     mst = flopy.mf6.ModflowGwtmst(gwt, porosity=0.1)
 
     # sources
-    sourcerecarray = [("WEL-1", "AUX", "CONCENTRATION")]
+    sourcerecarray = [
+        ("WEL-1", "AUX", "CONCENTRATION"),
+        ("GHB-1", "AUX", "CONCENTRATION"),
+    ]
     ssm = flopy.mf6.ModflowGwtssm(
         gwt, sources=sourcerecarray, filename=f"{gwtname}.ssm"
     )
@@ -197,27 +201,6 @@ def build_models(idx, test):
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
 
-    obs_data = {
-        "conc_obs.csv": [
-            ("(1-1-10)", "CONCENTRATION", (0, 0, 9)),
-            ("(1-1-50)", "CONCENTRATION", (0, 0, 49)),
-        ],
-        "flow_obs.csv": [
-            ("c10-c11", "FLOW-JA-FACE", (0, 0, 9), (0, 0, 10)),
-            ("c50-c51", "FLOW-JA-FACE", (0, 0, 49), (0, 0, 50)),
-            ("c99-c100", "FLOW-JA-FACE", (0, 0, 98), (0, 0, 99)),
-        ],
-    }
-
-    obs_package = flopy.mf6.ModflowUtlobs(
-        gwt,
-        pname="conc_obs",
-        filename=f"{gwtname}.obs",
-        digits=10,
-        print_input=True,
-        continuous=obs_data,
-    )
-
     # GWF GWT exchange
     gwfgwt = flopy.mf6.ModflowGwfgwt(
         sim,
@@ -230,15 +213,15 @@ def build_models(idx, test):
     return sim, None
 
 
-def check_output(idx, test):
-    name = cases[idx]
-    gwtname = "gwt_" + name
+def check_results(test):
+    sim = flopy.mf6.MFSimulation.load(sim_ws=test.workspace)
+    gwt_names = sorted([name for name in sim.model_names if "gwt" in name])
+    gwt_models = [sim.get_model(name) for name in gwt_names]
 
-    fpth = test.workspace / f"{gwtname}.ucn"
-    try:
-        conc = flopy.utils.HeadFile(fpth, text="CONCENTRATION").get_data().squeeze()
-    except:
-        assert False, f'could not load data from "{fpth}"'
+    conc = []
+    for gwt in gwt_models:
+        conc += gwt.output.concentration().get_data().squeeze().tolist()
+    conc = np.array(conc)
 
     # fmt: off
     answer = np.array(
@@ -281,7 +264,7 @@ def check_output(idx, test):
     )
 
     assert np.allclose(conc, answer), (
-        f"Results for {gwtname} are not close to the defined answer."
+        "Results for the transport model are not close to the defined answer."
         )
 
 
@@ -292,6 +275,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        check=lambda t: check_results(t),
     )
     test.run()
