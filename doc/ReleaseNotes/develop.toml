@@ -32,7 +32,6 @@ section = "fixes"
 subsection = "stress"
 description = "Fixed viscosity ratio assignment in the GWT MAW package when the GWF VSC package is active."
 
-
 [[items]]
 section = "fixes"
 subsection = "internal"
@@ -47,3 +46,8 @@ description = "With the PRT model's Particle Release Package's EXTEND\\_TRACKING
 section = "fixes"
 subsection = "parallel"
 description = "Fixed a memory access exception that can occur when writing convergence information to a CSV file (through the CSV\\_OUTER\\_OUTPUT option in IMS) for a parallel solution."
+
+[[items]]
+section = "features"
+subsection = "solution"
+description = "Added an optional new COORDINATE\\_CHECK\\_METHOD option to the PRT model's Particle Release Package, accepting values 'EAGER' (default) or 'NONE'. 'NONE' disables release-time verification that release point coordinates and release point cell IDs match, which can significantly reduce runtime when releasing many particles."
