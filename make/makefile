@@ -180,13 +180,16 @@ $(OBJDIR)/gwt-cncidm.o \
 $(OBJDIR)/gwt-advidm.o \
 $(OBJDIR)/gwf-welidm.o \
 $(OBJDIR)/gwf-welgidm.o \
+$(OBJDIR)/gwf-vscidm.o \
 $(OBJDIR)/gwf-stoidm.o \
 $(OBJDIR)/gwf-rividm.o \
+$(OBJDIR)/gwf-rivgidm.o \
 $(OBJDIR)/gwf-rchidm.o \
 $(OBJDIR)/gwf-rchaidm.o \
 $(OBJDIR)/gwf-npfidm.o \
 $(OBJDIR)/gwf-namidm.o \
 $(OBJDIR)/gwf-icidm.o \
+$(OBJDIR)/gwf-hfbidm.o \
 $(OBJDIR)/gwf-ghbidm.o \
 $(OBJDIR)/gwf-ghbgidm.o \
 $(OBJDIR)/gwf-evtidm.o \
@@ -198,6 +201,7 @@ $(OBJDIR)/gwf-disuidm.o \
 $(OBJDIR)/gwf-disidm.o \
 $(OBJDIR)/gwf-csubidm.o \
 $(OBJDIR)/gwf-chdidm.o \
+$(OBJDIR)/gwf-buyidm.o \
 $(OBJDIR)/gwe-ssmidm.o \
 $(OBJDIR)/gwe-namidm.o \
 $(OBJDIR)/gwe-icidm.o \

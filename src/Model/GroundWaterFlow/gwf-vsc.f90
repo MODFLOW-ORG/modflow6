@@ -3,7 +3,9 @@
 module GwfVscModule
 
   use KindModule, only: DP, I4B
-  use SimModule, only: store_error, store_warning, count_errors
+  use SimModule, only: store_error, store_warning, count_errors, &
+                       store_error_filename
+  use SimVariablesModule, only: errmsg, warnmsg
   use MemoryManagerModule, only: mem_allocate, mem_reallocate, &
                                  mem_deallocate, mem_setptr
   use MemoryHelperModule, only: create_mem_path
@@ -76,10 +78,11 @@ module GwfVscModule
     procedure, private :: vsc_calcvisc
     procedure :: allocate_scalars
     procedure, private :: allocate_arrays
-    procedure, private :: read_options
+    procedure, private :: source_options
     procedure, private :: set_options
-    procedure, private :: read_dimensions
-    procedure, private :: read_packagedata
+    procedure, private :: log_options
+    procedure, private :: source_dimensions
+    procedure, private :: source_packagedata
     procedure, private :: set_packagedata
     procedure, private :: set_npf_pointers
     procedure, public :: update_k_with_vsc
@@ -136,10 +139,11 @@ contains
   !!
   !!  Create a new VSC Package object.
   !<
-  subroutine vsc_cr(vscobj, name_model, inunit, iout)
+  subroutine vsc_cr(vscobj, name_model, input_mempath, inunit, iout)
     ! -- dummy
     type(GwfVscType), pointer :: vscobj
     character(len=*), intent(in) :: name_model
+    character(len=*), intent(in) :: input_mempath
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
     !
@@ -147,7 +151,7 @@ contains
     allocate (vscobj)
     !
     ! -- create name and memory path
-    call vscobj%set_names(1, name_model, 'VSC', 'VSC')
+    call vscobj%set_names(1, name_model, 'VSC', 'VSC', input_mempath)
     !
     ! -- Allocate scalars
     call vscobj%allocate_scalars()
@@ -155,9 +159,6 @@ contains
     ! -- Set variables
     vscobj%inunit = inunit
     vscobj%iout = iout
-    !
-    ! -- Initialize block parser
-    call vscobj%parser%Initialize(vscobj%inunit, vscobj%iout)
   end subroutine vsc_cr
 
   !> @ brief Define viscosity package options and dimensions
@@ -172,10 +173,10 @@ contains
     ! -- formats
     character(len=*), parameter :: fmtvsc = &
       "(1x,/1x,'VSC -- Viscosity Package, version 1, 11/15/2022', &
-      &' input read from unit ', i0, //)"
+      &' input read from mempath: ', a, /)"
     !
     ! --print a message identifying the viscosity package
-    write (this%iout, fmtvsc) this%inunit
+    write (this%iout, fmtvsc) this%input_mempath
     !
     ! -- store pointers to arguments that were passed in
     this%dis => dis
@@ -183,10 +184,10 @@ contains
     if (.not. present(vsc_input)) then
       !
       ! -- Read viscosity options
-      call this%read_options()
+      call this%source_options()
       !
       ! -- Read viscosity dimensions
-      call this%read_dimensions()
+      call this%source_dimensions()
     else
       ! set from input data instead
       call this%set_options(vsc_input)
@@ -199,7 +200,7 @@ contains
     if (.not. present(vsc_input)) then
       !
       ! -- Read viscosity packagedata
-      call this%read_packagedata()
+      call this%source_packagedata()
     else
       ! set from input data instead
       call this%set_packagedata(vsc_input)
@@ -327,7 +328,6 @@ contains
     ! -- dummy
     class(GwfVscType) :: this
     ! -- local
-    character(len=LINELENGTH) :: errmsg
     integer(I4B) :: i
     ! -- formats
     character(len=*), parameter :: fmtc = &
@@ -345,7 +345,7 @@ contains
         end if
       end do
       if (count_errors() > 0) then
-        call this%parser%StoreErrorUnit()
+        call store_error_filename(this%input_fname)
       end if
     end if
   end subroutine vsc_rp
@@ -944,157 +944,134 @@ contains
     call this%NumericalPackageType%da()
   end subroutine vsc_da
 
-  !> @ brief Read dimensions
-  !!
-  !! Read dimensions for the viscosity package
+  !> @ brief Source dimensions for package
   !<
-  subroutine read_dimensions(this)
+  subroutine source_dimensions(this)
     ! -- modules
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwfVscInputModule, only: GwfVscParamFoundType
     ! -- dummy
     class(GwfVscType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: errmsg, keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
-    !
-    ! -- get dimensions block
-    call this%parser%GetBlock('DIMENSIONS', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse dimensions block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'Processing VSC DIMENSIONS block'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('NVISCSPECIES')
-          this%nviscspecies = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i0)') 'NVISCSPECIES = ', this%nviscspecies
-        case default
-          write (errmsg, '(a,a)') &
-            'Unknown VSC dimension: ', trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'End of VSC DIMENSIONS block'
-    else
-      call store_error('Required VSC DIMENSIONS block not found.')
-      call this%parser%StoreErrorUnit()
-    end if
-    !
-    ! -- check dimension
+    type(GwfVscParamFoundType) :: found
+
+    ! update defaults from input context
+    call mem_set_value(this%nviscspecies, 'NVISCSPECIES', this%input_mempath, &
+                       found%nviscspecies)
+
+    ! log dimensions
+    write (this%iout, '(/1x,a)') 'Processing VSC DIMENSIONS block'
+    write (this%iout, '(4x,a,i0)') 'NVISCSPECIES = ', this%nviscspecies
+    write (this%iout, '(1x,a)') 'End of VSC DIMENSIONS block'
+
+    ! check dimension
     if (this%nviscspecies < 1) then
       call store_error('NVISCSPECIES must be greater than zero.')
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
-  end subroutine read_dimensions
+  end subroutine source_dimensions
 
-  !> @ brief Read data for package
-  !!
-  !!  Method to read data for the viscosity package.
+  !> @ brief source packagedata for package
   !<
-  subroutine read_packagedata(this)
+  subroutine source_packagedata(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr
+    use CharacterStringModule, only: CharacterStringType
     ! -- dummy
-    class(GwfVscType) :: this
-    ! -- local
-    character(len=LINELENGTH) :: errmsg
-    character(len=LINELENGTH) :: line
-    integer(I4B) :: ierr
-    integer(I4B) :: iviscspec
-    logical :: isfound, endOfBlock
-    logical :: blockrequired
+    class(GwfVscType), intent(inout) :: this
+    integer(I4B), dimension(:), pointer, contiguous :: iviscspec
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: modelnames, auxspeciesnames
+    real(DP), dimension(:), pointer, contiguous :: dviscdc, cviscref
     integer(I4B), dimension(:), allocatable :: itemp
+    character(len=LINELENGTH) :: modelname, auxspeciesname, line
     character(len=10) :: c10
     character(len=16) :: c16
+    integer(I4B) :: n
     ! -- format
     character(len=*), parameter :: fmterr = &
       "('Invalid value for IRHOSPEC (',i0,') detected in VSC Package. &
       &IRHOSPEC must be > 0 and <= NVISCSPECIES, and duplicate values &
       &are not allowed.')"
-    !
-    ! -- initialize
+
+    ! initialize
     allocate (itemp(this%nviscspecies))
     itemp(:) = 0
-    !
-    ! -- get packagedata block
-    blockrequired = .true.
-    call this%parser%GetBlock('PACKAGEDATA', isfound, ierr, &
-                              blockRequired=blockRequired, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse packagedata block
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'Procesing VSC PACKAGEDATA block'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        iviscspec = this%parser%GetInteger()
-        if (iviscspec < 1 .or. iviscspec > this%nviscspecies) then
-          write (errmsg, fmterr) iviscspec
+
+    ! set input context pointers
+    call mem_setptr(iviscspec, 'IVISCSPEC', this%input_mempath)
+    call mem_setptr(dviscdc, 'DVISCDC', this%input_mempath)
+    call mem_setptr(cviscref, 'CVISCREF', this%input_mempath)
+    call mem_setptr(modelnames, 'MODELNAME', this%input_mempath)
+    call mem_setptr(auxspeciesnames, 'AUXSPECIESNAME', this%input_mempath)
+
+    ! process package data
+    do n = 1, size(iviscspec)
+      modelname = modelnames(n)
+      auxspeciesname = auxspeciesnames(n)
+
+      if (iviscspec(n) < 1 .or. iviscspec(n) > this%nviscspecies) then
+        write (errmsg, fmterr) iviscspec(n)
+        call store_error(errmsg)
+      end if
+      if (itemp(iviscspec(n)) /= 0) then
+        write (errmsg, fmterr) iviscspec(n)
+        call store_error(errmsg)
+      end if
+      itemp(iviscspec(n)) = 1
+      !
+      this%dviscdc(iviscspec(n)) = dviscdc(n)
+      this%cviscref(iviscspec(n)) = cviscref(n)
+      this%cmodelname(iviscspec(n)) = trim(modelname)
+      this%cauxspeciesname(iviscspec(n)) = trim(auxspeciesname)
+      !
+      if (auxspeciesname == this%name_temp_spec) then
+        if (this%idxtmpr > 0) then
+          write (errmsg, '(a)') 'More than one species in VSC input identified &
+            &as '//trim(this%name_temp_spec)//'. Only one species may be &
+            &designated to represent temperature.'
           call store_error(errmsg)
-        end if
-        if (itemp(iviscspec) /= 0) then
-          write (errmsg, fmterr) iviscspec
-          call store_error(errmsg)
-        end if
-        itemp(iviscspec) = 1
-        !
-        this%dviscdc(iviscspec) = this%parser%GetDouble()
-        this%cviscref(iviscspec) = this%parser%GetDouble()
-        call this%parser%GetStringCaps(this%cmodelname(iviscspec))
-        call this%parser%GetStringCaps(this%cauxspeciesname(iviscspec))
-        !
-        if (this%cauxspeciesname(iviscspec) == this%name_temp_spec) then
-          if (this%idxtmpr > 0) then
-            write (errmsg, '(a)') 'More than one species in VSC input identified &
-              &as '//trim(this%name_temp_spec)//'. Only one species may be &
-              &designated to represent temperature.'
-            call store_error(errmsg)
-          else
-            this%idxtmpr = iviscspec
-            if (this%thermivisc == 2) then
-              this%ivisc(iviscspec) = 2
-            end if
+        else
+          this%idxtmpr = iviscspec(n)
+          if (this%thermivisc == 2) then
+            this%ivisc(iviscspec(n)) = 2
           end if
         end if
-      end do
-    else
-      call store_error('Required VSC PACKAGEDATA block not found.')
-      call this%parser%StoreErrorUnit()
-    end if
-    !
-    ! -- Check for errors.
+      end if
+    end do
+
+    ! Check for errors.
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- write packagedata information
-    write (this%iout, '(/,1x,a)') 'Summary of species information in VSC Package'
+
+    ! log package data
+    write (this%iout, '(/,1x,a)') 'Processing VSC PACKAGEDATA block'
+
+    ! write packagedata information
+    write (this%iout, '(1x,a)') 'Summary of species information in VSC Package'
     write (this%iout, '(1a11,5a17)') &
       'Species', 'DVISCDC', 'CVISCREF', 'Model', 'AUXSPECIESNAME'
-    do iviscspec = 1, this%nviscspecies
-      write (c10, '(i0)') iviscspec
+    do n = 1, this%nviscspecies
+      write (c10, '(i0)') n
       line = ' '//adjustr(c10)
 
-      write (c16, '(g15.6)') this%dviscdc(iviscspec)
+      write (c16, '(g15.6)') this%dviscdc(n)
       line = trim(line)//' '//adjustr(c16)
-      write (c16, '(g15.6)') this%cviscref(iviscspec)
+      write (c16, '(g15.6)') this%cviscref(n)
       line = trim(line)//' '//adjustr(c16)
-      write (c16, '(a)') this%cmodelname(iviscspec)
+      write (c16, '(a)') this%cmodelname(n)
       line = trim(line)//' '//adjustr(c16)
-      write (c16, '(a)') this%cauxspeciesname(iviscspec)
+      write (c16, '(a)') this%cauxspeciesname(n)
       line = trim(line)//' '//adjustr(c16)
       write (this%iout, '(a)') trim(line)
     end do
-    !
-    ! -- deallocate
+
+    write (this%iout, '(1x,a)') 'End of VSC PACKAGEDATA block'
+
+    ! deallocate
     deallocate (itemp)
-    !
-    write (this%iout, '(/,1x,a)') 'End of VSC PACKAGEDATA block'
-  end subroutine read_packagedata
+  end subroutine source_packagedata
 
   !> @brief Sets package data instead of reading from file
   !<
@@ -1222,150 +1199,163 @@ contains
     end do
   end subroutine allocate_arrays
 
-  !> @ brief Read Options block
-  !!
-  !! Reads the options block inside the VSC package.
+  !> @ brief Source VSC options
   !<
-  subroutine read_options(this)
+  subroutine source_options(this)
     ! -- modules
+    use ConstantsModule, only: LENVARNAME
+    use MemoryManagerExtModule, only: mem_set_value
     use OpenSpecModule, only: access, form
-    use InputOutputModule, only: urword, getunit, urdaux, openfile
+    use InputOutputModule, only: getunit, openfile
+    use GwfVscInputModule, only: GwfVscParamFoundType
     ! -- dummy
-    class(GwfVscType) :: this
+    class(GwfVscType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: warnmsg, errmsg, keyword, keyword2
-    character(len=MAXCHARLEN) :: fname
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
-    ! -- formats
-    character(len=*), parameter :: fmtfileout = &
-      "(1x, 'VSC', 1x, a, 1x, 'Will be saved to file: ', &
-      &a, /4x, 'opened on unit: ', I7)"
-    character(len=*), parameter :: fmtlinear = &
-      "(/,1x,'Viscosity will vary linearly with temperature &
-      &change ')"
-    character(len=*), parameter :: fmtnonlinear = &
-      "(/,1x,'Viscosity will vary non-linearly with temperature &
-      &change ')"
-    !
-    ! -- get options block
-    call this%parser%GetBlock('OPTIONS', isfound, ierr, &
-                              supportOpenClose=.true., blockRequired=.false.)
-    !
-    ! -- parse options block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'Processing VSC OPTIONS block'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('VISCREF')
-          this%viscref = this%parser%GetDouble()
-          write (this%iout, '(4x,a,1pg15.6)') &
-            'Reference viscosity has been set to: ', &
-            this%viscref
-        case ('VISCOSITY')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            this%ioutvisc = getunit()
-            call openfile(this%ioutvisc, this%iout, fname, 'DATA(BINARY)', &
-                          form, access, 'REPLACE')
-            write (this%iout, fmtfileout) &
-              'VISCOSITY', fname, this%ioutvisc
-          else
-            errmsg = 'Optional VISCOSITY keyword must be '// &
-                     'followed by FILEOUT'
-            call store_error(errmsg)
-          end if
-        case ('TEMPERATURE_SPECIES_NAME')
-          call this%parser%GetStringCaps(this%name_temp_spec)
-          write (this%iout, '(4x, a)') 'Temperature species name set to: '// &
-            trim(this%name_temp_spec)
-        case ('THERMAL_FORMULATION')
-          call this%parser%GetStringCaps(keyword2)
-          if (trim(adjustl(keyword2)) == 'LINEAR') this%thermivisc = 1
-          if (trim(adjustl(keyword2)) == 'NONLINEAR') this%thermivisc = 2
-          select case (this%thermivisc)
-          case (1)
-            write (this%iout, fmtlinear)
-          case (2)
-            write (this%iout, fmtnonlinear)
-          end select
-        case ('THERMAL_A2')
-          this%a2 = this%parser%GetDouble()
-          if (this%thermivisc == 2) then
-            write (this%iout, '(4x,a,1pg15.6)') &
-              'A2 in nonlinear viscosity formulation has been set to: ', &
-              this%a2
-          else
-            write (this%iout, '(4x,a,/,4x,a,/,4x,a)') 'THERMAL_A2 specified by user &
-              &in VSC Package input file. LINEAR viscosity ', 'formulation also &
-              &specified. THERMAL_A2 will not affect ', 'viscosity calculations.'
-          end if
-        case ('THERMAL_A3')
-          this%a3 = this%parser%GetDouble()
-          if (this%thermivisc == 2) then
-            write (this%iout, '(4x,a,1pg15.6)') &
-              'A3 in nonlinear viscosity formulation has been set to: ', &
-              this%a3
-          else
-            write (this%iout, '(4x,a,/,4x,a,/,4x,a)') 'THERMAL_A3 specified by user &
-              &in VSC Package input file. LINEAR viscosity ', 'formulation also &
-              &specified. THERMAL_A3 will not affect ', 'viscosity calculations.'
-          end if
-        case ('THERMAL_A4')
-          this%a4 = this%parser%GetDouble()
-          if (this%thermivisc == 2) then
-            write (this%iout, '(4x,a,1pg15.6)') &
-              'A4 in nonlinear viscosity formulation has been set to: ', &
-              this%a4
-          else
-            write (this%iout, '(4x,a,/,4x,a,/,4x,a)') 'THERMAL_A4 specified by user &
-              &in VSC Package input file. LINEAR viscosity ', 'formulation also &
-              &specified. THERMAL_A4 will not affect ', 'viscosity calculations.'
-          end if
-        case default
-          write (errmsg, '(a,a)') 'Unknown VSC option: ', &
-            trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      !
-      if (this%thermivisc == 1) then
-        if (this%a2 == 0.0) then
-          write (errmsg, '(a)') 'LINEAR option selected for varying  &
-            &viscosity with temperature, but A1, a surrogate for &
-            &dVISC/dT, set equal to 0.0'
-          call store_error(errmsg)
-        end if
-      end if
-      if (this%thermivisc > 1) then
-        if (this%a2 == 0) then
-          write (warnmsg, '(a)') 'NONLINEAR option selected for &
-            &varying viscosity with temperature, but A2 set equal to &
-            &zero which may lead to unintended values for viscosity'
-          call store_warning(errmsg)
-        end if
-        if (this%a3 == 0) then
-          write (warnmsg, '(a)') 'NONLINEAR option selected for &
-            &varying viscosity with temperature,, but A3 set equal to &
-            &zero which may lead to unintended values for viscosity'
-          call store_warning(warnmsg)
-        end if
-        if (this%a4 == 0) then
-          write (warnmsg, '(a)') 'NONLINEAR option selected for &
-            &varying viscosity with temperature, BUT A4 SET EQUAL TO &
-            &zero which may lead to unintended values for viscosity'
-          call store_warning(warnmsg)
-        end if
+    character(len=LENVARNAME), dimension(2) :: thermal_form = &
+      &[character(len=LENVARNAME) :: 'LINEAR', 'NONLINEAR']
+    character(len=LINELENGTH) :: viscosityfile
+    type(GwfVscParamFoundType) :: found
+
+    ! initialize variables
+    viscosityfile = ''
+
+    ! update defaults from input context
+    call mem_set_value(this%viscref, 'VISCREF', this%input_mempath, &
+                       found%viscref)
+    call mem_set_value(viscosityfile, 'VISCOSITYFILE', this%input_mempath, &
+                       found%viscosityfile)
+    call mem_set_value(this%name_temp_spec, 'TEMP_SPECNAME', this%input_mempath, &
+                       found%temp_specname)
+    call mem_set_value(this%thermivisc, 'THERMAL_FORM', this%input_mempath, &
+                       thermal_form, found%thermal_form)
+    call mem_set_value(this%a2, 'THERMAL_A2', this%input_mempath, &
+                       found%thermal_a2)
+    call mem_set_value(this%a3, 'THERMAL_A3', this%input_mempath, &
+                       found%thermal_a3)
+    call mem_set_value(this%a4, 'THERMAL_A4', this%input_mempath, &
+                       found%thermal_a4)
+
+    ! fileout options
+    if (found%viscosityfile) then
+      this%ioutvisc = getunit()
+      call openfile(this%ioutvisc, this%iout, viscosityfile, 'DATA(BINARY)', &
+                    form, access, 'REPLACE')
+    end if
+
+    ! set warnings and errors
+    if (this%thermivisc == 1) then
+      if (this%a2 == 0.0) then
+        write (errmsg, '(a)') 'LINEAR option selected for varying  &
+          &viscosity with temperature, but A1, a surrogate for &
+          &dVISC/dT, set equal to 0.0'
+        call store_error(errmsg)
+        call store_error_filename(this%input_fname)
       end if
     end if
-    !
-    write (this%iout, '(/,1x,a)') 'end of VSC options block'
-  end subroutine read_options
+    if (this%thermivisc > 1) then
+      if (this%a2 == 0) then
+        write (warnmsg, '(a)') 'NONLINEAR option selected for &
+          &varying viscosity with temperature, but A2 set equal to &
+          &zero which may lead to unintended values for viscosity'
+        call store_warning(warnmsg)
+      end if
+      if (this%a3 == 0) then
+        write (warnmsg, '(a)') 'NONLINEAR option selected for &
+          &varying viscosity with temperature,, but A3 set equal to &
+          &zero which may lead to unintended values for viscosity'
+        call store_warning(warnmsg)
+      end if
+      if (this%a4 == 0) then
+        write (warnmsg, '(a)') 'NONLINEAR option selected for &
+          &varying viscosity with temperature, BUT A4 SET EQUAL TO &
+          &zero which may lead to unintended values for viscosity'
+        call store_warning(warnmsg)
+      end if
+    end if
+
+    ! log options
+    call this%log_options(found, viscosityfile)
+  end subroutine source_options
+
+  !> @ brief log VSC options
+  !<
+  subroutine log_options(this, found, viscosityfile)
+    ! -- modules
+    use GwfVscInputModule, only: GwfVscParamFoundType
+    ! -- dummy variables
+    class(GwfVscType), intent(inout) :: this
+    type(GwfVscParamFoundType), intent(in) :: found
+    character(len=*), intent(in) :: viscosityfile
+    ! -- local variables
+    ! -- formats
+    character(len=*), parameter :: fmtfileout = &
+      "(4x, 'VSC', 1x, a, 1x, 'Will be saved to file: ', &
+      &a, ' opened on unit: ', I7)"
+    character(len=*), parameter :: fmtlinear = &
+      "(4x,'Viscosity will vary linearly with temperature &
+      &change ')"
+    character(len=*), parameter :: fmtnonlinear = &
+      "(4x,'Viscosity will vary non-linearly with temperature &
+      &change ')"
+
+    write (this%iout, '(1x,a)') 'Processing VSC OPTIONS block'
+
+    if (found%viscref) then
+      write (this%iout, '(4x,a,1pg15.6)') &
+        'Reference viscosity has been set to: ', this%viscref
+    end if
+    if (found%viscosityfile) then
+      write (this%iout, fmtfileout) &
+        'VISCOSITY', trim(viscosityfile), this%ioutvisc
+    end if
+    if (found%temp_specname) then
+      write (this%iout, '(4x, a)') 'Temperature species name set to: '// &
+        trim(this%name_temp_spec)
+    end if
+    if (found%thermal_form) then
+      select case (this%thermivisc)
+      case (1)
+        write (this%iout, fmtlinear)
+      case (2)
+        write (this%iout, fmtnonlinear)
+      end select
+    end if
+    if (found%thermal_a2) then
+      if (this%thermivisc == 2) then
+        write (this%iout, '(4x,a,1pg15.6)') &
+          'A2 in nonlinear viscosity formulation has been set to: ', &
+          this%a2
+      else
+        write (this%iout, '(4x,a,/,4x,a,/,4x,a)') 'THERMAL_A2 specified by user &
+          &in VSC Package input file. LINEAR viscosity ', 'formulation also &
+          &specified. THERMAL_A2 will not affect ', 'viscosity calculations.'
+      end if
+    end if
+    if (found%thermal_a3) then
+      if (this%thermivisc == 2) then
+        write (this%iout, '(4x,a,1pg15.6)') &
+          'A3 in nonlinear viscosity formulation has been set to: ', &
+          this%a3
+      else
+        write (this%iout, '(4x,a,/,4x,a,/,4x,a)') 'THERMAL_A3 specified by user &
+          &in VSC Package input file. LINEAR viscosity ', 'formulation also &
+          &specified. THERMAL_A3 will not affect ', 'viscosity calculations.'
+      end if
+    end if
+    if (found%thermal_a4) then
+      if (this%thermivisc == 2) then
+        write (this%iout, '(4x,a,1pg15.6)') &
+          'A4 in nonlinear viscosity formulation has been set to: ', &
+          this%a4
+      else
+        write (this%iout, '(4x,a,/,4x,a,/,4x,a)') 'THERMAL_A4 specified by user &
+          &in VSC Package input file. LINEAR viscosity ', 'formulation also &
+          &specified. THERMAL_A4 will not affect ', 'viscosity calculations.'
+      end if
+    end if
+
+    write (this%iout, '(1x,a)') 'end of VSC options block'
+  end subroutine log_options
 
   !> @brief Sets options as opposed to reading them from a file
   !<

@@ -22,15 +22,8 @@ module ParticleEventsModule
   contains
     procedure, public :: subscribe
     procedure, public :: unsubscribe
-    procedure :: dispatch
+    procedure, public :: dispatch
     procedure :: destroy
-    ! particle events
-    procedure, public :: release
-    procedure, public :: cellexit
-    procedure, public :: timestep
-    procedure, public :: terminate
-    procedure, public :: weaksink
-    procedure, public :: usertime
   end type ParticleEventDispatcherType
 
   abstract interface
@@ -59,7 +52,7 @@ contains
     end if
   end subroutine unsubscribe
 
-  !> @brief Dispatch an event. Internal use only.
+  !> @brief Dispatch an event.
   subroutine dispatch(this, particle, event)
     use TdisModule, only: kper, kstp, totimc
     ! dummy
@@ -100,68 +93,5 @@ contains
     if (associated(this%consumer)) &
       deallocate (this%consumer)
   end subroutine destroy
-
-  !> @brief Particle is released.
-  subroutine release(this, particle)
-    class(ParticleEventDispatcherType), intent(inout) :: this
-    type(ParticleType), pointer, intent(inout) :: particle
-    class(ParticleEventType), pointer :: event
-
-    allocate (ReleaseEventType :: event)
-    call this%dispatch(particle, event)
-  end subroutine release
-
-  !> @brief Particle exits a cell.
-  subroutine cellexit(this, particle)
-    class(ParticleEventDispatcherType), intent(inout) :: this
-    type(ParticleType), pointer, intent(inout) :: particle
-    class(ParticleEventType), pointer :: event
-
-    allocate (CellExitEventType :: event)
-    call this%dispatch(particle, event)
-  end subroutine cellexit
-
-  !> @brief Particle terminates.
-  subroutine terminate(this, particle, status)
-    class(ParticleEventDispatcherType), intent(inout) :: this
-    type(ParticleType), pointer, intent(inout) :: particle
-    integer(I4B), intent(in), optional :: status
-    class(ParticleEventType), pointer :: event
-
-    particle%advancing = .false.
-    if (present(status)) particle%istatus = status
-    allocate (TerminationEventType :: event)
-    call this%dispatch(particle, event)
-  end subroutine terminate
-
-  !> @brief Time step ends.
-  subroutine timestep(this, particle)
-    class(ParticleEventDispatcherType), intent(inout) :: this
-    type(ParticleType), pointer, intent(inout) :: particle
-    class(ParticleEventType), pointer :: event
-
-    allocate (TimeStepEventType :: event)
-    call this%dispatch(particle, event)
-  end subroutine timestep
-
-  !> @brief Particle leaves a weak sink.
-  subroutine weaksink(this, particle)
-    class(ParticleEventDispatcherType), intent(inout) :: this
-    type(ParticleType), pointer, intent(inout) :: particle
-    class(ParticleEventType), pointer :: event
-
-    allocate (WeakSinkEventType :: event)
-    call this%dispatch(particle, event)
-  end subroutine weaksink
-
-  !> @brief User-defined tracking time occurs.
-  subroutine usertime(this, particle)
-    class(ParticleEventDispatcherType), intent(inout) :: this
-    type(ParticleType), pointer, intent(inout) :: particle
-    class(ParticleEventType), pointer :: event
-
-    allocate (UserTimeEventType :: event)
-    call this%dispatch(particle, event)
-  end subroutine usertime
 
 end module ParticleEventsModule

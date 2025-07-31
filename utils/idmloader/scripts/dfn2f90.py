@@ -383,7 +383,14 @@ class Dfn2F90:
 
             longname = ""
             if "longname" in v:
-                longname = v["longname"].replace("'", "")
+                llist = textwrap.wrap(v["longname"].replace("'", ""), 70)
+                if len(llist) == 1:
+                    longname = llist[0]
+                elif len(llist) > 1:
+                    longname = f"{llist[0]}&\n"
+                    for l in llist[1:-1]:
+                        longname += f"     & {l}&\n"
+                    longname += f"     & {llist[len(llist) - 1]}"
 
             inrec = ".false."
             if "in_record" in v:

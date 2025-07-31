@@ -32,7 +32,6 @@ section = "fixes"
 subsection = "stress"
 description = "Fixed viscosity ratio assignment in the GWT MAW package when the GWF VSC package is active."
 
-
 [[items]]
 section = "fixes"
 subsection = "internal"
@@ -42,3 +41,13 @@ description = "Fixed bugs in the GWF VSC and BUY packages, affecting GWT simulat
 section = "fixes"
 subsection = "solution"
 description = "With the PRT model's Particle Release Package's EXTEND\\_TRACKING option enabled, particles beginning the simulation's final timestep in a stationary cell (an active cell with no flow across any boundary) were not terminated gracefully. Particles in these conditions will now terminate properly with status code 10 (timeout)."
+
+[[items]]
+section = "fixes"
+subsection = "parallel"
+description = "Fixed a memory access exception that can occur when writing convergence information to a CSV file (through the CSV\\_OUTER\\_OUTPUT option in IMS) for a parallel solution."
+
+[[items]]
+section = "features"
+subsection = "solution"
+description = "Added an optional new COORDINATE\\_CHECK\\_METHOD option to the PRT model's Particle Release Package, accepting values 'EAGER' (default) or 'NONE'. 'NONE' disables release-time verification that release point coordinates and release point cell IDs match, which can significantly reduce runtime when releasing many particles."

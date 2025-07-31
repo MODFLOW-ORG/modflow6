@@ -15,6 +15,7 @@ type string
 shape
 reader urword
 optional true
+mf6internal temp_specname
 longname auxspeciesname that corresponds to temperature
 description string used to identify the auxspeciesname in PACKAGEDATA that corresponds to the temperature species.  There can be only one occurrence of this temperature species name in the PACKAGEDATA block or the program will terminate with an error.  This value has no effect if viscosity does not depend on temperature.
 
@@ -25,6 +26,7 @@ shape
 reader urword
 optional true
 valid linear nonlinear
+mf6internal thermal_form
 longname keyword to specify viscosity formulation for the temperature species
 description may be used for specifying which viscosity formulation to use for the temperature species. Can be either LINEAR or NONLINEAR. The LINEAR viscosity formulation is the default.
 
@@ -62,6 +64,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal viscosity_fr
 longname
 description
 
@@ -108,7 +111,7 @@ type integer
 reader urword
 optional false
 longname number of species used in viscosity equation of state
-description number of species used in the viscosity equation of state.  If either concentrations or temperature (or both) are used to update viscosity then then nrhospecies needs to be at least one.
+description number of species used in the viscosity equation of state.  If either concentrations or temperature (or both) are used to update viscosity then then nviscspecies needs to be at least one.
 
 
 # --------------------- gwf vsc packagedata ---------------------
@@ -116,7 +119,7 @@ description number of species used in the viscosity equation of state.  If eithe
 block packagedata
 name packagedata
 type recarray iviscspec dviscdc cviscref modelname auxspeciesname
-shape (nrhospecies)
+shape (nviscspecies)
 reader urword
 longname
 description

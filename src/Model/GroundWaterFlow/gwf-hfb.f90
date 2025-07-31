@@ -2,10 +2,11 @@
 module GwfHfbModule
 
   use KindModule, only: DP, I4B
+  use SimVariablesModule, only: errmsg
+  use SimModule, only: store_error, count_errors, store_error_filename
   use Xt3dModule, only: Xt3dType
   use GwfVscModule, only: GwfVscType
   use NumericalPackageModule, only: NumericalPackageType
-  use BlockParserModule, only: BlockParserType
   use BaseDisModule, only: DisBaseType
   use MatrixBaseModule
 
@@ -53,9 +54,9 @@ module GwfHfbModule
     procedure :: hfb_da
     procedure :: allocate_scalars
     procedure, private :: allocate_arrays
-    procedure, private :: read_options
-    procedure, private :: read_dimensions
-    procedure, private :: read_data
+    procedure, private :: source_options
+    procedure, private :: source_dimensions
+    procedure, private :: source_data
     procedure, private :: check_data
     procedure, private :: condsat_reset
     procedure, private :: condsat_modify
@@ -66,10 +67,11 @@ contains
 
   !> @brief Create a new hfb object
   !<
-  subroutine hfb_cr(hfbobj, name_model, inunit, iout)
+  subroutine hfb_cr(hfbobj, name_model, input_mempath, inunit, iout)
     ! -- dummy
     type(GwfHfbType), pointer :: hfbobj
     character(len=*), intent(in) :: name_model
+    character(len=*), intent(in) :: input_mempath
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
     !
@@ -77,7 +79,7 @@ contains
     allocate (hfbobj)
     !
     ! -- create name and memory path
-    call hfbobj%set_names(1, name_model, 'HFB', 'HFB')
+    call hfbobj%set_names(1, name_model, 'HFB', 'HFB', input_mempath)
     !
     ! -- Allocate scalars
     call hfbobj%allocate_scalars()
@@ -85,9 +87,6 @@ contains
     ! -- Save unit numbers
     hfbobj%inunit = inunit
     hfbobj%iout = iout
-    !
-    ! -- Initialize block parser
-    call hfbobj%parser%Initialize(hfbobj%inunit, hfbobj%iout)
   end subroutine hfb_cr
 
   !> @brief Allocate and read
@@ -106,10 +105,10 @@ contains
     ! -- formats
     character(len=*), parameter :: fmtheader = &
       "(1x, /1x, 'HFB -- HORIZONTAL FLOW BARRIER PACKAGE, VERSION 8, ', &
-      &'4/24/2015 INPUT READ FROM UNIT ', i4, //)"
+      &'4/24/2015 INPUT READ FROM MEMPATH: ', a, /)"
     !
     ! -- Print a message identifying the node property flow package.
-    write (this%iout, fmtheader) this%inunit
+    write (this%iout, fmtheader) this%input_mempath
     !
     ! -- Set pointers
     this%dis => dis
@@ -129,8 +128,8 @@ contains
     call mem_setptr(this%bot, 'BOT', create_mem_path(this%name_model, 'DIS'))
     call mem_setptr(this%hwva, 'HWVA', create_mem_path(this%name_model, 'CON'))
     !
-    call this%read_options()
-    call this%read_dimensions()
+    call this%source_options()
+    call this%source_dimensions()
     call this%allocate_arrays()
     !
     ! --  If vsc package active, set ivsc
@@ -148,52 +147,20 @@ contains
   !<
   subroutine hfb_rp(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
-    use SimModule, only: store_error, count_errors, store_error_unit
-    use TdisModule, only: kper, nper
+    use MemoryManagerModule, only: mem_setptr
+    use TdisModule, only: kper
     ! -- dummy
     class(GwfHfbType) :: this
     ! -- local
-    character(len=LINELENGTH) :: line, errmsg
-    integer(I4B) :: ierr
-    logical :: isfound
+    integer(I4B), pointer :: iper
     ! -- formats
-    character(len=*), parameter :: fmtblkerr = &
-      &"('Error.  Looking for BEGIN PERIOD iper.  Found ', a, ' instead.')"
     character(len=*), parameter :: fmtlsp = &
       &"(1X,/1X,'REUSING ',A,'S FROM LAST STRESS PERIOD')"
-    !
-    ! -- Set ionper to the stress period number for which a new block of data
-    !    will be read.
-    if (this%ionper < kper) then
-      !
-      ! -- get period block
-      call this%parser%GetBlock('PERIOD', isfound, ierr, &
-                                supportOpenClose=.true., &
-                                blockRequired=.false.)
-      if (isfound) then
-        !
-        ! -- read ionper and check for increasing period numbers
-        call this%read_check_ionper()
-      else
-        !
-        ! -- PERIOD block not found
-        if (ierr < 0) then
-          ! -- End of file found; data applies for remainder of simulation.
-          this%ionper = nper + 1
-        else
-          ! -- Found invalid block
-          call this%parser%GetCurrentLine(line)
-          write (errmsg, fmtblkerr) adjustl(trim(line))
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end if
-      end if
-    end if
-    !
-    if (this%ionper == kper) then
+
+    call mem_setptr(iper, 'IPER', this%input_mempath)
+    if (iper == kper) then
       call this%condsat_reset()
-      call this%read_data()
+      call this%source_data()
       call this%condsat_modify()
     else
       write (this%iout, fmtlsp) 'HFB'
@@ -539,170 +506,160 @@ contains
     end do
   end subroutine allocate_arrays
 
-  !> @brief Read a hfb options block
+  !> @ brief Source hfb input options
   !<
-  subroutine read_options(this)
+  subroutine source_options(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
-    use SimModule, only: store_error, store_error_unit
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwfHfbInputModule, only: GwfHfbParamFoundType
     ! -- dummy
     class(GwfHfbType) :: this
     ! -- local
-    character(len=LINELENGTH) :: errmsg, keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
-    !
-    ! -- get options block
-    call this%parser%GetBlock('OPTIONS', isfound, ierr, &
-                              supportOpenClose=.true., blockRequired=.false.)
-    !
-    ! -- parse options block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING HFB OPTIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('PRINT_INPUT')
-          this%iprpak = 1
-          write (this%iout, '(4x,a)') &
-            'THE LIST OF HFBS WILL BE PRINTED.'
-        case default
-          write (errmsg, '(a,a)') 'Unknown HFB option: ', &
-            trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END OF HFB OPTIONS'
-    end if
-  end subroutine read_options
+    type(GwfHfbParamFoundType) :: found
 
-  !> @brief Read the dimensions for this package
-  !<
-  subroutine read_dimensions(this)
-    use ConstantsModule, only: LINELENGTH
-    use SimModule, only: store_error, store_error_unit
-    ! -- dummy
-    class(GwfHfbType), intent(inout) :: this
-    ! -- local
-    character(len=LINELENGTH) :: errmsg, keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
-    !
-    ! -- get dimensions block
-    call this%parser%GetBlock('DIMENSIONS', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse dimensions block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'PROCESSING HFB DIMENSIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('MAXHFB')
-          this%maxhfb = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i7)') 'MAXHFB = ', this%maxhfb
-        case default
-          write (errmsg, '(a,a)') &
-            'Unknown HFB dimension: ', trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      !
-      write (this%iout, '(1x,a)') 'END OF HFB DIMENSIONS'
-    else
-      call store_error('Required DIMENSIONS block not found.')
-      call this%parser%StoreErrorUnit()
+    ! update options from input context
+    call mem_set_value(this%iprpak, 'PRINT_INPUT', this%input_mempath, &
+                       found%print_input)
+
+    ! log options
+    write (this%iout, '(1x,a)') 'PROCESSING HFB OPTIONS'
+    if (found%print_input) then
+      write (this%iout, '(4x,a)') &
+        'THE LIST OF HFBS WILL BE PRINTED.'
     end if
-    !
-    ! -- verify dimensions were set
+    write (this%iout, '(1x,a)') 'END OF HFB OPTIONS'
+  end subroutine source_options
+
+  !> @ brief Source hfb input options
+  !<
+  subroutine source_dimensions(this)
+    ! -- modules
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwfHfbInputModule, only: GwfHfbParamFoundType
+    ! -- dummy
+    class(GwfHfbType) :: this
+    ! -- local
+    type(GwfHfbParamFoundType) :: found
+
+    ! update dimensions from input context
+    call mem_set_value(this%maxhfb, 'MAXBOUND', this%input_mempath, &
+                       found%maxbound)
+
+    ! log dimensions
+    write (this%iout, '(/1x,a)') 'PROCESSING HFB DIMENSIONS'
+    write (this%iout, '(4x,a,i7)') 'MAXHFB = ', this%maxhfb
+    write (this%iout, '(1x,a)') 'END OF HFB DIMENSIONS'
+
+    ! check dimensions
     if (this%maxhfb <= 0) then
       write (errmsg, '(a)') &
         'MAXHFB must be specified with value greater than zero.'
       call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_mempath)
     end if
-  end subroutine read_dimensions
+  end subroutine source_dimensions
 
-  !> @brief Read HFB period block
-  !!
-  !! Data are in form of:
-  !!   L, IROW1, ICOL1, IROW2, ICOL2, HYDCHR
-  !! or for unstructured:
-  !!   N1, N2, HYDCHR
+  !> @ brief source hfb period data
   !<
-  subroutine read_data(this)
+  subroutine source_data(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
-    use SimModule, only: store_error, count_errors, store_error_unit
     use TdisModule, only: kper
+    use ConstantsModule, only: LINELENGTH
+    use MemoryManagerModule, only: mem_setptr
+    use GeomUtilModule, only: get_node
     ! -- dummy
-    class(GwfHfbType) :: this
+    class(GwfHfbType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: nodenstr, nodemstr, cellidm, cellidn
-    integer(I4B) :: ihfb, nerr
-    logical :: endOfBlock
+    integer(I4B), dimension(:, :), pointer, contiguous :: cellids1, cellids2
+    integer(I4B), dimension(:), pointer :: cellid1, cellid2
+    real(DP), dimension(:), pointer, contiguous :: hydchr
+    character(len=LINELENGTH) :: nodenstr, nodemstr
+    integer(I4B), pointer :: nbound
+    integer(I4B) :: n, nodeu1, nodeu2, noder1, noder2
     ! -- formats
     character(len=*), parameter :: fmthfb = "(i10, 2a10, 1(1pg15.6))"
-    !
+
+    ! set input context pointers
+    call mem_setptr(nbound, 'NBOUND', this%input_mempath)
+    call mem_setptr(cellids1, 'CELLID1', this%input_mempath)
+    call mem_setptr(cellids2, 'CELLID2', this%input_mempath)
+    call mem_setptr(hydchr, 'HYDCHR', this%input_mempath)
+
+    ! set nhfb
+    this%nhfb = nbound
+
+    ! log data
     write (this%iout, '(//,1x,a)') 'READING HFB DATA'
     if (this%iprpak > 0) then
       write (this%iout, '(3a10, 1a15)') 'HFB NUM', 'CELL1', 'CELL2', &
         'HYDCHR'
     end if
-    !
-    ihfb = 0
-    this%nhfb = 0
-    readloop: do
-      !
-      ! -- Check for END of block
-      call this%parser%GetNextLine(endOfBlock)
-      if (endOfBlock) exit
-      !
-      ! -- Reset lloc and read noden, nodem, and hydchr
-      ihfb = ihfb + 1
-      if (ihfb > this%maxhfb) then
-        call store_error('MAXHFB not large enough.')
-        call this%parser%StoreErrorUnit()
+
+    ! update state
+    do n = 1, this%nhfb
+
+      ! set cellid
+      cellid1 => cellids1(:, n)
+      cellid2 => cellids2(:, n)
+
+      ! set node user
+      if (this%dis%ndim == 1) then
+        nodeu1 = cellid1(1)
+        nodeu2 = cellid2(1)
+      elseif (this%dis%ndim == 2) then
+        nodeu1 = get_node(cellid1(1), 1, cellid1(2), &
+                          this%dis%mshape(1), 1, &
+                          this%dis%mshape(2))
+        nodeu2 = get_node(cellid2(1), 1, cellid2(2), &
+                          this%dis%mshape(1), 1, &
+                          this%dis%mshape(2))
+      else
+        nodeu1 = get_node(cellid1(1), cellid1(2), cellid1(3), &
+                          this%dis%mshape(1), &
+                          this%dis%mshape(2), &
+                          this%dis%mshape(3))
+        nodeu2 = get_node(cellid2(1), cellid2(2), cellid2(3), &
+                          this%dis%mshape(1), &
+                          this%dis%mshape(2), &
+                          this%dis%mshape(3))
       end if
-      call this%parser%GetCellid(this%dis%ndim, cellidn)
-      this%noden(ihfb) = this%dis%noder_from_cellid(cellidn, &
-                                                    this%parser%iuactive, &
-                                                    this%iout)
-      call this%parser%GetCellid(this%dis%ndim, cellidm)
-      this%nodem(ihfb) = this%dis%noder_from_cellid(cellidm, &
-                                                    this%parser%iuactive, &
-                                                    this%iout)
-      this%hydchr(ihfb) = this%parser%GetDouble()
-      !
-      ! -- Print input if requested
+
+      ! set nodes
+      noder1 = this%dis%get_nodenumber(nodeu1, 1)
+      noder2 = this%dis%get_nodenumber(nodeu2, 1)
+      if (noder1 <= 0 .or. &
+          noder2 <= 0) then
+        cycle
+      else
+        this%noden(n) = noder1
+        this%nodem(n) = noder2
+      end if
+
+      this%hydchr(n) = hydchr(n)
+
+      ! print input if requested
       if (this%iprpak /= 0) then
-        call this%dis%noder_to_string(this%noden(ihfb), nodenstr)
-        call this%dis%noder_to_string(this%nodem(ihfb), nodemstr)
-        write (this%iout, fmthfb) ihfb, trim(adjustl(nodenstr)), &
-          trim(adjustl(nodemstr)), this%hydchr(ihfb)
+        call this%dis%noder_to_string(this%noden(n), nodenstr)
+        call this%dis%noder_to_string(this%nodem(n), nodemstr)
+        write (this%iout, fmthfb) n, trim(adjustl(nodenstr)), &
+          trim(adjustl(nodemstr)), this%hydchr(n)
       end if
-      !
-      this%nhfb = ihfb
-    end do readloop
-    !
-    ! -- Stop if errors
-    nerr = count_errors()
-    if (nerr > 0) then
+    end do
+
+    ! check errors
+    if (count_errors() > 0) then
       call store_error('Errors encountered in HFB input file.')
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
-    !
+
+    ! finalize logging
     write (this%iout, '(3x,i0,a,i0)') this%nhfb, &
       ' HFBs READ FOR STRESS PERIOD ', kper
-    call this%check_data()
     write (this%iout, '(1x,a)') 'END READING HFB DATA'
-  end subroutine read_data
+
+    ! input data check
+    call this%check_data()
+  end subroutine source_data
 
   !> @brief Check for hfb's between two unconnected cells and write a warning
   !!
@@ -711,14 +668,12 @@ contains
   subroutine check_data(this)
     ! -- modules
     use ConstantsModule, only: LINELENGTH
-    use SimModule, only: store_error, count_errors, store_error_unit
     ! -- dummy
     class(GwfHfbType) :: this
     ! -- local
     integer(I4B) :: ihfb, n, m
     integer(I4B) :: ipos
     character(len=LINELENGTH) :: nodenstr, nodemstr
-    character(len=LINELENGTH) :: errmsg
     logical :: found
     ! -- formats
     character(len=*), parameter :: fmterr = "(1x, 'HFB no. ',i0, &
@@ -761,7 +716,7 @@ contains
     !
     ! -- Stop if errors detected
     if (count_errors() > 0) then
-      call store_error_unit(this%inunit)
+      call store_error_filename(this%input_fname)
     end if
   end subroutine check_data
 

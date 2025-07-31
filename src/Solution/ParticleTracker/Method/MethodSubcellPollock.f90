@@ -138,7 +138,7 @@ contains
     ! Subcell has no exit face, terminate the particle
     ! todo: after initial release, consider ramifications
     if ((statusVX .eq. 3) .and. (statusVY .eq. 3) .and. (statusVZ .eq. 3)) then
-      call this%events%terminate(particle, status=TERM_NO_EXITS_SUB)
+      call this%terminate(particle, status=TERM_NO_EXITS_SUB)
       return
     end if
 
@@ -150,7 +150,7 @@ contains
     ! tmax is not the end of the simulation, it's just a wildly high upper bound.
     if ((statusVX .eq. 2) .and. (statusVY .eq. 2) .and. (statusVZ .eq. 2) .and. &
         particle%iextend > 0 .and. endofsimulation) then
-      call this%events%terminate(particle, status=TERM_TIMEOUT)
+      call this%terminate(particle, status=TERM_TIMEOUT)
       return
     end if
 
@@ -212,7 +212,7 @@ contains
         particle%z = z * subcell%dz
         particle%ttrack = t
         particle%istatus = ACTIVE
-        call this%events%usertime(particle)
+        call this%usertime(particle)
       end do
     end if
 
@@ -275,7 +275,11 @@ contains
     particle%iboundary(3) = exitFace
 
     ! Save particle track record
-    if (event_code >= 0) call this%dispatch(particle, event_code=event_code)
+    if (event_code == TIMESTEP) then
+      call this%timestep(particle)
+    else if (event_code == CELLEXIT) then
+      call this%cellexit(particle)
+    end if
 
   end subroutine track_subcell
 

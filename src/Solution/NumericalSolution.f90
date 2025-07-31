@@ -1795,9 +1795,11 @@ contains
         !
         ! -- get model number and user node number
         call this%sln_get_nodeu(this%lrch(1, kiter), m_idx, node_user)
+        mp => GetNumericalModelFromList(this%modellist, m_idx)
+        model_id = mp%id
         cpakout = ''
       else if (outer_hncg == DZERO .and. dpak == DZERO) then ! zero change, location could be any
-        m_idx = 0
+        model_id = 0
         node_user = 0
         !
         ! -- then it's a package convergence error
@@ -1807,19 +1809,12 @@ contains
         !    and package name
         outer_hncg = dpak
         ipos0 = index(cmod, '_')
-        read (cmod(1:ipos0 - 1), *) m_idx
+        read (cmod(1:ipos0 - 1), *) model_id
         node_user = ipak
         ipos0 = index(cpak, '-', back=.true.)
         cpakout = cpak(1:ipos0 - 1)
       end if
-      !
-      ! -- write line to outer iteration csv file
-      if (m_idx > 0) then
-        mp => GetNumericalModelFromList(this%modellist, m_idx) ! TODO_MJR: right list?
-        model_id = mp%id
-      else
-        model_id = 0
-      end if
+
       write (this%icsvouterout, '(*(G0,:,","))') &
         this%itertot_sim, totim, kper, kstp, kiter, iter, &
         outer_hncg, model_id, trim(cpakout), node_user
