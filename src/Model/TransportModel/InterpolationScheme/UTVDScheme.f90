@@ -161,7 +161,7 @@ contains
 
   subroutine find_local_extrema(this, n, phi, min_phi, max_phi)
     ! -- dummy
-    class(UTVDSchemeType), target :: this
+    class(UTVDSchemeType) :: this
     integer(I4B), intent(in) :: n
     real(DP), intent(in), dimension(:) :: phi
     real(DP), intent(out) :: min_phi, max_phi
