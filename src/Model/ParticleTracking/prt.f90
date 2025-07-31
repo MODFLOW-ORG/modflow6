@@ -949,13 +949,13 @@ contains
           ! indicates the permanently unreleased event
           ! is not yet recorded, status 8 it has been.
           if (particle%istatus == (-1 * TERM_UNRELEASED)) then
-            call this%events%terminate(particle, status=TERM_UNRELEASED)
+            call this%method%terminate(particle, status=TERM_UNRELEASED)
             call packobj%particles%put(particle, np)
           end if
           if (particle%istatus > ACTIVE) cycle ! Skip terminated particles
           particle%istatus = ACTIVE ! Set active status in case of release
           ! If the particle was released this time step, emit a release event
-          if (particle%trelease >= totimc) call this%events%release(particle)
+          if (particle%trelease >= totimc) call this%method%release(particle)
           ! Maximum time is the end of the time step or the particle
           ! stop time, whichever comes first, unless it's the final
           ! time step and the extend option is on, in which case
@@ -982,7 +982,7 @@ contains
           if (particle%istatus <= ACTIVE .and. &
               (particle%ttrack == particle%tstop .or. &
                (endofsimulation .and. particle%iextend == 0))) &
-            call this%events%terminate(particle, status=TERM_TIMEOUT)
+            call this%method%terminate(particle, status=TERM_TIMEOUT)
           ! Return the particle to the store
           call packobj%particles%put(particle, np)
         end do

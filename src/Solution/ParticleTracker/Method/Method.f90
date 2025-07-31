@@ -7,7 +7,13 @@ module MethodModule
   use SubcellModule, only: SubcellType
   use ParticleModule, only: ParticleType
   use ParticleEventsModule, only: ParticleEventDispatcherType
-  use ParticleEventModule, only: ParticleEventType
+  use ParticleEventModule, only: ParticleEventType, &
+                                 ReleaseEventType, &
+                                 TimeStepEventType, &
+                                 TerminationEventType, &
+                                 WeakSinkEventType, &
+                                 UserTimeEventType, &
+                                 CellExitEventType
   use BaseDisModule, only: DisBaseType
   use PrtFmiModule, only: PrtFmiType
   use CellModule, only: CellType
@@ -50,9 +56,15 @@ module MethodModule
     procedure :: load
     ! Implemented here
     procedure :: init
-    procedure :: dispatch
     procedure :: track
     procedure :: try_pass
+    ! Event firing methods
+    procedure :: release
+    procedure :: cellexit
+    procedure :: terminate
+    procedure :: timestep
+    procedure :: weaksink
+    procedure :: usertime
   end type MethodType
 
   abstract interface
@@ -155,28 +167,67 @@ contains
     call pstop(1, "pass must be overridden")
   end subroutine pass
 
-  !> @brief Dispatch a particle event to handlers.
-  subroutine dispatch(this, particle, event_code)
+  !> @brief Particle is released.
+  subroutine release(this, particle)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    integer(I4B), intent(in) :: event_code
+    class(ParticleEventType), pointer :: event
 
-    select case (event_code)
-    case (0)
-      call this%events%release(particle)
-    case (1)
-      call this%events%cellexit(particle)
-    case (2)
-      call this%events%timestep(particle)
-    case (3)
-      call this%events%terminate(particle)
-    case (4)
-      call this%events%weaksink(particle)
-    case (5)
-      call this%events%usertime(particle)
-    case default
-      call pstop(1, "Programmer error, bad event code")
-    end select
-  end subroutine dispatch
+    allocate (ReleaseEventType :: event)
+    call this%events%dispatch(particle, event)
+  end subroutine release
+
+  !> @brief Particle exits a cell.
+  subroutine cellexit(this, particle)
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(ParticleEventType), pointer :: event
+
+    allocate (CellExitEventType :: event)
+    call this%events%dispatch(particle, event)
+  end subroutine cellexit
+
+  !> @brief Particle terminates.
+  subroutine terminate(this, particle, status)
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    integer(I4B), intent(in), optional :: status
+    class(ParticleEventType), pointer :: event
+
+    particle%advancing = .false.
+    if (present(status)) particle%istatus = status
+    allocate (TerminationEventType :: event)
+    call this%events%dispatch(particle, event)
+  end subroutine terminate
+
+  !> @brief Time step ends.
+  subroutine timestep(this, particle)
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(ParticleEventType), pointer :: event
+
+    allocate (TimeStepEventType :: event)
+    call this%events%dispatch(particle, event)
+  end subroutine timestep
+
+  !> @brief Particle leaves a weak sink.
+  subroutine weaksink(this, particle)
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(ParticleEventType), pointer :: event
+
+    allocate (WeakSinkEventType :: event)
+    call this%events%dispatch(particle, event)
+  end subroutine weaksink
+
+  !> @brief User-defined tracking time occurs.
+  subroutine usertime(this, particle)
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(ParticleEventType), pointer :: event
+
+    allocate (UserTimeEventType :: event)
+    call this%events%dispatch(particle, event)
+  end subroutine usertime
 
 end module MethodModule
