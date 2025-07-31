@@ -187,6 +187,7 @@ module NumericalSolutionModule
     procedure :: get_backtracking_flag
     procedure :: apply_backtracking
     procedure :: sln_get_idvscale
+    procedure :: sln_maxval
 
     ! private
     procedure, private :: sln_connect
@@ -194,7 +195,6 @@ module NumericalSolutionModule
     procedure, private :: sln_ls
     procedure, private :: sln_setouter
     procedure, private :: sln_backtracking
-    procedure, private :: sln_maxval
     procedure, private :: sln_calcdx
     procedure, private :: sln_calc_residual
     procedure, private :: sln_l2norm
@@ -2936,7 +2936,7 @@ contains
   !<
   subroutine sln_maxval(this, nsize, v, vmax)
     ! -- dummy variables
-    class(NumericalSolutionType), intent(inout) :: this !< NumericalSolutionType instance
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     integer(I4B), intent(in) :: nsize !< length of vector
     real(DP), dimension(nsize), intent(in) :: v !< input vector
     real(DP), intent(inout) :: vmax !< maximum value

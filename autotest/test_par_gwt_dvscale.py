@@ -12,14 +12,9 @@ from flopy.mf6.utils import Mf6Splitter
 from framework import TestFramework
 
 cases = ["par_dvscale"]
-options = [True]
 
 
-def build_models(idx, test):
-    from test_gwt_dvscale import build_models as build
-
-    sim, dummy = build(idx, test)
-
+def split_model(sim, ws):
     gwf = sim.get_model()
     nrow, ncol = gwf.dis.nrow.array, gwf.dis.ncol.array
     split_array = np.ones((nrow, ncol), dtype=int)
@@ -27,9 +22,23 @@ def build_models(idx, test):
 
     mfsplit = Mf6Splitter(sim)
     new_sim = mfsplit.split_multi_model(split_array)
-    new_sim.set_sim_path(test.workspace)
+    new_sim.set_sim_path(ws)
 
-    return new_sim, dummy
+    return new_sim
+
+
+def build_models(idx, test):
+    from test_gwt_dvscale import build_model as build
+
+    ws = test.workspace
+    sim = build(idx, ws, dvscale=True)
+    sim = split_model(sim, ws)
+
+    ws = test.workspace / "mf6"
+    mc = build(idx, ws, dvscale=False)
+    mc = split_model(mc, ws)
+
+    return sim, mc
 
 
 def check_results(test):
@@ -48,7 +57,7 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_results(t),
-        compare=None,
+        compare="mf6",
         parallel=True,
         ncpus=2,
     )
