@@ -27,7 +27,7 @@ description xxx
 block attributes
 name time_series_names
 type string
-shape any1d
+shape (any1d)
 tagged false
 reader urword
 optional false
@@ -59,7 +59,7 @@ block attributes
 name interpolation_method
 type string
 valid stepwise linear linearend
-shape time_series_names
+shape (time_series_names)
 tagged false
 reader urword
 optional false
@@ -120,7 +120,7 @@ description  xxx
 block attributes
 name sfacval
 type double precision
-shape <time_series_name
+shape (<time_series_name)
 tagged false
 reader urword
 optional false
@@ -175,7 +175,7 @@ description A numeric time relative to the start of the simulation, in the time 
 block timeseries
 name ts_array
 type double precision
-shape time_series_names
+shape (time_series_names)
 tagged false
 reader urword
 optional false

@@ -128,7 +128,7 @@ contains
     use MemoryHelperModule, only: create_mem_path
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
-    use GwfNamInputModule, only: GwfNamParamFoundType
+    use PrtNamInputModule, only: PrtNamParamFoundType
     ! dummy
     character(len=*), intent(in) :: filename
     integer(I4B), intent(in) :: id
@@ -138,7 +138,7 @@ contains
     class(BaseModelType), pointer :: model
     character(len=LENMEMPATH) :: input_mempath
     character(len=LINELENGTH) :: lst_fname
-    type(GwfNamParamFoundType) :: found
+    type(PrtNamParamFoundType) :: found
 
     ! Allocate a new PRT Model (this)
     allocate (this)
@@ -949,13 +949,13 @@ contains
           ! indicates the permanently unreleased event
           ! is not yet recorded, status 8 it has been.
           if (particle%istatus == (-1 * TERM_UNRELEASED)) then
-            call this%events%terminate(particle, status=TERM_UNRELEASED)
+            call this%method%terminate(particle, status=TERM_UNRELEASED)
             call packobj%particles%put(particle, np)
           end if
           if (particle%istatus > ACTIVE) cycle ! Skip terminated particles
           particle%istatus = ACTIVE ! Set active status in case of release
           ! If the particle was released this time step, emit a release event
-          if (particle%trelease >= totimc) call this%events%release(particle)
+          if (particle%trelease >= totimc) call this%method%release(particle)
           ! Maximum time is the end of the time step or the particle
           ! stop time, whichever comes first, unless it's the final
           ! time step and the extend option is on, in which case
@@ -982,7 +982,7 @@ contains
           if (particle%istatus <= ACTIVE .and. &
               (particle%ttrack == particle%tstop .or. &
                (endofsimulation .and. particle%iextend == 0))) &
-            call this%events%terminate(particle, status=TERM_TIMEOUT)
+            call this%method%terminate(particle, status=TERM_TIMEOUT)
           ! Return the particle to the store
           call packobj%particles%put(particle, np)
         end do
@@ -1144,21 +1144,11 @@ contains
 
   !> @brief Write model namfile options to list file
   subroutine log_namfile_options(this, found)
-    use GwfNamInputModule, only: GwfNamParamFoundType
+    use PrtNamInputModule, only: PrtNamParamFoundType
     class(PrtModelType) :: this
-    type(GwfNamParamFoundType), intent(in) :: found
+    type(PrtNamParamFoundType), intent(in) :: found
 
     write (this%iout, '(1x,a)') 'NAMEFILE OPTIONS:'
-
-    if (found%newton) then
-      write (this%iout, '(4x,a)') &
-        'NEWTON-RAPHSON method enabled for the model.'
-      if (found%under_relaxation) then
-        write (this%iout, '(4x,a,a)') &
-          'NEWTON-RAPHSON UNDER-RELAXATION based on the bottom ', &
-          'elevation of the model will be applied to the model.'
-      end if
-    end if
 
     if (found%print_input) then
       write (this%iout, '(4x,a)') 'STRESS PACKAGE INPUT WILL BE PRINTED '// &

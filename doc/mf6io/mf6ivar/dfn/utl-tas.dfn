@@ -26,7 +26,7 @@ description xxx
 block attributes
 name time_series_name
 type string
-shape any1d
+shape (any1d)
 tagged false
 reader urword
 optional false

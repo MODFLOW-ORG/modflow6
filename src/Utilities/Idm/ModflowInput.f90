@@ -103,7 +103,7 @@ contains
     character(len=LENPACKAGETYPE) :: sc_type
     sc_type = subcomponent_type
     select case (subcomponent_type)
-    case ('DRN', 'EVT', 'GHB', 'RCH', 'SCP', 'WEL')
+    case ('DRN', 'EVT', 'GHB', 'RCH', 'RIV', 'SCP', 'WEL')
       sc_type = read_as_arrays(filetype, filename, component_type, &
                                subcomponent_type)
     case default

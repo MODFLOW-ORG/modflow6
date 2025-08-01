@@ -213,8 +213,8 @@ contains
     ! If the subcell has no exit face, terminate the particle.
     ! todo: after initial release, consider ramifications
     if (itopbotexit == 0 .and. itrifaceexit == 0) then
-      call this%events%terminate(particle, &
-                                 status=TERM_NO_EXITS_SUB)
+      call this%terminate(particle, &
+                          status=TERM_NO_EXITS_SUB)
       return
     end if
 
@@ -242,8 +242,8 @@ contains
 
     ! -- Make sure dt is positive
     if (dtexit < DZERO) then
-      call this%events%terminate(particle, &
-                                 status=TERM_NO_EXITS_SUB)
+      call this%terminate(particle, &
+                          status=TERM_NO_EXITS_SUB)
       return
     end if
 
@@ -269,7 +269,7 @@ contains
         particle%z = z
         particle%ttrack = t
         particle%istatus = ACTIVE
-        call this%events%usertime(particle)
+        call this%usertime(particle)
       end do
     end if
 
@@ -301,7 +301,11 @@ contains
     particle%ttrack = t
     particle%iboundary(3) = exitFace
 
-    call this%dispatch(particle, event_code=event_code)
+    if (event_code == TIMESTEP) then
+      call this%timestep(particle)
+    else if (event_code == CELLEXIT) then
+      call this%cellexit(particle)
+    end if
   end subroutine track_subcell
 
   !> @brief Do calculations related to analytical z solution

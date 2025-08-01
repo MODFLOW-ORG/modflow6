@@ -27,6 +27,8 @@ module ParallelSolutionModule
     procedure :: sln_calc_ptc => par_calc_ptc
     procedure :: sln_underrelax => par_underrelax
     procedure :: sln_backtracking_xupdate => par_backtracking_xupdate
+    procedure :: sln_maxval => par_maxval
+    procedure :: sln_get_idvscale => par_get_idvscale
 
   end type ParallelSolutionType
 
@@ -244,5 +246,62 @@ contains
     call g_prof%stop(this%tmr_backtracking)
 
   end subroutine par_backtracking_xupdate
+
+  !> @brief synchronize idvscale flag over processes
+  !<
+  function par_get_idvscale(this) result(idv_scale_global)
+    ! -- dummy variables
+    class(ParallelSolutionType) :: this !< ParallelSolutionType instance
+    integer(I4B) :: idv_scale_global !< global idv_scale flag (1) dv_scaling performed (0) dv_scaling not performed (-1) error
+    ! -- local variables
+    integer(I4B) :: idv_scale_local
+    type(MpiWorldType), pointer :: mpi_world
+    integer :: ierr
+
+    mpi_world => get_mpi_world()
+
+    ! get local idvscale flag
+    idv_scale_local = this%NumericalSolutionType%sln_get_idvscale()
+
+    ! reduce into global decision (if any, then all)
+    call MPI_Allreduce(idv_scale_local, idv_scale_global, 1, MPI_INTEGER, &
+                       MPI_MIN, mpi_world%comm, ierr)
+    call CHECK_MPI(ierr)
+
+  end function par_get_idvscale
+
+  !> @brief synchronize maxval over processes
+  !<
+  subroutine par_maxval(this, nsize, v, vmax)
+    ! -- dummy variables
+    class(ParallelSolutionType) :: this !< ParallelSolutionType instance
+    integer(I4B), intent(in) :: nsize !< length of vector
+    real(DP), dimension(nsize), intent(in) :: v !< input vector
+    real(DP), intent(inout) :: vmax !< maximum value
+    ! -- local variables
+    real(DP) :: vmax_local
+    real(DP) :: vmin_global
+    type(MpiWorldType), pointer :: mpi_world
+    integer :: ierr
+
+    mpi_world => get_mpi_world()
+
+    ! determine local vmax
+    call this%NumericalSolutionType%sln_maxval(nsize, v, vmax_local)
+
+    ! reduce into global decision (if any, then all)
+    call MPI_Allreduce(vmax_local, vmax, 1, MPI_DOUBLE_PRECISION, &
+                       MPI_MAX, mpi_world%comm, ierr)
+    call CHECK_MPI(ierr)
+
+    call MPI_Allreduce(vmax_local, vmin_global, 1, MPI_DOUBLE_PRECISION, &
+                       MPI_MIN, mpi_world%comm, ierr)
+    call CHECK_MPI(ierr)
+
+    if (abs(vmin_global) > abs(vmax)) then
+      vmax = vmin_global
+    end if
+
+  end subroutine par_maxval
 
 end module ParallelSolutionModule

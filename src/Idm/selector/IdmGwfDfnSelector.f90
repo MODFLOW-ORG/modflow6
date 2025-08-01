@@ -6,6 +6,7 @@ module IdmGwfDfnSelectorModule
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
   use GwfNamInputModule
+  use GwfBuyInputModule
   use GwfChdInputModule
   use GwfCsubInputModule
   use GwfDisInputModule
@@ -17,12 +18,15 @@ module IdmGwfDfnSelectorModule
   use GwfEvtaInputModule
   use GwfGhbInputModule
   use GwfGhbgInputModule
+  use GwfHfbInputModule
   use GwfIcInputModule
   use GwfNpfInputModule
   use GwfRchInputModule
   use GwfRchaInputModule
   use GwfRivInputModule
+  use GwfRivgInputModule
   use GwfStoInputModule
+  use GwfVscInputModule
   use GwfWelInputModule
   use GwfWelgInputModule
 
@@ -62,6 +66,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_param_pointer(input_definition, gwf_nam_param_definitions)
+    case ('BUY')
+      call set_param_pointer(input_definition, gwf_buy_param_definitions)
     case ('CHD')
       call set_param_pointer(input_definition, gwf_chd_param_definitions)
     case ('CSUB')
@@ -84,6 +90,8 @@ contains
       call set_param_pointer(input_definition, gwf_ghb_param_definitions)
     case ('GHBG')
       call set_param_pointer(input_definition, gwf_ghbg_param_definitions)
+    case ('HFB')
+      call set_param_pointer(input_definition, gwf_hfb_param_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwf_ic_param_definitions)
     case ('NPF')
@@ -94,8 +102,12 @@ contains
       call set_param_pointer(input_definition, gwf_rcha_param_definitions)
     case ('RIV')
       call set_param_pointer(input_definition, gwf_riv_param_definitions)
+    case ('RIVG')
+      call set_param_pointer(input_definition, gwf_rivg_param_definitions)
     case ('STO')
       call set_param_pointer(input_definition, gwf_sto_param_definitions)
+    case ('VSC')
+      call set_param_pointer(input_definition, gwf_vsc_param_definitions)
     case ('WEL')
       call set_param_pointer(input_definition, gwf_wel_param_definitions)
     case ('WELG')
@@ -112,6 +124,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_param_pointer(input_definition, gwf_nam_aggregate_definitions)
+    case ('BUY')
+      call set_param_pointer(input_definition, gwf_buy_aggregate_definitions)
     case ('CHD')
       call set_param_pointer(input_definition, gwf_chd_aggregate_definitions)
     case ('CSUB')
@@ -134,6 +148,8 @@ contains
       call set_param_pointer(input_definition, gwf_ghb_aggregate_definitions)
     case ('GHBG')
       call set_param_pointer(input_definition, gwf_ghbg_aggregate_definitions)
+    case ('HFB')
+      call set_param_pointer(input_definition, gwf_hfb_aggregate_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwf_ic_aggregate_definitions)
     case ('NPF')
@@ -144,8 +160,12 @@ contains
       call set_param_pointer(input_definition, gwf_rcha_aggregate_definitions)
     case ('RIV')
       call set_param_pointer(input_definition, gwf_riv_aggregate_definitions)
+    case ('RIVG')
+      call set_param_pointer(input_definition, gwf_rivg_aggregate_definitions)
     case ('STO')
       call set_param_pointer(input_definition, gwf_sto_aggregate_definitions)
+    case ('VSC')
+      call set_param_pointer(input_definition, gwf_vsc_aggregate_definitions)
     case ('WEL')
       call set_param_pointer(input_definition, gwf_wel_aggregate_definitions)
     case ('WELG')
@@ -162,6 +182,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_block_pointer(input_definition, gwf_nam_block_definitions)
+    case ('BUY')
+      call set_block_pointer(input_definition, gwf_buy_block_definitions)
     case ('CHD')
       call set_block_pointer(input_definition, gwf_chd_block_definitions)
     case ('CSUB')
@@ -184,6 +206,8 @@ contains
       call set_block_pointer(input_definition, gwf_ghb_block_definitions)
     case ('GHBG')
       call set_block_pointer(input_definition, gwf_ghbg_block_definitions)
+    case ('HFB')
+      call set_block_pointer(input_definition, gwf_hfb_block_definitions)
     case ('IC')
       call set_block_pointer(input_definition, gwf_ic_block_definitions)
     case ('NPF')
@@ -194,8 +218,12 @@ contains
       call set_block_pointer(input_definition, gwf_rcha_block_definitions)
     case ('RIV')
       call set_block_pointer(input_definition, gwf_riv_block_definitions)
+    case ('RIVG')
+      call set_block_pointer(input_definition, gwf_rivg_block_definitions)
     case ('STO')
       call set_block_pointer(input_definition, gwf_sto_block_definitions)
+    case ('VSC')
+      call set_block_pointer(input_definition, gwf_vsc_block_definitions)
     case ('WEL')
       call set_block_pointer(input_definition, gwf_wel_block_definitions)
     case ('WELG')
@@ -211,6 +239,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       multi_package = gwf_nam_multi_package
+    case ('BUY')
+      multi_package = gwf_buy_multi_package
     case ('CHD')
       multi_package = gwf_chd_multi_package
     case ('CSUB')
@@ -233,6 +263,8 @@ contains
       multi_package = gwf_ghb_multi_package
     case ('GHBG')
       multi_package = gwf_ghbg_multi_package
+    case ('HFB')
+      multi_package = gwf_hfb_multi_package
     case ('IC')
       multi_package = gwf_ic_multi_package
     case ('NPF')
@@ -243,8 +275,12 @@ contains
       multi_package = gwf_rcha_multi_package
     case ('RIV')
       multi_package = gwf_riv_multi_package
+    case ('RIVG')
+      multi_package = gwf_rivg_multi_package
     case ('STO')
       multi_package = gwf_sto_multi_package
+    case ('VSC')
+      multi_package = gwf_vsc_multi_package
     case ('WEL')
       multi_package = gwf_wel_multi_package
     case ('WELG')
@@ -263,6 +299,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_subpkg_pointer(subpackages, gwf_nam_subpackages)
+    case ('BUY')
+      call set_subpkg_pointer(subpackages, gwf_buy_subpackages)
     case ('CHD')
       call set_subpkg_pointer(subpackages, gwf_chd_subpackages)
     case ('CSUB')
@@ -285,6 +323,8 @@ contains
       call set_subpkg_pointer(subpackages, gwf_ghb_subpackages)
     case ('GHBG')
       call set_subpkg_pointer(subpackages, gwf_ghbg_subpackages)
+    case ('HFB')
+      call set_subpkg_pointer(subpackages, gwf_hfb_subpackages)
     case ('IC')
       call set_subpkg_pointer(subpackages, gwf_ic_subpackages)
     case ('NPF')
@@ -295,8 +335,12 @@ contains
       call set_subpkg_pointer(subpackages, gwf_rcha_subpackages)
     case ('RIV')
       call set_subpkg_pointer(subpackages, gwf_riv_subpackages)
+    case ('RIVG')
+      call set_subpkg_pointer(subpackages, gwf_rivg_subpackages)
     case ('STO')
       call set_subpkg_pointer(subpackages, gwf_sto_subpackages)
+    case ('VSC')
+      call set_subpkg_pointer(subpackages, gwf_vsc_subpackages)
     case ('WEL')
       call set_subpkg_pointer(subpackages, gwf_wel_subpackages)
     case ('WELG')
@@ -312,6 +356,8 @@ contains
     integrated = .false.
     select case (subcomponent)
     case ('NAM')
+      integrated = .true.
+    case ('BUY')
       integrated = .true.
     case ('CHD')
       integrated = .true.
@@ -335,6 +381,8 @@ contains
       integrated = .true.
     case ('GHBG')
       integrated = .true.
+    case ('HFB')
+      integrated = .true.
     case ('IC')
       integrated = .true.
     case ('NPF')
@@ -345,7 +393,11 @@ contains
       integrated = .true.
     case ('RIV')
       integrated = .true.
+    case ('RIVG')
+      integrated = .true.
     case ('STO')
+      integrated = .true.
+    case ('VSC')
       integrated = .true.
     case ('WEL')
       integrated = .true.

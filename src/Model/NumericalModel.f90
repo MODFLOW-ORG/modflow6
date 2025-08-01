@@ -77,6 +77,7 @@ module NumericalModelModule
     procedure :: get_mcellid
     procedure :: get_mnodeu
     procedure :: get_iasym
+    procedure :: get_idv_scale
     procedure :: create_lstfile
   end type NumericalModelType
 
@@ -411,6 +412,12 @@ contains
     integer(I4B) :: iasym
     iasym = 0
   end function get_iasym
+
+  function get_idv_scale(this) result(idv_scale)
+    class(NumericalModelType) :: this
+    integer(I4B) :: idv_scale
+    idv_scale = 0
+  end function get_idv_scale
 
   function CastAsNumericalModelClass(obj) result(res)
     implicit none

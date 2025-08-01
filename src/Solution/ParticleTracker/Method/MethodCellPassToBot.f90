@@ -66,9 +66,9 @@ contains
       nlay = dis%nlay
     end select
     if (particle%ilay == nlay) &
-      call this%events%terminate(particle, status=TERM_NO_EXITS)
+      call this%terminate(particle, status=TERM_NO_EXITS)
 
-    call this%events%cellexit(particle)
+    call this%cellexit(particle)
   end subroutine apply_ptb
 
 end module MethodCellPassToBotModule

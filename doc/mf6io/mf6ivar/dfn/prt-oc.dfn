@@ -216,7 +216,7 @@ removed 6.6.0
 block options
 name times
 type double precision
-shape (unknown)
+shape (any1d)
 reader urword
 in_record true
 tagged false

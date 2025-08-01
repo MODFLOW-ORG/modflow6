@@ -212,8 +212,8 @@ contains
       if (ic == particle%icp .and. inface == 7 .and. ilay < particle%ilay) then
         particle%idomain(2) = particle%icp
         particle%izone = particle%izp
-        call this%events%terminate(particle, &
-                                   status=TERM_BOUNDARY)
+        call this%terminate(particle, &
+                            status=TERM_BOUNDARY)
         return
       else
         particle%icp = particle%idomain(2)
@@ -299,8 +299,8 @@ contains
       ! boundary face, so terminate the particle.
       ! todo AMP: reconsider when multiple models supported
       if (cell%defn%facenbr(particle%iboundary(2)) .eq. 0) then
-        call this%events%terminate(particle, &
-                                   status=TERM_BOUNDARY)
+        call this%terminate(particle, &
+                            status=TERM_BOUNDARY)
       else
         ! Update old to new cell properties
         call this%load_particle(cell, particle)

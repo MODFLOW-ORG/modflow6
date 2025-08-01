@@ -264,7 +264,8 @@ module GwfCsubInputModule
     'MATPROP', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'keyword to indicate material properties can change during the simulations', & ! longname
+    'keyword to indicate material properties can change during the&
+     & simulations', & ! longname
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
@@ -318,7 +319,8 @@ module GwfCsubInputModule
     'PRECON_STRESS', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'keyword to indicate that absolute initial preconsolidation stresses (head) will be specified', & ! longname
+    'keyword to indicate that absolute initial preconsolidation stresses&
+     & (head) will be specified', & ! longname
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
@@ -336,7 +338,8 @@ module GwfCsubInputModule
     'DELAY_HEAD', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'keyword to indicate that absolute initial delay bed heads will be specified', & ! longname
+    'keyword to indicate that absolute initial delay bed heads will be&
+     & specified', & ! longname
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
@@ -354,7 +357,8 @@ module GwfCsubInputModule
     'STRESS_LAG', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'keyword to indicate that specific storage will be calculate using the effective stress from the previous time step', & ! longname
+    'keyword to indicate that specific storage will be calculate using the&
+     & effective stress from the previous time step', & ! longname
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case

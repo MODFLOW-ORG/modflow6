@@ -201,7 +201,7 @@ contains
       coef_up => phi_face%c_n
       coef_dn => phi_face%c_m
     end if
-
+    !
     ! Determine direction of distance vector from upwind to downwind cell
     ! The cached_node_distance always stores vector from lower-numbered node to higher-numbered node.
     ! Since we need dnm to point from upwind (iup) to downwind (idn), we must adjust the sign:
@@ -262,7 +262,7 @@ contains
 
   subroutine find_local_extrema(this, n, phi, min_phi, max_phi)
     ! -- dummy
-    class(UTVDSchemeType), target :: this
+    class(UTVDSchemeType) :: this
     integer(I4B), intent(in) :: n
     real(DP), intent(in), dimension(:) :: phi
     real(DP), intent(out) :: min_phi, max_phi

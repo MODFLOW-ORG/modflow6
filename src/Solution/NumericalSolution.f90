@@ -39,6 +39,7 @@ module NumericalSolutionModule
   use VectorBaseModule
   use LinearSolverBaseModule
   use ImsLinearSettingsModule
+  use IMSLinearMisc, only: ims_misc_dvscale
   use LinearSolverFactory, only: create_linear_solver
   use MatrixBaseModule
   use ConvergenceSummaryModule
@@ -120,6 +121,10 @@ module NumericalSolutionModule
     type(ConvergenceSummaryType), pointer :: cnvg_summary => null() !< details on the convergence behavior within a timestep
     type(ImsLinearSettingsType), pointer :: linear_settings => null() !< IMS settings for linear solver
     !
+    ! -- normalization of X and RHS
+    integer(I4B), pointer :: idv_scale => null() !< flag indicating if the X and right hand side will be scaled
+    real(DP), pointer :: dscale => null() !< X and RHS scaling factor (maximum X)
+    !
     ! -- pseudo-transient continuation
     integer(I4B), pointer :: iallowptc => null() !< flag indicating if ptc applied this time step
     integer(I4B), pointer :: iptcopt => null() !< option for how to calculate the initial PTC value (ptcdel0)
@@ -181,6 +186,8 @@ module NumericalSolutionModule
     procedure :: sln_backtracking_xupdate
     procedure :: get_backtracking_flag
     procedure :: apply_backtracking
+    procedure :: sln_get_idvscale
+    procedure :: sln_maxval
 
     ! private
     procedure, private :: sln_connect
@@ -188,7 +195,6 @@ module NumericalSolutionModule
     procedure, private :: sln_ls
     procedure, private :: sln_setouter
     procedure, private :: sln_backtracking
-    procedure, private :: sln_maxval
     procedure, private :: sln_calcdx
     procedure, private :: sln_calc_residual
     procedure, private :: sln_l2norm
@@ -325,6 +331,8 @@ contains
     call mem_allocate(this%ptcdel0, 'PTCDEL0', this%memory_path)
     call mem_allocate(this%ptcexp, 'PTCEXP', this%memory_path)
     call mem_allocate(this%atsfrac, 'ATSFRAC', this%memory_path)
+    call mem_allocate(this%idv_scale, 'IDV_SCALE', this%memory_path)
+    call mem_allocate(this%dscale, 'DSCALE', this%memory_path)
     !
     ! -- initialize scalars
     this%isymmetric = 0
@@ -367,6 +375,8 @@ contains
     this%ptcdel0 = DZERO
     this%ptcexp = done
     this%atsfrac = DONETHIRD
+    this%idv_scale = 0
+    this%dscale = DONE
   end subroutine allocate_scalars
 
   !> @ brief Allocate arrays
@@ -651,7 +661,7 @@ contains
             msg = 'ALL'
           end select
           this%iallowptc = ival
-          write (IOUT, '(1x,A)') 'PSEUDO-TRANSIENT CONTINUATION DISABLED FOR'// &
+          write (IOUT, '(3x,A)') 'PSEUDO-TRANSIENT CONTINUATION DISABLED FOR'// &
             ' '//trim(adjustl(msg))//' STRESS-PERIOD(S)'
         case ('ATS_OUTER_MAXIMUM_FRACTION')
           rval = this%parser%GetDouble()
@@ -661,7 +671,7 @@ contains
             call store_error(errmsg)
           end if
           this%atsfrac = rval
-          write (IOUT, '(1x,A,G0)') 'ADAPTIVE TIME STEP SETTING FOUND.  FRACTION &
+          write (IOUT, '(3x,A,G0)') 'ADAPTIVE TIME STEP SETTING FOUND.  FRACTION &
             &OF OUTER MAXIMUM USED TO INCREASE OR DECREASE TIME STEP SIZE IS ',&
             &this%atsfrac
           !
@@ -968,6 +978,24 @@ contains
       end do
       !
     end if
+
+    !
+    ! determine if the x and rhs should be scaled
+    this%idv_scale = this%sln_get_idvscale()
+
+    if (this%idv_scale > 0) then
+      write (iout, '(2(1x,a,/),1x,a,/,6x,a,/)') &
+        'X and RHS will be scaled to avoid very large positive or negative', &
+        'dependent variable values in the model IMS package.', &
+        'NOTE: Specified outer and inner DVCLOSE values in the model IMS &
+        &package', 'will be relative closure criteria.'
+    else if (this%idv_scale < 0) then
+      write (errmsg, '(2(a,1x))') &
+        'dependent_variable_scaling must be specified for all models in', &
+        'the solution and can only be used with GWT and GWE models. '
+      call store_error(errmsg)
+    end if
+    !
     !
     ! -- write solver data to output file
     !
@@ -1277,6 +1305,8 @@ contains
     call mem_deallocate(this%ptcdel0)
     call mem_deallocate(this%ptcexp)
     call mem_deallocate(this%atsfrac)
+    call mem_deallocate(this%idv_scale)
+    call mem_deallocate(this%dscale)
   end subroutine sln_da
 
   !> @ brief Solve solution
@@ -1593,6 +1623,12 @@ contains
     end do
     call code_timer(1, ttform, this%ttform)
     call g_prof%stop(this%tmr_formulate)
+
+    ! x and rhs scaling
+    if (this%idv_scale /= 0) then
+      call this%sln_maxval(this%neq, this%x, this%dscale)
+      call ims_misc_dvscale(0, this%neq, this%dscale, this%x, this%rhs)
+    end if
     !
     ! -- linear solve
     call code_timer(0, ttsoln, this%ttsoln)
@@ -1795,9 +1831,11 @@ contains
         !
         ! -- get model number and user node number
         call this%sln_get_nodeu(this%lrch(1, kiter), m_idx, node_user)
+        mp => GetNumericalModelFromList(this%modellist, m_idx)
+        model_id = mp%id
         cpakout = ''
       else if (outer_hncg == DZERO .and. dpak == DZERO) then ! zero change, location could be any
-        m_idx = 0
+        model_id = 0
         node_user = 0
         !
         ! -- then it's a package convergence error
@@ -1807,19 +1845,12 @@ contains
         !    and package name
         outer_hncg = dpak
         ipos0 = index(cmod, '_')
-        read (cmod(1:ipos0 - 1), *) m_idx
+        read (cmod(1:ipos0 - 1), *) model_id
         node_user = ipak
         ipos0 = index(cpak, '-', back=.true.)
         cpakout = cpak(1:ipos0 - 1)
       end if
-      !
-      ! -- write line to outer iteration csv file
-      if (m_idx > 0) then
-        mp => GetNumericalModelFromList(this%modellist, m_idx) ! TODO_MJR: right list?
-        model_id = mp%id
-      else
-        model_id = 0
-      end if
+
       write (this%icsvouterout, '(*(G0,:,","))') &
         this%itertot_sim, totim, kper, kstp, kiter, iter, &
         outer_hncg, model_id, trim(cpakout), node_user
@@ -1829,6 +1860,11 @@ contains
     if (this%icsvinnerout > 0) then
       call this%csv_convergence_summary(this%icsvinnerout, totim, kper, kstp, &
                                         kiter, iter, icsv0, kcsv0)
+    end if
+
+    ! undo x and rhs scaling
+    if (this%idv_scale /= 0) then
+      call ims_misc_dvscale(1, this%neq, this%dscale, this%x, this%rhs)
     end if
 
     ! stop timer
@@ -2825,6 +2861,29 @@ contains
 
   end function get_backtracking_flag
 
+  !> @brief Check if dependent variable scalining should be applied for this solution,
+  !< returns 1: yes, 0: no, -1: error
+  function sln_get_idvscale(this) result(idv_scale)
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    integer(I4B) :: idv_scale !< backtracking flag (1) backtracking performed (0) backtracking not performed
+    ! local
+    class(NumericalModelType), pointer :: mp => null()
+    integer(I4B) :: i
+
+    idv_scale = 0
+    do i = 1, this%modellist%Count()
+      mp => GetNumericalModelFromList(this%modellist, i)
+      if (mp%get_idv_scale() /= 0) then
+        idv_scale = 1
+      else
+        if (idv_scale == 1) then
+          idv_scale = -1
+        end if
+      end if
+    end do
+
+  end function sln_get_idvscale
+
   !> @brief Update x with backtracking
   !<
   subroutine apply_backtracking(this)
@@ -2877,7 +2936,7 @@ contains
   !<
   subroutine sln_maxval(this, nsize, v, vmax)
     ! -- dummy variables
-    class(NumericalSolutionType), intent(inout) :: this !< NumericalSolutionType instance
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     integer(I4B), intent(in) :: nsize !< length of vector
     real(DP), dimension(nsize), intent(in) :: v !< input vector
     real(DP), intent(inout) :: vmax !< maximum value

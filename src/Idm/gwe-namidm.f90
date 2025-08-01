@@ -16,6 +16,7 @@ module GweNamInputModule
     logical :: print_input = .false.
     logical :: print_flows = .false.
     logical :: save_flows = .false.
+    logical :: idv_scale = .false.
     logical :: ncmesh2drec = .false.
     logical :: netcdf_mesh2d = .false.
     logical :: ncstructrec = .false.
@@ -105,6 +106,24 @@ module GweNamInputModule
     'KEYWORD', & ! type
     '', & ! shape
     'save flows for all packages to budget file', & ! longname
+    .false., & ! required
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwenam_idv_scale = InputParamDefinitionType &
+    ( &
+    'GWE', & ! component
+    'NAM', & ! subcomponent
+    'OPTIONS', & ! block
+    'DEPENDENT_VARIABLE_SCALING', & ! tag name
+    'IDV_SCALE', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'flag to scale X and RHS', & ! longname
     .false., & ! required
     .false., & ! multi-record
     .false., & ! preserve case
@@ -371,6 +390,7 @@ module GweNamInputModule
     gwenam_print_input, &
     gwenam_print_flows, &
     gwenam_save_flows, &
+    gwenam_idv_scale, &
     gwenam_ncmesh2drec, &
     gwenam_netcdf_mesh2d, &
     gwenam_ncstructrec, &

@@ -247,7 +247,7 @@ block solutiongroup
 name slnmnames
 type string
 in_record true
-shape (:)
+shape (any1d)
 tagged false
 reader urword
 longname array of model names in this solution

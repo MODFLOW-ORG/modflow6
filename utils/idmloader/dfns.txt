@@ -1,6 +1,7 @@
 sim-nam.dfn
 sim-tdis.dfn
 gwf-nam.dfn
+gwf-buy.dfn
 gwf-chd.dfn
 gwf-csub.dfn
 gwf-dis.dfn
@@ -12,12 +13,15 @@ gwf-evt.dfn
 gwf-evta.dfn
 gwf-ghb.dfn
 gwf-ghbg.dfn
+gwf-hfb.dfn
 gwf-ic.dfn
 gwf-npf.dfn
 gwf-rch.dfn
 gwf-rcha.dfn
 gwf-riv.dfn
+gwf-rivg.dfn
 gwf-sto.dfn
+gwf-vsc.dfn
 gwf-wel.dfn
 gwf-welg.dfn
 gwt-nam.dfn
