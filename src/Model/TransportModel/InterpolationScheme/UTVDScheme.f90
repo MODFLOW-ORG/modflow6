@@ -46,7 +46,7 @@ module UTVDSchemeModule
   contains
     procedure :: compute
     procedure :: invalidate
-    procedure :: finalize
+    final :: destructor
 
     procedure, private :: find_local_extrema
     procedure, private :: limiter
@@ -83,15 +83,15 @@ contains
 
   end function constructor
 
-  subroutine finalize(this)
+  subroutine destructor(this)
     ! -- dummy
-    class(UTVDSchemeType), intent(inout) :: this
+    type(UTVDSchemeType), intent(inout) :: this
 
     deallocate (this%cached_gradients)
     deallocate (this%cached_min_phi)
     deallocate (this%cached_max_phi)
     deallocate (this%cached_node_distance)
-  end subroutine finalize
+  end subroutine destructor
 
   !> @brief Invalidate cached data to force recomputation on next access
   !!
