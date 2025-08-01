@@ -103,52 +103,6 @@ contains
     this%cache_valid = .false.
   end subroutine invalidate
 
-  subroutine compute_gradients(this, phi)
-    ! -- dummy
-    class(UTVDSchemeType), target :: this
-    real(DP), intent(in), dimension(:) :: phi
-    ! -- local
-    integer(I4B) :: n
-
-    do n = 1, this%dis%nodes
-      this%cached_gradients(n, :) = this%gradient%get(n, phi)
-    end do
-  end subroutine compute_gradients
-
-  subroutine compute_local_extrema(this, phi)
-    ! -- dummy
-    class(UTVDSchemeType), target :: this
-    real(DP), intent(in), dimension(:) :: phi
-    ! -- local
-    integer(I4B) :: n
-    real(DP) :: min_phi, max_phi
-
-    do n = 1, this%dis%nodes
-      call this%find_local_extrema(n, phi, min_phi, max_phi)
-      this%cached_min_phi(n) = min_phi
-      this%cached_max_phi(n) = max_phi
-    end do
-  end subroutine compute_local_extrema
-
-  subroutine compute_node_distance(this)
-    ! -- dummy
-    class(UTVDSchemeType), target :: this
-    ! -- local
-    integer(I4B) :: n, m, ipos, isympos
-
-    this%cached_node_distance = 0.0_dp
-    do n = 1, this%dis%nodes
-      do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
-        m = this%dis%con%ja(ipos)
-        if (m <= n) cycle
-
-        isympos = this%dis%con%jas(ipos)
-        this%cached_node_distance(isympos, :) = node_distance(this%dis, n, m)
-      end do
-    end do
-
-  end subroutine compute_node_distance
-
   function compute(this, n, m, iposnm, phi) result(phi_face)
     !-- return
     type(CoefficientsType), target :: phi_face ! Output: coefficients for the face between cells n and m
@@ -302,5 +256,51 @@ contains
       theta = DZERO
     end select
   end function
+
+  subroutine compute_gradients(this, phi)
+    ! -- dummy
+    class(UTVDSchemeType), target :: this
+    real(DP), intent(in), dimension(:) :: phi
+    ! -- local
+    integer(I4B) :: n
+
+    do n = 1, this%dis%nodes
+      this%cached_gradients(n, :) = this%gradient%get(n, phi)
+    end do
+  end subroutine compute_gradients
+
+  subroutine compute_local_extrema(this, phi)
+    ! -- dummy
+    class(UTVDSchemeType), target :: this
+    real(DP), intent(in), dimension(:) :: phi
+    ! -- local
+    integer(I4B) :: n
+    real(DP) :: min_phi, max_phi
+
+    do n = 1, this%dis%nodes
+      call this%find_local_extrema(n, phi, min_phi, max_phi)
+      this%cached_min_phi(n) = min_phi
+      this%cached_max_phi(n) = max_phi
+    end do
+  end subroutine compute_local_extrema
+
+  subroutine compute_node_distance(this)
+    ! -- dummy
+    class(UTVDSchemeType), target :: this
+    ! -- local
+    integer(I4B) :: n, m, ipos, isympos
+
+    this%cached_node_distance = 0.0_dp
+    do n = 1, this%dis%nodes
+      do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
+        m = this%dis%con%ja(ipos)
+        if (m <= n) cycle
+
+        isympos = this%dis%con%jas(ipos)
+        this%cached_node_distance(isympos, :) = node_distance(this%dis, n, m)
+      end do
+    end do
+
+  end subroutine compute_node_distance
 
 end module UTVDSchemeModule
