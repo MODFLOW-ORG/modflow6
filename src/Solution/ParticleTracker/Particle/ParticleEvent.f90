@@ -29,13 +29,17 @@ module ParticleEventModule
   !! Events may be identical except for their type/code, reflecting the
   !! fact that several events of interest may occur at a given moment.
   type, abstract :: ParticleEventType
-    type(ParticleType), pointer :: particle => null() ! particle causing the event
-    integer(I4B) :: code = -1 ! event code
+    integer(I4B) :: imdl, iprp, irpt ! release model, package, and point
+    real(DP) :: trelease = 0.0_DP ! release time
     integer(I4B) :: kper = 0, kstp = 0 ! period and step
-    real(DP) :: time = 0.0_DP ! simulation time
+    integer(I4B) :: ilay, icu, izone = 0
+    real(DP) :: ttrack = 0.0_DP ! simulation time
+    real(DP) :: x = 0.0_DP, y = 0.0_DP, z = 0.0_DP ! particle position
+    integer(I4B) :: istatus = -1 ! status code
   contains
     procedure :: get_code
-    procedure :: get_str
+    procedure :: get_verb
+    procedure :: log
   end type ParticleEventType
 
   type, extends(ParticleEventType) :: CellExitEventType
@@ -71,7 +75,7 @@ contains
     end select
   end function get_code
 
-  function get_str(this) result(str)
+  function get_verb(this) result(str)
     class(ParticleEventType), intent(in) :: this
     character(len=:), allocatable :: str
 
@@ -84,6 +88,29 @@ contains
     type is (UserTimeEventType); str = "user-specified tracking time"
     class default; call pstop(1, "unknown event type")
     end select
-  end function get_str
+  end function get_verb
+
+  subroutine log(this, iun)
+    class(ParticleEventType), intent(inout) :: this
+    integer(I4B), intent(in) :: iun
+
+    if (iun >= 0) &
+      write (iun, '(*(G0))') &
+      'Particle (Model: ', this%imdl, &
+      ', Package: ', this%iprp, &
+      ', Point: ', this%irpt, &
+      ', Time: ', this%trelease, &
+      ') ', this%get_verb(), &
+      ' in (Layer: ', this%ilay, &
+      ', Cell: ', this%icu, &
+      ', Zone: ', this%izone, &
+      ') at (X: ', this%x, &
+      ', Y: ', this%y, &
+      ', Z: ', this%z, &
+      ', Time: ', this%ttrack, &
+      ', Period: ', this%kper, &
+      ', Timestep: ', this%kstp, &
+      ') with (Status: ', this%istatus, ')'
+  end subroutine log
 
 end module ParticleEventModule

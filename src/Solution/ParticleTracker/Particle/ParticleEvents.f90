@@ -62,14 +62,13 @@ contains
     ! local
     integer(I4B) :: per, stp
 
-    per = kper
-    stp = kstp
-
     ! If tracking time falls exactly on a boundary between time steps,
     ! report the previous time step for this datum. This is to follow
     ! MP7's behavior, and because the particle will have been tracked
     ! up to this instant under the previous time step's conditions, so
     ! the time step we're about to start shouldn't get "credit" for it.
+    per = kper
+    stp = kstp
     if (particle%ttrack == totimc .and. (per > 1 .or. stp > 1)) then
       if (stp > 1) then
         stp = stp - 1
@@ -79,10 +78,18 @@ contains
       end if
     end if
 
-    event%particle => particle
-    event%time = particle%ttrack
     event%kper = per
     event%kstp = stp
+    event%imdl = particle%imdl
+    event%iprp = particle%iprp
+    event%irpt = particle%irpt
+    event%ilay = particle%ilay
+    event%icu = particle%icu
+    event%izone = particle%izone
+    event%trelease = particle%trelease
+    event%ttrack = particle%ttrack
+    event%istatus = particle%istatus
+    call particle%get_model_coords(event%x, event%y, event%z)
     call this%consumer%handle_event(particle, event)
     deallocate (event)
   end subroutine dispatch

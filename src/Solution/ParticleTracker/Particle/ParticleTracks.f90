@@ -29,7 +29,7 @@ module ParticleTracksModule
   public :: ParticleTrackFileType, &
             ParticleTracksType, &
             ParticleTrackEventSelectionType
-  private :: log_event, save_event
+  private :: save_event
 
   character(len=*), parameter, public :: TRACKHEADER = &
     'kper,kstp,imdl,iprp,irpt,ilay,icell,izone,&
@@ -196,55 +196,42 @@ contains
     type(ParticleType), pointer, intent(in) :: particle
     class(ParticleEventType), pointer, intent(in) :: event
     logical(LGP), intent(in) :: csv
-    ! local
-    real(DP) :: x, y, z
-    integer(I4B) :: status
-
-    ! Convert from cell-local to model coordinates if needed
-    call particle%get_model_coords(x, y, z)
-
-    ! Set status
-    if (particle%istatus .lt. 0) then
-      status = ACTIVE
-    else
-      status = particle%istatus
-    end if
 
     if (csv) then
       write (iun, '(*(G0,:,","))') &
         event%kper, &
         event%kstp, &
-        particle%imdl, &
-        particle%iprp, &
-        particle%irpt, &
-        particle%ilay, &
-        particle%icu, &
-        particle%izone, &
-        status, &
+        event%imdl, &
+        event%iprp, &
+        event%irpt, &
+        event%ilay, &
+        event%icu, &
+        event%izone, &
+        event%istatus, &
         event%get_code(), &
-        particle%trelease, &
-        particle%ttrack, &
-        x, &
-        y, &
-        z, &
+        event%trelease, &
+        event%ttrack, &
+        event%x, &
+        event%y, &
+        event%z, &
         trim(adjustl(particle%name))
     else
       write (iun) &
         event%kper, &
         event%kstp, &
-        particle%imdl, &
-        particle%iprp, &
-        particle%irpt, &
-        particle%ilay, &
-        particle%icu, &
-        particle%izone, &
-        status, &
+        event%imdl, &
+        event%iprp, &
+        event%irpt, &
+        event%ilay, &
+        event%icu, &
+        event%izone, &
+        event%istatus, &
         event%get_code(), &
-        particle%trelease, &
-        particle%ttrack, &
-        x, &
-        y, &
-        z, &
+        event%trelease, &
+        event%ttrack, &
+        event%x, &
+        event%y, &
+        event%z, &
         particle%name
     end if
   end subroutine save_event
@@ -254,36 +241,6 @@ contains
     class(ParticleTracksType), intent(inout) :: this
     should_log = this%iout >= 0
   end function should_log
-
-  !> @brief Print a particle event summary.
-  subroutine log_event(iun, particle, event)
-    integer(I4B), intent(in) :: iun
-    type(ParticleType), pointer, intent(in) :: particle
-    class(ParticleEventType), pointer, intent(in) :: event
-    ! local
-    character(len=:), allocatable :: particlename
-
-    particlename = trim(adjustl(particle%name))
-    if (len_trim(particlename) == 0) particlename = 'anonymous'
-
-    if (iun >= 0) &
-      write (iun, '(*(G0))') &
-      'Particle (Model: ', particle%imdl, &
-      ', Package: ', particle%iprp, &
-      ', Point: ', particle%irpt, ' [', particlename, ']', &
-      ', Time: ', particle%trelease, &
-      ') ', event%get_str(), &
-      ' in (Layer: ', particle%ilay, &
-      ', Cell: ', particle%icu, &
-      ', Zone: ', particle%izone, &
-      ') at (X: ', particle%x, &
-      ', Y: ', particle%y, &
-      ', Z: ', particle%z, &
-      ', Time: ', particle%ttrack, &
-      ', Period: ', event%kper, &
-      ', Timestep: ', event%kstp, &
-      ') with (Status: ', particle%istatus, ')'
-  end subroutine log_event
 
   !> @brief Handle a particle event.
   subroutine handle_event(this, particle, event)
@@ -296,7 +253,7 @@ contains
     type(ParticleTrackFileType) :: file
 
     if (this%should_log()) &
-      call log_event(this%iout, particle, event)
+      call event%log(this%iout)
 
     if (this%is_selected(event%get_code())) then
       do i = 1, this%ntrackfiles
