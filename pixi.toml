@@ -20,7 +20,6 @@ jupytext = "*"
 matplotlib = "*"
 meson = "==1.7.1"
 modflow-devtools = "==1.7.0"
-netcdf4 = "*"
 networkx = "*"
 ninja = "*"
 numpy = "<2.0.0"    # modflowapi has a resriction on the numpy version

@@ -21,7 +21,6 @@ dependencies:
   - matplotlib
   - meson=1.7.1
   - modflow-devtools==1.7.0
-  - netcdf4
   - ninja
   - numpy
   - pip
