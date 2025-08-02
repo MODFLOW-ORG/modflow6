@@ -49,11 +49,12 @@ module MethodModule
     real(DP), dimension(:), pointer, contiguous, public :: retfactor => null() !< pointer to retardation factor
   contains
     ! Implemented in all subtypes
-    procedure(apply), deferred :: apply
-    procedure(deallocate), deferred :: deallocate
+    procedure(apply), deferred :: apply !< apply the method to the particle
+    procedure(assess), deferred :: assess !< assess conditions before tracking
+    procedure(deallocate), deferred :: deallocate !< deallocate the method object
     ! Overridden in subtypes that delegate
-    procedure :: pass
-    procedure :: load
+    procedure :: pass !< pass the particle to the next subdomain
+    procedure :: load !< load the subdomain tracking method
     ! Implemented here
     procedure :: init
     procedure :: track
@@ -76,6 +77,16 @@ module MethodModule
       type(ParticleType), pointer, intent(inout) :: particle
       real(DP), intent(in) :: tmax
     end subroutine apply
+    subroutine assess(this, particle, cell_defn, tmax)
+      import DP
+      import MethodType
+      import ParticleType
+      import CellDefnType
+      class(MethodType), intent(inout) :: this
+      type(ParticleType), pointer, intent(inout) :: particle
+      type(CellDefnType), pointer, intent(inout) :: cell_defn
+      real(DP), intent(in) :: tmax
+    end subroutine assess
     subroutine deallocate (this)
       import MethodType
       class(MethodType), intent(inout) :: this

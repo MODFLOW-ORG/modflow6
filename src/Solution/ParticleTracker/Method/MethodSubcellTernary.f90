@@ -3,7 +3,7 @@ module MethodSubcellTernaryModule
   use ConstantsModule, only: DZERO, DSAME, DHALF, DONE, DTWO, DONETHIRD, DEP3
   use ErrorUtilModule, only: pstop
   use GeomUtilModule, only: clamp_bary, skew
-  use MethodModule, only: MethodType
+  use MethodSubcellModule, only: MethodSubcellType
   use CellModule, only: CellType
   use SubcellModule, only: SubcellType
   use SubcellTriModule, only: SubcellTriType, create_subcell_tri
@@ -19,7 +19,7 @@ module MethodSubcellTernaryModule
   public :: create_method_subcell_ternary
 
   !> @brief Ternary triangular subcell tracking method.
-  type, extends(MethodType) :: MethodSubcellTernaryType
+  type, extends(MethodSubcellType) :: MethodSubcellTernaryType
     integer(I4B), public, pointer :: zeromethod
   contains
     procedure, public :: apply => apply_mst

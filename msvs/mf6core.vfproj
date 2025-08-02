@@ -428,9 +428,11 @@
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodCellPollockQuad.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodCellPool.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodCellTernary.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodModel.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodDis.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodDisv.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodPool.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodSubcell.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodSubcellPollock.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodSubcellPool.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodSubcellTernary.f90"/>

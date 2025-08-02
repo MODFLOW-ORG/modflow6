@@ -50,8 +50,7 @@ contains
     ! local
     integer(I4B) :: nlay
 
-    ! Check termination/reporting conditions
-    call this%check(particle, this%cell%defn, tmax)
+    call this%assess(particle, this%cell%defn, tmax)
     if (.not. particle%advancing) return
 
     ! Pass to bottom face

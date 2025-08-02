@@ -1,7 +1,7 @@
 module MethodSubcellPollockModule
   use KindModule, only: DP, I4B, LGP
   use ErrorUtilModule, only: pstop
-  use MethodModule, only: MethodType
+  use MethodSubcellModule, only: MethodSubcellType
   use SubcellRectModule, only: SubcellRectType, create_subcell_rect
   use ParticleModule, only: ParticleType
   use PrtFmiModule, only: PrtFmiType
@@ -15,7 +15,7 @@ module MethodSubcellPollockModule
   public :: calculate_dt
 
   !> @brief Rectangular subcell tracking method
-  type, extends(MethodType) :: MethodSubcellPollockType
+  type, extends(MethodSubcellType) :: MethodSubcellPollockType
     private
     real(DP), allocatable, public :: qextl1(:), qextl2(:), qintl(:) !< external and internal subcell flows
   contains
