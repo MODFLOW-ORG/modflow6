@@ -1,12 +1,14 @@
 module MethodCellModule
 
   use KindModule, only: DP, I4B, LGP
+  use ErrorUtilModule, only: pstop
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType
-  use ParticleModule, only: ParticleType
+  use ParticleModule, only: ParticleType, TERM_NO_EXITS, TERM_BOUNDARY
   use ParticleEventModule, only: ParticleEventType
   use CellExitEventModule, only: CellExitEventType
   use CellDefnModule, only: CellDefnType
+  use IteratorModule, only: IteratorType
   implicit none
 
   private
@@ -16,6 +18,8 @@ module MethodCellModule
   contains
     procedure, public :: assess
     procedure, public :: cellexit
+    procedure, public :: forms_cycle
+    procedure, public :: store_event
   end type MethodCellType
 
 contains
@@ -32,8 +36,7 @@ contains
     use TdisModule, only: endofsimulation, totimc, totim
     use ParticleModule, only: TERM_WEAKSINK, TERM_NO_EXITS, &
                               TERM_STOPZONE, TERM_INACTIVE
-    use ParticleEventModule, only: FEATEXIT, TERMINATE, &
-                                   TIMESTEP, WEAKSINK, USERTIME
+    use ParticleEventModule, only: TERMINATE, TIMESTEP, WEAKSINK, USERTIME
     ! dummy
     class(MethodCellType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -179,6 +182,74 @@ contains
       event%exit_face = particle%iboundary(2)
     end select
     call this%events%dispatch(particle, event)
+    if (particle%icycwin == 0) return
+    if (this%forms_cycle(particle, event)) then
+      call pstop(1, 'cyclic pathline detected')
+    else
+      call this%store_event(particle, event)
+    end if
   end subroutine cellexit
+
+  !> @brief Check if the event forms a cycle in the particle path.
+  function forms_cycle(this, particle, event) result(found_cycle)
+    ! dummy
+    class(MethodCellType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(ParticleEventType), pointer, intent(in) :: event
+    ! local
+    class(IteratorType), allocatable :: itr
+    logical(LGP) :: found_cycle
+
+    found_cycle = .false.
+    select type (event)
+    type is (CellExitEventType)
+      itr = particle%history%Iterator()
+      do while (itr%has_next())
+        call itr%next()
+        select type (prev => itr%value())
+        class is (CellExitEventType)
+          ! exact cycle (same cell + same exit face)
+          if (event%icu == prev%icu .and. &
+              event%ilay == prev%ilay .and. &
+              event%izone == prev%izone .and. &
+              event%exit_face == prev%exit_face .and. &
+              event%exit_face /= 0) then
+            found_cycle = .true.
+            exit
+          end if
+          ! revisiting a well cell through vertical faces
+          ! is a common cause of cycles in layered models
+          if (event%icu == prev%icu .and. &
+              event%ilay == prev%ilay .and. &
+              event%izone == prev%izone .and. &
+              (event%exit_face == 6 .or. event%exit_face == 7) .and. &
+              event%exit_face /= 0) then
+            found_cycle = .true.
+            exit
+          end if
+        end select
+      end do
+    end select
+  end function forms_cycle
+
+  !> @brief Save the event in the particle's history.
+  !! Acts like a queue, the oldest event is removed
+  !! when the event count exceeds the maximum size.
+  subroutine store_event(this, particle, event)
+    ! dummy
+    class(MethodCellType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(ParticleEventType), pointer, intent(in) :: event
+    ! local
+    class(*), pointer :: p
+
+    select type (event)
+    type is (CellExitEventType)
+      p => event
+      call particle%history%Add(p)
+      if (particle%history%Count() > particle%icycwin) &
+        call particle%history%RemoveNode(1, .true.)
+    end select
+  end subroutine store_event
 
 end module MethodCellModule

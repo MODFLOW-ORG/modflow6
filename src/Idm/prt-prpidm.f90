@@ -41,6 +41,7 @@ module PrtPrpInputModule
     logical :: rttol = .false.
     logical :: rtfreq = .false.
     logical :: ichkmeth = .false.
+    logical :: icycwin = .false.
     logical :: nreleasepts = .false.
     logical :: nreleasetimes = .false.
     logical :: irptno = .false.
@@ -590,6 +591,24 @@ module PrtPrpInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    prtprp_icycwin = InputParamDefinitionType &
+    ( &
+    'PRT', & ! component
+    'PRP', & ! subcomponent
+    'OPTIONS', & ! block
+    'DEV_CYCLE_DETECTION_WINDOW', & ! tag name
+    'ICYCWIN', & ! fortran variable
+    'INTEGER', & ! type
+    '', & ! shape
+    'cycle detection window size', & ! longname
+    .false., & ! required
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     prtprp_nreleasepts = InputParamDefinitionType &
     ( &
     'PRT', & ! component
@@ -909,6 +928,7 @@ module PrtPrpInputModule
     prtprp_rttol, &
     prtprp_rtfreq, &
     prtprp_ichkmeth, &
+    prtprp_icycwin, &
     prtprp_nreleasepts, &
     prtprp_nreleasetimes, &
     prtprp_irptno, &

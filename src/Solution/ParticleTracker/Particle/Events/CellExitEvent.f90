@@ -3,8 +3,8 @@ module CellExitEventModule
   use ConstantsModule, only: LENHUGELINE
   use ErrorUtilModule, only: pstop
   use ParticleModule, only: ParticleType
-  use ParticleEventModule, only: FEATEXIT
   use FeatExitEventModule, only: FeatExitEventType
+  use ParticleEventModule, only: ParticleEventType, FEATEXIT
   implicit none
 
   private

@@ -989,6 +989,7 @@ contains
         end do
       end select
     end do
+    call particle%destroy()
     deallocate (particle)
   end subroutine prt_solve
 

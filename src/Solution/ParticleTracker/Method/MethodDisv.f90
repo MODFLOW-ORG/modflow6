@@ -14,6 +14,7 @@ module MethodDisvModule
   use DisvModule, only: DisvType
   use ArrayHandlersModule, only: ExpandArray
   use GeomUtilModule, only: get_jk, shared_face
+  use CellExitEventModule, only: CellExitEventType
   implicit none
 
   private
@@ -172,8 +173,6 @@ contains
       ! if returning to a cell through the bottom
       ! face after previously leaving it through
       ! that same face, we've entered a cycle
-      ! as can occur e.g. in wells. terminate
-      ! in the previous cell.
       if (ic == particle%icp .and. inface == 7 .and. ilay < particle%ilay) then
         particle%idomain(2) = particle%icp
         particle%izone = particle%izp
@@ -191,7 +190,6 @@ contains
 
       z = particle%z
       call this%map_neighbor(cell%defn, inface, z)
-
       particle%iboundary(2) = inface
       particle%idomain(3:) = 0
       particle%iboundary(3:) = 0

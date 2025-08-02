@@ -1,15 +1,15 @@
 module MethodSubcellModule
   use KindModule, only: DP, I4B
-  use MethodModule, only: MethodType
+  use MethodCellModule, only: MethodCellType
   use ParticleModule, only: ParticleType
   use CellDefnModule, only: CellDefnType
   use ParticleEventModule, only: ParticleEventType
-  use SubcellExitEventModule, only: SubcellExitEventType
+  use SubCellExitEventModule, only: SubCellExitEventType
 
   private
   public :: MethodSubcellType
 
-  type, abstract, extends(MethodType) :: MethodSubcellType
+  type, abstract, extends(MethodCellType) :: MethodSubcellType
   contains
     procedure, public :: assess
     procedure, public :: subcellexit
@@ -32,9 +32,9 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
 
-    allocate (SubcellExitEventType :: event)
+    allocate (SubCellExitEventType :: event)
     select type (event)
-    type is (SubcellExitEventType)
+    type is (SubCellExitEventType)
       event%isc = particle%idomain(3)
       event%exit_face = particle%iboundary(3)
     end select

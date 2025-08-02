@@ -57,17 +57,22 @@ contains
     particle%z = this%cell%defn%bot
     particle%iboundary(2) = this%cell%defn%npolyverts + 2
 
-    ! Terminate if in bottom layer
+    ! Get nlay
     select type (dis => this%fmi%dis)
     type is (DisType)
       nlay = dis%nlay
     type is (DisvType)
       nlay = dis%nlay
     end select
-    if (particle%ilay == nlay) &
-      call this%terminate(particle, status=TERM_NO_EXITS)
 
-    call this%cellexit(particle)
+    ! Bottomed out: terminate
+    ! Otherwise: exit the cell
+    if (particle%ilay == nlay) then
+      particle%advancing = .false.
+      call this%terminate(particle, status=TERM_NO_EXITS)
+    else
+      call this%cellexit(particle)
+    end if
   end subroutine apply_ptb
 
 end module MethodCellPassToBotModule

@@ -95,7 +95,6 @@ contains
         call consumer%handle_event(particle, event)
       end select
     end do
-    deallocate (event)
   end subroutine dispatch
 
   !> @brief Destroy the dispatcher.
