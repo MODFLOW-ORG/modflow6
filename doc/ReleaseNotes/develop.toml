@@ -62,3 +62,8 @@ description = "Add DEPENDENT\\_VARIABLE\\_SCALING option to scale the dependent 
 section = "fixes"
 subsection = "solution"
 description = "The Particle Tracking (PRT) Model previously reported cell exit events when a dry particle stranded in a partially saturated cell was dropped to the water table, as occurs with DRY\\_TRACKING\\_METHOD DROP (the default). An event is no longer reported at this time."
+
+[[items]]
+section = "fixes"
+subsection = "solution"
+description = "Distinguish cell exit and subcell exit events in the Particle Tracking (PRT) Model. Previously the generalized tracking method did not distinguish subcell exit events from cell exits. Since subcell exits occur at a lower scale than that defined by the model's grid discretization, they are an implementation detail of the generalized tracking method. Subcell exit events are now associated with reason code 6 in particle tracking output. New `TRACK_CELLEXIT` and `TRACK_SUBCELLEXIT` keyword options are introduced for the PRT OC Package to enable tracking for the specific respective events. The `TRACK_EXIT` keyword options remains available and now enables exit reporting for all domain levels. By default, only cell exit events are reported."

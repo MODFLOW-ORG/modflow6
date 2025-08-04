@@ -299,7 +299,7 @@ def check_output(idx, test, snapshot):
     assert snapshot == endpts.drop("name", axis=1).round(3).to_records(index=False)
 
     if "r2l" in name:
-        assert pls.shape == (164, 16)
+        assert pls.shape == (84, 16)
         assert (pls.z == 0.5).all()
         rtol = 1e-6
         assert isclose(min(pls.x), 0, rel_tol=rtol)
@@ -310,7 +310,7 @@ def check_output(idx, test, snapshot):
         assert isclose(max(pls[pls.irpt == 2].y), 86, rel_tol=rtol)
         assert set(endpts.icell) == {130, 136}
     elif "diag" in name:
-        assert pls.shape == (232, 16)
+        assert pls.shape == (114, 16)
         assert endpts.shape == (4, 16)
         assert set(endpts.icell) == {111, 112}
 

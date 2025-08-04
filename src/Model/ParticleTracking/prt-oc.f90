@@ -30,6 +30,7 @@ module PrtOcModule
     logical(LGP), pointer :: trackterminate => null() !< whether to track termination events
     logical(LGP), pointer :: trackweaksink => null() !< whether to track weak sink exit events
     logical(LGP), pointer :: trackusertime => null() !< whether to track user-specified times
+    logical(LGP), pointer :: tracksubcellexit => null() !< whether to track user-specified times
     integer(I4B), pointer :: ntracktimes => null() !< number of user-specified tracking times
     logical(LGP), pointer :: dump_event_trace => null() !< whether to dump event trace for debugging
     type(TimeSelectType), pointer :: tracktimes !< user-specified tracking times
@@ -84,12 +85,13 @@ contains
     call mem_allocate(this%itrkhdr, 'ITRKHDR', this%memoryPath)
     call mem_allocate(this%itrkcsv, 'ITRKCSV', this%memoryPath)
     call mem_allocate(this%itrktls, 'ITRKTLS', this%memoryPath)
-    call mem_allocate(this%trackrelease, 'ITRACKRLS', this%memoryPath)
-    call mem_allocate(this%trackcellexit, 'ITRACKTRS', this%memoryPath)
-    call mem_allocate(this%tracktimestep, 'ITRACKTST', this%memoryPath)
-    call mem_allocate(this%trackterminate, 'ITRACKTER', this%memoryPath)
-    call mem_allocate(this%trackweaksink, 'ITRACKWSK', this%memoryPath)
-    call mem_allocate(this%trackusertime, 'ITRACKTLS', this%memoryPath)
+    call mem_allocate(this%trackrelease, 'ITRACKRELEASE', this%memoryPath)
+    call mem_allocate(this%trackcellexit, 'ITRACKCELLEXIT', this%memoryPath)
+    call mem_allocate(this%tracktimestep, 'ITRACKTIMESTEP', this%memoryPath)
+    call mem_allocate(this%trackterminate, 'ITRACKTERMINATE', this%memoryPath)
+    call mem_allocate(this%trackweaksink, 'ITRACKWEAKSINK', this%memoryPath)
+    call mem_allocate(this%trackusertime, 'ITRACKUSERTIME', this%memoryPath)
+    call mem_allocate(this%tracksubcellexit, 'ITRACKSCEXIT', this%memoryPath)
     call mem_allocate(this%ntracktimes, 'NTRACKTIMES', this%memoryPath)
 
     this%name_model = name_model
@@ -109,6 +111,7 @@ contains
     this%trackterminate = .false.
     this%trackweaksink = .false.
     this%trackusertime = .false.
+    this%tracksubcellexit = .false.
     this%ntracktimes = 0
 
   end subroutine prt_oc_allocate_scalars
@@ -181,6 +184,7 @@ contains
     call mem_deallocate(this%trackterminate)
     call mem_deallocate(this%trackweaksink)
     call mem_deallocate(this%trackusertime)
+    call mem_deallocate(this%tracksubcellexit)
     call mem_deallocate(this%ntracktimes)
 
   end subroutine prt_oc_da
@@ -282,6 +286,11 @@ contains
           param_found = .true.
         case ('TRACK_EXIT')
           this%trackcellexit = .true.
+          this%tracksubcellexit = .true.
+          event_found = .true.
+          param_found = .true.
+        case ('TRACK_CELLEXIT')
+          this%trackcellexit = .true.
           event_found = .true.
           param_found = .true.
         case ('TRACK_TIMESTEP')
@@ -298,6 +307,10 @@ contains
           param_found = .true.
         case ('TRACK_USERTIME')
           this%trackusertime = .true.
+          event_found = .true.
+          param_found = .true.
+        case ('TRACK_SUBCELLEXIT')
+          this%tracksubcellexit = .true.
           event_found = .true.
           param_found = .true.
         case ('DEV_DUMP_EVENT_TRACE')
@@ -326,7 +339,7 @@ contains
         end if
       end do
 
-      ! default to all events
+      ! default events
       if (.not. event_found) then
         this%trackrelease = .true.
         this%trackcellexit = .true.

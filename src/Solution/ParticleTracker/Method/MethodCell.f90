@@ -4,7 +4,7 @@ module MethodCellModule
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType
   use ParticleModule, only: ParticleType
-  use ParticleEventModule, only: ParticleEventType
+  use ParticleEventModule, only: ParticleEventType, CellExitEventType
   use CellDefnModule, only: CellDefnType
   implicit none
 
@@ -14,6 +14,7 @@ module MethodCellModule
   type, abstract, extends(MethodType) :: MethodCellType
   contains
     procedure, public :: assess
+    procedure, public :: cellexit
   end type MethodCellType
 
 contains
@@ -164,5 +165,19 @@ contains
     end if
 
   end subroutine assess
+
+  !> @brief Particle exits a cell.
+  subroutine cellexit(this, particle)
+    class(MethodCellType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(ParticleEventType), pointer :: event
+
+    allocate (CellExitEventType :: event)
+    select type (event)
+    type is (CellExitEventType)
+      event%exit_face = particle%iboundary(2)
+    end select
+    call this%events%dispatch(particle, event)
+  end subroutine cellexit
 
 end module MethodCellModule

@@ -97,8 +97,7 @@ contains
   !> @brief Destroy the dispatcher.
   subroutine destroy(this)
     class(ParticleEventDispatcherType), intent(inout) :: this
-    if (associated(this%consumer)) &
-      deallocate (this%consumer)
+    if (associated(this%consumer)) deallocate (this%consumer)
   end subroutine destroy
 
 end module ParticleEventsModule

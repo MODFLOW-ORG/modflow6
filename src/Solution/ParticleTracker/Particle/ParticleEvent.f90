@@ -8,7 +8,9 @@ module ParticleEventModule
   public :: ParticleEventType
   public :: CellExitEventType, TerminationEventType, ReleaseEventType
   public :: TimeStepEventType, WeakSinkEventType, UserTimeEventType
-  public :: RELEASE, CELLEXIT, TIMESTEP, TERMINATE, WEAKSINK, USERTIME
+  public :: SubcellExitEventType
+  public :: RELEASE, CELLEXIT, TIMESTEP, TERMINATE, WEAKSINK, USERTIME, &
+            SUBCELLEXIT
 
   !> @brief Particle event enumeration.
   !!
@@ -22,6 +24,7 @@ module ParticleEventModule
     enumerator :: TERMINATE = 3 !< particle terminated
     enumerator :: WEAKSINK = 4 !< particle exited a weak sink
     enumerator :: USERTIME = 5 !< user-specified tracking time
+    enumerator :: SUBCELLEXIT = 6 !< particle exited a subcell
   end enum
 
   !> @brief Base type for particle events.
@@ -43,6 +46,7 @@ module ParticleEventModule
   end type ParticleEventType
 
   type, extends(ParticleEventType) :: CellExitEventType
+    integer(I4B) :: exit_face
   end type CellExitEventType
 
   type, extends(ParticleEventType) :: TerminationEventType
@@ -60,6 +64,11 @@ module ParticleEventModule
   type, extends(ParticleEventType) :: UserTimeEventType
   end type UserTimeEventType
 
+  type, extends(ParticleEventType) :: SubcellExitEventType
+    integer(I4B) :: isc
+    integer(I4B) :: exit_face
+  end type SubcellExitEventType
+
 contains
   integer function get_code(this) result(code)
     class(ParticleEventType), intent(in) :: this
@@ -71,6 +80,7 @@ contains
     type is (TerminationEventType); code = 3
     type is (WeakSinkEventType); code = 4
     type is (UserTimeEventType); code = 5
+    type is (SubcellExitEventType); code = 6
     class default; call pstop(1, "unknown event type")
     end select
   end function get_code
@@ -86,6 +96,7 @@ contains
     type is (TerminationEventType); str = "terminated"
     type is (WeakSinkEventType); str = "exited weak sink"
     type is (UserTimeEventType); str = "user-specified tracking time"
+    type is (SubcellExitEventType); str = "exited subcell"
     class default; call pstop(1, "unknown event type")
     end select
   end function get_verb

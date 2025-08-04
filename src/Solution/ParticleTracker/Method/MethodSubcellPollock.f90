@@ -278,7 +278,7 @@ contains
     if (event_code == TIMESTEP) then
       call this%timestep(particle)
     else if (event_code == CELLEXIT) then
-      call this%cellexit(particle)
+      call this%subcellexit(particle)
     end if
 
   end subroutine track_subcell

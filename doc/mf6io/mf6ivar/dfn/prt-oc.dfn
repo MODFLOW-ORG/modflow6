@@ -156,8 +156,16 @@ name track_exit
 type keyword
 reader urword
 optional true
-longname track transitions
-description keyword to indicate that particle tracking output is to be written when a particle exits a feature (a model, cell, or subcell)
+longname track domain exits
+description keyword to indicate that particle tracking output is to be written when a particle exits a grid domain (e.g. model, cell, subcell)
+
+block options
+name track_cellexit
+type keyword
+reader urword
+optional true
+longname track cell exits
+description keyword to indicate that particle tracking output is to be written when a particle exits a cell
 
 block options
 name track_timestep
@@ -190,6 +198,14 @@ reader urword
 optional true
 longname track usertime
 description keyword to indicate that particle tracking output is to be written at user-specified times, provided as double precision values in the TRACKTIMES block.
+
+block options
+name track_subcellexit
+type keyword
+reader urword
+optional true
+longname track subcell exits
+description keyword to indicate that particle tracking output is to be written when a particle exits a subcell
 
 block options
 name track_timesrecord

@@ -241,9 +241,9 @@ contains
       ! Transform particle coordinates back
       call particle%transform(xO, yO, invert=.true.)
       call particle%reset_transform()
-
     end select
 
+    if (particle%iboundary(2) > 0) call this%cellexit(particle)
   end subroutine apply_mct
 
   !> @brief Loads a triangular subcell from the polygonal cell
