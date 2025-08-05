@@ -66,7 +66,7 @@ contains
     call method_subcell_plck%init( &
       cell=this%cell, &
       subcell=this%subcell, &
-      trackctl=this%trackctl, &
+      events=this%events, &
       tracktimes=this%tracktimes)
     submethod => method_subcell_plck
     particle%idomain(next_level) = 1
@@ -130,8 +130,7 @@ contains
 
     select type (cell => this%cell)
     type is (CellRectType)
-      ! Check termination/reporting conditions
-      call this%check(particle, cell%defn, tmax)
+      call this%assess(particle, this%cell%defn, tmax)
       if (.not. particle%advancing) return
 
       ! Transform model coordinates to local cell coordinates

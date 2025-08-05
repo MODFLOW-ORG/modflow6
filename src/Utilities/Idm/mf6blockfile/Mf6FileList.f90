@@ -16,23 +16,21 @@ module ListLoadModule
   use StructArrayModule, only: StructArrayType, constructStructArray, &
                                destructStructArray
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
-  use BoundInputContextModule, only: BoundInputContextType
+  use LoadContextModule, only: LoadContextType
 
   implicit none
   private
   public :: ListLoadType
 
-  !> @brief Boundary package list loader.
+  !> @brief list input loader for dynamic packages.
   !!
-  !! Creates boundary input context for a package,
-  !! (e.g. CHD or MAW) and updates that context in
-  !! read and prepare (RP) routines.
+  !! Create and update input context for list based period blocks.
   !!
   !<
   type, extends(AsciiDynamicPkgLoadBaseType) :: ListLoadType
     type(TimeSeriesManagerType), pointer :: tsmanager => null()
     type(StructArrayType), pointer :: structarray => null()
-    type(BoundInputContextType) :: bound_context
+    type(LoadContextType) :: ctx
     integer(I4B) :: ts_active
     integer(I4B) :: iboundname
   contains
@@ -98,18 +96,16 @@ contains
     end if
 
     ! initialize package input context
-    call this%bound_context%create(mf6_input, &
-                                   readarraygrid=.false., &
-                                   readasarrays=.false.)
+    call this%ctx%init(mf6_input)
 
     ! store in scope SA cols for list input
-    call this%bound_context%bound_params(this%param_names, this%nparam, &
-                                         this%input_name, create=.false.)
+    call this%ctx%tags(this%param_names, this%nparam, this%input_name)
+
     ! construct and set up the struct array object
     call this%create_structarray()
 
     ! finalize input context setup
-    call this%bound_context%allocate_arrays()
+    call this%ctx%allocate_arrays()
   end subroutine ainit
 
   subroutine df(this)
@@ -149,13 +145,13 @@ contains
                         this%mf6_input%subcomponent_name, this%iout)
 
     if (ibinary == 1) then
-      this%bound_context%nbound = &
+      this%ctx%nbound = &
         this%structarray%read_from_binary(oc_inunit, this%iout)
       call parser%terminateblock()
       close (oc_inunit)
     else
       ts_active = (this%ts_active /= 0)
-      this%bound_context%nbound = &
+      this%ctx%nbound = &
         this%structarray%read_from_parser(parser, ts_active, this%iout)
     end if
 
@@ -179,7 +175,7 @@ contains
     !
     ! deallocate StructArray
     call destructStructArray(this%structarray)
-    call this%bound_context%destroy()
+    call this%ctx%destroy()
   end subroutine destroy
 
   subroutine ts_link_bnd(this, structvector, ts_strloc)
@@ -204,12 +200,12 @@ contains
                                    ts_strloc%structarray_col, bndElem, &
                                    this%mf6_input%subcomponent_name, &
                                    'BND', this%tsmanager, &
-                                   this%bound_context%iprpak, tsLinkBnd)
+                                   this%ctx%iprpak, tsLinkBnd)
     if (associated(tsLinkBnd)) then
       ! set variable name
       tsLinkBnd%Text = structvector%idt%mf6varname
       ! set boundname if provided
-      if (this%bound_context%inamedbound > 0) then
+      if (this%ctx%boundnames > 0) then
         sv_bound => this%structarray%get(this%iboundname)
         boundname = sv_bound%charstr1d(ts_strloc%row)
         tsLinkBnd%BndName = boundname
@@ -239,12 +235,12 @@ contains
                                    ts_strloc%structarray_col, bndElem, &
                                    this%mf6_input%subcomponent_name, &
                                    'AUX', this%tsmanager, &
-                                   this%bound_context%iprpak, tsLinkAux)
+                                   this%ctx%iprpak, tsLinkAux)
     if (associated(tsLinkAux)) then
       ! set variable name
-      tsLinkAux%Text = this%bound_context%auxname_cst(ts_strloc%col)
+      tsLinkAux%Text = this%ctx%auxname_cst(ts_strloc%col)
       ! set boundname if provided
-      if (this%bound_context%inamedbound > 0) then
+      if (this%ctx%boundnames > 0) then
         sv_bound => this%structarray%get(this%iboundname)
         boundname = sv_bound%charstr1d(ts_strloc%row)
         tsLinkAux%BndName = boundname
@@ -302,7 +298,7 @@ contains
 
     ! construct and set up the struct array object
     this%structarray => constructStructArray(this%mf6_input, this%nparam, &
-                                             this%bound_context%maxbound, 0, &
+                                             this%ctx%maxbound, 0, &
                                              this%mf6_input%mempath, &
                                              this%mf6_input%component_mempath)
     ! set up struct array

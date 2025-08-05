@@ -24,7 +24,6 @@ contains
   !> @brief open netcdf file
   !<
   function open_ncfile(nc_fname, iout) result(ncid)
-    use MemoryManagerExtModule, only: mem_set_value
     use NetCDFCommonModule, only: nc_fopen
     character(len=*) :: nc_fname
     integer(I4B) :: iout

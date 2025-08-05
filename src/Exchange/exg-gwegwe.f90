@@ -29,6 +29,7 @@ module GweGweExchangeModule
   use ObsModule, only: ObsType
   use TableModule, only: TableType, table_cr
   use MatrixBaseModule
+  use AdvSchemeEnumModule
 
   implicit none
 
@@ -58,7 +59,7 @@ module GweGweExchangeModule
     ! -- GWT specific option block:
     integer(I4B), pointer :: inewton => null() !< unneeded newton flag allows for mvt to be used here
     integer(I4B), pointer :: iAdvScheme !< the advection scheme at the interface:
-                                        !! 0 = upstream, 1 = central, 2 = TVD
+                                        !! 0 = upstream, 1 = central, 2 = TVD, 3 = UTVD
     !
     ! -- Mover transport package
     integer(I4B), pointer :: inmvt => null() !< unit number for mover transport (0 if off)
@@ -141,7 +142,7 @@ contains
     call exchange%allocate_scalars()
     exchange%filename = filename
     exchange%typename = 'GWE-GWE'
-    exchange%iAdvScheme = 0
+    exchange%iAdvScheme = ADV_SCHEME_UPSTREAM
     exchange%ixt3d = 1
     !
     ! -- set gwemodel1
@@ -682,8 +683,8 @@ contains
     integer(I4B), intent(in) :: iout
     ! -- local
     type(ExgGwegweParamFoundType) :: found
-    character(len=LENVARNAME), dimension(3) :: adv_scheme = &
-      &[character(len=LENVARNAME) :: 'UPSTREAM', 'CENTRAL', 'TVD']
+    character(len=LENVARNAME), dimension(4) :: adv_scheme = &
+      &[character(len=LENVARNAME) :: 'UPSTREAM', 'CENTRAL', 'TVD', 'UTVD']
     character(len=LINELENGTH) :: mvt_fname
     !
     ! -- update defaults with values sourced from input context

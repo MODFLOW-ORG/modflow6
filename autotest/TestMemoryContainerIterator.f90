@@ -42,8 +42,11 @@ contains
 
     !- Arrange.
     mt1%name = "TestName1"
+    mt1%path = "TestPath1"
     mt2%name = "TestName2"
+    mt2%path = "TestPath2"
     mt3%name = "TestName3"
+    mt3%path = "TestPath3"
 
     current_mt => mt1
     call memory_container%add(current_mt)
@@ -69,6 +72,9 @@ contains
     !- Assert.
     call check(error, all(iterated .eqv. .true.))
     if (allocated(error)) return
+
+    !- Clean up.
+    call memory_container%clear()
 
   end subroutine test_iterate_through_container
 

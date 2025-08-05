@@ -32,7 +32,8 @@ contains
   !<
   function create_input_loader(component_type, subcomponent_type, &
                                component_name, subcomponent_name, input_type, &
-                               input_fname, component_fname, nc_vars) &
+                               load_scope, input_fname, component_fname, &
+                               nc_vars) &
     result(loader)
     use SourceCommonModule, only: package_source_type, idm_subcomponent_name
     use InputLoadTypeModule, only: StaticPkgLoadBaseType
@@ -41,6 +42,7 @@ contains
     character(len=*), intent(in) :: component_name
     character(len=*), intent(in) :: subcomponent_name
     character(len=*), intent(in) :: input_type
+    character(len=*), intent(in) :: load_scope
     character(len=*), intent(in) :: input_fname
     character(len=*), intent(in) :: component_fname
     type(NCFileVarsType), pointer, optional, intent(in) :: nc_vars
@@ -54,7 +56,8 @@ contains
                                     subcomponent_name)
     ! create description of input
     mf6_input = getModflowInput(input_type, component_type, subcomponent_type, &
-                                component_name, sc_name, input_fname)
+                                component_name, sc_name, load_scope, &
+                                input_fname)
     ! set package source
     source_type = package_source_type(input_fname)
 
@@ -137,7 +140,7 @@ contains
 
     ! create description of input
     mf6_input = getModflowInput(mtype, idm_component_type(mtype), 'NAM', &
-                                mname, 'NAM', mfname)
+                                mname, 'NAM', 'SIM', mfname)
     select case (source_type)
     case ('MF6FILE')
       call input_load(mfname, mf6_input, simfile, iout)
@@ -165,13 +168,14 @@ contains
         trim(adjustl(simfile))
       call write_message(line, skipafter=1)
       ! create description of input
-      mf6_input = getModflowInput('NAM6', 'SIM', 'NAM', 'SIM', 'NAM', simfile)
+      mf6_input = getModflowInput('NAM6', 'SIM', 'NAM', 'SIM', 'NAM', 'ROOT', &
+                                  simfile)
       ! open namfile and load to input context
       call input_load(simfile, mf6_input, simfile, iout)
       ! load optional HPC configuration file
       if (filein_fname(hpc6_filename, 'HPC6_FILENAME', mf6_input%mempath, &
                        simfile)) then
-        hpc_input = getModflowInput('HPC6', 'UTL', 'HPC', 'UTL', 'HPC')
+        hpc_input = getModflowInput('HPC6', 'UTL', 'HPC', 'UTL', 'HPC', 'SIM')
         call input_load(hpc6_filename, hpc_input, simfile, iout)
       end if
     end if
@@ -206,7 +210,7 @@ contains
         if (lexist) then
           ! create description of input
           mf6_input = getModflowInput('TDIS6', 'SIM', 'TDIS', &
-                                      'SIM', 'TDIS', simfile)
+                                      'SIM', 'TDIS', 'SIM', simfile)
           ! open namfile and load to input context
           call input_load(tdis6, mf6_input, simfile, iout)
         else

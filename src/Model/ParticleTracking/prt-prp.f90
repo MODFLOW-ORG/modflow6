@@ -17,11 +17,13 @@ module PrtPrpModule
   use SimModule, only: count_errors, store_error, store_error_unit, &
                        store_warning
   use SimVariablesModule, only: errmsg, warnmsg
-  use TrackControlModule, only: TrackControlType
+  use ParticleTracksModule, only: ParticleTracksType, &
+                                  TRACKHEADER, TRACKDTYPES
   use GeomUtilModule, only: point_in_polygon, get_ijk, get_jk
   use MemoryManagerModule, only: mem_allocate, mem_deallocate, &
                                  mem_reallocate
-  use ReleaseScheduleModule, only: ReleaseScheduleType, create_release_schedule
+  use ParticleReleaseScheduleModule, only: ParticleReleaseScheduleType, &
+                                           create_release_schedule
   use DisModule, only: DisType
   use DisvModule, only: DisvType
   use ErrorUtilModule, only: pstop
@@ -41,8 +43,7 @@ module PrtPrpModule
   type, extends(BndType) :: PrtPrpType
     type(PrtFmiType), pointer :: fmi => null() !< flow model interface
     type(ParticleStoreType), pointer :: particles => null() !< particle store
-    type(TrackControlType), pointer :: trackctl => null() !< track control
-    type(ReleaseScheduleType), pointer :: schedule !< particle release schedule
+    type(ParticleReleaseScheduleType), pointer :: schedule !< particle release schedule
     integer(I4B), pointer :: nreleasepoints => null() !< number of release points
     integer(I4B), pointer :: nreleasetimes => null() !< number of user-specified particle release times
     integer(I4B), pointer :: nparticles => null() !< number of particles released
@@ -58,6 +59,7 @@ module PrtPrpModule
     integer(I4B), pointer :: iextend => null() !< extend tracking beyond simulation's end
     integer(I4B), pointer :: ifrctrn => null() !< force ternary solution for quad grids
     integer(I4B), pointer :: iexmeth => null() !< method for iterative solution of particle exit location and time in generalized Pollock's method
+    integer(I4B), pointer :: ichkmeth => null() !< method for checking particle release coordinates are in the specified cells, 0 = none, 1 = eager
     real(DP), pointer :: extol => null() !< tolerance for iterative solution of particle exit location and time in generalized Pollock's method
     real(DP), pointer :: rttol => null() !< tolerance for coincident particle release times
     real(DP), pointer :: rtfreq => null() !< frequency for regularly spaced release times
@@ -169,6 +171,7 @@ contains
     call mem_deallocate(this%irlstls)
     call mem_deallocate(this%ifrctrn)
     call mem_deallocate(this%iexmeth)
+    call mem_deallocate(this%ichkmeth)
     call mem_deallocate(this%extol)
     call mem_deallocate(this%rttol)
     call mem_deallocate(this%rtfreq)
@@ -183,21 +186,19 @@ contains
 
     ! Deallocate objects
     call this%particles%destroy(this%memoryPath)
-    call this%schedule%deallocate()
+    call this%schedule%destroy()
     deallocate (this%particles)
     deallocate (this%schedule)
   end subroutine prp_da
 
   !> @ brief Set pointers to model variables
-  subroutine prp_set_pointers(this, ibound, izone, trackctl)
+  subroutine prp_set_pointers(this, ibound, izone)
     class(PrtPrpType) :: this
     integer(I4B), dimension(:), pointer, contiguous :: ibound
     integer(I4B), dimension(:), pointer, contiguous :: izone
-    type(TrackControlType), pointer :: trackctl
 
     this%ibound => ibound
     this%rptzone => izone
-    this%trackctl => trackctl
   end subroutine prp_set_pointers
 
   !> @brief Allocate arrays
@@ -208,6 +209,8 @@ contains
     real(DP), dimension(:, :), pointer, contiguous, optional :: auxvar
     ! local
     integer(I4B) :: nps
+
+    call this%BndType%allocate_arrays()
 
     ! Allocate particle store, starting with the number
     ! of release points (arrays resized if/when needed)
@@ -220,7 +223,8 @@ contains
     call mem_allocate(this%rptx, this%nreleasepoints, 'RPTX', this%memoryPath)
     call mem_allocate(this%rpty, this%nreleasepoints, 'RPTY', this%memoryPath)
     call mem_allocate(this%rptz, this%nreleasepoints, 'RPTZ', this%memoryPath)
-    call mem_allocate(this%rptm, this%nreleasepoints, 'RPTMASS', this%memoryPath)
+    call mem_allocate(this%rptm, this%nreleasepoints, 'RPTMASS', &
+                      this%memoryPath)
     call mem_allocate(this%rptnode, this%nreleasepoints, 'RPTNODER', &
                       this%memoryPath)
     call mem_allocate(this%rptname, LENBOUNDNAME, this%nreleasepoints, &
@@ -258,6 +262,7 @@ contains
     call mem_allocate(this%irlstls, 'IRLSTLS', this%memoryPath)
     call mem_allocate(this%ifrctrn, 'IFRCTRN', this%memoryPath)
     call mem_allocate(this%iexmeth, 'IEXMETH', this%memoryPath)
+    call mem_allocate(this%ichkmeth, 'ICHKMETH', this%memoryPath)
     call mem_allocate(this%extol, 'EXTOL', this%memoryPath)
     call mem_allocate(this%rttol, 'RTTOL', this%memoryPath)
     call mem_allocate(this%rtfreq, 'RTFREQ', this%memoryPath)
@@ -281,6 +286,7 @@ contains
     this%irlstls = 0
     this%ifrctrn = 0
     this%iexmeth = 0
+    this%ichkmeth = 1
     this%extol = DEM5
     this%rttol = DSAME * DEP9
     this%rtfreq = DZERO
@@ -295,7 +301,7 @@ contains
     integer(I4B) :: n
 
     call this%obs%obs_ar()
-    call this%BndType%allocate_arrays()
+
     if (this%inamedbound /= 0) then
       do n = 1, this%nreleasepoints
         this%boundname(n) = this%rptname(n)
@@ -512,7 +518,8 @@ contains
       z = this%rptz(ip)
     end if
 
-    call this%validate_release_point(ic, x, y, z)
+    if (this%ichkmeth > 0) &
+      call this%validate_release_point(ic, x, y, z)
 
     particle%x = x
     particle%y = y
@@ -694,7 +701,6 @@ contains
     use OpenSpecModule, only: access, form
     use ConstantsModule, only: MAXCHARLEN, DZERO
     use InputOutputModule, only: urword, getunit, openfile
-    use TrackFileModule, only: TRACKHEADER, TRACKDTYPES
     ! dummy
     class(PrtPrpType), intent(inout) :: this
     character(len=*), intent(inout) :: option
@@ -808,7 +814,7 @@ contains
       call this%parser%DevOpt()
       this%ifrctrn = 1
       write (this%iout, '(4x,a)') &
-        'TRACKING WILL BE DONE USING THE TERNARY METHOD REGARDLESS OF CELL TYPE'
+        'IF DISV, TRACKING WILL USE THE TERNARY METHOD REGARDLESS OF CELL TYPE'
       found = .true.
     case ('DEV_EXIT_SOLVE_METHOD')
       call this%parser%DevOpt()
@@ -816,6 +822,23 @@ contains
       if (.not. (this%iexmeth /= 1 .or. this%iexmeth /= 2)) &
         call store_error('DEV_EXIT_SOLVE_METHOD MUST BE &
           &1 (BRENT) OR 2 (CHANDRUPATLA)')
+      found = .true.
+    case ('COORDINATE_CHECK_METHOD')
+      call this%parser%GetStringCaps(keyword)
+      select case (keyword)
+      case ('NONE')
+        this%ichkmeth = 0
+      case ('EAGER')
+        this%ichkmeth = 1
+      case default
+        write (errmsg, '(a, a)') &
+          'Unsupported coordinate check method: ', trim(keyword)
+        call store_error(errmsg)
+        write (errmsg, '(a, a)') &
+          'COORDINATE_CHECK_METHOD must be "NONE" or "EAGER"'
+        call store_error(errmsg)
+        call this%parser%StoreErrorUnit()
+      end select
       found = .true.
     case default
       found = .false.
@@ -830,7 +853,7 @@ contains
 
     ! Create release schedule now that we know
     ! the coincident release time tolerance
-    this%schedule => create_release_schedule(tol=this%rttol)
+    this%schedule => create_release_schedule(tolerance=this%rttol)
 
   end subroutine prp_options
 

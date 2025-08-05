@@ -7,6 +7,9 @@ module TspAdvModule
   use TspFmiModule, only: TspFmiType
   use TspAdvOptionsModule, only: TspAdvOptionsType
   use MatrixBaseModule, only: MatrixBaseType
+  ! -- Gradient schemes
+  use IGradient, only: IGradientType
+  use LeastSquaresGradientModule, only: LeastSquaresGradientType
   ! -- Interpolation schemes
   use InterpolationSchemeInterfaceModule, only: InterpolationSchemeInterface, &
                                                 CoefficientsType
@@ -14,6 +17,7 @@ module TspAdvModule
   use UpstreamSchemeModule, only: UpstreamSchemeType
   use CentralDifferenceSchemeModule, only: CentralDifferenceSchemeType
   use TVDSchemeModule, only: TVDSchemeType
+  use UTVDSchemeModule, only: UTVDSchemeType
 
   implicit none
   private
@@ -28,6 +32,7 @@ module TspAdvModule
     real(DP), pointer :: eqnsclfac => null() !< governing equation scale factor; =1. for solute; =rhow*cpw for energy
 
     class(InterpolationSchemeInterface), allocatable :: face_interpolation !< interpolation scheme for face values
+    class(IGradientType), allocatable :: gradient !< cell centered gradient
   contains
 
     procedure :: adv_df
@@ -38,7 +43,7 @@ module TspAdvModule
     procedure :: adv_da
 
     procedure :: allocate_scalars
-    procedure, private :: read_options
+    procedure, private :: source_options
 
   end type TspAdvType
 
@@ -48,10 +53,12 @@ contains
   !!
   !!  Create a new ADV package
   !<
-  subroutine adv_cr(advobj, name_model, inunit, iout, fmi, eqnsclfac)
+  subroutine adv_cr(advobj, name_model, input_mempath, inunit, iout, fmi, &
+                    eqnsclfac)
     ! -- dummy
     type(TspAdvType), pointer :: advobj
     character(len=*), intent(in) :: name_model
+    character(len=*), intent(in) :: input_mempath
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
     type(TspFmiType), intent(in), target :: fmi
@@ -61,7 +68,7 @@ contains
     allocate (advobj)
     !
     ! -- create name and memory path
-    call advobj%set_names(1, name_model, 'ADV', 'ADV')
+    call advobj%set_names(1, name_model, 'ADV', 'ADV', input_mempath)
     !
     ! -- Allocate scalars
     call advobj%allocate_scalars()
@@ -84,20 +91,16 @@ contains
     ! -- local
     character(len=*), parameter :: fmtadv = &
       "(1x,/1x,'ADV-- ADVECTION PACKAGE, VERSION 1, 8/25/2017', &
-      &' INPUT READ FROM UNIT ', i0, //)"
+      &' INPUT READ FROM MEMPATH: ', A, //)"
     !
     ! -- Read or set advection options
     if (.not. present(adv_options)) then
       !
-      ! -- Initialize block parser (adv has no define, so it's
-      ! not done until here)
-      call this%parser%Initialize(this%inunit, this%iout)
-      !
       ! --print a message identifying the advection package.
-      write (this%iout, fmtadv) this%inunit
+      write (this%iout, fmtadv) this%input_mempath
       !
       ! --read options from file
-      call this%read_options()
+      call this%source_options()
     else
       !
       ! --set options from input arg
@@ -135,6 +138,10 @@ contains
     case (ADV_SCHEME_TVD)
       this%face_interpolation = &
         TVDSchemeType(this%dis, this%fmi, this%ibound)
+    case (ADV_SCHEME_UTVD)
+      this%gradient = LeastSquaresGradientType(this%dis)
+      this%face_interpolation = &
+        UTVDSchemeType(this%dis, this%fmi, this%gradient)
     case default
       call store_error("Unknown advection scheme", terminate=.TRUE.)
     end select
@@ -325,71 +332,58 @@ contains
     this%iasym = 1
   end subroutine allocate_scalars
 
-  !> @brief Read options
-  !!
-  !! Read the options block
+  !> @brief Source input options
   !<
-  subroutine read_options(this)
+  subroutine source_options(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
-    use SimModule, only: store_error
+    use KindModule, only: LGP
+    use ConstantsModule, only: LENVARNAME
+    use SimVariablesModule, only: errmsg
+    use SimModule, only: store_error, store_error_filename
+    use MemoryManagerExtModule, only: mem_set_value
     ! -- dummy
     class(TspAdvType) :: this
-    ! -- local
-    character(len=LINELENGTH) :: errmsg, keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
+    ! -- locals
+    character(len=LENVARNAME), dimension(4) :: scheme = &
+      &[character(len=LENVARNAME) :: 'UPSTREAM', 'CENTRAL', 'TVD', 'UTVD']
+    logical(LGP) :: found_scheme, found_atspercel
     ! -- formats
     character(len=*), parameter :: fmtiadvwt = &
       &"(4x,'ADVECTION WEIGHTING SCHEME HAS BEEN SET TO: ', a)"
-    !
-    ! -- get options block
-    call this%parser%GetBlock('OPTIONS', isfound, ierr, blockRequired=.false., &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse options block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING ADVECTION OPTIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('SCHEME')
-          call this%parser%GetStringCaps(keyword)
-          select case (keyword)
-          case ('UPSTREAM')
-            this%iadvwt = ADV_SCHEME_UPSTREAM
-            write (this%iout, fmtiadvwt) 'UPSTREAM'
-          case ('CENTRAL')
-            this%iadvwt = ADV_SCHEME_CENTRAL
-            write (this%iout, fmtiadvwt) 'CENTRAL'
-          case ('TVD')
-            this%iadvwt = ADV_SCHEME_TVD
-            write (this%iout, fmtiadvwt) 'TVD'
-          case default
-            write (errmsg, '(a, a)') &
-              'Unknown scheme: ', trim(keyword)
-            call store_error(errmsg)
-            write (errmsg, '(a, a)') &
-              'Scheme must be "UPSTREAM", "CENTRAL" or "TVD"'
-            call store_error(errmsg)
-            call this%parser%StoreErrorUnit()
-          end select
-        case ('ATS_PERCEL')
-          this%ats_percel = this%parser%GetDouble()
-          if (this%ats_percel == DZERO) this%ats_percel = DNODATA
-          write (this%iout, '(4x,a,1pg15.6)') &
-            'User-specified fractional cell distance for adaptive time &
-            &steps: ', this%ats_percel
-        case default
-          write (errmsg, '(a,a)') 'Unknown ADVECTION option: ', &
-            trim(keyword)
-          call store_error(errmsg, terminate=.TRUE.)
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END OF ADVECTION OPTIONS'
+
+    ! update defaults with input sourced values
+    call mem_set_value(this%iadvwt, 'SCHEME', this%input_mempath, &
+                       scheme, found_scheme)
+    call mem_set_value(this%ats_percel, 'ATS_PERCEL', this%input_mempath, &
+                       found_atspercel)
+
+    if (found_scheme) then
+      ! should currently be set to index of scheme names
+      if (this%iadvwt == 0) then
+        write (errmsg, '(a, a)') &
+          'Unknown scheme, must be "UPSTREAM", "CENTRAL", "TVD" or "UTVD"'
+        call store_error(errmsg)
+        call store_error_filename(this%input_fname)
+      else
+        ! scheme parameters are 0 based
+        this%iadvwt = this%iadvwt - 1
+      end if
     end if
-  end subroutine read_options
+    if (found_atspercel) then
+      if (this%ats_percel == DZERO) this%ats_percel = DNODATA
+    end if
+
+    ! log options
+    write (this%iout, '(1x,a)') 'PROCESSING ADVECTION OPTIONS'
+    if (found_scheme) then
+      write (this%iout, fmtiadvwt) trim(scheme(this%iadvwt + 1))
+    end if
+    if (found_atspercel) then
+      write (this%iout, '(4x,a,1pg15.6)') &
+        'User-specified fractional cell distance for adaptive time &
+        &steps: ', this%ats_percel
+    end if
+    write (this%iout, '(1x,a)') 'END OF ADVECTION OPTIONS'
+  end subroutine source_options
 
 end module TspAdvModule

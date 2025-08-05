@@ -1,5 +1,5 @@
 !> @brief Particle release scheduling.
-module ReleaseScheduleModule
+module ParticleReleaseScheduleModule
 
   use ArrayHandlersModule, only: ExpandArray
   use ConstantsModule, only: DZERO, DONE, LINELENGTH
@@ -10,7 +10,7 @@ module ReleaseScheduleModule
 
   implicit none
   private
-  public :: ReleaseScheduleType
+  public :: ParticleReleaseScheduleType
   public :: create_release_schedule
 
   !> @brief Particle release scheduling utility.
@@ -23,10 +23,10 @@ module ReleaseScheduleModule
   !! times closer than the tolerance are merged into a single time.
   !!
   !! The release schedule must be refreshed each time step. This is
-  !! achieved by calling `advance()`. After this, the `times` member
+  !! achieved by calling `advance()`. After this, the `times` array
   !! is a debounced/consolidated schedule for the current time step.
   !<
-  type :: ReleaseScheduleType
+  type :: ParticleReleaseScheduleType
     real(DP), allocatable :: times(:) !< release times
     real(DP) :: tolerance !< release time coincidence tolerance
     type(TimeSelectType), pointer :: time_select !< time selection
@@ -35,43 +35,41 @@ module ReleaseScheduleModule
     procedure :: advance
     procedure :: any
     procedure :: count
-    procedure :: deallocate
+    procedure :: destroy
     procedure :: log
     procedure :: schedule
-  end type ReleaseScheduleType
+  end type ParticleReleaseScheduleType
 
 contains
 
-  !> @brief Create a new release schedule object.
-  function create_release_schedule(tol) result(sched)
-    real(DP), intent(in) :: tol !< coincident release time tolerance
-    type(ReleaseScheduleType), pointer :: sched !< schedule pointer
+  !> @brief Create a new release schedule.
+  function create_release_schedule(tolerance) result(schedule_)
+    real(DP), intent(in) :: tolerance !< coincident release time tolerance
+    type(ParticleReleaseScheduleType), pointer :: schedule_ !< schedule pointer
 
-    allocate (sched)
-    allocate (sched%times(0))
-    allocate (sched%time_select)
-    allocate (sched%step_select)
-    call sched%time_select%init()
-    call sched%step_select%init()
-    sched%tolerance = tol
-
+    allocate (schedule_)
+    allocate (schedule_%times(0))
+    allocate (schedule_%time_select)
+    allocate (schedule_%step_select)
+    call schedule_%time_select%init()
+    call schedule_%step_select%init()
+    schedule_%tolerance = tolerance
   end function create_release_schedule
 
   !> @brief Deallocate the release schedule.
-  subroutine deallocate (this)
-    class(ReleaseScheduleType), intent(inout) :: this !< this instance
+  subroutine destroy(this)
+    class(ParticleReleaseScheduleType), intent(inout) :: this !< this instance
 
     deallocate (this%times)
     call this%time_select%deallocate()
     call this%step_select%deallocate()
     deallocate (this%time_select)
     deallocate (this%step_select)
-
-  end subroutine deallocate
+  end subroutine destroy
 
   !> @brief Write the release schedule to the given output unit.
   subroutine log(this, iout)
-    class(ReleaseScheduleType), intent(inout) :: this !< this instance
+    class(ParticleReleaseScheduleType), intent(inout) :: this !< this instance
     integer(I4B), intent(in) :: iout !< output unit
     character(len=*), parameter :: fmt = &
       &"(6x,A,': ',50(G0,' '))"
@@ -91,7 +89,7 @@ contains
   !! a read-only property which the schedule maintains.
   !<
   subroutine schedule(this, trelease)
-    class(ReleaseScheduleType), intent(inout) :: this
+    class(ParticleReleaseScheduleType), intent(inout) :: this
     real(DP), intent(in) :: trelease
     call ExpandArray(this%times)
     this%times(size(this%times)) = trelease
@@ -109,7 +107,7 @@ contains
   !<
   subroutine advance(this, lines)
     use TdisModule, only: totimc, kstp, endofperiod
-    class(ReleaseScheduleType), intent(inout) :: this
+    class(ParticleReleaseScheduleType), intent(inout) :: this
     character(len=LINELENGTH), intent(in), optional :: lines(:)
     integer(I4B) :: it, i
     real(DP) :: tprevious
@@ -164,7 +162,7 @@ contains
   !! or the result may still be associated with a prior time step.
   !<
   logical function any(this) result(a)
-    class(ReleaseScheduleType) :: this
+    class(ParticleReleaseScheduleType) :: this
     a = this%count() > 0
   end function any
 
@@ -174,8 +172,8 @@ contains
   !! or the result may still be associated with a prior time step.
   !<
   integer function count(this) result(n)
-    class(ReleaseScheduleType) :: this
+    class(ParticleReleaseScheduleType) :: this
     n = size(this%times)
   end function count
 
-end module ReleaseScheduleModule
+end module ParticleReleaseScheduleModule

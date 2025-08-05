@@ -26,7 +26,7 @@ description xxx
 block attributes
 name time_series_name
 type string
-shape any1d
+shape (any1d)
 tagged false
 reader urword
 optional false
@@ -102,7 +102,7 @@ description Scale factor, which will multiply all array values in time series. S
 block time
 name time_from_model_start
 type double precision
-block_variable True
+block_variable true
 in_record true
 shape
 tagged false

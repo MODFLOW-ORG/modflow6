@@ -6,7 +6,7 @@ test_gwt_henry_gwtgwt.py and runs it in parallel mode.
 import pytest
 from framework import TestFramework
 
-cases = ["par-henry-ups", "par-henry-cen", "par-henry-tvd"]
+cases = ["par-henry-ups", "par-henry-cen", "par-henry-tvd", "par-henry-utvd"]
 
 
 def build_models(idx, test):

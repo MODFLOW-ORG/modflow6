@@ -1,17 +1,19 @@
 """
-multiple ssm sources and sinks using a flow model followed by a
-transport model.  Initial conditions and all inflows and outflows are
+Multiple ssm sources and sinks using a flow model followed by a
+transport model. Initial conditions and all inflows and outflows are
 assigned a concentration of 100.0 so the simulated concentration must also
-be 100.
+be 100. Each case should give an identical results- case 0 uses list
+based input in the flow model while case 1 uses grid array based input.
 """
 
 import os
-from os.path import join
 
 import flopy
 import numpy as np
+import pytest
+from framework import DNODATA, TestFramework
 
-testgroup = "ssm01"
+cases = ["ssm01", "ssm01_gp"]
 
 nlay = 1
 nrow = 10
@@ -21,13 +23,18 @@ delc = 10.0
 top = 100.0
 botm = 0.0
 
+# ssm sources block information
+sourcerecarray = []
+# sourcerecarray += [("WEL-1", "AUX", "CONCENTRATION")]
+sourcerecarray += [(f"GHB-{i + 1}", "AUX", "CONCENTRATION") for i in [0, 1, 2, 3]]
+sourcerecarray += [(f"RIV-{i + 1}", "AUX", "CONCENTRATION") for i in [0, 1, 2]]
+sourcerecarray += [(f"DRN-{i + 1}", "AUX", "CONCENTRATION") for i in [0, 1, 2]]
 
-def run_flow_model(dir, exe):
-    global idomain
+
+def get_flow_sim(idx, ws):
     name = "flow"
     gwfname = name
-    wsf = join(dir, testgroup, name)
-    sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=wsf, exe_name=exe)
+    sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=ws / "flow", exe_name="mf6")
     tdis_rc = [(100.0, 1, 1.0), (100.0, 1, 1.0)]
     nper = len(tdis_rc)
     tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
@@ -105,73 +112,142 @@ def run_flow_model(dir, exe):
         rch = flopy.mf6.ModflowGwfrcha(gwf, recharge={0: 4.79e-3}, pname="RCH-1")
 
     # wel
-    wellist = []
-    for i in range(nrow):
-        wellist.append(((0, i, 0), 100.0, 100.0))
-    wel = flopy.mf6.ModflowGwfwel(
-        gwf,
-        stress_period_data=wellist,
-        auxiliary=["concentration"],
-        pname="WEL-1",
-    )
+    if idx == 1:
+        q = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+        welconc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+        for i in range(nrow):
+            q[0, i, 0] = 100.0
+            welconc[0, i, 0] = 100.0
+        wel = flopy.mf6.ModflowGwfwelg(
+            gwf,
+            auxiliary=["concentration"],
+            pname="WEL-1",
+            q=q,
+            aux=welconc,
+        )
+    else:
+        wellist = []
+        for i in range(nrow):
+            wellist.append(((0, i, 0), 100.0, 100.0))
+        wel = flopy.mf6.ModflowGwfwel(
+            gwf,
+            stress_period_data=wellist,
+            auxiliary=["concentration"],
+            pname="WEL-1",
+        )
 
     # ghb
     rows = [0, 1, 2, 3]
     for ipak, i in enumerate(rows):
-        blist = []
-        blist.append(((0, i, ncol - 1), 50.0, 1000.0, 100.0))
         fname = f"flow.{ipak + 1}.ghb"
-        ghb = flopy.mf6.ModflowGwfghb(
-            gwf,
-            stress_period_data=blist,
-            auxiliary=["concentration"],
-            filename=fname,
-            pname=f"GHB-{ipak + 1}",
-        )
+        pname = f"GHB-{ipak + 1}"
+        if idx == 1:
+            bhead = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            cond = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            conc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            bhead[0, i, ncol - 1] = 50.0
+            cond[0, i, ncol - 1] = 1000.0
+            conc[0, i, ncol - 1] = 100.0
+            flopy.mf6.ModflowGwfghbg(
+                gwf,
+                auxiliary=["concentration"],
+                filename=f"{fname}g",
+                pname=pname,
+                bhead=bhead,
+                cond=cond,
+                aux=conc,
+            )
+        else:
+            blist = []
+            blist.append(((0, i, ncol - 1), 50.0, 1000.0, 100.0))
+            ghb = flopy.mf6.ModflowGwfghb(
+                gwf,
+                stress_period_data=blist,
+                auxiliary=["concentration"],
+                filename=fname,
+                pname=pname,
+            )
 
     # riv
     rows = [4, 5, 6]
     for ipak, i in enumerate(rows):
-        blist = []
-        blist.append(((0, i, ncol - 1), 50.0, 1000.0, 0.0, 100.0))
         fname = f"flow.{ipak + 1}.riv"
-        riv = flopy.mf6.ModflowGwfriv(
-            gwf,
-            stress_period_data=blist,
-            auxiliary=["concentration"],
-            filename=fname,
-            pname=f"RIV-{ipak + 1}",
-        )
+        pname = f"RIV-{ipak + 1}"
+        if idx == 1:
+            stage = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            cond = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            rbot = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            conc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            stage[0, i, ncol - 1] = 50.0
+            cond[0, i, ncol - 1] = 1000.0
+            rbot[0, i, ncol - 1] = 0.0
+            conc[0, i, ncol - 1] = 100.0
+            riv = flopy.mf6.ModflowGwfrivg(
+                gwf,
+                auxiliary=["concentration"],
+                filename=f"{fname}g",
+                pname=pname,
+                stage=stage,
+                cond=cond,
+                rbot=rbot,
+                aux=[conc],
+            )
+
+        else:
+            blist = []
+            blist.append(((0, i, ncol - 1), 50.0, 1000.0, 0.0, 100.0))
+            riv = flopy.mf6.ModflowGwfriv(
+                gwf,
+                stress_period_data=blist,
+                auxiliary=["concentration"],
+                filename=fname,
+                pname=pname,
+            )
 
     # drn
     rows = [7, 8, 9]
     for ipak, i in enumerate(rows):
-        blist = []
-        blist.append(((0, i, ncol - 1), 50.0, 1000.0, 100.0))
         fname = f"flow.{ipak + 1}.drn"
-        drn = flopy.mf6.ModflowGwfdrn(
-            gwf,
-            stress_period_data=blist,
-            auxiliary=["concentration"],
-            filename=fname,
-            pname=f"DRN-{ipak + 1}",
-        )
+        pname = f"DRN-{ipak + 1}"
+        if idx == 1:
+            elev = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            cond = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            conc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            elev[0, i, ncol - 1] = 50.0
+            cond[0, i, ncol - 1] = 1000.0
+            conc[0, i, ncol - 1] = 100.0
+            drn = flopy.mf6.modflow.ModflowGwfdrng(
+                gwf,
+                auxiliary=["concentration"],
+                filename=f"{fname}g",
+                pname=pname,
+                elev=elev,
+                cond=cond,
+                aux=[conc],
+            )
+        else:
+            blist = []
+            blist.append(((0, i, ncol - 1), 50.0, 1000.0, 100.0))
+            fname = f"flow.{ipak + 1}.drn"
+            drn = flopy.mf6.ModflowGwfdrn(
+                gwf,
+                stress_period_data=blist,
+                auxiliary=["concentration"],
+                filename=fname,
+                pname=pname,
+            )
 
-    sim.write_simulation()
-    success, buff = sim.run_simulation(silent=False)
-    errmsg = f"flow model did not terminate successfully\n{buff}"
-    assert success, errmsg
+    return sim
 
 
-def run_transport_model(dir, exe):
+def get_transport_sim(idx, ws):
     name = "transport"
     gwtname = name
-    wst = join(dir, testgroup, name)
     sim = flopy.mf6.MFSimulation(
         sim_name=name,
         version="mf6",
-        exe_name=exe,
-        sim_ws=wst,
+        exe_name="mf6",
+        sim_ws=ws,
         continue_=False,
     )
 
@@ -219,13 +295,6 @@ def run_transport_model(dir, exe):
     adv = flopy.mf6.ModflowGwtadv(gwt, scheme="TVD")
     dsp = flopy.mf6.ModflowGwtdsp(gwt, alh=20.0, ath1=2, atv=0.2)
 
-    # Create the ssm sources block information
-    sourcerecarray = []
-    # sourcerecarray += [("WEL-1", "AUX", "CONCENTRATION")]
-    sourcerecarray += [(f"GHB-{i + 1}", "AUX", "CONCENTRATION") for i in [0, 1, 2, 3]]
-    sourcerecarray += [(f"RIV-{i + 1}", "AUX", "CONCENTRATION") for i in [0, 1, 2]]
-    sourcerecarray += [(f"DRN-{i + 1}", "AUX", "CONCENTRATION") for i in [0, 1, 2]]
-
     fileinput = [
         ("WEL-1", f"{gwtname}.wel1.spc"),
     ]
@@ -241,8 +310,8 @@ def run_transport_model(dir, exe):
     )
 
     pd = [
-        ("GWFHEAD", "../flow/flow.hds", None),
-        ("GWFBUDGET", "../flow/flow.bud", None),
+        ("GWFHEAD", "flow/flow.hds", None),
+        ("GWFBUDGET", "flow/flow.bud", None),
     ]
     fmi = flopy.mf6.ModflowGwtfmi(gwt, packagedata=pd, flow_imbalance_correction=True)
 
@@ -258,20 +327,20 @@ def run_transport_model(dir, exe):
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
 
-    sim.write_simulation()
-    success, buff = sim.run_simulation(silent=False)
-    errmsg = f"transport model did not terminate successfully\n{buff}"
-    assert success, errmsg
+    return sim
 
+
+def check_output(idx, ws):
     # ensure budget table can be parsed
+    gwtname = "transport"
     fname = gwtname + ".lst"
-    fname = os.path.join(wst, fname)
+    fname = os.path.join(ws, fname)
     budl = flopy.utils.Mf6ListBudget(fname, budgetkey="MASS BUDGET FOR ENTIRE MODEL")
     d0 = budl.get_budget()[0]
 
     # Load the csv representation of the budget
     fname = f"{gwtname}.cbc.csv"
-    fname = os.path.join(wst, fname)
+    fname = os.path.join(ws, fname)
     d0 = np.genfromtxt(fname, names=True, delimiter=",", deletechars="")
     print(d0.dtype.names)
 
@@ -283,6 +352,8 @@ def run_transport_model(dir, exe):
         errmsg = f"{name} not equal WEL-1_IN / 10.\n{a1}\n{a2}"
         assert np.allclose(a1, a2), errmsg
 
+    sim = flopy.mf6.MFSimulation.load(sim_ws=ws)
+    gwt = sim.get_model(gwtname)
     print("Checking that all simulated concentrations are 100.")
     simulated_concentration = gwt.output.concentration().get_alldata()
     errmsg = (
@@ -293,6 +364,29 @@ def run_transport_model(dir, exe):
     assert np.all(simulated_concentration == 100.0), errmsg
 
 
-def test_ssm01fmi(function_tmpdir, targets):
-    run_flow_model(str(function_tmpdir), targets["mf6"])
-    run_transport_model(str(function_tmpdir), targets["mf6"])
+def build_models(idx, test):
+    # build MODFLOW 6 files
+    ws = test.workspace
+    fsim = get_flow_sim(idx, ws)
+    tsim = get_transport_sim(idx, ws)
+
+    return [fsim, tsim]
+
+
+def check_outputs(idx, test):
+    # check output MODFLOW 6 files
+    ws = test.workspace
+    check_output(idx, ws)
+
+
+@pytest.mark.developmode
+@pytest.mark.parametrize("idx, name", enumerate(cases))
+def test_mf6model(idx, name, function_tmpdir, targets):
+    test = TestFramework(
+        name=name,
+        workspace=function_tmpdir,
+        build=lambda t: build_models(idx, t),
+        check=lambda t: check_outputs(idx, t),
+        targets=targets,
+    )
+    test.run()

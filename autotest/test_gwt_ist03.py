@@ -197,6 +197,7 @@ def build_models(idx, test):
         save_flows=True,
         cim_filerecord=f"{gwtname}.ist.ucn",
         sorbate_filerecord=f"{gwtname}.ist.csrb",
+        cimprintrecord=[("COLUMNS", 5, "WIDTH", 11, "DIGITS", 4, "GENERAL")],
         cim=0.0,
         porosity=porosityim,
         volfrac=volfracim,

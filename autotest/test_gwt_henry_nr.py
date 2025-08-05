@@ -169,29 +169,41 @@ def get_model(ws, name, array_input=False):
         bheadspd = {}
         ghbcondspd = {}
         ghbauxspd = {}
+        elevspd = {}
+        drncondspd = {}
+        drnauxspd = {}
     else:
         ghbspd = {}
+        drnspd = {}
     for kper in range(nper):
         if kper == 0:
             sl = sealevel
         else:
             sl = sealevelts[kper]
         sl = np.round(sl, decimals=8)
-        drnlist = []
         if array_input:
             bhead = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
             ghbcond = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
             ghbconc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
             ghbdens = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            elev = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            drncond = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            drnconc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
         else:
             ghblist = []
+            drnlist = []
         ghbbnd = 0
         drnbnd = 0
         for k, i, j in zip(kidx, iidx, jidx):
             zcell = zcellcenters[k, i, j]
             cond = 864.0 * (delz * delc) / (0.5 * delr)
             if zcell > sl:
-                drnlist.append([(k, i, j), zcell, 864.0, 0.0])
+                if array_input:
+                    elev[k, i, j] = zcell
+                    drncond[k, i, j] = 864.0
+                    drnconc[k, i, j] = 0.0
+                else:
+                    drnlist.append([(k, i, j), zcell, 864.0, 0.0])
                 drnbnd += 1
             else:
                 if array_input:
@@ -210,18 +222,37 @@ def get_model(ws, name, array_input=False):
             else:
                 ghbspd[kper] = ghblist
         if drnbnd > 0:
-            drnspd[kper] = drnlist
+            if array_input:
+                elevspd[kper] = elev
+                drncondspd[kper] = drncond
+                drnauxspd[kper] = [drnconc]
+            else:
+                drnspd[kper] = drnlist
 
     # drn
-    drn1 = flopy.mf6.ModflowGwfdrn(
-        gwf,
-        stress_period_data=drnspd,
-        print_input=True,
-        print_flows=True,
-        save_flows=False,
-        pname="DRN-1",
-        auxiliary="CONCENTRATION",
-    )
+    if array_input:
+        drn1 = flopy.mf6.ModflowGwfdrng(
+            gwf,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            maxbound=11,
+            pname="DRN-1",
+            auxiliary=["CONCENTRATION"],
+            elev=elevspd,
+            cond=drncondspd,
+            aux=drnauxspd,
+        )
+    else:
+        drn1 = flopy.mf6.ModflowGwfdrn(
+            gwf,
+            stress_period_data=drnspd,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            pname="DRN-1",
+            auxiliary="CONCENTRATION",
+        )
 
     # ghb / ghbg
     if array_input:
@@ -248,21 +279,42 @@ def get_model(ws, name, array_input=False):
             auxiliary=["CONCENTRATION", "DENSITY"],
         )
 
-    wellist1 = []
+    if array_input:
+        q = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+        welconc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+    else:
+        wellist1 = []
     qwell = 5.7024 * wellfact
     qwell = qwell / nlay
     for k in range(nlay):
-        wellist1.append([(k, 0, 0), qwell, 0.0])
-    wel1 = flopy.mf6.ModflowGwfwel(
-        gwf,
-        stress_period_data=wellist1,
-        print_input=True,
-        print_flows=True,
-        save_flows=False,
-        pname="WEL-1",
-        auxiliary="CONCENTRATION",
-        filename=f"{gwfname}.wel",
-    )
+        if array_input:
+            q[k, 0, 0] = qwell
+            welconc[k, 0, 0] = 0.0
+        else:
+            wellist1.append([(k, 0, 0), qwell, 0.0])
+    if array_input:
+        wel1 = flopy.mf6.ModflowGwfwelg(
+            gwf,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            pname="WEL-1",
+            auxiliary="CONCENTRATION",
+            filename=f"{gwfname}.welg",
+            q=q,
+            aux=[welconc],
+        )
+    else:
+        wel1 = flopy.mf6.ModflowGwfwel(
+            gwf,
+            stress_period_data=wellist1,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            pname="WEL-1",
+            auxiliary="CONCENTRATION",
+            filename=f"{gwfname}.wel",
+        )
 
     # output control
     oc = flopy.mf6.ModflowGwfoc(

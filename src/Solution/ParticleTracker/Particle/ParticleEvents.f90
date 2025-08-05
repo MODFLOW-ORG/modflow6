@@ -1,82 +1,104 @@
 module ParticleEventsModule
   use KindModule, only: DP, I4B, LGP
   use ParticleModule, only: ParticleType
+  use ParticleEventModule, only: ParticleEventType, &
+                                 ReleaseEventType, &
+                                 CellExitEventType, &
+                                 TimestepEventType, &
+                                 TerminationEventType, &
+                                 WeakSinkEventType, &
+                                 UserTimeEventType
   implicit none
 
   private
-  public :: ParticleEventType
-  public :: ExitEventType, TerminationEventType, ReleaseEventType
-  public :: TimestepEventType, WeakSinkEventType, UserTimeEventType
-  public :: RELEASE, EXIT, TIMESTEP, TERMINATE, WEAKSINK, USERTIME
 
-  !> @brief Particle event enumeration.
-  !!
-  !! A number of events may occur to particles, each of which may (or may
-  !! not) be of interest to the user. The user selects among events to be
-  !! reported. A corresponding event code is reported with each record to
-  !! identify the record's cause.
-  !!
-  !! Records may be identical except for their event code, reflecting the
-  !! fact that multiple events of interest may occur at any given moment.
-  !<
-  enum, bind(C)
-    enumerator :: RELEASE = 0 !< particle was released
-    enumerator :: EXIT = 1 !< particle exited a cell
-    enumerator :: TIMESTEP = 2 !< time step ended
-    enumerator :: TERMINATE = 3 !< particle terminated
-    enumerator :: WEAKSINK = 4 !< particle entered a weak sink cell
-    enumerator :: USERTIME = 5 !< user-specified tracking time
-  end enum
-
-  type, abstract :: ParticleEventType
-    integer(I4B) :: code = -1 ! event code above
-    integer(I4B) :: kper = 0, kstp = 0
-    real(DP) :: time = 0.0_DP
-    character(len=40) :: context = ""
-    integer(I4B) :: level = 0 ! 1=model, 2=cell, 3=subcell
+  type, public, abstract :: ParticleEventConsumerType
   contains
-    procedure :: get_code
-  end type ParticleEventType
+    procedure(handle_event), deferred :: handle_event
+  end type ParticleEventConsumerType
 
-  type :: EventWrapperType
-    class(ParticleEventType), allocatable :: event
-  end type EventWrapperType
+  type, public :: ParticleEventDispatcherType
+    class(ParticleEventConsumerType), pointer :: consumer => null()
+  contains
+    procedure, public :: subscribe
+    procedure, public :: unsubscribe
+    procedure, public :: dispatch
+    procedure :: destroy
+  end type ParticleEventDispatcherType
 
-  type, extends(ParticleEventType) :: ExitEventType
-    integer(I4B), allocatable :: domain(:)
-    integer(I4B), allocatable :: boundary(:)
-  end type ExitEventType
-
-  type, extends(ParticleEventType) :: TerminationEventType
-  end type TerminationEventType
-
-  type, extends(ParticleEventType) :: ReleaseEventType
-  end type ReleaseEventType
-
-  type, extends(ParticleEventType) :: TimestepEventType
-  end type TimestepEventType
-
-  type, extends(ParticleEventType) :: WeakSinkEventType
-  end type WeakSinkEventType
-
-  type, extends(ParticleEventType) :: UserTimeEventType
-  end type UserTimeEventType
+  abstract interface
+    subroutine handle_event(this, particle, event)
+      import ParticleEventConsumerType, ParticleType, ParticleEventType
+      class(ParticleEventConsumerType), intent(inout) :: this
+      type(ParticleType), pointer, intent(in) :: particle
+      class(ParticleEventType), pointer, intent(in) :: event
+    end subroutine handle_event
+  end interface
 
 contains
+  !> @brief Subscribe a consumer to the dispatcher.
+  subroutine subscribe(this, consumer)
+    class(ParticleEventDispatcherType), intent(inout) :: this
+    class(ParticleEventConsumerType), target, intent(inout) :: consumer
+    this%consumer => consumer
+  end subroutine subscribe
 
-  function get_code(this) result(code)
-    class(ParticleEventType), intent(in) :: this
-    integer(I4B) :: code
+  !> @brief Unsubscribe the consumer from the dispatcher.
+  subroutine unsubscribe(this)
+    class(ParticleEventDispatcherType), intent(inout) :: this
+    if (associated(this%consumer)) then
+      deallocate (this%consumer)
+      this%consumer => null()
+    end if
+  end subroutine unsubscribe
 
-    select type (this)
-    type is (ReleaseEventType); code = 0
-    type is (ExitEventType); code = 1
-    type is (TimestepEventType); code = 2
-    type is (TerminationEventType); code = 3
-    type is (WeakSinkEventType); code = 4
-    type is (UserTimeEventType); code = 5
-    class default; code = -1
-    end select
-  end function get_code
+  !> @brief Dispatch an event.
+  subroutine dispatch(this, particle, event)
+    use TdisModule, only: kper, kstp, totimc
+    ! dummy
+    class(ParticleEventDispatcherType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(ParticleEventType), pointer, intent(inout) :: event
+    ! local
+    integer(I4B) :: per, stp
+
+    ! If tracking time falls exactly on a boundary between time steps,
+    ! report the previous time step for this datum. This is to follow
+    ! MP7's behavior, and because the particle will have been tracked
+    ! up to this instant under the previous time step's conditions, so
+    ! the time step we're about to start shouldn't get "credit" for it.
+    per = kper
+    stp = kstp
+    if (particle%ttrack == totimc .and. (per > 1 .or. stp > 1)) then
+      if (stp > 1) then
+        stp = stp - 1
+      else if (per > 1) then
+        per = per - 1
+        stp = 1
+      end if
+    end if
+
+    event%kper = per
+    event%kstp = stp
+    event%imdl = particle%imdl
+    event%iprp = particle%iprp
+    event%irpt = particle%irpt
+    event%ilay = particle%ilay
+    event%icu = particle%icu
+    event%izone = particle%izone
+    event%trelease = particle%trelease
+    event%ttrack = particle%ttrack
+    event%istatus = particle%istatus
+    call particle%get_model_coords(event%x, event%y, event%z)
+    call this%consumer%handle_event(particle, event)
+    deallocate (event)
+  end subroutine dispatch
+
+  !> @brief Destroy the dispatcher.
+  subroutine destroy(this)
+    class(ParticleEventDispatcherType), intent(inout) :: this
+    if (associated(this%consumer)) &
+      deallocate (this%consumer)
+  end subroutine destroy
 
 end module ParticleEventsModule

@@ -5,12 +5,19 @@ module MethodModule
   use ConstantsModule, only: DZERO
   use ErrorUtilModule, only: pstop
   use SubcellModule, only: SubcellType
-  use ParticleModule
+  use ParticleModule, only: ParticleType
+  use ParticleEventsModule, only: ParticleEventDispatcherType
+  use ParticleEventModule, only: ParticleEventType, &
+                                 ReleaseEventType, &
+                                 TimeStepEventType, &
+                                 TerminationEventType, &
+                                 WeakSinkEventType, &
+                                 UserTimeEventType, &
+                                 CellExitEventType
   use BaseDisModule, only: DisBaseType
   use PrtFmiModule, only: PrtFmiType
   use CellModule, only: CellType
   use CellDefnModule, only: CellDefnType
-  use TrackControlModule, only: TrackControlType
   use TimeSelectModule, only: TimeSelectType
   use MathUtilModule, only: is_close
   implicit none
@@ -34,7 +41,7 @@ module MethodModule
     type(PrtFmiType), pointer, public :: fmi => null() !< ptr to fmi
     class(CellType), pointer, public :: cell => null() !< ptr to the current cell
     class(SubcellType), pointer, public :: subcell => null() !< ptr to the current subcell
-    type(TrackControlType), pointer, public :: trackctl => null() !< ptr to track file control
+    type(ParticleEventDispatcherType), pointer, public :: events => null() !< ptr to event dispatcher
     type(TimeSelectType), pointer, public :: tracktimes => null() !< ptr to user-defined tracking times
     integer(I4B), dimension(:), pointer, contiguous, public :: izone => null() !< pointer to zone numbers
     real(DP), dimension(:), pointer, contiguous, public :: flowja => null() !< pointer to intercell flows
@@ -42,23 +49,23 @@ module MethodModule
     real(DP), dimension(:), pointer, contiguous, public :: retfactor => null() !< pointer to retardation factor
   contains
     ! Implemented in all subtypes
-    procedure(apply), deferred :: apply
-    procedure(deallocate), deferred :: deallocate
+    procedure(apply), deferred :: apply !< apply the method to the particle
+    procedure(assess), deferred :: assess !< assess conditions before tracking
+    procedure(deallocate), deferred :: deallocate !< deallocate the method object
     ! Overridden in subtypes that delegate
-    procedure :: pass
-    procedure :: load
+    procedure :: pass !< pass the particle to the next subdomain
+    procedure :: load !< load the subdomain tracking method
     ! Implemented here
     procedure :: init
-    procedure :: save
     procedure :: track
     procedure :: try_pass
-    ! particle event handlers
-    procedure :: dispatch_exit
-    procedure :: dispatch_terminate
-    procedure :: dispatch_release
-    procedure :: dispatch_timestep
-    procedure :: dispatch_weaksink
-    procedure :: dispatch_usertime
+    ! Event firing methods
+    procedure :: release
+    procedure :: cellexit
+    procedure :: terminate
+    procedure :: timestep
+    procedure :: weaksink
+    procedure :: usertime
   end type MethodType
 
   abstract interface
@@ -70,6 +77,16 @@ module MethodModule
       type(ParticleType), pointer, intent(inout) :: particle
       real(DP), intent(in) :: tmax
     end subroutine apply
+    subroutine assess(this, particle, cell_defn, tmax)
+      import DP
+      import MethodType
+      import ParticleType
+      import CellDefnType
+      class(MethodType), intent(inout) :: this
+      type(ParticleType), pointer, intent(inout) :: particle
+      type(CellDefnType), pointer, intent(inout) :: cell_defn
+      real(DP), intent(in) :: tmax
+    end subroutine assess
     subroutine deallocate (this)
       import MethodType
       class(MethodType), intent(inout) :: this
@@ -78,13 +95,13 @@ module MethodModule
 
 contains
 
-  subroutine init(this, fmi, cell, subcell, trackctl, tracktimes, &
+  subroutine init(this, fmi, cell, subcell, events, tracktimes, &
                   izone, flowja, porosity, retfactor)
     class(MethodType), intent(inout) :: this
     type(PrtFmiType), intent(in), pointer, optional :: fmi
     class(CellType), intent(in), pointer, optional :: cell
     class(SubcellType), intent(in), pointer, optional :: subcell
-    type(TrackControlType), intent(in), pointer, optional :: trackctl
+    type(ParticleEventDispatcherType), intent(in), pointer, optional :: events
     type(TimeSelectType), intent(in), pointer, optional :: tracktimes
     integer(I4B), intent(in), pointer, optional :: izone(:)
     real(DP), intent(in), pointer, optional :: flowja(:)
@@ -94,7 +111,7 @@ contains
     if (present(fmi)) this%fmi => fmi
     if (present(cell)) this%cell => cell
     if (present(subcell)) this%subcell => subcell
-    if (present(trackctl)) this%trackctl => trackctl
+    if (present(events)) this%events => events
     if (present(tracktimes)) this%tracktimes => tracktimes
     if (present(izone)) this%izone => izone
     if (present(flowja)) this%flowja => flowja
@@ -102,8 +119,8 @@ contains
     if (present(retfactor)) this%retfactor => retfactor
   end subroutine init
 
-  !> @brief Track the particle over domains of the given
-  ! level until the particle terminates or tmax elapses.
+  !> @brief Track the particle over subdomains of the given
+  ! level until the particle terminates or tmax is reached.
   recursive subroutine track(this, particle, level, tmax)
     ! dummy
     class(MethodType), intent(inout) :: this
@@ -161,129 +178,67 @@ contains
     call pstop(1, "pass must be overridden")
   end subroutine pass
 
-  !> @brief Save the particle's state to output files.
-  subroutine save(this, particle, reason)
-    use TdisModule, only: kper, kstp, totimc
-    ! dummy
+  !> @brief Particle is released.
+  subroutine release(this, particle)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    integer(I4B), intent(in) :: reason
-    ! local
-    integer(I4B) :: per, stp
+    class(ParticleEventType), pointer :: event
 
-    per = kper
-    stp = kstp
+    allocate (ReleaseEventType :: event)
+    call this%events%dispatch(particle, event)
+  end subroutine release
 
-    ! If tracking time falls exactly on a boundary between time steps,
-    ! report the previous time step for this datum. This is to follow
-    ! MP7's behavior, and because the particle will have been tracked
-    ! up to this instant under the previous time step's conditions, so
-    ! the time step we're about to start shouldn't get "credit" for it.
-    if (particle%ttrack == totimc .and. (per > 1 .or. stp > 1)) then
-      if (stp > 1) then
-        stp = stp - 1
-      else if (per > 1) then
-        per = per - 1
-        stp = 1
-      end if
-    end if
-
-    call this%trackctl%save(particle, kper=per, kstp=stp, reason=reason)
-  end subroutine save
-
-  ! each of these temporarily delegates to the old save() routine.
-  ! TODO: event batching per domain level. flush each batch when the relevant method completes.
-
-  subroutine dispatch_exit(this, particle, context)
-    use ParticleEventsModule, only: EXIT, ExitEventType
-    ! dummy
+  !> @brief Particle exits a cell.
+  subroutine cellexit(this, particle)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    character(len=*), intent(in), optional :: context
+    class(ParticleEventType), pointer :: event
 
-    type(ExitEventType) :: event
+    allocate (CellExitEventType :: event)
+    call this%events%dispatch(particle, event)
+  end subroutine cellexit
 
-    event%code = EXIT
-    event%boundary = particle%iboundary
-    event%domain = particle%idomain
-    event%time = particle%ttrack
-    if (present(context)) event%context = context
-    call this%save(particle, reason=event%code)
-  end subroutine dispatch_exit
-
-  subroutine dispatch_terminate(this, particle, context)
-    use ParticleEventsModule, only: TERMINATE, TerminationEventType
-    ! dummy
+  !> @brief Particle terminates.
+  subroutine terminate(this, particle, status)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    character(len=*), intent(in), optional :: context
+    integer(I4B), intent(in), optional :: status
+    class(ParticleEventType), pointer :: event
 
-    type(TerminationEventType) :: event
+    particle%advancing = .false.
+    if (present(status)) particle%istatus = status
+    allocate (TerminationEventType :: event)
+    call this%events%dispatch(particle, event)
+  end subroutine terminate
 
-    event%code = TERMINATE
-    event%time = particle%ttrack
-    if (present(context)) event%context = context
-    call this%save(particle, reason=event%code)
-  end subroutine dispatch_terminate
-
-  subroutine dispatch_release(this, particle, context)
-    use ParticleEventsModule, only: RELEASE, ReleaseEventType
-    ! dummy
+  !> @brief Time step ends.
+  subroutine timestep(this, particle)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    character(len=*), intent(in), optional :: context
+    class(ParticleEventType), pointer :: event
 
-    type(ReleaseEventType) :: event
+    allocate (TimeStepEventType :: event)
+    call this%events%dispatch(particle, event)
+  end subroutine timestep
 
-    event%code = RELEASE
-    event%time = particle%ttrack
-    if (present(context)) event%context = context
-    call this%save(particle, reason=event%code)
-  end subroutine dispatch_release
-
-  subroutine dispatch_timestep(this, particle, context)
-    use ParticleEventsModule, only: TIMESTEP, TimestepEventType
-    ! dummy
+  !> @brief Particle leaves a weak sink.
+  subroutine weaksink(this, particle)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    character(len=*), intent(in), optional :: context
+    class(ParticleEventType), pointer :: event
 
-    type(TimestepEventType) :: event
+    allocate (WeakSinkEventType :: event)
+    call this%events%dispatch(particle, event)
+  end subroutine weaksink
 
-    event%code = TIMESTEP
-    event%time = particle%ttrack
-    if (present(context)) event%context = context
-    call this%save(particle, reason=event%code)
-  end subroutine dispatch_timestep
-
-  subroutine dispatch_weaksink(this, particle, context)
-    use ParticleEventsModule, only: WEAKSINK, WeakSinkEventType
-    ! dummy
+  !> @brief User-defined tracking time occurs.
+  subroutine usertime(this, particle)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    character(len=*), intent(in), optional :: context
+    class(ParticleEventType), pointer :: event
 
-    type(WeakSinkEventType) :: event
-
-    event%code = WEAKSINK
-    event%time = particle%ttrack
-    if (present(context)) event%context = context
-    call this%save(particle, reason=event%code)
-  end subroutine dispatch_weaksink
-
-  subroutine dispatch_usertime(this, particle, context)
-    use ParticleEventsModule, only: USERTIME, UserTimeEventType
-    ! dummy
-    class(MethodType), intent(inout) :: this
-    type(ParticleType), pointer, intent(inout) :: particle
-    character(len=*), intent(in), optional :: context
-
-    type(UserTimeEventType) :: event
-
-    event%code = USERTIME
-    event%time = particle%ttrack
-    if (present(context)) event%context = context
-    call this%save(particle, reason=event%code)
-  end subroutine dispatch_usertime
+    allocate (UserTimeEventType :: event)
+    call this%events%dispatch(particle, event)
+  end subroutine usertime
 
 end module MethodModule

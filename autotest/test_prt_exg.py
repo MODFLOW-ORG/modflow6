@@ -106,6 +106,7 @@ def build_mf6_sim(idx, test):
         pname="oc",
         track_filerecord=[prt_track_file],
         trackcsv_filerecord=[prt_track_csv_file],
+        # dev_dump_event_trace=True
     )
 
     # create a flow model interface. should be ignored.

@@ -16,6 +16,7 @@ name maxhfb
 type integer
 reader urword
 optional false
+mf6internal maxbound
 longname maximum number of barriers
 description integer value specifying the maximum number of horizontal flow barriers that will be entered in this input file.  The value of MAXHFB is used to allocate memory for the horizontal flow barriers.
 
@@ -25,7 +26,7 @@ description integer value specifying the maximum number of horizontal flow barri
 block period
 name iper
 type integer
-block_variable True
+block_variable true
 in_record true
 tagged false
 shape
@@ -40,6 +41,7 @@ name stress_period_data
 type recarray cellid1 cellid2 hydchr
 shape (maxhfb)
 reader urword
+mf6internal spd
 longname
 description
 

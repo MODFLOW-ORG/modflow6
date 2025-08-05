@@ -13,8 +13,8 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["adv03a", "adv03b", "adv03c"]
-scheme = ["upstream", "central", "tvd"]
+cases = ["adv03a", "adv03b", "adv03c", "adv03d"]
+scheme = ["upstream", "central", "tvd", "utvd"]
 
 
 def grid_triangulator(itri, delr, delc):
@@ -128,7 +128,8 @@ def build_models(idx, test):
     sim.register_ims_package(imsgwf, [gwf.name])
 
     itri = np.zeros((nrow, ncol), dtype=int)
-    itri[:, 1 : ncol - 1] = 1
+    itri[int(nrow / 2) :, 1 : ncol - 1] = 1
+    itri[: int(nrow / 2), 1 : ncol - 1] = 2
     verts, iverts = grid_triangulator(itri, delr, delc)
     vertices, cell2d = cvfd_to_cell2d(verts, iverts)
     ncpl = len(cell2d)
@@ -463,11 +464,53 @@ def check_output(idx, test):
     ]
     cres3 = np.array(cres3)
 
+    cres4 = [
+        9.75305992e-01,
+        9.60923712e-01,
+        9.40345041e-01,
+        8.98518356e-01,
+        8.43452227e-01,
+        7.50966209e-01,
+        6.55085404e-01,
+        5.23794573e-01,
+        4.15360236e-01,
+        2.94697679e-01,
+        2.10720136e-01,
+        1.35962806e-01,
+        8.93878174e-02,
+        5.38698838e-02,
+        3.32165717e-02,
+        1.88821558e-02,
+        1.10910530e-02,
+        5.99079841e-03,
+        3.39811390e-03,
+        1.75392691e-03,
+        9.71354219e-04,
+        4.81791201e-04,
+        2.62200432e-04,
+        1.25921717e-04,
+        6.72680080e-05,
+        3.15465073e-05,
+        1.64347475e-05,
+        7.56625500e-06,
+        3.83544217e-06,
+        1.73771238e-06,
+        8.59572442e-07,
+        3.83960616e-07,
+        1.85884337e-07,
+        8.19811804e-08,
+        3.89673178e-08,
+        1.69141522e-08,
+        8.17467605e-09,
+        1.47129715e-09,
+    ]
+    cres4 = np.array(cres4)
+
     # Compare the first row in the layer with the answer and compare the
     # last row in the bottom layer with the answer.  This will verify that
     # the results are one-dimensional even though the model is three
     # dimensional
-    creslist = [cres1, cres2, cres3]
+    creslist = [cres1, cres2, cres3, cres4]
     ncellsperrow = cres1.shape[0]
     assert np.allclose(creslist[idx], conc[0, 0, 0:ncellsperrow]), (
         "simulated concentrations do not match with known solution.",

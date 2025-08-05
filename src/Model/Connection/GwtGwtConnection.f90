@@ -257,9 +257,11 @@ contains
     hasDsp = this%gwtModel%indsp > 0
 
     if (hasAdv) then
-      if (this%iIfaceAdvScheme == 2) then
+      if (this%iIfaceAdvScheme == ADV_SCHEME_TVD .or. &
+          this%iIfaceAdvScheme == ADV_SCHEME_UTVD) then
         this%exg_stencil_depth = 2
-        if (this%gwtModel%adv%iadvwt == ADV_SCHEME_TVD) then
+        if (this%gwtModel%adv%iadvwt == ADV_SCHEME_TVD .or. &
+            this%gwtModel%adv%iadvwt == ADV_SCHEME_UTVD) then
           this%int_stencil_depth = 2
         end if
       end if

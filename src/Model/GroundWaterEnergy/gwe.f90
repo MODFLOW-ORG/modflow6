@@ -101,7 +101,7 @@ contains
     use ConstantsModule, only: LENPACKAGENAME
     use MemoryHelperModule, only: create_mem_path
     use MemoryManagerExtModule, only: mem_set_value
-    use GwfNamInputModule, only: GwfNamParamFoundType
+    use GweNamInputModule, only: GweNamParamFoundType
     use BudgetModule, only: budget_cr
     use GweInputDataModule, only: gweshared_dat_cr
     ! -- dummy

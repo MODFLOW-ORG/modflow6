@@ -86,7 +86,7 @@ contains
     call disu_cr(this%dis, this%name, '', -1, this%iout)
     call fmi_cr(this%fmi, this%name, 0, this%iout, this%ieqnsclfac, &
                 this%depvartype)
-    call adv_cr(this%adv, this%name, adv_unit, this%iout, this%fmi, &
+    call adv_cr(this%adv, this%name, '', adv_unit, this%iout, this%fmi, &
                 this%ieqnsclfac)
     call dsp_cr(this%dsp, this%name, '', -dsp_unit, this%iout, this%fmi)
     call tsp_obs_cr(this%obs, inobs, this%depvartype)

@@ -311,7 +311,7 @@ def get_ireason_code(output_event):
         if output_event == "RELEASE"
         else (
             1
-            if output_event == "TRANSIT"
+            if output_event == "CELLEXIT"
             else (
                 2
                 if output_event == "TIMESTEP"

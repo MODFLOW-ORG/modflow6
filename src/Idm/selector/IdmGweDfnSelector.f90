@@ -6,12 +6,14 @@ module IdmGweDfnSelectorModule
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
   use GweNamInputModule
+  use GweAdvInputModule
   use GweIcInputModule
   use GweCtpInputModule
   use GweCndInputModule
   use GweDisvInputModule
   use GweDisuInputModule
   use GweDisInputModule
+  use GweSsmInputModule
 
   implicit none
   private
@@ -49,6 +51,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_param_pointer(input_definition, gwe_nam_param_definitions)
+    case ('ADV')
+      call set_param_pointer(input_definition, gwe_adv_param_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwe_ic_param_definitions)
     case ('CTP')
@@ -61,6 +65,8 @@ contains
       call set_param_pointer(input_definition, gwe_disu_param_definitions)
     case ('DIS')
       call set_param_pointer(input_definition, gwe_dis_param_definitions)
+    case ('SSM')
+      call set_param_pointer(input_definition, gwe_ssm_param_definitions)
     case default
     end select
     return
@@ -73,6 +79,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_param_pointer(input_definition, gwe_nam_aggregate_definitions)
+    case ('ADV')
+      call set_param_pointer(input_definition, gwe_adv_aggregate_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwe_ic_aggregate_definitions)
     case ('CTP')
@@ -85,6 +93,8 @@ contains
       call set_param_pointer(input_definition, gwe_disu_aggregate_definitions)
     case ('DIS')
       call set_param_pointer(input_definition, gwe_dis_aggregate_definitions)
+    case ('SSM')
+      call set_param_pointer(input_definition, gwe_ssm_aggregate_definitions)
     case default
     end select
     return
@@ -97,6 +107,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_block_pointer(input_definition, gwe_nam_block_definitions)
+    case ('ADV')
+      call set_block_pointer(input_definition, gwe_adv_block_definitions)
     case ('IC')
       call set_block_pointer(input_definition, gwe_ic_block_definitions)
     case ('CTP')
@@ -109,6 +121,8 @@ contains
       call set_block_pointer(input_definition, gwe_disu_block_definitions)
     case ('DIS')
       call set_block_pointer(input_definition, gwe_dis_block_definitions)
+    case ('SSM')
+      call set_block_pointer(input_definition, gwe_ssm_block_definitions)
     case default
     end select
     return
@@ -120,6 +134,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       multi_package = gwe_nam_multi_package
+    case ('ADV')
+      multi_package = gwe_adv_multi_package
     case ('IC')
       multi_package = gwe_ic_multi_package
     case ('CTP')
@@ -132,6 +148,8 @@ contains
       multi_package = gwe_disu_multi_package
     case ('DIS')
       multi_package = gwe_dis_multi_package
+    case ('SSM')
+      multi_package = gwe_ssm_multi_package
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="GWE"'//&
@@ -146,6 +164,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_subpkg_pointer(subpackages, gwe_nam_subpackages)
+    case ('ADV')
+      call set_subpkg_pointer(subpackages, gwe_adv_subpackages)
     case ('IC')
       call set_subpkg_pointer(subpackages, gwe_ic_subpackages)
     case ('CTP')
@@ -158,6 +178,8 @@ contains
       call set_subpkg_pointer(subpackages, gwe_disu_subpackages)
     case ('DIS')
       call set_subpkg_pointer(subpackages, gwe_dis_subpackages)
+    case ('SSM')
+      call set_subpkg_pointer(subpackages, gwe_ssm_subpackages)
     case default
     end select
     return
@@ -170,6 +192,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       integrated = .true.
+    case ('ADV')
+      integrated = .true.
     case ('IC')
       integrated = .true.
     case ('CTP')
@@ -181,6 +205,8 @@ contains
     case ('DISU')
       integrated = .true.
     case ('DIS')
+      integrated = .true.
+    case ('SSM')
       integrated = .true.
     case default
     end select

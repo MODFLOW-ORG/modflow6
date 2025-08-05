@@ -18,6 +18,7 @@ module ModelPackageInputsModule
   implicit none
   private
   public :: ModelPackageInputsType
+  public :: supported_model
 
   !> @brief derived type for loadable package type
   !!
@@ -105,6 +106,22 @@ contains
     end if
   end function multi_pkg_type
 
+  !> @brief is this a supported MODFLOW 6 model type
+  !<
+  function supported_model(ctype)
+    use ModelPackageInputModule, only: NMODEL, MODFLOW6MODELS
+    character(len=*), intent(in) :: ctype
+    logical(LGP) :: supported_model
+    integer(I4B) :: n
+    supported_model = .false.
+    do n = 1, NMODEL
+      if (ctype == MODFLOW6MODELS(n)) then
+        supported_model = .true.
+        exit
+      end if
+    end do
+  end function supported_model
+
   !> @brief create a new package type
   !<
   subroutine pkgtype_create(this, modeltype, modelname, pkgtype)
@@ -132,7 +149,6 @@ contains
                          filename, pkgname, iout)
     use MemoryManagerModule, only: mem_allocate
     use MemoryHelperModule, only: create_mem_path
-    use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
     use IdmDfnSelectorModule, only: idm_integrated, idm_multi_package
     use SourceCommonModule, only: idm_subcomponent_name
@@ -205,7 +221,7 @@ contains
   subroutine modelpkgs_init(this, modeltype, modelfname, modelname, iout)
     use MemoryHelperModule, only: create_mem_path
     use MemoryManagerModule, only: mem_allocate
-    use SimVariablesModule, only: idm_context
+    use SimVariablesModule, only: idm_context, simfile
     use SourceCommonModule, only: idm_component_type
     use ModelPackageInputModule, only: supported_model_packages
     class(ModelPackageInputsType) :: this
@@ -220,6 +236,15 @@ contains
     this%modelname = modelname
     this%component_type = idm_component_type(modeltype)
     this%iout = iout
+
+    ! verify user specified model type
+    if (.not. supported_model(modeltype)) then
+      ! -- error and exit for unsupported model type
+      write (errmsg, '(3a)') 'Models block model type "', trim(modeltype), &
+        '" is not valid.'
+      call store_error(errmsg)
+      call store_error_filename(simfile)
+    end if
 
     ! allocate and set model supported package types
     call supported_model_packages(modeltype, this%cunit, this%niunit)

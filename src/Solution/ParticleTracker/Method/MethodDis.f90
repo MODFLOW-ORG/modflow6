@@ -3,6 +3,7 @@ module MethodDisModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType
+  use MethodModelModule, only: MethodModelType
   use MethodCellPoolModule
   use CellModule
   use CellDefnModule
@@ -18,7 +19,7 @@ module MethodDisModule
   public :: MethodDisType
   public :: create_method_dis
 
-  type, extends(MethodType) :: MethodDisType
+  type, extends(MethodModelType) :: MethodDisType
     private
   contains
     procedure, public :: apply => apply_dis !< apply the DIS tracking method
@@ -151,14 +152,14 @@ contains
         call method_cell_ptb%init( &
           fmi=this%fmi, &
           cell=this%cell, &
-          trackctl=this%trackctl, &
+          events=this%events, &
           tracktimes=this%tracktimes)
         submethod => method_cell_ptb
       else
         call method_cell_plck%init( &
           fmi=this%fmi, &
           cell=this%cell, &
-          trackctl=this%trackctl, &
+          events=this%events, &
           tracktimes=this%tracktimes)
         submethod => method_cell_plck
       end if
@@ -169,7 +170,7 @@ contains
   ! the z coordinate, entry face, and node and layer numbers.
   subroutine load_particle(this, cell, particle)
     use ParticleModule, only: TERM_BOUNDARY
-    use ParticleEventsModule, only: TERMINATE
+    use ParticleEventModule, only: TERMINATE
     ! dummy
     class(MethodDisType), intent(inout) :: this
     type(CellRectType), pointer, intent(inout) :: cell
@@ -210,11 +211,10 @@ contains
       ! as can occur e.g. in wells. terminate
       ! in the previous cell.
       if (ic == particle%icp .and. inface == 7 .and. ilay < particle%ilay) then
-        particle%advancing = .false.
         particle%idomain(2) = particle%icp
-        particle%istatus = TERM_BOUNDARY
         particle%izone = particle%izp
-        call this%dispatch_terminate(particle)
+        call this%terminate(particle, &
+                            status=TERM_BOUNDARY)
         return
       else
         particle%icp = particle%idomain(2)
@@ -286,7 +286,7 @@ contains
   !> @brief Pass a particle to the next cell, if there is one
   subroutine pass_dis(this, particle)
     use ParticleModule, only: TERM_BOUNDARY
-    use ParticleEventsModule, only: TERMINATE
+    use ParticleEventModule, only: TERMINATE
     ! dummy
     class(MethodDisType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -300,9 +300,8 @@ contains
       ! boundary face, so terminate the particle.
       ! todo AMP: reconsider when multiple models supported
       if (cell%defn%facenbr(particle%iboundary(2)) .eq. 0) then
-        particle%istatus = TERM_BOUNDARY
-        particle%advancing = .false.
-        call this%dispatch_terminate(particle)
+        call this%terminate(particle, &
+                            status=TERM_BOUNDARY)
       else
         ! Update old to new cell properties
         call this%load_particle(cell, particle)

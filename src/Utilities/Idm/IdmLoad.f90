@@ -129,7 +129,7 @@ contains
     ! create model package loader
     static_loader => &
       create_input_loader(component_type, subcomponent_type, modelname, pkgname, &
-                          pkgtype, filename, modelfname, nc_vars)
+                          pkgtype, 'MODEL', filename, modelfname, nc_vars)
 
     ! load static input and set dynamic loader
     dynamic_loader => static_loader%load(iout)
@@ -407,7 +407,7 @@ contains
 
         ! create exchange loader
         static_loader => create_input_loader('EXG', sc_type, 'EXG', sc_name, &
-                                             exgtype, efname, simfile)
+                                             exgtype, 'SIM', efname, simfile)
         ! load static input
         dynamic_loader => static_loader%load(iout)
 
@@ -655,7 +655,7 @@ contains
     ! set memory path
     input_mempath = create_mem_path('SIM', 'NAM', idm_context)
     ! create description of input
-    mf6_input = getModflowInput('NAM6', 'SIM', 'NAM', 'SIM', 'NAM')
+    mf6_input = getModflowInput('NAM6', 'SIM', 'NAM', 'SIM', 'NAM', 'ROOT')
 
     ! allocate sim namfile parameters if not in input context
     do iparam = 1, size(mf6_input%param_dfns)

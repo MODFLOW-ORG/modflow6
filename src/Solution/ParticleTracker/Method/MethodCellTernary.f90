@@ -93,7 +93,7 @@ contains
       fmi=this%fmi, &
       cell=this%cell, &
       subcell=this%subcell, &
-      trackctl=this%trackctl, &
+      events=this%events, &
       tracktimes=this%tracktimes)
     submethod => method_subcell_tern
   end subroutine load_mct
@@ -165,8 +165,7 @@ contains
     ! (Re)allocate type-bound arrays
     select type (cell => this%cell)
     type is (CellPolyType)
-      ! Check termination/reporting conditions
-      call this%check(particle, this%cell%defn, tmax)
+      call this%assess(particle, this%cell%defn, tmax)
       if (.not. particle%advancing) return
 
       ! Number of vertices

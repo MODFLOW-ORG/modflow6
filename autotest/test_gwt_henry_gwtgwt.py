@@ -5,8 +5,13 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["henry01-gwtgwt-ups", "henry01-gwtgwt-cen", "henry01-gwtgwt-tvd"]
-advection_scheme = ["UPSTREAM", "CENTRAL", "TVD"]
+cases = [
+    "henry01-gwtgwt-ups",
+    "henry01-gwtgwt-cen",
+    "henry01-gwtgwt-tvd",
+    "henry01-gwtgwt-utvd",
+]
+advection_scheme = ["UPSTREAM", "CENTRAL", "TVD", "UTVD"]
 
 lx = 2.0
 lz = 1.0

@@ -5,6 +5,7 @@ examples = "EXAMPLES"
 
 [subsections]
 basic = "BASIC FUNCTIONALITY"
+model = "MODEL"
 internal = "INTERNAL FLOW PACKAGES"
 stress = "STRESS PACKAGES"
 advanced = "ADVANCED STRESS PACKAGES"
@@ -32,7 +33,6 @@ section = "fixes"
 subsection = "stress"
 description = "Fixed viscosity ratio assignment in the GWT MAW package when the GWF VSC package is active."
 
-
 [[items]]
 section = "fixes"
 subsection = "internal"
@@ -42,3 +42,23 @@ description = "Fixed bugs in the GWF VSC and BUY packages, affecting GWT simulat
 section = "fixes"
 subsection = "solution"
 description = "With the PRT model's Particle Release Package's EXTEND\\_TRACKING option enabled, particles beginning the simulation's final timestep in a stationary cell (an active cell with no flow across any boundary) were not terminated gracefully. Particles in these conditions will now terminate properly with status code 10 (timeout)."
+
+[[items]]
+section = "fixes"
+subsection = "parallel"
+description = "Fixed a memory access exception that can occur when writing convergence information to a CSV file (through the CSV\\_OUTER\\_OUTPUT option in IMS) for a parallel solution."
+
+[[items]]
+section = "features"
+subsection = "solution"
+description = "Added an optional new COORDINATE\\_CHECK\\_METHOD option to the PRT model's Particle Release Package, accepting values 'EAGER' (default) or 'NONE'. 'NONE' disables release-time verification that release point coordinates and release point cell IDs match, which can significantly reduce runtime when releasing many particles."
+
+[[items]]
+section = "features"
+subsection = "model"
+description = "Add DEPENDENT\\_VARIABLE\\_SCALING option to scale the dependent variable and the right-hand side to avoid very large positive or negative values in the GWT and GWE models. Specified outer and inner DVCLOSE values in the model IMS package will be relative closure criteria. This option applies the same scaling approach used in the MT3DMS GCG package."
+
+[[items]]
+section = "fixes"
+subsection = "solution"
+description = "The Particle Tracking (PRT) Model previously reported cell exit events when a dry particle stranded in a partially saturated cell was dropped to the water table, as occurs with DRY\\_TRACKING\\_METHOD DROP (the default). An event is no longer reported at this time."

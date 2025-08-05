@@ -115,13 +115,13 @@ contains
       this%ratecncin(i) = DZERO
       this%ratecncout(i) = DZERO
     end do
-    ! -- set constant head array input context pointer
+
+    ! -- set input context pointers
     call mem_setptr(this%tspvar, 'TSPVAR', this%input_mempath)
-    !
-    ! -- checkin constant head array input context pointer
+
+    ! -- checkin input context pointers
     call mem_checkin(this%tspvar, 'TSPVAR', this%memoryPath, &
                      'TSPVAR', this%input_mempath)
-    !
   end subroutine cnc_allocate_arrays
 
   !> @brief Constant concentration/temperature read and prepare (rp) routine

@@ -3,13 +3,13 @@ import os
 import flopy
 import numpy as np
 import pytest
-from framework import TestFramework
+from framework import DNODATA, TestFramework
 
 name = "gwf_mvr01"
 cases = [name]
 
 
-def build_models(idx, test):
+def get_model(idx, ws, array_input=False):
     # static model data
     # temporal discretization
     nper = 1
@@ -35,7 +35,7 @@ def build_models(idx, test):
 
     # build MODFLOW 6 files
     sim = flopy.mf6.MFSimulation(
-        sim_name=name, version="mf6", exe_name="mf6", sim_ws=test.workspace
+        sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
     tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
@@ -96,13 +96,28 @@ def build_models(idx, test):
     chd = flopy.mf6.modflow.ModflowGwfchd(gwf, stress_period_data=spd, pname="chd-1")
 
     # drn file
-    drn6 = [
-        [(0, 1, 2), -1.0, 1.0],
-        [(0, 2, 3), -1.0, 1.0],
-    ]
-    drn = flopy.mf6.modflow.ModflowGwfdrn(
-        gwf, mover=True, stress_period_data=drn6, pname="drn-1"
-    )
+    if array_input:
+        elev = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+        cond = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+        elev[0, 1, 2] = -1.0
+        elev[0, 2, 3] = -1.0
+        cond[0, 1, 2] = 1.0
+        cond[0, 2, 3] = 1.0
+        drn = flopy.mf6.modflow.ModflowGwfdrng(
+            gwf,
+            mover=True,
+            pname="drn-1",
+            elev=elev,
+            cond=cond,
+        )
+    else:
+        drn6 = [
+            [(0, 1, 2), -1.0, 1.0],
+            [(0, 2, 3), -1.0, 1.0],
+        ]
+        drn = flopy.mf6.modflow.ModflowGwfdrn(
+            gwf, mover=True, stress_period_data=drn6, pname="drn-1"
+        )
 
     # sfr file
     packagedata = [
@@ -364,12 +379,12 @@ def build_models(idx, test):
         printrecord=[("HEAD", "LAST"), ("BUDGET", "ALL")],
     )
 
-    return sim, None
+    return sim
 
 
-def check_output(idx, test):
+def check_output(idx, ws, array_input=False):
     # mvr budget terms
-    fpth = os.path.join(test.workspace, "gwf_mvr01.mvr.bud")
+    fpth = os.path.join(ws, "gwf_mvr01.mvr.bud")
     bobj = flopy.utils.CellBudgetFile(fpth, precision="double")
     times = bobj.get_times()
     records = bobj.get_data(totim=times[-1])
@@ -439,6 +454,28 @@ def check_output(idx, test):
     assert records[24].shape == (0,)
 
 
+def build_models(idx, test):
+    # build MODFLOW 6 files
+    ws = test.workspace
+    sim = get_model(idx, ws)
+
+    # build comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    mc = get_model(idx, ws, array_input=True)
+
+    return sim, mc
+
+
+def check_outputs(idx, test):
+    # check output MODFLOW 6 files
+    ws = test.workspace
+    check_output(idx, ws)
+
+    # check output comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    check_output(idx, ws, array_input=True)
+
+
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
@@ -446,6 +483,7 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        check=lambda t: check_outputs(idx, t),
+        compare="mf6",
     )
     test.run()

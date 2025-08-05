@@ -62,6 +62,7 @@ contains
     end select
     if (allocated(error)) return
 
+    call list%Clear()
     deallocate (list)
     deallocate (n)
   end subroutine test_add_count_get_item
@@ -102,6 +103,7 @@ contains
     call check(error, list%ContainsObject(p), "should contain n2")
     if (allocated(error)) return
 
+    call list%Clear()
     deallocate (list)
     deallocate (n1)
     deallocate (n2)
@@ -150,6 +152,7 @@ contains
     p => list%GetPreviousItem()
     call check(error, (.not. associated(p)))
 
+    call list%Clear()
     deallocate (list)
     deallocate (n1)
     deallocate (n2)
@@ -244,6 +247,7 @@ contains
     p => list%GetItem(1)
     call check(error, associated(p, n2))
 
+    call list%Clear()
     deallocate (list)
     deallocate (n1)
     deallocate (n2)

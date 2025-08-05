@@ -4,6 +4,7 @@ module MethodDisvModule
   use ErrorUtilModule, only: pstop
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType
+  use MethodModelModule, only: MethodModelType
   use MethodCellPoolModule
   use CellModule, only: MAX_POLY_CELLS
   use CellDefnModule
@@ -19,7 +20,7 @@ module MethodDisvModule
   public :: MethodDisvType
   public :: create_method_disv
 
-  type, extends(MethodType) :: MethodDisvType
+  type, extends(MethodModelType) :: MethodDisvType
     private
     type(CellDefnType), pointer :: neighbor => null() !< ptr to a neighbor defn
   contains
@@ -93,7 +94,7 @@ contains
         call method_cell_ptb%init( &
           fmi=this%fmi, &
           cell=this%cell, &
-          trackctl=this%trackctl, &
+          events=this%events, &
           tracktimes=this%tracktimes)
         submethod => method_cell_ptb
       else if (particle%ifrctrn > 0) then
@@ -101,7 +102,7 @@ contains
         call method_cell_tern%init( &
           fmi=this%fmi, &
           cell=this%cell, &
-          trackctl=this%trackctl, &
+          events=this%events, &
           tracktimes=this%tracktimes)
         submethod => method_cell_tern
       else if (cell%defn%can_be_rect) then
@@ -112,7 +113,7 @@ contains
         call method_cell_plck%init( &
           fmi=this%fmi, &
           cell=base, &
-          trackctl=this%trackctl, &
+          events=this%events, &
           tracktimes=this%tracktimes)
         submethod => method_cell_plck
       else if (cell%defn%can_be_quad) then
@@ -123,7 +124,7 @@ contains
         call method_cell_quad%init( &
           fmi=this%fmi, &
           cell=base, &
-          trackctl=this%trackctl, &
+          events=this%events, &
           tracktimes=this%tracktimes)
         submethod => method_cell_quad
       else
@@ -131,7 +132,7 @@ contains
         call method_cell_tern%init( &
           fmi=this%fmi, &
           cell=this%cell, &
-          trackctl=this%trackctl, &
+          events=this%events, &
           tracktimes=this%tracktimes)
         submethod => method_cell_tern
       end if
@@ -142,7 +143,7 @@ contains
     ! modules
     use DisvModule, only: DisvType
     use ParticleModule, only: TERM_BOUNDARY
-    use ParticleEventsModule, only: TERMINATE
+    use ParticleEventModule, only: TERMINATE
     ! dummy
     class(MethodDisvType), intent(inout) :: this
     type(CellPolyType), pointer, intent(inout) :: cell
@@ -174,11 +175,10 @@ contains
       ! as can occur e.g. in wells. terminate
       ! in the previous cell.
       if (ic == particle%icp .and. inface == 7 .and. ilay < particle%ilay) then
-        particle%advancing = .false.
         particle%idomain(2) = particle%icp
-        particle%istatus = TERM_BOUNDARY
         particle%izone = particle%izp
-        call this%dispatch_terminate(particle)
+        call this%terminate(particle, &
+                            status=TERM_BOUNDARY)
         return
       else
         particle%icp = particle%idomain(2)
@@ -226,7 +226,7 @@ contains
   !> @brief Pass a particle to the next cell, if there is one
   subroutine pass_disv(this, particle)
     use ParticleModule, only: TERM_BOUNDARY
-    use ParticleEventsModule, only: TERMINATE
+    use ParticleEventModule, only: TERMINATE
     ! dummy
     class(MethodDisvType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -240,9 +240,8 @@ contains
       ! boundary face, so terminate the particle.
       ! todo AMP: reconsider when multiple models supported
       if (cell%defn%facenbr(particle%iboundary(2)) .eq. 0) then
-        particle%istatus = TERM_BOUNDARY
-        particle%advancing = .false.
-        call this%dispatch_terminate(particle)
+        call this%terminate(particle, &
+                            status=TERM_BOUNDARY)
       else
         ! Otherwise, load cell properties into the
         ! particle. It may be marked to terminate.
