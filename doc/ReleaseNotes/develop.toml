@@ -57,3 +57,8 @@ description = "Added an optional new COORDINATE\\_CHECK\\_METHOD option to the P
 section = "features"
 subsection = "model"
 description = "Add DEPENDENT\\_VARIABLE\\_SCALING option to scale the dependent variable and the right-hand side to avoid very large positive or negative values in the GWT and GWE models. Specified outer and inner DVCLOSE values in the model IMS package will be relative closure criteria. This option applies the same scaling approach used in the MT3DMS GCG package."
+
+[[items]]
+section = "fixes"
+subsection = "solution"
+description = "The Particle Tracking (PRT) Model previously reported cell exit events when a dry particle stranded in a partially saturated cell was dropped to the water table, as occurs with DRY\\_TRACKING\\_METHOD DROP (the default). An event is no longer reported at this time."
