@@ -202,4 +202,7 @@ Zheng, C., and Wang, P.P., 1999, MT3DMS---A modular three-dimensional
   user's guide: {Contract report SERDP--99--1: Vicksburg, Miss., U.S. Army
   Engineer Research and Development Center, 169 p.}
 
+\bibitem[{Darwish, M.S., and F. Moukalled(2003)}]{Darwish2003}
+Darwish, M.S., and F. Moukalled. “TVD Schemes for Unstructured Grids.” International Journal of Heat and Mass Transfer 46, no. 4 (2003): 599–611. \url{https://doi.org/10.1016/S0017-9310(02)00330-7}.
+
 \end{thebibliography}
