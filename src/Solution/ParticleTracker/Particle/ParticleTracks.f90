@@ -17,9 +17,18 @@
 module ParticleTracksModule
 
   use KindModule, only: DP, I4B, LGP
+  use ErrorUtilModule, only: pstop
   use ConstantsModule, only: DZERO, DONE, DPIO180
   use ParticleModule, only: ParticleType, ACTIVE
-  use ParticleEventModule, only: ParticleEventType
+  use ParticleEventModule, only: ParticleEventType, &
+                                 ReleaseEventType, &
+                                 FeatExitEventType, &
+                                 TimeStepEventType, &
+                                 TerminationEventType, &
+                                 WeakSinkEventType, &
+                                 UserTimeEventType, &
+                                 CellExitEventType, &
+                                 SubcellExitEventType
   use ParticleEventsModule, only: ParticleEventConsumerType, &
                                   ParticleEventDispatcherType
   use BaseDisModule, only: DisBaseType
@@ -54,11 +63,12 @@ module ParticleTracksModule
   !> @brief Selection of particle events.
   type :: ParticleTrackEventSelectionType
     logical(LGP) :: release !< track release events
-    logical(LGP) :: cellexit !< track cell exits
+    logical(LGP) :: featexit !< track grid feature exits
     logical(LGP) :: timestep !< track timestep ends
     logical(LGP) :: terminate !< track termination events
     logical(LGP) :: weaksink !< track weak sink exit events
     logical(LGP) :: usertime !< track user-selected times
+    logical(LGP) :: subfexit !< track subfeature exits
   end type ParticleTrackEventSelectionType
 
   !> @brief Manages particle track output (logging/writing).
@@ -146,37 +156,54 @@ contains
   !> @brief Pick events to track.
   subroutine select_events(this, &
                            release, &
-                           cellexit, &
+                           featexit, &
                            timestep, &
                            terminate, &
                            weaksink, &
-                           usertime)
+                           usertime, &
+                           subfexit)
     class(ParticleTracksType) :: this
     logical(LGP), intent(in) :: release
-    logical(LGP), intent(in) :: cellexit
+    logical(LGP), intent(in) :: featexit
     logical(LGP), intent(in) :: timestep
     logical(LGP), intent(in) :: terminate
     logical(LGP), intent(in) :: weaksink
     logical(LGP), intent(in) :: usertime
+    logical(LGP), intent(in) :: subfexit
     this%selected%release = release
-    this%selected%cellexit = cellexit
+    this%selected%featexit = featexit
     this%selected%timestep = timestep
     this%selected%terminate = terminate
     this%selected%weaksink = weaksink
     this%selected%usertime = usertime
+    this%selected%subfexit = subfexit
   end subroutine select_events
 
   !> @brief Check if a given event code is selected for tracking.
-  logical function is_selected(this, event_code) result(selected)
+  logical function is_selected(this, event) result(selected)
     class(ParticleTracksType), intent(inout) :: this
-    integer(I4B), intent(in) :: event_code
+    class(ParticleEventType), intent(in) :: event
 
-    selected = (this%selected%release .and. event_code == 0) .or. &
-               (this%selected%cellexit .and. event_code == 1) .or. &
-               (this%selected%timestep .and. event_code == 2) .or. &
-               (this%selected%terminate .and. event_code == 3) .or. &
-               (this%selected%weaksink .and. event_code == 4) .or. &
-               (this%selected%usertime .and. event_code == 5)
+    select type (event)
+    type is (ReleaseEventType)
+      selected = this%selected%release
+    type is (CellExitEventType)
+      selected = this%selected%featexit
+    type is (SubcellExitEventType)
+      selected = this%selected%subfexit
+    type is (TimeStepEventType)
+      selected = this%selected%timestep
+    type is (TerminationEventType)
+      selected = this%selected%terminate
+    type is (WeakSinkEventType)
+      selected = this%selected%weaksink
+    type is (UserTimeEventType)
+      selected = this%selected%usertime
+    class default
+      call pstop(1, "unknown event type")
+      selected = .false.
+    end select
+
   end function is_selected
 
   !> @brief Check whether a particle belongs in a given file i.e.
@@ -255,7 +282,7 @@ contains
     if (this%should_log()) &
       call event%log(this%iout)
 
-    if (this%is_selected(event%get_code())) then
+    if (this%is_selected(event)) then
       do i = 1, this%ntrackfiles
         file = this%files(i)
         if (this%should_save(particle, file)) &

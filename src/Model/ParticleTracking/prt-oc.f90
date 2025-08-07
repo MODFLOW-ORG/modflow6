@@ -25,12 +25,12 @@ module PrtOcModule
     integer(I4B), pointer :: itrkcsv => null() !< CSV output file
     integer(I4B), pointer :: itrktls => null() !< track time list input file
     logical(LGP), pointer :: trackrelease => null() !< whether to track release events
-    logical(LGP), pointer :: trackcellexit => null() !< whether to track cell exit events
+    logical(LGP), pointer :: trackfeatexit => null() !< whether to track grid-scale feature exit events
     logical(LGP), pointer :: tracktimestep => null() !< whether to track timestep events
     logical(LGP), pointer :: trackterminate => null() !< whether to track termination events
     logical(LGP), pointer :: trackweaksink => null() !< whether to track weak sink exit events
     logical(LGP), pointer :: trackusertime => null() !< whether to track user-specified times
-    logical(LGP), pointer :: tracksubcellexit => null() !< whether to track user-specified times
+    logical(LGP), pointer :: tracksubfexit => null() !< whether to track sub-grid-scale feature exit events
     integer(I4B), pointer :: ntracktimes => null() !< number of user-specified tracking times
     logical(LGP), pointer :: dump_event_trace => null() !< whether to dump event trace for debugging
     type(TimeSelectType), pointer :: tracktimes !< user-specified tracking times
@@ -86,12 +86,12 @@ contains
     call mem_allocate(this%itrkcsv, 'ITRKCSV', this%memoryPath)
     call mem_allocate(this%itrktls, 'ITRKTLS', this%memoryPath)
     call mem_allocate(this%trackrelease, 'ITRACKRELEASE', this%memoryPath)
-    call mem_allocate(this%trackcellexit, 'ITRACKCELLEXIT', this%memoryPath)
+    call mem_allocate(this%trackfeatexit, 'ITRACKFEATEXIT', this%memoryPath)
     call mem_allocate(this%tracktimestep, 'ITRACKTIMESTEP', this%memoryPath)
     call mem_allocate(this%trackterminate, 'ITRACKTERMINATE', this%memoryPath)
     call mem_allocate(this%trackweaksink, 'ITRACKWEAKSINK', this%memoryPath)
     call mem_allocate(this%trackusertime, 'ITRACKUSERTIME', this%memoryPath)
-    call mem_allocate(this%tracksubcellexit, 'ITRACKSCEXIT', this%memoryPath)
+    call mem_allocate(this%tracksubfexit, 'ITRACKSUBFEXIT', this%memoryPath)
     call mem_allocate(this%ntracktimes, 'NTRACKTIMES', this%memoryPath)
 
     this%name_model = name_model
@@ -106,12 +106,12 @@ contains
     this%itrkcsv = 0
     this%itrktls = 0
     this%trackrelease = .false.
-    this%trackcellexit = .false.
+    this%trackfeatexit = .false.
     this%tracktimestep = .false.
     this%trackterminate = .false.
     this%trackweaksink = .false.
     this%trackusertime = .false.
-    this%tracksubcellexit = .false.
+    this%tracksubfexit = .false.
     this%ntracktimes = 0
 
   end subroutine prt_oc_allocate_scalars
@@ -179,12 +179,12 @@ contains
     call mem_deallocate(this%itrkcsv)
     call mem_deallocate(this%itrktls)
     call mem_deallocate(this%trackrelease)
-    call mem_deallocate(this%trackcellexit)
+    call mem_deallocate(this%trackfeatexit)
     call mem_deallocate(this%tracktimestep)
     call mem_deallocate(this%trackterminate)
     call mem_deallocate(this%trackweaksink)
     call mem_deallocate(this%trackusertime)
-    call mem_deallocate(this%tracksubcellexit)
+    call mem_deallocate(this%tracksubfexit)
     call mem_deallocate(this%ntracktimes)
 
   end subroutine prt_oc_da
@@ -285,12 +285,7 @@ contains
           event_found = .true.
           param_found = .true.
         case ('TRACK_EXIT')
-          this%trackcellexit = .true.
-          this%tracksubcellexit = .true.
-          event_found = .true.
-          param_found = .true.
-        case ('TRACK_CELLEXIT')
-          this%trackcellexit = .true.
+          this%trackfeatexit = .true.
           event_found = .true.
           param_found = .true.
         case ('TRACK_TIMESTEP')
@@ -309,8 +304,8 @@ contains
           this%trackusertime = .true.
           event_found = .true.
           param_found = .true.
-        case ('TRACK_SUBCELLEXIT')
-          this%tracksubcellexit = .true.
+        case ('TRACK_SUBFEATURE_EXIT')
+          this%tracksubfexit = .true.
           event_found = .true.
           param_found = .true.
         case ('DEV_DUMP_EVENT_TRACE')
@@ -342,7 +337,7 @@ contains
       ! default events
       if (.not. event_found) then
         this%trackrelease = .true.
-        this%trackcellexit = .true.
+        this%trackfeatexit = .true.
         this%tracktimestep = .true.
         this%trackterminate = .true.
         this%trackweaksink = .true.

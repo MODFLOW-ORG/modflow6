@@ -3,7 +3,7 @@ module ParticleEventsModule
   use ParticleModule, only: ParticleType
   use ParticleEventModule, only: ParticleEventType, &
                                  ReleaseEventType, &
-                                 CellExitEventType, &
+                                 FeatExitEventType, &
                                  TimestepEventType, &
                                  TerminationEventType, &
                                  WeakSinkEventType, &

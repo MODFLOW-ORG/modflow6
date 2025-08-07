@@ -13,7 +13,7 @@ module MethodModule
                                  TerminationEventType, &
                                  WeakSinkEventType, &
                                  UserTimeEventType, &
-                                 CellExitEventType
+                                 FeatExitEventType
   use BaseDisModule, only: DisBaseType
   use PrtFmiModule, only: PrtFmiType
   use CellModule, only: CellType

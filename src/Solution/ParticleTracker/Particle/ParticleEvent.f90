@@ -6,11 +6,10 @@ module ParticleEventModule
 
   private
   public :: ParticleEventType
-  public :: CellExitEventType, TerminationEventType, ReleaseEventType
-  public :: TimeStepEventType, WeakSinkEventType, UserTimeEventType
-  public :: SubcellExitEventType
-  public :: RELEASE, CELLEXIT, TIMESTEP, TERMINATE, WEAKSINK, USERTIME, &
-            SUBCELLEXIT
+  public :: FeatExitEventType, TerminationEventType, ReleaseEventType, &
+            TimeStepEventType, WeakSinkEventType, UserTimeEventType, &
+            CellExitEventType, SubcellExitEventType
+  public :: RELEASE, FEATEXIT, TIMESTEP, TERMINATE, WEAKSINK, USERTIME
 
   !> @brief Particle event enumeration.
   !!
@@ -19,12 +18,11 @@ module ParticleEventModule
   !<
   enum, bind(C)
     enumerator :: RELEASE = 0 !< particle was released
-    enumerator :: CELLEXIT = 1 !< particle exited a cell
+    enumerator :: FEATEXIT = 1 !< particle exited a grid feature
     enumerator :: TIMESTEP = 2 !< time step ended
     enumerator :: TERMINATE = 3 !< particle terminated
-    enumerator :: WEAKSINK = 4 !< particle exited a weak sink
+    enumerator :: WEAKSINK = 4 !< particle entered a weak sink
     enumerator :: USERTIME = 5 !< user-specified tracking time
-    enumerator :: SUBCELLEXIT = 6 !< particle exited a subcell
   end enum
 
   !> @brief Base type for particle events.
@@ -45,9 +43,17 @@ module ParticleEventModule
     procedure :: log
   end type ParticleEventType
 
-  type, extends(ParticleEventType) :: CellExitEventType
+  type, extends(ParticleEventType) :: FeatExitEventType
+  end type FeatExitEventType
+
+  type, extends(FeatExitEventType) :: CellExitEventType
     integer(I4B) :: exit_face
   end type CellExitEventType
+
+  type, extends(FeatExitEventType) :: SubcellExitEventType
+    integer(I4B) :: exit_face
+    integer(I4B) :: isc
+  end type SubcellExitEventType
 
   type, extends(ParticleEventType) :: TerminationEventType
   end type TerminationEventType
@@ -64,23 +70,17 @@ module ParticleEventModule
   type, extends(ParticleEventType) :: UserTimeEventType
   end type UserTimeEventType
 
-  type, extends(ParticleEventType) :: SubcellExitEventType
-    integer(I4B) :: isc
-    integer(I4B) :: exit_face
-  end type SubcellExitEventType
-
 contains
   integer function get_code(this) result(code)
     class(ParticleEventType), intent(in) :: this
 
     select type (this)
     type is (ReleaseEventType); code = 0
-    type is (CellExitEventType); code = 1
+    class is (FeatExitEventType); code = 1
     type is (TimeStepEventType); code = 2
     type is (TerminationEventType); code = 3
     type is (WeakSinkEventType); code = 4
     type is (UserTimeEventType); code = 5
-    type is (SubcellExitEventType); code = 6
     class default; call pstop(1, "unknown event type")
     end select
   end function get_code
@@ -91,12 +91,11 @@ contains
 
     select type (this)
     type is (ReleaseEventType); str = "released"
-    type is (CellExitEventType); str = "exited cell"
+    type is (FeatExitEventType); str = "exited grid feature"
     type is (TimeStepEventType); str = "completed timestep"
     type is (TerminationEventType); str = "terminated"
     type is (WeakSinkEventType); str = "exited weak sink"
     type is (UserTimeEventType); str = "user-specified tracking time"
-    type is (SubcellExitEventType); str = "exited subcell"
     class default; call pstop(1, "unknown event type")
     end select
   end function get_verb
