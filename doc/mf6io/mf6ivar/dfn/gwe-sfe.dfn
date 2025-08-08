@@ -287,38 +287,6 @@ tagged false
 longname file name of ABC information
 description defines a sensible heat flux (ABC) input file.  Records in the ABC file are used to calculate the flux of thermal energy in or out of a stream reach resulting from sensible heat exchange.
 
-block options
-name swr_filerecord
-type record swr6 filein swr6_filename
-shape
-reader urword
-tagged true
-optional true
-longname
-description
-
-block options
-name swr6
-type keyword
-shape
-in_record true
-reader urword
-tagged true
-optional false
-longname swr keyword
-description keyword to specify that record corresponds to the shortwave radiation (SWR) file.  The behavior of the SWR utility and a description of the input file is provided separately.
-
-block options
-name swr6_filename
-type string
-preserve_case true
-in_record true
-reader urword
-optional false
-tagged false
-longname file name of SWR information
-description defines a shortwave radiation (SWR) input file.  Records in the SWR file are used to calculate the flux of thermal energy in or out of a stream reach resulting from shortwave radiation heat flux.
-
 # --------------------- gwe sfe packagedata ---------------------
 
 block options
