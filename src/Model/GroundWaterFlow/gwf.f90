@@ -1439,6 +1439,7 @@ contains
     integer(I4B) :: indis = 0 ! DIS enabled flag
     character(len=LENMEMPATH) :: mempathbuy = ''
     character(len=LENMEMPATH) :: mempathcsub = ''
+    character(len=LENMEMPATH) :: mempathgnc = ''
     character(len=LENMEMPATH) :: mempathhfb = ''
     character(len=LENMEMPATH) :: mempathic = ''
     character(len=LENMEMPATH) :: mempathnpf = ''
@@ -1483,7 +1484,8 @@ contains
         this%invsc = 1
         mempathvsc = mempath
       case ('GNC6')
-        this%ingnc = inunit
+        this%ingnc = 1
+        mempathgnc = mempath
       case ('HFB6')
         this%inhfb = 1
         mempathhfb = mempath
@@ -1517,7 +1519,7 @@ contains
     call xt3d_cr(this%xt3d, this%name, this%innpf, this%iout)
     call buy_cr(this%buy, this%name, mempathbuy, this%inbuy, this%iout)
     call vsc_cr(this%vsc, this%name, mempathvsc, this%invsc, this%iout)
-    call gnc_cr(this%gnc, this%name, this%ingnc, this%iout)
+    call gnc_cr(this%gnc, this%name, mempathgnc, this%ingnc, this%iout)
     call hfb_cr(this%hfb, this%name, mempathhfb, this%inhfb, this%iout)
     call sto_cr(this%sto, this%name, mempathsto, this%insto, this%iout)
     call csub_cr(this%csub, this%name, mempathcsub, this%insto, &

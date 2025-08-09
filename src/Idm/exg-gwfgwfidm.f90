@@ -50,7 +50,7 @@ module ExgGwfgwfInputModule
   character(len=16), parameter :: &
     exg_gwfgwf_subpackages(*) = &
     [ &
-    '                ' &
+    'GWF-GNC         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

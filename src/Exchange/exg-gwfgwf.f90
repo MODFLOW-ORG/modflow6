@@ -205,12 +205,17 @@ contains
   !<
   subroutine gwf_gwf_df(this)
     ! -- modules
-    use SimVariablesModule, only: iout
+    use SimVariablesModule, only: iout, idm_context
+    use ConstantsModule, only: LENMEMPATH, LENMODELNAME, LENPACKAGENAME
     use InputOutputModule, only: getunit, openfile
+    use MemoryHelperModule, only: create_mem_path, split_mem_path
     use GhostNodeModule, only: gnc_cr
     ! -- dummy
     class(GwfExchangeType) :: this !<  GwfExchangeType
     ! -- local
+    character(len=LENMODELNAME) :: exgname
+    character(len=LENPACKAGENAME) :: cname
+    character(len=LENMEMPATH) :: gncmempath
     !
     ! -- log the exchange
     write (iout, '(/a,a)') ' Creating exchange: ', this%name
@@ -248,7 +253,9 @@ contains
     ! -- Create and read ghost node information
     if (this%ingnc > 0) then
       if (associated(this%gwfmodel1) .and. associated(this%gwfmodel2)) then
-        call gnc_cr(this%gnc, this%name, this%ingnc, iout)
+        call split_mem_path(this%input_mempath, exgname, cname)
+        gncmempath = create_mem_path(exgname, 'GNC', idm_context)
+        call gnc_cr(this%gnc, this%name, gncmempath, this%ingnc, iout)
         call this%read_gnc()
       end if
     end if
@@ -1290,8 +1297,7 @@ contains
     ! -- enforce 0 or 1 GNC6_FILENAME entries in option block
     if (filein_fname(gnc_fname, 'GNC6_FILENAME', this%input_mempath, &
                      this%filename)) then
-      this%ingnc = getunit()
-      call openfile(this%ingnc, iout, gnc_fname, 'GNC')
+      this%ingnc = 1
       write (iout, '(4x,a)') &
         'GHOST NODES WILL BE READ FROM ', trim(gnc_fname)
     end if

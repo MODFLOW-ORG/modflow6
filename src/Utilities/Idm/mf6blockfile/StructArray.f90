@@ -54,7 +54,7 @@ module StructArrayModule
     procedure :: allocate_charstr_type
     procedure :: allocate_int1d_type
     procedure :: allocate_dbl1d_type
-    procedure :: write_struct_vector
+    procedure :: read_param
     procedure :: read_from_parser
     procedure :: read_from_binary
     procedure :: memload_vectors
@@ -281,7 +281,7 @@ contains
     type(StructVectorType), intent(inout) :: sv
     integer(I4B), dimension(:, :), pointer, contiguous :: int2d
     type(STLVecInt), pointer :: intvector
-    integer(I4B), pointer :: ncelldim, exgid
+    integer(I4B), pointer :: ncelldim, exgid, numalphaj, intptr
     character(len=LENMEMPATH) :: input_mempath
     character(len=LENMODELNAME) :: mname
     type(CharacterStringType), dimension(:), contiguous, &
@@ -290,12 +290,23 @@ contains
 
     if (sv%idt%shape == 'NCELLDIM') then
       ! if EXCHANGE set to NCELLDIM of appropriate model
-      if (this%mf6_input%component_type == 'EXG') then
+      if (this%mf6_input%component_type == 'EXG' .or. &
+          this%mf6_input%load_scope == 'EXCHANGE') then
+
         ! set pointer to EXGID
-        call mem_setptr(exgid, 'EXGID', this%mf6_input%mempath)
+        if (this%mf6_input%component_type == 'EXG') then
+          call mem_setptr(exgid, 'EXGID', this%mf6_input%mempath)
+        else if (this%mf6_input%load_scope == 'EXCHANGE') then
+          input_mempath = create_mem_path(this%mf6_input%component_name, &
+                                          'EXG', idm_context)
+          call mem_setptr(exgid, 'EXGID', input_mempath)
+        end if
+
         ! set pointer to appropriate exchange model array
         input_mempath = create_mem_path('SIM', 'NAM', idm_context)
-        if (sv%idt%tagname == 'CELLIDM1') then
+        if (sv%idt%tagname == 'CELLIDM1' .or. &
+            sv%idt%tagname == 'CELLIDN' .or. &
+            sv%idt%tagname == 'CELLIDM') then
           call mem_setptr(charstr1d, 'EXGMNAMEA', input_mempath)
         else if (sv%idt%tagname == 'CELLIDM2') then
           call mem_setptr(charstr1d, 'EXGMNAMEB', input_mempath)
@@ -332,6 +343,48 @@ contains
       sv%memtype = 5
       sv%int2d => int2d
       sv%intshape => ncelldim
+    else if (sv%idt%shape == 'NUMALPHAJ') then
+      ! if EXCHANGE set to NCELLDIM of appropriate model
+      if (this%mf6_input%load_scope == 'EXCHANGE') then
+        ! set pointer to EXGID
+        input_mempath = create_mem_path(this%mf6_input%component_name, &
+                                        'EXG', idm_context)
+        call mem_setptr(exgid, 'EXGID', input_mempath)
+
+        ! set pointer to appropriate exchange model array
+        input_mempath = create_mem_path('SIM', 'NAM', idm_context)
+
+        ! set the model name
+        call mem_setptr(charstr1d, 'EXGMNAMEA', input_mempath)
+        mname = charstr1d(exgid)
+
+        ! set ncelldim pointer
+        input_mempath = create_mem_path(component=mname, context=idm_context)
+        call mem_setptr(ncelldim, 'NCELLDIM', input_mempath)
+      else
+        call mem_setptr(ncelldim, 'NCELLDIM', this%component_mempath)
+      end if
+
+      ! set pointer to numalphaj
+      call mem_setptr(numalphaj, 'NUMALPHAJ', this%mempath)
+
+      ! create new dim as product of ncelldim and numalphaj
+      call mem_allocate(intptr, 'NUMICELLIDJ', this%mempath)
+      intptr = numalphaj * ncelldim
+
+      ! allocate
+      call mem_allocate(int2d, intptr, this%nrow, sv%idt%mf6varname, this%mempath)
+
+      ! initialize
+      do m = 1, this%nrow
+        do n = 1, intptr
+          int2d(n, m) = IZERO
+        end do
+      end do
+
+      sv%memtype = 5
+      sv%int2d => int2d
+      sv%intshape => intptr
     else
       ! allocate intvector object
       allocate (intvector)
@@ -352,7 +405,7 @@ contains
     class(StructArrayType) :: this !< StructArrayType
     type(StructVectorType), intent(inout) :: sv
     real(DP), dimension(:, :), pointer, contiguous :: dbl2d
-    integer(I4B), pointer :: naux, nseg, nseg_1
+    integer(I4B), pointer :: naux, nseg, nseg_1, numalphaj
     integer(I4B) :: nseg1_isize, n, m
 
     if (sv%idt%shape == 'NAUX') then
@@ -393,6 +446,23 @@ contains
       sv%memtype = 6
       sv%dbl2d => dbl2d
       sv%intshape => nseg_1
+    else if (sv%idt%shape == 'NUMALPHAJ') then
+      call mem_setptr(numalphaj, 'NUMALPHAJ', this%mempath)
+
+      ! allocate
+      call mem_allocate(dbl2d, numalphaj, this%nrow, sv%idt%mf6varname, &
+                        this%mempath)
+
+      ! initialize
+      do m = 1, this%nrow
+        do n = 1, numalphaj
+          dbl2d(n, m) = DZERO
+        end do
+      end do
+
+      sv%memtype = 6
+      sv%dbl2d => dbl2d
+      sv%intshape => numalphaj
     else
       errmsg = 'IDM unimplemented. StructArray::allocate_dbl1d_type &
                & unsupported shape "'//trim(sv%idt%shape)//'".'
@@ -701,8 +771,8 @@ contains
     end do
   end subroutine check_reallocate
 
-  subroutine write_struct_vector(this, parser, sv_col, irow, timeseries, &
-                                 iout, auxcol)
+  subroutine read_param(this, parser, sv_col, irow, timeseries, &
+                        iout, auxcol)
     class(StructArrayType) :: this !< StructArrayType
     type(BlockParserType), intent(inout) :: parser !< block parser to read from
     integer(I4B), intent(in) :: sv_col
@@ -779,7 +849,7 @@ contains
         end if
       end do
     end select
-  end subroutine write_struct_vector
+  end subroutine read_param
 
   !> @brief read from the block parser to fill the StructArrayType
   !<
@@ -811,7 +881,7 @@ contains
       irow = irow + 1
       ! handle line reads by column memtype
       do j = 1, this%ncol
-        call this%write_struct_vector(parser, j, irow, timeseries, iout)
+        call this%read_param(parser, j, irow, timeseries, iout)
       end do
     end do
     ! if deferred shape vectors were read, load to input path

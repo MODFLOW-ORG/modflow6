@@ -47,20 +47,20 @@ module GhostNodeModule
     procedure :: deltaQgnc
     procedure :: allocate_scalars
     procedure, private :: allocate_arrays
-    procedure, private :: read_options
-    procedure, private :: read_dimensions
-    procedure, private :: read_data
-    procedure, private :: nodeu_to_noder
+    procedure, private :: source_options
+    procedure, private :: source_dimensions
+    procedure, private :: source_data
   end type GhostNodeType
 
 contains
 
   !> @brief Create new GNC exchange object
   !<
-  subroutine gnc_cr(gncobj, name_parent, inunit, iout)
+  subroutine gnc_cr(gncobj, name_parent, input_mempath, inunit, iout)
     ! -- dummy
     type(GhostNodeType), pointer, intent(inout) :: gncobj
     character(len=*), intent(in) :: name_parent
+    character(len=*), intent(in) :: input_mempath
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
     !
@@ -69,7 +69,7 @@ contains
     !
     ! -- create name and memory path. name_parent will either be model name or the
     !    exchange name.
-    call gncobj%set_names(1, name_parent, 'GNC', 'GNC')
+    call gncobj%set_names(1, name_parent, 'GNC', 'GNC', input_mempath)
     !
     ! -- allocate scalars
     call gncobj%allocate_scalars()
@@ -105,16 +105,16 @@ contains
     call this%parser%Initialize(this%inunit, this%iout)
     !
     ! -- read gnc options
-    call this%read_options()
+    call this%source_options()
     !
     ! -- read gnc dimensions
-    call this%read_dimensions()
+    call this%source_dimensions()
     !
     ! -- allocate arrays
     call this%allocate_arrays()
     !
     ! -- Allocate and read the gnc entries
-    call this%read_data()
+    call this%source_data()
     !
     ! -- Trap for implicit gnc but models are in different solutions
     if (this%m1%idsoln /= this%m2%idsoln) then
@@ -630,260 +630,207 @@ contains
     call this%NumericalPackageType%da()
   end subroutine gnc_da
 
-  !> @brief Read a gnc options block
+  !> @ brief Source options for gnc package
   !!
-  !! Read options from input file
+  !!  Source options for GNC package.
+  !!
   !<
-  subroutine read_options(this)
+  subroutine source_options(this)
     ! -- modules
-    use SimModule, only: store_error
-    use SimVariablesModule, only: errmsg
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwfGncInputModule, only: GwfGncParamFoundType
     ! -- dummy
     class(GhostNodeType) :: this
     ! -- local
-    character(len=LINELENGTH) :: keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
-    !
-    ! -- get options block
-    call this%parser%GetBlock('OPTIONS', isfound, ierr, &
-                              supportOpenClose=.true., blockRequired=.false.)
-    !
-    ! -- parse options block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING GNC OPTIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('PRINT_INPUT')
-          this%iprpak = 1
-          write (this%iout, '(4x,a)') &
-            'THE LIST OF GHOST-NODE CORRECTIONS WILL BE PRINTED.'
-        case ('PRINT_FLOWS')
-          this%iprflow = 1
-          write (this%iout, '(4x,a)') &
-            'DELTAQGNC VALUES WILL BE PRINTED TO THE LIST FILE.'
-        case ('I2KN')
-          this%i2kn = .true.
-          write (this%iout, '(4x,a)') &
-            'SECOND ORDER CORRECTION WILL BE APPLIED.'
-        case ('EXPLICIT')
-          this%implicit = .false.
-          write (this%iout, '(4x,a)') 'GHOST NODE CORRECTION IS EXPLICIT.'
-        case default
-          write (errmsg, '(a,a)') 'Unknown GNC option: ', &
-            trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END OF GNC OPTIONS'
-    end if
-    !
-    ! -- Set the iasym flag if the correction is implicit
-    if (this%implicit) this%iasym = 1
-  end subroutine read_options
+    type(GwfGncParamFoundType) :: found
 
-  !> @brief Single Model GNC Read Dimensions
-  !!
-  !! Read dimensions (size of gnc list) from input file
-  !<
-  subroutine read_dimensions(this)
-    ! -- modules
-    use SimModule, only: store_error
-    use SimVariablesModule, only: errmsg
-    ! -- dummy
-    class(GhostNodeType) :: this
-    ! -- local
-    character(len=LINELENGTH) :: keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
-    !
-    ! -- get options block
-    call this%parser%GetBlock('DIMENSIONS', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse options block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING GNC DIMENSIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('NUMGNC')
-          this%nexg = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i7)') 'NUMGNC = ', this%nexg
-        case ('NUMALPHAJ')
-          this%numjs = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i7)') 'NUMAPHAJ = ', this%numjs
-        case default
-          write (errmsg, '(a,a)') 'Unknown GNC dimension: ', &
-            trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END OF GNC DIMENSIONS'
-    else
-      call store_error('Required DIMENSIONS block not found.', terminate=.TRUE.)
-    end if
-  end subroutine read_dimensions
+    ! -- update defaults from input context
+    call mem_set_value(this%iprpak, 'PRINT_INPUT', this%input_mempath, &
+                       found%print_input)
+    call mem_set_value(this%iprflow, 'PRINT_FLOWS', this%input_mempath, &
+                       found%print_flows)
+    call mem_set_value(this%implicit, 'EXPLICIT', this%input_mempath, &
+                       found%explicit)
 
-  !> @brief Read a GNCDATA block
+    ! -- update internal state
+    if (found%explicit) this%implicit = .false.
+
+    ! -- log options
+    write (this%iout, '(1x,a)') 'PROCESSING GNC OPTIONS'
+    if (found%print_input) &
+      write (this%iout, '(4x,a)') &
+      'THE LIST OF GHOST-NODE CORRECTIONS WILL BE PRINTED.'
+    if (found%print_flows) &
+      write (this%iout, '(4x,a)') &
+      'DELTAQGNC VALUES WILL BE PRINTED TO THE LIST FILE.'
+    if (found%explicit) &
+      write (this%iout, '(4x,a)') 'GHOST NODE CORRECTION IS EXPLICIT.'
+    write (this%iout, '(1x,a)') 'END OF GNC OPTIONS'
+  end subroutine source_options
+
+  !> @ brief Source dimensions for gnc package
   !!
-  !! Read list of GNCs from input file
+  !!  Source dimensions for GNC package.
+  !!
   !<
-  subroutine read_data(this)
+  subroutine source_dimensions(this)
     ! -- modules
-    use SimModule, only: store_error, count_errors
-    use SimVariablesModule, only: errmsg
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwfGncInputModule, only: GwfGncParamFoundType
     ! -- dummy
     class(GhostNodeType) :: this
     ! -- local
-    character(len=LINELENGTH) :: line, nodestr, fmtgnc, cellid, &
-                                 cellidm, cellidn
-    integer(I4B) :: lloc, ierr, ival
-    integer(I4B) :: ignc, jidx, nodeun, nodeum, nerr
+    type(GwfGncParamFoundType) :: found
+
+    ! -- update defaults from input context
+    call mem_set_value(this%nexg, 'NUMGNC', this%input_mempath, &
+                       found%numgnc)
+    call mem_set_value(this%numjs, 'NUMALPHAJ', this%input_mempath, &
+                       found%numalphaj)
+
+    ! -- log dimensions
+    write (this%iout, '(/1x,a)') 'PROCESSING GNC DIMENSIONS'
+    write (this%iout, '(4x,a,i7)') 'NUMGNC = ', this%nexg
+    write (this%iout, '(4x,a,i7)') 'NUMAPHAJ = ', this%numjs
+    write (this%iout, '(1x,a)') 'END OF GNC DIMENSIONS'
+  end subroutine source_dimensions
+
+  !> @ brief Source GNCDATA block
+  !<
+  subroutine source_data(this)
+    ! -- modules
+    use SimModule, only: store_error, count_errors, store_error_filename
+    use MemoryManagerModule, only: mem_setptr
+    use GeomUtilModule, only: get_node
+    ! -- dummy variables
+    class(GhostNodeType), intent(inout) :: this
+    ! -- locals
+    integer(I4B), dimension(:, :), pointer, &
+      contiguous :: cellidsm, cellidsn, cellidsj
+    real(DP), dimension(:, :), pointer, contiguous :: alphasj
+    integer(I4B), dimension(:), pointer :: cellidm, cellidn, cellidj
     integer(I4B), dimension(:), allocatable :: nodesuj
-    logical :: isfound, endOfBlock
-    !
-    ! -- Construct the fmtgnc format
+    integer(I4B) :: n, m, nodeun, nodeum, nodeuj, nodern, noderm, noderj, istart
+    character(len=LINELENGTH) :: fmtgnc
+
+    ! Construct the fmtgnc format
     write (fmtgnc, '("(2i10,",i0,"i10,",i0, "(1pg15.6))")') this%numjs, &
       this%numjs
-    !
-    ! -- Allocate the temporary nodesuj, which stores the user-based nodej
-    !    node numbers
-    allocate (nodesuj(this%numjs))
-    !
-    ! -- get GNCDATA block
-    call this%parser%GetBlock('GNCDATA', isfound, ierr, supportOpenClose=.true.)
-    !
-    ! -- process GNC data
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING GNCDATA'
-      do ignc = 1, this%nexg
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetCurrentLine(line)
-        lloc = 1
-        !
-        ! -- cellidn (read as cellid and convert to user node)
-        call this%parser%GetCellid(this%m1%dis%ndim, cellidn)
-        nodeun = this%m1%dis%nodeu_from_cellid(cellidn, this%parser%iuactive, &
-                                               this%iout)
-        !
-        ! -- convert user node to reduced node number
-        call this%nodeu_to_noder(nodeun, this%nodem1(ignc), this%m1)
-        !
-        ! -- cellidm (read as cellid and convert to user node)
-        call this%parser%GetCellid(this%m2%dis%ndim, cellidm)
-        nodeum = this%m2%dis%nodeu_from_cellid(cellidm, this%parser%iuactive, &
-                                               this%iout)
-        !
-        ! -- convert user node to reduced node number
-        call this%nodeu_to_noder(nodeum, this%nodem2(ignc), this%m2)
-        !
-        ! -- cellidsj (read as cellid)
-        do jidx = 1, this%numjs
-          ! read cellidj as cellid of model 1
-          call this%parser%GetCellid(this%m1%dis%ndim, cellid)
-          ival = this%m1%dis%nodeu_from_cellid(cellid, this%parser%iuactive, &
-                                               this%iout, allow_zero=.true.)
-          nodesuj(jidx) = ival
-          if (ival > 0) then
-            call this%nodeu_to_noder(ival, this%nodesj(jidx, ignc), this%m1)
-          else
-            this%nodesj(jidx, ignc) = 0
-          end if
-        end do
-        !
-        ! -- alphaj
-        do jidx = 1, this%numjs
-          this%alphasj(jidx, ignc) = this%parser%GetDouble()
-        end do
-        !
-        ! -- Echo if requested
-        if (this%iprpak /= 0) &
-          write (this%iout, fmtgnc) nodeun, nodeum, &
-          (nodesuj(jidx), jidx=1, this%numjs), &
-          (this%alphasj(jidx, ignc), jidx=1, this%numjs)
-        !
-        ! -- Check to see if noden is outside of active domain
-        if (this%nodem1(ignc) <= 0) then
-          call this%m1%dis%nodeu_to_string(nodeun, nodestr)
-          write (errmsg, *) &
-            trim(adjustl(this%m1%name))// &
-            ' Cell is outside active grid domain: '// &
-            trim(adjustl(nodestr))
-          call store_error(errmsg)
-        end if
-        !
-        ! -- Check to see if nodem is outside of active domain
-        if (this%nodem2(ignc) <= 0) then
-          call this%m2%dis%nodeu_to_string(nodeum, nodestr)
-          write (errmsg, *) &
-            trim(adjustl(this%m2%name))// &
-            ' Cell is outside active grid domain: '// &
-            trim(adjustl(nodestr))
-          call store_error(errmsg)
-        end if
-        !
-        ! -- Check to see if any nodejs are outside of active domain
-        do jidx = 1, this%numjs
-          if (this%nodesj(jidx, ignc) < 0) then
-            call this%m1%dis%nodeu_to_string(nodesuj(jidx), nodestr)
-            write (errmsg, *) &
-              trim(adjustl(this%m1%name))// &
-              ' Cell is outside active grid domain: '// &
-              trim(adjustl(nodestr))
-            call store_error(errmsg)
-          end if
-        end do
-        !
-      end do
-      !
-      ! -- Stop if errors
-      nerr = count_errors()
-      if (nerr > 0) then
-        call store_error('Errors encountered in GNC input file.')
-        call this%parser%StoreErrorUnit()
-      end if
-      !
-      write (this%iout, '(1x,a)') 'END OF GNCDATA'
-    else
-      write (errmsg, '(a)') 'Required GNCDATA block not found.'
-      call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
-    end if
-    !
-    ! -- deallocate nodesuj array
-    deallocate (nodesuj)
-  end subroutine read_data
 
-  !> @brief Convert the user-based node number into a reduced number
-  !<
-  subroutine nodeu_to_noder(this, nodeu, noder, model)
-    ! -- modules
-    use NumericalModelModule, only: NumericalModelType
-    use SimModule, only: store_error
-    use SimVariablesModule, only: errmsg
-    ! -- dummy
-    class(GhostNodeType) :: this
-    integer(I4B), intent(in) :: nodeu
-    integer(I4B), intent(inout) :: noder
-    class(NumericalModelType), intent(in) :: model
-    !
-    if (nodeu < 1 .or. nodeu > model%dis%nodesuser) then
-      write (errmsg, *) &
-        trim(adjustl(model%name))// &
-        ' node number < 0 or > model nodes: ', nodeu
-      call store_error(errmsg)
-    else
-      noder = model%dis%get_nodenumber(nodeu, 0)
+    write (this%iout, '(/1x,a)') 'PROCESSING GNC DATA'
+
+    ! allocate temporary nodeu array
+    allocate (nodesuj(this%numjs))
+
+    ! set input context pointers
+    call mem_setptr(cellidsn, 'CELLIDN', this%input_mempath)
+    call mem_setptr(cellidsm, 'CELLIDM', this%input_mempath)
+    call mem_setptr(cellidsj, 'CELLIDSJ', this%input_mempath)
+    call mem_setptr(alphasj, 'ALPHASJ', this%input_mempath)
+
+    ! update state
+    do n = 1, this%nexg
+
+      ! set cellid
+      cellidn => cellidsn(:, n)
+      cellidm => cellidsm(:, n)
+
+      ! set node user
+      if (this%m1%dis%ndim == 1) then
+        nodeun = cellidn(1)
+      elseif (this%m1%dis%ndim == 2) then
+        nodeun = get_node(cellidn(1), 1, cellidn(2), &
+                          this%m1%dis%mshape(1), 1, &
+                          this%m1%dis%mshape(2))
+      else
+        nodeun = get_node(cellidn(1), cellidn(2), cellidn(3), &
+                          this%m1%dis%mshape(1), &
+                          this%m1%dis%mshape(2), &
+                          this%m1%dis%mshape(3))
+      end if
+
+      ! set node user
+      if (this%m2%dis%ndim == 1) then
+        nodeum = cellidm(1)
+      elseif (this%m2%dis%ndim == 2) then
+        nodeum = get_node(cellidm(1), 1, cellidm(2), &
+                          this%m2%dis%mshape(1), 1, &
+                          this%m2%dis%mshape(2))
+      else
+        nodeum = get_node(cellidm(1), cellidm(2), cellidm(3), &
+                          this%m2%dis%mshape(1), &
+                          this%m2%dis%mshape(2), &
+                          this%m2%dis%mshape(3))
+      end if
+
+      ! set nodes
+      nodern = this%m1%dis%get_nodenumber(nodeun, 1)
+      noderm = this%m2%dis%get_nodenumber(nodeum, 1)
+      if (nodern <= 0 .or. &
+          noderm <= 0) then
+        cycle
+      else
+        this%nodem1(n) = nodern
+        this%nodem2(n) = noderm
+      end if
+
+      ! set nodesj and alphajs
+      cellidj => cellidsj(:, n)
+      do m = 1, this%numjs
+        ! set cellid start index
+        istart = (m - 1) * this%m1%dis%ndim + 1
+
+        ! set node user
+        if (this%m1%dis%ndim == 1) then
+          nodeuj = cellidj(istart)
+        elseif (this%m1%dis%ndim == 2) then
+          nodeuj = get_node(cellidj(istart), 1, cellidj(istart + 1), &
+                            this%m1%dis%mshape(1), 1, &
+                            this%m1%dis%mshape(2))
+        else
+          nodeuj = get_node(cellidj(istart), &
+                            cellidj(istart + 1), &
+                            cellidj(istart + 2), &
+                            this%m1%dis%mshape(1), &
+                            this%m1%dis%mshape(2), &
+                            this%m1%dis%mshape(3))
+        end if
+
+        ! set nodesj
+        if (nodeuj > 0) then
+          nodesuj(m) = nodeuj
+          noderj = this%m1%dis%get_nodenumber(nodeuj, 1)
+          if (noderj <= 0) then
+            cycle
+          else
+            this%nodesj(m, n) = noderj
+          end if
+        else
+          nodesuj(m) = 0
+          this%nodesj(m, n) = 0
+        end if
+
+        ! alphaj
+        this%alphasj(m, n) = alphasj(m, n)
+      end do
+
+      if (this%iprpak /= 0) then
+        write (this%iout, fmtgnc) nodeun, nodeum, &
+          (nodesuj(m), m=1, this%numjs), &
+          (this%alphasj(m, n), m=1, this%numjs)
+      end if
+    end do
+
+    write (this%iout, '(1x,a)') 'END OF GNC DATA'
+
+    ! check errors
+    if (count_errors() > 0) then
+      call store_error('Errors encountered in GNC input file.')
+      call store_error_filename(this%input_fname)
     end if
-  end subroutine nodeu_to_noder
+
+    ! cleanup
+    deallocate (nodesuj)
+  end subroutine source_data
 
 end module GhostNodeModule

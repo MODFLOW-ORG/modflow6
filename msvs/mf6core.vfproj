@@ -183,9 +183,10 @@
 		<File RelativePath="..\src\Idm\gwf-drngidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-evtaidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-evtidm.f90"/>
-		<File RelativePath="..\src\Idm\gwf-ghbgidm.f90"/>
-		<File RelativePath="..\src\Idm\gwf-hfbidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-ghbidm.f90"/>
+		<File RelativePath="..\src\Idm\gwf-ghbgidm.f90"/>
+		<File RelativePath="..\src\Idm\gwf-gncidm.f90"/>
+		<File RelativePath="..\src\Idm\gwf-hfbidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-icidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-namidm.f90"/>
 		<File RelativePath="..\src\Idm\gwf-npfidm.f90"/>

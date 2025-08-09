@@ -197,7 +197,6 @@ contains
     ! -- modules
     use SimVariablesModule, only: iout
     use InputOutputModule, only: getunit, openfile
-    use GhostNodeModule, only: gnc_cr
     ! -- dummy
     class(GweExchangeType) :: this !<  GwtExchangeType
     !
