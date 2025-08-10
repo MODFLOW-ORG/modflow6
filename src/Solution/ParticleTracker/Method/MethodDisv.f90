@@ -166,16 +166,11 @@ contains
       icu = dis%get_nodeuser(ic)
       call get_jk(icu, dis%ncpl, dis%nlay, icpl, ilay)
 
-      ! if returning to a cell through the bottom
-      ! face after previously leaving it through
-      ! that same face, we've entered a cycle
-      ! as can occur e.g. in wells. terminate
-      ! in the previous cell.
+      ! TODO remove this cycle trap as soon as both cycle conditions are fixed!
       if (ic == particle%icp .and. inface == 7 .and. ilay < particle%ilay) then
         particle%itrdomain(LEVEL_FEATURE) = particle%icp
         particle%izone = particle%izp
-        call this%terminate(particle, &
-                            status=TERM_BOUNDARY)
+        call this%terminate(particle, status=TERM_BOUNDARY)
         return
       else
         particle%icp = particle%itrdomain(LEVEL_FEATURE)
@@ -229,25 +224,25 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     ! local
     type(CellPolyType), pointer :: cell
+    integer(I4B) :: iface
+    logical(LGP) :: no_neighbors, at_boundary
 
     select type (c => this%cell)
     type is (CellPolyType)
       cell => c
-      ! If the entry face has no neighbors it's a
-      ! boundary face, so terminate the particle.
-      ! todo AMP: reconsider when multiple models supported
-      if (cell%defn%facenbr(particle%iboundary(LEVEL_FEATURE)) .eq. 0) then
-        call this%terminate(particle, &
-                            status=TERM_BOUNDARY)
-      else
-        ! Otherwise, load cell properties into the
-        ! particle. It may be marked to terminate.
-        call this%load_particle(cell, particle)
-        if (.not. particle%advancing) return
+      iface = particle%iboundary(LEVEL_FEATURE)
+      no_neighbors = cell%defn%facenbr(iface) == 0
+      at_boundary = this%fmi%is_boundary_face(cell%defn%icell, iface)
 
-        ! Update intercell mass flows
-        call this%update_flowja(cell, particle)
+      ! todo AMP: reconsider when multiple models supported
+      if (no_neighbors .or. at_boundary) then
+        call this%terminate(particle, status=TERM_BOUNDARY)
+        return
       end if
+
+      call this%load_particle(cell, particle)
+      if (.not. particle%advancing) return ! todo: remove after cycles fixed
+      call this%update_flowja(cell, particle)
     end select
   end subroutine pass_disv
 
