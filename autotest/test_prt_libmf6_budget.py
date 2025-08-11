@@ -8,26 +8,24 @@ from pathlib import Path
 import pytest
 from framework import TestFramework
 from modflow_devtools.markers import requires_pkg
-from prt_test_utils import HorizontalCase
-from test_prt_budget import build_prt_sim, check_output
+from test_prt_budget import build_gwf_sim, build_gwt_sim, build_prt_sim, check_output
 
 simname = "prt_libmf6"
 cases = [simname]
 
 
 def build_models(idx, test):
-    # build MODFLOW 6 files
-    ws = test.workspace
-    name = cases[idx]
-
-    gwf_sim = HorizontalCase.get_gwf_sim(test.name, test.workspace, test.targets["mf6"])
+    gwf_sim = build_gwf_sim(test.workspace / "gwf", test.targets["libmf6"])
+    gwt_sim = build_gwt_sim(
+        test.workspace / "gwf", test.workspace / "gwt", test.targets["libmf6"]
+    )
     prt_sim = build_prt_sim(
         test.workspace / "gwf",
         test.workspace / "prt",
         test.targets["libmf6"],
     )
 
-    return gwf_sim, prt_sim
+    return gwf_sim, gwt_sim, prt_sim
 
 
 def api_func(exe, idx, model_ws=None):
@@ -96,5 +94,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         build=lambda t: build_models(idx, t),
         api_func=lambda exe, ws: api_func(exe, idx, ws),
         check=lambda t: check_output(idx, t),
+        compare=None,
     )
     test.run()
