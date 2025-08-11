@@ -35,9 +35,9 @@ module PrtModule
   public :: PRT_NBASEPKG, PRT_NMULTIPKG
   public :: PRT_BASEPKG, PRT_MULTIPKG
 
-  integer(I4B), parameter :: NBDITEMS = 1
+  integer(I4B), parameter :: NBDITEMS = 2
   character(len=LENBUDTXT), dimension(NBDITEMS) :: budtxt
-  data budtxt/'         STORAGE'/
+  data budtxt/'         STORAGE', '     TERMINATION'/
 
   !> @brief Particle tracking (PRT) model
   type, extends(NumericalModelType) :: PrtModelType
@@ -60,6 +60,9 @@ module PrtModule
     real(DP), dimension(:), pointer, contiguous :: masssto => null() !< particle mass storage in cells, new value
     real(DP), dimension(:), pointer, contiguous :: massstoold => null() !< particle mass storage in cells, old value
     real(DP), dimension(:), pointer, contiguous :: ratesto => null() !< particle mass storage rate in cells
+    real(DP), dimension(:), pointer, contiguous :: massterm => null() !< particle mass terminating in cells, new value
+    real(DP), dimension(:), pointer, contiguous :: masstermold => null() !< particle mass terminating in cells, old value
+    real(DP), dimension(:), pointer, contiguous :: rateterm => null() !< particle mass termination rate in cells
   contains
     ! Override BaseModelType procs
     procedure :: model_df => prt_df
@@ -82,7 +85,7 @@ module PrtModule
     procedure, private :: prt_ot_printflow
     procedure, private :: prt_ot_dv
     procedure, private :: prt_ot_bdsummary
-    procedure, private :: prt_cq_sto
+    procedure, private :: prt_cq_sto_term
     procedure, private :: create_packages
     procedure, private :: create_bndpkgs
     procedure, private :: log_namfile_options
@@ -128,7 +131,7 @@ contains
     use MemoryHelperModule, only: create_mem_path
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
-    use PrtNamInputModule, only: PrtNamParamFoundType
+    use GwfNamInputModule, only: GwfNamParamFoundType
     ! dummy
     character(len=*), intent(in) :: filename
     integer(I4B), intent(in) :: id
@@ -138,7 +141,7 @@ contains
     class(BaseModelType), pointer :: model
     character(len=LENMEMPATH) :: input_mempath
     character(len=LINELENGTH) :: lst_fname
-    type(PrtNamParamFoundType) :: found
+    type(GwfNamParamFoundType) :: found
 
     ! Allocate a new PRT Model (this)
     allocate (this)
@@ -251,13 +254,13 @@ contains
 
     ! Select tracking events
     call this%tracks%select_events( &
-      this%oc%trackrelease, &
-      this%oc%trackfeatexit, &
-      this%oc%tracktimestep, &
-      this%oc%trackterminate, &
-      this%oc%trackweaksink, &
-      this%oc%trackusertime, &
-      this%oc%tracksubfexit)
+      release=this%oc%trackrelease, &
+      featexit=this%oc%trackfeatexit, &
+      timestep=this%oc%tracktimestep, &
+      terminate=this%oc%trackterminate, &
+      weaksink=this%oc%trackweaksink, &
+      usertime=this%oc%trackusertime, &
+      subfexit=this%oc%tracksubfexit)
 
     ! Set up boundary pkgs and pkg-scoped track files
     nprp = 0
@@ -267,7 +270,6 @@ contains
       type is (PrtPrpType)
         nprp = nprp + 1
         call packobj%prp_set_pointers(this%ibound, this%mip%izone)
-        call packobj%bnd_ar()
         call packobj%bnd_ar()
         if (packobj%itrkout > 0) then
           call this%tracks%init_file( &
@@ -357,9 +359,10 @@ contains
     irestore = 0
     if (iFailedStepRetry > 0) irestore = 1
 
-    ! Copy masssto into massstoold
+    ! Copy look-behind masses
     do n = 1, this%dis%nodes
       this%massstoold(n) = this%masssto(n)
+      this%masstermold(n) = this%massterm(n)
     end do
 
     ! Advance fmi
@@ -416,8 +419,8 @@ contains
       this%flowja(i) = this%flowja(i) * tled
     end do
 
-    ! Particle mass storage
-    call this%prt_cq_sto()
+    ! Particle mass storage and termination terms
+    call this%prt_cq_sto_term()
 
     ! Go through packages and call cq routines. Just a formality.
     do ip = 1, this%bndlist%Count()
@@ -426,16 +429,17 @@ contains
     end do
 
     ! Finalize calculation of flowja by adding face flows to the diagonal.
-    !    This results in the flow residual being stored in the diagonal
-    !    position for each cell.
+    ! This results in the flow residual being stored in the diagonal
+    ! position for each cell.
     call csr_diagsum(this%dis%con%ia, this%flowja)
   end subroutine prt_cq
 
   !> @brief Calculate particle mass storage
-  subroutine prt_cq_sto(this)
+  subroutine prt_cq_sto_term(this)
     ! modules
     use TdisModule, only: delt
     use PrtPrpModule, only: PrtPrpType
+    use ParticleModule, only: ACTIVE
     ! dummy
     class(PrtModelType) :: this
     ! local
@@ -446,7 +450,7 @@ contains
     integer(I4B) :: idiag
     integer(I4B) :: istatus
     real(DP) :: tled
-    real(DP) :: rate
+    real(DP) :: ratesto, rateterm
 
     ! Reciprocal of time step size.
     tled = DONE / delt
@@ -455,6 +459,8 @@ contains
     do n = 1, this%dis%nodes
       this%masssto(n) = DZERO
       this%ratesto(n) = DZERO
+      this%massterm(n) = DZERO
+      this%rateterm(n) = DZERO
     end do
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
@@ -462,22 +468,25 @@ contains
       type is (PrtPrpType)
         do np = 1, packobj%nparticles
           istatus = packobj%particles%istatus(np)
-          ! this may need to change if istatus flags change
-          if ((istatus > 0) .and. (istatus /= 8)) then
+          if (istatus == ACTIVE) then
             n = packobj%particles%idomain(np, 2)
-            ! Each particle currently assigned unit mass
-            this%masssto(n) = this%masssto(n) + DONE
+            this%masssto(n) = this%masssto(n) + DONE ! unit mass
+          else if (istatus > ACTIVE) then
+            n = packobj%particles%idomain(np, 2)
+            this%massterm(n) = this%massterm(n) + DONE ! unit mass
           end if
         end do
       end select
     end do
     do n = 1, this%dis%nodes
-      rate = -(this%masssto(n) - this%massstoold(n)) * tled
-      this%ratesto(n) = rate
+      ratesto = -(this%masssto(n) - this%massstoold(n)) * tled
+      rateterm = -(this%massterm(n) - this%masstermold(n)) * tled
+      this%ratesto(n) = ratesto
+      this%rateterm(n) = rateterm
       idiag = this%dis%con%ia(n)
-      this%flowja(idiag) = this%flowja(idiag) + rate
+      this%flowja(idiag) = this%flowja(idiag) + ratesto + rateterm
     end do
-  end subroutine prt_cq_sto
+  end subroutine prt_cq_sto_term
 
   !> @brief Calculate flows and budget
   !!
@@ -504,16 +513,25 @@ contains
     !    should be added here to this%budget.  In a subsequent exchange call,
     !    exchange flows might also be added.
     call this%budget%reset()
+
+    ! storage term
     call rate_accumulator(this%ratesto, rin, rout)
     call this%budget%addentry(rin, rout, delt, budtxt(1), &
                               isuppress_output, '             PRT')
+
+    ! termination term
+    call rate_accumulator(this%rateterm, rin, rout)
+    call this%budget%addentry(rin, rout, delt, budtxt(2), &
+                              isuppress_output, '             PRT')
+
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_bd(this%budget)
     end do
   end subroutine prt_bd
 
-  !> @brief Print and/or save model output
+  !> @brief Print and/or save model output.
+  ! Note that particle tracking output is handled elsewhere.
   subroutine prt_ot(this)
     use TdisModule, only: tdis_ot, endofperiod
     ! dummy
@@ -525,8 +543,6 @@ contains
     integer(I4B) :: icbcun
     integer(I4B) :: ibudfl
     integer(I4B) :: ipflag
-
-    ! Note: particle tracking output is handled elsewhere
 
     ! Set write and print flags
     idvsave = 0
@@ -769,6 +785,9 @@ contains
     call mem_deallocate(this%masssto)
     call mem_deallocate(this%massstoold)
     call mem_deallocate(this%ratesto)
+    call mem_deallocate(this%massterm)
+    call mem_deallocate(this%masstermold)
+    call mem_deallocate(this%rateterm)
 
     call this%tracks%destroy()
     deallocate (this%events)
@@ -823,6 +842,12 @@ contains
                       'MASSSTOOLD', this%memoryPath)
     call mem_allocate(this%ratesto, this%dis%nodes, &
                       'RATESTO', this%memoryPath)
+    call mem_allocate(this%massterm, this%dis%nodes, &
+                      'MASSTERM', this%memoryPath)
+    call mem_allocate(this%masstermold, this%dis%nodes, &
+                      'MASSTERMOLD', this%memoryPath)
+    call mem_allocate(this%rateterm, this%dis%nodes, &
+                      'RATETERM', this%memoryPath)
     ! explicit model, so these must be manually allocated
     call mem_allocate(this%x, this%dis%nodes, 'X', this%memoryPath)
     call mem_allocate(this%rhs, this%dis%nodes, 'RHS', this%memoryPath)
@@ -831,6 +856,9 @@ contains
       this%masssto(n) = DZERO
       this%massstoold(n) = DZERO
       this%ratesto(n) = DZERO
+      this%massterm(n) = DZERO
+      this%masstermold(n) = DZERO
+      this%rateterm(n) = DZERO
       this%x(n) = DZERO
       this%rhs(n) = DZERO
       this%ibound(n) = 1
@@ -1145,11 +1173,21 @@ contains
 
   !> @brief Write model namfile options to list file
   subroutine log_namfile_options(this, found)
-    use PrtNamInputModule, only: PrtNamParamFoundType
+    use GwfNamInputModule, only: GwfNamParamFoundType
     class(PrtModelType) :: this
-    type(PrtNamParamFoundType), intent(in) :: found
+    type(GwfNamParamFoundType), intent(in) :: found
 
     write (this%iout, '(1x,a)') 'NAMEFILE OPTIONS:'
+
+    if (found%newton) then
+      write (this%iout, '(4x,a)') &
+        'NEWTON-RAPHSON method enabled for the model.'
+      if (found%under_relaxation) then
+        write (this%iout, '(4x,a,a)') &
+          'NEWTON-RAPHSON UNDER-RELAXATION based on the bottom ', &
+          'elevation of the model will be applied to the model.'
+      end if
+    end if
 
     if (found%print_input) then
       write (this%iout, '(4x,a)') 'STRESS PACKAGE INPUT WILL BE PRINTED '// &

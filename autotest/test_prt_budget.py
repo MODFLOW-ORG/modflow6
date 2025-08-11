@@ -1,372 +1,359 @@
 """
-Tests particle mass budget tracking with a very
-simple horizontal steady-state flow system. The
-grid is a 1x1x10 horizontal line with 10 columns.
-Particles are released from the left-most cell.
-Pathlines are compared against a MODPATH 7 model.
+Tests particle mass budget tracking.
 """
 
-from pathlib import Path
-
 import flopy
-import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
-from flopy.mf6.utils.postprocessing import get_structured_faceflows
-from flopy.utils import PathlineFile
 from flopy.utils.binaryfile import HeadFile
 from framework import TestFramework
 from prt_test_utils import (
-    HorizontalCase,
-    all_equal,
-    check_budget_data,
-    check_track_data,
     get_model_name,
-    get_partdata,
-    has_default_boundnames,
 )
 
 simname = "prtbud"
 cases = [simname]
 
+# model names
+gwf_name = get_model_name(simname, "gwf")
+gwt_name = get_model_name(simname, "gwt")
+prt_name = get_model_name(simname, "prt")
 
-def build_prt_sim(name, gwf_ws, prt_ws, mf6):
-    # create simulation
-    sim = flopy.mf6.MFSimulation(
-        sim_name=name,
-        exe_name=mf6,
-        version="mf6",
-        sim_ws=prt_ws,
-    )
+# tdis data
+years = 550.0
+year_delt = 365.25
+perlen = year_delt * years
+nstp = 10
+tsmult = 1.0
+tdis_spd = [[perlen, nstp, tsmult]]
+nper = len(tdis_spd)
 
-    # create tdis package
-    flopy.mf6.modflow.mftdis.ModflowTdis(
+# grid data
+nlay, nrow, ncol = 5, 101, 101
+delr, delc = 100.0, 100.0
+top = 1.0
+botm = np.linspace(-10, -100, nlay)
+
+# gwf chd data
+chd_spd = [[(0, i, 0), 1.0, 6, -1] for i in range(nrow)]
+chd_spd += [[(0, i, ncol - 1), 0.0, 6, -1] for i in range(nrow)]
+
+# gwf maw data
+maw_spd = [((2, 50, 50), -5000.0, 0, 0), ((4, 50, 50), -5000.0, 0, 0)]
+
+# gwf output file names
+gwf_budget_file = f"{gwf_name}.bud"
+gwf_head_file = f"{gwf_name}.hds"
+
+# gwt src data
+gwt_srcs = []
+for k in [0, 1, 2, 3]:  # range(nlay):
+    gwt_srcs += [(k, i, 1) for i in range(nrow)]
+src_rate = 4.9779105e-4
+src_spd = []
+for cid in gwt_srcs:
+    src_spd.append([cid, "SRCRATE"])
+src_spd = {0: src_spd}
+src_tsdata = [
+    (0.0, src_rate),
+    (perlen / 100.0, 0.0),
+    (perlen, 0.0),
+]
+
+# prt prp data
+prt_nodes = []
+for k in [0, 1, 2, 3]:
+    prt_nodes += [(k, i, 1) for i in range(nrow)]
+particle_data = flopy.modpath.ParticleData(
+    prt_nodes,
+    drape=0,
+    structured=True,
+)
+
+# prt mip data
+izone = np.zeros((nlay, nrow, ncol), dtype=int)
+well_zone = (1, 2)
+for idx, k in enumerate((2, 4)):
+    izone[k, 50, 50] = well_zone[idx]
+
+# prt oc data
+tracktimes = list(range(0, 72000, 1000))
+
+# prt output file names
+prt_listfile = f"{prt_name}.lst"
+prt_budgetfile = f"{prt_name}.cbb"
+prt_trackfile = f"{prt_name}.trk"
+prt_trackcsvfile = f"{prt_name}.trk.csv"
+
+
+def build_gwf_sim(gwf_ws, mf6):
+    sim = flopy.mf6.MFSimulation(sim_name=gwf_name, sim_ws=gwf_ws, exe_name=mf6)
+    tdis = flopy.mf6.ModflowTdis(sim, nper=1, perioddata=tdis_spd)
+    ims = flopy.mf6.ModflowIms(sim, linear_acceleration="bicgstab", complexity="simple")
+    gwf = flopy.mf6.ModflowGwf(
         sim,
-        pname="tdis",
-        time_units="DAYS",
-        nper=HorizontalCase.nper,
-        perioddata=[
-            (HorizontalCase.perlen, HorizontalCase.nstp, HorizontalCase.tsmult)
+        modelname=gwf_name,
+        save_flows=True,
+        newtonoptions="newton under_relaxation",
+    )
+    dis = flopy.mf6.ModflowGwfdis(
+        gwf, nlay=nlay, nrow=nrow, ncol=ncol, delr=100, delc=100, top=top, botm=botm
+    )
+    npf = flopy.mf6.ModflowGwfnpf(
+        gwf, icelltype=1, save_specific_discharge=True, save_saturation=True, k=100.0
+    )
+    sto = flopy.mf6.ModflowGwfsto(
+        gwf, iconvert=1, steady_state={0: False}, transient={0: True}
+    )
+    ic = flopy.mf6.ModflowGwfic(gwf, strt=0.0)
+    chd = flopy.mf6.ModflowGwfchd(
+        gwf,
+        auxiliary=["iface", "iflowface"],
+        maxbound=len(chd_spd),
+        stress_period_data=chd_spd,
+        pname="chd",
+    )
+    maw = flopy.mf6.ModflowGwfwel(
+        gwf,
+        auxiliary=["iface", "iflowface"],
+        maxbound=len(maw_spd),
+        stress_period_data=maw_spd,
+    )
+    oc = flopy.mf6.ModflowGwfoc(
+        gwf,
+        head_filerecord=gwf_head_file,
+        budget_filerecord=gwf_budget_file,
+        printrecord=[("budget", "all")],
+        saverecord=[("head", "all"), ("budget", "all")],
+    )
+    return sim
+
+
+def build_gwt_sim(gwf_ws, gwt_ws, mf6):
+    sim = flopy.mf6.MFSimulation(sim_name=gwt_name, sim_ws=gwt_ws, exe_name=mf6)
+    tdis = flopy.mf6.modflow.mftdis.ModflowTdis(sim, nper=nper, perioddata=tdis_spd)
+    gwt = flopy.mf6.ModflowGwt(sim, modelname=gwt_name, print_input=True)
+    dis = flopy.mf6.modflow.mfgwfdis.ModflowGwfdis(
+        gwt,
+        nlay=nlay,
+        nrow=nrow,
+        ncol=ncol,
+        delr=delr,
+        delc=delc,
+        top=top,
+        botm=botm,
+    )
+    ic = flopy.mf6.ModflowGwtic(gwt, strt=0)
+    mst = flopy.mf6.ModflowGwtmst(gwt, porosity=0.1)
+    adv = flopy.mf6.ModflowGwtadv(gwt, scheme="TVD")
+    dsp = flopy.mf6.ModflowGwtdsp(
+        gwt,
+        xt3d_off=True,
+        alh=250.0,
+        ath1=25.0,
+        ath2=25.0,
+    )
+    ssm = flopy.mf6.ModflowGwtssm(gwt)
+    src = flopy.mf6.ModflowGwtsrc(
+        gwt,
+        stress_period_data=src_spd,
+        timeseries={
+            "timeseries": src_tsdata,
+            "time_series_namerecord": "SRCRATE",
+            "interpolation_methodrecord": "STEPWISE",
+        },
+    )
+    oc = flopy.mf6.ModflowGwtoc(
+        gwt,
+        budget_filerecord=f"{gwt_name}.cbb",
+        concentration_filerecord=f"{gwt_name}.ucn",
+        saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "LAST")],
+        printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "ALL")],
+    )
+    fmi = flopy.mf6.ModflowGwtfmi(
+        gwt,
+        packagedata=[
+            ("GWFHEAD", gwf_ws / gwf_head_file),
+            ("GWFBUDGET", gwf_ws / gwf_budget_file),
         ],
     )
-
-    # create prt model
-    prt_name = get_model_name(name, "prt")
-    prt = flopy.mf6.ModflowPrt(sim, modelname=prt_name, save_flows=True)
-
-    # create prt discretization
-    flopy.mf6.modflow.mfgwfdis.ModflowGwfdis(
-        prt,
-        pname="dis",
-        nlay=HorizontalCase.nlay,
-        nrow=HorizontalCase.nrow,
-        ncol=HorizontalCase.ncol,
+    ims = flopy.mf6.ModflowIms(
+        sim,
+        pname="ims",
+        filename=f"{gwt_name}.ims",
+        print_option="summary",
+        inner_maximum=300,
+        linear_acceleration="bicgstab",
+        inner_dvclose=1e-9,
     )
+    sim.register_solution_package(ims, [gwt.name])
+    return sim
 
-    # create mip package
-    flopy.mf6.ModflowPrtmip(prt, pname="mip", porosity=HorizontalCase.porosity)
 
-    # convert mp7 to prt release points and check against expectation
-    partdata = get_partdata(prt.modelgrid, HorizontalCase.releasepts_mp7)
-    coords = partdata.to_coords(prt.modelgrid)
-    releasepts = [(i, 0, 0, 0, c[0], c[1], c[2]) for i, c in enumerate(coords)]
-
-    # create prp package
-    prp_track_file = f"{prt_name}.prp.trk"
-    prp_track_csv_file = f"{prt_name}.prp.trk.csv"
-    flopy.mf6.ModflowPrtprp(
+def build_prt_sim(gwf_ws, prt_ws, mf6):
+    sim = flopy.mf6.MFSimulation(sim_name=prt_name, sim_ws=prt_ws, exe_name=mf6)
+    tdis = flopy.mf6.modflow.mftdis.ModflowTdis(sim, nper=nper, perioddata=tdis_spd)
+    prt = flopy.mf6.ModflowPrt(
+        sim, modelname=prt_name, print_input=True, save_flows=True
+    )
+    dis = flopy.mf6.modflow.mfgwfdis.ModflowGwfdis(
         prt,
-        pname="prp1",
-        filename=f"{prt_name}_1.prp",
+        nlay=nlay,
+        nrow=nrow,
+        ncol=ncol,
+        delr=delr,
+        delc=delc,
+        top=top,
+        botm=botm,
+    )
+    mip = flopy.mf6.ModflowPrtmip(prt, pname="mip", porosity=0.1, izone=izone)
+    releasepts = list(particle_data.to_prp(prt.modelgrid))
+    prp = flopy.mf6.ModflowPrtprp(
+        prt,
         nreleasepts=len(releasepts),
         packagedata=releasepts,
         perioddata={0: ["FIRST"]},
-        track_filerecord=[prp_track_file],
-        trackcsv_filerecord=[prp_track_csv_file],
-        stop_at_weak_sink=False,
-        boundnames=True,
-        extend_tracking=True,
+        exit_solve_tolerance=1e-5,
+        extend_tracking=False,
+        print_input=True,
     )
-
-    # create output control package
-    prt_budget_file = f"{prt_name}.bud"
-    prt_track_file = f"{prt_name}.trk"
-    prt_track_csv_file = f"{prt_name}.trk.csv"
-    flopy.mf6.ModflowPrtoc(
+    oc = flopy.mf6.ModflowPrtoc(
         prt,
-        pname="oc",
-        budget_filerecord=[prt_budget_file],
-        track_filerecord=[prt_track_file],
-        trackcsv_filerecord=[prt_track_csv_file],
+        budget_filerecord=[prt_budgetfile],
+        track_filerecord=[prt_trackfile],
+        trackcsv_filerecord=[prt_trackcsvfile],
+        ntracktimes=len(tracktimes),
+        tracktimes=[(t,) for t in tracktimes],
+        printrecord=[("BUDGET", "ALL")],
         saverecord=[("BUDGET", "ALL")],
     )
-
-    # create the flow model interface
-    gwf_name = get_model_name(name, "gwf")
-    gwf_budget_file = gwf_ws / f"{gwf_name}.bud"
-    gwf_head_file = gwf_ws / f"{gwf_name}.hds"
-    flopy.mf6.ModflowPrtfmi(
+    fmi = flopy.mf6.ModflowPrtfmi(
         prt,
         packagedata=[
-            ("GWFHEAD", gwf_head_file),
-            ("GWFBUDGET", gwf_budget_file),
+            ("GWFHEAD", gwf_ws / gwf_head_file),
+            ("GWFBUDGET", gwf_ws / gwf_budget_file),
         ],
     )
-
-    # add explicit model solution
     ems = flopy.mf6.ModflowEms(
         sim,
         pname="ems",
         filename=f"{prt_name}.ems",
     )
     sim.register_solution_package(ems, [prt.name])
-
     return sim
 
 
-def build_mp7_sim(name, ws, mp7, gwf):
-    partdata = get_partdata(gwf.modelgrid, HorizontalCase.releasepts_mp7)
-    mp7_name = get_model_name(name, "mp7")
-    pg = flopy.modpath.ParticleGroup(
-        particlegroupname="G1",
-        particledata=partdata,
-        filename=f"{mp7_name}.sloc",
-    )
-    mp = flopy.modpath.Modpath7(
-        modelname=mp7_name,
-        flowmodel=gwf,
-        exe_name=mp7,
-        model_ws=ws,
-        headfilename=f"{gwf.name}.hds",
-        budgetfilename=f"{gwf.name}.bud",
-    )
-    mpbas = flopy.modpath.Modpath7Bas(
-        mp,
-        porosity=HorizontalCase.porosity,
-    )
-    mpsim = flopy.modpath.Modpath7Sim(
-        mp,
-        simulationtype="pathline",
-        trackingdirection="forward",
-        budgetoutputoption="summary",
-        stoptimeoption="extend",
-        particlegroups=[pg],
-    )
-
-    return mp
-
-
 def build_models(idx, test):
-    gwf_sim = HorizontalCase.get_gwf_sim(test.name, test.workspace, test.targets["mf6"])
+    gwf_sim = build_gwf_sim(test.workspace / "gwf", test.targets["mf6"])
+    gwt_sim = build_gwt_sim(
+        test.workspace / "gwf", test.workspace / "gwt", test.targets["mf6"]
+    )
     prt_sim = build_prt_sim(
-        test.name, test.workspace, test.workspace / "prt", test.targets["mf6"]
+        test.workspace / "gwf", test.workspace / "prt", test.targets["mf6"]
     )
-    mp7_sim = build_mp7_sim(
-        test.name,
-        test.workspace / "mp7",
-        test.targets["mp7"],
-        gwf_sim.get_model(),
-    )
-    return gwf_sim, prt_sim, mp7_sim
+    return gwf_sim, gwt_sim, prt_sim
 
 
 def check_output(idx, test):
-    from flopy.plot.plotutil import to_mp7_pathlines
-
-    name = test.name
-    gwf_ws = test.workspace
-    prt_ws = test.workspace / "prt"
-    mp7_ws = test.workspace / "mp7"
-    gwf_name = get_model_name(name, "gwf")
-    prt_name = get_model_name(name, "prt")
-    mp7_name = get_model_name(name, "mp7")
     gwf_sim = test.sims[0]
+    gwt_sim = test.sims[1]
+    prt_sim = test.sims[2]
+    gwf_ws = test.workspace / "gwf"
+    gwt_ws = test.workspace / "gwt"
+    prt_ws = test.workspace / "prt"
     gwf = gwf_sim.get_model(gwf_name)
-    mg = gwf.modelgrid
+    gwt = gwt_sim.get_model(gwt_name)
+    prt = prt_sim.get_model(prt_name)
+    grid = gwf.modelgrid
 
-    # check mf6 output files exist
-    gwf_budget_file = f"{gwf_name}.bud"
-    gwf_head_file = f"{gwf_name}.hds"
-    prt_track_file = f"{prt_name}.trk"
-    prt_track_csv_file = f"{prt_name}.trk.csv"
-    prp_track_file = f"{prt_name}.prp.trk"
-    prp_track_csv_file = f"{prt_name}.prp.trk.csv"
-    mp7_pathline_file = f"{mp7_name}.mppth"
-
-    # load mf6 pathline results
-    mf6_pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
-
-    # load mp7 pathline results
-    plf = PathlineFile(mp7_ws / mp7_pathline_file)
-    mp7_pls = pd.DataFrame(
-        plf.get_destination_pathline_data(range(mg.nnodes), to_recarray=True)
+    # check cumulative budget from list file
+    prt_lst = flopy.utils.Mf6ListBudget(
+        prt_ws / prt_listfile, budgetkey="MASS BUDGET FOR ENTIRE MODEL"
     )
-    # convert zero-based to one-based indexing in mp7 results
-    mp7_pls["particlegroup"] = mp7_pls["particlegroup"] + 1
-    mp7_pls["node"] = mp7_pls["node"] + 1
-    mp7_pls["k"] = mp7_pls["k"] + 1
-
-    # extract head, budget, and specific discharge results from GWF model
-    hds = HeadFile(gwf_ws / gwf_head_file).get_data()
-    bud = gwf.output.budget()
-    spdis = bud.get_data(text="DATA-SPDIS")[0]
-    qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
-
-    assert (gwf_ws / gwf_budget_file).is_file()
-    assert (gwf_ws / gwf_head_file).is_file()
-    assert (prt_ws / prt_track_file).is_file()
-    assert (prt_ws / prt_track_csv_file).is_file()
-    assert (prt_ws / prp_track_file).is_file()
-    assert (prt_ws / prp_track_csv_file).is_file()
-
-    # check mp7 output files exist
-    assert (mp7_ws / mp7_pathline_file).is_file()
-
-    # make sure pathline df has "name" (boundname) column and default values
-    assert "name" in mf6_pls
-    assert has_default_boundnames(mf6_pls)
-
-    # make sure all mf6 pathline data have correct model and PRP index (1)
-    assert all_equal(mf6_pls["imdl"], 1)
-    assert all_equal(mf6_pls["iprp"], 1)
-
-    # check budget data were written to mf6 prt list file
-    check_budget_data(
-        prt_ws / f"{name}_prt.lst", HorizontalCase.perlen, HorizontalCase.nper
+    for key in [
+        "STORAGE_IN",
+        "PRP_IN",
+        "TERMINATION_IN",
+        "STORAGE_OUT",
+        "PRP_OUT",
+        "TERMINATION_OUT",
+    ]:
+        assert key in prt_lst.get_record_names()
+    prt_bud_cum = prt_lst.get_data()
+    prp_in = next(
+        iter([term[1] for term in prt_bud_cum if term[2].decode() == "PRP_IN"])
     )
-
-    # check cell-by-cell particle mass flows
-    prt_budget_file = prt_ws / f"{prt_name}.bud"
-    prt_bud = flopy.utils.CellBudgetFile(prt_budget_file, precision="double")
-    prt_bud_data = prt_bud.get_data(kstpkper=(0, 0))
-    assert len(prt_bud_data) == 2
-    flowja = prt_bud.get_data(text="FLOW-JA-FACE")[0][0, 0, :]
-    prp = prt_bud.get_data(text="PRP")[0].squeeze()
-    assert flowja.shape == (28,)
-    assert prp.shape == (9,)
-    frf, fff, flf = get_structured_faceflows(
-        flowja,
-        grb_file=gwf_ws / f"{gwf_name}.dis.grb",
-        verbose=True,
+    prp_out = next(
+        iter([term[1] for term in prt_bud_cum if term[2].decode() == "PRP_OUT"])
     )
-    assert not fff.any()
-    assert not flf.any()
-    assert frf.any()
-    assert all(v == 9 for v in frf[:-1])
-
-    # check mf6 prt particle track data were written to binary/CSV files
-    # and that different formats are equal
-    for track_csv in [prt_ws / prt_track_csv_file, prt_ws / prp_track_csv_file]:
-        check_track_data(
-            track_bin=prt_ws / prt_track_file,
-            track_hdr=prt_ws / Path(prt_track_file.replace(".trk", ".trk.hdr")),
-            track_csv=track_csv,
+    term_in = next(
+        iter([term[1] for term in prt_bud_cum if term[2].decode() == "TERMINATION_IN"])
+    )
+    term_out = next(
+        iter([term[1] for term in prt_bud_cum if term[2].decode() == "TERMINATION_OUT"])
+    )
+    pct_dscr = next(
+        iter(
+            [
+                term[1]
+                for term in prt_bud_cum
+                if term[2].decode() == "PERCENT_DISCREPANCY"
+            ]
         )
+    )
+    assert np.isclose(prp_out, 0.0)
+    assert np.isclose(term_in, 0.0)
+    assert np.isclose(pct_dscr, 0.0)
+    assert np.isclose(prp_in + term_out, 0.0)
 
-    # convert mf6 pathlines to mp7 format
-    mf6_pls = to_mp7_pathlines(mf6_pls)
+    # check cell by cell budget from binary budget file
+    prt_pls = pd.read_csv(prt_ws / prt_trackcsvfile, na_filter=False)
+    prt_bud = flopy.utils.CellBudgetFile(prt_ws / prt_budgetfile, precision="double")
+    prp_bud = prt_bud.get_data(text="PRP")
+    assert len(prp_bud) == nstp
+    assert len(prp_bud[0]["q"]) == prt_pls.irpt.unique().size
+    # expect positive mass flow on release in first time step
+    assert np.all(prp_bud[0]["q"] > 0)
+    # and none in all subsequent steps
+    for i in range(1, nstp):
+        assert np.all(prp_bud[i]["q"] == 0)
 
-    # sort both dataframes by particleid and time
-    mf6_pls.sort_values(by=["particleid", "time"], inplace=True)
-    mp7_pls.sort_values(by=["particleid", "time"], inplace=True)
-
-    # drop columns for which there is no direct correspondence between mf6 and mp7
-    del mf6_pls["sequencenumber"]
-    del mf6_pls["particleidloc"]
-    del mf6_pls["xloc"]
-    del mf6_pls["yloc"]
-    del mf6_pls["zloc"]
-    del mp7_pls["sequencenumber"]
-    del mp7_pls["particleidloc"]
-    del mp7_pls["xloc"]
-    del mp7_pls["yloc"]
-    del mp7_pls["zloc"]
-
-    # compare mf6 / mp7 pathline data
-    assert mf6_pls.shape == mp7_pls.shape
-    assert np.allclose(mf6_pls, mp7_pls, atol=1e-3)
+    # TODO check storage and termination terms once added to binary budget file
 
 
 def plot_output(idx, test):
-    name = test.name
-    gwf_ws = test.workspace
-    prt_ws = test.workspace / "prt"
-    mp7_ws = test.workspace / "mp7"
-    gwf_name = get_model_name(name, "gwf")
-    prt_name = get_model_name(name, "prt")
-    mp7_name = get_model_name(name, "mp7")
     gwf_sim = test.sims[0]
+    gwt_sim = test.sims[1]
+    prt_sim = test.sims[2]
+    gwf_ws = test.workspace / "gwf"
+    gwt_ws = test.workspace / "gwt"
+    prt_ws = test.workspace / "prt"
     gwf = gwf_sim.get_model(gwf_name)
-    mg = gwf.modelgrid
+    gwt = gwt_sim.get_model(gwt_name)
+    prt = prt_sim.get_model(prt_name)
+    grid = gwf.modelgrid
 
-    # check mf6 output files exist
-    gwf_head_file = f"{gwf_name}.hds"
-    prt_track_csv_file = f"{prt_name}.trk.csv"
-    mp7_pathline_file = f"{mp7_name}.mppth"
-
-    # load mf6 pathline results
-    mf6_pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
-
-    # load mp7 pathline results
-    plf = PathlineFile(mp7_ws / mp7_pathline_file)
-    mp7_pls = pd.DataFrame(
-        plf.get_destination_pathline_data(range(mg.nnodes), to_recarray=True)
-    )
-    # convert zero-based to one-based indexing in mp7 results
-    mp7_pls["particlegroup"] = mp7_pls["particlegroup"] + 1
-    mp7_pls["node"] = mp7_pls["node"] + 1
-    mp7_pls["k"] = mp7_pls["k"] + 1
-
-    # extract head, budget, and specific discharge results from GWF model
+    # get head, budget, and spdis from GWF model
     hds = HeadFile(gwf_ws / gwf_head_file).get_data()
     bud = gwf.output.budget()
     spdis = bud.get_data(text="DATA-SPDIS")[0]
     qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
 
-    # set up plot
-    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
-    for a in ax:
-        a.set_aspect("equal")
-
-    # plot mf6 pathlines in map view
-    pmv = flopy.plot.PlotMapView(modelgrid=mg, ax=ax[0])
-    pmv.plot_grid()
-    pmv.plot_array(hds[0], alpha=0.1)
-    pmv.plot_vector(qx, qy, normalize=True, color="white")
-    mf6_plines = mf6_pls.groupby(["iprp", "irpt", "trelease"])
-    for ipl, ((iprp, irpt, trelease), pl) in enumerate(mf6_plines):
-        pl.plot(
-            title="MF6 pathlines",
-            kind="line",
-            x="x",
-            y="y",
-            ax=ax[0],
-            legend=False,
-            color=cm.plasma(ipl / len(mf6_plines)),
-        )
-
-    # plot mp7 pathlines in map view
-    pmv = flopy.plot.PlotMapView(modelgrid=mg, ax=ax[1])
-    pmv.plot_grid()
-    pmv.plot_array(hds[0], alpha=0.1)
-    pmv.plot_vector(qx, qy, normalize=True, color="white")
-    mp7_plines = mp7_pls.groupby(["particleid"])
-    for ipl, (pid, pl) in enumerate(mp7_plines):
-        pl.plot(
-            title="MP7 pathlines",
-            kind="line",
-            x="x",
-            y="y",
-            ax=ax[1],
-            legend=False,
-            color=cm.plasma(ipl / len(mp7_plines)),
-        )
-
-    # view/save plot
+    # get concentration from GWT model
+    cobj = gwt.output.concentration()
+    conc = cobj.get_alldata()
+    pl = flopy.plot.PlotMapView(model=gwf)
+    pl.ax.set_title("Concentration")
+    pl.plot_grid(lw=0.5, alpha=0.5)
+    pl.plot_array(hds[0], alpha=0.1)
+    pl.contour_array(
+        conc[99, 0],
+        colors="blue",
+        linestyles="-",
+    )
     plt.show()
-    plt.savefig(prt_ws / f"test_{simname}.png")
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 from framework import TestFramework
 from modflow_devtools.markers import requires_pkg
-from test_prt_budget import HorizontalCase, build_mp7_sim, build_prt_sim, check_output
+from prt_test_utils import HorizontalCase
+from test_prt_budget import build_prt_sim, check_output
 
 simname = "prt_libmf6"
 cases = [simname]
@@ -21,19 +22,12 @@ def build_models(idx, test):
 
     gwf_sim = HorizontalCase.get_gwf_sim(test.name, test.workspace, test.targets["mf6"])
     prt_sim = build_prt_sim(
-        test.name,
-        test.workspace,
+        test.workspace / "gwf",
         test.workspace / "prt",
         test.targets["libmf6"],
     )
-    mp7_sim = build_mp7_sim(
-        test.name,
-        test.workspace / "mp7",
-        test.targets["mp7"],
-        gwf_sim.get_model(),
-    )
 
-    return gwf_sim, prt_sim, mp7_sim
+    return gwf_sim, prt_sim
 
 
 def api_func(exe, idx, model_ws=None):
