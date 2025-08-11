@@ -9,9 +9,7 @@ module EvtModule
   use SimModule, only: store_error, store_error_filename, count_errors
   use SimVariablesModule, only: errmsg
   use ObsModule, only: DefaultObsIdProcessor
-  use CharacterStringModule, only: CharacterStringType
   use MatrixBaseModule
-  use GeomUtilModule, only: get_node
   !
   implicit none
   !
@@ -217,7 +215,6 @@ contains
     ! -- modules
     use MemoryManagerModule, only: mem_reallocate, mem_setptr
     use MemoryManagerExtModule, only: mem_set_value
-    use CharacterStringModule, only: CharacterStringType
     ! -- dummy
     class(EvtType), intent(inout) :: this
     logical(LGP), intent(in) :: found_fixed_cell

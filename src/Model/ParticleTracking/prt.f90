@@ -252,11 +252,12 @@ contains
     ! Select tracking events
     call this%tracks%select_events( &
       this%oc%trackrelease, &
-      this%oc%trackcellexit, &
+      this%oc%trackfeatexit, &
       this%oc%tracktimestep, &
       this%oc%trackterminate, &
       this%oc%trackweaksink, &
-      this%oc%trackusertime)
+      this%oc%trackusertime, &
+      this%oc%tracksubfexit)
 
     ! Set up boundary pkgs and pkg-scoped track files
     nprp = 0

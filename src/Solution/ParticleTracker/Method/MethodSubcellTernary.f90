@@ -3,7 +3,7 @@ module MethodSubcellTernaryModule
   use ConstantsModule, only: DZERO, DSAME, DHALF, DONE, DTWO, DONETHIRD, DEP3
   use ErrorUtilModule, only: pstop
   use GeomUtilModule, only: clamp_bary, skew
-  use MethodModule, only: MethodType
+  use MethodSubcellModule, only: MethodSubcellType
   use CellModule, only: CellType
   use SubcellModule, only: SubcellType
   use SubcellTriModule, only: SubcellTriType, create_subcell_tri
@@ -19,7 +19,7 @@ module MethodSubcellTernaryModule
   public :: create_method_subcell_ternary
 
   !> @brief Ternary triangular subcell tracking method.
-  type, extends(MethodType) :: MethodSubcellTernaryType
+  type, extends(MethodSubcellType) :: MethodSubcellTernaryType
     integer(I4B), public, pointer :: zeromethod
   contains
     procedure, public :: apply => apply_mst
@@ -64,7 +64,7 @@ contains
   !> @brief Track a particle across a triangular subcell.
   subroutine track_subcell(this, subcell, particle, tmax)
     use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB
-    use ParticleEventModule, only: CELLEXIT, TERMINATE, TIMESTEP, USERTIME
+    use ParticleEventModule, only: FEATEXIT, TERMINATE, TIMESTEP, USERTIME
     ! dummy
     class(MethodSubcellTernaryType), intent(inout) :: this
     class(SubcellTriType), intent(in) :: subcell
@@ -290,7 +290,7 @@ contains
       ! so set final time for particle trajectory equal to exit time.
       t = texit
       dt = dtexit
-      event_code = CELLEXIT
+      event_code = FEATEXIT
     end if
     call calculate_xyz_position(dt, rxx, rxy, ryx, ryy, sxx, sxy, syy, &
                                 izstatus, x0, y0, az, vzi, vzbot, &
@@ -303,8 +303,8 @@ contains
 
     if (event_code == TIMESTEP) then
       call this%timestep(particle)
-    else if (event_code == CELLEXIT) then
-      call this%cellexit(particle)
+    else if (event_code == FEATEXIT) then
+      call this%subcellexit(particle)
     end if
   end subroutine track_subcell
 

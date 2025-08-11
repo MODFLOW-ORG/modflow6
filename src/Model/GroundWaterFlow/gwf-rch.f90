@@ -9,11 +9,7 @@ module RchModule
   use SimModule, only: store_error, store_error_filename
   use SimVariablesModule, only: errmsg
   use ObsModule, only: DefaultObsIdProcessor
-  use TimeArraySeriesLinkModule, only: TimeArraySeriesLinkType
-  use BlockParserModule, only: BlockParserType
-  use CharacterStringModule, only: CharacterStringType
   use MatrixBaseModule
-  use GeomUtilModule, only: get_node
   !
   implicit none
   !

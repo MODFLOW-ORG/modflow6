@@ -90,7 +90,7 @@ contains
     type(TspAdvOptionsType), optional, intent(in) :: adv_options !< the optional options, for when not constructing from file
     ! -- local
     character(len=*), parameter :: fmtadv = &
-      "(1x,/1x,'ADV-- ADVECTION PACKAGE, VERSION 1, 8/25/2017', &
+      "(1x,/1x,'ADV -- ADVECTION PACKAGE, VERSION 1, 8/25/2017', &
       &' INPUT READ FROM MEMPATH: ', A, //)"
     !
     ! -- Read or set advection options

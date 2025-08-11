@@ -57,3 +57,13 @@ description = "Added an optional new COORDINATE\\_CHECK\\_METHOD option to the P
 section = "features"
 subsection = "model"
 description = "Add DEPENDENT\\_VARIABLE\\_SCALING option to scale the dependent variable and the right-hand side to avoid very large positive or negative values in the GWT and GWE models. Specified outer and inner DVCLOSE values in the model IMS package will be relative closure criteria. This option applies the same scaling approach used in the MT3DMS GCG package."
+
+[[items]]
+section = "fixes"
+subsection = "solution"
+description = "The Particle Tracking (PRT) Model previously reported cell exit events when a dry particle stranded in a partially saturated cell was dropped to the water table, as occurs with DRY\\_TRACKING\\_METHOD DROP (the default). An event is no longer reported at this time."
+
+[[items]]
+section = "fixes"
+subsection = "solution"
+description = "Previously the Particle Tracking (PRT) Model's generalized DISV tracking method did not distinguish subcell exit events from cell exits, reporting both with the same reason code (1). Since subcell exits occur at a scale below that defined by the model's grid discretization, they are an implementation detail of the generalized tracking method, and will therefore no longer be written by default to particle tracking output. The PRT Output Control (OC) package's TRACK\\_EXIT option will now apply exclusively to features at grid-scale or above. Writing particle transitions between sub-grid-scale features to output is now opt-in with a new keyword option TRACK\\_SUBFEATURE\\_EXIT."

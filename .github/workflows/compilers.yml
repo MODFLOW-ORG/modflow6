@@ -213,7 +213,7 @@ jobs:
         run: pip install tabulate pandas
 
       - name: Download reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: compat-*
           path: .github/compat/new

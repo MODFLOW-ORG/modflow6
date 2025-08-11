@@ -1,4 +1,5 @@
 # --------------------- gwe esl options ---------------------
+# flopy multi-package
 
 block options
 name auxiliary
@@ -32,6 +33,7 @@ name print_input
 type keyword
 reader urword
 optional true
+mf6internal iprpak
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'energy source loading'}
 
@@ -40,6 +42,7 @@ name print_flows
 type keyword
 reader urword
 optional true
+mf6internal iprflow
 longname print calculated flows to listing file
 description REPLACE print_flows {'{#1}': 'energy source loading'}
 
@@ -48,6 +51,7 @@ name save_flows
 type keyword
 reader urword
 optional true
+mf6internal ipakcb
 longname save well flows to budget file
 description REPLACE save_flows {'{#1}': 'energy source loading'}
 
@@ -157,6 +161,7 @@ name stress_period_data
 type recarray cellid senerrate aux boundname
 shape (maxbound)
 reader urword
+mf6internal spd
 longname
 description
 
@@ -190,6 +195,7 @@ shape (naux)
 reader urword
 optional true
 time_series true
+mf6internal auxvar
 longname auxiliary variables
 description REPLACE aux {'{#1}': 'energy source'}
 

@@ -431,7 +431,7 @@ module SimNamInputModule
     'SLNMNAMES', & ! tag name
     'SLNMNAMES', & ! fortran variable
     'STRING', & ! type
-    ':', & ! shape
+    'ANY1D', & ! shape
     'array of model names in this solution', & ! longname
     .true., & ! required
     .true., & ! multi-record

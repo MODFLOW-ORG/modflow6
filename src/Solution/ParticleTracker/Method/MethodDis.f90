@@ -3,6 +3,7 @@ module MethodDisModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType
+  use MethodModelModule, only: MethodModelType
   use MethodCellPoolModule
   use CellModule
   use CellDefnModule
@@ -18,7 +19,7 @@ module MethodDisModule
   public :: MethodDisType
   public :: create_method_dis
 
-  type, extends(MethodType) :: MethodDisType
+  type, extends(MethodModelType) :: MethodDisType
     private
   contains
     procedure, public :: apply => apply_dis !< apply the DIS tracking method

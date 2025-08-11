@@ -4,6 +4,7 @@ module MethodDisvModule
   use ErrorUtilModule, only: pstop
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType
+  use MethodModelModule, only: MethodModelType
   use MethodCellPoolModule
   use CellModule, only: MAX_POLY_CELLS
   use CellDefnModule
@@ -19,7 +20,7 @@ module MethodDisvModule
   public :: MethodDisvType
   public :: create_method_disv
 
-  type, extends(MethodType) :: MethodDisvType
+  type, extends(MethodModelType) :: MethodDisvType
     private
     type(CellDefnType), pointer :: neighbor => null() !< ptr to a neighbor defn
   contains

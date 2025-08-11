@@ -8,6 +8,7 @@ module IdmGwfDfnSelectorModule
   use GwfNamInputModule
   use GwfBuyInputModule
   use GwfChdInputModule
+  use GwfChdgInputModule
   use GwfCsubInputModule
   use GwfDisInputModule
   use GwfDisuInputModule
@@ -70,6 +71,8 @@ contains
       call set_param_pointer(input_definition, gwf_buy_param_definitions)
     case ('CHD')
       call set_param_pointer(input_definition, gwf_chd_param_definitions)
+    case ('CHDG')
+      call set_param_pointer(input_definition, gwf_chdg_param_definitions)
     case ('CSUB')
       call set_param_pointer(input_definition, gwf_csub_param_definitions)
     case ('DIS')
@@ -128,6 +131,8 @@ contains
       call set_param_pointer(input_definition, gwf_buy_aggregate_definitions)
     case ('CHD')
       call set_param_pointer(input_definition, gwf_chd_aggregate_definitions)
+    case ('CHDG')
+      call set_param_pointer(input_definition, gwf_chdg_aggregate_definitions)
     case ('CSUB')
       call set_param_pointer(input_definition, gwf_csub_aggregate_definitions)
     case ('DIS')
@@ -186,6 +191,8 @@ contains
       call set_block_pointer(input_definition, gwf_buy_block_definitions)
     case ('CHD')
       call set_block_pointer(input_definition, gwf_chd_block_definitions)
+    case ('CHDG')
+      call set_block_pointer(input_definition, gwf_chdg_block_definitions)
     case ('CSUB')
       call set_block_pointer(input_definition, gwf_csub_block_definitions)
     case ('DIS')
@@ -243,6 +250,8 @@ contains
       multi_package = gwf_buy_multi_package
     case ('CHD')
       multi_package = gwf_chd_multi_package
+    case ('CHDG')
+      multi_package = gwf_chdg_multi_package
     case ('CSUB')
       multi_package = gwf_csub_multi_package
     case ('DIS')
@@ -303,6 +312,8 @@ contains
       call set_subpkg_pointer(subpackages, gwf_buy_subpackages)
     case ('CHD')
       call set_subpkg_pointer(subpackages, gwf_chd_subpackages)
+    case ('CHDG')
+      call set_subpkg_pointer(subpackages, gwf_chdg_subpackages)
     case ('CSUB')
       call set_subpkg_pointer(subpackages, gwf_csub_subpackages)
     case ('DIS')
@@ -360,6 +371,8 @@ contains
     case ('BUY')
       integrated = .true.
     case ('CHD')
+      integrated = .true.
+    case ('CHDG')
       integrated = .true.
     case ('CSUB')
       integrated = .true.

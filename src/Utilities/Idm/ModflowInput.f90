@@ -103,14 +103,14 @@ contains
     character(len=LENPACKAGETYPE) :: sc_type
     sc_type = subcomponent_type
     select case (subcomponent_type)
-    case ('DRN', 'EVT', 'GHB', 'RCH', 'RIV', 'SCP', 'WEL')
-      sc_type = read_as_arrays(filetype, filename, component_type, &
-                               subcomponent_type)
+    case ('CHD', 'DRN', 'EVT', 'GHB', 'RCH', 'RIV', 'SCP', 'WEL')
+      sc_type = readarray(filetype, filename, component_type, &
+                          subcomponent_type)
     case default
     end select
   end function update_sc_type
 
-  function read_as_arrays(filetype, filename, component_type, subcomponent_type) &
+  function readarray(filetype, filename, component_type, subcomponent_type) &
     result(sc_type)
     use ConstantsModule, only: LINELENGTH
     use InputOutputModule, only: openfile, getunit
@@ -153,6 +153,6 @@ contains
     end if
 
     call parser%clear()
-  end function read_as_arrays
+  end function readarray
 
 end module ModflowInputModule

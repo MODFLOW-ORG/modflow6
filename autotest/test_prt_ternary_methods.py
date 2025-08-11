@@ -244,7 +244,7 @@ def check_output(idx, test, snapshot):
     endpts = pls.sort_values("t").groupby(["imdl", "iprp", "irpt", "trelease"]).tail(1)
 
     # check pathline shape and endpoints
-    assert pls.shape == (116, 16)
+    assert pls.shape == (57, 16)
     assert endpts.shape == (2, 16)
     assert set(endpts.icell) == {111, 112}
 

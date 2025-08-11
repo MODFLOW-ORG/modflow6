@@ -749,7 +749,7 @@ contains
                       pakname, this%depvartype, mempath)
     case ('ESL6')
       call esl_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
-                      pakname, this%gwecommon)
+                      pakname, this%gwecommon, mempath)
     case ('LKE6')
       call lke_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, this%fmi, this%eqnsclfac, this%gwecommon, &
@@ -890,6 +890,7 @@ contains
     integer(I4B), dimension(:), allocatable :: bndpkgs
     integer(I4B) :: n
     character(len=LENMEMPATH) :: mempathcnd = ''
+    character(len=LENMEMPATH) :: mempathest = ''
     !
     ! -- Set input memory paths, input/model and input/model/namfile
     model_mempath = create_mem_path(component=this%name, context=idm_context)
@@ -911,7 +912,8 @@ contains
       ! -- Create dis package as it is a prerequisite for other packages
       select case (pkgtype)
       case ('EST6')
-        this%inest = inunit
+        this%inest = 1
+        mempathest = mempath
       case ('CND6')
         this%incnd = 1
         mempathcnd = mempath
@@ -925,8 +927,8 @@ contains
     end do
     !
     ! -- Create packages that are tied directly to model
-    call est_cr(this%est, this%name, this%inest, this%iout, this%fmi, &
-                this%eqnsclfac, this%gwecommon)
+    call est_cr(this%est, this%name, mempathest, this%inest, this%iout, &
+                this%fmi, this%eqnsclfac, this%gwecommon)
     call cnd_cr(this%cnd, this%name, mempathcnd, this%incnd, this%iout, &
                 this%fmi, this%eqnsclfac, this%gwecommon)
     !

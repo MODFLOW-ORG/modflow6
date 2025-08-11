@@ -13,6 +13,7 @@ name zero_order_decay_water
 type keyword
 reader urword
 optional true
+mf6internal ord0_decay_water
 longname activate zero-order decay in aqueous phase
 description is a text keyword to indicate that zero-order decay will occur in the aqueous phase. That is, decay occurs in the water and is a rate per volume of water only, not per volume of aquifer (i.e., grid cell).  Use of this keyword requires that DECAY\_WATER is specified in the GRIDDATA block.
 
@@ -21,6 +22,7 @@ name zero_order_decay_solid
 type keyword
 reader urword
 optional true
+mf6internal ord0_decay_solid
 longname activate zero-order decay in solid phase
 description is a text keyword to indicate that zero-order decay will occur in the solid phase. That is, decay occurs in the solid and is a rate per mass (not volume) of solid only.  Use of this keyword requires that DECAY\_SOLID is specified in the GRIDDATA block.
 

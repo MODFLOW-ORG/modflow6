@@ -1,4 +1,5 @@
 # --------------------- gwt src options ---------------------
+# flopy multi-package
 
 block options
 name auxiliary
@@ -32,6 +33,7 @@ name print_input
 type keyword
 reader urword
 optional true
+mf6internal iprpak
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'mass source'}
 
@@ -40,6 +42,7 @@ name print_flows
 type keyword
 reader urword
 optional true
+mf6internal iprflow
 longname print calculated flows to listing file
 description REPLACE print_flows {'{#1}': 'mass source'}
 
@@ -48,6 +51,7 @@ name save_flows
 type keyword
 reader urword
 optional true
+mf6internal ipakcb
 longname save well flows to budget file
 description REPLACE save_flows {'{#1}': 'mass source'}
 
@@ -131,6 +135,7 @@ name highest_saturated
 type keyword
 reader urword
 optional true
+mf6internal highest_sat
 longname apply source to highest saturated cell
 description Apply mass source loading rate to specified CELLID or highest underlying cell with a cell saturation greater than zero. The highest\_saturated option has an additional complication for certain types of grids specified using the DISU Package. When the DISU Package is used, a cell may have more than one cell underlying it. If the overlying cell were to become inactive, there is no straightforward method for determining how to apportion the mass source loading rate to the underlying cells. In this case, the approach described by \cite{modflowusg} is used. The mass source loading rate is assigned to the first active cell encountered (determined by searching through the underlying cell numbers from the lowest number to the highest number). In this manner, the total mass source loading rate is conserved; however, the spatial distribution of the applied mass source loading rate may not be maintained as layers become dry or wet during a simulation.
 
@@ -167,6 +172,7 @@ name stress_period_data
 type recarray cellid smassrate aux boundname
 shape (maxbound)
 reader urword
+mf6internal spd
 longname
 description
 
@@ -200,6 +206,7 @@ shape (naux)
 reader urword
 optional true
 time_series true
+mf6internal auxvar
 longname auxiliary variables
 description REPLACE aux {'{#1}': 'mass source'}
 

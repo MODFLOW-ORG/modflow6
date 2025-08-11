@@ -156,8 +156,16 @@ name track_exit
 type keyword
 reader urword
 optional true
-longname track transitions
-description keyword to indicate that particle tracking output is to be written when a particle exits a feature (a model, cell, or subcell)
+longname track domain exits
+description keyword to indicate that particle tracking output is to be written when a particle exits a grid feature (e.g. model, cell)
+
+block options
+name track_subfeature_exit
+type keyword
+reader urword
+optional true
+longname track cell exits
+description keyword to indicate that particle tracking output is to be written when a particle exits a sub-grid-scale feature. Such features are considered implementation details of the tracking algorithm employed for particular grid types, and reporting for exit events from such features is disabled by default.
 
 block options
 name track_timestep

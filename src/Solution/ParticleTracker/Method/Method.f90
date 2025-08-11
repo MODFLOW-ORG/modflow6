@@ -13,7 +13,7 @@ module MethodModule
                                  TerminationEventType, &
                                  WeakSinkEventType, &
                                  UserTimeEventType, &
-                                 CellExitEventType
+                                 FeatExitEventType
   use BaseDisModule, only: DisBaseType
   use PrtFmiModule, only: PrtFmiType
   use CellModule, only: CellType
@@ -49,18 +49,18 @@ module MethodModule
     real(DP), dimension(:), pointer, contiguous, public :: retfactor => null() !< pointer to retardation factor
   contains
     ! Implemented in all subtypes
-    procedure(apply), deferred :: apply
-    procedure(deallocate), deferred :: deallocate
+    procedure(apply), deferred :: apply !< apply the method to the particle
+    procedure(assess), deferred :: assess !< assess conditions before tracking
+    procedure(deallocate), deferred :: deallocate !< deallocate the method object
     ! Overridden in subtypes that delegate
-    procedure :: pass
-    procedure :: load
+    procedure :: pass !< pass the particle to the next subdomain
+    procedure :: load !< load the subdomain tracking method
     ! Implemented here
     procedure :: init
     procedure :: track
     procedure :: try_pass
     ! Event firing methods
     procedure :: release
-    procedure :: cellexit
     procedure :: terminate
     procedure :: timestep
     procedure :: weaksink
@@ -76,6 +76,16 @@ module MethodModule
       type(ParticleType), pointer, intent(inout) :: particle
       real(DP), intent(in) :: tmax
     end subroutine apply
+    subroutine assess(this, particle, cell_defn, tmax)
+      import DP
+      import MethodType
+      import ParticleType
+      import CellDefnType
+      class(MethodType), intent(inout) :: this
+      type(ParticleType), pointer, intent(inout) :: particle
+      type(CellDefnType), pointer, intent(inout) :: cell_defn
+      real(DP), intent(in) :: tmax
+    end subroutine assess
     subroutine deallocate (this)
       import MethodType
       class(MethodType), intent(inout) :: this
@@ -176,16 +186,6 @@ contains
     allocate (ReleaseEventType :: event)
     call this%events%dispatch(particle, event)
   end subroutine release
-
-  !> @brief Particle exits a cell.
-  subroutine cellexit(this, particle)
-    class(MethodType), intent(inout) :: this
-    type(ParticleType), pointer, intent(inout) :: particle
-    class(ParticleEventType), pointer :: event
-
-    allocate (CellExitEventType :: event)
-    call this%events%dispatch(particle, event)
-  end subroutine cellexit
 
   !> @brief Particle terminates.
   subroutine terminate(this, particle, status)

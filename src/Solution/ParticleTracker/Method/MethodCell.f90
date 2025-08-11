@@ -4,7 +4,7 @@ module MethodCellModule
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType
   use ParticleModule, only: ParticleType
-  use ParticleEventModule, only: ParticleEventType
+  use ParticleEventModule, only: ParticleEventType, CellExitEventType
   use CellDefnModule, only: CellDefnType
   implicit none
 
@@ -13,7 +13,8 @@ module MethodCellModule
 
   type, abstract, extends(MethodType) :: MethodCellType
   contains
-    procedure, public :: check
+    procedure, public :: assess
+    procedure, public :: cellexit
   end type MethodCellType
 
 contains
@@ -25,12 +26,12 @@ contains
   !! tracking the particle or terminate it, as well as whether to
   !! record any output data as per selected reporting conditions.
   !<
-  subroutine check(this, particle, cell_defn, tmax)
+  subroutine assess(this, particle, cell_defn, tmax)
     ! modules
     use TdisModule, only: endofsimulation, totimc, totim
     use ParticleModule, only: TERM_WEAKSINK, TERM_NO_EXITS, &
                               TERM_STOPZONE, TERM_INACTIVE
-    use ParticleEventModule, only: CELLEXIT, TERMINATE, &
+    use ParticleEventModule, only: FEATEXIT, TERMINATE, &
                                    TIMESTEP, WEAKSINK, USERTIME
     ! dummy
     class(MethodCellType), intent(inout) :: this
@@ -119,7 +120,6 @@ contains
       if (particle%idrymeth == 0) then
         ! drop to water table
         particle%z = cell_defn%top
-        call this%cellexit(particle)
       else if (particle%idrymeth == 1) then
         ! stop
         call this%terminate(particle, status=TERM_INACTIVE)
@@ -164,6 +164,20 @@ contains
       return
     end if
 
-  end subroutine check
+  end subroutine assess
+
+  !> @brief Particle exits a cell.
+  subroutine cellexit(this, particle)
+    class(MethodCellType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(ParticleEventType), pointer :: event
+
+    allocate (CellExitEventType :: event)
+    select type (event)
+    type is (CellExitEventType)
+      event%exit_face = particle%iboundary(2)
+    end select
+    call this%events%dispatch(particle, event)
+  end subroutine cellexit
 
 end module MethodCellModule

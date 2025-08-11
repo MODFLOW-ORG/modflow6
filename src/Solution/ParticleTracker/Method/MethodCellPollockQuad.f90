@@ -209,8 +209,7 @@ contains
 
     select type (cell => this%cell)
     type is (CellRectQuadType)
-      ! Check termination/reporting conditions
-      call this%check(particle, cell%defn, tmax)
+      call this%assess(particle, this%cell%defn, tmax)
       if (.not. particle%advancing) return
 
       ! Transform model coordinates to local cell coordinates

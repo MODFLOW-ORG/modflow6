@@ -20,6 +20,7 @@ dependencies:
   - jupytext
   - matplotlib
   - meson=1.7.1
+  - modflow-devtools==1.7.0
   - ninja
   - numpy
   - pip
@@ -28,7 +29,6 @@ dependencies:
       - git+https://github.com/modflowpy/pymake.git
       - git+https://github.com/Deltares/xmipy.git
       - git+https://github.com/MODFLOW-ORG/modflowapi.git
-      - git+https://github.com/MODFLOW-ORG/modflow-devtools.git
   - pooch
   - pyshp
   - pytest!=8.1.0

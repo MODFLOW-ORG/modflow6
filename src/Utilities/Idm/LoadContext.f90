@@ -164,18 +164,16 @@ contains
           select case (idt%tagname)
           case ('READASARRAYS')
             this%loadtype = LAYERARRAY
+            this%readarray = .true.
           case ('READARRAYGRID')
             this%loadtype = GRIDARRAY
+            this%readarray = .true.
           case default
             ! no-op
           end select
         end if
       end do
     end if
-
-    ! set as array based load
-    this%readarray = (this%loadtype == LAYERARRAY .or. &
-                      this%loadtype == GRIDARRAY)
 
     ! set in scope params for load
     call this%set_params()

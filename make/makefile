@@ -168,6 +168,7 @@ $(OBJDIR)/olf-dfwidm.o \
 $(OBJDIR)/olf-chdidm.o \
 $(OBJDIR)/olf-cdbidm.o \
 $(OBJDIR)/gwt-ssmidm.o \
+$(OBJDIR)/gwt-srcidm.o \
 $(OBJDIR)/gwt-namidm.o \
 $(OBJDIR)/gwt-mstidm.o \
 $(OBJDIR)/gwt-istidm.o \
@@ -201,10 +202,13 @@ $(OBJDIR)/gwf-disuidm.o \
 $(OBJDIR)/gwf-disidm.o \
 $(OBJDIR)/gwf-csubidm.o \
 $(OBJDIR)/gwf-chdidm.o \
+$(OBJDIR)/gwf-chdgidm.o \
 $(OBJDIR)/gwf-buyidm.o \
 $(OBJDIR)/gwe-ssmidm.o \
 $(OBJDIR)/gwe-namidm.o \
 $(OBJDIR)/gwe-icidm.o \
+$(OBJDIR)/gwe-estidm.o \
+$(OBJDIR)/gwe-eslidm.o \
 $(OBJDIR)/gwe-disvidm.o \
 $(OBJDIR)/gwe-disuidm.o \
 $(OBJDIR)/gwe-disidm.o \
@@ -303,13 +307,14 @@ $(OBJDIR)/sort.o \
 $(OBJDIR)/FlowModelInterface.o \
 $(OBJDIR)/Cell.o \
 $(OBJDIR)/ParticleEvent.o \
-$(OBJDIR)/Subcell.o \
 $(OBJDIR)/TimeSelect.o \
+$(OBJDIR)/Subcell.o \
 $(OBJDIR)/prt-fmi.o \
 $(OBJDIR)/ParticleEvents.o \
+$(OBJDIR)/Method.o \
 $(OBJDIR)/TernarySolveUtils.o \
 $(OBJDIR)/SubcellTri.o \
-$(OBJDIR)/Method.o \
+$(OBJDIR)/MethodSubcell.o \
 $(OBJDIR)/SubcellRect.o \
 $(OBJDIR)/MethodSubcellTernary.o \
 $(OBJDIR)/MethodSubcellPollock.o \
@@ -351,6 +356,7 @@ $(OBJDIR)/gwf-lak.o \
 $(OBJDIR)/GwfVscInputData.o \
 $(OBJDIR)/gwf-ghb.o \
 $(OBJDIR)/gwf-drn.o \
+$(OBJDIR)/MethodModel.o \
 $(OBJDIR)/MethodCellPool.o \
 $(OBJDIR)/CellUtil.o \
 $(OBJDIR)/swf-dfw.o \

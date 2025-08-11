@@ -17,9 +17,18 @@
 module ParticleTracksModule
 
   use KindModule, only: DP, I4B, LGP
+  use ErrorUtilModule, only: pstop
   use ConstantsModule, only: DZERO, DONE, DPIO180
   use ParticleModule, only: ParticleType, ACTIVE
-  use ParticleEventModule, only: ParticleEventType
+  use ParticleEventModule, only: ParticleEventType, &
+                                 ReleaseEventType, &
+                                 FeatExitEventType, &
+                                 TimeStepEventType, &
+                                 TerminationEventType, &
+                                 WeakSinkEventType, &
+                                 UserTimeEventType, &
+                                 CellExitEventType, &
+                                 SubcellExitEventType
   use ParticleEventsModule, only: ParticleEventConsumerType, &
                                   ParticleEventDispatcherType
   use BaseDisModule, only: DisBaseType
@@ -29,7 +38,7 @@ module ParticleTracksModule
   public :: ParticleTrackFileType, &
             ParticleTracksType, &
             ParticleTrackEventSelectionType
-  private :: log_event, save_event
+  private :: save_event
 
   character(len=*), parameter, public :: TRACKHEADER = &
     'kper,kstp,imdl,iprp,irpt,ilay,icell,izone,&
@@ -54,11 +63,12 @@ module ParticleTracksModule
   !> @brief Selection of particle events.
   type :: ParticleTrackEventSelectionType
     logical(LGP) :: release !< track release events
-    logical(LGP) :: cellexit !< track cell exits
+    logical(LGP) :: featexit !< track grid feature exits
     logical(LGP) :: timestep !< track timestep ends
     logical(LGP) :: terminate !< track termination events
     logical(LGP) :: weaksink !< track weak sink exit events
     logical(LGP) :: usertime !< track user-selected times
+    logical(LGP) :: subfexit !< track subfeature exits
   end type ParticleTrackEventSelectionType
 
   !> @brief Manages particle track output (logging/writing).
@@ -146,37 +156,54 @@ contains
   !> @brief Pick events to track.
   subroutine select_events(this, &
                            release, &
-                           cellexit, &
+                           featexit, &
                            timestep, &
                            terminate, &
                            weaksink, &
-                           usertime)
+                           usertime, &
+                           subfexit)
     class(ParticleTracksType) :: this
     logical(LGP), intent(in) :: release
-    logical(LGP), intent(in) :: cellexit
+    logical(LGP), intent(in) :: featexit
     logical(LGP), intent(in) :: timestep
     logical(LGP), intent(in) :: terminate
     logical(LGP), intent(in) :: weaksink
     logical(LGP), intent(in) :: usertime
+    logical(LGP), intent(in) :: subfexit
     this%selected%release = release
-    this%selected%cellexit = cellexit
+    this%selected%featexit = featexit
     this%selected%timestep = timestep
     this%selected%terminate = terminate
     this%selected%weaksink = weaksink
     this%selected%usertime = usertime
+    this%selected%subfexit = subfexit
   end subroutine select_events
 
   !> @brief Check if a given event code is selected for tracking.
-  logical function is_selected(this, event_code) result(selected)
+  logical function is_selected(this, event) result(selected)
     class(ParticleTracksType), intent(inout) :: this
-    integer(I4B), intent(in) :: event_code
+    class(ParticleEventType), intent(in) :: event
 
-    selected = (this%selected%release .and. event_code == 0) .or. &
-               (this%selected%cellexit .and. event_code == 1) .or. &
-               (this%selected%timestep .and. event_code == 2) .or. &
-               (this%selected%terminate .and. event_code == 3) .or. &
-               (this%selected%weaksink .and. event_code == 4) .or. &
-               (this%selected%usertime .and. event_code == 5)
+    select type (event)
+    type is (ReleaseEventType)
+      selected = this%selected%release
+    type is (CellExitEventType)
+      selected = this%selected%featexit
+    type is (SubcellExitEventType)
+      selected = this%selected%subfexit
+    type is (TimeStepEventType)
+      selected = this%selected%timestep
+    type is (TerminationEventType)
+      selected = this%selected%terminate
+    type is (WeakSinkEventType)
+      selected = this%selected%weaksink
+    type is (UserTimeEventType)
+      selected = this%selected%usertime
+    class default
+      call pstop(1, "unknown event type")
+      selected = .false.
+    end select
+
   end function is_selected
 
   !> @brief Check whether a particle belongs in a given file i.e.
@@ -196,55 +223,42 @@ contains
     type(ParticleType), pointer, intent(in) :: particle
     class(ParticleEventType), pointer, intent(in) :: event
     logical(LGP), intent(in) :: csv
-    ! local
-    real(DP) :: x, y, z
-    integer(I4B) :: status
-
-    ! Convert from cell-local to model coordinates if needed
-    call particle%get_model_coords(x, y, z)
-
-    ! Set status
-    if (particle%istatus .lt. 0) then
-      status = ACTIVE
-    else
-      status = particle%istatus
-    end if
 
     if (csv) then
       write (iun, '(*(G0,:,","))') &
         event%kper, &
         event%kstp, &
-        particle%imdl, &
-        particle%iprp, &
-        particle%irpt, &
-        particle%ilay, &
-        particle%icu, &
-        particle%izone, &
-        status, &
+        event%imdl, &
+        event%iprp, &
+        event%irpt, &
+        event%ilay, &
+        event%icu, &
+        event%izone, &
+        event%istatus, &
         event%get_code(), &
-        particle%trelease, &
-        particle%ttrack, &
-        x, &
-        y, &
-        z, &
+        event%trelease, &
+        event%ttrack, &
+        event%x, &
+        event%y, &
+        event%z, &
         trim(adjustl(particle%name))
     else
       write (iun) &
         event%kper, &
         event%kstp, &
-        particle%imdl, &
-        particle%iprp, &
-        particle%irpt, &
-        particle%ilay, &
-        particle%icu, &
-        particle%izone, &
-        status, &
+        event%imdl, &
+        event%iprp, &
+        event%irpt, &
+        event%ilay, &
+        event%icu, &
+        event%izone, &
+        event%istatus, &
         event%get_code(), &
-        particle%trelease, &
-        particle%ttrack, &
-        x, &
-        y, &
-        z, &
+        event%trelease, &
+        event%ttrack, &
+        event%x, &
+        event%y, &
+        event%z, &
         particle%name
     end if
   end subroutine save_event
@@ -254,36 +268,6 @@ contains
     class(ParticleTracksType), intent(inout) :: this
     should_log = this%iout >= 0
   end function should_log
-
-  !> @brief Print a particle event summary.
-  subroutine log_event(iun, particle, event)
-    integer(I4B), intent(in) :: iun
-    type(ParticleType), pointer, intent(in) :: particle
-    class(ParticleEventType), pointer, intent(in) :: event
-    ! local
-    character(len=:), allocatable :: particlename
-
-    particlename = trim(adjustl(particle%name))
-    if (len_trim(particlename) == 0) particlename = 'anonymous'
-
-    if (iun >= 0) &
-      write (iun, '(*(G0))') &
-      'Particle (Model: ', particle%imdl, &
-      ', Package: ', particle%iprp, &
-      ', Point: ', particle%irpt, ' [', particlename, ']', &
-      ', Time: ', particle%trelease, &
-      ') ', event%get_str(), &
-      ' in (Layer: ', particle%ilay, &
-      ', Cell: ', particle%icu, &
-      ', Zone: ', particle%izone, &
-      ') at (X: ', particle%x, &
-      ', Y: ', particle%y, &
-      ', Z: ', particle%z, &
-      ', Time: ', particle%ttrack, &
-      ', Period: ', event%kper, &
-      ', Timestep: ', event%kstp, &
-      ') with (Status: ', particle%istatus, ')'
-  end subroutine log_event
 
   !> @brief Handle a particle event.
   subroutine handle_event(this, particle, event)
@@ -296,9 +280,9 @@ contains
     type(ParticleTrackFileType) :: file
 
     if (this%should_log()) &
-      call log_event(this%iout, particle, event)
+      call event%log(this%iout)
 
-    if (this%is_selected(event%get_code())) then
+    if (this%is_selected(event)) then
       do i = 1, this%ntrackfiles
         file = this%files(i)
         if (this%should_save(particle, file)) &

@@ -321,18 +321,20 @@ def compare_output(name, mf6_pls, mp7_pls, mp7_eps):
     del mp7_pls["node"]
 
     if "bprp" not in name:
-        # pollock's method should be (nearly) identical
+        # both methods should be (nearly) identical to mp7
         mf6_pls_plck = mf6_pls[mf6_pls.particlegroup == 1]
+        mf6_pls_tern = mf6_pls[mf6_pls.particlegroup == 2]
+
         assert mf6_pls_plck.shape == mp7_pls.shape
         assert np.allclose(mf6_pls_plck, mp7_pls, atol=1e-3)
 
-        # ternary method will have extra path points
-        # due to nudging, so just compare endpoints
-        mf6_eps_tern = mf6_eps[mf6_eps.particlegroup == 2]
-        mf6_eps_tern = mf6_eps_tern[["x", "y", "z", "time"]]
-        mp7_eps = mp7_eps[["x", "y", "z", "time"]]
-        assert mf6_eps_tern.shape == mp7_eps.shape
-        assert np.allclose(mf6_eps_tern, mp7_eps, atol=1e-3)
+        del mf6_pls_tern["particleid"]
+        del mf6_pls_tern["particlegroup"]
+        del mp7_pls["particleid"]
+        del mp7_pls["particlegroup"]
+
+        assert mf6_pls_tern.shape == mp7_pls.shape
+        assert np.allclose(mf6_pls_tern, mp7_pls, atol=1e-3)
 
 
 def check_output(idx, test):
@@ -498,9 +500,9 @@ def plot_output(idx, test):
     for ipl, ((iprp, irpt, trelease), pl) in enumerate(mf6_plines):
         pl.plot(
             title="MF6 pathlines",
-            linestyle="None" if "trst" in name else "--",
+            linestyle="--" if "trst" in name else None,
             marker="o",
-            markersize=2,
+            markersize=4,
             x="x",
             y="y",
             ax=ax[0],
@@ -523,6 +525,8 @@ def plot_output(idx, test):
             ax=ax[1],
             legend=False,
             color=cm.plasma(ipl / len(mp7_plines)),
+            marker="o",
+            markersize=4,
         )
 
     # view/save plot

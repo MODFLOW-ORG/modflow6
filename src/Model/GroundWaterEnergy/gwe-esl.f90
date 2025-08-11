@@ -2,11 +2,8 @@ module GweEslModule
   !
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DZERO, DEM1, DONE, LENFTYPE
-  use BndModule, only: BndType
+  use BndExtModule, only: BndExtType
   use ObsModule, only: DefaultObsIdProcessor
-  use TimeSeriesLinkModule, only: TimeSeriesLinkType, &
-                                  GetTimeSeriesLinkFromList
-  use BlockParserModule, only: BlockParserType
   use GweInputDataModule, only: GweInputDataType
   use MatrixBaseModule
   !
@@ -18,22 +15,23 @@ module GweEslModule
   character(len=LENFTYPE) :: ftype = 'ESL'
   character(len=16) :: text = '             ESL'
   !
-  type, extends(BndType) :: GweEslType
+  type, extends(BndExtType) :: GweEslType
 
     type(GweInputDataType), pointer :: gwecommon => null() !< pointer to shared gwe data used by multiple packages but set in mst
+    real(DP), dimension(:), pointer, contiguous :: senerrate => null() !< energy source loading rate
 
   contains
 
     procedure :: allocate_scalars => esl_allocate_scalars
+    procedure :: allocate_arrays => esl_allocate_arrays
     procedure :: bnd_cf => esl_cf
     procedure :: bnd_fc => esl_fc
     procedure :: bnd_da => esl_da
     procedure :: define_listlabel
+    procedure :: bound_value => esl_bound_value
     ! -- methods for observations
     procedure, public :: bnd_obs_supported => esl_obs_supported
     procedure, public :: bnd_df_obs => esl_df_obs
-    ! -- methods for time series
-    procedure, public :: bnd_rp_ts => esl_rp_ts
 
   end type GweEslType
 
@@ -44,7 +42,9 @@ contains
   !! This subroutine points bndobj to the newly created package
   !<
   subroutine esl_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
-                        gwecommon)
+                        gwecommon, input_mempath)
+    ! -- modules
+    use BndModule, only: BndType
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -54,6 +54,7 @@ contains
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
     type(GweInputDataType), intent(in), target :: gwecommon !< shared data container for use by multiple GWE packages
+    character(len=*), intent(in) :: input_mempath
     ! -- local
     type(GweEslType), pointer :: eslobj
     !
@@ -62,7 +63,7 @@ contains
     packobj => eslobj
     !
     ! -- Create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, input_mempath)
     packobj%text = text
     !
     ! -- Allocate scalars
@@ -93,7 +94,7 @@ contains
     class(GweEslType) :: this
     !
     ! -- Deallocate parent package
-    call this%BndType%bnd_da()
+    call this%BndExtType%bnd_da()
   end subroutine esl_da
 
   !> @brief Allocate scalars
@@ -106,13 +107,34 @@ contains
     ! -- dummy
     class(GweEslType) :: this
     !
-    ! -- call standard BndType allocate scalars
-    call this%BndType%allocate_scalars()
+    ! -- base class allocate scalars
+    call this%BndExtType%allocate_scalars()
     !
     ! -- allocate the object and assign values to object variables
     !
     ! -- Set values
   end subroutine esl_allocate_scalars
+
+  !> @brief Allocate arrays
+  !<
+  subroutine esl_allocate_arrays(this, nodelist, auxvar)
+    use MemoryManagerModule, only: mem_setptr, mem_checkin
+    ! -- dummy
+    class(GweEslType) :: this
+    ! -- local
+    integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist !< package nodelist
+    real(DP), dimension(:, :), pointer, contiguous, optional :: auxvar !< package aux variable array
+
+    ! -- base class allocate arrays
+    call this%BndExtType%allocate_arrays(nodelist, auxvar)
+
+    ! -- set input context pointers
+    call mem_setptr(this%senerrate, 'SENERRATE', this%input_mempath)
+    !
+    ! -- checkin input context pointers
+    call mem_checkin(this%senerrate, 'SENERRATE', this%memoryPath, &
+                     'SENERRATE', this%input_mempath)
+  end subroutine esl_allocate_arrays
 
   !> @brief Formulate the HCOF and RHS terms
   !!
@@ -138,7 +160,7 @@ contains
         this%rhs(i) = DZERO
         cycle
       end if
-      q = this%bound(1, i)
+      q = this%bound_value(1, i)
       this%rhs(i) = -q
     end do
   end subroutine esl_cf
@@ -242,28 +264,26 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => DefaultObsIdProcessor
   end subroutine esl_df_obs
 
-  !> @brief Procedure related to time series
+  !> @ brief Return a bound value
   !!
-  !! Assign tsLink%Text appropriately for all time series in use by package.
-  !! In the ESL package only the SENERRATE variable can be controlled by time
-  !! series.
+  !!  Return a bound value associated with an ncolbnd index
+  !!  and row.
   !<
-  subroutine esl_rp_ts(this)
-    ! -- dummy
+  function esl_bound_value(this, col, row) result(bndval)
+    ! -- modules
+    use ConstantsModule, only: DZERO
+    ! -- dummy variables
     class(GweEslType), intent(inout) :: this
-    ! -- local
-    integer(I4B) :: i, nlinks
-    type(TimeSeriesLinkType), pointer :: tslink => null()
+    integer(I4B), intent(in) :: col
+    integer(I4B), intent(in) :: row
+    ! -- result
+    real(DP) :: bndval
     !
-    nlinks = this%TsManager%boundtslinks%Count()
-    do i = 1, nlinks
-      tslink => GetTimeSeriesLinkFromList(this%TsManager%boundtslinks, i)
-      if (associated(tslink)) then
-        if (tslink%JCol == 1) then
-          tslink%Text = 'SMASSRATE'
-        end if
-      end if
-    end do
-  end subroutine esl_rp_ts
+    select case (col)
+    case (1)
+      bndval = this%senerrate(row)
+    case default
+    end select
+  end function esl_bound_value
 
 end module GweEslModule

@@ -6,9 +6,10 @@ module ParticleEventModule
 
   private
   public :: ParticleEventType
-  public :: CellExitEventType, TerminationEventType, ReleaseEventType
-  public :: TimeStepEventType, WeakSinkEventType, UserTimeEventType
-  public :: RELEASE, CELLEXIT, TIMESTEP, TERMINATE, WEAKSINK, USERTIME
+  public :: FeatExitEventType, TerminationEventType, ReleaseEventType, &
+            TimeStepEventType, WeakSinkEventType, UserTimeEventType, &
+            CellExitEventType, SubcellExitEventType
+  public :: RELEASE, FEATEXIT, TIMESTEP, TERMINATE, WEAKSINK, USERTIME
 
   !> @brief Particle event enumeration.
   !!
@@ -17,10 +18,10 @@ module ParticleEventModule
   !<
   enum, bind(C)
     enumerator :: RELEASE = 0 !< particle was released
-    enumerator :: CELLEXIT = 1 !< particle exited a cell
+    enumerator :: FEATEXIT = 1 !< particle exited a grid feature
     enumerator :: TIMESTEP = 2 !< time step ended
     enumerator :: TERMINATE = 3 !< particle terminated
-    enumerator :: WEAKSINK = 4 !< particle exited a weak sink
+    enumerator :: WEAKSINK = 4 !< particle entered a weak sink
     enumerator :: USERTIME = 5 !< user-specified tracking time
   end enum
 
@@ -29,17 +30,30 @@ module ParticleEventModule
   !! Events may be identical except for their type/code, reflecting the
   !! fact that several events of interest may occur at a given moment.
   type, abstract :: ParticleEventType
-    type(ParticleType), pointer :: particle => null() ! particle causing the event
-    integer(I4B) :: code = -1 ! event code
+    integer(I4B) :: imdl, iprp, irpt ! release model, package, and point
+    real(DP) :: trelease = 0.0_DP ! release time
     integer(I4B) :: kper = 0, kstp = 0 ! period and step
-    real(DP) :: time = 0.0_DP ! simulation time
+    integer(I4B) :: ilay, icu, izone = 0
+    real(DP) :: ttrack = 0.0_DP ! simulation time
+    real(DP) :: x = 0.0_DP, y = 0.0_DP, z = 0.0_DP ! particle position
+    integer(I4B) :: istatus = -1 ! status code
   contains
     procedure :: get_code
-    procedure :: get_str
+    procedure :: get_verb
+    procedure :: log
   end type ParticleEventType
 
-  type, extends(ParticleEventType) :: CellExitEventType
+  type, extends(ParticleEventType) :: FeatExitEventType
+  end type FeatExitEventType
+
+  type, extends(FeatExitEventType) :: CellExitEventType
+    integer(I4B) :: exit_face
   end type CellExitEventType
+
+  type, extends(FeatExitEventType) :: SubcellExitEventType
+    integer(I4B) :: exit_face
+    integer(I4B) :: isc
+  end type SubcellExitEventType
 
   type, extends(ParticleEventType) :: TerminationEventType
   end type TerminationEventType
@@ -62,7 +76,7 @@ contains
 
     select type (this)
     type is (ReleaseEventType); code = 0
-    type is (CellExitEventType); code = 1
+    class is (FeatExitEventType); code = 1
     type is (TimeStepEventType); code = 2
     type is (TerminationEventType); code = 3
     type is (WeakSinkEventType); code = 4
@@ -71,19 +85,42 @@ contains
     end select
   end function get_code
 
-  function get_str(this) result(str)
+  function get_verb(this) result(str)
     class(ParticleEventType), intent(in) :: this
     character(len=:), allocatable :: str
 
     select type (this)
     type is (ReleaseEventType); str = "released"
-    type is (CellExitEventType); str = "exited cell"
+    type is (FeatExitEventType); str = "exited grid feature"
     type is (TimeStepEventType); str = "completed timestep"
     type is (TerminationEventType); str = "terminated"
     type is (WeakSinkEventType); str = "exited weak sink"
     type is (UserTimeEventType); str = "user-specified tracking time"
     class default; call pstop(1, "unknown event type")
     end select
-  end function get_str
+  end function get_verb
+
+  subroutine log(this, iun)
+    class(ParticleEventType), intent(inout) :: this
+    integer(I4B), intent(in) :: iun
+
+    if (iun >= 0) &
+      write (iun, '(*(G0))') &
+      'Particle (Model: ', this%imdl, &
+      ', Package: ', this%iprp, &
+      ', Point: ', this%irpt, &
+      ', Time: ', this%trelease, &
+      ') ', this%get_verb(), &
+      ' in (Layer: ', this%ilay, &
+      ', Cell: ', this%icu, &
+      ', Zone: ', this%izone, &
+      ') at (X: ', this%x, &
+      ', Y: ', this%y, &
+      ', Z: ', this%z, &
+      ', Time: ', this%ttrack, &
+      ', Period: ', this%kper, &
+      ', Timestep: ', this%kstp, &
+      ') with (Status: ', this%istatus, ')'
+  end subroutine log
 
 end module ParticleEventModule

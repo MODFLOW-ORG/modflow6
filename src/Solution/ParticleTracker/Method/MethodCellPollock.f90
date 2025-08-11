@@ -130,8 +130,7 @@ contains
 
     select type (cell => this%cell)
     type is (CellRectType)
-      ! Check termination/reporting conditions
-      call this%check(particle, cell%defn, tmax)
+      call this%assess(particle, this%cell%defn, tmax)
       if (.not. particle%advancing) return
 
       ! Transform model coordinates to local cell coordinates
@@ -152,6 +151,8 @@ contains
                               sinrot, cosrot, invert=.true.)
       call particle%reset_transform()
     end select
+
+    if (particle%iboundary(2) > 0) call this%cellexit(particle)
   end subroutine apply_mcp
 
   !> @brief Loads the lone rectangular subcell from the rectangular cell
