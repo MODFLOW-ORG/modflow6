@@ -101,7 +101,7 @@ jobs:
       distname: ${{ steps.set_version.outputs.distname }}
     steps:
       - name: Checkout modflow6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ github.repository_owner }}/modflow6
           path: modflow6
@@ -274,14 +274,14 @@ jobs:
 
       - name: Checkout modflow6-testmodels
         if: inputs.run_tests == true && runner.os != 'Windows'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: MODFLOW-ORG/modflow6-testmodels
           path: modflow6-testmodels
 
       - name: Checkout modflow6-examples
         if: inputs.run_tests == true && runner.os != 'Windows'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
@@ -351,7 +351,7 @@ jobs:
       # compiling binaries, building documentation
       - name: Checkout usgslatex
         if: ${{ runner.os == 'Linux' && inputs.run_tests == true }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: MODFLOW-ORG/usgslatex
           path: usgslatex
@@ -388,20 +388,20 @@ jobs:
     steps:
 
       - name: Checkout modflow6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ github.repository_owner }}/modflow6
           path: modflow6
           ref: ${{ inputs.branch }}
 
       - name: Checkout modflow6-examples
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
       - name: Checkout usgslatex
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: MODFLOW-ORG/usgslatex
           path: usgslatex
@@ -550,14 +550,14 @@ jobs:
         shell: bash -l {0}
     steps:
       - name: Checkout modflow6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ github.repository_owner }}/modflow6
           path: modflow6
           ref: ${{ inputs.branch }}
 
       - name: Checkout modflow6-examples
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples

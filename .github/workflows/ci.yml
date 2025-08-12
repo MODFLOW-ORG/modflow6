@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout MF6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.8.14
@@ -76,7 +76,7 @@ jobs:
       FC_V: 13
     steps:
       - name: Checkout MF6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup ${{ env.FC }} ${{ env.FC_V }}
         uses: fortran-lang/setup-fortran@v1
@@ -119,7 +119,7 @@ jobs:
       FC_V: 13
     steps:
       - name: Checkout MF6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: modflow6
 
@@ -219,18 +219,18 @@ jobs:
       FC_V: 13
     steps:
       - name: Checkout MF6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: modflow6
 
       - name: Checkout test models
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: MODFLOW-ORG/modflow6-testmodels
           path: modflow6-testmodels
 
       - name: Checkout examples
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
@@ -358,7 +358,7 @@ jobs:
 
       - name: Checkout usgslatex
         if: runner.os == 'Linux'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: MODFLOW-ORG/usgslatex
           path: usgslatex
@@ -415,18 +415,18 @@ jobs:
           swap-storage: true
 
       - name: Checkout MF6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: modflow6
 
       - name: Checkout test models
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: MODFLOW-ORG/modflow6-testmodels
           path: modflow6-testmodels
 
       - name: Checkout examples
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
@@ -551,7 +551,7 @@ jobs:
 
     steps:
       - name: Checkout MF6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: modflow6
 
