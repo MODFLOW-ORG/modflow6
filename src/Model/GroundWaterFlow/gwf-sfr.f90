@@ -3988,7 +3988,7 @@ contains
     !
     ! Add density contributions, if active
     if (this%idense /= 0) then
-      call this%sfr_calculate_density_exchange(n, hsfr, hgwf, cond, tp, &
+      call this%sfr_calculate_density_exchange(n, hsfr, hgwf, cond, bt, &
                                                qgwf, gwfhcof0, gwfrhs0)
     end if
     !

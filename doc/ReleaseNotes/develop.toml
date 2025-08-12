@@ -77,3 +77,10 @@ description = "Previously the NOCHECK option was used to directly set the intern
 section = "features"
 subsection = "solution"
 description = "Added a developer option DEV\\_CYCLE\\_DETECTION\\_WINDOW to the PRT Model's Particle Release (PRP) Package. When enabled, this feature maintains a history of recent cell transitions, the size of which is configurable. If a cycle is detected, the program will terminate with an error. A cycle is identified as a duplicate particle event within a single application of the tracking loop, respective to certain particle and cell properties, e.g., exiting through the same cell face twice. This option defaults to 0, disabling cycle detection by default."
+
+[[items]]
+section = "fixes"
+subsection = "internal"
+description = "Clarified the definition of the rtp parameter in the SFR PACKAGEDATA block."
+
+
