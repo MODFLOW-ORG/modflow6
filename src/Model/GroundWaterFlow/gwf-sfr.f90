@@ -1030,7 +1030,7 @@ contains
         this%width(n) = this%parser%GetDouble()
         ! -- get reach slope
         this%slope(n) = this%parser%GetDouble()
-        ! -- get reach stream bottom
+        ! -- get reach stream top elevation
         this%strtop(n) = this%parser%GetDouble()
         ! -- get reach bed thickness
         this%bthick(n) = this%parser%GetDouble()
