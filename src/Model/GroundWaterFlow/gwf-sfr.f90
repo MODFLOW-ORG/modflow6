@@ -3988,7 +3988,7 @@ contains
     !
     ! Add density contributions, if active
     if (this%idense /= 0) then
-      call this%sfr_calculate_density_exchange(n, hsfr, hgwf, cond, bt, &
+      call this%sfr_calculate_density_exchange(n, hsfr, hgwf, cond, tp, &
                                                qgwf, gwfhcof0, gwfrhs0)
     end if
     !
@@ -5736,7 +5736,7 @@ contains
 
   !> @brief Calculate density terms
   !!
-  !! Method to galculate groundwater-reach density exchange terms for a
+  !! Method to calculate groundwater-reach density exchange terms for a
   !! SFR package reach.
   !!
   !! Member variable used here
@@ -5746,14 +5746,14 @@ contains
   !!                   col 3 is elevation of gwf cell
   !<
   subroutine sfr_calculate_density_exchange(this, n, stage, head, cond, &
-                                            bots, flow, gwfhcof, gwfrhs)
+                                            tops, flow, gwfhcof, gwfrhs)
     ! -- dummy
     class(SfrType), intent(inout) :: this !< SfrType object
     integer(I4B), intent(in) :: n !< reach number
     real(DP), intent(in) :: stage !< reach stage
     real(DP), intent(in) :: head !< head in connected GWF cell
     real(DP), intent(in) :: cond !< reach conductance
-    real(DP), intent(in) :: bots !< bottom elevation of reach
+    real(DP), intent(in) :: tops !< top elevation of streambed
     real(DP), intent(inout) :: flow !< calculated flow, updated here with density terms
     real(DP), intent(inout) :: gwfhcof !< GWF diagonal coefficient, updated here with density terms
     real(DP), intent(inout) :: gwfrhs !< GWF right-hand-side value, updated here with density terms
@@ -5773,23 +5773,23 @@ contains
     logical(LGP) :: head_below_bot
     !
     ! -- Set sfr density to sfr density or gwf density
-    if (stage >= bots) then
+    if (stage >= tops) then
       ss = stage
       stage_below_bot = .false.
       rdensesfr = this%denseterms(1, n) ! sfr rel density
     else
-      ss = bots
+      ss = tops
       stage_below_bot = .true.
       rdensesfr = this%denseterms(2, n) ! gwf rel density
     end if
     !
-    ! -- set hh to head or bots
-    if (head >= bots) then
+    ! -- set hh to head or tops (top elev of streambed)
+    if (head >= tops) then
       hh = head
       head_below_bot = .false.
       rdensegwf = this%denseterms(2, n) ! gwf rel density
     else
-      hh = bots
+      hh = tops
       head_below_bot = .true.
       rdensegwf = this%denseterms(1, n) ! sfr rel density
     end if
@@ -5821,7 +5821,7 @@ contains
         ! -- Add contribution of second density term:
         !      cond * (havg - elevavg) * (densegwf - densesfr) / denseref
         elevgwf = this%denseterms(3, n)
-        elevsfr = bots
+        elevsfr = tops
         elevavg = DHALF * (elevsfr + elevgwf)
         havg = DHALF * (hh + ss)
         d2 = cond * (havg - elevavg) * (rdensegwf - rdensesfr)
