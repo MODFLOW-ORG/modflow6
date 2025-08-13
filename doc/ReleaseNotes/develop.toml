@@ -67,3 +67,8 @@ description = "The Particle Tracking (PRT) Model previously reported cell exit e
 section = "fixes"
 subsection = "solution"
 description = "Previously the Particle Tracking (PRT) Model's generalized DISV tracking method did not distinguish subcell exit events from cell exits, reporting both with the same reason code (1). Since subcell exits occur at a scale below that defined by the model's grid discretization, they are an implementation detail of the generalized tracking method, and will therefore no longer be written by default to particle tracking output. The PRT Output Control (OC) package's TRACK\\_EXIT option will now apply exclusively to features at grid-scale or above. Writing particle transitions between sub-grid-scale features to output is now opt-in with a new keyword option TRACK\\_SUBFEATURE\\_EXIT."
+
+[[items]]
+section = "fixes"
+subsection = "basic"
+description = "Previously the NOCHECK option was used to directly set the internal isimcheck variable. When NOCHECK is specified in the simulation name file isimcheck should be set to 0, otherwise isimcheck should be 1. The code has been fixed to implement the intended behaviour."
