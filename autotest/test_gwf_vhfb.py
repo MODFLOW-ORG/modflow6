@@ -59,7 +59,6 @@ def build_model(idx, ws, vhfb=False):
 
     name = cases[idx]
 
-    # build MODFLOW 6 files
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
@@ -73,7 +72,6 @@ def build_model(idx, ws, vhfb=False):
         newtonoptions=newtonoptions,
     )
 
-    # create iterative model solution and register the gwf model with it
     ims = flopy.mf6.ModflowIms(
         sim,
         print_option="SUMMARY",
@@ -139,7 +137,6 @@ def build_model(idx, ws, vhfb=False):
             stress_period_data=spd,
         )
 
-    # output control
     oc = flopy.mf6.ModflowGwfoc(
         gwf,
         head_filerecord=f"{name}.hds",
