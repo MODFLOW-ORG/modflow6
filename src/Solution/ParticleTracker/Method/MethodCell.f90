@@ -4,7 +4,8 @@ module MethodCellModule
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType
   use ParticleModule, only: ParticleType
-  use ParticleEventModule, only: ParticleEventType, CellExitEventType
+  use ParticleEventModule, only: ParticleEventType
+  use CellExitEventModule, only: CellExitEventType
   use CellDefnModule, only: CellDefnType
   implicit none
 

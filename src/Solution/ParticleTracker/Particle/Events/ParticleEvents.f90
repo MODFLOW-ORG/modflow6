@@ -2,13 +2,7 @@ module ParticleEventsModule
   use KindModule, only: DP, I4B, LGP
   use ListModule, only: ListType
   use ParticleModule, only: ParticleType
-  use ParticleEventModule, only: ParticleEventType, &
-                                 ReleaseEventType, &
-                                 FeatExitEventType, &
-                                 TimestepEventType, &
-                                 TerminationEventType, &
-                                 WeakSinkEventType, &
-                                 UserTimeEventType
+  use ParticleEventModule, only: ParticleEventType
   implicit none
 
   private
@@ -54,6 +48,7 @@ contains
     class(ParticleEventType), pointer, intent(inout) :: event
     ! local
     integer(I4B) :: i, per, stp
+    real(DP) :: x, y, z
     class(*), pointer :: p
 
     ! If tracking time falls exactly on a boundary between time steps,
@@ -72,6 +67,12 @@ contains
       end if
     end if
 
+    ! Convert to model coordinates if we need to
+    x = particle%x
+    y = particle%y
+    z = particle%z
+    call particle%get_model_coords(x, y, z)
+
     event%kper = per
     event%kstp = stp
     event%imdl = particle%imdl
@@ -82,8 +83,10 @@ contains
     event%izone = particle%izone
     event%trelease = particle%trelease
     event%ttrack = particle%ttrack
+    event%x = x
+    event%y = y
+    event%z = z
     event%istatus = particle%istatus
-    call particle%get_model_coords(event%x, event%y, event%z)
 
     do i = 1, this%consumers%Count()
       p => this%consumers%GetItem(i)
