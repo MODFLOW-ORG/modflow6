@@ -25,20 +25,28 @@ module LeastSquaresGradientModule
   !! The gradient can then be computed by multiplying the reconstruction matrix with the difference vector.
   !! ∇ɸ = R * ∑(ɸ_i - ɸ_up), where i are the neighboring cells.
   !!
+  !! Usage:
+  !! 1. Create the gradient object with the discretization
+  !! 2. Set the scalar field using `set_field(phi)` where phi is the field for which gradients are computed
+  !! 3. Retrieve gradients for any cell using the `get(n)` method
+  !!
   !! - The gradient operator is constructed using normalized direction vectors between cell centers,
   !!   scaled by the inverse of the distance.
   !! - The least-squares approach ensures robust gradients even for irregular or rank-deficient stencils.
   !! - The operator is cached for each cell, so gradient computation is efficient for repeated queries.
-  !! - The class provides a `get` method to compute the gradient for any cell and scalar field.
+  !! - The `set_field` method establishes a pointer to the scalar field data.
+  !! - The `get` method computes the gradient for any cell using the current scalar field.
   !!
   !! @note Boundary cells are not handled in a special manner. This may impact the quality of the gradient
   !!       near boundaries, especially if a cell does not have enough neighbors (fewer than three in 3D).
   !<
   type, extends(IGradientType) :: LeastSquaresGradientType
     class(DisBaseType), pointer :: dis
+    real(DP), dimension(:), pointer :: phi
     type(Array2D), allocatable, dimension(:) :: R ! Gradient reconstruction matrix
   contains
     procedure :: get
+    procedure :: set_field
 
     procedure, private :: compute_cell_gradient
     procedure, private :: create_gradient_reconstruction_matrix
@@ -111,24 +119,30 @@ contains
 
   end function create_gradient_reconstruction_matrix
 
-  function get(this, n, c) result(grad_c)
+  function get(this, n) result(grad_c)
     ! -- dummy
     class(LeastSquaresGradientType), target :: this
     integer(I4B), intent(in) :: n
-    real(DP), dimension(:), intent(in) :: c
     !-- return
     real(DP), dimension(3) :: grad_c
 
-    grad_c = this%compute_cell_gradient(n, c)
+    grad_c = this%compute_cell_gradient(n)
   end function get
 
-  function compute_cell_gradient(this, n, phi_new) result(grad_c)
+  subroutine set_field(this, phi)
+    ! -- dummy
+    class(LeastSquaresGradientType), target :: this
+    real(DP), dimension(:), pointer, intent(in) :: phi
+
+    this%phi => phi
+  end subroutine set_field
+
+  function compute_cell_gradient(this, n) result(grad_c)
     ! -- return
     real(DP), dimension(3) :: grad_c
     ! -- dummy
     class(LeastSquaresGradientType), target :: this
     integer(I4B), intent(in) :: n
-    real(DP), dimension(:), intent(in) :: phi_new
     ! -- local
     real(DP), dimension(:, :), pointer :: R
     integer(I4B) :: ipos, local_pos
@@ -143,7 +157,7 @@ contains
     local_pos = 1
     do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
       m = this%dis%con%ja(ipos)
-      dc(local_pos) = phi_new(m) - phi_new(n)
+      dc(local_pos) = this%phi(m) - this%phi(n)
       local_pos = local_pos + 1
     end do
 

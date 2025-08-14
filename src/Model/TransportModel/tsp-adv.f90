@@ -10,6 +10,7 @@ module TspAdvModule
   ! -- Gradient schemes
   use IGradient, only: IGradientType
   use LeastSquaresGradientModule, only: LeastSquaresGradientType
+  use CachedGradientModule, only: CachedGradientType
   ! -- Interpolation schemes
   use InterpolationSchemeInterfaceModule, only: InterpolationSchemeInterface, &
                                                 CoefficientsType
@@ -121,7 +122,7 @@ contains
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: ibound
     ! -- local
     integer(I4B) :: iadvwt_value
-    !
+    class(IGradientType), allocatable :: gradient
     ! -- adv pointers to arguments that were passed in
     this%dis => dis
     this%ibound => ibound
@@ -139,7 +140,8 @@ contains
       this%face_interpolation = &
         TVDSchemeType(this%dis, this%fmi, this%ibound)
     case (ADV_SCHEME_UTVD)
-      this%gradient = LeastSquaresGradientType(this%dis)
+      gradient = LeastSquaresGradientType(this%dis)
+      this%gradient = CachedGradientType(gradient, this%dis)
       this%face_interpolation = &
         UTVDSchemeType(this%dis, this%fmi, this%gradient)
     case default
@@ -223,7 +225,7 @@ contains
     integer(I4B), intent(in) :: nodes !< number of nodes
     class(MatrixBaseType), pointer :: matrix_sln !< pointer to solution matrix
     integer(I4B), intent(in), dimension(:) :: idxglo !< global indices for matrix
-    real(DP), intent(in), dimension(:) :: cnew !< new concentration/temperature values
+    real(DP), intent(in), dimension(:), target :: cnew !< new concentration/temperature values
     real(DP), dimension(:), intent(inout) :: rhs !< right-hand side vector
     ! -- local
     integer(I4B) :: n, m, idiag, ipos
@@ -231,7 +233,7 @@ contains
     type(CoefficientsType) :: coefficients
 
     ! Calculate internal domain fluxes and add to matrix_sln and rhs.
-    call this%face_interpolation%invalidate()
+    call this%face_interpolation%set_field(cnew)
     do n = 1, nodes
       if (this%ibound(n) == 0) cycle ! skip inactive nodes
       idiag = this%dis%con%ia(n)
@@ -241,7 +243,7 @@ contains
         if (this%dis%con%mask(ipos) == 0) cycle ! skip masked connections
 
         qnm = this%fmi%gwfflowja(ipos) * this%eqnsclfac
-        coefficients = this%face_interpolation%compute(n, m, ipos, cnew)
+        coefficients = this%face_interpolation%compute(n, m, ipos)
 
         call matrix_sln%add_value_pos(idxglo(idiag), qnm * coefficients%c_n)
         call matrix_sln%add_value_pos(idxglo(ipos), qnm * coefficients%c_m)
@@ -256,7 +258,7 @@ contains
     ! -- modules
     ! -- dummy
     class(TspAdvType) :: this
-    real(DP), intent(in), dimension(:) :: cnew
+    real(DP), intent(in), dimension(:), target :: cnew
     real(DP), intent(inout), dimension(:) :: flowja
     ! -- local
     integer(I4B) :: nodes
@@ -268,7 +270,7 @@ contains
     !    rate and has dimensions of L^/T.
     nodes = this%dis%nodes
 
-    call this%face_interpolation%invalidate()
+    call this%face_interpolation%set_field(cnew)
     do n = 1, nodes
       if (this%ibound(n) == 0) cycle
       do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
@@ -276,7 +278,7 @@ contains
         if (this%ibound(m) == 0) cycle
         qnm = this%fmi%gwfflowja(ipos) * this%eqnsclfac
 
-        coefficients = this%face_interpolation%compute(n, m, ipos, cnew)
+        coefficients = this%face_interpolation%compute(n, m, ipos)
         flowja(ipos) = flowja(ipos) &
                        + qnm * coefficients%c_n * cnew(n) &
                        + qnm * coefficients%c_m * cnew(m) &

@@ -341,6 +341,7 @@ $(OBJDIR)/VectorInterpolation.o \
 $(OBJDIR)/swf-cxs.o \
 $(OBJDIR)/OutputControlData.o \
 $(OBJDIR)/gwf-ic.o \
+$(OBJDIR)/LocalCellExtrema.o \
 $(OBJDIR)/InterpolationSchemeInterface.o \
 $(OBJDIR)/IGradient.o \
 $(OBJDIR)/DisUtils.o \
@@ -372,6 +373,7 @@ $(OBJDIR)/TVDScheme.o \
 $(OBJDIR)/TspAdvOptions.o \
 $(OBJDIR)/LeastSquaresGradient.o \
 $(OBJDIR)/CentralDifferenceScheme.o \
+$(OBJDIR)/CachedGradient.o \
 $(OBJDIR)/AdvSchemeEnum.o \
 $(OBJDIR)/UzfCellGroup.o \
 $(OBJDIR)/Xt3dInterface.o \

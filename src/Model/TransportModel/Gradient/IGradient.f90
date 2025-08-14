@@ -15,21 +15,30 @@ module IGradient
   type, abstract :: IGradientType
   contains
     procedure(get_if), deferred :: get
+    procedure(set_field_if), deferred :: set_field
   end type IGradientType
 
   abstract interface
 
-    function get_if(this, n, c) result(grad_c)
+    function get_if(this, n) result(grad_c)
       ! -- import
       import IGradientType
       import DP, I4B
       ! -- dummy
       class(IGradientType), target :: this
       integer(I4B), intent(in) :: n
-      real(DP), dimension(:), intent(in) :: c
       !-- return
       real(DP), dimension(3) :: grad_c
     end function
+
+    subroutine set_field_if(this, phi)
+      ! -- import
+      import IGradientType
+      import DP, I4B
+      ! -- dummy
+      class(IGradientType), target :: this
+      real(DP), dimension(:), pointer, intent(in) :: phi
+    end subroutine
 
   end interface
 

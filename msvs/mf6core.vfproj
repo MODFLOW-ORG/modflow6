@@ -384,6 +384,7 @@
 		<File RelativePath="..\src\Model\SurfaceWaterFlow\swf.f90"/></Filter>
 		<Filter Name="TransportModel">
 		<Filter Name="Gradient">
+		<File RelativePath="..\src\Model\TransportModel\Gradient\CachedGradient.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\Gradient\IGradient.f90"/>
 		<File RelativePath="..\src\Model\TransportModel\Gradient\LeastSquaresGradient.f90"/></Filter>
 		<Filter Name="InterpolationScheme">
@@ -685,6 +686,7 @@
 		<File RelativePath="..\src\Utilities\ListIterator.f90"/>
 		<File RelativePath="..\src\Utilities\ListNode.f90"/>
 		<File RelativePath="..\src\Utilities\ListReader.f90"/>
+		<File RelativePath="..\src\Utilities\LocalCellExtrema.f90"/>
 		<File RelativePath="..\src\Utilities\LongLineReader.f90"/>
 		<File RelativePath="..\src\Utilities\MathUtil.f90"/>
 		<File RelativePath="..\src\Utilities\Message.f90"/>
