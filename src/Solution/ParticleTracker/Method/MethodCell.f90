@@ -175,6 +175,9 @@ contains
     class(MethodCellType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
+    ! local
+    integer(I4B) :: i, nhist
+    class(*), pointer :: prev
 
     allocate (CellExitEventType :: event)
     select type (event)
@@ -184,7 +187,18 @@ contains
     call this%events%dispatch(particle, event)
     if (particle%icycwin == 0) return
     if (this%forms_cycle(particle, event)) then
-      call pstop(1, 'cyclic pathline detected')
+      ! print event history
+      print *, "Cyclic pathline detected"
+      nhist = particle%history%Count()
+      do i = 1, nhist
+        prev => particle%history%GetItem(i)
+        select type (prev)
+        class is (ParticleEventType)
+          print *, "Back ", nhist - i + 1, ": ", prev%get_text()
+        end select
+      end do
+      print *, "Current :", event%get_text()
+      call pstop(1, 'Cyclic pathline detected, aborting')
     else
       call this%store_event(particle, event)
     end if
