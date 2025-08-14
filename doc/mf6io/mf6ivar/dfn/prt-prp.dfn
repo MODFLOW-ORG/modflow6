@@ -301,7 +301,6 @@ optional true
 mf6internal icycwin
 longname cycle detection window size
 description integer value defining the size of the window (number of consecutive exit events) used for cycle detection. Defaults to 0, disabling cycle detection. With detection enabled, particle pathlines with duplicate cell exit events (i.e., exiting the same cell through the same face twice) will cause the program to terminate with an error. A larger window size provides more robust cycle detection at the cost of more runtime operations per cell exit.
-default_value 0
 
 # --------------------- prt prp dimensions ---------------------
 
