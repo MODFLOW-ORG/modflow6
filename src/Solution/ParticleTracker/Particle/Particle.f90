@@ -122,6 +122,7 @@ module ParticleModule
     integer(I4B), dimension(:), pointer, public, contiguous :: icu !< cell number (user)
     integer(I4B), dimension(:), pointer, public, contiguous :: ilay !< layer
     integer(I4B), dimension(:), pointer, public, contiguous :: izone !< current zone number
+    integer(I4B), dimension(:), pointer, public, contiguous :: izp !< previous zone number
     integer(I4B), dimension(:), pointer, public, contiguous :: istatus !< particle status
     real(DP), dimension(:), pointer, public, contiguous :: x !< model x coord of particle
     real(DP), dimension(:), pointer, public, contiguous :: y !< model y coord of particle
@@ -167,6 +168,7 @@ contains
     call mem_allocate(store%icu, np, 'PLICU', mempath)
     call mem_allocate(store%ilay, np, 'PLILAY', mempath)
     call mem_allocate(store%izone, np, 'PLIZONE', mempath)
+    call mem_allocate(store%izp, np, 'PLIZP', mempath)
     call mem_allocate(store%istatus, np, 'PLISTATUS', mempath)
     call mem_allocate(store%x, np, 'PLX', mempath)
     call mem_allocate(store%y, np, 'PLY', mempath)
@@ -198,6 +200,7 @@ contains
     call mem_deallocate(this%icu, 'PLICU', mempath)
     call mem_deallocate(this%ilay, 'PLILAY', mempath)
     call mem_deallocate(this%izone, 'PLIZONE', mempath)
+    call mem_deallocate(this%izp, 'PLIZP', mempath)
     call mem_deallocate(this%istatus, 'PLISTATUS', mempath)
     call mem_deallocate(this%x, 'PLX', mempath)
     call mem_deallocate(this%y, 'PLY', mempath)
@@ -240,6 +243,7 @@ contains
     call mem_reallocate(this%icu, np, 'PLICU', mempath)
     call mem_reallocate(this%ilay, np, 'PLILAY', mempath)
     call mem_reallocate(this%izone, np, 'PLIZONE', mempath)
+    call mem_reallocate(this%izp, np, 'PLIZP', mempath)
     call mem_reallocate(this%istatus, np, 'PLISTATUS', mempath)
     call mem_reallocate(this%x, np, 'PLX', mempath)
     call mem_reallocate(this%y, np, 'PLY', mempath)
@@ -281,9 +285,11 @@ contains
     particle%istopweaksink = this%istopweaksink(ip)
     particle%istopzone = this%istopzone(ip)
     particle%idrymeth = this%idrymeth(ip)
+    particle%icp = 0
     particle%icu = this%icu(ip)
     particle%ilay = this%ilay(ip)
     particle%izone = this%izone(ip)
+    particle%izp = this%izp(ip)
     particle%istatus = this%istatus(ip)
     particle%x = this%x(ip)
     particle%y = this%y(ip)
@@ -320,6 +326,7 @@ contains
     this%icu(ip) = particle%icu
     this%ilay(ip) = particle%ilay
     this%izone(ip) = particle%izone
+    this%izp(ip) = particle%izp
     this%istatus(ip) = particle%istatus
     this%x(ip) = particle%x
     this%y(ip) = particle%y

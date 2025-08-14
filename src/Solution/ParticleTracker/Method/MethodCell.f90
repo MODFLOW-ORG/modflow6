@@ -185,7 +185,10 @@ contains
       event%exit_face = particle%iboundary(2)
     end select
     call this%events%dispatch(particle, event)
-    if (particle%icycwin == 0) return
+    if (particle%icycwin == 0) then
+      deallocate (event)
+      return
+    end if
     if (this%forms_cycle(particle, event)) then
       ! print event history
       print *, "Cyclic pathline detected"

@@ -13,7 +13,6 @@ module MethodDisModule
   use DisModule, only: DisType
   use GeomUtilModule, only: get_ijk, get_jk
   use MathUtilModule, only: is_close
-  use CellExitEventModule, only: CellExitEventType
   implicit none
 
   private
@@ -193,7 +192,6 @@ contains
     real(DP) :: top
     real(DP) :: bot
     real(DP) :: sat
-    ! type(CellExitEventType) :: last_event
 
     select type (dis => this%fmi%dis)
     type is (DisType)
@@ -210,6 +208,8 @@ contains
       ! if returning to a cell through the bottom
       ! face after previously leaving it through
       ! that same face, we've entered a cycle
+      ! as can occur e.g. in wells. terminate
+      ! in the previous cell.
       if (ic == particle%icp .and. inface == 7 .and. ilay < particle%ilay) then
         particle%idomain(2) = particle%icp
         particle%izone = particle%izp
