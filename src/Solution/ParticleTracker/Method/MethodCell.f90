@@ -225,21 +225,10 @@ contains
         call itr%next()
         select type (prev => itr%value())
         class is (CellExitEventType)
-          ! exact cycle (same cell + same exit face)
           if (event%icu == prev%icu .and. &
               event%ilay == prev%ilay .and. &
               event%izone == prev%izone .and. &
               event%exit_face == prev%exit_face .and. &
-              event%exit_face /= 0) then
-            found_cycle = .true.
-            exit
-          end if
-          ! revisiting a well cell through vertical faces
-          ! is a common cause of cycles in layered models
-          if (event%icu == prev%icu .and. &
-              event%ilay == prev%ilay .and. &
-              event%izone == prev%izone .and. &
-              (event%exit_face == 6 .or. event%exit_face == 7) .and. &
               event%exit_face /= 0) then
             found_cycle = .true.
             exit
