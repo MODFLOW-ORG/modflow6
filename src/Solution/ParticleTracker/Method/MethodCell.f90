@@ -20,6 +20,7 @@ module MethodCellModule
     procedure, public :: cellexit
     procedure, public :: forms_cycle
     procedure, public :: store_event
+    procedure, public :: get_level
   end type MethodCellType
 
 contains
@@ -257,5 +258,12 @@ contains
         call particle%history%RemoveNode(1, .true.)
     end select
   end subroutine store_event
+
+  !> @brief Get the cell method's level.
+  function get_level(this) result(level)
+    class(MethodCellType), intent(in) :: this
+    integer(I4B) :: level
+    level = LEVEL_FEATURE
+  end function get_level
 
 end module MethodCellModule

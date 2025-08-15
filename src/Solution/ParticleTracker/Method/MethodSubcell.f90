@@ -14,6 +14,7 @@ module MethodSubcellModule
   contains
     procedure, public :: assess
     procedure, public :: subcellexit
+    procedure, public :: get_level
   end type MethodSubcellType
 
 contains
@@ -41,5 +42,12 @@ contains
     end select
     call this%events%dispatch(particle, event)
   end subroutine subcellexit
+
+  !> @brief Get the subcell method's level.
+  function get_level(this) result(level)
+    class(MethodSubcellType), intent(in) :: this
+    integer(I4B) :: level
+    level = LEVEL_SUBFEATURE
+  end function get_level
 
 end module MethodSubcellModule
