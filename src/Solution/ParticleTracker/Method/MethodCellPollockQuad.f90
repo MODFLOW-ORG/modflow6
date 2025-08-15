@@ -81,7 +81,7 @@ contains
     select type (cell => this%cell)
     type is (CellRectQuadType)
       exitFace = particle%iboundary(3)
-      isc = particle%idomain(3)
+      isc = particle%itrdomain(3)
       npolyverts = cell%defn%npolyverts
 
       ! exitFace uses MODPATH 7 iface convention here
@@ -93,12 +93,12 @@ contains
         select case (isc)
         case (1)
           ! W face, subcell 1 --> E face, subcell 4  (cell interior)
-          particle%idomain(3) = 4
+          particle%itrdomain(3) = 4
           particle%iboundary(3) = 2
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         case (2)
           ! W face, subcell 2 --> E face, subcell 3 (cell interior)
-          particle%idomain(3) = 3
+          particle%itrdomain(3) = 3
           particle%iboundary(3) = 2
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         case (3)
@@ -122,12 +122,12 @@ contains
           infaceoff = -1
         case (3)
           ! E face, subcell 3 --> W face, subcell 2 (cell interior)
-          particle%idomain(3) = 2
+          particle%itrdomain(3) = 2
           particle%iboundary(3) = 1
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         case (4)
           ! E face, subcell 4 --> W face subcell 1 (cell interior)
-          particle%idomain(3) = 1
+          particle%itrdomain(3) = 1
           particle%iboundary(3) = 1
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         end select
@@ -135,7 +135,7 @@ contains
         select case (isc)
         case (1)
           ! S face, subcell 1 --> N face, subcell 2 (cell interior)
-          particle%idomain(3) = 2
+          particle%itrdomain(3) = 2
           particle%iboundary(3) = 4
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         case (2)
@@ -148,7 +148,7 @@ contains
           infaceoff = -1
         case (4)
           ! S face, subcell 4 --> N face, subcell 3 (cell interior)
-          particle%idomain(3) = 3
+          particle%itrdomain(3) = 3
           particle%iboundary(3) = 4
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         end select
@@ -160,12 +160,12 @@ contains
           infaceoff = -1
         case (2)
           ! N face, subcell 2 --> S face, subcell 1 (cell interior)
-          particle%idomain(3) = 1
+          particle%itrdomain(3) = 1
           particle%iboundary(3) = 3
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         case (3)
           ! N face, subcell 3 --> S face, subcell 4 (cell interior)
-          particle%idomain(3) = 4
+          particle%itrdomain(3) = 4
           particle%iboundary(3) = 3
           inface = 0 ! want Domain(2) unchanged; Boundary(2) = 0
         case (4)
@@ -251,7 +251,7 @@ contains
       factor = factor / cell%defn%porosity
       npolyverts = cell%defn%npolyverts
 
-      isc = particle%idomain(3)
+      isc = particle%itrdomain(3)
       ! Subcells 1, 2, 3, and 4 are Pollock's subcells A, B, C, and D,
       ! respectively
 
@@ -277,7 +277,7 @@ contains
         end if
 
         subcell%isubcell = isc
-        particle%idomain(3) = isc
+        particle%itrdomain(3) = isc
       end if
       dx = 5d-1 * dx
       dy = 5d-1 * dy

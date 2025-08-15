@@ -464,7 +464,7 @@ contains
           istatus = packobj%particles%istatus(np)
           ! this may need to change if istatus flags change
           if ((istatus > 0) .and. (istatus /= 8)) then
-            n = packobj%particles%idomain(np, 2)
+            n = packobj%particles%itrdomain(np, 2)
             ! Each particle currently assigned unit mass
             this%masssto(n) = this%masssto(n) + DONE
           end if

@@ -535,11 +535,11 @@ contains
     end if
 
     particle%ttrack = particle%trelease
-    particle%idomain(1) = 0
+    particle%itrdomain(1) = 0
     particle%iboundary(1) = 0
-    particle%idomain(2) = ic
+    particle%itrdomain(2) = ic
     particle%iboundary(2) = 0
-    particle%idomain(3) = 0
+    particle%itrdomain(3) = 0
     particle%iboundary(3) = 0
     particle%ifrctrn = this%ifrctrn
     particle%iexmeth = this%iexmeth

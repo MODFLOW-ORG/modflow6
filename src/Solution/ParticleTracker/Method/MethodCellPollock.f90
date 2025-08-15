@@ -69,7 +69,7 @@ contains
       events=this%events, &
       tracktimes=this%tracktimes)
     submethod => method_subcell_plck
-    particle%idomain(next_level) = 1
+    particle%itrdomain(next_level) = 1
   end subroutine load_mcp
 
   !> @brief Having exited the lone subcell, pass the particle to the cell face

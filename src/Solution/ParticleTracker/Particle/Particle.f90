@@ -70,8 +70,8 @@ module ParticleModule
     integer(I4B), public :: istopzone !< stop zone number
     integer(I4B), public :: idrymeth !< dry tracking method
     ! state
-    integer(I4B), allocatable, public :: idomain(:) !< tracking domain hierarchy ! TODO: rename to itdomain? idomain
-    integer(I4B), allocatable, public :: iboundary(:) !< tracking domain boundaries
+    integer(I4B), public :: itrdomain(MAX_LEVEL) !< tracking domain indices
+    integer(I4B), public :: iboundary(MAX_LEVEL) !< tracking domain boundary indices
     integer(I4B), public :: icp !< previous cell number (reduced)
     integer(I4B), public :: icu !< user cell number
     integer(I4B), public :: ilay !< grid layer
@@ -117,7 +117,7 @@ module ParticleModule
     integer(I4B), dimension(:), pointer, public, contiguous :: istopzone !< stop zone number
     integer(I4B), dimension(:), pointer, public, contiguous :: idrymeth !< stop in dry cells
     ! state
-    integer(I4B), dimension(:, :), pointer, public, contiguous :: idomain !< array of indices for domains in the tracking domain hierarchy
+    integer(I4B), dimension(:, :), pointer, public, contiguous :: itrdomain !< array of indices for domains in the tracking domain hierarchy
     integer(I4B), dimension(:, :), pointer, public, contiguous :: iboundary !< array of indices for tracking domain boundaries
     integer(I4B), dimension(:), pointer, public, contiguous :: icu !< cell number (user)
     integer(I4B), dimension(:), pointer, public, contiguous :: ilay !< layer
@@ -150,8 +150,6 @@ contains
     type(ParticleType), pointer :: particle !< particle
     allocate (particle)
     allocate (particle%history)
-    allocate (particle%idomain(MAX_LEVEL))
-    allocate (particle%iboundary(MAX_LEVEL))
   end subroutine create_particle
 
   !> @brief Allocate particle store
@@ -184,7 +182,7 @@ contains
     call mem_allocate(store%extol, np, 'PLEXTOL', mempath)
     call mem_allocate(store%extend, np, 'PLIEXTEND', mempath)
     call mem_allocate(store%icycwin, np, 'PLICYCWIN', mempath)
-    call mem_allocate(store%idomain, np, MAX_LEVEL, 'PLIDOMAIN', mempath)
+    call mem_allocate(store%itrdomain, np, MAX_LEVEL, 'PLIDOMAIN', mempath)
     call mem_allocate(store%iboundary, np, MAX_LEVEL, 'PLIBOUNDARY', mempath)
   end subroutine create_particle_store
 
@@ -216,7 +214,7 @@ contains
     call mem_deallocate(this%extol, 'PLEXTOL', mempath)
     call mem_deallocate(this%extend, 'PLIEXTEND', mempath)
     call mem_deallocate(this%icycwin, 'PLICYCWIN', mempath)
-    call mem_deallocate(this%idomain, 'PLIDOMAIN', mempath)
+    call mem_deallocate(this%itrdomain, 'PLIDOMAIN', mempath)
     call mem_deallocate(this%iboundary, 'PLIBOUNDARY', mempath)
   end subroutine destroy
 
@@ -224,8 +222,6 @@ contains
   subroutine destroy_particle(particle)
     class(ParticleType), intent(inout) :: particle !< particle
     deallocate (particle%history)
-    deallocate (particle%idomain)
-    deallocate (particle%iboundary)
   end subroutine destroy_particle
 
   !> @brief Reallocate particle storage to the given size.
@@ -259,7 +255,7 @@ contains
     call mem_reallocate(this%extol, np, 'PLEXTOL', mempath)
     call mem_reallocate(this%extend, np, 'PLIEXTEND', mempath)
     call mem_reallocate(this%icycwin, np, 'PLICYCWIN', mempath)
-    call mem_reallocate(this%idomain, np, MAX_LEVEL, 'PLIDOMAIN', mempath)
+    call mem_reallocate(this%itrdomain, np, MAX_LEVEL, 'PLIDOMAIN', mempath)
     call mem_reallocate(this%iboundary, np, MAX_LEVEL, 'PLIBOUNDARY', mempath)
   end subroutine resize
 
@@ -298,9 +294,9 @@ contains
     particle%tstop = this%tstop(ip)
     particle%ttrack = this%ttrack(ip)
     particle%advancing = .true.
-    particle%idomain(1:MAX_LEVEL) = &
-      this%idomain(ip, 1:MAX_LEVEL)
-    particle%idomain(1) = imdl
+    particle%itrdomain(1:MAX_LEVEL) = &
+      this%itrdomain(ip, 1:MAX_LEVEL)
+    particle%itrdomain(1) = imdl
     particle%iboundary(1:MAX_LEVEL) = &
       this%iboundary(ip, 1:MAX_LEVEL)
     particle%ifrctrn = this%ifrctrn(ip)
@@ -334,10 +330,10 @@ contains
     this%trelease(ip) = particle%trelease
     this%tstop(ip) = particle%tstop
     this%ttrack(ip) = particle%ttrack
-    this%idomain( &
+    this%itrdomain( &
       ip, &
       1:MAX_LEVEL) = &
-      particle%idomain(1:MAX_LEVEL)
+      particle%itrdomain(1:MAX_LEVEL)
     this%iboundary( &
       ip, &
       1:MAX_LEVEL) = &

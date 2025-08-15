@@ -35,7 +35,7 @@ contains
     allocate (SubCellExitEventType :: event)
     select type (event)
     type is (SubCellExitEventType)
-      event%isc = particle%idomain(3)
+      event%isc = particle%itrdomain(3)
       event%exit_face = particle%iboundary(3)
     end select
     call this%events%dispatch(particle, event)

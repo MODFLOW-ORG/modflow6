@@ -86,7 +86,7 @@ contains
 
     select type (cell => this%cell)
     type is (CellPolyType)
-      ic = particle%idomain(next_level)
+      ic = particle%itrdomain(next_level)
       call this%load_cell_defn(ic, cell%defn)
       if (this%fmi%ibdgwfsat0(ic) == 0) then
         ! Cell is active but dry, so select and initialize pass-to-bottom
@@ -175,17 +175,17 @@ contains
       ! as can occur e.g. in wells. terminate
       ! in the previous cell.
       if (ic == particle%icp .and. inface == 7 .and. ilay < particle%ilay) then
-        particle%idomain(2) = particle%icp
+        particle%itrdomain(2) = particle%icp
         particle%izone = particle%izp
         call this%terminate(particle, &
                             status=TERM_BOUNDARY)
         return
       else
-        particle%icp = particle%idomain(2)
+        particle%icp = particle%itrdomain(2)
         particle%izp = particle%izone
       end if
 
-      particle%idomain(2) = ic
+      particle%itrdomain(2) = ic
       particle%icu = icu
       particle%ilay = ilay
 
@@ -193,7 +193,7 @@ contains
       call this%map_neighbor(cell%defn, inface, z)
 
       particle%iboundary(2) = inface
-      particle%idomain(3:) = 0
+      particle%itrdomain(3:) = 0
       particle%iboundary(3:) = 0
       particle%z = z
     end select

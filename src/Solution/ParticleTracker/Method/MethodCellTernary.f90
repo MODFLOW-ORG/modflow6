@@ -109,7 +109,7 @@ contains
     integer(I4B) :: inface
 
     exitFace = particle%iboundary(3)
-    isc = particle%idomain(3)
+    isc = particle%itrdomain(3)
 
     select case (exitFace)
     case (0)
@@ -123,14 +123,14 @@ contains
       ! Subcell face --> next subcell in "cycle" (cell interior)
       isc = isc + 1
       if (isc .gt. this%nverts) isc = 1
-      particle%idomain(3) = isc
+      particle%itrdomain(3) = isc
       particle%iboundary(3) = 3
       inface = 0
     case (3)
       ! Subcell face --> preceding subcell in "cycle" (cell interior)
       isc = isc - 1
       if (isc .lt. 1) isc = this%nverts
-      particle%idomain(3) = isc
+      particle%itrdomain(3) = isc
       particle%iboundary(3) = 2
       inface = 0
     case (4)
@@ -280,7 +280,7 @@ contains
     type is (CellPolyType)
       ic = cell%defn%icell
       subcell%icell = ic
-      isc = particle%idomain(3)
+      isc = particle%itrdomain(3)
       if (isc .le. 0) then
         xi = particle%x
         yi = particle%y
@@ -315,7 +315,7 @@ contains
 
           call pstop(1)
         else
-          particle%idomain(3) = isc
+          particle%itrdomain(3) = isc
         end if
       end if
       subcell%isubcell = isc
