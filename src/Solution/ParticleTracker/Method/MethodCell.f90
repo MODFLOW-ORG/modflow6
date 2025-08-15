@@ -4,7 +4,7 @@ module MethodCellModule
   use ErrorUtilModule, only: pstop
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType, LEVEL_FEATURE
-  use ParticleModule, only: ParticleType, TERM_NO_EXITS, TERM_BOUNDARY
+  use ParticleModule, only: ParticleType, ACTIVE, TERM_NO_EXITS, TERM_BOUNDARY
   use ParticleEventModule, only: ParticleEventType
   use CellExitEventModule, only: CellExitEventType
   use CellDefnModule, only: CellDefnType
@@ -21,9 +21,33 @@ module MethodCellModule
     procedure, public :: forms_cycle
     procedure, public :: store_event
     procedure, public :: get_level
+    procedure, public :: try_pass
   end type MethodCellType
 
 contains
+  !> @brief Try passing the particle to the next subdomain.
+  subroutine try_pass(this, particle, nextlevel, advancing)
+    class(MethodCellType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    integer(I4B) :: nextlevel
+    logical(LGP) :: advancing
+
+    if (particle%advancing) then
+      ! if still advancing, pass to the next subdomain.
+      ! if that puts us on a boundary, then we're done.
+      ! raise a cell exit event.
+      call this%pass(particle)
+      if (particle%iboundary(nextlevel - 1) .ne. 0) then
+        advancing = .false.
+        call this%cellexit(particle)
+      end if
+    else
+      ! otherwise we're already done so
+      ! reset the domain boundary value.
+      advancing = .false.
+      particle%iboundary = 0
+    end if
+  end subroutine try_pass
 
   !> @brief Check reporting/terminating conditions before tracking
   !! the particle across the cell.
