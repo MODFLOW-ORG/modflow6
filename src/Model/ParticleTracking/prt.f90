@@ -18,14 +18,14 @@ module PrtModule
   use PrtOcModule, only: PrtOcType
   use BudgetModule, only: BudgetType
   use ListModule, only: ListType
-  use ParticleModule, only: ParticleType, create_particle
+  use ParticleModule, only: ParticleType, create_particle, TERM_UNRELEASED
   use ParticleEventsModule, only: ParticleEventDispatcherType, &
                                   ParticleEventConsumerType
   use ParticleTracksModule, only: ParticleTracksType, &
                                   ParticleTrackFileType
   use SimModule, only: count_errors, store_error, store_error_filename
   use MemoryManagerModule, only: mem_allocate
-  use MethodModule, only: MethodType
+  use MethodModule, only: MethodType, LEVEL_FEATURE
 
   implicit none
 
@@ -463,8 +463,8 @@ contains
         do np = 1, packobj%nparticles
           istatus = packobj%particles%istatus(np)
           ! this may need to change if istatus flags change
-          if ((istatus > 0) .and. (istatus /= 8)) then
-            n = packobj%particles%itrdomain(np, 2)
+          if ((istatus > 0) .and. (istatus /= TERM_UNRELEASED)) then
+            n = packobj%particles%itrdomain(np, LEVEL_FEATURE)
             ! Each particle currently assigned unit mass
             this%masssto(n) = this%masssto(n) + DONE
           end if

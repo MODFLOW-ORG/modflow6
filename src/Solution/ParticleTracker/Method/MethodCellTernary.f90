@@ -2,7 +2,7 @@ module MethodCellTernaryModule
 
   use KindModule, only: DP, I4B, LGP
   use ErrorUtilModule, only: pstop
-  use MethodModule, only: MethodType
+  use MethodModule, only: MethodType, LEVEL_FEATURE, LEVEL_SUBFEATURE
   use MethodCellModule, only: MethodCellType
   use MethodSubcellPoolModule
   use CellPolyModule
@@ -108,8 +108,8 @@ contains
     integer(I4B) :: exitFace
     integer(I4B) :: inface
 
-    exitFace = particle%iboundary(3)
-    isc = particle%itrdomain(3)
+    exitFace = particle%iboundary(LEVEL_SUBFEATURE)
+    isc = particle%itrdomain(LEVEL_SUBFEATURE)
 
     select case (exitFace)
     case (0)
@@ -123,15 +123,15 @@ contains
       ! Subcell face --> next subcell in "cycle" (cell interior)
       isc = isc + 1
       if (isc .gt. this%nverts) isc = 1
-      particle%itrdomain(3) = isc
-      particle%iboundary(3) = 3
+      particle%itrdomain(LEVEL_SUBFEATURE) = isc
+      particle%iboundary(LEVEL_SUBFEATURE) = 3
       inface = 0
     case (3)
       ! Subcell face --> preceding subcell in "cycle" (cell interior)
       isc = isc - 1
       if (isc .lt. 1) isc = this%nverts
-      particle%itrdomain(3) = isc
-      particle%iboundary(3) = 2
+      particle%itrdomain(LEVEL_SUBFEATURE) = isc
+      particle%iboundary(LEVEL_SUBFEATURE) = 2
       inface = 0
     case (4)
       ! Subcell bottom (cell bottom)
@@ -142,11 +142,11 @@ contains
     end select
 
     if (inface .eq. -1) then
-      particle%iboundary(2) = 0
+      particle%iboundary(LEVEL_FEATURE) = 0
     else if (inface .eq. 0) then
-      particle%iboundary(2) = 0
+      particle%iboundary(LEVEL_FEATURE) = 0
     else
-      particle%iboundary(2) = inface
+      particle%iboundary(LEVEL_FEATURE) = inface
     end if
   end subroutine pass_mct
 
@@ -243,7 +243,7 @@ contains
       call particle%reset_transform()
     end select
 
-    if (particle%iboundary(2) > 0) call this%cellexit(particle)
+    if (particle%iboundary(LEVEL_FEATURE) > 0) call this%cellexit(particle)
   end subroutine apply_mct
 
   !> @brief Loads a triangular subcell from the polygonal cell
@@ -280,7 +280,7 @@ contains
     type is (CellPolyType)
       ic = cell%defn%icell
       subcell%icell = ic
-      isc = particle%itrdomain(3)
+      isc = particle%itrdomain(LEVEL_SUBFEATURE)
       if (isc .le. 0) then
         xi = particle%x
         yi = particle%y
@@ -315,7 +315,7 @@ contains
 
           call pstop(1)
         else
-          particle%itrdomain(3) = isc
+          particle%itrdomain(LEVEL_SUBFEATURE) = isc
         end if
       end if
       subcell%isubcell = isc

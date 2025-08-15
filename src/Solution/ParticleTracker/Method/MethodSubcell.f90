@@ -1,5 +1,6 @@
 module MethodSubcellModule
   use KindModule, only: DP, I4B
+  use MethodModule, only: LEVEL_SUBFEATURE
   use MethodCellModule, only: MethodCellType
   use ParticleModule, only: ParticleType
   use CellDefnModule, only: CellDefnType
@@ -35,8 +36,8 @@ contains
     allocate (SubCellExitEventType :: event)
     select type (event)
     type is (SubCellExitEventType)
-      event%isc = particle%itrdomain(3)
-      event%exit_face = particle%iboundary(3)
+      event%isc = particle%itrdomain(LEVEL_SUBFEATURE)
+      event%exit_face = particle%iboundary(LEVEL_SUBFEATURE)
     end select
     call this%events%dispatch(particle, event)
   end subroutine subcellexit

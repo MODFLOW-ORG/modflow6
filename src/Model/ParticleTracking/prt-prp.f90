@@ -23,6 +23,7 @@ module PrtPrpModule
   use DisvModule, only: DisvType
   use ErrorUtilModule, only: pstop
   use MathUtilModule, only: arange, is_close
+  use MethodModule, only: LEVEL_MODEL, LEVEL_FEATURE, LEVEL_SUBFEATURE
 
   implicit none
 
@@ -535,12 +536,12 @@ contains
     end if
 
     particle%ttrack = particle%trelease
-    particle%itrdomain(1) = 0
-    particle%iboundary(1) = 0
-    particle%itrdomain(2) = ic
-    particle%iboundary(2) = 0
-    particle%itrdomain(3) = 0
-    particle%iboundary(3) = 0
+    particle%itrdomain(LEVEL_MODEL) = 0
+    particle%iboundary(LEVEL_MODEL) = 0
+    particle%itrdomain(LEVEL_FEATURE) = ic
+    particle%iboundary(LEVEL_FEATURE) = 0
+    particle%itrdomain(LEVEL_SUBFEATURE) = 0
+    particle%iboundary(LEVEL_SUBFEATURE) = 0
     particle%ifrctrn = this%ifrctrn
     particle%iexmeth = this%iexmeth
     particle%iextend = this%iextend

@@ -2,7 +2,7 @@ module MethodCellPollockModule
 
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DONE, DZERO
-  use MethodModule, only: MethodType
+  use MethodModule, only: MethodType, LEVEL_FEATURE, LEVEL_SUBFEATURE
   use MethodCellModule, only: MethodCellType
   use MethodSubcellPoolModule, only: method_subcell_plck, &
                                      method_subcell_tern
@@ -82,7 +82,7 @@ contains
     integer(I4B) :: exitface
     integer(I4B) :: entryface
 
-    exitface = particle%iboundary(3)
+    exitface = particle%iboundary(LEVEL_SUBFEATURE)
     ! Map subcell exit face to cell face
     select case (exitface) ! note: exitFace uses Dave's iface convention
     case (0)
@@ -101,7 +101,7 @@ contains
       entryface = 7
     end select
     if (entryface .eq. -1) then
-      particle%iboundary(2) = 0
+      particle%iboundary(LEVEL_FEATURE) = 0
     else
       if ((entryface .ge. 1) .and. (entryface .le. 4)) then
         ! Account for local cell rotation
@@ -111,7 +111,7 @@ contains
         end select
         if (entryface .gt. 4) entryface = entryface - 4
       end if
-      particle%iboundary(2) = entryface
+      particle%iboundary(LEVEL_FEATURE) = entryface
     end if
   end subroutine pass_mcp
 
@@ -152,7 +152,7 @@ contains
       call particle%reset_transform()
     end select
 
-    if (particle%iboundary(2) > 0) call this%cellexit(particle)
+    if (particle%iboundary(LEVEL_FEATURE) > 0) call this%cellexit(particle)
   end subroutine apply_mcp
 
   !> @brief Loads the lone rectangular subcell from the rectangular cell

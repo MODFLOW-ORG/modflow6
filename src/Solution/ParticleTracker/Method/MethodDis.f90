@@ -2,7 +2,7 @@ module MethodDisModule
 
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DONE, DZERO
-  use MethodModule, only: MethodType
+  use MethodModule, only: MethodType, LEVEL_FEATURE
   use MethodModelModule, only: MethodModelType
   use MethodCellPoolModule
   use CellModule
@@ -196,7 +196,7 @@ contains
     select type (dis => this%fmi%dis)
     type is (DisType)
       ! compute reduced/user node numbers and layer
-      inface = particle%iboundary(2)
+      inface = particle%iboundary(LEVEL_FEATURE)
       inbr = cell%defn%facenbr(inface)
       idiag = this%fmi%dis%con%ia(cell%defn%icell)
       ipos = idiag + inbr
@@ -211,18 +211,18 @@ contains
       ! as can occur e.g. in wells. terminate
       ! in the previous cell.
       if (ic == particle%icp .and. inface == 7 .and. ilay < particle%ilay) then
-        particle%itrdomain(2) = particle%icp
+        particle%itrdomain(LEVEL_FEATURE) = particle%icp
         particle%izone = particle%izp
         call this%terminate(particle, &
                             status=TERM_BOUNDARY)
         return
       else
-        particle%icp = particle%itrdomain(2)
+        particle%icp = particle%itrdomain(LEVEL_FEATURE)
         particle%izp = particle%izone
       end if
 
       ! update node numbers and layer
-      particle%itrdomain(2) = ic
+      particle%itrdomain(LEVEL_FEATURE) = ic
       particle%icu = icu
       particle%ilay = ilay
 
@@ -240,7 +240,7 @@ contains
       else if (inface .eq. 7) then
         inface = 6
       end if
-      particle%iboundary(2) = inface
+      particle%iboundary(LEVEL_FEATURE) = inface
 
       ! map z between cells
       z = particle%z
@@ -270,7 +270,7 @@ contains
     integer(I4B) :: inface
     integer(I4B) :: ipos
 
-    inface = particle%iboundary(2)
+    inface = particle%iboundary(LEVEL_FEATURE)
     inbr = cell%defn%facenbr(inface)
     idiag = this%fmi%dis%con%ia(cell%defn%icell)
     ipos = idiag + inbr
@@ -299,7 +299,7 @@ contains
       ! If the entry face has no neighbors it's a
       ! boundary face, so terminate the particle.
       ! todo AMP: reconsider when multiple models supported
-      if (cell%defn%facenbr(particle%iboundary(2)) .eq. 0) then
+      if (cell%defn%facenbr(particle%iboundary(LEVEL_FEATURE)) .eq. 0) then
         call this%terminate(particle, &
                             status=TERM_BOUNDARY)
       else

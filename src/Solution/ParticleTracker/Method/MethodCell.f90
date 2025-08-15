@@ -3,7 +3,7 @@ module MethodCellModule
   use KindModule, only: DP, I4B, LGP
   use ErrorUtilModule, only: pstop
   use ConstantsModule, only: DONE, DZERO
-  use MethodModule, only: MethodType
+  use MethodModule, only: MethodType, LEVEL_FEATURE
   use ParticleModule, only: ParticleType, TERM_NO_EXITS, TERM_BOUNDARY
   use ParticleEventModule, only: ParticleEventType
   use CellExitEventModule, only: CellExitEventType
@@ -182,7 +182,7 @@ contains
     allocate (CellExitEventType :: event)
     select type (event)
     type is (CellExitEventType)
-      event%exit_face = particle%iboundary(2)
+      event%exit_face = particle%iboundary(LEVEL_FEATURE)
     end select
     call this%events%dispatch(particle, event)
     if (particle%icycwin == 0) then

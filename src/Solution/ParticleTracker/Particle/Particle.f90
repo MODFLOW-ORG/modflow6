@@ -8,11 +8,7 @@ module ParticleModule
   implicit none
   public
 
-  !> Tracking "levels" (1: model, 2: cell, 3: subcell). A
-  !! level identifies the domain through which a tracking
-  !! method is responsible for moving a particle. Methods
-  !! each operate on a particular level, delegating among
-  !! more methods as appropriate for finer-grained levels.
+  !> Tracking "levels" defined in method modules. Currently only 3 used.
   integer, parameter :: MAX_LEVEL = 4
 
   !> @brief Particle status enumeration.

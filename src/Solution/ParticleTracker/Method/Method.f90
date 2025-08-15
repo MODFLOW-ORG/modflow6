@@ -22,6 +22,22 @@ module MethodModule
   use MathUtilModule, only: is_close
   implicit none
 
+  public :: LEVEL_MODEL, LEVEL_FEATURE, LEVEL_SUBFEATURE
+
+  !> @brief Tracking method level enumeration.
+  !!
+  !> Tracking levels: 1: model, 2: grid feature, 3: grid subfeature.
+  !! A tracking level identifies the domain through which a tracking
+  !! method is responsible for moving a particle. Methods operate on
+  !! a particular level and delegate to submethods for levels higher
+  !! than (i.e. below the scope of) their own.
+  !<
+  enum, bind(C)
+    enumerator :: LEVEL_MODEL = 1
+    enumerator :: LEVEL_FEATURE = 2
+    enumerator :: LEVEL_SUBFEATURE = 3
+  end enum
+
   private
   public :: MethodType
 
