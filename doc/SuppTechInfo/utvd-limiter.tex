@@ -52,19 +52,20 @@ Finally, the smoothness indicator $r$ is rewritten as:
 In the previous section, the unknown value $\phi_u$ was replaced by the cell-centered gradient $\nabla \phi_c$. 
 Fortunately, established methods exist to calculate gradients at cell centers.
 This implementation uses the weighted least-squares method, which performs well on skewed or distorted cells.
-The weighted least-squares method uses values in neighboring cells to calculate the gradient at cell center $p$ by minimizing the weighted sum of squared errors:
+The weighted least-squares method uses values in neighboring cells to calculate the gradient at cell center $p$ by minimizing the weighted sum of squared errors between the computed directional derivative and the directional derivative implied by the gradient:
 \begin{equation}
-	E = \sum_{n=1}^{N} \left(\Delta \phi_n / \|\vec{d}_n \| - \vec{\nabla}\phi_p \cdot \vec{d}_n / \|\vec{d}_n \|\right)^2
+	E = \sum_{n=1}^{N} \omega_i \left(\Delta \phi_n / \|\vec{d}_n \| - \vec{\nabla}\phi_p \cdot \vec{d}_n / \|\vec{d}_n \|\right)^2
 \end{equation}
-where $\vec{d}_n$ is the distance vector connecting the cell centers of cells $p$ and $n$, $|\vec{d}_n \|$ is the distance between the cell centers, and $\Delta\phi_n$ is the difference between the cell values.
-Here, $\Delta \phi_n / \|\vec{d}_n\|$ represents the directional derivative and $\vec{d_n} /\|\vec{d}_n\|$ is the unit vector along the connection. The corresponding normal equation is:
+In this equation, $\vec{d}_n$ represents the distance vector connecting the cell centers of cells $p$ and $n$, while $\|\vec{d}_n \|$ is the magnitude of this vector (i.e., the distance between the cell centers). 
+The term $\Delta\phi_n$ denotes the difference between the cell values at these two locations.
+The expression $\Delta \phi_n / \|\vec{d}_n\|$ represents the directional derivative along the connection, and $\vec{d_n} /\|\vec{d}_n\|$ is the corresponding unit vector. The corresponding normal equation is:
 \begin{equation}
-	\begin{bmatrix}G\end{bmatrix} \vec{\nabla}\phi_p = \begin{bmatrix}d\end{bmatrix}^T \vec{\nabla}\phi_N
+	\begin{bmatrix}G\end{bmatrix} \vec{\nabla}\phi_p = \begin{bmatrix}d\end{bmatrix}^T \begin{bmatrix}W\end{bmatrix} \vec{\nabla}\phi_N
 	\label{eqn:normal-eqn}
 \end{equation}
 with
 \begin{equation}
-	\begin{bmatrix}G\end{bmatrix} = \begin{bmatrix}d\end{bmatrix}^T \begin{bmatrix}d\end{bmatrix}
+	\begin{bmatrix}G\end{bmatrix} = \begin{bmatrix}d\end{bmatrix}^T \begin{bmatrix}W\end{bmatrix} \begin{bmatrix}d\end{bmatrix}
 \end{equation}
 where
 \begin{equation}
@@ -75,7 +76,7 @@ where
 		d_{N,x}/\|\vec{d_N}\| & d_{N,y}/\|\vec{d_N}\| & d_{N,z}/\|\vec{d_N}\|
 	\end{bmatrix}
 \end{equation}
-and
+Note that in the normal equation \ref{eqn:normal-eqn} the difference term , $\Delta \phi_N$ has been replaced by the directional derivative, which is defined as:
 \begin{equation}
  \vec{\nabla}\phi_N = 
 	\begin{Bmatrix}
@@ -83,37 +84,42 @@ and
 		\vdots \\
 		 \Delta \phi_N / \|\vec{d}_N\|
 	\end{Bmatrix} = 
-	\begin{bmatrix}D\end{bmatrix}^{-1}\vec{ \Delta\phi}_N
+	\begin{bmatrix}D\end{bmatrix}\vec{ \Delta\phi}_N
 \end{equation}
 \begin{equation}
 	\begin{bmatrix}D\end{bmatrix} = 
 		\begin{bmatrix}
-		\|\vec{d}_1\| & &\\
+		1 / \|\vec{d}_1\| & &\\
 		 & \ddots &\\
-		& & \|\vec{d}_N\|
+		& & 1 / \|\vec{d}_N\|
 	\end{bmatrix}
 \end{equation}
 
- Assuming $\begin{bmatrix}G	\end{bmatrix}$ is invertible, the gradient can now be computed by:
+\noindent Assuming $\begin{bmatrix}G\end{bmatrix}$ is invertible, the gradient can now be computed by:
 
 \begin{equation}
-  \vec{\nabla}\phi_p=\begin{bmatrix}G\end{bmatrix}^{-1}\begin{bmatrix}d\end{bmatrix}^{T}\vec{\nabla}\phi_N
+  \vec{\nabla}\phi_p=\begin{bmatrix}G\end{bmatrix}^{-1}\begin{bmatrix}d\end{bmatrix}^{T} \begin{bmatrix}W\end{bmatrix}\vec{\nabla}\phi_N
   \label{eqn:least-squares-gradient-G-invertible}
 \end{equation}
 
-On non-deforming grids, most of these calculations can be performed during the initialization phase. To accomplish this, a reconstruction matrix $\begin{bmatrix}R\end{bmatrix}$ is introduced:
+\noindent On non-deforming grids, most of these calculations can be performed during the initialization phase. To accomplish this, a reconstruction matrix $\begin{bmatrix}R\end{bmatrix}$ is introduced:
 
 \begin{equation}
   \vec{\nabla}\phi_p=\begin{bmatrix}R\end{bmatrix}\vec{\Delta\phi_N}
   \label{eqn:soln-in-terms-of-R}
 \end{equation}
 
-Note that this equation uses the original difference vector $\vec{\Delta\phi}_N$ rather than the weighted directional gradient vector. This formulation is computationally more efficient and allows the $\begin{bmatrix}D\end{bmatrix}$ matrix to be absorbed into the reconstruction matrix $\begin{bmatrix}R\end{bmatrix}$, which contains the static components that need to be calculated only once:
+\noindent Note that this equation uses the original difference vector $\vec{\Delta\phi}_N$ rather than the weighted directional gradient vector. This formulation is computationally more efficient and allows the $\begin{bmatrix}D\end{bmatrix}$  and  $\begin{bmatrix}W\end{bmatrix}$ matrices to be absorbed into the reconstruction matrix $\begin{bmatrix}R\end{bmatrix}$, which contains the static components that need to be calculated only once:
 
 \begin{equation}
-  \begin{bmatrix}R\end{bmatrix}= \begin{bmatrix}G\end{bmatrix}^{-1}\begin{bmatrix}d\end{bmatrix}^{T}\begin{bmatrix}D\end{bmatrix}^{-1}
+  \begin{bmatrix}R\end{bmatrix}= \begin{bmatrix}G\end{bmatrix}^{-1}\begin{bmatrix}d\end{bmatrix}^{T} \begin{bmatrix}W\end{bmatrix}\begin{bmatrix}D\end{bmatrix}^{-1}
   \label{eqn:R-for-invertible-G}
 \end{equation}
+
+It should be noted that in this implementation, the weighting matrix $\begin{bmatrix}W\end{bmatrix}$ has been chosen to be the identity matrix (i.e., $\omega_i = 1$ for all $i$). 
+By using directional derivatives in the optimization problem instead of regular derivatives, this choice becomes mathematically equivalent to using inverse distance weighting in the standard least squares gradient approach.
+Moreover, this formulation provides flexibility for future enhancements, allowing for the implementation of alternative weighting schemes such as inverse squared distance weighting or other distance-based functions as needed.
+For clarity and simplicity in the subsequent sections, the weighting matrix $\begin{bmatrix}W\end{bmatrix}$ will be omitted from the equations, with the understanding that it equals the identity matrix.
 
 \subsection{A Unified Approach: The Pseudoinverse}
 
@@ -123,12 +129,12 @@ While we could detect these cases and handle them with separate code, a more ele
 
 Using the pseudoinverse approach, the general solution to the normal equation, \ref{eqn:normal-eqn}, can be written as:
 \begin{equation}
-	\vec{\nabla}\phi_p = \begin{bmatrix}d\end{bmatrix}^{\dagger} \begin{bmatrix}D\end{bmatrix}^{-1} \vec{\Delta\phi}_N
+	\vec{\nabla}\phi_p = \begin{bmatrix}d\end{bmatrix}^{\dagger} \begin{bmatrix}D\end{bmatrix} \vec{\Delta\phi}_N
 	\label{eqn:least-squares-gradient-general}
 \end{equation}
 The corresponding gradient reconstruction matrix is:
 \begin{equation}
-	\begin{bmatrix}R\end{bmatrix} = \begin{bmatrix}d\end{bmatrix}^{\dagger} \begin{bmatrix}D\end{bmatrix}^{-1}
+	\begin{bmatrix}R\end{bmatrix} = \begin{bmatrix}d\end{bmatrix}^{\dagger} \begin{bmatrix}D\end{bmatrix}
 \end{equation}
 
 \subsection{Limitations and Recommendations}
