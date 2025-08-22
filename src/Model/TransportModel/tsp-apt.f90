@@ -472,6 +472,10 @@ contains
         end if
       end do stressperiod
       !
+      ! -- call pbst_rp() routines based on which pbst sub-packages are
+      !    activated (if any)
+      call this%ancil_rp()
+      !
       if (this%iprpak /= 0) then
         call this%inputtab%finalize_table()
       end if

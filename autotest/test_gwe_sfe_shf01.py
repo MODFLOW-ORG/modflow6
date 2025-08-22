@@ -1,5 +1,4 @@
-# Test the use of the atmospheric boundary condition utility, specifically the
-# sensible heat flux calculations, used in conjunction with the
+# Test the use of the sensible heat flux utility used in conjunction with the
 # SFE advanced package.  This test checks to make sure that simulated sensible
 # heat flux amounts are inline with what would be expected given changes in
 # specific input parameters (while holding the others constant).  Relative
@@ -21,10 +20,7 @@ import pandas as pd
 import pytest
 from framework import TestFramework
 
-cases = ["sfe-shf"]  # , "sfe-shf-ts"]
-
-DCTOK = 273.16
-
+cases = ["sfe-shf", "sfe-shf-ts"]
 #
 # The last letter in the names above indicates the following
 # n = "no gw/sw exchange"
@@ -103,14 +99,8 @@ surf_Q_in = [8.64, 86.4, 8.64, 8.64]  # 86400 m^3/d = 1 m^3/s = 35.315 cfs
 # Stress periods 3 and 4 return to the same flow rate as stress period 1
 # For stress period 3, increase wpd (everything else remains as is)
 # For stress period 4, increase tatm (everything else remains as is)
-wspd = [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [6.0, 5.0, 4.0], [1.0, 1.0, 1.0]]
-tatm = [
-    [10.0, 10.0, 10.0],
-    [10.0, 10.0, 10.0],
-    [10.0, 10.0, 10.0],
-    [30.0, 25.0, 20.0],
-]  # deg C
-tatmK = [[item + DCTOK for item in sublist] for sublist in tatm]
+wspd = [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [4.0, 5.0, 6.0], [1.0, 1.0, 1.0]]
+tatm = [[10.0, 10.0, 10.0], [10.0, 10.0, 10.0], [10.0, 10.0, 10.0], [15.0, 20.0, 30.0]]
 
 
 # Package boundary conditions
@@ -146,8 +136,7 @@ Cpw = 4180  # Heat capacity of water ($J/kg/C$)
 Cps = 880  # Heat capacity of the solids ($J/kg/C$)
 lhv = 2454000.0  # Latent heat of vaporization ($J/kg$)
 # Thermal conductivity of the streambed material ($W/m/C$)
-# K_therm_strmbed = [1.5, 1.75, 2.0]
-K_therm_strmbed = [0.0, 0.0, 0.0]
+K_therm_strmbed = [1.5, 1.75, 2.0]
 rbthcnd = 0.0001
 
 # time params
@@ -318,7 +307,6 @@ def build_models(idx, test):
             pname="sfrxsectable" + str(n + 1),
         )
 
-    init_stgs = []
     packagedata = []
     for irch in range(nreaches):
         nconn = 1
@@ -339,12 +327,6 @@ def build_models(idx, test):
             ndv,
         ]
         packagedata.append(rp)
-
-        init_stgs = [
-            [0, 100.2533605521219],
-            [1, 100.0022143308538],
-            [2, 99.75145344348398],
-        ]
 
     connectiondata = []
     for irch in range(nreaches):
@@ -371,19 +353,15 @@ def build_models(idx, test):
             ("rch1_width", "wet-width", 1),
             ("rch2_width", "wet-width", 2),
             ("rch3_width", "wet-width", 3),
-            ("rch1_stg", "stage", 1),
-            ("rch2_stg", "stage", 2),
-            ("rch3_stg", "stage", 3),
         ],
-        "digits": 20,
+        "digits": 8,
         "print_input": True,
-        "filename": gwfname + ".sfr.obs",
+        "filename": name + ".sfr.obs",
     }
 
     budpth = f"{gwfname}.sfr.cbc"
     flopy.mf6.ModflowGwfsfr(
         gwf,
-        storage=True,
         save_flows=True,
         print_stage=True,
         print_flows=True,
@@ -396,7 +374,6 @@ def build_models(idx, test):
         packagedata=packagedata,
         connectiondata=connectiondata,
         crosssections=crosssections,
-        initialstages=init_stgs,
         perioddata=sfr_perioddata,
         observations=sfr_obs,
         pname="SFR",
@@ -505,7 +482,7 @@ def build_models(idx, test):
         "filename": gwename + ".sfe.obs",
     }
 
-    abc_filename = f"{gwename}.sfe.abc"
+    shf_filename = f"{gwename}.sfe.shf"
     sfe = flopy.mf6.modflow.ModflowGwesfe(
         gwe,
         boundnames=False,
@@ -523,26 +500,23 @@ def build_models(idx, test):
         filename=f"{gwename}.sfe",
     )
 
-    # abc (only shf is active)
-    abc_spd = {}
+    # shf
+    shf_spd = {}
     for kper in range(len(nstp)):
         spd = []
         for irno in range(ncol):
             spd.append([irno, "WSPD", wspd[kper][irno]])
-            spd.append([irno, "TATM", tatmK[kper][irno]])
-        abc_spd[kper] = spd
+            spd.append([irno, "TATM", tatm[kper][irno]])
+        shf_spd[kper] = spd
 
-    abc = flopy.mf6.ModflowUtlabc(
+    shf = flopy.mf6.ModflowUtlshf(
         sfe,
         print_input=True,
         density_air=1.225,
         heat_capacity_air=717.0,
         drag_coefficient=0.002,
-        reachperioddata=abc_spd,
-        swr_off=True,
-        lwr_off=True,
-        lhf_off=True,
-        filename=abc_filename,
+        reachperioddata=shf_spd,
+        filename=shf_filename,
     )
 
     # Instantiate Output Control package for transport
@@ -609,23 +583,22 @@ def check_output(idx, test):
     # From SP1 to SP4: temperature of the atmosphere increases each successive
     #                  reach
     for i in np.arange(sfeoutdf.shape[0]):
-        assert abs(sfeoutdf.loc[i, "RCH1_SHF"]) > abs(sfeoutdf.loc[i, "RCH2_SHF"]), (
-            "shf not increasing from reach 1 to 2 as expected in SP " + str(i + 1)
+        assert abs(sfeoutdf.loc[i, "RCH1_SHF"]) < abs(sfeoutdf.loc[i, "RCH2_SHF"]), (
+            "magnitude of shf not increasing from reach 1 to reach 2 as expected."
         )
-        assert abs(sfeoutdf.loc[i, "RCH2_SHF"]) > abs(sfeoutdf.loc[i, "RCH3_SHF"]), (
-            "shf not increasing from reach 2 to 3 as expected in SP " + str(i + 1)
+        assert abs(sfeoutdf.loc[i, "RCH2_SHF"]) < abs(sfeoutdf.loc[i, "RCH3_SHF"]), (
+            "magnitude of shf not increasing from reach 2 to reach 3 as expected."
         )
 
     # as a result of the amount of energy leaving from shf, ensure that
     # temperatures are changing accordingly in each successive reach
-    msg2 = "temperatures should decrease moving downstream. Something is amiss in SP "
+    msg2 = (
+        "temperatures should be decreasing in the downstream direction as a "
+        "result of sensible heat flux losses"
+    )
     for i in np.arange(sfeoutdf.shape[0]):
-        assert sfeoutdf.loc[i, "RCH1_OUTFTEMP"] > sfeoutdf.loc[i, "RCH2_OUTFTEMP"], (
-            msg2 + str(i + 1)
-        )
-        assert sfeoutdf.loc[i, "RCH2_OUTFTEMP"] > sfeoutdf.loc[i, "RCH3_OUTFTEMP"], (
-            msg2 + str(i + 1)
-        )
+        assert sfeoutdf.loc[i, "RCH1_OUTFTEMP"] > sfeoutdf.loc[i, "RCH2_OUTFTEMP"], msg2
+        assert sfeoutdf.loc[i, "RCH2_OUTFTEMP"] > sfeoutdf.loc[i, "RCH3_OUTFTEMP"], msg2
 
     # there should be no "external" energy outflow for the first or second
     # reaches

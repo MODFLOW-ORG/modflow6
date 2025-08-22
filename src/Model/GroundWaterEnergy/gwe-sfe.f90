@@ -22,7 +22,7 @@
 
 ! -- SFE terms
 ! STRMBD-COND               idxbudsbcd    STRMBD-COND           ktf * wa / sbthk * (t_cell - t_feat)
-! ATM BC                    idxbudabc     ATMOSPHERE            swr + lwr + shf - lhf
+! ATM BC                    idxbudabc     ATMOSPHERE            swr + lwr + shf + lhf
 ! SENSIBLE HEAT FLUX        idxbudshf     SENS HEAT             cd * rho_a * C_p_a * wspd * (t_air - t_feat)
 ! SHORTWAVE RADIATION       idxbudswr     SHORTWAVE             (1 - shd) * (1 - swrefl) * solr
 
@@ -50,7 +50,7 @@ module GweSfeModule
   use TspAptModule, only: TspAptType, apt_process_obsID, &
                           apt_process_obsID12
   use GweInputDataModule, only: GweInputDataType
-  use AbcModule
+  use AbcModule, only: AbcType, abc_cr
   use MatrixBaseModule
   use InputOutputModule, only: openfile
   !
@@ -76,6 +76,8 @@ module GweSfeModule
 
     logical, pointer, public :: abc_active => null() !< logical indicating if an atmospheric boundary condition object is active
 
+    logical, pointer, public :: abc_active => null() !< logical indicating if an atmospheric boundary condition object is active
+    
     real(DP), dimension(:), pointer, contiguous :: temprain => null() !< rainfall temperature
     real(DP), dimension(:), pointer, contiguous :: tempevap => null() !< evaporation temperature
     real(DP), dimension(:), pointer, contiguous :: temproff => null() !< runoff temperature
@@ -86,9 +88,9 @@ module GweSfeModule
     real(DP), dimension(:), pointer, contiguous :: rfeatthk => null() !< thickness of streambed material through which thermal conduction occurs
 
     type(AbcType), pointer :: abc => null() ! atmospheric boundary condition (abc) object
-
+    
     integer(I4B), pointer :: inabc => null() ! ABC (atmospheric boundary condition utility) unit number (0 if unused)
-
+   
   contains
 
     procedure :: bnd_ad => sfe_ad
@@ -228,9 +230,8 @@ contains
       ! -- create atmospheric boundary condition object
       call openfile(this%inabc, this%iout, fname, 'ABC')
       call abc_cr(this%abc, this%name_model, this%inabc, this%iout, fname, &
-                  this%ncv, this%gwecommon, this%numericalpackagetype%dis) !, this%mempath)
+                  this%ncv, this%gwecommon) !, this%mempath)
       call this%abc%read_options()
-      call this%abc%abc_df()
       !this%abc%inputFilename = fname
       !
       ! -- call _ar routine for abc sub-package
@@ -771,7 +772,7 @@ contains
       end if
     end do
     !
-    ! -- Atmospheric boundary heat exchange
+    ! -- Sensible-heat
     if (this%inabc /= 0) then
       idx = idx + 1
       nlist = this%flowbudptr%budterm(this%idxbudgwf)%nlist
@@ -802,7 +803,6 @@ contains
     call mem_allocate(this%idxbudroff, 'IDXBUDROFF', this%memoryPath)
     call mem_allocate(this%idxbudiflw, 'IDXBUDIFLW', this%memoryPath)
     call mem_allocate(this%idxbudoutf, 'IDXBUDOUTF', this%memoryPath)
-    call mem_allocate(this%idxbudabc, 'IDXBUDABC', this%memoryPath)
     call mem_allocate(this%abc_active, 'ABC_ACTIVE', this%memoryPath)
     call mem_allocate(this%inabc, 'INABC', this%memoryPath)
     !
@@ -812,7 +812,6 @@ contains
     this%idxbudroff = 0
     this%idxbudiflw = 0
     this%idxbudoutf = 0
-    this%idxbudabc = 0
     !
     this%abc_active = .false.
     this%inabc = 0
@@ -912,6 +911,9 @@ contains
     call mem_deallocate(this%idxbudiflw)
     call mem_deallocate(this%idxbudoutf)
     call mem_deallocate(this%idxbudabc)
+    !
+    call mem_deallocate(this%abc_active)
+    call mem_deallocate(this%inabc)
     !
     call mem_deallocate(this%abc_active)
     call mem_deallocate(this%inabc)
@@ -1125,8 +1127,7 @@ contains
     real(DP) :: sa !< surface area of stream reach, different than wetted area
     !
     n1 = this%flowbudptr%budterm(this%idxbudevap)%id1(ientry)
-    ! -- For now, there is only 1 aux variable under 'EVAPORATION' which
-    !    is reach surface area
+    ! -- For now, there is only 1 aux variable under 'EVAPORATION'
     auxpos = this%flowbudptr%budterm(this%idxbudevap)%naux
     sa = this%flowbudptr%budterm(this%idxbudevap)%auxvar(auxpos, ientry)
     !
@@ -1137,7 +1138,7 @@ contains
     if (present(rhsval)) rhsval = -rrate
     if (present(hcofval)) hcofval = DZERO
   end subroutine sfe_abc_term
-
+  !
   !> @brief Observations
   !!
   !! Store the observation type supported by the APT package and override
@@ -1215,35 +1216,9 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
     !
     ! -- Store obs type and assign procedure pointer
-    !    for net atmospheric boundary condition (abc) flux observation type.
+    !    for atm-bnd-flux observation type.
     call this%obs%StoreObsType('abc', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-    !
-    ! -- Store obs type and assign procedure pointer
-    !    for shortwave-radiation-flux observation type.
-    call this%obs%StoreObsType('swr', .true., indx)
-    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-    !
-    ! -- Store obs type and assign procedure pointer
-    !    for longwave radiation flux observation type.
-    call this%obs%StoreObsType('lwr', .true., indx)
-    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-    !
-    ! -- Store obs type and assign procedure pointer
-    !    for latent heat flux observation type.
-    call this%obs%StoreObsType('lhf', .true., indx)
-    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-    !
-    ! -- Store obs type and assign procedure pointer
-    !    for sensible heat flux observation type.
-    call this%obs%StoreObsType('shf', .true., indx)
-    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-    !
-    ! -- Store obs type and assign procedure pointer
-    !    for evaporation rate observation type.
-    call this%obs%StoreObsType('surfevap', .true., indx)
-    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-    !
   end subroutine sfe_df_obs
 
   !> @brief Process package specific obs
@@ -1274,16 +1249,6 @@ contains
     case ('STRMBD-COND')
       call this%rp_obs_byfeature(obsrv)
     case ('ABC')
-      call this%rp_obs_byfeature(obsrv)
-    case ('SWR')
-      call this%rp_obs_byfeature(obsrv)
-    case ('LWR')
-      call this%rp_obs_byfeature(obsrv)
-    case ('LHF')
-      call this%rp_obs_byfeature(obsrv)
-    case ('SHF')
-      call this%rp_obs_byfeature(obsrv)
-    case ('SURFEVAP')
       call this%rp_obs_byfeature(obsrv)
     case default
       found = .false.
@@ -1336,30 +1301,6 @@ contains
     case ('ABC')
       if (this%iboundpak(jj) /= 0) then
         call this%sfe_abc_term(jj, n1, n2, v)
-      end if
-    case ('SWR')
-      if (this%iboundpak(jj) /= 0) then
-        !call this%swr_abc_term(jj, n1, n2, v)
-        call this%abc%abc_cq(jj, strmtemp, v, 'swr')
-      end if
-    case ('LWR')
-      if (this%iboundpak(jj) /= 0) then
-        !call this%lwr_abc_term(jj, n1, n2, v)
-        call this%abc%abc_cq(jj, strmtemp, v, 'lwr')
-      end if
-    case ('LHF')
-      if (this%iboundpak(jj) /= 0) then
-        !call this%lhf_abc_term(jj, n1, n2, v)
-        call this%abc%abc_cq(jj, strmtemp, v, 'lhf')
-      end if
-    case ('SHF')
-      if (this%iboundpak(jj) /= 0) then
-        !call this%shf_abc_term(jj, n1, n2, v)
-        call this%abc%abc_cq(jj, strmtemp, v, 'shf')
-      end if
-    case ('SURFEVAP')
-      if (this%iboundpak(jj) /= 0) then
-        call this%abc%abc_evap(jj, strmtemp, v)
       end if
     case default
       found = .false.

@@ -1,12 +1,14 @@
-# Test the use of the shortwave radiation utility used in conjunction with the
-# SFE advanced package.  This test is a single cell with a single reach.
+# Test the use of the atmospheric boundary condition utility used in conjunction with
+# the SFE advanced package.  This test is a single cell with a single reach.
 # Channel flow characteristics are unrealistic: Manning's n is unrealistically
 # low and slope is extremely high. These conditions result in an extremely high
 # streamflow velocity that results in nearly all of the heat being added to the
 # channel exiting at the outlet with very near negligle heat storage increases
-# in the channel.  The result is a 1 deg C rise in temperature in the
+# in the channel. This test only uses latent heat flux (lhf).
+# The result is a -1 deg C change in temperature in the
 # streamflow - an easy result to confirm in this test.
 
+import math
 import os
 
 import flopy
@@ -15,7 +17,7 @@ import pandas as pd
 import pytest
 from framework import TestFramework
 
-cases = ["sfe-swr"]
+cases = ["sfe-abc"]
 
 # Model units
 length_units = "m"
@@ -50,14 +52,18 @@ laytyp = 1
 sfr_evaprate = 0.0
 rhk = 0.0
 rwid = 1.0
-strm_temp = 1.0
+strm_temp = 20.0
 surf_Q_in = [
     [10.0],
 ]
+# sensible and latent heat flux parameter values
+wspd = 20.0
+tatm = 270.87556216  # unrealistically high to drive a -1C change in stream temperature
 # shortwave radiation parameter values
 solr = 47880870.9  # unrealistically high to drive a 1 deg C rise in stream temperature
-shd = 0.1
+shd = 1.0  # 100% shade "turns off" solar flux
 swrefl = 0.03
+rh = 100.0  # percent
 
 # Transport related parameters
 porosity = sy  # porosity (unitless)
@@ -69,7 +75,9 @@ Cpw = 4180  # Heat capacity of water ($J/kg/C$)
 Cps = 880  # Heat capacity of the solids ($J/kg/C$)
 Cpa = 717.0  # Heat capacity of the atmosphere ($J/kg/C$)
 lhv = 2454000.0  # Latent heat of vaporization ($J/kg$)
-# c_d = 0.002  # Drag coefficient ($unitless$)
+c_d = 0.0  # Drag coefficient ($unitless$) !!
+wf_slope = 1.383e-08  # wind function slope ($1/mbar$)
+wf_int = 3.445e-09  # wind function intercept ($m/s$)
 # Thermal conductivity of the streambed material ($W/m/C$)
 K_therm_strmbed = 0.0
 rbthcnd = 0.0001
@@ -358,7 +366,7 @@ def build_models(idx, test):
         "filename": gwename + ".sfe.obs",
     }
 
-    swr_filename = f"{gwename}.sfe.swr"
+    abc_filename = f"{gwename}.sfe.abc"
     sfe = flopy.mf6.modflow.ModflowGwesfe(
         gwe,
         boundnames=False,
@@ -376,21 +384,29 @@ def build_models(idx, test):
         filename=f"{gwename}.sfe",
     )
 
-    # Swr utility
-    swr_spd = {}
+    # Abc utility
+    abc_spd = {}
     for kper in range(len(nstp)):
         spd = []
         for irno in range(ncol):
+            spd.append([irno, "WSPD", wspd])
+            spd.append([irno, "TATM", tatm])
             spd.append([irno, "SOLR", solr])
             spd.append([irno, "SHD", shd])
             spd.append([irno, "SWREFL", swrefl])
-        swr_spd[kper] = spd
+            spd.append([irno, "RH", rh])
+        abc_spd[kper] = spd
 
-    swr = flopy.mf6.ModflowUtlswr(
+    abc = flopy.mf6.ModflowUtlabc(
         sfe,
         print_input=True,
-        reachperioddata=swr_spd,
-        filename=swr_filename,
+        density_air=rhoa,
+        heat_capacity_air=Cpa,
+        drag_coefficient=c_d,
+        wind_func_slope=wf_slope,
+        wind_func_int=wf_int,
+        reachperioddata=abc_spd,
+        filename=abc_filename,
     )
 
     # Instantiate Output Control package for transport
@@ -415,7 +431,7 @@ def build_models(idx, test):
     return sim, None
 
 
-# sim, dum = build_models(0, r"c:\temp\_swr00")
+# sim, dum = build_models(0, r"c:\temp\_shf00")
 # sim.write_simulation()
 
 
@@ -435,31 +451,44 @@ def check_output(idx, test):
     df = pd.read_csv(fpth)
     calc_strm_wid = df.loc[0, "RCH1_WETWIDTH"].copy()
     # confirm stream width is 1.0 m
-    assert np.isclose(calc_strm_wid, 1.0, atol=1e-7), msg0
+    assert np.isclose(calc_strm_wid, 1.0, atol=1e-9), msg0
 
-    # confirm that the energy added to the stream results in a 1 deg C rise in temp
+    # confirm that the energy added to the stream results in a -1C change in temp
     # temperature gradient
-    # tgrad = tatm - strm_temp
-    ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
-    ener_transfer = ener_per_sqm * (delr * calc_strm_wid)
-    # calculate expected temperature rise based on energy transfer
-    temp_rise = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
+    tgrad = tatm - strm_temp
+    shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
+    swr_ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
+    # latent calcs
+    L = (2499.64 - 2.51 * strm_temp) * 1000
+    e_w = 6.1275 * math.exp(17.2693882 * (strm_temp / (strm_temp + 273.16 - 35.86)))
+    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + 273.16 - 35.86)))
+    e_a = rh / 100 * e_s
+    vap_press_deficit = e_w - e_a
+    wind_function = wf_int + wf_slope * wspd
+    Ev = wind_function * vap_press_deficit
+    lhf_ener_per_sqm = Ev * L * rhow
 
-    fpth = os.path.join(test.workspace, gwename + ".sfe.obs.csv")
-    assert os.path.isfile(fpth)
-    df = pd.read_csv(fpth)
+    ener_transfer = (shf_ener_per_sqm + swr_ener_per_sqm + lhf_ener_per_sqm) * (
+        delr * calc_strm_wid
+    )
+    # calculate expected temperature change based on energy transfer
+    temp_change = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
 
-    # confirm 1 deg C rise in temp
+    fpth2 = os.path.join(test.workspace, gwename + ".sfe.obs.csv")
+    assert os.path.isfile(fpth2)
+    df2 = pd.read_csv(fpth2)
+
+    # confirm 1 deg C decrease in temp
     msg1 = (
-        "The MF6 simulated rise in river temperature does not match \
-        external calculations.  The calculated temperature rise \
+        "The calculated temperature change \
         is: "
-        + str(temp_rise)
+        + str(temp_change)
     )
+    msg2 = "The temperature is:" + str(df2.loc[0, "RCH1_OUTFTEMP"])
 
-    assert np.isclose(df.loc[0, "RCH1_OUTFTEMP"], strm_temp + temp_rise, atol=1e-5), (
-        msg1 + "  " + str(df.loc[0, "RCH1_OUTFTEMP"])
-    )
+    assert np.isclose(
+        df2.loc[0, "RCH1_OUTFTEMP"], strm_temp + temp_change, atol=1e-6
+    ), msg2
 
 
 # - No need to change any code below
