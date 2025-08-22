@@ -248,7 +248,7 @@ jobs:
         working-directory: ${{env.working-directory}}
       
       - name: upload pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ${{env.working-directory}}/html
 
