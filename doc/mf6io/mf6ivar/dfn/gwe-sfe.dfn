@@ -255,6 +255,37 @@ optional false
 longname obs6 input filename
 description REPLACE obs6_filename {'{#1}': 'SFE', '{#2}': '\\ref{table:gwe-obstypetable}'}
 
+block options
+name abc_filerecord
+type record abc6 filein abc6_filename
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name abc6
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname abc keyword
+description keyword to specify that record corresponds to the atmospheric boundary condition (ABC) file.  The behavior of the ABC utility and a description of the input file is provided separately.
+
+block options
+name abc6_filename
+type string
+preserve_case true
+in_record true
+reader urword
+optional false
+tagged false
+longname file name of ABC information
+description defines a sensible heat flux (ABC) input file.  Records in the ABC file are used to calculate the flux of thermal energy in or out of a stream reach resulting from sensible heat exchange.
 
 # --------------------- gwe sfe packagedata ---------------------
 
