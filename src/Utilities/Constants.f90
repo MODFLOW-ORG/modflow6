@@ -131,6 +131,8 @@ module ConstantsModule
 
   real(DP), parameter :: DGRAVITY = 9.80665_DP !< real constant gravitational acceleration (m/(s s))
   real(DP), parameter :: DCD = 0.61_DP !< real constant weir coefficient in SI units
+  
+  real(DP), parameter :: DCTOK = 273.16_DP !< real constant conversion of degrees celsius to Kelvin
 
   character(len=*), parameter :: IDM_INPUT_SUFFIX = '_IN' !< input array suffix applied when data array shares name
   character(len=10), dimension(3, 3), parameter :: &
