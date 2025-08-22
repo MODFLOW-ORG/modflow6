@@ -1,0 +1,215 @@
+# --------------------- gwe abc options ---------------------
+# flopy subpackage abc_filerecord abc abc_perioddata perioddata
+# flopy parent_name_type parent_package MFPackage
+
+block options
+name print_input
+type keyword
+reader urword
+optional true
+longname print input to listing file
+description REPLACE print_input {'{#1}': 'atmospheric boundary condition'}
+
+block options
+name ts_filerecord
+type record ts6 filein ts6_filename
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name ts6
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname head keyword
+description keyword to specify that record corresponds to a time-series file.
+
+block options
+name filein
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname file keyword
+description keyword to specify that an input filename is expected next.
+
+block options
+name ts6_filename
+type string
+preserve_case true
+in_record true
+reader urword
+optional false
+tagged false
+longname file name of time series information
+description REPLACE timeseriesfile {}
+
+block options
+name density_air
+type double precision
+reader urword
+optional true
+longname density of water
+description density of the atmospheric air used by calculations related to sensible heat flux.  This value is set to 1.225 kg/m3 if no overriding value is specified.  A user-specified value should be provided for models that use units other than kilograms and meters or if it is necessary to use a value other than the default.
+default_value 1.225
+mf6internal rhoa
+
+block options
+name heat_capacity_air
+type double precision
+reader urword
+optional true
+longname heat capacity of air
+description mass-based heat capacity of the air used by calculations related to sensible heat flux.  This value is set to 717.0 J/kg/C if no overriding value is specified.  A user-specified value should be provided for models that use units other than joules, kilograms, and degrees celsius or if it is necessary to use a value other than the default.
+default_value 717.0
+mf6internal cpa
+
+block options
+name drag_coefficient
+type double precision
+reader urword
+optional true
+longname drag coefficient
+description drag coefficient used by calculations related to sensible heat flux.  This value is set to 0.002 (unitless) if no overriding value is specified.  A user-specified value should be provided for models that require a value other than the default.
+default_value 0.0002
+mf6internal cd
+
+block options
+name wind_func_slope
+type double precision
+reader urword
+optional true
+longname wind function slope
+description wind function slope used by calculations related to the latent heat flux.  This value is set to 1.383E-08 (1/mbar) if no overriding value is specified.  A user-specified value should be provided for models that require a value other than the default.
+default_value 1.383E-08
+mf6internal wf_slope
+
+block options
+name wind_func_int
+type double precision
+reader urword
+optional true
+longname wind function intercept
+description wind function intercept used by calculations related to the latent heat flux.  This value is set to 3.445E-09 (m/s) if no overriding value is specified.  A user-specified value should be provided for models that require a value other than the default.
+default_value 3.445E-09
+mf6internal wf_int
+
+# --------------------- gwe abc period ---------------------
+
+block period
+name iper
+type integer
+block_variable True
+in_record true
+tagged false
+shape
+valid
+reader urword
+optional false
+longname stress period number
+description REPLACE iper {}
+
+block period
+name reachperioddata
+type recarray rno abcsetting
+shape
+reader urword
+longname
+description
+
+block period
+name rno
+type integer
+shape
+tagged false
+in_record true
+reader urword
+longname reach number for this entry
+description integer value that defines the reach number associated with the specified PERIOD data on the line. RNO must be greater than zero and less than or equal to NREACHES.
+numeric_index true
+
+block period
+name abcsetting
+type keystring wspd tatm solr shd swrefl rh
+auxiliaryrecord
+shape
+tagged false
+in_record true
+reader urword
+longname
+description line of information that is parsed into a parameter keyword and values.  Property name keywords that can be used to start the ABCSETTING string include: WSPD, TATM, SOLR, SHD, SWREFL, and RH.  These settings are used to assign the wind speed, temperature of the atmosphere, shortwave solar radiation, channel shade, shortwave reflectance of the water surface, and relative humidity, respectively.  
+
+block period
+name wspd
+type string
+shape
+tagged true
+in_record true
+reader urword
+time_series true
+longname wind speed (L/T)
+description real or character value that defines the wind speed above of each reach. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
+
+block period
+name tatm
+type double precision
+shape
+tagged true
+in_record true
+reader urword
+time_series true
+longname air temperature
+description is the temperature of the atmosphere above the stream reach. For an unrotated case this is the hydraulic conductivity in the y direction.  If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
+
+block period
+name solr
+type string
+shape
+tagged true
+in_record true
+reader urword
+time_series true
+longname shortwave solar radiation (E/T/L^2)
+description real or character value that defines the solar radiation above of each reach. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
+
+block period
+name shd
+type double precision
+shape
+tagged true
+in_record true
+reader urword
+time_series true
+longname riparian shade
+description is the shaded fraction of the wetted surface of the stream reach. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
+
+block period
+name swrefl
+type double precision
+shape
+tagged true
+in_record true
+reader urword
+time_series true
+longname reflectance of shortwave radiation of water surface
+description the fraction of solar radiation reflected by water surface. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
+
+block period
+name rh
+type double precision
+shape
+tagged true
+in_record true
+reader urword
+time_series true
+longname relative humidity of the atmosphere
+description the relative humidity of the atmosphere. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.

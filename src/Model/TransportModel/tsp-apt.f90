@@ -183,6 +183,7 @@ module TspAptModule
     procedure :: pak_setup_budobj
     procedure :: apt_fill_budobj
     procedure :: pak_fill_budobj
+    procedure :: ancil_rp
     procedure, public :: apt_get_volumes !< made public for sft/sfe
     procedure, public :: apt_stor_term
     procedure, public :: apt_tmvr_term
@@ -321,7 +322,7 @@ contains
     ! -- Get obs setup
     call this%obs%obs_ar()
     !
-    ! --print a message identifying the apt package.
+    ! -- print a message identifying the apt package.
     write (this%iout, fmtapt) this%inunit
     !
     ! -- Allocate arrays
@@ -370,7 +371,21 @@ contains
         end if
       end if
     end if
+    !
+    ! -- The following is not callable from apt_ar, only reachable from sfe_ar
+    !call this%pbst_shf_ar()
   end subroutine apt_ar
+
+  !> @brief Allocate and read appropriate pbst sub-package
+  !<
+  !subroutine pbst_shf_ar(this)
+  !  ! -- dummy
+  !  class(TspAptType), intent(inout) :: this
+  !  !
+  !  ! -- This routine to be overridden
+  !  call store_error('Program error: pbst_shf_ar should be overwritten.', &
+  !                   terminate=.TRUE.)
+  !end subroutine pbst_shf_ar
 
   !> @brief Advanced package transport read and prepare (rp) routine
   !!
@@ -523,10 +538,25 @@ contains
     end do
   end subroutine apt_rp
 
+  !> @brief Support for ancillary transport package read and prepare (rp) routine
+  !!
+  !! A temporary work-around for calling _rp() routines in the PaBST-family of
+  !! classes.  While specific to GWE at the moment, which cuts against the
+  !! grain of what TspApt should be all about (i.e., generalized transport code
+  !! that is not specific to either GWT or GWE), it could be leveraged by GWT
+  !! as well if any sort of 'package for a package' process was implemented
+  !! there. At some point, more likely, this is going to have to be lifted out
+  !!and a more MF6-way of doing things implemented.
+  subroutine ancil_rp(this)
+    ! -- dummy
+    class(TspAptType), intent(inout) :: this
+    ! -- subroutine available for override by apt-child classes
+  end subroutine ancil_rp
+
   subroutine apt_ad_chk(this)
     ! -- dummy
     class(TspAptType), intent(inout) :: this
-    ! function available for override by packages
+    ! -- subroutine available for override by packages
   end subroutine apt_ad_chk
 
   !> @brief Advanced package transport routine
@@ -543,7 +573,7 @@ contains
     ierr = 0
     if (itemno < 1 .or. itemno > this%ncv) then
       write (errmsg, '(a,1x,i6,1x,a,1x,i6)') &
-        'Featureno ', itemno, 'must be > 0 and <= ', this%ncv
+        'Feature No. ', itemno, 'must be > 0 and <= ', this%ncv
       call store_error(errmsg)
       ierr = 1
     end if
@@ -934,7 +964,7 @@ contains
                                   pertim, totim, this%iout)
     end if
     !
-    ! -- Print lake flows table
+    ! -- Print feature flows table
     if (ibudfl /= 0 .and. this%iprflow /= 0) then
       call this%budobj%write_flowtable(this%dis, kstp, kper)
     end if
@@ -1545,7 +1575,7 @@ contains
       ! -- todo: read boundname
     end do
     !
-    ! -- initialize status (iboundpak) of lakes to active
+    ! -- initialize status (iboundpak) of features
     do n = 1, this%ncv
       if (this%status(n) == 'CONSTANT') then
         this%iboundpak(n) = -1
@@ -1689,14 +1719,14 @@ contains
       q = -rrate
       this%ccterm(ilak) = this%ccterm(ilak) + q
       !
-      ! -- See if flow is into lake or out of lake.
+      ! -- See if flow is into feature or out of feature.
       if (q < DZERO) then
         !
-        ! -- Flow is out of lake subtract rate from ratout.
+        ! -- Flow is out of feature subtract rate from ratout.
         ccratout = ccratout - q
       else
         !
-        ! -- Flow is into lake; add rate to ratin.
+        ! -- Flow is into feature; add rate to ratin.
         ccratin = ccratin + q
       end if
     end if
