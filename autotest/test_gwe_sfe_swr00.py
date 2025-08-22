@@ -358,7 +358,7 @@ def build_models(idx, test):
         "filename": gwename + ".sfe.obs",
     }
 
-    abc_filename = f"{gwename}.sfe.abc"
+    swr_filename = f"{gwename}.sfe.swr"
     sfe = flopy.mf6.modflow.ModflowGwesfe(
         gwe,
         boundnames=False,
@@ -376,24 +376,21 @@ def build_models(idx, test):
         filename=f"{gwename}.sfe",
     )
 
-    # Abc utility
-    abc_spd = {}
+    # Swr utility
+    swr_spd = {}
     for kper in range(len(nstp)):
         spd = []
         for irno in range(ncol):
             spd.append([irno, "SOLR", solr])
             spd.append([irno, "SHD", shd])
             spd.append([irno, "SWREFL", swrefl])
-        abc_spd[kper] = spd
+        swr_spd[kper] = spd
 
-    abc = flopy.mf6.ModflowUtlabc(
+    swr = flopy.mf6.ModflowUtlswr(
         sfe,
-        lwr_off=True,
-        lhf_off=True,
-        shf_off=True,
         print_input=True,
-        reachperioddata=abc_spd,
-        filename=abc_filename,
+        reachperioddata=swr_spd,
+        filename=swr_filename,
     )
 
     # Instantiate Output Control package for transport
