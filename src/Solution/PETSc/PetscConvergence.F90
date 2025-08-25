@@ -24,8 +24,7 @@ module PetscConvergenceModule
     Vec :: residual !< the unpreconditoned residual vector (a la IMS)
     integer(I4B) :: icnvg_ims !< IMS convergence number: 1 => converged, -1 => forces next Picard iter
     integer(I4B) :: icnvgopt !< convergence option:
-                             !! 0,1,2,3,4,.. for equivalent IMS settings,
-                             !! 100,... for PETSc specific settings
+                             !! 0,1,2,3,4,.. for equivalent IMS settings
     real(DP) :: dvclose !< dep. variable closure criterion
     real(DP) :: rclose !< residual closure criterion
     integer(I4B) :: max_its !< maximum number of inner iterations
@@ -126,8 +125,6 @@ contains
       call VecNorm(res, NORM_2, rnorm_L2_ims, ierr)
       rnorm0 = rnorm_L2_ims
       CHKERRQ(ierr)
-    else if (context%icnvgopt == 100) then
-      rnorm0 = rnorm_L2
     end if
 
     ! n == 0 is before the iteration starts
@@ -168,19 +165,14 @@ contains
     if (rnorm_L2 < RNORM_L2_TOL) then
       ! exact solution, set to 'converged'
       flag = KSP_CONVERGED_HAPPY_BREAKDOWN
-    else if (context%icnvgopt < 100) then
-      ! IMS check on convergence
-      flag = apply_check(context, n, xnorm_inf, rnorm_inf_ims, rnorm_L2_ims)
-    else if (context%icnvgopt == 100) then
-      ! use PETSc rnorm directly
-      flag = KSP_CONVERGED_ITERATING
-      if (xnorm_inf < context%dvclose .and. rnorm_L2 < context%rclose) then
-        flag = KSP_CONVERGED_HAPPY_BREAKDOWN
+      context%icnvg_ims = 1
+       ! check for strict option
+      if (n > 1 .and. context%icnvgopt == 1) then
+        context%icnvg_ims = -1
       end if
     else
-      ! invalid option somehow
-      write (errmsg, '(a,i0)') "Invalid convergence option: ", context%icnvgopt
-      call store_error(errmsg, .true.)
+      ! IMS check on convergence
+      flag = apply_check(context, n, xnorm_inf, rnorm_inf_ims, rnorm_L2_ims)
     end if
 
     if (flag == KSP_CONVERGED_ITERATING) then
@@ -265,6 +257,7 @@ contains
       if (rnorm_L2 < RNORM_L2_TOL) then
         ! exact solution found
         flag = KSP_CONVERGED_HAPPY_BREAKDOWN
+        context%icnvg_ims = 1
       else
         call VecCopy(x, context%x_old, ierr)
         CHKERRQ(ierr)
@@ -291,11 +284,15 @@ contains
       ! exact solution, set to 'converged'
       flag = KSP_CONVERGED_HAPPY_BREAKDOWN
       context%icnvg_ims = 1
+      ! apply 'strict'
+      if (n > 1 .and. context%icnvgopt == 1) context%icnvg_ims = -1
     else 
       ! L2norm
       if (xnorm_inf <= context%dvclose .and. rnorm_L2 <= context%rclose) then
         flag = KSP_CONVERGED_HAPPY_BREAKDOWN
         context%icnvg_ims = 1
+        ! apply 'strict'
+        if (n > 1 .and. context%icnvgopt == 1) context%icnvg_ims = -1
       end if
     end if
 
