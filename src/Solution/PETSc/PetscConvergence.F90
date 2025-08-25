@@ -11,7 +11,7 @@ module PetscConvergenceModule
   implicit none
   private
 
-  public :: petsc_cnvg_check
+  public :: petsc_cnvg_check, petsc_cnvg_check_internal
   public :: KSPSetConvergenceTest
 
   ! TODO_MJR: this could be smaller, find a bound
@@ -234,6 +234,83 @@ contains
 
   end function apply_check
 
+
+  !> @brief Routine to check the convergence following the configuration
+  !< of IMS. (called back from the PETSc solver)
+  subroutine petsc_cnvg_check_internal(ksp, n, rnorm_L2, flag, context, ierr)
+    KSP :: ksp !< Iterative context
+    PetscInt :: n !< Iteration number
+    PetscReal :: rnorm_L2 !< 2-norm (preconditioned) residual value
+    KSPConvergedReason :: flag !< Converged reason
+    class(PetscCnvgCtxType), pointer :: context !< context
+    PetscErrorCode :: ierr !< error
+    ! local
+    PetscReal, parameter :: min_one = -1.0
+    PetscReal :: xnorm_inf, rnorm0
+    Vec :: x, res
+    type(ConvergenceSummaryType), pointer :: summary
+
+    summary => context%cnvg_summary
+
+    ! NB: KSPBuildResidual needs to have its vector destroyed
+    ! to avoid a memory leak, KSPBuildSolution doesn't...
+    call KSPBuildSolution(ksp, PETSC_NULL_VEC, x, ierr)
+    CHKERRQ(ierr)
+
+    rnorm0 = rnorm_L2
+
+    ! n == 0 is before the iteration starts
+    if (n == 0) then
+      context%rnorm_L2_init = rnorm0
+      if (rnorm_L2 < RNORM_L2_TOL) then
+        ! exact solution found
+        flag = KSP_CONVERGED_HAPPY_BREAKDOWN
+      else
+        call VecCopy(x, context%x_old, ierr)
+        CHKERRQ(ierr)
+        flag = KSP_CONVERGED_ITERATING
+      end if
+      ! early return
+      return
+    end if
+
+    call VecWAXPY(context%delta_x, min_one, context%x_old, x, ierr)
+    CHKERRQ(ierr)
+
+    call VecNorm(context%delta_x, NORM_INFINITY, xnorm_inf, ierr)
+    CHKERRQ(ierr)
+
+    call VecCopy(x, context%x_old, ierr)
+    CHKERRQ(ierr)
+
+    ! fill the summary for reporting
+    call fill_cnvg_summary_internal(summary, context%delta_x, n)
+
+    context%icnvg_ims = 0
+    if (rnorm_L2 < RNORM_L2_TOL) then
+      ! exact solution, set to 'converged'
+      flag = KSP_CONVERGED_HAPPY_BREAKDOWN
+      context%icnvg_ims = 1
+    else 
+      ! L2norm
+      if (xnorm_inf <= context%dvclose .and. rnorm_L2 <= context%rclose) then
+        flag = KSP_CONVERGED_HAPPY_BREAKDOWN
+        context%icnvg_ims = 1
+      end if
+    end if
+
+    if (flag == KSP_CONVERGED_ITERATING) then
+      ! not yet converged, max. iters reached? Then stop.
+      if (n == context%max_its) then
+        flag = KSP_DIVERGED_ITS
+      end if
+    end if
+
+    call VecDestroy(res, ierr)
+    CHKERRQ(ierr)
+
+  end subroutine petsc_cnvg_check_internal
+
   !> @brief Fill the convergence summary from the context
   !<
   subroutine fill_cnvg_summary(summary, dx, res, n)
@@ -300,6 +377,60 @@ contains
     CHKERRQ(ierr)
 
   end subroutine fill_cnvg_summary
+
+  !> @brief Fill the convergence summary from the context
+  !<
+  subroutine fill_cnvg_summary_internal(summary, dx, n)
+    type(ConvergenceSummaryType), pointer :: summary !< the convergence summary
+    Vec :: dx !< the vector with changes in x
+    PetscInt :: n !< the PETSc iteration number
+    ! local
+    PetscReal, dimension(:), pointer :: local_dx
+    PetscReal :: dvmax_model
+    PetscErrorCode :: ierr
+    PetscInt :: idx_dv
+    PetscInt :: i, j, istart, iend
+    PetscInt :: iter_cnt
+
+    ! increment iteration counter
+    summary%iter_cnt = summary%iter_cnt + 1
+    iter_cnt = summary%iter_cnt
+
+    if (summary%nitermax > 1) then
+      summary%itinner(iter_cnt) = n
+      do i = 1, summary%convnmod
+        summary%convdvmax(i, iter_cnt) = DZERO
+        summary%convlocdv(i, iter_cnt) = 0
+        summary%convrmax(i, iter_cnt) = DZERO
+        summary%convlocr(i, iter_cnt) = 0
+      end do
+    end if
+
+    ! get dv and dr per local model (readonly!)
+    call VecGetArrayReadF90(dx, local_dx, ierr)
+    CHKERRQ(ierr)
+    do i = 1, summary%convnmod
+      ! reset
+      dvmax_model = DZERO
+      idx_dv = 0
+      ! get first and last model index
+      istart = summary%model_bounds(i)
+      iend = summary%model_bounds(i + 1) - 1
+      do j = istart, iend
+        if (abs(local_dx(j)) > abs(dvmax_model)) then
+          dvmax_model = local_dx(j)
+          idx_dv = j
+        end if
+      end do
+      if (summary%nitermax > 1) then
+        summary%convdvmax(i, iter_cnt) = dvmax_model
+        summary%convlocdv(i, iter_cnt) = idx_dv
+      end if
+    end do
+    call VecRestoreArrayF90(dx, local_dx, ierr)
+    CHKERRQ(ierr)
+
+  end subroutine fill_cnvg_summary_internal
 
   subroutine destroy(this)
     class(PetscCnvgCtxType) :: this

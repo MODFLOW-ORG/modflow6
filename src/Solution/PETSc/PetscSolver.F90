@@ -185,15 +185,18 @@ contains
     PetscErrorCode :: ierr
     logical(LGP) :: found
     logical(LGP) :: use_petsc_pc, use_petsc_cnvg
+    character(len=LENSOLUTIONNAME + 1) :: option_prefix
+
+    option_prefix = trim(this%name)//"_"
 
     use_petsc_pc = .false.
-    call PetscOptionsGetBool(PETSC_NULL_OPTIONS, PETSC_NULL_CHARACTER, &
+    call PetscOptionsGetBool(PETSC_NULL_OPTIONS, trim(option_prefix), &
                              '-use_petsc_pc', use_petsc_pc, found, ierr)
     CHKERRQ(ierr)
     this%use_ims_pc = .not. use_petsc_pc
 
     use_petsc_cnvg = .false.
-    call PetscOptionsGetBool(PETSC_NULL_OPTIONS, PETSC_NULL_CHARACTER, &
+    call PetscOptionsGetBool(PETSC_NULL_OPTIONS, trim(option_prefix), &
                              '-use_petsc_cnvg', use_petsc_cnvg, found, ierr)
     CHKERRQ(ierr)
     this%use_ims_cnvgopt = .not. use_petsc_cnvg
@@ -209,6 +212,10 @@ contains
     PC :: pc
 
     call KSPCreate(PETSC_COMM_WORLD, this%ksp_petsc, ierr)
+    CHKERRQ(ierr)
+
+    ! set prefix for options database
+    call KSPSetOptionsPrefix(this%ksp_petsc, trim(this%name)//"_", ierr)
     CHKERRQ(ierr)
 
     call KSPSetOperators(this%ksp_petsc, this%mat_petsc, this%mat_petsc, ierr)
@@ -288,15 +295,18 @@ contains
 
     call this%petsc_ctx%create(this%mat_petsc, this%linear_settings, &
                                convergence_summary)
+
     if (.not. this%use_ims_cnvgopt) then
       ! use PETSc residual L2 norm for convergence
       call dev_feature('Using PETSc convergence is under development, install &
       &the nightly build or compile from source with IDEVELOPMODE = 1.')
-      this%petsc_ctx%icnvgopt = 100
+      call KSPSetConvergenceTest(this%ksp_petsc, petsc_cnvg_check_internal, &
+                                this%petsc_ctx, PETSC_NULL_FUNCTION, ierr)
+    else
+      ! IMS convergence check
+      call KSPSetConvergenceTest(this%ksp_petsc, petsc_cnvg_check, &
+                                this%petsc_ctx, PETSC_NULL_FUNCTION, ierr)
     end if
-
-    call KSPSetConvergenceTest(this%ksp_petsc, petsc_cnvg_check, &
-                               this%petsc_ctx, PETSC_NULL_FUNCTION, ierr)
     CHKERRQ(ierr)
 
   end subroutine create_convergence_check
