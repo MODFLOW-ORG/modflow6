@@ -83,4 +83,8 @@ section = "fixes"
 subsection = "internal"
 description = "Clarified the definition of the rtp parameter in the SFR PACKAGEDATA block."
 
+[[items]]
+section = "fixes"
+subsection = "solution"
+description = "Fixes a bug first included in version 6.4.2 that has changed the convergence check of the numerical solution. In cases where the linear solver failed to converge, or when it did converge but the STRICT option was active and convergence did not occur on the first iteration, the solution was erroneously considered for overall convergence."
 

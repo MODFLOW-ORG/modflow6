@@ -1659,9 +1659,11 @@ contains
     !
     ! -- check convergence of solution
     call this%sln_get_dxmax(this%hncg(kiter), this%lrch(1, kiter))
-    this%icnvg = 0
-    if (this%sln_has_converged(this%hncg(kiter))) then
-      this%icnvg = 1
+    if (this%icnvg /= 0) then
+      this%icnvg = 0
+      if (this%sln_has_converged(this%hncg(kiter))) then
+        this%icnvg = 1
+      end if
     end if
     !
     ! -- set failure flag
