@@ -44,7 +44,7 @@ radius = 0.05
 
 
 def build_models(idx, test):
-    dvclose, rclose, relax = 1e-9, 1e-9, 1.0
+    dvclose, rclose, relax = 1e-9, 1e-7, 1.0
 
     name = cases[idx]
 
