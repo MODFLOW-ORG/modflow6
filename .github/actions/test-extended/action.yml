@@ -16,7 +16,6 @@ runs:
         nf-config --all
 
     - name: Install netcdf
-      if: runner.os == 'macOS'
       shell: bash
       run: |
         brew install netcdf-fortran
