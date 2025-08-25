@@ -5,9 +5,15 @@ import pandas as pd
 import pytest
 from framework import TestFramework
 
-cases = ["ims_strict"]
 outers_record = "outers.csv"
-outer_dvclose = 1.0e3 # deliberately large to activate IMS strict
+
+cases = ["ims_strict", "ims_noinnercnvg"]
+xfail = [False, True]
+outer_dvclose = [1.0e3, 1.0e-7]  # to activate IMS strict
+inner_dvclose = [1.0e-07, 1.0e-100]  # large to force non-convergence on inners
+rclose_rec = ["1e-07 strict", "1e-07"]
+outer_max = 10
+inner_max = 20
 
 # spatial discretization data
 nlay, nrow, ncol = 2, 10, 10
@@ -48,11 +54,11 @@ def build_models(idx, test):
         sim,
         print_option="ALL",
         csv_outer_output_filerecord=outers_record,
-        outer_dvclose=outer_dvclose,
-        outer_maximum=10,
-        inner_dvclose=1e-7,
-        inner_maximum=20,
-        rcloserecord="1e-07 strict",
+        outer_dvclose=outer_dvclose[idx],
+        outer_maximum=outer_max,
+        inner_dvclose=inner_dvclose[idx],
+        inner_maximum=inner_max,
+        rcloserecord=rclose_rec[idx],
     )
 
     # create gwf model
@@ -94,14 +100,19 @@ def check_output(idx, test):
     assert os.path.exists(csv_file), "outer iterations are stored in csv"
 
     df = pd.read_csv(csv_file)
-    assert df["solution_outer_dvmax"].values[-2] < outer_dvclose, (
-        "one before last iteration would have converged, "
-        "if it weren't for 'strict' option"
-    )
 
-    assert df["inner_iterations"].values[-1] == 1, (
-        "strict: single inner iteration on last outer"
-    )
+    if idx == 0:  # ims_strict
+        assert len(df["solution_outer_dvmax"].values) > 1, (
+            "can't converge on first outer with 'strict'"
+        )
+        assert df["inner_iterations"].values[-1] == 1, (
+            "strict: single inner iteration on last outer"
+        )
+
+    if idx == 1:  # ims_noinnercnvg
+        assert df["total_inner_iterations"].values[-1] == outer_max * inner_max, (
+            "test should fail, but after trying for maximum nr. of iters"
+        )
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
@@ -112,5 +123,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        xfail=xfail[idx],
     )
     test.run()
