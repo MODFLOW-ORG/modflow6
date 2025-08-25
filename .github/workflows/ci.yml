@@ -555,6 +555,13 @@ jobs:
         with:
           path: modflow6
 
+      - name: Setup gfortran
+        if: runner.os != 'Windows'
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: 13
+
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.9.0
         with:
