@@ -7,7 +7,6 @@ module PrtFmiModule
   use FlowModelInterfaceModule, only: FlowModelInterfaceType
   use BaseDisModule, only: DisBaseType
   use BudgetObjectModule, only: BudgetObjectType
-  use CellModule, only: MAX_POLY_VERTS
 
   implicit none
   private
@@ -140,15 +139,18 @@ contains
     class(PrtFmiType) :: this
     class(DisBaseType), pointer, intent(in) :: dis
     integer(I4B), intent(in) :: idryinactive
+    ! local
+    integer(I4B) :: max_faces
     !
     ! Call parent class define
     call this%FlowModelInterfaceType%fmi_df(dis, idryinactive)
     !
     ! Allocate arrays
+    max_faces = this%dis%get_max_npolyverts() + 2
     allocate (this%StorageFlows(this%dis%nodes))
     allocate (this%SourceFlows(this%dis%nodes))
     allocate (this%SinkFlows(this%dis%nodes))
-    allocate (this%BoundaryFlows(this%dis%nodes * MAX_POLY_VERTS))
+    allocate (this%BoundaryFlows(this%dis%nodes * max_faces))
 
   end subroutine prtfmi_df
 
@@ -163,7 +165,8 @@ contains
     real(DP) :: qbnd
     character(len=LENAUXNAME) :: auxname
     integer(I4B) :: naux
-    !
+    integer(I4B) :: max_faces
+
     this%StorageFlows = DZERO
     if (this%igwfstrgss /= 0) &
       this%StorageFlows = this%StorageFlows + &
@@ -175,6 +178,7 @@ contains
     this%SourceFlows = DZERO
     this%SinkFlows = DZERO
     this%BoundaryFlows = DZERO
+    max_faces = this%dis%get_max_npolyverts() + 2
     do ip = 1, this%nflowpack
       iauxiflowface = 0
       naux = this%gwfpackages(ip)%naux
@@ -196,11 +200,11 @@ contains
         iflowface = 0
         if (iauxiflowface > 0) then
           iflowface = NINT(this%gwfpackages(ip)%auxvar(iauxiflowface, ib))
-          ! maps bot -2 -> MAX_POLY_VERTS - 1, top -1 -> MAX_POLY_VERTS
-          if (iflowface < 0) iflowface = iflowface + MAX_POLY_VERTS + 1
+          ! maps bot -2 -> max_faces - 1, top -1 -> max_faces
+          if (iflowface < 0) iflowface = iflowface + max_faces + 1
         end if
         if (iflowface .gt. 0) then
-          ioffset = (i - 1) * MAX_POLY_VERTS
+          ioffset = (i - 1) * max_faces
           this%BoundaryFlows(ioffset + iflowface) = &
             this%BoundaryFlows(ioffset + iflowface) + qbnd
         else if (qbnd .gt. DZERO) then

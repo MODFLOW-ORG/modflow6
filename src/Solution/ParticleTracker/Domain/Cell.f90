@@ -6,8 +6,6 @@ module CellModule
   private
   public :: CellType
 
-  integer(I4B), public, parameter :: MAX_POLY_VERTS = 10
-
   !> @brief Base type for grid cells of a concrete type. Contains
   !! a cell-definition which is information shared by cell types.
   type, abstract :: CellType

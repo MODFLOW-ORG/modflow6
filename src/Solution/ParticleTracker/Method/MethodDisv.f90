@@ -6,7 +6,6 @@ module MethodDisvModule
   use MethodModule, only: MethodType, LEVEL_FEATURE, LEVEL_SUBFEATURE
   use MethodModelModule, only: MethodModelType
   use MethodCellPoolModule
-  use CellModule, only: MAX_POLY_VERTS
   use CellDefnModule
   use CellPolyModule
   use ParticleModule
@@ -467,8 +466,7 @@ contains
     class(MethodDisvType), intent(inout) :: this
     type(CellDefnType), intent(inout) :: defn
     ! local
-    integer(I4B) :: nfaces
-    integer(I4B) :: nslots
+    integer(I4B) :: nfaces, nslots
 
     ! expand faceflow array if needed
     nfaces = defn%npolyverts + 3
@@ -522,16 +520,14 @@ contains
     ! dummy
     class(MethodDisvType), intent(inout) :: this
     type(CellDefnType), intent(inout) :: defn
+
     ! local
-    integer(I4B) :: ic
-    integer(I4B) :: npolyverts
-    integer(I4B) :: ioffset
-    integer(I4B) :: iv
+    integer(I4B) :: ic, iv, ioffset, npolyverts, max_faces
 
     ic = defn%icell
     npolyverts = defn%npolyverts
-
-    ioffset = (ic - 1) * MAX_POLY_VERTS
+    max_faces = this%fmi%dis%get_max_npolyverts() + 2
+    ioffset = (ic - 1) * max_faces
     do iv = 1, npolyverts
       defn%faceflow(iv) = &
         defn%faceflow(iv) + &
@@ -540,10 +536,10 @@ contains
     defn%faceflow(npolyverts + 1) = defn%faceflow(1)
     defn%faceflow(npolyverts + 2) = &
       defn%faceflow(npolyverts + 2) + &
-      this%fmi%BoundaryFlows(ioffset + MAX_POLY_VERTS - 1)
+      this%fmi%BoundaryFlows(ioffset + max_faces - 1)
     defn%faceflow(npolyverts + 3) = &
       defn%faceflow(npolyverts + 3) + &
-      this%fmi%BoundaryFlows(ioffset + MAX_POLY_VERTS)
+      this%fmi%BoundaryFlows(ioffset + max_faces)
 
   end subroutine load_boundary_flows_to_defn_poly
 
