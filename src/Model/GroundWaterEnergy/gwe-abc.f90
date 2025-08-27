@@ -15,7 +15,7 @@
 
 module AbcModule
   use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, LENVARNAME, &
-                             LENPACKAGENAME, TABLEFT, TABCENTER
+                             LENPACKAGENAME, TABLEFT, TABCENTER, LENMEMTYPE
   use KindModule, only: I4B, DP
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
@@ -441,14 +441,15 @@ contains
   subroutine abc_allocate_arrays(this)
     ! -- modules
     !! use MemoryManagerModule, only: mem_allocate
-    use MemoryManagerModule, only: mem_setptr, mem_checkin, mem_allocate
+    use MemoryManagerModule, only: mem_setptr, mem_checkin, mem_allocate, &
+                                   get_mem_type
     ! -- dummy
     class(AbcType), intent(inout) :: this
-   ! integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist
+    ! integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist
     !real(DP), dimension(:, :), pointer, contiguous, optional :: auxvar
     ! -- local
     integer(I4B) :: n
-    !
+    character(len=LENMEMTYPE) :: var_type !< memory type
     !
     ! -- allocate character array for status
     allocate (this%status(this%ncv))
@@ -487,8 +488,20 @@ contains
        call this%swr%ar()
     end if
     if (this%inlhf /= 0) then
-       call mem_allocate(this%wspd, this%ncv, 'WSPD', this%memoryPath)
-       call mem_allocate(this%tatm, this%ncv, 'TATM', this%memoryPath)
+       call get_mem_type('WSPD', this%memoryPath, var_type)
+       if (var_type == 'UNKNOWN') then
+         call mem_allocate(this%wspd, this%ncv, 'WSPD', this%memoryPath)
+         do n = 1, this%ncv
+           this%wspd(n) = DZERO
+         end do
+       end if
+       call get_mem_type('TATM', this%memoryPath, var_type)
+       if (var_type == 'UNKNOWN') then
+         call mem_allocate(this%tatm, this%ncv, 'TATM', this%memoryPath)
+         do n = 1, this%ncv
+           this%tatm(n) = DZERO
+         end do
+       end if
        call mem_allocate(this%rh, this%ncv, 'RH', this%memoryPath)
        !
        ! -- initialize
