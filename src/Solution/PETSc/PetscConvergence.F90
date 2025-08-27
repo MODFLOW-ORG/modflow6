@@ -166,7 +166,7 @@ contains
       ! exact solution, set to 'converged'
       flag = KSP_CONVERGED_HAPPY_BREAKDOWN
       context%icnvg_ims = 1
-       ! check for strict option
+      ! check for strict option
       if (n > 1 .and. context%icnvgopt == 1) then
         context%icnvg_ims = -1
       end if
@@ -225,7 +225,6 @@ contains
     end if
 
   end function apply_check
-
 
   !> @brief Routine to check the convergence following the configuration
   !< of IMS. (called back from the PETSc solver)
@@ -286,7 +285,7 @@ contains
       context%icnvg_ims = 1
       ! apply 'strict'
       if (n > 1 .and. context%icnvgopt == 1) context%icnvg_ims = -1
-    else 
+    else
       ! L2norm
       if (xnorm_inf <= context%dvclose .and. rnorm_L2 <= context%rclose) then
         flag = KSP_CONVERGED_HAPPY_BREAKDOWN
