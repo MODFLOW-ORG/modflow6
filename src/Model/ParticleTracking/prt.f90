@@ -18,14 +18,14 @@ module PrtModule
   use PrtOcModule, only: PrtOcType
   use BudgetModule, only: BudgetType
   use ListModule, only: ListType
-  use ParticleModule, only: ParticleType, create_particle
+  use ParticleModule, only: ParticleType, create_particle, TERM_UNRELEASED
   use ParticleEventsModule, only: ParticleEventDispatcherType, &
                                   ParticleEventConsumerType
   use ParticleTracksModule, only: ParticleTracksType, &
                                   ParticleTrackFileType
   use SimModule, only: count_errors, store_error, store_error_filename
   use MemoryManagerModule, only: mem_allocate
-  use MethodModule, only: MethodType
+  use MethodModule, only: MethodType, LEVEL_FEATURE
 
   implicit none
 
@@ -463,8 +463,8 @@ contains
         do np = 1, packobj%nparticles
           istatus = packobj%particles%istatus(np)
           ! this may need to change if istatus flags change
-          if ((istatus > 0) .and. (istatus /= 8)) then
-            n = packobj%particles%idomain(np, 2)
+          if ((istatus > 0) .and. (istatus /= TERM_UNRELEASED)) then
+            n = packobj%particles%itrdomain(np, LEVEL_FEATURE)
             ! Each particle currently assigned unit mass
             this%masssto(n) = this%masssto(n) + DONE
           end if
@@ -863,10 +863,10 @@ contains
     select case (filtyp)
     case ('PRP6')
       call prp_create(packobj, ipakid, ipaknum, inunit, iout, &
-                      this%name, pakname, this%fmi)
+                      this%name, pakname, mempath, this%fmi)
     case ('API6')
       call api_create(packobj, ipakid, ipaknum, inunit, iout, &
-                      this%name, pakname)
+                      this%name, pakname, mempath)
     case default
       write (errmsg, *) 'Invalid package type: ', filtyp
       call store_error(errmsg, terminate=.TRUE.)
@@ -989,6 +989,7 @@ contains
         end do
       end select
     end do
+    call particle%destroy()
     deallocate (particle)
   end subroutine prt_solve
 
@@ -1080,6 +1081,7 @@ contains
     integer(I4B) :: n
     integer(I4B) :: indis = 0 ! DIS enabled flag
     character(len=LENMEMPATH) :: mempathmip = ''
+    character(len=LENMEMPATH) :: mempathfmi = ''
 
     ! set input memory paths, input/model and input/model/namfile
     model_mempath = create_mem_path(component=this%name, context=idm_context)
@@ -1112,7 +1114,8 @@ contains
         this%inmip = 1
         mempathmip = mempath
       case ('FMI6')
-        this%infmi = inunit
+        this%infmi = 1
+        mempathfmi = mempath
       case ('OC6')
         this%inoc = inunit
       case ('PRP6')
@@ -1133,7 +1136,7 @@ contains
 
     ! Create packages that are tied directly to model
     call mip_cr(this%mip, this%name, mempathmip, this%inmip, this%iout, this%dis)
-    call fmi_cr(this%fmi, this%name, this%infmi, this%iout)
+    call fmi_cr(this%fmi, this%name, mempathfmi, this%infmi, this%iout)
     call oc_cr(this%oc, this%name, this%inoc, this%iout)
 
     ! Check to make sure that required ftype's have been specified

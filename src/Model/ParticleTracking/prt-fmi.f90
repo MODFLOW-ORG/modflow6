@@ -2,7 +2,7 @@ module PrtFmiModule
 
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DZERO, LENAUXNAME, LENPACKAGENAME
-  use SimModule, only: store_error, store_error_unit
+  use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
   use FlowModelInterfaceModule, only: FlowModelInterfaceType
   use BaseDisModule, only: DisBaseType
@@ -34,10 +34,11 @@ module PrtFmiModule
 contains
 
   !> @brief Create a new PrtFmi object
-  subroutine fmi_cr(fmiobj, name_model, inunit, iout)
+  subroutine fmi_cr(fmiobj, name_model, input_mempath, inunit, iout)
     ! dummy
     type(PrtFmiType), pointer :: fmiobj
     character(len=*), intent(in) :: name_model
+    character(len=*), intent(in) :: input_mempath
     integer(I4B), intent(inout) :: inunit
     integer(I4B), intent(in) :: iout
     !
@@ -45,7 +46,7 @@ contains
     allocate (fmiobj)
     !
     ! create name and memory path
-    call fmiobj%set_names(1, name_model, 'FMI', 'FMI')
+    call fmiobj%set_names(1, name_model, 'FMI', 'FMI', input_mempath)
     fmiobj%text = text
     !
     ! Allocate scalars
@@ -54,9 +55,6 @@ contains
     ! Set variables
     fmiobj%inunit = inunit
     fmiobj%iout = iout
-    !
-    ! Initialize block parser
-    call fmiobj%parser%Initialize(fmiobj%inunit, fmiobj%iout)
     !
     ! Assign dependent variable label
     fmiobj%depvartype = 'TRACKS          '

@@ -119,9 +119,14 @@ contains
     !
     ! -- update sim options
     isimcontinue = simcontinue
-    isimcheck = nocheck
+    if (nocheck == 1) then
+      isimcheck = 0
+    else
+      isimcheck = 1
+    end if
+
     call MaxErrors(maxerror)
-    !
+
     if (prmem /= '') then
       errmsg = ''
       call mem_set_print_option(iout, prmem, errmsg)

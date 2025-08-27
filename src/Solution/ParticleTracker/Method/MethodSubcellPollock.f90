@@ -1,6 +1,7 @@
 module MethodSubcellPollockModule
   use KindModule, only: DP, I4B, LGP
   use ErrorUtilModule, only: pstop
+  use MethodModule, only: LEVEL_SUBFEATURE
   use MethodSubcellModule, only: MethodSubcellType
   use SubcellRectModule, only: SubcellRectType, create_subcell_rect
   use ParticleModule, only: ParticleType
@@ -272,7 +273,7 @@ contains
     particle%y = y * subcell%dy
     particle%z = z * subcell%dz
     particle%ttrack = t
-    particle%iboundary(3) = exitFace
+    particle%iboundary(LEVEL_SUBFEATURE) = exitFace
 
     ! Save particle track record
     if (event_code == TIMESTEP) then

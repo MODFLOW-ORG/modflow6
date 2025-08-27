@@ -37,7 +37,8 @@ module LoadContextModule
     enumerator :: SIM = 2 !< sim context type
     enumerator :: MODEL = 3 !< model context type
     enumerator :: MODELPKG = 4 !< model package context type
-    enumerator :: EXCHANGE = 5 !< exchange context type
+    enumerator :: STRESSPKG = 5 !< model stress package context type
+    enumerator :: EXCHANGE = 6 !< exchange context type
   end enum
 
   !> @brief Pointer type for read state variable
@@ -123,7 +124,12 @@ contains
         this%ctxtype = EXCHANGE
       end if
     case ('MODEL')
-      this%ctxtype = MODELPKG
+      if (mf6_input%subcomponent_type == 'OC' .or. &
+          mf6_input%subcomponent_type == 'STO') then
+        this%ctxtype = MODELPKG
+      else
+        this%ctxtype = STRESSPKG
+      end if
     case default
     end select
 
@@ -189,7 +195,8 @@ contains
     class(LoadContextType) :: this
 
     if (this%ctxtype == EXCHANGE .or. &
-        this%ctxtype == MODELPKG) then
+        this%ctxtype == MODELPKG .or. &
+        this%ctxtype == STRESSPKG) then
 
       call setptr(this%nbound, 'NBOUND', this%mf6_input%mempath)
       call setval(this%naux, 'NAUX', this%mf6_input%mempath)
@@ -203,7 +210,7 @@ contains
       this%nbound = 0
     end if
 
-    if (this%ctxtype == MODELPKG .and. &
+    if (this%ctxtype == STRESSPKG .and. &
         this%blockname == 'PERIOD') then
       call mem_setptr(this%mshape, 'MODEL_SHAPE', &
                       this%mf6_input%component_mempath)
@@ -234,7 +241,7 @@ contains
     integer(I4B), dimension(:, :), pointer, contiguous :: cellid
     integer(I4B), dimension(:), pointer, contiguous :: nodeulist
 
-    if (this%ctxtype == MODELPKG .and. &
+    if (this%ctxtype == STRESSPKG .and. &
         this%blockname == 'PERIOD') then
       ! allocate cellid if this is not list input
       if (this%readarray) then
@@ -377,7 +384,7 @@ contains
   !<
   function in_scope(this, mf6_input, blockname, tagname)
     use MemoryManagerModule, only: get_isize, mem_setptr
-    use DefinitionSelectModule, only: get_param_definition_type
+    use DefinitionSelectModule, only: get_param_definition_type, idt_datatype
     class(LoadContextType) :: this
     type(ModflowInputType), intent(in) :: mf6_input
     character(len=*), intent(in) :: blockname
@@ -385,6 +392,7 @@ contains
     logical(LGP) :: in_scope
     type(InputParamDefinitionType), pointer :: idt
     character(len=LENVARNAME) :: checkname
+    character(len=LINELENGTH) :: datatype
     integer(I4B) :: isize, checksize
     integer(I4B), pointer :: intptr
 
@@ -398,6 +406,10 @@ contains
       return
     else
       in_scope = .false.
+      datatype = idt_datatype(idt)
+      if (datatype == 'KEYSTRING' .or. &
+          datatype == 'RECARRAY' .or. &
+          datatype == 'RECORD') return
     end if
 
     ! initialize
@@ -544,7 +556,7 @@ contains
     class(LoadContextType) :: this
 
     if (this%ctxtype == EXCHANGE .or. &
-        this%ctxtype == MODELPKG) then
+        this%ctxtype == STRESSPKG) then
       ! deallocate local
       deallocate (this%naux)
       deallocate (this%ncpl)

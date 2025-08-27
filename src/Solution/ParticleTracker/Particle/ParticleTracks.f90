@@ -20,15 +20,14 @@ module ParticleTracksModule
   use ErrorUtilModule, only: pstop
   use ConstantsModule, only: DZERO, DONE, DPIO180
   use ParticleModule, only: ParticleType, ACTIVE
-  use ParticleEventModule, only: ParticleEventType, &
-                                 ReleaseEventType, &
-                                 FeatExitEventType, &
-                                 TimeStepEventType, &
-                                 TerminationEventType, &
-                                 WeakSinkEventType, &
-                                 UserTimeEventType, &
-                                 CellExitEventType, &
-                                 SubcellExitEventType
+  use ParticleEventModule, only: ParticleEventType
+  use ReleaseEventModule, only: ReleaseEventType
+  use TimeStepEventModule, only: TimeStepEventType
+  use TerminationEventModule, only: TerminationEventType
+  use WeakSinkEventModule, only: WeakSinkEventType
+  use UserTimeEventModule, only: UserTimeEventType
+  use CellExitEventModule, only: CellExitEventType
+  use SubcellExitEventModule, only: SubcellExitEventType
   use ParticleEventsModule, only: ParticleEventConsumerType, &
                                   ParticleEventDispatcherType
   use BaseDisModule, only: DisBaseType

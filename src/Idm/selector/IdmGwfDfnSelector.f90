@@ -6,6 +6,7 @@ module IdmGwfDfnSelectorModule
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
   use GwfNamInputModule
+  use GwfApiInputModule
   use GwfBuyInputModule
   use GwfChdInputModule
   use GwfChdgInputModule
@@ -67,6 +68,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_param_pointer(input_definition, gwf_nam_param_definitions)
+    case ('API')
+      call set_param_pointer(input_definition, gwf_api_param_definitions)
     case ('BUY')
       call set_param_pointer(input_definition, gwf_buy_param_definitions)
     case ('CHD')
@@ -127,6 +130,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_param_pointer(input_definition, gwf_nam_aggregate_definitions)
+    case ('API')
+      call set_param_pointer(input_definition, gwf_api_aggregate_definitions)
     case ('BUY')
       call set_param_pointer(input_definition, gwf_buy_aggregate_definitions)
     case ('CHD')
@@ -187,6 +192,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_block_pointer(input_definition, gwf_nam_block_definitions)
+    case ('API')
+      call set_block_pointer(input_definition, gwf_api_block_definitions)
     case ('BUY')
       call set_block_pointer(input_definition, gwf_buy_block_definitions)
     case ('CHD')
@@ -246,6 +253,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       multi_package = gwf_nam_multi_package
+    case ('API')
+      multi_package = gwf_api_multi_package
     case ('BUY')
       multi_package = gwf_buy_multi_package
     case ('CHD')
@@ -308,6 +317,8 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_subpkg_pointer(subpackages, gwf_nam_subpackages)
+    case ('API')
+      call set_subpkg_pointer(subpackages, gwf_api_subpackages)
     case ('BUY')
       call set_subpkg_pointer(subpackages, gwf_buy_subpackages)
     case ('CHD')
@@ -367,6 +378,8 @@ contains
     integrated = .false.
     select case (subcomponent)
     case ('NAM')
+      integrated = .true.
+    case ('API')
       integrated = .true.
     case ('BUY')
       integrated = .true.

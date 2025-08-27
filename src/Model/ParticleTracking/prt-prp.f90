@@ -4,18 +4,13 @@ module PrtPrpModule
                              LENBOUNDNAME, LENPAKLOC, TABLEFT, TABCENTER, &
                              MNORMAL, DSAME, DEP3, DEP9
   use BndModule, only: BndType
+  use BndExtModule, only: BndExtType
   use ObsModule, only: DefaultObsIdProcessor
-  use TableModule, only: TableType, table_cr
-  use TimeSeriesModule, only: TimeSeriesType
-  use TimeSeriesRecordModule, only: TimeSeriesRecordType
-  use TimeSeriesLinkModule, only: TimeSeriesLinkType, &
-                                  GetTimeSeriesLinkFromList
-  use BlockParserModule, only: BlockParserType
   use PrtFmiModule, only: PrtFmiType
   use ParticleModule, only: ParticleType, ParticleStoreType, &
                             create_particle, create_particle_store
-  use SimModule, only: count_errors, store_error, store_error_unit, &
-                       store_warning
+  use SimModule, only: count_errors, store_error, store_warning, &
+                       store_error_filename
   use SimVariablesModule, only: errmsg, warnmsg
   use ParticleTracksModule, only: ParticleTracksType, &
                                   TRACKHEADER, TRACKDTYPES
@@ -28,7 +23,7 @@ module PrtPrpModule
   use DisvModule, only: DisvType
   use ErrorUtilModule, only: pstop
   use MathUtilModule, only: arange, is_close
-  use ArrayHandlersModule, only: ExpandArray
+  use MethodModule, only: LEVEL_MODEL, LEVEL_FEATURE, LEVEL_SUBFEATURE
 
   implicit none
 
@@ -40,7 +35,7 @@ module PrtPrpModule
   character(len=16) :: text = '             PRP'
 
   !> @brief Particle release point (PRP) package
-  type, extends(BndType) :: PrtPrpType
+  type, extends(BndExtType) :: PrtPrpType
     type(PrtFmiType), pointer :: fmi => null() !< flow model interface
     type(ParticleStoreType), pointer :: particles => null() !< particle store
     type(ParticleReleaseScheduleType), pointer :: schedule !< particle release schedule
@@ -60,6 +55,7 @@ module PrtPrpModule
     integer(I4B), pointer :: ifrctrn => null() !< force ternary solution for quad grids
     integer(I4B), pointer :: iexmeth => null() !< method for iterative solution of particle exit location and time in generalized Pollock's method
     integer(I4B), pointer :: ichkmeth => null() !< method for checking particle release coordinates are in the specified cells, 0 = none, 1 = eager
+    integer(I4B), pointer :: icycwin => null() !< cycle detection window size
     real(DP), pointer :: extol => null() !< tolerance for iterative solution of particle exit location and time in generalized Pollock's method
     real(DP), pointer :: rttol => null() !< tolerance for coincident particle release times
     real(DP), pointer :: rtfreq => null() !< frequency for regularly spaced release times
@@ -83,10 +79,11 @@ module PrtPrpModule
     procedure :: bnd_da => prp_da
     procedure :: define_listlabel
     procedure :: prp_set_pointers
-    procedure :: bnd_options => prp_options
-    procedure :: read_dimensions => prp_read_dimensions
-    procedure :: prp_read_packagedata
-    procedure :: prp_read_releasetimes
+    procedure :: source_options => prp_options
+    procedure :: source_dimensions => prp_dimensions
+    procedure :: prp_log_options
+    procedure :: prp_packagedata
+    procedure :: prp_releasetimes
     procedure :: prp_load_releasetimefrequency
     procedure :: release
     procedure :: log_release
@@ -100,7 +97,7 @@ contains
 
   !> @brief Create a new particle release point package
   subroutine prp_create(packobj, id, ibcnum, inunit, iout, namemodel, &
-                        pakname, fmi)
+                        pakname, input_mempath, fmi)
     ! dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -109,20 +106,21 @@ contains
     integer(I4B), intent(in) :: iout
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
+    character(len=*), intent(in) :: input_mempath
     type(PrtFmiType), pointer :: fmi
     ! local
     type(PrtPrpType), pointer :: prpobj
     ! formats
     character(len=*), parameter :: fmtheader = &
       "(1x, /1x, 'PRP PARTICLE RELEASE POINT PACKAGE', &
-       &' INPUT READ FROM UNIT ', i0, /)"
+       &' INPUT READ FROM MEMPATH: ', a, /)"
 
     ! allocate the object and assign values to object variables
     allocate (prpobj)
     packobj => prpobj
 
     ! create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, input_mempath)
     prpobj%text = text
 
     ! allocate scalars
@@ -142,7 +140,7 @@ contains
     prpobj%fmi => fmi
 
     ! if prp is enabled, print a message identifying it
-    if (inunit > 0) write (iout, fmtheader) inunit
+    if (inunit > 0) write (iout, fmtheader) input_mempath
   end subroutine prp_create
 
   !> @brief Deallocate memory
@@ -150,7 +148,7 @@ contains
     class(PrtPrpType) :: this
 
     ! Deallocate parent
-    call this%BndType%bnd_da()
+    call this%BndExtType%bnd_da()
 
     ! Deallocate scalars
     call mem_deallocate(this%ilocalz)
@@ -172,6 +170,7 @@ contains
     call mem_deallocate(this%ifrctrn)
     call mem_deallocate(this%iexmeth)
     call mem_deallocate(this%ichkmeth)
+    call mem_deallocate(this%icycwin)
     call mem_deallocate(this%extol)
     call mem_deallocate(this%rttol)
     call mem_deallocate(this%rtfreq)
@@ -210,7 +209,7 @@ contains
     ! local
     integer(I4B) :: nps
 
-    call this%BndType%allocate_arrays()
+    call this%BndExtType%allocate_arrays()
 
     ! Allocate particle store, starting with the number
     ! of release points (arrays resized if/when needed)
@@ -241,7 +240,7 @@ contains
     class(PrtPrpType) :: this
 
     ! Allocate parent's scalars
-    call this%BndType%allocate_scalars()
+    call this%BndExtType%allocate_scalars()
 
     ! Allocate scalars for this type
     call mem_allocate(this%ilocalz, 'ILOCALZ', this%memoryPath)
@@ -263,6 +262,7 @@ contains
     call mem_allocate(this%ifrctrn, 'IFRCTRN', this%memoryPath)
     call mem_allocate(this%iexmeth, 'IEXMETH', this%memoryPath)
     call mem_allocate(this%ichkmeth, 'ICHKMETH', this%memoryPath)
+    call mem_allocate(this%icycwin, 'ICYCWIN', this%memoryPath)
     call mem_allocate(this%extol, 'EXTOL', this%memoryPath)
     call mem_allocate(this%rttol, 'RTTOL', this%memoryPath)
     call mem_allocate(this%rtfreq, 'RTFREQ', this%memoryPath)
@@ -287,6 +287,7 @@ contains
     this%ifrctrn = 0
     this%iexmeth = 0
     this%ichkmeth = 1
+    this%icycwin = 0
     this%extol = DEM5
     this%rttol = DSAME * DEP9
     this%rtfreq = DZERO
@@ -402,20 +403,20 @@ contains
         'Error: release point (x=', x, ', y=', y, ') is not in cell ', &
         this%dis%get_nodeuser(ic)
       call store_error(errmsg, terminate=.false.)
-      call store_error_unit(this%inunit, terminate=.true.)
+      call store_error_filename(this%input_fname)
     end if
     if (z > maxval(this%dis%top)) then
       write (errmsg, '(a,g0,a,g0,a,i0)') &
         'Error: release point (z=', z, ') is above grid top ', &
         maxval(this%dis%top)
       call store_error(errmsg, terminate=.false.)
-      call store_error_unit(this%inunit, terminate=.true.)
+      call store_error_filename(this%input_fname)
     else if (z < minval(this%dis%bot)) then
       write (errmsg, '(a,g0,a,g0,a,i0)') &
         'Error: release point (z=', z, ') is below grid bottom ', &
         minval(this%dis%bot)
       call store_error(errmsg, terminate=.false.)
-      call store_error_unit(this%inunit, terminate=.true.)
+      call store_error_filename(this%input_fname)
     end if
     deallocate (polyverts)
   end subroutine validate_release_point
@@ -535,15 +536,16 @@ contains
     end if
 
     particle%ttrack = particle%trelease
-    particle%idomain(1) = 0
-    particle%iboundary(1) = 0
-    particle%idomain(2) = ic
-    particle%iboundary(2) = 0
-    particle%idomain(3) = 0
-    particle%iboundary(3) = 0
+    particle%itrdomain(LEVEL_MODEL) = 0
+    particle%iboundary(LEVEL_MODEL) = 0
+    particle%itrdomain(LEVEL_FEATURE) = ic
+    particle%iboundary(LEVEL_FEATURE) = 0
+    particle%itrdomain(LEVEL_SUBFEATURE) = 0
+    particle%iboundary(LEVEL_SUBFEATURE) = 0
     particle%ifrctrn = this%ifrctrn
     particle%iexmeth = this%iexmeth
     particle%iextend = this%iextend
+    particle%icycwin = this%icycwin
     particle%extol = this%extol
   end subroutine initialize_particle
 
@@ -551,88 +553,54 @@ contains
   subroutine prp_rp(this)
     ! modules
     use TdisModule, only: kper, nper
-    use InputOutputModule, only: urword
+    use MemoryManagerModule, only: mem_setptr
+    use CharacterStringModule, only: CharacterStringType
     ! dummy variables
     class(PrtPrpType), intent(inout) :: this
     ! local variables
-    integer(I4B) :: ierr
-    logical(LGP) :: is_found
-    logical(LGP) :: end_of_block
-    logical(LGP) :: no_blocks
-    character(len=LINELENGTH) :: line
+    type(CharacterStringType), dimension(:), contiguous, &
+      pointer :: settings
+    integer(I4B), pointer :: iper, ionper, nlist
     character(len=LINELENGTH), allocatable :: lines(:)
-    ! formats
-    character(len=*), parameter :: fmtblkerr = &
-                      "('Looking for BEGIN PERIOD iper.  &
-                      &Found ', a, ' instead.')"
-    character(len=*), parameter :: fmt_steps = &
-                                   "(6x,'TIME STEP(S) ',50(I0,' '))" ! 50 limit is similar to STEPS in OC
-    character(len=*), parameter :: fmt_freq = &
-                                   "(6x,'EVERY ',I0,' TIME STEP(S)')"
-    character(len=*), parameter :: fmt_fracs = &
-                                   "(6x,50(f10.3,' '))"
+    integer(I4B) :: n
 
-    ! Set ionper to the stress period number for which a new block of data
-    ! will be read.
-    if (this%inunit == 0) return
+    ! set pointer to last and next period loaded
+    call mem_setptr(iper, 'IPER', this%input_mempath)
+    call mem_setptr(ionper, 'IONPER', this%input_mempath)
 
-    ! get stress period data
-    no_blocks = .false.
-    if (this%ionper < kper) then
-      ! get period block
-      call this%parser%GetBlock('PERIOD', is_found, ierr, &
-                                supportOpenClose=.true., &
-                                blockRequired=.false.)
-      if (is_found) then
-        ! read ionper and check for increasing period numbers
-        call this%read_check_ionper()
-      else
-        ! PERIOD block not found
-        if (ierr < 0) then
-          if (kper == 1) then
-            ! End of file found; no period data for the simulation.
-            no_blocks = .true.
-          else
-            ! End of file found; no more period data.
-            this%ionper = nper + 1
-          end if
-        else
-          ! Found invalid block
-          call this%parser%GetCurrentLine(line)
-          write (errmsg, fmtblkerr) adjustl(trim(line))
-          call store_error(errmsg, terminate=.TRUE.)
-        end if
-      end if
-    end if
-
-    ! If the user hasn't provided any release settings (neither
-    ! explicit release times, release time frequency, or period
-    ! block release settings), default to a single release at the
-    ! start of the first period's first time step.
-    if (no_blocks .and. &
-        kper == 1 .and. &
+    if (kper == 1 .and. &
+        (iper == 0) .and. &
+        (ionper > nper) .and. &
         size(this%schedule%time_select%times) == 0) then
+      ! If the user hasn't provided any release settings (neither
+      ! explicit release times, release time frequency, or period
+      ! block release settings), default to a single release at the
+      ! start of the first period's first time step.
       allocate (lines(1))
-      line = "FIRST"
-      lines(1) = line
+      lines(1) = "FIRST"
       call this%schedule%advance(lines=lines)
-    else if (this%ionper == kper) then
-      ! If the current stress period matches the
-      ! block we are reading, parse the setting
-      ! and register it with the schedule.
-      allocate (lines(0))
-      recordloop: do
-        call this%parser%GetNextLine(end_of_block)
-        if (end_of_block) exit recordloop
-        call this%parser%GetCurrentLine(line)
-        call ExpandArray(lines)
-        lines(size(lines)) = line
-      end do recordloop
-      if (size(lines) > 0) &
-        call this%schedule%advance(lines=lines)
       deallocate (lines)
+      return
+    else if (iper /= kper) then
+      return
     end if
 
+    ! set input context pointers
+    call mem_setptr(nlist, 'NBOUND', this%input_mempath)
+    call mem_setptr(settings, 'SETTING', this%input_mempath)
+
+    ! allocate and set input
+    allocate (lines(nlist))
+    do n = 1, nlist
+      lines(n) = settings(n)
+    end do
+
+    ! update schedule
+    if (size(lines) > 0) &
+      call this%schedule%advance(lines=lines)
+
+    ! cleanup
+    deallocate (lines)
   end subroutine prp_rp
 
   !> @ brief Calculate flow between package and model.
@@ -696,18 +664,155 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => DefaultObsIdProcessor
   end subroutine prp_df_obs
 
-  !> @brief Set options specific to PrtPrpType
-  subroutine prp_options(this, option, found)
+  !> @ brief Set options specific to PrtPrpType
+  subroutine prp_options(this)
+    ! -- modules
+    use ConstantsModule, only: LENVARNAME, DZERO, MNORMAL
+    use MemoryManagerExtModule, only: mem_set_value
     use OpenSpecModule, only: access, form
-    use ConstantsModule, only: MAXCHARLEN, DZERO
-    use InputOutputModule, only: urword, getunit, openfile
-    ! dummy
+    use InputOutputModule, only: getunit, openfile
+    use PrtPrpInputModule, only: PrtPrpParamFoundType
+    ! -- dummy variables
     class(PrtPrpType), intent(inout) :: this
-    character(len=*), intent(inout) :: option
-    logical(LGP), intent(inout) :: found
-    ! locals
-    character(len=MAXCHARLEN) :: fname
-    character(len=MAXCHARLEN) :: keyword
+    ! -- local variables
+    character(len=LENVARNAME), dimension(3) :: drytrack_method = &
+      &[character(len=LENVARNAME) :: 'DROP', 'STOP', 'STAY']
+    character(len=LENVARNAME), dimension(2) :: coorcheck_method = &
+      &[character(len=LENVARNAME) :: 'NONE', 'EAGER']
+    character(len=LINELENGTH) :: trackfile, trackcsvfile, fname
+    type(PrtPrpParamFoundType) :: found
+
+    ! -- source base class options
+    call this%BndExtType%source_options()
+
+    ! -- update defaults from input context
+    call mem_set_value(this%stoptime, 'STOPTIME', this%input_mempath, &
+                       found%stoptime)
+    call mem_set_value(this%stoptraveltime, 'STOPTRAVELTIME', &
+                       this%input_mempath, found%stoptraveltime)
+    call mem_set_value(this%istopweaksink, 'ISTOPWEAKSINK', this%input_mempath, &
+                       found%istopweaksink)
+    call mem_set_value(this%istopzone, 'ISTOPZONE', this%input_mempath, &
+                       found%istopzone)
+    call mem_set_value(this%idrape, 'DRAPE', this%input_mempath, &
+                       found%drape)
+    call mem_set_value(this%idrymeth, 'IDRYMETH', this%input_mempath, &
+                       drytrack_method, found%idrymeth)
+    call mem_set_value(trackfile, 'TRACKFILE', this%input_mempath, &
+                       found%trackfile)
+    call mem_set_value(trackcsvfile, 'TRACKCSVFILE', this%input_mempath, &
+                       found%trackcsvfile)
+    call mem_set_value(this%ilocalz, 'LOCAL_Z', this%input_mempath, &
+                       found%local_z)
+    call mem_set_value(this%iextend, 'EXTEND_TRACKING', this%input_mempath, &
+                       found%extend_tracking)
+    call mem_set_value(this%extol, 'EXTOL', this%input_mempath, &
+                       found%extol)
+    call mem_set_value(this%rttol, 'RTTOL', this%input_mempath, &
+                       found%rttol)
+    call mem_set_value(this%rtfreq, 'RTFREQ', this%input_mempath, &
+                       found%rtfreq)
+    call mem_set_value(this%ifrctrn, 'IFRCTRN', this%input_mempath, &
+                       found%ifrctrn)
+    call mem_set_value(this%iexmeth, 'IEXMETH', this%input_mempath, &
+                       found%iexmeth)
+    call mem_set_value(this%ichkmeth, 'ICHKMETH', this%input_mempath, &
+                       coorcheck_method, found%ichkmeth)
+    call mem_set_value(this%icycwin, 'ICYCWIN', this%input_mempath, found%icycwin)
+
+    ! update internal state and validate input
+    if (found%idrymeth) then
+      if (this%idrymeth == 0) then
+        write (errmsg, '(a)') 'Unsupported dry tracking method. &
+          &DRY_TRACKING_METHOD must be "DROP", "STOP", or "STAY"'
+        call store_error(errmsg)
+      else
+        ! adjust for method zero indexing
+        this%idrymeth = this%idrymeth - 1
+      end if
+    end if
+
+    if (found%extol) then
+      if (this%extol <= DZERO) &
+        call store_error('EXIT_SOLVE_TOLERANCE MUST BE POSITIVE')
+    end if
+
+    if (found%rttol) then
+      if (this%rttol <= DZERO) &
+        call store_error('RELEASE_TIME_TOLERANCE MUST BE POSITIVE')
+    end if
+
+    if (found%rtfreq) then
+      if (this%rtfreq <= DZERO) &
+        call store_error('RELEASE_TIME_FREQUENCY MUST BE POSITIVE')
+    end if
+
+    if (found%iexmeth) then
+      if (.not. (this%iexmeth /= 1 .or. this%iexmeth /= 2)) &
+        call store_error('DEV_EXIT_SOLVE_METHOD MUST BE &
+          &1 (BRENT) OR 2 (CHANDRUPATLA)')
+    end if
+
+    if (found%ichkmeth) then
+      if (this%ichkmeth == 0) then
+        write (errmsg, '(a)') 'Unsupported coordinate check method. &
+          &COORDINATE_CHECK_METHOD must be "NONE" or "EAGER"'
+        call store_error(errmsg)
+      else
+        ! adjust for method zero based indexing
+        this%ichkmeth = this%ichkmeth - 1
+      end if
+    end if
+
+    if (found%icycwin) then
+      if (this%icycwin < 0) &
+        call store_error('CYCLE_DETECTION_WINDOW MUST BE NON-NEGATIVE')
+    end if
+
+    ! fileout options
+    if (found%trackfile) then
+      this%itrkout = getunit()
+      call openfile(this%itrkout, this%iout, trackfile, 'DATA(BINARY)', &
+                    form, access, filstat_opt='REPLACE', &
+                    mode_opt=MNORMAL)
+      ! open and write ascii header spec file
+      this%itrkhdr = getunit()
+      fname = trim(trackfile)//'.hdr'
+      call openfile(this%itrkhdr, this%iout, fname, 'CSV', &
+                    filstat_opt='REPLACE', mode_opt=MNORMAL)
+      write (this%itrkhdr, '(a,/,a)') TRACKHEADER, TRACKDTYPES
+    end if
+
+    if (found%trackcsvfile) then
+      this%itrkcsv = getunit()
+      call openfile(this%itrkcsv, this%iout, trackcsvfile, 'CSV', &
+                    filstat_opt='REPLACE')
+      write (this%itrkcsv, '(a)') TRACKHEADER
+    end if
+
+    ! terminate if any errors were detected
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+
+    ! log found options
+    call this%prp_log_options(found, trackfile, trackcsvfile)
+
+    ! Create release schedule now that we know
+    ! the coincident release time tolerance
+    this%schedule => create_release_schedule(tolerance=this%rttol)
+  end subroutine prp_options
+
+  !> @ brief Log options specific to PrtPrpType
+  subroutine prp_log_options(this, found, trackfile, trackcsvfile)
+    ! -- modules
+    use PrtPrpInputModule, only: PrtPrpParamFoundType
+    ! -- dummy variables
+    class(PrtPrpType), intent(inout) :: this
+    type(PrtPrpParamFoundType), intent(in) :: found
+    character(len=*), intent(in) :: trackfile
+    character(len=*), intent(in) :: trackcsvfile
+    ! -- local variables
     ! formats
     character(len=*), parameter :: fmttrkbin = &
       "(4x, 'PARTICLE TRACKS WILL BE SAVED TO BINARY FILE: ', a, /4x, &
@@ -716,184 +821,43 @@ contains
       "(4x, 'PARTICLE TRACKS WILL BE SAVED TO CSV FILE: ', a, /4x, &
     &'OPENED ON UNIT: ', I0)"
 
-    select case (option)
-    case ('STOPTIME')
-      this%stoptime = this%parser%GetDouble()
-      found = .true.
-    case ('STOPTRAVELTIME')
-      this%stoptraveltime = this%parser%GetDouble()
-      found = .true.
-    case ('STOP_AT_WEAK_SINK')
-      this%istopweaksink = 1
-      found = .true.
-    case ('ISTOPZONE')
-      this%istopzone = this%parser%GetInteger()
-      found = .true.
-    case ('DRAPE')
-      this%idrape = 1
-      found = .true.
-    case ('DRY_TRACKING_METHOD')
-      call this%parser%GetStringCaps(keyword)
-      select case (keyword)
-      case ('DROP')
-        this%idrymeth = 0
-      case ('STOP')
-        this%idrymeth = 1
-      case ('STAY')
-        this%idrymeth = 2
-      case default
-        write (errmsg, '(a, a)') &
-          'Unknown dry tracking method: ', trim(keyword)
-        call store_error(errmsg)
-        write (errmsg, '(a, a)') &
-          'DRY must be "DROP", "STOP" or "STAY"'
-        call store_error(errmsg)
-        call this%parser%StoreErrorUnit()
-      end select
-      found = .true.
-    case ('TRACK')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        ! parse filename
-        call this%parser%GetString(fname)
-        ! open binary output file
-        this%itrkout = getunit()
-        call openfile(this%itrkout, this%iout, fname, 'DATA(BINARY)', &
-                      form, access, filstat_opt='REPLACE', &
-                      mode_opt=MNORMAL)
-        write (this%iout, fmttrkbin) trim(adjustl(fname)), this%itrkout
-        ! open and write ascii header spec file
-        this%itrkhdr = getunit()
-        fname = trim(fname)//'.hdr'
-        call openfile(this%itrkhdr, this%iout, fname, 'CSV', &
-                      filstat_opt='REPLACE', mode_opt=MNORMAL)
-        write (this%itrkhdr, '(a,/,a)') TRACKHEADER, TRACKDTYPES
-      else
-        call store_error('OPTIONAL TRACK KEYWORD MUST BE '// &
-                         'FOLLOWED BY FILEOUT')
-      end if
-      found = .true.
-    case ('TRACKCSV')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        ! parse filename
-        call this%parser%GetString(fname)
-        ! open CSV output file and write headers
-        this%itrkcsv = getunit()
-        call openfile(this%itrkcsv, this%iout, fname, 'CSV', &
-                      filstat_opt='REPLACE')
-        write (this%iout, fmttrkcsv) trim(adjustl(fname)), this%itrkcsv
-        write (this%itrkcsv, '(a)') TRACKHEADER
-      else
-        call store_error('OPTIONAL TRACKCSV KEYWORD MUST BE &
-          &FOLLOWED BY FILEOUT')
-      end if
-      found = .true.
-    case ('LOCAL_Z')
-      this%ilocalz = 1
-      found = .true.
-    case ('EXTEND_TRACKING')
-      this%iextend = 1
-      found = .true.
-    case ('EXIT_SOLVE_TOLERANCE')
-      this%extol = this%parser%GetDouble()
-      if (this%extol <= DZERO) &
-        call store_error('EXIT_SOLVE_TOLERANCE MUST BE POSITIVE')
-      found = .true.
-    case ('RELEASE_TIME_TOLERANCE')
-      this%rttol = this%parser%GetDouble()
-      if (this%rttol <= DZERO) &
-        call store_error('RELEASE_TIME_TOLERANCE MUST BE POSITIVE')
-      found = .true.
-    case ('RELEASE_TIME_FREQUENCY')
-      this%rtfreq = this%parser%GetDouble()
-      if (this%rtfreq <= DZERO) &
-        call store_error('RELEASE_TIME_FREQUENCY MUST BE POSITIVE')
-      found = .true.
-    case ('DEV_FORCETERNARY')
-      call this%parser%DevOpt()
-      this%ifrctrn = 1
+    write (this%iout, '(1x,a)') 'PROCESSING PARTICLE INPUT DIMENSIONS'
+
+    if (found%ifrctrn) then
       write (this%iout, '(4x,a)') &
         'IF DISV, TRACKING WILL USE THE TERNARY METHOD REGARDLESS OF CELL TYPE'
-      found = .true.
-    case ('DEV_EXIT_SOLVE_METHOD')
-      call this%parser%DevOpt()
-      this%iexmeth = this%parser%GetInteger()
-      if (.not. (this%iexmeth /= 1 .or. this%iexmeth /= 2)) &
-        call store_error('DEV_EXIT_SOLVE_METHOD MUST BE &
-          &1 (BRENT) OR 2 (CHANDRUPATLA)')
-      found = .true.
-    case ('COORDINATE_CHECK_METHOD')
-      call this%parser%GetStringCaps(keyword)
-      select case (keyword)
-      case ('NONE')
-        this%ichkmeth = 0
-      case ('EAGER')
-        this%ichkmeth = 1
-      case default
-        write (errmsg, '(a, a)') &
-          'Unsupported coordinate check method: ', trim(keyword)
-        call store_error(errmsg)
-        write (errmsg, '(a, a)') &
-          'COORDINATE_CHECK_METHOD must be "NONE" or "EAGER"'
-        call store_error(errmsg)
-        call this%parser%StoreErrorUnit()
-      end select
-      found = .true.
-    case default
-      found = .false.
-    end select
-
-    ! Catch unrecognized options
-    if (.not. found) then
-      errmsg = "UNKNOWN PRP OPTION '"//trim(keyword)//"'."
-      call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
     end if
 
-    ! Create release schedule now that we know
-    ! the coincident release time tolerance
-    this%schedule => create_release_schedule(tolerance=this%rttol)
+    if (found%trackfile) then
+      write (this%iout, fmttrkbin) trim(adjustl(trackfile)), this%itrkout
+    end if
 
-  end subroutine prp_options
+    if (found%trackcsvfile) then
+      write (this%iout, fmttrkcsv) trim(adjustl(trackcsvfile)), this%itrkcsv
+    end if
 
-  !> @brief Read package dimensions
-  subroutine prp_read_dimensions(this)
-    ! dummy
+    write (this%iout, '(1x,a)') 'END OF PARTICLE INPUT DIMENSIONS'
+  end subroutine prp_log_options
+
+  !> @ brief Set dimensions specific to PrtPrpType
+  subroutine prp_dimensions(this)
+    ! -- modules
+    use MemoryManagerExtModule, only: mem_set_value
+    use PrtPrpInputModule, only: PrtPrpParamFoundType
+    ! -- dummy variables
     class(PrtPrpType), intent(inout) :: this
-    ! local
-    character(len=LINELENGTH) :: errmsg, keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
+    ! -- local variables
+    type(PrtPrpParamFoundType) :: found
 
-    ! get dimension block
-    call this%parser%GetBlock('DIMENSIONS', isfound, ierr, &
-                              supportOpenClose=.true.)
+    call mem_set_value(this%nreleasepoints, 'NRELEASEPTS', this%input_mempath, &
+                       found%nreleasepts)
+    call mem_set_value(this%nreleasetimes, 'NRELEASETIMES', this%input_mempath, &
+                       found%nreleasetimes)
 
-    ! parse dimension block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING PARTICLE INPUT DIMENSIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('NRELEASEPTS')
-          this%nreleasepoints = this%parser%GetInteger()
-        case ('NRELEASETIMES')
-          this%nreleasetimes = this%parser%GetInteger()
-        case default
-          write (errmsg, &
-                 '(4x,a,a)') '****ERROR. UNKNOWN PARTICLE INPUT DIMENSION: ', &
-            trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END OF PARTICLE INPUT DIMENSIONS'
-    else
-      call store_error('ERROR.  REQUIRED DIMENSIONS BLOCK NOT FOUND.')
-    end if
+    write (this%iout, '(1x,a)') 'PROCESSING PARTICLE INPUT DIMENSIONS'
+    write (this%iout, '(4x,a,i0)') 'NRELEASEPTS = ', this%nreleasepoints
+    write (this%iout, '(4x,a,i0)') 'NRELEASETIMES = ', this%nreleasetimes
+    write (this%iout, '(1x,a)') 'END OF PARTICLE INPUT DIMENSIONS'
 
     ! set maxbound and nbound to nreleasepts
     this%maxbound = this%nreleasepoints
@@ -903,192 +867,170 @@ contains
     call this%prp_allocate_arrays()
 
     ! read packagedata and releasetimes blocks
-    call this%prp_read_packagedata()
-    call this%prp_read_releasetimes()
+    call this%prp_packagedata()
+    call this%prp_releasetimes()
     call this%prp_load_releasetimefrequency()
-  end subroutine prp_read_dimensions
+  end subroutine prp_dimensions
 
   !> @brief Load package data (release points).
-  subroutine prp_read_packagedata(this)
+  subroutine prp_packagedata(this)
+    use MemoryManagerModule, only: mem_setptr
+    use GeomUtilModule, only: get_node
+    use CharacterStringModule, only: CharacterStringType
     ! dummy
     class(PrtPrpType), intent(inout) :: this
     ! local
-    character(len=LINELENGTH) :: cellid
+    integer(I4B), dimension(:), pointer, contiguous :: irptno
+    integer(I4B), dimension(:, :), pointer, contiguous :: cellids
+    real(DP), dimension(:), pointer, contiguous :: xrpts, yrpts, zrpts
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: boundnames
     character(len=LENBOUNDNAME) :: bndName, bndNameTemp
     character(len=9) :: cno
-    logical :: isfound
-    logical :: endOfBlock
-    integer(I4B) :: ival
-    integer(I4B) :: n
-    integer(I4B) :: ierr
-    character(len=LENBOUNDNAME), dimension(:), allocatable :: nametxt
     integer(I4B), dimension(:), allocatable :: nboundchk
-    integer(I4B), dimension(:), allocatable :: noder
-    real(DP), dimension(:), allocatable :: x
-    real(DP), dimension(:), allocatable :: y
-    real(DP), dimension(:), allocatable :: z
-    real(DP), dimension(:), allocatable :: tstop
-    ! format
-    character(len=*), parameter :: fmttend = &
-      "('end time (', G0, ') must be greater than or equal to the              &
-     &begin time (', G0, ').')"
+    integer(I4B), dimension(:), pointer :: cellid
+    integer(I4B) :: n, noder, nodeu, rptno
 
-    ! allocate temporary variables
-    allocate (noder(this%nreleasepoints))
-    allocate (x(this%nreleasepoints))
-    allocate (y(this%nreleasepoints))
-    allocate (z(this%nreleasepoints))
-    allocate (tstop(this%nreleasepoints))
-    allocate (nametxt(this%nreleasepoints))
+    ! set input context pointers
+    call mem_setptr(irptno, 'IRPTNO', this%input_mempath)
+    call mem_setptr(cellids, 'CELLID', this%input_mempath)
+    call mem_setptr(xrpts, 'XRPT', this%input_mempath)
+    call mem_setptr(yrpts, 'YRPT', this%input_mempath)
+    call mem_setptr(zrpts, 'ZRPT', this%input_mempath)
+    call mem_setptr(boundnames, 'BOUNDNAME', this%input_mempath)
+
+    ! allocate and initialize temporary variables
     allocate (nboundchk(this%nreleasepoints))
-
-    ! initialize temporary variables
     do n = 1, this%nreleasepoints
       nboundchk(n) = 0
     end do
 
-    ! read particle release point data
-    ! get particle release points block
-    call this%parser%GetBlock('PACKAGEDATA', isfound, ierr, &
-                              supportopenclose=.true.)
+    write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%packName)) &
+      //' PACKAGEDATA'
 
-    ! parse block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%packName)) &
-        //' PACKAGEDATA'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        ival = this%parser%GetInteger()
-        n = ival
+    do n = 1, size(irptno)
 
-        if (n < 1 .or. n > this%nreleasepoints) then
-          write (errmsg, '(a,i0,a,i0,a)') &
-            'Expected ', this%nreleasepoints, ' release points. &
-            &Points must be numbered from 1 to ', this%nreleasepoints, '.'
-          call store_error(errmsg)
-          cycle
-        end if
+      rptno = irptno(n)
 
-        ! increment nboundchk
-        nboundchk(n) = nboundchk(n) + 1
+      if (rptno < 1 .or. rptno > this%nreleasepoints) then
+        write (errmsg, '(a,i0,a,i0,a)') &
+          'Expected ', this%nreleasepoints, ' release points. &
+          &Points must be numbered from 1 to ', this%nreleasepoints, '.'
+        call store_error(errmsg)
+        cycle
+      end if
 
-        ! node number
-        call this%parser%GetCellid(this%dis%ndim, cellid)
-        noder(n) = this%dis%noder_from_cellid(cellid, this%inunit, this%iout)
+      ! increment nboundchk
+      nboundchk(rptno) = nboundchk(rptno) + 1
 
-        ! x, y, z coordinates
-        x(n) = this%parser%GetDouble()
-        y(n) = this%parser%GetDouble()
-        z(n) = this%parser%GetDouble()
+      ! set cellid
+      cellid => cellids(:, n)
 
-        if (this%ilocalz > 0 .and. (z(n) < 0 .or. z(n) > 1)) then
-          call store_error('Local z coordinate must fall in the interval [0, 1]')
-          cycle
-        end if
+      ! set node user
+      if (this%dis%ndim == 1) then
+        nodeu = cellid(1)
+      elseif (this%dis%ndim == 2) then
+        nodeu = get_node(cellid(1), 1, cellid(2), &
+                         this%dis%mshape(1), 1, &
+                         this%dis%mshape(2))
+      else
+        nodeu = get_node(cellid(1), cellid(2), cellid(3), &
+                         this%dis%mshape(1), &
+                         this%dis%mshape(2), &
+                         this%dis%mshape(3))
+      end if
 
-        ! set default boundname
-        write (cno, '(i9.9)') n
-        bndName = 'PRP'//cno
+      ! set noder
+      noder = this%dis%get_nodenumber(nodeu, 1)
+      if (noder <= 0) then
+        cycle
+      else
+        this%rptnode(rptno) = noder
+      end if
 
-        ! read boundnames from file, if provided
-        if (this%inamedbound /= 0) then
-          call this%parser%GetStringCaps(bndNameTemp)
-          if (bndNameTemp /= '') &
-            bndName = bndNameTemp
-        else
-          bndName = ''
-        end if
+      if (this%ilocalz > 0 .and. (zrpts(n) < 0 .or. zrpts(n) > 1)) then
+        call store_error('Local z coordinate must fall in the interval [0, 1]')
+        cycle
+      end if
 
-        ! store temp boundnames
-        nametxt(n) = bndName
-      end do
+      ! set coordinates
+      this%rptx(rptno) = xrpts(n)
+      this%rpty(rptno) = yrpts(n)
+      this%rptz(rptno) = zrpts(n)
 
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%packName))//' PACKAGEDATA'
+      ! set default boundname
+      write (cno, '(i9.9)') rptno
+      bndName = 'PRP'//cno
 
-      ! check for duplicate or missing particle release points
-      do n = 1, this%nreleasepoints
-        if (nboundchk(n) == 0) then
-          write (errmsg, '(a,a,1x,i0,a)') 'No data specified for particle ', &
-            'release point', n, '.'
-          call store_error(errmsg)
-        else if (nboundchk(n) > 1) then
-          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
-            'Data for particle release point', n, 'specified', nboundchk(n), &
-            'times.'
-          call store_error(errmsg)
-        end if
-      end do
-    else
-      call store_error('Required packagedata block not found.')
-    end if
+      ! read boundnames from file, if provided
+      if (this%inamedbound /= 0) then
+        bndNameTemp = boundnames(n)
+        if (bndNameTemp /= '') bndName = bndNameTemp
+      else
+        bndName = ''
+      end if
+
+      ! set boundname
+      this%rptname(rptno) = bndName
+    end do
+
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%packName))//' PACKAGEDATA'
+
+    ! check for duplicate or missing particle release points
+    do n = 1, this%nreleasepoints
+      if (nboundchk(n) == 0) then
+        write (errmsg, '(a,a,1x,i0,a)') 'No data specified for particle ', &
+          'release point', n, '.'
+        call store_error(errmsg)
+      else if (nboundchk(n) > 1) then
+        write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
+          'Data for particle release point', n, 'specified', nboundchk(n), &
+          'times.'
+        call store_error(errmsg)
+      end if
+    end do
 
     ! terminate if any errors were detected
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
 
-    ! fill particle release point data with data stored in temporary local arrays
-    do n = 1, this%nreleasepoints
-      this%rptnode(n) = noder(n)
-      this%rptx(n) = x(n)
-      this%rpty(n) = y(n)
-      this%rptz(n) = z(n)
-      this%rptname(n) = nametxt(n)
-    end do
-
-    ! deallocate local storage
-    deallocate (noder)
-    deallocate (x)
-    deallocate (y)
-    deallocate (z)
-    deallocate (tstop)
-    deallocate (nametxt)
+    ! cleanup
     deallocate (nboundchk)
-  end subroutine prp_read_packagedata
+  end subroutine prp_packagedata
 
   !> @brief Load explicitly specified release times.
-  subroutine prp_read_releasetimes(this)
+  subroutine prp_releasetimes(this)
+    use MemoryManagerModule, only: mem_setptr, get_isize
     ! dummy
     class(PrtPrpType), intent(inout) :: this
     ! local
-    integer(I4B) :: i, ierr
-    logical(LGP) :: eob, found, success
-    real(DP) :: t
+    real(DP), dimension(:), pointer, contiguous :: time
+    integer(I4B) :: n, isize
     real(DP), allocatable :: times(:)
 
-    ! get releasetimes block
-    call this%parser%GetBlock('RELEASETIMES', found, ierr, &
-                              supportOpenClose=.true., &
-                              blockRequired=.false.)
-
-    ! raise an error if releasetimes has a dimension
-    ! but no block was found, otherwise return early
-    if (.not. found) then
-      if (this%nreleasetimes <= 0) return
-      write (errmsg, '(a, i0)') &
-        "Expected RELEASETIMES with length ", this%nreleasetimes
-      call store_error(errmsg)
-      call this%parser%StoreErrorUnit(terminate=.true.)
-    end if
+    if (this%nreleasetimes <= 0) return
 
     ! allocate times array
     allocate (times(this%nreleasetimes))
 
-    ! read times from the block
-    write (this%iout, '(/1x,a)') &
-      'PROCESSING '//trim(adjustl(this%text))//' RELEASETIMES'
-    do i = 1, this%nreleasetimes
-      call this%parser%GetNextLine(eob)
-      if (eob) exit
-      call this%parser%TryGetDouble(t, success)
-      if (.not. success) then
-        errmsg = "Failed to read double precision value"
-        call store_error(errmsg)
-        call this%parser%StoreErrorUnit(terminate=.true.)
-      end if
-      times(i) = t
+    ! check if input array was read
+    call get_isize('TIME', this%input_mempath, isize)
+
+    if (isize <= 0) then
+      errmsg = "RELEASTIMES block expected when &
+        &NRELEASETIMES dimension is non-zero."
+      call store_error(errmsg)
+      call store_error_filename(this%input_fname)
+    end if
+
+    ! set input context pointer
+    call mem_setptr(time, 'TIME', this%input_mempath)
+
+    ! set input data
+    do n = 1, size(time)
+      times(n) = time(n)
     end do
 
     ! register times with the release schedule
@@ -1096,15 +1038,14 @@ contains
 
     ! make sure times strictly increase
     if (.not. this%schedule%time_select%increasing()) then
-      errmsg = "Release times must strictly increase"
+      errmsg = "RELEASTIMES block entries must strictly increase."
       call store_error(errmsg)
-      call this%parser%StoreErrorUnit(terminate=.true.)
+      call store_error_filename(this%input_fname)
     end if
 
     ! deallocate
     deallocate (times)
-
-  end subroutine prp_read_releasetimes
+  end subroutine prp_releasetimes
 
   !> @brief Load regularly spaced release times if configured.
   subroutine prp_load_releasetimefrequency(this)
@@ -1131,7 +1072,7 @@ contains
     if (.not. this%schedule%time_select%increasing()) then
       errmsg = "Release times must strictly increase"
       call store_error(errmsg)
-      call this%parser%StoreErrorUnit(terminate=.true.)
+      call store_error_filename(this%input_fname)
     end if
 
     ! deallocate

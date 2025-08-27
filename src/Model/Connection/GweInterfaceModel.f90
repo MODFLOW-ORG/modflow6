@@ -93,7 +93,7 @@ contains
     !
     ! -- Create dis and packages
     call disu_cr(this%dis, this%name, '', -1, this%iout)
-    call fmi_cr(this%fmi, this%name, 0, this%iout, this%ieqnsclfac, &
+    call fmi_cr(this%fmi, this%name, '', 0, this%iout, this%ieqnsclfac, &
                 this%depvartype)
     call adv_cr(this%adv, this%name, '', adv_unit, this%iout, this%fmi, &
                 this%ieqnsclfac)

@@ -15,6 +15,7 @@ name print_input
 type keyword
 reader urword
 optional true
+mf6internal iprpak
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'all model stress package'}
 
@@ -23,6 +24,7 @@ name dev_exit_solve_method
 type integer
 reader urword
 optional true
+mf6internal iexmeth
 longname exit solve method
 description the method for iterative solution of particle exit location and time in the generalized Pollock's method.  0 default, 1 Brent, 2 Chandrupatla.  The default is Brent's method.
 
@@ -31,6 +33,7 @@ name exit_solve_tolerance
 type double precision
 reader urword
 optional true
+mf6internal extol
 longname exit solve tolerance
 description the convergence tolerance for iterative solution of particle exit location and time in the generalized Pollock's method.  A value of 0.00001 works well for many problems, but the value that strikes the best balance between accuracy and runtime is problem-dependent.
 default_value 1e-5
@@ -101,6 +104,7 @@ type record trackcsv fileout trackcsvfile
 shape
 reader urword
 tagged true
+mf6internal trackcsvfr
 optional true
 longname
 description
@@ -149,6 +153,7 @@ name stop_at_weak_sink
 type keyword
 reader urword
 optional true
+mf6internal istopweaksink
 longname stop at weak sink
 description is a text keyword to indicate that a particle is to terminate when it enters a cell that is a weak sink.  By default, particles are allowed to pass though cells that are weak sinks.
 
@@ -175,6 +180,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal releasetr
 longname
 description
 removed 6.6.0
@@ -209,6 +215,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal release_timesfr
 longname
 description
 removed 6.6.0
@@ -220,6 +227,7 @@ reader urword
 in_record true
 tagged true
 shape
+mf6internal release_timesfn
 longname
 description keyword indicating release times file name will follow
 removed 6.6.0
@@ -243,6 +251,7 @@ type string
 valid drop stop stay
 reader urword
 optional true
+mf6internal idrymeth
 longname what to do in dry-but-active cells
 description is a string indicating how particles should behave in dry-but-active cells (as can occur with the Newton formulation).  The value can be ``DROP'', ``STOP'', or ``STAY''.  The default is ``DROP'', which passes particles vertically and instantaneously to the water table. ``STOP'' causes particles to terminate. ``STAY'' causes particles to remain stationary but active.
 
@@ -260,6 +269,7 @@ name release_time_tolerance
 type double precision
 reader urword
 optional true
+mf6internal rttol
 longname release time coincidence tolerance
 description real number indicating the tolerance within which to consider consecutive release times coincident. Coincident release times will be merged into a single release time. The default is $\epsilon \times 10^{11}$, where $\epsilon$ is machine precision.
 
@@ -268,6 +278,7 @@ name release_time_frequency
 type double precision
 reader urword
 optional true
+mf6internal rtfreq
 longname release time frequency
 description real number indicating the time frequency at which to release particles. This option can be used to schedule releases at a regular interval for the duration of the simulation, starting at the simulation start time. The release schedule is the union of this option, the RELEASETIMES block, and PERIOD block RELEASESETTING selections. If none of these are provided, a single release time is configured at the beginning of the first time step of the simulation's first stress period.
 
@@ -277,9 +288,19 @@ type string
 valid none eager
 reader urword
 optional true
+mf6internal ichkmeth
 longname coordinate checking method
 description approach for verifying that release point coordinates are in the cell with the specified ID. By default, release point coordinates are checked at release time.
 default eager
+
+block options
+name dev_cycle_detection_window
+type integer
+reader urword
+optional true
+mf6internal icycwin
+longname cycle detection window size
+description integer value defining the size of the window (number of consecutive exit events) used for cycle detection. Defaults to 0, disabling cycle detection. With detection enabled, particle pathlines with duplicate cell exit events (i.e., exiting the same cell through the same face twice) will cause the program to terminate with an error. A larger window size provides more robust cycle detection at the cost of more runtime operations per cell exit.
 
 # --------------------- prt prp dimensions ---------------------
 
@@ -378,6 +399,7 @@ name releasetimes
 type recarray time
 shape (nreleasetimes)
 reader urword
+optional true
 longname
 description
 

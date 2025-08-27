@@ -7,13 +7,13 @@ module MethodModule
   use SubcellModule, only: SubcellType
   use ParticleModule, only: ParticleType
   use ParticleEventsModule, only: ParticleEventDispatcherType
-  use ParticleEventModule, only: ParticleEventType, &
-                                 ReleaseEventType, &
-                                 TimeStepEventType, &
-                                 TerminationEventType, &
-                                 WeakSinkEventType, &
-                                 UserTimeEventType, &
-                                 FeatExitEventType
+  use ParticleEventModule, only: ParticleEventType
+  use ReleaseEventModule, only: ReleaseEventType
+  use TimeStepEventModule, only: TimeStepEventType
+  use TerminationEventModule, only: TerminationEventType
+  use WeakSinkEventModule, only: WeakSinkEventType
+  use UserTimeEventModule, only: UserTimeEventType
+  use FeatExitEventModule, only: FeatExitEventType
   use BaseDisModule, only: DisBaseType
   use PrtFmiModule, only: PrtFmiType
   use CellModule, only: CellType
@@ -21,6 +21,22 @@ module MethodModule
   use TimeSelectModule, only: TimeSelectType
   use MathUtilModule, only: is_close
   implicit none
+
+  public :: LEVEL_MODEL, LEVEL_FEATURE, LEVEL_SUBFEATURE
+
+  !> @brief Tracking method level enumeration.
+  !!
+  !> Tracking levels: 1: model, 2: grid feature, 3: grid subfeature.
+  !! A tracking level identifies the domain through which a tracking
+  !! method is responsible for moving a particle. Methods operate on
+  !! a particular level and delegate to submethods for levels higher
+  !! than (i.e. below the scope of) their own.
+  !<
+  enum, bind(C)
+    enumerator :: LEVEL_MODEL = 1
+    enumerator :: LEVEL_FEATURE = 2
+    enumerator :: LEVEL_SUBFEATURE = 3
+  end enum
 
   private
   public :: MethodType
@@ -55,6 +71,7 @@ module MethodModule
     ! Overridden in subtypes that delegate
     procedure :: pass !< pass the particle to the next subdomain
     procedure :: load !< load the subdomain tracking method
+    procedure :: get_level !< get the tracking method level
     ! Implemented here
     procedure :: init
     procedure :: track
@@ -131,7 +148,6 @@ contains
     integer(I4B) :: nextlevel
     class(methodType), pointer :: submethod
 
-    ! Advance the particle over subdomains
     advancing = .true.
     nextlevel = level + 1
     do while (advancing)
@@ -148,16 +164,17 @@ contains
     integer(I4B) :: nextlevel
     logical(LGP) :: advancing
 
-    ! if the particle is done advancing, reset the domain boundary flag.
-    if (.not. particle%advancing) then
-      particle%iboundary = 0
-      advancing = .false.
-    else
-      ! otherwise pass the particle to the next subdomain.
-      ! if that leaves it on a boundary, stop advancing.
+    if (particle%advancing) then
+      ! if still advancing, pass to the next subdomain.
+      ! if that puts us on a boundary, then we're done.
       call this%pass(particle)
       if (particle%iboundary(nextlevel - 1) .ne. 0) &
         advancing = .false.
+    else
+      ! otherwise we're already done so
+      ! reset the domain boundary value.
+      advancing = .false.
+      particle%iboundary = 0
     end if
   end subroutine try_pass
 
@@ -169,6 +186,14 @@ contains
     class(MethodType), pointer, intent(inout) :: submethod
     call pstop(1, "load must be overridden")
   end subroutine load
+
+  !> @brief Get the tracking method's level.
+  function get_level(this) result(level)
+    class(MethodType), intent(in) :: this
+    integer(I4B) :: level
+    level = -1 ! suppress compiler warning
+    call pstop(1, "get_level must be overridden")
+  end function get_level
 
   !> @brief Pass the particle to the next subdomain.
   subroutine pass(this, particle)
@@ -182,9 +207,9 @@ contains
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
-
     allocate (ReleaseEventType :: event)
     call this%events%dispatch(particle, event)
+    deallocate (event)
   end subroutine release
 
   !> @brief Particle terminates.
@@ -193,11 +218,11 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     integer(I4B), intent(in), optional :: status
     class(ParticleEventType), pointer :: event
-
     particle%advancing = .false.
     if (present(status)) particle%istatus = status
     allocate (TerminationEventType :: event)
     call this%events%dispatch(particle, event)
+    deallocate (event)
   end subroutine terminate
 
   !> @brief Time step ends.
@@ -205,9 +230,9 @@ contains
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
-
     allocate (TimeStepEventType :: event)
     call this%events%dispatch(particle, event)
+    deallocate (event)
   end subroutine timestep
 
   !> @brief Particle leaves a weak sink.
@@ -215,9 +240,9 @@ contains
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
-
     allocate (WeakSinkEventType :: event)
     call this%events%dispatch(particle, event)
+    deallocate (event)
   end subroutine weaksink
 
   !> @brief User-defined tracking time occurs.
@@ -225,9 +250,9 @@ contains
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
-
     allocate (UserTimeEventType :: event)
     call this%events%dispatch(particle, event)
+    deallocate (event)
   end subroutine usertime
 
 end module MethodModule

@@ -270,18 +270,23 @@ contains
     use LayerArrayLoadModule, only: LayerArrayLoadType
     use GridArrayLoadModule, only: GridArrayLoadType
     use ListLoadModule, only: ListLoadType
+    use Mf6FileSettingLoadModule, only: SettingLoadType
     use Mf6FileStoInputModule, only: StoInputType
     use DevFeatureModule, only: dev_feature
     class(Mf6FileDynamicPkgLoadType), intent(inout) :: this
     class(ListLoadType), pointer :: list_loader
     class(GridArrayLoadType), pointer :: arrgrid_loader
     class(LayerArrayLoadType), pointer :: arrlayer_loader
+    class(SettingLoadType), pointer :: setting_loader
     class(StoInputType), pointer :: sto_loader
 
     ! allocate and set loader
     if (this%mf6_input%subcomponent_type == 'STO') then
       allocate (sto_loader)
       this%rp_loader => sto_loader
+    else if (this%mf6_input%subcomponent_type == 'PRP') then
+      allocate (setting_loader)
+      this%rp_loader => setting_loader
     else if (this%readasarrays) then
       allocate (arrlayer_loader)
       this%rp_loader => arrlayer_loader

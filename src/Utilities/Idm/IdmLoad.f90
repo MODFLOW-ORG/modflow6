@@ -568,7 +568,7 @@ contains
   !<
   subroutine allocate_simnam_int(input_mempath, idt)
     use MemoryManagerModule, only: mem_allocate
-    use SimVariablesModule, only: isimcontinue, isimcheck, simfile
+    use SimVariablesModule, only: isimcontinue, nocheck, simfile
     character(len=LENMEMPATH), intent(in) :: input_mempath
     type(InputParamDefinitionType), pointer, intent(in) :: idt
     integer(I4B), pointer :: intvar
@@ -580,7 +580,7 @@ contains
     case ('CONTINUE')
       intvar = isimcontinue
     case ('NOCHECK')
-      intvar = isimcheck
+      intvar = nocheck
     case ('MAXERRORS')
       intvar = 1000 !< MessageType max_message
     case ('MXITER')

@@ -3,6 +3,7 @@ module MethodSubcellTernaryModule
   use ConstantsModule, only: DZERO, DSAME, DHALF, DONE, DTWO, DONETHIRD, DEP3
   use ErrorUtilModule, only: pstop
   use GeomUtilModule, only: clamp_bary, skew
+  use MethodModule, only: LEVEL_SUBFEATURE
   use MethodSubcellModule, only: MethodSubcellType
   use CellModule, only: CellType
   use SubcellModule, only: SubcellType
@@ -203,7 +204,7 @@ contains
     vziodz = vzi / dz
 
     ! If possible, track the particle across the subcell.
-    itrifaceenter = particle%iboundary(3) - 1
+    itrifaceenter = particle%iboundary(LEVEL_SUBFEATURE) - 1
     if (itrifaceenter == -1) itrifaceenter = 999
     call traverse_triangle(isolv, tol, &
                            dtexitxy, alpexit, betexit, &
@@ -299,7 +300,7 @@ contains
     particle%y = y
     particle%z = z
     particle%ttrack = t
-    particle%iboundary(3) = exitFace
+    particle%iboundary(LEVEL_SUBFEATURE) = exitFace
 
     if (event_code == TIMESTEP) then
       call this%timestep(particle)

@@ -102,7 +102,7 @@ dispersivity = 0.0  # dispersion (remember, 1D model)
 
 # Set solver parameter values (and related)
 nouter, ninner = 100, 300
-hclose, rclose, relax = 1e-10, 1e-10, 1.0
+hclose, rclose, relax = 1e-9, 1e-9, 1.0
 ttsmult = 1.0
 
 # Set up temporal data used by TDIS file
@@ -229,7 +229,7 @@ def build_models(idx, test):
     gwe1.name_file.save_flows = True
     imsgwe1 = flopy.mf6.ModflowIms(
         sim,
-        print_option="SUMMARY",
+        print_option="ALL",
         outer_dvclose=hclose,
         outer_maximum=nouter,
         under_relaxation="NONE",

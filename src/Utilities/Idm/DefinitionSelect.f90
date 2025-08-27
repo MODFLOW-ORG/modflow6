@@ -20,6 +20,7 @@ module DefinitionSelectModule
   public :: split_record_dfn_tag1, split_record_dfn_tag2
   public :: idt_parse_rectype
   public :: idt_datatype
+  public :: idt_default
 
 contains
 
@@ -269,5 +270,36 @@ contains
       end if
     end do
   end subroutine split_record_dfn_tag2
+
+  !> @brief return allocated input definition type
+  !<
+  function idt_default(component_type, subcomponent_type, blockname, tagname, &
+                       mf6varname, datatype) result(idt)
+    ! -- modules
+    ! -- dummy
+    character(len=*), intent(in) :: component_type
+    character(len=*), intent(in) :: subcomponent_type
+    character(len=*), intent(in) :: blockname
+    character(len=*), intent(in) :: tagname
+    character(len=*), intent(in) :: mf6varname
+    character(len=*), intent(in) :: datatype
+    ! -- result
+    type(InputParamDefinitionType), pointer :: idt
+
+    allocate (idt)
+
+    idt%component_type = trim(component_type)
+    idt%subcomponent_type = trim(subcomponent_type)
+    idt%blockname = trim(blockname)
+    idt%tagname = trim(tagname)
+    idt%mf6varname = trim(mf6varname)
+    idt%datatype = trim(datatype)
+    idt%shape = ''
+    idt%required = .true.
+    idt%in_record = .false.
+    idt%preserve_case = .false.
+    idt%layered = .false.
+    idt%timeseries = .false.
+  end function idt_default
 
 end module DefinitionSelectModule

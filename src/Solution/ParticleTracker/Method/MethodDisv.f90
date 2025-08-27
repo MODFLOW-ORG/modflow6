@@ -3,7 +3,7 @@ module MethodDisvModule
   use KindModule, only: DP, I4B, LGP
   use ErrorUtilModule, only: pstop
   use ConstantsModule, only: DONE, DZERO
-  use MethodModule, only: MethodType
+  use MethodModule, only: MethodType, LEVEL_FEATURE, LEVEL_SUBFEATURE
   use MethodModelModule, only: MethodModelType
   use MethodCellPoolModule
   use CellModule, only: MAX_POLY_CELLS
@@ -86,7 +86,7 @@ contains
 
     select type (cell => this%cell)
     type is (CellPolyType)
-      ic = particle%idomain(next_level)
+      ic = particle%itrdomain(next_level)
       call this%load_cell_defn(ic, cell%defn)
       if (this%fmi%ibdgwfsat0(ic) == 0) then
         ! Cell is active but dry, so select and initialize pass-to-bottom
@@ -161,7 +161,7 @@ contains
 
     select type (dis => this%fmi%dis)
     type is (DisvType)
-      inface = particle%iboundary(2)
+      inface = particle%iboundary(LEVEL_FEATURE)
       idiag = dis%con%ia(cell%defn%icell)
       inbr = cell%defn%facenbr(inface)
       ipos = idiag + inbr
@@ -175,26 +175,26 @@ contains
       ! as can occur e.g. in wells. terminate
       ! in the previous cell.
       if (ic == particle%icp .and. inface == 7 .and. ilay < particle%ilay) then
-        particle%idomain(2) = particle%icp
+        particle%itrdomain(LEVEL_FEATURE) = particle%icp
         particle%izone = particle%izp
         call this%terminate(particle, &
                             status=TERM_BOUNDARY)
         return
       else
-        particle%icp = particle%idomain(2)
+        particle%icp = particle%itrdomain(LEVEL_FEATURE)
         particle%izp = particle%izone
       end if
 
-      particle%idomain(2) = ic
+      particle%itrdomain(LEVEL_FEATURE) = ic
       particle%icu = icu
       particle%ilay = ilay
 
       z = particle%z
       call this%map_neighbor(cell%defn, inface, z)
 
-      particle%iboundary(2) = inface
-      particle%idomain(3:) = 0
-      particle%iboundary(3:) = 0
+      particle%iboundary(LEVEL_FEATURE) = inface
+      particle%itrdomain(LEVEL_SUBFEATURE:) = 0
+      particle%iboundary(LEVEL_SUBFEATURE:) = 0
       particle%z = z
     end select
 
@@ -211,7 +211,7 @@ contains
     integer(I4B) :: ipos
 
     idiag = this%fmi%dis%con%ia(cell%defn%icell)
-    inbr = cell%defn%facenbr(particle%iboundary(2))
+    inbr = cell%defn%facenbr(particle%iboundary(LEVEL_FEATURE))
     ipos = idiag + inbr
 
     ! leaving old cell
@@ -239,7 +239,7 @@ contains
       ! If the entry face has no neighbors it's a
       ! boundary face, so terminate the particle.
       ! todo AMP: reconsider when multiple models supported
-      if (cell%defn%facenbr(particle%iboundary(2)) .eq. 0) then
+      if (cell%defn%facenbr(particle%iboundary(LEVEL_FEATURE)) .eq. 0) then
         call this%terminate(particle, &
                             status=TERM_BOUNDARY)
       else

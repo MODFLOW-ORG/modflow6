@@ -113,7 +113,7 @@ dispersivity = 0.0  # dispersion (remember, 1D model)
 
 # Set solver parameter values (and related)
 nouter, ninner = 100, 300
-hclose, rclose, relax = 1e-10, 1e-10, 1.0
+hclose, rclose, relax = 1e-10, 1e-8, 1.0
 ttsmult = 1.0
 
 # Set up temporal data used by TDIS file

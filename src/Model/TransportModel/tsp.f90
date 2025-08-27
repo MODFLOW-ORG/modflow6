@@ -699,6 +699,7 @@ contains
     integer(I4B), pointer :: inunit
     integer(I4B) :: n
     character(len=LENMEMPATH) :: mempathadv = ''
+    character(len=LENMEMPATH) :: mempathfmi = ''
     character(len=LENMEMPATH) :: mempathic = ''
     character(len=LENMEMPATH) :: mempathssm = ''
     !
@@ -737,7 +738,8 @@ contains
         this%inic = 1
         mempathic = mempath
       case ('FMI6')
-        this%infmi = inunit
+        this%infmi = 1
+        mempathfmi = mempath
       case ('MVT6', 'MVE6')
         this%inmvt = inunit
       case ('ADV6')
@@ -758,8 +760,8 @@ contains
     ! -- Create packages that are tied directly to model
     call ic_cr(this%ic, this%name, mempathic, this%inic, this%iout, this%dis, &
                this%depvartype)
-    call fmi_cr(this%fmi, this%name, this%infmi, this%iout, this%eqnsclfac, &
-                this%depvartype)
+    call fmi_cr(this%fmi, this%name, mempathfmi, this%infmi, this%iout, &
+                this%eqnsclfac, this%depvartype)
     call adv_cr(this%adv, this%name, mempathadv, this%inadv, this%iout, &
                 this%fmi, this%eqnsclfac)
     call ssm_cr(this%ssm, this%name, mempathssm, this%inssm, this%iout, &
