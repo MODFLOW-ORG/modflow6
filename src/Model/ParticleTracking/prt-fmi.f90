@@ -7,7 +7,7 @@ module PrtFmiModule
   use FlowModelInterfaceModule, only: FlowModelInterfaceType
   use BaseDisModule, only: DisBaseType
   use BudgetObjectModule, only: BudgetObjectType
-  use CellModule, only: MAX_POLY_CELLS
+  use CellModule, only: MAX_POLY_VERTS
 
   implicit none
   private
@@ -148,7 +148,7 @@ contains
     allocate (this%StorageFlows(this%dis%nodes))
     allocate (this%SourceFlows(this%dis%nodes))
     allocate (this%SinkFlows(this%dis%nodes))
-    allocate (this%BoundaryFlows(this%dis%nodes * MAX_POLY_CELLS))
+    allocate (this%BoundaryFlows(this%dis%nodes * MAX_POLY_VERTS))
 
   end subroutine prtfmi_df
 
@@ -196,11 +196,11 @@ contains
         iflowface = 0
         if (iauxiflowface > 0) then
           iflowface = NINT(this%gwfpackages(ip)%auxvar(iauxiflowface, ib))
-          ! this maps bot -2 -> 9, top -1 -> 10; see note re: max faces below
-          if (iflowface < 0) iflowface = iflowface + MAX_POLY_CELLS + 1
+          ! maps bot -2 -> MAX_POLY_VERTS - 1, top -1 -> MAX_POLY_VERTS
+          if (iflowface < 0) iflowface = iflowface + MAX_POLY_VERTS + 1
         end if
         if (iflowface .gt. 0) then
-          ioffset = (i - 1) * MAX_POLY_CELLS
+          ioffset = (i - 1) * MAX_POLY_VERTS
           this%BoundaryFlows(ioffset + iflowface) = &
             this%BoundaryFlows(ioffset + iflowface) + qbnd
         else if (qbnd .gt. DZERO) then

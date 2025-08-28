@@ -514,7 +514,7 @@ contains
     ! local
     integer(I4B) :: ioffset
 
-    ioffset = (defn%icell - 1) * MAX_POLY_CELLS
+    ioffset = (defn%icell - 1) * MAX_POLY_VERTS
     defn%faceflow(1) = defn%faceflow(1) + &
                        this%fmi%BoundaryFlows(ioffset + 1)
     defn%faceflow(2) = defn%faceflow(2) + &
@@ -525,9 +525,9 @@ contains
                        this%fmi%BoundaryFlows(ioffset + 4)
     defn%faceflow(5) = defn%faceflow(1)
     defn%faceflow(6) = defn%faceflow(6) + &
-                       this%fmi%BoundaryFlows(ioffset + 9)
+                       this%fmi%BoundaryFlows(ioffset + MAX_POLY_VERTS - 1)
     defn%faceflow(7) = defn%faceflow(7) + &
-                       this%fmi%BoundaryFlows(ioffset + 10)
+                       this%fmi%BoundaryFlows(ioffset + MAX_POLY_VERTS)
   end subroutine load_boundary_flows_to_defn
 
 end module MethodDisModule
