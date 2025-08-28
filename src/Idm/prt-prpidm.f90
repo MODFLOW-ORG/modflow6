@@ -16,8 +16,8 @@ module PrtPrpInputModule
     logical :: iprpak = .false.
     logical :: iexmeth = .false.
     logical :: extol = .false.
-    logical :: localz = .false.
-    logical :: extend = .false.
+    logical :: local_z = .false.
+    logical :: extend_tracking = .false.
     logical :: track_filerecord = .false.
     logical :: track = .false.
     logical :: fileout = .false.
@@ -37,7 +37,7 @@ module PrtPrpInputModule
     logical :: release_timesfn = .false.
     logical :: timesfile = .false.
     logical :: idrymeth = .false.
-    logical :: frctrn = .false.
+    logical :: ifrctrn = .false.
     logical :: rttol = .false.
     logical :: rtfreq = .false.
     logical :: ichkmeth = .false.
@@ -141,13 +141,13 @@ module PrtPrpInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    prtprp_localz = InputParamDefinitionType &
+    prtprp_local_z = InputParamDefinitionType &
     ( &
     'PRT', & ! component
     'PRP', & ! subcomponent
     'OPTIONS', & ! block
     'LOCAL_Z', & ! tag name
-    'LOCALZ', & ! fortran variable
+    'LOCAL_Z', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'whether to use local z coordinates', & ! longname
@@ -159,13 +159,13 @@ module PrtPrpInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    prtprp_extend = InputParamDefinitionType &
+    prtprp_extend_tracking = InputParamDefinitionType &
     ( &
     'PRT', & ! component
     'PRP', & ! subcomponent
     'OPTIONS', & ! block
     'EXTEND_TRACKING', & ! tag name
-    'EXTEND', & ! fortran variable
+    'EXTEND_TRACKING', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'whether to extend tracking beyond the end of the simulation', & ! longname
@@ -519,13 +519,13 @@ module PrtPrpInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    prtprp_frctrn = InputParamDefinitionType &
+    prtprp_ifrctrn = InputParamDefinitionType &
     ( &
     'PRT', & ! component
     'PRP', & ! subcomponent
     'OPTIONS', & ! block
     'DEV_FORCETERNARY', & ! tag name
-    'FRCTRN', & ! fortran variable
+    'IFRCTRN', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'force ternary tracking method', & ! longname
@@ -903,8 +903,8 @@ module PrtPrpInputModule
     prtprp_iprpak, &
     prtprp_iexmeth, &
     prtprp_extol, &
-    prtprp_localz, &
-    prtprp_extend, &
+    prtprp_local_z, &
+    prtprp_extend_tracking, &
     prtprp_track_filerecord, &
     prtprp_track, &
     prtprp_fileout, &
@@ -924,7 +924,7 @@ module PrtPrpInputModule
     prtprp_release_timesfn, &
     prtprp_timesfile, &
     prtprp_idrymeth, &
-    prtprp_frctrn, &
+    prtprp_ifrctrn, &
     prtprp_rttol, &
     prtprp_rtfreq, &
     prtprp_ichkmeth, &
