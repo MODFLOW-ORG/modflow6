@@ -690,9 +690,10 @@ contains
   end subroutine get_polyverts
 
   !> @brief Get the number of cell polygon vertices.
-  function get_npolyverts(this, ic) result(npolyverts)
+  function get_npolyverts(this, ic, closed) result(npolyverts)
     class(DisBaseType), intent(inout) :: this
     integer(I4B), intent(in) :: ic !< cell number (reduced)
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
     integer(I4B) :: npolyverts
     npolyverts = 0 ! suppress compiler warning
     errmsg = 'Programmer error: get_npolyverts must be overridden'
@@ -700,8 +701,9 @@ contains
   end function get_npolyverts
 
   !> @brief Get the maximum number of cell polygon vertices.
-  function get_max_npolyverts(this) result(max_npolyverts)
+  function get_max_npolyverts(this, closed) result(max_npolyverts)
     class(DisBaseType), intent(inout) :: this
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
     integer(I4B) :: max_npolyverts
     max_npolyverts = 0 ! suppress compiler warning
     errmsg = 'Programmer error: get_max_npolyverts must be overridden'

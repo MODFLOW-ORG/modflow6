@@ -1469,9 +1469,10 @@ contains
   end subroutine
 
   !> @brief Get the number of cell polygon vertices.
-  function get_npolyverts(this, ic) result(npolyverts)
+  function get_npolyverts(this, ic, closed) result(npolyverts)
     class(DisvType), intent(inout) :: this
     integer(I4B), intent(in) :: ic !< cell number (reduced)
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
     integer(I4B) :: npolyverts
     ! local
     integer(I4B) :: ncpl, icu, icu2d
@@ -1480,18 +1481,21 @@ contains
     icu = this%get_nodeuser(ic)
     icu2d = icu - ((icu - 1) / ncpl) * ncpl
     npolyverts = this%iavert(icu2d + 1) - this%iavert(icu2d) - 1
-    if (npolyverts .le. 0) npolyverts = npolyverts + size(this%javert)
+    if (present(closed)) then
+      if (closed) npolyverts = npolyverts + 1
+    end if
   end function get_npolyverts
 
   !> @brief Get the maximum number of cell polygon vertices.
-  function get_max_npolyverts(this) result(max_npolyverts)
+  function get_max_npolyverts(this, closed) result(max_npolyverts)
     class(DisvType), intent(inout) :: this
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
     integer(I4B) :: max_npolyverts
     integer(I4B) :: ic
 
     max_npolyverts = 0
     do ic = 1, this%nodes
-      max_npolyverts = max(max_npolyverts, this%get_npolyverts(ic))
+      max_npolyverts = max(max_npolyverts, this%get_npolyverts(ic, closed))
     end do
   end function get_max_npolyverts
 
