@@ -1439,7 +1439,6 @@ contains
     icu = this%get_nodeuser(ic)
     icu2d = icu - ((icu - 1) / ncpl) * ncpl
     nverts = this%iavert(icu2d + 1) - this%iavert(icu2d) - 1
-    if (nverts .le. 0) nverts = nverts + size(this%javert)
     !
     ! check closed option
     if (.not. (present(closed))) then
