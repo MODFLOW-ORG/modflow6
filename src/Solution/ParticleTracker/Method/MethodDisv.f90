@@ -94,7 +94,7 @@ contains
           events=this%events, &
           tracktimes=this%tracktimes)
         submethod => method_cell_ptb
-      else if (particle%ifrctrn > 0) then
+      else if (particle%frctrn) then
         ! Force the ternary method
         call method_cell_tern%init( &
           fmi=this%fmi, &
