@@ -1390,7 +1390,7 @@ contains
     ! -- deallocate mt pointer, repoint, recalculate isize
     deallocate (mt%alogical1d)
     mt%alogical1d => alog
-    mt%element_size = I4B
+    mt%element_size = LGP
     mt%isize = isize
     mt%nrealloc = mt%nrealloc + 1
     mt%master = .true.
@@ -1984,7 +1984,7 @@ contains
     call get_from_memorystore(name, mem_path, mt, found)
     call get_from_memorystore(name_target, mem_path_target, mt2, found)
     if (size(alog) > 0) then
-      nvalues_aint = nvalues_aint - size(alog)
+      nvalues_alogical = nvalues_alogical - size(alog)
       deallocate (alog)
     end if
     alog => mt2%alogical1d
