@@ -515,7 +515,7 @@ contains
     integer(I4B) :: max_faces
     integer(I4B) :: ioffset
 
-    max_faces = this%fmi%dis%get_max_npolyverts() + 2
+    max_faces = this%fmi%max_faces
     ioffset = (defn%icell - 1) * max_faces
     defn%faceflow(1) = defn%faceflow(1) + &
                        this%fmi%BoundaryFlows(ioffset + 1)

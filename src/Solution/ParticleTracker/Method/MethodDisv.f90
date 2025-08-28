@@ -526,7 +526,7 @@ contains
 
     ic = defn%icell
     npolyverts = defn%npolyverts
-    max_faces = this%fmi%dis%get_max_npolyverts() + 2
+    max_faces = this%fmi%max_faces
     ioffset = (ic - 1) * max_faces
     do iv = 1, npolyverts
       defn%faceflow(iv) = &
