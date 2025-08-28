@@ -18,7 +18,7 @@ module MemoryTypeModule
     character(len=LENVARNAME) :: mastername = 'none' !< name of the master array
     character(len=LENMEMPATH) :: path !< path to memory object
     character(len=LENMEMPATH) :: masterPath = 'none' !< path to master memory object
-    character(len=LENMEMTYPE) :: memtype !< type (INTEGER or DOUBLE)
+    character(len=LENMEMTYPE) :: memtype !< type (LOGICAL or INTEGER or DOUBLE)
     integer(I4B) :: id !< id, not used
     integer(I4B) :: nrealloc = 0 !< number of times reallocated
     integer(I4B) :: isize = -1 !< size of the array, equal to the number of array elements; 1 for scalars
@@ -33,6 +33,7 @@ module MemoryTypeModule
     ! Due to this bug the length of the string is not stored in the array descriptor. With a segmentation fault as a result
     ! on deallocation.
     class(*), dimension(:), pointer, contiguous :: astr1d => null() !< pointer to the 1d character string array
+    logical(LGP), dimension(:), pointer, contiguous :: alogical1d => null() !< pointer to 1d logical array
     integer(I4B), dimension(:), pointer, contiguous :: aint1d => null() !< pointer to 1d integer array
     integer(I4B), dimension(:, :), pointer, contiguous :: aint2d => null() !< pointer to 2d integer array
     integer(I4B), dimension(:, :, :), pointer, contiguous :: aint3d => null() !< pointer to 3d integer array
@@ -90,6 +91,7 @@ contains
     if (associated(this%logicalsclr)) al = .true.
     if (associated(this%intsclr)) al = .true.
     if (associated(this%dblsclr)) al = .true.
+    if (associated(this%alogical1d)) al = .true.
     if (associated(this%astr1d)) al = .true.
     if (associated(this%aint1d)) al = .true.
     if (associated(this%aint2d)) al = .true.
@@ -153,6 +155,11 @@ contains
 #endif
 
       nullify (this%astr1d)
+    end if
+
+    if (associated(this%alogical1d)) then
+      if (this%master) deallocate (this%alogical1d)
+      nullify (this%alogical1d)
     end if
 
     if (associated(this%aint1d)) then

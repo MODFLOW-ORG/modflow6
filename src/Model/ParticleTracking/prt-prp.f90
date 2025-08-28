@@ -36,23 +36,18 @@ module PrtPrpModule
 
   !> @brief Particle release point (PRP) package
   type, extends(BndExtType) :: PrtPrpType
-    type(PrtFmiType), pointer :: fmi => null() !< flow model interface
-    type(ParticleStoreType), pointer :: particles => null() !< particle store
-    type(ParticleReleaseScheduleType), pointer :: schedule !< particle release schedule
-    integer(I4B), pointer :: nreleasepoints => null() !< number of release points
-    integer(I4B), pointer :: nreleasetimes => null() !< number of user-specified particle release times
-    integer(I4B), pointer :: nparticles => null() !< number of particles released
+    ! options
+    logical(LGP), pointer :: extend => null() !< extend tracking beyond simulation's end
+    logical(LGP), pointer :: frctrn => null() !< force ternary solution for quad grids
+    logical(LGP), pointer :: drape => null() !< whether to drape particle to topmost active cell
+    logical(LGP), pointer :: localz => null() !< compute z coordinates local to the release cell
     integer(I4B), pointer :: istopweaksink => null() !< weak sink option: 0 = no stop, 1 = stop
     integer(I4B), pointer :: istopzone => null() !< optional stop zone number: 0 = no stop zone
-    integer(I4B), pointer :: idrape => null() !< drape option: 0 = do not drape, 1 = drape to topmost active cell
     integer(I4B), pointer :: idrymeth => null() !< dry tracking method: 0 = drop, 1 = stop, 2 = stay
     integer(I4B), pointer :: itrkout => null() !< binary track file
     integer(I4B), pointer :: itrkhdr => null() !< track header file
     integer(I4B), pointer :: itrkcsv => null() !< CSV track file
     integer(I4B), pointer :: irlstls => null() !< release time file
-    integer(I4B), pointer :: ilocalz => null() !< compute z coordinates local to the cell
-    integer(I4B), pointer :: iextend => null() !< extend tracking beyond simulation's end
-    integer(I4B), pointer :: ifrctrn => null() !< force ternary solution for quad grids
     integer(I4B), pointer :: iexmeth => null() !< method for iterative solution of particle exit location and time in generalized Pollock's method
     integer(I4B), pointer :: ichkmeth => null() !< method for checking particle release coordinates are in the specified cells, 0 = none, 1 = eager
     integer(I4B), pointer :: icycwin => null() !< cycle detection window size
@@ -62,6 +57,13 @@ module PrtPrpModule
     real(DP), pointer :: offset => null() !< release time offset
     real(DP), pointer :: stoptime => null() !< stop time for all release points
     real(DP), pointer :: stoptraveltime => null() !< stop travel time for all points
+    !
+    type(PrtFmiType), pointer :: fmi => null() !< flow model interface
+    type(ParticleStoreType), pointer :: particles => null() !< particle store
+    type(ParticleReleaseScheduleType), pointer :: schedule => null() !< particle release schedule
+    integer(I4B), pointer :: nreleasepoints => null() !< number of release points
+    integer(I4B), pointer :: nreleasetimes => null() !< number of user-specified particle release times
+    integer(I4B), pointer :: nparticles => null() !< number of particles released
     integer(I4B), pointer, contiguous :: rptnode(:) => null() !< release point reduced nns
     integer(I4B), pointer, contiguous :: rptzone(:) => null() !< release point zone numbers
     real(DP), pointer, contiguous :: rptx(:) => null() !< release point x coordinates
@@ -151,14 +153,14 @@ contains
     call this%BndExtType%bnd_da()
 
     ! Deallocate scalars
-    call mem_deallocate(this%ilocalz)
-    call mem_deallocate(this%iextend)
+    call mem_deallocate(this%localz)
+    call mem_deallocate(this%extend)
     call mem_deallocate(this%offset)
     call mem_deallocate(this%stoptime)
     call mem_deallocate(this%stoptraveltime)
     call mem_deallocate(this%istopweaksink)
     call mem_deallocate(this%istopzone)
-    call mem_deallocate(this%idrape)
+    call mem_deallocate(this%drape)
     call mem_deallocate(this%idrymeth)
     call mem_deallocate(this%nreleasepoints)
     call mem_deallocate(this%nreleasetimes)
@@ -167,7 +169,7 @@ contains
     call mem_deallocate(this%itrkhdr)
     call mem_deallocate(this%itrkcsv)
     call mem_deallocate(this%irlstls)
-    call mem_deallocate(this%ifrctrn)
+    call mem_deallocate(this%frctrn)
     call mem_deallocate(this%iexmeth)
     call mem_deallocate(this%ichkmeth)
     call mem_deallocate(this%icycwin)
@@ -243,14 +245,14 @@ contains
     call this%BndExtType%allocate_scalars()
 
     ! Allocate scalars for this type
-    call mem_allocate(this%ilocalz, 'ILOCALZ', this%memoryPath)
-    call mem_allocate(this%iextend, 'IEXTEND', this%memoryPath)
+    call mem_allocate(this%localz, 'LOCALZ', this%memoryPath)
+    call mem_allocate(this%extend, 'EXTEND', this%memoryPath)
     call mem_allocate(this%offset, 'OFFSET', this%memoryPath)
     call mem_allocate(this%stoptime, 'STOPTIME', this%memoryPath)
     call mem_allocate(this%stoptraveltime, 'STOPTRAVELTIME', this%memoryPath)
     call mem_allocate(this%istopweaksink, 'ISTOPWEAKSINK', this%memoryPath)
     call mem_allocate(this%istopzone, 'ISTOPZONE', this%memoryPath)
-    call mem_allocate(this%idrape, 'IDRAPE', this%memoryPath)
+    call mem_allocate(this%drape, 'DRAPE', this%memoryPath)
     call mem_allocate(this%idrymeth, 'IDRYMETH', this%memoryPath)
     call mem_allocate(this%nreleasepoints, 'NRELEASEPOINTS', this%memoryPath)
     call mem_allocate(this%nreleasetimes, 'NRELEASETIMES', this%memoryPath)
@@ -259,7 +261,7 @@ contains
     call mem_allocate(this%itrkhdr, 'ITRKHDR', this%memoryPath)
     call mem_allocate(this%itrkcsv, 'ITRKCSV', this%memoryPath)
     call mem_allocate(this%irlstls, 'IRLSTLS', this%memoryPath)
-    call mem_allocate(this%ifrctrn, 'IFRCTRN', this%memoryPath)
+    call mem_allocate(this%frctrn, 'FRCTRN', this%memoryPath)
     call mem_allocate(this%iexmeth, 'IEXMETH', this%memoryPath)
     call mem_allocate(this%ichkmeth, 'ICHKMETH', this%memoryPath)
     call mem_allocate(this%icycwin, 'ICYCWIN', this%memoryPath)
@@ -268,14 +270,14 @@ contains
     call mem_allocate(this%rtfreq, 'RTFREQ', this%memoryPath)
 
     ! Set values
-    this%ilocalz = 0
-    this%iextend = 0
+    this%localz = .false.
+    this%extend = .false.
     this%offset = DZERO
     this%stoptime = huge(1d0)
     this%stoptraveltime = huge(1d0)
     this%istopweaksink = 0
     this%istopzone = 0
-    this%idrape = 0
+    this%drape = .false.
     this%idrymeth = 0
     this%nreleasepoints = 0
     this%nreleasetimes = 0
@@ -284,7 +286,7 @@ contains
     this%itrkhdr = 0
     this%itrkcsv = 0
     this%irlstls = 0
-    this%ifrctrn = 0
+    this%frctrn = .false.
     this%iexmeth = 0
     this%ichkmeth = 1
     this%icycwin = 0
@@ -361,7 +363,7 @@ contains
             'Skipping negative release time (t=', t, ').'
           call store_warning(warnmsg)
           cycle
-        else if (t > totalsimtime .and. this%iextend == 0) then
+        else if (t > totalsimtime .and. .not. this%extend) then
           write (warnmsg, '(a,g0,a)') &
             'Skipping release time falling after the end of the &
             &simulation (t=', t, '). Enable EXTEND_TRACKING to &
@@ -494,7 +496,7 @@ contains
     ! enabled, or else terminate permanently unreleased.
     if (this%ibound(ic) == 0) then
       ic_old = ic
-      if (this%idrape > 0) then
+      if (this%drape) then
         call this%dis%highest_active(ic, this%ibound)
         if (ic == ic_old .or. this%ibound(ic) == 0) then
           ! negative unreleased status signals to the
@@ -510,7 +512,7 @@ contains
     ! Load coordinates and transform if needed
     x = this%rptx(ip)
     y = this%rpty(ip)
-    if (this%ilocalz > 0) then
+    if (this%localz) then
       top = this%fmi%dis%top(ic)
       bot = this%fmi%dis%bot(ic)
       hds = this%fmi%gwfhead(ic)
@@ -542,9 +544,9 @@ contains
     particle%iboundary(LEVEL_FEATURE) = 0
     particle%itrdomain(LEVEL_SUBFEATURE) = 0
     particle%iboundary(LEVEL_SUBFEATURE) = 0
-    particle%ifrctrn = this%ifrctrn
+    particle%frctrn = this%frctrn
     particle%iexmeth = this%iexmeth
-    particle%iextend = this%iextend
+    particle%extend = this%extend
     particle%icycwin = this%icycwin
     particle%extol = this%extol
   end subroutine initialize_particle
@@ -694,7 +696,7 @@ contains
                        found%istopweaksink)
     call mem_set_value(this%istopzone, 'ISTOPZONE', this%input_mempath, &
                        found%istopzone)
-    call mem_set_value(this%idrape, 'DRAPE', this%input_mempath, &
+    call mem_set_value(this%drape, 'DRAPE', this%input_mempath, &
                        found%drape)
     call mem_set_value(this%idrymeth, 'IDRYMETH', this%input_mempath, &
                        drytrack_method, found%idrymeth)
@@ -702,18 +704,18 @@ contains
                        found%trackfile)
     call mem_set_value(trackcsvfile, 'TRACKCSVFILE', this%input_mempath, &
                        found%trackcsvfile)
-    call mem_set_value(this%ilocalz, 'LOCAL_Z', this%input_mempath, &
-                       found%local_z)
-    call mem_set_value(this%iextend, 'EXTEND_TRACKING', this%input_mempath, &
-                       found%extend_tracking)
+    call mem_set_value(this%localz, 'LOCALZ', this%input_mempath, &
+                       found%localz)
+    call mem_set_value(this%extend, 'EXTEND', this%input_mempath, &
+                       found%extend)
     call mem_set_value(this%extol, 'EXTOL', this%input_mempath, &
                        found%extol)
     call mem_set_value(this%rttol, 'RTTOL', this%input_mempath, &
                        found%rttol)
     call mem_set_value(this%rtfreq, 'RTFREQ', this%input_mempath, &
                        found%rtfreq)
-    call mem_set_value(this%ifrctrn, 'IFRCTRN', this%input_mempath, &
-                       found%ifrctrn)
+    call mem_set_value(this%frctrn, 'FRCTRN', this%input_mempath, &
+                       found%frctrn)
     call mem_set_value(this%iexmeth, 'IEXMETH', this%input_mempath, &
                        found%iexmeth)
     call mem_set_value(this%ichkmeth, 'ICHKMETH', this%input_mempath, &
@@ -823,7 +825,7 @@ contains
 
     write (this%iout, '(1x,a)') 'PROCESSING PARTICLE INPUT DIMENSIONS'
 
-    if (found%ifrctrn) then
+    if (found%frctrn) then
       write (this%iout, '(4x,a)') &
         'IF DISV, TRACKING WILL USE THE TERNARY METHOD REGARDLESS OF CELL TYPE'
     end if
@@ -948,7 +950,7 @@ contains
         this%rptnode(rptno) = noder
       end if
 
-      if (this%ilocalz > 0 .and. (zrpts(n) < 0 .or. zrpts(n) > 1)) then
+      if (this%localz .and. (zrpts(n) < 0 .or. zrpts(n) > 1)) then
         call store_error('Local z coordinate must fall in the interval [0, 1]')
         cycle
       end if

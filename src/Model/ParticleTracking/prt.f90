@@ -961,7 +961,7 @@ contains
           ! stop time, whichever comes first, unless it's the final
           ! time step and the extend option is on, in which case
           ! it's just the particle stop time.
-          if (endofsimulation .and. particle%iextend > 0) then
+          if (endofsimulation .and. particle%extend) then
             tmax = particle%tstop
           else
             tmax = min(totimc + delt, particle%tstop)
@@ -982,7 +982,7 @@ contains
           ! TODO maybe think about changing that?
           if (particle%istatus <= ACTIVE .and. &
               (particle%ttrack == particle%tstop .or. &
-               (endofsimulation .and. particle%iextend == 0))) &
+               (endofsimulation .and. .not. particle%extend))) &
             call this%method%terminate(particle, status=TERM_TIMEOUT)
           ! Return the particle to the store
           call packobj%particles%put(particle, np)

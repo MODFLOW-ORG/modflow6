@@ -150,7 +150,7 @@ contains
     ! ideally that would be handled at a higher scope but with extended tracking
     ! tmax is not the end of the simulation, it's just a wildly high upper bound.
     if ((statusVX .eq. 2) .and. (statusVY .eq. 2) .and. (statusVZ .eq. 2) .and. &
-        particle%iextend > 0 .and. endofsimulation) then
+        particle%extend .and. endofsimulation) then
       call this%terminate(particle, status=TERM_TIMEOUT)
       return
     end if
