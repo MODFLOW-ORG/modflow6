@@ -72,6 +72,7 @@ h_start = 0.0
 # head boundaries
 chd_spd = {0: [[(0, 0, 0), h_north], [(0, nrow - 1, 0), h_south]]}
 
+
 def get_model(idx, dir):
     name = cases[idx]
 
@@ -80,7 +81,7 @@ def get_model(idx, dir):
     tdis_rc = []
     for i in range(nper):
         tdis_rc.append((1.0, 1, 1))
-        
+
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=dir
     )
@@ -94,7 +95,7 @@ def get_model(idx, dir):
         outer_maximum=100,
         under_relaxation="NONE",
         inner_maximum=50,
-        inner_dvclose=0.1*hclose,
+        inner_dvclose=0.1 * hclose,
         rcloserecord=0.001,
         linear_acceleration="CG",
         scaling_method="NONE",
@@ -144,7 +145,7 @@ def get_model(idx, dir):
         # split
         splitter = Mf6Splitter(sim)
         mask = np.zeros(shape=(nrow, ncol))
-        mask[nrow//2:,:] = 1
+        mask[nrow // 2 :, :] = 1
         split_sim = splitter.split_model(mask)
         split_sim.set_sim_path(dir)
 
@@ -185,20 +186,21 @@ def check_output(idx, test):
         bud1 = gwf1.output.budget()
         spdis1 = bud1.get_data(text="DATA-SPDIS")[0]
         qx1, qy1, qz1 = flopy.utils.postprocessing.get_specific_discharge(spdis1, gwf1)
-        
-        qx = np.concatenate((qx0[0,:,0], qx1[0,:,0]))
-        qy = np.concatenate((qy0[0,:,0], qy1[0,:,0]))
-        qz = np.concatenate((qz0[0,:,0], qz1[0,:,0]))
+
+        qx = np.concatenate((qx0[0, :, 0], qx1[0, :, 0]))
+        qy = np.concatenate((qy0[0, :, 0], qy1[0, :, 0]))
+        qz = np.concatenate((qz0[0, :, 0], qz1[0, :, 0]))
 
     # drop first and last nodes (CHD)
     qx = qx[1:-2]
     qy = qy[1:-2]
     qz = qz[1:-2]
 
-    qy_theory = -hk * (h_north - h_south)/ ((nrow - 1) * delc)
+    qy_theory = -hk * (h_north - h_south) / ((nrow - 1) * delc)
     assert np.allclose(qx, 0.0), "spdis cannot have x component in this problem"
     assert np.allclose(qy, qy_theory), "spdis y component should equal theory"
     assert np.allclose(qz, 0.0), "spdis cannot have z component in this problem"
+
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.developmode
