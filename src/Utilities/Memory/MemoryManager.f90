@@ -1989,7 +1989,7 @@ contains
     end if
     alog => mt2%alogical1d
     mt%alogical1d => alog
-    mt%element_size = I4B
+    mt%element_size = LGP
     mt%isize = size(alog)
     write (mt%memtype, "(a,' (',i0,')')") 'LOGICAL', mt%isize
     !
