@@ -119,7 +119,7 @@ contains
     exit_lateral = this%exit_solutions(2)
 
     ! If the subcell has no exit face, terminate the particle.
-    ! todo: after initial release, consider ramifications
+    ! TODO: consider ramifications
     if (exit_z%itopbotexit == 0 .and. &
         exit_lateral%itrifaceexit == 0) then
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
@@ -214,23 +214,14 @@ contains
     integer(I4B) :: exit_soln
 
     if (this%exit_solutions(1)%itopbotexit == 0) then
-      ! Exits through triangle face first
-      exit_soln = 2
-      this%exit_solutions(2)%iboundary = this%exit_solutions(2)%itrifaceexit
+      exit_soln = 2 ! lateral
     else if (this%exit_solutions(2)%itrifaceexit == 0 .or. &
              this%exit_solutions(1)%dt < this%exit_solutions(2)%dt) then
-      ! Exits through top/bottom first
-      exit_soln = 1
-      if (this%exit_solutions(1)%itopbotexit == -1) then
-        this%exit_solutions(1)%iboundary = 4
-      else
-        this%exit_solutions(1)%iboundary = 5
-      end if
+      exit_soln = 1 ! top/bottom
     else
-      ! Exits through triangle face first
-      exit_soln = 2
-      this%exit_solutions(2)%iboundary = this%exit_solutions(2)%itrifaceexit
+      exit_soln = 2 ! lateral
     end if
+
   end function pick_exit
 
   !> @brief Calculate exit solutions for each coordinate direction
@@ -264,7 +255,7 @@ contains
     ntmax = 10000
     tol = particle%extol
 
-    ! Set solution method
+    ! Set lateral solution method
     if (particle%iexmeth == 0) then
       isolv = 1 ! default to Brent's
     else
@@ -310,7 +301,7 @@ contains
       this%exit_solutions(1) = find_vertical_exit(subcell%vzbot, subcell%vztop, &
                                                   subcell%dz, zirel)
 
-      ! Calculate a lateral exit solution semi-analytically.
+      ! Calculate a semi-analytical lateral exit solution
       itrifaceenter = particle%iboundary(LEVEL_SUBFEATURE) - 1
       if (itrifaceenter == -1) itrifaceenter = 999
       this%exit_solutions(2) = find_lateral_exit(isolv, tol, &
@@ -324,6 +315,19 @@ contains
       this%exit_solutions(2)%sxx = sxx
       this%exit_solutions(2)%sxy = sxy
       this%exit_solutions(2)%syy = syy
+
+      ! Set vertical solution exit face
+      if (this%exit_solutions(1)%itopbotexit /= 0) then
+        if (this%exit_solutions(1)%itopbotexit == -1) then
+          this%exit_solutions(1)%iboundary = 4
+        else
+          this%exit_solutions(1)%iboundary = 5
+        end if
+      end if
+
+      ! Set lateral solution exit face
+      if (this%exit_solutions(2)%itrifaceexit /= 0) &
+        this%exit_solutions(2)%iboundary = this%exit_solutions(2)%itrifaceexit
     end select
   end subroutine find_exits
 

@@ -968,10 +968,6 @@ contains
           end if
           ! Apply the tracking method until the maximum time.
           call this%method%apply(particle, tmax)
-          ! Reset cell/zone one-backs, used for cycle detection.
-          ! TODO can remove when we have better cycle detection
-          particle%icp = 0
-          particle%izp = 0
           ! If the particle timed out, terminate it.
           ! "Timed out" means it's still active but
           !   - it reached its stop time, or

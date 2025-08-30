@@ -29,23 +29,41 @@ contains
   subroutine try_pass(this, particle, nextlevel, advancing)
     class(MethodCellType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    integer(I4B) :: nextlevel
-    logical(LGP) :: advancing
+    integer(I4B) :: nextlevel, ic, iface
+    logical(LGP) :: advancing, on_face, on_top_face, partly_sat
 
-    if (particle%advancing) then
-      ! if still advancing, pass to the next subdomain.
-      ! if that puts us on a boundary, then we're done.
-      ! raise a cell exit event.
-      call this%pass(particle)
-      if (particle%iboundary(nextlevel - 1) .ne. 0) then
-        advancing = .false.
-        call this%cellexit(particle)
-      end if
-    else
-      ! otherwise we're already done so
-      ! reset the domain boundary value.
+    if (.not. particle%advancing) then
       advancing = .false.
       particle%iboundary = 0
+      return
+    end if
+
+    call this%pass(particle)
+
+    ic = particle%itrdomain(LEVEL_FEATURE)
+    iface = particle%iboundary(LEVEL_FEATURE) - 1 ! cell is closed
+    on_face = iface >= 0
+    on_top_face = this%fmi%max_faces == iface
+    partly_sat = this%fmi%gwfsat(this%cell%defn%icell) < DONE
+
+    ! if at top and the cell is partially saturated,
+    ! we're at the water table, not the cell top, so
+    ! no exit event. if cell top is a boundary face,
+    ! terminate. if the dry tracking method is stop,
+    ! terminate. otherwise, leave the particle where
+    ! it is- keep tracking it on the next time step.
+    if (on_top_face .and. partly_sat) then
+      advancing = .false.
+      particle%advancing = .false.
+      if (this%fmi%is_net_out_boundary_face(ic, iface) .or. &
+          particle%idrymeth == 1) & ! dry_tracking_method stop
+        call this%terminate(particle, status=TERM_BOUNDARY)
+      return
+    end if
+
+    if (on_face) then
+      advancing = .false.
+      call this%cellexit(particle)
     end if
   end subroutine try_pass
 

@@ -97,3 +97,8 @@ description = "Fixes a memory exception that has occurred when running parallel 
 section = "fixes"
 subsection = "solution"
 description = "The PRT Model has previously been aware of boundary cell flows but not boundary faces. When an internal boundary face is assigned (an IFLOWFACE adjacent to another active cell), this can lead to cycles (infinite loops) in the particle's pathline, as the two adjacent cells fail to agree on the flow through their shared face. The PRT Model will now terminate particles at assigned boundary faces, whether they are internal or external, if the net boundary flow through the face is out of the cell."
+
+[[items]]
+section = "fixes"
+subsection = "solution"
+description = "Cyclic particle pathlines were possible in Newton models with DRY\\_TRACKING\\_METHOD DROP (the default) in the presence of numerically insignificant upward flows in partially saturated cells. This occurred because PRT did not distinguish the water table from the cell top, so a particle at the water table in a partially saturated cell could obtain an exit solution through the cell's top face, jump to the dry cell above, then drop back down, and so on. Particles are now prevented from exiting through the top face of partially saturated cells. If a particle reaches the water table, its behavior now depends on a combination of DRY\\_TRACKING\\_METHOD and whether the cell top is an assigned boundary face. If the cell top is an assigned boundary face, or if DRY\\_TRACKING\\_METHOD is STOP, the particle will terminate. Otherwise, it will stay there until tracking resumes the next time step."
