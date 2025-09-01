@@ -1001,7 +1001,7 @@ if __name__ == "__main__":
     verbose = args.verbose
 
     if isinstance(dfn, list):
-        dfn = [Path(p) for p in dfn]
+        dfn = [Path(str(p).strip()) for p in dfn]
     elif isinstance(dfn, (str, Path)):
         dfn = [Path(dfn)]
     else:

@@ -45,6 +45,7 @@ reader urword
 optional true
 longname whether to use local z coordinates
 description indicates that ``zrpt'' defines the local z coordinate of the release point within the cell, with value of 0 at the bottom and 1 at the top of the cell.  If the cell is partially saturated at release time, the top of the cell is considered to be the water table elevation (the head in the cell) rather than the top defined by the user.
+mf6internal localz
 
 block options
 name extend_tracking
@@ -53,6 +54,7 @@ reader urword
 optional true
 longname whether to extend tracking beyond the end of the simulation
 description indicates that particles should be tracked beyond the end of the simulation's final time step (using that time step's flows) until particles terminate or reach a specified stop time.  By default, particles are terminated at the end of the simulation's final time step.
+mf6internal extend
 
 block options
 name track_filerecord
@@ -262,7 +264,7 @@ reader urword
 optional false
 longname force ternary tracking method
 description force use of the ternary tracking method regardless of cell type in DISV grids.
-mf6internal ifrctrn
+mf6internal frctrn
 
 block options
 name release_time_tolerance

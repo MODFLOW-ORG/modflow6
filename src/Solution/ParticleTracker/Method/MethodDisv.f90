@@ -6,7 +6,6 @@ module MethodDisvModule
   use MethodModule, only: MethodType, LEVEL_FEATURE, LEVEL_SUBFEATURE
   use MethodModelModule, only: MethodModelType
   use MethodCellPoolModule
-  use CellModule, only: MAX_POLY_CELLS
   use CellDefnModule
   use CellPolyModule
   use ParticleModule
@@ -37,8 +36,6 @@ module MethodDisvModule
     procedure :: load_neighbors !< load cell face neighbors
     procedure :: load_indicators !< load cell 180-degree vertex indicator
     procedure :: load_flows !< load the cell's flows
-    procedure :: load_boundary_flows_to_defn_rect !< load boundary flows to a rectangular cell definition
-    procedure :: load_boundary_flows_to_defn_rect_quad !< load boundary flows to a rectangular-quad cell definition
     procedure :: load_boundary_flows_to_defn_poly !< load boundary flows to a polygonal cell definition
     procedure :: load_face_flows_to_defn_poly !< load face flows to a polygonal cell definition
   end type MethodDisvType
@@ -97,7 +94,7 @@ contains
           events=this%events, &
           tracktimes=this%tracktimes)
         submethod => method_cell_ptb
-      else if (particle%ifrctrn > 0) then
+      else if (particle%frctrn) then
         ! Force the ternary method
         call method_cell_tern%init( &
           fmi=this%fmi, &
@@ -469,8 +466,7 @@ contains
     class(MethodDisvType), intent(inout) :: this
     type(CellDefnType), intent(inout) :: defn
     ! local
-    integer(I4B) :: nfaces
-    integer(I4B) :: nslots
+    integer(I4B) :: nfaces, nslots
 
     ! expand faceflow array if needed
     nfaces = defn%npolyverts + 3
@@ -518,115 +514,20 @@ contains
     end do
   end subroutine load_face_flows_to_defn_poly
 
-  !> @brief Load boundary flows from the grid into a rectangular cell.
-  !! Assumes cell index and number of vertices are already loaded.
-  subroutine load_boundary_flows_to_defn_rect(this, defn)
-    ! dummy
-    class(MethodDisvType), intent(inout) :: this
-    type(CellDefnType), intent(inout) :: defn
-    ! local
-    integer(I4B) :: ioffset
-
-    ! assignment of BoundaryFlows to faceflow below assumes clockwise
-    ! ordering of faces, with face 1 being the "western" face
-    ioffset = (defn%icell - 1) * 10
-    defn%faceflow(1) = defn%faceflow(1) + &
-                       this%fmi%BoundaryFlows(ioffset + 4)
-    defn%faceflow(2) = defn%faceflow(2) + &
-                       this%fmi%BoundaryFlows(ioffset + 2)
-    defn%faceflow(3) = defn%faceflow(3) + &
-                       this%fmi%BoundaryFlows(ioffset + 3)
-    defn%faceflow(4) = defn%faceflow(4) + &
-                       this%fmi%BoundaryFlows(ioffset + 1)
-    defn%faceflow(5) = defn%faceflow(1)
-    defn%faceflow(6) = defn%faceflow(6) + &
-                       this%fmi%BoundaryFlows(ioffset + 9)
-    defn%faceflow(7) = defn%faceflow(7) + &
-                       this%fmi%BoundaryFlows(ioffset + 10)
-  end subroutine load_boundary_flows_to_defn_rect
-
-  !> @brief Load boundary flows from the grid into rectangular quadcell.
-  !! Assumes cell index and number of vertices are already loaded.
-  subroutine load_boundary_flows_to_defn_rect_quad(this, defn)
-    ! dummy
-    class(MethodDisvType), intent(inout) :: this
-    type(CellDefnType), intent(inout) :: defn
-    ! local
-    integer(I4B) :: m
-    integer(I4B) :: n
-    integer(I4B) :: nn
-    integer(I4B) :: ioffset
-    integer(I4B) :: nbf
-    integer(I4B) :: m1
-    integer(I4B) :: m2
-    integer(I4B) :: mdiff
-    real(DP) :: qbf
-    integer(I4B) :: irectvert(5)
-
-    ioffset = (defn%icell - 1) * 10
-
-    ! Polygon faces in positions 1 through npolyverts
-    do n = 1, 4
-      if (n .eq. 2) then
-        nbf = 4
-      else if (n .eq. 4) then
-        nbf = 1
-      else
-        nbf = n
-      end if
-      qbf = this%fmi%BoundaryFlows(ioffset + nbf)
-      nn = 0
-      do m = 1, defn%npolyverts
-        if (.not. defn%ispv180(m)) then
-          nn = nn + 1
-          irectvert(nn) = m
-        end if
-      end do
-      irectvert(5) = irectvert(1)
-      m1 = irectvert(n)
-      m2 = irectvert(n + 1)
-      if (m2 .lt. m1) m2 = m2 + defn%npolyverts
-      mdiff = m2 - m1
-      if (mdiff .eq. 1) then
-        ! Assign BoundaryFlow to corresponding polygon face
-        defn%faceflow(m1) = defn%faceflow(m1) + qbf
-      else
-        ! Split BoundaryFlow between two faces on quad-refined edge
-        qbf = 5d-1 * qbf
-        defn%faceflow(m1) = defn%faceflow(m1) + qbf
-        defn%faceflow(m1 + 1) = defn%faceflow(m1 + 1) + qbf
-      end if
-    end do
-    ! Wrap around to 1 in position npolyverts+1
-    m = defn%npolyverts + 1
-    defn%faceflow(m) = defn%faceflow(1)
-    ! Bottom in position npolyverts+2
-    m = m + 1
-    defn%faceflow(m) = defn%faceflow(m) + &
-                       this%fmi%BoundaryFlows(ioffset + 9)
-    ! Top in position npolyverts+3
-    m = m + 1
-    defn%faceflow(m) = defn%faceflow(m) + &
-                       this%fmi%BoundaryFlows(ioffset + 10)
-
-  end subroutine load_boundary_flows_to_defn_rect_quad
-
   !> @brief Load boundary flows from the grid into a polygonal cell.
   !! Assumes cell index and number of vertices are already loaded.
   subroutine load_boundary_flows_to_defn_poly(this, defn)
     ! dummy
     class(MethodDisvType), intent(inout) :: this
     type(CellDefnType), intent(inout) :: defn
+
     ! local
-    integer(I4B) :: ic
-    integer(I4B) :: npolyverts
-    integer(I4B) :: ioffset
-    integer(I4B) :: iv
+    integer(I4B) :: ic, iv, ioffset, npolyverts, max_faces
 
     ic = defn%icell
     npolyverts = defn%npolyverts
-
-    ioffset = (ic - 1) * MAX_POLY_CELLS
+    max_faces = this%fmi%max_faces
+    ioffset = (ic - 1) * max_faces
     do iv = 1, npolyverts
       defn%faceflow(iv) = &
         defn%faceflow(iv) + &
@@ -635,10 +536,10 @@ contains
     defn%faceflow(npolyverts + 1) = defn%faceflow(1)
     defn%faceflow(npolyverts + 2) = &
       defn%faceflow(npolyverts + 2) + &
-      this%fmi%BoundaryFlows(ioffset + MAX_POLY_CELLS - 1)
+      this%fmi%BoundaryFlows(ioffset + max_faces - 1)
     defn%faceflow(npolyverts + 3) = &
       defn%faceflow(npolyverts + 3) + &
-      this%fmi%BoundaryFlows(ioffset + MAX_POLY_CELLS)
+      this%fmi%BoundaryFlows(ioffset + max_faces)
 
   end subroutine load_boundary_flows_to_defn_poly
 

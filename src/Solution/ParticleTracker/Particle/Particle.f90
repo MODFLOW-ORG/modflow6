@@ -61,10 +61,15 @@ module ParticleModule
     integer(I4B), public :: iprp !< index of release package the particle is from
     integer(I4B), public :: irpt !< index of release point the particle is from
     integer(I4B), public :: ip !< index of particle in the particle list
-    ! stop criteria
+    ! options
+    logical(LGP), public :: extend !< whether to extend tracking beyond the end of the simulation
+    logical(LGP), public :: frctrn !< whether to force solving the particle with the ternary method
     integer(I4B), public :: istopweaksink !< weak sink option (0: do not stop, 1: stop)
     integer(I4B), public :: istopzone !< stop zone number
     integer(I4B), public :: idrymeth !< dry tracking method
+    integer(I4B), public :: iexmeth !< method for iterative solution of particle exit location and time in generalized Pollock's method
+    integer(I4B), public :: icycwin !< cycle detection window size
+    real(DP), public :: extol !< tolerance for iterative solution of particle exit location and time in generalized Pollock's method
     ! state
     integer(I4B), public :: itrdomain(MAX_LEVEL) !< tracking domain indices
     integer(I4B), public :: iboundary(MAX_LEVEL) !< tracking domain boundary indices
@@ -85,13 +90,10 @@ module ParticleModule
     real(DP), public :: zorigin !< z origin for coordinate transformation from model to local
     real(DP), public :: sinrot !< sine of rotation angle for coordinate transformation from model to local
     real(DP), public :: cosrot !< cosine of rotation angle for coordinate transformation from model to local
-    real(DP), public :: extol !< tolerance for iterative solution of particle exit location and time in generalized Pollock's method
+
     logical(LGP), public :: transformed !< whether coordinates have been transformed from model to local
     logical(LGP), public :: advancing !< whether particle is still being tracked for current time step
-    integer(I4B), public :: ifrctrn !< whether to force solving the particle with the ternary method
-    integer(I4B), public :: iexmeth !< method for iterative solution of particle exit location and time in generalized Pollock's method
-    integer(I4B), public :: iextend !< whether to extend tracking beyond the end of the simulation
-    integer(I4B), public :: icycwin !< cycle detection window size
+
     type(ListType), public, pointer :: history !< history of particle positions (for cycle detection)
   contains
     procedure, public :: destroy => destroy_particle
@@ -108,10 +110,15 @@ module ParticleModule
     integer(I4B), dimension(:), pointer, public, contiguous :: imdl !< index of model particle originated in
     integer(I4B), dimension(:), pointer, public, contiguous :: iprp !< index of release package the particle originated in
     integer(I4B), dimension(:), pointer, public, contiguous :: irpt !< index of release point in the particle release package the particle originated in
-    ! stopping criteria
+    ! options
+    logical(LGP), dimension(:), pointer, public, contiguous :: extend !< whether to extend tracking beyond the end of the simulation
+    logical(LGP), dimension(:), pointer, public, contiguous :: frctrn !< force ternary method
     integer(I4B), dimension(:), pointer, public, contiguous :: istopweaksink !< weak sink option: 0 = do not stop, 1 = stop
     integer(I4B), dimension(:), pointer, public, contiguous :: istopzone !< stop zone number
     integer(I4B), dimension(:), pointer, public, contiguous :: idrymeth !< stop in dry cells
+    integer(I4B), dimension(:), pointer, public, contiguous :: iexmeth !< method for iterative solution of particle exit location and time in generalized Pollock's method
+    integer(I4B), dimension(:), pointer, public, contiguous :: icycwin !< cycle detection window size
+    real(DP), dimension(:), pointer, public, contiguous :: extol !< tolerance for iterative solution of particle exit location and time in generalized Pollock's method
     ! state
     integer(I4B), dimension(:, :), pointer, public, contiguous :: itrdomain !< array of indices for domains in the tracking domain hierarchy
     integer(I4B), dimension(:, :), pointer, public, contiguous :: iboundary !< array of indices for tracking domain boundaries
@@ -126,11 +133,6 @@ module ParticleModule
     real(DP), dimension(:), pointer, public, contiguous :: trelease !< particle release time
     real(DP), dimension(:), pointer, public, contiguous :: tstop !< particle stop time
     real(DP), dimension(:), pointer, public, contiguous :: ttrack !< current tracking time
-    integer(I4B), dimension(:), pointer, public, contiguous :: ifrctrn !< force ternary method
-    integer(I4B), dimension(:), pointer, public, contiguous :: iexmeth !< method for iterative solution of particle exit location and time in generalized Pollock's method
-    real(DP), dimension(:), pointer, public, contiguous :: extol !< tolerance for iterative solution of particle exit location and time in generalized Pollock's method
-    integer(LGP), dimension(:), pointer, public, contiguous :: extend !< whether to extend tracking beyond the end of the simulation
-    integer(I4B), dimension(:), pointer, public, contiguous :: icycwin !< cycle detection window size
   contains
     procedure, public :: destroy
     procedure, public :: num_stored
@@ -173,10 +175,10 @@ contains
     call mem_allocate(store%istopweaksink, np, 'PLISTOPWEAKSINK', mempath)
     call mem_allocate(store%istopzone, np, 'PLISTOPZONE', mempath)
     call mem_allocate(store%idrymeth, np, 'PLIDRYMETH', mempath)
-    call mem_allocate(store%ifrctrn, np, 'PLIFRCTRN', mempath)
+    call mem_allocate(store%frctrn, np, 'PLFRCTRN', mempath)
     call mem_allocate(store%iexmeth, np, 'PLIEXMETH', mempath)
     call mem_allocate(store%extol, np, 'PLEXTOL', mempath)
-    call mem_allocate(store%extend, np, 'PLIEXTEND', mempath)
+    call mem_allocate(store%extend, np, 'PLEXTEND', mempath)
     call mem_allocate(store%icycwin, np, 'PLICYCWIN', mempath)
     call mem_allocate(store%itrdomain, np, MAX_LEVEL, 'PLIDOMAIN', mempath)
     call mem_allocate(store%iboundary, np, MAX_LEVEL, 'PLIBOUNDARY', mempath)
@@ -205,10 +207,10 @@ contains
     call mem_deallocate(this%istopweaksink, 'PLISTOPWEAKSINK', mempath)
     call mem_deallocate(this%istopzone, 'PLISTOPZONE', mempath)
     call mem_deallocate(this%idrymeth, 'PLIDRYMETH', mempath)
-    call mem_deallocate(this%ifrctrn, 'PLIFRCTRN', mempath)
+    call mem_deallocate(this%frctrn, 'PLFRCTRN', mempath)
     call mem_deallocate(this%iexmeth, 'PLIEXMETH', mempath)
     call mem_deallocate(this%extol, 'PLEXTOL', mempath)
-    call mem_deallocate(this%extend, 'PLIEXTEND', mempath)
+    call mem_deallocate(this%extend, 'PLEXTEND', mempath)
     call mem_deallocate(this%icycwin, 'PLICYCWIN', mempath)
     call mem_deallocate(this%itrdomain, 'PLIDOMAIN', mempath)
     call mem_deallocate(this%iboundary, 'PLIBOUNDARY', mempath)
@@ -246,10 +248,10 @@ contains
     call mem_reallocate(this%istopweaksink, np, 'PLISTOPWEAKSINK', mempath)
     call mem_reallocate(this%istopzone, np, 'PLISTOPZONE', mempath)
     call mem_reallocate(this%idrymeth, np, 'PLIDRYMETH', mempath)
-    call mem_reallocate(this%ifrctrn, np, 'PLIFRCTRN', mempath)
+    call mem_reallocate(this%frctrn, np, 'PLFRCTRN', mempath)
     call mem_reallocate(this%iexmeth, np, 'PLIEXMETH', mempath)
     call mem_reallocate(this%extol, np, 'PLEXTOL', mempath)
-    call mem_reallocate(this%extend, np, 'PLIEXTEND', mempath)
+    call mem_reallocate(this%extend, np, 'PLEXTEND', mempath)
     call mem_reallocate(this%icycwin, np, 'PLICYCWIN', mempath)
     call mem_reallocate(this%itrdomain, np, MAX_LEVEL, 'PLIDOMAIN', mempath)
     call mem_reallocate(this%iboundary, np, MAX_LEVEL, 'PLIBOUNDARY', mempath)
@@ -295,10 +297,10 @@ contains
     particle%itrdomain(1) = imdl
     particle%iboundary(1:MAX_LEVEL) = &
       this%iboundary(ip, 1:MAX_LEVEL)
-    particle%ifrctrn = this%ifrctrn(ip)
+    particle%frctrn = this%frctrn(ip)
     particle%iexmeth = this%iexmeth(ip)
     particle%extol = this%extol(ip)
-    particle%iextend = this%extend(ip)
+    particle%extend = this%extend(ip)
     particle%icycwin = this%icycwin(ip)
   end subroutine get
 
@@ -334,10 +336,10 @@ contains
       ip, &
       1:MAX_LEVEL) = &
       particle%iboundary(1:MAX_LEVEL)
-    this%ifrctrn(ip) = particle%ifrctrn
+    this%frctrn(ip) = particle%frctrn
     this%iexmeth(ip) = particle%iexmeth
     this%extol(ip) = particle%extol
-    this%extend(ip) = particle%iextend
+    this%extend(ip) = particle%extend
     this%icycwin(ip) = particle%icycwin
   end subroutine put
 
