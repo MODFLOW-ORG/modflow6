@@ -2,10 +2,7 @@
 Test gwt-gwt coupling for advection without dispersion.
 """
 
-import os
-
 import flopy
-import numpy as np
 import pytest
 from framework import TestFramework
 
