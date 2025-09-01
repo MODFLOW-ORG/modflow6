@@ -34,6 +34,7 @@ module FlowModelInterfaceModule
     integer(I4B), pointer :: idryinactive => null() !< mark cells with an additional flag to exclude from deactivation (gwe will simulate conduction through dry cells)
     real(DP), dimension(:), pointer, contiguous :: gwfstrgss => null() !< pointer to flow model QSTOSS
     real(DP), dimension(:), pointer, contiguous :: gwfstrgsy => null() !< pointer to flow model QSTOSY
+    integer(I4B), pointer :: igwfspdis => null() !< indicates if gwfspdis is available
     integer(I4B), pointer :: igwfstrgss => null() !< indicates if gwfstrgss is available
     integer(I4B), pointer :: igwfstrgsy => null() !< indicates if gwfstrgsy is available
     integer(I4B), pointer :: iubud => null() !< unit number GWF budget file
@@ -179,6 +180,7 @@ contains
     ! -- deallocate scalars
     call mem_deallocate(this%flows_from_file)
     call mem_deallocate(this%iflowsupdated)
+    call mem_deallocate(this%igwfspdis)
     call mem_deallocate(this%igwfstrgss)
     call mem_deallocate(this%igwfstrgsy)
     call mem_deallocate(this%iubud)
@@ -208,6 +210,7 @@ contains
     ! -- Allocate
     call mem_allocate(this%flows_from_file, 'FLOWS_FROM_FILE', this%memoryPath)
     call mem_allocate(this%iflowsupdated, 'IFLOWSUPDATED', this%memoryPath)
+    call mem_allocate(this%igwfspdis, 'IGWFSPDIS', this%memoryPath)
     call mem_allocate(this%igwfstrgss, 'IGWFSTRGSS', this%memoryPath)
     call mem_allocate(this%igwfstrgsy, 'IGWFSTRGSY', this%memoryPath)
     call mem_allocate(this%iubud, 'IUBUD', this%memoryPath)
@@ -221,6 +224,7 @@ contains
     ! -- Initialize
     this%flows_from_file = .true.
     this%iflowsupdated = 1
+    this%igwfspdis = 0
     this%igwfstrgss = 0
     this%igwfstrgsy = 0
     this%iubud = 0
@@ -857,6 +861,7 @@ contains
         found_flowja = .true.
       case ('DATA-SPDIS')
         found_dataspdis = .true.
+        this%igwfspdis = 1
       case ('DATA-SAT')
         found_datasat = .true.
       case ('STO-SS')

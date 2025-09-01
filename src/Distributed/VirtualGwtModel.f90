@@ -21,6 +21,7 @@ module VirtualGwtModelModule
     type(VirtualDbl1dType), pointer :: dsp_ath2 => null()
     type(VirtualDbl1dType), pointer :: dsp_atv => null()
     ! FMI
+    type(VirtualIntType), pointer :: fmi_igwfspdis => null()
     type(VirtualDbl1dType), pointer :: fmi_gwfhead => null()
     type(VirtualDbl1dType), pointer :: fmi_gwfsat => null()
     type(VirtualDbl2dType), pointer :: fmi_gwfspdis => null()
@@ -86,6 +87,7 @@ contains
     call this%set(this%dsp_ath1%base(), 'ATH1', 'DSP', MAP_NODE_TYPE)
     call this%set(this%dsp_ath2%base(), 'ATH2', 'DSP', MAP_NODE_TYPE)
     call this%set(this%dsp_atv%base(), 'ATV', 'DSP', MAP_NODE_TYPE)
+    call this%set(this%fmi_igwfspdis%base(), 'IGWFSPDIS', 'FMI', MAP_ALL_TYPE)
     call this%set(this%fmi_gwfhead%base(), 'GWFHEAD', 'FMI', MAP_NODE_TYPE)
     call this%set(this%fmi_gwfsat%base(), 'GWFSAT', 'FMI', MAP_NODE_TYPE)
     call this%set(this%fmi_gwfspdis%base(), 'GWFSPDIS', 'FMI', MAP_NODE_TYPE)
@@ -120,6 +122,7 @@ contains
       nr_nodes = this%element_maps(MAP_NODE_TYPE)%nr_virt_elems
       nr_conns = this%element_maps(MAP_CONN_TYPE)%nr_virt_elems
 
+      call this%map(this%fmi_igwfspdis%base(), (/STG_BFR_CON_AR/))
       call this%map(this%x%base(), nr_nodes, &
                     (/STG_BFR_CON_AR, STG_BFR_EXG_AD, STG_BFR_EXG_CF/))
       call this%map(this%ibound%base(), nr_nodes, (/STG_BFR_CON_AR/))
@@ -136,14 +139,23 @@ contains
         call this%map(this%dsp_atv%base(), nr_nodes, (/STG_BFR_CON_AR/))
       end if
 
-      call this%map(this%fmi_gwfhead%base(), nr_nodes, (/STG_BFR_EXG_AD/))
-      call this%map(this%fmi_gwfsat%base(), nr_nodes, (/STG_BFR_EXG_AD/))
-      call this%map(this%fmi_gwfspdis%base(), 3, nr_nodes, (/STG_BFR_EXG_AD/))
-      call this%map(this%fmi_gwfflowja%base(), nr_conns, (/STG_BFR_EXG_AD/))
-
       if (this%indsp%get() > 0 .and. this%inmst%get() > 0) then
         call this%map(this%mst_thetam%base(), nr_nodes, (/STG_AFT_CON_AR/))
       end if
+
+    else if (stage == STG_AFT_CON_AR) then
+
+      nr_nodes = this%element_maps(MAP_NODE_TYPE)%nr_virt_elems
+      nr_conns = this%element_maps(MAP_CONN_TYPE)%nr_virt_elems
+
+      call this%map(this%fmi_gwfhead%base(), nr_nodes, (/STG_BFR_EXG_AD/))
+      call this%map(this%fmi_gwfsat%base(), nr_nodes, (/STG_BFR_EXG_AD/))
+      if (this%fmi_igwfspdis%get() > 0) then
+        call this%map(this%fmi_gwfspdis%base(), 3, nr_nodes, (/STG_BFR_EXG_AD/))
+      else
+        call this%map(this%fmi_gwfspdis%base(), 3, 0, (/STG_NEVER/))
+      end if
+      call this%map(this%fmi_gwfflowja%base(), nr_conns, (/STG_BFR_EXG_AD/))
 
     end if
 
@@ -160,6 +172,7 @@ contains
     allocate (this%dsp_ath1)
     allocate (this%dsp_ath2)
     allocate (this%dsp_atv)
+    allocate (this%fmi_igwfspdis)
     allocate (this%fmi_gwfhead)
     allocate (this%fmi_gwfsat)
     allocate (this%fmi_gwfspdis)
@@ -181,6 +194,7 @@ contains
     deallocate (this%dsp_ath1)
     deallocate (this%dsp_ath2)
     deallocate (this%dsp_atv)
+    deallocate (this%fmi_igwfspdis)
     deallocate (this%fmi_gwfhead)
     deallocate (this%fmi_gwfsat)
     deallocate (this%fmi_gwfspdis)

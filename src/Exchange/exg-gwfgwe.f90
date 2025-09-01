@@ -269,6 +269,7 @@ contains
     call mem_checkin(gwemodel%fmi%gwfspdis, &
                      'GWFSPDIS', gwemodel%fmi%memoryPath, &
                      'SPDIS', gwfmodel%npf%memoryPath)
+    gwemodel%fmi%igwfspdis = gwfmodel%npf%icalcspdis
     !
     ! -- setup pointers to the flow storage rates. GWF strg arrays are
     !    available after the gwf_ar routine is called.
