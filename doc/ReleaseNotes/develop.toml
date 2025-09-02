@@ -91,5 +91,5 @@ description = "Fixes a bug first included in version 6.4.2 that has changed the 
 [[items]]
 section = "fixes"
 subsection = "parallel"
-description = "Fixes a memory exception that has occurred when running parallel solute transport on Windows without the dispersion package. The bug has no effect on the simulation results other than permature termination in some cases."
+description = "Fixes a memory exception that has occurred when running parallel solute transport on Windows without the dispersion package. This has no effect on the simulation results other than causing a premature termination in some cases."
 
