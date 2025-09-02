@@ -88,3 +88,8 @@ section = "fixes"
 subsection = "solution"
 description = "Fixes a bug first included in version 6.4.2 that has changed the convergence check of the numerical solution. In cases where the linear solver failed to converge, or when it did converge but the STRICT option was active and convergence did not occur on the first iteration, the solution was erroneously considered for overall convergence."
 
+[[items]]
+section = "fixes"
+subsection = "parallel"
+description = "Fixes a memory exception that has occurred when running parallel solute transport on Windows without the dispersion package. The bug has no effect on the simulation results other than permature termination in some cases."
+
