@@ -2,7 +2,8 @@ module ParticleModule
 
   use KindModule, only: DP, I4B, LGP
   use ListModule, only: ListType
-  use ConstantsModule, only: DZERO, DONE, LENMEMPATH, LENBOUNDNAME
+  use ConstantsModule, only: DZERO, DONE, LENMEMPATH, LENBOUNDNAME, &
+                             LINELENGTH
   use MemoryManagerModule, only: mem_allocate, mem_deallocate, &
                                  mem_reallocate
   implicit none
@@ -96,6 +97,7 @@ module ParticleModule
     procedure, public :: get_model_coords
     procedure, public :: transform => transform_coords
     procedure, public :: reset_transform
+    procedure, public :: get_id
   end type ParticleType
 
   !> @brief Structure of arrays to store particles.
@@ -401,5 +403,17 @@ contains
     class(ParticleStoreType) :: this
     n = size(this%imdl)
   end function num_stored
+
+  !> @brief Get a string identifier for the particle.
+  function get_id(this) result(str)
+    class(ParticleType), intent(in) :: this
+    character(len=:), allocatable :: str
+    ! local
+    character(len=LINELENGTH) :: temp
+
+    write (temp, '(I0,1a,I0,1a,I0,1a,G0)') &
+      this%imdl, this%iprp, this%irpt, this%trelease
+    str = trim(adjustl(temp))
+  end function get_id
 
 end module ParticleModule

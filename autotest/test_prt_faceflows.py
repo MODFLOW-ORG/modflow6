@@ -1,29 +1,9 @@
 """
-Tests ability to run a GWF model then a PRT model
-in separate simulations via flow model interface,
-as well as
-
-The grid is a 10x10 square with a single layer,
-the same flow system shown on the FloPy readme.
-
-Test cases are defined for the particle release
-package (PRP) option STOP_AT_WEAK_SINK, one on
-and one with the option off. No effect on results
-is expected, because the model has no weak sinks.
-(Motivated by an old bug in which particles were
-tracked improperly when this option was enabled,
-even with no weak sink cells in the vicinity.)
-
-This test also specifies `boundnames=True` for
-the PRP package, but does not provide boundnames
-values, and checks that the "name" column in the
-track output files contain the expected defaults.
-
-Particles are released from the top left cell.
-
+Test mass flows between adjacent cell faces in a
+simple horizontal steady-state flow system. The
+grid is a 1x1x10 horizontal line with 10 columns.
+Particles are released from the left-most cell.
 Pathlines are compared against a MODPATH 7 model.
-
-Runtime is benchmarked with pytest-benchmark.
 """
 
 from pathlib import Path
@@ -34,11 +14,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from flopy.mf6.utils.postprocessing import get_structured_faceflows
 from flopy.utils import PathlineFile
 from flopy.utils.binaryfile import HeadFile
 from framework import TestFramework
 from prt_test_utils import (
-    FlopyReadmeCase,
+    HorizontalCase,
     all_equal,
     check_budget_data,
     check_track_data,
@@ -47,8 +28,8 @@ from prt_test_utils import (
     has_default_boundnames,
 )
 
-simname = "prtfmi"
-cases = [simname, f"{simname}saws", f"{simname}bprp", f"{simname}noext"]
+simname = "prtffs"
+cases = [simname]
 
 
 def build_prt_sim(name, gwf_ws, prt_ws, mf6):
@@ -65,13 +46,9 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
         sim,
         pname="tdis",
         time_units="DAYS",
-        nper=FlopyReadmeCase.nper,
+        nper=HorizontalCase.nper,
         perioddata=[
-            (
-                FlopyReadmeCase.perlen,
-                FlopyReadmeCase.nstp,
-                FlopyReadmeCase.tsmult,
-            )
+            (HorizontalCase.perlen, HorizontalCase.nstp, HorizontalCase.tsmult)
         ],
     )
 
@@ -83,23 +60,18 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
     flopy.mf6.modflow.mfgwfdis.ModflowGwfdis(
         prt,
         pname="dis",
-        nlay=FlopyReadmeCase.nlay,
-        nrow=FlopyReadmeCase.nrow,
-        ncol=FlopyReadmeCase.ncol,
+        nlay=HorizontalCase.nlay,
+        nrow=HorizontalCase.nrow,
+        ncol=HorizontalCase.ncol,
     )
 
     # create mip package
-    flopy.mf6.ModflowPrtmip(prt, pname="mip", porosity=FlopyReadmeCase.porosity)
+    flopy.mf6.ModflowPrtmip(prt, pname="mip", porosity=HorizontalCase.porosity)
 
     # convert mp7 to prt release points and check against expectation
-    partdata = get_partdata(prt.modelgrid, FlopyReadmeCase.releasepts_mp7)
+    partdata = get_partdata(prt.modelgrid, HorizontalCase.releasepts_mp7)
     coords = partdata.to_coords(prt.modelgrid)
-    if "bprp" in name:
-        # bad cell indices!
-        releasepts = [(i, 0, 1, 1, c[0], c[1], c[2]) for i, c in enumerate(coords)]
-    else:
-        releasepts = [(i, 0, 0, 0, c[0], c[1], c[2]) for i, c in enumerate(coords)]
-        assert np.allclose(FlopyReadmeCase.releasepts_prt, releasepts)
+    releasepts = [(i, 0, 0, 0, c[0], c[1], c[2]) for i, c in enumerate(coords)]
 
     # create prp package
     prp_track_file = f"{prt_name}.prp.trk"
@@ -113,9 +85,9 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
         perioddata={0: ["FIRST"]},
         track_filerecord=[prp_track_file],
         trackcsv_filerecord=[prp_track_csv_file],
-        stop_at_weak_sink="saws" in prt_name,
+        stop_at_weak_sink=False,
         boundnames=True,
-        extend_tracking="noext" not in prt_name,
+        extend_tracking=True,
     )
 
     # create output control package
@@ -135,11 +107,9 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
     gwf_name = get_model_name(name, "gwf")
     gwf_budget_file = gwf_ws / f"{gwf_name}.bud"
     gwf_head_file = gwf_ws / f"{gwf_name}.hds"
-    grb_file = gwf_ws / f"{gwf_name}.dis.grb"
     flopy.mf6.ModflowPrtfmi(
         prt,
         packagedata=[
-            ("GWFGRID", grb_file),
             ("GWFHEAD", gwf_head_file),
             ("GWFBUDGET", gwf_budget_file),
         ],
@@ -157,7 +127,7 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
 
 
 def build_mp7_sim(name, ws, mp7, gwf):
-    partdata = get_partdata(gwf.modelgrid, FlopyReadmeCase.releasepts_mp7)
+    partdata = get_partdata(gwf.modelgrid, HorizontalCase.releasepts_mp7)
     mp7_name = get_model_name(name, "mp7")
     pg = flopy.modpath.ParticleGroup(
         particlegroupname="G1",
@@ -172,7 +142,10 @@ def build_mp7_sim(name, ws, mp7, gwf):
         headfilename=f"{gwf.name}.hds",
         budgetfilename=f"{gwf.name}.bud",
     )
-    mpbas = flopy.modpath.Modpath7Bas(mp, porosity=FlopyReadmeCase.porosity)
+    mpbas = flopy.modpath.Modpath7Bas(
+        mp,
+        porosity=HorizontalCase.porosity,
+    )
     mpsim = flopy.modpath.Modpath7Sim(
         mp,
         simulationtype="pathline",
@@ -186,9 +159,7 @@ def build_mp7_sim(name, ws, mp7, gwf):
 
 
 def build_models(idx, test):
-    gwf_sim = FlopyReadmeCase.get_gwf_sim(
-        test.name, test.workspace, test.targets["mf6"]
-    )
+    gwf_sim = HorizontalCase.get_gwf_sim(test.name, test.workspace, test.targets["mf6"])
     prt_sim = build_prt_sim(
         test.name, test.workspace, test.workspace / "prt", test.targets["mf6"]
     )
@@ -215,11 +186,6 @@ def check_output(idx, test):
     gwf = gwf_sim.get_model(gwf_name)
     mg = gwf.modelgrid
 
-    if "bprp" in name:
-        buff = test.buffs[1]
-        assert any("Error: release point" in l for l in buff)
-        return
-
     # check mf6 output files exist
     gwf_budget_file = f"{gwf_name}.bud"
     gwf_head_file = f"{gwf_name}.hds"
@@ -229,11 +195,8 @@ def check_output(idx, test):
     prp_track_csv_file = f"{prt_name}.prp.trk.csv"
     mp7_pathline_file = f"{mp7_name}.mppth"
 
-    # extract head, budget, and specific discharge results from GWF model
-    hds = HeadFile(gwf_ws / gwf_head_file).get_data()
-    bud = gwf.output.budget()
-    spdis = bud.get_data(text="DATA-SPDIS")[0]
-    qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
+    # load mf6 pathline results
+    mf6_pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
 
     # load mp7 pathline results
     plf = PathlineFile(mp7_ws / mp7_pathline_file)
@@ -245,16 +208,11 @@ def check_output(idx, test):
     mp7_pls["node"] = mp7_pls["node"] + 1
     mp7_pls["k"] = mp7_pls["k"] + 1
 
-    # load mf6 pathline results
-    mf6_pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
-
-    prt_budget_file = prt_ws / f"{prt_name}.bud"
-    prt_bud = flopy.utils.CellBudgetFile(prt_budget_file, precision="double")
-    prt_bud_data = prt_bud.get_data(kstpkper=(0, 0))
-
-    # make sure pathline df has "name" (boundname) column and default values
-    assert "name" in mf6_pls
-    assert has_default_boundnames(mf6_pls)
+    # extract head, budget, and specific discharge results from GWF model
+    hds = HeadFile(gwf_ws / gwf_head_file).get_data()
+    bud = gwf.output.budget()
+    spdis = bud.get_data(text="DATA-SPDIS")[0]
+    qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
 
     assert (gwf_ws / gwf_budget_file).is_file()
     assert (gwf_ws / gwf_head_file).is_file()
@@ -262,7 +220,13 @@ def check_output(idx, test):
     assert (prt_ws / prt_track_csv_file).is_file()
     assert (prt_ws / prp_track_file).is_file()
     assert (prt_ws / prp_track_csv_file).is_file()
+
+    # check mp7 output files exist
     assert (mp7_ws / mp7_pathline_file).is_file()
+
+    # make sure pathline df has "name" (boundname) column and default values
+    assert "name" in mf6_pls
+    assert has_default_boundnames(mf6_pls)
 
     # make sure all mf6 pathline data have correct model and PRP index (1)
     assert all_equal(mf6_pls["imdl"], 1)
@@ -270,76 +234,64 @@ def check_output(idx, test):
 
     # check budget data were written to mf6 prt list file
     check_budget_data(
-        prt_ws / f"{name}_prt.lst",
-        FlopyReadmeCase.perlen,
-        FlopyReadmeCase.nper,
+        prt_ws / f"{name}_prt.lst", HorizontalCase.perlen, HorizontalCase.nper
     )
 
-    # check cell-by-cell budget file
+    # check cell-by-cell particle mass flows
+    prt_budget_file = prt_ws / f"{prt_name}.bud"
+    prt_bud = flopy.utils.CellBudgetFile(prt_budget_file, precision="double")
+    prt_bud_data = prt_bud.get_data(kstpkper=(0, 0))
     assert len(prt_bud_data) == 3
-
+    flowja = prt_bud.get_data(text="FLOW-JA-FACE")[0][0, 0, :]
+    prp_bud = prt_bud.get_data(text="PRP")[0].squeeze()
+    term_bud = prt_bud.get_data(text="TERMINATION")[0]
     # FLOW-JA-FACE
-    assert prt_bud_data[0].shape == (1, 1, 460)
-
-    # TERMINATION
-    if "noext" in name:
-        # 3 different cells near the release cell
-        assert prt_bud_data[1].shape == (3,)
-        assert tuple(prt_bud_data[1][0]) == (3, 3, 3.0)
-        assert tuple(prt_bud_data[1][1]) == (12, 12, 3.0)
-        assert tuple(prt_bud_data[1][2]) == (21, 21, 3.0)
-    elif "bprp" not in name:
-        # all terminate in the bottom right cell
-        assert prt_bud_data[1].shape == (1,)
-        assert tuple(prt_bud_data[1][0]) == (100, 100, 9.0)
-
+    assert flowja.shape == (28,)
     # PRP
-    prp_data = prt_bud_data[2]
-    assert prp_data.shape == (9,)
-    for i, record in enumerate(prp_data):
-        node1, node2, mass = record[0], record[1], record[2]
-        assert node1 == 1  # all particles released from top-left cell
-        assert node2 == i + 1
-        assert mass > 0
+    assert prp_bud.shape == (9,)
+    # TERMINATION
+    assert term_bud.shape == (1,)
+    frf, fff, flf = get_structured_faceflows(
+        flowja,
+        grb_file=gwf_ws / f"{gwf_name}.dis.grb",
+        verbose=True,
+    )
+    assert not fff.any()
+    assert not flf.any()
+    assert frf.any()
+    assert all(v == 9 for v in frf[:-1])
 
     # check mf6 prt particle track data were written to binary/CSV files
     # and that different formats are equal
-    for track_csv in [
-        prt_ws / prt_track_csv_file,
-        prt_ws / prp_track_csv_file,
-    ]:
+    for track_csv in [prt_ws / prt_track_csv_file, prt_ws / prp_track_csv_file]:
         check_track_data(
             track_bin=prt_ws / prt_track_file,
             track_hdr=prt_ws / Path(prt_track_file.replace(".trk", ".trk.hdr")),
             track_csv=track_csv,
         )
 
-    if "noext" in name:
-        # maximum tracking time should be simulation stop time
-        assert mf6_pls.t.max() == FlopyReadmeCase.nper * FlopyReadmeCase.perlen
-    else:
-        # convert mf6 pathlines to mp7 format
-        mf6_pls = to_mp7_pathlines(mf6_pls)
+    # convert mf6 pathlines to mp7 format
+    mf6_pls = to_mp7_pathlines(mf6_pls)
 
-        # sort both dataframes by particleid and time
-        mf6_pls.sort_values(by=["particleid", "time"], inplace=True)
-        mp7_pls.sort_values(by=["particleid", "time"], inplace=True)
+    # sort both dataframes by particleid and time
+    mf6_pls.sort_values(by=["particleid", "time"], inplace=True)
+    mp7_pls.sort_values(by=["particleid", "time"], inplace=True)
 
-        # drop columns for which there is no direct correspondence between mf6 and mp7
-        del mf6_pls["sequencenumber"]
-        del mf6_pls["particleidloc"]
-        del mf6_pls["xloc"]
-        del mf6_pls["yloc"]
-        del mf6_pls["zloc"]
-        del mp7_pls["sequencenumber"]
-        del mp7_pls["particleidloc"]
-        del mp7_pls["xloc"]
-        del mp7_pls["yloc"]
-        del mp7_pls["zloc"]
+    # drop columns for which there is no direct correspondence between mf6 and mp7
+    del mf6_pls["sequencenumber"]
+    del mf6_pls["particleidloc"]
+    del mf6_pls["xloc"]
+    del mf6_pls["yloc"]
+    del mf6_pls["zloc"]
+    del mp7_pls["sequencenumber"]
+    del mp7_pls["particleidloc"]
+    del mp7_pls["xloc"]
+    del mp7_pls["yloc"]
+    del mp7_pls["zloc"]
 
-        # compare mf6 / mp7 pathline data
-        assert mf6_pls.shape == mp7_pls.shape
-        assert np.allclose(mf6_pls, mp7_pls, atol=1e-3)
+    # compare mf6 / mp7 pathline data
+    assert mf6_pls.shape == mp7_pls.shape
+    assert np.allclose(mf6_pls, mp7_pls, atol=1e-3)
 
 
 def plot_output(idx, test):
@@ -359,11 +311,8 @@ def plot_output(idx, test):
     prt_track_csv_file = f"{prt_name}.trk.csv"
     mp7_pathline_file = f"{mp7_name}.mppth"
 
-    # extract head, budget, and specific discharge results from GWF model
-    hds = HeadFile(gwf_ws / gwf_head_file).get_data()
-    bud = gwf.output.budget()
-    spdis = bud.get_data(text="DATA-SPDIS")[0]
-    qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
+    # load mf6 pathline results
+    mf6_pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
 
     # load mp7 pathline results
     plf = PathlineFile(mp7_ws / mp7_pathline_file)
@@ -375,11 +324,11 @@ def plot_output(idx, test):
     mp7_pls["node"] = mp7_pls["node"] + 1
     mp7_pls["k"] = mp7_pls["k"] + 1
 
-    # load mf6 pathline results
-    mf6_pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
-
-    prt_budget_file = prt_ws / f"{prt_name}.bud"
-    prt_bud = flopy.utils.CellBudgetFile(prt_budget_file, precision="double")
+    # extract head, budget, and specific discharge results from GWF model
+    hds = HeadFile(gwf_ws / gwf_head_file).get_data()
+    bud = gwf.output.budget()
+    spdis = bud.get_data(text="DATA-SPDIS")[0]
+    qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
 
     # set up plot
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
@@ -422,11 +371,11 @@ def plot_output(idx, test):
 
     # view/save plot
     plt.show()
-    plt.savefig(prt_ws / f"{name}.png")
+    plt.savefig(prt_ws / f"test_{simname}.png")
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets, benchmark, plot):
+def test_mf6model(idx, name, function_tmpdir, targets, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -435,9 +384,5 @@ def test_mf6model(idx, name, function_tmpdir, targets, benchmark, plot):
         plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
         compare=None,
-        xfail=[False, "bprp" in name, False],
     )
-    if "bprp" in name:
-        test.run()
-    else:
-        benchmark(test.run)
+    test.run()
