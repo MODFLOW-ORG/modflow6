@@ -71,7 +71,7 @@ description = "Previously the Particle Tracking (PRT) Model's generalized DISV t
 [[items]]
 section = "fixes"
 subsection = "basic"
-description = "Previously the NOCHECK option was used to directly set the internal isimcheck variable. When NOCHECK is specified in the simulation name file isimcheck should be set to 0, otherwise isimcheck should be 1. The code has been fixed to implement the intended behaviour."
+description = "Previously the simulation NOCHECK option had no effect. The option has been fixed to implement the intended behavior."
 
 [[items]]
 section = "features"
