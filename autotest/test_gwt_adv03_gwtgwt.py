@@ -60,7 +60,6 @@ def get_gwf_model(sim, gwfname, gwfpath, modelshape, chdspd=None, welspd=None):
     if chdspd is not None:
         chd = flopy.mf6.modflow.mfgwfchd.ModflowGwfchd(
             gwf,
-            # maxbound=len(c),
             stress_period_data=chdspd,
             save_flows=False,
             pname="CHD-1",
@@ -72,7 +71,6 @@ def get_gwf_model(sim, gwfname, gwfpath, modelshape, chdspd=None, welspd=None):
             gwf,
             print_input=True,
             print_flows=True,
-            # maxbound=len(w),
             stress_period_data=welspd,
             save_flows=False,
             auxiliary="CONCENTRATION",
