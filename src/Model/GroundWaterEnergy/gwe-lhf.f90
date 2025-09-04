@@ -139,16 +139,20 @@ contains
     real(DP) :: sat_vap_ta
     real(DP) :: amb_vap_atm
     real(DP) :: evap_rate
+    real(DP) :: test_mult
     !
     ! -- calculate latent heat flux using mass transfer equation
     !! EQ BASED ON TEMPERATURES IN CELSIUS
     ! -- temperature dependent latent heat of vaporization:
-    latent_heat_vap = (2499.64 - (2.51*tstrm))*1000 ! tstrm in C
+    !test_mult = 2.51*tstrm
     
-    sat_vap_tw = 6.1275*exp(17.2693882*((tstrm)/(tstrm + DCTOK - 35.86)))
-    sat_vap_ta = 6.1275*exp(17.2693882*((this%tatm(ifno))/(this%tatm(ifno) + DCTOK - 35.86)))
+    latent_heat_vap = (2499.64_DP - (2.51_DP*tstrm))*1000.0_DP ! tstrm in C
+    !latent_heat_vap = 2449440.0
     
-    amb_vap_atm = (this%rh(ifno)/100)*sat_vap_ta
+    sat_vap_tw = 6.1275_DP*exp(17.2693882_DP*((tstrm)/(tstrm + DCTOK - 35.86_DP)))
+    sat_vap_ta = 6.1275_DP*exp(17.2693882_DP*((this%tatm(ifno))/(this%tatm(ifno) + DCTOK - 35.86_DP)))
+    
+    amb_vap_atm = (this%rh(ifno)/100.0_DP)*sat_vap_ta
     
     evap_rate = (this%wfint + this%wfslope*this%wspd(ifno))*(sat_vap_tw - amb_vap_atm)
     
