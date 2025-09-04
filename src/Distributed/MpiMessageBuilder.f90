@@ -701,15 +701,6 @@ contains
       call ustop()
     end if
 
-    ! sanity check on index maps
-    if (associated(mt%aint1d)) then
-      call check_map_int1d(mt, el_map)
-    else if (associated(mt%adbl1d)) then
-      call check_map_dbl1d(mt, el_map)
-    else if (associated(mt%adbl2d)) then
-      call check_map_dbl2d(mt, el_map)
-    end if
-
   end subroutine get_mpi_datatype
 
   !> @brief Local routine to free elemental mpi data types representing
@@ -761,6 +752,9 @@ contains
     ! local
     integer :: ierr
 
+    ! sanity check on map
+    call check_map_int1d(mem, el_map)
+
     call MPI_Get_address(mem%aint1d, el_displ, ierr)
     if (associated(el_map)) then
       call MPI_Type_create_indexed_block( &
@@ -793,6 +787,9 @@ contains
     ! local
     integer :: ierr
 
+    ! sanity check on map
+    call check_map_dbl1d(mem, el_map)
+
     call MPI_Get_address(mem%adbl1d, el_displ, ierr)
     if (associated(el_map)) then
       call MPI_Type_create_indexed_block( &
@@ -812,6 +809,9 @@ contains
     ! local
     integer :: ierr
     integer :: entry_type
+
+    ! sanity check on map
+    call check_map_dbl2d(mem, el_map)
 
     call MPI_Get_address(mem%adbl2d, el_displ, ierr)
     if (associated(el_map)) then
@@ -833,7 +833,7 @@ contains
     logical(LGP) :: is_valid
     integer(I4B) :: min_val, max_val
 
-    if (.not. associated(map)) return ! nothing to check
+    if (.not. associated(map) .or. size(map) == 0) return ! nothing to check
 
     ! bounds check
     min_val = minloc(map, dim=1)
@@ -848,14 +848,16 @@ contains
 
   end subroutine check_map_int1d
 
+  !> @brief Bounds check for index maps,
+  !< terminates on error.
   subroutine check_map_dbl1d(mem, map)
-    type(MemoryType), pointer :: mem
-    integer, dimension(:), pointer :: map
+    type(MemoryType), pointer :: mem !< memory type
+    integer, dimension(:), pointer :: map !< index map or null
     ! local
     logical(LGP) :: is_valid
     integer(I4B) :: min_val, max_val
 
-    if (.not. associated(map)) return ! nothing to check
+    if (.not. associated(map) .or. size(map) == 0) return ! nothing to check
 
     min_val = minloc(map, dim=1)
     max_val = maxloc(map, dim=1)
@@ -876,7 +878,7 @@ contains
     logical(LGP) :: is_valid
     integer(I4B) :: min_val, max_val
 
-    if (.not. associated(map)) return ! nothing to check
+    if (.not. associated(map) .or. size(map) == 0) return ! nothing to check
 
     min_val = minloc(map, dim=1)
     max_val = maxloc(map, dim=1)
