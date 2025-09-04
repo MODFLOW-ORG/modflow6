@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       FC: gfortran
-      FC_V: 13
+      FC_V: 15
     steps:
       - name: Checkout MF6
         uses: actions/checkout@v5
