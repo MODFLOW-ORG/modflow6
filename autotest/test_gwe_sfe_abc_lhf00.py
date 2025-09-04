@@ -58,7 +58,7 @@ surf_Q_in = [
 ]
 # sensible and latent heat flux parameter values
 wspd = 20.0
-tatm = 270.87556216  # unrealistically high to drive a -1C change in stream temperature
+tatm = 270.79111 # unrealistically high to drive a -1C change in stream temperature
 # shortwave radiation parameter values
 solr = 47880870.9  # unrealistically high to drive a 1 deg C rise in stream temperature
 shd = 1.0  # 100% shade "turns off" solar flux
@@ -90,7 +90,7 @@ tsmult = [1]
 perlen = [1]
 
 nouter, ninner = 1000, 300
-hclose, rclose, relax = 1e-3, 1e-4, 0.97
+hclose, rclose, relax = 1e-10, 1e-10, 0.97
 
 #
 # MODFLOW 6 flopy GWF object
@@ -455,11 +455,12 @@ def check_output(idx, test):
 
     # confirm that the energy added to the stream results in a -1C change in temp
     # temperature gradient
+    
     tgrad = tatm - strm_temp
     shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
     swr_ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
     # latent calcs
-    L = (2499.64 - 2.51 * strm_temp) * 1000
+    L = (2499.64 - (2.51 * strm_temp)) * 1000
     e_w = 6.1275 * math.exp(17.2693882 * (strm_temp / (strm_temp + 273.16 - 35.86)))
     e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + 273.16 - 35.86)))
     e_a = rh / 100 * e_s
@@ -473,22 +474,25 @@ def check_output(idx, test):
     )
     # calculate expected temperature change based on energy transfer
     temp_change = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
+    
+    print(str(strm_temp + temp_change))
+
+    #new_strm_temp = strm_temp + temp_change
 
     fpth2 = os.path.join(test.workspace, gwename + ".sfe.obs.csv")
     assert os.path.isfile(fpth2)
     df2 = pd.read_csv(fpth2)
 
     # confirm 1 deg C decrease in temp
-    msg1 = (
-        "The calculated temperature change \
-        is: "
-        + str(temp_change)
+    msg1 = "Python temperature change is = " + str(temp_change)
+    msg2 = "MODFLOW temperature = " + str(df2.loc[0, "RCH1_OUTFTEMP"])
+    msg3 = "MODFLOW temperature change is " + str(
+        strm_temp - df2.loc[0, "RCH1_OUTFTEMP"]
     )
-    msg2 = "The temperature is:" + str(df2.loc[0, "RCH1_OUTFTEMP"])
 
     assert np.isclose(
         df2.loc[0, "RCH1_OUTFTEMP"], strm_temp + temp_change, atol=1e-6
-    ), msg2
+    ), msg2 + ". " + msg3 + ". " + msg1
 
 
 # - No need to change any code below
