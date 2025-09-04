@@ -828,17 +828,18 @@ contains
 
   subroutine check_map_int1d(mem, map)
     type(MemoryType), pointer :: mem
-    integer, dimension(:), pointer :: map
+    integer, dimension(:), pointer :: map !< ZERO-based map (for creating mpi types)
     ! local
     logical(LGP) :: is_valid
-    integer(I4B) :: min_val, max_val
+    integer(I4B) :: min_idx, max_idx
 
-    if (.not. associated(map) .or. size(map) == 0) return ! nothing to check
+    if (.not. associated(map)) return
+    if (size(map) == 0) return ! nothing to check
 
     ! bounds check
-    min_val = minloc(map, dim=1)
-    max_val = maxloc(map, dim=1)
-    is_valid = max_val <= size(mem%aint1d) .and. min_val > 0
+    min_idx = minval(map) + 1
+    max_idx = maxval(map) + 1
+    is_valid = max_idx <= size(mem%aint1d) .and. min_idx > 0
     if (.not. is_valid) then
       write (*, '(/,4x,4a)') &
         'Error: invalid map in MPI datatype for ', &
@@ -852,16 +853,17 @@ contains
   !< terminates on error.
   subroutine check_map_dbl1d(mem, map)
     type(MemoryType), pointer :: mem !< memory type
-    integer, dimension(:), pointer :: map !< index map or null
+    integer, dimension(:), pointer :: map !< ZERO-based map (for creating mpi types)
     ! local
     logical(LGP) :: is_valid
-    integer(I4B) :: min_val, max_val
+    integer(I4B) :: min_idx, max_idx
 
-    if (.not. associated(map) .or. size(map) == 0) return ! nothing to check
+    if (.not. associated(map)) return
+    if (size(map) == 0) return ! nothing to check
 
-    min_val = minloc(map, dim=1)
-    max_val = maxloc(map, dim=1)
-    is_valid = max_val <= size(mem%adbl1d) .and. min_val > 0
+    min_idx = minval(map) + 1
+    max_idx = maxval(map) + 1
+    is_valid = max_idx <= size(mem%adbl1d) .and. min_idx > 0
     if (.not. is_valid) then
       write (*, '(/,4x,4a)') &
         'Error: invalid map in MPI datatype for ', &
@@ -873,16 +875,17 @@ contains
 
   subroutine check_map_dbl2d(mem, map)
     type(MemoryType), pointer :: mem
-    integer, dimension(:), pointer :: map
+    integer, dimension(:), pointer :: map !< ZERO-based map (for creating mpi types)
     ! local
     logical(LGP) :: is_valid
-    integer(I4B) :: min_val, max_val
+    integer(I4B) :: min_idx, max_idx
 
-    if (.not. associated(map) .or. size(map) == 0) return ! nothing to check
+    if (.not. associated(map)) return
+    if (size(map) == 0) return ! nothing to check
 
-    min_val = minloc(map, dim=1)
-    max_val = maxloc(map, dim=1)
-    is_valid = max_val <= size(mem%adbl2d, dim=2) .and. min_val > 0
+    min_idx = minval(map) + 1
+    max_idx = maxval(map) + 1
+    is_valid = max_idx <= size(mem%adbl2d, 2) .and. min_idx > 0
     if (.not. is_valid) then
       write (*, '(/,4x,4a)') &
         'Error: invalid map in MPI datatype for ', &
