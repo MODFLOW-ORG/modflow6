@@ -93,3 +93,7 @@ section = "fixes"
 subsection = "parallel"
 description = "Fixes a memory exception that has occurred when running parallel solute transport on Windows without the dispersion package. This has no effect on the simulation results other than causing a premature termination in some cases."
 
+[[items]]
+section = "fixes"
+subsection = "parallel"
+description = "Fixes the case where a convergence failure of the PETSc linear solver halts the program with an exception (error -5). This particular failure is now handled by proceding to the next outer iteration. This is equivalent to what happens when using the IMS solver in a serial simulation."
