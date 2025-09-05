@@ -365,10 +365,18 @@ contains
       end if
     end if
 
-    if (cnvg_reason < 0 .and. cnvg_reason /= KSP_DIVERGED_ITS) then
-      write (errmsg, '(1x,3a,i0)') "PETSc convergence failure in ", &
-        trim(this%name), ": ", cnvg_reason
-      call store_error(errmsg, terminate=.true.)
+    if (cnvg_reason < 0) then
+      if (cnvg_reason == KSP_DIVERGED_BREAKDOWN .or. &
+          cnvg_reason == KSP_DIVERGED_ITS) then
+        ! out of iterations, or rho/eta became zero,
+        ! move to next Picard iteration and try again
+        this%is_converged = 0
+      else
+        ! this is an solver error, terminate
+        write (errmsg, '(1x,3a,i0)') "PETSc convergence failure in ", &
+          trim(this%name), ": ", cnvg_reason
+        call store_error(errmsg, terminate=.true.)
+      end if
     end if
 
   end subroutine petsc_solve
