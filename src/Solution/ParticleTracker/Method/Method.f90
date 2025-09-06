@@ -20,6 +20,9 @@ module MethodModule
   use CellDefnModule, only: CellDefnType
   use TimeSelectModule, only: TimeSelectType
   use MathUtilModule, only: is_close
+  use DomainModule, only: DomainType
+  use ExitSolutionModule, only: ExitSolutionType
+  use ListModule, only: ListType
   implicit none
 
   public :: LEVEL_MODEL, LEVEL_FEATURE, LEVEL_SUBFEATURE
@@ -68,10 +71,11 @@ module MethodModule
     procedure(apply), deferred :: apply !< apply the method to the particle
     procedure(assess), deferred :: assess !< assess conditions before tracking
     procedure(deallocate), deferred :: deallocate !< deallocate the method object
+    procedure :: get_level !< get the tracking method level
     ! Overridden in subtypes that delegate
     procedure :: pass !< pass the particle to the next subdomain
     procedure :: load !< load the subdomain tracking method
-    procedure :: get_level !< get the tracking method level
+    procedure :: find_exits !< find domain exit solutions
     ! Implemented here
     procedure :: init
     procedure :: track
@@ -178,6 +182,14 @@ contains
     end if
   end subroutine try_pass
 
+  !> @brief Get the tracking method's level.
+  function get_level(this) result(level)
+    class(MethodType), intent(in) :: this
+    integer(I4B) :: level
+    level = -1 ! suppress compiler warning
+    call pstop(1, "get_level must be overridden")
+  end function get_level
+
   !> @brief Load the subdomain tracking method (submethod).
   subroutine load(this, particle, next_level, submethod)
     class(MethodType), intent(inout) :: this
@@ -187,20 +199,21 @@ contains
     call pstop(1, "load must be overridden")
   end subroutine load
 
-  !> @brief Get the tracking method's level.
-  function get_level(this) result(level)
-    class(MethodType), intent(in) :: this
-    integer(I4B) :: level
-    level = -1 ! suppress compiler warning
-    call pstop(1, "get_level must be overridden")
-  end function get_level
-
   !> @brief Pass the particle to the next subdomain.
   subroutine pass(this, particle)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     call pstop(1, "pass must be overridden")
   end subroutine pass
+
+  !> @brief Find exit solutions for the domain.
+  function find_exits(this, particle, domain) result(exits)
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(DomainType), intent(in) :: domain
+    type(ListType) :: exits
+    call pstop(1, "find_exits must be overridden")
+  end function find_exits
 
   !> @brief Particle is released.
   subroutine release(this, particle)

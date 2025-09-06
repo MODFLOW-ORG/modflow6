@@ -9,6 +9,13 @@ module MethodSubcellPollockModule
   use BaseDisModule, only: DisBaseType
   use CellModule, only: CellType
   use ConstantsModule, only: DZERO, DONE
+  use DomainModule, only: DomainType
+  use SubcellModule, only: SubcellType
+  use ListModule, only: ListType
+  use ExitSolutionModule, only: ExitSolutionType, &
+                                LinearExitSolutionType, &
+                                OK_EXIT, OK_EXIT_CONSTANT, &
+                                NO_EXIT_STATIONARY, NO_EXIT_NO_OUTFLOW
   implicit none
   private
   public :: MethodSubcellPollockType
@@ -20,6 +27,7 @@ module MethodSubcellPollockModule
     private
     real(DP), allocatable, public :: qextl1(:), qextl2(:), qintl(:) !< external and internal subcell flows
   contains
+    procedure, public :: find_exits
     procedure, public :: apply => apply_msp
     procedure, public :: deallocate
     procedure, private :: track_subcell
@@ -63,9 +71,9 @@ contains
     select type (subcell => this%subcell)
     type is (SubcellRectType)
       ! Transform particle position into local subcell coordinates,
-      !    track particle across subcell, convert back to model coords
-      !    (sinrot and cosrot should be 0 and 1, respectively, i.e. no
-      !    rotation, also no z translation; only x and y translations)
+      ! track particle across subcell, convert back to model coords
+      ! (sinrot and cosrot should be 0 and 1, respectively, i.e. no
+      ! rotation, also no z translation; only x and y translations)
       xOrigin = subcell%xOrigin
       yOrigin = subcell%yOrigin
       zOrigin = subcell%zOrigin
@@ -120,6 +128,7 @@ contains
     real(DP) :: initialZ
     integer(I4B) :: exitFace
     integer(I4B) :: event_code
+    type(ListType) :: exits
 
     event_code = -1
 
@@ -128,18 +137,39 @@ contains
     initialY = particle%y / subcell%dy
     initialZ = particle%z / subcell%dz
 
-    ! Compute time of travel to each possible exit face
-    statusVX = calculate_dt(subcell%vx1, subcell%vx2, subcell%dx, &
-                            initialX, vx, dvxdx, dtexitx)
-    statusVY = calculate_dt(subcell%vy1, subcell%vy2, subcell%dy, &
-                            initialY, vy, dvydy, dtexity)
-    statusVZ = calculate_dt(subcell%vz1, subcell%vz2, subcell%dz, &
-                            initialZ, vz, dvzdz, dtexitz)
+    ! Find exit solutions for each coordinate direction
+    exits = this%find_exits(particle, subcell)
+
+    ! temporary: wire up preexisting code below
+    select type (exit_x => exits%GetNextItem())
+    type is (LinearExitSolutionType)
+      statusVX = exit_x%status
+      vx = exit_x%v
+      dvxdx = exit_x%dvdx
+      dtexitx = exit_x%dt
+    end select
+    select type (exit_y => exits%GetNextItem())
+    type is (LinearExitSolutionType)
+      statusVY = exit_y%status
+      vy = exit_y%v
+      dvydy = exit_y%dvdx
+      dtexity = exit_y%dt
+    end select
+    select type (exit_z => exits%GetNextItem())
+    type is (LinearExitSolutionType)
+      statusVZ = exit_z%status
+      vz = exit_z%v
+      dvzdz = exit_z%dvdx
+      dtexitz = exit_z%dt
+    end select
 
     ! Subcell has no exit face, terminate the particle
     ! todo: after initial release, consider ramifications
-    if ((statusVX .eq. 3) .and. (statusVY .eq. 3) .and. (statusVZ .eq. 3)) then
+    if (statusVX == NO_EXIT_NO_OUTFLOW .and. &
+        statusVY == NO_EXIT_NO_OUTFLOW .and. &
+        statusVZ == NO_EXIT_NO_OUTFLOW) then
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
+      call exits%Clear(destroy=.true.)
       return
     end if
 
@@ -149,16 +179,22 @@ contains
     ! guaranteeing that every particle terminates at the end of the simulation..
     ! ideally that would be handled at a higher scope but with extended tracking
     ! tmax is not the end of the simulation, it's just a wildly high upper bound.
-    if ((statusVX .eq. 2) .and. (statusVY .eq. 2) .and. (statusVZ .eq. 2) .and. &
+    if (statusVX == NO_EXIT_STATIONARY .and. &
+        statusVY == NO_EXIT_STATIONARY .and. &
+        statusVZ == NO_EXIT_STATIONARY .and. &
         particle%extend .and. endofsimulation) then
       call this%terminate(particle, status=TERM_TIMEOUT)
+      call exits%Clear(destroy=.true.)
       return
     end if
 
     ! Determine (earliest) exit face and corresponding travel time to exit
+    ! TODO: set exit face on exit solution in find_exits
     exitFace = 0
     dtexit = 1.0d+30
-    if ((statusVX .lt. 2) .or. (statusVY .lt. 2) .or. (statusVZ .lt. 2)) then
+    if (statusVX < 2 .or. &
+        statusVY < 2 .or. &
+        statusVZ < 2) then
       ! Consider x-oriented faces
       dtexit = dtexitx
       if (vx .lt. DZERO) then
@@ -282,7 +318,50 @@ contains
       call this%subcellexit(particle)
     end if
 
+    call exits%Clear(destroy=.true.)
+
   end subroutine track_subcell
+
+  !> @brief Calculate exit solutions for each coordinate direction
+  function find_exits(this, particle, domain) result(exits)
+    class(MethodSubcellPollockType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(DomainType), intent(in) :: domain
+    type(ListType) :: exits
+    ! local
+    class(*), pointer :: p
+    real(DP) :: initialX
+    real(DP) :: initialY
+    real(DP) :: initialZ
+
+    select type (domain)
+    type is (SubcellRectType)
+      ! recomputing wasteful but clean?
+      initialX = particle%x / domain%dx
+      initialY = particle%y / domain%dy
+      initialZ = particle%z / domain%dz
+
+      p => find_exit(domain%vx1, domain%vx2, domain%dx, initialX)
+      call exits%Add(p)
+      p => find_exit(domain%vy1, domain%vy2, domain%dy, initialY)
+      call exits%Add(p)
+      p => find_exit(domain%vz1, domain%vz2, domain%dz, initialZ)
+      call exits%Add(p)
+    end select
+  end function find_exits
+
+  function find_exit(v1, v2, dx, xL) result(solution)
+    ! dummy
+    real(DP), intent(in) :: v1
+    real(DP), intent(in) :: v2
+    real(DP), intent(in) :: dx
+    real(DP), intent(in) :: xL
+    type(LinearExitSolutionType), pointer :: solution
+
+    allocate (solution)
+    solution%status = calculate_dt(v1, v2, dx, xL, &
+                                   solution%v, solution%dvdx, solution%dt)
+  end function find_exit
 
   !> @brief Calculate particle travel time to exit and exit status.
   !!
