@@ -290,18 +290,22 @@ contains
     class(MethodSubcellPollockType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     integer(I4B) :: exit_soln
+    ! local
+    real(DP) :: dtmin
 
-    if (this%exits(1)%status < 2 .or. &
-        this%exits(2)%status < 2 .or. &
-        this%exits(3)%status < 2) then
-      exit_soln = 1 ! x
-      if (this%exits(2)%dt .lt. this%exits(1)%dt) then
-        exit_soln = 2 ! y
-      end if
-      if (this%exits(3)%dt .lt. this%exits(1)%dt .and. &
-          this%exits(3)%dt .lt. this%exits(2)%dt) then
-        exit_soln = 3 ! z
-      end if
+    exit_soln = 0
+    dtmin = 1.0d+30
+    if (this%exits(1)%status < 2) then
+      exit_soln = 1
+      dtmin = this%exits(1)%dt
+    end if
+    if (this%exits(2)%status < 2 .and. this%exits(2)%dt < dtmin) then
+      exit_soln = 2
+      dtmin = this%exits(2)%dt
+    end if
+    if (this%exits(3)%status < 2 .and. this%exits(3)%dt < dtmin) then
+      exit_soln = 3
+      dtmin = this%exits(3)%dt
     end if
 
   end function pick_exit
@@ -328,19 +332,20 @@ contains
                    find_exit(domain%vz1, domain%vz2, domain%dz, z0) &
                    ]
 
-      if (this%exits(1)%v .lt. DZERO) then
+      ! Set exit faces
+      if (this%exits(1)%v < DZERO) then
         this%exits(1)%iboundary = 1
-      else if (this%exits(1)%v .gt. DZERO) then
+      else if (this%exits(1)%v > DZERO) then
         this%exits(1)%iboundary = 2
       end if
-      if (this%exits(2)%v .lt. DZERO) then
+      if (this%exits(2)%v < DZERO) then
         this%exits(2)%iboundary = 3
-      else if (this%exits(2)%v .gt. DZERO) then
+      else if (this%exits(2)%v > DZERO) then
         this%exits(2)%iboundary = 4
       end if
-      if (this%exits(3)%v .lt. DZERO) then
+      if (this%exits(3)%v < DZERO) then
         this%exits(3)%iboundary = 5
-      else if (this%exits(3)%v .gt. DZERO) then
+      else if (this%exits(3)%v > DZERO) then
         this%exits(3)%iboundary = 6
       end if
     end select
