@@ -322,7 +322,7 @@ contains
 
   end subroutine track_subcell
 
-  !> @brief Calculate exit solutions for each coordinate direction
+  !> @brief Calculate exit solutions for all dimensions
   function find_exits(this, particle, domain) result(exits)
     class(MethodSubcellPollockType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -350,6 +350,7 @@ contains
     end select
   end function find_exits
 
+  !> @brief Find an exit solution for one dimension
   function find_exit(v1, v2, dx, xL) result(solution)
     ! dummy
     real(DP), intent(in) :: v1

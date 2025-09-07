@@ -76,6 +76,7 @@ module MethodModule
     procedure :: pass !< pass the particle to the next subdomain
     procedure :: load !< load the subdomain tracking method
     procedure :: find_exits !< find domain exit solutions
+    procedure :: pick_exit
     ! Implemented here
     procedure :: init
     procedure :: track
@@ -115,6 +116,7 @@ module MethodModule
 
 contains
 
+  !> @brief Initialize the method with pointers to model data.
   subroutine init(this, fmi, cell, subcell, events, tracktimes, &
                   izone, flowja, porosity, retfactor)
     class(MethodType), intent(inout) :: this
@@ -182,7 +184,7 @@ contains
     end if
   end subroutine try_pass
 
-  !> @brief Get the tracking method's level.
+  !> @brief Get tracking method level.
   function get_level(this) result(level)
     class(MethodType), intent(in) :: this
     integer(I4B) :: level
@@ -190,7 +192,7 @@ contains
     call pstop(1, "get_level must be overridden")
   end function get_level
 
-  !> @brief Load the subdomain tracking method (submethod).
+  !> @brief Load subdomain tracking method (submethod).
   subroutine load(this, particle, next_level, submethod)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -199,23 +201,37 @@ contains
     call pstop(1, "load must be overridden")
   end subroutine load
 
-  !> @brief Pass the particle to the next subdomain.
+  !> @brief Pass particle to the next subdomain or to a domain boundary.
   subroutine pass(this, particle)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     call pstop(1, "pass must be overridden")
   end subroutine pass
 
-  !> @brief Find exit solutions for the domain.
+  !> @brief Find candidate exit solutions from the domain.
   function find_exits(this, particle, domain) result(exits)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     class(DomainType), intent(in) :: domain
     type(ListType) :: exits
-    call pstop(1, "find_exits must be overridden")
+    if (.not. this%delegates) &
+      call pstop(1, "find_exits called on non-delegating method")
+    call pstop(1, "find_exits must be overridden in delegating methods")
   end function find_exits
 
-  !> @brief Particle is released.
+  !> @brief Pick an exit solution from a list of exits.
+  function pick_exit(this, particle, exits) result(exit)
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    type(ListType), intent(in) :: exits
+    type(ExitSolutionType), pointer :: exit
+    exit => null() ! suppress compiler warning
+    if (.not. this%delegates) &
+      call pstop(1, "pick_exits called on non-delegating method")
+    call pstop(1, "pick_exit must be overridden in delegating methods")
+  end function pick_exit
+
+  !> @brief A particle is released.
   subroutine release(this, particle)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -225,7 +241,7 @@ contains
     deallocate (event)
   end subroutine release
 
-  !> @brief Particle terminates.
+  !> @brief A particle terminates.
   subroutine terminate(this, particle, status)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -238,7 +254,7 @@ contains
     deallocate (event)
   end subroutine terminate
 
-  !> @brief Time step ends.
+  !> @brief A time step ends.
   subroutine timestep(this, particle)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -248,7 +264,7 @@ contains
     deallocate (event)
   end subroutine timestep
 
-  !> @brief Particle leaves a weak sink.
+  !> @brief A particle leaves a weak sink.
   subroutine weaksink(this, particle)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -258,7 +274,7 @@ contains
     deallocate (event)
   end subroutine weaksink
 
-  !> @brief User-defined tracking time occurs.
+  !> @brief A user-defined tracking time occurs.
   subroutine usertime(this, particle)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
