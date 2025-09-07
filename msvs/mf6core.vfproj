@@ -422,6 +422,7 @@
 		<File RelativePath="..\src\Solution\LinearMethods\ImsLinearSolver.f90"/>
 		<File RelativePath="..\src\Solution\LinearMethods\ImsReordering.f90"/></Filter>
 		<Filter Name="ParticleTracker">
+		<File RelativePath="..\src\Solution\ParticleTracker\Domain\Domain.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Domain\Cell.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Domain\CellDefn.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Domain\CellPoly.f90"/>
@@ -431,6 +432,7 @@
 		<File RelativePath="..\src\Solution\ParticleTracker\Domain\Subcell.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Domain\SubcellRect.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Domain\SubcellTri.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Method\ExitSolution.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\Method.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodCell.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodCellPassToBot.f90"/>
