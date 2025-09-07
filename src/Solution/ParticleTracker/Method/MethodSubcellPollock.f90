@@ -110,9 +110,6 @@ contains
     real(DP) :: dvydy
     real(DP) :: vz
     real(DP) :: dvzdz
-    real(DP) :: dtexitx
-    real(DP) :: dtexity
-    real(DP) :: dtexitz
     real(DP) :: dtexit
     real(DP) :: texit
     real(DP) :: dt
@@ -143,19 +140,16 @@ contains
     statusVX = exit_x%status
     vx = exit_x%v
     dvxdx = exit_x%dvdx
-    dtexitx = exit_x%dt
 
     exit_y = this%exits(2)
     statusVY = exit_y%status
     vy = exit_y%v
     dvydy = exit_y%dvdx
-    dtexity = exit_y%dt
 
     exit_z = this%exits(3)
     statusVZ = exit_z%status
     vz = exit_z%v
     dvzdz = exit_z%dvdx
-    dtexitz = exit_z%dt
 
     ! Subcell has no exit face, terminate the particle
     ! todo: after initial release, consider ramifications
@@ -176,7 +170,7 @@ contains
       return
     end if
 
-    ! Pick exit solution, face, and time
+    ! Pick exit solution, face, travel time, and time
     exit_soln = this%pick_exit(particle)
     if (exit_soln == 0) then
       exit_face = 0

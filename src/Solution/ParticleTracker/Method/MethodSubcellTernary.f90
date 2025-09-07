@@ -115,11 +115,6 @@ contains
     real(DP) :: dz
     real(DP) :: vzbot
     real(DP) :: vztop
-    real(DP) :: vzi
-    real(DP) :: vziodz
-    real(DP) :: az
-    real(DP) :: dtexitz
-    real(DP) :: dtexitxy
     real(DP) :: texit
     real(DP) :: dt
     real(DP) :: t
@@ -127,37 +122,22 @@ contains
     real(DP) :: x
     real(DP) :: y
     real(DP) :: z
-    real(DP) :: rxx
-    real(DP) :: rxy
-    real(DP) :: ryx
-    real(DP) :: ryy
-    real(DP) :: sxx
-    real(DP) :: sxy
-    real(DP) :: syy
-    integer(I4B) :: izstatus
-    integer(I4B) :: itopbotexit
     integer(I4B) :: isolv
-    integer(I4B) :: itrifaceexit
     real(DP) :: dtexit
-    real(DP) :: alpexit
-    real(DP) :: betexit
     integer(I4B) :: event_code
     integer(I4B) :: i, exit_soln
     type(BarycentricExitSolutionType) :: exit_z, exit_lateral
 
     event_code = -1
-
-    ! Set solution method
     if (particle%iexmeth == 0) then
-      isolv = 1 ! default to Brent's
+      isolv = 1 ! default to Brent's solution method
     else
       isolv = particle%iexmeth
     end if
-
-    ! Set some local variables for convenience.
     xi = particle%x
     yi = particle%y
     zi = particle%z
+    t0 = particle%ttrack
     x0 = subcell%x0
     y0 = subcell%y0
     x1 = subcell%x1
@@ -179,50 +159,26 @@ contains
     ! Find exit solutions in lateral and vertical directions
     call this%find_exits(particle, subcell)
 
-    ! temporary: wire up preexisting code
     exit_z = this%exits(1)
-    dtexitz = exit_z%dt
-    itopbotexit = exit_z%itopbotexit
-    vzi = exit_z%v
-    az = exit_z%dvdx
-    vziodz = vzi / dz
-    izstatus = exit_z%status
-
     exit_lateral = this%exits(2)
-    dtexitxy = exit_lateral%dt
-    itrifaceexit = exit_lateral%itrifaceexit
-    alpexit = exit_lateral%alpexit
-    betexit = exit_lateral%betexit
-    rxx = exit_lateral%rxx
-    rxy = exit_lateral%rxy
-    ryx = exit_lateral%ryx
-    ryy = exit_lateral%ryy
-    sxx = exit_lateral%sxx
-    sxy = exit_lateral%sxy
-    syy = exit_lateral%syy
 
     ! If the subcell has no exit face, terminate the particle.
     ! todo: after initial release, consider ramifications
-    if (itopbotexit == 0 .and. itrifaceexit == 0) then
+    if (exit_z%itopbotexit == 0 .and. &
+        exit_lateral%itrifaceexit == 0) then
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
       return
     end if
 
-    ! Determine exit solution and face
+    ! Determine exit solution, face, travel time, and time
     exit_soln = this%pick_exit(particle)
     exit_face = this%exits(exit_soln)%iboundary
-
-    ! Calculate travel time to exit
     dtexit = this%exits(exit_soln)%dt
     if (dtexit < DZERO) then
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
       return
     end if
-
-    ! Calculate the exit time
     texit = particle%ttrack + dtexit
-
-    t0 = particle%ttrack
 
     ! Select user tracking times to solve. If this is the last time step
     ! in the simulation, times falling after the simulation end time are
@@ -235,9 +191,13 @@ contains
         if (t < particle%ttrack) cycle
         if (t >= texit .or. t >= tmax) exit
         dt = t - t0
-        call calculate_xyz_position(dt, rxx, rxy, ryx, ryy, sxx, sxy, syy, &
-                                    izstatus, x0, y0, az, vzi, vzbot, &
-                                    ztop, zbot, zi, x, y, z)
+        call calculate_xyz_position(dt, &
+                                    exit_lateral%rxx, exit_lateral%rxy, &
+                                    exit_lateral%ryx, exit_lateral%ryy, &
+                                    exit_lateral%sxx, exit_lateral%sxy, &
+                                    exit_lateral%syy, &
+                                    exit_z%status, x0, y0, exit_z%dvdx, &
+                                    exit_z%v, vzbot, ztop, zbot, zi, x, y, z)
         particle%x = x
         particle%y = y
         particle%z = z
@@ -266,9 +226,14 @@ contains
       dt = dtexit
       event_code = FEATEXIT
     end if
-    call calculate_xyz_position(dt, rxx, rxy, ryx, ryy, sxx, sxy, syy, &
-                                izstatus, x0, y0, az, vzi, vzbot, &
-                                ztop, zbot, zi, x, y, z, exit_face)
+    call calculate_xyz_position(dt, &
+                                exit_lateral%rxx, exit_lateral%rxy, &
+                                exit_lateral%ryx, exit_lateral%ryy, &
+                                exit_lateral%sxx, exit_lateral%sxy, &
+                                exit_lateral%syy, &
+                                exit_z%status, x0, y0, exit_z%dvdx, &
+                                exit_z%v, vzbot, ztop, zbot, zi, x, y, z, &
+                                exit_face)
     particle%x = x
     particle%y = y
     particle%z = z
