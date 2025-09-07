@@ -76,7 +76,7 @@ module MethodModule
     procedure :: pass !< pass the particle to the next subdomain
     procedure :: load !< load the subdomain tracking method
     procedure :: find_exits !< find domain exit solutions
-    ! procedure :: pick_exit
+    procedure :: pick_exit
     ! Implemented here
     procedure :: init
     procedure :: track
@@ -219,15 +219,15 @@ contains
   end subroutine find_exits
 
   !> @brief Choose an exit solution among candidates.
-  ! function pick_exit(this, particle) result(exit_soln)
-  !   class(MethodType), intent(inout) :: this
-  !   type(ParticleType), pointer, intent(inout) :: particle
-  !   class(ExitSolutionType), pointer :: exit_soln
-  !   exit_soln => null() ! suppress compiler warning
-  !   if (.not. this%delegates) &
-  !     call pstop(1, "pick_exit called on non-delegating method")
-  !   call pstop(1, "pick_exit must be overridden in delegating methods")
-  ! end function pick_exit
+  function pick_exit(this, particle) result(exit_soln)
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    integer(I4B) :: exit_soln
+    exit_soln = 0 ! suppress compiler warning
+    if (.not. this%delegates) &
+      call pstop(1, "pick_exit called on non-delegating method")
+    call pstop(1, "pick_exit must be overridden in delegating methods")
+  end function pick_exit
 
   !> @brief A particle is released.
   subroutine release(this, particle)
