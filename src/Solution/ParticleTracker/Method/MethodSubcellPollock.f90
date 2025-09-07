@@ -26,6 +26,7 @@ module MethodSubcellPollockModule
   type, extends(MethodSubcellType) :: MethodSubcellPollockType
     private
     real(DP), allocatable, public :: qextl1(:), qextl2(:), qintl(:) !< external and internal subcell flows
+    type(LinearExitSolutionType), public :: exits(3) !< candidate exit solutions
   contains
     procedure, public :: find_exits
     procedure, public :: apply => apply_msp
@@ -123,45 +124,43 @@ contains
     integer(I4B) :: statusVY
     integer(I4B) :: statusVZ
     integer(I4B) :: i
-    real(DP) :: initialX
-    real(DP) :: initialY
-    real(DP) :: initialZ
+    real(DP) :: x0
+    real(DP) :: y0
+    real(DP) :: z0
     integer(I4B) :: exitFace
     integer(I4B) :: event_code
-    type(ListType) :: exits
+    type(LinearExitSolutionType) :: exit_x
+    type(LinearExitSolutionType) :: exit_y
+    type(LinearExitSolutionType) :: exit_z
 
     event_code = -1
 
     ! Initial particle location in scaled subcell coordinates
-    initialX = particle%x / subcell%dx
-    initialY = particle%y / subcell%dy
-    initialZ = particle%z / subcell%dz
+    x0 = particle%x / subcell%dx
+    y0 = particle%y / subcell%dy
+    z0 = particle%z / subcell%dz
 
     ! Find exit solutions for each coordinate direction
-    exits = this%find_exits(particle, subcell)
+    call this%find_exits(particle, subcell)
 
-    ! temporary: wire up preexisting code below
-    select type (exit_x => exits%GetNextItem())
-    type is (LinearExitSolutionType)
-      statusVX = exit_x%status
-      vx = exit_x%v
-      dvxdx = exit_x%dvdx
-      dtexitx = exit_x%dt
-    end select
-    select type (exit_y => exits%GetNextItem())
-    type is (LinearExitSolutionType)
-      statusVY = exit_y%status
-      vy = exit_y%v
-      dvydy = exit_y%dvdx
-      dtexity = exit_y%dt
-    end select
-    select type (exit_z => exits%GetNextItem())
-    type is (LinearExitSolutionType)
-      statusVZ = exit_z%status
-      vz = exit_z%v
-      dvzdz = exit_z%dvdx
-      dtexitz = exit_z%dt
-    end select
+    ! temporary: wire up preexisting code
+    exit_x = this%exits(1)
+    statusVX = exit_x%status
+    vx = exit_x%v
+    dvxdx = exit_x%dvdx
+    dtexitx = exit_x%dt
+
+    exit_y = this%exits(2)
+    statusVY = exit_y%status
+    vy = exit_y%v
+    dvydy = exit_y%dvdx
+    dtexity = exit_y%dt
+
+    exit_z = this%exits(3)
+    statusVZ = exit_z%status
+    vz = exit_z%v
+    dvzdz = exit_z%dvdx
+    dtexitz = exit_z%dt
 
     ! Subcell has no exit face, terminate the particle
     ! todo: after initial release, consider ramifications
@@ -169,7 +168,6 @@ contains
         statusVY == NO_EXIT_NO_OUTFLOW .and. &
         statusVZ == NO_EXIT_NO_OUTFLOW) then
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
-      call exits%Clear(destroy=.true.)
       return
     end if
 
@@ -184,7 +182,6 @@ contains
         statusVZ == NO_EXIT_STATIONARY .and. &
         particle%extend .and. endofsimulation) then
       call this%terminate(particle, status=TERM_TIMEOUT)
-      call exits%Clear(destroy=.true.)
       return
     end if
 
@@ -239,11 +236,11 @@ contains
         if (t >= texit .or. t >= tmax) exit
         dt = t - t0
         x = new_x(vx, dvxdx, subcell%vx1, subcell%vx2, &
-                  dt, initialX, subcell%dx, statusVX == 1)
+                  dt, x0, subcell%dx, statusVX == 1)
         y = new_x(vy, dvydy, subcell%vy1, subcell%vy2, &
-                  dt, initialY, subcell%dy, statusVY == 1)
+                  dt, y0, subcell%dy, statusVY == 1)
         z = new_x(vz, dvzdz, subcell%vz1, subcell%vz2, &
-                  dt, initialZ, subcell%dz, statusVZ == 1)
+                  dt, z0, subcell%dz, statusVZ == 1)
         particle%x = x * subcell%dx
         particle%y = y * subcell%dy
         particle%z = z * subcell%dz
@@ -260,11 +257,11 @@ contains
       t = tmax
       dt = t - t0
       x = new_x(vx, dvxdx, subcell%vx1, subcell%vx2, &
-                dt, initialX, subcell%dx, statusVX == 1)
+                dt, x0, subcell%dx, statusVX == 1)
       y = new_x(vy, dvydy, subcell%vy1, subcell%vy2, &
-                dt, initialY, subcell%dy, statusVY == 1)
+                dt, y0, subcell%dy, statusVY == 1)
       z = new_x(vz, dvzdz, subcell%vz1, subcell%vz2, &
-                dt, initialZ, subcell%dz, statusVZ == 1)
+                dt, z0, subcell%dz, statusVZ == 1)
       exitFace = 0
       particle%istatus = ACTIVE
       particle%advancing = .false.
@@ -278,22 +275,22 @@ contains
       if ((exitFace .eq. 1) .or. (exitFace .eq. 2)) then
         x = DZERO
         y = new_x(vy, dvydy, subcell%vy1, subcell%vy2, &
-                  dt, initialY, subcell%dy, statusVY == 1)
+                  dt, y0, subcell%dy, statusVY == 1)
         z = new_x(vz, dvzdz, subcell%vz1, subcell%vz2, &
-                  dt, initialZ, subcell%dz, statusVZ == 1)
+                  dt, z0, subcell%dz, statusVZ == 1)
         if (exitFace .eq. 2) x = DONE
       else if ((exitFace .eq. 3) .or. (exitFace .eq. 4)) then
         x = new_x(vx, dvxdx, subcell%vx1, subcell%vx2, dt, &
-                  initialX, subcell%dx, statusVX == 1)
+                  x0, subcell%dx, statusVX == 1)
         y = DZERO
         z = new_x(vz, dvzdz, subcell%vz1, subcell%vz2, dt, &
-                  initialZ, subcell%dz, statusVZ == 1)
+                  z0, subcell%dz, statusVZ == 1)
         if (exitFace .eq. 4) y = DONE
       else if ((exitFace .eq. 5) .or. (exitFace .eq. 6)) then
         x = new_x(vx, dvxdx, subcell%vx1, subcell%vx2, &
-                  dt, initialX, subcell%dx, statusVX == 1)
+                  dt, x0, subcell%dx, statusVX == 1)
         y = new_x(vy, dvydy, subcell%vy1, subcell%vy2, &
-                  dt, initialY, subcell%dy, statusVY == 1)
+                  dt, y0, subcell%dy, statusVY == 1)
         z = DZERO
         if (exitFace .eq. 6) z = DONE
       else
@@ -318,37 +315,29 @@ contains
       call this%subcellexit(particle)
     end if
 
-    call exits%Clear(destroy=.true.)
-
   end subroutine track_subcell
 
-  !> @brief Calculate exit solutions for all dimensions
-  function find_exits(this, particle, domain) result(exits)
+  !> @brief Compute candidate exit solutions
+  subroutine find_exits(this, particle, domain)
     class(MethodSubcellPollockType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     class(DomainType), intent(in) :: domain
-    type(ListType) :: exits
     ! local
-    class(*), pointer :: p
-    real(DP) :: initialX
-    real(DP) :: initialY
-    real(DP) :: initialZ
+    real(DP) :: x0, y0, z0
 
     select type (domain)
     type is (SubcellRectType)
-      ! recomputing wasteful but clean?
-      initialX = particle%x / domain%dx
-      initialY = particle%y / domain%dy
-      initialZ = particle%z / domain%dz
-
-      p => find_exit(domain%vx1, domain%vx2, domain%dx, initialX)
-      call exits%Add(p)
-      p => find_exit(domain%vy1, domain%vy2, domain%dy, initialY)
-      call exits%Add(p)
-      p => find_exit(domain%vz1, domain%vz2, domain%dz, initialZ)
-      call exits%Add(p)
+      ! Initial particle location in scaled subcell coordinates
+      x0 = particle%x / domain%dx
+      y0 = particle%y / domain%dy
+      z0 = particle%z / domain%dz
+      this%exits = [ &
+                   find_exit(domain%vx1, domain%vx2, domain%dx, x0), &
+                   find_exit(domain%vy1, domain%vy2, domain%dy, y0), &
+                   find_exit(domain%vz1, domain%vz2, domain%dz, z0) &
+                   ]
     end select
-  end function find_exits
+  end subroutine find_exits
 
   !> @brief Find an exit solution for one dimension
   function find_exit(v1, v2, dx, xL) result(solution)
@@ -357,9 +346,9 @@ contains
     real(DP), intent(in) :: v2
     real(DP), intent(in) :: dx
     real(DP), intent(in) :: xL
-    type(LinearExitSolutionType), pointer :: solution
+    type(LinearExitSolutionType) :: solution
 
-    allocate (solution)
+    solution = LinearExitSolutionType()
     solution%status = calculate_dt(v1, v2, dx, xL, &
                                    solution%v, solution%dvdx, solution%dt)
   end function find_exit

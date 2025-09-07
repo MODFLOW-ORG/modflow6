@@ -25,7 +25,7 @@ module MethodSubcellTernaryModule
   public :: create_method_subcell_ternary
 
   !> @brief Barycentric velocity interpolation exit solution
-  type, extends(ExitSolutionType) :: BarycentricExitSolutionType
+  type, extends(LinearExitSolutionType) :: BarycentricExitSolutionType
     real(DP) :: alpexit = DZERO, betexit = DZERO !< alpha and beta coefficients
     ! transformation coefficients
     real(DP) :: rxx = DZERO
@@ -40,6 +40,7 @@ module MethodSubcellTernaryModule
   !> @brief Ternary triangular subcell tracking method.
   type, extends(MethodSubcellType) :: MethodSubcellTernaryType
     integer(I4B), public, pointer :: zeromethod
+    type(BarycentricExitSolutionType), public :: exits(2) !< candidate exit solutions
   contains
     procedure, public :: find_exits
     procedure, public :: apply => apply_mst
@@ -140,7 +141,7 @@ contains
     real(DP) :: betexit
     integer(I4B) :: event_code
     integer(I4B) :: i
-    type(ListType) :: exits
+    type(BarycentricExitSolutionType) :: exit_z, exit_lateral
 
     event_code = -1
 
@@ -174,38 +175,34 @@ contains
     vztop = subcell%vztop
 
     ! Find exit solutions in lateral and vertical directions
-    exits = this%find_exits(particle, subcell)
+    call this%find_exits(particle, subcell)
 
-    ! temporary: wire up preexisting code below
-    select type (exit_z => exits%GetNextItem())
-    type is (LinearExitSolutionType)
-      dtexitz = exit_z%dt
-      itopbotexit = exit_z%iboundary
-      vzi = exit_z%v
-      az = exit_z%dvdx
-      vziodz = vzi / dz
-      izstatus = exit_z%status
-    end select
-    select type (exit_lateral => exits%GetNextItem())
-    type is (BarycentricExitSolutionType)
-      dtexitxy = exit_lateral%dt
-      itrifaceexit = exit_lateral%iboundary
-      alpexit = exit_lateral%alpexit
-      betexit = exit_lateral%betexit
-      rxx = exit_lateral%rxx
-      rxy = exit_lateral%rxy
-      ryx = exit_lateral%ryx
-      ryy = exit_lateral%ryy
-      sxx = exit_lateral%sxx
-      sxy = exit_lateral%sxy
-      syy = exit_lateral%syy
-    end select
+    ! temporary: wire up preexisting code
+    exit_z = this%exits(1)
+    dtexitz = exit_z%dt
+    itopbotexit = exit_z%iboundary
+    vzi = exit_z%v
+    az = exit_z%dvdx
+    vziodz = vzi / dz
+    izstatus = exit_z%status
+
+    exit_lateral = this%exits(2)
+    dtexitxy = exit_lateral%dt
+    itrifaceexit = exit_lateral%iboundary
+    alpexit = exit_lateral%alpexit
+    betexit = exit_lateral%betexit
+    rxx = exit_lateral%rxx
+    rxy = exit_lateral%rxy
+    ryx = exit_lateral%ryx
+    ryy = exit_lateral%ryy
+    sxx = exit_lateral%sxx
+    sxy = exit_lateral%sxy
+    syy = exit_lateral%syy
 
     ! If the subcell has no exit face, terminate the particle.
     ! todo: after initial release, consider ramifications
     if (itopbotexit == 0 .and. itrifaceexit == 0) then
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
-      call exits%Clear(destroy=.true.)
       return
     end if
 
@@ -235,7 +232,6 @@ contains
     if (dtexit < DZERO) then
       call this%terminate(particle, &
                           status=TERM_NO_EXITS_SUB)
-      call exits%Clear(destroy=.true.)
       return
     end if
 
@@ -299,15 +295,13 @@ contains
       call this%subcellexit(particle)
     end if
 
-    call exits%Clear(destroy=.true.)
   end subroutine track_subcell
 
   !> @brief Calculate exit solutions for each coordinate direction
-  function find_exits(this, particle, domain) result(exits)
+  subroutine find_exits(this, particle, domain)
     class(MethodSubcellTernaryType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     class(DomainType), intent(in) :: domain
-    type(ListType) :: exits
     ! local
     integer(I4B) :: ntmax
     real(DP) :: tol
@@ -330,7 +324,6 @@ contains
     real(DP) :: gami
     integer(I4B) :: isolv
     integer(I4B) :: itrifaceenter
-    class(*), pointer :: p
 
     ntmax = 10000
     tol = particle%extol
@@ -378,28 +371,24 @@ contains
       else if (zirel < DZERO) then
         zirel = DZERO
       end if
-      p => find_vertical_exit(subcell%vzbot, subcell%vztop, subcell%dz, zirel)
-      call exits%Add(p)
+      this%exits(1) = find_vertical_exit(subcell%vzbot, subcell%vztop, &
+                                         subcell%dz, zirel)
 
       ! Calculate a lateral exit solution semi-analytically.
       itrifaceenter = particle%iboundary(LEVEL_SUBFEATURE) - 1
       if (itrifaceenter == -1) itrifaceenter = 999
-      p => find_lateral_exit(isolv, tol, &
-                             itrifaceenter, &
-                             alp1, bet1, alp2, bet2, alpi, beti)
-      select type (lat_exit => p)
-      type is (BarycentricExitSolutionType)
-        lat_exit%rxx = rxx
-        lat_exit%rxy = rxy
-        lat_exit%ryx = ryx
-        lat_exit%ryy = ryy
-        lat_exit%sxx = sxx
-        lat_exit%sxy = sxy
-        lat_exit%syy = syy
-      end select
-      call exits%Add(p)
+      this%exits(2) = find_lateral_exit(isolv, tol, &
+                                        itrifaceenter, &
+                                        alp1, bet1, alp2, bet2, alpi, beti)
+      this%exits(2)%rxx = rxx
+      this%exits(2)%rxy = rxy
+      this%exits(2)%ryx = ryx
+      this%exits(2)%ryy = ryy
+      this%exits(2)%sxx = sxx
+      this%exits(2)%sxy = sxy
+      this%exits(2)%syy = syy
     end select
-  end function find_exits
+  end subroutine find_exits
 
   function find_lateral_exit(isolv, tol, &
                              itrifaceenter, &
@@ -414,9 +403,9 @@ contains
     real(DP) :: bet2
     real(DP) :: alpi
     real(DP) :: beti
-    type(BarycentricExitSolutionType), pointer :: solution
+    type(BarycentricExitSolutionType) :: solution
 
-    allocate (solution)
+    solution = BarycentricExitSolutionType()
     call traverse_triangle(isolv, tol, &
                            solution%dt, solution%alpexit, solution%betexit, &
                            itrifaceenter, solution%iboundary, &
@@ -429,11 +418,11 @@ contains
     real(DP), intent(in) :: v2
     real(DP), intent(in) :: dx
     real(DP), intent(in) :: xL
-    type(LinearExitSolutionType), pointer :: solution
+    type(BarycentricExitSolutionType) :: solution
     ! local
     integer(I4B) :: itopbotexit
 
-    allocate (solution)
+    solution = BarycentricExitSolutionType()
     call calculate_dt(v1, v2, dx, xL, solution%v, solution%dvdx, &
                       solution%dt, solution%status, itopbotexit)
     if (itopbotexit > 0) solution%iboundary = itopbotexit
