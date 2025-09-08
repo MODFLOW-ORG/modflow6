@@ -4,3 +4,4 @@ option('netcdf', type : 'boolean', value : false, description : 'Extended NetCDF
 option('mpich', type : 'boolean', value : false, description : 'Use MPICH version of MPI')
 option('cray', type : 'boolean', value : false, description : 'Extended build on CRAY with MPICH')
 option('buildname', type : 'string', value : 'mf6', description : 'Optional build name')
+option('static_gfortran', type : 'boolean', value : false, description : 'Static gfortran build')

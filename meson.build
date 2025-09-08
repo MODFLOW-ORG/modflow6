@@ -223,6 +223,34 @@ if fc_id == 'gcc'
   endif
 endif
 
+is_static_build = get_option('static_gfortran')
+message('Static_build option', is_static_build)
+if is_static_build
+  if is_extended_build or is_parallel_build or is_netcdf_build
+    if is_static_build
+      is_static_build = false
+      message('Resetting static_build option for extended build')
+    endif
+  else
+    if fc_id != 'gcc'
+      is_static_build = false
+      message('Resetting static_build option for non-gcc compiler')
+    elif system == 'darwin'
+      is_static_build = false
+      message('Resetting static_build option for gcc compiler on darwin')
+    endif
+  endif
+endif
+
+if is_static_build
+  compile_args += '-static'
+  link_args += ['-static', 
+                '-static-libgfortran',
+                '-static-libgcc',
+                '-static-libstdc++',
+              ]
+endif
+
 compile_args += extra_cmp_args
 
 add_project_arguments(fc.get_supported_arguments(compile_args), language: 'fortran')
@@ -256,9 +284,14 @@ endif
 # build mf6 and libmf6
 buildname = get_option('buildname')
 subdir('src')
-subdir('srcbmi')
 
-# build zbud6 and mf5to6 utility programs
+if is_static_build
+  message('Cannot build libmf6 if static_gfortran is specified')
+else
+  subdir('srcbmi')
+endif
+
+# build zbud6 utility program
 subdir('utils/zonebudget')
 
 # add autotest directory
