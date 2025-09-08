@@ -139,7 +139,7 @@ jobs:
           pixi-version: v0.41.4
 
       - name: Setup static MF6
-        run: pixi run setup -Dwerror=true -Dstatic_gfortran builddir
+        run: pixi run setup -Dwerror=true -Dstatic_gfortran=true builddir
 
       - name: Build MF6
         run: pixi run build builddir
