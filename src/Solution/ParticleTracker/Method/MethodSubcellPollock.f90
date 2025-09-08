@@ -264,11 +264,13 @@ contains
       exit_soln = 1
       dtmin = this%exit_solutions(1)%dt
     end if
-    if (this%exit_solutions(2)%status < 2 .and. this%exit_solutions(2)%dt < dtmin) then
+    if (this%exit_solutions(2)%status < 2 .and. &
+        this%exit_solutions(2)%dt < dtmin) then
       exit_soln = 2
       dtmin = this%exit_solutions(2)%dt
     end if
-    if (this%exit_solutions(3)%status < 2 .and. this%exit_solutions(3)%dt < dtmin) then
+    if (this%exit_solutions(3)%status < 2 .and. &
+        this%exit_solutions(3)%dt < dtmin) then
       exit_soln = 3
       dtmin = this%exit_solutions(3)%dt
     end if
@@ -292,10 +294,10 @@ contains
 
       ! Calculate exit solutions for each coordinate direction
       this%exit_solutions = [ &
-                   find_exit(domain%vx1, domain%vx2, domain%dx, x0), &
-                   find_exit(domain%vy1, domain%vy2, domain%dy, y0), &
-                   find_exit(domain%vz1, domain%vz2, domain%dz, z0) &
-                   ]
+                            find_exit(domain%vx1, domain%vx2, domain%dx, x0), &
+                            find_exit(domain%vy1, domain%vy2, domain%dy, y0), &
+                            find_exit(domain%vz1, domain%vz2, domain%dz, z0) &
+                            ]
 
       ! Set exit faces
       if (this%exit_solutions(1)%v < DZERO) then

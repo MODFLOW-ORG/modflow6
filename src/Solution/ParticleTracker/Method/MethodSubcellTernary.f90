@@ -44,7 +44,7 @@ module MethodSubcellTernaryModule
   !> @brief Ternary triangular subcell tracking method.
   type, extends(MethodSubcellType) :: MethodSubcellTernaryType
     integer(I4B), public, pointer :: zeromethod
-    type(BarycentricExitSolutionType), public :: exits(2) !< candidate exit solutions
+    type(BarycentricExitSolutionType), public :: exit_solutions(2) !< candidate exit solutions
   contains
     procedure, public :: find_exits
     procedure, public :: pick_exit
@@ -114,8 +114,8 @@ contains
     ! Find exit solutions in lateral and vertical directions
     call this%find_exits(particle, subcell)
 
-    exit_z = this%exits(1)
-    exit_lateral = this%exits(2)
+    exit_z = this%exit_solutions(1)
+    exit_lateral = this%exit_solutions(2)
 
     ! If the subcell has no exit face, terminate the particle.
     ! todo: after initial release, consider ramifications
@@ -127,8 +127,8 @@ contains
 
     ! Determine exit solution, face, travel time, and time
     exit_soln = this%pick_exit(particle)
-    exit_face = this%exits(exit_soln)%iboundary
-    dtexit = this%exits(exit_soln)%dt
+    exit_face = this%exit_solutions(exit_soln)%iboundary
+    dtexit = this%exit_solutions(exit_soln)%dt
     if (dtexit < DZERO) then
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
       return
@@ -212,23 +212,23 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     integer(I4B) :: exit_soln
 
-    if (this%exits(1)%itopbotexit == 0) then
+    if (this%exit_solutions(1)%itopbotexit == 0) then
       ! Exits through triangle face first
       exit_soln = 2
-      this%exits(2)%iboundary = this%exits(2)%itrifaceexit
-    else if (this%exits(2)%itrifaceexit == 0 .or. &
-             this%exits(1)%dt < this%exits(2)%dt) then
+      this%exit_solutions(2)%iboundary = this%exit_solutions(2)%itrifaceexit
+    else if (this%exit_solutions(2)%itrifaceexit == 0 .or. &
+             this%exit_solutions(1)%dt < this%exit_solutions(2)%dt) then
       ! Exits through top/bottom first
       exit_soln = 1
-      if (this%exits(1)%itopbotexit == -1) then
-        this%exits(1)%iboundary = 4
+      if (this%exit_solutions(1)%itopbotexit == -1) then
+        this%exit_solutions(1)%iboundary = 4
       else
-        this%exits(1)%iboundary = 5
+        this%exit_solutions(1)%iboundary = 5
       end if
     else
       ! Exits through triangle face first
       exit_soln = 2
-      this%exits(2)%iboundary = this%exits(2)%itrifaceexit
+      this%exit_solutions(2)%iboundary = this%exit_solutions(2)%itrifaceexit
     end if
   end function pick_exit
 
@@ -306,22 +306,23 @@ contains
       else if (zirel < DZERO) then
         zirel = DZERO
       end if
-      this%exits(1) = find_vertical_exit(subcell%vzbot, subcell%vztop, &
-                                         subcell%dz, zirel)
+      this%exit_solutions(1) = find_vertical_exit(subcell%vzbot, subcell%vztop, &
+                                                  subcell%dz, zirel)
 
       ! Calculate a lateral exit solution semi-analytically.
       itrifaceenter = particle%iboundary(LEVEL_SUBFEATURE) - 1
       if (itrifaceenter == -1) itrifaceenter = 999
-      this%exits(2) = find_lateral_exit(isolv, tol, &
-                                        itrifaceenter, &
-                                        alp1, bet1, alp2, bet2, alpi, beti)
-      this%exits(2)%rxx = rxx
-      this%exits(2)%rxy = rxy
-      this%exits(2)%ryx = ryx
-      this%exits(2)%ryy = ryy
-      this%exits(2)%sxx = sxx
-      this%exits(2)%sxy = sxy
-      this%exits(2)%syy = syy
+      this%exit_solutions(2) = find_lateral_exit(isolv, tol, &
+                                                 itrifaceenter, &
+                                                 alp1, bet1, alp2, &
+                                                 bet2, alpi, beti)
+      this%exit_solutions(2)%rxx = rxx
+      this%exit_solutions(2)%rxy = rxy
+      this%exit_solutions(2)%ryx = ryx
+      this%exit_solutions(2)%ryy = ryy
+      this%exit_solutions(2)%sxx = sxx
+      this%exit_solutions(2)%sxy = sxy
+      this%exit_solutions(2)%syy = syy
     end select
   end subroutine find_exits
 
