@@ -26,7 +26,7 @@ module MethodSubcellPollockModule
   type, extends(MethodSubcellType) :: MethodSubcellPollockType
     private
     real(DP), allocatable, public :: qextl1(:), qextl2(:), qintl(:) !< external and internal subcell flows
-    type(LinearExitSolutionType), public :: exits(3) !< candidate exit solutions
+    type(LinearExitSolutionType), public :: exit_solutions(3) !< candidate exit solutions
   contains
     procedure, public :: find_exits
     procedure, public :: pick_exit
@@ -64,9 +64,9 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     real(DP), intent(in) :: tmax
     ! local
-    real(DP) :: xOrigin
-    real(DP) :: yOrigin
-    real(DP) :: zOrigin
+    real(DP) :: x_origin
+    real(DP) :: y_origin
+    real(DP) :: z_origin
     real(DP) :: sinrot
     real(DP) :: cosrot
 
@@ -76,14 +76,14 @@ contains
       ! track particle across subcell, convert back to model coords
       ! (sinrot and cosrot should be 0 and 1, respectively, i.e. no
       ! rotation, also no z translation; only x and y translations)
-      xOrigin = subcell%xOrigin
-      yOrigin = subcell%yOrigin
-      zOrigin = subcell%zOrigin
+      x_origin = subcell%xOrigin
+      y_origin = subcell%yOrigin
+      z_origin = subcell%zOrigin
       sinrot = subcell%sinrot
       cosrot = subcell%cosrot
-      call particle%transform(xOrigin, yOrigin)
+      call particle%transform(x_origin, y_origin)
       call this%track_subcell(subcell, particle, tmax)
-      call particle%transform(xOrigin, yOrigin, invert=.true.)
+      call particle%transform(x_origin, y_origin, invert=.true.)
     end select
   end subroutine apply_msp
 
@@ -104,28 +104,10 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     real(DP), intent(in) :: tmax
     ! local
-    real(DP) :: vx
-    real(DP) :: dvxdx
-    real(DP) :: vy
-    real(DP) :: dvydy
-    real(DP) :: vz
-    real(DP) :: dvzdz
-    real(DP) :: dtexit
-    real(DP) :: texit
-    real(DP) :: dt
-    real(DP) :: t
-    real(DP) :: t0
-    real(DP) :: x
-    real(DP) :: y
-    real(DP) :: z
-    integer(I4B) :: statusVX
-    integer(I4B) :: statusVY
-    integer(I4B) :: statusVZ
-    integer(I4B) :: i
-    real(DP) :: x0
-    real(DP) :: y0
-    real(DP) :: z0
-    integer(I4B) :: exit_face, exit_soln
+    real(DP) :: dt, dtexit, texit
+    real(DP) :: t, x, y, z
+    real(DP) :: t0, x0, y0, z0
+    integer(I4B) :: i, exit_face, exit_soln
     type(LinearExitSolutionType) :: exit_x, exit_y, exit_z
 
     t0 = particle%ttrack
@@ -136,24 +118,13 @@ contains
     ! Find exit solutions for each coordinate direction
     call this%find_exits(particle, subcell)
 
-    exit_x = this%exits(1)
-    statusVX = exit_x%status
-    vx = exit_x%v
-    dvxdx = exit_x%dvdx
-
-    exit_y = this%exits(2)
-    statusVY = exit_y%status
-    vy = exit_y%v
-    dvydy = exit_y%dvdx
-
-    exit_z = this%exits(3)
-    statusVZ = exit_z%status
-    vz = exit_z%v
-    dvzdz = exit_z%dvdx
+    exit_x = this%exit_solutions(1)
+    exit_y = this%exit_solutions(2)
+    exit_z = this%exit_solutions(3)
 
     ! Subcell has no exit face, terminate the particle
     ! todo: after initial release, consider ramifications
-    if (all([this%exits%status] == NO_EXIT_NO_OUTFLOW)) then
+    if (all([this%exit_solutions%status] == NO_EXIT_NO_OUTFLOW)) then
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
       return
     end if
@@ -164,7 +135,7 @@ contains
     ! guaranteeing that every particle terminates at the end of the simulation..
     ! ideally that would be handled at a higher scope but with extended tracking
     ! tmax is not the end of the simulation, it's just a wildly high upper bound.
-    if (all([this%exits%status] == NO_EXIT_STATIONARY) .and. &
+    if (all([this%exit_solutions%status] == NO_EXIT_STATIONARY) .and. &
         particle%extend .and. endofsimulation) then
       call this%terminate(particle, status=TERM_TIMEOUT)
       return
@@ -176,8 +147,8 @@ contains
       exit_face = 0
       dtexit = 1.0d+30
     else
-      exit_face = this%exits(exit_soln)%iboundary
-      dtexit = this%exits(exit_soln)%dt
+      exit_face = this%exit_solutions(exit_soln)%iboundary
+      dtexit = this%exit_solutions(exit_soln)%dt
     end if
     texit = particle%ttrack + dtexit
 
@@ -192,12 +163,12 @@ contains
         if (t < particle%ttrack) cycle
         if (t >= texit .or. t >= tmax) exit
         dt = t - t0
-        x = new_x(vx, dvxdx, subcell%vx1, subcell%vx2, &
-                  dt, x0, subcell%dx, statusVX == 1)
-        y = new_x(vy, dvydy, subcell%vy1, subcell%vy2, &
-                  dt, y0, subcell%dy, statusVY == 1)
-        z = new_x(vz, dvzdz, subcell%vz1, subcell%vz2, &
-                  dt, z0, subcell%dz, statusVZ == 1)
+        x = new_x(exit_x%v, exit_x%dvdx, subcell%vx1, subcell%vx2, &
+                  dt, x0, subcell%dx, exit_x%status == 1)
+        y = new_x(exit_y%v, exit_y%dvdx, subcell%vy1, subcell%vy2, &
+                  dt, y0, subcell%dy, exit_y%status == 1)
+        z = new_x(exit_z%v, exit_z%dvdx, subcell%vz1, subcell%vz2, &
+                  dt, z0, subcell%dz, exit_z%status == 1)
         particle%x = x * subcell%dx
         particle%y = y * subcell%dy
         particle%z = z * subcell%dz
@@ -213,12 +184,12 @@ contains
       ! calculate particle location at that final time.
       t = tmax
       dt = t - t0
-      x = new_x(vx, dvxdx, subcell%vx1, subcell%vx2, &
-                dt, x0, subcell%dx, statusVX == 1)
-      y = new_x(vy, dvydy, subcell%vy1, subcell%vy2, &
-                dt, y0, subcell%dy, statusVY == 1)
-      z = new_x(vz, dvzdz, subcell%vz1, subcell%vz2, &
-                dt, z0, subcell%dz, statusVZ == 1)
+      x = new_x(exit_x%v, exit_x%dvdx, subcell%vx1, subcell%vx2, &
+                dt, x0, subcell%dx, exit_x%status == 1)
+      y = new_x(exit_y%v, exit_y%dvdx, subcell%vy1, subcell%vy2, &
+                dt, y0, subcell%dy, exit_y%status == 1)
+      z = new_x(exit_z%v, exit_z%dvdx, subcell%vz1, subcell%vz2, &
+                dt, z0, subcell%dz, exit_z%status == 1)
       exit_face = 0
       particle%istatus = ACTIVE
       particle%advancing = .false.
@@ -241,23 +212,23 @@ contains
       dt = dtexit
       if ((exit_face .eq. 1) .or. (exit_face .eq. 2)) then
         x = DZERO
-        y = new_x(vy, dvydy, subcell%vy1, subcell%vy2, &
-                  dt, y0, subcell%dy, statusVY == 1)
-        z = new_x(vz, dvzdz, subcell%vz1, subcell%vz2, &
-                  dt, z0, subcell%dz, statusVZ == 1)
+        y = new_x(exit_y%v, exit_y%dvdx, subcell%vy1, subcell%vy2, &
+                  dt, y0, subcell%dy, exit_y%status == 1)
+        z = new_x(exit_z%v, exit_z%dvdx, subcell%vz1, subcell%vz2, &
+                  dt, z0, subcell%dz, exit_z%status == 1)
         if (exit_face .eq. 2) x = DONE
       else if ((exit_face .eq. 3) .or. (exit_face .eq. 4)) then
-        x = new_x(vx, dvxdx, subcell%vx1, subcell%vx2, dt, &
-                  x0, subcell%dx, statusVX == 1)
+        x = new_x(exit_x%v, exit_x%dvdx, subcell%vx1, subcell%vx2, dt, &
+                  x0, subcell%dx, exit_x%status == 1)
         y = DZERO
-        z = new_x(vz, dvzdz, subcell%vz1, subcell%vz2, dt, &
-                  z0, subcell%dz, statusVZ == 1)
+        z = new_x(exit_z%v, exit_z%dvdx, subcell%vz1, subcell%vz2, dt, &
+                  z0, subcell%dz, exit_z%status == 1)
         if (exit_face .eq. 4) y = DONE
       else if ((exit_face .eq. 5) .or. (exit_face .eq. 6)) then
-        x = new_x(vx, dvxdx, subcell%vx1, subcell%vx2, &
-                  dt, x0, subcell%dx, statusVX == 1)
-        y = new_x(vy, dvydy, subcell%vy1, subcell%vy2, &
-                  dt, y0, subcell%dy, statusVY == 1)
+        x = new_x(exit_x%v, exit_x%dvdx, subcell%vx1, subcell%vx2, &
+                  dt, x0, subcell%dx, exit_x%status == 1)
+        y = new_x(exit_y%v, exit_y%dvdx, subcell%vy1, subcell%vy2, &
+                  dt, y0, subcell%dy, exit_y%status == 1)
         z = DZERO
         if (exit_face .eq. 6) z = DONE
       else
@@ -289,17 +260,17 @@ contains
 
     exit_soln = 0
     dtmin = 1.0d+30
-    if (this%exits(1)%status < 2) then
+    if (this%exit_solutions(1)%status < 2) then
       exit_soln = 1
-      dtmin = this%exits(1)%dt
+      dtmin = this%exit_solutions(1)%dt
     end if
-    if (this%exits(2)%status < 2 .and. this%exits(2)%dt < dtmin) then
+    if (this%exit_solutions(2)%status < 2 .and. this%exit_solutions(2)%dt < dtmin) then
       exit_soln = 2
-      dtmin = this%exits(2)%dt
+      dtmin = this%exit_solutions(2)%dt
     end if
-    if (this%exits(3)%status < 2 .and. this%exits(3)%dt < dtmin) then
+    if (this%exit_solutions(3)%status < 2 .and. this%exit_solutions(3)%dt < dtmin) then
       exit_soln = 3
-      dtmin = this%exits(3)%dt
+      dtmin = this%exit_solutions(3)%dt
     end if
 
   end function pick_exit
@@ -320,27 +291,27 @@ contains
       z0 = particle%z / domain%dz
 
       ! Calculate exit solutions for each coordinate direction
-      this%exits = [ &
+      this%exit_solutions = [ &
                    find_exit(domain%vx1, domain%vx2, domain%dx, x0), &
                    find_exit(domain%vy1, domain%vy2, domain%dy, y0), &
                    find_exit(domain%vz1, domain%vz2, domain%dz, z0) &
                    ]
 
       ! Set exit faces
-      if (this%exits(1)%v < DZERO) then
-        this%exits(1)%iboundary = 1
-      else if (this%exits(1)%v > DZERO) then
-        this%exits(1)%iboundary = 2
+      if (this%exit_solutions(1)%v < DZERO) then
+        this%exit_solutions(1)%iboundary = 1
+      else if (this%exit_solutions(1)%v > DZERO) then
+        this%exit_solutions(1)%iboundary = 2
       end if
-      if (this%exits(2)%v < DZERO) then
-        this%exits(2)%iboundary = 3
-      else if (this%exits(2)%v > DZERO) then
-        this%exits(2)%iboundary = 4
+      if (this%exit_solutions(2)%v < DZERO) then
+        this%exit_solutions(2)%iboundary = 3
+      else if (this%exit_solutions(2)%v > DZERO) then
+        this%exit_solutions(2)%iboundary = 4
       end if
-      if (this%exits(3)%v < DZERO) then
-        this%exits(3)%iboundary = 5
-      else if (this%exits(3)%v > DZERO) then
-        this%exits(3)%iboundary = 6
+      if (this%exit_solutions(3)%v < DZERO) then
+        this%exit_solutions(3)%iboundary = 5
+      else if (this%exit_solutions(3)%v > DZERO) then
+        this%exit_solutions(3)%iboundary = 6
       end if
     end select
   end subroutine find_exits

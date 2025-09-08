@@ -24,7 +24,10 @@ module MethodSubcellTernaryModule
   public :: MethodSubcellTernaryType
   public :: create_method_subcell_ternary
 
-  !> @brief Barycentric velocity interpolation exit solution
+  !> @brief Barycentric velocity interpolation exit solution.
+  !! Inherit from LinearExitSolutionType to get around array
+  !! polymorphism limitations in Fortran; the exit_solutions
+  !! array below needs to be of one type for convenient use.
   type, extends(LinearExitSolutionType) :: BarycentricExitSolutionType
     real(DP) :: alpexit = DZERO, betexit = DZERO !< alpha and beta coefficients
     integer(I4B) :: itopbotexit = -1, itrifaceexit = -1
@@ -94,38 +97,9 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     real(DP), intent(in) :: tmax
     ! local
-    integer(I4B) :: exit_face
-    real(DP) :: x0
-    real(DP) :: y0
-    real(DP) :: x1
-    real(DP) :: y1
-    real(DP) :: x2
-    real(DP) :: y2
-    real(DP) :: v0x
-    real(DP) :: v0y
-    real(DP) :: v1x
-    real(DP) :: v1y
-    real(DP) :: v2x
-    real(DP) :: v2y
-    real(DP) :: xi
-    real(DP) :: yi
-    real(DP) :: zi
-    real(DP) :: ztop
-    real(DP) :: zbot
-    real(DP) :: dz
-    real(DP) :: vzbot
-    real(DP) :: vztop
-    real(DP) :: texit
-    real(DP) :: dt
-    real(DP) :: t
-    real(DP) :: t0
-    real(DP) :: x
-    real(DP) :: y
-    real(DP) :: z
-    integer(I4B) :: isolv
-    real(DP) :: dtexit
-    integer(I4B) :: event_code
-    integer(I4B) :: i, exit_soln
+    real(DP) :: dt, dtexit, texit
+    real(DP) :: t0, t, x, y, z0, z
+    integer(I4B) :: exit_face, exit_soln, event_code, i, isolv
     type(BarycentricExitSolutionType) :: exit_z, exit_lateral
 
     event_code = -1
@@ -134,27 +108,8 @@ contains
     else
       isolv = particle%iexmeth
     end if
-    xi = particle%x
-    yi = particle%y
-    zi = particle%z
     t0 = particle%ttrack
-    x0 = subcell%x0
-    y0 = subcell%y0
-    x1 = subcell%x1
-    y1 = subcell%y1
-    x2 = subcell%x2
-    y2 = subcell%y2
-    v0x = subcell%v0x
-    v0y = subcell%v0y
-    v1x = subcell%v1x
-    v1y = subcell%v1y
-    v2x = subcell%v2x
-    v2y = subcell%v2y
-    zbot = subcell%zbot
-    ztop = subcell%ztop
-    dz = subcell%dz
-    vzbot = subcell%vzbot
-    vztop = subcell%vztop
+    z0 = particle%z
 
     ! Find exit solutions in lateral and vertical directions
     call this%find_exits(particle, subcell)
@@ -178,7 +133,7 @@ contains
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
       return
     end if
-    texit = particle%ttrack + dtexit
+    texit = t0 + dtexit
 
     ! Select user tracking times to solve. If this is the last time step
     ! in the simulation, times falling after the simulation end time are
@@ -188,16 +143,18 @@ contains
     if (this%tracktimes%any()) then
       do i = this%tracktimes%selection(1), this%tracktimes%selection(2)
         t = this%tracktimes%times(i)
-        if (t < particle%ttrack) cycle
+        if (t < t0) cycle
         if (t >= texit .or. t >= tmax) exit
         dt = t - t0
         call calculate_xyz_position(dt, &
                                     exit_lateral%rxx, exit_lateral%rxy, &
                                     exit_lateral%ryx, exit_lateral%ryy, &
                                     exit_lateral%sxx, exit_lateral%sxy, &
-                                    exit_lateral%syy, &
-                                    exit_z%status, x0, y0, exit_z%dvdx, &
-                                    exit_z%v, vzbot, ztop, zbot, zi, x, y, z)
+                                    exit_lateral%syy, exit_z%status, &
+                                    subcell%x0, subcell%y0, &
+                                    exit_z%dvdx, exit_z%v, &
+                                    subcell%vzbot, subcell%ztop, subcell%zbot, &
+                                    z0, x, y, z)
         particle%x = x
         particle%y = y
         particle%z = z
@@ -230,10 +187,11 @@ contains
                                 exit_lateral%rxx, exit_lateral%rxy, &
                                 exit_lateral%ryx, exit_lateral%ryy, &
                                 exit_lateral%sxx, exit_lateral%sxy, &
-                                exit_lateral%syy, &
-                                exit_z%status, x0, y0, exit_z%dvdx, &
-                                exit_z%v, vzbot, ztop, zbot, zi, x, y, z, &
-                                exit_face)
+                                exit_lateral%syy, exit_z%status, &
+                                subcell%x0, subcell%y0, &
+                                exit_z%dvdx, exit_z%v, &
+                                subcell%vzbot, subcell%ztop, subcell%zbot, &
+                                z0, x, y, z, exit_face)
     particle%x = x
     particle%y = y
     particle%z = z
