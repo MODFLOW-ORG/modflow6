@@ -295,9 +295,11 @@ endif
 subdir('utils/zonebudget')
 
 # add autotest directory
-fs = import('fs')
-if fs.is_dir('autotest')
-  subdir('autotest')
+if not is_static_build
+  fs = import('fs')
+  if fs.is_dir('autotest')
+    subdir('autotest')
+  endif
 endif
 
 # meson tests to evaluate installation success
