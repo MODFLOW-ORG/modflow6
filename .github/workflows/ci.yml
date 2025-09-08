@@ -165,8 +165,9 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           curl -LO "https://www.dependencywalker.com/depends22_x64.zip"
-          7z x depends22_x64.zip
-           depends22_x64/depends.exe /c /ot:depends.txt bin/mf6.exe
+          7z e depends22_x64.zip
+          ls -lh *.exe
+          depends.exe /c /ot:depends.txt bin/mf6.exe
           cat depends.txt          
 
   smoke_test:
