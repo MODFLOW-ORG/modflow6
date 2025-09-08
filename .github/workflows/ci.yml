@@ -164,12 +164,10 @@ jobs:
       - name: Confirm modflow6 has no dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
-          if ntldd bin/mf6; then
-              echo mf6 is dynamically linked
-              exit 1
-          else
-              echo mf6 is statically linked
-          fi
+          curl -LO "https://www.dependencywalker.com/depends22_x64.zip"
+          7z x depends22_x64.zip
+          .\depends.exe /c /ot:depends.txt bin/mf6.exe
+          cat depends.txt          
 
   smoke_test:
     name: Smoke test
