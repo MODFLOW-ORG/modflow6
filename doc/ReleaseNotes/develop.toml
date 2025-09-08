@@ -96,4 +96,4 @@ description = "Fixes a memory exception that has occurred when running parallel 
 [[item]]
 section = "fixes"
 subsection = "solution"
-description = "The PRT Model has previously been aware of boundary cell flows but not boundary faces. When an internal boundary face is assigned (an IFLOWFACE adjacent to another active cell), this can lead to cycles (infinite loops) in the particle's pathline, as the two adjacent cells fail to agree on the flow through their shared face. The PRT Model will now terminate particles at assigned boundary faces whether they are internal or external."
+description = "The PRT Model has previously been aware of boundary cell flows but not boundary faces. When an internal boundary face is assigned (an IFLOWFACE adjacent to another active cell), this can lead to cycles (infinite loops) in the particle's pathline, as the two adjacent cells fail to agree on the flow through their shared face. The PRT Model will now terminate particles at assigned boundary faces, whether they are internal or external, if the net boundary flow through the face is out of the cell."
