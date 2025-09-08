@@ -154,7 +154,6 @@ jobs:
       - name: Confirm modflow6 has no dependencies
         if: runner.os == 'Linux'
         run: |
-          ldd bin/mf6
           if ldd bin/mf6; then
               echo mf6 is dynamically linked
               exit 1
