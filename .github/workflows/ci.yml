@@ -166,7 +166,7 @@ jobs:
         run: |
           curl -LO "https://www.dependencywalker.com/depends22_x64.zip"
           7z x depends22_x64.zip
-          .\depends.exe /c /ot:depends.txt bin/mf6.exe
+           depends22_x64/depends.exe /c /ot:depends.txt bin/mf6.exe
           cat depends.txt          
 
   smoke_test:
