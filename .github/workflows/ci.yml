@@ -163,11 +163,13 @@ jobs:
 
       - name: Confirm modflow6 has no dependencies (Windows)
         if: runner.os == 'Windows'
+        working-directory: bin
+        shell: cmd
         run: |
           curl -LO "https://www.dependencywalker.com/depends22_x64.zip"
-          7z e depends22_x64.zip
+          tar -xf depends22_x64.zip
           ls -lh *.exe
-          ./depends.exe /c /ot:depends.txt bin/mf6.exe
+          depends.exe /c /ot:depends.txt mf6.exe
           cat depends.txt          
 
   smoke_test:
