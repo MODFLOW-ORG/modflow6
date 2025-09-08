@@ -151,10 +151,20 @@ jobs:
       - name: Unit test MF6
         run: pixi run test builddir
 
-      - name: Confirm modflow6 has no dependencies
+      - name: Confirm modflow6 has no dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           if ldd bin/mf6; then
+              echo mf6 is dynamically linked
+              exit 1
+          else
+              echo mf6 is statically linked
+          fi
+
+      - name: Confirm modflow6 has no dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          if ntldd bin/mf6; then
               echo mf6 is dynamically linked
               exit 1
           else
