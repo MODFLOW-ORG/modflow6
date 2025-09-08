@@ -17,7 +17,8 @@ module MethodSubcellTernaryModule
   use ListModule, only: ListType
   use ExitSolutionModule, only: ExitSolutionType, &
                                 LinearExitSolutionType, &
-                                OK_EXIT
+                                OK_EXIT, OK_EXIT_CONSTANT, &
+                                NO_EXIT_STATIONARY, NO_EXIT_NO_OUTFLOW
   implicit none
 
   private
@@ -363,7 +364,7 @@ contains
 
   !> @brief Do calculations related to analytical z solution
   !!
-  !! This subroutine consists partly or entirely of code written by
+  !! This subroutine consists partly of code written by and/or adapted from
   !! David W. Pollock of the USGS for MODPATH 7. The authors of the present
   !! code are responsible for its appropriate application in this context
   !! and for any modifications or errors.
@@ -412,7 +413,7 @@ contains
     if ((v2a .lt. tol) .and. (v1a .lt. tol)) then
       v = DZERO
       dvdx = DZERO
-      status = 2
+      status = NO_EXIT_STATIONARY
       itopbotexit = 0
       return
     end if
@@ -437,7 +438,7 @@ contains
         itopbotexit = -1
       end if
       dvdx = DZERO
-      status = 1
+      status = OK_EXIT_CONSTANT
       return
     end if
 
@@ -452,7 +453,7 @@ contains
     if (v1 .lt. DZERO) noOutflow = .false.
     if (v2 .gt. DZERO) noOutflow = .false.
     if (noOutflow) then
-      status = 3
+      status = NO_EXIT_NO_OUTFLOW
       itopbotexit = 0
       return
     end if
@@ -496,7 +497,7 @@ contains
 
     ! Compute travel time to exit face. Return with status = 0
     dt = log(abs(vr)) / dvdx
-    status = 0
+    status = OK_EXIT
   end subroutine calculate_dt
 
   !> @brief Calculate the particle's local unscaled xyz coordinates after dt.

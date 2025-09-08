@@ -334,7 +334,7 @@ contains
 
   !> @brief Calculate particle travel time to exit and exit status.
   !!
-  !! This subroutine consists partly or entirely of code written by
+  !! This subroutine consists partly of code written by and/or adapted from
   !! David W. Pollock of the USGS for MODPATH 7. The authors of the present
   !! code are responsible for its appropriate application in this context
   !! and for any modifications or errors.
@@ -384,7 +384,7 @@ contains
     if ((v2a .lt. tol) .and. (v1a .lt. tol)) then
       v = DZERO
       dvdx = DZERO
-      status = 2
+      status = NO_EXIT_STATIONARY
       return
     end if
 
@@ -402,7 +402,7 @@ contains
       if (v1 .gt. zro) dt = (dx - x) / v1
       if (v1 .lt. zrom) dt = -x / v1
       dvdx = DZERO
-      status = 1
+      status = OK_EXIT_CONSTANT
       return
     end if
 
@@ -417,7 +417,7 @@ contains
     if (v1 .lt. DZERO) noOutflow = .false.
     if (v2 .gt. DZERO) noOutflow = .false.
     if (noOutflow) then
-      status = 3
+      status = NO_EXIT_NO_OUTFLOW
       return
     end if
 
@@ -456,13 +456,13 @@ contains
     if (dabs(vr) .lt. 1.0d-10) then
       v = DZERO
       dvdx = DZERO
-      status = 2
+      status = NO_EXIT_STATIONARY
       return
     end if
 
     ! Compute travel time to exit face. Return with status = 0.
     dt = log(vr) / dvdx
-    status = 0
+    status = OK_EXIT
 
   end function calculate_dt
 
