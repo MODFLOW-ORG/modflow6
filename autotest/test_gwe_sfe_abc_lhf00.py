@@ -52,18 +52,18 @@ laytyp = 1
 sfr_evaprate = 0.0
 rhk = 0.0
 rwid = 1.0
-strm_temp = 20.0
+strm_temp = 11.0
 surf_Q_in = [
     [10.0],
 ]
 # sensible and latent heat flux parameter values
-wspd = 20.0
-tatm = 270.79111 # unrealistically high to drive a -1C change in stream temperature
+wspd = 126005.19379436946474 # unrealistically high to drive a -1C change
+tatm = 5.0 
 # shortwave radiation parameter values
 solr = 47880870.9  # unrealistically high to drive a 1 deg C rise in stream temperature
 shd = 1.0  # 100% shade "turns off" solar flux
 swrefl = 0.03
-rh = 100.0  # percent
+rh = 30.0  # percent
 
 # Transport related parameters
 porosity = sy  # porosity (unitless)
@@ -285,7 +285,7 @@ def build_models(idx, test):
         under_relaxation="NONE",
         inner_maximum=ninner,
         inner_dvclose=hclose,
-        rcloserecord=rclose,
+        rcloserecord=f"{rclose} strict",
         linear_acceleration="BICGSTAB",
         scaling_method="NONE",
         reordering_method="NONE",
@@ -463,7 +463,7 @@ def check_output(idx, test):
     L = (2499.64 - (2.51 * strm_temp)) * 1000
     e_w = 6.1275 * math.exp(17.2693882 * (strm_temp / (strm_temp + 273.16 - 35.86)))
     e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + 273.16 - 35.86)))
-    e_a = rh / 100 * e_s
+    e_a = (rh / 100) * e_s
     vap_press_deficit = e_w - e_a
     wind_function = wf_int + wf_slope * wspd
     Ev = wind_function * vap_press_deficit
@@ -484,6 +484,7 @@ def check_output(idx, test):
     df2 = pd.read_csv(fpth2)
 
     # confirm 1 deg C decrease in temp
+
     msg1 = "Python temperature change is = " + str(temp_change)
     msg2 = "MODFLOW temperature = " + str(df2.loc[0, "RCH1_OUTFTEMP"])
     msg3 = "MODFLOW temperature change is " + str(
