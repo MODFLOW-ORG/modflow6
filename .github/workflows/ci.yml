@@ -175,11 +175,13 @@ jobs:
         working-directory: ntldd
         run: |
           echo "Checking dependencies with ntldd..."
+          set +e
           ./ntldd.exe ../bin/mf6.exe > mf6.dependencies.txt
 
           dep_count=$(grep -vc "KERNEL32.dll" mf6.dependencies.txt)
           echo "Number of dependencies: $dep_count"
 
+          set -e
           if [ "$dep_count" -eq 0 ]; then
             echo mf6.exe is statically linked
           else
