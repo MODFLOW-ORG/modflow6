@@ -100,5 +100,10 @@ description = "The PRT Model has previously been aware of boundary cell flows bu
 
 [[items]]
 section = "fixes"
+subsection = "solution"
+description = "Cyclic particle pathlines were possible in Newton models with DRY\\_TRACKING\\_METHOD DROP (the default) in the presence of numerically insignificant upward flows in partially saturated cells. This occurred because PRT did not distinguish the water table from the cell top, so a particle at the water table in a partially saturated cell could obtain an exit solution through the cell's top face, jump to the dry cell above, then drop back down, and so on. Particles are now prevented from exiting through the top face of partially saturated cells. If a particle reaches the water table, its behavior now depends on a combination of DRY\\_TRACKING\\_METHOD and whether the cell top is an assigned boundary face. If the cell top is an assigned boundary face, or if DRY\\_TRACKING\\_METHOD is STOP, the particle will terminate. Otherwise, it will stay there until tracking resumes the next time step."
+
+[[items]]
+section = "fixes"
 subsection = "parallel"
 description = "Fixes the case where a convergence failure of the PETSc linear solver halts the program with an exception (error -5). This particular failure is now handled by continuing with the next outer iteration. This is equivalent to what happens when using the IMS solver in a serial simulation."

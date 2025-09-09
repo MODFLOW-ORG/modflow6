@@ -8,7 +8,7 @@ module ExitSolutionModule
   !> @brief Exit status codes
   enum, bind(C)
     enumerator :: OK_EXIT = 0 !< exit found using velocity interpolation
-    ! below only used for linear interp
+    ! below only used for linear solution
     enumerator :: OK_EXIT_CONSTANT = 1 !< exit found, constant velocity
     enumerator :: NO_EXIT_STATIONARY = 2 !< no exit, zero velocity
     enumerator :: NO_EXIT_NO_OUTFLOW = 3 !< no exit, no outflow

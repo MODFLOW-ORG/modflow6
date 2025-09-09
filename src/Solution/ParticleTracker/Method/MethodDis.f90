@@ -204,18 +204,6 @@ contains
       icu = dis%get_nodeuser(ic)
       call get_ijk(icu, dis%nrow, dis%ncol, dis%nlay, irow, icol, ilay)
 
-      ! TODO remove this cycle trap as soon as both cycle conditions are fixed!
-      if (ic == particle%icp .and. inface == 7 .and. ilay < particle%ilay) then
-        particle%itrdomain(LEVEL_FEATURE) = particle%icp
-        particle%izone = particle%izp
-        call this%terminate(particle, &
-                            status=TERM_BOUNDARY)
-        return
-      else
-        particle%icp = particle%itrdomain(LEVEL_FEATURE)
-        particle%izp = particle%izone
-      end if
-
       ! update node numbers and layer
       particle%itrdomain(LEVEL_FEATURE) = ic
       particle%icu = icu
@@ -288,7 +276,7 @@ contains
     ! local
     type(CellRectType), pointer :: cell
     integer(I4B) :: iface
-    logical(LGP) :: no_neighbors, at_boundary
+    logical(LGP) :: at_boundary, no_neighbors
 
     select type (c => this%cell)
     type is (CellRectType)
@@ -304,7 +292,6 @@ contains
       end if
 
       call this%load_particle(cell, particle)
-      if (.not. particle%advancing) return ! todo: remove after cycles fixed
       call this%update_flowja(cell, particle)
     end select
   end subroutine pass_dis

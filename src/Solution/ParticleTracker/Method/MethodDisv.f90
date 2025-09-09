@@ -166,17 +166,6 @@ contains
       icu = dis%get_nodeuser(ic)
       call get_jk(icu, dis%ncpl, dis%nlay, icpl, ilay)
 
-      ! TODO remove this cycle trap as soon as both cycle conditions are fixed!
-      if (ic == particle%icp .and. inface == 7 .and. ilay < particle%ilay) then
-        particle%itrdomain(LEVEL_FEATURE) = particle%icp
-        particle%izone = particle%izp
-        call this%terminate(particle, status=TERM_BOUNDARY)
-        return
-      else
-        particle%icp = particle%itrdomain(LEVEL_FEATURE)
-        particle%izp = particle%izone
-      end if
-
       particle%itrdomain(LEVEL_FEATURE) = ic
       particle%icu = icu
       particle%ilay = ilay
@@ -225,7 +214,7 @@ contains
     ! local
     type(CellPolyType), pointer :: cell
     integer(I4B) :: iface
-    logical(LGP) :: no_neighbors, at_boundary
+    logical(LGP) :: at_boundary, no_neighbors
 
     select type (c => this%cell)
     type is (CellPolyType)
@@ -241,7 +230,6 @@ contains
       end if
 
       call this%load_particle(cell, particle)
-      if (.not. particle%advancing) return ! todo: remove after cycles fixed
       call this%update_flowja(cell, particle)
     end select
   end subroutine pass_disv

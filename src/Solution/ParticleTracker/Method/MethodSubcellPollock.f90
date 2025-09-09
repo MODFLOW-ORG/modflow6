@@ -115,7 +115,7 @@ contains
     y0 = particle%y / subcell%dy
     z0 = particle%z / subcell%dz
 
-    ! Find exit solutions for each coordinate direction
+    ! Find exit solution in each direction
     call this%find_exits(particle, subcell)
 
     exit_x = this%exit_solutions(1)
@@ -123,7 +123,7 @@ contains
     exit_z = this%exit_solutions(3)
 
     ! Subcell has no exit face, terminate the particle
-    ! todo: after initial release, consider ramifications
+    ! TODO: consider ramifications
     if (all([this%exit_solutions%status] == NO_EXIT_NO_OUTFLOW)) then
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
       return
@@ -260,19 +260,19 @@ contains
 
     exit_soln = 0
     dtmin = 1.0d+30
+
     if (this%exit_solutions(1)%status < 2) then
-      exit_soln = 1
+      exit_soln = 1 ! x
       dtmin = this%exit_solutions(1)%dt
     end if
     if (this%exit_solutions(2)%status < 2 .and. &
         this%exit_solutions(2)%dt < dtmin) then
-      exit_soln = 2
+      exit_soln = 2 ! y
       dtmin = this%exit_solutions(2)%dt
     end if
     if (this%exit_solutions(3)%status < 2 .and. &
         this%exit_solutions(3)%dt < dtmin) then
-      exit_soln = 3
-      dtmin = this%exit_solutions(3)%dt
+      exit_soln = 3 ! z
     end if
 
   end function pick_exit

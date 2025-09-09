@@ -64,6 +64,7 @@ contains
       call this%load_subcell(particle, subcell)
     end select
     call method_subcell_plck%init( &
+      fmi=this%fmi, &
       cell=this%cell, &
       subcell=this%subcell, &
       events=this%events, &
@@ -162,7 +163,8 @@ contains
 
     select type (cell => this%cell)
     type is (CellRectType)
-      ! Set subcell number to 1
+      ! Set cell/subcell numbers
+      subcell%icell = cell%defn%icell
       subcell%isubcell = 1
 
       ! Subcell calculations will be done in local subcell coordinates
