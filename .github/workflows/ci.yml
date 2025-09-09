@@ -176,11 +176,14 @@ jobs:
         run: |
           echo "Checking dependencies with ntldd..."
           ./ntldd.exe ../bin/mf6.exe > mf6.dependencies.txt
-          if grep -v -c "KERNEL32.dll" mf6.dependencies.txt; then
-              echo mf6.exe is statically linked
+
+          dep_count=$(grep -vc "KERNEL32.dll" mf6.dependencies.txt)
+          echo "Number of dependencies: $dep_count"
+          if ! dep_count; then
+            echo mf6.exe is statically linked
           else
-              echo mf6.exe is dynamically linked
-              exit 1
+            echo mf6.exe is dynamically linked
+            echo exit 1
           fi
 
   smoke_test:
