@@ -15,18 +15,13 @@ parallel = "PARALLEL"
 
 [[items]]
 section = "fixes"
-subsection = "internal"
-description = "Fixed first-order decay in GWT so that production/decay does not occur when aqueous or sorbed concentration are negative."
-
-[[items]]
-section = "features"
 subsection = "basic"
-description = "Add a discretization text input option CRS for a real-world model coordinate reference system, for example, an EPSG integer code, authority string, or Open Geospatial Consortium Well-Known Text (WKT) specification. The entry for CRS does not affect the model simulation, but it is written to a version 2 binary grid file so that postprocessors can locate the grid in space."
+description = "Fixed the simulation NOCHECK option, which previously had no effect."
 
 [[items]]
-section = "features"
-subsection = "stress"
-description = "Add HIGHEST\\_SATURATED option to the GWT SRC package. When activated, the HIGHEST\\_SATURATED option will apply a mass source loading rate to the specified CELLID or the highest underlying cell with a non-zero cell saturation. The HIGHEST\\_SATURATED option has an additional complication for certain types of grids specified using the DISU Package. When the DISU Package is used, a cell may have more than one cell underlying it. If the overlying cell were to become inactive, there is no straightforward method for determining how to apportion the mass source loading rate to the underlying cells. In this case, the approach described by \\cite{modflowusg} is used. The mass source loading rate is assigned to the first active cell encountered (determined by searching through the underlying cell numbers from the lowest number to the highest number). In this manner, the total mass source loading rate is conserved; however, the spatial distribution of the applied mass source loading rate may not be maintained as layers become dry or wet during a simulation."
+section = "fixes"
+subsection = "internal"
+description = "Clarified the definition of the GWF SFR package PACKAGEDATA block RTP parameter."
 
 [[items]]
 section = "fixes"
@@ -36,69 +31,74 @@ description = "Fixed viscosity ratio assignment in the GWT MAW package when the 
 [[items]]
 section = "fixes"
 subsection = "internal"
+description = "Fixed first-order decay in GWT so that production/decay does not occur when aqueous or sorbed concentration are negative."
+
+[[items]]
+section = "fixes"
+subsection = "internal"
 description = "Fixed bugs in the GWF VSC and BUY packages, affecting GWT simulations with multiple species that have different inactive regions.  In this uncommon situation, the concentrations used to calculate fluid density could erroneously be set to zero in areas with different inactive regions."
 
 [[items]]
 section = "fixes"
 subsection = "solution"
-description = "With the PRT model's Particle Release Package's EXTEND\\_TRACKING option enabled, particles beginning the simulation's final timestep in a stationary cell (an active cell with no flow across any boundary) were not terminated gracefully. Particles in these conditions will now terminate properly with status code 10 (timeout)."
-
-[[items]]
-section = "fixes"
-subsection = "parallel"
-description = "Fixed a memory access exception that can occur when writing convergence information to a CSV file (through the CSV\\_OUTER\\_OUTPUT option in IMS) for a parallel solution."
-
-[[items]]
-section = "features"
-subsection = "solution"
-description = "Added an optional new COORDINATE\\_CHECK\\_METHOD option to the PRT model's Particle Release Package, accepting values EAGER (default) or NONE. NONE disables release-time verification that release point coordinates and release point cell IDs match, which can significantly reduce runtime when releasing many particles."
-
-[[items]]
-section = "features"
-subsection = "model"
-description = "Add DEPENDENT\\_VARIABLE\\_SCALING option to scale the dependent variable and the right-hand side to avoid very large positive or negative values in the GWT and GWE models. Specified outer and inner DVCLOSE values in the model IMS package will be relative closure criteria. This option applies the same scaling approach used in the MT3DMS GCG package."
+description = "Fixed a bug introduced in version 6.4.2 that changed the convergence check of the numerical solution. In cases where the linear solver failed to converge, or when it did converge but the STRICT option was active and convergence did not occur on the first iteration, the overall solution was erroneously considered to have converged."
 
 [[items]]
 section = "fixes"
 subsection = "solution"
-description = "The Particle Tracking (PRT) Model previously reported cell exit events when a dry particle stranded in a partially saturated cell was dropped to the water table, as occurs with DRY\\_TRACKING\\_METHOD DROP (the default). An event is no longer reported at this time."
+description = "Fixed a bug preventing graceful termination of all particles in PRT models. With the PRP package's EXTEND\\_TRACKING option enabled, particles beginning the simulation's final timestep in a stationary cell (an active cell with no flow across any boundary) were not terminated gracefully. Particles in this condition will now terminate with status code 10 (timeout)."
 
 [[items]]
 section = "fixes"
 subsection = "solution"
-description = "Previously the Particle Tracking (PRT) Model's generalized DISV tracking method did not distinguish subcell exit events from cell exits, reporting both with the same reason code (1). Since subcell exits occur at a scale below that defined by the model's grid discretization, they are an implementation detail of the generalized tracking method, and will therefore no longer be written by default to particle tracking output. The PRT Output Control (OC) package's TRACK\\_EXIT option will now apply exclusively to features at grid-scale or above. Writing particle transitions between sub-grid-scale features to output is now opt-in with a new keyword option TRACK\\_SUBFEATURE\\_EXIT."
-
-[[items]]
-section = "fixes"
-subsection = "basic"
-description = "Previously the simulation NOCHECK option had no effect. The option has been fixed to implement the intended behavior."
-
-[[items]]
-section = "features"
-subsection = "solution"
-description = "Added a developer option DEV\\_CYCLE\\_DETECTION\\_WINDOW to the PRT Model's Particle Release (PRP) Package. When enabled, this feature maintains a history of recent cell transitions, the size of which is configurable. If a cycle is detected, the program will terminate with an error. A cycle is identified as a duplicate particle event within a single application of the tracking loop, respective to certain particle and cell properties, e.g., exiting through the same cell face twice. This option defaults to 0, disabling cycle detection by default."
-
-[[items]]
-section = "fixes"
-subsection = "internal"
-description = "Clarified the definition of the rtp parameter in the SFR PACKAGEDATA block."
+description = "Fixed erroneous cell exit event reporting by PRT when a particle was dropped to the water table by DRY\\_TRACKING\\_METHOD DROP. Cell exit events will no longer be raised in such conditions."
 
 [[items]]
 section = "fixes"
 subsection = "solution"
-description = "Fixes a bug first included in version 6.4.2 that has changed the convergence check of the numerical solution. In cases where the linear solver failed to converge, or when it did converge but the STRICT option was active and convergence did not occur on the first iteration, the solution was erroneously considered for overall convergence."
-
-[[items]]
-section = "fixes"
-subsection = "parallel"
-description = "Fixes a memory exception that has occurred when running parallel solute transport on Windows without the dispersion package. This has no effect on the simulation results other than causing a premature termination in some cases."
+description = "PRT previously reported subcell exit and cell exit events on DISV grids with the same event code (1). Subcell events are a tracking method implementation detail, however. Subcell events (and more generally, events occurring at subgrid scale) will no longer be included by default in particle tracking output. The PRT Output Control (OC) package's TRACK\\_EXIT option now applies only to features explicitly defined by the grid discretization. Particle events at sub-grid scale are now opt-in with a new keyword option TRACK\\_SUBFEATURE\\_EXIT."
 
 [[item]]
 section = "fixes"
 subsection = "solution"
-description = "The PRT Model has previously been aware of boundary cell flows but not boundary faces. When an internal boundary face is assigned (an IFLOWFACE adjacent to another active cell), this can lead to cycles (infinite loops) in the particle's pathline, as the two adjacent cells fail to agree on the flow through their shared face. The PRT Model will now terminate particles at assigned boundary faces, whether they are internal or external, if the net boundary flow through the face is out of the cell."
+description = "PRT models could encounter cyclic particle pathlines (infinite loops) in the vicinity of assigned boundary faces. When an internal boundary face was assigned (an IFLOWFACE adjacent to another active cell), the adjacent cells could fail to agree on the flow through their shared face, trapping particles and preventing the program from halting. Particles will now terminate at all assigned boundary faces, internal or external, for which the net boundary flow through the face is out of the cell."
 
 [[items]]
 section = "fixes"
 subsection = "solution"
-description = "Cyclic particle pathlines were possible in Newton models with DRY\\_TRACKING\\_METHOD DROP (the default) in the presence of numerically insignificant upward flows in partially saturated cells. This occurred because PRT did not distinguish the water table from the cell top, so a particle at the water table in a partially saturated cell could obtain an exit solution through the cell's top face, jump to the dry cell above, then drop back down, and so on. Particles are now prevented from exiting through the top face of partially saturated cells. If a particle reaches the water table, its behavior now depends on a combination of DRY\\_TRACKING\\_METHOD and whether the cell top is an assigned boundary face. If the cell top is an assigned boundary face, or if DRY\\_TRACKING\\_METHOD is STOP, the particle will terminate. Otherwise, it will stay there until tracking resumes the next time step."
+description = "PRT models could encounter cyclic particle pathlines near the water table with GWF models using the NEWTON option. With Newton, dry cells remain active; a flow model may produce numerically insignificant upwards flow through the top face of a partially saturated cell. With DRY\\_TRACKING\\_METHOD DROP (the default option), a particle in a partially saturated cell could obtain an exit solution through the cell's top face, jump to the dry cell above, then drop back down, and so on. Particles are now prevented from exiting through the top face of partially saturated cells. If a particle reaches the water table and the cell top is an assigned boundary face, or if DRY\\_TRACKING\\_METHOD is STOP, the particle will terminate. Otherwise, it will remain stationary and active."
+
+[[items]]
+section = "fixes"
+subsection = "parallel"
+description = "Fixed a memory access exception that could occur when writing convergence information to a CSV file (through the CSV\\_OUTER\\_OUTPUT option in IMS) for a parallel solution."
+
+[[items]]
+section = "fixes"
+subsection = "parallel"
+description = "Fixed a memory exception occurring with parallel solute transport on Windows without the dispersion package. This could cause premature termination but had no other effect on simulation results."
+
+[[items]]
+section = "features"
+subsection = "basic"
+description = "Added a coordinate reference system option CRS to discretization packages. For example, an EPSG integer code, authority string, or Open Geospatial Consortium Well-Known Text (WKT) specification. This option does not affect simulation results, but is written to the binary grid file so that postprocessors can locate the grid in space. A new version (2) of the binary grid file is introduced to accommodate this."
+
+[[items]]
+section = "features"
+subsection = "stress"
+description = "Added an option HIGHEST\\_SATURATED to the GWT SRC package. When activated, the HIGHEST\\_SATURATED option will apply a mass source loading rate to the specified CELLID or the highest underlying cell with a non-zero cell saturation. The HIGHEST\\_SATURATED option has an additional complication for certain types of grids specified using the DISU Package. When the DISU Package is used, a cell may have more than one cell underlying it. If the overlying cell were to become inactive, there is no straightforward method for determining how to apportion the mass source loading rate to the underlying cells. In this case, the approach described by \\cite{modflowusg} is used. The mass source loading rate is assigned to the first active cell encountered (determined by searching through the underlying cell numbers from the lowest number to the highest number). In this manner, the total mass source loading rate is conserved; however, the spatial distribution of the applied mass source loading rate may not be maintained as layers become dry or wet during a simulation."
+
+[[items]]
+section = "features"
+subsection = "solution"
+description = "Added an optional COORDINATE\\_CHECK\\_METHOD option to the PRT model's Particle Release Package, accepting values EAGER (default) or NONE. NONE disables release-time verification that release point coordinates and release point cell IDs match, which can significantly reduce runtime when releasing many particles."
+
+[[items]]
+section = "features"
+subsection = "model"
+description = "Added an option DEPENDENT\\_VARIABLE\\_SCALING to scale the dependent variable and the right-hand side to avoid very large positive or negative values in the GWT and GWE models. Specified outer and inner DVCLOSE values in the model IMS package will be relative closure criteria. This option applies the same scaling approach used in the MT3DMS GCG package."
+
+[[items]]
+section = "features"
+subsection = "solution"
+description = "Added a developer option DEV\\_CYCLE\\_DETECTION\\_WINDOW to the PRT PRP Package. When enabled, the tracking method maintains a configurable-size history of recent cell exits for each particle. If a cycle is detected, the program will terminate with an error. A cycle is defined as a duplicate particle event, respective to certain particle and cell properties, within a single application of the tracking loop: e.g., exiting through the same cell face twice. This option defaults to 0, disabling cycle detection by default."
