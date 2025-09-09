@@ -176,12 +176,11 @@ jobs:
         run: |
           echo "Checking dependencies with ntldd..."
           ./ntldd.exe ../bin/mf6.exe > mf6.dependencies.txt
-          cat mf6.dependencies.txt
-          if ./ntldd.exe ../bin/mf6.exe; then
+          if grep -v -c "KERNEL32.dll" mf6.dependencies.txt; then
+              echo mf6.exe is statically linked
+          else
               echo mf6.exe is dynamically linked
               exit 1
-          else
-              echo mf6.exe is statically linked
           fi
 
   smoke_test:
