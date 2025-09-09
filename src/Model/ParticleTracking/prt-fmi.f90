@@ -19,10 +19,10 @@ module PrtFmiModule
   type, extends(FlowModelInterfaceType) :: PrtFmiType
 
     integer(I4B) :: max_faces !< maximum number of faces for grid cell polygons
-    double precision, allocatable, public :: SourceFlows(:) ! cell source flows array
-    double precision, allocatable, public :: SinkFlows(:) ! cell sink flows array
-    double precision, allocatable, public :: StorageFlows(:) ! cell storage flows array
-    double precision, allocatable, public :: BoundaryFlows(:) ! cell boundary flows array
+    real(DP), allocatable, public :: SourceFlows(:) ! cell source flows array
+    real(DP), allocatable, public :: SinkFlows(:) ! cell sink flows array
+    real(DP), allocatable, public :: StorageFlows(:) ! cell storage flows array
+    real(DP), allocatable, public :: BoundaryFlows(:) ! cell boundary flows array
     integer(I4B), allocatable, public :: BoundaryFaces(:) ! bitmask of assigned boundary faces
 
   contains
@@ -32,6 +32,7 @@ module PrtFmiModule
     procedure, private :: accumulate_flows
     procedure :: mark_boundary_face
     procedure :: is_boundary_face
+    procedure :: is_net_out_boundary_face
 
   end type PrtFmiType
 
@@ -263,5 +264,38 @@ contains
     end if
     is_boundary = btest(this%BoundaryFaces(ic), bit_pos)
   end function is_boundary_face
+
+  !> @brief Check if a face is an assigned boundary with net outflow.
+  function is_net_out_boundary_face(this, ic, iface) result(is_net_out_boundary)
+    class(PrtFmiType) :: this
+    integer(I4B), intent(in) :: ic !< node number (reduced)
+    integer(I4B), intent(in) :: iface !< face number
+    logical(LGP) :: is_net_out_boundary
+    ! local
+    integer(I4B) :: bit_pos
+    integer(I4B) :: ioffset
+
+    is_net_out_boundary = .false.
+    if (ic <= 0 .or. ic > this%dis%nodes) then
+      print *, 'Invalid cell number: ', ic
+      print *, 'Expected a value in range [1, ', this%dis%nodes, ']'
+      call pstop(1)
+    end if
+    if (iface <= 0) then
+      print *, 'Invalid face number: ', iface
+      print *, 'Expected a value in range [1, ', this%max_faces, ']'
+      call pstop(1)
+    end if
+    bit_pos = iface - 1 ! bit position 0-based
+    if (bit_pos < 0 .or. bit_pos > 31) then
+      print *, 'Invalid bitmask position: ', iface
+      print *, 'Expected a value in range [0, 31]'
+      call pstop(1)
+    end if
+    if (.not. btest(this%BoundaryFaces(ic), bit_pos)) return
+    ioffset = (ic - 1) * this%max_faces
+    if (this%BoundaryFlows(ioffset + iface) < DZERO) &
+      is_net_out_boundary = .true.
+  end function is_net_out_boundary_face
 
 end module PrtFmiModule

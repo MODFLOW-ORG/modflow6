@@ -310,11 +310,11 @@ $(OBJDIR)/Dis.o \
 $(OBJDIR)/Dis2d.o \
 $(OBJDIR)/BudgetObject.o \
 $(OBJDIR)/BoundaryPackage.o \
-$(OBJDIR)/CellDefn.o \
 $(OBJDIR)/ParticleEvent.o \
 $(OBJDIR)/sort.o \
+$(OBJDIR)/Domain.o \
+$(OBJDIR)/CellDefn.o \
 $(OBJDIR)/FlowModelInterface.o \
-$(OBJDIR)/Cell.o \
 $(OBJDIR)/WeakSinkEvent.o \
 $(OBJDIR)/UserTimeEvent.o \
 $(OBJDIR)/TimeStepEvent.o \
@@ -325,6 +325,8 @@ $(OBJDIR)/ReleaseEvent.o \
 $(OBJDIR)/prt-fmi.o \
 $(OBJDIR)/ParticleEvents.o \
 $(OBJDIR)/FeatExitEvent.o \
+$(OBJDIR)/ExitSolution.o \
+$(OBJDIR)/Cell.o \
 $(OBJDIR)/Method.o \
 $(OBJDIR)/CellExitEvent.o \
 $(OBJDIR)/SubcellExitEvent.o \

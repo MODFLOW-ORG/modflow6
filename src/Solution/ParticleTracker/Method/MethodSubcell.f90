@@ -10,6 +10,7 @@ module MethodSubcellModule
   private
   public :: MethodSubcellType
 
+  !> @brief Abstract base type for subcell tracking methods
   type, abstract, extends(MethodCellType) :: MethodSubcellType
   contains
     procedure, public :: assess
@@ -19,6 +20,7 @@ module MethodSubcellModule
 
 contains
 
+  !> @brief Assess conditions before tracking
   subroutine assess(this, particle, cell_defn, tmax)
     ! dummy
     class(MethodSubcellType), intent(inout) :: this
