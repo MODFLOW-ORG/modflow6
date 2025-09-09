@@ -179,7 +179,8 @@ jobs:
 
           dep_count=$(grep -vc "KERNEL32.dll" mf6.dependencies.txt)
           echo "Number of dependencies: $dep_count"
-          if ! dep_count; then
+
+          if [ "$dep_count" -eq 0 ]; then
             echo mf6.exe is statically linked
           else
             echo mf6.exe is dynamically linked
