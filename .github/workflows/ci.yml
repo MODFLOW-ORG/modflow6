@@ -154,6 +154,7 @@ jobs:
       - name: Confirm modflow6 has no dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
+          echo "Checking dependencies with ldd..."
           if ldd bin/mf6; then
               echo mf6 is dynamically linked
               exit 1
@@ -161,16 +162,32 @@ jobs:
               echo mf6 is statically linked
           fi
 
-      - name: Confirm modflow6 has no dependencies (Windows)
+      - name: Setup MSYS2 and install ntldd
         if: runner.os == 'Windows'
-        working-directory: bin
-        shell: cmd
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          # The ntldd package needs to be installed for the target msystem
+          install: mingw-w64-ucrt-x86_64-ntldd-git
+
+      - name: Perform build and use ntldd
+        if: runner.os == 'Windows'
+        # The shell is automatically set to the MSYS2 environment
+        # so you can use standard bash commands and utilities.
+        shell: msys2 {0}
         run: |
-          curl -LO "https://www.dependencywalker.com/depends22_x64.zip"
-          tar -xf depends22_x64.zip
-          ls -lh *.exe
-          depends.exe /c /ot:depends.txt mf6.exe
-          cat depends.txt          
+          echo "Building your project..."
+          # Replace the next lines with your actual build commands
+          g++ -o my_program.exe my_program.cpp
+
+          echo "Checking dependencies with ntldd..."
+          if ntldd bin/mf6.exe; then
+              echo mf6.exe is dynamically linked
+              exit 1
+          else
+              echo mf6.exe is statically linked
+          fi
 
   smoke_test:
     name: Smoke test

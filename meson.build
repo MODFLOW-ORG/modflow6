@@ -226,28 +226,26 @@ endif
 proj_default_library = get_option('default_library')
 if proj_default_library == 'static'
   is_static_build = true
-  message('MODFLOW 6 will be statically linked')
 else
   is_static_build = false
 endif
+
+# test for invalid configurations
 if is_static_build
-  if is_extended_build or is_parallel_build or is_netcdf_build
-    if is_static_build
-      is_static_build = false
-      message('Resetting static_build option for extended build')
-    endif
+  require_shared_libraries = is_extended_build or is_parallel_build or is_netcdf_build
+  if require_shared_libraries
+    assert(false, 'default_library=static not valid for extended build')
   else
     if fc_id != 'gcc'
-      is_static_build = false
-      message('Resetting static_build option for non-gcc compiler')
+      assert(false, 'default_library=static not valid for non-gcc compiler')
     elif system == 'darwin'
-      is_static_build = false
-      message('Resetting static_build option for gcc compiler on darwin')
+      assert(false, 'default_library=static not valid for gcc compiler on darwin')
     endif
   endif
 endif
 
 if is_static_build
+  message('MODFLOW 6 will be statically linked')
   compile_args += '-static'
   link_args += ['-static', 
                 '-static-libgfortran',
