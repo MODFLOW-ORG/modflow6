@@ -223,8 +223,13 @@ if fc_id == 'gcc'
   endif
 endif
 
-is_static_build = get_option('static_gfortran')
-message('Static_build option', is_static_build)
+proj_default_library = get_option('default_library')
+if proj_default_library == 'static'
+  is_static_build = true
+  message('MODFLOW 6 will be statically linked')
+else
+  is_static_build = false
+endif
 if is_static_build
   if is_extended_build or is_parallel_build or is_netcdf_build
     if is_static_build
@@ -286,7 +291,7 @@ buildname = get_option('buildname')
 subdir('src')
 
 if is_static_build
-  message('Cannot build libmf6 if static_gfortran is specified')
+  message('Cannot build libmf6 if default_library is specified')
 else
   subdir('srcbmi')
 endif
