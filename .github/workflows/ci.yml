@@ -175,6 +175,8 @@ jobs:
         working-directory: ntldd
         run: |
           echo "Checking dependencies with ntldd..."
+          ./ntldd.exe ../bin/mf6.exe > mf6.dependencies.txt
+          cat mf6.dependencies.txt
           if ./ntldd.exe ../bin/mf6.exe; then
               echo mf6.exe is dynamically linked
               exit 1
