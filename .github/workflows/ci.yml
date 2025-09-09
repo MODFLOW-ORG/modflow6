@@ -162,27 +162,19 @@ jobs:
               echo mf6 is statically linked
           fi
 
-      - name: Setup MSYS2 and install ntldd
+      - name: Clone ntldd repository and build
         if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: true
-          # The ntldd package needs to be installed for the target msystem
-          install: mingw-w64-ucrt-x86_64-ntldd-git
-
-      - name: Perform build and use ntldd
-        if: runner.os == 'Windows'
-        # The shell is automatically set to the MSYS2 environment
-        # so you can use standard bash commands and utilities.
-        shell: msys2 {0}
         run: |
-          echo "Building your project..."
-          # Replace the next lines with your actual build commands
-          g++ -o my_program.exe my_program.cpp
+          git clone https://github.com/LRN/ntldd.git
+          cd ntldd
+          ./makeldd.sh
 
+      - name: Confirm modflow6 has no dependencies (Windows)
+        if: runner.os == 'Windows'
+        working-directory: ntldd
+        run: |
           echo "Checking dependencies with ntldd..."
-          if ntldd bin/mf6.exe; then
+          if ntldd ../bin/mf6.exe; then
               echo mf6.exe is dynamically linked
               exit 1
           else
