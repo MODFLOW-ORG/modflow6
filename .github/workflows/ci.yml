@@ -168,13 +168,14 @@ jobs:
           git clone https://github.com/LRN/ntldd.git
           cd ntldd
           ./makeldd.sh
+          ls -lha
 
       - name: Confirm modflow6 has no dependencies (Windows)
         if: runner.os == 'Windows'
         working-directory: ntldd
         run: |
           echo "Checking dependencies with ntldd..."
-          if ntldd ../bin/mf6.exe; then
+          if ./ntldd.exe ../bin/mf6.exe; then
               echo mf6.exe is dynamically linked
               exit 1
           else
