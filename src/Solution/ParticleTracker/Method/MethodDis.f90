@@ -276,17 +276,17 @@ contains
     ! local
     type(CellRectType), pointer :: cell
     integer(I4B) :: iface
-    logical(LGP) :: at_boundary, no_neighbors
+    logical(LGP) :: at_bnd_face, no_neighbors
 
     select type (c => this%cell)
     type is (CellRectType)
       cell => c
       iface = particle%iboundary(LEVEL_FEATURE)
       no_neighbors = cell%defn%facenbr(iface) == 0
-      at_boundary = this%fmi%is_net_out_boundary_face(cell%defn%icell, iface)
+      at_bnd_face = this%fmi%is_net_out_boundary_face(cell%defn%icell, iface)
 
       ! todo AMP: reconsider when multiple models supported
-      if (no_neighbors .or. at_boundary) then
+      if (no_neighbors .or. at_bnd_face) then
         call this%terminate(particle, status=TERM_BOUNDARY)
         return
       end if

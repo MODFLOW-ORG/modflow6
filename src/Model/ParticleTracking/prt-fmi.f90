@@ -273,30 +273,12 @@ contains
     integer(I4B), intent(in) :: iface !< face number
     logical(LGP) :: is_net_out_boundary
     ! local
-    integer(I4B) :: bit_pos
     integer(I4B) :: ioffset
 
     is_net_out_boundary = .false.
-    if (ic <= 0 .or. ic > this%dis%nodes) then
-      print *, 'Invalid cell number: ', ic
-      print *, 'Expected a value in range [1, ', this%dis%nodes, ']'
-      call pstop(1)
-    end if
-    if (iface <= 0) then
-      print *, 'Invalid face number: ', iface
-      print *, 'Expected a value in range [1, ', this%max_faces, ']'
-      call pstop(1)
-    end if
-    bit_pos = iface - 1 ! bit position 0-based
-    if (bit_pos < 0 .or. bit_pos > 31) then
-      print *, 'Invalid bitmask position: ', iface
-      print *, 'Expected a value in range [0, 31]'
-      call pstop(1)
-    end if
-    if (.not. btest(this%BoundaryFaces(ic), bit_pos)) return
+    if (.not. this%is_boundary_face(ic, iface)) return
     ioffset = (ic - 1) * this%max_faces
-    if (this%BoundaryFlows(ioffset + iface) < DZERO) &
-      is_net_out_boundary = .true.
+    if (this%BoundaryFlows(ioffset + iface) < DZERO) is_net_out_boundary = .true.
   end function is_net_out_boundary_face
 
 end module PrtFmiModule
