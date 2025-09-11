@@ -1249,8 +1249,10 @@ contains
     if (found%ivarcv) &
       write (this%iout, '(4x,a)') 'Vertical conductance varies with water table.'
     if (found%idewatcv) &
-      write (this%iout, '(4x,a)') 'Vertical conductance accounts for dewatered &
-                                  &portion of an underlying cell.'
+      write (this%iout, '(4x,a)') 'Vertical conductance is calculated using &
+                                  &only the saturated thickness and properties &
+                                  &of the overlying cell if the head in the &
+                                  &underlying cell is below its top.'
     if (found%ixt3d) write (this%iout, '(4x,a)') 'XT3D formulation is selected.'
     if (found%ixt3drhs) &
       write (this%iout, '(4x,a)') 'XT3D RHS formulation is selected.'
