@@ -20,6 +20,7 @@ module TransportModelModule
   use TspObsModule, only: TspObsType
   use BudgetModule, only: BudgetType
   use MatrixBaseModule
+  use DevFeatureModule, only: dev_feature
 
   implicit none
 
@@ -534,6 +535,7 @@ contains
     this%inobs = 0
     this%eqnsclfac = DZERO
     this%idv_scale = 0
+    
   end subroutine allocate_tsp_scalars
 
   !> @brief Define the labels corresponding to the flavor of
@@ -651,6 +653,9 @@ contains
     end if
 
     if (found%idv_scale) then
+      ! TODO remove dev guard for 6.7.0
+      call dev_feature('Dependent variable scaling is still under development, &
+        &install the nightly build or compile from source with IDEVELOPMODE = 1.')
       write (this%iout, '(2(3x,a,/),3x,a,/,9x,a,/)') &
         'X and RHS will be scaled to avoid very large positive or negative', &
         'dependent variable values in the model IMS package.', &

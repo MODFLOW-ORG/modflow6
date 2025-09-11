@@ -294,6 +294,7 @@ mf6internal ichkmeth
 longname coordinate checking method
 description approach for verifying that release point coordinates are in the cell with the specified ID. By default, release point coordinates are checked at release time.
 default eager
+prerelease true
 
 block options
 name dev_cycle_detection_window

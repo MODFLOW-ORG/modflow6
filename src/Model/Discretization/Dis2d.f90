@@ -508,6 +508,10 @@ contains
     !
     ! -- set version
     if (found_crs) then
+      ! TODO remove dev guard for 6.7.0
+      call dev_feature("CRS support is still under development, &
+                       &install the nightly build or compile &
+                       &from source with IDEVELOPMODE = 1.")
       ntxt = ntxt + 1
       version = 2
     end if

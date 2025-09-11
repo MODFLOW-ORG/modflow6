@@ -756,6 +756,9 @@ contains
     end if
 
     if (found%ichkmeth) then
+      ! TODO remove dev guard for 6.7.0
+      call dev_feature('PRT coordinate check method is still under development, &
+        &install the nightly build or compile from source with IDEVELOPMODE = 1.')
       if (this%ichkmeth == 0) then
         write (errmsg, '(a)') 'Unsupported coordinate check method. &
           &COORDINATE_CHECK_METHOD must be "NONE" or "EAGER"'
