@@ -35,6 +35,8 @@ single_case_name = "dis_single"
 split_case_name = "dis_split"
 cases = [single_case_name, split_case_name]
 
+spdis_lookup = {}
+
 model_name = "gwf_model"
 
 # solver criterion
@@ -162,8 +164,6 @@ def build_models(idx, test):
 
 
 def check_output(idx, test):
-    print("comparing heads to single model reference...")
-
     qx = None
     qy = None
     qz = None
@@ -173,6 +173,11 @@ def check_output(idx, test):
         bud = gwf.output.budget()
         spdis = bud.get_data(text="DATA-SPDIS")[0]
         qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
+
+        # flatten
+        qx = qx[0, :, 0]
+        qy = qy[0, :, 0]
+        qz = qz[0, :, 0]
 
     elif cases[idx] == split_case_name:
         sim = test.sims[0]
@@ -187,19 +192,31 @@ def check_output(idx, test):
         spdis1 = bud1.get_data(text="DATA-SPDIS")[0]
         qx1, qy1, qz1 = flopy.utils.postprocessing.get_specific_discharge(spdis1, gwf1)
 
+        # flatten and join
         qx = np.concatenate((qx0[0, :, 0], qx1[0, :, 0]))
         qy = np.concatenate((qy0[0, :, 0], qy1[0, :, 0]))
         qz = np.concatenate((qz0[0, :, 0], qz1[0, :, 0]))
 
-    # drop first and last nodes (CHD)
-    qx = qx[1:-2]
-    qy = qy[1:-2]
-    qz = qz[1:-2]
+    qx = qx[1:-1]
+    qy = qy[1:-1]
+    qz = qz[1:-1]
+    spdis_lookup[cases[idx]] = (qx, qy, qz)
 
     qy_theory = -hk * (h_north - h_south) / ((nrow - 1) * delc)
     assert np.allclose(qx, 0.0), "spdis cannot have x component in this problem"
     assert np.allclose(qy, qy_theory), "spdis y component should equal theory"
     assert np.allclose(qz, 0.0), "spdis cannot have z component in this problem"
+
+    if cases[idx] == split_case_name:
+        assert np.allclose(qx, spdis_lookup[single_case_name][0]), (
+            "spdis-x should match single model case"
+        )
+        assert np.allclose(qy, spdis_lookup[single_case_name][1]), (
+            "spdis-y should match single model case"
+        )
+        assert np.allclose(qz, spdis_lookup[single_case_name][2]), (
+            "spdis-z should match single model case"
+        )
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

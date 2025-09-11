@@ -15,6 +15,7 @@ module GwfNpfModule
   use GwfVscModule, only: GwfVscType
   use Xt3dModule, only: Xt3dType
   use SpdisWorkArrayModule, only: SpdisWorkArrayType
+  use SpdisCellModule, only: SpdisCellType
   use InputOutputModule, only: GetUnit, openfile
   use TvkModule, only: TvkType, tvk_cr
   use MemoryManagerModule, only: mem_allocate, mem_reallocate, &
@@ -96,6 +97,7 @@ module GwfNpfModule
     integer(I4B), dimension(:), pointer, contiguous :: iedge_ptr => null() !< csr pointer into edge index array
     integer(I4B), dimension(:), pointer, contiguous :: edge_idxs => null() !< sorted edge indexes for faster lookup
     type(SpdisWorkArrayType), pointer :: spdis_wa => null() !< work arrays for spdis calculation
+    type(SpdisCellType), pointer :: spdis_cell => null()
     !
     integer(I4B), pointer :: intvk => null() ! TVK (time-varying K) unit number (0 if unused)
     integer(I4B), pointer :: invsc => null() ! VSC (viscosity) unit number (0 if unused); viscosity leads to time-varying K's
@@ -303,7 +305,7 @@ contains
       call mem_reallocate(this%spdis, 3, this%dis%nodes, 'SPDIS', this%memoryPath)
       call mem_reallocate(this%nodedge, this%nedges, 'NODEDGE', this%memoryPath)
       call mem_reallocate(this%ihcedge, this%nedges, 'IHCEDGE', this%memoryPath)
-      call mem_reallocate(this%propsedge, 5, this%nedges, 'PROPSEDGE', &
+      call mem_reallocate(this%propsedge, 6, this%nedges, 'PROPSEDGE', &
                           this%memoryPath)
       call mem_reallocate(this%iedge_ptr, this%dis%nodes + 1, &
                           'NREDGESNODE', this%memoryPath)
@@ -950,9 +952,15 @@ contains
     class(GwfNpftype) :: this
 
     ! free spdis work structure
-    if (this%icalcspdis == 1 .and. this%spdis_wa%is_created()) &
+    if (this%icalcspdis == 1 .and. this%spdis_wa%is_created()) then
       call this%spdis_wa%destroy()
+    end if
     deallocate (this%spdis_wa)
+
+    if (associated(this%spdis_cell)) then
+      call this%spdis_cell%destroy()
+      deallocate(this%spdis_cell)
+    end if
     !
     ! -- Deallocate input memory
     call memorystore_remove(this%name_model, 'NPF', idm_context)
@@ -2396,8 +2404,10 @@ contains
     real(DP) :: dz
     real(DP) :: axy
     real(DP) :: ayx
+    real(DP) :: nz
     logical :: nozee = .true.
     type(SpdisWorkArrayType), pointer :: swa => null() !< pointer to spdis work arrays structure
+    real(DP), dimension(:,:), allocatable :: bnd_faces
     !
     ! -- Ensure dis has necessary information
     if (this%icalcspdis /= 0 .and. this%dis%con%ianglex == 0) then
@@ -2413,6 +2423,13 @@ contains
 
       ! prepare lookup table
       if (this%nedges > 0) call this%prepare_edge_lookup()
+    end if
+
+    if (.not. associated(this%spdis_cell)) then
+      allocate (this%spdis_cell)
+      ! boundary edge finder
+      call this%spdis_cell%create(this%dis, flowja, this%ihcedge, this%propsedge, &
+                             this%iedge_ptr, this%edge_idxs)
     end if
     !
     ! -- Go through each cell and calculate specific discharge
@@ -2492,12 +2509,12 @@ contains
           if (ihc == C3D_VERTICAL) then
             iz = iz + 1
             swa%viz(iz) = this%propsedge(1, iedge) / area
-            swa%diz(iz) = this%propsedge(5, iedge)
+            swa%diz(iz) = this%propsedge(6, iedge)
           else
             ic = ic + 1
             swa%nix(ic) = -this%propsedge(3, iedge)
             swa%niy(ic) = -this%propsedge(4, iedge)
-            swa%di(ic) = this%propsedge(5, iedge)
+            swa%di(ic) = this%propsedge(6, iedge)
             if (area > DZERO) then
               swa%vi(ic) = this%propsedge(1, iedge) / area
             else
@@ -2506,6 +2523,25 @@ contains
           end if
         end do
       end if
+
+      ! add boundary faces
+      call this%spdis_cell%load_cell_boundaries(n, bnd_faces)
+      do m = 1, size(bnd_faces, dim=2)
+        nz = bnd_faces(4, m) ! unit z
+        if (abs(nz) > DZERO) then ! this is vertical
+          iz = iz + 1
+          swa%viz(iz) = DZERO
+          swa%diz(iz) = bnd_faces(1, m)
+        else
+          ic = ic + 1
+          swa%vi(ic) = DZERO
+          swa%di(ic) = bnd_faces(1, m)
+          swa%nix(ic) = bnd_faces(2, m)
+          swa%niy(ic) = bnd_faces(3, m)
+        end if
+      end do
+      deallocate (bnd_faces)
+
       !
       ! -- Assign number of vertical and horizontal connections
       ncz = iz
@@ -2676,8 +2712,8 @@ contains
     this%nedges = this%nedges + nedges
   end subroutine increase_edge_count
 
-  !> @brief Calculate the maximum number of connections for any cell
-  !<
+  !> @brief Calculate the maximum number of terms
+  !< contributing to spdis for any cell
   function calc_max_conns(this) result(max_conns)
     class(GwfNpfType) :: this
     integer(I4B) :: max_conns
@@ -2688,9 +2724,12 @@ contains
     do n = 1, this%dis%nodes
 
       ! Count internal model connections
-      ic = this%dis%con%ia(n + 1) - this%dis%con%ia(n) - 1
+      !ic = this%dis%con%ia(n + 1) - this%dis%con%ia(n) - 1
 
-      ! Add edge connections
+      ! Count faces as the maximum nr. of connections
+      ic = this%dis%get_npolyverts(n, closed=.false.)
+
+      ! Add edge connections (without overlap)
       do m = 1, this%nedges
         if (this%nodedge(m) == n) then
           ic = ic + 1
@@ -2705,7 +2744,7 @@ contains
 
   !> @brief Provide the npf package with edge properties
   !<
-  subroutine set_edge_properties(this, nodedge, ihcedge, q, area, nx, ny, &
+  subroutine set_edge_properties(this, nodedge, ihcedge, q, area, nx, ny, nz, &
                                  distance)
     ! -- dummy
     class(GwfNpfType) :: this
@@ -2715,6 +2754,7 @@ contains
     real(DP), intent(in) :: area
     real(DP), intent(in) :: nx
     real(DP), intent(in) :: ny
+    real(DP), intent(in) :: nz
     real(DP), intent(in) :: distance
     ! -- local
     integer(I4B) :: lastedge
@@ -2727,7 +2767,8 @@ contains
     this%propsedge(2, lastedge) = area
     this%propsedge(3, lastedge) = nx
     this%propsedge(4, lastedge) = ny
-    this%propsedge(5, lastedge) = distance
+    this%propsedge(5, lastedge) = nz
+    this%propsedge(6, lastedge) = distance
     !
     ! -- If this is the last edge, then the next call must be starting a new
     !    edge properties assignment loop, so need to reset lastedge to 0

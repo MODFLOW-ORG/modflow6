@@ -667,7 +667,7 @@ contains
           end if
           dist = conLen * cl / (imCon%cl1(isym) + imCon%cl2(isym))
           call this%gwfModel%npf%set_edge_properties(nLoc, ihc, rrate, area, &
-                                                     nx, ny, dist)
+                                                     nx, ny, nz, dist)
         end if
       end do
     end do
