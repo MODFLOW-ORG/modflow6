@@ -74,7 +74,9 @@ A MODFLOW 6 input variable is described by a set of attributes. Some attributes 
 | preserve_case | Whether the case of the parameter value (if text) should be preserved. | No       | False   | This should be set to true for filename parameters.                                                                                                           |
 | default_value | The parameter's default value.                                         | No       | None    | Should be a valid Python literal.                                                                                                                             |
 | numeric_index | Indicates that this is an index variable.                              | No       | False   | Indicates that FloPy should treat the parameter as zero-based.                                                                                                |
-| deprecated    | Indicates that the parameter has been deprecated.                      | No       | None    | Should a semantic version number, the version in which the parameter was deprecated. If this attribute is provided without a value, it is ignored.            |
+| deprecated    | Indicates that the parameter has been deprecated.                      | No       | None    | Should be a semantic version number, the version in which the parameter was deprecated. If this attribute is provided without a value, it is ignored.            |
+| removed       | Indicates that the parameter has been removed.                         | No       | None    | Should be a semantic version number, the version in which the parameter was removed. If this attribute is provided without a value, it is ignored.               |
+| prerelease    | Indicates that the parameter should not be released yet.               | No       | False   | Should be set to true to indicate that a parameter is not ready for inclusion in releases. The parameter will be omitted from the generated IO guide.   |
 
 ### Reader Attribute
 
