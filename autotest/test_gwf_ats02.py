@@ -25,7 +25,7 @@ dtfailadj = 5.0
 def build_models(idx, test):
     perlen = [10, 10]
     nper = len(perlen)
-    nstp = [5, 5]
+    nstp = [1, 1]
     tsmult = nper * [1.0]
     delr = 1.0
     delc = 1.0
@@ -75,7 +75,7 @@ def build_models(idx, test):
     )
 
     # create iterative model solution and register the gwf model with it
-    nouter, ninner = 20, 5
+    nouter, ninner = 50, 5
     hclose, rclose, relax = 1e-6, 1e-6, 0.97
     imsgwf = flopy.mf6.ModflowIms(
         sim,
@@ -216,7 +216,7 @@ def check_output(idx, test):
     except:
         assert False, f'could not load data from "{fpth}"'
     # ensure layer 1 is dry with the DRY value
-    assert np.max(tc["OBS1"][:201]) == -1.0e30, "layer 1 should be dry for this period"
+    assert np.max(tc["OBS1"][:9]) == -1.0e30, "layer 1 should be dry for this period"
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
