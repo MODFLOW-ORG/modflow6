@@ -326,6 +326,7 @@ $(OBJDIR)/prt-fmi.o \
 $(OBJDIR)/ParticleEvents.o \
 $(OBJDIR)/FeatExitEvent.o \
 $(OBJDIR)/ExitSolution.o \
+$(OBJDIR)/DroppedEvent.o \
 $(OBJDIR)/Cell.o \
 $(OBJDIR)/Method.o \
 $(OBJDIR)/CellExitEvent.o \

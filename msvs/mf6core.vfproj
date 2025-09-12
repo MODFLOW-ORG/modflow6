@@ -454,6 +454,7 @@
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\UserTimeEvent.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\TimeStepEvent.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\WeakSinkEvent.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\DroppedEvent.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Particle.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleReleaseSchedule.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleTracks.f90"/>
