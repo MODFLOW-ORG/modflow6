@@ -19,6 +19,8 @@ PREFIXES = ["mf6/test", "mf6/large", "mf2005"]
 EXCLUDE = [
     "alt_model",
     "test205_gwtbuy-henrytidal",
+    # todo reinstate after 6.7.0 release
+    "test028_sfr_rewet",
     # todo reinstate after 6.5.0 release
     "test001d_Tnewton",
     # remove tests with nwt usg conductance weighting
