@@ -361,6 +361,7 @@ modflow_sources = files(
     'Solution' / 'ParticleTracker' / 'Particle' / 'Events' / 'TimeStepEvent.f90',
     'Solution' / 'ParticleTracker' / 'Particle' / 'Events' / 'UserTimeEvent.f90',
     'Solution' / 'ParticleTracker' / 'Particle' / 'Events' / 'SubcellExitEvent.f90',
+    'Solution' / 'ParticleTracker' / 'Particle' / 'Events' / 'DroppedEvent.f90',
     'Timing' / 'ats.f90',
     'Timing' / 'tdis.f90',
     'Utilities' / 'ArrayRead' / 'ArrayReaderBase.f90',

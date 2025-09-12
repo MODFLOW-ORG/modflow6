@@ -399,57 +399,69 @@ def check_output(idx, test, snapshot):
     # snapshot comparison
     assert snapshot == actual.to_records(index=False)
 
-    plot_pathlines = False
-    if plot_pathlines:
 
-        def plot_pathlines_and_timeseries(
-            ax, mg, ibd, pathlines, timeseries, plottitle, layer=1
-        ):
-            ax.set_aspect("equal")
-            mm = flopy.plot.PlotMapView(model=gwf, ax=ax, layer=layer)
-            mm.plot_grid(color=(0.4, 0.4, 0.4, 0.5), lw=0.2)
-            mm.plot_grid(color=(0.4, 0.4, 0.4, 0.5), lw=0.2)
-            mm.plot_bc("WEL", plotAll=True)
-            mm.plot_bc("CHD", plotAll=True)
-            mm.plot_grid(lw=0.5)
-            # mm.plot_array(gwf.output.head().get_data())
-            v = mm.plot_array(ibd, cmap=cmapbd, edgecolor="gray")
-            plt.scatter(pathlines["x"], pathlines["y"])
-            mm.plot_pathline(pathlines, layer="all", colors=["blue"], lw=0.75)
-            ax.set_title(plottitle, fontsize=12)
-            ax.scatter(strtpts.x, strtpts.y)
-            from shapely.geometry import Polygon
+def plot_output(idx, test):
+    name = test.name
+    gwf_ws = test.workspace / "gwf"
+    prt_ws = test.workspace / "prt"
+    gwf_name = get_model_name(name, "gwf")
+    prt_name = get_model_name(name, "prt")
+    gwf_sim = test.sims[0]
+    gwf = gwf_sim.get_model(gwf_name)
+    hds_file = gwf.name + ".hds"
+    trackcsv_file = prt_name + ".csv"
+    trackcsv_path = prt_ws / trackcsv_file
+    pls = pd.read_csv(trackcsv_path)
+    strtpts = pls[pls.ireason == 0]
 
-            cellids = [105, 85, 125, 104, 106]
-            polys = [Polygon(gwf.modelgrid.get_cell_vertices(ic)) for ic in cellids]
-            mm.plot_shapes(polys, alpha=0.2)
-            plt.show()
+    def plot_pathlines_and_timeseries(
+        ax, mg, ibd, pathlines, timeseries, plottitle, layer=1
+    ):
+        ax.set_aspect("equal")
+        mm = flopy.plot.PlotMapView(model=gwf, ax=ax, layer=layer)
+        mm.plot_grid(color=(0.4, 0.4, 0.4, 0.5), lw=0.2)
+        mm.plot_grid(color=(0.4, 0.4, 0.4, 0.5), lw=0.2)
+        mm.plot_bc("WEL", plotAll=True)
+        mm.plot_bc("CHD", plotAll=True)
+        mm.plot_grid(lw=0.5)
+        # mm.plot_array(gwf.output.head().get_data())
+        v = mm.plot_array(ibd, cmap=cmapbd, edgecolor="gray")
+        plt.scatter(pathlines["x"], pathlines["y"])
+        mm.plot_pathline(pathlines, layer="all", colors=["blue"], lw=0.75)
+        ax.set_title(plottitle, fontsize=12)
+        ax.scatter(strtpts.x, strtpts.y)
+        from shapely.geometry import Polygon
 
-        fig, ax = plt.subplots(1, 1, figsize=(8, 8))
-        cmapbd = clt.ListedColormap(["b", "r"])
-        chdcells = []
-        for pckge in gwf.get_package("chd"):
-            chd_nodes = pckge.stress_period_data.get_data(0).cellid
-            for item in chd_nodes:
-                chdcells.append(item)
+        cellids = [105, 85, 125, 104, 106]
+        polys = [Polygon(gwf.modelgrid.get_cell_vertices(ic)) for ic in cellids]
+        mm.plot_shapes(polys, alpha=0.2)
+        plt.show()
 
-        welcells = []
-        pckg = gwf.get_package("wel")
-        wel_nodes = pckg.stress_period_data.get_data(1).cellid
-        for item in wel_nodes:
-            welcells.append(item)
+    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+    cmapbd = clt.ListedColormap(["b", "r"])
+    chdcells = []
+    for pckge in gwf.get_package("chd"):
+        chd_nodes = pckge.stress_period_data.get_data(0).cellid
+        for item in chd_nodes:
+            chdcells.append(item)
 
-        # identify the boundary locations
-        ibd = np.zeros((nlay, nrow, ncol), dtype=int)
-        ilay, irow, icol = zip(*chdcells)
-        ibd[ilay, irow, icol] = 1
-        ilay, irow, icol = zip(*welcells)
-        ibd[ilay, irow, icol] = 2
-        ibd = np.ma.masked_equal(ibd, 0)
+    welcells = []
+    pckg = gwf.get_package("wel")
+    wel_nodes = pckg.stress_period_data.get_data(1).cellid
+    for item in wel_nodes:
+        welcells.append(item)
 
-        plot_pathlines_and_timeseries(ax, gwf.modelgrid, ibd, pls, None, name)
+    # identify the boundary locations
+    ibd = np.zeros((nlay, nrow, ncol), dtype=int)
+    ilay, irow, icol = zip(*chdcells)
+    ibd[ilay, irow, icol] = 1
+    ilay, irow, icol = zip(*welcells)
+    ibd[ilay, irow, icol] = 2
+    ibd = np.ma.masked_equal(ibd, 0)
 
-    plot_3d = False
+    plot_pathlines_and_timeseries(ax, gwf.modelgrid, ibd, pls, None, name)
+
+    plot_3d = True
     if plot_3d:
         try:
             import pyvista as pv
@@ -478,7 +490,7 @@ def check_output(idx, test, snapshot):
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets, array_snapshot):
+def test_mf6model(idx, name, function_tmpdir, targets, array_snapshot, plot):
     dry_tracking_methods = ["drop", "stop", "stay"]
     if any(t in name for t in dry_tracking_methods):
         dry_tracking_method = name[-4:]
@@ -491,6 +503,7 @@ def test_mf6model(idx, name, function_tmpdir, targets, array_snapshot):
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t, newton, drape, dry_tracking_method),
         check=lambda t: check_output(idx, t, array_snapshot),
+        plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
         compare=None,
     )

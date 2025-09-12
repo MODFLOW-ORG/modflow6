@@ -196,8 +196,16 @@ name track_usertime
 type keyword
 reader urword
 optional true
-longname track usertime
+longname track user-specified times
 description keyword to indicate that particle tracking output is to be written at user-specified times, provided as double precision values in the TRACKTIMES block.
+
+block options
+name track_dropped
+type keyword
+reader urword
+optional true
+longname track drops to water table
+description keyword to indicate that particle tracking output is to be written when a particle is dropped to the water table via DRY\_TRACKING\_METHOD DROP.
 
 block options
 name track_timesrecord

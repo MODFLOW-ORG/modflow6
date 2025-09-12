@@ -14,6 +14,7 @@ module MethodModule
   use WeakSinkEventModule, only: WeakSinkEventType
   use UserTimeEventModule, only: UserTimeEventType
   use FeatExitEventModule, only: FeatExitEventType
+  use DroppedEventModule, only: DroppedEventType
   use BaseDisModule, only: DisBaseType
   use PrtFmiModule, only: PrtFmiType
   use CellModule, only: CellType
@@ -87,6 +88,7 @@ module MethodModule
     procedure :: timestep
     procedure :: weaksink
     procedure :: usertime
+    procedure :: dropped
   end type MethodType
 
   abstract interface
@@ -281,5 +283,15 @@ contains
     call this%events%dispatch(particle, event)
     deallocate (event)
   end subroutine usertime
+
+  !> @brief A particle drops to the water table.
+  subroutine dropped(this, particle)
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(ParticleEventType), pointer :: event
+    allocate (DroppedEventType :: event)
+    call this%events%dispatch(particle, event)
+    deallocate (event)
+  end subroutine dropped
 
 end module MethodModule

@@ -257,7 +257,8 @@ contains
       this%oc%trackterminate, &
       this%oc%trackweaksink, &
       this%oc%trackusertime, &
-      this%oc%tracksubfexit)
+      this%oc%tracksubfexit, &
+      this%oc%trackdropped)
 
     ! Set up boundary pkgs and pkg-scoped track files
     nprp = 0

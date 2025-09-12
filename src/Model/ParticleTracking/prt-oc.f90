@@ -31,6 +31,7 @@ module PrtOcModule
     logical(LGP), pointer :: trackweaksink => null() !< whether to track weak sink exit events
     logical(LGP), pointer :: trackusertime => null() !< whether to track user-specified times
     logical(LGP), pointer :: tracksubfexit => null() !< whether to track sub-grid-scale feature exit events
+    logical(LGP), pointer :: trackdropped => null() !< whether to track drops to water table
     integer(I4B), pointer :: ntracktimes => null() !< number of user-specified tracking times
     logical(LGP), pointer :: dump_event_trace => null() !< whether to dump event trace for debugging
     type(TimeSelectType), pointer :: tracktimes !< user-specified tracking times
@@ -92,6 +93,7 @@ contains
     call mem_allocate(this%trackweaksink, 'ITRACKWEAKSINK', this%memoryPath)
     call mem_allocate(this%trackusertime, 'ITRACKUSERTIME', this%memoryPath)
     call mem_allocate(this%tracksubfexit, 'ITRACKSUBFEXIT', this%memoryPath)
+    call mem_allocate(this%trackdropped, 'ITRACKDROPPED', this%memoryPath)
     call mem_allocate(this%ntracktimes, 'NTRACKTIMES', this%memoryPath)
 
     this%name_model = name_model
@@ -112,6 +114,7 @@ contains
     this%trackweaksink = .false.
     this%trackusertime = .false.
     this%tracksubfexit = .false.
+    this%trackdropped = .false.
     this%ntracktimes = 0
 
   end subroutine prt_oc_allocate_scalars
@@ -185,6 +188,7 @@ contains
     call mem_deallocate(this%trackweaksink)
     call mem_deallocate(this%trackusertime)
     call mem_deallocate(this%tracksubfexit)
+    call mem_deallocate(this%trackdropped)
     call mem_deallocate(this%ntracktimes)
 
   end subroutine prt_oc_da
@@ -308,6 +312,10 @@ contains
           this%tracksubfexit = .true.
           event_found = .true.
           param_found = .true.
+        case ('TRACK_DROPPED')
+          this%trackdropped = .true.
+          event_found = .true.
+          param_found = .true.
         case ('DEV_DUMP_EVENT_TRACE')
           this%dump_event_trace = .true.
           param_found = .true.
@@ -342,6 +350,7 @@ contains
         this%trackterminate = .true.
         this%trackweaksink = .true.
         this%trackusertime = .true.
+        this%trackdropped = .true.
       end if
 
       ! logging

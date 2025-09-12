@@ -28,6 +28,7 @@ module ParticleTracksModule
   use UserTimeEventModule, only: UserTimeEventType
   use CellExitEventModule, only: CellExitEventType
   use SubcellExitEventModule, only: SubcellExitEventType
+  use DroppedEventModule, only: DroppedEventType
   use ParticleEventsModule, only: ParticleEventConsumerType, &
                                   ParticleEventDispatcherType
   use BaseDisModule, only: DisBaseType
@@ -68,6 +69,7 @@ module ParticleTracksModule
     logical(LGP) :: weaksink !< track weak sink exit events
     logical(LGP) :: usertime !< track user-selected times
     logical(LGP) :: subfexit !< track subfeature exits
+    logical(LGP) :: dropped !< track water table drops
   end type ParticleTrackEventSelectionType
 
   !> @brief Manages particle track output (logging/writing).
@@ -160,7 +162,8 @@ contains
                            terminate, &
                            weaksink, &
                            usertime, &
-                           subfexit)
+                           subfexit, &
+                           dropped)
     class(ParticleTracksType) :: this
     logical(LGP), intent(in) :: release
     logical(LGP), intent(in) :: featexit
@@ -169,6 +172,7 @@ contains
     logical(LGP), intent(in) :: weaksink
     logical(LGP), intent(in) :: usertime
     logical(LGP), intent(in) :: subfexit
+    logical(LGP), intent(in) :: dropped
     this%selected%release = release
     this%selected%featexit = featexit
     this%selected%timestep = timestep
@@ -176,6 +180,7 @@ contains
     this%selected%weaksink = weaksink
     this%selected%usertime = usertime
     this%selected%subfexit = subfexit
+    this%selected%dropped = dropped
   end subroutine select_events
 
   !> @brief Check if a given event code is selected for tracking.
@@ -198,6 +203,8 @@ contains
       selected = this%selected%weaksink
     type is (UserTimeEventType)
       selected = this%selected%usertime
+    type is (DroppedEventType)
+      selected = this%selected%dropped
     class default
       call pstop(1, "unknown event type")
       selected = .false.
