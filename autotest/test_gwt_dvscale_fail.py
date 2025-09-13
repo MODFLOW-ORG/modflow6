@@ -221,7 +221,7 @@ def build_models(idx, test):
     return sim, None
 
 
-@pytest.mark.developmode # TODO remove for 6.7.0
+@pytest.mark.developmode  # TODO remove for 6.7.0
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
