@@ -22,14 +22,11 @@ The calculation of specific discharge should be able to deal with
 these roundoff errors.
 """
 
-import os
-
 import flopy
 import numpy as np
 import pytest
-from framework import TestFramework
-
 from flopy.mf6.utils import Mf6Splitter
+from framework import TestFramework
 
 single_case_name = "dis_single"
 split_case_name = "dis_split"
