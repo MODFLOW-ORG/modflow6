@@ -167,7 +167,7 @@ def test_build_notes_tex():
     build_notes_tex(force=True)
 
 
-def build_mf6io_tex(models: Optional[list[str]] = None, force: bool = False):
+def build_mf6io_tex(models: Optional[list[str]] = None, force: bool = False, developmode: bool = True):
     """Build LaTeX files for the MF6IO guide from DFN files."""
 
     if models is None:
@@ -196,6 +196,8 @@ def build_mf6io_tex(models: Optional[list[str]] = None, force: bool = False):
 
             # run mf6ivar script
             args = [sys.executable, "mf6ivar.py"]
+            if not developmode:
+                args.append("--releasemode")
             for model in models:
                 args += ["--model", model]
             out, err, ret = run_cmd(*args, verbose=True)
@@ -385,6 +387,7 @@ def build_documentation(
     full: bool = False,
     models: Optional[list[str]] = None,
     repo_owner: str = "MODFLOW-ORG",
+    developmode: bool = True,
 ):
     """Build documentation for a MODFLOW 6 distribution."""
 
@@ -401,7 +404,7 @@ def build_documentation(
     out_path.mkdir(parents=True, exist_ok=True)
 
     with TemporaryDirectory() as temp:
-        build_mf6io_tex(force=force, models=models)
+        build_mf6io_tex(force=force, models=models, developmode=developmode)
         build_usage_tex(
             bin_path=bin_path,
             workspace_path=Path(temp),
@@ -498,11 +501,20 @@ Additional LaTeX files may be included in the distribution by specifying --tex-p
         action="append",
         help="Filter model types to include",
     )
+    parser.add_argument(
+        "-r",
+        "--releasemode",
+        required=False,
+        action="store_true",
+        help="Omit prerelease variables from documentation "
+        "(defaults to false for development distributions)",
+    )
     args = parser.parse_args()
     output_path = Path(args.output_path).expanduser().absolute()
     output_path.mkdir(parents=True, exist_ok=True)
     bin_path = Path(args.bin_path).expanduser().absolute()
     models = args.model if args.model else DEFAULT_MODELS
+    developmode = not args.releasemode
     build_documentation(
         bin_path=bin_path,
         out_path=output_path,
@@ -510,4 +522,5 @@ Additional LaTeX files may be included in the distribution by specifying --tex-p
         full=args.full,
         models=models,
         repo_owner=args.repo_owner,
+        developmode=developmode,
     )

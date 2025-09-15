@@ -203,20 +203,22 @@ def update_meson_build(version: Version):
     log_update(path, version)
 
 
-def update_version_tex(version: Version, timestamp: datetime):
+def update_version_tex(version: Version, timestamp: datetime, developmode: bool = True):
     path = project_root_path / "doc" / "version.tex"
     with open(path, "w") as f:
-        line = "\\newcommand{\\modflowversion}{mf" + str(version) + "}"
-        f.write(f"{line}\n")
-        line = (
-            "\\newcommand{\\modflowdate}{" + f"{timestamp.strftime('%B %d, %Y')}" + "}"
-        )
-        f.write(f"{line}\n")
-        line = (
-            "\\newcommand{\\currentmodflowversion}"
-            + "{Version \\modflowversion---\\modflowdate}"
-        )
-        f.write(f"{line}\n")
+        lines = [
+            "\\newcommand{\\modflowversion}{mf" + str(version) + "}",
+            "\\newcommand{\\modflowdate}{" + f"{timestamp.strftime('%B %d, %Y')}" + "}",
+            (
+                "\\newcommand{\\currentmodflowversion} "
+                "{Version \\modflowversion---\\modflowdate}"
+            ),
+            "\\newif\\ifdevelopmode",
+            f"\\developmode{'true' if developmode else 'false'}",
+        ]
+        for line in lines:
+            f.write(f"{line}\n")
+
     log_update(path, version)
 
 
@@ -364,13 +366,14 @@ def update_version(
         with lock:
             update_version_txt_and_py(version, timestamp)
             update_meson_build(version)
-            update_version_tex(version, timestamp)
+            update_version_tex(version, timestamp, developmode)
             update_version_f90(version, timestamp, approved, developmode)
             update_readme_and_disclaimer(version, approved)
             update_citation_cff(version, timestamp)
             update_codejson(version, timestamp, approved)
             update_doxyfile(version)
             update_pixi(version)
+
     finally:
         lock_path.unlink(missing_ok=True)
 
@@ -427,13 +430,13 @@ def test_update_version(version, approved, developmode):
 
         # check disclaimer has appropriate language
         disclaimer_path = project_root_path / "DISCLAIMER.md"
-        disclaimer = disclaimer_path.read_text().splitlines()
+        lines = disclaimer_path.read_text().splitlines()
         assert any(("approved for release") in line for line in lines) == approved
         assert any(("preliminary or provisional") in line for line in lines) != approved
 
         # check readme has appropriate language
         readme_path = project_root_path / "README.md"
-        readme = readme_path.read_text().splitlines()
+        lines = readme_path.read_text().splitlines()
         assert any(("(preliminary)") in line for line in lines) != approved
     finally:
         for p in touched_file_paths:

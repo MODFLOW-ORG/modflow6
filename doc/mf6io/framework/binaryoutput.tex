@@ -190,6 +190,7 @@ The binary grid file for DISU grids may contain information on the vertices and 
 \noindent Record 15: \texttt{(IAVERT(J),J=1,NODES+1)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NODES+1)}} \\
 \noindent Record 16: \texttt{(JAVERT(J),J=1,NJAVERT)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NJAVERT)}} \\
 
+\ifdevelopmode
 \newpage
 \subsubsection{Version 2 Binary Grid File}
 \mf~will write a version 2 binary grid file when the discretization supports the CRS input option and that option is defined.  If the discretization supports the CRS option but it is not defined in the discretization OPTIONS block, the version 1 file will be generated.  Version 2 binary grid files contain an additional definition string and data record associated with the CRS input.  The length of the data CHARACTER array record will be the trimmed length (TRIMLEN) of the provided input string.  An example for the DIS grid follows.
@@ -240,6 +241,7 @@ The binary grid file for DISU grids may contain information on the vertices and 
 \noindent Record 15: \texttt{(IDOMAIN(J),J=1,NCELLS)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NCELLS)}} \\
 \noindent Record 16: \texttt{(ICELLTYPE(J),J=1,NCELLS)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NCELLS)}} \\
 \noindent Record 17: \texttt{(CRS(J),J=1,TRIMLEN)} {\color{red} \footnotesize{CHARACTER ARRAY SIZE(TRIMLEN)}} \\
+\fi
 
 \newpage
 \subsection{Dependent Variable File}
