@@ -959,7 +959,7 @@ contains
 
     if (associated(this%spdis_cell)) then
       call this%spdis_cell%destroy()
-      deallocate(this%spdis_cell)
+      deallocate (this%spdis_cell)
     end if
     !
     ! -- Deallocate input memory
@@ -2407,7 +2407,7 @@ contains
     real(DP) :: nz
     logical :: nozee = .true.
     type(SpdisWorkArrayType), pointer :: swa => null() !< pointer to spdis work arrays structure
-    real(DP), dimension(:,:), allocatable :: bnd_faces
+    real(DP), dimension(:, :), allocatable :: bnd_faces
     !
     ! -- Ensure dis has necessary information
     if (this%icalcspdis /= 0 .and. this%dis%con%ianglex == 0) then
@@ -2428,8 +2428,8 @@ contains
     if (.not. associated(this%spdis_cell)) then
       allocate (this%spdis_cell)
       ! boundary edge finder
-      call this%spdis_cell%create(this%dis, flowja, this%ihcedge, this%propsedge, &
-                             this%iedge_ptr, this%edge_idxs)
+      call this%spdis_cell%create(this%dis, flowja, this%ihcedge, &
+                                  this%propsedge, this%iedge_ptr, this%edge_idxs)
     end if
     !
     ! -- Go through each cell and calculate specific discharge

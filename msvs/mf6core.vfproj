@@ -355,6 +355,7 @@
 		<File RelativePath="..\src\Model\ModelUtilities\PackageMover.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\SfrCrossSectionManager.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\SfrCrossSectionUtils.f90"/>
+		<File RelativePath="..\src\Model\ModelUtilities\SpdisCell.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\SpdisWorkArray.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\SwfCxsUtils.f90"/>
 		<File RelativePath="..\src\Model\ModelUtilities\TimeSelect.f90"/>
