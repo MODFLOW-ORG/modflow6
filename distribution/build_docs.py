@@ -167,7 +167,9 @@ def test_build_notes_tex():
     build_notes_tex(force=True)
 
 
-def build_mf6io_tex(models: Optional[list[str]] = None, force: bool = False, developmode: bool = True):
+def build_mf6io_tex(
+    models: Optional[list[str]] = None, force: bool = False, developmode: bool = True
+):
     """Build LaTeX files for the MF6IO guide from DFN files."""
 
     if models is None:
