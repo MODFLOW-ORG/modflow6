@@ -223,6 +223,37 @@ if fc_id == 'gcc'
   endif
 endif
 
+proj_default_library = get_option('default_library')
+if proj_default_library == 'static'
+  is_static_build = true
+else
+  is_static_build = false
+endif
+
+# test for invalid configurations
+if is_static_build
+  require_shared_libraries = is_extended_build or is_parallel_build or is_netcdf_build
+  if require_shared_libraries
+    assert(false, 'default_library=static not valid for extended build')
+  else
+    if fc_id != 'gcc'
+      assert(false, 'default_library=static not valid for non-gcc compiler')
+    elif system == 'darwin'
+      assert(false, 'default_library=static not valid for gcc compiler on darwin')
+    endif
+  endif
+endif
+
+if is_static_build
+  message('MODFLOW 6 will be statically linked')
+  compile_args += '-static'
+  link_args += ['-static', 
+                '-static-libgfortran',
+                '-static-libgcc',
+                '-static-libstdc++',
+              ]
+endif
+
 compile_args += extra_cmp_args
 
 add_project_arguments(fc.get_supported_arguments(compile_args), language: 'fortran')
@@ -256,15 +287,22 @@ endif
 # build mf6 and libmf6
 buildname = get_option('buildname')
 subdir('src')
-subdir('srcbmi')
 
-# build zbud6 and mf5to6 utility programs
+if is_static_build
+  message('Cannot build libmf6 if default_library is specified')
+else
+  subdir('srcbmi')
+endif
+
+# build zbud6 utility program
 subdir('utils/zonebudget')
 
 # add autotest directory
-fs = import('fs')
-if fs.is_dir('autotest')
-  subdir('autotest')
+if not is_static_build
+  fs = import('fs')
+  if fs.is_dir('autotest')
+    subdir('autotest')
+  endif
 endif
 
 # meson tests to evaluate installation success

@@ -49,6 +49,7 @@ module GwfChdgInputModule
     '', & ! shape
     'use array-based grid input', & ! longname
     .true., & ! required
+    .true., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -67,6 +68,7 @@ module GwfChdgInputModule
     'NAUX', & ! shape
     'keyword to specify aux variables', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -85,6 +87,7 @@ module GwfChdgInputModule
     '', & ! shape
     'name of auxiliary variable for multiplier', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -103,6 +106,7 @@ module GwfChdgInputModule
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -121,6 +125,7 @@ module GwfChdgInputModule
     '', & ! shape
     'print CHD flows to listing file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -139,6 +144,7 @@ module GwfChdgInputModule
     '', & ! shape
     'save CHD flows to budget file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -157,6 +163,7 @@ module GwfChdgInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -175,6 +182,7 @@ module GwfChdgInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -193,6 +201,7 @@ module GwfChdgInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -211,6 +220,7 @@ module GwfChdgInputModule
     '', & ! shape
     'obs6 input filename', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -229,6 +239,7 @@ module GwfChdgInputModule
     '', & ! shape
     'export array variables to netcdf output files.', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -247,6 +258,7 @@ module GwfChdgInputModule
     '', & ! shape
     'turn off Newton for unconfined cells', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -265,6 +277,7 @@ module GwfChdgInputModule
     '', & ! shape
     'maximum number of constant head cells in any stress period', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -283,6 +296,7 @@ module GwfChdgInputModule
     'NODES', & ! shape
     'head value assigned to constant head', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -301,6 +315,7 @@ module GwfChdgInputModule
     'NAUX NODES', & ! shape
     'constant head auxiliary variable iaux', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -341,6 +356,7 @@ module GwfChdgInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

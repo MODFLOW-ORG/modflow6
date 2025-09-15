@@ -30,6 +30,7 @@ module InputDefinitionModule
     character(len=LINELENGTH) :: shape = '' !< shape of data type
     character(len=LINELENGTH) :: longname = '' !< description of variable
     logical(LGP) :: required = .false. !< is the parameter required
+    logical(LGP) :: prerelease = .false. !< is the parameter prerelease
     logical(LGP) :: in_record = .false. !< is the parameter within an input record
     logical(LGP) :: preserve_case = .false. !< should string case be preserved
     logical(LGP) :: layered = .false. !< does the parameter support a layered read

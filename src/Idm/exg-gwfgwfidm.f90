@@ -65,6 +65,7 @@ module ExgGwfgwfInputModule
     'NAUX', & ! shape
     'keyword to specify aux variables', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -83,6 +84,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -101,6 +103,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'keyword to print input to list file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -119,6 +122,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'keyword to print gwfgwf flows to list file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -137,6 +141,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'keyword to save GWFGWF flows', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -155,6 +160,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'conductance weighting option', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -173,6 +179,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'vertical conductance options', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -191,6 +198,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'keyword to activate VARIABLECV option', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -209,6 +217,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'keyword to activate DEWATERED option', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -227,6 +236,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'keyword to activate Newton-Raphson', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -245,6 +255,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'keyword to activate XT3D', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -263,6 +274,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -281,6 +293,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -299,6 +312,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'gnc6 keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -317,6 +331,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'gnc6 input filename', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -335,6 +350,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -353,6 +369,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -371,6 +388,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'mvr6 input filename', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -389,6 +407,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -407,6 +426,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -425,6 +445,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'obs6 input filename', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -443,6 +464,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'activate interface model on exchange', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -461,6 +483,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'number of exchanges', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -479,6 +502,7 @@ module ExgGwfgwfInputModule
     'NCELLDIM', & ! shape
     'cellid of first cell', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -497,6 +521,7 @@ module ExgGwfgwfInputModule
     'NCELLDIM', & ! shape
     'cellid of second cell', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -515,6 +540,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'integer flag for connection type', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -533,6 +559,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'connection distance', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -551,6 +578,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'connection distance', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -569,6 +597,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'horizontal cell width or area for vertical flow', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -587,6 +616,7 @@ module ExgGwfgwfInputModule
     'NAUX', & ! shape
     'auxiliary variables', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -605,6 +635,7 @@ module ExgGwfgwfInputModule
     '', & ! shape
     'exchange boundname', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -659,6 +690,7 @@ module ExgGwfgwfInputModule
     'NEXG', & ! shape
     'exchange data', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

@@ -46,6 +46,7 @@ module UtlNcfInputModule
     'LENBIGLINE', & ! shape
     'CRS well-known text (WKT) string', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -64,6 +65,7 @@ module UtlNcfInputModule
     '', & ! shape
     'variable compression deflate level', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -82,6 +84,7 @@ module UtlNcfInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -100,6 +103,7 @@ module UtlNcfInputModule
     '', & ! shape
     'chunking parameter for the time dimension', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -118,6 +122,7 @@ module UtlNcfInputModule
     '', & ! shape
     'chunking parameter for the mesh face dimension', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -136,6 +141,7 @@ module UtlNcfInputModule
     '', & ! shape
     'chunking parameter for structured z', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -154,6 +160,7 @@ module UtlNcfInputModule
     '', & ! shape
     'chunking parameter for structured y', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -172,6 +179,7 @@ module UtlNcfInputModule
     '', & ! shape
     'chunking parameter for structured x', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -190,6 +198,7 @@ module UtlNcfInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -208,6 +217,7 @@ module UtlNcfInputModule
     '', & ! shape
     'number of cells in layer', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -226,6 +236,7 @@ module UtlNcfInputModule
     'NCPL', & ! shape
     'cell center latitude', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -244,6 +255,7 @@ module UtlNcfInputModule
     'NCPL', & ! shape
     'cell center longitude', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -281,6 +293,7 @@ module UtlNcfInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

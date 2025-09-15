@@ -409,9 +409,7 @@ contains
                                 this%dim_ids%max_nmesh_face_nodes), &
                    this%nc_fname)
 
-    ! x, y, nlay
-    call nf_verify(nf90_def_dim(this%ncid, 'nlay', this%dis%nlay, &
-                                this%dim_ids%nlay), this%nc_fname)
+    ! x, y
     call nf_verify(nf90_def_dim(this%ncid, 'x', this%dis%ncol, &
                                 this%x_dim), this%nc_fname)
     call nf_verify(nf90_def_dim(this%ncid, 'y', this%dis%nrow, &

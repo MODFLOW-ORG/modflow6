@@ -53,6 +53,7 @@ module GwtSrcInputModule
     'NAUX', & ! shape
     'keyword to specify aux variables', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -71,6 +72,7 @@ module GwtSrcInputModule
     '', & ! shape
     'name of auxiliary variable for multiplier', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -89,6 +91,7 @@ module GwtSrcInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -107,6 +110,7 @@ module GwtSrcInputModule
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -125,6 +129,7 @@ module GwtSrcInputModule
     '', & ! shape
     'print calculated flows to listing file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -143,6 +148,7 @@ module GwtSrcInputModule
     '', & ! shape
     'save well flows to budget file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -161,6 +167,7 @@ module GwtSrcInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -179,6 +186,7 @@ module GwtSrcInputModule
     '', & ! shape
     'head keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -197,6 +205,7 @@ module GwtSrcInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -215,6 +224,7 @@ module GwtSrcInputModule
     '', & ! shape
     'file name of time series information', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -233,6 +243,7 @@ module GwtSrcInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -251,6 +262,7 @@ module GwtSrcInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -269,6 +281,7 @@ module GwtSrcInputModule
     '', & ! shape
     'obs6 input filename', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -287,6 +300,7 @@ module GwtSrcInputModule
     '', & ! shape
     'apply source to highest saturated cell', & ! longname
     .false., & ! required
+    .true., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -305,6 +319,7 @@ module GwtSrcInputModule
     '', & ! shape
     'maximum number of sources', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -323,6 +338,7 @@ module GwtSrcInputModule
     'NCELLDIM', & ! shape
     'cell identifier', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -341,6 +357,7 @@ module GwtSrcInputModule
     '', & ! shape
     'mass source loading rate', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -359,6 +376,7 @@ module GwtSrcInputModule
     'NAUX', & ! shape
     'auxiliary variables', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -377,6 +395,7 @@ module GwtSrcInputModule
     '', & ! shape
     'well name', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -419,6 +438,7 @@ module GwtSrcInputModule
     'MAXBOUND', & ! shape
     '', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

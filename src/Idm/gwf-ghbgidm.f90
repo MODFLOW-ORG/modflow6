@@ -50,6 +50,7 @@ module GwfGhbgInputModule
     '', & ! shape
     'use array-based grid input', & ! longname
     .true., & ! required
+    .true., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -68,6 +69,7 @@ module GwfGhbgInputModule
     'NAUX', & ! shape
     'keyword to specify aux variables', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -86,6 +88,7 @@ module GwfGhbgInputModule
     '', & ! shape
     'name of auxiliary variable for multiplier', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -104,6 +107,7 @@ module GwfGhbgInputModule
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -122,6 +126,7 @@ module GwfGhbgInputModule
     '', & ! shape
     'print calculated flows to listing file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -140,6 +145,7 @@ module GwfGhbgInputModule
     '', & ! shape
     'save GHBG flows to budget file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -158,6 +164,7 @@ module GwfGhbgInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -176,6 +183,7 @@ module GwfGhbgInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -194,6 +202,7 @@ module GwfGhbgInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -212,6 +221,7 @@ module GwfGhbgInputModule
     '', & ! shape
     'obs6 input filename', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -230,6 +240,7 @@ module GwfGhbgInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -248,6 +259,7 @@ module GwfGhbgInputModule
     '', & ! shape
     'export array variables to netcdf output files.', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -266,6 +278,7 @@ module GwfGhbgInputModule
     '', & ! shape
     'maximum number of general-head boundaries in any stress period', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -284,6 +297,7 @@ module GwfGhbgInputModule
     'NODES', & ! shape
     'boundary head', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -302,6 +316,7 @@ module GwfGhbgInputModule
     'NODES', & ! shape
     'boundary conductance', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -320,6 +335,7 @@ module GwfGhbgInputModule
     'NAUX NODES', & ! shape
     'general-head boundary auxiliary variable iaux', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -361,6 +377,7 @@ module GwfGhbgInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

@@ -1,8 +1,0 @@
-# GWF Model NPF input
-BEGIN options
-END options
-
-BEGIN griddata
-  icelltype  NETCDF # read ICELLTYPE from the model NetCDF input
-  k  NETCDF # read K from the model NetCDF input
-END griddata

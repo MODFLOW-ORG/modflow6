@@ -60,6 +60,7 @@ module GwfEvtInputModule
     '', & ! shape
     'if cell is dry do not apply evapotranspiration to underlying cell', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -78,6 +79,7 @@ module GwfEvtInputModule
     'NAUX', & ! shape
     'keyword to specify aux variables', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -96,6 +98,7 @@ module GwfEvtInputModule
     '', & ! shape
     'name of auxiliary variable for multiplier', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -114,6 +117,7 @@ module GwfEvtInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -132,6 +136,7 @@ module GwfEvtInputModule
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -150,6 +155,7 @@ module GwfEvtInputModule
     '', & ! shape
     'print evapotranspiration rates to listing file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -168,6 +174,7 @@ module GwfEvtInputModule
     '', & ! shape
     'save evapotranspiration rates to budget file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -186,6 +193,7 @@ module GwfEvtInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -204,6 +212,7 @@ module GwfEvtInputModule
     '', & ! shape
     'head keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -222,6 +231,7 @@ module GwfEvtInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -240,6 +250,7 @@ module GwfEvtInputModule
     '', & ! shape
     'file name of time series information', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -258,6 +269,7 @@ module GwfEvtInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -276,6 +288,7 @@ module GwfEvtInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -294,6 +307,7 @@ module GwfEvtInputModule
     '', & ! shape
     'obs6 input filename', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -312,6 +326,7 @@ module GwfEvtInputModule
     '', & ! shape
     'specify proportion of evapotranspiration rate at ET surface', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -330,6 +345,7 @@ module GwfEvtInputModule
     '', & ! shape
     'maximum number of evapotranspiration cells', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -348,6 +364,7 @@ module GwfEvtInputModule
     '', & ! shape
     'number of ET segments', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -366,6 +383,7 @@ module GwfEvtInputModule
     'NCELLDIM', & ! shape
     'cell identifier', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -384,6 +402,7 @@ module GwfEvtInputModule
     '', & ! shape
     'ET surface', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -402,6 +421,7 @@ module GwfEvtInputModule
     '', & ! shape
     'maximum ET rate', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -420,6 +440,7 @@ module GwfEvtInputModule
     '', & ! shape
     'ET extinction depth', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -438,6 +459,7 @@ module GwfEvtInputModule
     'NSEG-1', & ! shape
     'proportion of ET extinction depth', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -456,6 +478,7 @@ module GwfEvtInputModule
     'NSEG-1', & ! shape
     'proportion of maximum ET rate', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -474,6 +497,7 @@ module GwfEvtInputModule
     '', & ! shape
     'proportion of maximum ET rate at ET surface', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -492,6 +516,7 @@ module GwfEvtInputModule
     'NAUX', & ! shape
     'auxiliary variables', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -510,6 +535,7 @@ module GwfEvtInputModule
     '', & ! shape
     'evapotranspiration name', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -559,6 +585,7 @@ module GwfEvtInputModule
     'MAXBOUND', & ! shape
     '', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

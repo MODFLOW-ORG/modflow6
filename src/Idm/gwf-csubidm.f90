@@ -104,6 +104,7 @@ module GwfCsubInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -122,6 +123,7 @@ module GwfCsubInputModule
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -140,6 +142,7 @@ module GwfCsubInputModule
     '', & ! shape
     'keyword to save CSUB flows', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -158,6 +161,7 @@ module GwfCsubInputModule
     '', & ! shape
     'unit weight of water', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -176,6 +180,7 @@ module GwfCsubInputModule
     '', & ! shape
     'compressibility of water', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -194,6 +199,7 @@ module GwfCsubInputModule
     '', & ! shape
     'keyword to indicate the head-based formulation will be used', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -212,6 +218,7 @@ module GwfCsubInputModule
     '', & ! shape
     'keyword to indicate that preconsolidation heads will be specified', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -230,6 +237,7 @@ module GwfCsubInputModule
     '', & ! shape
     'number of interbed cell nodes', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -248,6 +256,7 @@ module GwfCsubInputModule
     '', & ! shape
     'keyword to indicate CR and CC are read instead of SSE and SSV', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -267,6 +276,7 @@ module GwfCsubInputModule
     'keyword to indicate material properties can change during the&
      & simulations', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -285,6 +295,7 @@ module GwfCsubInputModule
     '', & ! shape
     'keyword to indicate cell fraction interbed thickness', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -303,6 +314,7 @@ module GwfCsubInputModule
     '', & ! shape
     'keyword to indicate that absolute initial states will be specified', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -322,6 +334,7 @@ module GwfCsubInputModule
     'keyword to indicate that absolute initial preconsolidation stresses&
      & (head) will be specified', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -341,6 +354,7 @@ module GwfCsubInputModule
     'keyword to indicate that absolute initial delay bed heads will be&
      & specified', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -360,6 +374,7 @@ module GwfCsubInputModule
     'keyword to indicate that specific storage will be calculate using the&
      & effective stress from the previous time step', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -378,6 +393,7 @@ module GwfCsubInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -396,6 +412,7 @@ module GwfCsubInputModule
     '', & ! shape
     'budget keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -414,6 +431,7 @@ module GwfCsubInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -432,6 +450,7 @@ module GwfCsubInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -450,6 +469,7 @@ module GwfCsubInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -468,6 +488,7 @@ module GwfCsubInputModule
     '', & ! shape
     'budget keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -486,6 +507,7 @@ module GwfCsubInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -504,6 +526,7 @@ module GwfCsubInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -522,6 +545,7 @@ module GwfCsubInputModule
     '', & ! shape
     'compaction keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -540,6 +564,7 @@ module GwfCsubInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -558,6 +583,7 @@ module GwfCsubInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -576,6 +602,7 @@ module GwfCsubInputModule
     '', & ! shape
     'elastic interbed compaction keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -594,6 +621,7 @@ module GwfCsubInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -612,6 +640,7 @@ module GwfCsubInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -630,6 +659,7 @@ module GwfCsubInputModule
     '', & ! shape
     'inelastic interbed compaction keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -648,6 +678,7 @@ module GwfCsubInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -666,6 +697,7 @@ module GwfCsubInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -684,6 +716,7 @@ module GwfCsubInputModule
     '', & ! shape
     'interbed compaction keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -702,6 +735,7 @@ module GwfCsubInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -720,6 +754,7 @@ module GwfCsubInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -738,6 +773,7 @@ module GwfCsubInputModule
     '', & ! shape
     'coarse compaction keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -756,6 +792,7 @@ module GwfCsubInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -774,6 +811,7 @@ module GwfCsubInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -792,6 +830,7 @@ module GwfCsubInputModule
     '', & ! shape
     'budget keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -810,6 +849,7 @@ module GwfCsubInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -828,6 +868,7 @@ module GwfCsubInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -846,6 +887,7 @@ module GwfCsubInputModule
     '', & ! shape
     'package_convergence keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -864,6 +906,7 @@ module GwfCsubInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -882,6 +925,7 @@ module GwfCsubInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -900,6 +944,7 @@ module GwfCsubInputModule
     '', & ! shape
     'head keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -918,6 +963,7 @@ module GwfCsubInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -936,6 +982,7 @@ module GwfCsubInputModule
     '', & ! shape
     'file name of time series information', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -954,6 +1001,7 @@ module GwfCsubInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -972,6 +1020,7 @@ module GwfCsubInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -990,6 +1039,7 @@ module GwfCsubInputModule
     '', & ! shape
     'obs6 input filename', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -1008,6 +1058,7 @@ module GwfCsubInputModule
     '', & ! shape
     'number of CSUB interbed systems', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1026,6 +1077,7 @@ module GwfCsubInputModule
     '', & ! shape
     'maximum number of stress offset cells', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1044,6 +1096,7 @@ module GwfCsubInputModule
     'NODES', & ! shape
     'elastic coarse specific storage', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -1062,6 +1115,7 @@ module GwfCsubInputModule
     'NODES', & ! shape
     'initial coarse-grained material porosity', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -1080,6 +1134,7 @@ module GwfCsubInputModule
     'NODES', & ! shape
     'specific gravity of moist sediments', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -1098,6 +1153,7 @@ module GwfCsubInputModule
     'NODES', & ! shape
     'specific gravity of saturated sediments', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -1116,6 +1172,7 @@ module GwfCsubInputModule
     '', & ! shape
     'CSUB id number for this entry', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1134,6 +1191,7 @@ module GwfCsubInputModule
     'NCELLDIM', & ! shape
     'cell identifier', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1152,6 +1210,7 @@ module GwfCsubInputModule
     '', & ! shape
     'delay type', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1170,6 +1229,7 @@ module GwfCsubInputModule
     '', & ! shape
     'initial stress', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1188,6 +1248,7 @@ module GwfCsubInputModule
     '', & ! shape
     'interbed thickness or cell fraction', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1206,6 +1267,7 @@ module GwfCsubInputModule
     '', & ! shape
     'delay interbed material factor', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1224,6 +1286,7 @@ module GwfCsubInputModule
     '', & ! shape
     'initial interbed inelastic specific storage', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1242,6 +1305,7 @@ module GwfCsubInputModule
     '', & ! shape
     'initial interbed elastic specific storage', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1260,6 +1324,7 @@ module GwfCsubInputModule
     '', & ! shape
     'initial interbed porosity', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1278,6 +1343,7 @@ module GwfCsubInputModule
     '', & ! shape
     'delay interbed vertical hydraulic conductivity', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1296,6 +1362,7 @@ module GwfCsubInputModule
     '', & ! shape
     'initial delay interbed head', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1314,6 +1381,7 @@ module GwfCsubInputModule
     '', & ! shape
     'well name', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1332,6 +1400,7 @@ module GwfCsubInputModule
     'NCELLDIM', & ! shape
     'cell identifier', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1350,6 +1419,7 @@ module GwfCsubInputModule
     '', & ! shape
     'well stress offset', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1443,6 +1513,7 @@ module GwfCsubInputModule
     'NINTERBEDS', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -1461,6 +1532,7 @@ module GwfCsubInputModule
     'MAXSIG0', & ! shape
     '', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

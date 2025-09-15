@@ -70,6 +70,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to save NPF flows', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -88,6 +89,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to print NPF flows to listing file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -106,6 +108,7 @@ module GwfNpfInputModule
     '', & ! shape
     'conductance weighting option', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -124,6 +127,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to activate THICKSTRT option', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -142,6 +146,7 @@ module GwfNpfInputModule
     '', & ! shape
     'vertical conductance options', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -160,6 +165,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to activate VARIABLECV option', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -178,6 +184,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to activate DEWATERED option', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -196,6 +203,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to activate PERCHED option', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -214,6 +222,7 @@ module GwfNpfInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -232,6 +241,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to activate rewetting', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -250,6 +260,7 @@ module GwfNpfInputModule
     '', & ! shape
     'wetting factor to use for rewetting', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -268,6 +279,7 @@ module GwfNpfInputModule
     '', & ! shape
     'interval to use for rewetting', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -286,6 +298,7 @@ module GwfNpfInputModule
     '', & ! shape
     'flag to determine wetting equation', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -304,6 +317,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to activate XT3D', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -322,6 +336,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to activate XT3D', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -340,6 +355,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to XT3D on right hand side', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -358,6 +374,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to save specific discharge', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -376,6 +393,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to save saturation', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -394,6 +412,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to indicate that specified K22 is a ratio', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -412,6 +431,7 @@ module GwfNpfInputModule
     '', & ! shape
     'keyword to indicate that specified K33 is a ratio', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -430,6 +450,7 @@ module GwfNpfInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -448,6 +469,7 @@ module GwfNpfInputModule
     '', & ! shape
     'tvk keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -466,6 +488,7 @@ module GwfNpfInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -484,6 +507,7 @@ module GwfNpfInputModule
     '', & ! shape
     'file name of TVK information', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -502,6 +526,7 @@ module GwfNpfInputModule
     '', & ! shape
     'export array variables to layered ascii files.', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -520,6 +545,7 @@ module GwfNpfInputModule
     '', & ! shape
     'export array variables to netcdf output files.', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -538,6 +564,7 @@ module GwfNpfInputModule
     '', & ! shape
     'turn off Newton for unconfined cells', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -556,6 +583,7 @@ module GwfNpfInputModule
     '', & ! shape
     'set saturation omega value', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -574,6 +602,7 @@ module GwfNpfInputModule
     'NODES', & ! shape
     'confined or convertible indicator', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -592,6 +621,7 @@ module GwfNpfInputModule
     'NODES', & ! shape
     'hydraulic conductivity (L/T)', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -610,6 +640,7 @@ module GwfNpfInputModule
     'NODES', & ! shape
     'hydraulic conductivity of second ellipsoid axis', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -628,6 +659,7 @@ module GwfNpfInputModule
     'NODES', & ! shape
     'hydraulic conductivity of third ellipsoid axis (L/T)', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -646,6 +678,7 @@ module GwfNpfInputModule
     'NODES', & ! shape
     'first anisotropy rotation angle (degrees)', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -664,6 +697,7 @@ module GwfNpfInputModule
     'NODES', & ! shape
     'second anisotropy rotation angle (degrees)', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -682,6 +716,7 @@ module GwfNpfInputModule
     'NODES', & ! shape
     'third anisotropy rotation angle (degrees)', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -700,6 +735,7 @@ module GwfNpfInputModule
     'NODES', & ! shape
     'wetdry threshold and factor', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -761,6 +797,7 @@ module GwfNpfInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

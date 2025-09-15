@@ -42,6 +42,7 @@ module SwfCxsInputModule
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -60,6 +61,7 @@ module SwfCxsInputModule
     '', & ! shape
     'number of reaches', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -78,6 +80,7 @@ module SwfCxsInputModule
     '', & ! shape
     'total number of points defined for all reaches', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -96,6 +99,7 @@ module SwfCxsInputModule
     '', & ! shape
     'reach number for this entry', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -114,6 +118,7 @@ module SwfCxsInputModule
     '', & ! shape
     'number of points used to define cross section', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -132,6 +137,7 @@ module SwfCxsInputModule
     '', & ! shape
     'fractional width', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -150,6 +156,7 @@ module SwfCxsInputModule
     '', & ! shape
     'depth', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -168,6 +175,7 @@ module SwfCxsInputModule
     '', & ! shape
     'Mannings roughness coefficient', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -199,6 +207,7 @@ module SwfCxsInputModule
     'NSECTIONS', & ! shape
     '', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -217,6 +226,7 @@ module SwfCxsInputModule
     'NPOINTS', & ! shape
     '', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

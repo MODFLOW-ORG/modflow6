@@ -88,10 +88,8 @@ module ParticleModule
     real(DP), public :: zorigin !< z origin for coordinate transformation from model to local
     real(DP), public :: sinrot !< sine of rotation angle for coordinate transformation from model to local
     real(DP), public :: cosrot !< cosine of rotation angle for coordinate transformation from model to local
-
     logical(LGP), public :: transformed !< whether coordinates have been transformed from model to local
     logical(LGP), public :: advancing !< whether particle is still being tracked for current time step
-
     type(ListType), public, pointer :: history !< history of particle positions (for cycle detection)
   contains
     procedure, public :: destroy => destroy_particle

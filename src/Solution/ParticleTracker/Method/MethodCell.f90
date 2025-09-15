@@ -26,11 +26,20 @@ module MethodCellModule
 
 contains
   !> @brief Try passing the particle to the next subdomain.
+  !! or to a boundary of this method's tracking domain.
+  !!
+  !! If the particle is not advancing, or if it's not at
+  !! a boundary, nothing happens. Otherwise, raise a cell
+  !! exit event. Then, if at a net outflow boundary face,
+  !! or top face of a partially saturated cell, terminate.
+  !<
   subroutine try_pass(this, particle, nextlevel, advancing)
     class(MethodCellType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    integer(I4B) :: nextlevel, ic, iface
-    logical(LGP) :: advancing, on_face, on_top_face, partly_sat
+    logical(LGP) :: advancing
+    integer(I4B) :: nextlevel
+    ! local
+    integer(I4B) :: ic, iface, nfaces
 
     if (.not. particle%advancing) then
       advancing = .false.
@@ -40,31 +49,30 @@ contains
 
     call this%pass(particle)
 
-    ic = particle%itrdomain(LEVEL_FEATURE)
-    iface = particle%iboundary(LEVEL_FEATURE) - 1 ! cell is closed
-    on_face = iface >= 0
-    on_top_face = this%fmi%max_faces == iface
-    partly_sat = this%fmi%gwfsat(this%cell%defn%icell) < DONE
+    ! not on a cell boundary? nothing to do
+    iface = particle%iboundary(LEVEL_FEATURE)
+    nfaces = this%cell%defn%npolyverts + 2
+    if (iface >= nfaces) iface = iface - 1
+    if (iface <= 0) return
 
-    ! if at top and the cell is partially saturated,
-    ! we're at the water table, not the cell top, so
-    ! no exit event. if cell top is a boundary face,
-    ! terminate. if the dry tracking method is stop,
-    ! terminate. otherwise, leave the particle where
-    ! it is- keep tracking it on the next time step.
-    if (on_top_face .and. partly_sat) then
-      advancing = .false.
-      particle%advancing = .false.
-      if (this%fmi%is_net_out_boundary_face(ic, iface) .or. &
-          particle%idrymeth == 1) & ! dry_tracking_method stop
-        call this%terminate(particle, status=TERM_BOUNDARY)
+    ! on a cell face, done advancing. raise an exit event
+    advancing = .false.
+    call this%cellexit(particle)
+
+    ! assigned boundary face with net outflow? terminate
+    ic = particle%itrdomain(LEVEL_FEATURE)
+    if (this%fmi%is_net_out_boundary_face(ic, iface)) then
+      call this%terminate(particle, status=TERM_BOUNDARY)
       return
     end if
 
-    if (on_face) then
-      advancing = .false.
-      call this%cellexit(particle)
+    ! top face of a partly saturated cell? stay there
+    if (iface == nfaces .and. &
+        this%fmi%gwfsat(this%cell%defn%icell) < DONE) then
+      call this%terminate(particle, status=TERM_BOUNDARY)
+      return
     end if
+
   end subroutine try_pass
 
   !> @brief Check reporting/terminating conditions before tracking

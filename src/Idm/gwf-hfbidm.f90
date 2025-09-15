@@ -39,6 +39,7 @@ module GwfHfbInputModule
     '', & ! shape
     'model print input to listing file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -57,6 +58,7 @@ module GwfHfbInputModule
     '', & ! shape
     'maximum number of barriers', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -75,6 +77,7 @@ module GwfHfbInputModule
     'NCELLDIM', & ! shape
     'first cell adjacent to barrier', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -93,6 +96,7 @@ module GwfHfbInputModule
     'NCELLDIM', & ! shape
     'second cell adjacent to barrier', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -111,6 +115,7 @@ module GwfHfbInputModule
     '', & ! shape
     'barrier hydraulic characteristic', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -139,6 +144,7 @@ module GwfHfbInputModule
     'MAXHFB', & ! shape
     '', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

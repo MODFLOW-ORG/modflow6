@@ -38,6 +38,7 @@ module PrtFmiInputModule
     '', & ! shape
     'save cell-by-cell flows to budget file', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -56,6 +57,7 @@ module PrtFmiInputModule
     '', & ! shape
     'flow type', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -74,6 +76,7 @@ module PrtFmiInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -92,6 +95,7 @@ module PrtFmiInputModule
     '', & ! shape
     'file name', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -119,6 +123,7 @@ module PrtFmiInputModule
     '', & ! shape
     'flowtype list', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

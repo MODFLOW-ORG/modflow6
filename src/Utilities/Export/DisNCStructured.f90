@@ -29,7 +29,6 @@ module DisNCStructuredModule
     integer(I4B) :: x !< number of columns
     integer(I4B) :: y !< number of rows
     integer(I4B) :: z !< number of layers
-    integer(I4B) :: ncpl !< number of cells in layer
     integer(I4B) :: time !< number of steps
     integer(I4B) :: bnd !< number in boundary
   contains
@@ -829,11 +828,6 @@ contains
     call nf_verify(nf90_def_var(this%ncid, 'x_bnds', NF90_DOUBLE, &
                                 (/this%dim_ids%bnd, this%dim_ids%x/), &
                                 this%var_ids%x_bnds), this%nc_fname)
-
-    ! NCPL dimension
-    call nf_verify(nf90_def_dim(this%ncid, 'ncpl', &
-                                this%dis%ncol * this%dis%nrow, &
-                                this%dim_ids%ncpl), this%nc_fname)
   end subroutine define_dim
 
   !> @brief create the model layer dependent variables
@@ -1141,8 +1135,6 @@ contains
           axis_sz = dim_ids%y
         case ('NCOL')
           axis_sz = dim_ids%x
-        case ('NCPL', 'NAUX NCPL')
-          axis_sz = dim_ids%ncpl
         end select
 
         longname = export_longname(idt%longname, pkgname, idt%tagname, mempath)
@@ -1369,8 +1361,6 @@ contains
           axis_sz = dim_ids%y
         case ('NCOL')
           axis_sz = dim_ids%x
-        case ('NCPL', 'NAUX NCPL')
-          axis_sz = dim_ids%ncpl
         end select
 
         varname = export_varname(pkgname, idt%tagname, mempath)

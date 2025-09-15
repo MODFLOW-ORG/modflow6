@@ -5,6 +5,18 @@ Extended \mf contains all features available in the standard executable, runs on
 This sections describes input files that are only available with Extended \mf.  For more information on using Extended \mf, refer to the \href{https://github.com/MODFLOW-ORG/modflow6/wiki}{MODFLOW 6 Wiki} on the version-controlled \href{https://github.com/MODFLOW-ORG/modflow6}{MODFLOW 6 repository}.
 
 \newpage
+\subsection{NetCDF in Extended \mf}
+Extended \mf can read and write version 4 NetCDF (Network Common Data Form) files. Two different formats are supported for each (input and output) file type: a structured format and a UGRID (Unstructured Grid) based Layered Mesh format. Each format aims to be cf-conventions compliant.
+
+All MODFLOW 6 NetCDF files correspond to a model. Output files typically contain arrays for the model dependent variable. Input files can contain package arrays that are supported as inputs from NetCDF files. These variables are indicated with red highlighting in package description chapters of this guide. Refer to the \mf Wiki (linked above) for additional documentation and details related to using NetCDF files as \mf inputs.
+
+\mf structured NetCDF files support GWF, GWT and GWE models based on DIS package grids. To configure a model structured NetCDF output file that includes a dependent timeseries variable, add the NETCDF\_STRUCTURED option to the model name file:
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/ext-netcdf-gwf-structured.dat}
+
+\mf UGRID Layered Mesh NetCDF files support GWF, GWT and GWE models based on DIS and DISV package grids. Each grid based array variable in these file types is split into a set of layer variables, including model dependent variable output. To configure a model NetCDF mesh output file that includes layered dependent timeseries variables, add the NETCDF\_MESH2D output file option to the model name file:
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/ext-netcdf-gwf-mesh.dat}
+
+\newpage
 \subsection{NetCDF (NCF) Configuration Utility}
 \input{utl_ncf.tex}
 

@@ -108,6 +108,87 @@ jobs:
       - name: Unit test MF6
         run: pixi run test builddir
 
+  build-static:
+    name: Static gcc build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+          - os: windows-2022
+    defaults:
+      run:
+        shell: bash
+    env:
+      FC: gfortran
+      FC_V: 13
+    steps:
+      - name: Checkout MF6
+        uses: actions/checkout@v5
+
+      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: ${{ env.FC_V }}
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.9.0
+        with:
+          pixi-version: v0.41.4
+
+      - name: Setup static MF6
+        run: pixi run setup -Dwerror=true -Ddefault_library=static builddir
+
+      - name: Build MF6
+        run: pixi run build builddir
+
+      - name: Show build log
+        if: failure()
+        run: cat builddir/meson-logs/meson-log.txt
+
+      - name: Unit test MF6
+        run: pixi run test builddir
+
+      - name: Confirm modflow6 has no dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          echo "Checking dependencies with ldd..."
+          if ldd bin/mf6; then
+              echo mf6 is dynamically linked
+              exit 1
+          else
+              echo mf6 is statically linked
+          fi
+
+      - name: Clone ntldd repository and build
+        if: runner.os == 'Windows'
+        run: |
+          git clone https://github.com/LRN/ntldd.git
+          cd ntldd
+          ./makeldd.sh
+          ls -lha
+
+      - name: Confirm modflow6 has no dependencies (Windows)
+        if: runner.os == 'Windows'
+        working-directory: ntldd
+        run: |
+          echo "Checking dependencies with ntldd..."
+          set +e
+          ./ntldd.exe ../bin/mf6.exe > mf6.dependencies.txt
+
+          dep_count=$(grep -vc "KERNEL32.dll" mf6.dependencies.txt)
+          echo "Number of dependencies: $dep_count"
+
+          set -e
+          if [ "$dep_count" -eq 0 ]; then
+            echo mf6.exe is statically linked
+          else
+            echo mf6.exe is dynamically linked
+            echo exit 1
+          fi
+
   smoke_test:
     name: Smoke test
     runs-on: ubuntu-22.04

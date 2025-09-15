@@ -102,7 +102,7 @@ Some arrays define information that is required for the entire model grid, or pa
 
 Here, the initial heads for the model are provided in the \texttt{strt} array.  If the optional LAYERED keyword is present, then a separate array is provided for each layer.  If the LAYERED keyword is not present, then the entire starting head array is read at once.  The LAYERED keyword may be useful to discretization packages of type DIS and DISV, which support the concept of layers.  Models defined with the DISU Package are not layered.
 
-Note that the \mf Extended build also supports an optional NETCDF keyword.  This keyword is not compatible with the LAYERED keyword and is a valid option only if a model NetCDF input file is configured.  This type of workflow is covered in the section which describes Extended \mf.
+Note that the \mf Extended build also supports an optional NETCDF keyword.  This keyword is not compatible with the LAYERED keyword and is a valid option only if a model NetCDF (Network Common Data Form) input file is configured.  For more information see the Extended \mf section.
 
 For a structured DIS model, the READARRAY utility is used to read arrays that are dimensioned to the full size of the grid (of size \texttt{nlay*nrow*ncol}). This utility first reads an array name, which associates the input to be read with the desired array.  For these arrays, an optional keyword ``LAYERED'' can be located next to the array name.  If ``LAYERED'' is detected, then a control line is provided for each layer and the array is filled with values for each model layer.  If the ``LAYERED'' keyword is absent, then a single control line is used and the entire array is filled at once.
 

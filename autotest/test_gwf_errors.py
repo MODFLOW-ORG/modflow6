@@ -32,7 +32,7 @@ def run_mf6_error(ws, exe, err_str_list):
     msg = "mf terminated with error"
     if returncode != 0:
         if not isinstance(err_str_list, list):
-            err_str_list = list(err_str_list)
+            err_str_list = [err_str_list]
         for err_str in err_str_list:
             err = any(err_str in s for s in buff)
             if err:
@@ -119,11 +119,36 @@ def test_simple_model_success(function_tmpdir, targets):
     assert final_message in buff[-1], failure_message
 
 
+def test_input_bound(function_tmpdir, targets):
+    mf6 = targets["mf6"]
+
+    # test a simple model to make sure it runs and terminates correctly
+    sim = get_minimal_gwf_simulation(str(function_tmpdir), mf6)
+    sim.write_simulation()
+
+    # update chd to underspecify maxbound
+    with open(function_tmpdir / "test.chd", "w") as f:
+        f.write("BEGIN options\n")
+        f.write("END options\n\n")
+        f.write("BEGIN dimensions\n")
+        f.write("  MAXBOUND  1\n")
+        f.write("END dimensions\n\n")
+        f.write("BEGIN period  1\n")
+        f.write("  1 1 1 0\n")
+        f.write("  1 5 5 1\n")
+        f.write("END period  1\n")
+
+    with pytest.raises(RuntimeError):
+        # make sure error is set when input dimension is too small
+        err_str = "Input error: line count exceeds input dimension. Expected rows=1."
+        run_mf6_error(str(function_tmpdir), mf6, err_str)
+
+
 def test_empty_folder(function_tmpdir, targets):
     mf6 = targets["mf6"]
     with pytest.raises(RuntimeError):
         # make sure mf6 fails when there is no simulation name file
-        err_str = "mf6: mfsim.nam is not present in working directory."
+        err_str = "mfsim.nam is not present in working directory."
         run_mf6_error(str(function_tmpdir), mf6, err_str)
 
 

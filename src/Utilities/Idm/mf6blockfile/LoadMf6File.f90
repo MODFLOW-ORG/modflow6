@@ -445,10 +445,22 @@ contains
   !! Load input associated with tag key into the memory manager.
   !<
   subroutine load_tag(this, iblk, idt)
+    use DevFeatureModule, only: dev_feature
     use ArrayHandlersModule, only: expandarray
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
     type(InputParamDefinitionType), pointer, intent(in) :: idt !< input data type object describing this record
+    character(len=LINELENGTH) :: dev_msg
+
+    ! check if input param is prerelease
+    if (idt%prerelease) then
+      dev_msg = 'Input tag "'//trim(idt%tagname)// &
+        &'" read from file "'//trim(this%filename)// &
+        &'" is still under development. Install the &
+        &nightly build or compile from source with IDEVELOPMODE = 1.'
+      call dev_feature(dev_msg, this%iout)
+    end if
+
     ! allocate and load data type
     select case (idt%datatype)
     case ('KEYWORD')

@@ -588,12 +588,7 @@ $(OBJDIR)/gwf-sfr-steady.o \
 $(OBJDIR)/gwf-sfr-constant.o \
 $(OBJDIR)/RectangularGeometry.o \
 $(OBJDIR)/CircularGeometry.o \
-$(OBJDIR)/ExplicitModel.o \
-$(OBJDIR)/olf-disv1didm.o \
-$(OBJDIR)/olf-cxsidm.o \
-$(OBJDIR)/exg-swfgwfidm.o \
-$(OBJDIR)/chf-disv2didm.o \
-$(OBJDIR)/chf-dis2didm.o
+$(OBJDIR)/ExplicitModel.o
 
 # Define the objects that make up the program
 $(PROGRAM) : $(OBJECTS)

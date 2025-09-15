@@ -47,6 +47,7 @@ module GwfBuyInputModule
     '', & ! shape
     'hh formulation on right-hand side', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -65,6 +66,7 @@ module GwfBuyInputModule
     '', & ! shape
     'reference density', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -83,6 +85,7 @@ module GwfBuyInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -101,6 +104,7 @@ module GwfBuyInputModule
     '', & ! shape
     'density keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -119,6 +123,7 @@ module GwfBuyInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -137,6 +142,7 @@ module GwfBuyInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -155,6 +161,7 @@ module GwfBuyInputModule
     '', & ! shape
     'use equivalent freshwater head formulation', & ! longname
     .false., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -173,6 +180,7 @@ module GwfBuyInputModule
     '', & ! shape
     'number of species used in density equation of state', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -191,6 +199,7 @@ module GwfBuyInputModule
     '', & ! shape
     'species number for this entry', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -209,6 +218,7 @@ module GwfBuyInputModule
     '', & ! shape
     'slope of the density-concentration line', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -227,6 +237,7 @@ module GwfBuyInputModule
     '', & ! shape
     'reference concentration value', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -245,6 +256,7 @@ module GwfBuyInputModule
     '', & ! shape
     'modelname', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -263,6 +275,7 @@ module GwfBuyInputModule
     '', & ! shape
     'auxspeciesname', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -299,6 +312,7 @@ module GwfBuyInputModule
     'NRHOSPECIES', & ! shape
     '', & ! longname
     .true., & ! required
+    .false., & ! prerelease
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

@@ -251,28 +251,11 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     class(SubcellTriType), intent(inout) :: subcell
     ! local
-    integer(I4B) :: ic
-    integer(I4B) :: isc
-    integer(I4B) :: iv0
-    real(DP) :: x0
-    real(DP) :: y0
-    real(DP) :: x1
-    real(DP) :: y1
-    real(DP) :: x2
-    real(DP) :: y2
-    real(DP) :: x1rel
-    real(DP) :: y1rel
-    real(DP) :: x2rel
-    real(DP) :: y2rel
-    real(DP) :: xi
-    real(DP) :: yi
-    real(DP) :: di2
-    real(DP) :: d02
-    real(DP) :: d12
-    real(DP) :: di1
-    real(DP) :: d01
-    real(DP) :: alphai
-    real(DP) :: betai
+    integer(I4B) :: ic, isc, iv0
+    real(DP) :: x0, y0, x1, y1, x2, y2, xi, yi
+    real(DP) :: x1rel, y1rel, x2rel, y2rel
+    real(DP) :: di2, d02, d12, di1, d01
+    real(DP) :: alphai, betai
 
     select type (cell => this%cell)
     type is (CellPolyType)
