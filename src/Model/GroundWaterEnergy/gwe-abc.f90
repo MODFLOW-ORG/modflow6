@@ -773,7 +773,7 @@ contains
     ! -- calculate latent heat flux using Dalton-like mass transfer equation
     call this%lhf%lhf_cq(ifno, tstrm, this%gwecommon%gwerhow, lhflx)
     
-    abcflx = shflx + swrflx + lhflx
+    abcflx = shflx + swrflx - lhflx
   end subroutine abc_cq
 
   !> @brief Set the stress period attributes based on the keyword
