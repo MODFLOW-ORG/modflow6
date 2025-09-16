@@ -519,8 +519,8 @@ contains
   !> @brief Prevent upward flow through the water table.
   !!
   !! Unless the top face is an assigned boundary with outflow,
-  !! a partially saturated cell should never have upward flow
-  !! through the top face (i.e. the water table). But this is
+  !! a cell containing the water table should not have upward
+  !! flow through the top (i.e. the water table). But this is
   !! occasionally possible due to numerical noise in the flow
   !! results of Newton models. Trap for this and disallow it.
   !!
@@ -530,13 +530,19 @@ contains
     class(MethodDisType), intent(inout) :: this
     type(CellDefnType), intent(inout) :: defn
     ! local
-    logical(LGP) :: partly_sat, is_bnd_face
+    integer(I4B) :: ic
+    logical(LGP) :: partly_sat, table_top, bound_top, has_table
 
-    ! If the cell is partially saturated and the top face is not an
-    ! assigned boundary, max top face flow to 0 i.e. no upward flow
-    partly_sat = this%fmi%gwfsat(defn%icell) < DONE
-    is_bnd_face = this%fmi%is_boundary_face(defn%icell, this%fmi%max_faces)
-    if (partly_sat .and. .not. is_bnd_face) &
+    ! If the cell contains the water table and the top face isn't an
+    ! assigned boundary, max top face flow to 0 i.e. no upward flow.
+
+    ic = defn%icell
+    partly_sat = this%fmi%gwfsat(ic) < DONE
+    table_top = is_close(this%fmi%dis%top(ic), this%fmi%gwfhead(ic))
+    has_table = partly_sat .or. table_top ! whether cell contains water table
+    bound_top = this%fmi%is_boundary_face(ic, this%fmi%max_faces)
+
+    if (has_table .and. .not. bound_top) &
       defn%faceflow(7) = max(DZERO, defn%faceflow(7))
 
   end subroutine cap_wt_flow

@@ -13,6 +13,7 @@ module MethodDisvModule
   use DisvModule, only: DisvType
   use ArrayHandlersModule, only: ExpandArray
   use GeomUtilModule, only: get_jk, shared_face
+  use MathUtilModule, only: is_close
   implicit none
 
   private
@@ -638,15 +639,20 @@ contains
     class(MethodDisvType), intent(inout) :: this
     type(CellDefnType), intent(inout) :: defn
     ! local
-    integer(I4B) :: itopface
-    logical(LGP) :: partly_sat, is_bnd_face
+    integer(I4B) :: ic, itopface
+    logical(LGP) :: partly_sat, table_top, bound_top, has_table
 
-    ! If the cell is partially saturated and the top face is not an
-    ! assigned boundary, max top face flow to 0 i.e. no upward flow
+    ! If the cell contains the water table and the top face isn't an
+    ! assigned boundary, max top face flow to 0 i.e. no upward flow.
+
+    ic = defn%icell
+    partly_sat = this%fmi%gwfsat(ic) < DONE
+    table_top = is_close(this%fmi%dis%top(ic), this%fmi%gwfhead(ic))
+    has_table = partly_sat .or. table_top ! whether cell contains water table
+    bound_top = this%fmi%is_boundary_face(ic, this%fmi%max_faces)
     itopface = defn%npolyverts + 3
-    partly_sat = this%fmi%gwfsat(defn%icell) < DONE
-    is_bnd_face = this%fmi%is_boundary_face(defn%icell, this%fmi%max_faces)
-    if (partly_sat .and. .not. is_bnd_face) &
+
+    if (has_table .and. .not. bound_top) &
       defn%faceflow(itopface) = max(DZERO, defn%faceflow(itopface))
 
   end subroutine cap_wt_flow
