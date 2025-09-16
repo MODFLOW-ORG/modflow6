@@ -126,6 +126,7 @@ The IREASON field indicates the reason the particle track record was saved:
 \item \texttt{3}: particle terminated
 \item \texttt{4}: particle entered a weak sink cell
 \item \texttt{5}: user-specified tracking time
+\item \texttt{6}: particle dropped to water table
 \end{description}
 
 By default, the PRT Model reports all particle events. The user can optionally select which events are reported, as explained in the Output Control (OC) subsection. Because multiple tracking events may coincide (e.g. exiting a cell and exiting a weak sink cell), particle track records may be duplicates except for the ISTATUS and/or IREASON codes.
