@@ -501,7 +501,12 @@ jobs:
 
       - name: Build MF6IO files from DFNs
         working-directory: modflow6/doc/mf6io/mf6ivar
-        run: python mf6ivar.py
+        run: |
+          cmd="python mf6ivar.py"
+          if [[ "${{ inputs.developmode }}" == "false" ]]; then
+            cmd="$cmd --releasemode"
+          fi
+          eval "$cmd"
 
       - name: Build documentation
         env:
@@ -518,6 +523,9 @@ jobs:
           fi
           if [[ "${{ inputs.full }}" == "true" ]]; then
             cmd="$cmd --full"
+          fi
+          if [[ "${{ inputs.developmode }}" == "false" ]]; then
+            cmd="$cmd --releasemode"
           fi
           eval "$cmd"
           mv "doc/ReleaseNotes.pdf" "doc/release.pdf"
