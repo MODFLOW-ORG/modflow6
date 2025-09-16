@@ -664,7 +664,7 @@ def test_mf6model(idx, name, function_tmpdir, targets, plot):
             stop_at_weak_sink=case["stop_at_weak_sink"],
             extend=case["extend"],
         ),
-        # check=lambda t: check_output(idx, t),
+        check=lambda t: check_output(idx, t),
         plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
         compare=None,

@@ -69,19 +69,9 @@ subsection = "parallel"
 description = "Fixed a memory access exception that can occur when writing convergence information to a CSV file (through the CSV\\_OUTER\\_OUTPUT option in IMS) for a parallel solution."
 
 [[items]]
-section = "fixes"
-subsection = "solution"
-description = "The Particle Tracking (PRT) Model previously reported cell exit events when a dry particle stranded in a partially saturated cell was dropped to the water table, as occurs with DRY\\_TRACKING\\_METHOD DROP (the default). An event is no longer reported at this time."
-
-[[items]]
-section = "fixes"
-subsection = "solution"
-description = "Previously the Particle Tracking (PRT) Model's generalized DISV tracking method did not distinguish subcell exit events from cell exits, reporting both with the same reason code (1). Since subcell exits occur at a scale below that defined by the model's grid discretization, they are an implementation detail of the generalized tracking method, and will therefore no longer be written by default to particle tracking output. The PRT Output Control (OC) package's TRACK\\_EXIT option will now apply exclusively to features at grid-scale or above. Writing particle transitions between sub-grid-scale features to output is now opt-in with a new keyword option TRACK\\_SUBFEATURE\\_EXIT."
-
-[[items]]
-section = "fixes"
-subsection = "basic"
-description = "Previously the simulation NOCHECK option had no effect. The option has been fixed to implement the intended behavior."
+section = "features"
+subsection = "model"
+description = "Added an optional new COORDINATE\\_CHECK\\_METHOD option to the PRT model's Particle Release Package, accepting values EAGER (default) or NONE. NONE disables release-time verification that release point coordinates and release point cell IDs match, which can significantly reduce runtime when releasing many particles."
 
 [[items]]
 section = "features"
