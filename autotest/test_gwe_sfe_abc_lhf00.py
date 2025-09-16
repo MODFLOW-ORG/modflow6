@@ -57,8 +57,8 @@ surf_Q_in = [
     [10.0],
 ]
 # sensible and latent heat flux parameter values
-wspd = 126005.19379436946474 # unrealistically high to drive a -1C change
-tatm = 5.0 
+wspd = 126005.30  # unrealistically high to drive a -1C change
+tatm = 5.0
 # shortwave radiation parameter values
 solr = 47880870.9  # unrealistically high to drive a 1 deg C rise in stream temperature
 shd = 1.0  # 100% shade "turns off" solar flux
@@ -68,11 +68,11 @@ rh = 30.0  # percent
 # Transport related parameters
 porosity = sy  # porosity (unitless)
 K_therm = 2.0  # Thermal conductivity  # ($W/m/C$)
-rhow = 1000  # Density of water ($kg/m^3$)
-rhos = 2650  # Density of the aquifer material ($kg/m^3$)
+rhow = 1000.0  # Density of water ($kg/m^3$)
+rhos = 2650.0  # Density of the aquifer material ($kg/m^3$)
 rhoa = 1.225  # Density of the atmosphere ($kg/m^3$)
-Cpw = 4180  # Heat capacity of water ($J/kg/C$)
-Cps = 880  # Heat capacity of the solids ($J/kg/C$)
+Cpw = 4180.0  # Heat capacity of water ($J/kg/C$)
+Cps = 880.0  # Heat capacity of the solids ($J/kg/C$)
 Cpa = 717.0  # Heat capacity of the atmosphere ($J/kg/C$)
 lhv = 2454000.0  # Latent heat of vaporization ($J/kg$)
 c_d = 0.0  # Drag coefficient ($unitless$) !!
@@ -435,6 +435,23 @@ def build_models(idx, test):
 # sim.write_simulation()
 
 
+def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
+    L = (2499.64 - (2.51 * updated_strm_temp)) * 1000
+    e_w = 6.1275 * math.exp(
+        17.2693882 * (updated_strm_temp / (updated_strm_temp + 273.16 - 35.86))
+    )
+    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + 273.16 - 35.86)))
+    e_a = (rh / 100) * e_s
+    vap_press_deficit = e_w - e_a
+    wind_function = wf_int + wf_slope * wspd
+    Ev = wind_function * vap_press_deficit
+    lhf_ener_per_sqm = Ev * L * rhow
+
+    ener_transfer = lhf_ener_per_sqm * delr * mf_strm_wid
+
+    return -ener_transfer
+
+
 def check_output(idx, test):
     print("evaluating results...")
     msg0 = "Stream channel width less than 1.0, should be 1.0 m"
@@ -449,35 +466,27 @@ def check_output(idx, test):
     fpth = os.path.join(test.workspace, gwfname + ".sfr.obs.csv")
     assert os.path.isfile(fpth)
     df = pd.read_csv(fpth)
-    calc_strm_wid = df.loc[0, "RCH1_WETWIDTH"].copy()
+    mf_strm_wid = df.loc[0, "RCH1_WETWIDTH"].copy()
     # confirm stream width is 1.0 m
-    assert np.isclose(calc_strm_wid, 1.0, atol=1e-9), msg0
+    assert np.isclose(mf_strm_wid, 1.0, atol=1e-9), msg0
 
     # confirm that the energy added to the stream results in a -1C change in temp
     # temperature gradient
-    
+
     tgrad = tatm - strm_temp
     shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
     swr_ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
+
     # latent calcs
-    L = (2499.64 - (2.51 * strm_temp)) * 1000
-    e_w = 6.1275 * math.exp(17.2693882 * (strm_temp / (strm_temp + 273.16 - 35.86)))
-    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + 273.16 - 35.86)))
-    e_a = (rh / 100) * e_s
-    vap_press_deficit = e_w - e_a
-    wind_function = wf_int + wf_slope * wspd
-    Ev = wind_function * vap_press_deficit
-    lhf_ener_per_sqm = Ev * L * rhow
-
-    ener_transfer = (shf_ener_per_sqm + swr_ener_per_sqm + lhf_ener_per_sqm) * (
-        delr * calc_strm_wid
-    )
-    # calculate expected temperature change based on energy transfer
-    temp_change = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
-    
-    print(str(strm_temp + temp_change))
-
-    #new_strm_temp = strm_temp + temp_change
+    chng = 1
+    strt_strm_temp = strm_temp
+    updated_strm_temp = strm_temp
+    while chng > hclose:
+        ener_transfer = calc_ener_transfer(updated_strm_temp, mf_strm_wid)
+        temp_change = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
+        updated_temp = strt_strm_temp + temp_change
+        chng = abs(updated_strm_temp - updated_temp)
+        updated_strm_temp = updated_temp
 
     fpth2 = os.path.join(test.workspace, gwename + ".sfe.obs.csv")
     assert os.path.isfile(fpth2)
@@ -492,7 +501,7 @@ def check_output(idx, test):
     )
 
     assert np.isclose(
-        df2.loc[0, "RCH1_OUTFTEMP"], strm_temp + temp_change, atol=1e-6
+        df2.loc[0, "RCH1_OUTFTEMP"], strt_strm_temp + temp_change, atol=1e-6
     ), msg2 + ". " + msg3 + ". " + msg1
 
 
