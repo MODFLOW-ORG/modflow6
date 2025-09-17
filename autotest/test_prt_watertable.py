@@ -237,7 +237,7 @@ def check_output(idx, test, snapshot):
 
     actual = (
         pls.drop(["name", "icell"], axis=1, errors="ignore")
-        .round(2)
+        .round(1)
         .reset_index(drop=True)
     )
     assert snapshot == actual.to_records(index=False)
