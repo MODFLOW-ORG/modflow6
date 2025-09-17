@@ -311,6 +311,8 @@ contains
     class(MethodType), intent(inout) :: this
     integer(I4B), intent(in) :: ic
 
+    ! fmi has an ibound-like array indicating
+    ! if saturation is zero (0) or nonzero (1)
     cell_is_dry = this%fmi%ibdgwfsat0(ic) == 0
 
   end function cell_is_dry
