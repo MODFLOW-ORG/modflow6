@@ -146,6 +146,16 @@ description If the RHS keyword is also included, then the XT3D additional terms 
 mf6internal ixt3drhs
 
 block options
+name dry_cell_saturation
+type keyword
+reader urword
+optional true
+longname keyword to activate DRY_CELL_SATURATION option
+description keyword indicating that the maximum cell bottom will be used to calculate the saturation used to calculate the horizontal conductance between cells. This option is intended to prevent flow from leaving a dry cell and is based on~\cite{painter2008robust}. This option is only applied when the Newto-Raphson formulation is used, A worning will be issued if this option is specified and the Newton-Raphson formulation is not specified in the GWF name file.
+mf6internal idrycellsat
+
+
+block options
 name save_specific_discharge
 type keyword
 reader urword
