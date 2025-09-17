@@ -324,19 +324,14 @@ contains
     integer(I4B), intent(in) :: ic
     type(CellDefnType), pointer, intent(inout) :: defn
 
-    ! Load basic cell properties
     call this%load_properties(ic, defn)
-
-    ! Load cell polygon vertices
     call this%fmi%dis%get_polyverts( &
       defn%icell, &
       defn%polyvert, &
       closed=.true.)
     call this%load_neighbors(defn)
-
-    ! Load 180 degree face indicators
+    call this%load_saturation_status(defn)
     defn%ispv180(1:defn%npolyverts + 1) = .false.
-
     call this%load_flows(defn)
 
   end subroutine load_celldefn
@@ -369,7 +364,6 @@ contains
     defn%izone = this%izone(ic)
     defn%can_be_rect = .true.
     defn%can_be_quad = .false.
-    call this%set_saturation_status(defn)
 
   end subroutine load_properties
 
@@ -456,7 +450,7 @@ contains
     call this%load_boundary_flows_to_defn(defn)
     call this%load_face_flows_to_defn(defn)
     call this%cap_wt_flow(defn)
-    call this%set_no_exit_face(defn)
+    call this%load_no_exit_face(defn)
 
     ! Add up net distributed flow
     defn%distflow = this%fmi%SourceFlows(defn%icell) + &

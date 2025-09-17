@@ -318,6 +318,7 @@ contains
     call this%load_properties(ic, defn)
     call this%load_polygon(defn)
     call this%load_neighbors(defn)
+    call this%load_saturation_status(defn)
     call this%load_indicators(defn)
     call this%load_flows(defn)
   end subroutine load_cell_defn
@@ -353,7 +354,6 @@ contains
       call get_jk(icu, dis%ncpl, dis%nlay, icpl, ilay)
       defn%ilay = ilay
     end select
-    call this%set_saturation_status(defn)
 
   end subroutine load_properties
 
@@ -465,7 +465,7 @@ contains
     call this%load_boundary_flows_to_defn_poly(defn)
     call this%load_face_flows_to_defn_poly(defn)
     call this%cap_wt_flow(defn)
-    call this%set_no_exit_face(defn)
+    call this%load_no_exit_face(defn)
 
     ! Add up net distributed flow
     defn%distflow = this%fmi%SourceFlows(defn%icell) + &

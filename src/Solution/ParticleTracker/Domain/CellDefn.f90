@@ -35,7 +35,7 @@ module CellDefnModule
     integer(I4B), public :: iweaksink !< weak sink indicator
     integer(I4B), public :: inoexitface !< no exit face indicator
     integer(I4B), public :: iatop !< index of cell top in grid's top/bot arrays (<0 => top array)
-    integer(I4B), public :: isatstat !< saturation status. 0 = dry, 1 = contains a water table, 2 = fully saturated
+    integer(I4B), public :: isatstat !< saturation status. 0 = dry, 1 = contains a water table, 2 = fully saturated w/ no water table
     real(DP), public :: top, bot !< top and bottom elevations of cell
     real(DP), public :: sat !< cell saturation
     real(DP), allocatable, public :: polyvert(:, :) !< vertices for cell polygon
