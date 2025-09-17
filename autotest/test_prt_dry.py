@@ -17,12 +17,12 @@ from warnings import warn
 import flopy
 import matplotlib.colors as clt
 import matplotlib.pyplot as plt
-from shapely.geometry import Polygon
 import numpy as np
 import pandas as pd
 import pytest
 from framework import TestFramework
 from prt_test_utils import get_model_name
+from shapely.geometry import Polygon
 
 simname = "prtdry"
 cases = [
