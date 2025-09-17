@@ -13,7 +13,6 @@ module MethodDisvModule
   use DisvModule, only: DisvType
   use ArrayHandlersModule, only: ExpandArray
   use GeomUtilModule, only: get_jk, shared_face
-  use MathUtilModule, only: is_close
   implicit none
 
   private

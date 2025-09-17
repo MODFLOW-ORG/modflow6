@@ -2,7 +2,7 @@
 module MethodModule
 
   use KindModule, only: DP, I4B, LGP
-  use ConstantsModule, only: DZERO, DONE
+  use ConstantsModule, only: DZERO
   use ErrorUtilModule, only: pstop
   use SubcellModule, only: SubcellType
   use ParticleModule, only: ParticleType

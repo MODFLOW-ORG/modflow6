@@ -85,7 +85,8 @@ contains
 
   end subroutine set_no_exit_face
 
-  !> @brief Check if a cell contains a water table
+  !> @brief Set the saturation status of a cell.
+  !! See the status enumeration in CellDefnModule.
   subroutine set_saturation_status(this, defn)
     ! dummy
     class(MethodModelType), intent(inout) :: this

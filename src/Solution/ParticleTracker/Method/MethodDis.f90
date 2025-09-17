@@ -496,11 +496,9 @@ contains
     class(MethodDisType), intent(inout) :: this
     type(CellDefnType), pointer, intent(inout) :: defn
     ! local
-    integer(I4B) :: max_faces
     integer(I4B) :: ioffset
 
-    max_faces = this%fmi%max_faces
-    ioffset = (defn%icell - 1) * max_faces
+    ioffset = (defn%icell - 1) * this%fmi%max_faces
     defn%faceflow(1) = defn%faceflow(1) + &
                        this%fmi%BoundaryFlows(ioffset + 1)
     defn%faceflow(2) = defn%faceflow(2) + &
@@ -511,7 +509,7 @@ contains
                        this%fmi%BoundaryFlows(ioffset + 4)
     defn%faceflow(5) = defn%faceflow(1)
     defn%faceflow(6) = defn%faceflow(6) + &
-                       this%fmi%BoundaryFlows(ioffset + max_faces - 1)
+                       this%fmi%BoundaryFlows(ioffset + this%fmi%max_faces - 1)
     defn%faceflow(7) = defn%faceflow(7) + &
                        this%fmi%BoundaryFlows(ioffset + this%fmi%max_faces)
   end subroutine load_boundary_flows_to_defn
