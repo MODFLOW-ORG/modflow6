@@ -413,7 +413,8 @@ def write_desc(vardict, block, blk_var_list, varexcludeprefix=None, developmode=
                             "removed" in vardict[(vn, block)]
                             or "deprecated" in vardict[(vn, block)]
                             or (
-                                not developmode and vardict[(vn, block)].get("prerelease", "") == "true"
+                                not developmode
+                                and vardict[(vn, block)].get("prerelease", "") == "true"
                             )
                         ):
                             continue
