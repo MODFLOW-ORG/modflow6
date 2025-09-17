@@ -514,6 +514,4 @@ contains
                        this%fmi%BoundaryFlows(ioffset + this%fmi%max_faces)
   end subroutine load_boundary_flows_to_defn
 
-  ! end subroutine cap_wt_flow
-
 end module MethodDisModule
