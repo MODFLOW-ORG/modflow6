@@ -138,15 +138,17 @@ contains
           have_match = .true.
         end if
       else
+        ! flip the normal out of its symmetric storage
+        if (n > m) then
+          alpha = modulo(DPI + this%dis%con%anglex(isym), DTWOPI)
+        else
+          alpha = this%dis%con%anglex(isym)
+        end if
+
         ! match angle for horizontal connections
         dangle = huge(dangle)
         icand = 0
         do iface = 3, this%nr_faces
-          if (n > m) then ! flip the normal out of its symmetric storage
-            alpha = modulo(DPI + this%dis%con%anglex(isym), DTWOPI)
-          else
-            alpha = this%dis%con%anglex(isym)
-          end if
           ! find the best match
           if (abs(alpha - this%anglex(iface)) < dangle) then
             dangle = abs(alpha - this%anglex(iface))
@@ -192,14 +194,20 @@ contains
             alpha = DTWOPI - alpha
           end if
           ! try match to face
+          dangle = huge(dangle)
+          icand = 0
           do iface = 3, this%nr_faces
-            if (abs(alpha - this%anglex(iface)) < TINY_ANGLE) then
-              ! TODO_MJR: we should match uniquely, need more geometry unfortunately...
-              this%matched(iface) = this%matched(iface) + 1
-              have_match = .true.
-              exit
+            ! find the best match
+            if (abs(alpha - this%anglex(iface)) < dangle) then
+              dangle = abs(alpha - this%anglex(iface))
+              icand = iface
             end if
           end do
+
+          if (icand > 0 .and. dangle < TINY_ANGLE) then
+            this%matched(icand) = this%matched(icand) + 1
+            have_match = .true.
+          end if
         end if
 
         if (.not. have_match) then
@@ -225,8 +233,8 @@ contains
     do iface = 1, this%nr_faces
       if (this%matched(iface) == 0) then
         ibnd = ibnd + 1
-        bnd_faces(:, ibnd) = &
-          [this%dist(iface), this%norm(1, iface), this%norm(2, iface), this%norm(3, iface)]
+        bnd_faces(:, ibnd) = [this%dist(iface), this%norm(1, iface), &
+                              this%norm(2, iface), this%norm(3, iface)]
       end if
     end do
 
