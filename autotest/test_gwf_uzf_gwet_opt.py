@@ -231,7 +231,7 @@ def set_connectiondata(n, lay, top, back, left, right, front, bottom):
         cl12.append(delc / 2)  # half the cell width along a column
         hwva.append(delr)  # the width perpendicular to the connection
         # for horizontal connection, 90.0 deg points in the positive y direction
-        angldeg.append(2700.0)
+        angldeg.append(270.0)
 
     if bottom:
         jas.append(n + (nrow * ncol))  # below

@@ -2418,11 +2418,13 @@ contains
 
     swa => this%spdis_wa
     if (.not. swa%is_created()) then
-      ! prepare work arrays
-      call this%spdis_wa%create(this%calc_max_conns())
 
       ! prepare lookup table
       if (this%nedges > 0) call this%prepare_edge_lookup()
+
+      ! prepare work arrays
+      call this%spdis_wa%create(this%calc_max_conns())
+
     end if
 
     if (.not. associated(this%spdis_cell)) then
@@ -2718,26 +2720,25 @@ contains
     class(GwfNpfType) :: this
     integer(I4B) :: max_conns
     ! local
-    integer(I4B) :: n, m, ic
+    integer(I4B) :: n, ic, ec, tc
 
     max_conns = 0
     do n = 1, this%dis%nodes
 
-      ! Count internal model connections
-      !ic = this%dis%con%ia(n + 1) - this%dis%con%ia(n) - 1
+      ! Count faces as the maximum nr. of connections (incl. top/bot)
+      ic = this%dis%get_npolyverts(n, closed=.false.) + 2
 
-      ! Count faces as the maximum nr. of connections
-      ic = this%dis%get_npolyverts(n, closed=.false.)
+      ! Add edge connections
+      ec = 0
+      if (this%nedges > 0) then
+        ec = this%iedge_ptr(n + 1) - this%iedge_ptr(n)
+      end if
 
-      ! Add edge connections (without overlap)
-      do m = 1, this%nedges
-        if (this%nodedge(m) == n) then
-          ic = ic + 1
-        end if
-      end do
+      ! assume disjunct (i.e. overestimating the count)
+      tc = ic + ec
 
       ! Set max number of connections for any cell
-      if (ic > max_conns) max_conns = ic
+      if (tc > max_conns) max_conns = tc
     end do
 
   end function calc_max_conns

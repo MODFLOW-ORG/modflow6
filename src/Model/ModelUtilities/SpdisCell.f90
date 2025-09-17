@@ -1,13 +1,19 @@
 module SpdisCellModule
   use KindModule, only: I4B, DP, LGP
   use ConstantsModule, only: DZERO, DONE, C3D_VERTICAL, &
-                             DPI, DTWOPI, DSAME, DNODATA
+                             DPI, DTWOPI, DNODATA, DEM10
   use BaseDisModule, only: DisBaseType
   use DisUtilsModule, only: number_connected_faces
+  use SimModule, only: store_error
   implicit none
   private
 
   public :: SpdisCellType
+
+  ! TODO_MJR: how accurately can we expect angles to be defined,
+  ! considering exchanges with conversion from degrees to radians,
+  ! vertex information parsed from file, etc.
+  real(DP), parameter :: TINY_ANGLE = DEM10
 
   !> @brief Container for spdis calculation in cell
   !!
@@ -70,17 +76,16 @@ contains
   !> @brief Load boundary faces for cell
   !<
   subroutine load_cell_boundaries(this, n, bnd_faces)
-    use SimModule, only: ustop
     class(SpdisCellType) :: this
     integer(I4B), intent(in) :: n !< reduced node number
     real(DP), dimension(:, :), allocatable, intent(inout) :: bnd_faces !< the boundary faces for the cell: dist, nx, ny, nz
     ! local
     integer(I4B) :: ivert, ipos, isym, m, iface, iedge, ibnd
-    integer(I4B) :: npoly, nr_boundaries
+    integer(I4B) :: npoly, nr_boundaries, icand
     logical(LGP) :: have_match
     real(DP), dimension(:, :), allocatable :: pverts
     real(DP), dimension(2) :: v
-    real(DP) :: length, nx, ny, nz, alpha
+    real(DP) :: length, nx, ny, nz, alpha, dangle
     real(DP) :: fcx, fcy
 
     ! reset
@@ -134,23 +139,32 @@ contains
         end if
       else
         ! match angle for horizontal connections
+        dangle = huge(dangle)
+        icand = 0
         do iface = 3, this%nr_faces
           if (n > m) then ! flip the normal out of its symmetric storage
             alpha = modulo(DPI + this%dis%con%anglex(isym), DTWOPI)
           else
             alpha = this%dis%con%anglex(isym)
           end if
-
-          if (abs(alpha - this%anglex(iface)) < DSAME) then
-            this%matched(iface) = this%matched(iface) + 1
-            have_match = .true.
-            exit
+          ! find the best match
+          if (abs(alpha - this%anglex(iface)) < dangle) then
+            dangle = abs(alpha - this%anglex(iface))
+            icand = iface
           end if
         end do
+
+        if (icand > 0 .and. dangle < TINY_ANGLE) then
+          this%matched(icand) = this%matched(icand) + 1
+          have_match = .true.
+        end if
+
       end if
 
       if (.not. have_match) then
-        call ustop("Connection can not be matched for spdis calculation")
+        call store_error( &
+          "Invalid connection encountered in specific discharge calculation", &
+          terminate=.true.)
       end if
     end do
 
@@ -177,9 +191,9 @@ contains
           if (ny < DZERO .and. alpha > DZERO) then ! if y is negative, take complement
             alpha = DTWOPI - alpha
           end if
-          ! match to (unmatched) faces
+          ! try match to face
           do iface = 3, this%nr_faces
-            if (abs(alpha - this%anglex(iface)) < DSAME) then
+            if (abs(alpha - this%anglex(iface)) < TINY_ANGLE) then
               ! TODO_MJR: we should match uniquely, need more geometry unfortunately...
               this%matched(iface) = this%matched(iface) + 1
               have_match = .true.
@@ -189,7 +203,9 @@ contains
         end if
 
         if (.not. have_match) then
-          call ustop("Exchange flow can not be matched for spdis calculation")
+          call store_error( &
+            "Invalid exchange flow in specific discharge calculation", &
+            terminate=.true.)
         end if
 
       end do
