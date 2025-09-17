@@ -316,7 +316,7 @@ def write_block(
             if (
                 v.get("deprecated", "") != ""
                 or v.get("removed", "") != ""
-                or (not developmode and v.get("prerelease", "") != "")
+                or (not developmode and v.get("prerelease", "") == "true")
             ):
                 addv = False
             if addv:
@@ -413,7 +413,7 @@ def write_desc(vardict, block, blk_var_list, varexcludeprefix=None, developmode=
                             "removed" in vardict[(vn, block)]
                             or "deprecated" in vardict[(vn, block)]
                             or (
-                                not developmode and "prerelease" in vardict[(vn, block)]
+                                not developmode and vardict[(vn, block)].get("prerelease", "") == "true"
                             )
                         ):
                             continue
@@ -448,7 +448,7 @@ def write_desc_md(
                 addv = False
             if v.get("removed", "") != "":
                 addv = False
-            if not developmode and v.get("prerelease", "") != "":
+            if not developmode and v.get("prerelease", "") == "true":
                 addv = False
             if addv:
                 if v["type"] == "keyword":
