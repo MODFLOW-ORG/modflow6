@@ -17,7 +17,7 @@ module MethodModelModule
   contains
     procedure, public :: assess
     procedure, public :: get_level
-    ! Utilities
+    ! cell load utilities
     procedure :: cap_wt_flow
     procedure :: load_no_exit_face
     procedure :: load_saturation_status
