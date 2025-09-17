@@ -17,6 +17,7 @@ from warnings import warn
 import flopy
 import matplotlib.colors as clt
 import matplotlib.pyplot as plt
+from shapely.geometry import Polygon
 import numpy as np
 import pandas as pd
 import pytest
@@ -430,11 +431,11 @@ def plot_output(idx, test):
         mm.plot_pathline(pathlines, layer="all", colors=["blue"], lw=0.75)
         ax.set_title(plottitle, fontsize=12)
         ax.scatter(strtpts.x, strtpts.y)
-        from shapely.geometry import Polygon
 
-        cellids = [105, 85, 125, 104, 106]
+        # cellids = [105, 85, 125, 104, 106]
+        cellids = [805]
         polys = [Polygon(gwf.modelgrid.get_cell_vertices(ic)) for ic in cellids]
-        mm.plot_shapes(polys, alpha=0.2)
+        mm.plot_shapes(polys, alpha=0.5)
         plt.show()
 
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
@@ -460,6 +461,18 @@ def plot_output(idx, test):
     ibd = np.ma.masked_equal(ibd, 0)
 
     plot_pathlines_and_timeseries(ax, gwf.modelgrid, ibd, pls, None, name)
+
+    # plot cross sections of the pathlines across first row
+    fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+    xc = flopy.plot.PlotCrossSection(model=gwf, ax=ax, line={"row": 0})
+    xc.plot_grid(color=(0.4, 0.4, 0.4, 0.5), lw=0.2)
+    xc.plot_bc("WEL")
+    xc.plot_bc("CHD")
+    xc.plot_grid(lw=0.5)
+    v = xc.plot_array(gwf.output.head().get_data(), cmap="viridis", edgecolor="gray")
+    plt.scatter(pls.x, pls.z, s=10)
+    xc.plot_pathline(pls, colors=["blue"], lw=0)
+    plt.show()
 
     plot_3d = True
     if plot_3d:

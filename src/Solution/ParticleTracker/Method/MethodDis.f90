@@ -36,8 +36,6 @@ module MethodDisModule
     procedure :: load_face_flows_to_defn !< load face flows to the cell definition
     procedure :: load_celldefn !< load cell definition from the grid
     procedure :: load_cell !< load cell geometry and flows
-    procedure :: cap_wt_flow !< prevent upward flow through the water table
-    procedure :: set_no_exit_face !< set flag indicating if the cell has any faces with outflow
   end type MethodDisType
 
 contains
@@ -446,7 +444,7 @@ contains
   !! Assumes cell index and number of vertices are already loaded.
   subroutine load_flows(this, defn)
     class(MethodDisType), intent(inout) :: this
-    type(CellDefnType), intent(inout) :: defn
+    type(CellDefnType), pointer, intent(inout) :: defn
 
     ! Load face flows, including boundary flows. As with cell verts,
     ! the face flow array wraps around. Top and bottom flows make up
@@ -474,7 +472,7 @@ contains
   subroutine load_face_flows_to_defn(this, defn)
     ! dummy
     class(MethodDisType), intent(inout) :: this
-    type(CellDefnType), intent(inout) :: defn
+    type(CellDefnType), pointer, intent(inout) :: defn
     ! local
     integer(I4B) :: m, n, nfaces
     real(DP) :: q
@@ -494,7 +492,7 @@ contains
   subroutine load_boundary_flows_to_defn(this, defn)
     ! dummy
     class(MethodDisType), intent(inout) :: this
-    type(CellDefnType), intent(inout) :: defn
+    type(CellDefnType), pointer, intent(inout) :: defn
     ! local
     integer(I4B) :: max_faces
     integer(I4B) :: ioffset
@@ -516,52 +514,6 @@ contains
                        this%fmi%BoundaryFlows(ioffset + this%fmi%max_faces)
   end subroutine load_boundary_flows_to_defn
 
-  !> @brief Prevent upward flow through the water table.
-  !!
-  !! Unless the top face is an assigned boundary with outflow,
-  !! a cell containing the water table should not have upward
-  !! flow through the top (i.e. the water table). But this is
-  !! occasionally possible due to numerical noise in the flow
-  !! results of Newton models. Trap for this and disallow it.
-  !!
-  !! Assumes cell properties and flows are already loaded.
-  !<
-  subroutine cap_wt_flow(this, defn)
-    class(MethodDisType), intent(inout) :: this
-    type(CellDefnType), intent(inout) :: defn
-    ! local
-    integer(I4B) :: ic
-    logical(LGP) :: partly_sat, table_top, bound_top, has_table
-
-    ! If the cell contains the water table and the top face isn't an
-    ! assigned boundary, max top face flow to 0 i.e. no upward flow.
-
-    ic = defn%icell
-    partly_sat = this%fmi%gwfsat(ic) < DONE
-    table_top = is_close(this%fmi%dis%top(ic), this%fmi%gwfhead(ic))
-    has_table = partly_sat .or. table_top ! whether cell contains water table
-    bound_top = this%fmi%is_boundary_face(ic, this%fmi%max_faces)
-
-    if (has_table .and. .not. bound_top) &
-      defn%faceflow(7) = max(DZERO, defn%faceflow(7))
-
-  end subroutine cap_wt_flow
-
-  !> @brief Set flag indicating if the cell has any faces with outflow.
-  !! Assumes cell properties and flows are already loaded.
-  subroutine set_no_exit_face(this, defn)
-    ! dummy
-    class(MethodDisType), intent(inout) :: this
-    type(CellDefnType), intent(inout) :: defn
-    ! local
-    integer(I4B) :: m, nfaces
-
-    defn%inoexitface = 1
-    nfaces = defn%npolyverts + 3
-    do m = 1, nfaces
-      if (defn%faceflow(m) < DZERO) defn%inoexitface = 0
-    end do
-
-  end subroutine set_no_exit_face
+  ! end subroutine cap_wt_flow
 
 end module MethodDisModule

@@ -93,7 +93,7 @@ contains
     integer(I4B) :: i
     real(DP) :: t, ttrackmax
 
-    dry_cell = this%fmi%ibdgwfsat0(cell_defn%icell) == 0
+    dry_cell = this%cell_is_dry(cell_defn%icell)
     dry_particle = particle%z > cell_defn%top
     no_exit_face = cell_defn%inoexitface > 0
     stop_zone = cell_defn%izone > 0 .and. particle%istopzone == cell_defn%izone
