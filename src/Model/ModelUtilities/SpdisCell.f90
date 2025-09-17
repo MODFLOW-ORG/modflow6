@@ -23,10 +23,10 @@ module SpdisCellModule
   !<
   type SpdisCellType
     integer(I4B) :: nr_faces
-    real(DP), dimension(:), allocatable :: anglex
-    real(DP), dimension(:), allocatable :: dist
-    real(DP), dimension(:, :), allocatable :: n
-    integer(I4B), dimension(:), allocatable :: matched
+    real(DP), dimension(:), allocatable :: anglex !< face angle w.r.t. x-axis
+    real(DP), dimension(:), allocatable :: dist !< distance
+    real(DP), dimension(:, :), allocatable :: norm !< face normal
+    integer(I4B), dimension(:), allocatable :: matched !< =1 when there is an internal or external flow associated, 0 otherwise
 
     class(DisBaseType), pointer :: dis => null() !< discretization
     real(DP), dimension(:), pointer :: flowja => null() !< internal flows
@@ -68,7 +68,7 @@ contains
 
     allocate (this%anglex(max_nr_faces))
     allocate (this%dist(max_nr_faces))
-    allocate (this%n(3, max_nr_faces))
+    allocate (this%norm(3, max_nr_faces))
     allocate (this%matched(max_nr_faces))
 
   end subroutine create
@@ -96,10 +96,10 @@ contains
     this%nr_faces = npoly + 2
 
     ! horizontal faces
-    this%n(:, 1) = (/DZERO, DZERO, DONE/)
+    this%norm(:, 1) = (/DZERO, DZERO, DONE/)
     this%anglex(1) = DNODATA
     this%dist(1) = (this%dis%top(n) - this%dis%bot(n)) / 2.0_DP
-    this%n(:, 2) = (/DZERO, DZERO, -DONE/)
+    this%norm(:, 2) = (/DZERO, DZERO, -DONE/)
     this%anglex(2) = DNODATA
     this%dist(2) = (this%dis%top(n) - this%dis%bot(n)) / 2.0_DP
 
@@ -111,9 +111,9 @@ contains
       v = pverts(:, modulo(ivert, npoly) + 1) - pverts(:, ivert)
       length = sqrt(v(1) * v(1) + v(2) * v(2))
 
-      this%n(:, iface) = (/-v(2) / length, v(1) / length, DZERO/)
-      this%anglex(iface) = acos(this%n(1, iface)) ! between 0 and pi
-      if (this%n(2, iface) < DZERO) then ! if y is negative, take complement
+      this%norm(:, iface) = (/-v(2) / length, v(1) / length, DZERO/)
+      this%anglex(iface) = acos(this%norm(1, iface)) ! between 0 and pi
+      if (this%norm(2, iface) < DZERO) then ! if y is negative, take complement
         this%anglex(iface) = DTWOPI - this%anglex(iface)
       end if
 
@@ -226,7 +226,7 @@ contains
       if (this%matched(iface) == 0) then
         ibnd = ibnd + 1
         bnd_faces(:, ibnd) = &
-          [this%dist(iface), this%n(1, iface), this%n(2, iface), this%n(3, iface)]
+          [this%dist(iface), this%norm(1, iface), this%norm(2, iface), this%norm(3, iface)]
       end if
     end do
 
@@ -237,7 +237,7 @@ contains
 
     deallocate (this%anglex)
     deallocate (this%dist)
-    deallocate (this%n)
+    deallocate (this%norm)
     deallocate (this%matched)
 
   end subroutine destroy
