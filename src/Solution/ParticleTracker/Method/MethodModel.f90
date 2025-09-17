@@ -3,9 +3,12 @@ module MethodModelModule
   use ConstantsModule, only: DZERO, DONE
   use MethodModule, only: MethodType, LEVEL_MODEL
   use ParticleModule, only: ParticleType
-  use CellDefnModule, only: CellDefnType
+  use CellDefnModule, only: CellDefnType, SATURATION_DRY, &
+                            SATURATION_WATERTABLE, &
+                            SATURATION_SATURATED
   use ParticleEventModule, only: ParticleEventType
-  use MathUtilModule, only: is_Close
+  use MathUtilModule, only: is_close
+  use ErrorUtilModule, only: pstop
 
   private
   public :: MethodModelType
@@ -17,6 +20,7 @@ module MethodModelModule
     ! Utilities
     procedure :: cap_wt_flow
     procedure :: set_no_exit_face
+    procedure :: set_saturation_status
   end type MethodModelType
 
 contains
@@ -54,15 +58,10 @@ contains
     integer(I4B) :: itopface
 
     ! If the cell contains a water table that is not an
-    ! assigned boundary face with upward flow, cap the flow
-    ! at zero. The cell contains a water table if it's partially
-    ! saturated (we know it's not dry because we wouldn't be here)
-    ! or if it's saturated and its top neighbor is dry. Saturation
-    ! and dryness are determined using threshold-based criteria to
-    ! account for possible numerical noise.
+    ! assigned boundary face with upflow, cap flow at 0.
     itopface = this%fmi%max_faces ! fmi's lateral face indices are not closed
     if (this%fmi%is_boundary_face(defn%icell, itopface)) return
-    if (this%cell_has_water_table(defn)) then
+    if (defn%isatstat == SATURATION_WATERTABLE) then
       itopface = defn%npolyverts + 3 ! cell defn's lateral face indices are closed
       defn%faceflow(itopface) = max(DZERO, defn%faceflow(itopface))
     end if
@@ -85,5 +84,40 @@ contains
     end do
 
   end subroutine set_no_exit_face
+
+  !> @brief Check if a cell contains a water table
+  subroutine set_saturation_status(this, defn)
+    ! dummy
+    class(MethodModelType), intent(inout) :: this
+    type(CellDefnType), pointer, intent(inout) :: defn
+    ! local
+    integer(I4B) :: ic, ictopnbr, itopface, idiag, ipos
+
+    ic = defn%icell
+    defn%isatstat = SATURATION_SATURATED
+
+    if (this%fmi%ibdgwfsat0(ic) == 0) then
+      defn%isatstat = SATURATION_DRY
+      return
+    end if
+
+    if (.not. is_close(this%fmi%gwfsat(ic), DONE, symmetric=.false.)) then
+      defn%isatstat = SATURATION_WATERTABLE
+      return
+    end if
+
+    itopface = defn%npolyverts + 3 ! cell defn's lateral face indices are closed
+    idiag = this%fmi%dis%con%ia(ic)
+    if (defn%facenbr(itopface) == 0) return ! no top neighbor? consider saturated
+
+    ! dry top neighbor?
+    ipos = idiag + defn%facenbr(itopface)
+    ictopnbr = this%fmi%dis%con%ja(ipos)
+    if (this%fmi%ibdgwfsat0(ictopnbr) == 0) then
+      defn%isatstat = SATURATION_WATERTABLE
+      return
+    end if
+
+  end subroutine set_saturation_status
 
 end module MethodModelModule

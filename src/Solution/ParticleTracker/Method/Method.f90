@@ -89,10 +89,6 @@ module MethodModule
     procedure :: weaksink
     procedure :: usertime
     procedure :: dropped
-    ! Utilities
-    procedure :: cell_is_dry
-    procedure :: cell_is_sat
-    procedure :: cell_has_water_table
   end type MethodType
 
   abstract interface
@@ -297,63 +293,5 @@ contains
     call this%events%dispatch(particle, event)
     deallocate (event)
   end subroutine dropped
-
-  ! NOTE: The cell-scoped methods below are used in model-level
-  ! methods and cell-level methods. Seems like they'd belong in
-  ! CellUtilModule, but they would be awkward to factor as pure
-  ! functions; they're more natural as methods on MethodType as
-  ! they need access to several different things aboard the fmi.
-  ! An alternative could be to set properties on the cell defn..
-
-  !> @brief Check if a cell is dry
-  logical function cell_is_dry(this, ic)
-    ! dummy
-    class(MethodType), intent(inout) :: this
-    integer(I4B), intent(in) :: ic
-
-    ! fmi has an ibound-like array indicating
-    ! if saturation is zero (0) or nonzero (1)
-    cell_is_dry = this%fmi%ibdgwfsat0(ic) == 0
-
-  end function cell_is_dry
-
-  !> @brief Check if a cell is fully saturated
-  logical function cell_is_sat(this, ic)
-    ! dummy
-    class(MethodType), intent(inout) :: this
-    integer(I4B), intent(in) :: ic
-    ! local
-    real(DP) :: sat
-
-    sat = this%fmi%gwfsat(ic)
-    cell_is_sat = is_close(sat, DONE, symmetric=.false.)
-
-  end function cell_is_sat
-
-  !> @brief Check if a cell contains a water table
-  logical function cell_has_water_table(this, defn)
-    ! dummy
-    class(MethodType), intent(inout) :: this
-    type(CellDefnType), intent(in) :: defn
-    ! local
-    integer(I4B) :: ic, ictopnbr, itopface, idiag, ipos
-
-    ic = defn%icell
-    cell_has_water_table = .false.
-    if (this%cell_is_sat(ic)) then
-      itopface = defn%npolyverts + 3 ! cell defn's lateral face indices are closed
-      idiag = this%fmi%dis%con%ia(ic)
-      ipos = defn%facenbr(itopface) + idiag
-      ictopnbr = this%fmi%dis%con%ja(ipos)
-      if (ictopnbr == 0) then
-        cell_has_water_table = .true. ! no top neighbor
-      else if (this%cell_is_dry(ictopnbr)) then
-        cell_has_water_table = .true. ! dry top neighbor
-      end if
-    else
-      cell_has_water_table = .true. ! partially saturated
-    end if
-
-  end function cell_has_water_table
 
 end module MethodModule

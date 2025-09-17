@@ -354,6 +354,8 @@ contains
       call get_jk(icu, dis%ncpl, dis%nlay, icpl, ilay)
       defn%ilay = ilay
     end select
+    call this%set_saturation_status(defn)
+
   end subroutine load_properties
 
   subroutine load_polygon(this, defn)

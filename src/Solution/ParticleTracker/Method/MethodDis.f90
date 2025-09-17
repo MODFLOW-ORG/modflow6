@@ -369,6 +369,8 @@ contains
     defn%izone = this%izone(ic)
     defn%can_be_rect = .true.
     defn%can_be_quad = .false.
+    call this%set_saturation_status(defn)
+
   end subroutine load_properties
 
   !> @brief Loads face neighbors to cell definition from the grid.

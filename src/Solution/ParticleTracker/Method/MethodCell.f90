@@ -7,7 +7,7 @@ module MethodCellModule
   use ParticleModule, only: ParticleType, ACTIVE, TERM_NO_EXITS, TERM_BOUNDARY
   use ParticleEventModule, only: ParticleEventType
   use CellExitEventModule, only: CellExitEventType
-  use CellDefnModule, only: CellDefnType
+  use CellDefnModule, only: CellDefnType, SATURATION_DRY
   use IteratorModule, only: IteratorType
   implicit none
 
@@ -93,7 +93,7 @@ contains
     integer(I4B) :: i
     real(DP) :: t, ttrackmax
 
-    dry_cell = this%cell_is_dry(cell_defn%icell)
+    dry_cell = cell_defn%isatstat == SATURATION_DRY
     dry_particle = particle%z > cell_defn%top
     no_exit_face = cell_defn%inoexitface > 0
     stop_zone = cell_defn%izone > 0 .and. particle%istopzone == cell_defn%izone
