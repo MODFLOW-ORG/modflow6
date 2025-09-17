@@ -266,7 +266,7 @@ def test_mf6model(idx, name, function_tmpdir, targets, array_snapshot, plot):
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t),
-        # check=lambda t: check_output(idx, t, array_snapshot),
+        check=lambda t: check_output(idx, t, array_snapshot),
         plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
         compare=None,
