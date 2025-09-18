@@ -237,12 +237,13 @@ def check_output(idx, test, snapshot):
     n_particles = len(strtpts)
     assert len(endpts) == n_particles
 
-    actual = (
-        pls.drop(["name", "icell"], axis=1, errors="ignore")
-        .round(1)
-        .reset_index(drop=True)
-    )
-    assert snapshot == actual.to_records(index=False)
+    if snapshot is not None:
+        actual = (
+            pls.drop(["name", "icell"], axis=1, errors="ignore")
+            .round(1)
+            .reset_index(drop=True)
+        )
+        assert snapshot == actual.to_records(index=False)
 
 
 def plot_output(idx, test):
@@ -264,8 +265,9 @@ def plot_output(idx, test):
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets, array_snapshot, plot):
-    # skip snapshot with ifort/ifx in CI. it fails in release mode
-    if is_in_ci() and environ.get("FC", None) in ["ifort", "ifx"]:
+    # skip snapshot in CI unless gfortran. flow model results vary for
+    # intel vs gcc compilers when built with optimizations
+    if is_in_ci() and "gfortran" not in environ.get("FC", "").lower():
         array_snapshot = None
     test = TestFramework(
         name=name,
