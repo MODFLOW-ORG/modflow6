@@ -1536,6 +1536,8 @@ contains
 
   end subroutine csub_source_packagedata
 
+  !> @ brief Print packagedata
+  !<
   subroutine csub_print_packagedata(this)
     class(GwfCsubType) :: this
     ! local
