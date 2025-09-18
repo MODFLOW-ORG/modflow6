@@ -338,6 +338,10 @@ jobs:
           ldflags="$LDFLAGS -Wl,-ld_classic"
           echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
 
+      - name: Update version files
+        working-directory: modflow6
+        run: pixi run update-version
+
       - name: Build MF6
         working-directory: modflow6
         run: |
