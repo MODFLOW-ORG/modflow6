@@ -305,7 +305,7 @@ contains
         do ii = this%ia(n) + 1, this%ia(n + 1) - 1
           m = this%ja(ii)
           if (n > m) cycle
-          this%anglex(this%jas(ii)) = angldegx(ii) * DPIO180
+          this%anglex(this%jas(ii)) = angldegx(ii) * DPIO180 ! TODO_MJR: shouldn't this be restricted to [0,2pi]
         end do
       end do
     else

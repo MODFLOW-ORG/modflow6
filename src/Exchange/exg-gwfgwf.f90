@@ -17,7 +17,8 @@ module GwfGwfExchangeModule
   use BaseExchangeModule, only: BaseExchangeType, AddBaseExchangeToList
   use BaseDisModule, only: DisBaseType
   use ConstantsModule, only: LENBOUNDNAME, NAMEDBOUNDFLAG, LINELENGTH, &
-                             TABCENTER, TABLEFT, LENAUXNAME, DNODATA
+                             TABCENTER, TABLEFT, LENAUXNAME, DNODATA, &
+                             DONE
   use ListModule, only: ListType
   use ListsModule, only: basemodellist
   use DisConnExchangeModule, only: DisConnExchangeType
@@ -761,7 +762,7 @@ contains
     real(DP) :: botn1, botn2
     real(DP) :: satn1, satn2
     real(DP) :: hn1, hn2
-    real(DP) :: nx, ny
+    real(DP) :: nx, ny, nz
     real(DP) :: distance
     real(DP) :: dltot
     real(DP) :: hwva
@@ -798,17 +799,21 @@ contains
       if (ihc == 0) then
         nx = DZERO
         ny = DZERO
+        nz = -DONE
+
         area = hwva
         if (botn1 < botn2) then
           ! -- n1 is beneath n2, so rate is positive downward.  Flip rate
           !    upward so that points in positive z direction
           rrate = -rrate
+          nz = DONE
         end if
       else
         if (this%ianglex > 0) then
           angle = this%auxvar(this%ianglex, i) * DPIO180
           nx = cos(angle)
           ny = sin(angle)
+          nz = DZERO
         else
           ! error?
           call store_error('error in gwf_gwf_cq', terminate=.TRUE.)
@@ -831,7 +836,7 @@ contains
       distance = dltot * this%cl1(i) / (this%cl1(i) + this%cl2(i))
       if (this%gwfmodel1%npf%icalcspdis == 1) then
         call this%gwfmodel1%npf%set_edge_properties(n1, ihc, rrate, area, &
-                                                    nx, ny, distance)
+                                                    nx, ny, nz, distance)
       end if
       !
       ! -- Submit this connection and flow information to the npf
@@ -845,7 +850,7 @@ contains
         distance = dltot * this%cl2(i) / (this%cl1(i) + this%cl2(i))
         if (ihc /= 0) rrate = -rrate
         call this%gwfmodel2%npf%set_edge_properties(n2, ihc, rrate, area, &
-                                                    -nx, -ny, distance)
+                                                    -nx, -ny, -nz, distance)
       end if
       !
     end do
