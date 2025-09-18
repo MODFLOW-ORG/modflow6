@@ -163,6 +163,9 @@ def build_model(idx, test):
 
     return sim, None
 
+def check_output(idx, test):
+    buff = test.buffs[0]
+    assert any("Coarse grained material thickness is less than zero" in l for l in buff)
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
@@ -171,6 +174,7 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         workspace=function_tmpdir,
         build=lambda t: build_model(idx, t),
         targets=targets,
+        check=lambda t: check_output(idx, t),
         xfail=True,
     )
     test.run()
