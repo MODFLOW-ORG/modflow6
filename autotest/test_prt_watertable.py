@@ -16,8 +16,8 @@ import numpy as np
 import pandas as pd
 import pytest
 from framework import TestFramework
-from prt_test_utils import get_model_name
 from modflow_devtools import is_in_ci
+from prt_test_utils import get_model_name
 
 simname = "prtwt"
 cases = [simname]
