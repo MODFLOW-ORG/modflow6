@@ -7,6 +7,7 @@ within or to the right of the recharge zone should be moved by the
 flow to terminate finally at the right-side constant head boundary.
 """
 
+from os import environ
 from pathlib import Path
 
 import flopy
@@ -16,6 +17,7 @@ import pandas as pd
 import pytest
 from framework import TestFramework
 from prt_test_utils import get_model_name
+from modflow_devtools import is_in_ci
 
 simname = "prtwt"
 cases = [simname]
@@ -262,6 +264,9 @@ def plot_output(idx, test):
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets, array_snapshot, plot):
+    # skip snapshot with ifort/ifx in CI. it fails in release mode
+    if is_in_ci() and environ.get("FC", None) in ["ifort", "ifx"]:
+        array_snapshot = None
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,

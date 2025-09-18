@@ -97,21 +97,27 @@ contains
     ic = defn%icell
     defn%isatstat = SATURATION_SATURATED
 
+    ! dry?
     if (this%fmi%ibdgwfsat0(ic) == 0) then
       defn%isatstat = SATURATION_DRY
       return
     end if
 
-    if (.not. is_close(this%fmi%gwfsat(ic), DONE, symmetric=.false.)) then
+    ! partially saturated?
+    if (this%fmi%gwfsat(ic) < DONE) then
       defn%isatstat = SATURATION_WATERTABLE
       return
     end if
 
+    ! no top neighbor?
     itopface = defn%npolyverts + 3 ! cell defn's lateral face indices are closed
-    idiag = this%fmi%dis%con%ia(ic)
-    if (defn%facenbr(itopface) == 0) return ! no top neighbor? consider saturated
+    if (defn%facenbr(itopface) == 0) then
+      defn%isatstat = SATURATION_SATURATED
+      return
+    end if
 
     ! dry top neighbor?
+    idiag = this%fmi%dis%con%ia(ic)
     ipos = idiag + defn%facenbr(itopface)
     ictopnbr = this%fmi%dis%con%ja(ipos)
     if (this%fmi%ibdgwfsat0(ictopnbr) == 0) then
