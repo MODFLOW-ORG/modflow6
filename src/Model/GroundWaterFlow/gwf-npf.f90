@@ -1444,7 +1444,8 @@ contains
   !<
   subroutine check_options(this)
     ! -- modules
-    use SimModule, only: store_error, store_warning, count_errors, store_error_filename
+    use SimModule, only: store_error, store_warning, &
+                         count_errors, store_error_filename
     use ConstantsModule, only: LINELENGTH
     ! -- dummy
     class(GwfNpftype) :: this
