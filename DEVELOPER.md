@@ -715,7 +715,7 @@ The test framework can also exercise the mf5to6 converter program. To do this, r
 pixi run autotest -m "external" --models-path /path/to/modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 ```
 
-The framework will then convert any MF2005 models found to MF6 models and run them. This can be conveniently combined with `--original-regression` to compare MF2005 and MF6 results.
+The framework will then convert any MF2005, MFNWT or MFLGR models found to MF6 models and run them. This can be conveniently combined with `--original-regression` to compare MF2005 and MF6 results.
 
 ### Writing tests
 
