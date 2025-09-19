@@ -1,6 +1,6 @@
 module GwfNpfModule
   use KindModule, only: DP, I4B
-  use SimVariablesModule, only: errmsg
+  use SimVariablesModule, only: errmsg, warnmsg
   use ConstantsModule, only: DZERO, DEM9, DEM8, DEM7, DEM6, DEM2, &
                              DHALF, DP9, DONE, DTWO, &
                              DHNOFLO, DHDRY, DEM10, &
@@ -584,7 +584,7 @@ contains
 
   !> @brief Calculate dry cell saturation
   !!
-  !! Calculate the saturation based on the maximum cell bottom for 
+  !! Calculate the saturation based on the maximum cell bottom for
   !! two connected cells
   !<
   subroutine dry_cell_saturation(this, n, m, hn, hm, satn, satm)
@@ -613,8 +613,6 @@ contains
       satm = sQuadraticSaturation(top, bot, hm, this%satomega)
     end if
   end subroutine dry_cell_saturation
-
-
 
   !> @brief Fill newton terms
   !<
@@ -1446,7 +1444,7 @@ contains
   !<
   subroutine check_options(this)
     ! -- modules
-    use SimModule, only: store_error, count_errors, store_error_filename
+    use SimModule, only: store_error, store_warning, count_errors, store_error_filename
     use ConstantsModule, only: LINELENGTH
     ! -- dummy
     class(GwfNpftype) :: this
@@ -1471,6 +1469,14 @@ contains
         write (errmsg, '(a)') 'ERROR IN NPF OPTIONS. NEWTON OPTION CANNOT '// &
           'BE USED WITH REWET OPTION.'
         call store_error(errmsg)
+      end if
+    else
+      if (this%idrycellsat /= 0) then
+        write (warnmsg, '(a)') 'DRY_CELL_SATURATION '// &
+          'option cannot be used when NEWTON option in not specified. '// &
+          'Resetting DRY_CELL_SATURATION option to off.'
+        this%idrycellsat = 0
+        call store_warning(warnmsg)
       end if
     end if
     !
