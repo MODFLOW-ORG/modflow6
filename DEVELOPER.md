@@ -142,7 +142,7 @@ Binaries may also be downloaded and installed from the [releases here](https://g
 
 #### Intel Fortran
 
-Intel Fortran can also be used to compile MODFLOW 6 and associated utilities. The `ifort` and `ifx` compilers are available in the [Intel oneAPI HPC Toolkit](https://software.intel.com/content/www/us/en/develop/tools/oneapi/hpc-toolkit/download.html).
+Intel Fortran can also be used to compile MODFLOW 6 and associated utilities. The next generation Fortran compiler `ifx` is available in the [Intel oneAPI HPC Toolkit](https://software.intel.com/content/www/us/en/develop/tools/oneapi/hpc-toolkit/download.html). Both `ifx` and the older `ifort` are available in oneAPI versions released prior to 2025.
 
 A number of environment variables must be set before using Intel Fortran. General information can be found [here](https://www.intel.com/content/www/us/en/develop/documentation/oneapi-programming-guide/top/oneapi-development-environment-setup.html), with specific instructions to configure a shell session for `ifort` [here](https://www.intel.com/content/www/us/en/develop/documentation/fortran-compiler-oneapi-dev-guide-and-reference/top/compiler-setup/use-the-command-line/specifying-the-location-of-compiler-components.html).
 
