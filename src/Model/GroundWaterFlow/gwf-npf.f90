@@ -1297,7 +1297,7 @@ contains
     if (found%ithickstrt) &
       write (this%iout, '(4x,a)') 'THICKSTRT option has been activated.'
     if (found%idrycellsat) &
-      write (this%iout, '(4x,a)') 'DRY_CELL_SAT option has been activated.'
+      write (this%iout, '(4x,a)') 'DRY_CELL_SATURATION option has been activated.'
     if (found%iperched) &
       write (this%iout, '(4x,a)') 'Vertical flow will be adjusted for perched &
                                   &conditions.'
