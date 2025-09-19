@@ -23,15 +23,6 @@ EXCLUDE = [
     "test028_sfr_rewet",
     # todo reinstate after 6.5.0 release
     "test001d_Tnewton",
-    # remove tests with nwt usg conductance weighting
-    "test006_gwf3_gnc_nr_dev",
-    "test006_gwf3_nr_dev",
-    "test014_NWTP3High_dev",
-    "test015_KeatingLike_disu_dev",
-    "test041_flowdivert_nr_dev",
-    "test016_Keating_disu_dev",
-    "test053_npf-a-nwt_dev",
-    "test053_npf-b-nwt_dev",
     # todo reinstate after resolving convergence failure
     "test014_NWTP3Low_dev",
     "test1002_biscqtg_disv_gnc_nr_dev",
@@ -39,7 +30,10 @@ EXCLUDE = [
     "test1002_biscqtg_disv_nr_RCM_dev",
     "test1002_biscqtg_disv_nr_dev",
     "testWetDry/mf2005",
-    # prepare for dry_cell_saturation change
+]
+# models to force original regression comparison
+# (otherwise enabled with --original-regression)
+OG_REG = [
     "test006_gwf3_gnc_nr",
     "test006_gwf3_nr",
     "test014_NWTP3High_mfusg",
@@ -49,9 +43,6 @@ EXCLUDE = [
     "test053_npf-a_mfusg",
     "test053_npf-b_mfusg",
 ]
-# models to force original regression comparison
-# (otherwise enabled with --original-regression)
-OG_REG = []
 
 
 def pytest_generate_tests(metafunc):
