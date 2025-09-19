@@ -655,8 +655,7 @@ class TestFramework:
 
     def run(self):
         """
-        Run the test case end-to-end.
-
+        Run the test case.
         """
 
         # if build fn provided, build models/simulations and write input files
@@ -738,23 +737,22 @@ class TestFramework:
                         )
                     shutil.copytree(self.workspace, cmp_path)
 
-                # run comparison simulation if libmf6 or mf6 regression
-                if self.compare in [Comparison.MF6_REGRESSION, Comparison.LIBMF6]:
-                    if self.compare.value not in self.targets:
-                        warn(
-                            f"Couldn't find comparison program '{self.compare}', "
-                            "skipping comparison"
-                        )
-                    else:
-                        # todo: don't hardcode workspace or assume agreement with
-                        # test case simulation workspace, set & access simulation
-                        # workspaces directly
-                        workspace = self.workspace / self.compare.value
-                        success, _ = self._run(
-                            workspace,
-                            self.targets.get(self.compare.value, self.targets["mf6"]),
-                        )
-                        assert success, f"Comparison model failed: {workspace}"
+                # run comparison simulation
+                if self.compare.value not in self.targets:
+                    warn(
+                        f"Couldn't find comparison program '{self.compare}', "
+                        "skipping comparison"
+                    )
+                else:
+                    # todo: don't hardcode workspace or assume agreement with
+                    # test case simulation workspace, set & access simulation
+                    # workspaces directly
+                    workspace = self.workspace / self.compare.value
+                    success, _ = self._run(
+                        workspace,
+                        self.targets.get(self.compare.value, self.targets["mf6"]),
+                    )
+                    assert success, f"Comparison model failed: {workspace}"
 
                 # compare model results, if enabled
                 if self.verbose and self.compare.value in self.targets:

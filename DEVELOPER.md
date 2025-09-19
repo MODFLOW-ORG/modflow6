@@ -701,25 +701,21 @@ Tests using models from external repositories can be selected with the `external
 pixi run autotest -m "external"
 ```
 
-By default, these will run against test models pulled from the GitHub repositories. To run the tests against local models, use `--models-path` once or more to specify directories to search for model input files. For instance, to test MF6 models from the test models repository:
+By default, these will run against test models pulled from the GitHub repositories, using the [`modflow-devtools` models API](https://modflow-devtools.readthedocs.io/en/latest/md/models.html). To run the tests against local models, use `--models-path` once or more to specify directories to search for model input files. For instance, to test MF6 models from the [`MODFLOW-ORG/modflow6-testmodels`](https://github.com/MODFLOW-ORG/modflow6-testmodels) repository:
 
 ```shell
 pixi run autotest -m "external" --models-path /path/to/modflow6-testmodels/mf6
 ```
 
-By defaultk, only MF6 models are found. To test the mf5to6 converter with mf2005 models in the same repository, relax the namefile search pattern:
+And similarly for large models from the [`MODFLOW-ORG/modflow6-largetestmodels](https://github.com/MODFLOW-ORG/modflow6-largetestmodels) repository.
+
+The test framework can also exercise the mf5to6 converter program. To do this, relax the namefile search pattern during model discovery:
 
 ```shell
 pixi run autotest -m "external" --models-path /path/to/modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 ```
 
-Large test models are excluded from commit-triggered CI and only run on GitHub Actions nightly. To run the models from a local clone of the repository:
-
-```shell
-pixi run autotest -m "external" --models-path /path/to/modflow6-largetestmodels
-```
-
-Tests load external models from fixtures provided by `modflow-devtools`. External model tests can be selected by model or simulation name, or by packages used. See the [`modflow-devtools` documentation](https://modflow-devtools.readthedocs.io/en/latest/md/fixtures.html#filtering) for usage examples. Note that filtering options only apply to tests using external models, and will not filter tests defining models in code &mdash; for that, the `pytest` built-in `-k` option may be used.
+The framework will then convert any MF2005 models found to MF6 models and run them. This can be conveniently combined with `--original-regression` to compare MF2005 and MF6 results.
 
 ### Writing tests
 
