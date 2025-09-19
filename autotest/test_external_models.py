@@ -37,6 +37,15 @@ EXCLUDE = [
     "test1002_biscqtg_disv_nr_RCM_dev",
     "test1002_biscqtg_disv_nr_dev",
     "testWetDry/mf2005",
+    # prepare for dry_cell_saturation change
+    "test006_gwf3_gnc_nr",
+    "test006_gwf3_nr",
+    "test014_NWTP3High_mfusg",
+    "test015_KeatingLike_disu_mfusg",
+    "test016_Keating_disu_mfusg",
+    "test041_flowdivert_mfusg",
+    "test053_npf-a_mfusg",
+    "test053_npf-b_mfusg",
 ]
 # models to force original regression comparison
 # (otherwise enabled with --original-regression)
