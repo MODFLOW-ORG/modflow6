@@ -18,9 +18,9 @@ module MethodModelModule
     procedure, public :: assess
     procedure, public :: get_level
     ! cell load utilities
-    procedure :: cap_wt_flow
-    procedure :: load_no_exit_face
-    procedure :: load_saturation_status
+    procedure :: cap_cell_wt_flow
+    procedure :: load_cell_no_exit_face
+    procedure :: load_cell_saturation_status
   end type MethodModelType
 
 contains
@@ -51,7 +51,7 @@ contains
   !!
   !! Assumes cell properties and flows are already loaded.
   !<
-  subroutine cap_wt_flow(this, defn)
+  subroutine cap_cell_wt_flow(this, defn)
     class(MethodModelType), intent(inout) :: this
     type(CellDefnType), pointer, intent(inout) :: defn
     ! local
@@ -66,11 +66,11 @@ contains
       defn%faceflow(itopface) = max(DZERO, defn%faceflow(itopface))
     end if
 
-  end subroutine cap_wt_flow
+  end subroutine cap_cell_wt_flow
 
   !> @brief Set flag indicating if the cell has any faces with outflow.
   !! Assumes cell properties and flows are already loaded.
-  subroutine load_no_exit_face(this, defn)
+  subroutine load_cell_no_exit_face(this, defn)
     ! dummy
     class(MethodModelType), intent(inout) :: this
     type(CellDefnType), pointer, intent(inout) :: defn
@@ -83,11 +83,11 @@ contains
       if (defn%faceflow(m) < DZERO) defn%inoexitface = 0
     end do
 
-  end subroutine load_no_exit_face
+  end subroutine load_cell_no_exit_face
 
   !> @brief Set the saturation status of a cell.
   !! See the status enumeration in CellDefnModule.
-  subroutine load_saturation_status(this, defn)
+  subroutine load_cell_saturation_status(this, defn)
     ! dummy
     class(MethodModelType), intent(inout) :: this
     type(CellDefnType), pointer, intent(inout) :: defn
@@ -125,6 +125,6 @@ contains
       return
     end if
 
-  end subroutine load_saturation_status
+  end subroutine load_cell_saturation_status
 
 end module MethodModelModule
