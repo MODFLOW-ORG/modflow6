@@ -288,8 +288,13 @@ jobs:
 
       - name: Update flopy
         if: inputs.run_tests == true && runner.os != 'Windows'
-        working-directory: modflow6/autotest
-        run: python update_flopy.py
+        working-directory: modflow6
+        run: |
+          cmd="python -m flopy.mf6.utils.generate_classes --dfnpath doc/mf6io/mf6ivar/dfn"
+          if [[ "${{ inputs.developmode }}" == "false" ]]; then
+            cmd="$cmd --releasemode"
+          fi
+          eval "$cmd"
 
       - name: Get executables
         if: inputs.run_tests == true && runner.os != 'Windows'
@@ -446,9 +451,14 @@ jobs:
           fi
           eval "$cmd"
 
-      - name: Update FloPy classes
-        working-directory: modflow6/autotest
-        run: python update_flopy.py
+      - name: Update flopy
+        working-directory: modflow6
+        run: |
+          cmd="python -m flopy.mf6.utils.generate_classes --dfnpath doc/mf6io/mf6ivar/dfn"
+          if [[ "${{ inputs.developmode }}" == "false" ]]; then
+            cmd="$cmd --releasemode"
+          fi
+          eval "$cmd"
 
       - name: Get OS tag
         id: ostag
