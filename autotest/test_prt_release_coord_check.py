@@ -202,6 +202,7 @@ def plot_output(test):
     plt.savefig(prt_ws / f"{name}.png")
 
 
+@pytest.mark.developmode
 @pytest.mark.parametrize("name", cases)
 def test_mf6model(name, function_tmpdir, targets, plot):
     test = TestFramework(
