@@ -194,13 +194,6 @@ jobs:
           fi
           echo "ostag=$ostag" >> $GITHUB_OUTPUT
 
-      - name: Get executables
-        if: inputs.run_tests == true && runner.os != 'Windows'
-        working-directory: modflow6
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: pixi run get-exes -s
-
       - name: Set markers
         if: inputs.run_tests == true
         id: set_markers
@@ -239,6 +232,13 @@ jobs:
             ldflags="$LDFLAGS -Wl,-ld_classic"
             echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
           fi
+
+      - name: Get executables
+        if: inputs.run_tests == true && runner.os != 'Windows'
+        working-directory: modflow6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run get-exes -s
 
       - name: Build binaries
         if: (!(runner.os == 'Windows' && matrix.extended))
