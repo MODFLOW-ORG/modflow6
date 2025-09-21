@@ -73,6 +73,11 @@ jobs:
       models: ${{ steps.set_models.outputs.models }}
       patch: ${{ steps.set_patch.outputs.patch }}
     steps:
+      - name: Checkout modflow6
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.repository_owner }}/modflow6
+          ref: ${{ github.ref }}
       - name: Set branch
         id: set_branch
         run: |
