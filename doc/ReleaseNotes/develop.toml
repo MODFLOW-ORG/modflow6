@@ -51,17 +51,12 @@ description = "PRT previously reported cell exit events (reason code 1) when a p
 [[items]]
 section = "fixes"
 subsection = "model"
-description = "PRT previously reported subcell exit and cell exit events on DISV grids with the same event code (1). Subcell events are a tracking method implementation detail, however. Subcell events (and more generally, events occurring at subgrid scale) will no longer be included by default in particle tracking output. The PRT Output Control (OC) package's TRACK\\_EXIT option now applies only to features explicitly defined by the grid discretization. Particle events at sub-grid scale are now opt-in with a new keyword option TRACK\\_SUBFEATURE\\_EXIT."
+description = "Fixed ambiguous reporting of cell and subcell events by PRT on DISV grids. Previously subcell exit events and cell exit events were reported with the same event code (1). Subcell events are a tracking method implementation detail, however. Subcell events (and more generally, events occurring at subgrid scale) are no longer included by default in particle tracking output. The PRT Output Control (OC) package's TRACK\\_EXIT option now applies only to features explicitly defined by the grid discretization. Particle events at sub-grid scale are now opt-in with a new keyword option TRACK\\_SUBFEATURE\\_EXIT."
 
 [[item]]
 section = "fixes"
-subsection = "solution"
-description = "PRT models could encounter cyclic particle pathlines (infinite loops) in the vicinity of assigned boundary faces. When an internal boundary face was assigned (an IFLOWFACE adjacent to another active cell), the adjacent cells could fail to agree on the flow through their shared face, trapping particles and preventing the program from halting. Particles will now terminate at all assigned boundary faces, internal or external, for which the net boundary flow through the face is out of the cell."
-
-[[items]]
-section = "fixes"
-subsection = "solution"
-description = "PRT models could encounter cyclic particle pathlines near the water table with GWF models using the NEWTON option. With Newton, dry cells remain active; a flow model may produce numerically insignificant upwards flow through the top face of a partially saturated cell. With DRY\\_TRACKING\\_METHOD DROP (the default option), a particle in a partially saturated cell could obtain an exit solution through the cell's top face, jump to the dry cell above, then drop back down, and so on. Particles are now prevented from exiting through the top face of partially saturated cells. If a particle reaches the water table and the cell top is an assigned boundary face, or if DRY\\_TRACKING\\_METHOD is STOP, the particle will terminate. Otherwise, it will remain stationary and active."
+subsection = "model"
+description = "Fixed two infinite loop conditions in PRT models. First, cyclic paths were possible in the vicinity of assigned boundary faces. When an internal boundary face was assigned (an IFLOWFACE adjacent to another active cell), the adjacent cells could fail to agree on the flow through their shared face, trapping particles in an infinite loop. Particles now terminate at internal assigned boundary faces for which net boundary flow through the face is out of the cell. Particles continue to terminate at all external assigned boundary faces as before. Second, cyclic paths were possible near the water table with GWF models using the NEWTON option. With Newton, dry cells remain active; a flow model may produce numerically insignificant upwards flow through the top face of a partially saturated cell. With DRY\\_TRACKING\\_METHOD DROP (the default option), a particle in a partially saturated cell could obtain an exit solution through the cell's top face, jump to the dry cell above, then drop back down, and so on. In partially saturated cells, any flow upwards through the top face which is not associated with an assigned boundary is now ignored. This prevents particles from exiting through the top face of partially saturated cells unless the top face is an assigned boundary."
 
 [[items]]
 section = "fixes"
@@ -91,14 +86,14 @@ description = "Added a developer option DEV\\_CYCLE\\_DETECTION\\_WINDOW to the 
 [[items]]
 section = "features"
 subsection = "solution"
-description = "Fixes a bug first included in version 6.4.2 that has changed the convergence check of the numerical solution. In cases where the linear solver failed to converge, or when it did converge but the STRICT option was active and convergence did not occur on the first iteration, the solution was erroneously considered for overall convergence."
+description = "Fixed a bug first included in version 6.4.2 that has changed the convergence check of the numerical solution. In cases where the linear solver failed to converge, or when it did converge but the STRICT option was active and convergence did not occur on the first iteration, the solution was erroneously considered for overall convergence."
 
 [[items]]
 section = "fixes"
 subsection = "parallel"
-description = "Fixes a memory exception that has occurred when running parallel solute transport on Windows without the dispersion package. This has no effect on the simulation results other than causing a premature termination in some cases."
+description = "Fixed a memory exception that has occurred when running parallel solute transport on Windows without the dispersion package. This has no effect on the simulation results other than causing a premature termination in some cases."
 
 [[items]]
 section = "fixes"
 subsection = "parallel"
-description = "Fixes the case where a convergence failure of the PETSc linear solver halts the program with an exception (error -5). This particular failure is now handled by continuing with the next outer iteration. This is equivalent to what happens when using the IMS solver in a serial simulation."
+description = "Fixed the case where a convergence failure of the PETSc linear solver halts the program with an exception (error -5). This particular failure is now handled by continuing with the next outer iteration. This is equivalent to what happens when using the IMS solver in a serial simulation."
