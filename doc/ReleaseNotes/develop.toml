@@ -53,7 +53,7 @@ section = "fixes"
 subsection = "model"
 description = "Fixed ambiguous reporting of cell and subcell events by PRT on DISV grids. Previously subcell exit events and cell exit events were reported with the same event code (1). Subcell events are a tracking method implementation detail, however. Subcell events (and more generally, events occurring at subgrid scale) are no longer included by default in particle tracking output. The PRT Output Control (OC) package's TRACK\\_EXIT option now applies only to features explicitly defined by the grid discretization. Particle events at sub-grid scale are now opt-in with a new keyword option TRACK\\_SUBFEATURE\\_EXIT."
 
-[[item]]
+[[items]]
 section = "fixes"
 subsection = "model"
 description = "Fixed two infinite loop conditions in PRT models. First, cyclic paths were possible in the vicinity of assigned boundary faces. When an internal boundary face was assigned (an IFLOWFACE adjacent to another active cell), the adjacent cells could fail to agree on the flow through their shared face, trapping particles in an infinite loop. Particles now terminate at internal assigned boundary faces for which net boundary flow through the face is out of the cell. Particles continue to terminate at all external assigned boundary faces as before. Second, cyclic paths were possible near the water table with GWF models using the NEWTON option. With Newton, dry cells remain active; a flow model may produce numerically insignificant upwards flow through the top face of a partially saturated cell. With DRY\\_TRACKING\\_METHOD DROP (the default option), a particle in a partially saturated cell could obtain an exit solution through the cell's top face, jump to the dry cell above, then drop back down, and so on. In partially saturated cells, any flow upwards through the top face which is not associated with an assigned boundary is now ignored. This prevents particles from exiting through the top face of partially saturated cells unless the top face is an assigned boundary."
@@ -97,3 +97,13 @@ description = "Fixed a memory exception that has occurred when running parallel 
 section = "fixes"
 subsection = "parallel"
 description = "Fixed the case where a convergence failure of the PETSc linear solver halts the program with an exception (error -5). This particular failure is now handled by continuing with the next outer iteration. This is equivalent to what happens when using the IMS solver in a serial simulation."
+
+[[items]]
+section = "features"
+subsection = "stress"
+description = "Added HIGHEST\\_SATURATED option to the GWT SRC package. When activated, the HIGHEST\\_SATURATED option will apply a mass source loading rate to the specified CELLID or the highest underlying cell with a non-zero cell saturation. The HIGHEST\\_SATURATED option has an additional complication for certain types of grids specified using the DISU Package. When the DISU Package is used, a cell may have more than one cell underlying it. If the overlying cell were to become inactive, there is no straightforward method for determining how to apportion the mass source loading rate to the underlying cells. In this case, the approach described by \\cite{modflowusg} is used. The mass source loading rate is assigned to the first active cell encountered (determined by searching through the underlying cell numbers from the lowest number to the highest number). In this manner, the total mass source loading rate is conserved; however, the spatial distribution of the applied mass source loading rate may not be maintained as layers become dry or wet during a simulation."
+
+[[items]]
+section = "features"
+subsection = "basic"
+description = "Added a coordinate reference system option CRS to discretization packages. For example, an EPSG integer code, authority string, or Open Geospatial Consortium Well-Known Text (WKT) specification. This option does not affect simulation results, but is written to the binary grid file so that postprocessors can locate the grid in space. A new binary grid file version number (2) is introduced to indicate that CRS information may be present."

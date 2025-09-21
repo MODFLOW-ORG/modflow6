@@ -132,7 +132,7 @@ def build_deprecations_tex(force: bool = False):
     assert tex_path.is_file()
 
 
-def build_notes_tex(force: bool = False):
+def build_notes_tex(force: bool = False, patch: bool = False):
     """Build LaTeX files for the release notes."""
 
     build_deprecations_tex(force=force)
@@ -144,14 +144,16 @@ def build_notes_tex(force: bool = False):
     else:
         tex_path.unlink(missing_ok=True)
         with set_dir(RELEASE_NOTES_PATH):
-            out, err, ret = run_py_script(
+            args = [
                 "mk_releasenotes.py",
                 "--toml",
                 toml_path,
                 "--tex",
                 tex_path,
-                verbose=True,
-            )
+            ]
+            if patch:
+                args.append("--patch")
+            out, err, ret = run_py_script(*args, verbose=True)
             assert not ret, out + err
 
     assert tex_path.is_file()
@@ -390,6 +392,7 @@ def build_documentation(
     models: Optional[list[str]] = None,
     repo_owner: str = "MODFLOW-ORG",
     developmode: bool = True,
+    patch: bool = False,
 ):
     """Build documentation for a MODFLOW 6 distribution."""
 
@@ -412,7 +415,7 @@ def build_documentation(
             workspace_path=Path(temp),
             example_model_path=PROJ_ROOT_PATH / ".mf6minsim",
         )
-        build_notes_tex(force=force)
+        build_notes_tex(force=force, patch=patch)
 
         if full:
             build_benchmark_tex(out_path=out_path, force=force)
@@ -508,8 +511,19 @@ Additional LaTeX files may be included in the distribution by specifying --tex-p
         "--releasemode",
         required=False,
         action="store_true",
-        help="Omit prerelease variables from documentation "
-        "(defaults to false for development distributions)",
+        help="Omit prerelease variables/sections from documentation. "
+        "MF6IO variables marked 'prerelease' are omitted, as well as "
+        "LaTeX sections surrounded with '\\ifdevelopmode ... \\fi'. "
+        "Defaults to false.",
+    )
+    parser.add_argument(
+        "--patch",
+        default=False,
+        action="store_true",
+        help="Filter content from documentation for a patch release. "
+        "Include only items in the 'fixes' section in release notes; "
+        "that's all this does now, but in the future it may do more. "
+        "Defaults to false.",
     )
     args = parser.parse_args()
     output_path = Path(args.output_path).expanduser().absolute()
@@ -517,6 +531,7 @@ Additional LaTeX files may be included in the distribution by specifying --tex-p
     bin_path = Path(args.bin_path).expanduser().absolute()
     models = args.model if args.model else DEFAULT_MODELS
     developmode = not args.releasemode
+    patch = args.patch
     build_documentation(
         bin_path=bin_path,
         out_path=output_path,
@@ -525,4 +540,5 @@ Additional LaTeX files may be included in the distribution by specifying --tex-p
         models=models,
         repo_owner=args.repo_owner,
         developmode=developmode,
+        patch=patch,
     )

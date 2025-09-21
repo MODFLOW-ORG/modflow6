@@ -15,9 +15,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--toml", default="develop.toml")
     parser.add_argument("--tex", default="develop.tex")
+    parser.add_argument("--patch", default=False, action="store_true")
     args = parser.parse_args()
     toml_path = Path(args.toml).expanduser().absolute()
     tex_path = Path(args.tex).expanduser().absolute()
+    patch = args.patch
     if not toml_path.is_file():
         warn(f"Release notes TOML file not found: {toml_path}")
         sys.exit(0)
@@ -45,9 +47,13 @@ if __name__ == "__main__":
     with open(tex_path, "w") as tex_file:
         with open(toml_path, "rb") as toml_file:
             content = tomli.load(toml_file)
-            sections = content.get("sections", [])
-            subsections = content.get("subsections", [])
+            sections = content.get("sections", {})
+            subsections = content.get("subsections", {})
             items = content.get("items", [])
+            # if patch, only include fixes
+            if patch:
+                sections = {k: v for k, v in sections.items() if k == "fixes"}
+                items = [item for item in items if item.get("section") == "fixes"]
             # make sure each item has a subsection entry even if empty
             for item in items:
                 if not item.get("subsection"):
