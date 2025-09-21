@@ -84,7 +84,7 @@ subsection = "model"
 description = "Added a developer option DEV\\_CYCLE\\_DETECTION\\_WINDOW to the PRT Model's Particle Release (PRP) Package. When enabled, this feature maintains a history of recent cell transitions, the size of which is configurable. If a cycle is detected, the program will terminate with an error. A cycle is identified as a duplicate particle event within a single application of the tracking loop, respective to certain particle and cell properties, e.g., exiting through the same cell face twice. This option defaults to 0, disabling cycle detection by default."
 
 [[items]]
-section = "features"
+section = "fixes"
 subsection = "solution"
 description = "Fixed a bug first included in version 6.4.2 that has changed the convergence check of the numerical solution. In cases where the linear solver failed to converge, or when it did converge but the STRICT option was active and convergence did not occur on the first iteration, the solution was erroneously considered for overall convergence."
 
