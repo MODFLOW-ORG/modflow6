@@ -143,7 +143,7 @@ jobs:
 
       - name: Update version
         id: update_version
-        working-directory: modflow6/distribution
+        working-directory: modflow6
         run: |
           ver="${{ steps.set_version.outputs.version }}"
           cmd="pixi run update-version -v $ver"
@@ -157,6 +157,7 @@ jobs:
 
       - name: Get OS tag
         id: ostag
+        working-directory: modflow6
         run: |
           ostag=$(pixi run python -c "from modflow_devtools.ostags import get_ostag; print(get_ostag())")
           if [[ "${{ matrix.extended }}" == "true" ]]; then
