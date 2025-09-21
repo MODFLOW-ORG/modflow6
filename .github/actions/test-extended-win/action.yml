@@ -24,18 +24,11 @@ runs:
         unix2dos -n "%GITHUB_WORKSPACE%\modflow6\.github\common\test_modflow6_extended.bat" "%TEMP%\test_modflow6_extended.bat"
 
     - name: Test programs (extended)
-      if: github.ref_name != 'master'
-      shell: cmd
-      env:
-        REPOS_PATH: ${{ github.workspace }}
-      run: |
-        "%ONEAPI_ROOT%\setvars.bat" intel64 vs2022 && "%TEMP%\test_modflow6_extended.bat"
-
-    - name: Test programs (extended)
       if: github.ref_name == 'master'
       shell: cmd
       env:
         REPOS_PATH: ${{ github.workspace }}
-        MARKERS: not developmode
+        MARKERS: ${{ env.MARKERS }}
+        FILTERS: ${{ env.FILTERS }}
       run: |
         "%ONEAPI_ROOT%\setvars.bat" intel64 vs2022 && "%TEMP%\test_modflow6_extended.bat"

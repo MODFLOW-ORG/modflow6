@@ -112,6 +112,20 @@ jobs:
           path: modflow6
           ref: ${{ inputs.branch }}
 
+      - name: Checkout modflow6-testmodels
+        if: inputs.run_tests == true && runner.os != 'Windows'
+        uses: actions/checkout@v5
+        with:
+          repository: MODFLOW-ORG/modflow6-testmodels
+          path: modflow6-testmodels
+
+      - name: Checkout modflow6-examples
+        if: inputs.run_tests == true && runner.os != 'Windows'
+        uses: actions/checkout@v5
+        with:
+          repository: MODFLOW-ORG/modflow6-examples
+          path: modflow6-examples
+
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.9.0
         with:
@@ -160,7 +174,17 @@ jobs:
           fi
           eval "$cmd"
 
-      - name: Get OS tag
+      - name: Update flopy
+        if: inputs.run_tests == true && runner.os != 'Windows'
+        working-directory: modflow6
+        run: |
+          cmd="pixi run update-flopy"
+          if [[ "${{ inputs.developmode }}" == "false" ]]; then
+            cmd="$cmd --releasemode"
+          fi
+          eval "$cmd"
+
+      - name: Set OS tag
         id: ostag
         working-directory: modflow6
         run: |
@@ -169,6 +193,34 @@ jobs:
             ostag="${ostag}ext"
           fi
           echo "ostag=$ostag" >> $GITHUB_OUTPUT
+
+      - name: Get executables
+        if: inputs.run_tests == true && runner.os != 'Windows'
+        working-directory: modflow6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run get-exes -s
+
+      - name: Set markers
+        if: inputs.run_tests == true
+        id: set_markers
+        run: |
+          markers="not large"
+          if [[ "${{ inputs.developmode }}" == "false" ]]; then
+            markers="$markers and not developmode"
+          fi
+          echo "markers=$markers" >> $GITHUB_OUTPUT
+
+      - name: Set filters
+        if: inputs.run_tests == true
+        id: set_filters
+        run: |
+          filters=""
+          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
+            # comparison fails on macos-14 with optimization=1
+            filters="not test028_sfr_rewet"
+          fi
+          echo "filters=$filters" >> $GITHUB_OUTPUT
 
       # for statically linked gfortran ARM mac build
       - name: Hide dylibs (macOS)
@@ -221,14 +273,11 @@ jobs:
         uses: ./modflow6/.github/actions/build-extended-win
 
       - name: Build and test binaries (Windows)
-        if: runner.os == 'Windows' && matrix.extended && inputs.run_tests && inputs.developmode
-        uses: ./modflow6/.github/actions/test-extended-win
-
-      - name: Build and test binaries (Windows)
-        if: runner.os == 'Windows' && matrix.extended && inputs.run_tests && !inputs.developmode
+        if: runner.os == 'Windows' && matrix.extended && inputs.run_tests
         uses: ./modflow6/.github/actions/test-extended-win
         env:
-          MARKERS: not developmode
+          MARKERS: ${{ steps.set_markers.outputs.markers }}
+          FILTERS: ${{ steps.set_filters.outputs.filters }}
 
       - name: Copy deps to bin dir
         if: runner.os == 'Windows' && matrix.extended
@@ -273,59 +322,7 @@ jobs:
         with:
           name: bin-${{ steps.ostag.outputs.ostag }}
           path: modflow6/bin
-
-      - name: Checkout modflow6-testmodels
-        if: inputs.run_tests == true && runner.os != 'Windows'
-        uses: actions/checkout@v5
-        with:
-          repository: MODFLOW-ORG/modflow6-testmodels
-          path: modflow6-testmodels
-
-      - name: Checkout modflow6-examples
-        if: inputs.run_tests == true && runner.os != 'Windows'
-        uses: actions/checkout@v5
-        with:
-          repository: MODFLOW-ORG/modflow6-examples
-          path: modflow6-examples
-
-      - name: Update flopy
-        if: inputs.run_tests == true && runner.os != 'Windows'
-        working-directory: modflow6
-        run: |
-          cmd="pixi run update-flopy"
-          if [[ "${{ inputs.developmode }}" == "false" ]]; then
-            cmd="$cmd --releasemode"
-          fi
-          eval "$cmd"
-
-      - name: Get executables
-        if: inputs.run_tests == true && runner.os != 'Windows'
-        working-directory: modflow6
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: pixi run get-exes -s
-
-      - name: Set markers
-        if: inputs.run_tests == true && runner.os != 'Windows'
-        id: set_markers
-        run: |
-          markers="not large"
-          if [[ "${{ inputs.developmode }}" == "false" ]]; then
-            markers="$markers and not developmode"
-          fi
-          echo "markers=$markers" >> $GITHUB_OUTPUT
-
-      - name: Set filters
-        if: inputs.run_tests == true && runner.os != 'Windows'
-        id: set_filters
-        run: |
-          filters=""
-          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
-            # comparison fails on macos-14 with optimization=1
-            filters="not test028_sfr_rewet"
-          fi
-          echo "filters=$filters" >> $GITHUB_OUTPUT
-
+      
       - name: Test MF6
         if: inputs.run_tests == true && runner.os != 'Windows'
         working-directory: modflow6
