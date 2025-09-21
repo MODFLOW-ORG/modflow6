@@ -121,16 +121,6 @@ jobs:
         working-directory: modflow6
         run: pixi run pip install xugrid xarray netcdf4
 
-      - name: Setup Micromamba
-        uses: mamba-org/setup-micromamba@v1
-        with:
-          environment-file: modflow6/environment.yml
-          cache-downloads: true
-          cache-environment: true
-          init-shell: >-
-            bash
-            powershell
-
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
         if: (!(runner.os == 'Windows' && matrix.extended))
         id: setup-fortran
@@ -156,7 +146,7 @@ jobs:
         working-directory: modflow6/distribution
         run: |
           ver="${{ steps.set_version.outputs.version }}"
-          cmd="python update_version.py -v $ver"
+          cmd="pixi run update-version -v $ver"
           if [[ "${{ inputs.approve }}" == "true" ]]; then
             cmd="$cmd --approve"
           fi
@@ -168,7 +158,7 @@ jobs:
       - name: Get OS tag
         id: ostag
         run: |
-          ostag=$(python -c "from modflow_devtools.ostags import get_ostag; print(get_ostag())")
+          ostag=$(pixi run python -c "from modflow_devtools.ostags import get_ostag; print(get_ostag())")
           if [[ "${{ matrix.extended }}" == "true" ]]; then
             ostag="${ostag}ext"
           fi
@@ -196,16 +186,16 @@ jobs:
         if: (!(runner.os == 'Windows' && matrix.extended))
         working-directory: modflow6
         run: |
-          meson setup builddir --prefix=$(pwd) --libdir=bin -Doptimization=${{ matrix.optimization }}
-          meson install -C builddir
-          meson test --verbose --no-rebuild -C builddir
+          pixi run setup builddir -Doptimization=${{ matrix.optimization }}
+          pixi run build builddir
+          pixi run test builddir
 
       - name: Build mf5to6 converter
         if: (!(runner.os == 'Windows' && matrix.extended))
-        working-directory: modflow6/utils/mf5to6
+        working-directory: modflow6
         run: |
-          meson setup builddir --prefix=$(pwd)/../../ --libdir=bin -Doptimization=${{ matrix.optimization }}
-          meson install -C builddir
+          pixi run setup-mf5to6 builddir -Doptimization=${{ matrix.optimization }}
+          pixi run build-mf5to6 builddir
 
       - name: Check architecture (macOS)
         working-directory: modflow6/bin
@@ -290,7 +280,7 @@ jobs:
         if: inputs.run_tests == true && runner.os != 'Windows'
         working-directory: modflow6
         run: |
-          cmd="python -m flopy.mf6.utils.generate_classes --dfnpath doc/mf6io/mf6ivar/dfn"
+          cmd="pixi run update-flopy"
           if [[ "${{ inputs.developmode }}" == "false" ]]; then
             cmd="$cmd --releasemode"
           fi
@@ -298,10 +288,10 @@ jobs:
 
       - name: Get executables
         if: inputs.run_tests == true && runner.os != 'Windows'
-        working-directory: modflow6/autotest
+        working-directory: modflow6
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: pytest -v --durations 0 get_exes.py
+        run: pixi run get-exes -s
 
       - name: Set markers
         if: inputs.run_tests == true && runner.os != 'Windows'
@@ -326,25 +316,25 @@ jobs:
 
       - name: Test MF6
         if: inputs.run_tests == true && runner.os != 'Windows'
-        working-directory: modflow6/autotest
+        working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pytest -v -n auto -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
 
       - name: Test MF6 models
         if: inputs.run_tests == true && runner.os != 'Windows'
-        working-directory: modflow6/autotest
+        working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pytest -v -n auto -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
 
       - name: Test converter models
         if: inputs.run_tests == true && runner.os != 'Windows'
-        working-directory: modflow6/autotest
+        working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pytest -v -n auto -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
-      
+        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+
       - name: Upload failed test output
         if: failure()
         uses: actions/upload-artifact@v4
@@ -378,10 +368,10 @@ jobs:
 
       - name: Test distribution scripts
         if: ${{ inputs.run_tests == true && runner.os != 'Windows' }}
-        working-directory: modflow6/distribution
+        working-directory: modflow6
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: pytest -v --durations 0
+        run: pixi run test-dist-scripts
 
   docs:
     name: Build docs
