@@ -52,6 +52,11 @@ on:
         description: 'Models to include in the release documentation'
         required: false
         type: string
+      patch:
+        description: 'Create a patch release. If true, only bug fixes will be included in generated documentation.'
+        required: false
+        type: boolean
+        default: false
 jobs:
   set_options:
     name: Set release options
@@ -66,6 +71,7 @@ jobs:
       compiler_version: ${{ steps.set_compiler.outputs.compiler_version }}
       version: ${{ steps.set_version.outputs.version }}
       models: ${{ steps.set_models.outputs.models }}
+      patch: ${{ steps.set_patch.outputs.patch }}
     steps:
       - name: Set branch
         id: set_branch
@@ -144,6 +150,37 @@ jobs:
             exit 1
           fi
           echo "models=$models" >> $GITHUB_OUTPUT
+      - name: Set patch
+        id: set_patch
+        run: |
+          # if patch was provided explicitly via workflow_dispatch, use it
+          if [[ ("${{ github.event_name }}" == "workflow_dispatch") && (-n "${{ inputs.patch }}") ]]; then
+            patch="${{ inputs.patch }}"
+            echo "using patch setting $patch from workflow_dispatch"
+          elif [[ ("${{ github.event_name }}" == "push") && ("${{ github.ref_name }}" != "master") ]]; then
+            # if release was triggered by pushing a release branch, check the version against the latest
+            # tag on master to determine if this is a patch release
+            latest_tag=$(git ls-remote --tags origin "6.*" | awk -F/ '{print $3}' | sort -V | tail -n1)
+            echo "latest version on master is $latest_tag"
+            IFS='.' read -r -a latest_parts <<< "$latest_tag"
+            IFS='.' read -r -a new_parts <<< "${{ steps.set_version.outputs.version }}"
+            if [[ ${#latest_parts[@]} -ne 3 || ${#new_parts[@]} -ne 3 ]]; then
+              echo "error: version number is not in major.minor.patch format"
+              exit 1
+            fi
+            if [[ ${latest_parts[0]} -ne ${new_parts[0]} || ${latest_parts[1]} -ne ${new_parts[1]} ]]; then
+              patch="false"
+              echo "major or minor version has changed, not a patch release"
+            elif [[ ${latest_parts[2]} -lt ${new_parts[2]} ]]; then
+              patch="true"
+              echo "patch version has changed, this is a patch release"
+            fi
+          else
+            # otherwise exit with an error
+            echo "error: this workflow should not have triggered for event ${{ github.event_name }} on branch ${{ github.ref_name }}"
+            exit 1
+          fi
+          echo "patch=$patch" >> $GITHUB_OUTPUT
   make_dist:
     name: Make distribution
     uses: MODFLOW-ORG/modflow6/.github/workflows/release.yml@develop
@@ -164,6 +201,7 @@ jobs:
       run_tests: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_tests == 'true') || github.event_name != 'workflow_dispatch' }}
       version: ${{ needs.set_options.outputs.version }}
       models: ${{ needs.set_options.outputs.models }}
+      patch: ${{ (github.event_name == 'workflow_dispatch' && inputs.patch == 'true') || (github.event_name != 'workflow_dispatch' && needs.set_options.outputs.patch == 'true') }}
   pr:
     name: Draft release PR
     if: ${{ github.ref_name != 'master' && ((github.event_name == 'workflow_dispatch' && inputs.approve == 'true') || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc'))) }}

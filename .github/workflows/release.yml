@@ -51,6 +51,11 @@ on:
         description: 'Models to include in the release documentation'
         required: false
         type: string
+      patch:
+        description: 'Create a patch release. If true, only bug fixes will be included in generated documentation.'
+        required: false
+        type: boolean
+        default: false
     outputs:
       version:
         description: 'Version number used for release'
@@ -527,6 +532,9 @@ jobs:
           fi
           if [[ "${{ inputs.developmode }}" == "false" ]]; then
             cmd="$cmd --releasemode"
+          fi
+          if [[ "${{ inputs.patch }}" == "true" ]]; then
+            cmd="$cmd --patch"
           fi
           eval "$cmd"
           mv "doc/ReleaseNotes.pdf" "doc/release.pdf"
