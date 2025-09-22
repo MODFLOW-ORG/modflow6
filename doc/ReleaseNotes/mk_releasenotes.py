@@ -52,8 +52,11 @@ if __name__ == "__main__":
             items = content.get("items", [])
             # if patch, only include fixes
             if patch:
+                items = [item for item in items if item["section"] == "fixes"]
                 sections = {k: v for k, v in sections.items() if k == "fixes"}
-                items = [item for item in items if item.get("section") == "fixes"]
+                subsections = {
+                    k: subsections[k] for k in [item["subsection"] for item in items]
+                }
             # make sure each item has a subsection entry even if empty
             for item in items:
                 if not item.get("subsection"):
