@@ -525,7 +525,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "${{ needs.build.outputs.distname }}/doc"
-          cmd="python modflow6/distribution/build_docs.py -b bin -o doc"
+          cmd="python modflow6/distribution/build_docs.py -b bin -o doc --force"
           models="${{ inputs.models }}"
           if [ -n "$models" ]; then
             cmd="$cmd -m ${models//,/ -m }"
