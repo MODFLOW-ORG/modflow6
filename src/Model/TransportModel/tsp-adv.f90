@@ -2,6 +2,7 @@ module TspAdvModule
 
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DONE, DZERO, DNODATA, DPREC, LINELENGTH
+  use DevFeatureModule, only: dev_feature
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
@@ -373,6 +374,12 @@ contains
         this%iadvwt = this%iadvwt - 1
       end if
     end if
+
+    if (this%iadvwt == ADV_SCHEME_UTVD) then
+        call dev_feature('UTVD is still under development, install the &
+            &nightly build or compile from source with IDEVELOPMODE = 1.')
+    end if
+
     if (found_atspercel) then
       if (this%ats_percel == DZERO) this%ats_percel = DNODATA
     end if
