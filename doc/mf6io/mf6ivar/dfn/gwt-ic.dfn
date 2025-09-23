@@ -16,7 +16,7 @@ reader urword
 optional true
 mf6internal export_nc
 longname export array variables to netcdf output files.
-description keyword that specifies input griddata arrays should be written to the model output netcdf file.
+description keyword that specifies input griddata arrays should be written to the model output NetCDF file.
 extended true
 
 # --------------------- gwt ic griddata ---------------------
