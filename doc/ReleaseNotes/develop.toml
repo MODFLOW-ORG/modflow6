@@ -31,7 +31,7 @@ description = "Fixed viscosity ratio assignment in the GWT MAW package when the 
 [[items]]
 section = "fixes"
 subsection = "internal"
-description = "Fixed first-order decay in GWT so that production/decay does not occur when aqueous or sorbed concentration are negative."
+description = "Fixed first-order decay in GWT so that production/decay does not occur when aqueous or sorbed concentration is negative."
 
 [[items]]
 section = "fixes"
