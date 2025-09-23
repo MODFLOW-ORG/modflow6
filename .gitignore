@@ -154,3 +154,4 @@ autotest/notebooks/
 .pixi
 
 **/*.lock
+doc/ReleaseNotes/develop.tex
