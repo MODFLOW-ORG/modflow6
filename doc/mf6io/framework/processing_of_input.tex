@@ -4,16 +4,29 @@ An effort is underway to process program input early in program runtime, before 
 
 A specific set of \mf components has been updated in the current version to use the IDP routines, as shown in Table~\ref{table:idmsupported}.  Two integration steps have been taken for each file type listed in the table.  First, IDP has been updated to support the reading and loading of variable input data for the component.  File types listed in the table, each previously read and processed by the component, are now processed by IDP.  Second, the component itself has been refactored to retrieve input from managed memory locations in a predictable way.  Components and associated file types shown in table~\ref{table:idmsupported} are described in more detail in later sections of this document.
 
-\begin{table}[H]
-\caption{Components and subcomponents that are read using Input Data Processor (IDP) routines}
-\small
-\begin{center}
+%\begin{table}[H]
+%\caption{Components and subcomponents that are read using Input Data Processor (IDP) routines}
+%\small
+%\begin{center}
 %\begin{tabular*}{\columnwidth}{l l}
 \begin{longtable}{p{6cm} p{4cm}}
+\caption{Components and subcomponents that are read using Input Data Processor (IDP) routines} \tabularnewline
+
 \hline
 \hline
 \textbf{Component / Subcomponent} & \textbf{File Type} \\
 \hline
+\endfirsthead
+
+\captionsetup{textformat=simple}
+\caption*{\textbf{Table \arabic{table}.}{\quad}Components and subcomponents that are read using Input Data Processor (IDP) routines.---Continued} \\
+
+\hline
+\hline
+\textbf{Component / Subcomponent} & \textbf{File Type} \\
+\hline
+\endhead
+
 SIM/NAM & mfsim.nam \\
 SIM/TDIS & TDIS6 \\
 \hline
@@ -79,11 +92,12 @@ EXG/GWFGWE & GWF6-GWE6 \\
 EXG/GWEGWE & GWE6-GWE6 \\
 EXG/GWFPRT & GWF6-PRT6 \\
 \hline
-\end{longtable}
 \label{table:idmsupported}
-\end{center}
-\normalsize
-\end{table}
+\end{longtable}
+%\label{table:idmsupported}
+%\end{center}
+%\normalsize
+%\end{table}
 
 \subsection{Scope of Change}
 
