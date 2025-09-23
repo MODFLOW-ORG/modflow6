@@ -376,8 +376,8 @@ contains
     end if
 
     if (this%iadvwt == ADV_SCHEME_UTVD) then
-        call dev_feature('UTVD is still under development, install the &
-            &nightly build or compile from source with IDEVELOPMODE = 1.')
+      call dev_feature('UTVD is still under development, install the &
+          &nightly build or compile from source with IDEVELOPMODE = 1.')
     end if
 
     if (found_atspercel) then
