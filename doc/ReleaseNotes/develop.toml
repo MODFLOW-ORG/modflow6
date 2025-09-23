@@ -41,7 +41,7 @@ description = "Fixed bugs in the GWF VSC and BUY packages, affecting GWT simulat
 [[items]]
 section = "fixes"
 subsection = "model"
-description = "Fixed a bug preventing graceful termination of all particles in PRT models. With the PRP package's EXTEND\\_TRACKING option enabled, particles beginning the simulation's final timestep in a stationary cell (an active cell with no flow across any boundary) were not terminated gracefully. Particles in this condition will now terminate with status code 10 (timeout)."
+description = "Fixed a bug preventing graceful termination of some particles in PRT models. With the PRP package's EXTEND\\_TRACKING option enabled, particles beginning the simulation's final timestep in a stationary cell (an active cell with no flow across any boundary) were not terminated gracefully. Particles in this condition will now terminate with status code 10 (timeout)."
 
 [[items]]
 section = "fixes"
