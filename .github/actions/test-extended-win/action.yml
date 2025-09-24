@@ -1,3 +1,4 @@
+
 name: Test extended MF6 (Windows)
 description: Build and test extended MODFLOW 6 on Windows
 runs:
@@ -24,27 +25,11 @@ runs:
         unix2dos -n "%GITHUB_WORKSPACE%\modflow6\.github\common\test_modflow6_extended.bat" "%TEMP%\test_modflow6_extended.bat"
 
     - name: Test programs (extended)
-<<<<<<< HEAD
-=======
-      if: github.ref_name != 'master'
-      shell: cmd
-      env:
-        REPOS_PATH: ${{ github.workspace }}
-        MARKERS: not external
-      run: |
-        "%ONEAPI_ROOT%\setvars.bat" intel64 vs2022 && "%TEMP%\test_modflow6_extended.bat"
-
-    - name: Test programs (extended)
->>>>>>> 149b398b (exclude external models from windows extended develop build)
       if: github.ref_name == 'master'
       shell: cmd
       env:
         REPOS_PATH: ${{ github.workspace }}
-<<<<<<< HEAD
         MARKERS: ${{ env.MARKERS }}
         FILTERS: ${{ env.FILTERS }}
-=======
-        MARKERS: not developmode not external
->>>>>>> 149b398b (exclude external models from windows extended develop build)
       run: |
         "%ONEAPI_ROOT%\setvars.bat" intel64 vs2022 && "%TEMP%\test_modflow6_extended.bat"
