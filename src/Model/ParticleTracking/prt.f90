@@ -63,7 +63,6 @@ module PrtModule
     real(DP), dimension(:), pointer, contiguous :: massstoold => null() !< particle mass storage in cells, old value
     real(DP), dimension(:), pointer, contiguous :: ratesto => null() !< particle mass storage rate in cells
     real(DP), dimension(:), pointer, contiguous :: masstrm => null() !< particle mass terminating in cells, new value
-    real(DP), dimension(:), pointer, contiguous :: masstrmold => null() !< particle mass terminating in cells, old value
     real(DP), dimension(:), pointer, contiguous :: ratetrm => null() !< particle mass termination rate in cells
     type(HashTableType), pointer :: trm_ids => null() !< terminated particle ids
   contains
@@ -370,7 +369,6 @@ contains
     ! Update look-behind mass
     do n = 1, this%dis%nodes
       this%massstoold(n) = this%masssto(n)
-      this%masstrmold(n) = this%masstrm(n)
     end do
 
     ! Advance fmi
@@ -876,7 +874,6 @@ contains
     call mem_deallocate(this%massstoold)
     call mem_deallocate(this%ratesto)
     call mem_deallocate(this%masstrm)
-    call mem_deallocate(this%masstrmold)
     call mem_deallocate(this%ratetrm)
 
     call this%tracks%destroy()
@@ -934,8 +931,6 @@ contains
                       'RATESTO', this%memoryPath)
     call mem_allocate(this%masstrm, this%dis%nodes, &
                       'MASSTRM', this%memoryPath)
-    call mem_allocate(this%masstrmold, this%dis%nodes, &
-                      'MASSTRMOLD', this%memoryPath)
     call mem_allocate(this%ratetrm, this%dis%nodes, &
                       'RATETRM', this%memoryPath)
     ! explicit model, so these must be manually allocated
@@ -947,7 +942,6 @@ contains
       this%massstoold(n) = DZERO
       this%ratesto(n) = DZERO
       this%masstrm(n) = DZERO
-      this%masstrmold(n) = DZERO
       this%ratetrm(n) = DZERO
       this%x(n) = DZERO
       this%rhs(n) = DZERO
