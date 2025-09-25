@@ -74,11 +74,6 @@ subsection = "model"
 description = "Add DEPENDENT\\_VARIABLE\\_SCALING option to scale the dependent variable and the right-hand side to avoid very large positive or negative values in the GWT and GWE models. Specified outer and inner DVCLOSE values in the model IMS package will be relative closure criteria. This option applies the same scaling approach used in the MT3DMS GCG package."
 
 [[items]]
-section = "fixes"
-subsection = "model"
-description = "The Particle Tracking (PRT) Model previously reported cell exit events when a dry particle stranded in a partially saturated cell was dropped to the water table, as occurs with DRY\\_TRACKING\\_METHOD DROP (the default). An event is no longer reported at this time."
-
-[[items]]
 section = "features"
 subsection = "model"
 description = "Added a developer option DEV\\_CYCLE\\_DETECTION\\_WINDOW to the PRT Model's Particle Release (PRP) Package. When enabled, this feature maintains a history of recent cell transitions, the size of which is configurable. If a cycle is detected, the program will terminate with an error. A cycle is identified as a duplicate particle event within a single application of the tracking loop, respective to certain particle and cell properties, e.g., exiting through the same cell face twice. This option defaults to 0, disabling cycle detection by default."
