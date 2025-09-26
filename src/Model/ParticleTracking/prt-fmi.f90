@@ -17,8 +17,8 @@ module PrtFmiModule
   character(len=LENPACKAGENAME) :: text = '    PRTFMI'
 
   type, extends(FlowModelInterfaceType) :: PrtFmiType
-
-    integer(I4B) :: max_faces !< maximum number of faces for grid cell polygons
+    private
+    integer(I4B), public :: max_faces !< maximum number of faces for grid cell polygons
     real(DP), allocatable, public :: SourceFlows(:) ! cell source flows array
     real(DP), allocatable, public :: SinkFlows(:) ! cell sink flows array
     real(DP), allocatable, public :: StorageFlows(:) ! cell storage flows array
@@ -33,6 +33,7 @@ module PrtFmiModule
     procedure :: mark_boundary_face
     procedure :: is_boundary_face
     procedure :: is_net_out_boundary_face
+    procedure, private :: iflowface_to_iface
 
   end type PrtFmiType
 
@@ -191,9 +192,7 @@ contains
         iface = 0 ! internal face number
         if (iauxiflowface > 0) then
           iflowface = NINT(this%gwfpackages(ip)%auxvar(iauxiflowface, ib))
-          iface = iflowface
-          ! maps bot -2 -> max_faces - 1, top -1 -> max_faces
-          if (iface < 0) iface = iface + this%max_faces + 1
+          iface = this%iflowface_to_iface(iflowface)
         end if
         if (iface > 0) then
           call this%mark_boundary_face(i, iface)
@@ -280,5 +279,16 @@ contains
     ioffset = (ic - 1) * this%max_faces
     if (this%BoundaryFlows(ioffset + iface) < DZERO) is_net_out_boundary = .true.
   end function is_net_out_boundary_face
+
+  !> @brief Convert an iflowface number to an iface number
+  function iflowface_to_iface(this, iflowface) result(iface)
+    class(PrtFmiType), intent(inout) :: this
+    integer(I4B), intent(in) :: iflowface
+    integer(I4B) :: iface
+
+    iface = iflowface
+    ! maps bot -2 -> max_faces - 1, top -1 -> max_faces
+    if (iface < 0) iface = iface + this%max_faces + 1
+  end function iflowface_to_iface
 
 end module PrtFmiModule

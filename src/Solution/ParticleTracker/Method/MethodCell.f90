@@ -22,6 +22,7 @@ module MethodCellModule
     procedure, public :: store_event
     procedure, public :: get_level
     procedure, public :: try_pass
+    procedure :: iboundary_to_iface
   end type MethodCellType
 
 contains
@@ -39,7 +40,7 @@ contains
     logical(LGP) :: advancing
     integer(I4B) :: nextlevel
     ! local
-    integer(I4B) :: ic, iface, nfaces
+    integer(I4B) :: ic, iboundary, iface
 
     if (.not. particle%advancing) then
       advancing = .false.
@@ -49,12 +50,8 @@ contains
 
     call this%pass(particle)
 
-    ! TODO: name iface variables to reflect the face numbering scheme
-    iface = particle%iboundary(LEVEL_FEATURE)
-    nfaces = this%cell%defn%npolyverts + 2 ! total 3d faces
-    if (iface >= nfaces) &
-      ! uncompress and drop wraparound index
-      iface = iface + (this%fmi%max_faces - nfaces) - 1
+    iboundary = particle%iboundary(LEVEL_FEATURE)
+    iface = this%iboundary_to_iface(iboundary)
     if (iface <= 0) return
 
     ! on a cell face, done advancing. raise an exit event
@@ -311,5 +308,19 @@ contains
     integer(I4B) :: level
     level = LEVEL_FEATURE
   end function get_level
+
+  !> @brief Convert an iboundary number to an iface number
+  function iboundary_to_iface(this, iboundary) result(iface)
+    class(MethodCellType), intent(inout) :: this
+    integer(I4B), intent(in) :: iboundary
+    integer(I4B) :: iface
+    integer(I4B) :: nfaces
+
+    iface = iboundary
+    nfaces = this%cell%defn%npolyverts + 2
+    if (iface >= nfaces) &
+      ! uncompress and drop wraparound index
+      iface = iface + (this%fmi%max_faces - nfaces) - 1
+  end function iboundary_to_iface
 
 end module MethodCellModule
