@@ -33,7 +33,7 @@ module PrtFmiModule
     procedure :: mark_boundary_face
     procedure :: is_boundary_face
     procedure :: is_net_out_boundary_face
-    procedure, private :: iflowface_to_iface
+    procedure, private :: iflowface_to_icellface
 
   end type PrtFmiType
 
@@ -155,7 +155,7 @@ contains
     class(PrtFmiType) :: this
     ! local
     integer(I4B) :: j, i, ip, ib
-    integer(I4B) :: ioffset, iflowface, iauxiflowface, iface
+    integer(I4B) :: ioffset, iflowface, iauxiflowface, icellface
     real(DP) :: qbnd
     character(len=LENAUXNAME) :: auxname
     integer(I4B) :: naux
@@ -188,17 +188,17 @@ contains
         if (this%ibound(i) <= 0) cycle
         qbnd = this%gwfpackages(ip)%get_flow(ib)
         ! todo, after initial release: default iflowface values for different packages
-        iflowface = 0 ! iflowface number
-        iface = 0 ! internal face number
+        iflowface = 0
+        icellface = 0
         if (iauxiflowface > 0) then
           iflowface = NINT(this%gwfpackages(ip)%auxvar(iauxiflowface, ib))
-          iface = this%iflowface_to_iface(iflowface)
+          icellface = this%iflowface_to_icellface(iflowface)
         end if
-        if (iface > 0) then
-          call this%mark_boundary_face(i, iface)
+        if (icellface > 0) then
+          call this%mark_boundary_face(i, icellface)
           ioffset = (i - 1) * this%max_faces
-          this%BoundaryFlows(ioffset + iface) = &
-            this%BoundaryFlows(ioffset + iface) + qbnd
+          this%BoundaryFlows(ioffset + icellface) = &
+            this%BoundaryFlows(ioffset + icellface) + qbnd
         else if (qbnd .gt. DZERO) then
           this%SourceFlows(i) = this%SourceFlows(i) + qbnd
         else if (qbnd .lt. DZERO) then
@@ -213,7 +213,7 @@ contains
   subroutine mark_boundary_face(this, ic, iface)
     class(PrtFmiType) :: this
     integer(I4B), intent(in) :: ic !< node number (reduced)
-    integer(I4B), intent(in) :: iface !< face number
+    integer(I4B), intent(in) :: iface !< cell face number
     ! local
     integer(I4B) :: bit_pos
 
@@ -240,7 +240,7 @@ contains
   function is_boundary_face(this, ic, iface) result(is_boundary)
     class(PrtFmiType) :: this
     integer(I4B), intent(in) :: ic !< node number (reduced)
-    integer(I4B), intent(in) :: iface !< face number
+    integer(I4B), intent(in) :: iface !< cell face number
     logical(LGP) :: is_boundary
     ! local
     integer(I4B) :: bit_pos
@@ -269,7 +269,7 @@ contains
   function is_net_out_boundary_face(this, ic, iface) result(is_net_out_boundary)
     class(PrtFmiType) :: this
     integer(I4B), intent(in) :: ic !< node number (reduced)
-    integer(I4B), intent(in) :: iface !< face number
+    integer(I4B), intent(in) :: iface !< cell face number
     logical(LGP) :: is_net_out_boundary
     ! local
     integer(I4B) :: ioffset
@@ -280,15 +280,15 @@ contains
     if (this%BoundaryFlows(ioffset + iface) < DZERO) is_net_out_boundary = .true.
   end function is_net_out_boundary_face
 
-  !> @brief Convert an iflowface number to an iface number
-  function iflowface_to_iface(this, iflowface) result(iface)
+  !> @brief Convert an iflowface number to a cell face number.
+  !! Maps bottom (-2) -> max_faces - 1, top (-1) -> max_faces.
+  function iflowface_to_icellface(this, iflowface) result(iface)
     class(PrtFmiType), intent(inout) :: this
     integer(I4B), intent(in) :: iflowface
     integer(I4B) :: iface
 
     iface = iflowface
-    ! maps bot -2 -> max_faces - 1, top -1 -> max_faces
     if (iface < 0) iface = iface + this%max_faces + 1
-  end function iflowface_to_iface
+  end function iflowface_to_icellface
 
 end module PrtFmiModule

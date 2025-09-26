@@ -22,7 +22,7 @@ module MethodCellModule
     procedure, public :: store_event
     procedure, public :: get_level
     procedure, public :: try_pass
-    procedure :: iboundary_to_iface
+    procedure :: iboundary_to_icellface
   end type MethodCellType
 
 contains
@@ -40,7 +40,7 @@ contains
     logical(LGP) :: advancing
     integer(I4B) :: nextlevel
     ! local
-    integer(I4B) :: ic, iboundary, iface
+    integer(I4B) :: ic, iboundary, icellface
 
     if (.not. particle%advancing) then
       advancing = .false.
@@ -51,8 +51,8 @@ contains
     call this%pass(particle)
 
     iboundary = particle%iboundary(LEVEL_FEATURE)
-    iface = this%iboundary_to_iface(iboundary)
-    if (iface <= 0) return
+    icellface = this%iboundary_to_icellface(iboundary)
+    if (icellface <= 0) return
 
     ! on a cell face, done advancing. raise an exit event
     advancing = .false.
@@ -60,7 +60,7 @@ contains
 
     ! assigned boundary face with net outflow? terminate
     ic = particle%itrdomain(LEVEL_FEATURE)
-    if (this%fmi%is_net_out_boundary_face(ic, iface)) then
+    if (this%fmi%is_net_out_boundary_face(ic, icellface)) then
       call this%terminate(particle, status=TERM_BOUNDARY)
       return
     end if
@@ -310,7 +310,7 @@ contains
   end function get_level
 
   !> @brief Convert an iboundary number to an iface number
-  function iboundary_to_iface(this, iboundary) result(iface)
+  function iboundary_to_icellface(this, iboundary) result(iface)
     class(MethodCellType), intent(inout) :: this
     integer(I4B), intent(in) :: iboundary
     integer(I4B) :: iface
@@ -321,6 +321,6 @@ contains
     if (iface >= nfaces) &
       ! uncompress and drop wraparound index
       iface = iface + (this%fmi%max_faces - nfaces) - 1
-  end function iboundary_to_iface
+  end function iboundary_to_icellface
 
 end module MethodCellModule
