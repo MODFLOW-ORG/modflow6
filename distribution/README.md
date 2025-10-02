@@ -97,7 +97,9 @@ There are no major releases as the MF6 major version number is constant. Breakin
 
 ## Steps
 
-If building distributions locally, a development environment [must be configured](../DEVELOPER.md) including a Fortran compiler and a Python environment. If using GitHub Actions, nothing is needed besides `git`.  This section assumes releases are made with GitHub Actions.
+If building distributions locally, a development environment [must be configured](../DEVELOPER.md) including a Fortran compiler, a Python environment, a LaTeX environment, and the [`MODFLOW-ORG/usgslatex`](https://github.com/MODFLOW-ORG/usgslatex) styles.
+
+If using GitHub Actions, nothing is needed besides `git`.  This section assumes releases are made with GitHub Actions.
 
 To make a release,
 
@@ -130,6 +132,10 @@ Double-check release notes in `doc/ReleaseNotes/develop.toml` with the authors o
 For hotfix releases, `develop.toml` must be trimmed manually on the release branch. For patch releases made from `develop`, release notes are automatically filtered to include only fixes.
 
 **Note**: For all releases, add a line to the Release History section of `ReleaseNotes.tex` providing the version number, date and DOI of the release, e.g. `6.4.4 & February 13, 2024 & \url{https://doi.org/10.5066/P9FL1JCC}`. DOIs are updated with minor releases and remain the same for patch releases.
+
+### Release examples repo
+
+MODFLOW 6 [example models](https://github.com/MODFLOW-ORG/modflow6-examples) are bundled with official releases. Example models must be built and run to generate plots and tables before documentation can be generated. The `release.yml` workflow attempts to download the latest release from the examples repository if it can find one, otherwise it will rebuild example models.
 
 ### Create a release branch
 
@@ -239,34 +245,22 @@ This directory contains scripts for
 
 MODFLOW 6 version numbers follow the [semantic versioning](https://semver.org/) convention `major.minor.patch`. Release tags do not include an initial `v`.
 
-The current version is stored in `version.txt` in the project root. The version number appears in several other files in the repository, as well as date and timestamp information.
+The version string is stored in `version.txt` in the project root. The version string appears in several other files in the repository, as well as date and timestamp information.
 
-The `update_version.py` script updates `version.txt` and other files containing version information. For instance, to set the version string to `6.4.1`:
+The `update_version.py` script synchronizes updates to `version.txt` and other files containing version information.
 
 ```shell
 pixi run update-version -v 6.4.1
-python update_version.py -v 6.4.1 # or from the scripts/ folder
+python update_version.py -v 6.4.1 # or from the distribution/ folder
 ```
 
-If a `--version` value is not provided, the version string will not be changed, just dates and timestamps.
-
-The `--version` value may contain trailing letters, e.g.
+If a `--version` value is not provided, the version string will not be changed, just dates and timestamps. The `--version` value may contain trailing letters, e.g.
 
 ```shell
 python update_version.py -v 6.4.2rc
 ```
 
 These must begin immediately after the patch version number, and may contain numerics after an initial alphabetic character.
-
-The `update_version.py` script has a few other flags:
-
-- `--get` (short `-g`): print the current version number to `stdout` without making any updates.
-
-- `--approved` (short `-a`): approve an official release. If the `--approved` flag is provided, disclaimer language is altered to reflect approval. If the flag is not provided, the language reflects preliminary/provisional status and `(preliminary)` is appended to version numbers.
-
-- `--releasemode` (short `-r`): toggle whether binaries are built in development or release mode by editing the contents of `src/Utilities/version.f90`. If the `--releasemode` flag is provided, `IDEVELOPMODE` is set to 0. If `--releasemode` is not provided, `IDEVELOPMODE` is set to 1.
-
-- `--citation` (short `-c`): generate a citation from the contents of `CITATION.cff` and print it to `stdout`, again without making any updates.
 
 ### Regenerating build files
 
@@ -290,51 +284,68 @@ python deprecations.py # or from the doc/mf6io/mf6ivar/ folder
 
 ### Benchmarking examples
 
-MODFLOW 6 [example models](https://github.com/MODFLOW-ORG/modflow6-examples) are bundled with official releases. Example models must be built and run to generate plots and tables before documentation can be generated. The `release.yml` workflow attempts to download the latest release from the examples repository if it can find one, otherwise it will rebuild and run example models. See the examples repository for more information on releasing the examples.
+The `benchmark.py` script benchmarks the current development version of MODFLOW 6 against the latest release rebuilt in development mode, using the models from the `MODFLOW-ORG/modflow6-examples` repository.
 
-MODFLOW 6 documentation includes a performance evaluation comparing the current version against the last official release. Benchmarks must run before a release can be prepared. Benchmarks run as a component of the `docs.yml` CI workflow &mdash; `release.yml` attempts to download benchmark results if available, only re-running them if necessary.
+Paths to pre-built binaries for both versions can be provided via the `--current-bin-path` (short `-c`) and `--previous-bin-path` (short `-p`) command line options. If bin paths are not provided, executables are rebuilt in the default locations:
 
-The `benchmark.py` script benchmarks the current development version of MODFLOW 6 against the latest release rebuilt in development mode, using the models from the `MODFLOW-ORG/modflow6-examples` repository. Paths to pre-built binaries for both versions can be provided via the `--current-bin-path` (short `-c`) and `--previous-bin-path` (short `-p`) command line options. If bin paths are not provided, executables are rebuilt in the default locations:
-
-`<project root>/bin`: current development version
-`<project root>/bin/rebuilt`: previous version
+- `<project root>/bin`: current development version
+- `<project root>/bin/rebuilt`: previous version
 
 The examples repository must first be installed and prepared as described above. Its path may be explicitly provided with the `--examples-repo-path` (short `-e`) option. If no path is provided, the repository is assumed to be named `modflow6-examples` and live side-by-side with the `modflow6` repository on the filesystem.
 
-The directory to write benchmark results can be specified with `--output-path` (short `-o`). If no such option is provided, results are written to the current working directory.
-
 ```shell
-python benchmark.py -e ../modflow6-examples -o .benchmarks
+pixi run benchmark
+python benchmark.py # or from the distribution/ folder
 ```
-
-The above will write results to a markdown file `.benchmarks/run-time-comparison.md` relative to the project root.
 
 ### Building PDF documents
 
-Extensive documentation is bundled with official MODFLOW 6 releases. MODFLOW 6 documentation is written in LaTeX. Some LaTeX files (in particular for MODFLOW 6 input/output documentation) are automatically generated from DFN files. The `release.yml` workflow first runs `update_version.py` to update version strings to be substituted into the docs, then runs `build_docs.py` to regenerate LaTeX files where necessary, download benchmark results (and convert the Markdown results file to LaTeX), download publications hosted on the USGS website, and finally convert LaTeX to PDFs.
+The `build_docs.py` script constructs documentation.
 
-Manually building MODFLOW 6 documentation requires additional Python dependencies specified in `build_rtd_docs/requirements.rtd.txt`. Styles defined in the [`MODFLOW-ORG/usgslatex`](https://github.com/MODFLOW-ORG/usgslatex) are also required. (See that repository's `README` for installation instructions or this repo's [`../.github/workflows/docs.yml](../.github/workflows/docs.yml) CI workflow for an example.)
+- regenerates LaTeX files from DFN files (via `mf6ivar.py`)
+- downloads or reruns benchmarks (via `benchmark.py`)
+- downloads publications hosted on the USGS website
+- builds the MF6IO PDF document
+
+```shell
+pixi run build-docs
+python build_docs.py # or from the distribution/ folder
+```
+
+The script is lazy &mdash; files are regenerated only if they do not already exist or the `--force` flag is provided. Likewise for installing example models and running benchmarks.
 
 ### Building distributions
 
-After each step above is complete, the `build_dist.py` script can be used to construct the MODFLOW 6 distribution. The `build_dist.py` script can be used to create both minimal and full distributions. By default, a minimal distribution is created. To create a full distribution, run the script with the `--full` flag.
+The `build_dist.py` script constructs a complete distribution.
 
-The `build_dist.py` script is lazy &mdash; benchmarks, example models and documentation artifacts are downloaded via the GitHub API if available, and only re-created if none exist or the `--force` (`-f`) flag is provided. This allows the release workflow to consume artifacts previously created by other workflow runs, reducing the time needed to create and publish a release.
+- builds binaries
+- builds examples
+- builds documentation
+- collects release assets
+- creates a distribution archive
 
-The script has several other arguments:
+```shell
+pixi run build-dist -o $DISTDIR
+python build_dist.py -o $DISTDIR # or from the distribution/ folder
+```
 
-- `--build-path`: path to the build workspace, defaults to `<project root>/builddir`
-- `--output-path (-o)`: path to create a distribution zipfile, defaults to `<project root>/distribution/`
-- `--examples-repo-path (-e)`: path to the [`MODFLOW-ORG/modflow6-examples`](https://github.com/MODFLOW-ORG/modflow6-examples) repository, defaults to `modflow6-examples` side-by-side with project root
-- `--force (-f)`: whether to recreate and overwrite preexisting components of the distribution, if they already exist
-
-Default paths are resolved relative to the script's location on the filesystem, *not* the current working directory, so the script can be run from `distribution/`, from the project root, or from anywhere else. This is true of all scripts in the `distribution/` directory.
-
-See [the `release.yml` workflow](../.github/workflows/release.yml) for a complete example of how to build a distribution archive.
+The script is lazy &mdash; components of the distribution are recreated only if they do not exist or the `--force` flag is provided.
 
 ### Checking distributions
 
-The `check_dist.py` script can be used to check the release distribution folder. The `--path` argument is the path to the dist folder. The `--approved` flag can be used to signal that the release is approved/official. By default the release is assumed preliminary. The script checks the version string emitted by `mf6 -v` for the presence or absence of "preliminary" depending on this flag.
+The `check_dist.py` script runs some checks on the distribution, e.g.:
+
+- binaries are present
+- source code is present
+- PDF documents are present
+- binaries successfully run example models 
+- binaries emit expected version strings and other output
+- build files are present and can successfully build the source code
+
+```shell
+pixi run check-dist --path $DISTDIR
+pytest -v -s check_dist.py --path $DISTDIR # or from the distributions/ folder
+```
 
 ## Testing
 
