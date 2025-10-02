@@ -4,11 +4,6 @@ on:
   # from this repo or the nightly build repo for dev builds
   workflow_call:
     inputs:
-      approve:
-        description: 'Approve the release, modifying disclaimer language to indicate the distribution has been reviewed. If false, disclaimers & version strings indicate preliminary/provisional status.'
-        required: false
-        type: boolean
-        default: false
       branch:
         description: 'Branch to release from.'
         required: true
@@ -23,13 +18,8 @@ on:
         required: false
         type: string
         default: '2021.7'
-      developmode:
-        description: 'Build binaries in develop mode. If false, IDEVELOPMODE is set to 0.'
-        required: false
-        type: boolean
-        default: true
       full:
-        description: 'Build a full distribution containing sources, examples, and all documentation. If false, the distribution contains only binaries, mf6io, release notes, and code.json.'
+        description: 'Build a full distribution containing sources, examples, and all documentation. If false, the distribution contains only binaries, mf6io, release notes, and code.json, with binaries built in develop mode, and disclaimers & version strings indicating preliminary/provisional status. If true, a full distribution is created, with binaries built in release mode, and disclaimer language indicating review and approval.'
         required: false
         type: boolean
         default: false
@@ -46,10 +36,6 @@ on:
       version:
         description: 'Version number to use for release.'
         required: true
-        type: string
-      models:
-        description: 'Models to include in the release documentation'
-        required: false
         type: string
       patch:
         description: 'Create a patch release. If true, only bug fixes will be included in generated documentation.'
@@ -166,11 +152,8 @@ jobs:
         run: |
           ver="${{ steps.set_version.outputs.version }}"
           cmd="pixi run update-version -v $ver"
-          if [[ "${{ inputs.approve }}" == "true" ]]; then
-            cmd="$cmd --approve"
-          fi
-          if [[ "${{ inputs.developmode }}" == "false" ]]; then
-            cmd="$cmd --releasemode"
+          if [[ "${{ inputs.full }}" == "true" ]]; then
+            cmd="$cmd --full
           fi
           eval "$cmd"
 
@@ -179,7 +162,7 @@ jobs:
         working-directory: modflow6
         run: |
           cmd="pixi run update-flopy"
-          if [[ "${{ inputs.developmode }}" == "false" ]]; then
+          if [[ "${{ inputs.full }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
           eval "$cmd"
@@ -199,7 +182,7 @@ jobs:
         id: set_markers
         run: |
           markers="not large"
-          if [[ "${{ inputs.developmode }}" == "false" ]]; then
+          if [[ "${{ inputs.full }}" == "true" ]]; then
             markers="$markers and not developmode"
           fi
           echo "markers=$markers" >> $GITHUB_OUTPUT
@@ -442,11 +425,8 @@ jobs:
         run: |
           ver="${{ needs.build.outputs.version }}"
           cmd="python update_version.py -v $ver"
-          if [[ "${{ inputs.approve }}" == "true" ]]; then
-            cmd="$cmd --approve"
-          fi
-          if [[ "${{ inputs.developmode }}" == "false" ]]; then
-            cmd="$cmd --releasemode"
+          if [[ "${{ inputs.full }}" == "true" ]]; then
+            cmd="$cmd --full
           fi
           eval "$cmd"
 
@@ -454,7 +434,7 @@ jobs:
         working-directory: modflow6
         run: |
           cmd="python -m flopy.mf6.utils.generate_classes --dfnpath doc/mf6io/mf6ivar/dfn"
-          if [[ "${{ inputs.developmode }}" == "false" ]]; then
+          if [[ "${{ inputs.full }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
           eval "$cmd"
@@ -493,7 +473,7 @@ jobs:
         if: inputs.full == true
         working-directory: modflow6-examples/autotest
         run: |
-          models="${{ inputs.models }}"
+          models="gwf,gwt,gwe,prt"
           pytest -v -n auto test_scripts.py --init -k "${models//,/ or }"
       
       - name: Collect deprecations
@@ -512,29 +492,19 @@ jobs:
         working-directory: modflow6/doc/mf6io/mf6ivar
         run: |
           cmd="python mf6ivar.py"
-          if [[ "${{ inputs.developmode }}" == "false" ]]; then
+          if [[ "${{ inputs.full }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
           eval "$cmd"
 
       - name: Build documentation
         env:
-          # this step is lazy about building the mf6 examples PDF document, first
-          # trying to download a prebuilt PDF from MODFLOW-ORG/modflow6-examples,
-          # so it needs a GITHUB_TOKEN.
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "${{ needs.build.outputs.distname }}/doc"
           cmd="python modflow6/distribution/build_docs.py -b bin -o doc --force"
-          models="${{ inputs.models }}"
-          if [ -n "$models" ]; then
-            cmd="$cmd -m ${models//,/ -m }"
-          fi
           if [[ "${{ inputs.full }}" == "true" ]]; then
             cmd="$cmd --full"
-          fi
-          if [[ "${{ inputs.developmode }}" == "false" ]]; then
-            cmd="$cmd --releasemode"
           fi
           if [[ "${{ inputs.patch }}" == "true" ]]; then
             cmd="$cmd --patch"
@@ -604,11 +574,8 @@ jobs:
         run: |
           ver="${{ needs.build.outputs.version }}"
           cmd="python update_version.py -v $ver"
-          if [[ "${{ inputs.approve }}" == "true" ]]; then
-            cmd="$cmd --approve"
-          fi
-          if [[ "${{ inputs.developmode }}" == "false" ]]; then
-            cmd="$cmd --releasemode"
+          if [[ "${{ inputs.full }}" == "true" ]]; then
+            cmd="$cmd --full"
           fi
           eval "$cmd"
  
@@ -649,10 +616,6 @@ jobs:
           # build distribution
           distname="${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}"
           cmd="python modflow6/distribution/build_dist.py -o $distname"
-          models="${{ inputs.models }}"
-          if [ -n "$models" ]; then
-            cmd="$cmd -m ${models//,/ -m }"
-          fi
           if [[ "${{ inputs.full }}" == "true" ]]; then
             cmd="$cmd --full"
           fi
@@ -758,12 +721,6 @@ jobs:
           fi
 
           cmd="pytest -v -s modflow6/distribution/check_dist.py --path $checkdir/$distname"
-          if [[ "${{ inputs.approve }}" == "true" ]]; then
-            cmd="$cmd --approved"
-          fi
-          if [[ "${{ inputs.developmode }}" == "false" ]]; then
-             cmd="$cmd --releasemode"
-          fi
           if [[ "${{ inputs.full }}" == "true" ]]; then
             cmd="$cmd --full"
           fi

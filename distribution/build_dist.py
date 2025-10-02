@@ -6,7 +6,6 @@ from os import PathLike, environ
 from pathlib import Path
 from pprint import pprint
 from shutil import copy, copyfile, copytree, ignore_patterns, rmtree
-from typing import Optional
 
 import pytest
 from build_docs import build_documentation
@@ -25,7 +24,7 @@ from utils import get_project_root_path
 # default paths
 PROJ_ROOT_PATH = get_project_root_path()
 BUILDDIR_PATH = PROJ_ROOT_PATH / "builddir"
-DEFAULT_MODELS = ["gwf", "gwt", "gwe", "prt", "swf"]
+DEFAULT_MODELS = ["gwf", "gwt", "gwe", "prt"]
 
 # OS-specific extensions
 SYSTEM = platform.system()
@@ -110,7 +109,6 @@ def setup_examples(
     bin_path: PathLike,
     examples_path: PathLike,
     force: bool = False,
-    models: Optional[list[str]] = None,
 ):
     examples_path = Path(examples_path).expanduser().absolute()
 
@@ -126,7 +124,7 @@ def setup_examples(
     # and omit any excluded models
     excluded = ["ex-prt-mp7-p02", "ex-prt-mp7-p04"]
     for p in examples_path.glob("*"):
-        if not any(m in p.stem for m in models):
+        if not any(m in p.stem for m in DEFAULT_MODELS):
             print(f"Omitting example due to model selection: {p.stem}")
             rmtree(p)
         if any(e in p.stem for e in excluded):
@@ -290,7 +288,6 @@ def build_distribution(
     output_path: PathLike,
     full: bool = False,
     force: bool = False,
-    models: Optional[list[str]] = None,
 ):
     print(f"Building {'full' if full else 'minimal'} distribution")
 
@@ -316,7 +313,6 @@ def build_distribution(
         bin_path=output_path / "bin",
         examples_path=output_path / "examples",
         force=force,
-        models=models,
     )
 
     # copy source code files
@@ -379,14 +375,12 @@ if __name__ == "__main__":
             """\
             Create a MODFLOW 6 distribution. If output path is provided
             distribution files are written to the selected path, if not
-            they are written to the distribution/ project subdirectory.
-            By default a minimal distribution containing only binaries,
-            mf6io documentation, release notes and metadata (code.json)
-            is created. To create a full distribution including sources
-            and examples, use the --full flag. Models to be included in
-            the examples and documentation can be selected with --model
-            (or -m), which may be used multiple times. Use --force (-f)
-            to overwrite preexisting distribution artifacts; by default
+            they are written directly to the distribution/ subdirectory.
+            By default, a minimal, preliminary distribution (including
+            binaries, mf6io documentation, release notes and code.json)
+            is created. To create a standard distribution with complete
+            documentation, examples, build files, etc, use --full. Use
+            --force (-f) to overwrite preexisting artifacts; by default
             the script is lazy and will only create what it can't find.
             """
         ),
@@ -395,28 +389,21 @@ if __name__ == "__main__":
         "--build-path",
         required=False,
         default=str(BUILDDIR_PATH),
-        help="Path to the build workspace",
+        help="The build directory path",
     )
     parser.add_argument(
         "-o",
         "--output-path",
         required=False,
         default=str(PROJ_ROOT_PATH / "distribution"),
-        help="Path to create distribution artifacts",
-    )
-    parser.add_argument(
-        "-m",
-        "--model",
-        required=False,
-        action="append",
-        help="Filter models to include",
+        help="The distribution directory path",
     )
     parser.add_argument(
         "--full",
         required=False,
         default=False,
         action="store_true",
-        help="Build a full rather than minimal distribution",
+        help="Build a full (standard/approved) distribution.",
     )
     parser.add_argument(
         "-f",
@@ -424,18 +411,17 @@ if __name__ == "__main__":
         required=False,
         default=False,
         action="store_true",
-        help="Recreate and overwrite existing artifacts",
+        help="Overwrite existing artifacts. Defaults to false, "
+        "so that pre-existing artifacts are used if available.",
     )
     args = parser.parse_args()
     build_path = Path(args.build_path)
     out_path = Path(args.output_path)
     out_path.mkdir(parents=True, exist_ok=True)
-    models = args.model if args.model else DEFAULT_MODELS
 
     build_distribution(
         build_path=build_path,
         output_path=out_path,
         full=args.full,
         force=args.force,
-        models=models,
     )

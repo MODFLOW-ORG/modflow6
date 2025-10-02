@@ -459,8 +459,8 @@ Create documentation for a distribution. By default, this only includes the mf6i
 document. If the --full flag is provided this includes benchmarks, release notes, the
 MODFLOW 6 input/output specification, example model documentation, supplemental info,
 documentation for the MODFLOW 5 to 6 converter and Zonebudget 6, and several articles
-downloaded from the USGS website. These are all written to a specified --output-path.
-Additional LaTeX files may be included in the distribution by specifying --tex-paths.
+downloaded from the USGS website too. By default, the script is lazy and will create
+only what it can't find. Use the --force (-f) flag to regenerate existing artifacts.
             """
         ),
     )
@@ -469,7 +469,7 @@ Additional LaTeX files may be included in the distribution by specifying --tex-p
         "--bin-path",
         required=False,
         default=str(BIN_PATH),
-        help="Location of modflow6 executables",
+        help="The path to the directory containing binaries",
     )
     parser.add_argument(
         "-f",
@@ -477,68 +477,52 @@ Additional LaTeX files may be included in the distribution by specifying --tex-p
         required=False,
         default=False,
         action="store_true",
-        help="Recreate and overwrite existing artifacts",
+        help="Overwrite existing artifacts. Defaults to false, "
+        "so that pre-existing artifacts are used if available.",
     )
     parser.add_argument(
         "--full",
         required=False,
         default=False,
         action="store_true",
-        help="Build docs for a full rather than minimal distribution",
+        help="Build docs for a full (standard/approved) distribution. "
+        "This omits prerelease variables/sections from documentation: "
+        "filtering out MF6IO variables marked 'prerelease' as well as "
+        "any LaTeX sections wrapped with '\\ifdevelopmode ... \\fi'. "
+        "Defaults false, suitable for preliminary development builds.",
     )
     parser.add_argument(
         "-o",
         "--output-path",
         required=False,
         default=os.getcwd(),
-        help="Location to create documentation artifacts",
+        help="The location to create documentation artifacts",
     )
     parser.add_argument(
         "--repo-owner",
         required=False,
         default="MODFLOW-ORG",
-        help="Repository owner (substitute your own for a fork)",
-    )
-    parser.add_argument(
-        "-m",
-        "--model",
-        required=False,
-        action="append",
-        help="Filter model types to include",
-    )
-    parser.add_argument(
-        "-r",
-        "--releasemode",
-        required=False,
-        action="store_true",
-        help="Omit prerelease variables/sections from documentation. "
-        "MF6IO variables marked 'prerelease' are omitted, as well as "
-        "LaTeX sections surrounded with '\\ifdevelopmode ... \\fi'. "
-        "Defaults to false.",
+        help="Repository owner. Use this option to fetch examples "
+        "from a fork of the repository. Defaults to MODFLOW-ORG.",
     )
     parser.add_argument(
         "--patch",
         default=False,
         action="store_true",
-        help="Filter content from documentation for a patch release. "
-        "Include only items in the 'fixes' section in release notes; "
-        "that's all this does now, but in the future it may do more. "
+        help="Filter content from release notes for a patch release: "
+        "include only items in the 'fixes' section in release notes. "
         "Defaults to false.",
     )
     args = parser.parse_args()
     output_path = Path(args.output_path).expanduser().absolute()
     output_path.mkdir(parents=True, exist_ok=True)
     bin_path = Path(args.bin_path).expanduser().absolute()
-    models = args.model if args.model else DEFAULT_MODELS
-    developmode = not args.releasemode
     patch = args.patch
     build_documentation(
         bin_path=bin_path,
         out_path=output_path,
         force=args.force,
         full=args.full,
-        models=models,
         repo_owner=args.repo_owner,
-        developmode=developmode,
         patch=patch,
     )
