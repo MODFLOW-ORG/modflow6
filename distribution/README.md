@@ -6,7 +6,7 @@ This document describes how to release MODFLOW 6. This folder contains scripts u
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 - [Flavors](#flavors)
-  - [Development](#development)
+  - [Provisional](#provisional)
   - [Standard](#standard)
 - [Versioning](#versioning)
   - [Patch](#patch)
@@ -15,6 +15,7 @@ This document describes how to release MODFLOW 6. This folder contains scripts u
   - [Review features](#review-features)
   - [Review deprecations](#review-deprecations)
   - [Review release notes](#review-release-notes)
+  - [Release examples repo](#release-examples-repo)
   - [Create a release branch](#create-a-release-branch)
   - [Build assets/distributions](#build-assetsdistributions)
   - [Merge release branch to master](#merge-release-branch-to-master)
@@ -22,9 +23,7 @@ This document describes how to release MODFLOW 6. This folder contains scripts u
   - [Reset the develop branch](#reset-the-develop-branch)
     - [Update version strings](#update-version-strings)
     - [Update release notes](#update-release-notes)
-- [Actions](#actions)
-  - [Dispatch workflow](#dispatch-workflow)
-  - [Release workflow](#release-workflow)
+  - [Release downstream repos](#release-downstream-repos)
 - [Scripts](#scripts)
   - [Updating version numbers](#updating-version-numbers)
   - [Regenerating build files](#regenerating-build-files)
@@ -33,9 +32,10 @@ This document describes how to release MODFLOW 6. This folder contains scripts u
   - [Building PDF documents](#building-pdf-documents)
   - [Building distributions](#building-distributions)
   - [Checking distributions](#checking-distributions)
-- [Testing](#testing)
-  - [Testing release scripts](#testing-release-scripts)
-  - [Testing the release workflow](#testing-the-release-workflow)
+  - [Testing scripts](#testing-scripts)
+- [Workflows](#workflows)
+  - [Workflow triggers](#workflow-triggers)
+  - [Testing workflows](#testing-workflows)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
