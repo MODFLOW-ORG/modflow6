@@ -112,8 +112,9 @@ To make a release,
 7. merge release branch to master
 8. publish the release
 9. reset the develop branch
+10. release downstream repos
 
-The release manager undertakes steps 1-3 in consultation with the development team. Step 4 [is described in the examples repository's developer docs](https://github.com/MODFLOW-ORG/modflow6-examples/blob/develop/DEVELOPER.md#releasing-the-examples). Step 5 triggers automation for steps 6-9.
+The release manager undertakes steps 1-3 in consultation with the development team. Step 4 [is described in the examples repository's developer docs](https://github.com/MODFLOW-ORG/modflow6-examples/blob/develop/DEVELOPER.md#releasing-the-examples). Step 5 triggers automation for steps 6-9. The release manager performs step 10.
 
 ### Review features
 
@@ -188,7 +189,7 @@ git switch -c post-6.x.y-release-reset
 Update the version number for the next development cycle:
 
 ```shell
-pixi run update-version -v 6.x.ydev0
+pixi run update-version -v 6.x.y.dev0
 ```
 
 This will substitute the new version number into the necessary files and set `IDEVELOPMODE` back to 1.
@@ -207,27 +208,21 @@ If this was not a hotfix, trim `doc/ReleaseNotes/develop.toml` as necessary to r
 
 Create and merge (don't squash) a pull request from this branch into `develop`.
 
-That's it, all done.
+### Release downstream repos
 
-## Actions
+MODFLOW 6 releases are typically followed by releases of [flopy](https://github.com/modflowpy/flopy), [pymake](https://github.com/modflowpy/pymake) and the combined [executables](https://github.com/MODFLOW-ORG/executables) distribution.
 
-There are two workflows:
+To release flopy, follow the steps in that repository's [developer documentation](https://github.com/modflowpy/flopy/blob/develop/docs/make_release.md).
 
-- `.github/workflows/release.yml`: "callable" workflow for development or standard releases
-- `.github/workflows/release_dispatch.yml`: dispatches a release on various triggers
+To release pymake:
 
-### Dispatch workflow
+1. Update `usgsprograms.txt` with the path to the new MODFLOW 6 release.
+2. Update other targets in `usgsprograms.txt` with the path to new releases.
+3. Release a new version.
 
-The `release.yml` workflow has no triggers of its own, and must be dispatched by `.github/workflows/release_dispatch.yml`, in one of two ways:
+To trigger an executables release, follow the steps that repository's [developer documentation](https://github.com/MODFLOW-ORG/executables/blob/master/DEVELOPER.md#triggering-a-release).
 
-- Pushing a branch with a suitable name (e.g. `vx.y.z[rc]`) to the `MODFLOW-ORG/modflow6` repository. This is how releases are typically triggered.
-- Triggering the workflow via GitHub CLI or web UI. Useful for testing release candidates or verifying the release automation before a final release is made.
 
-### Release workflow
-
-The `release.yml` workflow is a callable function for producing distributions. It uses the scripts in this directory to build a distribution for each supported platform. Custom actions in `.github/actions/` are also used for extended builds.
-
-This workflow is also used by the [nightly build repository](https://github.com/MODFLOW-ORG/modflow6-nightly-build).
 
 ## Scripts
 
@@ -347,11 +342,7 @@ pixi run check-dist --path $DISTDIR
 pytest -v -s check_dist.py --path $DISTDIR # or from the distributions/ folder
 ```
 
-## Testing
-
-Each script used in the release procedure can be tested separately. The procedure can also be tested end-to-end by manually dispatching the release workflow.
-
-### Testing release scripts
+### Testing scripts
 
 Each script in `distribution/` contains its own tests. To run them, run `pytest` from the `distribution/` folder. (This happens in standard CI.) The tests will not be discovered if `pytest` is run from a different location, as the scripts in this folder are not named `test_*.py` and are only discoverable by virtue of the patterns provided in `distribution/pytest.ini`.  The tests use temporary directories where possible and revert modifications to tracked files on teardown.
 
@@ -367,7 +358,25 @@ Make sure you don't have any uncommitted changes in these locations before runni
 
 **Note:** to avoid contested file access, the tests will refuse to run in parallel with `pytest-xdist`.
 
-### Testing the release workflow
+## Workflows
+
+The scripts in this directory are used by two GitHub Actions workflows:
+
+- `.github/workflows/release.yml`: "callable" workflow for development or standard releases
+- `.github/workflows/release_dispatch.yml`: dispatches a release on various triggers
+
+### Workflow triggers
+
+The `release.yml` workflow has no triggers of its own, and must be dispatched by `.github/workflows/release_dispatch.yml`, in one of two ways:
+
+- Pushing a branch with a suitable name (e.g. `vx.y.z[rc]`) to the `MODFLOW-ORG/modflow6` repository. This is how releases are typically triggered.
+- Triggering the workflow via GitHub CLI or web UI. Useful for testing release candidates or verifying the release automation before a final release is made.
+
+The `release.yml` workflow is a callable function for producing distributions. It uses the scripts in this directory to build a distribution for each supported platform. Custom actions in `.github/actions/` are also used for extended builds.
+
+This workflow is also used by the [nightly build repository](https://github.com/MODFLOW-ORG/modflow6-nightly-build).
+
+### Testing workflows
 
 The `workflow_dispatch` event is GitHub's mechanism for manually triggering workflows. This can be accomplished from the Actions tab in the GitHub UI. This is a convenient way to test the release procedure and evaluate release candidate distributions.
 
