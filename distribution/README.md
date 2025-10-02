@@ -371,11 +371,4 @@ Make sure you don't have any uncommitted changes in these locations before runni
 
 The `workflow_dispatch` event is GitHub's mechanism for manually triggering workflows. This can be accomplished from the Actions tab in the GitHub UI. This is a convenient way to test the release procedure and evaluate release candidate distributions.
 
-To dispatch the release workflow, navigate to the Actions tab of this repository. Select the release dispatch workflow. A `Run workflow` button should be visible in an alert at the top of the list of workflow runs. Click the `Run workflow` button, selecting values for the various inputs:
-
-- `approve`: whether the release is officially approved, or just a release candidate
-- `branch`: the branch to release from
-- `development`: whether to build a minimal development distribution or a full distribution
-- `run_tests`: whether to run autotests after building binaries
-- `version`: the version number of the release
-- `patch`: whether this is a patch release
+To dispatch the release workflow, navigate to the Actions tab of this repository. Select the release dispatch workflow. A `Run workflow` button should be visible in an alert at the top of the list of workflow runs. Click the `Run workflow` button, providing suitable values for the inputs.
