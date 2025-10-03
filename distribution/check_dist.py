@@ -37,18 +37,8 @@ DIST_DIRS = {
 
 
 @pytest.fixture
-def approved(request):
-    return request.config.getoption("--approved")
-
-
-@pytest.fixture
 def releasemode(request):
     return request.config.getoption("--releasemode")
-
-
-@pytest.fixture
-def full(request):
-    return request.config.getoption("--full")
 
 
 @pytest.fixture

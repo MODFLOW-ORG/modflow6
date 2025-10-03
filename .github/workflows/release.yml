@@ -18,7 +18,7 @@ on:
         required: false
         type: string
         default: '2021.7'
-      full:
+      releasemode:
         description: 'Build a full distribution containing sources, examples, and all documentation. If false, the distribution contains only binaries, mf6io, release notes, and code.json, with binaries built in develop mode, and disclaimers & version strings indicating preliminary/provisional status. If true, a full distribution is created, with binaries built in release mode, and disclaimer language indicating review and approval.'
         required: false
         type: boolean
@@ -152,8 +152,8 @@ jobs:
         run: |
           ver="${{ steps.set_version.outputs.version }}"
           cmd="pixi run update-version -v $ver"
-          if [[ "${{ inputs.full }}" == "true" ]]; then
-            cmd="$cmd --full
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
+            cmd="$cmd --releasemode
           fi
           eval "$cmd"
 
@@ -162,7 +162,7 @@ jobs:
         working-directory: modflow6
         run: |
           cmd="pixi run update-flopy"
-          if [[ "${{ inputs.full }}" == "true" ]]; then
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
           eval "$cmd"
@@ -182,7 +182,7 @@ jobs:
         id: set_markers
         run: |
           markers="not large"
-          if [[ "${{ inputs.full }}" == "true" ]]; then
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             markers="$markers and not developmode"
           fi
           echo "markers=$markers" >> $GITHUB_OUTPUT
@@ -425,8 +425,8 @@ jobs:
         run: |
           ver="${{ needs.build.outputs.version }}"
           cmd="python update_version.py -v $ver"
-          if [[ "${{ inputs.full }}" == "true" ]]; then
-            cmd="$cmd --full
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
+            cmd="$cmd --releasemode
           fi
           eval "$cmd"
 
@@ -434,7 +434,7 @@ jobs:
         working-directory: modflow6
         run: |
           cmd="python -m flopy.mf6.utils.generate_classes --dfnpath doc/mf6io/mf6ivar/dfn"
-          if [[ "${{ inputs.full }}" == "true" ]]; then
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
           eval "$cmd"
@@ -460,7 +460,7 @@ jobs:
           chmod +x "${{ github.workspace }}/bin/zbud6"
     
       - name: Install dependencies for building models
-        if: inputs.full == true
+        if: inputs.releasemode == true
         working-directory: modflow6-examples/etc
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -470,7 +470,7 @@ jobs:
           get-modflow "${{ github.workspace }}/bin" --subset mf2005,triangle,gridgen
 
       - name: Build example models
-        if: inputs.full == true
+        if: inputs.releasemode == true
         working-directory: modflow6-examples/autotest
         run: |
           models="gwf,gwt,gwe,prt"
@@ -492,7 +492,7 @@ jobs:
         working-directory: modflow6/doc/mf6io/mf6ivar
         run: |
           cmd="python mf6ivar.py"
-          if [[ "${{ inputs.full }}" == "true" ]]; then
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
           eval "$cmd"
@@ -503,8 +503,8 @@ jobs:
         run: |
           mkdir -p "${{ needs.build.outputs.distname }}/doc"
           cmd="python modflow6/distribution/build_docs.py -b bin -o doc --force"
-          if [[ "${{ inputs.full }}" == "true" ]]; then
-            cmd="$cmd --full"
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
+            cmd="$cmd --releasemode"
           fi
           if [[ "${{ inputs.patch }}" == "true" ]]; then
             cmd="$cmd --patch"
@@ -574,8 +574,8 @@ jobs:
         run: |
           ver="${{ needs.build.outputs.version }}"
           cmd="python update_version.py -v $ver"
-          if [[ "${{ inputs.full }}" == "true" ]]; then
-            cmd="$cmd --full"
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
+            cmd="$cmd --releasemode"
           fi
           eval "$cmd"
  
@@ -616,13 +616,13 @@ jobs:
           # build distribution
           distname="${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}"
           cmd="python modflow6/distribution/build_dist.py -o $distname"
-          if [[ "${{ inputs.full }}" == "true" ]]; then
-            cmd="$cmd --full"
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
+            cmd="$cmd --releasemode"
           fi
           eval "$cmd"
 
           # rename PDF documents
-          if [[ "${{ inputs.full }}" == "true" ]]; then
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             mv "$distname/doc/converter_mf5to6.pdf" "$distname/doc/mf5to6.pdf"
           fi
 
@@ -630,7 +630,7 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           distname="${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}"
-          if [[ "${{ inputs.full }}" == "true" ]]; then
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             zip -r $distname.zip \
               $distname/bin \
               $distname/src \
@@ -665,7 +665,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           distname="${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}"
-          if [[ "${{ inputs.full }}" == "true" ]]; then
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             7z a -tzip $distname.zip \
               $distname/bin \
               $distname/src \
@@ -721,7 +721,7 @@ jobs:
           fi
 
           cmd="pytest -v -s modflow6/distribution/check_dist.py --path $checkdir/$distname"
-          if [[ "${{ inputs.full }}" == "true" ]]; then
-            cmd="$cmd --full"
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
+            cmd="$cmd --releasemode"
           fi
           eval "$cmd"
