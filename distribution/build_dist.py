@@ -25,6 +25,7 @@ from utils import get_project_root_path
 PROJ_ROOT_PATH = get_project_root_path()
 BUILDDIR_PATH = PROJ_ROOT_PATH / "builddir"
 DEFAULT_MODELS = ["gwf", "gwt", "gwe", "prt"]
+DEVELOP_MODELS = ["chf", "olf", "swf"]
 
 # OS-specific extensions
 SYSTEM = platform.system()
@@ -109,6 +110,7 @@ def setup_examples(
     bin_path: PathLike,
     examples_path: PathLike,
     force: bool = False,
+    developmode: bool = False,
 ):
     examples_path = Path(examples_path).expanduser().absolute()
 
@@ -123,8 +125,11 @@ def setup_examples(
     # filter examples for models selected for release
     # and omit any excluded models
     excluded = ["ex-prt-mp7-p02", "ex-prt-mp7-p04"]
+    models = DEFAULT_MODELS
+    if developmode:
+        models.extend(DEVELOP_MODELS)
     for p in examples_path.glob("*"):
-        if not any(m in p.stem for m in DEFAULT_MODELS):
+        if not any(m in p.stem for m in models):
             print(f"Omitting example due to model selection: {p.stem}")
             rmtree(p)
         if any(e in p.stem for e in excluded):
@@ -286,10 +291,10 @@ def test_build_makefiles(tmp_path):
 def build_distribution(
     build_path: PathLike,
     output_path: PathLike,
-    full: bool = False,
+    developmode: bool = False,
     force: bool = False,
 ):
-    print(f"Building {'full' if full else 'minimal'} distribution")
+    print(f"Building {'develop' if developmode else 'release'} mode distribution")
 
     build_path = Path(build_path).expanduser().absolute()
     output_path = Path(output_path).expanduser().absolute()
@@ -305,7 +310,7 @@ def build_distribution(
     copy(PROJ_ROOT_PATH / "code.json", output_path)
 
     # full releases include examples, source code, makefiles and docs
-    if not full:
+    if developmode:
         return
 
     # download and setup example models
@@ -324,8 +329,8 @@ def build_distribution(
     # build docs
     build_documentation(
         bin_path=output_path / "bin",
-        full=full,
         out_path=output_path / "doc",
+        developmode=developmode,
         force=force,
     )
 
@@ -333,39 +338,35 @@ def build_distribution(
 @no_parallel
 @requires_exe("pdflatex")
 @pytest.mark.skip(reason="manual testing")
-@pytest.mark.parametrize("full", [True, False])
-def test_build_distribution(tmp_path, full):
+@pytest.mark.parametrize("developmode", [True, False])
+def test_build_distribution(tmp_path, developmode):
     output_path = tmp_path / "dist"
     build_distribution(
         build_path=tmp_path / "builddir",
         output_path=output_path,
-        full=full,
+        developmode=developmode,
         force=True,
     )
 
-    if full:
-        # todo
-        pass
-    else:
-        # check binaries and libs
-        system = platform.system()
-        ext = ".exe" if system == "Windows" else ""
-        for exe in ["mf6", "mf5to6", "zbud6"]:
-            assert (output_path / f"{exe}{ext}").is_file()
-        assert (
-            output_path
-            / (
-                "libmf6"
-                + (
-                    ".so"
-                    if system == "Linux"
-                    else (".dylib" if system == "Darwin" else ".dll")
-                )
+    # check binaries and libs
+    system = platform.system()
+    ext = ".exe" if system == "Windows" else ""
+    for exe in ["mf6", "mf5to6", "zbud6"]:
+        assert (output_path / f"{exe}{ext}").is_file()
+    assert (
+        output_path
+        / (
+            "libmf6"
+            + (
+                ".so"
+                if system == "Linux"
+                else (".dylib" if system == "Darwin" else ".dll")
             )
-        ).is_file()
+        )
+    ).is_file()
 
-        # check mf6io docs
-        assert (output_path / "mf6io.pdf").is_file()
+    # check mf6io docs
+    assert (output_path / "mf6io.pdf").is_file()
 
 
 if __name__ == "__main__":
@@ -379,8 +380,8 @@ if __name__ == "__main__":
             By default, a minimal, preliminary distribution (including
             binaries, mf6io documentation, release notes and code.json)
             is created. To create a standard distribution with complete
-            documentation, examples, build files, etc, use --full. Use
-            --force (-f) to overwrite preexisting artifacts; by default
+            docs, examples, build files, etc use --releasemode. Use the
+            --force flag to overwrite preexisting artifacts; by default
             the script is lazy and will only create what it can't find.
             """
         ),
@@ -399,7 +400,7 @@ if __name__ == "__main__":
         help="The distribution directory path",
     )
     parser.add_argument(
-        "--full",
+        "--releasemode",
         required=False,
         default=False,
         action="store_true",
@@ -414,14 +415,17 @@ if __name__ == "__main__":
         help="Overwrite existing artifacts. Defaults to false, "
         "so that pre-existing artifacts are used if available.",
     )
+
     args = parser.parse_args()
     build_path = Path(args.build_path)
     out_path = Path(args.output_path)
     out_path.mkdir(parents=True, exist_ok=True)
+    developmode = not args.releasemode
+    force = args.force
 
     build_distribution(
         build_path=build_path,
         output_path=out_path,
-        full=args.full,
+        developmode=developmode,
         force=args.force,
     )

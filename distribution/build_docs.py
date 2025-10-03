@@ -47,9 +47,9 @@ TEX_PATHS = {
     ],
 }
 
-# models to include in the docs by default,
-# filterable with the --models (-m) option
-DEFAULT_MODELS = ["gwf", "gwt", "gwe", "prt", "chf", "olf"]
+# models to include in the docs
+DEFAULT_MODELS = ["gwf", "gwt", "gwe", "prt"]
+DEVELOP_MODELS = ["chf", "olf", "swf"]
 
 # OS-specific extensions
 SYSTEM = platform.system()
@@ -169,13 +169,12 @@ def test_build_notes_tex():
     build_notes_tex(force=True)
 
 
-def build_mf6io_tex(
-    models: Optional[list[str]] = None, force: bool = False, developmode: bool = True
-):
+def build_mf6io_tex(force: bool = False, developmode: bool = True):
     """Build LaTeX files for the MF6IO guide from DFN files."""
 
-    if models is None:
-        models = DEFAULT_MODELS
+    models = DEFAULT_MODELS
+    if developmode:
+        models.extend(DEVELOP_MODELS)
 
     included = models + ["sim", "utl", "exg", "sln"]
     excluded = ["appendix", "common"] + list(set(DEFAULT_MODELS) - set(models))
@@ -202,8 +201,6 @@ def build_mf6io_tex(
             args = [sys.executable, "mf6ivar.py"]
             if not developmode:
                 args.append("--releasemode")
-            for model in models:
-                args += ["--model", model]
             out, err, ret = run_cmd(*args, verbose=True)
             assert not ret, out + err
 
@@ -389,7 +386,6 @@ def build_documentation(
     out_path: PathLike,
     force: bool = False,
     full: bool = False,
-    models: Optional[list[str]] = None,
     repo_owner: str = "MODFLOW-ORG",
     developmode: bool = True,
     patch: bool = False,
@@ -409,7 +405,7 @@ def build_documentation(
     out_path.mkdir(parents=True, exist_ok=True)
 
     with TemporaryDirectory() as temp:
-        build_mf6io_tex(force=force, models=models, developmode=developmode)
+        build_mf6io_tex(force=force, developmode=developmode)
         build_usage_tex(
             bin_path=bin_path,
             workspace_path=Path(temp),
@@ -456,7 +452,7 @@ if __name__ == "__main__":
         epilog=textwrap.dedent(
             """\
 Create documentation for a distribution. By default, this only includes the mf6io PDF
-document. If the --full flag is provided this includes benchmarks, release notes, the
+document. If --releasemode is provided, this includes benchmarks, release notes, the
 MODFLOW 6 input/output specification, example model documentation, supplemental info,
 documentation for the MODFLOW 5 to 6 converter and Zonebudget 6, and several articles
 downloaded from the USGS website too. By default, the script is lazy and will create
@@ -472,6 +468,13 @@ only what it can't find. Use the --force (-f) flag to regenerate existing artifa
         help="The path to the directory containing binaries",
     )
     parser.add_argument(
+        "-o",
+        "--output-path",
+        required=False,
+        default=os.getcwd(),
+        help="The location to create documentation artifacts",
+    )
+    parser.add_argument(
         "-f",
         "--force",
         required=False,
@@ -481,22 +484,23 @@ only what it can't find. Use the --force (-f) flag to regenerate existing artifa
         "so that pre-existing artifacts are used if available.",
     )
     parser.add_argument(
-        "--full",
+        "--patch",
+        default=False,
+        action="store_true",
+        help="Filter content from release notes for a patch release: "
+        "include only items in the 'fixes' section in release notes. "
+        "Defaults to false.",
+    )
+    parser.add_argument(
+        "--releasemode",
         required=False,
         default=False,
         action="store_true",
-        help="Build docs for a full (standard/approved) distribution. "
-        "This omits prerelease variables/sections from documentation: "
-        "filtering out MF6IO variables marked 'prerelease' as well as "
+        help="Build docs for a full distribution (approved release). "
+        "Will omit prerelease variables/sections from documentation, "
+        "filtering out MF6IO variables marked 'prerelease', and also "
         "any LaTeX sections wrapped with '\\ifdevelopmode ... \\fi'. "
         "Defaults false, suitable for preliminary development builds.",
-    )
-    parser.add_argument(
-        "-o",
-        "--output-path",
-        required=False,
-        default=os.getcwd(),
-        help="The location to create documentation artifacts",
     )
     parser.add_argument(
         "--repo-owner",
@@ -505,24 +509,21 @@ only what it can't find. Use the --force (-f) flag to regenerate existing artifa
         help="Repository owner. Use this option to fetch examples "
         "from a fork of the repository. Defaults to MODFLOW-ORG.",
     )
-    parser.add_argument(
-        "--patch",
-        default=False,
-        action="store_true",
-        help="Filter content from release notes for a patch release: "
-        "include only items in the 'fixes' section in release notes. "
-        "Defaults to false.",
-    )
+
     args = parser.parse_args()
+    bin_path = Path(args.bin_path).expanduser().absolute()
     output_path = Path(args.output_path).expanduser().absolute()
     output_path.mkdir(parents=True, exist_ok=True)
-    bin_path = Path(args.bin_path).expanduser().absolute()
+    developmode = not args.releasemode
+    repo_owner = args.repo_owner
+    force = args.force
     patch = args.patch
+
     build_documentation(
         bin_path=bin_path,
         out_path=output_path,
-        force=args.force,
-        full=args.full,
-        repo_owner=args.repo_owner,
+        repo_owner=repo_owner,
+        developmode=developmode,
+        force=force,
         patch=patch,
     )

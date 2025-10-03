@@ -23,10 +23,10 @@ version numbers, and an optional label. Version numbers are substituted into sou
 code, latex files, markdown files, etc. The version number can be provided explicitly
 using --version, short -v.
 
-If the --full flag is provided, IDEVELOPMODE is set to 0 in
+If --releasemode is provided, IDEVELOPMODE is set to 0 in
 src/Utilities/version.f90.  Otherwise, IDEVELOPMODE is set to 1.
 
-if the --full flag is provided, the disclaimer in
+if --releasemode is provided, the disclaimer in
 src/Utilities/version.f90 and the README/DISCLAIMER markdown files is modified to
 reflect review and approval. Otherwise the language reflects preliminary/provisional
 status, and version strings contain "(preliminary)".
@@ -121,21 +121,20 @@ resulting from the authorized or unauthorized use of the software.
 """
 
 
-def get_disclaimer(approved: bool = False, formatted: bool = False) -> str:
-    if approved:
-        return _approved_fmtdisclaimer if formatted else _approved_disclaimer
-    else:
+def get_disclaimer(developmode: bool = False, formatted: bool = False) -> str:
+    if developmode:
         return _preliminary_fmtdisclaimer if formatted else _preliminary_disclaimer
+    return _approved_fmtdisclaimer if formatted else _approved_disclaimer
 
 
 def get_software_citation(
-    timestamp: datetime, version: Version, full: bool = False
+    timestamp: datetime, version: Version, developmode: bool = False
 ) -> str:
     # get data Software/Code citation for FloPy
     citation = yaml.safe_load((project_root_path / "CITATION.cff").read_text())
 
     sb = ""
-    if not full:
+    if developmode:
         sb = " (preliminary)"
     # format author names
     authors = []
@@ -203,7 +202,7 @@ def update_meson_build(version: Version):
     log_update(path, version)
 
 
-def update_version_tex(version: Version, timestamp: datetime, full: bool = True):
+def update_version_tex(version: Version, timestamp: datetime, developmode: bool = True):
     path = project_root_path / "doc" / "version.tex"
     with open(path, "w") as f:
         lines = [
@@ -214,7 +213,7 @@ def update_version_tex(version: Version, timestamp: datetime, full: bool = True)
                 "{Version \\modflowversion---\\modflowdate}"
             ),
             "\\newif\\ifdevelopmode",
-            f"\\developmode{'false' if full else 'true'}",
+            f"\\developmode{'true' if developmode else 'false'}",
         ]
         for line in lines:
             f.write(f"{line}\n")
@@ -225,7 +224,7 @@ def update_version_tex(version: Version, timestamp: datetime, full: bool = True)
 def update_version_f90(
     version: Optional[Version],
     timestamp: datetime,
-    full: bool = False,
+    developmode: bool = False,
 ):
     path = project_root_path / "src" / "Utilities" / "version.f90"
     lines = open(path, "r").read().splitlines()
@@ -248,34 +247,34 @@ def update_version_f90(
             elif ":: IDEVELOPMODE =" in line:
                 line = (
                     "  integer(I4B), parameter :: "
-                    + f"IDEVELOPMODE = {0 if full else 1}"
+                    + f"IDEVELOPMODE = {1 if developmode else 0}"
                 )
             elif ":: VERSIONNUMBER =" in line:
                 line = line.rpartition("::")[0] + f":: VERSIONNUMBER = '{version_num}'"
             elif ":: VERSIONTAG =" in line:
                 fmat_tstmp = timestamp.strftime("%m/%d/%Y")
                 label_clause = version_label if version_label else ""
-                label_clause += " (preliminary)" if not full else ""
+                label_clause += " (preliminary)" if developmode else ""
                 line = (
                     line.rpartition("::")[0]
                     + f":: VERSIONTAG = '{label_clause} {fmat_tstmp}'"
                 )
             elif ":: FMTDISCLAIMER =" in line:
-                line = get_disclaimer(full, formatted=True)
+                line = get_disclaimer(developmode=developmode, formatted=True)
                 skip = True
             f.write(f"{line}\n")
     log_update(path, version)
 
 
-def update_readme_and_disclaimer(version: Version, full: bool = False):
-    disclaimer = get_disclaimer(full, formatted=False)
+def update_readme_and_disclaimer(version: Version, developmode: bool = False):
+    disclaimer = get_disclaimer(developmode, formatted=False)
     readme_path = str(project_root_path / "README.md")
     readme_lines = open(readme_path, "r").read().splitlines()
     with open(readme_path, "w") as f:
         for line in readme_lines:
             if "## Version " in line:
                 version_line = f"### Version {version}"
-                if not full:
+                if developmode:
                     version_line += " (preliminary)"
                 f.write(f"{version_line}\n")
             elif "Disclaimer" in line:
@@ -304,14 +303,14 @@ def update_citation_cff(version: Version, timestamp: datetime):
     log_update(path, version)
 
 
-def update_codejson(version: Version, timestamp: datetime, full: bool = False):
+def update_codejson(version: Version, timestamp: datetime, developmode: bool = False):
     path = project_root_path / "code.json"
     with open(path, "r") as f:
         data = json.load(f, object_pairs_hook=OrderedDict)
 
     data[0]["date"]["metadataLastUpdated"] = timestamp.strftime("%Y-%m-%d")
     data[0]["version"] = str(version)
-    data[0]["status"] = "Release" if full else "Preliminary"
+    data[0]["status"] = "Preliminary" if developmode else "Release"
     with open(path, "w") as f:
         json.dump(data, f, indent=4)
         f.write("\n")
@@ -344,7 +343,7 @@ def update_pixi(version: Version):
 def update_version(
     version: Version = None,
     timestamp: datetime = datetime.now(),
-    full: bool = False,
+    developmode: bool = False,
 ):
     """
     Update version information stored in version.txt in the project root,
@@ -364,11 +363,11 @@ def update_version(
         with lock:
             update_version_txt_and_py(version, timestamp)
             update_meson_build(version)
-            update_version_tex(version, timestamp, full)
-            update_version_f90(version, timestamp, full)
-            update_readme_and_disclaimer(version, full)
+            update_version_tex(version, timestamp, developmode)
+            update_version_f90(version, timestamp, developmode)
+            update_readme_and_disclaimer(version, developmode)
             update_citation_cff(version, timestamp)
-            update_codejson(version, timestamp, full)
+            update_codejson(version, timestamp, developmode)
             update_doxyfile(version)
             update_pixi(version)
 
@@ -398,7 +397,7 @@ def test_update_version(version, full):
     timestamp = datetime.now()
 
     try:
-        update_version(timestamp=timestamp, version=version, full=full)
+        update_version(timestamp=timestamp, version=version, developmode=full)
         updated = Version(version_file_path.read_text().strip())
 
         # check files containing version info were modified
@@ -451,45 +450,52 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "-v",
-        "--version",
-        required=False,
-        help="Specify the release version",
-    )
-    parser.add_argument(
-        "-a",
-        "--full",
+        "-c",
+        "--citation",
         required=False,
         action="store_true",
-        help="Approve the release version, modifying disclaimer language "
-        "and setting IDEVELOPMODE to 0. Defaults to false for preliminary "
-        "development distributions.",
+        help="Show the citation, don't update anything. Defaults to false.",
     )
     parser.add_argument(
         "-g",
         "--get",
         required=False,
         action="store_true",
-        help="Get the current version number, don't update anything "
-        "(defaults to false)",
+        help="Show the version, don't update anything. Defaults to false",
     )
     parser.add_argument(
-        "-c",
-        "--citation",
+        "-a",
+        "--releasemode",
         required=False,
         action="store_true",
-        help="Show the citation, don't update anything (defaults to False)",
+        help="Enable release mode for a full, standard release. Modifies "
+        "disclaimer language reflecting approval. Sets IDEVELOPMODE = 0. "
+        "Defaults to false for preliminary development distributions.",
     )
+    parser.add_argument(
+        "-v",
+        "--version",
+        required=False,
+        help="Specify the release version. Value must follow PEP 440.",
+    )
+
     args = parser.parse_args()
-    full = args.full
+    get = args.get
+    citation = args.citation
+    developmode = not args.releasemode
     version = Version(args.version) if args.version else _current_version
-    if args.get:
+
+    if get:
         print(Version((project_root_path / "version.txt").read_text().strip()))
-    elif args.citation:
+    elif citation:
         print(
-            get_software_citation(timestamp=datetime.now(), version=version, full=full)
+            get_software_citation(
+                timestamp=datetime.now(), version=version, developmode=developmode
+            )
         )
     else:
-        print(f"Updating to version {version} with options")
-        print(f"    full: {full}")
-        update_version(version=version, timestamp=datetime.now(), full=full)
+        mode = "develop" if developmode else "release"
+        print(f"Updating to version {version} in {mode} mode")
+        update_version(
+            version=version, timestamp=datetime.now(), developmode=developmode
+        )
