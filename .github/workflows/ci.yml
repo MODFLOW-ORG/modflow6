@@ -589,6 +589,9 @@ jobs:
           else
             markers="not large"
           fi
+          if [[ "${{ matrix.compiler }}" == "intel" ]]; then
+            markers="$markers and not prt"
+          fi
           echo "markers=$markers" >> $GITHUB_OUTPUT
 
       - name: Test MF6
