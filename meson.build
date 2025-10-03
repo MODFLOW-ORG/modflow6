@@ -69,6 +69,8 @@ if fc_id == 'intel-cl'
 elif fc_id == 'intel'
   # linux and macOS
   compile_args += ['-fpe0',              # Activate all floating point exceptions
+                   '-fp-model fast',
+                   '-assume nan_compares',
                    '-no-heap-arrays',
                    '-traceback',
                    '-diag-disable:7416',  # f2008 warning
@@ -81,6 +83,8 @@ elif fc_id == 'intel'
 elif fc_id == 'intel-llvm-cl'
   # windows
   compile_args += ['/fpe:0',              # Activate all floating point exceptions
+                   '/fp:fast',
+                   '/assume:nan_compares',
                    '/heap-arrays:0',
                    '/traceback',
                    '/fpp',                # Activate preprocessing
