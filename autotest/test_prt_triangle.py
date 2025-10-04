@@ -327,6 +327,7 @@ def check_output(idx, test, snapshot):
     assert not any(diff), diff
 
 
+@pytest.mark.snapshot
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets, array_snapshot, plot):
     test = TestFramework(

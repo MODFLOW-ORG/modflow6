@@ -252,6 +252,7 @@ def check_output(idx, test, snapshot):
     assert snapshot == pls.drop("name", axis=1).round(3).to_records(index=False)
 
 
+@pytest.mark.snapshot
 @pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets, benchmark, array_snapshot, plot):

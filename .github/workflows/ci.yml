@@ -591,7 +591,7 @@ jobs:
             markers="not large"
           fi
           if [[ "${{ matrix.compiler }}" == "intel" ]]; then
-            filters="not prt"
+            filters="not prt and not snapshot"
           fi
           echo "markers=$markers" >> $GITHUB_OUTPUT
           echo "filters=$filters" >> $GITHUB_OUTPUT

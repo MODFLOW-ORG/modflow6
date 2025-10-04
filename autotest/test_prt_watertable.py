@@ -263,6 +263,7 @@ def plot_output(idx, test):
     plt.show()
 
 
+@pytest.mark.snapshot
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets, array_snapshot, plot):
     # skip snapshot in CI unless gfortran. flow model results vary for

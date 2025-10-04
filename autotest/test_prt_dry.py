@@ -489,6 +489,7 @@ def plot_output(idx, test):
         p.show()
 
 
+@pytest.mark.snapshot
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets, array_snapshot, plot):
     dry_tracking_methods = ["drop", "stop", "stay"]
