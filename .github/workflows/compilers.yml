@@ -34,9 +34,11 @@ jobs:
           - {os: windows-2022, compiler: gcc, version: 12}
           - {os: windows-2022, compiler: gcc, version: 13}
           # ifx
+          - {os: ubuntu-22.04, compiler: intel, version: "2025.2"}
           - {os: ubuntu-22.04, compiler: intel, version: "2025.0"}
           - {os: ubuntu-22.04, compiler: intel, version: "2024.1"}
           - {os: ubuntu-22.04, compiler: intel, version: "2024.0"}
+          - {os: windows-2022, compiler: intel, version: "2025.2"}
           - {os: windows-2022, compiler: intel, version: "2025.0"}
           - {os: windows-2022, compiler: intel, version: "2024.1"}
           - {os: windows-2022, compiler: intel, version: "2024.0"}
