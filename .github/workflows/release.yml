@@ -153,7 +153,7 @@ jobs:
           ver="${{ steps.set_version.outputs.version }}"
           cmd="pixi run update-version -v $ver"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
-            cmd="$cmd --releasemode
+            cmd="$cmd --releasemode"
           fi
           eval "$cmd"
 
