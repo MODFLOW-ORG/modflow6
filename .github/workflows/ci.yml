@@ -487,7 +487,7 @@ jobs:
           # ubuntu, ifx
           - os: ubuntu-22.04
             compiler: intel
-            version: "2025.2"
+            version: "2025.0"
           # ubuntu, ifort
           - os: ubuntu-22.04
             compiler: intel-classic
@@ -495,7 +495,7 @@ jobs:
           # windows, ifx
           - os: windows-2022
             compiler: intel
-            version: "2025.2"
+            version: "2025.0"
           # windows, ifort
           - os: windows-2022
             compiler: intel-classic
