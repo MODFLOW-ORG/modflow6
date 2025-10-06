@@ -426,7 +426,7 @@ jobs:
           ver="${{ needs.build.outputs.version }}"
           cmd="python update_version.py -v $ver"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
-            cmd="$cmd --releasemode
+            cmd="$cmd --releasemode"
           fi
           eval "$cmd"
 
