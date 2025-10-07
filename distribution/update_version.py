@@ -23,12 +23,12 @@ version numbers, and an optional label. Version numbers are substituted into sou
 code, latex files, markdown files, etc. The version number can be provided explicitly
 using --version, short -v.
 
-If --releasemode is provided, IDEVELOPMODE is set to 0 in
-src/Utilities/version.f90.  Otherwise, IDEVELOPMODE is set to 1.
+If --releasemode is provided, IDEVELOPMODE is set to 0 in src/Utilities/version.f90.
+Otherwise, IDEVELOPMODE is set to 1.
 
-if --releasemode is provided, the disclaimer in
-src/Utilities/version.f90 and the README/DISCLAIMER markdown files is modified to
-reflect review and approval. Otherwise the language reflects preliminary/provisional
+if --releasemode is provided, the disclaimer in src/Utilities/version.f90 and the
+README/DISCLAIMER markdown files is modified to reflect review and approval.
+Otherwise the language reflects preliminary/provisional
 status, and version strings contain "(preliminary)".
 """
 
@@ -437,15 +437,32 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent(
             """\
-            Update version information stored in version.txt in the project root,
-            as well as several other files in the repository. If --version is not
-            provided, the version number will not be changed. A file lock is held
-            to synchronize file access. To indicate a version is production-ready
-            use --approve. This will change the disclaimer and version tag label,
-            removing '(preliminary)' from the latter, and modifying the former to
-            reflect approval The --releasemode flag controls whether IDEVELOPMODE
-            is set to 0 instead of the default 1. The version tag must follow the
-            '<major>.<minor>.<patch>' format conventions for semantic versioning.
+Update version information stored in version.txt in the project root,
+as well as several other files in the repository:
+
+  ../version.txt
+  ../meson.build
+  ../doc/version.tex
+  ../README.md
+  ../DISCLAIMER.md
+  ../code.json
+  ../src/Utilities/version.f90
+
+These include a combination of version strings, build timestamps, disclaimer
+text, text indicating whether the release is provisional or approved, source
+code setting the variable IDEVELOPMODE to either 0 or 1, and other data.
+
+Provide a `--version` string following semantic versioning conventions.
+If --version is not provided, the version number will not be changed,
+just timestamps.
+
+Use `--get` (`-g`) to show the current version without making changes.
+The version number is read from version.txt in the project root.
+
+Use `--releasemode` to control whether IDEVELOPMODE is set to 0 instead
+of 1, and to alter mf6's output and disclaimer text reflecting approval.
+
+Use `--citation` (`-c`) to render the current software citation.
             """
         ),
     )

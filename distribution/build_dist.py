@@ -404,7 +404,7 @@ if __name__ == "__main__":
         required=False,
         default=False,
         action="store_true",
-        help="Build a full (standard/approved) distribution.",
+        help="Build a distribution in release mode.",
     )
     parser.add_argument(
         "-f",

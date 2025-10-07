@@ -34,11 +34,11 @@ MF6IO_PATH = DOCS_PATH / "mf6io"
 MF6IVAR_PATH = MF6IO_PATH / "mf6ivar"
 RELEASE_NOTES_PATH = DOCS_PATH / "ReleaseNotes"
 TEX_PATHS = {
-    "minimal": [
+    "develop": [
         MF6IO_PATH / "mf6io.tex",
         DOCS_PATH / "ReleaseNotes" / "ReleaseNotes.tex",
     ],
-    "full": [
+    "release": [
         MF6IO_PATH / "mf6io.tex",
         DOCS_PATH / "ReleaseNotes" / "ReleaseNotes.tex",
         DOCS_PATH / "zonebudget" / "zonebudget.tex",
@@ -56,7 +56,7 @@ SYSTEM = platform.system()
 EXE_EXT = ".exe" if SYSTEM == "Windows" else ""
 LIB_EXT = ".dll" if SYSTEM == "Windows" else ".so" if SYSTEM == "Linux" else ".dylib"
 
-# publications included in full dist docs
+# publications
 PUB_URLS = [
     "https://pubs.usgs.gov/tm/06/a55/tm6a55.pdf",
     "https://pubs.usgs.gov/tm/06/a56/tm6a56.pdf",
@@ -385,14 +385,13 @@ def build_documentation(
     bin_path: PathLike,
     out_path: PathLike,
     force: bool = False,
-    full: bool = False,
     repo_owner: str = "MODFLOW-ORG",
     developmode: bool = True,
     patch: bool = False,
 ):
     """Build documentation for a MODFLOW 6 distribution."""
 
-    print(f"Building {'full' if full else 'minimal'} documentation")
+    print(f"Building documentation in {'release' if developmode else 'develop'} mode")
 
     bin_path = Path(bin_path).expanduser().absolute()
     out_path = Path(out_path).expanduser().absolute()
@@ -413,13 +412,13 @@ def build_documentation(
         )
         build_notes_tex(force=force, patch=patch)
 
-        if full:
+        if developmode:
             build_benchmark_tex(out_path=out_path, force=force)
             fetch_example_docs(out_path=out_path, force=force, repo_owner=repo_owner)
             fetch_usgs_pubs(out_path=out_path, force=force)
-            tex_paths = TEX_PATHS["full"]
+            tex_paths = TEX_PATHS["release"]
         else:
-            tex_paths = TEX_PATHS["minimal"]
+            tex_paths = TEX_PATHS["develop"]
 
         build_pdfs(tex_paths=tex_paths, out_path=out_path, force=force)
 
@@ -429,7 +428,7 @@ def build_documentation(
 
     # make sure we have expected PDFs
     assert pdf_path.is_file()
-    if full:
+    if developmode:
         assert (out_path / "ReleaseNotes.pdf").is_file()
         assert (out_path / "zonebudget.pdf").is_file()
         assert (out_path / "converter_mf5to6.pdf").is_file()
@@ -496,7 +495,7 @@ only what it can't find. Use the --force (-f) flag to regenerate existing artifa
         required=False,
         default=False,
         action="store_true",
-        help="Build docs for a full distribution (approved release). "
+        help="Build documents in release mode for standard releases. "
         "Will omit prerelease variables/sections from documentation, "
         "filtering out MF6IO variables marked 'prerelease', and also "
         "any LaTeX sections wrapped with '\\ifdevelopmode ... \\fi'. "

@@ -17,9 +17,13 @@ SCR_EXT = ".bat" if SYSTEM == "Windows" else ".sh"
 # fortran compiler
 FC = environ.get("FC", None)
 
-# top-leveldirectories included in distributions
+# expected dirs
 DIST_DIRS = {
-    "releasemode": [
+    "develop": [
+        "bin",
+        "doc",
+    ],
+    "release": [
         "bin",
         "doc",
         "examples",
@@ -28,10 +32,6 @@ DIST_DIRS = {
         "msvs",
         "make",
         "utils",
-    ],
-    "provisional": [
-        "bin",
-        "doc",
     ],
 }
 
@@ -59,7 +59,7 @@ def dist_dir_path(request):
 
 @no_parallel
 def test_directories(dist_dir_path, releasemode):
-    for dir_path in DIST_DIRS["releasemode" if releasemode else "provisional"]:
+    for dir_path in DIST_DIRS["release" if releasemode else "develop"]:
         assert (dist_dir_path / dir_path).is_dir()
 
 
