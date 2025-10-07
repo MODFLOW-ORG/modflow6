@@ -5,10 +5,10 @@ This document describes how to release MODFLOW 6. This folder contains scripts u
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
-- [Flavors](#flavors)
-  - [Provisional](#provisional)
-  - [Standard](#standard)
-- [Versioning](#versioning)
+- [Modes](#modes)
+  - [Develop](#develop)
+  - [Release](#release)
+- [Versions](#versions)
   - [Patch](#patch)
   - [Minor](#minor)
 - [Steps](#steps)
@@ -39,13 +39,15 @@ This document describes how to release MODFLOW 6. This folder contains scripts u
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-## Flavors
+## Modes
 
-There are two kinds of distribution: provisional development builds and standard approved releases.
+There are two kinds of distribution: provisional development builds and standard distributions approved for "official" release.
 
-### Provisional
+The release-related tooling has two corresponding modes: develop mode and release mode, respectively. This document uses the same terminology.
 
-Provisional develop builds are created nightly from the `develop` branch and released from the [`MODFLOW-ORG/modflow6-nightly-build` repository](https://github.com/MODFLOW-ORG/modflow6-nightly-build). Development distributions contain only input/output documentation, release notes, `code.json` metadata, and binaries:
+### Develop
+
+Develop-mode distributions contain only input/output documentation, release notes, `code.json` metadata, and binaries:
 
 - `mf6`: MODFLOW 6 executable
 - `zbud6`: Zonebudget executable
@@ -56,9 +58,9 @@ Binaries are built in develop mode, with feature flags disabled, making prerelea
 
 Running `mf6 -d` shows language describing the preliminary state of the software.
 
-### Standard
+### Release
 
-Standard releases contain everything in development builds, plus:
+Release-mode distributions contain everything in development builds, plus:
 
 - Fortran source code
 - Meson files, makefiles, MSVS project files
@@ -74,7 +76,7 @@ Binaries are built in release mode, with feature flags enabled, making prereleas
 
 Running `mf6 -d` shows language affirming that the software has been reviewed and approved for distribution.
 
-## Versioning
+## Versions
 
 MF6 loosely follows a modified form of [semantic versioning](semver.org).
 
@@ -221,8 +223,6 @@ To release pymake:
 3. Release a new version.
 
 To trigger an executables release, follow the steps that repository's [developer documentation](https://github.com/MODFLOW-ORG/executables/blob/master/DEVELOPER.md#triggering-a-release).
-
-
 
 ## Scripts
 
