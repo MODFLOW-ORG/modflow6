@@ -41,9 +41,9 @@ This document describes how to release MODFLOW 6. This folder contains scripts u
 
 ## Modes
 
-There are two kinds of distribution: provisional development builds and standard distributions approved for "official" release.
+There are two kinds of distribution: provisional development builds and standard distributions approved for release.
 
-The release-related tooling has two corresponding modes: develop mode and release mode, respectively. This document uses the same terminology.
+The release-related tooling has two corresponding modes: develop mode and release mode. This document uses the same terminology.
 
 ### Develop
 
@@ -78,7 +78,7 @@ Running `mf6 -d` shows language affirming that the software has been reviewed an
 
 ## Versions
 
-MF6 loosely follows a modified form of [semantic versioning](semver.org).
+MF6 loosely follows a modified form of [semantic versioning](https://www.semver.org).
 
 ### Patch
 
