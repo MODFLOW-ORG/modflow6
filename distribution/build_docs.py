@@ -375,7 +375,8 @@ def fetch_examples_zip(
     out_path: PathLike, force: bool = False, repo_owner: str = "MODFLOW-ORG"
 ):
     zip_name = "examples.zip"
-    if force or not any(os.listdir(out_path)):
+    out_path = Path(out_path).expanduser().absolute()
+    if force or not out_path.is_dir() or not any(os.listdir(out_path)):
         latest = get_release(
             f"{repo_owner}/modflow6-examples", tag="latest", verbose=True
         )
