@@ -91,6 +91,18 @@ jobs:
       version: ${{ steps.set_version.outputs.version }}
       distname: ${{ steps.set_version.outputs.distname }}
     steps:
+      - name: Free Disk Space (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - name: Checkout modflow6
         uses: actions/checkout@v5
         with:
