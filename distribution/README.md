@@ -116,7 +116,9 @@ To make a release,
 9. reset the develop branch
 10. release downstream repos
 
-The release manager undertakes steps 1-3 in consultation with the development team. Step 4 [is described in the examples repository's developer docs](https://github.com/MODFLOW-ORG/modflow6-examples/blob/develop/DEVELOPER.md#releasing-the-examples). Step 5 triggers automation for steps 6-9. The release manager performs step 10.
+Complete steps 1-3 in consultation with the development team, then steps 4 and 5 once the release is greenlit. Step 5 triggers automation for steps 6-8. Step 6 happens automatically; steps 7 and 8 require review and manual sign-off. Steps 9 and 10 are performed manually.
+
+It is typical to undergo several iterations of 5-6 as candidate distributions are reviewed and issues are identified and resolved.
 
 ### Review features
 
@@ -138,11 +140,11 @@ For hotfix releases, `develop.toml` must be trimmed manually on the release bran
 
 ### Release examples repo
 
-MODFLOW 6 [example models](https://github.com/MODFLOW-ORG/modflow6-examples) are bundled with official releases. Example models must be built and run to generate plots and tables before documentation can be generated. The `release.yml` workflow attempts to download the latest release from the examples repository if it can find one, otherwise it will rebuild example models.
+MODFLOW 6 [example models](https://github.com/MODFLOW-ORG/modflow6-examples) are bundled with official releases. The `release.yml` workflow attempts to download the latest release from the examples repository. An examples release is typically made before proceeding with an MF6 release (this may not be necessary if example models have not changed since the last release). See the [examples release instructions](https://github.com/MODFLOW-ORG/modflow6-examples/blob/develop/DEVELOPER.md#releasing-the-examples) for more information.
 
 ### Create a release branch
 
-Create a release candidate branch from the `develop` or `master`. The branch's name must begin with `v` followed by the version number. For a dry run in which a candidate distribution is built but the release does not proceed, append `rc` to the version string, e.g. `v6.4.0rc`. For an approved release, include *only* the version number.
+Create a release candidate branch from `develop` or `master`. The branch's name must begin with `v` followed by the version number. For a dry run in which a candidate distribution is built but the release does not proceed, append `rc` to the version string, e.g. `v6.4.0rc`. For an approved release, include *only* the version number.
 
 ```shell
 git checkout develop
@@ -155,7 +157,7 @@ Push the branch to the repository. This triggers the release workflow.
 
 GitHub actions runs the release workflow and builds binaries, documentation and distribution archives for supported platforms.
 
-If this is a dry run (branch name ends with `rc`) binaries are built with `IDEVELOPMODE` set to 1, and the workflow ends after uploading artifacts. If this is not a dry run, the workflow will continue, drafting a pull request against the `master` branch after the build completes.
+If this is a dry run (branch name ends with `rc`) binaries are built with `IDEVELOPMODE` set to 1, and the workflow ends after uploading artifacts for review. If this is not a dry run, the workflow will continue, drafting a pull request against the `master` branch after the build completes.
 
 ### Merge release branch to master
 
