@@ -367,8 +367,12 @@ def fetch_example_docs(
     if force or not (out_path / pdf_name).is_file():
         latest = get_release(f"{repo_owner}/modflow6-examples", "latest")
         assets = latest["assets"]
-        pdf_asset = next(iter([a for a in assets if a["name"] == pdf_name]), None)
-        download_and_unzip(pdf_asset["browser_download_url"], out_path, verbose=True)
+        asset = next(iter([a for a in assets if a["name"] == pdf_name]), None)
+        if asset is None:
+            raise ValueError(
+                f"Release {latest['tag_name']} does not have asset {pdf_name}"
+            )
+        download_and_unzip(asset["browser_download_url"], out_path, verbose=True)
 
 
 def fetch_examples_zip(
@@ -381,7 +385,11 @@ def fetch_examples_zip(
             f"{repo_owner}/modflow6-examples", tag="latest", verbose=True
         )
         assets = latest["assets"]
-        asset = next(iter([a for a in assets if a["name"] == zip_name]), None)
+        asset = next(iter([a for a in assets if a["name"].endswith(zip_name)]), None)
+        if asset is None:
+            raise ValueError(
+                f"Release {latest['tag_name']} does not have asset {zip_name}"
+            )
         download_and_unzip(asset["browser_download_url"], out_path, verbose=True)
 
 
