@@ -74,17 +74,20 @@ def github_user() -> Optional[str]:
 def build_benchmark_tex(
     out_path: PathLike,
     force: bool = False,
+    repo_owner: str = "MODFLOW-ORG",
 ):
     """Build LaTeX files for MF6 performance benchmarks to go into the release notes."""
 
     # run benchmarks again if no benchmarks found on GitHub or overwrite requested
     benchmarks_path = out_path / "run-time-comparison.md"
+    examples_path = EXAMPLES_REPO_PATH / "examples"
     if force or not benchmarks_path.is_file():
+        fetch_examples_zip(examples_path, force=force, repo_owner=repo_owner)
         run_benchmarks(
             build_path=PROJ_ROOT_PATH / "builddir",
             current_bin_path=PROJ_ROOT_PATH / "bin",
             previous_bin_path=PROJ_ROOT_PATH / "bin" / "rebuilt",
-            examples_path=EXAMPLES_REPO_PATH / "examples",
+            examples_path=examples_path,
             out_path=out_path,
         )
     assert benchmarks_path.is_file()
@@ -364,7 +367,20 @@ def fetch_example_docs(
     if force or not (out_path / pdf_name).is_file():
         latest = get_release(f"{repo_owner}/modflow6-examples", "latest")
         assets = latest["assets"]
-        asset = next(iter([a for a in assets if a["name"] == pdf_name]), None)
+        pdf_asset = next(iter([a for a in assets if a["name"] == pdf_name]), None)
+        download_and_unzip(pdf_asset["browser_download_url"], out_path, verbose=True)
+
+
+def fetch_examples_zip(
+    out_path: PathLike, force: bool = False, repo_owner: str = "MODFLOW-ORG"
+):
+    zip_name = "examples.zip"
+    if force or not any(os.listdir(out_path)):
+        latest = get_release(
+            f"{repo_owner}/modflow6-examples", tag="latest", verbose=True
+        )
+        assets = latest["assets"]
+        asset = next(iter([a for a in assets if a["name"] == zip_name]), None)
         download_and_unzip(asset["browser_download_url"], out_path, verbose=True)
 
 
@@ -413,7 +429,7 @@ def build_documentation(
         build_notes_tex(force=force, patch=patch)
 
         if developmode:
-            build_benchmark_tex(out_path=out_path, force=force)
+            build_benchmark_tex(out_path=out_path, force=force, repo_owner=repo_owner)
             fetch_example_docs(out_path=out_path, force=force, repo_owner=repo_owner)
             fetch_usgs_pubs(out_path=out_path, force=force)
             tex_paths = TEX_PATHS["release"]
