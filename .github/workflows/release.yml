@@ -418,12 +418,15 @@ jobs:
         working-directory: usgslatex/usgsLaTeX
         run: sudo ./install.sh --all-users
 
-      - name: Setup Micromamba
-        uses: mamba-org/setup-micromamba@v1
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.9.1
         with:
-          environment-file: modflow6/environment.yml
-          cache-downloads: true
-          cache-environment: true
+          pixi-version: v0.41.4
+          manifest-path: "modflow6/pixi.toml"
+
+      - name: Custom pixi install
+        working-directory: modflow6
+        run: pixi run install
 
       - name: Setup ${{ inputs.compiler_toolchain }} ${{ inputs.compiler_version }}
         uses: fortran-lang/setup-fortran@v1
@@ -436,7 +439,7 @@ jobs:
         working-directory: modflow6/distribution
         run: |
           ver="${{ needs.build.outputs.version }}"
-          cmd="python update_version.py -v $ver"
+          cmd="pixi run update-version -v $ver"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
@@ -445,16 +448,18 @@ jobs:
       - name: Update flopy
         working-directory: modflow6
         run: |
-          cmd="python -m flopy.mf6.utils.generate_classes --dfnpath doc/mf6io/mf6ivar/dfn"
+          cmd="pixi run update-flopy --dfnpath doc/mf6io/mf6ivar/dfn"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
           eval "$cmd"
 
       - name: Get OS tag
+
         id: ostag
+        working-directory: modflow6
         run: |
-          ostag=$(python -c "from modflow_devtools.ostags import get_ostag; print(get_ostag())")
+          ostag=$(pixi run python -c "from modflow_devtools.ostags import get_ostag; print(get_ostag())")
           echo "ostag=$ostag" >> $GITHUB_OUTPUT
 
       - name: Download pre-built binaries
@@ -477,21 +482,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          pip install -r requirements.pip.txt
+          pixi run --manifest-path ../../modflow6/pixi.toml pip install -r requirements.pip.txt
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
-          get-modflow "${{ github.workspace }}/bin" --subset mf2005,triangle,gridgen
+          pixi run --manifest-path ../../modflow6/pixi.toml get-modflow "${{ github.workspace }}/bin" --subset mf2005,triangle,gridgen
 
       - name: Build example models
         if: inputs.releasemode == true
         working-directory: modflow6-examples/autotest
         run: |
           models="gwf,gwt,gwe,prt"
-          pytest -v -n auto test_scripts.py --init -k "${models//,/ or }"
+          pixi run --manifest-path ../../modflow6/pixi.toml pytest -v -n auto test_scripts.py --init -k "${models//,/ or }"
       
       - name: Collect deprecations
         working-directory: modflow6/doc/mf6io/mf6ivar
         run: |
-          python deprecations.py
+          pixi run deprecations
           cat md/deprecations.md
 
       - name: Upload deprecations
@@ -503,7 +508,7 @@ jobs:
       - name: Build MF6IO files from DFNs
         working-directory: modflow6/doc/mf6io/mf6ivar
         run: |
-          cmd="python mf6ivar.py"
+          cmd="pixi run run-mf6ivar"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
@@ -514,7 +519,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "${{ needs.build.outputs.distname }}/doc"
-          cmd="python modflow6/distribution/build_docs.py -b bin -o doc --force"
+          cmd="pixi run --manifest-path modflow6/pixi.toml build-docs -b bin -o doc --force"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
@@ -564,37 +569,38 @@ jobs:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
-      - name: Setup Micromamba
-        uses: mamba-org/setup-micromamba@v1
-        with:
-          environment-file: modflow6/environment.yml
-          cache-downloads: true
-          cache-environment: true
-          init-shell: >-
-            bash
-            powershell
-
       - name: Setup ${{ inputs.compiler_toolchain }} ${{ inputs.compiler_version }}
         uses: fortran-lang/setup-fortran@v1
         with:
           compiler: ${{ inputs.compiler_toolchain }}
           version: ${{ inputs.compiler_version }}
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.9.1
+        with:
+          pixi-version: v0.41.4
+          manifest-path: "modflow6/pixi.toml"
+
+      - name: Custom pixi install
+        working-directory: modflow6
+        run: pixi run install
       
       - name: Update version
         id: update_version
         working-directory: modflow6/distribution
         run: |
           ver="${{ needs.build.outputs.version }}"
-          cmd="python update_version.py -v $ver"
+          cmd="pixi run update-version -v $ver"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
           eval "$cmd"
  
       - name: Get OS tag
+        working-directory: modflow6
         id: ostag
         run: |
-          ostag=$(python -c "from modflow_devtools.ostags import get_ostag; print(get_ostag())")
+          ostag=$(pixi run python -c "from modflow_devtools.ostags import get_ostag; print(get_ostag())")
           if [[ "${{ matrix.extended }}" == "true" ]]; then
             ostag="${ostag}ext"
           fi
@@ -627,7 +633,7 @@ jobs:
         run: |
           # build distribution
           distname="${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}"
-          cmd="python modflow6/distribution/build_dist.py -o $distname"
+          cmd="pixi run --manifest-path modflow6/pixi.toml build-dist -o $distname"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
@@ -732,7 +738,7 @@ jobs:
             unzip $distfile -d $checkdir
           fi
 
-          cmd="pytest -v -s modflow6/distribution/check_dist.py --path $checkdir/$distname"
+          cmd="pixi run --manifest-path modflow6/pixi.toml check-dist --path $checkdir/$distname"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
