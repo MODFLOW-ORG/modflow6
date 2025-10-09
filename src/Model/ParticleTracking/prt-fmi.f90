@@ -13,16 +13,23 @@ module PrtFmiModule
   private
   public :: PrtFmiType
   public :: fmi_cr
+  public :: IFLOWFACE_TOP, IFLOWFACE_BOTTOM
 
   character(len=LENPACKAGENAME) :: text = '    PRTFMI'
 
+  !> @brief IFLOWFACE numbers for top and bottom faces
+  enum, bind(c)
+    enumerator :: IFLOWFACE_TOP = -1
+    enumerator :: IFLOWFACE_BOTTOM = -2
+  end enum
+
   type, extends(FlowModelInterfaceType) :: PrtFmiType
     private
-    integer(I4B), public :: max_faces !< maximum number of faces for grid cell polygons
+    integer(I4B), public :: max_faces !< maximum number of 3d cell faces
     real(DP), allocatable, public :: SourceFlows(:) ! cell source flows array
     real(DP), allocatable, public :: SinkFlows(:) ! cell sink flows array
     real(DP), allocatable, public :: StorageFlows(:) ! cell storage flows array
-    real(DP), allocatable, public :: BoundaryFlows(:) ! cell boundary flows array
+    real(DP), allocatable, public :: BoundaryFlows(:, :) ! cell boundary flows array
     integer(I4B), allocatable, public :: BoundaryFaces(:) ! bitmask of assigned boundary faces
 
   contains
@@ -34,6 +41,7 @@ module PrtFmiModule
     procedure :: is_boundary_face
     procedure :: is_net_out_boundary_face
     procedure, private :: iflowface_to_icellface
+    procedure, private :: icellface_to_iflowface
 
   end type PrtFmiType
 
@@ -144,7 +152,7 @@ contains
     allocate (this%StorageFlows(this%dis%nodes))
     allocate (this%SourceFlows(this%dis%nodes))
     allocate (this%SinkFlows(this%dis%nodes))
-    allocate (this%BoundaryFlows(this%dis%nodes * this%max_faces))
+    allocate (this%BoundaryFlows(this%dis%nodes, this%max_faces))
     allocate (this%BoundaryFaces(this%dis%nodes))
 
   end subroutine prtfmi_df
@@ -155,7 +163,7 @@ contains
     class(PrtFmiType) :: this
     ! local
     integer(I4B) :: j, i, ip, ib
-    integer(I4B) :: ioffset, iflowface, iauxiflowface, icellface
+    integer(I4B) :: iflowface, iauxiflowface, icellface
     real(DP) :: qbnd
     character(len=LENAUXNAME) :: auxname
     integer(I4B) :: naux
@@ -196,9 +204,8 @@ contains
         end if
         if (icellface > 0) then
           call this%mark_boundary_face(i, icellface)
-          ioffset = (i - 1) * this%max_faces
-          this%BoundaryFlows(ioffset + icellface) = &
-            this%BoundaryFlows(ioffset + icellface) + qbnd
+          this%BoundaryFlows(i, icellface) = &
+            this%BoundaryFlows(i, icellface) + qbnd
         else if (qbnd .gt. DZERO) then
           this%SourceFlows(i) = this%SourceFlows(i) + qbnd
         else if (qbnd .lt. DZERO) then
@@ -210,10 +217,10 @@ contains
   end subroutine accumulate_flows
 
   !> @brief Mark a face as a boundary face.
-  subroutine mark_boundary_face(this, ic, iface)
+  subroutine mark_boundary_face(this, ic, icellface)
     class(PrtFmiType) :: this
     integer(I4B), intent(in) :: ic !< node number (reduced)
-    integer(I4B), intent(in) :: iface !< cell face number
+    integer(I4B), intent(in) :: icellface !< cell face number
     ! local
     integer(I4B) :: bit_pos
 
@@ -222,14 +229,14 @@ contains
       print *, 'Expected a value in range [1, ', this%dis%nodes, ']'
       call pstop(1)
     end if
-    if (iface <= 0) then
-      print *, 'Invalid face number: ', iface
+    if (icellface <= 0) then
+      print *, 'Invalid face number: ', icellface
       print *, 'Expected a value in range [1, ', this%max_faces, ']'
       call pstop(1)
     end if
-    bit_pos = iface - 1 ! bit position 0-based
+    bit_pos = icellface - 1 ! bit position 0-based
     if (bit_pos < 0 .or. bit_pos > 31) then
-      print *, 'Invalid bitmask position: ', iface
+      print *, 'Invalid bitmask position: ', bit_pos
       print *, 'Expected a value in range [0, 31]'
       call pstop(1)
     end if
@@ -237,10 +244,10 @@ contains
   end subroutine mark_boundary_face
 
   !> @brief Check if a face is assigned to a boundary package.
-  function is_boundary_face(this, ic, iface) result(is_boundary)
+  function is_boundary_face(this, ic, icellface) result(is_boundary)
     class(PrtFmiType) :: this
     integer(I4B), intent(in) :: ic !< node number (reduced)
-    integer(I4B), intent(in) :: iface !< cell face number
+    integer(I4B), intent(in) :: icellface !< cell face number
     logical(LGP) :: is_boundary
     ! local
     integer(I4B) :: bit_pos
@@ -251,14 +258,14 @@ contains
       print *, 'Expected a value in range [1, ', this%dis%nodes, ']'
       call pstop(1)
     end if
-    if (iface <= 0) then
-      print *, 'Invalid face number: ', iface
+    if (icellface <= 0) then
+      print *, 'Invalid face number: ', icellface
       print *, 'Expected a value in range [1, ', this%max_faces, ']'
       call pstop(1)
     end if
-    bit_pos = iface - 1 ! bit position 0-based
+    bit_pos = icellface - 1 ! bit position 0-based
     if (bit_pos < 0 .or. bit_pos > 31) then
-      print *, 'Invalid bitmask position: ', iface
+      print *, 'Invalid bitmask position: ', bit_pos
       print *, 'Expected a value in range [0, 31]'
       call pstop(1)
     end if
@@ -266,29 +273,40 @@ contains
   end function is_boundary_face
 
   !> @brief Check if a face is an assigned boundary with net outflow.
-  function is_net_out_boundary_face(this, ic, iface) result(is_net_out_boundary)
+  function is_net_out_boundary_face(this, ic, icellface) &
+    result(is_net_out_boundary)
     class(PrtFmiType) :: this
     integer(I4B), intent(in) :: ic !< node number (reduced)
-    integer(I4B), intent(in) :: iface !< cell face number
+    integer(I4B), intent(in) :: icellface !< cell face number
     logical(LGP) :: is_net_out_boundary
-    ! local
-    integer(I4B) :: ioffset
 
     is_net_out_boundary = .false.
-    if (.not. this%is_boundary_face(ic, iface)) return
-    ioffset = (ic - 1) * this%max_faces
-    if (this%BoundaryFlows(ioffset + iface) < DZERO) is_net_out_boundary = .true.
+    if (.not. this%is_boundary_face(ic, icellface)) return
+    if (this%BoundaryFlows(ic, icellface) < DZERO) &
+      is_net_out_boundary = .true.
   end function is_net_out_boundary_face
 
   !> @brief Convert an iflowface number to a cell face number.
   !! Maps bottom (-2) -> max_faces - 1, top (-1) -> max_faces.
-  function iflowface_to_icellface(this, iflowface) result(iface)
+  function iflowface_to_icellface(this, iflowface) result(icellface)
     class(PrtFmiType), intent(inout) :: this
     integer(I4B), intent(in) :: iflowface
-    integer(I4B) :: iface
+    integer(I4B) :: icellface
 
-    iface = iflowface
-    if (iface < 0) iface = iface + this%max_faces + 1
+    icellface = iflowface
+    if (icellface < 0) icellface = icellface + this%max_faces - IFLOWFACE_TOP
   end function iflowface_to_icellface
+
+  !> @brief Convert a cell face number to an iflowface number.
+  !! Maps bottom (max_faces - 1) -> -2, top (max_faces) -> -1.
+  function icellface_to_iflowface(this, icellface) result(iflowface)
+    class(PrtFmiType), intent(inout) :: this
+    integer(I4B), intent(in) :: icellface
+    integer(I4B) :: iflowface
+
+    iflowface = icellface
+    if (iflowface > this%max_faces + IFLOWFACE_BOTTOM) &
+      iflowface = iflowface - this%max_faces + IFLOWFACE_TOP
+  end function icellface_to_iflowface
 
 end module PrtFmiModule
