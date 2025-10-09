@@ -1,6 +1,6 @@
 # Developing MODFLOW 6
 
-This document describes how to set up a development environment to modify, build and test MODFLOW 6. Details on how to contribute your code to the repository are found in the separate document [CONTRIBUTING.md](./CONTRIBUTING.md). 
+This document describes how to set up a development environment to modify, build and test MODFLOW 6. Details on how to contribute your code to the repository are found in the separate document [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 To build and test an extended version of the program, first read the instructions below and then continue in [EXTENDED.md](./EXTENDED.md).
 
@@ -150,7 +150,7 @@ While the current development version of MODFLOW 6 is broadly compatible with `i
 
 ##### Windows
 
-On Windows, [Visual Studio](https://visualstudio.microsoft.com) and a number of libraries must be installed for `ifort` and `ifx` to work. The required libraries can be installed by ticking the "Desktop Development with C++" checkbox in the Visual Studio Installer's Workloads tab. 
+On Windows, [Visual Studio](https://visualstudio.microsoft.com) and a number of libraries must be installed for `ifort` and `ifx` to work. The required libraries can be installed by ticking the "Desktop Development with C++" checkbox in the Visual Studio Installer's Workloads tab.
 
 **Note:** Invoking the `setvars.bat` scripts from a Powershell session will *not* put `ifort` or `ifx` on the path, since [batch script environments are local to their process](https://stackoverflow.com/a/49028002/6514033). To relaunch PowerShell with oneAPI variables configured:
 
@@ -238,20 +238,20 @@ git remote add upstream https://github.com/MODFLOW-ORG/modflow6.git
 
 Python 3.10+ is required to run MODFLOW 6 tests and in some cases to build MODFLOW 6. Miniforge is the recommended python distribution if you do not have an existing Conda or Mamba based python distribution.
 
-The [environment file for MODFLOW 6](./environment.yml) includes all of the required [python dependencies](#python-dependencies). Install the `modflow6` environment using the Conda `environment.yml` file in the repository. 
+The [environment file for MODFLOW 6](./environment.yml) includes all of the required [python dependencies](#python-dependencies). Install the `modflow6` environment using the Conda `environment.yml` file in the repository.
 
 1. Open a terminal (command prompt) in the root directory of the repository.
 2. Use either Mamba or Conda to install the `modflow6` environment.
 
 ```shell
-mamba env create -f environment.yml 
+mamba env create -f environment.yml
 ```
 
 ```shell
 conda env create -f environment.yml
 ```
 
-Python can also be installed via Pixi. Pixi is currently being used to install python on GitHub Actions continuous integration/continuous development (CI/CD) virtual machines. In the future, Pixi may be the preferred approach for installing python for MODFLOW 6. As a result it is recommended for developers to also install the Pixi python environment, which can coexist with the Mamba/Conda python installation and `modflow6` environment. 
+Python can also be installed via Pixi. Pixi is currently being used to install python on GitHub Actions continuous integration/continuous development (CI/CD) virtual machines. In the future, Pixi may be the preferred approach for installing python for MODFLOW 6. As a result it is recommended for developers to also install the Pixi python environment, which can coexist with the Mamba/Conda python installation and `modflow6` environment.
 
 Pixi installation docs can be found [here](https://pixi.sh). After installing `pixi`, to set up an environment with all development dependencies, in the root directory of the MODFLOW 6 repository run:
 
@@ -287,7 +287,7 @@ These are each described briefly below. These and a number of other dependencies
 
 #### `ruff`
 
-[`ruff`](https://docs.astral.sh/ruff/) can be used to format and lint python code and scripts (for example, autotest scripts) and in combination with the [MODFLOW 6 ruff configuration](.github/common/ruff.toml) establishes a contribution standard for properly formatted python code and scripts. This tool can be used from the command line or integrated with a [VSCode](.vscode/README.md).  See [python formatting guidelines](#python-formatting) and [python linting guidelines](#python-linting) for additional information.
+[`ruff`](https://docs.astral.sh/ruff/) can be used to format and lint python code and scripts (for example, autotest scripts) and in combination with the [MODFLOW 6 ruff configuration](.github/common/ruff.toml) establishes a contribution standard for properly formatted python code and scripts. This tool can be used from the command line or integrated with a [VSCode](.vscode/README.md). See [python formatting guidelines](#python-formatting) and [python linting guidelines](#python-linting) for additional information.
 
 #### `mfpymake`
 
@@ -308,6 +308,7 @@ The tests use a set of shared fixtures and utilities provided by the [`modflow-d
 Meson is the recommended build tool for MODFLOW 6. [Meson](https://mesonbuild.com/Getting-meson.html) must be installed and on your [PATH](https://en.wikipedia.org/wiki/PATH_(variable)). Creating and activating the provided Pixi or Conda environment should be sufficient for this.
 
 ### MODFLOW 6 and ZONEBUDGET
+
 Meson build configuration files are provided for MODFLOW 6 and the ZONEBUDGET utility program, and for Fortran unit tests (see [Testing](#testing) section below).
 
 - `meson.build`
@@ -324,6 +325,7 @@ To configure the build directory for a debug version:
 ```shell
 meson setup --prefix=$(pwd) --libdir=bin builddir -Ddebug=true
 ```
+
 Or to configure the build directory for an optimized release version:
 
 ```shell
@@ -353,6 +355,7 @@ pixi run build builddir
 ```
 
 ### MODFLOW 2005 to 6 converter
+
 Meson build configuration files are provided for the MODFLOW 2005 to 6 converter utility program.
 
 - `utils/mf5to6/meson.build`
@@ -368,6 +371,7 @@ To configure the build directory for a debug version from the `<project root>/ut
 ```shell
 meson setup --prefix=$(pwd)/../../  builddir -Ddebug=true
 ```
+
 Or to configure the build directory for an optimized release version from the `<project root>/utils/mf5to6` directory:
 
 ```shell
@@ -447,7 +451,6 @@ pixi run check-format
 To format all files, add the `--write-changes` flag to the end of the python or pixi commands. These commands will exclude the proper files from formatting, including vendored library sources in [`src/Utilities/Libraries`](src/Utilities/Libraries/).
 
 **Note**: as `fprettify` may shift code in unexpected ways, it is a good idea to visually check source files afterwards.
-
 
 ### Python formatting
 
@@ -624,6 +627,7 @@ Unit tests must be run from the project root. To run unit tests in verbose mode:
 ```shell
 meson test -C builddir
 ```
+
 or using pixi:
 
 ```shell
@@ -731,7 +735,7 @@ module TestArithmetic
   private
   public :: collect_arithmetic
 contains
-  
+
   subroutine collect_arithmetic(testsuite)
     type(unittest_type), allocatable, intent(out) :: testsuite(:)
     testsuite = [new_unittest("add", test_add)]
@@ -912,7 +916,7 @@ This project follows the [git flow](https://nvie.com/posts/a-successful-git-bran
 
 ### Managing long-lived branches
 
-When a feature branch takes a long time to develop, it is easy to become out of sync with the develop branch.  Depending on the situation, it may be advisable to periodically squash the commits on the feature branch and rebase the change set with develop.  The following approach for updating a long-lived feature branch has proven robust.
+When a feature branch takes a long time to develop, it is easy to become out of sync with the develop branch. Depending on the situation, it may be advisable to periodically squash the commits on the feature branch and rebase the change set with develop. The following approach for updating a long-lived feature branch has proven robust.
 
 In the example below, the feature branch is assumed to be called `feat-xyz`.
 
@@ -928,7 +932,7 @@ git checkout feat-xyz
 
 #### Squash
 
-Next, consider squashing commits on the feature branch.  If there are many commits, it is beneficial to squash them before trying to rebase with develop.  There is a nice article on [squashing commits into one using git](https://www.internalpointers.com/post/squash-commits-into-one-git), which has been very useful for consolidating commits on a long-lived modflow6 feature branch.
+Next, consider squashing commits on the feature branch. If there are many commits, it is beneficial to squash them before trying to rebase with develop. There is a nice article on [squashing commits into one using git](https://www.internalpointers.com/post/squash-commits-into-one-git), which has been very useful for consolidating commits on a long-lived modflow6 feature branch.
 
 A quick and dirty way to squash without interactive rebase (as an alternative to the approach described in the article mentioned in the preceding paragraph) is a soft reset followed by an amended commit. First making a backup of the feature branch is strongly recommended before using this approach, as accidentally typing `--hard` instead of `--soft` will wipe out all your work.
 
@@ -937,7 +941,7 @@ git reset --soft <first new commit on the feature branch>
 git commit --amend -m "consolidated commit message"
 ```
 
-Once the commits on the feature branch have been consolidated, a force push to origin is recommended.  This is not strictly required, but it can serve as an intermediate backup/checkpoint so the squashed branch state can be retrieved if rebasing fails.  The following command will push `feat-xyz` to origin.
+Once the commits on the feature branch have been consolidated, a force push to origin is recommended. This is not strictly required, but it can serve as an intermediate backup/checkpoint so the squashed branch state can be retrieved if rebasing fails. The following command will push `feat-xyz` to origin.
 
 ```
 git push origin feat-xyz --force
@@ -947,7 +951,7 @@ The `--force` flag's short form is `-f`.
 
 #### Rebase
 
-Now that the commits on `feat-xyz` have been consolidated, it is time to rebase with develop.  If there are multiple commits in `feat-xyz` that make changes, undo them, rename files, and/or move things around in subsequent commits, then there may be multiple sets of merge conflicts that will need to be resolved as the rebase works its way through the commit change sets.  This is why it is beneficial to squash the feature commits before rebasing with develop.
+Now that the commits on `feat-xyz` have been consolidated, it is time to rebase with develop. If there are multiple commits in `feat-xyz` that make changes, undo them, rename files, and/or move things around in subsequent commits, then there may be multiple sets of merge conflicts that will need to be resolved as the rebase works its way through the commit change sets. This is why it is beneficial to squash the feature commits before rebasing with develop.
 
 To rebase with develop, make sure the feature branch is checked out and then type:
 
@@ -957,7 +961,7 @@ git rebase develop
 
 If anything goes wrong during a rebase, there is the `rebase --abort` command to unwind it.
 
-If there are merge conflicts, they will need to be resolved before going forward.  Once any conflicts are resolved, it may be worthwhile to rebuild the MODFLOW 6 program and run the smoke tests to ensure nothing is broken.  
+If there are merge conflicts, they will need to be resolved before going forward. Once any conflicts are resolved, it may be worthwhile to rebuild the MODFLOW 6 program and run the smoke tests to ensure nothing is broken.
 
 At this point, you will want to force push the updated feature branch to origin using the same force push command as before.
 
