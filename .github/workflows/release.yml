@@ -496,7 +496,7 @@ jobs:
       - name: Collect deprecations
         working-directory: modflow6/doc/mf6io/mf6ivar
         run: |
-          pixi run deprecations
+          pixi run collect-deprecations
           cat md/deprecations.md
 
       - name: Upload deprecations
