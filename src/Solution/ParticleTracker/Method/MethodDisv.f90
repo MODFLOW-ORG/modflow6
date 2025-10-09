@@ -9,7 +9,7 @@ module MethodDisvModule
   use CellDefnModule
   use CellPolyModule
   use ParticleModule
-  use PrtFmiModule, only: PrtFmiType
+  use PrtFmiModule, only: PrtFmiType, FACE_BOTTOM, FACE_TOP
   use DisvModule, only: DisvType
   use ArrayHandlersModule, only: ExpandArray
   use GeomUtilModule, only: get_jk, shared_face
@@ -506,24 +506,22 @@ contains
     type(CellDefnType), pointer, intent(inout) :: defn
 
     ! local
-    integer(I4B) :: ic, iv, ioffset, npolyverts, max_faces
+    integer(I4B) :: ic, iv, npolyverts
 
     ic = defn%icell
     npolyverts = defn%npolyverts
-    max_faces = this%fmi%max_faces
-    ioffset = (ic - 1) * max_faces
     do iv = 1, npolyverts
       defn%faceflow(iv) = &
         defn%faceflow(iv) + &
-        this%fmi%BoundaryFlows(ioffset + iv)
+        this%fmi%BoundaryFlows(ic, iv)
     end do
     defn%faceflow(npolyverts + 1) = defn%faceflow(1)
     defn%faceflow(npolyverts + 2) = &
       defn%faceflow(npolyverts + 2) + &
-      this%fmi%BoundaryFlows(ioffset + max_faces - 1)
+      this%fmi%BoundaryFlows(ic, FACE_BOTTOM)
     defn%faceflow(npolyverts + 3) = &
       defn%faceflow(npolyverts + 3) + &
-      this%fmi%BoundaryFlows(ioffset + max_faces)
+      this%fmi%BoundaryFlows(ic, FACE_TOP)
 
   end subroutine load_cell_boundary_flows
 
