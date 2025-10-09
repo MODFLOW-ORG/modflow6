@@ -79,7 +79,7 @@ Some additional, optional tools are also discussed below.
 
 ### Git
 
-[GitHub's Guide to Installing Git](https://help.github.com/articles/set-up-git) is a good source of information.
+[GitHub's Guide to Setting Up Git](https://help.github.com/articles/set-up-git) is a good source of information.
 
 Optionally, the [`git blame`](https://git-scm.com/docs/git-blame) tool can be configured to work locally using:
 
