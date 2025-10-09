@@ -204,14 +204,13 @@ Visual Studio installers can be downloaded from the [official website](https://v
 
 [Doxygen](https://www.doxygen.nl/index.html) is used to generate the [MODFLOW 6 source code documentation](https://MODFLOW-ORG.github.io/modflow6/). [Graphviz](https://graphviz.org/) is used by doxygen to produce source code diagrams. [LaTeX](https://www.latex-project.org/) is used to generate the MODFLOW 6 release notes and Input/Output documents.
 
-These programs can be installed from various sources, including by conda, macports, or from individual sources such as https://www.tug.org/. Details about USGS LaTeX libraries can be seen in addition to linux installs in the CI workflow for the docs (`.github/workflows/ci-docs.yml`).
-
+These programs can be installed from various sources, including by conda, macports, or from individual sources such as https://www.tug.org/. Details about USGS LaTeX libraries can be seen in addition to linux installs in the CI workflow for the docs (`.github/workflows/docs.yml`).
 
 ## Get the MODFLOW 6 repository
 
 Fork and clone the MODFLOW 6 repository:
 
-1. Login to your GitHub account or create one by following the instructions given [here](https://github.com/signup/free).
+1. Login to your GitHub account or create one by following the instructions given [here](https://github.com/signup).
 2. [Fork](http://help.github.com/forking) the [main MODFLOW 6](https://github.com/MODFLOW-ORG/modflow6).
 3. Clone your fork of the MODFLOW 6 repository and create an `upstream` remote pointing back to your fork.
 

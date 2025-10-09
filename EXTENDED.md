@@ -55,7 +55,7 @@ in a terminal open in the root directory of your PETSc download
 
 ## Compiling NetCDF from source
 
-See, for example, https://docs.unidata.ucar.edu/netcdf-c/4.9.2/building\_netcdf\_fortran.html and https://docs.unidata.ucar.edu/nug/current/getting\_and\_building\_netcdf.html#building for information related to building NetCDF-Fortran and prerequisites in a Unix/Linux environment.
+See, for example, https://docs.unidata.ucar.edu/netcdf-c/4.9.2/building_netcdf_fortran.html and https://docs.unidata.ucar.edu/nug/current/getting_and_building_netcdf.html#building for information related to building NetCDF-Fortran and prerequisites in a Unix/Linux environment.
 
 ## Using a package manager to install MPI and PETSc
 
