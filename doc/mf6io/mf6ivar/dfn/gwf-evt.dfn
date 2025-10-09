@@ -157,7 +157,7 @@ type integer
 reader urword
 optional false
 longname maximum number of evapotranspiration cells
-description REPLACE maxbound {'{#1}': 'evapotranspiration cells'}
+description REPLACE maxbound {'{#1}': 'evapotranspiration'}
 
 block dimensions
 name nseg

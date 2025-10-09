@@ -148,7 +148,7 @@ type integer
 reader urword
 optional false
 longname maximum number of recharge cells
-description REPLACE maxbound {'{#1}': 'recharge cells'}
+description REPLACE maxbound {'{#1}': 'recharge'}
 
 
 # --------------------- gwf rch period ---------------------
