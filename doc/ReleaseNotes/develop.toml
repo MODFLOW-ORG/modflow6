@@ -37,3 +37,8 @@ description = "Added HIGHEST\\_SATURATED option to the GWT SRC package. When act
 section = "features"
 subsection = "basic"
 description = "Added a coordinate reference system option CRS to discretization packages. For example, an EPSG integer code, authority string, or Open Geospatial Consortium Well-Known Text (WKT) specification. This option does not affect simulation results, but is written to the binary grid file so that postprocessors can locate the grid in space. A new binary grid file version number (2) is introduced to indicate that CRS information may be present."
+
+[[items]]
+section = "fixes"
+subsection = "internal"
+description = "Fixed the DEWATERED VARIABLECV option. Previously, the saturation and vertical hydraulic conductivity of the underlying cell were included in the vertical conductance calculation when the water level in the underlying cell was below the top of the cell. This is not what is described in \\cite[][equation 4-44]{modflow6gwf}. The code has been modified to only include the saturation and vertical hydraulic conductivity of the overlying cell when calculating the vertical conductance when the water-level in the underlying cell is below the top of the cell."
