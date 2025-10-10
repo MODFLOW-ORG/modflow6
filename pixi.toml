@@ -115,8 +115,8 @@ prepare-pull-request = {depends-on = ["fix-style", "fix-python-style", "build-ma
 
 # dist/docs
 benchmark = { cmd = "python benchmark.py", cwd = "distribution" }
-build-docs = { cmd = "python build_docs.py", cwd = "distribution" }
-build-dist = { cmd = "python build_dist.py", cwd = "distribution" }
+build-docs = { cmd = "python build_docs.py" }
+build-dist = { cmd = "python build_dist.py" }
 check-dist = { cmd = "pytest -v -s check_dist.py", cwd = "distribution" }
 test-dist-scripts = { cmd = "pytest -v --durations 0", cwd = "distribution" }
 update-version = { cmd = "python update_version.py", cwd = "distribution" }
