@@ -113,8 +113,8 @@ CMakeFiles/
 .build_rtd_docs/_mf6io
 .build_rtd_docs/_mf6src
 .build_rtd_docs/_mf6run
+.build_rtd_docs/_misc
 .build_rtd_docs/_dev
-.build_rtd_docs/_migration
 latex/
 html/
 xml/

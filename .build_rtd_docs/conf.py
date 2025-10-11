@@ -101,12 +101,12 @@ src = os.path.join("..", fpth)
 dst = os.path.join(dstdir, fpth)
 shutil.copy(src, dst)
 
-dstdir = "_migration"
+dstdir = "_misc"
 if os.path.isdir(dstdir):
     shutil.rmtree(dstdir)
 os.makedirs(dstdir)
 
-print(f"Copy migration guides to {dstdir}")
+print(f"Copy special topics to {dstdir}")
 fpth = "mf6_6_0_prt_migration_guide.md"
 src = os.path.join(fpth)
 dst = os.path.join(dstdir, fpth)
