@@ -407,7 +407,8 @@ def write_desc(vardict, block, blk_var_list, varexcludeprefix=None, developmode=
                             or "deprecated" in vardict[(vn, block)]
                             or (
                                 not developmode
-                                and vardict[(vn, block)].get("developmode", "") == "true"
+                                and vardict[(vn, block)].get("developmode", "")
+                                == "true"
                             )
                         ):
                             continue
