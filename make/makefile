@@ -245,7 +245,7 @@ $(OBJDIR)/chf-chdidm.o \
 $(OBJDIR)/chf-cdbidm.o \
 $(OBJDIR)/List.o \
 $(OBJDIR)/LongLineReader.o \
-$(OBJDIR)/DevFeature.o \
+$(OBJDIR)/FeatureFlags.o \
 $(OBJDIR)/MemoryStore.o \
 $(OBJDIR)/IdmUtlDfnSelector.o \
 $(OBJDIR)/IdmSwfDfnSelector.o \

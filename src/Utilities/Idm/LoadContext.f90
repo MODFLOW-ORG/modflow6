@@ -341,7 +341,7 @@ contains
   !!
   !<
   subroutine tags(this, params, nparam, input_name, create)
-    use DevFeatureModule, only: dev_feature
+    use FeatureFlagsModule, only: developmode
     use SimVariablesModule, only: iout
     use DefinitionSelectModule, only: get_param_definition_type
     class(LoadContextType) :: this
@@ -379,7 +379,7 @@ contains
           &'" read from file "'//trim(input_name)// &
           &'" is still under development. Install the &
           &nightly build or compile from source with IDEVELOPMODE = 1.'
-        call dev_feature(dev_msg, iout)
+        call developmode(dev_msg, iout)
       end if
 
       params(n) = this%params(n)

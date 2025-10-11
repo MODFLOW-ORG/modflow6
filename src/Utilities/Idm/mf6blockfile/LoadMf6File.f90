@@ -445,7 +445,7 @@ contains
   !! Load input associated with tag key into the memory manager.
   !<
   subroutine load_tag(this, iblk, idt)
-    use DevFeatureModule, only: dev_feature
+    use FeatureFlagsModule, only: developmode
     use ArrayHandlersModule, only: expandarray
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
@@ -458,7 +458,7 @@ contains
         &'" read from file "'//trim(this%filename)// &
         &'" is still under development. Install the &
         &nightly build or compile from source with IDEVELOPMODE = 1.'
-      call dev_feature(dev_msg, this%iout)
+      call developmode(dev_msg, this%iout)
     end if
 
     ! allocate and load data type

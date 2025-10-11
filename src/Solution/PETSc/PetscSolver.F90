@@ -15,7 +15,7 @@ module PetscSolverModule
   use ImsLinearSettingsModule
   use SimVariablesModule, only: iout, simulation_mode, nr_procs, proc_id
   use SimModule, only: store_error, store_warning
-  use DevFeatureModule, only: dev_feature
+  use FeatureFlagsModule, only: developmode
 
   implicit none
   private
@@ -232,7 +232,7 @@ contains
     if (this%use_ims_pc) then
       call this%set_ims_pc()
     else
-      call dev_feature('PETSc preconditioning is under development, install the &
+      call developmode('PETSc preconditioning is under development, install the &
             &nightly build or compile from source with IDEVELOPMODE = 1.')
       ! The PC options will be set from the .petscrc
       ! file in the call to KSPSetFromOptions below
@@ -300,7 +300,7 @@ contains
 
     if (.not. this%use_ims_cnvgopt) then
       ! use PETSc residual L2 norm for convergence
-      call dev_feature('Using PETSc convergence is under development, install &
+      call developmode('Using PETSc convergence is under development, install &
       &the nightly build or compile from source with IDEVELOPMODE = 1.')
       call KSPSetConvergenceTest(this%ksp_petsc, petsc_cnvg_check_internal, &
                                  this%petsc_ctx, PETSC_NULL_FUNCTION, ierr)

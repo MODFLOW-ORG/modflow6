@@ -438,7 +438,7 @@ modflow_sources = files(
     'Utilities' / 'CharString.f90',
     'Utilities' / 'Constants.f90',
     'Utilities' / 'defmacro.F90',
-    'Utilities' / 'DevFeature.f90',
+    'Utilities' / 'FeatureFlags.f90',
     'Utilities' / 'ErrorUtil.f90',
     'Utilities' / 'GeomUtil.f90',
     'Utilities' / 'GridFileReader.f90',

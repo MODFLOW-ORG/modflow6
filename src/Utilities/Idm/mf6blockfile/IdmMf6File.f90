@@ -272,7 +272,7 @@ contains
     use ListLoadModule, only: ListLoadType
     use Mf6FileSettingLoadModule, only: SettingLoadType
     use Mf6FileStoInputModule, only: StoInputType
-    use DevFeatureModule, only: dev_feature
+    use FeatureFlagsModule, only: developmode
     class(Mf6FileDynamicPkgLoadType), intent(inout) :: this
     class(ListLoadType), pointer :: list_loader
     class(GridArrayLoadType), pointer :: arrgrid_loader
@@ -291,7 +291,7 @@ contains
       allocate (arrlayer_loader)
       this%rp_loader => arrlayer_loader
     else if (this%readarraygrid) then
-      call dev_feature('Input file "'//trim(this%input_name)// &
+      call developmode('Input file "'//trim(this%input_name)// &
         '" READARRAYGRID option is still under development, install the &
         &nightly build or compile from source with IDEVELOPMODE = 1.', &
         this%iout)

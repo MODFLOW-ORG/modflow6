@@ -1,7 +1,7 @@
 module SimulationCreateModule
 
   use KindModule, only: DP, I4B, LGP, write_kindinfo
-  use DevFeatureModule, only: dev_feature
+  use FeatureFlagsModule, only: developmode
   use ConstantsModule, only: LINELENGTH, LENMODELNAME, LENBIGLINE, &
                              DZERO, LENEXCHANGENAME, LENMEMPATH, LENPACKAGETYPE
   use CharacterStringModule, only: CharacterStringType
@@ -312,7 +312,7 @@ contains
           write (iout, '(4x,2a,i0,a)') trim(model_type), " model ", &
             n, " will be created"
           call chf_cr(fname, n, model_names(n))
-          call dev_feature('CHF is still under development, install the &
+          call developmode('CHF is still under development, install the &
             &nightly build or compile from source with IDEVELOPMODE = 1.')
           num_model => GetNumericalModelFromList(basemodellist, im)
           model_loc_idx(n) = im
@@ -323,7 +323,7 @@ contains
           write (iout, '(4x,2a,i0,a)') trim(model_type), " model ", &
             n, " will be created"
           call olf_cr(fname, n, model_names(n))
-          call dev_feature('OLF is still under development, install the &
+          call developmode('OLF is still under development, install the &
             &nightly build or compile from source with IDEVELOPMODE = 1.')
           num_model => GetNumericalModelFromList(basemodellist, im)
           model_loc_idx(n) = im
