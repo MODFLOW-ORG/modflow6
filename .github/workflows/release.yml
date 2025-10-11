@@ -179,6 +179,10 @@ jobs:
           fi
           eval "$cmd"
 
+      - name: Setup tmate
+        if: runner.os == 'macOS'
+        uses: mxschmitt/action-tmate@v3
+
       - name: Set OS tag
         id: ostag
         working-directory: modflow6
