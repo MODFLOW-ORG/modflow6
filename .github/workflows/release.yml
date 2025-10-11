@@ -519,7 +519,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "${{ needs.build.outputs.distname }}/doc"
-          cmd="pixi run --manifest-path modflow6/pixi.toml build-docs -b bin -o doc --force"
+          cmd="pixi run --manifest-path modflow6/pixi.toml build-docs -b ../../bin -o ../../doc --force"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
