@@ -633,7 +633,7 @@ jobs:
         run: |
           # build distribution
           distname="${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}"
-          cmd="pixi run --manifest-path modflow6/pixi.toml build-dist -o $distname"
+          cmd="pixi run --manifest-path modflow6/pixi.toml build-dist -o ../../$distname"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
