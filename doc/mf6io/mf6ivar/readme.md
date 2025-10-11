@@ -67,7 +67,7 @@ A MODFLOW 6 input variable is described by a set of attributes. Some attributes 
 | tagged        | Whether a keyword is required before the parameter value.              | No       | True    | Set to false for keyword parameters (which do not take a value).                                                                                              |
 | in_record     | Whether the parameter is part of a record.                             | No       | False   | If true, the parameter must follow a record parameter keyword rather than being listed on its own line.                                                       |
 | layered       | Whether the parameter is layered.                                      | No       | False   | If true, then the LAYERED keyword will be written to the input instructions.                                                                                  |
-| reader        | The MODFLOW 6 routine used to read the parameter value.                | Yes      |         | Valid values are: `urword`, `u1ddbl`, `u2ddbl`, `readarray`.                                                                                                  |
+| reader        | The MODFLOW 6 routine used to read the parameter value.                | No       | (inferred) | This attribute is deprecated and is now inferred from `type` and `shape` but remains supported for compatibility. Valid values are: `urword`, `readarray`. |
 | optional      | Whether the parameter is optional.                                     | No       | False   |                                                                                                                                                               |
 | longname      | A brief but descriptive label for the parameter.                       | Yes      |         | May contain spaces.                                                                                                                                           |
 | description   | A full description of the parameter.                                   | Yes      |         | Should describe the parameter in detail. Underscores must be escaped since this value is parsed and substituted into LaTeX files for the MF6IO documentation. |
@@ -80,14 +80,15 @@ A MODFLOW 6 input variable is described by a set of attributes. Some attributes 
 
 ### Reader Attribute
 
-The reader attribute indicates what reader is used by MODFLOW 6 for the information.  There are several reader types that result in specialized input instructions.  For example, the delr array of the DIS package is read using u1ddbl.  Because the MODFLOW 6 array readers often require a control record, when this reader type is specified, information about the control record is written.  For example, the following block identifies how delr is specified:
+The reader attribute indicates which read routine is used by MODFLOW 6. It is only used to generate documentation. **This attribute is now automatically inferred** from attributes `type` and `shape` and does not need to be specified in DFN files. If present in a DFN file, it will be ignored in favor of the inferred value. Array types (`integer` or `double precision` with a non-empty shape) use reader `readarray`. All other types use `urword`.
+
+The `readarray` reader is used for array variables and results in specialized documentation.  It allows for a LAYERED keyword to be specified.  For example, the delr array of the DIS package might be specified as:
 
 ```
 block griddata
 name delr
 type double precision
 shape (ncol)
-reader u1ddbl
 longname spacing along a row
 description is the is the column spacing in the row direction.
 ```
@@ -97,11 +98,11 @@ This results in the following block description:
 ```
 BEGIN GRIDDATA
   DELR
-    delr(ncol) -- U1DDBL
+    <delr(ncol)> -- READARRAY
 END GRIDDATA
 ```
 
-The READARRAY reader is another reader that results in specialized input.  It allows for a LAYERED keyword to be specified.  The icelltype variable is read using readarray and is specified as:
+The icelltype variable also uses readarray and is specified as:
 
 ```
 block GRIDDATA

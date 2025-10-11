@@ -200,6 +200,18 @@ MD_DIR_PATH.mkdir(exist_ok=True)
 TEX_DIR_PATH.mkdir(exist_ok=True)
 
 
+def infer_reader(v):
+    """
+    Infer the reader from the variable's attributes.
+    Arrays use 'readarray', everything else `urword`.
+    """
+    type_ = v.get("type", "")
+    has_shape = "shape" in v and v["shape"].strip() != ""
+    if has_shape and type_ in ("integer", "double precision"):
+        return "readarray"
+    return "urword"
+
+
 def block_entry(varname, block, vardict, prefix="  "):
     key = (varname, block)
     v = vardict[key]
@@ -243,9 +255,9 @@ def block_entry(varname, block, vardict, prefix="  "):
             s = f"{s}\n{prefix}{s}\n{prefix}..."
 
     # layered and netcdf
-    elif v["reader"] in ["readarray", "u1ddbl", "u2ddbl", "u1dint"]:
+    elif infer_reader(v) == "readarray":
         shape = v["shape"]
-        reader = v["reader"].upper()
+        reader = "READARRAY"
         layered = ""
         if "layered" in v:
             if v["layered"] == "true":
