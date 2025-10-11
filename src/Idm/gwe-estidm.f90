@@ -45,7 +45,7 @@ module GweEstInputModule
     '', & ! shape
     'save calculated flows to budget file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -64,7 +64,7 @@ module GweEstInputModule
     '', & ! shape
     'activate zero-order decay in aqueous phase', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -83,7 +83,7 @@ module GweEstInputModule
     '', & ! shape
     'activate zero-order decay in solid phase', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -102,7 +102,7 @@ module GweEstInputModule
     '', & ! shape
     'density of water', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -121,7 +121,7 @@ module GweEstInputModule
     '', & ! shape
     'heat capacity of water', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -140,7 +140,7 @@ module GweEstInputModule
     '', & ! shape
     'latent heat of vaporization', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -159,7 +159,7 @@ module GweEstInputModule
     'NODES', & ! shape
     'porosity', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -178,7 +178,7 @@ module GweEstInputModule
     'NODES', & ! shape
     'aqueous phase decay rate coefficient', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -197,7 +197,7 @@ module GweEstInputModule
     'NODES', & ! shape
     'solid phase decay rate coefficient', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -216,7 +216,7 @@ module GweEstInputModule
     'NODES', & ! shape
     'heat capacity of the aquifer material', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -235,7 +235,7 @@ module GweEstInputModule
     'NODES', & ! shape
     'density of aquifer material', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -272,7 +272,7 @@ module GweEstInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

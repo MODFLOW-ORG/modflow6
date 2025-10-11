@@ -7,7 +7,7 @@ name readarraygrid
 type keyword
 reader urword
 optional false
-prerelease true
+developmode true
 longname use array-based grid input
 description indicates that array-based grid input will be used for the river package.  This keyword must be specified to use array-based grid input.  When READARRAYGRID is specified, values must be provided for every cell within a model grid, even those cells that have an IDOMAIN value less than one.  Values assigned to cells with IDOMAIN values less than one are not used and have no effect on simulation results. No data cells should contain the value DNODATA (3.0E+30).
 default_value True

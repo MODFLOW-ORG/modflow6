@@ -52,7 +52,7 @@ module SwfEvpInputModule
     'NAUX', & ! shape
     'keyword to specify aux variables', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -71,7 +71,7 @@ module SwfEvpInputModule
     '', & ! shape
     'name of auxiliary variable for multiplier', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -90,7 +90,7 @@ module SwfEvpInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -109,7 +109,7 @@ module SwfEvpInputModule
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -128,7 +128,7 @@ module SwfEvpInputModule
     '', & ! shape
     'print evaporation rates to listing file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -147,7 +147,7 @@ module SwfEvpInputModule
     '', & ! shape
     'save evaporation to budget file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -166,7 +166,7 @@ module SwfEvpInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -185,7 +185,7 @@ module SwfEvpInputModule
     '', & ! shape
     'head keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -204,7 +204,7 @@ module SwfEvpInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -223,7 +223,7 @@ module SwfEvpInputModule
     '', & ! shape
     'file name of time series information', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -242,7 +242,7 @@ module SwfEvpInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -261,7 +261,7 @@ module SwfEvpInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -280,7 +280,7 @@ module SwfEvpInputModule
     '', & ! shape
     'obs6 input filename', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -299,7 +299,7 @@ module SwfEvpInputModule
     '', & ! shape
     'maximum number of evaporation cells', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -318,7 +318,7 @@ module SwfEvpInputModule
     'NCELLDIM', & ! shape
     'cell identifier', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -337,7 +337,7 @@ module SwfEvpInputModule
     '', & ! shape
     'evaporation rate', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -356,7 +356,7 @@ module SwfEvpInputModule
     'NAUX', & ! shape
     'auxiliary variables', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -375,7 +375,7 @@ module SwfEvpInputModule
     '', & ! shape
     'evaporation name', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -417,7 +417,7 @@ module SwfEvpInputModule
     'MAXBOUND', & ! shape
     '', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

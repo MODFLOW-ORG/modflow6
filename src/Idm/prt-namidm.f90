@@ -41,7 +41,7 @@ module PrtNamInputModule
     '', & ! shape
     'name of listing file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -60,7 +60,7 @@ module PrtNamInputModule
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -79,7 +79,7 @@ module PrtNamInputModule
     '', & ! shape
     'print calculated flows to listing file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -98,7 +98,7 @@ module PrtNamInputModule
     '', & ! shape
     'save flows for all packages to budget file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -117,7 +117,7 @@ module PrtNamInputModule
     '', & ! shape
     'package type', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -136,7 +136,7 @@ module PrtNamInputModule
     '', & ! shape
     'file name', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -155,7 +155,7 @@ module PrtNamInputModule
     '', & ! shape
     'user name for package', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -186,7 +186,7 @@ module PrtNamInputModule
     '', & ! shape
     'package list', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

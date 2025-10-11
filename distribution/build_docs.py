@@ -521,8 +521,8 @@ only what it can't find. Use the --force (-f) flag to regenerate existing artifa
         default=False,
         action="store_true",
         help="Build documents in release mode for standard releases. "
-        "Will omit prerelease variables/sections from documentation, "
-        "filtering out MF6IO variables marked 'prerelease', and also "
+        "Will omit developmode variables/sections from documentation, "
+        "filtering out MF6IO variables marked 'developmode', and also "
         "any LaTeX sections wrapped with '\\ifdevelopmode ... \\fi'. "
         "Defaults false, suitable for preliminary development builds.",
     )

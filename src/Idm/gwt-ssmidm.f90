@@ -44,7 +44,7 @@ module GwtSsmInputModule
     '', & ! shape
     'print calculated flows to listing file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -63,7 +63,7 @@ module GwtSsmInputModule
     '', & ! shape
     'save calculated flows to budget file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -82,7 +82,7 @@ module GwtSsmInputModule
     '', & ! shape
     'package name', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -101,7 +101,7 @@ module GwtSsmInputModule
     '', & ! shape
     'source type', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -120,7 +120,7 @@ module GwtSsmInputModule
     '', & ! shape
     'auxiliary variable name', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -139,7 +139,7 @@ module GwtSsmInputModule
     '', & ! shape
     'package name', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -158,7 +158,7 @@ module GwtSsmInputModule
     '', & ! shape
     'head keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -177,7 +177,7 @@ module GwtSsmInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -196,7 +196,7 @@ module GwtSsmInputModule
     '', & ! shape
     'spc file name', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -215,7 +215,7 @@ module GwtSsmInputModule
     '', & ! shape
     'mixed keyword', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -249,7 +249,7 @@ module GwtSsmInputModule
     '', & ! shape
     'package list', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -268,7 +268,7 @@ module GwtSsmInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

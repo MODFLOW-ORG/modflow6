@@ -36,7 +36,7 @@ module SwfIcInputModule
     '', & ! shape
     'export array variables to layered ascii files.', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -55,7 +55,7 @@ module SwfIcInputModule
     'NODES', & ! shape
     'starting concentration', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -83,7 +83,7 @@ module SwfIcInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

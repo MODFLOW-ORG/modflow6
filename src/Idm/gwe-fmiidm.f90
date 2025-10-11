@@ -39,7 +39,7 @@ module GweFmiInputModule
     '', & ! shape
     'save calculated flow imbalance correction to budget file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -58,7 +58,7 @@ module GweFmiInputModule
     '', & ! shape
     'correct for flow imbalance', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -77,7 +77,7 @@ module GweFmiInputModule
     '', & ! shape
     'flow type', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -96,7 +96,7 @@ module GweFmiInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -115,7 +115,7 @@ module GweFmiInputModule
     '', & ! shape
     'file name', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -144,7 +144,7 @@ module GweFmiInputModule
     '', & ! shape
     'flowtype list', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

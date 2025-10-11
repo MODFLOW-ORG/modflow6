@@ -76,7 +76,7 @@ A MODFLOW 6 input variable is described by a set of attributes. Some attributes 
 | numeric_index | Indicates that this is an index variable.                              | No       | False   | Indicates that FloPy should treat the parameter as zero-based.                                                                                                |
 | deprecated    | Indicates that the parameter has been deprecated.                      | No       | None    | Should be a semantic version number, the version in which the parameter was deprecated. If this attribute is provided without a value, it is ignored.            |
 | removed       | Indicates that the parameter has been removed.                         | No       | None    | Should be a semantic version number, the version in which the parameter was removed. If this attribute is provided without a value, it is ignored.               |
-| prerelease    | Indicates that the parameter should not be released yet.               | No       | False   | Should be set to true to indicate that a parameter is not ready for inclusion in releases. The parameter will be omitted from the generated IO guide.   |
+| developmode    | Indicates that the parameter should be omitted from releases.               | No       | False   | Should be set to true to indicate that a parameter is not ready for inclusion in releases. The parameter will be omitted from the generated IO guide.   |
 
 ### Reader Attribute
 

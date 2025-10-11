@@ -51,7 +51,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'model length units', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -70,7 +70,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'do not write binary grid file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -89,7 +89,7 @@ module SwfDis2DInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -108,7 +108,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'grb keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -127,7 +127,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -146,7 +146,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'file name of GRB information', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -165,7 +165,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'x-position of the model grid origin', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -184,7 +184,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'y-position of the model grid origin', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -203,7 +203,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'rotation angle', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -222,7 +222,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'export array variables to layered ascii files.', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -241,7 +241,7 @@ module SwfDis2DInputModule
     'LENBIGLINE', & ! shape
     'CRS user input string', & ! longname
     .false., & ! required
-    .true., & ! prerelease
+    .true., & ! developmode
     .false., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -260,7 +260,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'number of rows', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -279,7 +279,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'number of columns', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -298,7 +298,7 @@ module SwfDis2DInputModule
     'NCOL', & ! shape
     'spacing along a row', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -317,7 +317,7 @@ module SwfDis2DInputModule
     'NROW', & ! shape
     'spacing along a column', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -336,7 +336,7 @@ module SwfDis2DInputModule
     'NCOL NROW', & ! shape
     'cell bottom elevation', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -355,7 +355,7 @@ module SwfDis2DInputModule
     'NCOL NROW', & ! shape
     'idomain existence array', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -398,7 +398,7 @@ module SwfDis2DInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

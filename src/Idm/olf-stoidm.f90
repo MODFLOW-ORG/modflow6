@@ -38,7 +38,7 @@ module OlfStoInputModule
     '', & ! shape
     'keyword to save NPF flows', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -57,7 +57,7 @@ module OlfStoInputModule
     '', & ! shape
     'export array variables to layered ascii files.', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -76,7 +76,7 @@ module OlfStoInputModule
     '', & ! shape
     'steady state indicator', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -95,7 +95,7 @@ module OlfStoInputModule
     '', & ! shape
     'transient indicator', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -125,7 +125,7 @@ module OlfStoInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

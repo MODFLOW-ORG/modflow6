@@ -57,7 +57,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'model length units', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -76,7 +76,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'do not write binary grid file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -95,7 +95,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -114,7 +114,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'grb keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -133,7 +133,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -152,7 +152,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'file name of GRB information', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -171,7 +171,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'x-position of the model grid origin', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -190,7 +190,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'y-position of the model grid origin', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -209,7 +209,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'rotation angle', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -228,7 +228,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'export array variables to layered ascii files.', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -247,7 +247,7 @@ module OlfDisv2DInputModule
     'LENBIGLINE', & ! shape
     'CRS user input string', & ! longname
     .false., & ! required
-    .true., & ! prerelease
+    .true., & ! developmode
     .false., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -266,7 +266,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'number of cells per layer', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -285,7 +285,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'number of columns', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -304,7 +304,7 @@ module OlfDisv2DInputModule
     'NODES', & ! shape
     'model bottom elevation', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -323,7 +323,7 @@ module OlfDisv2DInputModule
     'NODES', & ! shape
     'idomain existence array', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -342,7 +342,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'vertex number', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -361,7 +361,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'x-coordinate for vertex', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -380,7 +380,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'y-coordinate for vertex', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -399,7 +399,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'cell2d number', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -418,7 +418,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'x-coordinate for cell center', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -437,7 +437,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'y-coordinate for cell center', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -456,7 +456,7 @@ module OlfDisv2DInputModule
     '', & ! shape
     'number of cell vertices', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -475,7 +475,7 @@ module OlfDisv2DInputModule
     'NCVERT', & ! shape
     'array of vertex numbers', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -522,7 +522,7 @@ module OlfDisv2DInputModule
     'NVERT', & ! shape
     'vertices data', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -541,7 +541,7 @@ module OlfDisv2DInputModule
     'NODES', & ! shape
     'cell2d data', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

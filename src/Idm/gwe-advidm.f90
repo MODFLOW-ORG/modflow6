@@ -36,7 +36,7 @@ module GweAdvInputModule
     '', & ! shape
     'advective scheme', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -55,7 +55,7 @@ module GweAdvInputModule
     '', & ! shape
     'fractional cell distance used for time step calculation', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -83,7 +83,7 @@ module GweAdvInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

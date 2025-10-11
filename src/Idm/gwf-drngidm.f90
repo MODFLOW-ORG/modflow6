@@ -52,7 +52,7 @@ module GwfDrngInputModule
     '', & ! shape
     'use array-based grid input', & ! longname
     .true., & ! required
-    .true., & ! prerelease
+    .true., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -71,7 +71,7 @@ module GwfDrngInputModule
     'NAUX', & ! shape
     'keyword to specify aux variables', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -90,7 +90,7 @@ module GwfDrngInputModule
     '', & ! shape
     'name of auxiliary variable for multiplier', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -109,7 +109,7 @@ module GwfDrngInputModule
     '', & ! shape
     'name of auxiliary variable for drainage depth', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -128,7 +128,7 @@ module GwfDrngInputModule
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -147,7 +147,7 @@ module GwfDrngInputModule
     '', & ! shape
     'print calculated flows to listing file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -166,7 +166,7 @@ module GwfDrngInputModule
     '', & ! shape
     'save DRNG flows to budget file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -185,7 +185,7 @@ module GwfDrngInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -204,7 +204,7 @@ module GwfDrngInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -223,7 +223,7 @@ module GwfDrngInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -242,7 +242,7 @@ module GwfDrngInputModule
     '', & ! shape
     'obs6 input filename', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -261,7 +261,7 @@ module GwfDrngInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -280,7 +280,7 @@ module GwfDrngInputModule
     '', & ! shape
     'export array variables to netcdf output files.', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -299,7 +299,7 @@ module GwfDrngInputModule
     '', & ! shape
     'cubic-scaling', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -318,7 +318,7 @@ module GwfDrngInputModule
     '', & ! shape
     'maximum number of drain cells in any stress period', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -337,7 +337,7 @@ module GwfDrngInputModule
     'NODES', & ! shape
     'drain elevation', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -356,7 +356,7 @@ module GwfDrngInputModule
     'NODES', & ! shape
     'drain conductance', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -375,7 +375,7 @@ module GwfDrngInputModule
     'NAUX NODES', & ! shape
     'drain auxiliary variable iaux', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -419,7 +419,7 @@ module GwfDrngInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

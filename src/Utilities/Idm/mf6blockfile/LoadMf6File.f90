@@ -452,8 +452,8 @@ contains
     type(InputParamDefinitionType), pointer, intent(in) :: idt !< input data type object describing this record
     character(len=LINELENGTH) :: dev_msg
 
-    ! check if input param is prerelease
-    if (idt%prerelease) then
+    ! check if input param is developmode
+    if (idt%developmode) then
       dev_msg = 'Input tag "'//trim(idt%tagname)// &
         &'" read from file "'//trim(this%filename)// &
         &'" is still under development. Install the &

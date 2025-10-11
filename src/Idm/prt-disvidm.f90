@@ -64,7 +64,7 @@ module PrtDisvInputModule
     '', & ! shape
     'model length units', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -83,7 +83,7 @@ module PrtDisvInputModule
     '', & ! shape
     'do not write binary grid file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -102,7 +102,7 @@ module PrtDisvInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -121,7 +121,7 @@ module PrtDisvInputModule
     '', & ! shape
     'grb keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -140,7 +140,7 @@ module PrtDisvInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -159,7 +159,7 @@ module PrtDisvInputModule
     '', & ! shape
     'file name of GRB information', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -178,7 +178,7 @@ module PrtDisvInputModule
     '', & ! shape
     'x-position origin of the model grid coordinate system', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -197,7 +197,7 @@ module PrtDisvInputModule
     '', & ! shape
     'y-position origin of the model grid coordinate system', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -216,7 +216,7 @@ module PrtDisvInputModule
     '', & ! shape
     'rotation angle', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -235,7 +235,7 @@ module PrtDisvInputModule
     '', & ! shape
     'export array variables to layered ascii files.', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -254,7 +254,7 @@ module PrtDisvInputModule
     '', & ! shape
     'export array variables to netcdf output files.', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -273,7 +273,7 @@ module PrtDisvInputModule
     'LENBIGLINE', & ! shape
     'CRS user input string', & ! longname
     .false., & ! required
-    .true., & ! prerelease
+    .true., & ! developmode
     .false., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -292,7 +292,7 @@ module PrtDisvInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -311,7 +311,7 @@ module PrtDisvInputModule
     '', & ! shape
     'ncf keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -330,7 +330,7 @@ module PrtDisvInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -349,7 +349,7 @@ module PrtDisvInputModule
     '', & ! shape
     'file name of NCF information', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -368,7 +368,7 @@ module PrtDisvInputModule
     '', & ! shape
     'number of layers', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -387,7 +387,7 @@ module PrtDisvInputModule
     '', & ! shape
     'number of cells per layer', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -406,7 +406,7 @@ module PrtDisvInputModule
     '', & ! shape
     'number of columns', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -425,7 +425,7 @@ module PrtDisvInputModule
     'NCPL', & ! shape
     'model top elevation', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -444,7 +444,7 @@ module PrtDisvInputModule
     'NCPL NLAY', & ! shape
     'model bottom elevation', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -463,7 +463,7 @@ module PrtDisvInputModule
     'NCPL NLAY', & ! shape
     'idomain existence array', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -482,7 +482,7 @@ module PrtDisvInputModule
     '', & ! shape
     'vertex number', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -501,7 +501,7 @@ module PrtDisvInputModule
     '', & ! shape
     'x-coordinate for vertex', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -520,7 +520,7 @@ module PrtDisvInputModule
     '', & ! shape
     'y-coordinate for vertex', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -539,7 +539,7 @@ module PrtDisvInputModule
     '', & ! shape
     'cell2d number', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -558,7 +558,7 @@ module PrtDisvInputModule
     '', & ! shape
     'x-coordinate for cell center', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -577,7 +577,7 @@ module PrtDisvInputModule
     '', & ! shape
     'y-coordinate for cell center', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -596,7 +596,7 @@ module PrtDisvInputModule
     '', & ! shape
     'number of cell vertices', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -615,7 +615,7 @@ module PrtDisvInputModule
     'NCVERT', & ! shape
     'array of vertex numbers', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -669,7 +669,7 @@ module PrtDisvInputModule
     'NVERT', & ! shape
     'vertices data', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -688,7 +688,7 @@ module PrtDisvInputModule
     'NCPL', & ! shape
     'cell2d data', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

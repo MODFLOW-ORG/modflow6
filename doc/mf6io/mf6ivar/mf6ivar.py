@@ -309,7 +309,7 @@ def write_block(
             if (
                 v.get("deprecated", "") != ""
                 or v.get("removed", "") != ""
-                or (not developmode and v.get("prerelease", "") == "true")
+                or (not developmode and v.get("developmode", "") == "true")
             ):
                 addv = False
             if addv:
@@ -359,7 +359,7 @@ def write_desc(vardict, block, blk_var_list, varexcludeprefix=None, developmode=
                 addv = False
             if v.get("removed", "") != "":
                 addv = False
-            if not developmode and v.get("prerelease", "") != "":
+            if not developmode and v.get("developmode", "") != "":
                 addv = False
             if addv:
                 if v["type"] == "keyword":
@@ -407,7 +407,7 @@ def write_desc(vardict, block, blk_var_list, varexcludeprefix=None, developmode=
                             or "deprecated" in vardict[(vn, block)]
                             or (
                                 not developmode
-                                and vardict[(vn, block)].get("prerelease", "") == "true"
+                                and vardict[(vn, block)].get("developmode", "") == "true"
                             )
                         ):
                             continue
@@ -442,7 +442,7 @@ def write_desc_md(
                 addv = False
             if v.get("removed", "") != "":
                 addv = False
-            if not developmode and v.get("prerelease", "") == "true":
+            if not developmode and v.get("developmode", "") == "true":
                 addv = False
             if addv:
                 if v["type"] == "keyword":
@@ -900,7 +900,7 @@ if __name__ == "__main__":
         "--releasemode",
         required=False,
         action="store_true",
-        help="Omit prerelease variables from documentation "
+        help="Omit developmode variables from documentation "
         "(defaults to false for development distributions)",
     )
     parser.add_argument(

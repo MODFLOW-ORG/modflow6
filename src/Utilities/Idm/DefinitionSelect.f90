@@ -296,7 +296,7 @@ contains
     idt%datatype = trim(datatype)
     idt%shape = ''
     idt%required = .true.
-    idt%prerelease = .false.
+    idt%developmode = .false.
     idt%in_record = .false.
     idt%preserve_case = .false.
     idt%layered = .false.

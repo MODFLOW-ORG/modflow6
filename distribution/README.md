@@ -124,7 +124,7 @@ It is typical to undergo several iterations of 5-6 as candidate distributions ar
 
 Determine whether any new developments need feature flags. To help keep the trunk prepared for a prompt release, it may be convenient to guard code and docs with feature flags by convention until the new features are ready for release.
 
-Code can be guarded with the `dev_feature` routine in `DevFeatureModule`. DFN variables may be guarded with an attribute `prerelease true`. LaTeX sections may be wrapped in `\ifdevelopmode ... \fi`
+Code can be guarded with the `developmode` routine in `FeatureFlagModule`. DFN variables may be guarded with an attribute `developmode true`. LaTeX sections may be wrapped in `\ifdevelopmode ... \fi`
 
 ### Review deprecations
 

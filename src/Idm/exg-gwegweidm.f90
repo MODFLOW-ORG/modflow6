@@ -61,7 +61,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'keyword to specify name of first corresponding GWF Model', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -80,7 +80,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'keyword to specify name of second corresponding GWF Model', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -99,7 +99,7 @@ module ExgGwegweInputModule
     'NAUX', & ! shape
     'keyword to specify aux variables', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -118,7 +118,7 @@ module ExgGwegweInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -137,7 +137,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'keyword to print input to list file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -156,7 +156,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'keyword to print gwfgwf flows to list file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -175,7 +175,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'keyword to save GWFGWF flows', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -194,7 +194,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'advective scheme', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -213,7 +213,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'deactivate xt3d', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -232,7 +232,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'xt3d on right-hand side', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -251,7 +251,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -270,7 +270,7 @@ module ExgGwegweInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -289,7 +289,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -308,7 +308,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'mve6 input filename', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -327,7 +327,7 @@ module ExgGwegweInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -346,7 +346,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -365,7 +365,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'obs6 input filename', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -384,7 +384,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'activate interface model on exchange', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -403,7 +403,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'number of exchanges', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -422,7 +422,7 @@ module ExgGwegweInputModule
     'NCELLDIM', & ! shape
     'cellid of first cell', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -441,7 +441,7 @@ module ExgGwegweInputModule
     'NCELLDIM', & ! shape
     'cellid of second cell', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -460,7 +460,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'integer flag for connection type', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -479,7 +479,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'connection distance', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -498,7 +498,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'connection distance', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -517,7 +517,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'horizontal cell width or area for vertical flow', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -536,7 +536,7 @@ module ExgGwegweInputModule
     'NAUX', & ! shape
     'auxiliary variables', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -555,7 +555,7 @@ module ExgGwegweInputModule
     '', & ! shape
     'exchange boundname', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -606,7 +606,7 @@ module ExgGwegweInputModule
     'NEXG', & ! shape
     'exchange data', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

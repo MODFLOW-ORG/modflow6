@@ -38,7 +38,7 @@ module UtlHpcInputModule
     '', & ! shape
     'model print table to listing file', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -57,7 +57,7 @@ module UtlHpcInputModule
     '', & ! shape
     'log mpi traffic', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -76,7 +76,7 @@ module UtlHpcInputModule
     '', & ! shape
     'model name', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -95,7 +95,7 @@ module UtlHpcInputModule
     '', & ! shape
     'model rank', & ! longname
     .true., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -123,7 +123,7 @@ module UtlHpcInputModule
     '', & ! shape
     'list of partition numbers', & ! longname
     .false., & ! required
-    .false., & ! prerelease
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
