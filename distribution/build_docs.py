@@ -416,7 +416,7 @@ def build_documentation(
 ):
     """Build documentation for a MODFLOW 6 distribution."""
 
-    print(f"Building documentation in {'release' if developmode else 'develop'} mode")
+    print(f"Building documentation in {'develop' if developmode else 'release'} mode")
 
     bin_path = Path(bin_path).expanduser().absolute()
     out_path = Path(out_path).expanduser().absolute()
@@ -438,12 +438,12 @@ def build_documentation(
         build_notes_tex(force=force, patch=patch)
 
         if developmode:
+            tex_paths = TEX_PATHS["develop"]
+        else:
             build_benchmark_tex(out_path=out_path, force=force, repo_owner=repo_owner)
             fetch_example_docs(out_path=out_path, force=force, repo_owner=repo_owner)
             fetch_usgs_pubs(out_path=out_path, force=force)
             tex_paths = TEX_PATHS["release"]
-        else:
-            tex_paths = TEX_PATHS["develop"]
 
         build_pdfs(tex_paths=tex_paths, out_path=out_path, force=force)
 
@@ -453,7 +453,7 @@ def build_documentation(
 
     # make sure we have expected PDFs
     assert pdf_path.is_file()
-    if developmode:
+    if not developmode:
         assert (out_path / "ReleaseNotes.pdf").is_file()
         assert (out_path / "zonebudget.pdf").is_file()
         assert (out_path / "converter_mf5to6.pdf").is_file()
