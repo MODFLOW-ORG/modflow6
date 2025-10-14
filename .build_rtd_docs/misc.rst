@@ -1,7 +1,7 @@
 Special Topics
 --------------
 
-This section includes miscellaneous documents, such as version-specific migration guides for particular models or capabilities.
+This section contains miscellaneous content.
 
 .. toctree::
    :maxdepth: 1
