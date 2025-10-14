@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 from conftest import try_get_target
 from flopy.utils.gridgen import Gridgen
+from flopy.utils.compare import compare_budget
 from framework import TestFramework
 
 dis_types = (
@@ -536,7 +537,7 @@ def check_output(idx, test):
     fpth0 = ws / f"{sim_name}.{extension}"
     # fpth1 = ws / f"mf6/{get_dis_name(name)}.{extension}"
     fpth1 = ws / f"mf6/{sim_name}.{extension}"
-    test._compare_budget_files(extension, fpth0, fpth1)
+    assert compare_budget(fpth0, fpth1)
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
