@@ -4,8 +4,8 @@ import flopy
 import numpy as np
 import pytest
 from conftest import try_get_target
-from flopy.utils.gridgen import Gridgen
 from flopy.utils.compare import compare_budget
+from flopy.utils.gridgen import Gridgen
 from framework import TestFramework
 
 dis_types = (
