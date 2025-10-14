@@ -523,8 +523,6 @@ MODFLOW 6 integration tests are written in Python with [`pytest`](https://docs.p
 
 Before running tests, there are a few steps to complete. Most importantly, the local development version of MODFLOW 6 must be built, e.g. with Meson as described above.
 
-The `autotest/build_exes.py` script is provided as a shortcut to rebuild local binaries. It can be invoked as a standard Python script or with Pytest. By default, binaries are placed in the `bin` directory relative to the project root, as in the Meson commands described above. To change the location of the binaries, use the `--path` option.
-
 #### Configuring unit tests
 
 Unit tests are [driven with Meson](https://mesonbuild.com/Unit-tests.html). A small number of Meson-native tests are defined in the top-level `meson.build` file to check that MODFLOW 6 has installed successfully. These require no additional configuration.
