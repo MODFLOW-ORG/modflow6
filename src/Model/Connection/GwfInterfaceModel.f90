@@ -179,7 +179,7 @@ contains
     npfOptions%wetfct = this%owner%npf%wetfct
     npfOptions%iwetit = this%owner%npf%iwetit
     npfOptions%ihdwet = this%owner%npf%ihdwet
-    npfOptions%idrycellsat = this%owner%npf%idrycellsat
+    npfOptions%ihighcellsat = this%owner%npf%ihighcellsat
 
   end subroutine setNpfOptions
 

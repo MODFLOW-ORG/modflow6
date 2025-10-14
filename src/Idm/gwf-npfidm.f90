@@ -28,7 +28,7 @@ module GwfNpfInputModule
     logical :: xt3doptions = .false.
     logical :: ixt3d = .false.
     logical :: ixt3drhs = .false.
-    logical :: idrycellsat = .false.
+    logical :: ihighcellsat = .false.
     logical :: isavspdis = .false.
     logical :: isavsat = .false.
     logical :: ik22overk = .false.
@@ -364,16 +364,16 @@ module GwfNpfInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfnpf_idrycellsat = InputParamDefinitionType &
+    gwfnpf_ihighcellsat = InputParamDefinitionType &
     ( &
     'GWF', & ! component
     'NPF', & ! subcomponent
     'OPTIONS', & ! block
-    'DRY_CELL_SATURATION', & ! tag name
-    'IDRYCELLSAT', & ! fortran variable
+    'HIGHEST_CELL_SATURATION', & ! tag name
+    'IHIGHCELLSAT', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'keyword to activate DRY_CELL_SATURATION option', & ! longname
+    'keyword to activate HIGHEST_CELL_SATURATION option', & ! longname
     .false., & ! required
     .false., & ! prerelease
     .false., & ! multi-record
@@ -781,7 +781,7 @@ module GwfNpfInputModule
     gwfnpf_xt3doptions, &
     gwfnpf_ixt3d, &
     gwfnpf_ixt3drhs, &
-    gwfnpf_idrycellsat, &
+    gwfnpf_ihighcellsat, &
     gwfnpf_isavspdis, &
     gwfnpf_isavsat, &
     gwfnpf_ik22overk, &

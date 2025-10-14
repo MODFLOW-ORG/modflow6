@@ -1,4 +1,4 @@
-# Test NPF dry_cell_saturation option
+# Test NPF highest_cell_saturation option
 
 
 import flopy
@@ -82,7 +82,7 @@ def build_models(idx, test):
     npf = flopy.mf6.ModflowGwfnpf(
         gwf,
         alternative_cell_averaging="AMT-HMK",
-        dry_cell_saturation=True,
+        highest_cell_saturation=True,
         icelltype=1,
         k=hk,
         k33=hk,
@@ -128,7 +128,7 @@ def check_output(idx, test):
     else:
         buff = test.buffs[0]
         assert any(
-            "DRY_CELL_SATURATION option cannot be used when NEWTON option in not" in l
+            "HIGHEST_CELL_SATURATION option cannot be used when NEWTON option in not" in l
             for l in buff
         )
 
