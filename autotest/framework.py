@@ -5,11 +5,10 @@ from itertools import repeat
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
 from traceback import format_exc
-from typing import Callable, Optional, Union
+from typing import Callable, Union
 from warnings import warn
 
 import flopy
-import numpy as np
 from compare import (
     Comparison,
     adjust_htol,
@@ -21,7 +20,7 @@ from compare import (
 )
 from flopy.mbase import BaseModel
 from flopy.mf6 import MFSimulation
-from flopy.utils.compare import compare_heads
+from flopy.utils.compare import compare_cell_budget, compare_heads
 from modflow_devtools.misc import get_ostag, is_in_ci
 
 DNODATA = 3.0e30
@@ -232,20 +231,20 @@ class TestFramework:
     def __init__(
         self,
         name: str,
-        workspace: Union[str, os.PathLike],
+        workspace: str | os.PathLike,
         targets: dict[str, Path],
-        api_func: Optional[Callable] = None,
-        build: Optional[Callable] = None,
-        check: Optional[Callable] = None,
-        plot: Optional[Callable] = None,
-        compare: Optional[str] = "auto",
-        parallel=False,
-        ncpus=1,
-        htol=None,
-        rclose=None,
-        overwrite=True,
-        verbose=False,
-        xfail=False,
+        api_func: Callable | None = None,
+        build: Callable | None = None,
+        check: Callable | None = None,
+        plot: Callable | None = None,
+        compare: str | Comparison | None = "auto",
+        parallel: bool = False,
+        ncpus: int = 1,
+        htol: float | None = None,
+        rclose: float | None = None,
+        overwrite: bool = True,
+        verbose: bool = False,
+        xfail: bool | list[bool] = False,
     ):
         # make sure workspace exists
         workspace = Path(workspace).expanduser().absolute()
@@ -422,95 +421,12 @@ class TestFramework:
                 f"{EXTTEXT[extension]} comparison {i + 1}",
                 f"{self.name} ({os.path.basename(fpth0)})",
             )
-            success = self._compare_budget_files(extension, fpth0, fpth1, rclose)
+            outname = os.path.splitext(os.path.basename(fpth0))[0]
+            outfile = os.path.join(self.workspace, f"{outname}.{extension}.cmp.out")
+            success = compare_cell_budget(fpth0, fpth1, outfile=outfile, rclose=rclose)
             if not success:
                 return False
         return True
-
-    def _compare_budget_files(self, extension, fpth0, fpth1, rclose=0.001) -> bool:
-        success = True
-        if os.stat(fpth0).st_size * os.stat(fpth0).st_size == 0:
-            return success, ""
-        outfile = os.path.splitext(os.path.basename(fpth0))[0]
-        outfile = os.path.join(self.workspace, outfile + f".{extension}.cmp.out")
-        fcmp = open(outfile, "w")
-        fcmp.write("Performing CELL-BY-CELL to CELL-BY-CELL comparison\n")
-        fcmp.write(f"{fpth0}\n")
-        fcmp.write(f"{fpth1}\n\n")
-
-        # open the files
-        cbc0 = flopy.utils.CellBudgetFile(
-            fpth0, precision="double", verbose=self.verbose
-        )
-        cbc1 = flopy.utils.CellBudgetFile(
-            fpth1, precision="double", verbose=self.verbose
-        )
-
-        # build list of cbc data to retrieve
-        avail0 = cbc0.get_unique_record_names()
-        avail1 = cbc1.get_unique_record_names()
-        avail0 = [t.decode().strip() for t in avail0]
-        avail1 = [t.decode().strip() for t in avail1]
-
-        # initialize list for storing totals for each budget term terms
-        cbc_keys0 = []
-        cbc_keys1 = []
-        for t in avail0:
-            t1 = t
-            if t not in avail1:
-                # check if RCHA or EVTA is available and use that instead
-                # should be able to remove this once v6.3.0 is released
-                if t[:-1] in avail1:
-                    t1 = t[:-1]
-                else:
-                    raise Exception(f"Could not find {t} in {fpth1}")
-            cbc_keys0.append(t)
-            cbc_keys1.append(t1)
-
-        # get list of times and kstpkper
-        kk = cbc0.get_kstpkper()
-        times = cbc0.get_times()
-
-        # process data
-        for key, key1 in zip(cbc_keys0, cbc_keys1):
-            for idx, (k, t) in enumerate(zip(kk, times)):
-                v0 = cbc0.get_data(kstpkper=k, text=key)[0]
-                v1 = cbc1.get_data(kstpkper=k, text=key1)[0]
-                if v0.dtype.names is not None:
-                    v0 = v0["q"]
-                    v1 = v1["q"]
-                # skip empty vectors
-                if v0.size < 1:
-                    continue
-                vmin = rclose
-                if vmin < 1e-6:
-                    vmin = 1e-6
-                vmin_tol = 5.0 * vmin
-                if v0.shape != v1.shape:
-                    v0 = v0.flatten()
-                    v1 = v1.flatten()
-                idx = (abs(v0) > vmin) & (abs(v1) > vmin)
-                diff = np.zeros(v0.shape, dtype=v0.dtype)
-                diff[idx] = abs(v0[idx] - v1[idx])
-                diffmax = diff.max()
-                indices = np.where(diff == diffmax)[0]
-                if diffmax > vmin_tol:
-                    success = False
-                    msg = (
-                        f"{os.path.basename(fpth0)} - "
-                        + f"{key:16s} "
-                        + f"difference ({diffmax:10.4g}) "
-                        + f"> {vmin_tol:10.4g} "
-                        + f"at {indices.size} nodes "
-                        + f" [first location ({indices[0] + 1})] "
-                        + f"at time {t} "
-                    )
-                    fcmp.write(f"{msg}\n")
-                    if self.verbose:
-                        print(msg)
-
-        fcmp.close()
-        return success
 
     def _compare(self, comparison: Comparison):
         """
