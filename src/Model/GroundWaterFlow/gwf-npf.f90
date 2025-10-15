@@ -548,7 +548,9 @@ contains
             satn = this%sat(n)
             satm = this%sat(m)
             if (this%ihighcellsat /= 0) then
-             call this%highest_cell_saturation(n, m, hnew(n), hnew(m), satn, satm)
+              call this%highest_cell_saturation(n, m, &
+                                                hnew(n), hnew(m), &
+                                                satn, satm)
             end if
             !
             ! -- Horizontal conductance
@@ -1295,7 +1297,8 @@ contains
     if (found%ithickstrt) &
       write (this%iout, '(4x,a)') 'THICKSTRT option has been activated.'
     if (found%ihighcellsat) &
-  write (this%iout, '(4x,a)') 'HIGHEST_CELL_SATURATION option has been activated.'
+      write (this%iout, '(4x,a)') 'HIGHEST_CELL_SATURATION option &
+                                  &has been activated.'
     if (found%iperched) &
       write (this%iout, '(4x,a)') 'Vertical flow will be adjusted for perched &
                                   &conditions.'
