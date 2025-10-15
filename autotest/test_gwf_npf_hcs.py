@@ -128,7 +128,8 @@ def check_output(idx, test):
     else:
         buff = test.buffs[0]
         assert any(
-            "HIGHEST_CELL_SATURATION option cannot be used when NEWTON option in not" in l
+            "HIGHEST_CELL_SATURATION option cannot be used when NEWTON option in not"
+            in l
             for l in buff
         )
 
