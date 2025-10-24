@@ -112,6 +112,7 @@ runs:
 
     - name: Test programs
       working-directory: modflow6
+      shell: bash
       env:
         REPOS_PATH: ${{ github.workspace }}
         MARKERS: ${{ env.MARKERS }}
