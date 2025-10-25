@@ -117,4 +117,16 @@ runs:
         REPOS_PATH: ${{ github.workspace }}
         MARKERS: ${{ env.MARKERS }}
         FILTERS: ${{ env.FILTERS }}
-      run: pixi run autotest --parallel --netcdf -m "$MARKERS" -k "$FILTERS and test_par or test_netcdf"
+      run: |
+        cmd="pixi run autotest --parallel --netcdf"
+        if [[ "${{ env.MARKERS }}" != "" ]]; then
+          cmd="$cmd -m $MARKERS"
+        fi
+        filters="test_par or test_netcdf"
+        if [[ "${{ env.FILTERS }}" != "" ]]; then
+          filters="$filters and FILTERS"
+        fi
+        if [[ "$filters" != "" ]]; then
+          cmd="$cmd -k $filters"
+        fi
+        eval "$cmd"
