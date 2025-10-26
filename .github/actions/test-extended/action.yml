@@ -120,13 +120,13 @@ runs:
       run: |
         cmd="pixi run autotest --parallel --netcdf"
         if [[ "${{ env.MARKERS }}" != "" ]]; then
-          cmd="$cmd -m $MARKERS"
+          cmd="$cmd -m '$MARKERS'"
         fi
         filters="test_par or test_netcdf"
         if [[ "${{ env.FILTERS }}" != "" ]]; then
-          filters="$filters and FILTERS"
+          filters="$filters and $FILTERS"
         fi
         if [[ "$filters" != "" ]]; then
-          cmd="$cmd -k $filters"
+          cmd="$cmd -k '$filters'"
         fi
         eval "$cmd"
