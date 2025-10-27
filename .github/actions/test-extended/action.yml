@@ -122,11 +122,7 @@ runs:
         if [[ "${{ env.MARKERS }}" != "" ]]; then
           cmd="$cmd -m '$MARKERS'"
         fi
-        filters="test_par or test_netcdf"
         if [[ "${{ env.FILTERS }}" != "" ]]; then
-          filters="$filters and $FILTERS"
-        fi
-        if [[ "$filters" != "" ]]; then
-          cmd="$cmd -k '$filters'"
+          cmd="$cmd -k '$FILTERS'"
         fi
         eval "$cmd"
