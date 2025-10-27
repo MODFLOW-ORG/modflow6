@@ -30,7 +30,6 @@ runs:
         unix2dos -n "%GITHUB_WORKSPACE%\modflow6\.github\common\test_modflow6_extended.bat" "%TEMP%\test_modflow6_extended.bat"
 
     - name: Test programs (extended)
-      if: github.ref_name == 'master'
       shell: cmd
       env:
         REPOS_PATH: ${{ github.workspace }}

@@ -266,11 +266,14 @@ jobs:
       - name: Build binaries (Windows)
         if: runner.os == 'Windows' && matrix.extended && !inputs.run_tests
         uses: ./modflow6/.github/actions/build-extended-win
+        env:
+          RELEASEMODE: ${{ inputs.releasemode }}
 
       - name: Build and test binaries (Windows)
         if: runner.os == 'Windows' && matrix.extended && inputs.run_tests
         uses: ./modflow6/.github/actions/test-extended-win
         env:
+          RELEASEMODE: ${{ inputs.releasemode }}
           MARKERS: ${{ steps.set_markers.outputs.markers }}
           FILTERS: ${{ steps.set_filters.outputs.filters }}
 
