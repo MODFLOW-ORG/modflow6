@@ -204,8 +204,14 @@ jobs:
         id: set_filters
         run: |
           filters=""
+          if [[ "${{ matrix.extended }}" == "true" ]]; then
+            filters="test_par or test_netcdf"
+          fi
+          # comparison fails on macos-14 with optimization=1
           if [[ "${{ matrix.os }}" == "macos-14" ]]; then
-            # comparison fails on macos-14 with optimization=1
+            if [[ "$filters" != "" ]]; then
+              filters="$filters and "
+            fi
             filters="not test028_sfr_rewet"
           fi
           echo "filters=$filters" >> $GITHUB_OUTPUT
