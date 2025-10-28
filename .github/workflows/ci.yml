@@ -216,10 +216,6 @@ jobs:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
 
-      - name: Custom pixi install
-        working-directory: modflow6
-        run: pixi run install
-
       - name: Build MF6
         working-directory: modflow6
         run: |
@@ -327,10 +323,6 @@ jobs:
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
-
-      - name: Custom pixi install
-        working-directory: modflow6
-        run: pixi run install
 
       - name: Set LDFLAGS (macOS)
         if: runner.os == 'macOS'
@@ -522,10 +514,6 @@ jobs:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
 
-      - name: Custom pixi install
-        working-directory: modflow6
-        run: pixi run install
-
       - name: Setup ${{ env.FC }} ${{ env.FC_V }}
         uses: fortran-lang/setup-fortran@v1
         with:
@@ -652,10 +640,6 @@ jobs:
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
-
-      - name: Custom pixi install
-        working-directory: modflow6
-        run: pixi run install
 
       - name: Install additional netcdf testing packages
         working-directory: modflow6

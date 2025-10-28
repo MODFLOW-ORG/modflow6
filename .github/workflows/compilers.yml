@@ -101,10 +101,6 @@ jobs:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
 
-      - name: Custom pixi install
-        working-directory: modflow6
-        run: pixi run install
-
       - name: Set LDFLAGS (macOS)
         if: runner.os == 'macOS'
         run: |

@@ -252,11 +252,7 @@ conda env create -f environment.yml
 
 Python can also be installed via Pixi. Pixi is currently being used to install python on GitHub Actions continuous integration/continuous development (CI/CD) virtual machines. In the future, Pixi may be the preferred approach for installing python for MODFLOW 6. As a result it is recommended for developers to also install the Pixi python environment, which can coexist with the Mamba/Conda python installation and `modflow6` environment.
 
-Pixi installation docs can be found [here](https://pixi.sh). After installing `pixi`, to set up an environment with all development dependencies, in the root directory of the MODFLOW 6 repository run:
-
-```shell
-pixi run install
-```
+Pixi installation docs can be found [here](https://pixi.sh).
 
 ### Python dependencies
 

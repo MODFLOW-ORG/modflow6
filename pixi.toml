@@ -46,6 +46,12 @@ tomli-w = ">=1.2.0,<2"
 xarray = "*"
 xmipy = "*"
 
+[pypi-dependencies]
+flopy = { git = "https://github.com/modflowpy/flopy.git" }
+mfpymake = { git = "https://github.com/modflowpy/pymake.git" }
+modflowapi = { git = "https://github.com/MODFLOW-ORG/modflowapi.git" }
+modflow-devtools = { git = "https://github.com/MODFLOW-ORG/modflow-devtools.git" }
+
 [feature.rtd.dependencies]
 numpy = "*"
 bmipy = "*"
@@ -69,18 +75,6 @@ rtds_action = "*"
 rtd = { features = ["rtd"], solve-group = "default" }
 
 [tasks]
-# install
-install-flopy = "pip install --disable-pip-version-check git+https://github.com/modflowpy/flopy.git"
-install-pymake = "pip install --disable-pip-version-check git+https://github.com/modflowpy/pymake.git"
-install-modflowapi = "pip install --disable-pip-version-check git+https://github.com/MODFLOW-ORG/modflowapi.git"
-install-modflow-devtools = "pip install --disable-pip-version-check git+https://github.com/MODFLOW-ORG/modflow-devtools.git"
-install = { depends-on = [
-    "install-flopy",
-    "install-pymake",
-    "install-modflowapi",
-    "install-modflow-devtools",
-] }
-
 # check format
 check-format = "python .github/common/check_format.py"
 check-vfproj = "python .github/common/check_vfproj.py"
