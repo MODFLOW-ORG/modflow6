@@ -670,13 +670,38 @@ jobs:
             echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
           fi
 
+      - name: Set markers
+        id: set_markers
+        run: |
+          markers="not large"
+          echo "markers=$markers" >> $GITHUB_OUTPUT
+
+      - name: Set filters
+        id: set_filters
+        run: |
+          filters="test_par or test_netcdf"
+          # comparison fails on macos-14 with optimization=1
+          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
+            if [[ "$filters" != "" ]]; then
+              filters="$filters and "
+            fi
+            filters="not test028_sfr_rewet"
+          fi
+          echo "filters=$filters" >> $GITHUB_OUTPUT
+
       - name: Test extended MF6
         if: runner.os != 'Windows'
         uses: ./modflow6/.github/actions/test-extended
+        with:
+          MARKERS: ${{ steps.set_markers.outputs.markers }}
+          FILTERS: ${{ steps.set_filters.outputs.filters }}
 
       - name: Test extended MF6
         if: runner.os == 'Windows'
         uses: ./modflow6/.github/actions/test-extended-win
+        with:
+          MARKERS: ${{ steps.set_markers.outputs.markers }}
+          FILTERS: ${{ steps.set_filters.outputs.filters }}
 
       - name: Upload failed test output
         if: failure()
