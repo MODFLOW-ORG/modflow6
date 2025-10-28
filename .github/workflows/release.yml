@@ -17,7 +17,7 @@ on:
         description: 'Compiler version to use. For supported options see https://github.com/MODFLOW-ORG/modflow6/blob/develop/DEVELOPER.md#compiler-compatibility.'
         required: false
         type: string
-        default: '2021.7'
+        default: '2021.6'
       releasemode:
         description: 'Build a full distribution containing sources, examples, and all documentation. If false, the distribution contains only binaries, mf6io, release notes, and code.json, with binaries built in develop mode, and disclaimers & version strings indicating preliminary/provisional status. If true, a full distribution is created, with binaries built in release mode, and disclaimer language indicating review and approval.'
         required: false
@@ -81,7 +81,7 @@ jobs:
             extended: false
           - os: windows-2022
             compiler: intel-classic
-            version: "2021.7"
+            version: "2021.6"
             optimization: 2
             extended: true
     defaults:

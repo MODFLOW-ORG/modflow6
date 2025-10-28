@@ -478,7 +478,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       FC: intel-classic
-      FC_V: "2021.7"
+      FC_V: "2021.6"
     strategy:
       fail-fast: false
       matrix:
@@ -629,7 +629,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-13, windows-2022]
+        os: [ubuntu-22.04, macos-14, windows-2022]
     defaults:
       run:
         shell: bash
@@ -662,7 +662,7 @@ jobs:
         run: pixi run pip install xugrid xarray netcdf4
 
       - name: Set LDFLAGS (macOS)
-        if: matrix.os == 'macos-13'
+        if: runner.os == 'macOS'
         run: |
           os_ver=$(sw_vers -productVersion | cut -d'.' -f1)
           if (( "$os_ver" > 12 )); then

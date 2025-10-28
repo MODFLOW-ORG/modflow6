@@ -33,7 +33,7 @@ on:
         description: 'Compiler version to use. For supported options see https://github.com/MODFLOW-ORG/modflow6/blob/develop/DEVELOPER.md#compiler-compatibility.'
         required: false
         type: string
-        default: '2021.7'
+        default: '2021.6'
       developmode:
         description: 'Build binaries in develop mode. If false, IDEVELOPMODE is set to 0.'
         required: false
@@ -111,7 +111,7 @@ jobs:
           elif [[ ("${{ github.event_name }}" == "push") && ("${{ github.ref_name }}" != "master") ]]; then
             # if release was triggered by pushing a release branch, use the default toolchain and version
             compiler_toolchain="intel-classic"
-            compiler_version="2021.7"
+            compiler_version="2021.6"
             echo "using default compiler toolchain $compiler_toolchain version $compiler_version"
           else
             # otherwise exit with an error

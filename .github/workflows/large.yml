@@ -19,8 +19,8 @@ jobs:
         include:
           # this combo is for windows parallel oneapi components (compilers + mkl/mpi) and petsc
           - {os: windows-2022, compiler: intel, version: 2024.0}
-          # ifort 2021.7 currently used for all other CI testing
-          - {os: windows-2022, compiler: intel-classic, version: 2021.7}
+          # ifort 2021.6 currently used for all other CI testing
+          - {os: windows-2022, compiler: intel-classic, version: 2021.6}
     steps:
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
         if: (!(matrix.compiler == 'intel' && matrix.version == '2024.0'))
@@ -46,7 +46,7 @@ jobs:
       matrix:
         include:
           - {compiler: gcc, version: 13}
-          - {compiler: intel-classic, version: 2021.7}
+          - {compiler: intel-classic, version: 2021.6}
     defaults:
       run:
         shell: bash -l {0}
