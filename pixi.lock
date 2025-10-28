@@ -3,8 +3,6 @@ environments:
   default:
     channels:
     - url: https://conda.anaconda.org/conda-forge/
-    indexes:
-    - https://pypi.org/simple
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
@@ -176,6 +174,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/minizip-4.0.10-h05a5f5f_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/modflow-devtools-1.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mypy_extensions-1.1.0-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/nbformat-5.10.4-pyhd8ed1ab_1.conda
@@ -291,11 +290,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-hb9d3cd8_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstandard-0.25.0-py310h139afa4_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb8e6e7a_2.conda
-      - pypi: git+https://github.com/modflowpy/flopy.git#67053718a5d865d4bf4fab6512523df3ba3c7f27
-      - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git#ff29abca232c414947e4a529de9eb609480ef2b1
-      - pypi: git+https://github.com/MODFLOW-ORG/modflowapi.git#cb87d482a8e7c767f97835ce0b15f0a9e6167b19
-      - pypi: https://files.pythonhosted.org/packages/ed/de/0e6edf44d6a04dabd0318a519125ed0415ce437ad5a1ec9b9be03d9048cf/ninja-1.13.0-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
-      - pypi: git+https://github.com/modflowpy/pymake.git#d8b96a812b549fe5f62543e57b4c07ce21ac9684
       linux-aarch64:
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/_openmp_mutex-4.5-2_gnu.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/adwaita-icon-theme-49.0-unix_0.conda
@@ -465,6 +459,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/minizip-4.0.10-he2fa2e2_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/modflow-devtools-1.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mypy_extensions-1.1.0-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/nbformat-5.10.4-pyhd8ed1ab_1.conda
@@ -580,11 +575,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/zlib-1.3.1-h86ecc28_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/zstandard-0.25.0-py310hef25091_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/zstd-1.5.7-hbcf94c1_2.conda
-      - pypi: git+https://github.com/modflowpy/flopy.git#67053718a5d865d4bf4fab6512523df3ba3c7f27
-      - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git#ff29abca232c414947e4a529de9eb609480ef2b1
-      - pypi: git+https://github.com/MODFLOW-ORG/modflowapi.git#cb87d482a8e7c767f97835ce0b15f0a9e6167b19
-      - pypi: https://files.pythonhosted.org/packages/8e/de/6e1cd6b84b412ac1ef327b76f0641aeb5dcc01e9d3f9eee0286d0c34fd93/ninja-1.13.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl
-      - pypi: git+https://github.com/modflowpy/pymake.git#d8b96a812b549fe5f62543e57b4c07ce21ac9684
       osx-64:
       - conda: https://conda.anaconda.org/conda-forge/noarch/adwaita-icon-theme-49.0-unix_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/affine-2.4.0-pyhd8ed1ab_1.conda
@@ -721,6 +711,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/minizip-4.0.10-hfb7a1ec_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/modflow-devtools-1.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mypy_extensions-1.1.0-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/nbformat-5.10.4-pyhd8ed1ab_1.conda
@@ -810,11 +801,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-64/zlib-1.3.1-hd23fc13_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/zstandard-0.25.0-py310h3aa7efa_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/zstd-1.5.7-h8210216_2.conda
-      - pypi: git+https://github.com/modflowpy/flopy.git#67053718a5d865d4bf4fab6512523df3ba3c7f27
-      - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git#ff29abca232c414947e4a529de9eb609480ef2b1
-      - pypi: git+https://github.com/MODFLOW-ORG/modflowapi.git#cb87d482a8e7c767f97835ce0b15f0a9e6167b19
-      - pypi: https://files.pythonhosted.org/packages/3c/74/d02409ed2aa865e051b7edda22ad416a39d81a84980f544f8de717cab133/ninja-1.13.0-py3-none-macosx_10_9_universal2.whl
-      - pypi: git+https://github.com/modflowpy/pymake.git#d8b96a812b549fe5f62543e57b4c07ce21ac9684
       osx-arm64:
       - conda: https://conda.anaconda.org/conda-forge/noarch/adwaita-icon-theme-49.0-unix_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/affine-2.4.0-pyhd8ed1ab_1.conda
@@ -951,6 +937,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/minizip-4.0.10-hff1a8ea_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/modflow-devtools-1.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mypy_extensions-1.1.0-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/nbformat-5.10.4-pyhd8ed1ab_1.conda
@@ -1040,11 +1027,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zlib-1.3.1-h8359307_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstandard-0.25.0-py310hf151d32_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-h6491c7d_2.conda
-      - pypi: git+https://github.com/modflowpy/flopy.git#67053718a5d865d4bf4fab6512523df3ba3c7f27
-      - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git#ff29abca232c414947e4a529de9eb609480ef2b1
-      - pypi: git+https://github.com/MODFLOW-ORG/modflowapi.git#cb87d482a8e7c767f97835ce0b15f0a9e6167b19
-      - pypi: https://files.pythonhosted.org/packages/3c/74/d02409ed2aa865e051b7edda22ad416a39d81a84980f544f8de717cab133/ninja-1.13.0-py3-none-macosx_10_9_universal2.whl
-      - pypi: git+https://github.com/modflowpy/pymake.git#d8b96a812b549fe5f62543e57b4c07ce21ac9684
       win-64:
       - conda: https://conda.anaconda.org/conda-forge/win-64/_openmp_mutex-4.5-2_gnu.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/affine-2.4.0-pyhd8ed1ab_1.conda
@@ -1177,6 +1159,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/minizip-4.0.10-h9fa1bad_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/mkl-2024.2.2-h57928b3_16.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/modflow-devtools-1.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mypy_extensions-1.1.0-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/nbformat-5.10.4-pyhd8ed1ab_1.conda
@@ -1279,11 +1262,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/zlib-1.3.1-h2466b09_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/zstandard-0.25.0-py310h1637853_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/zstd-1.5.7-hbeecb71_2.conda
-      - pypi: git+https://github.com/modflowpy/flopy.git#67053718a5d865d4bf4fab6512523df3ba3c7f27
-      - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git#ff29abca232c414947e4a529de9eb609480ef2b1
-      - pypi: git+https://github.com/MODFLOW-ORG/modflowapi.git#cb87d482a8e7c767f97835ce0b15f0a9e6167b19
-      - pypi: https://files.pythonhosted.org/packages/29/45/c0adfbfb0b5895aa18cec400c535b4f7ff3e52536e0403602fc1a23f7de9/ninja-1.13.0-py3-none-win_amd64.whl
-      - pypi: git+https://github.com/modflowpy/pymake.git#d8b96a812b549fe5f62543e57b4c07ce21ac9684
   rtd:
     channels:
     - url: https://conda.anaconda.org/conda-forge/
@@ -1475,6 +1453,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/minizip-4.0.10-h05a5f5f_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/modflow-devtools-1.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mypy_extensions-1.1.0-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/myst-parser-4.0.1-pyhd8ed1ab_0.conda
@@ -1617,19 +1596,14 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/94/fe/3aed5d0be4d404d12d36ab97e2f1791424d9ca39c2f754a6285d59a3b01d/beautifulsoup4-4.14.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fc/55/96142937f66150805c25c4d0f31ee4132fd33497753400734f9dfdcbdc66/bleach-6.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
-      - pypi: git+https://github.com/modflowpy/flopy.git#67053718a5d865d4bf4fab6512523df3ba3c7f27
       - pypi: https://files.pythonhosted.org/packages/b1/dd/ead9d8ea85bf202d90cc513b533f9c363121c7792674f78e0d8a854b63b4/jupyterlab_pygments-0.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/70/ae/44c4a6a4cbb496d93c6257954260fe3a6e91b7bed2240e5dad2a717f5111/markdown-3.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/7a/f0/8282d9641415e9e33df173516226b404d367a0fc55e1a60424a152913abc/mistune-3.1.4-py3-none-any.whl
-      - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git#ff29abca232c414947e4a529de9eb609480ef2b1
-      - pypi: git+https://github.com/MODFLOW-ORG/modflowapi.git#cb87d482a8e7c767f97835ce0b15f0a9e6167b19
       - pypi: https://files.pythonhosted.org/packages/34/6d/e7fa07f03a4a7b221d94b4d586edb754a9b0dc3c9e2c93353e9fa4e0d117/nbclient-0.10.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cc/9a/cd673b2f773a12c992f41309ef81b99da1690426bd2f96957a7ade0d3ed7/nbconvert-7.16.6-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/49/2d/8c8e635bcc6757573d311bb3c5445426382f280da32b8cd6d82d501ef4a4/nbsphinx-0.9.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6e/8f/cd4bb6849fef05dafc02e38b3c9b9e985d266c3ca7cb485c3160ddeb96f2/nbsphinx_link-1.3.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/ed/de/0e6edf44d6a04dabd0318a519125ed0415ce437ad5a1ec9b9be03d9048cf/ninja-1.13.0-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/ef/af/4fbc8cab944db5d21b7e2a5b8e9211a03a79852b1157e2c102fcc61ac440/pandocfilters-1.5.1-py2.py3-none-any.whl
-      - pypi: git+https://github.com/modflowpy/pymake.git#d8b96a812b549fe5f62543e57b4c07ce21ac9684
       - pypi: https://files.pythonhosted.org/packages/40/54/b9aaf8e4867e95ac8ea27cd3249946c62c58058779e998040442d6d07625/rtds_action-1.1.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f7/14/dd3a6053325e882fe191fb4b42289bbdfabf5f44307c302903a8a3236a0a/setuptools_scm-9.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/14/a0/bb38d3b76b8cae341dad93a2dd83ab7462e6dbcdd84d43f54ee60a8dc167/soupsieve-2.8-py3-none-any.whl
@@ -1820,6 +1794,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/minizip-4.0.10-he2fa2e2_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/modflow-devtools-1.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mypy_extensions-1.1.0-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/myst-parser-4.0.1-pyhd8ed1ab_0.conda
@@ -1962,19 +1937,14 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/94/fe/3aed5d0be4d404d12d36ab97e2f1791424d9ca39c2f754a6285d59a3b01d/beautifulsoup4-4.14.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fc/55/96142937f66150805c25c4d0f31ee4132fd33497753400734f9dfdcbdc66/bleach-6.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
-      - pypi: git+https://github.com/modflowpy/flopy.git#67053718a5d865d4bf4fab6512523df3ba3c7f27
       - pypi: https://files.pythonhosted.org/packages/b1/dd/ead9d8ea85bf202d90cc513b533f9c363121c7792674f78e0d8a854b63b4/jupyterlab_pygments-0.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/70/ae/44c4a6a4cbb496d93c6257954260fe3a6e91b7bed2240e5dad2a717f5111/markdown-3.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/7a/f0/8282d9641415e9e33df173516226b404d367a0fc55e1a60424a152913abc/mistune-3.1.4-py3-none-any.whl
-      - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git#ff29abca232c414947e4a529de9eb609480ef2b1
-      - pypi: git+https://github.com/MODFLOW-ORG/modflowapi.git#cb87d482a8e7c767f97835ce0b15f0a9e6167b19
       - pypi: https://files.pythonhosted.org/packages/34/6d/e7fa07f03a4a7b221d94b4d586edb754a9b0dc3c9e2c93353e9fa4e0d117/nbclient-0.10.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cc/9a/cd673b2f773a12c992f41309ef81b99da1690426bd2f96957a7ade0d3ed7/nbconvert-7.16.6-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/49/2d/8c8e635bcc6757573d311bb3c5445426382f280da32b8cd6d82d501ef4a4/nbsphinx-0.9.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6e/8f/cd4bb6849fef05dafc02e38b3c9b9e985d266c3ca7cb485c3160ddeb96f2/nbsphinx_link-1.3.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/8e/de/6e1cd6b84b412ac1ef327b76f0641aeb5dcc01e9d3f9eee0286d0c34fd93/ninja-1.13.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl
       - pypi: https://files.pythonhosted.org/packages/ef/af/4fbc8cab944db5d21b7e2a5b8e9211a03a79852b1157e2c102fcc61ac440/pandocfilters-1.5.1-py2.py3-none-any.whl
-      - pypi: git+https://github.com/modflowpy/pymake.git#d8b96a812b549fe5f62543e57b4c07ce21ac9684
       - pypi: https://files.pythonhosted.org/packages/40/54/b9aaf8e4867e95ac8ea27cd3249946c62c58058779e998040442d6d07625/rtds_action-1.1.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f7/14/dd3a6053325e882fe191fb4b42289bbdfabf5f44307c302903a8a3236a0a/setuptools_scm-9.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/14/a0/bb38d3b76b8cae341dad93a2dd83ab7462e6dbcdd84d43f54ee60a8dc167/soupsieve-2.8-py3-none-any.whl
@@ -2133,6 +2103,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/minizip-4.0.10-hfb7a1ec_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/modflow-devtools-1.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mypy_extensions-1.1.0-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/myst-parser-4.0.1-pyhd8ed1ab_0.conda
@@ -2249,19 +2220,14 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/94/fe/3aed5d0be4d404d12d36ab97e2f1791424d9ca39c2f754a6285d59a3b01d/beautifulsoup4-4.14.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fc/55/96142937f66150805c25c4d0f31ee4132fd33497753400734f9dfdcbdc66/bleach-6.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
-      - pypi: git+https://github.com/modflowpy/flopy.git#67053718a5d865d4bf4fab6512523df3ba3c7f27
       - pypi: https://files.pythonhosted.org/packages/b1/dd/ead9d8ea85bf202d90cc513b533f9c363121c7792674f78e0d8a854b63b4/jupyterlab_pygments-0.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/70/ae/44c4a6a4cbb496d93c6257954260fe3a6e91b7bed2240e5dad2a717f5111/markdown-3.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/7a/f0/8282d9641415e9e33df173516226b404d367a0fc55e1a60424a152913abc/mistune-3.1.4-py3-none-any.whl
-      - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git#ff29abca232c414947e4a529de9eb609480ef2b1
-      - pypi: git+https://github.com/MODFLOW-ORG/modflowapi.git#cb87d482a8e7c767f97835ce0b15f0a9e6167b19
       - pypi: https://files.pythonhosted.org/packages/34/6d/e7fa07f03a4a7b221d94b4d586edb754a9b0dc3c9e2c93353e9fa4e0d117/nbclient-0.10.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cc/9a/cd673b2f773a12c992f41309ef81b99da1690426bd2f96957a7ade0d3ed7/nbconvert-7.16.6-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/49/2d/8c8e635bcc6757573d311bb3c5445426382f280da32b8cd6d82d501ef4a4/nbsphinx-0.9.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6e/8f/cd4bb6849fef05dafc02e38b3c9b9e985d266c3ca7cb485c3160ddeb96f2/nbsphinx_link-1.3.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/3c/74/d02409ed2aa865e051b7edda22ad416a39d81a84980f544f8de717cab133/ninja-1.13.0-py3-none-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/ef/af/4fbc8cab944db5d21b7e2a5b8e9211a03a79852b1157e2c102fcc61ac440/pandocfilters-1.5.1-py2.py3-none-any.whl
-      - pypi: git+https://github.com/modflowpy/pymake.git#d8b96a812b549fe5f62543e57b4c07ce21ac9684
       - pypi: https://files.pythonhosted.org/packages/40/54/b9aaf8e4867e95ac8ea27cd3249946c62c58058779e998040442d6d07625/rtds_action-1.1.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f7/14/dd3a6053325e882fe191fb4b42289bbdfabf5f44307c302903a8a3236a0a/setuptools_scm-9.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/14/a0/bb38d3b76b8cae341dad93a2dd83ab7462e6dbcdd84d43f54ee60a8dc167/soupsieve-2.8-py3-none-any.whl
@@ -2420,6 +2386,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/minizip-4.0.10-hff1a8ea_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/modflow-devtools-1.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mypy_extensions-1.1.0-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/myst-parser-4.0.1-pyhd8ed1ab_0.conda
@@ -2536,19 +2503,14 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/94/fe/3aed5d0be4d404d12d36ab97e2f1791424d9ca39c2f754a6285d59a3b01d/beautifulsoup4-4.14.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fc/55/96142937f66150805c25c4d0f31ee4132fd33497753400734f9dfdcbdc66/bleach-6.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
-      - pypi: git+https://github.com/modflowpy/flopy.git#67053718a5d865d4bf4fab6512523df3ba3c7f27
       - pypi: https://files.pythonhosted.org/packages/b1/dd/ead9d8ea85bf202d90cc513b533f9c363121c7792674f78e0d8a854b63b4/jupyterlab_pygments-0.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/70/ae/44c4a6a4cbb496d93c6257954260fe3a6e91b7bed2240e5dad2a717f5111/markdown-3.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/7a/f0/8282d9641415e9e33df173516226b404d367a0fc55e1a60424a152913abc/mistune-3.1.4-py3-none-any.whl
-      - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git#ff29abca232c414947e4a529de9eb609480ef2b1
-      - pypi: git+https://github.com/MODFLOW-ORG/modflowapi.git#cb87d482a8e7c767f97835ce0b15f0a9e6167b19
       - pypi: https://files.pythonhosted.org/packages/34/6d/e7fa07f03a4a7b221d94b4d586edb754a9b0dc3c9e2c93353e9fa4e0d117/nbclient-0.10.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cc/9a/cd673b2f773a12c992f41309ef81b99da1690426bd2f96957a7ade0d3ed7/nbconvert-7.16.6-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/49/2d/8c8e635bcc6757573d311bb3c5445426382f280da32b8cd6d82d501ef4a4/nbsphinx-0.9.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6e/8f/cd4bb6849fef05dafc02e38b3c9b9e985d266c3ca7cb485c3160ddeb96f2/nbsphinx_link-1.3.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/3c/74/d02409ed2aa865e051b7edda22ad416a39d81a84980f544f8de717cab133/ninja-1.13.0-py3-none-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/ef/af/4fbc8cab944db5d21b7e2a5b8e9211a03a79852b1157e2c102fcc61ac440/pandocfilters-1.5.1-py2.py3-none-any.whl
-      - pypi: git+https://github.com/modflowpy/pymake.git#d8b96a812b549fe5f62543e57b4c07ce21ac9684
       - pypi: https://files.pythonhosted.org/packages/40/54/b9aaf8e4867e95ac8ea27cd3249946c62c58058779e998040442d6d07625/rtds_action-1.1.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f7/14/dd3a6053325e882fe191fb4b42289bbdfabf5f44307c302903a8a3236a0a/setuptools_scm-9.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/14/a0/bb38d3b76b8cae341dad93a2dd83ab7462e6dbcdd84d43f54ee60a8dc167/soupsieve-2.8-py3-none-any.whl
@@ -2702,6 +2664,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/minizip-4.0.10-h9fa1bad_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/mkl-2024.2.2-h57928b3_16.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/modflow-devtools-1.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mypy_extensions-1.1.0-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/myst-parser-4.0.1-pyhd8ed1ab_0.conda
@@ -2829,19 +2792,14 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/94/fe/3aed5d0be4d404d12d36ab97e2f1791424d9ca39c2f754a6285d59a3b01d/beautifulsoup4-4.14.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fc/55/96142937f66150805c25c4d0f31ee4132fd33497753400734f9dfdcbdc66/bleach-6.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
-      - pypi: git+https://github.com/modflowpy/flopy.git#67053718a5d865d4bf4fab6512523df3ba3c7f27
       - pypi: https://files.pythonhosted.org/packages/b1/dd/ead9d8ea85bf202d90cc513b533f9c363121c7792674f78e0d8a854b63b4/jupyterlab_pygments-0.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/70/ae/44c4a6a4cbb496d93c6257954260fe3a6e91b7bed2240e5dad2a717f5111/markdown-3.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/7a/f0/8282d9641415e9e33df173516226b404d367a0fc55e1a60424a152913abc/mistune-3.1.4-py3-none-any.whl
-      - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git#ff29abca232c414947e4a529de9eb609480ef2b1
-      - pypi: git+https://github.com/MODFLOW-ORG/modflowapi.git#cb87d482a8e7c767f97835ce0b15f0a9e6167b19
       - pypi: https://files.pythonhosted.org/packages/34/6d/e7fa07f03a4a7b221d94b4d586edb754a9b0dc3c9e2c93353e9fa4e0d117/nbclient-0.10.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cc/9a/cd673b2f773a12c992f41309ef81b99da1690426bd2f96957a7ade0d3ed7/nbconvert-7.16.6-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/49/2d/8c8e635bcc6757573d311bb3c5445426382f280da32b8cd6d82d501ef4a4/nbsphinx-0.9.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6e/8f/cd4bb6849fef05dafc02e38b3c9b9e985d266c3ca7cb485c3160ddeb96f2/nbsphinx_link-1.3.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/29/45/c0adfbfb0b5895aa18cec400c535b4f7ff3e52536e0403602fc1a23f7de9/ninja-1.13.0-py3-none-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/ef/af/4fbc8cab944db5d21b7e2a5b8e9211a03a79852b1157e2c102fcc61ac440/pandocfilters-1.5.1-py2.py3-none-any.whl
-      - pypi: git+https://github.com/modflowpy/pymake.git#d8b96a812b549fe5f62543e57b4c07ce21ac9684
       - pypi: https://files.pythonhosted.org/packages/40/54/b9aaf8e4867e95ac8ea27cd3249946c62c58058779e998040442d6d07625/rtds_action-1.1.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f7/14/dd3a6053325e882fe191fb4b42289bbdfabf5f44307c302903a8a3236a0a/setuptools_scm-9.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/14/a0/bb38d3b76b8cae341dad93a2dd83ab7462e6dbcdd84d43f54ee60a8dc167/soupsieve-2.8-py3-none-any.whl
@@ -4469,146 +4427,6 @@ packages:
   - pkg:pypi/flaky?source=hash-mapping
   size: 22239
   timestamp: 1736040820816
-- pypi: git+https://github.com/modflowpy/flopy.git#67053718a5d865d4bf4fab6512523df3ba3c7f27
-  name: flopy
-  version: 3.10.0.dev5
-  requires_dist:
-  - matplotlib>=1.4.0
-  - numpy>=1.20.3
-  - pandas>=2.0.0
-  - boltons ; extra == 'codegen'
-  - jinja2>=3.0 ; extra == 'codegen'
-  - modflow-devtools==1.7.0 ; extra == 'codegen'
-  - tomli ; extra == 'codegen'
-  - tomli-w ; extra == 'codegen'
-  - affine ; extra == 'dev'
-  - boltons ; extra == 'dev'
-  - cffconvert ; extra == 'dev'
-  - codespell[toml]>=2.2.2 ; extra == 'dev'
-  - coverage!=7.6.5 ; extra == 'dev'
-  - descartes ; extra == 'dev'
-  - filelock ; extra == 'dev'
-  - fiona ; extra == 'dev'
-  - flaky ; extra == 'dev'
-  - geojson ; extra == 'dev'
-  - geopandas ; extra == 'dev'
-  - gitpython ; extra == 'dev'
-  - h5py ; extra == 'dev'
-  - imageio ; extra == 'dev'
-  - ipython[kernel] ; extra == 'dev'
-  - jinja2>=3.0 ; extra == 'dev'
-  - jupyter ; extra == 'dev'
-  - jupyter-client>=8.4.0 ; extra == 'dev'
-  - jupytext ; extra == 'dev'
-  - modflow-devtools==1.7.0 ; extra == 'dev'
-  - myst-parser ; extra == 'dev'
-  - nbconvert<7.14.0 ; extra == 'dev'
-  - nbsphinx ; extra == 'dev'
-  - netcdf4 ; extra == 'dev'
-  - pooch ; extra == 'dev'
-  - pymetis ; sys_platform != 'win32' and extra == 'dev'
-  - pyproj ; extra == 'dev'
-  - pyshp ; extra == 'dev'
-  - pytest!=8.1.0 ; extra == 'dev'
-  - pytest-benchmark ; extra == 'dev'
-  - pytest-cov ; extra == 'dev'
-  - pytest-dotenv ; extra == 'dev'
-  - pytest-xdist ; extra == 'dev'
-  - pyvista ; extra == 'dev'
-  - pyyaml ; extra == 'dev'
-  - pyzmq>=25.1.2 ; extra == 'dev'
-  - rasterio ; extra == 'dev'
-  - rasterstats ; extra == 'dev'
-  - rtds-action ; extra == 'dev'
-  - ruff ; extra == 'dev'
-  - scikit-learn ; extra == 'dev'
-  - scipy ; extra == 'dev'
-  - shapely>=2.0 ; extra == 'dev'
-  - sphinx-rtd-theme>=1 ; extra == 'dev'
-  - sphinx==7.1.2 ; extra == 'dev'
-  - syrupy<5.0.0 ; extra == 'dev'
-  - tach ; extra == 'dev'
-  - tomli ; extra == 'dev'
-  - tomli-w ; extra == 'dev'
-  - virtualenv ; extra == 'dev'
-  - vtk>=9.4.0 ; extra == 'dev'
-  - xmipy ; extra == 'dev'
-  - affine ; extra == 'doc'
-  - descartes ; extra == 'doc'
-  - fiona ; extra == 'doc'
-  - geojson ; extra == 'doc'
-  - geopandas ; extra == 'doc'
-  - gitpython ; extra == 'doc'
-  - h5py ; extra == 'doc'
-  - imageio ; extra == 'doc'
-  - ipython[kernel] ; extra == 'doc'
-  - jupytext ; extra == 'doc'
-  - myst-parser ; extra == 'doc'
-  - nbconvert<7.14.0 ; extra == 'doc'
-  - nbsphinx ; extra == 'doc'
-  - netcdf4 ; extra == 'doc'
-  - pooch ; extra == 'doc'
-  - pymetis ; sys_platform != 'win32' and extra == 'doc'
-  - pyproj ; extra == 'doc'
-  - pyshp ; extra == 'doc'
-  - pyvista ; extra == 'doc'
-  - pyyaml ; extra == 'doc'
-  - rasterio ; extra == 'doc'
-  - rasterstats ; extra == 'doc'
-  - rtds-action ; extra == 'doc'
-  - scikit-learn ; extra == 'doc'
-  - scipy ; extra == 'doc'
-  - shapely>=2.0 ; extra == 'doc'
-  - sphinx-rtd-theme>=1 ; extra == 'doc'
-  - sphinx==7.1.2 ; extra == 'doc'
-  - vtk>=9.4.0 ; extra == 'doc'
-  - xmipy ; extra == 'doc'
-  - cffconvert ; extra == 'lint'
-  - codespell[toml]>=2.2.2 ; extra == 'lint'
-  - ruff ; extra == 'lint'
-  - affine ; extra == 'optional'
-  - descartes ; extra == 'optional'
-  - fiona ; extra == 'optional'
-  - geojson ; extra == 'optional'
-  - geopandas ; extra == 'optional'
-  - gitpython ; extra == 'optional'
-  - h5py ; extra == 'optional'
-  - imageio ; extra == 'optional'
-  - netcdf4 ; extra == 'optional'
-  - pooch ; extra == 'optional'
-  - pymetis ; sys_platform != 'win32' and extra == 'optional'
-  - pyproj ; extra == 'optional'
-  - pyshp ; extra == 'optional'
-  - pyvista ; extra == 'optional'
-  - rasterio ; extra == 'optional'
-  - rasterstats ; extra == 'optional'
-  - scikit-learn ; extra == 'optional'
-  - scipy ; extra == 'optional'
-  - shapely>=2.0 ; extra == 'optional'
-  - vtk>=9.4.0 ; extra == 'optional'
-  - xmipy ; extra == 'optional'
-  - boltons ; extra == 'test'
-  - cffconvert ; extra == 'test'
-  - codespell[toml]>=2.2.2 ; extra == 'test'
-  - coverage!=7.6.5 ; extra == 'test'
-  - filelock ; extra == 'test'
-  - flaky ; extra == 'test'
-  - jupyter ; extra == 'test'
-  - jupyter-client>=8.4.0 ; extra == 'test'
-  - jupytext ; extra == 'test'
-  - modflow-devtools==1.7.0 ; extra == 'test'
-  - pytest!=8.1.0 ; extra == 'test'
-  - pytest-benchmark ; extra == 'test'
-  - pytest-cov ; extra == 'test'
-  - pytest-dotenv ; extra == 'test'
-  - pytest-xdist ; extra == 'test'
-  - pyzmq>=25.1.2 ; extra == 'test'
-  - ruff ; extra == 'test'
-  - syrupy<5.0.0 ; extra == 'test'
-  - tomli ; extra == 'test'
-  - tomli-w ; extra == 'test'
-  - virtualenv ; extra == 'test'
-  requires_python: '>=3.10'
 - conda: https://conda.anaconda.org/conda-forge/noarch/folium-0.20.0-pyhd8ed1ab_0.conda
   sha256: 782fa186d7677fd3bc1ff7adb4cc3585f7d2c7177c30bcbce21f8c177135c520
   md5: a6997a7dcd6673c0692c61dfeaea14ab
@@ -10714,34 +10532,6 @@ packages:
   - pkg:pypi/meson?source=hash-mapping
   size: 739769
   timestamp: 1756073250667
-- pypi: git+https://github.com/modflowpy/pymake.git#d8b96a812b549fe5f62543e57b4c07ce21ac9684
-  name: mfpymake
-  version: 1.6.0.dev0
-  requires_dist:
-  - meson>=1.3.1
-  - networkx
-  - ninja
-  - numpy
-  - pydotplus
-  - requests
-  - cffconvert ; extra == 'lint'
-  - ruff ; extra == 'lint'
-  - appdirs ; extra == 'test'
-  - cffconvert ; extra == 'test'
-  - coverage ; extra == 'test'
-  - filelock ; extra == 'test'
-  - flaky ; extra == 'test'
-  - flopy ; extra == 'test'
-  - matplotlib ; extra == 'test'
-  - modflow-devtools ; extra == 'test'
-  - pytest!=8.1.0 ; extra == 'test'
-  - pytest-benchmark ; extra == 'test'
-  - pytest-cov ; extra == 'test'
-  - pytest-dependency ; extra == 'test'
-  - pytest-dotenv ; extra == 'test'
-  - pytest-xdist ; extra == 'test'
-  - ruff ; extra == 'test'
-  requires_python: '>=3.10'
 - conda: https://conda.anaconda.org/conda-forge/linux-64/minizip-4.0.10-h05a5f5f_0.conda
   sha256: 0c3700d15377156937ddc89a856527ad77e7cf3fd73cb0dffc75fce8030ddd16
   md5: da01bb40572e689bd1535a5cee6b1d68
@@ -10845,122 +10635,16 @@ packages:
   purls: []
   size: 103088799
   timestamp: 1753975600547
-- pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git#ff29abca232c414947e4a529de9eb609480ef2b1
-  name: modflow-devtools
-  version: 1.8.0.dev0
-  requires_dist:
-  - build ; extra == 'build'
-  - twine ; extra == 'build'
-  - boltons ; extra == 'dev'
-  - codespell[toml] ; extra == 'dev'
-  - coverage ; extra == 'dev'
-  - filelock ; extra == 'dev'
-  - flaky ; extra == 'dev'
-  - meson!=0.63.0 ; extra == 'dev'
-  - mypy ; extra == 'dev'
-  - myst-parser ; extra == 'dev'
-  - ninja ; extra == 'dev'
-  - numpy ; extra == 'dev'
-  - pandas ; extra == 'dev'
-  - pooch ; extra == 'dev'
-  - pytest!=8.1.0 ; extra == 'dev'
-  - pytest-cov ; extra == 'dev'
-  - pytest-dotenv ; extra == 'dev'
-  - pytest-xdist ; extra == 'dev'
-  - pyyaml ; extra == 'dev'
-  - ruff ; extra == 'dev'
-  - sphinx ; extra == 'dev'
-  - sphinx-rtd-theme ; extra == 'dev'
-  - syrupy<5.0.0 ; extra == 'dev'
-  - tomli ; extra == 'dev'
-  - tomli-w ; extra == 'dev'
-  - boltons ; extra == 'dfn'
-  - tomli ; extra == 'dfn'
-  - tomli-w ; extra == 'dfn'
-  - myst-parser ; extra == 'docs'
-  - sphinx ; extra == 'docs'
-  - sphinx-rtd-theme ; extra == 'docs'
-  - codespell[toml] ; extra == 'lint'
-  - mypy ; extra == 'lint'
-  - ruff ; extra == 'lint'
-  - boltons ; extra == 'models'
-  - filelock ; extra == 'models'
-  - pooch ; extra == 'models'
-  - tomli ; extra == 'models'
-  - tomli-w ; extra == 'models'
-  - codespell[toml] ; extra == 'test'
-  - coverage ; extra == 'test'
-  - filelock ; extra == 'test'
-  - flaky ; extra == 'test'
-  - meson!=0.63.0 ; extra == 'test'
-  - mypy ; extra == 'test'
-  - ninja ; extra == 'test'
-  - numpy ; extra == 'test'
-  - pandas ; extra == 'test'
-  - pytest!=8.1.0 ; extra == 'test'
-  - pytest-cov ; extra == 'test'
-  - pytest-dotenv ; extra == 'test'
-  - pytest-xdist ; extra == 'test'
-  - pyyaml ; extra == 'test'
-  - ruff ; extra == 'test'
-  - syrupy<5.0.0 ; extra == 'test'
-  requires_python: '>=3.10'
-- pypi: git+https://github.com/MODFLOW-ORG/modflowapi.git#cb87d482a8e7c767f97835ce0b15f0a9e6167b19
-  name: modflowapi
-  version: 0.3.0.dev0
-  requires_dist:
-  - numpy
-  - pandas
-  - xmipy
-  - codespell[toml]>=2.2.2 ; extra == 'dev'
-  - filelock ; extra == 'dev'
-  - gitpython ; extra == 'dev'
-  - modflow-devtools[dfn] @ git+https://github.com/MODFLOW-ORG/modflow-devtools.git ; extra == 'dev'
-  - pooch ; extra == 'dev'
-  - pyshp ; extra == 'dev'
-  - pytest!=8.1.0 ; extra == 'dev'
-  - pytest-order ; extra == 'dev'
-  - pytest-xdist ; extra == 'dev'
-  - rasterio ; extra == 'dev'
-  - rasterstats ; extra == 'dev'
-  - ruff ; extra == 'dev'
-  - scipy ; extra == 'dev'
-  - shapely ; extra == 'dev'
-  - filelock ; extra == 'docs'
-  - flopy ; extra == 'docs'
-  - gitpython ; extra == 'docs'
-  - ipython ; extra == 'docs'
-  - jupyter ; extra == 'docs'
-  - jupytext ; extra == 'docs'
-  - modflow-devtools[dfn] @ git+https://github.com/MODFLOW-ORG/modflow-devtools.git ; extra == 'docs'
-  - myst-parser ; extra == 'docs'
-  - nbsphinx ; extra == 'docs'
-  - pooch ; extra == 'docs'
-  - pyshp ; extra == 'docs'
-  - pytest!=8.1.0 ; extra == 'docs'
-  - pytest-order ; extra == 'docs'
-  - pytest-xdist ; extra == 'docs'
-  - rasterio ; extra == 'docs'
-  - rasterstats ; extra == 'docs'
-  - scipy ; extra == 'docs'
-  - shapely ; extra == 'docs'
-  - sphinx ; extra == 'docs'
-  - sphinx-rtd-theme ; extra == 'docs'
-  - codespell[toml]>=2.2.2 ; extra == 'lint'
-  - ruff ; extra == 'lint'
-  - filelock ; extra == 'test'
-  - gitpython ; extra == 'test'
-  - modflow-devtools[dfn] @ git+https://github.com/MODFLOW-ORG/modflow-devtools.git ; extra == 'test'
-  - pooch ; extra == 'test'
-  - pyshp ; extra == 'test'
-  - pytest!=8.1.0 ; extra == 'test'
-  - pytest-order ; extra == 'test'
-  - pytest-xdist ; extra == 'test'
-  - rasterio ; extra == 'test'
-  - rasterstats ; extra == 'test'
-  - scipy ; extra == 'test'
-  - shapely ; extra == 'test'
-  requires_python: '>=3.10'
+- conda: https://conda.anaconda.org/conda-forge/noarch/modflow-devtools-1.7.0-pyhd8ed1ab_0.conda
+  sha256: 481b4f36c34a50272944e769ce38f5d40bde61093169da86c4c68bd870bd0a8c
+  md5: c4d84f98e06364646593ac8281af1c90
+  depends:
+  - python >=3.10
+  license: CC0-1.0
+  purls:
+  - pkg:pypi/modflow-devtools?source=hash-mapping
+  size: 229261
+  timestamp: 1750783252992
 - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
   sha256: d09c47c2cf456de5c09fa66d2c3c5035aa1fa228a1983a433c47b876aa16ce90
   md5: 37293a85a0f4f77bbd9cf7aaefc62609
@@ -11189,26 +10873,6 @@ packages:
   - pkg:pypi/networkx?source=hash-mapping
   size: 1265008
   timestamp: 1731521053408
-- pypi: https://files.pythonhosted.org/packages/29/45/c0adfbfb0b5895aa18cec400c535b4f7ff3e52536e0403602fc1a23f7de9/ninja-1.13.0-py3-none-win_amd64.whl
-  name: ninja
-  version: 1.13.0
-  sha256: fb8ee8719f8af47fed145cced4a85f0755dd55d45b2bddaf7431fa89803c5f3e
-  requires_python: '>=3.8'
-- pypi: https://files.pythonhosted.org/packages/3c/74/d02409ed2aa865e051b7edda22ad416a39d81a84980f544f8de717cab133/ninja-1.13.0-py3-none-macosx_10_9_universal2.whl
-  name: ninja
-  version: 1.13.0
-  sha256: fa2a8bfc62e31b08f83127d1613d10821775a0eb334197154c4d6067b7068ff1
-  requires_python: '>=3.8'
-- pypi: https://files.pythonhosted.org/packages/8e/de/6e1cd6b84b412ac1ef327b76f0641aeb5dcc01e9d3f9eee0286d0c34fd93/ninja-1.13.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl
-  name: ninja
-  version: 1.13.0
-  sha256: 3d00c692fb717fd511abeb44b8c5d00340c36938c12d6538ba989fe764e79630
-  requires_python: '>=3.8'
-- pypi: https://files.pythonhosted.org/packages/ed/de/0e6edf44d6a04dabd0318a519125ed0415ce437ad5a1ec9b9be03d9048cf/ninja-1.13.0-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
-  name: ninja
-  version: 1.13.0
-  sha256: fb46acf6b93b8dd0322adc3a4945452a4e774b75b91293bafcc7b7f8e6517dfa
-  requires_python: '>=3.8'
 - conda: https://conda.anaconda.org/conda-forge/linux-64/ninja-1.13.1-h171cf75_0.conda
   sha256: 1522b6d4a55af3b5a4475db63a608aad4c250af9f05050064298dcebe5957d38
   md5: 6567fa1d9ca189076d9443a0b125541c

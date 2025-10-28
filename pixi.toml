@@ -19,6 +19,7 @@ jinja2 = ">=3.1.5,<4"
 jupytext = "*"
 matplotlib = "*"
 meson = ">=1.3.1"
+modflow-devtools = ">=1.7.0"
 networkx = "*"
 ninja = "*"
 numpy = "<2.0.0"    # modflowapi has a resriction on the numpy version
@@ -46,12 +47,6 @@ tomli-w = ">=1.2.0,<2"
 xarray = "*"
 xmipy = "*"
 
-[pypi-dependencies]
-flopy = { git = "https://github.com/modflowpy/flopy.git" }
-mfpymake = { git = "https://github.com/modflowpy/pymake.git" }
-modflowapi = { git = "https://github.com/MODFLOW-ORG/modflowapi.git" }
-modflow-devtools = { git = "https://github.com/MODFLOW-ORG/modflow-devtools.git" }
-
 [feature.rtd.dependencies]
 numpy = "*"
 bmipy = "*"
@@ -75,6 +70,15 @@ rtds_action = "*"
 rtd = { features = ["rtd"], solve-group = "default" }
 
 [tasks]
+install-flopy = "pip install --disable-pip-version-check git+https://github.com/modflowpy/flopy.git"
+install-pymake = "pip install --disable-pip-version-check git+https://github.com/modflowpy/pymake.git"
+install-modflowapi = "pip install --disable-pip-version-check git+https://github.com/MODFLOW-ORG/modflowapi.git"
+install = { depends-on = [
+    "install-flopy",
+    "install-pymake",
+    "install-modflowapi",
+] }
+
 # check format
 check-format = "python .github/common/check_format.py"
 check-vfproj = "python .github/common/check_vfproj.py"
