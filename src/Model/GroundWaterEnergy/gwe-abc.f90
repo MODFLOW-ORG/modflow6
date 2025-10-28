@@ -25,6 +25,7 @@ module AbcModule
   use SensHeatModule, only: ShfType, shf_cr
   use ShortwaveModule, only: SwrType, swr_cr
   use LatHeatModule, only: LhfType, lhf_cr
+  use LongwaveModule, only: LwrType, lwr_cr
   !use BndModule, only: BndType, AddBndToList, GetBndFromList
   !use TspAptModule, only: TspAptType
   use ObserveModule
@@ -59,24 +60,32 @@ module AbcModule
     !type(TableType), pointer :: inputtab => null() !< input table object
   
     logical, pointer, public :: shf_active => null() !< logical indicating if a sensible heat flux object is active
-    logical, pointer, public :: swr_active => null() !< logical indicating if a shortwave radition heat flux object is active
+    logical, pointer, public :: swr_active => null() !< logical indicating if a shortwave radiation heat flux object is active
     logical, pointer, public :: lhf_active => null() !< logical indicating if a latent heat flux object is active
+    logical, pointer, public :: lwr_active => null() !< logical indicating if a longwave radiation heat flux object is active
 
+    
     type(ShfType), pointer :: shf => null() ! sensible heat flux (shf) object
     type(SwrType), pointer :: swr => null() ! shortwave radiation heat flux (swr) object
     type(LhfType), pointer :: lhf => null() ! latent heat flux (lhf) object
+    type(LwrType), pointer :: lwr => null() ! longwave radiation heat flux (lwr) object
+    
     ! -- abc budget object
     type(BudgetObjectType), pointer :: budobj => null() !< ABC budget object
  
     integer(I4B), pointer :: inshf => null() ! SHF (sensible heat flux utility) unit number (0 if unused)
     integer(I4B), pointer :: inswr => null() ! SWR (shortwave radiation heat flux utility) unit number (0 if unused)
     integer(I4B), pointer :: inlhf => null() ! LHF (latent heat flux utility) unit number (0 if unused)
+    integer(I4B), pointer :: inlwr => null() ! LWR (longwave radiation heat flux utility) unit number (0 if unused)
 
     real(DP), pointer :: rhoa => null() !< desity of air
     real(DP), pointer :: cpa => null() !< heat capacity of air
     real(DP), pointer :: cd => null() !< drag coefficient
     real(DP), pointer :: wfslope => null() !< wind function slope
     real(DP), pointer :: wfint => null() !< wind function intercept
+    real(DP), pointer :: lwrefl => null() !< reflectance of longwave radiation by the water surface
+    real(DP), pointer :: emissw => null() !< emissivity of water
+    real(DP), pointer :: emissr => null() !< emissivity of the riparian canopy
     
     real(DP), dimension(:), pointer, contiguous :: wspd => null() !< wind speed
     real(DP), dimension(:), pointer, contiguous :: tatm => null() !< temperature of the atmosphere
@@ -84,7 +93,8 @@ module AbcModule
     real(DP), dimension(:), pointer, contiguous :: shd => null() !< shade fraction
     real(DP), dimension(:), pointer, contiguous :: swrefl => null() !< shortwave reflectance of water surface
     real(DP), dimension(:), pointer, contiguous :: rh => null() !< relative humidity
-    
+    real(DP), dimension(:), pointer, contiguous :: atmc => null() !< atmospheric composition adjustment
+
   contains
 
     procedure :: da => abc_da
@@ -103,6 +113,7 @@ module AbcModule
     procedure, private :: abc_shf_term
     procedure, private :: abc_swr_term
     procedure, private :: abc_lhf_term
+    procedure, private :: abc_lwr_term
     ! -- budget
     !procedure, private :: abc_setup_shfobj
     !procedure, private :: abc_setup_swrobj
@@ -146,6 +157,7 @@ contains
     call shf_cr(abc%shf, name_model, inunit, iout, ncv)
     call swr_cr(abc%swr, name_model, inunit, iout, ncv)
     call lhf_cr(abc%lhf, name_model, inunit, iout, ncv)
+    call lwr_cr(abc%lwr, name_model, inunit, iout, ncv) 
     !
     ! -- Create time series manager
     call tsmanager_cr(abc%tsmanager, abc%iout, &
@@ -179,6 +191,10 @@ contains
     ! -- Set pointers to LHF package variables
     if (this%inlhf) then
       call this%lhf%ar_set_pointers()
+    end if
+    ! -- Set pointers to LWR package variables
+    if (this%inlwr) then
+      call this%lwr%ar_set_pointers()
     end if
     !
     ! -- Allocate arrays
@@ -374,6 +390,39 @@ contains
         write (this%iout, '(4x,a,1pg15.6)') &
           "The evaporation wind function intercept has been set to: ", this%wfint
       end if
+    case ('LONGWAVE_REFLECTANCE')
+      this%lwrefl = this%parser%GetDouble()
+      if (this%lwrefl <= 0.0) then
+        write (errmsg, '(a)') 'Specified value for the reflectance of longwave radiation &
+          &must be greater than 0.0.'
+        call store_error(errmsg)
+        call this%parser%StoreErrorUnit()
+      else
+        write (this%iout, '(4x,a,1pg15.6)') &
+          "The reflectance of longwave radiation has been set to: ", this%lwrefl
+      end if
+    case ('EMISSIVITY_WATER')
+      this%emissw = this%parser%GetDouble()
+      if (this%emissw <= 0.0) then
+        write (errmsg, '(a)') 'Specified value for the emissivity of water &
+          &must be greater than 0.0.'
+        call store_error(errmsg)
+        call this%parser%StoreErrorUnit()
+      else
+        write (this%iout, '(4x,a,1pg15.6)') &
+          "The emissivity of water has been set to: ", this%emissw
+      end if
+    case ('EMISSIVITY_CANOPY')
+      this%emissr = this%parser%GetDouble()
+      if (this%emissr <= 0.0) then
+        write (errmsg, '(a)') 'Specified value for the emissivity of the riparian canopy &
+          &must be greater than 0.0.'
+        call store_error(errmsg)
+        call this%parser%StoreErrorUnit()
+      else
+        write (this%iout, '(4x,a,1pg15.6)') &
+          "The emissivity of the riparian canopy has been set to: ", this%emissw
+      end if
     case default
       write (errmsg, '(a,a)') 'Unknown ABC option: ', trim(option)
       call store_error(errmsg)
@@ -402,10 +451,12 @@ contains
     call mem_allocate(this%shf_active, 'SHF_ACTIVE', this%memoryPath)
     call mem_allocate(this%swr_active, 'SWR_ACTIVE', this%memoryPath)
     call mem_allocate(this%lhf_active, 'LHF_ACTIVE', this%memoryPath)
+    call mem_allocate(this%lwr_active, 'LWR_ACTIVE', this%memoryPath)
     
     call mem_allocate(this%inshf, 'INSHF', this%memoryPath)
     call mem_allocate(this%inswr, 'INSWR', this%memoryPath)
     call mem_allocate(this%inlhf, 'INLHF', this%memoryPath)
+    call mem_allocate(this%inlwr, 'INLWR', this%memoryPath)
     ! -- allocate SHF specific
     call mem_allocate(this%rhoa, 'RHOA', this%memoryPath)
     call mem_allocate(this%cpa, 'CPA', this%memoryPath)
@@ -413,6 +464,10 @@ contains
     ! -- allocate LHF specific
     call mem_allocate(this%wfslope, 'WFSLOPE', this%memoryPath)
     call mem_allocate(this%wfint, 'WFINT', this%memoryPath)
+    ! -- allocate LWR specific
+    call mem_allocate(this%lwrefl, 'LWREFL', this%memoryPath)
+    call mem_allocate(this%emissw, 'EMISSW', this%memoryPath)
+    call mem_allocate(this%emissr, 'EMISSR', this%memoryPath)
     !
     ! -- initialize to default values
     this%shf_active = .false.
@@ -428,6 +483,10 @@ contains
     ! -- initalize to LHF specific default values
     this%wfslope = 1.383e-01 ! 1/mbar Fogg 2023 (change!)
     this%wfint = 3.445e-09 ! m/s Fogg 2023 (change!)
+    ! -- initalize to LWR specific default values
+    this%lwrefl = 0.03 ! unitless (Anderson, 1954)
+    this%emissw = 0.95 ! unitless (Dingman, 2015)
+    this%emissr = 0.97 ! unitless (Sobrino et al, 2005)
     !
     ! -- call standard NumericalPackageType allocate scalars
     call this%BndType%allocate_scalars()
@@ -512,7 +571,40 @@ contains
        end do
        call this%lhf%ar()
     end if
-    
+    if (this%inlwr /= 0) then
+       call get_mem_type('TATM', this%memoryPath, var_type)
+       if (var_type == 'UNKNOWN') then
+         call mem_allocate(this%tatm, this%ncv, 'TATM', this%memoryPath)
+         do n = 1, this%ncv
+           this%tatm(n) = DZERO
+         end do
+       end if
+       call mem_allocate(this%rh, this%ncv, 'RH', this%memoryPath)
+       if (var_type == 'UNKNOWN') then
+         call mem_allocate(this%rh, this%ncv, 'RH', this%memoryPath)
+         do n = 1, this%ncv
+           this%rh(n) = DZERO
+         end do
+       end if
+       call mem_allocate(this%shd, this%ncv, 'SHD', this%memoryPath)
+       if (var_type == 'UNKNOWN') then
+         call mem_allocate(this%shd, this%ncv, 'SHD', this%memoryPath)
+         do n = 1, this%ncv
+           this%shd(n) = DZERO
+         end do
+       end if
+       call mem_allocate(this%atmc, this%ncv, 'ATMC', this%memoryPath)
+       !
+       ! -- initialize
+       do n = 1, this%ncv
+         this%tatm(n) = DZERO
+         this%rh(n) = DZERO
+         this%shd(n) = DZERO
+         this%atmc(n) = DZERO
+       end do
+       call this%lwr%ar()
+    end if
+   
     !! -- allocate character array for status
     !allocate (this%status(this%ncv))
     !!
@@ -545,20 +637,30 @@ contains
       call this%lhf%da()
       deallocate (this%lhf)
     end if
+    ! -- LWR (longwave radiation heat flux)
+    if (this%inlwr /= 0) then
+      call this%lwr%da()
+      deallocate (this%lwr)
+    end if
     !
     ! -- Deallocate scalars
     call mem_deallocate(this%ncv)
     call mem_deallocate(this%shf_active)
     call mem_deallocate(this%swr_active)
     call mem_deallocate(this%lhf_active)
+    call mem_deallocate(this%lwr_active)
     call mem_deallocate(this%inshf)
     call mem_deallocate(this%inswr)
     call mem_deallocate(this%inlhf)
+    call mem_deallocate(this%inlwr)
     call mem_deallocate(this%rhoa)
     call mem_deallocate(this%cpa)
     call mem_deallocate(this%cd)
     call mem_deallocate(this%wfslope)
     call mem_deallocate(this%wfint)
+    call mem_deallocate(this%lwrefl)
+    call mem_deallocate(this%emissw)
+    call mem_deallocate(this%emissr)
     !
     ! -- Deallocate time series manager
     deallocate (this%tsmanager)
@@ -572,6 +674,7 @@ contains
     call mem_deallocate(this%swrefl)
     call mem_deallocate(this%solr)
     call mem_deallocate(this%rh)
+    call mem_deallocate(this%atmc)
     !
     ! -- Deallocate scalars in TspAptType
     call this%NumericalPackageType%da() ! this may not work -- revisit and cleanup !!!
@@ -580,7 +683,7 @@ contains
     !call pbstbase_da(this)
   end subroutine abc_da
   
-   !> @brief Read a ABC-specific option from the OPTIONS block
+  !> @brief Read a ABC-specific option from the OPTIONS block
   !!
   !! Process a single ABC-specific option. Used when reading the OPTIONS block
   !! of the ABC package input file.
@@ -675,7 +778,24 @@ contains
     !
   end subroutine abc_lhf_term
   
-   !> @brief Observations
+  subroutine abc_lwr_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
+    ! -- dummy
+    class(AbcType) :: this
+    integer(I4B), intent(in) :: ientry
+    integer(I4B), intent(inout) :: n1
+    integer(I4B), intent(inout) :: n2
+    real(DP), intent(inout), optional :: rrate
+    real(DP), intent(inout), optional :: rhsval
+    real(DP), intent(inout), optional :: hcofval
+    ! -- local
+    real(DP) :: longwvheat
+    real(DP) :: strmtemp
+    integer(I4B) :: auxpos
+    real(DP) :: sa !< surface area of stream reach, different than wetted area
+    !
+  end subroutine abc_lwr_term
+  
+  !> @brief Observations
   !!
   !! Store the observation type supported by the APT package and override
   !! BndType%bnd_df_obs
@@ -716,6 +836,8 @@ contains
     case ('SWR')
 !      call this%rp_obs_byfeature(obsrv)
     case ('LHF')
+!      call this%rp_obs_byfeature(obsrv)
+    case ('LWR')
 !      call this%rp_obs_byfeature(obsrv)
     case default
       found = .false.
@@ -763,6 +885,7 @@ contains
     real(DP) :: shflx
     real(DP) :: swrflx
     real(DP) :: lhflx
+    real(DP) :: lwrflx
     !
     ! -- calculate sensible heat flux using HGS equation
     call this%shf%shf_cq(ifno, tstrm, shflx)
@@ -772,8 +895,11 @@ contains
     !
     ! -- calculate latent heat flux using Dalton-like mass transfer equation
     call this%lhf%lhf_cq(ifno, tstrm, this%gwecommon%gwerhow, lhflx)
+    !
+    ! -- calculate longwave radiation
+    call this%lwr%lwr_cq(ifno, tstrm, lwrflx)
     
-    abcflx = shflx + swrflx - lhflx
+    abcflx = shflx + swrflx - lhflx + lwrflx
   end subroutine abc_cq
 
   !> @brief Set the stress period attributes based on the keyword
@@ -799,6 +925,7 @@ contains
     ! <shd> SHADE
     ! <swrefl> REFLECTANCE OF SHORTWAVE RADIATION OFF WATER SURFACE
     ! <solr> SOLAR RADIATION
+    ! <atmc> ATMOSPHERIC COMPOSITION 
     !
     ! -- read line
     call this%parser%GetStringCaps(keyword)
@@ -887,6 +1014,17 @@ contains
       call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
                                          this%packName, 'BND', this%tsManager, &
                                          this%iprpak, 'RH')
+    case ('ATMC')
+      ierr = this%abc_check_valid(itemno)
+      if (ierr /= 0) then
+        goto 999
+      end if
+      call this%parser%GetString(text)
+      jj = 1
+      bndElem => this%atmc(itemno)
+      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
+                                         this%packName, 'BND', this%tsManager, &
+                                         this%iprpak, 'ATMC')  
     case default
       !
       ! -- Keyword not recognized so return to caller with found = .false.
