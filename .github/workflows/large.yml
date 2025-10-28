@@ -72,6 +72,10 @@ jobs:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
 
+      - name: Custom pixi install
+        working-directory: modflow6
+        run: pixi run install
+
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
         uses: fortran-lang/setup-fortran@v1
         with:

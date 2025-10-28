@@ -130,6 +130,10 @@ jobs:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
 
+      - name: Custom pixi install
+        working-directory: modflow6
+        run: pixi run install
+
       - name: Install additional netcdf testing packages
         working-directory: modflow6
         run: pixi run pip install xugrid xarray netcdf4
@@ -420,6 +424,10 @@ jobs:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
 
+      - name: Custom pixi install
+        working-directory: modflow6
+        run: pixi run install
+
       - name: Setup ${{ inputs.compiler_toolchain }} ${{ inputs.compiler_version }}
         uses: fortran-lang/setup-fortran@v1
         with:
@@ -572,6 +580,10 @@ jobs:
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
+
+      - name: Custom pixi install
+        working-directory: modflow6
+        run: pixi run install
       
       - name: Update version
         id: update_version
