@@ -32,7 +32,6 @@ module GweEslModule
     procedure :: bnd_da => esl_da
     procedure :: define_listlabel
     procedure :: bound_value => esl_bound_value
-    procedure :: ener_mult
     ! -- methods for observations
     procedure, public :: bnd_obs_supported => esl_obs_supported
     procedure, public :: bnd_df_obs => esl_df_obs
