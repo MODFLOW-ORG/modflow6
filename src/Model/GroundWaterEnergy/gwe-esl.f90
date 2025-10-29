@@ -32,6 +32,7 @@ module GweEslModule
     procedure :: bnd_da => esl_da
     procedure :: define_listlabel
     procedure :: bound_value => esl_bound_value
+    procedure :: ener_mult
     ! -- methods for observations
     procedure, public :: bnd_obs_supported => esl_obs_supported
     procedure, public :: bnd_df_obs => esl_df_obs
@@ -147,9 +148,6 @@ contains
     ! -- local
     integer(I4B) :: i
     integer(I4B) :: node
-    real(DP) :: drndepth
-    real(DP) :: drntop
-    real(DP) :: drnbot
     ! -- formats
     character(len=*), parameter :: fmtenermulterr = &
       "('DRN BOUNDARY (',i0,') ESL MULTIPLIER (',g10.3,') IS &
