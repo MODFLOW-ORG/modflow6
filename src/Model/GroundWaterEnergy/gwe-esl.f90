@@ -150,7 +150,7 @@ contains
     integer(I4B) :: node
     ! -- formats
     character(len=*), parameter :: fmtenermulterr = &
-      "('DRN BOUNDARY (',i0,') ESL MULTIPLIER (',g10.3,') IS &
+      "('ESL BOUNDARY (',i0,') ESL MULTIPLIER (',g10.3,') IS &
       &LESS THAN ZERO')"
     !
     ! -- check stress period data
