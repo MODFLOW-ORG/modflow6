@@ -204,7 +204,8 @@ jobs:
         id: set_filters
         run: |
           filters=""
-          if [[ "${{ matrix.extended }}" == "true" ]]; then
+          if [[ "${{ matrix.extended }}" == "true" ]] && [[ "${{ inputs.releasemode }}" != "true" ]]; then
+            # run only parallel/extended tests in developmode, run all tests in releasemode
             filters="test_par or test_netcdf"
           fi
           # comparison fails on macos-14 with optimization=1
