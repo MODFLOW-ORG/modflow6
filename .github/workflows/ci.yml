@@ -693,14 +693,14 @@ jobs:
       - name: Test extended MF6
         if: runner.os != 'Windows'
         uses: ./modflow6/.github/actions/test-extended
-        with:
+        env:
           MARKERS: ${{ steps.set_markers.outputs.markers }}
           FILTERS: ${{ steps.set_filters.outputs.filters }}
 
       - name: Test extended MF6
         if: runner.os == 'Windows'
         uses: ./modflow6/.github/actions/test-extended-win
-        with:
+        env:
           MARKERS: ${{ steps.set_markers.outputs.markers }}
           FILTERS: ${{ steps.set_filters.outputs.filters }}
 
