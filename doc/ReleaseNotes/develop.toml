@@ -62,3 +62,8 @@ description = "Setting PRECONDITIONER\\_DROP\\_TOLERANCE in the IMS Linear block
 section = "fixes"
 subsection = "model"
 description = "Balanced the PRT model mass budget with a new term to accumulate mass of terminated particles. Previously particle mass remained in storage regardless of particle status, leaving the particle mass budget unbalanced at the end of the simulation. Also, report cell-by-cell mass storage in the binary budget file; only cumulative mass storage was reported in the list file previously."
+
+[[items]]
+section = "fixes"
+subsection = "stress packages"
+description = "The OPTIONS block in the Energy Source Loading (ESL) Package accepted the AUXILIARY and AUXMULTNAME keywords; however, they had no effect on the GWE solution.  The ESL code was fixed such that when the AUXMULTCOL keyword is invoked, the user-specified amount of energy added or removed from cells will be multiplied by whatever value the user supplies in the corresponding AUXILIARY column." 
