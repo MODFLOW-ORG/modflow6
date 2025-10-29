@@ -326,7 +326,7 @@ contains
     end select
   end function esl_bound_value
 
-  !> @brief Return a multiplier value
+  !> @brief Return a value that applies a multiplier
   !!
   !! Apply multiplier to specified energy load depending on user-selected
   !! option
