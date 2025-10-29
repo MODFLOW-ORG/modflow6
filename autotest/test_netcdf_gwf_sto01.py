@@ -280,6 +280,7 @@ def check_output(idx, test, export, gridded_input):
 
 
 @pytest.mark.netcdf
+@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.parametrize("export", ["ugrid", "structured"])
 @pytest.mark.parametrize("gridded_input", ["ascii", "netcdf"])
