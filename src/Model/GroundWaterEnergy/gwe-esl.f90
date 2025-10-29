@@ -139,7 +139,7 @@ contains
                      'SENERRATE', this%input_mempath)
   end subroutine esl_allocate_arrays
 
-  !> @brief Check drain boundary condition data
+  !> @brief Check energy source loading boundary condition data
   !<
   subroutine esl_ck(this)
     ! -- dummy
