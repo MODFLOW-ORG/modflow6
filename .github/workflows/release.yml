@@ -210,9 +210,10 @@ jobs:
           # comparison fails on macos-14 with optimization=1
           if [[ "${{ matrix.os }}" == "macos-14" ]]; then
             if [[ "$filters" != "" ]]; then
-              filters="$filters and "
+              filters="$filters and not test028_sfr_rewet"
+            else
+              filters="not test028_sfr_rewet"
             fi
-            filters="not test028_sfr_rewet"
           fi
           echo "filters=$filters" >> $GITHUB_OUTPUT
 

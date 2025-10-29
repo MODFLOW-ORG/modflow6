@@ -684,22 +684,11 @@ jobs:
 
       - name: Set markers
         id: set_markers
-        run: |
-          markers="not large"
-          echo "markers=$markers" >> $GITHUB_OUTPUT
+        run: echo "markers='not large'" >> $GITHUB_OUTPUT
 
       - name: Set filters
         id: set_filters
-        run: |
-          filters="test_par or test_netcdf"
-          # comparison fails on macos-14 with optimization=1
-          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
-            if [[ "$filters" != "" ]]; then
-              filters="$filters and "
-            fi
-            filters="not test028_sfr_rewet"
-          fi
-          echo "filters=$filters" >> $GITHUB_OUTPUT
+        run: echo "filters='test_par or test_netcdf'" >> $GITHUB_OUTPUT
 
       - name: Test extended MF6
         if: runner.os != 'Windows'
