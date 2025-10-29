@@ -684,11 +684,11 @@ jobs:
 
       - name: Set markers
         id: set_markers
-        run: echo "markers='not large'" >> $GITHUB_OUTPUT
+        run: echo "markers=not large" >> $GITHUB_OUTPUT
 
       - name: Set filters
         id: set_filters
-        run: echo "filters='test_par or test_netcdf'" >> $GITHUB_OUTPUT
+        run: echo "filters=test_par or test_netcdf" >> $GITHUB_OUTPUT
 
       - name: Test extended MF6
         if: runner.os != 'Windows'
