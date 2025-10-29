@@ -170,7 +170,7 @@ jobs:
         if: startsWith(matrix.os_name, 'windows')
         run: |
           docker exec build_container powershell -ExecutionPolicy ByPass -c "(irm -useb https://pixi.sh/install.ps1 | iex) -and (irm -useb https://community.chocolatey.org/install.ps1 | iex)"
-          docker exec build_container ${{ matrix.shell_type }} -c "choco install -y mingw"
+          docker exec build_container ${{ matrix.shell_type }} -c "choco install -y mingw --version=13.2.0"
 
       - name: Setup container for macos
         if: startsWith(matrix.os_name, 'macos')
