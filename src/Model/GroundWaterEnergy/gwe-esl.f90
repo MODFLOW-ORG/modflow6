@@ -175,7 +175,7 @@ contains
       call store_error_filename(this%input_fname)
     end if
   end subroutine esl_ck
-  
+
   !> @brief Formulate the HCOF and RHS terms
   !!
   !! This subroutine:
@@ -188,7 +188,6 @@ contains
     ! -- local
     integer(I4B) :: i, node
     real(DP) :: q
-    real(DP) :: ener_esl
     !
     ! -- Return if no sources
     if (this%nbound == 0) return
@@ -203,9 +202,8 @@ contains
       end if
       !
       ! -- set energy loading rate accounting for multiplier
-      ener_esl = this%ener_mult(i)
-      
-      q = this%bound_value(1, i)
+      q = this%ener_mult(i)
+      !
       this%rhs(i) = -q
     end do
   end subroutine esl_cf
