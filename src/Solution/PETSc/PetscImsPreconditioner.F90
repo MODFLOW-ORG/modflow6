@@ -71,7 +71,10 @@ contains
     this%linear_settings => lin_settings
 
     this%ipc = 1
-    if (this%linear_settings%level > 0) this%ipc = this%ipc + 2
+    if (this%linear_settings%level > 0 .or. &
+        this%linear_settings%droptol > 0.0_DP) then
+      this%ipc = this%ipc + 2
+    end if
     if (this%linear_settings%relax > 0.0_DP) this%ipc = this%ipc + 1
     this%ims_pc_type = IMS_PC_TYPE(this%ipc)
 
