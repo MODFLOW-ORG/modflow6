@@ -18,6 +18,7 @@ xt3d = [False, False]
 
 mass_mult = 2.0
 
+
 def build_models(idx, test):
     nlay, nrow, ncol = 1, 1, 100
     nper = 1
@@ -214,7 +215,7 @@ def build_models(idx, test):
             stress_period_data=srcs,
             save_flows=False,
             pname="SRC-1",
-        )        
+        )
 
     # mobile storage and transfer
     mst = flopy.mf6.ModflowGwtmst(gwt, porosity=0.1)
@@ -256,7 +257,7 @@ def check_output(idx, test):
     # steady state and calculated from F = D * (c1 - c2) / L
     cres = np.linspace(9.9, 0, 100).reshape(conc.shape)
     if idx > 0:
-    	cres *= mass_mult
+        cres *= mass_mult
     assert np.allclose(cres, conc), (
         "simulated concentrations do not match with known solution."
     )
