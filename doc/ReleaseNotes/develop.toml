@@ -58,3 +58,6 @@ section = "fixes"
 subsection = "solution"
 description = "Setting PRECONDITIONER\\_DROP\\_TOLERANCE in the IMS Linear block to a positive value in cases where the level of fill (PRECONDITIONER\\_LEVELS) equals 0, erroneously activated the (M)ILUT preconditioner. Now, in such cases a warning is written, the (M)ILU preconditioner is selected, and the configured drop tolerance will be ignored."
 
+[[items]]
+subsection = "model"
+description = "Balanced the PRT model mass budget with a new term to accumulate mass of terminated particles. Previously particle mass remained in storage regardless of particle status, leaving the particle mass budget unbalanced at the end of the simulation. Also, report cell-by-cell mass storage in the binary budget file; only cumulative mass storage was reported in the list file previously."
