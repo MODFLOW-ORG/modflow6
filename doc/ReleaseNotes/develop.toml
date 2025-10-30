@@ -67,3 +67,8 @@ description = "Balanced the PRT model mass budget with a new term to accumulate 
 section = "fixes"
 subsection = "stress packages"
 description = "The OPTIONS block in the Energy Source Loading (ESL) Package accepted the AUXILIARY and AUXMULTNAME keywords; however, they had no effect on the GWE solution.  The ESL code was fixed such that when the AUXMULTCOL keyword is invoked, the user-specified amount of energy added or removed from cells will be multiplied by whatever value the user supplies in the corresponding AUXILIARY column." 
+
+[[items]]
+section = "fixes"
+subsection = "stress packages"
+description = "The OPTIONS block in the Mass Source Loading (SRC) Package accepted the AUXILIARY and AUXMULTNAME keywords; however, they had no effect on the GWT solution.  The SRC package was fixed such that when the AUXMULTCOL keyword is invoked, the user-specified amount of energy added or removed from cells will be multiplied by the value supplied by the user in the corresponding AUXILIARY column." 
