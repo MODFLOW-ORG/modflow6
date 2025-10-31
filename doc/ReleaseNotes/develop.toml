@@ -56,5 +56,5 @@ description = "Fixed HFB behavior when a horizontal flow barrier is configured f
 [[items]]
 section = "fixes"
 subsection = "solution"
-description = "Setting PRECONDITIONER_DROP_TOLERANCE in the IMS Linear block to a positive value in cases where the level of fill (PRECONDITIONER_LEVELS) equals 0, erroneously activated the (M)ILUT preconditioner. Now, in such cases a warning is written, the (M)ILU preconditioner is selected, and the configured drop tolerance will be ignored."
+description = "Setting PRECONDITIONER\\_DROP\\_TOLERANCE in the IMS Linear block to a positive value in cases where the level of fill (PRECONDITIONER\\_LEVELS) equals 0, erroneously activated the (M)ILUT preconditioner. Now, in such cases a warning is written, the (M)ILU preconditioner is selected, and the configured drop tolerance will be ignored."
 
