@@ -7,11 +7,10 @@
 !! prototyped form, it will likely be moved around.
 !<
 ! SFR flows (sfrbudptr)     index var     SFE term              Transport Type
-! ---------------------------------------------------------------------------------    
+! ---------------------------------------------------------------------------------
 ! -- PBST terms
 ! SENSIBLE HEAT FLUX        idxbudshf     SENS HEAT             cd * rho_a * C_p_a * wspd * (t_air - t_feat)
 ! SHORTWAVE RADIATION       idxbudsWR     SHORTWAVE             (1 - shd) * (1 - swrefl) * solr
-
 
 module AbcModule
   use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, LENVARNAME, &
@@ -47,8 +46,8 @@ module AbcModule
 
   !type, extends(NumericalPackageType) :: AbcType
   type, extends(BndType) :: AbcType
-      
-    type(GweInputDataType), pointer :: gwecommon => null() !< pointer to shared gwe data used by multiple packages but set in est    
+
+    type(GweInputDataType), pointer :: gwecommon => null() !< pointer to shared gwe data used by multiple packages but set in est
 
     character(len=8), dimension(:), pointer, contiguous :: status => null() !< active, inactive, constant
     integer(I4B), pointer :: ncv => null() !< number of control volumes
@@ -58,21 +57,20 @@ module AbcModule
     logical, pointer, public :: active => null() !< logical indicating if a atmospheric boundary condition object is active
     ! -- table objects
     !type(TableType), pointer :: inputtab => null() !< input table object
-  
+
     logical, pointer, public :: shf_active => null() !< logical indicating if a sensible heat flux object is active
     logical, pointer, public :: swr_active => null() !< logical indicating if a shortwave radiation heat flux object is active
     logical, pointer, public :: lhf_active => null() !< logical indicating if a latent heat flux object is active
     logical, pointer, public :: lwr_active => null() !< logical indicating if a longwave radiation heat flux object is active
 
-    
     type(ShfType), pointer :: shf => null() ! sensible heat flux (shf) object
     type(SwrType), pointer :: swr => null() ! shortwave radiation heat flux (swr) object
     type(LhfType), pointer :: lhf => null() ! latent heat flux (lhf) object
     type(LwrType), pointer :: lwr => null() ! longwave radiation heat flux (lwr) object
-    
+
     ! -- abc budget object
     type(BudgetObjectType), pointer :: budobj => null() !< ABC budget object
- 
+
     integer(I4B), pointer :: inshf => null() ! SHF (sensible heat flux utility) unit number (0 if unused)
     integer(I4B), pointer :: inswr => null() ! SWR (shortwave radiation heat flux utility) unit number (0 if unused)
     integer(I4B), pointer :: inlhf => null() ! LHF (latent heat flux utility) unit number (0 if unused)
@@ -86,7 +84,7 @@ module AbcModule
     real(DP), pointer :: lwrefl => null() !< reflectance of longwave radiation by the water surface
     real(DP), pointer :: emissw => null() !< emissivity of water
     real(DP), pointer :: emissr => null() !< emissivity of the riparian canopy
-    
+
     real(DP), dimension(:), pointer, contiguous :: wspd => null() !< wind speed
     real(DP), dimension(:), pointer, contiguous :: tatm => null() !< temperature of the atmosphere
     real(DP), dimension(:), pointer, contiguous :: solr => null() !< solar radiation
@@ -121,7 +119,7 @@ module AbcModule
   end type AbcType
 
 contains
-    
+
   !> @brief Create a new AbcType object
   !!
   !! Create a new atmospheric boundary condition (AbcType) object. Initially for use with
@@ -157,7 +155,7 @@ contains
     call shf_cr(abc%shf, name_model, inunit, iout, ncv)
     call swr_cr(abc%swr, name_model, inunit, iout, ncv)
     call lhf_cr(abc%lhf, name_model, inunit, iout, ncv)
-    call lwr_cr(abc%lwr, name_model, inunit, iout, ncv) 
+    call lwr_cr(abc%lwr, name_model, inunit, iout, ncv)
     !
     ! -- Create time series manager
     call tsmanager_cr(abc%tsmanager, abc%iout, &
@@ -168,7 +166,7 @@ contains
     !    for the heat flux calculations
     abc%gwecommon => gwecommon
   end subroutine abc_cr
-  
+
   !> @brief Allocate and read
   !!
   !!  Method to allocate and read static data for the SHF, SWR, and LHF sub-utilities
@@ -312,7 +310,6 @@ contains
     end if
   end subroutine abc_rp
 
-  
   !> @brief Set options specific to the AbcType
   !!
   !! This routine overrides TspAptType%gc_options
@@ -365,8 +362,8 @@ contains
       !  call store_error(errmsg)
       !  call this%parser%StoreErrorUnit()
       !else
-        write (this%iout, '(4x,a,1pg15.6)') &
-          "The surface-atmosphere drag coefficient has been set to: ", this%cd
+      write (this%iout, '(4x,a,1pg15.6)') &
+        "The surface-atmosphere drag coefficient has been set to: ", this%cd
       !end if
     case ('WIND_FUNC_SLOPE')
       this%wfslope = this%parser%GetDouble()
@@ -452,7 +449,7 @@ contains
     call mem_allocate(this%swr_active, 'SWR_ACTIVE', this%memoryPath)
     call mem_allocate(this%lhf_active, 'LHF_ACTIVE', this%memoryPath)
     call mem_allocate(this%lwr_active, 'LWR_ACTIVE', this%memoryPath)
-    
+
     call mem_allocate(this%inshf, 'INSHF', this%memoryPath)
     call mem_allocate(this%inswr, 'INSWR', this%memoryPath)
     call mem_allocate(this%inlhf, 'INLHF', this%memoryPath)
@@ -492,7 +489,7 @@ contains
     call this%BndType%allocate_scalars()
     !
     ! -- allocate time series manager
-    allocate (this%tsmanager) 
+    allocate (this%tsmanager)
   end subroutine abc_allocate_scalars
 
   !> @brief Allocate arrays specific to the atmspheric boundary package
@@ -501,7 +498,7 @@ contains
     ! -- modules
     !! use MemoryManagerModule, only: mem_allocate
     use MemoryManagerModule, only: mem_setptr, mem_checkin, mem_allocate, &
-                                   get_mem_type
+                                   get_mem_type, mem_reallocate
     ! -- dummy
     class(AbcType), intent(inout) :: this
     ! integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist
@@ -518,102 +515,72 @@ contains
       this%status(n) = 'ACTIVE'
     end do
     !
-    ! -- Call sub-package(s) allocate arrays
-    if (this%inshf /= 0) then
-       ! -- allocate base arrays
-       !call this%BndExtType%allocate_arrays(nodelist, auxvar)
-       !
-       ! -- set WSPD and TATM context pointer
-       call mem_allocate(this%wspd, this%ncv, 'WSPD', this%memoryPath)
-       call mem_allocate(this%tatm, this%ncv, 'TATM', this%memoryPath)
-       ! -- initialize
-       do n = 1, this%ncv
-         this%wspd(n) = DZERO
-         this%tatm(n) = DZERO
-       end do
-       call this%shf%ar()
+    ! -- allocate all atmospheric boundary condition vars, initialize to size 0
+    call mem_allocate(this%wspd, 0, 'WSPD', this%memoryPath)
+    call mem_allocate(this%tatm, 0, 'TATM', this%memoryPath)
+    call mem_allocate(this%solr, this%ncv, 'SOLR', this%memoryPath)
+    call mem_allocate(this%shd, this%ncv, 'SHD', this%memoryPath)
+    call mem_allocate(this%swrefl, this%ncv, 'SWREFL', this%memoryPath)
+    call mem_allocate(this%rh, this%ncv, 'RH', this%memoryPath)
+    call mem_allocate(this%shd, this%ncv, 'SHD', this%memoryPath)
+    call mem_allocate(this%atmc, this%ncv, 'ATMC', this%memoryPath)
+    !
+    ! -- reallocate abc variables based on which calculations are used
+    if (this%inshf /= 0 .or. this%inlhf /= 0) then
+      call mem_reallocate(this%wspd, this%ncv, 'WSPD', this%memoryPath)
+      do n = 1, this%ncv
+        this%wspd(n) = DZERO
+      end do
+    end if
+    !
+    if (this%inshf /= 0 .or. this%inlhf /= 0 .or. this%inlwr) then
+      call mem_reallocate(this%tatm, this%ncv, 'TATM', this%memoryPath)
+      do n = 1, this%ncv
+        this%tatm(n) = DZERO
+      end do
     end if
     if (this%inswr /= 0) then
-       call mem_allocate(this%solr, this%ncv, 'SOLR', this%memoryPath)
-       call mem_allocate(this%shd, this%ncv, 'SHD', this%memoryPath)
-       call mem_allocate(this%swrefl, this%ncv, 'SWREFL', this%memoryPath)
-       !
-       ! -- initialize
-       do n = 1, this%ncv
-         this%solr(n) = DZERO
-         this%shd(n) = DZERO
-         this%swrefl(n) = DZERO
-       end do
-       call this%swr%ar()
+      call mem_reallocate(this%solr, this%ncv, 'SOLR', this%memoryPath)
+      call mem_reallocate(this%swrefl, this%ncv, 'SWREFL', this%memoryPath)
+      do n = 1, this%ncv
+        this%solr(n) = DZERO
+        this%swrefl(n) = DZERO
+      end do
     end if
-    if (this%inlhf /= 0) then
-       call get_mem_type('WSPD', this%memoryPath, var_type)
-       if (var_type == 'UNKNOWN') then
-         call mem_allocate(this%wspd, this%ncv, 'WSPD', this%memoryPath)
-         do n = 1, this%ncv
-           this%wspd(n) = DZERO
-         end do
-       end if
-       call get_mem_type('TATM', this%memoryPath, var_type)
-       if (var_type == 'UNKNOWN') then
-         call mem_allocate(this%tatm, this%ncv, 'TATM', this%memoryPath)
-         do n = 1, this%ncv
-           this%tatm(n) = DZERO
-         end do
-       end if
-       call mem_allocate(this%rh, this%ncv, 'RH', this%memoryPath)
-       !
-       ! -- initialize
-       do n = 1, this%ncv
-         this%wspd(n) = DZERO
-         this%tatm(n) = DZERO
-         this%rh(n) = DZERO
-       end do
-       call this%lhf%ar()
+    if (this%inswr /= 0 .or. this%inlwr) then
+      call mem_reallocate(this%shd, this%ncv, 'SHD', this%memoryPath)
+      do n = 1, this%ncv
+        this%shd(n) = DZERO
+      end do
+    end if
+    if (this%inlhf /= 0 .or. this%inlwr) then
+      call mem_reallocate(this%rh, this%ncv, 'RH', this%memoryPath)
+      do n = 1, this%ncv
+        this%rh(n) = DZERO
+      end do
     end if
     if (this%inlwr /= 0) then
-       call get_mem_type('TATM', this%memoryPath, var_type)
-       if (var_type == 'UNKNOWN') then
-         call mem_allocate(this%tatm, this%ncv, 'TATM', this%memoryPath)
-         do n = 1, this%ncv
-           this%tatm(n) = DZERO
-         end do
-       end if
-       call mem_allocate(this%rh, this%ncv, 'RH', this%memoryPath)
-       if (var_type == 'UNKNOWN') then
-         call mem_allocate(this%rh, this%ncv, 'RH', this%memoryPath)
-         do n = 1, this%ncv
-           this%rh(n) = DZERO
-         end do
-       end if
-       call mem_allocate(this%shd, this%ncv, 'SHD', this%memoryPath)
-       if (var_type == 'UNKNOWN') then
-         call mem_allocate(this%shd, this%ncv, 'SHD', this%memoryPath)
-         do n = 1, this%ncv
-           this%shd(n) = DZERO
-         end do
-       end if
-       call mem_allocate(this%atmc, this%ncv, 'ATMC', this%memoryPath)
-       !
-       ! -- initialize
-       do n = 1, this%ncv
-         this%tatm(n) = DZERO
-         this%rh(n) = DZERO
-         this%shd(n) = DZERO
-         this%atmc(n) = DZERO
-       end do
-       call this%lwr%ar()
+      call mem_reallocate(this%atmc, this%ncv, 'ATMC', this%memoryPath)
+      do n = 1, this%ncv
+        this%atmc(n) = DZERO
+      end do
     end if
-   
-    !! -- allocate character array for status
-    !allocate (this%status(this%ncv))
-    !!
-    !! -- initialize arrays
-    !do n = 1, this%ncv
-    !  this%status(n) = 'ACTIVE'
-    !end do
+    !
+    ! -- call utility ar routines if active
+    if (this%inshf /= 0) then
+      call this%shf%ar()
+    end if
+    if (this%inswr /= 0) then
+      call this%swr%ar()
+    end if
+    if (this%inlhf /= 0) then
+      call this%lhf%ar()
+    end if
+    if (this%inlwr /= 0) then
+      call this%lwr%ar()
+    end if
   end subroutine abc_allocate_arrays
-    
+
   !> @brief Deallocate memory
   !<
   subroutine abc_da(this)
@@ -678,11 +645,11 @@ contains
     !
     ! -- Deallocate scalars in TspAptType
     call this%NumericalPackageType%da() ! this may not work -- revisit and cleanup !!!
-    
+
     ! -- Deallocate parent
     !call pbstbase_da(this)
   end subroutine abc_da
-  
+
   !> @brief Read a ABC-specific option from the OPTIONS block
   !!
   !! Process a single ABC-specific option. Used when reading the OPTIONS block
@@ -698,7 +665,7 @@ contains
     ! -- There are no ABC-specific options, so just return false
     success = .false.
   end function abc_read_option
-  
+
   !> @brief Sensible Heat Flux (SHF) term
   !<
   subroutine abc_shf_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
@@ -758,7 +725,7 @@ contains
     !if (present(rhsval)) rhsval = -rrate
     !if (present(hcofval)) hcofval = DZERO
   end subroutine abc_swr_term
-  
+
   !> @brief Latent Heat Flux (LHF) term
   !<
   subroutine abc_lhf_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
@@ -777,7 +744,7 @@ contains
     real(DP) :: sa !< surface area of stream reach, different than wetted area
     !
   end subroutine abc_lhf_term
-  
+
   subroutine abc_lwr_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
     ! -- dummy
     class(AbcType) :: this
@@ -794,7 +761,7 @@ contains
     real(DP) :: sa !< surface area of stream reach, different than wetted area
     !
   end subroutine abc_lwr_term
-  
+
   !> @brief Observations
   !!
   !! Store the observation type supported by the APT package and override
@@ -806,7 +773,7 @@ contains
     class(AbcType) :: this
     ! -- local
     integer(I4B) :: indx
-    
+
     ! -- Store obs type and assign procedure pointer
     !    for sens-heat-flux observation type.
     !call this%obs%StoreObsType('shf', .true., indx)
@@ -817,7 +784,7 @@ contains
     !call this%obs%StoreObsType('swr', .true., indx)
     !this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
   end subroutine abc_df_obs
-  
+
   !> @brief Process package specific obs
   !!
   !! Method to process specific observations for this package.
@@ -843,8 +810,8 @@ contains
       found = .false.
     end select
   end subroutine abc_rp_obs
-  
-   !> @brief Calculate observation value and pass it back to APT
+
+  !> @brief Calculate observation value and pass it back to APT
   !<
   subroutine abc_bd_obs(this, obstypeid, jj, v, found)
     ! -- dummy
@@ -898,7 +865,7 @@ contains
     !
     ! -- calculate longwave radiation
     call this%lwr%lwr_cq(ifno, tstrm, lwrflx)
-    
+
     abcflx = shflx + swrflx - lhflx + lwrflx
   end subroutine abc_cq
 
@@ -925,7 +892,7 @@ contains
     ! <shd> SHADE
     ! <swrefl> REFLECTANCE OF SHORTWAVE RADIATION OFF WATER SURFACE
     ! <solr> SOLAR RADIATION
-    ! <atmc> ATMOSPHERIC COMPOSITION 
+    ! <atmc> ATMOSPHERIC COMPOSITION
     !
     ! -- read line
     call this%parser%GetStringCaps(keyword)
@@ -1024,7 +991,7 @@ contains
       bndElem => this%atmc(itemno)
       call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
                                          this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'ATMC')  
+                                         this%iprpak, 'ATMC')
     case default
       !
       ! -- Keyword not recognized so return to caller with found = .false.
