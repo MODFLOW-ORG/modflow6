@@ -920,6 +920,7 @@ contains
     call this%linear_settings%init(this%memory_path)
     call this%linear_settings%preset_config(ifdparam)
     call this%linear_settings%read_from_file(this%parser, iout)
+    call this%linear_settings%check_settings()
     !
     if (this%linear_settings%ilinmeth == CG_METHOD) then
       this%isymmetric = 1
