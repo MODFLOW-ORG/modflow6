@@ -12,6 +12,8 @@ module ShortwaveModule
   use KindModule, only: I4B, DP
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
+  use TimeSeriesLinkModule, only: TimeSeriesLinkType
+  use TimeSeriesManagerModule, only: TimeSeriesManagerType, tsmanager_cr
   use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
   use PbstBaseModule, only: PbstBaseType, pbstbase_da
@@ -34,9 +36,9 @@ module ShortwaveModule
   contains
 
     procedure :: da => swr_da
+    procedure :: pbst_ar => swr_ar_set_pointers
     procedure :: read_option => swr_read_option
-    procedure :: ar_set_pointers => swr_ar_set_pointers
-    procedure :: get_pointer_to_value => swr_get_pointer_to_value
+    !procedure :: get_pointer_to_value => swr_get_pointer_to_value
     !procedure :: pbst_options => swr_options
     !procedure :: subpck_set_stressperiod => swr_set_stressperiod
     !procedure :: pbst_allocate_arrays => swr_allocate_arrays
@@ -79,40 +81,43 @@ contains
     ! -- local
     character(len=LENMEMPATH) :: abcMemoryPath
     ! -- formats
-    character(len=*), parameter :: fmtswr = &
-      "(1x,/1x,'SWR -- SHORTWAVE RADIATION PACKAGE, VERSION 1, 05/01/2025', &
-      &' INPUT READ FROM UNIT ', i0, //)"
+    ! character(len=*), parameter :: fmtswr = &
     !
-    ! -- Print a message identifying the SWR package
-    write (this%iout, fmtswr) this%inunit
+    ! -- Print a message noting that the SWR utility is active
+    write (this%iout, '(a)') &
+      'SWR -- SHORTWAVE RADIATION WILL BE INCLUDED IN THE ATMOSPHERIC '// &
+      'BOUNDARY CONDITIONS FOR THE STREAMFLOW ENERGY TRANSPORT PACKAGE'  
     !
-    ! -- Set pointers to other package variables
-    ! -- ABC
+    ! -- Set pointers to variables hosted in the ABC package
     abcMemoryPath = create_mem_path(this%name_model, 'ABC')
     call mem_setptr(this%solr, 'SOLR', abcMemoryPath)
     call mem_setptr(this%shd, 'SHD', abcMemoryPath)
     call mem_setptr(this%swrefl, 'SWREFL', abcMemoryPath)
-   
+    !
+    ! -- create time series manager
+    call tsmanager_cr(this%tsmanager, this%iout, &
+                      removeTsLinksOnCompletion=.true., &
+                      extendTsToEndOfSimulation=.true.)
   end subroutine swr_ar_set_pointers
   
-  !!> @brief Get an array value pointer given a variable name and node index
-  !!!
-  !!! Return a pointer to the given node's value in the appropriate ABC array
-  !!! based on the given variable name string.
-  !!<
-  function swr_get_pointer_to_value(this, n, varName) result(bndElem)
-      ! -- dummy
-      class(SwrType) :: this
-      integer(I4B), intent(in) :: n
-      character(len=*), intent(in) :: varName
-      ! -- return
-      real(DP), pointer :: bndElem
-      
-      select case(varName)
-          case default
-          bndElem => null()
-      end select
-    end function
+  !> @brief Get an array value pointer given a variable name and node index
+  !!
+  !! Return a pointer to the given node's value in the appropriate ABC array
+  !! based on the given variable name string.
+  !<
+  !function swr_get_pointer_to_value(this, n, varName) result(bndElem)
+  !  ! -- dummy
+  !  class(SwrType) :: this
+  !  integer(I4B), intent(in) :: n
+  !  character(len=*), intent(in) :: varName
+  !  ! -- return
+  !  real(DP), pointer :: bndElem
+  !  !
+  !  select case(varName)
+  !      case default
+  !      bndElem => null()
+  !  end select
+  !end function
   
   !function swr_get_pointer_to_value(this, n, varName) result(bndElem)
   !  ! -- dummy

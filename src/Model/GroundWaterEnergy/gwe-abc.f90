@@ -96,25 +96,20 @@ module AbcModule
   contains
 
     procedure :: da => abc_da
-    !procedure :: init
     procedure :: ar
     procedure, public :: abc_rp
     procedure :: abc_check_valid
     procedure :: bnd_options => abc_read_options
     procedure :: read_option => abc_read_option ! reads stress period
     procedure :: abc_read_options ! read options block
-    !procedure :: subpck_set_stressperiod => abc_set_stressperiod
     procedure :: abc_set_stressperiod
     procedure :: abc_allocate_arrays
     procedure, private :: abc_allocate_scalars
     procedure, public :: abc_cq
-    procedure, private :: abc_shf_term
-    procedure, private :: abc_swr_term
-    procedure, private :: abc_lhf_term
-    procedure, private :: abc_lwr_term
-    ! -- budget
-    !procedure, private :: abc_setup_shfobj
-    !procedure, private :: abc_setup_swrobj
+    !procedure, private :: abc_shf_term
+    !procedure, private :: abc_swr_term
+    !procedure, private :: abc_lhf_term
+    !procedure, private :: abc_lwr_term
 
   end type AbcType
 
@@ -183,17 +178,17 @@ contains
     write (this%iout, fmtapt) this%inunit
     !
     ! -- Set pointers to SHF package variables
-    if (this%inshf) then
-      call this%shf%ar_set_pointers()
-    end if
+    !if (this%inshf) then
+    !  call this%shf%ar()
+    !end if
     ! -- Set pointers to LHF package variables
-    if (this%inlhf) then
-      call this%lhf%ar_set_pointers()
-    end if
+    !if (this%inlhf) then
+    !  call this%lhf%ar()
+    !end if
     ! -- Set pointers to LWR package variables
-    if (this%inlwr) then
-      call this%lwr%ar_set_pointers()
-    end if
+    !if (this%inlwr) then
+    !  call this%lwr%ar()
+    !end if
     !
     ! -- Allocate arrays
     !call this%pbst_allocate_arrays()
@@ -518,14 +513,14 @@ contains
     ! -- allocate all atmospheric boundary condition vars, initialize to size 0
     call mem_allocate(this%wspd, 0, 'WSPD', this%memoryPath)
     call mem_allocate(this%tatm, 0, 'TATM', this%memoryPath)
-    call mem_allocate(this%solr, this%ncv, 'SOLR', this%memoryPath)
-    call mem_allocate(this%shd, this%ncv, 'SHD', this%memoryPath)
-    call mem_allocate(this%swrefl, this%ncv, 'SWREFL', this%memoryPath)
-    call mem_allocate(this%rh, this%ncv, 'RH', this%memoryPath)
-    call mem_allocate(this%shd, this%ncv, 'SHD', this%memoryPath)
-    call mem_allocate(this%atmc, this%ncv, 'ATMC', this%memoryPath)
+    call mem_allocate(this%solr, 0, 'SOLR', this%memoryPath)
+    call mem_allocate(this%shd, 0, 'SHD', this%memoryPath)
+    call mem_allocate(this%swrefl, 0, 'SWREFL', this%memoryPath)
+    call mem_allocate(this%rh, 0, 'RH', this%memoryPath)
+    call mem_allocate(this%atmc, 0, 'ATMC', this%memoryPath)
     !
     ! -- reallocate abc variables based on which calculations are used
+    write(*,*) "Here 1"
     if (this%inshf /= 0 .or. this%inlhf /= 0) then
       call mem_reallocate(this%wspd, this%ncv, 'WSPD', this%memoryPath)
       do n = 1, this%ncv
@@ -567,17 +562,21 @@ contains
     end if
     !
     ! -- call utility ar routines if active
+    write(*,*) "Here 2"
     if (this%inshf /= 0) then
-      call this%shf%ar()
+      call this%shf%pbst_ar()
     end if
+    !write(*,*) "Here 3"
     if (this%inswr /= 0) then
-      call this%swr%ar()
+      call this%swr%pbst_ar()
     end if
+    !write(*,*) "Here 4"
     if (this%inlhf /= 0) then
-      call this%lhf%ar()
+      call this%lhf%pbst_ar()
     end if
+    write(*,*) "Here 5"
     if (this%inlwr /= 0) then
-      call this%lwr%ar()
+      call this%lwr%pbst_ar()
     end if
   end subroutine abc_allocate_arrays
 
@@ -668,99 +667,99 @@ contains
 
   !> @brief Sensible Heat Flux (SHF) term
   !<
-  subroutine abc_shf_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
-    ! -- dummy
-    class(AbcType) :: this
-    integer(I4B), intent(in) :: ientry
-    integer(I4B), intent(inout) :: n1
-    integer(I4B), intent(inout) :: n2
-    real(DP), intent(inout), optional :: rrate
-    real(DP), intent(inout), optional :: rhsval
-    real(DP), intent(inout), optional :: hcofval
-    ! -- local
-    real(DP) :: sensheat
-    real(DP) :: strmtemp
-    integer(I4B) :: auxpos
-    real(DP) :: sa !< surface area of stream reach, different than wetted area
-    !
-    !n1 = this%flowbudptr%budterm(this%idxbudevap)%id1(ientry)
-    !! -- For now, there is only 1 aux variable under 'EVAPORATION'
-    !auxpos = this%flowbudptr%budterm(this%idxbudevap)%naux
-    !sa = this%flowbudptr%budterm(this%idxbudevap)%auxvar(auxpos, ientry)
-    !!
-    !strmtemp = this%xnewpak(n1)
-    !call this%shf%shf_cq(n1, strmtemp, sensheat)
-    !!
-    !if (present(rrate)) rrate = sensheat * sa
-    !if (present(rhsval)) rhsval = -rrate
-    !if (present(hcofval)) hcofval = DZERO
-  end subroutine abc_shf_term
+  !subroutine abc_shf_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
+  !  ! -- dummy
+  !  class(AbcType) :: this
+  !  integer(I4B), intent(in) :: ientry
+  !  integer(I4B), intent(inout) :: n1
+  !  integer(I4B), intent(inout) :: n2
+  !  real(DP), intent(inout), optional :: rrate
+  !  real(DP), intent(inout), optional :: rhsval
+  !  real(DP), intent(inout), optional :: hcofval
+  !  ! -- local
+  !  real(DP) :: sensheat
+  !  real(DP) :: strmtemp
+  !  integer(I4B) :: auxpos
+  !  real(DP) :: sa !< surface area of stream reach, different than wetted area
+  !  !
+  !  !n1 = this%flowbudptr%budterm(this%idxbudevap)%id1(ientry)
+  !  !! -- For now, there is only 1 aux variable under 'EVAPORATION'
+  !  !auxpos = this%flowbudptr%budterm(this%idxbudevap)%naux
+  !  !sa = this%flowbudptr%budterm(this%idxbudevap)%auxvar(auxpos, ientry)
+  !  !!
+  !  !strmtemp = this%xnewpak(n1)
+  !  !call this%shf%shf_cq(n1, strmtemp, sensheat)
+  !  !!
+  !  !if (present(rrate)) rrate = sensheat * sa
+  !  !if (present(rhsval)) rhsval = -rrate
+  !  !if (present(hcofval)) hcofval = DZERO
+  !end subroutine abc_shf_term
 
   !> @brief Shortwave Radiation (SWR) term
   !<
-  subroutine abc_swr_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
-    ! -- dummy
-    class(AbcType) :: this
-    integer(I4B), intent(in) :: ientry
-    integer(I4B), intent(inout) :: n1
-    integer(I4B), intent(inout) :: n2
-    real(DP), intent(inout), optional :: rrate
-    real(DP), intent(inout), optional :: rhsval
-    real(DP), intent(inout), optional :: hcofval
-    ! -- local
-    real(DP) :: shrtwvheat
-    real(DP) :: strmtemp
-    integer(I4B) :: auxpos
-    real(DP) :: sa !< surface area of stream reach, different than wetted area
-    !
-    !n1 = this%flowbudptr%budterm(this%idxbudevap)%id1(ientry)
-    !! -- For now, there is only 1 aux variable under 'EVAPORATION'
-    !auxpos = this%flowbudptr%budterm(this%idxbudevap)%naux
-    !sa = this%flowbudptr%budterm(this%idxbudevap)%auxvar(auxpos, ientry)
-    !!
-    !strmtemp = this%xnewpak(n1)
-    !call this%swr%swr_cq(n1, shrtwvheat)
-    !!
-    !if (present(rrate)) rrate = shrtwvheat * sa
-    !if (present(rhsval)) rhsval = -rrate
-    !if (present(hcofval)) hcofval = DZERO
-  end subroutine abc_swr_term
+  !subroutine abc_swr_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
+  !  ! -- dummy
+  !  class(AbcType) :: this
+  !  integer(I4B), intent(in) :: ientry
+  !  integer(I4B), intent(inout) :: n1
+  !  integer(I4B), intent(inout) :: n2
+  !  real(DP), intent(inout), optional :: rrate
+  !  real(DP), intent(inout), optional :: rhsval
+  !  real(DP), intent(inout), optional :: hcofval
+  !  ! -- local
+  !  real(DP) :: shrtwvheat
+  !  real(DP) :: strmtemp
+  !  integer(I4B) :: auxpos
+  !  real(DP) :: sa !< surface area of stream reach, different than wetted area
+  !  !
+  !  !n1 = this%flowbudptr%budterm(this%idxbudevap)%id1(ientry)
+  !  !! -- For now, there is only 1 aux variable under 'EVAPORATION'
+  !  !auxpos = this%flowbudptr%budterm(this%idxbudevap)%naux
+  !  !sa = this%flowbudptr%budterm(this%idxbudevap)%auxvar(auxpos, ientry)
+  !  !!
+  !  !strmtemp = this%xnewpak(n1)
+  !  !call this%swr%swr_cq(n1, shrtwvheat)
+  !  !!
+  !  !if (present(rrate)) rrate = shrtwvheat * sa
+  !  !if (present(rhsval)) rhsval = -rrate
+  !  !if (present(hcofval)) hcofval = DZERO
+  !end subroutine abc_swr_term
 
   !> @brief Latent Heat Flux (LHF) term
   !<
-  subroutine abc_lhf_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
-    ! -- dummy
-    class(AbcType) :: this
-    integer(I4B), intent(in) :: ientry
-    integer(I4B), intent(inout) :: n1
-    integer(I4B), intent(inout) :: n2
-    real(DP), intent(inout), optional :: rrate
-    real(DP), intent(inout), optional :: rhsval
-    real(DP), intent(inout), optional :: hcofval
-    ! -- local
-    real(DP) :: latheat
-    real(DP) :: strmtemp
-    integer(I4B) :: auxpos
-    real(DP) :: sa !< surface area of stream reach, different than wetted area
-    !
-  end subroutine abc_lhf_term
+  !subroutine abc_lhf_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
+  !  ! -- dummy
+  !  class(AbcType) :: this
+  !  integer(I4B), intent(in) :: ientry
+  !  integer(I4B), intent(inout) :: n1
+  !  integer(I4B), intent(inout) :: n2
+  !  real(DP), intent(inout), optional :: rrate
+  !  real(DP), intent(inout), optional :: rhsval
+  !  real(DP), intent(inout), optional :: hcofval
+  !  ! -- local
+  !  real(DP) :: latheat
+  !  real(DP) :: strmtemp
+  !  integer(I4B) :: auxpos
+  !  real(DP) :: sa !< surface area of stream reach, different than wetted area
+  !  !
+  !end subroutine abc_lhf_term
 
-  subroutine abc_lwr_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
-    ! -- dummy
-    class(AbcType) :: this
-    integer(I4B), intent(in) :: ientry
-    integer(I4B), intent(inout) :: n1
-    integer(I4B), intent(inout) :: n2
-    real(DP), intent(inout), optional :: rrate
-    real(DP), intent(inout), optional :: rhsval
-    real(DP), intent(inout), optional :: hcofval
-    ! -- local
-    real(DP) :: longwvheat
-    real(DP) :: strmtemp
-    integer(I4B) :: auxpos
-    real(DP) :: sa !< surface area of stream reach, different than wetted area
-    !
-  end subroutine abc_lwr_term
+  !subroutine abc_lwr_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
+  !  ! -- dummy
+  !  class(AbcType) :: this
+  !  integer(I4B), intent(in) :: ientry
+  !  integer(I4B), intent(inout) :: n1
+  !  integer(I4B), intent(inout) :: n2
+  !  real(DP), intent(inout), optional :: rrate
+  !  real(DP), intent(inout), optional :: rhsval
+  !  real(DP), intent(inout), optional :: hcofval
+  !  ! -- local
+  !  real(DP) :: longwvheat
+  !  real(DP) :: strmtemp
+  !  integer(I4B) :: auxpos
+  !  real(DP) :: sa !< surface area of stream reach, different than wetted area
+  !  !
+  !end subroutine abc_lwr_term
 
   !> @brief Observations
   !!
@@ -854,6 +853,11 @@ contains
     real(DP) :: lhflx
     real(DP) :: lwrflx
     !
+    ! -- calculate longwave radiation
+    write(*,*) "Here 6"
+    call this%lwr%lwr_cq(ifno, tstrm, lwrflx)
+    write(*,*) "Here 7"
+    !
     ! -- calculate sensible heat flux using HGS equation
     call this%shf%shf_cq(ifno, tstrm, shflx)
     !
@@ -862,9 +866,6 @@ contains
     !
     ! -- calculate latent heat flux using Dalton-like mass transfer equation
     call this%lhf%lhf_cq(ifno, tstrm, this%gwecommon%gwerhow, lhflx)
-    !
-    ! -- calculate longwave radiation
-    call this%lwr%lwr_cq(ifno, tstrm, lwrflx)
 
     abcflx = shflx + swrflx - lhflx + lwrflx
   end subroutine abc_cq
