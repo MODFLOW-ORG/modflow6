@@ -12,6 +12,8 @@ module SensHeatModule
   use KindModule, only: I4B, DP
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
+  use TimeSeriesLinkModule, only: TimeSeriesLinkType
+  use TimeSeriesManagerModule, only: TimeSeriesManagerType, tsmanager_cr
   use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
   use PbstBaseModule, only: PbstBaseType, pbstbase_da
@@ -26,6 +28,7 @@ module SensHeatModule
   character(len=16) :: text = '          SHF'
 
   type, extends(PbstBaseType) :: ShfType
+    
     real(DP), pointer :: rhoa => null() !< ABC density of air
     real(DP), pointer :: cpa => null() !< ABC heat capacity of air
     real(DP), pointer :: cd => null() !< ABC drag coefficient
@@ -35,9 +38,9 @@ module SensHeatModule
   contains
 
     procedure :: da => shf_da
-    procedure :: ar_set_pointers => shf_ar_set_pointers
+    procedure :: pbst_ar => shf_ar_set_pointers
     procedure :: read_option => shf_read_option
-    procedure :: get_pointer_to_value => shf_get_pointer_to_value
+    !procedure :: get_pointer_to_value => shf_get_pointer_to_value
     !procedure :: pbst_options => shf_options
     !procedure :: subpck_set_stressperiod => shf_set_stressperiod
     !procedure :: pbst_allocate_arrays => shf_allocate_arrays
@@ -80,22 +83,25 @@ contains
     ! -- local
     character(len=LENMEMPATH) :: abcMemoryPath
     ! -- formats
-    character(len=*), parameter :: fmtshf = &
-      "(1x,/1x,'SHF -- SENSIBLE HEAT FLUX PACKAGE, VERSION 1, 03/12/2025', &
-      &' INPUT READ FROM UNIT ', i0, //)"
+    !character(len=*) :: fmtshf = &
     !
-    ! -- Print a message identifying the SHF package
-    write (this%iout, fmtshf) this%inunit
+    ! -- print a message noting that the SHF utility is active
+    write (this%iout, '(a)') &
+      'SHF -- SENSIBLE HEAT WILL BE INCLUDED IN THE ATMOSPHERIC BOUNDARY '// &
+      'CONDITIONS FOR THE STREAMFLOW ENERGY TRANSPORT PACKAGE'
     !
-    ! -- Set pointers to other package variables
-    ! -- ABC
+    ! -- set pointers to variables hosted in the ABC package
     abcMemoryPath = create_mem_path(this%name_model, 'ABC')
     call mem_setptr(this%rhoa, 'RHOA', abcMemoryPath)
     call mem_setptr(this%cpa, 'CPA', abcMemoryPath)
     call mem_setptr(this%cd, 'CD', abcMemoryPath)
     call mem_setptr(this%wspd, 'WSPD', abcMemoryPath)
     call mem_setptr(this%tatm, 'TATM', abcMemoryPath)
-   
+    !
+    ! -- create time series manager
+    call tsmanager_cr(this%tsmanager, this%iout, &
+                      removeTsLinksOnCompletion=.true., &
+                      extendTsToEndOfSimulation=.true.)
   end subroutine shf_ar_set_pointers
   
   !> @brief Get an array value pointer given a variable name and node index
@@ -103,23 +109,23 @@ contains
   !! Return a pointer to the given node's value in the appropriate ABC array
   !! based on the given variable name string.
   !<
-  function shf_get_pointer_to_value(this, n, varName) result(bndElem)
-    ! -- dummy
-    class(ShfType) :: this
-    integer(I4B), intent(in) :: n
-    character(len=*), intent(in) :: varName
-    ! -- return
-    real(DP), pointer :: bndElem
-    !
-    select case (varName)
-    case ('TATM')
-      bndElem => this%tatm(n)
-    case ('WSPD')
-      bndElem => this%wspd(n)
-    case default
-      bndElem => null()
-    end select
-  end function shf_get_pointer_to_value
+  !function shf_get_pointer_to_value(this, n, varName) result(bndElem)
+  !  ! -- dummy
+  !  class(ShfType) :: this
+  !  integer(I4B), intent(in) :: n
+  !  character(len=*), intent(in) :: varName
+  !  ! -- return
+  !  real(DP), pointer :: bndElem
+  !  !
+  !  select case (varName)
+  !  case ('TATM')
+  !    bndElem => this%tatm(n)
+  !  case ('WSPD')
+  !    bndElem => this%wspd(n)
+  !  case default
+  !    bndElem => null()
+  !  end select
+  !end function shf_get_pointer_to_value
 
   
   !> @brief Allocate scalars specific to the streamflow energy transport (SFE)
@@ -229,6 +235,7 @@ contains
     real(DP) :: shf_const
     !
     ! -- calculate sensible heat flux using HGS equation
+    write(*,*) "value of tatm is ",this%tatm(ifno)
     shf_const = this%cd * this%cpa * this%rhoa
     shflx = shf_const * this%wspd(ifno) * (this%tatm(ifno) - tstrm)
   end subroutine shf_cq
