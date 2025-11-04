@@ -12,6 +12,8 @@ module LongwaveModule
   use KindModule, only: I4B, DP
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
+  use TimeSeriesLinkModule, only: TimeSeriesLinkType
+  use TimeSeriesManagerModule, only: TimeSeriesManagerType, tsmanager_cr
   use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
   use PbstBaseModule, only: PbstBaseType, pbstbase_da
@@ -38,9 +40,9 @@ module LongwaveModule
   contains
 
     procedure :: da => lwr_da
+    procedure :: pbst_ar => lwr_ar_set_pointers
     procedure :: read_option => lwr_read_option
-    procedure :: ar_set_pointers => lwr_ar_set_pointers
-    procedure :: get_pointer_to_value => lwr_get_pointer_to_value
+    !procedure :: get_pointer_to_value => lwr_get_pointer_to_value
     procedure, public :: lwr_cq
 
   end type LwrType
@@ -66,7 +68,7 @@ contains
     !
   end subroutine lwr_cr
 
-   !> @brief Announce package and set pointers to variables
+  !> @brief Announce package and set pointers to variables
   !!
   !! Announce package version and set array and variable pointers from the ABC
   !! package for access by LWR.
@@ -77,12 +79,12 @@ contains
     ! -- local
     character(len=LENMEMPATH) :: abcMemoryPath
     ! -- formats
-    character(len=*), parameter :: fmtlwr = &
-      "(1x,/1x,'LWR -- LONGWAVE RADIATION PACKAGE, VERSION 1, 05/01/2025', &
-      &' INPUT READ FROM UNIT ', i0, //)"
+    !character(len=*), parameter :: fmtlwr = &
     !
-    ! -- Print a message identifying the LWR package
-    write (this%iout, fmtlwr) this%inunit
+    ! -- Print a message noting that the LWR utility is active
+    write (this%iout, '(a)') &
+      'LWR -- LONGWAVE RADIATION WILL BE INCLUDED IN THE ATMOSPHERIC '// &
+      'BOUNDARY CONDITIONS FOR THE STREAMFLOW ENERGY TRANSPORT PACKAGE'
     !
     ! -- Set pointers to other package variables
     ! -- ABC
@@ -92,35 +94,43 @@ contains
     call mem_setptr(this%atmc, 'ATMC', abcMemoryPath)
     call mem_setptr(this%tatm, 'TATM', abcMemoryPath)
     call mem_setptr(this%emissw, 'EMISSW', abcMemoryPath)
-    call mem_setptr(this%emissw, 'EMISSR', abcMemoryPath)
+    call mem_setptr(this%emissr, 'EMISSR', abcMemoryPath)
     call mem_setptr(this%rh, 'RH', abcMemoryPath)
-    
+    write(*,*) "Here where set ptr happens"
+    !
+    ! -- Set the riparian canopy emissivity constant
+    this%emissr = 0.97_DP
+    !
+    ! -- create time series manager
+    call tsmanager_cr(this%tsmanager, this%iout, &
+                      removeTsLinksOnCompletion=.true., &
+                      extendTsToEndOfSimulation=.true.)
   end subroutine lwr_ar_set_pointers
   
-  !!> @brief Get an array value pointer given a variable name and node index
-  !!!
-  !!! Return a pointer to the given node's value in the appropriate ABC array
-  !!! based on the given variable name string.
-  !!<
-  function lwr_get_pointer_to_value(this, n, varName) result(bndElem)
-      ! -- dummy
-      class(LwrType) :: this
-      integer(I4B), intent(in) :: n
-      character(len=*), intent(in) :: varName
-      ! -- return
-      real(DP), pointer :: bndElem
-      
-      select case(varName)
-      case ('TATM')
-        bndElem => this%tatm(n)
-      case ('ATMC')
-        bndElem => this%atmc(n)
-      case ('RH')
-        bndElem => this%rh(n)  
-      case default
-        bndElem => null()
-      end select
-    end function
+  !> @brief Get an array value pointer given a variable name and node index
+  !!
+  !! Return a pointer to the given node's value in the appropriate ABC array
+  !! based on the given variable name string.
+  !<
+  !function lwr_get_pointer_to_value(this, n, varName) result(bndElem)
+  !  ! -- dummy
+  !  class(LwrType) :: this
+  !  integer(I4B), intent(in) :: n
+  !  character(len=*), intent(in) :: varName
+  !  ! -- return
+  !  real(DP), pointer :: bndElem
+  !  
+  !  select case(varName)
+  !  case ('TATM')
+  !    bndElem => this%tatm(n)
+  !  case ('ATMC')
+  !    bndElem => this%atmc(n)
+  !  case ('RH')
+  !    bndElem => this%rh(n)  
+  !  case default
+  !    bndElem => null()
+  !  end select
+  !end function
   
   !> @brief Calculate Longwave Radiation Heat Flux
   !!
@@ -137,23 +147,22 @@ contains
     real(DP) :: amb_vap_atm
     real(DP) :: emissa
     real(DP) :: emisss
-    real(DP) :: emissr
     real(DP) :: lwratm
     real(DP) :: lwrstrm
-    
     !
     ! -- intermediate calculations
-    sat_vap_ta = 6.1275_DP*exp(17.2693882_DP*((this%tatm(ifno))/(this%tatm(ifno) + DCTOK - 35.86_DP)))
-    amb_vap_atm = (this%rh(ifno)/100.0_DP)*sat_vap_ta
-    emissa = 1.24_DP*this%atmc(ifno)*((amb_vap_atm/this%tatm(ifno))**(1/7))
+    write(*,*) "value of tatm is ",this%tatm(ifno)
+    sat_vap_ta = 6.1275_DP * exp(17.2693882_DP * (this%tatm(ifno) / (this%tatm(ifno) + DCTOK - 35.86_DP)))
+    amb_vap_atm = (this%rh(ifno) / 100.0_DP) * sat_vap_ta
+    emissa = 1.24_DP * this%atmc(ifno) * ((amb_vap_atm/this%tatm(ifno))**(1/7))
     !
-    emisss = (1-this%shd(ifno))*emissa + this%shd(ifno)*emissr
+    emisss = (1 - this%shd(ifno)) * emissa + this%shd(ifno) * this%emissr
     !
-    lwratm = emisss*DSTEFANBOLTZMANN*((this%tatm(ifno))**4)
-    lwrstrm = -this%emissw*DSTEFANBOLTZMANN*(tstrm**4)
+    lwratm = emisss * DSTEFANBOLTZMANN * this%tatm(ifno)**4
+    lwrstrm = -this%emissw * DSTEFANBOLTZMANN * tstrm**4
     !
     ! -- calculate longwave radiation heat flux
-    lwrflx = lwratm*(1-this%lwrefl) + lwrstrm
+    lwrflx = lwratm * (1 - this%lwrefl) + lwrstrm
   end subroutine lwr_cq
 
   !> @brief Deallocate package memory
@@ -165,11 +174,6 @@ contains
     !use MemoryManagerModule, only: mem_deallocate
     ! -- dummy
     class(LwrType) :: this
-    !
-    ! -- Nullify pointers to other package variables
-    !call mem_deallocate(this%rhoa)
-    !call mem_deallocate(this%cpa)
-    !call mem_deallocate(this%cd)
     !
     ! -- Deallocate time series
     nullify (this%shd)
