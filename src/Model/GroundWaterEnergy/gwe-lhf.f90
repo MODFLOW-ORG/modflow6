@@ -12,6 +12,8 @@ module LatHeatModule
   use KindModule, only: I4B, DP
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
+  use TimeSeriesLinkModule, only: TimeSeriesLinkType
+  use TimeSeriesManagerModule, only: TimeSeriesManagerType, tsmanager_cr
   use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
   use PbstBaseModule, only: PbstBaseType, pbstbase_da
@@ -26,18 +28,19 @@ module LatHeatModule
   character(len=16) :: text = '          LHF'
 
   type, extends(PbstBaseType) :: LhfType
-    real(DP), pointer :: wfslope => null() !< ABC wind function slope
-    real(DP), pointer :: wfint => null() !< ABC wind function intercept 
-    real(DP), dimension(:), pointer, contiguous :: wspd => null() !< ABC wind speed
-    real(DP), dimension(:), pointer, contiguous :: tatm => null() !< ABC temperature of the atmosphere
-    real(DP), dimension(:), pointer, contiguous :: rh => null() !< ABC relative humidity
+      
+    real(DP), pointer :: wfslope => null() !< wind function slope
+    real(DP), pointer :: wfint => null() !< wind function intercept 
+    real(DP), dimension(:), pointer, contiguous :: wspd => null() !< wind speed
+    real(DP), dimension(:), pointer, contiguous :: tatm => null() !< temperature of the atmosphere
+    real(DP), dimension(:), pointer, contiguous :: rh => null() !< relative humidity
 
   contains
 
     procedure :: da => lhf_da
-    procedure :: ar_set_pointers => lhf_ar_set_pointers
+    procedure :: pbst_ar => lhf_ar_set_pointers
     procedure :: read_option => lhf_read_option
-    procedure :: get_pointer_to_value => lhf_get_pointer_to_value
+    !procedure :: get_pointer_to_value => lhf_get_pointer_to_value
     !procedure :: pbst_options => lhf_options
     !procedure :: subpck_set_stressperiod => lhf_set_stressperiod
     !procedure :: pbst_allocate_arrays => lhf_allocate_arrays
@@ -78,22 +81,25 @@ contains
     ! -- local
     character(len=LENMEMPATH) :: abcMemoryPath
     ! -- formats
-    character(len=*), parameter :: fmtlhf = &
-      "(1x,/1x,'LHF -- LATENT HEAT FLUX PACKAGE, VERSION 1, 08/19/2025', &
-      &' INPUT READ FROM UNIT ', i0, //)"
+    !character(len=*), parameter :: fmtlhf = &
     !
-    ! -- Print a message identifying the LHF package
-    write (this%iout, fmtlhf) this%inunit
+    ! -- print a message noting that the SHF utility is active
+    write (this%iout, '(a)') &
+      'LHF -- LATENT HEAT WILL BE INCLUDED IN THE ATMOSPHERIC BOUNDARY '// &
+      'CONDITIONS FOR THE STREAMFLOW ENERGY TRANSPORT PACKAGE'
     !
-    ! -- Set pointers to other package variables
-    ! -- ABC
+    ! -- set pointers to variables hosted in the ABC package
     abcMemoryPath = create_mem_path(this%name_model, 'ABC')
     call mem_setptr(this%wfslope, 'WFSLOPE', abcMemoryPath)
     call mem_setptr(this%wfint, 'WFINT', abcMemoryPath)
     call mem_setptr(this%wspd, 'WSPD', abcMemoryPath)
     call mem_setptr(this%tatm, 'TATM', abcMemoryPath)
     call mem_setptr(this%rh, 'RH', abcMemoryPath)
-   
+    !
+    ! -- create time series manager
+    call tsmanager_cr(this%tsmanager, this%iout, &
+                      removeTsLinksOnCompletion=.true., &
+                      extendTsToEndOfSimulation=.true.)
   end subroutine lhf_ar_set_pointers
   
   !> @brief Get an array value pointer given a variable name and node index
@@ -101,26 +107,25 @@ contains
   !! Return a pointer to the given node's value in the appropriate ABC array
   !! based on the given variable name string.
   !<
-  function lhf_get_pointer_to_value(this, n, varName) result(bndElem)
-    ! -- dummy
-    class(LhfType) :: this
-    integer(I4B), intent(in) :: n
-    character(len=*), intent(in) :: varName
-    ! -- return
-    real(DP), pointer :: bndElem
-    !
-    select case (varName)
-    case ('TATM')
-      bndElem => this%tatm(n)
-    case ('WSPD')
-      bndElem => this%wspd(n)
-    case ('RH')
-      bndElem => this%rh(n)  
-    case default
-      bndElem => null()
-    end select
-  end function lhf_get_pointer_to_value
-
+  !function lhf_get_pointer_to_value(this, n, varName) result(bndElem)
+  !  ! -- dummy
+  !  class(LhfType) :: this
+  !  integer(I4B), intent(in) :: n
+  !  character(len=*), intent(in) :: varName
+  !  ! -- return
+  !  real(DP), pointer :: bndElem
+  !  !
+  !  select case (varName)
+  !  case ('TATM')
+  !    bndElem => this%tatm(n)
+  !  case ('WSPD')
+  !    bndElem => this%wspd(n)
+  !  case ('RH')
+  !    bndElem => this%rh(n)  
+  !  case default
+  !    bndElem => null()
+  !  end select
+  !end function lhf_get_pointer_to_value
 
   !> @brief Calculate Latent Heat Flux
   !!
