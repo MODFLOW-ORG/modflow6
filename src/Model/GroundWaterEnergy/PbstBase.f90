@@ -30,11 +30,11 @@ module PbstBaseModule
 
   type, extends(NumericalPackageType) :: PbstBaseType
 
-    character(len=8), dimension(:), pointer, contiguous :: status => null() !< active, inactive, constant
-    character(len=LENPACKAGENAME) :: text = '' !< text string for package transport term
     integer(I4B), pointer :: ncv => null() !< number of control volumes
     integer(I4B), dimension(:), pointer, contiguous :: iboundpbst => null() !< package ibound
     logical, pointer, public :: active => null() !< logical indicating if a sensible heat flux object is active
+    character(len=8), dimension(:), pointer, contiguous :: status => null() !< active, inactive, constant
+    character(len=LENPACKAGENAME) :: text = '' !< text string for package transport term
     character(len=LINELENGTH), pointer, public :: inputFilename => null() !< a particular pbst input file name, could be for sensible heat flux or latent heat flux subpackages, for example
     type(TimeSeriesManagerType), pointer :: tsmanager => null()
     !
@@ -46,68 +46,14 @@ module PbstBaseModule
     procedure :: init
     procedure :: pbst_ar
     procedure :: rp
-    !procedure, private :: read_options
     procedure :: pbst_options
     procedure :: pbst_set_stressperiod
     procedure :: subpck_set_stressperiod
-    !procedure(read_option), deferred :: read_option
     procedure, private :: pbstbase_allocate_scalars
-    ! procedure :: pbst_allocate_arrays
     procedure :: da => pbstbase_da
     procedure :: pbst_check_valid
-    !procedure(ar_set_pointers), deferred :: ar_set_pointers
-    !procedure(get_pointer_to_value), deferred :: get_pointer_to_value
 
   end type PbstBaseType
-
-  !abstract interface
-
-  !> @brief Announce package and set pointers to variables
-    !!
-    !! Deferred procedure called by the PbstBaseType code to announce the
-    !! specific package version and set any required array and variable
-    !! pointers from other packages.
-    !<
-    !subroutine ar_set_pointers(this)
-    !  ! -- modules
-    !  import PbstBaseType
-    !  ! -- dummy
-    !  class(PbstBaseType) :: this
-    !end subroutine
-    
-     !> @brief Get an array value pointer given a variable name and node index
-    !!
-    !! Deferred procedure called by the PbstBaseType code to retrieve a pointer
-    !! to a given node's value for a given named variable.
-    !<
-    !function get_pointer_to_value(this, n, varName) result(bndElem)
-    !  ! -- modules
-    !  use KindModule, only: I4B, DP
-    !  import PbstBaseType
-    !  ! -- dummy
-    !  class(PbstBaseType) :: this
-    !  integer(I4B), intent(in) :: n
-    !  character(len=*), intent(in) :: varName
-    !  ! -- return
-    !  real(DP), pointer :: bndElem
-    !end function
-  
-    !> @brief Announce package and set pointers to variables
-    !!
-    !! Deferred procedure called by the PbstBaseType code to process a single
-    !! keyword from the OPTIONS block of the package input file.
-    !<
-    !function read_option(this, keyword) result(success)
-    !  ! -- modules
-    !  import PbstBaseType
-    !  ! -- dummy
-    !  class(PbstBaseType) :: this
-    !  character(len=*), intent(in) :: keyword
-    !  ! -- return
-    !  logical :: success
-    !end function
-
-  !end interface
 
 contains
 
@@ -135,19 +81,13 @@ contains
 
   !> @brief Allocate and read
   !!
-  !!  Method to allocate and read static data for the SHF package
+  !! Method to allocate and read static data for the PBST utility packages
   !<
   subroutine pbst_ar(this)
     ! -- dummy
     class(PbstBaseType) :: this !< ShfType object
     !
-    ! -- set pointers to other package variables
-    !call this%ar_set_pointers()
-    !
-    ! -- create time series manager
-    call tsmanager_cr(this%tsmanager, this%iout, &
-                      removeTsLinksOnCompletion=.true., &
-                      extendTsToEndOfSimulation=.true.)
+    ! -- will be overridden
   end subroutine pbst_ar
 
   !> @brief PaBST read and prepare for setting stress period information
@@ -157,7 +97,7 @@ contains
     use TimeSeriesManagerModule, only: read_value_or_time_series_adv
     use TdisModule, only: kper, nper
     ! -- dummy
-    class(PbstBaseType) :: this !< ShfType object
+    class(PbstBaseType) :: this !< PbstBaseType object
     ! -- local
     integer(I4B) :: ierr
     integer(I4B) :: n
@@ -202,7 +142,7 @@ contains
       end if
     end if
     !
-    ! --rRead data if ionper == kper
+    ! --read data if ionper == kper
     if (this%ionper == kper) then
       !
       ! -- setup table for period data
@@ -260,7 +200,7 @@ contains
 
   !> @brief pbst_set_stressperiod()
   !!
-  !! To be overridden by Pbst sub-packages
+  !! To be overridden by Pbst sub-packages (utilities)
   !<
   subroutine pbst_set_stressperiod(this, itemno)
     ! -- dummy

@@ -25,8 +25,6 @@ module AbcModule
   use ShortwaveModule, only: SwrType, swr_cr
   use LatHeatModule, only: LhfType, lhf_cr
   use LongwaveModule, only: LwrType, lwr_cr
-  !use BndModule, only: BndType, AddBndToList, GetBndFromList
-  !use TspAptModule, only: TspAptType
   use ObserveModule
   use BudgetObjectModule, only: BudgetObjectType, budgetobject_cr
   use NumericalPackageModule, only: NumericalPackageType
@@ -44,7 +42,6 @@ module AbcModule
 
   character(len=LENVARNAME) :: text = '          ABC'
 
-  !type, extends(NumericalPackageType) :: AbcType
   type, extends(BndType) :: AbcType
 
     type(GweInputDataType), pointer :: gwecommon => null() !< pointer to shared gwe data used by multiple packages but set in est
@@ -52,7 +49,6 @@ module AbcModule
     character(len=8), dimension(:), pointer, contiguous :: status => null() !< active, inactive, constant
     integer(I4B), pointer :: ncv => null() !< number of control volumes
     integer(I4B), dimension(:), pointer, contiguous :: iboundpbst => null() !< package ibound
-    !character(len=LENPACKAGENAME) :: text = '' !< text string for package transport term
     character(len=LINELENGTH), pointer, public :: inputFilename => null() !< a particular abc input file name, could be for sensible heat flux or latent heat flux subpackages, for example
     logical, pointer, public :: active => null() !< logical indicating if a atmospheric boundary condition object is active
     ! -- table objects
@@ -100,16 +96,10 @@ module AbcModule
     procedure, public :: abc_rp
     procedure :: abc_check_valid
     procedure :: bnd_options => abc_read_options
-    procedure :: read_option => abc_read_option ! reads stress period
-    procedure :: abc_read_options ! read options block
     procedure :: abc_set_stressperiod
     procedure :: abc_allocate_arrays
     procedure, private :: abc_allocate_scalars
     procedure, public :: abc_cq
-    !procedure, private :: abc_shf_term
-    !procedure, private :: abc_swr_term
-    !procedure, private :: abc_lhf_term
-    !procedure, private :: abc_lwr_term
 
   end type AbcType
 
@@ -465,9 +455,11 @@ contains
     this%shf_active = .false.
     this%swr_active = .false.
     this%lhf_active = .false.
+    this%lwr_active = .false.
     this%inshf = 1 ! Initialize to one for 'on'
     this%inswr = 1
     this%inlhf = 1
+    this%inlwr = 1
     ! -- initalize to SHF specific default values
     this%rhoa = 1.225 ! kg/m3
     this%cpa = 717.0 ! J/kg/C
@@ -520,7 +512,7 @@ contains
     call mem_allocate(this%atmc, 0, 'ATMC', this%memoryPath)
     !
     ! -- reallocate abc variables based on which calculations are used
-    write(*,*) "Here 1"
+    write (*, *) "Here 1"
     if (this%inshf /= 0 .or. this%inlhf /= 0) then
       call mem_reallocate(this%wspd, this%ncv, 'WSPD', this%memoryPath)
       do n = 1, this%ncv
@@ -562,19 +554,15 @@ contains
     end if
     !
     ! -- call utility ar routines if active
-    write(*,*) "Here 2"
     if (this%inshf /= 0) then
       call this%shf%pbst_ar()
     end if
-    !write(*,*) "Here 3"
     if (this%inswr /= 0) then
       call this%swr%pbst_ar()
     end if
-    !write(*,*) "Here 4"
     if (this%inlhf /= 0) then
       call this%lhf%pbst_ar()
     end if
-    write(*,*) "Here 5"
     if (this%inlwr /= 0) then
       call this%lwr%pbst_ar()
     end if
@@ -644,122 +632,7 @@ contains
     !
     ! -- Deallocate scalars in TspAptType
     call this%NumericalPackageType%da() ! this may not work -- revisit and cleanup !!!
-
-    ! -- Deallocate parent
-    !call pbstbase_da(this)
   end subroutine abc_da
-
-  !> @brief Read a ABC-specific option from the OPTIONS block
-  !!
-  !! Process a single ABC-specific option. Used when reading the OPTIONS block
-  !! of the ABC package input file.
-  !<
-  function abc_read_option(this, keyword) result(success)
-    ! -- dummy
-    class(AbcType) :: this
-    character(len=*), intent(in) :: keyword
-    ! -- return
-    logical :: success
-    !
-    ! -- There are no ABC-specific options, so just return false
-    success = .false.
-  end function abc_read_option
-
-  !> @brief Sensible Heat Flux (SHF) term
-  !<
-  !subroutine abc_shf_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
-  !  ! -- dummy
-  !  class(AbcType) :: this
-  !  integer(I4B), intent(in) :: ientry
-  !  integer(I4B), intent(inout) :: n1
-  !  integer(I4B), intent(inout) :: n2
-  !  real(DP), intent(inout), optional :: rrate
-  !  real(DP), intent(inout), optional :: rhsval
-  !  real(DP), intent(inout), optional :: hcofval
-  !  ! -- local
-  !  real(DP) :: sensheat
-  !  real(DP) :: strmtemp
-  !  integer(I4B) :: auxpos
-  !  real(DP) :: sa !< surface area of stream reach, different than wetted area
-  !  !
-  !  !n1 = this%flowbudptr%budterm(this%idxbudevap)%id1(ientry)
-  !  !! -- For now, there is only 1 aux variable under 'EVAPORATION'
-  !  !auxpos = this%flowbudptr%budterm(this%idxbudevap)%naux
-  !  !sa = this%flowbudptr%budterm(this%idxbudevap)%auxvar(auxpos, ientry)
-  !  !!
-  !  !strmtemp = this%xnewpak(n1)
-  !  !call this%shf%shf_cq(n1, strmtemp, sensheat)
-  !  !!
-  !  !if (present(rrate)) rrate = sensheat * sa
-  !  !if (present(rhsval)) rhsval = -rrate
-  !  !if (present(hcofval)) hcofval = DZERO
-  !end subroutine abc_shf_term
-
-  !> @brief Shortwave Radiation (SWR) term
-  !<
-  !subroutine abc_swr_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
-  !  ! -- dummy
-  !  class(AbcType) :: this
-  !  integer(I4B), intent(in) :: ientry
-  !  integer(I4B), intent(inout) :: n1
-  !  integer(I4B), intent(inout) :: n2
-  !  real(DP), intent(inout), optional :: rrate
-  !  real(DP), intent(inout), optional :: rhsval
-  !  real(DP), intent(inout), optional :: hcofval
-  !  ! -- local
-  !  real(DP) :: shrtwvheat
-  !  real(DP) :: strmtemp
-  !  integer(I4B) :: auxpos
-  !  real(DP) :: sa !< surface area of stream reach, different than wetted area
-  !  !
-  !  !n1 = this%flowbudptr%budterm(this%idxbudevap)%id1(ientry)
-  !  !! -- For now, there is only 1 aux variable under 'EVAPORATION'
-  !  !auxpos = this%flowbudptr%budterm(this%idxbudevap)%naux
-  !  !sa = this%flowbudptr%budterm(this%idxbudevap)%auxvar(auxpos, ientry)
-  !  !!
-  !  !strmtemp = this%xnewpak(n1)
-  !  !call this%swr%swr_cq(n1, shrtwvheat)
-  !  !!
-  !  !if (present(rrate)) rrate = shrtwvheat * sa
-  !  !if (present(rhsval)) rhsval = -rrate
-  !  !if (present(hcofval)) hcofval = DZERO
-  !end subroutine abc_swr_term
-
-  !> @brief Latent Heat Flux (LHF) term
-  !<
-  !subroutine abc_lhf_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
-  !  ! -- dummy
-  !  class(AbcType) :: this
-  !  integer(I4B), intent(in) :: ientry
-  !  integer(I4B), intent(inout) :: n1
-  !  integer(I4B), intent(inout) :: n2
-  !  real(DP), intent(inout), optional :: rrate
-  !  real(DP), intent(inout), optional :: rhsval
-  !  real(DP), intent(inout), optional :: hcofval
-  !  ! -- local
-  !  real(DP) :: latheat
-  !  real(DP) :: strmtemp
-  !  integer(I4B) :: auxpos
-  !  real(DP) :: sa !< surface area of stream reach, different than wetted area
-  !  !
-  !end subroutine abc_lhf_term
-
-  !subroutine abc_lwr_term(this, ientry, n1, n2, rrate, rhsval, hcofval)
-  !  ! -- dummy
-  !  class(AbcType) :: this
-  !  integer(I4B), intent(in) :: ientry
-  !  integer(I4B), intent(inout) :: n1
-  !  integer(I4B), intent(inout) :: n2
-  !  real(DP), intent(inout), optional :: rrate
-  !  real(DP), intent(inout), optional :: rhsval
-  !  real(DP), intent(inout), optional :: hcofval
-  !  ! -- local
-  !  real(DP) :: longwvheat
-  !  real(DP) :: strmtemp
-  !  integer(I4B) :: auxpos
-  !  real(DP) :: sa !< surface area of stream reach, different than wetted area
-  !  !
-  !end subroutine abc_lwr_term
 
   !> @brief Observations
   !!
@@ -853,16 +726,14 @@ contains
     real(DP) :: lhflx
     real(DP) :: lwrflx
     !
+    ! -- calculate shortwave radiation using HGS equation
+    call this%swr%swr_cq(ifno, swrflx)
+    !
     ! -- calculate longwave radiation
-    write(*,*) "Here 6"
     call this%lwr%lwr_cq(ifno, tstrm, lwrflx)
-    write(*,*) "Here 7"
     !
     ! -- calculate sensible heat flux using HGS equation
     call this%shf%shf_cq(ifno, tstrm, shflx)
-    !
-    ! -- calculate shortwave radiation using HGS equation
-    call this%swr%swr_cq(ifno, swrflx)
     !
     ! -- calculate latent heat flux using Dalton-like mass transfer equation
     call this%lhf%lhf_cq(ifno, tstrm, this%gwecommon%gwerhow, lhflx)
@@ -878,12 +749,10 @@ contains
     ! -- dummy
     class(AbcType), intent(inout) :: this
     integer(I4B), intent(in) :: itemno
-    !character(len=*), intent(in) :: keyword
     !logical, intent(inout) :: found
     ! -- local
     character(len=LINELENGTH) :: text
     character(len=LINELENGTH) :: keyword
-    !logical(LGP) :: found
     integer(I4B) :: ierr
     integer(I4B) :: jj
     real(DP), pointer :: bndElem => null()
@@ -1010,7 +879,7 @@ contains
     ! -- dummy
     class(AbcType), intent(inout) :: this
     integer(I4B), intent(in) :: itemno
-    ! -- formats
+    !
     ierr = 0
     if (itemno < 1 .or. itemno > this%ncv) then
       write (errmsg, '(a,1x,i6,1x,a,1x,i6)') &

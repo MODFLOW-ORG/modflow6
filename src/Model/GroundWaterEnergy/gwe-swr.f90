@@ -20,8 +20,6 @@ module ShortwaveModule
 
   implicit none
 
-  private
-
   public :: SwrType
   public :: swr_cr
 
@@ -37,12 +35,6 @@ module ShortwaveModule
 
     procedure :: da => swr_da
     procedure :: pbst_ar => swr_ar_set_pointers
-    procedure :: read_option => swr_read_option
-    !procedure :: get_pointer_to_value => swr_get_pointer_to_value
-    !procedure :: pbst_options => swr_options
-    !procedure :: subpck_set_stressperiod => swr_set_stressperiod
-    !procedure :: pbst_allocate_arrays => swr_allocate_arrays
-    !procedure, private :: swr_allocate_scalars
     procedure, public :: swr_cq
 
   end type SwrType
@@ -65,12 +57,9 @@ contains
     allocate (this)
     call this%init(name_model, 'SWR', 'SWR', inunit, iout, ncv)
     this%text = text
-    !
-    ! -- allocate scalars
-    !call swr%swr_allocate_scalars()
   end subroutine swr_cr
 
-   !> @brief Announce package and set pointers to variables
+  !> @brief Announce package and set pointers to variables
   !!
   !! Announce package version and set array and variable pointers from the ABC
   !! package for access by SWR.
@@ -80,13 +69,11 @@ contains
     class(SwrType) :: this
     ! -- local
     character(len=LENMEMPATH) :: abcMemoryPath
-    ! -- formats
-    ! character(len=*), parameter :: fmtswr = &
     !
-    ! -- Print a message noting that the SWR utility is active
+    ! -- print a message noting that the SWR utility is active
     write (this%iout, '(a)') &
       'SWR -- SHORTWAVE RADIATION WILL BE INCLUDED IN THE ATMOSPHERIC '// &
-      'BOUNDARY CONDITIONS FOR THE STREAMFLOW ENERGY TRANSPORT PACKAGE'  
+      'BOUNDARY CONDITIONS FOR THE STREAMFLOW ENERGY TRANSPORT PACKAGE'
     !
     ! -- Set pointers to variables hosted in the ABC package
     abcMemoryPath = create_mem_path(this%name_model, 'ABC')
@@ -99,140 +86,6 @@ contains
                       removeTsLinksOnCompletion=.true., &
                       extendTsToEndOfSimulation=.true.)
   end subroutine swr_ar_set_pointers
-  
-  !> @brief Get an array value pointer given a variable name and node index
-  !!
-  !! Return a pointer to the given node's value in the appropriate ABC array
-  !! based on the given variable name string.
-  !<
-  !function swr_get_pointer_to_value(this, n, varName) result(bndElem)
-  !  ! -- dummy
-  !  class(SwrType) :: this
-  !  integer(I4B), intent(in) :: n
-  !  character(len=*), intent(in) :: varName
-  !  ! -- return
-  !  real(DP), pointer :: bndElem
-  !  !
-  !  select case(varName)
-  !      case default
-  !      bndElem => null()
-  !  end select
-  !end function
-  
-  !function swr_get_pointer_to_value(this, n, varName) result(bndElem)
-  !  ! -- dummy
-  !  class(SwrType) :: this
-  !  integer(I4B), intent(in) :: n
-  !  character(len=*), intent(in) :: varName
-  !  ! -- return
-  !  real(DP), pointer :: bndElem
-  !  !
-  !  select case (varName)
-  !  case ('TATM')
-  !    bndElem => this%tatm(n)
-  !  case ('WSPD')
-  !    bndElem => this%wspd(n)
-  !  case default
-  !    bndElem => null()
-  !  end select
-  !end function shf_get_pointer_to_value
-
-  !> @brief Allocate scalars specific to the streamflow energy transport (SFE)
-  !! package.
-  !! NO SCALARS IN THIS YET
-  !<
-  !subroutine swr_allocate_scalars(this)
-  ! -- modules
-  !use MemoryManagerModule, only: mem_allocate
-  ! -- dummy
-  !class(SwrType) :: this
-  !
-  ! -- allocate
-  !call mem_allocate(this%solr, 'SOLR', this%memoryPath)
-  !call mem_allocate(this%shd, 'SHD', this%memoryPath)
-  !call mem_allocate(this%swrefl, 'SWREFL', this%memoryPath)
-  !
-  ! -- initialize to default values
-  !this%solr = 600 ! W/m3
-  !this%shd = 0.25 ! dimensionless fraction
-  !this%swrefl = 0.03 ! dimensionless fraction
-  !end subroutine swr_allocate_scalars
-
-  !> @brief Allocate arrays specific to the sensible heat flux (SWR) package
-  !<
-  !subroutine swr_allocate_arrays(this)
-  !  ! -- modules
-  !  use MemoryManagerModule, only: mem_allocate
-  !  ! -- dummy
-  !  class(SwrType), intent(inout) :: this
-  !  ! -- local
-  !  integer(I4B) :: n
-  !  !
-  !  ! -- time series
-  !  call mem_allocate(this%solr, this%ncv, 'SOLR', this%memoryPath)
-  !  call mem_allocate(this%shd, this%ncv, 'SHD', this%memoryPath)
-  !  call mem_allocate(this%swrefl, this%ncv, 'SWREFL', this%memoryPath)
-  !  !
-  !  ! -- initialize
-  !  do n = 1, this%ncv
-  !    this%solr(n) = DZERO
-  !    this%shd(n) = DZERO
-  !    this%swrefl(n) = DZERO
-  !  end do
-  !end subroutine
-
-  !> @brief Set options specific to the SwrType
-  !!
-  ! NOT USED RIGHT NOW BECAUSE NO CONSTANTS
-  !! This routine overrides PbstBaseType%bnd_options
-  !<
-  !subroutine swr_options(this, option, found)
-  ! -- dummy
-  !  class(SwrType), intent(inout) :: this
-  !  character(len=*), intent(inout) :: option
-  !  logical, intent(inout) :: found
-  !
-  !  found = .true.
-  !  select case (option)
-  !  case ('DENSITY_AIR')
-  !    this%rhoa = this%parser%GetDouble()
-  !    if (this%rhoa <= 0.0) then
-  !      write (errmsg, '(a)') 'Specified value for the density of &
-  !        &the atmosphere must be greater than 0.0.'
-  !      call store_error(errmsg)
-  !      call this%parser%StoreErrorUnit()
-  !    else
-  !      write (this%iout, '(4x,a,1pg15.6)') &
-  !        "The density of the atmosphere has been set to: ", this%rhoa
-  !    end if
-  !  case ('HEAT_CAPACITY_AIR')
-  !    this%cpa = this%parser%GetDouble()
-  !    if (this%cpa <= 0.0) then
-  !      write (errmsg, '(a)') 'Specified value for the heat capacity of &
-  !        &the atmosphere must be greater than 0.0.'
-  !      call store_error(errmsg)
-  !      call this%parser%StoreErrorUnit()
-  !    else
-  !      write (this%iout, '(4x,a,1pg15.6)') &
-  !        "The heat capacity of the atmosphere has been set to: ", this%cpa
-  !    end if
-  !  case ('DRAG_COEFFICIENT')
-  !    this%cd = this%parser%GetDouble()
-  !    if (this%cd <= 0.0) then
-  !      write (errmsg, '(a)') 'Specified value for the drag coefficient &
-  !        &must be greater than 0.0.'
-  !      call store_error(errmsg)
-  !      call this%parser%StoreErrorUnit()
-  !    else
-  !      write (this%iout, '(4x,a,1pg15.6)') &
-  !        "The heat capacity of the atmosphere has been set to: ", this%cpa
-  !    end if
-  !  case default
-  !    write (errmsg, '(a,a)') 'Unknown SHF option: ', trim(option)
-  !    call store_error(errmsg)
-  !    call this%parser%StoreErrorUnit()
-  !  end select
-  ! end subroutine swr_options
 
   !> @brief Calculate Shortwave Radiation Heat Flux
   !!
@@ -242,10 +95,7 @@ contains
     ! -- dummy
     class(SwrType), intent(inout) :: this
     integer(I4B), intent(in) :: ifno !< stream reach integer id
-    !real(DP), intent(in) :: tstrm !< temperature of the stream reach
     real(DP), intent(inout) :: swrflx !< calculated shortwave radiation heat flux amount
-    ! -- local
-    !real(DP) :: swr_const
     !
     ! -- calculate shortwave radiation heat flux (version: user input of sol rad data)
     swrflx = (1 - this%shd(ifno)) * (1 - this%swrefl(ifno)) * this%solr(ifno)
@@ -256,103 +106,16 @@ contains
   !! Deallocate TVK package scalars and arrays.
   !<
   subroutine swr_da(this)
-    ! -- modules
-    !use MemoryManagerModule, only: mem_deallocate
     ! -- dummy
     class(SwrType) :: this
     !
-    ! -- Nullify pointers to other package variables
-    !call mem_deallocate(this%rhoa)
-    !call mem_deallocate(this%cpa)
-    !call mem_deallocate(this%cd)
-    !
-    ! -- Deallocate time series
+    ! -- deallocate time series
     nullify (this%shd)
     nullify (this%swrefl)
     nullify (this%solr)
     !
-    ! -- Deallocate parent
+    ! -- deallocate parent
     call pbstbase_da(this)
   end subroutine swr_da
-
-  !> @brief Read a SWR-specific option from the OPTIONS block
-  !!
-  !! Process a single SWR-specific option. Used when reading the OPTIONS block
-  !! of the SWR package input file.
-  !<
-  function swr_read_option(this, keyword) result(success)
-    ! -- dummy
-    class(SwrType) :: this
-    character(len=*), intent(in) :: keyword
-    ! -- return
-    logical :: success
-    !
-    ! -- There are no SWR-specific options, so just return false
-    success = .false.
-  end function swr_read_option
-
-  !> @brief Set the stress period attributes based on the keyword
-  !<
-!  subroutine swr_set_stressperiod(this, itemno, keyword, found)
-!    ! -- module
-!    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-!    ! -- dummy
-!    class(SwrType), intent(inout) :: this
-!    integer(I4B), intent(in) :: itemno
-!    character(len=*), intent(in) :: keyword
-!    logical, intent(inout) :: found
-!    ! -- local
-!    character(len=LINELENGTH) :: text
-!    integer(I4B) :: ierr
-!    integer(I4B) :: jj
-!    real(DP), pointer :: bndElem => null()
-!    !
-!    ! <shd> SHADE
-!    ! <swrefl> REFLECTANCE OF SHORTWAVE RADIATION OFF WATER SURFACE
-!    ! <solr> SOLAR RADIATION
-!    !
-!    found = .true.
-!    select case (keyword)
-!    case ('SHD')
-!      ierr = this%pbst_check_valid(itemno)
-!      if (ierr /= 0) then
-!        goto 999
-!      end if
-!      call this%parser%GetString(text)
-!      jj = 1
-!      bndElem => this%shd(itemno)
-!      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-!                                         this%packName, 'BND', this%tsManager, &
-!                                         this%iprpak, 'SHD')
-!    case ('SWREFL')
-!      ierr = this%pbst_check_valid(itemno)
-!      if (ierr /= 0) then
-!        goto 999
-!      end if
-!      call this%parser%GetString(text)
-!      jj = 1
-!      bndElem => this%swrefl(itemno)
-!      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-!                                         this%packName, 'BND', this%tsManager, &
-!                                         this%iprpak, 'SWREFL')
-!    case ('SOLR')
-!      ierr = this%pbst_check_valid(itemno)
-!      if (ierr /= 0) then
-!        goto 999
-!      end if
-!      call this%parser%GetString(text)
-!      jj = 1
-!      bndElem => this%solr(itemno)
-!      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-!                                         this%packName, 'BND', this%tsManager, &
-!                                         this%iprpak, 'SOLR')
-!    case default
-!      !
-!      ! -- Keyword not recognized so return to caller with found = .false.
-!      found = .false.
-!    end select
-!    !
-!999 continue
-!  end subroutine swr_set_stressperiod
 
 end module ShortwaveModule
