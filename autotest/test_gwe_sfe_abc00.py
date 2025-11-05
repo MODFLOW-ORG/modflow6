@@ -1,10 +1,10 @@
-# Test the use of the atmospheric boundary condition utility used in conjunction
-# with the SFE advanced package.  This test is a single cell with a single
-# reach.  Channel flow characteristics are unrealistic: Manning's n is
-# unrealistically low and slope is extremely high. These conditions result in
-# an extremely high streamflow velocity that results in nearly all of the heat
-# being added to the channel exiting at the outlet with very near negligle heat
-# storage increases in the channel. This test only uses latent heat flux (lhf).
+# Test the use of the atmospheric boundary condition utility used in conjunction with
+# the SFE advanced package.  This test is a single cell with a single reach.
+# Channel flow characteristics are unrealistic: Manning's n is unrealistically
+# low and slope is extremely high. These conditions result in an extremely high
+# streamflow velocity that results in nearly all of the heat being added to the
+# channel exiting at the outlet with very near negligle heat storage increases
+# in the channel. This test only uses latent heat flux (lhf).
 # The result is a -1 deg C change in temperature in the
 # streamflow - an easy result to confirm in this test.
 
@@ -17,15 +17,14 @@ import pandas as pd
 import pytest
 from framework import TestFramework
 
-cases = ["sfe-abc", "sfe-abc-fah", "sfe-abc-cel"]
-
-DCTOK = 273.15
+cases = ["sfe-abc"]
 
 # Model units
 length_units = "m"
 time_units = "seconds"
 
 # model domain and grid definition
+
 nrow = 1
 ncol = 1
 nlay = 1
@@ -55,14 +54,11 @@ rhk = 0.0
 rwid = 1.0
 strm_temp = 11.0
 surf_Q_in = [
-    [10.0],[10.0],[10.0],
+    [10.0],
 ]
 # sensible and latent heat flux parameter values
 wspd = 126005.30  # unrealistically high to drive a -1C change
-tatm = [5.0 + DCTOK, 41.0, 5.0]
-#                       K,             F,      C
-temperature_offset = [0.0, 255.372222222, 273.15]
-temperature_factor = [1.0, 0.55555555556, 1.0000]
+tatm = 5.0
 # shortwave radiation parameter values
 solr = 47880870.9  # unrealistically high to drive a 1 deg C rise in stream temperature
 shd = 1.0  # 100% shade "turns off" solar flux
@@ -394,7 +390,7 @@ def build_models(idx, test):
         spd = []
         for irno in range(ncol):
             spd.append([irno, "WSPD", wspd])
-            spd.append([irno, "TATM", tatm[idx]])
+            spd.append([irno, "TATM", tatm])
             spd.append([irno, "SOLR", solr])
             spd.append([irno, "SHD", shd])
             spd.append([irno, "SWREFL", swrefl])
@@ -409,8 +405,6 @@ def build_models(idx, test):
         drag_coefficient=c_d,
         wind_func_slope=wf_slope,
         wind_func_int=wf_int,
-        temperature_factor=temperature_factor[idx],
-        temperature_offset=temperature_offset[idx],
         reachperioddata=abc_spd,
         filename=abc_filename,
     )
@@ -441,12 +435,12 @@ def build_models(idx, test):
 # sim.write_simulation()
 
 
-def calc_ener_transfer(idx, updated_strm_temp, mf_strm_wid):
-    L = 2499.64 - (2.51 * (updated_strm_temp - DCTOK))
+def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
+    L = (2499.64 - (2.51 * updated_strm_temp)) * 1000
     e_w = 6.1275 * math.exp(
-        17.2693882 * ((updated_strm_temp - DCTOK) / (updated_strm_temp - 35.86))
+        17.2693882 * (updated_strm_temp / (updated_strm_temp + 273.16 - 35.86))
     )
-    e_s = 6.1275 * math.exp(17.2693882 * ((tatm[idx] - DCTOK) / (tatm[idx] - 35.86)))
+    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + 273.16 - 35.86)))
     e_a = (rh / 100) * e_s
     vap_press_deficit = e_w - e_a
     wind_function = wf_int + wf_slope * wspd
@@ -479,7 +473,7 @@ def check_output(idx, test):
     # confirm that the energy added to the stream results in a -1C change in temp
     # temperature gradient
 
-    tgrad = (tatm[idx] - DCTOK) - strm_temp
+    tgrad = tatm - strm_temp
     shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
     swr_ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
 
@@ -488,7 +482,7 @@ def check_output(idx, test):
     strt_strm_temp = strm_temp
     updated_strm_temp = strm_temp
     while chng > hclose:
-        ener_transfer = calc_ener_transfer(idx, updated_strm_temp + DCTOK, mf_strm_wid)
+        ener_transfer = calc_ener_transfer(updated_strm_temp, mf_strm_wid)
         temp_change = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
         updated_temp = strt_strm_temp + temp_change
         chng = abs(updated_strm_temp - updated_temp)
@@ -500,9 +494,9 @@ def check_output(idx, test):
 
     # confirm 1 deg C decrease in temp
 
-    msg1 = "Python Delta temp = " + str(temp_change)
-    msg2 = "MF6 temp = " + str(df2.loc[0, "RCH1_OUTFTEMP"])
-    msg3 = "MF6 Delta temp: " + str(
+    msg1 = "Python temperature change is = " + str(temp_change)
+    msg2 = "MODFLOW temperature = " + str(df2.loc[0, "RCH1_OUTFTEMP"])
+    msg3 = "MODFLOW temperature change is " + str(
         strm_temp - df2.loc[0, "RCH1_OUTFTEMP"]
     )
 
