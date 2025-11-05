@@ -19,8 +19,6 @@ module LatHeatModule
   use PbstBaseModule, only: PbstBaseType, pbstbase_da
 
   implicit none
-  
-  private
 
   public :: LhfType
   public :: lhf_cr
@@ -28,9 +26,9 @@ module LatHeatModule
   character(len=16) :: text = '          LHF'
 
   type, extends(PbstBaseType) :: LhfType
-      
+
     real(DP), pointer :: wfslope => null() !< wind function slope
-    real(DP), pointer :: wfint => null() !< wind function intercept 
+    real(DP), pointer :: wfint => null() !< wind function intercept
     real(DP), dimension(:), pointer, contiguous :: wspd => null() !< wind speed
     real(DP), dimension(:), pointer, contiguous :: tatm => null() !< temperature of the atmosphere
     real(DP), dimension(:), pointer, contiguous :: rh => null() !< relative humidity
@@ -39,12 +37,6 @@ module LatHeatModule
 
     procedure :: da => lhf_da
     procedure :: pbst_ar => lhf_ar_set_pointers
-    procedure :: read_option => lhf_read_option
-    !procedure :: get_pointer_to_value => lhf_get_pointer_to_value
-    !procedure :: pbst_options => lhf_options
-    !procedure :: subpck_set_stressperiod => lhf_set_stressperiod
-    !procedure :: pbst_allocate_arrays => lhf_allocate_arrays
-    !procedure, private :: lhf_allocate_scalars
     procedure, public :: lhf_cq
 
   end type LhfType
@@ -80,8 +72,6 @@ contains
     class(LhfType) :: this
     ! -- local
     character(len=LENMEMPATH) :: abcMemoryPath
-    ! -- formats
-    !character(len=*), parameter :: fmtlhf = &
     !
     ! -- print a message noting that the SHF utility is active
     write (this%iout, '(a)') &
@@ -101,31 +91,6 @@ contains
                       removeTsLinksOnCompletion=.true., &
                       extendTsToEndOfSimulation=.true.)
   end subroutine lhf_ar_set_pointers
-  
-  !> @brief Get an array value pointer given a variable name and node index
-  !!
-  !! Return a pointer to the given node's value in the appropriate ABC array
-  !! based on the given variable name string.
-  !<
-  !function lhf_get_pointer_to_value(this, n, varName) result(bndElem)
-  !  ! -- dummy
-  !  class(LhfType) :: this
-  !  integer(I4B), intent(in) :: n
-  !  character(len=*), intent(in) :: varName
-  !  ! -- return
-  !  real(DP), pointer :: bndElem
-  !  !
-  !  select case (varName)
-  !  case ('TATM')
-  !    bndElem => this%tatm(n)
-  !  case ('WSPD')
-  !    bndElem => this%wspd(n)
-  !  case ('RH')
-  !    bndElem => this%rh(n)  
-  !  case default
-  !    bndElem => null()
-  !  end select
-  !end function lhf_get_pointer_to_value
 
   !> @brief Calculate Latent Heat Flux
   !!
@@ -146,21 +111,19 @@ contains
     real(DP) :: evap_rate
     real(DP) :: test_mult
     !
-    ! -- calculate latent heat flux using mass transfer equation
-    !! EQ BASED ON TEMPERATURES IN CELSIUS
-    ! -- temperature dependent latent heat of vaporization:
-    !test_mult = 2.51*tstrm
-    
-    latent_heat_vap = (2499.64_DP - (2.51_DP*tstrm))*1000.0_DP ! tstrm in C
-    !latent_heat_vap = 2449440.0
-    
-    sat_vap_tw = 6.1275_DP*exp(17.2693882_DP*((tstrm)/(tstrm + DCTOK - 35.86_DP)))
-    sat_vap_ta = 6.1275_DP*exp(17.2693882_DP*((this%tatm(ifno))/(this%tatm(ifno) + DCTOK - 35.86_DP)))
-    
-    amb_vap_atm = (this%rh(ifno)/100.0_DP)*sat_vap_ta
-    
-    evap_rate = (this%wfint + this%wfslope*this%wspd(ifno))*(sat_vap_tw - amb_vap_atm)
-    
+    latent_heat_vap = (2499.64_DP - (2.51_DP * tstrm)) * 1000.0_DP ! tstrm in C
+    !
+    sat_vap_tw = 6.1275_DP * exp(17.2693882_DP * &
+                                 (tstrm / (tstrm + DCTOK - 35.86_DP)))
+    sat_vap_ta = 6.1275_DP * &
+                 exp(17.2693882_DP * &
+                     (this%tatm(ifno) / (this%tatm(ifno) + DCTOK - 35.86_DP)))
+
+    amb_vap_atm = this%rh(ifno) / 100.0_DP * sat_vap_ta
+
+    evap_rate = (this%wfint + this%wfslope * this%wspd(ifno)) * &
+                (sat_vap_tw - amb_vap_atm)
+
     lhflx = evap_rate * latent_heat_vap * rhow
   end subroutine lhf_cq
 
@@ -171,32 +134,16 @@ contains
   subroutine lhf_da(this)
     ! -- dummy
     class(LhfType) :: this
-    !  
-    ! -- Nullify pointers to other package variables
+    !
+    ! -- nullify pointers to other package variables
     nullify (this%wfint)
     nullify (this%wfslope)
     nullify (this%wspd)
     nullify (this%tatm)
     nullify (this%rh)
     !
-    ! -- Deallocate parent
+    ! -- deallocate parent
     call pbstbase_da(this)
   end subroutine lhf_da
-
-  !> @brief Read a LHF-specific option from the OPTIONS block
-  !!
-  !! Process a single LHF-specific option. Used when reading the OPTIONS block
-  !! of the LHF package input file.
-  !<
-  function lhf_read_option(this, keyword) result(success)
-    ! -- dummy
-    class(LhfType) :: this
-    character(len=*), intent(in) :: keyword
-    ! -- return
-    logical :: success
-    !
-    ! -- There are no LHF-specific options, so just return false
-    success = .false.
-  end function lhf_read_option
 
 end module LatHeatModule
