@@ -9,7 +9,7 @@
 module PbstBaseModule
   use ConstantsModule, only: LINELENGTH, MAXCHARLEN, DZERO, LGP, &
                              LENPACKAGENAME, TABLEFT, TABCENTER, &
-                             LENVARNAME
+                             LENVARNAME, DCTOK, DHUNDRED
   use KindModule, only: I4B, DP
   use NumericalPackageModule, only: NumericalPackageType
   use SimModule, only: count_errors, store_error, ustop
@@ -52,6 +52,10 @@ module PbstBaseModule
     procedure, private :: pbstbase_allocate_scalars
     procedure :: da => pbstbase_da
     procedure :: pbst_check_valid
+    procedure, public :: eair !< function for calculating vapor pressure for a specified temperature
+    procedure, public :: eatm !< funciton for calculating ambient vapor pressure of the atmosphere
+    procedure, public :: epsa !< function for calculating atmospheric emissivity
+    procedure, public :: epss !< function for calculating shade-weighted atmospheric emissivity
 
   end type PbstBaseType
 
@@ -366,5 +370,73 @@ contains
       ierr = 1
     end if
   end function pbst_check_valid
+
+  !> @brief Calculate saturation vapor pressure
+  !!
+  !! Calculate vapor pressure for a passed-in temperature.  Calculated using
+  !! the Magnus-Tetens formula (Buck, 1981)
+  !<
+  function eair(this, tempc, tempk)
+    ! -- dummy
+    class(PbstBaseType) :: this
+    real(DP) :: tempc !< temperature in Celcius
+    real(DP) :: tempk !< temperature in Kelvin
+    ! -- return
+    real(DP) :: eair
+    !
+    eair = 6.1275_DP * exp(17.2693882_DP * (tempc / (tempk - 35.86_DP)))
+  end function eair
+
+  !> @brief Calculate ambient vapor pressure
+  !!
+  !! Calculate ambient vapor pressure of the atmosphere as a function of
+  !! relative humidity and saturation vapor pressure of the atmosphere
+  !<
+  function eatm(this, rh, eair)
+    ! -- dummy
+    class(PbstBaseType) :: this
+    real(DP) :: rh
+    real(DP) :: eair
+    ! -- return
+    real(DP) :: eatm
+    !
+    eatm = rh / DHUNDRED * eair
+  end function
+
+  !> @brief Calculate atmospheric emissivity
+  !!
+  !! Atmospheric emissivity is highly dependent upon ambient vapor
+  !! concentration of the air (Campbell and Norman 1989). Estimated
+  !! clear-sky emissivity is calculated using (Brutsaert and Jirka 1984)
+  !<
+  function epsa(this, eatm, tatm, atmc)
+    ! -- dummy
+    class(PbstBaseType) :: this
+    real(DP) :: atmc
+    real(DP) :: eatm
+    real(DP) :: tatm
+    ! -- return
+    real(DP) :: epsa !< atmospheric emissivity
+    !
+    epsa = 1.24_DP * (eatm / tatm)**(1 / 7) * atmc
+  end function epsa
+
+  !> @brief Calculate shade-altered emissivity
+  !!
+  !! Riparian shade can alter the above-channel emissivity which therefore
+  !! affects the net longwave heat flux.  Emissivity above the stream channel
+  !! is the combination of shade-weighted average of clear sky  atmospheric
+  !! emissivity (epsa) and riparian canopy emissivity
+  function epss(this, shd, epsa, epsr)
+    ! -- dummy
+    class(PbstBaseType) :: this
+    real(DP) :: shd
+    real(DP) :: epsa !< atmospheric emissivity
+    real(DP) :: epsr !< riparian canopy emissivity
+    ! -- return
+    real(DP) :: epss !< shade weighted atmospheric emissivity
+    !
+    epss = (1 - shd) * epsa + shd * epsr
+  end function epss
 
 end module PbstBaseModule

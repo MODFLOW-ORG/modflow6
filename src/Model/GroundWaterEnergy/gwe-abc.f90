@@ -167,23 +167,7 @@ contains
     ! -- print a message identifying the apt package.
     write (this%iout, fmtapt) this%inunit
     !
-    ! -- Set pointers to SHF package variables
-    !if (this%inshf) then
-    !  call this%shf%ar()
-    !end if
-    ! -- Set pointers to LHF package variables
-    !if (this%inlhf) then
-    !  call this%lhf%ar()
-    !end if
-    ! -- Set pointers to LWR package variables
-    !if (this%inlwr) then
-    !  call this%lwr%ar()
-    !end if
-    !
-    ! -- Allocate arrays
-    !call this%pbst_allocate_arrays()
-    !
-    ! -- Read options
+    ! -- read options
     !call this%read_options()
   end subroutine ar
 
@@ -512,7 +496,6 @@ contains
     call mem_allocate(this%atmc, 0, 'ATMC', this%memoryPath)
     !
     ! -- reallocate abc variables based on which calculations are used
-    write (*, *) "Here 1"
     if (this%inshf /= 0 .or. this%inlhf /= 0) then
       call mem_reallocate(this%wspd, this%ncv, 'WSPD', this%memoryPath)
       do n = 1, this%ncv
