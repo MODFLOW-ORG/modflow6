@@ -11,7 +11,7 @@
 module LongwaveModule
 
   use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, LENVARNAME, &
-                             DSTEFANBOLTZMANN, DCTOK
+                             DSTEFANBOLTZMANN, DCTOK, DFOUR
   use KindModule, only: I4B, DP
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
@@ -19,7 +19,7 @@ module LongwaveModule
   use TimeSeriesManagerModule, only: TimeSeriesManagerType, tsmanager_cr
   use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
-  use PbstBaseModule, only: PbstBaseType, pbstbase_da
+  use PbstBaseModule !, only: PbstBaseType, pbstbase_da
 
   implicit none
 
@@ -43,6 +43,7 @@ module LongwaveModule
     procedure :: da => lwr_da
     procedure :: pbst_ar => lwr_ar_set_pointers
     procedure, public :: lwr_cq
+    procedure, private :: lwr
 
   end type LwrType
 
@@ -120,18 +121,26 @@ contains
     real(DP) :: lwrstrm
     !
     ! -- intermediate calculations
-    sat_vap_ta = 6.1275_DP * &
-                 exp(17.2693882_DP * (this%tatm(ifno) / &
-                                      (this%tatm(ifno) + DCTOK - 35.86_DP)))
-    amb_vap_atm = (this%rh(ifno) / 100.0_DP) * sat_vap_ta
-    emissa = 1.24_DP * this%atmc(ifno) * amb_vap_atm / this%tatm(ifno)**(1 / 7)
     !
-    emisss = (1 - this%shd(ifno)) * emissa + this%shd(ifno) * this%emissr
+    ! -- saturation vapor pressure for a specified atmospheric temperature (A.19 & A.20)
+    sat_vap_ta = this%eair(this%tatm(ifno), this%tatm(ifno) + DCTOK)
     !
-    lwratm = emisss * DSTEFANBOLTZMANN * this%tatm(ifno)**4
-    lwrstrm = -this%emissw * DSTEFANBOLTZMANN * tstrm**4
+    ! -- ambient vap pres of the atmosphere as a func of relative humidity (A.18)
+    amb_vap_atm = this%eatm(this%rh(ifno), sat_vap_ta)
     !
-    ! -- calculate longwave radiation heat flux
+    ! -- atmospheric emissivity (A.14)
+    emissa = this%epsa(amb_vap_atm, this%tatm(ifno) + DCTOK, this%atmc(ifno))
+    !
+    ! -- shade-altered above-channel emissivity [Eq. 3, Fogg et al. (2023)]
+    emisss = this%epss(this%shd(ifno), emissa, this%emissr)
+    !
+    ! -- long wave radiation transmitted from the atmosphere to the water surface (A.12)
+    lwratm = this%lwr(emisss, this%tatm(ifno))
+    !
+    ! -- long wave radiation transmitted from water surface to the atmosphere (A.13)
+    lwrstrm = this%lwr(-this%emissw, tstrm)
+    !
+    ! -- longwave radiation heat flux
     lwrflx = lwratm * (1 - this%lwrefl) + lwrstrm
   end subroutine lwr_cq
 
@@ -155,5 +164,21 @@ contains
     ! -- deallocate parent
     call pbstbase_da(this)
   end subroutine lwr_da
+
+  !> @brief Calculate longwave radiation
+  !!
+  !! Function for calculating incoming or outgoing longwave radiation
+  !<
+  function lwr(this, eps, temp)
+    ! -- dummy
+    class(LwrType) :: this
+    real(DP) :: eps !< epsilon, representing either emissivity of the atmosphere or the shade-weighted emissivity of the atm
+    real(DP) :: temp !< temperature, representing either the temperature of the stream or the atmosphere
+    ! -- return
+    real(DP) :: lwr !< longwave radiation
+    !
+    ! -- generalized equation for calculating longwave radiation
+    lwr = eps * DSTEFANBOLTZMANN * temp**DFOUR
+  end function lwr
 
 end module LongwaveModule
