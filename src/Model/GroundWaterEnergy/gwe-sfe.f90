@@ -74,7 +74,7 @@ module GweSfeModule
     integer(I4B), pointer :: idxbudoutf => null() !< index of outflow terms in flowbudptr
 
     logical, pointer, public :: abc_active => null() !< logical indicating if an atmospheric boundary condition object is active
-    
+
     real(DP), dimension(:), pointer, contiguous :: temprain => null() !< rainfall temperature
     real(DP), dimension(:), pointer, contiguous :: tempevap => null() !< evaporation temperature
     real(DP), dimension(:), pointer, contiguous :: temproff => null() !< runoff temperature
@@ -85,9 +85,9 @@ module GweSfeModule
     real(DP), dimension(:), pointer, contiguous :: rfeatthk => null() !< thickness of streambed material through which thermal conduction occurs
 
     type(AbcType), pointer :: abc => null() ! atmospheric boundary condition (abc) object
-    
+
     integer(I4B), pointer :: inabc => null() ! ABC (atmospheric boundary condition utility) unit number (0 if unused)
-   
+
   contains
 
     procedure :: bnd_ad => sfe_ad

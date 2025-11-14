@@ -65,6 +65,7 @@ module ConstantsModule
   real(DP), parameter :: DZERO = 0.0_DP !< real constant zero
   real(DP), parameter :: DQUARTER = 0.25_DP !< real constant 1/3
   real(DP), parameter :: DONETHIRD = 1.0_DP / 3.0_DP !< real constant 1/3
+  real(DP), parameter :: DONESEVENTH = 1.0_DP / 7.0_DP !< real constant 1/7
   real(DP), parameter :: DHALF = 0.5_DP !< real constant 1/2
   real(DP), parameter :: DP6 = 0.6_DP !< real constant 3/5
   real(DP), parameter :: DTWOTHIRDS = 2.0_DP / 3.0_DP !< real constant 2/3
@@ -131,7 +132,7 @@ module ConstantsModule
 
   real(DP), parameter :: DGRAVITY = 9.80665_DP !< real constant gravitational acceleration (m/(s s))
   real(DP), parameter :: DCD = 0.61_DP !< real constant weir coefficient in SI units
-  
+
   real(DP), parameter :: DCTOK = 273.16_DP !< real constant conversion of degrees celsius to Kelvin
   real(DP), parameter :: DSTEFANBOLTZMANN = 5.670374419e-8_DP !< real constant Stefan-Boltzmann constant
 
