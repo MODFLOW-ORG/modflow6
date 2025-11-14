@@ -139,7 +139,7 @@ numeric_index true
 
 block period
 name abcsetting
-type keystring wspd tatm solr shd swrefl rh
+type keystring wspd tatm solr shd swrefl rh atmc
 auxiliaryrecord
 shape
 tagged false
@@ -213,3 +213,14 @@ reader urword
 time_series true
 longname relative humidity of the atmosphere
 description the relative humidity of the atmosphere. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
+
+block period
+name atmc
+type double precision
+shape
+tagged true
+in_record true
+reader urword
+time_series true
+longname atmospheric composition
+description empirical adjustment factor for atmospheric composition such as haze, smoke, or aerosols. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
