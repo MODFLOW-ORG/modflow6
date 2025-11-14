@@ -9,7 +9,7 @@
 module PbstBaseModule
   use ConstantsModule, only: LINELENGTH, MAXCHARLEN, DZERO, LGP, &
                              LENPACKAGENAME, TABLEFT, TABCENTER, &
-                             LENVARNAME, DCTOK, DHUNDRED
+                             LENVARNAME, DCTOK, DHUNDRED, DONESEVENTH
   use KindModule, only: I4B, DP
   use NumericalPackageModule, only: NumericalPackageType
   use SimModule, only: count_errors, store_error, ustop
@@ -418,7 +418,7 @@ contains
     ! -- return
     real(DP) :: epsa !< atmospheric emissivity
     !
-    epsa = 1.24_DP * (eatm / tatm)**(1 / 7) * atmc
+    epsa = 1.24_DP * (eatm / tatm)**(DONESEVENTH) * atmc
   end function epsa
 
   !> @brief Calculate shade-altered emissivity
