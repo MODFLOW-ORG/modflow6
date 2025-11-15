@@ -109,7 +109,6 @@ contains
     real(DP) :: sat_vap_ta
     real(DP) :: amb_vap_atm
     real(DP) :: evap_rate
-    real(DP) :: test_mult
     !
     latent_heat_vap = (2499.64_DP - (2.51_DP * tstrm)) * 1000.0_DP ! tstrm in C
     !
@@ -118,12 +117,12 @@ contains
     sat_vap_ta = 6.1275_DP * &
                  exp(17.2693882_DP * &
                      (this%tatm(ifno) / (this%tatm(ifno) + DCTOK - 35.86_DP)))
-
+    !
     amb_vap_atm = this%rh(ifno) / 100.0_DP * sat_vap_ta
-
+    !
     evap_rate = (this%wfint + this%wfslope * this%wspd(ifno)) * &
                 (sat_vap_tw - amb_vap_atm)
-
+    !
     lhflx = evap_rate * latent_heat_vap * rhow
   end subroutine lhf_cq
 
