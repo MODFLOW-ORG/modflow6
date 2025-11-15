@@ -503,7 +503,7 @@ contains
       end do
     end if
     !
-    if (this%inshf /= 0 .or. this%inlhf /= 0 .or. this%inlwr) then
+    if (this%inshf /= 0 .or. this%inlhf /= 0 .or. this%inlwr == 1) then
       call mem_reallocate(this%tatm, this%ncv, 'TATM', this%memoryPath)
       do n = 1, this%ncv
         this%tatm(n) = DZERO
@@ -517,13 +517,13 @@ contains
         this%swrefl(n) = DZERO
       end do
     end if
-    if (this%inswr /= 0 .or. this%inlwr) then
+    if (this%inswr /= 0 .or. this%inlwr == 1) then
       call mem_reallocate(this%shd, this%ncv, 'SHD', this%memoryPath)
       do n = 1, this%ncv
         this%shd(n) = DZERO
       end do
     end if
-    if (this%inlhf /= 0 .or. this%inlwr) then
+    if (this%inlhf /= 0 .or. this%inlwr == 1) then
       call mem_reallocate(this%rh, this%ncv, 'RH', this%memoryPath)
       do n = 1, this%ncv
         this%rh(n) = DZERO
