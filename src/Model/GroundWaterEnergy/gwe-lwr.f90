@@ -125,7 +125,7 @@ contains
     ! -- saturation vapor pressure for a specified atmospheric temperature (A.19 & A.20)
     sat_vap_ta = this%eair(this%tatm(ifno), this%tatm(ifno) + DCTOK)
     !
-    ! -- ambient vap pres of the atmosphere as a func of relative humidity (A.18)
+    ! -- ambient vap pressure of the atmosphere as a func of relative humidity (A.18)
     amb_vap_atm = this%eatm(this%rh(ifno), sat_vap_ta)
     !
     ! -- atmospheric emissivity (A.14)
