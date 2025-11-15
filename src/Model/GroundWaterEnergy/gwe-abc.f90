@@ -444,14 +444,14 @@ contains
     this%inswr = 1
     this%inlhf = 1
     this%inlwr = 1
-    ! -- initalize to SHF specific default values
+    ! -- initialize to SHF specific default values
     this%rhoa = 1.225 ! kg/m3
     this%cpa = 717.0 ! J/kg/C
     this%cd = 0.002 ! unitless
-    ! -- initalize to LHF specific default values
+    ! -- initialize to LHF specific default values
     this%wfslope = 1.383e-01 ! 1/mbar Fogg 2023 (change!)
     this%wfint = 3.445e-09 ! m/s Fogg 2023 (change!)
-    ! -- initalize to LWR specific default values
+    ! -- initialize to LWR specific default values
     this%lwrefl = 0.03 ! unitless (Anderson, 1954)
     this%emissw = 0.95 ! unitless (Dingman, 2015)
     this%emissr = 0.97 ! unitless (Sobrino et al, 2005)
