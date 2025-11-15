@@ -53,7 +53,7 @@ module PbstBaseModule
     procedure :: da => pbstbase_da
     procedure :: pbst_check_valid
     procedure, public :: eair !< function for calculating vapor pressure for a specified temperature
-    procedure, public :: eatm !< funciton for calculating ambient vapor pressure of the atmosphere
+    procedure, public :: eatm !< function for calculating ambient vapor pressure of the atmosphere
     procedure, public :: epsa !< function for calculating atmospheric emissivity
     procedure, public :: epss !< function for calculating shade-weighted atmospheric emissivity
 
@@ -379,7 +379,7 @@ contains
   function eair(this, tempc, tempk)
     ! -- dummy
     class(PbstBaseType) :: this
-    real(DP) :: tempc !< temperature in Celcius
+    real(DP) :: tempc !< temperature in Celsius
     real(DP) :: tempk !< temperature in Kelvin
     ! -- return
     real(DP) :: eair
