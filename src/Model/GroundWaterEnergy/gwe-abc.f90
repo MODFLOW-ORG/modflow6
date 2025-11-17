@@ -291,9 +291,6 @@ contains
     class(AbcType), intent(inout) :: this
     character(len=*), intent(inout) :: option
     logical, intent(inout) :: found
-    ! -- local
-    character(len=LINELENGTH) :: fname
-    character(len=MAXCHARLEN) :: keyword
     ! -- formats
     character(len=*), parameter :: fmtaptbin = &
       "(4x, a, 1x, a, 1x, ' WILL BE SAVED TO FILE: ', a, &
@@ -325,12 +322,6 @@ contains
       end if
     case ('DRAG_COEFFICIENT')
       this%cd = this%parser%GetDouble()
-      !if (this%cd <= 0.0) then
-      !  write (errmsg, '(a)') 'Specified value for the drag coefficient &
-      !    &must be greater than 0.0.'
-      !  call store_error(errmsg)
-      !  call this%parser%StoreErrorUnit()
-      !else
       write (this%iout, '(4x,a,1pg15.6)') &
         "The surface-atmosphere drag coefficient has been set to: ", this%cd
       !end if
@@ -449,7 +440,7 @@ contains
     this%cpa = 717.0 ! J/kg/C
     this%cd = 0.002 ! unitless
     ! -- initialize to LHF specific default values
-    this%wfslope = 1.383e-01 ! 1/mbar Fogg 2023 (change!)
+    this%wfslope = 1.383e-08 ! 1/mbar Fogg 2023 (change!)
     this%wfint = 3.445e-09 ! m/s Fogg 2023 (change!)
     ! -- initialize to LWR specific default values
     this%lwrefl = 0.03 ! unitless (Anderson, 1954)
@@ -476,7 +467,6 @@ contains
     !real(DP), dimension(:, :), pointer, contiguous, optional :: auxvar
     ! -- local
     integer(I4B) :: n
-    character(len=LENMEMTYPE) :: var_type !< memory type
     !
     ! -- allocate character array for status
     allocate (this%status(this%ncv))
@@ -622,76 +612,76 @@ contains
   !! Store the observation type supported by the APT package and override
   !! BndType%bnd_df_obs
   !<
-  subroutine abc_df_obs(this)
-    ! -- modules
-    ! -- dummy
-    class(AbcType) :: this
-    ! -- local
-    integer(I4B) :: indx
-
-    ! -- Store obs type and assign procedure pointer
-    !    for sens-heat-flux observation type.
-    !call this%obs%StoreObsType('shf', .true., indx)
-    !this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-    !!
-    !! -- Store obs type and assign procedure pointer
-    !!    for shortwave-radiation-flux observation type.
-    !call this%obs%StoreObsType('swr', .true., indx)
-    !this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-  end subroutine abc_df_obs
-
-  !> @brief Process package specific obs
-  !!
-  !! Method to process specific observations for this package.
-  !<
-  subroutine abc_rp_obs(this, obsrv, found)
-    ! -- dummy
-    class(AbcType), intent(inout) :: this !< package class
-    type(ObserveType), intent(inout) :: obsrv !< observation object
-    logical, intent(inout) :: found !< indicate whether observation was found
-    ! -- local
-    !
-    found = .true.
-    select case (obsrv%ObsTypeId)
-    case ('SHF')
-!      call this%rp_obs_byfeature(obsrv)
-    case ('SWR')
-!      call this%rp_obs_byfeature(obsrv)
-    case ('LHF')
-!      call this%rp_obs_byfeature(obsrv)
-    case ('LWR')
-!      call this%rp_obs_byfeature(obsrv)
-    case default
-      found = .false.
-    end select
-  end subroutine abc_rp_obs
-
-  !> @brief Calculate observation value and pass it back to APT
-  !<
-  subroutine abc_bd_obs(this, obstypeid, jj, v, found)
-    ! -- dummy
-    class(AbcType), intent(inout) :: this
-    character(len=*), intent(in) :: obstypeid
-    real(DP), intent(inout) :: v
-    integer(I4B), intent(in) :: jj
-    logical, intent(inout) :: found
-    ! -- local
-    integer(I4B) :: n1, n2
-    !
-    found = .true.
-    !select case (obstypeid)
-    !case ('SHF')
-    !  if (this%iboundpak(jj) /= 0) then
-    !    call this%sfe_shf_term(jj, n1, n2, v)
-    !  end if
-    !case ('SWR')
-    !  if (this%iboundpak(jj) /= 0) then
-    !    call this%sfe_swr_term(jj, n1, n2, v)
-    !  end if
-    !case default
-    !  found = .false.
-    !end select
-  end subroutine abc_bd_obs
+!  subroutine abc_df_obs(this)
+!    ! -- modules
+!    ! -- dummy
+!    class(AbcType) :: this
+!    ! -- local
+!    !integer(I4B) :: indx
+!
+!    ! -- Store obs type and assign procedure pointer
+!    !    for sens-heat-flux observation type.
+!    !call this%obs%StoreObsType('shf', .true., indx)
+!    !this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+!    !!
+!    !! -- Store obs type and assign procedure pointer
+!    !!    for shortwave-radiation-flux observation type.
+!    !call this%obs%StoreObsType('swr', .true., indx)
+!    !this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+!  end subroutine abc_df_obs
+!
+!  !> @brief Process package specific obs
+!  !!
+!  !! Method to process specific observations for this package.
+!  !<
+!  subroutine abc_rp_obs(this, obsrv, found)
+!    ! -- dummy
+!    class(AbcType), intent(inout) :: this !< package class
+!    type(ObserveType), intent(inout) :: obsrv !< observation object
+!    logical, intent(inout) :: found !< indicate whether observation was found
+!    ! -- local
+!    !
+!    found = .true.
+!    select case (obsrv%ObsTypeId)
+!    case ('SHF')
+!!      call this%rp_obs_byfeature(obsrv)
+!    case ('SWR')
+!!      call this%rp_obs_byfeature(obsrv)
+!    case ('LHF')
+!!      call this%rp_obs_byfeature(obsrv)
+!    case ('LWR')
+!!      call this%rp_obs_byfeature(obsrv)
+!    case default
+!      found = .false.
+!    end select
+!  end subroutine abc_rp_obs
+!
+!  !> @brief Calculate observation value and pass it back to APT
+!  !<
+!  subroutine abc_bd_obs(this, obstypeid, jj, v, found)
+!    ! -- dummy
+!    class(AbcType), intent(inout) :: this
+!    character(len=*), intent(in) :: obstypeid
+!    real(DP), intent(inout) :: v
+!    integer(I4B), intent(in) :: jj
+!    logical, intent(inout) :: found
+!    ! -- local
+!    !integer(I4B) :: n1, n2
+!    !
+!    found = .true.
+!    !select case (obstypeid)
+!    !case ('SHF')
+!    !  if (this%iboundpak(jj) /= 0) then
+!    !    call this%sfe_shf_term(jj, n1, n2, v)
+!    !  end if
+!    !case ('SWR')
+!    !  if (this%iboundpak(jj) /= 0) then
+!    !    call this%sfe_swr_term(jj, n1, n2, v)
+!    !  end if
+!    !case default
+!    !  found = .false.
+!    !end select
+!  end subroutine abc_bd_obs
 
   !> @brief Calculate Atmospheric-Stream Heat Flux
   !!
