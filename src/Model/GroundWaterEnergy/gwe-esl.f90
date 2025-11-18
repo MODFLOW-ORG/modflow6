@@ -2,8 +2,8 @@ module GweEslModule
   !
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DZERO, DEM1, DONE, LENFTYPE
-  use SimVariablesModule, only: errmsg
-  use SimModule, only: count_errors, store_error, store_error_filename
+  use SimVariablesModule, only: warnmsg
+  use SimModule, only: store_warning
   use BndExtModule, only: BndExtType
   use ObsModule, only: DefaultObsIdProcessor
   use GweInputDataModule, only: GweInputDataType
@@ -151,26 +151,23 @@ contains
     ! -- formats
     character(len=*), parameter :: fmtenermulterr = &
       "('ESL BOUNDARY (',i0,') ESL MULTIPLIER (',g10.3,') IS &
-      &LESS THAN ZERO')"
+      &LESS THAN ZERO THEREBY REVERSING THE ORIGINAL SIGN ON THE &
+      &AMOUNT OF ENERGY ENTERING OR EXITING THE MODEL.')"
     !
     ! -- check stress period data
     do i = 1, this%nbound
       node = this%nodelist(i)
       !
-      ! -- accumulate errors
+      ! -- accumulate warnings
       if (this%iauxmultcol > 0) then
         if (this%auxvar(this%iauxmultcol, i) < DZERO) then
-          write (errmsg, fmt=fmtenermulterr) &
+          write (warnmsg, fmt=fmtenermulterr) &
             i, this%auxvar(this%iauxmultcol, i)
-          call store_error(errmsg)
+          call store_warning(warnmsg)
+          write (this%iout, '(/1x,a)') 'WARNING: '//trim(warnmsg)
         end if
       end if
     end do
-    !
-    ! -- write summary of energy source loading package error messages
-    if (count_errors() > 0) then
-      call store_error_filename(this%input_fname)
-    end if
   end subroutine esl_ck
 
   !> @brief Formulate the HCOF and RHS terms
