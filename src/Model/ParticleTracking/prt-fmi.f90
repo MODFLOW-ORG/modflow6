@@ -41,7 +41,6 @@ module PrtFmiModule
     procedure :: is_boundary_face
     procedure :: is_net_out_boundary_face
     procedure, private :: iflowface_to_icellface
-    procedure, private :: icellface_to_iflowface
 
   end type PrtFmiType
 
@@ -296,17 +295,5 @@ contains
     icellface = iflowface
     if (icellface < 0) icellface = icellface + this%max_faces - IFLOWFACE_TOP
   end function iflowface_to_icellface
-
-  !> @brief Convert a cell face number to an iflowface number.
-  !! Maps bottom (max_faces - 1) -> -2, top (max_faces) -> -1.
-  function icellface_to_iflowface(this, icellface) result(iflowface)
-    class(PrtFmiType), intent(inout) :: this
-    integer(I4B), intent(in) :: icellface
-    integer(I4B) :: iflowface
-
-    iflowface = icellface
-    if (iflowface > this%max_faces + IFLOWFACE_BOTTOM) &
-      iflowface = iflowface - this%max_faces + IFLOWFACE_TOP
-  end function icellface_to_iflowface
 
 end module PrtFmiModule
