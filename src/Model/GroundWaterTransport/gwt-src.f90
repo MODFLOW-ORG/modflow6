@@ -32,7 +32,6 @@ module GwtSrcModule
     procedure :: source_options => src_options
     procedure :: bnd_rp => src_rp
     procedure :: bnd_cf => src_cf
-    procedure :: bnd_ck => src_ck
     procedure :: bnd_fc => src_fc
     procedure :: bnd_da => src_da
     procedure :: define_listlabel
@@ -202,39 +201,6 @@ contains
       end do
     end if
   end subroutine src_allocate_arrays
-
-  !> @brief Check mass source loading boundary condition data
-  !<
-  subroutine src_ck(this)
-    ! -- dummy
-    class(GwtSrcType), intent(inout) :: this
-    ! -- local
-    integer(I4B) :: i
-    integer(I4B) :: node
-    ! -- formats
-    character(len=*), parameter :: fmtenermulterr = &
-      "('SRC BOUNDARY (',i0,') SRC MULTIPLIER (',g10.3,') IS &
-      &LESS THAN ZERO')"
-    !
-    ! -- check stress period data
-    do i = 1, this%nbound
-      node = this%nodelist(i)
-      !
-      ! -- accumulate errors
-      if (this%iauxmultcol > 0) then
-        if (this%auxvar(this%iauxmultcol, i) < DZERO) then
-          write (errmsg, fmt=fmtenermulterr) &
-            i, this%auxvar(this%iauxmultcol, i)
-          call store_error(errmsg)
-        end if
-      end if
-    end do
-    !
-    ! -- write summary of energy source loading package error messages
-    if (count_errors() > 0) then
-      call store_error_filename(this%input_fname)
-    end if
-  end subroutine src_ck
 
   subroutine src_rp(this)
     ! -- modules
