@@ -32,7 +32,7 @@ jobs:
       # cache oneapi and petsc for mf6 parallel
       - name: Checkout modflow6
         if: matrix.compiler == 'intel' && matrix.version == '2024.0'
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: modflow6
       - name: Cache oneAPI and PETSc
@@ -56,12 +56,12 @@ jobs:
         uses: jlumbroso/free-disk-space@main
 
       - name: Checkout modflow6
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: modflow6
 
       - name: Checkout large test models
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/modflow6-largetestmodels
           path: modflow6-largetestmodels

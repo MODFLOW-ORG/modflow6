@@ -74,7 +74,7 @@ jobs:
       patch: ${{ steps.set_patch.outputs.patch }}
     steps:
       - name: Checkout modflow6
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.repository_owner }}/modflow6
           ref: ${{ github.ref }}
@@ -222,7 +222,7 @@ jobs:
         shell: bash -l {0}
     steps:
       - name: Checkout modflow6
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.repository_owner }}/modflow6
           ref: ${{ github.ref }}
@@ -282,7 +282,7 @@ jobs:
         shell: bash -l {0}
     steps:
       - name: Checkout modflow6
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.repository_owner }}/modflow6
           path: modflow6

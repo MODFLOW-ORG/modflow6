@@ -24,7 +24,7 @@ jobs:
     steps:
 
       - name: Checkout modflow6
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - uses: prefix-dev/setup-pixi@v0.9.3
         with:
@@ -46,18 +46,18 @@ jobs:
       FC_V: 12
     steps:
       - name: Checkout modflow6
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: modflow6
 
       - name: Checkout modflow6-examples
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
       - name: Checkout usgslatex
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/usgslatex
           path: usgslatex
@@ -199,7 +199,7 @@ jobs:
     if: github.repository_owner == 'MODFLOW-ORG' && github.event_name == 'push'
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Trigger RTDs build on push to repo branches
         uses: dfm/rtds-action@v1
@@ -219,7 +219,7 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Print branch name
         run: echo ${{env.branch-name}}
