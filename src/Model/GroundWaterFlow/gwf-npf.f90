@@ -757,6 +757,7 @@ contains
     integer(I4B), intent(inout) :: locmax
     ! -- local
     integer(I4B) :: n
+    integer(I4B) :: ibot
     real(DP) :: botm
     real(DP) :: xx
     real(DP) :: dxx
@@ -764,20 +765,30 @@ contains
     ! -- Newton-Raphson under-relaxation
     do n = 1, this%dis%nodes
       if (this%ibound(n) < 1) cycle
-      if (this%icelltype(n) > 0) then
-        botm = this%dis%bot(this%ibotnode(n))
+      ibot = this%ibotnode(n)
+      ! if (this%icelltype(n) > 0) then
+      if (this%icelltype(n) > 0 .and. this%icelltype(ibot) > 0) then
+        botm = this%dis%bot(ibot)
+        ! if (this%icelltype(ibot) > 0) then
+        !   botm = this%dis%bot(ibot)
+        ! else
+        !   botm = x(ibot)
+        ! endif
         ! -- only apply Newton-Raphson under-relaxation if
         !    solution head is below the bottom of the model
         if (x(n) < botm) then
           inewtonur = 1
           xx = xtemp(n) * (DONE - DP9) + botm * DP9
-          dxx = x(n) - xx
+          ! dxx = x(n) - xx
+          dxx = xx - xtemp(n)
           if (abs(dxx) > abs(dxmax)) then
             locmax = n
             dxmax = dxx
           end if
           x(n) = xx
-          dx(n) = DZERO
+          dx(n) = xtemp(n) - x(n) !DZERO !
+          ! write(*,'(a,i0,6(f10.2))') &
+          !   'nur', n, x(n), xtemp(n), botm, xx, dxx, dx(n)
         end if
       end if
     end do
