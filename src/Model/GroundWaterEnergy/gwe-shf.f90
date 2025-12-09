@@ -34,6 +34,9 @@ module SensHeatModule
     real(DP), pointer :: cd => null() !< ABC drag coefficient
     real(DP), dimension(:), pointer, contiguous :: wspd => null() !< ABC wind speed
     real(DP), dimension(:), pointer, contiguous :: tatm => null() !< ABC temperature of the atmosphere
+    real(DP), dimension(:), pointer, contiguous :: patm => null() !< ABC atmospheric pressure
+    real(DP), dimension(:), pointer, contiguous :: ea => null() !< ABC temperature of the atmosphere
+    real(DP), dimension(:), pointer, contiguous :: ew => null() !< ABC atmospheric pressure
 
   contains
 
@@ -86,6 +89,9 @@ contains
     call mem_setptr(this%cd, 'CD', abcMemoryPath)
     call mem_setptr(this%wspd, 'WSPD', abcMemoryPath)
     call mem_setptr(this%tatm, 'TATM', abcMemoryPath)
+    call mem_setptr(this%patm, 'PATM', abcMemoryPath)
+    call mem_setptr(this%tatm, 'EA', abcMemoryPath)
+    call mem_setptr(this%patm, 'EW', abcMemoryPath)
     !
     ! -- create time series manager
     call tsmanager_cr(this%tsmanager, this%iout, &
@@ -97,18 +103,26 @@ contains
   !!
   !! Calculate and return the sensible heat flux for one reach
   !<
-  subroutine shf_cq(this, ifno, tstrm, shflx)
+  subroutine shf_cq(this, ifno, tstrm, shflx, lhflx)
     ! -- dummy
     class(ShfType), intent(inout) :: this
     integer(I4B), intent(in) :: ifno !< stream reach integer id
     real(DP), intent(in) :: tstrm !< temperature of the stream reach
     real(DP), intent(inout) :: shflx !< calculated sensible heat flux amount
+    real(DP), optional, intent(in) :: lhflx !< latent heat flux
     ! -- local
     real(DP) :: shf_const
+    real(DP) :: br
     !
     ! -- calculate sensible heat flux using HGS equation
-    shf_const = this%cd * this%cpa * this%rhoa
-    shflx = shf_const * this%wspd(ifno) * (this%tatm(ifno) - tstrm)
+    if (present(lhflx)) then
+      br = 0.00061_DP * this%patm(ifno) * &
+           ((tstrm - this%tatm(ifno)) / (this%ew(ifno) - this%ea(ifno)))
+      shflx = br * lhflx
+    else
+      shf_const = this%cd * this%cpa * this%rhoa
+      shflx = shf_const * this%wspd(ifno) * (this%tatm(ifno) - tstrm)
+    end if
   end subroutine shf_cq
 
   !> @brief Deallocate package memory
@@ -125,6 +139,9 @@ contains
     nullify (this%cd)
     nullify (this%wspd)
     nullify (this%tatm)
+    nullify (this%patm)
+    nullify (this%ea)
+    nullify (this%ew)
     !
     ! -- deallocate parent
     call pbstbase_da(this)

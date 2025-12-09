@@ -45,15 +45,11 @@ module PbstBaseModule
 
     procedure :: init
     procedure :: pbst_ar
-    procedure :: rp
     procedure :: pbst_options
-    procedure :: pbst_set_stressperiod
     procedure :: subpck_set_stressperiod
     procedure, private :: pbstbase_allocate_scalars
     procedure :: da => pbstbase_da
     procedure :: pbst_check_valid
-    procedure, public :: eair !< function for calculating vapor pressure for a specified temperature
-    procedure, public :: eatm !< function for calculating ambient vapor pressure of the atmosphere
     procedure, public :: epsa !< function for calculating atmospheric emissivity
     procedure, public :: epss !< function for calculating shade-weighted atmospheric emissivity
 
@@ -93,169 +89,6 @@ contains
     !
     ! -- will be overridden
   end subroutine pbst_ar
-
-  !> @brief PaBST read and prepare for setting stress period information
-  !<
-  subroutine rp(this)
-    ! -- module
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-    use TdisModule, only: kper, nper
-    ! -- dummy
-    class(PbstBaseType) :: this !< PbstBaseType object
-    ! -- local
-    integer(I4B) :: ierr
-    integer(I4B) :: n
-    logical :: isfound, endOfBlock
-    character(len=LINELENGTH) :: title
-    character(len=LINELENGTH) :: line
-    integer(I4B) :: itemno
-    ! -- formats
-    character(len=*), parameter :: fmtblkerr = &
-      &"('Error.  Looking for BEGIN PERIOD iper.  Found ', a, ' instead.')"
-    character(len=*), parameter :: fmtlsp = &
-      &"(1X,/1X,'REUSING ',A,'S FROM LAST STRESS PERIOD')"
-    !
-    ! -- set ionper to the stress period number for which a new block of data
-    !    will be read.
-    if (this%inunit == 0) return
-    !
-    ! -- get stress period data
-    if (this%ionper < kper) then
-      !
-      ! -- get period block
-      call this%parser%GetBlock('PERIOD', isfound, ierr, &
-                                supportOpenClose=.true., &
-                                blockRequired=.false.)
-      if (isfound) then
-        !
-        ! -- read ionper and check for increasing period numbers
-        call this%read_check_ionper()
-      else
-        !
-        ! -- PERIOD block not found
-        if (ierr < 0) then
-          ! -- end of file found; data applies for remainder of simulation.
-          this%ionper = nper + 1
-        else
-          ! -- found invalid block
-          call this%parser%GetCurrentLine(line)
-          write (errmsg, fmtblkerr) adjustl(trim(line))
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end if
-      end if
-    end if
-    !
-    ! --read data if ionper == kper
-    if (this%ionper == kper) then
-      !
-      ! -- setup table for period data
-      if (this%iprpak /= 0) then
-        !
-        ! -- reset the input table object
-        title = trim(adjustl(this%text))//' PACKAGE ('// &
-                trim(adjustl(this%packName))//') DATA FOR PERIOD'
-        write (title, '(a,1x,i6)') trim(adjustl(title)), kper
-        call table_cr(this%inputtab, this%packName, title)
-        call this%inputtab%table_df(1, 4, this%iout, finalize=.FALSE.)
-        text = 'NUMBER'
-        call this%inputtab%initialize_column(text, 10, alignment=TABCENTER)
-        text = 'KEYWORD'
-        call this%inputtab%initialize_column(text, 20, alignment=TABLEFT)
-        do n = 1, 2
-          write (text, '(a,1x,i6)') 'VALUE', n
-          call this%inputtab%initialize_column(text, 15, alignment=TABCENTER)
-        end do
-      end if
-      !
-      ! -- read data
-      stressperiod: do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        !
-        ! -- get feature number
-        itemno = this%parser%GetInteger()
-        !
-        ! -- read data from the rest of the line
-        call this%pbst_set_stressperiod(itemno)
-        !
-        ! -- write line to table
-        if (this%iprpak /= 0) then
-          call this%parser%GetCurrentLine(line)
-          call this%inputtab%line_to_columns(line)
-        end if
-      end do stressperiod
-      !
-      if (this%iprpak /= 0) then
-        call this%inputtab%finalize_table()
-      end if
-      !
-      ! -- using stress period data from the previous stress period
-    else
-      write (this%iout, fmtlsp) trim(this%filtyp)
-    end if
-    !
-    ! -- write summary of stress period error messages
-    ierr = count_errors()
-    if (ierr > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-  end subroutine rp
-
-  !> @brief pbst_set_stressperiod()
-  !!
-  !! To be overridden by Pbst sub-packages (utilities)
-  !<
-  subroutine pbst_set_stressperiod(this, itemno)
-    ! -- dummy
-    class(PbstBaseType), intent(inout) :: this
-    integer(I4B), intent(in) :: itemno
-    ! -- local
-    integer(I4B) :: ierr
-    character(len=LINELENGTH) :: text
-    character(len=LINELENGTH) :: keyword
-    logical(LGP) :: found
-    !
-    ! -- read line
-    call this%parser%GetStringCaps(keyword)
-    select case (keyword)
-    case ('STATUS')
-      ierr = this%pbst_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetStringCaps(text)
-      this%status(itemno) = text(1:8)
-      if (text == 'CONSTANT') then
-        this%iboundpbst(itemno) = -1
-      else if (text == 'INACTIVE') then
-        this%iboundpbst(itemno) = 0
-      else if (text == 'ACTIVE') then
-        this%iboundpbst(itemno) = 1
-      else
-        write (errmsg, '(a,a)') &
-          'Unknown '//trim(this%text)//' status keyword: ', text//'.'
-        call store_error(errmsg)
-      end if
-    case default
-      !
-      ! -- call the specific package to deal with parameters specific to the
-      !    process
-      call this%subpck_set_stressperiod(itemno, keyword, found)
-      ! -- terminate with error if data not valid
-      if (.not. found) then
-        write (errmsg, '(2a)') &
-          'Unknown '//trim(adjustl(this%text))//' data keyword: ', &
-          trim(keyword)//'.'
-        call store_error(errmsg)
-      end if
-    end select
-    !
-    ! -- terminate if any errors were detected
-999 if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-  end subroutine pbst_set_stressperiod
 
   !> @brief pbst_set_stressperiod()
   !!
@@ -371,38 +204,6 @@ contains
     end if
   end function pbst_check_valid
 
-  !> @brief Calculate saturation vapor pressure
-  !!
-  !! Calculate vapor pressure for a passed-in temperature.  Calculated using
-  !! the Magnus-Tetens formula (Buck, 1981)
-  !<
-  function eair(this, tempc, tempk)
-    ! -- dummy
-    class(PbstBaseType) :: this
-    real(DP) :: tempc !< temperature in Celsius
-    real(DP) :: tempk !< temperature in Kelvin
-    ! -- return
-    real(DP) :: eair
-    !
-    eair = 6.1275_DP * exp(17.2693882_DP * (tempc / (tempk - 35.86_DP)))
-  end function eair
-
-  !> @brief Calculate ambient vapor pressure
-  !!
-  !! Calculate ambient vapor pressure of the atmosphere as a function of
-  !! relative humidity and saturation vapor pressure of the atmosphere
-  !<
-  function eatm(this, rh, eair)
-    ! -- dummy
-    class(PbstBaseType) :: this
-    real(DP) :: rh
-    real(DP) :: eair
-    ! -- return
-    real(DP) :: eatm
-    !
-    eatm = rh / DHUNDRED * eair
-  end function
-
   !> @brief Calculate atmospheric emissivity
   !!
   !! Atmospheric emissivity is highly dependent upon ambient vapor
@@ -427,10 +228,11 @@ contains
   !! affects the net longwave heat flux.  Emissivity above the stream channel
   !! is the combination of shade-weighted average of clear sky  atmospheric
   !! emissivity (epsa) and riparian canopy emissivity
+  !<
   function epss(this, shd, epsa, epsr)
     ! -- dummy
     class(PbstBaseType) :: this
-    real(DP) :: shd
+    real(DP) :: shd !< percent shading, expressed as a fraction
     real(DP) :: epsa !< atmospheric emissivity
     real(DP) :: epsr !< riparian canopy emissivity
     ! -- return
