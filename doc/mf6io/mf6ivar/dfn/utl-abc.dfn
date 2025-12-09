@@ -139,14 +139,14 @@ numeric_index true
 
 block period
 name abcsetting
-type keystring wspd tatm solr shd swrefl rh atmc
+type keystring wspd tatm patm solr shd swrefl rh atmc
 auxiliaryrecord
 shape
 tagged false
 in_record true
 reader urword
 longname
-description line of information that is parsed into a parameter keyword and values.  Property name keywords that can be used to start the ABCSETTING string include: WSPD, TATM, SOLR, SHD, SWREFL, and RH.  These settings are used to assign the wind speed, temperature of the atmosphere, shortwave solar radiation, channel shade, shortwave reflectance of the water surface, and relative humidity, respectively.  
+description line of information that is parsed into a parameter keyword and values.  Property name keywords that can be used to start the ABCSETTING string include: WSPD, TATM, SOLR, SHD, SWREFL, and RH.  These settings are used to assign the wind speed, temperature of the atmosphere, pressure of the atmosphere, shortwave solar radiation, channel shade, shortwave reflectance of the water surface, and relative humidity, respectively.  
 
 block period
 name wspd
@@ -168,7 +168,18 @@ in_record true
 reader urword
 time_series true
 longname air temperature
-description is the temperature of the atmosphere above the stream reach. For an unrotated case this is the hydraulic conductivity in the y direction.  If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
+description is the temperature of the atmosphere above the stream reach.  If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
+
+block period
+name patm
+type double precision
+shape
+tagged true
+in_record true
+reader urword
+time_series true
+longname atmospheric pressure
+description is the atmospheric pressure above the stream reach (mbar).  If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
 block period
 name solr
