@@ -31,7 +31,8 @@ module LatHeatModule
     real(DP), pointer :: wfint => null() !< wind function intercept
     real(DP), dimension(:), pointer, contiguous :: wspd => null() !< wind speed
     real(DP), dimension(:), pointer, contiguous :: tatm => null() !< temperature of the atmosphere
-    real(DP), dimension(:), pointer, contiguous :: rh => null() !< relative humidity
+    real(DP), dimension(:), pointer, contiguous :: ea => null() !< saturation vapor pressure at air temperature
+    real(DP), dimension(:), pointer, contiguous :: ew => null() !< saturation vapor pressure at water temperature
 
   contains
 
@@ -84,7 +85,8 @@ contains
     call mem_setptr(this%wfint, 'WFINT', abcMemoryPath)
     call mem_setptr(this%wspd, 'WSPD', abcMemoryPath)
     call mem_setptr(this%tatm, 'TATM', abcMemoryPath)
-    call mem_setptr(this%rh, 'RH', abcMemoryPath)
+    call mem_setptr(this%ea, 'EA', abcMemoryPath)
+    call mem_setptr(this%ew, 'EW', abcMemoryPath)
     !
     ! -- create time series manager
     call tsmanager_cr(this%tsmanager, this%iout, &
@@ -104,26 +106,21 @@ contains
     real(DP), intent(in) :: rhow !< density of water
     real(DP), intent(inout) :: lhflx !< calculated latent heat flux amount
     ! -- local
-    real(DP) :: latent_heat_vap
+    real(DP) :: l !< latent heat vaporization
     real(DP) :: sat_vap_tw
     real(DP) :: sat_vap_ta
     real(DP) :: amb_vap_atm
-    real(DP) :: evap_rate
+    real(DP) :: evap
     !
-    latent_heat_vap = (2499.64_DP - (2.51_DP * tstrm)) * 1000.0_DP ! tstrm in C
+    ! -- calculate latent heat of vaporization (water temperature dependent) Eq. A.16
+    l = 2499.64_DP - (2.51_DP * tstrm) ! tstrm must be in degrees C for now
     !
-    sat_vap_tw = 6.1275_DP * exp(17.2693882_DP * &
-                                 (tstrm / (tstrm + DCTOK - 35.86_DP)))
-    sat_vap_ta = 6.1275_DP * &
-                 exp(17.2693882_DP * &
-                     (this%tatm(ifno) / (this%tatm(ifno) + DCTOK - 35.86_DP)))
+    ! -- mass-transfer method for calculating evap rate (A.17)
+    evap = (this%wfint + this%wfslope * this%wspd(ifno)) * &
+           (this%ew(ifno) - this%ea(ifno))
     !
-    amb_vap_atm = this%rh(ifno) / 100.0_DP * sat_vap_ta
-    !
-    evap_rate = (this%wfint + this%wfslope * this%wspd(ifno)) * &
-                (sat_vap_tw - amb_vap_atm)
-    !
-    lhflx = evap_rate * latent_heat_vap * rhow
+    ! -- calculate latent heat flux (A.15)
+    lhflx = evap * l * rhow
   end subroutine lhf_cq
 
   !> @brief Deallocate package memory
@@ -139,7 +136,8 @@ contains
     nullify (this%wfslope)
     nullify (this%wspd)
     nullify (this%tatm)
-    nullify (this%rh)
+    nullify (this%ea)
+    nullify (this%ew)
     !
     ! -- deallocate parent
     call pbstbase_da(this)
