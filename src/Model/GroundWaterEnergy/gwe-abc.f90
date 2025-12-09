@@ -6,15 +6,19 @@
 !! can be invoked from the NPF package.  Once this package is completed in its
 !! prototyped form, it will likely be moved around.
 !<
-! SFR flows (sfrbudptr)     index var     SFE term              Transport Type
+
+! SFR flows (sfrbudptr)     index var     SFE term      Equation
 ! ---------------------------------------------------------------------------------
 ! -- PBST terms
-! SENSIBLE HEAT FLUX        idxbudshf     SENS HEAT             cd * rho_a * C_p_a * wspd * (t_air - t_feat)
-! SHORTWAVE RADIATION       idxbudsWR     SHORTWAVE             (1 - shd) * (1 - swrefl) * solr
+! SHORTWAVE RADIATION       idxbudswr     SHORTWAVE     (1 - shd) * (1 - swrefl) * solr
+! LONGWAVE RADIATION        idxbudlwr     LONGWAVE      longwv_in * (1 - lwrefl) + longwv_out
+! LATENT HEAT FLUX          idxbudlhf     LATENT HEAT   evap_rate * latent_heat_vaporization * rho_w
+! SENSIBLE HEAT FLUX        idxbudshf     SENS HEAT     cd * rho_a * C_p_a * wspd * (t_air - t_feat)
 
 module AbcModule
   use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, LENVARNAME, &
-                             LENPACKAGENAME, TABLEFT, TABCENTER, LENMEMTYPE
+                             LENPACKAGENAME, TABLEFT, TABCENTER, LENMEMTYPE, &
+                             DHUNDRED, DCTOK
   use KindModule, only: I4B, DP
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
@@ -88,6 +92,11 @@ module AbcModule
     real(DP), dimension(:), pointer, contiguous :: swrefl => null() !< shortwave reflectance of water surface
     real(DP), dimension(:), pointer, contiguous :: rh => null() !< relative humidity
     real(DP), dimension(:), pointer, contiguous :: atmc => null() !< atmospheric composition adjustment
+    real(DP), dimension(:), pointer, contiguous :: patm => null() !< atmospheric pressure (mbar)
+
+    real(DP), dimension(:), pointer, contiguous :: ea => null() !< ambient vapor pressure of the atmosphere, internally calculated and used by multiple heat calculations
+    real(DP), dimension(:), pointer, contiguous :: es => null() !< saturation vapor pressure at air temperature, make available for multiple heat flux calculations
+    real(DP), dimension(:), pointer, contiguous :: ew => null() !< saturation vapor pressure at water temperature, make available for multiple heat flux calculations
 
   contains
 
@@ -100,6 +109,8 @@ module AbcModule
     procedure :: abc_allocate_arrays
     procedure, private :: abc_allocate_scalars
     procedure, public :: abc_cq
+    procedure, private :: recalc_shared_vars
+    procedure, private :: calc_eatm !< function for calculating ambient vapor pressure of the atmosphere
 
   end type AbcType
 
@@ -167,8 +178,6 @@ contains
     ! -- print a message identifying the apt package.
     write (this%iout, fmtapt) this%inunit
     !
-    ! -- read options
-    !call this%read_options()
   end subroutine ar
 
   !> @brief ABC read and prepare for setting stress period information
@@ -393,7 +402,6 @@ contains
   subroutine abc_allocate_scalars(this)
     ! -- modules
     use MemoryManagerModule, only: mem_allocate
-    !use MemoryHelperModule, only: create_mem_path !! NEW KF 7/24 from npf pkg
     ! -- dummy
     class(AbcType) :: this
     !
@@ -484,19 +492,31 @@ contains
     call mem_allocate(this%swrefl, 0, 'SWREFL', this%memoryPath)
     call mem_allocate(this%rh, 0, 'RH', this%memoryPath)
     call mem_allocate(this%atmc, 0, 'ATMC', this%memoryPath)
+    call mem_allocate(this%patm, 0, 'PATM', this%memoryPath)
+    call mem_allocate(this%ea, 0, 'EA', this%memoryPath)
+    call mem_allocate(this%es, 0, 'ES', this%memoryPath)
+    call mem_allocate(this%ew, 0, 'EW', this%memoryPath)
     !
     ! -- reallocate abc variables based on which calculations are used
     if (this%inshf /= 0 .or. this%inlhf /= 0) then
       call mem_reallocate(this%wspd, this%ncv, 'WSPD', this%memoryPath)
+      call mem_reallocate(this%ew, this%ncv, 'ES', this%memoryPath)
       do n = 1, this%ncv
         this%wspd(n) = DZERO
+        this%ew(n) = DZERO
       end do
     end if
     !
-    if (this%inshf /= 0 .or. this%inlhf /= 0 .or. this%inlwr == 1) then
+    if (this%inshf /= 0 .or. this%inlhf /= 0 .or. this%inlwr /= 0) then
       call mem_reallocate(this%tatm, this%ncv, 'TATM', this%memoryPath)
+      call mem_reallocate(this%ea, this%ncv, 'EA', this%memoryPath)
+      call mem_reallocate(this%es, this%ncv, 'ES', this%memoryPath)
+      call mem_reallocate(this%ew, this%ncv, 'EW', this%memoryPath)
       do n = 1, this%ncv
         this%tatm(n) = DZERO
+        this%ea(n) = DZERO
+        this%es(n) = DZERO
+        this%ew(n) = DZERO
       end do
     end if
     if (this%inswr /= 0) then
@@ -507,13 +527,13 @@ contains
         this%swrefl(n) = DZERO
       end do
     end if
-    if (this%inswr /= 0 .or. this%inlwr == 1) then
+    if (this%inswr /= 0 .or. this%inlwr /= 0) then
       call mem_reallocate(this%shd, this%ncv, 'SHD', this%memoryPath)
       do n = 1, this%ncv
         this%shd(n) = DZERO
       end do
     end if
-    if (this%inlhf /= 0 .or. this%inlwr == 1) then
+    if (this%inlhf /= 0 .or. this%inlwr /= 0) then
       call mem_reallocate(this%rh, this%ncv, 'RH', this%memoryPath)
       do n = 1, this%ncv
         this%rh(n) = DZERO
@@ -523,6 +543,12 @@ contains
       call mem_reallocate(this%atmc, this%ncv, 'ATMC', this%memoryPath)
       do n = 1, this%ncv
         this%atmc(n) = DZERO
+      end do
+    end if
+    if (this%inshf /= 0) then
+      call mem_reallocate(this%patm, this%ncv, 'PATM', this%memoryPath)
+      do n = 1, this%ncv
+        this%patm(n) = DZERO
       end do
     end if
     !
@@ -602,6 +628,10 @@ contains
     call mem_deallocate(this%solr)
     call mem_deallocate(this%rh)
     call mem_deallocate(this%atmc)
+    call mem_deallocate(this%ea)
+    call mem_deallocate(this%es)
+    call mem_deallocate(this%ew)
+    call mem_deallocate(this%patm)
     !
     ! -- Deallocate scalars in TspAptType
     call this%NumericalPackageType%da() ! this may not work -- revisit and cleanup !!!
@@ -699,20 +729,76 @@ contains
     real(DP) :: lhflx
     real(DP) :: lwrflx
     !
+    ! -- update shared variables
+    call this%recalc_shared_vars(ifno, tstrm)
+    !
     ! -- calculate shortwave radiation using HGS equation
     call this%swr%swr_cq(ifno, swrflx)
     !
     ! -- calculate longwave radiation
     call this%lwr%lwr_cq(ifno, tstrm, lwrflx)
     !
-    ! -- calculate sensible heat flux using HGS equation
-    call this%shf%shf_cq(ifno, tstrm, shflx)
-    !
     ! -- calculate latent heat flux using Dalton-like mass transfer equation
     call this%lhf%lhf_cq(ifno, tstrm, this%gwecommon%gwerhow, lhflx)
-
-    abcflx = shflx + swrflx - lhflx + lwrflx
+    !
+    ! -- calculate sensible heat flux using HGS equation
+    call this%shf%shf_cq(ifno, tstrm, shflx, lhflx) ! default to Bowen ratio method ("2")
+    !
+    abcflx = swrflx + lwrflx + shflx - lhflx
   end subroutine abc_cq
+
+  !> @brief Recalculate variables that are used by various heat fluxes
+  !!
+  !! For parameters like ambient vapor pressure of the atmosphere that are
+  !! used in the calculation of multiple heat fluxes, in this case longwave,
+  !! latent, and sensible heat flux, need to update the value held in memory
+  !<
+  subroutine recalc_shared_vars(this, ifno, tstrm)
+    ! -- dummy
+    class(AbcType), intent(inout) :: this
+    integer(I4B), intent(in) :: ifno !< reach id
+    real(DP), intent(in) :: tstrm !< temperature of the stream reach
+    !
+    ! -- calculate saturation vapor pressure at air temperature
+    this%es(ifno) = calc_sat_vap_pres(this%tatm(ifno))
+    !
+    ! -- calculate ambient vapor pressure at the atmospheric temperature
+    this%ea(ifno) = this%calc_eatm(ifno)
+    !
+    ! -- calculate saturation vapor pressure at the water temperature
+    this%ew(ifno) = calc_sat_vap_pres(tstrm)
+  end subroutine recalc_shared_vars
+
+  !> @brief Calculate saturated vapor pressure for a given temperature
+  !!
+  !! A function for calculating the saturated vapor pressure given a
+  !! temperature, commonly either the stream temperature or atmospheric
+  !! temperature.
+  !<
+  function calc_sat_vap_pres(temp) result(e)
+    ! -- dummy
+    real(DP), intent(in) :: temp
+    ! -- return
+    real(DP) :: e
+    !
+    e = 6.1275_DP * exp(17.2693882_DP * &
+                        (temp / (temp + DCTOK - 35.86_DP)))
+  end function calc_sat_vap_pres
+
+  !> @brief Calculate ambient vapor pressure
+  !!
+  !! Calculate ambient vapor pressure of the atmosphere as a function of
+  !! relative humidity and saturation vapor pressure of the atmosphere
+  !<
+  function calc_eatm(this, ifno) result(eatm)
+    ! -- dummy
+    class(AbcType) :: this
+    integer(I4B) :: ifno
+    ! -- return
+    real(DP) :: eatm
+    !
+    eatm = this%rh(ifno) / DHUNDRED * this%es(ifno)
+  end function calc_eatm
 
   !> @brief Set the stress period attributes based on the keyword
   !<
@@ -735,6 +821,7 @@ contains
     ! <shd> SHADE
     ! <swrefl> REFLECTANCE OF SHORTWAVE RADIATION OFF WATER SURFACE
     ! <solr> SOLAR RADIATION
+    ! <rh> RELATIVE HUMIDITY
     ! <atmc> ATMOSPHERIC COMPOSITION
     !
     ! -- read line
@@ -835,6 +922,17 @@ contains
       call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
                                          this%packName, 'BND', this%tsManager, &
                                          this%iprpak, 'ATMC')
+    case ('PATM')
+      ierr = this%abc_check_valid(itemno)
+      if (ierr /= 0) then
+        goto 999
+      end if
+      call this%parser%GetString(text)
+      jj = 1
+      bndElem => this%tatm(itemno)
+      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
+                                         this%packName, 'BND', this%tsManager, &
+                                         this%iprpak, 'PATM')
     case default
       !
       ! -- Keyword not recognized so return to caller with found = .false.

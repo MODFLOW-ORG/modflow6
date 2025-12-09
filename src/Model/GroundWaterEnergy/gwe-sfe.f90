@@ -769,7 +769,7 @@ contains
       end if
     end do
     !
-    ! -- Sensible-heat
+    ! -- Atmospheric boundary heat exchange
     if (this%inabc /= 0) then
       idx = idx + 1
       nlist = this%flowbudptr%budterm(this%idxbudgwf)%nlist
