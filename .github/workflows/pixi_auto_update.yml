@@ -23,7 +23,7 @@ jobs:
           printf "Update pixi dependencies to the latest version\n\n" >> diff.md
           pixi update --json | pixi exec pixi-diff-to-markdown >> diff.md
 
-      - uses: peter-evans/create-pull-request@v7
+      - uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: update/pixi-lock
