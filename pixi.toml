@@ -46,6 +46,7 @@ tomli = ">=2.2.1,<3"
 tomli-w = ">=1.2.0,<2"
 xarray = "*"
 xmipy = "*"
+xugrid = "*"
 
 [feature.rtd.dependencies]
 numpy = "*"

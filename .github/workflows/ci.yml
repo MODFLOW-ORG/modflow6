@@ -671,7 +671,7 @@ jobs:
 
       - name: Install additional netcdf testing packages
         working-directory: modflow6
-        run: pixi run pip install xugrid xarray netcdf4
+        run: pixi run pip install xarray netcdf4
 
       - name: Set LDFLAGS (macOS)
         if: runner.os == 'macOS'
