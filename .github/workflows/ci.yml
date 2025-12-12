@@ -299,6 +299,18 @@ jobs:
       FC: gfortran
       FC_V: 13
     steps:
+      - name: Free disk space (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - name: Checkout MF6
         uses: actions/checkout@v6
         with:
