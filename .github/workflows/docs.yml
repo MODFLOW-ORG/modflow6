@@ -138,7 +138,7 @@ jobs:
         run: cat run-time-comparison.md
     
       - name: Upload benchmarks
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: run-time-comparison
           path: modflow6/distribution/run-time-comparison.md
@@ -152,7 +152,7 @@ jobs:
         run: cat deprecations.md
 
       - name: Upload deprecations
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: deprecations
           path: modflow6/doc/mf6io/mf6ivar/md/deprecations.md
@@ -162,7 +162,7 @@ jobs:
         run: pixi run sphinx
       
       - name: Upload RTD files
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: rtd-files-for-${{ github.sha }}
           path: |
@@ -181,7 +181,7 @@ jobs:
         run: pixi run build-docs
 
       - name: Upload PDF documents
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: mf6io.pdf
           path: |
