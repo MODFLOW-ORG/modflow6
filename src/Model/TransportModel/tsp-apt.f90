@@ -2274,7 +2274,7 @@ contains
     if (present(rrate)) then
       rrate = (-c1 * v1 / delt + c0 * v0 / delt) * this%eqnsclfac
     end if
-    
+
     if (present(rhsval)) rhsval = -c0 * v0 * this%eqnsclfac / delt
     if (present(hcofval)) hcofval = -v1 * this%eqnsclfac / delt
   end subroutine apt_stor_term

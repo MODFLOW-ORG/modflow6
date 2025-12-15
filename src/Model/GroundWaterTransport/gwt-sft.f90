@@ -635,7 +635,7 @@ contains
       this%vold(n) = this%vnew(n)
     end do
 
-  end subroutine sft_ad  
+  end subroutine sft_ad
 
   !> @brief Deallocate memory
   !<
@@ -1057,6 +1057,5 @@ contains
       end if
     end if
   end subroutine sft_get_volumes
-
 
 end module GwtSftModule
