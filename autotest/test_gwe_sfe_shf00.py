@@ -358,7 +358,7 @@ def build_models(idx, test):
         "filename": gwename + ".sfe.obs",
     }
 
-    shf_filename = f"{gwename}.sfe.shf"
+    abc_filename = f"{gwename}.sfe.abc"
     sfe = flopy.mf6.modflow.ModflowGwesfe(
         gwe,
         boundnames=False,
@@ -376,24 +376,43 @@ def build_models(idx, test):
         filename=f"{gwename}.sfe",
     )
 
-    # Shf utility
-    shf_spd = {}
+    # Abc utility
+    abc_spd = {}
     for kper in range(len(nstp)):
         spd = []
         for irno in range(ncol):
             spd.append([irno, "WSPD", wspd])
             spd.append([irno, "TATM", tatm])
-        shf_spd[kper] = spd
+        abc_spd[kper] = spd
 
-    shf = flopy.mf6.ModflowUtlshf(
+    abc = flopy.mf6.ModflowUtlabc(
         sfe,
         print_input=True,
         density_air=rhoa,
         heat_capacity_air=Cpa,
         drag_coefficient=c_d,
-        reachperioddata=shf_spd,
-        filename=shf_filename,
+        reachperioddata=abc_spd,
+        filename=abc_filename,
     )
+
+    # # Shf utility
+    # shf_spd = {}
+    # for kper in range(len(nstp)):
+    #     spd = []
+    #     for irno in range(ncol):
+    #         spd.append([irno, "WSPD", wspd])
+    #         spd.append([irno, "TATM", tatm])
+    #     shf_spd[kper] = spd
+    # 
+    # shf = flopy.mf6.ModflowUtlshf(
+    #     sfe,
+    #     print_input=True,
+    #     density_air=rhoa,
+    #     heat_capacity_air=Cpa,
+    #     drag_coefficient=c_d,
+    #     reachperioddata=shf_spd,
+    #     filename=shf_filename,
+    # )
 
     # Instantiate Output Control package for transport
     flopy.mf6.ModflowGweoc(
