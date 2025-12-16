@@ -184,6 +184,7 @@ def check_output(test):
         )
 
 
+@pytest.mark.developmode
 @pytest.mark.parametrize("name", cases)
 def test_mf6model(name, function_tmpdir, targets):
     test = TestFramework(
