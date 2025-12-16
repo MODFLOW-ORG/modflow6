@@ -1053,7 +1053,6 @@ contains
         else
           vold = this%vold(icv)
         end if
-        ! vold = this%vold(icv)
       end if
     end if
   end subroutine sft_get_volumes
