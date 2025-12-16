@@ -95,9 +95,9 @@ contains
     call mem_setptr(this%emissw, 'EMISSW', abcMemoryPath)
     call mem_setptr(this%emissr, 'EMISSR', abcMemoryPath)
     call mem_setptr(this%rh, 'RH', abcMemoryPath)
-    call mem_setptr(this%rh, 'EA', abcMemoryPath)
-    call mem_setptr(this%rh, 'ES', abcMemoryPath)
-    call mem_setptr(this%rh, 'EW', abcMemoryPath)
+    call mem_setptr(this%ea, 'EA', abcMemoryPath)
+    call mem_setptr(this%es, 'ES', abcMemoryPath)
+    call mem_setptr(this%ew, 'EW', abcMemoryPath)
     !
     ! -- set the riparian canopy emissivity constant
     this%emissr = 0.97_DP

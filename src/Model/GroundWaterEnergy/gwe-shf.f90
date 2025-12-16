@@ -90,8 +90,8 @@ contains
     call mem_setptr(this%wspd, 'WSPD', abcMemoryPath)
     call mem_setptr(this%tatm, 'TATM', abcMemoryPath)
     call mem_setptr(this%patm, 'PATM', abcMemoryPath)
-    call mem_setptr(this%tatm, 'EA', abcMemoryPath)
-    call mem_setptr(this%patm, 'EW', abcMemoryPath)
+    call mem_setptr(this%ea, 'EA', abcMemoryPath)
+    call mem_setptr(this%ew, 'EW', abcMemoryPath)
     !
     ! -- create time series manager
     call tsmanager_cr(this%tsmanager, this%iout, &
