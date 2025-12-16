@@ -744,7 +744,7 @@ contains
     ! -- calculate sensible heat flux using HGS equation
     call this%shf%shf_cq(ifno, tstrm, shflx, lhflx) ! default to Bowen ratio method ("2")
     !
-    abcflx = swrflx + lwrflx + shflx - lhflx
+    abcflx = -(swrflx + lwrflx + shflx - lhflx)
   end subroutine abc_cq
 
   !> @brief Recalculate variables that are used by various heat fluxes
