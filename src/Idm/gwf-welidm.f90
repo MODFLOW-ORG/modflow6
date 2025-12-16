@@ -23,6 +23,7 @@ module GwfWelInputModule
     logical :: afrcsv = .false.
     logical :: fileout = .false.
     logical :: afrcsvfile = .false.
+    logical :: iflowredlen = .false.
     logical :: ts_filerecord = .false.
     logical :: ts6 = .false.
     logical :: filein = .false.
@@ -251,6 +252,25 @@ module GwfWelInputModule
     .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfwel_iflowredlen = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'WEL', & ! subcomponent
+    'OPTIONS', & ! block
+    'FLOW_REDUCTION_LENGTH', & ! tag name
+    'IFLOWREDLEN', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'flow reduction length keyword', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -516,6 +536,7 @@ module GwfWelInputModule
     gwfwel_afrcsv, &
     gwfwel_fileout, &
     gwfwel_afrcsvfile, &
+    gwfwel_iflowredlen, &
     gwfwel_ts_filerecord, &
     gwfwel_ts6, &
     gwfwel_filein, &

@@ -102,3 +102,8 @@ description = "The storage term for SFT was not consistent with the standard SFR
 section = "fixes"
 subsection = "advanced"
 description = "The storage term for SFE, like SFT, was not consistent with the standard SFR flow approach (steady-state). Prior to this change, the reach volume for the previous timestep was calculated using the current storage flow rate, which is zero for SFR even though there can be a calculated change in stage. The SFE storage term is now calculated using the current and previous reach water volumes. This change may affect SFE results for existing models."
+
+[[items]]
+section = "features"
+subsection = "stress"
+description = "Add FLOW\\_REDUCTION\\_LENGTH option to WEL package that indicates the AUTO\\_FLOW\\_REDUCE value is a length instead of a fraction of cell thickness. A warning will be issued if FLOW\\_REDUCTION\\_LENGTH is specified but AUTO\\_FLOW\\_REDUCE is not specified in the option block."

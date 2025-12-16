@@ -16,8 +16,8 @@ module WelModule
   ! -- modules used by WelModule methods
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DZERO, DEM1, DONE, LENFTYPE, DNODATA, LINELENGTH
-  use SimVariablesModule, only: errmsg
-  use SimModule, only: store_error, store_error_filename
+  use SimVariablesModule, only: errmsg, warnmsg
+  use SimModule, only: store_error, store_error_filename, store_warning
   use MemoryHelperModule, only: create_mem_path
   use BndModule, only: BndType
   use BndExtModule, only: BndExtType
@@ -41,6 +41,7 @@ module WelModule
     integer(I4B), pointer :: iflowred => null() !< flag indicating if the AUTO_FLOW_REDUCE option is active
     real(DP), pointer :: flowred => null() !< AUTO_FLOW_REDUCE variable
     integer(I4B), pointer :: ioutafrcsv => null() !< unit number for CSV output file containing wells with reduced puping rates
+    integer(I4B), pointer :: iflowredlen => null() !< flag indicating flowred variable is a length value
   contains
     procedure :: allocate_scalars => wel_allocate_scalars
     procedure :: allocate_arrays => wel_allocate_arrays
@@ -123,6 +124,7 @@ contains
     call mem_deallocate(this%iflowred)
     call mem_deallocate(this%flowred)
     call mem_deallocate(this%ioutafrcsv)
+    call mem_deallocate(this%iflowredlen)
     call mem_deallocate(this%q, 'Q', this%memoryPath)
   end subroutine wel_da
 
@@ -145,11 +147,13 @@ contains
     call mem_allocate(this%iflowred, 'IFLOWRED', this%memoryPath)
     call mem_allocate(this%flowred, 'FLOWRED', this%memoryPath)
     call mem_allocate(this%ioutafrcsv, 'IOUTAFRCSV', this%memoryPath)
+    call mem_allocate(this%iflowredlen, 'IFLOWREDLEN', this%memoryPath)
     !
     ! -- Set values
     this%iflowred = 0
     this%ioutafrcsv = 0
     this%flowred = DZERO
+    this%iflowredlen = 0
   end subroutine wel_allocate_scalars
 
   !> @ brief Allocate arrays
@@ -205,6 +209,8 @@ contains
     call mem_set_value(this%flowred, 'FLOWRED', this%input_mempath, found%flowred)
     call mem_set_value(fname, 'AFRCSVFILE', this%input_mempath, found%afrcsvfile)
     call mem_set_value(this%imover, 'MOVER', this%input_mempath, found%mover)
+    call mem_set_value(this%iflowredlen, 'IFLOWREDLEN', this%input_mempath, &
+                       found%iflowredlen)
     !
     if (found%flowred) then
       !
@@ -219,6 +225,10 @@ contains
     !
     if (found%afrcsvfile) then
       call this%wel_afr_csv_init(fname)
+    end if
+    !
+    if (found%iflowredlen) then
+      this%iflowredlen = 1
     end if
     !
     if (found%mover) then
@@ -256,6 +266,17 @@ contains
     !
     if (found%afrcsvfile) then
       ! -- currently no-op
+    end if
+    !
+    if (found%iflowredlen) then
+      write (this%iout, '(4x,A)') &
+        'AUTOMATIC FLOW REDUCTION FRACTION INTERPRETED AS A LENGTH'
+      if (found%flowred .eqv. .false.) then
+        write (warnmsg, '(a)') &
+          'FLOW_REDUCTION_LENGTH OPTION SPECIFIED BUT AUTOMATIC FLOW REDUCTION &
+          &IS NOT SPECIFIED. FLOW_REDUCTION_LENGTH WILL BE IGNORED.'
+        call store_warning(warnmsg)
+      end if
     end if
     !
     if (found%mover) then
@@ -319,9 +340,12 @@ contains
       if (this%iflowred /= 0 .and. q < DZERO) then
         ict = this%icelltype(node)
         if (ict /= 0) then
-          tp = this%dis%top(node)
           bt = this%dis%bot(node)
-          thick = tp - bt
+          if (this%iflowredlen == 0) then
+            thick = this%dis%top(node) - bt
+          else
+            thick = DONE
+          end if
           tp = bt + this%flowred * thick
           qmult = sQSaturation(tp, bt, this%xnew(node))
           q = q * qmult
