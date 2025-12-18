@@ -162,8 +162,6 @@ contains
     integer(I4B) :: stg !< stage
     integer(I4B) :: rank !< rank of remote process
     type(STLVecInt) :: vi !< virtual data items
-    ! local
-    class(*), pointer :: vdi
 
     ! get base items to receive
     call this%VirtualExchangeType%get_recv_items(stg, rank, vi)
@@ -192,8 +190,6 @@ contains
     integer(I4B) :: stg !< stage
     integer(I4B) :: rank !< rank of remote process
     type(STLVecInt) :: vi !< virtual data items
-    ! local
-    class(*), pointer :: vdi
 
     ! get base items to send
     call this%VirtualExchangeType%get_send_items(stg, rank, vi)
