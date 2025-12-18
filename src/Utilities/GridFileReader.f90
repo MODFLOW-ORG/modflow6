@@ -30,15 +30,23 @@ module GridFileReaderModule
   contains
     procedure, public :: initialize
     procedure, public :: finalize
-    procedure, public :: read_int
-    procedure, public :: read_dbl
-    procedure, public :: read_int_1d
-    procedure, public :: read_dbl_1d
-    procedure, public :: read_charstr
-    procedure, public :: read_grid_shape
+    procedure, public :: has_variable
+    ! header-reading subroutines
     procedure, private :: read_header
     procedure, private :: read_header_meta
     procedure, private :: read_header_body
+    ! scalar read functions
+    procedure, public :: read_int
+    procedure, public :: read_dbl
+    procedure, public :: read_grid_shape
+    ! array read functions (allocate and return)
+    procedure, public :: read_int_1d
+    procedure, public :: read_dbl_1d
+    procedure, public :: read_charstr
+    ! array read subroutines (populate preallocated)
+    procedure, public :: read_int_1d_into
+    procedure, public :: read_dbl_1d_into
+    procedure, public :: read_charstr_into
   end type GridFileReaderType
 
 contains
@@ -262,6 +270,8 @@ contains
   end function read_dbl
 
   !> @brief Read a 1D integer array from a grid file.
+  !!
+  !! Allocates and returns a new array containing the data.
   function read_int_1d(this, key) result(v)
     class(GridFileReaderType), intent(inout) :: this
     character(len=*), intent(in) :: key
@@ -290,7 +300,48 @@ contains
 
   end function read_int_1d
 
+  !> @brief Read a 1D integer array into a preallocated array.
+  !!
+  !! Populates a preallocated array. Array must already be allocated to the
+  !! correct size. This version is compatible with both allocatable arrays and
+  !! memory-manager-allocated pointer targets.
+  subroutine read_int_1d_into(this, key, v)
+    class(GridFileReaderType), intent(inout) :: this
+    character(len=*), intent(in) :: key
+    integer(I4B), dimension(:), intent(inout) :: v
+    ! local
+    integer(I4B) :: idx, ndim, nvals, pos, typ
+    character(len=:), allocatable :: msg
+
+    msg = 'Variable '//trim(key)//' is not a 1D integer array'
+    ndim = this%dim%get(key)
+    if (ndim /= 1) then
+      write (errmsg, '(a)') msg
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+    typ = this%typ%get(key)
+    if (typ /= 1) then
+      write (errmsg, '(a)') msg
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+    idx = this%shp_idx%get(key)
+    pos = this%pos%get(key)
+    nvals = this%shp(idx)
+    ! verify array is correct size
+    if (size(v) /= nvals) then
+      write (errmsg, '(a,i0,a,i0)') &
+        'Array size mismatch for '//trim(key)//': expected ', &
+        nvals, ', got ', size(v)
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+    read (this%inunit, pos=pos) v
+    rewind (this%inunit)
+
+  end subroutine read_int_1d_into
+
   !> @brief Read a 1D double array from a grid file.
+  !!
+  !! Allocates and returns a new array containing the data.
   function read_dbl_1d(this, key) result(v)
     class(GridFileReaderType), intent(inout) :: this
     character(len=*), intent(in) :: key
@@ -319,7 +370,48 @@ contains
 
   end function read_dbl_1d
 
+  !> @brief Read a 1D double array into a preallocated array.
+  !!
+  !! Populates a preallocated array. Array must already be allocated to the
+  !! correct size. This version is compatible with both allocatable arrays and
+  !! memory-manager-allocated pointer targets.
+  subroutine read_dbl_1d_into(this, key, v)
+    class(GridFileReaderType), intent(inout) :: this
+    character(len=*), intent(in) :: key
+    real(DP), dimension(:), intent(inout) :: v
+    ! local
+    integer(I4B) :: idx, ndim, nvals, pos, typ
+    character(len=:), allocatable :: msg
+
+    msg = 'Variable '//trim(key)//' is not a 1D double array'
+    ndim = this%dim%get(key)
+    if (ndim /= 1) then
+      write (errmsg, '(a)') msg
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+    typ = this%typ%get(key)
+    if (typ /= 2) then
+      write (errmsg, '(a)') msg
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+    idx = this%shp_idx%get(key)
+    pos = this%pos%get(key)
+    nvals = this%shp(idx)
+    ! verify array is correct size
+    if (size(v) /= nvals) then
+      write (errmsg, '(a,i0,a,i0)') &
+        'Array size mismatch for '//trim(key)//': expected ', &
+        nvals, ', got ', size(v)
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+    read (this%inunit, pos=pos) v
+    rewind (this%inunit)
+
+  end subroutine read_dbl_1d_into
+
   !> @brief Read a character string from a grid file.
+  !!
+  !! Allocates and returns a new character string containing the data.
   function read_charstr(this, key) result(charstr)
     class(GridFileReaderType), intent(inout) :: this
     character(len=*), intent(in) :: key
@@ -346,6 +438,45 @@ contains
     read (this%inunit, pos=pos) charstr
     rewind (this%inunit)
   end function read_charstr
+
+  !> @brief Read a character string into a preallocated string.
+  !!
+  !! Populates a preallocated character string. If the string is not allocated
+  !! or is the wrong length, it will be (re)allocated to the correct length.
+  subroutine read_charstr_into(this, key, charstr)
+    class(GridFileReaderType), intent(inout) :: this
+    character(len=*), intent(in) :: key
+    character(len=:), allocatable, intent(inout) :: charstr
+    ! local
+    integer(I4B) :: idx, ndim, nvals, pos, typ
+    character(len=:), allocatable :: msg
+
+    msg = 'Variable '//trim(key)//' is not a character array'
+    ndim = this%dim%get(key)
+    if (ndim /= 1) then
+      write (errmsg, '(a)') msg
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+    typ = this%typ%get(key)
+    if (typ /= 3) then
+      write (errmsg, '(a)') msg
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+    idx = this%shp_idx%get(key)
+    pos = this%pos%get(key)
+    nvals = this%shp(idx)
+    ! reallocate if not allocated or wrong length
+    if (allocated(charstr)) then
+      if (len(charstr) /= nvals) then
+        deallocate (charstr)
+        allocate (character(nvals) :: charstr)
+      end if
+    else
+      allocate (character(nvals) :: charstr)
+    end if
+    read (this%inunit, pos=pos) charstr
+    rewind (this%inunit)
+  end subroutine read_charstr_into
 
   !> @brief Read the grid shape from a grid file.
   function read_grid_shape(this) result(v)
@@ -379,5 +510,13 @@ contains
     end select
 
   end function read_grid_shape
+
+  function has_variable(this, key) result(has)
+    class(GridFileReaderType) :: this
+    character(len=*), intent(in) :: key
+    logical(LGP), allocatable :: has
+
+    has = this%dim%get(key) /= 0
+  end function has_variable
 
 end module GridFileReaderModule
