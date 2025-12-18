@@ -23,9 +23,9 @@ jobs:
           - {os: ubuntu-24.04, compiler: gcc, version: 12}
           - {os: ubuntu-24.04, compiler: gcc, version: 13}
           - {os: ubuntu-24.04, compiler: gcc, version: 14}
-          - {os: macos-13, compiler: gcc, version: 11}
-          - {os: macos-13, compiler: gcc, version: 12}
-          - {os: macos-13, compiler: gcc, version: 13}
+          - {os: macos-15-intel, compiler: gcc, version: 11}
+          - {os: macos-15-intel, compiler: gcc, version: 12}
+          - {os: macos-15-intel, compiler: gcc, version: 13}
           - {os: macos-14, compiler: gcc, version: 11}
           - {os: macos-14, compiler: gcc, version: 12}
           - {os: macos-14, compiler: gcc, version: 13}
@@ -53,16 +53,16 @@ jobs:
           - {os: ubuntu-22.04, compiler: intel-classic, version: 2021.3}
           - {os: ubuntu-22.04, compiler: intel-classic, version: 2021.2}
           - {os: ubuntu-22.04, compiler: intel-classic, version: 2021.1}
-          - {os: macos-13, compiler: intel-classic, version: "2021.10"}
-          - {os: macos-13, compiler: intel-classic, version: 2021.9}
-          - {os: macos-13, compiler: intel-classic, version: 2021.8}
-          - {os: macos-13, compiler: intel-classic, version: 2021.7}
-          - {os: macos-13, compiler: intel-classic, version: 2021.6}
-          - {os: macos-13, compiler: intel-classic, version: 2021.5}
-          - {os: macos-13, compiler: intel-classic, version: 2021.4}
-          - {os: macos-13, compiler: intel-classic, version: 2021.3}
-          - {os: macos-13, compiler: intel-classic, version: 2021.2}
-          - {os: macos-13, compiler: intel-classic, version: 2021.1}
+          - {os: macos-15-intel, compiler: intel-classic, version: "2021.10"}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.9}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.8}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.7}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.6}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.5}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.4}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.3}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.2}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.1}
           - {os: windows-2022, compiler: intel-classic, version: "2021.10"}
           - {os: windows-2022, compiler: intel-classic, version: 2021.9}
           - {os: windows-2022, compiler: intel-classic, version: 2021.8}
@@ -126,7 +126,7 @@ jobs:
       
       - name: Upload build log
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: meson-log.txt
           path: modflow6/builddir/meson-logs/meson-log.txt
@@ -188,7 +188,7 @@ jobs:
 
       - name: Upload reports
         if: success() || failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: compat-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.version }}
           path: compat/*.csv
@@ -215,7 +215,7 @@ jobs:
         run: pip install tabulate pandas
 
       - name: Download reports
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: compat-*
           path: .github/compat/new
@@ -239,7 +239,7 @@ jobs:
 
       # only upload wide CSVs and Markdown tables
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: compat
           path: |

@@ -258,7 +258,7 @@ jobs:
 
       - name: Upload failed test output
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: failed-smoke-${{ runner.os }}-${{ env.FC }}-${{ env.FC_V }}
           path: modflow6/autotest/.failed
@@ -275,7 +275,7 @@ jobs:
       matrix:
         include:
           # intel mac, release mode
-          - os: macos-13
+          - os: macos-15-intel
             debug: false
           # arm mac, release mode
           - os: macos-14
@@ -299,6 +299,18 @@ jobs:
       FC: gfortran
       FC_V: 13
     steps:
+      - name: Free disk space (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - name: Checkout MF6
         uses: actions/checkout@v6
         with:
@@ -436,7 +448,7 @@ jobs:
 
       - name: Upload failed test output
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: failed-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}
           path: modflow6/autotest/.failed
@@ -482,7 +494,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-13, windows-2022]
+        os: [ubuntu-22.04, macos-15-intel, windows-2022]
     defaults:
       run:
         shell: bash
@@ -608,7 +620,7 @@ jobs:
 
       - name: Upload failed test output
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: failed-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}
           path: modflow6/autotest/.failed
@@ -629,7 +641,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-13, windows-2022]
+        os: [ubuntu-22.04, macos-15-intel, windows-2022]
     defaults:
       run:
         shell: bash
@@ -671,7 +683,7 @@ jobs:
 
       - name: Install additional netcdf testing packages
         working-directory: modflow6
-        run: pixi run pip install xugrid xarray netcdf4
+        run: pixi run pip install xarray netcdf4
 
       - name: Set LDFLAGS (macOS)
         if: runner.os == 'macOS'
@@ -706,7 +718,7 @@ jobs:
 
       - name: Upload failed test output
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: failed-${{ matrix.os }}-ext
           path: modflow6/autotest/.failed

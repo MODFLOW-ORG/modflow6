@@ -2,7 +2,7 @@ module PrtPrpModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, DEM1, DEM5, DONE, LENFTYPE, LINELENGTH, &
                              LENBOUNDNAME, LENPAKLOC, TABLEFT, TABCENTER, &
-                             MNORMAL, DSAME, DEP3, DEP9
+                             MNORMAL, DSAME, DEP3, DEP9, DEM2
   use BndModule, only: BndType
   use BndExtModule, only: BndExtType
   use ObsModule, only: DefaultObsIdProcessor
@@ -33,6 +33,7 @@ module PrtPrpModule
 
   character(len=LENFTYPE) :: ftype = 'PRP'
   character(len=16) :: text = '             PRP'
+  real(DP), parameter :: DEFAULT_EXIT_SOLVE_TOLERANCE = DEM5
 
   !> @brief Particle release point (PRP) package
   type, extends(BndExtType) :: PrtPrpType
@@ -290,7 +291,7 @@ contains
     this%iexmeth = 0
     this%ichkmeth = 1
     this%icycwin = 0
-    this%extol = DEM5
+    this%extol = DEFAULT_EXIT_SOLVE_TOLERANCE
     this%rttol = DSAME * DEP9
     this%rtfreq = DZERO
 
@@ -683,6 +684,13 @@ contains
       &[character(len=LENVARNAME) :: 'NONE', 'EAGER']
     character(len=LINELENGTH) :: trackfile, trackcsvfile, fname
     type(PrtPrpParamFoundType) :: found
+    character(len=*), parameter :: fmtextolwrn = &
+      "('WARNING: EXIT_SOLVE_TOLERANCE is set to ',g10.3,' &
+      &which is much greater than the default value of ',g10.3,'. &
+      &The tolerance that strikes the best balance between accuracy &
+      &and runtime is problem-dependent. Since the variable being &
+      &solved varies from 0 to 1, tolerance values much less than 1 &
+      &typically give the best results.')"
 
     ! -- source base class options
     call this%BndExtType%source_options()
@@ -737,6 +745,11 @@ contains
     if (found%extol) then
       if (this%extol <= DZERO) &
         call store_error('EXIT_SOLVE_TOLERANCE MUST BE POSITIVE')
+      if (this%extol > DEM2) then
+        write (warnmsg, fmt=fmtextolwrn) &
+          this%extol, DEFAULT_EXIT_SOLVE_TOLERANCE
+        call store_warning(warnmsg)
+      end if
     end if
 
     if (found%rttol) then

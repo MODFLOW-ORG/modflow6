@@ -35,7 +35,7 @@ reader urword
 optional true
 mf6internal extol
 longname exit solve tolerance
-description the convergence tolerance for iterative solution of particle exit location and time in the generalized Pollock's method.  A value of 0.00001 works well for many problems, but the value that strikes the best balance between accuracy and runtime is problem-dependent.
+description the convergence tolerance for iterative solution of particle exit location and time in the generalized Pollock's method.  The variable being solved for varies from 0 to 1.  A tolerance of 0.00001 works well for many problems, but the value that strikes the best balance between accuracy and runtime is problem-dependent.
 default_value 1e-5
 
 block options
