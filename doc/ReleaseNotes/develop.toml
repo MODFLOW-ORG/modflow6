@@ -77,3 +77,8 @@ description = "The OPTIONS block in the Mass Source Loading (SRC) Package accept
 section = "fixes"
 subsection = "model"
 description = "Setting the PRT model's Particle Release Point (PRP) package option EXIT\\_SOLVE\\_TOLERANCE too high can cause the generalized (DISV) tracking method to produce invalid/meaningless results, as the algorithm considers every lateral subcell exit solution equally valid. Add a warning for tolerances above 0.01. The variable being solved varies from 0 to 1, so in most cases the tolerance should be much less than 1, but appropriate values will vary by model and desired performance (models run faster with higher tolerance)."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "In Newton models with local z release coordinates configured via LOCAL_\\Z, invalid negative particle tracking times could be produced. This was caused by an incorrect conversion of local release point vertical coordinates to model coordinates, erroneously placing particles below the bottom of the release cell. To correct this, take into account whether the cell is convertible or confined. If convertible, define the cell's vertical extent from the bottom to the saturated top, clamping saturated top to the cell bottom if head is below the cell bottom; if confined, use the cell's full vertical extent from the bottom to the geometric top. The user must now specify a binary grid file entry (GWFGRID) to the PRT FMI package if release coordinates are configured with LOCAL_\\Z, so that convertible and confined cells can be distinguished at particle release time."
