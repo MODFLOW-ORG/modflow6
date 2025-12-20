@@ -465,6 +465,12 @@ contains
     integer(I4B) :: ic, icu, ic_old
     real(DP) :: x, y, z
     real(DP) :: top, bot, hds
+    ! formats
+    character(len=*), parameter :: fmticterr = &
+      "('Error in ',a,': Flow model interface does not contain ICELLTYPE. &
+      &ICELLTYPE is required for PRT to distinguish convertible cells &
+      &from confined cells if LOCAL_Z release coordinates are provided. &
+      &Make sure a GWFGRID entry is configured in the PRT FMI package.')"
 
     ic = this%rptnode(ip)
     icu = this%dis%get_nodeuser(ic)
@@ -510,10 +516,18 @@ contains
       end if
     end if
 
-    ! Load coordinates and transform if needed
+    ! load coordinates
     x = this%rptx(ip)
     y = this%rpty(ip)
     if (this%localz) then
+      ! make sure FMI has cell type array. we need
+      ! it to distinguish convertible and confined
+      ! cells if release z coordinates are local
+      if (this%fmi%igwfceltyp /= 1) then
+        write (errmsg, fmticterr) trim(this%text)
+        call store_error(errmsg, terminate=.TRUE.)
+      end if
+
       ! calculate model z coord from local z coord.
       ! if cell is confined (icelltype == 0) use the
       ! actual cell height (geometric top - bottom).

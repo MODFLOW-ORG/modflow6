@@ -289,21 +289,20 @@ contains
       else
         call mem_allocate(this%gwfstrgsy, nodes, 'GWFSTRGSY', this%memoryPath)
       end if
-      if (this%igwfceltyp == 0) then
-        call mem_allocate(this%gwfceltyp, 1, 'GWFCELTYP', this%memoryPath)
-      end if
       do n = 1, size(this%gwfstrgss)
         this%gwfstrgss(n) = DZERO
       end do
       do n = 1, size(this%gwfstrgsy)
         this%gwfstrgsy(n) = DZERO
       end do
-      ! Only initialize gwfceltyp if not read from grid file
-      if (this%igwfceltyp == 0) then
-        do n = 1, size(this%gwfceltyp)
-          this%gwfceltyp(n) = 1
-        end do
-      end if
+      ! allocate and initialize cell type array. if the FMI is in a separate
+      ! simulation from the GWF model, we expect cell type to have been read
+      ! already if the binary grid file was provided to FMI. otherwise don't
+      ! initialize the cell type array to any default; unless it is received
+      ! from GWF NPF by an EXG it's undefined as indicated by igwfceltyp = 0
+      ! (this is because some coupled models need cell type, but some don't)
+      if (this%igwfceltyp == 0) &
+        call mem_allocate(this%gwfceltyp, nodes, 'GWFCELTYP', this%memoryPath)
       !
       ! -- If there is no fmi package, then there are no flows at all or a
       !    connected GWF model, so allocate gwfpackages to zero
@@ -442,9 +441,7 @@ contains
     integer(I4B), allocatable :: idomain1d(:), idomain2d(:, :), idomain3d(:, :, :)
     ! -- formats
     character(len=*), parameter :: fmticterr = &
-      "('Error in ',a,': Binary grid file does not contain ICELLTYPE. &
-      &ICELLTYPE is required for PRT to distinguish convertible cells &
-      &from confined cells.')"
+      &"('Error in ',a,': Binary grid file does not contain ICELLTYPE.')"
     character(len=*), parameter :: fmtdiserr = &
       "('Error in ',a,': Models do not have the same discretization. &
       &GWF model has ', i0, ' user nodes, this model has ', i0, '. &

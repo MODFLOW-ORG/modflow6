@@ -304,6 +304,7 @@ def build_prt_sim(
 
     # Instantiate the MODFLOW 6 prt flow model interface
     fmi_pd = [
+        ("GWFGRID", f"{rel_prt_folder}/{gwf.name}.dis.grb"),
         ("GWFHEAD", f"{rel_prt_folder}/{gwf.name}.hds"),
         ("GWFBUDGET", f"{rel_prt_folder}/{gwf.name}.cbb"),
     ]

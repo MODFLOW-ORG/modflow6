@@ -197,6 +197,7 @@ def build_prt_sim(name, gwf, prt_ws, mf6):
         saverecord=[("BUDGET", "ALL")],
     )
     pd = [
+        ("GWFGRID", Path(f"../{Path(gwf.model_ws).name}/{gwf_name}.dis.grb")),
         ("GWFHEAD", Path(f"../{Path(gwf.model_ws).name}/{gwf_name}.hds")),
         ("GWFBUDGET", Path(f"../{Path(gwf.model_ws).name}/{gwf_name}.bud")),
     ]
