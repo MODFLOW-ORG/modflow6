@@ -982,8 +982,9 @@ contains
       if (noder <= 0) then
         call this%dis%nodeu_to_string(nodeu, cellidstr)
         write (errmsg, '(a)') &
-          'Particle release point configured for inactive cell: '// &
-          trim(adjustl(cellidstr))//'.'
+          'Particle release point configured for nonexistent cell: '// &
+          trim(adjustl(cellidstr))//'. This cell has IDOMAIN <= 0 and '&
+          &'therefore does not exist in the model grid.'
         call store_error(errmsg)
         cycle
       else
