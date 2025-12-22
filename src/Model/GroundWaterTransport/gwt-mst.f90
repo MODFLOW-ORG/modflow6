@@ -655,6 +655,7 @@ contains
     !
     ! -- initialize
     tled = DONE / delt
+    c_half = 0.5_DP * (cold + cnew)
     !
     ! -- Calculate sorption change
     do n = 1, nodes
