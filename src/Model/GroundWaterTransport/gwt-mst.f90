@@ -19,6 +19,9 @@ module GwtMstModule
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
+  use IsothermInterfaceModule, only: IsothermType
+  use IsothermFactoryModule, only: create_isotherm
+  use IsothermEnumModule
 
   implicit none
   public :: GwtMstType
@@ -35,10 +38,6 @@ module GwtMstModule
     ENUMERATOR :: DECAY_OFF = 0 !< Decay (or production) of mass inactive (default)
     ENUMERATOR :: DECAY_FIRST_ORDER = 1 !< First-order decay
     ENUMERATOR :: DECAY_ZERO_ORDER = 2 !< Zeroth-order decay
-    ENUMERATOR :: SORPTION_OFF = 0 !< Sorption is inactive (default)
-    ENUMERATOR :: SORPTION_LINEAR = 1 !< Linear sorption between aqueous and solid phases
-    ENUMERATOR :: SORPTION_FREUND = 2 !< Freundlich sorption between aqueous and solid phases
-    ENUMERATOR :: SORPTION_LANG = 3 !< Langmuir sorption between aqueous and solid phases
   END ENUM
 
   !> @ brief Mobile storage and transfer
@@ -72,7 +71,7 @@ module GwtMstModule
     real(DP), dimension(:), pointer, contiguous :: ratesrb => null() !< rate of sorption
     real(DP), dimension(:), pointer, contiguous :: ratedcys => null() !< rate of sorbed mass decay
     real(DP), dimension(:), pointer, contiguous :: csrb => null() !< sorbate concentration
-    !
+    class(IsothermType), pointer :: isotherm => null() !< pointer to isotherm object
     ! -- misc
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
@@ -167,6 +166,9 @@ contains
     !
     ! -- source the data block
     call this%source_data()
+    !
+    ! -- Create isotherm object if sorption is active
+    this%isotherm => create_isotherm(this%isrb, this%distcoef, this%sp2)
   end subroutine mst_ar
 
   !> @ brief Fill coefficient method for package
@@ -335,15 +337,17 @@ contains
     integer(I4B) :: n, idiag
     real(DP) :: tled
     real(DP) :: hhcof, rrhs
-    real(DP) :: swt, swtpdt
     real(DP) :: vcell
-    real(DP) :: const1
-    real(DP) :: const2
     real(DP) :: volfracm
     real(DP) :: rhobm
+    real(DP), dimension(nodes) :: c_half
+    real(DP) :: cbar_derv_half
+    real(DP) :: cbar_new, cbar_half, cbar_old
+    real(DP) :: sat_new, sat_half, sat_old
     !
     ! -- set variables
     tled = DONE / delt
+    c_half = 0.5_DP * (cold + cnew)
     !
     ! -- loop through and calculate sorption contribution to hcof and rhs
     do n = 1, this%dis%nodes
@@ -353,99 +357,32 @@ contains
       !
       ! -- assign variables
       vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
-      swtpdt = this%fmi%gwfsat(n)
-      swt = this%fmi%gwfsatold(n, delt)
-      idiag = this%dis%con%ia(n)
-      const1 = this%distcoef(n)
-      const2 = 0.
-      if (this%isrb == SORPTION_FREUND .or. this%isrb == SORPTION_LANG) then
-        const2 = this%sp2(n)
-      end if
       volfracm = this%get_volfracm(n)
       rhobm = this%bulk_density(n)
-      call mst_srb_term(this%isrb, volfracm, rhobm, vcell, tled, cnew(n), &
-                        cold(n), swtpdt, swt, const1, const2, &
-                        hcofval=hhcof, rhsval=rrhs)
-      !
-      ! -- Add hhcof to diagonal and rrhs to right-hand side
+      sat_new = this%fmi%gwfsat(n)
+      sat_old = this%fmi%gwfsatold(n, delt)
+
+      ! -- Midpoint formulation using average values
+      cbar_new = this%isotherm%value(cnew, n)
+      cbar_old = this%isotherm%value(cold, n)
+      cbar_half = 0.5 * (cbar_new + cbar_old)
+
+      sat_half = 0.5 * (sat_new + sat_old)
+      cbar_derv_half = this%isotherm%derivative(c_half, n)
+
+      hhcof = -volfracm * rhobm * cbar_derv_half * sat_half * Vcell * tled
+      idiag = this%dis%con%ia(n)
       call matrix_sln%add_value_pos(idxglo(idiag), hhcof)
+
+      rrhs = -volfracm * rhobm * cbar_derv_half * sat_half * cold(n) &
+             * Vcell * tled
       rhs(n) = rhs(n) + rrhs
-      !
+
+      rrhs = volfracm * rhobm * cbar_half * (sat_new - sat_old) * Vcell * tled
+      rhs(n) = rhs(n) + rrhs
+
     end do
   end subroutine mst_fc_srb
-
-  !> @ brief Calculate sorption terms
-  !!
-  !!  Subroutine to calculate sorption terms
-  !<
-  subroutine mst_srb_term(isrb, volfracm, rhobm, vcell, tled, cnew, cold, &
-                          swnew, swold, const1, const2, rate, hcofval, rhsval)
-    ! -- dummy
-    integer(I4B), intent(in) :: isrb !< sorption flag 1, 2, 3 are linear, freundlich, and langmuir
-    real(DP), intent(in) :: volfracm !< volume fraction of mobile domain (fhat_m)
-    real(DP), intent(in) :: rhobm !< bulk density of mobile domain (rhob_m)
-    real(DP), intent(in) :: vcell !< volume of cell
-    real(DP), intent(in) :: tled !< one over time step length
-    real(DP), intent(in) :: cnew !< concentration at end of this time step
-    real(DP), intent(in) :: cold !< concentration at end of last time step
-    real(DP), intent(in) :: swnew !< cell saturation at end of this time step
-    real(DP), intent(in) :: swold !< cell saturation at end of last time step
-    real(DP), intent(in) :: const1 !< distribution coefficient or freundlich or langmuir constant
-    real(DP), intent(in) :: const2 !< zero, freundlich exponent, or langmuir sorption sites
-    real(DP), intent(out), optional :: rate !< calculated sorption rate
-    real(DP), intent(out), optional :: hcofval !< diagonal contribution to solution coefficient matrix
-    real(DP), intent(out), optional :: rhsval !< contribution to solution right-hand-side
-    ! -- local
-    real(DP) :: term
-    real(DP) :: derv
-    real(DP) :: cbarnew
-    real(DP) :: cbarold
-    real(DP) :: cavg
-    real(DP) :: cbaravg
-    real(DP) :: swavg
-    !
-    ! -- Calculate based on type of sorption
-    if (isrb == SORPTION_LINEAR) then
-      ! -- linear
-      term = -volfracm * rhobm * vcell * tled * const1
-      if (present(hcofval)) hcofval = term * swnew
-      if (present(rhsval)) rhsval = term * swold * cold
-      if (present(rate)) rate = term * swnew * cnew - term * swold * cold
-    else
-      !
-      ! -- calculate average aqueous concentration
-      cavg = DHALF * (cold + cnew)
-      !
-      ! -- set values based on isotherm
-      select case (isrb)
-      case (SORPTION_FREUND)
-        ! -- freundlich
-        cbarnew = get_freundlich_conc(cnew, const1, const2)
-        cbarold = get_freundlich_conc(cold, const1, const2)
-        derv = get_freundlich_derivative(cavg, const1, const2)
-      case (SORPTION_LANG)
-        ! -- langmuir
-        cbarnew = get_langmuir_conc(cnew, const1, const2)
-        cbarold = get_langmuir_conc(cold, const1, const2)
-        derv = get_langmuir_derivative(cavg, const1, const2)
-      end select
-      !
-      ! -- calculate hcof, rhs, and rate for freundlich and langmuir
-      term = -volfracm * rhobm * vcell * tled
-      cbaravg = (cbarold + cbarnew) * DHALF
-      swavg = (swnew + swold) * DHALF
-      if (present(hcofval)) then
-        hcofval = term * derv * swavg
-      end if
-      if (present(rhsval)) then
-        rhsval = term * derv * swavg * cold - term * cbaravg * (swnew - swold)
-      end if
-      if (present(rate)) then
-        rate = term * derv * swavg * (cnew - cold) &
-               + term * cbaravg * (swnew - swold)
-      end if
-    end if
-  end subroutine mst_srb_term
 
   !> @ brief Fill sorption-decay coefficient method for package
   !!
@@ -708,12 +645,13 @@ contains
     integer(I4B) :: idiag
     real(DP) :: rate
     real(DP) :: tled
-    real(DP) :: swt, swtpdt
     real(DP) :: vcell
     real(DP) :: volfracm
     real(DP) :: rhobm
-    real(DP) :: const1
-    real(DP) :: const2
+    real(DP), dimension(nodes) :: c_half
+    real(DP) :: cbar_derv_half
+    real(DP) :: cbar_new, cbar_half, cbar_old
+    real(DP) :: sat_new, sat_half, sat_old
     !
     ! -- initialize
     tled = DONE / delt
@@ -723,24 +661,34 @@ contains
       !
       ! -- initialize rates
       this%ratesrb(n) = DZERO
+      rate = 0.0_dp
       !
       ! -- skip if transport inactive
       if (this%ibound(n) <= 0) cycle
       !
       ! -- assign variables
-      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
-      swtpdt = this%fmi%gwfsat(n)
-      swt = this%fmi%gwfsatold(n, delt)
-      volfracm = this%get_volfracm(n)
+      Vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+
       rhobm = this%bulk_density(n)
-      const1 = this%distcoef(n)
-      const2 = 0.
-      if (this%isrb == SORPTION_FREUND .or. this%isrb == SORPTION_LANG) then
-        const2 = this%sp2(n)
-      end if
-      call mst_srb_term(this%isrb, volfracm, rhobm, vcell, tled, cnew(n), &
-                        cold(n), swtpdt, swt, const1, const2, &
-                        rate=rate)
+      volfracm = this%get_volfracm(n)
+      sat_new = this%fmi%gwfsat(n)
+      sat_old = this%fmi%gwfsatold(n, delt)
+
+      ! -- Midpoint formulation using average values
+      cbar_new = this%isotherm%value(cnew, n)
+      cbar_old = this%isotherm%value(cold, n)
+      cbar_half = 0.5 * (cbar_new + cbar_old)
+
+      sat_half = 0.5 * (sat_new + sat_old)
+      cbar_derv_half = this%isotherm%derivative(c_half, n)
+
+      rate = -volfracm * rhobm * cbar_derv_half * sat_half * cnew(n) &
+             * Vcell * tled
+      rate = rate + volfracm * rhobm * cbar_derv_half * sat_half * cold(n) &
+             * Vcell * tled
+      rate = rate - volfracm * rhobm * cbar_half * (sat_new - sat_old) &
+             * Vcell * tled
+
       this%ratesrb(n) = rate
       idiag = this%dis%con%ia(n)
       flowja(idiag) = flowja(idiag) + rate
