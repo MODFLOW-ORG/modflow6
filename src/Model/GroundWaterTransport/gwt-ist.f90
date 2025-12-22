@@ -21,9 +21,8 @@ module GwtIstModule
   use BudgetModule, only: BudgetType
   use TspFmiModule, only: TspFmiType
   use GwtMstModule, only: GwtMstType, get_zero_order_decay, &
-                          get_freundlich_conc, get_freundlich_derivative, &
-                          get_langmuir_conc, get_langmuir_derivative, &
-                          get_freundlich_kd, get_langmuir_kd
+                          get_freundlich_conc, &
+                          get_langmuir_conc
   use OutputControlDataModule, only: OutputControlDataType
   use MatrixBaseModule
   !
@@ -1585,5 +1584,39 @@ contains
     end if
     !
   end subroutine accumulate_budterm
+
+  !> @ brief Get effective Freundlich distribution coefficient
+  !<
+  function get_freundlich_kd(conc, kf, a) result(kd)
+    ! -- dummy
+    real(DP), intent(in) :: conc !< solute concentration
+    real(DP), intent(in) :: kf !< freundlich constant
+    real(DP), intent(in) :: a !< freundlich exponent
+    ! -- return
+    real(DP) :: kd !< effective distribution coefficient
+    !
+    if (conc > DZERO) then
+      kd = kf * conc**(a - DONE)
+    else
+      kd = DZERO
+    end if
+  end function get_freundlich_kd
+
+  !> @ brief Get effective Langmuir distribution coefficient
+  !<
+  function get_langmuir_kd(conc, kl, sbar) result(kd)
+    ! -- dummy
+    real(DP), intent(in) :: conc !< solute concentration
+    real(DP), intent(in) :: kl !< langmuir constant
+    real(DP), intent(in) :: sbar !< langmuir sorption sites
+    ! -- return
+    real(DP) :: kd !< effective distribution coefficient
+    !
+    if (conc > DZERO) then
+      kd = (kl * sbar) / (DONE + kl * conc)
+    else
+      kd = DZERO
+    end if
+  end function get_langmuir_kd
 
 end module GwtIstModule
