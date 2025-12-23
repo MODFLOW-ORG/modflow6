@@ -798,7 +798,7 @@ contains
     ! Calculate sorbed concentration
     do n = 1, size(cnew)
       csrb = DZERO
-      if (this%ibound(n) > 0) then
+      if (this%ibound(n) > 0 .and. this%isrb /= SORPTION_OFF) then
         csrb = this%isotherm%value(cnew, n)
       end if
       this%csrb(n) = csrb
