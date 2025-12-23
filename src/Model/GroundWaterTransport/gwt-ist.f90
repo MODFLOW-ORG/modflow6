@@ -815,6 +815,10 @@ contains
     deallocate (this%budget)
     call this%ocd%ocd_da()
     deallocate (this%ocd)
+    if (associated(this%isotherm)) then
+      deallocate (this%isotherm)
+      nullify (this%isotherm)
+    end if
     !
     ! -- deallocate parent
     call this%BndType%bnd_da()

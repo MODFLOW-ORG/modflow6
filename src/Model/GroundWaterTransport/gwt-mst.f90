@@ -974,6 +974,12 @@ contains
     !
     ! -- Scalars
     !
+    ! -- Objects
+    if (associated(this%isotherm)) then
+      deallocate (this%isotherm)
+      nullify (this%isotherm)
+    end if
+    !
     ! -- deallocate parent
     call this%NumericalPackageType%da()
   end subroutine mst_da

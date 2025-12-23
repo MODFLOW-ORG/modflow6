@@ -15,13 +15,19 @@ module IsothermFactoryModule
 
 contains
 
+  !> @brief Create an isotherm object based on type and parameters.
+  !>
+  !> Returns a pointer to a concrete `IsothermType` (or `null()` if sorption
+  !> is off). Uses `isotherm_type` to select Linear, Freundlich, or Langmuir,
+  !> passing `distcoef` and `sp2` as required by the chosen model.
+  !<
   function create_isotherm(isotherm_type, distcoef, sp2) result(isotherm)
     ! -- result
-    class(IsothermType), pointer :: isotherm
+    class(IsothermType), pointer :: isotherm !< allocated concrete isotherm or null()
     ! -- dummy
-    integer(I4B), intent(in) :: isotherm_type
-    real(DP), dimension(:), pointer, contiguous :: distcoef
-    real(DP), dimension(:), pointer, contiguous :: sp2
+    integer(I4B), intent(in) :: isotherm_type !< enumerator from `IsothermEnumModule`
+    real(DP), dimension(:), pointer, contiguous :: distcoef !< primary coefficient (Kd, Kf, or Kl)
+    real(DP), dimension(:), pointer, contiguous :: sp2 !< secondary parameter (a for Freundlich, Sbar for Langmuir)
 
     select case (isotherm_type)
     case (SORPTION_OFF)
@@ -33,7 +39,7 @@ contains
     case (SORPTION_LANG)
       allocate (isotherm, source=LangmuirIsothermType(distcoef, sp2))
     case default
-      call store_error('Sorption type not implemented yet.')
+      call store_error('Sorption type not implemented.')
     end select
 
   end function create_isotherm
