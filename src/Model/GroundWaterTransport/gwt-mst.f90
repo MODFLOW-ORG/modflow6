@@ -447,12 +447,12 @@ contains
         case (SORPTION_FREUND)
           !
           ! -- nonlinear Freundlich sorption, so add to RHS
-          csrb = get_freundlich_conc(cnew(n), distcoef, this%sp2(n))
+          csrb = this%isotherm%value(cnew, n)
           rrhs = term * csrb
         case (SORPTION_LANG)
           !
           ! -- nonlinear Lanmuir sorption, so add to RHS
-          csrb = get_langmuir_conc(cnew(n), distcoef, this%sp2(n))
+          csrb = this%isotherm%value(cnew, n)
           rrhs = term * csrb
         end select
       case (DECAY_ZERO_ORDER)
@@ -460,17 +460,8 @@ contains
         ! -- call function to get zero-order decay rate, which may be changed
         !    from the user-specified rate to prevent negative concentrations
         if (distcoef > DZERO) then
-          select case (this%isrb)
-          case (SORPTION_LINEAR)
-            csrbold = cold(n) * distcoef
-            csrbnew = cnew(n) * distcoef
-          case (SORPTION_FREUND)
-            csrbold = get_freundlich_conc(cold(n), distcoef, this%sp2(n))
-            csrbnew = get_freundlich_conc(cnew(n), distcoef, this%sp2(n))
-          case (SORPTION_LANG)
-            csrbold = get_langmuir_conc(cold(n), distcoef, this%sp2(n))
-            csrbnew = get_langmuir_conc(cnew(n), distcoef, this%sp2(n))
-          end select
+          csrbold = this%isotherm%value(cold, n)
+          csrbnew = this%isotherm%value(cnew, n)
           !
           decay_rate = get_zero_order_decay(this%decay_sorbed(n), &
                                             this%decayslast(n), &
@@ -762,12 +753,12 @@ contains
         case (SORPTION_FREUND)
           !
           ! -- nonlinear Freundlich sorption, so add to RHS
-          csrb = get_freundlich_conc(cnew(n), distcoef, this%sp2(n))
+          csrb = this%isotherm%value(cnew, n)
           rrhs = term * csrb
         case (SORPTION_LANG)
           !
           ! -- nonlinear Lanmuir sorption, so add to RHS
-          csrb = get_langmuir_conc(cnew(n), distcoef, this%sp2(n))
+          csrb = this%isotherm%value(cnew, n)
           rrhs = term * csrb
         end select
       case (DECAY_ZERO_ORDER)
@@ -775,17 +766,9 @@ contains
         ! -- Call function to get zero-order decay rate, which may be changed
         !    from the user-specified rate to prevent negative concentrations
         if (distcoef > DZERO) then
-          select case (this%isrb)
-          case (SORPTION_LINEAR)
-            csrbold = cold(n) * distcoef
-            csrbnew = cnew(n) * distcoef
-          case (SORPTION_FREUND)
-            csrbold = get_freundlich_conc(cold(n), distcoef, this%sp2(n))
-            csrbnew = get_freundlich_conc(cnew(n), distcoef, this%sp2(n))
-          case (SORPTION_LANG)
-            csrbold = get_langmuir_conc(cold(n), distcoef, this%sp2(n))
-            csrbnew = get_langmuir_conc(cnew(n), distcoef, this%sp2(n))
-          end select
+          csrbold = this%isotherm%value(cold, n)
+          csrbnew = this%isotherm%value(cnew, n)
+
           decay_rate = get_zero_order_decay(this%decay_sorbed(n), &
                                             this%decayslast(n), &
                                             0, csrbold, csrbnew, delt)
@@ -810,22 +793,13 @@ contains
     real(DP), intent(in), dimension(:) :: cnew !< concentration at end of this time step
     ! -- local
     integer(I4B) :: n
-    real(DP) :: distcoef
     real(DP) :: csrb
 
     ! Calculate sorbed concentration
     do n = 1, size(cnew)
       csrb = DZERO
       if (this%ibound(n) > 0) then
-        distcoef = this%distcoef(n)
-        select case (this%isrb)
-        case (SORPTION_LINEAR)
-          csrb = cnew(n) * distcoef
-        case (SORPTION_FREUND)
-          csrb = get_freundlich_conc(cnew(n), distcoef, this%sp2(n))
-        case (SORPTION_LANG)
-          csrb = get_langmuir_conc(cnew(n), distcoef, this%sp2(n))
-        end select
+        csrb = this%isotherm%value(cnew, n)
       end if
       this%csrb(n) = csrb
     end do
@@ -1457,44 +1431,6 @@ contains
     !
     volfracm = DONE - this%volfracim(node)
   end function get_volfracm
-
-  !> @ brief Calculate sorption concentration using Freundlich
-  !!
-  !!  Function to calculate sorption concentration using Freundlich
-  !<
-  function get_freundlich_conc(conc, kf, a) result(cbar)
-    ! -- dummy
-    real(DP), intent(in) :: conc !< solute concentration
-    real(DP), intent(in) :: kf !< freundlich constant
-    real(DP), intent(in) :: a !< freundlich exponent
-    ! -- return
-    real(DP) :: cbar
-    !
-    if (conc > DZERO) then
-      cbar = kf * conc**a
-    else
-      cbar = DZERO
-    end if
-  end function
-
-  !> @ brief Calculate sorption concentration using Langmuir
-  !!
-  !!  Function to calculate sorption concentration using Langmuir
-  !<
-  function get_langmuir_conc(conc, kl, sbar) result(cbar)
-    ! -- dummy
-    real(DP), intent(in) :: conc !< solute concentration
-    real(DP), intent(in) :: kl !< langmuir constant
-    real(DP), intent(in) :: sbar !< langmuir sorption sites
-    ! -- return
-    real(DP) :: cbar
-    !
-    if (conc > DZERO) then
-      cbar = (kl * sbar * conc) / (DONE + kl * conc)
-    else
-      cbar = DZERO
-    end if
-  end function
 
   !> @ brief Calculate zero-order decay rate and constrain if necessary
   !!
