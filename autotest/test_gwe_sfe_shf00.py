@@ -12,10 +12,29 @@ import os
 import flopy
 import numpy as np
 import pandas as pd
+import math
 import pytest
 from framework import TestFramework
 
 cases = ["sfe-shf"]
+
+DCTOK = 273.15
+
+def calc_ea(rh, es):
+    # ambient air temperature
+    ea = rh / 100.0 * es
+    return ea
+
+def calc_e(temp):
+    # temperature must enter as degrees Celcius
+    e = 6.1275 * math.exp(17.2693882 * (temp / (temp + DCTOK - 35.86)))
+    return e
+
+def calc_ew():
+    
+
+
+
 
 # Model units
 length_units = "m"
@@ -57,6 +76,7 @@ surf_Q_in = [
 # sensible heat flux parameter values
 wspd = 20.0
 tatm = 1189766.7  # unrealistically high to drive a 1 deg C rise in stream temperature
+rh = 30.0
 
 
 # Transport related parameters
@@ -450,6 +470,8 @@ def check_output(idx, test):
     gwename = "gwe-" + name
 
     # calc expected rise in temperature independent of mf6
+    
+    ew = calc_e(temp_strm)
 
     fpth = os.path.join(test.workspace, gwfname + ".sfr.obs.csv")
     assert os.path.isfile(fpth)
