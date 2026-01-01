@@ -53,19 +53,19 @@ module GwtSftModule
 
   type, extends(TspAptType) :: GwtSftType
 
-    integer(I4B), pointer :: idxbudrain => null() ! index of rainfall terms in flowbudptr
-    integer(I4B), pointer :: idxbudevap => null() ! index of evaporation terms in flowbudptr
-    integer(I4B), pointer :: idxbudroff => null() ! index of runoff terms in flowbudptr
-    integer(I4B), pointer :: idxbudiflw => null() ! index of inflow terms in flowbudptr
-    integer(I4B), pointer :: idxbudoutf => null() ! index of outflow terms in flowbudptr
+    integer(I4B), pointer :: idxbudrain => null() !< index of rainfall terms in flowbudptr
+    integer(I4B), pointer :: idxbudevap => null() !< index of evaporation terms in flowbudptr
+    integer(I4B), pointer :: idxbudroff => null() !< index of runoff terms in flowbudptr
+    integer(I4B), pointer :: idxbudiflw => null() !< index of inflow terms in flowbudptr
+    integer(I4B), pointer :: idxbudoutf => null() !< index of outflow terms in flowbudptr
 
-    real(DP), dimension(:), pointer, contiguous :: concrain => null() ! rainfall concentration
-    real(DP), dimension(:), pointer, contiguous :: concevap => null() ! evaporation concentration
-    real(DP), dimension(:), pointer, contiguous :: concroff => null() ! runoff concentration
-    real(DP), dimension(:), pointer, contiguous :: conciflw => null() ! inflow concentration
+    real(DP), dimension(:), pointer, contiguous :: concrain => null() !< rainfall concentration
+    real(DP), dimension(:), pointer, contiguous :: concevap => null() !< evaporation concentration
+    real(DP), dimension(:), pointer, contiguous :: concroff => null() !< runoff concentration
+    real(DP), dimension(:), pointer, contiguous :: conciflw => null() !< inflow concentration
 
-    real(DP), dimension(:), pointer, contiguous :: vnew => null() ! current reach volume
-    real(DP), dimension(:), pointer, contiguous :: vold => null() ! previous reach volume
+    real(DP), dimension(:), pointer, contiguous :: vnew => null() !< current reach volume
+    real(DP), dimension(:), pointer, contiguous :: vold => null() !< previous reach volume
 
   contains
 
