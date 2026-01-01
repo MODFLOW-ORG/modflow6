@@ -92,3 +92,8 @@ description = "PRT docs and error messages previously failed to distinguish betw
 section = "fixes"
 subsection = "advanced"
 description = "The storage term for SFT was not consistent with the standard SFR flow approach (steady-state). Prior to this change, the reach volume for the previous timestep was calculated using the current storage flow rate, which is zero for SFR even though there can be a calculated change in stage. The SFT storage term is now calculated using the current and previous reach water volumes. This change may affect SFT results for existing models."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "The storage term for SFE, like SFT, was not consistent with the standard SFR flow approach (steady-state). Prior to this change, the reach volume for the previous timestep was calculated using the current storage flow rate, which is zero for SFR even though there can be a calculated change in stage. The SFE storage term is now calculated using the current and previous reach water volumes. This change may affect SFE results for existing models."

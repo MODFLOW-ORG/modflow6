@@ -174,11 +174,11 @@ module TspAptModule
     procedure :: pak_setup_budobj
     procedure :: apt_fill_budobj
     procedure :: pak_fill_budobj
-    procedure, public :: apt_get_volumes ! Made public for sft
+    procedure, public :: apt_get_volumes !< made public for sft/sfe
     procedure, public :: apt_stor_term
     procedure, public :: apt_tmvr_term
-    procedure, public :: apt_fmvr_term ! Made public for uze
-    procedure, public :: apt_fjf_term ! Made public for uze
+    procedure, public :: apt_fmvr_term !< made public for uze
+    procedure, public :: apt_fjf_term !< made public for uze
     procedure, private :: apt_copy2flowp
     procedure, private :: apt_setup_tableobj
     procedure, public :: get_mvr_depvar
@@ -2274,7 +2274,7 @@ contains
     if (present(rrate)) then
       rrate = (-c1 * v1 / delt + c0 * v0 / delt) * this%eqnsclfac
     end if
-
+    !
     if (present(rhsval)) rhsval = -c0 * v0 * this%eqnsclfac / delt
     if (present(hcofval)) hcofval = -v1 * this%eqnsclfac / delt
   end subroutine apt_stor_term
