@@ -72,7 +72,7 @@ module GweSfeModule
     real(DP), dimension(:), pointer, contiguous :: temproff => null() !< runoff temperature
     real(DP), dimension(:), pointer, contiguous :: tempiflw => null() !< inflow temperature
     real(DP), dimension(:), pointer, contiguous :: vnew => null() !< current volume of reach
-    real(DP), dimension(:), pointer, contiguous :: vold => null() !< pervious volume of reach
+    real(DP), dimension(:), pointer, contiguous :: vold => null() !< previous volume of reach
     real(DP), dimension(:), pointer, contiguous :: ktf => null() !< thermal conductivity between the sfe and groundwater cell
     real(DP), dimension(:), pointer, contiguous :: rfeatthk => null() !< thickness of streambed material through which thermal conduction occurs
 
