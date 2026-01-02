@@ -47,6 +47,10 @@ runs:
       shell: bash
       working-directory: petsc
       run: |
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          export FFLAGS="-fcommon"
+          export FCFLAGS="-fcommon"
+        fi
         sudo wget -P $GITHUB_WORKSPACE/petsc https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.2.tar.gz
         sudo ./configure PETSC_ARCH=arch-gcc-opt --download-fblaslapack --download-openmpi=$GITHUB_WORKSPACE/petsc/openmpi-5.0.2.tar.gz --with-debugging=0
         sudo make all
