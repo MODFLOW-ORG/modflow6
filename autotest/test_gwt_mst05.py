@@ -276,9 +276,9 @@ def check_output(idx, test):
         assert False, f'could not load data from "{fpth}"'
 
     cnorm = obs["X008"] / 0.05
-    cnorm_max = [0.32842034, 0.875391418]
+    cnorm_max = [0.32355767, 0.873678873]
     msg = f"{cnorm_max[idx]} /= {cnorm.max()}"
-    assert np.allclose(cnorm_max[idx], cnorm.max(), atol=0.001), msg
+    assert np.allclose(cnorm_max[idx], cnorm.max(), atol=1e-6), msg
 
     savefig = False
     if savefig:
