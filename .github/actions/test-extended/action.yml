@@ -24,7 +24,6 @@ runs:
         nf-config --all
 
     - name: Setup GNU Fortran
-      if: runner.os != 'macOS'
       uses: fortran-lang/setup-fortran@v1
       with:
         compiler: gcc
@@ -51,6 +50,12 @@ runs:
         sudo wget -P $GITHUB_WORKSPACE/petsc https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.2.tar.gz
         sudo ./configure PETSC_ARCH=arch-gcc-opt --download-fblaslapack --download-openmpi=$GITHUB_WORKSPACE/petsc/openmpi-5.0.2.tar.gz --with-debugging=0
         sudo make all
+
+    - name: Show PETSc configure log
+      if: failure()
+      shell: bash
+      working-directory: petsc
+      run: cat configure.log
 
     - name: Build modflow6
       shell: bash
