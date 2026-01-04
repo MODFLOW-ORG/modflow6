@@ -47,12 +47,12 @@ runs:
       shell: bash
       working-directory: petsc
       run: |
-        if [ "$RUNNER_OS" == "macOS" ]; then
-          export FFLAGS="-fcommon"
-          export FCFLAGS="-fcommon"
-        fi
         wget -P $GITHUB_WORKSPACE/petsc https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.2.tar.gz
-        ./configure PETSC_ARCH=arch-gcc-opt --download-fblaslapack --download-openmpi=$GITHUB_WORKSPACE/petsc/openmpi-5.0.2.tar.gz --with-debugging=0
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          ./configure PETSC_ARCH=arch-gcc-opt --download-fblaslapack --download-openmpi=$GITHUB_WORKSPACE/petsc/openmpi-5.0.2.tar.gz --with-debugging=0 FFLAGS="-fcommon" FCFLAGS="-fcommon"
+        else
+          ./configure PETSC_ARCH=arch-gcc-opt --download-fblaslapack --download-openmpi=$GITHUB_WORKSPACE/petsc/openmpi-5.0.2.tar.gz --with-debugging=0
+        fi
         make all
 
     - name: Show PETSc configure log
