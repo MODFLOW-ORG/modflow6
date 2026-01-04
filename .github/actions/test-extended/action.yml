@@ -19,7 +19,7 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        brew install netcdf-fortran
+        brew install netcdf-fortran open-mpi
         nc-config --all
         nf-config --all
 
@@ -47,10 +47,10 @@ runs:
       shell: bash
       working-directory: petsc
       run: |
-        wget -P $GITHUB_WORKSPACE/petsc https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.2.tar.gz
         if [ "$RUNNER_OS" == "macOS" ]; then
-          ./configure PETSC_ARCH=arch-gcc-opt --download-fblaslapack --download-openmpi=$GITHUB_WORKSPACE/petsc/openmpi-5.0.2.tar.gz --with-debugging=0 FFLAGS="-fcommon" FCFLAGS="-fcommon"
+          ./configure PETSC_ARCH=arch-gcc-opt --download-fblaslapack --with-mpi-dir=$(brew --prefix openmpi) --with-debugging=0
         else
+          wget -P $GITHUB_WORKSPACE/petsc https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.2.tar.gz
           ./configure PETSC_ARCH=arch-gcc-opt --download-fblaslapack --download-openmpi=$GITHUB_WORKSPACE/petsc/openmpi-5.0.2.tar.gz --with-debugging=0
         fi
         make all
