@@ -36,7 +36,7 @@ runs:
         wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.2.tar.gz
         tar -xzf openmpi-5.0.2.tar.gz
         cd openmpi-5.0.2
-        ./configure --prefix=$GITHUB_WORKSPACE/openmpi FC=gfortran CC=gcc CXX=g++ FCFLAGS="-fcommon" FFLAGS="-fcommon"
+        ./configure --prefix=$GITHUB_WORKSPACE/openmpi --with-libevent=$(brew --prefix libevent) FC=gfortran CC=gcc CXX=g++ FCFLAGS="-fcommon" FFLAGS="-fcommon"
         make -j$(sysctl -n hw.ncpu)
         make install
 
