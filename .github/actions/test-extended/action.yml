@@ -19,7 +19,7 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        brew install netcdf-fortran
+        brew install netcdf-fortran libevent
         nc-config --all
         nf-config --all
 
