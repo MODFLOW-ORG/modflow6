@@ -71,9 +71,6 @@ RECHARGE_DEPTH = RECHARGE_RATE / RAREA
 Q_MP = INFLOW_RATE + 0.5 * RECHARGE_RATE
 SFR_DEPTH_MP = (Q_MP * MANNINGS / (RWID * np.sqrt(SLOPE))) ** (3 / 5)
 dtype = [("D01", float), ("D02", float)]
-SFR_DEPTH_TS_MP = np.array(
-    [(d0, d1) for d0, d1 in zip(SFR_DEPTH_MP, SFR_DEPTH)], dtype=dtype
-)
 dtype = [("V01", float), ("V02", float)]
 SFR_VOLUME_TS = np.array(
     [(d0 * RAREA, d1 * RAREA) for d0, d1 in zip(SFR_DEPTH_MP, SFR_DEPTH)], dtype=dtype
