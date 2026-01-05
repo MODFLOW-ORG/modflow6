@@ -1,5 +1,5 @@
 """
-Variation of test_gwf_wel01 that compares head and flow results for a MODFLOW 6
+Variation of test_gwf_wel01 that compares head and flow results for MODFLOW 6
 simulations with and without the FLOW_REDUCTION_LENGTH option.
 """
 

@@ -211,30 +211,41 @@ contains
     call mem_set_value(this%imover, 'MOVER', this%input_mempath, found%mover)
     call mem_set_value(this%iflowredlen, 'IFLOWREDLEN', this%input_mempath, &
                        found%iflowredlen)
-    !
+
+    if (found%iflowredlen) then
+      this%iflowredlen = 1
+      if (found%flowred .eqv. .FALSE.) then
+        write (warnmsg, '(a)') &
+          'FLOW_REDUCTION_LENGTH option specified but a AUTO_FLOW_REDUCTION value &
+          &is not specified. The FLOW_REDUCTION_LENGTH option will be ignored.'
+        call store_warning(warnmsg)
+      end if
+    end if
+
     if (found%flowred) then
-      !
       this%iflowred = 1
-      !
       if (this%flowred <= DZERO) then
-        this%flowred = DEM1
-      else if (this%flowred > DONE) then
+        if (found%iflowredlen) then
+          write (errmsg, '(a)') &
+            'An AUTO_FLOW_REDUCTION value less than or equal to zero cannot be &
+            &specified if the FLOW_REDUCTION_LENGTH option is specified.'
+          call store_error(errmsg)
+        else
+          this%flowred = DEM1
+        end if
+      else if (this%flowred > DONE .and. found%iflowredlen .eqv. .FALSE.) then
         this%flowred = DONE
       end if
     end if
-    !
+
     if (found%afrcsvfile) then
       call this%wel_afr_csv_init(fname)
     end if
-    !
-    if (found%iflowredlen) then
-      this%iflowredlen = 1
-    end if
-    !
+
     if (found%mover) then
       this%imover = 1
     end if
-    !
+
     ! -- log WEL specific options
     call this%log_wel_options(found)
   end subroutine wel_options
@@ -271,12 +282,6 @@ contains
     if (found%iflowredlen) then
       write (this%iout, '(4x,A)') &
         'AUTOMATIC FLOW REDUCTION FRACTION INTERPRETED AS A LENGTH'
-      if (found%flowred .eqv. .false.) then
-        write (warnmsg, '(a)') &
-          'FLOW_REDUCTION_LENGTH OPTION SPECIFIED BUT AUTOMATIC FLOW REDUCTION &
-          &IS NOT SPECIFIED. FLOW_REDUCTION_LENGTH WILL BE IGNORED.'
-        call store_warning(warnmsg)
-      end if
     end if
     !
     if (found%mover) then
