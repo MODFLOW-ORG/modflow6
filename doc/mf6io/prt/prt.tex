@@ -25,7 +25,7 @@ A summary of all inflow (sources) and outflow (sinks) of particle mass is called
 
 The motion of a particle is determined by the groundwater velocity field in which the particle is immersed. In a fully saturated cell, or the saturated portion of a partially saturated cell, the velocity field is calculated from the flows entering and exiting the cell. In a completely dry cell, or the dry portion of a partially saturated cell, the fate of a particle depends on whether the cell is an active part of the flow simulation, whether the particle is in a dry or wet part of the cell, and user-selected options.
 
-A cell can be inactive either because it has been removed from the active simulation using the IDOMAIN array or because it is completely dry, i.e., the head in the cell is below the bottom elevation of the cell. Deactivation of completely dry cells is the default behavior in MODFLOW 6. However, when the Newton-Raphson formulation is used to solve for groundwater flow, completely dry cells remain active. Particle tracking through inactive and dry-but-active cells is discussed in detail below.
+A cell can become inactive because it is completely dry, i.e., the head in the cell is below the bottom elevation of the cell. Deactivation of completely dry cells is the default behavior in MODFLOW 6. However, when the Newton-Raphson formulation is used to solve for groundwater flow, completely dry cells remain active. Particle tracking through inactive and dry-but-active cells is discussed in detail below.
 
 Release-time and tracking-time considerations are described (and implemented) separately.
 
@@ -37,6 +37,8 @@ If the cell into which the particle is being released is inactive, behavior is d
 
 If the cell into which the particle is being released is active, the particle will be released at the user-specified location, even if that location is in the dry portion of the cell or the cell is dry-but-active.
 
+A cell for which IDOMAIN <= 0 is considered not to exist in the simulation. A particle terminates without being released when the release point is in a cell for which IDOMAIN <= 0.
+
 Note that for a dry-but-active cell the DRAPE option has no effect. In that case, the particle is released into the cell, and its subsequent behavior can be configured using the DRY\_TRACKING\_METHOD option discussed below.
 
 \subsubsection{Tracking}
@@ -46,6 +48,10 @@ During tracking, the fate of a particle depends on the status of the cell that c
 A particle immersed in the groundwater flow field during a given time step can end up in an inactive cell, a dry-but-active cell, or the dry part of a partially saturated cell if the water table drops on the next time step.
 
 A particle that finds itself in an inactive cell will terminate with status code 7. This is consistent with the behavior of MODPATH 7.
+
+A cell for which IDOMAIN = 0 is considered not to exist in the simulation. When a particle encounters a cell face that is shared with a cell for which IDOMAIN = 0, that cell face is treated as an outer boundary of the model.
+
+A cell for which IDOMAIN = -1 is a vertical pass-through cell that is considered not to exist in the simulation. Such a cell effectively acts as a direct hydraulic connection that allows particles to pass from the cell above to the cell below.
 
 Dry-but-active cells can occur when the Newton-Raphson formulation is used to solve for groundwater flow. As discussed above, particles can be released into dry-but-active cells.
 
@@ -113,7 +119,7 @@ The ISTATUS field indicates the status of the particle:
 \item \texttt{5}: particle terminated in a cell with no exit face
 \item \texttt{6}: particle terminated in a stop zone
 \item \texttt{7}: particle terminated in an inactive cell
-\item \texttt{8}: particle terminated immediately upon release into a dry cell
+\item \texttt{8}: particle terminated immediately upon attempted release into an inactive cell
 \item \texttt{9}: particle terminated in a subcell with no exit face
 \end{description}
 

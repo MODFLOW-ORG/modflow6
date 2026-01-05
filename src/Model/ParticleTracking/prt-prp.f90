@@ -465,6 +465,12 @@ contains
     integer(I4B) :: ic, icu, ic_old
     real(DP) :: x, y, z
     real(DP) :: top, bot, hds
+    ! formats
+    character(len=*), parameter :: fmticterr = &
+      "('Error in ',a,': Flow model interface does not contain ICELLTYPE. &
+      &ICELLTYPE is required for PRT to distinguish convertible cells &
+      &from confined cells if LOCAL_Z release coordinates are provided. &
+      &Make sure a GWFGRID entry is configured in the PRT FMI package.')"
 
     ic = this%rptnode(ip)
     icu = this%dis%get_nodeuser(ic)
@@ -510,14 +516,29 @@ contains
       end if
     end if
 
-    ! Load coordinates and transform if needed
+    ! load coordinates
     x = this%rptx(ip)
     y = this%rpty(ip)
     if (this%localz) then
+      ! make sure FMI has cell type array. we need
+      ! it to distinguish convertible and confined
+      ! cells if release z coordinates are local
+      if (this%fmi%igwfceltyp /= 1) then
+        write (errmsg, fmticterr) trim(this%text)
+        call store_error(errmsg, terminate=.TRUE.)
+      end if
+
+      ! calculate model z coord from local z coord.
+      ! if cell is confined (icelltype == 0) use the
+      ! actual cell height (geometric top - bottom).
+      ! otherwise use head as cell top, clamping to
+      ! the cell bottom if head is below the bottom
       top = this%fmi%dis%top(ic)
       bot = this%fmi%dis%bot(ic)
       hds = this%fmi%gwfhead(ic)
-      z = bot + this%rptz(ip) * (hds - bot)
+      if (this%fmi%gwfceltyp(icu) /= 0) top = hds
+      if (top < bot) top = bot
+      z = bot + this%rptz(ip) * (top - bot)
     else
       z = this%rptz(ip)
     end if
@@ -961,8 +982,9 @@ contains
       if (noder <= 0) then
         call this%dis%nodeu_to_string(nodeu, cellidstr)
         write (errmsg, '(a)') &
-          'Particle release point configured for inactive cell: '// &
-          trim(adjustl(cellidstr))//'.'
+          'Particle release point configured for nonexistent cell: '// &
+          trim(adjustl(cellidstr))//'. This cell has IDOMAIN <= 0 and '&
+          &'therefore does not exist in the model grid.'
         call store_error(errmsg)
         cycle
       else
