@@ -213,12 +213,13 @@ contains
                        found%iflowredlen)
 
     if (found%iflowredlen) then
-      this%iflowredlen = 1
       if (found%flowred .eqv. .FALSE.) then
         write (warnmsg, '(a)') &
           'FLOW_REDUCTION_LENGTH option specified but a AUTO_FLOW_REDUCTION value &
           &is not specified. The FLOW_REDUCTION_LENGTH option will be ignored.'
         call store_warning(warnmsg)
+      else
+        this%iflowredlen = 1
       end if
     end if
 
@@ -233,7 +234,7 @@ contains
         else
           this%flowred = DEM1
         end if
-      else if (this%flowred > DONE .and. found%iflowredlen .eqv. .FALSE.) then
+      else if (this%flowred > DONE .and. this%iflowredlen == 0) then
         this%flowred = DONE
       end if
     end if
@@ -264,26 +265,31 @@ contains
       &"(4x, 'AUTOMATIC FLOW REDUCTION OF WELLS IMPLEMENTED.')"
     character(len=*), parameter :: fmtflowredv = &
       &"(4x, 'AUTOMATIC FLOW REDUCTION FRACTION (',g15.7,').')"
+    character(len=*), parameter :: fmtflowredl = &
+      &"(4x, 'AUTOMATIC FLOW REDUCTION LENGTH (',g15.7,').')"
     !
     ! -- log found options
     write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text)) &
       //' OPTIONS'
-    !
+
+    if (found%iflowredlen) then
+      write (this%iout, fmtflowred)
+      write (this%iout, '(4x,A)') &
+        'AUTOMATIC FLOW REDUCTION FRACTION INTERPRETED AS A LENGTH'
+    end if
+
     if (found%flowred) then
-      if (this%iflowred > 0) &
-        write (this%iout, fmtflowred)
-      write (this%iout, fmtflowredv) this%flowred
+      if (this%iflowredlen == 0) then
+        write (this%iout, fmtflowredv) this%flowred
+      else
+        write (this%iout, fmtflowredl) this%flowred
+      end if
     end if
     !
     if (found%afrcsvfile) then
       ! -- currently no-op
     end if
-    !
-    if (found%iflowredlen) then
-      write (this%iout, '(4x,A)') &
-        'AUTOMATIC FLOW REDUCTION FRACTION INTERPRETED AS A LENGTH'
-    end if
-    !
+
     if (found%mover) then
       write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
     end if
