@@ -36,9 +36,21 @@ runs:
         wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.6.tar.gz
         tar -xzf openmpi-4.1.6.tar.gz
         cd openmpi-4.1.6
-        ./configure --prefix=$GITHUB_WORKSPACE/openmpi --with-libevent=$(brew --prefix libevent) --enable-mpi-fortran=usempi FC=gfortran CC=gcc CXX=g++ LDFLAGS="-Wl,-ld_classic"
+        ./configure --prefix=$GITHUB_WORKSPACE/openmpi --with-libevent=$(brew --prefix libevent) --enable-mpi-fortran=usempi FC=gfortran CC=gcc CXX=g++
         make -j$(sysctl -n hw.ncpu)
         make install
+
+    - name: Patch OpenMPI wrapper for macOS ARM linker
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        echo "==== Original mpif90 wrapper ===="
+        cat $GITHUB_WORKSPACE/openmpi/bin/mpif90
+        echo "==== Patching wrapper to add -Wl,-ld_classic ===="
+        # Add -Wl,-ld_classic to the wrapper_LDFLAGS line
+        sed -i '' 's/wrapper_LDFLAGS="/wrapper_LDFLAGS="-Wl,-ld_classic /' $GITHUB_WORKSPACE/openmpi/bin/mpif90
+        echo "==== Patched mpif90 wrapper ===="
+        cat $GITHUB_WORKSPACE/openmpi/bin/mpif90
 
     - name: Checkout PETSc
       uses: actions/checkout@v4
