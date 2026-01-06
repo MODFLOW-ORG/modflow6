@@ -532,12 +532,13 @@ contains
       ! if cell is confined (icelltype == 0) use the
       ! actual cell height (geometric top - bottom).
       ! otherwise use head as cell top, clamping to
-      ! the cell bottom if head is below the bottom
+      ! the cell bottom if head is below the bottom.
       top = this%fmi%dis%top(ic)
       bot = this%fmi%dis%bot(ic)
       hds = this%fmi%gwfhead(ic)
-      if (this%fmi%gwfceltyp(icu) /= 0) top = hds
-      if (top < bot) top = bot
+      if (this%fmi%gwfceltyp(icu) /= 0) &
+        top = min(top, hds)
+      top = max(top, bot)
       z = bot + this%rptz(ip) * (top - bot)
     else
       z = this%rptz(ip)
