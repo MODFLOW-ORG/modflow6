@@ -73,10 +73,7 @@ contains
     use SimulationCreateModule, only: simulation_cr
     use SourceLoadModule, only: export_cr
 
-    ! init timer and start
-    call g_prof%initialize()
-    call g_prof%start("Run", g_prof%tmr_run)
-    call g_prof%start("Initialize", g_prof%tmr_init)
+    call g_prof%pre_init()
 
     ! -- get the run controller for sequential or parallel builds
     run_ctrl => create_run_control()
@@ -90,6 +87,10 @@ contains
 
     ! -- load input context
     call static_input_load()
+
+    ! init timer and start
+    call g_prof%initialize()
+    call g_prof%start("Initialize", g_prof%tmr_init)
 
     ! -- create
     call simulation_cr()
