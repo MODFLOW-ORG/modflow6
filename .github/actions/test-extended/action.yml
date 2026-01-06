@@ -36,7 +36,7 @@ runs:
         wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.6.tar.gz
         tar -xzf openmpi-4.1.6.tar.gz
         cd openmpi-4.1.6
-        ./configure --prefix=$GITHUB_WORKSPACE/openmpi --with-libevent=$(brew --prefix libevent) --disable-mpi-fortran-08 FC=gfortran CC=gcc CXX=g++
+        ./configure --prefix=$GITHUB_WORKSPACE/openmpi --with-libevent=$(brew --prefix libevent) --enable-mpi-fortran=usempi FC=gfortran CC=gcc CXX=g++
         make -j$(sysctl -n hw.ncpu)
         make install
 
