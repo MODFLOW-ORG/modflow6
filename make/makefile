@@ -25,34 +25,36 @@ SOURCEDIR18=../src/Model/SurfaceWaterFlow
 SOURCEDIR19=../src/Model/TransportModel
 SOURCEDIR20=../src/Model/TransportModel/Gradient
 SOURCEDIR21=../src/Model/TransportModel/InterpolationScheme
-SOURCEDIR22=../src/Solution
-SOURCEDIR23=../src/Solution/LinearMethods
-SOURCEDIR24=../src/Solution/PETSc
-SOURCEDIR25=../src/Solution/ParticleTracker
-SOURCEDIR26=../src/Solution/ParticleTracker/Domain
-SOURCEDIR27=../src/Solution/ParticleTracker/Method
-SOURCEDIR28=../src/Solution/ParticleTracker/Particle
-SOURCEDIR29=../src/Solution/ParticleTracker/Particle/Events
-SOURCEDIR30=../src/Timing
-SOURCEDIR31=../src/Utilities
-SOURCEDIR32=../src/Utilities/ArrayRead
-SOURCEDIR33=../src/Utilities/Export
-SOURCEDIR34=../src/Utilities/Idm
-SOURCEDIR35=../src/Utilities/Idm/mf6blockfile
-SOURCEDIR36=../src/Utilities/Idm/netcdf
-SOURCEDIR37=../src/Utilities/Libraries
-SOURCEDIR38=../src/Utilities/Libraries/blas
-SOURCEDIR39=../src/Utilities/Libraries/daglib
-SOURCEDIR40=../src/Utilities/Libraries/rcm
-SOURCEDIR41=../src/Utilities/Libraries/sparsekit
-SOURCEDIR42=../src/Utilities/Libraries/sparskit2
-SOURCEDIR43=../src/Utilities/Matrix
-SOURCEDIR44=../src/Utilities/Memory
-SOURCEDIR45=../src/Utilities/Observation
-SOURCEDIR46=../src/Utilities/OutputControl
-SOURCEDIR47=../src/Utilities/Performance
-SOURCEDIR48=../src/Utilities/TimeSeries
-SOURCEDIR49=../src/Utilities/Vector
+SOURCEDIR22=../src/Model/TransportModel/Isotherm
+SOURCEDIR23=../src/Solution
+SOURCEDIR24=../src/Solution/LinearMethods
+SOURCEDIR25=../src/Solution/PETSc
+SOURCEDIR26=../src/Solution/ParticleTracker
+SOURCEDIR27=../src/Solution/ParticleTracker/Domain
+SOURCEDIR28=../src/Solution/ParticleTracker/Method
+SOURCEDIR29=../src/Solution/ParticleTracker/Particle
+SOURCEDIR30=../src/Solution/ParticleTracker/Particle/Events
+SOURCEDIR31=../src/Timing
+SOURCEDIR32=../src/Utilities
+SOURCEDIR33=../src/Utilities/ArrayRead
+SOURCEDIR34=../src/Utilities/Export
+SOURCEDIR35=../src/Utilities/Idm
+SOURCEDIR36=../src/Utilities/Idm/mf6blockfile
+SOURCEDIR37=../src/Utilities/Idm/netcdf
+SOURCEDIR38=../src/Utilities/InterpolationScheme
+SOURCEDIR39=../src/Utilities/Libraries
+SOURCEDIR40=../src/Utilities/Libraries/blas
+SOURCEDIR41=../src/Utilities/Libraries/daglib
+SOURCEDIR42=../src/Utilities/Libraries/rcm
+SOURCEDIR43=../src/Utilities/Libraries/sparsekit
+SOURCEDIR44=../src/Utilities/Libraries/sparskit2
+SOURCEDIR45=../src/Utilities/Matrix
+SOURCEDIR46=../src/Utilities/Memory
+SOURCEDIR47=../src/Utilities/Observation
+SOURCEDIR48=../src/Utilities/OutputControl
+SOURCEDIR49=../src/Utilities/Performance
+SOURCEDIR50=../src/Utilities/TimeSeries
+SOURCEDIR51=../src/Utilities/Vector
 
 VPATH = \
 ${SOURCEDIR1} \
@@ -103,7 +105,9 @@ ${SOURCEDIR45} \
 ${SOURCEDIR46} \
 ${SOURCEDIR47} \
 ${SOURCEDIR48} \
-${SOURCEDIR49} 
+${SOURCEDIR49} \
+${SOURCEDIR50} \
+${SOURCEDIR51} 
 
 .SUFFIXES: .f90 .F90 .o
 
@@ -356,6 +360,7 @@ $(OBJDIR)/SwfCxsUtils.o \
 $(OBJDIR)/PrintSaveManager.o \
 $(OBJDIR)/tsp-fmi.o \
 $(OBJDIR)/SingularValueDecomposition.o \
+$(OBJDIR)/IsothermInterface.o \
 $(OBJDIR)/SfrCrossSectionManager.o \
 $(OBJDIR)/dag_module.o \
 $(OBJDIR)/BoundaryPackageExt.o \
@@ -373,6 +378,10 @@ $(OBJDIR)/IGradient.o \
 $(OBJDIR)/DisUtils.o \
 $(OBJDIR)/PseudoInverse.o \
 $(OBJDIR)/UzfEtUtil.o \
+$(OBJDIR)/LinearIsotherm.o \
+$(OBJDIR)/LangmuirIsotherm.o \
+$(OBJDIR)/IsothermEnum.o \
+$(OBJDIR)/FreundlichIsotherm.o \
 $(OBJDIR)/Xt3dAlgorithm.o \
 $(OBJDIR)/TvBase.o \
 $(OBJDIR)/gwf-sfr.o \
@@ -402,6 +411,7 @@ $(OBJDIR)/CentralDifferenceScheme.o \
 $(OBJDIR)/CachedGradient.o \
 $(OBJDIR)/AdvSchemeEnum.o \
 $(OBJDIR)/UzfCellGroup.o \
+$(OBJDIR)/IsothermFactory.o \
 $(OBJDIR)/Xt3dInterface.o \
 $(OBJDIR)/gwf-tvk.o \
 $(OBJDIR)/SpdisWorkArray.o \

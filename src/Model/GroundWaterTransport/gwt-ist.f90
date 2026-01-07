@@ -20,12 +20,12 @@ module GwtIstModule
   use BndModule, only: BndType
   use BudgetModule, only: BudgetType
   use TspFmiModule, only: TspFmiType
-  use GwtMstModule, only: GwtMstType, get_zero_order_decay, &
-                          get_freundlich_conc, get_freundlich_derivative, &
-                          get_langmuir_conc, get_langmuir_derivative, &
-                          get_freundlich_kd, get_langmuir_kd
+  use GwtMstModule, only: GwtMstType, get_zero_order_decay
   use OutputControlDataModule, only: OutputControlDataType
   use MatrixBaseModule
+  use IsothermInterfaceModule, only: IsothermType
+  use IsothermFactoryModule, only: create_isotherm
+  use IsothermEnumModule
   !
   implicit none
   !
@@ -80,6 +80,7 @@ module GwtIstModule
     real(DP), pointer, contiguous :: decay_sorbed(:) => null() !< first or zero order rate constant for sorbed mass
     real(DP), pointer, contiguous :: strg(:) => null() !< mass transfer rate
     real(DP) :: budterm(2, NBDITEMS) !< immmobile domain mass summaries
+    class(IsothermType), pointer :: isotherm => null() !< pointer to isotherm object
 
   contains
 
@@ -201,6 +202,9 @@ contains
     call budget_cr(this%budget, this%memoryPath)
     call this%budget%budget_df(NBDITEMS, 'MASS', 'M', bdzone=this%packName)
     call this%budget%set_ibudcsv(this%ibudcsv)
+    !
+    ! -- Create isotherm object if sorption is active
+    this%isotherm => create_isotherm(this%isrb, this%distcoef, this%sp2)
     !
     ! -- Perform a check to ensure that sorption and decay are set
     !    consistently between the MST and IST packages.
@@ -348,33 +352,22 @@ contains
         rhobim = this%bulk_density(n)
 
         ! set isotherm dependent sorption variables
+        cimsrbnew = this%isotherm%value(this%cimnew, n)
+        cimsrbold = this%isotherm%value(this%cimold, n)
         select case (this%isrb)
-        case (1)
-          ! linear
+        case (SORPTION_LINEAR)
           kdnew = this%distcoef(n)
           kdold = this%distcoef(n)
-          cimsrbnew = this%cimnew(n) * kdnew
-          cimsrbold = this%cimold(n) * kdold
-        case (2)
-          ! freundlich
+        case (SORPTION_FREUND)
           kdnew = get_freundlich_kd(this%cimnew(n), this%distcoef(n), &
                                     this%sp2(n))
           kdold = get_freundlich_kd(this%cimold(n), this%distcoef(n), &
                                     this%sp2(n))
-          cimsrbnew = get_freundlich_conc(this%cimnew(n), this%distcoef(n), &
-                                          this%sp2(n))
-          cimsrbold = get_freundlich_conc(this%cimold(n), this%distcoef(n), &
-                                          this%sp2(n))
-        case (3)
-          ! langmuir
+        case (SORPTION_LANG)
           kdnew = get_langmuir_kd(this%cimnew(n), this%distcoef(n), &
                                   this%sp2(n))
           kdold = get_langmuir_kd(this%cimold(n), this%distcoef(n), &
                                   this%sp2(n))
-          cimsrbnew = get_langmuir_conc(this%cimnew(n), this%distcoef(n), &
-                                        this%sp2(n))
-          cimsrbold = get_langmuir_conc(this%cimold(n), this%distcoef(n), &
-                                        this%sp2(n))
         end select
 
         ! set decay of sorbed solute parameters
@@ -486,33 +479,22 @@ contains
           rhobim = this%bulk_density(n)
 
           ! set isotherm dependent sorption variables
+          cimsrbnew = this%isotherm%value(this%cimnew, n)
+          cimsrbold = this%isotherm%value(this%cimold, n)
           select case (this%isrb)
-          case (1)
-            ! linear
+          case (SORPTION_LINEAR)
             kdnew = this%distcoef(n)
             kdold = this%distcoef(n)
-            cimsrbnew = this%cimnew(n) * kdnew
-            cimsrbold = this%cimold(n) * kdold
-          case (2)
-            ! freundlich
+          case (SORPTION_FREUND)
             kdnew = get_freundlich_kd(this%cimnew(n), this%distcoef(n), &
                                       this%sp2(n))
             kdold = get_freundlich_kd(this%cimold(n), this%distcoef(n), &
                                       this%sp2(n))
-            cimsrbnew = get_freundlich_conc(this%cimnew(n), this%distcoef(n), &
-                                            this%sp2(n))
-            cimsrbold = get_freundlich_conc(this%cimold(n), this%distcoef(n), &
-                                            this%sp2(n))
-          case (3)
-            ! langmuir
+          case (SORPTION_LANG)
             kdnew = get_langmuir_kd(this%cimnew(n), this%distcoef(n), &
                                     this%sp2(n))
             kdold = get_langmuir_kd(this%cimold(n), this%distcoef(n), &
                                     this%sp2(n))
-            cimsrbnew = get_langmuir_conc(this%cimnew(n), this%distcoef(n), &
-                                          this%sp2(n))
-            cimsrbold = get_langmuir_conc(this%cimold(n), this%distcoef(n), &
-                                          this%sp2(n))
           end select
 
           ! set decay of sorbed solute parameters
@@ -569,21 +551,13 @@ contains
     real(DP), intent(in), dimension(:) :: cim !< immobile domain aqueous concentration at end of this time step
     ! -- local
     integer(I4B) :: n
-    real(DP) :: distcoef
     real(DP) :: csrb
 
     ! Calculate sorbed concentration
     do n = 1, size(cim)
       csrb = DZERO
-      if (this%ibound(n) > 0) then
-        distcoef = this%distcoef(n)
-        if (this%isrb == 1) then
-          csrb = cim(n) * distcoef
-        else if (this%isrb == 2) then
-          csrb = get_freundlich_conc(cim(n), distcoef, this%sp2(n))
-        else if (this%isrb == 3) then
-          csrb = get_langmuir_conc(cim(n), distcoef, this%sp2(n))
-        end if
+      if (this%ibound(n) > 0 .and. this%isrb /= SORPTION_OFF) then
+        csrb = this%isotherm%value(cim, n)
       end if
       this%cimsrb(n) = csrb
     end do
@@ -841,6 +815,10 @@ contains
     deallocate (this%budget)
     call this%ocd%ocd_da()
     deallocate (this%ocd)
+    if (associated(this%isotherm)) then
+      deallocate (this%isotherm)
+      nullify (this%isotherm)
+    end if
     !
     ! -- deallocate parent
     call this%BndType%bnd_da()
@@ -1118,11 +1096,11 @@ contains
     end if
     if (found%sorption) then
       select case (this%isrb)
-      case (1)
+      case (SORPTION_LINEAR)
         write (this%iout, fmtlinear)
-      case (2)
+      case (SORPTION_FREUND)
         write (this%iout, fmtfreundlich)
-      case (3)
+      case (SORPTION_LANG)
         write (this%iout, fmtlangmuir)
       end select
     end if
@@ -1585,5 +1563,39 @@ contains
     end if
     !
   end subroutine accumulate_budterm
+
+  !> @ brief Get effective Freundlich distribution coefficient
+  !<
+  function get_freundlich_kd(conc, kf, a) result(kd)
+    ! -- dummy
+    real(DP), intent(in) :: conc !< solute concentration
+    real(DP), intent(in) :: kf !< freundlich constant
+    real(DP), intent(in) :: a !< freundlich exponent
+    ! -- return
+    real(DP) :: kd !< effective distribution coefficient
+    !
+    if (conc > DZERO) then
+      kd = kf * conc**(a - DONE)
+    else
+      kd = DZERO
+    end if
+  end function get_freundlich_kd
+
+  !> @ brief Get effective Langmuir distribution coefficient
+  !<
+  function get_langmuir_kd(conc, kl, sbar) result(kd)
+    ! -- dummy
+    real(DP), intent(in) :: conc !< solute concentration
+    real(DP), intent(in) :: kl !< langmuir constant
+    real(DP), intent(in) :: sbar !< langmuir sorption sites
+    ! -- return
+    real(DP) :: kd !< effective distribution coefficient
+    !
+    if (conc > DZERO) then
+      kd = (kl * sbar) / (DONE + kl * conc)
+    else
+      kd = DZERO
+    end if
+  end function get_langmuir_kd
 
 end module GwtIstModule
