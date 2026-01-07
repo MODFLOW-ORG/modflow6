@@ -111,7 +111,7 @@ type integer
 reader urword
 optional false
 longname number of species used in viscosity equation of state
-description number of species used in the viscosity equation of state.  If either concentrations or temperature (or both) are used to update viscosity then then nviscspecies needs to be at least one.
+description number of species used in the viscosity equation of state.  If either concentrations or temperature (or both) are used to update viscosity then nviscspecies needs to be at least one.
 
 
 # --------------------- gwf vsc packagedata ---------------------

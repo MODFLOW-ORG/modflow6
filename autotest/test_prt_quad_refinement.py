@@ -282,6 +282,7 @@ def plot_output(idx, test):
     plt.savefig(gwf_ws / f"test_{name}.png")
 
 
+@pytest.mark.snapshot
 @pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.parametrize("levels", [1, 2])

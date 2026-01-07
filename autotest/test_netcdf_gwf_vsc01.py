@@ -38,6 +38,7 @@ def build_models(idx, test, export):
     # mc.tdis.start_date_time = "2041-01-01T00:00:00-05:00"
     gwf = mc.gwf[0]
     gwf.get_package("GHB-1").export_array_netcdf = True
+    gwf.get_package("CHD-1").export_array_netcdf = True
 
     name = "gwf-" + cases[idx]
 
@@ -86,7 +87,7 @@ def check_output(idx, test, export):
         if viscosity_on[idx]:
             f.write(f"  VSC6  {name}.vsc  vsc\n")
         f.write(f"  GHB6  {name}.ghbg ghb-1\n")
-        f.write(f"  CHD6  {name}.chd  chd-1\n")
+        f.write(f"  CHD6  {name}.chdg  chd-1\n")
         f.write(f"  OC6  {name}.oc  oc\n")
         f.write("END packages\n")
 
@@ -101,6 +102,16 @@ def check_output(idx, test, export):
         f.write("BEGIN period 1\n")
         f.write("  bhead NETCDF\n")
         f.write("  cond NETCDF\n")
+        f.write("  TEMPERATURE  NETCDF\n")
+        f.write("END period 1\n")
+
+    with open(ws / f"{name}.chdg", "w") as f:
+        f.write("BEGIN options\n")
+        f.write("  READARRAYGRID\n")
+        f.write("  auxiliary  TEMPERATURE\n")
+        f.write("END options\n\n")
+        f.write("BEGIN period 1\n")
+        f.write("  head NETCDF\n")
         f.write("  TEMPERATURE  NETCDF\n")
         f.write("END period 1\n")
 

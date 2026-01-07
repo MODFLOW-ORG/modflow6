@@ -240,6 +240,7 @@ module GwfCsubModule
     procedure, private :: csub_allocate_arrays
     procedure, private :: csub_source_griddata
     procedure, private :: csub_source_packagedata
+    procedure, private :: csub_print_packagedata
     !
     ! -- helper methods
     procedure, private :: csub_calc_void_ratio
@@ -370,6 +371,7 @@ contains
     real(DP) :: cg_ske_cr
     real(DP) :: theta
     real(DP) :: v
+    real(DP) :: vtot
     ! -- format
     character(len=*), parameter :: fmtcsub = &
       "(1x,/1x,'CSUB -- COMPACTION PACKAGE, VERSION 1, 12/15/2019', &
@@ -479,8 +481,27 @@ contains
       if (thick < DZERO) then
         call this%dis%noder_to_string(node, cellid)
         write (errmsg, '(a,g0,a,1x,a,a)') &
-          'Aquifer thickness is less than zero (', &
-          thick, ') in cell', trim(adjustl(cellid)), '.'
+          'Coarse grained material thickness is less than zero (', &
+          thick, ') in cell', trim(adjustl(cellid)), '. Interbed thicknesses:'
+
+        vtot = DZERO
+        do ib = 1, this%ninterbeds
+          if (node /= this%nodelist(ib)) then
+            cycle
+          end if
+          idelay = this%idelay(ib)
+          v = this%thickini(ib)
+          if (idelay /= 0) then
+            v = v * this%rnb(ib)
+          end if
+          vtot = vtot + v
+          write (errmsg, '(a,1x,a,i0,a,g0)') &
+            trim(adjustl(errmsg)), &
+            'icbno(', ib, ')=', v
+        end do
+        write (errmsg, '(a,a,g0,a)') &
+          trim(adjustl(errmsg)), &
+          '. Total interbed thickness=', vtot, '.'
         call store_error(errmsg)
       end if
     end do
@@ -1188,6 +1209,7 @@ contains
     real(DP), dimension(:), pointer, contiguous :: ssv_cc, sse_cr, theta, kv, h0
     character(len=LINELENGTH) :: cdelaystr
     character(len=LENBOUNDNAME) :: bndname
+    character(len=20) :: cellidstr
     real(DP) :: top, botm, baq, q, thick, rval
     integer(I4B) :: idelay, ndelaybeds, csubno
     integer(I4B) :: ib, n, nodeu, noder
@@ -1244,6 +1266,11 @@ contains
       ! -- set node reduced
       noder = this%dis%get_nodenumber(nodeu, 1)
       if (noder <= 0) then
+        call this%dis%nodeu_to_string(nodeu, cellidstr)
+        write (errmsg, '(a)') &
+          'CSUB configured for inactive cell: '// &
+          trim(adjustl(cellidstr))//'.'
+        call store_error(errmsg)
         cycle
       end if
 
@@ -1508,7 +1535,116 @@ contains
         call store_error(errmsg)
       end if
     end if
+
+    if (this%iprpak /= 0) then
+      call this%csub_print_packagedata()
+    end if
+
+    ! -- terminate if errors encountered
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
   end subroutine csub_source_packagedata
+
+  !> @ brief Print packagedata
+  !<
+  subroutine csub_print_packagedata(this)
+    class(GwfCsubType) :: this
+    ! local
+    character(len=LINELENGTH) :: title
+    character(len=LINELENGTH) :: tag
+    character(len=10) :: ctype
+    character(len=20) :: cellid
+    integer(I4B) :: ntabrows
+    integer(I4B) :: ntabcols
+    integer(I4B) :: ib
+    integer(I4b) :: idelay
+    integer(I4B) :: node
+
+    ! set title
+    title = 'CSUB'//' PACKAGE ('// &
+            trim(adjustl(this%packName))//') INTERBED DATA'
+    !
+    ! determine the number of columns and rows
+    ntabrows = this%ninterbeds
+    ntabcols = 13
+    if (this%inamedbound /= 0) then
+      ntabcols = ntabcols + 1
+    end if
+
+    ! setup table
+    call table_cr(this%inputtab, this%packName, title)
+    call this%inputtab%table_df(ntabrows, ntabcols, this%iout)
+    !
+    ! add columns
+    !<icsubno> <cellid> <cdelay> <pcs0> <thick_frac> <rnb> <ssv_cc> <sse_cr> <theta> <kv> <h0> [<boundname>]
+
+    tag = 'INTERBED NUMBER'
+    call this%inputtab%initialize_column(tag, 10, alignment=TABCENTER)
+    tag = 'CELLID'
+    call this%inputtab%initialize_column(tag, 20, alignment=TABLEFT)
+    tag = 'INTERBED TYPE'
+    call this%inputtab%initialize_column(tag, 10, alignment=TABCENTER)
+    tag = 'PCS0'
+    call this%inputtab%initialize_column(tag, 12, alignment=TABCENTER)
+    tag = 'THICK_FRAC'
+    call this%inputtab%initialize_column(tag, 12, alignment=TABCENTER)
+    tag = 'RNB'
+    call this%inputtab%initialize_column(tag, 12, alignment=TABCENTER)
+    tag = 'INTERBED THICKNESS'
+    call this%inputtab%initialize_column(tag, 12, alignment=TABCENTER)
+    tag = 'CELL THICKNESS'
+    call this%inputtab%initialize_column(tag, 12, alignment=TABCENTER)
+    tag = 'SSV_CV'
+    call this%inputtab%initialize_column(tag, 12, alignment=TABCENTER)
+    tag = 'SSE_CR'
+    call this%inputtab%initialize_column(tag, 12, alignment=TABCENTER)
+    tag = 'THETA'
+    call this%inputtab%initialize_column(tag, 12, alignment=TABCENTER)
+    tag = 'KV'
+    call this%inputtab%initialize_column(tag, 12, alignment=TABCENTER)
+    tag = 'H0'
+    call this%inputtab%initialize_column(tag, 12, alignment=TABCENTER)
+    if (this%inamedbound /= 0) then
+      tag = 'BOUNDNAME'
+      call this%inputtab%initialize_column(tag, 40, alignment=TABLEFT)
+    end if
+
+    do ib = 1, this%ninterbeds
+      idelay = this%idelay(ib)
+      node = this%nodelist(ib)
+      call this%dis%noder_to_string(node, cellid)
+      if (idelay == 0) then
+        ctype = 'nodelay'
+      else
+        ctype = 'delay'
+      end if
+
+      ! fill table line
+      call this%inputtab%add_term(ib)
+      call this%inputtab%add_term(cellid)
+      call this%inputtab%add_term(ctype)
+      call this%inputtab%add_term(this%pcs(ib))
+      call this%inputtab%add_term(this%thickini(ib))
+      call this%inputtab%add_term(this%rnb(ib))
+      call this%inputtab%add_term(this%thickini(ib) * this%rnb(ib))
+      call this%inputtab%add_term(this%dis%top(node) - this%dis%bot(node))
+      call this%inputtab%add_term(this%ci(ib))
+      call this%inputtab%add_term(this%rci(ib))
+      call this%inputtab%add_term(this%theta(ib))
+      if (idelay == 0) then
+        call this%inputtab%add_term("--")
+        call this%inputtab%add_term("--")
+      else
+        call this%inputtab%add_term(this%kv(ib))
+        call this%inputtab%add_term(this%h0(ib))
+      end if
+      if (this%inamedbound /= 0) then
+        call this%inputtab%add_term(this%boundname(ib))
+      end if
+    end do
+
+  end subroutine csub_print_packagedata
 
   !> @ brief Final processing for package
   !!

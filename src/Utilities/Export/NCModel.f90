@@ -205,7 +205,6 @@ contains
     character(len=*), intent(in) :: modelfname
     integer(I4B), intent(in) :: nctype
     integer(I4B), intent(in) :: disenum
-    character(len=LINELENGTH) :: fullname
     integer :: values(8)
 
     this%title = ''
@@ -226,15 +225,12 @@ contains
     ! set model specific attributes
     select case (modeltype)
     case ('GWF')
-      fullname = 'Groundwater Flow'
       this%title = trim(modelname)//' hydraulic head'
       this%longname = 'head'
     case ('GWT')
-      fullname = 'Groundwater Transport'
       this%title = trim(modelname)//' concentration'
       this%longname = 'concentration'
     case ('GWE')
-      fullname = 'Groundwater Energy'
       this%title = trim(modelname)//' temperature'
       this%longname = 'temperature'
     case default
@@ -260,8 +256,7 @@ contains
     end if
 
     ! model description string
-    this%model = trim(modelname)//': MODFLOW 6 '//trim(fullname)// &
-                 ' ('//trim(modeltype)//') model'
+    this%model = trim(modeltype)//'6: '//trim(modelname)
 
     ! modflow6 version string
     this%source = 'MODFLOW 6 '//trim(adjustl(VERSION))
@@ -515,7 +510,7 @@ contains
 
     if (present(layer)) then
       if (layer > 0) then
-        write (lname, '(a,i0)') trim(lname)//' layer=', layer
+        write (lname, '(a,i0)') trim(lname)//' layer ', layer
       end if
     end if
   end function export_longname

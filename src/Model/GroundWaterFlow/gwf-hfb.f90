@@ -192,7 +192,7 @@ contains
     integer(I4B) :: idiag, isymcon
     integer(I4B) :: ixt3d
     real(DP) :: cond, condhfb, aterm
-    real(DP) :: fawidth, faheight
+    real(DP) :: fawidth, faheight, faarea
     real(DP) :: topn, topm, botn, botm
     real(DP) :: viscratio
     !
@@ -236,9 +236,15 @@ contains
             else
               faheight = DHALF * ((topn - botn) + (topm - botm))
             end if
-            fawidth = this%hwva(this%jas(ipos))
-            condhfb = this%hydchr(ihfb) * viscratio * &
-                      fawidth * faheight
+
+            if (this%ihc(this%jas(ipos)) == 0) then
+              faarea = this%hwva(this%jas(ipos))
+            else
+              fawidth = this%hwva(this%jas(ipos))
+              faarea = fawidth * faheight
+            end if
+
+            condhfb = this%hydchr(ihfb) * viscratio * faarea
           else
             condhfb = this%hydchr(ihfb) * viscratio
           end if
@@ -284,10 +290,16 @@ contains
             else
               faheight = DHALF * ((topn - botn) + (topm - botm))
             end if
-            if (this%hydchr(ihfb) > DZERO) then
+
+            if (this%ihc(this%jas(ipos)) == 0) then
+              faarea = this%hwva(this%jas(ipos))
+            else
               fawidth = this%hwva(this%jas(ipos))
-              condhfb = this%hydchr(ihfb) * viscratio * &
-                        fawidth * faheight
+              faarea = fawidth * faheight
+            end if
+
+            if (this%hydchr(ihfb) > DZERO) then
+              condhfb = this%hydchr(ihfb) * viscratio * faarea
               cond = aterm * condhfb / (aterm + condhfb)
             else
               cond = -aterm * this%hydchr(ihfb)
@@ -333,7 +345,7 @@ contains
     real(DP) :: cond
     integer(I4B) :: ixt3d
     real(DP) :: condhfb
-    real(DP) :: fawidth, faheight
+    real(DP) :: fawidth, faheight, faarea
     real(DP) :: topn, topm, botn, botm
     real(DP) :: viscratio
     !
@@ -377,9 +389,16 @@ contains
             else
               faheight = DHALF * ((topn - botn) + (topm - botm))
             end if
+
+            if (this%ihc(this%jas(ipos)) == 0) then
+              faarea = this%hwva(this%jas(ipos))
+            else
+              fawidth = this%hwva(this%jas(ipos))
+              faarea = fawidth * faheight
+            end if
+
             fawidth = this%hwva(this%jas(ipos))
-            condhfb = this%hydchr(ihfb) * viscratio * &
-                      fawidth * faheight
+            condhfb = this%hydchr(ihfb) * viscratio * faarea
           else
             condhfb = this%hydchr(ihfb)
           end if
@@ -564,6 +583,8 @@ contains
   subroutine source_data(this)
     ! -- modules
     use TdisModule, only: kper
+    use SimVariablesModule, only: warnmsg
+    use SimModule, only: store_warning
     use ConstantsModule, only: LINELENGTH
     use MemoryManagerModule, only: mem_setptr
     use GeomUtilModule, only: get_node
@@ -575,7 +596,8 @@ contains
     real(DP), dimension(:), pointer, contiguous :: hydchr
     character(len=LINELENGTH) :: nodenstr, nodemstr
     integer(I4B), pointer :: nbound
-    integer(I4B) :: n, nodeu1, nodeu2, noder1, noder2
+    integer(I4B) :: n, nodeu1, nodeu2, noder1, noder2, hfbno
+    character(len=20) :: node1str, node2str
     ! -- formats
     character(len=*), parameter :: fmthfb = "(i10, 2a10, 1(1pg15.6))"
 
@@ -584,6 +606,9 @@ contains
     call mem_setptr(cellids1, 'CELLID1', this%input_mempath)
     call mem_setptr(cellids2, 'CELLID2', this%input_mempath)
     call mem_setptr(hydchr, 'HYDCHR', this%input_mempath)
+
+    ! initialize hfb number
+    hfbno = 0
 
     ! set nhfb
     this%nhfb = nbound
@@ -596,7 +621,7 @@ contains
     end if
 
     ! update state
-    do n = 1, this%nhfb
+    do n = 1, nbound
 
       ! set cellid
       cellid1 => cellids1(:, n)
@@ -629,20 +654,28 @@ contains
       noder2 = this%dis%get_nodenumber(nodeu2, 1)
       if (noder1 <= 0 .or. &
           noder2 <= 0) then
+        call this%dis%nodeu_to_string(nodeu1, node1str)
+        call this%dis%nodeu_to_string(nodeu2, node2str)
+        write (warnmsg, '(a)') &
+            'HFB connection between inactive cell(s) will be excluded: '&
+            &//trim(node1str)//' to '//trim(node2str)//'.'
+        call store_warning(warnmsg)
+        this%nhfb = this%nhfb - 1
         cycle
-      else
-        this%noden(n) = noder1
-        this%nodem(n) = noder2
       end if
 
-      this%hydchr(n) = hydchr(n)
+      ! add hfb
+      hfbno = hfbno + 1
+      this%noden(hfbno) = noder1
+      this%nodem(hfbno) = noder2
+      this%hydchr(hfbno) = hydchr(n)
 
       ! print input if requested
       if (this%iprpak /= 0) then
-        call this%dis%noder_to_string(this%noden(n), nodenstr)
-        call this%dis%noder_to_string(this%nodem(n), nodemstr)
-        write (this%iout, fmthfb) n, trim(adjustl(nodenstr)), &
-          trim(adjustl(nodemstr)), this%hydchr(n)
+        call this%dis%noder_to_string(this%noden(hfbno), nodenstr)
+        call this%dis%noder_to_string(this%nodem(hfbno), nodemstr)
+        write (this%iout, fmthfb) hfbno, trim(adjustl(nodenstr)), &
+          trim(adjustl(nodemstr)), this%hydchr(hfbno)
       end if
     end do
 
@@ -700,17 +733,6 @@ contains
         write (errmsg, fmterr) ihfb, trim(adjustl(nodenstr)), &
           trim(adjustl(nodemstr))
         call store_error(errmsg)
-      else
-        !
-        ! -- check to make sure cells are not vertically connected
-        ipos = this%idxloc(ihfb)
-        if (this%ihc(this%jas(ipos)) == 0) then
-          call this%dis%noder_to_string(n, nodenstr)
-          call this%dis%noder_to_string(m, nodemstr)
-          write (errmsg, fmtverr) ihfb, trim(adjustl(nodenstr)), &
-            trim(adjustl(nodemstr))
-          call store_error(errmsg)
-        end if
       end if
     end do
     !
@@ -750,7 +772,7 @@ contains
     integer(I4B) :: ihfb, n, m
     integer(I4B) :: ipos
     real(DP) :: cond, condhfb
-    real(DP) :: fawidth, faheight
+    real(DP) :: fawidth, faheight, faarea
     real(DP) :: topn, topm, botn, botm
     !
     do ihfb = 1, this%nhfb
@@ -773,10 +795,16 @@ contains
         else
           faheight = DHALF * ((topn - botn) + (topm - botm))
         end if
-        if (this%hydchr(ihfb) > DZERO) then
+
+        if (this%ihc(this%jas(ipos)) == 0) then
+          faarea = this%hwva(this%jas(ipos))
+        else
           fawidth = this%hwva(this%jas(ipos))
-          condhfb = this%hydchr(ihfb) * &
-                    fawidth * faheight
+          faarea = fawidth * faheight
+        end if
+
+        if (this%hydchr(ihfb) > DZERO) then
+          condhfb = this%hydchr(ihfb) * faarea
           cond = cond * condhfb / (cond + condhfb)
         else
           cond = -cond * this%hydchr(ihfb)

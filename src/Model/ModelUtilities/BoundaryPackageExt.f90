@@ -102,7 +102,8 @@ contains
     call obs_cr(this%obs, this%inobspkg)
     !
     ! -- Write information to model list file
-    write (this%iout, 1) this%filtyp, trim(adjustl(this%text)), this%input_mempath
+    write (this%iout, 1) trim(this%filtyp), trim(adjustl(this%text)), &
+      this%input_mempath
 1   format(1X, /1X, a, ' -- ', a, ' PACKAGE, VERSION 8, 2/22/2014', &
            ' INPUT READ FROM MEMPATH: ', a)
     !

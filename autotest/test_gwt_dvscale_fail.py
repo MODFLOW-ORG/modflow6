@@ -1,6 +1,6 @@
 """
 Test the dependent_variable_scale option to make sure modflow fails if the option
-is not specified for all gwt/gwe models in the same IMS solution. Tested for for a
+is not specified for all gwt/gwe models in the same IMS solution. Tested for a
 one-dimensional model grid of square cells.
 """
 
@@ -221,6 +221,7 @@ def build_models(idx, test):
     return sim, None
 
 
+@pytest.mark.developmode  # TODO remove for 6.7.0
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(

@@ -56,7 +56,7 @@ $(OBJDIR)/SimPHMF.o \
 $(OBJDIR)/ListNode.o \
 $(OBJDIR)/MemoryStore.o \
 $(OBJDIR)/LongLineReader.o \
-$(OBJDIR)/DevFeature.o \
+$(OBJDIR)/FeatureFlags.o \
 $(OBJDIR)/Utilities.o \
 $(OBJDIR)/ListIterator.o \
 $(OBJDIR)/ConstantsPHMF.o \

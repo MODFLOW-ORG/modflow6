@@ -53,19 +53,23 @@ module GwtSftModule
 
   type, extends(TspAptType) :: GwtSftType
 
-    integer(I4B), pointer :: idxbudrain => null() ! index of rainfall terms in flowbudptr
-    integer(I4B), pointer :: idxbudevap => null() ! index of evaporation terms in flowbudptr
-    integer(I4B), pointer :: idxbudroff => null() ! index of runoff terms in flowbudptr
-    integer(I4B), pointer :: idxbudiflw => null() ! index of inflow terms in flowbudptr
-    integer(I4B), pointer :: idxbudoutf => null() ! index of outflow terms in flowbudptr
+    integer(I4B), pointer :: idxbudrain => null() !< index of rainfall terms in flowbudptr
+    integer(I4B), pointer :: idxbudevap => null() !< index of evaporation terms in flowbudptr
+    integer(I4B), pointer :: idxbudroff => null() !< index of runoff terms in flowbudptr
+    integer(I4B), pointer :: idxbudiflw => null() !< index of inflow terms in flowbudptr
+    integer(I4B), pointer :: idxbudoutf => null() !< index of outflow terms in flowbudptr
 
-    real(DP), dimension(:), pointer, contiguous :: concrain => null() ! rainfall concentration
-    real(DP), dimension(:), pointer, contiguous :: concevap => null() ! evaporation concentration
-    real(DP), dimension(:), pointer, contiguous :: concroff => null() ! runoff concentration
-    real(DP), dimension(:), pointer, contiguous :: conciflw => null() ! inflow concentration
+    real(DP), dimension(:), pointer, contiguous :: concrain => null() !< rainfall concentration
+    real(DP), dimension(:), pointer, contiguous :: concevap => null() !< evaporation concentration
+    real(DP), dimension(:), pointer, contiguous :: concroff => null() !< runoff concentration
+    real(DP), dimension(:), pointer, contiguous :: conciflw => null() !< inflow concentration
+
+    real(DP), dimension(:), pointer, contiguous :: vnew => null() !< current reach volume
+    real(DP), dimension(:), pointer, contiguous :: vold => null() !< previous reach volume
 
   contains
 
+    procedure :: bnd_ad => sft_ad
     procedure :: bnd_da => sft_da
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => sft_allocate_arrays
@@ -84,6 +88,7 @@ module GwtSftModule
     procedure :: pak_rp_obs => sft_rp_obs
     procedure :: pak_bd_obs => sft_bd_obs
     procedure :: pak_set_stressperiod => sft_set_stressperiod
+    procedure :: apt_get_volumes => sft_get_volumes
 
   end type GwtSftType
 
@@ -594,6 +599,10 @@ contains
     call mem_allocate(this%concevap, this%ncv, 'CONCEVAP', this%memoryPath)
     call mem_allocate(this%concroff, this%ncv, 'CONCROFF', this%memoryPath)
     call mem_allocate(this%conciflw, this%ncv, 'CONCIFLW', this%memoryPath)
+
+    call mem_allocate(this%vnew, this%ncv, 'VNEW', this%memoryPath)
+    call mem_allocate(this%vold, this%ncv, 'VOLD', this%memoryPath)
+
     !
     ! -- call standard TspAptType allocate arrays
     call this%TspAptType%apt_allocate_arrays()
@@ -604,8 +613,29 @@ contains
       this%concevap(n) = DZERO
       this%concroff(n) = DZERO
       this%conciflw(n) = DZERO
+      this%vnew(n) = DZERO
+      this%vold(n) = DZERO
     end do
   end subroutine sft_allocate_arrays
+
+  !> @brief Advance sft package routine
+  !<
+  subroutine sft_ad(this)
+    ! modules
+    ! dummy
+    class(GwtSftType) :: this
+    ! local
+    integer(I4B) :: n
+
+    ! call base bnd_ad
+    call this%TspAptType%bnd_ad()
+
+    ! update vold
+    do n = 1, this%ncv
+      this%vold(n) = this%vnew(n)
+    end do
+
+  end subroutine sft_ad
 
   !> @brief Deallocate memory
   !<
@@ -628,6 +658,9 @@ contains
     call mem_deallocate(this%concevap)
     call mem_deallocate(this%concroff)
     call mem_deallocate(this%conciflw)
+
+    call mem_deallocate(this%vnew)
+    call mem_deallocate(this%vold)
     !
     ! -- deallocate scalars in TspAptType
     call this%TspAptType%bnd_da()
@@ -992,5 +1025,36 @@ contains
     !
 999 continue
   end subroutine sft_set_stressperiod
+
+  !> @brief Return the sfr new volume and old volume
+  !<
+  subroutine sft_get_volumes(this, icv, vnew, vold, delt)
+    ! modules
+    ! dummy
+    class(GwtSftType) :: this
+    integer(I4B), intent(in) :: icv
+    real(DP), intent(inout) :: vnew, vold
+    real(DP), intent(in) :: delt
+    ! local
+    real(DP) :: qss
+    !
+    ! -- get volumes
+    vold = DZERO
+    vnew = vold
+    if (this%idxbudsto /= 0) then
+      qss = this%flowbudptr%budterm(this%idxbudsto)%flow(icv)
+      vnew = this%flowbudptr%budterm(this%idxbudsto)%auxvar(1, icv)
+      this%vnew(icv) = vnew
+      if (qss /= DZERO) then
+        vold = vnew + qss * delt
+      else
+        if (vnew == DZERO) then
+          vold = DZERO
+        else
+          vold = this%vold(icv)
+        end if
+      end if
+    end if
+  end subroutine sft_get_volumes
 
 end module GwtSftModule

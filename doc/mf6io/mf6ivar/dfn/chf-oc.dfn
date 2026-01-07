@@ -7,6 +7,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal budfilerec
 longname
 description
 
@@ -51,6 +52,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal budcsvfilerec
 longname
 description
 
@@ -84,6 +86,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal qoutfilerec
 longname
 description
 
@@ -117,6 +120,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal stagefilerec
 longname
 description
 
@@ -149,6 +153,7 @@ type record qoutflow print_format formatrecord
 shape
 reader urword
 optional true
+mf6internal qoutprintrec
 longname
 description
 

@@ -18,9 +18,9 @@
             "email": "langevin@usgs.gov"
         },
         "laborHours": -1,
-        "version": "6.7.0.dev2",
+        "version": "6.7.0.dev3",
         "date": {
-            "metadataLastUpdated": "2025-05-12"
+            "metadataLastUpdated": "2025-09-29"
         },
         "organization": "U.S. Geological Survey",
         "permissions": {

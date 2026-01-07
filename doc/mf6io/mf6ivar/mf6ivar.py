@@ -116,21 +116,6 @@
 #   output control rewritten entirely, and implemented in the code
 #
 
-# DEFINITION FILE KEYWORDS
-# block :: name of block
-# name :: variable name
-# in_record :: optional True or False, False if not specified
-# type :: recarray, record, keyword, integer, double precision, keystring
-# tagged :: optional True or False, True if not specified.
-#           If tagged, then keyword comes before value
-# shape :: (size), optional, only required for arrays
-# valid :: description of valid values
-# reader :: urword, readarray, u1dint, ...
-# optional :: optional True or False, False if not specified
-# longname :: long name for variable
-# description :: description for variable, REPLACE tag indicates that
-#                description will come from common.dfn
-
 
 import os
 import re
@@ -139,6 +124,9 @@ import textwrap
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from collections import OrderedDict
 from pathlib import Path
+from typing import get_args
+
+from modflow_devtools.dfn import FieldType
 
 
 def parse_mf6var_file(fname):
@@ -198,21 +186,23 @@ RTD_DOC_DIR_PATH = Path(__file__).parents[3] / ".build_rtd_docs" / "_mf6io"
 COMMON_DFN_PATH = parse_mf6var_file(DFNS_DIR_PATH / "common.dfn")
 COMMON_DIR_PATH = MF6IVAR_DIR_PATH.parent.parent / "Common"
 DEFAULT_MODELS = ["gwf", "gwt", "gwe", "prt"]
-DEVELOP_MODELS = ["chf", "olf"]
-if (MF6IO_DIR_PATH / "develop.version").is_file():
-    DEFAULT_MODELS += DEVELOP_MODELS
-VALID_TYPES = [
-    "integer",
-    "double precision",
-    "string",
-    "keystring",
-    "keyword",
-    "recarray",
-    "record",
-]
+DEVELOP_MODELS = ["chf", "olf", "swf"]
+VALID_TYPES = list(get_args(FieldType))
 
 MD_DIR_PATH.mkdir(exist_ok=True)
 TEX_DIR_PATH.mkdir(exist_ok=True)
+
+
+def infer_reader(v):
+    """
+    Infer the reader from the variable's attributes.
+    Arrays use 'readarray', everything else `urword`.
+    """
+    type_ = v.get("type", "")
+    has_shape = "shape" in v and v["shape"].strip() != ""
+    if has_shape and type_ in ("integer", "double precision"):
+        return "readarray"
+    return "urword"
 
 
 def block_entry(varname, block, vardict, prefix="  "):
@@ -258,9 +248,9 @@ def block_entry(varname, block, vardict, prefix="  "):
             s = f"{s}\n{prefix}{s}\n{prefix}..."
 
     # layered and netcdf
-    elif v["reader"] in ["readarray", "u1ddbl", "u2ddbl", "u1dint"]:
+    elif infer_reader(v) == "readarray":
         shape = v["shape"]
-        reader = v["reader"].upper()
+        reader = "READARRAY"
         layered = ""
         if "layered" in v:
             if v["layered"] == "true":
@@ -299,7 +289,9 @@ def block_entry(varname, block, vardict, prefix="  "):
     return s
 
 
-def write_block(vardict, block, blk_var_list, varexcludeprefix=None, indent=None):
+def write_block(
+    vardict, block, blk_var_list, varexcludeprefix=None, indent=None, developmode=True
+):
     prepend = "" if indent is None else indent * " "
     s = prepend + f"BEGIN {block.upper()}"
     for variable in blk_var_list:
@@ -325,10 +317,12 @@ def write_block(vardict, block, blk_var_list, varexcludeprefix=None, indent=None
                 # because it is part of a record
                 addv = False
             if v.get("block_variable", "") == "true":
-                # do not separately include this variable
-                # because it is part of a record
                 addv = False
-            if v.get("deprecated", "") != "" or v.get("removed", "") != "":
+            if (
+                v.get("deprecated", "") != ""
+                or v.get("removed", "") != ""
+                or (not developmode and v.get("developmode", "") == "true")
+            ):
                 addv = False
             if addv:
                 ts = block_entry(name, block, vardict, prefix="  " + prepend)
@@ -356,7 +350,7 @@ def get_description(desc):
     return desc
 
 
-def write_desc(vardict, block, blk_var_list, varexcludeprefix=None):
+def write_desc(vardict, block, blk_var_list, varexcludeprefix=None, developmode=True):
     s = ""
     for name, b in vardict.keys():
         v = vardict[(name, b)]
@@ -376,6 +370,8 @@ def write_desc(vardict, block, blk_var_list, varexcludeprefix=None):
             if v.get("deprecated", "") != "":
                 addv = False
             if v.get("removed", "") != "":
+                addv = False
+            if not developmode and v.get("developmode", "") != "":
                 addv = False
             if addv:
                 if v["type"] == "keyword":
@@ -404,7 +400,13 @@ def write_desc(vardict, block, blk_var_list, varexcludeprefix=None):
                 if "extended" in v:
                     if v["extended"] == "true":
                         fmt = "\\textcolor{red}\{\}"
-                        ss = "\\textcolor{red}{" + ss + "}"
+                        ss = (
+                            "\\textcolor{red}{\\texttt{\\textit{"
+                            + n
+                            + "}}---"
+                            + desc
+                            + "}"
+                        )
                 s += "\\item " + ss + "\n\n"
 
                 t = v["type"]
@@ -415,6 +417,11 @@ def write_desc(vardict, block, blk_var_list, varexcludeprefix=None):
                         if (
                             "removed" in vardict[(vn, block)]
                             or "deprecated" in vardict[(vn, block)]
+                            or (
+                                not developmode
+                                and vardict[(vn, block)].get("developmode", "")
+                                == "true"
+                            )
                         ):
                             continue
                         blockentry = block_entry(vn, block, vardict, "")
@@ -425,7 +432,9 @@ def write_desc(vardict, block, blk_var_list, varexcludeprefix=None):
     return s
 
 
-def write_desc_md(vardict, block, blk_var_list, varexcludeprefix=None):
+def write_desc_md(
+    vardict, block, blk_var_list, varexcludeprefix=None, developmode=True
+):
     s = ""
     for name, b in vardict.keys():
         v = vardict[(name, b)]
@@ -445,6 +454,8 @@ def write_desc_md(vardict, block, blk_var_list, varexcludeprefix=None):
             if v.get("deprecated", "") != "":
                 addv = False
             if v.get("removed", "") != "":
+                addv = False
+            if not developmode and v.get("developmode", "") == "true":
                 addv = False
             if addv:
                 if v["type"] == "keyword":
@@ -721,7 +732,7 @@ def get_dfn_files(models):
     return files
 
 
-def write_variables():
+def write_variables(developmode=True):
     allblocks = []  # cumulative list of all block names
 
     # write markdown input variables file
@@ -755,12 +766,24 @@ def write_variables():
                 # Write the name of the block to the latex file
                 desc += f"\\item \\textbf{'{Block: ' + b.upper() + '}'}\n\n"
                 desc += "\\begin{description}\n"
-                desc += write_desc(vardict, b, blk_var_list, varexcludeprefix="dev_")
+                desc += write_desc(
+                    vardict,
+                    b,
+                    blk_var_list,
+                    varexcludeprefix="dev_",
+                    developmode=developmode,
+                )
                 desc += "\\end{description}\n"
 
                 with open(TEX_DIR_PATH / f"{fpath.stem}-{b}.dat", "w") as f:
                     s = (
-                        write_block(vardict, b, blk_var_list, varexcludeprefix="dev_")
+                        write_block(
+                            vardict,
+                            b,
+                            blk_var_list,
+                            varexcludeprefix="dev_",
+                            developmode=developmode,
+                        )
                         + "\n"
                     )
                     f.write(s)
@@ -787,7 +810,11 @@ def write_variables():
                     desc += f"##### Block: {b.upper()}\n\n"
 
                     desc += write_desc_md(
-                        vardict, b, blk_var_list, varexcludeprefix="dev_"
+                        vardict,
+                        b,
+                        blk_var_list,
+                        varexcludeprefix="dev_",
+                        developmode=developmode,
                     )
 
                     if "period" in b.lower():
@@ -801,6 +828,7 @@ def write_variables():
                                 blk_var_list,
                                 varexcludeprefix="dev_",
                                 indent=4,
+                                developmode=developmode,
                             )
                         )
                         + "\n"
@@ -862,14 +890,12 @@ def write_variables():
                         s += "\n\n"
                         f.write(s)
 
-            # write markdown
             write_md(fmd, vardict, component, package)
 
     return allblocks
 
 
 if __name__ == "__main__":
-    # parse arguments
     parser = ArgumentParser(
         prog="Generate MF6 IO documentation files from DFN files",
         formatter_class=RawDescriptionHelpFormatter,
@@ -883,11 +909,12 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "-m",
-        "--model",
+        "-r",
+        "--releasemode",
         required=False,
-        action="append",
-        help="Filter models to include",
+        action="store_true",
+        help="Omit developmode variables from documentation "
+        "(defaults to false for development distributions)",
     )
     parser.add_argument(
         "-v",
@@ -897,20 +924,23 @@ if __name__ == "__main__":
         action="store_true",
         help="Whether to show verbose output",
     )
+
     args = parser.parse_args()
-    models = args.model if args.model else DEFAULT_MODELS
+    developmode = not args.releasemode
     verbose = args.verbose
 
-    # clean/recreate docdir
     if os.path.isdir(RTD_DOC_DIR_PATH):
         shutil.rmtree(RTD_DOC_DIR_PATH)
-    os.makedirs(RTD_DOC_DIR_PATH)
+    RTD_DOC_DIR_PATH.mkdir(parents=True)
 
-    # filter dfn files corresponding to the selected set of models
-    # and write variables and appendix to markdown and latex files
+    models = DEFAULT_MODELS
+    if developmode:
+        models.extend(DEVELOP_MODELS)
+
     dfns = get_dfn_files(models)
-    blocks = write_variables()
+    blocks = write_variables(developmode=developmode)
     write_appendix(blocks)
+
     if verbose:
         for block in blocks:
             print(block)

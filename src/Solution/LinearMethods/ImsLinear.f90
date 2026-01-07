@@ -176,7 +176,7 @@ CONTAINS
            ' PACKAGE, VERSION 8, 04/28/2017')
     !
     ! -- DETERMINE PRECONDITIONER
-    IF (this%LEVEL > 0 .OR. this%DROPTOL > DZERO) THEN
+    IF (this%LEVEL > 0) THEN
       this%IPC = 3
     ELSE
       this%IPC = 1

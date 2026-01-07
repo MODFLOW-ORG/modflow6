@@ -275,11 +275,32 @@ def check_output(idx, test):
         FlopyReadmeCase.nper,
     )
 
-    # check cell-by-cell particle mass budget file
+    # check cell-by-cell budget file
+    assert len(prt_bud_data) == 3
 
-    assert len(prt_bud_data) == 2
+    # FLOW-JA-FACE
     assert prt_bud_data[0].shape == (1, 1, 460)
-    assert prt_bud_data[1].shape == (9,)
+
+    # TERMINATION
+    if "noext" in name:
+        # 3 different cells near the release cell
+        assert prt_bud_data[1].shape == (3,)
+        assert tuple(prt_bud_data[1][0]) == (3, 3, 3.0)
+        assert tuple(prt_bud_data[1][1]) == (12, 12, 3.0)
+        assert tuple(prt_bud_data[1][2]) == (21, 21, 3.0)
+    elif "bprp" not in name:
+        # all terminate in the bottom right cell
+        assert prt_bud_data[1].shape == (1,)
+        assert tuple(prt_bud_data[1][0]) == (100, 100, 9.0)
+
+    # PRP
+    prp_data = prt_bud_data[2]
+    assert prp_data.shape == (9,)
+    for i, record in enumerate(prp_data):
+        node1, node2, mass = record[0], record[1], record[2]
+        assert node1 == 1  # all particles released from top-left cell
+        assert node2 == i + 1
+        assert mass > 0
 
     # check mf6 prt particle track data were written to binary/CSV files
     # and that different formats are equal

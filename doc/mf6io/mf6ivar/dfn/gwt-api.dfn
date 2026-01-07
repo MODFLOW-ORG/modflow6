@@ -1,4 +1,5 @@
 # --------------------- gwt api options ---------------------
+# flopy multi-package
 
 block options
 name boundnames
@@ -16,6 +17,7 @@ reader urword
 optional true
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'api boundary'}
+mf6internal iprpak
 
 block options
 name print_flows
@@ -24,6 +26,7 @@ reader urword
 optional true
 longname print calculated flows to listing file
 description REPLACE print_flows {'{#1}': 'api boundary'}
+mf6internal iprflow
 
 block options
 name save_flows
@@ -32,6 +35,7 @@ reader urword
 optional true
 longname save api flows to budget file
 description REPLACE save_flows {'{#1}': 'api boundary'}
+mf6internal ipakcb
 
 block options
 name obs_filerecord

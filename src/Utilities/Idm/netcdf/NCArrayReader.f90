@@ -301,28 +301,26 @@ contains
     call get_layered_shape(mshape, nlay, layer_shape)
     ncpl = product(layer_shape)
 
-    if (size(mshape) == 3) then
-      select case (idt%shape)
-      case ('NCPL', 'NAUX NCPL')
-        if (nc_vars%grid == 'STRUCTURED') then
-          call nf_verify(nf90_get_var(nc_vars%ncid, varid, int1d, &
-                                      start=(/1, 1, istp/), &
-                                      count=(/mshape(3), mshape(2), 1/)), &
-                         nc_vars%nc_fname)
-        else if (nc_vars%grid == 'LAYERED MESH') then
-          call nf_verify(nf90_get_var(nc_vars%ncid, varid, int1d, &
-                                      start=(/1, istp/), count=(/ncpl, 1/)), &
-                         nc_vars%nc_fname)
-        end if
-      case ('NODES', 'NAUX NODES')
-        write (errmsg, '(a,a,a)') &
-          'Timeseries netcdf input read not supported for DIS full grid int1d &
-          &type ('//trim(idt%tagname)//').'
-        call store_error(errmsg)
-        call store_error_filename(input_fname)
-      case default
-      end select
-    end if
+    select case (idt%shape)
+    case ('NCPL', 'NAUX NCPL')
+      if (nc_vars%grid == 'STRUCTURED') then
+        call nf_verify(nf90_get_var(nc_vars%ncid, varid, int1d, &
+                                    start=(/1, 1, istp/), &
+                                    count=(/mshape(3), mshape(2), 1/)), &
+                       nc_vars%nc_fname)
+      else if (nc_vars%grid == 'LAYERED MESH') then
+        call nf_verify(nf90_get_var(nc_vars%ncid, varid, int1d, &
+                                    start=(/1, istp/), count=(/ncpl, 1/)), &
+                       nc_vars%nc_fname)
+      end if
+    case ('NODES', 'NAUX NODES')
+      write (errmsg, '(a,a,a)') &
+        'Timeseries netcdf input read not supported for full grid int1d &
+        &type ('//trim(idt%tagname)//').'
+      call store_error(errmsg)
+      call store_error_filename(input_fname)
+    case default
+    end select
   end subroutine load_integer1d_spd
 
   !> @brief load type 1d integer layered
@@ -579,34 +577,32 @@ contains
     ncpl = product(layer_shape)
     nvals = product(mshape)
 
-    if (size(mshape) == 3) then
-      select case (idt%shape)
-      case ('NCPL', 'NAUX NCPL')
-        if (nc_vars%grid == 'STRUCTURED') then
-          call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d, &
-                                      start=(/1, 1, istp/), &
-                                      count=(/mshape(3), mshape(2), 1/)), &
-                         nc_vars%nc_fname)
-        else if (nc_vars%grid == 'LAYERED MESH') then
-          call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d, &
-                                      start=(/1, istp/), count=(/ncpl, 1/)), &
-                         nc_vars%nc_fname)
-        end if
-      case ('NODES', 'NAUX NODES')
-        if (nc_vars%grid == 'STRUCTURED') then
-          dbl3d(1:mshape(3), 1:mshape(2), 1:mshape(1)) => dbl1d(1:nvals)
-          call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl3d, &
-                                      start=(/1, 1, 1, istp/), &
-                                      count=(/mshape(3), mshape(2), mshape(1), &
-                                              1/)), nc_vars%nc_fname)
-        else if (nc_vars%grid == 'LAYERED MESH') then
-          call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d, &
-                                      start=(/1, istp/), count=(/nvals, 1/)), &
-                         nc_vars%nc_fname)
-        end if
-      case default
-      end select
-    end if
+    select case (idt%shape)
+    case ('NCPL', 'NAUX NCPL')
+      if (nc_vars%grid == 'STRUCTURED') then
+        call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d, &
+                                    start=(/1, 1, istp/), &
+                                    count=(/mshape(3), mshape(2), 1/)), &
+                       nc_vars%nc_fname)
+      else if (nc_vars%grid == 'LAYERED MESH') then
+        call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d, &
+                                    start=(/1, istp/), count=(/ncpl, 1/)), &
+                       nc_vars%nc_fname)
+      end if
+    case ('NODES', 'NAUX NODES')
+      if (nc_vars%grid == 'STRUCTURED') then
+        dbl3d(1:mshape(3), 1:mshape(2), 1:mshape(1)) => dbl1d(1:nvals)
+        call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl3d, &
+                                    start=(/1, 1, 1, istp/), &
+                                    count=(/mshape(3), mshape(2), mshape(1), &
+                                            1/)), nc_vars%nc_fname)
+      else if (nc_vars%grid == 'LAYERED MESH') then
+        call nf_verify(nf90_get_var(nc_vars%ncid, varid, dbl1d, &
+                                    start=(/1, istp/), count=(/nvals, 1/)), &
+                       nc_vars%nc_fname)
+      end if
+    case default
+    end select
   end subroutine load_double1d_spd
 
   !> @brief load type 1d double layered

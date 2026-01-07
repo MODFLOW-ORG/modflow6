@@ -276,7 +276,7 @@ contains
 
     ! set up output control
     if (this%indfw > 0) then
-      call this%oc%oc_ar('STAGE', this%x, this%dis, DNODATA)
+      call this%oc%oc_ar(this%x, this%dis, DNODATA)
     end if
     call this%budget%set_ibudcsv(this%oc%ibudcsv)
 
@@ -1033,6 +1033,7 @@ contains
     character(len=LENMEMPATH) :: mempathic = ''
     character(len=LENMEMPATH) :: mempathdfw = ''
     character(len=LENMEMPATH) :: mempathcxs = ''
+    character(len=LENMEMPATH) :: mempathoc = ''
     character(len=LENMEMPATH) :: mempathsto = ''
 
     ! set input model memory path
@@ -1076,7 +1077,9 @@ contains
         this%inic = 1
         mempathic = mempath
       case ('OC6')
-        this%inoc = inunit
+        !this%inoc = inunit
+        this%inoc = 1
+        mempathoc = mempath
       case ('OBS6')
         this%inobs = inunit
       case ('CHD6', 'FLW6', 'CDB6', 'ZDG6', 'PCP6', 'EVP6')
@@ -1102,7 +1105,7 @@ contains
       call sto_cr(this%sto, this%name, mempathsto, this%insto, this%iout, &
                   this%cxs)
     end if
-    call oc_cr(this%oc, this%name, this%inoc, this%iout)
+    call oc_cr(this%oc, this%name, mempathoc, this%inoc, this%iout)
     call swf_obs_cr(this%obs, this%inobs)
 
     ! Check to make sure that required ftype's have been specified

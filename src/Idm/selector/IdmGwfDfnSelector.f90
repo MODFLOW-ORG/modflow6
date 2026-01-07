@@ -6,8 +6,10 @@ module IdmGwfDfnSelectorModule
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
   use GwfNamInputModule
+  use GwfApiInputModule
   use GwfBuyInputModule
   use GwfChdInputModule
+  use GwfChdgInputModule
   use GwfCsubInputModule
   use GwfDisInputModule
   use GwfDisuInputModule
@@ -21,6 +23,7 @@ module IdmGwfDfnSelectorModule
   use GwfHfbInputModule
   use GwfIcInputModule
   use GwfNpfInputModule
+  use GwfOcInputModule
   use GwfRchInputModule
   use GwfRchaInputModule
   use GwfRivInputModule
@@ -66,10 +69,14 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_param_pointer(input_definition, gwf_nam_param_definitions)
+    case ('API')
+      call set_param_pointer(input_definition, gwf_api_param_definitions)
     case ('BUY')
       call set_param_pointer(input_definition, gwf_buy_param_definitions)
     case ('CHD')
       call set_param_pointer(input_definition, gwf_chd_param_definitions)
+    case ('CHDG')
+      call set_param_pointer(input_definition, gwf_chdg_param_definitions)
     case ('CSUB')
       call set_param_pointer(input_definition, gwf_csub_param_definitions)
     case ('DIS')
@@ -96,6 +103,8 @@ contains
       call set_param_pointer(input_definition, gwf_ic_param_definitions)
     case ('NPF')
       call set_param_pointer(input_definition, gwf_npf_param_definitions)
+    case ('OC')
+      call set_param_pointer(input_definition, gwf_oc_param_definitions)
     case ('RCH')
       call set_param_pointer(input_definition, gwf_rch_param_definitions)
     case ('RCHA')
@@ -124,10 +133,14 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_param_pointer(input_definition, gwf_nam_aggregate_definitions)
+    case ('API')
+      call set_param_pointer(input_definition, gwf_api_aggregate_definitions)
     case ('BUY')
       call set_param_pointer(input_definition, gwf_buy_aggregate_definitions)
     case ('CHD')
       call set_param_pointer(input_definition, gwf_chd_aggregate_definitions)
+    case ('CHDG')
+      call set_param_pointer(input_definition, gwf_chdg_aggregate_definitions)
     case ('CSUB')
       call set_param_pointer(input_definition, gwf_csub_aggregate_definitions)
     case ('DIS')
@@ -154,6 +167,8 @@ contains
       call set_param_pointer(input_definition, gwf_ic_aggregate_definitions)
     case ('NPF')
       call set_param_pointer(input_definition, gwf_npf_aggregate_definitions)
+    case ('OC')
+      call set_param_pointer(input_definition, gwf_oc_aggregate_definitions)
     case ('RCH')
       call set_param_pointer(input_definition, gwf_rch_aggregate_definitions)
     case ('RCHA')
@@ -182,10 +197,14 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_block_pointer(input_definition, gwf_nam_block_definitions)
+    case ('API')
+      call set_block_pointer(input_definition, gwf_api_block_definitions)
     case ('BUY')
       call set_block_pointer(input_definition, gwf_buy_block_definitions)
     case ('CHD')
       call set_block_pointer(input_definition, gwf_chd_block_definitions)
+    case ('CHDG')
+      call set_block_pointer(input_definition, gwf_chdg_block_definitions)
     case ('CSUB')
       call set_block_pointer(input_definition, gwf_csub_block_definitions)
     case ('DIS')
@@ -212,6 +231,8 @@ contains
       call set_block_pointer(input_definition, gwf_ic_block_definitions)
     case ('NPF')
       call set_block_pointer(input_definition, gwf_npf_block_definitions)
+    case ('OC')
+      call set_block_pointer(input_definition, gwf_oc_block_definitions)
     case ('RCH')
       call set_block_pointer(input_definition, gwf_rch_block_definitions)
     case ('RCHA')
@@ -239,10 +260,14 @@ contains
     select case (subcomponent)
     case ('NAM')
       multi_package = gwf_nam_multi_package
+    case ('API')
+      multi_package = gwf_api_multi_package
     case ('BUY')
       multi_package = gwf_buy_multi_package
     case ('CHD')
       multi_package = gwf_chd_multi_package
+    case ('CHDG')
+      multi_package = gwf_chdg_multi_package
     case ('CSUB')
       multi_package = gwf_csub_multi_package
     case ('DIS')
@@ -269,6 +294,8 @@ contains
       multi_package = gwf_ic_multi_package
     case ('NPF')
       multi_package = gwf_npf_multi_package
+    case ('OC')
+      multi_package = gwf_oc_multi_package
     case ('RCH')
       multi_package = gwf_rch_multi_package
     case ('RCHA')
@@ -299,10 +326,14 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_subpkg_pointer(subpackages, gwf_nam_subpackages)
+    case ('API')
+      call set_subpkg_pointer(subpackages, gwf_api_subpackages)
     case ('BUY')
       call set_subpkg_pointer(subpackages, gwf_buy_subpackages)
     case ('CHD')
       call set_subpkg_pointer(subpackages, gwf_chd_subpackages)
+    case ('CHDG')
+      call set_subpkg_pointer(subpackages, gwf_chdg_subpackages)
     case ('CSUB')
       call set_subpkg_pointer(subpackages, gwf_csub_subpackages)
     case ('DIS')
@@ -329,6 +360,8 @@ contains
       call set_subpkg_pointer(subpackages, gwf_ic_subpackages)
     case ('NPF')
       call set_subpkg_pointer(subpackages, gwf_npf_subpackages)
+    case ('OC')
+      call set_subpkg_pointer(subpackages, gwf_oc_subpackages)
     case ('RCH')
       call set_subpkg_pointer(subpackages, gwf_rch_subpackages)
     case ('RCHA')
@@ -357,9 +390,13 @@ contains
     select case (subcomponent)
     case ('NAM')
       integrated = .true.
+    case ('API')
+      integrated = .true.
     case ('BUY')
       integrated = .true.
     case ('CHD')
+      integrated = .true.
+    case ('CHDG')
       integrated = .true.
     case ('CSUB')
       integrated = .true.
@@ -386,6 +423,8 @@ contains
     case ('IC')
       integrated = .true.
     case ('NPF')
+      integrated = .true.
+    case ('OC')
       integrated = .true.
     case ('RCH')
       integrated = .true.

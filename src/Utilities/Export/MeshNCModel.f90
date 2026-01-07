@@ -34,7 +34,6 @@ module MeshModelModule
     integer(I4B) :: nmesh_node !< number of nodes in mesh
     integer(I4B) :: nmesh_face !< number of faces in mesh
     integer(I4B) :: max_nmesh_face_nodes !< max number of nodes in a single face
-    integer(I4B) :: nlay !< number of layers
     integer(I4B) :: time !< number of steps
   contains
   end type MeshNCDimIdType

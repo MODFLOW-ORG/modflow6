@@ -54,6 +54,7 @@ module MemoryManagerModule
   interface mem_allocate
     module procedure &
       allocate_logical, &
+      allocate_logical1d, &
       allocate_str, &
       allocate_str1d, &
       allocate_int, &
@@ -69,6 +70,7 @@ module MemoryManagerModule
 
   interface mem_checkin
     module procedure &
+      checkin_logical1d, &
       checkin_int1d, &
       checkin_int2d, &
       checkin_dbl1d, &
@@ -78,6 +80,7 @@ module MemoryManagerModule
 
   interface mem_reallocate
     module procedure &
+      reallocate_logical1d, &
       reallocate_int1d, &
       reallocate_int2d, &
       reallocate_dbl1d, &
@@ -89,6 +92,7 @@ module MemoryManagerModule
   interface mem_setptr
     module procedure &
       setptr_logical, &
+      setptr_logical1d, &
       setptr_int, &
       setptr_int1d, &
       setptr_int2d, &
@@ -104,6 +108,7 @@ module MemoryManagerModule
 
   interface mem_copyptr
     module procedure &
+      copyptr_logical1d, &
       copyptr_int1d, &
       copyptr_int2d, &
       copyptr_dbl1d, &
@@ -113,6 +118,7 @@ module MemoryManagerModule
   interface mem_reassignptr
     module procedure &
       reassignptr_int, &
+      reassignptr_logical1d, &
       reassignptr_int1d, &
       reassignptr_int2d, &
       reassignptr_dbl1d, &
@@ -122,6 +128,7 @@ module MemoryManagerModule
   interface mem_deallocate
     module procedure &
       deallocate_logical, &
+      deallocate_logical1d, &
       deallocate_str, &
       deallocate_str1d, &
       deallocate_charstr1d, &
@@ -182,6 +189,7 @@ contains
       if (associated(mt%logicalsclr)) rank = 0
       if (associated(mt%intsclr)) rank = 0
       if (associated(mt%dblsclr)) rank = 0
+      if (associated(mt%alogical1d)) rank = 1
       if (associated(mt%aint1d)) rank = 1
       if (associated(mt%aint2d)) rank = 2
       if (associated(mt%aint3d)) rank = 3
@@ -241,6 +249,7 @@ contains
       if (associated(mt%logicalsclr)) mem_shape = shape(mt%logicalsclr)
       if (associated(mt%intsclr)) mem_shape = shape(mt%logicalsclr)
       if (associated(mt%dblsclr)) mem_shape = shape(mt%dblsclr)
+      if (associated(mt%alogical1d)) mem_shape = shape(mt%alogical1d)
       if (associated(mt%aint1d)) mem_shape = shape(mt%aint1d)
       if (associated(mt%aint2d)) mem_shape = shape(mt%aint2d)
       if (associated(mt%aint3d)) mem_shape = shape(mt%aint3d)
@@ -381,6 +390,49 @@ contains
     ! -- add memory type to the memory list
     call memorystore%add(mt)
   end subroutine allocate_logical
+
+  !> @brief Allocate a 1-dimensional logical array
+  !<
+  subroutine allocate_logical1d(alog, nrow, name, mem_path)
+    logical(LGP), dimension(:), pointer, contiguous, intent(inout) :: alog !< variable for allocation
+    integer(I4B), intent(in) :: nrow !< number of rows
+    character(len=*), intent(in) :: name !< variable name
+    character(len=*), intent(in) :: mem_path !< path where variable is stored
+    ! --local
+    type(MemoryType), pointer :: mt
+    integer(I4B) :: istat
+    integer(I4B) :: isize
+    ! -- code
+    !
+    ! -- check variable name length
+    call mem_check_length(name, LENVARNAME, "variable")
+    !
+    ! -- set isize
+    isize = nrow
+    !
+    ! -- allocate logical array
+    allocate (alog(nrow), stat=istat, errmsg=errmsg)
+    if (istat /= 0) then
+      call allocate_error(name, mem_path, istat, isize)
+    end if
+    !
+    ! -- update counter
+    nvalues_alogical = nvalues_alogical + isize
+    !
+    ! -- allocate memory type
+    allocate (mt)
+    !
+    ! -- set memory type
+    mt%alogical1d => alog
+    mt%element_size = LGP
+    mt%isize = isize
+    mt%name = name
+    mt%path = mem_path
+    write (mt%memtype, "(a,' (',i0,')')") 'LOGICAL', isize
+    !
+    ! -- add memory type to the memory list
+    call memorystore%add(mt)
+  end subroutine allocate_logical1d
 
   !> @brief Allocate a character string
   !<
@@ -894,6 +946,45 @@ contains
     call memorystore%add(mt)
   end subroutine allocate_dbl3d
 
+  !> @brief Check in an existing 1d logical array with a new address (name + path)
+  !<
+  subroutine checkin_logical1d(alog, name, mem_path, name2, mem_path2)
+    logical(LGP), dimension(:), pointer, contiguous, intent(in) :: alog !< the existing array
+    character(len=*), intent(in) :: name !< new variable name
+    character(len=*), intent(in) :: mem_path !< new path where variable is stored
+    character(len=*), intent(in) :: name2 !< existing variable name
+    character(len=*), intent(in) :: mem_path2 !< existing path where variable is stored
+    ! --local
+    type(MemoryType), pointer :: mt
+    integer(I4B) :: isize
+    ! -- code
+    !
+    ! -- check variable name length
+    call mem_check_length(name, LENVARNAME, "variable")
+    !
+    ! -- set isize
+    isize = size(alog)
+    !
+    ! -- allocate memory type
+    allocate (mt)
+    !
+    ! -- set memory type
+    mt%alogical1d => alog
+    mt%element_size = LGP
+    mt%isize = isize
+    mt%name = name
+    mt%path = mem_path
+    write (mt%memtype, "(a,' (',i0,')')") 'LOGICAL', isize
+    !
+    ! -- set master information
+    mt%master = .false.
+    mt%mastername = name2
+    mt%masterPath = mem_path2
+    !
+    ! -- add memory type to the memory list
+    call memorystore%add(mt)
+  end subroutine checkin_logical1d
+
   !> @brief Check in an existing 1d integer array with a new address (name + path)
   !<
   subroutine checkin_int1d(aint, name, mem_path, name2, mem_path2)
@@ -1264,6 +1355,48 @@ contains
     end if
   end subroutine reallocate_charstr1d
 
+  !> @brief Reallocate a 1-dimensional logical array
+  !<
+  subroutine reallocate_logical1d(alog, nrow, name, mem_path)
+    logical(LGP), dimension(:), pointer, contiguous, intent(inout) :: alog !< the reallocated logical array
+    integer(I4B), intent(in) :: nrow !< number of rows
+    character(len=*), intent(in) :: name !< variable name
+    character(len=*), intent(in) :: mem_path !< path where variable is stored
+    ! -- local
+    type(MemoryType), pointer :: mt
+    logical(LGP) :: found
+    integer(I4B) :: istat
+    integer(I4B) :: isize
+    integer(I4B) :: i
+    integer(I4B) :: isizeold
+    integer(I4B) :: ifill
+    ! -- code
+    !
+    ! -- Find and assign mt
+    call get_from_memorystore(name, mem_path, mt, found)
+    !
+    ! -- Allocate aint and then refill
+    isize = nrow
+    isizeold = size(mt%alogical1d)
+    ifill = min(isizeold, isize)
+    allocate (alog(nrow), stat=istat, errmsg=errmsg)
+    if (istat /= 0) then
+      call allocate_error(name, mem_path, istat, isize)
+    end if
+    do i = 1, ifill
+      alog(i) = mt%alogical1d(i)
+    end do
+    !
+    ! -- deallocate mt pointer, repoint, recalculate isize
+    deallocate (mt%alogical1d)
+    mt%alogical1d => alog
+    mt%element_size = LGP
+    mt%isize = isize
+    mt%nrealloc = mt%nrealloc + 1
+    mt%master = .true.
+    nvalues_alogical = nvalues_alogical + isize - isizeold
+  end subroutine reallocate_logical1d
+
   !> @brief Reallocate a 1-dimensional integer array
   !<
   subroutine reallocate_int1d(aint, nrow, name, mem_path)
@@ -1471,6 +1604,20 @@ contains
     sclr => mt%intsclr
   end subroutine setptr_int
 
+  !> @brief Set pointer to 1d logical array
+  !<
+  subroutine setptr_logical1d(alog, name, mem_path)
+    logical(LGP), dimension(:), pointer, contiguous, intent(inout) :: alog !< pointer to 1d logical array
+    character(len=*), intent(in) :: name !< variable name
+    character(len=*), intent(in) :: mem_path !< path where variable is stored
+    ! -- local
+    type(MemoryType), pointer :: mt
+    logical(LGP) :: found
+    ! -- code
+    call get_from_memorystore(name, mem_path, mt, found)
+    alog => mt%alogical1d
+  end subroutine setptr_logical1d
+
   !> @brief Set pointer to 1d integer array
   !<
   subroutine setptr_int1d(aint, name, mem_path)
@@ -1617,6 +1764,34 @@ contains
     call get_from_memorystore(name, mem_path, mt, found)
     acharstr1d => mt%acharstr1d
   end subroutine setptr_charstr1d
+
+  !> @brief Make a copy of a 1-dimensional logical array
+  !<
+  subroutine copyptr_logical1d(alog, name, mem_path, mem_path_copy)
+    logical(LGP), dimension(:), pointer, contiguous, intent(inout) :: alog !< returned copy of 1d logical array
+    character(len=*), intent(in) :: name !< variable name
+    character(len=*), intent(in) :: mem_path !< path where variable is stored
+    character(len=*), intent(in), optional :: mem_path_copy !< optional path where the copy will be stored,
+                                                            !! if passed then the copy is added to the
+                                                            !! memory manager
+    ! -- local
+    type(MemoryType), pointer :: mt
+    logical(LGP) :: found
+    integer(I4B) :: n
+    ! -- code
+    call get_from_memorystore(name, mem_path, mt, found)
+    alog => null()
+    ! -- check the copy into the memory manager
+    if (present(mem_path_copy)) then
+      call allocate_logical1d(alog, size(mt%alogical1d), mt%name, mem_path_copy)
+      ! -- create a local copy
+    else
+      allocate (alog(size(mt%alogical1d)))
+    end if
+    do n = 1, size(mt%alogical1d)
+      alog(n) = mt%alogical1d(n)
+    end do
+  end subroutine copyptr_logical1d
 
   !> @brief Make a copy of a 1-dimensional integer array
   !<
@@ -1791,6 +1966,38 @@ contains
     mt%mastername = name_target
     mt%masterPath = mem_path_target
   end subroutine reassignptr_int
+
+  !> @brief Set the pointer for a 1-dimensional logical array to
+  !< a target array already stored in the memory manager
+  subroutine reassignptr_logical1d(alog, name, mem_path, name_target, &
+                                   mem_path_target)
+    logical(LGP), dimension(:), pointer, contiguous, intent(inout) :: alog !< array pointer
+    character(len=*), intent(in) :: name !< variable name
+    character(len=*), intent(in) :: mem_path !< path where variable is stored
+    character(len=*), intent(in) :: name_target !< name of target variable
+    character(len=*), intent(in) :: mem_path_target !< path where target variable is stored
+    ! -- local
+    type(MemoryType), pointer :: mt
+    type(MemoryType), pointer :: mt2
+    logical(LGP) :: found
+    ! -- code
+    call get_from_memorystore(name, mem_path, mt, found)
+    call get_from_memorystore(name_target, mem_path_target, mt2, found)
+    if (size(alog) > 0) then
+      nvalues_alogical = nvalues_alogical - size(alog)
+      deallocate (alog)
+    end if
+    alog => mt2%alogical1d
+    mt%alogical1d => alog
+    mt%element_size = LGP
+    mt%isize = size(alog)
+    write (mt%memtype, "(a,' (',i0,')')") 'LOGICAL', mt%isize
+    !
+    ! -- set master information
+    mt%master = .false.
+    mt%mastername = name_target
+    mt%masterPath = mem_path_target
+  end subroutine reassignptr_logical1d
 
   !> @brief Set the pointer for a 1-dimensional integer array to
   !< a target array already stored in the memory manager
@@ -1981,6 +2188,16 @@ contains
     ! -- code
     return
   end subroutine deallocate_dbl
+
+  !> @brief DEPRECATED. The memory manager will handle the deallocation of the pointer.
+  !<
+  subroutine deallocate_logical1d(alog, name, mem_path)
+    logical(LGP), dimension(:), pointer, contiguous, intent(inout) :: alog !< 1d logical array to deallocate
+    character(len=*), optional :: name !< variable name
+    character(len=*), optional :: mem_path !< path where variable is stored
+    ! -- code
+    return
+  end subroutine deallocate_logical1d
 
   !> @brief DEPRECATED. The memory manager will handle the deallocation of the pointer.
   !<

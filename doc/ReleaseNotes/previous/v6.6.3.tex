@@ -1,0 +1,33 @@
+\subsection{Version mf6.6.3---September 29, 2025}
+\textbf{\underline{Bug Fixes And Other Changes To Existing Functionality}}
+\underline{Basic Functionality}
+\begin{itemize}
+\item Fixed the simulation NOCHECK option, which previously had no effect.
+\end{itemize}
+\underline{Internal Flow Packages}
+\begin{itemize}
+\item Clarified the definition of the GWF SFR package PACKAGEDATA block RTP parameter.
+\item Fixed first-order decay in GWT so that production/decay does not occur when aqueous or sorbed concentration is negative.
+\item Fixed bugs in the GWF VSC and BUY packages, affecting GWT simulations with multiple species that have different inactive regions.  In this uncommon situation, the concentrations used to calculate fluid density could erroneously be set to zero in areas with different inactive regions.
+\end{itemize}
+\underline{Model}
+\begin{itemize}
+\item Fixed a bug preventing graceful termination of some particles in PRT models. With the PRP package's EXTEND\_TRACKING option enabled, particles beginning the simulation's final timestep in a stationary cell (an active cell with no flow across any boundary) were not terminated gracefully. Particles in this condition will now terminate with status code 10 (timeout).
+\item PRT previously reported cell exit events (reason code 1) when a particle was dropped to the water table by the DRY\_TRACKING\_METHOD DROP mechanism. A new 'dropped' event and corresponding reason code (6) will now be reported when this occurs.
+\item Fixed ambiguous reporting of cell and subcell events by PRT on DISV grids. Previously subcell exit events and cell exit events were reported with the same event code (1). Subcell events are a tracking method implementation detail, however. Subcell events (and more generally, events occurring at subgrid scale) are no longer included by default in particle tracking output. The PRT Output Control (OC) package's TRACK\_EXIT option now applies only to features explicitly defined by the grid discretization. Particle events at sub-grid scale are now opt-in with a new keyword option TRACK\_SUBFEATURE\_EXIT.
+\item Fixed two infinite loop conditions in PRT models. First, cyclic paths were possible in the vicinity of assigned boundary faces. When an internal boundary face was assigned (an IFLOWFACE adjacent to another active cell), the adjacent cells could fail to agree on the flow through their shared face, trapping particles in an infinite loop. Particles now terminate at internal assigned boundary faces for which net boundary flow through the face is out of the cell. Particles continue to terminate at all external assigned boundary faces as before. Second, cyclic paths were possible near the water table with GWF models using the NEWTON option. With Newton, dry cells remain active; a flow model may produce numerically insignificant upwards flow through the top face of a partially saturated cell. With DRY\_TRACKING\_METHOD DROP (the default option), a particle in a partially saturated cell could obtain an exit solution through the cell's top face, jump to the dry cell above, then drop back down, and so on. In partially saturated cells, any flow upwards through the top face which is not associated with an assigned boundary is now ignored. This prevents particles from exiting through the top face of partially saturated cells unless the top face is an assigned boundary.
+\end{itemize}
+\underline{Parallel}
+\begin{itemize}
+\item Fixed a memory access exception that can occur when writing convergence information to a CSV file (through the CSV\_OUTER\_OUTPUT option in IMS) for a parallel solution.
+\item Fixed a memory exception that has occurred when running parallel solute transport on Windows without the dispersion package. This has no effect on the simulation results other than causing a premature termination in some cases.
+\item Fixed the case where a convergence failure of the PETSc linear solver halts the program with an exception (error -5). This particular failure is now handled by continuing with the next outer iteration. This is equivalent to what happens when using the IMS solver in a serial simulation.
+\end{itemize}
+\underline{Solution}
+\begin{itemize}
+\item Fixed a bug first included in version 6.4.2 that has changed the convergence check of the numerical solution. In cases where the linear solver failed to converge, or when it did converge but the STRICT option was active and convergence did not occur on the first iteration, the solution was erroneously considered for overall convergence.
+\end{itemize}
+\underline{Stress Packages}
+\begin{itemize}
+\item Fixed viscosity ratio assignment in the GWT MAW package when the GWF VSC package is active.
+\end{itemize}

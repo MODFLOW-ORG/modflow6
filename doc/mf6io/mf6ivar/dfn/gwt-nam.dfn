@@ -41,6 +41,7 @@ optional true
 longname flag to scale X and RHS
 description flag to scale X and RHS to avoid very large positive or negative dependent variable values
 mf6internal idv_scale
+developmode true
 
 block options
 name nc_mesh2d_filerecord
@@ -50,7 +51,7 @@ reader urword
 tagged true
 optional true
 longname
-description netcdf layered mesh fileout record.
+description NetCDF layered mesh fileout record.
 mf6internal ncmesh2drec
 
 block options
@@ -62,7 +63,7 @@ reader urword
 tagged true
 optional false
 longname budget keyword
-description keyword to specify that record corresponds to a layered mesh netcdf file.
+description keyword to specify that record corresponds to a layered mesh NetCDF file.
 extended true
 
 block options
@@ -73,7 +74,7 @@ reader urword
 tagged true
 optional true
 longname
-description netcdf structured fileout record.
+description NetCDF structured fileout record.
 mf6internal ncstructrec
 
 block options
@@ -85,7 +86,7 @@ reader urword
 tagged true
 optional false
 longname budget keyword
-description keyword to specify that record corresponds to a structured netcdf file.
+description keyword to specify that record corresponds to a structured NetCDF file.
 mf6internal netcdf_struct
 extended true
 
@@ -110,7 +111,7 @@ reader urword
 tagged false
 optional false
 longname file keyword
-description name of the netcdf ugrid layered mesh output file.
+description name of the NetCDF ugrid layered mesh output file.
 extended true
 
 block options
@@ -123,7 +124,7 @@ reader urword
 tagged false
 optional false
 longname file keyword
-description name of the netcdf structured output file.
+description name of the NetCDF structured output file.
 extended true
 
 block options
@@ -133,7 +134,7 @@ reader urword
 tagged true
 optional true
 longname
-description netcdf filerecord
+description NetCDF filerecord
 
 block options
 name netcdf
@@ -143,7 +144,7 @@ reader urword
 tagged true
 optional false
 longname netcdf keyword
-description keyword to specify that record corresponds to a netcdf input file.
+description keyword to specify that record corresponds to a NetCDF input file.
 extended true
 
 block options
@@ -165,7 +166,7 @@ reader urword
 optional false
 tagged false
 longname netcdf input filename
-description defines a netcdf input file.
+description defines a NetCDF input file.
 mf6internal netcdf_fname
 extended true
 

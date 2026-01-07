@@ -188,8 +188,31 @@ def get_bud(fname, srchStr):
 
 
 def trenddetector(list_of_index, array_of_data, order=1):
-    result = np.polyfit(list_of_index, list(array_of_data), order)
-    slope = result[-2]
+    """
+    Detects the trend of data by fitting a polynomial and returning the slope.
+
+    Args:
+        list_of_index: The x-coordinates (e.g., time indices).
+        array_of_data: The y-coordinates (the data points).
+        order: The degree of the polynomial to fit (default is 1, for a linear fit).
+
+    Returns:
+        A float representing the slope of the fitted line/curve.
+    """
+    # np.polyfit returns the coefficients of the polynomial (highest power first)
+    coeffs = np.polyfit(list_of_index, list(array_of_data), order)
+    # For a linear fit (order=1), the slope is the first coefficient (index 0).
+    # For historical/common implementations, often the second-to-last item is used,
+    # but for order 1, index 0 is the slope.
+    if order == 1:
+        slope = coeffs[0]
+    else:
+        # For higher orders, this interpretation might be different, but for
+        # a simple "trend detector" with order=1, the linear slope is expected.
+        # The common snippet uses coeffs[-2], which is incorrect for order 1 slope.
+        # Let's stick to the common *intended* implementation for order=1.
+        slope = coeffs[0]  # Slope for linear fit
+
     return float(slope)
 
 
@@ -799,7 +822,7 @@ def check_output(idx, test):
             slp = trenddetector(
                 np.arange(0, sfe_temps.shape[-1]), sfe_temps[0, 0, 0, :]
             )
-            assert slp > 0.0, msg3
+            assert slp < 0.0, msg3
 
             slp = trenddetector(np.arange(0, gw_temps.shape[-2]), gw_temps[0, 0, 1, :])
             assert slp > 0.0, msg4

@@ -32,7 +32,8 @@ scheme = "UPSTREAM"
 # scheme = "TVD"
 
 cases = [
-    "warmup",  # 1-cell "bathtub" model with easily calculate-able answers
+    "warmup",
+    "multchk",  # 1-cell "bathtub" model with easily calculate-able answers
 ]
 
 # Model units
@@ -87,6 +88,7 @@ for i in np.arange(nper):
     tdis_rc.append((perlen[i], nstp[i], ttsmult))
 
 Joules_added_for_1degC_rise = delr * delc * (top - botm[0]) * (1 - prsity) * cps * rhos
+eslmultiplier = 2.0
 
 # ### Create MODFLOW 6 GWE
 #
@@ -285,18 +287,34 @@ def build_models(idx, test):
     # Energy is added such that the temperature change in the cell will be
     # +1.0, +2.0, -1.0, and 0.0 degrees Celsius from stress period to stress
     # period
-    esl_spd = {
-        0: [[(0, 0, 0), Joules_added_for_1degC_rise]],
-        1: [[(0, 0, 0), 2 * Joules_added_for_1degC_rise]],
-        2: [[(0, 0, 0), -1 * Joules_added_for_1degC_rise]],
-        3: [],
-    }
-    flopy.mf6.ModflowGweesl(
-        gwe,
-        stress_period_data=esl_spd,
-        pname="ESL-1",
-        filename=f"{gwename}.esl",
-    )
+    if idx == 0:
+        esl_spd = {
+            0: [[(0, 0, 0), Joules_added_for_1degC_rise]],
+            1: [[(0, 0, 0), 2 * Joules_added_for_1degC_rise]],
+            2: [[(0, 0, 0), -1 * Joules_added_for_1degC_rise]],
+            3: [],
+        }
+        flopy.mf6.ModflowGweesl(
+            gwe,
+            stress_period_data=esl_spd,
+            pname="ESL-1",
+            filename=f"{gwename}.esl",
+        )
+    elif idx > 0:
+        esl_spd = {
+            0: [[(0, 0, 0), Joules_added_for_1degC_rise, eslmultiplier]],
+            1: [[(0, 0, 0), 2 * Joules_added_for_1degC_rise, eslmultiplier]],
+            2: [[(0, 0, 0), -1 * Joules_added_for_1degC_rise, eslmultiplier]],
+            3: [],
+        }
+        flopy.mf6.ModflowGweesl(
+            gwe,
+            auxiliary=["multiplier"],
+            auxmultname="multiplier",
+            stress_period_data=esl_spd,
+            pname="ESL-1",
+            filename=f"{gwename}.esl",
+        )
 
     # Instantiating MODFLOW 6 flow-transport exchange mechanism
     flopy.mf6.ModflowGwfgwe(
@@ -331,6 +349,9 @@ def check_output(idx, test):
     # +2 (for an absolute value of 3 deg C), -1, and 0.0 degree C
     # change between stress periods.
     known_ans = [1.0, 3.0, 2.0, 2.0]
+    if idx > 0:
+        known_ans = [itm * eslmultiplier for itm in known_ans]
+
     msg0 = (
         "Grid cell temperatures do not reflect the expected difference "
         "in stress period "

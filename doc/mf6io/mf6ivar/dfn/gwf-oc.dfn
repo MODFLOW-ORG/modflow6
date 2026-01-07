@@ -7,6 +7,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal budfilerec
 longname
 description
 
@@ -51,6 +52,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal budcsvfilerec
 longname
 description
 
@@ -84,6 +86,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal headfilerec
 longname
 description
 
@@ -116,6 +119,7 @@ type record head print_format formatrecord
 shape
 reader urword
 optional true
+mf6internal headprintrec
 longname
 description
 

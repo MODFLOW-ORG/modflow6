@@ -10,6 +10,7 @@ module IdmOlfDfnSelectorModule
   use OlfDisv2DInputModule
   use OlfDfwInputModule
   use OlfIcInputModule
+  use OlfOcInputModule
   use OlfCdbInputModule
   use OlfChdInputModule
   use OlfFlwInputModule
@@ -62,6 +63,8 @@ contains
       call set_param_pointer(input_definition, olf_dfw_param_definitions)
     case ('IC')
       call set_param_pointer(input_definition, olf_ic_param_definitions)
+    case ('OC')
+      call set_param_pointer(input_definition, olf_oc_param_definitions)
     case ('CDB')
       call set_param_pointer(input_definition, olf_cdb_param_definitions)
     case ('CHD')
@@ -96,6 +99,8 @@ contains
       call set_param_pointer(input_definition, olf_dfw_aggregate_definitions)
     case ('IC')
       call set_param_pointer(input_definition, olf_ic_aggregate_definitions)
+    case ('OC')
+      call set_param_pointer(input_definition, olf_oc_aggregate_definitions)
     case ('CDB')
       call set_param_pointer(input_definition, olf_cdb_aggregate_definitions)
     case ('CHD')
@@ -130,6 +135,8 @@ contains
       call set_block_pointer(input_definition, olf_dfw_block_definitions)
     case ('IC')
       call set_block_pointer(input_definition, olf_ic_block_definitions)
+    case ('OC')
+      call set_block_pointer(input_definition, olf_oc_block_definitions)
     case ('CDB')
       call set_block_pointer(input_definition, olf_cdb_block_definitions)
     case ('CHD')
@@ -163,6 +170,8 @@ contains
       multi_package = olf_dfw_multi_package
     case ('IC')
       multi_package = olf_ic_multi_package
+    case ('OC')
+      multi_package = olf_oc_multi_package
     case ('CDB')
       multi_package = olf_cdb_multi_package
     case ('CHD')
@@ -199,6 +208,8 @@ contains
       call set_subpkg_pointer(subpackages, olf_dfw_subpackages)
     case ('IC')
       call set_subpkg_pointer(subpackages, olf_ic_subpackages)
+    case ('OC')
+      call set_subpkg_pointer(subpackages, olf_oc_subpackages)
     case ('CDB')
       call set_subpkg_pointer(subpackages, olf_cdb_subpackages)
     case ('CHD')
@@ -232,6 +243,8 @@ contains
     case ('DFW')
       integrated = .true.
     case ('IC')
+      integrated = .true.
+    case ('OC')
       integrated = .true.
     case ('CDB')
       integrated = .true.

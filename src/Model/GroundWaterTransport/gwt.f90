@@ -798,7 +798,8 @@ contains
       call ist_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath, this%fmi, this%mst)
     case ('API6')
-      call api_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
+      call api_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                      pakname, mempath)
     case default
       write (errmsg, *) 'Invalid package type: ', filtyp
       call store_error(errmsg, terminate=.TRUE.)

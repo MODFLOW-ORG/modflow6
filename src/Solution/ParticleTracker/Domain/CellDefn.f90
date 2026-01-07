@@ -5,6 +5,21 @@ module CellDefnModule
   private
   public :: CellDefnType
   public :: create_defn, get_iatop
+  public :: SATURATION_DRY, SATURATION_WATERTABLE, SATURATION_SATURATED
+
+  !> @brief Cell saturation status.
+  !!
+  !! Status 0 indicates that the cell is dry.
+  !! Status 1 indicates that the cell contains a water table.
+  !! Since a water table might exist exactly at the top face,
+  !! status 1 includes that case. Status 2 is reserved for a
+  !! fully saturated cell with no water table.
+  !<
+  enum, bind(C)
+    enumerator :: SATURATION_DRY = 0
+    enumerator :: SATURATION_WATERTABLE = 1
+    enumerator :: SATURATION_SATURATED = 2
+  end enum
 
   !> @brief Base grid cell definition.
   type CellDefnType
@@ -20,6 +35,7 @@ module CellDefnModule
     integer(I4B), public :: iweaksink !< weak sink indicator
     integer(I4B), public :: inoexitface !< no exit face indicator
     integer(I4B), public :: iatop !< index of cell top in grid's top/bot arrays (<0 => top array)
+    integer(I4B), public :: isatstat !< saturation status. 0 = dry, 1 = contains a water table, 2 = fully saturated w/ no water table
     real(DP), public :: top, bot !< top and bottom elevations of cell
     real(DP), public :: sat !< cell saturation
     real(DP), allocatable, public :: polyvert(:, :) !< vertices for cell polygon

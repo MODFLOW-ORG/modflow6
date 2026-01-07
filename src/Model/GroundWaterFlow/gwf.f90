@@ -1272,7 +1272,8 @@ contains
     case ('UZF6')
       call uzf_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
     case ('API6')
-      call api_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
+      call api_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                      pakname, mempath)
     case default
       write (errmsg, *) 'Invalid package type: ', filtyp
       call store_error(errmsg, terminate=.TRUE.)
@@ -1442,6 +1443,7 @@ contains
     character(len=LENMEMPATH) :: mempathhfb = ''
     character(len=LENMEMPATH) :: mempathic = ''
     character(len=LENMEMPATH) :: mempathnpf = ''
+    character(len=LENMEMPATH) :: mempathoc = ''
     character(len=LENMEMPATH) :: mempathsto = ''
     character(len=LENMEMPATH) :: mempathvsc = ''
     !
@@ -1499,7 +1501,8 @@ contains
       case ('MVR6')
         this%inmvr = inunit
       case ('OC6')
-        this%inoc = inunit
+        this%inoc = 1
+        mempathoc = mempath
       case ('OBS6')
         this%inobs = inunit
       case ('WEL6', 'DRN6', 'RIV6', 'GHB6', 'RCH6', &
@@ -1524,7 +1527,7 @@ contains
                  this%sto%packName, this%incsub, this%iout)
     call ic_cr(this%ic, this%name, mempathic, this%inic, this%iout, this%dis)
     call mvr_cr(this%mvr, this%name, this%inmvr, this%iout, this%dis)
-    call oc_cr(this%oc, this%name, this%inoc, this%iout)
+    call oc_cr(this%oc, this%name, mempathoc, this%inoc, this%iout)
     call gwf_obs_cr(this%obs, this%inobs)
     !
     ! -- Check to make sure that required ftype's have been specified

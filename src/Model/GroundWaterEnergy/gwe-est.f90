@@ -16,7 +16,7 @@ module GweEstModule
   use ConstantsModule, only: DONE, IZERO, DZERO, DTWO, DHALF, LENBUDTXT, DEP3
   use SimVariablesModule, only: errmsg, warnmsg
   use SimModule, only: store_error, count_errors, &
-                       store_warning
+                       store_warning, store_error_filename
   use MatrixBaseModule
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
@@ -88,8 +88,9 @@ module GweEstModule
     procedure :: est_da
     procedure :: allocate_scalars
     procedure, private :: allocate_arrays
-    procedure, private :: read_options
-    procedure, private :: read_data
+    procedure, private :: source_options
+    procedure, private :: source_data
+    procedure, private :: log_options
 
   end type GweEstType
 
@@ -99,10 +100,12 @@ contains
   !!
   !!  Create a new EST package
   !<
-  subroutine est_cr(estobj, name_model, inunit, iout, fmi, eqnsclfac, gwecommon)
+  subroutine est_cr(estobj, name_model, input_mempath, inunit, iout, fmi, &
+                    eqnsclfac, gwecommon)
     ! -- dummy
     type(GweEstType), pointer :: estobj !< unallocated new est object to create
     character(len=*), intent(in) :: name_model !< name of the model
+    character(len=*), intent(in) :: input_mempath !< input mempath of package
     integer(I4B), intent(in) :: inunit !< unit number of WEL package input file
     integer(I4B), intent(in) :: iout !< unit number of model listing file
     type(TspFmiType), intent(in), target :: fmi !< fmi package for this GWE model
@@ -113,7 +116,7 @@ contains
     allocate (estobj)
     !
     ! -- create name and memory path
-    call estobj%set_names(1, name_model, 'EST', 'EST')
+    call estobj%set_names(1, name_model, 'EST', 'EST', input_mempath)
     !
     ! -- Allocate scalars
     call estobj%allocate_scalars()
@@ -124,9 +127,6 @@ contains
     estobj%fmi => fmi
     estobj%eqnsclfac => eqnsclfac
     estobj%gwecommon => gwecommon
-    !
-    ! -- Initialize block parser
-    call estobj%parser%Initialize(estobj%inunit, estobj%iout)
   end subroutine est_cr
 
   !> @ brief Allocate and read method for package
@@ -143,13 +143,13 @@ contains
     ! -- formats
     character(len=*), parameter :: fmtest = &
       "(1x,/1x,'EST -- ENERGY STORAGE AND TRANSFER PACKAGE, VERSION 1, &
-      &7/29/2020 INPUT READ FROM UNIT ', i0, //)"
+      &7/29/2020 INPUT READ FROM MEMPATH: ', a, /)"
     !
     ! --print a message identifying the energy storage and transfer package.
-    write (this%iout, fmtest) this%inunit
+    write (this%iout, fmtest) this%input_mempath
     !
     ! -- Read options
-    call this%read_options()
+    call this%source_options()
     !
     ! -- store pointers to arguments that were passed in
     this%dis => dis
@@ -159,7 +159,7 @@ contains
     call this%allocate_arrays(dis%nodes)
     !
     ! -- read the gridded data
-    call this%read_data()
+    call this%source_data()
     !
     ! -- set data required by other packages
     call this%gwecommon%set_gwe_dat_ptrs(this%rhow, this%cpw, this%latheatvap, &
@@ -729,207 +729,187 @@ contains
     end do
   end subroutine allocate_arrays
 
-  !> @ brief Read options for package
-  !!
-  !!  Method to read options for the package.
+  !> @brief Update simulation mempath options
   !<
-  subroutine read_options(this)
+  subroutine source_options(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
+    use MemoryManagerExtModule, only: mem_set_value
+    use GweEstInputModule, only: GweEstParamFoundType
     ! -- dummy
-    class(GweEstType) :: this !< GweEstType object
+    class(GweEstType) :: this
+    ! -- locals
+    type(GweEstParamFoundType) :: found
+    !
+    ! -- update defaults with idm sourced values
+    call mem_set_value(this%ipakcb, 'SAVE_FLOWS', this%input_mempath, &
+                       found%save_flows)
+    call mem_set_value(this%idcy, 'ORD0_DECAY_WATER', this%input_mempath, &
+                       found%ord0_decay_water)
+    call mem_set_value(this%idcy, 'ORD0_DECAY_SOLID', this%input_mempath, &
+                       found%ord0_decay_solid)
+    call mem_set_value(this%cpw, 'CPW', this%input_mempath, &
+                       found%cpw)
+    call mem_set_value(this%rhow, 'RHOW', this%input_mempath, &
+                       found%rhow)
+    call mem_set_value(this%latheatvap, 'LATHEATVAP', this%input_mempath, &
+                       found%latheatvap)
+
+    ! -- update internal state
+    if (found%save_flows) this%ipakcb = -1
+    if (found%ord0_decay_water .and. &
+        found%ord0_decay_solid) then
+      this%idcy = DECAY_ZERO_ORDER
+      this%idcysrc = DECAY_BOTH
+    else if (found%ord0_decay_water) then
+      this%idcy = DECAY_ZERO_ORDER
+      this%idcysrc = DECAY_WATER
+    else if (found%ord0_decay_solid) then
+      this%idcy = DECAY_ZERO_ORDER
+      this%idcysrc = DECAY_SOLID
+    end if
+    if (found%cpw) then
+      if (this%cpw <= 0.0) then
+        write (errmsg, '(a)') 'Specified value for the heat capacity of &
+          &water must be greater than 0.0.'
+        call store_error(errmsg)
+        call store_error_filename(this%input_fname)
+      end if
+    end if
+    if (found%rhow) then
+      if (this%rhow <= 0.0) then
+        write (errmsg, '(a)') 'Specified value for the density of &
+          &water must be greater than 0.0.'
+        call store_error(errmsg)
+        call store_error_filename(this%input_fname)
+      end if
+    end if
+
+    ! -- log options
+    call this%log_options(found)
+  end subroutine source_options
+
+  !> @brief Write user options to list file
+  !<
+  subroutine log_options(this, found)
+    ! -- modules
+    use GweEstInputModule, only: GweEstParamFoundType
+    ! -- dummy
+    class(GweEstType) :: this
     ! -- local
-    character(len=LINELENGTH) :: keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
+    type(GweEstParamFoundType), intent(in) :: found
     ! -- formats
     character(len=*), parameter :: fmtisvflow = &
             &"(4x,'CELL-BY-CELL FLOW INFORMATION WILL BE SAVED TO BINARY "// &
             &"FILE WHENEVER ICBCFL IS NOT ZERO.')"
-    character(len=*), parameter :: fmtidcy1 = &
-                                   "(4x,'FIRST-ORDER DECAY IS ACTIVE. ')"
     character(len=*), parameter :: fmtidcy2 = &
                                    "(4x,'ZERO-ORDER DECAY IN THE AQUEOUS "// &
                                    &"PHASE IS ACTIVE. ')"
     character(len=*), parameter :: fmtidcy3 = &
                                    "(4x,'ZERO-ORDER DECAY IN THE SOLID "// &
                                    &"PHASE IS ACTIVE. ')"
-    !
-    ! -- get options block
-    call this%parser%GetBlock('OPTIONS', isfound, ierr, blockRequired=.false., &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse options block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING ENERGY STORAGE AND TRANSFER OPTIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('SAVE_FLOWS')
-          this%ipakcb = -1
-          write (this%iout, fmtisvflow)
-        case ('ZERO_ORDER_DECAY_WATER')
-          this%idcy = DECAY_ZERO_ORDER
-          ! -- idcysrc > 0 indicates decay in the solid phase is active
-          !    in which case the idcysrc should now be upgraded to both phases
-          if (this%idcysrc > IZERO) then
-            this%idcysrc = DECAY_BOTH
-          else
-            this%idcysrc = DECAY_WATER
-          end if
-          write (this%iout, fmtidcy2)
-        case ('ZERO_ORDER_DECAY_SOLID')
-          this%idcy = DECAY_ZERO_ORDER
-          ! -- idcysrc > 0 indicates decay in active in water in which case
-          !    the idcysrc should now be upgraded to both phases
-          if (this%idcysrc > IZERO) then
-            this%idcysrc = DECAY_BOTH
-          else
-            this%idcysrc = DECAY_SOLID
-          end if
-          write (this%iout, fmtidcy3)
-        case ('HEAT_CAPACITY_WATER')
-          this%cpw = this%parser%GetDouble()
-          if (this%cpw <= 0.0) then
-            write (errmsg, '(a)') 'Specified value for the heat capacity of &
-              &water must be greater than 0.0.'
-            call store_error(errmsg)
-            call this%parser%StoreErrorUnit()
-          else
-            write (this%iout, '(4x,a,1pg15.6)') &
-              'Heat capacity of the water has been set to: ', &
-              this%cpw
-          end if
-        case ('DENSITY_WATER')
-          this%rhow = this%parser%GetDouble()
-          if (this%rhow <= 0.0) then
-            write (errmsg, '(a)') 'Specified value for the density of &
-              &water must be greater than 0.0.'
-            call store_error(errmsg)
-            call this%parser%StoreErrorUnit()
-          else
-            write (this%iout, '(4x,a,1pg15.6)') &
-              'Density of the water has been set to: ', &
-              this%rhow
-          end if
-        case ('LATENT_HEAT_VAPORIZATION')
-          this%latheatvap = this%parser%GetDouble()
-          write (this%iout, '(4x,a,1pg15.6)') &
-            'Latent heat of vaporization of the water has been set to: ', &
-            this%latheatvap
-        case default
-          write (errmsg, '(a,a)') 'Unknown EST option: ', trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END OF ENERGY STORAGE AND TRANSFER OPTIONS'
-    end if
-  end subroutine read_options
 
-  !> @ brief Read data for package
-  !!
-  !!  Method to read data for the package.
-  !<
-  subroutine read_data(this)
-    ! -- modules
-    use ConstantsModule, only: LINELENGTH
-    use MemoryManagerModule, only: mem_reallocate, mem_reassignptr
-    ! -- dummy
-    class(GweEstType) :: this !< GweEstType object
-    ! -- local
-    character(len=LINELENGTH) :: keyword
-    character(len=:), allocatable :: line
-    integer(I4B) :: istart, istop, lloc, ierr
-    logical :: isfound, endOfBlock
-    logical, dimension(5) :: lname
-    character(len=24), dimension(5) :: aname
-    ! -- formats
-    ! -- data
-    data aname(1)/'  MOBILE DOMAIN POROSITY'/
-    data aname(2)/'DECAY RATE AQUEOUS PHASE'/
-    data aname(3)/'  DECAY RATE SOLID PHASE'/
-    data aname(4)/' HEAT CAPACITY OF SOLIDS'/
-    data aname(5)/'       DENSITY OF SOLIDS'/
-    !
-    ! -- initialize
-    isfound = .false.
-    lname(:) = .false.
-    !
-    ! -- get griddata block
-    call this%parser%GetBlock('GRIDDATA', isfound, ierr)
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING GRIDDATA'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        call this%parser%GetRemainingLine(line)
-        lloc = 1
-        select case (keyword)
-        case ('POROSITY')
-          call this%dis%read_grid_array(line, lloc, istart, istop, this%iout, &
-                                        this%parser%iuactive, this%porosity, &
-                                        aname(1))
-          lname(1) = .true.
-        case ('DECAY_WATER')
-          if (this%idcy == DECAY_OFF) &
-            call mem_reallocate(this%decay_water, this%dis%nodes, 'DECAY_WATER', &
-                                trim(this%memoryPath))
-          call this%dis%read_grid_array(line, lloc, istart, istop, this%iout, &
-                                        this%parser%iuactive, this%decay_water, &
-                                        aname(2))
-          lname(2) = .true.
-        case ('DECAY_SOLID')
-          if (this%idcy == DECAY_OFF) &
-            call mem_reallocate(this%decay_solid, this%dis%nodes, 'DECAY_SOLID', &
-                                trim(this%memoryPath))
-          call this%dis%read_grid_array(line, lloc, istart, istop, this%iout, &
-                                        this%parser%iuactive, this%decay_solid, &
-                                        aname(3))
-          lname(3) = .true.
-        case ('HEAT_CAPACITY_SOLID')
-          call this%dis%read_grid_array(line, lloc, istart, istop, this%iout, &
-                                        this%parser%iuactive, this%cps, &
-                                        aname(4))
-          lname(4) = .true.
-        case ('DENSITY_SOLID')
-          call this%dis%read_grid_array(line, lloc, istart, istop, this%iout, &
-                                        this%parser%iuactive, this%rhos, &
-                                        aname(5))
-          lname(5) = .true.
-        case default
-          write (errmsg, '(a,a)') 'Unknown griddata tag: ', trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END PROCESSING GRIDDATA'
-    else
-      write (errmsg, '(a)') 'Required griddata block not found.'
-      call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
+    write (this%iout, '(1x,a)') 'PROCESSING ENERGY STORAGE AND TRANSFER OPTIONS'
+    if (found%save_flows) write (this%iout, fmtisvflow)
+    if (found%ord0_decay_water) then
+      write (this%iout, fmtidcy2)
+    else if (found%ord0_decay_solid) then
+      write (this%iout, fmtidcy3)
     end if
-    !
-    ! -- Check for required porosity
-    if (.not. lname(1)) then
+    if (found%cpw) then
+      write (this%iout, '(4x,a,1pg15.6)') &
+        'Heat capacity of the water has been set to: ', &
+        this%cpw
+    end if
+    if (found%rhow) then
+      write (this%iout, '(4x,a,1pg15.6)') &
+        'Density of the water has been set to: ', &
+        this%rhow
+    end if
+    if (found%latheatvap) then
+      write (this%iout, '(4x,a,1pg15.6)') &
+        'Latent heat of vaporization of the water has been set to: ', &
+        this%latheatvap
+    end if
+    write (this%iout, '(1x,a,/)') &
+      'END PROCESSING ENERGY STORAGE AND TRANSFER OPTIONS'
+  end subroutine log_options
+
+  !> @brief Source EST griddata from input mempath
+  !<
+  subroutine source_data(this)
+    ! -- modules
+    use SimModule, only: count_errors, store_error
+    use MemoryManagerModule, only: mem_reallocate, get_isize
+    use MemoryManagerExtModule, only: mem_set_value
+    use ConstantsModule, only: LENMEMPATH, LINELENGTH
+    use GweEstInputModule, only: GweEstParamFoundType
+    ! -- dummy
+    class(GweEstType) :: this
+    ! -- locals
+    character(len=LINELENGTH) :: errmsg
+    type(GweEstParamFoundType) :: found
+    integer(I4B), dimension(:), pointer, contiguous :: map
+    integer(I4B) :: asize
+    ! -- formats
+
+    ! -- set map
+    map => null()
+    if (this%dis%nodes < this%dis%nodesuser) map => this%dis%nodeuser
+
+    ! -- reallocate
+    if (this%idcy == DECAY_OFF) then
+      call get_isize('DECAY_WATER', this%input_mempath, asize)
+      if (asize > 0) &
+        call mem_reallocate(this%decay_water, this%dis%nodes, 'DECAY_WATER', &
+                            trim(this%memoryPath))
+      call get_isize('DECAY_SOLID', this%input_mempath, asize)
+      if (asize > 0) &
+        call mem_reallocate(this%decay_solid, this%dis%nodes, 'DECAY_SOLID', &
+                            trim(this%memoryPath))
+    end if
+
+    ! -- update defaults with idm sourced values
+    call mem_set_value(this%porosity, 'POROSITY', this%input_mempath, map, &
+                       found%porosity)
+    call mem_set_value(this%decay_water, 'DECAY_WATER', this%input_mempath, map, &
+                       found%decay_water)
+    call mem_set_value(this%decay_solid, 'DECAY_SOLID', this%input_mempath, map, &
+                       found%decay_solid)
+    call mem_set_value(this%cps, 'CPS', this%input_mempath, map, found%cps)
+    call mem_set_value(this%rhos, 'RHOS', this%input_mempath, map, found%rhos)
+
+    ! -- Check for required params
+    if (.not. found%porosity) then
       write (errmsg, '(a)') 'Porosity not specified in griddata block.'
       call store_error(errmsg)
     end if
-    if (.not. lname(4)) then
+    if (.not. found%cps) then
       write (errmsg, '(a)') 'HEAT_CAPACITY_SOLID not specified in griddata block.'
       call store_error(errmsg)
     end if
-    if (.not. lname(5)) then
+    if (.not. found%rhos) then
       write (errmsg, '(a)') 'DENSITY_SOLID not specified in griddata block.'
       call store_error(errmsg)
     end if
-    !
+
+    ! -- log griddata
+    write (this%iout, '(1x,a)') 'PROCESSING ENERGY STORAGE AND TRANSFER GRIDDATA'
+    if (found%porosity) &
+      write (this%iout, '(4x,a)') 'POROSITY set from input file'
+    if (found%decay_water) &
+      write (this%iout, '(4x,a)') 'DECAY_WATER set from input file'
+    if (found%decay_solid) &
+      write (this%iout, '(4x,a)') 'DECAY_SOLID set from input file'
+    if (found%cps) &
+      write (this%iout, '(4x,a)') 'HEAT_CAPACITY_SOLID set from input file'
+    if (found%rhos) &
+      write (this%iout, '(4x,a)') 'DENSITY_SOLID set from input file'
+    write (this%iout, '(1x,a)') &
+      'END PROCESSING ENERGY STORAGE AND TRANSFER GRIDDATA'
+
     ! -- Check for required decay/production rate coefficients
     if (this%idcy == DECAY_ZERO_ORDER) then
-      if (.not. lname(2) .and. .not. lname(3)) then
+      if (.not. (found%decay_water .or. found%decay_solid)) then
         write (errmsg, '(a)') 'Zero order decay in either the aqueous &
           &or solid phase is active but the corresponding zero-order &
           &rate coefficient is not specified. Either DECAY_WATER or &
@@ -937,27 +917,27 @@ contains
         call store_error(errmsg)
       end if
     else
-      if (lname(2)) then
+      if (found%decay_water) then
         write (warnmsg, '(a)') 'Zero order decay in the aqueous phase has &
           &not been activated but DECAY_WATER has been specified. Zero &
           &order decay in the aqueous phase will have no affect on &
           &simulation results.'
         call store_warning(warnmsg)
-        write (this%iout, '(1x,a)') 'WARNING.  '//warnmsg
-      else if (lname(3)) then
+        write (this%iout, '(/1x,a)') 'WARNING: '//trim(warnmsg)
+      else if (found%decay_solid) then
         write (warnmsg, '(a)') 'Zero order decay in the solid phase has not &
           &been activated but DECAY_SOLID has been specified.  Zero order &
           &decay in the solid phase will have no affect on simulation &
           &results.'
         call store_warning(warnmsg)
-        write (this%iout, '(1x,a)') 'WARNING.  '//warnmsg
+        write (this%iout, '(/1x,a)') 'WARNING: '//trim(warnmsg)
       end if
     end if
-    !
+
     ! -- terminate if errors
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
-  end subroutine read_data
+  end subroutine source_data
 
 end module GweEstModule

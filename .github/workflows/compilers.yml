@@ -23,9 +23,9 @@ jobs:
           - {os: ubuntu-24.04, compiler: gcc, version: 12}
           - {os: ubuntu-24.04, compiler: gcc, version: 13}
           - {os: ubuntu-24.04, compiler: gcc, version: 14}
-          - {os: macos-13, compiler: gcc, version: 11}
-          - {os: macos-13, compiler: gcc, version: 12}
-          - {os: macos-13, compiler: gcc, version: 13}
+          - {os: macos-15-intel, compiler: gcc, version: 11}
+          - {os: macos-15-intel, compiler: gcc, version: 12}
+          - {os: macos-15-intel, compiler: gcc, version: 13}
           - {os: macos-14, compiler: gcc, version: 11}
           - {os: macos-14, compiler: gcc, version: 12}
           - {os: macos-14, compiler: gcc, version: 13}
@@ -34,9 +34,11 @@ jobs:
           - {os: windows-2022, compiler: gcc, version: 12}
           - {os: windows-2022, compiler: gcc, version: 13}
           # ifx
+          - {os: ubuntu-22.04, compiler: intel, version: "2025.2"}
           - {os: ubuntu-22.04, compiler: intel, version: "2025.0"}
           - {os: ubuntu-22.04, compiler: intel, version: "2024.1"}
           - {os: ubuntu-22.04, compiler: intel, version: "2024.0"}
+          - {os: windows-2022, compiler: intel, version: "2025.2"}
           - {os: windows-2022, compiler: intel, version: "2025.0"}
           - {os: windows-2022, compiler: intel, version: "2024.1"}
           - {os: windows-2022, compiler: intel, version: "2024.0"}
@@ -51,16 +53,16 @@ jobs:
           - {os: ubuntu-22.04, compiler: intel-classic, version: 2021.3}
           - {os: ubuntu-22.04, compiler: intel-classic, version: 2021.2}
           - {os: ubuntu-22.04, compiler: intel-classic, version: 2021.1}
-          - {os: macos-13, compiler: intel-classic, version: "2021.10"}
-          - {os: macos-13, compiler: intel-classic, version: 2021.9}
-          - {os: macos-13, compiler: intel-classic, version: 2021.8}
-          - {os: macos-13, compiler: intel-classic, version: 2021.7}
-          - {os: macos-13, compiler: intel-classic, version: 2021.6}
-          - {os: macos-13, compiler: intel-classic, version: 2021.5}
-          - {os: macos-13, compiler: intel-classic, version: 2021.4}
-          - {os: macos-13, compiler: intel-classic, version: 2021.3}
-          - {os: macos-13, compiler: intel-classic, version: 2021.2}
-          - {os: macos-13, compiler: intel-classic, version: 2021.1}
+          - {os: macos-15-intel, compiler: intel-classic, version: "2021.10"}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.9}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.8}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.7}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.6}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.5}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.4}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.3}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.2}
+          - {os: macos-15-intel, compiler: intel-classic, version: 2021.1}
           - {os: windows-2022, compiler: intel-classic, version: "2021.10"}
           - {os: windows-2022, compiler: intel-classic, version: 2021.9}
           - {os: windows-2022, compiler: intel-classic, version: 2021.8}
@@ -71,18 +73,18 @@ jobs:
         shell: bash
     steps:
       - name: Checkout modflow6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: modflow6
 
       - name: Checkout test models
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/modflow6-testmodels
           path: modflow6-testmodels
 
       - name: Checkout modflow6-examples
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
@@ -94,7 +96,7 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
@@ -124,7 +126,7 @@ jobs:
       
       - name: Upload build log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: meson-log.txt
           path: modflow6/builddir/meson-logs/meson-log.txt
@@ -186,7 +188,7 @@ jobs:
 
       - name: Upload reports
         if: success() || failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: compat-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.version }}
           path: compat/*.csv
@@ -202,10 +204,10 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
 
@@ -213,7 +215,7 @@ jobs:
         run: pip install tabulate pandas
 
       - name: Download reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: compat-*
           path: .github/compat/new
@@ -237,7 +239,7 @@ jobs:
 
       # only upload wide CSVs and Markdown tables
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: compat
           path: |

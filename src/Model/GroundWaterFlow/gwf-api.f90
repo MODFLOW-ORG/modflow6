@@ -30,7 +30,8 @@ module apimodule
   !
   type, extends(BndType) :: ApiType
   contains
-    procedure :: bnd_options => api_options
+    procedure :: read_options => source_options
+    procedure :: read_dimensions => source_dimensions
     procedure :: bnd_rp => api_rp
     procedure :: bnd_fc => api_fc
     ! -- methods for observations
@@ -45,7 +46,8 @@ contains
   !!  Create a new USR Package object
   !!
   !<
-  subroutine api_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname)
+  subroutine api_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
+                        mempath)
     ! -- dummy variables
     class(BndType), pointer :: packobj !< pointer to default package type
     integer(I4B), intent(in) :: id !< package id
@@ -54,6 +56,7 @@ contains
     integer(I4B), intent(in) :: iout !< unit number of model listing file
     character(len=*), intent(in) :: namemodel !< model name
     character(len=*), intent(in) :: pakname !< package name
+    character(len=*), intent(in) :: mempath !< input mempath
     ! -- local variables
     type(ApiType), pointer :: apiobj
     !
@@ -62,7 +65,7 @@ contains
     packobj => apiobj
     !
     ! -- create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, mempath)
     packobj%text = text
     !
     ! -- allocate scalars
@@ -80,29 +83,90 @@ contains
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
   end subroutine api_create
 
-  !> @ brief Read additional options for package
-  !!
-  !!  Read additional options for USR package.
-  !!
+  !> @ brief Source package options from input context
   !<
-  subroutine api_options(this, option, found)
+  subroutine source_options(this)
+    use MemoryManagerExtModule, only: mem_set_value
+    use InputOutputModule, only: GetUnit, openfile
+    use SourceCommonModule, only: filein_fname
+    use GwfApiInputModule, only: GwfApiParamFoundType
     ! -- dummy variables
     class(ApiType), intent(inout) :: this
-    character(len=*), intent(inout) :: option
-    logical, intent(inout) :: found
-    !
-    ! -- process package options
-    select case (option)
-    case ('MOVER')
-      this%imover = 1
-      write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
-      found = .true.
-    case default
-      !
-      ! -- No options found
-      found = .false.
-    end select
-  end subroutine api_options
+    type(GwfApiParamFoundType) :: found
+    ! -- formats
+    character(len=*), parameter :: fmtflow2 = &
+      &"(4x, 'FLOWS WILL BE SAVED TO BUDGET FILE SPECIFIED IN OUTPUT CONTROL')"
+
+    ! update default values from input context
+    call mem_set_value(this%iprpak, 'IPRPAK', this%input_mempath, found%iprpak)
+    call mem_set_value(this%iprflow, 'IPRFLOW', this%input_mempath, found%iprflow)
+    call mem_set_value(this%ipakcb, 'IPAKCB', this%input_mempath, found%ipakcb)
+    call mem_set_value(this%inamedbound, 'BOUNDNAMES', this%input_mempath, &
+                       found%boundnames)
+    call mem_set_value(this%imover, 'MOVER', this%input_mempath, found%mover)
+
+    ! update internal state
+    if (found%ipakcb) this%ipakcb = -1
+
+    ! enforce 0 or 1 OBS6_FILENAME entries in option block
+    if (filein_fname(this%obs%inputFilename, 'OBS6_FILENAME', &
+                     this%input_mempath, this%input_fname)) then
+      this%obs%active = .true.
+      this%obs%inUnitObs = GetUnit()
+      call openfile(this%obs%inUnitObs, this%iout, this%obs%inputFilename, 'OBS')
+    end if
+
+    ! log package options
+    write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text)) &
+      //' OPTIONS'
+    if (found%iprpak) then
+      write (this%iout, '(4x,a)') &
+        'LISTS OF '//trim(adjustl(this%text))//' CELLS WILL BE PRINTED.'
+    end if
+    if (found%iprflow) then
+      write (this%iout, '(4x,a)') trim(adjustl(this%text))// &
+        ' FLOWS WILL BE PRINTED TO LISTING FILE.'
+    end if
+    if (found%ipakcb) write (this%iout, fmtflow2)
+    if (found%boundnames) then
+      write (this%iout, '(4x,a)') trim(adjustl(this%text))// &
+        ' BOUNDARIES HAVE NAMES IN LAST COLUMN.'
+    end if
+    if (found%mover) write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' OPTIONS'
+  end subroutine source_options
+
+  !> @ brief Source package dimensions from input context
+  !<
+  subroutine source_dimensions(this)
+    use SimVariablesModule, only: errmsg
+    use SimModule, only: store_error, store_error_filename
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwfApiInputModule, only: GwfApiParamFoundType
+    ! -- dummy variables
+    class(ApiType), intent(inout) :: this
+    ! -- local variables
+    type(GwfApiParamFoundType) :: found
+
+    ! update dimensions from input context
+    call mem_set_value(this%maxbound, 'MAXBOUND', this%input_mempath, &
+                       found%maxbound)
+
+    ! log dimensions
+    write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
+      ' DIMENSIONS'
+    write (this%iout, '(4x,a,i7)') 'MAXBOUND = ', this%maxbound
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' DIMENSIONS'
+
+    ! verify dimensions
+    if (this%maxbound <= 0) then
+      write (errmsg, '(a)') 'MAXBOUND must be an integer greater than zero.'
+      call store_error(errmsg)
+      call store_error_filename(this%input_fname)
+    end if
+  end subroutine source_dimensions
 
   !> @ brief Read and prepare stress period data for package
   !!

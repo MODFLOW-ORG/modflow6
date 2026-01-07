@@ -183,7 +183,7 @@ contains
 
     ! -- apply user override if provided
     if (this%lstfmt /= '') then
-      call this%ocd%set_option(trim(this%lstfmt)//" ", 0, this%iout)
+      call this%ocd%set_prnfmt(trim(this%lstfmt)//" ", 0)
     end if
     !
     ! -- source the data block
@@ -1050,13 +1050,12 @@ contains
     if (found%order1_decay) this%idcy = 1
     if (found%order0_decay) this%idcy = 2
     if (found%cimfile) then
-      call this%ocd%set_option('FILEOUT '//trim(cim6_fname)//" ", 0, &
-                               this%iout)
+      call this%ocd%set_ocfile(cim6_fname, this%iout)
     end if
     if (found%columns .and. found%width .and. &
         found%digits .and. found%format) then
-      write (this%lstfmt, '(a,i0,a,i0,a,i0,a)') 'PRINT_FORMAT COLUMNS ', &
-        columns, ' WIDTH ', width, ' DIGITS ', digits, ' '//trim(prnfmt)
+      write (this%lstfmt, '(a,i0,a,i0,a,i0,a)') 'COLUMNS ', columns, &
+        ' WIDTH ', width, ' DIGITS ', digits, ' '//trim(prnfmt)
     end if
     if (found%sorbatefile) then
       this%ioutsorbate = getunit()

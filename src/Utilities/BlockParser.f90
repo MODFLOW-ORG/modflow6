@@ -7,7 +7,7 @@
 module BlockParserModule
 
   use KindModule, only: DP, I4B, LGP
-  use DevFeatureModule, only: dev_feature
+  use FeatureFlagsModule, only: developmode
   use ConstantsModule, only: LENBIGLINE, LENHUGELINE, LINELENGTH, MAXCHARLEN
   use InputOutputModule, only: urword, upcase, openfile, &
                                io_getunit => GetUnit
@@ -552,7 +552,7 @@ contains
     !
     errmsg = "Invalid keyword '"//trim(this%laststring)// &
              "' detected in block '"//trim(this%blockname)//"'."
-    call dev_feature(errmsg, this%iuext)
+    call developmode(errmsg, this%iuext)
   end subroutine DevOpt
 
   ! -- static methods previously in InputOutput

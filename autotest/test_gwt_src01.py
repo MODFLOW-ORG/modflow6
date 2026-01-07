@@ -13,8 +13,10 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["src01a"]
-xt3d = [False]
+cases = ["src01a", "srcmult"]
+xt3d = [False, False]
+
+mass_mult = 2.0
 
 
 def build_models(idx, test):
@@ -194,14 +196,26 @@ def build_models(idx, test):
     )
 
     # mass loading source
-    srcs = {0: [[(0, 0, 0), 1.0]]}
-    src = flopy.mf6.ModflowGwtsrc(
-        gwt,
-        maxbound=len(srcs),
-        stress_period_data=srcs,
-        save_flows=False,
-        pname="SRC-1",
-    )
+    if idx == 0:
+        srcs = {0: [[(0, 0, 0), 1.0]]}
+        src = flopy.mf6.ModflowGwtsrc(
+            gwt,
+            maxbound=len(srcs),
+            stress_period_data=srcs,
+            save_flows=False,
+            pname="SRC-1",
+        )
+    elif idx > 0:
+        srcs = {0: [[(0, 0, 0), 1.0, mass_mult]]}
+        src = flopy.mf6.ModflowGwtsrc(
+            gwt,
+            auxiliary=["multiplier"],
+            auxmultname="multiplier",
+            maxbound=len(srcs),
+            stress_period_data=srcs,
+            save_flows=False,
+            pname="SRC-1",
+        )
 
     # mobile storage and transfer
     mst = flopy.mf6.ModflowGwtmst(gwt, porosity=0.1)
@@ -242,6 +256,8 @@ def check_output(idx, test):
     # This is the answer to this problem.  These concentrations are for
     # steady state and calculated from F = D * (c1 - c2) / L
     cres = np.linspace(9.9, 0, 100).reshape(conc.shape)
+    if idx > 0:
+        cres *= mass_mult
     assert np.allclose(cres, conc), (
         "simulated concentrations do not match with known solution."
     )

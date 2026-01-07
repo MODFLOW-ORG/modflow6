@@ -10,7 +10,13 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["adv01a_gwtgwt", "adv01b_gwtgwt", "adv01c_gwtgwt", "adv01d_gwtgwt"]
+cases = [
+    pytest.param(0, "adv01a_gwtgwt"),
+    pytest.param(1, "adv01b_gwtgwt"),
+    pytest.param(2, "adv01c_gwtgwt"),
+    pytest.param(3, "adv01d_gwtgwt", marks=pytest.mark.developmode),
+]
+
 scheme = ["upstream", "central", "tvd", "utvd"]
 gdelr = 1.0
 
@@ -813,7 +819,7 @@ def check_output(idx, test):
             # assert np.allclose(res, 0.0, atol=1.0e-6), errmsg
 
 
-@pytest.mark.parametrize("idx, name", enumerate(cases))
+@pytest.mark.parametrize(("idx", "name"), cases)
 @pytest.mark.developmode
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(

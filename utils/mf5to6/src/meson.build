@@ -34,7 +34,7 @@ mf6_sources = files(
     '..' / '..' / '..' / 'src' / 'Utilities' / 'version.f90',
     '..' / '..' / '..' / 'src' / 'Utilities' / 'Table.f90',
     '..' / '..' / '..' / 'src' / 'Utilities' / 'TableTerm.f90',
-    '..' / '..' / '..' / 'src' / 'Utilities' / 'DevFeature.f90',
+    '..' / '..' / '..' / 'src' / 'Utilities' / 'FeatureFlags.f90',
 )
 
 

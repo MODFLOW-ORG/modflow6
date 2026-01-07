@@ -15,8 +15,10 @@ module UpstreamSchemeModule
     private
     class(DisBaseType), pointer :: dis
     type(TspFmiType), pointer :: fmi
+    real(DP), dimension(:), pointer :: phi
   contains
     procedure :: compute
+    procedure :: set_field
   end type UpstreamSchemeType
 
   interface UpstreamSchemeType
@@ -36,7 +38,20 @@ contains
 
   end function constructor
 
-  function compute(this, n, m, iposnm, phi) result(phi_face)
+  !> @brief Set the scalar field for which interpolation will be computed
+  !!
+  !! This method establishes a pointer to the scalar field data for
+  !! subsequent upstream interpolation computations.
+  !<
+  subroutine set_field(this, phi)
+    ! -- dummy
+    class(UpstreamSchemeType), target :: this
+    real(DP), intent(in), dimension(:), pointer :: phi
+
+    this%phi => phi
+  end subroutine set_field
+
+  function compute(this, n, m, iposnm) result(phi_face)
     !-- return
     type(CoefficientsType) :: phi_face
     ! -- dummy
@@ -44,7 +59,6 @@ contains
     integer(I4B), intent(in) :: n
     integer(I4B), intent(in) :: m
     integer(I4B), intent(in) :: iposnm
-    real(DP), intent(in), dimension(:) :: phi
     ! -- local
     real(DP) :: qnm
 
@@ -58,4 +72,5 @@ contains
     end if
 
   end function compute
+
 end module UpstreamSchemeModule

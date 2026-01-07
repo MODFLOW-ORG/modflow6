@@ -56,6 +56,8 @@ module DisvModule
     procedure :: supports_layers
     procedure :: get_ncpl
     procedure :: get_polyverts
+    procedure :: get_npolyverts
+    procedure :: get_max_npolyverts
     ! -- private
     procedure :: source_options
     procedure :: source_dimensions
@@ -1437,7 +1439,6 @@ contains
     icu = this%get_nodeuser(ic)
     icu2d = icu - ((icu - 1) / ncpl) * ncpl
     nverts = this%iavert(icu2d + 1) - this%iavert(icu2d) - 1
-    if (nverts .le. 0) nverts = nverts + size(this%javert)
     !
     ! check closed option
     if (.not. (present(closed))) then
@@ -1465,6 +1466,37 @@ contains
       polyverts(:, nverts + 1) = polyverts(:, 1)
     !
   end subroutine
+
+  !> @brief Get the number of cell polygon vertices.
+  function get_npolyverts(this, ic, closed) result(npolyverts)
+    class(DisvType), intent(inout) :: this
+    integer(I4B), intent(in) :: ic !< cell number (reduced)
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
+    integer(I4B) :: npolyverts
+    ! local
+    integer(I4B) :: ncpl, icu, icu2d
+
+    ncpl = this%get_ncpl()
+    icu = this%get_nodeuser(ic)
+    icu2d = icu - ((icu - 1) / ncpl) * ncpl
+    npolyverts = this%iavert(icu2d + 1) - this%iavert(icu2d) - 1
+    if (present(closed)) then
+      if (closed) npolyverts = npolyverts + 1
+    end if
+  end function get_npolyverts
+
+  !> @brief Get the maximum number of cell polygon vertices.
+  function get_max_npolyverts(this, closed) result(max_npolyverts)
+    class(DisvType), intent(inout) :: this
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
+    integer(I4B) :: max_npolyverts
+    integer(I4B) :: ic
+
+    max_npolyverts = 0
+    do ic = 1, this%nodes
+      max_npolyverts = max(max_npolyverts, this%get_npolyverts(ic, closed))
+    end do
+  end function get_max_npolyverts
 
   !> @brief Read an integer array
   !<

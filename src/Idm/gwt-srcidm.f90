@@ -15,9 +15,9 @@ module GwtSrcInputModule
     logical :: auxiliary = .false.
     logical :: auxmultname = .false.
     logical :: boundnames = .false.
-    logical :: print_input = .false.
-    logical :: print_flows = .false.
-    logical :: save_flows = .false.
+    logical :: iprpak = .false.
+    logical :: iprflow = .false.
+    logical :: ipakcb = .false.
     logical :: ts_filerecord = .false.
     logical :: ts6 = .false.
     logical :: filein = .false.
@@ -29,7 +29,7 @@ module GwtSrcInputModule
     logical :: maxbound = .false.
     logical :: cellid = .false.
     logical :: smassrate = .false.
-    logical :: aux = .false.
+    logical :: auxvar = .false.
     logical :: boundname = .false.
   end type GwtSrcParamFoundType
 
@@ -53,6 +53,7 @@ module GwtSrcInputModule
     'NAUX', & ! shape
     'keyword to specify aux variables', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -71,6 +72,7 @@ module GwtSrcInputModule
     '', & ! shape
     'name of auxiliary variable for multiplier', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -89,6 +91,7 @@ module GwtSrcInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -96,17 +99,18 @@ module GwtSrcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtsrc_print_input = InputParamDefinitionType &
+    gwtsrc_iprpak = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'SRC', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_INPUT', & ! tag name
-    'PRINT_INPUT', & ! fortran variable
+    'IPRPAK', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -114,17 +118,18 @@ module GwtSrcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtsrc_print_flows = InputParamDefinitionType &
+    gwtsrc_iprflow = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'SRC', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_FLOWS', & ! tag name
-    'PRINT_FLOWS', & ! fortran variable
+    'IPRFLOW', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'print calculated flows to listing file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -132,17 +137,18 @@ module GwtSrcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtsrc_save_flows = InputParamDefinitionType &
+    gwtsrc_ipakcb = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'SRC', & ! subcomponent
     'OPTIONS', & ! block
     'SAVE_FLOWS', & ! tag name
-    'SAVE_FLOWS', & ! fortran variable
+    'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'save well flows to budget file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -161,6 +167,7 @@ module GwtSrcInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -179,6 +186,7 @@ module GwtSrcInputModule
     '', & ! shape
     'head keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -197,6 +205,7 @@ module GwtSrcInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -215,6 +224,7 @@ module GwtSrcInputModule
     '', & ! shape
     'file name of time series information', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -233,6 +243,7 @@ module GwtSrcInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -251,6 +262,7 @@ module GwtSrcInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -269,6 +281,7 @@ module GwtSrcInputModule
     '', & ! shape
     'obs6 input filename', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -287,6 +300,7 @@ module GwtSrcInputModule
     '', & ! shape
     'apply source to highest saturated cell', & ! longname
     .false., & ! required
+    .true., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -305,6 +319,7 @@ module GwtSrcInputModule
     '', & ! shape
     'maximum number of sources', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -323,6 +338,7 @@ module GwtSrcInputModule
     'NCELLDIM', & ! shape
     'cell identifier', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -341,6 +357,7 @@ module GwtSrcInputModule
     '', & ! shape
     'mass source loading rate', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -348,17 +365,18 @@ module GwtSrcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtsrc_aux = InputParamDefinitionType &
+    gwtsrc_auxvar = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'SRC', & ! subcomponent
     'PERIOD', & ! block
     'AUX', & ! tag name
-    'AUX', & ! fortran variable
+    'AUXVAR', & ! fortran variable
     'DOUBLE1D', & ! type
     'NAUX', & ! shape
     'auxiliary variables', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -377,6 +395,7 @@ module GwtSrcInputModule
     '', & ! shape
     'well name', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -389,9 +408,9 @@ module GwtSrcInputModule
     gwtsrc_auxiliary, &
     gwtsrc_auxmultname, &
     gwtsrc_boundnames, &
-    gwtsrc_print_input, &
-    gwtsrc_print_flows, &
-    gwtsrc_save_flows, &
+    gwtsrc_iprpak, &
+    gwtsrc_iprflow, &
+    gwtsrc_ipakcb, &
     gwtsrc_ts_filerecord, &
     gwtsrc_ts6, &
     gwtsrc_filein, &
@@ -403,7 +422,7 @@ module GwtSrcInputModule
     gwtsrc_maxbound, &
     gwtsrc_cellid, &
     gwtsrc_smassrate, &
-    gwtsrc_aux, &
+    gwtsrc_auxvar, &
     gwtsrc_boundname &
     ]
 
@@ -419,6 +438,7 @@ module GwtSrcInputModule
     'MAXBOUND', & ! shape
     '', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

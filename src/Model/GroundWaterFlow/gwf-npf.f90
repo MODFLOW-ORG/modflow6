@@ -1,6 +1,6 @@
 module GwfNpfModule
   use KindModule, only: DP, I4B
-  use SimVariablesModule, only: errmsg
+  use SimVariablesModule, only: errmsg, warnmsg
   use ConstantsModule, only: DZERO, DEM9, DEM8, DEM7, DEM6, DEM2, &
                              DHALF, DP9, DONE, DTWO, &
                              DHNOFLO, DHDRY, DEM10, &
@@ -47,6 +47,7 @@ module GwfNpfModule
     integer(I4B), pointer :: ivarcv => null() !< CV is function of water table
     integer(I4B), pointer :: idewatcv => null() !< CV may be a discontinuous function of water table
     integer(I4B), pointer :: ithickstrt => null() !< thickstrt option flag
+    integer(I4B), pointer :: ihighcellsat => null() !< highest_cell_saturation option flag
     integer(I4B), pointer :: igwfnewtonur => null() !< newton head dampening using node bottom option flag
     integer(I4B), pointer :: icalcspdis => null() !< Calculate specific discharge at cell centers
     integer(I4B), pointer :: isavspdis => null() !< Save specific discharge at cell centers
@@ -147,6 +148,7 @@ module GwfNpfModule
     procedure, public :: calcSatThickness
     procedure, private :: calc_max_conns
     procedure, private :: prepare_edge_lookup
+    procedure, private :: highest_cell_saturation
   end type
 
 contains
@@ -486,6 +488,8 @@ contains
     integer(I4B) :: isymcon, idiagm
     real(DP) :: hyn, hym
     real(DP) :: cond
+    real(DP) :: satn
+    real(DP) :: satm
     !
     ! -- Calculate conductance and put into amat
     !
@@ -541,6 +545,13 @@ contains
             end if
             !
           else
+            satn = this%sat(n)
+            satm = this%sat(m)
+            if (this%ihighcellsat /= 0) then
+              call this%highest_cell_saturation(n, m, &
+                                                hnew(n), hnew(m), &
+                                                satn, satm)
+            end if
             !
             ! -- Horizontal conductance
             cond = hcond(this%ibound(n), this%ibound(m), &
@@ -549,7 +560,7 @@ contains
                          this%dis%con%ihc(this%dis%con%jas(ii)), &
                          this%icellavg, &
                          this%condsat(this%dis%con%jas(ii)), &
-                         hnew(n), hnew(m), this%sat(n), this%sat(m), hyn, hym, &
+                         hnew(n), hnew(m), satn, satm, hyn, hym, &
                          this%dis%top(n), this%dis%top(m), &
                          this%dis%bot(n), this%dis%bot(m), &
                          this%dis%con%cl1(this%dis%con%jas(ii)), &
@@ -572,6 +583,38 @@ contains
       !
     end if
   end subroutine npf_fc
+
+  !> @brief Calculate dry cell saturation
+  !!
+  !! Calculate the saturation based on the maximum cell bottom for
+  !! two connected cells
+  !<
+  subroutine highest_cell_saturation(this, n, m, hn, hm, satn, satm)
+    ! dummy
+    class(GwfNpfType) :: this
+    integer(I4B), intent(in) :: n, m
+    real(DP), intent(in) :: hn, hm
+    real(DP), intent(inout) :: satn, satm
+    ! local
+    integer(I4B) :: ihdbot
+    real(DP) :: botn, botm
+    real(DP) :: top, bot
+
+    botn = this%dis%bot(n)
+    botm = this%dis%bot(m)
+
+    ihdbot = n
+    if (botm > botn) ihdbot = m
+
+    ! recalculate saturation if the difference in elevation between
+    ! two cells exceed a threshold value
+    if (abs(botm - botn) >= DEM2) then
+      top = this%dis%top(ihdbot)
+      bot = this%dis%bot(ihdbot)
+      satn = sQuadraticSaturation(top, bot, hn, this%satomega)
+      satm = sQuadraticSaturation(top, bot, hm, this%satomega)
+    end if
+  end subroutine highest_cell_saturation
 
   !> @brief Fill newton terms
   !<
@@ -808,6 +851,7 @@ contains
     real(DP) :: hyn, hym
     real(DP) :: condnm
     real(DP) :: hntemp, hmtemp
+    real(DP) :: satn, satm
     integer(I4B) :: ihc
     !
     ! -- Initialize
@@ -827,13 +871,19 @@ contains
                      this%dis%bot(n), this%dis%bot(m), &
                      this%dis%con%hwva(this%dis%con%jas(icon)))
     else
+      satn = this%sat(n)
+      satm = this%sat(m)
+      if (this%ihighcellsat /= 0) then
+        call this%highest_cell_saturation(n, m, hn, hm, satn, satm)
+      end if
+
       condnm = hcond(this%ibound(n), this%ibound(m), &
                      this%icelltype(n), this%icelltype(m), &
                      this%inewton, &
                      this%dis%con%ihc(this%dis%con%jas(icon)), &
                      this%icellavg, &
                      this%condsat(this%dis%con%jas(icon)), &
-                     hn, hm, this%sat(n), this%sat(m), hyn, hym, &
+                     hn, hm, satn, satm, hyn, hym, &
                      this%dis%top(n), this%dis%top(m), &
                      this%dis%bot(n), this%dis%bot(m), &
                      this%dis%con%cl1(this%dis%con%jas(icon)), &
@@ -985,6 +1035,7 @@ contains
     call mem_deallocate(this%ivarcv)
     call mem_deallocate(this%idewatcv)
     call mem_deallocate(this%ithickstrt)
+    call mem_deallocate(this%ihighcellsat)
     call mem_deallocate(this%isavspdis)
     call mem_deallocate(this%isavsat)
     call mem_deallocate(this%icalcspdis)
@@ -1069,6 +1120,7 @@ contains
     call mem_allocate(this%ivarcv, 'IVARCV', this%memoryPath)
     call mem_allocate(this%idewatcv, 'IDEWATCV', this%memoryPath)
     call mem_allocate(this%ithickstrt, 'ITHICKSTRT', this%memoryPath)
+    call mem_allocate(this%ihighcellsat, 'IHIGHCELLSAT', this%memoryPath)
     call mem_allocate(this%icalcspdis, 'ICALCSPDIS', this%memoryPath)
     call mem_allocate(this%isavspdis, 'ISAVSPDIS', this%memoryPath)
     call mem_allocate(this%isavsat, 'ISAVSAT', this%memoryPath)
@@ -1108,6 +1160,7 @@ contains
     this%ivarcv = 0
     this%idewatcv = 0
     this%ithickstrt = 0
+    this%ihighcellsat = 0
     this%icalcspdis = 0
     this%isavspdis = 0
     this%isavsat = 0
@@ -1243,14 +1296,19 @@ contains
                                      this%icellavg
     if (found%ithickstrt) &
       write (this%iout, '(4x,a)') 'THICKSTRT option has been activated.'
+    if (found%ihighcellsat) &
+      write (this%iout, '(4x,a)') 'HIGHEST_CELL_SATURATION option &
+                                  &has been activated.'
     if (found%iperched) &
       write (this%iout, '(4x,a)') 'Vertical flow will be adjusted for perched &
                                   &conditions.'
     if (found%ivarcv) &
       write (this%iout, '(4x,a)') 'Vertical conductance varies with water table.'
     if (found%idewatcv) &
-      write (this%iout, '(4x,a)') 'Vertical conductance accounts for dewatered &
-                                  &portion of an underlying cell.'
+      write (this%iout, '(4x,a)') 'Vertical conductance is calculated using &
+                                  &only the saturated thickness and properties &
+                                  &of the overlying cell if the head in the &
+                                  &underlying cell is below its top.'
     if (found%ixt3d) write (this%iout, '(4x,a)') 'XT3D formulation is selected.'
     if (found%ixt3drhs) &
       write (this%iout, '(4x,a)') 'XT3D RHS formulation is selected.'
@@ -1313,6 +1371,8 @@ contains
                        cellavg_method, found%cellavg)
     call mem_set_value(this%ithickstrt, 'ITHICKSTRT', this%input_mempath, &
                        found%ithickstrt)
+    call mem_set_value(this%ihighcellsat, 'IHIGHCELLSAT', this%input_mempath, &
+                       found%ihighcellsat)
     call mem_set_value(this%iperched, 'IPERCHED', this%input_mempath, &
                        found%iperched)
     call mem_set_value(this%ivarcv, 'IVARCV', this%input_mempath, found%ivarcv)
@@ -1373,6 +1433,7 @@ contains
     !
     this%icellavg = options%icellavg
     this%ithickstrt = options%ithickstrt
+    this%ihighcellsat = options%ihighcellsat
     this%iperched = options%iperched
     this%ivarcv = options%ivarcv
     this%idewatcv = options%idewatcv
@@ -1386,7 +1447,8 @@ contains
   !<
   subroutine check_options(this)
     ! -- modules
-    use SimModule, only: store_error, count_errors, store_error_filename
+    use SimModule, only: store_error, store_warning, &
+                         count_errors, store_error_filename
     use ConstantsModule, only: LINELENGTH
     ! -- dummy
     class(GwfNpftype) :: this
@@ -1411,6 +1473,14 @@ contains
         write (errmsg, '(a)') 'ERROR IN NPF OPTIONS. NEWTON OPTION CANNOT '// &
           'BE USED WITH REWET OPTION.'
         call store_error(errmsg)
+      end if
+    else
+      if (this%ihighcellsat /= 0) then
+        write (warnmsg, '(a)') 'HIGHEST_CELL_SATURATION '// &
+          'option cannot be used when NEWTON option in not specified. '// &
+          'Resetting HIGHEST_CELL_SATURATION option to off.'
+        this%ihighcellsat = 0
+        call store_warning(warnmsg)
       end if
     end if
     !

@@ -25,7 +25,7 @@ valid logarithmic amt-lmk amt-hmk
 reader urword
 optional true
 longname conductance weighting option
-description is a text keyword to indicate that an alternative method will be used for calculating the conductance for horizontal cell connections.  The text value for ALTERNATIVE\_CELL\_AVERAGING can be ``LOGARITHMIC'', ``AMT-LMK'', or ``AMT-HMK''.  ``AMT-LMK'' signifies that the conductance will be calculated using arithmetic-mean thickness and logarithmic-mean hydraulic conductivity.  ``AMT-HMK'' signifies that the conductance will be calculated using arithmetic-mean thickness and harmonic-mean hydraulic conductivity. If the user does not specify a value for ALTERNATIVE\_CELL\_AVERAGING, then the harmonic-mean method will be used.  This option cannot be used if the XT3D option is invoked.
+description is a text keyword to indicate that an alternative method will be used for calculating the conductance for horizontal cell connections.  The text value for ALTERNATIVE\_CELL\_AVERAGING can be ``LOGARITHMIC'', ``AMT-LMK'', or ``AMT-HMK''.  ``AMT-LMK'' signifies that the conductance will be calculated using arithmetic-mean thickness and logarithmic-mean hydraulic conductivity.  ``AMT-HMK'' signifies that the conductance will be calculated using arithmetic-mean thickness and harmonic-mean hydraulic conductivity. If the user does not specify a value for ALTERNATIVE\_CELL\_AVERAGING, then the harmonic-mean method will be used.  This option cannot be used if the XT3D option is invoked. The AMT-HMK ALTERNATIVE\_CELL\_AVERAGING option, in combination with the DRY\_CELL\_SATURATION option, can be used to calculate the same horizontal conductance as MODFLOW-USG when upstream weighting is used (LAYCON=4).
 mf6internal cellavg
 
 block options
@@ -146,6 +146,16 @@ description If the RHS keyword is also included, then the XT3D additional terms 
 mf6internal ixt3drhs
 
 block options
+name highest_cell_saturation
+type keyword
+reader urword
+optional true
+longname keyword to activate HIGHEST_CELL_SATURATION option
+description keyword indicating that the maximum cell bottom will be used to calculate the saturation used to calculate the horizontal conductance between cells. This option is intended to prevent flow from leaving a dry cell and is based on~\cite{painter2008robust}. This option is only applied when the Newton-Raphson formulation is used, A worning will be issued if this option is specified and the Newton-Raphson formulation is not specified in the GWF name file. This option, in combination with the AMT-HMK ALTERNATIVE\_CELL\_AVERAGING option, can be used to calculate the same horizontal conductance as MODFLOW-USG when upstream weighting is used (LAYCON=4).
+mf6internal ihighcellsat
+
+
+block options
 name save_specific_discharge
 type keyword
 reader urword
@@ -240,7 +250,7 @@ reader urword
 optional true
 mf6internal export_nc
 longname export array variables to netcdf output files.
-description keyword that specifies input griddata arrays should be written to the model output netcdf file.
+description keyword that specifies input griddata arrays should be written to the model output NetCDF file.
 extended true
 
 # dev options

@@ -46,6 +46,7 @@ module PrintSaveManagerModule
     procedure :: deallocate
     procedure :: init
     procedure :: read
+    procedure :: set
     procedure :: should_print
     procedure :: should_save
   end type PrintSaveManagerType
@@ -109,6 +110,29 @@ contains
         terminate=.TRUE.)
     end select
   end subroutine read
+
+  !> @ brief set data from an input record.
+  subroutine set(this, ocaction, ocsetting, iout)
+    ! dummy
+    class(PrintSaveManagerType) :: this !< this instance
+    character(len=*) :: ocaction
+    character(len=*) :: ocsetting
+    integer(I4B), intent(in) :: iout !< output file unit
+    select case (ocaction)
+    case ('PRINT')
+      call this%print_steps%read(ocsetting)
+      if (iout > 0) &
+        call this%print_steps%log(iout, verb="PRINTED")
+    case ('SAVE')
+      call this%save_steps%read(ocsetting)
+      if (iout > 0) &
+        call this%save_steps%log(iout, verb="SAVED")
+    case default
+      call store_error( &
+        'Looking for PRINT or SAVE. Found: '//trim(adjustl(ocaction)), &
+        terminate=.TRUE.)
+    end select
+  end subroutine set
 
   !> @ brief Determine if printing is enabled for this time step.
   logical function should_print(this, kstp, endofperiod)

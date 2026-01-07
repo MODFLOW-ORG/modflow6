@@ -4,6 +4,7 @@ import flopy
 import numpy as np
 import pytest
 from conftest import try_get_target
+from flopy.utils.compare import compare_cell_budget
 from flopy.utils.gridgen import Gridgen
 from framework import TestFramework
 
@@ -536,7 +537,7 @@ def check_output(idx, test):
     fpth0 = ws / f"{sim_name}.{extension}"
     # fpth1 = ws / f"mf6/{get_dis_name(name)}.{extension}"
     fpth1 = ws / f"mf6/{sim_name}.{extension}"
-    test._compare_budget_files(extension, fpth0, fpth1)
+    assert compare_cell_budget(fpth0, fpth1, outfile=ws / f"{name}.cmp")
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

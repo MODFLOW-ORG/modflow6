@@ -3,7 +3,7 @@ module ImsLinearSettingsModule
   use ConstantsModule
   use MemoryManagerModule, only: mem_allocate, mem_deallocate
   use BlockParserModule, only: BlockParserType
-  use SimModule, only: store_error, deprecation_warning
+  use SimModule, only: store_error, store_warning, deprecation_warning
   implicit none
   private
 
@@ -28,6 +28,7 @@ module ImsLinearSettingsModule
     procedure :: init
     procedure :: preset_config
     procedure :: read_from_file
+    procedure :: check_settings
     procedure :: destroy
   end type
 
@@ -251,6 +252,21 @@ contains
     end if
 
   end subroutine read_from_file
+
+  !> @brief Check the settings after reading the configuration from file
+  !<
+  subroutine check_settings(this)
+    class(ImsLinearSettingsType) :: this !< linear settings
+    ! local
+    character(len=LINELENGTH) :: warnmsg
+
+    if (this%level == 0 .and. this%droptol > 0.0_DP) then
+      write (warnmsg, '(a)') "PRECONDITIONER_DROP_TOLERANCE is ignored because &
+                             &PRECONDITIONER_LEVELS equals zero."
+      call store_warning(warnmsg)
+    end if
+
+  end subroutine check_settings
 
   subroutine destroy(this)
     class(ImsLinearSettingsType) :: this !< linear settings

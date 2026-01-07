@@ -24,9 +24,9 @@ jobs:
     steps:
 
       - name: Checkout modflow6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - uses: prefix-dev/setup-pixi@v0.8.14
+      - uses: prefix-dev/setup-pixi@v0.9.3
         with:
           pixi-version: v0.41.4
 
@@ -46,24 +46,24 @@ jobs:
       FC_V: 12
     steps:
       - name: Checkout modflow6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: modflow6
 
       - name: Checkout modflow6-examples
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
       - name: Checkout usgslatex
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/usgslatex
           path: usgslatex
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
@@ -101,7 +101,7 @@ jobs:
 
       - name: Cache modflow6 examples
         id: cache-examples
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: modflow6-examples/examples
           key: modflow6-examples-${{ hashFiles('modflow6-examples/scripts/**') }}
@@ -138,7 +138,7 @@ jobs:
         run: cat run-time-comparison.md
     
       - name: Upload benchmarks
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: run-time-comparison
           path: modflow6/distribution/run-time-comparison.md
@@ -152,7 +152,7 @@ jobs:
         run: cat deprecations.md
 
       - name: Upload deprecations
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: deprecations
           path: modflow6/doc/mf6io/mf6ivar/md/deprecations.md
@@ -162,7 +162,7 @@ jobs:
         run: pixi run sphinx
       
       - name: Upload RTD files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: rtd-files-for-${{ github.sha }}
           path: |
@@ -171,7 +171,7 @@ jobs:
             modflow6/.build_rtd_docs/index.rst
             modflow6/.build_rtd_docs/mf6io.rst
             modflow6/.build_rtd_docs/_dev/
-            modflow6/.build_rtd_docs/_migration/
+            modflow6/.build_rtd_docs/_misc/
             modflow6/.build_rtd_docs/_mf6io/
             modflow6/.build_rtd_docs/_mf6run/
             modflow6/.build_rtd_docs/_static/
@@ -181,7 +181,7 @@ jobs:
         run: pixi run build-docs
 
       - name: Upload PDF documents
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: mf6io.pdf
           path: |
@@ -199,7 +199,7 @@ jobs:
     if: github.repository_owner == 'MODFLOW-ORG' && github.event_name == 'push'
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Trigger RTDs build on push to repo branches
         uses: dfm/rtds-action@v1
@@ -219,7 +219,7 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Print branch name
         run: echo ${{env.branch-name}}
@@ -230,7 +230,7 @@ jobs:
           sudo apt-get install doxygen graphviz
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
           pixi-version: v0.41.4
 
@@ -248,7 +248,7 @@ jobs:
         working-directory: ${{env.working-directory}}
       
       - name: upload pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ${{env.working-directory}}/html
 

@@ -1,8 +1,8 @@
-[project]
+[workspace]
 name = "modflow6"
 channels = ["conda-forge"]
 platforms = ["win-64", "linux-64", "linux-aarch64", "osx-arm64", "osx-64"]
-version = "6.7.0.dev2"
+version = "6.7.0.dev3"
 
 [dependencies]
 appdirs = "*"
@@ -18,8 +18,8 @@ gitpython = "*"
 jinja2 = ">=3.1.5,<4"
 jupytext = "*"
 matplotlib = "*"
-meson = "==1.7.1"
-modflow-devtools = "==1.7.0"
+meson = ">=1.3.1"
+modflow-devtools = ">=1.7.0,<2"
 networkx = "*"
 ninja = "*"
 numpy = "<2.0.0"    # modflowapi has a resriction on the numpy version
@@ -40,12 +40,13 @@ requests = "*"
 ruff = "*"
 scipy = "*"
 shapely = "*"
-syrupy = "*"
+syrupy = "<5"
 test-drive = "*"
 tomli = ">=2.2.1,<3"
 tomli-w = ">=1.2.0,<2"
 xarray = "*"
 xmipy = "*"
+xugrid = "*"
 
 [feature.rtd.dependencies]
 numpy = "*"
@@ -117,6 +118,7 @@ prepare-pull-request = {depends-on = ["fix-style", "fix-python-style", "build-ma
 benchmark = { cmd = "python benchmark.py", cwd = "distribution" }
 build-docs = { cmd = "python build_docs.py", cwd = "distribution" }
 build-dist = { cmd = "python build_dist.py", cwd = "distribution" }
+check-dist = { cmd = "pytest -v -s check_dist.py", cwd = "distribution" }
 test-dist-scripts = { cmd = "pytest -v --durations 0", cwd = "distribution" }
 update-version = { cmd = "python update_version.py", cwd = "distribution" }
 collect-deprecations = { cmd = "python deprecations.py", cwd = "doc/mf6io/mf6ivar" }

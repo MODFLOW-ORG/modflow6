@@ -82,8 +82,9 @@ module InputLoadTypeModule
     character(len=LINELENGTH) :: component_input_name !< component input name, e.g. model name file
     character(len=LINELENGTH) :: input_name !< input name, e.g. package *.chd file
     character(len=LINELENGTH), dimension(:), allocatable :: param_names !< dynamic param tagnames
-    logical(LGP) :: readasarrays
-    logical(LGP) :: readarraygrid
+    logical(LGP) :: readasarrays !< readasarrays style input package
+    logical(LGP) :: readarraygrid !< readarraygrid style input package
+    logical(LGP) :: has_setting !< period block contains setting keystring param
     integer(I4B) :: iperblock !< index of period block on block definition list
     integer(I4B) :: iout !< inunit number for logging
     integer(I4B) :: nparam !< number of in scope params
@@ -342,6 +343,7 @@ contains
                           input_name, iperblock, iout)
     use SimVariablesModule, only: errmsg
     use InputDefinitionModule, only: InputParamDefinitionType
+    use DefinitionSelectModule, only: idt_datatype
     class(DynamicPkgLoadType), intent(inout) :: this
     type(ModflowInputType), intent(in) :: mf6_input
     character(len=*), intent(in) :: component_name
@@ -350,7 +352,7 @@ contains
     integer(I4B), intent(in) :: iperblock
     integer(I4B), intent(in) :: iout
     type(InputParamDefinitionType), pointer :: idt
-    integer(I4B) :: iparam
+    integer(I4B) :: iparam, ilen
 
     this%mf6_input = mf6_input
     this%component_name = component_name
@@ -358,6 +360,7 @@ contains
     this%input_name = input_name
     this%readasarrays = .false.
     this%readarraygrid = .false.
+    this%has_setting = .false.
     this%iperblock = iperblock
     this%nparam = 0
     this%iout = iout
@@ -375,7 +378,7 @@ contains
 
     ! set readasarrays and readarraygrid
     if (mf6_input%block_dfns(iperblock)%aggregate) then
-      ! no-op, list based input
+      ! no-op
     else
       do iparam = 1, size(mf6_input%param_dfns)
         idt => mf6_input%param_dfns(iparam)
@@ -391,6 +394,19 @@ contains
         end if
       end do
     end if
+
+    ! determine if has setting type
+    do iparam = 1, size(mf6_input%param_dfns)
+      idt => mf6_input%param_dfns(iparam)
+      if (idt%blockname == 'PERIOD') then
+        if (idt_datatype(idt) == 'KEYSTRING') then
+          ilen = len_trim(idt%tagname)
+          if (idt%tagname(ilen - 6:ilen) == 'SETTING') then
+            this%has_setting = .true.
+          end if
+        end if
+      end if
+    end do
   end subroutine dynamic_init
 
   !> @brief dynamic package loader define

@@ -16,11 +16,18 @@ module InterpolationSchemeInterfaceModule
   type, abstract :: InterpolationSchemeInterface
   contains
     procedure(compute_if), deferred :: compute
+    procedure(set_field_if), deferred :: set_field
   end type InterpolationSchemeInterface
 
   abstract interface
 
-    function compute_if(this, n, m, iposnm, phi) result(phi_face)
+    !> @brief Compute interpolation coefficients for a face value
+    !!
+    !! This method computes the coefficients needed to interpolate a scalar field
+    !! value at the face between two connected cells. The method returns coefficients
+    !! that define how the face value depends on the cell-centered values.
+    !<
+    function compute_if(this, n, m, iposnm) result(phi_face)
       ! -- import
       import DP, I4B
       import InterpolationSchemeInterface
@@ -32,8 +39,22 @@ module InterpolationSchemeInterfaceModule
       integer(I4B), intent(in) :: n
       integer(I4B), intent(in) :: m
       integer(I4B), intent(in) :: iposnm
-      real(DP), intent(in), dimension(:) :: phi
     end function
+
+    !> @brief Set the scalar field for which interpolation will be computed
+    !!
+    !! This method establishes a pointer to the scalar field data that will be
+    !! used for subsequent interpolation computations. Implementations may also
+    !! update any dependent cached data to ensure consistent results.
+    !<
+    subroutine set_field_if(this, phi)
+      ! -- import
+      import DP
+      import InterpolationSchemeInterface
+      ! -- dummy
+      class(InterpolationSchemeInterface), target :: this
+      real(DP), intent(in), dimension(:), pointer :: phi
+    end subroutine
 
   end interface
 

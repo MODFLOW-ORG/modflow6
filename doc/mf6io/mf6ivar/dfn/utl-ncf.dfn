@@ -18,7 +18,7 @@ type integer
 reader urword
 optional true
 longname variable compression deflate level
-description is the variable deflate level (0=min, 9=max) in the netcdf file. Defining this parameter activates per-variable compression at the level specified.
+description is the variable deflate level (0=min, 9=max) in the NetCDF file. Defining this parameter activates per-variable compression at the level specified.
 
 block options
 name shuffle
@@ -26,7 +26,7 @@ type keyword
 reader urword
 optional true
 longname
-description is the keyword used to turn on the netcdf variable shuffle filter when the deflate option is also set. The shuffle filter has the effect of storing the first byte of all of a variable's values in a chunk contiguously, followed by all the second bytes, etc. This can be an optimization for compression with certain types of data.
+description is the keyword used to turn on the NetCDF variable shuffle filter when the deflate option is also set. The shuffle filter has the effect of storing the first byte of all of a variable's values in a chunk contiguously, followed by all the second bytes, etc. This can be an optimization for compression with certain types of data.
 
 block options
 name chunk_time
@@ -74,7 +74,7 @@ type keyword
 reader urword
 optional true
 longname
-description is the keyword used to turn off internal input tagging in the model netcdf file. Tagging adds internal modflow 6 attribute(s) to variables which facilitate identification. Currently this applies to gridded arrays.
+description is the keyword used to turn off internal input tagging in the model NetCDF file. Tagging adds internal modflow 6 attribute(s) to variables which facilitate identification. Currently this applies to gridded arrays.
 mf6internal attr_off
 
 # --------------------- utl ncf dimensions ---------------------

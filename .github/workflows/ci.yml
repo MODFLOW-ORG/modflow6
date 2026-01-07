@@ -46,10 +46,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout MF6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
           pixi-version: v0.41.4
 
@@ -76,7 +76,7 @@ jobs:
       FC_V: 13
     steps:
       - name: Checkout MF6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup ${{ env.FC }} ${{ env.FC_V }}
         uses: fortran-lang/setup-fortran@v1
@@ -85,7 +85,7 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
           pixi-version: v0.41.4
 
@@ -108,6 +108,87 @@ jobs:
       - name: Unit test MF6
         run: pixi run test builddir
 
+  build-static:
+    name: Static gcc build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+          - os: windows-2022
+    defaults:
+      run:
+        shell: bash
+    env:
+      FC: gfortran
+      FC_V: 13
+    steps:
+      - name: Checkout MF6
+        uses: actions/checkout@v6
+
+      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: ${{ env.FC_V }}
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.9.3
+        with:
+          pixi-version: v0.41.4
+
+      - name: Setup static MF6
+        run: pixi run setup -Dwerror=true -Ddefault_library=static builddir
+
+      - name: Build MF6
+        run: pixi run build builddir
+
+      - name: Show build log
+        if: failure()
+        run: cat builddir/meson-logs/meson-log.txt
+
+      - name: Unit test MF6
+        run: pixi run test builddir
+
+      - name: Confirm modflow6 has no dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          echo "Checking dependencies with ldd..."
+          if ldd bin/mf6; then
+              echo mf6 is dynamically linked
+              exit 1
+          else
+              echo mf6 is statically linked
+          fi
+
+      - name: Clone ntldd repository and build
+        if: runner.os == 'Windows'
+        run: |
+          git clone https://github.com/LRN/ntldd.git
+          cd ntldd
+          ./makeldd.sh
+          ls -lha
+
+      - name: Confirm modflow6 has no dependencies (Windows)
+        if: runner.os == 'Windows'
+        working-directory: ntldd
+        run: |
+          echo "Checking dependencies with ntldd..."
+          set +e
+          ./ntldd.exe ../bin/mf6.exe > mf6.dependencies.txt
+
+          dep_count=$(grep -vc "KERNEL32.dll" mf6.dependencies.txt)
+          echo "Number of dependencies: $dep_count"
+
+          set -e
+          if [ "$dep_count" -eq 0 ]; then
+            echo mf6.exe is statically linked
+          else
+            echo mf6.exe is dynamically linked
+            echo exit 1
+          fi
+
   smoke_test:
     name: Smoke test
     runs-on: ubuntu-22.04
@@ -119,7 +200,7 @@ jobs:
       FC_V: 13
     steps:
       - name: Checkout MF6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: modflow6
 
@@ -130,7 +211,7 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
@@ -177,7 +258,7 @@ jobs:
 
       - name: Upload failed test output
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: failed-smoke-${{ runner.os }}-${{ env.FC }}-${{ env.FC_V }}
           path: modflow6/autotest/.failed
@@ -194,7 +275,7 @@ jobs:
       matrix:
         include:
           # intel mac, release mode
-          - os: macos-13
+          - os: macos-15-intel
             debug: false
           # arm mac, release mode
           - os: macos-14
@@ -218,19 +299,31 @@ jobs:
       FC: gfortran
       FC_V: 13
     steps:
+      - name: Free disk space (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - name: Checkout MF6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: modflow6
 
       - name: Checkout test models
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/modflow6-testmodels
           path: modflow6-testmodels
 
       - name: Checkout examples
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
@@ -242,7 +335,7 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
@@ -256,6 +349,10 @@ jobs:
         run: |
           ldflags="$LDFLAGS -Wl,-ld_classic"
           echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
+
+      - name: Update version files
+        working-directory: modflow6
+        run: pixi run update-version
 
       - name: Build MF6
         working-directory: modflow6
@@ -351,14 +448,14 @@ jobs:
 
       - name: Upload failed test output
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: failed-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}
           path: modflow6/autotest/.failed
 
       - name: Checkout usgslatex
         if: runner.os == 'Linux'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/usgslatex
           path: usgslatex
@@ -393,11 +490,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       FC: intel-classic
-      FC_V: "2021.7"
+      FC_V: "2021.6"
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-13, windows-2022]
+        os: [ubuntu-22.04, macos-15-intel, windows-2022]
     defaults:
       run:
         shell: bash
@@ -415,24 +512,24 @@ jobs:
           swap-storage: true
 
       - name: Checkout MF6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: modflow6
 
       - name: Checkout test models
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/modflow6-testmodels
           path: modflow6-testmodels
 
       - name: Checkout examples
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
@@ -523,7 +620,7 @@ jobs:
 
       - name: Upload failed test output
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: failed-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}
           path: modflow6/autotest/.failed
@@ -544,19 +641,38 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-13, windows-2022]
+        os: [ubuntu-22.04, macos-15-intel, windows-2022]
     defaults:
       run:
         shell: bash
 
     steps:
+      - name: Free disk space (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - name: Checkout MF6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: modflow6
 
+      - name: Setup gfortran
+        if: runner.os != 'Windows'
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: 13
+
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
@@ -567,10 +683,10 @@ jobs:
 
       - name: Install additional netcdf testing packages
         working-directory: modflow6
-        run: pixi run pip install xugrid xarray netcdf4
+        run: pixi run pip install xarray netcdf4
 
       - name: Set LDFLAGS (macOS)
-        if: matrix.os == 'macos-13'
+        if: runner.os == 'macOS'
         run: |
           os_ver=$(sw_vers -productVersion | cut -d'.' -f1)
           if (( "$os_ver" > 12 )); then
@@ -578,17 +694,31 @@ jobs:
             echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
           fi
 
+      - name: Set markers
+        id: set_markers
+        run: echo "markers=not large" >> $GITHUB_OUTPUT
+
+      - name: Set filters
+        id: set_filters
+        run: echo "filters=test_par or test_netcdf" >> $GITHUB_OUTPUT
+
       - name: Test extended MF6
         if: runner.os != 'Windows'
         uses: ./modflow6/.github/actions/test-extended
+        env:
+          MARKERS: ${{ steps.set_markers.outputs.markers }}
+          FILTERS: ${{ steps.set_filters.outputs.filters }}
 
       - name: Test extended MF6
         if: runner.os == 'Windows'
         uses: ./modflow6/.github/actions/test-extended-win
+        env:
+          MARKERS: ${{ steps.set_markers.outputs.markers }}
+          FILTERS: ${{ steps.set_filters.outputs.filters }}
 
       - name: Upload failed test output
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: failed-${{ matrix.os }}-ext
           path: modflow6/autotest/.failed

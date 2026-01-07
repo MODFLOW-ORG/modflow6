@@ -17,9 +17,13 @@ SCR_EXT = ".bat" if SYSTEM == "Windows" else ".sh"
 # fortran compiler
 FC = environ.get("FC", None)
 
-# top-leveldirectories included in distributions
+# expected dirs
 DIST_DIRS = {
-    "full": [
+    "develop": [
+        "bin",
+        "doc",
+    ],
+    "release": [
         "bin",
         "doc",
         "examples",
@@ -29,26 +33,12 @@ DIST_DIRS = {
         "make",
         "utils",
     ],
-    "minimal": [
-        "bin",
-        "doc",
-    ],
 }
-
-
-@pytest.fixture
-def approved(request):
-    return request.config.getoption("--approved")
 
 
 @pytest.fixture
 def releasemode(request):
     return request.config.getoption("--releasemode")
-
-
-@pytest.fixture
-def full(request):
-    return request.config.getoption("--full")
 
 
 @pytest.fixture
@@ -68,15 +58,15 @@ def dist_dir_path(request):
 
 
 @no_parallel
-def test_directories(dist_dir_path, full):
-    for dir_path in DIST_DIRS["full" if full else "minimal"]:
+def test_directories(dist_dir_path, releasemode):
+    for dir_path in DIST_DIRS["release" if releasemode else "develop"]:
         assert (dist_dir_path / dir_path).is_dir()
 
 
 @no_parallel
-def test_sources(dist_dir_path, releasemode, full):
-    if not full:
-        pytest.skip(reason="sources not included in minimal distribution")
+def test_sources(dist_dir_path, releasemode):
+    if not releasemode:
+        pytest.skip(reason="sources not included in provisional distribution")
 
     # check top-level meson files
     assert (dist_dir_path / "meson.build").is_file()
@@ -107,9 +97,9 @@ def test_sources(dist_dir_path, releasemode, full):
 
 @no_parallel
 @pytest.mark.skipif(not FC, reason="needs Fortran compiler")
-def test_makefiles(dist_dir_path, full):
-    if not full:
-        pytest.skip(reason="makefiles not included in minimal distribution")
+def test_makefiles(dist_dir_path, releasemode):
+    if not releasemode:
+        pytest.skip(reason="makefiles not included in provisional distribution")
 
     assert (dist_dir_path / "make" / "makefile").is_file()
     assert (dist_dir_path / "make" / "makedefaults").is_file()
@@ -138,9 +128,9 @@ def test_makefiles(dist_dir_path, full):
 
 
 @no_parallel
-def test_msvs(dist_dir_path, full):
-    if not full:
-        pytest.skip(reason="MSVS files not included in minimal distribution")
+def test_msvs(dist_dir_path, releasemode):
+    if not releasemode:
+        pytest.skip(reason="MSVS files not included in provisional distribution")
 
     assert (dist_dir_path / "msvs" / "mf6.sln").is_file()
     assert (dist_dir_path / "msvs" / "mf6.vfproj").is_file()
@@ -150,11 +140,11 @@ def test_msvs(dist_dir_path, full):
 
 
 @no_parallel
-def test_docs(dist_dir_path, full):
+def test_docs(dist_dir_path, releasemode):
     # mf6io should always be included
     assert (dist_dir_path / "doc" / "mf6io.pdf").is_file()
 
-    if full:
+    if releasemode:
         # check other custom-built documentation
         assert (dist_dir_path / "doc" / "release.pdf").is_file()
         assert (dist_dir_path / "doc" / "mf5to6.pdf").is_file()
@@ -174,9 +164,9 @@ def test_docs(dist_dir_path, full):
 
 
 @no_parallel
-def test_examples(dist_dir_path, full):
-    if not full:
-        pytest.skip(reason="examples not included in minimal distribution")
+def test_examples(dist_dir_path, releasemode):
+    if not releasemode:
+        pytest.skip(reason="examples not included in provisional distribution")
 
     # check examples directory
     examples_path = dist_dir_path / "examples"
@@ -208,7 +198,7 @@ def test_examples(dist_dir_path, full):
 
 
 @no_parallel
-def test_binaries(dist_dir_path, approved):
+def test_binaries(dist_dir_path, releasemode):
     bin_path = dist_dir_path / "bin"
     assert (bin_path / f"mf6{EXE_EXT}").is_file()
     assert (bin_path / f"zbud6{EXE_EXT}").is_file()
@@ -224,7 +214,7 @@ def test_binaries(dist_dir_path, approved):
     assert output.startswith("mf6")
 
     # make sure version string reflects approval
-    assert ("preliminary" in output) != approved
+    assert ("preliminary" in output) != releasemode
 
     # check version numbers
     version = output.lower().split(" ")[1]
@@ -234,6 +224,6 @@ def test_binaries(dist_dir_path, approved):
 
     # approved release should use semantic version number with
     # exactly 3 components and no alphabetic characters in it
-    if approved:
+    if releasemode:
         assert len(v_split) == 3
         assert all(s.isdigit() for s in v_split[:3])

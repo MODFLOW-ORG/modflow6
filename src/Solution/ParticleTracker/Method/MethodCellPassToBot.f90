@@ -1,6 +1,7 @@
 module MethodCellPassToBotModule
 
   use KindModule, only: DP, I4B
+  use MethodModule, only: LEVEL_FEATURE
   use MethodCellModule, only: MethodCellType
   use CellDefnModule, only: CellDefnType, create_defn
   use PrtFmiModule, only: PrtFmiType
@@ -55,7 +56,7 @@ contains
 
     ! Pass to bottom face
     particle%z = this%cell%defn%bot
-    particle%iboundary(2) = this%cell%defn%npolyverts + 2
+    particle%iboundary(LEVEL_FEATURE) = this%cell%defn%npolyverts + 2
 
     ! Terminate if in bottom layer
     select type (dis => this%fmi%dis)
@@ -64,10 +65,11 @@ contains
     type is (DisvType)
       nlay = dis%nlay
     end select
-    if (particle%ilay == nlay) &
+    if (particle%ilay == nlay) then
       call this%terminate(particle, status=TERM_NO_EXITS)
-
-    call this%cellexit(particle)
+    else
+      call this%cellexit(particle)
+    end if
   end subroutine apply_ptb
 
 end module MethodCellPassToBotModule

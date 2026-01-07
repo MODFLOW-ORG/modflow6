@@ -11,11 +11,17 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["adv04a", "adv04b", "adv04c", "adv04d"]
+cases = [
+    pytest.param(0, "adv04a"),
+    pytest.param(1, "adv04b"),
+    pytest.param(2, "adv04c"),
+    pytest.param(3, "adv04d", marks=pytest.mark.developmode),
+]
+
 scheme = ["upstream", "central", "tvd", "utvd"]
 
 
-def build_models(idx, test):
+def build_models(idx, name, test):
     nlay, nrow, ncol = 1, 21, 21
     nper = 1
     perlen = [5.0]
@@ -51,8 +57,6 @@ def build_models(idx, test):
     tdis_rc = []
     for i in range(nper):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
-
-    name = cases[idx]
 
     # build MODFLOW 6 files
     ws = test.workspace
@@ -217,8 +221,7 @@ def build_models(idx, test):
     return sim, None
 
 
-def check_output(idx, test):
-    name = cases[idx]
+def check_output(idx, name, test):
     gwtname = "gwt_" + name
 
     fpth = os.path.join(test.workspace, f"{gwtname}.ucn")
@@ -241,13 +244,13 @@ def check_output(idx, test):
     )
 
 
-@pytest.mark.parametrize("idx, name", enumerate(cases))
+@pytest.mark.parametrize("idx, name", cases)
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
-        build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        build=lambda t: build_models(idx, name, t),
+        check=lambda t: check_output(idx, name, t),
     )
     test.run()

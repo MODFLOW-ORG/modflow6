@@ -180,13 +180,13 @@ contains
 
     ! set defaults
     do i = 1, size(this%gwfInterfaceModel%npf%angle1)
-      this%gwfInterfaceModel%npf%angle1 = 0.0_DP
+      this%gwfInterfaceModel%npf%angle1(i) = 0.0_DP
     end do
     do i = 1, size(this%gwfInterfaceModel%npf%angle2)
-      this%gwfInterfaceModel%npf%angle2 = 0.0_DP
+      this%gwfInterfaceModel%npf%angle2(i) = 0.0_DP
     end do
     do i = 1, size(this%gwfInterfaceModel%npf%angle3)
-      this%gwfInterfaceModel%npf%angle3 = 0.0_DP
+      this%gwfInterfaceModel%npf%angle3(i) = 0.0_DP
     end do
 
     ! point X, RHS, IBOUND to connection

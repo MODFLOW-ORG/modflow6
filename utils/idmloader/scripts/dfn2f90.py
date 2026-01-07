@@ -274,6 +274,7 @@ class Dfn2F90:
             self._param_str += "    '', & ! shape\n"
             self._param_str += "    '', & ! longname\n"
             self._param_str += "    .false., & ! required\n"
+            self._param_str += "    .false., & ! developmode\n"
             self._param_str += "    .false., & ! multi-record\n"
             self._param_str += "    .false., & ! preserve case\n"
             self._param_str += "    .false., & ! layered\n"
@@ -292,6 +293,7 @@ class Dfn2F90:
             self._aggregate_str += "    '', & ! shape\n"
             self._aggregate_str += "    '', & ! longname\n"
             self._aggregate_str += "    .false., & ! required\n"
+            self._aggregate_str += "    .false., & ! developmode\n"
             self._aggregate_str += "    .false., & ! multi-record\n"
             self._aggregate_str += "    .false., & ! preserve case\n"
             self._aggregate_str += "    .false., & ! layered\n"
@@ -406,6 +408,11 @@ class Dfn2F90:
                 else:
                     r = ".true."
 
+            developmode = ".false."
+            if "developmode" in v:
+                if v["developmode"] == "true":
+                    developmode = ".true."
+
             preserve_case = ".false."
             if "preserve_case" in v:
                 if v["preserve_case"] == "true":
@@ -439,6 +446,7 @@ class Dfn2F90:
                 (shape, "shape"),
                 (longname, "longname"),
                 (r, "required"),
+                (developmode, "developmode"),
                 (inrec, "multi-record"),
                 (preserve_case, "preserve case"),
                 (layered, "layered"),
@@ -1001,7 +1009,7 @@ if __name__ == "__main__":
     verbose = args.verbose
 
     if isinstance(dfn, list):
-        dfn = [Path(p) for p in dfn]
+        dfn = [Path(str(p).strip()) for p in dfn]
     elif isinstance(dfn, (str, Path)):
         dfn = [Path(dfn)]
     else:

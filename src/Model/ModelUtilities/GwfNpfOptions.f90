@@ -11,6 +11,7 @@ module GwfNpfOptionsModule
   type, public :: GwfNpfOptionsType
     integer(I4B) :: icellavg !< same as npf variable
     integer(I4B) :: ithickstrt !< same as npf variable
+    integer(I4B) :: ihighcellsat !< same as npf variable
     integer(I4B) :: iperched !< same as npf variable
     integer(I4B) :: ivarcv !< same as npf variable
     integer(I4B) :: idewatcv !< same as npf variable
@@ -32,6 +33,7 @@ contains
 
     this%icellavg = 0
     this%ithickstrt = 0
+    this%ihighcellsat = 0
     this%iperched = 0
     this%ivarcv = 0
     this%idewatcv = 0

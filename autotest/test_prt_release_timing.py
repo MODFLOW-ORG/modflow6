@@ -478,6 +478,7 @@ def plot_output(test):
 
 
 @requires_pkg("syrupy")
+@pytest.mark.snapshot
 @pytest.mark.parametrize("name", cases)
 def test_mf6model(name, function_tmpdir, targets, array_snapshot, plot):
     test = TestFramework(

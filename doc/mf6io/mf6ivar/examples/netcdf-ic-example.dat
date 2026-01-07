@@ -1,7 +1,0 @@
-# GWF Model IC Input
-BEGIN options
-END options
-
-BEGIN griddata
-  strt NETCDF # read STRT from the model NetCDF input
-END griddata

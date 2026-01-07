@@ -15,9 +15,11 @@ module TVDSchemeModule
     private
     class(DisBaseType), pointer :: dis
     type(TspFmiType), pointer :: fmi
+    real(DP), dimension(:), pointer :: phi
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
   contains
     procedure :: compute
+    procedure :: set_field
   end type TVDSchemeType
 
   interface TVDSchemeType
@@ -39,7 +41,20 @@ contains
 
   end function constructor
 
-  function compute(this, n, m, iposnm, phi) result(phi_face)
+  !> @brief Set the scalar field for which interpolation will be computed
+  !!
+  !! This method establishes a pointer to the scalar field data for
+  !! subsequent TVD interpolation computations.
+  !<
+  subroutine set_field(this, phi)
+    ! -- dummy
+    class(TVDSchemeType), target :: this
+    real(DP), intent(in), dimension(:), pointer :: phi
+
+    this%phi => phi
+  end subroutine set_field
+
+  function compute(this, n, m, iposnm) result(phi_face)
     !-- return
     type(CoefficientsType), target :: phi_face
     ! -- dummy
@@ -47,7 +62,6 @@ contains
     integer(I4B), intent(in) :: n
     integer(I4B), intent(in) :: m
     integer(I4B), intent(in) :: iposnm
-    real(DP), intent(in), dimension(:) :: phi
     ! -- local
     integer(I4B) :: ipos, isympos, iup, idn, i2up, j
     real(DP) :: qnm, qmax, qupj, elupdn, elup2up
@@ -96,14 +110,14 @@ contains
     ! -- Calculate flux limiting term
     if (i2up > 0) then
       smooth = DZERO
-      cdiff = ABS(phi(idn) - phi(iup))
+      cdiff = ABS(this%phi(idn) - this%phi(iup))
       if (cdiff > DPREC) then
-        smooth = (phi(iup) - phi(i2up)) / elup2up * &
-                 elupdn / (phi(idn) - phi(iup))
+        smooth = (this%phi(iup) - this%phi(i2up)) / elup2up * &
+                 elupdn / (this%phi(idn) - this%phi(iup))
       end if
       if (smooth > DZERO) then
         alimiter = DTWO * smooth / (DONE + smooth)
-        phi_face%rhs = -DHALF * alimiter * (phi(idn) - phi(iup))
+        phi_face%rhs = -DHALF * alimiter * (this%phi(idn) - this%phi(iup))
       end if
     end if
 

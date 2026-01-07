@@ -246,6 +246,7 @@ def check_output(idx, test):
     assert np.array_equal(nodes, nodes_ans), "src nodes not based on saturation"
 
 
+@pytest.mark.developmode  # TODO remove for 6.7.0
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(

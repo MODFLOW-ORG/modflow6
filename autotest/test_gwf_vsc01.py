@@ -163,13 +163,28 @@ def get_model(idx, ws, array_input=False):
         )
 
     # Instantiating CHD
-    chdspd = [[(0, i, 0), 2.0, initial_temperature] for i in range(nrow)]
-    flopy.mf6.ModflowGwfchd(
-        gwf,
-        stress_period_data=chdspd,
-        pname="CHD-1",
-        auxiliary="temperature",
-    )
+    if array_input:
+        chead = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+        temp = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+        for i in range(nrow):
+            chead[0, i, 0] = 2.0
+            temp[0, i, 0] = initial_temperature
+        flopy.mf6.ModflowGwfchdg(
+            gwf,
+            pname="CHD-1",
+            auxiliary="temperature",
+            head=chead,
+            aux=temp,
+        )
+
+    else:
+        chdspd = [[(0, i, 0), 2.0, initial_temperature] for i in range(nrow)]
+        flopy.mf6.ModflowGwfchd(
+            gwf,
+            stress_period_data=chdspd,
+            pname="CHD-1",
+            auxiliary="temperature",
+        )
 
     # Instantiating OC
     head_filerecord = f"{gwfname}.hds"

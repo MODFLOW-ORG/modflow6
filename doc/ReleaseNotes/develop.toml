@@ -14,44 +14,9 @@ exchanges = "EXCHANGES"
 parallel = "PARALLEL"
 
 [[items]]
-section = "fixes"
-subsection = "internal"
-description = "Fixed first-order decay in GWT so that production/decay does not occur when aqueous or sorbed concentration are negative."
-
-[[items]]
 section = "features"
-subsection = "basic"
-description = "Add a discretization text input option CRS for a real-world model coordinate reference system, for example, an EPSG integer code, authority string, or Open Geospatial Consortium Well-Known Text (WKT) specification. The entry for CRS does not affect the model simulation, but it is written to a version 2 binary grid file so that postprocessors can locate the grid in space."
-
-[[items]]
-section = "features"
-subsection = "stress"
-description = "Add HIGHEST\\_SATURATED option to the GWT SRC package. When activated, the HIGHEST\\_SATURATED option will apply a mass source loading rate to the specified CELLID or the highest underlying cell with a non-zero cell saturation. The HIGHEST\\_SATURATED option has an additional complication for certain types of grids specified using the DISU Package. When the DISU Package is used, a cell may have more than one cell underlying it. If the overlying cell were to become inactive, there is no straightforward method for determining how to apportion the mass source loading rate to the underlying cells. In this case, the approach described by \\cite{modflowusg} is used. The mass source loading rate is assigned to the first active cell encountered (determined by searching through the underlying cell numbers from the lowest number to the highest number). In this manner, the total mass source loading rate is conserved; however, the spatial distribution of the applied mass source loading rate may not be maintained as layers become dry or wet during a simulation."
-
-[[items]]
-section = "fixes"
-subsection = "stress"
-description = "Fixed viscosity ratio assignment in the GWT MAW package when the GWF VSC package is active."
-
-[[items]]
-section = "fixes"
-subsection = "internal"
-description = "Fixed bugs in the GWF VSC and BUY packages, affecting GWT simulations with multiple species that have different inactive regions.  In this uncommon situation, the concentrations used to calculate fluid density could erroneously be set to zero in areas with different inactive regions."
-
-[[items]]
-section = "fixes"
-subsection = "solution"
-description = "With the PRT model's Particle Release Package's EXTEND\\_TRACKING option enabled, particles beginning the simulation's final timestep in a stationary cell (an active cell with no flow across any boundary) were not terminated gracefully. Particles in these conditions will now terminate properly with status code 10 (timeout)."
-
-[[items]]
-section = "fixes"
-subsection = "parallel"
-description = "Fixed a memory access exception that can occur when writing convergence information to a CSV file (through the CSV\\_OUTER\\_OUTPUT option in IMS) for a parallel solution."
-
-[[items]]
-section = "features"
-subsection = "solution"
-description = "Added an optional new COORDINATE\\_CHECK\\_METHOD option to the PRT model's Particle Release Package, accepting values 'EAGER' (default) or 'NONE'. 'NONE' disables release-time verification that release point coordinates and release point cell IDs match, which can significantly reduce runtime when releasing many particles."
+subsection = "model"
+description = "Added an optional new COORDINATE\\_CHECK\\_METHOD option to the PRT model's Particle Release Package, accepting values EAGER (default) or NONE. NONE disables release-time verification that release point coordinates and release point cell IDs match, which can significantly reduce runtime when releasing many particles."
 
 [[items]]
 section = "features"
@@ -59,6 +24,81 @@ subsection = "model"
 description = "Add DEPENDENT\\_VARIABLE\\_SCALING option to scale the dependent variable and the right-hand side to avoid very large positive or negative values in the GWT and GWE models. Specified outer and inner DVCLOSE values in the model IMS package will be relative closure criteria. This option applies the same scaling approach used in the MT3DMS GCG package."
 
 [[items]]
+section = "features"
+subsection = "model"
+description = "Added a developer option DEV\\_CYCLE\\_DETECTION\\_WINDOW to the PRT Model's Particle Release (PRP) Package. When enabled, this feature maintains a history of recent cell transitions, the size of which is configurable. If a cycle is detected, the program will terminate with an error. A cycle is identified as a duplicate particle event within a single application of the tracking loop, respective to certain particle and cell properties, e.g., exiting through the same cell face twice. This option defaults to 0, disabling cycle detection by default."
+
+[[items]]
+section = "features"
+subsection = "stress"
+description = "Added HIGHEST\\_SATURATED option to the GWT SRC package. When activated, the HIGHEST\\_SATURATED option will apply a mass source loading rate to the specified CELLID or the highest underlying cell with a non-zero cell saturation. The HIGHEST\\_SATURATED option has an additional complication for certain types of grids specified using the DISU Package. When the DISU Package is used, a cell may have more than one cell underlying it. If the overlying cell were to become inactive, there is no straightforward method for determining how to apportion the mass source loading rate to the underlying cells. In this case, the approach described by \\cite{modflowusg} is used. The mass source loading rate is assigned to the first active cell encountered (determined by searching through the underlying cell numbers from the lowest number to the highest number). In this manner, the total mass source loading rate is conserved; however, the spatial distribution of the applied mass source loading rate may not be maintained as layers become dry or wet during a simulation."
+
+[[items]]
+section = "features"
+subsection = "basic"
+description = "Added a coordinate reference system option CRS to discretization packages. For example, an EPSG integer code, authority string, or Open Geospatial Consortium Well-Known Text (WKT) specification. This option does not affect simulation results, but is written to the binary grid file so that postprocessors can locate the grid in space. A new binary grid file version number (2) is introduced to indicate that CRS information may be present."
+
+[[items]]
+section = "fixes"
+subsection = "internal"
+description = "Fixed the DEWATERED VARIABLECV option. Previously, the saturation and vertical hydraulic conductivity of the underlying cell were included in the vertical conductance calculation when the water level in the underlying cell was below the top of the cell. This is not what is described in \\citet[][equation 4-44]{modflow6gwf}. The code has been modified to only include the saturation and vertical hydraulic conductivity of the overlying cell when calculating the vertical conductance when the water-level in the underlying cell is below the top of the cell."
+
+[[items]]
+section = "features"
+subsection = "internal"
+description = "Add HIGHEST\\_CELL\\_SATURATION option that changes how the saturation used to calculate the flow between two horizontally connected cell. The HIGHEST\\_CELL\\_SATURATION option uses the maximum cell bottom to calculate the saturation used to calculate the horizontal conductance between cells. This option is intended to prevent flow from leaving a dry cell. This option is only applied when the Newton-Raphson formulation is used, A warning will be issued if this option is specified and the Newton-Raphson formulation is not specified in the GWF name file. This option, in combination with the AMT-HMK ALTERNATIVE\\_CELL\\_AVERAGING option, can be used to calculate the same horizontal conductance as MODFLOW-USG when upstream weighting is used (LAYCON=4)."
+
+[[items]]
+section = "fixes"
+subsection = "internal"
+description = "Fixed HFB behavior when a horizontal flow barrier is configured for a cell pair that includes an inactive cell. Previously the connection was excluded but not adjusted for in the defined number of horizontal flow barriers, which can lead to a segmentation fault. A workaround is to only define horizontal flow barriers for active cells. New behavior excludes the connection and adds a warning when an exclusion applies, and also adjusts the number of horizontal flow barriers accordingly."
+
+[[items]]
 section = "fixes"
 subsection = "solution"
-description = "The Particle Tracking (PRT) Model previously reported cell exit events when a dry particle stranded in a partially saturated cell was dropped to the water table, as occurs with DRY\\_TRACKING\\_METHOD DROP (the default). An event is no longer reported at this time."
+description = "Setting PRECONDITIONER\\_DROP\\_TOLERANCE in the IMS Linear block to a positive value in cases where the level of fill (PRECONDITIONER\\_LEVELS) equals 0, erroneously activated the (M)ILUT preconditioner. Now, in such cases a warning is written, the (M)ILU preconditioner is selected, and the configured drop tolerance will be ignored."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "Balanced the PRT model mass budget with a new term to accumulate mass of terminated particles. Previously particle mass remained in storage regardless of particle status, leaving the particle mass budget unbalanced at the end of the simulation. Also, report cell-by-cell mass storage in the binary budget file; only cumulative mass storage was reported in the list file previously."
+
+[[items]]
+section = "fixes"
+subsection = "stress packages"
+description = "The OPTIONS block in the Energy Source Loading (ESL) Package accepted the AUXILIARY and AUXMULTNAME keywords; however, they had no effect on the GWE solution.  The ESL code was fixed such that when the AUXMULTCOL keyword is invoked, the user-specified amount of energy added or removed from cells will be multiplied by whatever value the user supplies in the corresponding AUXILIARY column." 
+
+[[items]]
+section = "fixes"
+subsection = "stress packages"
+description = "The OPTIONS block in the Mass Source Loading (SRC) Package accepted the AUXILIARY and AUXMULTNAME keywords; however, they had no effect on the GWT solution.  The SRC package was fixed such that when the AUXMULTCOL keyword is invoked, the user-specified amount of energy added or removed from cells will be multiplied by the value supplied by the user in the corresponding AUXILIARY column." 
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "Setting the PRT model's Particle Release Point (PRP) package option EXIT\\_SOLVE\\_TOLERANCE too high can cause the generalized (DISV) tracking method to produce invalid/meaningless results, as the algorithm considers every lateral subcell exit solution equally valid. Add a warning for tolerances above 0.01. The variable being solved varies from 0 to 1, so in most cases the tolerance should be much less than 1, but appropriate values will vary by model and desired performance (models run faster with higher tolerance)."
+
+[[items]]
+section = "fixes"
+subsection = "parallel"
+description = "Fixed the case where a simulation with GWF-GWF Exchanges containing water movers is run in parallel such that some Exchange Movers operate between different processes while others operate within the same process. In such cases a MPI communication error could occur (Internal error: Unknown error class) leading to a premature termination of the simulation run."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "In Newton models with local z release coordinates configured via LOCAL\\_Z, invalid negative particle tracking times could be produced. This was caused by an incorrect conversion of local release point vertical coordinates to model coordinates, erroneously placing particles below the bottom of the release cell. To correct this, take into account whether the cell is convertible or confined. If convertible, define the cell's vertical extent from the bottom to the saturated top, clamping saturated top to the cell bottom if head is below the cell bottom; if confined, use the cell's full vertical extent from the bottom to the geometric top. The user must now specify a binary grid file entry (GWFGRID) to the PRT FMI package if release coordinates are configured with LOCAL\\_Z, so that convertible and confined cells can be distinguished at particle release time."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "PRT docs and error messages previously failed to distinguish between cells excluded from the model grid with IDOMAIN and cells merely inactive due e.g. to drying. These two concepts are distinct and should not be confused: PRT will not permit a particle to be released into a cell with IDOMAIN = 0 (excluded from the simulation) or -1 (vertical pass through), but it will permit release into an inactive cell. Behavior in this case is determined by factors such as whether the DRAPE option is activated, whether the flow model uses the Newton formulation, and (if so) which DRY\\_TRACKING\\_METHOD is configured."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "The storage term for SFT was not consistent with the standard SFR flow approach (steady-state). Prior to this change, the reach volume for the previous timestep was calculated using the current storage flow rate, which is zero for SFR even though there can be a calculated change in stage. The SFT storage term is now calculated using the current and previous reach water volumes. This change may affect SFT results for existing models."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "The storage term for SFE, like SFT, was not consistent with the standard SFR flow approach (steady-state). Prior to this change, the reach volume for the previous timestep was calculated using the current storage flow rate, which is zero for SFR even though there can be a calculated change in stage. The SFE storage term is now calculated using the current and previous reach water volumes. This change may affect SFE results for existing models."

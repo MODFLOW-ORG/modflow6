@@ -1,11 +1,11 @@
 !> @brief Disable development features in release mode
-module DevFeatureModule
+module FeatureFlagsModule
   use KindModule, only: I4B
   use VersionModule, only: IDEVELOPMODE
   use SimModule, only: store_error, store_error_unit
   implicit none
   private
-  public :: dev_feature
+  public :: developmode
 
 contains
 
@@ -17,7 +17,7 @@ contains
   !! may be specified to associate the feature with an input file.
   !!
   !<
-  subroutine dev_feature(errmsg, iunit)
+  subroutine developmode(errmsg, iunit)
     ! -- dummy
     character(len=*), intent(in) :: errmsg
     integer(I4B), intent(in), optional :: iunit
@@ -32,6 +32,6 @@ contains
       end if
     end if
 
-  end subroutine dev_feature
+  end subroutine developmode
 
-end module DevFeatureModule
+end module FeatureFlagsModule

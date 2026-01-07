@@ -54,7 +54,7 @@ module StructArrayModule
     procedure :: allocate_charstr_type
     procedure :: allocate_int1d_type
     procedure :: allocate_dbl1d_type
-    procedure :: write_struct_vector
+    procedure :: read_param
     procedure :: read_from_parser
     procedure :: read_from_binary
     procedure :: memload_vectors
@@ -410,6 +410,11 @@ contains
     real(DP), dimension(:), pointer, contiguous :: p_dbl1d
     type(CharacterStringType), dimension(:), pointer, contiguous :: p_charstr1d
     character(len=LENVARNAME) :: varname
+    logical(LGP) :: overwrite
+
+    overwrite = .true.
+    if (this%struct_vectors(icol)%idt%blockname == 'SOLUTIONGROUP') &
+      overwrite = .false.
 
     ! set varname
     varname = this%struct_vectors(icol)%idt%mf6varname
@@ -422,14 +427,34 @@ contains
       if (isize > -1) then
         ! variable exists, reallocate and append
         call mem_setptr(p_int1d, varname, this%mempath)
-        ! Currently deferred vectors are appended to managed
-        ! memory vectors when they are already allocated
-        ! (e.g. SIMNAM SolutionGroup)
-        call mem_reallocate(p_int1d, this%nrow + isize, varname, this%mempath)
 
-        do i = 1, this%nrow
-          p_int1d(isize + i) = this%struct_vectors(icol)%int1d(i)
-        end do
+        if (overwrite) then
+          ! overwrite existing array
+          if (this%nrow > isize) then
+            ! reallocate
+            call mem_reallocate(p_int1d, this%nrow, varname, this%mempath)
+          end if
+
+          ! write new data
+          do i = 1, this%nrow
+            p_int1d(i) = this%struct_vectors(icol)%int1d(i)
+          end do
+
+          if (isize > this%nrow) then
+            ! initialize excess space
+            do i = this%nrow + 1, isize
+              p_int1d(i) = IZERO
+            end do
+          end if
+        else
+          ! reallocate to new size
+          call mem_reallocate(p_int1d, this%nrow + isize, varname, this%mempath)
+
+          ! write new data after existing
+          do i = 1, this%nrow
+            p_int1d(isize + i) = this%struct_vectors(icol)%int1d(i)
+          end do
+        end if
       else
         ! allocate memory manager vector
         call mem_allocate(p_int1d, this%nrow, varname, this%mempath)
@@ -449,11 +474,28 @@ contains
     case (2) ! memtype real
       if (isize > -1) then
         call mem_setptr(p_dbl1d, varname, this%mempath)
-        call mem_reallocate(p_dbl1d, this%nrow + isize, varname, &
-                            this%mempath)
-        do i = 1, this%nrow
-          p_dbl1d(isize + i) = this%struct_vectors(icol)%dbl1d(i)
-        end do
+
+        if (overwrite) then
+          if (this%nrow > isize) then
+            call mem_reallocate(p_dbl1d, this%nrow, varname, this%mempath)
+          end if
+
+          do i = 1, this%nrow
+            p_dbl1d(i) = this%struct_vectors(icol)%dbl1d(i)
+          end do
+
+          if (isize > this%nrow) then
+            do i = this%nrow + 1, isize
+              p_dbl1d(i) = DZERO
+            end do
+          end if
+        else
+          call mem_reallocate(p_dbl1d, this%nrow + isize, varname, &
+                              this%mempath)
+          do i = 1, this%nrow
+            p_dbl1d(isize + i) = this%struct_vectors(icol)%dbl1d(i)
+          end do
+        end if
       else
         call mem_allocate(p_dbl1d, this%nrow, varname, this%mempath)
 
@@ -470,11 +512,29 @@ contains
     case (3) ! memtype charstring
       if (isize > -1) then
         call mem_setptr(p_charstr1d, varname, this%mempath)
-        call mem_reallocate(p_charstr1d, LINELENGTH, this%nrow + isize, varname, &
-                            this%mempath)
-        do i = 1, this%nrow
-          p_charstr1d(isize + i) = this%struct_vectors(icol)%charstr1d(i)
-        end do
+
+        if (overwrite) then
+          if (this%nrow > isize) then
+            call mem_reallocate(p_charstr1d, LINELENGTH, this%nrow, varname, &
+                                this%mempath)
+          end if
+
+          do i = 1, this%nrow
+            p_charstr1d(i) = this%struct_vectors(icol)%charstr1d(i)
+          end do
+
+          if (isize > this%nrow) then
+            do i = this%nrow + 1, isize
+              p_charstr1d(i) = ''
+            end do
+          end if
+        else
+          call mem_reallocate(p_charstr1d, LINELENGTH, this%nrow + isize, &
+                              varname, this%mempath)
+          do i = 1, this%nrow
+            p_charstr1d(isize + i) = this%struct_vectors(icol)%charstr1d(i)
+          end do
+        end if
       else
         call mem_allocate(p_charstr1d, LINELENGTH, this%nrow, varname, &
                           this%mempath)
@@ -489,18 +549,14 @@ contains
       this%struct_vectors(icol)%charstr1d => p_charstr1d
       this%struct_vectors(icol)%size = this%nrow
     case (4) ! memtype intvector
-      ! no-op
+      errmsg = 'StructArray::load_deferred_vector &
+               &intvector reallocate unimplemented.'
+      call store_error(errmsg, terminate=.TRUE.)
     case (5)
       if (isize > -1) then
-        call mem_setptr(p_int2d, varname, this%mempath)
-        call mem_reallocate(p_int2d, this%struct_vectors(icol)%intshape, &
-                            this%nrow, varname, this%mempath)
-
-        do i = 1, this%nrow
-          do j = 1, this%struct_vectors(icol)%intshape
-            p_int2d(j, isize + i) = this%struct_vectors(icol)%int2d(j, i)
-          end do
-        end do
+        errmsg = 'StructArray::load_deferred_vector &
+                 &int2d reallocate unimplemented.'
+        call store_error(errmsg, terminate=.TRUE.)
       else
         call mem_allocate(p_int2d, this%struct_vectors(icol)%intshape, &
                           this%nrow, varname, this%mempath)
@@ -515,12 +571,11 @@ contains
 
       this%struct_vectors(icol)%int2d => p_int2d
       this%struct_vectors(icol)%size = this%nrow
-
-      ! TODO: case (6)
-    case default
-      errmsg = 'IDM unimplemented. StructArray::load_deferred_vector &
-               &unsupported memtype.'
+    case (6)
+      errmsg = 'StructArray::load_deferred_vector &
+               &dbl2d reallocate unimplemented.'
       call store_error(errmsg, terminate=.TRUE.)
+    case default
     end select
   end subroutine load_deferred_vector
 
@@ -701,8 +756,7 @@ contains
     end do
   end subroutine check_reallocate
 
-  subroutine write_struct_vector(this, parser, sv_col, irow, timeseries, &
-                                 iout, auxcol)
+  subroutine read_param(this, parser, sv_col, irow, timeseries, iout, auxcol)
     class(StructArrayType) :: this !< StructArrayType
     type(BlockParserType), intent(inout) :: parser !< block parser to read from
     integer(I4B), intent(in) :: sv_col
@@ -779,7 +833,7 @@ contains
         end if
       end do
     end select
-  end subroutine write_struct_vector
+  end subroutine read_param
 
   !> @brief read from the block parser to fill the StructArrayType
   !<
@@ -793,6 +847,11 @@ contains
 
     ! initialize index irow
     irow = 0
+
+    ! reset nrow if deferred shape
+    if (this%deferred_shape) then
+      this%nrow = 0
+    end if
 
     ! read entire block
     do
@@ -809,9 +868,20 @@ contains
       end if
       ! update irow index
       irow = irow + 1
+      if (this%deferred_shape) then
+      else
+        ! check allocated array size against user bound
+        if (irow > this%nrow) then
+          write (errmsg, '(a,i0,a)') &
+            'Input error: line count exceeds input dimension. Expected rows=', &
+            this%nrow, '.'
+          call store_error(errmsg)
+          call parser%StoreErrorUnit()
+        end if
+      end if
       ! handle line reads by column memtype
       do j = 1, this%ncol
-        call this%write_struct_vector(parser, j, irow, timeseries, iout)
+        call this%read_param(parser, j, irow, timeseries, iout)
       end do
     end do
     ! if deferred shape vectors were read, load to input path

@@ -6,7 +6,9 @@ module UTVDSchemeModule
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
   use IGradient, only: IGradientType
+
   use DisUtilsModule, only: node_distance
+  use LocalCellExtremaModule, only: LocalCellExtremaType
 
   implicit none
   private
@@ -37,12 +39,18 @@ module UTVDSchemeModule
     class(DisBaseType), pointer :: dis
     type(TspFmiType), pointer :: fmi
     class(IGradientType), pointer :: gradient
+
+    real(DP), dimension(:), pointer :: phi
+    type(LocalCellExtremaType), allocatable :: min_max_phi ! local minimum values at nodes
     integer(I4B) :: limiter_id = 2 ! default to van Leer limiter
+    real(DP), dimension(:, :), allocatable :: cached_node_distance ! distance vectors
   contains
     procedure :: compute
+    procedure :: set_field
+    final :: destructor
 
-    procedure, private :: find_local_extrema
     procedure, private :: limiter
+    procedure, private :: compute_node_distance
   end type UTVDSchemeType
 
   interface UTVDSchemeType
@@ -50,22 +58,52 @@ module UTVDSchemeModule
   end interface UTVDSchemeType
 
 contains
+
   function constructor(dis, fmi, gradient) &
     result(interpolation_scheme)
     ! -- return
     type(UTVDSchemeType) :: interpolation_scheme
-    ! --dummy
+    ! -- dummy
     class(DisBaseType), pointer, intent(in) :: dis
     type(TspFmiType), pointer, intent(in) :: fmi
-    class(IGradientType), allocatable, target, intent(in) :: gradient
+    class(IGradientType), allocatable, intent(in), target :: gradient
 
     interpolation_scheme%dis => dis
     interpolation_scheme%fmi => fmi
+
     interpolation_scheme%gradient => gradient
+    interpolation_scheme%min_max_phi = LocalCellExtremaType(dis)
+
+    allocate (interpolation_scheme%cached_node_distance(dis%njas, 3))
+    call compute_node_distance(interpolation_scheme)
 
   end function constructor
 
-  function compute(this, n, m, iposnm, phi) result(phi_face)
+  subroutine destructor(this)
+    ! -- dummy
+    type(UTVDSchemeType), intent(inout) :: this
+
+    deallocate (this%cached_node_distance)
+  end subroutine destructor
+
+  !> @brief Set the scalar field for which interpolation will be computed
+  !!
+  !! This method establishes a pointer to the scalar field data and updates
+  !! any dependent cached data (gradients and local extrema) to ensure
+  !! subsequent interpolation computations use the current field values.
+  !!
+  !<
+  subroutine set_field(this, phi)
+    ! -- dummy
+    class(UTVDSchemeType), target :: this
+    real(DP), intent(in), dimension(:), pointer :: phi
+
+    this%phi => phi
+    call this%gradient%set_field(phi)
+    call this%min_max_phi%set_field(phi)
+  end subroutine set_field
+
+  function compute(this, n, m, iposnm) result(phi_face)
     !-- return
     type(CoefficientsType), target :: phi_face ! Output: coefficients for the face between cells n and m
     ! -- dummy
@@ -73,7 +111,6 @@ contains
     integer(I4B), intent(in) :: n ! Index of the first cell
     integer(I4B), intent(in) :: m ! Index of the second cell
     integer(I4B), intent(in) :: iposnm ! Position in the connectivity array for the n-m connection
-    real(DP), intent(in), dimension(:) :: phi ! Array of scalar values (e.g., concentrations) at all cells
     ! -- local
     integer(I4B) :: iup, idn, isympos ! Indices for upwind, downwind, and symmetric position in connectivity
     real(DP) :: qnm ! Flow rate across the face between n and m
@@ -85,7 +122,7 @@ contains
     real(DP) :: cl1, cl2 ! Connection lengths from upwind and downwind cells to the face
     real(DP) :: relative_distance ! Relative distance factor for high-order term
     real(DP) :: c_virtual ! Virtual node concentration (Darwish method)
-    real(DP) :: min_phi, max_phi ! Local minimum and maximum among cell and neighbors
+    real(DP), pointer :: min_phi, max_phi ! Local minimum and maximum among cell and neighbors
 
     isympos = this%dis%con%jas(iposnm)
     qnm = this%fmi%gwfflowja(iposnm)
@@ -112,25 +149,36 @@ contains
       coef_dn => phi_face%c_m
     end if
     !
+    ! Determine direction of distance vector from upwind to downwind cell
+    ! The cached_node_distance always stores vector from lower-numbered node to higher-numbered node.
+    ! Since we need dnm to point from upwind (iup) to downwind (idn), we must adjust the sign:
+    ! - If iup > idn: the cached vector points from idn to iup, so we negate it to get iup to idn
+    ! - If iup < idn: the cached vector already points from iup to idn, so use it as-is
+    if (iup > idn) then
+      dnm = -this%cached_node_distance(isympos, :)
+    else
+      dnm = this%cached_node_distance(isympos, :)
+    end if
+    !
     ! -- Add low order terms
     coef_up = DONE
     !
     ! -- Add high order terms
     !
     ! -- Return if straddled cells have same value
-    if (abs(phi(idn) - phi(iup)) < DSAME) return
+    if (abs(this%phi(idn) - this%phi(iup)) < DSAME) return
     !
     ! -- Compute cell concentration gradient
-    grad_c = this%gradient%get(iup, phi)
+    grad_c = this%gradient%get(iup)
     !
     ! Darwish's method to compute virtual node concentration
-    dnm = node_distance(this%dis, iup, idn)
-    c_virtual = phi(idn) - 2.0_dp * (dot_product(grad_c, dnm))
+    c_virtual = this%phi(idn) - 2.0_dp * (dot_product(grad_c, dnm))
     !
     ! Enforce local TVD condition.
     ! This is done by limiting the virtual concentration to the range of
     ! the max and min concentration of the neighbouring cells.
-    call find_local_extrema(this, iup, phi, min_phi, max_phi)
+    min_phi => this%min_max_phi%get_min(iup)
+    max_phi => this%min_max_phi%get_max(iup)
 
     if (c_virtual > max_phi) then
       c_virtual = max_phi
@@ -141,14 +189,14 @@ contains
     end if
     !
     ! -- Compute smoothness factor
-    smooth = (phi(iup) - c_virtual) / (phi(idn) - phi(iup))
+    smooth = (this%phi(iup) - c_virtual) / (this%phi(idn) - this%phi(iup))
     !
     ! -- Compute limiter
     alimiter = this%limiter(smooth)
 
     ! High order term is:
     relative_distance = cl1 / (cl1 + cl2)
-    phi_face%rhs = -relative_distance * alimiter * (phi(idn) - phi(iup))
+    phi_face%rhs = -relative_distance * alimiter * (this%phi(idn) - this%phi(iup))
 
     ! Alternative way of writing the high order term by adding it to the
     ! coefficients matrix. The equation to be added is:
@@ -158,24 +206,6 @@ contains
     ! coef_dn = coef_dn + relative_distance * alimiter
 
   end function compute
-
-  subroutine find_local_extrema(this, n, phi, min_phi, max_phi)
-    ! -- dummy
-    class(UTVDSchemeType) :: this
-    integer(I4B), intent(in) :: n
-    real(DP), intent(in), dimension(:) :: phi
-    real(DP), intent(out) :: min_phi, max_phi
-    ! -- local
-    integer(I4B) :: ipos, m
-
-    min_phi = phi(n)
-    max_phi = phi(n)
-    do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
-      m = this%dis%con%ja(ipos)
-      min_phi = min(min_phi, phi(m))
-      max_phi = max(max_phi, phi(m))
-    end do
-  end subroutine
 
   function limiter(this, r) result(theta)
     ! -- return
@@ -201,5 +231,24 @@ contains
       theta = DZERO
     end select
   end function
+
+  subroutine compute_node_distance(this)
+    ! -- dummy
+    class(UTVDSchemeType), target :: this
+    ! -- local
+    integer(I4B) :: n, m, ipos, isympos
+
+    this%cached_node_distance = 0.0_dp
+    do n = 1, this%dis%nodes
+      do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
+        m = this%dis%con%ja(ipos)
+        if (m <= n) cycle
+
+        isympos = this%dis%con%jas(ipos)
+        this%cached_node_distance(isympos, :) = node_distance(this%dis, n, m)
+      end do
+    end do
+
+  end subroutine compute_node_distance
 
 end module UTVDSchemeModule

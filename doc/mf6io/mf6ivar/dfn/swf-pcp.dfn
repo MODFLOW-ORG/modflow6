@@ -138,7 +138,7 @@ type integer
 reader urword
 optional false
 longname maximum number of precipitation cells
-description REPLACE maxbound {'{#1}': 'precipitation cells'}
+description REPLACE maxbound {'{#1}': 'precipitation'}
 
 
 # --------------------- swf pcp period ---------------------

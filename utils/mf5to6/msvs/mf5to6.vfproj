@@ -100,7 +100,7 @@
 		<File RelativePath="..\..\..\src\Utilities\defmacro.F90">
 			<FileConfiguration Name="Debug|Win32">
 				<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration></File>
-		<File RelativePath="..\..\..\src\Utilities\DevFeature.f90"/>
+		<File RelativePath="..\..\..\src\Utilities\FeatureFlags.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\ErrorUtil.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\GeomUtil.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\InputOutput.f90"/>

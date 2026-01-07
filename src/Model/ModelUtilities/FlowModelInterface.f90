@@ -2,8 +2,9 @@ module FlowModelInterfaceModule
 
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DONE, DZERO, DHALF, LINELENGTH, LENBUDTXT, &
-                             LENPACKAGENAME, LENVARNAME
-  use SimModule, only: store_error, store_error_unit
+                             LENPACKAGENAME, LENVARNAME, LENMEMPATH
+  use SimModule, only: store_error, count_errors, store_error_unit, &
+                       store_error_filename
   use SimVariablesModule, only: errmsg
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
@@ -13,6 +14,7 @@ module FlowModelInterfaceModule
   use GridFileReaderModule, only: GridFileReaderType
   use PackageBudgetModule, only: PackageBudgetType
   use BudgetObjectModule, only: BudgetObjectType, budgetobject_cr_bfr
+  use MemoryManagerModule, only: mem_allocate
 
   implicit none
   private
@@ -33,8 +35,11 @@ module FlowModelInterfaceModule
     integer(I4B), pointer :: idryinactive => null() !< mark cells with an additional flag to exclude from deactivation (gwe will simulate conduction through dry cells)
     real(DP), dimension(:), pointer, contiguous :: gwfstrgss => null() !< pointer to flow model QSTOSS
     real(DP), dimension(:), pointer, contiguous :: gwfstrgsy => null() !< pointer to flow model QSTOSY
+    integer(I4B), dimension(:), pointer, contiguous :: gwfceltyp => null() !< pointer to flow model NPF icelltype
+    integer(I4B), pointer :: igwfspdis => null() !< indicates if gwfspdis is available
     integer(I4B), pointer :: igwfstrgss => null() !< indicates if gwfstrgss is available
     integer(I4B), pointer :: igwfstrgsy => null() !< indicates if gwfstrgsy is available
+    integer(I4B), pointer :: igwfceltyp => null() !< indicates if gwfceltyp is available
     integer(I4B), pointer :: iubud => null() !< unit number GWF budget file
     integer(I4B), pointer :: iuhds => null() !< unit number GWF head file
     integer(I4B), pointer :: iumvr => null() !< unit number GWF mover budget file
@@ -67,8 +72,9 @@ module FlowModelInterfaceModule
     procedure :: initialize_gwfterms_from_bfr
     procedure :: initialize_gwfterms_from_gwfbndlist
     procedure :: initialize_hfr
-    procedure :: read_options
-    procedure :: read_packagedata
+    procedure :: source_options
+    procedure :: source_packagedata
+    procedure :: read_grid
 
   end type FlowModelInterfaceType
 
@@ -78,7 +84,6 @@ contains
   !<
   subroutine fmi_df(this, dis, idryinactive)
     ! -- modules
-    use SimModule, only: store_error
     ! -- dummy
     class(FlowModelInterfaceType) :: this
     class(DisBaseType), pointer, intent(in) :: dis
@@ -86,7 +91,7 @@ contains
     ! -- formats
     character(len=*), parameter :: fmtfmi = &
       "(1x,/1x,'FMI -- FLOW MODEL INTERFACE, VERSION 2, 8/17/2023',            &
-      &' INPUT READ FROM UNIT ', i0, //)"
+      &' INPUT READ FROM MEMPATH: ', A, //)"
     character(len=*), parameter :: fmtfmi0 = &
                     "(1x,/1x,'FMI -- FLOW MODEL INTERFACE,'&
                     &' VERSION 2, 8/17/2023')"
@@ -94,7 +99,7 @@ contains
     ! --print a message identifying the FMI package.
     if (this%iout > 0) then
       if (this%inunit /= 0) then
-        write (this%iout, fmtfmi) this%inunit
+        write (this%iout, fmtfmi) this%input_mempath
       else
         write (this%iout, fmtfmi0)
         if (this%flows_from_file) then
@@ -111,12 +116,12 @@ contains
     !
     ! -- Read fmi options
     if (this%inunit /= 0) then
-      call this%read_options()
+      call this%source_options()
     end if
     !
     ! -- Read packagedata options
     if (this%inunit /= 0 .and. this%flows_from_file) then
-      call this%read_packagedata()
+      call this%source_packagedata()
       call this%initialize_gwfterms_from_bfr()
     end if
     !
@@ -135,7 +140,6 @@ contains
   !<
   subroutine fmi_ar(this, ibound)
     ! -- modules
-    use SimModule, only: store_error
     ! -- dummy
     class(FlowModelInterfaceType) :: this
     integer(I4B), dimension(:), pointer, contiguous :: ibound
@@ -168,6 +172,7 @@ contains
     if (this%flows_from_file) then
       call mem_deallocate(this%gwfstrgss)
       call mem_deallocate(this%gwfstrgsy)
+      call mem_deallocate(this%gwfceltyp)
     end if
     !
     ! -- special treatment, these could be from mem_checkin
@@ -179,8 +184,10 @@ contains
     ! -- deallocate scalars
     call mem_deallocate(this%flows_from_file)
     call mem_deallocate(this%iflowsupdated)
+    call mem_deallocate(this%igwfspdis)
     call mem_deallocate(this%igwfstrgss)
     call mem_deallocate(this%igwfstrgsy)
+    call mem_deallocate(this%igwfceltyp)
     call mem_deallocate(this%iubud)
     call mem_deallocate(this%iuhds)
     call mem_deallocate(this%iumvr)
@@ -197,6 +204,7 @@ contains
   subroutine allocate_scalars(this)
     ! -- modules
     use MemoryManagerModule, only: mem_allocate, mem_setptr
+    use MemoryManagerExtModule, only: mem_set_value
     ! -- dummy
     class(FlowModelInterfaceType) :: this
     ! -- local
@@ -207,8 +215,10 @@ contains
     ! -- Allocate
     call mem_allocate(this%flows_from_file, 'FLOWS_FROM_FILE', this%memoryPath)
     call mem_allocate(this%iflowsupdated, 'IFLOWSUPDATED', this%memoryPath)
+    call mem_allocate(this%igwfspdis, 'IGWFSPDIS', this%memoryPath)
     call mem_allocate(this%igwfstrgss, 'IGWFSTRGSS', this%memoryPath)
     call mem_allocate(this%igwfstrgsy, 'IGWFSTRGSY', this%memoryPath)
+    call mem_allocate(this%igwfceltyp, 'IGWFCELTYP', this%memoryPath)
     call mem_allocate(this%iubud, 'IUBUD', this%memoryPath)
     call mem_allocate(this%iuhds, 'IUHDS', this%memoryPath)
     call mem_allocate(this%iumvr, 'IUMVR', this%memoryPath)
@@ -220,8 +230,10 @@ contains
     ! -- Initialize
     this%flows_from_file = .true.
     this%iflowsupdated = 1
+    this%igwfspdis = 0
     this%igwfstrgss = 0
     this%igwfstrgsy = 0
+    this%igwfceltyp = 0
     this%iubud = 0
     this%iuhds = 0
     this%iumvr = 0
@@ -283,6 +295,14 @@ contains
       do n = 1, size(this%gwfstrgsy)
         this%gwfstrgsy(n) = DZERO
       end do
+      ! allocate and initialize cell type array. if the FMI is in a separate
+      ! simulation from the GWF model, we expect cell type to have been read
+      ! already if the binary grid file was provided to FMI. otherwise don't
+      ! initialize the cell type array to any default; unless it is received
+      ! from GWF NPF by an EXG it's undefined as indicated by igwfceltyp = 0
+      ! (this is because some coupled models need cell type, but some don't)
+      if (this%igwfceltyp == 0) &
+        call mem_allocate(this%gwfceltyp, nodes, 'GWFCELTYP', this%memoryPath)
       !
       ! -- If there is no fmi package, then there are no flows at all or a
       !    connected GWF model, so allocate gwfpackages to zero
@@ -290,53 +310,124 @@ contains
     end if
   end subroutine allocate_arrays
 
-  !> @brief Read options from input file
+  !> @ brief Source input options for package
   !<
-  subroutine read_options(this)
+  subroutine source_options(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH, DEM6
-    use InputOutputModule, only: getunit, openfile, urdaux
-    use SimModule, only: store_error, store_error_unit
+    use MemoryManagerExtModule, only: mem_set_value
     ! -- dummy
     class(FlowModelInterfaceType) :: this
     ! -- local
-    character(len=LINELENGTH) :: keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
-    !
-    ! -- get options block
-    call this%parser%GetBlock('OPTIONS', isfound, ierr, blockRequired=.false., &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse options block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING FMI OPTIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('SAVE_FLOWS')
-          this%ipakcb = -1
-        case default
-          write (errmsg, '(a,3(1x,a))') &
-            'UNKNOWN', trim(adjustl(this%text)), 'OPTION:', trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END OF FMI OPTIONS'
-    end if
-  end subroutine read_options
+    logical(LGP) :: found_ipakcb
+    character(len=*), parameter :: fmtisvflow = &
+      "(4x,'CELL-BY-CELL FLOW INFORMATION WILL BE SAVED TO BINARY FILE &
+      &WHENEVER ICBCFL IS NOT ZERO AND FLOW IMBALANCE CORRECTION ACTIVE.')"
 
-  !> @brief Read packagedata block from input file
+    ! -- source package input
+    call mem_set_value(this%ipakcb, 'SAVE_FLOWS', this%input_mempath, &
+                       found_ipakcb)
+
+    write (this%iout, '(1x,a)') 'PROCESSING FMI OPTIONS'
+
+    if (found_ipakcb) then
+      this%ipakcb = -1
+      write (this%iout, fmtisvflow)
+    end if
+
+    write (this%iout, '(1x,a)') 'END OF FMI OPTIONS'
+  end subroutine source_options
+
+  !> @ brief Source input options for package
   !<
-  subroutine read_packagedata(this)
+  subroutine source_packagedata(this)
     ! -- modules
+    use MemoryManagerModule, only: mem_setptr
+    use MemoryManagerExtModule, only: mem_set_value
+    use CharacterStringModule, only: CharacterStringType
     use OpenSpecModule, only: ACCESS, FORM
     use ConstantsModule, only: LINELENGTH, DEM6, LENPACKAGENAME
     use InputOutputModule, only: getunit, openfile, urdaux
-    use SimModule, only: store_error, store_error_unit
+    ! -- dummy
+    class(FlowModelInterfaceType) :: this
+    ! -- local
+    type(CharacterStringType), dimension(:), contiguous, &
+      pointer :: flowtypes
+    type(CharacterStringType), dimension(:), contiguous, &
+      pointer :: fileops
+    type(CharacterStringType), dimension(:), contiguous, &
+      pointer :: fnames
+    character(len=LINELENGTH) :: flowtype, fileop, fname
+    integer(I4B) :: inunit, n
+    logical(LGP) :: exist
+
+    call mem_setptr(flowtypes, 'FLOWTYPE', this%input_mempath)
+    call mem_setptr(fileops, 'FILEIN', this%input_mempath)
+    call mem_setptr(fnames, 'FNAME', this%input_mempath)
+
+    write (this%iout, '(1x,a)') 'PROCESSING FMI PACKAGEDATA'
+
+    do n = 1, size(flowtypes)
+      flowtype = flowtypes(n)
+      fileop = fileops(n)
+      fname = fnames(n)
+
+      inquire (file=trim(fname), exist=exist)
+      if (.not. exist) then
+        call store_error('Could not find file '//trim(fname))
+        cycle
+      end if
+
+      if (fileop /= 'FILEIN') then
+        call store_error('Unexpected packagedata input keyword read: "' &
+                         //trim(fileop)//'".')
+        cycle
+      end if
+
+      select case (flowtype)
+      case ('GWFBUDGET')
+        inunit = getunit()
+        call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
+                      ACCESS, 'UNKNOWN')
+        this%iubud = inunit
+        call this%initialize_bfr()
+      case ('GWFHEAD')
+        inunit = getunit()
+        call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
+                      ACCESS, 'UNKNOWN')
+        this%iuhds = inunit
+        call this%initialize_hfr()
+      case ('GWFMOVER')
+        inunit = getunit()
+        call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
+                      ACCESS, 'UNKNOWN')
+        this%iumvr = inunit
+        call budgetobject_cr_bfr(this%mvrbudobj, 'MVT', this%iumvr, &
+                                 this%iout)
+        call this%mvrbudobj%fill_from_bfr(this%dis, this%iout)
+      case ('GWFGRID')
+        inunit = getunit()
+        call openfile(inunit, this%iout, fname, 'DATA(BINARY)', &
+                      FORM, ACCESS, 'UNKNOWN')
+        this%iugrb = inunit
+        call this%read_grid()
+      case default
+        write (errmsg, '(a,3(1x,a))') &
+          'UNKNOWN', trim(adjustl(this%text)), 'PACKAGEDATA:', trim(flowtype)
+        call store_error(errmsg)
+      end select
+    end do
+
+    write (this%iout, '(1x,a)') 'END OF FMI PACKAGEDATA'
+
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+  end subroutine source_packagedata
+
+  !> @brief Read/validate flow model grid
+  !<
+  subroutine read_grid(this)
+    ! -- modules
     use DisModule, only: DisType
     use DisvModule, only: DisvType
     use DisuModule, only: DisuType
@@ -346,16 +437,11 @@ contains
     ! -- dummy
     class(FlowModelInterfaceType) :: this
     ! -- local
-    character(len=LINELENGTH) :: keyword, fname
-    integer(I4B) :: ierr
-    integer(I4B) :: inunit
-    integer(I4B) :: iapt
     integer(I4B) :: user_nodes
-    logical :: isfound, endOfBlock
-    logical :: blockrequired
-    logical :: exist
     integer(I4B), allocatable :: idomain1d(:), idomain2d(:, :), idomain3d(:, :, :)
     ! -- formats
+    character(len=*), parameter :: fmticterr = &
+      &"('Error in ',a,': Binary grid file does not contain ICELLTYPE.')"
     character(len=*), parameter :: fmtdiserr = &
       "('Error in ',a,': Models do not have the same discretization. &
       &GWF model has ', i0, ' user nodes, this model has ', i0, '. &
@@ -364,210 +450,132 @@ contains
       "('Error in ',a,': models do not have the same discretization. &
       &Models have different IDOMAIN arrays. &
       &Ensure discretization packages, including IDOMAIN, are identical.')"
-    !
-    ! -- initialize
-    iapt = 0
-    blockrequired = .true.
-    !
-    ! -- get packagedata block
-    call this%parser%GetBlock('PACKAGEDATA', isfound, ierr, &
-                              blockRequired=blockRequired, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse packagedata block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING FMI PACKAGEDATA'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('GWFBUDGET')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword /= 'FILEIN') then
-            call store_error('GWFBUDGET KEYWORD MUST BE FOLLOWED BY '// &
-                             '"FILEIN" then by filename.')
-            call this%parser%StoreErrorUnit()
-          end if
-          call this%parser%GetString(fname)
-          inunit = getunit()
-          inquire (file=trim(fname), exist=exist)
-          if (.not. exist) then
-            call store_error('Could not find file '//trim(fname))
-            call this%parser%StoreErrorUnit()
-          end if
-          call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                        ACCESS, 'UNKNOWN')
-          this%iubud = inunit
-          call this%initialize_bfr()
-        case ('GWFHEAD')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword /= 'FILEIN') then
-            call store_error('GWFHEAD KEYWORD MUST BE FOLLOWED BY '// &
-                             '"FILEIN" then by filename.')
-            call this%parser%StoreErrorUnit()
-          end if
-          call this%parser%GetString(fname)
-          inquire (file=trim(fname), exist=exist)
-          if (.not. exist) then
-            call store_error('Could not find file '//trim(fname))
-            call this%parser%StoreErrorUnit()
-          end if
-          inunit = getunit()
-          call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                        ACCESS, 'UNKNOWN')
-          this%iuhds = inunit
-          call this%initialize_hfr()
-        case ('GWFMOVER')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword /= 'FILEIN') then
-            call store_error('GWFMOVER KEYWORD MUST BE FOLLOWED BY '// &
-                             '"FILEIN" then by filename.')
-            call this%parser%StoreErrorUnit()
-          end if
-          call this%parser%GetString(fname)
-          inunit = getunit()
-          call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                        ACCESS, 'UNKNOWN')
-          this%iumvr = inunit
-          call budgetobject_cr_bfr(this%mvrbudobj, 'MVT', this%iumvr, &
-                                   this%iout)
-          call this%mvrbudobj%fill_from_bfr(this%dis, this%iout)
-        case ('GWFGRID')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword /= 'FILEIN') then
-            call store_error('GWFGRID KEYWORD MUST BE FOLLOWED BY '// &
-                             '"FILEIN" then by filename.')
-            call this%parser%StoreErrorUnit()
-          end if
-          call this%parser%GetString(fname)
-          inunit = getunit()
-          call openfile(inunit, this%iout, fname, 'DATA(BINARY)', &
-                        FORM, ACCESS, 'UNKNOWN')
-          this%iugrb = inunit
-          call this%gfr%initialize(this%iugrb)
 
-          ! check grid equivalence
-          select case (this%gfr%grid_type)
-          case ('DIS')
-            select type (dis => this%dis)
-            type is (DisType)
-              user_nodes = this%gfr%read_int("NCELLS")
-              if (user_nodes /= this%dis%nodesuser) then
-                write (errmsg, fmtdiserr) &
-                  trim(this%text), user_nodes, this%dis%nodesuser
-                call store_error(errmsg, terminate=.TRUE.)
-              end if
-              idomain1d = this%gfr%read_int_1d("IDOMAIN")
-              idomain3d = reshape(idomain1d, [ &
-                                  this%gfr%read_int("NCOL"), &
-                                  this%gfr%read_int("NROW"), &
-                                  this%gfr%read_int("NLAY") &
-                                  ])
-              if (.not. all(dis%idomain == idomain3d)) then
-                write (errmsg, fmtidomerr) trim(this%text)
-                call store_error(errmsg, terminate=.TRUE.)
-              end if
-            end select
-          case ('DISV')
-            select type (dis => this%dis)
-            type is (DisvType)
-              user_nodes = this%gfr%read_int("NCELLS")
-              if (user_nodes /= this%dis%nodesuser) then
-                write (errmsg, fmtdiserr) &
-                  trim(this%text), user_nodes, this%dis%nodesuser
-                call store_error(errmsg, terminate=.TRUE.)
-              end if
-              idomain1d = this%gfr%read_int_1d("IDOMAIN")
-              idomain2d = reshape(idomain1d, [ &
-                                  this%gfr%read_int("NCPL"), &
-                                  this%gfr%read_int("NLAY") &
-                                  ])
-              if (.not. all(dis%idomain == idomain2d)) then
-                write (errmsg, fmtidomerr) trim(this%text)
-                call store_error(errmsg, terminate=.TRUE.)
-              end if
-            end select
-          case ('DISU')
-            select type (dis => this%dis)
-            type is (DisuType)
-              user_nodes = this%gfr%read_int("NODES")
-              if (user_nodes /= this%dis%nodesuser) then
-                write (errmsg, fmtdiserr) &
-                  trim(this%text), user_nodes, this%dis%nodesuser
-                call store_error(errmsg, terminate=.TRUE.)
-              end if
-              idomain1d = this%gfr%read_int_1d("IDOMAIN")
-              if (.not. all(dis%idomain == idomain1d)) then
-                write (errmsg, fmtidomerr) trim(this%text)
-                call store_error(errmsg, terminate=.TRUE.)
-              end if
-            end select
-          case ('DIS2D')
-            select type (dis => this%dis)
-            type is (Dis2dType)
-              user_nodes = this%gfr%read_int("NCELLS")
-              if (user_nodes /= this%dis%nodesuser) then
-                write (errmsg, fmtdiserr) &
-                  trim(this%text), user_nodes, this%dis%nodesuser
-                call store_error(errmsg, terminate=.TRUE.)
-              end if
-              idomain1d = this%gfr%read_int_1d("IDOMAIN")
-              idomain2d = reshape(idomain1d, [ &
-                                  this%gfr%read_int("NCOL"), &
-                                  this%gfr%read_int("NROW") &
-                                  ])
-              if (.not. all(dis%idomain == idomain2d)) then
-                write (errmsg, fmtidomerr) trim(this%text)
-                call store_error(errmsg, terminate=.TRUE.)
-              end if
-            end select
-          case ('DISV2D')
-            select type (dis => this%dis)
-            type is (Disv2dType)
-              user_nodes = this%gfr%read_int("NODES")
-              if (user_nodes /= this%dis%nodesuser) then
-                write (errmsg, fmtdiserr) &
-                  trim(this%text), user_nodes, this%dis%nodesuser
-                call store_error(errmsg, terminate=.TRUE.)
-              end if
-              idomain1d = this%gfr%read_int_1d("IDOMAIN")
-              if (.not. all(dis%idomain == idomain1d)) then
-                write (errmsg, fmtidomerr) trim(this%text)
-                call store_error(errmsg, terminate=.TRUE.)
-              end if
-            end select
-          case ('DISV1D')
-            select type (dis => this%dis)
-            type is (Disv1dType)
-              user_nodes = this%gfr%read_int("NCELLS")
-              if (user_nodes /= this%dis%nodesuser) then
-                write (errmsg, fmtdiserr) &
-                  trim(this%text), user_nodes, this%dis%nodesuser
-                call store_error(errmsg, terminate=.TRUE.)
-              end if
-              idomain1d = this%gfr%read_int_1d("IDOMAIN")
-              if (.not. all(dis%idomain == idomain1d)) then
-                write (errmsg, fmtidomerr) trim(this%text)
-                call store_error(errmsg, terminate=.TRUE.)
-              end if
-            end select
-          end select
+    call this%gfr%initialize(this%iugrb)
 
-          if (allocated(idomain3d)) deallocate (idomain3d)
-          if (allocated(idomain2d)) deallocate (idomain2d)
-          if (allocated(idomain1d)) deallocate (idomain1d)
-
-          call this%gfr%finalize()
-        case default
-          write (errmsg, '(a,3(1x,a))') &
-            'UNKNOWN', trim(adjustl(this%text)), 'PACKAGEDATA:', trim(keyword)
-          call store_error(errmsg)
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END OF FMI PACKAGEDATA'
+    ! load icelltype array
+    if (.not. this%gfr%has_variable("ICELLTYPE")) then
+      write (errmsg, fmticterr) trim(this%text)
+      call store_error(errmsg, terminate=.TRUE.)
     end if
-  end subroutine read_packagedata
+    this%igwfceltyp = 1
+    call mem_allocate(this%gwfceltyp, this%dis%nodesuser, &
+                      'GWFCELTYP', this%memoryPath)
+    call this%gfr%read_int_1d_into("ICELLTYPE", this%gwfceltyp)
+
+    ! check grid equivalence
+    select case (this%gfr%grid_type)
+    case ('DIS')
+      select type (dis => this%dis)
+      type is (DisType)
+        user_nodes = this%gfr%read_int("NCELLS")
+        if (user_nodes /= this%dis%nodesuser) then
+          write (errmsg, fmtdiserr) &
+            trim(this%text), user_nodes, this%dis%nodesuser
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+        idomain1d = this%gfr%read_int_1d("IDOMAIN")
+        idomain3d = reshape(idomain1d, [ &
+                            this%gfr%read_int("NCOL"), &
+                            this%gfr%read_int("NROW"), &
+                            this%gfr%read_int("NLAY") &
+                            ])
+        if (.not. all(dis%idomain == idomain3d)) then
+          write (errmsg, fmtidomerr) trim(this%text)
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+      end select
+    case ('DISV')
+      select type (dis => this%dis)
+      type is (DisvType)
+        user_nodes = this%gfr%read_int("NCELLS")
+        if (user_nodes /= this%dis%nodesuser) then
+          write (errmsg, fmtdiserr) &
+            trim(this%text), user_nodes, this%dis%nodesuser
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+        idomain1d = this%gfr%read_int_1d("IDOMAIN")
+        idomain2d = reshape(idomain1d, [ &
+                            this%gfr%read_int("NCPL"), &
+                            this%gfr%read_int("NLAY") &
+                            ])
+        if (.not. all(dis%idomain == idomain2d)) then
+          write (errmsg, fmtidomerr) trim(this%text)
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+      end select
+    case ('DISU')
+      select type (dis => this%dis)
+      type is (DisuType)
+        user_nodes = this%gfr%read_int("NODES")
+        if (user_nodes /= this%dis%nodesuser) then
+          write (errmsg, fmtdiserr) &
+            trim(this%text), user_nodes, this%dis%nodesuser
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+        idomain1d = this%gfr%read_int_1d("IDOMAIN")
+        if (.not. all(dis%idomain == idomain1d)) then
+          write (errmsg, fmtidomerr) trim(this%text)
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+      end select
+    case ('DIS2D')
+      select type (dis => this%dis)
+      type is (Dis2dType)
+        user_nodes = this%gfr%read_int("NCELLS")
+        if (user_nodes /= this%dis%nodesuser) then
+          write (errmsg, fmtdiserr) &
+            trim(this%text), user_nodes, this%dis%nodesuser
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+        idomain1d = this%gfr%read_int_1d("IDOMAIN")
+        idomain2d = reshape(idomain1d, [ &
+                            this%gfr%read_int("NCOL"), &
+                            this%gfr%read_int("NROW") &
+                            ])
+        if (.not. all(dis%idomain == idomain2d)) then
+          write (errmsg, fmtidomerr) trim(this%text)
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+      end select
+    case ('DISV2D')
+      select type (dis => this%dis)
+      type is (Disv2dType)
+        user_nodes = this%gfr%read_int("NODES")
+        if (user_nodes /= this%dis%nodesuser) then
+          write (errmsg, fmtdiserr) &
+            trim(this%text), user_nodes, this%dis%nodesuser
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+        idomain1d = this%gfr%read_int_1d("IDOMAIN")
+        if (.not. all(dis%idomain == idomain1d)) then
+          write (errmsg, fmtidomerr) trim(this%text)
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+      end select
+    case ('DISV1D')
+      select type (dis => this%dis)
+      type is (Disv1dType)
+        user_nodes = this%gfr%read_int("NCELLS")
+        if (user_nodes /= this%dis%nodesuser) then
+          write (errmsg, fmtdiserr) &
+            trim(this%text), user_nodes, this%dis%nodesuser
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+        idomain1d = this%gfr%read_int_1d("IDOMAIN")
+        if (.not. all(dis%idomain == idomain1d)) then
+          write (errmsg, fmtidomerr) trim(this%text)
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+      end select
+    end select
+
+    if (allocated(idomain3d)) deallocate (idomain3d)
+    if (allocated(idomain2d)) deallocate (idomain2d)
+    if (allocated(idomain1d)) deallocate (idomain1d)
+
+    call this%gfr%finalize()
+  end subroutine read_grid
 
   !> @brief Initialize the budget file reader
   subroutine initialize_bfr(this)
@@ -658,8 +666,8 @@ contains
         if (this%bfr%header%kstp > 1 .and. (kstp /= this%bfr%header%kstp)) then
           write (errmsg, '(4x,a)') 'TIME STEP NUMBER IN BUDGET FILE &
             &DOES NOT MATCH TIME STEP NUMBER IN TRANSPORT MODEL.  IF THERE &
-            &IS MORE THAN ONE TIME STEP IN THE BUDGET FILE FOR A GIVEN STRESS &
-            &PERIOD, BUDGET FILE TIME STEPS MUST MATCH GWT MODEL TIME STEPS &
+         &IS MORE THAN ONE TIME STEP IN THE BUDGET FILE FOR A GIVEN STRESS &
+           &PERIOD, BUDGET FILE TIME STEPS MUST MATCH GWT MODEL TIME STEPS &
             &ONE-FOR-ONE IN THAT STRESS PERIOD.'
           call store_error(errmsg)
           call store_error_unit(this%iubud)
@@ -804,7 +812,7 @@ contains
         if (kper /= this%hfr%header%kper) then
           write (errmsg, '(4x,a)') 'PERIOD NUMBER IN HEAD FILE &
             &DOES NOT MATCH PERIOD NUMBER IN TRANSPORT MODEL.  IF THERE &
-            &IS MORE THAN ONE TIME STEP IN THE HEAD FILE FOR A GIVEN STRESS &
+           &IS MORE THAN ONE TIME STEP IN THE HEAD FILE FOR A GIVEN STRESS &
             &PERIOD, HEAD FILE TIME STEPS MUST MATCH GWT MODEL TIME STEPS &
             &ONE-FOR-ONE IN THAT STRESS PERIOD.'
           call store_error(errmsg)
@@ -815,7 +823,7 @@ contains
         if (this%hfr%header%kstp > 1 .and. (kstp /= this%hfr%header%kstp)) then
           write (errmsg, '(4x,a)') 'TIME STEP NUMBER IN HEAD FILE &
             &DOES NOT MATCH TIME STEP NUMBER IN TRANSPORT MODEL.  IF THERE &
-            &IS MORE THAN ONE TIME STEP IN THE HEAD FILE FOR A GIVEN STRESS &
+           &IS MORE THAN ONE TIME STEP IN THE HEAD FILE FOR A GIVEN STRESS &
             &PERIOD, HEAD FILE TIME STEPS MUST MATCH GWT MODEL TIME STEPS &
             &ONE-FOR-ONE IN THAT STRESS PERIOD.'
           call store_error(errmsg)
@@ -850,9 +858,6 @@ contains
   !! different terms and packages are contained within the file
   !<
   subroutine initialize_gwfterms_from_bfr(this)
-    ! -- modules
-    use MemoryManagerModule, only: mem_allocate
-    use SimModule, only: store_error, store_error_unit, count_errors
     ! -- dummy
     class(FlowModelInterfaceType) :: this
     ! -- local
@@ -881,6 +886,7 @@ contains
         found_flowja = .true.
       case ('DATA-SPDIS')
         found_dataspdis = .true.
+        this%igwfspdis = 1
       case ('DATA-SAT')
         found_datasat = .true.
       case ('STO-SS')
@@ -924,13 +930,13 @@ contains
     if (.not. found_dataspdis) then
       write (errmsg, '(4x,a)') 'SPECIFIC DISCHARGE NOT FOUND IN &
                               &BUDGET FILE. SAVE_SPECIFIC_DISCHARGE AND &
-                              &SAVE_FLOWS MUST BE ACTIVATED IN THE NPF PACKAGE.'
+                          &SAVE_FLOWS MUST BE ACTIVATED IN THE NPF PACKAGE.'
       call store_error(errmsg)
     end if
     if (.not. found_datasat) then
       write (errmsg, '(4x,a)') 'SATURATION NOT FOUND IN &
                               &BUDGET FILE. SAVE_SATURATION AND &
-                              &SAVE_FLOWS MUST BE ACTIVATED IN THE NPF PACKAGE.'
+                          &SAVE_FLOWS MUST BE ACTIVATED IN THE NPF PACKAGE.'
       call store_error(errmsg)
     end if
     if (.not. found_flowja) then
@@ -940,7 +946,7 @@ contains
       call store_error(errmsg)
     end if
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
   end subroutine initialize_gwfterms_from_bfr
 

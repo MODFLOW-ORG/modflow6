@@ -37,7 +37,8 @@ module LoadContextModule
     enumerator :: SIM = 2 !< sim context type
     enumerator :: MODEL = 3 !< model context type
     enumerator :: MODELPKG = 4 !< model package context type
-    enumerator :: EXCHANGE = 5 !< exchange context type
+    enumerator :: STRESSPKG = 5 !< model stress package context type
+    enumerator :: EXCHANGE = 6 !< exchange context type
   end enum
 
   !> @brief Pointer type for read state variable
@@ -123,7 +124,12 @@ contains
         this%ctxtype = EXCHANGE
       end if
     case ('MODEL')
-      this%ctxtype = MODELPKG
+      if (mf6_input%subcomponent_type == 'OC' .or. &
+          mf6_input%subcomponent_type == 'STO') then
+        this%ctxtype = MODELPKG
+      else
+        this%ctxtype = STRESSPKG
+      end if
     case default
     end select
 
@@ -164,18 +170,16 @@ contains
           select case (idt%tagname)
           case ('READASARRAYS')
             this%loadtype = LAYERARRAY
+            this%readarray = .true.
           case ('READARRAYGRID')
             this%loadtype = GRIDARRAY
+            this%readarray = .true.
           case default
             ! no-op
           end select
         end if
       end do
     end if
-
-    ! set as array based load
-    this%readarray = (this%loadtype == LAYERARRAY .or. &
-                      this%loadtype == GRIDARRAY)
 
     ! set in scope params for load
     call this%set_params()
@@ -191,7 +195,8 @@ contains
     class(LoadContextType) :: this
 
     if (this%ctxtype == EXCHANGE .or. &
-        this%ctxtype == MODELPKG) then
+        this%ctxtype == MODELPKG .or. &
+        this%ctxtype == STRESSPKG) then
 
       call setptr(this%nbound, 'NBOUND', this%mf6_input%mempath)
       call setval(this%naux, 'NAUX', this%mf6_input%mempath)
@@ -205,7 +210,7 @@ contains
       this%nbound = 0
     end if
 
-    if (this%ctxtype == MODELPKG .and. &
+    if (this%ctxtype == STRESSPKG .and. &
         this%blockname == 'PERIOD') then
       call mem_setptr(this%mshape, 'MODEL_SHAPE', &
                       this%mf6_input%component_mempath)
@@ -236,7 +241,7 @@ contains
     integer(I4B), dimension(:, :), pointer, contiguous :: cellid
     integer(I4B), dimension(:), pointer, contiguous :: nodeulist
 
-    if (this%ctxtype == MODELPKG .and. &
+    if (this%ctxtype == STRESSPKG .and. &
         this%blockname == 'PERIOD') then
       ! allocate cellid if this is not list input
       if (this%readarray) then
@@ -336,6 +341,8 @@ contains
   !!
   !<
   subroutine tags(this, params, nparam, input_name, create)
+    use FeatureFlagsModule, only: developmode
+    use SimVariablesModule, only: iout
     use DefinitionSelectModule, only: get_param_definition_type
     class(LoadContextType) :: this
     character(len=LINELENGTH), dimension(:), allocatable, &
@@ -344,6 +351,7 @@ contains
     character(len=*), intent(in) :: input_name
     logical(LGP), optional, intent(in) :: create
     type(InputParamDefinitionType), pointer :: idt
+    character(len=LINELENGTH) :: dev_msg
     logical(LGP) :: allocate_params
     integer(I4B) :: n
 
@@ -359,27 +367,31 @@ contains
     nparam = size(this%params)
     allocate (params(nparam))
     do n = 1, nparam
-      params(n) = this%params(n)
-    end do
+      idt => &
+        get_param_definition_type(this%mf6_input%param_dfns, &
+                                  this%mf6_input%component_type, &
+                                  this%mf6_input%subcomponent_type, &
+                                  this%blockname, this%params(n), '')
 
-    if (allocate_params) then
-      ! allocate dfn input params
-      do n = 1, nparam
-        idt => &
-          get_param_definition_type(this%mf6_input%param_dfns, &
-                                    this%mf6_input%component_type, &
-                                    this%mf6_input%subcomponent_type, &
-                                    this%blockname, params(n), '')
-        call this%allocate_param(idt)
-      end do
-    end if
+      ! check if input param is developmode
+      if (idt%developmode) then
+        dev_msg = 'Input tag "'//trim(idt%tagname)// &
+          &'" read from file "'//trim(input_name)// &
+          &'" is still under development. Install the &
+          &nightly build or compile from source with IDEVELOPMODE = 1.'
+        call developmode(dev_msg, iout)
+      end if
+
+      params(n) = this%params(n)
+      if (allocate_params) call this%allocate_param(idt)
+    end do
   end subroutine tags
 
   !> @brief establish if input parameter is in scope for package load
   !<
   function in_scope(this, mf6_input, blockname, tagname)
     use MemoryManagerModule, only: get_isize, mem_setptr
-    use DefinitionSelectModule, only: get_param_definition_type
+    use DefinitionSelectModule, only: get_param_definition_type, idt_datatype
     class(LoadContextType) :: this
     type(ModflowInputType), intent(in) :: mf6_input
     character(len=*), intent(in) :: blockname
@@ -387,6 +399,7 @@ contains
     logical(LGP) :: in_scope
     type(InputParamDefinitionType), pointer :: idt
     character(len=LENVARNAME) :: checkname
+    character(len=LINELENGTH) :: datatype
     integer(I4B) :: isize, checksize
     integer(I4B), pointer :: intptr
 
@@ -400,6 +413,10 @@ contains
       return
     else
       in_scope = .false.
+      datatype = idt_datatype(idt)
+      if (datatype == 'KEYSTRING' .or. &
+          datatype == 'RECARRAY' .or. &
+          datatype == 'RECORD') return
     end if
 
     ! initialize
@@ -546,7 +563,7 @@ contains
     class(LoadContextType) :: this
 
     if (this%ctxtype == EXCHANGE .or. &
-        this%ctxtype == MODELPKG) then
+        this%ctxtype == STRESSPKG) then
       ! deallocate local
       deallocate (this%naux)
       deallocate (this%ncpl)

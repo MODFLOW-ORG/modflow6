@@ -1,7 +1,7 @@
 module TspOcModule
 
   use BaseDisModule, only: DisBaseType
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LENMODELNAME
   use OutputControlModule, only: OutputControlType
   use OutputControlDataModule, only: OutputControlDataType, ocd_cr
@@ -27,10 +27,11 @@ contains
   !!  Create by allocating a new TspOcType object and initializing
   !!  member variables.
   !<
-  subroutine oc_cr(ocobj, name_model, inunit, iout)
+  subroutine oc_cr(ocobj, name_model, input_mempath, inunit, iout)
     ! -- dummy
     type(TspOcType), pointer :: ocobj !< TspOcType object
     character(len=*), intent(in) :: name_model !< name of the model
+    character(len=*), intent(in) :: input_mempath !< input mempath of the package
     integer(I4B), intent(in) :: inunit !< unit number for input
     integer(I4B), intent(in) :: iout !< unit number for output
     !
@@ -38,14 +39,11 @@ contains
     allocate (ocobj)
     !
     ! -- Allocate variables
-    call ocobj%allocate_scalars(name_model)
+    call ocobj%allocate_scalars(name_model, input_mempath)
     !
     ! -- Save unit numbers
     ocobj%inunit = inunit
     ocobj%iout = iout
-    !
-    ! -- Initialize block parser
-    call ocobj%parser%Initialize(inunit, iout)
   end subroutine oc_cr
 
   !> @ brief Allocate and read TspOcType
@@ -55,6 +53,8 @@ contains
   !!
   !<
   subroutine oc_ar(this, depvar, dis, dnodata, dvname)
+    use ConstantsModule, only: LINELENGTH
+    use MemoryManagerExtModule, only: mem_set_value
     ! -- dummy
     class(TspOcType) :: this !< TspOcType object
     real(DP), dimension(:), pointer, contiguous, intent(in) :: depvar !< model concentration
@@ -65,6 +65,8 @@ contains
     integer(I4B) :: i, nocdobj, inodata
     type(OutputControlDataType), pointer :: ocdobjptr
     real(DP), dimension(:), pointer, contiguous :: nullvec => null()
+    character(len=LINELENGTH) :: ocfile
+    logical(LGP) :: found_ocfile
     !
     ! -- Initialize variables
     inodata = 0
@@ -87,8 +89,15 @@ contains
     end do
     !
     ! -- Read options or set defaults if this package not on
-    if (this%inunit > 0) then
-      call this%read_options()
+    if (this%input_mempath /= '') then
+      write (this%iout, '(/,1x,a,/)') 'PROCESSING OC OPTIONS'
+      call this%source_options()
+      call mem_set_value(ocfile, dvname(1:4)//'FILE', this%input_mempath, &
+                         found_ocfile)
+      if (found_ocfile) then
+        call this%set_ocfile(dvname, ocfile, this%iout)
+      end if
+      write (this%iout, '(1x,a)') 'END OF OC OPTIONS'
     end if
   end subroutine oc_ar
 

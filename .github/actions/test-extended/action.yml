@@ -76,7 +76,12 @@ runs:
     - name: Update flopy
       shell: bash
       working-directory: modflow6
-      run: pixi run update-flopy
+      run: |
+        cmd="pixi run update-flopy --dfnpath doc/mf6io/mf6ivar/dfn"
+        if [[ "${{ env.RELEASEMODE }}" == "true" ]]; then
+          cmd="$cmd --releasemode"
+        fi
+        eval "$cmd"
 
     - name: Get executables
       shell: bash
@@ -85,7 +90,7 @@ runs:
         GITHUB_TOKEN: ${{ github.token }}
       run: pixi run get-exes
 
-    - name: Test programs (macOS)
+    - name: Check lib dependencies (macOS)
       if: runner.os == 'macOS'
       shell: bash
       working-directory: modflow6
@@ -94,9 +99,8 @@ runs:
       run: |
         otool -L bin/libmf6.dylib
         echo $DYLD_LIBRARY_PATH 
-        pixi run autotest --parallel --netcdf -k "test_par or test_netcdf"
 
-    - name: Test programs (Linux)
+    - name: Check lib dependencies (Linux)
       if: runner.os != 'macOS'
       shell: bash
       working-directory: modflow6
@@ -105,4 +109,20 @@ runs:
       run: |
         ldd bin/libmf6.so
         echo $LD_LIBRARY_PATH
-        pixi run autotest --parallel --netcdf -k "test_par or test_netcdf"
+
+    - name: Test programs
+      working-directory: modflow6
+      shell: bash
+      env:
+        REPOS_PATH: ${{ github.workspace }}
+        MARKERS: ${{ env.MARKERS }}
+        FILTERS: ${{ env.FILTERS }}
+      run: |
+        cmd="pixi run autotest --parallel --netcdf"
+        if [[ "${{ env.MARKERS }}" != "" ]]; then
+          cmd="$cmd -m '$MARKERS'"
+        fi
+        if [[ "${{ env.FILTERS }}" != "" ]]; then
+          cmd="$cmd -k '$FILTERS'"
+        fi
+        eval "$cmd"

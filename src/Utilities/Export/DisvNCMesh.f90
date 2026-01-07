@@ -389,10 +389,6 @@ contains
                                 maxval(ncvert), &
                                 this%dim_ids%max_nmesh_face_nodes), &
                    this%nc_fname)
-
-    ! ncpl, nlay
-    call nf_verify(nf90_def_dim(this%ncid, 'nlay', this%disv%nlay, &
-                                this%dim_ids%nlay), this%nc_fname)
   end subroutine define_dim
 
   !> @brief netcdf export add mesh information

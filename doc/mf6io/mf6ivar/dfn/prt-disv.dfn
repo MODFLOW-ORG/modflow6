@@ -34,7 +34,6 @@ tagged true
 optional false
 longname grb keyword
 description keyword to specify that record corresponds to a binary grid file.
-extended true
 
 block options
 name fileout
@@ -56,7 +55,6 @@ optional false
 tagged false
 longname file name of GRB information
 description defines a binary grid output file.
-extended true
 
 block options
 name xorigin
@@ -98,7 +96,7 @@ reader urword
 optional true
 mf6internal export_nc
 longname export array variables to netcdf output files.
-description keyword that specifies input griddata arrays should be written to the model output netcdf file.
+description keyword that specifies input griddata arrays should be written to the model output NetCDF file.
 
 block options
 name crs
@@ -107,6 +105,7 @@ shape lenbigline
 preserve_case true
 reader urword
 optional true
+developmode true
 longname CRS user input string
 description is a real-world coordinate reference system (CRS) for the model, for example, an EPSG integer code (e.g. 26915), authority string (i.e. epsg:26915), or Open Geospatial Consortium Well-Known Text (WKT) specification. Limited to 5000 characters. The entry for CRS does not affect the model simulation, but it is written to the binary grid file so that postprocessors can locate the grid in space.
 
@@ -127,7 +126,7 @@ reader urword
 tagged true
 optional false
 longname ncf keyword
-description keyword to specify that record corresponds to a netcdf configuration (NCF) file.
+description keyword to specify that record corresponds to a NetCDF configuration (NCF) file.
 
 block options
 name filein
@@ -148,7 +147,7 @@ reader urword
 optional false
 tagged false
 longname file name of NCF information
-description defines a netcdf configuration (NCF) input file.
+description defines a NetCDF configuration (NCF) input file.
 
 # --------------------- prt disv dimensions ---------------------
 

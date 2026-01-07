@@ -241,6 +241,7 @@ def check_output(idx, test, gridded_input):
 
 
 @pytest.mark.netcdf
+@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.parametrize("gridded_input", ["ascii", "netcdf"])
 def test_mf6model(idx, name, function_tmpdir, targets, gridded_input):

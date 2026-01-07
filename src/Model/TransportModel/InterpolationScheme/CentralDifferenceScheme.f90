@@ -15,8 +15,10 @@ module CentralDifferenceSchemeModule
     private
     class(DisBaseType), pointer :: dis
     type(TspFmiType), pointer :: fmi
+    real(DP), dimension(:), pointer :: phi
   contains
     procedure :: compute
+    procedure :: set_field
   end type CentralDifferenceSchemeType
 
   interface CentralDifferenceSchemeType
@@ -36,7 +38,20 @@ contains
 
   end function constructor
 
-  function compute(this, n, m, iposnm, phi) result(phi_face)
+  !> @brief Set the scalar field for which interpolation will be computed
+  !!
+  !! This method establishes a pointer to the scalar field data for
+  !! subsequent central difference interpolation computations.
+  !<
+  subroutine set_field(this, phi)
+    ! -- dummy
+    class(CentralDifferenceSchemeType), target :: this
+    real(DP), intent(in), dimension(:), pointer :: phi
+
+    this%phi => phi
+  end subroutine set_field
+
+  function compute(this, n, m, iposnm) result(phi_face)
     !-- return
     type(CoefficientsType) :: phi_face
     ! -- dummy
@@ -44,7 +59,6 @@ contains
     integer(I4B), intent(in) :: n
     integer(I4B), intent(in) :: m
     integer(I4B), intent(in) :: iposnm
-    real(DP), intent(in), dimension(:) :: phi
     ! -- local
     real(DP) :: lnm, lmn, omega
 
@@ -66,4 +80,5 @@ contains
     phi_face%c_m = DONE - omega
 
   end function compute
+
 end module CentralDifferenceSchemeModule

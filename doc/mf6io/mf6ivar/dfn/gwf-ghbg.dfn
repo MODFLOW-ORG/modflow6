@@ -7,6 +7,7 @@ name readarraygrid
 type keyword
 reader urword
 optional false
+developmode true
 longname use array-based grid input
 description indicates that array-based grid input will be used for the general-head boundary package.  This keyword must be specified to use array-based grid input.  When READARRAYGRID is specified, values must be provided for every cell within a model grid, even those cells that have an IDOMAIN value less than one.  Values assigned to cells with IDOMAIN values less than one are not used and have no effect on simulation results. No data cells should contain the value DNODATA (3.0E+30). 
 default_value true
@@ -115,7 +116,7 @@ reader urword
 optional true
 mf6internal export_nc
 longname export array variables to netcdf output files.
-description keyword that specifies input griddata arrays should be written to the model output netcdf file.
+description keyword that specifies input griddata arrays should be written to the model output NetCDF file.
 extended true
 
 # --------------------- gwf ghbg dimensions ---------------------

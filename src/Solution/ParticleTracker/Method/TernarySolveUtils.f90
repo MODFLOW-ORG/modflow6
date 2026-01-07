@@ -36,17 +36,17 @@ contains
     ! dummy
     integer(I4B), intent(in) :: isolv !< solution method
     real(DP), intent(in) :: tol !< solution tolerance
-    real(DP), intent(out) :: texit !< time particle exits the cell
-    real(DP) :: alpexit
-    real(DP) :: betexit !< alpha and beta coefficients
-    integer(I4B) :: itrifaceenter
-    integer(I4B) :: itrifaceexit !< entry and exit faces
-    real(DP) :: alp1
-    real(DP) :: bet1
-    real(DP) :: alp2
-    real(DP) :: bet2
-    real(DP) :: alpi
-    real(DP) :: beti !< alpha and beta coefficients
+    real(DP), intent(inout) :: texit !< time particle exits the cell
+    real(DP), intent(inout) :: alpexit
+    real(DP), intent(inout) :: betexit !< alpha and beta coefficients
+    integer(I4B), intent(in) :: itrifaceenter
+    integer(I4B), intent(inout) :: itrifaceexit !< entry and exit faces
+    real(DP), intent(in) :: alp1
+    real(DP), intent(in) :: bet1
+    real(DP), intent(in) :: alp2
+    real(DP), intent(in) :: bet2
+    real(DP), intent(in) :: alpi
+    real(DP), intent(in) :: beti !< alpha and beta coefficients
     ! local
     real(DP) :: texit0
     real(DP) :: alpexit0
@@ -103,33 +103,33 @@ contains
                        sxx, sxy, syy, &
                        alp0, bet0, alp1, bet1, alp2, bet2, alpi, beti)
     ! dummy
-    real(DP) :: x0
-    real(DP) :: y0
-    real(DP) :: x1
-    real(DP) :: y1
-    real(DP) :: x2
-    real(DP) :: y2
-    real(DP) :: v0x
-    real(DP) :: v0y
-    real(DP) :: v1x
-    real(DP) :: v1y
-    real(DP) :: v2x
-    real(DP) :: v2y
-    real(DP) :: xi
-    real(DP) :: yi
-    real(DP) :: rxx
-    real(DP) :: rxy
-    real(DP) :: ryx
-    real(DP) :: ryy !< rotation matrix
-    real(DP), intent(inout) :: sxx, sxy, syy !< skew matrix entries (top left, top right, bottom right)
-    real(DP) :: alp0
-    real(DP) :: bet0
-    real(DP) :: alp1
-    real(DP) :: bet1
-    real(DP) :: alp2
-    real(DP) :: bet2
-    real(DP) :: alpi
-    real(DP) :: beti !< alpha and beta coefficients
+    real(DP), intent(in) :: x0
+    real(DP), intent(in) :: y0
+    real(DP), intent(in) :: x1
+    real(DP), intent(in) :: y1
+    real(DP), intent(in) :: x2
+    real(DP), intent(in) :: y2
+    real(DP), intent(in) :: v0x
+    real(DP), intent(in) :: v0y
+    real(DP), intent(in) :: v1x
+    real(DP), intent(in) :: v1y
+    real(DP), intent(in) :: v2x
+    real(DP), intent(in) :: v2y
+    real(DP), intent(in) :: xi
+    real(DP), intent(in) :: yi
+    real(DP), intent(out) :: rxx
+    real(DP), intent(out) :: rxy
+    real(DP), intent(out) :: ryx
+    real(DP), intent(out) :: ryy !< rotation matrix
+    real(DP), intent(out) :: sxx, sxy, syy !< skew matrix entries (top left, top right, bottom right)
+    real(DP), intent(out) :: alp0
+    real(DP), intent(out) :: bet0
+    real(DP), intent(out) :: alp1
+    real(DP), intent(out) :: bet1
+    real(DP), intent(out) :: alp2
+    real(DP), intent(out) :: bet2
+    real(DP), intent(out) :: alpi
+    real(DP), intent(out) :: beti !< alpha and beta coefficients
     ! local
     real(DP) :: baselen
     real(DP) :: oobaselen

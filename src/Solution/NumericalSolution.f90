@@ -920,6 +920,7 @@ contains
     call this%linear_settings%init(this%memory_path)
     call this%linear_settings%preset_config(ifdparam)
     call this%linear_settings%read_from_file(this%parser, iout)
+    call this%linear_settings%check_settings()
     !
     if (this%linear_settings%ilinmeth == CG_METHOD) then
       this%isymmetric = 1
@@ -1659,9 +1660,11 @@ contains
     !
     ! -- check convergence of solution
     call this%sln_get_dxmax(this%hncg(kiter), this%lrch(1, kiter))
-    this%icnvg = 0
-    if (this%sln_has_converged(this%hncg(kiter))) then
-      this%icnvg = 1
+    if (this%icnvg /= 0) then
+      this%icnvg = 0
+      if (this%sln_has_converged(this%hncg(kiter))) then
+        this%icnvg = 1
+      end if
     end if
     !
     ! -- set failure flag

@@ -14,7 +14,7 @@ block packagedata
 name packagedata
 type recarray flowtype filein fname
 reader urword
-optional false
+optional true
 longname flowtype list
 description
 

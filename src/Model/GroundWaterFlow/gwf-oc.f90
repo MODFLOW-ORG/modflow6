@@ -28,10 +28,11 @@ contains
   !!  member variables.
   !!
   !<
-  subroutine oc_cr(ocobj, name_model, inunit, iout)
+  subroutine oc_cr(ocobj, name_model, input_mempath, inunit, iout)
     ! -- dummy
     type(GwfOcType), pointer :: ocobj !< GwfOcType object
     character(len=*), intent(in) :: name_model !< name of the model
+    character(len=*), intent(in) :: input_mempath !< input mempath of the package
     integer(I4B), intent(in) :: inunit !< unit number for input
     integer(I4B), intent(in) :: iout !< unit number for output
     !
@@ -39,14 +40,11 @@ contains
     allocate (ocobj)
     !
     ! -- Allocate scalars
-    call ocobj%allocate_scalars(name_model)
+    call ocobj%allocate_scalars(name_model, input_mempath)
     !
     ! -- Save unit numbers
     ocobj%inunit = inunit
     ocobj%iout = iout
-    !
-    ! -- Initialize block parser
-    call ocobj%parser%Initialize(inunit, iout)
   end subroutine oc_cr
 
   !> @ brief Allocate and read GwfOcType
@@ -55,6 +53,9 @@ contains
   !!
   !<
   subroutine oc_ar(this, head, dis, dnodata)
+    use ConstantsModule, only: LINELENGTH
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwfOcInputModule, only: GwfOcParamFoundType
     ! -- dummy
     class(GwfOcType) :: this !< GwfOcType object
     real(DP), dimension(:), pointer, contiguous, intent(in) :: head !< model head
@@ -64,6 +65,8 @@ contains
     integer(I4B) :: i, nocdobj, inodata
     type(OutputControlDataType), pointer :: ocdobjptr
     real(DP), dimension(:), pointer, contiguous :: nullvec => null()
+    character(len=LINELENGTH) :: headfile
+    type(GwfOcParamFoundType) :: found
     !
     ! -- Initialize variables
     inodata = 0
@@ -86,8 +89,15 @@ contains
     end do
     !
     ! -- Read options or set defaults if this package not on
-    if (this%inunit > 0) then
-      call this%read_options()
+    if (this%input_mempath /= '') then
+      write (this%iout, '(/,1x,a,/)') 'PROCESSING OC OPTIONS'
+      call this%source_options()
+      call mem_set_value(headfile, 'HEADFILE', this%input_mempath, &
+                         found%headfile)
+      if (found%headfile) then
+        call this%set_ocfile('HEAD', headfile, this%iout)
+      end if
+      write (this%iout, '(1x,a)') 'END OF OC OPTIONS'
     end if
   end subroutine oc_ar
 

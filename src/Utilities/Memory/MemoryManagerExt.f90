@@ -14,6 +14,7 @@ module MemoryManagerExtModule
   interface mem_set_value
     module procedure mem_set_value_logical, mem_set_value_int, &
       mem_set_value_int_setval, mem_set_value_str_mapped_int, &
+      mem_set_value_logical1d, mem_set_value_logical1d_mapped, &
       mem_set_value_int1d, mem_set_value_int1d_mapped, &
       mem_set_value_int2d, mem_set_value_int3d, mem_set_value_dbl, &
       mem_set_value_dbl1d, mem_set_value_dbl1d_mapped, &
@@ -128,6 +129,62 @@ contains
       end do
     end if
   end subroutine mem_set_value_str_mapped_int
+
+  !> @brief Set pointer to value of memory list 1d logical array variable
+  !<
+  subroutine mem_set_value_logical1d(p_mem, varname, memory_path, found)
+    logical(LGP), dimension(:), pointer, contiguous, intent(inout) :: p_mem !< pointer to 1d logical array
+    character(len=*), intent(in) :: varname !< variable name
+    character(len=*), intent(in) :: memory_path !< path where variable is stored
+    logical(LGP), intent(inout) :: found
+    type(MemoryType), pointer :: mt
+    logical(LGP) :: checkfail = .false.
+    integer(I4B) :: n
+
+    call get_from_memorystore(varname, memory_path, mt, found, checkfail)
+    if (.not. found) return
+    if (mt%memtype(1:index(mt%memtype, ' ')) == 'LOGICAL') then
+      if (size(mt%alogical1d) /= size(p_mem)) then
+        call store_error('mem_set_value() size mismatch logical1d, varname='//&
+                         &trim(varname), terminate=.TRUE.)
+      end if
+      do n = 1, size(mt%alogical1d)
+        p_mem(n) = mt%alogical1d(n)
+      end do
+    end if
+  end subroutine mem_set_value_logical1d
+
+  !> @brief Set pointer to value of memory list 1d logical array variable with mapping
+  !<
+  subroutine mem_set_value_logical1d_mapped(p_mem, varname, memory_path, map, &
+                                            found)
+    logical(LGP), dimension(:), pointer, contiguous, intent(inout) :: p_mem !< pointer to 1d logical array
+    character(len=*), intent(in) :: varname !< variable name
+    character(len=*), intent(in) :: memory_path !< path where variable is stored
+    integer(I4B), dimension(:), pointer, contiguous, intent(in) :: map !< pointer to 1d int mapping array
+    logical(LGP), intent(inout) :: found
+    type(MemoryType), pointer :: mt
+    logical(LGP) :: checkfail = .false.
+    integer(I4B) :: n
+
+    call get_from_memorystore(varname, memory_path, mt, found, checkfail)
+    if (.not. found) return
+    if (mt%memtype(1:index(mt%memtype, ' ')) == 'LOGICAL') then
+      if (associated(map)) then
+        do n = 1, size(p_mem)
+          p_mem(n) = mt%alogical1d(map(n))
+        end do
+      else
+        if (size(mt%alogical1d) /= size(p_mem)) then
+          call store_error('mem_set_value() size mismatch logical1d, varname='//&
+                           &trim(varname), terminate=.TRUE.)
+        end if
+        do n = 1, size(mt%alogical1d)
+          p_mem(n) = mt%alogical1d(n)
+        end do
+      end if
+    end if
+  end subroutine mem_set_value_logical1d_mapped
 
   !> @brief Set pointer to value of memory list 1d int array variable
   !<

@@ -94,6 +94,8 @@ module BaseDisModule
     procedure :: get_ncpl
     procedure :: get_cell_volume
     procedure :: get_polyverts
+    procedure :: get_npolyverts
+    procedure :: get_max_npolyverts
     procedure :: write_grb
     !
     procedure :: read_int_array
@@ -675,8 +677,8 @@ contains
     get_cell_volume = this%area(n) * thick
   end function get_cell_volume
 
-  !> @brief Get a 2D array of polygon vertices, listed in
-  !! clockwise order beginning with the lower left corner.
+  !> @brief Get a 2D array of cell polygon vertices, in
+  !! clockwise order starting with the lower left corner.
   subroutine get_polyverts(this, ic, polyverts, closed)
     class(DisBaseType), intent(inout) :: this
     integer(I4B), intent(in) :: ic !< cell number (reduced)
@@ -685,7 +687,28 @@ contains
 
     errmsg = 'Programmer error: get_polyverts must be overridden'
     call store_error(errmsg, terminate=.true.)
-  end subroutine
+  end subroutine get_polyverts
+
+  !> @brief Get the number of cell polygon vertices.
+  function get_npolyverts(this, ic, closed) result(npolyverts)
+    class(DisBaseType), intent(inout) :: this
+    integer(I4B), intent(in) :: ic !< cell number (reduced)
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
+    integer(I4B) :: npolyverts
+    npolyverts = 0 ! suppress compiler warning
+    errmsg = 'Programmer error: get_npolyverts must be overridden'
+    call store_error(errmsg, terminate=.true.)
+  end function get_npolyverts
+
+  !> @brief Get the maximum number of cell polygon vertices.
+  function get_max_npolyverts(this, closed) result(max_npolyverts)
+    class(DisBaseType), intent(inout) :: this
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
+    integer(I4B) :: max_npolyverts
+    max_npolyverts = 0 ! suppress compiler warning
+    errmsg = 'Programmer error: get_max_npolyverts must be overridden'
+    call store_error(errmsg, terminate=.true.)
+  end function get_max_npolyverts
 
   !> @brief Read an integer array
   subroutine read_int_array(this, line, lloc, istart, istop, iout, in, &

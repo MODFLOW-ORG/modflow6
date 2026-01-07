@@ -2,6 +2,8 @@ module GwtSrcModule
   !
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, DEM1, DONE, LENFTYPE, LENVARNAME
+  use SimVariablesModule, only: errmsg
+  use SimModule, only: count_errors, store_error, store_error_filename
   use TspFmiModule, only: TspFmiType
   use BndExtModule, only: BndExtType
   use ObsModule, only: DefaultObsIdProcessor
@@ -35,6 +37,7 @@ module GwtSrcModule
     procedure :: define_listlabel
     procedure :: set_nodesontop
     procedure :: bound_value => src_bound_value
+    procedure :: mass_mult
     ! -- methods for observations
     procedure, public :: bnd_obs_supported => src_obs_supported
     procedure, public :: bnd_df_obs => src_df_obs
@@ -197,7 +200,6 @@ contains
         this%nodesontop(n) = 0
       end do
     end if
-
   end subroutine src_allocate_arrays
 
   subroutine src_rp(this)
@@ -268,7 +270,10 @@ contains
         this%rhs(i) = DZERO
         cycle
       end if
-      q = this%bound_value(1, i)
+      !
+      ! -- set energy loading rate accounting for multiplier
+      q = this%mass_mult(i)
+      !
       this%rhs(i) = -q
     end do
   end subroutine src_cf
@@ -394,4 +399,24 @@ contains
     end select
   end function src_bound_value
 
+  !> @brief Return a value that applies a multiplier
+  !!
+  !! Apply multiplier to specified mass-source load depending on user-selected
+  !! option
+  !<
+  function mass_mult(this, row) result(ener)
+    ! -- modules
+    use ConstantsModule, only: DZERO
+    ! -- dummy variables
+    class(GwtSrcType), intent(inout) :: this !< BndExtType object
+    integer(I4B), intent(in) :: row
+    ! -- result
+    real(DP) :: ener
+    !
+    if (this%iauxmultcol > 0) then
+      ener = this%smassrate(row) * this%auxvar(this%iauxmultcol, row)
+    else
+      ener = this%smassrate(row)
+    end if
+  end function mass_mult
 end module GwtSrcModule

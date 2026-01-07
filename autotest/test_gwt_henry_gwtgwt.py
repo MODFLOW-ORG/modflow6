@@ -6,12 +6,14 @@ import pytest
 from framework import TestFramework
 
 cases = [
-    "henry01-gwtgwt-ups",
-    "henry01-gwtgwt-cen",
-    "henry01-gwtgwt-tvd",
-    "henry01-gwtgwt-utvd",
+    pytest.param(0, "henry01-gwtgwt-ups"),
+    pytest.param(1, "henry01-gwtgwt-cen"),
+    pytest.param(2, "henry01-gwtgwt-tvd"),
+    pytest.param(3, "henry01-gwtgwt-utvd", marks=pytest.mark.developmode),
 ]
-advection_scheme = ["UPSTREAM", "CENTRAL", "TVD", "UTVD"]
+
+
+advection_scheme = ["upstream", "central", "tvd", "utvd"]
 
 lx = 2.0
 lz = 1.0
@@ -216,8 +218,7 @@ def get_gwt_model(sim, model_shape, model_desc, adv_scheme):
     return gwt
 
 
-def build_models(idx, test):
-    name = cases[idx]
+def build_models(idx, name, test):
     print("RUINNING: ", name, advection_scheme[idx])
 
     # build MODFLOW 6 files
@@ -398,14 +399,14 @@ def check_output(idx, test):
     )
 
 
-@pytest.mark.parametrize("idx, name", enumerate(cases))
+@pytest.mark.parametrize("idx, name", cases)
 @pytest.mark.developmode
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
-        build=lambda t: build_models(idx, t),
+        build=lambda t: build_models(idx, name, t),
         check=lambda t: check_output(idx, t),
     )
     test.run()
