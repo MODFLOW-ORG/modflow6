@@ -84,10 +84,10 @@ Note that in the normal equation \ref{eqn:normal-eqn} the difference term , $\De
 		\vdots \\
 		 \Delta \phi_N / \|\vec{d}_N\|
 	\end{Bmatrix} = 
-	\begin{bmatrix}D\end{bmatrix}\vec{ \Delta\phi}_N
+	\begin{bmatrix}D\end{bmatrix}^{-1}\vec{ \Delta\phi}_N
 \end{equation}
 \begin{equation}
-	\begin{bmatrix}D\end{bmatrix} = 
+	\begin{bmatrix}D\end{bmatrix}^{-1} = 
 		\begin{bmatrix}
 		1 / \|\vec{d}_1\| & &\\
 		 & \ddots &\\
@@ -129,12 +129,12 @@ While we could detect these cases and handle them with separate code, a more ele
 
 Using the pseudoinverse approach, the general solution to the normal equation, \ref{eqn:normal-eqn}, can be written as:
 \begin{equation}
-	\vec{\nabla}\phi_p = \begin{bmatrix}d\end{bmatrix}^{\dagger} \begin{bmatrix}D\end{bmatrix} \vec{\Delta\phi}_N
+	\vec{\nabla}\phi_p = \begin{bmatrix}d\end{bmatrix}^{\dagger} \begin{bmatrix}D\end{bmatrix}^{-1} \vec{\Delta\phi}_N
 	\label{eqn:least-squares-gradient-general}
 \end{equation}
 The corresponding gradient reconstruction matrix is:
 \begin{equation}
-	\begin{bmatrix}R\end{bmatrix} = \begin{bmatrix}d\end{bmatrix}^{\dagger} \begin{bmatrix}D\end{bmatrix}
+	\begin{bmatrix}R\end{bmatrix} = \begin{bmatrix}d\end{bmatrix}^{\dagger} \begin{bmatrix}D\end{bmatrix}^{-1}
 \end{equation}
 
 \subsection{Limitations and Recommendations}
