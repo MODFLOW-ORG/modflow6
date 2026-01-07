@@ -44,13 +44,13 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        echo "==== Original mpif90 wrapper ===="
-        cat $GITHUB_WORKSPACE/openmpi/bin/mpif90
-        echo "==== Patching wrapper to add -Wl,-ld_classic ===="
-        # Add -Wl,-ld_classic to the wrapper_LDFLAGS line
-        sed -i '' 's/wrapper_LDFLAGS="/wrapper_LDFLAGS="-Wl,-ld_classic /' $GITHUB_WORKSPACE/openmpi/bin/mpif90
-        echo "==== Patched mpif90 wrapper ===="
-        cat $GITHUB_WORKSPACE/openmpi/bin/mpif90
+        echo "==== Original mpifort-wrapper-data.txt ===="
+        cat $GITHUB_WORKSPACE/openmpi/share/openmpi/mpifort-wrapper-data.txt
+        echo "==== Patching wrapper data to add -Wl,-ld_classic ===="
+        # Add -Wl,-ld_classic to the linker_flags line
+        sed -i '' 's/^linker_flags=/linker_flags=-Wl,-ld_classic /' $GITHUB_WORKSPACE/openmpi/share/openmpi/mpifort-wrapper-data.txt
+        echo "==== Patched mpifort-wrapper-data.txt ===="
+        cat $GITHUB_WORKSPACE/openmpi/share/openmpi/mpifort-wrapper-data.txt
 
     - name: Checkout PETSc
       uses: actions/checkout@v4
