@@ -4,15 +4,17 @@ Test local z coordinate conversion for PRT PRP package.
 This test verifies two fixes in the particle local-to-model z coordinate conversion
 when using the LOCALZ option in the PRP package:
 
-Fix #1: Clamp head to cell vertical extent
-    When using head as the effective cell top (in convertible cells), ensure the
-    head doesn't fall above the cell top or below the cell bottom.
+Fix #1: Constrain effective top to cell vertical extent
+    - For convertible cells whose saturated thickness depends on head set the effective
+      cell top used for local z conversion no higher than the geometric cell top and no
+      lower than the cell bottom.
 
 Fix #2: Use correct top based on cell type
     - Confined cells (icelltype==0): Use geometric top for local z conversion
-    - Convertible cells (icelltype!=0): Use head as effective top for local z conversion
+    - Convertible cells (icelltype!=0): Use head (subject to constraint in fix #1) as
+      effective top for local z conversion
 
-The test includes 4 cases, each with a simple single-layer model:
+The test includes 6 cases, each with a simple single-layer model:
 1. Convertible cell with head within bounds → uses head as top
 2. Confined cell with head within bounds → uses geometric top
 3. Convertible cell with head < bottom (dry cell) → clamps to bottom
@@ -41,9 +43,9 @@ simname = "prtz"
 
 # Six test cases, each with FMI and exchange variants
 cases = [
-    f"{simname}cvt",  # convertible, normal head
+    f"{simname}cvt",  # convertible, bottom < head < top
     f"{simname}cvtexg",
-    f"{simname}cnf",  # confined, normal head
+    f"{simname}cnf",  # confined, bottom < head < top
     f"{simname}cnfexg",
     f"{simname}cvtdr",  # convertible, head < bottom
     f"{simname}cvtexgdr",
@@ -122,7 +124,7 @@ case_params = {
     "cnflo": {  # Case 4: Confined, head < bottom
         "top": 10.0,
         "botm": [5.0],
-        "strt": [[3.0]],  # head below bottom (negative pressure head)
+        "strt": [[3.0]],  # head below bottom
         "icelltype": [0],
         "releasepts": [
             [0, 0, 0, 0, 2.0, 5.0, 0.0],
@@ -148,7 +150,7 @@ case_params = {
             [2, 0, 0, 0, 8.0, 5.0, 1.0],
         ],
         "expected_z": {
-            # Head clamped to top: top = min(10.0, 12.0) = 10.0
+            # effective top clamped to top: top = min(10.0, 12.0) = 10.0
             0: 5.0,  # bot + 0.0 * (min(top,head) - bot) = 5.0 + 0.0 * 5.0 = 5.0
             1: 7.5,  # bot + 0.5 * (min(top,head) - bot) = 5.0 + 0.5 * 5.0 = 7.5
             2: 10.0,  # bot + 1.0 * (min(top,head) - bot) = 5.0 + 1.0 * 5.0 = 10.0
@@ -158,7 +160,7 @@ case_params = {
     "cnfhi": {  # Case 6: Confined, head > top
         "top": 10.0,
         "botm": [5.0],
-        "strt": [[12.0]],  # head above top (artesian conditions)
+        "strt": [[12.0]],  # head > top
         "icelltype": [0],
         "releasepts": [
             [0, 0, 0, 0, 2.0, 5.0, 0.0],
