@@ -1,15 +1,15 @@
 # Test the use of the atmospheric boundary condition utility used in conjunction
-# with the SFE advanced package.  This test uses four cells that each have a 
-# single reach. Channel flow characteristics are unrealistic: Manning's n is 
-# unrealistically low and slope is extremely high. These conditions result in 
-# an extremely high streamflow velocity that results in nearly all of the heat 
+# with the SFE advanced package.  This test uses four cells that each have a
+# single reach. Channel flow characteristics are unrealistic: Manning's n is
+# unrealistically low and slope is extremely high. These conditions result in
+# an extremely high streamflow velocity that results in nearly all of the heat
 # being added to, or subtracted from, the channel at the outlet with near-
-# negligle heat storage increases (or decreases) in the channel. 
+# negligle heat storage increases (or decreases) in the channel.
 #
-# This test applies each of the atmospheric boundary conditions heat fluxes to 
-# only 1 of the reaches.  In other words, the shortwave radiation is applied to 
-# the first reach, longwave radiation to the second reach, sensible heat flux 
-# to the third, and latent heat flux to the fourth reach.  The idea is that the 
+# This test applies each of the atmospheric boundary conditions heat fluxes to
+# only 1 of the reaches.  In other words, the shortwave radiation is applied to
+# the first reach, longwave radiation to the second reach, sensible heat flux
+# to the third, and latent heat flux to the fourth reach.  The idea is that the
 # temperature change at the outlet of each reach, before it flows into the next
 # downstream reach, is either a positive or negative 1 deg C change streamflow,
 # a result that is relatively simple to confirm.
@@ -68,13 +68,29 @@ surf_Q_in = [
 wspd = [0.0, 0.0, 126005.30, 126005.30]  # unrealistically high to drive a -1C change
 tatm = [0.0, 5.0, 5.0, 5.0]  # used by lwr, shf, lhf
 # shortwave radiation parameter values
-solr = [43092783.5051547, 0.0, 0.0, 0.0]  # unrealistically high to drive a 1 deg C rise in stream temperature
+# unrealistically high to drive a 1 deg C rise in stream temperature
+solr = [
+    43092783.5051547,
+    0.0,
+    0.0,
+    0.0,
+]
 shd = [0.0, 0.0, 1.0, 1.0]  # 100% shade "turns off" solar flux
 swrefl = [0.03, 0.03, 0.03, 0.03]
 rh = [0.0, 30.0, 0.0, 30.0]  # percent
-atmc = [0.0, 9667.121567, 0.0, 0.0]  # atmosphere composition adjustment factor (using dummy value to drive half a degree change)
-# latent heat flux parameter values (these values are specified in the options block and are therefore constant across reaches
-c_d = 0.0  # Drag coefficient ($unitless$) 
+
+# atmosphere composition adjustment factor (using dummy value to drive
+# half a degree change)
+atmc = [
+    0.0,
+    9667.121567,
+    0.0,
+    0.0,
+]
+
+# latent heat flux parameter values (these values are specified in the options
+# block and are therefore constant across reaches
+c_d = 0.0  # Drag coefficient ($unitless$)
 wf_slope = 1.383e-08  # wind function slope ($1/mbar$)
 wf_int = 3.445e-09  # wind function intercept ($m/s$)
 
@@ -106,6 +122,7 @@ hclose, rclose, relax = 1e-10, 1e-10, 0.97
 #
 # MODFLOW 6 flopy GWF object
 #
+
 
 def build_models(idx, test):
     # Base simulation and model name and workspace
@@ -218,7 +235,7 @@ def build_models(idx, test):
     ustrf = 1.0
     ndv = 0
     strm_incision = 0.05
-    
+
     # explicitly set connections
     conns = [(0, -1), (1, 0, -2), (2, 1, -3), (3, 2)]
 
@@ -414,7 +431,7 @@ def build_models(idx, test):
             spd.append([irno, "SWREFL", swrefl[irno]])
             spd.append([irno, "RH", rh[irno]])
             spd.append([irno, "ATMC", atmc[irno]])
-        
+
         abc_spd[kper] = spd
 
     abc = flopy.mf6.ModflowUtlabc(
