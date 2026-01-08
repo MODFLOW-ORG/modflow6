@@ -5,9 +5,9 @@ This test verifies two fixes in the particle local-to-model z coordinate convers
 when using the LOCALZ option in the PRP package:
 
 Fix #1: Constrain effective top to cell vertical extent
-    - For convertible cells whose saturated thickness depends on head set the effective
-      cell top used for local z conversion no higher than the geometric cell top and no
-      lower than the cell bottom.
+    - For convertible cells, whose saturated thickness depends on head, set effective
+      cell top used for local z conversion no higher than the geometric cell top and
+      no lower than the cell bottom.
 
 Fix #2: Use correct top based on cell type
     - Confined cells (icelltype==0): Use geometric top for local z conversion
