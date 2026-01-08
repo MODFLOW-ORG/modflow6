@@ -106,4 +106,4 @@ description = "The storage term for SFE, like SFT, was not consistent with the s
 [[items]]
 section = "features"
 subsection = "stress"
-description = "Added the FLOW\\_REDUCTION\\_LENGTH option to WEL package that indicates the AUTO\\_FLOW\\_REDUCE value is a length instead of a fraction of the cell thickness. A warning will be issued if the FLOW\\_REDUCTION\\_LENGTH option is specified but the AUTO\\_FLOW\\_REDUCE option is not specified in the options block. The program will terminate with an error if FLOW\\_REDUCTION\\_LENGTH is specified and the AUTO\\_FLOW\\_REDUCE value specified in the options block is less than or equal to zero."
+description = "Added the FLOW\\_REDUCTION\\_LENGTH option to WEL package that indicates the AUTO\\_FLOW\\_REDUCE value is a length instead of a fraction of the cell thickness. A warning will be issued if the FLOW\\_REDUCTION\\_LENGTH option is specified but the AUTO\\_FLOW\\_REDUCE option is not specified in the options block. The program will terminate with an error if the FLOW\\_REDUCTION\\_LENGTH option is specified and the AUTO\\_FLOW\\_REDUCE value specified in the options block is less than or equal to zero."
