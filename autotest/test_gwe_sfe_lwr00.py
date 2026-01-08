@@ -1,14 +1,10 @@
-# Test the use of the atmospheric boundary condition utility used in conjunction 
-# with the SFE advanced package.  This test is a single cell with a single reach.
+# Test the use of the atmospheric boundary condition utility used in conjunction with
+# the SFE advanced package.  This test is a single cell with a single reach.
 # Channel flow characteristics are unrealistic: Manning's n is unrealistically
 # low and slope is extremely high. These conditions result in an extremely high
 # streamflow velocity that results in nearly all of the heat being added to the
 # channel exiting at the outlet with very near negligle heat storage increases
 # in the channel. This test only uses longwave radiation heat flux (lwr).
-#
-# A second sub-test was added that checks things work when temperatures are 
-# entered in Fahrenheit
-#
 # The result is a 1 deg C change in temperature in the
 # streamflow - an easy result to confirm in this test.
 
@@ -21,9 +17,7 @@ import pandas as pd
 import pytest
 from framework import TestFramework
 
-cases = ["sfe-abc", "sfe-abc-fah", "sfe-abc-cel"]
-
-DCTOK = 273.15
+cases = ["sfe-abc"]
 
 # Model units
 length_units = "m"
@@ -60,7 +54,7 @@ rhk = 0.0
 rwid = 1.0
 strm_temp = 11.0
 surf_Q_in = [
-    [10.0], [10.0], [10.0],
+    [10.0],
 ]
 # sensible and latent heat flux parameter values
 wspd = 126005.30  # unrealistically high to drive a -1C change
@@ -75,8 +69,8 @@ rh = 30.0  # percent
 lwrefl = 0.03  # Fogg et al 2023
 emiss_riparian = 0.97  # Fogg et al 2023
 emiss_water = 0.95  # Fogg et al 2023
-tatm = [686.8339, 776.63102, 413.6839]  # unrealistically high atm temp acknowledged
-# atmospheric composition
+tatm = 689.8339  # unrealistically high atm temp that results in a 1C increase in
+# stream temperature if lwr is only flux
 atmc = 0.0
 
 
@@ -100,10 +94,8 @@ K_therm_strmbed = 0.0
 rbthcnd = 0.0001
 
 # Constants
-stephan_boltzmann = 5.670374419e-08
-#                       K,             F,      C
-temperature_offset = [0.0, 255.372222222, 273.15]
-temperature_factor = [1.0, 0.55555555556, 1.0000]
+stephan_boltzmann = 5.670374416e-08
+c_to_k = 273.15
 
 # time params
 steady = {0: True, 1: False}
@@ -413,7 +405,7 @@ def build_models(idx, test):
         spd = []
         for irno in range(ncol):
             spd.append([irno, "WSPD", wspd])
-            spd.append([irno, "TATM", tatm[idx]])
+            spd.append([irno, "TATM", tatm])
             spd.append([irno, "SOLR", solr])
             spd.append([irno, "SHD", shd])
             spd.append([irno, "SWREFL", swrefl])
@@ -426,16 +418,14 @@ def build_models(idx, test):
         print_input=True,
         density_air=rhoa,
         heat_capacity_air=Cpa,
+        drag_coefficient=c_d,
+        wind_func_slope=wf_slope,
+        wind_func_int=wf_int,
         reachperioddata=abc_spd,
         filename=abc_filename,
         longwave_reflectance=lwrefl,
         emissivity_water=emiss_water,
         emissivity_canopy=emiss_riparian,
-        temperature_factor=temperature_factor[idx],
-        temperature_offset=temperature_offset[idx],
-        swr_off=True,
-        lhf_off=True,
-        shf_off=True,
     )
 
     # Instantiate Output Control package for transport
@@ -463,27 +453,46 @@ def build_models(idx, test):
 # sim, dum = build_models(0, r"c:\temp\_shf00")
 # sim.write_simulation()
 
-# Other energy transfers should equal 0
-#  tgrad = tatm - strm_temp
-#  shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
+# Other energy tranfers should equal 0
+#    tgrad = tatm - strm_temp
+#   shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
 
 
 def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
+    # shortwave
+    swr_ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
+
+    # latent
+    L = (2499.64 - (2.51 * strm_temp)) * 1000
+    e_w = 6.1275 * math.exp(17.2693882 * (strm_temp / (strm_temp + c_to_k - 35.86)))
+    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + c_to_k - 35.86)))
+    e_a = (rh / 100) * e_s
+    vap_press_deficit = e_w - e_a
+    wind_function = wf_int + wf_slope * wspd
+    Ev = wind_function * vap_press_deficit
+    lhf_ener_per_sqm = Ev * L * rhow
+
+    # sensible
+    bowen_ratio = 0.00061 * atmp * ((strm_temp - tatm) / (e_w - e_a))
+    shf_ener_per_sqm = bowen_ratio * lhf_ener_per_sqm
+
     # longwave
-    Ql_up = emiss_water * stephan_boltzmann * (updated_strm_temp**4)
+    Ql_up = -emiss_water * stephan_boltzmann * ((updated_strm_temp + c_to_k) ** 4)
 
-    e_s = 6.1275 * math.exp(17.2693882 * ((tatm[0] - DCTOK) / (tatm[0] - 35.86)))
-    e_a = (rh / 100.0) * e_s
-    emiss_air = (1.24 * (e_a / tatm[0]) ** (1.0 / 7.0)) * atmc  # calcs to 0
-    emiss_down = (
-        1.0 - shd
-    ) * emiss_air + shd * emiss_riparian  # calcs to emiss_riparian
+    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + c_to_k - 35.86)))
+    e_a = (rh / 100) * e_s
+    emiss_air = (1.24 * (e_a / (tatm + c_to_k)) ** (1 / 7)) * atmc  # calcs to 0
+    emiss_down = (1 - shd) * emiss_air + shd * emiss_riparian  # calcs to emiss_riparian
 
-    Ql_down = emiss_down * stephan_boltzmann * (tatm[0]**4)
+    Ql_down = emiss_down * stephan_boltzmann * ((tatm + c_to_k) ** 4)
 
-    lwr_ener_per_sqm = Ql_down * (1.0 - lwrefl) - Ql_up
+    lwr_ener_per_sqm = Ql_down * (1 - lwrefl) + Ql_up
 
-    ener_transfer = lwr_ener_per_sqm * delr * mf_strm_wid
+    total_ener = (
+        lwr_ener_per_sqm + swr_ener_per_sqm + shf_ener_per_sqm - lhf_ener_per_sqm
+    )
+
+    ener_transfer = total_ener * delr * mf_strm_wid
 
     return ener_transfer
 
@@ -514,7 +523,7 @@ def check_output(idx, test):
     strt_strm_temp = strm_temp
     updated_strm_temp = strm_temp
     while chng > hclose:
-        ener_transfer = calc_ener_transfer(updated_strm_temp + DCTOK, mf_strm_wid)
+        ener_transfer = calc_ener_transfer(updated_strm_temp, mf_strm_wid)
         temp_change = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
         updated_temp = strt_strm_temp + temp_change
         chng = abs(updated_strm_temp - updated_temp)
@@ -534,7 +543,7 @@ def check_output(idx, test):
 
     assert np.isclose(
         df2.loc[0, "RCH1_OUTFTEMP"], strt_strm_temp + temp_change, atol=1e-6
-    ), msg3 + ". " + msg1  # msg2 + ". " +
+    ), msg2 + ". " + msg3 + ". " + msg1
 
 
 # - No need to change any code below
