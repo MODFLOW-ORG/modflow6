@@ -1,18 +1,12 @@
-# Test the use of the atmospheric boundary condition utility used in conjunction
-# with the SFE advanced package.  This test uses four cells that each have a
-# single reach. Channel flow characteristics are unrealistic: Manning's n is
-# unrealistically low and slope is extremely high. These conditions result in
-# an extremely high streamflow velocity that results in nearly all of the heat
-# being added to, or subtracted from, the channel at the outlet with near-
-# negligle heat storage increases (or decreases) in the channel.
-#
-# This test applies each of the atmospheric boundary conditions heat fluxes to
-# only 1 of the reaches.  In other words, the shortwave radiation is applied to
-# the first reach, longwave radiation to the second reach, sensible heat flux
-# to the third, and latent heat flux to the fourth reach.  The idea is that the
-# temperature change at the outlet of each reach, before it flows into the next
-# downstream reach, is either a positive or negative 1 deg C change streamflow,
-# a result that is relatively simple to confirm.
+# Test the use of the atmospheric boundary condition utility used in conjunction with
+# the SFE advanced package.  This test is a single cell with a single reach.
+# Channel flow characteristics are unrealistic: Manning's n is unrealistically
+# low and slope is extremely high. These conditions result in an extremely high
+# streamflow velocity that results in nearly all of the heat being added to the
+# channel exiting at the outlet with very near negligle heat storage increases
+# in the channel. This test only uses longwave radiation heat flux (lwr).
+# The result is a 1 deg C change in temperature in the
+# streamflow - an easy result to confirm in this test.
 
 import math
 import os
@@ -32,7 +26,7 @@ time_units = "seconds"
 # model domain and grid definition
 
 nrow = 1
-ncol = 4
+ncol = 1
 nlay = 1
 delr = 1.0
 delc = 1.0
@@ -62,38 +56,23 @@ strm_temp = 11.0
 surf_Q_in = [
     [10.0],
 ]
-
-
 # sensible and latent heat flux parameter values
-wspd = [0.0, 0.0, 126005.30, 126005.30]  # unrealistically high to drive a -1C change
-tatm = [0.0, 5.0, 5.0, 5.0]  # used by lwr, shf, lhf
+wspd = 126005.30  # unrealistically high to drive a -1C change
+# tatm = 5.0
+atmp = 100.0
 # shortwave radiation parameter values
+solr = 47880870.9  # unrealistically high to drive a 1 deg C rise in stream temperature
+shd = 1.0  # 100% shade "turns off" solar flux
+swrefl = 0.1  # Fogg et al 2023
+rh = 30.0  # percent
+# longwave radiation parameter values
+lwrefl = 0.03  # Fogg et al 2023
+emiss_riparian = 0.97  # Fogg et al 2023
+emiss_water = 0.95  # Fogg et al 2023
+tatm = 689.8339  # unrealistically high atm temp that results in a 1C increase in
+# stream temperature if lwr is only flux
+atmc = 0.0
 
-# unrealistically high to drive a 1 deg C rise in stream temperature
-solr = [
-    43092783.5051547,
-    0.0,
-    0.0,
-    0.0,
-]
-shd = [0.0, 0.0, 1.0, 1.0]  # 100% shade "turns off" solar flux
-swrefl = [0.03, 0.03, 0.03, 0.03]
-rh = [0.0, 30.0, 0.0, 30.0]  # percent
-
-# atmosphere composition adjustment factor (using dummy value to drive
-# half a degree change)
-atmc = [
-    0.0,
-    9667.121567,
-    0.0,
-    0.0,
-]
-
-# latent heat flux parameter values (these values are specified in the options
-# block and are therefore constant across reaches
-c_d = 0.0  # Drag coefficient ($unitless$)
-wf_slope = 1.383e-08  # wind function slope ($1/mbar$)
-wf_int = 3.445e-09  # wind function intercept ($m/s$)
 
 # Transport related parameters
 porosity = sy  # porosity (unitless)
@@ -105,10 +84,18 @@ Cpw = 4180.0  # Heat capacity of water ($J/kg/C$)
 Cps = 880.0  # Heat capacity of the solids ($J/kg/C$)
 Cpa = 717.0  # Heat capacity of the atmosphere ($J/kg/C$)
 lhv = 2454000.0  # Latent heat of vaporization ($J/kg$)
-
+c_d = 0.0  # Drag coefficient ($unitless$) !!
+wf_slope = 0.0  # 1.383e-08  # wind function slope ($1/mbar$)
+## changing to 0 to "turn off" evap rate
+wf_int = 0.0  # 3.445e-09  # wind function intercept ($m/s$)
+## changing to 0 to "turn off" evap rate
 # Thermal conductivity of the streambed material ($W/m/C$)
 K_therm_strmbed = 0.0
 rbthcnd = 0.0001
+
+# Constants
+stephan_boltzmann = 5.670374416e-08
+c_to_k = 273.15
 
 # time params
 steady = {0: True, 1: False}
@@ -237,15 +224,11 @@ def build_models(idx, test):
     ndv = 0
     strm_incision = 0.05
 
-    # explicitly set connections
-    conns = [(0, -1), (1, 0, -2), (2, 1, -3), (3, 2)]
-
     packagedata = []
     for irch in range(nreaches):
-        ncon = len(conns[irch]) - 1
         rp = [
             irch,
-            (0, 0, irch),
+            (0, 0, 0),
             rlen,
             rwid,
             slope,
@@ -253,19 +236,21 @@ def build_models(idx, test):
             rbth,
             strmbd_hk,
             roughness,
-            ncon,
+            nconn,
             ustrf,
             ndv,
         ]
         packagedata.append(rp)
 
+    connectiondata = [0]
+
     sfr_perioddata = {}
-    for t in np.arange(len(perlen)):
+    for t in np.arange(len(surf_Q_in[idx])):
         sfrbndx = []
         for i in np.arange(nreaches):
-            # only specify inflow for the first reach
             if i == 0:
-                sfrbndx.append([i, "INFLOW", surf_Q_in[idx][i]])
+                sfrbndx.append([i, "INFLOW", surf_Q_in[idx][t]])
+            # sfrbndx.append([i, "EVAPORATION", sfr_evaprate])
 
         sfr_perioddata.update({t: sfrbndx})
 
@@ -294,7 +279,7 @@ def build_models(idx, test):
         mover=False,
         nreaches=nreaches,
         packagedata=packagedata,
-        connectiondata=conns,
+        connectiondata=connectiondata,
         perioddata=sfr_perioddata,
         observations=sfr_obs,
         pname="SFR",
@@ -389,13 +374,7 @@ def build_models(idx, test):
     sfe_obs = {
         f"{gwename}.sfe.obs.csv": [
             ("rch1_outftemp", "temperature", 1),
-            ("rch1_outftemp", "temperature", 2),
-            ("rch1_outftemp", "temperature", 3),
-            ("rch1_outftemp", "temperature", 4),
             ("rch1_outfener", "ext-outflow", 1),
-            ("rch1_outfener", "ext-outflow", 2),
-            ("rch1_outfener", "ext-outflow", 3),
-            ("rch1_outfener", "ext-outflow", 4),
         ],
         "digits": 8,
         "print_input": True,
@@ -425,14 +404,13 @@ def build_models(idx, test):
     for kper in range(len(nstp)):
         spd = []
         for irno in range(ncol):
-            spd.append([irno, "WSPD", wspd[irno]])
-            spd.append([irno, "TATM", tatm[irno]])
-            spd.append([irno, "SOLR", solr[irno]])
-            spd.append([irno, "SHD", shd[irno]])
-            spd.append([irno, "SWREFL", swrefl[irno]])
-            spd.append([irno, "RH", rh[irno]])
-            spd.append([irno, "ATMC", atmc[irno]])
-
+            spd.append([irno, "WSPD", wspd])
+            spd.append([irno, "TATM", tatm])
+            spd.append([irno, "SOLR", solr])
+            spd.append([irno, "SHD", shd])
+            spd.append([irno, "SWREFL", swrefl])
+            spd.append([irno, "RH", rh])
+            spd.append([irno, "ATMC", atmc])
         abc_spd[kper] = spd
 
     abc = flopy.mf6.ModflowUtlabc(
@@ -445,6 +423,9 @@ def build_models(idx, test):
         wind_func_int=wf_int,
         reachperioddata=abc_spd,
         filename=abc_filename,
+        longwave_reflectance=lwrefl,
+        emissivity_water=emiss_water,
+        emissivity_canopy=emiss_riparian,
     )
 
     # Instantiate Output Control package for transport
@@ -472,22 +453,48 @@ def build_models(idx, test):
 # sim, dum = build_models(0, r"c:\temp\_shf00")
 # sim.write_simulation()
 
+# Other energy tranfers should equal 0
+#    tgrad = tatm - strm_temp
+#   shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
+
 
 def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
-    L = (2499.64 - (2.51 * updated_strm_temp)) * 1000
-    e_w = 6.1275 * math.exp(
-        17.2693882 * (updated_strm_temp / (updated_strm_temp + 273.16 - 35.86))
-    )
-    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + 273.16 - 35.86)))
+    # shortwave
+    swr_ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
+
+    # latent
+    L = (2499.64 - (2.51 * strm_temp)) * 1000
+    e_w = 6.1275 * math.exp(17.2693882 * (strm_temp / (strm_temp + c_to_k - 35.86)))
+    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + c_to_k - 35.86)))
     e_a = (rh / 100) * e_s
     vap_press_deficit = e_w - e_a
     wind_function = wf_int + wf_slope * wspd
     Ev = wind_function * vap_press_deficit
     lhf_ener_per_sqm = Ev * L * rhow
 
-    ener_transfer = lhf_ener_per_sqm * delr * mf_strm_wid
+    # sensible
+    bowen_ratio = 0.00061 * atmp * ((strm_temp - tatm) / (e_w - e_a))
+    shf_ener_per_sqm = bowen_ratio * lhf_ener_per_sqm
 
-    return -ener_transfer
+    # longwave
+    Ql_up = -emiss_water * stephan_boltzmann * ((updated_strm_temp + c_to_k) ** 4)
+
+    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + c_to_k - 35.86)))
+    e_a = (rh / 100) * e_s
+    emiss_air = (1.24 * (e_a / (tatm + c_to_k)) ** (1 / 7)) * atmc  # calcs to 0
+    emiss_down = (1 - shd) * emiss_air + shd * emiss_riparian  # calcs to emiss_riparian
+
+    Ql_down = emiss_down * stephan_boltzmann * ((tatm + c_to_k) ** 4)
+
+    lwr_ener_per_sqm = Ql_down * (1 - lwrefl) + Ql_up
+
+    total_ener = (
+        lwr_ener_per_sqm + swr_ener_per_sqm + shf_ener_per_sqm - lhf_ener_per_sqm
+    )
+
+    ener_transfer = total_ener * delr * mf_strm_wid
+
+    return ener_transfer
 
 
 def check_output(idx, test):
@@ -508,14 +515,10 @@ def check_output(idx, test):
     # confirm stream width is 1.0 m
     assert np.isclose(mf_strm_wid, 1.0, atol=1e-9), msg0
 
-    # confirm that the energy added to the stream results in a -1C change in temp
+    # confirm that the energy added to the stream results in a 1C change in temp
     # temperature gradient
 
-    tgrad = tatm - strm_temp
-    shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
-    swr_ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
-
-    # latent calcs
+    # lw calcs
     chng = 1
     strt_strm_temp = strm_temp
     updated_strm_temp = strm_temp

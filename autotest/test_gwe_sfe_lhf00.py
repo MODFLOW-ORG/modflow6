@@ -1,18 +1,12 @@
-# Test the use of the atmospheric boundary condition utility used in conjunction
-# with the SFE advanced package.  This test uses four cells that each have a
-# single reach. Channel flow characteristics are unrealistic: Manning's n is
-# unrealistically low and slope is extremely high. These conditions result in
-# an extremely high streamflow velocity that results in nearly all of the heat
-# being added to, or subtracted from, the channel at the outlet with near-
-# negligle heat storage increases (or decreases) in the channel.
-#
-# This test applies each of the atmospheric boundary conditions heat fluxes to
-# only 1 of the reaches.  In other words, the shortwave radiation is applied to
-# the first reach, longwave radiation to the second reach, sensible heat flux
-# to the third, and latent heat flux to the fourth reach.  The idea is that the
-# temperature change at the outlet of each reach, before it flows into the next
-# downstream reach, is either a positive or negative 1 deg C change streamflow,
-# a result that is relatively simple to confirm.
+# Test the use of the atmospheric boundary condition utility used in conjunction with
+# the SFE advanced package.  This test is a single cell with a single reach.
+# Channel flow characteristics are unrealistic: Manning's n is unrealistically
+# low and slope is extremely high. These conditions result in an extremely high
+# streamflow velocity that results in nearly all of the heat being added to the
+# channel exiting at the outlet with very near negligle heat storage increases
+# in the channel. This test only uses latent heat flux (lhf).
+# The result is a -1 deg C change in temperature in the
+# streamflow - an easy result to confirm in this test.
 
 import math
 import os
@@ -32,7 +26,7 @@ time_units = "seconds"
 # model domain and grid definition
 
 nrow = 1
-ncol = 4
+ncol = 1
 nlay = 1
 delr = 1.0
 delc = 1.0
@@ -62,38 +56,14 @@ strm_temp = 11.0
 surf_Q_in = [
     [10.0],
 ]
-
-
 # sensible and latent heat flux parameter values
-wspd = [0.0, 0.0, 126005.30, 126005.30]  # unrealistically high to drive a -1C change
-tatm = [0.0, 5.0, 5.0, 5.0]  # used by lwr, shf, lhf
+wspd = 126005.30  # unrealistically high to drive a -1C change
+tatm = 5.0
 # shortwave radiation parameter values
-
-# unrealistically high to drive a 1 deg C rise in stream temperature
-solr = [
-    43092783.5051547,
-    0.0,
-    0.0,
-    0.0,
-]
-shd = [0.0, 0.0, 1.0, 1.0]  # 100% shade "turns off" solar flux
-swrefl = [0.03, 0.03, 0.03, 0.03]
-rh = [0.0, 30.0, 0.0, 30.0]  # percent
-
-# atmosphere composition adjustment factor (using dummy value to drive
-# half a degree change)
-atmc = [
-    0.0,
-    9667.121567,
-    0.0,
-    0.0,
-]
-
-# latent heat flux parameter values (these values are specified in the options
-# block and are therefore constant across reaches
-c_d = 0.0  # Drag coefficient ($unitless$)
-wf_slope = 1.383e-08  # wind function slope ($1/mbar$)
-wf_int = 3.445e-09  # wind function intercept ($m/s$)
+solr = 47880870.9  # unrealistically high to drive a 1 deg C rise in stream temperature
+shd = 1.0  # 100% shade "turns off" solar flux
+swrefl = 0.03
+rh = 30.0  # percent
 
 # Transport related parameters
 porosity = sy  # porosity (unitless)
@@ -105,7 +75,9 @@ Cpw = 4180.0  # Heat capacity of water ($J/kg/C$)
 Cps = 880.0  # Heat capacity of the solids ($J/kg/C$)
 Cpa = 717.0  # Heat capacity of the atmosphere ($J/kg/C$)
 lhv = 2454000.0  # Latent heat of vaporization ($J/kg$)
-
+c_d = 0.0  # Drag coefficient ($unitless$) !!
+wf_slope = 1.383e-08  # wind function slope ($1/mbar$)
+wf_int = 3.445e-09  # wind function intercept ($m/s$)
 # Thermal conductivity of the streambed material ($W/m/C$)
 K_therm_strmbed = 0.0
 rbthcnd = 0.0001
@@ -237,15 +209,11 @@ def build_models(idx, test):
     ndv = 0
     strm_incision = 0.05
 
-    # explicitly set connections
-    conns = [(0, -1), (1, 0, -2), (2, 1, -3), (3, 2)]
-
     packagedata = []
     for irch in range(nreaches):
-        ncon = len(conns[irch]) - 1
         rp = [
             irch,
-            (0, 0, irch),
+            (0, 0, 0),
             rlen,
             rwid,
             slope,
@@ -253,19 +221,21 @@ def build_models(idx, test):
             rbth,
             strmbd_hk,
             roughness,
-            ncon,
+            nconn,
             ustrf,
             ndv,
         ]
         packagedata.append(rp)
 
+    connectiondata = [0]
+
     sfr_perioddata = {}
-    for t in np.arange(len(perlen)):
+    for t in np.arange(len(surf_Q_in[idx])):
         sfrbndx = []
         for i in np.arange(nreaches):
-            # only specify inflow for the first reach
             if i == 0:
-                sfrbndx.append([i, "INFLOW", surf_Q_in[idx][i]])
+                sfrbndx.append([i, "INFLOW", surf_Q_in[idx][t]])
+            # sfrbndx.append([i, "EVAPORATION", sfr_evaprate])
 
         sfr_perioddata.update({t: sfrbndx})
 
@@ -294,7 +264,7 @@ def build_models(idx, test):
         mover=False,
         nreaches=nreaches,
         packagedata=packagedata,
-        connectiondata=conns,
+        connectiondata=connectiondata,
         perioddata=sfr_perioddata,
         observations=sfr_obs,
         pname="SFR",
@@ -389,13 +359,7 @@ def build_models(idx, test):
     sfe_obs = {
         f"{gwename}.sfe.obs.csv": [
             ("rch1_outftemp", "temperature", 1),
-            ("rch1_outftemp", "temperature", 2),
-            ("rch1_outftemp", "temperature", 3),
-            ("rch1_outftemp", "temperature", 4),
             ("rch1_outfener", "ext-outflow", 1),
-            ("rch1_outfener", "ext-outflow", 2),
-            ("rch1_outfener", "ext-outflow", 3),
-            ("rch1_outfener", "ext-outflow", 4),
         ],
         "digits": 8,
         "print_input": True,
@@ -425,14 +389,12 @@ def build_models(idx, test):
     for kper in range(len(nstp)):
         spd = []
         for irno in range(ncol):
-            spd.append([irno, "WSPD", wspd[irno]])
-            spd.append([irno, "TATM", tatm[irno]])
-            spd.append([irno, "SOLR", solr[irno]])
-            spd.append([irno, "SHD", shd[irno]])
-            spd.append([irno, "SWREFL", swrefl[irno]])
-            spd.append([irno, "RH", rh[irno]])
-            spd.append([irno, "ATMC", atmc[irno]])
-
+            spd.append([irno, "WSPD", wspd])
+            spd.append([irno, "TATM", tatm])
+            spd.append([irno, "SOLR", solr])
+            spd.append([irno, "SHD", shd])
+            spd.append([irno, "SWREFL", swrefl])
+            spd.append([irno, "RH", rh])
         abc_spd[kper] = spd
 
     abc = flopy.mf6.ModflowUtlabc(
