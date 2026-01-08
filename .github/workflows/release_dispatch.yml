@@ -171,7 +171,7 @@ jobs:
       branch: ${{ needs.set_options.outputs.branch }}
       # If the workflow is manually triggered, the maintainer must manually set releasemode to true, otherwise the default is false.
       # If triggered by pushing a release branch, the release is developmode if the branch name contains "rc", otherwise releasemode.
-      releasemode: ${{ (github.event_name == 'workflow_dispatch' && inputs.releasemode == 'true') || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc')) }}
+      releasemode: ${{ (github.event_name == 'workflow_dispatch' && inputs.releasemode == 'true') || github.event_name != 'workflow_dispatch' }}
       # If the workflow is manually triggered, the maintainer must manually set run_tests to false, otherwise the default is true.
       # If triggered by pushing a release branch, tests are enabled.
       run_tests: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_tests == 'true') || github.event_name != 'workflow_dispatch' }}
