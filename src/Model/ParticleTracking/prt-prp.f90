@@ -532,7 +532,7 @@ contains
       ! if cell is confined (icelltype == 0) use the
       ! actual cell height (geometric top - bottom).
       ! otherwise use head as cell top, clamping to
-      ! the cell bottom if head is below the bottom and
+      ! the cell bottom if head is below the bottom
       ! and to geometric cell top if head is above top
       top = this%fmi%dis%top(ic)
       bot = this%fmi%dis%bot(ic)
