@@ -396,6 +396,16 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
+      - name: Free disk space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
 
       - name: Checkout modflow6
         uses: actions/checkout@v6
