@@ -19,8 +19,6 @@ from framework import TestFramework
 
 cases = ["sfe-abc"]
 
-DCTOK = 273.16
-
 # Model units
 length_units = "m"
 time_units = "seconds"
@@ -60,7 +58,7 @@ surf_Q_in = [
 ]
 # sensible and latent heat flux parameter values
 wspd = 126005.30  # unrealistically high to drive a -1C change
-tatm = 5.0 + DCTOK
+tatm = 5.0
 # shortwave radiation parameter values
 solr = 47880870.9  # unrealistically high to drive a 1 deg C rise in stream temperature
 shd = 1.0  # 100% shade "turns off" solar flux
@@ -387,11 +385,6 @@ def build_models(idx, test):
     )
 
     # Abc utility
-    swr_optional_off = True
-    lwr_optional_off = True
-    lhf_optional_off = False
-    shf_optional_off = True
-
     abc_spd = {}
     for kper in range(len(nstp)):
         spd = []
@@ -407,10 +400,6 @@ def build_models(idx, test):
     abc = flopy.mf6.ModflowUtlabc(
         sfe,
         print_input=True,
-        swr_off=swr_optional_off,
-        lwr_off=lwr_optional_off,
-        lhf_off=lhf_optional_off,
-        shf_off=shf_optional_off,
         density_air=rhoa,
         heat_capacity_air=Cpa,
         drag_coefficient=c_d,
@@ -447,11 +436,11 @@ def build_models(idx, test):
 
 
 def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
-    L = 2499.64 - (2.51 * (updated_strm_temp - DCTOK))
+    L = (2499.64 - (2.51 * updated_strm_temp)) * 1000
     e_w = 6.1275 * math.exp(
-        17.2693882 * ((updated_strm_temp - DCTOK) / (updated_strm_temp - 35.86))
+        17.2693882 * (updated_strm_temp / (updated_strm_temp + 273.16 - 35.86))
     )
-    e_s = 6.1275 * math.exp(17.2693882 * ((tatm - DCTOK) / (tatm - 35.86)))
+    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + 273.16 - 35.86)))
     e_a = (rh / 100) * e_s
     vap_press_deficit = e_w - e_a
     wind_function = wf_int + wf_slope * wspd
@@ -484,7 +473,7 @@ def check_output(idx, test):
     # confirm that the energy added to the stream results in a -1C change in temp
     # temperature gradient
 
-    tgrad = (tatm - DCTOK) - strm_temp
+    tgrad = tatm - strm_temp
     shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
     swr_ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
 
@@ -493,7 +482,7 @@ def check_output(idx, test):
     strt_strm_temp = strm_temp
     updated_strm_temp = strm_temp
     while chng > hclose:
-        ener_transfer = calc_ener_transfer(updated_strm_temp + DCTOK, mf_strm_wid)
+        ener_transfer = calc_ener_transfer(updated_strm_temp, mf_strm_wid)
         temp_change = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
         updated_temp = strt_strm_temp + temp_change
         chng = abs(updated_strm_temp - updated_temp)
@@ -505,13 +494,15 @@ def check_output(idx, test):
 
     # confirm 1 deg C decrease in temp
 
-    msg1 = "Python temp change: " + str(temp_change)
+    msg1 = "Python temperature change is = " + str(temp_change)
     msg2 = "MODFLOW temperature = " + str(df2.loc[0, "RCH1_OUTFTEMP"])
-    msg3 = "MF temp change: " + str(strm_temp - df2.loc[0, "RCH1_OUTFTEMP"])
+    msg3 = "MODFLOW temperature change is " + str(
+        strm_temp - df2.loc[0, "RCH1_OUTFTEMP"]
+    )
 
     assert np.isclose(
         df2.loc[0, "RCH1_OUTFTEMP"], strt_strm_temp + temp_change, atol=1e-6
-    ), msg3 + ". " + msg1
+    ), msg2 + ". " + msg3 + ". " + msg1
 
 
 # - No need to change any code below
