@@ -68,6 +68,7 @@ surf_Q_in = [
 wspd = [0.0, 0.0, 126005.30, 126005.30]  # unrealistically high to drive a -1C change
 tatm = [0.0, 5.0, 5.0, 5.0]  # used by lwr, shf, lhf
 # shortwave radiation parameter values
+
 # unrealistically high to drive a 1 deg C rise in stream temperature
 solr = [
     43092783.5051547,
