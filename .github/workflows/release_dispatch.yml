@@ -43,10 +43,6 @@ on:
         description: 'Version number to use for release.'
         required: true
         type: string
-      models:
-        description: 'Models to include in the release documentation'
-        required: false
-        type: string
       patch:
         description: 'Create a patch release. If true, only bug fixes will be included in generated documentation.'
         required: false
@@ -65,7 +61,6 @@ jobs:
       compiler_toolchain: ${{ steps.set_compiler.outputs.compiler_toolchain }}
       compiler_version: ${{ steps.set_compiler.outputs.compiler_version }}
       version: ${{ steps.set_version.outputs.version }}
-      models: ${{ steps.set_models.outputs.models }}
       patch: ${{ steps.set_patch.outputs.patch }}
     steps:
       - name: Checkout modflow6
@@ -133,23 +128,6 @@ jobs:
             exit 1
           fi
           echo "version=$ver" >> $GITHUB_OUTPUT
-      - name: Set models
-        id: set_models
-        run: |
-          # if models were selected explicitly via workflow_dispatch, use them
-          if [[ ("${{ github.event_name }}" == "workflow_dispatch") && (-n "${{ inputs.models }}") ]]; then
-            models="${{ inputs.models }}"
-            echo "using model selection $models from workflow_dispatch"
-          elif [[ ("${{ github.event_name }}" == "push") && ("${{ github.ref_name }}" != "master") ]]; then
-            # if release was triggered by pushing a release branch, use default models
-            models="gwf,gwt,gwe,prt"
-            echo "using default model selection: $models"
-          else
-            # otherwise exit with an error
-            echo "error: model selection could not be determined"
-            exit 1
-          fi
-          echo "models=$models" >> $GITHUB_OUTPUT
       - name: Set patch
         id: set_patch
         run: |
@@ -198,7 +176,6 @@ jobs:
       # If triggered by pushing a release branch, tests are enabled.
       run_tests: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_tests == 'true') || github.event_name != 'workflow_dispatch' }}
       version: ${{ needs.set_options.outputs.version }}
-      models: ${{ needs.set_options.outputs.models }}
       patch: ${{ (github.event_name == 'workflow_dispatch' && inputs.patch == 'true') || (github.event_name != 'workflow_dispatch' && needs.set_options.outputs.patch == 'true') }}
   pr:
     name: Draft release PR
