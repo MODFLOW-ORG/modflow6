@@ -15,11 +15,6 @@ on:
   # see https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
   workflow_dispatch:
     inputs:
-      approve:
-        description: 'Approve the release. Otherwise it is preliminary/provisional.'
-        required: false
-        type: boolean
-        default: false
       branch:
         description: 'Branch to release from.'
         required: true
@@ -34,11 +29,11 @@ on:
         required: false
         type: string
         default: '2021.6'
-      developmode:
-        description: 'Build binaries in develop mode. If false, IDEVELOPMODE is set to 0.'
+      releasemode:
+        description: 'Build a full distribution containing sources, examples, and all documentation. If false, the distribution contains only binaries, mf6io, release notes, and code.json, with binaries built in develop mode, and disclaimers & version strings indicating preliminary/provisional status. If true, a full distribution is created, with binaries built in release mode, and disclaimer language indicating review and approval.'
         required: false
         type: boolean
-        default: true
+        default: false
       run_tests:
         description: 'Run tests after building binaries.'
         required: false
@@ -197,9 +192,9 @@ jobs:
       compiler_toolchain: ${{ needs.set_options.outputs.compiler_toolchain }}
       compiler_version: ${{ needs.set_options.outputs.compiler_version }}
       branch: ${{ needs.set_options.outputs.branch }}
-      # If the workflow is manually triggered, the maintainer must manually set developmode to false, otherwise the default is true.
+      # If the workflow is manually triggered, the maintainer must manually set releasemode to true, otherwise the default is false.
       # If triggered by pushing a release branch, the release is developmode if the branch name contains "rc", otherwise releasemode.
-      developmode: ${{ (github.event_name == 'workflow_dispatch' && inputs.developmode == 'true') || (github.event_name != 'workflow_dispatch' && contains(github.ref_name, 'rc')) }}
+      releasemode: ${{ (github.event_name == 'workflow_dispatch' && inputs.releasemode == 'true') || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc')) }}
       full: true
       # If the workflow is manually triggered, the maintainer must manually set run_tests to false, otherwise the default is true.
       # If triggered by pushing a release branch, tests are enabled.
@@ -209,7 +204,7 @@ jobs:
       patch: ${{ (github.event_name == 'workflow_dispatch' && inputs.patch == 'true') || (github.event_name != 'workflow_dispatch' && needs.set_options.outputs.patch == 'true') }}
   pr:
     name: Draft release PR
-    if: ${{ github.ref_name != 'master' && ((github.event_name == 'workflow_dispatch' && inputs.approve == 'true') || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc'))) }}
+    if: ${{ github.ref_name != 'master' && ((github.event_name == 'workflow_dispatch' && inputs.releasemode == 'true') || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc'))) }}
     needs:
       - set_options
       - make_dist
@@ -241,8 +236,8 @@ jobs:
           ver="${{ needs.set_options.outputs.version }}"
           # approve will be empty if workflow was triggered by pushing a release branch
           # todo: pull approve into set_options job/output?
-          if [[ ("${{ inputs.approve }}" == "true") || ("${{ inputs.approve }}" == "") ]]; then
-            python update_version.py -v "$ver" --approve
+          if [[ ("${{ inputs.releasemode }}" == "true") || ("${{ inputs.releasemode }}" == "") ]]; then
+            python update_version.py -v "$ver" --releasemode
           else
             python update_version.py -v "$ver"
           fi
