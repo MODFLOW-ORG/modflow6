@@ -58,10 +58,10 @@ module AbcModule
     ! -- table objects
     !type(TableType), pointer :: inputtab => null() !< input table object
 
-    logical, pointer, public :: shf_active => null() !< logical indicating if a sensible heat flux object is active
     logical, pointer, public :: swr_active => null() !< logical indicating if a shortwave radiation heat flux object is active
-    logical, pointer, public :: lhf_active => null() !< logical indicating if a latent heat flux object is active
     logical, pointer, public :: lwr_active => null() !< logical indicating if a longwave radiation heat flux object is active
+    logical, pointer, public :: lhf_active => null() !< logical indicating if a latent heat flux object is active
+    logical, pointer, public :: shf_active => null() !< logical indicating if a sensible heat flux object is active
 
     type(ShfType), pointer :: shf => null() ! sensible heat flux (shf) object
     type(SwrType), pointer :: swr => null() ! shortwave radiation heat flux (swr) object
@@ -70,11 +70,6 @@ module AbcModule
 
     ! -- abc budget object
     type(BudgetObjectType), pointer :: budobj => null() !< ABC budget object
-
-    integer(I4B), pointer :: inshf => null() ! SHF (sensible heat flux utility) unit number (0 if unused)
-    integer(I4B), pointer :: inswr => null() ! SWR (shortwave radiation heat flux utility) unit number (0 if unused)
-    integer(I4B), pointer :: inlhf => null() ! LHF (latent heat flux utility) unit number (0 if unused)
-    integer(I4B), pointer :: inlwr => null() ! LWR (longwave radiation heat flux utility) unit number (0 if unused)
 
     real(DP), pointer :: rhoa => null() !< desity of air
     real(DP), pointer :: cpa => null() !< heat capacity of air
@@ -389,6 +384,26 @@ contains
         write (this%iout, '(4x,a,1pg15.6)') &
           "The emissivity of the riparian canopy has been set to: ", this%emissw
       end if
+    case ('SWR_OFF')
+      this%swr_active = .false.
+      write (this%iout, '(4x,a)') &
+        "Shortwave thermal energy exchange between the stream reaches and the &
+        &atmosphere has been turned off."
+    case ('LWR_OFF')
+      this%lwr_active = .false.
+      write (this%iout, '(4x,a)') &
+        "Longwave thermal energy exchange between stream reaches and the &
+        &atmosphere has been turned off."
+    case ('LHF_OFF')
+      this%lhf_active = .false.
+      write (this%iout, '(4x,a)') &
+        "Latent heat exchange between stream reaches and the atmosphere &
+        &has been turned off."
+    case ('SHF_OFF')
+      this%shf_active = .false.
+      write (this%iout, '(4x,a)') &
+        "Sensible heat exchange between the stream reaches and the &
+        &atmosphere has been turned off."
     case default
       write (errmsg, '(a,a)') 'Unknown ABC option: ', trim(option)
       call store_error(errmsg)
@@ -417,11 +432,7 @@ contains
     call mem_allocate(this%swr_active, 'SWR_ACTIVE', this%memoryPath)
     call mem_allocate(this%lhf_active, 'LHF_ACTIVE', this%memoryPath)
     call mem_allocate(this%lwr_active, 'LWR_ACTIVE', this%memoryPath)
-
-    call mem_allocate(this%inshf, 'INSHF', this%memoryPath)
-    call mem_allocate(this%inswr, 'INSWR', this%memoryPath)
-    call mem_allocate(this%inlhf, 'INLHF', this%memoryPath)
-    call mem_allocate(this%inlwr, 'INLWR', this%memoryPath)
+    !
     ! -- allocate SHF specific
     call mem_allocate(this%rhoa, 'RHOA', this%memoryPath)
     call mem_allocate(this%cpa, 'CPA', this%memoryPath)
@@ -435,14 +446,10 @@ contains
     call mem_allocate(this%emissr, 'EMISSR', this%memoryPath)
     !
     ! -- initialize to default values
-    this%shf_active = .false.
-    this%swr_active = .false.
-    this%lhf_active = .false.
-    this%lwr_active = .false.
-    this%inshf = 1 ! Initialize to one for 'on'
-    this%inswr = 1
-    this%inlhf = 1
-    this%inlwr = 1
+    this%shf_active = .true. ! Initialize to one for 'on'
+    this%swr_active = .true.
+    this%lhf_active = .true.
+    this%lwr_active = .true.
     ! -- initialize to SHF specific default values
     this%rhoa = 1.225 ! kg/m3
     this%cpa = 717.0 ! J/kg/C
@@ -498,7 +505,7 @@ contains
     call mem_allocate(this%ew, 0, 'EW', this%memoryPath)
     !
     ! -- reallocate abc variables based on which calculations are used
-    if (this%inshf /= 0 .or. this%inlhf /= 0) then
+    if (this%shf_active .or. this%lhf_active) then
       call mem_reallocate(this%wspd, this%ncv, 'WSPD', this%memoryPath)
       call mem_reallocate(this%ew, this%ncv, 'ES', this%memoryPath)
       do n = 1, this%ncv
@@ -507,7 +514,7 @@ contains
       end do
     end if
     !
-    if (this%inshf /= 0 .or. this%inlhf /= 0 .or. this%inlwr /= 0) then
+    if (this%shf_active .or. this%lhf_active .or. this%lwr_active) then
       call mem_reallocate(this%tatm, this%ncv, 'TATM', this%memoryPath)
       call mem_reallocate(this%ea, this%ncv, 'EA', this%memoryPath)
       call mem_reallocate(this%es, this%ncv, 'ES', this%memoryPath)
@@ -519,7 +526,7 @@ contains
         this%ew(n) = DZERO
       end do
     end if
-    if (this%inswr /= 0) then
+    if (this%swr_active) then
       call mem_reallocate(this%solr, this%ncv, 'SOLR', this%memoryPath)
       call mem_reallocate(this%swrefl, this%ncv, 'SWREFL', this%memoryPath)
       do n = 1, this%ncv
@@ -527,25 +534,25 @@ contains
         this%swrefl(n) = DZERO
       end do
     end if
-    if (this%inswr /= 0 .or. this%inlwr /= 0) then
+    if (this%swr_active .or. this%lwr_active) then
       call mem_reallocate(this%shd, this%ncv, 'SHD', this%memoryPath)
       do n = 1, this%ncv
         this%shd(n) = DZERO
       end do
     end if
-    if (this%inlhf /= 0 .or. this%inlwr /= 0) then
+    if (this%lhf_active .or. this%lwr_active) then
       call mem_reallocate(this%rh, this%ncv, 'RH', this%memoryPath)
       do n = 1, this%ncv
         this%rh(n) = DZERO
       end do
     end if
-    if (this%inlwr /= 0) then
+    if (this%lwr_active) then
       call mem_reallocate(this%atmc, this%ncv, 'ATMC', this%memoryPath)
       do n = 1, this%ncv
         this%atmc(n) = DZERO
       end do
     end if
-    if (this%inshf /= 0) then
+    if (this%shf_active) then
       call mem_reallocate(this%patm, this%ncv, 'PATM', this%memoryPath)
       do n = 1, this%ncv
         this%patm(n) = DZERO
@@ -553,16 +560,16 @@ contains
     end if
     !
     ! -- call utility ar routines if active
-    if (this%inshf /= 0) then
+    if (this%shf_active) then
       call this%shf%pbst_ar()
     end if
-    if (this%inswr /= 0) then
+    if (this%swr_active) then
       call this%swr%pbst_ar()
     end if
-    if (this%inlhf /= 0) then
+    if (this%lhf_active) then
       call this%lhf%pbst_ar()
     end if
-    if (this%inlwr /= 0) then
+    if (this%lwr_active) then
       call this%lwr%pbst_ar()
     end if
   end subroutine abc_allocate_arrays
@@ -576,22 +583,22 @@ contains
     class(AbcType) :: this
     !
     ! -- SHF (sensible heat flux)
-    if (this%inshf /= 0) then
+    if (this%shf_active) then
       call this%shf%da()
       deallocate (this%shf)
     end if
     ! -- SWR (shortwave radiation heat flux)
-    if (this%inswr /= 0) then
+    if (this%swr_active) then
       call this%swr%da()
       deallocate (this%swr)
     end if
     ! -- LHF (latent heat flux)
-    if (this%inlhf /= 0) then
+    if (this%lhf_active) then
       call this%lhf%da()
       deallocate (this%lhf)
     end if
     ! -- LWR (longwave radiation heat flux)
-    if (this%inlwr /= 0) then
+    if (this%lwr_active) then
       call this%lwr%da()
       deallocate (this%lwr)
     end if
@@ -602,10 +609,6 @@ contains
     call mem_deallocate(this%swr_active)
     call mem_deallocate(this%lhf_active)
     call mem_deallocate(this%lwr_active)
-    call mem_deallocate(this%inshf)
-    call mem_deallocate(this%inswr)
-    call mem_deallocate(this%inlhf)
-    call mem_deallocate(this%inlwr)
     call mem_deallocate(this%rhoa)
     call mem_deallocate(this%cpa)
     call mem_deallocate(this%cd)
