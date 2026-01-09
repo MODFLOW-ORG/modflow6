@@ -72,6 +72,8 @@ module PrtPrpModule
     real(DP), pointer, contiguous :: rptz(:) => null() !< release point z coordinates
     real(DP), pointer, contiguous :: rptm(:) => null() !< total mass released from point
     character(len=LENBOUNDNAME), pointer, contiguous :: rptname(:) => null() !< release point names
+    character(len=LINELENGTH), allocatable :: period_block_lines(:) !< last period block configuration for fill-forward
+    integer(I4B) :: applied_kper !< period for which configuration was last applied
   contains
     procedure :: prp_allocate_arrays
     procedure :: prp_allocate_scalars
@@ -186,6 +188,9 @@ contains
     call mem_deallocate(this%rptm)
     call mem_deallocate(this%rptname, 'RPTNAME', this%memoryPath)
 
+    ! Deallocate period block storage
+    if (allocated(this%period_block_lines)) deallocate (this%period_block_lines)
+
     ! Deallocate objects
     call this%particles%destroy(this%memoryPath)
     call this%schedule%destroy()
@@ -294,6 +299,7 @@ contains
     this%extol = DEFAULT_EXIT_SOLVE_TOLERANCE
     this%rttol = DSAME * DEP9
     this%rtfreq = DZERO
+    this%applied_kper = 0
 
   end subroutine prp_allocate_scalars
 
@@ -318,7 +324,7 @@ contains
 
   !> @brief Advance a time step and release particles if scheduled.
   subroutine prp_ad(this)
-    use TdisModule, only: totalsimtime
+    use TdisModule, only: totalsimtime, kstp, kper
     class(PrtPrpType) :: this
     integer(I4B) :: ip, it
     real(DP) :: t
@@ -337,9 +343,21 @@ contains
       this%rptm(ip) = DZERO
     end do
 
-    ! Advance the release schedule and check if
-    ! any releases will be made this time step.
-    call this%schedule%advance()
+    ! Advance the release schedule. At the start of each period (kstp==1),
+    ! apply period block configuration if available and not yet applied.
+    ! This handles both new configuration and fill-forward periods.
+    ! For subsequent time steps, just advance without arguments to
+    ! advance the time selection object to the current time step.
+    if (kstp == 1 .and. &
+        kper /= this%applied_kper .and. &
+        allocated(this%period_block_lines)) then
+      call this%schedule%advance(lines=this%period_block_lines)
+      this%applied_kper = kper
+    else
+      call this%schedule%advance()
+    end if
+
+    ! Check if any releases will be made this time step.
     if (.not. this%schedule%any()) return
 
     ! Log the schedule to the list file.
@@ -603,10 +621,10 @@ contains
       ! explicit release times, release time frequency, or period
       ! block release settings), default to a single release at the
       ! start of the first period's first time step.
-      allocate (lines(1))
-      lines(1) = "FIRST"
-      call this%schedule%advance(lines=lines)
-      deallocate (lines)
+      ! Store default configuration; advance() will be called in prp_ad().
+      if (allocated(this%period_block_lines)) deallocate (this%period_block_lines)
+      allocate (this%period_block_lines(1))
+      this%period_block_lines(1) = "FIRST"
       return
     else if (iper /= kper) then
       return
@@ -616,18 +634,12 @@ contains
     call mem_setptr(nlist, 'NBOUND', this%input_mempath)
     call mem_setptr(settings, 'SETTING', this%input_mempath)
 
-    ! allocate and set input
-    allocate (lines(nlist))
+    ! Store period block configuration for fill-forward.
+    if (allocated(this%period_block_lines)) deallocate (this%period_block_lines)
+    allocate (this%period_block_lines(nlist))
     do n = 1, nlist
-      lines(n) = settings(n)
+      this%period_block_lines(n) = settings(n)
     end do
-
-    ! update schedule
-    if (size(lines) > 0) &
-      call this%schedule%advance(lines=lines)
-
-    ! cleanup
-    deallocate (lines)
   end subroutine prp_rp
 
   !> @ brief Calculate flow between package and model.
