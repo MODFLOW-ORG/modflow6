@@ -15,13 +15,12 @@ from pathlib import Path
 from typing import Optional
 
 import flopy
-import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
-from flopy.utils import PathlineFile
 from flopy.plot.plotutil import to_mp7_pathlines
+from flopy.utils import PathlineFile
 from framework import TestFramework
 from modflow_devtools.markers import requires_pkg
 from prt_test_utils import (
@@ -51,7 +50,7 @@ cases = [
     # test an absurdly high RELEASE_TIME_TOLERANCE
     f"{simname}tol",
     # test fill-forward with empty period block
-    f"{simname}fill",  # FIRST in period 0, fill-forward to period 1, empty block in period 2
+    f"{simname}fill",  # FIRST in period 0, fill-forward to period 1, empty period 2
     # test different period block configs per period
     f"{simname}multi",  # FIRST in period 0, ALL in period 1, FIRST in period 2
 ]
@@ -109,7 +108,7 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
     # Use 3 periods for fill-forward and multi-period tests, 1 period for others
     nper = 3 if ("fill" in name or "multi" in name) else FlopyReadmeCase.nper
     if "multi" in name:
-        # For multi test: period 1 has 5 time steps so ALL is meaningfully different from FIRST
+        # For multi test: period 1 has 5 steps so ALL is different from FIRST
         perioddata = [
             (
                 FlopyReadmeCase.perlen,
@@ -326,7 +325,7 @@ def build_models(test):
         tdis = gwf_sim.get_package("tdis")
         tdis.nper = 3
         if "multi" in test.name:
-            # For multi test: period 1 has 5 time steps so ALL is meaningfully different from FIRST
+            # For multi test: period 1 has 5 steps so ALL is different from FIRST
             tdis.perioddata = [
                 (
                     FlopyReadmeCase.perlen,
