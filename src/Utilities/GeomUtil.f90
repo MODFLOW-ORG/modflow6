@@ -557,9 +557,9 @@ contains
         ! this is a move parallel to the "gamma axis," which also changes alpha
         beta = lolimit
         alpha = DONE - beta - gamma
-      ! Check beta coordinate against upper limit (which in this
-      ! case is equivalent to checking gamma coordinate against
-      ! lower limit)
+        ! Check beta coordinate against upper limit (which in this
+        ! case is equivalent to checking gamma coordinate against
+        ! lower limit)
       else if (beta > hilimit) then
         ! Beta is too high (alpha is too low), so nudge beta to lower limit;
         ! this is a move parallel to the "gamma axis," which also changes alpha
