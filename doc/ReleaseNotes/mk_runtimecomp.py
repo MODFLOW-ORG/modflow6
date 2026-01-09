@@ -65,6 +65,7 @@ if __name__ == "__main__":
                     linetex = linetex.replace("\\", "/")
                     linetex += "\\\\" + "\n"
                     linetex = linetex.replace("%", "\\%")
+                    linetex = linetex.replace("_", "\\_")
                     ftex.write(linetex)
                     ftex.write("\\hline\n")
                 if ":-" in line:
