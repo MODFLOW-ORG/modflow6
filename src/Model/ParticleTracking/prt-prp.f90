@@ -606,7 +606,6 @@ contains
     type(CharacterStringType), dimension(:), contiguous, &
       pointer :: settings
     integer(I4B), pointer :: iper, ionper, nlist
-    character(len=LINELENGTH), allocatable :: lines(:)
     integer(I4B) :: n
 
     ! set pointer to last and next period loaded
