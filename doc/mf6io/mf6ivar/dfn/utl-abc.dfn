@@ -133,6 +133,41 @@ description emissivity of riparian canopy used by calculations related to the lo
 default_value 0.97
 mf6internal emissr
 
+block options
+name swr_off
+tagged true
+type keyword
+reader urword
+optional true
+longname deactivate shortwave radiation calculations
+description keyword to deactivate shortwave radiation heat exchange with the atmosphere.  Shortwave radiation heat exchange between stream reaches and the atmosphere is active by default.
+
+block options
+name lwr_off
+tagged true
+type keyword
+reader urword
+optional true
+longname deactivate longwave radiation calculations
+description keyword to deactivate longwave radiation heat exchange with the atmosphere.  Longwave radiation heat exchange between stream reaches and the atmosphere is active by default.
+
+block options
+name lhf_off
+tagged true
+type keyword
+reader urword
+optional true
+longname deactivate latent heat flux calculations
+description keyword to deactivate latent heat exchange with the atmosphere.  Latent heat exchange between stream reaches and the atmosphere is active by default.
+
+block options
+name swr_off
+tagged true
+type keyword
+reader urword
+optional true
+longname deactivate sensible heat flux calculations
+description keyword to deactivate sensible heat exchange with the atmosphere.  Sensible heat exchange between stream reaches and the atmosphere is active by default.
 
 # --------------------- gwe abc period ---------------------
 
