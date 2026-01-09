@@ -49,12 +49,32 @@ cases = [
     f"{simname}dupe",  # RELEASETIMES block: 0.0: also FIRST, expect consolidation
     # test an absurdly high RELEASE_TIME_TOLERANCE
     f"{simname}tol",
+    # test fill-forward with empty period block
+    f"{simname}fill",  # FIRST in period 0, fill-forward to period 1, empty block in period 2
+    # test different period block configs per period
+    f"{simname}multi",  # FIRST in period 0, ALL in period 1, FIRST in period 2
 ]
 
 
 def get_perioddata(name, periods=1) -> Optional[dict]:
     if "sgl" in name or "dbl" in name or "open" in name or "tol" in name:
         return None
+
+    # Special case for fill-forward test: different options per period
+    if "fill" in name:
+        return {
+            0: [("FIRST",)],  # Period 0: release on first time step
+            # Period 1: omitted to test fill-forward
+            2: [],  # Period 2: empty block to stop fill-forward
+        }
+
+    # Special case for multi-period test: different configs per period
+    if "multi" in name:
+        return {
+            0: [("FIRST",)],  # Period 0: release on first time step only
+            1: [("ALL",)],    # Period 1: release on all time steps
+            2: [("FIRST",)],  # Period 2: release on first time step only
+        }
 
     opt = []
     if "frst" in name or "both" in name or "dupe" in name:
@@ -87,18 +107,37 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
     )
 
     # create tdis package
-    flopy.mf6.modflow.mftdis.ModflowTdis(
-        sim,
-        pname="tdis",
-        time_units="DAYS",
-        nper=FlopyReadmeCase.nper,
-        perioddata=[
+    # Use 3 periods for fill-forward and multi-period tests, 1 period for others
+    nper = 3 if ("fill" in name or "multi" in name) else FlopyReadmeCase.nper
+    if "multi" in name:
+        # For multi test: period 1 has 5 time steps so ALL is meaningfully different from FIRST
+        perioddata = [
+            (FlopyReadmeCase.perlen, FlopyReadmeCase.nstp, FlopyReadmeCase.tsmult),  # Period 0: 1 time step
+            (FlopyReadmeCase.perlen, 5, FlopyReadmeCase.tsmult),  # Period 1: 5 time steps
+            (FlopyReadmeCase.perlen, FlopyReadmeCase.nstp, FlopyReadmeCase.tsmult),  # Period 2: 1 time step
+        ]
+    elif "fill" in name:
+        perioddata = [
             (
                 FlopyReadmeCase.perlen,
                 FlopyReadmeCase.nstp,
                 FlopyReadmeCase.tsmult,
             )
-        ],
+        ] * nper
+    else:
+        perioddata = [
+            (
+                FlopyReadmeCase.perlen,
+                FlopyReadmeCase.nstp,
+                FlopyReadmeCase.tsmult,
+            )
+        ]
+    flopy.mf6.modflow.mftdis.ModflowTdis(
+        sim,
+        pname="tdis",
+        time_units="DAYS",
+        nper=nper,
+        perioddata=perioddata,
     )
 
     # create prt model
@@ -215,11 +254,36 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
 def build_mp7_sim(name, ws, mp7, gwf):
     partdata = get_partdata(gwf.modelgrid, FlopyReadmeCase.releasepts_mp7)
     mp7_name = get_model_name(name, "mp7")
-    pg = flopy.modpath.ParticleGroup(
-        particlegroupname="G1",
-        particledata=partdata,
-        filename=f"{mp7_name}.sloc",
-    )
+
+    # Configure release times for multi-period tests to match MF6
+    if "fill" in name:
+        # Fill-forward test: release at t=0.0 and t=1.0
+        # Format: [count, [list of times]]
+        releasedata = [2, [0.0, 1.0]]
+        pg = flopy.modpath.ParticleGroup(
+            particlegroupname="G1",
+            particledata=partdata,
+            filename=f"{mp7_name}.sloc",
+            releasedata=releasedata,
+        )
+    elif "multi" in name:
+        # Multi-period test: release at 7 times
+        # Format: [count, [list of times]]
+        releasedata = [7, [0.0, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]]
+        pg = flopy.modpath.ParticleGroup(
+            particlegroupname="G1",
+            particledata=partdata,
+            filename=f"{mp7_name}.sloc",
+            releasedata=releasedata,
+        )
+    else:
+        # Default: release at start (t=0.0)
+        pg = flopy.modpath.ParticleGroup(
+            particlegroupname="G1",
+            particledata=partdata,
+            filename=f"{mp7_name}.sloc",
+        )
+
     mp = flopy.modpath.Modpath7(
         modelname=mp7_name,
         flowmodel=gwf,
@@ -245,6 +309,27 @@ def build_models(test):
     gwf_sim = FlopyReadmeCase.get_gwf_sim(
         test.name, test.workspace, test.targets["mf6"]
     )
+
+    # For fill-forward and multi-period tests, update GWF simulation to use 3 periods
+    if "fill" in test.name or "multi" in test.name:
+        tdis = gwf_sim.get_package("tdis")
+        tdis.nper = 3
+        if "multi" in test.name:
+            # For multi test: period 1 has 5 time steps so ALL is meaningfully different from FIRST
+            tdis.perioddata = [
+                (FlopyReadmeCase.perlen, FlopyReadmeCase.nstp, FlopyReadmeCase.tsmult),  # Period 0: 1 time step
+                (FlopyReadmeCase.perlen, 5, FlopyReadmeCase.tsmult),  # Period 1: 5 time steps
+                (FlopyReadmeCase.perlen, FlopyReadmeCase.nstp, FlopyReadmeCase.tsmult),  # Period 2: 1 time step
+            ]
+        else:
+            tdis.perioddata = [
+                (
+                    FlopyReadmeCase.perlen,
+                    FlopyReadmeCase.nstp,
+                    FlopyReadmeCase.tsmult,
+                )
+            ] * 3
+
     prt_sim = build_prt_sim(
         test.name,
         test.workspace,
@@ -334,10 +419,12 @@ def check_output(test, snapshot):
     assert all_equal(mf6_pls["iprp"], 1)
 
     # check budget data were written to mf6 prt list file
+    # Multi-period tests use 3 periods, others use 1
+    nper = 3 if ("fill" in name or "multi" in name) else FlopyReadmeCase.nper
     check_budget_data(
         prt_ws / f"{name}_prt.lst",
         FlopyReadmeCase.perlen,
-        FlopyReadmeCase.nper,
+        nper,
     )
 
     # check mf6 prt particle track data were written to binary/CSV files
@@ -354,6 +441,51 @@ def check_output(test, snapshot):
 
     # compare pathlines with snapshot
     assert snapshot == mf6_pls.drop("name", axis=1).round(3).to_records(index=False)
+
+    # For fill-forward test, verify release timing behavior
+    if "fill" in name:
+        # Check that particles were released in periods 0 and 1, but NOT in period 2
+        # Period 0: time = 0.0
+        # Period 1: time = 1.0 (fill-forward from period 0)
+        # Period 2: time = 2.0 (empty block should stop releases)
+        release_times = sorted(mf6_pls["trelease"].unique())
+        expected_release_times = [0.0, FlopyReadmeCase.perlen]  # [0.0, 1.0]
+        assert len(release_times) == len(expected_release_times), (
+            f"Expected {len(expected_release_times)} release times, "
+            f"got {len(release_times)}: {release_times}"
+        )
+        assert np.allclose(release_times, expected_release_times), (
+            f"Expected release times {expected_release_times}, "
+            f"got {release_times}. Empty period block did not stop fill-forward!"
+        )
+        # Should have twice as many particles as base case (2 release times)
+        print(f"Fill-forward test passed: particles released at times {release_times}")
+
+    # For multi-period test, verify period block config is loaded each period
+    if "multi" in name:
+        # Check that particles were released in each period with correct configuration
+        # Period 0: FIRST at time = 0.0 (1 release)
+        # Period 1: ALL with 5 time steps at times 1.0, 1.2, 1.4, 1.6, 1.8 (5 releases)
+        # Period 2: FIRST at time = 2.0 (1 release)
+        release_times = sorted(mf6_pls["trelease"].unique())
+        # Period 1 has 5 time steps over perlen=1.0, so dt=0.2 for each step
+        expected_release_times = [
+            0.0,  # Period 0: FIRST
+            1.0, 1.2, 1.4, 1.6, 1.8,  # Period 1: ALL (5 time steps)
+            2.0,  # Period 2: FIRST
+        ]
+        assert len(release_times) == len(expected_release_times), (
+            f"Expected {len(expected_release_times)} release times (1 from period 0, "
+            f"5 from period 1 with ALL, 1 from period 2), "
+            f"got {len(release_times)}: {release_times}. "
+            f"Period block configuration may not be loaded during prp_ad()!"
+        )
+        assert np.allclose(release_times, expected_release_times), (
+            f"Expected release times {expected_release_times}, "
+            f"got {release_times}. Period block configuration not properly loaded!"
+        )
+        # Should have 7 times as many particles as base case (7 release times)
+        print(f"Multi-period test passed: particles released at times {release_times}")
 
     # convert mf6 pathlines to mp7 format
     mf6_pls = to_mp7_pathlines(mf6_pls)
@@ -386,8 +518,13 @@ def check_output(test, snapshot):
     # in the options block, setting the former to 1
     # and the latter to 0.2, so we expect 5 times as
     # many particles (first time t=0 is deduplicated)
-    if "dbl" in name or "open" in name or "both" in name:
+    # the "fill" case uses 2 release times (matching MP7)
+    # the "multi" case uses 7 release times (matching MP7)
+    if "dbl" in name or "open" in name or "both" in name or "fill" in name:
         assert len(mf6_pls) == 2 * len(mp7_pls)
+        # todo check mass
+    elif "multi" in name:
+        assert len(mf6_pls) == 7 * len(mp7_pls)
         # todo check mass
     elif "freq" in name:
         assert len(mf6_pls) == 5 * len(mp7_pls)
