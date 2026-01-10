@@ -107,3 +107,13 @@ description = "The storage term for SFE, like SFT, was not consistent with the s
 section = "features"
 subsection = "stress"
 description = "Added the FLOW\\_REDUCTION\\_LENGTH option to WEL package that indicates the AUTO\\_FLOW\\_REDUCE value is a length instead of a fraction of the cell thickness. A warning will be issued if the FLOW\\_REDUCTION\\_LENGTH option is specified but the AUTO\\_FLOW\\_REDUCE option is not specified in the options block. The program will terminate with an error if the FLOW\\_REDUCTION\\_LENGTH option is specified and the AUTO\\_FLOW\\_REDUCE value specified in the options block is less than or equal to zero."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "Numerical error in the iterative subcell exit solution can leave a particle slightly outside the cell or subcell it is supposedly entering.  Although logic had been implemented to correct for this and ensure that the particle lay within the expected cell or subcell before further tracking commences, this logic was insufficient and could in some cases result in negative tracking times, which terminated the simulation with an error.  The logic has been updated to correctly account for all possible cases."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "The PRT PRP package previously failed to correctly load release settings configured by period block. This could prevent particles from being released as configured. It could also cause excess particles to be released, as empty period blocks intended to stop fill-forward at a certain period were not properly recognized. The package has been updated to correctly load period block release settings."
