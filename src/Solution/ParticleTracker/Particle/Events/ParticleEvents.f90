@@ -41,7 +41,7 @@ contains
 
   !> @brief Dispatch an event.
   subroutine dispatch(this, particle, event)
-    use TdisModule, only: kper, kstp, totimc
+    use TdisModule, only: kper, kstp
     ! dummy
     class(ParticleEventDispatcherType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
