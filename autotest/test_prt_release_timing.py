@@ -28,6 +28,7 @@ from prt_test_utils import (
     all_equal,
     check_budget_data,
     check_track_data,
+    compare_snapshots,
     get_model_name,
     get_partdata,
 )
@@ -63,7 +64,7 @@ def get_perioddata(name, periods=1) -> Optional[dict]:
         return None
 
     if "bndy" in name:
-        # Boundary test: FIRST in period 1 only (fires at t=1.0, same as explicit release)
+        # Boundary test: FIRST in period 1 only (t=1.0, same as explicit release)
         return {
             0: [],  # Period 0: no period-block releases
             1: [("FIRST",)],  # Period 1: release on first time step (at t=1.0)
@@ -115,8 +116,12 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
     )
 
     # create tdis package
-    # Use 3 periods for fill-forward, multi-period, and boundary tests, 1 period for others
-    nper = 3 if ("fill" in name or "multi" in name or "bndy" in name) else FlopyReadmeCase.nper
+    # 3 periods for fill-forward, multi-period, and boundary, 1 period for others
+    nper = (
+        3
+        if ("fill" in name or "multi" in name or "bndy" in name)
+        else FlopyReadmeCase.nper
+    )
     if "multi" in name:
         # For multi test: period 1 has 5 steps so ALL is different from FIRST
         perioddata = [
@@ -335,7 +340,7 @@ def build_models(test):
         test.name, test.workspace, test.targets["mf6"]
     )
 
-    # For fill-forward, multi-period, and boundary tests, update GWF simulation to use 3 periods
+    # For fill-forward, multi-period, and boundary, update GWF to use 3 periods
     if "fill" in test.name or "multi" in test.name or "bndy" in test.name:
         tdis = gwf_sim.get_package("tdis")
         tdis.nper = 3
@@ -455,7 +460,11 @@ def check_output(test, snapshot):
 
     # check budget data were written to mf6 prt list file
     # Multi-period tests use 3 periods, others use 1
-    nper = 3 if ("fill" in name or "multi" in name or "bndy" in name) else FlopyReadmeCase.nper
+    nper = (
+        3
+        if ("fill" in name or "multi" in name or "bndy" in name)
+        else FlopyReadmeCase.nper
+    )
     check_budget_data(
         prt_ws / f"{name}_prt.lst",
         FlopyReadmeCase.perlen,
@@ -478,121 +487,12 @@ def check_output(test, snapshot):
     actual_data = mf6_pls.drop("name", axis=1).round(3)
     actual_records = actual_data.to_records(index=False)
 
-    # TEMPORARY: Save actual data and show detailed comparison with snapshot
-    print(f"\n{'='*80}")
-    print(f"Snapshot comparison for test case: {name}")
-    print(f"{'='*80}")
+    # Show detailed comparison before asserting (for debugging)
+    snapshot_dir = Path(__file__).parent / "__snapshots__" / "test_prt_release_timing"
+    compare_snapshots(name, actual_data, snapshot_dir, prt_ws)
 
-    # Try the snapshot comparison and show detailed differences if it fails
-    try:
-        # First, assert against the snapshot
-        assert snapshot == actual_records
-        print(f"✓ Snapshot matches!")
-    except AssertionError as e:
-        print(f"\n✗ Snapshot mismatch detected!")
-
-        # Save actual data to CSV for inspection
-        actual_csv_path = prt_ws / f"{name}_actual_pathlines.csv"
-        actual_data.to_csv(actual_csv_path, index=False)
-        print(f"\nActual data saved to: {actual_csv_path}")
-
-        # Try to extract expected data from snapshot for comparison
-        try:
-            # Read the snapshot file directly (syrupy stores as .npy files)
-            snapshot_dir = Path(__file__).parent / "__snapshots__" / "test_prt_release_timing"
-            snapshot_file = snapshot_dir / f"test_mf6model[{name}].npy"
-
-            expected_records = None
-            if snapshot_file.exists():
-                expected_records = np.load(snapshot_file, allow_pickle=True)
-                print(f"Loaded snapshot from: {snapshot_file}")
-            else:
-                print(f"Snapshot file not found: {snapshot_file}")
-
-            if expected_records is not None:
-                # Convert to DataFrame for comparison
-                expected_data = pd.DataFrame(expected_records)
-
-                print(f"\nData dimensions:")
-                print(f"  Expected: {len(expected_data)} rows, {len(expected_data.columns)} columns")
-                print(f"  Actual:   {len(actual_data)} rows, {len(actual_data.columns)} columns")
-
-                if len(expected_data) == len(actual_data):
-                    # Same number of rows - can do direct comparison
-                    print(f"\n{'─'*80}")
-                    print(f"DIFFERENCES (showing only changed values):")
-                    print(f"{'─'*80}")
-
-                    # Use pandas compare to show differences
-                    # This will show 'self' (actual) vs 'other' (expected)
-                    diff = actual_data.compare(expected_data, keep_equal=False)
-
-                    if not diff.empty:
-                        print(f"\nFound differences in {len(diff)} rows:\n")
-                        # Show with better formatting
-                        with pd.option_context('display.max_rows', None,
-                                              'display.max_columns', None,
-                                              'display.width', None):
-                            print(diff.to_string())
-
-                        # Also show which columns changed
-                        changed_cols = set()
-                        for col in diff.columns:
-                            if isinstance(col, tuple):
-                                changed_cols.add(col[0])
-                            else:
-                                changed_cols.add(col)
-                        print(f"\nColumns with changes: {sorted(changed_cols)}")
-
-                        # For key columns, show summary of changes
-                        for key_col in ['kper', 'kstp', 'ireason']:
-                            if key_col in changed_cols:
-                                if (key_col, 'self') in diff.columns:
-                                    old_vals = diff[(key_col, 'other')].dropna()
-                                    new_vals = diff[(key_col, 'self')].dropna()
-                                    print(f"\n{key_col} changes:")
-                                    print(f"  Old values: {sorted(old_vals.unique())}")
-                                    print(f"  New values: {sorted(new_vals.unique())}")
-                    else:
-                        print("No differences in values (must be dtype or structure issue)")
-
-                    # Save comparison to CSV
-                    if not diff.empty:
-                        diff_csv_path = prt_ws / f"{name}_differences.csv"
-                        diff.to_csv(diff_csv_path)
-                        print(f"\nDifferences saved to: {diff_csv_path}")
-
-                else:
-                    # Different number of rows
-                    print(f"\n⚠ Different number of records!")
-                    print(f"\nExpected summary:")
-                    print(f"  Unique kper: {sorted(expected_data['kper'].unique())}")
-                    print(f"  Unique kstp: {sorted(expected_data['kstp'].unique())}")
-                    print(f"\nActual summary:")
-                    print(f"  Unique kper: {sorted(actual_data['kper'].unique())}")
-                    print(f"  Unique kstp: {sorted(actual_data['kstp'].unique())}")
-
-                    # Save both for manual inspection
-                    expected_csv_path = prt_ws / f"{name}_expected_pathlines.csv"
-                    expected_data.to_csv(expected_csv_path, index=False)
-                    print(f"\nExpected data saved to: {expected_csv_path}")
-                    print(f"Actual data saved to: {actual_csv_path}")
-
-            else:
-                print(f"\nCould not extract expected data from snapshot")
-                print(f"\nActual data summary:")
-                print(f"  Records: {len(actual_data)}")
-                print(f"  Unique kper: {sorted(actual_data['kper'].unique())}")
-                print(f"  Unique kstp: {sorted(actual_data['kstp'].unique())}")
-
-        except Exception as compare_error:
-            print(f"\nCould not perform detailed comparison: {compare_error}")
-
-        print(f"\n{'='*80}\n")
-        # Re-raise the original assertion error
-        raise
-
-    print(f"{'='*80}\n")
+    # Assert against snapshot
+    assert snapshot == actual_records
 
     # check release timing for fill-forward case
     if "fill" in name:
@@ -624,37 +524,29 @@ def check_output(test, snapshot):
 
     # check release timing and period/step attribution for boundary test
     if "bndy" in name:
-        # Test the "quirk": events at the same time can be on different sides
+        # Test that events at the same time can be on different sides
         # of the boundary depending on how they're configured.
         #
         # Both releases occur at t=1.0 (the boundary between period 0 and period 1):
-        # 1. Explicit release (RELEASETIMES block) at t=1.0
-        # 2. Period-block release (FIRST in period 1) at t=1.0
+        # 1. Explicit release with RELEASETIMES block at t=1.0
+        # 2. Period-block release with FIRST in period 1 at t=1.0
         #
         # Expected behavior:
         # - Explicit release should be captured by period 0's time selection
         #   interval (0.0, 1.0], which includes t=1.0 (inclusive upper bound).
         #   Reported as kper=1 (period 0 in 1-based indexing).
         #
-        # - Period-block release fires when MF6 reaches period 1 (totimc=1.0)
-        #   and is attributed to that period. Reported as kper=2 (period 1).
+        # - Period-block release occurs when PRT reaches period 1
+        #   and is attributed to kper=3 (period 1 in 1-based indexing).
         #
-        # This demonstrates that the same simulation time can appear on different
-        # sides of a period boundary depending on the configuration method.
         release_times = sorted(mf6_pls["trelease"].unique())
-        # Both releases at t=1.0, but we expect 2 groups of particles
         expected_release_times = [1.0]
         assert len(release_times) == len(expected_release_times)
         assert np.allclose(release_times, expected_release_times)
-
-        # Get unique kper values for particles released at t=1.0
         releases_at_boundary = mf6_pls[mf6_pls["trelease"] == 1.0]
         unique_kpers = sorted(releases_at_boundary["kper"].unique())
-
-        # Should have particles attributed to both period 0 (kper=1) and period 1 (kper=2)
-        expected_kpers = [1, 2]  # 1-based indexing
-        assert unique_kpers == expected_kpers, \
-            f"Releases at t=1.0 should be attributed to both kper=1 and kper=2, got {unique_kpers}"
+        expected_kpers = [1, 2]
+        assert unique_kpers == expected_kpers
 
     # convert mf6 pathlines to mp7 format
     mf6_pls = to_mp7_pathlines(mf6_pls)

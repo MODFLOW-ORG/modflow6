@@ -19,8 +19,7 @@ module TimeSelectModule
   !!
   !! Time selection uses the interval convention (t0, t1] (exclusive lower
   !! bound, inclusive upper bound). This ensures times at exact time step
-  !! boundaries are captured by the later (earlier in simulation time) step
-  !! without duplication.
+  !! boundaries are captured by the earlier time step without duplication.
   !!
   !! Array storage can be expanded manually. Note: array expansion must take
   !! place before selection; when expand() is called the selection is wiped.
@@ -209,7 +208,6 @@ contains
     class(TimeSelectType) :: this
     ! local
     real(DP) :: l, u
-    integer(I4B) :: i
 
     l = minval(this%times)
     u = maxval(this%times)
@@ -221,24 +219,7 @@ contains
       l = totimc
     end if
     if (.not. (kper == nper .and. kstp == nstp(kper))) u = totimc + delt
-
-    ! DEBUG: Print interval bounds
-    print *, 'DEBUG TimeSelect%advance: kper=', kper, ' kstp=', kstp
-    print *, '  totimc=', totimc, ' delt=', delt
-    print *, '  interval: (', l, ',', u, ']'
-    print *, '  times array:', this%times
-
     call this%select(l, u)
-
-    ! DEBUG: Print selection result
-    print *, '  selection: [', this%selection(1), ',', this%selection(2), ']'
-    if (this%any()) then
-      print *, '  selected times:', &
-        this%times(this%selection(1):this%selection(2))
-    else
-      print *, '  no times selected'
-    end if
-
   end subroutine advance
 
   !> @brief Check if any times are currently selected.
