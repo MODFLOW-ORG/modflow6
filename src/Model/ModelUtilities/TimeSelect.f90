@@ -17,6 +17,11 @@ module TimeSelectModule
   !! the select() routine, or automatically, with the advance() routine, for
   !! a convenient view onto the applicable subset of the complete time array.
   !!
+  !! Time selection uses the interval convention (t0, t1] (exclusive lower
+  !! bound, inclusive upper bound). This ensures times at exact time step
+  !! boundaries are captured by the later (earlier in simulation time) step
+  !! without duplication.
+  !!
   !! Array storage can be expanded manually. Note: array expansion must take
   !! place before selection; when expand() is called the selection is wiped.
   !! Alternatively, the extend() routine will automatically expand the array
@@ -116,22 +121,24 @@ contains
     end if
   end subroutine log
 
-  !> @brief Select times between t0 and t1 (inclusive).
+  !> @brief Select times in the interval (t0, t1] (exclusive lower, inclusive upper).
   !!
-  !! Finds and stores the index of the first time at the same instant
-  !! as or following the start time, and of the last time at the same
-  !! instant as or preceding the end time. Allows filtering the times
-  !! for e.g. a particular stress period and time step. Array indices
-  !! are assumed to start at 1. If no times are found to fall within
-  !! the selection (i.e. it falls entirely between two consecutive
-  !! times or beyond the time range), indices are set to [-1, -1].
+  !! Finds and stores the index of the first time strictly after the start time,
+  !! and of the last time at or before the end time. This interval convention
+  !! ensures that times at exact time step boundaries are captured by the later
+  !! (earlier in simulation time) step without duplication.
   !!
-  !! The given start and end times are first checked against currently
-  !! stored indices to avoid recalculating them if possible, allowing
-  !! multiple consuming components (e.g., subdomain particle tracking
-  !! solutions) to share the object efficiently, provided all proceed
-  !! through stress periods and time steps in lockstep, i.e. they all
-  !! solve any given period/step before any will proceed to the next.
+  !! Allows filtering the times for e.g. a particular stress period and time step.
+  !! Array indices are assumed to start at 1. If no times are found to fall within
+  !! the selection (i.e. the interval falls entirely between two consecutive times
+  !! or beyond the time range), indices are set to [-1, -1].
+  !!
+  !! The given start and end times are first checked against currently stored
+  !! indices to avoid recalculating them if possible, allowing multiple consuming
+  !! components (e.g., subdomain particle tracking solutions) to share the object
+  !! efficiently, provided all proceed through stress periods and time steps in
+  !! lockstep, i.e. they all solve any given period/step before any will proceed
+  !! to the next.
   !<
   subroutine select(this, t0, t1, changed)
     ! dummy
@@ -156,14 +163,15 @@ contains
     up = this%selection(2)
 
     ! Check if we can reuse either the lower or upper bound.
-    ! The lower doesn't need to change if it indexes the 1st
-    ! time simultaneous with or later than the slice's start.
+    ! The lower doesn't need to change if it indexes the first
+    ! time strictly after the slice's start (i.e., the previous
+    ! time is at or before t0, and this time is after t0).
     ! The upper doesn't need to change if it indexes the last
-    ! time before or simultaneous with the slice's end.
+    ! time at or before the slice's end.
     if (lp > 0 .and. up > 0) then
       if (lp > 1) then
-        if (this%times(lp - 1) < t0 .and. &
-            this%times(lp) >= t0) then
+        if (this%times(lp - 1) <= t0 .and. &
+            this%times(lp) > t0) then
           l = lp
           i0 = l
         end if
@@ -185,7 +193,7 @@ contains
     ! recompute bounding indices if needed
     do i = i0, i1
       t = this%times(i)
-      if (l < 0 .and. t >= t0 .and. t <= t1) l = i
+      if (l < 0 .and. t > t0 .and. t <= t1) l = i
       if (l > 0 .and. t <= t1) u = i
     end do
     this%selection = (/l, u/)
@@ -201,12 +209,36 @@ contains
     class(TimeSelectType) :: this
     ! local
     real(DP) :: l, u
+    integer(I4B) :: i
 
     l = minval(this%times)
     u = maxval(this%times)
-    if (.not. (kper == 1 .and. kstp == 1)) l = totimc
+    if (kper == 1 .and. kstp == 1) then
+      ! For first time step, use a small negative lower bound to ensure
+      ! times at t=0.0 are captured with the exclusive lower bound
+      l = -epsilon(DZERO)
+    else
+      l = totimc
+    end if
     if (.not. (kper == nper .and. kstp == nstp(kper))) u = totimc + delt
+
+    ! DEBUG: Print interval bounds
+    print *, 'DEBUG TimeSelect%advance: kper=', kper, ' kstp=', kstp
+    print *, '  totimc=', totimc, ' delt=', delt
+    print *, '  interval: (', l, ',', u, ']'
+    print *, '  times array:', this%times
+
     call this%select(l, u)
+
+    ! DEBUG: Print selection result
+    print *, '  selection: [', this%selection(1), ',', this%selection(2), ']'
+    if (this%any()) then
+      print *, '  selected times:', &
+        this%times(this%selection(1):this%selection(2))
+    else
+      print *, '  no times selected'
+    end if
+
   end subroutine advance
 
   !> @brief Check if any times are currently selected.

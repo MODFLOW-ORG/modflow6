@@ -132,10 +132,14 @@ contains
     tprevious = -DONE
     trelease = -DONE
 
+    ! DEBUG
+    print *, 'DEBUG ParticleReleaseSchedule%advance: kper=', kstp, ' totimc=', totimc
+
     ! Add a release time configured by period-block
     ! settings, if one is scheduled this time step.
     if (this%step_select%is_selected(kstp, endofperiod=endofperiod)) then
       trelease = totimc
+      print *, '  period-block release at t=', trelease
       call this%schedule(trelease)
       tprevious = trelease
     end if
@@ -143,16 +147,26 @@ contains
     ! Schedule explicitly specified release times, up
     ! to the configured tolerance of coincidence
     if (this%time_select%any()) then
+      print *, '  time_select has', &
+        this%time_select%selection(2) - this%time_select%selection(1) + 1, &
+        'times selected'
       do it = this%time_select%selection(1), this%time_select%selection(2)
         trelease = this%time_select%times(it)
+        print *, '    checking explicit release at t=', trelease
         if (tprevious >= DZERO .and. is_close( &
             tprevious, &
             trelease, &
-            atol=this%tolerance)) cycle
+            atol=this%tolerance)) then
+          print *, '      skipped (too close to previous)'
+          cycle
+        end if
 
+        print *, '      scheduled'
         call this%schedule(trelease)
         tprevious = trelease
       end do
+    else
+      print *, '  no explicit times selected'
     end if
   end subroutine advance
 

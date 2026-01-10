@@ -51,21 +51,12 @@ contains
     real(DP) :: x, y, z
     class(*), pointer :: p
 
-    ! If tracking time falls exactly on a boundary between time steps,
-    ! report the previous time step for this datum. This is to follow
-    ! MP7's behavior, and because the particle will have been tracked
-    ! up to this instant under the previous time step's conditions, so
-    ! the time step we're about to start shouldn't get "credit" for it.
+    ! Events are reported with the current time step's kper/kstp,
+    ! regardless of when the event occurred relative to time step
+    ! boundaries. This follows the principle of "report when encountered"
+    ! as the solution marches through time.
     per = kper
     stp = kstp
-    if (particle%ttrack == totimc .and. (per > 1 .or. stp > 1)) then
-      if (stp > 1) then
-        stp = stp - 1
-      else if (per > 1) then
-        per = per - 1
-        stp = 1
-      end if
-    end if
 
     ! Convert to model coordinates if we need to
     x = particle%x
