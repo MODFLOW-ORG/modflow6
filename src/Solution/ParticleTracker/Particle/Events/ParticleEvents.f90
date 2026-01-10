@@ -47,16 +47,9 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer, intent(inout) :: event
     ! local
-    integer(I4B) :: i, per, stp
+    integer(I4B) :: i
     real(DP) :: x, y, z
     class(*), pointer :: p
-
-    ! Events are reported with the current time step's kper/kstp,
-    ! regardless of when the event occurred relative to time step
-    ! boundaries. This follows the principle of "report when encountered"
-    ! as the solution marches through time.
-    per = kper
-    stp = kstp
 
     ! Convert to model coordinates if we need to
     x = particle%x
@@ -64,8 +57,8 @@ contains
     z = particle%z
     call particle%get_model_coords(x, y, z)
 
-    event%kper = per
-    event%kstp = stp
+    event%kper = kper
+    event%kstp = kstp
     event%imdl = particle%imdl
     event%iprp = particle%iprp
     event%irpt = particle%irpt

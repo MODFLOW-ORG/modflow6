@@ -415,7 +415,7 @@ def plot_nodes_and_vertices(
     )
 
 
-def compare_snapshots(name, actual_data, snapshot_dir, output_dir):
+def compare_snapshots(name, actual_data, snapshot_dir, output_dir, idx=None):
     """
     Compare actual data with snapshot and show detailed differences.
 
@@ -429,6 +429,8 @@ def compare_snapshots(name, actual_data, snapshot_dir, output_dir):
         Directory containing snapshot files
     output_dir : Path
         Directory to save comparison outputs
+    idx : int, optional
+        Index for parametrized tests (e.g., when parametrized by idx and name)
 
     Returns
     -------
@@ -438,12 +440,17 @@ def compare_snapshots(name, actual_data, snapshot_dir, output_dir):
 
     import pandas as pd
 
+    # Construct test identifier for display
+    test_id = f"{idx}-{name}" if idx is not None else name
+
     print(f"\n{'=' * 80}")
-    print(f"Snapshot comparison for test case: {name}")
+    print(f"Snapshot comparison for test case: {test_id}")
     print(f"{'=' * 80}")
 
     # Read the snapshot file directly (syrupy stores as .npy files)
-    snapshot_file = snapshot_dir / f"test_mf6model[{name}].npy"
+    # Format: test_mf6model[name].npy or test_mf6model[idx-name].npy
+    snapshot_filename = f"test_mf6model[{test_id}].npy"
+    snapshot_file = snapshot_dir / snapshot_filename
 
     if not snapshot_file.exists():
         print(f"Snapshot file not found: {snapshot_file}")
@@ -481,8 +488,8 @@ def compare_snapshots(name, actual_data, snapshot_dir, output_dir):
             print(f"  Unique kstp: {sorted(actual_data['kstp'].unique())}")
 
         # Save both for manual inspection
-        expected_csv = output_dir / f"{name}_expected_pathlines.csv"
-        actual_csv = output_dir / f"{name}_actual_pathlines.csv"
+        expected_csv = output_dir / f"{test_id}_expected_pathlines.csv"
+        actual_csv = output_dir / f"{test_id}_actual_pathlines.csv"
         expected_data.to_csv(expected_csv, index=False)
         actual_data.to_csv(actual_csv, index=False)
         print(f"\nExpected data saved to: {expected_csv}")
@@ -529,9 +536,9 @@ def compare_snapshots(name, actual_data, snapshot_dir, output_dir):
                     print(f"  New values: {sorted(new_vals.unique())}")
 
         # Save comparison to CSV
-        diff_csv = output_dir / f"{name}_differences.csv"
+        diff_csv = output_dir / f"{test_id}_differences.csv"
         diff.to_csv(diff_csv)
-        actual_csv = output_dir / f"{name}_actual_pathlines.csv"
+        actual_csv = output_dir / f"{test_id}_actual_pathlines.csv"
         actual_data.to_csv(actual_csv, index=False)
         print(f"\nDifferences saved to: {diff_csv}")
         print(f"Actual data saved to: {actual_csv}")
