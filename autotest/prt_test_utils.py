@@ -475,7 +475,7 @@ def compare_snapshots(name, actual_data, snapshot_dir, output_dir, idx=None):
 
     if len(expected_data) != len(actual_data):
         # Different number of rows
-        print("\n⚠ Different number of records!")
+        print("\nDifferent number of records!")
         print("\nExpected summary:")
         if "kper" in expected_data.columns:
             print(f"  Unique kper: {sorted(expected_data['kper'].unique())}")
@@ -545,6 +545,6 @@ def compare_snapshots(name, actual_data, snapshot_dir, output_dir, idx=None):
         print(f"{'=' * 80}\n")
         return False
     else:
-        print("✓ All values match!")
+        print("All values match!")
         print(f"{'=' * 80}\n")
         return True

@@ -51,41 +51,36 @@ cases = [
     # test an absurdly high RELEASE_TIME_TOLERANCE
     f"{simname}tol",
     # test fill-forward with empty period block
-    f"{simname}fill",  # FIRST in period 0, fill-forward to period 1, empty period 2
+    f"{simname}fill",  # FIRST in period 1, fill-forward period 2, empty period 3
     # test different period block configs per period
-    f"{simname}multi",  # FIRST in period 0, ALL in period 1, FIRST in period 2
-    # test boundary behavior: explicit vs period-block releases at exact boundaries
-    f"{simname}bndy",  # RELEASETIMES: 1.0 (explicit); FIRST in period 1 (also t=1.0)
+    f"{simname}multi",  # FIRST in period 1, ALL in period 2, FIRST in period 3
+    # test explicit release time and period-block release on a time step boundary
+    f"{simname}bndy",  # RELEASETIMES: 1.0; FIRST in period 2 (also t=1.0)
 ]
 
 
 def get_perioddata(name, periods=1) -> Optional[dict]:
+    opt = []
     if "sgl" in name or "dbl" in name or "open" in name or "tol" in name:
         return None
-
     if "bndy" in name:
-        # Boundary test: FIRST in period 1 only (t=1.0, same as explicit release)
         return {
-            0: [],  # Period 0: no period-block releases
-            1: [("FIRST",)],  # Period 1: release on first time step (at t=1.0)
-            2: [],  # Period 2: no period-block releases
+            0: [],
+            1: [("FIRST",)],
+            2: [],
         }
-
     if "fill" in name:
         return {
-            0: [("FIRST",)],  # Period 0: release on first time step
-            # Period 1: omitted to test fill-forward
-            2: [],  # Period 2: empty block to stop fill-forward
+            0: [("FIRST",)],
+            # omitted to test fill-forward
+            2: [], # test empty period block to cancel fill-forward
         }
-
     if "multi" in name:
         return {
-            0: [("FIRST",)],  # Period 0: release on first time step only
-            1: [("ALL",)],  # Period 1: release on all time steps
-            2: [("FIRST",)],  # Period 2: release on first time step only
+            0: [("FIRST",)],
+            1: [("ALL",)],
+            2: [("FIRST",)],
         }
-
-    opt = []
     if "frst" in name or "both" in name or "dupe" in name:
         opt.append(("FIRST",))
     elif "all" in name:
@@ -522,23 +517,19 @@ def check_output(test, snapshot):
         assert len(release_times) == len(expected_release_times)
         assert np.allclose(release_times, expected_release_times)
 
-    # check release timing and period/step attribution for boundary test
+    # check kper/kstp reporting for time boundary case.
+    # events at the same time can be on different sides
+    # of the boundary depending how they're configured.
     if "bndy" in name:
-        # Test that events at the same time can be on different sides
-        # of the boundary depending on how they're configured.
-        #
-        # Both releases occur at t=1.0 (the boundary between period 0 and period 1):
+        # Both releases at t=1.0 (boundary between kper=1,kstp=1 and kper=2,kstp=1):
         # 1. Explicit release with RELEASETIMES block at t=1.0
-        # 2. Period-block release with FIRST in period 1 at t=1.0
+        # 2. Period-block release with FIRST in period 2
         #
         # Expected behavior:
-        # - Explicit release should be captured by period 0's time selection
-        #   interval (0.0, 1.0], which includes t=1.0 (inclusive upper bound).
-        #   Reported as kper=1 (period 0 in 1-based indexing).
-        #
-        # - Period-block release occurs when PRT reaches period 1
-        #   and is attributed to kper=3 (period 1 in 1-based indexing).
-        #
+        # - Explicit release falls within the timeslice for period 1 step 1,
+        #   (0.0, 1.0], so reported as period 1
+        # - Period-block release when PRT solves period 2 step 1 should be
+        #   reported as period 2
         release_times = sorted(mf6_pls["trelease"].unique())
         expected_release_times = [1.0]
         assert len(release_times) == len(expected_release_times)
