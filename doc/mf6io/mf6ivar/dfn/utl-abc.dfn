@@ -161,7 +161,7 @@ longname deactivate latent heat flux calculations
 description keyword to deactivate latent heat exchange with the atmosphere.  Latent heat exchange between stream reaches and the atmosphere is active by default.
 
 block options
-name swr_off
+name shf_off
 tagged true
 type keyword
 reader urword
