@@ -418,14 +418,14 @@ def build_models(idx, test):
         print_input=True,
         density_air=rhoa,
         heat_capacity_air=Cpa,
-        drag_coefficient=c_d,
-        wind_func_slope=wf_slope,
-        wind_func_int=wf_int,
         reachperioddata=abc_spd,
         filename=abc_filename,
         longwave_reflectance=lwrefl,
         emissivity_water=emiss_water,
         emissivity_canopy=emiss_riparian,
+        swr_off=True,
+        lhf_off=True,
+        shf_off=True,
     )
 
     # Instantiate Output Control package for transport
@@ -460,21 +460,21 @@ def build_models(idx, test):
 
 def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
     # shortwave
-    swr_ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
+    # swr_ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
 
     # latent
-    L = (2499.64 - (2.51 * strm_temp)) * 1000
-    e_w = 6.1275 * math.exp(17.2693882 * (strm_temp / (strm_temp + c_to_k - 35.86)))
-    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + c_to_k - 35.86)))
-    e_a = (rh / 100) * e_s
-    vap_press_deficit = e_w - e_a
-    wind_function = wf_int + wf_slope * wspd
-    Ev = wind_function * vap_press_deficit
-    lhf_ener_per_sqm = Ev * L * rhow
+    # L = (2499.64 - (2.51 * strm_temp)) * 1000
+    # e_w = 6.1275 * math.exp(17.2693882 * (strm_temp / (strm_temp + c_to_k - 35.86)))
+    # e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + c_to_k - 35.86)))
+    # e_a = (rh / 100) * e_s
+    # vap_press_deficit = e_w - e_a
+    # wind_function = wf_int + wf_slope * wspd
+    # Ev = wind_function * vap_press_deficit
+    # lhf_ener_per_sqm = Ev * L * rhow
 
     # sensible
-    bowen_ratio = 0.00061 * atmp * ((strm_temp - tatm) / (e_w - e_a))
-    shf_ener_per_sqm = bowen_ratio * lhf_ener_per_sqm
+    # bowen_ratio = 0.00061 * atmp * ((strm_temp - tatm) / (e_w - e_a))
+    # shf_ener_per_sqm = bowen_ratio * lhf_ener_per_sqm
 
     # longwave
     Ql_up = -emiss_water * stephan_boltzmann * ((updated_strm_temp + c_to_k) ** 4)
@@ -488,11 +488,7 @@ def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
 
     lwr_ener_per_sqm = Ql_down * (1 - lwrefl) + Ql_up
 
-    total_ener = (
-        lwr_ener_per_sqm + swr_ener_per_sqm + shf_ener_per_sqm - lhf_ener_per_sqm
-    )
-
-    ener_transfer = total_ener * delr * mf_strm_wid
+    ener_transfer = lwr_ener_per_sqm * delr * mf_strm_wid
 
     return ener_transfer
 
