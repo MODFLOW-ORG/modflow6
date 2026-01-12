@@ -73,7 +73,7 @@ def get_perioddata(name, periods=1) -> Optional[dict]:
         return {
             0: [("FIRST",)],
             # omitted to test fill-forward
-            2: [], # test empty period block to cancel fill-forward
+            2: [],  # test empty period block to cancel fill-forward
         }
     if "multi" in name:
         return {
