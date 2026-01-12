@@ -1,4 +1,4 @@
-\begin{thebibliography}{31}
+\begin{thebibliography}{32}
 \providecommand{\natexlab}[1]{#1}
 \expandafter\ifx\csname urlstyle\endcsname\relax
   \providecommand{\doiagency}[1]{doi:\discretionary{}{}{}#1}\else
@@ -39,6 +39,12 @@ Cordes, C., and Kinzelbach, W., 1992, Continuous groundwater velocity fields
   and path lines in linear, bilinear, and trilinear finite elements: Water
   Resources Research, v.~28, p.~2903--2911,
   \url{https://doi.org/10.1029/92WR01686}.
+
+\bibitem[{Darwish and Moukalled(2003)}]{Darwish2003}
+Darwish, M., and Moukalled, F., 2003, {TVD} schemes for unstructured grids:
+  International Journal of Heat and Mass Transfer, v.~46, no.~4, p.~599--611,
+  \url{https://doi.org/10.1016/S0017-9310(02)00330-7},
+  \url{https://linkinghub.elsevier.com/retrieve/pii/S0017931002003307}.
 
 \bibitem[{Guo and Langevin(2002)}]{langevin2002seawat}
 Guo, W., and Langevin, C.D., 2002, User's Guide to SEAWAT: A Computer Program

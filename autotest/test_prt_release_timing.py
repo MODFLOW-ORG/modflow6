@@ -15,11 +15,11 @@ from pathlib import Path
 from typing import Optional
 
 import flopy
-import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from flopy.plot.plotutil import to_mp7_pathlines
 from flopy.utils import PathlineFile
 from framework import TestFramework
 from modflow_devtools.markers import requires_pkg
@@ -49,12 +49,30 @@ cases = [
     f"{simname}dupe",  # RELEASETIMES block: 0.0: also FIRST, expect consolidation
     # test an absurdly high RELEASE_TIME_TOLERANCE
     f"{simname}tol",
+    # test fill-forward with empty period block
+    f"{simname}fill",  # FIRST in period 0, fill-forward to period 1, empty period 2
+    # test different period block configs per period
+    f"{simname}multi",  # FIRST in period 0, ALL in period 1, FIRST in period 2
 ]
 
 
 def get_perioddata(name, periods=1) -> Optional[dict]:
     if "sgl" in name or "dbl" in name or "open" in name or "tol" in name:
         return None
+
+    if "fill" in name:
+        return {
+            0: [("FIRST",)],  # Period 0: release on first time step
+            # Period 1: omitted to test fill-forward
+            2: [],  # Period 2: empty block to stop fill-forward
+        }
+
+    if "multi" in name:
+        return {
+            0: [("FIRST",)],  # Period 0: release on first time step only
+            1: [("ALL",)],  # Period 1: release on all time steps
+            2: [("FIRST",)],  # Period 2: release on first time step only
+        }
 
     opt = []
     if "frst" in name or "both" in name or "dupe" in name:
@@ -87,18 +105,49 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
     )
 
     # create tdis package
-    flopy.mf6.modflow.mftdis.ModflowTdis(
-        sim,
-        pname="tdis",
-        time_units="DAYS",
-        nper=FlopyReadmeCase.nper,
-        perioddata=[
+    # Use 3 periods for fill-forward and multi-period tests, 1 period for others
+    nper = 3 if ("fill" in name or "multi" in name) else FlopyReadmeCase.nper
+    if "multi" in name:
+        # For multi test: period 1 has 5 steps so ALL is different from FIRST
+        perioddata = [
+            (
+                FlopyReadmeCase.perlen,
+                FlopyReadmeCase.nstp,
+                FlopyReadmeCase.tsmult,
+            ),  # Period 0: 1 time step
+            (
+                FlopyReadmeCase.perlen,
+                5,
+                FlopyReadmeCase.tsmult,
+            ),  # Period 1: 5 time steps
+            (
+                FlopyReadmeCase.perlen,
+                FlopyReadmeCase.nstp,
+                FlopyReadmeCase.tsmult,
+            ),  # Period 2: 1 time step
+        ]
+    elif "fill" in name:
+        perioddata = [
             (
                 FlopyReadmeCase.perlen,
                 FlopyReadmeCase.nstp,
                 FlopyReadmeCase.tsmult,
             )
-        ],
+        ] * nper
+    else:
+        perioddata = [
+            (
+                FlopyReadmeCase.perlen,
+                FlopyReadmeCase.nstp,
+                FlopyReadmeCase.tsmult,
+            )
+        ]
+    flopy.mf6.modflow.mftdis.ModflowTdis(
+        sim,
+        pname="tdis",
+        time_units="DAYS",
+        nper=nper,
+        perioddata=perioddata,
     )
 
     # create prt model
@@ -215,11 +264,36 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
 def build_mp7_sim(name, ws, mp7, gwf):
     partdata = get_partdata(gwf.modelgrid, FlopyReadmeCase.releasepts_mp7)
     mp7_name = get_model_name(name, "mp7")
-    pg = flopy.modpath.ParticleGroup(
-        particlegroupname="G1",
-        particledata=partdata,
-        filename=f"{mp7_name}.sloc",
-    )
+
+    # Configure release times for multi-period tests to match MF6
+    if "fill" in name:
+        # Fill-forward test: release at t=0.0 and t=1.0
+        # Format: [count, [list of times]]
+        releasedata = [2, [0.0, 1.0]]
+        pg = flopy.modpath.ParticleGroup(
+            particlegroupname="G1",
+            particledata=partdata,
+            filename=f"{mp7_name}.sloc",
+            releasedata=releasedata,
+        )
+    elif "multi" in name:
+        # Multi-period test: release at 7 times
+        # Format: [count, [list of times]]
+        releasedata = [7, [0.0, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]]
+        pg = flopy.modpath.ParticleGroup(
+            particlegroupname="G1",
+            particledata=partdata,
+            filename=f"{mp7_name}.sloc",
+            releasedata=releasedata,
+        )
+    else:
+        # Default: release at start (t=0.0)
+        pg = flopy.modpath.ParticleGroup(
+            particlegroupname="G1",
+            particledata=partdata,
+            filename=f"{mp7_name}.sloc",
+        )
+
     mp = flopy.modpath.Modpath7(
         modelname=mp7_name,
         flowmodel=gwf,
@@ -245,6 +319,39 @@ def build_models(test):
     gwf_sim = FlopyReadmeCase.get_gwf_sim(
         test.name, test.workspace, test.targets["mf6"]
     )
+
+    # For fill-forward and multi-period tests, update GWF simulation to use 3 periods
+    if "fill" in test.name or "multi" in test.name:
+        tdis = gwf_sim.get_package("tdis")
+        tdis.nper = 3
+        if "multi" in test.name:
+            # For multi test: period 1 has 5 steps so ALL is different from FIRST
+            tdis.perioddata = [
+                (
+                    FlopyReadmeCase.perlen,
+                    FlopyReadmeCase.nstp,
+                    FlopyReadmeCase.tsmult,
+                ),  # Period 0: 1 time step
+                (
+                    FlopyReadmeCase.perlen,
+                    5,
+                    FlopyReadmeCase.tsmult,
+                ),  # Period 1: 5 time steps
+                (
+                    FlopyReadmeCase.perlen,
+                    FlopyReadmeCase.nstp,
+                    FlopyReadmeCase.tsmult,
+                ),  # Period 2: 1 time step
+            ]
+        else:
+            tdis.perioddata = [
+                (
+                    FlopyReadmeCase.perlen,
+                    FlopyReadmeCase.nstp,
+                    FlopyReadmeCase.tsmult,
+                )
+            ] * 3
+
     prt_sim = build_prt_sim(
         test.name,
         test.workspace,
@@ -261,8 +368,6 @@ def build_models(test):
 
 
 def check_output(test, snapshot):
-    from flopy.plot.plotutil import to_mp7_pathlines
-
     name = test.name
     ws = test.workspace
     prt_ws = test.workspace / "prt"
@@ -334,10 +439,12 @@ def check_output(test, snapshot):
     assert all_equal(mf6_pls["iprp"], 1)
 
     # check budget data were written to mf6 prt list file
+    # Multi-period tests use 3 periods, others use 1
+    nper = 3 if ("fill" in name or "multi" in name) else FlopyReadmeCase.nper
     check_budget_data(
         prt_ws / f"{name}_prt.lst",
         FlopyReadmeCase.perlen,
-        FlopyReadmeCase.nper,
+        nper,
     )
 
     # check mf6 prt particle track data were written to binary/CSV files
@@ -354,6 +461,34 @@ def check_output(test, snapshot):
 
     # compare pathlines with snapshot
     assert snapshot == mf6_pls.drop("name", axis=1).round(3).to_records(index=False)
+
+    # check release timing for fill-forward case
+    if "fill" in name:
+        # Period 0: FIRST at time = 0.0
+        # Period 1: fill-forward, time = 1.0
+        # Period 2: empty block should stop releases
+        release_times = sorted(mf6_pls["trelease"].unique())
+        expected_release_times = [0.0, FlopyReadmeCase.perlen]  # [0.0, 1.0]
+        assert len(release_times) == len(expected_release_times)
+        assert np.allclose(release_times, expected_release_times)
+
+    # check release timing for case with several period blocks
+    if "multi" in name:
+        # Period 0: FIRST at time = 0.0
+        # Period 1: ALL with 5 time steps at times 1.0, 1.2, 1.4, 1.6, 1.8
+        # Period 2: FIRST at time = 2.0
+        release_times = sorted(mf6_pls["trelease"].unique())
+        expected_release_times = [
+            0.0,
+            1.0,
+            1.2,
+            1.4,
+            1.6,
+            1.8,
+            2.0,
+        ]
+        assert len(release_times) == len(expected_release_times)
+        assert np.allclose(release_times, expected_release_times)
 
     # convert mf6 pathlines to mp7 format
     mf6_pls = to_mp7_pathlines(mf6_pls)
@@ -374,26 +509,29 @@ def check_output(test, snapshot):
     del mp7_pls["yloc"]
     del mp7_pls["zloc"]
 
-    # compare mf6 / mp7 pathline data. the cases with
-    # 2 release times should have output size doubled
-    # too. the cases with just 1 release time should
-    # match the mp7 results. the "dupe" case should
-    # also match mp7 results because the duplicated
-    # release time should be consolidated into one,
-    # as should the "tol" case for similar reasons.
-    # the "freq" case uses both time step frequency
-    # in the period block and RELEASE_TIME_FREQUENCY
-    # in the options block, setting the former to 1
-    # and the latter to 0.2, so we expect 5 times as
-    # many particles (first time t=0 is deduplicated)
+    # compare mf6 / mp7 pathline results, todo check mass
     if "dbl" in name or "open" in name or "both" in name:
+        # 2 release times, expect double mp7's data size
         assert len(mf6_pls) == 2 * len(mp7_pls)
-        # todo check mass
     elif "freq" in name:
+        # the "freq" case uses both time step frequency
+        # in the period block and RELEASE_TIME_FREQUENCY
+        # in the options block, setting the former to 1
+        # and the latter to 0.2, so we expect 5 times as
+        # many particles (first time t=0 is deduplicated)
         assert len(mf6_pls) == 5 * len(mp7_pls)
-        # todo check mass
+    elif "fill" in name or "multi" in name:
+        # MP7 has duplicate records for particles released
+        # at t = 1.0. these particles stop without moving,
+        # but MP7 gives them 3 records, 2 in kper = 1 and
+        # another in kper = 2. PRT terminates them at the
+        # end of kper = 1 as per our philosophy that they
+        # have been tracked under the prior period's flow
+        # system, the next shouldn't "get credit" for it.
+        assert len(mf6_pls) == len(mp7_pls) - 9
     else:
-        assert mf6_pls.shape == mp7_pls.shape
+        # the rest of the cases should match mp7 results,
+        # with duplicate times debounced in "dupe"/"tol".
         assert np.allclose(mf6_pls, mp7_pls, atol=1e-3)
 
 
@@ -438,39 +576,59 @@ def plot_output(test):
     for a in ax:
         a.set_aspect("equal")
 
-    # plot mf6 pathlines in map view
+    # get time range for consistent colormap across both plots
+    min_time = min(mf6_pls["t"].min(), mp7_pls["time"].min())
+    max_time = max(mf6_pls["t"].max(), mp7_pls["time"].max())
+
+    # plot mf6 pathlines in map view, colorcoded by time
     pmv = flopy.plot.PlotMapView(modelgrid=mg, ax=ax[0])
     pmv.plot_grid()
     pmv.plot_array(head[0], alpha=0.1)
     pmv.plot_vector(qx, qy, normalize=True, color="white")
     mf6_plines = mf6_pls.groupby(["iprp", "irpt", "trelease"])
     for ipl, ((iprp, irpt, trelease), pl) in enumerate(mf6_plines):
-        pl.plot(
-            title="MF6 pathlines",
-            kind="line",
-            x="x",
-            y="y",
-            ax=ax[0],
-            legend=False,
-            color=cm.plasma(ipl / len(mf6_plines)),
+        # Plot lines connecting points
+        ax[0].plot(pl["x"], pl["y"], "k-", linewidth=0.5, alpha=0.3)
+        # Plot points colorcoded by time
+        sc = ax[0].scatter(
+            pl["x"],
+            pl["y"],
+            c=pl["t"],
+            cmap="viridis",
+            vmin=min_time,
+            vmax=max_time,
+            s=20,
+            edgecolors="black",
+            linewidth=0.5,
         )
+    ax[0].set_title("MF6 pathlines (colored by time)")
 
-    # plot mp7 pathlines in map view
+    # plot mp7 pathlines in map view, colorcoded by time
     pmv = flopy.plot.PlotMapView(modelgrid=mg, ax=ax[1])
     pmv.plot_grid()
     pmv.plot_array(head[0], alpha=0.1)
     pmv.plot_vector(qx, qy, normalize=True, color="white")
     mp7_plines = mp7_pls.groupby(["particleid"])
     for ipl, (pid, pl) in enumerate(mp7_plines):
-        pl.plot(
-            title="MP7 pathlines",
-            kind="line",
-            x="x",
-            y="y",
-            ax=ax[1],
-            legend=False,
-            color=cm.plasma(ipl / len(mp7_plines)),
+        # Plot lines connecting points
+        ax[1].plot(pl["x"], pl["y"], "k-", linewidth=0.5, alpha=0.3)
+        # Plot points colorcoded by time
+        sc = ax[1].scatter(
+            pl["x"],
+            pl["y"],
+            c=pl["time"],
+            cmap="viridis",
+            vmin=min_time,
+            vmax=max_time,
+            s=20,
+            edgecolors="black",
+            linewidth=0.5,
         )
+    ax[1].set_title("MP7 pathlines (colored by time)")
+
+    # add colorbar to show time scale
+    cbar = plt.colorbar(sc, ax=ax, orientation="horizontal", pad=0.05, aspect=40)
+    cbar.set_label("Time")
 
     # view/save plot
     plt.show()

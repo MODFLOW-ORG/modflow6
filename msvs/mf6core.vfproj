@@ -415,6 +415,13 @@
 		<File RelativePath="..\src\Model\ExplicitModel.f90"/>
 		<File RelativePath="..\src\Model\NumericalModel.f90"/>
 		<File RelativePath="..\src\Model\NumericalPackage.f90"/></Filter>
+		<Filter Name="Isotherm">
+		<File RelativePath="..\src\Model\TransportModel\Isotherm\FreundlichIsotherm.f90"/>
+		<File RelativePath="..\src\Model\TransportModel\Isotherm\IsothermEnum.f90"/>
+		<File RelativePath="..\src\Model\TransportModel\Isotherm\IsothermFactory.f90"/>
+		<File RelativePath="..\src\Model\TransportModel\Isotherm\IsothermInterface.f90"/>
+		<File RelativePath="..\src\Model\TransportModel\Isotherm\LangmuirIsotherm.f90"/>
+		<File RelativePath="..\src\Model\TransportModel\Isotherm\LinearIsotherm.f90"/></Filter>
 		<Filter Name="Solution">
 		<Filter Name="LinearMethods">
 		<File RelativePath="..\src\Solution\LinearMethods\ImsLinear.f90"/>

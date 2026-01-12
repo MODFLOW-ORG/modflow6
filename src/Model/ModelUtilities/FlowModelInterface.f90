@@ -14,6 +14,7 @@ module FlowModelInterfaceModule
   use GridFileReaderModule, only: GridFileReaderType
   use PackageBudgetModule, only: PackageBudgetType
   use BudgetObjectModule, only: BudgetObjectType, budgetobject_cr_bfr
+  use MemoryManagerModule, only: mem_allocate
 
   implicit none
   private
@@ -34,9 +35,11 @@ module FlowModelInterfaceModule
     integer(I4B), pointer :: idryinactive => null() !< mark cells with an additional flag to exclude from deactivation (gwe will simulate conduction through dry cells)
     real(DP), dimension(:), pointer, contiguous :: gwfstrgss => null() !< pointer to flow model QSTOSS
     real(DP), dimension(:), pointer, contiguous :: gwfstrgsy => null() !< pointer to flow model QSTOSY
+    integer(I4B), dimension(:), pointer, contiguous :: gwfceltyp => null() !< pointer to flow model NPF icelltype
     integer(I4B), pointer :: igwfspdis => null() !< indicates if gwfspdis is available
     integer(I4B), pointer :: igwfstrgss => null() !< indicates if gwfstrgss is available
     integer(I4B), pointer :: igwfstrgsy => null() !< indicates if gwfstrgsy is available
+    integer(I4B), pointer :: igwfceltyp => null() !< indicates if gwfceltyp is available
     integer(I4B), pointer :: iubud => null() !< unit number GWF budget file
     integer(I4B), pointer :: iuhds => null() !< unit number GWF head file
     integer(I4B), pointer :: iumvr => null() !< unit number GWF mover budget file
@@ -169,6 +172,7 @@ contains
     if (this%flows_from_file) then
       call mem_deallocate(this%gwfstrgss)
       call mem_deallocate(this%gwfstrgsy)
+      call mem_deallocate(this%gwfceltyp)
     end if
     !
     ! -- special treatment, these could be from mem_checkin
@@ -183,6 +187,7 @@ contains
     call mem_deallocate(this%igwfspdis)
     call mem_deallocate(this%igwfstrgss)
     call mem_deallocate(this%igwfstrgsy)
+    call mem_deallocate(this%igwfceltyp)
     call mem_deallocate(this%iubud)
     call mem_deallocate(this%iuhds)
     call mem_deallocate(this%iumvr)
@@ -213,6 +218,7 @@ contains
     call mem_allocate(this%igwfspdis, 'IGWFSPDIS', this%memoryPath)
     call mem_allocate(this%igwfstrgss, 'IGWFSTRGSS', this%memoryPath)
     call mem_allocate(this%igwfstrgsy, 'IGWFSTRGSY', this%memoryPath)
+    call mem_allocate(this%igwfceltyp, 'IGWFCELTYP', this%memoryPath)
     call mem_allocate(this%iubud, 'IUBUD', this%memoryPath)
     call mem_allocate(this%iuhds, 'IUHDS', this%memoryPath)
     call mem_allocate(this%iumvr, 'IUMVR', this%memoryPath)
@@ -227,6 +233,7 @@ contains
     this%igwfspdis = 0
     this%igwfstrgss = 0
     this%igwfstrgsy = 0
+    this%igwfceltyp = 0
     this%iubud = 0
     this%iuhds = 0
     this%iumvr = 0
@@ -288,6 +295,14 @@ contains
       do n = 1, size(this%gwfstrgsy)
         this%gwfstrgsy(n) = DZERO
       end do
+      ! allocate and initialize cell type array. if the FMI is in a separate
+      ! simulation from the GWF model, we expect cell type to have been read
+      ! already if the binary grid file was provided to FMI. otherwise don't
+      ! initialize the cell type array to any default; unless it is received
+      ! from GWF NPF by an EXG it's undefined as indicated by igwfceltyp = 0
+      ! (this is because some coupled models need cell type, but some don't)
+      if (this%igwfceltyp == 0) &
+        call mem_allocate(this%gwfceltyp, nodes, 'GWFCELTYP', this%memoryPath)
       !
       ! -- If there is no fmi package, then there are no flows at all or a
       !    connected GWF model, so allocate gwfpackages to zero
@@ -409,7 +424,7 @@ contains
     end if
   end subroutine source_packagedata
 
-  !> @brief Validate flow model grid
+  !> @brief Read/validate flow model grid
   !<
   subroutine read_grid(this)
     ! -- modules
@@ -425,6 +440,8 @@ contains
     integer(I4B) :: user_nodes
     integer(I4B), allocatable :: idomain1d(:), idomain2d(:, :), idomain3d(:, :, :)
     ! -- formats
+    character(len=*), parameter :: fmticterr = &
+      &"('Error in ',a,': Binary grid file does not contain ICELLTYPE.')"
     character(len=*), parameter :: fmtdiserr = &
       "('Error in ',a,': Models do not have the same discretization. &
       &GWF model has ', i0, ' user nodes, this model has ', i0, '. &
@@ -435,6 +452,16 @@ contains
       &Ensure discretization packages, including IDOMAIN, are identical.')"
 
     call this%gfr%initialize(this%iugrb)
+
+    ! load icelltype array
+    if (.not. this%gfr%has_variable("ICELLTYPE")) then
+      write (errmsg, fmticterr) trim(this%text)
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+    this%igwfceltyp = 1
+    call mem_allocate(this%gwfceltyp, this%dis%nodesuser, &
+                      'GWFCELTYP', this%memoryPath)
+    call this%gfr%read_int_1d_into("ICELLTYPE", this%gwfceltyp)
 
     ! check grid equivalence
     select case (this%gfr%grid_type)
@@ -831,8 +858,6 @@ contains
   !! different terms and packages are contained within the file
   !<
   subroutine initialize_gwfterms_from_bfr(this)
-    ! -- modules
-    use MemoryManagerModule, only: mem_allocate
     ! -- dummy
     class(FlowModelInterfaceType) :: this
     ! -- local

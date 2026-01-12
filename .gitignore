@@ -137,6 +137,7 @@ modflow6.code-workspace
 # unittests
 unittests/
 autotest/.failed
+autotest/.keep
 autotest/.temp/
 autotest/temp/
 autotest/tempbin/

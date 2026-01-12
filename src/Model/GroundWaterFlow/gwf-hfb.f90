@@ -599,7 +599,7 @@ contains
     integer(I4B) :: n, nodeu1, nodeu2, noder1, noder2, hfbno
     character(len=20) :: node1str, node2str
     ! -- formats
-    character(len=*), parameter :: fmthfb = "(i10, 2a10, 1(1pg15.6))"
+    character(len=*), parameter :: fmthfb = "(i10, 2a20, 1(1pg15.6))"
 
     ! set input context pointers
     call mem_setptr(nbound, 'NBOUND', this%input_mempath)
@@ -616,7 +616,7 @@ contains
     ! log data
     write (this%iout, '(//,1x,a)') 'READING HFB DATA'
     if (this%iprpak > 0) then
-      write (this%iout, '(3a10, 1a15)') 'HFB NUM', 'CELL1', 'CELL2', &
+      write (this%iout, '(a10, 2a20, 1a15)') 'HFB NUM', 'CELL1', 'CELL2', &
         'HYDCHR'
     end if
 

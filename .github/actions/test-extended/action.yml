@@ -19,16 +19,33 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        brew install netcdf-fortran
+        brew install netcdf-fortran libevent
         nc-config --all
         nf-config --all
 
     - name: Setup GNU Fortran
-      if: runner.os != 'macOS'
       uses: fortran-lang/setup-fortran@v1
       with:
         compiler: gcc
         version: 13
+
+    - name: Build OpenMPI (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.6.tar.gz
+        tar -xzf openmpi-4.1.6.tar.gz
+        cd openmpi-4.1.6
+        ./configure --prefix=$GITHUB_WORKSPACE/openmpi --with-libevent=$(brew --prefix libevent) --enable-mpi-fortran=usempi FC=gfortran CC=gcc CXX=g++
+        make -j$(sysctl -n hw.ncpu)
+        make install
+
+    - name: Patch OpenMPI wrapper for macOS ARM linker
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        # Add -Wl,-ld_classic to the linker_flags line
+        sed -i '' 's/^linker_flags=/linker_flags=-Wl,-ld_classic /' $GITHUB_WORKSPACE/openmpi/share/openmpi/mpifort-wrapper-data.txt
 
     - name: Checkout PETSc
       uses: actions/checkout@v4
@@ -43,14 +60,28 @@ runs:
         echo "PKG_CONFIG_PATH=$GITHUB_WORKSPACE/petsc/arch-gcc-opt/lib/pkgconfig" >> $GITHUB_ENV
         echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/petsc/arch-gcc-opt/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
         echo "$GITHUB_WORKSPACE/petsc/arch-gcc-opt/bin" >> $GITHUB_PATH
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          echo "PATH=$GITHUB_WORKSPACE/openmpi/bin:$PATH" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/openmpi/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+        fi
 
     - name: Configure PETSc
       shell: bash
       working-directory: petsc
       run: |
-        sudo wget -P $GITHUB_WORKSPACE/petsc https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.2.tar.gz
-        sudo ./configure PETSC_ARCH=arch-gcc-opt --download-fblaslapack --download-openmpi=$GITHUB_WORKSPACE/petsc/openmpi-5.0.2.tar.gz --with-debugging=0
-        sudo make all
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          ./configure PETSC_ARCH=arch-gcc-opt --download-fblaslapack --with-mpi-dir=$GITHUB_WORKSPACE/openmpi --with-debugging=0
+        else
+          wget -P $GITHUB_WORKSPACE/petsc https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.2.tar.gz
+          ./configure PETSC_ARCH=arch-gcc-opt --download-fblaslapack --download-openmpi=$GITHUB_WORKSPACE/petsc/openmpi-5.0.2.tar.gz --with-debugging=0
+        fi
+        make all
+
+    - name: Show PETSc configure log
+      if: failure()
+      shell: bash
+      working-directory: petsc
+      run: cat configure.log
 
     - name: Build modflow6
       shell: bash

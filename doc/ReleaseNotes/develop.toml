@@ -65,15 +65,55 @@ description = "Balanced the PRT model mass budget with a new term to accumulate 
 
 [[items]]
 section = "fixes"
-subsection = "stress packages"
+subsection = "stress"
 description = "The OPTIONS block in the Energy Source Loading (ESL) Package accepted the AUXILIARY and AUXMULTNAME keywords; however, they had no effect on the GWE solution.  The ESL code was fixed such that when the AUXMULTCOL keyword is invoked, the user-specified amount of energy added or removed from cells will be multiplied by whatever value the user supplies in the corresponding AUXILIARY column." 
 
 [[items]]
 section = "fixes"
-subsection = "stress packages"
+subsection = "stress"
 description = "The OPTIONS block in the Mass Source Loading (SRC) Package accepted the AUXILIARY and AUXMULTNAME keywords; however, they had no effect on the GWT solution.  The SRC package was fixed such that when the AUXMULTCOL keyword is invoked, the user-specified amount of energy added or removed from cells will be multiplied by the value supplied by the user in the corresponding AUXILIARY column." 
 
 [[items]]
 section = "fixes"
 subsection = "model"
 description = "Setting the PRT model's Particle Release Point (PRP) package option EXIT\\_SOLVE\\_TOLERANCE too high can cause the generalized (DISV) tracking method to produce invalid/meaningless results, as the algorithm considers every lateral subcell exit solution equally valid. Add a warning for tolerances above 0.01. The variable being solved varies from 0 to 1, so in most cases the tolerance should be much less than 1, but appropriate values will vary by model and desired performance (models run faster with higher tolerance)."
+
+[[items]]
+section = "fixes"
+subsection = "parallel"
+description = "Fixed the case where a simulation with GWF-GWF Exchanges containing water movers is run in parallel such that some Exchange Movers operate between different processes while others operate within the same process. In such cases a MPI communication error could occur (Internal error: Unknown error class) leading to a premature termination of the simulation run."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "In Newton models with local z release coordinates configured via LOCAL\\_Z, invalid negative particle tracking times could be produced when the head in the release-point cell is above the cell top or below the cell bottom. This was caused by an incorrect conversion of local release point vertical coordinates to model coordinates, erroneously placing particles above or below the vertical extent of the release cell. To correct this, take into account whether the cell is convertible or confined. The release point is interpolated vertically between the effective top of the cell and the cell bottom. If the cell is convertible, the effective top is determined by the head in the cell and is constrained to be no higher than the geometric top of the cell and no lower than the cell bottom. If the cell is confined, the effective top is the geometric top. So that convertible and confined cells can be distinguished at particle release time, the user must now specify a binary grid file entry (GWFGRID) to the PRT FMI package if release coordinates are configured with LOCAL\\_Z and the PRT model is running in a separate simulation from the GWF model. A binary grid file entry is not required in the PRT FMI package if the GWF and PRT models run in the same simulation."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "PRT docs and error messages previously failed to distinguish between cells excluded from the model grid with IDOMAIN and cells merely inactive due e.g. to drying. These two concepts are distinct and should not be confused: PRT will not permit a particle to be released into a cell with IDOMAIN = 0 (excluded from the simulation) or -1 (vertical pass through), but it will permit release into an inactive cell. Behavior in this case is determined by factors such as whether the DRAPE option is activated, whether the flow model uses the Newton formulation, and (if so) which DRY\\_TRACKING\\_METHOD is configured."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "The storage term for SFT was not consistent with the standard SFR flow approach (steady-state). Prior to this change, the reach volume for the previous timestep was calculated using the current storage flow rate, which is zero for SFR even though there can be a calculated change in stage. The SFT storage term is now calculated using the current and previous reach water volumes. This change may affect SFT results for existing models."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "The storage term for SFE, like SFT, was not consistent with the standard SFR flow approach (steady-state). Prior to this change, the reach volume for the previous timestep was calculated using the current storage flow rate, which is zero for SFR even though there can be a calculated change in stage. The SFE storage term is now calculated using the current and previous reach water volumes. This change may affect SFE results for existing models."
+
+[[items]]
+section = "features"
+subsection = "stress"
+description = "Added the FLOW\\_REDUCTION\\_LENGTH option to WEL package that indicates the AUTO\\_FLOW\\_REDUCE value is a length instead of a fraction of the cell thickness. A warning will be issued if the FLOW\\_REDUCTION\\_LENGTH option is specified but the AUTO\\_FLOW\\_REDUCE option is not specified in the options block. The program will terminate with an error if the FLOW\\_REDUCTION\\_LENGTH option is specified and the AUTO\\_FLOW\\_REDUCE value specified in the options block is less than or equal to zero."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "Numerical error in the iterative subcell exit solution can leave a particle slightly outside the cell or subcell it is supposedly entering.  Although logic had been implemented to correct for this and ensure that the particle lay within the expected cell or subcell before further tracking commences, this logic was insufficient and could in some cases result in negative tracking times, which terminated the simulation with an error.  The logic has been updated to correctly account for all possible cases."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "The PRT PRP package previously failed to correctly load release settings configured by period block. This could prevent particles from being released as configured. It could also cause excess particles to be released, as empty period blocks intended to stop fill-forward at a certain period were not properly recognized. The package has been updated to correctly load period block release settings."

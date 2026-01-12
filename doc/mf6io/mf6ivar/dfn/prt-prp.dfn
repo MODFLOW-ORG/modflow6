@@ -173,7 +173,7 @@ type keyword
 reader urword
 optional true
 longname drape
-description is a text keyword to indicate that if a particle's release point is in a cell that happens to be inactive at release time, the particle is to be moved to the topmost active cell below it, if any. By default, a particle is not released into the simulation if its release point's cell is inactive at release time.
+description is a text keyword to indicate that if a particle's release point is in a cell that happens to be inactive at release time, the particle is to be moved to the topmost active cell below it, if any. By default, a particle is not released into the simulation if its release point's cell is inactive at release time. Note that DRAPE does not apply to attempted release into a cell for which IDOMAIN <= 0, which is considered not to exist in the simulation. Attempted release into a such a cell results in an error.
 
 block options
 name release_timesrecord

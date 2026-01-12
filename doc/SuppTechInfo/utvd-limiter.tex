@@ -1,0 +1,152 @@
+When discretizing the advection term in transport or energy models, the value of the advected quantity must be determined at cell faces.
+Since MODFLOW 6 employs a cell-centered finite volume method, values are stored at cell centers rather than at faces.
+Therefore, interpolation from cell centers to faces is necessary.
+MODFLOW 6 supports three interpolation methods for this purpose.
+
+The simplest approach is the upstream method, which assigns the face value based on the cell from which flow originates. While robust, this method is only first-order accurate and introduces significant numerical diffusion that smears the solution.
+
+For improved accuracy, second-order methods such as central differencing are preferred.
+This method computes the face value as the average of values in the two adjacent cells. However, this approach can produce non-physical oscillations near steep gradients or discontinuities.
+
+To suppress these oscillations while maintaining accuracy, a third method is available: the Total Variation Diminishing (TVD) limiter method. This approach combines a lower-order term (upstream method) with a higher-order correction term. A limiter function modulates the higher-order term, reducing its contribution near steep gradients or discontinuities where the solution becomes non-smooth. In these regions, the interpolation behaves more like the robust upstream method.
+
+The standard TVD limiter implementation works well for 1D problems but encounters difficulties in 2D and 3D applications. The new limiter implementation, based on the work of \cite{Darwish2003}, extends classical TVD limiters to higher dimensions and unstructured grids.
+
+\subsection{Theory}
+
+The classical TVD limiter interpolation is defined as:
+\begin{equation}
+\phi_f = \phi_c + \frac{1}{2} \left({x_f-x_c}\right) \psi\left(r\right) \frac{\phi_d - \phi_c}{x_d-x_c}
+\end{equation}
+where $\phi_u$, $\phi_c$, and $\phi_d$ are the upwind, central, and downwind values, respectively. The limiter function, $\psi\left(r\right)$, depends on a smoothness indicator $r$, also known as the ratio of gradients:
+\begin{equation}
+r = \frac{\phi_c - \phi_u}{x_c - x_u} \frac{x_d - x_c}{\phi_d - \phi_c}
+\end{equation}
+
+While straightforward to apply in 1D, defining the upwind node $U$ is not obvious for 2D or 3D problems on unstructured grids.
+Darwish resolves this issue by introducing a virtual upwind node $U$. Using a finite difference approach, the value at $U$ can be approximated as follows:
+
+\begin{equation}
+  \begin{aligned}
+  \phi_d &= \phi_c + \vec{\nabla} \phi_c \cdot \left(\vec{r}_d - \vec{r}_c\right) \\
+  \phi_u &= \phi_c + \vec{\nabla} \phi_c \cdot \left(\vec{r}_u - \vec{r}_c\right) \\
+  \phi_u - \phi_d &= \vec{\nabla} \phi_c \cdot \left(\left(\vec{r}_u - \vec{r}_c\right) - \left(\vec{r}_d - \vec{r}_c\right)\right) \\
+  \end{aligned}
+\end{equation}
+
+By setting the distance from cell $C$ to the virtual node $U$ equal to the distance from cell $C$ to cell $D$, this expression simplifies to:
+\begin{equation}
+ \phi_u = \phi_d - 2 \vec{\nabla} \phi_c \cdot \left(\vec{r}_d - \vec{r}_c\right)
+\end{equation}
+
+Finally, the smoothness indicator $r$ is rewritten as:
+\begin{equation}
+   \begin{aligned}
+      r &= \frac{\phi_c - \phi_u}{\phi_d - \phi_c} \\ 
+      &= \frac{\phi_c - \left(\phi_d - 2 \vec{\nabla} \phi_c \cdot \left(\vec{r}_d - \vec{r}_c\right)\right)}{\phi_d - \phi_c} \\
+      &= \frac{2\vec{\nabla} \phi_c \cdot \left(\vec{r}_d - \vec{r}_c\right)}{\phi_d - \phi_c} - 1
+  \end{aligned}
+\end{equation}
+
+\subsection{Weighted Least Squares Gradient}
+In the previous section, the unknown value $\phi_u$ was replaced by the cell-centered gradient $\nabla \phi_c$. 
+Fortunately, established methods exist to calculate gradients at cell centers.
+This implementation uses the weighted least-squares method, which performs well on skewed or distorted cells.
+The weighted least-squares method uses values in neighboring cells to calculate the gradient at cell center $p$ by minimizing the weighted sum of squared errors between the computed directional derivative and the directional derivative implied by the gradient:
+\begin{equation}
+	E = \sum_{n=1}^{N} \omega_i \left(\Delta \phi_n / \|\vec{d}_n \| - \vec{\nabla}\phi_p \cdot \vec{d}_n / \|\vec{d}_n \|\right)^2
+\end{equation}
+In this equation, $\vec{d}_n$ represents the distance vector connecting the cell centers of cells $p$ and $n$, while $\|\vec{d}_n \|$ is the magnitude of this vector (i.e., the distance between the cell centers). 
+The term $\Delta\phi_n$ denotes the difference between the cell values at these two locations.
+The expression $\Delta \phi_n / \|\vec{d}_n\|$ represents the directional derivative along the connection, and $\vec{d_n} /\|\vec{d}_n\|$ is the corresponding unit vector. The corresponding normal equation is:
+\begin{equation}
+	\begin{bmatrix}G\end{bmatrix} \vec{\nabla}\phi_p = \begin{bmatrix}d\end{bmatrix}^T \begin{bmatrix}W\end{bmatrix} \vec{\nabla}\phi_N
+	\label{eqn:normal-eqn}
+\end{equation}
+with
+\begin{equation}
+	\begin{bmatrix}G\end{bmatrix} = \begin{bmatrix}d\end{bmatrix}^T \begin{bmatrix}W\end{bmatrix} \begin{bmatrix}d\end{bmatrix}
+\end{equation}
+where
+\begin{equation}
+	\begin{bmatrix}d\end{bmatrix} =
+	\begin{bmatrix}
+		d_{1,x}/\|\vec{d}_1\| & d_{1,y}/\|\vec{d}_1\| & d_{1,z}/\|\vec{d}_1\| \\
+		\vdots & \vdots & \vdots \\
+		d_{N,x}/\|\vec{d_N}\| & d_{N,y}/\|\vec{d_N}\| & d_{N,z}/\|\vec{d_N}\|
+	\end{bmatrix}
+\end{equation}
+Note that in the normal equation \ref{eqn:normal-eqn} the difference term , $\Delta \phi_N$ has been replaced by the directional derivative, which is defined as:
+\begin{equation}
+ \vec{\nabla}\phi_N = 
+	\begin{Bmatrix}
+		\Delta \phi_1 / \|\vec{d}_1\|  \\
+		\vdots \\
+		 \Delta \phi_N / \|\vec{d}_N\|
+	\end{Bmatrix} = 
+	\begin{bmatrix}D\end{bmatrix}^{-1}\vec{ \Delta\phi}_N
+\end{equation}
+\begin{equation}
+	\begin{bmatrix}D\end{bmatrix}^{-1} = 
+		\begin{bmatrix}
+		1 / \|\vec{d}_1\| & &\\
+		 & \ddots &\\
+		& & 1 / \|\vec{d}_N\|
+	\end{bmatrix}
+\end{equation}
+
+\noindent Assuming $\begin{bmatrix}G\end{bmatrix}$ is invertible, the gradient can now be computed by:
+
+\begin{equation}
+  \vec{\nabla}\phi_p=\begin{bmatrix}G\end{bmatrix}^{-1}\begin{bmatrix}d\end{bmatrix}^{T} \begin{bmatrix}W\end{bmatrix}\vec{\nabla}\phi_N
+  \label{eqn:least-squares-gradient-G-invertible}
+\end{equation}
+
+\noindent On non-deforming grids, most of these calculations can be performed during the initialization phase. To accomplish this, a reconstruction matrix $\begin{bmatrix}R\end{bmatrix}$ is introduced:
+
+\begin{equation}
+  \vec{\nabla}\phi_p=\begin{bmatrix}R\end{bmatrix}\vec{\Delta\phi_N}
+  \label{eqn:soln-in-terms-of-R}
+\end{equation}
+
+\noindent Note that this equation uses the original difference vector $\vec{\Delta\phi}_N$ rather than the weighted directional gradient vector. This formulation is computationally more efficient and allows the $\begin{bmatrix}D\end{bmatrix}$  and  $\begin{bmatrix}W\end{bmatrix}$ matrices to be absorbed into the reconstruction matrix $\begin{bmatrix}R\end{bmatrix}$, which contains the static components that need to be calculated only once:
+
+\begin{equation}
+  \begin{bmatrix}R\end{bmatrix}= \begin{bmatrix}G\end{bmatrix}^{-1}\begin{bmatrix}d\end{bmatrix}^{T} \begin{bmatrix}W\end{bmatrix}\begin{bmatrix}D\end{bmatrix}^{-1}
+  \label{eqn:R-for-invertible-G}
+\end{equation}
+
+It should be noted that in this implementation, the weighting matrix $\begin{bmatrix}W\end{bmatrix}$ has been chosen to be the identity matrix (i.e., $\omega_i = 1$ for all $i$). 
+By using directional derivatives in the optimization problem instead of regular derivatives, this choice becomes mathematically equivalent to using inverse distance weighting in the standard least squares gradient approach.
+Moreover, this formulation provides flexibility for future enhancements, allowing for the implementation of alternative weighting schemes such as inverse squared distance weighting or other distance-based functions as needed.
+For clarity and simplicity in the subsequent sections, the weighting matrix $\begin{bmatrix}W\end{bmatrix}$ will be omitted from the equations, with the understanding that it equals the identity matrix.
+
+\subsection{A Unified Approach: The Pseudoinverse}
+
+To compute the least-squares gradient using equations \ref{eqn:soln-in-terms-of-R} and \ref{eqn:R-for-invertible-G}, we need to invert the $3 \times 3$ matrix, $\begin{bmatrix}G\end{bmatrix}$. However with this approach it is impossible to handle 1D or 2D problems using a 3D formulation because the matrix becomes singular. For example, in a 2D problem, the z-component of all distance vectors is zero. This results in the third column of the $\begin{bmatrix}d\end{bmatrix}$ matrix being zero, which in turn makes the $\begin{bmatrix}G\end{bmatrix}$ matrix singular.
+
+While we could detect these cases and handle them with separate code, a more elegant mathematical solution exists: the Moore-Penrose pseudoinverse. The pseudoinverse approach provides a generalized solution that remains valid even when the matrix is singular. This allows for a unified 3D implementation that works for 1D, 2D, and 3D problems without requiring separate logic for each case.
+
+Using the pseudoinverse approach, the general solution to the normal equation, \ref{eqn:normal-eqn}, can be written as:
+\begin{equation}
+	\vec{\nabla}\phi_p = \begin{bmatrix}d\end{bmatrix}^{\dagger} \begin{bmatrix}D\end{bmatrix}^{-1} \vec{\Delta\phi}_N
+	\label{eqn:least-squares-gradient-general}
+\end{equation}
+The corresponding gradient reconstruction matrix is:
+\begin{equation}
+	\begin{bmatrix}R\end{bmatrix} = \begin{bmatrix}d\end{bmatrix}^{\dagger} \begin{bmatrix}D\end{bmatrix}^{-1}
+\end{equation}
+
+\subsection{Limitations and Recommendations}
+\begin{itemize}
+	\item The Darwish method assumes that the connection vector between connected cells is perpendicular to the face and passes through the face center. When this assumption is violated, second-order accuracy will not be achieved. Therefore, structured or Voronoi grids are recommended to maintain optimal performance.
+	\item The method relies heavily on the gradient at each cell center. While the least-squares method works well for determining gradients on most grids, the grid quality significantly affects the quality of the computed gradient.
+	\item To compute a high-quality gradient, a cell requires a minimum number of neighboring cells:
+	\begin{itemize} 
+		\item 1D: At least 2 neighbors (left and right).
+		\item 2D: At least 3 non-collinear neighbors.
+		\item 3D: At least 4 non-coplanar neighbors.
+	\end{itemize}
+	This requirement is usually satisfied within the domain interior, but special attention should be paid to cells near domain boundaries where fewer neighbors may be available.
+\end{itemize}
+

@@ -23,6 +23,7 @@ module GwfWelgInputModule
     logical :: afrcsv = .false.
     logical :: fileout = .false.
     logical :: afrcsvfile = .false.
+    logical :: iflowredlen = .false.
     logical :: obs_filerecord = .false.
     logical :: filein = .false.
     logical :: obs6 = .false.
@@ -252,6 +253,25 @@ module GwfWelgInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    gwfwelg_iflowredlen = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'WELG', & ! subcomponent
+    'OPTIONS', & ! block
+    'FLOW_REDUCTION_LENGTH', & ! tag name
+    'IFLOWREDLEN', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'flow reduction length keyword', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     gwfwelg_obs_filerecord = InputParamDefinitionType &
     ( &
     'GWF', & ! component
@@ -436,6 +456,7 @@ module GwfWelgInputModule
     gwfwelg_afrcsv, &
     gwfwelg_fileout, &
     gwfwelg_afrcsvfile, &
+    gwfwelg_iflowredlen, &
     gwfwelg_obs_filerecord, &
     gwfwelg_filein, &
     gwfwelg_obs6, &

@@ -112,6 +112,15 @@ longname file keyword
 description name of the comma-separated value (CSV) output file to write information about well extraction rates that have been reduced by the program.  Entries are only written if the extraction rates are reduced.
 
 block options
+name flow_reduction_length
+type keyword
+reader urword
+optional true
+longname flow reduction length keyword
+description keyword that indicates the AUTO\_FLOW\_REDUCE value is a length instead of a fraction of the cell thickness. A warning will be issued if the FLOW\_REDUCTION\_LENGTH option is specified but the AUTO\_FLOW\_REDUCE option is not specified in the options block. The program will terminate with an error if the FLOW\_REDUCTION\_LENGTH option is specified and the AUTO\_FLOW\_REDUCE value specified in the options block is less than or equal to zero.
+mf6internal iflowredlen
+
+block options
 name ts_filerecord
 type record ts6 filein ts6_filename
 shape

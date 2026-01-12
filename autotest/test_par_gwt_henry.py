@@ -10,7 +10,7 @@ cases = [
     pytest.param(0, "par-henry-ups"),
     pytest.param(1, "par-henry-cen"),
     pytest.param(2, "par-henry-tvd"),
-    pytest.param(3, "par-henry-utvd", marks=pytest.mark.developmode),
+    pytest.param(3, "par-henry-utvd"),
 ]
 
 
