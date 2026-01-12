@@ -736,16 +736,24 @@ contains
     call this%recalc_shared_vars(ifno, tstrm)
     !
     ! -- calculate shortwave radiation using HGS equation
-    call this%swr%swr_cq(ifno, swrflx)
+    if (this%swr_active) then
+      call this%swr%swr_cq(ifno, swrflx)
+    end if
     !
     ! -- calculate longwave radiation
-    call this%lwr%lwr_cq(ifno, tstrm, lwrflx)
+    if (this%lwr_active) then
+      call this%lwr%lwr_cq(ifno, tstrm, lwrflx)
+    end if
     !
     ! -- calculate latent heat flux using Dalton-like mass transfer equation
-    call this%lhf%lhf_cq(ifno, tstrm, this%gwecommon%gwerhow, lhflx)
+    if (this%lhf_active) then
+      call this%lhf%lhf_cq(ifno, tstrm, this%gwecommon%gwerhow, lhflx)
+    end if
     !
     ! -- calculate sensible heat flux using HGS equation
-    call this%shf%shf_cq(ifno, tstrm, shflx, lhflx) ! default to Bowen ratio method ("2")
+    if (this%shf_active) then
+      call this%shf%shf_cq(ifno, tstrm, shflx, lhflx) ! default to Bowen ratio method ("2")
+    end if
     !
     abcflx = -(swrflx + lwrflx + shflx - lhflx)
   end subroutine abc_cq
