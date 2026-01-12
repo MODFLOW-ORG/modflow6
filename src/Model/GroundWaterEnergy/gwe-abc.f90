@@ -727,10 +727,10 @@ contains
     real(DP), intent(in) :: tstrm !< temperature of the stream reach
     real(DP), intent(inout) :: abcflx !< calculated atmospheric boundary flux amount
     ! -- local
-    real(DP) :: shflx
-    real(DP) :: swrflx
-    real(DP) :: lhflx
-    real(DP) :: lwrflx
+    real(DP) :: shflx = DZERO
+    real(DP) :: swrflx = DZERO
+    real(DP) :: lhflx = DZERO
+    real(DP) :: lwrflx = DZERO
     !
     ! -- update shared variables
     call this%recalc_shared_vars(ifno, tstrm)
