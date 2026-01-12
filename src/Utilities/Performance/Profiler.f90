@@ -149,7 +149,7 @@ contains
     section_id = this%nr_sections
     if (section_id > size(this%all_sections)) then
       write (*, *) "Internal error: Too many profiled sections, "&
-        &"increase MAX_NR_TIMED_SECTIONS"
+        &"disable profiling to circumvent."
       call ustop()
     end if
 

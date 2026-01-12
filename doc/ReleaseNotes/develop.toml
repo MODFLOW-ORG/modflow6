@@ -117,3 +117,8 @@ description = "Numerical error in the iterative subcell exit solution can leave 
 section = "fixes"
 subsection = "model"
 description = "The PRT PRP package previously failed to correctly load release settings configured by period block. This could prevent particles from being released as configured. It could also cause excess particles to be released, as empty period blocks intended to stop fill-forward at a certain period were not properly recognized. The package has been updated to correctly load period block release settings."
+
+[[items]]
+section = "fixes"
+subsection = "basic"
+description = "Fixes a bug where the internal profiler caused certain (multi-species) simulations to stop with an error."
