@@ -209,16 +209,20 @@ contains
     ! local
     real(DP) :: l, u
 
-    l = minval(this%times)
-    u = maxval(this%times)
     if (kper == 1 .and. kstp == 1) then
-      ! For first time step, use a small negative lower bound to ensure
-      ! times at t=0.0 are captured with the exclusive lower bound
+      ! For first time step, use a small negative lower bound
+      ! capture times at t=0.0 despite exclusive lower bound
       l = -epsilon(DZERO)
     else
       l = totimc
     end if
-    if (.not. (kper == nper .and. kstp == nstp(kper))) u = totimc + delt
+    if (kper == nper .and. kstp == nstp(kper)) then
+      ! For last time step, use a large upper bound to
+      ! capture times beyond the end of the simulation
+      u = huge(DONE)
+    else
+      u = totimc + delt
+    end if
     call this%select(l, u)
   end subroutine advance
 
