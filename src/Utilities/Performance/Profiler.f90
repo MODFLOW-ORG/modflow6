@@ -199,7 +199,7 @@ contains
     section => this%all_sections(section_id)
     section%count = section%count + 1
     section%status = 1
-    section%walltime = -start_time
+    section%walltime = section%walltime - start_time
 
   end subroutine start
 
