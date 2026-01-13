@@ -124,7 +124,7 @@ contains
 
     ! Subcell has no exit face, terminate the particle
     ! TODO: consider ramifications
-    if (all([this%exit_solutions%status] == NO_EXIT_NO_OUTFLOW)) then
+    if (all([this%exit_solutions%status] >= NO_EXIT_STATIONARY)) then
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
       return
     end if
