@@ -41,7 +41,6 @@ from prt_test_utils import (
     has_default_boundnames,
     plot_nodes_and_vertices,
 )
-from modflow_devtools.misc import is_in_ci
 
 simname = "prtdisv1"
 cases = [f"{simname}", f"{simname}bprp", f"{simname}trts"]
