@@ -1,6 +1,6 @@
 """
 Test for parallel MODFLOW running on two cpus.
-It contains two coupled DISU models (1x1x5) 
+It contains two coupled DISU models (1x1x5)
 generated from its DIS counterparts:
 
 constant head boundaries left=1.0, right=10.0.
@@ -16,11 +16,12 @@ from flopy.utils.gridutil import get_disu_kwargs
 from framework import TestFramework
 
 cases = [
-    "par_gwf_disu_no", "par_gwf_disu_left", "par_gwf_disu_right", "par_gwf_disu_all",
+    "par_gwf_disu_no",
+    "par_gwf_disu_left",
+    "par_gwf_disu_right",
+    "par_gwf_disu_all",
 ]
-has_vertex = [ 
-    (False, False), (True, False), (False, True), (True, True) 
-]
+has_vertex = [(False, False), (True, False), (False, True), (True, True)]
 
 dis_shape = (1, 1, 5)
 
