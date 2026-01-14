@@ -41,31 +41,15 @@ contains
 
   !> @brief Dispatch an event.
   subroutine dispatch(this, particle, event)
-    use TdisModule, only: kper, kstp, totimc
+    use TdisModule, only: kper, kstp
     ! dummy
     class(ParticleEventDispatcherType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer, intent(inout) :: event
     ! local
-    integer(I4B) :: i, per, stp
+    integer(I4B) :: i
     real(DP) :: x, y, z
     class(*), pointer :: p
-
-    ! If tracking time falls exactly on a boundary between time steps,
-    ! report the previous time step for this datum. This is to follow
-    ! MP7's behavior, and because the particle will have been tracked
-    ! up to this instant under the previous time step's conditions, so
-    ! the time step we're about to start shouldn't get "credit" for it.
-    per = kper
-    stp = kstp
-    if (particle%ttrack == totimc .and. (per > 1 .or. stp > 1)) then
-      if (stp > 1) then
-        stp = stp - 1
-      else if (per > 1) then
-        per = per - 1
-        stp = 1
-      end if
-    end if
 
     ! Convert to model coordinates if we need to
     x = particle%x
@@ -73,8 +57,8 @@ contains
     z = particle%z
     call particle%get_model_coords(x, y, z)
 
-    event%kper = per
-    event%kstp = stp
+    event%kper = kper
+    event%kstp = kstp
     event%imdl = particle%imdl
     event%iprp = particle%iprp
     event%irpt = particle%irpt

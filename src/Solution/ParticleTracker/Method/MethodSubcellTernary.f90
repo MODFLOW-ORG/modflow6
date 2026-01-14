@@ -145,7 +145,7 @@ contains
       do i = this%tracktimes%selection(1), this%tracktimes%selection(2)
         t = this%tracktimes%times(i)
         if (t < t0) cycle
-        if (t >= texit .or. t >= tmax) exit
+        if (t > texit .or. t > tmax) exit
         dt = t - t0
         call calculate_xyz_position(dt, &
                                     exit_lateral%rxx, exit_lateral%rxy, &

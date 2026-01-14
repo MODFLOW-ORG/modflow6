@@ -161,7 +161,7 @@ contains
       do i = this%tracktimes%selection(1), this%tracktimes%selection(2)
         t = this%tracktimes%times(i)
         if (t < particle%ttrack) cycle
-        if (t >= texit .or. t >= tmax) exit
+        if (t > texit .or. t > tmax) exit
         dt = t - t0
         x = new_x(exit_x%v, exit_x%dvdx, subcell%vx1, subcell%vx2, &
                   dt, x0, subcell%dx, exit_x%status == 1)

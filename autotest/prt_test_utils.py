@@ -413,3 +413,138 @@ def plot_nodes_and_vertices(
         ],
         loc="upper left",
     )
+
+
+def compare_snapshots(name, actual_data, snapshot_dir, output_dir, idx=None):
+    """
+    Compare actual data with snapshot and show detailed differences.
+
+    Parameters
+    ----------
+    name : str
+        Test case name
+    actual_data : pd.DataFrame
+        Actual data to compare
+    snapshot_dir : Path
+        Directory containing snapshot files
+    output_dir : Path
+        Directory to save comparison outputs
+    idx : int, optional
+        Index for parametrized tests (e.g., when parametrized by idx and name)
+
+    Returns
+    -------
+    bool
+        True if snapshot matches, False otherwise
+    """
+
+    import pandas as pd
+
+    # Construct test identifier for display
+    test_id = f"{idx}-{name}" if idx is not None else name
+
+    print(f"\n{'=' * 80}")
+    print(f"Snapshot comparison for test case: {test_id}")
+    print(f"{'=' * 80}")
+
+    # Read the snapshot file directly (syrupy stores as .npy files)
+    # Format: test_mf6model[name].npy or test_mf6model[idx-name].npy
+    snapshot_filename = f"test_mf6model[{test_id}].npy"
+    snapshot_file = snapshot_dir / snapshot_filename
+
+    if not snapshot_file.exists():
+        print(f"Snapshot file not found: {snapshot_file}")
+        print("This appears to be a new test case.")
+        return False
+
+    try:
+        expected_records = np.load(snapshot_file, allow_pickle=True)
+        print(f"Loaded snapshot from: {snapshot_file}")
+    except Exception as e:
+        print(f"Error loading snapshot: {e}")
+        return False
+
+    # Convert to DataFrame for comparison
+    expected_data = pd.DataFrame(expected_records)
+
+    print("\nData dimensions:")
+    print(
+        f"  Expected: {len(expected_data)} rows, {len(expected_data.columns)} columns"
+    )
+    print(f"  Actual:   {len(actual_data)} rows, {len(actual_data.columns)} columns")
+
+    if len(expected_data) != len(actual_data):
+        # Different number of rows
+        print("\nDifferent number of records!")
+        print("\nExpected summary:")
+        if "kper" in expected_data.columns:
+            print(f"  Unique kper: {sorted(expected_data['kper'].unique())}")
+        if "kstp" in expected_data.columns:
+            print(f"  Unique kstp: {sorted(expected_data['kstp'].unique())}")
+        print("\nActual summary:")
+        if "kper" in actual_data.columns:
+            print(f"  Unique kper: {sorted(actual_data['kper'].unique())}")
+        if "kstp" in actual_data.columns:
+            print(f"  Unique kstp: {sorted(actual_data['kstp'].unique())}")
+
+        # Save both for manual inspection
+        expected_csv = output_dir / f"{test_id}_expected_pathlines.csv"
+        actual_csv = output_dir / f"{test_id}_actual_pathlines.csv"
+        expected_data.to_csv(expected_csv, index=False)
+        actual_data.to_csv(actual_csv, index=False)
+        print(f"\nExpected data saved to: {expected_csv}")
+        print(f"Actual data saved to: {actual_csv}")
+        print(f"{'=' * 80}\n")
+        return False
+
+    # Same number of rows - can do direct comparison
+    print(f"\n{'─' * 80}")
+    print("DIFFERENCES (showing only changed values):")
+    print(f"{'─' * 80}")
+
+    # Use pandas compare to show differences
+    # This will show 'self' (actual) vs 'other' (expected)
+    diff = actual_data.compare(expected_data, keep_equal=False)
+
+    if not diff.empty:
+        print(f"\nFound differences in {len(diff)} rows:\n")
+        # Show with better formatting
+        import pandas as pd
+
+        with pd.option_context(
+            "display.max_rows", None, "display.max_columns", None, "display.width", None
+        ):
+            print(diff.to_string())
+
+        # Also show which columns changed
+        changed_cols = set()
+        for col in diff.columns:
+            if isinstance(col, tuple):
+                changed_cols.add(col[0])
+            else:
+                changed_cols.add(col)
+        print(f"\nColumns with changes: {sorted(changed_cols)}")
+
+        # For key columns, show summary of changes
+        for key_col in ["kper", "kstp", "ireason"]:
+            if key_col in changed_cols:
+                if (key_col, "self") in diff.columns:
+                    old_vals = diff[(key_col, "other")].dropna()
+                    new_vals = diff[(key_col, "self")].dropna()
+                    print(f"\n{key_col} changes:")
+                    print(f"  Old values: {sorted(old_vals.unique())}")
+                    print(f"  New values: {sorted(new_vals.unique())}")
+
+        # Save comparison to CSV
+        diff_csv = output_dir / f"{test_id}_differences.csv"
+        diff.to_csv(diff_csv)
+        actual_csv = output_dir / f"{test_id}_actual_pathlines.csv"
+        actual_data.to_csv(actual_csv, index=False)
+        print(f"\nDifferences saved to: {diff_csv}")
+        print(f"Actual data saved to: {actual_csv}")
+        print(f"{'=' * 80}\n")
+        return False
+    else:
+        print("All values match!")
+        print(f"{'=' * 80}\n")
+        return True

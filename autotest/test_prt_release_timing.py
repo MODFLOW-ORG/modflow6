@@ -28,6 +28,7 @@ from prt_test_utils import (
     all_equal,
     check_budget_data,
     check_track_data,
+    compare_snapshots,
     get_model_name,
     get_partdata,
 )
@@ -50,31 +51,36 @@ cases = [
     # test an absurdly high RELEASE_TIME_TOLERANCE
     f"{simname}tol",
     # test fill-forward with empty period block
-    f"{simname}fill",  # FIRST in period 0, fill-forward to period 1, empty period 2
+    f"{simname}fill",  # FIRST in period 1, fill-forward period 2, empty period 3
     # test different period block configs per period
-    f"{simname}multi",  # FIRST in period 0, ALL in period 1, FIRST in period 2
+    f"{simname}multi",  # FIRST in period 1, ALL in period 2, FIRST in period 3
+    # test explicit release time and period-block release on a time step boundary
+    f"{simname}bndy",  # RELEASETIMES: 1.0; FIRST in period 2 (also t=1.0)
 ]
 
 
 def get_perioddata(name, periods=1) -> Optional[dict]:
+    opt = []
     if "sgl" in name or "dbl" in name or "open" in name or "tol" in name:
         return None
-
+    if "bndy" in name:
+        return {
+            0: [],
+            1: [("FIRST",)],
+            2: [],
+        }
     if "fill" in name:
         return {
-            0: [("FIRST",)],  # Period 0: release on first time step
-            # Period 1: omitted to test fill-forward
-            2: [],  # Period 2: empty block to stop fill-forward
+            0: [("FIRST",)],
+            # omitted to test fill-forward
+            2: [],  # test empty period block to cancel fill-forward
         }
-
     if "multi" in name:
         return {
-            0: [("FIRST",)],  # Period 0: release on first time step only
-            1: [("ALL",)],  # Period 1: release on all time steps
-            2: [("FIRST",)],  # Period 2: release on first time step only
+            0: [("FIRST",)],
+            1: [("ALL",)],
+            2: [("FIRST",)],
         }
-
-    opt = []
     if "frst" in name or "both" in name or "dupe" in name:
         opt.append(("FIRST",))
     elif "all" in name:
@@ -105,8 +111,12 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
     )
 
     # create tdis package
-    # Use 3 periods for fill-forward and multi-period tests, 1 period for others
-    nper = 3 if ("fill" in name or "multi" in name) else FlopyReadmeCase.nper
+    # 3 periods for fill-forward, multi-period, and boundary, 1 period for others
+    nper = (
+        3
+        if ("fill" in name or "multi" in name or "bndy" in name)
+        else FlopyReadmeCase.nper
+    )
     if "multi" in name:
         # For multi test: period 1 has 5 steps so ALL is different from FIRST
         perioddata = [
@@ -126,7 +136,7 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
                 FlopyReadmeCase.tsmult,
             ),  # Period 2: 1 time step
         ]
-    elif "fill" in name:
+    elif "fill" in name or "bndy" in name:
         perioddata = [
             (
                 FlopyReadmeCase.perlen,
@@ -184,9 +194,13 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
             [(0.1,)]
             if "both" in name
             else (
-                [(0.0,), (0.1,)]
-                if ("dbl" in name or "open" in name or "tol" in name)
-                else None
+                [(1.0,)]
+                if "bndy" in name
+                else (
+                    [(0.0,), (0.1,)]
+                    if ("dbl" in name or "open" in name or "tol" in name)
+                    else None
+                )
             )
         )
     )
@@ -207,8 +221,8 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
         nreleasetimes=(
             1
             if "sgl" in prt_name
-            else 2
-            if ("dbl" in name or "open" in name or "tol" in name)
+            else len(releasetimes)
+            if ("dbl" in name or "open" in name or "tol" in name or "bndy" in name)
             else None
         ),
         releasetimes=f"open/close {releasetimes_path.name}"
@@ -220,6 +234,7 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
             or "both" in name
             or "dupe" in name
             or "tol" in name
+            or "bndy" in name
         )
         else None,
         release_time_frequency=0.2 if "freq" in name else None,
@@ -320,8 +335,8 @@ def build_models(test):
         test.name, test.workspace, test.targets["mf6"]
     )
 
-    # For fill-forward and multi-period tests, update GWF simulation to use 3 periods
-    if "fill" in test.name or "multi" in test.name:
+    # For fill-forward, multi-period, and boundary, update GWF to use 3 periods
+    if "fill" in test.name or "multi" in test.name or "bndy" in test.name:
         tdis = gwf_sim.get_package("tdis")
         tdis.nper = 3
         if "multi" in test.name:
@@ -440,7 +455,11 @@ def check_output(test, snapshot):
 
     # check budget data were written to mf6 prt list file
     # Multi-period tests use 3 periods, others use 1
-    nper = 3 if ("fill" in name or "multi" in name) else FlopyReadmeCase.nper
+    nper = (
+        3
+        if ("fill" in name or "multi" in name or "bndy" in name)
+        else FlopyReadmeCase.nper
+    )
     check_budget_data(
         prt_ws / f"{name}_prt.lst",
         FlopyReadmeCase.perlen,
@@ -460,7 +479,15 @@ def check_output(test, snapshot):
         )
 
     # compare pathlines with snapshot
-    assert snapshot == mf6_pls.drop("name", axis=1).round(3).to_records(index=False)
+    actual_data = mf6_pls.drop("name", axis=1).round(3)
+    actual_records = actual_data.to_records(index=False)
+
+    # Show detailed comparison before asserting (for debugging)
+    snapshot_dir = Path(__file__).parent / "__snapshots__" / "test_prt_release_timing"
+    compare_snapshots(name, actual_data, snapshot_dir, prt_ws)
+
+    # Assert against snapshot
+    assert snapshot == actual_records
 
     # check release timing for fill-forward case
     if "fill" in name:
@@ -490,6 +517,28 @@ def check_output(test, snapshot):
         assert len(release_times) == len(expected_release_times)
         assert np.allclose(release_times, expected_release_times)
 
+    # check kper/kstp reporting for time boundary case.
+    # events at the same time can be on different sides
+    # of the boundary depending how they're configured.
+    if "bndy" in name:
+        # Both releases at t=1.0 (boundary between kper=1,kstp=1 and kper=2,kstp=1):
+        # 1. Explicit release with RELEASETIMES block at t=1.0
+        # 2. Period-block release with FIRST in period 2
+        #
+        # Expected behavior:
+        # - Explicit release falls within the timeslice for period 1 step 1,
+        #   (0.0, 1.0], so reported as period 1
+        # - Period-block release when PRT solves period 2 step 1 should be
+        #   reported as period 2
+        release_times = sorted(mf6_pls["trelease"].unique())
+        expected_release_times = [1.0]
+        assert len(release_times) == len(expected_release_times)
+        assert np.allclose(release_times, expected_release_times)
+        releases_at_boundary = mf6_pls[mf6_pls["trelease"] == 1.0]
+        unique_kpers = sorted(releases_at_boundary["kper"].unique())
+        expected_kpers = [1, 2]
+        assert unique_kpers == expected_kpers
+
     # convert mf6 pathlines to mp7 format
     mf6_pls = to_mp7_pathlines(mf6_pls)
 
@@ -510,7 +559,11 @@ def check_output(test, snapshot):
     del mp7_pls["zloc"]
 
     # compare mf6 / mp7 pathline results, todo check mass
-    if "dbl" in name or "open" in name or "both" in name:
+    if "bndy" in name:
+        # Boundary test: both releases at t=1.0, attributed to different periods
+        # Skip MP7 comparison since this is testing MF6-specific behavior
+        pass
+    elif "dbl" in name or "open" in name or "both" in name:
         # 2 release times, expect double mp7's data size
         assert len(mf6_pls) == 2 * len(mp7_pls)
     elif "freq" in name:

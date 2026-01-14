@@ -120,5 +120,10 @@ description = "The PRT PRP package previously failed to correctly load release s
 
 [[items]]
 section = "fixes"
+subsection = "model"
+description = "PRT previously reported events occurring exactly on a boundary between time steps as occurring during the preceding step. This properly 'credited' the event to the flow conditions responsible for the particle's trajectory up to that time. However, this reporting logic was inappropriately applied to events such as particle releases, as well, which caused the stress period and time step to be reported incorrectly for some events. Instead of altering stress period and time step post hoc, PRT now reports each event as occurring in the stress period and time step in which the event is triggered. This means simultaneous releases can be credited to different time steps. For example, a particle release scheduled using an explicit time specification that falls on the boundary between two time steps occurs at the first opportunity, i.e., at the end of the earlier time step. On the other hand, if a period block is used to schedule a particle release at the beginning of the later time step, the release occurs in that time step, not the previous one."
+
+[[items]]
+section = "fixes"
 subsection = "basic"
 description = "Fixes a bug where the internal profiler caused certain (multi-species) simulations to stop with an error."
