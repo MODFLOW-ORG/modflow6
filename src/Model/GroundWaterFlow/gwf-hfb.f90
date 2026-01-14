@@ -104,7 +104,7 @@ contains
     type(GwfVscType), pointer, intent(in) :: vsc !< viscosity package
     ! -- formats
     character(len=*), parameter :: fmtheader = &
-      "(1x, /1x, 'HFB -- HORIZONTAL FLOW BARRIER PACKAGE, VERSION 8, ', &
+      "(1x, /1x, 'HFB -- HYDRAULIC FLOW BARRIER PACKAGE, VERSION 8, ', &
       &'4/24/2015 INPUT READ FROM MEMPATH: ', a, /)"
     !
     ! -- Print a message identifying the node property flow package.

@@ -6,7 +6,7 @@ type keyword
 reader urword
 optional true
 longname model print input to listing file
-description keyword to indicate that the list of horizontal flow barriers will be written to the listing file immediately after it is read.
+description keyword to indicate that the list of hydraulic flow barriers will be written to the listing file immediately after it is read.
 
 
 # --------------------- gwf hfb dimensions ---------------------
@@ -18,7 +18,7 @@ reader urword
 optional false
 mf6internal maxbound
 longname maximum number of barriers
-description integer value specifying the maximum number of horizontal flow barriers that will be entered in this input file.  The value of MAXHFB is used to allocate memory for the horizontal flow barriers.
+description integer value specifying the maximum number of hydraulic flow barriers that will be entered in this input file.  The value of MAXHFB is used to allocate memory for the hydraulic flow barriers.
 
 
 # --------------------- gwf hfb period ---------------------
