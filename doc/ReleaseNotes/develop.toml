@@ -51,7 +51,7 @@ description = "Add HIGHEST\\_CELL\\_SATURATION option that changes how the satur
 [[items]]
 section = "fixes"
 subsection = "internal"
-description = "Fixed HFB behavior when a horizontal flow barrier is configured for a cell pair that includes an inactive cell. Previously the connection was excluded but not adjusted for in the defined number of horizontal flow barriers, which can lead to a segmentation fault. A workaround is to only define horizontal flow barriers for active cells. New behavior excludes the connection and adds a warning when an exclusion applies, and also adjusts the number of horizontal flow barriers accordingly."
+description = "Fixed HFB behavior when a hydraulic flow barrier is configured for a cell pair that includes an inactive cell. Previously the connection was excluded but not adjusted for in the defined number of hydraulic flow barriers, which can lead to a segmentation fault. A workaround is to only define hydraulic flow barriers for active cells. New behavior excludes the connection and adds a warning when an exclusion applies, and also adjusts the number of hydraulic flow barriers accordingly."
 
 [[items]]
 section = "fixes"
@@ -127,3 +127,8 @@ description = "PRT previously reported events occurring exactly on a boundary be
 section = "fixes"
 subsection = "basic"
 description = "Fixes a bug where the internal profiler caused certain (multi-species) simulations to stop with an error."
+
+[[items]]
+section = "features"
+subsection = "internal"
+description = "Added support for vertical hydraulic barriers in the HFB package. Also modified the name of the HFB package in the 'MODFLOW 6 Description of Input and Output' document from 'Horizontal Flow Barrier' to 'Hydraulic Flow Barrier'."
