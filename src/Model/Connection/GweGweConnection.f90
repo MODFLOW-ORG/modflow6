@@ -367,7 +367,7 @@ contains
     ! abort on errors
     if (count_errors() > 0) then
       write (errmsg, '(a)') 'Errors occurred while processing exchange(s)'
-      call ustop()
+      call ustop(errmsg)
     end if
 
   end subroutine validateConnection

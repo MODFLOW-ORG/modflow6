@@ -40,6 +40,7 @@ module VirtualModelModule
     type(VirtualDblType), pointer :: dis_xorigin => null()
     type(VirtualDblType), pointer :: dis_yorigin => null()
     type(VirtualDblType), pointer :: dis_angrot => null()
+    type(VirtualIntType), pointer :: dis_icondir => null()
     type(VirtualDbl1dType), pointer :: dis_xc => null()
     type(VirtualDbl1dType), pointer :: dis_yc => null()
     type(VirtualDbl1dType), pointer :: dis_top => null()
@@ -110,6 +111,7 @@ contains
     call this%set(this%dis_nodeuser%base(), 'NODEUSER', 'DIS', MAP_ALL_TYPE)
     call this%set(this%dis_nja%base(), 'NJA', 'DIS', MAP_ALL_TYPE)
     call this%set(this%dis_njas%base(), 'NJAS', 'DIS', MAP_ALL_TYPE)
+    call this%set(this%dis_icondir%base(), 'ICONDIR', 'DIS', MAP_ALL_TYPE)
     call this%set(this%dis_xorigin%base(), 'XORIGIN', 'DIS', MAP_ALL_TYPE)
     call this%set(this%dis_yorigin%base(), 'YORIGIN', 'DIS', MAP_ALL_TYPE)
     call this%set(this%dis_angrot%base(), 'ANGROT', 'DIS', MAP_ALL_TYPE)
@@ -132,13 +134,14 @@ contains
     class(VirtualModelType) :: this
     integer(I4B) :: stage
     ! local
-    integer(I4B) :: nodes, nodesuser, nja, njas
+    integer(I4B) :: nodes, nodesuser, nja, njas, icondir
     logical(LGP) :: is_reduced
 
     if (stage == STG_AFT_MDL_DF) then
 
       call this%map(this%idsoln%base(), (/STG_AFT_MDL_DF/))
       call this%map(this%con_ianglex%base(), (/STG_AFT_MDL_DF/))
+      call this%map(this%dis_icondir%base(), (/STG_AFT_MDL_DF/))
       call this%map(this%dis_ndim%base(), (/STG_AFT_MDL_DF/))
       call this%map(this%dis_nodes%base(), (/STG_AFT_MDL_DF/))
       call this%map(this%dis_nodesuser%base(), (/STG_AFT_MDL_DF/))
@@ -163,12 +166,18 @@ contains
       nodes = this%dis_nodes%get()
       nja = this%dis_nja%get()
       njas = this%dis_njas%get()
+      icondir = this%dis_icondir%get()
       ! DIS
       call this%map(this%dis_xorigin%base(), (/STG_BFR_CON_DF/))
       call this%map(this%dis_yorigin%base(), (/STG_BFR_CON_DF/))
       call this%map(this%dis_angrot%base(), (/STG_BFR_CON_DF/))
-      call this%map(this%dis_xc%base(), nodes, (/STG_BFR_CON_DF/))
-      call this%map(this%dis_yc%base(), nodes, (/STG_BFR_CON_DF/))
+      if (icondir > 0) then
+        call this%map(this%dis_xc%base(), nodes, (/STG_BFR_CON_DF/))
+        call this%map(this%dis_yc%base(), nodes, (/STG_BFR_CON_DF/))
+      else
+        call this%map(this%dis_xc%base(), 0, (/STG_NEVER/))
+        call this%map(this%dis_yc%base(), 0, (/STG_NEVER/))
+      end if
       call this%map(this%dis_top%base(), nodes, (/STG_BFR_CON_DF/))
       call this%map(this%dis_bot%base(), nodes, (/STG_BFR_CON_DF/))
       call this%map(this%dis_area%base(), nodes, (/STG_BFR_CON_DF/))
@@ -251,6 +260,7 @@ contains
     allocate (this%dis_xorigin)
     allocate (this%dis_yorigin)
     allocate (this%dis_angrot)
+    allocate (this%dis_icondir)
     allocate (this%dis_xc)
     allocate (this%dis_yc)
     allocate (this%dis_top)
@@ -287,6 +297,7 @@ contains
     deallocate (this%dis_xorigin)
     deallocate (this%dis_yorigin)
     deallocate (this%dis_angrot)
+    deallocate (this%dis_icondir)
     deallocate (this%dis_xc)
     deallocate (this%dis_yc)
     deallocate (this%dis_top)
