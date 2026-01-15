@@ -584,9 +584,9 @@ def check_output(idx, test):
     for x in np.arange(len(fromMvrDat)):
         for y in np.arange(len(fromMvrDat[x + 1])):
             for z in np.arange(len(mvtdat[x + 1][y])):
-                assert np.isclose(
-                    mvtdat[x + 1][y][z][-1], (x + 1.0) * concCell[z]
-                ), msg2
+                assert np.isclose(mvtdat[x + 1][y][z][-1], (x + 1.0) * concCell[z]), (
+                    msg2
+                )
 
 
 # - No need to change any code below
