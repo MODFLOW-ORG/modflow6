@@ -17,8 +17,8 @@
 
 module AbcModule
   use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, LENVARNAME, &
-                             LENFTYPE, LENPACKAGENAME, TABLEFT, TABCENTER, &
-                             LENMEMTYPE, DHUNDRED, DCTOK
+                             LENPACKAGENAME, TABLEFT, TABCENTER, LENMEMTYPE, &
+                             DHUNDRED, DCTOK
   use KindModule, only: I4B, DP
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
@@ -560,17 +560,17 @@ contains
     end if
     !
     ! -- call utility ar routines if active
-    if (this%shf_active) then
-      call this%shf%pbst_ar()
-    end if
     if (this%swr_active) then
       call this%swr%pbst_ar()
+    end if
+    if (this%lwr_active) then
+      call this%lwr%pbst_ar()
     end if
     if (this%lhf_active) then
       call this%lhf%pbst_ar()
     end if
-    if (this%lwr_active) then
-      call this%lwr%pbst_ar()
+    if (this%shf_active) then
+      call this%shf%pbst_ar()
     end if
   end subroutine abc_allocate_arrays
 
@@ -677,7 +677,7 @@ contains
     integer(I4B), intent(in) :: ifno !< stream reach integer id
     real(DP), intent(in) :: tstrm !< temperature of the stream reach
     real(DP), intent(inout) :: abcflx !< calculated atmospheric boundary flux amount
-    character(len=LENFTYPE), optional, intent(in) :: obstype !< when present, subroutine will return a specific energy flux for an observation
+    character(len=*), optional, intent(in) :: obstype !< when present, subroutine will return a specific energy flux for an observation
     ! -- local
     real(DP) :: swrflx = DZERO
     real(DP) :: lwrflx = DZERO
@@ -703,8 +703,10 @@ contains
     end if
     !
     ! -- calculate sensible heat flux using HGS equation
-    if (this%shf_active) then
-      call this%shf%shf_cq(ifno, tstrm, shfflx, lhfflx) ! default to Bowen ratio method ("2")
+    if (this%shf_active .and. .not. this%lhf_active) then
+      call this%shf%shf_cq(ifno, tstrm, shfflx) ! default to Bowen ratio method ("1")
+    else if (this%shf_active .and. this%lhf_active) then
+      call this%shf%shf_cq(ifno, tstrm, shfflx, lhfflx) ! use Bowen ratio method ("2")
     end if
     !
     if (present(obstype)) then
@@ -911,7 +913,7 @@ contains
       end if
       call this%parser%GetString(text)
       jj = 1
-      bndElem => this%tatm(itemno)
+      bndElem => this%patm(itemno)
       call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
                                          this%packName, 'BND', this%tsManager, &
                                          this%iprpak, 'PATM')

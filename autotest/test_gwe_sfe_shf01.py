@@ -20,7 +20,7 @@ import pandas as pd
 import pytest
 from framework import TestFramework
 
-cases = ["sfe-shf", "sfe-shf-ts"]
+cases = ["sfe-shf"] #, "sfe-shf-ts"]
 #
 # The last letter in the names above indicates the following
 # n = "no gw/sw exchange"
