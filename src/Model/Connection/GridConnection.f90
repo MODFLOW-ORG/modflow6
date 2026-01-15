@@ -583,7 +583,7 @@ contains
     integer(I4B), dimension(:), allocatable :: sortedRegionMap
     logical(LGP) :: z_only
 
-    ! only use z coordinate for sorting when no cell2d info
+    ! only use z coordinate for sorting when no cell2d info is available
     z_only = (this%icondir == 0)
 
     ! sort based on coordinates
