@@ -1119,7 +1119,7 @@ contains
     sa = this%flowbudptr%budterm(this%idxbudevap)%auxvar(auxpos, ientry)
     !
     strmtemp = this%xnewpak(n1)
-    call this%abc%abc_cq(n1, strmtemp, atmheat, 'shf')
+    call this%abc%abc_cq(n1, strmtemp, atmheat)
     !
     if (present(rrate)) rrate = atmheat * sa
     if (present(rhsval)) rhsval = -rrate

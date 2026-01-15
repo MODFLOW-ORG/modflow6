@@ -679,10 +679,10 @@ contains
     real(DP), intent(inout) :: abcflx !< calculated atmospheric boundary flux amount
     character(len=LENFTYPE), optional, intent(in) :: obstype !< when present, subroutine will return a specific energy flux for an observation
     ! -- local
-    real(DP) :: shflx = DZERO
     real(DP) :: swrflx = DZERO
-    real(DP) :: lhflx = DZERO
     real(DP) :: lwrflx = DZERO
+    real(DP) :: lhfflx = DZERO
+    real(DP) :: shfflx = DZERO
     !
     ! -- update shared variables
     call this%recalc_shared_vars(ifno, tstrm)
@@ -699,19 +699,32 @@ contains
     !
     ! -- calculate latent heat flux using Dalton-like mass transfer equation
     if (this%lhf_active) then
-      call this%lhf%lhf_cq(ifno, tstrm, this%gwecommon%gwerhow, lhflx)
+      call this%lhf%lhf_cq(ifno, tstrm, this%gwecommon%gwerhow, lhfflx)
     end if
     !
     ! -- calculate sensible heat flux using HGS equation
     if (this%shf_active) then
-      call this%shf%shf_cq(ifno, tstrm, shflx, lhflx) ! default to Bowen ratio method ("2")
+      call this%shf%shf_cq(ifno, tstrm, shfflx, lhfflx) ! default to Bowen ratio method ("2")
     end if
     !
     if (present(obstype)) then
       select case (obstype)
+      case ('swr')
+        abcflx = swrflx
+      case ('lwr')
+        abcflx = lwrflx
+      case ('lhf')
+        abcflx = lhfflx
       case ('shf')
+        abcflx = shfflx
+      case default
+        errmsg = 'Unrecognized observation type "'// &
+                 trim(obstype)//'" for '// &
+                 trim(adjustl(this%text))//' utility.'
+        call store_error(errmsg, terminate=.TRUE.)
+      end select
     else
-      abcflx = -(swrflx + lwrflx + shflx - lhflx)
+      abcflx = -(swrflx + lwrflx + shfflx - lhfflx)
     end if
   end subroutine abc_cq
 
