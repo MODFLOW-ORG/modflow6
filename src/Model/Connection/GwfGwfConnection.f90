@@ -160,6 +160,7 @@ contains
     call this%gwfInterfaceModel%set_idsoln(this%gwfModel%idsoln)
     this%gwfInterfaceModel%npf%satomega = this%gwfModel%npf%satomega
     this%gwfInterfaceModel%npf%ixt3d = this%iXt3dOnExchange
+    this%gwfInterfaceModel%npf%icellavg = this%gwfExchange%icellavg
     call this%gwfInterfaceModel%model_df()
 
     ! Take these settings from the owning model

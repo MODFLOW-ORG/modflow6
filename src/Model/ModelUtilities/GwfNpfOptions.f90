@@ -9,7 +9,6 @@ module GwfNpfOptionsModule
   !! into npf_df, as an alternative to reading those from file
   !<
   type, public :: GwfNpfOptionsType
-    integer(I4B) :: icellavg !< same as npf variable
     integer(I4B) :: ithickstrt !< same as npf variable
     integer(I4B) :: ihighcellsat !< same as npf variable
     integer(I4B) :: iperched !< same as npf variable
@@ -31,7 +30,6 @@ contains
   subroutine construct(this)
     class(GwfNpfOptionsType), intent(inout) :: this !< the NPF options, as in the input OPTIONS block
 
-    this%icellavg = 0
     this%ithickstrt = 0
     this%ihighcellsat = 0
     this%iperched = 0

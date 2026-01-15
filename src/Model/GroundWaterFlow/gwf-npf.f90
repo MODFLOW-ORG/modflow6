@@ -1431,7 +1431,6 @@ contains
     class(GwfNpftype) :: this
     type(GwfNpfOptionsType), intent(in) :: options
     !
-    this%icellavg = options%icellavg
     this%ithickstrt = options%ithickstrt
     this%ihighcellsat = options%ihighcellsat
     this%iperched = options%iperched

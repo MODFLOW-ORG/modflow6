@@ -170,7 +170,6 @@ contains
 
     ! for now, assuming full homogeneity, so just take
     ! the options from the owning model's npf package
-    npfOptions%icellavg = this%owner%npf%icellavg
     npfOptions%ithickstrt = this%owner%npf%ithickstrt
     npfOptions%iperched = this%owner%npf%iperched
     npfOptions%ivarcv = this%owner%npf%ivarcv
