@@ -1,13 +1,17 @@
 module ProfilerModule
   use KindModule, only: I4B, DP, LGP
   use ConstantsModule, only: DNODATA, DZERO, LENMEMPATH, LINELENGTH
+  use SimVariablesModule, only: idm_context
+  use MemoryHelperModule, only: create_mem_path
+  use MemoryManagerModule, only: mem_setptr
   use STLStackIntModule
   use STLVecIntModule
+  use CharacterStringModule
   implicit none
   private
 
   ! constants for memory allocation
-  integer(I4B), parameter :: MAX_NR_TIMED_SECTIONS = 75
+  integer(I4B), parameter :: MAX_SECTIONS_PER_SLN = 40
   integer(I4B), public, parameter :: LEN_SECTION_TITLE = 128
 
   ! data structure to store measurements for a section
@@ -25,6 +29,7 @@ module ProfilerModule
   !! parts of the application. It provides mechanisms to start, stop, and
   !< report on the performance metrics collected during execution.
   type, public :: ProfilerType
+    real(DP) :: sim_start_time !< the simulation start time which lies before initialization of the profiler
     ! handles for the global simulation structure (with no simulation objects to store them)
     integer(I4B) :: tmr_run !< handle to timed section "Run"
     integer(I4B) :: tmr_init !< handle to timed section "Initialize"
@@ -45,15 +50,15 @@ module ProfilerModule
     type(MeasuredSectionType), dimension(:), pointer :: all_sections => null() !< all timed sections (up to MAX_NR_TIMED_SECTIONS)
     type(STLStackInt) :: callstack !< call stack of section ids
   contains
+    procedure :: pre_init
     procedure :: initialize
-    procedure :: add_section
     procedure :: start
     procedure :: stop
     procedure :: print
     procedure :: destroy
-    procedure :: is_initialized
-    procedure :: set_print_option
     ! private
+    procedure, private :: set_print_option
+    procedure, private :: add_section
     procedure, private :: print_section
     procedure, private :: print_total
     procedure, private :: aggregate_walltime
@@ -66,12 +71,26 @@ module ProfilerModule
 
 contains
 
+  !< @brief To save the start time before initialization
+  subroutine pre_init(this)
+    class(ProfilerType) :: this
+
+    call cpu_time(this%sim_start_time)
+
+  end subroutine pre_init
+
   !< @brief Initialize the CPU timer object
   !<
   subroutine initialize(this)
     class(ProfilerType) :: this
     ! local
+    character(len=LENMEMPATH) :: input_mempath
+    type(CharacterStringType), dimension(:), contiguous, &
+      pointer :: slntype
+    character(len=:), pointer :: prprof
     integer(I4B) :: i
+    integer(I4B) :: max_sections
+    integer(I4B) :: nr_solutions
 
     this%tmr_run = -1
     this%tmr_init = -1
@@ -85,8 +104,16 @@ contains
 
     call this%callstack%init()
 
-    allocate (this%all_sections(MAX_NR_TIMED_SECTIONS))
-    do i = 1, MAX_NR_TIMED_SECTIONS
+    ! get nr of solutions from input context
+    input_mempath = create_mem_path('SIM', 'NAM', idm_context)
+    call mem_setptr(slntype, 'SLNTYPE', input_mempath)
+    nr_solutions = size(slntype)
+    call mem_setptr(prprof, 'PRPROF', input_mempath)
+    call this%set_print_option(prprof)
+
+    max_sections = MAX_SECTIONS_PER_SLN * nr_solutions
+    allocate (this%all_sections(max_sections))
+    do i = 1, max_sections
       this%all_sections(i)%title = "undefined"
       this%all_sections(i)%status = 0
       this%all_sections(i)%walltime = DZERO
@@ -98,6 +125,12 @@ contains
     this%nr_sections = 0
     this%root_id = 0
     this%top_three = [0, 0, 0]
+
+    ! start root section here with previously recorded start time
+    if (this%pr_option > 0) then
+      call this%start("Run", this%tmr_run)
+      this%all_sections(this%tmr_run)%walltime = -this%sim_start_time
+    end if
 
   end subroutine initialize
 
@@ -116,7 +149,7 @@ contains
     section_id = this%nr_sections
     if (section_id > size(this%all_sections)) then
       write (*, *) "Internal error: Too many profiled sections, "&
-        &"increase MAX_NR_TIMED_SECTIONS"
+        &"disable profiling to circumvent."
       call ustop()
     end if
 
@@ -149,6 +182,8 @@ contains
     real(DP) :: start_time
     type(MeasuredSectionType), pointer :: section
 
+    if (this%pr_option == 0) return
+
     call cpu_time(start_time)
 
     if (section_id == -1) then
@@ -175,6 +210,8 @@ contains
     real(DP) :: end_time
     type(MeasuredSectionType), pointer :: section
 
+    if (this%pr_option == 0) return
+
     call cpu_time(end_time)
 
     ! nett result (c.f. start(...)) is adding (dt = end_time - start_time)
@@ -194,8 +231,9 @@ contains
     integer(I4B) :: level, i, top_idx
     integer(I4B), dimension(:), allocatable :: sorted_idxs
 
-    this%iout = output_unit
     if (this%pr_option == 0) return
+
+    this%iout = output_unit
 
     ! get top three leaf sections based on walltime
     top_idx = 1
@@ -369,21 +407,13 @@ contains
 
     call this%callstack%destroy()
 
-    do i = 1, MAX_NR_TIMED_SECTIONS
+    do i = 1, size(this%all_sections)
       call this%all_sections(i)%children%destroy()
     end do
     deallocate (this%all_sections)
     nullify (this%all_sections)
 
   end subroutine destroy
-
-  function is_initialized(this) result(initialized)
-    class(ProfilerType) :: this
-    logical(LGP) :: initialized
-
-    initialized = associated(this%all_sections)
-
-  end function is_initialized
 
   !> @brief Calculate the largest title length
   !<

@@ -9,7 +9,6 @@ module MpiRunControlModule
   use MpiWorldModule
   use SimVariablesModule, only: proc_id, nr_procs
   use SimStagesModule
-  use ProfilerModule
   use KindModule, only: I4B, LGP, DP
   use STLVecIntModule
   use NumericalSolutionModule
@@ -43,19 +42,12 @@ contains
 
   subroutine mpi_ctrl_start(this)
     use ErrorUtilModule, only: pstop_alternative
-    ! local
-    integer(I4B) :: tmr_init_par
-
     class(MpiRunControlType) :: this
     ! local
     integer :: ierr
     character(len=*), parameter :: petsc_db_file = '.petscrc'
     logical(LGP) :: petsc_db_exists, wait_dbg, is_parallel_mode
     type(MpiWorldType), pointer :: mpi_world
-
-    ! add timed section for parallel initialization
-    tmr_init_par = -1
-    call g_prof%start("Initialize MPI and PETSc", tmr_init_par)
 
     ! set mpi abort function
     pstop_alternative => mpi_stop
@@ -108,9 +100,6 @@ contains
     ! possibly wait to attach debugger here
     if (wait_dbg) call this%wait_for_debugger()
 
-    ! done with parallel pre-work
-    call g_prof%stop(tmr_init_par)
-
     ! start everything else by calling parent
     call this%RunControlType%start()
 
@@ -138,11 +127,6 @@ contains
     class(MpiRunControlType) :: this
     ! local
     integer :: ierr
-    integer(I4B) :: tmr_final_par
-
-    ! timer
-    tmr_final_par = -1
-    call g_prof%start("Finalize MPI and PETSc", tmr_final_par)
 
     ! release MPI related memory in router before MPI_Finalize
     call this%virtual_data_mgr%router%finalize()
@@ -159,8 +143,6 @@ contains
 #endif
 
     pstop_alternative => null()
-
-    call g_prof%stop(tmr_final_par)
 
     ! finish everything else by calling parent
     call this%RunControlType%finish()

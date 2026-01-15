@@ -6,7 +6,7 @@ type keyword
 reader urword
 optional true
 longname model print input to listing file
-description keyword to indicate that the list of horizontal flow barriers will be written to the listing file immediately after it is read.
+description keyword to indicate that the list of hydraulic flow barriers will be written to the listing file immediately after it is read.
 
 
 # --------------------- gwf hfb dimensions ---------------------
@@ -18,7 +18,7 @@ reader urword
 optional false
 mf6internal maxbound
 longname maximum number of barriers
-description integer value specifying the maximum number of horizontal flow barriers that will be entered in this input file.  The value of MAXHFB is used to allocate memory for the horizontal flow barriers.
+description integer value specifying the maximum number of hydraulic flow barriers that will be entered in this input file.  The value of MAXHFB is used to allocate memory for the hydraulic flow barriers.
 
 
 # --------------------- gwf hfb period ---------------------
@@ -53,7 +53,7 @@ tagged false
 in_record true
 reader urword
 longname first cell adjacent to barrier
-description identifier for the first cell.  For a structured grid that uses the DIS input file, CELLID1 is the layer, row, and column numbers of the cell.   For a grid that uses the DISV input file, CELLID1 is the layer number and CELL2D number for the two cells.  If the model uses the unstructured discretization (DISU) input file, then CELLID1 is the node numbers for the cell.  The barrier is located between cells designated as CELLID1 and CELLID2.  For models that use the DIS and DISV grid types, the layer number for CELLID1 and CELLID2 must be the same.  For all grid types, cells must be horizontally adjacent or the program will terminate with an error.
+description identifier for the first cell.  For a structured grid that uses the DIS input file, CELLID1 is the layer, row, and column numbers of the cell.   For a grid that uses the DISV input file, CELLID1 is the layer number and CELL2D number for the two cells.  If the model uses the unstructured discretization (DISU) input file, then CELLID1 is the node numbers for the cell.  The barrier is located between cells designated as CELLID1 and CELLID2.  For models that use the DIS and DISV grid types, the layer number for CELLID1 and CELLID2 must be the same.  For all grid types, cells can be horizontally or vertically adjacent.
 
 block period
 name cellid2

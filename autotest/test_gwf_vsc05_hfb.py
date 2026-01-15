@@ -1,7 +1,7 @@
 """
 Uses constant head and general-head boundaries on the left and right
 sides of a 10 row by 10 column by 1 layer model to drive flow from left to
-right.  Tests that a horizontal flow barrier accounts for changes in
+right.  Tests that a hydraulic flow barrier accounts for changes in
 viscosity when temperature is simulated. Barrier is between middle two
 columns, but only cuts across the bottom 5 rows.
 Model 1: VSC inactive, uses a higher speified K that matches what the VSC

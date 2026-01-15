@@ -44,7 +44,7 @@ module GwfModule
     type(GwfCsubType), pointer :: csub => null() ! subsidence package
     type(GwfOcType), pointer :: oc => null() ! output control package
     type(GhostNodeType), pointer :: gnc => null() ! ghost node correction package
-    type(GwfHfbType), pointer :: hfb => null() ! horizontal flow barrier package
+    type(GwfHfbType), pointer :: hfb => null() ! hydraulic flow barrier package
     type(GwfMvrType), pointer :: mvr => null() ! water mover package
     type(GwfObsType), pointer :: obs => null() ! observation package
     type(BudgetType), pointer :: budget => null() ! budget object

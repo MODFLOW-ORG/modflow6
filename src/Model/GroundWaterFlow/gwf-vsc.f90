@@ -792,7 +792,7 @@ contains
     call this%calc_q_visc(cellid, viscratio)
   end subroutine get_visc_ratio
 
-  !> @brief Account for viscosity in the aquiferhorizontal flow barriers
+  !> @brief Account for viscosity in the aquifer hydraulic flow barriers
   !!
   !! Will return the viscosity associated with the upgradient node (cell)
   !! to the HFB package for adjusting the hydraulic characteristic (hydchr)

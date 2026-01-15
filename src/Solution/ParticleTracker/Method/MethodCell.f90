@@ -149,7 +149,7 @@ contains
           do i = this%tracktimes%selection(1), this%tracktimes%selection(2)
             t = this%tracktimes%times(i)
             if (t < totimc) cycle
-            if (t >= tmax) exit
+            if (t > tmax) exit
             particle%ttrack = t
             call this%usertime(particle)
             if (t > ttrackmax) ttrackmax = t
@@ -196,7 +196,7 @@ contains
           do i = this%tracktimes%selection(1), this%tracktimes%selection(2)
             t = this%tracktimes%times(i)
             if (t < totimc) cycle
-            if (t >= tmax) exit
+            if (t > tmax) exit
             particle%ttrack = t
             call this%usertime(particle)
             if (t > ttrackmax) ttrackmax = t
