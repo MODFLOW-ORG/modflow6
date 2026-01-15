@@ -368,6 +368,7 @@ def build_models(idx, test):
         f"{gwename}.sfe.obs.csv": [
             ("rch1_outftemp", "temperature", 1),
             ("rch1_outfener", "ext-outflow", 1),
+            ("rch1_shf", "shf", 1),
         ],
         "digits": 8,
         "print_input": True,
