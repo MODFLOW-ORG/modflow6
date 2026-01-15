@@ -1273,7 +1273,7 @@ contains
     !    for sensible heat flux observation type.
     call this%obs%StoreObsType('shf', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-
+    !
   end subroutine sfe_df_obs
 
   !> @brief Process package specific obs
@@ -1329,6 +1329,8 @@ contains
     logical, intent(inout) :: found
     ! -- local
     integer(I4B) :: n1, n2
+    real(DP) :: atmheat
+    real(DP) :: strmtemp
     !
     found = .true.
     select case (obstypeid)
@@ -1374,7 +1376,9 @@ contains
       end if
     case ('SHF')
       if (this%iboundpak(jj) /= 0) then
-        call this%shf_abc_term(jj, n1, n2, v)
+        strmtemp = this%xnewpak(n1)
+        !call this%shf_abc_term(jj, n1, n2, v)
+        call this%abc%abc_cq(jj, strmtemp, v, 'shf')
       end if
     case default
       found = .false.
