@@ -62,7 +62,7 @@ contains
 
       z = DHALF * (gc%v_model%dis_top%get(gc%index) + &
                    gc%v_model%dis_bot%get(gc%index))
-      
+
       x = DZERO
       y = DZERO
       if (.not. use_only_z) then
