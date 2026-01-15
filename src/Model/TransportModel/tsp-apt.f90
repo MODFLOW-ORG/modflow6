@@ -2444,7 +2444,6 @@ contains
   !!   - overrides BndType%bnd_obs_supported()
   !<
   logical function apt_obs_supported(this)
-    ! -- modules
     ! -- dummy
     class(TspAptType) :: this
     !
@@ -2459,10 +2458,8 @@ contains
   !!   - overrides BndType%bnd_df_obs
   !<
   subroutine apt_df_obs(this)
-    ! -- modules
     ! -- dummy
     class(TspAptType) :: this
-    ! -- local
     !
     ! -- call additional specific observations for lkt, sft, mwt, and uzt
     call this%pak_df_obs()
@@ -2474,10 +2471,8 @@ contains
   !!   - stores observations supported by the APT package
   !!   - must be overridden by child class
   subroutine pak_df_obs(this)
-    ! -- modules
     ! -- dummy
     class(TspAptType) :: this
-    ! -- local
     !
     ! -- this routine should never be called
     call store_error('Program error: pak_df_obs not implemented.', &
@@ -2879,12 +2874,12 @@ contains
   !! and not ID2.
   !<
   subroutine apt_process_obsID(obsrv, dis, inunitobs, iout)
-    ! -- dummy variables
+    ! -- dummy
     type(ObserveType), intent(inout) :: obsrv !< Observation object
     class(DisBaseType), intent(in) :: dis !< Discretization object
     integer(I4B), intent(in) :: inunitobs !< file unit number for the package observation file
     integer(I4B), intent(in) :: iout !< model listing file unit number
-    ! -- local variables
+    ! -- local
     integer(I4B) :: nn1
     integer(I4B) :: icol
     integer(I4B) :: istart

@@ -1113,25 +1113,25 @@ contains
     real(DP) :: sa !< surface area of stream reach, different than wetted area
     !
     n1 = this%flowbudptr%budterm(this%idxbudevap)%id1(ientry)
-    ! -- For now, there is only 1 aux variable under 'EVAPORATION'
+    ! -- For now, there is only 1 aux variable under 'EVAPORATION' which 
+    !    is reach surface area
     auxpos = this%flowbudptr%budterm(this%idxbudevap)%naux
     sa = this%flowbudptr%budterm(this%idxbudevap)%auxvar(auxpos, ientry)
     !
     strmtemp = this%xnewpak(n1)
-    call this%abc%abc_cq(n1, strmtemp, atmheat)
+    call this%abc%abc_cq(n1, strmtemp, atmheat, 'shf')
     !
     if (present(rrate)) rrate = atmheat * sa
     if (present(rhsval)) rhsval = -rrate
     if (present(hcofval)) hcofval = DZERO
   end subroutine sfe_abc_term
-  !
+
   !> @brief Observations
   !!
   !! Store the observation type supported by the APT package and override
   !! BndType%bnd_df_obs
   !<
   subroutine sfe_df_obs(this)
-    ! -- modules
     ! -- dummy
     class(GweSfeType) :: this
     ! -- local
@@ -1203,9 +1203,30 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
     !
     ! -- Store obs type and assign procedure pointer
-    !    for atm-bnd-flux observation type.
+    !    for net atmospheric boundry condition (abc) flux observation type.
     call this%obs%StoreObsType('abc', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+    !
+    ! -- Store obs type and assign procedure pointer
+    !    for shortwave-radiation-flux observation type.
+    call this%obs%StoreObsType('swr', .true., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+    !
+    ! -- Store obs type and assign procedure pointer
+    !    for longwave radiation flux observation type.
+    call this%obs%StoreObsType('lwr', .true., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+    !
+    ! -- Store obs type and assign procedure pointer
+    !    for latent heat flux observation type.
+    call this%obs%StoreObsType('lhf', .true., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+    !
+    ! -- Store obs type and assign procedure pointer
+    !    for sensible heat flux observation type.
+    call this%obs%StoreObsType('shf', .true., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+
   end subroutine sfe_df_obs
 
   !> @brief Process package specific obs
@@ -1236,6 +1257,14 @@ contains
     case ('STRMBD-COND')
       call this%rp_obs_byfeature(obsrv)
     case ('ABC')
+      call this%rp_obs_byfeature(obsrv)
+    case ('SWR')
+      call this%rp_obs_byfeature(obsrv)
+    case ('LWR')
+      call this%rp_obs_byfeature(obsrv)
+    case ('LHF')
+      call this%rp_obs_byfeature(obsrv)
+    case ('SHF')
       call this%rp_obs_byfeature(obsrv)
     case default
       found = .false.
@@ -1283,6 +1312,22 @@ contains
     case ('ABC')
       if (this%iboundpak(jj) /= 0) then
         call this%sfe_abc_term(jj, n1, n2, v)
+      end if
+    case ('SWR')
+      if (this%iboundpak(jj) /= 0) then
+        !call this%swr_abc_term(jj, n1, n2, v)
+      end if
+    case ('LWR')
+      if (this%iboundpak(jj) /= 0) then
+        !call this%lwr_abc_term(jj, n1, n2, v)
+      end if
+    case ('LHF')
+      if (this%iboundpak(jj) /= 0) then
+        !call this%lhf_abc_term(jj, n1, n2, v)
+      end if
+    case ('SHF')
+      if (this%iboundpak(jj) /= 0) then
+        call this%shf_abc_term(jj, n1, n2, v)
       end if
     case default
       found = .false.
