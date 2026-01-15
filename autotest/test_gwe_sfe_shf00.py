@@ -16,12 +16,12 @@ import math
 import pytest
 from framework import TestFramework
 
-cases = ["sfe-shf"]
+cases = ["sfe-shf-opt1"] #, "sfe-shf-opt2"]
 
 DCTOK = 273.15
 
 def calc_ea(rh, es):
-    # ambient air temperature
+    # ambient atmospheric vapor pressure
     ea = rh / 100.0 * es
     return ea
 
@@ -29,11 +29,6 @@ def calc_e(temp):
     # temperature must enter as degrees Celcius
     e = 6.1275 * math.exp(17.2693882 * (temp / (temp + DCTOK - 35.86)))
     return e
-
-def calc_ew():
-    
-
-
 
 
 # Model units
@@ -69,15 +64,16 @@ laytyp = 1
 sfr_evaprate = 0.0
 rhk = 0.0
 rwid = 1.0
-strm_temp = 1.0
+strm_temp = 21.8671310408894  # deg C
 surf_Q_in = [
-    [10.0],
+    [2.0],  # m^3/s
 ]
-# sensible heat flux parameter values
-wspd = 20.0
-tatm = 1189766.7  # unrealistically high to drive a 1 deg C rise in stream temperature
-rh = 30.0
 
+# sensible heat flux parameter values
+wspd = 1.0  # m/s
+patm = 954.680843658077  # mbar
+tatm = 278.16  # deg K
+rh = 20.0  # % (expressed as a percentage)
 
 # Transport related parameters
 porosity = sy  # porosity (unitless)
@@ -403,11 +399,22 @@ def build_models(idx, test):
         for irno in range(ncol):
             spd.append([irno, "WSPD", wspd])
             spd.append([irno, "TATM", tatm])
+            spd.append([irno, "PATM", patm])
         abc_spd[kper] = spd
 
+    if idx == 0:
+        swr_optional_off = True
+        lwr_optional_off = True
+        lhf_optional_off = True
+        shf_optional_off = False
+    
     abc = flopy.mf6.ModflowUtlabc(
         sfe,
         print_input=True,
+        swr_off=swr_optional_off,
+        lwr_off=lwr_optional_off,
+        lhf_off=lhf_optional_off,
+        shf_off=shf_optional_off,
         density_air=rhoa,
         heat_capacity_air=Cpa,
         drag_coefficient=c_d,
@@ -471,7 +478,7 @@ def check_output(idx, test):
 
     # calc expected rise in temperature independent of mf6
     
-    ew = calc_e(temp_strm)
+    ew = calc_e(strm_temp)
 
     fpth = os.path.join(test.workspace, gwfname + ".sfr.obs.csv")
     assert os.path.isfile(fpth)
