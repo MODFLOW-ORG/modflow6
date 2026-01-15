@@ -117,3 +117,8 @@ description = "Numerical error in the iterative subcell exit solution can leave 
 section = "fixes"
 subsection = "model"
 description = "The PRT PRP package previously failed to correctly load release settings configured by period block. This could prevent particles from being released as configured. It could also cause excess particles to be released, as empty period blocks intended to stop fill-forward at a certain period were not properly recognized. The package has been updated to correctly load period block release settings."
+
+[[items]]
+section = "fixes"
+subsection = "exchanges"
+description = "Fixed a bug that crashed the program during initialization when GWT or GWE models were connected through an Exchange and at least one model has grid type DISU and does not have the (currently optional) CELL2D information specified in its input. It could have happened for GWF models in a similar manner, though only when running in parallel mode."
