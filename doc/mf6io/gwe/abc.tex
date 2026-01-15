@@ -1,4 +1,6 @@
-Input to the Atmospheric Boundary Condition (ABC) Package is read from the file that is specified in the ABC6 record of the OPTIONS block in the SFE package.
+Input to the Atmospheric Boundary Condition (ABC) Package is read from the file that is specified in the ABC6 record of the OPTIONS block in the SFE package.  There can only be one ABC utility activated for each instance of SFE.  The ABC utility cannot be used without a corresponding SFE Package.
+
+The ABC utility does not have a dimensions block; instead, dimensions for the ABC utility are set using the dimensions from the corresponding SFE Package.  For example, an SFR Package corresponding to an instance of SFE requires specification of the number of reaches (NREACHES).  ABC sets the number of reaches equal to NREACHES.  Therefore, the PERIOD block below cannot contain boundary information for a reach with an index greater than NREACHES.
 
 \vspace{5mm}
 \subsubsection{Structure of Blocks}

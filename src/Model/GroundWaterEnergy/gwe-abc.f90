@@ -17,8 +17,8 @@
 
 module AbcModule
   use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, LENVARNAME, &
-                             LENPACKAGENAME, TABLEFT, TABCENTER, LENMEMTYPE, &
-                             DHUNDRED, DCTOK
+                             LENFTYPE, LENPACKAGENAME, TABLEFT, TABCENTER, &
+                             LENMEMTYPE, DHUNDRED, DCTOK
   use KindModule, only: I4B, DP
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
@@ -57,20 +57,20 @@ module AbcModule
     logical, pointer, public :: active => null() !< logical indicating if a atmospheric boundary condition object is active
     ! -- table objects
     !type(TableType), pointer :: inputtab => null() !< input table object
-
+    !
     logical, pointer, public :: swr_active => null() !< logical indicating if a shortwave radiation heat flux object is active
     logical, pointer, public :: lwr_active => null() !< logical indicating if a longwave radiation heat flux object is active
     logical, pointer, public :: lhf_active => null() !< logical indicating if a latent heat flux object is active
     logical, pointer, public :: shf_active => null() !< logical indicating if a sensible heat flux object is active
-
+    !
     type(ShfType), pointer :: shf => null() ! sensible heat flux (shf) object
     type(SwrType), pointer :: swr => null() ! shortwave radiation heat flux (swr) object
     type(LhfType), pointer :: lhf => null() ! latent heat flux (lhf) object
     type(LwrType), pointer :: lwr => null() ! longwave radiation heat flux (lwr) object
-
+    !
     ! -- abc budget object
     type(BudgetObjectType), pointer :: budobj => null() !< ABC budget object
-
+    !
     real(DP), pointer :: rhoa => null() !< desity of air
     real(DP), pointer :: cpa => null() !< heat capacity of air
     real(DP), pointer :: cd => null() !< drag coefficient
@@ -79,7 +79,7 @@ module AbcModule
     real(DP), pointer :: lwrefl => null() !< reflectance of longwave radiation by the water surface
     real(DP), pointer :: emissw => null() !< emissivity of water
     real(DP), pointer :: emissr => null() !< emissivity of the riparian canopy
-
+    !
     real(DP), dimension(:), pointer, contiguous :: wspd => null() !< wind speed
     real(DP), dimension(:), pointer, contiguous :: tatm => null() !< temperature of the atmosphere
     real(DP), dimension(:), pointer, contiguous :: solr => null() !< solar radiation
@@ -88,7 +88,7 @@ module AbcModule
     real(DP), dimension(:), pointer, contiguous :: rh => null() !< relative humidity
     real(DP), dimension(:), pointer, contiguous :: atmc => null() !< atmospheric composition adjustment
     real(DP), dimension(:), pointer, contiguous :: patm => null() !< atmospheric pressure (mbar)
-
+    !
     real(DP), dimension(:), pointer, contiguous :: ea => null() !< ambient vapor pressure of the atmosphere, internally calculated and used by multiple heat calculations
     real(DP), dimension(:), pointer, contiguous :: es => null() !< saturation vapor pressure at air temperature, make available for multiple heat flux calculations
     real(DP), dimension(:), pointer, contiguous :: ew => null() !< saturation vapor pressure at water temperature, make available for multiple heat flux calculations
@@ -640,55 +640,6 @@ contains
     call this%NumericalPackageType%da() ! this may not work -- revisit and cleanup !!!
   end subroutine abc_da
 
-  !> @brief Observations
-  !!
-  !! Store the observation type supported by the APT package and override
-  !! BndType%bnd_df_obs
-  !<
-!  subroutine abc_df_obs(this)
-!    ! -- modules
-!    ! -- dummy
-!    class(AbcType) :: this
-!    ! -- local
-!    !integer(I4B) :: indx
-!
-!    ! -- Store obs type and assign procedure pointer
-!    !    for sens-heat-flux observation type.
-!    !call this%obs%StoreObsType('shf', .true., indx)
-!    !this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-!    !!
-!    !! -- Store obs type and assign procedure pointer
-!    !!    for shortwave-radiation-flux observation type.
-!    !call this%obs%StoreObsType('swr', .true., indx)
-!    !this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-!  end subroutine abc_df_obs
-!
-!  !> @brief Process package specific obs
-!  !!
-!  !! Method to process specific observations for this package.
-!  !<
-!  subroutine abc_rp_obs(this, obsrv, found)
-!    ! -- dummy
-!    class(AbcType), intent(inout) :: this !< package class
-!    type(ObserveType), intent(inout) :: obsrv !< observation object
-!    logical, intent(inout) :: found !< indicate whether observation was found
-!    ! -- local
-!    !
-!    found = .true.
-!    select case (obsrv%ObsTypeId)
-!    case ('SHF')
-!!      call this%rp_obs_byfeature(obsrv)
-!    case ('SWR')
-!!      call this%rp_obs_byfeature(obsrv)
-!    case ('LHF')
-!!      call this%rp_obs_byfeature(obsrv)
-!    case ('LWR')
-!!      call this%rp_obs_byfeature(obsrv)
-!    case default
-!      found = .false.
-!    end select
-!  end subroutine abc_rp_obs
-!
 !  !> @brief Calculate observation value and pass it back to APT
 !  !<
 !  subroutine abc_bd_obs(this, obstypeid, jj, v, found)
@@ -720,12 +671,13 @@ contains
   !!
   !! Calculate and return the atmospheric heat flux for one reach
   !<
-  subroutine abc_cq(this, ifno, tstrm, abcflx)
+  subroutine abc_cq(this, ifno, tstrm, abcflx, obstype)
     ! -- dummy
     class(AbcType), intent(inout) :: this
     integer(I4B), intent(in) :: ifno !< stream reach integer id
     real(DP), intent(in) :: tstrm !< temperature of the stream reach
     real(DP), intent(inout) :: abcflx !< calculated atmospheric boundary flux amount
+    character(len=LENFTYPE), optional, intent(in) :: obstype !< when present, subroutine will return a specific energy flux for an observation
     ! -- local
     real(DP) :: shflx = DZERO
     real(DP) :: swrflx = DZERO
@@ -755,7 +707,12 @@ contains
       call this%shf%shf_cq(ifno, tstrm, shflx, lhflx) ! default to Bowen ratio method ("2")
     end if
     !
-    abcflx = -(swrflx + lwrflx + shflx - lhflx)
+    if (present(obstype)) then
+      select case (obstype)
+      case ('shf')
+    else
+      abcflx = -(swrflx + lwrflx + shflx - lhflx)
+    end if
   end subroutine abc_cq
 
   !> @brief Recalculate variables that are used by various heat fluxes
@@ -834,6 +791,7 @@ contains
     ! <solr> SOLAR RADIATION
     ! <rh> RELATIVE HUMIDITY
     ! <atmc> ATMOSPHERIC COMPOSITION
+    ! <patm> ATMOSPHERIC PRESSURE
     !
     ! -- read line
     call this%parser%GetStringCaps(keyword)
