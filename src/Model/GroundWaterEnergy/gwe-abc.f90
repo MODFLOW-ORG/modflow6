@@ -726,7 +726,7 @@ contains
         call store_error(errmsg, terminate=.TRUE.)
       end select
     else
-      abcflx = -(swrflx + lwrflx + shfflx - lhfflx)
+      abcflx = swrflx + lwrflx + shfflx - lhfflx
     end if
   end subroutine abc_cq
 
