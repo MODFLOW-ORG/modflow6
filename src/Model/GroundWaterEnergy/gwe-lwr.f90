@@ -138,10 +138,10 @@ contains
     lwratm = this%calc_lwr(emisss, this%tatm(ifno))
     !
     ! -- long wave radiation transmitted from water surface to the atmosphere (A.13)
-    lwrstrm = this%calc_lwr(-this%emissw, tstrm)
+    lwrstrm = this%calc_lwr(this%emissw, tstrm)
     !
     ! -- longwave radiation heat flux
-    lwrflx = lwratm * (1 - this%lwrefl) + lwrstrm
+    lwrflx = lwratm * (1 - this%lwrefl) - lwrstrm
   end subroutine lwr_cq
 
   !> @brief Deallocate package memory
