@@ -7,6 +7,7 @@
 # in the channel.  The result is a 1 deg C rise in temperature in the
 # streamflow - an easy result to confirm in this test.
 
+import math
 import os
 
 import flopy
@@ -358,7 +359,7 @@ def build_models(idx, test):
         "filename": gwename + ".sfe.obs",
     }
 
-    swr_filename = f"{gwename}.sfe.swr"
+    abc_filename = f"{gwename}.sfe.abc"
     sfe = flopy.mf6.modflow.ModflowGwesfe(
         gwe,
         boundnames=False,
@@ -376,21 +377,21 @@ def build_models(idx, test):
         filename=f"{gwename}.sfe",
     )
 
-    # Swr utility
-    swr_spd = {}
+    # Abc utility
+    abc_spd = {}
     for kper in range(len(nstp)):
         spd = []
         for irno in range(ncol):
             spd.append([irno, "SOLR", solr])
             spd.append([irno, "SHD", shd])
             spd.append([irno, "SWREFL", swrefl])
-        swr_spd[kper] = spd
+        abc_spd[kper] = spd
 
-    swr = flopy.mf6.ModflowUtlswr(
+    abc = flopy.mf6.ModflowUtlabc(
         sfe,
         print_input=True,
-        reachperioddata=swr_spd,
-        filename=swr_filename,
+        reachperioddata=abc_spd,
+        filename=abc_filename,
     )
 
     # Instantiate Output Control package for transport
