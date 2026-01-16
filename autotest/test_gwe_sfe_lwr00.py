@@ -69,7 +69,7 @@ rh = 30.0  # percent
 lwrefl = 0.03  # Fogg et al 2023
 emiss_riparian = 0.97  # Fogg et al 2023
 emiss_water = 0.95  # Fogg et al 2023
-tatm = 689.8339  # unrealistically high atm temp that results in a 1C increase in
+tatm = 686.8339  # unrealistically high atm temp that results in a 1C increase in
 # stream temperature if lwr is only flux
 atmc = 0.0
 
@@ -480,13 +480,13 @@ def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
     Ql_up = -emiss_water * stephan_boltzmann * ((updated_strm_temp + c_to_k) ** 4)
 
     e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + c_to_k - 35.86)))
-    e_a = (rh / 100) * e_s
-    emiss_air = (1.24 * (e_a / (tatm + c_to_k)) ** (1 / 7)) * atmc  # calcs to 0
-    emiss_down = (1 - shd) * emiss_air + shd * emiss_riparian  # calcs to emiss_riparian
+    e_a = (rh / 100.0) * e_s
+    emiss_air = (1.24 * (e_a / (tatm + c_to_k)) ** (1.0 / 7.0)) * atmc  # calcs to 0
+    emiss_down = (1.0 - shd) * emiss_air + shd * emiss_riparian  # calcs to emiss_riparian
 
     Ql_down = emiss_down * stephan_boltzmann * ((tatm + c_to_k) ** 4)
 
-    lwr_ener_per_sqm = Ql_down * (1 - lwrefl) + Ql_up
+    lwr_ener_per_sqm = Ql_down * (1.0 - lwrefl) + Ql_up
 
     ener_transfer = lwr_ener_per_sqm * delr * mf_strm_wid
 
@@ -539,7 +539,7 @@ def check_output(idx, test):
 
     assert np.isclose(
         df2.loc[0, "RCH1_OUTFTEMP"], strt_strm_temp + temp_change, atol=1e-6
-    ), msg2 + ". " + msg3 + ". " + msg1
+    ), msg3 + ". " + msg1 #msg2 + ". " + 
 
 
 # - No need to change any code below

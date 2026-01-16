@@ -175,13 +175,13 @@ contains
   function calc_lwr(this, eps, temp) result(lwr)
     ! -- dummy
     class(LwrType) :: this
-    real(DP) :: eps !< epsilon, representing either emissivity of the atmosphere or the shade-weighted emissivity of the atm
-    real(DP) :: temp !< temperature, representing either the temperature of the stream or the atmosphere
+    real(DP) :: eps !< epsilon, representing either emissivity of the atmosphere, the shade-weighted emissivity of the atm, or emissivity of water
+    real(DP) :: temp !< temperature, representing either the temperature of the stream or the atmosphere in degree C
     ! -- return
     real(DP) :: lwr !< longwave radiation
     !
     ! -- generalized equation for calculating longwave radiation
-    lwr = eps * DSTEFANBOLTZMANN * temp**DFOUR
+    lwr = eps * DSTEFANBOLTZMANN * ((temp + DCTOK)**DFOUR)
   end function calc_lwr
 
 end module LongwaveModule
