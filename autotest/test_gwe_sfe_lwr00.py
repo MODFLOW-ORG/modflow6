@@ -477,6 +477,7 @@ def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
     # shf_ener_per_sqm = bowen_ratio * lhf_ener_per_sqm
 
     # longwave
+
     Ql_up = emiss_water * stephan_boltzmann * ((updated_strm_temp + c_to_k) ** 4)
 
     e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + c_to_k - 35.86)))
