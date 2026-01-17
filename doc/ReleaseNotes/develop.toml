@@ -148,7 +148,7 @@ description = "Previously, gridded parameters read from ascii input files could 
 [[items]]
 sections = "fixes"
 subsection = "model"
-description = "Fixed vertex ordering used internally by PRT for cells with quad-refined faces. The ordering was incorrect if cell2D block entry for a cell listed a mid-face vertex first, which could result in anomalous tracking behavior."
+description = "Fixed vertex ordering used internally by PRT for cells with quad-refined faces. The ordering was incorrect if the cell2D block entry for a cell listed a mid-face vertex first, which could result in anomalous tracking behavior."
 
 [[items]]
 section = "fixes"
