@@ -452,9 +452,11 @@ def compare_output(test, mf6_pls, mp7_pls, mp7_eps, tolerance=1e-3):
         by=["particleid", "time"]
     )
 
-    # MP7 leaves particles in no-flow conditions active at the end of the simulation,
-    # but with extended tracking on, it doesn't set their final tracking time to the
-    # simulation end time, as one might expect, so ignore the time column comparison.
+    # PRT terminates particle 9 immediately, where MP7 sets its
+    # tracking time to the end of the simulation, in case "_a".
+    # This is a product of PRT's simpler handling of particles
+    # in subcells with no exit face. MP7 has some subtler logic
+    # which lets particles remain active in some circumstances.
     if "_a" in test.name:
         del mf6_eps["time"]
         del mp7_eps["time"]
