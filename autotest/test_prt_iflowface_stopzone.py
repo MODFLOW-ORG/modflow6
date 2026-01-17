@@ -455,7 +455,7 @@ def compare_output(test, mf6_pls, mp7_pls, mp7_eps, tolerance=1e-3):
     # MP7 leaves particles in no-flow conditions active at the end of the simulation,
     # but with extended tracking on, it doesn't set their final tracking time to the
     # simulation end time, as one might expect, so ignore the time column comparison.
-    if "aext" in test.name:
+    if "_a" in test.name:
         del mf6_eps["time"]
         del mp7_eps["time"]
 

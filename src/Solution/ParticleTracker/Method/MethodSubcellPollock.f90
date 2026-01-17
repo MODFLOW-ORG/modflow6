@@ -95,7 +95,6 @@ contains
   !! this context and for any modifications or errors.
   !<
   subroutine track_subcell(this, subcell, particle, tmax)
-    use TdisModule, only: endofsimulation, totimc, delt
     use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB, TERM_TIMEOUT
     use ParticleEventModule, only: TIMESTEP, FEATEXIT
     ! dummy
@@ -108,7 +107,6 @@ contains
     real(DP) :: t, x, y, z
     real(DP) :: t0, x0, y0, z0
     integer(I4B) :: i, exit_face, exit_soln
-    logical(LGP) :: no_exit, no_flow
     type(LinearExitSolutionType) :: exit_x, exit_y, exit_z
 
     t0 = particle%ttrack
@@ -122,7 +120,7 @@ contains
     exit_y = this%exit_solutions(2)
     exit_z = this%exit_solutions(3)
 
-    ! Exit solution, face, & travel time
+    ! Set solution, face, & travel time
     exit_soln = this%pick_exit(particle)
     if (exit_soln == 0) then
       exit_face = 0
@@ -133,11 +131,18 @@ contains
     end if
     texit = particle%ttrack + dtexit
 
-    no_exit = all([this%exit_solutions%status] >= NO_EXIT_STATIONARY)
-    no_flow = all([this%exit_solutions%status] == NO_EXIT_STATIONARY)
-
-    ! No valid exit solution and flow isn't stationary? Terminate.
-    if (no_exit .and. .not. no_flow) then
+    ! Terminate if no valid exit solution was found.
+    ! MP7 is more nuanced in determining what to do
+    ! here. It considers whether this stress period
+    ! is steady state or transient, and whether the
+    ! flow is stationary, in determining whether to
+    ! terminate or allow the particle to survive to
+    ! the next time step. It does not compute paths
+    ! within the subcell even for particles it lets
+    ! remain active under this circumstance, though.
+    ! While we may consider that someday, we simply
+    ! terminate and sidestep the complexity for now.
+    if (all([this%exit_solutions%status] >= NO_EXIT_STATIONARY)) then
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
       return
     end if
@@ -191,22 +196,9 @@ contains
       return
     end if
 
-    ! Stationary flow?
-    if (no_flow) then
-      particle%advancing = .false.
-      ! Set tracking time to tmax unless it's the last time step and
-      ! extended tracking is on, in which case, set tracking time to
-      ! the simulation end time, because tmax is huge.
-      if (endofsimulation .and. particle%extend) then
-        particle%ttrack = totimc + delt
-      else
-        particle%ttrack = tmax
-      end if
-      return
-    end if
-
-    ! Computed exit time less than or equal to the maximum time?
-    ! Set tracking time to exit time and calculate exit location.
+    ! If we get to here, the particle is exiting the subcell.
+    ! Its exit time is less than or equal to the maximum time.
+    ! Set tracking time to the exit time and set exit location.
     t = texit
     dt = dtexit
     if ((exit_face .eq. 1) .or. (exit_face .eq. 2)) then

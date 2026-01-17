@@ -164,7 +164,7 @@ def build_gwf_sim(idx, test, mf6, shift=False):
     )
 
     # GridIntersect for boundary conditions
-    ix = GridIntersect(gwf.modelgrid, method="vertex", rtree=True)
+    ix = GridIntersect(gwf.modelgrid, rtree=True)
 
     # Initial conditions
     flopy.mf6.ModflowGwfic(gwf, pname="ic", strt=riv_h)
@@ -189,15 +189,15 @@ def build_gwf_sim(idx, test, mf6, shift=False):
     )
 
     # Well
-    welcells = ix.intersects(MultiPoint(wel_coords))
-    welcells = [icpl for (icpl,) in welcells]
+    welcells = ix.intersects(MultiPoint(wel_coords), dataframe=True)
+    welcells = [row.cellid for row in welcells.itertuples()]
     welspd = [[(0, icpl), wel_q[i]] for i, icpl in enumerate(welcells)]
     flopy.mf6.ModflowGwfwel(gwf, print_input=True, stress_period_data=welspd)
 
     # River
     riverline = [(Lx - 1.0, Ly), (Lx - 1.0, 0.0)]
-    rivcells = ix.intersects(LineString(riverline))
-    rivcells = [icpl for (icpl,) in rivcells]
+    rivcells = ix.intersects(LineString(riverline), dataframe=True)
+    rivcells = [row.cellid for row in rivcells.itertuples()]
     rivspd = [
         [(0, icpl), riv_h, riv_c, riv_z, riv_iface, riv_iflowface] for icpl in rivcells
     ]
@@ -265,11 +265,11 @@ def build_prt_sim(idx, test, gwf_sim, mf6, shift=False):
 
     # Get GWF model for grid intersection
     gwf = gwf_sim.get_model(gwf_name)
-    ix = GridIntersect(gwf.modelgrid, method="vertex", rtree=True)
+    ix = GridIntersect(gwf.modelgrid, rtree=True)
 
     # Get well cell for particle release
-    welcells = ix.intersects(MultiPoint(wel_coords))
-    welcells = [icpl for (icpl,) in welcells]
+    welcells = ix.intersects(MultiPoint(wel_coords), dataframe=True)
+    welcells = [row.cellid for row in welcells.itertuples()]
 
     # Create simulation
     sim = flopy.mf6.MFSimulation(
