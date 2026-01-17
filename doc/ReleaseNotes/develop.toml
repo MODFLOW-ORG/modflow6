@@ -158,4 +158,4 @@ description = "Fixed particle status checking logic in the PRT subcell tracking 
 [[items]]
 section = "fixes"
 subsection = "model"
-description = "Simplified the logic determining whether to terminate particles upon entering a subcell with no exit face. Previously particles encountering this situation in the simulation's final time step, with extended tracking on, would terminate with status code 10 (timeout) if flow in the subcell was stationary. A particle in a subcell with no exit face will now terminate with status code 9 (no exit face from subcell) regardless of circumstance."
+description = "Simplified the PRT model's logic determining whether to terminate particles upon entering a subcell with no exit face. Previously particles encountering this situation in the simulation's final time step, with extended tracking on, would terminate with status code 10 (timeout) if flow in the subcell was stationary. A particle in a subcell with no exit face will now terminate with status code 9 (no exit face from subcell) regardless of circumstance."
