@@ -151,7 +151,7 @@ type keyword
 reader urword
 optional true
 longname keyword to activate HIGHEST_CELL_SATURATION option
-description keyword indicating that the maximum cell bottom will be used to calculate the saturation used to calculate the horizontal conductance between cells. This option is intended to prevent flow from leaving a dry cell and is based on~\cite{painter2008robust}. This option is only applied when the Newton-Raphson formulation is used, A worning will be issued if this option is specified and the Newton-Raphson formulation is not specified in the GWF name file. This option, in combination with the AMT-HMK ALTERNATIVE\_CELL\_AVERAGING option, can be used to calculate the same horizontal conductance as MODFLOW-USG when upstream weighting is used (LAYCON=4).
+description keyword indicating that the maximum cell bottom will be used to calculate the saturation used to calculate the horizontal conductance between cells. This option is intended to prevent flow from leaving a dry cell and is based on~\cite{painter2008robust}. This option is only applied when the Newton-Raphson formulation is used, A warning will be issued if this option is specified and the Newton-Raphson formulation is not specified in the GWF name file. This option, in combination with the AMT-HMK ALTERNATIVE\_CELL\_AVERAGING option, can be used to calculate the same horizontal conductance as MODFLOW-USG when upstream weighting is used (LAYCON=4).
 mf6internal ihighcellsat
 
 

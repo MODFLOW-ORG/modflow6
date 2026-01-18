@@ -44,7 +44,7 @@ type keyword
 reader urword
 optional true
 longname whether to use local z coordinates
-description indicates that ``zrpt'' defines the local z coordinate of the release point within the cell, with value of 0 at the bottom and 1 at the top of the cell.  If the cell is partially saturated at release time, the top of the cell is considered to be the water table elevation (the head in the cell) rather than the top defined by the user.
+description indicates that ``zrpt'' defines the local z coordinate of the release point within the cell, with value of 0 at the bottom and 1 at the effective top of the cell. If the cell is convertible and partially saturated at release time, the effective top of the cell is considered to be the water table elevation (the head in the cell) rather than the top defined by the user, and is constrained to be no higher than the geometric top of the cell and no lower than the cell bottom. If the cell is confined, the effective top is the geometric top.
 mf6internal localz
 
 block options
@@ -293,7 +293,7 @@ optional true
 developmode true
 mf6internal ichkmeth
 longname coordinate checking method
-description approach for verifying that release point coordinates are in the cell with the specified ID. By default, release point coordinates are checked at release time.
+description approach for verifying that release point coordinates are in the cell with the specified ID. Possible values are NONE and EAGER. By default, release point coordinates are checked at release time, i.e. EAGER.
 default_value eager
 
 block options
