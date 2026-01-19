@@ -1,6 +1,6 @@
 module ConnectionBuilderModule
   use KindModule, only: I4B, LGP
-  use SimModule, only: store_error, count_errors, ustop
+  use SimModule, only: ustop
   use SimVariablesModule, only: iout
   use ListModule, only: ListType, isEqualIface
   use ListNodeModule, only: ListNodeType
@@ -145,7 +145,6 @@ contains
   !! of model connections
   !<
   function createModelConnection(model, exchange) result(connection)
-    use SimModule, only: ustop
     use GwfGwfConnectionModule, only: GwfGwfConnectionType
     use GwtGwtConnectionModule, only: GwtGwtConnectionType
     use GweGweConnectionModule, only: GweGweConnectionType

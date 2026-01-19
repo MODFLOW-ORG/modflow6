@@ -79,8 +79,10 @@ contains
     class(CellRectQuadType), intent(inout) :: this
     ! local
     integer(I4B) :: n, m
+    logical(LGP) :: istart180
 
     n = 0
+    istart180 = .false.
     do m = 1, this%defn%npolyverts
       if (.not. this%defn%get_ispv180(m)) then
         n = n + 1
@@ -93,9 +95,15 @@ contains
         if (n .ne. 0) then
           this%ipv4irv(2, n) = m
           this%rectflow(2, n) = this%defn%get_faceflow(m)
+        else
+          istart180 = .true.
         end if
       end if
     end do
+    if (istart180) then
+      this%ipv4irv(2, 4) = 1
+      this%rectflow(2, 4) = this%defn%get_faceflow(1)
+    end if
 
     ! Wrap around for convenience
     this%irectvert(5) = this%irectvert(1)

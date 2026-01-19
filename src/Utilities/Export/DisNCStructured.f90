@@ -218,20 +218,23 @@ contains
     call this%define_dim()
     ! define grid projection variables
     call this%define_geocoords()
-    if (isim_mode /= MVALIDATE) then
+    if (isim_mode == MVALIDATE) then
+      ! define period input arrays
+      call this%df_export()
+    else
       ! define the dependent variable
       call this%define_dependent()
     end if
-    ! define period input arrays
-    call this%df_export()
     ! exit define mode
     call nf_verify(nf90_enddef(this%ncid), this%nc_fname)
     ! add data locations
     call this%add_grid_data()
     ! add projection data
     call this%add_proj_data()
-    ! define and set package input griddata
-    call this%add_pkg_data()
+    if (isim_mode == MVALIDATE) then
+      ! define and set package input griddata
+      call this%add_pkg_data()
+    end if
     ! define and set gridmap variable
     call this%define_gridmap()
     ! synchronize file
@@ -256,13 +259,12 @@ contains
   subroutine step(this)
     use ConstantsModule, only: DHNOFLO
     use TdisModule, only: totim
-    use NetCDFCommonModule, only: ixstp
     class(DisNCStructuredType), intent(inout) :: this
     real(DP), dimension(:), pointer, contiguous :: dbl1d
     integer(I4B) :: n, istp
 
     ! set global step index
-    istp = ixstp()
+    istp = this%istp()
 
     if (size(this%dis%nodeuser) < &
         size(this%dis%nodereduced)) then
@@ -535,7 +537,7 @@ contains
   !> @brief netcdf export package dynamic input
   !<
   subroutine package_step(this, export_pkg)
-    use TdisModule, only: kper
+    use TdisModule, only: totim, kper
     use DefinitionSelectModule, only: get_param_definition_type
     use NCModelExportModule, only: ExportPackageType
     class(DisNCStructuredType), intent(inout) :: this
@@ -553,6 +555,7 @@ contains
 
     ! export defined period input
     do iparam = 1, export_pkg%nparam
+      if (export_pkg%iper /= kper) cycle
       ! check if variable was read this period
       if (export_pkg%param_reads(iparam)%invar < 1) cycle
 
@@ -654,6 +657,11 @@ contains
       end select
     end do
 
+    ! write to time coordinate variable
+    call nf_verify(nf90_put_var(this%ncid, this%var_ids%time, &
+                                totim, start=(/kper/)), &
+                   this%nc_fname)
+
     ! synchronize file
     call nf_verify(nf90_sync(this%ncid), this%nc_fname)
   end subroutine package_step
@@ -742,29 +750,33 @@ contains
   !> @brief netcdf export define dimensions
   !<
   subroutine define_dim(this)
+    use ConstantsModule, only: MVALIDATE
+    use SimVariablesModule, only: isim_mode
     class(DisNCStructuredType), intent(inout) :: this
 
     ! bound dim
     call nf_verify(nf90_def_dim(this%ncid, 'bnd', 2, this%dim_ids%bnd), &
                    this%nc_fname)
 
-    ! Time
-    call nf_verify(nf90_def_dim(this%ncid, 'time', this%totnstp, &
-                                this%dim_ids%time), this%nc_fname)
-    call nf_verify(nf90_def_var(this%ncid, 'time', NF90_DOUBLE, &
-                                this%dim_ids%time, this%var_ids%time), &
-                   this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'calendar', &
-                                'standard'), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'units', &
-                                this%datetime), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'axis', 'T'), &
-                   this%nc_fname)
-    !call nf_verify(nf90_put_att(ncid, var_ids%time, 'bounds', 'time_bnds'), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'standard_name', &
-                                'time'), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'long_name', &
-                                'time'), this%nc_fname)
+    if (isim_mode /= MVALIDATE .or. this%pkglist%Count() > 0) then
+      ! Time
+      call nf_verify(nf90_def_dim(this%ncid, 'time', this%totnstp, &
+                                  this%dim_ids%time), this%nc_fname)
+      call nf_verify(nf90_def_var(this%ncid, 'time', NF90_DOUBLE, &
+                                  this%dim_ids%time, this%var_ids%time), &
+                     this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'calendar', &
+                                  'standard'), this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'units', &
+                                  this%datetime), this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'axis', 'T'), &
+                     this%nc_fname)
+      !call nf_verify(nf90_put_att(ncid, var_ids%time, 'bounds', 'time_bnds'), this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'standard_name', &
+                                  'time'), this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'long_name', &
+                                  'time'), this%nc_fname)
+    end if
 
     ! Z dimension
     call nf_verify(nf90_def_dim(this%ncid, 'z', this%dis%nlay, this%dim_ids%z), &
@@ -1100,7 +1112,7 @@ contains
   subroutine nc_export_int1d(p_mem, ncid, dim_ids, var_ids, dis, idt, mempath, &
                              nc_tag, pkgname, gridmap_name, latlon, deflate, &
                              shuffle, chunk_z, chunk_y, chunk_x, iper, nc_fname)
-    use NetCDFCommonModule, only: ixstp
+    use TdisModule, only: kper
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(StructuredNCDimIdType), intent(inout) :: dim_ids
@@ -1119,7 +1131,7 @@ contains
     integer(I4B), intent(in) :: chunk_x
     integer(I4B), intent(in) :: iper
     character(len=*), intent(in) :: nc_fname
-    integer(I4B) :: var_id, axis_sz, istp
+    integer(I4B) :: var_id, axis_sz
     character(len=LINELENGTH) :: varname, longname
 
     varname = export_varname(pkgname, idt%tagname, mempath)
@@ -1163,10 +1175,9 @@ contains
                        nc_fname)
       else
         ! timeseries
-        istp = ixstp()
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export, p_mem, &
-                                    start=(/1, istp/), &
+                                    start=(/1, kper/), &
                                     count=(/dis%ncol, dis%nrow, 1/)), nc_fname)
       end if
 
@@ -1201,10 +1212,9 @@ contains
                        nc_fname)
       else
         ! timeseries
-        istp = ixstp()
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export, p_mem, &
-                                    start=(/1, 1, 1, istp/), &
+                                    start=(/1, 1, 1, kper/), &
                                     count=(/dis%ncol, dis%nrow, dis%nlay, 1/)), &
                        nc_fname)
       end if
@@ -1327,7 +1337,7 @@ contains
                              nc_tag, pkgname, gridmap_name, latlon, deflate, &
                              shuffle, chunk_z, chunk_y, chunk_x, iper, iaux, &
                              nc_fname)
-    use NetCDFCommonModule, only: ixstp
+    use TdisModule, only: kper
     real(DP), dimension(:), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(StructuredNCDimIdType), intent(inout) :: dim_ids
@@ -1347,7 +1357,7 @@ contains
     integer(I4B), intent(in) :: iper
     integer(I4B), intent(in) :: iaux
     character(len=*), intent(in) :: nc_fname
-    integer(I4B) :: var_id, axis_sz, istp
+    integer(I4B) :: var_id, axis_sz
     character(len=LINELENGTH) :: varname, longname
 
     if (idt%shape == 'NROW' .or. &
@@ -1391,10 +1401,9 @@ contains
                        nc_fname)
       else
         ! timeseries
-        istp = ixstp()
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export, p_mem, &
-                                    start=(/1, istp/), &
+                                    start=(/1, kper/), &
                                     count=(/dis%ncol, dis%nrow, 1/)), nc_fname)
       end if
 
@@ -1433,10 +1442,9 @@ contains
                        nc_fname)
       else
         ! timeseries
-        istp = ixstp()
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export, p_mem, &
-                                    start=(/1, 1, 1, istp/), &
+                                    start=(/1, 1, 1, kper/), &
                                     count=(/dis%ncol, dis%nrow, dis%nlay, 1/)), &
                        nc_fname)
       end if

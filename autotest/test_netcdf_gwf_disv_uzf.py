@@ -33,15 +33,7 @@ nc = pytest.importorskip("netCDF4")
 def build_models(idx, test):
     from test_gwf_disv_uzf import build_models as build
 
-    sim, mc = build(idx, test)
-    gwf = mc.gwf[0]
-    gwf.get_package("GHBG_0").export_array_netcdf = True
-
-    name = cases[idx]
-
-    gwf.name_file.nc_mesh2d_filerecord = f"{name}.nc"
-
-    return sim, mc
+    return build(idx, test)
 
 
 def check_output(idx, test):
@@ -54,22 +46,25 @@ def check_output(idx, test):
     check(test.workspace, name)
     check(ws, name)
 
-    # verify format of generated netcdf file
-    with nc.Dataset(ws / f"{name}.nc") as ds:
-        assert ds.data_model == "NETCDF4"
+    # re-run the simulation in validate mode to generate netcdf input
+    test.sims[1].gwf[0].get_package("GHBG_0").export_array_netcdf = True
+    test.sims[1].gwf[0].name_file.nc_mesh2d_filerecord = f"{name}.ugrid.nc"
+    test.sims[1].write_simulation()
+    success, buff = flopy.run_model(
+        test.targets["mf6"],
+        ws / "mfsim.nam",
+        model_ws=ws,
+        report=True,
+        cargs=["--mode=validate"],
+    )
+    assert success
 
     # re-run the simulation with model netcdf input
-    input_fname = f"{name}.nc"
-    nc_fname = f"{name}.ugrid.nc"
-    os.rename(ws / input_fname, ws / nc_fname)
-
-    fileout_tag = "NETCDF_MESH2D"
-
     with open(ws / f"{name}.nam", "w") as f:
         f.write("BEGIN options\n")
         f.write("  SAVE_FLOWS\n")
         f.write("  NEWTON\n")
-        f.write(f"  {fileout_tag}  FILEOUT  {name}.nc\n")
+        f.write(f"  NETCDF_MESH2D  FILEOUT  {name}.nc\n")
         f.write(f"  NETCDF  FILEIN {name}.ugrid.nc\n")
         f.write("END options\n\n")
         f.write("BEGIN packages\n")

@@ -1,11 +1,7 @@
 """
 Test for parallel MODFLOW running on two cpus.
-Each case contains two coupled DISU models which are
-generated from their DIS counterparts:
-
-1d:  (nlay,nrow,ncol) = (1,1,5),
-2d:  (nlay,nrow,ncol) = (1,5,5),
-3d:  (nlay,nrow,ncol) = (5,5,5),
+It contains two coupled DISU models (1x1x5)
+generated from its DIS counterparts:
 
 constant head boundaries left=1.0, right=10.0.
 The result should be a uniform flow field.
@@ -16,20 +12,18 @@ import os
 import flopy
 import numpy as np
 import pytest
-from conftest import project_root_path
 from flopy.utils.gridutil import get_disu_kwargs
 from framework import TestFramework
 
-data_path = project_root_path / "autotest" / "data" / "par_gwf_disu_exg"
 cases = [
-    "par_gwf_disu1d",
-    "par_gwf_disu2d",
-    "par_gwf_disu3d",
-    "par_gwf_disu1d_binary",
-    "par_gwf_disu2d_binary",
-    "par_gwf_disu3d_binary",
+    "par_gwf_disu_no",
+    "par_gwf_disu_left",
+    "par_gwf_disu_right",
+    "par_gwf_disu_all",
 ]
-dis_shape = [(1, 1, 5), (1, 5, 5), (5, 5, 5), (1, 1, 5), (1, 5, 5), (5, 5, 5)]
+has_vertex = [(False, False), (True, False), (False, True), (True, True)]
+
+dis_shape = (1, 1, 5)
 
 # global convenience...
 name_left = "leftmodel"
@@ -51,9 +45,9 @@ def get_model(idx, dir):
         tdis_rc.append((1.0, 1, 1))
 
     # model spatial discretization
-    nlay = dis_shape[idx][0]
-    nrow = dis_shape[idx][1]
-    ncol = dis_shape[idx][2]
+    nlay = dis_shape[0]
+    nrow = dis_shape[1]
+    ncol = dis_shape[2]
 
     # cell spacing
     delr = 100.0
@@ -69,7 +63,7 @@ def get_model(idx, dir):
     tops = [0.0, -100.0, -200.0, -300.0, -400.0, -500.0]
 
     # conversion to DISU
-    disukwargs = get_disu_kwargs(
+    disukwarg_left = get_disu_kwargs(
         nlay,
         nrow,
         ncol,
@@ -77,7 +71,17 @@ def get_model(idx, dir):
         delc_arr,
         tops[0],
         tops[1 : nlay + 1],
-        return_vertices=True,
+        return_vertices=has_vertex[idx][0],
+    )
+    disukwarg_right = get_disu_kwargs(
+        nlay,
+        nrow,
+        ncol,
+        delr_arr,
+        delc_arr,
+        tops[0],
+        tops[1 : nlay + 1],
+        return_vertices=has_vertex[idx][1],
     )
 
     # hydraulic conductivity
@@ -121,7 +125,7 @@ def get_model(idx, dir):
     chd_spd_left = {0: left_chd}
 
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name_left, save_flows=True)
-    disu = flopy.mf6.ModflowGwfdisu(gwf, **disukwargs)
+    disu = flopy.mf6.ModflowGwfdisu(gwf, **disukwarg_left)
     ic = flopy.mf6.ModflowGwfic(gwf, strt=h_start)
     npf = flopy.mf6.ModflowGwfnpf(
         gwf,
@@ -148,9 +152,9 @@ def get_model(idx, dir):
     chd_spd_right = {0: right_chd}
 
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name_right, save_flows=True)
-    disukwargs["xorigin"] = shift_x
-    disukwargs["yorigin"] = shift_y
-    disu = flopy.mf6.ModflowGwfdisu(gwf, **disukwargs)
+    disukwarg_right["xorigin"] = shift_x
+    disukwarg_right["yorigin"] = shift_y
+    disu = flopy.mf6.ModflowGwfdisu(gwf, **disukwarg_right)
     ic = flopy.mf6.ModflowGwfic(gwf, strt=h_start)
     npf = flopy.mf6.ModflowGwfnpf(
         gwf,

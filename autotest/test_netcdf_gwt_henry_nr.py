@@ -10,7 +10,6 @@ output head file.
 # Imports
 
 import os
-import shutil
 from pathlib import Path
 
 import numpy as np
@@ -36,14 +35,10 @@ def build_models(idx, test, export):
     from test_gwt_henry_nr import build_models as build
 
     sim, mc = build(idx, test)
-    # mc.tdis.start_date_time = "2041-01-01T00:00:00-05:00"
-    gwf = mc.gwf[0]
-    gwf.get_package("GHB-1").export_array_netcdf = True
-    gwf.get_package("DRN-1").export_array_netcdf = True
-    gwf.get_package("WEL-1").export_array_netcdf = True
 
     name = "gwf_" + cases[idx]
 
+    gwf = mc.gwf[0]
     if export == "ugrid":
         gwf.name_file.nc_mesh2d_filerecord = f"{name}.nc"
     elif export == "structured":
@@ -58,22 +53,39 @@ def check_output(idx, test, export):
     name = "gwf_" + test.name
     ghbg_ws = Path(test.workspace / "mf6")
     ws = Path(test.workspace / "mf6" / "netcdf")
-    shutil.copytree(ghbg_ws, ws)
 
     # check outputs of GHB / GHBG ascii input runs
     check(test.workspace, test.name, test.sims[0])
-    # check(ws, test.name, test.sims[0])
     check(ghbg_ws, test.name, test.sims[0])
 
     # verify format of generated netcdf file
-    with nc.Dataset(ws / f"{name}.nc") as ds:
+    with nc.Dataset(ghbg_ws / f"{name}.nc") as ds:
         assert ds.data_model == "NETCDF4"
 
-    # re-run the simulation with model netcdf input
-    input_fname = f"{name}.nc"
-    nc_fname = f"{name}.{export}.nc"
-    os.rename(ws / input_fname, ws / nc_fname)
+    # re-run the simulation in validate mode to generate netcdf input
+    test.sims[1].gwf[0].get_package("DIS").export_array_netcdf = True
+    test.sims[1].gwf[0].get_package("IC").export_array_netcdf = True
+    test.sims[1].gwf[0].get_package("NPF").export_array_netcdf = True
+    test.sims[1].gwf[0].get_package("STO").export_array_netcdf = True
+    test.sims[1].gwf[0].get_package("DRN-1").export_array_netcdf = True
+    test.sims[1].gwf[0].get_package("GHB-1").export_array_netcdf = True
+    test.sims[1].gwf[0].get_package("WEL-1").export_array_netcdf = True
+    if export == "ugrid":
+        test.sims[1].gwf[0].name_file.nc_mesh2d_filerecord = f"{name}.{export}.nc"
+    elif export == "structured":
+        test.sims[1].gwf[0].name_file.nc_structured_filerecord = f"{name}.{export}.nc"
+    test.sims[1].set_sim_path(ws)
+    test.sims[1].write_simulation()
+    success, buff = flopy.run_model(
+        test.targets["mf6"],
+        ws / "mfsim.nam",
+        model_ws=ws,
+        report=True,
+        cargs=["--mode=validate"],
+    )
+    assert success
 
+    # re-run the simulation with model netcdf input
     if export == "ugrid":
         fileout_tag = "NETCDF_MESH2D"
     elif export == "structured":

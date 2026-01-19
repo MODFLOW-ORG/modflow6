@@ -95,7 +95,6 @@ contains
   !! this context and for any modifications or errors.
   !<
   subroutine track_subcell(this, subcell, particle, tmax)
-    use TdisModule, only: endofsimulation
     use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB, TERM_TIMEOUT
     use ParticleEventModule, only: TIMESTEP, FEATEXIT
     ! dummy
@@ -117,31 +116,11 @@ contains
 
     ! Find exit solution in each direction
     call this%find_exits(particle, subcell)
-
     exit_x = this%exit_solutions(1)
     exit_y = this%exit_solutions(2)
     exit_z = this%exit_solutions(3)
 
-    ! Subcell has no exit face, terminate the particle
-    ! TODO: consider ramifications
-    if (all([this%exit_solutions%status] == NO_EXIT_NO_OUTFLOW)) then
-      call this%terminate(particle, status=TERM_NO_EXITS_SUB)
-      return
-    end if
-
-    ! If particle stationary and extended tracking is on, terminate here if it's
-    ! the last timestep. TODO: temporary solution, consider where to catch this?
-    ! Should we really have to special case this here? We do diverge from MP7 in
-    ! guaranteeing that every particle terminates at the end of the simulation..
-    ! ideally that would be handled at a higher scope but with extended tracking
-    ! tmax is not the end of the simulation, it's just a wildly high upper bound.
-    if (all([this%exit_solutions%status] == NO_EXIT_STATIONARY) .and. &
-        particle%extend .and. endofsimulation) then
-      call this%terminate(particle, status=TERM_TIMEOUT)
-      return
-    end if
-
-    ! Pick exit solution, face, travel time, and time
+    ! Set solution, face, & travel time
     exit_soln = this%pick_exit(particle)
     if (exit_soln == 0) then
       exit_face = 0
@@ -151,6 +130,22 @@ contains
       dtexit = this%exit_solutions(exit_soln)%dt
     end if
     texit = particle%ttrack + dtexit
+
+    ! Terminate if no valid exit solution was found.
+    ! MP7 is more nuanced in determining what to do
+    ! here. It considers whether this stress period
+    ! is steady state or transient, and whether the
+    ! flow is stationary, in determining whether to
+    ! terminate or allow the particle to survive to
+    ! the next time step. It does not compute paths
+    ! within the subcell even for particles it lets
+    ! remain active under this circumstance, though.
+    ! While we may consider that someday, we simply
+    ! terminate and sidestep the complexity for now.
+    if (all([this%exit_solutions%status] >= NO_EXIT_STATIONARY)) then
+      call this%terminate(particle, status=TERM_NO_EXITS_SUB)
+      return
+    end if
 
     ! Select user tracking times to solve. If this is the first time step
     ! of the simulation, include all times before it begins; if it is the
@@ -178,10 +173,9 @@ contains
       end do
     end if
 
+    ! Computed exit time greater than the maximum time? Set the
+    ! tracking time to tmax and calculate the particle location.
     if (texit .gt. tmax) then
-      ! The computed exit time is greater than the maximum time, so set
-      ! final time for particle trajectory equal to maximum time and
-      ! calculate particle location at that final time.
       t = tmax
       dt = t - t0
       x = new_x(exit_x%v, exit_x%dvdx, subcell%vx1, subcell%vx2, &
@@ -193,60 +187,51 @@ contains
       exit_face = 0
       particle%istatus = ACTIVE
       particle%advancing = .false.
-
-      ! Set final particle location in local (unscaled) subcell coordinates,
-      ! final time for particle trajectory
       particle%x = x * subcell%dx
       particle%y = y * subcell%dy
       particle%z = z * subcell%dz
       particle%ttrack = t
       particle%iboundary(LEVEL_SUBFEATURE) = exit_face
-
-      ! Save particle track record
       call this%timestep(particle)
-    else
-      ! The computed exit time is less than or equal to the maximum time,
-      ! so set final time for particle trajectory equal to exit time and
-      ! calculate exit location.
-      t = texit
-      dt = dtexit
-      if ((exit_face .eq. 1) .or. (exit_face .eq. 2)) then
-        x = DZERO
-        y = new_x(exit_y%v, exit_y%dvdx, subcell%vy1, subcell%vy2, &
-                  dt, y0, subcell%dy, exit_y%status == 1)
-        z = new_x(exit_z%v, exit_z%dvdx, subcell%vz1, subcell%vz2, &
-                  dt, z0, subcell%dz, exit_z%status == 1)
-        if (exit_face .eq. 2) x = DONE
-      else if ((exit_face .eq. 3) .or. (exit_face .eq. 4)) then
-        x = new_x(exit_x%v, exit_x%dvdx, subcell%vx1, subcell%vx2, dt, &
-                  x0, subcell%dx, exit_x%status == 1)
-        y = DZERO
-        z = new_x(exit_z%v, exit_z%dvdx, subcell%vz1, subcell%vz2, dt, &
-                  z0, subcell%dz, exit_z%status == 1)
-        if (exit_face .eq. 4) y = DONE
-      else if ((exit_face .eq. 5) .or. (exit_face .eq. 6)) then
-        x = new_x(exit_x%v, exit_x%dvdx, subcell%vx1, subcell%vx2, &
-                  dt, x0, subcell%dx, exit_x%status == 1)
-        y = new_x(exit_y%v, exit_y%dvdx, subcell%vy1, subcell%vy2, &
-                  dt, y0, subcell%dy, exit_y%status == 1)
-        z = DZERO
-        if (exit_face .eq. 6) z = DONE
-      else
-        print *, "programmer error, invalid exit face", exit_face
-        call pstop(1)
-      end if
-
-      ! Set final particle location in local (unscaled) subcell coordinates,
-      ! final time for particle trajectory, and exit face
-      particle%x = x * subcell%dx
-      particle%y = y * subcell%dy
-      particle%z = z * subcell%dz
-      particle%ttrack = t
-      particle%iboundary(LEVEL_SUBFEATURE) = exit_face
-
-      ! Save particle track record
-      call this%subcellexit(particle)
+      return
     end if
+
+    ! If we get to here, the particle is exiting the subcell.
+    ! Its exit time is less than or equal to the maximum time.
+    ! Set tracking time to the exit time and set exit location.
+    t = texit
+    dt = dtexit
+    if ((exit_face .eq. 1) .or. (exit_face .eq. 2)) then
+      x = DZERO
+      y = new_x(exit_y%v, exit_y%dvdx, subcell%vy1, subcell%vy2, &
+                dt, y0, subcell%dy, exit_y%status == 1)
+      z = new_x(exit_z%v, exit_z%dvdx, subcell%vz1, subcell%vz2, &
+                dt, z0, subcell%dz, exit_z%status == 1)
+      if (exit_face .eq. 2) x = DONE
+    else if ((exit_face .eq. 3) .or. (exit_face .eq. 4)) then
+      x = new_x(exit_x%v, exit_x%dvdx, subcell%vx1, subcell%vx2, dt, &
+                x0, subcell%dx, exit_x%status == 1)
+      y = DZERO
+      z = new_x(exit_z%v, exit_z%dvdx, subcell%vz1, subcell%vz2, dt, &
+                z0, subcell%dz, exit_z%status == 1)
+      if (exit_face .eq. 4) y = DONE
+    else if ((exit_face .eq. 5) .or. (exit_face .eq. 6)) then
+      x = new_x(exit_x%v, exit_x%dvdx, subcell%vx1, subcell%vx2, &
+                dt, x0, subcell%dx, exit_x%status == 1)
+      y = new_x(exit_y%v, exit_y%dvdx, subcell%vy1, subcell%vy2, &
+                dt, y0, subcell%dy, exit_y%status == 1)
+      z = DZERO
+      if (exit_face .eq. 6) z = DONE
+    else
+      print *, "programmer error, invalid exit face", exit_face
+      call pstop(1)
+    end if
+    particle%x = x * subcell%dx
+    particle%y = y * subcell%dy
+    particle%z = z * subcell%dz
+    particle%ttrack = t
+    particle%iboundary(LEVEL_SUBFEATURE) = exit_face
+    call this%subcellexit(particle)
 
   end subroutine track_subcell
 

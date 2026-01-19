@@ -4,10 +4,11 @@
 !<
 module GridConnectionModule
   use KindModule, only: I4B, DP, LGP
-  use SimModule, only: ustop
-  use ConstantsModule, only: LENMEMPATH, DZERO, DPIO180, LENMODELNAME
+  use SimModule, only: ustop, store_error, store_warning
+  use ConstantsModule, only: LENMEMPATH, DZERO, DPIO180, &
+                             LENMODELNAME, LINELENGTH
   use CharacterStringModule
-  use MemoryManagerModule, only: mem_allocate, mem_deallocate
+  use MemoryManagerModule, only: mem_allocate, mem_deallocate, mem_reallocate
   use MemoryHelperModule, only: create_mem_path
   use ListModule, only: ListType, isEqualIface
   use NumericalModelModule
@@ -58,6 +59,7 @@ module GridConnectionModule
     character(len=LENMEMPATH) :: memoryPath
     integer(I4B) :: internalStencilDepth !< stencil size for the interior
     integer(I4B) :: exchangeStencilDepth !< stencil size at the interface
+    integer(I4B) :: icondir !< icondir as defined in DIS, but reduced over all models in the interface
 
     class(NumericalModelType), pointer :: model => null() !< the model for which this grid connection exists
     class(DisConnExchangeType), pointer :: primaryExchange => null() !< pointer to the primary exchange for this interface
@@ -149,6 +151,7 @@ contains
 
     this%internalStencilDepth = 1
     this%exchangeStencilDepth = 1
+    this%icondir = 1 ! start with assumption that vertex and cell2d data are available in all models
     this%haloExchanges => null()
 
   end subroutine construct
@@ -286,11 +289,13 @@ contains
   subroutine buildConnections(this)
     class(GridConnectionType), intent(inout) :: this !< this grid connection instance
     ! local
-    integer(I4B) :: icell, iconn
+    integer(I4B) :: i, icell, iconn
     integer(I4B), dimension(:), allocatable :: nnz
     type(SparseMatrix), pointer :: sparse
     integer(I4B) :: ierror
     type(ConnectionsType), pointer :: conn
+    class(VirtualModelType), pointer :: vm
+    character(len=LINELENGTH) :: warnmsg
 
     ! Recursively generate interface cell indices, fill map to global cells,
     ! and add to region lookup table
@@ -305,6 +310,19 @@ contains
 
     ! compress lookup table
     call this%compressGlobalMap()
+
+    ! prepare to build vertex and cell2d info, or not
+    do i = 1, this%regionalModels%Count()
+      vm => get_virtual_model_from_list(this%regionalModels, i)
+      if (vm%dis_icondir%get() == 0) this%icondir = 0
+    end do
+
+    if (this%icondir == 0 .and. this%model%dis%icondir > 0) then
+      write (warnmsg, '(3a)') 'Exchange ', trim(this%primaryExchange%name), &
+        " will not use vertex and/or cell coordinate data because not all &
+        &connected models have those data specified"
+      call store_warning(warnmsg)
+    end if
 
     ! sort interface indexes such that 'n > m' means 'n below m'
     call this%sortInterfaceGrid()
@@ -563,10 +581,14 @@ contains
     integer(I4B) :: i
     type(GlobalCellType), dimension(:), allocatable :: sortedGlobalMap
     integer(I4B), dimension(:), allocatable :: sortedRegionMap
+    logical(LGP) :: z_only
+
+    ! only use z coordinate for sorting when no cell2d info is available
+    z_only = (this%icondir == 0)
 
     ! sort based on coordinates
     newToOldIdx = (/(i, i=1, size(this%idxToGlobal))/)
-    call quickSortGrid(newToOldIdx, size(newToOldIdx), this%idxToGlobal)
+    call quickSortGrid(newToOldIdx, size(newToOldIdx), this%idxToGlobal, z_only)
 
     ! and invert
     allocate (oldToNewIdx(size(newToOldIdx)))
@@ -982,11 +1004,14 @@ contains
     ! the following is similar to dis_df
     nrOfCells = this%nrOfCells
     disu%nodes = nrOfCells
+    disu%nvert = 0 ! TODO_MJR: vertex reconstruction is not supported yet
+    disu%icondir = this%icondir
     disu%nodesuser = nrOfCells
     disu%nja = this%connections%nja
 
     call disu%allocate_arrays()
-    ! these are otherwise allocated in dis%read_dimensions
+
+    ! these are otherwise allocated when sourced
     call disu%allocate_arrays_mem()
 
     ! fill data
@@ -1001,26 +1026,32 @@ contains
     disu%con => this%connections
     disu%njas = disu%con%njas
 
-    ! copy cell x,y
-    do icell = 1, nrOfCells
-      idx = this%idxToGlobal(icell)%index
-      v_model => this%idxToGlobal(icell)%v_model
+    if (this%icondir > 0) then
+      ! copy cell x,y because available in all models
+      do icell = 1, nrOfCells
+        idx = this%idxToGlobal(icell)%index
+        v_model => this%idxToGlobal(icell)%v_model
 
-      ! we are merging grids with possibly (likely) different origins,
-      ! transform to global coordinates:
-      call dis_transform_xy(v_model%dis_xc%get(idx), &
-                            v_model%dis_yc%get(idx), &
-                            v_model%dis_xorigin%get(), &
-                            v_model%dis_yorigin%get(), &
-                            v_model%dis_angrot%get(), &
-                            xglo, yglo)
+        ! we are merging grids with possibly (likely) different origins,
+        ! transform to global coordinates:
+        call dis_transform_xy(v_model%dis_xc%get(idx), &
+                              v_model%dis_yc%get(idx), &
+                              v_model%dis_xorigin%get(), &
+                              v_model%dis_yorigin%get(), &
+                              v_model%dis_angrot%get(), &
+                              xglo, yglo)
 
-      ! NB: usernodes equals internal nodes for interface
-      disu%cellxy(1, icell) = xglo
-      disu%xc(icell) = xglo
-      disu%cellxy(2, icell) = yglo
-      disu%yc(icell) = yglo
-    end do
+        ! NB: usernodes equals internal nodes for interface
+        disu%cellxy(1, icell) = xglo
+        disu%xc(icell) = xglo
+        disu%cellxy(2, icell) = yglo
+        disu%yc(icell) = yglo
+      end do
+    else
+      ! otherwise compress
+      call mem_reallocate(disu%xc, 0, 'XC', disu%memoryPath)
+      call mem_reallocate(disu%yc, 0, 'YC', disu%memoryPath)
+    end if
 
     ! if vertices will be needed, it will look like this:
     !

@@ -193,16 +193,17 @@ MD_DIR_PATH.mkdir(exist_ok=True)
 TEX_DIR_PATH.mkdir(exist_ok=True)
 
 
-def infer_reader(v):
+def is_array_variable(v):
     """
-    Infer the reader from the variable's attributes.
-    Arrays use 'readarray', everything else `urword`.
+    Determine if the variable is an array using the READARRAY facility.
     """
+    if (reader := v.get("reader", None)) is not None:
+        return reader.lower() == "readarray"
     type_ = v.get("type", "")
     has_shape = "shape" in v and v["shape"].strip() != ""
     if has_shape and type_ in ("integer", "double precision"):
-        return "readarray"
-    return "urword"
+        return True
+    return False
 
 
 def block_entry(varname, block, vardict, prefix="  "):
@@ -236,7 +237,7 @@ def block_entry(varname, block, vardict, prefix="  "):
     if vtype not in VALID_TYPES:
         raise ValueError(f"{key}: {vtype!r} is not a valid type from {VALID_TYPES}")
 
-    # record or recarray
+    # record or list (recarray)
     if v["type"].startswith("rec"):
         varnames = v["type"].strip().split()[1:]
         s = ""
@@ -247,8 +248,8 @@ def block_entry(varname, block, vardict, prefix="  "):
             s = s.strip()
             s = f"{s}\n{prefix}{s}\n{prefix}..."
 
-    # layered and netcdf
-    elif infer_reader(v) == "readarray":
+    # array
+    elif is_array_variable(v):
         shape = v["shape"]
         reader = "READARRAY"
         layered = ""

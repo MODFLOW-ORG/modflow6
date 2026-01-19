@@ -39,18 +39,18 @@ def build_models(idx, test, export, gridded_input):
     gwf.rch.export_array_netcdf = True
     gwf.evt.export_array_netcdf = True
 
-    name = cases[idx]
-    gwfname = "gwf-" + name
+    name = "gwf-" + cases[idx]
 
+    fname = f"{name}.{export}.nc" if gridded_input == "netcdf" else f"{name}.nc"
     if export == "ugrid":
-        gwf.name_file.nc_mesh2d_filerecord = f"{gwfname}.nc"
+        gwf.name_file.nc_mesh2d_filerecord = fname
     elif export == "structured":
-        gwf.name_file.nc_structured_filerecord = f"{gwfname}.nc"
+        gwf.name_file.nc_structured_filerecord = fname
 
     # netcdf config
     ncf = flopy.mf6.ModflowUtlncf(
         gwf.dis,
-        filename=f"{gwfname}.dis.ncf",
+        filename=f"{name}.dis.ncf",
     )
 
     return sim, dummy
@@ -59,48 +59,44 @@ def build_models(idx, test, export, gridded_input):
 def check_output(idx, test, export, gridded_input):
     from test_gwf_lak_wetlakbedarea02 import check_output as check
 
-    name = cases[idx]
-    gwfname = "gwf-" + name
+    name = "gwf-" + cases[idx]
 
     # verify format of generated netcdf file
-    with nc.Dataset(test.workspace / f"{gwfname}.nc") as ds:
+    fname = f"{name}.{export}.nc" if gridded_input == "netcdf" else f"{name}.nc"
+    with nc.Dataset(test.workspace / fname) as ds:
         assert ds.data_model == "NETCDF4"
 
     if gridded_input == "netcdf":
         # re-run the simulation with model netcdf input
-        input_fname = f"{gwfname}.nc"
-        nc_fname = f"{gwfname}.{export}.nc"
-        os.rename(test.workspace / input_fname, test.workspace / nc_fname)
 
         if export == "ugrid":
             fileout_tag = "NETCDF_MESH2D"
         elif export == "structured":
             fileout_tag = "NETCDF_STRUCTURED"
 
-        with open(test.workspace / f"{gwfname}.nam", "w") as f:
+        with open(test.workspace / f"{name}.nam", "w") as f:
             f.write("BEGIN options\n")
             f.write("  SAVE_FLOWS\n")
             f.write("  NEWTON\n")
-            f.write(f"  {fileout_tag}  FILEOUT  {gwfname}.nc\n")
-            f.write(f"  NETCDF  FILEIN {gwfname}.{export}.nc\n")
+            f.write(f"  {fileout_tag}  FILEOUT  {name}.nc\n")
+            f.write(f"  NETCDF  FILEIN {name}.{export}.nc\n")
             f.write("END options\n\n")
             f.write("BEGIN packages\n")
-            f.write(f"  DIS6  {gwfname}.dis  dis\n")
-            f.write(f"  NPF6  {gwfname}.npf  npf\n")
-            f.write(f"  STO6  {gwfname}.sto  sto\n")
-            f.write(f"  IC6  {gwfname}.ic  ic\n")
-            f.write(f"  CHD6  {gwfname}.chd  chd_0\n")
-            f.write(f"  RCH6  {gwfname}.rcha  rcha_0\n")
-            f.write(f"  EVT6  {gwfname}.evta  evta_0\n")
-            f.write(f"  LAK6  {gwfname}.lak  lak-1\n")
-            f.write(f"  OC6  {gwfname}.oc  oc\n")
+            f.write(f"  DIS6  {name}.dis  dis\n")
+            f.write(f"  NPF6  {name}.npf  npf\n")
+            f.write(f"  STO6  {name}.sto  sto\n")
+            f.write(f"  IC6  {name}.ic  ic\n")
+            f.write(f"  CHD6  {name}.chd  chd_0\n")
+            f.write(f"  RCH6  {name}.rcha  rcha_0\n")
+            f.write(f"  EVT6  {name}.evta  evta_0\n")
+            f.write(f"  LAK6  {name}.lak  lak-1\n")
+            f.write(f"  OC6  {name}.oc  oc\n")
             f.write("END packages\n")
 
-        with open(test.workspace / f"{gwfname}.dis", "w") as f:
+        with open(test.workspace / f"{name}.dis", "w") as f:
             f.write("BEGIN options\n")
             f.write("  LENGTH_UNITS feet\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
-            f.write(f"  NCF6  FILEIN  {gwfname}.dis.ncf\n")
+            f.write(f"  NCF6  FILEIN  {name}.dis.ncf\n")
             f.write("END options\n\n")
             f.write("BEGIN dimensions\n")
             f.write("  NLAY  6\n")
@@ -115,18 +111,16 @@ def check_output(idx, test, export, gridded_input):
             f.write("  idomain NETCDF\n")
             f.write("END griddata\n\n")
 
-        with open(test.workspace / f"{gwfname}.ic", "w") as f:
+        with open(test.workspace / f"{name}.ic", "w") as f:
             f.write("BEGIN options\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN griddata\n")
             f.write("  strt NETCDF\n")
             f.write("END griddata\n")
 
-        with open(test.workspace / f"{gwfname}.npf", "w") as f:
+        with open(test.workspace / f"{name}.npf", "w") as f:
             f.write("BEGIN options\n")
             f.write("  SAVE_SPECIFIC_DISCHARGE\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN griddata\n")
             f.write("  icelltype  NETCDF\n")
@@ -134,19 +128,17 @@ def check_output(idx, test, export, gridded_input):
             f.write("  k33  NETCDF\n")
             f.write("END griddata\n")
 
-        with open(test.workspace / f"{gwfname}.rcha", "w") as f:
+        with open(test.workspace / f"{name}.rcha", "w") as f:
             f.write("BEGIN options\n")
             f.write("  READASARRAYS\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN period 1\n")
             f.write("  recharge NETCDF\n")
             f.write("END period 1\n")
 
-        with open(test.workspace / f"{gwfname}.evta", "w") as f:
+        with open(test.workspace / f"{name}.evta", "w") as f:
             f.write("BEGIN options\n")
             f.write("  READASARRAYS\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN period 1\n")
             f.write("  surface NETCDF\n")
@@ -166,13 +158,9 @@ def check_output(idx, test, export, gridded_input):
 
     check(idx, test)
 
-    # read transport results from GWF model
-    name = cases[idx]
-    gwfname = "gwf-" + name
-
     try:
         # load heads
-        fname = gwfname + ".hds"
+        fname = name + ".hds"
         fpth = os.path.join(test.workspace, fname)
         hobj = flopy.utils.HeadFile(fpth, precision="double")
         heads = hobj.get_alldata()
@@ -180,7 +168,7 @@ def check_output(idx, test, export, gridded_input):
         assert False, f'could not load headfile data from "{fpth}"'
 
     # Check NetCDF output
-    nc_fpth = os.path.join(test.workspace, f"{gwfname}.nc")
+    nc_fpth = os.path.join(test.workspace, f"{name}.nc")
     if export == "ugrid":
         ds = xu.open_dataset(nc_fpth)
         xds = ds.ugrid.to_dataset()
@@ -213,6 +201,24 @@ def check_output(idx, test, export, gridded_input):
                     xds["head"][kstp, :].fillna(1.00000000e30).data,
                 ), f"NetCDF-head comparison failure in timestep {kstp + 1}"
                 kstp += 1
+
+    for v in xds.data_vars.keys():
+        assert not v.startswith("dis")
+        assert not v.startswith("ic")
+        assert not v.startswith("npf")
+
+    xds.close()
+
+    if gridded_input == "ascii":
+        return
+
+    # Check NetCDF input
+    nc_fpth = os.path.join(test.workspace, f"{name}.{export}.nc")
+    if export == "ugrid":
+        ds = xu.open_dataset(nc_fpth)
+        xds = ds.ugrid.to_dataset()
+    elif export == "structured":
+        xds = xa.open_dataset(nc_fpth)
 
     vlist = [
         "dis_delr",
@@ -266,5 +272,6 @@ def test_mf6model(idx, name, function_tmpdir, targets, export, gridded_input):
         build=lambda t: build_models(idx, t, export, gridded_input),
         check=lambda t: check_output(idx, t, export, gridded_input),
         targets=targets,
+        cargs=["--mode=validate"] if gridded_input == "netcdf" else None,
     )
     test.run()

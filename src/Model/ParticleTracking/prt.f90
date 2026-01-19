@@ -1083,14 +1083,13 @@ contains
           ! If the particle timed out, terminate it.
           ! "Timed out" means it's still active but
           !   - it reached its stop time, or
-          !   - the simulation is over and not extended.
+          !   - the simulation is over.
           ! We can't detect timeout within the tracking
           ! method because the method just receives the
           ! maximum time with no context on what it is.
           ! TODO maybe think about changing that?
           if (particle%istatus <= ACTIVE .and. &
-              (particle%ttrack == particle%tstop .or. &
-               (endofsimulation .and. .not. particle%extend))) &
+              (particle%ttrack == particle%tstop .or. endofsimulation)) &
             call this%method%terminate(particle, status=TERM_TIMEOUT)
           ! Return the particle to the store
           call packobj%particles%put(particle, np)

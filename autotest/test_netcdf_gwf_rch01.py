@@ -40,10 +40,11 @@ def build_models(idx, test, export, gridded_input):
 
     name = "rch"
 
+    fname = f"{name}.{export}.nc" if gridded_input == "netcdf" else f"{name}.nc"
     if export == "ugrid":
-        gwf.name_file.nc_mesh2d_filerecord = f"{name}.nc"
+        gwf.name_file.nc_mesh2d_filerecord = fname
     elif export == "structured":
-        gwf.name_file.nc_structured_filerecord = f"{name}.nc"
+        gwf.name_file.nc_structured_filerecord = fname
 
     # netcdf config
     ncf = flopy.mf6.ModflowUtlncf(
@@ -60,15 +61,12 @@ def check_output(idx, test, export, gridded_input):
     name = "rch"
 
     # verify format of generated netcdf file
-    with nc.Dataset(test.workspace / f"{name}.nc") as ds:
+    fname = f"{name}.{export}.nc" if gridded_input == "netcdf" else f"{name}.nc"
+    with nc.Dataset(test.workspace / fname) as ds:
         assert ds.data_model == "NETCDF4"
 
     if gridded_input == "netcdf":
         # re-run the simulation with model netcdf input
-        input_fname = f"{name}.nc"
-        nc_fname = f"{name}.{export}.nc"
-        os.rename(test.workspace / input_fname, test.workspace / nc_fname)
-
         if export == "ugrid":
             fileout_tag = "NETCDF_MESH2D"
         elif export == "structured":
@@ -92,7 +90,6 @@ def check_output(idx, test, export, gridded_input):
 
         with open(test.workspace / f"{name}.dis", "w") as f:
             f.write("BEGIN options\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write(f"  NCF6  FILEIN  {name}.dis.ncf\n")
             f.write("END options\n\n")
             f.write("BEGIN dimensions\n")
@@ -109,7 +106,6 @@ def check_output(idx, test, export, gridded_input):
 
         with open(test.workspace / f"{name}.ic", "w") as f:
             f.write("BEGIN options\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN griddata\n")
             f.write("  strt NETCDF\n")
@@ -118,7 +114,6 @@ def check_output(idx, test, export, gridded_input):
         with open(test.workspace / f"{name}.npf", "w") as f:
             f.write("BEGIN options\n")
             f.write("  SAVE_FLOWS\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN griddata\n")
             f.write("  icelltype  NETCDF\n")
@@ -128,7 +123,6 @@ def check_output(idx, test, export, gridded_input):
         with open(test.workspace / f"{name}.rcha", "w") as f:
             f.write("BEGIN options\n")
             f.write("  READASARRAYS\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN period 1\n")
             if idx > 0:
@@ -192,6 +186,25 @@ def check_output(idx, test, export, gridded_input):
                     xds["head"][kstp, :].data,
                 ), f"NetCDF-head comparison failure in timestep {kstp + 1}"
                 kstp += 1
+
+    for v in xds.data_vars.keys():
+        assert not v.startswith("rcha")
+        assert not v.startswith("dis")
+        assert not v.startswith("ic")
+        assert not v.startswith("npf")
+
+    xds.close()
+
+    if gridded_input == "ascii":
+        return
+
+    # Check NetCDF input
+    nc_fpth = os.path.join(test.workspace, f"{name}.{export}.nc")
+    if export == "ugrid":
+        ds = xu.open_dataset(nc_fpth)
+        xds = ds.ugrid.to_dataset()
+    elif export == "structured":
+        xds = xa.open_dataset(nc_fpth)
 
     # compare recharge arrays
     rch = getattr(gwf, "rcha_0")
@@ -262,5 +275,6 @@ def test_mf6model(idx, name, function_tmpdir, targets, export, gridded_input):
         build=lambda t: build_models(idx, t, export, gridded_input),
         check=lambda t: check_output(idx, t, export, gridded_input),
         targets=targets,
+        cargs=["--mode=validate"] if gridded_input == "netcdf" else None,
     )
     test.run()

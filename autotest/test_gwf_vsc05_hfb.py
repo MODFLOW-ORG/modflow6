@@ -171,7 +171,7 @@ def build_models(idx, test):
         auxiliary="temperature",
     )
 
-    # Instantiate Horizontal Flow-Barrier (HFB) package
+    # Instantiate Hydraulic Flow-Barrier (HFB) package
     # Barrier present between middle two columns of the model domain, but only
     # in rows 6-10.  Remember that the hydraulic characteristic is the barrier
     # hydraulic conductivity divided by the width of the horizontal-flow

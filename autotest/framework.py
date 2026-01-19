@@ -5,7 +5,7 @@ from itertools import repeat
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
 from traceback import format_exc
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 from warnings import warn
 
 import flopy
@@ -245,6 +245,7 @@ class TestFramework:
         overwrite: bool = True,
         verbose: bool = False,
         xfail: bool | list[bool] = False,
+        cargs: Optional[list] = None,
     ):
         # make sure workspace exists
         workspace = Path(workspace).expanduser().absolute()
@@ -268,6 +269,7 @@ class TestFramework:
         self.overwrite = overwrite
         self.verbose = verbose
         self.xfail = [xfail] if isinstance(xfail, bool) else xfail
+        self.cargs = cargs
 
     def __repr__(self):
         return self.name
@@ -467,6 +469,7 @@ class TestFramework:
         workspace: Union[str, os.PathLike],
         target: Union[str, os.PathLike],
         xfail: bool = False,
+        cargs: Optional[str] = None,
         ncpus: int = 1,
     ) -> tuple[bool, list[str]]:
         """
@@ -533,6 +536,7 @@ class TestFramework:
                             workspace / "mfsim.nam",
                             model_ws=workspace,
                             report=True,
+                            cargs=cargs,
                         )
                     except Exception:
                         warn(
@@ -617,8 +621,9 @@ class TestFramework:
                 else tgts.get(exe_path.stem, tgts["mf6"])
             )
             xfail = self.xfail[i]
+            cargs = self.cargs[i] if self.cargs is not None else None
             ncpus = self.ncpus[i]
-            success, buff = self._run(workspace, target, xfail, ncpus)
+            success, buff = self._run(workspace, target, xfail, cargs, ncpus)
             self.buffs[i] = buff  # store model output for assertions later
             assert success, (
                 f"{'Simulation' if 'mf6' in str(target) else 'Model'} "
