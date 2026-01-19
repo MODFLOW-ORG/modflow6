@@ -135,5 +135,5 @@ description = "Added support for vertical hydraulic barriers in the HFB package.
 
 [[items]]
 section = "fixes"
-subsection = "exchanges"
-description = "The parameter CELL\\_AVERAGING in the GWF-GWF Exchange OPTIONS block was ignored for parallel runs as well as serial runs with XT3D set in the Exchange OPTIONS block. The cell averaging method was set to the value configured in the NPF package of the particular model for which the exchange fluxes were calculated. This has been fixed and the behavior follows the documentation."
+subsection = "parallel"
+description = "The parameter CELL\\_AVERAGING in the GWF-GWF Exchange OPTIONS block was ignored for parallel runs. The cell averaging method was set to the value configured in the NPF package of the model instead. This has been fixed such that the behavior now follows the documentation."
