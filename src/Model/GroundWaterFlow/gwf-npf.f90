@@ -593,7 +593,7 @@ contains
                    this%dis%con%ihc(this%dis%con%jas(ipos)), &
                    this%icellavg, &
                    this%condsat(this%dis%con%jas(ipos)), &
-                   hnew(n), hnew(m), this%sat(n), this%sat(m), hyn, hym, &
+                   hnew(n), hnew(m), satn, satm, hyn, hym, &
                    this%dis%top(n), this%dis%top(m), &
                    this%dis%bot(n), this%dis%bot(m), &
                    this%dis%con%cl1(this%dis%con%jas(ipos)), &

@@ -112,7 +112,7 @@ contains
       call matrix_sln%add_value_pos(idxglo(ipos), coeffs(2))
       rhs(n) = rhs(n) + coeffs(3)
 
-      ! calculate system coefficients for newton formulation for tranposed: m
+      ! calculate system coefficients for newton formulation for transposed: m
       isym = this%gwf_dis%con%isym(ipos)
       call this%calculate_coeffs_nwt(m, n, isym, hnew, coeffs)
 

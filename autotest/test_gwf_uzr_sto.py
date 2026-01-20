@@ -1,6 +1,6 @@
 """
 Test the storage formulations for the Richards based unsaturated 
-zone package UZR. Test flow in a single homegeneous column with
+zone package UZR. Test flow in a single homogeneous column with
 upper and lower Dirichlet boundary.
 """
 
