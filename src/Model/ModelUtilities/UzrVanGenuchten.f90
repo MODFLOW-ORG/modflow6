@@ -118,7 +118,9 @@ contains
       term = DONE - se**(DONE / m)
       kr = sqrt(se) * ((DONE - term**m)**DTWO)
       ! TODO_UZR: formalize this:
-      ! kr = kr_smoothing(kr, s_eff, 0.999_DP, 0.0001_DP)
+      if (.false.) then
+        kr = kr_smoothing(kr, se, 0.999_DP, 0.0001_DP)
+      end if
     end if
 
   end function krelative_vangenuchten
