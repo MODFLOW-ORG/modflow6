@@ -145,7 +145,9 @@ def parse_mf6var_file(fname):
                 else:
                     key = name
                 if key in vardict:
-                    raise ValueError(f"Variable already exists in dictionary: {key}")
+                    raise ValueError(
+                        f"Error parsing {fname}. Variable already exists in dictionary: {key}"
+                    )
                 vardict[key] = vd
             vd = {}
             continue
