@@ -234,9 +234,7 @@ def build_mf6_model(idx, ws):
     )
 
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.ModflowGwf(
@@ -281,25 +279,16 @@ def build_mf6_model(idx, ws):
     )
 
     # aquifer storage
-    sto = flopy.mf6.ModflowGwfsto(
-        gwf, iconvert=1, ss=ss, sy=sy, transient=True
-    )
+    sto = flopy.mf6.ModflowGwfsto(gwf, iconvert=1, ss=ss, sy=sy, transient=True)
 
     # ghb files
-    ghb = flopy.mf6.ModflowGwfghb(
-        gwf, print_flows=True, stress_period_data=ghbspd
-    )
+    ghb = flopy.mf6.ModflowGwfghb(gwf, print_flows=True, stress_period_data=ghbspd)
 
     # transient uzf info
     uzf_obs = {
         f"{name}.uzfobs": [
             ("uzf01_dpth=0.5", "water-content", "uzf01", 0.5),
-            (
-                "uzf01_dpth=1.5",
-                "water-content",
-                "uzf01",
-                1.5,
-            ),  # Relies on boundnames
+            ("uzf01_dpth=1.5", "water-content", "uzf01", 1.5),  # Relies on boundnames
             ("uzf01_dpth=2.5", "water-content", "uzf01", 2.5),
             ("uzf01_dpth=3.5", "water-content", "uzf01", 3.5),
             ("uzf01_dpth=4.49", "water-content", "uzf01", 4.49),
@@ -384,9 +373,7 @@ def build_mfnwt_model(idx, ws):
 
     # Instantiate link mass-transport package (for writing cell-by-cell
     # water contents)
-    flopy.modflow.ModflowLmt(
-        mf, output_file_format="formatted", package_flows=["UZF"]
-    )
+    flopy.modflow.ModflowLmt(mf, output_file_format="formatted", package_flows=["UZF"])
 
     # Instantiate general head boundary package
     ghb = flopy.modflow.ModflowGhb(mf, stress_period_data=nwt_ghb_spdat)
@@ -520,17 +507,17 @@ def check_output(idx, test):
     if include_NWT:
         # Compare MF6 results with NWT
         # layer 1
-        assert np.allclose(
-            mf6_wc[:, 0, 0, :], mfnwt_wc[:, 0, 0, :], atol=0.01
-        ), "mf6 water contents different than NWT"
+        assert np.allclose(mf6_wc[:, 0, 0, :], mfnwt_wc[:, 0, 0, :], atol=0.01), (
+            "mf6 water contents different than NWT"
+        )
         # layer 2 (has a mixed condition later in the simulation
-        assert np.allclose(
-            mf6_wc[:, 1, 0, :], mfnwt_wc[:, 1, 0, :], atol=0.01
-        ), "mf6 water contents different than NWT"
+        assert np.allclose(mf6_wc[:, 1, 0, :], mfnwt_wc[:, 1, 0, :], atol=0.01), (
+            "mf6 water contents different than NWT"
+        )
     else:
-        assert np.allclose(
-            mf6_wc[:, 0, 0, 1], mfnwt_wc, atol=0.01
-        ), "mf6 water contents different than established solution"
+        assert np.allclose(mf6_wc[:, 0, 0, 1], mfnwt_wc, atol=0.01), (
+            "mf6 water contents different than established solution"
+        )
 
     print("Finished running checks")
 

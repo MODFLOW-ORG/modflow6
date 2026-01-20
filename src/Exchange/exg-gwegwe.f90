@@ -29,6 +29,7 @@ module GweGweExchangeModule
   use ObsModule, only: ObsType
   use TableModule, only: TableType, table_cr
   use MatrixBaseModule
+  use AdvSchemeEnumModule
 
   implicit none
 
@@ -58,7 +59,7 @@ module GweGweExchangeModule
     ! -- GWT specific option block:
     integer(I4B), pointer :: inewton => null() !< unneeded newton flag allows for mvt to be used here
     integer(I4B), pointer :: iAdvScheme !< the advection scheme at the interface:
-                                        !! 0 = upstream, 1 = central, 2 = TVD
+                                        !! 0 = upstream, 1 = central, 2 = TVD, 3 = UTVD
     !
     ! -- Mover transport package
     integer(I4B), pointer :: inmvt => null() !< unit number for mover transport (0 if off)
@@ -141,7 +142,7 @@ contains
     call exchange%allocate_scalars()
     exchange%filename = filename
     exchange%typename = 'GWE-GWE'
-    exchange%iAdvScheme = 0
+    exchange%iAdvScheme = ADV_SCHEME_UPSTREAM
     exchange%ixt3d = 1
     !
     ! -- set gwemodel1
@@ -186,9 +187,6 @@ contains
     !
     ! -- Create the obs package
     call obs_cr(exchange%obs, exchange%inobs)
-    !
-    ! -- Return
-    return
   end subroutine gweexchange_create
 
   !> @ brief Define GWE GWE exchange
@@ -244,9 +242,6 @@ contains
     !
     ! -- validate
     call this%validate_exchange()
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_df
 
   !> @brief validate exchange data after reading
@@ -305,9 +300,6 @@ contains
     if (count_errors() > 0) then
       call ustop()
     end if
-    !
-    ! -- Return
-    return
   end subroutine validate_exchange
 
   !> @ brief Allocate and read
@@ -323,9 +315,6 @@ contains
     !
     ! -- Observation AR
     call this%obs%obs_ar()
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_ar
 
   !> @ brief Read and prepare
@@ -346,9 +335,6 @@ contains
     !
     ! -- Read and prepare for observations
     call this%gwe_gwe_rp_obs()
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_rp
 
   !> @ brief Advance
@@ -364,9 +350,6 @@ contains
     !
     ! -- Push simulated values to preceding time step
     call this%obs%obs_ad()
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_ad
 
   !> @ brief Fill coefficients
@@ -383,9 +366,6 @@ contains
     !
     ! -- Call mvt fc routine
     if (this%inmvt > 0) call this%mvt%mvt_fc(this%gwemodel1%x, this%gwemodel2%x)
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_fc
 
   !> @ brief Budget
@@ -428,9 +408,6 @@ contains
     !
     ! -- Call mvt bd routine
     if (this%inmvt > 0) call this%mvt%mvt_bd(this%gwemodel1%x, this%gwemodel2%x)
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_bd
 
   !> @ brief Budget save
@@ -465,9 +442,6 @@ contains
     if (this%inobs /= 0) then
       call this%gwe_gwe_save_simvals()
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_bdsav
 
   !> @ brief Budget save
@@ -636,9 +610,6 @@ contains
       end if
       !
     end do
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_bdsav_model
 
   !> @ brief Output
@@ -693,9 +664,6 @@ contains
     !
     ! -- OBS output
     call this%obs%obs_ot()
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_ot
 
   !> @ brief Source options
@@ -715,8 +683,8 @@ contains
     integer(I4B), intent(in) :: iout
     ! -- local
     type(ExgGwegweParamFoundType) :: found
-    character(len=LENVARNAME), dimension(3) :: adv_scheme = &
-      &[character(len=LENVARNAME) :: 'UPSTREAM', 'CENTRAL', 'TVD']
+    character(len=LENVARNAME), dimension(4) :: adv_scheme = &
+      &[character(len=LENVARNAME) :: 'UPSTREAM', 'CENTRAL', 'TVD', 'UTVD']
     character(len=LINELENGTH) :: mvt_fname
     !
     ! -- update defaults with values sourced from input context
@@ -784,9 +752,6 @@ contains
     end if
     !
     write (iout, '(1x,a)') 'END OF GWE-GWE EXCHANGE OPTIONS'
-    !
-    ! -- return
-    return
   end subroutine source_options
 
   !> @ brief Read mover
@@ -808,9 +773,6 @@ contains
                 gwfmodelname1=this%gwfmodelname1, &
                 gwfmodelname2=this%gwfmodelname2, &
                 fmi2=this%gwemodel2%fmi)
-    !
-    ! -- Return
-    return
   end subroutine read_mvt
 
   !> @ brief Allocate scalars
@@ -835,9 +797,6 @@ contains
     !
     call mem_allocate(this%inmvt, 'INMVT', this%memoryPath)
     this%inmvt = 0
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @ brief Deallocate
@@ -884,9 +843,6 @@ contains
     !
     ! -- deallocate base
     call this%DisConnExchangeType%disconnex_da()
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_da
 
   !> @ brief Allocate arrays
@@ -955,9 +911,6 @@ contains
         end if
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine allocate_arrays
 
   !> @ brief Define observations
@@ -974,9 +927,6 @@ contains
     !    for gwt-gwt observation type.
     call this%obs%StoreObsType('flow-ja-face', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => gwe_gwe_process_obsID
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_df_obs
 
   !> @ brief Read and prepare observations
@@ -1048,9 +998,6 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%obs%inputFilename)
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_rp_obs
 
   !> @ brief Final processing
@@ -1060,9 +1007,6 @@ contains
   subroutine gwe_gwe_fp(this)
     ! -- dummy
     class(GweExchangeType) :: this !<  GwtExchangeType
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_fp
 
   !> @brief Return true when this exchange provides matrix coefficients for
@@ -1086,9 +1030,6 @@ contains
         is_connected = .true.
       end if
     end select
-    !
-    ! -- Return
-    return
   end function gwe_gwe_connects_model
 
   !> @brief Should interface model be used for this exchange
@@ -1108,9 +1049,6 @@ contains
     ! For now set use_im to .true. since the interface model approach
     ! must currently be used for any GWT-GWT exchange.
     use_im = .true.
-    !
-    ! -- Return
-    return
   end function
 
   !> @ brief Save simulated flow observations
@@ -1155,9 +1093,6 @@ contains
         end do
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_save_simvals
 
   !> @ brief Obs ID processor
@@ -1197,9 +1132,6 @@ contains
       !    is for a named exchange boundary or group of exchange boundaries.
       obsrv%intPak1 = NAMEDBOUNDFLAG
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwe_gwe_process_obsID
 
   !> @ brief Cast polymorphic object as exchange
@@ -1220,9 +1152,6 @@ contains
     class is (GweExchangeType)
       res => obj
     end select
-    !
-    ! -- Return
-    return
   end function CastAsGweExchange
 
   !> @ brief Get exchange from list
@@ -1241,9 +1170,6 @@ contains
     !
     obj => list%GetItem(idx)
     res => CastAsGweExchange(obj)
-    !
-    ! -- Return
-    return
   end function GetGweExchangeFromList
 
 end module GweGweExchangeModule

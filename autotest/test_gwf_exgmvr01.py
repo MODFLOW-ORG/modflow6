@@ -12,6 +12,7 @@ The final split model look like:
 
 import flopy
 import numpy as np
+import pandas as pd
 import pytest
 from framework import TestFramework
 
@@ -35,16 +36,9 @@ Kv = 20.0
 
 def build_simulation(idx, sim_ws, sim_type="single"):
     name = cases[idx]
-    sim = flopy.mf6.MFSimulation(
-        sim_name=name,
-        sim_ws=sim_ws,
-    )
+    sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=sim_ws)
 
-    tdis = flopy.mf6.ModflowTdis(
-        sim,
-        time_units="DAYS",
-        nper=nper,
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper)
 
     # Flow solver
     ims = flopy.mf6.ModflowIms(
@@ -126,7 +120,8 @@ def build_gwf(sim, gwf_type="single"):
             pname="well_left",
         )
 
-    # pak_data = [<rno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> <man> <ncon> <ustrf> <ndv> [<aux(naux)>] [<boundname>]]
+    # pak_data = [<rno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> ...
+    #             <man> <ncon> <ustrf> <ndv> [<aux(naux)>] [<boundname>]]
     rlen = delr
     rwid = delc
     rgrd = 1.0
@@ -142,20 +137,7 @@ def build_gwf(sim, gwf_type="single"):
         if irno in [0, nc - 1]:
             ncon = 1
         cellid = (0, 0, irno)
-        t = (
-            irno,
-            cellid,
-            rlen,
-            rwid,
-            rgrd,
-            rtp,
-            rbth,
-            rhk,
-            rman,
-            ncon,
-            ustrf,
-            ndv,
-        )
+        t = (irno, cellid, rlen, rwid, rgrd, rtp, rbth, rhk, rman, ncon, ustrf, ndv)
         pak_data.append(t)
 
     con_data = []
@@ -241,22 +223,14 @@ def build_exchanges(sim):
     maxmvr, maxpackages = 1, 2
     mvrpack_sim = [["left", "sfr_left"], ["right", "sfr_right"]]
     mvrspd = [
-        [
-            "left",
-            "sfr_left",
-            int(ncol / 2) - 1,
-            "right",
-            "sfr_right",
-            0,
-            "FACTOR",
-            1.00,
-        ]
+        ["left", "sfr_left", int(ncol / 2) - 1, "right", "sfr_right", 0, "FACTOR", 1.00]
     ]
 
     gwfgwf.mvr.initialize(
         modelnames=True,
         maxmvr=maxmvr,
         print_flows=True,
+        budgetcsv_filerecord="left-right.mvr.bud.csv",
         maxpackages=maxpackages,
         packages=mvrpack_sim,
         perioddata=mvrspd,
@@ -292,6 +266,13 @@ def check_output(idx, test):
     stage[i1:] = v[:]
 
     assert np.allclose(single_stage, stage), "sfr stages are not equal"
+
+    # check mover CSV output
+    fpth = ws / "left-right.mvr.bud.csv"
+    df = pd.read_csv(fpth)
+
+    for diff in df["PERCENT_DIFFERENCE"].iloc:
+        assert abs(diff) < 1e-05, "no mass balance on the exchange mover"
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

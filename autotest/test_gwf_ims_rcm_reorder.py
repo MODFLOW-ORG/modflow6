@@ -88,9 +88,7 @@ def build_model(idx, ws):
     # chd data
     spd = [[(0, i, 0), chd_left] for i in range(nrow)]
     spd += [[(0, i, ncol - 1), chd_right] for i in range(nrow)]
-    chd = flopy.mf6.modflow.ModflowGwfchd(
-        gwf, stress_period_data=spd, pname="chd-1"
-    )
+    chd = flopy.mf6.modflow.ModflowGwfchd(gwf, stress_period_data=spd, pname="chd-1")
 
     # output control
     hdspth = f"{name}.hds"

@@ -44,8 +44,6 @@ contains
 # endif
 #endif
     !
-    ! return
-    return
   end function get_os
 
   !> @brief Determine if this is the extended version
@@ -76,8 +74,6 @@ contains
       isextended = .TRUE.
     end if
     !
-    ! return
-    return
   end function is_extended
 
   !> @brief Determine if using petsc
@@ -99,8 +95,6 @@ contains
     petscused = .TRUE.
 #endif
     !
-    ! return
-    return
   end function using_petsc
 
   !> @brief Determine if using netcdf
@@ -122,8 +116,6 @@ contains
     netcdfused = .TRUE.
 #endif
     !
-    ! return
-    return
   end function using_netcdf
 
 end module DefinedMacros

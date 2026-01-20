@@ -1,5 +1,5 @@
 module GwfFhbSubs
-  use SimModule, only: ustop, store_error, store_note, &
+  use SimPHMFModule, only: ustop, store_error, store_note, &
                        store_warning
   use GWFFHBMODULE, only: SGWF2FHB7PNT, SGWF2FHB7PSV
   use InputOutputModule, only: URWORD, UBDSVB, UBDSVB !, ubudsv

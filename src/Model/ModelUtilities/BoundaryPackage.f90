@@ -3,7 +3,6 @@
 !! This module contains the base model boundary package class that is
 !! extended by all model boundary packages. The base model boundary
 !! package extends the NumericalPackageType.
-!!
 !<
 module BndModule
 
@@ -113,7 +112,7 @@ module BndModule
     type(TableType), pointer :: errortab => null() !< package error table
 
   contains
-    procedure :: bnd_df
+    procedure, public :: bnd_df
     procedure :: bnd_ac
     procedure :: bnd_mc
     procedure :: bnd_ar
@@ -169,16 +168,15 @@ module BndModule
 contains
 
   !> @ brief Define boundary package options and dimensions
-    !!
-    !!  Define base boundary package options and dimensions for
-    !!  a model boundary package.
-    !!
+  !!
+  !!  Define base boundary package options and dimensions for
+  !!  a model boundary package.
   !<
   subroutine bnd_df(this, neq, dis)
     ! -- modules
     use TimeSeriesManagerModule, only: tsmanager_cr
     use TimeArraySeriesManagerModule, only: tasmanager_cr
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
     integer(I4B), intent(inout) :: neq !< number of equations
     class(DisBaseType), pointer :: dis !< discretization object
@@ -225,59 +223,47 @@ contains
       call this%obs%obs_df(this%iout, this%packName, this%filtyp, this%dis)
       call this%bnd_df_obs()
     end if
-    !
-    ! -- return
-    return
   end subroutine bnd_df
 
   !> @ brief Add boundary package connection to matrix
-    !!
-    !!  Add boundary package connection to the matrix for packages that add
-    !!  connections to the coefficient matrix. An example would be the GWF model
-    !!  MAW package. Base implementation that must be extended.
-    !!
+  !!
+  !!  Add boundary package connection to the matrix for packages that add
+  !!  connections to the coefficient matrix. An example would be the GWF model
+  !!  MAW package. Base implementation that must be extended.
   !<
   subroutine bnd_ac(this, moffset, sparse)
     ! -- modules
     use SparseModule, only: sparsematrix
     use SimModule, only: store_error
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
     integer(I4B), intent(in) :: moffset !< solution matrix model offset
     type(sparsematrix), intent(inout) :: sparse !< sparse object
-    !
-    ! -- return
-    return
   end subroutine bnd_ac
 
   !> @ brief Map boundary package connection to matrix
-    !!
-    !!  Map boundary package connection to the matrix for packages that add
-    !!  connections to the coefficient matrix. An example would be the GWF model
-    !!  MAW package. Base implementation that must be extended.
-    !!
+  !!
+  !!  Map boundary package connection to the matrix for packages that add
+  !!  connections to the coefficient matrix. An example would be the GWF model
+  !!  MAW package. Base implementation that must be extended.
   !<
   subroutine bnd_mc(this, moffset, matrix_sln)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
     integer(I4B), intent(in) :: moffset !< solution matrix model offset
     class(MatrixBaseType), pointer :: matrix_sln !< global system matrix
-    !
-    ! -- return
-    return
   end subroutine bnd_mc
 
   !> @ brief Allocate and read method for boundary package
-    !!
-    !!  Generic method to allocate and read static data for model boundary
-    !!  packages. A boundary package only needs to override this method if
-    !!  input data varies from the standard boundary package.
-    !!
+  !!
+  !!  Generic method to allocate and read static data for model boundary
+  !!  packages. A boundary package only needs to override this method if
+  !!  input data varies from the standard boundary package.
   !<
   subroutine bnd_ar(this)
     ! -- modules
     use MemoryManagerModule, only: mem_setptr
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
     !
     ! -- allocate and read observations
@@ -294,24 +280,20 @@ contains
       allocate (this%pakmvrobj)
       call this%pakmvrobj%ar(this%maxbound, 0, this%memoryPath)
     end if
-    !
-    ! -- return
-    return
   end subroutine bnd_ar
 
   !> @ brief Allocate and read method for package
-    !!
-    !!  Generic method to read and prepare period data for model boundary
-    !!  packages. A boundary package only needs to override this method if
-    !!  period data varies from the standard boundary package.
-    !!
+  !!
+  !!  Generic method to read and prepare period data for model boundary
+  !!  packages. A boundary package only needs to override this method if
+  !!  period data varies from the standard boundary package.
   !<
   subroutine bnd_rp(this)
     ! -- modules
     use TdisModule, only: kper, nper
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
-    ! -- local variables
+    ! -- local
     integer(I4B) :: ierr
     integer(I4B) :: nlist
     logical(LGP) :: isfound
@@ -394,23 +376,19 @@ contains
     else
       write (this%iout, fmtlsp) trim(this%filtyp)
     end if
-    !
-    ! -- return
-    return
   end subroutine bnd_rp
 
   !> @ brief Advance the boundary package
-    !!
-    !!  Advance data in the boundary package. The method sets advances
-    !!  time series, time array series, and observation data. A boundary
-    !!  package only needs to override this method if additional data
-    !!  needs to be advanced.
-    !!
+  !!
+  !!  Advance data in the boundary package. The method sets advances
+  !!  time series, time array series, and observation data. A boundary
+  !!  package only needs to override this method if additional data
+  !!  needs to be advanced.
   !<
   subroutine bnd_ad(this)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
-    ! -- local variables
+    ! -- local
     real(DP) :: begintime, endtime
     !
     ! -- Initialize time variables
@@ -425,25 +403,19 @@ contains
     !    simulation time from "current" to "preceding" and reset
     !    "current" value.
     call this%obs%obs_ad()
-    !
-    return
   end subroutine bnd_ad
 
   !> @ brief Check boundary package period data
-    !!
-    !!  Check the boundary package period data. Base implementation that
-    !!  must be extended by each model boundary package.
-    !!
+  !!
+  !!  Check the boundary package period data. Base implementation that
+  !!  must be extended by each model boundary package.
   !<
   subroutine bnd_ck(this)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
     !
     ! -- check stress period data
     ! -- each package must override generic functionality
-    !
-    ! -- return
-    return
   end subroutine bnd_ck
 
   !> @ brief Reset bnd package before formulating
@@ -458,39 +430,34 @@ contains
   end subroutine bnd_reset
 
   !> @ brief Formulate the package hcof and rhs terms.
-    !!
-    !!  Formulate the hcof and rhs terms for the package that will be
-    !!  added to the coefficient matrix and right-hand side vector.
-    !!  Base implementation that must be extended by each model
-    !!  boundary package.
-    !!
+  !!
+  !!  Formulate the hcof and rhs terms for the package that will be
+  !!  added to the coefficient matrix and right-hand side vector.
+  !!  Base implementation that must be extended by each model
+  !!  boundary package.
   !<
   subroutine bnd_cf(this)
     ! -- modules
     class(BndType) :: this !< BndType object
     !
     ! -- bnd has no cf routine
-    !
-    ! -- return
-    return
   end subroutine bnd_cf
 
   !> @ brief Copy hcof and rhs terms into solution.
-    !!
-    !!  Add the hcof and rhs terms for the boundary package to the
-    !!  coefficient matrix and right-hand side vector. A boundary
-    !!  package only needs to override this method if it is different for
-    !!  a specific boundary package.
-    !!
+  !!
+  !!  Add the hcof and rhs terms for the boundary package to the
+  !!  coefficient matrix and right-hand side vector. A boundary
+  !!  package only needs to override this method if it is different for
+  !!  a specific boundary package.
   !<
   subroutine bnd_fc(this, rhs, ia, idxglo, matrix_sln)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     real(DP), dimension(:), intent(inout) :: rhs !< right-hand side vector for model
     integer(I4B), dimension(:), intent(in) :: ia !< solution CRS row pointers
     integer(I4B), dimension(:), intent(in) :: idxglo !< mapping vector for model (local) to solution (global)
     class(MatrixBaseType), pointer :: matrix_sln !< solution coefficient matrix
-    ! -- local variables
+    ! -- local
     integer(I4B) :: i
     integer(I4B) :: n
     integer(I4B) :: ipos
@@ -502,21 +469,17 @@ contains
       ipos = ia(n)
       call matrix_sln%add_value_pos(idxglo(ipos), this%hcof(i))
     end do
-    !
-    ! -- return
-    return
   end subroutine bnd_fc
 
   !> @ brief Add Newton-Raphson terms for package into solution.
-    !!
-    !!  Calculate and add the Newton-Raphson terms for the boundary package
-    !!  to the coefficient matrix and right-hand side vector. A boundary
-    !!  package only needs to override this method if a specific boundary
-    !!  package needs to add Newton-Raphson terms.
-    !!
+  !!
+  !!  Calculate and add the Newton-Raphson terms for the boundary package
+  !!  to the coefficient matrix and right-hand side vector. A boundary
+  !!  package only needs to override this method if a specific boundary
+  !!  package needs to add Newton-Raphson terms.
   !<
   subroutine bnd_fn(this, rhs, ia, idxglo, matrix_sln)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     real(DP), dimension(:), intent(inout) :: rhs !< right-hand side vector for model
     integer(I4B), dimension(:), intent(in) :: ia !< solution CRS row pointers
@@ -525,22 +488,18 @@ contains
     !
     ! -- No addition terms for Newton-Raphson with constant conductance
     !    boundary conditions
-    !
-    ! -- return
-    return
   end subroutine bnd_fn
 
   !> @ brief Apply Newton-Raphson under-relaxation for package.
-    !!
-    !!  Apply Newton-Raphson under-relaxation for a boundary package. A boundary
-    !!  package only needs to override this method if a specific boundary
-    !!  package needs to apply Newton-Raphson under-relaxation. An example is
-    !!  the MAW package which adds rows to the system of equations and may need
-    !!  to have the dependent-variable constrained by the bottom of the model.
-    !!
+  !!
+  !!  Apply Newton-Raphson under-relaxation for a boundary package. A boundary
+  !!  package only needs to override this method if a specific boundary
+  !!  package needs to apply Newton-Raphson under-relaxation. An example is
+  !!  the MAW package which adds rows to the system of equations and may need
+  !!  to have the dependent-variable constrained by the bottom of the model.
   !<
   subroutine bnd_nur(this, neqpak, x, xtemp, dx, inewtonur, dxmax, locmax)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
     integer(I4B), intent(in) :: neqpak !< number of equations in the package
     real(DP), dimension(neqpak), intent(inout) :: x !< dependent variable
@@ -549,27 +508,23 @@ contains
     integer(I4B), intent(inout) :: inewtonur !< flag indicating if newton-raphson under-relaxation should be applied
     real(DP), intent(inout) :: dxmax !< maximum change in the dependent variable
     integer(I4B), intent(inout) :: locmax !< location of the maximum change in the dependent variable
-    ! -- local variables
+    ! -- local
     !
     ! -- Newton-Raphson under-relaxation
-    !
-    ! -- return
-    return
   end subroutine bnd_nur
 
   !> @ brief Convergence check for package.
-    !!
-    !!  Perform additional convergence checks on the flow between the package
-    !!  and the model it is attached to. This additional convergence check is
-    !!  applied to packages that solve their own continuity equation as
-    !!  part of the formulate step at the beginning of a Picard iteration.
-    !!  A boundary package only needs to override this method if a specific boundary
-    !!  package solves its own continuity equation. Example packages that implement
-    !!  this additional convergence check is the CSUB, SFR, LAK, and UZF packages.
-    !!
+  !!
+  !!  Perform additional convergence checks on the flow between the package
+  !!  and the model it is attached to. This additional convergence check is
+  !!  applied to packages that solve their own continuity equation as
+  !!  part of the formulate step at the beginning of a Picard iteration.
+  !!  A boundary package only needs to override this method if a specific boundary
+  !!  package solves its own continuity equation. Example packages that implement
+  !!  this additional convergence check is the CSUB, SFR, LAK, and UZF packages.
   !<
   subroutine bnd_cc(this, innertot, kiter, iend, icnvgmod, cpak, ipak, dpak)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
     integer(I4B), intent(in) :: innertot !< total number of inner iterations
     integer(I4B), intent(in) :: kiter !< Picard iteration number
@@ -580,24 +535,20 @@ contains
     real(DP), intent(inout) :: dpak !< maximum dependent variable change
     !
     ! -- No addition convergence check for boundary conditions
-    !
-    ! -- return
-    return
   end subroutine bnd_cc
 
   !> @ brief Calculate advanced package flows.
-    !!
-    !!  Calculate the flow between connected advanced package control volumes.
-    !!  Only advanced boundary packages need to override this method.
-    !!
+  !!
+  !!  Calculate the flow between connected advanced package control volumes.
+  !!  Only advanced boundary packages need to override this method.
   !<
   subroutine bnd_cq(this, x, flowja, iadv)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
     real(DP), dimension(:), intent(in) :: x !< current dependent-variable value
     real(DP), dimension(:), contiguous, intent(inout) :: flowja !< flow between two connected control volumes
     integer(I4B), optional, intent(in) :: iadv !< flag that indicates if this is an advance package
-    ! -- local variables
+    ! -- local
     integer(I4B) :: imover
     !
     ! -- check for iadv optional variable to indicate this is an advanced
@@ -621,25 +572,21 @@ contains
     if (imover == 1) then
       call this%bnd_cq_simtomvr(flowja)
     end if
-    !
-    ! -- return
-    return
   end subroutine bnd_cq
 
   !> @ brief Calculate simrate.
-    !!
-    !!  Calculate the flow between package and the model (for example, GHB and
-    !!  groundwater cell) and store in the simvals variable. This method only
-    !!  needs to be overridden if a different calculation needs to be made.
-    !!
+  !!
+  !!  Calculate the flow between package and the model (for example, GHB and
+  !!  groundwater cell) and store in the simvals variable. This method only
+  !!  needs to be overridden if a different calculation needs to be made.
   !<
   subroutine bnd_cq_simrate(this, hnew, flowja, imover)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     real(DP), dimension(:), intent(in) :: hnew !< current dependent-variable value
     real(DP), dimension(:), intent(inout) :: flowja !< flow between package and model
     integer(I4B), intent(in) :: imover !< flag indicating if the mover package is active
-    ! -- local variables
+    ! -- local
     integer(I4B) :: i
     integer(I4B) :: node
     integer(I4B) :: idiag
@@ -669,23 +616,19 @@ contains
         !
       end do
     end if
-    !
-    ! -- return
-    return
   end subroutine bnd_cq_simrate
 
   !> @ brief Calculate flow to the mover.
-    !!
-    !!  Calculate the flow between package and the model that is sent to the
-    !!  mover package and store in the simtomvr variable. This method only
-    !!  needs to be overridden if a different calculation needs to be made.
-    !!
+  !!
+  !!  Calculate the flow between package and the model that is sent to the
+  !!  mover package and store in the simtomvr variable. This method only
+  !!  needs to be overridden if a different calculation needs to be made.
   !<
   subroutine bnd_cq_simtomvr(this, flowja)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     real(DP), dimension(:), intent(inout) :: flowja !< flow between package and model
-    ! -- local variables
+    ! -- local
     integer(I4B) :: i
     integer(I4B) :: node
     real(DP) :: q
@@ -739,26 +682,22 @@ contains
         !
       end do
     end if
-    !
-    ! -- return
-    return
   end subroutine bnd_cq_simtomvr
 
   !> @ brief Add package flows to model budget.
-    !!
-    !!  Add the flow between package and the model (ratin and ratout) to the
-    !!  model budget. This method only needs to be overridden if a different
-    !!  calculation needs to be made.
-    !!
+  !!
+  !!  Add the flow between package and the model (ratin and ratout) to the
+  !!  model budget. This method only needs to be overridden if a different
+  !!  calculation needs to be made.
   !<
   subroutine bnd_bd(this, model_budget)
     ! -- modules
     use TdisModule, only: delt
     use BudgetModule, only: BudgetType, rate_accumulator
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     type(BudgetType), intent(inout) :: model_budget !< model budget object
-    ! -- local variables
+    ! -- local
     character(len=LENPACKAGENAME) :: text
     real(DP) :: ratin
     real(DP) :: ratout
@@ -778,58 +717,46 @@ contains
       call model_budget%addentry(ratin, ratout, delt, text, &
                                  isuppress_output, this%packName)
     end if
-    !
-    ! -- return
-    return
   end subroutine bnd_bd
 
   !> @ brief Output advanced package flow terms.
-    !!
-    !!  Output advanced boundary package flow terms. This method only needs to
-    !!  be overridden for advanced packages that save flow terms than contribute
-    !!  to the continuity equation for each control volume.
-    !!
+  !!
+  !!  Output advanced boundary package flow terms. This method only needs to
+  !!  be overridden for advanced packages that save flow terms than contribute
+  !!  to the continuity equation for each control volume.
   !<
   subroutine bnd_ot_package_flows(this, icbcfl, ibudfl)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     integer(I4B), intent(in) :: icbcfl !< flag and unit number for cell-by-cell output
     integer(I4B), intent(in) :: ibudfl !< flag indication if cell-by-cell data should be saved
     !
     ! -- override for advanced packages
-    !
-    ! -- return
-    return
   end subroutine bnd_ot_package_flows
 
   !> @ brief Output advanced package dependent-variable terms.
-    !!
-    !!  Output advanced boundary package dependent-variable terms. This method only needs
-    !!  to be overridden for advanced packages that save dependent variable terms
-    !!  for each control volume.
-    !!
+  !!
+  !!  Output advanced boundary package dependent-variable terms. This method only needs
+  !!  to be overridden for advanced packages that save dependent variable terms
+  !!  for each control volume.
   !<
   subroutine bnd_ot_dv(this, idvsave, idvprint)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     integer(I4B), intent(in) :: idvsave !< flag and unit number for dependent-variable output
     integer(I4B), intent(in) :: idvprint !< flag indicating if dependent-variable should be written to the model listing file
     !
     ! -- override for advanced packages
-    !
-    ! -- return
-    return
   end subroutine bnd_ot_dv
 
   !> @ brief Output advanced package budget summary.
-    !!
-    !!  Output advanced boundary package budget summary. This method only needs
-    !!  to be overridden for advanced packages that save budget summaries
-    !!  to the model listing file.
-    !!
+  !!
+  !!  Output advanced boundary package budget summary. This method only needs
+  !!  to be overridden for advanced packages that save budget summaries
+  !!  to the model listing file.
   !<
   subroutine bnd_ot_bdsummary(this, kstp, kper, iout, ibudfl)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     integer(I4B), intent(in) :: kstp !< time step number
     integer(I4B), intent(in) :: kper !< period number
@@ -837,26 +764,22 @@ contains
     integer(I4B), intent(in) :: ibudfl !< flag indicating budget should be written
     !
     ! -- override for advanced packages
-    !
-    ! -- return
-    return
   end subroutine bnd_ot_bdsummary
 
   !> @ brief Output package flow terms.
-    !!
-    !!  Output flow terms between the boundary package and model to a binary file and/or
-    !!  print flows to the model listing file. This method should not need to
-    !!  be overridden.
-    !!
+  !!
+  !!  Output flow terms between the boundary package and model to a binary file and/or
+  !!  print flows to the model listing file. This method should not need to
+  !!  be overridden.
   !<
   subroutine bnd_ot_model_flows(this, icbcfl, ibudfl, icbcun, imap)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     integer(I4B), intent(in) :: icbcfl !< flag for cell-by-cell output
     integer(I4B), intent(in) :: ibudfl !< flag indication if cell-by-cell data should be saved
     integer(I4B), intent(in) :: icbcun !< unit number for cell-by-cell output
     integer(I4B), dimension(:), optional, intent(in) :: imap !< mapping vector that converts the 1 to nbound values to lake number, maw number, etc.
-    ! -- local variables
+    ! -- local
     character(len=LINELENGTH) :: title
     character(len=LENPACKAGENAME) :: text
     integer(I4B) :: imover
@@ -904,22 +827,18 @@ contains
                                   this%auxname, this%auxvar, this%iout, &
                                   this%inamedbound, this%boundname)
     end if
-    !
-    ! -- return
-    return
   end subroutine bnd_ot_model_flows
 
   !> @ brief Deallocate package memory
-    !!
-    !!  Deallocate base boundary package scalars and arrays. This method
-    !!  only needs to be overridden if additional variables are defined
-    !!  for a specific package.
-    !!
+  !!
+  !!  Deallocate base boundary package scalars and arrays. This method
+  !!  only needs to be overridden if additional variables are defined
+  !!  for a specific package.
   !<
   subroutine bnd_da(this)
     ! -- modules
     use MemoryManagerModule, only: mem_deallocate
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     !
     ! -- deallocate arrays
@@ -999,25 +918,21 @@ contains
     !
     ! -- Deallocate parent object
     call this%NumericalPackageType%da()
-    !
-    ! -- return
-    return
   end subroutine bnd_da
 
   !> @ brief Allocate package scalars
-    !!
-    !!  Allocate and initialize base boundary package scalars. This method
-    !!  only needs to be overridden if additional scalars are defined
-    !!  for a specific package.
-    !!
+  !!
+  !!  Allocate and initialize base boundary package scalars. This method
+  !!  only needs to be overridden if additional scalars are defined
+  !!  for a specific package.
   !<
   subroutine allocate_scalars(this)
     ! -- modules
     use MemoryManagerModule, only: mem_allocate, mem_setptr
     use MemoryHelperModule, only: create_mem_path
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
-    ! -- local variables
+    ! -- local
     integer(I4B), pointer :: imodelnewton => null()
     !
     ! -- allocate scalars in NumericalPackageType
@@ -1078,26 +993,22 @@ contains
     call mem_setptr(imodelnewton, 'INEWTON', create_mem_path(this%name_model))
     this%inewton = imodelnewton
     imodelnewton => null()
-    !
-    ! -- return
-    return
   end subroutine allocate_scalars
 
   !> @ brief Allocate package arrays
-    !!
-    !!  Allocate and initialize base boundary package arrays. This method
-    !!  only needs to be overridden if additional arrays are defined
-    !!  for a specific package.
-    !!
+  !!
+  !!  Allocate and initialize base boundary package arrays. This method
+  !!  only needs to be overridden if additional arrays are defined
+  !!  for a specific package.
   !<
   subroutine allocate_arrays(this, nodelist, auxvar)
     ! -- modules
     use MemoryManagerModule, only: mem_allocate, mem_setptr
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist !< package nodelist
     real(DP), dimension(:, :), pointer, contiguous, optional :: auxvar !< package aux variable array
-    ! -- local variables
+    ! -- local
     integer(I4B) :: i
     integer(I4B) :: j
     !
@@ -1188,34 +1099,26 @@ contains
     !
     ! -- setup the output table
     call this%pak_setup_outputtab()
-    !
-    ! -- return
-    return
   end subroutine allocate_arrays
 
   !> @ brief Allocate and initialize select package members
-    !!
-    !!  Allocate and initialize select base boundary package members.
-    !!  This method needs to be overridden by a package if it is
-    !!  needed for a specific package.
-    !!
+  !!
+  !!  Allocate and initialize select base boundary package members.
+  !!  This method needs to be overridden by a package if it is
+  !!  needed for a specific package.
   !<
   subroutine pack_initialize(this)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
-    !
-    ! -- return
-    return
   end subroutine pack_initialize
 
   !> @ brief Set pointers to model variables
-    !!
-    !!  Set pointers to model variables so that a package has access to these
-    !!  variables. This base method should not need to be overridden.
-    !!
+  !!
+  !!  Set pointers to model variables so that a package has access to these
+  !!  variables. This base method should not need to be overridden.
   !<
   subroutine set_pointers(this, neq, ibound, xnew, xold, flowja)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     integer(I4B), pointer :: neq !< number of equations in the model
     integer(I4B), dimension(:), pointer, contiguous :: ibound !< model idomain
@@ -1229,22 +1132,19 @@ contains
     this%xnew => xnew
     this%xold => xold
     this%flowja => flowja
-    !
-    ! -- return
   end subroutine set_pointers
 
   !> @ brief Read additional options for package
-    !!
-    !!  Read base options for boundary packages.
-    !!
+  !!
+  !!  Read base options for boundary packages.
   !<
   subroutine bnd_read_options(this)
     ! -- modules
     use InputOutputModule, only: urdaux
     use MemoryManagerModule, only: mem_reallocate
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
-    ! -- local variables
+    ! -- local
     character(len=:), allocatable :: line
     character(len=LINELENGTH) :: fname
     character(len=LINELENGTH) :: keyword
@@ -1436,22 +1336,18 @@ contains
     if (count_errors() > 0) then
       call this%parser%StoreErrorUnit()
     end if
-    !
-    ! -- return
-    return
   end subroutine bnd_read_options
 
   !> @ brief Read dimensions for package
-    !!
-    !!  Read base dimensions for boundary packages. This method should not
-    !!  need to be overridden unless more than MAXBOUND is specified in the
-    !!  DIMENSIONS block.
-    !!
+  !!
+  !!  Read base dimensions for boundary packages. This method should not
+  !!  need to be overridden unless more than MAXBOUND is specified in the
+  !!  DIMENSIONS block.
   !<
   subroutine bnd_read_dimensions(this)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
-    ! -- local variables
+    ! -- local
     character(len=LINELENGTH) :: keyword
     logical(LGP) :: isfound
     logical(LGP) :: endOfBlock
@@ -1501,61 +1397,49 @@ contains
     ! -- Call define_listlabel to construct the list label that is written
     !    when PRINT_INPUT option is used.
     call this%define_listlabel()
-    !
-    ! -- return
-    return
   end subroutine bnd_read_dimensions
 
   !> @ brief Store user-specified conductances when vsc is active
-    !!
-    !!  VSC will update boundary package conductance values.  Because
-    !!  viscosity can change every stress period, but user-specified
-    !!  conductances may not, the base user-input should be stored in
-    !!  backup array so that viscosity-updated conductances may be
-    !!  recalculated every stress period/time step
-    !!
+  !!
+  !!  VSC will update boundary package conductance values.  Because
+  !!  viscosity can change every stress period, but user-specified
+  !!  conductances may not, the base user-input should be stored in
+  !!  backup array so that viscosity-updated conductances may be
+  !!  recalculated every stress period/time step
   !<
   subroutine bnd_store_user_cond(this, nlist, rlist, condinput)
     ! -- modules
     use SimModule, only: store_error
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
     integer(I4B), intent(in) :: nlist
     real(DP), dimension(:, :), pointer, contiguous, intent(in) :: rlist
     real(DP), dimension(:), pointer, contiguous, intent(inout) :: condinput
-    ! -- local variables
+    ! -- local
     integer(I4B) :: l
     !
     ! -- store backup copy of conductance values
     do l = 1, nlist
       condinput(l) = rlist(2, l)
     end do
-    !
-    ! -- return
-    return
   end subroutine bnd_store_user_cond
 
   !> @ brief Read initial parameters for package
-    !!
-    !!  Read initial parameters for a boundary package. This method is not
-    !!  needed for most boundary packages. The SFR package is an example of a
-    !!  package that has overridden this method.
-    !!
+  !!
+  !!  Read initial parameters for a boundary package. This method is not
+  !!  needed for most boundary packages. The SFR package is an example of a
+  !!  package that has overridden this method.
   !<
   subroutine bnd_read_initial_attr(this)
     ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
-    !
-    ! -- return
-    return
   end subroutine bnd_read_initial_attr
 
   !> @ brief Read additional options for package
-    !!
-    !!  Read additional options for a boundary package. This method should
-    !!  be overridden options in addition to the base options are implemented
-    !!  in a boundary package.
-    !!
+  !!
+  !!  Read additional options for a boundary package. This method should
+  !!  be overridden options in addition to the base options are implemented
+  !!  in a boundary package.
   !<
   subroutine bnd_options(this, option, found)
     ! -- dummy
@@ -1565,16 +1449,12 @@ contains
     !
     ! Return with found = .false.
     found = .false.
-    !
-    ! -- return
-    return
   end subroutine bnd_options
 
   !> @ brief Copy boundnames into boundnames_cst
-    !!
-    !!  boundnames_cst is an array of type(CharacterStringType),
-    !!  which can be stored in the MemoryManager.
-    !!
+  !!
+  !!  boundnames_cst is an array of type(CharacterStringType),
+  !!  which can be stored in the MemoryManager.
   !<
   subroutine copy_boundname(this)
     ! -- dummy
@@ -1589,21 +1469,17 @@ contains
         this%boundname_cst(i) = this%boundname(i)
       end do
     end if
-    !
-    ! -- return
-    return
   end subroutine copy_boundname
 
   !> @ brief Setup output table for package
-    !!
-    !!  Setup output table for a boundary package that is used to output
-    !!  package to model flow terms to the model listing file.
-    !!
+  !!
+  !!  Setup output table for a boundary package that is used to output
+  !!  package to model flow terms to the model listing file.
   !<
   subroutine pak_setup_outputtab(this)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
-    ! -- local variables
+    ! -- local
     character(len=LINELENGTH) :: title
     character(len=LINELENGTH) :: text
     integer(I4B) :: ntabcol
@@ -1635,78 +1511,62 @@ contains
                                               alignment=TABLEFT)
       end if
     end if
-    !
-    ! -- return
-    return
   end subroutine pak_setup_outputtab
 
   !> @ brief Define the list label for the package
-    !!
-    !!  Method defined the list label for the boundary package. This method
-    !!  needs to be overridden by each boundary package.
-    !!
+  !!
+  !!  Method defined the list label for the boundary package. This method
+  !!  needs to be overridden by each boundary package.
   !<
   subroutine define_listlabel(this)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
-    !
-    ! -- return
-    return
   end subroutine define_listlabel
 
   ! -- Procedures related to observations
 
   !> @brief Determine if observations are supported.
-    !!
-    !!  Function to determine if observations are supported by the boundary package.
-    !!  By default, observations are not supported. This method should be overridden
-    !!  if observations are supported in a boundary package.
-    !!
-    !!  @return  supported       boolean indicating if observations are supported
-    !!
+  !!
+  !!  Function to determine if observations are supported by the boundary package.
+  !!  By default, observations are not supported. This method should be overridden
+  !!  if observations are supported in a boundary package.
+  !!
+  !!  @return  supported       boolean indicating if observations are supported
   !<
   function bnd_obs_supported(this) result(supported)
     ! -- return variable
     logical(LGP) :: supported !< boolean indicating if observations are supported
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     !
     ! -- initialize return variables
     supported = .false.
-    !
-    ! -- return
-    return
   end function bnd_obs_supported
 
   !> @brief Define the observation types available in the package
-    !!
-    !!  Method to define the observation types available in a boundary
-    !!  package. This method should be overridden if observations are
-    !!  supported in a boundary package.
-    !!
+  !!
+  !!  Method to define the observation types available in a boundary
+  !!  package. This method should be overridden if observations are
+  !!  supported in a boundary package.
   !<
   subroutine bnd_df_obs(this)
     !
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     !
     ! -- do nothing here. Override as needed.
-    !
-    ! -- return
-    return
   end subroutine bnd_df_obs
 
   !> @brief Read and prepare observations for a package
-    !!
-    !! Method to read and prepare observations for a boundary package
-    !! This method should not need to be overridden for most boundary
-    !! packages.
-    !!
+  !!
+  !! Method to read and prepare observations for a boundary package
+  !! This method should not need to be overridden for most boundary
+  !! packages.
   !<
   subroutine bnd_rp_obs(this)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
-    ! -- local variables
+    ! -- local
     integer(I4B) :: i
     integer(I4B) :: j
     class(ObserveType), pointer :: obsrv => null()
@@ -1756,22 +1616,19 @@ contains
     if (count_errors() > 0) then
       call store_error_unit(this%inunit)
     end if
-    !
-    return
   end subroutine bnd_rp_obs
 
   !> @brief Save observations for the package
-    !!
-    !! Method to save simulated values for the boundary package.
-    !! This method will need to be overridden for boundary packages
-    !! with more observations than the calculate flow term (simvals)
-    !! and to-mover.
-    !!
+  !!
+  !! Method to save simulated values for the boundary package.
+  !! This method will need to be overridden for boundary packages
+  !! with more observations than the calculate flow term (simvals)
+  !! and to-mover.
   !<
   subroutine bnd_bd_obs(this)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
-    ! -- local variables
+    ! -- local
     integer(I4B) :: i
     integer(I4B) :: n
     real(DP) :: v
@@ -1803,51 +1660,39 @@ contains
         call this%obs%SaveOneSimval(obsrv, DNODATA)
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine bnd_bd_obs
 
   !> @brief Output observations for the package
-    !!
-    !! Method to output simulated values for the boundary package.
-    !! This method should not need to be overridden.
-    !!
+  !!
+  !! Method to output simulated values for the boundary package.
+  !! This method should not need to be overridden.
   !<
   subroutine bnd_ot_obs(this)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType) :: this !< BndType object
     !
     ! -- call the observation output method
     call this%obs%obs_ot()
-    !
-    ! -- return
-    return
   end subroutine bnd_ot_obs
 
   ! -- Procedures related to time series
 
   !> @brief Assign time series links for the package
-    !!
-    !! Assign the time series links for the boundary package. This
-    !! method will need to be overridden for boundary packages that
-    !! support time series.
-    !!
+  !!
+  !! Assign the time series links for the boundary package. This
+  !! method will need to be overridden for boundary packages that
+  !! support time series.
   !<
   subroutine bnd_rp_ts(this)
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this
-    !
-    ! -- return
-    return
   end subroutine bnd_rp_ts
 
   ! -- Procedures related to casting
 
   !> @brief Cast as a boundary type
-    !!
-    !!  Subroutine to cast an object as a boundary package type.
-    !!
+  !!
+  !!  Subroutine to cast an object as a boundary package type.
   !<
   function CastAsBndClass(obj) result(res)
     class(*), pointer, intent(inout) :: obj !< input object
@@ -1864,58 +1709,46 @@ contains
     class is (BndType)
       res => obj
     end select
-    !
-    ! -- return
-    return
   end function CastAsBndClass
 
   !> @brief Add boundary to package list
-    !!
-    !!  Subroutine to add a boundary package to a package list.
-    !!
+  !!
+  !!  Subroutine to add a boundary package to a package list.
   !<
   subroutine AddBndToList(list, bnd)
-    ! -- dummy variables
+    ! -- dummy
     type(ListType), intent(inout) :: list !< package list
     class(BndType), pointer, intent(inout) :: bnd !< boundary package
-    ! -- local variables
+    ! -- local
     class(*), pointer :: obj
     !
     obj => bnd
     call list%Add(obj)
-    !
-    ! -- return
-    return
   end subroutine AddBndToList
 
   !> @brief Get boundary from package list
-    !!
-    !!  Function to get a boundary package from a package list.
-    !!
-    !!  @return  res  boundary package object
-    !!
+  !!
+  !!  Function to get a boundary package from a package list.
+  !!
+  !!  @return  res  boundary package object
   !<
   function GetBndFromList(list, idx) result(res)
-    ! -- dummy variables
+    ! -- dummy
     type(ListType), intent(inout) :: list !< package list
     integer(I4B), intent(in) :: idx !< package number
     class(BndType), pointer :: res !< boundary package idx
-    ! -- local variables
+    ! -- local
     class(*), pointer :: obj
     !
     ! -- get the package from the list
     obj => list%GetItem(idx)
     res => CastAsBndClass(obj)
-    !
-    ! -- return
-    return
   end function GetBndFromList
 
   !> @brief Save and/or print flows for a package
-    !!
-    !!  Subroutine to save and/or print package flows to a model to a
-    !!  binary cell-by-cell flow file and the model listing file.
-    !!
+  !!
+  !!  Subroutine to save and/or print package flows to a model to a
+  !!  binary cell-by-cell flow file and the model listing file.
   !<
   subroutine save_print_model_flows(icbcfl, ibudfl, icbcun, iprflow, &
                                     outputtab, nbound, nodelist, flow, ibound, &
@@ -1925,7 +1758,7 @@ contains
                                     boundname, imap)
     ! -- modules
     use TdisModule, only: kstp, kper
-    ! -- dummy variables
+    ! -- dummy
     integer(I4B), intent(in) :: icbcfl !< flag indicating if the flow should be saved to the binary cell-by-cell flow file
     integer(I4B), intent(in) :: ibudfl !< flag indicating if the flow should be saved or printed
     integer(I4B), intent(in) :: icbcun !< file unit number for the binary cell-by-cell file
@@ -1950,7 +1783,7 @@ contains
     integer(I4B), intent(in) :: inamedbound !< flag indicating if boundnames are defined for the boundary entries
     character(len=LENBOUNDNAME), dimension(:), contiguous :: boundname !< bound names
     integer(I4B), dimension(:), optional, intent(in) :: imap !< mapping array
-    ! -- local variables
+    ! -- local
     character(len=20) :: nodestr
     integer(I4B) :: nodeu
     integer(I4B) :: maxrows
@@ -2066,23 +1899,19 @@ contains
       end if
 
     end if
-    !
-    ! -- return
-    return
   end subroutine save_print_model_flows
 
   !> @brief Activate viscosity terms
-    !!
-    !! Method to activate addition of viscosity terms when package type
-    !! is DRN, GHB, or RIV (method not needed by other packages at this point)
-    !!
+  !!
+  !! Method to activate addition of viscosity terms when package type
+  !! is DRN, GHB, or RIV (method not needed by other packages at this point)
   !<
   subroutine bnd_activate_viscosity(this)
     ! -- modules
     use MemoryManagerModule, only: mem_reallocate
-    ! -- dummy variables
+    ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
-    ! -- local variables
+    ! -- local
     integer(I4B) :: i
     !
     ! -- Set ivsc and reallocate viscratios to be of size MAXBOUND
@@ -2100,9 +1929,6 @@ contains
     !    boundary package.
     write (this%iout, '(/1x,a,a)') 'VISCOSITY ACTIVE IN ', &
       trim(this%filtyp)//' PACKAGE CALCULATIONS: '//trim(adjustl(this%packName))
-    !
-    ! -- return
-    return
   end subroutine bnd_activate_viscosity
 
 end module BndModule

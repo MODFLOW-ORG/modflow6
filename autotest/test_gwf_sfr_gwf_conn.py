@@ -78,16 +78,10 @@ def build_model(idx, ws):
     )
 
     # create iterative model solution and register the gwf model with it
-    ims = flopy.mf6.ModflowIms(
-        sim,
-        print_option="ALL",
-    )
+    ims = flopy.mf6.ModflowIms(sim, print_option="ALL")
 
     # create gwf model
-    gwf = flopy.mf6.ModflowGwf(
-        sim,
-        modelname=name,
-    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
 
     if dis_type == "dis":
         dis = flopy.mf6.ModflowGwfdis(
@@ -117,13 +111,7 @@ def build_model(idx, ws):
         )
     else:
         disukwargs = flopy.utils.gridutil.get_disu_kwargs(
-            nlay,
-            nrow,
-            ncol,
-            [delr],
-            [delc],
-            top,
-            [botm],
+            nlay, nrow, ncol, [delr], [delc], top, [botm]
         )
         dis = flopy.mf6.ModflowGwfdisu(
             gwf,

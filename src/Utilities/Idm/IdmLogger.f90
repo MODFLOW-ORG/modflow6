@@ -44,7 +44,6 @@ contains
     character(len=*), intent(in) :: component !< component name
     character(len=*), intent(in) :: subcomponent !< subcomponent name
     integer(I4B), intent(in) :: iout
-
     if (iparamlog > 0 .and. iout > 0) then
       write (iout, '(1x,a)') 'Loading input for '//trim(component)//&
         &'/'//trim(subcomponent)
@@ -57,7 +56,6 @@ contains
     character(len=*), intent(in) :: component !< component name
     character(len=*), intent(in) :: subcomponent !< subcomponent name
     integer(I4B), intent(in) :: iout
-
     if (iparamlog > 0 .and. iout > 0) then
       write (iout, '(1x,a)') 'Loading input complete...'
     end if
@@ -69,7 +67,6 @@ contains
     use TdisModule, only: kper, kstp
     character(len=*), intent(in) :: component !< component name
     integer(I4B), intent(in) :: iout
-
     if (iparamlog > 0 .and. iout > 0 .and. kstp == 1) then
       write (iout, '(/1x,a,i0,a)') 'IDP PERIOD ', kper, &
         ' load for component: '//trim(component)
@@ -81,7 +78,6 @@ contains
   subroutine idm_log_period_close(iout)
     use TdisModule, only: kstp
     integer(I4B), intent(in) :: iout
-
     if (iparamlog > 0 .and. iout > 0 .and. kstp == 1) then
       !backspace iout
       write (iout, '(1x,a,/)') 'IDP component dynamic load complete...'
@@ -95,7 +91,6 @@ contains
     character(len=*), intent(in) :: mempath !< variable memory path
     integer(I4B), intent(in) :: iout
     logical(LGP), intent(in) :: is_tas
-
     if (iparamlog > 0 .and. iout > 0) then
       if (is_tas) then
         write (iout, '(3x, a, ": ", a)') &
@@ -115,7 +110,6 @@ contains
     character(len=*), intent(in) :: mempath !< variable memory path
     integer(I4B), intent(in) :: iout
     character(len=LINELENGTH) :: description
-
     if (iparamlog > 0 .and. iout > 0) then
       description = 'Logical detected'
       write (iout, '(3x, a, ": ", a, " = ", l1)') &
@@ -132,7 +126,6 @@ contains
     character(len=*), intent(in) :: datatype !< variable data type
     integer(I4B), intent(in) :: iout
     character(len=LINELENGTH) :: description
-
     if (iparamlog > 0 .and. iout > 0) then
       if (datatype == 'KEYWORD') then
         description = 'Keyword detected'
@@ -154,7 +147,6 @@ contains
     integer(I4B), intent(in) :: iout
     integer(I4B) :: min_val, max_val
     character(len=LINELENGTH) :: description
-
     if (iparamlog > 0 .and. iout > 0) then
       min_val = minval(p_mem)
       max_val = maxval(p_mem)
@@ -180,7 +172,6 @@ contains
     integer(I4B), intent(in) :: iout
     integer(I4B) :: min_val, max_val
     character(len=LINELENGTH) :: description
-
     if (iparamlog > 0 .and. iout > 0) then
       min_val = minval(p_mem)
       max_val = maxval(p_mem)
@@ -206,7 +197,6 @@ contains
     integer(I4B), intent(in) :: iout
     integer(I4B) :: min_val, max_val
     character(len=LINELENGTH) :: description
-
     if (iparamlog > 0 .and. iout > 0) then
       min_val = minval(p_mem)
       max_val = maxval(p_mem)
@@ -231,7 +221,6 @@ contains
     character(len=*), intent(in) :: mempath !< variable memory path
     integer(I4B), intent(in) :: iout
     character(len=LINELENGTH) :: description
-
     if (iparamlog > 0 .and. iout > 0) then
       description = 'Double detected'
       write (iout, '(3x, a, ": ", a, " = ", G0)') &
@@ -248,7 +237,6 @@ contains
     integer(I4B), intent(in) :: iout
     real(DP) :: min_val, max_val
     character(len=LINELENGTH) :: description
-
     if (iparamlog > 0 .and. iout > 0) then
       min_val = minval(p_mem)
       max_val = maxval(p_mem)
@@ -274,7 +262,6 @@ contains
     integer(I4B), intent(in) :: iout
     real(DP) :: min_val, max_val
     character(len=LINELENGTH) :: description
-
     if (iparamlog > 0 .and. iout > 0) then
       min_val = minval(p_mem)
       max_val = maxval(p_mem)
@@ -300,7 +287,6 @@ contains
     integer(I4B), intent(in) :: iout
     real(DP) :: min_val, max_val
     character(len=LINELENGTH) :: description
-
     if (iparamlog > 0 .and. iout > 0) then
       min_val = minval(p_mem)
       max_val = maxval(p_mem)
@@ -325,7 +311,6 @@ contains
     character(len=*), intent(in) :: mempath !< variable memory path
     integer(I4B), intent(in) :: iout
     character(len=LINELENGTH) :: description
-
     if (iparamlog > 0 .and. iout > 0) then
       description = 'String detected'
       write (iout, '(3x, a, ": ", a, " = ", a)') &
@@ -346,7 +331,6 @@ contains
     character(len=*), intent(in) :: mempath !< variable memory path
     character(len=*), intent(in) :: shapestr !< dfn shape string
     integer(I4B), intent(in) :: iout
-    ! -- dummy
     integer(I4B), dimension(:), pointer, contiguous :: model_shape
     integer(I4B), dimension(:, :, :), pointer, contiguous :: int3d
     integer(I4B), dimension(:, :), pointer, contiguous :: int2d
@@ -357,27 +341,27 @@ contains
     character(LENCOMPONENTNAME) :: comp, subcomp
     integer(I4B) :: i, j, k, inunit, export_dim
     logical(LGP) :: is_layered
-    !
-    ! -- set pointer to DISENUM and MODEL_SHAPE
+
+    ! set pointer to DISENUM and MODEL_SHAPE
     call split_mem_path(mempath, comp, subcomp)
     input_mempath = create_mem_path(component=comp, context=idm_context)
     call mem_setptr(distype, 'DISENUM', input_mempath)
     call mem_setptr(model_shape, 'MODEL_SHAPE', input_mempath)
-    !
-    ! -- set export_dim
+
+    ! set export_dim
     export_dim = distype_export_dim(distype, shapestr, is_layered)
-    !
-    ! -- create export file(s)
+
+    ! create export file(s)
     select case (export_dim)
     case (3)
-      ! -- set reshape array
+      ! set reshape array
       dis3d_shape(1) = model_shape(3)
       dis3d_shape(2) = model_shape(2)
       dis3d_shape(3) = model_shape(1)
-      ! -- allocate and reshape
+      ! allocate and reshape
       allocate (int3d(dis3d_shape(1), dis3d_shape(2), dis3d_shape(3)))
       int3d = reshape(p_mem, dis3d_shape)
-      ! -- write export files 3D array
+      ! write export files 3D array
       do k = 1, dis3d_shape(3)
         inunit = create_export_file(varname, mempath, k, iout)
         do i = 1, model_shape(2)
@@ -386,34 +370,34 @@ contains
         end do
         close (inunit)
       end do
-      ! -- cleanup
+      ! cleanup
       deallocate (int3d)
     case (2)
-      ! -- set reshape array
+      ! set reshape array
       dis2d_shape(1) = model_shape(2)
       dis2d_shape(2) = model_shape(1)
-      ! -- allocate and reshape
+      ! allocate and reshape
       allocate (int2d(dis2d_shape(1), dis2d_shape(2)))
       int2d = reshape(p_mem, dis2d_shape)
       if (is_layered) then
-        ! -- write layered export files 2D array
+        ! write layered export files 2D array
         do i = 1, dis2d_shape(2)
           inunit = create_export_file(varname, mempath, i, iout)
           write (inunit, '(*(i0, " "))') (int2d(j, i), j=1, dis2d_shape(1))
           close (inunit)
         end do
       else
-        ! -- write export file 2D array
+        ! write export file 2D array
         inunit = create_export_file(varname, mempath, 0, iout)
         do i = 1, dis2d_shape(2)
           write (inunit, '(*(i0, " "))') (int2d(j, i), j=1, dis2d_shape(1))
         end do
         close (inunit)
       end if
-      ! -- cleanup
+      ! cleanup
       deallocate (int2d)
     case (1)
-      ! -- write export file 1D array
+      ! write export file 1D array
       inunit = create_export_file(varname, mempath, 0, iout)
       write (inunit, '(*(i0, " "))') p_mem
       close (inunit)
@@ -434,26 +418,25 @@ contains
     character(len=*), intent(in) :: mempath !< variable memory path
     character(len=*), intent(in) :: shapestr !< dfn shape string
     integer(I4B), intent(in) :: iout
-    ! -- dummy
     integer(I4B), dimension(:), pointer, contiguous :: model_shape
     integer(I4B), pointer :: distype
     character(LENMEMPATH) :: input_mempath
     character(LENCOMPONENTNAME) :: comp, subcomp
     integer(I4B) :: i, j, inunit, export_dim
     logical(LGP) :: is_layered
-    !
-    ! -- set pointer to DISENUM
+
+    ! set pointer to DISENUM
     call split_mem_path(mempath, comp, subcomp)
     input_mempath = create_mem_path(component=comp, context=idm_context)
     call mem_setptr(distype, 'DISENUM', input_mempath)
     call mem_setptr(model_shape, 'MODEL_SHAPE', input_mempath)
-    !
-    ! -- set export_dim
+
+    ! set export_dim
     export_dim = distype_export_dim(distype, shapestr, is_layered)
-    !
+
     select case (export_dim)
     case (1)
-      ! -- write export file 1D array
+      ! write export file 1D array
       inunit = create_export_file(varname, mempath, 0, iout)
       do i = 1, size(p_mem, dim=2)
         write (inunit, '(*(i0, " "))') (p_mem(j, i), j=1, size(p_mem, dim=1))
@@ -461,14 +444,14 @@ contains
       close (inunit)
     case (2)
       if (is_layered) then
-        ! -- write layered export files 2D array
+        ! write layered export files 2D array
         do i = 1, size(p_mem, dim=2)
           inunit = create_export_file(varname, mempath, i, iout)
           write (inunit, '(*(i0, " "))') (p_mem(j, i), j=1, size(p_mem, dim=1))
           close (inunit)
         end do
       else
-        ! -- write export file 2D array
+        ! write export file 2D array
         inunit = create_export_file(varname, mempath, 0, iout)
         do i = 1, size(p_mem, dim=2)
           write (inunit, '(*(i0, " "))') (p_mem(j, i), j=1, size(p_mem, dim=1))
@@ -492,26 +475,25 @@ contains
     character(len=*), intent(in) :: mempath !< variable memory path
     character(len=*), intent(in) :: shapestr !< dfn shape string
     integer(I4B), intent(in) :: iout
-    ! -- dummy
     integer(I4B), dimension(:), pointer, contiguous :: model_shape
     integer(I4B), pointer :: distype
     character(LENMEMPATH) :: input_mempath
     character(LENCOMPONENTNAME) :: comp, subcomp
     integer(I4B) :: i, j, k, inunit, export_dim
     logical(LGP) :: is_layered
-    !
-    ! -- set pointer to DISENUM
+
+    ! set pointer to DISENUM
     call split_mem_path(mempath, comp, subcomp)
     input_mempath = create_mem_path(component=comp, context=idm_context)
     call mem_setptr(distype, 'DISENUM', input_mempath)
     call mem_setptr(model_shape, 'MODEL_SHAPE', input_mempath)
-    !
-    ! -- set export_dim
+
+    ! set export_dim
     export_dim = distype_export_dim(distype, shapestr, is_layered)
-    !
+
     select case (export_dim)
     case (3)
-      ! -- write export files 3D array
+      ! write export files 3D array
       do k = 1, size(p_mem, dim=3)
         inunit = create_export_file(varname, mempath, k, iout)
         do i = 1, size(p_mem, dim=2)
@@ -539,7 +521,6 @@ contains
     character(len=*), intent(in) :: mempath !< variable memory path
     character(len=*), intent(in) :: shapestr !< dfn shape string
     integer(I4B), intent(in) :: iout
-    ! -- dummy
     integer(I4B), dimension(:), pointer, contiguous :: model_shape
     real(DP), dimension(:, :, :), pointer, contiguous :: dbl3d
     real(DP), dimension(:, :), pointer, contiguous :: dbl2d
@@ -550,28 +531,28 @@ contains
     character(LENCOMPONENTNAME) :: comp, subcomp
     integer(I4B) :: i, j, k, inunit, export_dim
     logical(LGP) :: is_layered
-    !
-    ! -- set pointer to DISENUM and MODEL_SHAPE
+
+    ! set pointer to DISENUM and MODEL_SHAPE
     call split_mem_path(mempath, comp, subcomp)
     input_mempath = create_mem_path(component=comp, context=idm_context)
     call mem_setptr(distype, 'DISENUM', input_mempath)
     call mem_setptr(model_shape, 'MODEL_SHAPE', input_mempath)
-    !
-    ! -- set export_dim
+
+    ! set export_dim
     export_dim = distype_export_dim(distype, shapestr, is_layered)
-    !
-    ! -- create export file(s)
+
+    ! create export file(s)
     select case (export_dim)
     case (3)
-      ! -- set reshape array
+      ! set reshape array
       dis3d_shape(1) = model_shape(3)
       dis3d_shape(2) = model_shape(2)
-      ! -- allocate and reshape
+      ! allocate and reshape
       dis3d_shape(3) = model_shape(1)
       allocate (dbl3d(dis3d_shape(1), dis3d_shape(2), dis3d_shape(3)))
       dbl3d = reshape(p_mem, dis3d_shape)
       do k = 1, dis3d_shape(3)
-        ! -- write export files 3D array
+        ! write export files 3D array
         inunit = create_export_file(varname, mempath, k, iout)
         do i = 1, model_shape(2)
           write (inunit, '(*(G0.10, " "))') (dbl3d(j, i, k), j=1, &
@@ -579,34 +560,34 @@ contains
         end do
         close (inunit)
       end do
-      ! -- cleanup
+      ! cleanup
       deallocate (dbl3d)
     case (2)
-      ! -- set reshape array
+      ! set reshape array
       dis2d_shape(1) = model_shape(2)
       dis2d_shape(2) = model_shape(1)
-      ! -- allocate and reshape
+      ! allocate and reshape
       allocate (dbl2d(dis2d_shape(1), dis2d_shape(2)))
       dbl2d = reshape(p_mem, dis2d_shape)
       if (is_layered) then
-        ! -- write layered export files 2D array
+        ! write layered export files 2D array
         do i = 1, dis2d_shape(2)
           inunit = create_export_file(varname, mempath, i, iout)
           write (inunit, '(*(G0.10, " "))') (dbl2d(j, i), j=1, dis2d_shape(1))
           close (inunit)
         end do
       else
-        ! -- write export file 2D array
+        ! write export file 2D array
         inunit = create_export_file(varname, mempath, 0, iout)
         do i = 1, dis2d_shape(2)
           write (inunit, '(*(G0.10, " "))') (dbl2d(j, i), j=1, dis2d_shape(1))
         end do
         close (inunit)
       end if
-      ! -- cleanup
+      ! cleanup
       deallocate (dbl2d)
     case (1)
-      ! -- write export file 1D array
+      ! write export file 1D array
       inunit = create_export_file(varname, mempath, 0, iout)
       write (inunit, '(*(G0.10, " "))') p_mem
       close (inunit)
@@ -627,26 +608,25 @@ contains
     character(len=*), intent(in) :: mempath !< variable memory path
     character(len=*), intent(in) :: shapestr !< dfn shape string
     integer(I4B), intent(in) :: iout
-    ! -- dummy
     integer(I4B), dimension(:), pointer, contiguous :: model_shape
     integer(I4B), pointer :: distype
     character(LENMEMPATH) :: input_mempath
     character(LENCOMPONENTNAME) :: comp, subcomp
     integer(I4B) :: i, j, inunit, export_dim
     logical(LGP) :: is_layered
-    !
-    ! -- set pointer to DISENUM
+
+    ! set pointer to DISENUM
     call split_mem_path(mempath, comp, subcomp)
     input_mempath = create_mem_path(component=comp, context=idm_context)
     call mem_setptr(distype, 'DISENUM', input_mempath)
     call mem_setptr(model_shape, 'MODEL_SHAPE', input_mempath)
-    !
-    ! -- set export_dim
+
+    ! set export_dim
     export_dim = distype_export_dim(distype, shapestr, is_layered)
-    !
+
     select case (export_dim)
     case (1)
-      ! -- write export file 1D array
+      ! write export file 1D array
       inunit = create_export_file(varname, mempath, 0, iout)
       do i = 1, size(p_mem, dim=2)
         write (inunit, '(*(G0.10, " "))') (p_mem(j, i), j=1, size(p_mem, dim=1))
@@ -654,14 +634,14 @@ contains
       close (inunit)
     case (2)
       if (is_layered) then
-        ! -- write layered export files 2D array
+        ! write layered export files 2D array
         do i = 1, size(p_mem, dim=2)
           inunit = create_export_file(varname, mempath, i, iout)
           write (inunit, '(*(G0.10, " "))') (p_mem(j, i), j=1, size(p_mem, dim=1))
           close (inunit)
         end do
       else
-        ! -- write export file 2D array
+        ! write export file 2D array
         inunit = create_export_file(varname, mempath, 0, iout)
         do i = 1, size(p_mem, dim=2)
           write (inunit, '(*(G0.10, " "))') (p_mem(j, i), j=1, size(p_mem, dim=1))
@@ -685,26 +665,25 @@ contains
     character(len=*), intent(in) :: mempath !< variable memory path
     character(len=*), intent(in) :: shapestr !< dfn shape string
     integer(I4B), intent(in) :: iout
-    ! -- dummy
     integer(I4B), dimension(:), pointer, contiguous :: model_shape
     integer(I4B), pointer :: distype
     character(LENMEMPATH) :: input_mempath
     character(LENCOMPONENTNAME) :: comp, subcomp
     integer(I4B) :: i, j, k, inunit, export_dim
     logical(LGP) :: is_layered
-    !
-    ! -- set pointer to DISENUM
+
+    ! set pointer to DISENUM
     call split_mem_path(mempath, comp, subcomp)
     input_mempath = create_mem_path(component=comp, context=idm_context)
     call mem_setptr(distype, 'DISENUM', input_mempath)
     call mem_setptr(model_shape, 'MODEL_SHAPE', input_mempath)
-    !
-    ! -- set export_dim
+
+    ! set export_dim
     export_dim = distype_export_dim(distype, shapestr, is_layered)
-    !
+
     select case (export_dim)
     case (3)
-      ! -- write export files 3D array
+      ! write export files 3D array
       do k = 1, size(p_mem, dim=3)
         inunit = create_export_file(varname, mempath, k, iout)
         do i = 1, size(p_mem, dim=2)
@@ -730,10 +709,10 @@ contains
     character(len=*), intent(in) :: shapestr !< dfn shape string
     logical(LGP), intent(inout) :: is_layered !< does this data represent layers
     integer(I4B) :: export_dim
-    !
-    ! -- initialize is_layered to false
+
+    ! initialize is_layered to false
     is_layered = .false.
-    !
+
     select case (distype)
     case (DIS)
       if (shapestr == 'NODES') then
@@ -789,27 +768,26 @@ contains
     integer(I4B), intent(in) :: layer
     integer(I4B), intent(in) :: iout
     integer(I4B) :: inunit
-    ! -- dummy
     character(len=LENCOMPONENTNAME) :: comp, subcomp
     character(len=LINELENGTH) :: filename, suffix
-    !
-    ! -- split the mempath
+
+    ! split the mempath
     call split_mem_path(mempath, comp, subcomp)
     call lowcase(comp)
     call lowcase(subcomp)
-    !
-    ! -- build suffix
+
+    ! build suffix
     suffix = varname
     call lowcase(suffix)
     if (layer > 0) then
       write (suffix, '(a,i0)') trim(suffix)//'.l', layer
     end if
     suffix = trim(suffix)//'.txt'
-    !
-    ! -- set filename
+
+    ! set filename
     filename = trim(comp)//'-'//trim(subcomp)//'.'//trim(suffix)
-    !
-    ! -- silently create the array file
+
+    ! silently create the array file
     inunit = getunit()
     call openfile(inunit, 0, filename, 'EXPORT', filstat_opt='REPLACE')
   end function create_export_file

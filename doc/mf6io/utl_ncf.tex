@@ -1,0 +1,18 @@
+The NetCDF (NCF) configuration utility can be activated by specifying the NCF6 option in a DIS or DISV input file.
+
+The NCF configuration utility applies to model NetCDF exports that are elected with the EXPORT\_NETCDF keyword in a model name file. The EXPORT\_NETCDF keyword can be used whether or not this configuration package is defined. When defined, this package provides options related to data variable chunking, compression and grid mapping (projections).
+
+\subsubsection{Structure of Blocks}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-ncf-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-ncf-dimensions.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-ncf-griddata.dat}
+\vspace{5mm}
+
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/utl-ncf-desc.tex}
+\end{description}
+\vspace{5mm}
+
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/utl-ncf-example.dat}

@@ -321,9 +321,6 @@ contains
     packobj%iscloc = 0 ! not supported
     packobj%isadvpak = 1
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
-    !
-    ! -- Return
-    return
   end subroutine lak_create
 
   !> @brief Allocate scalar members
@@ -384,9 +381,6 @@ contains
     this%cbcauxitems = 1
     this%idense = 0
     this%ivsc = 0
-    !
-    ! -- Return
-    return
   end subroutine lak_allocate_scalars
 
   !> @brief Allocate scalar members
@@ -451,9 +445,6 @@ contains
     !
     ! -- allocate viscratios to size 0
     call mem_allocate(this%viscratios, 2, 0, 'VISCRATIOS', this%memoryPath)
-    !
-    ! -- Return
-    return
   end subroutine lak_allocate_arrays
 
   !> @brief Read the dimensions for this package
@@ -685,9 +676,6 @@ contains
     !
     ! -- deallocate local storage for nboundchk
     deallocate (nboundchk)
-    !
-    ! -- Return
-    return
   end subroutine lak_read_lakes
 
   !> @brief Read the lake connections for this package
@@ -1001,9 +989,6 @@ contains
     if (count_errors() > 0) then
       call this%parser%StoreErrorUnit()
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_read_lake_connections
 
   !> @brief Read the lake tables for this package
@@ -1127,9 +1112,6 @@ contains
       end if
     end do
     deallocate (laketables)
-    !
-    ! -- Return
-    return
   end subroutine lak_read_tables
 
   !> @brief Copy the laketables structure data into flattened vectors that are
@@ -1179,9 +1161,6 @@ contains
         j = j + 1
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine laktables_to_vectors
 
   !> @brief Read the lake table for this package
@@ -1415,9 +1394,6 @@ contains
     !
     ! Close the table file and clear other parser members
     call parser%Clear()
-    !
-    ! -- Return
-    return
   end subroutine lak_read_table
 
   !> @brief Read the lake outlets for this package
@@ -1600,9 +1576,6 @@ contains
     if (ierr > 0) then
       call this%parser%StoreErrorUnit()
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_read_outlets
 
   !> @brief Read the dimensions for this package
@@ -1687,9 +1660,6 @@ contains
     !
     ! -- setup the stage table object
     call this%lak_setup_tableobj()
-    !
-    ! -- Return
-    return
   end subroutine lak_read_dimensions
 
   !> @brief Read the initial parameters for this package
@@ -1958,9 +1928,6 @@ contains
     ! -- deallocate temporary storage
     deallocate (clb)
     deallocate (caq)
-    !
-    ! -- Return
-    return
   end subroutine lak_read_initial_attr
 
   !> @brief Perform linear interpolation of two vectors.
@@ -2008,9 +1975,6 @@ contains
         end if
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_linear_interpolation
 
   !> @brief Calculate the surface area of a lake at a given stage
@@ -2053,9 +2017,6 @@ contains
         sarea = sarea + sa
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_sarea
 
   !> @brief Calculate the wetted area of a lake at a given stage.
@@ -2084,9 +2045,6 @@ contains
       call this%lak_calculate_conn_warea(ilak, i, stage, head, wa)
       warea = warea + wa
     end do
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_warea
 
   !> @brief Calculate the wetted area of a lake connection at a given stage
@@ -2138,9 +2096,6 @@ contains
       end if
       wa = sat * this%warea(iconn)
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_conn_warea
 
   !> @brief Calculate the volume of a lake at a given stage
@@ -2194,9 +2149,6 @@ contains
         volume = volume + v
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_vol
 
   !> @brief Calculate the total conductance for a lake at a provided stage
@@ -2216,9 +2168,6 @@ contains
       call this%lak_calculate_conn_conductance(ilak, i, stage, stage, c)
       conductance = conductance + c
     end do
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_conductance
 
   !> @brief Calculate the controlling lake stage or groundwater head used to
@@ -2249,9 +2198,6 @@ contains
     else
       vv = DHALF * (ss + hh)
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_cond_head
 
   !> @brief Calculate the conductance for a lake connection at a provided stage
@@ -2319,9 +2265,6 @@ contains
       end if
     end if
     cond = sat * this%satcond(iconn) * vscratio
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_conn_conductance
 
   !> @brief Calculate the total groundwater-lake flow at a provided stage
@@ -2345,9 +2288,6 @@ contains
       call this%lak_calculate_conn_exchange(ilak, j, stage, hgwf, flow)
       totflow = totflow + flow
     end do
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_exchange
 
   !> @brief Calculate the groundwater-lake flow at a provided stage and
@@ -2411,9 +2351,6 @@ contains
     ! -- If present update gwfhcof and gwfrhs
     if (present(gwfhcof)) gwfhcof = gwfhcof0
     if (present(gwfrhs)) gwfrhs = gwfrhs0
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_conn_exchange
 
   !> @brief Calculate the groundwater-lake flow at a provided stage and
@@ -2457,9 +2394,6 @@ contains
     ! -- Set gwfhcof and gwfrhs if present
     if (present(gwfhcof)) gwfhcof = gwfhcof0
     if (present(gwfrhs)) gwfrhs = gwfrhs0
-    !
-    ! -- Return
-    return
   end subroutine lak_estimate_conn_exchange
 
   !> @brief Calculate the storage change in a lake based on provided stages
@@ -2483,9 +2417,6 @@ contains
       call this%lak_calculate_vol(ilak, stage0, v0)
       dvr = (v0 - v) / delt
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_storagechange
 
   !> @brief Calculate the rainfall for a lake
@@ -2508,9 +2439,6 @@ contains
       call this%lak_calculate_sarea(ilak, stage, sa)
     end if
     ra = this%rainfall(ilak) * sa
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_rainfall
 
   !> @brief Calculate runoff to a lake
@@ -2523,9 +2451,6 @@ contains
     !
     ! -- runoff
     ro = this%runoff(ilak)
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_runoff
 
   !> @brief Calculate specified inflow to a lake
@@ -2538,9 +2463,6 @@ contains
     !
     ! -- inflow to lake
     qin = this%inflow(ilak)
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_inflow
 
   !> @brief Calculate the external flow terms to a lake
@@ -2557,9 +2479,6 @@ contains
     if (this%imover == 1) then
       ex = this%pakmvrobj%get_qfrommvr(ilak)
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_external
 
   !> @brief Calculate the withdrawal from a lake subject to an available volume
@@ -2581,9 +2500,6 @@ contains
       end if
     end if
     avail = avail + wr
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_withdrawal
 
   !> @brief Calculate the evaporation from a lake at a provided stage subject
@@ -2612,9 +2528,6 @@ contains
       ev = -ev
     end if
     avail = avail + ev
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_evaporation
 
   !> @brief Calculate the outlet inflow to a lake
@@ -2636,9 +2549,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_outlet_inflow
 
   !> @brief Calculate the outlet outflow from a lake
@@ -2697,9 +2607,6 @@ contains
         outoutf = outoutf + rate
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_outlet_outflow
 
   !> @brief Get the outlet inflow to a lake from another lake
@@ -2721,9 +2628,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine lak_get_internal_inlet
 
   !> @brief Get the outlet from a lake to another lake
@@ -2743,9 +2647,6 @@ contains
         outoutf = outoutf + this%simoutrate(n)
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine lak_get_internal_outlet
 
   !> @brief Get the outlet outflow from a lake to an external boundary
@@ -2765,9 +2666,6 @@ contains
         outoutf = outoutf + this%simoutrate(n)
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine lak_get_external_outlet
 
   !> @brief Get the mover outflow from a lake to an external boundary
@@ -2789,9 +2687,6 @@ contains
         end if
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_get_external_mover
 
   !> @brief Get the mover outflow from a lake to another lake
@@ -2813,9 +2708,6 @@ contains
         end if
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_get_internal_mover
 
   !> @brief Get the outlet to mover from a lake
@@ -2836,9 +2728,6 @@ contains
         end if
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_get_outlet_tomover
 
   !> @brief Determine the stage from a provided volume
@@ -2921,9 +2810,6 @@ contains
      &    'final change in stage =', ds
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_vol2stage
 
   !> @brief Determine if a valid lake or outlet number has been specified
@@ -2957,9 +2843,6 @@ contains
         ierr = 1
       end if
     end if
-    !
-    ! -- Return
-    return
   end function lak_check_valid
 
   !> @brief Set a stress period attribute for lakweslls(itemno) using keywords
@@ -3199,8 +3082,6 @@ contains
       write (errmsg, '(a,1x,a,1x,i0,1x,a)') keyword, ' for LAKE', ilak, msg
     end if
     call store_error(errmsg)
-    ! -- Return
-    return
   end subroutine lak_set_attribute_error
 
   !> @brief Set options specific to LakType
@@ -3212,7 +3093,7 @@ contains
     use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL
     use OpenSpecModule, only: access, form
     use SimModule, only: store_error
-    use InputOutputModule, only: urword, getunit, openfile
+    use InputOutputModule, only: urword, getunit, assign_iounit, openfile
     ! -- dummy
     class(LakType), intent(inout) :: this
     character(len=*), intent(inout) :: option
@@ -3259,7 +3140,7 @@ contains
       call this%parser%GetStringCaps(keyword)
       if (keyword == 'FILEOUT') then
         call this%parser%GetString(fname)
-        this%ibudgetout = getunit()
+        call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
         call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
                       form, access, 'REPLACE', mode_opt=MNORMAL)
         write (this%iout, fmtlakbin) 'BUDGET', trim(adjustl(fname)), &
@@ -3271,7 +3152,7 @@ contains
       call this%parser%GetStringCaps(keyword)
       if (keyword == 'FILEOUT') then
         call this%parser%GetString(fname)
-        this%ibudcsv = getunit()
+        call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
         call openfile(this%ibudcsv, this%iout, fname, 'CSV', &
                       filstat_opt='REPLACE')
         write (this%iout, fmtlakbin) 'BUDGET CSV', trim(adjustl(fname)), &
@@ -3357,9 +3238,6 @@ contains
       ! -- No options found
       found = .false.
     end select
-    !
-    ! -- Return
-    return
   end subroutine lak_options
 
   !> @brief Allocate and Read
@@ -3383,9 +3261,6 @@ contains
       allocate (this%pakmvrobj)
       call this%pakmvrobj%ar(this%noutlets, this%nlakes, this%memoryPath)
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_ar
 
   !> @brief Read and Prepare
@@ -3522,9 +3397,6 @@ contains
         this%pakmvrobj%iprmap(n) = this%lakein(n)
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_rp
 
   !> @brief Add package connection to matrix
@@ -3592,9 +3464,6 @@ contains
     !    simulation time from "current" to "preceding" and reset
     !    "current" value.
     call this%obs%obs_ad()
-    !
-    ! -- Return
-    return
   end subroutine lak_ad
 
   !> @brief Formulate the HCOF and RHS terms
@@ -3678,9 +3547,6 @@ contains
     ! -- Store the lake stage and cond in bound array for other
     !    packages, such as the BUY package
     call this%lak_bound_update()
-    !
-    ! -- Return
-    return
   end subroutine lak_cf
 
   !> @brief Copy rhs and hcof into solution rhs and amat
@@ -3716,9 +3582,6 @@ contains
         rhs(igwfnode) = rhs(igwfnode) + this%rhs(j)
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine lak_fc
 
   !> @brief Fill newton terms
@@ -3778,9 +3641,6 @@ contains
         end if
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine lak_fn
 
   !> @brief Final convergence check for package
@@ -4077,9 +3937,6 @@ contains
         end if
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_cc
 
   !> @brief Calculate flows
@@ -4182,9 +4039,6 @@ contains
     !
     ! -- fill the budget object
     call this%lak_fill_budobj()
-    !
-    ! -- Return
-    return
   end subroutine lak_cq
 
   !> @brief Output LAK package flow terms
@@ -4211,9 +4065,6 @@ contains
     if (ibudfl /= 0 .and. this%iprflow /= 0) then
       call this%budobj%write_flowtable(this%dis, kstp, kper)
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_ot_package_flows
 
   !> @brief Write flows to binary file and/or print flows to budget
@@ -4227,9 +4078,6 @@ contains
     !
     ! -- write the flows from the budobj
     call this%BndType%bnd_ot_model_flows(icbcfl, ibudfl, icbcun, this%imap)
-    !
-    ! -- Return
-    return
   end subroutine lak_ot_model_flows
 
   !> @brief Save LAK-calculated values to binary file
@@ -4301,9 +4149,6 @@ contains
         call this%stagetab%add_term(v)
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_ot_dv
 
   !> @brief Write LAK budget to listing file
@@ -4319,9 +4164,6 @@ contains
     integer(I4B), intent(in) :: ibudfl !< flag indicating budget should be written
     !
     call this%budobj%write_budtable(kstp, kper, iout, ibudfl, totim, delt)
-    !
-    ! -- Return
-    return
   end subroutine lak_ot_bdsummary
 
   !> @brief Deallocate objects
@@ -4485,9 +4327,6 @@ contains
     !
     ! -- Parent object
     call this%BndType%bnd_da()
-    !
-    ! -- Return
-    return
   end subroutine lak_da
 
   !> @brief Define the list heading that is written to iout when PRINT_INPUT
@@ -4513,9 +4352,6 @@ contains
     if (this%inamedbound == 1) then
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
-    !
-    ! -- Return
-    return
   end subroutine define_listlabel
 
   !> @brief Set pointers to model arrays and variables so that a package has
@@ -4545,9 +4381,6 @@ contains
     !do n = 1, this%nlakes
     !  this%xnewpak(n) = DEP20
     !end do
-    !
-    ! -- Return
-    return
   end subroutine lak_set_pointers
 
   !> @brief Procedures related to observations (type-bound)
@@ -4560,9 +4393,6 @@ contains
     class(LakType) :: this
     !
     lak_obs_supported = .true.
-    !
-    ! -- Return
-    return
   end function lak_obs_supported
 
   !> @brief Store observation type supported by LAK package. Overrides
@@ -4668,9 +4498,6 @@ contains
     !    for conductance observation type.
     call this%obs%StoreObsType('conductance', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => lak_process_obsID
-    !
-    ! -- Return
-    return
   end subroutine lak_df_obs
 
   !> @brief Calculate observations this time step and call ObsType%SaveOneSimval
@@ -4824,9 +4651,6 @@ contains
         call store_error_unit(this%inunit)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_bd_obs
 
   !> @brief Process each observation
@@ -4977,9 +4801,6 @@ contains
         call store_error_unit(this%inunit)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_rp_obs
 
   !
@@ -5033,9 +4854,6 @@ contains
     end if
     ! -- store lake number (NodeNumber)
     obsrv%NodeNumber = nn1
-    !
-    ! -- Return
-    return
   end subroutine lak_process_obsID
 
   !
@@ -5070,9 +4888,6 @@ contains
         chratin = chratin + q
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_accumulate_chterm
 
   !> @brief Store the lake head and connection conductance in the bound array
@@ -5098,9 +4913,6 @@ contains
         this%bound(2, j) = clak
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine lak_bound_update
 
   !> @brief Solve for lake stage
@@ -5477,9 +5289,6 @@ contains
         call this%pakmvrobj%accumulate_qformvr(n, -this%simoutrate(n))
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_solve
 
   !> @ brief Lake package bisection method
@@ -5529,9 +5338,6 @@ contains
       temporary_stage0 = temporary_stage
     end do
     dh = hlak - temporary_stage
-    !
-    ! -- Return
-    return
   end subroutine lak_bisection
 
   !> @brief Calculate the available volumetric rate for a lake given a passed
@@ -5598,9 +5404,6 @@ contains
     ! -- calculate volume available in storage
     call this%lak_calculate_vol(n, this%xoldpak(n), v0)
     avail = avail + v0 / delt
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_available
 
   !> @brief Calculate the residual for a lake given a passed stage
@@ -5683,9 +5486,6 @@ contains
       call this%lak_calculate_vol(n, hlak, v1)
       resid = resid + (v0 - v1) / delt
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_residual
 
   !> @brief Set up the budget object that stores all the lake flows
@@ -5938,9 +5738,6 @@ contains
     if (this%iprflow /= 0) then
       call this%budobj%flowtable_df(this%iout)
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_setup_budobj
 
   !> @brief Copy flow terms into this%budobj
@@ -6126,9 +5923,6 @@ contains
     !
     ! --Terms are filled, now accumulate them for this time step
     call this%budobj%accumulate_terms()
-    !
-    ! -- Return
-    return
   end subroutine lak_fill_budobj
 
   !> @brief Set up the table object that is used to write the lak stage data
@@ -6193,9 +5987,6 @@ contains
       text = 'VOLUME'
       call this%stagetab%initialize_column(text, 12, alignment=TABCENTER)
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_setup_tableobj
 
   !> @brief Activate addition of density terms
@@ -6217,9 +6008,6 @@ contains
     end do
     write (this%iout, '(/1x,a)') 'DENSITY TERMS HAVE BEEN ACTIVATED FOR LAKE &
       &PACKAGE: '//trim(adjustl(this%packName))
-    !
-    ! -- Return
-    return
   end subroutine lak_activate_density
 
   !> @brief Activate viscosity terms
@@ -6246,9 +6034,6 @@ contains
     end do
     write (this%iout, '(/1x,a)') 'VISCOSITY HAS BEEN ACTIVATED FOR LAK &
       &PACKAGE: '//trim(adjustl(this%packName))
-    !
-    ! -- Return
-    return
   end subroutine lak_activate_viscosity
 
   !> @brief Calculate the groundwater-lake density exchange terms
@@ -6359,9 +6144,6 @@ contains
         flow = flow + d2
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine lak_calculate_density_exchange
 
 end module LakModule

@@ -38,7 +38,7 @@ C     ------------------------------------------------------------------
       USE GLOBAL,   ONLY:IOUT,NCOL,NROW,NLAY
       USE DE4MODULE
       use utl7module, only: URDCOM, URWORD
-      use SimModule, only: USTOP
+      use SimPHMFModule, only: USTOP
       CHARACTER*200 LINE
       double precision :: r
 C     ------------------------------------------------------------------

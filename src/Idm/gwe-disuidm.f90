@@ -14,11 +14,16 @@ module GweDisuInputModule
   type GweDisuParamFoundType
     logical :: length_units = .false.
     logical :: nogrb = .false.
+    logical :: grb_filerecord = .false.
+    logical :: grb6 = .false.
+    logical :: fileout = .false.
+    logical :: grb6_filename = .false.
     logical :: xorigin = .false.
     logical :: yorigin = .false.
     logical :: angrot = .false.
     logical :: voffsettol = .false.
     logical :: export_ascii = .false.
+    logical :: crs = .false.
     logical :: nodes = .false.
     logical :: nja = .false.
     logical :: nvert = .false.
@@ -62,6 +67,7 @@ module GweDisuInputModule
     '', & ! shape
     'model length units', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -80,8 +86,85 @@ module GweDisuInputModule
     '', & ! shape
     'do not write binary grid file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwedisu_grb_filerecord = InputParamDefinitionType &
+    ( &
+    'GWE', & ! component
+    'DISU', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB_FILERECORD', & ! tag name
+    'GRB_FILERECORD', & ! fortran variable
+    'RECORD GRB6 FILEOUT GRB6_FILENAME', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwedisu_grb6 = InputParamDefinitionType &
+    ( &
+    'GWE', & ! component
+    'DISU', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB6', & ! tag name
+    'GRB6', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'grb keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwedisu_fileout = InputParamDefinitionType &
+    ( &
+    'GWE', & ! component
+    'DISU', & ! subcomponent
+    'OPTIONS', & ! block
+    'FILEOUT', & ! tag name
+    'FILEOUT', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'file keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwedisu_grb6_filename = InputParamDefinitionType &
+    ( &
+    'GWE', & ! component
+    'DISU', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB6_FILENAME', & ! tag name
+    'GRB6_FILENAME', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file name of GRB information', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -98,6 +181,7 @@ module GweDisuInputModule
     '', & ! shape
     'x-position origin of the model grid coordinate system', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -116,6 +200,7 @@ module GweDisuInputModule
     '', & ! shape
     'y-position origin of the model grid coordinate system', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -134,6 +219,7 @@ module GweDisuInputModule
     '', & ! shape
     'rotation angle', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -152,6 +238,7 @@ module GweDisuInputModule
     '', & ! shape
     'vertical length dimension for top and bottom checking', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -170,8 +257,28 @@ module GweDisuInputModule
     '', & ! shape
     'export array variables to layered ascii files.', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwedisu_crs = InputParamDefinitionType &
+    ( &
+    'GWE', & ! component
+    'DISU', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .true., & ! developmode
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -188,6 +295,7 @@ module GweDisuInputModule
     '', & ! shape
     'number of layers', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -206,6 +314,7 @@ module GweDisuInputModule
     '', & ! shape
     'number of columns', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -224,6 +333,7 @@ module GweDisuInputModule
     '', & ! shape
     'number of vertices', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -242,6 +352,7 @@ module GweDisuInputModule
     'NODES', & ! shape
     'cell top elevation', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -260,6 +371,7 @@ module GweDisuInputModule
     'NODES', & ! shape
     'cell bottom elevation', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -278,6 +390,7 @@ module GweDisuInputModule
     'NODES', & ! shape
     'cell surface area', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -296,6 +409,7 @@ module GweDisuInputModule
     'NODES', & ! shape
     'idomain existence array', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -314,6 +428,7 @@ module GweDisuInputModule
     'NODES', & ! shape
     'number of cell connections', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -332,6 +447,7 @@ module GweDisuInputModule
     'NJA', & ! shape
     'grid connectivity', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -350,6 +466,7 @@ module GweDisuInputModule
     'NJA', & ! shape
     'connection type', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -368,6 +485,7 @@ module GweDisuInputModule
     'NJA', & ! shape
     'connection lengths', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -386,6 +504,7 @@ module GweDisuInputModule
     'NJA', & ! shape
     'connection lengths', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -404,6 +523,7 @@ module GweDisuInputModule
     'NJA', & ! shape
     'angle of face normal to connection', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -422,6 +542,7 @@ module GweDisuInputModule
     '', & ! shape
     'vertex number', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -440,6 +561,7 @@ module GweDisuInputModule
     '', & ! shape
     'x-coordinate for vertex', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -458,6 +580,7 @@ module GweDisuInputModule
     '', & ! shape
     'y-coordinate for vertex', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -476,6 +599,7 @@ module GweDisuInputModule
     '', & ! shape
     'cell2d number', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -494,6 +618,7 @@ module GweDisuInputModule
     '', & ! shape
     'x-coordinate for cell center', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -512,6 +637,7 @@ module GweDisuInputModule
     '', & ! shape
     'y-coordinate for cell center', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -530,6 +656,7 @@ module GweDisuInputModule
     '', & ! shape
     'number of cell vertices', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -548,6 +675,7 @@ module GweDisuInputModule
     'NCVERT', & ! shape
     'array of vertex numbers', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -559,11 +687,16 @@ module GweDisuInputModule
     [ &
     gwedisu_length_units, &
     gwedisu_nogrb, &
+    gwedisu_grb_filerecord, &
+    gwedisu_grb6, &
+    gwedisu_fileout, &
+    gwedisu_grb6_filename, &
     gwedisu_xorigin, &
     gwedisu_yorigin, &
     gwedisu_angrot, &
     gwedisu_voffsettol, &
     gwedisu_export_ascii, &
+    gwedisu_crs, &
     gwedisu_nodes, &
     gwedisu_nja, &
     gwedisu_nvert, &
@@ -599,6 +732,7 @@ module GweDisuInputModule
     'NVERT', & ! shape
     'vertices data', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -617,6 +751,7 @@ module GweDisuInputModule
     'NODES', & ! shape
     'cell2d data', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

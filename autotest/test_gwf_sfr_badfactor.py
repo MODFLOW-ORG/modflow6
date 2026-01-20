@@ -41,9 +41,7 @@ def build_models(idx, test, timeseries=False):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=test.workspace
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
     # set ims csv files
     csv0 = f"{name}.outer.ims.csv"
     csv1 = f"{name}.inner.ims.csv"
@@ -98,9 +96,7 @@ def build_models(idx, test, timeseries=False):
         [(0, 0, 0), 1.0],
         [(0, nrow - 1, ncol - 1), 0.0],
     ]
-    chd = flopy.mf6.modflow.ModflowGwfchd(
-        gwf, stress_period_data=spd, pname="chd-1"
-    )
+    chd = flopy.mf6.modflow.ModflowGwfchd(gwf, stress_period_data=spd, pname="chd-1")
 
     # drn file
     drn6 = [

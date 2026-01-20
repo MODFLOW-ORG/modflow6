@@ -1,0 +1,233 @@
+# --------------------- gwf wel options ---------------------
+# flopy multi-package
+# package-type stress-package
+
+block options
+name readarraygrid
+type keyword
+reader urword
+optional false
+developmode true
+longname use array-based grid input
+description indicates that array-based grid input will be used for the well boundary package.  This keyword must be specified to use array-based grid input.  When READARRAYGRID is specified, values must be provided for every cell within a model grid, even those cells that have an IDOMAIN value less than one.  Values assigned to cells with IDOMAIN values less than one are not used and have no effect on simulation results. No data cells should contain the value DNODATA (3.0E+30).
+default_value true
+
+block options
+name auxiliary
+type string
+shape (naux)
+reader urword
+optional true
+longname keyword to specify aux variables
+description REPLACE auxnames {'{#1}': 'Groundwater Flow'}
+
+block options
+name auxmultname
+type string
+shape
+reader urword
+optional true
+longname name of auxiliary variable for multiplier
+description REPLACE auxmultname {'{#1}': 'well flow rate'}
+
+block options
+name print_input
+type keyword
+reader urword
+optional true
+longname print input to listing file
+description REPLACE print_input {'{#1}': 'well'}
+mf6internal iprpak
+
+block options
+name print_flows
+type keyword
+reader urword
+optional true
+longname print calculated flows to listing file
+description REPLACE print_flows {'{#1}': 'well'}
+mf6internal iprflow
+
+block options
+name save_flows
+type keyword
+reader urword
+optional true
+longname save well flows to budget file
+description REPLACE save_flows {'{#1}': 'well'}
+mf6internal ipakcb
+
+block options
+name auto_flow_reduce
+type double precision
+reader urword
+optional true
+longname cell fractional thickness for reduced pumping
+description keyword and real value that defines the fraction of the cell thickness used as an interval for smoothly adjusting negative pumping rates to 0 in cells with head values less than or equal to the bottom of the cell. Negative pumping rates are adjusted to 0 or a smaller negative value when the head in the cell is equal to or less than the calculated interval above the cell bottom. AUTO\_FLOW\_REDUCE is set to 0.1 if the specified value is less than or equal to zero. By default, negative pumping rates are not reduced during a simulation.  This AUTO\_FLOW\_REDUCE option only applies to wells in model cells that are marked as ``convertible'' (ICELLTYPE /= 0) in the Node Property Flow (NPF) input file. Reduction in flow will not occur for wells in cells marked as confined (ICELLTYPE = 0).
+mf6internal flowred
+
+block options
+name afrcsv_filerecord
+type record auto_flow_reduce_csv fileout afrcsvfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+mf6internal afrcsv_rec
+
+block options
+name auto_flow_reduce_csv
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname budget keyword
+description keyword to specify that record corresponds to the AUTO\_FLOW\_REDUCE output option in which a new record is written for each well and for each time step in which the user-requested extraction rate is reduced by the program.
+mf6internal afrcsv
+
+block options
+name fileout
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname file keyword
+description keyword to specify that an output filename is expected next.
+
+block options
+name afrcsvfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname file keyword
+description name of the comma-separated value (CSV) output file to write information about well extraction rates that have been reduced by the program.  Entries are only written if the extraction rates are reduced.
+
+block options
+name flow_reduction_length
+type keyword
+reader urword
+optional true
+longname flow reduction length keyword
+description keyword that indicates the AUTO\_FLOW\_REDUCE value is a length instead of a fraction of the cell thickness. A warning will be issued if the FLOW\_REDUCTION\_LENGTH option is specified but the AUTO\_FLOW\_REDUCE option is not specified in the options block. The program will terminate with an error if the FLOW\_REDUCTION\_LENGTH option is specified and the AUTO\_FLOW\_REDUCE value specified in the options block is less than or equal to zero.
+mf6internal iflowredlen
+
+block options
+name obs_filerecord
+type record obs6 filein obs6_filename
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name filein
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname file keyword
+description keyword to specify that an input filename is expected next.
+
+block options
+name obs6
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname obs keyword
+description keyword to specify that record corresponds to an observations file.
+
+block options
+name obs6_filename
+type string
+preserve_case true
+in_record true
+tagged false
+reader urword
+optional false
+longname obs6 input filename
+description REPLACE obs6_filename {'{#1}': 'Well'}
+
+block options
+name mover
+type keyword
+tagged true
+reader urword
+optional true
+longname
+description REPLACE mover {'{#1}': 'Well'}
+
+block options
+name export_array_netcdf
+type keyword
+reader urword
+optional true
+mf6internal export_nc
+longname export array variables to netcdf output files.
+description keyword that specifies input gridded arrays should be written to the model output NetCDF file with attributes that support using the generated file as a MODFLOW 6 simulation input.  This option only has an effect when an output model NetCDF file is configured and the simulation is run in VALIDATE mode, otherwise it is ignored.
+extended true
+
+# --------------------- gwf wel dimensions ---------------------
+
+block dimensions
+name maxbound
+type integer
+reader urword
+optional true
+longname maximum number of wells in any stress period
+description REPLACE maxbound {'{#1}': 'wells'}
+
+
+# --------------------- gwf wel period ---------------------
+
+block period
+name iper
+type integer
+block_variable true
+in_record true
+tagged false
+shape
+valid
+reader urword
+optional false
+longname stress period number
+description REPLACE iper {}
+
+block period
+name q
+type double precision
+shape (nodes)
+reader readarray
+layered true
+netcdf true
+longname well rate
+description is the volumetric well rate. A positive value indicates recharge (injection) and a negative value indicates discharge (extraction).
+default_value 3.e30
+
+block period
+name aux
+type double precision
+shape (nodes)
+reader readarray
+layered true
+netcdf true
+optional true
+longname well auxiliary variable iaux
+description is an array of values for auxiliary variable aux(iaux), where iaux is a value from 1 to naux, and aux(iaux) must be listed as part of the auxiliary variables.  A separate array can be specified for each auxiliary variable. If the value specified here for the auxiliary variable is the same as auxmultname, then the well rate array will be multiplied by this array.
+mf6internal auxvar

@@ -86,11 +86,7 @@ strt_gw_temp = [4.0, 4.0, 20.0]
 strt_lk_temp = [20.0, 20.0, 4.0]
 lak_leakance = [0.0, 1.0, 1.0]
 strt_lk_stg = [33.75, 33.75, 33.75]
-lkbdthkcnd = [
-    0.0001,
-    0.0001,
-    0.0001,
-]  # Thickness to consider for feature/gw conduction
+lkbdthkcnd = [0.0001, 0.0001, 0.0001]  # Thickness to consider for feature/gw conduction
 
 # Model units
 length_units = "m"
@@ -368,10 +364,7 @@ def build_models(idx, test):
                     ilak = int(lakibnd[k, i, j] - 1)
                     # back
                     if i > 0:
-                        if (
-                            lakibnd[k, i - 1, j] == 0
-                            and ibound[k, i - 1, j] == 1
-                        ):
+                        if lakibnd[k, i - 1, j] == 0 and ibound[k, i - 1, j] == 1:
                             ilakconn += 1
                             # by setting belev==telev, MF6 will automatically
                             # re-assign elevations based on cell dimensions
@@ -391,10 +384,7 @@ def build_models(idx, test):
 
                     # left
                     if j > 0:
-                        if (
-                            lakibnd[k, i, j - 1] == 0
-                            and ibound[k, i, j - 1] == 1
-                        ):
+                        if lakibnd[k, i, j - 1] == 0 and ibound[k, i, j - 1] == 1:
                             ilakconn += 1
                             h = [
                                 ilak,
@@ -412,10 +402,7 @@ def build_models(idx, test):
 
                     # right
                     if j < ncol - 1:
-                        if (
-                            lakibnd[k, i, j + 1] == 0
-                            and ibound[k, i, j + 1] == 1
-                        ):
+                        if lakibnd[k, i, j + 1] == 0 and ibound[k, i, j + 1] == 1:
                             ilakconn += 1
                             h = [
                                 ilak,
@@ -433,10 +420,7 @@ def build_models(idx, test):
 
                     # front
                     if i < nrow - 1:
-                        if (
-                            lakibnd[k, i + 1, j] == 0
-                            and ibound[k, i + 1, j] == 1
-                        ):
+                        if lakibnd[k, i + 1, j] == 0 and ibound[k, i + 1, j] == 1:
                             ilakconn += 1
                             h = [
                                 ilak,
@@ -470,9 +454,7 @@ def build_models(idx, test):
                     lak_lkup_dict.update({ilakconn: (k, i, j)})
 
     strtStg = strt_lk_stg[idx]
-    lakpackagedata = [
-        [0, strtStg, len(lakeconnectiondata), strt_lk_temp[idx], "lake1"]
-    ]
+    lakpackagedata = [[0, strtStg, len(lakeconnectiondata), strt_lk_temp[idx], "lake1"]]
     lak_pkdat_dict = {"filename": "lak_pakdata.in", "data": lakpackagedata}
 
     lakeperioddata = {0: []}
@@ -529,9 +511,7 @@ def build_models(idx, test):
     # Create GWE model
     # -----------------
 
-    gwe = flopy.mf6.ModflowGwe(
-        sim, modelname=gwename, model_nam_file=f"{gwename}.nam"
-    )
+    gwe = flopy.mf6.ModflowGwe(sim, modelname=gwename, model_nam_file=f"{gwename}.nam")
     gwe.name_file.save_flows = True
 
     imsgwe = flopy.mf6.ModflowIms(
@@ -576,8 +556,8 @@ def build_models(idx, test):
         heat_capacity_water=Cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=Cps,
-        rhos=rhos,
+        heat_capacity_solid=Cps,
+        density_solid=rhos,
         pname="MST-1",
         filename=f"{gwename}.mst",
     )
@@ -607,27 +587,21 @@ def build_models(idx, test):
         ("CHD-L", "AUX", "TEMPERATURE"),
         ("CHD-R", "AUX", "TEMPERATURE"),
     ]
-    flopy.mf6.ModflowGwessm(
-        gwe, sources=sourcerecarray, filename=f"{gwename}.ssm"
-    )
+    flopy.mf6.ModflowGwessm(gwe, sources=sourcerecarray, filename=f"{gwename}.ssm")
 
     # Instantiating MODFLOW 6 transport output control package
     flopy.mf6.ModflowGweoc(
         gwe,
         budget_filerecord=f"{gwename}.cbc",
         temperature_filerecord=f"{gwename}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 17, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 17, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         filename=f"{gwename}.oc",
     )
 
     # Instantiating MODFLOW 6 lake energy transport (lke) package
-    lkepackagedata = [
-        (0, strt_lk_temp[idx], K_therm_lakebed, lkbdthkcnd[idx], "lake1")
-    ]
+    lkepackagedata = [(0, strt_lk_temp[idx], K_therm_lakebed, lkbdthkcnd[idx], "lake1")]
 
     # lkeperioddata = {0: [(0, "STATUS", "CONSTANT"), (0, "TEMPERATURE", 4.0)]}
 
@@ -685,21 +659,21 @@ def check_output(idx, test):
     fname = gwename + ".ucn"
     fname = os.path.join(test.workspace, fname)
     assert os.path.isfile(fname)
-    gwtempobj = flopy.utils.HeadFile(
-        fname, precision="double", text="TEMPERATURE"
-    )
+    gwtempobj = flopy.utils.HeadFile(fname, precision="double", text="TEMPERATURE")
     gwe_temps = gwtempobj.get_alldata()
 
     # gw exchng (item 'GWF') should be zero in heat transport budget
-    srchStr = "LKE-1 BUDGET FOR ENTIRE MODEL AT END OF TIME STEP    1, STRESS PERIOD   1"
+    srchStr = (
+        "LKE-1 BUDGET FOR ENTIRE MODEL AT END OF TIME STEP    1, STRESS PERIOD   1"
+    )
     fname = gwename + ".lst"
     fname = os.path.join(test.workspace, fname)
 
     # Retrieve budget
     T_in, T_out, in_bud_lst, out_bud_lst = get_bud(fname, srchStr)
-    assert np.isclose(
-        T_in, T_out, atol=0.1
-    ), "There is a heat budget discrepancy where there shouldn't be"
+    assert np.isclose(T_in, T_out, atol=0.1), (
+        "There is a heat budget discrepancy where there shouldn't be"
+    )
 
     msg1 = "Budget item 'GWF' should be 0.0 for this scenario"
     msg2 = (
@@ -710,18 +684,11 @@ def check_output(idx, test):
         "There should be a cooling trend in the lake based on heat loss "
         "to the groundwater system"
     )
-    msg4 = (
-        "There should be a warming trend in the groundwater adjacent "
-        "to the lake"
-    )
+    msg4 = "There should be a warming trend in the groundwater adjacent to the lake"
     msg5 = (
-        "Budget item 'GWF' should reflect heat entering the lake "
-        "(via gw/sw exchange)"
+        "Budget item 'GWF' should reflect heat entering the lake (via gw/sw exchange)"
     )
-    msg6 = (
-        "Budget item 'GWF' should reflect heat exiting the lake "
-        "(via gw/sw exchange)"
-    )
+    msg6 = "Budget item 'GWF' should reflect heat exiting the lake (via gw/sw exchange)"
 
     if name[-1] == "n":
         assert in_bud_lst["GWF"] == 0.0, msg1

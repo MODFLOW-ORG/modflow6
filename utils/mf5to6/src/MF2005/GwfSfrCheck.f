@@ -7,7 +7,7 @@ C     ******************************************************************
 
       USE GWFSFRMODULE,ONLY:ISTRM,STRM,NSTRM
       USE GLOBAL,ONLY:BOTM,IBOUND,LBOTM
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       implicit none
       type check_bot
         integer ltype,irchnum,iflag,iunit

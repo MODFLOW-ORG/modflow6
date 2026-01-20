@@ -40,7 +40,7 @@ neighbors.  Referring to this test as a flowing through problem.
      |       |
      |       |
      +-------+
-"""
+"""  # noqa
 
 # Imports
 
@@ -107,7 +107,8 @@ idomain = 1  # All cells included in the simulation
 iconvert = 1  # All cells are convertible
 
 bot_r1 = np.zeros(ncol).tolist()
-# This is the head solution for row 1, so round up to ensure neighboring cells remain dry
+# This is the head solution for row 1, so round up to
+# ensure neighboring cells remain dry
 r2 = [
     6.99850,
     6.78111,
@@ -172,7 +173,8 @@ ghb_conc = 4.0
 ghb_temp = 4.0
 ghb_conc_warmup = 30.0
 ghb_temp_warmup = 30.0
-# left boundary:  cellid, elv, cond, conc, temp; right bnd: cellid, elv, cond, conc, temp
+# left boundary:  cellid, elv, cond, conc, temp
+# right boundary: cellid, elv, cond, conc, temp
 ghbspd = {
     # Steady state stress period
     0: [
@@ -204,9 +206,7 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 time discretization
-    flopy.mf6.ModflowTdis(
-        sim, nper=nper, perioddata=tdis_rc, time_units=time_units
-    )
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=tdis_rc, time_units=time_units)
 
     # Instantiating MODFLOW 6 groundwater flow model
     gwf = flopy.mf6.ModflowGwf(
@@ -343,9 +343,7 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 transport initial concentrations
-    flopy.mf6.ModflowGwtic(
-        gwt, strt=strt_conc, pname="IC-2", filename=f"{gwtname}.ic"
-    )
+    flopy.mf6.ModflowGwtic(gwt, strt=strt_conc, pname="IC-2", filename=f"{gwtname}.ic")
 
     # Instantiating MODFLOW 6 transport advection package
     flopy.mf6.ModflowGwtadv(
@@ -365,7 +363,8 @@ def build_models(idx, test):
             filename=f"{gwtname}.dsp",
         )
 
-    # Instantiating MODFLOW 6 transport mass storage package (formerly "reaction" package in MT3DMS)
+    # Instantiating MODFLOW 6 transport mass storage package
+    # (formerly "reaction" package in MT3DMS)
     flopy.mf6.ModflowGwtmst(
         gwt,
         porosity=prsity,
@@ -398,9 +397,7 @@ def build_models(idx, test):
         pname="OC-2",
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -459,9 +456,7 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 transport initial concentrations
-    flopy.mf6.ModflowGweic(
-        gwe, strt=strt_temp, pname="IC-3", filename=f"{gwename}.ic"
-    )
+    flopy.mf6.ModflowGweic(gwe, strt=strt_temp, pname="IC-3", filename=f"{gwename}.ic")
 
     # Instantiating MODFLOW 6 transport advection package
     flopy.mf6.ModflowGweadv(
@@ -481,7 +476,8 @@ def build_models(idx, test):
             filename=f"{gwename}.cnd",
         )
 
-    # Instantiating MODFLOW 6 transport mass storage package (formerly "reaction" package in MT3DMS)
+    # Instantiating MODFLOW 6 transport mass storage package
+    # (formerly "reaction" package in MT3DMS)
     flopy.mf6.ModflowGweest(
         gwe,
         save_flows=True,
@@ -489,8 +485,8 @@ def build_models(idx, test):
         heat_capacity_water=cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=cps,
-        rhos=rhos,
+        heat_capacity_solid=cps,
+        density_solid=rhos,
         pname="EST-3",
         filename=f"{gwename}.est",
     )
@@ -512,9 +508,7 @@ def build_models(idx, test):
         pname="OC-3",
         budget_filerecord=f"{gwename}.cbc",
         temperature_filerecord=f"{gwename}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
     )
@@ -554,9 +548,7 @@ def check_output(idx, test):
     fpth = os.path.join(test.workspace, f"{gwtname}.ucn")
     try:
         # load temperatures
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
         conc1 = cobj.get_alldata()
     except:
         assert False, f'could not load concentration data from "{fpth}"'
@@ -565,18 +557,16 @@ def check_output(idx, test):
     fpth = os.path.join(test.workspace, f"{gwename}.ucn")
     try:
         # load temperatures
-        tobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="TEMPERATURE"
-        )
+        tobj = flopy.utils.HeadFile(fpth, precision="double", text="TEMPERATURE")
         temp1 = tobj.get_alldata()
     except:
         assert False, f'could not load temperature data from "{fpth}"'
 
     # Check heads satisfy problem set up (i.e., all of row 2 is dry)
     hdsr1 = hds[0, 0, 0, :]
-    assert np.all(
-        hdsr1 < bot_r2
-    ), "heads in row 1 should be below bottom elevation of row 2"
+    assert np.all(hdsr1 < bot_r2), (
+        "heads in row 1 should be below bottom elevation of row 2"
+    )
     assert np.all(hds[0, 0, 1, :] < 0), "row 2 is not dry"
 
     # Starting temperatures after steady flow period should be 4.0 degrees
@@ -585,39 +575,39 @@ def check_output(idx, test):
         "Steady state temperatures not as expected",
     )
     # Same with concentrations in non-dry cells
-    assert np.all(
-        np.isclose(conc1[0, :, 0], strt_conc[:, 0])
-    ), "Steady state concentrations not as expected"
+    assert np.all(np.isclose(conc1[0, :, 0], strt_conc[:, 0])), (
+        "Steady state concentrations not as expected"
+    )
     # Unlike GWE, GWT will not keep dry cells active and output should reflect this
-    assert np.all(
-        conc1[:, :, 1, :] < 0
-    ), "Concentrations should be set to 'inactive' (-1.e+30) in row 2"
+    assert np.all(conc1[:, :, 1, :] < 0), (
+        "Concentrations should be set to 'inactive' (-1.e+30) in row 2"
+    )
 
     # Starting in the transient stress period, the water entering in the
-    # 'trough' row is warmed to 30.0 C.  First check that this is the case
-    assert np.all(
-        temp1[-1] > temp1[0]
-    ), "Transient period temperature increase does not appear to have kicked in"
+    # 'through' row is warmed to 30.0 C.  First check that this is the case
+    assert np.all(temp1[-1] > temp1[0]), (
+        "Transient period temperature increase does not appear to have kicked in"
+    )
     # Dry cell temperatures are only warmed through conduction with neighboring
-    # 'trough' cells and shouldn't be as warm as wet cells at the end of the
+    # 'through' cells and shouldn't be as warm as wet cells at the end of the
     # warming period
-    assert np.all(
-        temp1[-1, :, 0] > temp1[-1, 0, 1]
-    ), "Cells with water should be warmer than dry cells"
+    assert np.all(temp1[-1, :, 0] > temp1[-1, 0, 1]), (
+        "Cells with water should be warmer than dry cells"
+    )
 
     # None of the cells should reach the temperature of the incoming water
     # during the simulation period owing to the thermal bleeding that occurs
     # to the adjacent dry cells.
-    assert np.all(
-        temp1[-1] < ghb_temp_warmup
-    ), "Cells should not reach the temperature of the incoming water"
+    assert np.all(temp1[-1] < ghb_temp_warmup), (
+        "Cells should not reach the temperature of the incoming water"
+    )
 
     # An increasing amount of thermal bleeding should occur moving in the
     # direction of flow since the thickness of the dry cells increases in the
     # downstream direction
-    assert np.all(
-        np.diff(temp1[-1, :, 0, :-1]) < 0
-    ), "Temperature change in the downstream direction should be negative"
+    assert np.all(np.diff(temp1[-1, :, 0, :-1]) < 0), (
+        "Temperature change in the downstream direction should be negative"
+    )
     assert isMonotonic(np.diff(temp1[-1, :, 0, :-1])), (
         "A monotonic increase in the amount of heat lost to neighboring dry "
         "cells is expected"
@@ -650,9 +640,9 @@ def check_output(idx, test):
     # in the dry cell should remain inactive (i.e., no "molecular diffusion")
     # and greater than their GWE counterpart temperatures since there is
     # no "retardation" of concentration (temperature) owing to conduction
-    assert np.all(
-        conc1[:, :, 1, :] < 0
-    ), "The dry cells should never have a non-inactive concentration value"
+    assert np.all(conc1[:, :, 1, :] < 0), (
+        "The dry cells should never have a non-inactive concentration value"
+    )
 
 
 # - No need to change any code below

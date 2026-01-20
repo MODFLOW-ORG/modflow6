@@ -138,9 +138,6 @@ contains
     mwtobj%depvartype = dvt
     mwtobj%depvarunit = dvu
     mwtobj%depvarunitabbrev = dvua
-    !
-    ! -- Return
-    return
   end subroutine mwt_create
 
   !> @brief find corresponding mwt package
@@ -254,9 +251,6 @@ contains
         '   MAX NO. OF ENTRIES = ', this%flowbudptr%budterm(ip)%maxlist
     end do
     write (this%iout, '(a, //)') 'DONE PROCESSING '//ftype//' INFORMATION'
-    !
-    ! -- Return
-    return
   end subroutine find_mwt_package
 
   !> @brief Add matrix terms related to MWT
@@ -323,9 +317,6 @@ contains
         rhs(iloc) = rhs(iloc) + rhsval
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine mwt_fc_expanded
 
   !> @ brief Add terms specific to multi-aquifer wells to the explicit multi-
@@ -370,9 +361,6 @@ contains
         this%dbuff(n1) = this%dbuff(n1) + rrate
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine mwt_solve
 
   !> @brief Function to return the number of budget terms just for this package
@@ -392,9 +380,6 @@ contains
     if (this%idxbudfwrt /= 0) nbudterms = nbudterms + 1
     if (this%idxbudrtmv /= 0) nbudterms = nbudterms + 1
     if (this%idxbudfrtm /= 0) nbudterms = nbudterms + 1
-    !
-    ! -- Return
-    return
   end function mwt_get_nbudterms
 
   !> @brief Set up the budget object that stores all the mwt flows
@@ -466,9 +451,6 @@ contains
                                                maxlist, .false., .false., &
                                                naux)
     end if
-    !
-    ! -- Return
-    return
   end subroutine mwt_setup_budobj
 
   !> @brief Copy flow terms into this%budobj
@@ -533,9 +515,6 @@ contains
         call this%apt_accumulate_ccterm(n1, q, ccratin, ccratout)
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine mwt_fill_budobj
 
   !> @brief Allocate scalars specific to the streamflow mass transport (SFT)
@@ -562,9 +541,6 @@ contains
     this%idxbudfwrt = 0
     this%idxbudrtmv = 0
     this%idxbudfrtm = 0
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @brief Allocate arrays specific to the streamflow mass transport (SFT)
@@ -589,9 +565,6 @@ contains
       this%concrate(n) = DZERO
     end do
     !
-    !
-    ! -- Return
-    return
   end subroutine mwt_allocate_arrays
 
   !> @brief Deallocate memory
@@ -614,9 +587,6 @@ contains
     !
     ! -- deallocate scalars in TspAptType
     call this%TspAptType%bnd_da()
-    !
-    ! -- Return
-    return
   end subroutine mwt_da
 
   !> @brief Rate term associated with pumping (or injection)
@@ -652,9 +622,6 @@ contains
     if (present(rrate)) rrate = qbnd * ctmp
     if (present(rhsval)) rhsval = r
     if (present(hcofval)) hcofval = h
-    !
-    ! -- Return
-    return
   end subroutine mwt_rate_term
 
   !> @brief Transport matrix term(s) associated with a flowing-
@@ -681,9 +648,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd
     if (present(rhsval)) rhsval = DZERO
     if (present(hcofval)) hcofval = qbnd
-    !
-    ! -- Return
-    return
   end subroutine mwt_fwrt_term
 
   !> @brief Rate-to-mvr term associated with pumping (or injection)
@@ -712,9 +676,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd
     if (present(rhsval)) rhsval = DZERO
     if (present(hcofval)) hcofval = qbnd
-    !
-    ! -- Return
-    return
   end subroutine mwt_rtmv_term
 
   !> @brief Flowing well rate-to-mvr term (or injection)
@@ -743,9 +704,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd
     if (present(rhsval)) rhsval = DZERO
     if (present(hcofval)) hcofval = qbnd
-    !
-    ! -- Return
-    return
   end subroutine mwt_frtm_term
 
   !> @brief Observations
@@ -812,9 +770,6 @@ contains
     !    for observation type.
     call this%obs%StoreObsType('fw-rate-to-mvr', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-    !
-    ! -- Return
-    return
   end subroutine mwt_df_obs
 
   !> @brief Process package specific obs
@@ -841,9 +796,6 @@ contains
     case default
       found = .false.
     end select
-    !
-    ! -- Return
-    return
   end subroutine mwt_rp_obs
 
   !> @brief Calculate observation value and pass it back to APT
@@ -879,9 +831,6 @@ contains
     case default
       found = .false.
     end select
-    !
-    ! -- Return
-    return
   end subroutine mwt_bd_obs
 
   !> @brief Sets the stress period attributes for keyword use.
@@ -923,9 +872,6 @@ contains
     end select
     !
 999 continue
-    !
-    ! -- Return
-    return
   end subroutine mwt_set_stressperiod
 
 end module GwtMwtModule

@@ -13,7 +13,6 @@ module StructVectorModule
   use InputDefinitionModule, only: InputParamDefinitionType
   use CharacterStringModule, only: CharacterStringType
   use STLVecIntModule, only: STLVecInt
-  use ArrayHandlersModule, only: expandarray
 
   implicit none
   private
@@ -64,69 +63,49 @@ module StructVectorModule
 contains
 
   function sv_read_token(this, token, structarray_col, col, row) result(val)
-    ! -- modules
-    ! -- dummy
     class(StructVectorType) :: this
     character(len=*), intent(in) :: token
     integer(I4B), intent(in) :: structarray_col
     integer(I4B), intent(in) :: col
     integer(I4B), intent(in) :: row
     real(DP) :: val
-    ! -- local
     integer(I4B) :: istat
     real(DP) :: r
-    !
-    ! -- initialize
+    ! initialize
     val = DNODATA
-    !
     read (token, *, iostat=istat) r
     if (istat == 0) then
       val = r
     else
       call this%add_ts_strloc(token, structarray_col, col, row)
     end if
-    !
-    ! -- return
-    return
   end function sv_read_token
 
   subroutine sv_add_ts_strloc(this, token, structarray_col, col, row)
-    ! -- dummy variables
     class(StructVectorType) :: this
     character(len=*), intent(in) :: token
     integer(I4B), intent(in) :: structarray_col
     integer(I4B), intent(in) :: col
     integer(I4B), intent(in) :: row
     class(TSStringLocType), pointer :: str_field
-    ! -- local variables
     class(*), pointer :: obj
-    !
-    ! --
     allocate (str_field)
     str_field%structarray_col = structarray_col
     str_field%col = col
     str_field%row = row
     str_field%token = token
-    !
     obj => str_field
     call this%ts_strlocs%Add(obj)
-    !
-    ! -- return
-    return
   end subroutine sv_add_ts_strloc
 
   function sv_get_ts_strloc(this, idx) result(res)
-    ! -- dummy variables
     class(StructVectorType) :: this
     integer(I4B), intent(in) :: idx !< package number
     class(TSStringLocType), pointer :: res
-    ! -- local variables
     class(*), pointer :: obj
-    !
-    ! -- initialize res
+    ! initialize res
     res => null()
-    !
-    ! -- get the package from the list
+    ! get the package from the list
     obj => this%ts_strlocs%GetItem(idx)
     if (associated(obj)) then
       select type (obj)
@@ -134,29 +113,20 @@ contains
         res => obj
       end select
     end if
-    !
-    ! -- return
-    return
   end function sv_get_ts_strloc
 
   !> @brief
   !<
   subroutine sv_clear(this)
-    ! -- modules
-    ! -- dummy
     class(StructVectorType) :: this
     class(TSStringLocType), pointer :: ts_strloc
     integer(I4B) :: n
-    !
     do n = 1, this%ts_strlocs%Count()
       ts_strloc => this%get_ts_strloc(n)
       deallocate (ts_strloc)
       nullify (ts_strloc)
     end do
-    !
     call this%ts_strlocs%Clear()
-    !
-    return
   end subroutine sv_clear
 
 end module StructVectorModule

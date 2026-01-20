@@ -54,9 +54,6 @@ contains
       obsOutput => this%Get(i)
       call obsOutput%ResetObsEmptyLine()
     end do
-    !
-    ! -- return
-    return
   end subroutine ResetAllObsEmptyLines
 
   !> @ brief Count the number of ObsOutputType objects
@@ -71,9 +68,6 @@ contains
     class(ObsOutputListType), intent(inout) :: this
     !
     Count = this%ObsOutputs%Count()
-    !
-    ! -- return
-    return
   end function Count
 
   !> @ brief Determine if a file name is in the list of ObsOutputType objects
@@ -99,9 +93,6 @@ contains
         exit loop1
       end if
     end do loop1
-    !
-    ! -- return
-    return
   end function ContainsFile
 
   !> @ brief Add a ObsOutputType object to the list
@@ -120,9 +111,6 @@ contains
     !
     call ConstructObsOutput(obsOutput, fname, nunit)
     call AddObsOutputToList(this%ObsOutputs, obsOutput)
-    !
-    ! -- return
-    return
   end subroutine Add
 
   !> @ brief Write line returns for all ObsOutputListType
@@ -145,9 +133,6 @@ contains
         call obsOutput%WriteObsLineReturn()
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine WriteAllObsLineReturns
 
   !> @ brief Get an item from a ObsOutputListType
@@ -163,9 +148,6 @@ contains
     type(ObsOutputType), pointer :: obsOutput
     !
     obsOutput => GetObsOutputFromList(this%ObsOutputs, indx)
-    !
-    ! -- return
-    return
   end function Get
 
   !> @ brief Clear a ObsOutputListType
@@ -178,9 +160,6 @@ contains
     class(ObsOutputListType), intent(inout) :: this
     !
     call this%ObsOutputs%Clear()
-    !
-    ! -- return
-    return
   end subroutine Clear
 
   !> @ brief Deallocate a ObsOutputListType
@@ -202,9 +181,6 @@ contains
     end do
     !
     call this%ObsOutputs%Clear(.true.)
-    !
-    ! -- return
-    return
   end subroutine DeallocObsOutputList
 
 end module ObsOutputListModule

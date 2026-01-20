@@ -9,7 +9,7 @@ module ExchangeModule
   use LGRMODULE, only: IBFLG, NPLBEG, NPRBEG, NPCBEG, NPLEND, &
                        NPREND, NPCEND, NCPP, NCPPL
   use ModelModule, only: ModelType
-  use SimModule, only: store_note, store_warning
+  use SimPHMFModule, only: store_note, store_warning
   
   type :: ExchangeType
     character(len=9)  :: ExgType = 'GWF6-GWF6'

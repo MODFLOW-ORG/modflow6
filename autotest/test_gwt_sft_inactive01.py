@@ -1,6 +1,6 @@
 """
 A test of the keyword NONE for <cellid> in the package data block.
-In essense, this tests inactivation of cells which if active, would be connected
+In essence, this tests inactivation of cells which if active, would be connected
 to SFR reaches during a simulation. Additionally, this uses a DISU grid.  The
 test was developed based on a user having memory access violations for a real-
 world model that included DISU and SFR reaches where cells did not exist.
@@ -25,7 +25,7 @@ groundwater model.
      |       |       |       |       |       |       |/                      |       |       |       |       |       |       |/
      +-------+-------+-------+-------+-------+-------+                       +-------+-------+-------+-------+-------+-------+
 
-"""
+"""  # noqa
 
 # Imports
 
@@ -169,7 +169,7 @@ def buildout_vertex_locations():
 
 
 def set_connectiondata(n, lay, top, left, right, bottom):
-    # Instatiate empty lists
+    # Instantiate empty lists
     jas = [n]
     ihc = [lay]
     cl12 = [n]
@@ -185,49 +185,33 @@ def set_connectiondata(n, lay, top, left, right, bottom):
     if top:
         jas.append(n - ncol)
         ihc.append(0)  # ihc = 0 for vertical connection
-        cl12.append(
-            cl12_val
-        )  # half the cell thickness or a vertical connection
-        hwva.append(
-            delr * delc
-        )  # for vertical connection, area is 1.0m x 1.0m
+        cl12.append(cl12_val)  # half the cell thickness or a vertical connection
+        hwva.append(delr * delc)  # for vertical connection, area is 1.0m x 1.0m
         angldeg.append(0.0)  # placeholder only for vertical connections
 
     if left:
         jas.append(n - 1)  # left
         ihc.append(1)  # ihc = 1 for horizontal connection
-        cl12.append(
-            delc / 2
-        )  # half the cell width along a horizontal connection
-        hwva.append(
-            delr
-        )  # for horizontal connection, value of hwva is width along a row
-        angldeg.append(
-            180.0
-        )  # for horizontal connection, value is 180.0 along negative x-axis
+        cl12.append(delc / 2)  # half the cell width along a horizontal connection
+        # for horizontal connection, value of hwva is width along a row
+        hwva.append(delr)
+        # for horizontal connection, value is 180.0 along negative x-axis
+        angldeg.append(180.0)
 
     if right:
         jas.append(n + 1)  # right
         ihc.append(1)  # ihc = 1 for horizontal connection
-        cl12.append(
-            delc / 2
-        )  # half the cell width along a horizontal connection
-        hwva.append(
-            delc
-        )  # for horizontal connection, value of hwva is width along a row
-        angldeg.append(
-            0.0
-        )  # for horizontal connection, value is 0.0 along positive x-axis
+        cl12.append(delc / 2)  # half the cell width along a horizontal connection
+        # for horizontal connection, value of hwva is width along a row
+        hwva.append(delc)
+        # for horizontal connection, value is 0.0 along positive x-axis
+        angldeg.append(0.0)
 
     if bottom:
         jas.append(n + ncol)  # below
         ihc.append(0)  # ihc = 0 for vertical connection
-        cl12.append(
-            cl12_val
-        )  # half the cell thickness or a vertical connection
-        hwva.append(
-            delr * delc
-        )  # for vertical connection, value of hwva is area
+        cl12.append(cl12_val)  # half the cell thickness or a vertical connection
+        hwva.append(delr * delc)  # for vertical connection, value of hwva is area
         angldeg.append(0.0)  # placeholder only for vertical connections
 
     return jas, ihc, cl12, hwva, angldeg
@@ -271,17 +255,13 @@ def get_conndat(n, lay, col):
     iac += 1
     num_neigh += 1
 
-    (
-        jas_vals,
-        ihc_vals,
-        cl12_vals,
-        hwva_vals,
-        angldeg_vals,
-    ) = set_connectiondata(n, lay, top, left, right, bottom)
+    (jas_vals, ihc_vals, cl12_vals, hwva_vals, angldeg_vals) = set_connectiondata(
+        n, lay, top, left, right, bottom
+    )
 
     # If bottom most layer, need to .pop() the last values out of the respective lists
-    # This should be done because the bottom connections will always be represented by the final
-    # values in the list (at this point in the development anyway)
+    # This should be done because the bottom connections will always be represented by
+    # the final values in the list (at this point in the development anyway)
     # if lay == nlay - 1:
     #    iac -= 1
     #    jas_vals.pop(-1)
@@ -340,14 +320,9 @@ for lay in np.arange(nlay):
         n = lay * ncol + col  # n will be zero based
 
         # Values for CONNECTIONDATA block
-        (
-            iac,
-            ja_cell,
-            ihc_cell,
-            cl12_cell,
-            hwva_cell,
-            angldeg_cell,
-        ) = get_conndat(n, lay, col)
+        (iac, ja_cell, ihc_cell, cl12_cell, hwva_cell, angldeg_cell) = get_conndat(
+            n, lay, col
+        )
 
         # accumulate connection information in lists
         iac_lst.append(iac)
@@ -397,9 +372,7 @@ def build_models(idx, test):
     )
 
     # Instantiate time discretization package
-    flopy.mf6.ModflowTdis(
-        sim, nper=nper, perioddata=tdis_rc, time_units=time_units
-    )
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=tdis_rc, time_units=time_units)
 
     # Instantiate flow model
     gwf = flopy.mf6.ModflowGwf(
@@ -415,7 +388,7 @@ def build_models(idx, test):
         outer_dvclose=1e-5,
         inner_dvclose=1e-6,
         linear_acceleration="BICGSTAB",
-        filename="{}.ims".format(name),
+        filename=f"{name}.ims",
     )
     sim.register_ims_package(imsgwf, [gwf.name])
 
@@ -459,7 +432,7 @@ def build_models(idx, test):
         transient={0: True},
     )
 
-    # Instantiate the intial conditions
+    # Instantiate the initial conditions
     flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # Instantiate constant heads for keeping the heads from rising
@@ -468,20 +441,21 @@ def build_models(idx, test):
         auxiliary="CONCENTRATION",
         stress_period_data=chd_spd_left,
         pname="WEL-left",
-        filename="{}.wel-left".format(name),
+        filename=f"{name}.wel-left",
     )
     flopy.mf6.ModflowGwfchd(
         gwf,
         auxiliary="CONCENTRATION",
         stress_period_data=chd_spd_right,
         pname="WEL-right",
-        filename="{}.wel-right".format(name),
+        filename=f"{name}.wel-right",
     )
 
     # SFR data
     nreaches = 15
 
-    # <ifno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> <man> <ncon> <ustrf> <ndv>
+    # <ifno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> ...
+    #        <man> <ncon> <ustrf> <ndv>
     rhk = 0.05
     package_data = [
         (0, 0, delr, 0.25, 1e-3, top - 0.25, 0.25, rhk, 0.02, 1, 1.0, 0),
@@ -586,7 +560,7 @@ def build_models(idx, test):
         outer_dvclose=1e-5,
         inner_dvclose=1e-6,
         linear_acceleration="BICGSTAB",
-        filename="{}.ims".format(gwtname),
+        filename=f"{gwtname}.ims",
     )
     sim.register_ims_package(imsgwt, [gwt.name])
 
@@ -631,9 +605,7 @@ def build_models(idx, test):
         ("WEL-left", "AUX", "CONCENTRATION"),
         ("WEL-right", "AUX", "CONCENTRATION"),
     ]
-    flopy.mf6.ModflowGwtssm(
-        gwt, sources=sourcerecarray, filename=f"{gwtname}.ssm"
-    )
+    flopy.mf6.ModflowGwtssm(gwt, sources=sourcerecarray, filename=f"{gwtname}.ssm")
 
     # Instantiate streamflow transport package
     sftpackagedata = []
@@ -663,9 +635,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -690,7 +660,7 @@ def check_output(idx, test):
         "therefore inactive."
     )
     msg1 = (
-        "There seems to be mis-alignment in the flow/transport results "
+        "There seems to be misalignment in the flow/transport results "
         "when some of the GWF cells are inactive but overlain with SFR "
         "reaches"
     )

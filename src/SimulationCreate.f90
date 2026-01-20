@@ -1,7 +1,7 @@
 module SimulationCreateModule
 
   use KindModule, only: DP, I4B, LGP, write_kindinfo
-  use DevFeatureModule, only: dev_feature
+  use FeatureFlagsModule, only: developmode
   use ConstantsModule, only: LINELENGTH, LENMODELNAME, LENBIGLINE, &
                              DZERO, LENEXCHANGENAME, LENMEMPATH, LENPACKAGETYPE
   use CharacterStringModule, only: CharacterStringType
@@ -37,9 +37,6 @@ contains
     !
     ! -- Source simulation nam input context and create objects
     call source_simulation_nam()
-    !
-    ! -- Return
-    return
   end subroutine simulation_cr
 
   !> @brief Deallocate simulation variables
@@ -57,9 +54,6 @@ contains
     !
     deallocate (model_names)
     deallocate (model_loc_idx)
-    !
-    ! -- Return
-    return
   end subroutine simulation_da
 
   !> @brief Source the simulation name file
@@ -94,9 +88,6 @@ contains
     !
     ! -- Go through each solution and assign exchanges accordingly
     call assign_exchanges()
-    !
-    ! -- Return
-    return
   end subroutine source_simulation_nam
 
   !> @brief Set the simulation options
@@ -126,9 +117,14 @@ contains
     !
     ! -- update sim options
     isimcontinue = simcontinue
-    isimcheck = nocheck
+    if (nocheck == 1) then
+      isimcheck = 0
+    else
+      isimcheck = 1
+    end if
+
     call MaxErrors(maxerror)
-    !
+
     if (prmem /= '') then
       errmsg = ''
       call mem_set_print_option(iout, prmem, errmsg)
@@ -136,6 +132,7 @@ contains
         call store_error(errmsg, .true.)
       end if
     end if
+
     !
     ! -- log values to list file
     if (iout > 0) then
@@ -161,9 +158,6 @@ contains
       !
       write (iout, '(1x,a)') 'END OF SIMULATION OPTIONS'
     end if
-    !
-    ! -- return
-    return
   end subroutine options_create
 
   !> @brief Set the timing module to be used for the simulation
@@ -199,9 +193,6 @@ contains
     end if
     !
     write (iout, '(1x,a)') 'END OF SIMULATION TIMING'
-    !
-    ! -- return
-    return
   end subroutine timing_create
 
   !> @brief Set the models to be used for the simulation
@@ -212,10 +203,11 @@ contains
     use MemoryManagerModule, only: mem_setptr, mem_allocate
     use SimVariablesModule, only: idm_context, errmsg
     use DistributedSimModule, only: DistributedSimType, get_dsim
+    use ChfModule, only: chf_cr
     use GwfModule, only: gwf_cr
     use GwtModule, only: gwt_cr
     use GweModule, only: gwe_cr
-    use SwfModule, only: swf_cr
+    use OlfModule, only: olf_cr
     use PrtModule, only: prt_cr
     use NumericalModelModule, only: NumericalModelType, GetNumericalModelFromList
     use VirtualGwfModelModule, only: add_virtual_gwf_model
@@ -309,13 +301,24 @@ contains
           model_loc_idx(n) = im
         end if
         call add_virtual_gwe_model(n, model_names(n), num_model)
-      case ('SWF6')
+      case ('CHF6')
         if (model_ranks(n) == proc_id) then
           im = im + 1
           write (iout, '(4x,2a,i0,a)') trim(model_type), " model ", &
             n, " will be created"
-          call swf_cr(fname, n, model_names(n))
-          call dev_feature('SWF is still under development, install the &
+          call chf_cr(fname, n, model_names(n))
+          call developmode('CHF is still under development, install the &
+            &nightly build or compile from source with IDEVELOPMODE = 1.')
+          num_model => GetNumericalModelFromList(basemodellist, im)
+          model_loc_idx(n) = im
+        end if
+      case ('OLF6')
+        if (model_ranks(n) == proc_id) then
+          im = im + 1
+          write (iout, '(4x,2a,i0,a)') trim(model_type), " model ", &
+            n, " will be created"
+          call olf_cr(fname, n, model_names(n))
+          call developmode('OLF is still under development, install the &
             &nightly build or compile from source with IDEVELOPMODE = 1.')
           num_model => GetNumericalModelFromList(basemodellist, im)
           model_loc_idx(n) = im
@@ -343,9 +346,6 @@ contains
         'No MODELS assigned to process ', proc_id
       call store_error(errmsg, terminate)
     end if
-    !
-    ! -- return
-    return
   end subroutine models_create
 
   !> @brief Set the exchanges to be used for the simulation
@@ -355,13 +355,14 @@ contains
     use MemoryHelperModule, only: create_mem_path
     use MemoryManagerModule, only: mem_setptr
     use SimVariablesModule, only: idm_context
+    use ChfGwfExchangeModule, only: chfgwf_cr
     use GwfGwfExchangeModule, only: gwfexchange_create
     use GwfGwtExchangeModule, only: gwfgwt_cr
     use GwfGweExchangeModule, only: gwfgwe_cr
     use GwfPrtExchangeModule, only: gwfprt_cr
     use GwtGwtExchangeModule, only: gwtexchange_create
     use GweGweExchangeModule, only: gweexchange_create
-    use SwfGwfExchangeModule, only: swfgwf_cr
+    use OlfGwfExchangeModule, only: olfgwf_cr
     use VirtualGwfExchangeModule, only: add_virtual_gwf_exchange
     use VirtualGwtExchangeModule, only: add_virtual_gwt_exchange
     use VirtualGweExchangeModule, only: add_virtual_gwe_exchange
@@ -445,6 +446,11 @@ contains
       end if
 
       select case (exgtype)
+      case ('CHF6-GWF6')
+        write (exg_name, '(a,i0)') 'CHF-GWF_', exg_id
+        if (both_local) then
+          call chfgwf_cr(fname, exg_name, exg_id, m1_id, m2_id, exg_mempath)
+        end if
       case ('GWF6-GWF6')
         write (exg_name, '(a,i0)') 'GWF-GWF_', exg_id
         if (.not. both_remote) then
@@ -476,10 +482,10 @@ contains
                                   exg_mempath)
         end if
         call add_virtual_gwe_exchange(exg_name, exg_id, m1_id, m2_id)
-      case ('SWF6-GWF6')
-        write (exg_name, '(a,i0)') 'SWF-GWF_', exg_id
+      case ('OLF6-GWF6')
+        write (exg_name, '(a,i0)') 'OLF-GWF_', exg_id
         if (both_local) then
-          call swfgwf_cr(fname, exg_name, exg_id, m1_id, m2_id, exg_mempath)
+          call olfgwf_cr(fname, exg_name, exg_id, m1_id, m2_id, exg_mempath)
         end if
       case default
         write (errmsg, '(a,a)') &
@@ -490,9 +496,6 @@ contains
     !
     ! -- close exchange logging block
     write (iout, '(1x,a)') 'END OF SIMULATION EXCHANGES'
-    !
-    ! -- return
-    return
   end subroutine exchanges_create
 
   !> @brief Check a solution_group to be used for the simulation
@@ -528,9 +531,6 @@ contains
         call store_error(errmsg, terminate)
       end if
     end if
-    !
-    ! -- return
-    return
   end subroutine solution_group_check
 
   !> @brief Set the solution_groups to be used for the simulation
@@ -726,9 +726,6 @@ contains
     if (solutiongrouplist%Count() == 0) then
       call store_error('There are no solution groups.', terminate)
     end if
-    !
-    ! -- return
-    return
   end subroutine solution_groups_create
 
   !> @brief Check for dangling models, and break with
@@ -820,9 +817,6 @@ contains
         call store_error(errmsg, terminate)
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine check_model_name
 
 end module SimulationCreateModule

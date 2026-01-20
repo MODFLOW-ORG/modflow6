@@ -39,9 +39,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwt model
     gwtname = "gwt_" + name
@@ -88,18 +86,14 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwtic(gwt, strt=0.0, filename=f"{gwtname}.ic")
 
     # mass storage and transfer
-    mst = flopy.mf6.ModflowGwtmst(
-        gwt, porosity=0.1, zero_order_decay=True, decay=-1.0
-    )
+    mst = flopy.mf6.ModflowGwtmst(gwt, porosity=0.1, zero_order_decay=True, decay=-1.0)
 
     # output control
     oc = flopy.mf6.ModflowGwtoc(
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )

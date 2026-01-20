@@ -1,7 +1,7 @@
 module SwfObsModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: LINELENGTH, MAXOBSTYPES
+  use ConstantsModule, only: LINELENGTH
   use BaseDisModule, only: DisBaseType
   use SwfIcModule, only: SwfIcType
   use ObserveModule, only: ObserveType
@@ -45,8 +45,6 @@ contains
     obs%active = .false.
     obs%inputFilename = ''
     obs%inUnitObs => inobs
-    !
-    return
   end subroutine swf_obs_cr
 
   !> @brief Allocate and read
@@ -63,8 +61,6 @@ contains
     !
     ! set pointers
     call this%set_pointers(ic, x, flowja)
-    !
-    return
   end subroutine swf_obs_ar
 
   !> @brief Define
@@ -92,8 +88,6 @@ contains
     ! -- Store obs type and assign procedure pointer for flow-ja-face observation type
     call this%StoreObsType('flow-ja-face', .true., indx)
     this%obsData(indx)%ProcessIdPtr => swf_process_intercell_obs_id
-    !
-    return
   end subroutine swf_obs_df
 
   !> @brief Save obs
@@ -126,8 +120,6 @@ contains
         end select
       end do
     end if
-    !
-    return
   end subroutine swf_obs_bd
 
   !> @brief Do observations need any checking? If so, add checks here
@@ -148,8 +140,6 @@ contains
     nullify (this%x)
     nullify (this%flowja)
     call this%ObsType%obs_da()
-    !
-    return
   end subroutine swf_obs_da
 
   !> @brief Set pointers
@@ -164,8 +154,6 @@ contains
     this%ic => ic
     this%x => x
     this%flowja => flowja
-    !
-    return
   end subroutine set_pointers
 
   ! -- Procedures related to SWF observations (NOT type-bound)
@@ -199,8 +187,6 @@ contains
       call store_error(ermsg)
       call store_error_unit(inunitobs)
     end if
-    !
-    return
   end subroutine swf_process_stage_obs_id
 
   !> @brief Process flow between two cells when requested
@@ -256,8 +242,6 @@ contains
     if (count_errors() > 0) then
       call store_error_unit(inunitobs)
     end if
-    !
-    return
   end subroutine swf_process_intercell_obs_id
 
 end module SwfObsModule

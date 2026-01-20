@@ -26,9 +26,8 @@ module LoadMf6FileModule
   use InputDefinitionModule, only: InputParamDefinitionType
   use DefinitionSelectModule, only: get_param_definition_type, &
                                     get_aggregate_definition_type
-  use ModflowInputModule, only: ModflowInputType, getModflowInput
+  use ModflowInputModule, only: ModflowInputType
   use MemoryManagerModule, only: mem_allocate, mem_setptr
-  use MemoryHelperModule, only: create_mem_path
   use StructArrayModule, only: StructArrayType
   use NCFileVarsModule, only: NCPackageVarsType
   use IdmLoggerModule, only: idm_log_var, idm_log_header, idm_log_close, &
@@ -56,6 +55,7 @@ module LoadMf6FileModule
     logical(LGP) :: ts_active !< is timeseries active
     logical(LGP) :: export !< is array export active
     logical(LGP) :: readasarrays
+    logical(LGP) :: readarraygrid
     integer(I4B) :: inamedbound
     integer(I4B) :: iauxiliary
     integer(I4B) :: iout !< inunit for list log
@@ -67,8 +67,8 @@ module LoadMf6FileModule
     procedure :: parse_block
     procedure :: block_post_process
     procedure :: parse_io_tag
-    procedure :: parse_keyword_tag
-    procedure :: parse_tag
+    procedure :: parse_record_tag
+    procedure :: load_tag
     procedure :: block_index_dfn
     procedure :: parse_structarray_block
   end type LoadMf6FileType
@@ -82,39 +82,31 @@ contains
   !!
   !<
   subroutine load(this, parser, mf6_input, nc_vars, filename, iout)
-    ! -- modules
     use MemoryManagerModule, only: get_isize
-    ! -- dummy
     class(LoadMf6FileType) :: this
     type(BlockParserType), target, intent(inout) :: parser
     type(ModflowInputType), intent(in) :: mf6_input
     type(NCPackageVarsType), pointer, intent(in) :: nc_vars
     character(len=*), intent(in) :: filename
     integer(I4B), intent(in) :: iout
-    ! -- local
     integer(I4B) :: iblk
-    !
-    ! -- initialize static load
+
+    ! initialize static load
     call this%init(parser, mf6_input, filename, iout)
-    !
+
+    ! set netcdf vars
     this%nc_vars => nc_vars
-    !
-    ! -- process blocks
+
+    ! process blocks
     do iblk = 1, size(this%mf6_input%block_dfns)
-      !
-      ! -- don't load dynamic input data
+      ! don't load dynamic input data
       if (this%mf6_input%block_dfns(iblk)%blockname == 'PERIOD') exit
-      !
-      ! -- load the block
+      ! load the block
       call this%load_block(iblk)
-      !
     end do
-    !
-    ! -- finalize static load
+
+    ! finalize static load
     call this%finalize()
-    !
-    ! --return
-    return
   end subroutine load
 
   !> @brief init
@@ -123,39 +115,33 @@ contains
   !!
   !<
   subroutine init(this, parser, mf6_input, filename, iout)
-    ! -- modules
     use MemoryManagerModule, only: get_isize
-    ! -- dummy
     class(LoadMf6FileType) :: this
     type(BlockParserType), target, intent(inout) :: parser
     type(ModflowInputType), intent(in) :: mf6_input
     character(len=*), intent(in) :: filename
     integer(I4B), intent(in) :: iout
-    ! -- local
     integer(I4B) :: isize
-    !
+
     this%parser => parser
     this%mf6_input = mf6_input
     this%filename = filename
     this%ts_active = .false.
     this%export = .false.
     this%readasarrays = .false.
+    this%readarraygrid = .false.
     this%inamedbound = 0
     this%iauxiliary = 0
     this%iout = iout
-    !
+
     call get_isize('MODEL_SHAPE', mf6_input%component_mempath, isize)
-    !
     if (isize > 0) then
       call mem_setptr(this%mshape, 'MODEL_SHAPE', mf6_input%component_mempath)
     end if
-    !
-    ! -- log lst file header
+
+    ! log lst file header
     call idm_log_header(this%mf6_input%component_name, &
                         this%mf6_input%subcomponent_name, this%iout)
-    !
-    ! -- return
-    return
   end subroutine init
 
   !> @brief load a single block
@@ -167,31 +153,23 @@ contains
   !!
   !<
   subroutine load_block(this, iblk)
-    ! -- modules
     use StructArrayModule, only: destructStructArray
-    ! -- dummy
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
-    ! -- local
-    !
-    ! -- reset structarray if it was created for previous block
+
+    ! reset structarray if it was created for previous block
     if (associated(this%structarray)) then
-      ! -- destroy the structured array reader
+      ! destroy the structured array reader
       call destructStructArray(this%structarray)
     end if
-    !
+
     allocate (this%block_tags(0))
-    !
-    ! -- load the block
+    ! load the block
     call this%parse_block(iblk, .false.)
-    !
-    ! -- post process block
+    ! post process block
     call this%block_post_process(iblk)
-    !
+    ! cleanup
     deallocate (this%block_tags)
-    !
-    ! --return
-    return
   end subroutine load_block
 
   !> @brief finalize
@@ -200,43 +178,32 @@ contains
   !!
   !<
   subroutine finalize(this)
-    ! -- modules
     use StructArrayModule, only: destructStructArray
-    ! -- dummy
     class(LoadMf6FileType) :: this
-    ! -- local
-    !
-    ! -- cleanup
+    ! cleanup
     if (associated(this%structarray)) then
-      ! -- destroy the structured array reader
+      ! destroy the structured array reader
       call destructStructArray(this%structarray)
     end if
-    !
-    ! -- close logging block
+    ! close logging block
     call idm_log_close(this%mf6_input%component_name, &
                        this%mf6_input%subcomponent_name, this%iout)
-    !
-    ! -- return
-    return
   end subroutine finalize
 
   !> @brief Post parse block handling
   !!
   !<
   subroutine block_post_process(this, iblk)
-    ! -- modules
     use ConstantsModule, only: LENBOUNDNAME
     use CharacterStringModule, only: CharacterStringType
     use SourceCommonModule, only: set_model_shape
-    ! -- dummy
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
-    ! -- local
     type(InputParamDefinitionType), pointer :: idt
     integer(I4B) :: iparam
     integer(I4B), pointer :: intptr
-    !
-    ! -- update state based on read tags
+
+    ! update state based on read tags
     do iparam = 1, size(this%block_tags)
       select case (this%mf6_input%block_dfns(iblk)%blockname)
       case ('OPTIONS')
@@ -246,6 +213,8 @@ contains
           this%inamedbound = 1
         else if (this%block_tags(iparam) == 'READASARRAYS') then
           this%readasarrays = .true.
+        else if (this%block_tags(iparam) == 'READARRAYGRID') then
+          this%readarraygrid = .true.
         else if (this%block_tags(iparam) == 'TS6') then
           this%ts_active = .true.
         else if (this%block_tags(iparam) == 'EXPORT_ARRAY_ASCII') then
@@ -254,14 +223,13 @@ contains
       case default
       end select
     end do
-    !
-    ! -- update input context allocations based on dfn set and input
+
+    ! update input context allocations based on dfn set and input
     select case (this%mf6_input%block_dfns(iblk)%blockname)
     case ('OPTIONS')
-      ! -- allocate naux and set to 0 if not allocated
+      ! allocate naux and set to 0 if not allocated
       do iparam = 1, size(this%mf6_input%param_dfns)
         idt => this%mf6_input%param_dfns(iparam)
-        !
         if (idt%blockname == 'OPTIONS' .and. &
             idt%tagname == 'AUXILIARY') then
           if (this%iauxiliary == 0) then
@@ -272,7 +240,7 @@ contains
         end if
       end do
     case ('DIMENSIONS')
-      ! -- set model shape if discretization dimensions have been read
+      ! set model shape if discretization dimensions have been read
       if (this%mf6_input%pkgtype(1:3) == 'DIS') then
         call set_model_shape(this%mf6_input%pkgtype, this%filename, &
                              this%mf6_input%component_mempath, &
@@ -280,31 +248,27 @@ contains
       end if
     case default
     end select
-    !
-    ! -- return
-    return
   end subroutine block_post_process
 
   !> @brief parse block
   !!
   !<
   recursive subroutine parse_block(this, iblk, recursive_call)
-    ! -- modules
     use MemoryTypeModule, only: MemoryType
     use MemoryManagerModule, only: get_from_memorystore
-    ! -- dummy
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
     logical(LGP), intent(in) :: recursive_call !< true if recursive call
-    ! -- local
     logical(LGP) :: isblockfound
     logical(LGP) :: endOfBlock
     logical(LGP) :: supportOpenClose
     integer(I4B) :: ierr
     logical(LGP) :: found, required
     type(MemoryType), pointer :: mt
-    !
-    ! -- disu vertices/cell2d blocks are contingent on NVERT dimension
+    character(len=LINELENGTH) :: tag
+    type(InputParamDefinitionType), pointer :: idt
+
+    ! disu vertices/cell2d blocks are contingent on NVERT dimension
     if (this%mf6_input%pkgtype == 'DISU6' .or. &
         this%mf6_input%pkgtype == 'DISV1D6' .or. &
         this%mf6_input%pkgtype == 'DISV2D6') then
@@ -316,180 +280,196 @@ contains
         if (mt%intsclr == 0) return
       end if
     end if
-    !
-    ! -- block open/close support
+
+    ! block open/close support
     supportOpenClose = (this%mf6_input%block_dfns(iblk)%blockname /= 'GRIDDATA')
-    !
-    ! -- parser search for block
+
+    ! parser search for block
     required = this%mf6_input%block_dfns(iblk)%required .and. .not. recursive_call
     call this%parser%GetBlock(this%mf6_input%block_dfns(iblk)%blockname, &
                               isblockfound, ierr, &
                               supportOpenClose=supportOpenClose, &
                               blockRequired=required)
-    !
-    ! -- process block
+    ! process block
     if (isblockfound) then
       if (this%mf6_input%block_dfns(iblk)%aggregate) then
-        !
-        ! -- process block recarray type, set of variable 1d/2d types
+        ! process block recarray type, set of variable 1d/2d types
         call this%parse_structarray_block(iblk)
-        !
       else
         do
           ! process each line in block
           call this%parser%GetNextLine(endOfBlock)
           if (endOfBlock) exit
-          !
-          ! -- process line as tag(s)
-          call this%parse_tag(iblk, .false.)
-          !
+          ! process line as tag(s)
+          call this%parser%GetStringCaps(tag)
+          idt => get_param_definition_type( &
+                 this%mf6_input%param_dfns, &
+                 this%mf6_input%component_type, &
+                 this%mf6_input%subcomponent_type, &
+                 this%mf6_input%block_dfns(iblk)%blockname, &
+                 tag, this%filename)
+          if (idt%in_record) then
+            call this%parse_record_tag(iblk, idt, .false.)
+          else
+            call this%load_tag(iblk, idt)
+          end if
         end do
       end if
     end if
-    !
-    ! -- recurse if block is reloadable and was just read
+
+    ! recurse if block is reloadable and was just read
     if (this%mf6_input%block_dfns(iblk)%block_variable) then
       if (isblockfound) then
         call this%parse_block(iblk, .true.)
       end if
     end if
-    !
-    ! -- return
-    return
   end subroutine parse_block
 
   subroutine parse_io_tag(this, iblk, pkgtype, which, tag)
-    ! -- modules
-    ! -- dummy
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
     character(len=*), intent(in) :: pkgtype
     character(len=*), intent(in) :: which
     character(len=*), intent(in) :: tag
-    ! -- local
     type(InputParamDefinitionType), pointer :: idt !< input data type object describing this record
-    !
-    ! -- matches, read and load file name
+    ! matches, read and load file name
     idt => &
       get_param_definition_type(this%mf6_input%param_dfns, &
                                 this%mf6_input%component_type, &
                                 this%mf6_input%subcomponent_type, &
                                 this%mf6_input%block_dfns(iblk)%blockname, &
                                 tag, this%filename)
-    !
-    ! -- load io tag
+    ! load io tag
     call load_io_tag(this%parser, idt, this%mf6_input%mempath, which, this%iout)
-    !
-    ! -- return
-    return
   end subroutine parse_io_tag
 
-  subroutine parse_keyword_tag(this, iblk, tag, idt)
-    ! -- modules
-    use DefinitionSelectModule, only: split_record_definition
-    ! -- dummy
+  recursive subroutine parse_record_tag(this, iblk, inidt, recursive_call)
+    use DefinitionSelectModule, only: split_record_dfn_tag1, &
+                                      split_record_dfn_tag2, &
+                                      idt_datatype
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
-    character(len=LINELENGTH), intent(in) :: tag
-    type(InputParamDefinitionType), pointer, intent(in) :: idt
-    ! -- local
+    type(InputParamDefinitionType), pointer, intent(in) :: inidt
+    logical(LGP), intent(in) :: recursive_call !< true if recursive call
+    type(InputParamDefinitionType), pointer :: idt
     character(len=40), dimension(:), allocatable :: words
-    integer(I4B) :: nwords
-    character(len=LINELENGTH) :: io_tag
-    logical(LGP) :: found
-    !
-    ! -- initialization
-    found = .false.
-    !
-    ! -- if in record tag check and load if input/output file
-    if (idt%in_record) then
-      !
-      ! -- get tokens in matching definition
-      call split_record_definition(this%mf6_input%param_dfns, &
+    integer(I4B) :: n, istart, nwords
+    character(len=LINELENGTH) :: tag
+
+    nullify (idt)
+    istart = 1
+
+    if (recursive_call) then
+      call split_record_dfn_tag1(this%mf6_input%param_dfns, &
+                                 this%mf6_input%component_type, &
+                                 this%mf6_input%subcomponent_type, &
+                                 inidt%tagname, nwords, words)
+      call this%load_tag(iblk, inidt)
+      istart = 3
+    else
+      call this%parser%GetStringCaps(tag)
+      if (tag /= '') then
+        call split_record_dfn_tag2(this%mf6_input%param_dfns, &
                                    this%mf6_input%component_type, &
                                    this%mf6_input%subcomponent_type, &
-                                   tag, nwords, words)
-      !
-      ! -- a filein/fileout record tag definition has 4 tokens
-      if (nwords == 4) then
-        !
-        ! -- verify third definition token is FILEIN/FILEOUT
-        if (words(3) == 'FILEIN' .or. words(3) == 'FILEOUT') then
-          !
-          ! -- read 3rd token
-          call this%parser%GetStringCaps(io_tag)
-          !
-          ! -- check if 3rd token matches definition
-          if (io_tag == words(3)) then
-            call this%parse_io_tag(iblk, words(2), words(3), words(4))
-            found = .true.
-          else
-            errmsg = 'Expected "'//trim(words(3))//'" following keyword "'// &
-                     trim(tag)//'" but instead found "'//trim(io_tag)//'"'
+                                   inidt%tagname, tag, nwords, words)
+        if (nwords == 4 .and. &
+            (tag == 'FILEIN' .or. &
+             tag == 'FILEOUT')) then
+          call this%parse_io_tag(iblk, words(2), words(3), words(4))
+          nwords = 0
+        else
+          idt => get_param_definition_type( &
+                 this%mf6_input%param_dfns, &
+                 this%mf6_input%component_type, &
+                 this%mf6_input%subcomponent_type, &
+                 this%mf6_input%block_dfns(iblk)%blockname, &
+                 tag, this%filename)
+          ! avoid namespace collisions (CIM)
+          if (tag /= 'PRINT_FORMAT') call this%load_tag(iblk, inidt)
+          call this%load_tag(iblk, idt)
+          istart = 4
+        end if
+      else
+        call this%load_tag(iblk, inidt)
+        nwords = 0
+      end if
+    end if
+
+    if (istart > 1 .and. nwords == 0) then
+      write (errmsg, '(5a)') &
+        '"', trim(this%mf6_input%block_dfns(iblk)%blockname), &
+        '" block input record that includes keyword "', trim(inidt%tagname), &
+        '" is not properly formed.'
+      call store_error(errmsg)
+      call this%parser%StoreErrorUnit()
+    end if
+
+    do n = istart, nwords
+      idt => get_param_definition_type( &
+             this%mf6_input%param_dfns, &
+             this%mf6_input%component_type, &
+             this%mf6_input%subcomponent_type, &
+             this%mf6_input%block_dfns(iblk)%blockname, &
+             words(n), this%filename)
+      if (idt_datatype(idt) == 'RECORD') then
+        call this%parser%GetStringCaps(tag)
+        idt => get_param_definition_type( &
+               this%mf6_input%param_dfns, &
+               this%mf6_input%component_type, &
+               this%mf6_input%subcomponent_type, &
+               this%mf6_input%block_dfns(iblk)%blockname, &
+               tag, this%filename)
+        call this%parse_record_tag(iblk, idt, .true.)
+        exit
+      else
+        if (idt%tagname /= 'FORMAT') then
+          call this%parser%GetStringCaps(tag)
+          if (tag == '') then
+            exit
+          else if (idt%tagname /= tag) then
+            write (errmsg, '(5a)') 'Expecting record input tag "', &
+              trim(idt%tagname), '" but instead found "', trim(tag), '".'
             call store_error(errmsg)
             call this%parser%StoreErrorUnit()
           end if
-          !
         end if
+        call this%load_tag(iblk, idt)
       end if
-      !
-      ! -- deallocate words
-      if (allocated(words)) deallocate (words)
+    end do
+
+    if (allocated(words)) deallocate (words)
+  end subroutine parse_record_tag
+
+  !> @brief load input keyword
+  !! Load input associated with tag key into the memory manager.
+  !<
+  subroutine load_tag(this, iblk, idt)
+    use FeatureFlagsModule, only: developmode
+    use ArrayHandlersModule, only: expandarray
+    class(LoadMf6FileType) :: this
+    integer(I4B), intent(in) :: iblk
+    type(InputParamDefinitionType), pointer, intent(in) :: idt !< input data type object describing this record
+    character(len=LINELENGTH) :: dev_msg
+
+    ! check if input param is developmode
+    if (idt%developmode) then
+      dev_msg = 'Input tag "'//trim(idt%tagname)// &
+        &'" read from file "'//trim(this%filename)// &
+        &'" is still under development. Install the &
+        &nightly build or compile from source with IDEVELOPMODE = 1.'
+      call developmode(dev_msg, this%iout)
     end if
-    !
-    if (.not. found) then
-      ! -- load standard keyword tag
+
+    ! allocate and load data type
+    select case (idt%datatype)
+    case ('KEYWORD')
       call load_keyword_type(this%parser, idt, this%mf6_input%mempath, this%iout)
-      !
-      ! -- check/set as dev option
+      ! check/set as dev option
       if (idt%tagname(1:4) == 'DEV_' .and. &
           this%mf6_input%block_dfns(iblk)%blockname == 'OPTIONS') then
         call this%parser%DevOpt()
       end if
-    end if
-    !
-    ! -- return
-    return
-  end subroutine parse_keyword_tag
-
-  !> @brief load an individual input record into memory
-  !!
-  !! Load an individual input record into the memory
-  !! manager.  Allow for recursive calls in the case that multiple
-  !! tags are on a single line.
-  !!
-  !<
-  recursive subroutine parse_tag(this, iblk, recursive_call)
-    ! -- modules
-    use ArrayHandlersModule, only: expandarray
-    ! -- dummy
-    class(LoadMf6FileType) :: this
-    integer(I4B), intent(in) :: iblk
-    logical(LGP), intent(in) :: recursive_call !< true if recursive call
-    ! -- local
-    character(len=LINELENGTH) :: tag
-    type(InputParamDefinitionType), pointer :: idt !< input data type object describing this record
-    !
-    ! -- read tag name
-    call this%parser%GetStringCaps(tag)
-    if (recursive_call) then
-      if (tag == '') then
-        ! no data on line so return
-        return
-      end if
-    end if
-    !
-    ! -- find keyword in input definition
-    idt => get_param_definition_type(this%mf6_input%param_dfns, &
-                                     this%mf6_input%component_type, &
-                                     this%mf6_input%subcomponent_type, &
-                                     this%mf6_input%block_dfns(iblk)%blockname, &
-                                     tag, this%filename)
-    !
-    ! -- allocate and load data type
-    select case (idt%datatype)
-    case ('KEYWORD')
-      call this%parse_keyword_tag(iblk, tag, idt)
     case ('STRING')
       if (idt%shape == 'NAUX') then
         call load_auxvar_names(this%parser, idt, this%mf6_input%mempath, &
@@ -523,40 +503,26 @@ contains
       call load_double3d_type(this%parser, idt, this%mf6_input, this%mshape, &
                               this%export, this%nc_vars, this%filename, this%iout)
     case default
-      write (errmsg, '(a,a)') 'Failure reading data for tag: ', trim(tag)
+      write (errmsg, '(a,a)') 'Failure reading data for tag: ', trim(idt%tagname)
       call store_error(errmsg)
       call this%parser%StoreErrorUnit()
     end select
-    !
-    ! -- continue line if in same record
-    if (idt%in_record) then
-      !
-      ! recursively call parse tag again to read rest of line
-      call this%parse_tag(iblk, .true.)
-    end if
-    !
-    !
+
     call expandarray(this%block_tags)
     this%block_tags(size(this%block_tags)) = trim(idt%tagname)
-    !
-    ! -- return
-    return
-  end subroutine parse_tag
+  end subroutine load_tag
 
   function block_index_dfn(this, iblk) result(idt)
-    ! -- modules
-    ! -- dummy
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
-    ! -- local
     type(InputParamDefinitionType) :: idt !< input data type object describing this record
     character(len=LENVARNAME) :: varname
     integer(I4B) :: ilen
     character(len=3) :: block_suffix = 'NUM'
-    !
-    ! -- assign first column as the block number
+
+    ! assign first column as the block number
     ilen = len_trim(this%mf6_input%block_dfns(iblk)%blockname)
-    !
+
     if (ilen > (LENVARNAME - len(block_suffix))) then
       varname = &
         this%mf6_input%block_dfns(iblk)% &
@@ -564,16 +530,13 @@ contains
     else
       varname = trim(this%mf6_input%block_dfns(iblk)%blockname)//block_suffix
     end if
-    !
+
     idt%component_type = trim(this%mf6_input%component_type)
     idt%subcomponent_type = trim(this%mf6_input%subcomponent_type)
     idt%blockname = trim(this%mf6_input%block_dfns(iblk)%blockname)
     idt%tagname = varname
     idt%mf6varname = varname
     idt%datatype = 'INTEGER'
-    !
-    ! -- return
-    return
   end function block_index_dfn
 
   !> @brief parse a structured array record into memory manager
@@ -585,14 +548,12 @@ contains
   !!
   !<
   subroutine parse_structarray_block(this, iblk)
-    ! -- modules
     use StructArrayModule, only: StructArrayType, constructStructArray
-    use DynamicPackageParamsModule, only: DynamicPackageParamsType
-    ! -- dummy
+    use LoadContextModule, only: LoadContextType
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
-    ! -- local
-    type(DynamicPackageParamsType) :: block_params
+    type(LoadContextType) :: ctx
+    character(len=LINELENGTH), dimension(:), allocatable :: param_names
     type(InputParamDefinitionType), pointer :: idt !< input data type object describing this record
     type(InputParamDefinitionType), target :: blockvar_idt
     integer(I4B) :: blocknum
@@ -600,106 +561,89 @@ contains
     integer(I4B) :: nrows, nrowsread
     integer(I4B) :: ibinary, oc_inunit
     integer(I4B) :: icol, iparam
-    integer(I4B) :: ncol
-    !
-    ! -- initialize package params object
-    call block_params%init(this%mf6_input, &
-                           this%mf6_input%block_dfns(iblk)%blockname, &
-                           this%readasarrays, this%iauxiliary, this%inamedbound)
-    !
-    ! -- set input definition for this block
+    integer(I4B) :: ncol, nparam
+
+    ! initialize load context
+    call ctx%init(this%mf6_input, blockname= &
+                  this%mf6_input%block_dfns(iblk)%blockname)
+    ! set in scope params for load
+    call ctx%tags(param_names, nparam, this%filename)
+    ! set input definition for this block
     idt => &
       get_aggregate_definition_type(this%mf6_input%aggregate_dfns, &
                                     this%mf6_input%component_type, &
                                     this%mf6_input%subcomponent_type, &
                                     this%mf6_input%block_dfns(iblk)%blockname)
-    !
-    ! -- if block is reloadable read the block number
+    ! if block is reloadable read the block number
     if (this%mf6_input%block_dfns(iblk)%block_variable) then
       blocknum = this%parser%GetInteger()
     else
       blocknum = 0
     end if
-    !
-    ! -- set ncol
-    ncol = block_params%nparam
-    !
-    ! -- add col if block is reloadable
+
+    ! set ncol
+    ncol = nparam
+    ! add col if block is reloadable
     if (blocknum > 0) ncol = ncol + 1
-    !
-    ! -- use shape to set the max num of rows
+    ! use shape to set the max num of rows
     if (idt%shape /= '') then
       call mem_setptr(nrow, idt%shape, this%mf6_input%mempath)
       nrows = nrow
     else
-      nrows = 0
+      nrows = -1
     end if
-    !
-    ! -- create a structured array
+
+    ! create a structured array
     this%structarray => constructStructArray(this%mf6_input, ncol, nrows, &
                                              blocknum, this%mf6_input%mempath, &
                                              this%mf6_input%component_mempath)
-    !
-    ! -- create structarray vectors for each column
+    ! create structarray vectors for each column
     do icol = 1, ncol
-      !
-      ! -- if block is reloadable, block number is first column
+      ! if block is reloadable, block number is first column
       if (blocknum > 0) then
         if (icol == 1) then
-          !
           blockvar_idt = this%block_index_dfn(iblk)
           idt => blockvar_idt
-          !
           call this%structarray%mem_create_vector(icol, idt)
-          !
-          ! -- continue as this column managed by internally SA object
+          ! continue as this column managed by internally SA object
           cycle
         end if
-        !
-        ! -- set indexes (where first column is blocknum)
+        ! set indexes (where first column is blocknum)
         iparam = icol - 1
       else
-        !
-        ! -- set indexes (no blocknum column)
+        ! set indexes (no blocknum column)
         iparam = icol
       end if
-      !
-      ! -- set pointer to input definition for this 1d vector
+      ! set pointer to input definition for this 1d vector
       idt => &
         get_param_definition_type(this%mf6_input%param_dfns, &
                                   this%mf6_input%component_type, &
                                   this%mf6_input%subcomponent_type, &
                                   this%mf6_input%block_dfns(iblk)%blockname, &
-                                  block_params%params(iparam), this%filename)
-      !
-      ! -- allocate variable in memory manager
+                                  param_names(iparam), this%filename)
+      ! allocate variable in memory manager
       call this%structarray%mem_create_vector(icol, idt)
     end do
-    !
-    ! -- read the block control record
+
+    ! finish context setup after allocating vectors
+    call ctx%allocate_arrays()
+
+    ! read the block control record
     ibinary = read_control_record(this%parser, oc_inunit, this%iout)
-    !
+
     if (ibinary == 1) then
-      !
-      ! -- read from binary
+      ! read from binary
       nrowsread = this%structarray%read_from_binary(oc_inunit, this%iout)
-      !
       call this%parser%terminateblock()
-      !
       close (oc_inunit)
-      !
     else
-      !
-      ! -- read from ascii
+      ! read from ascii
       nrowsread = this%structarray%read_from_parser(this%parser, this%ts_active, &
                                                     this%iout)
     end if
-    !
-    ! -- clean up
-    call block_params%destroy()
-    !
-    ! -- return
-    return
+
+    ! clean up
+    call ctx%destroy()
   end subroutine parse_structarray_block
 
   !> @brief load type keyword
@@ -713,7 +657,6 @@ contains
     call mem_allocate(intvar, idt%mf6varname, memoryPath)
     intvar = 1
     call idm_log_var(intvar, idt%tagname, memoryPath, idt%datatype, iout)
-    return
   end subroutine load_keyword_type
 
   !> @brief load type string
@@ -739,7 +682,6 @@ contains
       call parser%GetString(cstr, (.not. idt%preserve_case))
       call idm_log_var(cstr, idt%tagname, memoryPath, iout)
     end select
-    return
   end subroutine load_string_type
 
   !> @brief load io tag
@@ -773,7 +715,6 @@ contains
     else if (which == 'FILEOUT') then
       call load_string_type(parser, idt, memoryPath, iout)
     end if
-    return
   end subroutine load_io_tag
 
   !> @brief load aux variable names
@@ -809,7 +750,6 @@ contains
     end do
     deallocate (line)
     deallocate (caux)
-    return
   end subroutine load_auxvar_names
 
   !> @brief load type integer
@@ -823,7 +763,6 @@ contains
     call mem_allocate(intvar, idt%mf6varname, memoryPath)
     intvar = parser%GetInteger()
     call idm_log_var(intvar, idt%tagname, memoryPath, idt%datatype, iout)
-    return
   end subroutine load_integer_type
 
   !> @brief load type 1d integer
@@ -883,8 +822,6 @@ contains
         call idm_export(int1d, idt%tagname, mf6_input%mempath, idt%shape, iout)
       end if
     end if
-
-    return
   end subroutine load_integer1d_type
 
   !> @brief load type 2d integer
@@ -941,8 +878,6 @@ contains
         call idm_export(int2d, idt%tagname, mf6_input%mempath, idt%shape, iout)
       end if
     end if
-
-    return
   end subroutine load_integer2d_type
 
   !> @brief load type 3d integer
@@ -1004,8 +939,6 @@ contains
         call idm_export(int3d, idt%tagname, mf6_input%mempath, idt%shape, iout)
       end if
     end if
-
-    return
   end subroutine load_integer3d_type
 
   !> @brief load type double
@@ -1019,7 +952,6 @@ contains
     call mem_allocate(dblvar, idt%mf6varname, memoryPath)
     dblvar = parser%GetDouble()
     call idm_log_var(dblvar, idt%tagname, memoryPath, iout)
-    return
   end subroutine load_double_type
 
   !> @brief load type 1d double
@@ -1078,8 +1010,6 @@ contains
         call idm_export(dbl1d, idt%tagname, mf6_input%mempath, idt%shape, iout)
       end if
     end if
-
-    return
   end subroutine load_double1d_type
 
   !> @brief load type 2d double
@@ -1136,8 +1066,6 @@ contains
         call idm_export(dbl2d, idt%tagname, mf6_input%mempath, idt%shape, iout)
       end if
     end if
-
-    return
   end subroutine load_double2d_type
 
   !> @brief load type 3d double
@@ -1199,93 +1127,75 @@ contains
         call idm_export(dbl3d, idt%tagname, mf6_input%mempath, idt%shape, iout)
       end if
     end if
-
-    return
   end subroutine load_double3d_type
 
   function read_control_record(parser, oc_inunit, iout) result(ibinary)
-    ! -- modules
     use SimModule, only: store_error_unit
     use InputOutputModule, only: urword
     use InputOutputModule, only: openfile
     use OpenSpecModule, only: form, access
     use ConstantsModule, only: LINELENGTH
     use BlockParserModule, only: BlockParserType
-    ! -- dummy
     type(BlockParserType), intent(inout) :: parser
     integer(I4B), intent(inout) :: oc_inunit
     integer(I4B), intent(in) :: iout
-    ! -- return
     integer(I4B) :: ibinary
-    ! -- local
     integer(I4B) :: lloc, istart, istop, idum, inunit, itmp, ierr
     integer(I4B) :: nunopn = 99
     character(len=:), allocatable :: line
     character(len=LINELENGTH) :: fname
-    logical :: exists
+    logical(LGP) :: exists
     real(DP) :: r
-    ! -- formats
     character(len=*), parameter :: fmtocne = &
       &"('Specified OPEN/CLOSE file ',(A),' does not exist')"
     character(len=*), parameter :: fmtobf = &
       &"(1X,/1X,'OPENING BINARY FILE ON UNIT ',I0,':',/1X,A)"
-    !
-    ! -- initialize oc_inunit and ibinary
+
+    ! initialize oc_inunit and ibinary
     oc_inunit = 0
     ibinary = 0
-    !
     inunit = parser%getunit()
-    !
-    ! -- Read to the first non-commented line
+
+    ! Read to the first non-commented line
     lloc = 1
     call parser%line_reader%rdcom(inunit, iout, line, ierr)
     call urword(line, lloc, istart, istop, 1, idum, r, iout, inunit)
-    !
+
     if (line(istart:istop) == 'OPEN/CLOSE') then
-      !
-      ! -- get filename
+      ! get filename
       call urword(line, lloc, istart, istop, 0, idum, r, &
                   iout, inunit)
-      !
       fname = line(istart:istop)
-      !
-      ! -- check to see if file OPEN/CLOSE file exists
+      ! check to see if file OPEN/CLOSE file exists
       inquire (file=fname, exist=exists)
-      !
       if (.not. exists) then
         write (errmsg, fmtocne) line(istart:istop)
         call store_error(errmsg)
         call store_error('Specified OPEN/CLOSE file does not exist')
         call store_error_unit(inunit)
       end if
-      !
-      ! -- Check for (BINARY) keyword
+
+      ! Check for (BINARY) keyword
       call urword(line, lloc, istart, istop, 1, idum, r, &
                   iout, inunit)
-      !
+
       if (line(istart:istop) == '(BINARY)') ibinary = 1
-      !
-      ! -- Open the file depending on ibinary flag
+      ! Open the file depending on ibinary flag
       if (ibinary == 1) then
         oc_inunit = nunopn
         itmp = iout
-        !
         if (iout > 0) then
           itmp = 0
           write (iout, fmtobf) oc_inunit, trim(adjustl(fname))
         end if
-        !
         call openfile(oc_inunit, itmp, fname, 'OPEN/CLOSE', &
                       fmtarg_opt=form, accarg_opt=access)
       end if
     end if
-    !
+
     if (ibinary == 0) then
       call parser%line_reader%bkspc(parser%getunit())
     end if
-    !
-    ! -- return
-    return
   end function read_control_record
 
 end module LoadMf6FileModule

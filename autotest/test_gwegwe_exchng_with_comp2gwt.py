@@ -1,5 +1,6 @@
 """
-Two-Dimensional Heat Transport (GWE) in a Radial Flow Field with Comparison to a MODFLOW 6 GWT model
+Two-Dimensional Heat Transport (GWE) in a Radial Flow Field with Comparison
+to a MODFLOW 6 GWT model
 
 The purpose of this script is to test the new heat transport model developed
 for MODFLOW 6.  To that end, this problem uses the setup of the fifth MT3DMS
@@ -152,14 +153,10 @@ for i in np.arange(nrow):
             # Check to see if two touching cells in adjacent models are both active
             # Check
             if idomain_ur[0, i, j] > 0 and idomain_ll[0, i + 1, j] > 0:
-                exgdata.append(
-                    ((0, i, j), (0, i + 1, j), 1, 5, 5, 10, 270.0, 10.0)
-                )
+                exgdata.append(((0, i, j), (0, i + 1, j), 1, 5, 5, 10, 270.0, 10.0))
         if j < (ncol - 1):
             if idomain_ur[0, i, j + 1] > 0 and idomain_ll[0, i, j] > 0:
-                exgdata.append(
-                    ((0, i, j + 1), (0, i, j), 1, 5, 5, 10, 180.0, 10.0)
-                )
+                exgdata.append(((0, i, j + 1), (0, i, j), 1, 5, 5, 10, 180.0, 10.0))
 
 
 # Boundary conditions
@@ -248,9 +245,7 @@ def build_models(idx, test):
     for i in range(nper):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
 
-    flopy.mf6.ModflowTdis(
-        sim, nper=nper, perioddata=tdis_rc, time_units=time_units
-    )
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=tdis_rc, time_units=time_units)
 
     # add both solutions to the simulation
     add_flow(sim)
@@ -499,7 +494,8 @@ def add_energy(sim):
         filename="gwesolver.ims",
     )
 
-    # Set the advection scheme, it is needed by both gwe model instantiation and gwegwe exchange
+    # Set the advection scheme, it is needed by both gwe model instantiation
+    # and gwegwe exchange
     if mixelm >= 0:
         scheme = "UPSTREAM"
     elif mixelm == -1:
@@ -582,26 +578,22 @@ def add_upper_gwemodel(sim, scheme):
         heat_capacity_water=cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=cps,
-        rhos=rhos,
+        heat_capacity_solid=cps,
+        density_solid=rhos,
         pname="EST-UP",
         filename=f"{mname}.est",
     )
 
     # Instantiating MODFLOW 6 heat transport source-sink mixing package
     sourcerecarray = [("WEL-1", "AUX", "TEMPERATURE")]
-    flopy.mf6.ModflowGwessm(
-        gwe, sources=sourcerecarray, filename=f"{mname}.ssm"
-    )
+    flopy.mf6.ModflowGwessm(gwe, sources=sourcerecarray, filename=f"{mname}.ssm")
 
     # Instantiating MODFLOW 6 heat transport output control package
     flopy.mf6.ModflowGweoc(
         gwe,
         budget_filerecord=f"{mname}.cbc",
         temperature_filerecord=f"{mname}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("TEMPERATURE", "LAST"), ("BUDGET", "LAST")],
     )
@@ -660,17 +652,15 @@ def add_lower_gwemodel(sim, scheme):
         heat_capacity_water=cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=cps,
-        rhos=rhos,
+        heat_capacity_solid=cps,
+        density_solid=rhos,
         pname="EST-LO",
         filename=f"{mname}.est",
     )
 
     # Instantiating MODFLOW 6 heat transport source-sink mixing package
     sourcerecarray = [("CHD-1", "AUX", "TEMPERATURE")]
-    flopy.mf6.ModflowGwessm(
-        gwe, sources=sourcerecarray, filename=f"{mname}.ssm"
-    )
+    flopy.mf6.ModflowGwessm(gwe, sources=sourcerecarray, filename=f"{mname}.ssm")
 
     # Instantiating MODFLOW 6 heat transport output control package
     # flopy.mf6.ModflowGweoc(
@@ -687,9 +677,7 @@ def add_lower_gwemodel(sim, scheme):
         gwe,
         budget_filerecord=f"{mname}.cbc",
         temperature_filerecord=f"{mname}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("TEMPERATURE", "LAST"), ("BUDGET", "LAST")],
     )
@@ -716,7 +704,8 @@ def add_transport(sim):
         filename="gwtsolver.ims",
     )
 
-    # Set the advection scheme, it is needed by both gwe model instantiation and gwegwe exchange
+    # Set the advection scheme, it is needed by both gwe model instantiation
+    # and gwegwe exchange
     if mixelm >= 0:
         scheme = "UPSTREAM"
     elif mixelm == -1:
@@ -804,17 +793,13 @@ def add_upper_gwtmodel(sim, scheme):
 
     # Instantiating MODFLOW 6 source-sink mixing package transport
     sourcerecarray = [("WEL-1", "AUX", "TEMPERATURE")]
-    flopy.mf6.ModflowGwtssm(
-        gwt, sources=sourcerecarray, filename=f"{mname}.ssm"
-    )
+    flopy.mf6.ModflowGwtssm(gwt, sources=sourcerecarray, filename=f"{mname}.ssm")
 
     flopy.mf6.ModflowGwtoc(
         gwt,
         budget_filerecord=f"{mname}.cbc",
         concentration_filerecord=f"{mname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -877,18 +862,14 @@ def add_lower_gwtmodel(sim, scheme):
 
     # Instantiating MODFLOW 6 solute transport source-sink mixing package
     sourcerecarray = [("CHD-1", "AUX", "TEMPERATURE")]
-    flopy.mf6.ModflowGwtssm(
-        gwt, sources=sourcerecarray, filename=f"{mname}.ssm"
-    )
+    flopy.mf6.ModflowGwtssm(gwt, sources=sourcerecarray, filename=f"{mname}.ssm")
 
     # Instantiating MODFLOW 6 solute transport output control package
     flopy.mf6.ModflowGwtoc(
         gwt,
         budget_filerecord=f"{mname}.cbc",
         concentration_filerecord=f"{mname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -955,7 +936,8 @@ def check_output(idx, test):
             elif idomain_ll[k, i, j] > 0:
                 stitched_temps[i, j] = temp_ll[tm, k, i, j]
 
-    # Stitch together the "concentrations" (which represent temperatures) from the upper-right and lower-left models
+    # Stitch together the "concentrations" (which represent temperatures)
+    # from the upper-right and lower-left models
     tm = k = 0
     stitched_conc = np.zeros((nrow, ncol))
     for i in np.arange(nrow):
@@ -1013,9 +995,9 @@ def check_output(idx, test):
     models = []
     for mname in mf6_sim.model_names:
         models.append(mf6_sim.get_model(mname))
-    assert (
-        len(models) == 6
-    ), "Unexpected number of models encountered while loading simulation"
+    assert len(models) == 6, (
+        "Unexpected number of models encountered while loading simulation"
+    )
 
     if plotModel:
         # Create figure for scenario
@@ -1056,10 +1038,7 @@ def check_output(idx, test):
 
         # save figure
         if plotSave:
-            fpth = os.path.join(
-                out_pth,
-                f"{sim_name + '-planView.png'}",
-            )
+            fpth = os.path.join(out_pth, f"{sim_name + '-planView.png'}")
             fig.savefig(fpth)
 
 

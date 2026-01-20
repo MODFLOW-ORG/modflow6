@@ -1,9 +1,9 @@
 module TspFmiModule
 
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DONE, DZERO, DHALF, LINELENGTH, LENBUDTXT, &
                              LENPACKAGENAME, LENVARNAME
-  use SimModule, only: store_error, store_error_unit
+  use SimModule, only: store_error, count_errors, store_error_filename
   use SimVariablesModule, only: errmsg
   use FlowModelInterfaceModule, only: FlowModelInterfaceType
   use BaseDisModule, only: DisBaseType
@@ -60,9 +60,9 @@ module TspFmiModule
     procedure :: gwfsatold
     procedure :: initialize_gwfterms_from_bfr
     procedure :: initialize_gwfterms_from_gwfbndlist
-    procedure :: read_options => gwtfmi_read_options
+    procedure :: source_options => gwtfmi_source_options
     procedure :: set_aptbudobj_pointer
-    procedure :: read_packagedata => gwtfmi_read_packagedata
+    procedure :: source_packagedata => gwtfmi_source_packagedata
     procedure :: set_active_status
 
   end type TspFmiType
@@ -71,10 +71,12 @@ contains
 
   !> @brief Create a new FMI object
   !<
-  subroutine fmi_cr(fmiobj, name_model, inunit, iout, eqnsclfac, depvartype)
+  subroutine fmi_cr(fmiobj, name_model, input_mempath, inunit, iout, eqnsclfac, &
+                    depvartype)
     ! -- dummy
     type(TspFmiType), pointer :: fmiobj
     character(len=*), intent(in) :: name_model
+    character(len=*), intent(in) :: input_mempath
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
     real(DP), intent(in), pointer :: eqnsclfac !< governing equation scale factor
@@ -84,7 +86,7 @@ contains
     allocate (fmiobj)
     !
     ! -- create name and memory path
-    call fmiobj%set_names(1, name_model, 'FMI', 'FMI')
+    call fmiobj%set_names(1, name_model, 'FMI', 'FMI', input_mempath)
     fmiobj%text = text
     !
     ! -- Allocate scalars
@@ -94,17 +96,11 @@ contains
     fmiobj%inunit = inunit
     fmiobj%iout = iout
     !
-    ! -- Initialize block parser
-    call fmiobj%parser%Initialize(fmiobj%inunit, fmiobj%iout)
-    !
     ! -- Assign label based on dependent variable
     fmiobj%depvartype = depvartype
     !
     ! -- Store pointer to governing equation scale factor
     fmiobj%eqnsclfac => eqnsclfac
-    !
-    ! -- Return
-    return
   end subroutine fmi_cr
 
   !> @brief Read and prepare
@@ -134,9 +130,6 @@ contains
         call store_error(errmsg, terminate=.TRUE.)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine fmi_rp
 
   !> @brief Advance routine for FMI object
@@ -187,9 +180,6 @@ contains
     if (this%idryinactive /= 0) then
       call this%set_active_status(cnew)
     end if
-    !
-    ! -- Return
-    return
   end subroutine fmi_ad
 
   !> @brief Calculate coefficients and fill matrix and rhs terms associated
@@ -221,9 +211,6 @@ contains
         call matrix_sln%add_value_pos(idiag_sln, qcorr)
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine fmi_fc
 
   !> @brief Calculate flow correction
@@ -256,9 +243,6 @@ contains
         flowja(idiag) = flowja(idiag) + rate
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine fmi_cq
 
   !> @brief Calculate budget terms associated with FMI object
@@ -280,9 +264,6 @@ contains
       call rate_accumulator(this%flowcorrect, rin, rout)
       call model_budget%addentry(rin, rout, delt, budtxt(2), isuppress_output)
     end if
-    !
-    ! -- Return
-    return
   end subroutine fmi_bd
 
   !> @brief Save budget terms associated with FMI object
@@ -321,9 +302,6 @@ contains
                                  budtxt(2), cdatafmp, nvaluesp, &
                                  nwidthp, editdesc, dinact)
     end if
-    !
-    ! -- Return
-    return
   end subroutine fmi_ot_flow
 
   !> @brief Deallocate variables
@@ -372,14 +350,12 @@ contains
     call mem_deallocate(this%iubud)
     call mem_deallocate(this%iuhds)
     call mem_deallocate(this%iumvr)
+    call mem_deallocate(this%iugrb)
     call mem_deallocate(this%nflowpack)
     call mem_deallocate(this%idryinactive)
     !
     ! -- deallocate parent
     call this%NumericalPackageType%da()
-    !
-    ! -- Return
-    return
   end subroutine gwtfmi_da
 
   !> @ brief Allocate scalars
@@ -405,9 +381,6 @@ contains
     !
     ! -- Initialize
     this%iflowerr = 0
-    !
-    ! -- Return
-    return
   end subroutine gwtfmi_allocate_scalars
 
   !> @ brief Allocate arrays for FMI object
@@ -436,9 +409,6 @@ contains
     do n = 1, size(this%flowcorrect)
       this%flowcorrect(n) = DZERO
     end do
-    !
-    ! -- return
-    return
   end subroutine gwtfmi_allocate_arrays
 
   !> @brief Set gwt transport cell status
@@ -523,9 +493,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine set_active_status
 
   !> @brief Calculate the previous saturation level
@@ -553,194 +520,138 @@ contains
     if (this%igwfstrgss /= 0) vold = vold + this%gwfstrgss(n) * delt
     if (this%igwfstrgsy /= 0) vold = vold + this%gwfstrgsy(n) * delt
     satold = vold / vcell
-    !
-    ! -- Return
-    return
   end function gwfsatold
 
-  !> @brief Read options from input file
+  !> @ brief Source input options for package
   !<
-  subroutine gwtfmi_read_options(this)
+  subroutine gwtfmi_source_options(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH, DEM6
-    use InputOutputModule, only: getunit, openfile, urdaux
-    use SimModule, only: store_error, store_error_unit
+    use MemoryManagerExtModule, only: mem_set_value
     ! -- dummy
     class(TspFmiType) :: this
     ! -- local
-    character(len=LINELENGTH) :: keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
+    logical(LGP) :: found_ipakcb, found_flowerr
     character(len=*), parameter :: fmtisvflow = &
       "(4x,'CELL-BY-CELL FLOW INFORMATION WILL BE SAVED TO BINARY FILE &
       &WHENEVER ICBCFL IS NOT ZERO AND FLOW IMBALANCE CORRECTION ACTIVE.')"
     character(len=*), parameter :: fmtifc = &
       &"(4x,'MASS WILL BE ADDED OR REMOVED TO COMPENSATE FOR FLOW IMBALANCE.')"
-    !
-    ! -- get options block
-    call this%parser%GetBlock('OPTIONS', isfound, ierr, blockRequired=.false., &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse options block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING FMI OPTIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('SAVE_FLOWS')
-          this%ipakcb = -1
-          write (this%iout, fmtisvflow)
-        case ('FLOW_IMBALANCE_CORRECTION')
-          write (this%iout, fmtifc)
-          this%iflowerr = 1
-        case default
-          write (errmsg, '(a,a)') 'Unknown FMI option: ', &
-            trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END OF FMI OPTIONS'
-    end if
-    !
-    ! -- Return
-    return
-  end subroutine gwtfmi_read_options
 
-  !> @brief Read PACKAGEDATA block
-  !!
-  !! Read packagedata block from input file
+    write (this%iout, '(1x,a)') 'PROCESSING FMI OPTIONS'
+
+    call mem_set_value(this%ipakcb, 'SAVE_FLOWS', this%input_mempath, &
+                       found_ipakcb)
+    call mem_set_value(this%iflowerr, 'IMBALANCECORRECT', this%input_mempath, &
+                       found_flowerr)
+
+    if (found_ipakcb) then
+      this%ipakcb = -1
+      write (this%iout, fmtisvflow)
+    end if
+    if (found_flowerr) write (this%iout, fmtifc)
+
+    write (this%iout, '(1x,a)') 'END OF FMI OPTIONS'
+  end subroutine gwtfmi_source_options
+
+  !> @ brief Source input options for package
   !<
-  subroutine gwtfmi_read_packagedata(this)
+  subroutine gwtfmi_source_packagedata(this)
     ! -- modules
+    use MemoryManagerModule, only: mem_setptr
+    use MemoryManagerExtModule, only: mem_set_value
+    use CharacterStringModule, only: CharacterStringType
     use OpenSpecModule, only: ACCESS, FORM
     use ConstantsModule, only: LINELENGTH, DEM6, LENPACKAGENAME
     use InputOutputModule, only: getunit, openfile, urdaux
-    use SimModule, only: store_error, store_error_unit
     ! -- dummy
     class(TspFmiType) :: this
     ! -- local
+    type(CharacterStringType), dimension(:), contiguous, &
+      pointer :: flowtypes
+    type(CharacterStringType), dimension(:), contiguous, &
+      pointer :: fileops
+    type(CharacterStringType), dimension(:), contiguous, &
+      pointer :: fnames
     type(BudgetObjectType), pointer :: budobjptr
-    character(len=LINELENGTH) :: keyword, fname
-    character(len=LENPACKAGENAME) :: pname
-    integer(I4B) :: i
-    integer(I4B) :: ierr
-    integer(I4B) :: inunit
-    integer(I4B) :: iapt
-    logical :: isfound, endOfBlock
-    logical :: blockrequired
-    logical :: exist
     type(BudObjPtrArray), dimension(:), allocatable :: tmpbudobj
-    !
-    ! -- initialize
+    character(len=LINELENGTH) :: flowtype, fileop, fname
+    integer(I4B) :: iapt, inunit, n, i
+    logical(LGP) :: exist
+
     iapt = 0
-    blockrequired = .true.
-    !
-    ! -- get options block
-    call this%parser%GetBlock('PACKAGEDATA', isfound, ierr, &
-                              blockRequired=blockRequired, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse options block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'PROCESSING FMI PACKAGEDATA'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('GWFBUDGET')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword /= 'FILEIN') then
-            call store_error('GWFBUDGET keyword must be followed by '// &
-                             '"FILEIN" then by filename.')
-            call this%parser%StoreErrorUnit()
-          end if
-          call this%parser%GetString(fname)
-          inunit = getunit()
-          inquire (file=trim(fname), exist=exist)
-          if (.not. exist) then
-            call store_error('Could not find file '//trim(fname))
-            call this%parser%StoreErrorUnit()
-          end if
-          call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                        ACCESS, 'UNKNOWN')
-          this%iubud = inunit
-          call this%initialize_bfr()
-        case ('GWFHEAD')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword /= 'FILEIN') then
-            call store_error('GWFHEAD keyword must be followed by '// &
-                             '"FILEIN" then by filename.')
-            call this%parser%StoreErrorUnit()
-          end if
-          call this%parser%GetString(fname)
-          inquire (file=trim(fname), exist=exist)
-          if (.not. exist) then
-            call store_error('Could not find file '//trim(fname))
-            call this%parser%StoreErrorUnit()
-          end if
-          inunit = getunit()
-          call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                        ACCESS, 'UNKNOWN')
-          this%iuhds = inunit
-          call this%initialize_hfr()
-        case ('GWFMOVER')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword /= 'FILEIN') then
-            call store_error('GWFMOVER keyword must be followed by '// &
-                             '"FILEIN" then by filename.')
-            call this%parser%StoreErrorUnit()
-          end if
-          call this%parser%GetString(fname)
-          inunit = getunit()
-          call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                        ACCESS, 'UNKNOWN')
-          this%iumvr = inunit
-          call budgetobject_cr_bfr(this%mvrbudobj, 'MVT', this%iumvr, &
-                                   this%iout)
-          call this%mvrbudobj%fill_from_bfr(this%dis, this%iout)
-        case default
-          !
-          ! --expand the size of aptbudobj, which stores a pointer to the budobj
-          allocate (tmpbudobj(iapt))
-          do i = 1, size(this%aptbudobj)
-            tmpbudobj(i)%ptr => this%aptbudobj(i)%ptr
-          end do
-          deallocate (this%aptbudobj)
-          allocate (this%aptbudobj(iapt + 1))
-          do i = 1, size(tmpbudobj)
-            this%aptbudobj(i)%ptr => tmpbudobj(i)%ptr
-          end do
-          deallocate (tmpbudobj)
-          !
-          ! -- Open the budget file and start filling it
-          iapt = iapt + 1
-          pname = keyword(1:LENPACKAGENAME)
-          call this%parser%GetStringCaps(keyword)
-          if (keyword /= 'FILEIN') then
-            call store_error('Package name must be followed by '// &
-                             '"FILEIN" then by filename.')
-            call this%parser%StoreErrorUnit()
-          end if
-          call this%parser%GetString(fname)
-          inunit = getunit()
-          call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                        ACCESS, 'UNKNOWN')
-          call budgetobject_cr_bfr(budobjptr, pname, inunit, &
-                                   this%iout, colconv2=['GWF             '])
-          call budobjptr%fill_from_bfr(this%dis, this%iout)
-          this%aptbudobj(iapt)%ptr => budobjptr
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'END OF FMI PACKAGEDATA'
+
+    call mem_setptr(flowtypes, 'FLOWTYPE', this%input_mempath)
+    call mem_setptr(fileops, 'FILEIN', this%input_mempath)
+    call mem_setptr(fnames, 'FNAME', this%input_mempath)
+
+    do n = 1, size(flowtypes)
+      flowtype = flowtypes(n)
+      fileop = fileops(n)
+      fname = fnames(n)
+
+      inquire (file=trim(fname), exist=exist)
+      if (.not. exist) then
+        call store_error('Could not find file '//trim(fname))
+        cycle
+      end if
+
+      if (fileop /= 'FILEIN') then
+        call store_error('Unexpected packagedata input keyword read: "' &
+                         //trim(fileop)//'".')
+        cycle
+      end if
+
+      select case (flowtype)
+      case ('GWFBUDGET')
+        inunit = getunit()
+        call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
+                      ACCESS, 'UNKNOWN')
+        this%iubud = inunit
+        call this%initialize_bfr()
+      case ('GWFHEAD')
+        inunit = getunit()
+        call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
+                      ACCESS, 'UNKNOWN')
+        this%iuhds = inunit
+        call this%initialize_hfr()
+      case ('GWFMOVER')
+        inunit = getunit()
+        call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
+                      ACCESS, 'UNKNOWN')
+        this%iumvr = inunit
+        call budgetobject_cr_bfr(this%mvrbudobj, 'MVT', this%iumvr, &
+                                 this%iout)
+        call this%mvrbudobj%fill_from_bfr(this%dis, this%iout)
+      case default
+        !
+        ! --expand the size of aptbudobj, which stores a pointer to the budobj
+        allocate (tmpbudobj(iapt))
+        do i = 1, size(this%aptbudobj)
+          tmpbudobj(i)%ptr => this%aptbudobj(i)%ptr
+        end do
+        deallocate (this%aptbudobj)
+        allocate (this%aptbudobj(iapt + 1))
+        do i = 1, size(tmpbudobj)
+          this%aptbudobj(i)%ptr => tmpbudobj(i)%ptr
+        end do
+        deallocate (tmpbudobj)
+        !
+        ! -- Open the budget file and start filling it
+        iapt = iapt + 1
+        inunit = getunit()
+        call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
+                      ACCESS, 'UNKNOWN')
+        call budgetobject_cr_bfr(budobjptr, flowtype, inunit, &
+                                 this%iout, colconv2=['GWF             '])
+        call budobjptr%fill_from_bfr(this%dis, this%iout)
+        this%aptbudobj(iapt)%ptr => budobjptr
+      end select
+    end do
+
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- Return
-    return
-  end subroutine gwtfmi_read_packagedata
+  end subroutine gwtfmi_source_packagedata
 
   !> @brief Set the pointer to a budget object
   !!
@@ -765,9 +676,6 @@ contains
         exit
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine set_aptbudobj_pointer
 
   !> @brief Initialize the groundwater flow terms based on the budget file
@@ -779,7 +687,6 @@ contains
   subroutine initialize_gwfterms_from_bfr(this)
     ! -- modules
     use MemoryManagerModule, only: mem_allocate
-    use SimModule, only: store_error, store_error_unit, count_errors
     ! -- dummy
     class(TspFmiType) :: this
     ! -- local
@@ -868,11 +775,8 @@ contains
       call store_error(errmsg)
     end if
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- Return
-    return
   end subroutine initialize_gwfterms_from_bfr
 
   !> @brief Initialize groundwater flow terms from the groundwater budget
@@ -942,9 +846,6 @@ contains
         iterm = iterm + 1
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine initialize_gwfterms_from_gwfbndlist
 
   !> @brief Initialize an array for storing PackageBudget objects.
@@ -984,9 +885,6 @@ contains
       write (memPath, '(a, i0)') trim(this%memoryPath)//'-FT', n
       call this%gwfpackages(n)%initialize(memPath)
     end do
-    !
-    ! -- Return
-    return
   end subroutine gwtfmi_allocate_gwfpackages
 
   !> @brief Deallocate memory
@@ -1004,9 +902,6 @@ contains
     do n = 1, this%nflowpack
       call this%gwfpackages(n)%da()
     end do
-    !
-    ! -- Return
-    return
   end subroutine gwtfmi_deallocate_gwfpackages
 
 end module TspFmiModule

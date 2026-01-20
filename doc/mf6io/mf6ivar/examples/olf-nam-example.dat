@@ -1,0 +1,13 @@
+BEGIN options
+  SAVE_FLOWS
+END options
+
+BEGIN packages
+  DISV2D6  swfmodel.disv2d
+  DFW6  swfmodel.dfw
+  STO6  swfmodel.sto
+  IC6  swfmodel.ic
+  OC6  swfmodel.oc
+  FLW6  swfmodel.flw  flw-1
+  CHD6  swfmodel.chd  chd-1
+END packages

@@ -120,9 +120,6 @@ contains
     !
     ! -- Reset current value to zero.
     this%CurrentTimeStepEndValue = DZERO
-    !
-    ! -- return
-    return
   end subroutine ResetCurrentValue
 
   !> @ brief Write observation input data
@@ -161,9 +158,6 @@ contains
     call obstab%add_term('ALL TIMES')
     call obstab%add_term('"'//trim(this%IDstring)//'"')
     call obstab%add_term(fnameout)
-    !
-    ! -- return
-    return
   end subroutine WriteTo
 
   !> @ brief Reset a observation index
@@ -185,9 +179,6 @@ contains
     !
     ! -- Allocate observation index array to size 0
     allocate (this%indxbnds(0))
-    !
-    ! -- return
-    return
   end subroutine ResetObsIndex
 
   !> @ brief Add a observation index
@@ -211,9 +202,6 @@ contains
     !
     ! -- add index to observation index
     this%indxbnds(this%indxbnds_count) = indx
-    !
-    ! -- return
-    return
   end subroutine AddObsIndex
 
   !> @ brief Deallocate a observation
@@ -227,9 +215,6 @@ contains
     if (allocated(this%indxbnds)) then
       deallocate (this%indxbnds)
     end if
-    !
-    ! -- return
-    return
   end subroutine da
 
   ! Non-type-bound procedures
@@ -303,9 +288,6 @@ contains
     newObservation%UnitNumber = numunit
     newObservation%FormattedOutput = formatted
     newObservation%IndxObsOutput = indx
-    !
-    ! -- return
-    return
   end subroutine ConstructObservation
 
   !> @ brief Cast a object as a ObserveType
@@ -326,9 +308,6 @@ contains
     type is (ObserveType)
       res => obj
     end select
-    !
-    ! -- return
-    return
   end function CastAsObserveType
 
   !> @ brief Add a ObserveType to a list
@@ -345,9 +324,6 @@ contains
     !
     obj => obs
     call list%Add(obj)
-    !
-    ! -- return
-    return
   end subroutine AddObsToList
 
   !> @ brief Get an ObserveType from a list
@@ -366,9 +342,6 @@ contains
     !
     obj => list%GetItem(idx)
     res => CastAsObserveType(obj)
-    !
-    ! -- return
-    return
   end function GetObsFromList
 
 end module ObserveModule

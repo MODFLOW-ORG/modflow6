@@ -128,7 +128,7 @@ C     ------------------------------------------------------------------
       use utl7module, only: U1DREL, U2DREL, ! UBDSV1, UBDSV2, UBDSVA,
      &                      urword, URDCOM, ! UBDSV4, UBDSVB,
      &                      ULSTRD
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
 C     ------------------------------------------------------------------
       CALL SGWF2DRN7PNT(IGRID)
 C

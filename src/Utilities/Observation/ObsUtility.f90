@@ -63,9 +63,6 @@ contains
     !    issue with ifort (IFORT) 19.1.0.166 20191121 for Linux
     !    that occurred on some Linux systems.
     flush (nunit)
-    !
-    ! -- return
-    return
   end subroutine write_fmtd_obs
 
   !> @ brief Write unformatted observation
@@ -115,9 +112,6 @@ contains
       valdbl = value
       write (nunit) valdbl
     end if
-    !
-    ! -- return
-    return
   end subroutine write_unfmtd_obs
 
 end module ObsUtilityModule

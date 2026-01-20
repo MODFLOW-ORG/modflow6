@@ -214,7 +214,7 @@ c     ------------------------------------------------------------------
       USE GWFMNW2IMODULE, ONLY:Wel1flag,QSUMflag,BYNDflag,MNWOBS,
      1                       MNWILST,MNWIID
       use GwfMnwSubs, only: GWF2MNW27BH
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       ALLOCATABLE QBH(:)
       INTEGER firstnode,lastnode,QNDflag,QBHflag,QCONCflag,
      & iaux,naux

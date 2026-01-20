@@ -6,12 +6,20 @@ module IdmGwtDfnSelectorModule
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
   use GwtNamInputModule
+  use GwtAdvInputModule
+  use GwtApiInputModule
   use GwtDisInputModule
   use GwtDisuInputModule
   use GwtDisvInputModule
   use GwtDspInputModule
   use GwtCncInputModule
+  use GwtFmiInputModule
   use GwtIcInputModule
+  use GwtIstInputModule
+  use GwtMstInputModule
+  use GwtOcInputModule
+  use GwtSrcInputModule
+  use GwtSsmInputModule
 
   implicit none
   private
@@ -49,6 +57,10 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_param_pointer(input_definition, gwt_nam_param_definitions)
+    case ('ADV')
+      call set_param_pointer(input_definition, gwt_adv_param_definitions)
+    case ('API')
+      call set_param_pointer(input_definition, gwt_api_param_definitions)
     case ('DIS')
       call set_param_pointer(input_definition, gwt_dis_param_definitions)
     case ('DISU')
@@ -59,8 +71,20 @@ contains
       call set_param_pointer(input_definition, gwt_dsp_param_definitions)
     case ('CNC')
       call set_param_pointer(input_definition, gwt_cnc_param_definitions)
+    case ('FMI')
+      call set_param_pointer(input_definition, gwt_fmi_param_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwt_ic_param_definitions)
+    case ('IST')
+      call set_param_pointer(input_definition, gwt_ist_param_definitions)
+    case ('MST')
+      call set_param_pointer(input_definition, gwt_mst_param_definitions)
+    case ('OC')
+      call set_param_pointer(input_definition, gwt_oc_param_definitions)
+    case ('SRC')
+      call set_param_pointer(input_definition, gwt_src_param_definitions)
+    case ('SSM')
+      call set_param_pointer(input_definition, gwt_ssm_param_definitions)
     case default
     end select
     return
@@ -73,6 +97,10 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_param_pointer(input_definition, gwt_nam_aggregate_definitions)
+    case ('ADV')
+      call set_param_pointer(input_definition, gwt_adv_aggregate_definitions)
+    case ('API')
+      call set_param_pointer(input_definition, gwt_api_aggregate_definitions)
     case ('DIS')
       call set_param_pointer(input_definition, gwt_dis_aggregate_definitions)
     case ('DISU')
@@ -83,8 +111,20 @@ contains
       call set_param_pointer(input_definition, gwt_dsp_aggregate_definitions)
     case ('CNC')
       call set_param_pointer(input_definition, gwt_cnc_aggregate_definitions)
+    case ('FMI')
+      call set_param_pointer(input_definition, gwt_fmi_aggregate_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwt_ic_aggregate_definitions)
+    case ('IST')
+      call set_param_pointer(input_definition, gwt_ist_aggregate_definitions)
+    case ('MST')
+      call set_param_pointer(input_definition, gwt_mst_aggregate_definitions)
+    case ('OC')
+      call set_param_pointer(input_definition, gwt_oc_aggregate_definitions)
+    case ('SRC')
+      call set_param_pointer(input_definition, gwt_src_aggregate_definitions)
+    case ('SSM')
+      call set_param_pointer(input_definition, gwt_ssm_aggregate_definitions)
     case default
     end select
     return
@@ -97,6 +137,10 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_block_pointer(input_definition, gwt_nam_block_definitions)
+    case ('ADV')
+      call set_block_pointer(input_definition, gwt_adv_block_definitions)
+    case ('API')
+      call set_block_pointer(input_definition, gwt_api_block_definitions)
     case ('DIS')
       call set_block_pointer(input_definition, gwt_dis_block_definitions)
     case ('DISU')
@@ -107,8 +151,20 @@ contains
       call set_block_pointer(input_definition, gwt_dsp_block_definitions)
     case ('CNC')
       call set_block_pointer(input_definition, gwt_cnc_block_definitions)
+    case ('FMI')
+      call set_block_pointer(input_definition, gwt_fmi_block_definitions)
     case ('IC')
       call set_block_pointer(input_definition, gwt_ic_block_definitions)
+    case ('IST')
+      call set_block_pointer(input_definition, gwt_ist_block_definitions)
+    case ('MST')
+      call set_block_pointer(input_definition, gwt_mst_block_definitions)
+    case ('OC')
+      call set_block_pointer(input_definition, gwt_oc_block_definitions)
+    case ('SRC')
+      call set_block_pointer(input_definition, gwt_src_block_definitions)
+    case ('SSM')
+      call set_block_pointer(input_definition, gwt_ssm_block_definitions)
     case default
     end select
     return
@@ -120,6 +176,10 @@ contains
     select case (subcomponent)
     case ('NAM')
       multi_package = gwt_nam_multi_package
+    case ('ADV')
+      multi_package = gwt_adv_multi_package
+    case ('API')
+      multi_package = gwt_api_multi_package
     case ('DIS')
       multi_package = gwt_dis_multi_package
     case ('DISU')
@@ -130,8 +190,20 @@ contains
       multi_package = gwt_dsp_multi_package
     case ('CNC')
       multi_package = gwt_cnc_multi_package
+    case ('FMI')
+      multi_package = gwt_fmi_multi_package
     case ('IC')
       multi_package = gwt_ic_multi_package
+    case ('IST')
+      multi_package = gwt_ist_multi_package
+    case ('MST')
+      multi_package = gwt_mst_multi_package
+    case ('OC')
+      multi_package = gwt_oc_multi_package
+    case ('SRC')
+      multi_package = gwt_src_multi_package
+    case ('SSM')
+      multi_package = gwt_ssm_multi_package
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="GWT"'//&
@@ -146,6 +218,10 @@ contains
     select case (subcomponent)
     case ('NAM')
       call set_subpkg_pointer(subpackages, gwt_nam_subpackages)
+    case ('ADV')
+      call set_subpkg_pointer(subpackages, gwt_adv_subpackages)
+    case ('API')
+      call set_subpkg_pointer(subpackages, gwt_api_subpackages)
     case ('DIS')
       call set_subpkg_pointer(subpackages, gwt_dis_subpackages)
     case ('DISU')
@@ -156,8 +232,20 @@ contains
       call set_subpkg_pointer(subpackages, gwt_dsp_subpackages)
     case ('CNC')
       call set_subpkg_pointer(subpackages, gwt_cnc_subpackages)
+    case ('FMI')
+      call set_subpkg_pointer(subpackages, gwt_fmi_subpackages)
     case ('IC')
       call set_subpkg_pointer(subpackages, gwt_ic_subpackages)
+    case ('IST')
+      call set_subpkg_pointer(subpackages, gwt_ist_subpackages)
+    case ('MST')
+      call set_subpkg_pointer(subpackages, gwt_mst_subpackages)
+    case ('OC')
+      call set_subpkg_pointer(subpackages, gwt_oc_subpackages)
+    case ('SRC')
+      call set_subpkg_pointer(subpackages, gwt_src_subpackages)
+    case ('SSM')
+      call set_subpkg_pointer(subpackages, gwt_ssm_subpackages)
     case default
     end select
     return
@@ -170,6 +258,10 @@ contains
     select case (subcomponent)
     case ('NAM')
       integrated = .true.
+    case ('ADV')
+      integrated = .true.
+    case ('API')
+      integrated = .true.
     case ('DIS')
       integrated = .true.
     case ('DISU')
@@ -180,7 +272,19 @@ contains
       integrated = .true.
     case ('CNC')
       integrated = .true.
+    case ('FMI')
+      integrated = .true.
     case ('IC')
+      integrated = .true.
+    case ('IST')
+      integrated = .true.
+    case ('MST')
+      integrated = .true.
+    case ('OC')
+      integrated = .true.
+    case ('SRC')
+      integrated = .true.
+    case ('SSM')
       integrated = .true.
     case default
     end select

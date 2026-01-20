@@ -15,6 +15,7 @@ module SimNamInputModule
     logical :: continue = .false.
     logical :: nocheck = .false.
     logical :: prmem = .false.
+    logical :: prprof = .false.
     logical :: maxerrors = .false.
     logical :: print_input = .false.
     logical :: hpc_filerecord = .false.
@@ -55,6 +56,7 @@ module SimNamInputModule
     '', & ! shape
     'continue if not converged', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -73,6 +75,7 @@ module SimNamInputModule
     '', & ! shape
     'turn off checking', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -91,6 +94,26 @@ module SimNamInputModule
     '', & ! shape
     'memory print option', & ! longname
     .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    simnam_prprof = InputParamDefinitionType &
+    ( &
+    'SIM', & ! component
+    'NAM', & ! subcomponent
+    'OPTIONS', & ! block
+    'PROFILE_OPTION', & ! tag name
+    'PRPROF', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'profiling option', & ! longname
+    .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -109,6 +132,7 @@ module SimNamInputModule
     '', & ! shape
     'maximum number of errors', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -127,6 +151,7 @@ module SimNamInputModule
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -145,6 +170,7 @@ module SimNamInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -163,6 +189,7 @@ module SimNamInputModule
     '', & ! shape
     'head keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -181,6 +208,7 @@ module SimNamInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -199,6 +227,7 @@ module SimNamInputModule
     '', & ! shape
     'file name of time series information', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -217,6 +246,7 @@ module SimNamInputModule
     '', & ! shape
     'name of tdis input file', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -235,6 +265,7 @@ module SimNamInputModule
     '', & ! shape
     'model type', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -253,6 +284,7 @@ module SimNamInputModule
     '', & ! shape
     'file name for model name file', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -271,6 +303,7 @@ module SimNamInputModule
     '', & ! shape
     'name of model', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -289,6 +322,7 @@ module SimNamInputModule
     '', & ! shape
     'exchange type', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -307,6 +341,7 @@ module SimNamInputModule
     '', & ! shape
     'input file for exchange', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -325,6 +360,7 @@ module SimNamInputModule
     '', & ! shape
     'name of model A', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -343,6 +379,7 @@ module SimNamInputModule
     '', & ! shape
     'name of model B', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -361,6 +398,7 @@ module SimNamInputModule
     '', & ! shape
     'maximum solution group iterations', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -379,6 +417,7 @@ module SimNamInputModule
     '', & ! shape
     'type of solution', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -397,6 +436,7 @@ module SimNamInputModule
     '', & ! shape
     'file name for solution input', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -412,9 +452,10 @@ module SimNamInputModule
     'SLNMNAMES', & ! tag name
     'SLNMNAMES', & ! fortran variable
     'STRING', & ! type
-    ':', & ! shape
+    'ANY1D', & ! shape
     'array of model names in this solution', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -427,6 +468,7 @@ module SimNamInputModule
     simnam_continue, &
     simnam_nocheck, &
     simnam_prmem, &
+    simnam_prprof, &
     simnam_maxerrors, &
     simnam_print_input, &
     simnam_hpc_filerecord, &
@@ -459,6 +501,7 @@ module SimNamInputModule
     '', & ! shape
     'list of models', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -477,6 +520,7 @@ module SimNamInputModule
     '', & ! shape
     'list of exchanges', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -495,6 +539,7 @@ module SimNamInputModule
     '', & ! shape
     'solution type and models in the solution', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

@@ -9,7 +9,7 @@ import flopy
 import numpy as np
 import pytest
 from framework import TestFramework
-from modflowapi import ModflowApi
+from modflow_devtools.markers import requires_pkg
 
 cases = ["libgwf_riv02"]
 
@@ -67,9 +67,7 @@ def get_model(ws, name, riv_spd, api=False):
         memory_print_option="all",
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create iterative model solution and register the gwf model with it
     ims = flopy.mf6.ModflowIms(
@@ -137,14 +135,8 @@ def build_models(idx, test):
     name = cases[idx]
 
     # create river data
-    rd = [
-        [(0, 0, icol), riv_stage, riv_cond, riv_bot]
-        for icol in range(1, ncol - 1)
-    ]
-    rd2 = [
-        [(0, 0, icol), riv_stage2, riv_cond, riv_bot]
-        for icol in range(1, ncol - 1)
-    ]
+    rd = [[(0, 0, icol), riv_stage, riv_cond, riv_bot] for icol in range(1, ncol - 1)]
+    rd2 = [[(0, 0, icol), riv_stage2, riv_cond, riv_bot] for icol in range(1, ncol - 1)]
     sim = get_model(ws, name, riv_spd={0: rd, 5: rd2})
 
     # build comparison model with zeroed values
@@ -167,6 +159,8 @@ def api_riv_pak(stage, h, hcof, rhs):
 
 
 def api_func(exe, idx, model_ws=None):
+    from modflowapi import ModflowApi
+
     name = cases[idx].upper()
     if model_ws is None:
         model_ws = "."
@@ -176,7 +170,7 @@ def api_func(exe, idx, model_ws=None):
     try:
         mf6 = ModflowApi(exe, working_directory=model_ws)
     except Exception as e:
-        print("Failed to load " + exe)
+        print("Failed to load " + str(exe))
         print("with message: " + str(e))
         return False, open(output_file_path).readlines()
 
@@ -232,12 +226,7 @@ def api_func(exe, idx, model_ws=None):
 
         while kiter < max_iter:
             # update api package
-            hcof[:], rhs[:] = api_riv_pak(
-                stage,
-                head,
-                hcof,
-                rhs,
-            )
+            hcof[:], rhs[:] = api_riv_pak(stage, head, hcof, rhs)
 
             # solve with updated api data
             has_converged = mf6.solve()
@@ -271,6 +260,7 @@ def api_func(exe, idx, model_ws=None):
     return True, open(output_file_path).readlines()
 
 
+@requires_pkg("modflowapi")
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(

@@ -22,8 +22,8 @@ module SfrPackageWriterModule
   use SfrReachModule, only: SfrReachType, AddReachToList, GetReachFromList
   use SfrSegmentModule, only: SfrSegmentType, AddSegmentToList, &
                               GetSegmentFromList
-  use SimModule, only: ustop, store_error, store_note, store_warning, &
-                       count_errors
+  use SimPHMFModule, only: ustop, store_error, store_note, store_warning, &
+                           count_errors
   use UtilitiesModule, only: RemoveElement
   use utl7module, only: U1DREL, U2DREL, urword, URDCOM, ULSTRD
 
@@ -875,14 +875,14 @@ contains
       reach => this%GetReach(i)
       if (.not. reach%KeepReachActive) cycle
       ncon = size(reach%iconn)
+      write(line,70)reach%NewReachNum
       if (ncon > 0) then
-        write(line,70)reach%NewReachNum
         do j=1,ncon
           write(ic,80)reach%iconn(j)
           line = trim(line) // ' ' // ic
         enddo
-        write(iu,60)trim(line)
       endif
+      write(iu,60)trim(line)
     enddo
     !
     ! Write END

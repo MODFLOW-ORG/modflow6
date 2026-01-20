@@ -79,9 +79,6 @@ contains
     !
     ! -- set model pointers
     call exchange%set_model_pointers()
-    !
-    ! -- Return
-    return
   end subroutine gwfgwt_cr
 
   !> @brief Allocate and read
@@ -130,9 +127,6 @@ contains
     ! -- Set a pointer to the GWF bndlist.  This will allow the transport model
     !    to look through the flow packages and establish a link to GWF flows
     gwtmodel%fmi%gwfbndlist => gwfmodel%bndlist
-    !
-    ! -- Return
-    return
   end subroutine set_model_pointers
 
   !> @brief Define the GwfGwt Exchange object
@@ -183,9 +177,6 @@ contains
     if (gwtmodel%indsp > 0) then
       gwfmodel%npf%icalcspdis = 1
     end if
-    !
-    ! -- Return
-    return
   end subroutine exg_df
 
   !> @brief Allocate and read
@@ -193,6 +184,9 @@ contains
   subroutine exg_ar(this)
     ! -- modules
     use MemoryManagerModule, only: mem_checkin
+    use DisModule, only: DisType
+    use DisvModule, only: DisvType
+    use DisuModule, only: DisuType
     ! -- dummy
     class(GwfGwtExchangeType) :: this
     ! -- local
@@ -205,6 +199,11 @@ contains
       & ',a,'.&
       &  GWF Model has ', i0, ' user nodes and ', i0, ' reduced nodes.&
       &  GWT Model has ', i0, ' user nodes and ', i0, ' reduced nodes.&
+      &  Ensure discretization packages, including IDOMAIN, are identical.')"
+    character(len=*), parameter :: fmtidomerr = &
+      "('GWF and GWT Models do not have the same discretization for exchange&
+      & ',a,'.&
+      &  GWF Model and GWT Model have different IDOMAIN arrays.&
       &  Ensure discretization packages, including IDOMAIN, are identical.')"
     !
     ! -- set gwfmodel
@@ -232,6 +231,34 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     !
+    ! -- Make sure idomains are identical
+    select type (gwfdis => gwfmodel%dis)
+    type is (DisType)
+      select type (gwtdis => gwtmodel%dis)
+      type is (DisType)
+        if (.not. all(gwfdis%idomain == gwtdis%idomain)) then
+          write (errmsg, fmtidomerr) trim(this%name)
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+      end select
+    type is (DisvType)
+      select type (gwtdis => gwtmodel%dis)
+      type is (DisvType)
+        if (.not. all(gwfdis%idomain == gwtdis%idomain)) then
+          write (errmsg, fmtidomerr) trim(this%name)
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+      end select
+    type is (DisuType)
+      select type (gwtdis => gwtmodel%dis)
+      type is (DisuType)
+        if (.not. all(gwfdis%idomain == gwtdis%idomain)) then
+          write (errmsg, fmtidomerr) trim(this%name)
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+      end select
+    end select
+    !
     ! -- setup pointers to gwf variables allocated in gwf_ar
     gwtmodel%fmi%gwfhead => gwfmodel%x
     call mem_checkin(gwtmodel%fmi%gwfhead, &
@@ -245,6 +272,7 @@ contains
     call mem_checkin(gwtmodel%fmi%gwfspdis, &
                      'GWFSPDIS', gwtmodel%fmi%memoryPath, &
                      'SPDIS', gwfmodel%npf%memoryPath)
+    gwtmodel%fmi%igwfspdis = gwfmodel%npf%icalcspdis
     !
     ! -- setup pointers to the flow storage rates. GWF strg arrays are
     !    available after the gwf_ar routine is called.
@@ -281,9 +309,6 @@ contains
     !
     ! -- connect Connections
     call this%gwfconn2gwtconn(gwfmodel, gwtmodel)
-    !
-    ! -- Return
-    return
   end subroutine exg_ar
 
   !> @brief Link GWT connections to GWF connections or exchanges
@@ -428,9 +453,6 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%filename)
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwfconn2gwtconn
 
   !> @brief Links a GWT connection to its GWF counterpart
@@ -472,9 +494,6 @@ contains
     !   gwtConn%gwtModel%name, &
     !   gwtConn%conc, &
     !   gwtConn%icbound)
-    !
-    ! -- Return
-    return
   end subroutine link_connections
 
   !> @brief Deallocate memory
@@ -487,9 +506,6 @@ contains
     !
     call mem_deallocate(this%m1_idx)
     call mem_deallocate(this%m2_idx)
-    !
-    ! -- Return
-    return
   end subroutine exg_da
 
   !> @brief Allocate package scalars
@@ -504,9 +520,6 @@ contains
     call mem_allocate(this%m2_idx, 'M2ID', this%memoryPath)
     this%m1_idx = 0
     this%m2_idx = 0
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @brief Call routines in FMI that will set pointers to the necessary flow
@@ -558,9 +571,6 @@ contains
         iterm = iterm + 1
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine gwfbnd2gwtfmi
 
 end module GwfGwtExchangeModule

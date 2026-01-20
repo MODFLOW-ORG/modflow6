@@ -7,7 +7,7 @@ module DnmDis3dModule
   use GlobalVariablesPHMFModule, only: verbose
   use GeomUtilModule,            only: get_ijk, get_node
   use InputOutputModule,         only: URWORD
-  use SimModule,                 only: count_errors, store_error, &
+  use SimPHMFModule,                 only: count_errors, store_error, &
                                        store_error_unit, ustop
   implicit none
   private
@@ -285,7 +285,7 @@ module DnmDis3dModule
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
     ! -- modules
-    use SimModule, only: ustop, count_errors, store_error
+    use SimPHMFModule, only: ustop, count_errors, store_error
     use ConstantsModule,   only: LINELENGTH, DZERO
     ! -- dummy
     class(Dis3dType) :: this

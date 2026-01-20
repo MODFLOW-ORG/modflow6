@@ -48,9 +48,6 @@ contains
     write (txt, '(a,3(1x,a))') &
       'MODFLOW 6 compiled', trim(adjustl(c_date)), &
       'with', trim(adjustl(compiler_version()))
-    !
-    ! -- return
-    return
   end subroutine get_compiler
 
   !> @ brief Get compilation date
@@ -74,9 +71,6 @@ contains
     !
     ! -- write compilation date string
     write (txt, '(a)') trim(adjustl(c_date))
-    !
-    ! -- return
-    return
   end subroutine get_compile_date
 
   !> @ brief Get compilation options
@@ -92,9 +86,6 @@ contains
     ! -- set txt string
     write (txt, '(a)') &
       'MODFLOW 6 compiler options:'//' '//trim(adjustl(compiler_options()))
-    !
-    ! -- return
-    return
   end subroutine get_compile_options
 
 end module CompilerVersion

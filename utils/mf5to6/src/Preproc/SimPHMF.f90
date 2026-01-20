@@ -1,4 +1,4 @@
-module SimModule
+module SimPHMFModule
   use ArrayHandlersModule, only: ExpandArray
   use ConstantsModule, only: MAXCHARLEN,LINELENGTH
   use global, only: iout
@@ -648,4 +648,4 @@ subroutine ustop(stopmess,ioutlocal)
   stop
 end subroutine ustop
 
-end module SimModule
+end module SimPHMFModule

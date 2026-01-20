@@ -13,8 +13,10 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["src01a"]
-xt3d = [False]
+cases = ["src01a", "srcmult"]
+xt3d = [False, False]
+
+mass_mult = 2.0
 
 
 def build_models(idx, test):
@@ -53,9 +55,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -170,9 +170,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwtic(gwt, strt=0.0, filename=f"{gwtname}.ic")
 
     # advection
-    adv = flopy.mf6.ModflowGwtadv(
-        gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv"
-    )
+    adv = flopy.mf6.ModflowGwtadv(gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv")
 
     # dispersion
     xt3d_off = not xt3d[idx]
@@ -198,14 +196,26 @@ def build_models(idx, test):
     )
 
     # mass loading source
-    srcs = {0: [[(0, 0, 0), 1.0]]}
-    src = flopy.mf6.ModflowGwtsrc(
-        gwt,
-        maxbound=len(srcs),
-        stress_period_data=srcs,
-        save_flows=False,
-        pname="SRC-1",
-    )
+    if idx == 0:
+        srcs = {0: [[(0, 0, 0), 1.0]]}
+        src = flopy.mf6.ModflowGwtsrc(
+            gwt,
+            maxbound=len(srcs),
+            stress_period_data=srcs,
+            save_flows=False,
+            pname="SRC-1",
+        )
+    elif idx > 0:
+        srcs = {0: [[(0, 0, 0), 1.0, mass_mult]]}
+        src = flopy.mf6.ModflowGwtsrc(
+            gwt,
+            auxiliary=["multiplier"],
+            auxmultname="multiplier",
+            maxbound=len(srcs),
+            stress_period_data=srcs,
+            save_flows=False,
+            pname="SRC-1",
+        )
 
     # mobile storage and transfer
     mst = flopy.mf6.ModflowGwtmst(gwt, porosity=0.1)
@@ -218,9 +228,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -248,9 +256,11 @@ def check_output(idx, test):
     # This is the answer to this problem.  These concentrations are for
     # steady state and calculated from F = D * (c1 - c2) / L
     cres = np.linspace(9.9, 0, 100).reshape(conc.shape)
-    assert np.allclose(
-        cres, conc
-    ), "simulated concentrations do not match with known solution."
+    if idx > 0:
+        cres *= mass_mult
+    assert np.allclose(cres, conc), (
+        "simulated concentrations do not match with known solution."
+    )
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

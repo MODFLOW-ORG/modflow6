@@ -19,7 +19,7 @@ C     ------------------------------------------------------------------
       use utl7module, only: U1DREL, U2DREL, !UBDSV1, UBDSV2, UBDSVA,
      &                      urword, URDCOM, !UBDSV4, UBDSVB,
      &                      ULSTRD
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
 C
       CHARACTER*200 LINE
       CHARACTER*4 PTYP
@@ -107,7 +107,7 @@ C     ------------------------------------------------------------------
       use utl7module, only: U1DREL, U2DREL, !UBDSV1, UBDSV2, UBDSVA,
      &                      urword, URDCOM, !UBDSV4, UBDSVB,
      &                      ULSTRD, u2dint
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
 C
       CHARACTER*24 ANAME(2)
 C

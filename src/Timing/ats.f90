@@ -50,7 +50,6 @@ contains
         lv = .true.
       end if
     end if
-    return
   end function isAdaptivePeriod
 
   !> @ brief Create ATS object
@@ -102,9 +101,6 @@ contains
     !
     ! -- Close the file
     call parser%Clear()
-    !
-    ! -- return
-    return
   end subroutine ats_cr
 
   !> @ brief Allocate scalars
@@ -125,9 +121,6 @@ contains
     nper = 0
     maxats = 0
     dtstable = DNODATA
-    !
-    ! -- return
-    return
   end subroutine ats_allocate_scalars
 
   !> @ brief Allocate arrays
@@ -163,9 +156,6 @@ contains
       dtadj(n) = DZERO
       dtfailadj(n) = DZERO
     end do
-    !
-    ! -- return
-    return
   end subroutine ats_allocate_arrays
 
   !> @ brief Deallocate variables
@@ -189,9 +179,6 @@ contains
     call mem_deallocate(dtmax)
     call mem_deallocate(dtadj)
     call mem_deallocate(dtfailadj)
-    !
-    ! -- Return
-    return
   end subroutine ats_da
 
   !> @ brief Read options
@@ -228,9 +215,6 @@ contains
       end do
       write (iout, '(1x,a)') 'END OF ATS OPTIONS'
     end if
-    !
-    ! -- Return
-    return
   end subroutine ats_read_options
 
   !> @ brief Read dimensions
@@ -276,9 +260,6 @@ contains
       call store_error(errmsg)
       call parser%StoreErrorUnit()
     end if
-    !
-    ! -- Return
-    return
   end subroutine ats_read_dimensions
 
   !> @ brief Read timing
@@ -328,9 +309,6 @@ contains
       call store_error(errmsg)
       call parser%StoreErrorUnit()
     end if
-    !
-    ! -- Return
-    return
   end subroutine ats_read_timing
 
   !> @ brief Process input
@@ -397,7 +375,6 @@ contains
     call inputtab%table_da()
     deallocate (inputtab)
     nullify (inputtab)
-    return
   end subroutine ats_input_table
 
   !> @ brief Check timing
@@ -503,7 +480,6 @@ contains
       &)"
     n = kperats(kper)
     write (iout, fmtspts) dt0(n), dtmin(n), dtmax(n), dtadj(n), dtfailadj(n)
-    return
   end subroutine ats_period_message
 
   !> @ brief Allow and external caller to submit preferred time step
@@ -553,7 +529,6 @@ contains
         end if
       end if
     end if
-    return
   end subroutine ats_submit_delt
 
   !> @ brief Set time step
@@ -619,8 +594,6 @@ contains
     !
     ! -- Write time step size information
     write (iout, fmtdt) delt, kstp, kper
-    !
-    return
   end subroutine ats_set_delt
 
   !> @ brief Reset time step because failure has occurred
@@ -661,7 +634,6 @@ contains
 
       end if
     end if
-    return
   end subroutine ats_reset_delt
 
   !> @ brief Set end of period indicator
@@ -683,7 +655,6 @@ contains
     if (abs(pertim - perlencurrent) < dtmin(n)) then
       endofperiod = .true.
     end if
-    return
   end subroutine ats_set_endofperiod
 
 end module AdaptiveTimeStepModule

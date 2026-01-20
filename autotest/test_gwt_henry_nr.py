@@ -12,7 +12,7 @@ import os
 import flopy
 import numpy as np
 import pytest
-from framework import TestFramework
+from framework import DNODATA, TestFramework
 
 cases = ["henrynr01"]
 
@@ -67,10 +67,7 @@ def sinfunc(a, b, c, d, x):
     return a * np.sin(b * (x - c)) + d
 
 
-def build_models(idx, test):
-    ws = test.workspace
-    name = cases[idx]
-
+def get_model(ws, name, array_input=False):
     nrow = 1
     delr = lx / ncol
     delc = 1.0
@@ -96,9 +93,7 @@ def build_models(idx, test):
     sim.name_file.continue_ = False
 
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -169,64 +164,157 @@ def build_models(idx, test):
     sealevelts = [sealevel] + list(
         sinfunc(amplitude, frequency * 2 * np.pi, 0, sealevel, times)
     )
-    ghbspd = {}
     drnspd = {}
+    if array_input:
+        bheadspd = {}
+        ghbcondspd = {}
+        ghbauxspd = {}
+        elevspd = {}
+        drncondspd = {}
+        drnauxspd = {}
+    else:
+        ghbspd = {}
+        drnspd = {}
     for kper in range(nper):
         if kper == 0:
             sl = sealevel
         else:
             sl = sealevelts[kper]
-        ghblist = []
-        drnlist = []
+        sl = np.round(sl, decimals=8)
+        if array_input:
+            bhead = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            ghbcond = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            ghbconc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            ghbdens = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            elev = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            drncond = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+            drnconc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+        else:
+            ghblist = []
+            drnlist = []
+        ghbbnd = 0
+        drnbnd = 0
         for k, i, j in zip(kidx, iidx, jidx):
             zcell = zcellcenters[k, i, j]
             cond = 864.0 * (delz * delc) / (0.5 * delr)
             if zcell > sl:
-                drnlist.append([(k, i, j), zcell, 864.0, 0.0])
+                if array_input:
+                    elev[k, i, j] = zcell
+                    drncond[k, i, j] = 864.0
+                    drnconc[k, i, j] = 0.0
+                else:
+                    drnlist.append([(k, i, j), zcell, 864.0, 0.0])
+                drnbnd += 1
             else:
-                ghblist.append([(k, i, j), sl, 864.0, 35.0, 1024.5])
-        if len(ghblist) > 0:
-            ghbspd[kper] = ghblist
-        if len(drnlist) > 0:
-            drnspd[kper] = drnlist
+                if array_input:
+                    bhead[k, i, j] = sl
+                    ghbcond[k, i, j] = 864.0
+                    ghbconc[k, i, j] = 35.0
+                    ghbdens[k, i, j] = 1024.5
+                else:
+                    ghblist.append([(k, i, j), sl, 864.0, 35.0, 1024.5])
+                ghbbnd += 1
+        if ghbbnd > 0:
+            if array_input:
+                bheadspd[kper] = bhead
+                ghbcondspd[kper] = ghbcond
+                ghbauxspd[kper] = [ghbconc, ghbdens]
+            else:
+                ghbspd[kper] = ghblist
+        if drnbnd > 0:
+            if array_input:
+                elevspd[kper] = elev
+                drncondspd[kper] = drncond
+                drnauxspd[kper] = [drnconc]
+            else:
+                drnspd[kper] = drnlist
 
     # drn
-    drn1 = flopy.mf6.ModflowGwfdrn(
-        gwf,
-        stress_period_data=drnspd,
-        print_input=True,
-        print_flows=True,
-        save_flows=False,
-        pname="DRN-1",
-        auxiliary="CONCENTRATION",
-    )
+    if array_input:
+        drn1 = flopy.mf6.ModflowGwfdrng(
+            gwf,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            maxbound=11,
+            pname="DRN-1",
+            auxiliary=["CONCENTRATION"],
+            elev=elevspd,
+            cond=drncondspd,
+            aux=drnauxspd,
+        )
+    else:
+        drn1 = flopy.mf6.ModflowGwfdrn(
+            gwf,
+            stress_period_data=drnspd,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            pname="DRN-1",
+            auxiliary="CONCENTRATION",
+        )
 
-    # ghb
-    ghb1 = flopy.mf6.ModflowGwfghb(
-        gwf,
-        stress_period_data=ghbspd,
-        print_input=True,
-        print_flows=True,
-        save_flows=False,
-        pname="GHB-1",
-        auxiliary=["CONCENTRATION", "DENSITY"],
-    )
+    # ghb / ghbg
+    if array_input:
+        ghb1 = flopy.mf6.ModflowGwfghbg(
+            gwf,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            maxbound=20,
+            pname="GHB-1",
+            auxiliary=["CONCENTRATION", "DENSITY"],
+            bhead=bheadspd,
+            cond=ghbcondspd,
+            aux=ghbauxspd,
+        )
+    else:
+        ghb1 = flopy.mf6.ModflowGwfghb(
+            gwf,
+            stress_period_data=ghbspd,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            pname="GHB-1",
+            auxiliary=["CONCENTRATION", "DENSITY"],
+        )
 
-    wellist1 = []
+    if array_input:
+        q = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+        welconc = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+    else:
+        wellist1 = []
     qwell = 5.7024 * wellfact
     qwell = qwell / nlay
     for k in range(nlay):
-        wellist1.append([(k, 0, 0), qwell, 0.0])
-    wel1 = flopy.mf6.ModflowGwfwel(
-        gwf,
-        stress_period_data=wellist1,
-        print_input=True,
-        print_flows=True,
-        save_flows=False,
-        pname="WEL-1",
-        auxiliary="CONCENTRATION",
-        filename=f"{gwfname}.wel",
-    )
+        if array_input:
+            q[k, 0, 0] = qwell
+            welconc[k, 0, 0] = 0.0
+        else:
+            wellist1.append([(k, 0, 0), qwell, 0.0])
+    if array_input:
+        wel1 = flopy.mf6.ModflowGwfwelg(
+            gwf,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            pname="WEL-1",
+            auxiliary="CONCENTRATION",
+            filename=f"{gwfname}.welg",
+            q=q,
+            aux=[welconc],
+        )
+    else:
+        wel1 = flopy.mf6.ModflowGwfwel(
+            gwf,
+            stress_period_data=wellist1,
+            print_input=True,
+            print_flows=True,
+            save_flows=False,
+            pname="WEL-1",
+            auxiliary="CONCENTRATION",
+            filename=f"{gwfname}.wel",
+        )
 
     # output control
     oc = flopy.mf6.ModflowGwfoc(
@@ -324,9 +412,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "ALL")],
     )
@@ -342,7 +428,7 @@ def build_models(idx, test):
         filename=f"{name}.gwfgwt",
     )
 
-    return sim, None
+    return sim
 
 
 def get_patch_collection(modelgrid, head, conc, cmap="jet", zorder=None):
@@ -366,23 +452,21 @@ def get_patch_collection(modelgrid, head, conc, cmap="jet", zorder=None):
                 poly, closed=True, edgecolor="k", facecolor="red"
             )
             patches.append(patch)
-    pc = matplotlib.collections.PatchCollection(
-        patches, cmap=cmap, zorder=zorder
-    )
+    pc = matplotlib.collections.PatchCollection(patches, cmap=cmap, zorder=zorder)
     pc.set_array(conc.flatten())
     return pc
 
 
-def make_plot(sim, headall, concall):
-    print("making plots...")
-
-    name = sim.name
-    ws = sim.workspace
-    sim = flopy.mf6.MFSimulation.load(sim_ws=ws)
+def plot_output(idx, test):
+    ws = test.workspace
+    name = test.name
+    sim = test.sims[0]
     gwfname = "gwf_" + name
     gwtname = "gwt_" + name
     gwf = sim.get_model(gwfname)
     gwt = sim.get_model(gwtname)
+    headall = gwf.output.head().get_alldata()
+    concall = gwt.output.concentration().get_alldata()
 
     import matplotlib.patches
     import matplotlib.pyplot as plt
@@ -424,9 +508,7 @@ def make_plot(sim, headall, concall):
         )
         ax.add_patch(patch)
         # aquifer polygon
-        aqpoly = np.array(
-            [[0, 0], [lx, 0], [lx, fz * lz], [lx * fx, lz], [0, lz]]
-        )
+        aqpoly = np.array([[0, 0], [lx, 0], [lx, fz * lz], [lx * fx, lz], [0, lz]])
         patch = matplotlib.patches.Polygon(
             aqpoly, closed=True, facecolor=".7", zorder=1
         )
@@ -461,25 +543,13 @@ def make_plot(sim, headall, concall):
     plt.savefig(fname, bbox_inches="tight")
 
 
-def check_output(idx, test):
-    name = test.name
-    ws = test.workspace
+def check_output(ws, name, sim):
     gwfname = "gwf_" + name
     gwtname = "gwt_" + name
-
-    # load heads
-    fname = os.path.join(ws, gwfname + ".hds")
-    assert os.path.isfile(fname)
-    headobj = flopy.utils.HeadFile(fname, precision="double")
-    head = headobj.get_alldata()
-
-    # load concs
-    fname = os.path.join(ws, gwtname + ".ucn")
-    assert os.path.isfile(fname)
-    concobj = flopy.utils.HeadFile(
-        fname, text="concentration", precision="double"
-    )
-    conc = concobj.get_alldata()
+    gwf = sim.get_model(gwfname)
+    gwt = sim.get_model(gwtname)
+    headobj = gwf.output.head()
+    concobj = gwt.output.concentration()
 
     # extract 10 simulated heads and concs for cell (0, 0, 20)
     hsim = headobj.get_ts((0, 0, 20))[::125, 1]
@@ -519,20 +589,44 @@ def check_output(idx, test):
     errmsg = f"concs not right for cell (0, 0, 20):\n{csim}\n{cans}"
     assert np.allclose(hsim, hans, atol=1.0e-3), errmsg
 
-    makeplot = False
-    if makeplot:
-        make_plot(test, head, conc)
-        assert False
+
+def build_models(idx, test):
+    # build MODFLOW 6 files
+    ws = test.workspace
+    name = cases[idx]
+    sim = get_model(ws, name)
+
+    # build comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    mc = get_model(ws, name, array_input=True)
+
+    return sim, mc
+
+
+def check_outputs(idx, test):
+    name = cases[idx]
+    sim = test.sims[0]
+
+    # check output MODFLOW 6 files
+    ws = test.workspace
+    check_output(ws, name, sim)
+
+    # check output comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    check_output(ws, name, sim)
 
 
 @pytest.mark.slow
+@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, function_tmpdir, targets, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        check=lambda t: check_outputs(idx, t),
+        plot=lambda t: plot_output(idx, t) if plot else None,
+        compare="mf6",
     )
     test.run()

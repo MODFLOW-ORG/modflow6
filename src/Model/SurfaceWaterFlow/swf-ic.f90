@@ -3,7 +3,6 @@ module SwfIcModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH
   use NumericalPackageModule, only: NumericalPackageType
-  use BlockParserModule, only: BlockParserType
   use BaseDisModule, only: DisBaseType
 
   implicit none
@@ -71,7 +70,6 @@ contains
   !<
   subroutine ic_load(this)
     ! -- modules
-    use BaseDisModule, only: DisBaseType
     ! -- dummy
     class(SwfIcType) :: this
     !

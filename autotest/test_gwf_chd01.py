@@ -41,9 +41,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -126,9 +124,7 @@ def check_output(idx, test):
 
     # This is the answer to this problem.
     hres = np.linspace(1, 0, 100)
-    assert np.allclose(
-        hres, head
-    ), "simulated head do not match with known solution."
+    assert np.allclose(hres, head), "simulated head do not match with known solution."
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

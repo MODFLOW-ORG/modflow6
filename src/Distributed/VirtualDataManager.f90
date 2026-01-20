@@ -66,7 +66,7 @@ contains
     this%nr_solutions = 0
 
     ! create a router, sequential or parallel
-    this%router => create_router(sim_mode)
+    this%router => create_router(sim_mode, nr_sol)
 
   end subroutine vds_create
 
@@ -454,6 +454,7 @@ contains
     end do
     deallocate (this%virtual_solutions)
 
+    call this%router%destroy()
     deallocate (this%router)
 
   end subroutine destroy

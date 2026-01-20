@@ -1,0 +1,13 @@
+BEGIN options
+  PRINT_INPUT
+  OBS6  FILEIN  swf_model.zdg.obs
+END options
+
+BEGIN dimensions
+  MAXBOUND  2
+END dimensions
+
+BEGIN period  1
+  1 9  1       1.00000000       0.01000000       0.03500000
+  1 1  1       1.00000000       0.01000000       0.03500000
+END period  1

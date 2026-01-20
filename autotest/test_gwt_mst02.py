@@ -1,5 +1,8 @@
 """
-Test the GWT Sorption (RCT) Package by running a ...
+Test the GWT Sorption (RCT) Package by running a simple 2-cell test with
+mass injected into the first cell at a rate of 1.0 unit/time.  Compare the
+simulated aqueous and sorbate concentrations with a known solution.  Problem
+uses 10 time steps to discretize a 1.0 time unit period.
 """
 
 import os
@@ -77,9 +80,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -125,9 +126,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt, filename=f"{gwfname}.ic")
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=False, icelltype=laytyp, k=hk
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=laytyp, k=hk)
 
     # chd files
     chddict = {0: [[(0, 0, 0), 1.0]]}
@@ -189,12 +188,13 @@ def build_models(idx, test):
         porosity=sy,
         sorption="linear",
         bulk_density=1.0,
+        sorbate_filerecord=f"{gwtname}.mst.csrb",
         distcoef=distcoef[idx],
     )
 
     # mass loading source
     srcdict = {0: [[(0, 0, 0), 1.0]]}
-    cnc = flopy.mf6.ModflowGwtsrc(
+    src = flopy.mf6.ModflowGwtsrc(
         gwt, stress_period_data=srcdict, save_flows=False, pname="SRC-1"
     )
 
@@ -206,9 +206,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.bud",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -229,18 +227,30 @@ def check_output(idx, test):
     name = cases[idx]
     gwtname = "gwt_" + name
 
+    # Check aqueous concentrations
     fpth = os.path.join(test.workspace, f"{gwtname}.ucn")
     try:
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
         ts = cobj.get_ts([(0, 0, 0), (0, 0, 1)])
     except:
         assert False, f'could not load data from "{fpth}"'
-
-    # Check concentrations
     assert np.allclose(ts, tsanswers[idx]), (
-        "simulated concentrations do not " "match with known solution."
+        "simulated concentrations do not match with known solution."
+    )
+
+    # Check sorbate concentrations
+    fpth = os.path.join(test.workspace, f"{gwtname}.mst.csrb")
+    try:
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="SORBATE")
+        ts = cobj.get_ts([(0, 0, 0), (0, 0, 1)])
+    except:
+        assert False, f'could not load data from "{fpth}"'
+    d = distcoef[idx]
+    tsa_csrb = tsanswers[idx]
+    tsa_csrb[:, 1:] *= d
+    assert np.allclose(ts, tsa_csrb), (
+        "Sorbate concentrations do not match with known solution.",
+        ts,
     )
 
     # Check budget file

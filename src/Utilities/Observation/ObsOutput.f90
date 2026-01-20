@@ -48,9 +48,6 @@ contains
     class(ObsOutputType), intent(inout) :: this
     !
     this%empty_line = .TRUE.
-    !
-    ! -- return
-    return
   end subroutine ResetObsEmptyLine
 
   !> @ brief Write line return for observation
@@ -65,9 +62,6 @@ contains
     ! -- write a line return to end of observation output line
     !    for this totim
     write (this%nunit, '(a)', advance='YES') ''
-    !
-    ! --return
-    return
   end subroutine WriteObsLineReturn
 
   ! Non-type-bound procedures
@@ -91,9 +85,6 @@ contains
     class default
       continue
     end select
-    !
-    ! -- return
-    return
   end function CastAsObsOutputType
 
   !> @ brief Construct and assign ObsOutputType object
@@ -111,9 +102,6 @@ contains
     allocate (newObsOutput)
     newObsOutput%filename = fname
     newObsOutput%nunit = nunit
-    !
-    ! -- return
-    return
   end subroutine ConstructObsOutput
 
   !> @ brief Add observation output to a list
@@ -130,9 +118,6 @@ contains
     !
     obj => obsOutput
     call list%Add(obj)
-    !
-    ! -- return
-    return
   end subroutine AddObsOutputToList
 
   !> @ brief Get observation output from a list
@@ -151,9 +136,6 @@ contains
     !
     obj => list%GetItem(idx)
     res => CastAsObsOutputType(obj)
-    !
-    ! --return
-    return
   end function GetObsOutputFromList
 
 end module ObsOutputModule

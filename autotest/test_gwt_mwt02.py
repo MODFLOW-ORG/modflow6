@@ -44,9 +44,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -179,24 +177,12 @@ def build_models(idx, test):
         head_filerecord=f"{gwfname}.hds",
         headprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[
-            (
-                "HEAD",
-                "ALL",
-            ),
-            (
-                "BUDGET",
-                "ALL",
-            ),
+            ("HEAD", "ALL"),
+            ("BUDGET", "ALL"),
         ],
         printrecord=[
-            (
-                "HEAD",
-                "LAST",
-            ),
-            (
-                "BUDGET",
-                "LAST",
-            ),
+            ("HEAD", "LAST"),
+            ("BUDGET", "LAST"),
         ],
     )
 
@@ -249,9 +235,7 @@ def build_models(idx, test):
         ic = flopy.mf6.ModflowGwtic(gwt, strt=0.000, filename=f"{gwtname}.ic")
 
         # advection
-        adv = flopy.mf6.ModflowGwtadv(
-            gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv"
-        )
+        adv = flopy.mf6.ModflowGwtadv(gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv")
 
         # dispersion
         diffc = 0.0
@@ -266,9 +250,7 @@ def build_models(idx, test):
 
         # storage
         porosity = 0.30
-        sto = flopy.mf6.ModflowGwtmst(
-            gwt, porosity=porosity, filename=f"{gwtname}.sto"
-        )
+        sto = flopy.mf6.ModflowGwtmst(gwt, porosity=porosity, filename=f"{gwtname}.sto")
 
         mwt_obs = {
             (gwtname + ".mwt.obs.csv",): [
@@ -368,13 +350,12 @@ def build_models(idx, test):
             concentrationprintrecord=[
                 ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
             ],
-            saverecord=[("CONCENTRATION", "ALL")],
+            saverecord=[
+                ("CONCENTRATION", "ALL"),
+            ],
             printrecord=[
                 ("CONCENTRATION", "ALL"),
-                (
-                    "BUDGET",
-                    "ALL",
-                ),
+                ("BUDGET", "ALL"),
             ],
         )
 
@@ -390,10 +371,9 @@ def build_models(idx, test):
     return sim, None
 
 
-def make_plot(sim):
-    print("making plots...")
-    name = sim.name
-    ws = sim.workspace
+def plot_output(idx, test):
+    name = test.name
+    ws = test.workspace
     sim = flopy.mf6.MFSimulation.load(sim_ws=ws)
     gwfname = "gwf_" + name
     gwtname = "gwt_" + name
@@ -402,9 +382,7 @@ def make_plot(sim):
 
     fname = gwtname + ".ucn"
     fname = os.path.join(ws, fname)
-    cobj = flopy.utils.HeadFile(
-        fname, text="CONCENTRATION"
-    )  # , precision='double')
+    cobj = flopy.utils.HeadFile(fname, text="CONCENTRATION")  # , precision='double')
     conc = cobj.get_data()
 
     import matplotlib.pyplot as plt
@@ -427,10 +405,6 @@ def make_plot(sim):
 
 
 def check_output(idx, test):
-    makeplot = False
-    if makeplot:
-        make_plot(test)
-
     # ensure concentrations were saved
     name = cases[idx]
     gwtname = "gwt_" + name
@@ -473,12 +447,13 @@ def check_output(idx, test):
 
 @pytest.mark.slow
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, function_tmpdir, targets, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        plot=lambda t: plot_output(idx, t) if plot else None,
     )
     test.run()

@@ -54,9 +54,7 @@ def build_models(idx, test):
     )
 
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = name
@@ -105,9 +103,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=False, icelltype=laytyp, k=hk
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=laytyp, k=hk)
     # storage
     sto = flopy.mf6.ModflowGwfsto(
         gwf,
@@ -203,9 +199,7 @@ def build_models(idx, test):
     obs_lst = []
     obs_lst.append(["obs1", "head", (0, 0, 0)])
     obs_dict = {f"{gwfname}.obs.csv": obs_lst}
-    obs = flopy.mf6.ModflowUtlobs(
-        gwf, pname="head_obs", digits=20, continuous=obs_dict
-    )
+    obs = flopy.mf6.ModflowUtlobs(gwf, pname="head_obs", digits=20, continuous=obs_dict)
 
     return sim, None
 

@@ -146,9 +146,6 @@ contains
     class(TableTermType) :: this
     ! -- local
     get_width = this%width
-    !
-    ! -- return
-    return
   end function get_width
 
   !< @brief get column alignment
@@ -161,9 +158,6 @@ contains
     class(TableTermType) :: this
     ! -- local
     get_alignment = this%alignment
-    !
-    ! -- return
-    return
   end function get_alignment
 
   !< @brief get the number of lines in initial_lines
@@ -176,9 +170,6 @@ contains
     class(TableTermType) :: this
     ! -- local
     get_header_lines = this%nheader_lines
-    !
-    ! -- return
-    return
   end function get_header_lines
 
   !< @brief allocate table term scalars
@@ -196,9 +187,6 @@ contains
     !
     ! -- initialize scalars
     this%nheader_lines = 0
-    !
-    ! -- return
-    return
   end subroutine allocate_scalars
 
   !< @brief deallocate table terms

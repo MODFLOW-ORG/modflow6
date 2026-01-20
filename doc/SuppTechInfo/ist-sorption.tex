@@ -1,0 +1,97 @@
+The Groundwater Transport (GWT) Model \citep{modflow6gwt} in \mf was designed to simulate a range of solute-transport processes including the sorption and desorption of solute within the mobile and immobile domains.  For the mobile domain, sorption can be represented using a linear isotherm as well as the nonlinear Freundlich and Langmuir isotherms.  The type of sorption isotherm used for the mobile domain is specified by the user in the input file for the Mobile Storage and Transfer (MST) Package.  For the immobile domain, which is activated using the Immobile Storage and Transfer (IST) Package, the GWT model was limited to representing linear isotherms only.  The program checked to make sure that if sorption was represented in the immobile domain that sorption in the mobile domain was represented using a linear isotherm.  This was the behavior of \mf up to and including version 6.5.0.
+
+As reported by \mf users, some problems may require use of nonlinear sorption isotherms for mobile-immobile domain simulations.  In response to this need, the IST Package was extended to support the nonlinear Freundlich and Langmuir isotherms, in addition to the linear isotherm.  The purpose of this chapter is to describe the mathematical approach that was used to implement these nonlinear isotherms in the IST Package. The \mf program still requires use of consistent sorption approaches in both the mobile and immobile domains, but with these changes, any of the three sorption isotherms can now be used as long as the same type of isotherm is used for both the mobile and immobile domains.
+
+Chapter \ref{ch:sorption} of this document presents a revised parameterization of the mobile and immobile domains.  Included in Chapter 9 is the revised form of the partial differential equation governing solute mass within an immobile domain (equation \ref{eqn:gwtistpde}).  Equation~\ref{eqn:gwtistpde} is reproduced here as,
+
+\begin{equation}
+\label{eqn:gwtistpde2}
+\begin{split}
+\theta_{im} \frac{\partial C_{im} }{\partial t} + \hat{f}_{im} \rho_{b,im} \frac{\partial \overline{C}_{im}}{\partial t} = 
+- \lambda_{1,im} \theta_{im} C_{im} - \lambda_{2,im}  \hat{f}_{im} \rho_{b,im} \overline{C}_{im} \\
+- \gamma_{1,im} \theta_{im} - \gamma_{2,im} \hat{f}_{im} \rho_{b,im} 
++ \zeta_{im} S_w \left ( C - C_{im} \right ),
+\end{split}
+\end{equation}
+
+\noindent where 
+$\theta_{im}$ is the effective porosity in the immobile domain defined as volume of voids participating in immobile-domain transport per unit volume of immobile domain $im$ ($L^3/L^3$),
+$C_{im}$ is an immobile-domain volumetric concentration of solute expressed as mass of dissolved solute per unit volume of fluid in immobile domain $im$ ($M/L^3$),
+$t$ is time ($T$),
+$\hat{f}_{im}$ is the volume fraction of the immobile domain defined as the volume of mobile domain $im$ per volume of aquifer ($L^3/L^3$),
+$\rho_{b,im}$ is the bulk density of aquifer material in the immobile domain defined as mass of solid aquifer material per unit volume of immobile domain $im$ ($M/L^3$), 
+$\overline{C}_{im}$ is the concentration of sorbate (sorbed solute) expressed as mass of sorbate per unit mass of solid aquifer material in the immobile domain ($M/M$), 
+$\lambda_{1,im}$ is the first-order reaction rate coefficient for dissolved solute in the immobile domain ($1/T$), 
+$\lambda_{2,im}$ is the first-order reaction rate coefficient for sorbate in the immobile domain ($1/T$), 
+$\gamma_{1,im}$ is the zero-order reaction rate coefficient for dissolved solute in the immobile domain ($ML^{-3}T^{-1}$), 
+$\gamma_{2,im}$ is the zero-order reaction rate coefficient for sorbate in the immobile domain ($M M^{-1}T^{-1}$), 
+$\zeta_{im}$ is the rate coefficient for the transfer of mass between the mobile domain and immobile domain $im$ ($1/T$),
+$S_w$ is the water saturation defined as the volume of water per volume of voids ($L^3/L^3$), 
+and $C$ is the mobile-domain volumetric concentration of solute expressed as mass of dissolved solute per unit volume of mobile-domain fluid ($M/L^3$).
+
+The GWT Model documentation report \citep{modflow6gwt} describes the approach for including the effects of an immobile domain on solute transport.   The approach is based on the method described in \cite{zheng2002} and involves discretizing the solute balance equation for the immobile domain.  \cite{modflow6gwt} present a form of the discretized balance equation based on a linear isotherm and the original parameterization, which has since been revised according to the description in Chapter 9.  The following discretized form of equation~\ref{eqn:gwtistpde2} includes a more general representation of the sorption isotherm, in order to support both linear and nonlinear expressions, as well as the updated parameterization described in Chapter \ref{ch:sorption}:
+
+\begin{equation}
+\label{eqn:imdomain2}
+\begin{split}
+\frac{\theta_{im} V_{cell}}{\Delta t} C_{im}^{t + \Delta t} - 
+\frac{\theta_{im} V_{cell}}{\Delta t} C_{im}^t 
++ \frac{\hat{f}_{im} \rho_{b,im} V_{cell}}{\Delta t} \overline{K}_{im}^{t + \Delta t} C_{im}^{t + \Delta t}
+-  \frac{\hat{f}_{im} \rho_{b,im} V_{cell}}{\Delta t} \overline{K}_{im}^t C_{im}^{t} \\
+= \\
+- \lambda_{1,im} \theta_{im} V_{cell} C_{im}^{t + \Delta t}
+- \lambda_{2,im} \hat{f}_{im} V_{cell} \rho_{b,im} \overline{K}_{im}^{t + \Delta t} C_{im}^{t + \Delta t} \\
+- \gamma_{1,im} \theta_{im} V_{cell}  
+- \gamma_{2,im} \hat{f}_{im} \rho_{b,im} V_{cell} \\
++ V_{cell} S_w^{t + \Delta t}  \zeta_{im} C^{t + \Delta t}
+- V_{cell} S_w^{t + \Delta t}  \zeta_{im} C_{im}^{t + \Delta t} ,
+\end{split}
+\end{equation}
+
+\noindent where $V_{cell}$ is the volume of the model cell, and $\overline{K}_{im}$ is a linearized and effective distribution coefficient used to relate the immobile-domain sorbate concentration to the dissolved immobile-domain concentration using $\overline{C}_{im} = \overline{K}_{im} C_{im}$.
+
+The $\overline{K}_{im}$ term in equation~\ref{eqn:imdomain2} can be determined from the mathematical expression used for the different isotherms.   Mathematical expressions for the linear, Freundlich, and Langmuir isotherms, respectively, written in terms of immobile domain concentrations with subscript $im$, are
+
+\begin{equation}
+\label{eqn:linear}
+\overline{C}_{im} = K_d C_{im},
+\end{equation}
+
+\begin{equation}
+\label{eqn:freundlich}
+\overline{C}_{im} = K_f C_{im}^a,
+\end{equation}
+
+\noindent and
+
+\begin{equation}
+\label{eqn:langmuir}
+\overline{C}_{im} = \frac{K_l \overline{S} C_{im}}{1 + K_l C_{im}},
+\end{equation}
+
+\noindent where $K_d$ is the linear distribution coefficient ($L^3/M$), $K_f$ is the Freundlich constant $(L^3 / M)^a$, $a$ is the dimensionless Freundlich exponent, $K_l$ is the Langmuir constant $(L^3 / M)$ and $\overline{S}$ is the total concentration of sorption sites available $(M/M)$.
+
+It can be seen from equations \ref{eqn:linear} to \ref{eqn:langmuir} that expressions for linearized distribution coefficients can be written as,
+
+\begin{equation}
+\label{eqn:linearkd}
+\overline{K}_{im} = K_d,
+\end{equation}
+
+\begin{equation}
+\label{eqn:freundlichkd}
+\overline{K}_{im} = K_f C_{im}^{a - 1},
+\end{equation}
+
+\noindent and
+
+\begin{equation}
+\label{eqn:langmuirkd}
+\overline{K}_{im} = \frac{K_l \overline{S}}{1 + K_l C_{im}},
+\end{equation}
+
+\noindent for the linear, Freundlich, and Langmuir isotherms, respectively.
+
+Unlike the linear isotherm, the Freundlich and Langmuir isotherms have a nonlinear relation between $\overline{C}_{im}$ and $C_{im}$.  In order to calculate a value for $\overline{K}_{im}$ at the $t + \Delta t$ time level in equation~\ref{eqn:imdomain2}, the value for $C_{im}^{t + \Delta t}$ from the previous outer iteration is used in equations~\ref{eqn:freundlichkd} and \ref{eqn:langmuirkd}.  Use of a previous iterate in these nonlinear calculations for $\overline{K}_{im}$ may cause convergence problems for some applications, compared to use of the linear expression, which does not depend on $C_{im}$.
+
+The remaining details of the implementation are identical to those described by \cite{modflow6gwt}.  Equation~\ref{eqn:imdomain2} is solved for $C_{im}^{t + \Delta t}$, which is then substituted into the equation for the transfer of mass between the mobile and immobile domains.  The resulting terms are then added to the system of equations and solved numerically.

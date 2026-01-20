@@ -16,7 +16,14 @@ module GwtNamInputModule
     logical :: print_input = .false.
     logical :: print_flows = .false.
     logical :: save_flows = .false.
-    logical :: export_netcdf = .false.
+    logical :: idv_scale = .false.
+    logical :: ncmesh2drec = .false.
+    logical :: netcdf_mesh2d = .false.
+    logical :: ncstructrec = .false.
+    logical :: netcdf_struct = .false.
+    logical :: fileout = .false.
+    logical :: ncmesh2dfile = .false.
+    logical :: ncstructfile = .false.
     logical :: nc_filerecord = .false.
     logical :: netcdf = .false.
     logical :: filein = .false.
@@ -46,6 +53,7 @@ module GwtNamInputModule
     '', & ! shape
     'name of listing file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -64,6 +72,7 @@ module GwtNamInputModule
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -82,6 +91,7 @@ module GwtNamInputModule
     '', & ! shape
     'print calculated flows to listing file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -100,6 +110,7 @@ module GwtNamInputModule
     '', & ! shape
     'save flows for all packages to budget file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -107,19 +118,153 @@ module GwtNamInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtnam_export_netcdf = InputParamDefinitionType &
+    gwtnam_idv_scale = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'NAM', & ! subcomponent
     'OPTIONS', & ! block
-    'EXPORT_NETCDF', & ! tag name
-    'EXPORT_NETCDF', & ! fortran variable
-    'STRING', & ! type
+    'DEPENDENT_VARIABLE_SCALING', & ! tag name
+    'IDV_SCALE', & ! fortran variable
+    'KEYWORD', & ! type
     '', & ! shape
-    'export model output netcdf file.', & ! longname
+    'flag to scale X and RHS', & ! longname
     .false., & ! required
+    .true., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtnam_ncmesh2drec = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'NAM', & ! subcomponent
+    'OPTIONS', & ! block
+    'NC_MESH2D_FILERECORD', & ! tag name
+    'NCMESH2DREC', & ! fortran variable
+    'RECORD NETCDF_MESH2D FILEOUT NCMESH2DFILE', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtnam_netcdf_mesh2d = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'NAM', & ! subcomponent
+    'OPTIONS', & ! block
+    'NETCDF_MESH2D', & ! tag name
+    'NETCDF_MESH2D', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'budget keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtnam_ncstructrec = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'NAM', & ! subcomponent
+    'OPTIONS', & ! block
+    'NC_STRUCTURED_FILERECORD', & ! tag name
+    'NCSTRUCTREC', & ! fortran variable
+    'RECORD NETCDF_STRUCTURED FILEOUT NCSTRUCTFILE', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtnam_netcdf_struct = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'NAM', & ! subcomponent
+    'OPTIONS', & ! block
+    'NETCDF_STRUCTURED', & ! tag name
+    'NETCDF_STRUCT', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'budget keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtnam_fileout = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'NAM', & ! subcomponent
+    'OPTIONS', & ! block
+    'FILEOUT', & ! tag name
+    'FILEOUT', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'file keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtnam_ncmesh2dfile = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'NAM', & ! subcomponent
+    'OPTIONS', & ! block
+    'NCMESH2DFILE', & ! tag name
+    'NCMESH2DFILE', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtnam_ncstructfile = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'NAM', & ! subcomponent
+    'OPTIONS', & ! block
+    'NCSTRUCTFILE', & ! tag name
+    'NCSTRUCTFILE', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -136,6 +281,7 @@ module GwtNamInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -154,6 +300,7 @@ module GwtNamInputModule
     '', & ! shape
     'netcdf keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -172,6 +319,7 @@ module GwtNamInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -190,6 +338,7 @@ module GwtNamInputModule
     '', & ! shape
     'netcdf input filename', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -208,6 +357,7 @@ module GwtNamInputModule
     '', & ! shape
     'package type', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -226,6 +376,7 @@ module GwtNamInputModule
     '', & ! shape
     'file name', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -244,6 +395,7 @@ module GwtNamInputModule
     '', & ! shape
     'user name for package', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -257,7 +409,14 @@ module GwtNamInputModule
     gwtnam_print_input, &
     gwtnam_print_flows, &
     gwtnam_save_flows, &
-    gwtnam_export_netcdf, &
+    gwtnam_idv_scale, &
+    gwtnam_ncmesh2drec, &
+    gwtnam_netcdf_mesh2d, &
+    gwtnam_ncstructrec, &
+    gwtnam_netcdf_struct, &
+    gwtnam_fileout, &
+    gwtnam_ncmesh2dfile, &
+    gwtnam_ncstructfile, &
     gwtnam_nc_filerecord, &
     gwtnam_netcdf, &
     gwtnam_filein, &
@@ -279,6 +438,7 @@ module GwtNamInputModule
     '', & ! shape
     'package list', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

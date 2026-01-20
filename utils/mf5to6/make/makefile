@@ -1,13 +1,13 @@
-# makefile created by pymake (version 1.2.10) for the 'mf5to6' executable.
+# makefile created by pymake for the 'mf5to6' executable.
 
 
 include ./makedefaults
 
 # Define the source file directories
 SOURCEDIR1=../src
-SOURCEDIR2=../src/MF2005
-SOURCEDIR3=../src/NWT
-SOURCEDIR4=../src/LGR
+SOURCEDIR2=../src/LGR
+SOURCEDIR3=../src/MF2005
+SOURCEDIR4=../src/NWT
 SOURCEDIR5=../src/Preproc
 SOURCEDIR6=../../../src/Utilities/Memory
 SOURCEDIR7=../../../src/Utilities/TimeSeries
@@ -28,16 +28,16 @@ ${SOURCEDIR8}
 OBJECTS = \
 $(OBJDIR)/kind.o \
 $(OBJDIR)/Constants.o \
-$(OBJDIR)/Global.o \
+$(OBJDIR)/ErrorUtil.o \
+$(OBJDIR)/CharString.o \
 $(OBJDIR)/SimVariables.o \
 $(OBJDIR)/ArrayHandlers.o \
 $(OBJDIR)/Message.o \
 $(OBJDIR)/defmacro.o \
 $(OBJDIR)/compilerversion.o \
 $(OBJDIR)/version.o \
+$(OBJDIR)/Sim.o \
 $(OBJDIR)/OpenSpec.o \
-$(OBJDIR)/GlobalVariables.o \
-$(OBJDIR)/SimPHMF.o \
 $(OBJDIR)/KeyValueNode.o \
 $(OBJDIR)/Iterator.o \
 $(OBJDIR)/InputOutput.o \
@@ -46,16 +46,17 @@ $(OBJDIR)/TableTerm.o \
 $(OBJDIR)/KeyValueList.o \
 $(OBJDIR)/Table.o \
 $(OBJDIR)/MemoryHelper.o \
-$(OBJDIR)/CharString.o \
 $(OBJDIR)/PtrHashTableIterator.o \
 $(OBJDIR)/Memory.o \
+$(OBJDIR)/GlobalVariables.o \
+$(OBJDIR)/Global.o \
 $(OBJDIR)/PtrHashTable.o \
 $(OBJDIR)/MemoryContainerIterator.o \
+$(OBJDIR)/SimPHMF.o \
 $(OBJDIR)/ListNode.o \
 $(OBJDIR)/MemoryStore.o \
-$(OBJDIR)/ErrorUtil.o \
 $(OBJDIR)/LongLineReader.o \
-$(OBJDIR)/DevFeature.o \
+$(OBJDIR)/FeatureFlags.o \
 $(OBJDIR)/Utilities.o \
 $(OBJDIR)/ListIterator.o \
 $(OBJDIR)/ConstantsPHMF.o \

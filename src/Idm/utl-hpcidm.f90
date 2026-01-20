@@ -12,6 +12,7 @@ module UtlHpcInputModule
   public utl_hpc_subpackages
 
   type UtlHpcParamFoundType
+    logical :: print_table = .false.
     logical :: dev_log_mpi = .false.
     logical :: mname = .false.
     logical :: mrank = .false.
@@ -26,6 +27,25 @@ module UtlHpcInputModule
     ]
 
   type(InputParamDefinitionType), parameter :: &
+    utlhpc_print_table = InputParamDefinitionType &
+    ( &
+    'UTL', & ! component
+    'HPC', & ! subcomponent
+    'OPTIONS', & ! block
+    'PRINT_TABLE', & ! tag name
+    'PRINT_TABLE', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'model print table to listing file', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     utlhpc_dev_log_mpi = InputParamDefinitionType &
     ( &
     'UTL', & ! component
@@ -37,6 +57,7 @@ module UtlHpcInputModule
     '', & ! shape
     'log mpi traffic', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -55,6 +76,7 @@ module UtlHpcInputModule
     '', & ! shape
     'model name', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -73,6 +95,7 @@ module UtlHpcInputModule
     '', & ! shape
     'model rank', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -82,6 +105,7 @@ module UtlHpcInputModule
   type(InputParamDefinitionType), parameter :: &
     utl_hpc_param_definitions(*) = &
     [ &
+    utlhpc_print_table, &
     utlhpc_dev_log_mpi, &
     utlhpc_mname, &
     utlhpc_mrank &
@@ -98,7 +122,8 @@ module UtlHpcInputModule
     'RECARRAY MNAME MRANK', & ! type
     '', & ! shape
     'list of partition numbers', & ! longname
-    .true., & ! required
+    .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -122,7 +147,7 @@ module UtlHpcInputModule
     ), &
     InputBlockDefinitionType( &
     'PARTITIONS', & ! blockname
-    .true., & ! required
+    .false., & ! required
     .true., & ! aggregate
     .false. & ! block_variable
     ) &

@@ -52,9 +52,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -201,9 +199,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -246,10 +242,7 @@ def check_output(idx, test):
 
     # load transport budget file
     fpth = os.path.join(test.workspace, f"{gwtname}.cbc")
-    bobj = flopy.utils.CellBudgetFile(
-        fpth,
-        precision="double",
-    )
+    bobj = flopy.utils.CellBudgetFile(fpth, precision="double")
 
     ssmbudall = bobj.get_data(text="SOURCE-SINK MIX")
     times = cobj.get_times()

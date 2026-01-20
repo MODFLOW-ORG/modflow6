@@ -160,7 +160,12 @@ def get_model(idx, ws):
                 (0, 0, 0, strt[idx], 1000.0),
             ],
         )
-        # chd = flopy.mf6.modflow.ModflowGwfchd(gwf, stress_period_data=[(0, 0, 0, strt[idx]),])
+        # chd = flopy.mf6.modflow.ModflowGwfchd(
+        #     gwf,
+        #     stress_period_data=[
+        #         (0, 0, 0, strt[idx]),
+        #     ],
+        # )
 
     # output control
     oc = flopy.mf6.ModflowGwfoc(
@@ -269,11 +274,7 @@ def check_output(idx, test):
         ),
     }
 
-    if idx in (
-        0,
-        1,
-        2,
-    ):
+    if idx in (0, 1, 2):
         evap_compare = np.allclose(obs[idx]["evap"], tc["EVAP"])
         stage_compare = np.allclose(obs[idx]["stage"], tc["LAKESTAGE"])
     else:
@@ -281,6 +282,7 @@ def check_output(idx, test):
         stage_compare = True
 
     test.success = True
+    msg = ""
     if not evap_compare:
         test.success = False
         msg += " Lake evaporation comparison failed."

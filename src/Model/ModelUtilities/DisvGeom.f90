@@ -102,9 +102,6 @@ contains
       this%nodered = this%nodeusr
     end if
     call this%cell_setup()
-    !
-    ! -- Return
-    return
   end subroutine set_kj
 
   !> @brief Set reduced node number
@@ -124,9 +121,6 @@ contains
     !
     call get_jk(this%nodeusr, this%ncpl, this%nlay, this%j, this%k)
     call this%cell_setup()
-    !
-    ! -- Return
-    return
   end subroutine set_nodered
 
   !> @brief Set top and bottom elevations of grid cell
@@ -205,9 +199,6 @@ contains
         ax = anglex(x1, y1, x2, y2)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine cprops
 
   !> @brief Return the x and y components of an outward normal facing vector
@@ -238,9 +229,6 @@ contains
     y2 = this%vertex_grid(2, ivert2)
     !
     call line_unit_normal(x1, y1, x2, y2, xcomp, ycomp)
-    !
-    ! -- Return
-    return
   end subroutine edge_normal
 
   !> @brief Return the x y and z components of a unit vector that points from
@@ -278,9 +266,6 @@ contains
     !
     call line_unit_vector(x1, y1, z1, x2, y2, z2, xcomp, ycomp, zcomp, &
                           conlen)
-    !
-    ! -- Return
-    return
   end subroutine connection_vector
 
   !> @brief Return true if this shares a horizontal edge with cell2
@@ -306,9 +291,6 @@ contains
     if (ivert1 == 0 .or. ivert2 == 0) then
       l = .false.
     end if
-    !
-    ! -- Return
-    return
   end function shares_edge
 
   !> @brief Find two common vertices shared by cell1 and cell2.
@@ -401,9 +383,6 @@ contains
     end do
     !
     area = abs(area) * DHALF
-    !
-    ! -- Return
-    return
   end function get_area
 
   !> @brief Calculate the angle that the x-axis makes with a line that is
@@ -430,9 +409,6 @@ contains
     dy = y2 - y1
     ax = atan2(dx, -dy)
     if (ax < DZERO) ax = DTWO * DPI + ax
-    !
-    ! -- Return
-    return
   end function anglex
 
   !> @brief Calculate distance between two points
@@ -448,9 +424,6 @@ contains
     !
     d = (x1 - x2)**2 + (y1 - y2)**2
     d = sqrt(d)
-    !
-    ! -- Return
-    return
   end function distance
 
   !> @brief Calculate normal distance from point (x0, y0) to line defined by
@@ -469,9 +442,6 @@ contains
     !
     d = abs((x2 - x1) * (y1 - y0) - (x1 - x0) * (y2 - y1))
     d = d / distance(x1, y1, x2, y2)
-    !
-    ! -- Return
-    return
   end function distance_normal
 
   !> @brief Calculate the normal vector components (xcomp and ycomp) for a line
@@ -493,9 +463,6 @@ contains
     vmag = sqrt(dx**2 + dy**2)
     xcomp = -dy / vmag
     ycomp = dx / vmag
-    !
-    ! -- Return
-    return
   end subroutine line_unit_normal
 
   !> @brief Calculate the vector components (xcomp, ycomp, and zcomp) for a
@@ -526,9 +493,6 @@ contains
     xcomp = dx / vmag
     ycomp = dy / vmag
     zcomp = dz / vmag
-    !
-    ! -- Return
-    return
   end subroutine line_unit_vector
 
 end module DisvGeom

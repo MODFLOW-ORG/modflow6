@@ -131,9 +131,6 @@ contains
     uztobj%depvartype = dvt
     uztobj%depvarunit = dvu
     uztobj%depvarunitabbrev = dvua
-    !
-    ! -- Return
-    return
   end subroutine uzt_create
 
   !> @brief Find corresponding uzt package
@@ -247,9 +244,6 @@ contains
         '   MAX NO. OF ENTRIES = ', this%flowbudptr%budterm(ip)%maxlist
     end do
     write (this%iout, '(a, //)') 'DONE PROCESSING '//ftype//' INFORMATION'
-    !
-    ! -- Return
-    return
   end subroutine find_uzt_package
 
   !> @brief Add matrix terms related to UZT
@@ -316,9 +310,6 @@ contains
         rhs(iloc) = rhs(iloc) + rhsval
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzt_fc_expanded
 
   !> @brief Explicit solve
@@ -364,9 +355,6 @@ contains
         this%dbuff(n1) = this%dbuff(n1) + rrate
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzt_solve
 
   !> @brief Function that returns the number of budget terms for this package
@@ -387,9 +375,6 @@ contains
     if (this%idxbudrinf /= 0) nbudterms = nbudterms + 1
     if (this%idxbuduzet /= 0) nbudterms = nbudterms + 1
     if (this%idxbudritm /= 0) nbudterms = nbudterms + 1
-    !
-    ! -- Return
-    return
   end function uzt_get_nbudterms
 
   !> @brief Override similarly named function in APT
@@ -475,9 +460,6 @@ contains
                                                maxlist, .false., .false., &
                                                naux)
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzt_setup_budobj
 
   !> @brief Copy flow terms into this%budobj
@@ -541,9 +523,6 @@ contains
         call this%apt_accumulate_ccterm(n1, q, ccratin, ccratout)
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzt_fill_budobj
 
   !> @brief Allocate scalar variables for package
@@ -571,9 +550,6 @@ contains
     this%idxbudrinf = 0
     this%idxbuduzet = 0
     this%idxbudritm = 0
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @brief Allocate arrays for package
@@ -600,9 +576,6 @@ contains
       this%concinfl(n) = DZERO
       this%concuzet(n) = DZERO
     end do
-    !
-    ! -- Return
-    return
   end subroutine uzt_allocate_arrays
 
   !> @brief Deallocate memory
@@ -628,9 +601,6 @@ contains
     !
     ! -- deallocate scalars in TspAptType
     call this%TspAptType%bnd_da()
-    !
-    ! -- Return
-    return
   end subroutine uzt_da
 
   !> @brief Infiltration term
@@ -669,9 +639,6 @@ contains
     if (present(rrate)) rrate = qbnd * ctmp
     if (present(rhsval)) rhsval = r
     if (present(hcofval)) hcofval = h
-    !
-    ! -- Return
-    return
   end subroutine uzt_infl_term
 
   !> @brief Rejected infiltration term
@@ -702,9 +669,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd
     if (present(rhsval)) rhsval = DZERO
     if (present(hcofval)) hcofval = qbnd
-    !
-    ! -- Return
-    return
   end subroutine uzt_rinf_term
 
   !> @brief Evapotranspiration from the unsaturated-zone term
@@ -742,9 +706,6 @@ contains
               (DONE - omega) * qbnd * ctmp
     if (present(rhsval)) rhsval = -(DONE - omega) * qbnd * ctmp
     if (present(hcofval)) hcofval = omega * qbnd
-    !
-    ! -- Return
-    return
   end subroutine uzt_uzet_term
 
   !> @brief Rejected infiltration to MVR/MVT term
@@ -775,9 +736,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd
     if (present(rhsval)) rhsval = DZERO
     if (present(hcofval)) hcofval = qbnd
-    !
-    ! -- Return
-    return
   end subroutine uzt_ritm_term
 
   !> @brief Define UZT Observation
@@ -846,9 +804,6 @@ contains
     !    for observation type.
     call this%obs%StoreObsType('rej-inf-to-mvr', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-    !
-    ! -- Return
-    return
   end subroutine uzt_df_obs
 
   !> @brief Process package specific obs
@@ -875,8 +830,6 @@ contains
     case default
       found = .false.
     end select
-    !
-    return
   end subroutine uzt_rp_obs
 
   !> @brief Calculate observation value and pass it back to APT
@@ -912,9 +865,6 @@ contains
     case default
       found = .false.
     end select
-    !
-    ! -- Return
-    return
   end subroutine uzt_bd_obs
 
   !> @brief Sets the stress period attributes for keyword use.
@@ -967,9 +917,6 @@ contains
     end select
     !
 999 continue
-    !
-    ! -- Return
-    return
   end subroutine uzt_set_stressperiod
 
 end module GwtUztModule

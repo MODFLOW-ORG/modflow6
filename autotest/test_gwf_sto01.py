@@ -105,9 +105,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     top = tops[idx]
@@ -223,9 +221,7 @@ def build_models(idx, test):
         top=top,
         botm=botm,
     )
-    bas = flopy.modflow.ModflowBas(
-        mc, ibound=ib, strt=strt, hnoflo=hnoflo, stoper=0.01
-    )
+    bas = flopy.modflow.ModflowBas(mc, ibound=ib, strt=strt, hnoflo=hnoflo, stoper=0.01)
     upw = flopy.modflow.ModflowUpw(
         mc,
         laytyp=laytyp,
@@ -312,9 +308,7 @@ def check_output(idx, test):
     msg = f"maximum absolute total-budget difference ({diffmax}) "
 
     # write summary
-    fpth = os.path.join(
-        test.workspace, f"{os.path.basename(test.name)}.bud.cmp.out"
-    )
+    fpth = os.path.join(test.workspace, f"{os.path.basename(test.name)}.bud.cmp.out")
     with open(fpth, "w") as f:
         for i in range(diff.shape[0]):
             if i == 0:

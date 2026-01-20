@@ -15,6 +15,7 @@ name print_input
 type keyword
 reader urword
 optional true
+mf6internal iprpak
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'all model stress package'}
 
@@ -23,6 +24,7 @@ name dev_exit_solve_method
 type integer
 reader urword
 optional true
+mf6internal iexmeth
 longname exit solve method
 description the method for iterative solution of particle exit location and time in the generalized Pollock's method.  0 default, 1 Brent, 2 Chandrupatla.  The default is Brent's method.
 
@@ -30,9 +32,11 @@ block options
 name exit_solve_tolerance
 type double precision
 reader urword
-optional false
+optional true
+mf6internal extol
 longname exit solve tolerance
-description the convergence tolerance for iterative solution of particle exit location and time in the generalized Pollock's method.  A value of 0.00001 works well for many problems, but the value that strikes the best balance between accuracy and runtime is problem-dependent.
+description the convergence tolerance for iterative solution of particle exit location and time in the generalized Pollock's method.  The variable being solved for varies from 0 to 1.  A tolerance of 0.00001 works well for many problems, but the value that strikes the best balance between accuracy and runtime is problem-dependent.
+default_value 1e-5
 
 block options
 name local_z
@@ -40,7 +44,8 @@ type keyword
 reader urword
 optional true
 longname whether to use local z coordinates
-description indicates that ``zrpt'' defines the local z coordinate of the release point within the cell, with value of 0 at the bottom and 1 at the top of the cell.  If the cell is partially saturated at release time, the top of the cell is considered to be the water table elevation (the head in the cell) rather than the top defined by the user.
+description indicates that ``zrpt'' defines the local z coordinate of the release point within the cell, with value of 0 at the bottom and 1 at the effective top of the cell. If the cell is convertible and partially saturated at release time, the effective top of the cell is considered to be the water table elevation (the head in the cell) rather than the top defined by the user, and is constrained to be no higher than the geometric top of the cell and no lower than the cell bottom. If the cell is confined, the effective top is the geometric top.
+mf6internal localz
 
 block options
 name extend_tracking
@@ -49,6 +54,7 @@ reader urword
 optional true
 longname whether to extend tracking beyond the end of the simulation
 description indicates that particles should be tracked beyond the end of the simulation's final time step (using that time step's flows) until particles terminate or reach a specified stop time.  By default, particles are terminated at the end of the simulation's final time step.
+mf6internal extend
 
 block options
 name track_filerecord
@@ -100,6 +106,7 @@ type record trackcsv fileout trackcsvfile
 shape
 reader urword
 tagged true
+mf6internal trackcsvfr
 optional true
 longname
 description
@@ -133,7 +140,7 @@ type double precision
 reader urword
 optional true
 longname stop time
-description real value defining the maximum simulation time to which particles in the package can be tracked.  Particles that have not terminated earlier due to another termination condition will terminate when simulation time STOPTIME is reached.  If the last stress period in the simulation consists of more than one time step, particles will not be tracked past the ending time of the last stress period, regardless of STOPTIME.  If the last stress period in the simulation consists of a single time step, it is assumed to be a steady-state stress period, and its ending time will not limit the simulation time to which particles can be tracked.  If STOPTIME and STOPTRAVELTIME are both provided, particles will be stopped if either is reached.
+description real value defining the maximum simulation time to which particles in the package can be tracked.  Particles that have not terminated earlier due to another termination condition will terminate when simulation time STOPTIME is reached.  If the last stress period in the simulation consists of more than one time step, particles will not be tracked past the ending time of the last stress period, regardless of STOPTIME.  If the EXTEND\_TRACKING option is enabled and the last stress period in the simulation is steady-state, the simulation ending time will not limit the time to which particles can be tracked, but STOPTIME and STOPTRAVELTIME will continue to apply.  If STOPTIME and STOPTRAVELTIME are both provided, particles will be stopped if either is reached.
 
 block options
 name stoptraveltime
@@ -141,13 +148,14 @@ type double precision
 reader urword
 optional true
 longname stop travel time
-description real value defining the maximum travel time over which particles in the model can be tracked.  Particles that have not terminated earlier due to another termination condition will terminate when their travel time reaches STOPTRAVELTIME.  If the last stress period in the simulation consists of more than one time step, particles will not be tracked past the ending time of the last stress period, regardless of STOPTRAVELTIME.  If the last stress period in the simulation consists of a single time step, it is assumed to be a steady-state stress period, and its ending time will not limit the travel time over which particles can be tracked.  If STOPTIME and STOPTRAVELTIME are both provided, particles will be stopped if either is reached.
+description real value defining the maximum travel time over which particles in the model can be tracked.  Particles that have not terminated earlier due to another termination condition will terminate when their travel time reaches STOPTRAVELTIME.  If the last stress period in the simulation consists of more than one time step, particles will not be tracked past the ending time of the last stress period, regardless of STOPTRAVELTIME.  If the EXTEND\_TRACKING option is enabled and the last stress period in the simulation is steady-state, the simulation ending time will not limit the time to which particles can be tracked, but STOPTIME and STOPTRAVELTIME will continue to apply.  If STOPTIME and STOPTRAVELTIME are both provided, particles will be stopped if either is reached.
 
 block options
 name stop_at_weak_sink
 type keyword
 reader urword
 optional true
+mf6internal istopweaksink
 longname stop at weak sink
 description is a text keyword to indicate that a particle is to terminate when it enters a cell that is a weak sink.  By default, particles are allowed to pass though cells that are weak sinks.
 
@@ -165,7 +173,7 @@ type keyword
 reader urword
 optional true
 longname drape
-description is a text keyword to indicate that if a particle's release point is in a cell that happens to be inactive at release time, the particle is to be moved to the topmost active cell below it, if any. By default, a particle is not released into the simulation if its release point's cell is inactive at release time.
+description is a text keyword to indicate that if a particle's release point is in a cell that happens to be inactive at release time, the particle is to be moved to the topmost active cell below it, if any. By default, a particle is not released into the simulation if its release point's cell is inactive at release time. Note that DRAPE does not apply to attempted release into a cell for which IDOMAIN <= 0, which is considered not to exist in the simulation. Attempted release into a such a cell results in an error.
 
 block options
 name release_timesrecord
@@ -174,8 +182,10 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal releasetr
 longname
 description
+removed 6.6.0
 
 block options
 name release_times
@@ -186,17 +196,19 @@ tagged true
 shape
 longname
 description keyword indicating release times will follow
+removed 6.6.0
 
 block options
 name times
 type double precision
-shape (unknown)
+shape (any1d)
 reader urword
 in_record true
 tagged false
 repeating true
 longname release times
 description times to release, relative to the beginning of the simulation.  RELEASE\_TIMES and RELEASE\_TIMESFILE are mutually exclusive.
+removed 6.6.0
 
 block options
 name release_timesfilerecord
@@ -205,8 +217,10 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal release_timesfr
 longname
 description
+removed 6.6.0
 
 block options
 name release_timesfile
@@ -215,8 +229,10 @@ reader urword
 in_record true
 tagged true
 shape
+mf6internal release_timesfn
 longname
 description keyword indicating release times file name will follow
+removed 6.6.0
 
 block options
 name timesfile
@@ -229,6 +245,17 @@ tagged false
 optional false
 longname file keyword
 description name of the release times file.  RELEASE\_TIMES and RELEASE\_TIMESFILE are mutually exclusive.
+removed 6.6.0
+
+block options
+name dry_tracking_method
+type string
+valid drop stop stay
+reader urword
+optional true
+mf6internal idrymeth
+longname what to do in dry-but-active cells
+description is a string indicating how particles should behave in dry-but-active cells (as can occur with the Newton formulation).  The value can be ``DROP'', ``STOP'', or ``STAY''.  The default is ``DROP'', which passes particles vertically and instantaneously to the water table. ``STOP'' causes particles to terminate. ``STAY'' causes particles to remain stationary but active.
 
 block options
 name dev_forceternary
@@ -237,8 +264,46 @@ reader urword
 optional false
 longname force ternary tracking method
 description force use of the ternary tracking method regardless of cell type in DISV grids.
-mf6internal ifrctrn
+mf6internal frctrn
 
+block options
+name release_time_tolerance
+type double precision
+reader urword
+optional true
+mf6internal rttol
+longname release time coincidence tolerance
+description real number indicating the tolerance within which to consider consecutive release times coincident. Coincident release times will be merged into a single release time. The default is $\epsilon \times 10^{11}$, where $\epsilon$ is machine precision.
+
+block options
+name release_time_frequency
+type double precision
+reader urword
+optional true
+mf6internal rtfreq
+longname release time frequency
+description real number indicating the time frequency at which to release particles. This option can be used to schedule releases at a regular interval for the duration of the simulation, starting at the simulation start time. The release schedule is the union of this option, the RELEASETIMES block, and PERIOD block RELEASESETTING selections. If none of these are provided, a single release time is configured at the beginning of the first time step of the simulation's first stress period.
+
+block options
+name coordinate_check_method
+type string
+valid none eager
+reader urword
+optional true
+developmode true
+mf6internal ichkmeth
+longname coordinate checking method
+description approach for verifying that release point coordinates are in the cell with the specified ID. Possible values are NONE and EAGER. By default, release point coordinates are checked at release time, i.e. EAGER.
+default_value eager
+
+block options
+name dev_cycle_detection_window
+type integer
+reader urword
+optional true
+mf6internal icycwin
+longname cycle detection window size
+description integer value defining the size of the window (number of consecutive exit events) used for cycle detection. Defaults to 0, disabling cycle detection. With detection enabled, particle pathlines with duplicate cell exit events (i.e., exiting the same cell through the same face twice) will cause the program to terminate with an error. A larger window size provides more robust cycle detection at the cost of more runtime operations per cell exit.
 
 # --------------------- prt prp dimensions ---------------------
 
@@ -249,6 +314,14 @@ reader urword
 optional false
 longname number of particle release points
 description is the number of particle release points.
+
+block dimensions
+name nreleasetimes
+type integer
+reader urword
+optional false
+longname number of particle release times
+description is the number of particle release times specified in the RELEASETIMES block. This is not necessarily the total number of release times; release times are the union of RELEASE\_TIME\_FREQUENCY, RELEASETIMES block, and PERIOD block RELEASESETTING selections.
 
 # --------------------- prt prp packagedata ---------------------
 
@@ -322,12 +395,33 @@ optional true
 longname release point name
 description name of the particle release point. BOUNDNAME is an ASCII character variable that can contain as many as 40 characters. If BOUNDNAME contains spaces in it, then the entire name must be enclosed within single quotes.
 
+# --------------------- prt prp releasetimes ---------------
+
+block releasetimes
+name releasetimes
+type recarray time
+shape (nreleasetimes)
+reader urword
+optional true
+longname
+description
+
+block releasetimes
+name time
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname release time
+description real value that defines the release time with respect to the simulation start time.
+
 # --------------------- prt prp period ---------------------
 
 block period
 name iper
 type integer
-block_variable True
+block_variable true
 in_record true
 tagged false
 shape
@@ -347,13 +441,13 @@ description
 
 block period
 name releasesetting
-type keystring all first frequency steps fraction
+type keystring all first last frequency steps fraction
 shape
 tagged false
 in_record true
 reader urword
 longname
-description specifies when to release particles within the stress period.  Overrides package-level RELEASETIME option, which applies to all stress periods. By default, RELEASESETTING configures particles for release at the beginning of the specified time steps. For time-offset releases, provide a FRACTION value.
+description specifies time steps at which to release a particle. A particle is released at the beginning of each specified time step. For fine control over release timing, specify times explicitly using the RELEASETIMES block. If the beginning of a specified time step coincides with a release time specified in the RELEASETIMES block or configured via RELEASE\_TIME\_FREQUENCY, only one particle is released at that time. Coincidence is evaluated up to the tolerance specified in RELEASE\_TIME\_TOLERANCE, or $\epsilon \times 10^{11}$ by default, where $\epsilon$ is machine precision. If no release times are configured via this setting, the RELEASETIMES block, or the RELEASE\_TIME\_FREQUENCY option, a single release time is configured at the beginning of the first time step of the simulation's first stress period.
 
 block period
 name all
@@ -362,7 +456,7 @@ shape
 in_record true
 reader urword
 longname
-description keyword to indicate release of particles at the start of all time steps in the period.
+description keyword to indicate release at the start of all time steps in the period.
 
 block period
 name first
@@ -371,7 +465,16 @@ shape
 in_record true
 reader urword
 longname
-description keyword to indicate release of particles at the start of the first time step in the period. This keyword may be used in conjunction with other keywords to release particles at the start of multiple time steps.
+description keyword to indicate release at the start of the first time step in the period. This keyword may be used in conjunction with other RELEASESETTING options.
+
+block period
+name last
+type keyword
+shape
+in_record true
+reader urword
+longname
+description keyword to indicate release at the start of the last time step in the period. This keyword may be used in conjunction with other RELEASESETTING options.
 
 block period
 name frequency
@@ -381,7 +484,7 @@ tagged true
 in_record true
 reader urword
 longname
-description release particles at the specified time step frequency. This keyword may be used in conjunction with other keywords to release particles at the start of multiple time steps.
+description release at the specified time step frequency. This keyword may be used in conjunction with other RELEASESETTING options.
 
 block period
 name steps
@@ -391,7 +494,7 @@ tagged true
 in_record true
 reader urword
 longname
-description release particles at the start of each step specified in STEPS. This keyword may be used in conjunction with other keywords to release particles at the start of multiple time steps.
+description release at the start of each step specified in STEPS. This option may be used in conjunction with other RELEASESETTING options.
 
 block period
 name fraction
@@ -401,5 +504,6 @@ tagged true
 in_record true
 reader urword
 optional true
+removed 6.6.0
 longname
-description release particles after the specified fraction of the time step has elapsed. If FRACTION is not set, particles are released at the start of the specified time step(s). FRACTION must be a single value when used with ALL, FIRST, or FREQUENCY. When used with STEPS, FRACTION may be a single value or an array of the same length as STEPS. If a single FRACTION value is provided with STEPS, the fraction applies to all steps.
+description release particles after the specified fraction of the time step has elapsed. If FRACTION is not set, particles are released at the start of the specified time step(s). FRACTION must be a single value when used with ALL, FIRST, or FREQUENCY. When used with STEPS, FRACTION may be a single value or an array of the same length as STEPS. If a single FRACTION value is provided with STEPS, the fraction applies to all steps. NOTE: The FRACTION option has been removed. For fine control over release timing, specify times explicitly using the RELEASETIMES block.

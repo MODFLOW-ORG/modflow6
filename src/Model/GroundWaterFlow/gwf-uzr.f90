@@ -176,7 +176,7 @@ contains
 
   subroutine source_options(this)
     use UzrFlowModule, only: kr_averaging_name
-    use DevFeatureModule, only: dev_feature
+    use FeatureFlagsModule, only: developmode
     use InputOutputModule, only: getunit, openfile
     use OpenSpecModule, only: access, form
     class(GwfUzrType), intent(inout) :: this
@@ -201,8 +201,8 @@ contains
     call mem_set_value(this%soil_model_kr_id, 'MODEL_KR', this%input_mempath, &
                        soil_model_name, found%model_kr)
     if (this%soil_model_kr_id > 0) then
-      call dev_feature('MODEL_KR is a development feature, install the &
-            &nightly build or compile from source with IDEVELOPMODE = 1.')
+      call developmode('MODEL_KR is a development feature, install the &
+        &nightly build or compile from source with IDEVELOPMODE = 1.')
       write (this%iout, '(4x,2a)') &
         'Soil model for relative permeability set to ', &
         trim(soil_model_name(this%soil_model_kr_id))

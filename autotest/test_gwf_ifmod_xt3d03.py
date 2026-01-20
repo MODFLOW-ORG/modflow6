@@ -99,9 +99,7 @@ def get_model(idx, dir):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=dir
     )
 
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     ims = flopy.mf6.ModflowIms(
         sim,
@@ -279,9 +277,7 @@ def create_gwf_model(sim, mname, dis_params):
         right_chd = []
     elif mname == "tr" or mname == "br":
         left_chd = []
-        right_chd = [
-            [(0, irow, ncol_split - 1), h_right] for irow in range(nrow_split)
-        ]
+        right_chd = [[(0, irow, ncol_split - 1), h_right] for irow in range(nrow_split)]
     chd_data = left_chd + right_chd
     chd_spd = {0: chd_data}
     chd = flopy.mf6.ModflowGwfchd(gwf, stress_period_data=chd_spd)
@@ -374,9 +370,9 @@ def check_output(idx, test):
 
     # compare heads
     maxdiff = np.amax(abs(heads - heads_merged))
-    assert maxdiff < 10 * hclose_check, "Max. head diff. {} should \
-                     be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. head diff. {maxdiff} should \
+                     be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis-x
@@ -385,9 +381,9 @@ def check_output(idx, test):
     qx_merged = np.append(qx_top, qx_bot, axis=0)
 
     maxdiff = np.amax(abs(qx - qx_merged))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (x) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (x) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis-y
@@ -396,9 +392,9 @@ def check_output(idx, test):
     qy_merged = np.append(qy_top, qy_bot, axis=0)
 
     maxdiff = np.amax(abs(qy - qy_merged))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (y) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (y) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis-z
@@ -407,9 +403,9 @@ def check_output(idx, test):
     qz_merged = np.append(qz_top, qz_bot, axis=0)
 
     maxdiff = np.amax(abs(qz - qz_merged))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (z) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (z) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # check budget error from .lst file
@@ -418,10 +414,9 @@ def check_output(idx, test):
         for line in open(fpth):
             if line.lstrip().startswith("PERCENT"):
                 cumul_balance_error = float(line.split()[3])
-                assert (
-                    abs(cumul_balance_error) < 0.00001
-                ), "Cumulative balance error = {} for {}, should equal 0.0".format(
-                    cumul_balance_error, mname
+                assert abs(cumul_balance_error) < 0.00001, (
+                    f"Cumulative balance error = {cumul_balance_error} for {mname}, "
+                    "should equal 0.0"
                 )
 
 

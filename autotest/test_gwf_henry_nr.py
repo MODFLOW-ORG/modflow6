@@ -94,9 +94,7 @@ def build_models(idx, test):
     sim.name_file.continue_ = False
 
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     imsgwf = flopy.mf6.ModflowIms(
         sim,

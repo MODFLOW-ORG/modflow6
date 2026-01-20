@@ -139,21 +139,15 @@ def build_prt_sim(name, gwf_ws, prt_ws, targets, cell_ids):
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name=targets["mf6"], sim_ws=prt_ws
     )
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", perioddata=[[1.0, 1, 1.0]]
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", perioddata=[[1.0, 1, 1.0]])
     prt = flopy.mf6.ModflowPrt(sim, modelname=prt_name)
     disv = flopy.mf6.ModflowGwfdisv(
         prt, nlay=nlay, **grid.get_disv_gridprops(), top=top, botm=botm
     )
     flopy.mf6.ModflowPrtmip(prt, pname="mip", porosity=porosity)
 
-    sddata = flopy.modpath.CellDataType(
-        columncelldivisions=1, rowcelldivisions=1
-    )
-    data = flopy.modpath.NodeParticleData(
-        subdivisiondata=sddata, nodes=[release_cells]
-    )
+    sddata = flopy.modpath.CellDataType(columncelldivisions=1, rowcelldivisions=1)
+    data = flopy.modpath.NodeParticleData(subdivisiondata=sddata, nodes=[release_cells])
     prpdata = list(data.to_prp(prt.modelgrid))
     prp_track_file = f"{prt_name}.prp.trk"
     prp_track_csv_file = f"{prt_name}.prp.trk.csv"
@@ -181,9 +175,11 @@ def build_prt_sim(name, gwf_ws, prt_ws, targets, cell_ids):
     )
     gwf_budget_file = gwf_ws / f"{gwf_name}.bud"
     gwf_head_file = gwf_ws / f"{gwf_name}.hds"
+    grb_file = gwf_ws / f"{gwf_name}.disv.grb"
     flopy.mf6.ModflowPrtfmi(
         prt,
         packagedata=[
+            ("GWFGRID", grb_file),
             ("GWFHEAD", gwf_head_file),
             ("GWFBUDGET", gwf_budget_file),
         ],
@@ -198,9 +194,7 @@ def build_prt_sim(name, gwf_ws, prt_ws, targets, cell_ids):
 
 
 def build_models(idx, test):
-    gwf_sim, gwf_cell_ids = build_gwf_sim(
-        test.name, test.workspace, test.targets
-    )
+    gwf_sim, gwf_cell_ids = build_gwf_sim(test.name, test.workspace, test.targets)
     gwt_sim, gwt_cell_ids = build_gwt_sim(
         test.name, test.workspace, test.workspace / "gwt", test.targets
     )
@@ -235,107 +229,87 @@ def check_output(idx, test):
     prt_track_csv_file = f"{prt_name}.prp.trk.csv"
     pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
 
-    plot_2d = False
-    if plot_2d:
-        # plot in 2d with mpl
-        fig = plt.figure(figsize=(16, 10))
-        ax = plt.subplot(1, 1, 1, aspect="equal")
-        pmv = flopy.plot.PlotMapView(model=gwf, ax=ax)
-        pmv.plot_grid(alpha=0.25)
-        pmv.plot_ibound(alpha=0.5)
-        # headmesh = pmv.plot_array(head, alpha=0.25)
-        # headctr = pmv.contour_array(head, levels=np.linspace(0, 1, 9), colors="black")
-        # plt.clabel(headctr)
-        # plt.colorbar(headmesh, shrink=0.25, ax=ax, label="Head", location="right")
-        concmesh = pmv.plot_array(conc, cmap="jet")
-        concctr = pmv.contour_array(
-            conc, levels=(0.0001, 0.001, 0.01, 0.1), colors="y"
-        )
-        plt.clabel(concctr)
-        plt.colorbar(
-            concmesh,
-            shrink=0.25,
+    # pathlines should be west -> east and no elevation change
+    assert len(pls.irpt.unique()) == 3
+    assert pls.x.max() > 1950
+    assert np.allclose(pls[pls.irpt == 1].z, 0.166666)
+    assert np.allclose(pls[pls.irpt == 2].z, 0.5)
+    assert np.allclose(pls[pls.irpt == 3].z, 0.833333)
+
+
+def plot_output(idx, test):
+    name = test.name
+    prt_ws = test.workspace / "prt"
+    prt_name = get_model_name(name, "prt")
+    gwfsim, gwtsim, prtsim = test.sims
+
+    # get gwf output
+    gwf = gwfsim.get_model()
+    head = gwf.output.head().get_data()
+    bdobj = gwf.output.budget()
+    spdis = bdobj.get_data(text="DATA-SPDIS")[0]
+    qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
+
+    # get gwt output
+    gwt = gwtsim.get_model()
+    conc = gwt.output.concentration().get_data()
+
+    # get prt output
+    prt_track_csv_file = f"{prt_name}.prp.trk.csv"
+    pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
+
+    # plot in 2d with mpl
+    fig = plt.figure(figsize=(16, 10))
+    ax = plt.subplot(1, 1, 1, aspect="equal")
+    pmv = flopy.plot.PlotMapView(model=gwf, ax=ax)
+    pmv.plot_grid(alpha=0.25)
+    pmv.plot_ibound(alpha=0.5)
+    # headmesh = pmv.plot_array(head, alpha=0.25)
+    # headctr = pmv.contour_array(head, levels=np.linspace(0, 1, 9), colors="black")
+    # plt.clabel(headctr)
+    # plt.colorbar(headmesh, shrink=0.25, ax=ax, label="Head", location="right")
+    concmesh = pmv.plot_array(conc, cmap="jet")
+    concctr = pmv.contour_array(conc, levels=(0.0001, 0.001, 0.01, 0.1), colors="y")
+    plt.clabel(concctr)
+    plt.colorbar(concmesh, shrink=0.25, ax=ax, label="Concentration", location="right")
+
+    handles = [
+        mpl.lines.Line2D(
+            [0],
+            [0],
+            marker=">",
+            linestyle="",
+            label="Specific discharge",
+            color="grey",
+            markerfacecolor="gray",
+        ),
+    ]
+    ax.legend(handles=handles, loc="lower right")
+    pmv.plot_vector(qx, qy, normalize=True, alpha=0.25)
+    mf6_plines = pls.groupby(["iprp", "irpt", "trelease"])
+    for ipl, ((iprp, irpt, trelease), pl) in enumerate(mf6_plines):
+        title = "DISV voronoi grid particle tracks"
+        pl.plot(
+            title=title,
+            kind="line",
+            x="x",
+            y="y",
             ax=ax,
-            label="Concentration",
-            location="right",
+            legend=False,
+            color="black",
         )
-
-        handles = [
-            mpl.lines.Line2D(
-                [0],
-                [0],
-                marker=">",
-                linestyle="",
-                label="Specific discharge",
-                color="grey",
-                markerfacecolor="gray",
-            ),
-        ]
-        ax.legend(
-            handles=handles,
-            loc="lower right",
-        )
-        pmv.plot_vector(qx, qy, normalize=True, alpha=0.25)
-        mf6_plines = pls.groupby(["iprp", "irpt", "trelease"])
-        for ipl, ((iprp, irpt, trelease), pl) in enumerate(mf6_plines):
-            title = "DISV voronoi grid particle tracks"
-            pl.plot(
-                title=title,
-                kind="line",
-                x="x",
-                y="y",
-                ax=ax,
-                legend=False,
-                color="black",
-            )
-        plt.show()
-        plt.savefig(prt_ws / f"{name}.png")
-
-    plot_3d = False
-    if plot_3d:
-        # plot in 3d with pyvista (via vtk)
-        import pyvista as pv
-        from flopy.export.vtk import Vtk
-        from flopy.plot.plotutil import to_mp7_pathlines
-
-        def get_meshes(model, pathlines):
-            vtk = Vtk(model=model, binary=False, smooth=False)
-            vtk.add_model(model)
-            vtk.add_pathline_points(
-                to_mp7_pathlines(pathlines.to_records(index=False))
-            )
-            grid_mesh, path_mesh = vtk.to_pyvista()
-            grid_mesh.rotate_x(-100, point=axes.origin, inplace=True)
-            grid_mesh.rotate_z(90, point=axes.origin, inplace=True)
-            grid_mesh.rotate_y(120, point=axes.origin, inplace=True)
-            path_mesh.rotate_x(-100, point=axes.origin, inplace=True)
-            path_mesh.rotate_z(90, point=axes.origin, inplace=True)
-            path_mesh.rotate_y(120, point=axes.origin, inplace=True)
-            return grid_mesh, path_mesh
-
-        def callback(mesh, value):
-            sub = pls[pls.t <= value]
-            gm, pm = get_meshes(gwf, sub)
-            mesh.shallow_copy(pm)
-
-        pv.set_plot_theme("document")
-        axes = pv.Axes(show_actor=True, actor_scale=2.0, line_width=5)
-        p = pv.Plotter(notebook=False)
-        grid_mesh, path_mesh = get_meshes(gwf, pls)
-        p.add_mesh(grid_mesh, scalars=head[0], cmap="Blues", opacity=0.5)
-        p.add_mesh(path_mesh, label="Time", style="points", color="black")
-        p.camera.zoom(1)
-        p.add_slider_widget(lambda v: callback(path_mesh, v), [0, 30202])
-        p.show()
+    plt.show()
+    plt.savefig(prt_ws / f"{name}.png")
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, function_tmpdir, targets, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
         compare=None,
     )

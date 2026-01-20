@@ -97,9 +97,6 @@ contains
     !
     ! -- Initialize budget table
     call budget_cr(this%budtable, name)
-    !
-    ! -- Return
-    return
   end subroutine budgetobject_cr
 
   !> @brief Define the new budget object
@@ -163,9 +160,6 @@ contains
     if (present(ibudcsv)) then
       call this%budtable%set_ibudcsv(ibudcsv)
     end if
-    !
-    ! -- Return
-    return
   end subroutine budgetobject_df
 
   !> @brief Define the new flow table object
@@ -276,9 +270,6 @@ contains
     call this%flowtab%initialize_column(text, 12, alignment=TABCENTER)
     text = 'PERCENT DIFFERENCE'
     call this%flowtab%initialize_column(text, 12, alignment=TABCENTER)
-    !
-    ! -- Return
-    return
   end subroutine flowtable_df
 
   !> @brief Add up accumulators and submit to budget table
@@ -313,9 +304,6 @@ contains
         call this%budtable%addentry(ratin, ratout, delt, flowtype)
       end select
     end do
-    !
-    ! -- Return
-    return
   end subroutine accumulate_terms
 
   !> @brief Write the flow table for each advanced package control volume
@@ -458,9 +446,6 @@ contains
       call this%flowtab%add_term(qerr)
       call this%flowtab%add_term(qpd)
     end do
-    !
-    ! -- Return
-    return
   end subroutine write_flowtable
 
   !> @brief Write the budget table
@@ -481,9 +466,6 @@ contains
       call this%budtable%budget_ot(kstp, kper, iout)
     end if
     call this%budtable%writecsv(totim)
-    !
-    ! -- Return
-    return
   end subroutine write_budtable
 
   !> @brief Write the budget table
@@ -508,9 +490,6 @@ contains
       call this%budterm(i)%save_flows(dis, ibinun, kstp, kper, delt, &
                                       pertim, totim, iout)
     end do
-    !
-    ! -- Return
-    return
   end subroutine save_flows
 
   !> @brief Read from a binary file into this BudgetObjectType
@@ -533,9 +512,6 @@ contains
       call this%budterm(i)%read_flows(dis, ibinun, kstp, kper, delt, &
                                       pertim, totim)
     end do
-    !
-    ! -- Return
-    return
   end subroutine read_flows
 
   !> @brief Deallocate
@@ -569,9 +545,6 @@ contains
       deallocate (this%budtable)
       nullify (this%budtable)
     end if
-    !
-    ! -- Return
-    return
   end subroutine budgetobject_da
 
   !> @brief Create a new budget object from a binary flow file
@@ -623,9 +596,6 @@ contains
         end do
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine budgetobject_cr_bfr
 
   !> @brief Initialize the budget file reader
@@ -642,9 +612,6 @@ contains
     allocate (this%bfr)
     call this%bfr%initialize(ibinun, iout, ncv)
     nbudterm = this%bfr%nbudterms
-    !
-    ! -- Return
-    return
   end subroutine bfr_init
 
   !> @brief Advance the binary file readers for setting the budget terms of
@@ -677,7 +644,8 @@ contains
       if (this%bfr%endoffile) then
         readnext = .false.
       else
-        if (this%bfr%kpernext == kper + 1 .and. this%bfr%kstpnext == 1) &
+        if (this%bfr%headernext%kper == kper + 1 .and. &
+            this%bfr%headernext%kstp == 1) &
           readnext = .false.
       end if
     end if
@@ -694,11 +662,8 @@ contains
     else
       if (iout > 0) &
         write (iout, fmtbudkstpkper) trim(this%name), kstp, kper, &
-        this%bfr%kstp, this%bfr%kper
+        this%bfr%header%kstp, this%bfr%header%kper
     end if
-    !
-    ! -- Return
-    return
   end subroutine bfr_advance
 
   !> @brief Copy the information from the binary file into budterms
@@ -717,9 +682,6 @@ contains
       call this%bfr%read_record(success, iout)
       call this%budterm(i)%fill_from_bfr(this%bfr, dis)
     end do
-    !
-    ! -- Return
-    return
   end subroutine fill_from_bfr
 
 end module BudgetObjectModule

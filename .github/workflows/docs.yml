@@ -24,11 +24,11 @@ jobs:
     steps:
 
       - name: Checkout modflow6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - uses: prefix-dev/setup-pixi@v0.8.1
+      - uses: prefix-dev/setup-pixi@v0.9.3
         with:
-          pixi-version: v0.24.2
+          pixi-version: v0.41.4
 
       - name: Check spelling
         run: pixi run check-spelling
@@ -46,26 +46,26 @@ jobs:
       FC_V: 12
     steps:
       - name: Checkout modflow6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: modflow6
 
       - name: Checkout modflow6-examples
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
-          repository: MODFLOW-USGS/modflow6-examples
+          repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
       - name: Checkout usgslatex
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
-          repository: MODFLOW-USGS/usgslatex
+          repository: MODFLOW-ORG/usgslatex
           path: usgslatex
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.1
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
-          pixi-version: v0.24.2
+          pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -101,17 +101,10 @@ jobs:
 
       - name: Cache modflow6 examples
         id: cache-examples
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: modflow6-examples/examples
           key: modflow6-examples-${{ hashFiles('modflow6-examples/scripts/**') }}
-
-      - name: Install extra Python packages
-        if: steps.cache-examples.outputs.cache-hit != 'true'
-        working-directory: modflow6
-        run: |
-          pixi run pip install -r ../modflow6-examples/etc/requirements.pip.txt
-          pixi run pip install -r ../modflow6-examples/etc/requirements.usgs.txt
 
       - name: Update FloPy
         if: steps.cache-examples.outputs.cache-hit != 'true'
@@ -145,21 +138,21 @@ jobs:
         run: cat run-time-comparison.md
     
       - name: Upload benchmarks
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: run-time-comparison
           path: modflow6/distribution/run-time-comparison.md
 
       - name: Collect deprecations
         working-directory: modflow6
-        run: pixi run deprecations
+        run: pixi run collect-deprecations
 
       - name: Show deprecations
         working-directory: modflow6/doc/mf6io/mf6ivar/md
         run: cat deprecations.md
 
       - name: Upload deprecations
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: deprecations
           path: modflow6/doc/mf6io/mf6ivar/md/deprecations.md
@@ -169,14 +162,16 @@ jobs:
         run: pixi run sphinx
       
       - name: Upload RTD files
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: rtd-files-for-${{ github.sha }}
           path: |
             modflow6/.build_rtd_docs/dev.rst
+            modflow6/.build_rtd_docs/migration.rst
             modflow6/.build_rtd_docs/index.rst
             modflow6/.build_rtd_docs/mf6io.rst
             modflow6/.build_rtd_docs/_dev/
+            modflow6/.build_rtd_docs/_misc/
             modflow6/.build_rtd_docs/_mf6io/
             modflow6/.build_rtd_docs/_mf6run/
             modflow6/.build_rtd_docs/_static/
@@ -186,7 +181,7 @@ jobs:
         run: pixi run build-docs
 
       - name: Upload PDF documents
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: mf6io.pdf
           path: |
@@ -201,10 +196,10 @@ jobs:
     name: rtd-trigger
     needs: rtd_build
     runs-on: ubuntu-22.04
-    if: github.repository_owner == 'MODFLOW-USGS' && github.event_name == 'push'
+    if: github.repository_owner == 'MODFLOW-ORG' && github.event_name == 'push'
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Trigger RTDs build on push to repo branches
         uses: dfm/rtds-action@v1
@@ -224,7 +219,7 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Print branch name
         run: echo ${{env.branch-name}}
@@ -235,9 +230,9 @@ jobs:
           sudo apt-get install doxygen graphviz
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.1
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
-          pixi-version: v0.24.2
+          pixi-version: v0.41.4
 
       - name: Custom pixi install
         run: pixi run install
@@ -253,7 +248,7 @@ jobs:
         working-directory: ${{env.working-directory}}
       
       - name: upload pages artifact
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ${{env.working-directory}}/html
 
@@ -261,6 +256,7 @@ jobs:
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     needs: doxygen_build
     permissions:
+      actions: read
       pages: write
       id-token: write
     environment:
@@ -270,4 +266,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v3
+        uses: actions/deploy-pages@v4

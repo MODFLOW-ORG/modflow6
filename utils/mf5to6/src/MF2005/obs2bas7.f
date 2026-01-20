@@ -70,7 +70,7 @@ C     ------------------------------------------------------------------
       USE GLOBAL, ONLY: NCOL,NROW,NLAY,DELR,DELC,
      1                  NPER,NSTP,PERLEN,TSMULT,ISSFLG,IOUT,ITRSS
       USE OBSBASMODULE
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       use utl7module, only: URDCOM, URWORD
 C
       logical, intent(inout) :: needPreproc
@@ -568,7 +568,7 @@ C6------
       SUBROUTINE UOBSTI(ID,IOUT,ISSFLG,ITRSS,NPER,NSTP,IREFSP,NUMTS,
      &                  PERLEN,TOFF1,TOFFSET,TOMULT,TSMULT,ITR1ST,
      &                  OBSTIME)
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
 C     ******************************************************************
 C     ASSIGN OBSERVATION TIME STEP (NUMTS) AND TOFF GIVEN REFERENCE
 C     STRESS PERIOD (IREFSP), OBSERVATION-TIME OFFSET (TOFFSET), AND

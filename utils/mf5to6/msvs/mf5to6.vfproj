@@ -1,32 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <VisualStudioProject ProjectCreator="Intel Fortran" Keyword="Console Application" Version="11.0" ProjectIdGuid="{EE5F8367-9220-45ED-9B0B-5942AF51229C}">
 	<Platforms>
-		<Platform Name="Win32"/>
-	</Platforms>
+		<Platform Name="Win32"/></Platforms>
 	<Configurations>
 		<Configuration Name="Debug|Win32" TargetName="$(ProjectName)d">
-			<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" HeapArrays="0" WarnUnusedVariables="true" WarnUncalled="true" WarnInterfaces="true" Traceback="true" NullPointerCheck="true" BoundsCheck="true" UninitializedVariablesCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebug"/>
-			<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" GenerateDebugInformation="true" SubSystem="subSystemConsole"/>
-			<Tool Name="VFResourceCompilerTool"/>
-			<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
-			<Tool Name="VFCustomBuildTool"/>
-			<Tool Name="VFPreLinkEventTool"/>
-			<Tool Name="VFPreBuildEventTool"/>
-			<Tool Name="VFPostBuildEventTool" CommandLine="copy $(OutDir)\$(TargetName)$(TargetExt) ..\..\..\bin"/>
-			<Tool Name="VFManifestTool" SuppressStartupBanner="true"/>
-		</Configuration>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" HeapArrays="0" Preprocess="preprocessYes" WarnUnusedVariables="true" WarnUncalled="true" WarnInterfaces="true" Traceback="true" NullPointerCheck="true" BoundsCheck="true" UninitializedVariablesCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebug"/>
+				<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" GenerateDebugInformation="true" SubSystem="subSystemConsole"/>
+				<Tool Name="VFResourceCompilerTool"/>
+				<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
+				<Tool Name="VFCustomBuildTool"/>
+				<Tool Name="VFPreLinkEventTool"/>
+				<Tool Name="VFPreBuildEventTool"/>
+				<Tool Name="VFPostBuildEventTool" CommandLine="copy $(OutDir)\$(TargetName)$(TargetExt) ..\..\..\bin"/>
+				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
 		<Configuration Name="Release|Win32">
-			<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" HeapArrays="0" RuntimeLibrary="rtMultiThreadedDebug"/>
-			<Tool Name="VFLinkerTool" SuppressStartupBanner="true" GenerateDebugInformation="true" SubSystem="subSystemConsole"/>
-			<Tool Name="VFResourceCompilerTool"/>
-			<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
-			<Tool Name="VFCustomBuildTool"/>
-			<Tool Name="VFPreLinkEventTool"/>
-			<Tool Name="VFPreBuildEventTool"/>
-			<Tool Name="VFPostBuildEventTool" CommandLine="copy $(OutDir)\$(TargetName)$(TargetExt) ..\..\..\bin"/>
-			<Tool Name="VFManifestTool" SuppressStartupBanner="true"/>
-		</Configuration>
-	</Configurations>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" HeapArrays="0" Preprocess="preprocessYes" RuntimeLibrary="rtMultiThreadedDebug"/>
+				<Tool Name="VFLinkerTool" SuppressStartupBanner="true" GenerateDebugInformation="true" SubSystem="subSystemConsole"/>
+				<Tool Name="VFResourceCompilerTool"/>
+				<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
+				<Tool Name="VFCustomBuildTool"/>
+				<Tool Name="VFPreLinkEventTool"/>
+				<Tool Name="VFPreBuildEventTool"/>
+				<Tool Name="VFPostBuildEventTool" CommandLine="copy $(OutDir)\$(TargetName)$(TargetExt) ..\..\..\bin"/>
+				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration></Configurations>
 	<Files>
 		<Filter Name="Header Files" Filter="fi;fd"/>
 		<Filter Name="Resource Files" Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"/>
@@ -86,24 +82,25 @@
 		<Filter Name="MF6">
 		<Filter Name="Utilities">
 		<Filter Name="Memory">
-		<File RelativePath="..\..\..\src\Utilities\Memory\Memory.f90"/>
+		<File RelativePath="..\..\..\src\Utilities\Memory\Memory.F90"/>
 		<File RelativePath="..\..\..\src\Utilities\Memory\MemoryContainerIterator.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\Memory\MemoryHelper.f90"/>
-		<File RelativePath="..\..\..\src\Utilities\Memory\MemoryManager.f90"/></Filter>
-		<File RelativePath="..\..\..\src\Utilities\Memory\MemoryStore.f90"/>
+		<File RelativePath="..\..\..\src\Utilities\Memory\MemoryManager.f90"/>
+		<File RelativePath="..\..\..\src\Utilities\Memory\MemoryStore.f90"/></Filter>
 		<Filter Name="TimeSeries">
 		<File RelativePath="..\..\..\src\Utilities\TimeSeries\TimeSeries.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\TimeSeries\TimeSeriesRecord.f90"/></Filter>
+		<File RelativePath="..\..\..\src\Utilities\ArrayHandlers.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\BlockParser.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\CharString.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\compilerversion.F90">
 			<FileConfiguration Name="Debug|Win32">
-			<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration></File>
+				<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration></File>
 		<File RelativePath="..\..\..\src\Utilities\Constants.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\defmacro.F90">
 			<FileConfiguration Name="Debug|Win32">
-			<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration></File>
-		<File RelativePath="..\..\..\src\Utilities\DevFeature.f90"/>
+				<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration></File>
+		<File RelativePath="..\..\..\src\Utilities\FeatureFlags.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\ErrorUtil.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\GeomUtil.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\InputOutput.f90"/>
@@ -121,6 +118,7 @@
 		<File RelativePath="..\..\..\src\Utilities\OpenSpec.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\PtrHashTable.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\PtrHashTableIterator.f90"/>
+		<File RelativePath="..\..\..\src\Utilities\Sim.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\SimVariables.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\Table.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\TableTerm.f90"/>
@@ -140,7 +138,6 @@
 		<File RelativePath="..\src\NWT\NWT1_xmd.f"/>
 		<File RelativePath="..\src\NWT\NWT1_xmdlib.f"/></Filter>
 		<Filter Name="Preproc">
-		<File RelativePath="..\src\Preproc\ArrayHandlers.f90"/>
 		<File RelativePath="..\src\Preproc\ConstantsPHMF.f90"/>
 		<File RelativePath="..\src\Preproc\Discretization3D.f90"/>
 		<File RelativePath="..\src\Preproc\DiscretizationBasePHMF.f90"/>
@@ -211,7 +208,5 @@
 		<File RelativePath="..\src\TdisVariables.f90"/>
 		<File RelativePath="..\src\TdisWriter.f90"/>
 		<File RelativePath="..\src\UzfPackageWriter.f90"/>
-		<File RelativePath="..\src\WelPackageWriter.f90"/></Filter>
-	</Files>
-	<Globals/>
-</VisualStudioProject>
+		<File RelativePath="..\src\WelPackageWriter.f90"/></Filter></Files>
+	<Globals/></VisualStudioProject>

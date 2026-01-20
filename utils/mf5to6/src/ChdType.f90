@@ -2,7 +2,7 @@ module ChdModule
 
   use ConstantsModule, only: LENTIMESERIESNAME, MAXCHARLEN
   use ListModule, only: ListType
-  use SimModule, only: store_error, ustop
+  use SimPHMFModule, only: store_error, ustop
   use TimeSeriesModule, only: TimeSeriesType
 
   implicit none

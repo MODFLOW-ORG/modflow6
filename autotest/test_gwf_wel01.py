@@ -84,10 +84,7 @@ def build_models(idx, test):
     )
 
     # initial conditions
-    ic = flopy.mf6.ModflowGwfic(
-        gwf,
-        strt=strt,
-    )
+    ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
     npf = flopy.mf6.ModflowGwfnpf(
@@ -128,16 +125,10 @@ def build_models(idx, test):
         stress_period_data=wel_spd,
         afrcsv_filerecord=f"{name}.afr.csv",
     )
-    welobs = wel.obs.initialize(
-        print_input=True,
-        continuous=obs,
-    )
+    welobs = wel.obs.initialize(print_input=True, continuous=obs)
 
     # output control
-    oc = flopy.mf6.ModflowGwfoc(
-        gwf,
-        printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
-    )
+    oc = flopy.mf6.ModflowGwfoc(gwf, printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")])
 
     return sim, None
 
@@ -145,10 +136,7 @@ def build_models(idx, test):
 def check_output(idx, test):
     # MODFLOW 6 observations
     dtol = 1e-9
-    for file_name in (
-        "wel.obs.csv",
-        "wel.obs.dup.csv",
-    ):
+    for file_name in ("wel.obs.csv", "wel.obs.dup.csv"):
         fpth = os.path.join(test.workspace, file_name)
         try:
             tc = np.genfromtxt(fpth, names=True, delimiter=",")
@@ -173,15 +161,15 @@ def check_output(idx, test):
     # MODFLOW 6 AFR CSV output file
     fpth = os.path.join(test.workspace, "wel01.afr.csv")
     try:
-        afroutput = np.genfromtxt(
-            fpth, names=True, delimiter=",", deletechars=""
-        )
+        afroutput = np.genfromtxt(fpth, names=True, delimiter=",", deletechars="")
     except:
         assert False, f'could not load data from "{fpth}"'
 
     a1 = afroutput["rate-requested"]
     a2 = afroutput["rate-actual"] + afroutput["wel-reduction"]
-    errmsg = "Auto flow reduce requested rate must equal actual rate plus reduced rate.\n"
+    errmsg = (
+        "Auto flow reduce requested rate must equal actual rate plus reduced rate.\n"
+    )
     errmsg += f"{a1} /= {a2}"
     assert np.allclose(a1, a2), errmsg
 

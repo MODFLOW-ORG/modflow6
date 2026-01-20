@@ -7,7 +7,7 @@
 module BlockParserModule
 
   use KindModule, only: DP, I4B, LGP
-  use DevFeatureModule, only: dev_feature
+  use FeatureFlagsModule, only: developmode
   use ConstantsModule, only: LENBIGLINE, LENHUGELINE, LINELENGTH, MAXCHARLEN
   use InputOutputModule, only: urword, upcase, openfile, &
                                io_getunit => GetUnit
@@ -73,9 +73,6 @@ contains
     this%iout = iout
     this%blockName = ''
     this%linesRead = 0
-    !
-    ! -- return
-    return
   end subroutine Initialize
 
   !> @ brief Close the block parser
@@ -115,9 +112,6 @@ contains
     this%blockName = ''
     this%line = ''
     deallocate (this%line)
-    !
-    ! -- return
-    return
   end subroutine Clear
 
   !> @ brief Get block
@@ -176,9 +170,6 @@ contains
     end if
     this%iuactive = this%iuext
     this%linesRead = 0
-    !
-    ! -- return
-    return
   end subroutine GetBlock
 
   !> @ brief Get the next line
@@ -239,9 +230,6 @@ contains
         lineread = .true.
       end if
     end do loop1
-    !
-    ! -- return
-    return
   end subroutine GetNextLine
 
   !> @ brief Get a integer
@@ -267,9 +255,6 @@ contains
     if (istart == istop .and. istop == len(this%line)) then
       call this%ReadScalarError('INTEGER')
     end if
-    !
-    ! -- return
-    return
   end function GetInteger
 
   !> @ brief Get the number of lines read
@@ -285,9 +270,6 @@ contains
     !
     ! -- number of lines read
     nlines = this%linesRead
-    !
-    ! -- return
-    return
   end function GetLinesRead
 
   !> @ brief Get a double precision real
@@ -361,9 +343,6 @@ contains
       trim(errmsg), trim(adjustl(this%line)), "'."
     call store_error(errmsg)
     call this%StoreErrorUnit()
-    !
-    ! -- return
-    return
   end subroutine ReadScalarError
 
   !> @ brief Get a string
@@ -399,9 +378,6 @@ contains
                 ival, rval, this%iout, this%iuext)
     string = this%line(istart:istop)
     this%laststring = this%line(istart:istop)
-    !
-    ! -- return
-    return
   end subroutine GetString
 
   !> @ brief Get an upper case string
@@ -417,9 +393,6 @@ contains
     !
     ! -- call base GetString method with convertToUpper variable
     call this%GetString(string, convertToUpper=.true.)
-    !
-    ! -- return
-    return
   end subroutine GetStringCaps
 
   !> @ brief Get the rest of a line
@@ -442,9 +415,6 @@ contains
     allocate (character(len=newlinelen) :: line)
     line(:) = this%line(this%lloc:lastpos)
     line(newlinelen:newlinelen) = ' '
-    !
-    ! -- return
-    return
   end subroutine GetRemainingLine
 
   !> @ brief Ensure that the block is closed
@@ -466,9 +436,6 @@ contains
       call store_error(errmsg)
       call this%StoreErrorUnit()
     end if
-    !
-    ! -- return
-    return
   end subroutine terminateblock
 
   !> @ brief Get a cellid
@@ -518,9 +485,6 @@ contains
         cellid = trim(cellid)//' '//cint
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine GetCellid
 
   !> @ brief Get the current line
@@ -535,9 +499,6 @@ contains
     !
     ! -- get the current line
     line = this%line
-    !
-    ! -- return
-    return
   end subroutine GetCurrentLine
 
   !> @ brief Store the unit number
@@ -562,9 +523,6 @@ contains
     !
     ! -- store error unit
     call store_error_unit(this%iuext, terminate=lterminate)
-    !
-    ! -- return
-    return
   end subroutine StoreErrorUnit
 
   !> @ brief Get the unit number
@@ -580,9 +538,6 @@ contains
     !
     ! -- block parser unit number
     i = this%iuext
-    !
-    ! -- return
-    return
   end function GetUnit
 
   !> @ brief Disable development option in release mode
@@ -597,9 +552,7 @@ contains
     !
     errmsg = "Invalid keyword '"//trim(this%laststring)// &
              "' detected in block '"//trim(this%blockname)//"'."
-    call dev_feature(errmsg, this%iuext)
-    !
-    return
+    call developmode(errmsg, this%iuext)
   end subroutine DevOpt
 
   ! -- static methods previously in InputOutput
@@ -714,9 +667,6 @@ contains
         end if
       end if
     end do mainloop
-    !
-    ! -- return
-    return
   end subroutine uget_block
 
   !> @brief Find the next block in a file
@@ -779,7 +729,6 @@ contains
         exit
       end if
     end do
-    return
   end subroutine uget_any_block
 
   !> @brief Evaluate if the end of a block has been found
@@ -834,9 +783,6 @@ contains
       call store_error(ermsg)
       call store_error_unit(iin)
     end select
-    !
-    ! -- return
-    return
   end subroutine uterminate_block
 
 end module BlockParserModule

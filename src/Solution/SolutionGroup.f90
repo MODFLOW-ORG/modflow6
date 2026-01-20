@@ -37,9 +37,6 @@ contains
     allocate (sgp)
     call sgp%allocate_scalars()
     sgp%id = id
-    !
-    ! -- return
-    return
   end subroutine solutiongroup_create
 
   !> @brief Calculate the solution group
@@ -106,9 +103,6 @@ contains
       lastStepFailed = 1
       write (iout, fmtnocnvg) this%id, kper, kstp
     end if
-    !
-    ! -- return
-    return
   end subroutine sgp_ca
 
   !> @brief Deallocate
@@ -121,9 +115,6 @@ contains
     deallocate (this%mxiter)
     deallocate (this%nsolutions)
     deallocate (this%idsolutions)
-    !
-    ! -- return
-    return
   end subroutine sgp_da
 
   !> @brief Allocate scalars
@@ -138,9 +129,6 @@ contains
     this%id = 0
     this%mxiter = 1
     this%nsolutions = 0
-    !
-    ! -- return
-    return
   end subroutine allocate_scalars
 
   !> @brief Add solution
@@ -159,9 +147,6 @@ contains
     ipos = size(this%idsolutions)
     this%idsolutions(ipos) = isoln
     this%nsolutions = this%nsolutions + 1
-    !
-    ! -- return
-    return
   end subroutine add_solution
 
   function CastAsSolutionGroupClass(obj) result(res)
@@ -178,7 +163,6 @@ contains
     class is (SolutionGroupType)
       res => obj
     end select
-    return
   end function CastAsSolutionGroupClass
 
   subroutine AddSolutionGroupToList(list, solutiongroup)
@@ -191,8 +175,6 @@ contains
     !
     obj => solutiongroup
     call list%Add(obj)
-    !
-    return
   end subroutine AddSolutionGroupToList
 
   function GetSolutionGroupFromList(list, idx) result(res)
@@ -206,8 +188,6 @@ contains
     !
     obj => list%GetItem(idx)
     res => CastAsSolutionGroupClass(obj)
-    !
-    return
   end function GetSolutionGroupFromList
 
 end module SolutionGroupModule

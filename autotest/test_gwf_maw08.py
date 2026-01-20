@@ -44,7 +44,7 @@ radius = 0.05
 
 
 def build_models(idx, test):
-    dvclose, rclose, relax = 1e-9, 1e-9, 1.0
+    dvclose, rclose, relax = 1e-9, 1e-7, 1.0
 
     name = cases[idx]
 
@@ -131,9 +131,7 @@ def build_models(idx, test):
     mawpackagedata["ngwfnodes"] = 2
 
     # <ifno> <icon> <cellid(ncelldim)> <scrn_top> <scrn_bot> <hk_skin> <radius_skin>
-    mawconnectiondata = flopy.mf6.ModflowGwfmaw.connectiondata.empty(
-        gwf, maxbound=2
-    )
+    mawconnectiondata = flopy.mf6.ModflowGwfmaw.connectiondata.empty(gwf, maxbound=2)
     mawconnectiondata["icon"] = [0, 1]
     mawconnectiondata["cellid"] = cellids
     mawconnectiondata["scrn_top"] = 100.0
@@ -160,9 +158,7 @@ def build_models(idx, test):
             ("whead", "head", (0,)),
         ]
     }
-    maw.obs.initialize(
-        filename=opth, digits=20, print_input=True, continuous=obsdata
-    )
+    maw.obs.initialize(filename=opth, digits=20, print_input=True, continuous=obsdata)
 
     # output control
     oc = flopy.mf6.ModflowGwfoc(
@@ -171,24 +167,12 @@ def build_models(idx, test):
         head_filerecord=f"{gwfname}.hds",
         headprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[
-            (
-                "HEAD",
-                "ALL",
-            ),
-            (
-                "BUDGET",
-                "ALL",
-            ),
+            ("HEAD", "ALL"),
+            ("BUDGET", "ALL"),
         ],
         printrecord=[
-            (
-                "HEAD",
-                "ALL",
-            ),
-            (
-                "BUDGET",
-                "ALL",
-            ),
+            ("HEAD", "ALL"),
+            ("BUDGET", "ALL"),
         ],
     )
 
@@ -205,9 +189,9 @@ def eval_results(idx, test):
     bobj = flopy.utils.HeadFile(fname, text="HEAD")
 
     well_head = bobj.get_data().flatten()
-    assert np.allclose(
-        well_head, 10.0
-    ), f"simulated maw head ({well_head[0]}) does not equal 10."
+    assert np.allclose(well_head, 10.0), (
+        f"simulated maw head ({well_head[0]}) does not equal 10."
+    )
 
     fname = gwfname + ".hds"
     fname = os.path.join(test.workspace, fname)

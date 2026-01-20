@@ -52,9 +52,7 @@ def temp_analyt(t, z, t0, tinfil, v, d):
             )
         else:
             zeta = 1.0 / (1.0 + 0.47047 * ztermp)
-            polyterm = zeta * (
-                0.3480242 + zeta * (-0.0958798 + zeta * 0.7478556)
-            )
+            polyterm = zeta * (0.3480242 + zeta * (-0.0958798 + zeta * 0.7478556))
             temp = t0 + 0.5 * (tinfil - t0) * (
                 math.erfc(ztermm) + math.exp(vterm - ztermp**2) * polyterm
             )
@@ -77,9 +75,7 @@ delc = 1.0
 delz = 0.1  # 10 cm
 strt = 0.05
 top = 10.0005
-botm = [
-    9.9995
-]  # Top layer is very thin for application of the boundary condition
+botm = [9.9995]  # Top layer is very thin for application of the boundary condition
 for i in np.arange(1, nlay):
     bot = 10.0 - (i * delz)
     botm.append(round(bot, 1))
@@ -104,6 +100,11 @@ strt_temp = 10.0
 scheme = "UPSTREAM"
 dispersivity = 0.0
 prsity = 0.2
+rhow = 1000.0
+cpw = 4183.0
+lhv = 2500.0
+cps = 760.0
+rhos = 1500.0
 
 # transient uzf info
 # iuzno  cellid landflg ivertcn surfdp vks thtr thts thti eps [bndnm]
@@ -153,9 +154,7 @@ def build_models(idx, test):
     for i in range(nper):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
 
-    flopy.mf6.ModflowTdis(
-        sim, time_units=time_units, nper=nper, perioddata=tdis_rc
-    )
+    flopy.mf6.ModflowTdis(sim, time_units=time_units, nper=nper, perioddata=tdis_rc)
 
     gwfname = "gwf_" + name
     gwename = "gwe_" + name
@@ -276,9 +275,7 @@ def build_models(idx, test):
     # ----------------------------------
     # Instantiating MODFLOW 6 GWE model
     # ----------------------------------
-    gwe = flopy.mf6.ModflowGwe(
-        sim, modelname=gwename, model_nam_file=f"{gwename}.nam"
-    )
+    gwe = flopy.mf6.ModflowGwe(sim, modelname=gwename, model_nam_file=f"{gwename}.nam")
     gwe.name_file.save_flows = True
 
     imsgwe = flopy.mf6.ModflowIms(
@@ -323,9 +320,7 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 transport advection package
-    flopy.mf6.ModflowGweadv(
-        gwe, scheme=scheme, pname="ADV", filename=f"{gwename}.adv"
-    )
+    flopy.mf6.ModflowGweadv(gwe, scheme=scheme, pname="ADV", filename=f"{gwename}.adv")
 
     # Instantiating MODFLOW 6 transport dispersion package
     flopy.mf6.ModflowGwecnd(
@@ -340,9 +335,6 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 transport mass storage package
-    rhow = 1000.0
-    cpw = 4183.0
-    lhv = 2500.0
     flopy.mf6.ModflowGweest(
         gwe,
         save_flows=True,
@@ -350,8 +342,8 @@ def build_models(idx, test):
         heat_capacity_water=cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=760.0,
-        rhos=1500.0,
+        heat_capacity_solid=cps,
+        density_solid=rhos,
         pname="EST",
         filename=f"{gwename}.est",
     )
@@ -411,9 +403,7 @@ def build_models(idx, test):
         pname="OC",
         budget_filerecord=f"{gwename}.cbc",
         temperature_filerecord=f"{gwename}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         filename=f"{gwename}.oc",
@@ -493,58 +483,46 @@ def check_output(idx, test):
     assert np.allclose(analytical_sln[10, 38:], temps[10, 0, 0, 38:]), msg0
     # Compare day 50. For layer 84 and below, the defaults of allclose should work
     assert np.allclose(analytical_sln[50, 83:], temps[50, 0, 0, 83:]), msg0
-    # Compare day 100, fits are generally good, but do not pass allclose default settings
+    # Compare day 100, fits are generally good,
+    # but do not pass allclose default settings
 
     # Ensure that the differences in the 1st day fall within established bounds
     msg1 = (
         "Simulated fits to analytical solution are "
         "falling outside established bounds on day 1"
     )
-    assert (
-        np.max(analytical_sln[1, :18] - temps[1, 0, 0, :18]) <= 1.52921097880
-    ), msg1
-    assert (
-        np.min(analytical_sln[1, :18] - temps[1, 0, 0, :18]) >= -0.32260871278
-    ), msg1
+    assert np.max(analytical_sln[1, :18] - temps[1, 0, 0, :18]) <= 1.52921097880, msg1
+    assert np.min(analytical_sln[1, :18] - temps[1, 0, 0, :18]) >= -0.32260871278, msg1
 
     # Ensure that the differences on day 10 fall within established bounds
     msg2 = (
         "Simulated fits to analytical solution are "
         "falling outside established bounds on day 10"
     )
-    assert (
-        np.max(analytical_sln[10, :37] - temps[10, 0, 0, :37]) <= 0.15993441016
-    ), msg2
-    assert (
-        np.min(analytical_sln[10, :37] - temps[10, 0, 0, :37])
-        >= -0.22298707253
-    ), msg2
+    assert np.max(analytical_sln[10, :37] - temps[10, 0, 0, :37]) <= 0.15993441016, msg2
+    assert np.min(analytical_sln[10, :37] - temps[10, 0, 0, :37]) >= -0.22298707253, (
+        msg2
+    )
 
     # Ensure that the differences on day 50 fall within established bounds
     msg3 = (
         "Simulated fits to analytical solution are "
         "falling outside established bounds on day 50"
     )
-    assert (
-        np.max(analytical_sln[50, :82] - temps[50, 0, 0, :82]) <= 0.09327747258
-    ), msg3
-    assert (
-        np.min(analytical_sln[50, :82] - temps[50, 0, 0, :82])
-        >= -0.21182907402
-    ), msg3
+    assert np.max(analytical_sln[50, :82] - temps[50, 0, 0, :82]) <= 0.09327747258, msg3
+    assert np.min(analytical_sln[50, :82] - temps[50, 0, 0, :82]) >= -0.21182907402, (
+        msg3
+    )
 
     # Ensure that the differences on day 50 fall within established bounds
     msg3 = (
         "Simulated fits to analytical solution are "
         "falling outside established bounds on day 50"
     )
-    assert (
-        np.max(analytical_sln[50, :82] - temps[50, 0, 0, :82]) <= 0.09327747258
-    ), msg3
-    assert (
-        np.min(analytical_sln[50, :82] - temps[50, 0, 0, :82])
-        >= -0.21182907402
-    ), msg3
+    assert np.max(analytical_sln[50, :82] - temps[50, 0, 0, :82]) <= 0.09327747258, msg3
+    assert np.min(analytical_sln[50, :82] - temps[50, 0, 0, :82]) >= -0.21182907402, (
+        msg3
+    )
 
     # Ensure that the differences on day 100 fall within established bounds
     msg4 = (
@@ -564,12 +542,8 @@ def check_output(idx, test):
                 analytical_sln[i, j] = temp
 
         # first transient stress period
-        line1 = plt.plot(
-            analytical_sln[1], z, "-", color="red", label="Analytical"
-        )
-        line2 = plt.plot(
-            temps[1, 0, 0], z, "-.", color="blue", label="MODFLOW 6"
-        )
+        line1 = plt.plot(analytical_sln[1], z, "-", color="red", label="Analytical")
+        line2 = plt.plot(temps[1, 0, 0], z, "-.", color="blue", label="MODFLOW 6")
         # 10th transient stress period
         plt.plot(analytical_sln[10], z, "-", color="red")
         plt.plot(temps[10, 0, 0], z, "-.", color="blue")
@@ -586,9 +560,8 @@ def check_output(idx, test):
         plt.text(16.0, 4.00, "100 days", fontsize=10)
 
         plt.gca().invert_yaxis()
-        plt.xlabel(
-            "$Temperature, C$"
-        )  # For latex replace with: '$Temperature, ^{\circ}C$'
+        # For latex replace with: '$Temperature, ^{\circ}C$'
+        plt.xlabel("$Temperature, C$")
         plt.ylabel("$Depth, m$")
         plt.minorticks_on()
         plt.axhline(y=0.0)

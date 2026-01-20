@@ -11,7 +11,6 @@ module GweCtpModule
   use ObserveModule, only: ObserveType
   use TimeSeriesLinkModule, only: TimeSeriesLinkType, &
                                   GetTimeSeriesLinkFromList
-  use InputOutputModule, only: str_pad_left
   use MatrixBaseModule
   !
   implicit none
@@ -92,9 +91,6 @@ contains
     !
     ! -- Store the appropriate label based on the dependent variable
     ctpobj%depvartype = depvartype
-    !
-    ! -- Return
-    return
   end subroutine ctp_create
 
   !> @brief Allocate arrays specific to the constant temperature package
@@ -127,9 +123,6 @@ contains
     call mem_checkin(this%tspvar, 'TSPVAR', this%memoryPath, &
                      'TSPVAR', this%input_mempath)
     !
-    !
-    ! -- Return
-    return
   end subroutine ctp_allocate_arrays
 
   !> @brief Constant temperature read and prepare (rp) routine
@@ -181,9 +174,6 @@ contains
     if (this%iprpak /= 0) then
       call this%write_list()
     end if
-    !
-    ! -- Return
-    return
   end subroutine ctp_rp
 
   !> @brief Constant temperature package advance routine
@@ -213,9 +203,6 @@ contains
     !    simulation time from "current" to "preceding" and reset
     !    "current" value.
     call this%obs%obs_ad()
-    !
-    ! -- Return
-    return
   end subroutine ctp_ad
 
   !> @brief Check constant temperature boundary condition data
@@ -247,9 +234,6 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- Return
-    return
   end subroutine ctp_ck
 
   !> @brief Override bnd_fc and do nothing
@@ -264,9 +248,6 @@ contains
     integer(I4B), dimension(:), intent(in) :: ia
     integer(I4B), dimension(:), intent(in) :: idxglo
     class(MatrixBaseType), pointer :: matrix_sln
-    !
-    ! -- Return
-    return
   end subroutine ctp_fc
 
   !> @brief Calculate flow associated with constant temperature boundary
@@ -331,9 +312,6 @@ contains
       end do
       !
     end if
-    !
-    ! -- Return
-    return
   end subroutine ctp_cq
 
   !> @brief Add package ratin/ratout to model budget
@@ -356,9 +334,6 @@ contains
     call rate_accumulator(this%ratectpout(1:this%nbound), ratout, dum)
     call model_budget%addentry(ratin, ratout, delt, this%text, &
                                isuppress_output, this%packName)
-    !
-    ! -- Return
-    return
   end subroutine ctp_bd
 
   !> @brief Deallocate memory
@@ -378,9 +353,6 @@ contains
     call mem_deallocate(this%ratectpin)
     call mem_deallocate(this%ratectpout)
     call mem_deallocate(this%tspvar, 'TSPVAR', this%memoryPath)
-    !
-    ! -- Return
-    return
   end subroutine ctp_da
 
   !> @brief Define labels used in list file
@@ -409,9 +381,6 @@ contains
     if (this%inamedbound == 1) then
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
-    !
-    ! -- Return
-    return
   end subroutine define_listlabel
 
   !> @brief Procedure related to observation processing
@@ -424,9 +393,6 @@ contains
     class(GweCtpType) :: this
     !
     ctp_obs_supported = .true.
-    !
-    ! -- Return
-    return
   end function ctp_obs_supported
 
   !> @brief Procedure related to observation processing
@@ -445,9 +411,6 @@ contains
     !
     call this%obs%StoreObsType(this%filtyp, .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => DefaultObsIdProcessor
-    !
-    ! -- Return
-    return
   end subroutine ctp_df_obs
 
   ! -- Procedure related to time series
@@ -475,9 +438,6 @@ contains
         end select
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine ctp_rp_ts
 
   !> @brief Apply auxiliary multiplier to specified temperature if
@@ -496,9 +456,6 @@ contains
     else
       temp = this%tspvar(row)
     end if
-    !
-    ! -- Return
-    return
   end function temp_mult
 
   !> @ brief Return a bound value
@@ -525,9 +482,6 @@ contains
       call store_error(errmsg)
       call store_error_filename(this%input_fname)
     end select
-    !
-    ! -- Return
-    return
   end function ctp_bound_value
 
 end module GweCtpModule

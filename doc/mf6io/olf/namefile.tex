@@ -1,0 +1,48 @@
+The OLF Model Name File specifies the options and packages that are active for a OLF model.  The Name File contains two blocks: OPTIONS  and PACKAGES. The lines in each block can be in any order.  Files listed in the PACKAGES block must exist when the program starts. 
+
+Comment lines are indicated when the first character in a line is one of the valid comment characters.  Commented lines can be located anywhere in the file. Any text characters can follow the comment character. Comment lines have no effect on the simulation; their purpose is to allow users to provide documentation about a particular simulation. 
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/olf-nam-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/olf-nam-packages.dat}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/olf-nam-desc.tex}
+\end{description}
+
+\begin{table}[H]
+\caption{Ftype values described in this report.  The \texttt{Pname} column indicates whether or not a package name can be provided in the name file.  The capability to provide a package name also indicates that the OLF Model can have more than one package of that Ftype}
+\small
+\begin{center}
+\begin{tabular*}{\columnwidth}{l l l}
+\hline
+\hline
+Ftype & Input File Description & \texttt{Pname}\\
+\hline
+DIS2D6 & Structured Grid Discretization Input File \\
+DISV2D6 & Discretization by Vertices in 2D Input File \\
+DFW6 & Diffusive Wave Package \\ 
+OC6 & Output Control Option \\
+IC6 & Initial Conditions Package \\
+STO6 & Storage Package \\
+CHD6 & Constant Head Package & * \\ 
+FLW6 & Inflow Package & * \\ 
+PCP6 & Precipitation Package & * \\
+EVP6 & Evaporation Package & * \\
+ZDG6 & Zero-Depth Gradient Package & * \\ 
+CDB6 & Critical Depth Boundary Package & * \\ 
+OBS6 & Observations Option \\
+\hline 
+\end{tabular*}
+\label{table:ftype-olf}
+\end{center}
+\normalsize
+\end{table}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/olf-nam-example.dat}
+

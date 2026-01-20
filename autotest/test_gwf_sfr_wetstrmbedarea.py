@@ -366,10 +366,7 @@ def check_output(idx, test):
         )
         assert np.isclose(wa, shared_area[0, j], atol=1e-4), msg
 
-    msg = (
-        "Wetted streambed area of all reaches should be zero in stess "
-        "period 2"
-    )
+    msg = "Wetted streambed area of all reaches should be zero in stress period 2"
     for val in list(sfrstg[1])[1:]:
         assert val == 0.0, msg
 

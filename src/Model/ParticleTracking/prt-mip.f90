@@ -31,35 +31,35 @@ contains
 
   !> @brief Create a model input object
   subroutine mip_cr(mip, name_model, input_mempath, inunit, iout, dis)
-    ! -- dummy
+    ! dummy
     type(PrtMipType), pointer :: mip
     character(len=*), intent(in) :: name_model
     character(len=*), intent(in) :: input_mempath
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
     class(DisBaseType), pointer, intent(in) :: dis
-    ! -- formats
+    ! formats
     character(len=*), parameter :: fmtheader = &
-      "(1x, /1x, 'MIP -- MODEL INPUT PACKAGE', &
+      "(1x, /1x, 'MIP MODEL INPUT PACKAGE', &
        &' INPUT READ FROM MEMPATH: ', A, /)"
     !
-    ! -- Create the object
+    ! Create the object
     allocate (mip)
     !
-    ! -- Create name and memory path
+    ! Create name and memory path
     call mip%set_names(1, name_model, 'MIP', 'MIP', input_mempath)
     !
-    ! -- Allocate scalars
+    ! Allocate scalars
     call mip%allocate_scalars()
     !
-    ! -- Set variables
+    ! Set variables
     mip%inunit = inunit
     mip%iout = iout
     !
-    ! -- Set pointers
+    ! Set pointers
     mip%dis => dis
     !
-    ! -- Print a message identifying the package if enabled
+    ! Print a message identifying the package if enabled
     if (inunit > 0) &
       write (iout, fmtheader) input_mempath
 
@@ -69,13 +69,13 @@ contains
   subroutine mip_da(this)
     class(PrtMipType) :: this
     !
-    ! -- Deallocate input memory
+    ! Deallocate input memory
     call memorystore_remove(this%name_model, 'MIP', idm_context)
     !
-    ! -- Deallocate parent package
+    ! Deallocate parent package
     call this%NumericalPackageType%da()
     !
-    ! -- Deallocate arrays
+    ! Deallocate arrays
     call mem_deallocate(this%porosity)
     call mem_deallocate(this%retfactor)
     call mem_deallocate(this%izone)
@@ -91,10 +91,10 @@ contains
   subroutine allocate_arrays(this, nodes)
     class(PrtMipType) :: this
     integer(I4B), intent(in) :: nodes
-    ! -- local
+    ! local
     integer(I4B) :: i
     !
-    ! -- Allocate
+    ! Allocate
     call mem_allocate(this%porosity, nodes, 'POROSITY', this%memoryPath)
     call mem_allocate(this%retfactor, nodes, 'RETFACTOR', this%memoryPath)
     call mem_allocate(this%izone, nodes, 'IZONE', this%memoryPath)
@@ -109,20 +109,20 @@ contains
 
   !> @ brief Initialize package inputs
   subroutine mip_ar(this)
-    ! -- dummy variables
+    ! dummy variables
     class(PrtMipType), intent(inout) :: this !< PrtMipType object
-    ! -- local variables
+    ! local variables
     character(len=LINELENGTH) :: errmsg
     type(PrtMipParamFoundType) :: found
     integer(I4B), dimension(:), pointer, contiguous :: map => null()
     !
-    ! -- set map to convert user input data into reduced data
+    ! set map to convert user input data into reduced data
     if (this%dis%nodes < this%dis%nodesuser) map => this%dis%nodeuser
     !
-    ! -- Allocate arrays
+    ! Allocate arrays
     call this%allocate_arrays(this%dis%nodes)
     !
-    ! -- Source array inputs from IDM
+    ! Source array inputs from IDM
     call mem_set_value(this%porosity, 'POROSITY', this%input_mempath, &
                        map, found%porosity)
     call mem_set_value(this%retfactor, 'RETFACTOR', this%input_mempath, &
@@ -130,7 +130,7 @@ contains
     call mem_set_value(this%izone, 'IZONE', this%input_mempath, map, &
                        found%izone)
     !
-    ! -- Ensure POROSITY was found
+    ! Ensure POROSITY was found
     if (.not. found%porosity) then
       write (errmsg, '(a)') 'Error in GRIDDATA block: POROSITY not found'
       call store_error(errmsg)

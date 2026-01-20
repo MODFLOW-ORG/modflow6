@@ -85,9 +85,6 @@ contains
     packobj%id = id
     packobj%ibcnum = ibcnum
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
-    !
-    ! -- Return
-    return
   end subroutine chd_create
 
   !> @brief Allocate arrays specific to the constant head package
@@ -120,9 +117,6 @@ contains
     ! -- checkin constant head array input context pointer
     call mem_checkin(this%head, 'HEAD', this%memoryPath, &
                      'HEAD', this%input_mempath)
-    !
-    ! -- Return
-    return
   end subroutine chd_allocate_arrays
 
   !> @brief Constant concentration/temperature read and prepare (rp) routine
@@ -172,9 +166,6 @@ contains
     if (this%iprpak /= 0) then
       call this%write_list()
     end if
-    !
-    ! -- Return
-    return
   end subroutine chd_rp
 
   !> @brief Constant head package advance routine
@@ -203,9 +194,6 @@ contains
     !    simulation time from "current" to "preceding" and reset
     !    "current" value.
     call this%obs%obs_ad()
-    !
-    ! -- Return
-    return
   end subroutine chd_ad
 
   !> @brief Check constant concentration/temperature boundary condition data
@@ -240,9 +228,6 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- Return
-    return
   end subroutine chd_ck
 
   !> @brief Override bnd_fc and do nothing
@@ -258,9 +243,6 @@ contains
     integer(I4B), dimension(:), intent(in) :: idxglo
     class(MatrixBaseType), pointer :: matrix_sln
     ! -- local
-    !
-    ! -- Return
-    return
   end subroutine chd_fc
 
   !> @brief Calculate flow associated with constant head boundary
@@ -335,9 +317,6 @@ contains
       end do
       !
     end if
-    !
-    ! -- Return
-    return
   end subroutine calc_chd_rate
 
   !> @brief Add package ratin/ratout to model budget
@@ -381,9 +360,6 @@ contains
     call mem_deallocate(this%ratechdin)
     call mem_deallocate(this%ratechdout)
     call mem_deallocate(this%head, 'HEAD', this%memoryPath)
-    !
-    ! -- Return
-    return
   end subroutine chd_da
 
   !> @brief Define the list heading that is written to iout when PRINT_INPUT
@@ -408,9 +384,6 @@ contains
     if (this%inamedbound == 1) then
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
-    !
-    ! -- Return
-    return
   end subroutine define_listlabel
 
   ! -- Procedures related to observations
@@ -425,9 +398,6 @@ contains
     class(ChdType) :: this
     !
     chd_obs_supported = .true.
-    !
-    ! -- Return
-    return
   end function chd_obs_supported
 
   !> @brief Overrides bnd_df_obs from bndType class
@@ -444,9 +414,6 @@ contains
     !
     call this%obs%StoreObsType('chd', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => DefaultObsIdProcessor
-    !
-    ! -- Return
-    return
   end subroutine chd_df_obs
 
   !> @brief Apply auxiliary multiplier to specified head if appropriate
@@ -465,9 +432,6 @@ contains
     else
       head = this%head(row)
     end if
-    !
-    ! -- Return
-    return
   end function head_mult
 
   !> @ brief Return a bound value
@@ -494,9 +458,6 @@ contains
       call store_error(errmsg)
       call store_error_filename(this%input_fname)
     end select
-    !
-    ! -- Return
-    return
   end function chd_bound_value
 
 end module ChdModule

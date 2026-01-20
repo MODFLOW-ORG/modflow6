@@ -8,8 +8,8 @@ module SwfCxsModule
   use ConstantsModule, only: LENMEMPATH, DZERO, DTWOTHIRDS
   use MemoryHelperModule, only: create_mem_path
   use MemoryManagerModule, only: mem_allocate
-  use SimVariablesModule, only: errmsg, warnmsg
-  use SimModule, only: count_errors, store_error, store_error_unit
+  use SimVariablesModule, only: errmsg
+  use SimModule, only: store_error, store_error_filename, count_errors
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
 
@@ -41,6 +41,7 @@ module SwfCxsModule
     procedure :: log_dimensions
     procedure :: source_packagedata
     procedure :: log_packagedata
+    procedure :: check_packagedata
     procedure :: source_crosssectiondata
     procedure :: log_crosssectiondata
     procedure :: cxs_da
@@ -50,6 +51,8 @@ module SwfCxsModule
     procedure :: get_roughness
     procedure :: get_conveyance => cxs_conveyance
     procedure :: get_hydraulic_radius
+    procedure :: get_wetted_top_width
+    procedure :: get_maximum_top_width
     procedure :: write_cxs_table
 
   end type SwfCxsType
@@ -116,9 +119,6 @@ contains
       call pobj%source_crosssectiondata()
 
     end if
-
-    ! -- Return
-    return
   end subroutine cxs_cr
 
   !> @ brief Allocate scalars
@@ -142,8 +142,6 @@ contains
     ! -- initialize
     this%nsections = 0
     this%npoints = 0
-
-    return
   end subroutine allocate_scalars
 
   !> @brief Copy options from IDM into package
@@ -171,9 +169,6 @@ contains
     if (this%iout > 0) then
       call this%log_options(found)
     end if
-    !
-    ! -- Return
-    return
   end subroutine source_options
 
   !> @brief Write user options to list file
@@ -232,9 +227,6 @@ contains
     if (this%iout > 0) then
       call this%log_dimensions(found)
     end if
-    !
-    ! -- Return
-    return
   end subroutine source_dimensions
 
   !> @brief Write user options to list file
@@ -293,56 +285,53 @@ contains
     do n = 1, this%nsections + 1
       this%iacross(n) = 0
     end do
-
-    ! -- Return
-    return
   end subroutine allocate_arrays
 
   !> @brief Copy options from IDM into package
   !<
   subroutine source_packagedata(this)
-    ! -- modules
+    ! modules
     use KindModule, only: LGP
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
     use SwfCxsInputModule, only: SwfCxsParamFoundType
-    ! -- dummy
+    ! dummy
     class(SwfCxsType) :: this
-    ! -- locals
+    ! locals
     character(len=LENMEMPATH) :: idmMemoryPath
     type(SwfCxsParamFoundType) :: found
-    !
-    ! -- set memory path
+
+    ! set memory path
     idmMemoryPath = create_mem_path(this%name_model, 'CXS', idm_context)
-    !
-    ! -- update defaults with idm sourced values
+
+    ! update defaults with idm sourced values
     call mem_set_value(this%idcxs, 'IDCXS', idmMemoryPath, &
                        found%idcxs)
     call mem_set_value(this%nxspoints, 'NXSPOINTS', idmMemoryPath, &
                        found%nxspoints)
-    !
-    ! -- ensure idcxs was found
+
+    ! ensure idcxs was found
     if (.not. found%idcxs) then
       write (errmsg, '(a)') 'Error in PACKAGEDATA block: IDCXS not found.'
       call store_error(errmsg)
     end if
-    !
-    ! -- ensure nxspoints was found
+
+    ! ensure nxspoints was found
     if (.not. found%nxspoints) then
       write (errmsg, '(a)') 'Error in PACKAGEDATA block: NXSPOINTS not found.'
       call store_error(errmsg)
     end if
-    !
-    ! -- log values to list file
+
+    ! log values to list file
     if (this%iout > 0) then
       call this%log_packagedata(found)
     end if
-    !
-    ! -- Calculate the iacross index array using nxspoints
+
+    ! Check to make sure package data is valid
+    call this%check_packagedata()
+
+    ! Calculate the iacross index array using nxspoints
     call calc_iacross(this%nxspoints, this%iacross)
-    !
-    ! -- Return
-    return
   end subroutine source_packagedata
 
   !> @brief Calculate index pointer array iacross from nxspoints
@@ -356,6 +345,41 @@ contains
       iacross(n + 1) = iacross(n) + nxspoints(n)
     end do
   end subroutine calc_iacross
+
+  !> @brief Check packagedata
+  !<
+  subroutine check_packagedata(this)
+    ! dummy arguments
+    class(SwfCxsType) :: this !< this instance
+    ! local variables
+    integer(I4B) :: i
+
+    ! Check that all cross section IDs are in range
+    do i = 1, size(this%idcxs)
+      if (this%idcxs(i) <= 0 .or. this%idcxs(i) > this%nsections) then
+        write (errmsg, '(a, i0, a)') &
+        'IDCXS values must be greater than 0 and less than NSECTIONS.  &
+        &Found ', this%idcxs(i), '.'
+        call store_error(errmsg)
+      end if
+    end do
+
+    ! Check that nxspoints are greater than one
+    do i = 1, size(this%nxspoints)
+      if (this%nxspoints(i) <= 1) then
+        write (errmsg, '(a, i0, a, i0, a)') &
+        'NXSPOINTS values must be greater than 1 for each cross section.  &
+        &Found ', this%nxspoints(i), ' for cross section ', this%idcxs(i), '.'
+        call store_error(errmsg)
+      end if
+    end do
+
+    ! write summary of package error messages
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+
+  end subroutine check_packagedata
 
   !> @brief Write user packagedata to list file
   !<
@@ -428,9 +452,6 @@ contains
     if (this%iout > 0) then
       call this%log_crosssectiondata(found)
     end if
-    !
-    ! -- Return
-    return
   end subroutine source_crosssectiondata
 
   !> @brief Write user packagedata to list file
@@ -519,8 +540,6 @@ contains
       write (this%iout, *) 'Done processing information for cross section ', idcxs
 
     end if
-
-    return
   end subroutine write_cxs_table
 
   !> @brief deallocate memory
@@ -553,9 +572,6 @@ contains
     !
     ! -- deallocate parent
     call this%NumericalPackageType%da()
-    !
-    ! -- Return
-    return
   end subroutine cxs_da
 
   subroutine get_cross_section_info(this, idcxs, i0, i1, npts, icalcmeth)
@@ -592,7 +608,6 @@ contains
         icalcmeth = 0 ! sum q by cross section segments
       end if
     end if
-    return
   end subroutine get_cross_section_info
 
   function get_area(this, idcxs, width, depth) result(area)
@@ -747,5 +762,49 @@ contains
                                   width, depth)
     end if
   end function get_hydraulic_radius
+
+  function get_wetted_top_width(this, idcxs, width, depth) result(r)
+    ! modules
+    use SwfCxsUtilsModule, only: get_wetted_topwidth
+    ! dummy
+    class(SwfCxsType) :: this
+    integer(I4B), intent(in) :: idcxs !< cross section id
+    real(DP), intent(in) :: width !< width in reach
+    real(DP), intent(in) :: depth !< stage in reach
+    ! local
+    real(DP) :: r !< calculated hydraulic radius
+    integer(I4B) :: i0
+    integer(I4B) :: i1
+    integer(I4B) :: npts
+    integer(I4B) :: icalcmeth
+    call this%get_cross_section_info(idcxs, i0, i1, npts, icalcmeth)
+    if (npts == 0) then
+      r = width
+    else
+      r = get_wetted_topwidth(npts, this%xfraction(i0:i1), &
+                              this%height(i0:i1), width, depth)
+    end if
+  end function get_wetted_top_width
+
+  function get_maximum_top_width(this, idcxs, width) result(r)
+    ! modules
+    use SwfCxsUtilsModule, only: get_saturated_topwidth
+    ! dummy
+    class(SwfCxsType) :: this
+    integer(I4B), intent(in) :: idcxs !< cross section id
+    real(DP), intent(in) :: width !< width in reach
+    ! local
+    real(DP) :: r !< calculated hydraulic radius
+    integer(I4B) :: i0
+    integer(I4B) :: i1
+    integer(I4B) :: npts
+    integer(I4B) :: icalcmeth
+    call this%get_cross_section_info(idcxs, i0, i1, npts, icalcmeth)
+    if (npts == 0) then
+      r = width
+    else
+      r = get_saturated_topwidth(npts, this%xfraction(i0:i1), width)
+    end if
+  end function get_maximum_top_width
 
 end module SwfCxsModule

@@ -1,7 +1,7 @@
       module GwfBcfSubs
         use ConstantsModule, only: DZERO
         use ConstantsPHMFModule, only: HDRYDEFAULT
-        use SimModule, only: ustop, store_error, store_note,
+        use SimPHMFModule, only: ustop, store_error, store_note,
      &                       store_warning
         use utl7module, only: U1DREL, U2DREL
         use ModelModule, only: ModelType

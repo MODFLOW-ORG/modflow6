@@ -44,9 +44,6 @@ contains
     use InputOutputModule, only: getunit, openfile
     ! -- dummy
     class(NumericalExchangeType) :: this
-    !
-    ! -- Return
-    return
   end subroutine exg_df
 
   !> @brief If an implicit exchange then add connections to sparse
@@ -57,9 +54,6 @@ contains
     ! -- dummy
     class(NumericalExchangeType) :: this
     type(sparsematrix), intent(inout) :: sparse
-    !
-    ! -- Return
-    return
   end subroutine exg_ac
 
   !> @brief Map the connections in the global matrix
@@ -79,9 +73,6 @@ contains
   subroutine exg_ar(this)
     !
     class(NumericalExchangeType) :: this
-    !
-    ! -- Return
-    return
   end subroutine exg_ar
 
   !> @brief Advance
@@ -89,9 +80,6 @@ contains
   subroutine exg_ad(this)
     ! -- dummy
     class(NumericalExchangeType) :: this
-    !
-    ! -- Return
-    return
   end subroutine exg_ad
 
   !> @brief Calculate conductance, and for explicit exchanges, set the
@@ -101,9 +89,6 @@ contains
     ! -- dummy
     class(NumericalExchangeType) :: this
     integer(I4B), intent(in) :: kiter
-    !
-    ! -- Return
-    return
   end subroutine exg_cf
 
   !> @brief Fill the matrix
@@ -115,9 +100,6 @@ contains
     class(MatrixBaseType), pointer :: matrix_sln
     real(DP), dimension(:), intent(inout) :: rhs_sln
     integer(I4B), optional, intent(in) :: inwtflag
-    !
-    ! -- Return
-    return
   end subroutine exg_fc
 
   !> @brief Additional convergence check
@@ -126,9 +108,6 @@ contains
     ! -- dummy
     class(NumericalExchangeType) :: this
     integer(I4B), intent(inout) :: icnvg
-    !
-    ! -- Return
-    return
   end subroutine exg_cc
 
   !> @brief Calculate flow
@@ -141,9 +120,6 @@ contains
     integer(I4B), intent(inout) :: icnvg
     integer(I4B), intent(in) :: isuppress_output
     integer(I4B), intent(in) :: isolnid
-    !
-    ! -- Return
-    return
   end subroutine exg_cq
 
   !> @brief Exchange budget
@@ -156,9 +132,6 @@ contains
     integer(I4B), intent(inout) :: icnvg
     integer(I4B), intent(in) :: isuppress_output
     integer(I4B), intent(in) :: isolnid
-    !
-    ! -- Return
-    return
   end subroutine exg_bd
 
   !> @brief Output
@@ -166,9 +139,6 @@ contains
   subroutine exg_ot(this)
     ! -- dummy
     class(NumericalExchangeType) :: this
-    !
-    ! -- Return
-    return
   end subroutine exg_ot
 
   !> @brief Deallocate memory
@@ -178,9 +148,6 @@ contains
     use MemoryManagerModule, only: mem_deallocate
     ! -- dummy
     class(NumericalExchangeType) :: this
-    !
-    ! -- Return
-    return
   end subroutine exg_da
 
   function get_iasym(this) result(iasym)
@@ -190,9 +157,6 @@ contains
     integer(I4B) :: iasym
     !
     iasym = 0
-    !
-    ! -- Return
-    return
   end function get_iasym
 
   function CastAsNumericalExchangeClass(obj) result(res)
@@ -209,9 +173,6 @@ contains
     class is (NumericalExchangeType)
       res => obj
     end select
-    !
-    ! -- Return
-    return
   end function CastAsNumericalExchangeClass
 
   !> @brief Add numerical exchange to a list
@@ -226,9 +187,6 @@ contains
     !
     obj => exchange
     call list%Add(obj)
-    !
-    ! -- Return
-    return
   end subroutine AddNumericalExchangeToList
 
   !> @brief Retrieve a specific numerical exchange from a list
@@ -244,9 +202,6 @@ contains
     !
     obj => list%GetItem(idx)
     res => CastAsNumericalExchangeClass(obj)
-    !
-    ! -- Return
-    return
   end function GetNumericalExchangeFromList
 
 end module NumericalExchangeModule

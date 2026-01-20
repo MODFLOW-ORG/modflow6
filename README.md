@@ -3,13 +3,13 @@
 
 This is the development repository for the USGS MODFLOW 6 Hydrologic Model. The  official USGS distribution is available at [USGS Release Page](https://water.usgs.gov/ogw/modflow/MODFLOW.html).
 
-### Version 6.6.0.dev0 (preliminary)
+### Version 6.7.0.dev3 (preliminary)
 
-[![GitHub release](https://img.shields.io/github/release/MODFLOW-USGS/modflow6.svg)](https://github.com/MODFLOW-USGS/modflow6/releases/latest)
-[![MODFLOW 6 continuous integration](https://github.com/MODFLOW-USGS/modflow6/actions/workflows/ci.yml/badge.svg)](https://github.com/MODFLOW-USGS/modflow6/actions/workflows/ci.yml)
-[![MODFLOW 6 documentation](https://github.com/MODFLOW-USGS/modflow6/actions/workflows/docs.yml/badge.svg)](https://github.com/MODFLOW-USGS/modflow6/actions/workflows/docs.yml)
-[![MODFLOW 6 large models](https://github.com/MODFLOW-USGS/modflow6/actions/workflows/large.yml/badge.svg)](https://github.com/MODFLOW-USGS/modflow6/actions/workflows/large.yml)
-[![MODFLOW 6 nightly build](https://github.com/MODFLOW-USGS/modflow6-nightly-build/actions/workflows/nightly-build.yml/badge.svg)](https://github.com/MODFLOW-USGS/modflow6-nightly-build/actions/workflows/nightly-build.yml)
+[![GitHub release](https://img.shields.io/github/release/MODFLOW-ORG/modflow6.svg)](https://github.com/MODFLOW-ORG/modflow6/releases/latest)
+[![MODFLOW 6 continuous integration](https://github.com/MODFLOW-ORG/modflow6/actions/workflows/ci.yml/badge.svg)](https://github.com/MODFLOW-ORG/modflow6/actions/workflows/ci.yml)
+[![MODFLOW 6 documentation](https://github.com/MODFLOW-ORG/modflow6/actions/workflows/docs.yml/badge.svg)](https://github.com/MODFLOW-ORG/modflow6/actions/workflows/docs.yml)
+[![MODFLOW 6 large models](https://github.com/MODFLOW-ORG/modflow6/actions/workflows/large.yml/badge.svg)](https://github.com/MODFLOW-ORG/modflow6/actions/workflows/large.yml)
+[![MODFLOW 6 nightly build](https://github.com/MODFLOW-ORG/modflow6-nightly-build/actions/workflows/nightly-build.yml/badge.svg)](https://github.com/MODFLOW-ORG/modflow6-nightly-build/actions/workflows/nightly-build.yml)
 
 ## Branches
 
@@ -24,14 +24,14 @@ This repository may contain other branches with various levels of development co
 
 ## Nightly Builds
 
-This repository's `develop` branch often contains bug fixes and new features that are not yet part of the official USGS release. Binaries for Linux, macOS and Windows are built from the `develop` branch and posted to the [`MODFLOW-USGS/modflow6-nightly-build` repository](https://github.com/MODFLOW-USGS/modflow6-nightly-build/releases) each night. The updated user guide `mf6io.pdf` is also included, as well as the `code.json` metadata file.
+This repository's `develop` branch often contains bug fixes and new features that are not yet part of the official USGS release. Binaries for Linux, macOS and Windows are built from the `develop` branch and posted to the [`MODFLOW-ORG/modflow6-nightly-build` repository](https://github.com/MODFLOW-ORG/modflow6-nightly-build/releases) each night. The updated user guide `mf6io.pdf` is also included, as well as the `code.json` metadata file.
 
 ## Releases
 
-Software distributions for the current and previous official USGS releases are available [here](https://github.com/MODFLOW-USGS/modflow6/releases).  The current release is also available [here](https://water.usgs.gov/water-resources/software/MODFLOW-6/) from the USGS.
+Software distributions for the current and previous official USGS releases are available [here](https://github.com/MODFLOW-ORG/modflow6/releases).  The current release is also available [here](https://water.usgs.gov/water-resources/software/MODFLOW-6/) from the USGS.
 
 ## Examples
-MODFLOW 6 has an extensive suite of example problems that are constructed using the python [FloPy](https://github.com/modflowpy/flopy) package.  These example problems are contained in a separate git repository located [here](https://github.com/MODFLOW-USGS/modflow6-examples).  These examples are included in the official [USGS MODFLOW 6 distribution](https://water.usgs.gov/water-resources/software/MODFLOW-6/), and they are also rendered into online [descriptions](https://modflow6-examples.readthedocs.io/en/master/examples.html) and [jupyter notebooks](https://modflow6-examples.readthedocs.io/en/master/notebook_examples.html).
+MODFLOW 6 has an extensive suite of example problems that are constructed using the python [FloPy](https://github.com/modflowpy/flopy) package.  These example problems are contained in a separate git repository located [here](https://github.com/MODFLOW-ORG/modflow6-examples).  These examples are included in the official [USGS MODFLOW 6 distribution](https://water.usgs.gov/water-resources/software/MODFLOW-6/), and they are also rendered into online [descriptions](https://modflow6-examples.readthedocs.io/en/master/examples.html) and [jupyter notebooks](https://modflow6-examples.readthedocs.io/en/master/notebook_examples.html).
 
 ## Contributing
 
@@ -44,16 +44,16 @@ This repository contains an `./autotest` folder with python scripts for building
 
 * [modflowpy/pymake](https://github.com/modflowpy/pymake)
 * [modflowpy/flopy](https://github.com/modflowpy/flopy)
-* [MODFLOW-USGS/modflow6-examples](https://github.com/MODFLOW-USGS/modflow6-examples)
-* [MODFLOW-USGS/modflow6-testmodels](https://github.com/MODFLOW-USGS/modflow6-testmodels)
-* [MODFLOW-USGS/modflow6-largetestmodels](https://github.com/MODFLOW-USGS/modflow6-largetestmodels)
-* [MODFLOW-USGS/executables](https://github.com/MODFLOW-USGS/executables)
-* [MODFLOW-USGS/modflow-devtools](https://github.com/MODFLOW-USGS/modflow-devtools)
+* [MODFLOW-ORG/modflow6-examples](https://github.com/MODFLOW-ORG/modflow6-examples)
+* [MODFLOW-ORG/modflow6-testmodels](https://github.com/MODFLOW-ORG/modflow6-testmodels)
+* [MODFLOW-ORG/modflow6-largetestmodels](https://github.com/MODFLOW-ORG/modflow6-largetestmodels)
+* [MODFLOW-ORG/executables](https://github.com/MODFLOW-ORG/executables)
+* [MODFLOW-ORG/modflow-devtools](https://github.com/MODFLOW-ORG/modflow-devtools)
 * [Deltares/xmipy](https://github.com/Deltares/xmipy)
 
 ## Code Documentation
 
-Documentation for the code on the `develop` branch is automatically developed using Doxygen as part of the MODFLOW 6 Continuous Integration/Continuous Deployment process. Code documentation is available from the [GitHub Pages](https://modflow-usgs.github.io/modflow6/) for this repository.
+Documentation for the code on the `develop` branch is automatically developed using Doxygen as part of the MODFLOW 6 Continuous Integration/Continuous Deployment process. Code documentation is available from the [GitHub Pages](https://MODFLOW-ORG.github.io/modflow6/) for this repository.
 
 ## Using Flopy with the `develop` Version of MODFLOW 6
 
@@ -94,9 +94,13 @@ The GWT model for MODFLOW 6 simulates three-dimensional transport of a single so
 
 [Hughes, J.D., Leake, S.A., Galloway, D.L., and White, J.T., 2022, Documentation for the Skeletal Storage, Compaction, and Subsidence (CSUB) Package of MODFLOW 6: U.S. Geological Survey Techniques and Methods, book 6, chap. A62, 57 p., https://doi.org/10.3133/tm6A62.](https://doi.org/10.3133/tm6A62)
 
-[Langevin, C.D., Hughes, J.D., Provost, A.M., Russcher, M.J. and Panday, S., 2023, MODFLOW as a Configurable Multi-Model Hydrologic Simulator: Groundwater, v. 62, p. 111-123, https://doi.org/10.1111/gwat.13351.](https://doi.org/10.1111/gwat.13351)
+[Langevin, C.D., Hughes, J.D., Provost, A.M., Russcher, M.J. and Panday, S., 2023, MODFLOW as a Configurable Multi-Model Hydrologic Simulator: Groundwater, v. 62, no. 1, p. 111-123, https://doi.org/10.1111/gwat.13351.](https://doi.org/10.1111/gwat.13351)
 
-[Larsen, J.D., Langevin, C.D., Hughes, J.D. and Niswonger, R.G. (2024), An Agricultural Package for MODFLOW 6 Using the Application Programming Interface. Groundwater, v. 62, p. 157-166, https://doi.org/10.1111/gwat.13367.](https://doi.org/10.1111/gwat.13367)
+[Larsen, J.D., Langevin, C.D., Hughes, J.D. and Niswonger, R.G., 2024, An Agricultural Package for MODFLOW 6 Using the Application Programming Interface. Groundwater, v. 62, no. 1, p. 157-166, https://doi.org/10.1111/gwat.13367.](https://doi.org/10.1111/gwat.13367)
+
+[Provost, A.M., Bardot, K., Langevin, C.D., McCallum, J.L., 2025, Accurate Simulation of Flow through Dipping Aquifers with MODFLOW 6 Using Enhanced Cell Connectivity. Groundwater, v. 63, no. 3, p. 399-408, https://doi.org/10.1111/gwat.13459.]( https://doi.org/10.1111/gwat.13459)
+
+[Morway, E.D., Provost, A.M., Langevin, C.D., Hughes, J.D., Russcher, M.J., Chen, C.Y., Lin, Y.F.F., 2025, A New Groundwater Energy Transport Model for the MODFLOW Hydrologic Simulator. Groundwater, v. 63, no. 3, p. 409-421, https://doi.org/10.1111/gwat.13470.]( https://doi.org/10.1111/gwat.13470)
 
 #### ***Software/Code***
 
@@ -104,7 +108,7 @@ The following is the general citation for the MODFLOW 6 software.
 
 [Langevin, C.D., Hughes, J.D., Banta, E.R., Provost, A.M., Niswonger, R.G., and Panday, Sorab, 2017, MODFLOW 6 Modular Hydrologic Model: U.S. Geological Survey Software, https://doi.org/10.5066/F76Q1VQV](https://doi.org/10.5066/F76Q1VQV)
 
-Citations for specific versions are included with the [releases](https://github.com/MODFLOW-USGS/modflow6/releases).
+Citations for specific versions are included with the [releases](https://github.com/MODFLOW-ORG/modflow6/releases).
 
 
 Disclaimer

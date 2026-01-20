@@ -77,9 +77,6 @@ contains
     ! -- Set variables
     gncobj%inunit = inunit
     gncobj%iout = iout
-    !
-    ! -- Return
-    return
   end subroutine gnc_cr
 
   !> @brief Initialize a gnc object
@@ -128,9 +125,6 @@ contains
         call store_error_unit(this%inunit)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine gnc_df
 
   !> @brief Single or Two-Model GNC Add Connections
@@ -164,9 +158,6 @@ contains
         end do jloop
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine gnc_ac
 
   !> @brief Single or Two-Model GNC Map Connections
@@ -252,9 +243,6 @@ contains
         end do
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine gnc_mc
 
   !> @brief Store the n-m Picard conductance in cond prior to the Newton terms
@@ -282,9 +270,6 @@ contains
       end if
       this%cond(ignc) = cond
     end do gncloop
-    !
-    ! -- Return
-    return
   end subroutine gnc_fmsav
 
   !> @brief Fill matrix terms
@@ -336,9 +321,6 @@ contains
         end if
       end do jloop
     end do gncloop
-    !
-    ! -- Return
-    return
   end subroutine gnc_fc
 
   !> @brief Fill GNC Newton terms
@@ -458,9 +440,6 @@ contains
         end if
       end do jloop
     end do gncloop
-    !
-    ! -- Return
-    return
   end subroutine gnc_fn
 
   !> @brief Single Model GNC Output
@@ -492,9 +471,6 @@ contains
           deltaQgnc, this%cond(ignc)
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine gnc_ot
 
   !> @brief Add GNC to flowja
@@ -524,9 +500,6 @@ contains
       flowja(isympos) = flowja(isympos) - deltaQgnc
       !
     end do
-    !
-    ! -- Return
-    return
   end subroutine gnc_cq
 
   !> @brief Single Model deltaQgnc (ghost node correction flux)
@@ -566,9 +539,6 @@ contains
       cond = this%cond(ignc)
       deltaQgnc = aterm * cond
     end if
-    !
-    ! -- Return
-    return
   end function deltaQgnc
 
   !> @brief Allocate gnc scalar variables
@@ -594,9 +564,6 @@ contains
     this%i2kn = .false.
     this%nexg = 0
     this%numjs = 0
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @brief Allocate gnc scalar variables
@@ -628,9 +595,6 @@ contains
       call mem_allocate(this%jposinrown, 0, 0, 'JPOSINROWN', this%memoryPath)
       call mem_allocate(this%jposinrowm, 0, 0, 'JPOSINROWM', this%memoryPath)
     end if
-    !
-    ! -- Return
-    return
   end subroutine allocate_arrays
 
   !> @brief Deallocate memory
@@ -664,9 +628,6 @@ contains
     !
     ! -- deallocate NumericalPackageType
     call this%NumericalPackageType%da()
-    !
-    ! -- Return
-    return
   end subroutine gnc_da
 
   !> @brief Read a gnc options block
@@ -723,9 +684,6 @@ contains
     !
     ! -- Set the iasym flag if the correction is implicit
     if (this%implicit) this%iasym = 1
-    !
-    ! -- Return
-    return
   end subroutine read_options
 
   !> @brief Single Model GNC Read Dimensions
@@ -772,9 +730,6 @@ contains
     else
       call store_error('Required DIMENSIONS block not found.', terminate=.TRUE.)
     end if
-    !
-    ! -- Return
-    return
   end subroutine read_dimensions
 
   !> @brief Read a GNCDATA block
@@ -906,9 +861,6 @@ contains
     !
     ! -- deallocate nodesuj array
     deallocate (nodesuj)
-    !
-    ! -- Return
-    return
   end subroutine read_data
 
   !> @brief Convert the user-based node number into a reduced number
@@ -932,9 +884,6 @@ contains
     else
       noder = model%dis%get_nodenumber(nodeu, 0)
     end if
-    !
-    ! -- Return
-    return
   end subroutine nodeu_to_noder
 
 end module GhostNodeModule

@@ -61,9 +61,6 @@ contains
       this%row(i)%icolarray = 0
       this%row(i)%nnz = 0
     end do
-    !
-    ! -- return
-    return
   end subroutine initialize
 
   ! overload
@@ -141,9 +138,6 @@ contains
       end do
       ia(i + 1) = ipos
     end do
-    !
-    ! -- return
-    return
   end subroutine filliaja
 
   subroutine addconnection(this, i, j, inodup, iaddop)
@@ -169,9 +163,6 @@ contains
       this%nnz_od = this%nnz_od + iadded
     end if
     if (present(iaddop)) iaddop = iadded
-    !
-    ! -- return
-    return
   end subroutine addconnection
 
   subroutine insert(j, thisrow, inodup, iadded)
@@ -221,9 +212,6 @@ contains
     thisrow%nnz = thisrow%nnz + 1
     thisrow%icolarray(thisrow%nnz) = j
     iadded = 1
-    !
-    ! -- return
-    return
   end subroutine insert
 
   subroutine sort(this, with_csr)
@@ -248,9 +236,6 @@ contains
       call sortintarray(nval - start_idx + 1, &
                         this%row(i)%icolarray(start_idx:nval))
     end do
-    !
-    ! -- return
-    return
   end subroutine sort
 
   subroutine sortintarray(nval, iarray)
@@ -272,9 +257,6 @@ contains
         end if
       end do
     end do
-    !
-    ! -- return
-    return
   end subroutine sortintarray
 
   subroutine csr_diagsum(ia, flowja)
@@ -296,7 +278,6 @@ contains
         flowja(iposdiag) = flowja(iposdiag) + flowja(ipos)
       end do
     end do
-    return
   end subroutine csr_diagsum
 
 end module SparseModule

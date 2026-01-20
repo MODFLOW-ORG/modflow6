@@ -1,13 +1,14 @@
 !> @brief This module contains the SwfGwfExchangeModule Module
 !!
 !! This module contains the code for connecting a SWF model with
-!! a GWF model.
+!! a GWF model.  The SwfGwfExchangeType class is a parent to the CHF and
+!! OLF models and should not be used directly.
 !!
 !<
 module SwfGwfExchangeModule
 
   use KindModule, only: DP, I4B, LGP
-  use ConstantsModule, only: LINELENGTH, DZERO
+  use ConstantsModule, only: LINELENGTH, DZERO, LENFTYPE
   use SimVariablesModule, only: errmsg, iout, model_loc_idx
   use SimModule, only: count_errors, store_error, store_error_unit, &
                        store_error_filename
@@ -27,7 +28,7 @@ module SwfGwfExchangeModule
 
   implicit none
   private
-  public :: swfgwf_cr
+  public :: SwfGwfExchangeType
 
   type, extends(NumericalExchangeType) :: SwfGwfExchangeType
 
@@ -36,6 +37,7 @@ module SwfGwfExchangeModule
     class(SwfModelType), pointer :: swfmodel => null() !< pointer to SWF Model
     class(GwfModelType), pointer :: gwfmodel => null() !< pointer to GWF Model
 
+    character(len=LENFTYPE), pointer :: swf_ftype => null() !< type of swf model (CHF or OLF)
     character(len=LINELENGTH), pointer :: filename => null() !< name of the input file
     integer(I4B), pointer :: ipr_input => null() !< flag to print input
     integer(I4B), pointer :: ipr_flow => null() !< print flag for cell by cell flows
@@ -60,7 +62,7 @@ module SwfGwfExchangeModule
 
   contains
 
-    procedure :: exg_df => swf_gwf_df
+    ! procedure :: exg_df (delegated to CHF and OLF df routines)
     procedure :: exg_ac => swf_gwf_ac
     procedure :: exg_mc => swf_gwf_mc
     procedure :: exg_fc => swf_gwf_fc
@@ -68,11 +70,9 @@ module SwfGwfExchangeModule
     procedure :: exg_bd => swf_gwf_bd
     procedure :: exg_ot => swf_gwf_ot
     procedure :: exg_da => swf_gwf_da
+    procedure :: initialize
     procedure :: allocate_scalars
     procedure :: allocate_arrays
-    procedure :: source_options
-    procedure :: source_dimensions
-    procedure :: source_data
     procedure :: swf_gwf_calc_simvals
     procedure :: swf_gwf_save_simvals
     procedure :: qcalc
@@ -91,138 +91,85 @@ module SwfGwfExchangeModule
 
 contains
 
-  !> @ brief Create SWF GWF exchange
-  !!
-  !! Create a new SWF to GWF exchange object.
+  !> @ brief Initialize SWF GWF exchange
   !<
-  subroutine swfgwf_cr(filename, name, id, m1_id, m2_id, input_mempath)
-    ! -- modules
-    ! -- dummy
+  subroutine initialize(this, filename, name, swf_ftype, id, m1_id, m2_id, &
+                        input_mempath)
+    ! dummy
+    class(SwfGwfExchangeType) :: this !<  SwfGwfExchangeType
     character(len=*), intent(in) :: filename !< filename for reading
     character(len=*) :: name !< exchange name
+    character(len=*) :: swf_ftype !< type of swf model, CHF or OLF
     integer(I4B), intent(in) :: id !< id for the exchange
     integer(I4B), intent(in) :: m1_id !< id for model 1
     integer(I4B), intent(in) :: m2_id !< id for model 2
     character(len=*), intent(in) :: input_mempath
     ! -- local
-    type(SwfGwfExchangeType), pointer :: exchange
     class(BaseModelType), pointer :: mb
-    class(BaseExchangeType), pointer :: baseexchange
     integer(I4B) :: m1_index, m2_index
-    !
-    ! -- Create a new exchange and add it to the baseexchangelist container
-    allocate (exchange)
-    baseexchange => exchange
-    call AddBaseExchangeToList(baseexchangelist, baseexchange)
-    !
-    ! -- Assign id and name
-    exchange%id = id
-    exchange%name = name
-    exchange%memoryPath = create_mem_path(exchange%name)
-    exchange%input_mempath = input_mempath
-    !
-    ! -- allocate scalars and set defaults
-    call exchange%allocate_scalars()
-    exchange%filename = filename
-    exchange%typename = 'SWF-GWF'
-    !
-    ! -- set swfmodel1
+
+    ! Assign id and name
+    this%id = id
+    this%name = name
+    this%memoryPath = create_mem_path(this%name)
+    this%input_mempath = input_mempath
+
+    ! allocate scalars and set defaults
+    call this%allocate_scalars()
+    this%filename = filename
+    this%swf_ftype = swf_ftype
+    this%typename = trim(swf_ftype)//'-GWF'
+
+    ! set swfmodel
     m1_index = model_loc_idx(m1_id)
     if (m1_index > 0) then
       mb => GetBaseModelFromList(basemodellist, m1_index)
       select type (mb)
-      type is (SwfModelType)
-        exchange%model1 => mb
-        exchange%swfmodel => mb
+      class is (SwfModelType)
+        this%model1 => mb
+        this%swfmodel => mb
       end select
     end if
-    ! exchange%v_model1 => get_virtual_model(m1_id)
-    ! exchange%is_datacopy = .not. exchange%v_model1%is_local
-    !
-    ! -- set gwfmodel2
+    ! this%v_model1 => get_virtual_model(m1_id)
+    ! this%is_datacopy = .not. this%v_model1%is_local
+
+    ! set gwfmodel
     m2_index = model_loc_idx(m2_id)
     if (m2_index > 0) then
       mb => GetBaseModelFromList(basemodellist, m2_index)
       select type (mb)
       type is (GwfModelType)
-        exchange%model2 => mb
-        exchange%gwfmodel => mb
+        this%model2 => mb
+        this%gwfmodel => mb
       end select
     end if
-    ! exchange%v_model2 => get_virtual_model(m2_id)
-    !
-    ! -- Verify that gwf model1 is of the correct type
-    if (.not. associated(exchange%swfmodel) .and. m1_index > 0) then
-      write (errmsg, '(3a)') 'Problem with SWF-GWF exchange ', &
-        trim(exchange%name), &
-        '.  Specified SWF Model does not appear to be of the correct type.'
-      call store_error(errmsg, terminate=.true.)
-    end if
-    !
-    ! -- Verify that gwf model2 is of the correct type
-    if (.not. associated(exchange%gwfmodel) .and. m2_index > 0) then
-      write (errmsg, '(3a)') 'Problem with SWF-GWF exchange ', &
-        trim(exchange%name), &
-        '.  Specified GWF Model does not appear to be of the correct type.'
-      call store_error(errmsg, terminate=.true.)
-    end if
-    !
-    ! -- Create the obs package
-    call obs_cr(exchange%obs, exchange%inobs)
-    !
-    ! -- Return
-    return
-  end subroutine swfgwf_cr
+    ! this%v_model2 => get_virtual_model(m2_id)
 
-  !> @ brief Define SWF GWF exchange
-  !!
-  !! Define SWF to GWF exchange object.
-  !<
-  subroutine swf_gwf_df(this)
-    ! -- modules
-    ! -- dummy
-    class(SwfGwfExchangeType) :: this !<  SwfGwfExchangeType
-    ! -- local
-    !
-    ! -- log the exchange
-    write (iout, '(/a,a)') ' Creating exchange: ', this%name
-    !
-    ! -- Ensure models are in same solution
-    if (associated(this%swfmodel) .and. associated(this%gwfmodel)) then
-      if (this%swfmodel%idsoln /= this%gwfmodel%idsoln) then
-        call store_error('Two models are connected in a SWF-GWF '// &
-                         'exchange but they are in different solutions. '// &
-                         'Models must be in same solution: '// &
-                         trim(this%swfmodel%name)//' '// &
-                         trim(this%gwfmodel%name))
-        call store_error_filename(this%filename)
-      end if
+    ! Verify that the surface water model is of the correct type
+    if (.not. associated(this%swfmodel) .and. m1_index > 0) then
+      write (errmsg, '(7a)') &
+        'Problem with ', &
+        trim(this%typename), &
+        ' exchange ', &
+        trim(this%name), &
+        '.  Specified ', &
+        trim(this%swf_ftype), &
+        ' model does not appear to be of the correct type.'
+      call store_error(errmsg, terminate=.true.)
     end if
-    !
-    ! -- source options
-    call this%source_options(iout)
-    !
-    ! -- source dimensions
-    call this%source_dimensions(iout)
-    !
-    ! -- allocate arrays
-    call this%allocate_arrays()
-    !
-    ! -- source exchange data
-    call this%source_data(iout)
-    !
-    ! -- Store obs
-    ! call this%swf_gwf_df_obs()
-    ! if (associated(this%swfmodel1)) then
-    !   call this%obs%obs_df(iout, this%name, 'SWF-GWF', this%swfmodel1%dis)
-    ! end if
-    ! !
-    ! ! -- validate
-    ! call this%validate_exchange()
-    !
-    ! -- Return
-    return
-  end subroutine swf_gwf_df
+
+    ! Verify that gwf model is of the correct type
+    if (.not. associated(this%gwfmodel) .and. m2_index > 0) then
+      write (errmsg, '(3a)') 'Problem with SWF-GWF exchange ', &
+        trim(this%name), &
+        '.  Specified GWF model does not appear to be of the correct type.'
+      call store_error(errmsg, terminate=.true.)
+    end if
+
+    ! Create the obs package
+    call obs_cr(this%obs, this%inobs)
+
+  end subroutine initialize
 
   !> @ brief Add connections
   !!
@@ -244,9 +191,6 @@ contains
       call sparse%addconnection(iglo, jglo, 1)
       call sparse%addconnection(jglo, iglo, 1)
     end do
-    !
-    ! -- Return
-    return
   end subroutine swf_gwf_ac
 
   !> @ brief Map connections
@@ -269,9 +213,6 @@ contains
       this%idxglo(n) = matrix_sln%get_position(iglo, jglo)
       this%idxsymglo(n) = matrix_sln%get_position(jglo, iglo)
     end do
-    !
-    ! -- Return
-    return
   end subroutine swf_gwf_mc
 
   !> @ brief Fill coefficients
@@ -381,9 +322,6 @@ contains
     !
     ! -- add exchange flows to model's flowja diagonal
     call this%swf_gwf_add_to_flowja()
-    !
-    ! -- Return
-    return
   end subroutine swf_gwf_cq
 
   !> @ brief Deallocate
@@ -410,15 +348,13 @@ contains
     call mem_deallocate(this%simvals)
     !
     ! -- scalars
+    deallocate (this%swf_ftype)
     deallocate (this%filename)
     call mem_deallocate(this%ipr_input)
     call mem_deallocate(this%ipr_flow)
     call mem_deallocate(this%ifixedcond)
     call mem_deallocate(this%nexg)
     call mem_deallocate(this%inobs)
-    !
-    ! -- Return
-    return
   end subroutine swf_gwf_da
 
   !> @ brief Allocate scalars
@@ -430,6 +366,8 @@ contains
     ! -- dummy
     class(SwfGwfExchangeType) :: this !<  SwfGwfExchangeType
     !
+    allocate (this%swf_ftype)
+    this%swf_ftype = ''
     allocate (this%filename)
     this%filename = ''
     !
@@ -444,9 +382,6 @@ contains
     this%ifixedcond = 0
     this%nexg = 0
     this%inobs = 0
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @brief Allocate array data, using the number of
@@ -463,96 +398,7 @@ contains
     call mem_allocate(this%idxglo, this%nexg, 'IDXGLO', this%memoryPath)
     call mem_allocate(this%idxsymglo, this%nexg, 'IDXSYMGLO', this%memoryPath)
     call mem_allocate(this%simvals, this%nexg, 'SIMVALS', this%memoryPath)
-    !
-    ! -- Return
-    return
   end subroutine allocate_arrays
-
-  !> @ brief Source options
-  !!
-  !! Source the options block
-  !<
-  subroutine source_options(this, iout)
-    ! -- modules
-    use ConstantsModule, only: LENVARNAME, DEM6
-    use InputOutputModule, only: getunit, openfile
-    use MemoryManagerExtModule, only: mem_set_value
-    use CharacterStringModule, only: CharacterStringType
-    use ExgSwfgwfInputModule, only: ExgSwfgwfParamFoundType
-    use SourceCommonModule, only: filein_fname
-    ! -- dummy
-    class(SwfGwfExchangeType) :: this !<  GwfExchangeType
-    integer(I4B), intent(in) :: iout
-    ! -- local
-    type(ExgSwfgwfParamFoundType) :: found
-    !
-    ! -- update defaults with idm sourced values
-    call mem_set_value(this%ipr_input, 'IPR_INPUT', &
-                       this%input_mempath, found%ipr_input)
-    call mem_set_value(this%ipr_flow, 'IPR_FLOW', &
-                       this%input_mempath, found%ipr_flow)
-    call mem_set_value(this%ifixedcond, 'IFIXEDCOND', &
-                       this%input_mempath, found%ifixedcond)
-    !
-    write (iout, '(1x,a)') 'PROCESSING SWF-GWF EXCHANGE OPTIONS'
-
-    if (found%ipr_input) then
-      write (iout, '(4x,a)') &
-        'THE LIST OF EXCHANGES WILL BE PRINTED.'
-    end if
-
-    if (found%ipr_flow) then
-      write (iout, '(4x,a)') &
-        'EXCHANGE FLOWS WILL BE PRINTED TO LIST FILES.'
-    end if
-
-    if (found%ifixedcond) then
-      write (iout, '(4x,a)') &
-        'CONDUCTANCE IS FIXED AS PRODUCT OF BEDLEAK AND CFACT.'
-    end if
-    !
-    ! -- enforce 0 or 1 OBS6_FILENAME entries in option block
-    ! if (.not. this%is_datacopy) then
-    !   if (filein_fname(this%obs%inputFilename, 'OBS6_FILENAME', &
-    !                    this%input_mempath, this%filename)) then
-    !     this%obs%active = .true.
-    !     this%obs%inUnitObs = GetUnit()
-    !     call openfile(this%obs%inUnitObs, iout, this%obs%inputFilename, 'OBS')
-    !   end if
-    ! end if
-    !
-    write (iout, '(1x,a)') 'END OF SWF-GWF EXCHANGE OPTIONS'
-    !
-    ! -- Return
-    return
-  end subroutine source_options
-
-  !> @brief Source dimension from input context
-  !<
-  subroutine source_dimensions(this, iout)
-    ! -- modules
-    use MemoryManagerExtModule, only: mem_set_value
-    use ExgSwfgwfInputModule, only: ExgSwfgwfParamFoundType
-    ! -- dummy
-    class(SwfGwfExchangeType) :: this !< instance of exchange object
-    integer(I4B), intent(in) :: iout !< for logging
-    ! -- local
-    type(ExgSwfgwfParamFoundType) :: found
-    !
-    ! -- update defaults with idm sourced values
-    call mem_set_value(this%nexg, 'NEXG', this%input_mempath, found%nexg)
-    !
-    write (iout, '(1x,a)') 'PROCESSING EXCHANGE DIMENSIONS'
-    !
-    if (found%nexg) then
-      write (iout, '(4x,a,i0)') 'NEXG = ', this%nexg
-    end if
-    !
-    write (iout, '(1x,a)') 'END OF EXCHANGE DIMENSIONS'
-    !
-    ! -- return
-    return
-  end subroutine source_dimensions
 
   !> @brief
   !<
@@ -579,9 +425,6 @@ contains
                       model%dis%mshape(3))
     end if
     noder = model%dis%get_nodenumber(node, 0)
-    !
-    ! -- return
-    return
   end function noder
 
   !> @brief
@@ -612,114 +455,7 @@ contains
       write (cellstr, fmtndim3) cellid(1), cellid(2), cellid(3)
     case default
     end select
-    !
-    ! -- return
-    return
   end function cellstr
-
-  !> @brief Source exchange data from input context
-  !<
-  subroutine source_data(this, iout)
-    ! -- modules
-    use MemoryManagerModule, only: mem_setptr
-    ! -- dummy
-    class(SwfGwfExchangeType) :: this !< instance of exchange object
-    integer(I4B), intent(in) :: iout !< the output file unit
-    ! -- local
-    integer(I4B), dimension(:, :), contiguous, pointer :: cellidm1
-    integer(I4B), dimension(:, :), contiguous, pointer :: cellidm2
-    real(DP), dimension(:), contiguous, pointer :: bedleak
-    real(DP), dimension(:), contiguous, pointer :: cfact
-    character(len=20) :: cellstr1, cellstr2
-    integer(I4B) :: nerr
-    integer(I4B) :: iexg, nodeswf, nodegwf
-    ! -- format
-    character(len=*), parameter :: fmtexglabel = "(1x, 3a10, 50(a16))"
-    character(len=*), parameter :: fmtexgdata = &
-                                   "(5x, a, 1x, a ,50(1pg16.6))"
-    !
-    call mem_setptr(cellidm1, 'CELLIDM1', this%input_mempath)
-    call mem_setptr(cellidm2, 'CELLIDM2', this%input_mempath)
-    call mem_setptr(bedleak, 'BEDLEAK', this%input_mempath)
-    call mem_setptr(cfact, 'CFACT', this%input_mempath)
-    !
-    write (iout, '(1x,a)') 'PROCESSING EXCHANGEDATA'
-    !
-    if (this%ipr_input /= 0) then
-      write (iout, fmtexglabel) 'NODEM1', 'NODEM2', 'BEDLEAK', 'CFACT'
-    end if
-    !
-    do iexg = 1, this%nexg
-      !
-      if (associated(this%model1)) then
-        !
-        ! -- Determine user node number
-        nodeswf = this%noder(this%model1, cellidm1(:, iexg), iout)
-        this%nodeswf(iexg) = nodeswf
-        !
-      else
-        this%nodeswf(iexg) = -1
-      end if
-      !
-      if (associated(this%model2)) then
-        !
-        ! -- Determine user node number
-        nodegwf = this%noder(this%model2, cellidm2(:, iexg), iout)
-        this%nodegwf(iexg) = nodegwf
-        !
-      else
-        this%nodegwf(iexg) = -1
-      end if
-      !
-      ! -- Read rest of input line
-      this%bedleak(iexg) = bedleak(iexg)
-      this%cfact(iexg) = cfact(iexg)
-      !
-      ! -- Write the data to listing file if requested
-      if (this%ipr_input /= 0) then
-        cellstr1 = this%cellstr(this%model1, cellidm1(:, iexg), iout)
-        cellstr2 = this%cellstr(this%model2, cellidm2(:, iexg), iout)
-        write (iout, fmtexgdata) trim(cellstr1), trim(cellstr2), &
-          this%bedleak(iexg), this%cfact(iexg)
-      end if
-      !
-      ! -- Check to see if nodeswf is outside of active domain
-      if (associated(this%model1)) then
-        if (nodeswf <= 0) then
-          cellstr1 = this%cellstr(this%model1, cellidm1(:, iexg), iout)
-          write (errmsg, *) &
-            trim(adjustl(this%model1%name))// &
-            ' Cell is outside active grid domain ('// &
-            trim(adjustl(cellstr1))//').'
-          call store_error(errmsg)
-        end if
-      end if
-      !
-      ! -- Check to see if nodegwf is outside of active domain
-      if (associated(this%model2)) then
-        if (nodegwf <= 0) then
-          cellstr2 = this%cellstr(this%model2, cellidm2(:, iexg), iout)
-          write (errmsg, *) &
-            trim(adjustl(this%model2%name))// &
-            ' Cell is outside active grid domain ('// &
-            trim(adjustl(cellstr2))//').'
-          call store_error(errmsg)
-        end if
-      end if
-    end do
-    !
-    write (iout, '(1x,a)') 'END OF EXCHANGEDATA'
-    !
-    ! -- Stop if errors
-    nerr = count_errors()
-    if (nerr > 0) then
-      call store_error('Errors encountered in exchange input file.')
-      call store_error_filename(this%filename)
-    end if
-    !
-    ! -- Return
-    return
-  end subroutine source_data
 
   !> @brief Calculate flow rates for the exchanges and store them in a member
   !! array
@@ -750,9 +486,6 @@ contains
       end if
       this%simvals(iexg) = rrate
     end do
-    !
-    ! -- Return
-    return
   end subroutine swf_gwf_calc_simvals
 
   !> @ brief Calculate flow
@@ -824,9 +557,6 @@ contains
 
     ! Calculate conductance
     get_cond = smooth_factor * this%bedleak(iexg) * area
-
-    ! -- Return
-    return
   end function get_cond
 
   !> @ brief Get wetted perimeter for swf channel model
@@ -882,9 +612,6 @@ contains
       end if
       !
     end do
-    !
-    ! -- Return
-    return
   end subroutine swf_gwf_add_to_flowja
 
   !> @ brief Budget
@@ -928,9 +655,6 @@ contains
     ! -- Add any flows from one model into a constant head in another model
     !    as a separate budget term called FLOW-JA-FACE-CHD
     call this%swf_gwf_chd_bd()
-    !
-    ! -- Return
-    return
   end subroutine swf_gwf_bd
 
   !> @ brief swf-gwf-chd-bd
@@ -993,9 +717,6 @@ contains
       budterm(2, 1) = ratout
       call this%gwfmodel%model_bdentry(budterm, budtxt, this%name)
     end if
-    !
-    ! -- Return
-    return
   end subroutine swf_gwf_chd_bd
 
   !> @ brief Budget save
@@ -1027,9 +748,6 @@ contains
     if (this%inobs /= 0) then
       call this%swf_gwf_save_simvals()
     end if
-    !
-    ! -- Return
-    return
   end subroutine swf_gwf_bdsav
 
   ! subroutine swf_gwf_bdsav_model(this, model, neighbor_name)
@@ -1234,9 +952,6 @@ contains
     !
     ! -- OBS output
     call this%obs%obs_ot()
-    !
-    ! -- Return
-    return
   end subroutine swf_gwf_ot
 
   !> @ brief Save simulated flow observations
@@ -1283,9 +998,6 @@ contains
         end do
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine swf_gwf_save_simvals
 
   !> @brief Should return true when the exchange should be added to the
@@ -1309,9 +1021,6 @@ contains
         is_connected = .true.
       end if
     end select
-    !
-    ! -- Return
-    return
   end function
 
 end module SwfGwfExchangeModule

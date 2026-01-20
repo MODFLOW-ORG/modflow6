@@ -23,7 +23,6 @@ contains
     type(HashTableType), pointer :: map
     integer(I4B) :: i, n
 
-    allocate (map)
     call hash_table_cr(map)
 
     n = 3
@@ -35,6 +34,8 @@ contains
       call check(error, map%get(to_string(i)) == i, &
                  'wrong value for '//to_string(i))
     end do
+
+    call hash_table_da(map)
 
   end subroutine test_add_and_get_value
 

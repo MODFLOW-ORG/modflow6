@@ -248,9 +248,6 @@ contains
     if (icountcmd > 0) then
       call write_message('')
     end if
-    !
-    ! -- return
-    return
   end subroutine GetCommandLineArguments
 
   !> @brief Write command line argument usage
@@ -293,7 +290,7 @@ contains
       &'does not already exist. If one does exist, you can comment (most',/,&
       &'simply even with just :+1:) to show your support for that issue.',/,&
       &'                                                                    ',/,&
-      &'[1] https://github.com/MODFLOW-USGS/modflow6/issues',/)"
+      &'[1] https://github.com/MODFLOW-ORG/modflow6/issues',/)"
     !
     ! -- write command line usage information to the screen
     call write_message(header)
@@ -306,9 +303,6 @@ contains
       'retrieve program information'
     call write_message(line)
     call write_message('', fmt=OPTIONSFMT)
-    !
-    ! -- return
-    return
   end subroutine write_usage
 
 end module CommandArguments

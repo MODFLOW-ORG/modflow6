@@ -49,7 +49,7 @@ CTP -> |    Initial temperature = T_0   | <-exchange-> |    Initial temperature 
 
    Specified temperature boundary, T_0
 
-"""
+"""  # noqa
 
 import math
 import os
@@ -154,7 +154,7 @@ def calc_ener_input(primer_val):
     return ener_add_rate
 
 
-# Define function to solve analytical solution
+# Instantiate model to compare against analytical solution
 def assemble_half_model(sim, gwfname, gwfpath, side="right"):
     # Create GWF model
     gwf = flopy.mf6.MFModel(
@@ -270,12 +270,13 @@ def get_gwe_model(idx, sim, gwename, gwepath, ener_input, side="right"):
         heat_capacity_water=Cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=Cps,
-        rhos=rhos,
+        heat_capacity_solid=Cps,
+        density_solid=rhos,
     )
 
     # Constant temperature goes on the left side of the left model
-    # Note: Implementation of the CTP boundary depends on which analytical sln is in view
+    # Note: Implementation of the CTP boundary depends on which analytical sln
+    #       is in view
     #       See notes at top of script regarding scenarios
     if side == "left":
         if idx > 0:
@@ -327,9 +328,7 @@ def get_gwe_model(idx, sim, gwename, gwepath, ener_input, side="right"):
         gwe,
         budget_filerecord=f"{gwename}.cbc",
         temperature_filerecord=f"{gwename}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("TEMPERATURE", "LAST"), ("BUDGET", "LAST")],
     )
@@ -354,9 +353,7 @@ def build_models(idx, test):
 
     # Build MODFLOW 6 files
     ws = test.workspace
-    sim = flopy.mf6.MFSimulation(
-        sim_name=ws, version="mf6", exe_name="mf6", sim_ws=ws
-    )
+    sim = flopy.mf6.MFSimulation(sim_name=ws, version="mf6", exe_name="mf6", sim_ws=ws)
 
     # Create tdis package
     tdis_rc = []
@@ -374,9 +371,7 @@ def build_models(idx, test):
     gwf2 = assemble_half_model(sim, "flow2", "flow2", side="right")
 
     # Add the exchange data
-    exgdata = [
-        ((0, 0, ncol - 1), (0, 0, 0), 1, delr / 2, delr / 2, delc, 0.0, delr)
-    ]
+    exgdata = [((0, 0, ncol - 1), (0, 0, 0), 1, delr / 2, delr / 2, delc, 0.0, delr)]
     flopy.mf6.ModflowGwfgwf(
         sim,
         exgtype="GWF6-GWF6",
@@ -409,15 +404,11 @@ def build_models(idx, test):
     )
     sim.register_ims_package(imsgwf, [gwf1.name, gwf2.name])
 
-    # Create gw3 model
-    gwe1 = get_gwe_model(
-        idx, sim, "energy1", "energy1", ener_input, side="left"
-    )
+    # Create first gwe model
+    gwe1 = get_gwe_model(idx, sim, "energy1", "energy1", ener_input, side="left")
 
-    # Create gwe model
-    gwe2 = get_gwe_model(
-        idx, sim, "energy2", "energy2", ener_input, side="right"
-    )
+    # Create second gwe model
+    gwe2 = get_gwe_model(idx, sim, "energy2", "energy2", ener_input, side="right")
 
     # Create GWE GWE exchange
     flopy.mf6.ModflowGwegwe(
@@ -543,9 +534,7 @@ def check_output(idx, test):
     gwename = "energy1"
     fpth = os.path.join(test.workspace, gwename, f"{gwename}.ucn")
     try:
-        tobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="TEMPERATURE"
-        )
+        tobj = flopy.utils.HeadFile(fpth, precision="double", text="TEMPERATURE")
         sim_temps_l = tobj.get_alldata()
     except:
         assert False, f'could not load data from "{fpth}"'
@@ -553,9 +542,7 @@ def check_output(idx, test):
     gwename = "energy2"
     fpth = os.path.join(test.workspace, gwename, f"{gwename}.ucn")
     try:
-        tobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="TEMPERATURE"
-        )
+        tobj = flopy.utils.HeadFile(fpth, precision="double", text="TEMPERATURE")
         sim_temps_r = tobj.get_alldata()
     except:
         assert False, f'could not load data from "{fpth}"'
@@ -588,10 +575,10 @@ def check_output(idx, test):
                 analytical_temps.append(T)
 
             analytical_temps = np.array(analytical_temps)
-            assert np.allclose(
-                analytical_temps, sim_temps[sp, 0, 0, :], atol=0.005
-            ), "simulated solution is whacked"
-            # plt.plot(cell_centroids, analytical_temps, "r-", label="Analytical Solution")
+            assert np.allclose(analytical_temps, sim_temps[sp, 0, 0, :], atol=0.005), (
+                "simulated solution is whacked"
+            )
+            # plt.plot(cell_centroids, analytical_temps, "r-", label="Analytical Solution")  # noqa
             # plt.plot(cell_centroids, sim_temps[sp, 0, 0, :], "b--", label="GWE")
             # plt.axhline(0.0, color='black')
             # plt.legend()
@@ -618,9 +605,9 @@ def check_output(idx, test):
             else:
                 atol = 0.47
 
-            assert np.allclose(
-                analytical_temps, sim_temps[sp, 0, 0, :], atol=atol
-            ), "simulated solution isn't matching the analytical solution"
+            assert np.allclose(analytical_temps, sim_temps[sp, 0, 0, :], atol=atol), (
+                "simulated solution isn't matching the analytical solution"
+            )
 
 
 # - No need to change any code below

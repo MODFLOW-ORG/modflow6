@@ -1,0 +1,39 @@
+
+CHF Model observations include the simulated stage (\texttt{stage}) at a cell, and the flow between two connected cells (\texttt{flow-ja-face}). The data required for each CHF Model observation type is defined in table~\ref{table:chfobstype}. For \texttt{flow-ja-face} observation types, negative and positive values represent a loss from and gain to the \texttt{cellid} specified for ID, respectively.
+
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-obs-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-obs-continuous.dat}
+
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/utl-obs-desc.tex}
+\end{description}
+
+
+\begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
+\caption{Available CHF model observation types} \tabularnewline
+
+\hline
+\hline
+\textbf{Model} & \textbf{Observation type} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+\hline
+\endhead
+
+\hline
+\endfoot
+
+\input{../Common/chf-obs.tex}
+\label{table:chfobstype}
+\end{longtable}
+
+\vspace{5mm}
+\subsubsection{Example Observation Input File}
+
+An example GWF Model observation file is shown below.
+
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/utl-obs-chf-example.dat}
+

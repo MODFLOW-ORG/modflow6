@@ -44,7 +44,9 @@
 		<File RelativePath="..\..\..\src\Utilities\defmacro.F90">
 			<FileConfiguration Name="Debug|Win32">
 			<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration></File>
-		<File RelativePath="..\..\..\src\Utilities\DevFeature.f90"/>
+		<File RelativePath="..\..\..\src\Utilities\GridFileReader.f90"/>
+		<File RelativePath="..\..\..\src\Utilities\HashTable.f90"/>
+		<File RelativePath="..\..\..\src\Utilities\FeatureFlags.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\ErrorUtil.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\GeomUtil.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\InputOutput.f90"/>
@@ -58,7 +60,6 @@
 		<File RelativePath="..\..\..\src\Utilities\sort.f90"/>
 		<File RelativePath="..\..\..\src\Utilities\version.f90"/></Filter>
 		<File RelativePath="..\src\budgetdata.f90"/>
-		<File RelativePath="..\src\grb.f90"/>
 		<File RelativePath="..\src\zbud6.f90"/>
 		<File RelativePath="..\src\zone.f90"/>
 		<File RelativePath="..\src\zoneoutput.f90"/></Filter>

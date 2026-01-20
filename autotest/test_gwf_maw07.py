@@ -29,14 +29,8 @@ botm = [top - dz * (k + 1) for k in range(nlay)]
 ztop = [top - dz * k for k in range(nlay)]
 
 strt_min = aqthick / 8.0
-mawstrt = [
-    strt_min,
-    top,
-]
-gwfstrt = [
-    top,
-    strt_min,
-]
+mawstrt = [strt_min, top]
+gwfstrt = [top, strt_min]
 
 Kh = 1.0
 Kv = 1.0
@@ -73,17 +67,13 @@ def build_models(idx, test):
         memory_print_option="summary",
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
 
     newtonoptions = "NEWTON UNDER_RELAXATION"
-    gwf = flopy.mf6.ModflowGwf(
-        sim, modelname=gwfname, newtonoptions=newtonoptions
-    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=gwfname, newtonoptions=newtonoptions)
 
     imsgwf = flopy.mf6.ModflowIms(
         sim,
@@ -136,8 +126,7 @@ def build_models(idx, test):
     mawpackagedata = [[0, mawradius, bot, mstrt, mawcondeqn, mawngwfnodes]]
     # <ifno> <icon> <cellid(ncelldim)> <scrn_top> <scrn_bot> <hk_skin> <radius_skin>
     mawconnectiondata = [
-        [0, icon, (icon, 0, 0), top, bot, mawcond, -999]
-        for icon in range(nlay)
+        [0, icon, (icon, 0, 0), top, bot, mawcond, -999] for icon in range(nlay)
     ]
     # <ifno> <mawsetting>
     mawperioddata = {}
@@ -165,9 +154,7 @@ def build_models(idx, test):
             ("whead", "head", (0,)),
         ]
     }
-    maw.obs.initialize(
-        filename=opth, digits=20, print_input=True, continuous=obsdata
-    )
+    maw.obs.initialize(filename=opth, digits=20, print_input=True, continuous=obsdata)
 
     # output control
     oc = flopy.mf6.ModflowGwfoc(
@@ -176,24 +163,12 @@ def build_models(idx, test):
         head_filerecord=f"{gwfname}.hds",
         headprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[
-            (
-                "HEAD",
-                "ALL",
-            ),
-            (
-                "BUDGET",
-                "ALL",
-            ),
+            ("HEAD", "ALL"),
+            ("BUDGET", "ALL"),
         ],
         printrecord=[
-            (
-                "HEAD",
-                "ALL",
-            ),
-            (
-                "BUDGET",
-                "ALL",
-            ),
+            ("HEAD", "ALL"),
+            ("BUDGET", "ALL"),
         ],
     )
 
@@ -276,9 +251,7 @@ def check_output(idx, test):
             qmaw = ra_maw[i]["q"]
             qgwf = ra_gwf[i]["q"]
             if istp == 0:
-                assert np.allclose(
-                    qmaw, 0.0
-                ), "inactive well, flow should be 0."
+                assert np.allclose(qmaw, 0.0), "inactive well, flow should be 0."
             msg = f"step {istp} record {i} comparing qmaw with qgwf: {qmaw} {qgwf}"
             print(msg)
             assert np.allclose(qmaw, -qgwf), msg

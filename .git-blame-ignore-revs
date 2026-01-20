@@ -1,0 +1,41 @@
+# apply fprettify formatting (#956)
+41e98a24cec6d3607138558fa538621191260efa
+
+# apply fprettify formatting (#957)
+c033fc85713770ace7d51f3c382257bc90d9932f
+
+# apply fprettify formatting (#960)
+571dcfd5cd439ba7129ed86b6e54e6e0c7340d35
+
+# apply fprettify formatting (#961)
+cc444d0364f97e47c965b91efd6b480d66ea2105
+
+# apply fprettify formatting (#963)
+04e82dd660541b3fa61b9cfe3343a827698f113a
+
+# apply fprettify formatting (#969)
+b063109202645a13a2f6d8b9799048c304e525d9
+
+# apply fprettify formatting (#974)
+9514eb46c14f0d4f4860fbfb0eb96c2606ac597f
+
+# apply fprettify formatting (#975)
+c3f415362edd6a8e033204967281fd10061dacf8
+
+# apply fprettify formatting (#980)
+ff1f8e596680ce1a5bdad589b80b2746bc6dca55
+
+# apply fprettify formatting (#984)
+d56a12e0db8ff9d052b7ef9d7157506528e1a70e
+
+# apply fprettify formatting (#985)
+9f7c07aea29d55f9c0ef2a61f62bc15d45321695
+
+# run ruff lint and format on python files in repo (#1936)
+9d55d586439b832c33feb196718a6122973dc6aa
+
+# reformat Python code with line length = 88 (#2056)
+f6c3a55ea72065ba1ce8540d1fd3c051696df1f1
+
+# reformat multi-line statements (#2070)
+cc7f930b961345536529942fc57db0c515a1f7fc

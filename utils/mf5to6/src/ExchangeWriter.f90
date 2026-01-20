@@ -19,7 +19,7 @@ module ExchangeWriterModule
   use ModelConverterModule, only: ModelConverterType
   use ModelModule, only: ModelType
   use MvrPackageWriterModule, only: MvrPackageWriterType
-  use SimModule, only: store_error, ustop
+  use SimPHMFModule, only: store_error, ustop
   
   type, extends(FileWriterType) :: ExchangeWriterType
     type(ListType) :: Exchanges

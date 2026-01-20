@@ -51,9 +51,7 @@ def build_models(idx, test):
     )
 
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, nper=2, perioddata=[(1.0, 1, 1.0), (1.0, 1, 1.0)]
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, nper=2, perioddata=[(1.0, 1, 1.0), (1.0, 1, 1.0)])
 
     # create gwf model
     gwf = flopy.mf6.ModflowGwf(sim, modelname=namea, save_flows=True)

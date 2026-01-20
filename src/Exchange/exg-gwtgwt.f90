@@ -185,9 +185,6 @@ contains
     !
     ! -- Create the obs package
     call obs_cr(exchange%obs, exchange%inobs)
-    !
-    ! -- Return
-    return
   end subroutine gwtexchange_create
 
   !> @ brief Define GWT GWT exchange
@@ -242,9 +239,6 @@ contains
     !
     ! -- validate
     call this%validate_exchange()
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_df
 
   !> @brief validate exchange data after reading
@@ -302,9 +296,6 @@ contains
     if (count_errors() > 0) then
       call ustop()
     end if
-    !
-    ! -- Return
-    return
   end subroutine validate_exchange
 
   !> @ brief Allocate and read
@@ -320,9 +311,6 @@ contains
     !
     ! -- Observation AR
     call this%obs%obs_ar()
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_ar
 
   !> @ brief Read and prepare
@@ -343,9 +331,6 @@ contains
     !
     ! -- Read and prepare for observations
     call this%gwt_gwt_rp_obs()
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_rp
 
   !> @ brief Advance
@@ -361,9 +346,6 @@ contains
     !
     ! -- Push simulated values to preceding time step
     call this%obs%obs_ad()
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_ad
 
   !> @ brief Fill coefficients
@@ -380,9 +362,6 @@ contains
     !
     ! -- Call mvt fc routine
     if (this%inmvt > 0) call this%mvt%mvt_fc(this%gwtmodel1%x, this%gwtmodel2%x)
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_fc
 
   !> @ brief Budget
@@ -425,9 +404,6 @@ contains
     !
     ! -- Call mvt bd routine
     if (this%inmvt > 0) call this%mvt%mvt_bd(this%gwtmodel1%x, this%gwtmodel2%x)
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_bd
 
   !> @ brief Budget save
@@ -462,9 +438,6 @@ contains
     if (this%inobs /= 0) then
       call this%gwt_gwt_save_simvals()
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_bdsav
 
   !> @ brief Budget save
@@ -633,9 +606,6 @@ contains
       end if
       !
     end do
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_bdsav_model
 
   !> @ brief Output
@@ -690,9 +660,6 @@ contains
     !
     ! -- OBS output
     call this%obs%obs_ot()
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_ot
 
   !> @ brief Source options
@@ -712,8 +679,8 @@ contains
     integer(I4B), intent(in) :: iout
     ! -- local
     type(ExgGwtgwtParamFoundType) :: found
-    character(len=LENVARNAME), dimension(3) :: adv_scheme = &
-      &[character(len=LENVARNAME) :: 'UPSTREAM', 'CENTRAL', 'TVD']
+    character(len=LENVARNAME), dimension(4) :: adv_scheme = &
+      &[character(len=LENVARNAME) :: 'UPSTREAM', 'CENTRAL', 'TVD', 'UTVD']
     character(len=LINELENGTH) :: mvt_fname
     !
     ! -- update defaults with values sourced from input context
@@ -781,9 +748,6 @@ contains
     end if
     !
     write (iout, '(1x,a)') 'END OF GWT-GWT EXCHANGE OPTIONS'
-    !
-    ! -- return
-    return
   end subroutine source_options
 
   !> @ brief Read mover
@@ -805,9 +769,6 @@ contains
                 gwfmodelname1=this%gwfmodelname1, &
                 gwfmodelname2=this%gwfmodelname2, &
                 fmi2=this%gwtmodel2%fmi)
-    !
-    ! -- Return
-    return
   end subroutine read_mvt
 
   !> @ brief Allocate scalars
@@ -832,9 +793,6 @@ contains
     !
     call mem_allocate(this%inmvt, 'INMVT', this%memoryPath)
     this%inmvt = 0
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @ brief Deallocate
@@ -881,9 +839,6 @@ contains
     !
     ! -- deallocate base
     call this%DisConnExchangeType%disconnex_da()
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_da
 
   !> @ brief Allocate arrays
@@ -952,9 +907,6 @@ contains
         end if
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine allocate_arrays
 
   !> @ brief Define observations
@@ -971,9 +923,6 @@ contains
     !    for gwt-gwt observation type.
     call this%obs%StoreObsType('flow-ja-face', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => gwt_gwt_process_obsID
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_df_obs
 
   !> @ brief Read and prepare observations
@@ -1045,9 +994,6 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%obs%inputFilename)
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_rp_obs
 
   !> @ brief Final processing
@@ -1057,9 +1003,6 @@ contains
   subroutine gwt_gwt_fp(this)
     ! -- dummy
     class(GwtExchangeType) :: this !<  GwtExchangeType
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_fp
 
   !> @brief Return true when this exchange provides matrix coefficients for
@@ -1083,9 +1026,6 @@ contains
         is_connected = .true.
       end if
     end select
-    !
-    ! -- Return
-    return
   end function gwt_gwt_connects_model
 
   !> @brief Should interface model be used for this exchange
@@ -1105,9 +1045,6 @@ contains
     ! For now set use_im to .true. since the interface model approach
     ! must currently be used for any GWT-GWT exchange.
     use_im = .true.
-    !
-    ! -- Return
-    return
   end function
 
   !> @ brief Save simulated flow observations
@@ -1152,9 +1089,6 @@ contains
         end do
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_save_simvals
 
   !> @ brief Obs ID processor
@@ -1194,9 +1128,6 @@ contains
       !    is for a named exchange boundary or group of exchange boundaries.
       obsrv%intPak1 = NAMEDBOUNDFLAG
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwt_gwt_process_obsID
 
   !> @ brief Cast polymorphic object as exchange
@@ -1217,9 +1148,6 @@ contains
     class is (GwtExchangeType)
       res => obj
     end select
-    !
-    ! -- Return
-    return
   end function CastAsGwtExchange
 
   !> @ brief Get exchange from list
@@ -1238,9 +1166,6 @@ contains
     !
     obj => list%GetItem(idx)
     res => CastAsGwtExchange(obj)
-    !
-    ! -- Return
-    return
   end function GetGwtExchangeFromList
 
 end module GwtGwtExchangeModule

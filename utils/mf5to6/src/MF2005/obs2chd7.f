@@ -34,7 +34,7 @@ C     ------------------------------------------------------------------
       USE GLOBAL, ONLY: NCOL,NROW,NLAY,NPER,NSTP,PERLEN,TSMULT,ISSFLG,
      1                  IOUT,ITRSS
       USE OBSCHDMODULE
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       use utl7module, only: URDCOM, URWORD
 C
       CHARACTER*200 LINE

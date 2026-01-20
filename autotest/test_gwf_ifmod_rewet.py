@@ -133,9 +133,7 @@ def get_model(idx, dir):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=dir
     )
 
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     ims = flopy.mf6.ModflowIms(
         sim,
@@ -376,18 +374,18 @@ def check_output(idx, test):
         # active. This tests the interface model for dealing with drying
         # and wetting, and handling inactive cells, explicitly
         if iper == 1:
-            assert np.all(
-                heads_left[0, 0, :] == -1.0e30
-            ), "left model, top layer should be DRY in period 2"
-            assert np.all(
-                heads_right[0, 0, :] > -1.0e30
-            ), "right model, top layer should be WET in period 2"
+            assert np.all(heads_left[0, 0, :] == -1.0e30), (
+                "left model, top layer should be DRY in period 2"
+            )
+            assert np.all(heads_right[0, 0, :] > -1.0e30), (
+                "right model, top layer should be WET in period 2"
+            )
 
         # compare heads
         maxdiff = np.amax(abs(heads - heads_2models))
-        assert maxdiff < 10 * hclose_check, "Max. head diff. {} should \
-                         be within solver tolerance (x10): {}".format(
-            maxdiff, 10 * hclose_check
+        assert maxdiff < 10 * hclose_check, (
+            f"Max. head diff. {maxdiff} should \
+                         be within solver tolerance (x10): {10 * hclose_check}"
         )
 
     # check budget error from .lst file
@@ -396,10 +394,9 @@ def check_output(idx, test):
         for line in open(fpth):
             if line.lstrip().startswith("PERCENT"):
                 cumul_balance_error = float(line.split()[3])
-                assert (
-                    abs(cumul_balance_error) < 0.00001
-                ), "Cumulative balance error = {} for {}, should equal 0.0".format(
-                    cumul_balance_error, mname
+                assert abs(cumul_balance_error) < 0.00001, (
+                    f"Cumulative balance error = {cumul_balance_error} for {mname}, "
+                    "should equal 0.0"
                 )
 
 

@@ -69,9 +69,7 @@ def get_model(ws, name, uzf=False):
         botm=botm,
     )
     npf = flopy.mf6.ModflowGwfnpf(gwf, k=kh, icelltype=1)
-    sto = flopy.mf6.ModflowGwfsto(
-        gwf, sy=sy, ss=ss, transient={0: True}, iconvert=1
-    )
+    sto = flopy.mf6.ModflowGwfsto(gwf, sy=sy, ss=ss, transient={0: True}, iconvert=1)
     if uzf:
         uzf = flopy.mf6.ModflowGwfuzf(
             gwf, simulate_gwseep=True, packagedata=uzf_pd, print_input=True
@@ -143,9 +141,7 @@ def check_output(idx, test):
     msg = f"maximum absolute discharge difference ({diffmax}) "
 
     # write summary
-    fpth = os.path.join(
-        test.workspace, f"{os.path.basename(test.name)}.disc.cmp.out"
-    )
+    fpth = os.path.join(test.workspace, f"{os.path.basename(test.name)}.disc.cmp.out")
     with open(fpth, "w") as f:
         line = f"{'TOTIM':>15s}"
         line += f" {'DRN':>15s}"

@@ -8,7 +8,10 @@ module IdmPrtDfnSelectorModule
   use PrtNamInputModule
   use PrtDisInputModule
   use PrtDisvInputModule
+  use PrtFmiInputModule
   use PrtMipInputModule
+  use PrtOcInputModule
+  use PrtPrpInputModule
 
   implicit none
   private
@@ -50,8 +53,14 @@ contains
       call set_param_pointer(input_definition, prt_dis_param_definitions)
     case ('DISV')
       call set_param_pointer(input_definition, prt_disv_param_definitions)
+    case ('FMI')
+      call set_param_pointer(input_definition, prt_fmi_param_definitions)
     case ('MIP')
       call set_param_pointer(input_definition, prt_mip_param_definitions)
+    case ('OC')
+      call set_param_pointer(input_definition, prt_oc_param_definitions)
+    case ('PRP')
+      call set_param_pointer(input_definition, prt_prp_param_definitions)
     case default
     end select
     return
@@ -68,8 +77,14 @@ contains
       call set_param_pointer(input_definition, prt_dis_aggregate_definitions)
     case ('DISV')
       call set_param_pointer(input_definition, prt_disv_aggregate_definitions)
+    case ('FMI')
+      call set_param_pointer(input_definition, prt_fmi_aggregate_definitions)
     case ('MIP')
       call set_param_pointer(input_definition, prt_mip_aggregate_definitions)
+    case ('OC')
+      call set_param_pointer(input_definition, prt_oc_aggregate_definitions)
+    case ('PRP')
+      call set_param_pointer(input_definition, prt_prp_aggregate_definitions)
     case default
     end select
     return
@@ -86,8 +101,14 @@ contains
       call set_block_pointer(input_definition, prt_dis_block_definitions)
     case ('DISV')
       call set_block_pointer(input_definition, prt_disv_block_definitions)
+    case ('FMI')
+      call set_block_pointer(input_definition, prt_fmi_block_definitions)
     case ('MIP')
       call set_block_pointer(input_definition, prt_mip_block_definitions)
+    case ('OC')
+      call set_block_pointer(input_definition, prt_oc_block_definitions)
+    case ('PRP')
+      call set_block_pointer(input_definition, prt_prp_block_definitions)
     case default
     end select
     return
@@ -103,8 +124,14 @@ contains
       multi_package = prt_dis_multi_package
     case ('DISV')
       multi_package = prt_disv_multi_package
+    case ('FMI')
+      multi_package = prt_fmi_multi_package
     case ('MIP')
       multi_package = prt_mip_multi_package
+    case ('OC')
+      multi_package = prt_oc_multi_package
+    case ('PRP')
+      multi_package = prt_prp_multi_package
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="PRT"'//&
@@ -123,8 +150,14 @@ contains
       call set_subpkg_pointer(subpackages, prt_dis_subpackages)
     case ('DISV')
       call set_subpkg_pointer(subpackages, prt_disv_subpackages)
+    case ('FMI')
+      call set_subpkg_pointer(subpackages, prt_fmi_subpackages)
     case ('MIP')
       call set_subpkg_pointer(subpackages, prt_mip_subpackages)
+    case ('OC')
+      call set_subpkg_pointer(subpackages, prt_oc_subpackages)
+    case ('PRP')
+      call set_subpkg_pointer(subpackages, prt_prp_subpackages)
     case default
     end select
     return
@@ -141,7 +174,13 @@ contains
       integrated = .true.
     case ('DISV')
       integrated = .true.
+    case ('FMI')
+      integrated = .true.
     case ('MIP')
+      integrated = .true.
+    case ('OC')
+      integrated = .true.
+    case ('PRP')
       integrated = .true.
     case default
     end select

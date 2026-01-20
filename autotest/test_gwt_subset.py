@@ -133,9 +133,7 @@ def get_gwt_model(sim, gwtname, gwtpath, modelshape):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "LAST")],
     )
@@ -156,9 +154,7 @@ def build_models(idx, test):
 
     # build MODFLOW 6 files
     ws = test.workspace
-    sim = flopy.mf6.MFSimulation(
-        sim_name=ws, version="mf6", exe_name="mf6", sim_ws=ws
-    )
+    sim = flopy.mf6.MFSimulation(sim_name=ws, version="mf6", exe_name="mf6", sim_ws=ws)
     # create tdis package
     tdis = flopy.mf6.ModflowTdis(
         sim, time_units="DAYS", nper=nper, perioddata=tdis_rc, pname="sim.tdis"
@@ -262,18 +258,14 @@ def check_output(idx, test):
 
     fpth = os.path.join(test.workspace, gwtname, f"{gwtname}.ucn")
     try:
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
         conc = cobj.get_data()
     except:
         assert False, f'could not load data from "{fpth}"'
 
     # this simply checks if the solute from the right at t = 0
     # has arrived all the way on the left at t = t_end:
-    assert conc[0, 0, 0] == pytest.approx(
-        1.0
-    ), "concentration should be close to 1.0"
+    assert conc[0, 0, 0] == pytest.approx(1.0), "concentration should be close to 1.0"
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

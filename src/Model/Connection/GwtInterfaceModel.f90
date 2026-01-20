@@ -84,15 +84,12 @@ contains
     !
     ! create dis and packages
     call disu_cr(this%dis, this%name, '', -1, this%iout)
-    call fmi_cr(this%fmi, this%name, 0, this%iout, this%ieqnsclfac, &
+    call fmi_cr(this%fmi, this%name, '', 0, this%iout, this%ieqnsclfac, &
                 this%depvartype)
-    call adv_cr(this%adv, this%name, adv_unit, this%iout, this%fmi, &
+    call adv_cr(this%adv, this%name, '', adv_unit, this%iout, this%fmi, &
                 this%ieqnsclfac)
     call dsp_cr(this%dsp, this%name, '', -dsp_unit, this%iout, this%fmi)
     call tsp_obs_cr(this%obs, inobs, this%depvartype)
-    !
-    ! -- Return
-    return
   end subroutine gwtifmod_cr
 
   !> @brief Allocate scalars associated with the interface model object
@@ -107,9 +104,6 @@ contains
     call mem_allocate(this%iAdvScheme, 'ADVSCHEME', this%memoryPath)
     call mem_allocate(this%ixt3d, 'IXT3D', this%memoryPath)
     call mem_allocate(this%ieqnsclfac, 'IEQNSCLFAC', this%memoryPath)
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @brief Allocate a Flow Model Interface (FMI) object for the interface model
@@ -126,9 +120,6 @@ contains
                       this%fmi%memoryPath)
     call mem_allocate(this%fmi%gwfspdis, 3, this%neq, 'GWFSPDIS', &
                       this%fmi%memoryPath)
-    !
-    ! -- Return
-    return
   end subroutine allocate_fmi
 
   !> @brief Define the GWT interface model
@@ -186,9 +177,6 @@ contains
     !
     ! allocate model arrays, now that neq and nja are assigned
     call this%allocate_arrays()
-    !
-    ! -- Return
-    return
   end subroutine gwtifmod_df
 
   !> @brief Override allocate and read the GWT interface model and its packages
@@ -205,9 +193,6 @@ contains
     if (this%indsp > 0) then
       call this%dsp%dsp_ar(this%ibound, this%mst%thetam)
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwtifmod_ar
 
   !> @brief Clean up resources
@@ -252,9 +237,6 @@ contains
     !
     ! base
     call this%NumericalModelType%model_da()
-    !
-    ! -- Return
-    return
   end subroutine gwtifmod_da
 
 end module GwtInterfaceModelModule

@@ -18,7 +18,6 @@ from flopy.utils.binaryfile import HeadFile
 from flopy.utils.gridgen import Gridgen
 from framework import TestFramework
 from prt_test_utils import (
-    DEFAULT_EXIT_SOLVE_TOL,
     FlopyReadmeCase,
     check_budget_data,
     check_track_data,
@@ -74,9 +73,7 @@ def get_gridprops(test, **kwargs):
 
     # add polygon for each refinement level
     polygon = [[(300, 300), (300, 700), (700, 700), (700, 300), (300, 300)]]
-    g.add_refinement_features(
-        [polygon], "polygon", refinement_levels, range(nlay)
-    )
+    g.add_refinement_features([polygon], "polygon", refinement_levels, range(nlay))
     g.build(verbose=False)
     return g.get_gridprops_disv()
 
@@ -100,9 +97,7 @@ def build_mf6_sim(idx, test, **kwargs):
     )
 
     # create gwf model
-    gwf = flopy.mf6.ModflowGwf(
-        sim, modelname=gwf_name, model_nam_file=gwf_name
-    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=gwf_name, model_nam_file=gwf_name)
     gwf.name_file.save_flows = True
     disv = flopy.mf6.ModflowGwfdisv(
         gwf,
@@ -136,9 +131,7 @@ def build_mf6_sim(idx, test, **kwargs):
     # create prt model
     prt = flopy.mf6.ModflowPrt(sim, modelname=prt_name)
     flopy.mf6.ModflowGwfdisv(prt, length_units="FEET", **gridprops)
-    flopy.mf6.ModflowPrtmip(
-        prt, pname="mip", porosity=FlopyReadmeCase.porosity
-    )
+    flopy.mf6.ModflowPrtmip(prt, pname="mip", porosity=FlopyReadmeCase.porosity)
     rpts = [(50, 950), (45, 945), (55, 955)]
     rpts = [
         [i, 0, prt.modelgrid.intersect(x, y), x, y, 5.0]
@@ -150,7 +143,6 @@ def build_mf6_sim(idx, test, **kwargs):
         nreleasepts=len(rpts),
         packagedata=rpts,
         perioddata={0: ["FIRST"]},
-        exit_solve_tolerance=DEFAULT_EXIT_SOLVE_TOL,
         dev_forceternary=tracking_method == "ternary",
         extend_tracking=True,
     )
@@ -187,24 +179,30 @@ def check_output(idx, test, snapshot):
     name = test.name
     gwf_ws = Path(test.workspace)
     mp7_ws = gwf_ws / "mp7"
-
-    # model names
     gwf_name = get_model_name(idx, "gwf")
     prt_name = get_model_name(idx, "prt")
-
-    # extract model objects
     sim = test.sims[0]
     gwf = sim.get_model(gwf_name)
     prt = sim.get_model(prt_name)
-
-    # extract model grid
     mg = gwf.modelgrid
-
-    # check mf6 output files exist
     gwf_budget_file = f"{gwf_name}.bud"
     gwf_head_file = f"{gwf_name}.hds"
     prt_track_file = f"{prt_name}.trk"
     prt_track_csv_file = f"{prt_name}.trk.csv"
+
+    # load mf6 pathline results
+    mf6_pls = pd.read_csv(gwf_ws / prt_track_csv_file).replace(
+        r"^\s*$", np.nan, regex=True
+    )
+
+    # extract head, budget, and specific discharge results from GWF model
+    gwf = sim.get_model(gwf_name)
+    hds = HeadFile(gwf_ws / gwf_head_file).get_data()
+    bud = gwf.output.budget()
+    spdis = bud.get_data(text="DATA-SPDIS")[0]
+    qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
+
+    # check mf6 output files exist
     assert (gwf_ws / gwf_budget_file).is_file()
     assert (gwf_ws / gwf_head_file).is_file()
     assert (gwf_ws / prt_track_file).is_file()
@@ -224,14 +222,26 @@ def check_output(idx, test, snapshot):
         track_csv=gwf_ws / prt_track_csv_file,
     )
 
+    # extract endpoints and compare to snapshot
+    mf6_eps = mf6_pls[mf6_pls.ireason == 3]
+    assert snapshot == mf6_eps.round(2).to_records(index=False)
+
+
+def plot_output(idx, test):
+    name = test.name
+    gwf_ws = Path(test.workspace)
+    gwf_name = get_model_name(idx, "gwf")
+    prt_name = get_model_name(idx, "prt")
+    sim = test.sims[0]
+    gwf = sim.get_model(gwf_name)
+    mg = gwf.modelgrid
+    gwf_head_file = f"{gwf_name}.hds"
+    prt_track_csv_file = f"{prt_name}.trk.csv"
+
     # load mf6 pathline results
     mf6_pls = pd.read_csv(gwf_ws / prt_track_csv_file).replace(
         r"^\s*$", np.nan, regex=True
     )
-
-    # extract endpoints and compare to snapshot
-    mf6_eps = mf6_pls[mf6_pls.ireason == 3]
-    assert snapshot == mf6_eps.round(2).to_records(index=False)
 
     # extract head, budget, and specific discharge results from GWF model
     gwf = sim.get_model(gwf_name)
@@ -240,48 +250,45 @@ def check_output(idx, test, snapshot):
     spdis = bud.get_data(text="DATA-SPDIS")[0]
     qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
 
-    # setup plot
-    plot_results = False
-    if plot_results:
-        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 10))
-        ax.set_aspect("equal")
+    # set up plot
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 10))
+    ax.set_aspect("equal")
 
-        # plot mf6 pathlines in map view
-        pmv = flopy.plot.PlotMapView(modelgrid=mg, ax=ax)
-        pmv.plot_grid()
-        pmv.plot_array(hds[0], alpha=0.1)
-        pmv.plot_vector(qx, qy, normalize=True, color="white")
-        mf6_plines = mf6_pls.groupby(["iprp", "irpt", "trelease"])
-        for ipl, ((iprp, irpt, trelease), pl) in enumerate(mf6_plines):
-            pl.plot(
-                title="MF6 pathlines",
-                kind="line",
-                x="x",
-                y="y",
-                ax=ax,
-                legend=False,
-                color=cm.plasma(ipl / len(mf6_plines)),
-            )
-
-        # plot nodes
-        xc, yc = (
-            mg.get_xcellcenters_for_layer(0),
-            mg.get_ycellcenters_for_layer(0),
+    # plot mf6 pathlines in map view
+    pmv = flopy.plot.PlotMapView(modelgrid=mg, ax=ax)
+    pmv.plot_grid()
+    pmv.plot_array(hds[0], alpha=0.1)
+    pmv.plot_vector(qx, qy, normalize=True, color="white")
+    mf6_plines = mf6_pls.groupby(["iprp", "irpt", "trelease"])
+    for ipl, ((iprp, irpt, trelease), pl) in enumerate(mf6_plines):
+        pl.plot(
+            title="MF6 pathlines",
+            kind="line",
+            x="x",
+            y="y",
+            ax=ax,
+            legend=False,
+            color=cm.plasma(ipl / len(mf6_plines)),
         )
-        for i in range(mg.ncpl):
-            x, y = xc[i], yc[i]
-            ax.annotate(str(i + 1), (x, y), color="grey", alpha=0.5)
 
-        # view/save plot
-        plt.show()
-        plt.savefig(gwf_ws / f"test_{name}.png")
+    # plot nodes
+    xc, yc = (mg.get_xcellcenters_for_layer(0), mg.get_ycellcenters_for_layer(0))
+    for i in range(mg.ncpl):
+        x, y = xc[i], yc[i]
+        ax.annotate(str(i + 1), (x, y), color="grey", alpha=0.5)
+
+    # view/save plot
+    plt.show()
+    plt.savefig(gwf_ws / f"test_{name}.png")
 
 
+@pytest.mark.snapshot
+@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.parametrize("levels", [1, 2])
 @pytest.mark.parametrize("method", ["pollock", "ternary"])
 def test_mf6model(
-    idx, name, function_tmpdir, targets, levels, method, array_snapshot
+    idx, name, function_tmpdir, targets, levels, method, array_snapshot, plot
 ):
     test = TestFramework(
         name=name,
@@ -295,6 +302,7 @@ def test_mf6model(
             smoothing_level_horizontal=levels,
         ),
         check=lambda t: check_output(idx, t, array_snapshot),
+        plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
         compare=None,
     )

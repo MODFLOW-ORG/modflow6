@@ -77,6 +77,7 @@ module NumericalModelModule
     procedure :: get_mcellid
     procedure :: get_mnodeu
     procedure :: get_iasym
+    procedure :: get_idv_scale
     procedure :: create_lstfile
   end type NumericalModelType
 
@@ -248,9 +249,6 @@ contains
     ! -- BaseModelType
     call this%BaseModelType%model_da()
     !
-    !
-    ! -- Return
-    return
   end subroutine model_da
 
   subroutine set_moffset(this, moffset)
@@ -294,9 +292,6 @@ contains
     this%nja = 0
     this%icnvg = 0
     this%moffset = 0
-    !
-    ! -- return
-    return
   end subroutine allocate_scalars
 
   subroutine allocate_arrays(this)
@@ -313,9 +308,6 @@ contains
     do i = 1, size(this%flowja)
       this%flowja(i) = DZERO
     end do
-    !
-    ! -- return
-    return
   end subroutine allocate_arrays
 
   subroutine set_xptr(this, xsln, sln_offset, varNameTgt, memPathTgt)
@@ -400,7 +392,6 @@ contains
     end if
     write (mcellid, '(i0, a, a, a, a)') this%id, '_', this%macronym, '-', &
       trim(adjustl(cellid))
-    return
   end subroutine get_mcellid
 
   subroutine get_mnodeu(this, node, nodeu)
@@ -414,7 +405,6 @@ contains
     else
       nodeu = -(node - this%dis%nodes)
     end if
-    return
   end subroutine get_mnodeu
 
   function get_iasym(this) result(iasym)
@@ -422,6 +412,12 @@ contains
     integer(I4B) :: iasym
     iasym = 0
   end function get_iasym
+
+  function get_idv_scale(this) result(idv_scale)
+    class(NumericalModelType) :: this
+    integer(I4B) :: idv_scale
+    idv_scale = 0
+  end function get_idv_scale
 
   function CastAsNumericalModelClass(obj) result(res)
     implicit none
@@ -435,7 +431,6 @@ contains
     class is (NumericalModelType)
       res => obj
     end select
-    return
   end function CastAsNumericalModelClass
 
   subroutine AddNumericalModelToList(list, model)
@@ -448,8 +443,6 @@ contains
     !
     obj => model
     call list%Add(obj)
-    !
-    return
   end subroutine AddNumericalModelToList
 
   function GetNumericalModelFromList(list, idx) result(res)
@@ -463,8 +456,6 @@ contains
     !
     obj => list%GetItem(idx)
     res => CastAsNumericalModelClass(obj)
-    !
-    return
   end function GetNumericalModelFromList
 
   subroutine create_lstfile(this, lst_fname, model_fname, defined, headertxt)
@@ -511,9 +502,6 @@ contains
     !
     ! -- write list file header
     call write_listfile_header(this%iout, headertxt)
-    !
-    ! -- return
-    return
   end subroutine create_lstfile
 
 end module NumericalModelModule

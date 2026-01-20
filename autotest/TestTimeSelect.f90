@@ -13,7 +13,9 @@ contains
     type(unittest_type), allocatable, intent(out) :: testsuite(:)
     testsuite = [ &
                 new_unittest("is_increasing", test_is_increasing), &
-                new_unittest("slice", test_slice) &
+                new_unittest("select", test_select), &
+                new_unittest("extend_and_sort", &
+                             test_extend_and_sort) &
                 ]
   end subroutine collect_timeselect
 
@@ -21,13 +23,14 @@ contains
     type(error_type), allocatable, intent(out) :: error
     type(TimeSelectType) :: ts
 
+    call ts%init()
     call ts%expand(3)
 
     ! increasing
     ts%times = (/0.0_DP, 1.0_DP, 2.0_DP/)
     call check(error, ts%increasing())
 
-    ! not decreasing
+    ! not decreasing (duplicates)
     ts%times = (/0.0_DP, 0.0_DP, 2.0_DP/)
     call check(error,.not. ts%increasing())
 
@@ -36,11 +39,12 @@ contains
     call check(error,.not. ts%increasing())
   end subroutine
 
-  subroutine test_slice(error)
+  subroutine test_select(error)
     type(error_type), allocatable, intent(out) :: error
     type(TimeSelectType) :: ts
     logical(LGP) :: changed
 
+    call ts%init()
     call ts%expand(3)
     ts%times = (/0.0_DP, 1.0_DP, 2.0_DP/)
     call check( &
@@ -83,11 +87,11 @@ contains
       "2-item slice failed, got ["// &
       to_string(ts%selection(1))//","//to_string(ts%selection(2))//"]")
 
-    ! lower bound equal to a time value
+    ! lower bound equal to a time value (exclusive lower bound)
     call ts%select(0.0_DP, 2.5_DP)
     call check( &
       error, &
-      ts%selection(1) == 1 .and. ts%selection(2) == 3, &
+      ts%selection(1) == 2 .and. ts%selection(2) == 3, &
       "lb eq slice failed, got [" &
       //to_string(ts%selection(1))//","//to_string(ts%selection(2))//"]")
 
@@ -99,13 +103,45 @@ contains
       "ub eq slice failed, got [" &
       //to_string(ts%selection(1))//","//to_string(ts%selection(2))//"]")
 
-    ! both bounds equal to a time value
+    ! both bounds equal to a time value (lower exclusive, upper inclusive)
     call ts%select(0.0_DP, 2.0_DP)
     call check( &
       error, &
-      ts%selection(1) == 1 .and. ts%selection(2) == 3, &
+      ts%selection(1) == 2 .and. ts%selection(2) == 3, &
       "lb ub eq slice failed, got [" &
       //to_string(ts%selection(1))//","//to_string(ts%selection(2))//"]")
 
-  end subroutine test_slice
+    ! Test explicit boundary behavior: interval (0.0, 1.0]
+    ! should include 1.0 but not 0.0
+    call ts%select(0.0_DP, 1.0_DP)
+    call check( &
+      error, &
+      ts%selection(1) == 2 .and. ts%selection(2) == 2, &
+      "boundary (0,1] slice failed, got [" &
+      //to_string(ts%selection(1))//","//to_string(ts%selection(2))//"]")
+
+    ! Test explicit boundary behavior: interval (1.0, 2.0]
+    ! should include 2.0 but not 1.0
+    call ts%select(1.0_DP, 2.0_DP)
+    call check( &
+      error, &
+      ts%selection(1) == 3 .and. ts%selection(2) == 3, &
+      "boundary (1,2] slice failed, got [" &
+      //to_string(ts%selection(1))//","//to_string(ts%selection(2))//"]")
+
+  end subroutine test_select
+
+  subroutine test_extend_and_sort(error)
+    type(error_type), allocatable, intent(out) :: error
+    type(TimeSelectType) :: ts
+    real(DP) :: a(3)
+
+    a = (/0.0_DP, 2.0_DP, 1.0_DP/)
+
+    call ts%init()
+    call ts%extend(a)
+    call check(error, ts%increasing())
+
+  end subroutine test_extend_and_sort
+
 end module TestTimeSelect

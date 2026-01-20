@@ -8,7 +8,7 @@ module GhbPackageWriterModule
   use GwfGhbSubs, only: GWF2GHB7AR, GWF2GHB7RP
   use LineListModule, only: same_lines
   use PackageWriterModule, only: PackageWriterType
-  use SimModule, only: ustop, store_error, store_warning
+  use SimPHMFModule, only: ustop, store_error, store_warning
   use utl7module, only: U1DREL, U2DREL,  &
                         urword, URDCOM,  &
                         ULSTRD

@@ -1,4 +1,4 @@
-# makedefaults created by pymake (version 1.2.10) for the 'zbud6' executable.
+# makedefaults created by pymake for the 'zbud6' executable.
 
 # determine OS
 ifeq ($(OS), Windows_NT)

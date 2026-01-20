@@ -78,9 +78,6 @@ contains
     allocate (this%auxvarTsLinks)
     allocate (this%tsfileList)
     allocate (this%tsfiles(1000))
-    !
-    ! -- Return
-    return
   end subroutine tsmanager_cr
 
   !> @brief Define time series manager object
@@ -92,9 +89,6 @@ contains
     if (this%numtsfiles > 0) then
       call this%HashBndTimeSeries()
     end if
-    !
-    ! -- Return
-    return
   end subroutine tsmanager_df
 
   !> @brief Add a time series file to this manager
@@ -132,9 +126,6 @@ contains
     !
     ! --
     call this%tsfileList%Add(fname, this%iout, tsfile)
-    !
-    ! -- Return
-    return
   end subroutine add_tsfile
 
   !> @brief Time step (or subtime step) advance. Call this each time step or
@@ -305,9 +296,6 @@ contains
         write (this%iout, '()')
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine tsmgr_ad
 
   !> @brief Deallocate memory
@@ -335,9 +323,6 @@ contains
     end if
     !
     deallocate (this%tsfiles)
-    !
-    ! -- Return
-    return
   end subroutine tsmgr_da
 
   !> @brief Call this when a new BEGIN PERIOD block is read for a new stress
@@ -387,9 +372,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine Reset
 
   !> @brief Make link
@@ -422,9 +404,6 @@ contains
       tsLink%Text = text
       tsLink%BndName = bndName
     end if
-    !
-    ! -- Return
-    return
   end subroutine make_link
 
   !> @brief Get link
@@ -451,9 +430,6 @@ contains
     if (associated(list)) then
       tsLink => GetTimeSeriesLinkFromList(list, indx)
     end if
-    !
-    ! -- Return
-    return
   end function GetLink
 
   !> @brief Count links
@@ -471,9 +447,6 @@ contains
     elseif (auxOrBnd == 'AUX') then
       CountLinks = this%auxvarTsLinks%count()
     end if
-    !
-    ! -- Return
-    return
   end function CountLinks
 
   !> @brief Get time series
@@ -494,9 +467,6 @@ contains
     if (indx > 0) then
       res => this%TsContainers(indx)%timeSeries
     end if
-    !
-    ! -- Return
-    return
   end function get_time_series
 
   !> @brief Store all boundary (stress) time series links in TsContainers
@@ -533,9 +503,6 @@ contains
         end if
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine HashBndTimeSeries
 
   ! -- Non-type-bound procedures
@@ -684,9 +651,6 @@ contains
         call store_error(errmsg)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine read_value_or_time_series_adv
 
 ! -- private subroutines
@@ -747,9 +711,6 @@ contains
         call tsManager%auxvarTsLinks%RemoveNode(removeLink, .TRUE.)
       end if
     end if
-    !
-    ! -- Return
-    return
   end function remove_existing_link
 
   !> @brief Determine if a timeseries link with varName is defined.
@@ -797,9 +758,6 @@ contains
         end if
       end if
     end do csearchlinks
-    !
-    ! -- Return
-    return
   end function var_timeseries
 
 end module TimeSeriesManagerModule

@@ -1,0 +1,16 @@
+BEGIN OPTIONS
+  DIGITS 10
+  PRINT_INPUT
+END OPTIONS
+
+BEGIN CONTINUOUS FILEOUT my_model.swf.stage.csv
+# obsname   obstype           ID
+  S1        STAGE            1 2 
+  S2        STAGE            2 2
+END CONTINUOUS
+
+BEGIN CONTINUOUS FILEOUT my_model.swf.flow.csv
+# obsname    obstype         ID         ID2
+  c1c2   FLOW-JA-FACE       1 1         1 2
+END CONTINUOUS
+

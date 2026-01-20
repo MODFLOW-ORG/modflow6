@@ -206,9 +206,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
@@ -246,9 +244,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt[idx], filename=f"{name}.ic")
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=False, icelltype=laytyp, k=hk, k33=hk
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=laytyp, k=hk, k33=hk)
     # storage
     sto = flopy.mf6.ModflowGwfsto(
         gwf,
@@ -329,9 +325,7 @@ def check_output(idx, test):
     msg = f"maximum absolute total-compaction difference ({diffmax}) "
 
     # write summary
-    fpth = os.path.join(
-        test.workspace, f"{os.path.basename(test.name)}.comp.cmp.out"
-    )
+    fpth = os.path.join(test.workspace, f"{os.path.basename(test.name)}.comp.cmp.out")
     with open(fpth, "w") as f:
         line = f"{'TOTIM':>15s}"
         line += f" {'CSUB':>15s}"

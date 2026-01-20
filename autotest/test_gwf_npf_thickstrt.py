@@ -6,15 +6,15 @@ import pytest
 from framework import TestFramework
 
 cases = [
-    "gwf_npf_thickstrt01",  # case 01 -- icelltype=0
-    "gwf_npf_thickstrt02",  # case 02 -- icelltype=0, using thickstrt, but it has no effect
-    "gwf_npf_thickstrt03",  # case 03 -- icelltype=-1, using thickstrt and strt = 5.
-    "gwf_npf_thickstrt04",  # case 04 -- icelltype=1, no thickstrt and strt = 5.
-    "gwf_npf_thickstrt05",  # case 05 -- icelltype=-1, no thickstrt and strt = 5.
-    "gwf_npf_thickstrt06",  # case 06 -- icelltype=0, no thickstrt, has hfb
-    "gwf_npf_thickstrt07",  # case 07 -- icelltype=-1, using thickstrt, has hfb
-    "gwf_npf_thickstrt08",  # case 08 -- icelltype=1, no thickstrt, has hfb
-    "gwf_npf_thickstrt09",  # case 09 -- icelltype=-1, no thickstrt, has hfb
+    "gwf_npf_thickstrt01",  # icelltype=0
+    "gwf_npf_thickstrt02",  # icelltype=0, using thickstrt, but it has no effect
+    "gwf_npf_thickstrt03",  # icelltype=-1, using thickstrt and strt = 5.
+    "gwf_npf_thickstrt04",  # icelltype=1, no thickstrt and strt = 5.
+    "gwf_npf_thickstrt05",  # icelltype=-1, no thickstrt and strt = 5.
+    "gwf_npf_thickstrt06",  # icelltype=0, no thickstrt, has hfb
+    "gwf_npf_thickstrt07",  # icelltype=-1, using thickstrt, has hfb
+    "gwf_npf_thickstrt08",  # icelltype=1, no thickstrt, has hfb
+    "gwf_npf_thickstrt09",  # icelltype=-1, no thickstrt, has hfb
 ]
 thickstrt = [False, True, True, False, False, False, True, False, False]
 icelltype = [0, 0, -1, 1, -1, 0, -1, 1, -1]
@@ -51,9 +51,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.MFModel(
@@ -161,14 +159,7 @@ def check_output(idx, test):
     )
     answer_confined_thickstart_hfb = np.array(answer_confined_thickstart_hfb)
 
-    answer_unconfined_hfb = (
-        6.0,
-        5.99983342,
-        5.99966683,
-        4.00049971,
-        4.00024986,
-        4.0,
-    )
+    answer_unconfined_hfb = (6.0, 5.99983342, 5.99966683, 4.00049971, 4.00024986, 4.0)
     answer_unconfined_hfb = np.array(answer_unconfined_hfb)
 
     answer_dict = {
@@ -184,9 +175,7 @@ def check_output(idx, test):
     }
 
     hres = answer_dict[idx]
-    assert np.allclose(
-        hres, head
-    ), "simulated head do not match with known solution."
+    assert np.allclose(hres, head), "simulated head do not match with known solution."
 
     fpth = os.path.join(test.workspace, f"{name}.cbc")
     cobj = flopy.utils.CellBudgetFile(fpth, precision="double")
@@ -203,9 +192,9 @@ def check_output(idx, test):
         8: 9.9949e-04,
     }
     q_answer = q_answer_dict[idx]
-    assert np.allclose(
-        q_answer, q_simulated_inflow
-    ), "simulated flow does not match with known solution."
+    assert np.allclose(q_answer, q_simulated_inflow), (
+        "simulated flow does not match with known solution."
+    )
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

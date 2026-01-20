@@ -127,9 +127,7 @@ def get_model(idx, ws):
         sim_ws=ws,
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create iterative model solution
     ims = flopy.mf6.ModflowIms(
@@ -148,9 +146,7 @@ def get_model(idx, ws):
     )
 
     # create gwf model
-    gwf = flopy.mf6.ModflowGwf(
-        sim, modelname=name, save_flows=True, print_input=True
-    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=name, save_flows=True, print_input=True)
 
     dis = flopy.mf6.ModflowGwfdis(
         gwf,
@@ -169,9 +165,7 @@ def get_model(idx, ws):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt, filename=f"{name}.ic")
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=False, icelltype=laytyp, k=hk, k33=hk
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=laytyp, k=hk, k33=hk)
     # storage
     sto = flopy.mf6.ModflowGwfsto(
         gwf,
@@ -218,7 +212,7 @@ def get_model(idx, ws):
     )
     orecarray = {}
     orecarray["csub_obs.csv"] = [
-        ("w1l1", "interbed-compaction", "01_01_02"),
+        ("w1l1", "compaction-cell", (0, 0, 1)),
         ("w1l1t", "csub-cell", (0, 0, 1)),
     ]
     csub_obs_package = csub.obs.initialize(
@@ -271,9 +265,7 @@ def check_output(idx, test):
     msg = f"maximum absolute total-compaction difference ({diffmax}) "
 
     # write summary
-    fpth = os.path.join(
-        test.workspace, f"{os.path.basename(test.name)}.comp.cmp.out"
-    )
+    fpth = os.path.join(test.workspace, f"{os.path.basename(test.name)}.comp.cmp.out")
     with open(fpth, "w") as f:
         line = f"{'TOTIM':>15s}"
         line += f" {'CSUB':>15s}"
@@ -365,9 +357,7 @@ def cbc_compare(test):
     msg = f"maximum absolute total-budget difference ({diffmax}) "
 
     # write summary
-    fpth = os.path.join(
-        test.workspace, f"{os.path.basename(test.name)}.bud.cmp.out"
-    )
+    fpth = os.path.join(test.workspace, f"{os.path.basename(test.name)}.bud.cmp.out")
     with open(fpth, "w") as f:
         for i in range(diff.shape[0]):
             if i == 0:

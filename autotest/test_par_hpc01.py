@@ -20,6 +20,7 @@ from framework import TestFramework
 cases = [
     "par_hpc01-9cpu",
     "par_hpc01-3cpu",
+    "par_hpc01-3cpu-default",
     "par_hpc01-2cpu",
     "par_hpc01-1cpu",
 ]
@@ -28,8 +29,8 @@ cases = [
 domain_grid = (3, 3)
 
 # specified per case
-models_per_cpu = [1, 3, 5, 9]
-ncpus_cases = [9, 3, 2, 1]
+models_per_cpu = [1, 3, 3, 5, 9]
+ncpus_cases = [9, 3, 3, 2, 1]
 
 nlay = 1
 nrow = 3
@@ -83,11 +84,13 @@ def get_simulation(idx, ws):
     highest_rank = rnk
     partitions = [(n, highest_rank - r) for n, r in partitions]
 
-    hpc = flopy.mf6.ModflowUtlhpc(sim, partitions=partitions)
+    if cases[idx] == "par_hpc01-3cpu-default":
+        # apply default partitioning in this case
+        hpc = flopy.mf6.ModflowUtlhpc(sim, print_table=True)
+    else:
+        hpc = flopy.mf6.ModflowUtlhpc(sim, print_table=True, partitions=partitions)
 
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     ims = flopy.mf6.ModflowIms(
         sim,
@@ -255,32 +258,29 @@ def check_output(idx, test):
 
     ncpus = ncpus_cases[idx]
     partitions = mf6_sim.name_file.package_dict["hpc"].partitions.array
-    if ncpus > 1:
-        for name, rank in partitions:
-            model_id = mf6_sim.model_names.index(name) + 1
-            list_file = pl.Path(test.workspace, f"mfsim.p{rank}.lst")
-            success_msg = f"GWF6 model {model_id} will be created"
-            success = False
-            for line in open(list_file).readlines():
-                if success_msg in line:
-                    success = True
-                    break
-            assert (
-                success
-            ), f"Model {model_id} not created on target process {rank}"
-    elif ncpus == 1:
-        list_file = pl.Path(test.workspace, "mfsim.lst")
-        for name, rank in partitions:
-            model_id = mf6_sim.model_names.index(name) + 1
-            success_msg = f"GWF6 model {model_id} will be created"
-            success = False
-            for line in open(list_file).readlines():
-                if success_msg in line:
-                    success = True
-                    break
-            assert (
-                success
-            ), f"Model {model_id} not created on target process {rank}"
+    if cases[idx] != "par_hpc01-3cpu-default":
+        if ncpus > 1:
+            for name, rank in partitions:
+                model_id = mf6_sim.model_names.index(name) + 1
+                list_file = pl.Path(test.workspace, f"mfsim.p{rank}.lst")
+                success_msg = f"GWF6 model {model_id} will be created"
+                success = False
+                for line in open(list_file).readlines():
+                    if success_msg in line:
+                        success = True
+                        break
+                assert success, f"Model {model_id} not created on target process {rank}"
+        elif ncpus == 1:
+            list_file = pl.Path(test.workspace, "mfsim.lst")
+            for name, rank in partitions:
+                model_id = mf6_sim.model_names.index(name) + 1
+                success_msg = f"GWF6 model {model_id} will be created"
+                success = False
+                for line in open(list_file).readlines():
+                    if success_msg in line:
+                        success = True
+                        break
+                assert success, f"Model {model_id} not created on target process {rank}"
 
 
 @pytest.mark.parallel

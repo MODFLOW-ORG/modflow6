@@ -98,9 +98,6 @@ contains
     ! -- Set variables
     stoobj%inunit = inunit
     stoobj%iout = iout
-    !
-    ! -- return
-    return
   end subroutine sto_cr
 
   !> @ brief Allocate and read method for package
@@ -148,9 +145,6 @@ contains
     if (this%intvs /= 0) then
       call this%tvs%ar(this%dis)
     end if
-    !
-    ! -- return
-    return
   end subroutine sto_ar
 
   !> @ brief Read and prepare method for package
@@ -204,9 +198,6 @@ contains
     if (this%intvs /= 0) then
       call this%tvs%rp()
     end if
-    !
-    ! -- return
-    return
   end subroutine sto_rp
 
   !> @ brief Advance the package
@@ -229,9 +220,6 @@ contains
     if (this%intvs /= 0) then
       call this%tvs%ad()
     end if
-    !
-    ! -- return
-    return
   end subroutine sto_ad
 
   !> @ brief Fill A and right-hand side for the package
@@ -365,9 +353,6 @@ contains
         rhs(n) = rhs(n) + rhsterm
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine sto_fc
 
   !> @ brief Fill Newton-Raphson terms in A and right-hand side for the package
@@ -470,9 +455,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine sto_fn
 
   !> @ brief Calculate flows for package
@@ -606,9 +588,6 @@ contains
         flowja(idiag) = flowja(idiag) + rate
       end do
     end if
-    !
-    ! -- return
-    return
   end subroutine sto_cq
 
   !> @ brief Model budget calculation for package
@@ -640,9 +619,6 @@ contains
       call model_budget%addentry(rin, rout, delt, budtxt(2), &
                                  isuppress_output, '         STORAGE')
     end if
-    !
-    ! -- return
-    return
   end subroutine sto_bd
 
   !> @ brief Save model flows for package
@@ -688,9 +664,6 @@ contains
                                    nwidthp, editdesc, dinact)
       end if
     end if
-    !
-    ! -- return
-    return
   end subroutine sto_save_model_flows
 
   !> @ brief Deallocate package memory
@@ -742,9 +715,6 @@ contains
     !
     ! -- deallocate parent
     call this%NumericalPackageType%da()
-    !
-    ! -- return
-    return
   end subroutine sto_da
 
   !> @ brief Allocate scalars
@@ -780,9 +750,6 @@ contains
     this%satomega = DZERO
     this%integratechanges = 0
     this%intvs = 0
-    !
-    ! -- return
-    return
   end subroutine allocate_scalars
 
   !> @ brief Allocate package arrays
@@ -827,9 +794,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine allocate_arrays
 
   !> @ brief Source input options for package
@@ -890,9 +854,6 @@ contains
     if (this%inewton > 0) then
       this%satomega = DEM6
     end if
-    !
-    ! -- return
-    return
   end subroutine source_options
 
   !> @ brief Log found options for package
@@ -947,9 +908,6 @@ contains
     end if
     !
     write (this%iout, '(1x,a)') 'END OF STORAGE OPTIONS'
-    !
-    ! -- return
-    return
   end subroutine log_options
 
   !> @ brief Source input data for package
@@ -1045,9 +1003,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine source_data
 
   !> @ brief Save old storage property values
@@ -1083,9 +1038,6 @@ contains
         this%oldsy(n) = this%sy(n)
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine save_old_ss_sy
 
   subroutine set_storage_extension(this, sto_ext)

@@ -107,9 +107,6 @@ contains
     xt3dobj%inunit = inunit
     xt3dobj%iout = iout
     if (present(ldispopt)) xt3dobj%ldispersion = ldispopt
-    !
-    ! -- Return
-    return
   end subroutine xt3d_cr
 
   !> @brief Define the xt3d object
@@ -120,9 +117,6 @@ contains
     class(DisBaseType), pointer, intent(inout) :: dis
     !
     this%dis => dis
-    !
-    ! -- Return
-    return
   end subroutine xt3d_df
 
   !> @brief Add connections for extended neighbors to the sparse matrix
@@ -190,9 +184,6 @@ contains
       call mem_allocate(this%ia_xt3d, 0, 'IA_XT3D', trim(this%memoryPath))
       call mem_allocate(this%ja_xt3d, 0, 'JA_XT3D', trim(this%memoryPath))
     end if
-    !
-    ! -- Return
-    return
   end subroutine xt3d_ac
 
   !> @brief Map connections and construct iax, jax, and idxglox
@@ -277,9 +268,6 @@ contains
       call mem_allocate(this%idxglox, 0, 'IDXGLOX', trim(this%memoryPath))
       !
     end if
-    !
-    ! -- Return
-    return
   end subroutine xt3d_mc
 
   !> @brief Allocate and Read
@@ -377,9 +365,6 @@ contains
     ! -- permanently confined connections
     if (this%lamatsaved .and. .not. this%ldispersion) &
       call this%xt3d_fcpc(this%dis%nodes, .true.)
-    !
-    ! -- Return
-    return
   end subroutine xt3d_ar
 
   !> @brief Formulate
@@ -506,9 +491,6 @@ contains
         !
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_fc
 
   !> @brief Formulate for permanently confined connections and save in amatpc
@@ -587,9 +569,6 @@ contains
         call this%xt3d_amatpcx_nbrnbrs(nodes, m, n, ii10, nnbr0, inbr0, chati0)
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_fcpc
 
   !> @brief Formulate HFB correction
@@ -708,9 +687,6 @@ contains
       call this%xt3d_rhs(nodes, n, m, nnbr0, inbr0, chati0, hnew, rhs)
       call this%xt3d_rhs(nodes, m, n, nnbr1, inbr1, chat1j, hnew, rhs)
     end if
-    !
-    ! -- Return
-    return
   end subroutine xt3d_fhfb
 
   !> @brief Fill Newton terms for xt3d
@@ -814,9 +790,6 @@ contains
         end if
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_fn
 
   !> @brief Budget
@@ -897,9 +870,6 @@ contains
         flowja(this%dis%con%isym(ipos)) = flowja(this%dis%con%isym(ipos)) - qnm
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_flowja
 
   !> @brief hfb contribution to flowja when xt3d is used
@@ -1004,9 +974,6 @@ contains
     ipos = ii01
     flowja(ipos) = flowja(ipos) + qnm
     flowja(this%dis%con%isym(ipos)) = flowja(this%dis%con%isym(ipos)) - qnm
-    !
-    ! -- Return
-    return
   end subroutine xt3d_flowjahfb
 
   !> @brief Deallocate variables
@@ -1042,9 +1009,6 @@ contains
     call mem_deallocate(this%lamatsaved)
     call mem_deallocate(this%nbrmax)
     call mem_deallocate(this%ldispersion)
-    !
-    ! -- Return
-    return
   end subroutine xt3d_da
 
   !> @brief Allocate scalar pointer variables
@@ -1078,9 +1042,6 @@ contains
     this%vcthresh = 1.d-10
     this%lamatsaved = .false.
     this%ldispersion = .false.
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @brief Allocate xt3d arrays
@@ -1142,15 +1103,12 @@ contains
       this%amatpc = DZERO
       this%amatpcx = DZERO
     end if
-    !
-    ! -- Return
-    return
   end subroutine allocate_arrays
 
   !> @brief Allocate and populate iallpc array. Set lamatsaved.
   subroutine xt3d_iallpc(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate, mem_deallocate
+    use MemoryManagerModule, only: mem_allocate, mem_reallocate
     ! -- dummy
     class(Xt3dType) :: this
     ! -- local
@@ -1212,12 +1170,10 @@ contains
     end if
     !
     if (.not. this%lamatsaved) then
-      call mem_deallocate(this%iallpc)
-      call mem_allocate(this%iallpc, 0, 'IALLPC', this%memoryPath)
+      ! there are no permanently confined connections so deallocate iallpc
+      ! in order to save memory
+      call mem_reallocate(this%iallpc, 0, 'IALLPC', this%memoryPath)
     end if
-    !
-    ! -- Return
-    return
   end subroutine xt3d_iallpc
 
   !> @brief Set various indices for XT3D.
@@ -1247,9 +1203,6 @@ contains
     ii11 = this%dis%con%ia(m)
     ! -- Set index of node 1-0 connection in the ja array.
     ii10 = ii11 + il10
-    !
-    ! -- Return
-    return
   end subroutine xt3d_indices
 
   !> @brief Load conductivity and connection info for a cell into arrays used
@@ -1317,9 +1270,6 @@ contains
         inbr(il) = 0
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_load
 
   !> @brief Load neighbor list for a cell.
@@ -1343,9 +1293,6 @@ contains
         inbr(il) = 0
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_load_inbr
 
   !> @brief Compute interfacial areas.
@@ -1428,9 +1375,6 @@ contains
       ar01 = this%dis%con%hwva(jjs01) * thksatn
       ar10 = this%dis%con%hwva(jjs01) * thksatm
     end if
-    !
-    ! -- Return
-    return
   end subroutine xt3d_areas
 
   !> @brief Add contributions from neighbors to amat.
@@ -1455,9 +1399,6 @@ contains
         call matrix_sln%add_value_pos(idxglo(iii), chat(iil))
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_amat_nbrs
 
   !> @brief Add contributions from neighbors of neighbor to amat.
@@ -1489,9 +1430,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_amat_nbrnbrs
 
   !> @brief Add contributions from neighbors to amatpc.
@@ -1511,9 +1449,6 @@ contains
       this%amatpc(idiag) = this%amatpc(idiag) - chat(iil)
       this%amatpc(iii) = this%amatpc(iii) + chat(iil)
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_amatpc_nbrs
 
   !> @brief Add contributions from neighbors of neighbor to amatpc and amatpcx
@@ -1540,9 +1475,6 @@ contains
         this%amatpc(iijjj) = this%amatpc(iijjj) - chat(iil)
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_amatpcx_nbrnbrs
 
   !> @brief Get position of n-m connection in ja array (return 0 if not
@@ -1563,9 +1495,6 @@ contains
         exit
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_get_iinm
 
   !> @brief Get position of n-m "extended connection" in jax array (return 0 if
@@ -1586,9 +1515,6 @@ contains
         exit
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_get_iinmx
 
   !> @brief Add contributions to rhs.
@@ -1615,9 +1541,6 @@ contains
         rhs(m) = rhs(m) + term
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_rhs
 
   !> @brief Add contributions to flow from neighbors
@@ -1645,9 +1568,6 @@ contains
         qnbrs = qnbrs + term
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine xt3d_qnbrs
 
   !> @brief Fill rmat array for cell n.
@@ -1688,9 +1608,6 @@ contains
     this%rmatck(3, 1) = s2
     this%rmatck(3, 2) = -c2 * s3
     this%rmatck(3, 3) = c2 * c3
-    !
-    ! -- Return
-    return
   end subroutine xt3d_fillrmatck
 
 end module Xt3dModule

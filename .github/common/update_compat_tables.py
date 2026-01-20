@@ -27,7 +27,7 @@ with open(compat_path, "r") as compat:
     ct = (
         "<!-- "
         + name
-        + " compat starts -->{}<!-- ".format("\n{}\n".format(table))
+        + " compat starts -->{}<!-- ".format(f"\n{table}\n")
         + name
         + " compat ends -->"
     )

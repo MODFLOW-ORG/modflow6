@@ -163,9 +163,6 @@ contains
       write (iout, '(4x,2a)') 'Interface model coupling approach manually &
         &activated for ', trim(this%name)
     end if
-    !
-    ! -- Return
-    return
   end subroutine source_options
 
   !> @brief Source dimension from input context
@@ -189,9 +186,6 @@ contains
     end if
     !
     write (iout, '(1x,a)') 'END OF EXCHANGE DIMENSIONS'
-    !
-    ! -- return
-    return
   end subroutine source_dimensions
 
   !> @brief Returns reduced node number from user
@@ -219,9 +213,6 @@ contains
                       model%dis%mshape(3))
     end if
     noder = model%dis%get_nodenumber(node, 0)
-    !
-    ! -- return
-    return
   end function noder
 
   !> @brief
@@ -252,9 +243,6 @@ contains
       write (cellstr, fmtndim3) cellid(1), cellid(2), cellid(3)
     case default
     end select
-    !
-    ! -- return
-    return
   end function cellstr
 
   !> @brief Source exchange data from input context
@@ -400,9 +388,6 @@ contains
       call store_error('Errors encountered in exchange input file.')
       call store_error_filename(this%filename)
     end if
-    !
-    ! -- Return
-    return
   end subroutine source_data
 
   !> @brief Allocate scalars and initialize to defaults
@@ -443,9 +428,6 @@ contains
     this%inamedbound = 0
     !
     this%dev_ifmod_on = .false.
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @brief Allocate array data, using the number of
@@ -472,9 +454,6 @@ contains
       allocate (this%boundname(1))
     end if
     this%boundname(:) = ''
-    !
-    ! -- Return
-    return
   end subroutine allocate_arrays
 
   !> @brief Should interface model be used to handle these
@@ -489,9 +468,6 @@ contains
     !
     ! use im when one of the models is not local
     use_im = .not. (this%v_model1%is_local .and. this%v_model2%is_local)
-    !
-    ! -- Return
-    return
   end function use_interface_model
 
   !> @brief Clean up all scalars and arrays
@@ -526,9 +502,6 @@ contains
     call mem_deallocate(this%ipakcb)
     call mem_deallocate(this%inamedbound)
     call mem_deallocate(this%dev_ifmod_on)
-    !
-    ! -- Return
-    return
   end subroutine disconnex_da
 
   function CastAsDisConnExchangeClass(obj) result(res)
@@ -545,9 +518,6 @@ contains
     class is (DisConnExchangeType)
       res => obj
     end select
-    !
-    ! -- Return
-    return
   end function CastAsDisConnExchangeClass
 
   subroutine AddDisConnExchangeToList(list, exchange)
@@ -560,9 +530,6 @@ contains
     !
     obj => exchange
     call list%Add(obj)
-    !
-    ! -- Return
-    return
   end subroutine AddDisConnExchangeToList
 
   function GetDisConnExchangeFromList(list, idx) result(res)
@@ -577,9 +544,6 @@ contains
     !
     obj => list%GetItem(idx)
     res => CastAsDisConnExchangeClass(obj)
-    !
-    ! -- Return
-    return
   end function GetDisConnExchangeFromList
 
 end module DisConnExchangeModule

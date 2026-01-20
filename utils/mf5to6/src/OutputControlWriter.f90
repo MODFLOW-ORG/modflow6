@@ -9,7 +9,7 @@ module OutputControlWriterModule
   use GwfBasOcSubsModule, only: GWF2BAS7OC
   use LineListModule, only: LineListType
   use PackageWriterModule, only: PackageWriterType
-  use SimModule, only: store_error, store_note, ustop
+  use SimPHMFModule, only: store_error, store_note, ustop
 
   integer, parameter :: UNASSIGNED = -99
   integer, parameter :: BUDGET   = 1

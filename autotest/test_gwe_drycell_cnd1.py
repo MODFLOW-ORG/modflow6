@@ -62,7 +62,8 @@ scheme = "UPSTREAM"
 cases = [
     "drycell2-a",  # 2-cell model, horizontally connected with tops and bots aligned
     "drycell2-b",  # 2-cell model, vertically connected
-    "drycell2-c",  # 2-cell model, horizontally connected with staggered alignment (reduced shared cell face area)
+    "drycell2-c",  # 2-cell model, horizontally connected with staggered alignment
+    #                              (reduced shared cell face area)
 ]
 
 conn_types = (
@@ -133,6 +134,8 @@ dispersivity = 0.0  # dispersion (remember, 1D model)
 rhow = 1000.0
 cpw = 4183.0
 lhv = 2454.0
+cps = 760.0
+rhos = 1500.0
 
 # Set solver parameter values (and related)
 nouter, ninner = 100, 300
@@ -167,9 +170,7 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 time discretization
-    flopy.mf6.ModflowTdis(
-        sim, nper=nper, perioddata=tdis_rc, time_units=time_units
-    )
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=tdis_rc, time_units=time_units)
 
     # Instantiating MODFLOW 6 groundwater flow model
     gwf = flopy.mf6.ModflowGwf(
@@ -324,7 +325,8 @@ def build_models(idx, test):
         filename=f"{gwename1}.cnd",
     )
 
-    # Instantiating MODFLOW 6 transport mass storage package (formerly "reaction" package in MT3DMS)
+    # Instantiating MODFLOW 6 transport mass storage package
+    # (formerly "reaction" package in MT3DMS)
     flopy.mf6.ModflowGweest(
         gwe1,
         save_flows=True,
@@ -332,8 +334,8 @@ def build_models(idx, test):
         heat_capacity_water=cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=760.0,
-        rhos=1500.0,
+        heat_capacity_solid=cps,
+        density_solid=rhos,
         pname="EST-2",
         filename=f"{gwename1}.est",
     )
@@ -344,9 +346,7 @@ def build_models(idx, test):
         pname="OC-2",
         budget_filerecord=f"{gwename1}.cbc",
         temperature_filerecord=f"{gwename1}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
     )
@@ -424,9 +424,7 @@ def check_output(idx, test):
 
     try:
         # load temperatures
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="TEMPERATURE"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="TEMPERATURE")
         conc1 = cobj.get_alldata()
     except:
         assert False, f'could not load temperature data from "{fpth}"'
@@ -453,7 +451,8 @@ def check_output(idx, test):
     assert isMonotonic(np.diff(conc1[12:, 0, 0, 0])), msg3
     assert isMonotonic(np.diff(conc1[12:, idxl, idxr, idxc])), msg2
 
-    # Ensure that the equilibrated temperature is half the starting difference between the cells
+    # Ensure that the equilibrated temperature is half the starting difference
+    # between the cells
     msg4 = (
         "The final equilibrated cell temperature does not split the "
         "difference of the starting temperature"

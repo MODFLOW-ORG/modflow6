@@ -55,9 +55,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -142,7 +140,9 @@ def build_models(idx, test):
         filename=f"{gwfname}.wel",
     )
 
-    nlakeconn = 1  # note: this is the number of connectiosn for a lake, not total number of connections
+    # note: this is the number of connections for a lake,
+    # not total number of connections
+    nlakeconn = 1
     # pak_data = [ifno, strt, nlakeconn, CONC, dense, boundname]
     pak_data = [
         (0, 1.0, nlakeconn, 0.0, 1025.0),
@@ -152,12 +152,8 @@ def build_models(idx, test):
     connlen = connwidth = delr / 2.0
     con_data = []
     # con_data=(ifno,iconn,(cellid),claktype,bedleak,belev,telev,connlen,connwidth )
-    con_data.append(
-        (0, 0, (0, 0, 0), "VERTICAL", 0.0, 0, 0, connlen, connwidth)
-    )
-    con_data.append(
-        (1, 0, (0, 0, ncol - 1), "VERTICAL", 0.0, 0, 0, connlen, connwidth)
-    )
+    con_data.append((0, 0, (0, 0, 0), "VERTICAL", 0.0, 0, 0, connlen, connwidth))
+    con_data.append((1, 0, (0, 0, ncol - 1), "VERTICAL", 0.0, 0, 0, connlen, connwidth))
     p_data = [
         (0, "STATUS", "CONSTANT"),
         (0, "STAGE", 1.0),
@@ -197,7 +193,8 @@ def build_models(idx, test):
         auxiliary=["CONCENTRATION", "DENSITY"],
     )
 
-    # pak_data = [<rno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> <man> <ncon> <ustrf> <ndv> [<aux(naux)>] [<boundname>]]
+    # pak_data = [<rno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> ...
+    #             <man> <ncon> <ustrf> <ndv> [<aux(naux)>] [<boundname>]]
     rlen = delr
     rwid = delc
     rgrd = 1.0
@@ -214,20 +211,7 @@ def build_models(idx, test):
         if irno in [0, ncol - 1]:
             ncon = 1
         cellid = (0, 0, irno)
-        t = (
-            irno,
-            cellid,
-            rlen,
-            rwid,
-            rgrd,
-            rtp,
-            rbth,
-            rhk,
-            rman,
-            ncon,
-            ustrf,
-            ndv,
-        )
+        t = (irno, cellid, rlen, rwid, rgrd, rtp, rbth, rhk, rman, ncon, ustrf, ndv)
         pak_data.append(t)
 
     con_data = []
@@ -345,15 +329,11 @@ def build_models(idx, test):
     )
 
     # advection
-    adv = flopy.mf6.ModflowGwtadv(
-        gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv"
-    )
+    adv = flopy.mf6.ModflowGwtadv(gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv")
 
     # storage
     porosity = 1.0
-    sto = flopy.mf6.ModflowGwtmst(
-        gwt, porosity=porosity, filename=f"{gwtname}.sto"
-    )
+    sto = flopy.mf6.ModflowGwtmst(gwt, porosity=porosity, filename=f"{gwtname}.sto")
     # sources
     sourcerecarray = [
         ("CHD-1", "AUX", "CONCENTRATION"),
@@ -463,9 +443,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -511,9 +489,7 @@ def check_output(idx, test):
     # compare observation concs with binary file concs
     for i in range(7):
         oname = f"SFT{i + 1}CONC"
-        assert np.allclose(
-            tc[oname][-1], csft[i]
-        ), f"{tc[oname][-1]} {csft[i]}"
+        assert np.allclose(tc[oname][-1], csft[i]), f"{tc[oname][-1]} {csft[i]}"
 
     # load the sft budget file
     fname = gwtname + ".sft.bud"
@@ -524,7 +500,8 @@ def check_output(idx, test):
     res = bobj.get_data(text="flow-ja-face")[-1]
     # print(res)
 
-    # check the storage terms, which include the total mass in the reach as an aux variable
+    # check the storage terms, which include the total mass in the reach
+    # as an aux variable
     res = bobj.get_data(text="storage")[-1]
     # print(res)
 
@@ -537,9 +514,7 @@ def check_output(idx, test):
     )
     names = list(bud_lst)
     d0 = budl.get_budget(names=names)[0]
-    errmsg = (
-        f"SFR-1_OUT NOT EQUAL LAK-1_IN\n{d0['SFR-1_OUT']}\n{d0['LAK-1_IN']}"
-    )
+    errmsg = f"SFR-1_OUT NOT EQUAL LAK-1_IN\n{d0['SFR-1_OUT']}\n{d0['LAK-1_IN']}"
     assert np.allclose(d0["SFR-1_OUT"], d0["LAK-1_IN"])
 
 

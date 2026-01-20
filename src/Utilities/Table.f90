@@ -104,9 +104,6 @@ contains
     ! -- initialize variables
     this%name = name
     this%title = title
-    !
-    ! -- Return
-    return
   end subroutine table_cr
 
   !< @brief Define the new table object
@@ -179,9 +176,6 @@ contains
     this%ntableterm = ntableterm
     this%ientry = 0
     this%icount = 0
-    !
-    ! -- return
-    return
   end subroutine table_df
 
   !< @brief Initialize data for a column
@@ -228,9 +222,6 @@ contains
       ! -- reset ientry
       this%ientry = 0
     end if
-    !
-    ! -- return
-    return
   end subroutine initialize_column
 
   !< @brief Set the table object header
@@ -304,9 +295,6 @@ contains
         end if
       end do
     end do
-    !
-    ! -- return
-    return
   end subroutine set_header
 
   !< @brief Allocate allocatable character arrays
@@ -351,9 +339,6 @@ contains
       this%header(1) = linesep(1:width)
       this%header(nlines + 2) = linesep(1:width)
     end if
-    !
-    ! -- return
-    return
   end subroutine allocate_strings
 
   !< @brief Write the table header
@@ -392,9 +377,6 @@ contains
     this%first_entry = .FALSE.
     this%ientry = 0
     this%icount = 0
-    !
-    ! -- return
-    return
   end subroutine write_header
 
   !< @brief Write the data line
@@ -416,9 +398,6 @@ contains
     this%ientry = 0
     this%iloc = 1
     this%icount = this%icount + 1
-    !
-    ! -- return
-    return
   end subroutine write_line
 
   !< @brief Private method that test for last line. If last line the
@@ -434,9 +413,6 @@ contains
     if (this%icount == this%maxbound) then
       call this%finalize_table()
     end if
-    !
-    ! -- return
-    return
   end subroutine finalize
 
   !< @brief Public method to finalize the table
@@ -455,9 +431,6 @@ contains
     !
     ! -- reinitialize variables
     call this%reset()
-    !
-    ! -- return
-    return
   end subroutine finalize_table
 
   !< @brief deallocate
@@ -501,9 +474,6 @@ contains
     deallocate (this%ientry)
     deallocate (this%iloc)
     deallocate (this%icount)
-    !
-    ! -- Return
-    return
   end subroutine table_da
 
   !< @brief convert a line to the correct number of columns
@@ -545,9 +515,6 @@ contains
     !
     ! -- clean up local allocatable array
     deallocate (words)
-    !
-    ! -- Return
-    return
   end subroutine line_to_columns
 
   !< @brief evaluate if error condition occurs when adding data to dataline
@@ -566,9 +533,6 @@ contains
         ') that only has', this%ntableterm, 'columns.'
       call store_error(errmsg, terminate=.TRUE.)
     end if
-    !
-    ! -- Return
-    return
   end subroutine add_error
 
   !< @brief add integer value to the dataline
@@ -632,9 +596,6 @@ contains
     if (this%allow_finalization) then
       call this%finalize()
     end if
-    !
-    ! -- Return
-    return
   end subroutine add_integer
 
   !< @brief add long integer value to the dataline
@@ -700,9 +661,6 @@ contains
     if (this%allow_finalization) then
       call this%finalize()
     end if
-    !
-    ! -- Return
-    return
   end subroutine add_long_integer
 
   !< @brief add real value to the dataline
@@ -773,9 +731,6 @@ contains
         call this%finalize()
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine add_real
 
   !< @brief add string value to the dataline
@@ -840,9 +795,6 @@ contains
     if (this%allow_finalization) then
       call this%finalize()
     end if
-    !
-    ! -- Return
-    return
   end subroutine add_string
 
   !< @brief reset maxbound
@@ -859,9 +811,6 @@ contains
     !
     ! -- reset counters
     call this%reset()
-    !
-    ! -- return
-    return
   end subroutine set_maxbound
 
   !< @brief reset kstp and kper
@@ -877,9 +826,6 @@ contains
     ! -- set maxbound
     this%kstp = kstp
     this%kper = kper
-    !
-    ! -- return
-    return
   end subroutine set_kstpkper
 
   !< @brief reset title
@@ -893,9 +839,6 @@ contains
     !
     ! -- set maxbound
     this%title = title
-    !
-    ! -- return
-    return
   end subroutine set_title
 
   !< @brief reset iout
@@ -909,9 +852,6 @@ contains
     !
     ! -- set iout
     this%iout = iout
-    !
-    ! -- return
-    return
   end subroutine set_iout
 
   !< @brief print list entry
@@ -933,9 +873,6 @@ contains
     if (this%ntableterm > 3) then
       call this%add_term(bname)
     end if
-    !
-    ! -- return
-    return
   end subroutine print_list_entry
 
   !< @brief print separator
@@ -967,9 +904,6 @@ contains
         write (this%iout, '(/)')
       end do
     end if
-    !
-    ! -- return
-    return
   end subroutine print_separator
 
   !< @brief Private method to reset table counters
@@ -984,9 +918,6 @@ contains
     this%ientry = 0
     this%icount = 0
     this%first_entry = .TRUE.
-    !
-    ! -- return
-    return
   end subroutine reset
 
 end module TableModule

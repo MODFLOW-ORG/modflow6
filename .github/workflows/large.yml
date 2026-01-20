@@ -19,8 +19,8 @@ jobs:
         include:
           # this combo is for windows parallel oneapi components (compilers + mkl/mpi) and petsc
           - {os: windows-2022, compiler: intel, version: 2024.0}
-          # ifort 2021.7 currently used for all other CI testing
-          - {os: windows-2022, compiler: intel-classic, version: 2021.7}
+          # ifort 2021.6 currently used for all other CI testing
+          - {os: windows-2022, compiler: intel-classic, version: 2021.6}
     steps:
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
         if: (!(matrix.compiler == 'intel' && matrix.version == '2024.0'))
@@ -32,7 +32,7 @@ jobs:
       # cache oneapi and petsc for mf6 parallel
       - name: Checkout modflow6
         if: matrix.compiler == 'intel' && matrix.version == '2024.0'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: modflow6
       - name: Cache oneAPI and PETSc
@@ -46,7 +46,7 @@ jobs:
       matrix:
         include:
           - {compiler: gcc, version: 13}
-          - {compiler: intel-classic, version: 2021.7}
+          - {compiler: intel-classic, version: 2021.6}
     defaults:
       run:
         shell: bash -l {0}
@@ -56,20 +56,20 @@ jobs:
         uses: jlumbroso/free-disk-space@main
 
       - name: Checkout modflow6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: modflow6
 
-      - name: Checkout modflow6-largetestmodels
-        uses: actions/checkout@v4
+      - name: Checkout large test models
+        uses: actions/checkout@v6
         with:
-          repository: MODFLOW-USGS/modflow6-largetestmodels
+          repository: MODFLOW-ORG/modflow6-largetestmodels
           path: modflow6-largetestmodels
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.8.1
+        uses: prefix-dev/setup-pixi@v0.9.3
         with:
-          pixi-version: v0.24.2
+          pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -87,6 +87,8 @@ jobs:
         run: |
           pixi run setup builddir
           pixi run build builddir
+          pixi run setup-mf5to6 builddir
+          pixi run build-mf5to6 builddir
 
       - name: Get executables
         working-directory: modflow6
@@ -100,11 +102,11 @@ jobs:
 
       - name: Run tests
         working-directory: modflow6
-        run: pixi run autotest test_largetestmodels.py
+        run: pixi run autotest -m "external" --models-path ../../modflow6-largetestmodels
       
       - name: Upload failed test output
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: failed-${{ runner.os }}-${{ matrix.compiler }}-${{ matrix.version }}
           path: modflow6/autotest/.failed

@@ -79,9 +79,11 @@ module GweUzeModule
     procedure :: pak_rp_obs => uze_rp_obs
     procedure :: pak_bd_obs => uze_bd_obs
     procedure :: pak_set_stressperiod => uze_set_stressperiod
+    procedure :: apt_ad_chk => uze_ad_chk
     procedure :: bnd_ac => uze_ac
     procedure :: bnd_mc => uze_mc
     procedure :: get_mvr_depvar
+    procedure, private :: area_error
 
   end type GweUzeType
 
@@ -146,9 +148,6 @@ contains
     uzeobj%depvartype = dvt
     uzeobj%depvarunit = dvu
     uzeobj%depvarunitabbrev = dvua
-    !
-    ! -- Return
-    return
   end subroutine uze_create
 
   !> @brief Find corresponding uze package
@@ -156,10 +155,10 @@ contains
   subroutine find_uze_package(this)
     ! -- modules
     use MemoryManagerModule, only: mem_allocate
+    use SimVariablesModule, only: errmsg
     ! -- dummy
     class(GweUzeType) :: this
     ! -- local
-    character(len=LINELENGTH) :: errmsg
     class(BndType), pointer :: packobj
     integer(I4B) :: ip, icount
     integer(I4B) :: nbudterm
@@ -174,7 +173,9 @@ contains
     !    budobj
     if (this%fmi%flows_from_file) then
       call this%fmi%set_aptbudobj_pointer(this%flowpackagename, this%flowbudptr)
-      if (associated(this%flowbudptr)) found = .true.
+      if (associated(this%flowbudptr)) then
+        found = .true.
+      end if
       !
     else
       if (associated(this%fmi%gwfbndlist)) then
@@ -266,9 +267,6 @@ contains
     !
     ! -- Thermal equilibration term
     this%idxbudtheq = this%flowbudptr%nbudterm + 1
-    !
-    ! -- Return
-    return
   end subroutine find_uze_package
 
   !> @brief Add package connection to matrix.
@@ -340,9 +338,6 @@ contains
         end do
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine uze_ac
 
   !> @brief Map package connection to matrix
@@ -430,9 +425,6 @@ contains
         end do
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine uze_mc
 
   !> @brief Add matrix terms related to UZE
@@ -573,9 +565,6 @@ contains
                                       (DONE - omega) * qbnd * this%eqnsclfac)
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine uze_fc_expanded
 
   !> @brief Explicit solve
@@ -622,9 +611,6 @@ contains
         this%dbuff(n1) = this%dbuff(n1) + rrate
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine uze_solve
 
   !> @brief Return the number of UZE-specific budget terms
@@ -645,9 +631,6 @@ contains
     if (this%idxbuduzet /= 0) nbudterms = nbudterms + 1
     if (this%idxbudritm /= 0) nbudterms = nbudterms + 1
     if (this%idxbudtheq /= 0) nbudterms = nbudterms + 1
-    !
-    ! -- Return
-    return
   end function uze_get_nbudterms
 
   !> @brief Override similarly named function in APT
@@ -750,9 +733,6 @@ contains
                                              this%packName, &
                                              maxlist, .false., .false., &
                                              naux)
-    !
-    ! -- Return
-    return
   end subroutine uze_setup_budobj
 
   !> @brief Fill UZE budget object
@@ -926,9 +906,6 @@ contains
     end do
     !
     deallocate (budresid)
-    !
-    ! -- Return
-    return
   end subroutine uze_fill_budobj
 
   !> @brief Allocate scalars
@@ -958,9 +935,6 @@ contains
     this%idxbuduzet = 0
     this%idxbudritm = 0
     this%idxbudtheq = 0
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @brief Allocate arrays
@@ -987,9 +961,6 @@ contains
       this%tempinfl(n) = DZERO
       this%tempuzet(n) = DZERO
     end do
-    !
-    ! -- Return
-    return
   end subroutine uze_allocate_arrays
 
   !> @brief Deallocate memory
@@ -1013,9 +984,6 @@ contains
     !
     ! -- Deallocate scalars in TspAptType
     call this%TspAptType%bnd_da()
-    !
-    ! -- Return
-    return
   end subroutine uze_da
 
   !> @brief Infiltration term
@@ -1055,9 +1023,6 @@ contains
     if (present(rrate)) rrate = qbnd * ctmp * this%eqnsclfac
     if (present(rhsval)) rhsval = r * this%eqnsclfac
     if (present(hcofval)) hcofval = h * this%eqnsclfac
-    !
-    ! -- Return
-    return
   end subroutine uze_infl_term
 
   !> @brief Rejected infiltration term
@@ -1088,9 +1053,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd * this%eqnsclfac
     if (present(rhsval)) rhsval = DZERO
     if (present(hcofval)) hcofval = qbnd * this%eqnsclfac
-    !
-    ! -- Return
-    return
   end subroutine uze_rinf_term
 
   !> @brief Evapotranspiration from the unsaturated-zone term
@@ -1128,9 +1090,6 @@ contains
                (DONE - omega) * qbnd * ctmp) * this%eqnsclfac
     if (present(rhsval)) rhsval = -(DONE - omega) * qbnd * ctmp * this%eqnsclfac
     if (present(hcofval)) hcofval = omega * qbnd * this%eqnsclfac
-    !
-    ! -- Return
-    return
   end subroutine uze_uzet_term
 
   !> @brief Rejected infiltration to MVR/MVT term
@@ -1161,9 +1120,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd * this%eqnsclfac
     if (present(rhsval)) rhsval = DZERO
     if (present(hcofval)) hcofval = qbnd * this%eqnsclfac
-    !
-    ! -- Return
-    return
   end subroutine uze_ritm_term
 
   !> @brief Heat transferred through thermal equilibrium with the solid phase
@@ -1201,9 +1157,6 @@ contains
       end do
     end if
     rrate = r
-    !
-    ! -- Return
-    return
   end subroutine uze_theq_term
 
   !> @brief Define UZE Observation
@@ -1276,9 +1229,6 @@ contains
     !    for observation type.
     call this%obs%StoreObsType('thermal-equil', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-    !
-    ! -- Return
-    return
   end subroutine uze_df_obs
 
   !> @brief Process package specific obs
@@ -1306,8 +1256,6 @@ contains
     case default
       found = .false.
     end select
-    !
-    return
   end subroutine uze_rp_obs
 
   !> @brief Calculate observation value and pass it back to APT
@@ -1347,10 +1295,67 @@ contains
     case default
       found = .false.
     end select
-    !
-    ! -- Return
-    return
   end subroutine uze_bd_obs
+
+  !> @brief Check if UZF object area is not equal to the cell area
+  !!
+  !! GWE equilibrates the temperature of a UZE object with the host cell. UZE
+  !! assumes that the area associated with a specific UZE object is equal to
+  !! the area of the host cell. When this condition is not true, the code
+  !! exits with an appropriate message.
+  !<
+  subroutine uze_ad_chk(this)
+    ! -- modules
+    use ConstantsModule, only: IZERO
+    use MathUtilModule, only: is_close
+    use SimModule, only: count_errors
+    ! -- dummy
+    class(GweUzeType), intent(inout) :: this
+    ! -- local
+    integer(I4B) :: nuz
+    integer(I4B) :: n
+    integer(I4B) :: igwfnode
+    real(DP) :: carea
+    real(DP) :: uzarea
+
+    nuz = this%flowbudptr%budterm(this%idxbudgwf)%maxlist
+
+    ! cycle through uze objects, stop at first occurrence of more than one
+    ! uze object in a cell
+    do n = 1, nuz
+      igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(n)
+      carea = this%dis%area(igwfnode)
+      uzarea = this%flowbudptr%budterm(this%idxbudgwf)%auxvar(1, n)
+      ! compare areas
+      if (.not. is_close(carea, uzarea)) then
+        call this%area_error(igwfnode)
+      end if
+    end do
+    if (count_errors() > 0) then
+      call this%parser%StoreErrorUnit()
+    end if
+  end subroutine uze_ad_chk
+
+  !> @brief Print and store error msg indicating area of UZF object is not
+  !! equal to that of the host cell
+  !<
+  subroutine area_error(this, iloc)
+    ! -- modules
+    use SimVariablesModule, only: errmsg
+    ! -- dummy
+    class(GweUzeType) :: this
+    integer(I4B) :: iloc
+    ! -- local
+    character(len=30) :: nodestr
+    !
+    call this%dis%noder_to_string(iloc, nodestr)
+    write (errmsg, '(3a)') &
+      'In a GWE model, the area of every UZF object must be equal to that of &
+      &the host cell. This condition is violated in cell ', &
+       trim(adjustl(nodestr)), '. Check use of AUXMULTNAME option in UZF &
+      &package.'
+    call store_error(errmsg)
+  end subroutine area_error
 
   !> @brief Sets the stress period attributes for keyword use.
   !<
@@ -1402,9 +1407,6 @@ contains
     end select
     !
 999 continue
-    !
-    ! -- Return
-    return
   end subroutine uze_set_stressperiod
 
 end module GweUzeModule

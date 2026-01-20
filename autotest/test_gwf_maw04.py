@@ -122,16 +122,12 @@ def build_model(idx, ws, mf6):
     name = ex[idx]
     well = wells[idx]
     # build MODFLOW 6 files
-    sim = flopy.mf6.MFSimulation(
-        sim_name=name, version="mf6", exe_name=mf6, sim_ws=ws
-    )
+    sim = flopy.mf6.MFSimulation(sim_name=name, version="mf6", exe_name=mf6, sim_ws=ws)
     # create tdis package
     tdis_rc = []
     for kper in range(nper):
         tdis_rc.append((perlen[kper], nstp[kper], tsmult[kper]))
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create iterative model solution
     ims = flopy.mf6.ModflowIms(
@@ -159,9 +155,7 @@ def build_model(idx, ws, mf6):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=False, icelltype=confined, k=hk
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=confined, k=hk)
     # storage
     sto = flopy.mf6.ModflowGwfsto(
         gwf,
@@ -172,9 +166,7 @@ def build_model(idx, ws, mf6):
         transient={1: True},
     )
     # constant head
-    chd = flopy.mf6.ModflowGwfchd(
-        gwf, stress_period_data=chd_spd, save_flows=False
-    )
+    chd = flopy.mf6.ModflowGwfchd(gwf, stress_period_data=chd_spd, save_flows=False)
     # multi-aquifer well
     maw = flopy.mf6.ModflowGwfmaw(
         gwf,

@@ -57,19 +57,7 @@ ini_stress = 20.0
 thick = [1.0]
 
 sub6 = [
-    [
-        0,
-        (1, 0, 1),
-        "nodelay",
-        ini_stress,
-        thick[0],
-        1.0,
-        cc,
-        cr,
-        theta,
-        kv,
-        ini_stress,
-    ]
+    [0, (1, 0, 1), "nodelay", ini_stress, thick[0], 1.0, cc, cr, theta, kv, ini_stress]
 ]
 
 
@@ -79,9 +67,7 @@ def build_mf6(idx, ws, update=None):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
@@ -119,9 +105,7 @@ def build_mf6(idx, ws, update=None):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt6, filename=f"{name}.ic")
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=False, icelltype=laytyp, k=hk, k33=hk
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=laytyp, k=hk, k33=hk)
     # storage
     sto = flopy.mf6.ModflowGwfsto(
         gwf,
@@ -218,9 +202,7 @@ def check_output(idx, test):
     msg = f"maximum absolute void ratio difference ({diffmax}) "
 
     # write summary
-    fpth = os.path.join(
-        test.workspace, f"{os.path.basename(test.name)}.comp.cmp.out"
-    )
+    fpth = os.path.join(test.workspace, f"{os.path.basename(test.name)}.comp.cmp.out")
     with open(fpth, "w") as f:
         line = f"{'TOTIM':>15s}"
         line += f" {'VOID':>15s}"

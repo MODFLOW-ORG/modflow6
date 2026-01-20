@@ -32,9 +32,6 @@ contains
     class(BaseGeometryType) :: this
     !
     area_sat = 0.d0
-    !
-    ! -- Return
-    return
   end function area_sat
 
   function perimeter_sat(this)
@@ -44,9 +41,6 @@ contains
     class(BaseGeometryType) :: this
     !
     perimeter_sat = 0.d0
-    !
-    ! -- Return
-    return
   end function perimeter_sat
 
   function area_wet(this, depth)
@@ -57,9 +51,6 @@ contains
     real(DP), intent(in) :: depth
     !
     area_wet = 0.d0
-    !
-    ! -- Return
-    return
   end function area_wet
 
   function perimeter_wet(this, depth)
@@ -70,18 +61,12 @@ contains
     real(DP), intent(in) :: depth
     !
     perimeter_wet = 0.d0
-    !
-    ! -- Return
-    return
   end function perimeter_wet
 
   subroutine set_attribute(this, line)
     ! -- dummy
     class(BaseGeometryType) :: this
     character(len=*), intent(inout) :: line
-    !
-    ! -- Return
-    return
   end subroutine set_attribute
 
   !> @brief Print the attributes for this object
@@ -98,9 +83,6 @@ contains
     write (iout, fmtid) 'ID = ', this%id
     write (iout, fmtnm) 'NAME = ', trim(adjustl(this%name))
     write (iout, fmtnm) 'GEOMETRY TYPE = ', trim(adjustl(this%geo_type))
-    !
-    ! -- Return
-    return
   end subroutine print_attributes
 
 end module BaseGeometryModule

@@ -11,18 +11,14 @@ cases = ["par_eslcasei", "par_eslcaseii", "par_eslcaseiii"]
 
 
 def build_models(idx, test):
-    from test_gwe_split_analyt import (
-        build_models as build,
-    )
+    from test_gwe_split_analyt import build_models as build
 
     sim, dummy = build(idx, test)
     return sim, dummy
 
 
 def check_output(idx, test):
-    from test_gwe_split_analyt import (
-        check_output as check,
-    )
+    from test_gwe_split_analyt import check_output as check
 
     check(idx, test)
 

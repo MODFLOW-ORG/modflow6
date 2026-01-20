@@ -484,9 +484,7 @@ def get_parent_mvr_info(frac):
     # return the appropriate mvr info for the current scenario
     mvrperioddata = [("WEL-1", 0, "SFR-parent", 10, "FACTOR", 1.0)]
     if frac is not None:
-        mvrperioddata.append(
-            ("SFR-parent", 15, "SFR-parent", 16, "FACTOR", frac)
-        )
+        mvrperioddata.append(("SFR-parent", 15, "SFR-parent", 16, "FACTOR", frac))
 
     mvrspd = {0: mvrperioddata}
 
@@ -578,9 +576,7 @@ def instantiate_base_simulation(sim_ws, gwfname, gwfnamec):
     for i in range(len(perlen)):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
 
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # Instantiate the gwf model (parent model)
     gwf = flopy.mf6.ModflowGwf(
@@ -972,11 +968,7 @@ def add_sim_mvr(sim, gwfname, gwfnamec, remaining_frac=None):
 
 
 def build_models(idx, test):
-    scen_nm, conns, frac = (
-        cases[idx],
-        scen_conns[idx],
-        parent_mvr_frac[idx],
-    )
+    scen_nm, conns, frac = (cases[idx], scen_conns[idx], parent_mvr_frac[idx])
     scen_nm_parent = "gwf_" + scen_nm + "_p"
     scen_nm_child = "gwf_" + scen_nm + "_c"
     sim, gwf, gwfc = instantiate_base_simulation(
@@ -997,18 +989,17 @@ def build_models(idx, test):
 
 
 def check_output(idx, test):
-    gwf_srch_str1 = (
-        " SFR-PARENT PACKAGE - SUMMARY OF FLOWS FOR EACH CONTROL VOLUME"
-    )
+    gwf_srch_str1 = " SFR-PARENT PACKAGE - SUMMARY OF FLOWS FOR EACH CONTROL VOLUME"
     gwf_srch_str2 = " WATER MOVER PACKAGE (MVR) FLOW RATES   "
     sim_srch_str = " WATER MOVER PACKAGE (MVR) FLOW RATES "
 
     # cur_ws, gwfparent = ex[idx], gwf_names[idx]
     cur_ws = test.workspace
     gwfparent = "gwf_" + cases[idx] + "_p"
-    with open(os.path.join(cur_ws, gwfparent + ".lst"), "r") as gwf_lst, open(
-        os.path.join(cur_ws, "mfsim.lst"), "r"
-    ) as sim_lst:
+    with (
+        open(os.path.join(cur_ws, gwfparent + ".lst"), "r") as gwf_lst,
+        open(os.path.join(cur_ws, "mfsim.lst"), "r") as sim_lst,
+    ):
         gwf_lst_lines = gwf_lst.readlines()
         sim_lst_lines = sim_lst.readlines()
 
@@ -1026,7 +1017,8 @@ def check_output(idx, test):
                 line = next(gwf_lst)
                 m_arr = line.strip().split()
                 if m_arr[0] == "18":
-                    # store the 3rd value on the line (it should be the same across all scenarios
+                    # store the 3rd value on the line
+                    # (it should be the same across all scenarios)
                     parent_sfr_last_reach_flow = float(m_arr[2])
                     break
 
@@ -1086,9 +1078,7 @@ def check_output(idx, test):
         gwf_transferred_50 = parent_sfr_mvr_amount / (
             parent_sfr_mvr_amount + sim_mvr_amount
         )
-        sim_transferred_50 = sim_mvr_amount / (
-            parent_sfr_mvr_amount + sim_mvr_amount
-        )
+        sim_transferred_50 = sim_mvr_amount / (parent_sfr_mvr_amount + sim_mvr_amount)
         assert np.allclose(
             np.array([gwf_transferred_50, sim_transferred_50]),
             np.array([0.5, 0.5]),
@@ -1103,9 +1093,7 @@ def check_output(idx, test):
         gwf_transferred_75 = parent_sfr_mvr_amount / (
             parent_sfr_mvr_amount + sim_mvr_amount
         )
-        sim_transferred_75 = sim_mvr_amount / (
-            parent_sfr_mvr_amount + sim_mvr_amount
-        )
+        sim_transferred_75 = sim_mvr_amount / (parent_sfr_mvr_amount + sim_mvr_amount)
         assert np.allclose(
             np.array([gwf_transferred_75, sim_transferred_75]),
             np.array([0.75, 0.25]),

@@ -3,7 +3,7 @@ module ObsBlockModule
   use BlockParserModule,         only: BlockParserType
   use ConstantsModule,           only: DONE, DZERO, &
                                        LINELENGTH, MAXCHARLEN, LENOBSNAME
-  use MathUtilModule,    only: is_close
+  use MathUtilModule,            only: is_close
   use ConstantsPHMFModule,       only: CONTINUOUS, SINGLE, LENOBSNAMENEW
   use DnmDis3dModule,            only: Dis3dType
   use GlobalVariablesPHMFModule, only: verbose
@@ -11,7 +11,7 @@ module ObsBlockModule
   use ListModule,                only: ListType
   use ObserveModule,             only: ObserveType, AddObserveToList, &
                                        GetObserveFromList, ConstructObservation
-  use SimModule,                 only: store_error, store_error_unit, ustop
+  use SimPHMFModule,             only: store_error, store_error_unit, ustop
   use UtilitiesModule,           only: CalcContribFactors
   
   implicit none

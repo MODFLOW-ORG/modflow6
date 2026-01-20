@@ -32,7 +32,8 @@ scheme = "UPSTREAM"
 # scheme = "TVD"
 
 cases = [
-    "warmup",  # 1-cell "bathtub" model with easily calculate-able answers
+    "warmup",
+    "multchk",  # 1-cell "bathtub" model with easily calculate-able answers
 ]
 
 # Model units
@@ -86,9 +87,8 @@ tdis_rc = []
 for i in np.arange(nper):
     tdis_rc.append((perlen[i], nstp[i], ttsmult))
 
-Joules_added_for_1degC_rise = (
-    delr * delc * (top - botm[0]) * (1 - prsity) * cps * rhos
-)
+Joules_added_for_1degC_rise = delr * delc * (top - botm[0]) * (1 - prsity) * cps * rhos
+eslmultiplier = 2.0
 
 # ### Create MODFLOW 6 GWE
 #
@@ -111,9 +111,7 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 time discretization
-    flopy.mf6.ModflowTdis(
-        sim, nper=nper, perioddata=tdis_rc, time_units=time_units
-    )
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=tdis_rc, time_units=time_units)
 
     # Instantiating MODFLOW 6 groundwater flow model
     gwf = flopy.mf6.ModflowGwf(
@@ -203,9 +201,7 @@ def build_models(idx, test):
     # ----------------------------------
     # Instantiating MODFLOW 6 GWE model
     # ----------------------------------
-    gwe = flopy.mf6.ModflowGwe(
-        sim, modelname=gwename, model_nam_file=f"{gwename}.nam"
-    )
+    gwe = flopy.mf6.ModflowGwe(sim, modelname=gwename, model_nam_file=f"{gwename}.nam")
     gwe.name_file.save_flows = True
 
     imsgwe = flopy.mf6.ModflowIms(
@@ -242,9 +238,7 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 transport initial concentrations
-    flopy.mf6.ModflowGweic(
-        gwe, strt=strt_temp1, pname="IC-2", filename=f"{gwename}.ic"
-    )
+    flopy.mf6.ModflowGweic(gwe, strt=strt_temp1, pname="IC-2", filename=f"{gwename}.ic")
 
     # Instantiating MODFLOW 6 transport advection package
     flopy.mf6.ModflowGweadv(
@@ -263,7 +257,8 @@ def build_models(idx, test):
         filename=f"{gwename}.cnd",
     )
 
-    # Instantiating MODFLOW 6 transport mass storage package (formerly "reaction" package in MT3DMS)
+    # Instantiating MODFLOW 6 transport mass storage package
+    # (formerly "reaction" package in MT3DMS)
     flopy.mf6.ModflowGweest(
         gwe,
         save_flows=True,
@@ -271,8 +266,8 @@ def build_models(idx, test):
         heat_capacity_water=cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=cps,
-        rhos=rhos,
+        heat_capacity_solid=cps,
+        density_solid=rhos,
         pname="EST-2",
         filename=f"{gwename}.est",
     )
@@ -283,9 +278,7 @@ def build_models(idx, test):
         pname="OC-1",
         budget_filerecord=f"{gwename}.cbc",
         temperature_filerecord=f"{gwename}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
     )
@@ -294,20 +287,34 @@ def build_models(idx, test):
     # Energy is added such that the temperature change in the cell will be
     # +1.0, +2.0, -1.0, and 0.0 degrees Celsius from stress period to stress
     # period
-    esl_spd = {
-        0: [
-            [(0, 0, 0), Joules_added_for_1degC_rise],
-        ],
-        1: [[(0, 0, 0), 2 * Joules_added_for_1degC_rise]],
-        2: [[(0, 0, 0), -1 * Joules_added_for_1degC_rise]],
-        3: [],
-    }
-    flopy.mf6.ModflowGweesl(
-        gwe,
-        stress_period_data=esl_spd,
-        pname="ESL-1",
-        filename=f"{gwename}.esl",
-    )
+    if idx == 0:
+        esl_spd = {
+            0: [[(0, 0, 0), Joules_added_for_1degC_rise]],
+            1: [[(0, 0, 0), 2 * Joules_added_for_1degC_rise]],
+            2: [[(0, 0, 0), -1 * Joules_added_for_1degC_rise]],
+            3: [],
+        }
+        flopy.mf6.ModflowGweesl(
+            gwe,
+            stress_period_data=esl_spd,
+            pname="ESL-1",
+            filename=f"{gwename}.esl",
+        )
+    elif idx > 0:
+        esl_spd = {
+            0: [[(0, 0, 0), Joules_added_for_1degC_rise, eslmultiplier]],
+            1: [[(0, 0, 0), 2 * Joules_added_for_1degC_rise, eslmultiplier]],
+            2: [[(0, 0, 0), -1 * Joules_added_for_1degC_rise, eslmultiplier]],
+            3: [],
+        }
+        flopy.mf6.ModflowGweesl(
+            gwe,
+            auxiliary=["multiplier"],
+            auxmultname="multiplier",
+            stress_period_data=esl_spd,
+            pname="ESL-1",
+            filename=f"{gwename}.esl",
+        )
 
     # Instantiating MODFLOW 6 flow-transport exchange mechanism
     flopy.mf6.ModflowGwfgwe(
@@ -333,9 +340,7 @@ def check_output(idx, test):
 
     try:
         # load temperatures
-        tobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="TEMPERATURE"
-        )
+        tobj = flopy.utils.HeadFile(fpth, precision="double", text="TEMPERATURE")
         temps = tobj.get_alldata()
     except:
         assert False, f'could not load temperature data from "{fpth}"'
@@ -344,14 +349,15 @@ def check_output(idx, test):
     # +2 (for an absolute value of 3 deg C), -1, and 0.0 degree C
     # change between stress periods.
     known_ans = [1.0, 3.0, 2.0, 2.0]
+    if idx > 0:
+        known_ans = [itm * eslmultiplier for itm in known_ans]
+
     msg0 = (
         "Grid cell temperatures do not reflect the expected difference "
         "in stress period "
     )
     for index in np.arange(4):
-        assert np.isclose(temps[index, 0, 0, 0], known_ans[index]), msg0 + str(
-            index
-        )
+        assert np.isclose(temps[index, 0, 0, 0], known_ans[index]), msg0 + str(index)
 
 
 # - No need to change any code below

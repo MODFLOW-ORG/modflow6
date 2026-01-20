@@ -34,15 +34,9 @@ cases = ["gwf-lak-status"]
 def build_models(idx, test):
     nlay, nrow, ncol = 1, 10, 10
     nper = 3
-    perlen = nper * [
-        1.0,
-    ]
-    nstp = nper * [
-        1,
-    ]
-    tsmult = nper * [
-        1.0,
-    ]
+    perlen = nper * [1.0]
+    nstp = nper * [1]
+    tsmult = nper * [1.0]
 
     lenx = 300.0
     delr = delc = lenx / float(nrow)
@@ -104,9 +98,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=True, icelltype=1, k=1.0, k33=0.01
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=True, icelltype=1, k=1.0, k33=0.01)
     # storage
     sto = flopy.mf6.ModflowGwfsto(
         gwf,
@@ -133,7 +125,8 @@ def build_models(idx, test):
     packagedata = [
         [0, 100.0, 9, "lake1"],
     ]
-    # <ifno> <iconn> <cellid(ncelldim)> <claktype> <bedleak> <belev> <telev> <connlen> <connwidth>
+    # <ifno> <iconn> <cellid(ncelldim)> <claktype> <bedleak> <belev> <telev> ...
+    #        <connlen> <connwidth>
     bedleak = 1.0
     connectiondata = [
         [0, 0, (0, 3, 3), "vertical", bedleak, 0.0, 0.0, 0.0, 0.0],
@@ -263,15 +256,15 @@ def check_head_file(idx, test):
     head1 = bobj.get_data(totim=times[1]).flatten()
     head2 = bobj.get_data(totim=times[2]).flatten()
 
-    assert np.allclose(
-        head0, head2
-    ), "Simulated heads for period 1 and 3 should be the same"
-    assert np.all(
-        np.less_equal(head1, 100.0)
-    ), f"Simulated heads for period 2 should be less than or equal to 100. {head1}"
-    assert np.any(
-        np.greater(head0, 100.0)
-    ), f"Some simulated heads for period 1 should be greater than 100. {head0}"
+    assert np.allclose(head0, head2), (
+        "Simulated heads for period 1 and 3 should be the same"
+    )
+    assert np.all(np.less_equal(head1, 100.0)), (
+        f"Simulated heads for period 2 should be less than or equal to 100. {head1}"
+    )
+    assert np.any(np.greater(head0, 100.0)), (
+        f"Some simulated heads for period 1 should be greater than 100. {head0}"
+    )
 
 
 def check_lake_obs(idx, test):
@@ -284,9 +277,7 @@ def check_lake_obs(idx, test):
     obs = np.genfromtxt(fpth, names=True, delimiter=",")
     stage = obs["LAKESTAGE"].tolist()
     print(stage)
-    assert (
-        stage[0] == stage[2]
-    ), "Period 1 and period 3 stages should be equal."
+    assert stage[0] == stage[2], "Period 1 and period 3 stages should be equal."
     assert stage[1] == dnodata, "Period 2 stage should equal dnodata"
 
 

@@ -72,7 +72,7 @@ contains
     call disu_cr(this%dis, this%name, '', -1, this%iout)
     call npf_cr(this%npf, this%name, '', -this%innpf, this%iout)
     call xt3d_cr(this%xt3d, this%name, -this%innpf, this%iout)
-    call buy_cr(this%buy, this%name, this%inbuy, this%iout)
+    call buy_cr(this%buy, this%name, '', this%inbuy, this%iout)
 
   end subroutine gwfifm_cr
 
@@ -171,7 +171,6 @@ contains
 
     ! for now, assuming full homogeneity, so just take
     ! the options from the owning model's npf package
-    npfOptions%icellavg = this%owner%npf%icellavg
     npfOptions%ithickstrt = this%owner%npf%ithickstrt
     npfOptions%iperched = this%owner%npf%iperched
     npfOptions%ivarcv = this%owner%npf%ivarcv
@@ -180,6 +179,7 @@ contains
     npfOptions%wetfct = this%owner%npf%wetfct
     npfOptions%iwetit = this%owner%npf%iwetit
     npfOptions%ihdwet = this%owner%npf%ihdwet
+    npfOptions%ihighcellsat = this%owner%npf%ihighcellsat
 
   end subroutine setNpfOptions
 

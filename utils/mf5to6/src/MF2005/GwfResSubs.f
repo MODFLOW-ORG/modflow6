@@ -20,7 +20,7 @@ C     ------------------------------------------------------------------
       USE GWFBASMODULE, ONLY:DELT
       USE GWFRESMODULE, ONLY:NRES,IRESCB,NRESOP,IRESPT,NPTS,
      1                       IRES,IRESL,BRES,CRES,BBRES,HRES,HRESSE
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
 !      use InputOutputModule, only: U2DINT, U2DREL
       use ArrayReadersMF5Module, only: ReadArray
 C

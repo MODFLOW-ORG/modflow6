@@ -12,11 +12,9 @@ module UtlNcfInputModule
   public utl_ncf_subpackages
 
   type UtlNcfParamFoundType
-    logical :: ogc_wkt = .false.
+    logical :: wkt = .false.
     logical :: deflate = .false.
     logical :: shuffle = .false.
-    logical :: chunk_record = .false.
-    logical :: chunking = .false.
     logical :: chunk_time = .false.
     logical :: chunk_face = .false.
     logical :: chunk_z = .false.
@@ -24,8 +22,8 @@ module UtlNcfInputModule
     logical :: chunk_x = .false.
     logical :: attr_off = .false.
     logical :: ncpl = .false.
-    logical :: lat = .false.
-    logical :: lon = .false.
+    logical :: latitude = .false.
+    logical :: longitude = .false.
   end type UtlNcfParamFoundType
 
   logical :: utl_ncf_multi_package = .false.
@@ -37,17 +35,18 @@ module UtlNcfInputModule
     ]
 
   type(InputParamDefinitionType), parameter :: &
-    utlncf_ogc_wkt = InputParamDefinitionType &
+    utlncf_wkt = InputParamDefinitionType &
     ( &
     'UTL', & ! component
     'NCF', & ! subcomponent
     'OPTIONS', & ! block
-    'OGC_WKT', & ! tag name
-    'OGC_WKT', & ! fortran variable
+    'WKT', & ! tag name
+    'WKT', & ! fortran variable
     'STRING', & ! type
     'LENBIGLINE', & ! shape
     'CRS well-known text (WKT) string', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -66,6 +65,7 @@ module UtlNcfInputModule
     '', & ! shape
     'variable compression deflate level', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -84,43 +84,8 @@ module UtlNcfInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    utlncf_chunk_record = InputParamDefinitionType &
-    ( &
-    'UTL', & ! component
-    'NCF', & ! subcomponent
-    'OPTIONS', & ! block
-    'CHUNK_RECORD', & ! tag name
-    'CHUNK_RECORD', & ! fortran variable
-    'RECORD CHUNKING CHUNK_TIME CHUNK_FACE CHUNK_Z CHUNK_Y CHUNK_X', & ! type
-    '', & ! shape
-    'netcdf export chunking record', & ! longname
-    .false., & ! required
-    .false., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    utlncf_chunking = InputParamDefinitionType &
-    ( &
-    'UTL', & ! component
-    'NCF', & ! subcomponent
-    'OPTIONS', & ! block
-    'CHUNKING', & ! tag name
-    'CHUNKING', & ! fortran variable
-    'KEYWORD', & ! type
-    '', & ! shape
-    'keyword when defining ugrid chunking parameters', & ! longname
-    .true., & ! required
-    .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
@@ -137,8 +102,9 @@ module UtlNcfInputModule
     'INTEGER', & ! type
     '', & ! shape
     'chunking parameter for the time dimension', & ! longname
-    .true., & ! required
-    .true., & ! multi-record
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
@@ -154,9 +120,10 @@ module UtlNcfInputModule
     'CHUNK_FACE', & ! fortran variable
     'INTEGER', & ! type
     '', & ! shape
-    'chunking parameter for the ugrid face dimension', & ! longname
+    'chunking parameter for the mesh face dimension', & ! longname
     .false., & ! required
-    .true., & ! multi-record
+    .false., & ! developmode
+    .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
@@ -174,7 +141,8 @@ module UtlNcfInputModule
     '', & ! shape
     'chunking parameter for structured z', & ! longname
     .false., & ! required
-    .true., & ! multi-record
+    .false., & ! developmode
+    .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
@@ -192,7 +160,8 @@ module UtlNcfInputModule
     '', & ! shape
     'chunking parameter for structured y', & ! longname
     .false., & ! required
-    .true., & ! multi-record
+    .false., & ! developmode
+    .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
@@ -210,7 +179,8 @@ module UtlNcfInputModule
     '', & ! shape
     'chunking parameter for structured x', & ! longname
     .false., & ! required
-    .true., & ! multi-record
+    .false., & ! developmode
+    .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
@@ -228,6 +198,7 @@ module UtlNcfInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -246,6 +217,7 @@ module UtlNcfInputModule
     '', & ! shape
     'number of cells in layer', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -253,17 +225,18 @@ module UtlNcfInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    utlncf_lat = InputParamDefinitionType &
+    utlncf_latitude = InputParamDefinitionType &
     ( &
     'UTL', & ! component
     'NCF', & ! subcomponent
     'GRIDDATA', & ! block
-    'LAT', & ! tag name
-    'LAT', & ! fortran variable
+    'LATITUDE', & ! tag name
+    'LATITUDE', & ! fortran variable
     'DOUBLE1D', & ! type
     'NCPL', & ! shape
     'cell center latitude', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -271,17 +244,18 @@ module UtlNcfInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    utlncf_lon = InputParamDefinitionType &
+    utlncf_longitude = InputParamDefinitionType &
     ( &
     'UTL', & ! component
     'NCF', & ! subcomponent
     'GRIDDATA', & ! block
-    'LON', & ! tag name
-    'LON', & ! fortran variable
+    'LONGITUDE', & ! tag name
+    'LONGITUDE', & ! fortran variable
     'DOUBLE1D', & ! type
     'NCPL', & ! shape
     'cell center longitude', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -291,11 +265,9 @@ module UtlNcfInputModule
   type(InputParamDefinitionType), parameter :: &
     utl_ncf_param_definitions(*) = &
     [ &
-    utlncf_ogc_wkt, &
+    utlncf_wkt, &
     utlncf_deflate, &
     utlncf_shuffle, &
-    utlncf_chunk_record, &
-    utlncf_chunking, &
     utlncf_chunk_time, &
     utlncf_chunk_face, &
     utlncf_chunk_z, &
@@ -303,8 +275,8 @@ module UtlNcfInputModule
     utlncf_chunk_x, &
     utlncf_attr_off, &
     utlncf_ncpl, &
-    utlncf_lat, &
-    utlncf_lon &
+    utlncf_latitude, &
+    utlncf_longitude &
     ]
 
   type(InputParamDefinitionType), parameter :: &
@@ -321,6 +293,7 @@ module UtlNcfInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

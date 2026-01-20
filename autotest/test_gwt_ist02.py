@@ -105,9 +105,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -152,9 +150,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=False, icelltype=0, k=hk, k33=hk
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=0, k=hk, k33=hk)
 
     # chd files
     chdspdict = {
@@ -249,7 +245,7 @@ def build_models(idx, test):
     cim_filerecord = f"{gwtname}.ist.ucn"
     ist = flopy.mf6.ModflowGwtist(
         gwt,
-        sorption=True,
+        sorption="LINEAR",
         save_flows=True,
         cim_filerecord=cim_filerecord,
         cim=0.0,
@@ -284,9 +280,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -317,10 +311,9 @@ def build_models(idx, test):
     return sim, None
 
 
-def make_plot(sim):
-    print("making plots...")
-    name = sim.name
-    ws = sim.workspace
+def plot_output(idx, test):
+    name = test.name
+    ws = test.workspace
     sim = flopy.mf6.MFSimulation.load(sim_ws=ws)
     gwfname = "gwf_" + name
     gwtname = "gwt_" + name
@@ -345,10 +338,6 @@ def make_plot(sim):
 
 
 def check_output(idx, test):
-    makeplot = False
-    if makeplot:
-        make_plot(test)
-
     name = test.name
     gwtname = "gwt_" + name
     gwfname = "gwf_" + name
@@ -359,9 +348,7 @@ def check_output(idx, test):
     simvals = np.genfromtxt(fname, names=True, delimiter=",", deletechars="")
 
     # interpolate mf6 results to same times as mt3d
-    mf6conc_interp = np.interp(
-        mt3d_times, simvals["time"], simvals["(1-1-300)"]
-    )
+    mf6conc_interp = np.interp(mt3d_times, simvals["time"], simvals["(1-1-300)"])
 
     # calculate difference between mf6 and mt3d
     atol = 0.05
@@ -376,12 +363,13 @@ def check_output(idx, test):
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, function_tmpdir, targets, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        plot=lambda t: plot_output(idx, t) if plot else None,
     )
     test.run()

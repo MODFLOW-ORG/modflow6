@@ -14,9 +14,7 @@ def build_models(idx, test):
     # static model data
     # temporal discretization
     nper = len(inflows)
-    tdis_rc = [
-        (1.0, 1, 1.0),
-    ] * nper
+    tdis_rc = [(1.0, 1, 1.0)] * nper
 
     # spatial discretization data
     nlay, nrow, ncol = 1, 1, 1
@@ -44,16 +42,10 @@ def build_models(idx, test):
     )
 
     # create iterative model solution and register the gwf model with it
-    ims = flopy.mf6.ModflowIms(
-        sim,
-        print_option="ALL",
-    )
+    ims = flopy.mf6.ModflowIms(sim, print_option="ALL")
 
     # create gwf model
-    gwf = flopy.mf6.ModflowGwf(
-        sim,
-        modelname=name,
-    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
 
     dis = flopy.mf6.ModflowGwfdis(
         gwf,
@@ -70,10 +62,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf,
-        icelltype=0,
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, icelltype=0)
 
     # output control
     oc = flopy.mf6.ModflowGwfoc(
@@ -92,21 +81,9 @@ def build_models(idx, test):
 
     sfrrch_prop = [cellid, rlen, rwid, slope, top, rbth, rhk, roughness]
     packagedata = [
-        [
-            0,
-        ]
-        + sfrrch_prop
-        + [2, 1.0, 1],
-        [
-            1,
-        ]
-        + sfrrch_prop
-        + [1, 0.0, 0],
-        [
-            2,
-        ]
-        + sfrrch_prop
-        + [1, 1.0, 0],
+        [0] + sfrrch_prop + [2, 1.0, 1],
+        [1] + sfrrch_prop + [1, 0.0, 0],
+        [2] + sfrrch_prop + [1, 1.0, 0],
     ]
     connectiondata = [
         [0, -1, -2],
@@ -146,24 +123,24 @@ def check_output(idx, test):
         outflows = cbb.get_data(text="EXT-OUTFLOW")
 
     # check outflow for reach 2 and 3
-    assert np.allclose(
-        [r.q[1] for r in outflows], -inflows * diversion
-    ), "Incorrect outflow for diversion reach"
-    assert np.allclose(
-        [r.q[2] for r in outflows], -inflows * (1 - diversion)
-    ), "Incorrect outflow for outlet reach"
+    assert np.allclose([r.q[1] for r in outflows], -inflows * diversion), (
+        "Incorrect outflow for diversion reach"
+    )
+    assert np.allclose([r.q[2] for r in outflows], -inflows * (1 - diversion)), (
+        "Incorrect outflow for outlet reach"
+    )
 
     # load SFR budget CSV and check overall budget
     with open(fname.replace(".cbb", ".csv")) as f:
         header = f.readline().strip().split(",")
         flux = np.loadtxt(f, delimiter=",")
 
-    assert np.allclose(
-        flux[:, header.index("EXT-OUTFLOW_IN")], 0
-    ), "External flow IN larger than zero"
-    assert np.allclose(
-        flux[:, header.index("PERCENT_DIFFERENCE")], 0
-    ), "Large mass balance error in SFR"
+    assert np.allclose(flux[:, header.index("EXT-OUTFLOW_IN")], 0), (
+        "External flow IN larger than zero"
+    )
+    assert np.allclose(flux[:, header.index("PERCENT_DIFFERENCE")], 0), (
+        "Large mass balance error in SFR"
+    )
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

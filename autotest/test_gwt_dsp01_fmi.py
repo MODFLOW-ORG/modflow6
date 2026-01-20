@@ -3,7 +3,7 @@ import os
 import flopy
 import numpy as np
 import pytest
-from flopy.utils.binaryfile import write_budget, write_head
+from binary_util import write_budget, write_head
 from framework import TestFramework
 
 cases = ["dsp01a_fmi", "dsp01b_fmi"]
@@ -46,9 +46,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwt model
     gwtname = "gwt_" + name
@@ -140,9 +138,7 @@ def build_models(idx, test):
             ("qz", np.float64),
         ]
     )
-    spdis = np.array(
-        [(id1, id1, 0.0, 0.0, 0.0, 0.0) for id1 in range(100)], dtype=dt
-    )
+    spdis = np.array([(id1, id1, 0.0, 0.0, 0.0, 0.0) for id1 in range(100)], dtype=dt)
 
     dt = np.dtype(
         [
@@ -152,20 +148,14 @@ def build_models(idx, test):
             ("SATURATION", np.float64),
         ]
     )
-    sat = np.array(
-        [(i, i, 0.0, 1.0) for i in range(nlay * nrow * ncol)], dtype=dt
-    )
+    sat = np.array([(i, i, 0.0, 1.0) for i in range(nlay * nrow * ncol)], dtype=dt)
 
     fname = os.path.join(ws, "mybudget.bud")
     with open(fname, "wb") as fbin:
         for kstp in range(1):  # nstp[0]):
             write_budget(fbin, flowja, kstp=kstp + 1)
-            write_budget(
-                fbin, spdis, text="      DATA-SPDIS", imeth=6, kstp=kstp + 1
-            )
-            write_budget(
-                fbin, sat, text="        DATA-SAT", imeth=6, kstp=kstp + 1
-            )
+            write_budget(fbin, spdis, text="      DATA-SPDIS", imeth=6, kstp=kstp + 1)
+            write_budget(fbin, sat, text="        DATA-SAT", imeth=6, kstp=kstp + 1)
     fbin.close()
 
     # flow model interface
@@ -180,9 +170,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -196,9 +184,7 @@ def check_output(idx, test):
 
     fpth = os.path.join(test.workspace, f"{gwtname}.ucn")
     try:
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
         conc = cobj.get_data()
     except:
         assert False, f'could not load data from "{fpth}"'
@@ -312,9 +298,9 @@ def check_output(idx, test):
         ]
     ]
     cres = np.array(cres)
-    assert np.allclose(
-        cres, conc
-    ), "simulated concentrations do not match with known solution."
+    assert np.allclose(cres, conc), (
+        "simulated concentrations do not match with known solution."
+    )
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

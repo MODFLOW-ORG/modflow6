@@ -114,6 +114,7 @@ contains
 
     if (stage == STG_AFT_EXG_DF) then
 
+      ! always synchronize mover flag
       call this%map(this%inmvr%base(), (/STG_AFT_EXG_DF/))
 
     else if (stage == STG_AFT_CON_CR) then
@@ -125,149 +126,88 @@ contains
 
     else if (stage == STG_BFR_CON_AR) then
 
-      ! only when MVR is active
-      if (this%inmvr%get() > 0) then
+      ! only when MVR is locally active (i.e. primary exchange)
+      if (this%has_mvr .and. this%is_local) then
         call this%map(this%mvr_maxmvr%base(), (/STG_BFR_CON_AR/))
       end if
 
     else if (stage == STG_AFT_CON_AR) then
 
-      ! only when MVR is active
-      if (this%inmvr%get() > 0) then
-        nmax = this%mvr_maxmvr%get()
-        if (nmax > 0) then
-          call this%map(this%mvr_qpactual_m1%base(), nmax, (/STG_BFR_EXG_FC/))
-          call this%map(this%mvr_qpactual_m2%base(), nmax, (/STG_BFR_EXG_FC/))
-          call this%map(this%mvr_qavailable_m1%base(), nmax, (/STG_BFR_EXG_FC/))
-          call this%map(this%mvr_qavailable_m2%base(), nmax, (/STG_BFR_EXG_FC/))
-          call this%map(this%mvr_id_mapped_m1%base(), nmax, (/STG_AFT_CON_RP/))
-          call this%map(this%mvr_id_mapped_m2%base(), nmax, (/STG_AFT_CON_RP/))
-        else
-          call this%map(this%mvr_qpactual_m1%base(), 0, (/STG_NEVER/))
-          call this%map(this%mvr_qpactual_m2%base(), 0, (/STG_NEVER/))
-          call this%map(this%mvr_qavailable_m1%base(), 0, (/STG_NEVER/))
-          call this%map(this%mvr_qavailable_m2%base(), 0, (/STG_NEVER/))
-          call this%map(this%mvr_id_mapped_m1%base(), 0, (/STG_NEVER/))
-          call this%map(this%mvr_id_mapped_m2%base(), 0, (/STG_NEVER/))
-        end if
+      ! only when MVR is locally active
+      nmax = 0
+      if (this%has_mvr .and. this%is_local) nmax = this%mvr_maxmvr%get()
+
+      if (nmax > 0) then
+        call this%map(this%mvr_qpactual_m1%base(), nmax, (/STG_BFR_EXG_FC/))
+        call this%map(this%mvr_qpactual_m2%base(), nmax, (/STG_BFR_EXG_FC/))
+        call this%map(this%mvr_qavailable_m1%base(), nmax, (/STG_BFR_EXG_FC/))
+        call this%map(this%mvr_qavailable_m2%base(), nmax, (/STG_BFR_EXG_FC/))
+        call this%map(this%mvr_id_mapped_m1%base(), nmax, (/STG_AFT_CON_RP/))
+        call this%map(this%mvr_id_mapped_m2%base(), nmax, (/STG_AFT_CON_RP/))
+      else
+        call this%map(this%mvr_qpactual_m1%base(), 0, (/STG_NEVER/))
+        call this%map(this%mvr_qpactual_m2%base(), 0, (/STG_NEVER/))
+        call this%map(this%mvr_qavailable_m1%base(), 0, (/STG_NEVER/))
+        call this%map(this%mvr_qavailable_m2%base(), 0, (/STG_NEVER/))
+        call this%map(this%mvr_id_mapped_m1%base(), 0, (/STG_NEVER/))
+        call this%map(this%mvr_id_mapped_m2%base(), 0, (/STG_NEVER/))
       end if
 
     end if
 
   end subroutine vfx_prepare_stage
 
-  subroutine vfx_get_recv_items(this, stage, rank, virtual_items)
+  subroutine vfx_get_recv_items(this, stg, rank, vi)
     class(VirtualGwfExchangeType) :: this
-    integer(I4B) :: stage
-    integer(I4B) :: rank
-    type(STLVecInt) :: virtual_items
-    ! local
-    integer(I4B) :: qpactual_m1_idx, qpactual_m2_idx
-    integer(I4B) :: qavailable_m1_idx, qavailable_m2_idx
-    integer(I4B) :: id_mapped_m1_idx, id_mapped_m2_idx
-    class(*), pointer :: vdi
+    integer(I4B) :: stg !< stage
+    integer(I4B) :: rank !< rank of remote process
+    type(STLVecInt) :: vi !< virtual data items
 
     ! get base items to receive
-    call this%VirtualExchangeType%get_recv_items(stage, rank, &
-                                                 virtual_items)
+    call this%VirtualExchangeType%get_recv_items(stg, rank, vi)
 
     ! add more MVR items that follow nodem1/nodem2 pattern,
-    ! see comments in VirtualExchange for more details.
-    vdi => this%mvr_qpactual_m1
-    qpactual_m1_idx = this%virtual_data_list%GetIndex(vdi)
-    vdi => this%mvr_qpactual_m2
-    qpactual_m2_idx = this%virtual_data_list%GetIndex(vdi)
-    vdi => this%mvr_qavailable_m1
-    qavailable_m1_idx = this%virtual_data_list%GetIndex(vdi)
-    vdi => this%mvr_qavailable_m2
-    qavailable_m2_idx = this%virtual_data_list%GetIndex(vdi)
-    vdi => this%mvr_id_mapped_m1
-    id_mapped_m1_idx = this%virtual_data_list%GetIndex(vdi)
-    vdi => this%mvr_id_mapped_m2
-    id_mapped_m2_idx = this%virtual_data_list%GetIndex(vdi)
-
-    if (this%v_model1%is_local .and. &
-        this%v_model2%orig_rank == rank) then
-      ! this is our dual exchange on the other rank,
-      ! only receive qpactual_m2
-      if (this%mvr_qpactual_m2%check_stage(stage)) then
-        call virtual_items%push_back(qpactual_m2_idx)
+    ! see comments in VirtualExchange for more details
+    if (this%is_local .and. rank == this%orig_rank) then
+      if (this%mvr_id_mapped_m1%is_remote) then
+        ! only receive for model1
+        call this%add_vdi_for_stage(this%mvr_qpactual_m1%base(), stg, vi)
+        call this%add_vdi_for_stage(this%mvr_qavailable_m1%base(), stg, vi)
+        call this%add_vdi_for_stage(this%mvr_id_mapped_m1%base(), stg, vi)
       end if
-      if (this%mvr_qavailable_m2%check_stage(stage)) then
-        call virtual_items%push_back(qavailable_m2_idx)
-      end if
-      if (this%mvr_id_mapped_m2%check_stage(stage)) then
-        call virtual_items%push_back(id_mapped_m2_idx)
-      end if
-    else if (this%v_model2%is_local .and. &
-             this%v_model1%orig_rank == rank) then
-      ! the reverse case...
-      if (this%mvr_qpactual_m1%check_stage(stage)) then
-        call virtual_items%push_back(qpactual_m1_idx)
-      end if
-      if (this%mvr_qavailable_m1%check_stage(stage)) then
-        call virtual_items%push_back(qavailable_m1_idx)
-      end if
-      if (this%mvr_id_mapped_m1%check_stage(stage)) then
-        call virtual_items%push_back(id_mapped_m1_idx)
+      if (this%mvr_id_mapped_m2%is_remote) then
+        ! only receive for model2
+        call this%add_vdi_for_stage(this%mvr_qpactual_m2%base(), stg, vi)
+        call this%add_vdi_for_stage(this%mvr_qavailable_m2%base(), stg, vi)
+        call this%add_vdi_for_stage(this%mvr_id_mapped_m2%base(), stg, vi)
       end if
     end if
 
   end subroutine vfx_get_recv_items
 
-  subroutine vfx_get_send_items(this, stage, rank, virtual_items)
+  subroutine vfx_get_send_items(this, stg, rank, vi)
     class(VirtualGwfExchangeType) :: this
-    integer(I4B) :: stage
-    integer(I4B) :: rank
-    type(STLVecInt) :: virtual_items
-    ! local
-    integer(I4B) :: qpactual_m1_idx, qpactual_m2_idx
-    integer(I4B) :: qavailable_m1_idx, qavailable_m2_idx
-    integer(I4B) :: id_mapped_m1_idx, id_mapped_m2_idx
-    class(*), pointer :: vdi
+    integer(I4B) :: stg !< stage
+    integer(I4B) :: rank !< rank of remote process
+    type(STLVecInt) :: vi !< virtual data items
 
     ! get base items to send
-    call this%VirtualExchangeType%get_send_items(stage, rank, &
-                                                 virtual_items)
+    call this%VirtualExchangeType%get_send_items(stg, rank, vi)
 
-    ! add more MVR items that follow nodem1/nodem2 pattern
-    vdi => this%mvr_qpactual_m1
-    qpactual_m1_idx = this%virtual_data_list%GetIndex(vdi)
-    vdi => this%mvr_qpactual_m2
-    qpactual_m2_idx = this%virtual_data_list%GetIndex(vdi)
-    vdi => this%mvr_qavailable_m1
-    qavailable_m1_idx = this%virtual_data_list%GetIndex(vdi)
-    vdi => this%mvr_qavailable_m2
-    qavailable_m2_idx = this%virtual_data_list%GetIndex(vdi)
-    vdi => this%mvr_id_mapped_m1
-    id_mapped_m1_idx = this%virtual_data_list%GetIndex(vdi)
-    vdi => this%mvr_id_mapped_m2
-    id_mapped_m2_idx = this%virtual_data_list%GetIndex(vdi)
-
-    if (this%v_model1%is_local .and. &
-        this%v_model2%orig_rank == rank) then
-      ! this is our dual exchange on the other rank,
-      ! only add qpactual_m1
-      if (this%mvr_qpactual_m1%check_stage(stage)) then
-        call virtual_items%push_back(qpactual_m1_idx)
+    ! add more MVR items that follow nodem1/nodem2 pattern,
+    ! see comments in VirtualExchange for more details
+    if (this%is_local .and. rank == this%orig_rank) then
+      if (.not. this%mvr_id_mapped_m1%is_remote) then
+        ! only receive for model1
+        call this%add_vdi_for_stage(this%mvr_qpactual_m1%base(), stg, vi)
+        call this%add_vdi_for_stage(this%mvr_qavailable_m1%base(), stg, vi)
+        call this%add_vdi_for_stage(this%mvr_id_mapped_m1%base(), stg, vi)
       end if
-      if (this%mvr_qavailable_m1%check_stage(stage)) then
-        call virtual_items%push_back(qavailable_m1_idx)
-      end if
-      if (this%mvr_id_mapped_m1%check_stage(stage)) then
-        call virtual_items%push_back(id_mapped_m1_idx)
-      end if
-    else if (this%v_model2%is_local .and. &
-             this%v_model1%orig_rank == rank) then
-      ! the reverse case...
-      if (this%mvr_qpactual_m2%check_stage(stage)) then
-        call virtual_items%push_back(qpactual_m2_idx)
-      end if
-      if (this%mvr_qavailable_m2%check_stage(stage)) then
-        call virtual_items%push_back(qavailable_m2_idx)
-      end if
-      if (this%mvr_id_mapped_m2%check_stage(stage)) then
-        call virtual_items%push_back(id_mapped_m2_idx)
+      if (.not. this%mvr_id_mapped_m2%is_remote) then
+        ! only receive for model2
+        call this%add_vdi_for_stage(this%mvr_qpactual_m2%base(), stg, vi)
+        call this%add_vdi_for_stage(this%mvr_qavailable_m2%base(), stg, vi)
+        call this%add_vdi_for_stage(this%mvr_id_mapped_m2%base(), stg, vi)
       end if
     end if
 

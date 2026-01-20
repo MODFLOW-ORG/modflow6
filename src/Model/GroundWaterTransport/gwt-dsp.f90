@@ -112,9 +112,6 @@ contains
         write (dspobj%iout, fmtdsp) input_mempath
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine dsp_cr
 
   !> @brief Define DSP object
@@ -158,9 +155,6 @@ contains
       this%xt3d%ixt3d = this%ixt3d
       call this%xt3d%xt3d_df(dis)
     end if
-    !
-    ! -- Return
-    return
   end subroutine dsp_df
 
   !> @brief Add connections to DSP
@@ -179,9 +173,6 @@ contains
     !
     ! -- Add extended neighbors (neighbors of neighbors)
     if (this%ixt3d > 0) call this%xt3d%xt3d_ac(moffset, sparse)
-    !
-    ! -- Return
-    return
   end subroutine dsp_ac
 
   !> @brief Map DSP connections
@@ -199,9 +190,6 @@ contains
     !
     ! -- Call xt3d map connections
     if (this%ixt3d > 0) call this%xt3d%xt3d_mc(moffset, matrix_sln)
-    !
-    ! -- Return
-    return
   end subroutine dsp_mc
 
   !> @brief Allocate and read method for package
@@ -223,9 +211,6 @@ contains
     ! -- dsp pointers to arguments that were passed in
     this%ibound => ibound
     this%thetam => thetam
-    !
-    ! -- Return
-    return
   end subroutine dsp_ar
 
   !> @brief Advance method for the package
@@ -260,9 +245,6 @@ contains
         call this%xt3d%xt3d_fcpc(this%dis%nodes, .false.)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine dsp_ad
 
   !> @brief  Fill coefficient method for package
@@ -310,9 +292,6 @@ contains
         end do
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine dsp_fc
 
   !> @ brief Calculate flows for package
@@ -344,9 +323,6 @@ contains
         end do
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine dsp_cq
 
   !> @ brief Allocate scalar variables for package
@@ -397,9 +373,6 @@ contains
     this%iangle1 = 1
     this%iangle2 = 1
     this%iangle3 = 1
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @ brief Allocate arrays for package
@@ -436,9 +409,6 @@ contains
     else
       call mem_allocate(this%dispcoef, 0, 'DISPCOEF', trim(this%memoryPath))
     end if
-    !
-    ! -- Return
-    return
   end subroutine allocate_arrays
 
   !> @ brief Deallocate memory
@@ -500,9 +470,6 @@ contains
     !
     ! -- nullify pointers
     this%thetam => null()
-    !
-    ! -- Return
-    return
   end subroutine dsp_da
 
   !> @brief Write user options to list file
@@ -516,8 +483,6 @@ contains
     write (this%iout, '(4x,a,i0)') 'XT3D formulation [0=INACTIVE, 1=ACTIVE, &
                                    &3=ACTIVE RHS] set to: ', this%ixt3d
     write (this%iout, '(1x,a,/)') 'End Setting DSP Options'
-    ! -- Return
-    return
   end subroutine log_options
 
   !> @brief Update simulation mempath options
@@ -546,9 +511,6 @@ contains
     if (this%iout > 0) then
       call this%log_options(found)
     end if
-    !
-    ! -- Return
-    return
   end subroutine source_options
 
   !> @brief Write dimensions to list file
@@ -667,9 +629,6 @@ contains
     if (this%iout > 0) then
       call this%log_griddata(found)
     end if
-    !
-    ! -- Return
-    return
   end subroutine source_griddata
 
   !> @brief Calculate dispersion coefficients
@@ -781,9 +740,6 @@ contains
         !
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine calcdispellipse
 
   !> @brief Calculate dispersion coefficients
@@ -914,9 +870,6 @@ contains
         !
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine calcdispcoef
 
 end module GwtDspModule

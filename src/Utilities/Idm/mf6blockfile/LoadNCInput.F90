@@ -45,7 +45,7 @@ contains
   !> @brief Read a NetCDF integer 1d array
   !<
   subroutine nc_read_int1d(int1d, mshape, idt, mf6_input, nc_vars, input_fname, &
-                           iout)
+                           iout, kper)
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: int1d
     integer(I4B), dimension(:), contiguous, pointer, intent(in) :: mshape !< model shape
     type(InputParamDefinitionType), intent(in) :: idt !< input data type object describing this record
@@ -53,9 +53,10 @@ contains
     type(NCPackageVarsType), pointer, intent(in) :: nc_vars
     character(len=*), intent(in) :: input_fname
     integer(I4B), intent(in) :: iout
+    integer(I4B), optional, intent(in) :: kper
 #if defined(__WITH_NETCDF__)
     call netcdf_array_load(int1d, mshape, idt, mf6_input, nc_vars, input_fname, &
-                           iout)
+                           iout, kper)
 #else
     call error_and_exit(idt%tagname, input_fname)
 #endif
@@ -102,7 +103,7 @@ contains
   !> @brief Read a NetCDF double 1d array
   !<
   subroutine nc_read_dbl1d(dbl1d, mshape, idt, mf6_input, nc_vars, input_fname, &
-                           iout)
+                           iout, kper, iaux)
     real(DP), dimension(:), pointer, contiguous, intent(in) :: dbl1d
     integer(I4B), dimension(:), contiguous, pointer, intent(in) :: mshape !< model shape
     type(InputParamDefinitionType), intent(in) :: idt !< input data type object describing this record
@@ -110,9 +111,11 @@ contains
     type(NCPackageVarsType), pointer, intent(in) :: nc_vars
     character(len=*), intent(in) :: input_fname
     integer(I4B), intent(in) :: iout
+    integer(I4B), optional, intent(in) :: kper
+    integer(I4B), optional, intent(in) :: iaux
 #if defined(__WITH_NETCDF__)
     call netcdf_array_load(dbl1d, mshape, idt, mf6_input, nc_vars, input_fname, &
-                           iout)
+                           iout, kper=kper, iaux=iaux)
 #else
     call error_and_exit(idt%tagname, input_fname)
 #endif

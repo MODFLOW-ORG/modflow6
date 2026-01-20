@@ -5,7 +5,7 @@ def get_next_line(line_list):
     line = ""
     while len(line_list) > 0:
         line = line_list.pop(0)
-        line = r"{}".format(line)
+        line = rf"{line}"
         line = line.strip()
         if "!" in line:
             idx = line.index("!")

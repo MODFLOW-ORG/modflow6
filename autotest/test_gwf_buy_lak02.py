@@ -68,9 +68,7 @@ def build_models(idx, test):
         sim_ws=test.workspace,
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -146,77 +144,17 @@ def build_models(idx, test):
     bedleak = "None"
     con_data = [
         # con_data=(ifno,iconn,(cellid),claktype,bedleak,belev,telev,connlen,connwidth )
-        (
-            0,
-            0,
-            (0, 0, 0),
-            "HORIZONTAL",
-            bedleak,
-            10,
-            10,
-            connlen,
-            connwidth,
-        ),
+        (0, 0, (0, 0, 0), "HORIZONTAL", bedleak, 10, 10, connlen, connwidth),
         (0, 1, (1, 0, 1), "VERTICAL", bedleak, 10, 10, connlen, connwidth),
-        (
-            0,
-            2,
-            (1, 0, 1),
-            "HORIZONTAL",
-            bedleak,
-            10,
-            10,
-            connlen,
-            connwidth,
-        ),
+        (0, 2, (1, 0, 1), "HORIZONTAL", bedleak, 10, 10, connlen, connwidth),
         (0, 3, (2, 0, 2), "VERTICAL", bedleak, 10, 10, connlen, connwidth),
-        (
-            0,
-            4,
-            (2, 0, 2),
-            "HORIZONTAL",
-            bedleak,
-            10,
-            10,
-            connlen,
-            connwidth,
-        ),
+        (0, 4, (2, 0, 2), "HORIZONTAL", bedleak, 10, 10, connlen, connwidth),
         (0, 5, (3, 0, 3), "VERTICAL", bedleak, 10, 10, connlen, connwidth),
-        (
-            0,
-            6,
-            (2, 0, 4),
-            "HORIZONTAL",
-            bedleak,
-            10,
-            10,
-            connlen,
-            connwidth,
-        ),
+        (0, 6, (2, 0, 4), "HORIZONTAL", bedleak, 10, 10, connlen, connwidth),
         (0, 7, (2, 0, 4), "VERTICAL", bedleak, 10, 10, connlen, connwidth),
-        (
-            0,
-            8,
-            (1, 0, 5),
-            "HORIZONTAL",
-            bedleak,
-            10,
-            10,
-            connlen,
-            connwidth,
-        ),
+        (0, 8, (1, 0, 5), "HORIZONTAL", bedleak, 10, 10, connlen, connwidth),
         (0, 9, (1, 0, 5), "VERTICAL", bedleak, 10, 10, connlen, connwidth),
-        (
-            0,
-            10,
-            (0, 0, 6),
-            "HORIZONTAL",
-            bedleak,
-            10,
-            10,
-            connlen,
-            connwidth,
-        ),
+        (0, 10, (0, 0, 6), "HORIZONTAL", bedleak, 10, 10, connlen, connwidth),
     ]
 
     # period data

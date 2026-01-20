@@ -7,7 +7,6 @@ import textwrap
 from multiprocessing import Pool
 from os import PathLike
 from pathlib import Path
-from typing import List, Tuple
 
 import flopy
 import pytest
@@ -21,7 +20,7 @@ PROJ_ROOT_PATH = get_project_root_path()
 EXAMPLES_REPO_PATH = PROJ_ROOT_PATH.parent / "modflow6-examples"
 BUILD_PATH = PROJ_ROOT_PATH / "builddir"
 BIN_PATH = PROJ_ROOT_PATH / "bin"
-GITHUB_REPO = "MODFLOW-USGS/modflow6"
+GITHUB_REPO = "MODFLOW-ORG/modflow6"
 BENCHMARKS_FILE_NAME = "run-time-comparison.md"
 IS_WINDOWS = sys.platform.lower() == "win32"
 EXE_EXT = ".exe" if IS_WINDOWS else ""
@@ -34,32 +33,24 @@ OSTAG = (
 )
 
 
-def download_previous_version(output_path: PathLike) -> Tuple[str, Path]:
-    output_path = Path(output_path).expanduser().absolute()
+def fetch_latest(outdir: PathLike) -> tuple[str, Path]:
+    outdir = Path(outdir).expanduser().absolute()
     version = get_latest_version(GITHUB_REPO)
     distname = f"mf{version}_{OSTAG}"
     url = (
         f"https://github.com/{GITHUB_REPO}"
         + f"/releases/download/{version}/{distname}.zip"
     )
-    download_and_unzip(
-        url,
-        path=output_path,
-        verbose=True,
-    )
-
-    return version, output_path / distname
+    download_and_unzip(url, path=outdir, verbose=True)
+    return version, outdir / distname
 
 
 def get_mf6_cmdargs(app, argv, text="mf6:", verbose=False):
     return_text = None
     proc = subprocess.Popen(
-        argv,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=os.path.dirname(app),
+        argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.path.dirname(app)
     )
-    result, error = proc.communicate()
+    result, _ = proc.communicate()
     if result is not None:
         c = result.decode("utf-8")
         c = c.rstrip("\r\n")
@@ -94,26 +85,20 @@ def get_mf6_compiler(app, verbose=False):
 
 
 def revert_files(app, example):
-    replace_dict = {
-        ".ims": {
-            (6, 1, 1): ("dvclose", "hclose"),
-        }
-    }
-    extensions = list(replace_dict.keys())
-
-    # get current version
+    """
+    Modify input files to use deprecated/removed options
+    as appropriate for the last release version
+    """
+    replacements = {".ims": {(6, 1, 1): ("dvclose", "hclose")}}
+    extensions = list(replacements.keys())
     version = get_mf6_version(app)
     if version is not None:
         version = tuple([int(v) for v in version.split(".")])
-
-    # get a list of files in example directory
-    files = os.listdir(example)
-
-    for file in files:
+    for file in os.listdir(example):
         _, extension = os.path.splitext(file)
         if extension in extensions:
             key = extension.lower()
-            for v, replace in replace_dict[key].items():
+            for v, replace in replacements[key].items():
                 if version < v:
                     fpth = os.path.join(example, file)
                     with open(fpth, "r") as f:
@@ -121,9 +106,7 @@ def revert_files(app, example):
                     with open(fpth, "w") as f:
                         for line in lines:
                             if replace[0] in line.lower():
-                                line = line.lower().replace(
-                                    replace[0], replace[1]
-                                )
+                                line = line.lower().replace(replace[0], replace[1])
                             f.write(line)
 
 
@@ -167,68 +150,41 @@ def elapsed_real_to_string(elt):
 
 
 def run_function(id, app, example):
-    return (
-        id,
-        flopy.run_model(
-            app,
-            None,
-            model_ws=example,
-            silent=True,
-            report=True,
-        ),
-    )
+    return (id, flopy.run_model(app, None, model_ws=example, silent=True, report=True))
 
 
 def run_model(
-    current_app: PathLike, previous_app: PathLike, model_path: PathLike
+    workspace: PathLike,
+    dev_exe: PathLike,
+    old_exe: PathLike,
 ):
-    current_app = Path(current_app).expanduser().absolute()
-    previous_app = Path(previous_app).expanduser().absolute()
-    model_path = Path(model_path).expanduser().absolute()
+    workspace = Path(workspace).expanduser().absolute()
+    dev_exe = Path(dev_exe).expanduser().absolute()
+    old_exe = Path(old_exe).expanduser().absolute()
 
     current_time = 0.0
     previous_time = 0.0
-
-    generic_names = ["mf6gwf", "mf6gwt"]
+    generic_names = ["gwf", "gwt", "gwe", "prt"]
+    generic_names = generic_names + [f"mf6{n}" for n in generic_names]
     name = (
-        f"{model_path.parent.name}/{model_path.name}"
-        if model_path.name in generic_names
-        else model_path.name
+        f"{workspace.parent.name}/{workspace.name}"
+        if workspace.name in generic_names
+        else workspace.name
     )
     print(f"Running scenario: {name}")
     line = f"| {name} |"
-
-    # copy directory for previous application
-    prev_dir = os.path.join(model_path, "previous")
+    prev_dir = os.path.join(workspace, "previous")
     if os.path.isdir(prev_dir):
         shutil.rmtree(prev_dir)
-    print(f"Copying {model_path} ==> {prev_dir}")
-    shutil.copytree(model_path, prev_dir)
-
-    # modify input files to use deprecated keywords in directory
-    # used with the previous application
-    revert_files(previous_app, prev_dir)
-
-    # # run the current application
-    # success, buff = run_function(app, example)
-    #
-    # # run the previous application
-    # success0, buff0 = run_function(app0, prev_dir)
-
-    # processing options
+    print(f"Copying {workspace} ==> {prev_dir}")
+    shutil.copytree(workspace, prev_dir)
+    revert_files(old_exe, prev_dir)
     args = (
-        (0, current_app, model_path),
-        (1, previous_app, prev_dir),
+        (0, dev_exe, workspace),
+        (1, old_exe, prev_dir),
     )
-
-    # Multi-processing using Pool
-    # initialize the pool
     pool = Pool(processes=2)
-
-    # run the models
     results = [pool.apply_async(run_function, args=arg) for arg in args]
-
-    # close the pool
     pool.close()
 
     # set variables for processing
@@ -282,7 +238,7 @@ def write_results(
     output_path: PathLike,
     current_total,
     previous_total,
-    lines: List[str],
+    lines: list[str],
 ):
     current_exe = Path(current_exe)
     previous_exe = Path(previous_exe)
@@ -302,7 +258,7 @@ def write_results(
             + f"to the previous version ({previous_v}). "
             + "The current example models available from the "
             + "[MODFLOW 6 Examples GitHub Repository]"
-            + "(https://github.com/MODFLOW-USGS/modflow6-examples) are "
+            + "(https://github.com/MODFLOW-ORG/modflow6-examples) are "
             + "used to compare run times. Simulations that fail are "
             + "indicated by '--'. The percent difference, where calculated, "
             + "is relative to the simulation run time for the previous "
@@ -314,9 +270,7 @@ def write_results(
         line += f"| Current Version {current_v} "
         line += f"| Previous Version {previous_v} "
         line += "| Percent difference |\n"
-        line += (
-            "| :---------- | :----------: | :----------: | :----------: |\n"
-        )
+        line += "| :---------- | :----------: | :----------: | :----------: |\n"
         f.write(line)
 
         # write benchmark data
@@ -338,75 +292,75 @@ def run_benchmarks(
     current_bin_path: PathLike,
     previous_bin_path: PathLike,
     examples_path: PathLike,
-    output_path: PathLike,
-    excluded: List[str] = [],
+    out_path: PathLike,
+    excluded: list[str] = [],
 ):
-    """Benchmark current development version against previous release with example models."""
+    """Benchmark current development version against previous release
+    with example models.
+    """
 
     build_path = Path(build_path).expanduser().absolute()
     current_bin_path = Path(current_bin_path).expanduser().absolute()
     previous_bin_path = Path(previous_bin_path).expanduser().absolute()
     examples_path = Path(examples_path).expanduser().absolute()
-    output_path = Path(output_path).expanduser().absolute()
+    out_path = Path(out_path).expanduser().absolute()
 
     example_dirs = get_model_paths(examples_path, excluded=excluded)
-    assert any(
-        example_dirs
-    ), "No example model paths found, have models been built?"
-
-    # results_path = output_path / _markdown_file_name
-    # if results_path.is_file():
-    #     print(f"Benchmark results already exist: {results_path}")
-    #     return
+    if not any(example_dirs):
+        raise FileNotFoundError(f"No example model paths found in {examples_path}")
 
     exe_name = f"mf6{EXE_EXT}"
-    current_exe = current_bin_path / exe_name
-    previous_exe = previous_bin_path / exe_name
+    dev_exe = current_bin_path / exe_name
+    old_exe = previous_bin_path / exe_name
 
-    if not current_exe.is_file():
-        print("Building current MODFLOW 6 development version")
+    if not dev_exe.is_file():
+        print("Building MODFLOW 6 development version")
         meson_build(
             project_path=PROJ_ROOT_PATH,
             build_path=build_path,
             bin_path=current_bin_path,
         )
 
-    if not previous_exe.is_file():
-        version, download_path = download_previous_version(output_path)
-        print(
-            f"Rebuilding latest MODFLOW 6 release {version} in development mode"
-        )
+    if not old_exe.is_file():
+        version, download_path = fetch_latest(out_path)
+        print(f"Rebuilding latest MODFLOW 6 release {version} in development mode")
         meson_build(
             project_path=download_path,
             build_path=build_path,
             bin_path=previous_bin_path,
         )
+        shutil.rmtree(download_path)
 
     print("Benchmarking MODFLOW 6 versions:")
-    print(f"    current: {current_exe}")
-    print(f"    previous: {previous_exe}")
+    print(f"    dev: {dev_exe}")
+    print(f"    old: {old_exe}")
 
     # benchmark models
     current_total = 0.0
     previous_total = 0.0
     lines = []
-    for idx, example in enumerate(example_dirs):
+    skip = ["ex-prt-mp7-p02", "ex-prt-mp7-p04"]
+    for example_dir in example_dirs:
+        if any(
+            (pattern in example_dir.name or pattern in example_dir.parent.name)
+            for pattern in skip
+        ):
+            print(f"Skipping {example_dir}")
+            continue
         success, t, t0, line = run_model(
-            current_exe,
-            previous_exe,
-            example,
+            workspace=example_dir, dev_exe=dev_exe, old_exe=old_exe
         )
         if not success:
-            print(f"{example} run failed")
+            print(f"{example_dir} run failed")
         current_total += t
         previous_total += t0
         lines.append(line)
 
     # create markdown results file
     write_results(
-        current_exe=current_exe,
-        previous_exe=previous_exe,
-        output_path=output_path,
+        current_exe=dev_exe,
+        previous_exe=old_exe,
+        output_path=out_path,
         current_total=current_total,
         previous_total=previous_total,
         lines=lines,
@@ -420,7 +374,7 @@ def test_run_benchmarks(tmp_path):
         current_bin_path=BIN_PATH,
         previous_bin_path=BIN_PATH / "rebuilt",
         examples_path=EXAMPLES_REPO_PATH / "examples",
-        output_path=tmp_path,
+        out_path=tmp_path,
         excluded=["previous"],
     )
     assert (tmp_path / BENCHMARKS_FILE_NAME).is_file()
@@ -431,8 +385,8 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent(
             """\
-            Benchmarks the current version of MODFLOW 6 against the latest official release,
-            with the example models stored in the MODFLOW-USGS/modflow6-examples repository.
+    Benchmarks the current version of MODFLOW 6 against the latest official release,
+    with the example models stored in the MODFLOW-ORG/modflow6-examples repository.
             """
         ),
     )
@@ -472,25 +426,19 @@ if __name__ == "__main__":
     build_path = Path(args.build_path)
     current_bin_path = Path(args.current_bin_path)
     previous_bin_path = Path(args.previous_bin_path)
-    output_path = (
-        Path(args.output_path) if args.output_path else Path(os.getcwd())
-    )
+    output_path = Path(args.output_path) if args.output_path else Path(os.getcwd())
     examples_repo_path = (
-        Path(args.examples_repo_path)
-        if args.examples_repo_path
-        else EXAMPLES_REPO_PATH
+        Path(args.examples_repo_path) if args.examples_repo_path else EXAMPLES_REPO_PATH
     )
 
     output_path.mkdir(parents=True, exist_ok=True)
-    assert (
-        examples_repo_path.is_dir()
-    ), f"Examples repo not found: {examples_repo_path}"
+    assert examples_repo_path.is_dir(), f"Examples repo not found: {examples_repo_path}"
 
     run_benchmarks(
         build_path=build_path,
         current_bin_path=current_bin_path,
         previous_bin_path=previous_bin_path,
         examples_path=examples_repo_path / "examples",
-        output_path=output_path,
+        out_path=output_path,
         excluded=["previous"],
     )

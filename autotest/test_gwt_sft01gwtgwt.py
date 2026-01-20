@@ -15,7 +15,7 @@ should match exactly with the gwf flows and the gwf concentrations.
  sft  1 2 3 4 5 6 7  gwtgwt-mvt => 1 2 3 4 5 6 7
       -------------                -------------
  gwt  1 2 3 4 5 6 7  gwtgwt     => 1 2 3 4 5 6 7
-"""
+"""  # noqa
 
 import flopy
 import numpy as np
@@ -143,16 +143,7 @@ def build_models(idx, test):
 
     # add a gwf-gwf exchange
     gwfgwf_data = [
-        (
-            (0, 0, ncol - 1),
-            (0, 0, 0),
-            1,
-            delr / 2.0,
-            delr / 2.0,
-            delc,
-            0.0,
-            delr,
-        )
+        ((0, 0, ncol - 1), (0, 0, 0), 1, delr / 2.0, delr / 2.0, delc, 0.0, delr)
     ]
 
     # GWF-GWF
@@ -176,9 +167,7 @@ def build_models(idx, test):
     if across_model_mvr_on:
         maxmvr, maxpackages = 1, 2
         mvrpack_sim = [["flow1", "sfr-1"], ["flow2", "sfr-1"]]
-        mvrspd = [
-            ["flow1", "sfr-1", ncol - 1, "flow2", "sfr-1", 0, "FACTOR", 1.00]
-        ]
+        mvrspd = [["flow1", "sfr-1", ncol - 1, "flow2", "sfr-1", 0, "FACTOR", 1.00]]
         gwfgwf.mvr.initialize(
             modelnames=True,
             maxmvr=maxmvr,
@@ -278,7 +267,8 @@ def build_gwfgwt_combo(sim, gwfname, gwtname, icombo):
             filename=f"{gwfname}.wel",
         )
 
-    # pak_data = [<rno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> <man> <ncon> <ustrf> <ndv> [<aux(naux)>] [<boundname>]]
+    # pak_data = [<rno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> ...
+    #             <man> <ncon> <ustrf> <ndv> [<aux(naux)>] [<boundname>]]
     rlen = delr
     rwid = delc
     rgrd = 1.0
@@ -295,20 +285,7 @@ def build_gwfgwt_combo(sim, gwfname, gwtname, icombo):
         if irno in [0, ncol - 1]:
             ncon = 1
         cellid = (0, 0, irno)
-        t = (
-            irno,
-            cellid,
-            rlen,
-            rwid,
-            rgrd,
-            rtp,
-            rbth,
-            rhk,
-            rman,
-            ncon,
-            ustrf,
-            ndv,
-        )
+        t = (irno, cellid, rlen, rwid, rgrd, rtp, rbth, rhk, rman, ncon, ustrf, ndv)
         pak_data.append(t)
 
     con_data = []
@@ -459,9 +436,7 @@ def build_gwfgwt_combo(sim, gwfname, gwtname, icombo):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -503,9 +478,9 @@ def check_output(idx, test):
     print("cell/sfr  head  conc  sfrconc")
     for i in range(ncol * 2):
         print(f"{i + 1}  {head[i]}  {conc[i]}  {sfrconc[i]}")
-    assert np.allclose(
-        conc, sfrconc
-    ), "aquifer concentration does not equal sfr concentration"
+    assert np.allclose(conc, sfrconc), (
+        "aquifer concentration does not equal sfr concentration"
+    )
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

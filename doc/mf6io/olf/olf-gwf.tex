@@ -1,0 +1,43 @@
+Input to the Channel Flow and Groundwater Flow (CHF-GWF) Exchange is read from the file that has type ``CHF6-GWF6'' in the Simulation Name File.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/exg-chfgwf-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/exg-chfgwf-dimensions.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/exg-chfgwf-exchangedata.dat}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/exg-chfgwf-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/exg-chfgwf-example.dat}
+
+% \vspace{5mm}
+% \subsubsection{Available observation types}
+CHF-GWF Exchange observations include the simulated flow for any exchange (\texttt{flow-ja-face}). The data required for each CHF-GWF Exchange observation type is defined in table~\ref{table:chf-gwfobstype}. For \texttt{flow-ja-face} observation types, negative and positive values represent a loss from and gain to the first model specified for this exchange.
+
+% \begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
+% \caption{Available CHF-GWF Exchange observation types} \tabularnewline
+
+% \hline
+% \hline
+% \textbf{Exchange} & \textbf{Observation type} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+% \hline
+% \endhead
+
+% \hline
+% \endfoot
+
+% \input{../Common/chf-gwfobs.tex}
+% \label{table:chf-gwfobstype}
+% \end{longtable}
+
+
+% \vspace{5mm}
+% \subsubsection{Example Observation Input File}
+% \lstinputlisting[style=inputfile]{./mf6ivar/examples/exg-chfgwf-example-obs.dat}
+

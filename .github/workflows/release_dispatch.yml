@@ -15,30 +15,25 @@ on:
   # see https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
   workflow_dispatch:
     inputs:
-      approve:
-        description: 'Approve the release. Otherwise it is preliminary/provisional.'
-        required: false
-        type: boolean
-        default: false
       branch:
         description: 'Branch to release from.'
         required: true
         type: string
       compiler_toolchain:
-        description: 'Compiler toolchain to use. For supported options see https://github.com/MODFLOW-USGS/modflow6/blob/develop/DEVELOPER.md#compiler-compatibility.'
+        description: 'Compiler toolchain to use. For supported options see https://github.com/MODFLOW-ORG/modflow6/blob/develop/DEVELOPER.md#compiler-compatibility.'
         required: false
         type: string
         default: 'intel-classic'
       compiler_version:
-        description: 'Compiler version to use. For supported options see https://github.com/MODFLOW-USGS/modflow6/blob/develop/DEVELOPER.md#compiler-compatibility.'
+        description: 'Compiler version to use. For supported options see https://github.com/MODFLOW-ORG/modflow6/blob/develop/DEVELOPER.md#compiler-compatibility.'
         required: false
         type: string
-        default: '2021.7'
-      developmode:
-        description: 'Build binaries in develop mode. If false, IDEVELOPMODE is set to 0.'
+        default: '2021.6'
+      releasemode:
+        description: 'Build a full distribution containing sources, examples, and all documentation. If false, the distribution contains only binaries, mf6io, release notes, and code.json, with binaries built in develop mode, and disclaimers & version strings indicating preliminary/provisional status. If true, a full distribution is created, with binaries built in release mode, and disclaimer language indicating review and approval.'
         required: false
         type: boolean
-        default: true
+        default: false
       run_tests:
         description: 'Run tests after building binaries.'
         required: false
@@ -48,10 +43,11 @@ on:
         description: 'Version number to use for release.'
         required: true
         type: string
-      models:
-        description: 'Models to include in the release documentation'
+      patch:
+        description: 'Create a patch release. If true, only bug fixes will be included in generated documentation.'
         required: false
-        type: string
+        type: boolean
+        default: false
 jobs:
   set_options:
     name: Set release options
@@ -65,8 +61,13 @@ jobs:
       compiler_toolchain: ${{ steps.set_compiler.outputs.compiler_toolchain }}
       compiler_version: ${{ steps.set_compiler.outputs.compiler_version }}
       version: ${{ steps.set_version.outputs.version }}
-      models: ${{ steps.set_models.outputs.models }}
+      patch: ${{ steps.set_patch.outputs.patch }}
     steps:
+      - name: Checkout modflow6
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/modflow6
+          ref: ${{ github.ref }}
       - name: Set branch
         id: set_branch
         run: |
@@ -100,7 +101,7 @@ jobs:
           elif [[ ("${{ github.event_name }}" == "push") && ("${{ github.ref_name }}" != "master") ]]; then
             # if release was triggered by pushing a release branch, use the default toolchain and version
             compiler_toolchain="intel-classic"
-            compiler_version="2021.7"
+            compiler_version="2021.6"
             echo "using default compiler toolchain $compiler_toolchain version $compiler_version"
           else
             # otherwise exit with an error
@@ -127,46 +128,58 @@ jobs:
             exit 1
           fi
           echo "version=$ver" >> $GITHUB_OUTPUT
-      - name: Set models
-        id: set_models
+      - name: Set patch
+        id: set_patch
         run: |
-          # if models were selected explicitly via workflow_dispatch, use them
-          if [[ ("${{ github.event_name }}" == "workflow_dispatch") && (-n "${{ inputs.models }}") ]]; then
-            models="${{ inputs.models }}"
-            echo "using model selection $models from workflow_dispatch"
+          # if patch was provided explicitly via workflow_dispatch, use it
+          if [[ ("${{ github.event_name }}" == "workflow_dispatch") && (-n "${{ inputs.patch }}") ]]; then
+            patch="${{ inputs.patch }}"
+            echo "using patch setting $patch from workflow_dispatch"
           elif [[ ("${{ github.event_name }}" == "push") && ("${{ github.ref_name }}" != "master") ]]; then
-            # if release was triggered by pushing a release branch, use default models
-            models="gwf,gwt,gwe,prt"
-            echo "using default model selection: $models"
+            # if release was triggered by pushing a release branch, check the version against the latest
+            # tag on master to determine if this is a patch release
+            latest_tag=$(git ls-remote --tags origin "6.*" | awk -F/ '{print $3}' | sort -V | tail -n1)
+            echo "latest version on master is $latest_tag"
+            IFS='.' read -r -a latest_parts <<< "$latest_tag"
+            IFS='.' read -r -a new_parts <<< "${{ steps.set_version.outputs.version }}"
+            if [[ ${#latest_parts[@]} -ne 3 || ${#new_parts[@]} -ne 3 ]]; then
+              echo "error: version number is not in major.minor.patch format"
+              exit 1
+            fi
+            if [[ ${latest_parts[0]} -ne ${new_parts[0]} || ${latest_parts[1]} -ne ${new_parts[1]} ]]; then
+              patch="false"
+              echo "major or minor version has changed, not a patch release"
+            elif [[ ${latest_parts[2]} -lt ${new_parts[2]} ]]; then
+              patch="true"
+              echo "patch version has changed, this is a patch release"
+            fi
           else
             # otherwise exit with an error
-            echo "error: model selection could not be determined"
+            echo "error: this workflow should not have triggered for event ${{ github.event_name }} on branch ${{ github.ref_name }}"
             exit 1
           fi
-          echo "models=$models" >> $GITHUB_OUTPUT
+          echo "patch=$patch" >> $GITHUB_OUTPUT
   make_dist:
     name: Make distribution
-    uses: MODFLOW-USGS/modflow6/.github/workflows/release.yml@develop
+    uses: MODFLOW-ORG/modflow6/.github/workflows/release.yml@develop
     needs: set_options
     with:
       # If the workflow is manually triggered, the maintainer must manually set approve=true to approve a release.
       # If triggered by pushing a release branch, the release is approved if the branch name doesn't contain "rc".
-      approve: ${{ (github.event_name == 'workflow_dispatch' && inputs.approve == 'true') || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc')) }}
       compiler_toolchain: ${{ needs.set_options.outputs.compiler_toolchain }}
       compiler_version: ${{ needs.set_options.outputs.compiler_version }}
       branch: ${{ needs.set_options.outputs.branch }}
-      # If the workflow is manually triggered, the maintainer must manually set developmode to false, otherwise the default is true.
+      # If the workflow is manually triggered, the maintainer must manually set releasemode to true, otherwise the default is false.
       # If triggered by pushing a release branch, the release is developmode if the branch name contains "rc", otherwise releasemode.
-      developmode: ${{ (github.event_name == 'workflow_dispatch' && inputs.developmode == 'true') || (github.event_name != 'workflow_dispatch' && contains(github.ref_name, 'rc')) }}
-      full: true
+      releasemode: ${{ (github.event_name == 'workflow_dispatch' && inputs.releasemode == 'true') || github.event_name != 'workflow_dispatch' }}
       # If the workflow is manually triggered, the maintainer must manually set run_tests to false, otherwise the default is true.
       # If triggered by pushing a release branch, tests are enabled.
       run_tests: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_tests == 'true') || github.event_name != 'workflow_dispatch' }}
       version: ${{ needs.set_options.outputs.version }}
-      models: ${{ needs.set_options.outputs.models }}
+      patch: ${{ (github.event_name == 'workflow_dispatch' && inputs.patch == 'true') || (github.event_name != 'workflow_dispatch' && needs.set_options.outputs.patch == 'true') }}
   pr:
     name: Draft release PR
-    if: ${{ github.ref_name != 'master' && ((github.event_name == 'workflow_dispatch' && inputs.approve == 'true') || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc'))) }}
+    if: ${{ github.ref_name != 'master' && ((github.event_name == 'workflow_dispatch' && inputs.releasemode == 'true') || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc'))) }}
     needs:
       - set_options
       - make_dist
@@ -179,7 +192,7 @@ jobs:
         shell: bash -l {0}
     steps:
       - name: Checkout modflow6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.repository_owner }}/modflow6
           ref: ${{ github.ref }}
@@ -198,8 +211,8 @@ jobs:
           ver="${{ needs.set_options.outputs.version }}"
           # approve will be empty if workflow was triggered by pushing a release branch
           # todo: pull approve into set_options job/output?
-          if [[ ("${{ inputs.approve }}" == "true") || ("${{ inputs.approve }}" == "") ]]; then
-            python update_version.py -v "$ver" --approve
+          if [[ ("${{ inputs.releasemode }}" == "true") || ("${{ inputs.releasemode }}" == "") ]]; then
+            python update_version.py -v "$ver" --releasemode
           else
             python update_version.py -v "$ver"
           fi
@@ -239,7 +252,7 @@ jobs:
         shell: bash -l {0}
     steps:
       - name: Checkout modflow6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.repository_owner }}/modflow6
           path: modflow6
@@ -252,7 +265,7 @@ jobs:
           cache-environment: true
 
       - name: Download artifacts
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v12
 
       - name: Draft release
         working-directory: modflow6

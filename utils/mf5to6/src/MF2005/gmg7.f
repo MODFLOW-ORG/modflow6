@@ -39,7 +39,7 @@ C--------------------------------------------------------------------
      3                   IUNITMHC,DUP,DLOW,CHGLIMIT,HNEWLAST,
      4                   BIGHEADCHG, mxitergmg
       use utl7module, only: URDCOM, URWORD
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       IMPLICIT NONE
       CHARACTER*200 LINE
       INTEGER IN,MXITER,IGRID,ICOL,NDUM,ISTOP,ISTART

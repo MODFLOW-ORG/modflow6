@@ -115,9 +115,6 @@ contains
     !
     ! -- Set nlist for return
     nlist = this%nlist
-    !
-    ! -- Return
-    return
   end subroutine read_list
 
   !> @brief Check for a control record, and parse if found
@@ -150,9 +147,6 @@ contains
     case ('OPEN/CLOSE')
       call this%set_openclose()
     end select
-    !
-    ! -- Return
-    return
   end subroutine read_control_record
 
   !> @brief Set up for open/close file
@@ -233,9 +227,6 @@ contains
     if (this%ibinary /= 1) &
       call this%line_reader%rdcom(this%inlist, this%iout, this%line, &
                                   this%ierr)
-    !
-    ! -- Return
-    return
   end subroutine set_openclose
 
   !> @brief Read the data
@@ -255,9 +246,6 @@ contains
     if (this%iclose == 1) then
       close (this%inlist)
     end if
-    !
-    ! -- Return
-    return
   end subroutine read_data
 
   !> @brief Read the data from a binary file
@@ -361,9 +349,6 @@ contains
     if (count_errors() > 0) then
       call store_error_unit(this%inlist)
     end if
-    !
-    ! -- Return
-    return
   end subroutine read_binary
 
   !> @brief Read the data from an ascii file
@@ -546,9 +531,6 @@ contains
     if (count_errors() > 0) then
       call store_error_unit(this%inlist)
     end if
-    !
-    ! -- Return
-    return
   end subroutine read_ascii
 
   !> @brief Check for valid cellid
@@ -597,9 +579,6 @@ contains
         call store_error(errmsg)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine check_cellid
 
   !> @brief Write input data to a list
@@ -758,9 +737,6 @@ contains
     deallocate (inputtab)
     nullify (inputtab)
     deallocate (words)
-    !
-    ! -- Return
-    return
   end subroutine write_list
 
 end module ListReaderModule

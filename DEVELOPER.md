@@ -1,8 +1,8 @@
 # Developing MODFLOW 6
 
-This document describes how to set up a development environment to modify, build and test MODFLOW 6. Details on how to contribute your code to the repository are found in the separate document [CONTRIBUTING.md](CONTRIBUTING.md). 
+This document describes how to set up a development environment to modify, build and test MODFLOW 6. Details on how to contribute your code to the repository are found in the separate document [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-To build and test a parallel version of the program, first read the instructions below and then continue in [PARALLEL.md](PARALLEL.md).
+To build and test an extended version of the program, first read the instructions below and then continue in [EXTENDED.md](./EXTENDED.md).
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -72,19 +72,24 @@ To build and test a parallel version of the program, first read the instructions
 Before you can build and test MODFLOW 6, you must install and configure the following on your development machine:
 
 - git
-- Python3.9+
+- Python3.10+
 - a modern Fortran compiler
 
 Some additional, optional tools are also discussed below.
 
 ### Git
 
-[Git](https://git-scm.com) and/or the **GitHub app** (for [Mac](https://mac.github.com) or [Windows](https://windows.github.com)).
-[GitHub's Guide to Installing Git](https://help.github.com/articles/set-up-git) is a good source of information.
+[GitHub's Guide to Setting Up Git](https://help.github.com/articles/set-up-git) is a good source of information.
+
+Optionally, the [`git blame`](https://git-scm.com/docs/git-blame) tool can be configured to work locally using:
+
+```shell
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
 
 ### Python
 
-Python 3.9+ is required to run MODFLOW 6 tests and in some cases to build MODFLOW 6. Information on installing the python environment is given in the [Installing Python environment](#install-the-python-environment) section. The MODFLOW 6 python environment should be installed after [locally cloning the repository](#get-the-modflow-6-repository).
+Python 3.10+ is required to run MODFLOW 6 tests and in some cases to build MODFLOW 6. Information on installing the python environment is given in the [Installing Python environment](#install-the-python-environment) section. The MODFLOW 6 python environment should be installed after [locally cloning the repository](#get-the-modflow-6-repository).
 
 ### Fortran compiler
 
@@ -136,7 +141,7 @@ Binaries may also be downloaded and installed from the [releases here](https://g
 
 #### Intel Fortran
 
-Intel Fortran can also be used to compile MODFLOW 6 and associated utilities. The `ifort` and `ifx` compilers are available in the [Intel oneAPI HPC Toolkit](https://software.intel.com/content/www/us/en/develop/tools/oneapi/hpc-toolkit/download.html).
+Intel Fortran can also be used to compile MODFLOW 6 and associated utilities. The next generation Fortran compiler `ifx` is available in the [Intel oneAPI HPC Toolkit](https://software.intel.com/content/www/us/en/develop/tools/oneapi/hpc-toolkit/download.html). Both `ifx` and the older `ifort` are available in oneAPI versions released prior to 2025.
 
 A number of environment variables must be set before using Intel Fortran. General information can be found [here](https://www.intel.com/content/www/us/en/develop/documentation/oneapi-programming-guide/top/oneapi-development-environment-setup.html), with specific instructions to configure a shell session for `ifort` [here](https://www.intel.com/content/www/us/en/develop/documentation/fortran-compiler-oneapi-dev-guide-and-reference/top/compiler-setup/use-the-command-line/specifying-the-location-of-compiler-components.html).
 
@@ -144,7 +149,7 @@ While the current development version of MODFLOW 6 is broadly compatible with `i
 
 ##### Windows
 
-On Windows, [Visual Studio](https://visualstudio.microsoft.com) and a number of libraries must be installed for `ifort` and `ifx` to work. The required libraries can be installed by ticking the "Desktop Development with C++" checkbox in the Visual Studio Installer's Workloads tab. 
+On Windows, [Visual Studio](https://visualstudio.microsoft.com) and a number of libraries must be installed for `ifort` and `ifx` to work. The required libraries can be installed by ticking the "Desktop Development with C++" checkbox in the Visual Studio Installer's Workloads tab.
 
 **Note:** Invoking the `setvars.bat` scripts from a Powershell session will *not* put `ifort` or `ifx` on the path, since [batch script environments are local to their process](https://stackoverflow.com/a/49028002/6514033). To relaunch PowerShell with oneAPI variables configured:
 
@@ -196,17 +201,16 @@ Visual Studio installers can be downloaded from the [official website](https://v
 
 *Doxygen & LaTeX*
 
-[Doxygen](https://www.doxygen.nl/index.html) is used to generate the [MODFLOW 6 source code documentation](https://modflow-usgs.github.io/modflow6/). [Graphviz](https://graphviz.org/) is used by doxygen to produce source code diagrams. [LaTeX](https://www.latex-project.org/) is used to generate the MODFLOW 6 release notes and Input/Output documents.
+[Doxygen](https://www.doxygen.nl/index.html) is used to generate the [MODFLOW 6 source code documentation](https://MODFLOW-ORG.github.io/modflow6/). [Graphviz](https://graphviz.org/) is used by doxygen to produce source code diagrams. [LaTeX](https://www.latex-project.org/) is used to generate the MODFLOW 6 release notes and Input/Output documents.
 
-These programs can be installed from various sources, including by conda, macports, or from individual sources such as https://www.tug.org/. Details about USGS LaTeX libraries can be seen in addition to linux installs in the CI workflow for the docs (`.github/workflows/ci-docs.yml`).
-
+These programs can be installed from various sources, including by conda, macports, or from individual sources such as https://www.tug.org/. Details about USGS LaTeX libraries can be seen in addition to linux installs in the CI workflow for the docs (`.github/workflows/docs.yml`).
 
 ## Get the MODFLOW 6 repository
 
 Fork and clone the MODFLOW 6 repository:
 
-1. Login to your GitHub account or create one by following the instructions given [here](https://github.com/signup/free).
-2. [Fork](http://help.github.com/forking) the [main MODFLOW 6](https://github.com/MODFLOW-USGS/modflow6).
+1. Login to your GitHub account or create one by following the instructions given [here](https://github.com/signup).
+2. [Fork](http://help.github.com/forking) the [main MODFLOW 6](https://github.com/MODFLOW-ORG/modflow6).
 3. Clone your fork of the MODFLOW 6 repository and create an `upstream` remote pointing back to your fork.
 
 After forking the MODFLOW 6 repository on GitHub.
@@ -226,27 +230,27 @@ cd modflow6
 3. Add the main MODFLOW 6 repository as an upstream remote to your repository.
 
 ```shell
-git remote add upstream https://github.com/MODFLOW-USGS/modflow6.git
+git remote add upstream https://github.com/MODFLOW-ORG/modflow6.git
 ```
 
 ## Install the python environment
 
-Python 3.9+ is required to run MODFLOW 6 tests and in some cases to build MODFLOW 6. Miniforge is the recommended python distribution if you do not have an existing Conda or Mamba based python distribution.
+Python 3.10+ is required to run MODFLOW 6 tests and in some cases to build MODFLOW 6. Miniforge is the recommended python distribution if you do not have an existing Conda or Mamba based python distribution.
 
-The [environment file for MODFLOW 6](./environment.yml) includes all of the required [python dependencies](#python-dependencies). Install the `modflow6` environment using the Conda `environment.yml` file in the repository. 
+The [environment file for MODFLOW 6](./environment.yml) includes all of the required [python dependencies](#python-dependencies). Install the `modflow6` environment using the Conda `environment.yml` file in the repository.
 
 1. Open a terminal (command prompt) in the root directory of the repository.
 2. Use either Mamba or Conda to install the `modflow6` environment.
 
 ```shell
-mamba env create -f environment.yml 
+mamba env create -f environment.yml
 ```
 
 ```shell
 conda env create -f environment.yml
 ```
 
-Python can also be installed via Pixi. Pixi is currently being used to install python on GitHub Actions continuous integration/continuous development (CI/CD) virtual machines. In the future, Pixi may be the preferred approach for installing python for MODFLOW 6. As a result it is recommended for developers to also install the Pixi python environment, which can coexist with the Mamba/Conda python installation and `modflow6` environment. 
+Python can also be installed via Pixi. Pixi is currently being used to install python on GitHub Actions continuous integration/continuous development (CI/CD) virtual machines. In the future, Pixi may be the preferred approach for installing python for MODFLOW 6. As a result it is recommended for developers to also install the Pixi python environment, which can coexist with the Mamba/Conda python installation and `modflow6` environment.
 
 Pixi installation docs can be found [here](https://pixi.sh). After installing `pixi`, to set up an environment with all development dependencies, in the root directory of the MODFLOW 6 repository run:
 
@@ -282,7 +286,7 @@ These are each described briefly below. These and a number of other dependencies
 
 #### `ruff`
 
-[`ruff`](https://docs.astral.sh/ruff/) can be used to format and lint python code and scripts (for example, autotest scripts) and in combination with the [MODFLOW 6 ruff configuration](.github/common/ruff.toml) establishes a contribution standard for properly formatted python code and scripts. This tool can be used from the command line or integrated with a [VSCode](.vscode/README.md).  See [python formatting guidelines](#python-formatting) and [python linting guidelines](#python-linting) for additional information.
+[`ruff`](https://docs.astral.sh/ruff/) can be used to format and lint python code and scripts (for example, autotest scripts) and in combination with the [MODFLOW 6 ruff configuration](.github/common/ruff.toml) establishes a contribution standard for properly formatted python code and scripts. This tool can be used from the command line or integrated with a [VSCode](.vscode/README.md). See [python formatting guidelines](#python-formatting) and [python linting guidelines](#python-linting) for additional information.
 
 #### `mfpymake`
 
@@ -296,17 +300,18 @@ Like MODFLOW 6, `flopy` is modular &mdash; for each MODFLOW 6 package there is g
 
 #### `modflow-devtools`
 
-The tests use a set of shared fixtures and utilities provided by the [`modflow-devtools`](https://github.com/MODFLOW-USGS/modflow-devtools) package.
+The tests use a set of shared fixtures and utilities provided by the [`modflow-devtools`](https://github.com/MODFLOW-ORG/modflow-devtools) package.
 
 ## Building
 
 Meson is the recommended build tool for MODFLOW 6. [Meson](https://mesonbuild.com/Getting-meson.html) must be installed and on your [PATH](https://en.wikipedia.org/wiki/PATH_(variable)). Creating and activating the provided Pixi or Conda environment should be sufficient for this.
 
-Meson build configuration files are provided for MODFLOW 6, for the ZONEBUDGET and MODFLOW 2005 to 6 converter utility programs, and for Fortran unit tests (see [Testing](#testing) section below).
+### MODFLOW 6 and ZONEBUDGET
+
+Meson build configuration files are provided for MODFLOW 6 and the ZONEBUDGET utility program, and for Fortran unit tests (see [Testing](#testing) section below).
 
 - `meson.build`
 - `utils/zonebudget/meson.build`
-- `utils/mf5to6/meson.build`
 - `autotest/meson.build`
 
 Building MODFLOW 6 requires two steps:
@@ -319,6 +324,7 @@ To configure the build directory for a debug version:
 ```shell
 meson setup --prefix=$(pwd) --libdir=bin builddir -Ddebug=true
 ```
+
 Or to configure the build directory for an optimized release version:
 
 ```shell
@@ -331,7 +337,7 @@ or using pixi to setup the build directory:
 pixi run setup builddir
 ```
 
-Debug versions can be built using pixi by adding `-Ddebug=true` at the end of the pixi command. Other meson commands (for example, `-Dparallel=true`, `--wipe`, _etc._) added to the pixi command are passed through to Meson. 
+Debug versions can be built using pixi by adding `-Ddebug=true` at the end of the pixi command. Other meson commands (for example, `-Dextended=true`, `--wipe`, _etc._) added to the pixi command are passed through to Meson.
 
 Substitute `%CD%` as necessary on Windows.
 
@@ -347,6 +353,52 @@ or using pixi:
 pixi run build builddir
 ```
 
+### MODFLOW 2005 to 6 converter
+
+Meson build configuration files are provided for the MODFLOW 2005 to 6 converter utility program.
+
+- `utils/mf5to6/meson.build`
+- `utils/mf5to6/src/meson.build`
+
+Building MODFLOW 2005 to 6 converter program requires two steps:
+
+- configure the build directory
+- build the project
+
+To configure the build directory for a debug version from the `<project root>/utils/mf5to6` directory:
+
+```shell
+meson setup --prefix=$(pwd)/../../  builddir -Ddebug=true
+```
+
+Or to configure the build directory for an optimized release version from the `<project root>/utils/mf5to6` directory:
+
+```shell
+meson setup --prefix=$(pwd)/../../ builddir
+```
+
+or using pixi to setup the build directory from the `<project root>` directory:
+
+```shell
+pixi run setup-mf5to6 builddir
+```
+
+Debug versions can be built using pixi by adding `-Ddebug=true` at the end of the pixi command. Other meson commands (for example, `--wipe`, _etc._) added to the pixi command are passed through to Meson.
+
+Substitute `%CD%` as necessary on Windows.
+
+To build MODFLOW 6 and install binaries to `<project root>/bin/` from the `<project root>/utils/mf5to6` directory:
+
+```shell
+meson install -C builddir
+```
+
+or using pixi from the `<project root>` directory:
+
+```shell
+pixi run build-mf5to6 builddir
+```
+
 **Note:** If using Visual Studio Code, you can use tasks as described [here](.vscode/README.md) to automate the above.
 
 ## Formatting
@@ -355,26 +407,19 @@ pixi run build builddir
 
 Fortran source files, python files, definition files, markdown, and LaTeX files can be checked with [codespell](https://github.com/codespell-project/codespell). codespell was designed primarily for checking misspelled words in source code, but it can be used with other text files as well. The `codespell` package is included in the Conda `environment.yml` and the Pixi `pixi.toml` files and can be run directly, via Pixi, or via [VSCode](.vscode/README.md) tasks.
 
-For instance, to format a single file:
-
-```shell
-python .github/common/check_spelling.py -p ./utils/zonebudget/src/zbud6.f90 --write-changes
-```
-When run in this way, the tool will modify the file in place. If unresolvable errors are encountered, these are written to standard output and must be manually fixed before attempting to rerun the tool.
-
 To check whether the repository's Fortran source files, python files, definition files, markdown, and LaTeX files have any spelling errors without making any changes:
-
-```shell
-python .github/common/check_spelling.py
-```
-
-or using pixi:
 
 ```shell
 pixi run check-spelling
 ```
 
-To fix spelling errors in all files, add the `--write-changes` flag to the end of the python or pixi commands.
+Or, from an environment with `codespell` installed, simply
+
+```shell
+codespell
+```
+
+To fix spelling errors in all files, use `-w` (`--write-changes`). When run in this way, the tool will modify the file in place. If unresolvable errors are encountered, these are written to standard output and must be manually fixed before attempting to rerun the tool.
 
 **Note**: Spell checking by codespell may make unwanted changes (for example, a variable name in source code). As a result, you should check the `codespell` changes. codespell can be forced to leave a particular word unchanged by adding it to the `.codespell.ignore` file.
 
@@ -405,7 +450,6 @@ pixi run check-format
 To format all files, add the `--write-changes` flag to the end of the python or pixi commands. These commands will exclude the proper files from formatting, including vendored library sources in [`src/Utilities/Libraries`](src/Utilities/Libraries/).
 
 **Note**: as `fprettify` may shift code in unexpected ways, it is a good idea to visually check source files afterwards.
-
 
 ### Python formatting
 
@@ -479,28 +523,11 @@ MODFLOW 6 integration tests are written in Python with [`pytest`](https://docs.p
 
 Before running tests, there are a few steps to complete. Most importantly, the local development version of MODFLOW 6 must be built, e.g. with Meson as described above.
 
-The `autotest/build_exes.py` script is provided as a shortcut to rebuild local binaries. It can be invoked as a standard Python script or with Pytest. By default, binaries are placed in the `bin` directory relative to the project root, as in the Meson commands described above. To change the location of the binaries, use the `--path` option.
-
 #### Configuring unit tests
 
 Unit tests are [driven with Meson](https://mesonbuild.com/Unit-tests.html). A small number of Meson-native tests are defined in the top-level `meson.build` file to check that MODFLOW 6 has installed successfully. These require no additional configuration.
 
 Additional Fortran unit tests are defined with [`test-drive`](https://github.com/fortran-lang/test-drive) in the `autotest/` folder, with test files named `Test*.f90`. If Meson fails to find the `test-drive` library via `pkg-config`, these will be skipped.
-
-To install `test-drive`:
-
-1. Clone the `test-drive` repository
-2. Setup/build with Meson, e.g. in a Unix shell from the `test-drive` project root:
-
-```shell
-meson setup builddir --prefix=$PWD --libdir=lib
-meson install -C builddir
-```
-
-3. Add `<test-drive project root>/lib/pkgconfig` to the `PKG_CONFIG_PATH` environment variable.
-4. To confirm that `test-drive` is detected by `pkg-config`, run `pkg-config --libs test-drive`.
-
-Meson should now detect the `test-drive` library when building MODFLOW 6.
 
 **Note:** the `test-drive` source code is not yet compatible with recent versions of Intel Fortran, building with `gfortran` is recommended.
 
@@ -518,11 +545,11 @@ As mentioned above, binaries live in the `bin` subdirectory of the project root.
 
 - local development binaries in the top-level `bin`
 - binaries rebuilt in development mode from the latest MODFLOW 6 release in `bin/rebuilt/`
-- related programs installed from the [executables distribution](https://github.com/MODFLOW-USGS/executables/releases) in `bin/downloaded/`
+- related programs installed from the [executables distribution](https://github.com/MODFLOW-ORG/executables/releases) in `bin/downloaded/`
 
 ##### Rebuilding release binaries
 
-Tests require the latest official MODFLOW 6 release to be compiled in develop mode with the same Fortran compiler as the development version. A number of binaries distributed from the [executables repo](https://github.com/MODFLOW-USGS/executables) must also be installed. The script `autotest/get_exes.py` does both of these things. It can be run from the project root with:
+Tests require the latest official MODFLOW 6 release to be compiled in develop mode with the same Fortran compiler as the development version. A number of binaries distributed from the [executables repo](https://github.com/MODFLOW-ORG/executables) must also be installed. The script `autotest/get_exes.py` does both of these things. It can be run from the project root with:
 
 ```shell
 pixi run get-exes
@@ -558,29 +585,33 @@ Alternatively, run `python update_flopy.py` directly from `autotest/`.
 
 ##### Updating Fortran definitions
 
-Any time a MODFLOW 6 input definition file (dfn) has been changed internal MODFLOW 6 Fortran definitions should be updated as well. This can be accomplished locally by running `utils/idmloader/scripts/dfn2f90.py` and then recompiling. This script will update the appropriate input package Fortran definition files if the dfn change is relevant to input processing. Updated Fortran definition files should accompany related dfn file changes when creating a pull request.
+MODFLOW 6 contains autogenerated Fortran modules, called **Fortran definitions** here, for input components. Any time a MODFLOW 6 input definition file (DFN) has been changed, Fortran definitions must be regenerated and the project rebuilt.
 
-```shell
-cd utils/idmloader/scripts
-python dfn2f90.py
-```
-
-or using pixi:
+To regenerate Fortran modules, use the pixi task:
 
 ```shell
 pixi run update-fortran-definitions
 ```
 
+Or manually run the `utils/idmloader/scripts/dfn2f90.py` script, e.g. from `utils/idmloader`:
+
+```shell
+cat dfns.txt | xargs python scripts/dfn2f90.py
+```
+
+While the [Input Data Model (IDM)](./IDM.md) remains under development, this script must be fed a subset of DFNs corresponding to the input components supported by the code generation framework.
+
+**Note**: Fortran definition modules are checked into source control and should accompany any related DFN file changes when creating a pull request.
 
 ##### Installing external models
 
 Some autotests load models from external repositories:
 
-- [`MODFLOW-USGS/modflow6-testmodels`](https://github.com/MODFLOW-USGS/modflow6-testmodels)
-- [`MODFLOW-USGS/modflow6-largetestmodels`](https://github.com/MODFLOW-USGS/modflow6-largetestmodels)
-- [`MODFLOW-USGS/modflow6-examples`](https://github.com/MODFLOW-USGS/modflow6-examples)
+- [`MODFLOW-ORG/modflow6-testmodels`](https://github.com/MODFLOW-ORG/modflow6-testmodels)
+- [`MODFLOW-ORG/modflow6-largetestmodels`](https://github.com/MODFLOW-ORG/modflow6-largetestmodels)
+- [`MODFLOW-ORG/modflow6-examples`](https://github.com/MODFLOW-ORG/modflow6-examples)
 
-See the [MODFLOW devtools documentation](https://modflow-devtools.readthedocs.io/en/latest/md/install.html#installing-external-model-repositories) for instructions to install external model repositories.
+By default, the test framework will test MODFLOW 6 against these models as accessed via the [MODFLOW devtools models API](https://modflow-devtools.readthedocs.io/en/latest/md/models.html). It may be necessary to test MODFLOW 6 against models on the local filesystem. See the [MODFLOW devtools documentation](https://modflow-devtools.readthedocs.io/en/latest/md/install.html#installing-external-model-repositories) for instructions to clone and install external model repositories.
 
 ### Running tests
 
@@ -593,6 +624,7 @@ Unit tests must be run from the project root. To run unit tests in verbose mode:
 ```shell
 meson test -C builddir
 ```
+
 or using pixi:
 
 ```shell
@@ -639,8 +671,8 @@ The Pixi `autotest` task includes options to run tests in parallel, show test ru
 Markers can be used to select subsets of tests. Markers provided in `pytest.ini` include:
 
 - `slow`: tests that take longer than a few seconds to complete
-- `repo`: tests that require external model repositories
-- `large`: tests using large models (from the `modflow6-examples` and `modflow6-largetestmodels` repos)
+- `external`: tests that use models in external repositories
+- `large`: tests that use large models
 - `regression`: tests comparing results from multiple versions
 
 Markers can be used with the `-m <marker>` option, and can be applied in boolean combinations with `and`, `or` and `not`. For instance, to run fast tests in parallel, excluding regression tests:
@@ -663,19 +695,27 @@ pixi run autotest -S
 
 [Smoke testing](https://modflow-devtools.readthedocs.io/en/latest/md/markers.html#smoke-testing) is a form of integration testing which aims to test a decent fraction of the codebase quickly enough to run often during development.
 
-Tests using models from external repositories can be selected with the `repo` marker:
+Tests using models from external repositories can be selected with the `external` marker:
 
 ```shell
-pytest -v -n auto -m "repo"
+pixi run autotest -m "external"
 ```
 
-The `large` marker is a subset of the `repo` marker. To test models excluded from commit-triggered CI and only run on GitHub Actions nightly:
+By default, these will run against test models pulled from the GitHub repositories, using the [`modflow-devtools` models API](https://modflow-devtools.readthedocs.io/en/latest/md/models.html). To run the tests against local models, use `--models-path` once or more to specify directories to search for model input files. For instance, to test MF6 models from the [`MODFLOW-ORG/modflow6-testmodels`](https://github.com/MODFLOW-ORG/modflow6-testmodels) repository:
 
 ```shell
-pytest -v -n auto -m "large"
+pixi run autotest -m "external" --models-path /path/to/modflow6-testmodels/mf6
 ```
 
-Tests load external models from fixtures provided by `modflow-devtools`. External model tests can be selected by model or simulation name, or by packages used. See the [`modflow-devtools` documentation](https://modflow-devtools.readthedocs.io/en/latest/md/fixtures.html#filtering) for usage examples. Note that filtering options only apply to tests using external models, and will not filter tests defining models in code &mdash; for that, the `pytest` built-in `-k` option may be used.
+And similarly for large models from the [`MODFLOW-ORG/modflow6-largetestmodels](https://github.com/MODFLOW-ORG/modflow6-largetestmodels) repository.
+
+The test framework can also exercise the mf5to6 converter program. To do this, relax the namefile search pattern during model discovery:
+
+```shell
+pixi run autotest -m "external" --models-path /path/to/modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+```
+
+The framework will then convert any MF2005, MFNWT or MFLGR models found to MF6 models and run them. This can be conveniently combined with `--original-regression` to compare MF2005 and MF6 results.
 
 ### Writing tests
 
@@ -692,7 +732,7 @@ module TestArithmetic
   private
   public :: collect_arithmetic
 contains
-  
+
   subroutine collect_arithmetic(testsuite)
     type(unittest_type), allocatable, intent(out) :: testsuite(:)
     testsuite = [new_unittest("add", test_add)]
@@ -738,7 +778,7 @@ Integration tests should ideally follow a few conventions for easier maintenance
 
 - Use markers for convenient (de-)selection:
   - `@pytest.mark.slow` if the test doesn't complete in a few seconds (this preserves the ability to quickly [`--smoke` test](https://modflow-devtools.readthedocs.io/en/latest/md/markers.html#smoke-testing)
-  - `@pytest.mark.repo` if the test relies on external model repositories
+  - `@pytest.mark.external` if the test relies on external model repositories
   - `@pytest.mark.regression` if the test compares results from different versions
 
 **Note:** If all three external model repositories are not installed as described above, some tests will be skipped. The full test suite includes >750 cases. All must pass before changes can be merged into this repository.
@@ -764,27 +804,33 @@ def check_output(idx, test):
   e = expected[idx]
   ...
 
+def plot_output(idx, test):
+  import matplotlib.pyplot as plt
+  ...
+
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, function_tmpdir, targets, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        plot=lambda t: plot_output(idx, t) if plot else None,
         compare=None,
     )
     test.run()
 ```
 
-The framework has two hooks:
+The framework has three hooks:
 
 - `build`: construct one or more MF6 simulations and/or non-MF6 models with FloPy
 - `check`: evaluate simulation/model output
+- `plot`: make one or more plots of simulation/model output
 
 A test script conventionally contains one or more test cases, fed to the test function as `idx, name` pairs. `idx` can be used to index parameter values or expected results for a specific test case. The test case `name` is useful for model/subdirectory naming, etc.
 
-The framework will not run an unknown program. The path to any program under test (or used for a comparison) must be registered in the `targets` dictionary. Keys are strings. See `autotest/conftest.py` for the contents of `targets` &mdash; naming follows the [executables distribution](https://github.com/MODFLOW-USGS/executables).
+The framework will not run an unknown program. The path to any program under test (or used for a comparison) must be registered in the `targets` dictionary. Keys are strings. See `autotest/conftest.py` for the contents of `targets` &mdash; naming follows the [executables distribution](https://github.com/MODFLOW-ORG/executables).
 
 The `.run()` function
 
@@ -867,7 +913,7 @@ This project follows the [git flow](https://nvie.com/posts/a-successful-git-bran
 
 ### Managing long-lived branches
 
-When a feature branch takes a long time to develop, it is easy to become out of sync with the develop branch.  Depending on the situation, it may be advisable to periodically squash the commits on the feature branch and rebase the change set with develop.  The following approach for updating a long-lived feature branch has proven robust.
+When a feature branch takes a long time to develop, it is easy to become out of sync with the develop branch. Depending on the situation, it may be advisable to periodically squash the commits on the feature branch and rebase the change set with develop. The following approach for updating a long-lived feature branch has proven robust.
 
 In the example below, the feature branch is assumed to be called `feat-xyz`.
 
@@ -883,7 +929,7 @@ git checkout feat-xyz
 
 #### Squash
 
-Next, consider squashing commits on the feature branch.  If there are many commits, it is beneficial to squash them before trying to rebase with develop.  There is a nice article on [squashing commits into one using git](https://www.internalpointers.com/post/squash-commits-into-one-git), which has been very useful for consolidating commits on a long-lived modflow6 feature branch.
+Next, consider squashing commits on the feature branch. If there are many commits, it is beneficial to squash them before trying to rebase with develop. There is a nice article on [squashing commits into one using git](https://www.internalpointers.com/post/squash-commits-into-one-git), which has been very useful for consolidating commits on a long-lived modflow6 feature branch.
 
 A quick and dirty way to squash without interactive rebase (as an alternative to the approach described in the article mentioned in the preceding paragraph) is a soft reset followed by an amended commit. First making a backup of the feature branch is strongly recommended before using this approach, as accidentally typing `--hard` instead of `--soft` will wipe out all your work.
 
@@ -892,7 +938,7 @@ git reset --soft <first new commit on the feature branch>
 git commit --amend -m "consolidated commit message"
 ```
 
-Once the commits on the feature branch have been consolidated, a force push to origin is recommended.  This is not strictly required, but it can serve as an intermediate backup/checkpoint so the squashed branch state can be retrieved if rebasing fails.  The following command will push `feat-xyz` to origin.
+Once the commits on the feature branch have been consolidated, a force push to origin is recommended. This is not strictly required, but it can serve as an intermediate backup/checkpoint so the squashed branch state can be retrieved if rebasing fails. The following command will push `feat-xyz` to origin.
 
 ```
 git push origin feat-xyz --force
@@ -902,7 +948,7 @@ The `--force` flag's short form is `-f`.
 
 #### Rebase
 
-Now that the commits on `feat-xyz` have been consolidated, it is time to rebase with develop.  If there are multiple commits in `feat-xyz` that make changes, undo them, rename files, and/or move things around in subsequent commits, then there may be multiple sets of merge conflicts that will need to be resolved as the rebase works its way through the commit change sets.  This is why it is beneficial to squash the feature commits before rebasing with develop.
+Now that the commits on `feat-xyz` have been consolidated, it is time to rebase with develop. If there are multiple commits in `feat-xyz` that make changes, undo them, rename files, and/or move things around in subsequent commits, then there may be multiple sets of merge conflicts that will need to be resolved as the rebase works its way through the commit change sets. This is why it is beneficial to squash the feature commits before rebasing with develop.
 
 To rebase with develop, make sure the feature branch is checked out and then type:
 
@@ -912,7 +958,7 @@ git rebase develop
 
 If anything goes wrong during a rebase, there is the `rebase --abort` command to unwind it.
 
-If there are merge conflicts, they will need to be resolved before going forward.  Once any conflicts are resolved, it may be worthwhile to rebuild the MODFLOW 6 program and run the smoke tests to ensure nothing is broken.  
+If there are merge conflicts, they will need to be resolved before going forward. Once any conflicts are resolved, it may be worthwhile to rebuild the MODFLOW 6 program and run the smoke tests to ensure nothing is broken.
 
 At this point, you will want to force push the updated feature branch to origin using the same force push command as before.
 

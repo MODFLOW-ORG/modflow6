@@ -8,7 +8,7 @@ module RchPackageWriterModule
   use GwfRchSubs, only: GWF2RCH7AR, GWF2RCH7RP
   use LineListModule, only: LineListType, same_lines
   use PackageWriterModule, only: PackageWriterType
-  use SimModule, only: ustop, store_error, store_warning
+  use SimPHMFModule, only: ustop, store_error, store_warning
   use UtilitiesModule, only: Write1Drel, Write2Drel, Write3Drel, &
                              ConstantInt2D, ConstantReal2D, &
                              BuildArrayFormat

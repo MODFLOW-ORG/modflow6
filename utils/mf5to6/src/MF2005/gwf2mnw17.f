@@ -54,7 +54,7 @@ c     ------------------------------------------------------------------
       USE GMGMODULE,ONLY:HCLOSEGMG
       USE PCGN,ONLY:HCLOSEPCGN
       use InputOutputModule, only: UPCASE
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       IMPLICIT NONE
 c     ------------------------------------------------------------------
       INTRINSIC ABS
@@ -284,7 +284,7 @@ c     ------------------------------------------------------------------
       use GWFBCFMODULE, only: SGWF2BCF7PNT
       use GWFLPFMODULE, only: SGWF2LPF7PNT
       use InputOutputModule, only: UPCASE
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       IMPLICIT NONE
       INTRINSIC ABS, MAX, MOD, INT
       INTEGER, EXTERNAL :: IFRL, IDIRECT
@@ -1946,7 +1946,7 @@ c          All information after a ! is wiped from the input card.
 c     ******************************************************************
       SUBROUTINE NCREAD(Io, Txt, Ierr)
         use InputOutputModule, only: UPCASE
-        use SimModule, only: ustop
+        use SimPHMFModule, only: ustop
       IMPLICIT NONE
       !EXTERNAL UPCASE, USTOP
 c Arguments

@@ -44,7 +44,7 @@ C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
       USE PARAMMODULE
       use utl7module
-      use SimModule
+      use SimPHMFModule
       CHARACTER*(*) PTYP
       CHARACTER*200 LINE
       CHARACTER*10 PN,CTMP1,CTMP2
@@ -282,7 +282,7 @@ C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
       USE PARAMMODULE
       use utl7module
-      use SimModule
+      use SimPHMFModule
       DIMENSION ZZ(NCOL,NROW)
       CHARACTER*(*) PTYP
       CHARACTER*24 ANAME
@@ -331,7 +331,7 @@ C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
       USE PARAMMODULE
       use utl7module
-      use SimModule
+      use SimPHMFModule
       double precision :: ZZ(NCOL,NROW)
       CHARACTER*(*) PTYP,PACK
       CHARACTER*24 ANAME
@@ -540,7 +540,7 @@ C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
       USE PARAMMODULE
       use utl7module
-      use SimModule
+      use SimPHMFModule
       CHARACTER*(*) LINE
       double precision :: r
 C     ------------------------------------------------------------------
@@ -579,7 +579,7 @@ C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
       USE PARAMMODULE
       use utl7module
-      use SimModule
+      use SimPHMFModule
       logical :: storepar
       CHARACTER*(*) PACK,PTYPX
       CHARACTER*4 PTYP
@@ -749,7 +749,7 @@ C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
       USE PARAMMODULE
       use utl7module
-      use SimModule
+      use SimPHMFModule
       CHARACTER*10 CTMP1,CTMP2
       CHARACTER*200 LINE
       double precision :: r
@@ -804,7 +804,7 @@ C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
       USE PARAMMODULE
       use utl7module
-      use SimModule
+      use SimPHMFModule
       CHARACTER*(*) PACK,PTYP
       double precision :: RLIST(LSTVL,LSTDIM)
       CHARACTER*(*) LABEL
@@ -966,7 +966,7 @@ C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
       USE PARAMMODULE
       use utl7module
-      use SimModule
+      use SimPHMFModule
       CHARACTER*(*) PACK,PTYP
       CHARACTER*200 LINE
       CHARACTER*10 CTMP1,CTMP2,CTMP3,CTMP4
@@ -1075,7 +1075,7 @@ C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
       USE PARAMMODULE
       use utl7module
-      use SimModule
+      use SimPHMFModule
       INTEGER IBOUND(NCOL,NROW,NLAY)
       double precision :: BUFF(NCOL,NROW)
       CHARACTER*4 PTYP
@@ -1167,7 +1167,7 @@ C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
       USE PARAMMODULE
       use utl7module
-      use SimModule
+      use SimPHMFModule
       CHARACTER*(*) PNAME,PTYP,CPACK
       CHARACTER*10 CTMP1,CTMP2
 C     ------------------------------------------------------------------

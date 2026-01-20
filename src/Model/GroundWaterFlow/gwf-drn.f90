@@ -89,9 +89,6 @@ contains
     packobj%id = id
     packobj%ibcnum = ibcnum
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
-    !
-    ! -- Return
-    return
   end subroutine drn_create
 
   !> @brief Deallocate memory
@@ -112,9 +109,6 @@ contains
     ! -- arrays
     call mem_deallocate(this%elev, 'ELEV', this%memoryPath)
     call mem_deallocate(this%cond, 'COND', this%memoryPath)
-    !
-    ! -- Return
-    return
   end subroutine drn_da
 
   !> @brief Allocate package scalar members
@@ -139,9 +133,6 @@ contains
     else
       this%icubic_scaling = 0
     end if
-    !
-    ! -- Return
-    return
   end subroutine drn_allocate_scalars
 
   !> @brief Allocate package arrays
@@ -166,9 +157,6 @@ contains
                      'ELEV', this%input_mempath)
     call mem_checkin(this%cond, 'COND', this%memoryPath, &
                      'COND', this%input_mempath)
-    !
-    ! -- Return
-    return
   end subroutine drn_allocate_arrays
 
   !> @brief Read and prepare
@@ -192,9 +180,6 @@ contains
     if (this%iprpak /= 0) then
       call this%write_list()
     end if
-    !
-    ! -- Return
-    return
   end subroutine drn_rp
 
   !> @brief Source options specific to DrnType
@@ -253,9 +238,6 @@ contains
     !
     ! -- log DRN specific options
     call this%log_drn_options(found)
-    !
-    ! -- Return
-    return
   end subroutine drn_options
 
   !> @ brief Log DRN specific package options
@@ -286,9 +268,6 @@ contains
     ! -- close logging block
     write (this%iout, '(1x,a)') &
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
-    !
-    ! -- Return
-    return
   end subroutine log_drn_options
 
   !> @brief Check drain boundary condition data
@@ -352,9 +331,6 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- Return
-    return
   end subroutine drn_ck
 
   !> @brief Formulate the HCOF and RHS terms
@@ -394,9 +370,6 @@ contains
       this%rhs(i) = -fact * cdrn * drnbot
       this%hcof(i) = -fact * cdrn
     end do
-    !
-    ! -- Return
-    return
   end subroutine drn_cf
 
   !> @brief Copy rhs and hcof into solution rhs and amat
@@ -440,9 +413,6 @@ contains
         call this%pakmvrobj%accumulate_qformvr(i, qdrn)
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine drn_fc
 
   !> @brief Fill newton terms
@@ -497,9 +467,6 @@ contains
         end if
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine drn_fn
 
   !> @brief Define the list heading that is written to iout when PRINT_INPUT
@@ -526,9 +493,6 @@ contains
     if (this%inamedbound == 1) then
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
-    !
-    ! -- Return
-    return
   end subroutine define_listlabel
 
   !> @brief Define drain depth and the top and bottom elevations used to scale
@@ -563,9 +527,6 @@ contains
       drntop = drnelev
       drnbot = drnelev
     end if
-    !
-    ! -- Return
-    return
   end subroutine get_drain_elevations
 
   !> @brief Get the drain conductance scale factor
@@ -610,9 +571,6 @@ contains
         factor = DONE
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine get_drain_factor
 
   ! -- Procedures related to observations
@@ -627,9 +585,6 @@ contains
     class(DrnType) :: this
     !
     drn_obs_supported = .true.
-    !
-    ! -- Return
-    return
   end function drn_obs_supported
 
   !> @brief Store observation type supported by DRN package
@@ -650,9 +605,6 @@ contains
     !    for to-mvr observation type.
     call this%obs%StoreObsType('to-mvr', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => DefaultObsIdProcessor
-    !
-    ! -- Return
-    return
   end subroutine drn_df_obs
 
   !> @brief Store user-specified drain conductance
@@ -667,9 +619,6 @@ contains
     do n = 1, this%nbound
       this%condinput(n) = this%cond_mult(n)
     end do
-    !
-    ! -- Return
-    return
   end subroutine drn_store_user_cond
 
   !> @brief Apply multiplier to conductance value depending on user-selected option
@@ -688,9 +637,6 @@ contains
     else
       cond = this%cond(row)
     end if
-    !
-    ! -- Return
-    return
   end function cond_mult
 
   !> @brief Return requested boundary value
@@ -716,9 +662,6 @@ contains
       call store_error(errmsg)
       call store_error_filename(this%input_fname)
     end select
-    !
-    ! -- Return
-    return
   end function drn_bound_value
 
 end module DrnModule

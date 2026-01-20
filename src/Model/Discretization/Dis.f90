@@ -53,6 +53,8 @@ module DisModule
     procedure :: supports_layers
     procedure :: get_ncpl
     procedure :: get_polyverts
+    procedure :: get_npolyverts
+    procedure :: get_max_npolyverts
     procedure :: connection_vector
     procedure :: connection_normal
     ! -- private
@@ -547,25 +549,37 @@ contains
   subroutine write_grb(this, icelltype)
     ! -- modules
     use OpenSpecModule, only: access, form
+    use ConstantsModule, only: LENBIGLINE
     ! -- dummy
     class(DisType) :: this
     integer(I4B), dimension(:), intent(in) :: icelltype
     ! -- local
-    integer(I4B) :: iunit, ntxt, ncpl
+    integer(I4B) :: iunit, ntxt, ncpl, version
     integer(I4B), parameter :: lentxt = 100
     character(len=50) :: txthdr
     character(len=lentxt) :: txt
     character(len=LINELENGTH) :: fname
+    character(len=LENBIGLINE) :: crs
+    logical(LGP) :: found_crs
     character(len=*), parameter :: fmtgrdsave = &
       "(4X,'BINARY GRID INFORMATION WILL BE WRITTEN TO:', &
        &/,6X,'UNIT NUMBER: ', I0,/,6X, 'FILE NAME: ', A)"
     !
     ! -- Initialize
+    version = 1
     ntxt = 16
     ncpl = this%nrow * this%ncol
     !
+    call mem_set_value(crs, 'CRS', this%input_mempath, found_crs)
+    !
+    ! -- set version
+    if (found_crs) then
+      ntxt = ntxt + 1
+      version = 2
+    end if
+    !
     ! -- Open the file
-    fname = trim(this%input_fname)//'.grb'
+    fname = trim(this%output_fname)
     iunit = getunit()
     write (this%iout, fmtgrdsave) iunit, trim(adjustl(fname))
     call openfile(iunit, this%iout, trim(adjustl(fname)), 'DATA(BINARY)', &
@@ -575,7 +589,7 @@ contains
     write (txthdr, '(a)') 'GRID DIS'
     txthdr(50:50) = new_line('a')
     write (iunit) txthdr
-    write (txthdr, '(a)') 'VERSION 1'
+    write (txthdr, '(a, i0)') 'VERSION ', version
     txthdr(50:50) = new_line('a')
     write (iunit) txthdr
     write (txthdr, '(a, i0)') 'NTXT ', ntxt
@@ -635,6 +649,16 @@ contains
     txt(lentxt:lentxt) = new_line('a')
     write (iunit) txt
     !
+    ! -- if version 2 write character array headers
+    if (version == 2) then
+      if (found_crs) then
+        write (txt, '(3a, i0)') 'CRS ', 'CHARACTER ', 'NDIM 1 ', &
+          len_trim(crs)
+        txt(lentxt:lentxt) = new_line('a')
+        write (iunit) txt
+      end if
+    end if
+    !
     ! -- write data
     write (iunit) this%nodesuser ! ncells
     write (iunit) this%nlay ! nlay
@@ -652,6 +676,11 @@ contains
     write (iunit) this%con%jausr ! jausr
     write (iunit) this%idomain ! idomain
     write (iunit) icelltype ! icelltype
+    !
+    ! -- if version 2 write character array data
+    if (version == 2) then
+      if (found_crs) write (iunit) trim(crs) ! crs user input
+    end if
     !
     ! -- Close the file
     close (iunit)
@@ -1228,6 +1257,29 @@ contains
       polyverts(:, nverts + 1) = polyverts(:, 1)
     !
   end subroutine
+
+  !> @brief Get the number of cell polygon vertices.
+  function get_npolyverts(this, ic, closed) result(npolyverts)
+    class(DisType), intent(inout) :: this
+    integer(I4B), intent(in) :: ic !< cell number (reduced)
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
+    integer(I4B) :: npolyverts
+    npolyverts = 4
+    if (present(closed)) then
+      if (closed) npolyverts = 5
+    end if
+  end function get_npolyverts
+
+  !> @brief Get the maximum number of cell polygon vertices.
+  function get_max_npolyverts(this, closed) result(max_npolyverts)
+    class(DisType), intent(inout) :: this
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
+    integer(I4B) :: max_npolyverts
+    max_npolyverts = 4
+    if (present(closed)) then
+      if (closed) max_npolyverts = 5
+    end if
+  end function get_max_npolyverts
 
   !> @brief Read an integer array
   !<

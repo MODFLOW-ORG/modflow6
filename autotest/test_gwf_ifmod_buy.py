@@ -74,13 +74,9 @@ h_right = -2.0
 h_start = -2.0
 
 # head boundaries
-left_chd = [
-    [(ilay, irow, 0), h_left] for irow in range(nrow) for ilay in range(nlay)
-]
+left_chd = [[(ilay, irow, 0), h_left] for irow in range(nrow) for ilay in range(nlay)]
 right_chd = [
-    [(ilay, irow, ncol - 1), h_right]
-    for irow in range(nrow)
-    for ilay in range(nlay)
+    [(ilay, irow, ncol - 1), h_right] for irow in range(nrow) for ilay in range(nlay)
 ]
 right_chd_split = [
     [(ilay, irow, ncol_right - 1), h_right]
@@ -116,9 +112,7 @@ def get_model(idx, dir):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=dir
     )
 
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     ims = flopy.mf6.ModflowIms(
         sim,
@@ -374,9 +368,7 @@ def add_gwtrefmodel(sim):
     sto = flopy.mf6.ModflowGwtmst(gwt, porosity=porosity)
 
     # sources
-    sourcerecarray = [
-        (),
-    ]
+    sourcerecarray = [()]
     ssm = flopy.mf6.ModflowGwtssm(gwt, sources=sourcerecarray)
 
     # output control
@@ -384,9 +376,7 @@ def add_gwtrefmodel(sim):
         gwt,
         budget_filerecord=f"{mname_gwtref}.cbc",
         concentration_filerecord=f"{mname_gwtref}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -420,9 +410,7 @@ def add_gwtleftmodel(sim):
     sto = flopy.mf6.ModflowGwtmst(gwt, porosity=porosity)
 
     # sources
-    sourcerecarray = [
-        (),
-    ]
+    sourcerecarray = [()]
     ssm = flopy.mf6.ModflowGwtssm(gwt, sources=sourcerecarray)
 
     # output control
@@ -430,9 +418,7 @@ def add_gwtleftmodel(sim):
         gwt,
         budget_filerecord=f"{mname_gwtleft}.cbc",
         concentration_filerecord=f"{mname_gwtleft}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -468,9 +454,7 @@ def add_gwtrightmodel(sim):
     sto = flopy.mf6.ModflowGwtmst(gwt, porosity=porosity)
 
     # sources
-    sourcerecarray = [
-        (),
-    ]
+    sourcerecarray = [()]
     ssm = flopy.mf6.ModflowGwtssm(gwt, sources=sourcerecarray)
 
     # output control
@@ -478,9 +462,7 @@ def add_gwtrightmodel(sim):
         gwt,
         budget_filerecord=f"{mname_gwtright}.cbc",
         concentration_filerecord=f"{mname_gwtright}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -573,51 +555,51 @@ def check_output(idx, test):
 
     # compare heads
     maxdiff = np.amax(abs(heads - heads_2models))
-    assert maxdiff < 10 * hclose_check, "Max. head diff. {} should \
-                     be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. head diff. {maxdiff} should \
+                     be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis_x left
     maxdiff = np.amax(abs(qxb[:, :, 0:5] - qxb_left))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (x) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (x) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis_y left
     maxdiff = np.amax(abs(qyb[:, :, 0:5] - qyb_left))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (y) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (y) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis_z left
     maxdiff = np.amax(abs(qzb[:, :, 0:5] - qzb_left))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (z) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (z) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis_x right
     maxdiff = np.amax(abs(qxb[:, :, 5:] - qxb_right))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (x) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (x) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis_y right
     maxdiff = np.amax(abs(qyb[:, :, 5:] - qyb_right))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (y) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (y) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis_z right
     maxdiff = np.amax(abs(qzb[:, :, 5:] - qzb_right))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (z) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (z) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # check budget error from .lst file
@@ -626,10 +608,9 @@ def check_output(idx, test):
         for line in open(fpth):
             if line.lstrip().startswith("PERCENT"):
                 cumul_balance_error = float(line.split()[3])
-                assert (
-                    abs(cumul_balance_error) < 0.00001
-                ), "Cumulative balance error = {} for {}, should equal 0.0".format(
-                    cumul_balance_error, mname
+                assert abs(cumul_balance_error) < 0.00001, (
+                    f"Cumulative balance error = {cumul_balance_error} for {mname}, "
+                    "should equal 0.0"
                 )
 
 

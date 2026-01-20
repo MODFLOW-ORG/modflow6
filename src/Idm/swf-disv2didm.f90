@@ -14,10 +14,15 @@ module SwfDisv2DInputModule
   type SwfDisv2dParamFoundType
     logical :: length_units = .false.
     logical :: nogrb = .false.
+    logical :: grb_filerecord = .false.
+    logical :: grb6 = .false.
+    logical :: fileout = .false.
+    logical :: grb6_filename = .false.
     logical :: xorigin = .false.
     logical :: yorigin = .false.
     logical :: angrot = .false.
     logical :: export_ascii = .false.
+    logical :: crs = .false.
     logical :: nodes = .false.
     logical :: nvert = .false.
     logical :: bottom = .false.
@@ -52,6 +57,7 @@ module SwfDisv2DInputModule
     '', & ! shape
     'model length units', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -70,8 +76,85 @@ module SwfDisv2DInputModule
     '', & ! shape
     'do not write binary grid file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdisv2d_grb_filerecord = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DISV2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB_FILERECORD', & ! tag name
+    'GRB_FILERECORD', & ! fortran variable
+    'RECORD GRB6 FILEOUT GRB6_FILENAME', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdisv2d_grb6 = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DISV2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB6', & ! tag name
+    'GRB6', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'grb keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdisv2d_fileout = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DISV2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'FILEOUT', & ! tag name
+    'FILEOUT', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'file keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdisv2d_grb6_filename = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DISV2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB6_FILENAME', & ! tag name
+    'GRB6_FILENAME', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file name of GRB information', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -88,6 +171,7 @@ module SwfDisv2DInputModule
     '', & ! shape
     'x-position of the model grid origin', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -106,6 +190,7 @@ module SwfDisv2DInputModule
     '', & ! shape
     'y-position of the model grid origin', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -124,6 +209,7 @@ module SwfDisv2DInputModule
     '', & ! shape
     'rotation angle', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -142,8 +228,28 @@ module SwfDisv2DInputModule
     '', & ! shape
     'export array variables to layered ascii files.', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdisv2d_crs = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DISV2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .true., & ! developmode
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -160,6 +266,7 @@ module SwfDisv2DInputModule
     '', & ! shape
     'number of cells per layer', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -178,6 +285,7 @@ module SwfDisv2DInputModule
     '', & ! shape
     'number of columns', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -196,6 +304,7 @@ module SwfDisv2DInputModule
     'NODES', & ! shape
     'model bottom elevation', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -214,6 +323,7 @@ module SwfDisv2DInputModule
     'NODES', & ! shape
     'idomain existence array', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -232,6 +342,7 @@ module SwfDisv2DInputModule
     '', & ! shape
     'vertex number', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -250,6 +361,7 @@ module SwfDisv2DInputModule
     '', & ! shape
     'x-coordinate for vertex', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -268,6 +380,7 @@ module SwfDisv2DInputModule
     '', & ! shape
     'y-coordinate for vertex', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -286,6 +399,7 @@ module SwfDisv2DInputModule
     '', & ! shape
     'cell2d number', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -304,6 +418,7 @@ module SwfDisv2DInputModule
     '', & ! shape
     'x-coordinate for cell center', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -322,6 +437,7 @@ module SwfDisv2DInputModule
     '', & ! shape
     'y-coordinate for cell center', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -340,6 +456,7 @@ module SwfDisv2DInputModule
     '', & ! shape
     'number of cell vertices', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -358,6 +475,7 @@ module SwfDisv2DInputModule
     'NCVERT', & ! shape
     'array of vertex numbers', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -369,10 +487,15 @@ module SwfDisv2DInputModule
     [ &
     swfdisv2d_length_units, &
     swfdisv2d_nogrb, &
+    swfdisv2d_grb_filerecord, &
+    swfdisv2d_grb6, &
+    swfdisv2d_fileout, &
+    swfdisv2d_grb6_filename, &
     swfdisv2d_xorigin, &
     swfdisv2d_yorigin, &
     swfdisv2d_angrot, &
     swfdisv2d_export_ascii, &
+    swfdisv2d_crs, &
     swfdisv2d_nodes, &
     swfdisv2d_nvert, &
     swfdisv2d_bottom, &
@@ -399,6 +522,7 @@ module SwfDisv2DInputModule
     'NVERT', & ! shape
     'vertices data', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -417,6 +541,7 @@ module SwfDisv2DInputModule
     'NODES', & ! shape
     'cell2d data', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

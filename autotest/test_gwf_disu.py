@@ -6,7 +6,7 @@ one of the cells inactive and test to make sure connectivity
 in binary grid file is correct.
 """
 
-import os
+from pathlib import Path
 
 import flopy
 import numpy as np
@@ -15,6 +15,7 @@ from flopy.utils.gridutil import get_disu_kwargs
 from framework import TestFramework
 
 cases = ["disu01a", "disu01b"]
+grb_filename = "disu.grb"
 
 
 def build_models(idx, test):
@@ -27,15 +28,7 @@ def build_models(idx, test):
     delc = 10.0 * np.ones(nrow)
     top = 0
     botm = [-10, -20, -30]
-    disukwargs = get_disu_kwargs(
-        nlay,
-        nrow,
-        ncol,
-        delr,
-        delc,
-        top,
-        botm,
-    )
+    disukwargs = get_disu_kwargs(nlay, nrow, ncol, delr, delc, top, botm)
     if idx == 1:
         # for the second test, set one cell to idomain = 0
         idomain = np.ones((nlay, nrow * ncol), dtype=int)
@@ -51,22 +44,24 @@ def build_models(idx, test):
     tdis = flopy.mf6.ModflowTdis(sim)
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
     ims = flopy.mf6.ModflowIms(sim, print_option="SUMMARY")
-    disu = flopy.mf6.ModflowGwfdisu(gwf, **disukwargs)
+    disu = flopy.mf6.ModflowGwfdisu(gwf, grb_filerecord=grb_filename, **disukwargs)
     ic = flopy.mf6.ModflowGwfic(gwf, strt=0.0)
     npf = flopy.mf6.ModflowGwfnpf(gwf)
     spd = {0: [[(0,), 1.0], [(nrow * ncol - 1), 0.0]]}
-    chd = flopy.mf6.modflow.mfgwfchd.ModflowGwfchd(gwf, stress_period_data=spd)
+    chd = flopy.mf6.ModflowGwfchd(gwf, stress_period_data=spd)
     return sim, None
 
 
 def check_output(idx, test):
-    name = test.name
-
-    fname = os.path.join(test.workspace, name + ".disu.grb")
+    fname = Path(test.workspace) / grb_filename
     grbobj = flopy.mf6.utils.MfGrdFile(fname)
     nodes = grbobj._datadict["NODES"]
     ia = grbobj._datadict["IA"]
     ja = grbobj._datadict["JA"]
+    idomain = grbobj._datadict["IDOMAIN"]
+
+    if idx == 0:
+        assert np.array_equal(idomain, np.array(27 * [1]), int)
 
     if idx == 1:
         assert np.array_equal(ia[0:4], np.array([1, 4, 4, 7]))
@@ -74,6 +69,7 @@ def check_output(idx, test):
         assert ia[-1] == 127
         assert ia.shape[0] == 28, "ia should have size of 28"
         assert ja.shape[0] == 126, "ja should have size of 126"
+        assert np.array_equal(idomain, np.array([1, 0] + 25 * [1]), int)
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

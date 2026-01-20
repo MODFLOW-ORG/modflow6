@@ -2,20 +2,25 @@ name: modflow6
 
 channels:
   - conda-forge
-  - defaults
+  - nodefaults
 
 dependencies:
-  - python>=3.9
+  - python>=3.10
+  - boltons
   - appdirs
+  - cffconvert
   - codespell
   - filelock
   - flaky
   - fprettify
   - fortran-language-server
+  - geopandas
   - gitpython
+  - Jinja2>=3.1.5,<4
   - jupytext
   - matplotlib
-  - meson=1.3.0
+  - meson>=1.3.1
+  - modflow-devtools>=1.7.0
   - ninja
   - numpy
   - pip
@@ -23,8 +28,7 @@ dependencies:
       - git+https://github.com/modflowpy/flopy.git
       - git+https://github.com/modflowpy/pymake.git
       - git+https://github.com/Deltares/xmipy.git
-      - git+https://github.com/MODFLOW-USGS/modflowapi.git
-      - git+https://github.com/MODFLOW-USGS/modflow-devtools.git
+      - git+https://github.com/MODFLOW-ORG/modflowapi.git
   - pooch
   - pyshp
   - pytest!=8.1.0
@@ -38,5 +42,9 @@ dependencies:
   - ruff
   - scipy
   - shapely
-  - syrupy
+  - syrupy<5
+  - test-drive
+  - tomli>=2.2.1,<3
+  - tomli-w>=1.2.0,<2
+  - xarray
   

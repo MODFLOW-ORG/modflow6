@@ -135,9 +135,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
 
-    flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     flopy.mf6.ModflowIms(
         sim,
@@ -173,9 +171,7 @@ def build_models(idx, test):
 
     flopy.mf6.ModflowGwfic(gwf, strt=strt, filename=f"{name}.ic")
 
-    flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=False, icelltype=laytyp, k=hk, k33=vka
-    )
+    flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=laytyp, k=hk, k33=vka)
 
     flopy.mf6.ModflowGwfsto(
         gwf,
@@ -230,9 +226,7 @@ def build_models(idx, test):
 def check_output(idx, test):
     with open(pl.Path(test.workspace) / "mfsim.lst", "r") as f:
         lines = f.readlines()
-    tag = (
-        "1. Package convergence data is requested but delay interbeds are not"
-    )
+    tag = "1. Package convergence data is requested but delay interbeds are not"
     found = False
     for line in lines[::-1]:
         if tag in line:
@@ -260,9 +254,9 @@ def check_output(idx, test):
     zdis = zobj.get_data(totim=totim)
     zdis[zdis == 1e30] = 0.0
 
-    assert np.allclose(
-        zdis, zdis_calc
-    ), "Calculated z-displacement is not equal to simulated z-displacement"
+    assert np.allclose(zdis, zdis_calc), (
+        "Calculated z-displacement is not equal to simulated z-displacement"
+    )
 
 
 @pytest.mark.slow

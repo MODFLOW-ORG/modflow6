@@ -1,0 +1,12 @@
+BEGIN options
+  CENTRAL_IN_SPACE
+  SAVE_FLOWS
+  PRINT_FLOWS
+END options
+
+BEGIN griddata
+  manningsn
+    CONSTANT       0.01250000
+  idcxs
+    CONSTANT  1
+END griddata

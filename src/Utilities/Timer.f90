@@ -28,9 +28,6 @@ contains
     call date_and_time(values=ibdt)
     write (line, fmtdt) (ibdt(i), i=1, 3), (ibdt(i), i=5, 7)
     call write_message(line, skipafter=1)
-    !
-    ! -- Return
-    return
   end subroutine print_start_time
 
   !> @brief Get end time and calculate elapsed time
@@ -152,9 +149,6 @@ contains
         WRITE (IOUT, fmttmd) NSECS, MSECS
       END IF
     END IF
-    !
-    ! -- Return
-    return
   end subroutine elapsed_time
 
   !> @brief Get end time and calculate elapsed time
@@ -175,9 +169,6 @@ contains
       call CPU_TIME(dt)
       ts = ts + dt - t1
     end if
-    !
-    ! -- Return
-    return
   end subroutine code_timer
 
 end module TimerModule

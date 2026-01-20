@@ -79,8 +79,6 @@ module TspAptModule
     integer(I4B), pointer :: idxprepak => null() !< budget-object index that precedes package-specific budget objects
     integer(I4B), pointer :: idxlastpak => null() !< budget-object index of last package-specific budget object
     real(DP), dimension(:), pointer, contiguous :: strt => null() !< starting feature concentration (or temperature)
-    real(DP), dimension(:), pointer, contiguous :: ktf => null() !< thermal conductivity between the apt and groundwater cell
-    real(DP), dimension(:), pointer, contiguous :: rfeatthk => null() !< thickness of streambed/lakebed/filter-pack material through which thermal conduction occurs
     integer(I4B), dimension(:), pointer, contiguous :: idxlocnode => null() !< map position in global rhs and x array of pack entry
     integer(I4B), dimension(:), pointer, contiguous :: idxpakdiag => null() !< map diag position of feature in global amat
     integer(I4B), dimension(:), pointer, contiguous :: idxdglo => null() !< map position in global array of package diagonal row entries
@@ -136,6 +134,7 @@ module TspAptModule
     procedure :: bnd_reset => apt_reset
     procedure :: bnd_fc => apt_fc
     procedure, public :: apt_fc_expanded ! Made public for uze
+    procedure, public :: apt_ad_chk
     procedure :: pak_fc_expanded
     procedure, private :: apt_fc_nonexpanded
     procedure, public :: apt_cfupdate ! Made public for uze
@@ -170,16 +169,16 @@ module TspAptModule
     procedure :: rp_obs_flowjaface
     procedure :: bnd_bd_obs => apt_bd_obs
     procedure :: pak_bd_obs
-    procedure :: get_volumes
     procedure :: pak_get_nbudterms
     procedure :: apt_setup_budobj
     procedure :: pak_setup_budobj
     procedure :: apt_fill_budobj
     procedure :: pak_fill_budobj
+    procedure, public :: apt_get_volumes !< made public for sft/sfe
     procedure, public :: apt_stor_term
     procedure, public :: apt_tmvr_term
-    procedure, public :: apt_fmvr_term ! Made public for uze
-    procedure, public :: apt_fjf_term ! Made public for uze
+    procedure, public :: apt_fmvr_term !< made public for uze
+    procedure, public :: apt_fjf_term !< made public for uze
     procedure, private :: apt_copy2flowp
     procedure, private :: apt_setup_tableobj
     procedure, public :: get_mvr_depvar
@@ -233,9 +232,6 @@ contains
         end do
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_ac
 
   !> @brief Advanced package transport map package connections to matrix
@@ -297,9 +293,6 @@ contains
         end do
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_mc
 
   !> @brief Advanced package transport allocate and read (ar) routine
@@ -365,9 +358,6 @@ contains
         end if
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_ar
 
   !> @brief Advanced package transport read and prepare (rp) routine
@@ -486,10 +476,13 @@ contains
       igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(n)
       this%nodelist(n) = igwfnode
     end do
-    !
-    ! -- Return
-    return
   end subroutine apt_rp
+
+  subroutine apt_ad_chk(this)
+    ! -- dummy
+    class(TspAptType), intent(inout) :: this
+    ! function available for override by packages
+  end subroutine apt_ad_chk
 
   !> @brief Advanced package transport set stress period routine.
   !!
@@ -586,9 +579,6 @@ contains
 999 if (count_errors() > 0) then
       call this%parser%StoreErrorUnit()
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_set_stressperiod
 
   !> @brief Advanced package transport set stress period routine.
@@ -610,9 +600,6 @@ contains
     found = .false.
     call store_error('Program error: pak_set_stressperiod not implemented.', &
                      terminate=.TRUE.)
-    !
-    ! -- Return
-    return
   end subroutine pak_set_stressperiod
 
   !> @brief Advanced package transport routine
@@ -704,8 +691,8 @@ contains
     !    "current" value.
     call this%obs%obs_ad()
     !
-    ! -- Return
-    return
+    ! -- run package-specific checks
+    call this%apt_ad_chk()
   end subroutine apt_ad
 
   !> @brief Override bnd reset for custom mover logic
@@ -717,9 +704,6 @@ contains
     do i = 1, size(this%qmfrommvr)
       this%qmfrommvr(i) = DZERO
     end do
-    !
-    ! -- Return
-    return
   end subroutine apt_reset
 
   subroutine apt_fc(this, rhs, ia, idxglo, matrix_sln)
@@ -738,9 +722,6 @@ contains
     else
       call this%apt_fc_expanded(rhs, ia, idxglo, matrix_sln)
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_fc
 
   !> @brief Advanced package transport fill coefficient (fc) method
@@ -770,9 +751,6 @@ contains
       call matrix_sln%add_value_pos(idiag, this%hcof(j))
       rhs(igwfnode) = rhs(igwfnode) + this%rhs(j)
     end do
-    !
-    ! -- Return
-    return
   end subroutine apt_fc_nonexpanded
 
   !> @brief Advanced package transport fill coefficient (fc) method
@@ -882,9 +860,6 @@ contains
         call matrix_sln%add_value_pos(iposoffd, (DONE - omega) * qbnd_scaled)
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_fc_expanded
 
   !> @brief Advanced package transport fill coefficient (fc) method
@@ -905,9 +880,6 @@ contains
     ! -- this routine should never be called
     call store_error('Program error: pak_fc_expanded not implemented.', &
                      terminate=.TRUE.)
-    !
-    ! -- Return
-    return
   end subroutine pak_fc_expanded
 
   !> @brief Advanced package transport routine
@@ -939,9 +911,6 @@ contains
         this%rhs(j) = omega * qbnd * this%xnewpak(n) * this%eqnsclfac
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine apt_cfupdate
 
   !> @brief Advanced package transport calculate flows (cq) routine
@@ -984,9 +953,6 @@ contains
     !
     ! -- fill the budget object
     call this%apt_fill_budobj(x, flowja)
-    !
-    ! -- Return
-    return
   end subroutine apt_cq
 
   !> @brief Save advanced package flows routine
@@ -1013,9 +979,6 @@ contains
     if (ibudfl /= 0 .and. this%iprflow /= 0) then
       call this%budobj%write_flowtable(this%dis, kstp, kper)
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_ot_package_flows
 
   subroutine apt_ot_dv(this, idvsave, idvprint)
@@ -1070,9 +1033,6 @@ contains
         call this%dvtab%add_term(this%xnewpak(n))
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_ot_dv
 
   !> @brief Print advanced package transport dependent variables
@@ -1088,9 +1048,6 @@ contains
     integer(I4B), intent(in) :: ibudfl !< flag indicating budget should be written
     !
     call this%budobj%write_budtable(kstp, kper, iout, ibudfl, totim, delt)
-    !
-    ! -- Return
-    return
   end subroutine apt_ot_bdsummary
 
   !> @ brief Allocate scalars
@@ -1147,9 +1104,6 @@ contains
     !
     ! -- set this package as causing asymmetric matrix terms
     this%iasym = 1
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @ brief Allocate index arrays
@@ -1207,9 +1161,6 @@ contains
       call mem_allocate(this%idxfjfoffdglo, 0, 'IDXFJFOFFDGLO', &
                         this%memoryPath)
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_allocate_index_arrays
 
   !> @ brief Allocate arrays
@@ -1265,9 +1216,6 @@ contains
       this%concbudssm(:, n) = DZERO
       this%concfeat(n) = DZERO
     end do
-    !
-    ! -- Return
-    return
   end subroutine apt_allocate_arrays
 
   !> @ brief Deallocate memory
@@ -1286,8 +1234,6 @@ contains
     call mem_deallocate(this%qsto)
     call mem_deallocate(this%ccterm)
     call mem_deallocate(this%strt)
-    call mem_deallocate(this%ktf)
-    call mem_deallocate(this%rfeatthk)
     call mem_deallocate(this%lauxvar)
     call mem_deallocate(this%xoldpak)
     if (this%imatrows == 0) then
@@ -1344,9 +1290,6 @@ contains
     !
     ! -- deallocate scalars in NumericalPackageType
     call this%BndType%bnd_da()
-    !
-    ! -- Return
-    return
   end subroutine apt_da
 
   !> @brief Find corresponding advanced package transport package
@@ -1361,9 +1304,6 @@ contains
     ! -- this routine should never be called
     call store_error('Program error: pak_solve not implemented.', &
                      terminate=.TRUE.)
-    !
-    ! -- Return
-    return
   end subroutine find_apt_package
 
   !> @brief Set options specific to the TspAptType
@@ -1373,7 +1313,7 @@ contains
   subroutine apt_options(this, option, found)
     use ConstantsModule, only: MAXCHARLEN, DZERO
     use OpenSpecModule, only: access, form
-    use InputOutputModule, only: urword, getunit, openfile
+    use InputOutputModule, only: urword, getunit, assign_iounit, openfile
     ! -- dummy
     class(TspAptType), intent(inout) :: this
     character(len=*), intent(inout) :: option
@@ -1431,7 +1371,7 @@ contains
       call this%parser%GetStringCaps(keyword)
       if (keyword == 'FILEOUT') then
         call this%parser%GetString(fname)
-        this%ibudgetout = getunit()
+        call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
         call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
                       form, access, 'REPLACE')
         write (this%iout, fmtaptbin) trim(adjustl(this%text)), 'BUDGET', &
@@ -1443,7 +1383,7 @@ contains
       call this%parser%GetStringCaps(keyword)
       if (keyword == 'FILEOUT') then
         call this%parser%GetString(fname)
-        this%ibudcsv = getunit()
+        call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
         call openfile(this%ibudcsv, this%iout, fname, 'CSV', &
                       filstat_opt='REPLACE')
         write (this%iout, fmtaptbin) trim(adjustl(this%text)), 'BUDGET CSV', &
@@ -1457,9 +1397,6 @@ contains
       ! -- No options found
       found = .false.
     end select
-    !
-    ! -- Return
-    return
   end subroutine apt_options
 
   !> @brief Determine dimensions for this advanced package
@@ -1526,9 +1463,6 @@ contains
     !
     ! -- setup the conc table object
     call this%apt_setup_tableobj()
-    !
-    ! -- Return
-    return
   end subroutine apt_read_dimensions
 
   !> @brief Read feature information for this advanced package
@@ -1560,8 +1494,6 @@ contains
     !
     ! -- allocate apt data
     call mem_allocate(this%strt, this%ncv, 'STRT', this%memoryPath)
-    call mem_allocate(this%ktf, this%ncv, 'KTF', this%memoryPath)
-    call mem_allocate(this%rfeatthk, this%ncv, 'RFEATTHK', this%memoryPath)
     call mem_allocate(this%lauxvar, this%naux, this%ncv, 'LAUXVAR', &
                       this%memoryPath)
     !
@@ -1578,8 +1510,6 @@ contains
     !
     do n = 1, this%ncv
       this%strt(n) = DEP20
-      this%ktf(n) = DZERO
-      this%rfeatthk(n) = DZERO
       this%lauxvar(:, n) = DZERO
       this%xoldpak(n) = DEP20
       if (this%imatrows == 0) then
@@ -1626,22 +1556,6 @@ contains
         !
         ! -- strt
         this%strt(n) = this%parser%GetDouble()
-        !
-        ! -- If GWE model, read additional thermal conductivity terms
-        if (this%depvartype == 'TEMPERATURE') then
-          ! -- Skip for UZE
-          if (trim(adjustl(this%text)) /= 'UZE') then
-            this%ktf(n) = this%parser%GetDouble()
-            this%rfeatthk(n) = this%parser%GetDouble()
-            if (this%rfeatthk(n) <= DZERO) then
-              write (errmsg, '(4x,a)') &
-              '****ERROR. Specified thickness used for thermal &
-              &conduction MUST BE > 0 else divide by zero error occurs'
-              call store_error(errmsg)
-              cycle
-            end if
-          end if
-        end if
         !
         ! -- get aux data
         do iaux = 1, this%naux
@@ -1706,9 +1620,6 @@ contains
     !
     ! -- deallocate local storage for nboundchk
     deallocate (nboundchk)
-    !
-    ! -- Return
-    return
   end subroutine apt_read_cvs
 
   !> @brief Read the initial parameters for an advanced package
@@ -1754,9 +1665,6 @@ contains
     !
     ! -- copy boundname into boundname_cst
     call this%copy_boundname()
-    !
-    ! -- Return
-    return
   end subroutine apt_read_initial_attr
 
   !> @brief Add terms specific to advanced package transport to the explicit
@@ -1845,9 +1753,6 @@ contains
         this%xnewpak(n) = c1
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine apt_solve
 
   !> @brief Add terms specific to advanced package transport features to the
@@ -1863,9 +1768,6 @@ contains
     ! -- this routine should never be called
     call store_error('Program error: pak_solve not implemented.', &
                      terminate=.TRUE.)
-    !
-    ! -- Return
-    return
   end subroutine pak_solve
 
   !> @brief Accumulate constant concentration (or temperature) terms for budget
@@ -1897,9 +1799,6 @@ contains
         ccratin = ccratin + q
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_accumulate_ccterm
 
   !> @brief Define the list heading that is written to iout when PRINT_INPUT
@@ -1924,9 +1823,6 @@ contains
     if (this%inamedbound == 1) then
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
-    !
-    ! -- Return
-    return
   end subroutine define_listlabel
 
   !> @brief Set pointers to model arrays and variables so that a package has
@@ -1954,14 +1850,11 @@ contains
       this%iboundpak => this%ibound(istart:iend)
       this%xnewpak => this%xnew(istart:iend)
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_set_pointers
 
   !> @brief Return the feature new volume and old volume
   !<
-  subroutine get_volumes(this, icv, vnew, vold, delt)
+  subroutine apt_get_volumes(this, icv, vnew, vold, delt)
     ! -- modules
     ! -- dummy
     class(TspAptType) :: this
@@ -1979,10 +1872,7 @@ contains
       vnew = this%flowbudptr%budterm(this%idxbudsto)%auxvar(1, icv)
       vold = vnew + qss * delt
     end if
-    !
-    ! -- Return
-    return
-  end subroutine get_volumes
+  end subroutine apt_get_volumes
 
   !> @brief Function to return the number of budget terms just for this package
   !!
@@ -2000,9 +1890,6 @@ contains
     call store_error('Program error: pak_get_nbudterms not implemented.', &
                      terminate=.TRUE.)
     nbudterms = 0
-    !
-    ! -- Return
-    return
   end function pak_get_nbudterms
 
   !> @brief Set up the budget object that stores advanced package flow terms
@@ -2189,9 +2076,6 @@ contains
     if (this%iprflow /= 0) then
       call this%budobj%flowtable_df(this%iout)
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_setup_budobj
 
   !> @brief Set up a budget object that stores an advanced package flows
@@ -2208,9 +2092,6 @@ contains
     ! -- this routine should never be called
     call store_error('Program error: pak_setup_budobj not implemented.', &
                      terminate=.TRUE.)
-    !
-    ! -- Return
-    return
   end subroutine pak_setup_budobj
 
   !> @brief Copy flow terms into this%budobj
@@ -2287,7 +2168,7 @@ contains
     call this%budobj%budterm(idx)%reset(this%ncv)
     allocate (auxvartmp(1))
     do n1 = 1, this%ncv
-      call this%get_volumes(n1, v1, v0, delt)
+      call this%apt_get_volumes(n1, v1, v0, delt)
       auxvartmp(1) = v1 * this%xnewpak(n1) ! Note: When GWE is added, check if this needs a factor of eqnsclfac
       q = this%qsto(n1)
       call this%budobj%budterm(idx)%update_term(n1, n1, q, auxvartmp)
@@ -2349,9 +2230,6 @@ contains
     !
     ! --Terms are filled, now accumulate them for this time step
     call this%budobj%accumulate_terms()
-    !
-    ! -- Return
-    return
   end subroutine apt_fill_budobj
 
   !> @brief Copy flow terms into this%budobj, must be overridden
@@ -2371,9 +2249,6 @@ contains
     ! -- this routine should never be called
     call store_error('Program error: pak_fill_budobj not implemented.', &
                      terminate=.TRUE.)
-    !
-    ! -- Return
-    return
   end subroutine pak_fill_budobj
 
   !> @brief Account for mass or energy storage in advanced package features
@@ -2393,17 +2268,15 @@ contains
     !
     n1 = ientry
     n2 = ientry
-    call this%get_volumes(n1, v1, v0, delt)
+    call this%apt_get_volumes(n1, v1, v0, delt)
     c0 = this%xoldpak(n1)
     c1 = this%xnewpak(n1)
     if (present(rrate)) then
       rrate = (-c1 * v1 / delt + c0 * v0 / delt) * this%eqnsclfac
     end if
+    !
     if (present(rhsval)) rhsval = -c0 * v0 * this%eqnsclfac / delt
     if (present(hcofval)) hcofval = -v1 * this%eqnsclfac / delt
-    !
-    ! -- Return
-    return
   end subroutine apt_stor_term
 
   !> @brief Account for mass or energy transferred to the MVR package
@@ -2431,9 +2304,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd * this%eqnsclfac
     if (present(rhsval)) rhsval = DZERO
     if (present(hcofval)) hcofval = qbnd * this%eqnsclfac
-    !
-    ! -- Return
-    return
   end subroutine apt_tmvr_term
 
   !> @brief Account for mass or energy transferred to this package from the
@@ -2457,9 +2327,6 @@ contains
     if (present(rrate)) rrate = this%qmfrommvr(n1) ! NOTE: When bringing in GWE, ensure this is in terms of energy. Might need to apply eqnsclfac here.
     if (present(rhsval)) rhsval = this%qmfrommvr(n1)
     if (present(hcofval)) hcofval = DZERO
-    !
-    ! -- Return
-    return
   end subroutine apt_fmvr_term
 
   !> @brief Go through each "within apt-apt" connection (e.g., lkt-lkt, or
@@ -2491,9 +2358,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd * this%eqnsclfac
     if (present(rhsval)) rhsval = -rrate * this%eqnsclfac
     if (present(hcofval)) hcofval = DZERO
-    !
-    ! -- Return
-    return
   end subroutine apt_fjf_term
 
   !> @brief Copy concentrations (or temperatures) into flow package aux
@@ -2517,9 +2381,6 @@ contains
         this%flowpackagebnd%auxvar(this%iauxfpconc, j) = this%xnewpak(n)
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_copy2flowp
 
   !> @brief Determine whether an obs type is supported
@@ -2535,9 +2396,6 @@ contains
     !
     ! -- Set to true
     apt_obs_supported = .true.
-    !
-    ! -- Return
-    return
   end function apt_obs_supported
 
   !> @brief Define observation type
@@ -2554,9 +2412,6 @@ contains
     !
     ! -- call additional specific observations for lkt, sft, mwt, and uzt
     call this%pak_df_obs()
-    !
-    ! -- Return
-    return
   end subroutine apt_df_obs
 
   !> @brief Define apt observation type
@@ -2573,9 +2428,6 @@ contains
     ! -- this routine should never be called
     call store_error('Program error: pak_df_obs not implemented.', &
                      terminate=.TRUE.)
-    !
-    ! -- Return
-    return
   end subroutine pak_df_obs
 
   !> @brief Process package specific obs
@@ -2592,9 +2444,6 @@ contains
     ! -- this routine should never be called
     call store_error('Program error: pak_rp_obs not implemented.', &
                      terminate=.TRUE.)
-    !
-    ! -- Return
-    return
   end subroutine pak_rp_obs
 
   !> @brief Prepare observation
@@ -2638,9 +2487,6 @@ contains
       end if
       call obsrv%AddObsIndex(nn1)
     end if
-    !
-    ! -- Return
-    return
   end subroutine rp_obs_byfeature
 
   !> @brief Prepare observation
@@ -2713,9 +2559,6 @@ contains
         call store_error(errmsg)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine rp_obs_budterm
 
   !> @brief Prepare observation
@@ -2790,9 +2633,6 @@ contains
         call store_error(errmsg)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine rp_obs_flowjaface
 
   !> @brief Read and prepare apt-related observations
@@ -2869,9 +2709,6 @@ contains
         call store_error_unit(this%obs%inunitobs)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_rp_obs
 
   !> @brief Calculate observation values
@@ -2964,9 +2801,6 @@ contains
         call store_error_unit(this%obs%inunitobs)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine apt_bd_obs
 
   !> @brief Check if observation exists in an advanced package
@@ -2982,9 +2816,6 @@ contains
     !
     ! -- set found = .false. because obstypeid is not known
     found = .false.
-    !
-    ! -- Return
-    return
   end subroutine pak_bd_obs
 
   !> @brief Process observation IDs for an advanced package
@@ -3028,9 +2859,6 @@ contains
     !    as the iconn value for SFT.  This works for SFT
     !    because there is only one reach per GWT connection.
     obsrv%NodeNumber2 = 1
-    !
-    ! -- return
-    return
   end subroutine apt_process_obsID
 
   !> @brief Process observation IDs for a package
@@ -3081,9 +2909,6 @@ contains
     !
     ! -- store reach number (NodeNumber)
     obsrv%NodeNumber = nn1
-    !
-    ! -- Return
-    return
   end subroutine apt_process_obsID12
 
   !> @brief Setup a table object an advanced package
@@ -3134,9 +2959,6 @@ contains
       text_temp = this%depvartype(1:4)
       call this%dvtab%initialize_column(text_temp, 12, alignment=TABCENTER)
     end if
-    !
-    ! -- return
-    return
   end subroutine apt_setup_tableobj
 
 end module TspAptModule

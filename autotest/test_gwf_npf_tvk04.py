@@ -39,9 +39,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -173,11 +171,12 @@ def check_output(idx, test):
         sp_x.append(bud)
 
     # comment when done testing
-    print(f"Total outflow in stress period 1 is {str(sp_x[0][8])}")
-    print(
-        f"Total outflow in stress period 2 after increasing K33 is {str(sp_x[1][8])}"
+    print(f"Total outflow in stress period 1 is {sp_x[0][8]!s}")
+    print(f"Total outflow in stress period 2 after increasing K33 is {sp_x[1][8]!s}")
+    errmsg = (
+        "Expect higher flow rate in period 2 compared to period 1, "
+        "but found equal or higher flow rate in period 1"
     )
-    errmsg = "Expect higher flow rate in period 2 compared to period 1, but found equal or higher flow rate in period 1"
     assert 2.0 * sp_x[0][8] < sp_x[1][8], errmsg
 
 

@@ -9,13 +9,14 @@ module DisNCStructuredModule
 
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, LENBIGLINE, LENCOMPONENTNAME, &
-                             LENMEMPATH
-  use SimVariablesModule, only: errmsg
-  use SimModule, only: store_error, store_error_filename
+                             LENMEMPATH, DNODATA, DZERO
+  use SimVariablesModule, only: errmsg, warnmsg
+  use SimModule, only: store_error, store_warning, store_error_filename
   use MemoryManagerModule, only: mem_setptr
   use InputDefinitionModule, only: InputParamDefinitionType
   use CharacterStringModule, only: CharacterStringType
-  use NCModelExportModule, only: NCBaseModelExportType
+  use NCModelExportModule, only: NCBaseModelExportType, export_varname, &
+                                 export_longname
   use DisModule, only: DisType
   use NetCDFCommonModule, only: nf_verify
   use netcdf
@@ -42,8 +43,9 @@ module DisNCStructuredModule
     integer(I4B) :: x_bnds !< x boundaries 2D array
     integer(I4B) :: y_bnds !< y boundaries 2D array
     integer(I4B) :: z_bnds !< z boundaries 2D array
-    integer(I4B) :: lat !< latitude 2D array
-    integer(I4B) :: lon !< longitude 2D array
+    integer(I4B) :: latitude !< latitude 2D array
+    integer(I4B) :: longitude !< longitude 2D array
+    integer(I4B) :: export !< in scope export
   contains
   end type StructuredNCVarIdType
 
@@ -52,8 +54,8 @@ module DisNCStructuredModule
     type(StructuredNCVarIdType) :: var_ids !< structured variable ids type
     type(DisType), pointer :: dis => null() !< pointer to model dis package
     integer(I4B) :: nlay !< number of layers
-    real(DP), dimension(:), pointer, contiguous :: lat => null() !< lat input array pointer
-    real(DP), dimension(:), pointer, contiguous :: lon => null() !< lon input array pointer
+    real(DP), dimension(:), pointer, contiguous :: latitude => null() !< lat input array pointer
+    real(DP), dimension(:), pointer, contiguous :: longitude => null() !< lon input array pointer
     integer(I4B), pointer :: chunk_z !< chunking parameter for z dimension
     integer(I4B), pointer :: chunk_y !< chunking parameter for y dimension
     integer(I4B), pointer :: chunk_x !< chunking parameter for x dimension
@@ -63,15 +65,19 @@ module DisNCStructuredModule
     procedure :: init => dis_export_init
     procedure :: destroy => dis_export_destroy
     procedure :: df
+    procedure :: df_export
     procedure :: step
     procedure :: export_input_array
+    procedure :: export_df
+    procedure :: create_timeseries
     procedure :: export_input_arrays
+    procedure :: package_step
     procedure :: add_pkg_data
     procedure :: add_global_att
     procedure :: define_dim
     procedure :: define_dependent
     procedure :: define_gridmap
-    procedure :: define_projection
+    procedure :: define_geocoords
     procedure :: add_proj_data
     procedure :: add_grid_data
   end type DisNCStructuredType
@@ -86,64 +92,99 @@ contains
 
   !> @brief netcdf export dis init
   !<
-  subroutine dis_export_init(this, modelname, modeltype, modelfname, disenum, &
-                             nctype, iout)
+  subroutine dis_export_init(this, modelname, modeltype, modelfname, nc_fname, &
+                             disenum, nctype, iout)
     use MemoryManagerModule, only: get_isize
     use MemoryManagerExtModule, only: mem_set_value
     class(DisNCStructuredType), intent(inout) :: this
     character(len=*), intent(in) :: modelname
     character(len=*), intent(in) :: modeltype
     character(len=*), intent(in) :: modelfname
+    character(len=*), intent(in) :: nc_fname
     integer(I4B), intent(in) :: disenum
     integer(I4B), intent(in) :: nctype
     integer(I4B), intent(in) :: iout
     integer(I4B) :: k, latsz, lonsz
     logical(LGP) :: found
-    !
-    ! -- set nlay
+
+    ! set nlay
     this%nlay = this%dis%nlay
-    !
-    ! -- allocate
+
+    ! allocate
     allocate (this%chunk_z)
     allocate (this%chunk_y)
     allocate (this%chunk_x)
     allocate (this%layers(this%nlay))
-    !
-    ! -- initialize
+
+    ! initialize
     this%chunk_z = -1
     this%chunk_y = -1
     this%chunk_x = -1
     do k = 1, this%nlay
       this%layers(k) = k
     end do
-    !
+
     this%latlon = .false.
-    !
-    ! -- initialize base class
-    call this%NCModelExportType%init(modelname, modeltype, modelfname, disenum, &
-                                     nctype, iout)
-    ! -- update values from input context
+
+    ! initialize base class
+    call this%NCModelExportType%init(modelname, modeltype, modelfname, nc_fname, &
+                                     disenum, nctype, iout)
+
+    ! update values from input context
     if (this%ncf_mempath /= '') then
       call mem_set_value(this%chunk_z, 'CHUNK_Z', this%ncf_mempath, found)
       call mem_set_value(this%chunk_y, 'CHUNK_Y', this%ncf_mempath, found)
       call mem_set_value(this%chunk_x, 'CHUNK_X', this%ncf_mempath, found)
-      !
+
       if (this%chunk_time > 0 .and. this%chunk_z > 0 .and. &
           this%chunk_y > 0 .and. this%chunk_x > 0) then
         this%chunking_active = .true.
+      else if (this%chunk_time > 0 .or. this%chunk_z > 0 .or. &
+               this%chunk_y > 0 .or. this%chunk_x > 0) then
+        this%chunk_time = -1
+        this%chunk_z = -1
+        this%chunk_y = -1
+        this%chunk_x = -1
+        write (warnmsg, '(a)') 'Ignoring user provided NetCDF chunking &
+          &parameters. Define chunk_time, chunk_x, chunk_y and chunk_z input &
+          &parameters to see an effect in file "'//trim(nc_fname)//'".'
+        call store_warning(warnmsg)
       end if
-      !
-      call get_isize('LAT', this%ncf_mempath, latsz)
-      call get_isize('LON', this%ncf_mempath, lonsz)
-      !
+
+      call get_isize('LATITUDE', this%ncf_mempath, latsz)
+      call get_isize('LONGITUDE', this%ncf_mempath, lonsz)
+
       if (latsz > 0 .and. lonsz > 0) then
         this%latlon = .true.
-        call mem_setptr(this%lat, 'LAT', this%ncf_mempath)
-        call mem_setptr(this%lon, 'LON', this%ncf_mempath)
+        if (this%wkt /= '') then
+          write (warnmsg, '(a)') 'Ignoring user provided NetCDF wkt parameter &
+            &as longitude and latitude arrays have been provided. &
+            &Applies to file "'//trim(nc_fname)//'".'
+          call store_warning(warnmsg)
+          this%wkt = ''
+          this%gridmap_name = ''
+        end if
+        call mem_setptr(this%latitude, 'LATITUDE', this%ncf_mempath)
+        call mem_setptr(this%longitude, 'LONGITUDE', this%ncf_mempath)
+      end if
+
+      if (this%wkt /= '') then
+        if (this%dis%angrot /= DZERO) then
+          write (warnmsg, '(a)') 'WKT parameter set with structured rotated &
+            &grid. Projected coordinates will have grid local values. &
+            &Applies to file "'//trim(nc_fname)//'".'
+          call store_warning(warnmsg)
+        end if
       end if
     end if
-    !
-    ! -- create the netcdf file
+
+    if (this%dis%lenuni == 1) then
+      this%lenunits = 'ft'
+    else
+      this%lenunits = 'm'
+    end if
+
+    ! create the netcdf file
     call nf_verify(nf90_create(this%nc_fname, &
                                IOR(NF90_CLOBBER, NF90_NETCDF4), this%ncid), &
                    this%nc_fname)
@@ -154,17 +195,14 @@ contains
   subroutine dis_export_destroy(this)
     class(DisNCStructuredType), intent(inout) :: this
     call nf_verify(nf90_close(this%ncid), this%nc_fname)
-    !
     deallocate (this%chunk_z)
     deallocate (this%chunk_y)
     deallocate (this%chunk_x)
     deallocate (this%layers)
-    !
     nullify (this%chunk_z)
     nullify (this%chunk_y)
     nullify (this%chunk_x)
-    !
-    ! -- destroy base class
+    ! destroy base class
     call this%NCModelExportType%destroy()
   end subroutine dis_export_destroy
 
@@ -174,82 +212,101 @@ contains
     use ConstantsModule, only: MVALIDATE
     use SimVariablesModule, only: isim_mode
     class(DisNCStructuredType), intent(inout) :: this
-    ! -- put root group file scope attributes
+    ! put root group file scope attributes
     call this%add_global_att()
-    ! -- define root group dimensions and coordinate variables
+    ! define root group dimensions and coordinate variables
     call this%define_dim()
-    ! -- define grid projection variables
-    call this%define_projection()
-    if (isim_mode /= MVALIDATE) then
-      ! -- define the dependent variable
+    ! define grid projection variables
+    call this%define_geocoords()
+    if (isim_mode == MVALIDATE) then
+      ! define period input arrays
+      call this%df_export()
+    else
+      ! define the dependent variable
       call this%define_dependent()
     end if
-    ! -- exit define mode
+    ! exit define mode
     call nf_verify(nf90_enddef(this%ncid), this%nc_fname)
-    ! -- add data locations
+    ! add data locations
     call this%add_grid_data()
-    ! -- add projection data
+    ! add projection data
     call this%add_proj_data()
-    ! -- define and set package input griddata
-    call this%add_pkg_data()
-    ! -- define and set gridmap variable
+    if (isim_mode == MVALIDATE) then
+      ! define and set package input griddata
+      call this%add_pkg_data()
+    end if
+    ! define and set gridmap variable
     call this%define_gridmap()
-    ! -- synchronize file
+    ! synchronize file
     call nf_verify(nf90_sync(this%ncid), this%nc_fname)
   end subroutine df
+
+  !> @brief define timeseries input variables
+  !<
+  subroutine df_export(this)
+    use NCModelExportModule, only: ExportPackageType
+    class(DisNCStructuredType), intent(inout) :: this
+    class(ExportPackageType), pointer :: export_pkg
+    integer(I4B) :: idx
+    do idx = 1, this%pkglist%Count()
+      export_pkg => this%get(idx)
+      call this%export_df(export_pkg)
+    end do
+  end subroutine df_export
 
   !> @brief netcdf export step
   !<
   subroutine step(this)
+    use ConstantsModule, only: DHNOFLO
     use TdisModule, only: totim
     class(DisNCStructuredType), intent(inout) :: this
     real(DP), dimension(:), pointer, contiguous :: dbl1d
-    integer(I4B) :: n
-    !
-    this%stepcnt = this%stepcnt + 1
-    !
+    integer(I4B) :: n, istp
+
+    ! set global step index
+    istp = this%istp()
+
     if (size(this%dis%nodeuser) < &
         size(this%dis%nodereduced)) then
       allocate (dbl1d(size(this%dis%nodereduced)))
-      dbl1d = NF90_FILL_DOUBLE
+      dbl1d = DHNOFLO
       do n = 1, size(this%dis%nodereduced)
         if (this%dis%nodereduced(n) > 0) then
           dbl1d(n) = this%x(this%dis%nodereduced(n))
         end if
       end do
-      ! -- write step data to dependent variable
+      ! write step data to dependent variable
       call nf_verify(nf90_put_var(this%ncid, &
                                   this%var_ids%dependent, dbl1d, &
-                                  start=(/1, 1, 1, this%stepcnt/), &
+                                  start=(/1, 1, 1, istp/), &
                                   count=(/this%dis%ncol, &
                                           this%dis%nrow, &
                                           this%dis%nlay, 1/)), &
                      this%nc_fname)
       deallocate (dbl1d)
     else
-      ! -- write step data to dependent variable
+      ! write step data to dependent variable
       call nf_verify(nf90_put_var(this%ncid, &
                                   this%var_ids%dependent, this%x, &
-                                  start=(/1, 1, 1, this%stepcnt/), &
+                                  start=(/1, 1, 1, istp/), &
                                   count=(/this%dis%ncol, &
                                           this%dis%nrow, &
                                           this%dis%nlay, 1/)), &
                      this%nc_fname)
     end if
-    !
-    ! -- write to time coordinate variable
+
+    ! write to time coordinate variable
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%time, &
-                                totim, start=(/this%stepcnt/)), &
+                                totim, start=(/istp/)), &
                    this%nc_fname)
-    ! -- synchronize file
+
+    ! synchronize file
     call nf_verify(nf90_sync(this%ncid), this%nc_fname)
   end subroutine step
 
   !> @brief netcdf export an input array
   !<
   subroutine export_input_array(this, pkgtype, pkgname, mempath, idt)
-    use InputOutputModule, only: lowcase
-    use MemoryHelperModule, only: memPathSeparator
     class(DisNCStructuredType), intent(inout) :: this
     character(len=*), intent(in) :: pkgtype
     character(len=*), intent(in) :: pkgname
@@ -261,80 +318,195 @@ contains
     real(DP), dimension(:), pointer, contiguous :: dbl1d
     real(DP), dimension(:, :), pointer, contiguous :: dbl2d
     real(DP), dimension(:, :, :), pointer, contiguous :: dbl3d
-    character(len=LINELENGTH) :: pname, vname, nc_varname, gridmap, input_attr
-    !
-    ! -- set variable name written to file
-    pname = pkgname
-    vname = idt%tagname
-    call lowcase(pname)
-    call lowcase(vname)
-    nc_varname = trim(pname)//'_'//trim(vname)
-    if (this%ogc_wkt /= '') then
-      gridmap = this%gridmap_name
-    else
-      gridmap = ''
-    end if
-    !
-    if (this%input_attr > 0) then
-      input_attr = trim(this%modelname)//memPathSeparator//trim(pkgname)// &
-                   memPathSeparator//trim(idt%mf6varname)
-    else
-      input_attr = ''
-    end if
-    !
+    character(len=LINELENGTH) :: nc_tag
+    integer(I4B) :: iper, iaux
+
+    ! initialize
+    iper = 0
+    iaux = 0
+
+    ! set variable name and input attribute string
+    nc_tag = this%input_attribute(pkgname, idt)
+
     select case (idt%datatype)
     case ('INTEGER1D')
       call mem_setptr(int1d, idt%mf6varname, mempath)
-      call nc_export_array(this%ncid, this%dim_ids, this%var_ids, this%dis, &
-                           int1d, nc_varname, pkgname, idt%tagname, &
-                           idt%shape, idt%longname, input_attr, gridmap, &
-                           this%latlon, this%deflate, this%shuffle, &
-                           this%chunk_z, this%chunk_y, this%chunk_x, &
-                           this%nc_fname)
+      call nc_export_array(int1d, this%ncid, this%dim_ids, this%var_ids, &
+                           this%dis, idt, mempath, nc_tag, pkgname, &
+                           this%gridmap_name, this%latlon, this%deflate, &
+                           this%shuffle, this%chunk_z, this%chunk_y, &
+                           this%chunk_x, iper, this%nc_fname)
     case ('INTEGER2D')
       call mem_setptr(int2d, idt%mf6varname, mempath)
-      call nc_export_array(this%ncid, this%dim_ids, this%var_ids, this%dis, &
-                           int2d, nc_varname, pkgname, idt%tagname, &
-                           idt%shape, idt%longname, input_attr, gridmap, &
-                           this%latlon, this%deflate, this%shuffle, &
-                           this%chunk_z, this%chunk_y, this%chunk_x, &
-                           this%nc_fname)
+      call nc_export_array(int2d, this%ncid, this%dim_ids, this%var_ids, &
+                           this%dis, idt, mempath, nc_tag, pkgname, &
+                           this%gridmap_name, this%latlon, this%deflate, &
+                           this%shuffle, this%chunk_z, this%chunk_y, &
+                           this%chunk_x, this%nc_fname)
     case ('INTEGER3D')
       call mem_setptr(int3d, idt%mf6varname, mempath)
-      call nc_export_array(this%ncid, this%dim_ids, this%var_ids, this%dis, &
-                           int3d, nc_varname, pkgname, idt%tagname, &
-                           idt%shape, idt%longname, input_attr, gridmap, &
-                           this%latlon, this%deflate, this%shuffle, &
-                           this%chunk_z, this%chunk_y, this%chunk_x, &
-                           this%nc_fname)
+      call nc_export_array(int3d, this%ncid, this%dim_ids, this%var_ids, &
+                           this%dis, idt, mempath, nc_tag, pkgname, &
+                           this%gridmap_name, this%latlon, this%deflate, &
+                           this%shuffle, this%chunk_z, this%chunk_y, &
+                           this%chunk_x, this%nc_fname)
     case ('DOUBLE1D')
       call mem_setptr(dbl1d, idt%mf6varname, mempath)
-      call nc_export_array(this%ncid, this%dim_ids, this%var_ids, this%dis, &
-                           dbl1d, nc_varname, pkgname, idt%tagname, &
-                           idt%shape, idt%longname, input_attr, gridmap, &
-                           this%latlon, this%deflate, this%shuffle, &
-                           this%chunk_z, this%chunk_y, this%chunk_x, &
-                           this%nc_fname)
+      call nc_export_array(dbl1d, this%ncid, this%dim_ids, this%var_ids, &
+                           this%dis, idt, mempath, nc_tag, pkgname, &
+                           this%gridmap_name, this%latlon, this%deflate, &
+                           this%shuffle, this%chunk_z, this%chunk_y, &
+                           this%chunk_x, iper, iaux, this%nc_fname)
     case ('DOUBLE2D')
       call mem_setptr(dbl2d, idt%mf6varname, mempath)
-      call nc_export_array(this%ncid, this%dim_ids, this%var_ids, this%dis, &
-                           dbl2d, nc_varname, pkgname, idt%tagname, &
-                           idt%shape, idt%longname, input_attr, gridmap, &
-                           this%latlon, this%deflate, this%shuffle, &
-                           this%chunk_z, this%chunk_y, this%chunk_x, &
-                           this%nc_fname)
+      call nc_export_array(dbl2d, this%ncid, this%dim_ids, this%var_ids, &
+                           this%dis, idt, mempath, nc_tag, pkgname, &
+                           this%gridmap_name, this%latlon, this%deflate, &
+                           this%shuffle, this%chunk_z, this%chunk_y, &
+                           this%chunk_x, this%nc_fname)
     case ('DOUBLE3D')
       call mem_setptr(dbl3d, idt%mf6varname, mempath)
-      call nc_export_array(this%ncid, this%dim_ids, this%var_ids, this%dis, &
-                           dbl3d, nc_varname, pkgname, idt%tagname, &
-                           idt%shape, idt%longname, input_attr, gridmap, &
-                           this%latlon, this%deflate, this%shuffle, &
-                           this%chunk_z, this%chunk_y, this%chunk_x, &
-                           this%nc_fname)
+      call nc_export_array(dbl3d, this%ncid, this%dim_ids, this%var_ids, &
+                           this%dis, idt, mempath, nc_tag, pkgname, &
+                           this%gridmap_name, this%latlon, this%deflate, &
+                           this%shuffle, this%chunk_z, this%chunk_y, &
+                           this%chunk_x, this%nc_fname)
     case default
-      ! -- no-op, no other datatypes exported
+      ! no-op, no other datatypes exported
     end select
   end subroutine export_input_array
+
+  !> @brief define export package
+  !<
+  subroutine export_df(this, export_pkg)
+    use NCModelExportModule, only: ExportPackageType
+    use DefinitionSelectModule, only: get_param_definition_type
+    class(DisNCStructuredType), intent(inout) :: this
+    class(ExportPackageType), pointer, intent(in) :: export_pkg
+    type(InputParamDefinitionType), pointer :: idt
+    integer(I4B) :: iparam, iaux
+
+    ! export defined period input
+    do iparam = 1, export_pkg%nparam
+      ! initialize
+      iaux = 0
+      ! set input definition
+      idt => &
+        get_param_definition_type(export_pkg%mf6_input%param_dfns, &
+                                  export_pkg%mf6_input%component_type, &
+                                  export_pkg%mf6_input%subcomponent_type, &
+                                  'PERIOD', export_pkg%param_names(iparam), '')
+      select case (idt%shape)
+      case ('NCPL', 'NODES')
+        call this%create_timeseries(idt, iparam, iaux, export_pkg)
+      case ('NAUX NCPL', 'NAUX NODES')
+        do iaux = 1, export_pkg%naux
+          call this%create_timeseries(idt, iparam, iaux, export_pkg)
+        end do
+      case default
+      end select
+    end do
+  end subroutine export_df
+
+  !> @brief create timeseries export variable
+  !<
+  subroutine create_timeseries(this, idt, iparam, iaux, export_pkg)
+    use NCModelExportModule, only: ExportPackageType
+    class(DisNCStructuredType), intent(inout) :: this
+    type(InputParamDefinitionType), pointer, intent(in) :: idt
+    integer(I4B), intent(in) :: iparam
+    integer(I4B), intent(in) :: iaux
+    class(ExportPackageType), pointer, intent(in) :: export_pkg
+    character(len=LINELENGTH) :: varname, longname, nc_tag
+    integer(I4B) :: varid
+
+    ! set variable input tag
+    nc_tag = this%input_attribute(export_pkg%mf6_input%subcomponent_name, &
+                                  idt)
+
+    ! set names
+    varname = export_varname(export_pkg%mf6_input%subcomponent_name, &
+                             idt%tagname, export_pkg%mf6_input%mempath, &
+                             iaux=iaux)
+    longname = export_longname(idt%longname, &
+                               export_pkg%mf6_input%subcomponent_name, &
+                               idt%tagname, export_pkg%mf6_input%mempath, &
+                               iaux=iaux)
+
+    ! create the netcdf timeseries variable
+    select case (idt%datatype)
+    case ('DOUBLE1D', 'DOUBLE2D')
+      if (idt%shape == 'NCPL' .or. &
+          idt%shape == 'NAUX NCPL') then
+        call nf_verify(nf90_def_var(this%ncid, varname, NF90_DOUBLE, &
+                                    (/this%dim_ids%x, &
+                                      this%dim_ids%y, &
+                                      this%dim_ids%time/), varid), &
+                       this%nc_fname)
+      else
+        call nf_verify(nf90_def_var(this%ncid, varname, NF90_DOUBLE, &
+                                    (/this%dim_ids%x, &
+                                      this%dim_ids%y, &
+                                      this%dim_ids%z, &
+                                      this%dim_ids%time/), varid), &
+                       this%nc_fname)
+      end if
+      call nf_verify(nf90_put_att(this%ncid, varid, &
+                                  '_FillValue', (/DNODATA/)), &
+                     this%nc_fname)
+    case ('INTEGER1D')
+      if (idt%shape == 'NCPL' .or. &
+          idt%shape == 'NAUX NCPL') then
+        call nf_verify(nf90_def_var(this%ncid, varname, NF90_INT, &
+                                    (/this%dim_ids%x, &
+                                      this%dim_ids%y, &
+                                      this%dim_ids%time/), varid), &
+                       this%nc_fname)
+      else
+        call nf_verify(nf90_def_var(this%ncid, varname, NF90_INT, &
+                                    (/this%dim_ids%x, &
+                                      this%dim_ids%y, &
+                                      this%dim_ids%z, &
+                                      this%dim_ids%time/), varid), &
+                       this%nc_fname)
+      end if
+      call nf_verify(nf90_put_att(this%ncid, varid, &
+                                  '_FillValue', (/NF90_FILL_INT/)), &
+                     this%nc_fname)
+    end select
+
+    ! apply chunking parameters
+    if (this%chunking_active) then
+      call nf_verify(nf90_def_var_chunking(this%ncid, &
+                                           varid, &
+                                           NF90_CHUNKED, &
+                                           (/this%chunk_x, this%chunk_y, &
+                                             this%chunk_z, this%chunk_time/)), &
+                     this%nc_fname)
+    end if
+
+    ! deflate and shuffle
+    call ncvar_deflate(this%ncid, varid, this%deflate, &
+                       this%shuffle, this%nc_fname)
+
+    ! variable attributes
+    call nf_verify(nf90_put_att(this%ncid, varid, &
+                                'units', this%lenunits), this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, varid, &
+                                'long_name', longname), this%nc_fname)
+
+    ! add grid mapping and mf6 attr
+    call ncvar_gridmap(this%ncid, varid, this%gridmap_name, this%latlon, &
+                       this%nc_fname)
+    call ncvar_mf6attr(this%ncid, varid, iaux, nc_tag, this%nc_fname)
+
+    ! store variable id
+    if (idt%tagname == 'AUX') then
+      export_pkg%varids_aux(iaux, 1) = varid
+    else
+      export_pkg%varids_param(iparam, 1) = varid
+    end if
+  end subroutine create_timeseries
 
   !> @brief write package gridded input data
   !<
@@ -348,21 +520,151 @@ contains
       intent(in) :: param_dfns
     type(InputParamDefinitionType), pointer :: idt
     integer(I4B) :: iparam, isize
-    !
     do iparam = 1, size(param_dfns)
-      ! -- assign param definition pointer
+      ! assign param definition pointer
       idt => param_dfns(iparam)
-      ! -- for now
+      ! for now only griddata is exported
       if (idt%blockname == 'GRIDDATA') then
-        ! -- check if variable is already allocated
+        ! check if variable is already allocated
         call get_isize(idt%mf6varname, mempath, isize)
-        !
         if (isize > 0) then
           call this%export_input_array(pkgtype, pkgname, mempath, idt)
         end if
       end if
     end do
   end subroutine export_input_arrays
+
+  !> @brief netcdf export package dynamic input
+  !<
+  subroutine package_step(this, export_pkg)
+    use TdisModule, only: totim, kper
+    use DefinitionSelectModule, only: get_param_definition_type
+    use NCModelExportModule, only: ExportPackageType
+    class(DisNCStructuredType), intent(inout) :: this
+    class(ExportPackageType), pointer, intent(in) :: export_pkg
+    type(InputParamDefinitionType), pointer :: idt
+    integer(I4B), dimension(:), pointer, contiguous :: int1d
+    real(DP), dimension(:), pointer, contiguous :: dbl1d, nodes
+    real(DP), dimension(:, :), pointer, contiguous :: dbl2d
+    character(len=LINELENGTH) :: nc_tag
+    integer(I4B) :: iaux, iparam, nvals, n
+    integer(I4B), pointer :: nbound
+
+    ! initialize
+    iaux = 0
+
+    ! export defined period input
+    do iparam = 1, export_pkg%nparam
+      if (export_pkg%iper /= kper) cycle
+      ! check if variable was read this period
+      if (export_pkg%param_reads(iparam)%invar < 1) cycle
+
+      ! set input definition
+      idt => &
+        get_param_definition_type(export_pkg%mf6_input%param_dfns, &
+                                  export_pkg%mf6_input%component_type, &
+                                  export_pkg%mf6_input%subcomponent_type, &
+                                  'PERIOD', export_pkg%param_names(iparam), '')
+
+      ! set variable input tag
+      nc_tag = this%input_attribute(export_pkg%mf6_input%subcomponent_name, &
+                                    idt)
+
+      ! export arrays
+      select case (idt%datatype)
+      case ('INTEGER1D')
+        call mem_setptr(int1d, idt%mf6varname, export_pkg%mf6_input%mempath)
+        this%var_ids%export = export_pkg%varids_param(iparam, 1)
+        call nc_export_array(int1d, this%ncid, this%dim_ids, this%var_ids, &
+                             this%dis, idt, export_pkg%mf6_input%mempath, &
+                             nc_tag, export_pkg%mf6_input%subcomponent_name, &
+                             this%gridmap_name, this%latlon, this%deflate, &
+                             this%shuffle, this%chunk_z, this%chunk_y, &
+                             this%chunk_x, kper, this%nc_fname)
+      case ('DOUBLE1D')
+        call mem_setptr(dbl1d, idt%mf6varname, export_pkg%mf6_input%mempath)
+        this%var_ids%export = export_pkg%varids_param(iparam, 1)
+        select case (idt%shape)
+        case ('NCPL')
+          call nc_export_array(dbl1d, this%ncid, this%dim_ids, this%var_ids, &
+                               this%dis, idt, export_pkg%mf6_input%mempath, &
+                               nc_tag, export_pkg%mf6_input%subcomponent_name, &
+                               this%gridmap_name, this%latlon, this%deflate, &
+                               this%shuffle, this%chunk_z, this%chunk_y, &
+                               this%chunk_x, kper, iaux, this%nc_fname)
+        case ('NODES')
+          nvals = this%dis%nodesuser
+          allocate (nodes(nvals))
+          nodes = DNODATA
+          call mem_setptr(dbl1d, idt%mf6varname, export_pkg%mf6_input%mempath)
+          call mem_setptr(int1d, 'NODEULIST', export_pkg%mf6_input%mempath)
+          call mem_setptr(nbound, 'NBOUND', export_pkg%mf6_input%mempath)
+          do n = 1, nbound
+            nodes(int1d(n)) = dbl1d(n)
+          end do
+          call nc_export_array(nodes, this%ncid, this%dim_ids, this%var_ids, &
+                               this%dis, idt, export_pkg%mf6_input%mempath, &
+                               nc_tag, export_pkg%mf6_input%subcomponent_name, &
+                               this%gridmap_name, this%latlon, this%deflate, &
+                               this%shuffle, this%chunk_z, this%chunk_y, &
+                               this%chunk_x, kper, iaux, this%nc_fname)
+          deallocate (nodes)
+        case default
+        end select
+      case ('DOUBLE2D')
+        call mem_setptr(dbl2d, idt%mf6varname, export_pkg%mf6_input%mempath)
+        select case (idt%shape)
+        case ('NAUX NCPL')
+          nvals = this%dis%nrow * this%dis%ncol
+          allocate (nodes(nvals))
+          do iaux = 1, size(dbl2d, dim=1) !naux
+            this%var_ids%export = export_pkg%varids_aux(iaux, 1)
+            do n = 1, nvals
+              nodes(n) = dbl2d(iaux, n)
+            end do
+            call nc_export_array(nodes, this%ncid, this%dim_ids, this%var_ids, &
+                                 this%dis, idt, export_pkg%mf6_input%mempath, &
+                                 nc_tag, export_pkg%mf6_input%subcomponent_name, &
+                                 this%gridmap_name, this%latlon, this%deflate, &
+                                 this%shuffle, this%chunk_z, this%chunk_y, &
+                                 this%chunk_x, kper, iaux, this%nc_fname)
+          end do
+          deallocate (nodes)
+        case ('NAUX NODES')
+          nvals = this%dis%nodesuser
+          allocate (nodes(nvals))
+          call mem_setptr(int1d, 'NODEULIST', export_pkg%mf6_input%mempath)
+          call mem_setptr(nbound, 'NBOUND', export_pkg%mf6_input%mempath)
+          do iaux = 1, size(dbl2d, dim=1) ! naux
+            nodes = DNODATA
+            this%var_ids%export = export_pkg%varids_aux(iaux, 1)
+            do n = 1, nbound
+              nodes(int1d(n)) = dbl2d(iaux, n)
+            end do
+            call nc_export_array(nodes, this%ncid, this%dim_ids, this%var_ids, &
+                                 this%dis, idt, export_pkg%mf6_input%mempath, &
+                                 nc_tag, export_pkg%mf6_input%subcomponent_name, &
+                                 this%gridmap_name, this%latlon, this%deflate, &
+                                 this%shuffle, this%chunk_z, this%chunk_y, &
+                                 this%chunk_x, kper, iaux, this%nc_fname)
+
+          end do
+          deallocate (nodes)
+        case default
+        end select
+      case default
+        ! no-op, no other datatypes exported
+      end select
+    end do
+
+    ! write to time coordinate variable
+    call nf_verify(nf90_put_var(this%ncid, this%var_ids%time, &
+                                totim, start=(/kper/)), &
+                   this%nc_fname)
+
+    ! synchronize file
+    call nf_verify(nf90_sync(this%ncid), this%nc_fname)
+  end subroutine package_step
 
   !> @brief determine packages to write gridded input
   !<
@@ -385,38 +687,37 @@ contains
     integer(I4B) :: n
     integer(I4B), pointer :: export_arrays
     logical(LGP) :: found
-    !
+
     input_mempath = create_mem_path(component=this%modelname, context=idm_context)
-    !
-    ! -- set pointers to model path package info
+
+    ! set pointers to model path package info
     call mem_setptr(pkgtypes, 'PKGTYPES', input_mempath)
     call mem_setptr(pkgnames, 'PKGNAMES', input_mempath)
     call mem_setptr(mempaths, 'MEMPATHS', input_mempath)
-    !
+
     do n = 1, size(mempaths)
-      !
-      ! -- allocate export_arrays
+      ! allocate export_arrays
       allocate (export_arrays)
       export_arrays = 0
-      !
-      ! -- set package attributes
+
+      ! set package attributes
       mempath = mempaths(n)
       pname = pkgnames(n)
       ptype = pkgtypes(n)
-      !
-      ! -- export input arrays
+
+      ! export input arrays
       if (mempath /= '') then
-        ! -- update export
+        ! update export
         call mem_set_value(export_arrays, 'EXPORT_NC', mempath, found)
-        !
+
         if (export_arrays > 0) then
           pkgtype = idm_subcomponent_type(this%modeltype, ptype)
           param_dfns => param_definitions(this%modeltype, pkgtype)
           call this%export_input_arrays(ptype, pname, mempath, param_dfns)
         end if
       end if
-      !
-      ! -- cleanup
+
+      ! cleanup
       deallocate (export_arrays)
     end do
   end subroutine add_pkg_data
@@ -425,22 +726,22 @@ contains
   !<
   subroutine add_global_att(this)
     class(DisNCStructuredType), intent(inout) :: this
-    ! -- file scoped title
+    ! file scoped title
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'title', &
                                 this%annotation%title), this%nc_fname)
-    ! -- source (MODFLOW 6)
+    ! source (MODFLOW 6)
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'source', &
                                 this%annotation%source), this%nc_fname)
-    ! -- export type (MODFLOW 6)
-    call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow6_grid', &
+    ! grid type (MODFLOW 6)
+    call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow_grid', &
                                 this%annotation%grid), this%nc_fname)
-    ! -- MODFLOW 6 model type
-    call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow6_model', &
+    ! MODFLOW 6 model type
+    call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'modflow_model', &
                                 this%annotation%model), this%nc_fname)
-    ! -- generation datetime
+    ! generation datetime
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'history', &
                                 this%annotation%history), this%nc_fname)
-    ! -- supported conventions
+    ! supported conventions
     call nf_verify(nf90_put_att(this%ncid, NF90_GLOBAL, 'Conventions', &
                                 this%annotation%conventions), &
                    this%nc_fname)
@@ -456,9 +757,9 @@ contains
     ! bound dim
     call nf_verify(nf90_def_dim(this%ncid, 'bnd', 2, this%dim_ids%bnd), &
                    this%nc_fname)
-    !
-    ! -- Time
-    if (isim_mode /= MVALIDATE) then
+
+    if (isim_mode /= MVALIDATE .or. this%pkglist%Count() > 0) then
+      ! Time
       call nf_verify(nf90_def_dim(this%ncid, 'time', this%totnstp, &
                                   this%dim_ids%time), this%nc_fname)
       call nf_verify(nf90_def_var(this%ncid, 'time', NF90_DOUBLE, &
@@ -476,8 +777,8 @@ contains
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'long_name', &
                                   'time'), this%nc_fname)
     end if
-    !
-    ! -- Z dimension
+
+    ! Z dimension
     call nf_verify(nf90_def_dim(this%ncid, 'z', this%dis%nlay, this%dim_ids%z), &
                    this%nc_fname)
     call nf_verify(nf90_def_var(this%ncid, 'z', NF90_DOUBLE, this%dim_ids%z, &
@@ -493,21 +794,21 @@ contains
     !                            this%var_ids%z_bnds), this%nc_fname)
     !call nf_verify(nf90_put_var(this%ncid, this%var_ids%z_bnds, &
     !                            this%elev_bnds), this%nc_fname)
-    !
-    ! -- Y dimension
+
+    ! Y dimension
     call nf_verify(nf90_def_dim(this%ncid, 'y', this%dis%nrow, this%dim_ids%y), &
                    this%nc_fname)
     call nf_verify(nf90_def_var(this%ncid, 'y', NF90_DOUBLE, this%dim_ids%y, &
                                 this%var_ids%y), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%y, 'units', 'm'), &
-                   this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%y, 'units', &
+                                this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%y, 'axis', 'Y'), &
                    this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%y, 'standard_name', &
                                 'projection_y_coordinate'), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%y, 'long_name', &
                                 'Northing'), this%nc_fname)
-    if (this%ogc_wkt /= '') then
+    if (this%wkt /= '') then
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%y, 'grid_mapping', &
                                   this%gridmap_name), this%nc_fname)
     end if
@@ -516,21 +817,21 @@ contains
     call nf_verify(nf90_def_var(this%ncid, 'y_bnds', NF90_DOUBLE, &
                                 (/this%dim_ids%bnd, this%dim_ids%y/), &
                                 this%var_ids%y_bnds), this%nc_fname)
-    !
-    ! -- X dimension
+
+    ! X dimension
     call nf_verify(nf90_def_dim(this%ncid, 'x', this%dis%ncol, this%dim_ids%x), &
                    this%nc_fname)
     call nf_verify(nf90_def_var(this%ncid, 'x', NF90_DOUBLE, this%dim_ids%x, &
                                 this%var_ids%x), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%x, 'units', 'm'), &
-                   this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%x, 'units', &
+                                this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%x, 'axis', 'X'), &
                    this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%x, 'standard_name', &
                                 'projection_x_coordinate'), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%x, 'long_name', &
                                 'Easting'), this%nc_fname)
-    if (this%ogc_wkt /= '') then
+    if (this%wkt /= '') then
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%x, 'grid_mapping', &
                                   this%gridmap_name), this%nc_fname)
     end if
@@ -544,14 +845,16 @@ contains
   !> @brief create the model layer dependent variables
   !<
   subroutine define_dependent(this)
+    use ConstantsModule, only: DHNOFLO
     class(DisNCStructuredType), intent(inout) :: this
-    !
+
     call nf_verify(nf90_def_var(this%ncid, this%xname, NF90_DOUBLE, &
                                 (/this%dim_ids%x, this%dim_ids%y, &
                                   this%dim_ids%z, this%dim_ids%time/), &
                                 this%var_ids%dependent), &
                    this%nc_fname)
-    ! -- apply chunking parameters
+
+    ! apply chunking parameters
     if (this%chunking_active) then
       call nf_verify(nf90_def_var_chunking(this%ncid, &
                                            this%var_ids%dependent, &
@@ -560,37 +863,25 @@ contains
                                              this%chunk_z, this%chunk_time/)), &
                      this%nc_fname)
     end if
-    ! -- deflate and shuffle
-    if (this%deflate >= 0) then
-      call nf_verify(nf90_def_var_deflate(this%ncid, &
-                                          this%var_ids%dependent, &
-                                          shuffle=this%shuffle, deflate=1, &
-                                          deflate_level=this%deflate), &
-                     this%nc_fname)
-    end if
-    !
+
+    ! deflate and shuffle
+    call ncvar_deflate(this%ncid, this%var_ids%dependent, this%deflate, &
+                       this%shuffle, this%nc_fname)
+
+    ! put attr
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, &
-                                'units', 'm'), this%nc_fname)
+                                'units', this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, &
                                 'standard_name', this%annotation%stdname), &
                    this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, 'long_name', &
                                 this%annotation%longname), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, '_FillValue', &
-                                (/NF90_FILL_DOUBLE/)), this%nc_fname)
-    if (this%ogc_wkt /= '') then
-      if (this%latlon) then
-        call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, &
-                                    'coordinates', 'lon lat'), &
-                       this%nc_fname)
-      else
-        call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, &
-                                    'coordinates', 'x y'), this%nc_fname)
-      end if
-      call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, &
-                                  'grid_mapping', this%gridmap_name), &
-                     this%nc_fname)
-    end if
+                                (/DHNOFLO/)), this%nc_fname)
+
+    ! add grid mapping
+    call ncvar_gridmap(this%ncid, this%var_ids%dependent, this%gridmap_name, &
+                       this%latlon, this%nc_fname)
   end subroutine define_dependent
 
   !> @brief create the file grid mapping container variable
@@ -598,12 +889,12 @@ contains
   subroutine define_gridmap(this)
     class(DisNCStructuredType), intent(inout) :: this
     integer(I4B) :: var_id
-    if (this%ogc_wkt /= '') then
+    if (this%wkt /= '') then
       call nf_verify(nf90_redef(this%ncid), this%nc_fname)
       call nf_verify(nf90_def_var(this%ncid, this%gridmap_name, NF90_INT, &
                                   var_id), this%nc_fname)
-      ! -- TODO: consider variants epsg_code, spatial_ref, esri_pe_string, wkt, etc
-      call nf_verify(nf90_put_att(this%ncid, var_id, 'crs_wkt', this%ogc_wkt), &
+      ! TODO: consider variants epsg_code, spatial_ref, esri_pe_string, wkt, etc
+      call nf_verify(nf90_put_att(this%ncid, var_id, 'crs_wkt', this%wkt), &
                      this%nc_fname)
       call nf_verify(nf90_enddef(this%ncid), this%nc_fname)
       call nf_verify(nf90_put_var(this%ncid, var_id, 1), &
@@ -613,48 +904,47 @@ contains
 
   !> @brief define grid projection variables
   !<
-  subroutine define_projection(this)
+  subroutine define_geocoords(this)
     class(DisNCStructuredType), intent(inout) :: this
-    if (this%latlon .and. this%ogc_wkt /= '') then
-      ! -- lat
+    if (this%latlon) then
+      ! lat
       call nf_verify(nf90_def_var(this%ncid, 'lat', NF90_DOUBLE, &
                                   (/this%dim_ids%x, this%dim_ids%y/), &
-                                  this%var_ids%lat), this%nc_fname)
-      call nf_verify(nf90_put_att(this%ncid, this%var_ids%lat, 'units', &
-                                  'degrees_north'), this%nc_fname)
-      call nf_verify(nf90_put_att(this%ncid, this%var_ids%lat, 'standard_name', &
-                                  'latitude'), this%nc_fname)
-      call nf_verify(nf90_put_att(this%ncid, this%var_ids%lat, 'long_name', &
-                                  'latitude'), this%nc_fname)
-      !
-      ! -- lon
+                                  this%var_ids%latitude), this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%latitude, &
+                                  'units', 'degrees_north'), this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%latitude, &
+                                  'standard_name', 'latitude'), this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%latitude, &
+                                  'long_name', 'latitude'), this%nc_fname)
+
+      ! lon
       call nf_verify(nf90_def_var(this%ncid, 'lon', NF90_DOUBLE, &
                                   (/this%dim_ids%x, this%dim_ids%y/), &
-                                  this%var_ids%lon), this%nc_fname)
-      call nf_verify(nf90_put_att(this%ncid, this%var_ids%lon, 'units', &
-                                  'degrees_east'), this%nc_fname)
-      call nf_verify(nf90_put_att(this%ncid, this%var_ids%lon, 'standard_name', &
-                                  'longitude'), this%nc_fname)
-      call nf_verify(nf90_put_att(this%ncid, this%var_ids%lon, 'long_name', &
-                                  'longitude'), this%nc_fname)
+                                  this%var_ids%longitude), this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%longitude, &
+                                  'units', 'degrees_east'), this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%longitude, &
+                                  'standard_name', 'longitude'), this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%longitude, &
+                                  'long_name', 'longitude'), this%nc_fname)
     end if
-  end subroutine define_projection
+  end subroutine define_geocoords
 
   !> @brief add grid projection data
   !<
   subroutine add_proj_data(this)
     class(DisNCStructuredType), intent(inout) :: this
-    if (this%latlon .and. this%ogc_wkt /= '') then
-      ! -- lat
-      !
-      call nf_verify(nf90_put_var(this%ncid, this%var_ids%lat, &
-                                  this%lat, start=(/1, 1/), &
+    if (this%latlon) then
+      ! lat
+      call nf_verify(nf90_put_var(this%ncid, this%var_ids%latitude, &
+                                  this%latitude, start=(/1, 1/), &
                                   count=(/this%dis%ncol, this%dis%nrow/)), &
                      this%nc_fname)
-      ! -- lon
-      !
-      call nf_verify(nf90_put_var(this%ncid, this%var_ids%lon, &
-                                  this%lon, start=(/1, 1/), &
+
+      ! lon
+      call nf_verify(nf90_put_var(this%ncid, this%var_ids%longitude, &
+                                  this%longitude, start=(/1, 1/), &
                                   count=(/this%dis%ncol, this%dis%nrow/)), &
                      this%nc_fname)
     end if
@@ -667,37 +957,45 @@ contains
     integer(I4B) :: ibnd, n !, k, i, j
     real(DP), dimension(:, :), pointer, contiguous :: dbl2d
     real(DP), dimension(:), allocatable :: x, y
-    !
+    real(DP) :: xoff, yoff
+
+    if (this%dis%angrot /= DZERO) then
+      xoff = DZERO
+      yoff = DZERO
+    else
+      xoff = this%dis%xorigin
+      yoff = this%dis%yorigin
+    end if
+
     allocate (x(size(this%dis%cellx)))
     allocate (y(size(this%dis%celly)))
 
     do n = 1, size(this%dis%cellx)
-      x(n) = this%dis%cellx(n) + this%dis%xorigin
+      x(n) = this%dis%cellx(n) + xoff
     end do
 
     do n = 1, size(this%dis%celly)
-      y(n) = this%dis%celly(n) + this%dis%yorigin
+      y(n) = this%dis%celly(n) + yoff
     end do
 
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%x, x), &
                    this%nc_fname)
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%y, y), &
                    this%nc_fname)
-    ! -- TODO see cf-conventions 4.3.3. Parametric Vertical Coordinate
+    ! TODO see cf-conventions 4.3.3. Parametric Vertical Coordinate
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%z, this%layers), &
                    this%nc_fname)
 
     deallocate (x)
     deallocate (y)
 
-    !
-    ! -- bounds x
+    ! bounds x
     allocate (dbl2d(2, size(this%dis%cellx)))
     ibnd = 1
     do n = 1, size(this%dis%cellx)
       if (ibnd == 1) then
-        dbl2d(1, ibnd) = this%dis%xorigin
-        dbl2d(2, ibnd) = this%dis%xorigin + this%dis%delr(ibnd)
+        dbl2d(1, ibnd) = xoff
+        dbl2d(2, ibnd) = xoff + this%dis%delr(ibnd)
       else
         dbl2d(1, ibnd) = dbl2d(1, ibnd - 1) + this%dis%delr(ibnd)
         dbl2d(2, ibnd) = dbl2d(2, ibnd - 1) + this%dis%delr(ibnd)
@@ -708,13 +1006,13 @@ contains
                    this%nc_fname)
     deallocate (dbl2d)
 
-    ! -- bounds y
+    ! bounds y
     allocate (dbl2d(2, size(this%dis%celly)))
     ibnd = 1
     do n = size(this%dis%celly), 1, -1
       if (ibnd == 1) then
-        dbl2d(1, ibnd) = this%dis%yorigin + sum(this%dis%delc) - this%dis%delc(n)
-        dbl2d(2, ibnd) = this%dis%yorigin + sum(this%dis%delc)
+        dbl2d(1, ibnd) = yoff + sum(this%dis%delc) - this%dis%delc(n)
+        dbl2d(2, ibnd) = yoff + sum(this%dis%delc)
       else
         dbl2d(1, ibnd) = dbl2d(1, ibnd - 1) - this%dis%delc(n)
         dbl2d(2, ibnd) = dbl2d(2, ibnd - 1) - this%dis%delc(n)
@@ -726,24 +1024,104 @@ contains
     deallocate (dbl2d)
   end subroutine add_grid_data
 
+  !> @brief define 2d variable chunking
+  !<
+  subroutine ncvar_chunk2d(ncid, varid, chunk_x, chunk_y, nc_fname)
+    integer(I4B), intent(in) :: ncid
+    integer(I4B), intent(in) :: varid
+    integer(I4B), intent(in) :: chunk_x
+    integer(I4B), intent(in) :: chunk_y
+    character(len=*), intent(in) :: nc_fname
+    if (chunk_y > 0 .and. chunk_x > 0) then
+      call nf_verify(nf90_def_var_chunking(ncid, varid, NF90_CHUNKED, &
+                                           (/chunk_x, chunk_y/)), nc_fname)
+    end if
+  end subroutine ncvar_chunk2d
+
+  !> @brief define 3d variable chunking
+  !<
+  subroutine ncvar_chunk3d(ncid, varid, chunk_x, chunk_y, chunk_z, nc_fname)
+    integer(I4B), intent(in) :: ncid
+    integer(I4B), intent(in) :: varid
+    integer(I4B), intent(in) :: chunk_x
+    integer(I4B), intent(in) :: chunk_y
+    integer(I4B), intent(in) :: chunk_z
+    character(len=*), intent(in) :: nc_fname
+    if (chunk_z > 0 .and. chunk_y > 0 .and. chunk_x > 0) then
+      call nf_verify(nf90_def_var_chunking(ncid, varid, NF90_CHUNKED, &
+                                           (/chunk_x, chunk_y, chunk_z/)), &
+                     nc_fname)
+    end if
+  end subroutine ncvar_chunk3d
+
+  !> @brief define variable compression
+  !<
+  subroutine ncvar_deflate(ncid, varid, deflate, shuffle, nc_fname)
+    integer(I4B), intent(in) :: ncid
+    integer(I4B), intent(in) :: varid
+    integer(I4B), intent(in) :: deflate
+    integer(I4B), intent(in) :: shuffle
+    character(len=*), intent(in) :: nc_fname
+    ! deflate and shuffle
+    if (deflate >= 0) then
+      call nf_verify(nf90_def_var_deflate(ncid, varid, shuffle=shuffle, &
+                                          deflate=1, deflate_level=deflate), &
+                     nc_fname)
+    end if
+  end subroutine ncvar_deflate
+
+  !> @brief put variable gridmap attributes
+  !<
+  subroutine ncvar_gridmap(ncid, varid, gridmap_name, latlon, nc_fname)
+    integer(I4B), intent(in) :: ncid
+    integer(I4B), intent(in) :: varid
+    character(len=*), intent(in) :: gridmap_name
+    logical(LGP), intent(in) :: latlon
+    character(len=*), intent(in) :: nc_fname
+    if (gridmap_name /= '') then
+      call nf_verify(nf90_put_att(ncid, varid, 'coordinates', 'x y'), &
+                     nc_fname)
+      call nf_verify(nf90_put_att(ncid, varid, 'grid_mapping', gridmap_name), &
+                     nc_fname)
+    else if (latlon) then
+      call nf_verify(nf90_put_att(ncid, varid, 'coordinates', 'lon lat'), &
+                     nc_fname)
+    end if
+  end subroutine ncvar_gridmap
+
+  !> @brief put variable internal modflow6 attributes
+  !<
+  subroutine ncvar_mf6attr(ncid, varid, iaux, nc_tag, nc_fname)
+    integer(I4B), intent(in) :: ncid
+    integer(I4B), intent(in) :: varid
+    integer(I4B), intent(in) :: iaux
+    character(len=*), intent(in) :: nc_tag
+    character(len=*), intent(in) :: nc_fname
+    if (nc_tag /= '') then
+      call nf_verify(nf90_put_att(ncid, varid, 'modflow_input', &
+                                  nc_tag), nc_fname)
+      if (iaux > 0) then
+        call nf_verify(nf90_put_att(ncid, varid, 'modflow_iaux', &
+                                    iaux), nc_fname)
+      end if
+    end if
+  end subroutine ncvar_mf6attr
+
   !> @brief netcdf export 1D integer
   !<
-  subroutine nc_export_int1d(ncid, dim_ids, var_ids, dis, p_mem, nc_varname, &
-                             pkgname, tagname, shapestr, longname, nc_tag, &
-                             gridmap_name, latlon, deflate, shuffle, chunk_z, &
-                             chunk_y, chunk_x, nc_fname)
-    use InputOutputModule, only: lowcase
+  subroutine nc_export_int1d(p_mem, ncid, dim_ids, var_ids, dis, idt, mempath, &
+                             nc_tag, pkgname, gridmap_name, latlon, deflate, &
+                             shuffle, chunk_z, chunk_y, chunk_x, iper, nc_fname)
+    use TdisModule, only: kper
+    integer(I4B), dimension(:), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(StructuredNCDimIdType), intent(inout) :: dim_ids
     type(StructuredNCVarIdType), intent(inout) :: var_ids
     type(DisType), pointer, intent(in) :: dis
-    integer(I4B), dimension(:), pointer, contiguous, intent(in) :: p_mem
-    character(len=*), intent(in) :: nc_varname
-    character(len=*), intent(in) :: pkgname
-    character(len=*), intent(in) :: tagname
-    character(len=*), intent(in) :: shapestr
-    character(len=*), intent(in) :: longname
+    type(InputParamDefinitionType), pointer, intent(in) :: idt
+    character(len=*), intent(in) :: mempath
     character(len=*), intent(in) :: nc_tag
+    character(len=*), intent(in) :: pkgname
     character(len=*), intent(in) :: gridmap_name
     logical(LGP), intent(in) :: latlon
     integer(I4B), intent(in) :: deflate
@@ -751,113 +1129,112 @@ contains
     integer(I4B), intent(in) :: chunk_z
     integer(I4B), intent(in) :: chunk_y
     integer(I4B), intent(in) :: chunk_x
+    integer(I4B), intent(in) :: iper
     character(len=*), intent(in) :: nc_fname
-    ! -- local
     integer(I4B) :: var_id, axis_sz
-    !
-    if (shapestr == 'NROW' .or. &
-        shapestr == 'NCOL') then
-      if (shapestr == 'NROW') then
-        axis_sz = dim_ids%y
-      else
-        axis_sz = dim_ids%x
-      end if
-      !
-      ! -- reenter define mode and create variable
-      call nf_verify(nf90_redef(ncid), nc_fname)
-      call nf_verify(nf90_def_var(ncid, nc_varname, NF90_INT, &
-                                  (/axis_sz/), var_id), &
-                     nc_fname)
-      !
-      ! -- NROW/NCOL shapes use default chunking
-      if (deflate >= 0) then
-        call nf_verify(nf90_def_var_deflate(ncid, var_id, shuffle=shuffle, &
-                                            deflate=1, deflate_level=deflate), &
+    character(len=LINELENGTH) :: varname, longname
+
+    varname = export_varname(pkgname, idt%tagname, mempath)
+
+    if (idt%shape == 'NROW' .or. &
+        idt%shape == 'NCOL' .or. &
+        idt%shape == 'NCPL' .or. &
+        idt%shape == 'NAUX NCPL') then
+
+      if (iper == 0) then
+        select case (idt%shape)
+        case ('NROW')
+          axis_sz = dim_ids%y
+        case ('NCOL')
+          axis_sz = dim_ids%x
+        end select
+
+        longname = export_longname(idt%longname, pkgname, idt%tagname, mempath)
+
+        ! reenter define mode and create variable
+        call nf_verify(nf90_redef(ncid), nc_fname)
+        call nf_verify(nf90_def_var(ncid, varname, NF90_INT, &
+                                    (/axis_sz/), var_id), &
                        nc_fname)
+
+        ! NROW/NCOL shapes use default chunking
+        call ncvar_deflate(ncid, var_id, deflate, shuffle, nc_fname)
+
+        ! put attr
+        call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
+                                    (/NF90_FILL_INT/)), nc_fname)
+        call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
+                                    longname), nc_fname)
+
+        ! add mf6 attr
+        call ncvar_mf6attr(ncid, var_id, 0, nc_tag, nc_fname)
+
+        ! exit define mode and write data
+        call nf_verify(nf90_enddef(ncid), nc_fname)
+        call nf_verify(nf90_put_var(ncid, var_id, p_mem), &
+                       nc_fname)
+      else
+        ! timeseries
+        call nf_verify(nf90_put_var(ncid, &
+                                    var_ids%export, p_mem, &
+                                    start=(/1, kper/), &
+                                    count=(/dis%ncol, dis%nrow, 1/)), nc_fname)
       end if
-      !
-      call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
-                                  (/NF90_FILL_INT/)), nc_fname)
-      call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
-                                  longname), nc_fname)
-      !
-      if (nc_tag /= '') then
-        call nf_verify(nf90_put_att(ncid, var_id, 'modflow6_input', &
-                                    nc_tag), nc_fname)
-      end if
-      !
-      ! -- exit define mode and write data
-      call nf_verify(nf90_enddef(ncid), nc_fname)
-      call nf_verify(nf90_put_var(ncid, var_id, p_mem), &
-                     nc_fname)
 
     else
-      !
-      ! -- reenter define mode and create variable
-      call nf_verify(nf90_redef(ncid), nc_fname)
-      call nf_verify(nf90_def_var(ncid, nc_varname, NF90_INT, &
-                                  (/dim_ids%x, dim_ids%y, dim_ids%z/), var_id), &
-                     nc_fname)
-      !
-      ! -- apply chunking parameters
-      if (chunk_z > 0 .and. chunk_y > 0 .and. chunk_x > 0) then
-        call nf_verify(nf90_def_var_chunking(ncid, var_id, NF90_CHUNKED, &
-                                             (/chunk_x, chunk_y, chunk_z/)), &
+
+      if (iper == 0) then
+        ! reenter define mode and create variable
+        call nf_verify(nf90_redef(ncid), nc_fname)
+        call nf_verify(nf90_def_var(ncid, varname, NF90_INT, &
+                                    (/dim_ids%x, dim_ids%y, dim_ids%z/), &
+                                    var_id), nc_fname)
+
+        ! apply chunking parameters
+        call ncvar_chunk3d(ncid, var_id, chunk_x, chunk_y, chunk_z, nc_fname)
+        ! deflate and shuffle
+        call ncvar_deflate(ncid, var_id, deflate, shuffle, nc_fname)
+
+        ! put attr
+        call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
+                                    (/NF90_FILL_INT/)), nc_fname)
+        call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
+                                    idt%longname), nc_fname)
+
+        ! add grid mapping and mf6 attr
+        call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, nc_fname)
+        call ncvar_mf6attr(ncid, var_id, 0, nc_tag, nc_fname)
+
+        ! exit define mode and write data
+        call nf_verify(nf90_enddef(ncid), nc_fname)
+        call nf_verify(nf90_put_var(ncid, var_id, p_mem, start=(/1, 1, 1/), &
+                                    count=(/dis%ncol, dis%nrow, dis%nlay/)), &
+                       nc_fname)
+      else
+        ! timeseries
+        call nf_verify(nf90_put_var(ncid, &
+                                    var_ids%export, p_mem, &
+                                    start=(/1, 1, 1, kper/), &
+                                    count=(/dis%ncol, dis%nrow, dis%nlay, 1/)), &
                        nc_fname)
       end if
-      ! -- deflate and shuffle
-      if (deflate >= 0) then
-        call nf_verify(nf90_def_var_deflate(ncid, var_id, shuffle=shuffle, &
-                                            deflate=1, deflate_level=deflate), &
-                       nc_fname)
-      end if
-      !
-      call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
-                                  (/NF90_FILL_INT/)), nc_fname)
-      call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
-                                  longname), nc_fname)
-      if (gridmap_name /= '') then
-        if (latlon) then
-          call nf_verify(nf90_put_att(ncid, var_id, 'coordinates', 'lon lat'), &
-                         nc_fname)
-        else
-          call nf_verify(nf90_put_att(ncid, var_id, 'coordinates', 'x y'), &
-                         nc_fname)
-        end if
-        call nf_verify(nf90_put_att(ncid, var_id, 'grid_mapping', gridmap_name), &
-                       nc_fname)
-      end if
-      !
-      if (nc_tag /= '') then
-        call nf_verify(nf90_put_att(ncid, var_id, 'modflow6_input', &
-                                    nc_tag), nc_fname)
-      end if
-      !
-      ! -- exit define mode and write data
-      call nf_verify(nf90_enddef(ncid), nc_fname)
-      call nf_verify(nf90_put_var(ncid, var_id, p_mem, start=(/1, 1, 1/), &
-                                  count=(/dis%ncol, dis%nrow, dis%nlay/)), &
-                     nc_fname)
     end if
   end subroutine nc_export_int1d
 
   !> @brief netcdf export 2D integer
   !<
-  subroutine nc_export_int2d(ncid, dim_ids, var_ids, dis, p_mem, nc_varname, &
-                             pkgname, tagname, shapestr, longname, nc_tag, &
-                             gridmap_name, latlon, deflate, shuffle, chunk_z, &
-                             chunk_y, chunk_x, nc_fname)
+  subroutine nc_export_int2d(p_mem, ncid, dim_ids, var_ids, dis, idt, mempath, &
+                             nc_tag, pkgname, gridmap_name, latlon, deflate, &
+                             shuffle, chunk_z, chunk_y, chunk_x, nc_fname)
+    integer(I4B), dimension(:, :), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(StructuredNCDimIdType), intent(inout) :: dim_ids
     type(StructuredNCVarIdType), intent(inout) :: var_ids
     type(DisType), pointer, intent(in) :: dis
-    integer(I4B), dimension(:, :), pointer, contiguous, intent(in) :: p_mem
-    character(len=*), intent(in) :: nc_varname
-    character(len=*), intent(in) :: pkgname
-    character(len=*), intent(in) :: tagname
-    character(len=*), intent(in) :: shapestr
-    character(len=*), intent(in) :: longname
+    type(InputParamDefinitionType), pointer, intent(in) :: idt
+    character(len=*), intent(in) :: mempath
     character(len=*), intent(in) :: nc_tag
+    character(len=*), intent(in) :: pkgname
     character(len=*), intent(in) :: gridmap_name
     logical(LGP), intent(in) :: latlon
     integer(I4B), intent(in) :: deflate
@@ -866,49 +1243,33 @@ contains
     integer(I4B), intent(in) :: chunk_y
     integer(I4B), intent(in) :: chunk_x
     character(len=*), intent(in) :: nc_fname
-    ! -- local
+    character(len=LINELENGTH) :: varname
     integer(I4B) :: var_id
-    !
-    ! -- reenter define mode and create variable
+
+    varname = export_varname(pkgname, idt%tagname, mempath)
+
+    ! reenter define mode and create variable
     call nf_verify(nf90_redef(ncid), nc_fname)
-    call nf_verify(nf90_def_var(ncid, nc_varname, NF90_INT, &
+    call nf_verify(nf90_def_var(ncid, varname, NF90_INT, &
                                 (/dim_ids%x, dim_ids%y/), var_id), &
                    nc_fname)
-    !
-    ! -- apply chunking parameters
-    if (chunk_y > 0 .and. chunk_x > 0) then
-      call nf_verify(nf90_def_var_chunking(ncid, var_id, NF90_CHUNKED, &
-                                           (/chunk_x, chunk_y/)), nc_fname)
-    end if
-    ! -- deflate and shuffle
-    if (deflate >= 0) then
-      call nf_verify(nf90_def_var_deflate(ncid, var_id, shuffle=shuffle, &
-                                          deflate=1, deflate_level=deflate), &
-                     nc_fname)
-    end if
-    !
+
+    ! apply chunking parameters
+    call ncvar_chunk2d(ncid, var_id, chunk_x, chunk_y, nc_fname)
+    ! deflate and shuffle
+    call ncvar_deflate(ncid, var_id, deflate, shuffle, nc_fname)
+
+    ! put attr
     call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
                                 (/NF90_FILL_INT/)), nc_fname)
     call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
-                                longname), nc_fname)
-    if (gridmap_name /= '') then
-      if (latlon) then
-        call nf_verify(nf90_put_att(ncid, var_id, 'coordinates', 'lon lat'), &
-                       nc_fname)
-      else
-        call nf_verify(nf90_put_att(ncid, var_id, 'coordinates', 'x y'), &
-                       nc_fname)
-      end if
-      call nf_verify(nf90_put_att(ncid, var_id, 'grid_mapping', gridmap_name), &
-                     nc_fname)
-    end if
-    !
-    if (nc_tag /= '') then
-      call nf_verify(nf90_put_att(ncid, var_id, 'modflow6_input', &
-                                  nc_tag), nc_fname)
-    end if
-    !
-    ! -- exit define mode and write data
+                                idt%longname), nc_fname)
+
+    ! add grid mapping and mf6 attr
+    call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, nc_fname)
+    call ncvar_mf6attr(ncid, var_id, 0, nc_tag, nc_fname)
+
+    ! exit define mode and write data
     call nf_verify(nf90_enddef(ncid), nc_fname)
     call nf_verify(nf90_put_var(ncid, var_id, p_mem, start=(/1, 1/), &
                                 count=(/dis%ncol, dis%nrow/)), &
@@ -917,22 +1278,18 @@ contains
 
   !> @brief netcdf export 3D integer
   !<
-  subroutine nc_export_int3d(ncid, dim_ids, var_ids, dis, p_mem, nc_varname, &
-                             pkgname, tagname, shapestr, longname, nc_tag, &
-                             gridmap_name, latlon, deflate, shuffle, chunk_z, &
-                             chunk_y, chunk_x, nc_fname)
-    use InputOutputModule, only: lowcase
+  subroutine nc_export_int3d(p_mem, ncid, dim_ids, var_ids, dis, idt, mempath, &
+                             nc_tag, pkgname, gridmap_name, latlon, deflate, &
+                             shuffle, chunk_z, chunk_y, chunk_x, nc_fname)
+    integer(I4B), dimension(:, :, :), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(StructuredNCDimIdType), intent(inout) :: dim_ids
     type(StructuredNCVarIdType), intent(inout) :: var_ids
     type(DisType), pointer, intent(in) :: dis
-    integer(I4B), dimension(:, :, :), pointer, contiguous, intent(in) :: p_mem
-    character(len=*), intent(in) :: nc_varname
-    character(len=*), intent(in) :: pkgname
-    character(len=*), intent(in) :: tagname
-    character(len=*), intent(in) :: shapestr
-    character(len=*), intent(in) :: longname
+    type(InputParamDefinitionType), pointer, intent(in) :: idt
+    character(len=*), intent(in) :: mempath
     character(len=*), intent(in) :: nc_tag
+    character(len=*), intent(in) :: pkgname
     character(len=*), intent(in) :: gridmap_name
     logical(LGP), intent(in) :: latlon
     integer(I4B), intent(in) :: deflate
@@ -941,50 +1298,33 @@ contains
     integer(I4B), intent(in) :: chunk_y
     integer(I4B), intent(in) :: chunk_x
     character(len=*), intent(in) :: nc_fname
-    ! -- local
+    character(len=LINELENGTH) :: varname
     integer(I4B) :: var_id
-    !
-    ! -- reenter define mode and create variable
+
+    varname = export_varname(pkgname, idt%tagname, mempath)
+
+    ! reenter define mode and create variable
     call nf_verify(nf90_redef(ncid), nc_fname)
-    call nf_verify(nf90_def_var(ncid, nc_varname, NF90_INT, &
+    call nf_verify(nf90_def_var(ncid, varname, NF90_INT, &
                                 (/dim_ids%x, dim_ids%y, dim_ids%z/), var_id), &
                    nc_fname)
-    !
-    ! -- apply chunking parameters
-    if (chunk_z > 0 .and. chunk_y > 0 .and. chunk_x > 0) then
-      call nf_verify(nf90_def_var_chunking(ncid, var_id, NF90_CHUNKED, &
-                                           (/chunk_x, chunk_y, chunk_z/)), &
-                     nc_fname)
-    end if
-    ! -- deflate and shuffle
-    if (deflate >= 0) then
-      call nf_verify(nf90_def_var_deflate(ncid, var_id, shuffle=shuffle, &
-                                          deflate=1, deflate_level=deflate), &
-                     nc_fname)
-    end if
-    !
+
+    ! apply chunking parameters
+    call ncvar_chunk3d(ncid, var_id, chunk_x, chunk_y, chunk_z, nc_fname)
+    ! deflate and shuffle
+    call ncvar_deflate(ncid, var_id, deflate, shuffle, nc_fname)
+
+    ! put attr
     call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
                                 (/NF90_FILL_INT/)), nc_fname)
     call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
-                                longname), nc_fname)
-    if (gridmap_name /= '') then
-      if (latlon) then
-        call nf_verify(nf90_put_att(ncid, var_id, 'coordinates', 'lon lat'), &
-                       nc_fname)
-      else
-        call nf_verify(nf90_put_att(ncid, var_id, 'coordinates', 'x y'), &
-                       nc_fname)
-      end if
-      call nf_verify(nf90_put_att(ncid, var_id, 'grid_mapping', gridmap_name), &
-                     nc_fname)
-    end if
-    !
-    if (nc_tag /= '') then
-      call nf_verify(nf90_put_att(ncid, var_id, 'modflow6_input', &
-                                  nc_tag), nc_fname)
-    end if
-    !
-    ! -- exit define mode and write data
+                                idt%longname), nc_fname)
+
+    ! add grid mapping and mf6 attr
+    call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, nc_fname)
+    call ncvar_mf6attr(ncid, var_id, 0, nc_tag, nc_fname)
+
+    ! exit define mode and write data
     call nf_verify(nf90_enddef(ncid), nc_fname)
     call nf_verify(nf90_put_var(ncid, var_id, p_mem, start=(/1, 1, 1/), &
                                 count=(/dis%ncol, dis%nrow, dis%nlay/)), &
@@ -993,22 +1333,20 @@ contains
 
   !> @brief netcdf export 1D double
   !<
-  subroutine nc_export_dbl1d(ncid, dim_ids, var_ids, dis, p_mem, nc_varname, &
-                             pkgname, tagname, shapestr, longname, nc_tag, &
-                             gridmap_name, latlon, deflate, shuffle, chunk_z, &
-                             chunk_y, chunk_x, nc_fname)
-    use InputOutputModule, only: lowcase
+  subroutine nc_export_dbl1d(p_mem, ncid, dim_ids, var_ids, dis, idt, mempath, &
+                             nc_tag, pkgname, gridmap_name, latlon, deflate, &
+                             shuffle, chunk_z, chunk_y, chunk_x, iper, iaux, &
+                             nc_fname)
+    use TdisModule, only: kper
+    real(DP), dimension(:), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(StructuredNCDimIdType), intent(inout) :: dim_ids
     type(StructuredNCVarIdType), intent(inout) :: var_ids
     type(DisType), pointer, intent(in) :: dis
-    real(DP), dimension(:), pointer, contiguous, intent(in) :: p_mem
-    character(len=*), intent(in) :: nc_varname
-    character(len=*), intent(in) :: pkgname
-    character(len=*), intent(in) :: tagname
-    character(len=*), intent(in) :: shapestr
-    character(len=*), intent(in) :: longname
+    type(InputParamDefinitionType), pointer, intent(in) :: idt
+    character(len=*), intent(in) :: mempath
     character(len=*), intent(in) :: nc_tag
+    character(len=*), intent(in) :: pkgname
     character(len=*), intent(in) :: gridmap_name
     logical(LGP), intent(in) :: latlon
     integer(I4B), intent(in) :: deflate
@@ -1016,113 +1354,117 @@ contains
     integer(I4B), intent(in) :: chunk_z
     integer(I4B), intent(in) :: chunk_y
     integer(I4B), intent(in) :: chunk_x
+    integer(I4B), intent(in) :: iper
+    integer(I4B), intent(in) :: iaux
     character(len=*), intent(in) :: nc_fname
-    ! -- local
     integer(I4B) :: var_id, axis_sz
-    !
-    if (shapestr == 'NROW' .or. &
-        shapestr == 'NCOL') then
-      if (shapestr == 'NROW') then
-        axis_sz = dim_ids%y
-      else
-        axis_sz = dim_ids%x
-      end if
-      !
-      ! -- reenter define mode and create variable
-      call nf_verify(nf90_redef(ncid), nc_fname)
-      call nf_verify(nf90_def_var(ncid, nc_varname, NF90_DOUBLE, &
-                                  (/axis_sz/), var_id), &
-                     nc_fname)
-      !
-      ! -- NROW/NCOL shapes use default chunking
-      if (deflate >= 0) then
-        call nf_verify(nf90_def_var_deflate(ncid, var_id, shuffle=shuffle, &
-                                            deflate=1, deflate_level=deflate), &
+    character(len=LINELENGTH) :: varname, longname
+
+    if (idt%shape == 'NROW' .or. &
+        idt%shape == 'NCOL' .or. &
+        idt%shape == 'NCPL' .or. &
+        idt%shape == 'NAUX NCPL') then
+
+      if (iper == 0) then
+        select case (idt%shape)
+        case ('NROW')
+          axis_sz = dim_ids%y
+        case ('NCOL')
+          axis_sz = dim_ids%x
+        end select
+
+        varname = export_varname(pkgname, idt%tagname, mempath)
+        longname = export_longname(idt%longname, pkgname, idt%tagname, mempath, &
+                                   iaux=iaux)
+
+        ! reenter define mode and create variable
+        call nf_verify(nf90_redef(ncid), nc_fname)
+        call nf_verify(nf90_def_var(ncid, varname, NF90_DOUBLE, &
+                                    (/axis_sz/), var_id), &
                        nc_fname)
+
+        ! NROW/NCOL shapes use default chunking
+        call ncvar_deflate(ncid, var_id, deflate, shuffle, nc_fname)
+
+        ! put attr
+        call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
+                                    (/NF90_FILL_DOUBLE/)), nc_fname)
+        call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
+                                    longname), nc_fname)
+
+        ! add mf6 attr
+        call ncvar_mf6attr(ncid, var_id, iaux, nc_tag, nc_fname)
+
+        ! exit define mode and write data
+        call nf_verify(nf90_enddef(ncid), nc_fname)
+        call nf_verify(nf90_put_var(ncid, var_id, p_mem), &
+                       nc_fname)
+      else
+        ! timeseries
+        call nf_verify(nf90_put_var(ncid, &
+                                    var_ids%export, p_mem, &
+                                    start=(/1, kper/), &
+                                    count=(/dis%ncol, dis%nrow, 1/)), nc_fname)
       end if
-      !
-      call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
-                                  (/NF90_FILL_DOUBLE/)), nc_fname)
-      call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
-                                  longname), nc_fname)
-      !
-      if (nc_tag /= '') then
-        call nf_verify(nf90_put_att(ncid, var_id, 'modflow6_input', &
-                                    nc_tag), nc_fname)
-      end if
-      !
-      ! -- exit define mode and write data
-      call nf_verify(nf90_enddef(ncid), nc_fname)
-      call nf_verify(nf90_put_var(ncid, var_id, p_mem), &
-                     nc_fname)
 
     else
-      !
-      ! -- reenter define mode and create variable
-      call nf_verify(nf90_redef(ncid), nc_fname)
-      call nf_verify(nf90_def_var(ncid, nc_varname, NF90_DOUBLE, &
-                                  (/dim_ids%x, dim_ids%y, dim_ids%z/), var_id), &
-                     nc_fname)
-      !
-      ! -- apply chunking parameters
-      if (chunk_z > 0 .and. chunk_y > 0 .and. chunk_x > 0) then
-        call nf_verify(nf90_def_var_chunking(ncid, var_id, NF90_CHUNKED, &
-                                             (/chunk_x, chunk_y, chunk_z/)), &
+
+      if (iper == 0) then
+        varname = export_varname(pkgname, idt%tagname, mempath, iaux=iaux)
+        longname = export_longname(idt%longname, pkgname, idt%tagname, mempath, &
+                                   iaux=iaux)
+
+        ! reenter define mode and create variable
+        call nf_verify(nf90_redef(ncid), nc_fname)
+        call nf_verify(nf90_def_var(ncid, varname, NF90_DOUBLE, &
+                                    (/dim_ids%x, dim_ids%y, dim_ids%z/), &
+                                    var_id), nc_fname)
+
+        ! apply chunking parameters
+        call ncvar_chunk3d(ncid, var_id, chunk_x, chunk_y, chunk_z, nc_fname)
+        ! deflate and shuffle
+        call ncvar_deflate(ncid, var_id, deflate, shuffle, nc_fname)
+
+        ! put attr
+        call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
+                                    (/NF90_FILL_DOUBLE/)), nc_fname)
+        call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
+                                    longname), nc_fname)
+
+        ! add grid mapping and mf6 attr
+        call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, nc_fname)
+        call ncvar_mf6attr(ncid, var_id, iaux, nc_tag, nc_fname)
+
+        ! exit define mode and write data
+        call nf_verify(nf90_enddef(ncid), nc_fname)
+        call nf_verify(nf90_put_var(ncid, var_id, p_mem, start=(/1, 1, 1/), &
+                                    count=(/dis%ncol, dis%nrow, dis%nlay/)), &
+                       nc_fname)
+      else
+        ! timeseries
+        call nf_verify(nf90_put_var(ncid, &
+                                    var_ids%export, p_mem, &
+                                    start=(/1, 1, 1, kper/), &
+                                    count=(/dis%ncol, dis%nrow, dis%nlay, 1/)), &
                        nc_fname)
       end if
-      ! -- deflate and shuffle
-      if (deflate >= 0) then
-        call nf_verify(nf90_def_var_deflate(ncid, var_id, shuffle=shuffle, &
-                                            deflate=1, deflate_level=deflate), &
-                       nc_fname)
-      end if
-      !
-      call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
-                                  (/NF90_FILL_DOUBLE/)), nc_fname)
-      call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
-                                  longname), nc_fname)
-      if (gridmap_name /= '') then
-        if (latlon) then
-          call nf_verify(nf90_put_att(ncid, var_id, 'coordinates', 'lon lat'), &
-                         nc_fname)
-        else
-          call nf_verify(nf90_put_att(ncid, var_id, 'coordinates', 'x y'), &
-                         nc_fname)
-        end if
-        call nf_verify(nf90_put_att(ncid, var_id, 'grid_mapping', gridmap_name), &
-                       nc_fname)
-      end if
-      !
-      if (nc_tag /= '') then
-        call nf_verify(nf90_put_att(ncid, var_id, 'modflow6_input', &
-                                    nc_tag), nc_fname)
-      end if
-      !
-      ! -- exit define mode and write data
-      call nf_verify(nf90_enddef(ncid), nc_fname)
-      call nf_verify(nf90_put_var(ncid, var_id, p_mem, start=(/1, 1, 1/), &
-                                  count=(/dis%ncol, dis%nrow, dis%nlay/)), &
-                     nc_fname)
     end if
   end subroutine nc_export_dbl1d
 
   !> @brief netcdf export 2D double
   !<
-  subroutine nc_export_dbl2d(ncid, dim_ids, var_ids, dis, p_mem, nc_varname, &
-                             pkgname, tagname, shapestr, longname, nc_tag, &
-                             gridmap_name, latlon, deflate, shuffle, chunk_z, &
-                             chunk_y, chunk_x, nc_fname)
+  subroutine nc_export_dbl2d(p_mem, ncid, dim_ids, var_ids, dis, idt, mempath, &
+                             nc_tag, pkgname, gridmap_name, latlon, deflate, &
+                             shuffle, chunk_z, chunk_y, chunk_x, nc_fname)
+    real(DP), dimension(:, :), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(StructuredNCDimIdType), intent(inout) :: dim_ids
     type(StructuredNCVarIdType), intent(inout) :: var_ids
     type(DisType), pointer, intent(in) :: dis
-    real(DP), dimension(:, :), pointer, contiguous, intent(in) :: p_mem
-    character(len=*), intent(in) :: nc_varname
-    character(len=*), intent(in) :: pkgname
-    character(len=*), intent(in) :: tagname
-    character(len=*), intent(in) :: shapestr
-    character(len=*), intent(in) :: longname
+    type(InputParamDefinitionType), pointer, intent(in) :: idt
+    character(len=*), intent(in) :: mempath
     character(len=*), intent(in) :: nc_tag
+    character(len=*), intent(in) :: pkgname
     character(len=*), intent(in) :: gridmap_name
     logical(LGP), intent(in) :: latlon
     integer(I4B), intent(in) :: deflate
@@ -1131,49 +1473,33 @@ contains
     integer(I4B), intent(in) :: chunk_y
     integer(I4B), intent(in) :: chunk_x
     character(len=*), intent(in) :: nc_fname
-    ! -- local
+    character(len=LINELENGTH) :: varname
     integer(I4B) :: var_id
-    !
-    ! -- reenter define mode and create variable
+
+    varname = export_varname(pkgname, idt%tagname, mempath)
+
+    ! reenter define mode and create variable
     call nf_verify(nf90_redef(ncid), nc_fname)
-    call nf_verify(nf90_def_var(ncid, nc_varname, NF90_DOUBLE, &
+    call nf_verify(nf90_def_var(ncid, varname, NF90_DOUBLE, &
                                 (/dim_ids%x, dim_ids%y/), var_id), &
                    nc_fname)
-    !
-    ! -- apply chunking parameters
-    if (chunk_y > 0 .and. chunk_x > 0) then
-      call nf_verify(nf90_def_var_chunking(ncid, var_id, NF90_CHUNKED, &
-                                           (/chunk_x, chunk_y/)), nc_fname)
-    end if
-    ! -- deflate and shuffle
-    if (deflate >= 0) then
-      call nf_verify(nf90_def_var_deflate(ncid, var_id, shuffle=shuffle, &
-                                          deflate=1, deflate_level=deflate), &
-                     nc_fname)
-    end if
-    !
+
+    ! apply chunking parameters
+    call ncvar_chunk2d(ncid, var_id, chunk_x, chunk_y, nc_fname)
+    ! deflate and shuffle
+    call ncvar_deflate(ncid, var_id, deflate, shuffle, nc_fname)
+
+    ! put attr
     call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
                                 (/NF90_FILL_DOUBLE/)), nc_fname)
     call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
-                                longname), nc_fname)
-    if (gridmap_name /= '') then
-      if (latlon) then
-        call nf_verify(nf90_put_att(ncid, var_id, 'coordinates', 'lon lat'), &
-                       nc_fname)
-      else
-        call nf_verify(nf90_put_att(ncid, var_id, 'coordinates', 'x y'), &
-                       nc_fname)
-      end if
-      call nf_verify(nf90_put_att(ncid, var_id, 'grid_mapping', gridmap_name), &
-                     nc_fname)
-    end if
-    !
-    if (nc_tag /= '') then
-      call nf_verify(nf90_put_att(ncid, var_id, 'modflow6_input', &
-                                  nc_tag), nc_fname)
-    end if
-    !
-    ! -- exit define mode and write data
+                                idt%longname), nc_fname)
+
+    ! add grid mapping and mf6 attr
+    call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, nc_fname)
+    call ncvar_mf6attr(ncid, var_id, 0, nc_tag, nc_fname)
+
+    ! exit define mode and write data
     call nf_verify(nf90_enddef(ncid), nc_fname)
     call nf_verify(nf90_put_var(ncid, var_id, p_mem, start=(/1, 1/), &
                                 count=(/dis%ncol, dis%nrow/)), &
@@ -1182,22 +1508,18 @@ contains
 
   !> @brief netcdf export 3D double
   !<
-  subroutine nc_export_dbl3d(ncid, dim_ids, var_ids, dis, p_mem, nc_varname, &
-                             pkgname, tagname, shapestr, longname, nc_tag, &
-                             gridmap_name, latlon, deflate, shuffle, chunk_z, &
-                             chunk_y, chunk_x, nc_fname)
-    use InputOutputModule, only: lowcase
+  subroutine nc_export_dbl3d(p_mem, ncid, dim_ids, var_ids, dis, idt, mempath, &
+                             nc_tag, pkgname, gridmap_name, latlon, deflate, &
+                             shuffle, chunk_z, chunk_y, chunk_x, nc_fname)
+    real(DP), dimension(:, :, :), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(StructuredNCDimIdType), intent(inout) :: dim_ids
     type(StructuredNCVarIdType), intent(inout) :: var_ids
     type(DisType), pointer, intent(in) :: dis
-    real(DP), dimension(:, :, :), pointer, contiguous, intent(in) :: p_mem
-    character(len=*), intent(in) :: nc_varname
-    character(len=*), intent(in) :: pkgname
-    character(len=*), intent(in) :: tagname
-    character(len=*), intent(in) :: shapestr
-    character(len=*), intent(in) :: longname
+    type(InputParamDefinitionType), pointer, intent(in) :: idt
+    character(len=*), intent(in) :: mempath
     character(len=*), intent(in) :: nc_tag
+    character(len=*), intent(in) :: pkgname
     character(len=*), intent(in) :: gridmap_name
     logical(LGP), intent(in) :: latlon
     integer(I4B), intent(in) :: deflate
@@ -1206,50 +1528,34 @@ contains
     integer(I4B), intent(in) :: chunk_y
     integer(I4B), intent(in) :: chunk_x
     character(len=*), intent(in) :: nc_fname
-    ! -- local
     integer(I4B) :: var_id
-    !
-    ! -- reenter define mode and create variable
+    character(len=LINELENGTH) :: varname, longname
+
+    varname = export_varname(pkgname, idt%tagname, mempath)
+    longname = export_longname(idt%longname, pkgname, idt%tagname, mempath)
+
+    ! reenter define mode and create variable
     call nf_verify(nf90_redef(ncid), nc_fname)
-    call nf_verify(nf90_def_var(ncid, nc_varname, NF90_DOUBLE, &
+    call nf_verify(nf90_def_var(ncid, varname, NF90_DOUBLE, &
                                 (/dim_ids%x, dim_ids%y, dim_ids%z/), var_id), &
                    nc_fname)
-    !
-    ! -- apply chunking parameters
-    if (chunk_z > 0 .and. chunk_y > 0 .and. chunk_x > 0) then
-      call nf_verify(nf90_def_var_chunking(ncid, var_id, NF90_CHUNKED, &
-                                           (/chunk_x, chunk_y, chunk_z/)), &
-                     nc_fname)
-    end if
-    ! -- deflate and shuffle
-    if (deflate >= 0) then
-      call nf_verify(nf90_def_var_deflate(ncid, var_id, shuffle=shuffle, &
-                                          deflate=1, deflate_level=deflate), &
-                     nc_fname)
-    end if
-    !
+
+    ! apply chunking parameters
+    call ncvar_chunk3d(ncid, var_id, chunk_x, chunk_y, chunk_z, nc_fname)
+    ! deflate and shuffle
+    call ncvar_deflate(ncid, var_id, deflate, shuffle, nc_fname)
+
+    ! put attr
     call nf_verify(nf90_put_att(ncid, var_id, '_FillValue', &
                                 (/NF90_FILL_DOUBLE/)), nc_fname)
     call nf_verify(nf90_put_att(ncid, var_id, 'long_name', &
                                 longname), nc_fname)
-    if (gridmap_name /= '') then
-      if (latlon) then
-        call nf_verify(nf90_put_att(ncid, var_id, 'coordinates', 'lon lat'), &
-                       nc_fname)
-      else
-        call nf_verify(nf90_put_att(ncid, var_id, 'coordinates', 'x y'), &
-                       nc_fname)
-      end if
-      call nf_verify(nf90_put_att(ncid, var_id, 'grid_mapping', gridmap_name), &
-                     nc_fname)
-    end if
-    !
-    if (nc_tag /= '') then
-      call nf_verify(nf90_put_att(ncid, var_id, 'modflow6_input', &
-                                  nc_tag), nc_fname)
-    end if
-    !
-    ! -- exit define mode and write data
+
+    ! add grid mapping and mf6 attr
+    call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, nc_fname)
+    call ncvar_mf6attr(ncid, var_id, 0, nc_tag, nc_fname)
+
+    ! exit define mode and write data
     call nf_verify(nf90_enddef(ncid), nc_fname)
     call nf_verify(nf90_put_var(ncid, var_id, p_mem, start=(/1, 1, 1/), &
                                 count=(/dis%ncol, dis%nrow, dis%nlay/)), &

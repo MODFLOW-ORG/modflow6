@@ -146,6 +146,7 @@ module GwfMvrModule
     !
     ! -- table objects
     type(TableType), pointer :: outputtab => null()
+    logical(LGP) :: suppress_fileout = .false. !< flag to disable output file (budget, budget csv)
 
   contains
     procedure :: mvr_init
@@ -195,9 +196,6 @@ contains
     !
     ! -- Init
     call mvrobj%mvr_init(name_parent, inunit, iout, dis, iexgmvr)
-    !
-    ! -- Return
-    return
   end subroutine mvr_cr
 
   subroutine mvr_init(this, name_parent, inunit, iout, dis, iexgmvr)
@@ -235,9 +233,6 @@ contains
     !
     ! -- instantiate the budget object
     call budgetobject_cr(this%budobj, 'WATER MOVER')
-    !
-    ! -- Return
-    return
   end subroutine mvr_init
 
   !> @brief Allocate and read water mover information
@@ -271,9 +266,6 @@ contains
     !
     ! -- setup the budget object
     call this%mvr_setup_budobj()
-    !
-    ! -- Return
-    return
   end subroutine mvr_ar
 
   !> @brief Read and Prepare
@@ -407,9 +399,6 @@ contains
       write (this%iout, fmtlsp) 'MVR'
       !
     end if
-    !
-    ! -- Return
-    return
   end subroutine mvr_rp
 
   subroutine initialize_movers(this, nr_active_movers)
@@ -440,9 +429,6 @@ contains
     do i = 1, this%nmvr
       call this%mvr(i)%advance()
     end do
-    !
-    ! -- Return
-    return
   end subroutine mvr_ad
 
   !> @brief Calculate qfrommvr as a function of qtomvr
@@ -484,9 +470,6 @@ contains
         write (this%iout, fmtmvrcnvg)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine mvr_cc
 
   !> @brief Fill the mover budget object
@@ -508,9 +491,6 @@ contains
     !
     ! -- fill the budget object
     call this%fill_budobj()
-    !
-    ! -- Return
-    return
   end subroutine mvr_bd
 
   !> @brief Write mover terms
@@ -545,9 +525,6 @@ contains
       call this%budobj%save_flows(this%dis, ibinun, kstp, kper, delt, &
                                   pertim, totim, this%iout)
     end if
-    !
-    ! -- Return
-    return
   end subroutine mvr_bdsav
 
   !> @brief Write mover terms
@@ -572,9 +549,6 @@ contains
       call this%budobj%save_flows(this%dis, ibinun, kstp, kper, delt, &
                                   pertim, totim, this%iout)
     end if
-    !
-    ! -- Return
-    return
   end subroutine mvr_ot_saveflow
 
   !> @brief Print mover flow table
@@ -589,9 +563,6 @@ contains
     if (ibudfl /= 0 .and. this%iprflow /= 0) then
       call this%mvr_print_outputtab()
     end if
-    !
-    ! -- Return
-    return
   end subroutine mvr_ot_printflow
 
   !> @brief Write mover budget to listing file
@@ -654,9 +625,6 @@ contains
     !    in a table that has one entry.  A custom table looks
     !    better here with a row for each package.
     !call this%budobj%write_budtable(kstp, kper, this%iout)
-    !
-    ! -- Return
-    return
   end subroutine mvr_ot_bdsummary
 
   !> @brief Deallocate
@@ -711,9 +679,6 @@ contains
     !
     ! -- deallocate scalars in NumericalPackageType
     call this%NumericalPackageType%da()
-    !
-    ! -- Return
-    return
   end subroutine mvr_da
 
   !> @brief Read options specified in the input options block
@@ -723,7 +688,7 @@ contains
     use ConstantsModule, only: LINELENGTH, DZERO, DONE
     use OpenSpecModule, only: access, form
     use SimModule, only: store_error, store_error_unit
-    use InputOutputModule, only: urword, getunit, openfile
+    use InputOutputModule, only: urword, assign_iounit, openfile
     ! -- dummy
     class(GwfMvrType) :: this
     ! -- local
@@ -749,10 +714,11 @@ contains
         call this%parser%GetStringCaps(keyword)
         select case (keyword)
         case ('BUDGET')
+          if (this%suppress_fileout) cycle
           call this%parser%GetStringCaps(keyword)
           if (keyword == 'FILEOUT') then
             call this%parser%GetString(fname)
-            this%ibudgetout = getunit()
+            call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
             call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
                           form, access, 'REPLACE')
             write (this%iout, fmtmvrbin) 'BUDGET', trim(adjustl(fname)), &
@@ -762,10 +728,11 @@ contains
                              &BE FOLLOWED BY FILEOUT')
           end if
         case ('BUDGETCSV')
+          if (this%suppress_fileout) cycle
           call this%parser%GetStringCaps(keyword)
           if (keyword == 'FILEOUT') then
             call this%parser%GetString(fname)
-            this%ibudcsv = getunit()
+            call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
             call openfile(this%ibudcsv, this%iout, fname, 'CSV', &
                           filstat_opt='REPLACE')
             write (this%iout, fmtmvrbin) 'BUDGET CSV', trim(adjustl(fname)), &
@@ -801,9 +768,6 @@ contains
       end do
       write (this%iout, '(1x,a)') 'END OF MVR OPTIONS'
     end if
-    !
-    ! -- Return
-    return
   end subroutine read_options
 
   !> @brief Check MODELNAMES option set correctly
@@ -834,9 +798,6 @@ contains
       call store_error(errmsg)
       call this%parser%StoreErrorUnit()
     end if
-    !
-    ! -- Return
-    return
   end subroutine check_options
 
   !> @brief Read the dimensions for this package
@@ -906,9 +867,6 @@ contains
       call store_error(errmsg)
       call this%parser%StoreErrorUnit()
     end if
-    !
-    ! -- Return
-    return
   end subroutine read_dimensions
 
   !> @brief Read the packages that will be managed by this mover
@@ -970,9 +928,6 @@ contains
       call store_error(errmsg)
       call this%parser%StoreErrorUnit()
     end if
-    !
-    ! -- Return
-    return
   end subroutine read_packages
 
   !> @brief Check to make sure packages have mover activated
@@ -1006,9 +961,6 @@ contains
     if (count_errors() > 0) then
       call this%parser%StoreErrorUnit()
     end if
-    !
-    ! -- Return
-    return
   end subroutine check_packages
 
   !> @brief Assign pointer to each package's packagemover object
@@ -1028,9 +980,6 @@ contains
                                       trim(this%pckMemPaths(i)))
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine assign_packagemovers
 
   !> @brief Allocate package scalars
@@ -1069,9 +1018,6 @@ contains
     !
     ! -- allocate the period data input object
     allocate (this%gwfmvrperioddata)
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @brief Allocate package arrays
@@ -1111,9 +1057,6 @@ contains
     !
     ! -- setup the output table
     call this%mvr_setup_outputtab()
-    !
-    ! -- Return
-    return
   end subroutine allocate_arrays
 
   !> @brief Set up the budget object that stores all the mvr flows
@@ -1175,9 +1118,6 @@ contains
                                                  naux)
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine mvr_setup_budobj
 
   !> @brief Fill budget object
@@ -1260,9 +1200,6 @@ contains
     !
     ! --Terms are filled, now accumulate them for this time step
     call this%budobj%accumulate_terms()
-    !
-    ! -- Return
-    return
   end subroutine fill_budobj
 
   !> @brief Set up output table
@@ -1306,9 +1243,6 @@ contains
       call this%outputtab%initialize_column(text, 10)
       !
     end if
-    !
-    ! -- Return
-    return
   end subroutine mvr_setup_outputtab
 
   !> @brief Set up output table
@@ -1339,9 +1273,6 @@ contains
       call this%outputtab%add_term(this%mvr(i)%mem_path_tgt)
       call this%outputtab%add_term(this%mvr(i)%iRchNrTgt)
     end do
-    !
-    ! -- Return
-    return
   end subroutine mvr_print_outputtab
 
   !> @brief Set mapped id
@@ -1376,9 +1307,6 @@ contains
       this%mvr(i)%iRchNrSrcMapped = mapped_id
     end do
     deallocate (pkg_mvr)
-    !
-    ! -- Return
-    return
   end subroutine set_mapped_id
 
 end module

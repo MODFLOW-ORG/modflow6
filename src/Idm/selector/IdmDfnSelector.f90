@@ -10,6 +10,8 @@ module IdmDfnSelectorModule
   use IdmGwtDfnSelectorModule
   use IdmGweDfnSelectorModule
   use IdmSwfDfnSelectorModule
+  use IdmChfDfnSelectorModule
+  use IdmOlfDfnSelectorModule
   use IdmPrtDfnSelectorModule
   use IdmExgDfnSelectorModule
   use IdmUtlDfnSelectorModule
@@ -42,6 +44,10 @@ contains
       input_definition => gwe_param_definitions(subcomponent)
     case ('SWF')
       input_definition => swf_param_definitions(subcomponent)
+    case ('CHF')
+      input_definition => chf_param_definitions(subcomponent)
+    case ('OLF')
+      input_definition => olf_param_definitions(subcomponent)
     case ('PRT')
       input_definition => prt_param_definitions(subcomponent)
     case ('EXG')
@@ -69,6 +75,10 @@ contains
       input_definition => gwe_aggregate_definitions(subcomponent)
     case ('SWF')
       input_definition => swf_aggregate_definitions(subcomponent)
+    case ('CHF')
+      input_definition => chf_aggregate_definitions(subcomponent)
+    case ('OLF')
+      input_definition => olf_aggregate_definitions(subcomponent)
     case ('PRT')
       input_definition => prt_aggregate_definitions(subcomponent)
     case ('EXG')
@@ -96,6 +106,10 @@ contains
       input_definition => gwe_block_definitions(subcomponent)
     case ('SWF')
       input_definition => swf_block_definitions(subcomponent)
+    case ('CHF')
+      input_definition => chf_block_definitions(subcomponent)
+    case ('OLF')
+      input_definition => olf_block_definitions(subcomponent)
     case ('PRT')
       input_definition => prt_block_definitions(subcomponent)
     case ('EXG')
@@ -122,6 +136,10 @@ contains
       multi_package = gwe_idm_multi_package(subcomponent)
     case ('SWF')
       multi_package = swf_idm_multi_package(subcomponent)
+    case ('CHF')
+      multi_package = chf_idm_multi_package(subcomponent)
+    case ('OLF')
+      multi_package = olf_idm_multi_package(subcomponent)
     case ('PRT')
       multi_package = prt_idm_multi_package(subcomponent)
     case ('EXG')
@@ -151,6 +169,10 @@ contains
       subpackages => gwe_idm_subpackages(subcomponent)
     case ('SWF')
       subpackages => swf_idm_subpackages(subcomponent)
+    case ('CHF')
+      subpackages => chf_idm_subpackages(subcomponent)
+    case ('OLF')
+      subpackages => olf_idm_subpackages(subcomponent)
     case ('PRT')
       subpackages => prt_idm_subpackages(subcomponent)
     case ('EXG')
@@ -181,6 +203,10 @@ contains
       integrated = gwe_idm_integrated(subcomponent)
     case ('SWF')
       integrated = swf_idm_integrated(subcomponent)
+    case ('CHF')
+      integrated = chf_idm_integrated(subcomponent)
+    case ('OLF')
+      integrated = olf_idm_integrated(subcomponent)
     case ('PRT')
       integrated = prt_idm_integrated(subcomponent)
     case ('EXG')
@@ -206,6 +232,10 @@ contains
     case ('GWE')
       integrated = .true.
     case ('SWF')
+      integrated = .true.
+    case ('CHF')
+      integrated = .true.
+    case ('OLF')
       integrated = .true.
     case ('PRT')
       integrated = .true.

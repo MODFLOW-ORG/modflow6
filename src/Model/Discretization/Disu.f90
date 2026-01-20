@@ -908,26 +908,38 @@ contains
   subroutine write_grb(this, icelltype)
     ! -- modules
     use OpenSpecModule, only: access, form
+    use ConstantsModule, only: LENBIGLINE
     ! -- dummy
     class(DisuType) :: this
     integer(I4B), dimension(:), intent(in) :: icelltype
     ! -- local
-    integer(I4B) :: i, iunit, ntxt
+    integer(I4B) :: i, iunit, ntxt, version
     integer(I4B), parameter :: lentxt = 100
     character(len=50) :: txthdr
     character(len=lentxt) :: txt
     character(len=LINELENGTH) :: fname
+    character(len=LENBIGLINE) :: crs
+    logical(LGP) :: found_crs
     ! -- formats
     character(len=*), parameter :: fmtgrdsave = &
       "(4X,'BINARY GRID INFORMATION WILL BE WRITTEN TO:', &
        &/,6X,'UNIT NUMBER: ', I0,/,6X, 'FILE NAME: ', A)"
     !
     ! -- Initialize
-    ntxt = 10
+    version = 1
+    ntxt = 11
     if (this%nvert > 0) ntxt = ntxt + 5
     !
+    call mem_set_value(crs, 'CRS', this%input_mempath, found_crs)
+    !
+    ! -- set version
+    if (found_crs) then
+      ntxt = ntxt + 1
+      version = 2
+    end if
+    !
     ! -- Open the file
-    fname = trim(this%input_fname)//'.grb'
+    fname = trim(this%output_fname)
     iunit = getunit()
     write (this%iout, fmtgrdsave) iunit, trim(adjustl(fname))
     call openfile(iunit, this%iout, trim(adjustl(fname)), 'DATA(BINARY)', &
@@ -975,6 +987,9 @@ contains
     write (txt, '(3a, i0)') 'JA ', 'INTEGER ', 'NDIM 1 ', this%con%nja
     txt(lentxt:lentxt) = new_line('a')
     write (iunit) txt
+    write (txt, '(3a, i0)') 'IDOMAIN ', 'INTEGER ', 'NDIM 1 ', this%nodesuser
+    txt(lentxt:lentxt) = new_line('a')
+    write (iunit) txt
     write (txt, '(3a, i0)') 'ICELLTYPE ', 'INTEGER ', 'NDIM 1 ', this%nodesuser
     txt(lentxt:lentxt) = new_line('a')
     write (iunit) txt
@@ -998,6 +1013,16 @@ contains
       write (iunit) txt
     end if
     !
+    ! -- if version 2 write character array headers
+    if (version == 2) then
+      if (found_crs) then
+        write (txt, '(3a, i0)') 'CRS ', 'CHARACTER ', 'NDIM 1 ', &
+          len_trim(crs)
+        txt(lentxt:lentxt) = new_line('a')
+        write (iunit) txt
+      end if
+    end if
+    !
     ! -- write data
     write (iunit) this%nodesuser ! nodes
     write (iunit) this%nja ! nja
@@ -1008,6 +1033,7 @@ contains
     write (iunit) this%bot1d ! bot
     write (iunit) this%con%iausr ! ia
     write (iunit) this%con%jausr ! ja
+    write (iunit) this%idomain ! idomain
     write (iunit) icelltype ! icelltype
     !
     ! -- if vertices have been read then write additional data
@@ -1017,6 +1043,11 @@ contains
       write (iunit) (this%cellxy(2, i), i=1, this%nodesuser) ! celly
       write (iunit) this%iavert ! iavert
       write (iunit) this%javert ! javert
+    end if
+    !
+    ! -- if version 2 write character array data
+    if (version == 2) then
+      if (found_crs) write (iunit) trim(crs) ! crs user input
     end if
     !
     ! -- Close the file
@@ -1239,7 +1270,11 @@ contains
     !
     call mem_allocate(this%idomain, this%nodes, 'IDOMAIN', this%memoryPath)
     call mem_allocate(this%vertices, 2, this%nvert, 'VERTICES', this%memoryPath)
-    call mem_allocate(this%cellxy, 2, this%nodes, 'CELLXY', this%memoryPath)
+    if (this%icondir > 0) then
+      call mem_allocate(this%cellxy, 2, this%nodes, 'CELLXY', this%memoryPath)
+    else
+      call mem_allocate(this%cellxy, 2, 0, 'CELLXY', this%memoryPath)
+    end if
     !
   end subroutine allocate_arrays_mem
 

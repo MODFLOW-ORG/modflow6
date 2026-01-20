@@ -125,9 +125,7 @@ def build_model(idx, ws, base=False):
     spd = [
         [(0, 0, 0), 0.0],
     ]
-    chd = flopy.mf6.modflow.ModflowGwfchd(
-        gwf, stress_period_data=spd, pname="chd-1"
-    )
+    chd = flopy.mf6.modflow.ModflowGwfchd(gwf, stress_period_data=spd, pname="chd-1")
 
     # sfr data
     if base:
@@ -283,15 +281,11 @@ def check_output(idx, test):
 
     q0 = obs0["OUTFLOW_DOWNSTREAM"]
     q1 = obs1["OUTFLOW_DOWNSTREAM"]
-    assert np.allclose(
-        q0, q1
-    ), f"downstream outflows not equal ('{test.name}')"
+    assert np.allclose(q0, q1), f"downstream outflows not equal ('{test.name}')"
 
     d0 = obs0["DEPTH_UPSTREAM"]
     d1 = obs1["DEPTH_UPSTREAM"]
-    assert np.allclose(
-        d0, d1
-    ), f"upstream depths are not equal ('{test.name}')"
+    assert np.allclose(d0, d1), f"upstream depths are not equal ('{test.name}')"
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

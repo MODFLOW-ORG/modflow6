@@ -44,9 +44,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -174,15 +172,12 @@ def check_output(idx, test):
 
     # Check against manually calculated results
     expected_results = []
-    expected_results.append(
-        0.8
-    )  # TVS SP1: No changes. Check initial solution.
+    expected_results.append(0.8)  # TVS SP1: No changes. Check initial solution.
     expected_results.append(3000.823)  # TVS SP2: Decrease SY1.
     expected_results.append(300.5323)  # TVS SP3: Increase SS1.
     expected_results.append(0.399976)  # TVS SP4: Increase SY1.
-    expected_results.append(
-        0.8
-    )  # TVS SP5: Revert SS1 and SY1. Check that solution returns to original.
+    # TVS SP5: Revert SS1 and SY1. Check that solution returns to original.
+    expected_results.append(0.8)
     nper = len(expected_results)
     ex_lay = 1
     ex_row = 1
@@ -191,9 +186,9 @@ def check_output(idx, test):
     for kper, expected_result in enumerate(expected_results):
         h = head[kper, ex_lay - 1, ex_row - 1, ex_col - 1]
         print(kper, h, expected_result)
-        assert np.isclose(
-            h, expected_result
-        ), f"Expected head {expected_result} in period {kper} but found {h}"
+        assert np.isclose(h, expected_result), (
+            f"Expected head {expected_result} in period {kper} but found {h}"
+        )
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

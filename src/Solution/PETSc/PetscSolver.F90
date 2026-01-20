@@ -3,6 +3,7 @@ module PetscSolverModule
   use petscksp
   use KindModule, only: I4B, DP, LGP
   use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, DZERO
+  use ListsModule, only: basesolutionlist
   use LinearSolverBaseModule
   use MatrixBaseModule
   use VectorBaseModule
@@ -14,7 +15,7 @@ module PetscSolverModule
   use ImsLinearSettingsModule
   use SimVariablesModule, only: iout, simulation_mode, nr_procs, proc_id
   use SimModule, only: store_error, store_warning
-  use DevFeatureModule, only: dev_feature
+  use FeatureFlagsModule, only: developmode
 
   implicit none
   private
@@ -34,7 +35,7 @@ module PetscSolverModule
     class(PetscCnvgCtxType), pointer :: petsc_ctx => null() !< context for the PETSc custom convergence check
     type(PcShellCtxType), pointer :: pc_context => null() !< context for the custom (IMS) precondioner
     type(ConvergenceSummaryType), pointer :: convergence_summary => null() !< data structure wrapping the convergence data
-
+    character(len=LENSOLUTIONNAME + 1) :: option_prefix !< prefix for keys in petscrc database in case there are multiple solutions
   contains
     procedure :: initialize => petsc_initialize
     procedure :: solve => petsc_solve
@@ -65,6 +66,10 @@ contains
 
     allocate (petsc_solver)
     allocate (petsc_solver%petsc_ctx)
+    petsc_solver%option_prefix = ""
+    if (basesolutionlist%Count() > 1) then
+      petsc_solver%option_prefix = trim(sln_name)//"_"
+    end if
 
     solver => petsc_solver
     solver%name = sln_name
@@ -187,13 +192,13 @@ contains
     logical(LGP) :: use_petsc_pc, use_petsc_cnvg
 
     use_petsc_pc = .false.
-    call PetscOptionsGetBool(PETSC_NULL_OPTIONS, PETSC_NULL_CHARACTER, &
+    call PetscOptionsGetBool(PETSC_NULL_OPTIONS, trim(this%option_prefix), &
                              '-use_petsc_pc', use_petsc_pc, found, ierr)
     CHKERRQ(ierr)
     this%use_ims_pc = .not. use_petsc_pc
 
     use_petsc_cnvg = .false.
-    call PetscOptionsGetBool(PETSC_NULL_OPTIONS, PETSC_NULL_CHARACTER, &
+    call PetscOptionsGetBool(PETSC_NULL_OPTIONS, trim(this%option_prefix), &
                              '-use_petsc_cnvg', use_petsc_cnvg, found, ierr)
     CHKERRQ(ierr)
     this%use_ims_cnvgopt = .not. use_petsc_cnvg
@@ -211,6 +216,10 @@ contains
     call KSPCreate(PETSC_COMM_WORLD, this%ksp_petsc, ierr)
     CHKERRQ(ierr)
 
+    ! set prefix for options database
+    call KSPSetOptionsPrefix(this%ksp_petsc, trim(this%option_prefix), ierr)
+    CHKERRQ(ierr)
+
     call KSPSetOperators(this%ksp_petsc, this%mat_petsc, this%mat_petsc, ierr)
     CHKERRQ(ierr)
 
@@ -223,7 +232,7 @@ contains
     if (this%use_ims_pc) then
       call this%set_ims_pc()
     else
-      call dev_feature('PETSc preconditioning is under development, install the &
+      call developmode('PETSc preconditioning is under development, install the &
             &nightly build or compile from source with IDEVELOPMODE = 1.')
       ! The PC options will be set from the .petscrc
       ! file in the call to KSPSetFromOptions below
@@ -288,15 +297,18 @@ contains
 
     call this%petsc_ctx%create(this%mat_petsc, this%linear_settings, &
                                convergence_summary)
+
     if (.not. this%use_ims_cnvgopt) then
       ! use PETSc residual L2 norm for convergence
-      call dev_feature('Using PETSc convergence is under development, install &
+      call developmode('Using PETSc convergence is under development, install &
       &the nightly build or compile from source with IDEVELOPMODE = 1.')
-      this%petsc_ctx%icnvgopt = 100
+      call KSPSetConvergenceTest(this%ksp_petsc, petsc_cnvg_check_internal, &
+                                 this%petsc_ctx, PETSC_NULL_FUNCTION, ierr)
+    else
+      ! IMS convergence check
+      call KSPSetConvergenceTest(this%ksp_petsc, petsc_cnvg_check, &
+                                 this%petsc_ctx, PETSC_NULL_FUNCTION, ierr)
     end if
-
-    call KSPSetConvergenceTest(this%ksp_petsc, petsc_cnvg_check, &
-                               this%petsc_ctx, PETSC_NULL_FUNCTION, ierr)
     CHKERRQ(ierr)
 
   end subroutine create_convergence_check
@@ -353,10 +365,18 @@ contains
       end if
     end if
 
-    if (cnvg_reason < 0 .and. cnvg_reason /= KSP_DIVERGED_ITS) then
-      write (errmsg, '(1x,3a,i0)') "PETSc convergence failure in ", &
-        trim(this%name), ": ", cnvg_reason
-      call store_error(errmsg, terminate=.true.)
+    if (cnvg_reason < 0) then
+      if (cnvg_reason == KSP_DIVERGED_BREAKDOWN .or. &
+          cnvg_reason == KSP_DIVERGED_ITS) then
+        ! out of iterations, or rho/eta became zero,
+        ! move to next Picard iteration and try again
+        this%is_converged = 0
+      else
+        ! this is an solver error, terminate
+        write (errmsg, '(1x,3a,i0)') "PETSc convergence failure in ", &
+          trim(this%name), ": ", cnvg_reason
+        call store_error(errmsg, terminate=.true.)
+      end if
     end if
 
   end subroutine petsc_solve
@@ -410,7 +430,7 @@ contains
       write (iout, '(1x,a,a,/)') &
         "Drop tolerance level fill:    ", trim(adjustl(dtol_str))
     else
-      ksp_logfile = "ksp_logview.txt"
+      ksp_logfile = trim(this%option_prefix)//"ksp_logview.txt"
       write (iout, '(/,1x,a)') "PETSc linear solver settings from .petscrc: "
       write (iout, '(1x,a)') repeat('-', 66)
       write (iout, '(1x,2a)') "see ", trim(ksp_logfile)

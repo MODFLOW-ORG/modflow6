@@ -35,7 +35,6 @@ contains
       y = DONE
       dydx = DZERO
     end if
-    return
   end subroutine sSCurve
 
   !> @ brief sCubicLinear
@@ -67,7 +66,6 @@ contains
       y = DONE
       dydx = DZERO
     end if
-    return
   end subroutine sCubicLinear
 
   !> @ brief sCubic
@@ -103,7 +101,6 @@ contains
       y = DONE
       dydx = DZERO
     end if
-    return
   end subroutine sCubic
 
   !> @ brief sLinear
@@ -130,7 +127,6 @@ contains
       y = DONE
       dydx = DZERO
     end if
-    return
   end subroutine sLinear
 
   !> @ brief sQuadratic
@@ -157,7 +153,6 @@ contains
       y = DONE
       dydx = DZERO
     end if
-    return
   end subroutine sQuadratic
 
   !> @ brief sChSmooth
@@ -201,7 +196,6 @@ contains
       end if
       smooth = y
     end if
-    return
   end subroutine sChSmooth
 
   !> @ brief sLinearSaturation
@@ -227,7 +221,6 @@ contains
     else
       y = (x - bot) / b
     end if
-    return
   end function sLinearSaturation
 
   !> @ brief sCubicSaturation
@@ -273,7 +266,6 @@ contains
       y = DONE
     end if
 
-    return
   end function sCubicSaturation
 
   !> @ brief sQuadraticSaturation
@@ -329,7 +321,6 @@ contains
       end if
     end if
 
-    return
   end function sQuadraticSaturation
 
   !> @ brief sQuadraticSaturation
@@ -364,7 +355,6 @@ contains
       y = seff * (DONE - sr) + sr
     end if
 
-    return
   end function svanGenuchtenSaturation
 
   !> @ brief Derivative of the quadratic saturation function
@@ -413,7 +403,6 @@ contains
     end if
     y = y / b
 
-    return
   end function sQuadraticSaturationDerivative
 
   !> @ brief sQSaturation
@@ -468,9 +457,6 @@ contains
     else
       y = DONE
     end if
-    !
-    ! -- return
-    return
   end function sQSaturation
 
   !> @ brief sQSaturationDerivative
@@ -527,9 +513,6 @@ contains
     else
       y = DZERO
     end if
-    !
-    ! -- return
-    return
   end function sQSaturationDerivative
 
   !> @ brief sSlope
@@ -576,9 +559,6 @@ contains
     !
     ! -- calculate y from ym and yp contributions
     y = yi + ym + yp
-    !
-    ! -- return
-    return
   end function sSlope
 
   !> @ brief sSlopeDerivative
@@ -620,9 +600,6 @@ contains
     !
     ! -- calculate derivative from individual contributions
     y = DHALF * (sm + sp) - DHALF * rho * (sm - sp)
-    !
-    ! -- return
-    return
   end function sSlopeDerivative
 
   !> @ brief sQuadratic0sp
@@ -665,9 +642,6 @@ contains
     else
       y = x
     end if
-    !
-    ! -- return
-    return
   end function sQuadratic0sp
 
   !> @ brief sQuadratic0spDerivative
@@ -710,9 +684,6 @@ contains
     else
       y = 1
     end if
-    !
-    ! -- return
-    return
   end function sQuadratic0spDerivative
 
   !> @ brief sQuadraticSlope
@@ -762,9 +733,6 @@ contains
     !
     ! -- add value at xi
     y = y + yi
-    !
-    ! -- return
-    return
   end function sQuadraticSlope
 
   !> @ brief sQuadraticSlopeDerivative
@@ -810,9 +778,6 @@ contains
     else
       y = sp
     end if
-    !
-    ! -- return
-    return
   end function sQuadraticSlopeDerivative
 
 end module SmoothingModule

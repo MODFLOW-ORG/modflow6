@@ -1,7 +1,7 @@
       module GwfLakSubs
         
         use GWFLAKMODULE, only: SGWF2LAK7PNT
-        use SimModule, only: store_warning, store_error
+        use SimPHMFModule, only: store_warning, store_error
         private
         public :: GWF2LAK7AR, GWF2LAK7RP
 
@@ -388,7 +388,7 @@ C     ------------------------------------------------------------------
       USE GWFLAKMODULE
       USE GLOBAL,       ONLY: IOUT, NCOL, NROW, NLAY, IFREFM, IBOUND,
      +                        LBOTM, BOTM, DELR, DELC, ISSFLG
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       use utl7module, only: U2DINT, U2DREL
 C     USE GWFSFRMODULE, ONLY: NSS
 C     ------------------------------------------------------------------
@@ -1074,7 +1074,7 @@ C
 !     +                        BOTTMS, IDIV, STGOLD2, NDV
 !      USE GWFSFRMODULE, ONLY: DLKSTAGE
 !      USE GLOBAL,       ONLY: IOUT
-!      use SimModule, only: ustop
+!      use SimPHMFModule, only: ustop
 !C     ------------------------------------------------------------------
 !C     FUNCTIONS
 !C     ------------------------------------------------------------------
@@ -1214,7 +1214,7 @@ C    -------------------------------------------------------------------
       USE GWFLAKMODULE, ONLY: NLAKES, NTRB, NDV, ITRB, IDIV, IRK
       USE GLOBAL,       ONLY: IOUT, NODES
       USE GWFSFRMODULE, ONLY: NSS, IDIVAR, IOTSG, SEG,  ISEG
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
 C
 C-- DOUBLE CHECK SIZE OF IRK (STORED IN BUFF) vs. NLAKES
 C

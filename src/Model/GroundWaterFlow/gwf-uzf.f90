@@ -208,9 +208,6 @@ contains
     packobj%iscloc = 0 ! not supported
     packobj%isadvpak = 1
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
-    !
-    ! -- Return
-    return
   end subroutine uzf_create
 
   !> @brief Allocate and Read
@@ -257,9 +254,6 @@ contains
       allocate (this%pakmvrobj)
       call this%pakmvrobj%ar(this%maxbound, this%maxbound, this%memoryPath)
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzf_ar
 
   !> @brief Allocate arrays used for uzf
@@ -371,9 +365,6 @@ contains
     do i = 1, this%cbcauxitems
       this%qauxcbc(i) = DZERO
     end do
-    !
-    ! -- Return
-    return
   end subroutine uzf_allocate_arrays
 
   !> @brief Set options specific to UzfType
@@ -385,7 +376,7 @@ contains
     use ConstantsModule, only: DZERO, MNORMAL
     use OpenSpecModule, only: access, form
     use SimModule, only: store_error
-    use InputOutputModule, only: urword, getunit, openfile
+    use InputOutputModule, only: urword, getunit, assign_iounit, openfile
     implicit none
     ! -- dummy
     class(uzftype), intent(inout) :: this
@@ -441,7 +432,7 @@ contains
       call this%parser%GetStringCaps(keyword)
       if (keyword == 'FILEOUT') then
         call this%parser%GetString(fname)
-        this%ibudgetout = getunit()
+        call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
         call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
                       form, access, 'REPLACE', mode_opt=MNORMAL)
         write (this%iout, fmtuzfbin) 'BUDGET', trim(adjustl(fname)), &
@@ -453,7 +444,7 @@ contains
       call this%parser%GetStringCaps(keyword)
       if (keyword == 'FILEOUT') then
         call this%parser%GetString(fname)
-        this%ibudcsv = getunit()
+        call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
         call openfile(this%ibudcsv, this%iout, fname, 'CSV', &
                       filstat_opt='REPLACE')
         write (this%iout, fmtuzfbin) 'BUDGET CSV', trim(adjustl(fname)), &
@@ -528,10 +519,8 @@ contains
       ! -- No options found
       found = .false.
     end select
-    ! -- Return
-    return
   end subroutine uzf_options
-!
+
   !> @brief Set dimensions specific to UzfType
   !<
   subroutine uzf_readdimensions(this)
@@ -634,9 +623,6 @@ contains
     !
     ! -- setup the budget object
     call this%uzf_setup_budobj()
-    !
-    ! -- Return
-    return
   end subroutine uzf_readdimensions
 
   !> @brief Read stress data
@@ -929,9 +915,6 @@ contains
     !
     ! -- Save old ss flag
     this%issflagold = this%issflag
-    !
-    ! -- Return
-    return
   end subroutine uzf_rp
 
   !> @brief Advance UZF Package
@@ -1031,9 +1014,6 @@ contains
     !    simulation time from "current" to "preceding" and reset
     !    "current" value.
     call this%obs%obs_ad()
-    !
-    ! -- Return
-    return
   end subroutine uzf_ad
 
   !> @brief Formulate the HCOF and RHS terms
@@ -1058,9 +1038,6 @@ contains
       this%rch0(n) = this%rch(n)
       this%gwd0(n) = this%gwd(n)
     end do
-    !
-    ! -- Return
-    return
   end subroutine uzf_cf
 
   !> @brief Copy rhs and hcof into solution rhs and amat
@@ -1091,9 +1068,6 @@ contains
       ipos = ia(n)
       call matrix_sln%add_value_pos(idxglo(ipos), this%hcof(i))
     end do
-    !
-    ! -- Return
-    return
   end subroutine uzf_fc
 
   !> @brief Fill newton terms
@@ -1116,9 +1090,6 @@ contains
       call matrix_sln%add_value_pos(idxglo(ipos), this%deriv(i))
       rhs(n) = rhs(n) + this%deriv(i) * this%xnew(n)
     end do
-    !
-    ! -- Return
-    return
   end subroutine uzf_fn
 
   !> @brief Final convergence check for package
@@ -1347,9 +1318,6 @@ contains
         end if
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzf_cc
 
   !> @brief Calculate flows
@@ -1451,9 +1419,6 @@ contains
     !
     ! -- fill the budget object
     call this%uzf_fill_budobj()
-    !
-    ! -- Return
-    return
   end subroutine uzf_cq
 
   function get_storage_change(top, bot, carea, hold, hnew, wcold, wcnew, &
@@ -1488,9 +1453,6 @@ contains
     else
       qsto = DZERO
     end if
-    !
-    ! -- Return
-    return
   end function get_storage_change
 
   !> @brief Add package ratin/ratout to model budget
@@ -1529,9 +1491,6 @@ contains
       call model_budget%addentry(ratin, ratout, delt, this%bdtxt(4), &
                                  isuppress_output, this%packName)
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzf_bd
 
   !> @brief Write flows to binary file and/or print flows to budget
@@ -1607,9 +1566,6 @@ contains
                                   this%auxvar, this%iout, this%inamedbound, &
                                   this%boundname)
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzf_ot_model_flows
 
   !> @brief Output UZF package flow terms
@@ -1638,9 +1594,6 @@ contains
     if (ibudfl /= 0 .and. this%iprflow /= 0) then
       call this%budobj%write_flowtable(this%dis, kstp, kper)
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzf_ot_package_flows
 
   !> @brief Save UZF-calculated values to binary file
@@ -1668,9 +1621,6 @@ contains
       call ulasav(this%wcnew, '   WATER-CONTENT', kstp, kper, pertim, &
                   totim, this%nodes, 1, 1, ibinun)
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzf_ot_dv
 
   !> @brief Write UZF budget to listing file
@@ -1686,9 +1636,6 @@ contains
     integer(I4B), intent(in) :: ibudfl !< flag indicating budget should be written
     !
     call this%budobj%write_budtable(kstp, kper, iout, ibudfl, totim, delt)
-    !
-    ! -- Return
-    return
   end subroutine uzf_ot_bdsummary
 
   !> @brief Formulate the HCOF and RHS terms
@@ -1808,9 +1755,6 @@ contains
         !
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine uzf_solve
 
   !> @brief Define the list heading that is written to iout when PRINT_INPUT
@@ -1836,9 +1780,6 @@ contains
     if (this%inamedbound == 1) then
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
-    !
-    ! -- Return
-    return
   end subroutine define_listlabel
 
   !> @brief Identify overlying cell ID based on user-specified mapping
@@ -1864,9 +1805,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine findcellabove
 
   !> @brief Read UZF cell properties and set them for UzfCellGroup type
@@ -2094,7 +2032,7 @@ contains
     end do
     !
     ! -- do an initial evaluation of the sum of uzfarea relative to the
-    !    GWF cell area in the case that there is more than one UZF cell
+    !    GWF cell area in the case that there is more than one UZF object
     !    in a GWF cell and a auxmult value is not being applied to the
     !    calculate the UZF cell area from the GWF cell area.
     if (this%imaxcellcnt > 1 .and. this%iauxmultcol < 1) then
@@ -2104,9 +2042,6 @@ contains
     ! -- deallocate local variables
     deallocate (rowmaxnnz)
     deallocate (nboundchk)
-    !
-    ! -- Return
-    return
   end subroutine read_cell_properties
 
   !> @brief Read UZF cell properties and set them for UZFCellGroup type
@@ -2188,9 +2123,6 @@ contains
         call this%inputtab%add_term(this%uzfname(i))
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine print_cell_properties
 
   !> @brief Check UZF cell areas
@@ -2270,8 +2202,6 @@ contains
     if (count_errors() > 0) then
       call this%parser%StoreErrorUnit()
     end if
-    ! -- Return
-    return
   end subroutine check_cell_area
 
   ! -- Procedures related to observations (type-bound)
@@ -2285,9 +2215,6 @@ contains
     class(UzfType) :: this
     !
     uzf_obs_supported = .true.
-    !
-    ! -- Return
-    return
   end function uzf_obs_supported
 
   !> @brief Implements bnd_df_obs
@@ -2350,9 +2277,6 @@ contains
     !    for water-content observation type.
     call this%obs%StoreObsType('water-content', .false., indx)
     this%obs%obsData(indx)%ProcessIdPtr => uzf_process_obsID
-    !
-    ! -- Return
-    return
   end subroutine uzf_df_obs
 
   !> @brief Calculate observations this time step and call ObsType%SaveOneSimval
@@ -2447,9 +2371,6 @@ contains
         call this%parser%StoreErrorUnit()
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzf_bd_obs
 
   !> @brief Process each observation
@@ -2572,9 +2493,6 @@ contains
         call store_error_unit(this%inunit)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzf_rp_obs
 
   ! -- Procedures related to observations (NOT type-bound)
@@ -2629,9 +2547,6 @@ contains
       ! -- store observations depth
       obsrv%Obsdepth = obsdepth
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzf_process_obsID
 
   !> @brief Allocate scalar members
@@ -2692,9 +2607,6 @@ contains
     !
     ! -- convergence check
     this%iconvchk = 1
-    !
-    ! -- Return
-    return
   end subroutine uzf_allocate_scalars
 
   !> @brief Deallocate objects
@@ -2792,9 +2704,6 @@ contains
     !
     ! -- Parent object
     call this%BndType%bnd_da()
-    !
-    ! -- Return
-    return
   end subroutine uzf_da
 
   !> @brief Set up the budget object that stores all the uzf flows
@@ -2889,7 +2798,8 @@ contains
     q = DZERO
     do n = 1, this%nodes
       n2 = this%igwfnode(n)
-      call this%budobj%budterm(idx)%update_term(n, n2, q)
+      this%qauxcbc(1) = this%uzfobj%uzfarea(n)
+      call this%budobj%budterm(idx)%update_term(n, n2, q, this%qauxcbc)
     end do
     !
     ! --
@@ -2998,9 +2908,6 @@ contains
     if (this%iprflow /= 0) then
       call this%budobj%flowtable_df(this%iout, cellids='GWF')
     end if
-    !
-    ! -- Return
-    return
   end subroutine uzf_setup_budobj
 
   !> @brief Copy flow terms into this%budobj
@@ -3151,9 +3058,6 @@ contains
     !
     ! --Terms are filled, now accumulate them for this time step
     call this%budobj%accumulate_terms()
-    !
-    ! -- Return
-    return
   end subroutine uzf_fill_budobj
 
 end module UzfModule

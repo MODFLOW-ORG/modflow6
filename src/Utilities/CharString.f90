@@ -31,6 +31,7 @@ module CharacterStringModule
     procedure :: charstring_eq_charstring
     procedure :: write_unformatted
     procedure :: strlen
+    procedure :: destroy
     generic :: assignment(=) => assign_to_charstring, assign_from_charstring
     generic :: operator(==) => character_eq_charstring, &
       charstring_eq_character, &
@@ -126,5 +127,10 @@ contains
       length = 0
     end if
   end function strlen
+
+  subroutine destroy(this)
+    class(CharacterStringType), intent(inout) :: this
+    if (allocated(this%charstring)) deallocate (this%charstring)
+  end subroutine destroy
 
 end module CharacterStringModule

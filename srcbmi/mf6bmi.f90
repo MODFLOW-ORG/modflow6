@@ -44,7 +44,7 @@ contains
     bind(C, name="get_component_name")
     !DIR$ ATTRIBUTES DLLEXPORT :: bmi_get_component_name
     ! -- dummy variables
-    character(kind=c_char), intent(out) :: name(BMI_LENCOMPONENTNAME)
+    character(kind=c_char), intent(inout) :: name(BMI_LENCOMPONENTNAME)
     integer(kind=c_int) :: bmi_status !< BMI status code
     ! -- local variables
 
@@ -612,6 +612,7 @@ contains
       call mem_setptr(srcstr, var_name, mem_path)
       call get_mem_elem_size(var_name, mem_path, ilen)
       call c_f_pointer(c_arr_ptr, tgtstr, shape=[ilen + 1])
+
       tgtstr(1:len(srcstr) + 1) = string_to_char_array(srcstr, len(srcstr))
 
     else if (rank == 1) then

@@ -56,9 +56,7 @@ def build_models(idx, test):
         sim_name=sim_name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf"
@@ -169,9 +167,7 @@ def build_models(idx, test):
             interpolation_methodrecord=interpolation_methodrecord,
         )
         np.savetxt(
-            os.path.join(ws, f"{gwfname}.rch4.tas.dat"),
-            recharge_rate,
-            fmt="%7.1f",
+            os.path.join(ws, f"{gwfname}.rch4.tas.dat"), recharge_rate, fmt="%7.1f"
         )
 
     # output control
@@ -201,10 +197,7 @@ def check_output(idx, test):
     # load gwf budget file
     fpth = os.path.join(test.workspace, f"{gwfname}.cbc")
     try:
-        bobj = flopy.utils.CellBudgetFile(
-            fpth,
-            precision="double",
-        )
+        bobj = flopy.utils.CellBudgetFile(fpth, precision="double")
     except:
         assert False, f'could not load data from "{fpth}"'
 
@@ -343,13 +336,7 @@ def check_output(idx, test):
             frac = (totim - 0.5) / 5.0
         else:
             frac = 1.0
-        area = np.zeros(
-            (
-                5,
-                5,
-            ),
-            dtype=float,
-        )
+        area = np.zeros((5, 5), dtype=float)
         for i in range(5):
             for j in range(5):
                 area[i, j] = float((i + 1) * (j + 1))

@@ -16,7 +16,6 @@ contains
     !
     allocate (newCharCont)
     newCharCont = text
-    return
   end subroutine ConstructCharacterContainer
 
   function CastAsCharacterStringType(obj) result(res)
@@ -31,7 +30,6 @@ contains
     type is (CharacterStringType)
       res => obj
     end select
-    return
   end function CastAsCharacterStringType
 
   subroutine AddStringToList(list, string)
@@ -49,8 +47,6 @@ contains
       obj => newCharacterContainer
       call list%Add(obj)
     end if
-    !
-    return
   end subroutine AddStringToList
 
   function GetStringFromList(list, indx) result(string)
@@ -71,8 +67,6 @@ contains
     else
       string = ''
     end if
-    !
-    return
   end function GetStringFromList
 
 end module StringListModule

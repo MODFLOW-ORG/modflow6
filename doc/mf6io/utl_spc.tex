@@ -1,0 +1,81 @@
+As mentioned in the sections describing the SSM Package for GWT and GWE, concentrations and temperatures, respectively, can be specified for GWF stress packages using auxiliary variables, or they can be specified using input files dedicated to this purpose.  The Stress Package Component (SPC) input file can be used to provide concentrations or temperatures that are assigned for GWF sources and sinks.  An SPC input file can be list based or array based.  List-based input files can be used for list-based GWF stress packages, such as wells, drains, and rivers.  Array-based input files can be used for array-based GWF stress packages, such as recharge and evapotranspiration (provided the READASARRAYS options is used; or, if preferred, a list-based format is supported for RCH and EVT as well).  The next section describes the list-based input format for the SPC input file followed by a section that describes array-based SPC input files.
+
+\subsection{Stress Package Component (SPC) -- List-Based Input}
+
+An SPC6 file can be prepared to provide user-specified concentrations or temperatures for a GWF stress package, such a Well or General-Head Boundary Package, for example.  One SPT6 file applies to one GWF stress package.  Names for the SPC6 input files are provided in the FILEINPUT block of the SSM Package and therefore cannot be specified in either the GWT or GWE name files.  Use of the SPC6 input file is an alternative to specifying stress package temperatures as auxiliary variables in the flow model stress package.  
+
+The boundary number in the PERIOD block corresponds to the boundary number in the GWF stress period package.  Assignment of the boundary number is straightforward for the advanced packages (SFR, LAK, MAW, and UZF) because the features in these advanced packages are defined once at the beginning of the simulation and they do not change.  For the other stress packages, however, the order of boundaries may change between stress periods.  Consider the following Well Package input file, for example:
+
+\begin{verbatim}
+# This is an example of a GWF Well Package
+# in which the order of the wells changes from
+# stress period 1 to 2.  This must be explicitly
+# handled by the user if using the SPC6 input
+# for a GWT or GWE model.
+BEGIN options
+  BOUNDNAMES
+END options
+
+BEGIN dimensions
+  MAXBOUND  3
+END dimensions
+
+BEGIN period  1
+  1 77 65   -2200  SHALLOW_WELL
+  2 77 65   -24.0  INTERMEDIATE_WELL
+  3 77 65   -6.20  DEEP_WELL
+END period
+
+BEGIN period  2
+  1 77 65   -1100  SHALLOW_WELL
+  3 77 65   -3.10  DEEP_WELL
+  2 77 65   -12.0  INTERMEDIATE_WELL
+END period
+\end{verbatim}
+
+\noindent In this Well input file, the order of the wells changed between periods 1 and 2.  This reordering must be explicitly taken into account by the user when creating an SPC6 file, because the boundary number in the SPC file corresponds to the boundary number in the Well input file.  In stress period 1, boundary number 2 is the INTERMEDIATE\_WELL, whereas in stress period 2, boundary number 2 is the DEEP\_WELL.  When using this SPC capability to specify boundary temperatures, it is recommended that users write the corresponding GWF stress packages using the same number, cell locations, and order of boundary conditions for each stress period.   In addition, users can activate the PRINT\_FLOWS option in the SSM input file.  When the SSM Package prints the individual solute flows to the transport list file, it includes a column containing the boundary concentration or temperature.  Users can check the boundary concentrations (or temperatures) in this output to verify that they are assigned as intended.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-spc-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-spc-dimensions.dat}
+\vspace{5mm}
+\noindent \textit{FOR ANY STRESS PERIOD}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-spc-period.dat}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/utl-spc-desc.tex}
+\end{description}
+
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/utl-spc-example.dat}
+
+% SPT array based
+\newpage
+\subsection{Stress Package Component (SPC) -- Array-Based Input}
+
+This section describes array-based input for the SPC input file.  If the READASARRAYS options is specified for either the GWF Recharge (RCH) or Evapotranspiration (EVT) Packages, then concentrations or temperatures for these packages can be specified using array-based input.  This SPC array-based input is distinguished from the list-based input in the previous section through specification of the READASARRAYS option.  When the READASARRAYS option is specified, then there is no DIMENSIONS block in the SPC input file.  Instead, the shape of the array for concentrations or temperatures is the number of rows by number of columns (NROW, NCOL), for a regular MODFLOW grid (DIS), and the number of cells in a layer (NCPL) for a discretization by vertices (DISV) grid.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-spca-options.dat}
+\vspace{5mm}
+\noindent \textit{FOR ANY STRESS PERIOD}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-spca-period.dat}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/utl-spca-desc.tex}
+\end{description}
+
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/utl-spca-example.dat}

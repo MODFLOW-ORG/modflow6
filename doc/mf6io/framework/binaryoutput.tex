@@ -6,7 +6,7 @@ The file formats for the binary files are described in the following sections. T
 
 \newpage
 \subsection{Binary Grid File}
-\mf~writes a binary grid file that can be used for post processing model results.  The file structure was designed to be self-documenting so that it can evolve if necessary.  The file name is assigned automatically by the program by adding ``.grb'' to the end of the discretization input file name.  The structure of the binary grid file depends on the type of discretization package that is used.  The following subsections summarize the binary grid file for the different grid types.  The red text is not written to the binary grid file, but is shown here to explain the file content.  The binary grid file is written for the GWF Model, but is not written for the GWT Model.
+\mf~writes a binary grid file that can be used for post processing model results.  The file structure was designed to be self-documenting so that it can evolve if necessary.  By default, the file name is assigned automatically by the program by adding ``.grb'' to the end of the discretization input file name.  Alternatively, the binary grid file name may be specified in the relevant discretization input file.  The structure of the binary grid file depends on the type of discretization package that is used.  The following subsections summarize the binary grid file for the different grid types.  The red text is not written to the binary grid file, but is shown here to explain the file content.  The binary grid file is written for the GWF Model, but is not written for the GWT Model.
 
 \newpage
 \subsubsection{DIS Grids}
@@ -157,15 +157,16 @@ The binary grid file for DISU grids may contain information on the vertices and 
 \noindent Definition 7: \texttt{`BOT DOUBLE NDIM 1 nodes'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
 \noindent Definition 8: \texttt{`IA INTEGER NDIM 1 ncells+1'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
 \noindent Definition 9: \texttt{`JA INTEGER NDIM 1 nja'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
-\noindent Definition 10: \texttt{`ICELLTYPE INTEGER NDIM 1 ncells'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 10: \texttt{`IDOMAIN INTEGER NDIM 1 ncells'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 11: \texttt{`ICELLTYPE INTEGER NDIM 1 ncells'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
 
 \vspace{5mm}
 \noindent If vertices are provided in the DISU Package, then 5 additional definitions are included: \\
-\noindent Definition 11: \texttt{`VERTICES DOUBLE NDIM 2 2 nvert'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
-\noindent Definition 12: \texttt{`CELLX DOUBLE NDIM 1 nodes'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
-\noindent Definition 13: \texttt{`CELLY DOUBLE NDIM 1 nodes'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
-\noindent Definition 14: \texttt{`IAVERT INTEGER NDIM 1 nodes+1'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
-\noindent Definition 15: \texttt{`JAVERT INTEGER NDIM 1 njavert'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 12: \texttt{`VERTICES DOUBLE NDIM 2 2 nvert'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 13: \texttt{`CELLX DOUBLE NDIM 1 nodes'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 14: \texttt{`CELLY DOUBLE NDIM 1 nodes'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 15: \texttt{`IAVERT INTEGER NDIM 1 nodes+1'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 16: \texttt{`JAVERT INTEGER NDIM 1 njavert'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
 
 \vspace{5mm}
 \noindent Read \texttt{NDAT} data variables using the definitions defined above. \\
@@ -178,16 +179,69 @@ The binary grid file for DISU grids may contain information on the vertices and 
 \noindent Record 7: \texttt{((BOT(J),J=1,NODES)} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE(NODES)}} \\
 \noindent Record 8: \texttt{(IA(J),J=1,NODES+1)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NODES+1)}} \\
 \noindent Record 9: \texttt{(JA(J),J=1,NJA)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NJA)}} \\
-\noindent Record 10: \texttt{(ICELLTYPE(J),J=1,NCELLS)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NCELLS)}} \\
+\noindent Record 10: \texttt{(IDOMAIN(J),J=1,NCELLS)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NCELLS)}} \\
+\noindent Record 11: \texttt{(ICELLTYPE(J),J=1,NCELLS)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NCELLS)}} \\
 
 \vspace{5mm}
 \noindent If vertices are provided in the DISU Package, then 5 additional records are included: \\
-\noindent Record 11: \texttt{((VERT(J,K),J=1,2),K=1,NVERT)} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE(2,NVERT)}} \\
-\noindent Record 12: \texttt{(CELLX(J),J=1,NODES)} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE(NODES)}}\\
-\noindent Record 13: \texttt{(CELLY(J),J=1,NODES)} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE(NODES)}} \\
-\noindent Record 14: \texttt{(IAVERT(J),J=1,NODES+1)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NODES+1)}} \\
-\noindent Record 15: \texttt{(JAVERT(J),J=1,NJAVERT)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NJAVERT)}} \\
+\noindent Record 12: \texttt{((VERT(J,K),J=1,2),K=1,NVERT)} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE(2,NVERT)}} \\
+\noindent Record 13: \texttt{(CELLX(J),J=1,NODES)} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE(NODES)}}\\
+\noindent Record 14: \texttt{(CELLY(J),J=1,NODES)} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE(NODES)}} \\
+\noindent Record 15: \texttt{(IAVERT(J),J=1,NODES+1)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NODES+1)}} \\
+\noindent Record 16: \texttt{(JAVERT(J),J=1,NJAVERT)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NJAVERT)}} \\
 
+\ifdevelopmode
+\newpage
+\subsubsection{Version 2 Binary Grid File}
+\mf~will write a version 2 binary grid file when the discretization supports the CRS input option and that option is defined.  If the discretization supports the CRS option but it is not defined in the discretization OPTIONS block, the version 1 file will be generated.  Version 2 binary grid files contain an additional definition string and data record associated with the CRS input.  The length of the data CHARACTER array record will be the trimmed length (TRIMLEN) of the provided input string.  An example for the DIS grid follows.
+
+\vspace{5mm}
+\noindent Header 1: \texttt{`GRID DIS'}  {\color{red} \footnotesize{CHARACTER(LEN=50)}} \\
+\noindent Header 2: \texttt{`VERSION 2'}  {\color{red} \footnotesize{CHARACTER(LEN=50)}} \\
+\noindent Header 3: \texttt{`NTXT 17'} {\color{red} \footnotesize{CHARACTER(LEN=50)}}\\
+\noindent Header 4: \texttt{`LENTXT 100'} {\color{red} \footnotesize{CHARACTER(LEN=50)}}\\
+
+\vspace{5mm}
+\noindent Read \texttt{NTXT} strings of size \texttt{LENTXT}. Set the number of data records (\texttt{NDAT}) equal to number of lines that do not begin with \#.  \\
+\noindent Definition 0: \texttt{`\#Comment ...'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}, comments not presently written} \\
+\noindent Definition 1: \texttt{`NCELLS INTEGER NDIM 0 \# ncells'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 2: \texttt{`NLAY INTEGER NDIM 0 \# nlay'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 3: \texttt{`NROW INTEGER NDIM 0 \# nrow'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 4: \texttt{`NCOL INTEGER NDIM 0 \# ncol'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 5: \texttt{`NJA INTEGER NDIM 0 \# nja'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 6: \texttt{`XORIGIN DOUBLE NDIM 0 \# xorigin'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 7: \texttt{`YORIGIN DOUBLE NDIM 0 \# yorigin'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 8: \texttt{`ANGROT DOUBLE NDIM 0 \# angrot'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 9: \texttt{`DELR DOUBLE NDIM 1 ncol'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 10: \texttt{`DELC DOUBLE NDIM 1 nrow'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 11: \texttt{`TOP DOUBLE NDIM 1 nrow*ncol'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 12: \texttt{`BOTM DOUBLE NDIM 1 ncells'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 13: \texttt{`IA INTEGER NDIM 1 ncells+1'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 14: \texttt{`JA INTEGER NDIM 1 nja'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 15: \texttt{`IDOMAIN INTEGER NDIM 1 ncells'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 16: \texttt{`ICELLTYPE INTEGER NDIM 1 ncells'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+\noindent Definition 17: \texttt{`CRS CHARACTER NDIM 1 trimlen'} {\color{red} \footnotesize{CHARACTER(LEN=LENTXT)}} \\
+
+\vspace{5mm}
+\noindent Read \texttt{NDAT} data variables using the definitions defined above. \\
+\noindent Record 1: \texttt{NCELLS} {\color{red} \footnotesize{INTEGER}} \\
+\noindent Record 2: \texttt{NLAY} {\color{red} \footnotesize{INTEGER}} \\
+\noindent Record 3: \texttt{NROW} {\color{red} \footnotesize{INTEGER}} \\
+\noindent Record 4: \texttt{NCOL} {\color{red} \footnotesize{INTEGER}} \\
+\noindent Record 5: \texttt{NJA} {\color{red} \footnotesize{INTEGER}} \\
+\noindent Record 6: \texttt{XORIGIN} {\color{red} \footnotesize{DOUBLE}} \\
+\noindent Record 7: \texttt{YORIGIN} {\color{red} \footnotesize{DOUBLE}} \\
+\noindent Record 8: \texttt{ANGROT} {\color{red} \footnotesize{DOUBLE}} \\
+\noindent Record 9: \texttt{DELR} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE(NCOL)}} \\
+\noindent Record 10: \texttt{DELC} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE (NROW)}} \\
+\noindent Record 11: \texttt{(TOP(J),J=1,NROW*NCOL)} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE(NROW*NCOL)}} \\
+\noindent Record 12: \texttt{(BOTM(J),J=1,NCELLS)} {\color{red} \footnotesize{DOUBLE PRECISION ARRAY SIZE(NCELLS)}} \\
+\noindent Record 13: \texttt{(IA(J),J=1,NCELLS+1)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NCELLS+1)}} \\
+\noindent Record 14: \texttt{(JA(J),J=1,NJA)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NJA)}} \\
+\noindent Record 15: \texttt{(IDOMAIN(J),J=1,NCELLS)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NCELLS)}} \\
+\noindent Record 16: \texttt{(ICELLTYPE(J),J=1,NCELLS)} {\color{red} \footnotesize{INTEGER ARRAY SIZE(NCELLS)}} \\
+\noindent Record 17: \texttt{(CRS(J),J=1,TRIMLEN)} {\color{red} \footnotesize{CHARACTER ARRAY SIZE(TRIMLEN)}} \\
+\fi
 
 \newpage
 \subsection{Dependent Variable File}
@@ -206,8 +260,8 @@ For each stress period, time step, and layer for which data are saved to the bin
 \begin{description} \itemsep0pt \parskip0pt \parsep0pt
 \item \texttt{KSTP} is the time step number;
 \item \texttt{KPER} is the stress period number;
-\item \texttt{PERTIM} is the time value for the current stress period; 
-\item \texttt{TOTIM} is the total simulation time;
+\item \texttt{PERTIM} is the time relative to the start of the current stress period; 
+\item \texttt{TOTIM} is the time relative to the start of the simulation;
 \item \texttt{TEXT} is a character string (character*16);
 \item \texttt{NCOL} is the number of columns;
 \item \texttt{NROW} is the number of rows;
@@ -228,8 +282,8 @@ For each stress period, time step, and layer for which data are saved to the bin
 \begin{description} \itemsep0pt \parskip0pt \parsep0pt
 \item \texttt{KSTP} is the time step number;
 \item \texttt{KPER} is the stress period number;
-\item \texttt{PERTIM} is the time value for the current stress period; 
-\item \texttt{TOTIM} is the total simulation time;
+\item \texttt{PERTIM} is the time relative to the start of the current stress period; 
+\item \texttt{TOTIM} is the time relative to the start of the simulation;
 \item \texttt{TEXT} is a character string (character*16);
 \item \texttt{NCPL} is the number of cells per layer;
 \item \texttt{ILAY} is the layer number; and
@@ -250,8 +304,8 @@ For each stress period, time step, and layer for which data are saved to the bin
 \begin{description} \itemsep0pt \parskip0pt \parsep0pt
 \item \texttt{KSTP} is the time step number;
 \item \texttt{KPER} is the stress period number;
-\item \texttt{PERTIM} is the time value for the current stress period; 
-\item \texttt{TOTIM} is the total simulation time;
+\item \texttt{PERTIM} is the time relative to the start of the current stress period; 
+\item \texttt{TOTIM} is the time relative to the start of the simulation;
 \item \texttt{TEXT} is a character string (character*16);
 \item \texttt{NODES} is the number cells in the model grid;
 \item \texttt{DATA} is unstructured head data of size (NODES).
@@ -301,8 +355,8 @@ For each stress period, time step, and layer for which data are saved to the bin
 \begin{description} \itemsep0pt \parskip0pt \parsep0pt
 \item \texttt{KSTP} is the time step number;
 \item \texttt{KPER} is the stress period number;
-\item \texttt{PERTIM} is the time value for the current stress period; 
-\item \texttt{TOTIM} is the total simulation time;
+\item \texttt{PERTIM} is the time relative to the start of the current stress period; 
+\item \texttt{TOTIM} is the time relative to the start of the simulation;
 \item \texttt{TEXT} is a character string (\texttt{character*16});
 \item \texttt{MAXBOUND} is the number advanced boundary items in the package;
 \item \texttt{DATA} is unstructured dependent variable data of size (\texttt{MAXBOUND}).
@@ -343,15 +397,13 @@ Record 10: \texttt{((ID1(N),ID2(N),(DATA2D(I,N),I=1,NDAT)),N=1,NLIST)}\\
 \item \texttt{KSTP} is the integer time step number;
 \item \texttt{KPER} is the integer stress period number;
 \item \texttt{TEXT} is a character string (character*16) indicating the flow type;
-\item \texttt{PERTIM} is the double precision time value for the current stress period; 
-\item \texttt{TOTIM} is the double precision total simulation time;
+\item \texttt{PERTIM} is the double precision time relative to the start of the current stress period; 
+\item \texttt{TOTIM} is the double precision time relative to the start of the simulation;
 \item \texttt{NDIM1} is the integer size of first dimension; 
 \item \texttt{NDIM2} is the integer size of second dimension;
 \item \texttt{NDIM3} is the integer size of third dimension;
 \item \texttt{IMETH} is an integer code that specifies the form of the remaining data;
 \item \texttt{DELT} is the double precision length of the timestep;
-\item \texttt{PERTIM} is the double precision time value for the current stress period;
-\item \texttt{TOTIM} is the double precision total simulation time;
 \item \texttt{DATA} is a double precision array of budget values;
 \item \texttt{TXT1ID1} is a character string (character*16) containing the first text identifier for information in ID1;
 \item \texttt{TXT2ID1} is a character string (character*16) containing the second text identifier for information in ID1;
@@ -547,6 +599,7 @@ For each stress period, time step, and data type that is saved to the LAK, MAW, 
 \texttt{FROM-MVR} & 6 & 1 / \texttt{nmawwells} & Calculated flow to multi-aquifer well from the MVR Package. Only saved if MVR Package is used in the MAW Package. The multi-aquifer well number is written to (\texttt{ID1}) and (\texttt{ID2}). \\
 \texttt{RATE-TO-MVR} & 6 & 1 / \texttt{nmawwells} & Calculated pumping rate from the multi-aquifer well to the MVR Package. Only saved if MVR Package is used in the MAW Package. The multi-aquifer well number is written to (\texttt{ID1}) and (\texttt{ID2}). \\
 \texttt{FW-RATE-TO-MVR} & 6 & 1 / \texttt{nmawwells} & Calculated flowing well flow from a multi-aquifer well to the MVR Package. Only saved if MVR Package is used in the MAW Package and the \texttt{FLOWING\_WELLS} is specified in the OPTIONS block. The multi-aquifer well number is written to (\texttt{ID1}) and (\texttt{ID2}). \\
+\texttt{CONSTANT-TO-MVR} & 6 & 1 / \texttt{nmawwells} & Calculated flow from a multi-aquifer well with STATUS set to CONSTANT that is transferred to the MVR Package. Only saved if MVR Package is used in the MAW Package. The multi-aquifer well number is written to (\texttt{ID1}) and (\texttt{ID1}). \\
 \texttt{AUXILIARY} & 6 & \texttt{naux}+1 / \texttt{nmawwells} & Auxiliary variables, if specified in the MAW Package, are saved to this flow term. The first entry of the \texttt{DATA2D} column has a value of zero. The multi-aquifer well number is written to (\texttt{ID1}) and (\texttt{ID2}).
 \label{table:binarymaw}
 \end{longtable}
@@ -674,6 +727,9 @@ The remaining flow terms in table \ref{table:gwebud} are all written using IMETH
 \endfoot
 \texttt{FLOW-JA-FACE} & 1 & intercell energy flow due to advection, conduction, and dispersion; array of size(NJA) \\
 \texttt{STORAGE-AQUEOUS} & 1 & energy aqueous storage; array of size (NCELLS) \\
+\texttt{STORAGE-SOLID} & 1 & energy solid storage; array of size (NCELLS) \\
+\texttt{DECAY-AQUEOUS} & 1 & energy aqueous decay; array of size (NCELLS) \\
+\texttt{DECAY-SOLID} & 1 & energy solid decay; array of size (NCELLS) \\
 \texttt{SOURCE-SINK MIX} & 6 & energy flow to and from SSM sources and sinks \\
 \texttt{CTP} & 6 & energy flow for constant-temperature cells \\
 \texttt{ESL} & 6 & energy flow for specified energy source loading cells \\
@@ -709,6 +765,8 @@ The remaining flow terms in table \ref{table:prtbud} are all written using IMETH
 \endfoot
 \texttt{FLOW-JA-FACE} & 1 & intercell particle mass flow; array of size (NJA) \\
 \texttt{PRP} & 6 & particle mass flow for particle releases \\
+\texttt{STORAGE} & 6 & particle mass flow for cell storage \\
+\texttt{TERMINATION} & 6 & terminating particle mass flow \\
 \label{table:prtbud}
 \end{longtable}
 

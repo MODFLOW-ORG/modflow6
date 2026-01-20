@@ -55,10 +55,19 @@
 \SECTION{Particle Tracking (PRT) Model Input and Output}
 \input{prt/prt.tex}
 
-%SWF Model Input Instructions
-% \newpage
-% \SECTION{Surface Water Flow (SWF) Model Input}
-% \input{swf/swf.tex}
+%CHF Model Input Instructions
+\ifdevelopmode
+\newpage
+\SECTION{Channel Flow (CHF) Model Input}
+\input{chf/chf.tex}
+\fi
+
+%OLF Model Input Instructions
+\ifdevelopmode
+\newpage
+\SECTION{Overland Flow (OLF) Model Input}
+\input{olf/olf.tex}
+\fi
 
 %Sparse Matrix Solution (IMS)
 \newpage
@@ -80,10 +89,21 @@
 \SECTION{Time-Variable Input}
 \input{gwf/tsi}
 
+%Stress Package Component (SPC) Utility Input Instructions
+\newpage
+\SECTION{Stress Package Component (SPC) Utility}
+\label{sec:spc}
+\input{utl_spc.tex}
+
 %Binary files
 \newpage
 \SECTION{Description of Binary Output Files}
 \input{framework/binaryoutput}
+
+%Instructions for running a simulation
+\newpage
+\SECTION{Extended MODFLOW}
+\input{extended_modflow.tex}
 
 \newpage
 \ifx\usgsdirector\undefined

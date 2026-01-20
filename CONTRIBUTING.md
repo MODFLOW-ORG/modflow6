@@ -45,11 +45,11 @@ We want to fix all issues as soon as possible, but we first need to reproduce an
 
 Please provide such an example. This saves maintainers time and ultimately allows us to fix more bugs. While we understand it might be difficult to isolate the essence of a problem, bugs can only be investigated or fixed if problems are accurately identified. Issues lacking sufficient information to reproduce may be closed.
 
-File an issue by filling out our [issue form](https://github.com/MODFLOW-USGS/modflow6/issues/new).
+File an issue by filling out our [issue form](https://github.com/MODFLOW-ORG/modflow6/issues/new).
 
 ### Questions
 
-Please do not open issues for general support questions as we want to keep GitHub issues for bug reports and feature requests. Questions can be asked on the [discussions page](https://github.com/MODFLOW-USGS/modflow6/discussions) under the Q&A category or on [Stack Overflow](https://stackoverflow.com/questions/tagged/modflow6) with tag `modflow6`.
+Please do not open issues for general support questions as we want to keep GitHub issues for bug reports and feature requests. Questions can be asked on the [discussions page](https://github.com/MODFLOW-ORG/modflow6/discussions) under the Q&A category or on [Stack Overflow](https://stackoverflow.com/questions/tagged/modflow6) with tag `modflow6`.
 
 We will systematically close all issues that are requests for general support.
 
@@ -64,8 +64,8 @@ If you would like to implement a new feature:
 
 To submit a pull request (PR):
 
-1. To avoid duplicating effort, [search](https://github.com/MODFLOW-USGS/modflow6/pulls) for an open or closed PR that relates to your submission.
-2. Fork the MODFLOW-USGS/modflow6 repo and make your changes in a new branch, following our style and commit message guidelines and [including appropriate test cases](./DEVELOPER.md#writing-tests).
+1. To avoid duplicating effort, [search](https://github.com/MODFLOW-ORG/modflow6/pulls) for an open or closed PR that relates to your submission.
+2. Fork the MODFLOW-ORG/modflow6 repo and make your changes in a new branch, following our style and commit message guidelines and [including appropriate test cases](./DEVELOPER.md#writing-tests).
 3. [Check the spelling and formatting](./DEVELOPER.md#formatting) of any modified or new Fortran source files, python files definition files, markdown, and LaTeX files.
 4. [Rebuild makefiles](./DEVELOPER.md#generating-makefiles) and update MSVS project files if you added, removed, or renamed any source files.
 5. [Run the full test suite](./DEVELOPER.md#running-tests) and make sure all tests pass.
@@ -92,7 +92,7 @@ MODFLOW 6 source code is formatted automatically with the [fprettify formatter](
 
 ### Style guide
 
-Automated tools like `fprettify` cannot directly address all style concerns. Please review our [style guide](https://modflow6.readthedocs.io/en/latest/styleguide.html) before submitting your code.
+Automated tools like `fprettify` cannot directly address all style concerns. Please review our [style guide](https://modflow6.readthedocs.io/en/latest/_dev/styleguide.html) before submitting your code.
 
 ## Commit messages
 
@@ -100,7 +100,7 @@ Adherence to commit message formatting rules results in consistent messages and 
 
 Each commit message consists of three components: **header** (required), **body** (optional) and **footer** (optional). The header has three subcomponents: **type** (required), **scope** (optional) and **subject** (required):
 
-See [the develop branch history](https://github.com/MODFLOW-USGS/modflow6/commits/develop) to get a sense for the commit style.
+See [the develop branch history](https://github.com/MODFLOW-ORG/modflow6/commits/develop) to get a sense for the commit style.
 
 ### Template
 

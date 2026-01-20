@@ -10,7 +10,7 @@ import flopy
 import numpy as np
 import pytest
 from framework import TestFramework
-from modflowapi import ModflowApi
+from modflow_devtools.markers import requires_pkg
 
 cases = ["libgwf_sto01"]
 
@@ -77,9 +77,7 @@ def get_model(ws, name, sy):
         memory_print_option="all",
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create iterative model solution and register the gwf model with it
     ims = flopy.mf6.ModflowIms(
@@ -150,6 +148,8 @@ def build_models(idx, test):
 
 
 def api_func(exe, idx, model_ws=None):
+    from modflowapi import ModflowApi
+
     name = cases[idx].upper()
     if model_ws is None:
         model_ws = "."
@@ -159,7 +159,7 @@ def api_func(exe, idx, model_ws=None):
     try:
         mf6 = ModflowApi(exe, working_directory=model_ws)
     except Exception as e:
-        print("Failed to load " + exe)
+        print("Failed to load " + str(exe))
         print("with message: " + str(e))
         return False, open(output_file_path).readlines()
 
@@ -205,6 +205,7 @@ def api_func(exe, idx, model_ws=None):
     return True, open(output_file_path).readlines()
 
 
+@requires_pkg("modflowapi")
 @pytest.mark.slow
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):

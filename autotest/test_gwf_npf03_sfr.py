@@ -81,9 +81,7 @@ def build_models(idx, test):
         sim_ws=ws,
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # set ims csv files
     csv0 = f"{name}.outer.ims.csv"
@@ -180,9 +178,7 @@ def build_models(idx, test):
         i1 = i0 + ncolst[jdx]
         hkt = hk[:, i0:i1]
 
-        gwf = flopy.mf6.ModflowGwf(
-            sim, modelname=mname, model_nam_file=f"{mname}.nam"
-        )
+        gwf = flopy.mf6.ModflowGwf(sim, modelname=mname, model_nam_file=f"{mname}.nam")
 
         dis = flopy.mf6.ModflowGwfdis(
             gwf,
@@ -200,9 +196,7 @@ def build_models(idx, test):
         ic = flopy.mf6.ModflowGwfic(gwf, strt=strt, filename=f"{mname}.ic")
 
         # node property flow
-        npf = flopy.mf6.ModflowGwfnpf(
-            gwf, save_flows=False, icelltype=0, k=hkt
-        )
+        npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=0, k=hkt)
 
         # chd files
         if jdx == 0:
@@ -288,9 +282,7 @@ def build_models(idx, test):
         # maw files
         if jdx == nmodels - 1:
             mpd = [[0, 0.25, bot, strt, "THIEM", 1, "MYWELL"]]
-            mcd = [
-                [0, 0, (0, 15, int(ncolst[jdx]) - 31), top, bot, 999.0, 999.0]
-            ]
+            mcd = [[0, 0, (0, 15, int(ncolst[jdx]) - 31), top, bot, 999.0, 999.0]]
             perioddata = [[0, "RATE", -1e-5]]
             maw = flopy.mf6.ModflowGwfmaw(
                 gwf,
@@ -325,9 +317,7 @@ def build_models(idx, test):
             gwf,
             budget_filerecord=f"{mname}.cbc",
             head_filerecord=f"{mname}.hds",
-            headprintrecord=[
-                ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-            ],
+            headprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
             saverecord=[("HEAD", "LAST")],
             printrecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
         )

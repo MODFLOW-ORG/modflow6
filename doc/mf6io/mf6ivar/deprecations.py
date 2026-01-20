@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional
 
 from packaging.version import Version
 
@@ -9,7 +9,7 @@ MF6IVAR_PATH = PROJ_ROOT_PATH / "doc" / "mf6io" / "mf6ivar"
 
 def get_deprecations(
     dfndir,
-) -> List[Tuple[Path, str, Version, Optional[Version]]]:
+) -> list[tuple[Path, str, Version, Optional[Version]]]:
     dfns = Path(dfndir).rglob("*.dfn")
     deps = {}
     for dfn in dfns:
@@ -40,12 +40,17 @@ def create_deprecations_file(dfndir, mddir, verbose):
         print(f"Found {len(deprecations)} deprecations, writing {deps_path}")
     with open(deps_path, "w") as f:
         s = "#### Deprecations\n\n"
-        s += "The following table lists deprecated options and the versions in which they were deprecated and (optionally) removed.\n\n"
+        s += (
+            "The following table lists deprecated options and the versions "
+            "in which they were deprecated and (optionally) removed.\n\n"
+        )
         if any(deprecations):
             s += "| Model-Package | Option | Deprecated | Removed |\n"
             s += "|:--------------|:-------|:-----------|:--------|\n"
             for file, option, deprecated, removed in deprecations:
-                s += f"| {file.stem} | {option} | {deprecated} | {removed if removed else ''} |\n"
+                deprecated = deprecated if deprecated else removed if removed else ""
+                removed = removed if removed else ""
+                s += f"| {file.stem} | {option} | {deprecated} | {removed} |\n"
             if len(s) > 0:
                 s += "\n"
         f.write(s)

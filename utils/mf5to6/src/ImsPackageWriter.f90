@@ -21,7 +21,7 @@ module ImsPackageWriterModule
   use PCGMODULE, only: mxiterpcg, MUTPCG, HCLOSEPCG, IPRPCG, iter1pcg => ITER1, &
                        RCLOSEPCG, RELAXPCG, DAMPPCG, npcondpcg => NPCOND
   use pcgn, only: pcgndat
-  use SimModule, only: ustop, store_error, store_note, store_warning
+  use SimPHMFModule, only: ustop, store_error, store_note, store_warning
   use SIPMODULE, only: mxitersip, hclosesip => HCLOSE, IPRSIP, acclsip => ACCL
   use UtilitiesModule, only: GreaterOf, GreatestOf
   !use XMDMODULE, only: LevelXmd => LEVEL, EpsrnXmd => EPSRN, NorthXmd => NORTH

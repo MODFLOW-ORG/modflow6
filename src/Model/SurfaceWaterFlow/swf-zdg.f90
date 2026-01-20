@@ -7,20 +7,16 @@
 module SwfZdgModule
   ! -- modules
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, DEM1, DONE, LENFTYPE, DNODATA, &
-                             LINELENGTH, DHALF, DTWOTHIRDS
+  use ConstantsModule, only: DZERO, LENFTYPE, DNODATA, DHALF
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, store_error_filename
   use MemoryHelperModule, only: create_mem_path
   use BndModule, only: BndType
   use BndExtModule, only: BndExtType
   use ObsModule, only: DefaultObsIdProcessor
-  use SmoothingModule, only: sQSaturation, sQSaturationDerivative
   use ObserveModule, only: ObserveType
   use TimeSeriesLinkModule, only: TimeSeriesLinkType, &
                                   GetTimeSeriesLinkFromList
-  use BlockParserModule, only: BlockParserType
-  use InputOutputModule, only: GetUnit, openfile
   use MatrixBaseModule
   use BaseDisModule, only: DisBaseType
   use Disv1dModule, only: Disv1dType
@@ -124,9 +120,6 @@ contains
     !
     ! -- store unit conversion
     zdgobj%unitconv = unitconv
-    !
-    ! -- return
-    return
   end subroutine zdg_create
 
   !> @ brief Allocate scalars
@@ -149,9 +142,6 @@ contains
     !
     ! -- Set values
     this%unitconv = DZERO
-    !
-    ! -- return
-    return
   end subroutine zdg_allocate_scalars
 
   !> @ brief Allocate arrays
@@ -186,9 +176,6 @@ contains
                      'SLOPE', this%input_mempath)
     call mem_checkin(this%rough, 'ROUGH', this%memoryPath, &
                      'ROUGH', this%input_mempath)
-    !
-    ! -- return
-    return
   end subroutine zdg_allocate_arrays
 
   !> @ brief Deallocate package memory
@@ -213,9 +200,6 @@ contains
     !
     ! -- scalars
     call mem_deallocate(this%unitconv)
-    !
-    ! -- return
-    return
   end subroutine zdg_da
 
   !> @ brief Source additional options for package
@@ -242,9 +226,6 @@ contains
     !
     ! -- log SWF specific options
     call this%log_zdg_options(found)
-    !
-    ! -- return
-    return
   end subroutine zdg_options
 
   !> @ brief Log SWF specific package options
@@ -269,9 +250,6 @@ contains
     ! -- close logging block
     write (this%iout, '(1x,a)') &
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
-    !
-    ! -- return
-    return
   end subroutine log_zdg_options
 
   !> @ brief SWF read and prepare
@@ -292,9 +270,6 @@ contains
     if (this%iprpak /= 0) then
       call this%write_list()
     end if
-    !
-    ! -- return
-    return
   end subroutine zdg_rp
 
   !> @ brief Formulate the package hcof and rhs terms.
@@ -357,8 +332,6 @@ contains
       this%rhs(i) = -q + derv * this%xnew(node)
 
     end do
-    !
-    return
   end subroutine zdg_cf
 
   ! !> @brief Calculate flow
@@ -426,9 +399,6 @@ contains
         call this%pakmvrobj%accumulate_qformvr(i, this%rhs(i))
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine zdg_fc
 
   !> @ brief Define the list label for the package
@@ -457,9 +427,6 @@ contains
     if (this%inamedbound == 1) then
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
-    !
-    ! -- return
-    return
   end subroutine define_listlabel
 
   ! -- Procedures related to observations
@@ -478,9 +445,6 @@ contains
     !
     ! -- set boolean
     zdg_obs_supported = .true.
-    !
-    ! -- return
-    return
   end function zdg_obs_supported
 
   !> @brief Define the observation types available in the package
@@ -502,9 +466,6 @@ contains
     !    for to-mvr observation type.
     call this%obs%StoreObsType('to-mvr', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => DefaultObsIdProcessor
-    !
-    ! -- return
-    return
   end subroutine zdg_df_obs
 
   !> @brief Save observations for the package
@@ -552,9 +513,6 @@ contains
         call this%obs%SaveOneSimval(obsrv, DNODATA)
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine zdg_bd_obs
 
   ! -- Procedure related to time series
@@ -582,9 +540,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine zdg_rp_ts
 
   !> @ brief Return a bound value
@@ -618,9 +573,6 @@ contains
       call store_error(errmsg)
       call store_error_filename(this%input_fname)
     end select
-    !
-    ! -- return
-    return
   end function zdg_bound_value
 
 end module SwfZdgModule

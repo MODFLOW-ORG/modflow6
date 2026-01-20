@@ -17,7 +17,7 @@ import os
 import flopy
 import pytest
 from framework import TestFramework
-from modflowapi import ModflowApi
+from modflow_devtools.markers import requires_pkg
 
 cases = ["libgwf_ifmod01"]
 name_left = "leftmodel"
@@ -69,9 +69,7 @@ def get_model(dir, name):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=dir
     )
 
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     ims = flopy.mf6.ModflowIms(
         sim,
@@ -88,9 +86,7 @@ def get_model(dir, name):
 
     # submodel on the left:
     left_chd = [
-        [(ilay, irow, 0), h_left]
-        for irow in range(nrow)
-        for ilay in range(nlay)
+        [(ilay, irow, 0), h_left] for irow in range(nrow) for ilay in range(nlay)
     ]
     chd_spd_left = {0: left_chd}
 
@@ -207,6 +203,8 @@ def build_models(idx, test):
 
 
 def api_func(exe, idx, model_ws=None):
+    from modflowapi import ModflowApi
+
     if model_ws is None:
         model_ws = "."
     output_file_path = os.path.join(model_ws, "mfsim.stdout")
@@ -214,7 +212,7 @@ def api_func(exe, idx, model_ws=None):
     try:
         mf6 = ModflowApi(exe, working_directory=model_ws)
     except Exception as e:
-        print("Failed to load " + exe)
+        print("Failed to load " + str(exe))
         print("with message: " + str(e))
         return False, open(output_file_path).readlines()
 
@@ -255,9 +253,7 @@ def check_interface_models(mf6):
     # XT3D flag should be set to 1
     mem_addr = mf6.get_var_address("IXT3D", ifm_name_left, "NPF")
     ixt3d = mf6.get_value_ptr(mem_addr)[0]
-    assert (
-        ixt3d == 1
-    ), f"Interface model for {name_left} should have XT3D enabled"
+    assert ixt3d == 1, f"Interface model for {name_left} should have XT3D enabled"
 
     # check if n2 > n1, then cell 1 is below 2
     mem_addr = mf6.get_var_address("TOP", ifm_name_left, "DIS")
@@ -265,9 +261,9 @@ def check_interface_models(mf6):
     mem_addr = mf6.get_var_address("BOT", ifm_name_left, "DIS")
     bot = mf6.get_value_ptr(mem_addr)
     zc = (bot + top) / 2
-    assert all(
-        [zc[i] >= zc[i + 1] for i in range(len(zc) - 1)]
-    ), f"Interface model for {name_left} contains incorrectly numbered cells"
+    assert all([zc[i] >= zc[i + 1] for i in range(len(zc) - 1)]), (
+        f"Interface model for {name_left} contains incorrectly numbered cells"
+    )
 
     # confirm some properties for the 'left' interface
     # model, looping over the models that contribute:
@@ -289,20 +285,21 @@ def check_interface_models(mf6):
                 k11_model = mf6.get_value_ptr(mem_addr)
                 mem_addr = mf6.get_var_address("K11", ifm_name_left, "NPF")
                 k11_interface = mf6.get_value_ptr(mem_addr)
-                assert (
-                    k11_model[local_id - 1] == k11_interface[iface_idx - 1]
-                ), "K11 in interface model does not match"
+                assert k11_model[local_id - 1] == k11_interface[iface_idx - 1], (
+                    "K11 in interface model does not match"
+                )
 
                 # DIS/AREA
                 mem_addr = mf6.get_var_address("AREA", name, "DIS")
                 area_model = mf6.get_value_ptr(mem_addr)
                 mem_addr = mf6.get_var_address("AREA", ifm_name_left, "DIS")
                 area_interface = mf6.get_value_ptr(mem_addr)
-                assert (
-                    area_model[local_id - 1] == area_interface[iface_idx - 1]
-                ), "AREA in interface model does not match"
+                assert area_model[local_id - 1] == area_interface[iface_idx - 1], (
+                    "AREA in interface model does not match"
+                )
 
 
+@requires_pkg("modflowapi")
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(

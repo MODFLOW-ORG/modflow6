@@ -31,7 +31,7 @@ module ObsWriterModule
   use OBSRIVMODULE,       only: NQRV, NQCRV, NQTRV, NQOBRV, NQCLRV, &
                                 otimerv=>OTIME, qcellrv=>QCELL, IURVOBSV
   use PreprocModule,      only: PreprocType
-  use SimModule,          only: store_error, store_note, store_warning, ustop
+  use SimPHMFModule,      only: store_error, store_note, store_warning, ustop
   use StressPeriodModule, only: StressPeriodType
   use UtilitiesModule,    only: get_extension
   use utl7module,         only: assign_ncharsizes_flow, build_obsname

@@ -197,9 +197,6 @@ contains
     !
     ! -- Create the obs package
     call obs_cr(exchange%obs, exchange%inobs)
-    !
-    ! -- Return
-    return
   end subroutine gwfexchange_create
 
   !> @ brief Define GWF GWF exchange
@@ -269,9 +266,6 @@ contains
     !
     ! -- validate
     call this%validate_exchange()
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_df
 
   !> @brief validate exchange data after reading
@@ -360,9 +354,6 @@ contains
         ' in both of the connected models.'
       call store_error(errmsg, terminate=.TRUE.)
     end if
-    !
-    ! -- Return
-    return
   end subroutine validate_exchange
 
   !> @ brief Add connections
@@ -390,9 +381,6 @@ contains
     if (this%ingnc > 0) then
       call this%gnc%gnc_ac(sparse)
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_ac
 
   !> @ brief Map connections
@@ -420,9 +408,6 @@ contains
     if (this%ingnc > 0) then
       call this%gnc%gnc_mc(matrix_sln)
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_mc
 
   !> @ brief Allocate and read
@@ -441,9 +426,6 @@ contains
     !
     ! -- Observation AR
     call this%obs%obs_ar()
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_ar
 
   !> @ brief Read and prepare
@@ -464,9 +446,6 @@ contains
     !
     ! -- Read and prepare for observations
     call this%gwf_gwf_rp_obs()
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_rp
 
   !> @ brief Advance
@@ -482,9 +461,6 @@ contains
     !
     ! -- Push simulated values to preceding time step
     call this%obs%obs_ad()
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_ad
 
   !> @ brief Calculate coefficients
@@ -503,9 +479,6 @@ contains
     ! -- Rewet cells across models using the wetdry parameters in each model's
     !    npf package, and the head in the connected model.
     call this%rewet(kiter)
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_cf
 
   !> @ brief Fill coefficients
@@ -574,9 +547,6 @@ contains
                              ictm2_opt=this%gwfmodel2%npf%icelltype)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_fc
 
   !> @ brief Fill Newton
@@ -683,9 +653,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_fn
 
   !> @ brief Calculate flow
@@ -708,9 +675,6 @@ contains
     !
     ! -- add exchange flows to model's flowja diagonal
     call this%gwf_gwf_add_to_flowja()
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_cq
 
   !> @brief Calculate flow rates for the exchanges and store them in a member
@@ -741,9 +705,6 @@ contains
       end if
       this%simvals(i) = rrate
     end do
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_calc_simvals
 
   !> @brief Add exchange flow to each model flowja diagonal position so that
@@ -779,9 +740,6 @@ contains
       end if
       !
     end do
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_add_to_flowja
 
   !> @brief Set flow rates to the edges in the models
@@ -891,9 +849,6 @@ contains
       end if
       !
     end do
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_set_flow_to_npf
 
   !> @ brief Budget
@@ -940,9 +895,6 @@ contains
     !
     ! -- Call mvr bd routine
     if (this%inmvr > 0) call this%mvr%mvr_bd()
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_bd
 
   !> @ brief gwf-gwf-chd-bd
@@ -1006,9 +958,6 @@ contains
       budterm(2, 1) = ratout
       call this%gwfmodel2%model_bdentry(budterm, budtxt, this%name)
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_chd_bd
 
   !> @ brief Budget save
@@ -1043,9 +992,6 @@ contains
     if (this%inobs /= 0) then
       call this%gwf_gwf_save_simvals()
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_bdsav
 
   subroutine gwf_gwf_bdsav_model(this, model)
@@ -1204,9 +1150,6 @@ contains
       end if
       !
     end do
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_bdsav_model
 
   !> @ brief Output
@@ -1278,9 +1221,6 @@ contains
     !
     ! -- OBS output
     call this%obs%obs_ot()
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_ot
 
   !> @ brief Source options
@@ -1381,9 +1321,6 @@ contains
     if (this%inewton > 0) then
       this%satomega = DEM6
     end if
-    !
-    ! -- Return
-    return
   end subroutine source_options
 
   !> @ brief Read ghost nodes
@@ -1438,9 +1375,6 @@ contains
     !
     ! -- close the file
     close (this%ingnc)
-    !
-    ! -- Return
-    return
   end subroutine read_gnc
 
   !> @ brief Read mover
@@ -1471,9 +1405,7 @@ contains
     call exg_mvr_cr(this%mvr, this%name, this%inmvr, iout, dis)
     this%mvr%model1 => this%v_model1
     this%mvr%model2 => this%v_model2
-    !
-    ! -- Return
-    return
+    this%mvr%suppress_fileout = this%is_datacopy
   end subroutine read_mvr
 
   !> @ brief Rewet
@@ -1525,9 +1457,6 @@ contains
       end if
       !
     end do
-    !
-    ! -- Return
-    return
   end subroutine rewet
 
   subroutine calc_cond_sat(this)
@@ -1615,9 +1544,6 @@ contains
       ! -- store csat in condsat
       this%condsat(iexg) = csat
     end do
-    !
-    ! -- Return
-    return
   end subroutine calc_cond_sat
 
   !> @ brief Calculate the conductance
@@ -1709,9 +1635,6 @@ contains
       this%cond(iexg) = cond
       !
     end do
-    !
-    ! -- Return
-    return
   end subroutine condcalc
 
   !> @ brief Allocate scalars
@@ -1743,9 +1666,6 @@ contains
     this%inmvr = 0
     this%inobs = 0
     this%satomega = DZERO
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @ brief Deallocate
@@ -1803,9 +1723,6 @@ contains
     !
     ! -- deallocate base
     call this%DisConnExchangeType%disconnex_da()
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_da
 
   !> @ brief Allocate arrays
@@ -1877,9 +1794,6 @@ contains
         end if
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine allocate_arrays
 
   !> @ brief Define observations
@@ -1896,9 +1810,6 @@ contains
     !    for gwf-gwf observation type.
     call this%obs%StoreObsType('flow-ja-face', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => gwf_gwf_process_obsID
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_df_obs
 
   !> @ brief Read and prepare observations
@@ -1970,9 +1881,6 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%obs%inputFilename)
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_rp_obs
 
   !> @ brief Final processing
@@ -1982,9 +1890,6 @@ contains
   subroutine gwf_gwf_fp(this)
     ! -- dummy
     class(GwfExchangeType) :: this !<  GwfExchangeType
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_fp
 
   !> @ brief Calculate flow
@@ -2003,9 +1908,6 @@ contains
     !
     ! -- Calculate flow between nodes in the two models
     qcalc = this%cond(iexg) * (this%gwfmodel2%x(n2) - this%gwfmodel1%x(n1))
-    !
-    ! -- Return
-    return
   end function qcalc
 
   !> @ brief Set symmetric flag
@@ -2029,9 +1931,6 @@ contains
     if (this%ingnc > 0) then
       if (this%gnc%iasym /= 0) iasym = 1
     end if
-    !
-    ! -- Return
-    return
   end function gwf_gwf_get_iasym
 
   !> @brief Return true when this exchange provides matrix
@@ -2055,9 +1954,6 @@ contains
         is_connected = .true.
       end if
     end select
-    !
-    ! -- Return
-    return
   end function gwf_gwf_connects_model
 
   !> @brief Should interface model be used for this exchange
@@ -2080,9 +1976,6 @@ contains
       inbuy_m1 = m%inbuy%get()
     end select
     use_im = use_im .or. (inbuy_m1 > 0)
-    !
-    ! -- Return
-    return
   end function
 
   !> @ brief Save simulated flow observations
@@ -2128,9 +2021,6 @@ contains
         end do
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_save_simvals
 
   !> @ brief Obs ID processor
@@ -2170,9 +2060,6 @@ contains
       !    is for a named exchange boundary or group of exchange boundaries.
       obsrv%intPak1 = NAMEDBOUNDFLAG
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwf_gwf_process_obsID
 
   !> @ brief Cast polymorphic object as exchange
@@ -2193,9 +2080,6 @@ contains
     class is (GwfExchangeType)
       res => obj
     end select
-    !
-    ! -- Return
-    return
   end function CastAsGwfExchange
 
   !> @ brief Get exchange from list
@@ -2214,9 +2098,6 @@ contains
     !
     obj => list%GetItem(idx)
     res => CastAsGwfExchange(obj)
-    !
-    ! -- Return
-    return
   end function GetGwfExchangeFromList
 
 end module GwfGwfExchangeModule

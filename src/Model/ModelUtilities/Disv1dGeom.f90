@@ -21,9 +21,6 @@ contains
     xdist = abs(vertices(1, ivert1) - vertices(1, ivert2))
     ydist = abs(vertices(2, ivert1) - vertices(2, ivert2))
     dist = sqrt(xdist * xdist + ydist * ydist)
-
-    ! -- return
-    return
   end function calcdist
 
   !> @brief Calculate distance between two vertices
@@ -48,7 +45,6 @@ contains
     vmag = sqrt(dx**2 + dy**2)
     xcomp = dx / vmag
     ycomp = dy / vmag
-    return
   end subroutine line_unit_vector
 
 end module Disv1dGeom

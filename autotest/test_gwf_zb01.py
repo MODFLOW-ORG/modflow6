@@ -118,9 +118,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     top = tops[idx]
@@ -250,10 +248,7 @@ def check_output(idx, test):
 
     # read data from csv file
     zbd = np.genfromtxt(
-        test.workspace / "zonebudget.csv",
-        names=True,
-        delimiter=",",
-        deletechars="",
+        test.workspace / "zonebudget.csv", names=True, delimiter=",", deletechars=""
     )
 
     # sum the data for all zones
@@ -290,8 +285,7 @@ def check_output(idx, test):
     for key in bud_lst:
         d[key] = 0.0
     cobj = flopy.utils.CellBudgetFile(
-        test.workspace / f"{os.path.basename(test.name)}.cbc",
-        precision="double",
+        test.workspace / f"{os.path.basename(test.name)}.cbc", precision="double"
     )
     kk = cobj.get_kstpkper()
     times = cobj.get_times()
@@ -328,9 +322,7 @@ def check_output(idx, test):
     msg = f"maximum absolute total-budget difference ({diffmax}) "
 
     # write summary
-    with open(
-        test.workspace / f"{os.path.basename(test.name)}.bud.cmp.out", "w"
-    ) as f:
+    with open(test.workspace / f"{os.path.basename(test.name)}.bud.cmp.out", "w") as f:
         for i in range(diff.shape[0]):
             if i == 0:
                 line = f"{'TIME':>10s}"
@@ -351,14 +343,10 @@ def check_output(idx, test):
     for i, (key0, key) in enumerate(zip(zone_lst, bud_lst)):
         diffzb[:, i] = zbsum[key0] - d[key]
     diffzbmax = np.abs(diffzb).max()
-    msg += (
-        f"\nmaximum absolute zonebudget-cell by cell difference ({diffzbmax}) "
-    )
+    msg += f"\nmaximum absolute zonebudget-cell by cell difference ({diffzbmax}) "
 
     # write summary
-    with open(
-        test.workspace / f"{os.path.basename(test.name)}.zbud.cmp.out", "w"
-    ) as f:
+    with open(test.workspace / f"{os.path.basename(test.name)}.zbud.cmp.out", "w") as f:
         for i in range(diff.shape[0]):
             if i == 0:
                 line = f"{'TIME':>10s}"

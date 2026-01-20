@@ -8,15 +8,15 @@ import os
 import flopy
 import numpy as np
 import pytest
-from framework import TestFramework
+from framework import DNODATA, TestFramework
 
 cases = ["gwf_uzf01a"]
 nlay, nrow, ncol = 100, 1, 1
 
+crs = "EPSG:26916"
 
-def build_models(idx, test):
-    name = cases[idx]
 
+def get_model(ws, name, array_input=False):
     perlen = [500.0]
     nper = len(perlen)
     nstp = [10]
@@ -37,15 +37,12 @@ def build_models(idx, test):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
 
     # build MODFLOW 6 files
-    ws = test.workspace
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
 
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create iterative model solution and register the gwf model with it
     nouter, ninner = 100, 10
@@ -77,6 +74,7 @@ def build_models(idx, test):
 
     dis = flopy.mf6.ModflowGwfdis(
         gwf,
+        crs=crs,
         nlay=nlay,
         nrow=nrow,
         ncol=ncol,
@@ -91,9 +89,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=False, icelltype=laytyp, k=hk
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=laytyp, k=hk)
     # storage
     sto = flopy.mf6.ModflowGwfsto(
         gwf,
@@ -105,16 +101,39 @@ def build_models(idx, test):
         transient={0: True},
     )
 
-    # ghb
-    ghbspdict = {
-        0: [[(nlay - 1, 0, 0), 1.5, 1.0]],
-    }
-    ghb = flopy.mf6.ModflowGwfghb(
-        gwf,
+    # ghb / ghbg
+    if array_input:
+        ghb_obs = {f"{name}.ghb.obs.csv": [("100_1_1", "GHB", (99, 0, 0))]}
+        bhead = np.full(nlay * nrow * ncol, DNODATA, dtype=float)
+        cond = np.full(nlay * nrow * ncol, DNODATA, dtype=float)
+        bhead[nlay - 1] = 1.5
+        cond[nlay - 1] = 1.0
+        ghb = flopy.mf6.ModflowGwfghbg(
+            gwf,
+            print_input=True,
+            print_flows=True,
+            bhead=bhead,
+            cond=cond,
+            save_flows=False,
+        )
+    else:
+        ghb_obs = {f"{name}.ghb.obs.csv": [("100_1_1", "GHB", (99, 0, 0))]}
+        ghbspdict = {
+            0: [[(nlay - 1, 0, 0), 1.5, 1.0]],
+        }
+        ghb = flopy.mf6.ModflowGwfghb(
+            gwf,
+            print_input=True,
+            print_flows=True,
+            stress_period_data=ghbspdict,
+            save_flows=False,
+        )
+
+    ghb.obs.initialize(
+        filename=f"{name}.ghb.obs",
+        digits=20,
         print_input=True,
-        print_flows=True,
-        stress_period_data=ghbspdict,
-        save_flows=False,
+        continuous=ghb_obs,
     )
 
     # note: for specifying lake number, use fortran indexing!
@@ -135,43 +154,13 @@ def build_models(idx, test):
     thti = thtr
     thts = sy
     eps = 4
-    uzf_pkdat = [
-        [
-            0,
-            (0, 0, 0),
-            1,
-            1,
-            sd,
-            vks,
-            thtr,
-            thts,
-            thti,
-            eps,
-            "uzf 001",
-        ]
-    ] + [
-        [
-            k,
-            (k, 0, 0),
-            0,
-            k + 1,
-            sd,
-            vks,
-            thtr,
-            thts,
-            thti,
-            eps,
-            f"uzf {k + 1:03d}",
-        ]
+    uzf_pkdat = [[0, (0, 0, 0), 1, 1, sd, vks, thtr, thts, thti, eps, "uzf 001"]] + [
+        [k, (k, 0, 0), 0, k + 1, sd, vks, thtr, thts, thti, eps, f"uzf {k + 1:03d}"]
         for k in range(1, nlay - 1)
     ]
     uzf_pkdat[-1][3] = -1
     infiltration = 2.01
-    uzf_spd = {
-        0: [
-            [0, infiltration, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        ]
-    }
+    uzf_spd = {0: [[0, infiltration, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]}
     uzf = flopy.mf6.ModflowGwfuzf(
         gwf,
         print_input=True,
@@ -203,22 +192,21 @@ def build_models(idx, test):
     obs_lst.append(["obs1", "head", (0, 0, 0)])
     obs_lst.append(["obs2", "head", (1, 0, 0)])
     obs_dict = {f"{name}.obs.csv": obs_lst}
-    obs = flopy.mf6.ModflowUtlobs(
-        gwf, pname="head_obs", digits=20, continuous=obs_dict
-    )
+    obs = flopy.mf6.ModflowUtlobs(gwf, pname="head_obs", digits=20, continuous=obs_dict)
 
-    return sim, None
+    return sim
 
 
-def check_output(idx, test):
-    name = test.name
-    ws = test.workspace
-
+def check_output(ws, name):
     # check binary grid file
     fname = os.path.join(ws, name + ".dis.grb")
     grbobj = flopy.mf6.utils.MfGrdFile(fname)
     ia = grbobj._datadict["IA"] - 1
     ja = grbobj._datadict["JA"] - 1
+    grb_crs = grbobj._datadict["CRS"]
+
+    # verify crs data string in grb version 2 file
+    assert grb_crs == crs
 
     upth = os.path.join(ws, name + ".uzf.bud")
     uobj = flopy.utils.CellBudgetFile(upth, precision="double")
@@ -257,13 +245,40 @@ def check_output(idx, test):
         )
 
 
+def build_models(idx, test):
+    # build MODFLOW 6 files
+    ws = test.workspace
+    name = cases[idx]
+    sim = get_model(ws, name)
+
+    # build comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    mc = get_model(ws, name, array_input=True)
+
+    return sim, mc
+
+
+def check_outputs(idx, test):
+    name = cases[idx]
+
+    # check output MODFLOW 6 files
+    ws = test.workspace
+    check_output(ws, name)
+
+    # check output comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    check_output(ws, name)
+
+
+@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        check=lambda t: check_outputs(idx, t),
         targets=targets,
+        compare="mf6",
     )
     test.run()

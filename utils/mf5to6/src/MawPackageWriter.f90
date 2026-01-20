@@ -11,7 +11,7 @@ module MawPackageWriterModule
   use GwfMnwSubs, only: GWF2MNW27AR, GWF2MNW27RP
   use LineListModule, only: same_lines, LineListType
   use PackageWriterModule, only: PackageWriterType
-  use SimModule, only: count_errors, store_error, store_warning, ustop
+  use SimPHMFModule, only: count_errors, store_error, store_warning, ustop
   use utl7module, only: U1DREL, U2DREL, &
                         urword, URDCOM,  &
                         ULSTRD

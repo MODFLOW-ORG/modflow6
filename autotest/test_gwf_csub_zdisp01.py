@@ -201,9 +201,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     zthick = [top - botm[0], botm[0] - botm[1], botm[1] - botm[2]]
@@ -285,22 +283,20 @@ def build_models(idx, test):
         packagedata=sub6,
     )
     orecarray = {}
-    tag = f"{3:02d}_{wrp[0] + 1:02d}_{wcp[0] + 1:02d}"
     oloc = (2, wrp[0], wcp[0])
+    ibloc = (449,)
     orecarray["csub_obs.csv"] = [
-        ("tcomp3", "interbed-compaction", tag),
+        ("tcomp3", "interbed-compaction", ibloc),
         ("sk-tcomp3", "coarse-compaction", oloc),
-        ("ibi-tcomp3", "inelastic-compaction", tag),
-        ("ibe-tcomp3", "elastic-compaction", tag),
+        ("ibi-tcomp3", "inelastic-compaction", ibloc),
+        ("ibe-tcomp3", "elastic-compaction", ibloc),
     ]
     csub_obs_package = csub.obs.initialize(
         filename=opth, digits=10, print_input=True, continuous=orecarray
     )
 
     # drain
-    drn = flopy.mf6.ModflowGwfdrn(
-        gwf, maxbound=maxdrd, stress_period_data=drd6
-    )
+    drn = flopy.mf6.ModflowGwfdrn(gwf, maxbound=maxdrd, stress_period_data=drd6)
 
     # wel file
     wel = flopy.mf6.ModflowGwfwel(
@@ -413,9 +409,7 @@ def check_output(idx, test):
     fn = f"{os.path.basename(test.name)}.total_comp.hds"
     fpth = os.path.join(test.workspace, "mfnwt", fn)
     try:
-        sobj = flopy.utils.HeadFile(
-            fpth, text="LAYER COMPACTION", verbose=False
-        )
+        sobj = flopy.utils.HeadFile(fpth, text="LAYER COMPACTION", verbose=False)
         tc0 = sobj.get_ts((2, wrp[0], wcp[0]))
     except:
         assert False, f'could not load data from "{fpth}"'
@@ -490,9 +484,7 @@ def check_output(idx, test):
     msg = f"maximum absolute total-budget difference ({diffmax}) "
 
     # write summary
-    fpth = os.path.join(
-        test.workspace, f"{os.path.basename(test.name)}.bud.cmp.out"
-    )
+    fpth = os.path.join(test.workspace, f"{os.path.basename(test.name)}.bud.cmp.out")
     with open(fpth, "w") as f:
         for i in range(diff.shape[0]):
             if i == 0:

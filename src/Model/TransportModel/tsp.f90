@@ -53,6 +53,8 @@ module TransportModelModule
     character(len=LENVARNAME) :: depvarunit = '' !< "mass" or "energy"
     character(len=LENVARNAME) :: depvarunitabbrev = '' !< "M" or "E"
 
+    integer(I4B), pointer :: idv_scale => null() ! x and rhs scaling flag
+
   contains
 
     ! -- public
@@ -68,15 +70,16 @@ module TransportModelModule
     procedure, public :: tsp_cc
     procedure, public :: tsp_cq
     procedure, public :: tsp_bd
-    procedure, public :: tsp_ot
+    procedure, public :: model_ot => tsp_ot
+    procedure, public :: tsp_ot_flow
+    procedure, public :: tsp_ot_dv
     procedure, public :: allocate_tsp_scalars
     procedure, public :: set_tsp_labels
     procedure, public :: ftype_check
+    procedure, public :: get_idv_scale => tsp_get_idv_scale
     ! -- private
     procedure, private :: tsp_ot_obs
-    procedure, private :: tsp_ot_flow
     procedure, private :: tsp_ot_flowja
-    procedure, private :: tsp_ot_dv
     procedure, private :: tsp_ot_bdsummary
     procedure, private :: create_tsp_packages
     procedure, private :: log_namfile_options
@@ -94,7 +97,7 @@ contains
     use MemoryHelperModule, only: create_mem_path
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
-    use GwfNamInputModule, only: GwfNamParamFoundType
+    use GwtNamInputModule, only: GwtNamParamFoundType
     use BudgetModule, only: budget_cr
     ! -- dummy
     class(TransportModelType) :: this
@@ -106,7 +109,7 @@ contains
     ! -- local
     character(len=LENMEMPATH) :: input_mempath
     character(len=LINELENGTH) :: lst_fname
-    type(GwfNamParamFoundType) :: found
+    type(GwtNamParamFoundType) :: found
     !
     ! -- Assign values
     this%filename = filename
@@ -123,7 +126,10 @@ contains
                        found%print_input)
     call mem_set_value(this%iprflow, 'PRINT_FLOWS', input_mempath, &
                        found%print_flows)
-    call mem_set_value(this%ipakcb, 'SAVE_FLOWS', input_mempath, found%save_flows)
+    call mem_set_value(this%ipakcb, 'SAVE_FLOWS', input_mempath, &
+                       found%save_flows)
+    call mem_set_value(this%idv_scale, 'IDV_SCALE', input_mempath, &
+                       found%idv_scale)
     !
     ! -- create the list file
     call this%create_lstfile(lst_fname, filename, found%list, &
@@ -144,9 +150,6 @@ contains
     !
     ! -- create model packages
     call this%create_tsp_packages(indis)
-    !
-    ! -- Return
-    return
   end subroutine tsp_cr
 
   !> @brief Generalized transport model define model
@@ -158,9 +161,6 @@ contains
   subroutine tsp_df(this)
     ! -- dummy
     class(TransportModelType) :: this
-    !
-    ! -- Return
-    return
   end subroutine tsp_df
 
   !> @brief Generalized transport model add connections
@@ -174,9 +174,6 @@ contains
     ! -- dummy
     class(TransportModelType) :: this
     type(sparsematrix), intent(inout) :: sparse
-    !
-    ! -- Return
-    return
   end subroutine tsp_ac
 
   !> @brief Generalized transport model map coefficients
@@ -189,9 +186,6 @@ contains
     ! -- dummy
     class(TransportModelType) :: this
     class(MatrixBaseType), pointer :: matrix_sln !< global system matrix
-    !
-    ! -- Return
-    return
   end subroutine tsp_mc
 
   !> @brief Generalized transport model allocate and read
@@ -203,9 +197,6 @@ contains
   subroutine tsp_ar(this)
     ! -- dummy
     class(TransportModelType) :: this
-    !
-    ! -- Return
-    return
   end subroutine tsp_ar
 
   !> @brief Generalized transport model read and prepare
@@ -216,9 +207,6 @@ contains
   subroutine tsp_rp(this)
     ! -- dummy
     class(TransportModelType) :: this
-    !
-    ! -- Return
-    return
   end subroutine tsp_rp
 
   !> @brief Generalized transport model time step advance
@@ -229,9 +217,6 @@ contains
   subroutine tsp_ad(this)
     ! -- dummy
     class(TransportModelType) :: this
-    !
-    ! -- Return
-    return
   end subroutine tsp_ad
 
   !> @brief Generalized transport model fill coefficients
@@ -245,9 +230,6 @@ contains
     integer(I4B), intent(in) :: kiter
     class(MatrixBaseType), pointer :: matrix_sln
     integer(I4B), intent(in) :: inwtflag
-    !
-    ! -- Return
-    return
   end subroutine tsp_fc
 
   !> @brief Generalized transport model final convergence check
@@ -265,9 +247,6 @@ contains
     character(len=LENPAKLOC), intent(inout) :: cpak
     integer(I4B), intent(inout) :: ipak
     real(DP), intent(inout) :: dpak
-    !
-    ! -- Return
-    return
   end subroutine tsp_cc
 
   !> @brief Generalized transport model calculate flows
@@ -280,9 +259,6 @@ contains
     class(TransportModelType) :: this
     integer(I4B), intent(in) :: icnvg
     integer(I4B), intent(in) :: isuppress_output
-    !
-    ! -- Return
-    return
   end subroutine tsp_cq
 
   !> @brief Generalized transport model budget
@@ -295,21 +271,17 @@ contains
     class(TransportModelType) :: this
     integer(I4B), intent(in) :: icnvg
     integer(I4B), intent(in) :: isuppress_output
-    !
-    ! -- Return
-    return
   end subroutine tsp_bd
 
   !> @brief Generalized transport model output routine
   !!
   !! Generalized transport model output
   !<
-  subroutine tsp_ot(this, inmst)
+  subroutine tsp_ot(this)
     ! -- modules
     use TdisModule, only: kstp, kper, tdis_ot, endofperiod
     ! -- dummy
     class(TransportModelType) :: this
-    integer(I4B), intent(in) :: inmst
     ! -- local
     integer(I4B) :: idvsave
     integer(I4B) :: idvprint
@@ -343,7 +315,7 @@ contains
     call this%tsp_ot_obs()
     !
     ! -- Save and print flows
-    call this%tsp_ot_flow(icbcfl, ibudfl, icbcun, inmst)
+    call this%tsp_ot_flow(icbcfl, ibudfl, icbcun)
     !
     ! -- Save and print dependent variables
     call this%tsp_ot_dv(idvsave, idvprint, ipflag)
@@ -359,9 +331,6 @@ contains
     if (this%icnvg == 0) then
       write (this%iout, fmtnocnvg) kstp, kper
     end if
-    !
-    ! -- Return
-    return
   end subroutine tsp_ot
 
   !> @brief Generalized transport model output routine
@@ -389,13 +358,12 @@ contains
   !!
   !! Save and print flows
   !<
-  subroutine tsp_ot_flow(this, icbcfl, ibudfl, icbcun, inmst)
+  subroutine tsp_ot_flow(this, icbcfl, ibudfl, icbcun)
     ! -- dummy
     class(TransportModelType) :: this
     integer(I4B), intent(in) :: icbcfl
     integer(I4B), intent(in) :: ibudfl
     integer(I4B), intent(in) :: icbcun
-    integer(I4B), intent(in) :: inmst
     ! -- local
     class(BndType), pointer :: packobj
     integer(I4B) :: ip
@@ -474,12 +442,9 @@ contains
     if (ibinun /= 0) then
       call this%dis%record_connection_array(flowja, ibinun, this%iout)
     end if
-    !
-    ! -- Return
-    return
   end subroutine tsp_ot_flowja
 
-  !> @brief Generalized tranpsort model output routine
+  !> @brief Generalized transport model output routine
   !!
   !! Loop through attached packages saving and printing dependent variables
   !<
@@ -499,12 +464,9 @@ contains
     !
     ! -- Save head and print head
     call this%oc%oc_ot(ipflag)
-    !
-    ! -- Return
-    return
   end subroutine tsp_ot_dv
 
-  !> @brief Generalized tranpsort model output budget summary
+  !> @brief Generalized transport model output budget summary
   !!
   !! Loop through attached packages and write budget summaries
   !<
@@ -536,9 +498,6 @@ contains
     !
     ! -- Write to budget csv
     call this%budget%writecsv(totim)
-    !
-    ! -- Return
-    return
   end subroutine tsp_ot_bdsummary
 
   !> @brief Allocate scalar variables for transport model
@@ -564,7 +523,8 @@ contains
     call mem_allocate(this%inoc, 'INOC ', this%memoryPath)
     call mem_allocate(this%inobs, 'INOBS', this%memoryPath)
     call mem_allocate(this%eqnsclfac, 'EQNSCLFAC', this%memoryPath)
-    !
+    call mem_allocate(this%idv_scale, 'IDV_SCALE', this%memoryPath)
+
     this%inic = 0
     this%infmi = 0
     this%inmvt = 0
@@ -573,9 +533,7 @@ contains
     this%inoc = 0
     this%inobs = 0
     this%eqnsclfac = DZERO
-    !
-    ! -- Return
-    return
+    this%idv_scale = 0
   end subroutine allocate_tsp_scalars
 
   !> @brief Define the labels corresponding to the flavor of
@@ -602,9 +560,6 @@ contains
     !
     ! -- Set the units abbreviation
     this%depvarunitabbrev = depvarunitabbrev
-    !
-    ! -- Return
-    return
   end subroutine set_tsp_labels
 
   !> @brief Deallocate memory
@@ -627,12 +582,9 @@ contains
     call mem_deallocate(this%inoc)
     call mem_deallocate(this%inobs)
     call mem_deallocate(this%eqnsclfac)
-    !
-    ! -- Return
-    return
   end subroutine tsp_da
 
-  !> @brief Generalized tranpsort model routine
+  !> @brief Generalized transport model routine
   !!
   !! Check to make sure required input files have been specified
   !<
@@ -669,31 +621,19 @@ contains
       call store_error(errmsg)
       call store_error_filename(this%filename)
     end if
-    !
-    ! -- Return
-    return
   end subroutine ftype_check
 
   !> @brief Write model name file options to list file
   !<
   subroutine log_namfile_options(this, found)
     ! -- modules
-    use GwfNamInputModule, only: GwfNamParamFoundType
+    use GwtNamInputModule, only: GwtNamParamFoundType
     ! -- dummy
     class(TransportModelType) :: this
-    type(GwfNamParamFoundType), intent(in) :: found
+    type(GwtNamParamFoundType), intent(in) :: found
     !
     write (this%iout, '(1x,a)') 'NAMEFILE OPTIONS:'
     !
-    if (found%newton) then
-      write (this%iout, '(4x,a)') &
-        'NEWTON-RAPHSON method enabled for the model.'
-      if (found%under_relaxation) then
-        write (this%iout, '(4x,a,a)') &
-          'NEWTON-RAPHSON UNDER-RELAXATION based on the bottom ', &
-          'elevation of the model will be applied to the model.'
-      end if
-    end if
     !
     if (found%print_input) then
       write (this%iout, '(4x,a)') 'STRESS PACKAGE INPUT WILL BE PRINTED '// &
@@ -709,11 +649,16 @@ contains
       write (this%iout, '(4x,a)') &
         'FLOWS WILL BE SAVED TO BUDGET FILE SPECIFIED IN OUTPUT CONTROL'
     end if
+
+    if (found%idv_scale) then
+      write (this%iout, '(2(3x,a,/),3x,a,/,9x,a,/)') &
+        'X and RHS will be scaled to avoid very large positive or negative', &
+        'dependent variable values in the model IMS package.', &
+        'NOTE: Specified outer and inner DVCLOSE values in the model IMS &
+        &package', 'will be relative closure criteria.'
+    end if
     !
     write (this%iout, '(1x,a)') 'END NAMEFILE OPTIONS:'
-    !
-    ! -- Return
-    return
   end subroutine log_namfile_options
 
   !> @brief Source package info and begin to process
@@ -753,7 +698,11 @@ contains
     character(len=LENMEMPATH) :: mempath
     integer(I4B), pointer :: inunit
     integer(I4B) :: n
+    character(len=LENMEMPATH) :: mempathadv = ''
+    character(len=LENMEMPATH) :: mempathfmi = ''
     character(len=LENMEMPATH) :: mempathic = ''
+    character(len=LENMEMPATH) :: mempathoc = ''
+    character(len=LENMEMPATH) :: mempathssm = ''
     !
     ! -- Initialize
     indis = 0
@@ -790,38 +739,50 @@ contains
         this%inic = 1
         mempathic = mempath
       case ('FMI6')
-        this%infmi = inunit
+        this%infmi = 1
+        mempathfmi = mempath
       case ('MVT6', 'MVE6')
         this%inmvt = inunit
       case ('ADV6')
-        this%inadv = inunit
+        this%inadv = 1
+        mempathadv = mempath
       case ('SSM6')
-        this%inssm = inunit
+        this%inssm = 1
+        mempathssm = mempath
       case ('OC6')
-        this%inoc = inunit
+        this%inoc = 1
+        mempathoc = mempath
       case ('OBS6')
         this%inobs = inunit
-        !case default
-        ! TODO
+      case default
       end select
     end do
     !
     ! -- Create packages that are tied directly to model
     call ic_cr(this%ic, this%name, mempathic, this%inic, this%iout, this%dis, &
                this%depvartype)
-    call fmi_cr(this%fmi, this%name, this%infmi, this%iout, this%eqnsclfac, &
-                this%depvartype)
-    call adv_cr(this%adv, this%name, this%inadv, this%iout, this%fmi, &
-                this%eqnsclfac)
-    call ssm_cr(this%ssm, this%name, this%inssm, this%iout, this%fmi, &
+    call fmi_cr(this%fmi, this%name, mempathfmi, this%infmi, this%iout, &
                 this%eqnsclfac, this%depvartype)
+    call adv_cr(this%adv, this%name, mempathadv, this%inadv, this%iout, &
+                this%fmi, this%eqnsclfac)
+    call ssm_cr(this%ssm, this%name, mempathssm, this%inssm, this%iout, &
+                this%fmi, this%eqnsclfac, this%depvartype)
     call mvt_cr(this%mvt, this%name, this%inmvt, this%iout, this%fmi, &
                 this%eqnsclfac, this%depvartype)
-    call oc_cr(this%oc, this%name, this%inoc, this%iout)
+    call oc_cr(this%oc, this%name, mempathoc, this%inoc, this%iout)
     call tsp_obs_cr(this%obs, this%inobs, this%depvartype)
-    !
-    ! -- Return
-    return
   end subroutine create_tsp_packages
+
+  !> @brief return 1 if option to normalize the x and rhs has been specified.
+  !! Otherwise return 0.
+  !<
+  function tsp_get_idv_scale(this) result(idv_scale)
+    class(TransportModelType) :: this
+    ! -- local
+    integer(I4B) :: idv_scale
+    !
+    ! -- Start by setting iasym to zero
+    idv_scale = this%idv_scale
+  end function tsp_get_idv_scale
 
 end module TransportModelModule

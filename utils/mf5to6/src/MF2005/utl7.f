@@ -9,7 +9,7 @@
         use OpenSpecModule, only: ACCESS, ACTION, FORM
         use PRECUTLSMOD, only: GET_BINARY_HEAD_DATASET, HEADPRECISION, 
      &                         GET_BINARY_FILE_LENGTH
-        use SimModule, only: store_error, ustop
+        use SimPHMFModule, only: store_error, ustop
         
         private
         public :: URWORD, UPCASE, U1DREL, U2DINT, U2DREL, USTOPx

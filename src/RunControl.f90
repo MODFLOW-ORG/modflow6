@@ -5,6 +5,7 @@ module RunControlModule
   use MapperModule
   use ListsModule, only: basesolutionlist
   use NumericalSolutionModule, only: NumericalSolutionType
+  use ProfilerModule
   implicit none
   private
 
@@ -19,6 +20,7 @@ module RunControlModule
     procedure :: at_stage => ctrl_at_stage
     procedure :: finish => ctrl_finish
     procedure :: after_con_cr => ctrl_after_con_cr
+
     ! private
     procedure, private :: init_handler
     procedure, private :: before_con_df
@@ -55,6 +57,13 @@ contains
     ! -- Write memory usage, elapsed time and terminate
     call mem_write_usage(iout)
     call mem_da()
+
+    ! stop and print timings
+    call g_prof%stop(g_prof%tmr_finalize)
+    call g_prof%stop(g_prof%tmr_run)
+    call g_prof%print(iout)
+    call g_prof%destroy()
+
     call elapsed_time(iout, 1)
     call final_message()
 

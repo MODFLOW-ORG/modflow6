@@ -1,0 +1,12 @@
+BEGIN options
+END options
+
+BEGIN partitions
+# mname   MPI-rank
+    model_0     0
+    model_1     0
+    model_2     1
+    model_3     2
+    model_4     3
+    model_5     3
+END partitions

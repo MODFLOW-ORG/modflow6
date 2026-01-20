@@ -263,9 +263,6 @@ contains
     packobj%iscloc = 0 ! not supported
     packobj%isadvpak = 1
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
-    !
-    ! -- Return
-    return
   end subroutine maw_create
 
   !> @brief Allocate scalar members
@@ -319,9 +316,6 @@ contains
     this%cbcauxitems = 1
     this%idense = 0
     this%ivsc = 0
-    !
-    ! -- Return
-    return
   end subroutine maw_allocate_scalars
 
   !> @brief Allocate well arrays
@@ -519,9 +513,6 @@ contains
     !
     ! -- allocate viscratios to size 0
     call mem_allocate(this%viscratios, 2, 0, 'VISCRATIOS', this%memoryPath)
-    !
-    ! -- Return
-    return
   end subroutine maw_allocate_well_conn_arrays
 
   !> @brief Allocate arrays
@@ -535,9 +526,6 @@ contains
     !
     ! -- call standard BndType allocate scalars
     call this%BndType%allocate_arrays()
-    !
-    ! -- Return
-    return
   end subroutine maw_allocate_arrays
 
   !> @brief Read the packagedata for this package
@@ -649,8 +637,14 @@ contains
         call this%parser%GetStringCaps(keyword)
         if (keyword == 'SPECIFIED') then
           ieqn = 0
-        else if (keyword == 'THEIM' .or. keyword == 'THIEM') then
+        else if (keyword == 'THIEM') then
           ieqn = 1
+        else if (keyword == 'THEIM') then ! # codespell:ignore
+          ieqn = 1
+          write (warnmsg, '(a,a,a,a,a,a)') &
+            "CONDEQN in '", trim(this%packName), "' should be ", &
+            "corrected from '", trim(keyword), "' to 'THIEM'."
+          call store_warning(warnmsg)
         else if (keyword == 'SKIN') then
           ieqn = 2
         else if (keyword == 'CUMULATIVE') then
@@ -790,9 +784,6 @@ contains
     deallocate (ngwfnodes)
     deallocate (radius)
     deallocate (bottom)
-    !
-    ! -- Return
-    return
   end subroutine maw_read_wells
 
   !> @brief Read the dimensions for this package
@@ -1038,9 +1029,6 @@ contains
     if (count_errors() > 0) then
       call this%parser%StoreErrorUnit()
     end if
-    !
-    ! -- Return
-    return
   end subroutine maw_read_well_connections
 
   !> @brief Read the dimensions for this package
@@ -1114,9 +1102,6 @@ contains
     !
     ! -- setup the head table object
     call this%maw_setup_tableobj()
-    !
-    ! -- Return
-    return
   end subroutine maw_read_dimensions
 
   !> @brief Read the initial parameters for this package
@@ -1344,9 +1329,6 @@ contains
     if (count_errors() > 0) then
       call store_error_unit(this%inunit)
     end if
-    !
-    ! -- Return
-    return
   end subroutine maw_read_initial_attr
 
   !> @brief Set a stress period attribute for mawweslls(imaw) using keywords
@@ -1479,9 +1461,6 @@ contains
       call store_error(errmsg)
     end select
 
-    !
-    ! -- Return
-    return
   end subroutine maw_set_stressperiod
 
   !> @brief Issue a parameter error for mawweslls(imaw)
@@ -1504,9 +1483,6 @@ contains
         keyword, ' for MAW well', imaw, msg
     end if
     call store_error(errmsg)
-    !
-    ! -- Return
-    return
   end subroutine maw_set_attribute_error
 
   !> @brief Issue parameter errors for mawwells(imaw)
@@ -1578,8 +1554,6 @@ contains
     end do
     ! -- reset check_attr
     this%check_attr = 0
-    ! -- Return
-    return
   end subroutine maw_check_attributes
 
   !> @brief Add package connection to matrix
@@ -1610,9 +1584,6 @@ contains
       end do
 
     end do
-    !
-    ! -- Return
-    return
   end subroutine maw_ac
 
   !> @brief Map package connection to matrix
@@ -1671,9 +1642,6 @@ contains
         ipos = ipos + 1
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine maw_mc
 
   !> @brief Set options specific to MawType.
@@ -1683,7 +1651,7 @@ contains
   subroutine maw_read_options(this, option, found)
     use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL
     use OpenSpecModule, only: access, form
-    use InputOutputModule, only: urword, getunit, openfile
+    use InputOutputModule, only: urword, assign_iounit, openfile
     ! -- dummy
     class(MawType), intent(inout) :: this
     character(len=*), intent(inout) :: option
@@ -1712,7 +1680,7 @@ contains
       call this%parser%GetStringCaps(keyword)
       if (keyword == 'FILEOUT') then
         call this%parser%GetString(fname)
-        this%iheadout = getunit()
+        call assign_iounit(this%iheadout, this%inunit, "HEAD fileout")
         call openfile(this%iheadout, this%iout, fname, 'DATA(BINARY)', &
                       form, access, 'REPLACE', mode_opt=MNORMAL)
         write (this%iout, fmtmawbin) 'HEAD', trim(adjustl(fname)), &
@@ -1725,7 +1693,7 @@ contains
       call this%parser%GetStringCaps(keyword)
       if (keyword == 'FILEOUT') then
         call this%parser%GetString(fname)
-        this%ibudgetout = getunit()
+        call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
         call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
                       form, access, 'REPLACE', mode_opt=MNORMAL)
         write (this%iout, fmtmawbin) 'BUDGET', trim(adjustl(fname)), &
@@ -1738,7 +1706,7 @@ contains
       call this%parser%GetStringCaps(keyword)
       if (keyword == 'FILEOUT') then
         call this%parser%GetString(fname)
-        this%ibudcsv = getunit()
+        call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
         call openfile(this%ibudcsv, this%iout, fname, 'CSV', &
                       filstat_opt='REPLACE')
         write (this%iout, fmtmawbin) 'BUDGET CSV', trim(adjustl(fname)), &
@@ -1792,9 +1760,6 @@ contains
       ! -- No options found
       found = .false.
     end select
-    !
-    ! -- Return
-    return
   end subroutine maw_read_options
 
   !> @brief Allocate and Read
@@ -1825,9 +1790,6 @@ contains
       allocate (this%pakmvrobj)
       call this%pakmvrobj%ar(this%nmawwells, this%nmawwells, this%memoryPath)
     end if
-    !
-    ! -- Return
-    return
   end subroutine maw_ar
 
   !> @brief Read and Prepare
@@ -2114,9 +2076,6 @@ contains
         ibnd = ibnd + 1
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine maw_rp
 
   !> @brief Add package connection to matrix
@@ -2183,9 +2142,6 @@ contains
     !    simulation time from "current" to "preceding" and reset
     !    "current" value.
     call this%obs%obs_ad()
-    !
-    ! -- Return
-    return
   end subroutine maw_ad
 
   !> @brief Formulate the HCOF and RHS terms
@@ -2199,9 +2155,6 @@ contains
     !
     ! -- Calculate maw conductance and update package RHS and HCOF
     call this%maw_cfupdate()
-    !
-    ! -- Return
-    return
   end subroutine maw_cf
 
   !> @brief Copy rhs and hcof into solution rhs and amat
@@ -2354,9 +2307,6 @@ contains
         idx = idx + 1
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine maw_fc
 
   !> @brief Fill newton terms
@@ -2519,9 +2469,6 @@ contains
         idx = idx + 1
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine maw_fn
 
   !> @brief Calculate under-relaxation of groundwater flow model MAW Package heads
@@ -2562,9 +2509,6 @@ contains
         dx(n) = DZERO
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine maw_nur
 
   !> @brief Calculate flows
@@ -2682,9 +2626,6 @@ contains
     !
     ! -- fill the budget object
     call this%maw_fill_budobj()
-    !
-    ! -- Return
-    return
   end subroutine maw_cq
 
   !> @brief Write flows to binary file and/or print flows to budget
@@ -2721,13 +2662,10 @@ contains
                                   pertim, totim, this%iout)
     end if
     !
-    ! -- Print lake flows table
+    ! -- Print maw flows table
     if (ibudfl /= 0 .and. this%iprflow /= 0) then
       call this%budobj%write_flowtable(this%dis, kstp, kper)
     end if
-    !
-    ! -- Return
-    return
   end subroutine maw_ot_package_flows
 
   !> @brief Save maw-calculated values to binary file
@@ -2783,9 +2721,6 @@ contains
         call this%headtab%add_term(this%xnewpak(n))
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine maw_ot_dv
 
   !> @brief Write MAW budget to listing file
@@ -2801,9 +2736,6 @@ contains
     integer(I4B), intent(in) :: ibudfl !< flag indicating budget should be written
     !
     call this%budobj%write_budtable(kstp, kper, iout, ibudfl, totim, delt)
-    !
-    ! -- Return
-    return
   end subroutine maw_ot_bdsummary
 
   !> @brief Deallocate memory
@@ -2920,9 +2852,6 @@ contains
     !
     ! -- call standard BndType deallocate
     call this%BndType%bnd_da()
-    !
-    ! -- Return
-    return
   end subroutine maw_da
 
   !> @brief Define the list heading that is written to iout when PRINT_INPUT
@@ -2947,9 +2876,6 @@ contains
     if (this%inamedbound == 1) then
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
-    !
-    ! -- Return
-    return
   end subroutine define_listlabel
 
   !> @brief Set pointers to model arrays and variables so that a package has
@@ -2987,9 +2913,6 @@ contains
     do n = 1, this%nmawwells
       this%xnewpak(n) = DEP20
     end do
-    !
-    ! -- Return
-    return
   end subroutine maw_set_pointers
 
   ! -- Procedures related to observations (type-bound)
@@ -3002,9 +2925,6 @@ contains
     class(MawType) :: this
     !
     maw_obs_supported = .true.
-    !
-    ! -- Return
-    return
   end function maw_obs_supported
 
   !> @brief Store observation type supported by MAW package
@@ -3071,9 +2991,6 @@ contains
     !    for fw-conductance observation type.
     call this%obs%StoreObsType('fw-conductance', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => maw_process_obsID
-    !
-    ! -- Return
-    return
   end subroutine maw_df_obs
 
   !> @brief Calculate observations this time step and call
@@ -3208,9 +3125,6 @@ contains
     if (this%ioutredflowcsv > 0) then
       call this%maw_redflow_csv_write()
     end if
-    !
-    ! -- Return
-    return
   end subroutine maw_bd_obs
 
   !> @brief Process each observation
@@ -3337,9 +3251,6 @@ contains
         call store_error_unit(this%inunit)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine maw_rp_obs
 
   !
@@ -3394,9 +3305,6 @@ contains
     end if
     ! -- store multi-aquifer well number (NodeNumber)
     obsrv%NodeNumber = nn1
-    !
-    ! -- Return
-    return
   end subroutine maw_process_obsID
 
   !
@@ -3420,9 +3328,6 @@ contains
       this%ioutredflowcsv
     write (this%ioutredflowcsv, '(a)') &
       'time,period,step,MAWnumber,rate-requested,rate-actual,maw-reduction'
-    !
-    ! -- Return
-    return
   end subroutine maw_redflow_csv_init
 
   !> @brief MAW reduced flows only when & where they occur
@@ -3450,9 +3355,6 @@ contains
           totim, kper, kstp, n, this%rate(n), this%ratesim(n), v
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine maw_redflow_csv_write
 
   !> @brief Calculate the appropriate saturated conductance to use based on
@@ -3594,7 +3496,7 @@ contains
       c = hks * pavg * tthkw / slen
     end if
     !
-    ! -- calculate final conductance for Theim (1), Skin (2), and
+    ! -- calculate final conductance for Thiem (1), Skin (2), and
     ! and cumulative Thiem and skin equations (3)
     if (this%ieqn(i) < 4) then
       if (lc1 + lc2 /= DZERO) then
@@ -3618,9 +3520,6 @@ contains
     !
     ! -- set saturated conductance
     this%satcond(jpos) = c
-    !
-    ! -- Return
-    return
   end subroutine maw_calculate_satcond
 
   !> @brief Calculate the saturation between the aquifer maw well_head
@@ -3680,9 +3579,6 @@ contains
     else
       sat = DONE
     end if
-    !
-    ! -- Return
-    return
   end subroutine maw_calculate_saturation
 
   !> @brief Calculate matrix terms for a multi-aquifer well connection. Terms
@@ -3749,9 +3645,9 @@ contains
     if (this%ivsc == 1) then
       ! flow out of well (flow is negative)
       if (flow < 0) then
-        vscratio = this%viscratios(1, igwfnode)
+        vscratio = this%viscratios(1, n)
       else
-        vscratio = this%viscratios(2, igwfnode)
+        vscratio = this%viscratios(2, n)
       end if
     end if
     !
@@ -3837,9 +3733,6 @@ contains
       call this%maw_calculate_density_exchange(jpos, hmaw, hgwf, cmaw, &
                                                bmaw, flow, term, cterm)
     end if
-    !
-    ! -- Return
-    return
   end subroutine maw_calculate_conn_terms
 
   !> @brief Calculate well pumping rate based on constraints
@@ -3994,7 +3887,7 @@ contains
       else
         scale = DONE
         !
-        ! -- Apply rate scaling for an injection well by reducting the
+        ! -- Apply rate scaling for an injection well by reducing the
         !    injection rate as hmaw rises above the pump elevation.  The rate
         !    will approach zero as hmaw approaches pumpelev + reduction_length.
         if (this%reduction_length(n) /= DEP20) then
@@ -4005,9 +3898,6 @@ contains
         q = scale * rate
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine maw_calculate_wellq
 
   !> @brief Calculate groundwater inflow to a maw well
@@ -4045,9 +3935,9 @@ contains
     if (this%ivsc == 1) then
       ! flow out of well (flow is negative)
       if (qnet < 0) then
-        vscratio = this%viscratios(1, igwfnode)
+        vscratio = this%viscratios(1, n)
       else
-        vscratio = this%viscratios(2, igwfnode)
+        vscratio = this%viscratios(2, n)
       end if
     end if
     !
@@ -4094,9 +3984,6 @@ contains
       end if
       qnet = qnet + cmaw * (hgwf - hv)
     end do
-    !
-    ! -- Return
-    return
   end subroutine maw_calculate_qpot
 
   !> @brief Update MAW satcond and package rhs and hcof
@@ -4152,9 +4039,6 @@ contains
         ibnd = ibnd + 1
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine maw_cfupdate
 
   !> @brief Set up the budget object that stores all the maw flows
@@ -4356,9 +4240,6 @@ contains
     if (this%iprflow /= 0) then
       call this%budobj%flowtable_df(this%iout)
     end if
-    !
-    ! -- Return
-    return
   end subroutine maw_setup_budobj
 
   !> @brief Copy flow terms into this%budobj
@@ -4570,9 +4451,6 @@ contains
     !
     ! --Terms are filled, now accumulate them for this time step
     call this%budobj%accumulate_terms()
-    !
-    ! -- Return
-    return
   end subroutine maw_fill_budobj
 
   !> @brief Set up the table object that is used to write the maw head data
@@ -4620,9 +4498,6 @@ contains
       text = 'HEAD'
       call this%headtab%initialize_column(text, 12, alignment=TABCENTER)
     end if
-    !
-    ! -- Return
-    return
   end subroutine maw_setup_tableobj
 
   !> @brief Get position of value in connection data
@@ -4638,9 +4513,6 @@ contains
     !
     ! -- set jpos
     jpos = this%iaconn(n) + j - 1
-    !
-    ! -- Return
-    return
   end function get_jpos
 
   !> @brief Get the gwfnode for connection
@@ -4658,9 +4530,6 @@ contains
     ! -- set jpos
     jpos = this%get_jpos(n, j)
     igwfnode = this%gwfnodes(jpos)
-    !
-    ! -- Return
-    return
   end function get_gwfnode
 
   !> @brief Activate density terms
@@ -4683,9 +4552,6 @@ contains
     end do
     write (this%iout, '(/1x,a)') 'DENSITY TERMS HAVE BEEN ACTIVATED FOR MAW &
       &PACKAGE: '//trim(adjustl(this%packName))
-    !
-    ! -- Return
-    return
   end subroutine maw_activate_density
 
   !> @brief Activate viscosity terms
@@ -4712,9 +4578,6 @@ contains
     end do
     write (this%iout, '(/1x,a)') 'VISCOSITY HAS BEEN ACTIVATED FOR MAW &
       &PACKAGE: '//trim(adjustl(this%packName))
-    !
-    ! -- Return
-    return
   end subroutine maw_activate_viscosity
 
   !> @brief Calculate the groundwater-maw density exchange terms
@@ -4798,9 +4661,6 @@ contains
       !
       ! -- Flow should be zero so do nothing
     end if
-    !
-    ! -- Return
-    return
   end subroutine maw_calculate_density_exchange
 
 end module MawModule

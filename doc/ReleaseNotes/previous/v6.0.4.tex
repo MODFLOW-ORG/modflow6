@@ -1,5 +1,6 @@
-	\subsection{Version mf6.0.4--Feb. 27, 2019}
+	\subsection{Version mf6.0.4---February 27, 2019}
 	
+	\textbf{\underline{BUG FIXES AND OTHER CHANGES TO EXISTING FUNCTIONALITY}} \\
 	\underline{BASIC FUNCTIONALITY}
 	\begin{itemize}
 		\item Addressed issue with pointing contiguous pointer vectors/arrays to non-contiguous pointer vectors/arrays that caused code compilation failure with gfortran-8. A consequence of addressing this issue is that all pointer vectors/arrays that are allocated or pointed to using the memory manager must be defined to be contiguous.

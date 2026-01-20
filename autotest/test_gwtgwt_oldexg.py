@@ -105,9 +105,7 @@ def get_model(idx, dir):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=dir
     )
 
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     ims = flopy.mf6.ModflowIms(
         sim,
@@ -399,9 +397,7 @@ def add_gwtrefmodel(sim):
         gwt,
         budget_filerecord=f"{mname_gwtref}.cbc",
         concentration_filerecord=f"{mname_gwtref}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -452,9 +448,7 @@ def add_gwtleftmodel(sim):
         gwt,
         budget_filerecord=f"{mname_gwtleft}.cbc",
         concentration_filerecord=f"{mname_gwtleft}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -508,9 +502,7 @@ def add_gwtrightmodel(sim):
         gwt,
         budget_filerecord=f"{mname_gwtright}.cbc",
         concentration_filerecord=f"{mname_gwtright}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -613,51 +605,51 @@ def compare_gwf_to_ref(test):
 
     # compare heads
     maxdiff = np.amax(abs(heads - heads_2models))
-    assert maxdiff < 10 * hclose_check, "Max. head diff. {} should \
-                     be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. head diff. {maxdiff} should \
+                     be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis_x left
     maxdiff = np.amax(abs(qxb[:, :, 0:5] - qxb_left))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (x) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (x) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis_y left
     maxdiff = np.amax(abs(qyb[:, :, 0:5] - qyb_left))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (y) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (y) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis_z left
     maxdiff = np.amax(abs(qzb[:, :, 0:5] - qzb_left))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (z) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (z) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis_x right
     maxdiff = np.amax(abs(qxb[:, :, 5:] - qxb_right))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (x) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (x) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis_y right
     maxdiff = np.amax(abs(qyb[:, :, 5:] - qyb_right))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (y) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (y) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # compare spdis_z right
     maxdiff = np.amax(abs(qzb[:, :, 5:] - qzb_right))
-    assert maxdiff < 10 * hclose_check, "Max. diff. in spec. discharge (z) {} \
-                     should be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. diff. in spec. discharge (z) {maxdiff} \
+                     should be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # check budget error from .lst file
@@ -666,10 +658,9 @@ def compare_gwf_to_ref(test):
         for line in open(fpth):
             if line.lstrip().startswith("PERCENT"):
                 cumul_balance_error = float(line.split()[3])
-                assert (
-                    abs(cumul_balance_error) < 0.00001
-                ), "Cumulative balance error = {} for {}, should equal 0.0".format(
-                    cumul_balance_error, mname
+                assert abs(cumul_balance_error) < 0.00001, (
+                    f"Cumulative balance error = {cumul_balance_error} for {mname}, "
+                    "should equal 0.0"
                 )
 
     # check flowja residual
@@ -684,9 +675,9 @@ def compare_gwf_to_ref(test):
         assert os.path.isfile(fpth)
         cbb = flopy.utils.CellBudgetFile(fpth, precision="double")
         flow_ja_face = cbb.get_data(idx=0)
-        assert (
-            len(flow_ja_face) > 0
-        ), "Could not check residuals as flow-ja-face could not be found"
+        assert len(flow_ja_face) > 0, (
+            "Could not check residuals as flow-ja-face could not be found"
+        )
 
         for fjf in flow_ja_face:
             fjf = fjf.flatten()
@@ -712,9 +703,9 @@ def compare_gwt_to_ref(test):
 
     # compare concentrations
     maxdiff = np.amax(abs(conc - conc_2models))
-    assert maxdiff < 10 * hclose_check, "Max. concentration diff. {} should \
-                     be within solver tolerance (x10): {}".format(
-        maxdiff, 10 * hclose_check
+    assert maxdiff < 10 * hclose_check, (
+        f"Max. concentration diff. {maxdiff} should \
+                     be within solver tolerance (x10): {10 * hclose_check}"
     )
 
     # check budget error from .lst file
@@ -723,10 +714,9 @@ def compare_gwt_to_ref(test):
         for line in open(fpth):
             if line.lstrip().startswith("PERCENT"):
                 cumul_balance_error = float(line.split()[3])
-                assert (
-                    abs(cumul_balance_error) < 0.00001
-                ), "Cumulative balance error = {} for {}, should equal 0.0".format(
-                    cumul_balance_error, mname
+                assert abs(cumul_balance_error) < 0.00001, (
+                    f"Cumulative balance error = {cumul_balance_error} for {mname}, "
+                    "should equal 0.0"
                 )
 
     # check flowja residual for transport mass flows
@@ -742,9 +732,9 @@ def compare_gwt_to_ref(test):
         assert os.path.isfile(fpth)
         cbb = flopy.utils.CellBudgetFile(fpth, precision="double")
         flow_ja_face = cbb.get_data(idx=0)
-        assert (
-            len(flow_ja_face) > 0
-        ), "Could not check residuals as flow-ja-face could not be found"
+        assert len(flow_ja_face) > 0, (
+            "Could not check residuals as flow-ja-face could not be found"
+        )
 
         for fjf in flow_ja_face:
             fjf = fjf.flatten()

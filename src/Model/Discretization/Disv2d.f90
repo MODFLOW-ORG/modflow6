@@ -36,6 +36,7 @@ module Disv2dModule
     procedure :: dis_da => disv2d_da
     procedure :: disv2d_load
     procedure :: get_dis_type => get_dis_type
+    procedure :: get_dis_enum => get_dis_enum
     procedure, public :: record_array
     procedure, public :: record_srcdst_list_header
     ! -- helper functions
@@ -47,6 +48,8 @@ module Disv2dModule
     procedure :: connection_normal
     procedure :: connection_vector
     procedure :: get_polyverts
+    procedure :: get_npolyverts
+    procedure :: get_max_npolyverts
     ! -- private
     procedure :: source_options
     procedure :: source_dimensions
@@ -178,9 +181,6 @@ contains
     !
     ! -- DisBaseType deallocate
     call this%DisBaseType%dis_da()
-    !
-    ! -- Return
-    return
   end subroutine disv2d_da
 
   ! !> @brief Deallocate variables
@@ -313,10 +313,10 @@ contains
     !
     ! -- Allocate vertices array
     call mem_allocate(this%vertices, 2, this%nvert, 'VERTICES', this%memoryPath)
-    call mem_allocate(this%cellxy, 2, this%nodes, 'CELLXY', this%memoryPath)
+    call mem_allocate(this%cellxy, 2, this%nodesuser, 'CELLXY', this%memoryPath)
     !
     ! -- initialize all cells to be active (idomain = 1)
-    do j = 1, this%nodes
+    do j = 1, this%nodesuser
       this%idomain(j) = 1
     end do
     !
@@ -332,7 +332,7 @@ contains
     write (this%iout, '(1x,a)') 'Setting Discretization Dimensions'
     !
     if (found%nodes) then
-      write (this%iout, '(4x,a,i0)') 'NODES = ', this%nodes
+      write (this%iout, '(4x,a,i0)') 'NODES = ', this%nodesuser
     end if
     !
     if (found%nvert) then
@@ -386,23 +386,24 @@ contains
   !> @brief Finalize grid (check properties, allocate arrays, compute connections)
   !<
   subroutine grid_finalize(this)
-    ! -- dummy
+    ! dummy
     class(Disv2dType) :: this
-    ! -- locals
+    ! locals
     integer(I4B) :: node, noder, j, ncell_count
-    ! -- formats
+    ! formats
     character(len=*), parameter :: fmtnr = &
       "(/1x, 'The specified IDOMAIN results in a reduced number of cells.',&
       &/1x, 'Number of user nodes: ',I0,&
       &/1X, 'Number of nodes in solution: ', I0, //)"
-    !
-    ! -- count active cells
+
+    ! count active cells and set nodes to that number
     ncell_count = 0
-    do j = 1, this%nodes
+    do j = 1, this%nodesuser
       if (this%idomain(j) > 0) ncell_count = ncell_count + 1
     end do
-    !
-    ! -- Check to make sure nodes is a valid number
+    this%nodes = ncell_count
+
+    ! Check to make sure nodes is a valid number
     if (ncell_count == 0) then
       call store_error('Model does not have any active nodes. &
                        &Ensure IDOMAIN array has some values greater &
@@ -410,21 +411,22 @@ contains
       call store_error_filename(this%input_fname)
     end if
 
-    if (count_errors() > 0) then
-      call store_error_filename(this%input_fname)
+    ! Write message if reduced grid
+    if (this%nodes < this%nodesuser) then
+      write (this%iout, fmtnr) this%nodesuser, this%nodes
     end if
-    !
-    ! -- Array size is now known, so allocate
+
+    ! Array size is now known, so allocate
     call this%allocate_arrays()
-    !
-    ! -- Fill the nodereduced array with the reduced nodenumber, or
-    !    a negative number to indicate it is a pass-through cell, or
-    !    a zero to indicate that the cell is excluded from the
-    !    solution.
+
+    ! Fill the nodereduced array with the reduced nodenumber, or
+    ! a negative number to indicate it is a pass-through cell, or
+    ! a zero to indicate that the cell is excluded from the
+    ! solution.
     if (this%nodes < this%nodesuser) then
       node = 1
       noder = 1
-      do j = 1, this%nodes
+      do j = 1, this%nodesuser
         if (this%idomain(j) > 0) then
           this%nodereduced(node) = noder
           noder = noder + 1
@@ -434,12 +436,12 @@ contains
         node = node + 1
       end do
     end if
-    !
-    ! -- allocate and fill nodeuser if a reduced grid
+
+    ! allocate and fill nodeuser if a reduced grid
     if (this%nodes < this%nodesuser) then
       node = 1
       noder = 1
-      do j = 1, this%nodes
+      do j = 1, this%nodesuser
         if (this%idomain(j) > 0) then
           this%nodeuser(noder) = node
           noder = noder + 1
@@ -448,15 +450,10 @@ contains
       end do
     end if
 
-    ! Copy bottom into bot
-    do node = 1, this%nodesuser
-      this%bot(node) = this%bottom(node)
-    end do
-
-    ! -- Move bottom into bot
-    !    and set x and y center coordinates
+    ! Move bottom into bot
+    ! and set x and y center coordinates
     node = 0
-    do j = 1, this%nodes
+    do j = 1, this%nodesuser
       node = node + 1
       noder = node
       if (this%nodes < this%nodesuser) noder = this%nodereduced(node)
@@ -465,10 +462,10 @@ contains
       this%xc(noder) = this%cellxy(1, j)
       this%yc(noder) = this%cellxy(2, j)
     end do
-    !
-    ! -- Build connections
+
+    ! Build connections
     call this%connect()
-    !
+
   end subroutine grid_finalize
 
   !> @brief Load grid vertices from IDM into package
@@ -576,7 +573,7 @@ contains
     !
     ! -- set cell centers
     if (associated(cell_x) .and. associated(cell_y)) then
-      do i = 1, this%nodes
+      do i = 1, this%nodesuser
         this%cellxy(1, i) = cell_x(i)
         this%cellxy(2, i) = cell_y(i)
       end do
@@ -608,7 +605,7 @@ contains
     narea_lt_zero = 0
     !
     ! -- Assign the cell area
-    do j = 1, this%nodes
+    do j = 1, this%nodesuser
       area = this%get_cell2d_area(j)
       noder = this%get_nodenumber(j, 0)
       if (noder > 0) this%area(noder) = area
@@ -651,7 +648,7 @@ contains
     if (this%nodes < this%nodesuser) nrsize = this%nodes
     allocate (this%con)
     call this%con%disvconnections(this%name_model, this%nodes, &
-                                  this%nodes, 1, nrsize, &
+                                  this%nodesuser, 1, nrsize, &
                                   this%nvert, this%vertices, this%iavert, &
                                   this%javert, this%cellxy, &
                                   this%bot, this%bot, &
@@ -666,25 +663,37 @@ contains
   subroutine write_grb(this, icelltype)
     ! -- modules
     use OpenSpecModule, only: access, form
+    use ConstantsModule, only: LENBIGLINE
     ! -- dummy
     class(Disv2dType) :: this
     integer(I4B), dimension(:), intent(in) :: icelltype
     ! -- local
-    integer(I4B) :: iunit, i, ntxt
+    integer(I4B) :: iunit, i, ntxt, version
     integer(I4B), parameter :: lentxt = 100
     character(len=50) :: txthdr
     character(len=lentxt) :: txt
     character(len=LINELENGTH) :: fname
+    character(len=LENBIGLINE) :: crs
+    logical(LGP) :: found_crs
     ! -- formats
     character(len=*), parameter :: fmtgrdsave = &
       "(4X,'BINARY GRID INFORMATION WILL BE WRITTEN TO:', &
        &/,6X,'UNIT NUMBER: ', I0,/,6X, 'FILE NAME: ', A)"
     !
     ! -- Initialize
+    version = 1
     ntxt = 18
     !
+    call mem_set_value(crs, 'CRS', this%input_mempath, found_crs)
+    !
+    ! -- set version
+    if (found_crs) then
+      ntxt = ntxt + 1
+      version = 2
+    end if
+    !
     ! -- Open the file
-    fname = trim(this%input_fname)//'.grb'
+    fname = trim(this%output_fname)
     iunit = getunit()
     write (this%iout, fmtgrdsave) iunit, trim(adjustl(fname))
     call openfile(iunit, this%iout, trim(adjustl(fname)), 'DATA(BINARY)', &
@@ -737,13 +746,13 @@ contains
     write (txt, '(3a, i0)') 'VERTICES ', 'DOUBLE ', 'NDIM 2 2 ', this%nvert
     txt(lentxt:lentxt) = new_line('a')
     write (iunit) txt
-    write (txt, '(3a, i0)') 'CELLX ', 'DOUBLE ', 'NDIM 1 ', this%nodes
+    write (txt, '(3a, i0)') 'CELLX ', 'DOUBLE ', 'NDIM 1 ', this%nodesuser
     txt(lentxt:lentxt) = new_line('a')
     write (iunit) txt
-    write (txt, '(3a, i0)') 'CELLY ', 'DOUBLE ', 'NDIM 1 ', this%nodes
+    write (txt, '(3a, i0)') 'CELLY ', 'DOUBLE ', 'NDIM 1 ', this%nodesuser
     txt(lentxt:lentxt) = new_line('a')
     write (iunit) txt
-    write (txt, '(3a, i0)') 'IAVERT ', 'INTEGER ', 'NDIM 1 ', this%nodes + 1
+    write (txt, '(3a, i0)') 'IAVERT ', 'INTEGER ', 'NDIM 1 ', this%nodesuser + 1
     txt(lentxt:lentxt) = new_line('a')
     write (iunit) txt
     write (txt, '(3a, i0)') 'JAVERT ', 'INTEGER ', 'NDIM 1 ', size(this%javert)
@@ -762,6 +771,16 @@ contains
     txt(lentxt:lentxt) = new_line('a')
     write (iunit) txt
     !
+    ! -- if version 2 write character array headers
+    if (version == 2) then
+      if (found_crs) then
+        write (txt, '(3a, i0)') 'CRS ', 'CHARACTER ', 'NDIM 1 ', &
+          len_trim(crs)
+        txt(lentxt:lentxt) = new_line('a')
+        write (iunit) txt
+      end if
+    end if
+    !
     ! -- write data
     write (iunit) this%nodesuser ! ncells
     write (iunit) this%nodes ! nodes
@@ -773,14 +792,19 @@ contains
     write (iunit) this%angrot ! angrot
     write (iunit) this%bottom ! botm
     write (iunit) this%vertices ! vertices
-    write (iunit) (this%cellxy(1, i), i=1, this%nodes) ! cellx
-    write (iunit) (this%cellxy(2, i), i=1, this%nodes) ! celly
+    write (iunit) (this%cellxy(1, i), i=1, this%nodesuser) ! cellx
+    write (iunit) (this%cellxy(2, i), i=1, this%nodesuser) ! celly
     write (iunit) this%iavert ! iavert
     write (iunit) this%javert ! javert
     write (iunit) this%con%iausr ! iausr
     write (iunit) this%con%jausr ! jausr
     write (iunit) this%idomain ! idomain
     write (iunit) icelltype ! icelltype
+    !
+    ! -- if version 2 write character array data
+    if (version == 2) then
+      if (found_crs) write (iunit) trim(crs) ! crs user input
+    end if
     !
     ! -- Close the file
     close (iunit)
@@ -835,18 +859,18 @@ contains
   !> @brief Get reduced node number from user node number
   !<
   function get_nodenumber_idx1(this, nodeu, icheck) result(nodenumber)
-    ! -- return
+    ! return
     integer(I4B) :: nodenumber
-    ! -- dummy
+    ! dummy
     class(Disv2dType), intent(in) :: this
     integer(I4B), intent(in) :: nodeu
     integer(I4B), intent(in) :: icheck
-    ! -- local
-    !
-    ! -- check the node number if requested
+    ! local
+
+    ! check the node number if requested
     if (icheck /= 0) then
-      !
-      ! -- If within valid range, convert to reduced nodenumber
+
+      ! If within valid range, convert to reduced nodenumber
       if (nodeu < 1 .or. nodeu > this%nodesuser) then
         nodenumber = 0
         write (errmsg, '(a,i0,a,i0,a)') &
@@ -861,7 +885,7 @@ contains
       nodenumber = nodeu
       if (this%nodes < this%nodesuser) nodenumber = this%nodereduced(nodeu)
     end if
-    !
+
   end function get_nodenumber_idx1
 
   !> @brief Get normal vector components between the cell and a given neighbor
@@ -963,6 +987,14 @@ contains
     !
   end subroutine get_dis_type
 
+  !> @brief Get the discretization type enumeration
+  function get_dis_enum(this) result(dis_enum)
+    use ConstantsModule, only: DISV2D
+    class(Disv2dType), intent(in) :: this
+    integer(I4B) :: dis_enum
+    dis_enum = DISV2D
+  end function get_dis_enum
+
   !> @brief Allocate and initialize scalars
   !<
   subroutine allocate_scalars(this, name_model, input_mempath)
@@ -986,13 +1018,13 @@ contains
   !> @brief Allocate and initialize arrays
   !<
   subroutine allocate_arrays(this)
-    ! -- dummy
+    ! dummy
     class(Disv2dType) :: this
-    !
-    ! -- Allocate arrays in DisBaseType (mshape, top, bot, area)
+
+    ! Allocate arrays in DisBaseType (mshape, top, bot, area)
     call this%DisBaseType%allocate_arrays()
     !
-    ! -- Allocate arrays for DisvType
+    ! Allocate arrays for DisvType
     if (this%nodes < this%nodesuser) then
       call mem_allocate(this%nodeuser, this%nodes, 'NODEUSER', this%memoryPath)
       call mem_allocate(this%nodereduced, this%nodesuser, 'NODEREDUCED', &
@@ -1001,9 +1033,10 @@ contains
       call mem_allocate(this%nodeuser, 1, 'NODEUSER', this%memoryPath)
       call mem_allocate(this%nodereduced, 1, 'NODEREDUCED', this%memoryPath)
     end if
-    ! -- Initialize
-    this%mshape(1) = this%nodes
-    !
+
+    ! Initialize
+    this%mshape(1) = this%nodesuser
+
   end subroutine allocate_arrays
 
   !> @brief Get the signed area of the cell
@@ -1233,7 +1266,6 @@ contains
     icu = this%get_nodeuser(ic)
     icu2d = icu - ((icu - 1) / this%nodes) * this%nodes
     nverts = this%iavert(icu2d + 1) - this%iavert(icu2d) - 1
-    if (nverts .le. 0) nverts = nverts + size(this%javert)
     !
     ! check closed option
     if (.not. (present(closed))) then
@@ -1261,6 +1293,38 @@ contains
       polyverts(:, nverts + 1) = polyverts(:, 1)
     !
   end subroutine
+
+  !> @brief Get the number of cell polygon vertices.
+  function get_npolyverts(this, ic, closed) result(npolyverts)
+    class(Disv2dType), intent(inout) :: this
+    integer(I4B), intent(in) :: ic
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
+    integer(I4B) :: npolyverts
+    ! local
+    integer(I4B) :: icu, icu2d, nverts
+
+    npolyverts = 0
+    icu = this%get_nodeuser(ic)
+    icu2d = icu - ((icu - 1) / this%nodes) * this%nodes
+    nverts = this%iavert(icu2d + 1) - this%iavert(icu2d) - 1
+    if (present(closed)) then
+      if (closed) npolyverts = npolyverts + 1
+    end if
+  end function get_npolyverts
+
+  !> @brief Get the maximum number of cell polygon vertices.
+  function get_max_npolyverts(this, closed) result(max_npolyverts)
+    class(Disv2dType), intent(inout) :: this
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
+    integer(I4B) :: max_npolyverts
+    ! local
+    integer(I4B) :: ic
+
+    max_npolyverts = 0
+    do ic = 1, this%nodes
+      max_npolyverts = max(max_npolyverts, this%get_npolyverts(ic, closed))
+    end do
+  end function get_max_npolyverts
 
   !> @brief Record a double precision array
   !!

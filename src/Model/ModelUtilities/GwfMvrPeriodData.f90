@@ -67,8 +67,6 @@ contains
     call mem_allocate(this%id2, maxsize, 'ID2', memoryPath)
     call mem_allocate(this%imvrtype, maxsize, 'IMVRTYPE', memoryPath)
     call mem_allocate(this%value, maxsize, 'VALUE', memoryPath)
-
-    return
   end subroutine construct
 
   !> @ brief Fill the arrays from parser
@@ -144,7 +142,6 @@ contains
       i = i + 1
     end do
     nmvr = i - 1
-    return
   end subroutine read_from_parser
 
   !> @ brief Destroy memory
@@ -169,8 +166,6 @@ contains
     call mem_deallocate(this%id2)
     call mem_deallocate(this%imvrtype)
     call mem_deallocate(this%value)
-
-    return
   end subroutine destroy
 
 end module GwfMvrPeriodDataModule

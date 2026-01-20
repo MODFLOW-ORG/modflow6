@@ -1,4 +1,4 @@
-\begin{thebibliography}{15}
+\begin{thebibliography}{17}
 \providecommand{\natexlab}[1]{#1}
 \expandafter\ifx\csname urlstyle\endcsname\relax
   \providecommand{\doiagency}[1]{doi:\discretionary{}{}{}#1}\else
@@ -40,6 +40,10 @@ Hughes, J.D., Langevin, C.D., Paulinski, S.R., Larsen, J.D., and Brakenhoff,
   D., 2024, {FloPy} workflows for creating structured and unstructured
   {MODFLOW} models: Groundwater, v.~62, no.~1, p.~124--139,
   \url{https://doi.org/10.1111/gwat.13327}.
+
+\bibitem[{Lal(2001)}]{lal2001modification}
+Lal, A.W., 2001, Modification of canal flow due to stream-aquifer interaction:
+  Journal of Hydraulic Engineering, v. 127, no.~7, p.~567--576.
 
 \bibitem[{Langevin and others(2017)Langevin, Hughes, Provost, Banta, Niswonger,
   and Panday}]{modflow6gwf}
@@ -95,6 +99,11 @@ Peckham, S.D., Hutton, E.W., and Norris, B., 2013, A component-based approach
   to integrated modeling in the geosciences: The design of {CSDMS}: Computers
   \& Geosciences, v.~53, p.~3 -- 12, accessed March 24, 2020, at
   \url{https://doi.org/https://doi.org/10.1016/j.cageo.2012.04.002}.
+
+\bibitem[{Pinder and Sauer(1971)}]{pinder1971numerical}
+Pinder, G.F., and Sauer, S.P., 1971, Numerical simulation of flood wave
+  modification due to bank storage effects: Water Resources Research, v.~7,
+  no.~1, p.~63--70.
 
 \bibitem[{Provost and others(2017)Provost, Langevin, and Hughes}]{modflow6xt3d}
 Provost, A.M., Langevin, C.D., and Hughes, J.D., 2017, Documentation for the

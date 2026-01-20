@@ -145,9 +145,6 @@ contains
     lktobj%depvartype = dvt
     lktobj%depvarunit = dvu
     lktobj%depvarunitabbrev = dvua
-    !
-    ! -- Return
-    return
   end subroutine lkt_create
 
   !> @brief Find corresponding lkt package
@@ -267,9 +264,6 @@ contains
         '   MAX NO. OF ENTRIES = ', this%flowbudptr%budterm(ip)%maxlist
     end do
     write (this%iout, '(a, //)') 'DONE PROCESSING '//ftype//' INFORMATION'
-    !
-    ! -- Return
-    return
   end subroutine find_lkt_package
 
   !> @brief Add matrix terms related to LKT
@@ -358,9 +352,6 @@ contains
         rhs(iloc) = rhs(iloc) + rhsval
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine lkt_fc_expanded
 
   !> @brief Add terms specific to lakes to the explicit lake solve
@@ -420,9 +411,6 @@ contains
         this%dbuff(n1) = this%dbuff(n1) + rrate
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine lkt_solve
 
   !> @brief Function to return the number of budget terms just for this package.
@@ -439,9 +427,6 @@ contains
     !
     ! -- Number of budget terms is 6
     nbudterms = 6
-    !
-    ! -- Return
-    return
   end function lkt_get_nbudterms
 
   !> @brief Set up the budget object that stores all the lake flows
@@ -535,9 +520,6 @@ contains
                                              this%packName, &
                                              maxlist, .false., .false., &
                                              naux)
-    !
-    ! -- Return
-    return
   end subroutine lkt_setup_budobj
 
   !> @brief Copy flow terms into this%budobj
@@ -616,9 +598,6 @@ contains
       call this%budobj%budterm(idx)%update_term(n1, n2, q)
       call this%apt_accumulate_ccterm(n1, q, ccratin, ccratout)
     end do
-    !
-    ! -- Return
-    return
   end subroutine lkt_fill_budobj
 
   !> @brief Allocate scalars specific to the lake mass transport (LKT)
@@ -649,9 +628,6 @@ contains
     this%idxbudiflw = 0
     this%idxbudwdrl = 0
     this%idxbudoutf = 0
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @brief Allocate arrays specific to the lake mass transport (LKT)
@@ -682,9 +658,6 @@ contains
       this%conciflw(n) = DZERO
     end do
     !
-    !
-    ! -- Return
-    return
   end subroutine lkt_allocate_arrays
 
   !> @brief Deallocate memory
@@ -712,9 +685,6 @@ contains
     !
     ! -- deallocate scalars in TspAptType
     call this%TspAptType%bnd_da()
-    !
-    ! -- Return
-    return
   end subroutine lkt_da
 
   !> @brief Rain term
@@ -740,9 +710,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd
     if (present(rhsval)) rhsval = -rrate
     if (present(hcofval)) hcofval = DZERO
-    !
-    ! -- Return
-    return
   end subroutine lkt_rain_term
 
   !> @brief Evaporative term
@@ -777,9 +744,6 @@ contains
               (DONE - omega) * qbnd * ctmp
     if (present(rhsval)) rhsval = -(DONE - omega) * qbnd * ctmp
     if (present(hcofval)) hcofval = omega * qbnd
-    !
-    ! -- Return
-    return
   end subroutine lkt_evap_term
 
   !> @brief Runoff term
@@ -805,9 +769,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd
     if (present(rhsval)) rhsval = -rrate
     if (present(hcofval)) hcofval = DZERO
-    !
-    ! -- Return
-    return
   end subroutine lkt_roff_term
 
   !> @brief Inflow Term
@@ -836,9 +797,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd
     if (present(rhsval)) rhsval = -rrate
     if (present(hcofval)) hcofval = DZERO
-    !
-    ! -- Return
-    return
   end subroutine lkt_iflw_term
 
   !> @brief Specified withdrawal term
@@ -867,9 +825,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd
     if (present(rhsval)) rhsval = DZERO
     if (present(hcofval)) hcofval = qbnd
-    !
-    ! -- Return
-    return
   end subroutine lkt_wdrl_term
 
   !> @brief Outflow term
@@ -898,9 +853,6 @@ contains
     if (present(rrate)) rrate = ctmp * qbnd
     if (present(rhsval)) rhsval = DZERO
     if (present(hcofval)) hcofval = qbnd
-    !
-    ! -- Return
-    return
   end subroutine lkt_outf_term
 
   !> @brief Defined observation types
@@ -979,9 +931,6 @@ contains
     !    for ext-outflow observation type.
     call this%obs%StoreObsType('ext-outflow', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
-    !
-    ! -- Return
-    return
   end subroutine lkt_df_obs
 
   !> @brief Process package specific obs
@@ -1015,9 +964,6 @@ contains
     case default
       found = .false.
     end select
-    !
-    ! -- Return
-    return
   end subroutine lkt_rp_obs
 
   !> @brief Calculate observation value and pass it back to APT
@@ -1061,9 +1007,6 @@ contains
     case default
       found = .false.
     end select
-    !
-    ! -- Return
-    return
   end subroutine lkt_bd_obs
 
   !> @brief Sets the stress period attributes for keyword use.
@@ -1141,9 +1084,6 @@ contains
     end select
     !
 999 continue
-    !
-    ! -- Return
-    return
   end subroutine lkt_set_stressperiod
 
 end module GwtLktModule

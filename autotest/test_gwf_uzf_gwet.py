@@ -36,9 +36,7 @@ def build_models(idx, test):
     )
 
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.ModflowGwf(
@@ -78,21 +76,15 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=True, icelltype=1, k=100.0, k33=10
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=True, icelltype=1, k=100.0, k33=10)
 
     # aquifer storage
-    sto = flopy.mf6.ModflowGwfsto(
-        gwf, iconvert=1, ss=1e-5, sy=0.2, transient=True
-    )
+    sto = flopy.mf6.ModflowGwfsto(gwf, iconvert=1, ss=1e-5, sy=0.2, transient=True)
 
     # chd files
     chdval = -3.0
     chdspd = {0: [[(2, 0, 0), chdval], [(2, 0, ncol - 1), chdval]]}
-    chd = flopy.mf6.ModflowGwfchd(
-        gwf, print_flows=True, stress_period_data=chdspd
-    )
+    chd = flopy.mf6.ModflowGwfchd(gwf, print_flows=True, stress_period_data=chdspd)
 
     # transient uzf info
     # ifno  cellid landflg ivertcn surfdp vks thtr thts thti eps [bndnm]
@@ -339,9 +331,8 @@ def check_output(idx, test):
         for i in range(test.model.dis.nrow.get_data()):
             for j in range(test.model.dis.ncol.get_data()):
                 if (0, i, j) in cell_iuz_dict:
-                    iuz = cell_iuz_dict[
-                        (0, i, j)
-                    ]  # For this test, pET only specified in the top layer
+                    # For this test, pET only specified in the top layer
+                    iuz = cell_iuz_dict[(0, i, j)]
                     for m_row in uzf_strsPerDat[mstp]:
                         if m_row[0] == iuz:
                             pet = float(m_row[2])

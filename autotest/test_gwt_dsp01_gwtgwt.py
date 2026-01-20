@@ -127,9 +127,7 @@ def get_gwt_model(sim, gwtname, gwtpath, modelshape):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -150,9 +148,7 @@ def build_models(idx, test):
 
     # build MODFLOW 6 files
     ws = test.workspace
-    sim = flopy.mf6.MFSimulation(
-        sim_name=ws, version="mf6", exe_name="mf6", sim_ws=ws
-    )
+    sim = flopy.mf6.MFSimulation(sim_name=ws, version="mf6", exe_name="mf6", sim_ws=ws)
     # create tdis package
     tdis = flopy.mf6.ModflowTdis(
         sim, time_units="DAYS", nper=nper, perioddata=tdis_rc, pname="sim.tdis"
@@ -169,9 +165,7 @@ def build_models(idx, test):
     gwf1 = get_gwf_model(sim, "flow1", "flow1", (nlay, nrow, ncol, 0.0, 0.0))
 
     # Create gwf2 model
-    gwf2 = get_gwf_model(
-        sim, "flow2", "flow2", (nlay, nrow, ncol, 50.0 * gdelr, 0.0)
-    )
+    gwf2 = get_gwf_model(sim, "flow2", "flow2", (nlay, nrow, ncol, 50.0 * gdelr, 0.0))
 
     # gwf-gwf with interface model enabled
     gwfgwf_data = [[(0, 0, ncol - 1), (0, 0, 0), 1, 0.5, 0.5, 1.0, 0.0, 1.0]]
@@ -206,9 +200,7 @@ def build_models(idx, test):
     sim.register_ims_package(imsgwf, [gwf1.name, gwf2.name])
 
     # Create gwt model
-    gwt1 = get_gwt_model(
-        sim, "transport1", "transport1", (nlay, nrow, ncol, 0.0, 0.0)
-    )
+    gwt1 = get_gwt_model(sim, "transport1", "transport1", (nlay, nrow, ncol, 0.0, 0.0))
 
     # Create gwt model
     gwt2 = get_gwt_model(
@@ -270,9 +262,7 @@ def check_output(idx, test):
     gwtname = "transport1"
     fpth = os.path.join(test.workspace, "transport1", f"{gwtname}.ucn")
     try:
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
         conc1 = cobj.get_data()
     except:
         assert False, f'could not load data from "{fpth}"'
@@ -280,9 +270,7 @@ def check_output(idx, test):
     gwtname = "transport2"
     fpth = os.path.join(test.workspace, "transport2", f"{gwtname}.ucn")
     try:
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
         conc2 = cobj.get_data()
     except:
         assert False, f'could not load data from "{fpth}"'

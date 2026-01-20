@@ -2,7 +2,7 @@ Input Guide
 -----------
 
 The latest version of the complete MODFLOW 6 input/output guide can be found
-`here <https://github.com/MODFLOW-USGS/modflow6-nightly-build/releases/>`_.
+`here <https://github.com/MODFLOW-ORG/modflow6-nightly-build/releases/>`_.
 This section enumerates and describes MODFLOW 6 input files.
 
 Simulation

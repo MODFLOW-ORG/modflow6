@@ -1,5 +1,7 @@
 module MpiMessageBuilderModule
   use KindModule, only: I4B, LGP
+  use ConstantsModule, only: LINELENGTH
+  use SimModule, only: ustop
   use MemoryTypeModule, only: MemoryType
   use STLVecIntModule
   use VirtualBaseModule
@@ -750,6 +752,9 @@ contains
     ! local
     integer :: ierr
 
+    ! sanity check on map
+    call check_map_int1d(mem, el_map)
+
     call MPI_Get_address(mem%aint1d, el_displ, ierr)
     if (associated(el_map)) then
       call MPI_Type_create_indexed_block( &
@@ -782,6 +787,9 @@ contains
     ! local
     integer :: ierr
 
+    ! sanity check on map
+    call check_map_dbl1d(mem, el_map)
+
     call MPI_Get_address(mem%adbl1d, el_displ, ierr)
     if (associated(el_map)) then
       call MPI_Type_create_indexed_block( &
@@ -802,6 +810,9 @@ contains
     integer :: ierr
     integer :: entry_type
 
+    ! sanity check on map
+    call check_map_dbl2d(mem, el_map)
+
     call MPI_Get_address(mem%adbl2d, el_displ, ierr)
     if (associated(el_map)) then
       call MPI_Type_contiguous( &
@@ -814,5 +825,74 @@ contains
     call MPI_Type_commit(el_type, ierr)
 
   end subroutine get_mpitype_for_dbl2d
+
+  subroutine check_map_int1d(mem, map)
+    type(MemoryType), pointer :: mem
+    integer, dimension(:), pointer :: map !< ZERO-based map (for creating mpi types)
+    ! local
+    logical(LGP) :: is_valid
+    integer(I4B) :: min_idx, max_idx
+
+    if (.not. associated(map)) return
+    if (size(map) == 0) return ! nothing to check
+
+    ! bounds check
+    min_idx = minval(map) + 1
+    max_idx = maxval(map) + 1
+    is_valid = max_idx <= size(mem%aint1d) .and. min_idx > 0
+    if (.not. is_valid) then
+      write (*, '(/,4x,4a)') &
+        'Error: invalid map in MPI datatype for ', &
+        trim(mem%name), ' in ', trim(mem%path)
+      call ustop()
+    end if
+
+  end subroutine check_map_int1d
+
+  !> @brief Bounds check for index maps,
+  !< terminates on error.
+  subroutine check_map_dbl1d(mem, map)
+    type(MemoryType), pointer :: mem !< memory type
+    integer, dimension(:), pointer :: map !< ZERO-based map (for creating mpi types)
+    ! local
+    logical(LGP) :: is_valid
+    integer(I4B) :: min_idx, max_idx
+
+    if (.not. associated(map)) return
+    if (size(map) == 0) return ! nothing to check
+
+    min_idx = minval(map) + 1
+    max_idx = maxval(map) + 1
+    is_valid = max_idx <= size(mem%adbl1d) .and. min_idx > 0
+    if (.not. is_valid) then
+      write (*, '(/,4x,4a)') &
+        'Error: invalid map in MPI datatype for ', &
+        trim(mem%name), ' in ', trim(mem%path)
+      call ustop()
+    end if
+
+  end subroutine check_map_dbl1d
+
+  subroutine check_map_dbl2d(mem, map)
+    type(MemoryType), pointer :: mem
+    integer, dimension(:), pointer :: map !< ZERO-based map (for creating mpi types)
+    ! local
+    logical(LGP) :: is_valid
+    integer(I4B) :: min_idx, max_idx
+
+    if (.not. associated(map)) return
+    if (size(map) == 0) return ! nothing to check
+
+    min_idx = minval(map) + 1
+    max_idx = maxval(map) + 1
+    is_valid = max_idx <= size(mem%adbl2d, 2) .and. min_idx > 0
+    if (.not. is_valid) then
+      write (*, '(/,4x,4a)') &
+        'Error: invalid map in MPI datatype for ', &
+        trim(mem%name), ' in ', trim(mem%path)
+      call ustop()
+    end if
+
+  end subroutine check_map_dbl2d
 
 end module MpiMessageBuilderModule

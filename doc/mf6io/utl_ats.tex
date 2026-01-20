@@ -9,7 +9,7 @@ The second fundamental part of the ATS utility is dynamic adjustment of the time
 \begin{itemize}
 \item The numerical solution will submit a preferred time step length based on the convergence pattern for the previous time step.  If the numerical solution is relatively easy (as measured by the number of outer iterations), then the length of the next time step will increase by a factor of the \texttt{dtadj} variable.  Conversely, if the solution is difficult to obtain, then the length of the next time step will decrease, by dividing the previous time step length by the \texttt{dtadj} variable.  This time-step adjustment is on by default, but can be turned off by specifying a value of zero for the ATS\_OUTER\_MAXIMUM\_FRACTION option in the Iterative Model Solution (IMS).
 
-\item The Advection (ADV) Package of the Groundwater Transport (GWT) Model will submit a maximum time-step length subject to Courant constraints if the user specifies a non-zero value for the ATS\_PERCEL option.
+\item The Advection (ADV) Package of the Groundwater Transport (GWT) or Groundwater Energy Transport (GWE) Model will submit a maximum time-step length subject to Courant constraints if the user specifies a non-zero value for the ATS\_PERCEL option.
 \end{itemize}
 
 In the present ATS implementation, time series variables are interpolated based on the starting and ending times of the time step.  If solution failure was encountered and a time step is retried with a smaller time step size, time series variables are re-interpolated for the shortened time step.  In most cases, this is the intended behavior, however, if time series contain a much finer level of temporal detail, then this additional detail could exacerbate convergence problems.

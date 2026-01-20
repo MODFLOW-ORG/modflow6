@@ -81,9 +81,6 @@ contains
     this%nreceivers = nreceivers
     !
     call this%allocate_arrays()
-    !
-    ! -- return
-    return
   end subroutine ar
 
   subroutine ad(this)
@@ -95,9 +92,6 @@ contains
       this%qtomvr(i) = DZERO
       this%qformvr(i) = DZERO
     end do
-    !
-    ! -- return
-    return
   end subroutine ad
 
   subroutine reset(this)
@@ -113,9 +107,6 @@ contains
       this%qtomvr(i) = DZERO
       this%qtformvr(i) = this%qformvr(i)
     end do
-    !
-    ! -- return
-    return
   end subroutine reset
 
   subroutine fc(this)
@@ -126,9 +117,6 @@ contains
     do i = 1, this%nproviders
       this%qformvr(i) = DZERO
     end do
-    !
-    ! -- return
-    return
   end subroutine fc
 
   subroutine da(this)
@@ -148,9 +136,6 @@ contains
     !
     ! -- pointers
     nullify (this%iprmap)
-    !
-    ! -- return
-    return
   end subroutine da
 
   subroutine allocate_scalars(this)
@@ -161,9 +146,6 @@ contains
     !
     this%nproviders = 0
     this%nreceivers = 0
-    !
-    ! -- return
-    return
   end subroutine allocate_scalars
 
   subroutine allocate_arrays(this)
@@ -189,9 +171,6 @@ contains
       this%qfrommvr(i) = DZERO
       this%qfrommvr0(i) = DZERO
     end do
-    !
-    ! -- return
-    return
   end subroutine allocate_arrays
 
   function get_qfrommvr(this, ireceiver) result(qfrommvr)

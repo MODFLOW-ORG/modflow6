@@ -21,7 +21,7 @@ from M22, but not the other way around.
 The test was added to reproduce and fix the issue
 listed here:
 
-  https://github.com/MODFLOW-USGS/modflow6/issues/1744
+  https://github.com/MODFLOW-ORG/modflow6/issues/1744
 
 """
 
@@ -73,9 +73,7 @@ def get_simulation(idx, ws):
         sim_ws=ws,
     )
 
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     ims = flopy.mf6.ModflowIms(
         sim,

@@ -14,11 +14,16 @@ module GwfDisInputModule
   type GwfDisParamFoundType
     logical :: length_units = .false.
     logical :: nogrb = .false.
+    logical :: grb_filerecord = .false.
+    logical :: grb6 = .false.
+    logical :: fileout = .false.
+    logical :: grb6_filename = .false.
     logical :: xorigin = .false.
     logical :: yorigin = .false.
     logical :: angrot = .false.
     logical :: export_ascii = .false.
     logical :: export_nc = .false.
+    logical :: crs = .false.
     logical :: ncf_filerecord = .false.
     logical :: ncf6 = .false.
     logical :: filein = .false.
@@ -53,6 +58,7 @@ module GwfDisInputModule
     '', & ! shape
     'model length units', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -71,8 +77,85 @@ module GwfDisInputModule
     '', & ! shape
     'do not write binary grid file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfdis_grb_filerecord = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'DIS', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB_FILERECORD', & ! tag name
+    'GRB_FILERECORD', & ! fortran variable
+    'RECORD GRB6 FILEOUT GRB6_FILENAME', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfdis_grb6 = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'DIS', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB6', & ! tag name
+    'GRB6', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'grb keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfdis_fileout = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'DIS', & ! subcomponent
+    'OPTIONS', & ! block
+    'FILEOUT', & ! tag name
+    'FILEOUT', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'file keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfdis_grb6_filename = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'DIS', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB6_FILENAME', & ! tag name
+    'GRB6_FILENAME', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file name of GRB information', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -89,6 +172,7 @@ module GwfDisInputModule
     '', & ! shape
     'x-position of the model grid origin', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -107,6 +191,7 @@ module GwfDisInputModule
     '', & ! shape
     'y-position of the model grid origin', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -125,6 +210,7 @@ module GwfDisInputModule
     '', & ! shape
     'rotation angle', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -143,6 +229,7 @@ module GwfDisInputModule
     '', & ! shape
     'export array variables to layered ascii files.', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -161,8 +248,28 @@ module GwfDisInputModule
     '', & ! shape
     'export array variables to netcdf output files.', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfdis_crs = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'DIS', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .true., & ! developmode
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -179,6 +286,7 @@ module GwfDisInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -197,6 +305,7 @@ module GwfDisInputModule
     '', & ! shape
     'ncf keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -215,6 +324,7 @@ module GwfDisInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -233,6 +343,7 @@ module GwfDisInputModule
     '', & ! shape
     'file name of NCF information', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -251,6 +362,7 @@ module GwfDisInputModule
     '', & ! shape
     'number of layers', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -269,6 +381,7 @@ module GwfDisInputModule
     '', & ! shape
     'number of rows', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -287,6 +400,7 @@ module GwfDisInputModule
     '', & ! shape
     'number of columns', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -305,6 +419,7 @@ module GwfDisInputModule
     'NCOL', & ! shape
     'spacing along a row', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -323,6 +438,7 @@ module GwfDisInputModule
     'NROW', & ! shape
     'spacing along a column', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -341,6 +457,7 @@ module GwfDisInputModule
     'NCOL NROW', & ! shape
     'cell top elevation', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -359,6 +476,7 @@ module GwfDisInputModule
     'NCOL NROW NLAY', & ! shape
     'cell bottom elevation', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -377,6 +495,7 @@ module GwfDisInputModule
     'NCOL NROW NLAY', & ! shape
     'idomain existence array', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -388,11 +507,16 @@ module GwfDisInputModule
     [ &
     gwfdis_length_units, &
     gwfdis_nogrb, &
+    gwfdis_grb_filerecord, &
+    gwfdis_grb6, &
+    gwfdis_fileout, &
+    gwfdis_grb6_filename, &
     gwfdis_xorigin, &
     gwfdis_yorigin, &
     gwfdis_angrot, &
     gwfdis_export_ascii, &
     gwfdis_export_nc, &
+    gwfdis_crs, &
     gwfdis_ncf_filerecord, &
     gwfdis_ncf6, &
     gwfdis_filein, &
@@ -421,6 +545,7 @@ module GwfDisInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

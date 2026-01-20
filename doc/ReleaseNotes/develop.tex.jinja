@@ -1,0 +1,15 @@
+([ for section_key, section_items in items|groupby("section") ])
+\subsection{(( sections[section_key].title() ))}
+([ for subsection_key, subsection_items in section_items|groupby("subsection") ])
+([ set subsection = subsections[subsection_key] ])
+([ if subsection|length > 0 ])
+\subsubsection{(( subsection.title() ))}
+([ endif ])
+
+\begin{itemize}
+([ for item in subsection_items ])
+\item (( item.description ))
+([ endfor ])
+\end{itemize}
+([ endfor ])
+([ endfor ])

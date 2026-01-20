@@ -3,7 +3,7 @@ program tester
   use testdrive, only: run_testsuite, new_testsuite, testsuite_type, &
     & select_suite, run_selected, get_argument
   use TestArrayHandlers, only: collect_arrayhandlers
-  use TestDevFeature, only: collect_dev_feature
+  use TestFeatureFlags, only: collect_feature_flags
   use TestGeomUtil, only: collect_geomutil
   use TestHashTable, only: collect_hashtable
   use TestInputOutput, only: collect_inputoutput
@@ -14,8 +14,10 @@ program tester
   use TestMemoryContainerIterator, only: collect_memorycontaineriterator
   use TestMemoryStore, only: collect_memorystore
   use TestMessage, only: collect_message
+  use TestPseudoInverse, only: collect_pinv
   use TestPtrHashTable, only: collect_ptrhashtable
   use TestSim, only: collect_sim
+  use TestSVD, only: collect_svd
   use TestSwfUtils, only: collect_swfutils
   use TestTimeSelect, only: collect_timeselect
   use TestTimeStepSelect, only: collect_timestepselect
@@ -30,7 +32,7 @@ program tester
   stat = 0
   testsuites = [ &
                new_testsuite("ArrayHandlers", collect_arrayhandlers), &
-               new_testsuite("DevFeature", collect_dev_feature), &
+               new_testsuite("FeatureFlags", collect_feature_flags), &
                new_testsuite("GeomUtil", collect_geomutil), &
                new_testsuite("HashTable", collect_hashtable), &
                new_testsuite("InputOutput", collect_inputoutput), &
@@ -42,8 +44,10 @@ program tester
                              collect_memorycontaineriterator), &
                new_testsuite("MemoryStore", collect_memorystore), &
                new_testsuite("Message", collect_message), &
+               new_testsuite("PseudoInverse", collect_pinv), &
                new_testsuite("PtrHashTable", collect_ptrhashtable), &
                new_testsuite("Sim", collect_sim), &
+               new_testsuite("SVD", collect_svd), &
                new_testsuite("SwfUtils", collect_swfutils), &
                new_testsuite("TimeSelect", collect_timeselect), &
                new_testsuite("TimeStepSelect", collect_timestepselect), &

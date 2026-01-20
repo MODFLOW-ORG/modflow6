@@ -229,9 +229,6 @@ contains
     allocate (obs)
     call obs%allocate_scalars()
     obs%inUnitObs => inobs
-    !
-    ! -- return
-    return
   end subroutine obs_cr
 
   !> @ brief Process IDstring provided for each observation
@@ -280,9 +277,6 @@ contains
       call store_error(errmsg)
       call store_error_unit(inunitobs)
     end if
-    !
-    ! -- return
-    return
   end subroutine DefaultObsIdProcessor
 
   ! Type-bound public procedures
@@ -307,9 +301,6 @@ contains
     !
     ! -- Initialize block parser
     call this%parser%Initialize(this%inUnitObs, this%iout)
-    !
-    ! -- return
-    return
   end subroutine obs_df
 
   !> @ brief Allocate and read package observations
@@ -328,9 +319,6 @@ contains
     if (this%active) then
       call this%obs_ar2(this%dis)
     end if
-    !
-    ! -- return
-    return
   end subroutine obs_ar
 
   !> @ brief Advance package observations
@@ -351,9 +339,6 @@ contains
       obsrv => this%get_obs(i)
       call obsrv%ResetCurrentValue()
     end do
-    !
-    ! -- return
-    return
   end subroutine obs_ad
 
   !> @ brief Clear observation output lines
@@ -367,9 +352,6 @@ contains
     class(ObsType), target :: this
     !
     call this%obsOutputList%ResetAllObsEmptyLines()
-    !
-    ! -- return
-    return
   end subroutine obs_bd_clear
 
   !> @ brief Output observation data
@@ -392,9 +374,6 @@ contains
       call this%write_obs_simvals()
       call this%obsOutputList%WriteAllObsLineReturns()
     end if
-    !
-    ! -- return
-    return
   end subroutine obs_ot
 
   !> @ brief Deallocate observation data
@@ -440,9 +419,6 @@ contains
     !
     ! -- nullify
     nullify (this%inUnitObs)
-    !
-    ! -- return
-    return
   end subroutine obs_da
 
   !> @ brief Save a simulated value
@@ -473,9 +449,6 @@ contains
     else
       obsrv%CurrentTimeStepEndValue = simval
     end if
-    !
-    ! -- return
-    return
   end subroutine SaveOneSimval
 
   !> @ brief Store observation type
@@ -526,9 +499,6 @@ contains
     ! -- Assign members
     this%obsData(indx)%ObsTypeID = obsTypeUpper
     this%obsData(indx)%Cumulative = cumulative
-    !
-    ! -- return
-    return
   end subroutine StoreObsType
 
   ! Type-bound private procedures
@@ -551,9 +521,6 @@ contains
     ! -- Initialize
     this%active = .false.
     this%inputFilename = ''
-    !
-    ! -- return
-    return
   end subroutine allocate_scalars
 
   !> @ brief Read observation options and output formats
@@ -581,9 +548,6 @@ contains
       ! -- define output formats
       call this%define_fmts()
     end if
-    !
-    ! -- return
-    return
   end subroutine obs_ar1
 
   !> @ brief Call procedure provided by package
@@ -623,9 +587,6 @@ contains
     if (count_errors() > 0) then
       call store_error_unit(this%inunitobs)
     end if
-    !
-    ! -- return
-    return
   end subroutine obs_ar2
 
   !> @ brief Read observation options block
@@ -735,9 +696,6 @@ contains
     ! -- Assign type variables
     if (localprecision > 0) this%iprecision = localprecision
     if (localdigits >= 0) this%idigits = localdigits
-    !
-    ! -- return
-    return
   end subroutine read_obs_options
 
   !> @ brief Define observation output formats
@@ -756,9 +714,6 @@ contains
     else
       write (this%obsfmtcont, 50) this%idigits + 7, this%idigits
     end if
-    !
-    ! -- return
-    return
   end subroutine define_fmts
 
   !> @ brief Read observations
@@ -777,9 +732,6 @@ contains
     !
     ! -- build headers
     call this%build_headers()
-    !
-    ! -- return
-    return
   end subroutine read_observations
 
   !> @ brief Get the number of observations
@@ -794,9 +746,6 @@ contains
     class(ObsType) :: this
     !
     get_num = this%obsList%Count()
-    !
-    ! -- return
-    return
   end function get_num
 
   !> @ brief Build observation headers
@@ -872,9 +821,6 @@ contains
         idx = idx + 1
       end do obsfile
     end do all_obsfiles
-    !
-    ! -- return
-    return
   end subroutine build_headers
 
   !> @ brief Get an array of observations
@@ -897,9 +843,6 @@ contains
     if (nObs > 0) then
       call this%set_obs_array(nObs, obsArray)
     end if
-    !
-    ! -- return
-    return
   end subroutine get_obs_array
 
   !> @ brief Get an ObsDataType object
@@ -929,9 +872,6 @@ contains
       call store_error(errmsg)
       call store_error_unit(this%inUnitObs)
     end if
-    !
-    ! -- return
-    return
   end function get_obs_datum
 
   !> @ brief Set observation array values
@@ -955,9 +895,6 @@ contains
       obsrv => this%get_obs(i)
       obsArray(i)%obsrv => obsrv
     end do
-    !
-    ! -- return
-    return
   end subroutine set_obs_array
 
   !> @ brief Get an ObserveType object
@@ -973,9 +910,6 @@ contains
     class(ObserveType), pointer :: obsrv !< observation ObserveType
     !
     obsrv => GetObsFromList(this%obsList, indx)
-    !
-    ! -- return
-    return
   end function get_obs
 
   !> @ brief Read observation blocks
@@ -1129,9 +1063,6 @@ contains
     if (count_errors() > 0) then
       call this%parser%StoreErrorUnit()
     end if
-    !
-    ! -- return
-    return
   end subroutine read_obs_blocks
 
   !> @ brief Write observation data
@@ -1166,9 +1097,6 @@ contains
         call write_unfmtd_obs(obsrv, iprec, this%obsOutputList, simval)
       end if
     end do
-    !
-    ! --return
-    return
   end subroutine write_obs_simvals
 
 end module ObsModule

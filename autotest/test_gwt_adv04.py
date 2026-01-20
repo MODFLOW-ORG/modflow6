@@ -11,11 +11,17 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["adv04a", "adv04b", "adv04c"]
-scheme = ["upstream", "central", "tvd"]
+cases = [
+    pytest.param(0, "adv04a"),
+    pytest.param(1, "adv04b"),
+    pytest.param(2, "adv04c"),
+    pytest.param(3, "adv04d"),
+]
+
+scheme = ["upstream", "central", "tvd", "utvd"]
 
 
-def build_models(idx, test):
+def build_models(idx, name, test):
     nlay, nrow, ncol = 1, 21, 21
     nper = 1
     perlen = [5.0]
@@ -52,17 +58,13 @@ def build_models(idx, test):
     for i in range(nper):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
 
-    name = cases[idx]
-
     # build MODFLOW 6 files
     ws = test.workspace
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -108,9 +110,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt, filename=f"{gwfname}.ic")
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=False, icelltype=laytyp, k=hk, k33=hk
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=laytyp, k=hk, k33=hk)
     # storage
     # sto = flopy.mf6.ModflowGwfsto(gwf, save_flows=False,
     #                              iconvert=laytyp[idx],
@@ -188,9 +188,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwtic(gwt, strt=0.0, filename=f"{gwtname}.ic")
 
     # advection
-    adv = flopy.mf6.ModflowGwtadv(
-        gwt, scheme=scheme[idx], filename=f"{gwtname}.adv"
-    )
+    adv = flopy.mf6.ModflowGwtadv(gwt, scheme=scheme[idx], filename=f"{gwtname}.adv")
 
     # mass storage and transfer
     mst = flopy.mf6.ModflowGwtmst(gwt, porosity=0.1)
@@ -206,9 +204,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "LAST")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -225,15 +221,12 @@ def build_models(idx, test):
     return sim, None
 
 
-def check_output(idx, test):
-    name = cases[idx]
+def check_output(idx, name, test):
     gwtname = "gwt_" + name
 
     fpth = os.path.join(test.workspace, f"{gwtname}.ucn")
     try:
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
         conc = cobj.get_data()
     except:
         assert False, f'could not load data from "{fpth}"'
@@ -242,23 +235,22 @@ def check_output(idx, test):
     # up-down and left-right directions
     concud = np.flipud(conc)
     assert np.allclose(concud, conc), (
-        "simulated concentrations are not " "symmetric in up-down direction."
+        "simulated concentrations are not symmetric in up-down direction."
     )
 
     conclr = np.fliplr(conc)
     assert np.allclose(conclr, conc), (
-        "simulated concentrations are not "
-        "symmetric in left-right direction."
+        "simulated concentrations are not symmetric in left-right direction."
     )
 
 
-@pytest.mark.parametrize("idx, name", enumerate(cases))
+@pytest.mark.parametrize("idx, name", cases)
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
-        build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        build=lambda t: build_models(idx, name, t),
+        check=lambda t: check_output(idx, name, t),
     )
     test.run()

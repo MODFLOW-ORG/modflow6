@@ -3,7 +3,7 @@ module DnmDisBaseModule
   use BlockParserModule,  only: BlockParserType
   use ConstantsModule,    only: LENMODELNAME, LENMEMPATH, LINELENGTH, DONE, DZERO
   use InputOutputModule,  only: URWORD
-  use SimModule,          only: count_errors, store_error, store_error_unit, &
+  use SimPHMFModule,          only: count_errors, store_error, store_error_unit, &
                                 ustop
   use GeomUtilModule, only: get_node
   implicit none
@@ -222,7 +222,7 @@ module DnmDisBaseModule
     use ConstantsModule, only: LINELENGTH
     use InputOutputModule, only: urword
     use ArrayReadersMF5Module, only: ReadArray
-    use SimModule, only: ustop, count_errors, store_error
+    use SimPHMFModule, only: ustop, count_errors, store_error
     implicit none
     class(DisBaseType) :: this
     character(len=LINELENGTH) :: errmsg, keyword
@@ -293,7 +293,7 @@ module DnmDisBaseModule
     use MemoryManagerModule, only: mem_allocate
     use ConstantsModule, only: LINELENGTH
     use InputOutputModule, only: urword
-    use SimModule, only: ustop, count_errors, store_error
+    use SimPHMFModule, only: ustop, count_errors, store_error
     implicit none
     class(DisBaseType) :: this
     character(len=LINELENGTH) :: errmsg, keyword
@@ -368,7 +368,7 @@ module DnmDisBaseModule
     ! -- modules
     use MemoryManagerModule, only: mem_allocate
     use ConstantsModule, only: LINELENGTH, DZERO
-    use SimModule, only: ustop, count_errors, store_error
+    use SimPHMFModule, only: ustop, count_errors, store_error
     ! -- dummy
     class(DisBaseType) :: this
     ! -- local
@@ -471,7 +471,7 @@ module DnmDisBaseModule
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
     use ConstantsModule, only: LINELENGTH
-    use SimModule, only: store_error
+    use SimPHMFModule, only: store_error
     implicit none
     class(DisBaseType), intent(in) :: this
     integer, intent(in) :: nodeu
@@ -504,7 +504,7 @@ module DnmDisBaseModule
 !
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
-    use SimModule, only: ustop, store_error
+    use SimPHMFModule, only: ustop, store_error
     implicit none
     ! Dummy arguments
     class(DisBaseType), intent(in) :: this
@@ -529,7 +529,7 @@ module DnmDisBaseModule
 !
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
-    use SimModule, only: ustop, store_error
+    use SimPHMFModule, only: ustop, store_error
     implicit none
     ! Dummy arguments
     class(DisBaseType), intent(in) :: this
@@ -556,7 +556,7 @@ module DnmDisBaseModule
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
     ! -- modules
-    use SimModule, only: ustop, store_error
+    use SimPHMFModule, only: ustop, store_error
     ! -- dummy
     class(DisBaseType) :: this
     integer, intent(in) :: noden
@@ -587,7 +587,7 @@ module DnmDisBaseModule
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
     ! -- modules
-    use SimModule, only: ustop, store_error
+    use SimPHMFModule, only: ustop, store_error
     ! -- dummy
     class(DisBaseType) :: this
     integer, intent(in) :: noden

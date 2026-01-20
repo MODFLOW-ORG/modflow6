@@ -1,0 +1,25 @@
+\subsection{Version mf6.6.2---May 12, 2025}
+
+\textbf{\underline{EXAMPLES}}
+\begin{itemize}
+\item A new example was added demonstrating transient thermal loading of multiple borehole heat exchangers with the Groundwater Energy (GWE) model. The simulated GWE results match the temperature change predicted by the analytical solution for the multiple borehole heat exchangers used in this problem.
+\end{itemize}
+
+\textbf{\underline{NEW FUNCTIONALITY}}
+
+\underline{BASIC FUNCTIONALITY}
+\begin{itemize}
+\item The binary grid file's name may now be specified in all discretization packages with option GRB6 FILEOUT followed by a file path. If this option is not provided, the binary grid file will be named as before, identical to the discretization file name plus a ``.grb'' extension. Note that renaming the binary grid file may break downstream integrations which expect the default name.
+\end{itemize}
+
+\underline{INTERNAL FLOW PACKAGES}
+\begin{itemize}
+\item Added interbed-compaction-pct observation to the CSUB package.
+\end{itemize}
+
+\textbf{\underline{BUG FIXES AND OTHER CHANGES TO EXISTING FUNCTIONALITY}}
+\begin{itemize}
+\item The mf6io.pdf guide for the SFE Package lists the availability of the STRMBD-COND observation type.  However, the SFE Package did not actually support this observation type and if listed would cause the program to exit with error message.  Functionality has been added to SFE for writing the amount of streambed conductive heat exchange to the CSV output file that contains the user-specified observations.
+\item Fixed a variable overflow in the MPI communication for parallel simulations that could cause a memory exception when running a parallel simulation with truly large subdomains (~20M nodes or more).
+\item The DISV particle tracking method did not correctly determine whether to pass particles through lateral or vertical subcell faces. It also did not properly ensure that particles' relative z coordinates fell within the unit interval, causing particles to be moved to the cell bottom. These issues have been fixed.
+\end{itemize}

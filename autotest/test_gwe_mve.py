@@ -69,10 +69,7 @@ nouter, ninner = 300, 300
 hclose, rclose, relax = 1e-6, 1e-3, 0.97
 
 top = np.stack(
-    [
-        [30.9, 30.8, 30.6, 30.6, 30.5, 30.4, 30.3, 30.2, 30.1, 30.0]
-        for _ in range(3)
-    ],
+    [[30.9, 30.8, 30.6, 30.6, 30.5, 30.4, 30.3, 30.2, 30.1, 30.0] for _ in range(3)],
     axis=0,
 )
 botm = [25.0, 10, 0.0]
@@ -92,11 +89,8 @@ cpw = 4183.0
 lhv = 2500.0
 cps = 760.0
 rhos = 1500.0
-K_therm_strmbed = [
-    1.5,
-    1.75,
-    2.0,
-]  # Thermal conductivity of the streambed material ($W/m/C$)
+# Thermal conductivity of the streambed material ($W/m/C$)
+K_therm_strmbed = [1.5, 1.75, 2.0]
 rbthcnd = 0.0001
 prsity = sy
 drn_depth = 2.0
@@ -190,9 +184,7 @@ for k in np.arange(nlay):
                 uze_perdat.append([ct, "INFILTRATION", 1.0])
                 # generate a lookup dictionary based on the top layer
                 if k == 0:
-                    drn_pkdat.append(
-                        [(k, i, j), top[i, j] - drn_depth, drn_cond, ddrn]
-                    )
+                    drn_pkdat.append([(k, i, j), top[i, j] - drn_depth, drn_cond, ddrn])
                     uzf_id_lkup.update({(i, j): ct})
 
 
@@ -225,12 +217,8 @@ for i in np.arange(nrow):
                 ]
             )
         elif iuzfbnd[i, j] > 0 and j + 1 == ncol - 1:
-            mvr_pkdat.append(
-                ["UZF-1", uzf_id_lkup[(i, j)], "SFR-1", i, "FACTOR", 1.0]
-            )
-            mvr_pkdat.append(
-                ["DRN-1", uzf_id_lkup[(i, j)], "SFR-1", i, "FACTOR", 1.0]
-            )
+            mvr_pkdat.append(["UZF-1", uzf_id_lkup[(i, j)], "SFR-1", i, "FACTOR", 1.0])
+            mvr_pkdat.append(["DRN-1", uzf_id_lkup[(i, j)], "SFR-1", i, "FACTOR", 1.0])
 
 extdp = 3.0
 extwc = 0.05
@@ -301,20 +289,7 @@ for irno in range(nrow):
     if irno in [0, nrow - 1]:
         ncon = 1
     cellid = (0, irno, ncol - 1)
-    t = (
-        irno,
-        cellid,
-        rlen,
-        rwid,
-        rgrd,
-        rtp,
-        rbth,
-        rhk,
-        rman,
-        ncon,
-        ustrf,
-        ndv,
-    )
+    t = (irno, cellid, rlen, rwid, rgrd, rtp, rbth, rhk, rman, ncon, ustrf, ndv)
     pak_data.append(t)
 
 con_data = []
@@ -346,9 +321,7 @@ def build_mf6_model(idx, ws):
     )
 
     # create tdis package
-    flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.ModflowGwf(
@@ -419,12 +392,7 @@ def build_mf6_model(idx, ws):
     uzf_obs = {
         f"{gwfname}.uzfobs": [
             ("uzf01_dpth=0.5", "water-content", "uzf01", 0.5),
-            (
-                "uzf01_dpth=1.5",
-                "water-content",
-                "uzf01",
-                1.5,
-            ),  # Relies on boundnames
+            ("uzf01_dpth=1.5", "water-content", "uzf01", 1.5),  # Relies on boundnames
             ("uzf01_dpth=2.5", "water-content", "uzf01", 2.5),
             ("uzf01_dpth=3.5", "water-content", "uzf01", 3.5),
             ("uzf01_dpth=4.49", "water-content", "uzf01", 4.49),
@@ -498,9 +466,7 @@ def build_mf6_model(idx, ws):
     # ----------
 
     gwename = "gwe-" + name
-    gwe = flopy.mf6.ModflowGwe(
-        sim, modelname=gwename, model_nam_file=f"{gwename}.nam"
-    )
+    gwe = flopy.mf6.ModflowGwe(sim, modelname=gwename, model_nam_file=f"{gwename}.nam")
     gwe.name_file.save_flows = True
 
     imsgwe = flopy.mf6.ModflowIms(
@@ -544,9 +510,7 @@ def build_mf6_model(idx, ws):
     )
 
     # Instantiating MODFLOW 6 transport advection package
-    flopy.mf6.ModflowGweadv(
-        gwe, scheme=scheme, pname="ADV", filename=f"{gwename}.adv"
-    )
+    flopy.mf6.ModflowGweadv(gwe, scheme=scheme, pname="ADV", filename=f"{gwename}.adv")
 
     # Instantiating MODFLOW 6 transport dispersion package
     flopy.mf6.ModflowGwecnd(
@@ -568,8 +532,8 @@ def build_mf6_model(idx, ws):
         heat_capacity_water=cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=cps,
-        rhos=rhos,
+        heat_capacity_solid=cps,
+        density_solid=rhos,
         pname="EST",
         filename=f"{gwename}.est",
     )
@@ -641,9 +605,7 @@ def build_mf6_model(idx, ws):
         temperature_filerecord=f"{gwename}.ucn",
         budget_filerecord=f"{gwename}.bud",
         saverecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
-        temperatureprintrecord=[
-            ("COLUMNS", 3, "WIDTH", 20, "DIGITS", 8, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 3, "WIDTH", 20, "DIGITS", 8, "GENERAL")],
         printrecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         filename=f"{gwename}.oc",
     )
@@ -676,23 +638,17 @@ def check_output(idx, test):
     # Get the model budget items
     fname = os.path.join(ws, gwfname + ".cbc")
     assert os.path.isfile(fname)
-    modobj = flopy.utils.CellBudgetFile(
-        fname, precision="double", verbose=True
-    )
+    modobj = flopy.utils.CellBudgetFile(fname, precision="double", verbose=True)
 
     # Get the MVR results from GWF
     fname = os.path.join(ws, gwfname + ".mvr.bud")
     assert os.path.isfile(fname)
-    mvrobj = flopy.utils.CellBudgetFile(
-        fname, precision="double", verbose=True
-    )
+    mvrobj = flopy.utils.CellBudgetFile(fname, precision="double", verbose=True)
 
     # Get the MVE results from GWE
     fname = os.path.join(ws, gwename + ".mve.bud")
     assert os.path.isfile(fname)
-    mveobj = flopy.utils.CellBudgetFile(
-        fname, precision="double", verbose=False
-    )
+    mveobj = flopy.utils.CellBudgetFile(fname, precision="double", verbose=False)
 
     ckstpkper = mveobj.get_kstpkper()
 
@@ -703,10 +659,7 @@ def check_output(idx, test):
     mvedat = mveobj.get_data(text="MVE-FLOW")
 
     msg0 = "Accumulated cascading runoff is not as expected"
-    msg1 = (
-        "Rejected infiltration being passed to MVR where it  should not "
-        "be happening"
-    )
+    msg1 = "Rejected infiltration being passed to MVR where it  should not be happening"
     msg2 = (
         "The accumulated cascading runoff that is finally passed to SFR "
         "is not as expected"
@@ -768,8 +721,7 @@ def check_output(idx, test):
                                 itm[ct][-1], -1 * (finf0 - vks) + accum_runoff
                             ), msg0
                             assert np.isclose(
-                                itm_e[ct][-1],
-                                (finf0 - vks) * rhow * cpw + accum_energy,
+                                itm_e[ct][-1], (finf0 - vks) * rhow * cpw + accum_energy
                             ), msg7
                             accum_runoff += -1 * (finf0 - vks)
                             accum_energy += (finf0 - vks) * rhow * cpw
@@ -785,9 +737,7 @@ def check_output(idx, test):
                     for ct, val in enumerate(itm):
                         if ct == 0:
                             assert np.isclose(itm[ct][-1], accum_runoff), msg2
-                            assert np.isclose(
-                                itm_e[ct][-1], accum_energy
-                            ), msg9
+                            assert np.isclose(itm_e[ct][-1], accum_energy), msg9
                         else:
                             assert itm[ct][-1] == 0, msg3
                             assert itm_e[ct][-1] == 0, msg10
@@ -819,8 +769,7 @@ def check_output(idx, test):
                                 itm[ct][-1], -1 * (finf0 - vks) + accum_runoff
                             ), msg0
                             assert np.isclose(
-                                itm_e[ct][-1],
-                                (finf0 - vks) * rhow * cpw + accum_energy,
+                                itm_e[ct][-1], (finf0 - vks) * rhow * cpw + accum_energy
                             ), msg7
                             accum_runoff += -1 * (finf0 - vks)
                             accum_energy += (finf0 - vks) * rhow * cpw
@@ -836,9 +785,7 @@ def check_output(idx, test):
                     for ct, val in enumerate(itm):
                         if ct == 0:
                             assert np.isclose(itm[ct][-1], accum_runoff), msg2
-                            assert np.isclose(
-                                itm_e[ct][-1], accum_energy
-                            ), msg9
+                            assert np.isclose(itm_e[ct][-1], accum_energy), msg9
                         else:
                             assert itm[ct][-1] == 0, msg3
                             assert itm_e[ct][-1] == 0, msg10

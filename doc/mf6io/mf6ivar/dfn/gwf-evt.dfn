@@ -157,7 +157,7 @@ type integer
 reader urword
 optional false
 longname maximum number of evapotranspiration cells
-description REPLACE maxbound {'{#1}': 'evapotranspiration cells'}
+description REPLACE maxbound {'{#1}': 'evapotranspiration'}
 
 block dimensions
 name nseg
@@ -172,7 +172,7 @@ description number of ET segments.  Default is one.  When NSEG is greater than 1
 block period
 name iper
 type integer
-block_variable True
+block_variable true
 in_record true
 tagged false
 shape

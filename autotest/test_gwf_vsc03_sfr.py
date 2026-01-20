@@ -227,7 +227,7 @@ def build_models(idx, test):
         for j in np.arange(ncol):
             evtr = evtr_hi - (evtr_hi - evtr_lo) / ncol * j
             extdp = extdp_hi - (extdp_hi - extdp_lo) / ncol * j
-            #                 cellid,   surface, rate, depth, [pxdp], [petm], [petm0], [aux]
+            #       cellid,   surface, rate, depth, [pxdp], [petm], [petm0], [aux]
             evtspd.append([(0, i, j), top[i, j], evtr, extdp, 1.0, 0.0])
     surf_rate_specified = True
     flopy.mf6.ModflowGwfevt(
@@ -513,9 +513,7 @@ def check_output(idx, test):
             )
 
             # lower reaches
-            assert abs(stored_ans_dn[-(i + 1)]) < abs(
-                with_vsc_bud_last[-(i + 1), 2]
-            ), (
+            assert abs(stored_ans_dn[-(i + 1)]) < abs(with_vsc_bud_last[-(i + 1), 2]), (
                 "GW/SW not as expected in lower reaches of viscosity test "
                 "problem that uses SFR.  This test activates the VSC package that "
                 "should elicit a known relative change in the GW/SW exchange"

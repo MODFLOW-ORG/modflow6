@@ -19,16 +19,18 @@ type keyword
 shape
 reader urword
 optional false
+in_record true
 longname
 description xxx
 
 block attributes
 name time_series_name
 type string
-shape any1d
+shape (any1d)
 tagged false
 reader urword
 optional false
+in_record true
 longname
 description Name by which a package references a particular time-array series. The name must be unique among all time-array series used in a package.
 
@@ -48,6 +50,7 @@ type keyword
 shape
 reader urword
 optional false
+in_record true
 longname
 description  xxx
 
@@ -59,6 +62,7 @@ shape
 tagged false
 reader urword
 optional false
+in_record true
 longname
 description Interpolation method, which is either STEPWISE or LINEAR.
 
@@ -78,6 +82,7 @@ type keyword
 shape
 reader urword
 optional false
+in_record true
 longname
 description  xxx
 
@@ -88,6 +93,7 @@ shape time_series_name
 tagged false
 reader urword
 optional false
+in_record true
 longname
 description Scale factor, which will multiply all array values in time series. SFAC is an optional attribute; if omitted, SFAC = 1.0.
 
@@ -96,7 +102,7 @@ description Scale factor, which will multiply all array values in time series. S
 block time
 name time_from_model_start
 type double precision
-block_variable True
+block_variable true
 in_record true
 shape
 tagged false

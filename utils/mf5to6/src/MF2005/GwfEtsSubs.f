@@ -20,7 +20,7 @@ C     ------------------------------------------------------------------
       use utl7module, only: U1DREL, U2DREL, ! UBDSV1, UBDSV2, UBDSVA,
      &                      urword, URDCOM, ! UBDSV4, UBDSVB,
      &                      ULSTRD
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
 C
       CHARACTER*4 PTYP
       CHARACTER*200 LINE
@@ -148,7 +148,7 @@ C     ------------------------------------------------------------------
       use utl7module, only: U1DREL, U2DREL, !UBDSV1, UBDSV2, UBDSVA,
      &                      urword, URDCOM, !UBDSV4, UBDSVB,
      &                      ULSTRD, u2dint
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
 C
       CHARACTER*24 ANAME(6)
       DATA ANAME(1) /'   ET LAYER INDEX (IETS)'/

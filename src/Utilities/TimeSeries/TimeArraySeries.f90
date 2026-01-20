@@ -77,9 +77,6 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     newTas%datafile = filename
-    !
-    ! -- Return
-    return
   end subroutine ConstructTimeArraySeries
 
   ! -- Public procedures
@@ -205,9 +202,6 @@ contains
       call store_error(errmsg)
       call this%parser%StoreErrorUnit()
     end if
-    !
-    ! -- Return
-    return
   end subroutine tas_init
 
   !> @brief Populate an array time-weighted average value for a specified time
@@ -234,9 +228,6 @@ contains
       ! -- time0 and time1 are the same, so skip the integration step.
       call this%get_values_at_time(nvals, values, time0)
     end if
-    !
-    ! -- Return
-    return
   end subroutine GetAverageValues
 
   !> @brief Return unit number
@@ -248,9 +239,6 @@ contains
     class(TimeArraySeriesType) :: this
     !
     GetInunit = this%inunit
-    !
-    ! -- Return
-    return
   end function GetInunit
 
   ! -- Private procedures
@@ -341,9 +329,6 @@ contains
     !
     if (time0 <= time) taEarlier => ta0
     if (time1 >= time) taLater => ta1
-    !
-    ! -- Return
-    return
   end subroutine get_surrounding_records
 
   !> @brief Read next time array from input file and append to list
@@ -420,9 +405,6 @@ contains
         call this%parser%terminateblock()
       end if
     end if
-    !
-    ! -- Return
-    return
   end function read_next_array
 
   !> @brief Return an array of values for a specified time, same units as
@@ -507,9 +489,6 @@ contains
       call store_error(errmsg)
       call store_error_unit(this%inunit)
     end if
-    !
-    ! -- Return
-    return
   end subroutine get_values_at_time
 
   !> @brief Populates an array with integrated values for a specified time span
@@ -640,9 +619,6 @@ contains
         end if
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine get_integrated_values
 
   !> @brief Deallocate fromNode and all previous nodes in list;
@@ -680,9 +656,6 @@ contains
       end do
       fromNode => null()
     end if
-    !
-    ! -- Return
-    return
   end subroutine DeallocateBackward
 
   !> @brief Return pointer to ListNodeType object for the node representing
@@ -752,9 +725,6 @@ contains
     end if
     !
     if (time0 <= time) tslNode => node0
-    !
-    ! -- Return
-    return
   end subroutine get_latest_preceding_node
 
   !> @brief Deallocate memory
@@ -776,9 +746,6 @@ contains
     ! -- Deallocate the list of time arrays
     call this%list%Clear(.true.)
     deallocate (this%list)
-    !
-    ! -- Return
-    return
   end subroutine tas_da
 
   ! -- Procedures not type-bound
@@ -798,9 +765,6 @@ contains
     type is (TimeArraySeriesType)
       res => obj
     end select
-    !
-    ! -- Return
-    return
   end function CastAsTimeArraySeriesType
 
   !> @brief Get time array from list
@@ -816,9 +780,6 @@ contains
     !
     obj => list%GetItem(indx)
     res => CastAsTimeArraySeriesType(obj)
-    !
-    ! -- Return
-    return
   end function GetTimeArraySeriesFromList
 
 end module TimeArraySeriesModule

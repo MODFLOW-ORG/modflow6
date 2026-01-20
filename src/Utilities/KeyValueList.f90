@@ -103,32 +103,44 @@ contains
   subroutine clear(this)
     class(KeyValueListType) :: this
 
-    if (associated(this%first)) call clear_node(this%first)
+    call clear_nodes(this%first)
+
     this%first => null()
     this%last => null()
     this%cnt = 0
 
   end subroutine
 
-  !> @brief Clears the node
+  !> @brief Clears the node and all subsequent nodes
   !!
-  !! Recursive method that clears the next node before clearing itself
   !<
-  recursive subroutine clear_node(node)
+  subroutine clear_nodes(node)
+    type(KeyValueNodeType), pointer :: node
+    type(KeyValueNodeType), pointer :: next
+
+    do while (associated(node))
+      next => node%next
+
+      call clear_node(node)
+      deallocate (node)
+
+      node => next
+    end do
+
+  end subroutine clear_nodes
+
+  !> @brief Clears a single node
+  !!
+  !<
+  subroutine clear_node(node)
     type(KeyValueNodeType), pointer :: node
 
-    if (associated(node)) then
-      call clear_node(node%next)
+    deallocate (node%key)
 
-      deallocate (node%key)
+    nullify (node%key)
+    nullify (node%value)
+    nullify (node%next)
 
-      nullify (node%key)
-      nullify (node%value)
-      nullify (node%next)
-
-      deallocate (node)
-    end if
-
-  end subroutine clear_node
+  end subroutine
 
 end module KeyValueListModule

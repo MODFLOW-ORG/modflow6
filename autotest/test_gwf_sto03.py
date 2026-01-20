@@ -39,10 +39,7 @@ shape3d = (nlay, nrow, ncol)
 size3d = nlay * nrow * ncol
 delr, delc = 1.0, 1.0
 area = delr * delc
-zelev = (
-    0.0,
-    -100.0,
-)
+zelev = (0.0, -100.0)
 strt = zelev[-1] + 1e-7
 cmp_offset = 15999.1
 obsname = "H1"
@@ -75,9 +72,7 @@ def get_model(name, ws, newton_bool, offset=0.0):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create iterative model solution and register the gwf model with it
     if newton_bool:

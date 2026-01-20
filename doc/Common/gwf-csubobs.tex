@@ -5,40 +5,40 @@ CSUB & coarse-csub & cellid & -- & Flow between the groundwater system and coars
 CSUB & csub-cell & cellid & -- & Flow between the groundwater system for all interbeds and coarse-grained materials in a GWF cell. \\
 CSUB & wcomp-csub-cell & cellid & -- & Flow between the groundwater system for all interbeds and coarse-grained materials in a GWF cell from water compressibility. \\
 
-CSUB & sk & icsubno or boundname & -- & Convertible interbed storativity in a interbed or group of interbeds. Convertible interbed storativity is inelastic interbed storativity if the current effective stress is greater than the preconsolidation stress. The NODATA value is reported for steady-state stress periods. \\
-CSUB & ske & icsubno or boundname & -- & Elastic interbed storativity in a interbed or group of interbeds. The NODATA value is reported for steady-state stress periods. \\
-CSUB & sk-cell & cellid & -- & Convertible interbed and coarse-grained material storativity in a GWF cell. Convertible interbed storativity is inelastic interbed storativity if the current effective stress is greater than the preconsolidation stress. The NODATA value is reported for steady-state stress periods. \\
-CSUB & ske-cell & cellid & -- & Elastic interbed and coarse-grained material storativity in a GWF cell. The NODATA value is reported for steady-state stress periods. \\
+CSUB & sk & icsubno & -- & Convertible interbed storativity in a interbed. Convertible interbed storativity is inelastic interbed storativity if the current effective stress is greater than the preconsolidation stress. \\
+CSUB & ske & icsubno & -- & Elastic interbed storativity in a interbed. \\
+CSUB & sk-cell & cellid & -- & Convertible interbed and coarse-grained material storativity in a GWF cell. Convertible interbed storativity is inelastic interbed storativity if the current effective stress is greater than the preconsolidation stress. \\
+CSUB & ske-cell & cellid & -- & Elastic interbed and coarse-grained material storativity in a GWF cell. \\
 
 CSUB & estress-cell & cellid & -- & effective stress in a GWF cell. \\
 CSUB & gstress-cell & cellid & -- & geostatic stress in a GWF cell. \\
 
-CSUB & interbed-compaction & icsubno or boundname  & -- & interbed compaction in a interbed or group of interbeds. \\
-CSUB & inelastic-compaction &  icsubno or boundname & -- & inelastic interbed compaction in a interbed or group of interbeds. \\
-CSUB & elastic-compaction &  icsubno or boundname & -- & elastic interbed compaction a interbed or group of interbeds. \\
+CSUB & interbed-compaction & icsubno  & -- & interbed compaction in a interbed. \\
+CSUB & interbed-compaction-pct & icsubno  & -- & interbed percent compaction in a interbed. \\
+CSUB & inelastic-compaction &  icsubno & -- & inelastic interbed compaction in a interbed. \\
+CSUB & elastic-compaction &  icsubno & -- & elastic interbed compaction a interbed. \\
 CSUB & coarse-compaction & cellid  & -- & elastic compaction in coarse-grained materials in a GWF cell. \\
 CSUB & inelastic-compaction-cell &  cellid & -- & inelastic compaction in all interbeds in a GWF cell. \\
 CSUB & elastic-compaction-cell &  cellid & -- & elastic compaction in coarse-grained materials and all interbeds in a GWF cell. \\
 CSUB & compaction-cell & cellid  & -- & total compaction in coarse-grained materials and all interbeds in a GWF cell. \\
 
-CSUB & thickness & icsubno or boundname & -- & thickness of a interbed or group of interbeds. \\
-CSUB & coarse-thickness & cellid  & -- & thickness of coarse-grained materials in a GWF cell. \\
-CSUB & thickness-cell & cellid  & -- & total thickness of coarse-grained materials and all interbeds in a GWF cell. \\
+CSUB & thickness & icsubno & -- & thickness of a interbed. \\
+CSUB & coarse-thickness & cellid & -- & thickness of coarse-grained materials in a GWF cell. \\
+CSUB & thickness-cell & cellid & -- & total thickness of coarse-grained materials and all interbeds in a GWF cell. \\
 
-CSUB & theta & icsubno & -- & porosity of a interbed . \\
+CSUB & theta & icsubno & -- & porosity of a interbed. \\
 CSUB & coarse-theta & cellid  & -- & porosity of coarse-grained materials in a GWF cell. \\
 CSUB & theta-cell & cellid  & -- & thickness-weighted porosity of coarse-grained materials and all interbeds in a GWF cell. \\
 
-CSUB & delay-flowtop & icsubno  & -- & Flow between the groundwater system and a delay interbed across the top of the interbed. \\
-CSUB & delay-flowbot & icsubno  & -- & Flow between the groundwater system and a delay interbed across the bottom of the interbed. \\
+CSUB & delay-flowtop & icsubno or boundname  & -- & Flow between the groundwater system and a delay interbed or group of interbeds across the top of the interbed(s). \\
+CSUB & delay-flowbot & icsubno or boundname  & -- & Flow between the groundwater system and a delay interbed or group of interbeds across the bottom of the interbed(s). \\
 
-CSUB & delay-head & icsubno  & idcellno & head in interbed delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). The NODATA value is reported for steady-state stress periods. \\
-CSUB & delay-gstress & icsubno  & idcellno & geostatic stress in interbed delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). The NODATA value is reported for steady-state stress periods. \\
-CSUB & delay-estress & icsubno  & idcellno & effective stress in interbed delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). The NODATA value is reported for steady-state stress periods. \\
-CSUB & delay-preconstress & icsubno  & idcellno & preconsolidation stress in interbed delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). The NODATA value is reported for steady-state stress periods. \\
-CSUB & delay-compaction & icsubno  & idcellno & compaction in interbed delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). \\
-CSUB & delay-thickness & icsubno  & idcellno & thickness of interbed delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). \\
-CSUB & delay-theta & icsubno  & idcellno & porosity of interbed delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). \\
+CSUB & delay-head & icsubno & idcellno & head in interbed in delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). \\
+CSUB & delay-gstress & icsubno  & idcellno & geostatic stress in interbed in delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). \\
+CSUB & delay-estress & icsubno  & idcellno & effective stress in interbed in delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). \\
+CSUB & delay-preconstress & icsubno  & idcellno & preconsolidation stress in interbed in delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). \\
+CSUB & delay-compaction & icsubno  & idcellno & compaction in interbed in delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). \\
+CSUB & delay-thickness & icsubno  & idcellno & thickness of interbed or group of interbeds in delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). \\
+CSUB & delay-theta & icsubno  & idcellno & porosity of interbed in delay cell idcellno (1 $<=$ idcellno $<=$ NDELAYCELLS). \\
 
-CSUB & preconstress-cell & cellid  & -- & preconsolidation stress in a GWF cell containing at least one interbed. The NODATA value is reported for steady-state stress periods.
-
+CSUB & preconstress-cell & cellid  & -- & preconsolidation stress in a GWF cell containing at least one interbed.

@@ -41,9 +41,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "flow"
@@ -127,9 +125,7 @@ def build_models(idx, test):
     ghb_cond = 10.0 * (1.0 * 10.0) / 5.0
     ghb_salinity = 35.0
     ghb_temperature = 5.0
-    ghb_density = (
-        1000.0 + 0.7 * ghb_salinity - 0.375 * (ghb_temperature - 25.0)
-    )
+    ghb_density = 1000.0 + 0.7 * ghb_salinity - 0.375 * (ghb_temperature - 25.0)
     ghblist1 = []
     for k in range(nlay):
         ghblist1.append(
@@ -326,40 +322,23 @@ def build_models(idx, test):
     return sim, None
 
 
-def make_plot(sim):
-    print("making plots...")
-    name = sim.name
-    ws = sim.workspace
-    sim = flopy.mf6.MFSimulation.load(sim_ws=ws)
+def plot_output(idx, test):
+    import matplotlib.pyplot as plt
+
+    ws = test.workspace
+    sim = test.sims[0]
     gwfname = "flow"
     gwtsname = "salinity"
     gwthname = "temperature"
     gwf = sim.get_model(gwfname)
     gwts = sim.get_model(gwtsname)
     gwth = sim.get_model(gwthname)
-
-    fname = gwtsname + ".ucn"
-    fname = os.path.join(ws, fname)
-    cobj = flopy.utils.HeadFile(
-        fname, text="CONCENTRATION"
-    )  # , precision='double')
-    conc = cobj.get_alldata()
-
-    fname = gwthname + ".ucn"
-    fname = os.path.join(ws, fname)
-    tobj = flopy.utils.HeadFile(
-        fname, text="CONCENTRATION"
-    )  # , precision='double')
-    temperature = tobj.get_alldata()
-
-    fname = gwfname + ".buy.bin"
-    fname = os.path.join(ws, fname)
-    dobj = flopy.utils.HeadFile(fname, text="DENSITY")  # , precision='double')
-    dense = dobj.get_alldata()
+    conc = gwts.output.concentration().get_alldata()
+    temperature = gwth.output.concentration().get_alldata()
+    dense = gwf.buy.output.density().get_alldata()
 
     idxtime = -1
-
-    import matplotlib.pyplot as plt
+    alpha = 1.0
 
     fig = plt.figure(figsize=(10, 10))
     nplotrows = 3
@@ -369,10 +348,8 @@ def make_plot(sim):
     pxs.plot_bc(ftype="WEL")
     pxs.plot_bc(ftype="GHB")
     a = conc[idxtime]
-    pa = pxs.plot_array(a, cmap="jet", alpha=0.25)
-    cs = pxs.contour_array(
-        a, levels=35.0 * np.array([0.01, 0.5, 0.99]), colors="y"
-    )
+    pa = pxs.plot_array(a, cmap="jet", alpha=alpha)
+    cs = pxs.contour_array(a, levels=35.0 * np.array([0.01, 0.5, 0.99]), colors="y")
     plt.colorbar(pa, shrink=0.5)
     ax.set_title("SALINITY")
 
@@ -382,10 +359,8 @@ def make_plot(sim):
     pxs.plot_bc(ftype="WEL")
     pxs.plot_bc(ftype="GHB")
     a = temperature[idxtime]
-    pa = pxs.plot_array(a, cmap="jet", alpha=0.25)
-    cs = pxs.contour_array(
-        a, levels=5 + 20.0 * np.array([0.01, 0.5, 0.99]), colors="y"
-    )
+    pa = pxs.plot_array(a, cmap="jet", alpha=alpha)
+    cs = pxs.contour_array(a, levels=5 + 20.0 * np.array([0.01, 0.5, 0.99]), colors="y")
     plt.colorbar(pa, shrink=0.5)
     ax.set_title("TEMPERATURE")
 
@@ -395,47 +370,31 @@ def make_plot(sim):
     pxs.plot_bc(ftype="WEL")
     pxs.plot_bc(ftype="GHB")
     a = dense[idxtime]
-    pa = pxs.plot_array(a, cmap="jet", alpha=0.25)
+    pa = pxs.plot_array(a, cmap="jet", alpha=alpha)
     # cs = pxs.contour_array(a, levels=5+20.*np.array([0.01, .5, 0.99]),
     #                       colors='y')
     plt.colorbar(pa, shrink=0.5)
     ax.set_title("DENSITY")
 
     plt.draw()
-    fname = os.path.join(ws, gwtsname + ".png")
+    fname = os.path.join(ws, "results.png")
     plt.savefig(fname)
 
     return
 
 
 def check_output(idx, test):
-    makeplot = False
-    if makeplot:
-        make_plot(test)
-
     ws = test.workspace
+    sim = test.sims[0]
     gwfname = "flow"
     gwtsname = "salinity"
     gwthname = "temperature"
-
-    fname = gwfname + ".buy.bin"
-    fname = os.path.join(ws, fname)
-    dobj = flopy.utils.HeadFile(fname, text="DENSITY")  # , precision='double')
-    dense = dobj.get_alldata()
-
-    fname = gwtsname + ".ucn"
-    fname = os.path.join(ws, fname)
-    cobj = flopy.utils.HeadFile(
-        fname, text="CONCENTRATION"
-    )  # , precision='double')
-    conc = cobj.get_alldata()
-
-    fname = gwthname + ".ucn"
-    fname = os.path.join(ws, fname)
-    tobj = flopy.utils.HeadFile(
-        fname, text="CONCENTRATION"
-    )  # , precision='double')
-    temperature = tobj.get_alldata()
+    gwf = sim.get_model(gwfname)
+    gwts = sim.get_model(gwtsname)
+    gwth = sim.get_model(gwthname)
+    conc = gwts.output.concentration().get_alldata()
+    temperature = gwth.output.concentration().get_alldata()
+    dense = gwf.buy.output.density().get_alldata()
 
     # density is lagged, so use c and t from previous timestep
     c = conc[-2]
@@ -456,14 +415,14 @@ def check_output(idx, test):
         assert False, "density is not correct"
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, function_tmpdir, targets, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        plot=lambda t: plot_output(idx, t) if plot else None,
     )
     test.run()

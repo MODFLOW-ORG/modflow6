@@ -102,9 +102,7 @@ def build_models(idx, test):
     )
 
     # create tdis package
-    flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.ModflowGwf(
@@ -240,9 +238,7 @@ def check_output(idx, test):
     name = cases[idx]
 
     errmsg0 = "flow model should have run successfully but didn't\n"
-    errmsg1 = (
-        "flow model designed to fail, but seems to have run successfully\n"
-    )
+    errmsg1 = "flow model designed to fail, but seems to have run successfully\n"
 
     with open(test.workspace / "mfsim.lst", "r") as f:
         lines = f.readlines()

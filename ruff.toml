@@ -1,14 +1,5 @@
-line-length = 79
-target-version = "py37"
-include = [
-    ".doc/**/*.py",
-    "autotest/pyproject.toml",
-    "autotest/**/*.py",
-    "distribution/**/*.py",
-    "doc/**/*.py",
-    "pymake/**/*.py",
-    "utils/**/*.py",
-]
+line-length = 88
+target-version = "py39"
 
 [lint]
 select = [
@@ -16,14 +7,21 @@ select = [
     "E",    # pycodestyle error
     "F",    # Pyflakes
     "I001", # isort - unsorted-imports
+    "RUF",  # Ruff-specific rules
+    "UP",   # Pyupgrade
 ]
 ignore = [
-    "E501", # line too long TODO FIXME
     "E722", # do not use bare `except`
     "E741", # ambiguous variable name
-    "F821", # undefined name TODO FIXME
     "F841", # local variable assigned but never used
+    "RUF005", # collection literal concatenation
+    "RUF012", # mutable class default
+    "UP015", # redundant open modes
+    "RUF059", # unpacked variable is never used
 ]
+
+[lint.per-file-ignores]
+"doc/**.ipynb" = ["E501"]
 
 [format]
 quote-style = "double"

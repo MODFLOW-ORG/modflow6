@@ -12,7 +12,7 @@ import os
 import flopy
 import numpy as np
 import pytest
-from framework import TestFramework
+from framework import DNODATA, TestFramework
 
 cases = ["no-vsc01-bnd", "vsc01-bnd", "no-vsc01-k"]
 hyd_cond = [1205.49396942506, 864.0]  # Hydraulic conductivity (m/d)
@@ -55,9 +55,8 @@ nouter, ninner = 100, 300
 hclose, rclose, relax = 1e-10, 1e-6, 0.97
 
 
-def build_models(idx, test):
+def get_model(idx, ws, array_input=False):
     # Base simulation and model name and workspace
-    ws = test.workspace
     name = cases[idx]
 
     print(f"Building model...{name}")
@@ -72,9 +71,7 @@ def build_models(idx, test):
 
     # Instantiating time discretization
     tdis_ds = ((perlen, nstp, 1.0),)
-    flopy.mf6.ModflowTdis(
-        sim, nper=nper, perioddata=tdis_ds, time_units=time_units
-    )
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=tdis_ds, time_units=time_units)
     gwf = flopy.mf6.ModflowGwf(sim, modelname=gwfname, save_flows=True)
 
     # Instantiating solver
@@ -120,7 +117,7 @@ def build_models(idx, test):
     # Instantiating VSC
     if viscosity_on[idx]:
         # Instantiate viscosity (VSC) package
-        vsc_filerecord = f"{gwfname}.vsc.bin"
+        vsc_filerecord = f"{gwfname}.vsc.vscb"
         vsc_pd = [(0, 0.0, 20.0, gwtname, "temperature")]
         flopy.mf6.ModflowGwfvsc(
             gwf,
@@ -138,25 +135,56 @@ def build_models(idx, test):
 
     # Instantiating GHB
     ghbcond = hydraulic_conductivity[idx] * delv * delc / (0.5 * delr)
-    ghbspd = [
-        [(0, i, ncol - 1), top, ghbcond, initial_temperature]
-        for i in range(nrow)
-    ]
-    flopy.mf6.ModflowGwfghb(
-        gwf,
-        stress_period_data=ghbspd,
-        pname="GHB-1",
-        auxiliary="temperature",
-    )
+    if array_input:
+        bhead = {0: np.full((nlay, nrow, ncol), DNODATA, dtype=float)}
+        cond = {0: np.full((nlay, nrow, ncol), DNODATA, dtype=float)}
+        temp = {0: np.full((nlay, nrow, ncol), DNODATA, dtype=float)}
+        for i in range(nrow):
+            bhead[0][0, i, ncol - 1] = top
+            cond[0][0, i, ncol - 1] = ghbcond
+            temp[0][0, i, ncol - 1] = initial_temperature
+        flopy.mf6.ModflowGwfghbg(
+            gwf,
+            pname="GHB-1",
+            auxiliary="temperature",
+            bhead=bhead,
+            cond=cond,
+            aux=temp,
+        )
+    else:
+        ghbspd = [
+            [(0, i, ncol - 1), top, ghbcond, initial_temperature] for i in range(nrow)
+        ]
+        flopy.mf6.ModflowGwfghb(
+            gwf,
+            stress_period_data=ghbspd,
+            pname="GHB-1",
+            auxiliary="temperature",
+        )
 
     # Instantiating CHD
-    chdspd = [[(0, i, 0), 2.0, initial_temperature] for i in range(nrow)]
-    flopy.mf6.ModflowGwfchd(
-        gwf,
-        stress_period_data=chdspd,
-        pname="CHD-1",
-        auxiliary="temperature",
-    )
+    if array_input:
+        chead = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+        temp = np.full((nlay, nrow, ncol), DNODATA, dtype=float)
+        for i in range(nrow):
+            chead[0, i, 0] = 2.0
+            temp[0, i, 0] = initial_temperature
+        flopy.mf6.ModflowGwfchdg(
+            gwf,
+            pname="CHD-1",
+            auxiliary="temperature",
+            head=chead,
+            aux=temp,
+        )
+
+    else:
+        chdspd = [[(0, i, 0), 2.0, initial_temperature] for i in range(nrow)]
+        flopy.mf6.ModflowGwfchd(
+            gwf,
+            stress_period_data=chdspd,
+            pname="CHD-1",
+            auxiliary="temperature",
+        )
 
     # Instantiating OC
     head_filerecord = f"{gwfname}.hds"
@@ -243,16 +271,16 @@ def build_models(idx, test):
         sim, exgtype="GWF6-GWT6", exgmnamea=gwfname, exgmnameb=gwtname
     )
 
-    return sim, None
+    return sim
 
 
-def check_output(idx, test):
+def check_output(idx, ws, array_input=False):
     # read flow results from model
     name = cases[idx]
     gwfname = "gwf-" + name
 
     fname = gwfname + ".bud"
-    fname = os.path.join(test.workspace, fname)
+    fname = os.path.join(ws, fname)
     assert os.path.isfile(fname)
     budobj = flopy.utils.CellBudgetFile(fname, precision="double")
     outbud = budobj.get_data(text="             GHB")
@@ -279,8 +307,9 @@ def check_output(idx, test):
 
         # Ensure latest simulated value hasn't changed from stored answer
         assert np.allclose(sim_val_2, stored_ans, atol=1e-4), (
-            "Flow in the " + cases[1] + " test problem (simulates "
-            "viscosity) has changed,\n should be "
+            "Flow in the "
+            + cases[1]
+            + " test problem (simulates viscosity) has changed,\n should be "
             + str(stored_ans)
             + " but instead is "
             + str(sim_val_2)
@@ -300,12 +329,10 @@ def check_output(idx, test):
         )
 
     # Ensure that binary output file is readable (has the correct header)
-    vsc_filerecord = f"{gwfname}.vsc.bin"
-    fname = os.path.join(test.workspace, vsc_filerecord)
+    vsc_filerecord = f"{gwfname}.vsc.vscb"
+    fname = os.path.join(ws, vsc_filerecord)
     if os.path.isfile(fname):
-        vscobj = flopy.utils.HeadFile(
-            fname, precision="double", text="VISCOSITY"
-        )
+        vscobj = flopy.utils.HeadFile(fname, precision="double", text="VISCOSITY")
         try:
             data = vscobj.get_alldata()
             print(data.shape)
@@ -314,13 +341,37 @@ def check_output(idx, test):
             print("Binary viscosity output file was not read successfully")
 
 
+def build_models(idx, test):
+    # build MODFLOW 6 files
+    ws = test.workspace
+    sim = get_model(idx, ws)
+
+    # build comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    mc = get_model(idx, ws, array_input=True)
+
+    return sim, mc
+
+
+def check_outputs(idx, test):
+    # check output MODFLOW 6 files
+    ws = test.workspace
+    check_output(idx, ws)
+
+    # check output comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    check_output(idx, ws, array_input=True)
+
+
+@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        check=lambda t: check_outputs(idx, t),
         targets=targets,
+        compare="mf6",
     )
     test.run()

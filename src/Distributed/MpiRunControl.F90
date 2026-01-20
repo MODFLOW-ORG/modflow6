@@ -9,7 +9,7 @@ module MpiRunControlModule
   use MpiWorldModule
   use SimVariablesModule, only: proc_id, nr_procs
   use SimStagesModule
-  use KindModule, only: I4B, LGP
+  use KindModule, only: I4B, LGP, DP
   use STLVecIntModule
   use NumericalSolutionModule
   use RunControlModule, only: RunControlType
@@ -42,7 +42,6 @@ contains
 
   subroutine mpi_ctrl_start(this)
     use ErrorUtilModule, only: pstop_alternative
-
     class(MpiRunControlType) :: this
     ! local
     integer :: ierr
@@ -128,6 +127,9 @@ contains
     class(MpiRunControlType) :: this
     ! local
     integer :: ierr
+
+    ! release MPI related memory in router before MPI_Finalize
+    call this%virtual_data_mgr%router%finalize()
 
     ! finish mpi
 #if defined(__WITH_PETSC__)

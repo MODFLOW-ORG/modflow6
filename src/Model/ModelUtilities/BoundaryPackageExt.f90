@@ -31,8 +31,11 @@ module BndExtModule
     ! -- characters
     ! -- scalars
     integer(I4B), pointer :: iper
+    logical(LGP), pointer :: readarraygrid
+    logical(LGP), pointer :: readasarrays
     ! -- arrays
-    integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null()
+    integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null() !< input user cellid list
+    integer(I4B), dimension(:), pointer, contiguous :: nodeulist => null() !< input user nodelist
   contains
     procedure :: bnd_df => bndext_df
     procedure :: bnd_rp => bndext_rp
@@ -42,7 +45,10 @@ module BndExtModule
     procedure :: source_options
     procedure :: source_dimensions
     procedure :: log_options
-    procedure :: nodelist_update
+    procedure :: cellid_to_nlist
+    procedure :: nodeu_to_nlist
+    procedure :: layarr_to_nlist
+    procedure :: default_nodelist
     procedure :: check_cellid
     procedure :: write_list
     procedure :: bound_value
@@ -96,7 +102,8 @@ contains
     call obs_cr(this%obs, this%inobspkg)
     !
     ! -- Write information to model list file
-    write (this%iout, 1) this%filtyp, trim(adjustl(this%text)), this%input_mempath
+    write (this%iout, 1) trim(this%filtyp), trim(adjustl(this%text)), &
+      this%input_mempath
 1   format(1X, /1X, a, ' -- ', a, ' PACKAGE, VERSION 8, 2/22/2014', &
            ' INPUT READ FROM MEMPATH: ', a)
     !
@@ -124,8 +131,9 @@ contains
       call this%bnd_df_obs()
     end if
     !
-    ! -- return
-    return
+    ! -- Call define_listlabel to construct the list label that is written
+    !    when PRINT_INPUT option is used.
+    call this%define_listlabel()
   end subroutine bndext_df
 
   subroutine bndext_rp(this)
@@ -140,23 +148,27 @@ contains
     integer(I4B) :: n
     !
     if (this%iper /= kper) return
-    !
-    ! -- copy nbound from input context
-    call mem_set_value(this%nbound, 'NBOUND', this%input_mempath, &
-                       found)
-    !
-    ! -- convert cellids to node numbers
-    call this%nodelist_update()
-    !
-    ! -- update boundname string list
-    if (this%inamedbound /= 0) then
-      do n = 1, size(this%boundname_cst)
-        this%boundname(n) = this%boundname_cst(n)
-      end do
+
+    if (.not. this%readasarrays) then
+      ! -- copy nbound from input context
+      call mem_set_value(this%nbound, 'NBOUND', this%input_mempath, &
+                         found)
     end if
-    !
-    ! -- return
-    return
+
+    if (this%readarraygrid) then
+      call this%nodeu_to_nlist()
+    else if (this%readasarrays) then
+      call this%layarr_to_nlist()
+    else
+      call this%cellid_to_nlist()
+      !
+      ! -- update boundname string list
+      if (this%inamedbound /= 0) then
+        do n = 1, size(this%boundname_cst)
+          this%boundname(n) = this%boundname_cst(n)
+        end do
+      end if
+    end if
   end subroutine bndext_rp
 
   !> @ brief Deallocate package memory
@@ -169,6 +181,7 @@ contains
     !
     ! -- deallocate checkin paths
     call mem_deallocate(this%cellid, 'CELLID', this%memoryPath)
+    call mem_deallocate(this%nodeulist, 'NODEULIST', this%memoryPath)
     call mem_deallocate(this%boundname_cst, 'BOUNDNAME_IDM', this%memoryPath)
     call mem_deallocate(this%auxvar, 'AUXVAR_IDM', this%memoryPath)
     !
@@ -177,13 +190,14 @@ contains
     call mem_setptr(this%auxvar, 'AUXVAR', this%memoryPath)
     !
     ! -- scalars
+    deallocate (this%readarraygrid)
+    deallocate (this%readasarrays)
+    nullify (this%readarraygrid)
+    nullify (this%readasarrays)
     nullify (this%iper)
     !
     ! -- deallocate
     call this%BndType%bnd_da()
-    !
-    ! -- return
-    return
   end subroutine bndext_da
 
   !> @ brief Allocate package scalars
@@ -196,25 +210,23 @@ contains
   subroutine bndext_allocate_scalars(this)
     ! -- modules
     use MemoryManagerModule, only: mem_setptr
-    use MemoryManagerExtModule, only: mem_set_value
-    use MemoryHelperModule, only: create_mem_path
-    use SimVariablesModule, only: idm_context
     ! -- dummy variables
     class(BndExtType) :: this !< BndExtType object
     ! -- local variables
-    character(len=LENMEMPATH) :: input_mempath
-    !
-    ! -- set memory path
-    input_mempath = create_mem_path(this%name_model, this%packName, idm_context)
     !
     ! -- allocate base BndType scalars
     call this%BndType%allocate_scalars()
     !
-    ! -- set pointers to period input data scalars
-    call mem_setptr(this%iper, 'IPER', input_mempath)
-    !
-    ! -- return
-    return
+    ! -- set IPER pointer
+    call mem_setptr(this%iper, 'IPER', this%input_mempath)
+
+    ! -- allocate internal scalars
+    allocate (this%readarraygrid)
+    allocate (this%readasarrays)
+
+    ! -- initialize internal scalars
+    this%readarraygrid = .false.
+    this%readasarrays = .false.
   end subroutine bndext_allocate_scalars
 
   !> @ brief Allocate package arrays
@@ -238,11 +250,14 @@ contains
     !
     ! -- set input context pointers
     call mem_setptr(this%cellid, 'CELLID', this%input_mempath)
+    call mem_setptr(this%nodeulist, 'NODEULIST', this%input_mempath)
     call mem_setptr(this%boundname_cst, 'BOUNDNAME', this%input_mempath)
     !
     ! -- checkin input context pointers
     call mem_checkin(this%cellid, 'CELLID', this%memoryPath, &
                      'CELLID', this%input_mempath)
+    call mem_checkin(this%nodeulist, 'NODEULIST', this%memoryPath, &
+                     'NODEULIST', this%input_mempath)
     call mem_checkin(this%boundname_cst, LENBOUNDNAME, 'BOUNDNAME_IDM', &
                      this%memoryPath, 'BOUNDNAME', this%input_mempath)
     !
@@ -256,9 +271,6 @@ contains
       call mem_checkin(this%auxvar, 'AUXVAR_IDM', this%memoryPath, &
                        'AUXVAR', this%input_mempath)
     end if
-    !
-    ! -- return
-    return
   end subroutine bndext_allocate_arrays
 
   !> @ brief Source package options from input context
@@ -274,6 +286,7 @@ contains
     class(BndExtType), intent(inout) :: this !< BndExtType object
     ! -- local variables
     type(BndExtFoundType) :: found
+    logical(LGP) :: found_readarr
     character(len=LENAUXNAME) :: sfacauxname
     integer(I4B) :: n
     !
@@ -287,6 +300,10 @@ contains
     call mem_set_value(sfacauxname, 'AUXMULTNAME', this%input_mempath, &
                        found%auxmultname)
     call mem_set_value(this%inewton, 'INEWTON', this%input_mempath, found%inewton)
+    call mem_set_value(this%readarraygrid, 'READARRAYGRID', this%input_mempath, &
+                       found_readarr)
+    call mem_set_value(this%readasarrays, 'READASARRAYS', this%input_mempath, &
+                       found_readarr)
     !
     ! -- log found options
     call this%log_options(found, sfacauxname)
@@ -352,13 +369,19 @@ contains
       end if
     end if
     !
+    if (this%readasarrays) then
+      if (.not. this%dis%supports_layers()) then
+        errmsg = 'READASARRAYS option is not compatible with selected'// &
+                 ' discretization type.'
+        call store_error(errmsg)
+        call store_error_filename(this%input_fname)
+      end if
+    end if
+    !
     ! -- terminate if errors were detected
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- return
-    return
   end subroutine source_options
 
   !> @ brief Log package options
@@ -371,18 +394,24 @@ contains
     character(len=*), intent(in) :: sfacauxname
     ! -- local variables
     ! -- format
+    character(len=*), parameter :: fmtreadasarrays = &
+      &"(4x, 'PACKAGE INPUT WILL BE READ AS LAYER ARRAYS.')"
+    character(len=*), parameter :: fmtreadarraygrid = &
+      &"(4x, 'PACKAGE INPUT WILL BE READ AS GRID ARRAYS.')"
     character(len=*), parameter :: fmtflow = &
       &"(4x, 'FLOWS WILL BE SAVED TO BUDGET FILE SPECIFIED IN OUTPUT CONTROL')"
-    character(len=*), parameter :: fmttas = &
-      &"(4x, 'TIME-ARRAY SERIES DATA WILL BE READ FROM FILE: ', a)"
-    character(len=*), parameter :: fmtts = &
-      &"(4x, 'TIME-SERIES DATA WILL BE READ FROM FILE: ', a)"
-    character(len=*), parameter :: fmtnme = &
-      &"(a, i0, a)"
     !
     ! -- log found options
     write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text)) &
       //' BASE OPTIONS'
+    !
+    if (this%readasarrays) then
+      write (this%iout, fmtreadasarrays)
+    end if
+    !
+    if (this%readarraygrid) then
+      write (this%iout, fmtreadarraygrid)
+    end if
     !
     if (found%ipakcb) then
       write (this%iout, fmtflow)
@@ -416,9 +445,6 @@ contains
     ! -- close logging block
     write (this%iout, '(1x,a)') &
       'END OF '//trim(adjustl(this%text))//' BASE OPTIONS'
-    !
-    ! -- return
-    return
   end subroutine log_options
 
   !> @ brief Source package dimensions from input context
@@ -430,19 +456,23 @@ contains
     ! -- local variables
     type(BndExtFoundType) :: found
     !
-    ! -- open dimensions logging block
-    write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
-      ' BASE DIMENSIONS'
-    !
-    ! -- update defaults with idm sourced values
-    call mem_set_value(this%maxbound, 'MAXBOUND', this%input_mempath, &
-                       found%maxbound)
-    !
-    write (this%iout, '(4x,a,i7)') 'MAXBOUND = ', this%maxbound
-    !
-    ! -- close logging block
-    write (this%iout, '(1x,a)') &
-      'END OF '//trim(adjustl(this%text))//' BASE DIMENSIONS'
+    if (this%readasarrays) then
+      this%maxbound = this%dis%get_ncpl()
+    else
+      ! -- open dimensions logging block
+      write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
+        ' BASE DIMENSIONS'
+
+      ! -- update defaults with idm sourced values
+      call mem_set_value(this%maxbound, 'MAXBOUND', this%input_mempath, &
+                         found%maxbound)
+
+      write (this%iout, '(4x,a,i7)') 'MAXBOUND = ', this%maxbound
+
+      ! -- close logging block
+      write (this%iout, '(1x,a)') &
+        'END OF '//trim(adjustl(this%text))//' BASE DIMENSIONS'
+    end if
     !
     ! -- verify dimensions were set
     if (this%maxbound <= 0) then
@@ -450,13 +480,6 @@ contains
       call store_error(errmsg)
       call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- Call define_listlabel to construct the list label that is written
-    !    when PRINT_INPUT option is used.
-    call this%define_listlabel()
-    !
-    ! -- return
-    return
   end subroutine source_dimensions
 
   !> @ brief Update package nodelist
@@ -464,7 +487,7 @@ contains
     !! Convert period updated cellids to node numbers.
     !!
   !<
-  subroutine nodelist_update(this)
+  subroutine cellid_to_nlist(this)
     ! -- modules
     use SimVariablesModule, only: errmsg
     ! -- dummy
@@ -520,10 +543,119 @@ contains
       call store_error(errmsg)
       call store_error_filename(this%input_fname)
     end if
+  end subroutine cellid_to_nlist
+
+  !> @ brief Update package nodelist
+  !!
+  !! Convert period user nodes to reduced nodes
+  !!
+  !<
+  subroutine nodeu_to_nlist(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr
+    ! -- dummy
+    class(BndExtType) :: this !< BndExtType object
+    integer(I4B) :: n, noder, nodeuser, ninactive
+
+    ninactive = 0
+
+    ! -- Set the nodelist
+    do n = 1, this%nbound
+      nodeuser = this%nodeulist(n)
+      noder = this%dis%get_nodenumber(nodeuser, 0)
+      if (noder > 0) then
+        this%nodelist(n) = noder
+      else
+        ninactive = ninactive + 1
+      end if
+    end do
+
+    ! update nbound
+    this%nbound = this%nbound - ninactive
+  end subroutine nodeu_to_nlist
+
+  !> @brief Update the nodelist based on layer number variable input
+  !!
+  !! This is a module scoped routine to check for I<filtyp>
+  !! input. If array input was provided, INI<filtyp> and I<filtyp>
+  !! will be allocated in the input context.  If the read
+  !! state variable INI<filtyp> is set to 1 during this period
+  !! update, I<filtyp> input was read and is used here to update
+  !! the nodelist.
+  !!
+  !<
+  subroutine layarr_to_nlist(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr
+    use ConstantsModule, only: LENVARNAME
+    ! -- dummy
+    class(BndExtType) :: this !< BndExtType object
+    character(len=LENVARNAME) :: ilayname, inilayname
+    character(len=24) :: aname = '     LAYER OR NODE INDEX'
+    ! -- local
+    integer(I4B), dimension(:), contiguous, &
+      pointer :: ilay => null()
+    integer(I4B), pointer :: inilay => NULL()
     !
-    ! -- return
-    return
-  end subroutine nodelist_update
+    ! set ilay and read state variable names
+    ilayname = 'I'//trim(this%filtyp)
+    inilayname = 'INI'//trim(this%filtyp)
+    !
+    ! -- set pointer to input context read state variable
+    call mem_setptr(inilay, inilayname, this%input_mempath)
+    !
+    ! -- check read state
+    if (inilay == 1) then
+      ! -- ilay variable was read this period
+      !
+      ! -- set pointer to input context layer index variable
+      call mem_setptr(ilay, ilayname, this%input_mempath)
+      !
+      ! -- update nodelist
+      call this%dis%nlarray_to_nodelist(ilay, this%nodelist, this%maxbound, &
+                                        this%nbound, aname)
+    end if
+  end subroutine layarr_to_nlist
+
+  !> @brief Assign default nodelist when READASARRAYS is specified.
+  !!
+  !! Equivalent to reading layer number array as CONSTANT 1
+  !<
+  subroutine default_nodelist(this)
+    ! -- dummy
+    class(BndExtType) :: this
+    ! -- local
+    integer(I4B) :: il, ir, ic, ncol, nrow, nlay, nodeu, noder, ipos
+    !
+    if (this%readasarrays) then
+      !
+      ! -- set variables
+      if (this%dis%ndim == 3) then
+        nlay = this%dis%mshape(1)
+        nrow = this%dis%mshape(2)
+        ncol = this%dis%mshape(3)
+      elseif (this%dis%ndim == 2) then
+        nlay = this%dis%mshape(1)
+        nrow = 1
+        ncol = this%dis%mshape(2)
+      end if
+      !
+      ! -- Populate nodelist
+      ipos = 1
+      il = 1
+      do ir = 1, nrow
+        do ic = 1, ncol
+          nodeu = get_node(il, ir, ic, nlay, nrow, ncol)
+          noder = this%dis%get_nodenumber(nodeu, 0)
+          this%nodelist(ipos) = noder
+          ipos = ipos + 1
+        end do
+      end do
+      !
+      ! -- Assign nbound
+      this%nbound = ipos - 1
+    end if
+  end subroutine default_nodelist
 
   !> @ brief Check for valid cellid
   !<
@@ -580,9 +712,6 @@ contains
       !
     case default
     end select
-    !
-    ! -- return
-    return
   end subroutine check_cellid
 
   !> @ brief Log package list input
@@ -745,9 +874,6 @@ contains
     deallocate (inputtab)
     nullify (inputtab)
     deallocate (words)
-    !
-    ! -- return
-    return
   end subroutine write_list
 
   !> @ brief Return a bound value
@@ -770,9 +896,6 @@ contains
     ! -- override this return value by redefining this
     !    routine in the derived package.
     bndval = DNODATA
-    !
-    ! -- return
-    return
   end function bound_value
 
 end module BndExtModule

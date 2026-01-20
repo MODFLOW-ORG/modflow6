@@ -21,7 +21,8 @@ module SourceLoadModule
   public :: open_source_file
   public :: load_modelnam, load_simnam, load_simtdis
   public :: remote_model_ndim
-  public :: export_cr, export_post_step, export_da
+  public :: export_cr, export_da
+  public :: export_post_prepare, export_post_step
   public :: nc_close
   public :: netcdf_context
 
@@ -31,7 +32,8 @@ contains
   !<
   function create_input_loader(component_type, subcomponent_type, &
                                component_name, subcomponent_name, input_type, &
-                               input_fname, component_fname, nc_vars) &
+                               load_scope, input_fname, component_fname, &
+                               nc_vars) &
     result(loader)
     use SourceCommonModule, only: package_source_type, idm_subcomponent_name
     use InputLoadTypeModule, only: StaticPkgLoadBaseType
@@ -40,6 +42,7 @@ contains
     character(len=*), intent(in) :: component_name
     character(len=*), intent(in) :: subcomponent_name
     character(len=*), intent(in) :: input_type
+    character(len=*), intent(in) :: load_scope
     character(len=*), intent(in) :: input_fname
     character(len=*), intent(in) :: component_fname
     type(NCFileVarsType), pointer, optional, intent(in) :: nc_vars
@@ -47,33 +50,29 @@ contains
     type(ModflowInputType) :: mf6_input
     character(len=LENPACKAGENAME) :: source_type
     character(len=LENPACKAGENAME) :: sc_name
-    !
-    ! -- set subcomponent name
+
+    ! set subcomponent name
     sc_name = idm_subcomponent_name(component_type, subcomponent_type, &
                                     subcomponent_name)
-    !
-    ! -- create description of input
+    ! create description of input
     mf6_input = getModflowInput(input_type, component_type, subcomponent_type, &
-                                component_name, sc_name, input_fname)
-    !
-    ! -- set package source
+                                component_name, sc_name, load_scope, &
+                                input_fname)
+    ! set package source
     source_type = package_source_type(input_fname)
-    !
-    ! -- set source loader for model package
+
+    ! set source loader for model package
     loader => package_loader(source_type)
-    !
-    ! -- initialize loader
+
+    ! initialize loader
     call loader%init(mf6_input, component_name, component_fname, input_fname)
-    !
-    ! -- initialize loader netcdf variables structure
+
+    ! initialize loader netcdf variables data structure
     if (present(nc_vars)) then
       call nc_vars%create_varlists(component_name, sc_name, loader%nc_vars)
     else
       call loader%nc_vars%init(component_name)
     end if
-    !
-    ! -- return
-    return
   end function create_input_loader
 
   !> @brief allocate source model package static loader
@@ -84,11 +83,11 @@ contains
     character(len=*), intent(inout) :: source_type
     class(Mf6FileStaticPkgLoadType), pointer :: mf6file_loader
     class(StaticPkgLoadBaseType), pointer :: loader
-    !
-    ! -- initialize
+
+    ! initialize
     nullify (loader)
-    !
-    ! -- allocate derived object
+
+    ! allocate derived object
     select case (source_type)
     case ('MF6FILE')
       allocate (mf6file_loader)
@@ -100,9 +99,6 @@ contains
         '" not currently supported.'
       call store_error(errmsg, .true.)
     end select
-    !
-    ! -- return
-    return
   end function package_loader
 
   function open_source_file(pkgtype, filename, modelfname, iout) result(fd)
@@ -114,11 +110,11 @@ contains
     integer(I4B), intent(in) :: iout
     integer(I4B) :: fd
     character(len=LENPACKAGENAME) :: source_type
-    !
-    ! -- initialize
+
+    ! initialize
     fd = 0
-    !
-    ! -- set source type
+
+    ! set source type
     source_type = package_source_type(filename)
     !
     select case (source_type)
@@ -126,9 +122,6 @@ contains
       fd = open_mf6file(pkgtype, filename, modelfname, iout)
     case default
     end select
-    !
-    ! -- return
-    return
   end function open_source_file
 
   subroutine load_modelnam(mtype, mfname, mname, iout)
@@ -141,22 +134,18 @@ contains
     integer(I4B), intent(in) :: iout
     type(ModflowInputType) :: mf6_input
     character(len=LENPACKAGENAME) :: source_type
-    !
-    ! -- set source type
+
+    ! set source type
     source_type = package_source_type(mfname)
-    !
-    ! -- create description of input
+
+    ! create description of input
     mf6_input = getModflowInput(mtype, idm_component_type(mtype), 'NAM', &
-                                mname, 'NAM', mfname)
-    !
+                                mname, 'NAM', 'SIM', mfname)
     select case (source_type)
     case ('MF6FILE')
       call input_load(mfname, mf6_input, simfile, iout)
     case default
     end select
-    !
-    ! -- return
-    return
   end subroutine load_modelnam
 
   subroutine load_simnam()
@@ -168,78 +157,62 @@ contains
     type(ModflowInputType) :: mf6_input, hpc_input
     character(len=LINELENGTH) :: hpc6_filename
     character(len=LINELENGTH) :: line
-    logical :: lexist
-    !
-    ! -- load mfsim.nam if it exists
+    logical(LGP) :: lexist
+
+    ! load mfsim.nam if it exists
     inquire (file=trim(adjustl(simfile)), exist=lexist)
-    !
+
     if (lexist) then
-      !
-      ! -- write name of namfile to stdout
+      ! write name of namfile to stdout
       write (line, '(2(1x,a))') 'Using Simulation name file:', &
         trim(adjustl(simfile))
       call write_message(line, skipafter=1)
-      !
-      ! -- create description of input
-      mf6_input = getModflowInput('NAM6', 'SIM', 'NAM', 'SIM', 'NAM', simfile)
-      !
-      ! -- open namfile and load to input context
+      ! create description of input
+      mf6_input = getModflowInput('NAM6', 'SIM', 'NAM', 'SIM', 'NAM', 'ROOT', &
+                                  simfile)
+      ! open namfile and load to input context
       call input_load(simfile, mf6_input, simfile, iout)
-      !
-      ! -- load optional HPC configuration file
+      ! load optional HPC configuration file
       if (filein_fname(hpc6_filename, 'HPC6_FILENAME', mf6_input%mempath, &
                        simfile)) then
-        hpc_input = getModflowInput('HPC6', 'UTL', 'HPC', 'UTL', 'HPC')
+        hpc_input = getModflowInput('HPC6', 'UTL', 'HPC', 'UTL', 'HPC', 'SIM')
         call input_load(hpc6_filename, hpc_input, simfile, iout)
       end if
     end if
-    !
-    ! -- return
-    return
   end subroutine load_simnam
 
   subroutine load_simtdis()
-    ! -- modules
     use SimVariablesModule, only: simfile, iout
     use MemoryHelperModule, only: create_mem_path
     use MemoryManagerModule, only: mem_setptr
     use SimVariablesModule, only: idm_context
     use SourceCommonModule, only: package_source_type
     use IdmMf6FileModule, only: input_load
-    ! -- dummy
-    ! -- locals
     character(len=LENMEMPATH) :: input_mempath
     type(ModflowInputType) :: mf6_input
     character(len=LENPACKAGENAME) :: source_type
     character(len=:), pointer :: tdis6
-    logical :: lexist
-    !
-    ! -- set input memory path
+    logical(LGP) :: lexist
+
+    ! set input memory path
     input_mempath = create_mem_path('SIM', 'NAM', idm_context)
-    !
-    ! -- set pointers to input context timing params
+
+    ! set pointers to input context timing params
     call mem_setptr(tdis6, 'TDIS6', input_mempath)
-    !
-    ! -- create timing
+
+    ! create timing
     if (tdis6 /= '') then
-      !
-      ! -- set source type
+      ! set source type
       source_type = package_source_type(tdis6)
-      !
       select case (source_type)
       case ('MF6FILE')
-        !
         inquire (file=trim(adjustl(tdis6)), exist=lexist)
-        !
         if (lexist) then
-          !
-          ! -- create description of input
+          ! create description of input
           mf6_input = getModflowInput('TDIS6', 'SIM', 'TDIS', &
-                                      'SIM', 'TDIS', simfile)
-          !
-          ! -- open namfile and load to input context
+                                      'SIM', 'TDIS', 'SIM', simfile)
+          ! open namfile and load to input context
           call input_load(tdis6, mf6_input, simfile, iout)
-          !
         else
           write (errmsg, '(a)') &
             'Simulation TIMING input file "'//trim(tdis6)// &
@@ -250,9 +223,6 @@ contains
       case default
       end select
     end if
-    !
-    ! -- return
-    return
   end subroutine load_simtdis
 
   function remote_model_ndim(mtype, mfname) result(ncelldim)
@@ -268,46 +238,40 @@ contains
     integer(I4B) :: ierr, inunit
     logical(LGP) :: isfound, endOfBlock
     character(len=LINELENGTH) :: ptype
-    !
-    ! -- initialize
+
+    ! initialize
     ncelldim = 0
-    !
-    ! -- set source type
+
+    ! set source type
     source_type = package_source_type(mfname)
-    !
     select case (source_type)
     case ('MF6FILE')
-      !
-      ! -- open name file
+      ! open name file
       inunit = getunit()
       call openfile(inunit, 0, trim(adjustl(mfname)), mtype, &
                     'FORMATTED', 'SEQUENTIAL', 'OLD')
-      !
-      ! -- initialize parser
+      ! initialize parser
       call parser%Initialize(inunit, 0)
-      !
-      ! -- get options block
+      ! get options block
       call parser%GetBlock('OPTIONS', isfound, ierr, &
                            supportOpenClose=.true., blockRequired=.false.)
-      ! -- iterate through options
+      ! iterate through options
       if (isfound) then
         do
           call parser%GetNextLine(endOfBlock)
           if (endOfBlock) exit
         end do
       end if
-      !
-      ! -- get packages block
+      ! get packages block
       call parser%GetBlock('PACKAGES', isfound, ierr, &
                            supportOpenClose=.true., blockRequired=.true.)
       if (isfound) then
-        ! -- read through packages
+        ! read through packages
         do
           call parser%GetNextLine(endOfBlock)
           if (endOfBlock) exit
-          !
           call parser%GetStringCaps(ptype)
-          !
+
           select case (ptype)
           case ('DIS6')
             ncelldim = 3
@@ -329,43 +293,43 @@ contains
           end select
         end do
       end if
-      !
+
       call parser%clear()
-      !
     case default
     end select
-    !
-    ! -- return
-    return
   end function remote_model_ndim
 
   !> @brief create model exports list
   !<
   subroutine export_cr()
-    ! -- modules
     use ModelExportModule, only: modelexports_create, nc_export_active
 #if defined(__WITH_NETCDF__)
     use NCExportCreateModule, only: nc_export_create
 #endif
     call modelexports_create(iout)
-    !
-    ! -- are netcdf exports elected
+    ! are netcdf exports elected
     if (nc_export_active()) then
 #if defined(__WITH_NETCDF__)
       call nc_export_create()
 #else
       write (errmsg, '(a)') &
-        'Model namefile EXPORT_NETCDF option configured but NetCDF libraries are &
-        &not available.'
+        'Model namefile NETCDF_STUCTURED or NETCDF_MESH2D option configured &
+        &but NetCDF libraries are not available.'
       call store_error(errmsg, .true.)
 #endif
     end if
   end subroutine export_cr
 
+  !> @brief model exports post prepare step actions
+  !<
+  subroutine export_post_prepare()
+    use ModelExportModule, only: modelexports_post_prepare
+    call modelexports_post_prepare()
+  end subroutine export_post_prepare
+
   !> @brief model exports post step actions
   !<
   subroutine export_post_step()
-    ! -- modules
     use ModelExportModule, only: modelexports_post_step
     call modelexports_post_step()
   end subroutine export_post_step
@@ -373,7 +337,6 @@ contains
   !> @brief deallocate model export objects and list
   !<
   subroutine export_da()
-    ! -- modules
     use ModelExportModule, only: modelexports_destroy
     call modelexports_destroy()
   end subroutine export_da
@@ -386,14 +349,11 @@ contains
 #endif
     integer(I4B), intent(in) :: ncid
     character(len=*), intent(in) :: nc_fname
-    !
     if (ncid > 0) then
 #if defined(__WITH_NETCDF__)
       call nc_fclose(ncid, nc_fname)
 #endif
     end if
-    !
-    return
   end subroutine nc_close
 
   !> @brief create model netcdf context
@@ -406,36 +366,30 @@ contains
 #if defined(__WITH_NETCDF__)
     use NCContextBuildModule, only: open_ncfile, create_netcdf_context
 #endif
-    ! -- drummy
     character(len=*), intent(in) :: modeltype
     character(len=*), intent(in) :: component_type
     character(len=*), intent(in) :: modelname
     character(len=*), intent(in) :: modelfname
     integer(I4B), intent(in) :: iout
-    ! -- return
     type(NCFileVarsType), pointer :: nc_vars
-    ! -- local
     character(len=LENMEMPATH) :: input_mempath
     character(len=LINELENGTH) :: nc_fname
     integer(I4B) :: ncid
-    !
-    ! -- set input memory path
+
+    ! set input memory path
     input_mempath = create_mem_path(modelname, 'NAM', idm_context)
-    !
-    ! -- allocate context object
+
+    ! allocate context object
     allocate (nc_vars)
-    !
-    ! -- check if optional netcdf input file was provided
+
+    ! check if optional netcdf input file was provided
     if (filein_fname(nc_fname, 'NETCDF_FNAME', input_mempath, modelfname)) then
 #if defined(__WITH_NETCDF__)
-      !
-      ! -- open nc input file
+      ! open nc input file
       ncid = open_ncfile(nc_fname, iout)
-      !
-      ! -- read the file and build the context
+      ! read the file and build the context
       call create_netcdf_context(modeltype, modelname, modelfname, &
                                  nc_vars, nc_fname, ncid, iout)
-      !
 #else
       write (errmsg, '(a)') &
         'Cannot load model packages. NetCDF &
@@ -448,9 +402,6 @@ contains
       ncid = 0
       call nc_vars%init(modelname, '', ncid, '')
     end if
-    !
-    ! -- return
-    return
   end function netcdf_context
 
 end module SourceLoadModule

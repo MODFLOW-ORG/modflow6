@@ -91,7 +91,6 @@ contains
       this%iostat = ierr
     end if
     this%last_unit = iu
-    return
   end subroutine rdcom
 
   !> @brief Emulate a Fortran backspace
@@ -111,7 +110,6 @@ contains
     else
       this%nbackspace = 1
     end if
-    return
   end subroutine bkspc
 
 end module LongLineReaderModule

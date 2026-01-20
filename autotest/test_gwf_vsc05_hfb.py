@@ -1,7 +1,7 @@
 """
 Uses constant head and general-head boundaries on the left and right
 sides of a 10 row by 10 column by 1 layer model to drive flow from left to
-right.  Tests that a horizontal flow barrier accounts for changes in
+right.  Tests that a hydraulic flow barrier accounts for changes in
 viscosity when temperature is simulated. Barrier is between middle two
 columns, but only cuts across the bottom 5 rows.
 Model 1: VSC inactive, uses a higher speified K that matches what the VSC
@@ -24,10 +24,11 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["no-vsc05-hfb", "vsc05-hfb", "no-vsc05-k"]
+cases = ["no-vsc05-hfb", "vsc05-hfb", "no-vsc05-k", "hfb-idomain"]
 hyd_cond = [1205.49396942506, 864.0]  # Hydraulic conductivity (m/d)
-viscosity_on = [False, True, False]
-hydraulic_conductivity = [hyd_cond[0], hyd_cond[1], hyd_cond[1]]
+viscosity_on = [False, True, False, False]
+hydraulic_conductivity = [hyd_cond[0], hyd_cond[1], hyd_cond[1], hyd_cond[0]]
+icell_inactive = 3
 
 # Model units
 
@@ -81,9 +82,7 @@ def build_models(idx, test):
 
     # Instantiating time discretization
     tdis_ds = ((perlen, nstp, 1.0),)
-    flopy.mf6.ModflowTdis(
-        sim, nper=nper, perioddata=tdis_ds, time_units=time_units
-    )
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=tdis_ds, time_units=time_units)
     gwf = flopy.mf6.ModflowGwf(sim, modelname=gwfname, save_flows=True)
 
     # Instantiating solver
@@ -104,6 +103,11 @@ def build_models(idx, test):
     )
     sim.register_ims_package(ims, [gwfname])
 
+    idomain = np.ones((nlay, nrow, ncol), dtype=int)
+    if idx == icell_inactive:
+        sim.simulation_data.verify_data = False
+        idomain[0, 7, 4] = 0
+
     # Instantiating DIS
     flopy.mf6.ModflowGwfdis(
         gwf,
@@ -115,6 +119,7 @@ def build_models(idx, test):
         delc=delc,
         top=top,
         botm=botm,
+        idomain=idomain,
     )
 
     # Instantiating NPF
@@ -157,8 +162,7 @@ def build_models(idx, test):
     # Instantiating GHB (rightside, "outflow" boundary)
     ghbcond = hydraulic_conductivity[idx] * delv * delc / (0.5 * delr)
     ghbspd = [
-        [(0, i, ncol - 1), top, ghbcond, initial_temperature]
-        for i in range(nrow)
+        [(0, i, ncol - 1), top, ghbcond, initial_temperature] for i in range(nrow)
     ]
     flopy.mf6.ModflowGwfghb(
         gwf,
@@ -167,7 +171,7 @@ def build_models(idx, test):
         auxiliary="temperature",
     )
 
-    # Instantiate Horizontal Flow-Barrier (HFB) package
+    # Instantiate Hydraulic Flow-Barrier (HFB) package
     # Barrier present between middle two columns of the model domain, but only
     # in rows 6-10.  Remember that the hydraulic characteristic is the barrier
     # hydraulic conductivity divided by the width of the horizontal-flow
@@ -228,6 +232,7 @@ def build_models(idx, test):
         delc=delc,
         top=top,
         botm=botm,
+        idomain=idomain,
     )
 
     # Instantiating MST for GWT
@@ -277,9 +282,7 @@ def check_output(idx, test):
     # read flow results from model
     name = cases[idx]
     gwfname = "gwf-" + name
-    sim1 = flopy.mf6.MFSimulation.load(
-        sim_ws=test.workspace, load_only=["dis"]
-    )
+    sim1 = flopy.mf6.MFSimulation.load(sim_ws=test.workspace, load_only=["dis"])
     gwf = sim1.get_model(gwfname)
 
     # Get grid data
@@ -326,9 +329,7 @@ def check_output(idx, test):
 
         # Ensure with and without VSC simulations give nearly identical flow results
         # for each cell-to-cell exchange between columns 5 and 6
-        assert np.allclose(
-            no_vsc_bud_last[:, 2], stored_ans[:, 2], atol=1e-3
-        ), (
+        assert np.allclose(no_vsc_bud_last[:, 2], stored_ans[:, 2], atol=1e-3), (
             "Flow in models "
             + cases[0]
             + " and the established answer should be approximately "
@@ -338,9 +339,7 @@ def check_output(idx, test):
     elif idx == 1:
         with_vsc_bud_last = np.array(vals_to_store)
 
-        assert np.allclose(
-            with_vsc_bud_last[:, 2], stored_ans[:, 2], atol=1e-3
-        ), (
+        assert np.allclose(with_vsc_bud_last[:, 2], stored_ans[:, 2], atol=1e-3), (
             "Flow in models "
             + cases[1]
             + " and the established answer should be approximately "
@@ -354,9 +353,18 @@ def check_output(idx, test):
         # 3 is less than what's in the "with viscosity" model
         assert np.less(no_vsc_low_k_bud_last[:, 2], stored_ans[:, 2]).all(), (
             "Exit flow from model the established answer "
-            "should be greater than flow existing "
-            + cases[2]
-            + ", but it is not."
+            "should be greater than flow existing " + cases[2] + ", but it is not."
+        )
+    elif idx == 3:
+        cell_inactive_vals = np.array(vals_to_store)
+
+        # Ensure HFB inactive cell (1,8,5) cell-to-cell flows
+        # have been excluded
+        assert np.allclose(
+            cell_inactive_vals[:, 0], [4, 14, 24, 34, 44, 54, 64, 84, 94]
+        )
+        assert np.allclose(
+            cell_inactive_vals[:, 1], [5, 15, 25, 35, 45, 55, 65, 85, 95]
         )
 
 

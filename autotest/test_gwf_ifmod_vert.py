@@ -90,9 +90,7 @@ def get_model(idx, dir):
 
     # boundary stress period data
     left_chd = [
-        [(ilay, irow, 0), h_left]
-        for ilay in range(nlay)
-        for irow in range(nrow)
+        [(ilay, irow, 0), h_left] for ilay in range(nlay) for irow in range(nrow)
     ]
     right_chd = [
         [(ilay, irow, ncol - 1), h_right]
@@ -112,9 +110,7 @@ def get_model(idx, dir):
         memory_print_option="ALL",
     )
 
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     ims = flopy.mf6.ModflowIms(
         sim,
@@ -250,12 +246,8 @@ def check_output(idx, test):
 
     # (note that without XT3D on the exchange, the 'error'
     # is of order 1e-3!!)
-    deviations = np.array(
-        [np.std(heads_c[0, :, icol]) for icol in range(grb_c.ncol)]
-    )
-    assert np.any(
-        deviations < 1e-12
-    ), "head values deviate too much from theory"
+    deviations = np.array([np.std(heads_c[0, :, icol]) for icol in range(grb_c.ncol)])
+    assert np.any(deviations < 1e-12), "head values deviate too much from theory"
 
     # check flowja residual
     for mname in [parent_name, child_name]:
@@ -269,9 +261,9 @@ def check_output(idx, test):
         assert os.path.isfile(fpth)
         cbb = flopy.utils.CellBudgetFile(fpth, precision="double")
         flow_ja_face = cbb.get_data(idx=0)
-        assert (
-            len(flow_ja_face) > 0
-        ), "Could not check residuals as flow-ja-face could not be found"
+        assert len(flow_ja_face) > 0, (
+            "Could not check residuals as flow-ja-face could not be found"
+        )
 
         for fjf in flow_ja_face:
             fjf = fjf.flatten()

@@ -53,9 +53,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -202,15 +200,11 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwtic(gwt, strt=0.0, filename=f"{gwtname}.ic")
 
     # advection
-    adv = flopy.mf6.ModflowGwtadv(
-        gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv"
-    )
+    adv = flopy.mf6.ModflowGwtadv(gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv")
 
     # storage
     porosity = 0.30
-    sto = flopy.mf6.ModflowGwtmst(
-        gwt, porosity=porosity, filename=f"{gwtname}.sto"
-    )
+    sto = flopy.mf6.ModflowGwtmst(gwt, porosity=porosity, filename=f"{gwtname}.sto")
     # sources
     sourcerecarray = [
         ("CHD-1", "AUX", "CONCENTRATION"),
@@ -244,9 +238,7 @@ def build_models(idx, test):
     obs1 = []
     for icv in range(ncv):
         for iconn in range(nconn):
-            obs1.append(
-                (f"mwt{icv + 1}x{iconn + 1}", obstype, icv + 1, iconn + 1)
-            )
+            obs1.append((f"mwt{icv + 1}x{iconn + 1}", obstype, icv + 1, iconn + 1))
     obs2 = [(f"bmwt{i + 1}", obstype, f"mymwt{i + 1}") for i in range(ncv)]
     mwt_obs[fname] = obs1 + obs2
 
@@ -285,9 +277,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL")],
         printrecord=[
             ("CONCENTRATION", "ALL"),
@@ -330,22 +320,19 @@ def check_obs(sim):
         conc_ra = gwt.mwt.obs.output.obs(f=csvfile).data
         success = True
         if ".concentration.csv" in csvfile:
-            print(
-                "Comparing binary concentrations with observed well concentrations."
-            )
+            print("Comparing binary concentrations with observed well concentrations.")
             is_same = np.allclose(conc_ra["BMWT1"], conc_mwt1)
             if not is_same:
                 success = False
                 print(
-                    "Binary concentrations do not match with observation concentrations for mwt1"
+                    "Binary concentrations do not match with "
+                    "observation concentrations for mwt1"
                 )
                 print(conc_ra["BMWT1"], conc_mwt1)
         # check boundname observations with numeric ID observations
         for icv in range(1):
             # print(f"  Checking reach {imwt + 1}")
-            is_same = np.allclose(
-                conc_ra[f"MWT{icv + 1}"], conc_ra[f"BMWT{icv + 1}"]
-            )
+            is_same = np.allclose(conc_ra[f"MWT{icv + 1}"], conc_ra[f"BMWT{icv + 1}"])
             if not is_same:
                 success = False
                 for t, x, y in zip(
@@ -370,7 +357,8 @@ def check_obs(sim):
             success = False
             diff = connection_sum - conc_ra[f"BMWT{icv + 1}"]
             print(
-                f"Problem with MWT {icv + 1}; mindiff {diff.min()} and maxdiff {diff.max()}"
+                f"Problem with MWT {icv + 1}; "
+                f"mindiff {diff.min()} and maxdiff {diff.max()}"
             )
 
     assert success, "One or more MWT obs checks did not pass"

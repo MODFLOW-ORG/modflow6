@@ -14,20 +14,24 @@ module SwfDisv1DInputModule
   type SwfDisv1dParamFoundType
     logical :: length_units = .false.
     logical :: nogrb = .false.
+    logical :: grb_filerecord = .false.
+    logical :: grb6 = .false.
+    logical :: fileout = .false.
+    logical :: grb6_filename = .false.
     logical :: xorigin = .false.
     logical :: yorigin = .false.
     logical :: angrot = .false.
     logical :: export_ascii = .false.
+    logical :: crs = .false.
     logical :: nodes = .false.
     logical :: nvert = .false.
-    logical :: length = .false.
     logical :: width = .false.
     logical :: bottom = .false.
     logical :: idomain = .false.
     logical :: iv = .false.
     logical :: xv = .false.
     logical :: yv = .false.
-    logical :: icell2d = .false.
+    logical :: icell1d = .false.
     logical :: fdc = .false.
     logical :: ncvert = .false.
     logical :: icvert = .false.
@@ -53,6 +57,7 @@ module SwfDisv1DInputModule
     '', & ! shape
     'model length units', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -71,8 +76,85 @@ module SwfDisv1DInputModule
     '', & ! shape
     'do not write binary grid file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdisv1d_grb_filerecord = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DISV1D', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB_FILERECORD', & ! tag name
+    'GRB_FILERECORD', & ! fortran variable
+    'RECORD GRB6 FILEOUT GRB6_FILENAME', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdisv1d_grb6 = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DISV1D', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB6', & ! tag name
+    'GRB6', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'grb keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdisv1d_fileout = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DISV1D', & ! subcomponent
+    'OPTIONS', & ! block
+    'FILEOUT', & ! tag name
+    'FILEOUT', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'file keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdisv1d_grb6_filename = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DISV1D', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB6_FILENAME', & ! tag name
+    'GRB6_FILENAME', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file name of GRB information', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -89,6 +171,7 @@ module SwfDisv1DInputModule
     '', & ! shape
     'x-position origin of the model grid coordinate system', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -107,6 +190,7 @@ module SwfDisv1DInputModule
     '', & ! shape
     'y-position origin of the model grid coordinate system', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -125,6 +209,7 @@ module SwfDisv1DInputModule
     '', & ! shape
     'rotation angle', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -143,8 +228,28 @@ module SwfDisv1DInputModule
     '', & ! shape
     'export array variables to layered ascii files.', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdisv1d_crs = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DISV1D', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .true., & ! developmode
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -161,6 +266,7 @@ module SwfDisv1DInputModule
     '', & ! shape
     'number of linear features', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -179,24 +285,7 @@ module SwfDisv1DInputModule
     '', & ! shape
     'number of columns', & ! longname
     .false., & ! required
-    .false., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    swfdisv1d_length = InputParamDefinitionType &
-    ( &
-    'SWF', & ! component
-    'DISV1D', & ! subcomponent
-    'GRIDDATA', & ! block
-    'LENGTH', & ! tag name
-    'LENGTH', & ! fortran variable
-    'DOUBLE1D', & ! type
-    'NODES', & ! shape
-    'length', & ! longname
-    .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -215,6 +304,7 @@ module SwfDisv1DInputModule
     'NODES', & ! shape
     'width', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -233,6 +323,7 @@ module SwfDisv1DInputModule
     'NODES', & ! shape
     'bottom elevation for the one-dimensional cell', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -251,6 +342,7 @@ module SwfDisv1DInputModule
     'NODES', & ! shape
     'idomain existence array', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -269,6 +361,7 @@ module SwfDisv1DInputModule
     '', & ! shape
     'vertex number', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -287,6 +380,7 @@ module SwfDisv1DInputModule
     '', & ! shape
     'x-coordinate for vertex', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -305,6 +399,7 @@ module SwfDisv1DInputModule
     '', & ! shape
     'y-coordinate for vertex', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -312,17 +407,18 @@ module SwfDisv1DInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    swfdisv1d_icell2d = InputParamDefinitionType &
+    swfdisv1d_icell1d = InputParamDefinitionType &
     ( &
     'SWF', & ! component
     'DISV1D', & ! subcomponent
-    'CELL2D', & ! block
-    'ICELL2D', & ! tag name
-    'ICELL2D', & ! fortran variable
+    'CELL1D', & ! block
+    'ICELL1D', & ! tag name
+    'ICELL1D', & ! fortran variable
     'INTEGER', & ! type
     '', & ! shape
-    'cell2d number', & ! longname
+    'cell1d number', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -334,13 +430,14 @@ module SwfDisv1DInputModule
     ( &
     'SWF', & ! component
     'DISV1D', & ! subcomponent
-    'CELL2D', & ! block
+    'CELL1D', & ! block
     'FDC', & ! tag name
     'FDC', & ! fortran variable
     'DOUBLE', & ! type
     '', & ! shape
     'fractional distance to the cell center', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -352,13 +449,14 @@ module SwfDisv1DInputModule
     ( &
     'SWF', & ! component
     'DISV1D', & ! subcomponent
-    'CELL2D', & ! block
+    'CELL1D', & ! block
     'NCVERT', & ! tag name
     'NCVERT', & ! fortran variable
     'INTEGER', & ! type
     '', & ! shape
     'number of cell vertices', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -370,13 +468,14 @@ module SwfDisv1DInputModule
     ( &
     'SWF', & ! component
     'DISV1D', & ! subcomponent
-    'CELL2D', & ! block
+    'CELL1D', & ! block
     'ICVERT', & ! tag name
     'ICVERT', & ! fortran variable
     'INTEGER1D', & ! type
     'NCVERT', & ! shape
     'number of cell vertices', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -388,20 +487,24 @@ module SwfDisv1DInputModule
     [ &
     swfdisv1d_length_units, &
     swfdisv1d_nogrb, &
+    swfdisv1d_grb_filerecord, &
+    swfdisv1d_grb6, &
+    swfdisv1d_fileout, &
+    swfdisv1d_grb6_filename, &
     swfdisv1d_xorigin, &
     swfdisv1d_yorigin, &
     swfdisv1d_angrot, &
     swfdisv1d_export_ascii, &
+    swfdisv1d_crs, &
     swfdisv1d_nodes, &
     swfdisv1d_nvert, &
-    swfdisv1d_length, &
     swfdisv1d_width, &
     swfdisv1d_bottom, &
     swfdisv1d_idomain, &
     swfdisv1d_iv, &
     swfdisv1d_xv, &
     swfdisv1d_yv, &
-    swfdisv1d_icell2d, &
+    swfdisv1d_icell1d, &
     swfdisv1d_fdc, &
     swfdisv1d_ncvert, &
     swfdisv1d_icvert &
@@ -419,6 +522,7 @@ module SwfDisv1DInputModule
     'NVERT', & ! shape
     'vertices data', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -426,17 +530,18 @@ module SwfDisv1DInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    swfdisv1d_cell2d = InputParamDefinitionType &
+    swfdisv1d_cell1d = InputParamDefinitionType &
     ( &
     'SWF', & ! component
     'DISV1D', & ! subcomponent
-    'CELL2D', & ! block
-    'CELL2D', & ! tag name
-    'CELL2D', & ! fortran variable
-    'RECARRAY ICELL2D FDC NCVERT ICVERT', & ! type
+    'CELL1D', & ! block
+    'CELL1D', & ! tag name
+    'CELL1D', & ! fortran variable
+    'RECARRAY ICELL1D FDC NCVERT ICVERT', & ! type
     'NODES', & ! shape
-    'cell2d data', & ! longname
+    'cell1d data', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -447,7 +552,7 @@ module SwfDisv1DInputModule
     swf_disv1d_aggregate_definitions(*) = &
     [ &
     swfdisv1d_vertices, &
-    swfdisv1d_cell2d &
+    swfdisv1d_cell1d &
     ]
 
   type(InputBlockDefinitionType), parameter :: &
@@ -478,7 +583,7 @@ module SwfDisv1DInputModule
     .false. & ! block_variable
     ), &
     InputBlockDefinitionType( &
-    'CELL2D', & ! blockname
+    'CELL1D', & ! blockname
     .true., & ! required
     .true., & ! aggregate
     .false. & ! block_variable

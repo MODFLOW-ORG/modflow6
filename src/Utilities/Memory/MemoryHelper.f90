@@ -25,8 +25,14 @@ contains
     character(len=LENMEMPATH) :: memory_path !< the memory path
 
     call mem_check_length(component, LENCOMPONENTNAME, "solution/model/exchange")
-    call mem_check_length(subcomponent, LENCOMPONENTNAME, "package")
-    call mem_check_length(context, LENCONTEXTNAME, "context")
+
+    if (present(subcomponent)) then
+      call mem_check_length(subcomponent, LENCOMPONENTNAME, "package")
+    end if
+
+    if (present(context)) then
+      call mem_check_length(context, LENCONTEXTNAME, "context")
+    end if
 
     memory_path = trim(component)
 
@@ -151,9 +157,6 @@ contains
         res = mem_path(:idx)
       end if
     end if
-
-    return
-
   end function get_mem_path_context
 
   !> @brief Remove the context from the memory path

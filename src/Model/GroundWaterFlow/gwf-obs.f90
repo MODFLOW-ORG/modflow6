@@ -47,9 +47,6 @@ contains
     obs%active = .false.
     obs%inputFilename = ''
     obs%inUnitObs => inobs
-    !
-    ! -- Return
-    return
   end subroutine gwf_obs_cr
 
   !> @brief Allocate and read
@@ -66,9 +63,6 @@ contains
     !
     ! set pointers
     call this%set_pointers(ic, x, flowja)
-    !
-    ! -- Return
-    return
   end subroutine gwf_obs_ar
 
   !> @brief Define
@@ -100,9 +94,6 @@ contains
     ! -- Store obs type and assign procedure pointer for flow-ja-face observation type
     call this%StoreObsType('flow-ja-face', .true., indx)
     this%obsData(indx)%ProcessIdPtr => gwf_process_intercell_obs_id
-    !
-    ! -- Return
-    return
   end subroutine gwf_obs_df
 
   !> @brief Save obs
@@ -143,9 +134,6 @@ contains
         call store_error_unit(this%inUnitObs)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwf_obs_bd
 
   !> @brief Do GWF observations need any checking? If so, add checks here
@@ -155,9 +143,6 @@ contains
     class(GwfObsType), intent(inout) :: this
     !
     ! Do GWF observations need any checking? If so, add checks here
-    !
-    ! -- Return
-    return
   end subroutine gwf_obs_rp
 
   !> @brief Deallocate memory
@@ -170,9 +155,6 @@ contains
     nullify (this%x)
     nullify (this%flowja)
     call this%ObsType%obs_da()
-    !
-    ! -- Return
-    return
   end subroutine gwf_obs_da
 
   !> @brief Set pointers
@@ -187,9 +169,6 @@ contains
     this%ic => ic
     this%x => x
     this%flowja => flowja
-    !
-    ! -- Return
-    return
   end subroutine set_pointers
 
   ! -- Procedures related to GWF observations (NOT type-bound)
@@ -223,9 +202,6 @@ contains
       call store_error(ermsg)
       call store_error_unit(inunitobs)
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwf_process_head_drawdown_obs_id
 
   !> @brief Process flow between two cells when requested
@@ -281,9 +257,6 @@ contains
     if (count_errors() > 0) then
       call store_error_unit(inunitobs)
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwf_process_intercell_obs_id
 
 end module GwfObsModule

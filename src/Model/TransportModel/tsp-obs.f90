@@ -52,9 +52,6 @@ contains
     obs%inputFilename = ''
     obs%inUnitObs => inobs
     obs%depvartype = dvt
-    !
-    ! -- Return
-    return
   end subroutine tsp_obs_cr
 
   !> @brief Allocate and read method for package
@@ -73,9 +70,6 @@ contains
     !
     ! -- set pointers
     call this%set_pointers(ic, x, flowja)
-    !
-    ! -- Return
-    return
   end subroutine tsp_obs_ar
 
   !> @brief Define observation object
@@ -103,9 +97,6 @@ contains
     ! -- Store obs type and assign procedure pointer for flow-ja-face observation type
     call this%StoreObsType('flow-ja-face', .true., indx)
     this%obsData(indx)%ProcessIdPtr => tsp_process_intercell_obs_id
-    !
-    ! -- Return
-    return
   end subroutine tsp_obs_df
 
   !> @brief Save observations
@@ -138,9 +129,6 @@ contains
         end select
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine tsp_obs_bd
 
   !> @brief If transport model observations need checks, add them here
@@ -150,9 +138,6 @@ contains
     class(TspObsType), intent(inout) :: this
     !
     ! Do GWT (or GWE) observations need any checking? If so, add checks here
-    !
-    ! -- Return
-    return
   end subroutine tsp_obs_rp
 
   !> Deallocate memory
@@ -167,9 +152,6 @@ contains
     nullify (this%x)
     nullify (this%flowja)
     call this%ObsType%obs_da()
-    !
-    ! -- Return
-    return
   end subroutine tsp_obs_da
 
   !> @brief Set pointers needed by the transport OBS package
@@ -184,9 +166,6 @@ contains
     this%ic => ic
     this%x => x
     this%flowja => flowja
-    !
-    ! -- Return
-    return
   end subroutine set_pointers
 
   !> @brief Procedure related to Tsp observations (NOT type-bound)
@@ -220,9 +199,6 @@ contains
       call store_error(ermsg)
       call store_error_unit(inunitobs)
     end if
-    !
-    ! -- Return
-    return
   end subroutine tsp_process_obs_id
 
   !> @brief Procedure related to Tsp observations (NOT type-bound)
@@ -280,9 +256,6 @@ contains
     if (count_errors() > 0) then
       call store_error_unit(inunitobs)
     end if
-    !
-    ! -- Return
-    return
   end subroutine tsp_process_intercell_obs_id
 
 end module TspObsModule

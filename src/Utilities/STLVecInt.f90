@@ -11,12 +11,13 @@ module STLVecIntModule
   ! This is a dynamic vector type for integers
   type :: STLVecInt
     integer(I4B), private, allocatable :: values(:) !< the internal array for storage
-    integer(I4B) :: size !< the number of elements (technically this stuff should be unsigned)
-    integer(I4B) :: capacity !< the reserved storage
+    integer(I4B) :: size !< the number of elements
+    integer(I4B), private :: capacity !< the reserved storage
   contains
     procedure, pass(this) :: init !< allocate memory, init size and capacity
     procedure, pass(this) :: push_back !< adds an element at the end of the vector
     procedure, pass(this) :: push_back_unique !< adds an element at the end of the vector, if not present yet
+    procedure, pass(this) :: pop !< removes the last element
     procedure, pass(this) :: add_array !< adds elements of array at the end of the vector
     procedure, pass(this) :: add_array_unique !< adds elements of array at the end of the vector, if not present yet
     procedure, pass(this) :: at !< random access, unsafe, no bounds checking
@@ -71,6 +72,18 @@ contains ! module routines
     end if
 
   end subroutine push_back_unique
+
+  subroutine pop(this)
+    class(STLVecInt), intent(inout) :: this
+
+    if (this%size > 0) then
+      this%size = this%size - 1
+    else
+      write (*, *) 'STLVecInt exception: cannot pop from an empty array'
+      call ustop()
+    end if
+
+  end subroutine
 
   subroutine add_array(this, array)
     class(STLVecInt), intent(inout) :: this

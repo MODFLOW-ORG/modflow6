@@ -69,9 +69,6 @@ contains
     !
     ! -- set model pointers
     call exchange%set_model_pointers()
-    !
-    ! -- return
-    return
   end subroutine gwfprt_cr
 
   subroutine set_model_pointers(this)
@@ -117,9 +114,6 @@ contains
     ! -- Set a pointer to the GWF bndlist.  This will allow the transport model
     !    to look through the flow packages and establish a link to GWF flows
     prtmodel%fmi%gwfbndlist => gwfmodel%bndlist
-    !
-    ! -- return
-    return
   end subroutine set_model_pointers
 
   subroutine exg_df(this)
@@ -178,14 +172,14 @@ contains
       call prtmodel%fmi%gwfpackages(ip)%set_auxname(packobj%naux, &
                                                     packobj%auxname)
     end do
-    !
-    ! -- return
-    return
   end subroutine exg_df
 
   subroutine exg_ar(this)
     ! -- modules
     use MemoryManagerModule, only: mem_checkin
+    use DisModule, only: DisType
+    use DisvModule, only: DisvType
+    use DisuModule, only: DisuType
     ! -- dummy
     class(GwfPrtExchangeType) :: this
     ! -- local
@@ -198,6 +192,11 @@ contains
       & ',a,'.&
       &  GWF Model has ', i0, ' user nodes and ', i0, ' reduced nodes.&
       &  PRT Model has ', i0, ' user nodes and ', i0, ' reduced nodes.&
+      &  Ensure discretization packages, including IDOMAIN, are identical.')"
+    character(len=*), parameter :: fmtidomerr = &
+      "('GWF and PRT Models do not have the same discretization for exchange&
+      & ',a,'.&
+      &  GWF Model and PRT Model have different IDOMAIN arrays.&
       &  Ensure discretization packages, including IDOMAIN, are identical.')"
     !
     ! -- set gwfmodel
@@ -225,6 +224,34 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     !
+    ! -- Make sure idomains are identical
+    select type (gwfdis => gwfmodel%dis)
+    type is (DisType)
+      select type (prtdis => prtmodel%dis)
+      type is (DisType)
+        if (.not. all(gwfdis%idomain == prtdis%idomain)) then
+          write (errmsg, fmtidomerr) trim(this%name)
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+      end select
+    type is (DisvType)
+      select type (prtdis => prtmodel%dis)
+      type is (DisvType)
+        if (.not. all(gwfdis%idomain == prtdis%idomain)) then
+          write (errmsg, fmtidomerr) trim(this%name)
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+      end select
+    type is (DisuType)
+      select type (prtdis => prtmodel%dis)
+      type is (DisuType)
+        if (.not. all(gwfdis%idomain == prtdis%idomain)) then
+          write (errmsg, fmtidomerr) trim(this%name)
+          call store_error(errmsg, terminate=.TRUE.)
+        end if
+      end select
+    end select
+    !
     ! -- setup pointers to gwf variables allocated in gwf_ar
     prtmodel%fmi%gwfhead => gwfmodel%x
     call mem_checkin(prtmodel%fmi%gwfhead, &
@@ -238,6 +265,11 @@ contains
     call mem_checkin(prtmodel%fmi%gwfspdis, &
                      'GWFSPDIS', prtmodel%fmi%memoryPath, &
                      'SPDIS', gwfmodel%npf%memoryPath)
+    prtmodel%fmi%igwfceltyp = 1
+    prtmodel%fmi%gwfceltyp => gwfmodel%npf%icelltype
+    call mem_checkin(prtmodel%fmi%gwfceltyp, &
+                     'GWFCELTYP', prtmodel%fmi%memoryPath, &
+                     'ICELLTYPE', gwfmodel%npf%memoryPath)
     !
     ! -- setup pointers to the flow storage rates. GWF strg arrays are
     !    available after the gwf_ar routine is called.
@@ -273,9 +305,6 @@ contains
     !
     call mem_deallocate(this%m1id)
     call mem_deallocate(this%m2id)
-    !
-    ! -- return
-    return
   end subroutine exg_da
 
   subroutine allocate_scalars(this)
@@ -289,9 +318,6 @@ contains
     call mem_allocate(this%m2id, 'M2ID', this%memoryPath)
     this%m1id = 0
     this%m2id = 0
-    !
-    ! -- return
-    return
   end subroutine allocate_scalars
 
   subroutine gwfbnd2prtfmi(this)
@@ -343,9 +369,6 @@ contains
         iterm = iterm + 1
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine gwfbnd2prtfmi
 
 end module GwfPrtExchangeModule

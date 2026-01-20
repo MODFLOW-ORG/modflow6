@@ -4,7 +4,7 @@ module MultiLayerObs
   use ConstantsPHMFModule, only: LENOBSNAMENEW
   use MathUtilModule, only: is_close
   use ListModule, only: ListType
-  use SimModule, only: store_error, ustop
+  use SimPHMFModule, only: store_error, ustop
 
   implicit none
   private

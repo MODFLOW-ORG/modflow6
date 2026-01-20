@@ -1,6 +1,5 @@
 import argparse
 import pathlib as pl
-import sys
 import time
 from subprocess import PIPE, STDOUT, Popen
 
@@ -68,10 +67,7 @@ if __name__ == "__main__":
         + "by specifying the format argument "
         + "(--format=JobID,AveCPU,AveRSS,MaxRSS,...)."
     )
-    parser = argparse.ArgumentParser(
-        "sstat_poll",
-        description=description,
-    )
+    parser = argparse.ArgumentParser("sstat_poll", description=description)
     parser.add_argument("jobid", help="SLURM JobID", type=int)
     parser.add_argument(
         "--format",
@@ -110,9 +106,6 @@ if __name__ == "__main__":
     )
     slurm_args = parser.parse_args()
 
-    if sys.version_info < (3, 8):
-        sys.exit("Python version must be 3.8 or higher.")
-
     print(f"SLURM command: {slurm_args.command}")
     print(f"JobID: {slurm_args.jobid}")
 
@@ -141,9 +134,7 @@ if __name__ == "__main__":
         )
         is None
     ):
-        raise ValueError(
-            f"SLURM command '{slurm_args.command}' does not exist"
-        )
+        raise ValueError(f"SLURM command '{slurm_args.command}' does not exist")
 
     end_tag = f"sstat:,error:,no,steps,running,for,job,{slurm_args.jobid}"
     # open file

@@ -46,9 +46,7 @@ def build_model(idx, ws, mf6):
 
     # create tdis package
     tdis_rc = [(perlen[i], nstp[i], tsmult[i]) for i in range(nper)]
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.MFModel(

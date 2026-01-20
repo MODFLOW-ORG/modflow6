@@ -34,9 +34,6 @@ contains
     !
     ! -- Calculate area
     area_sat = this%height * this%width
-    !
-    ! -- Return
-    return
   end function area_sat
 
   !> @brief Return saturated perimeter
@@ -51,9 +48,6 @@ contains
     !
     ! -- Calculate area
     perimeter_sat = DTWO * (this%height + this%width)
-    !
-    ! -- Return
-    return
   end function perimeter_sat
 
   !> @brief Return wetted area
@@ -75,9 +69,6 @@ contains
     else
       area_wet = this%width * this%height
     end if
-    !
-    ! -- Return
-    return
   end function area_wet
 
   !> @brief Return wetted perimeter
@@ -99,9 +90,6 @@ contains
     else
       perimeter_wet = DTWO * (this%height + this%width)
     end if
-    !
-    ! -- Return
-    return
   end function perimeter_wet
 
   !> @brief Set a parameter for this rectangular object
@@ -141,9 +129,6 @@ contains
         'Unknown rectangular geometry attribute: ', line(istart:istop)
       call store_error(errmsg, terminate=.TRUE.)
     end select
-    !
-    ! -- Return
-    return
   end subroutine set_attribute
 
   !> @brief Print the attributes for this object
@@ -165,9 +150,6 @@ contains
     write (iout, fmttd) 'WIDTH = ', this%width
     write (iout, fmttd) 'SATURATED AREA = ', this%area_sat()
     write (iout, fmttd) 'SATURATED WETTED PERIMETER = ', this%perimeter_sat()
-    !
-    ! -- Return
-    return
   end subroutine print_attributes
 
 end module RectangularGeometryModule

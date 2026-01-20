@@ -75,9 +75,6 @@ contains
     this%iout => iout
     this%iprpak => iprpak
     this%nreaches => nreaches
-    !
-    ! -- Return
-    return
   end subroutine cross_section_cr
 
   !> @brief Initialize a cross-section object
@@ -139,9 +136,6 @@ contains
         ipos = ipos + 1
       end do
     end do
-    !
-    ! -- return
-    return
   end subroutine initialize
 
   !> @brief Read a cross-section table
@@ -319,9 +313,6 @@ contains
     !
     ! -- validate the table
     call this%validate(irch)
-    !
-    ! -- return
-    return
   end subroutine read_table
 
   !> @brief Validate cross-section tables
@@ -461,9 +452,6 @@ contains
     ! -- deallocate local storage
     deallocate (heights)
     deallocate (unique_heights)
-    !
-    ! -- return
-    return
   end subroutine validate
 
   !> @brief Write cross-section tables
@@ -626,9 +614,6 @@ contains
         'listing file for more information.'
       call store_warning(warnmsg)
     end if
-    !
-    ! -- return
-    return
   end subroutine output
 
   !> @brief Get the total number of cross-section points
@@ -649,9 +634,6 @@ contains
     do n = 1, this%nreaches
       nptstot = nptstot + this%npoints(n)
     end do
-    !
-    ! -- return
-    return
   end function get_ncrossptstot
 
   !> @brief Pack the cross-section object
@@ -689,9 +671,6 @@ contains
       end do
       iacross(n + 1) = ipos
     end do
-    !
-    ! -- return
-    return
   end subroutine pack
 
   !> @brief Deallocate the cross-section object
@@ -738,9 +717,6 @@ contains
     nullify (this%iout)
     nullify (this%iprpak)
     nullify (this%nreaches)
-    !
-    ! -- return
-    return
   end subroutine destroy
 
 end module sfrCrossSectionManager

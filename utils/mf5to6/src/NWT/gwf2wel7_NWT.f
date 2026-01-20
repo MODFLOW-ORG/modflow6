@@ -155,7 +155,7 @@ C     ------------------------------------------------------------------
       USE GLOBAL,       ONLY:IOUT,NCOL,NROW,NLAY,IFREFM
       USE GWFWELMODULE, ONLY:NWELLS,MXWELL,NWELVL,IPRWEL,NPWEL,
      1                       IWELPB,NNPWEL,WELAUX,WELL
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       use utl7module, only: ULSTRD
 C
       CHARACTER*6 CWELL

@@ -11,15 +11,9 @@ cases = ["bedleak", "bedleak_fail", "bedleak_none"]
 def build_models(idx, test):
     nlay, nrow, ncol = 1, 10, 10
     nper = 1
-    perlen = [
-        1.0,
-    ]
-    nstp = [
-        1,
-    ]
-    tsmult = [
-        1.0,
-    ]
+    perlen = [1.0]
+    nstp = [1]
+    tsmult = [1.0]
 
     lenx = 300.0
     delr = delc = lenx / float(nrow)
@@ -81,9 +75,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=True, icelltype=1, k=1.0, k33=0.01
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=True, icelltype=1, k=1.0, k33=0.01)
     # storage
     sto = flopy.mf6.ModflowGwfsto(
         gwf,
@@ -119,7 +111,8 @@ def build_models(idx, test):
         [0, 100.0, 1, "lake1"],
         [1, 100.0, 1, "lake2"],
     ]
-    # <ifno> <iconn> <cellid(ncelldim)> <claktype> <bedleak> <belev> <telev> <connlen> <connwidth>
+    # <ifno> <iconn> <cellid(ncelldim)> <claktype> <bedleak> <belev> <telev> ...
+    #        <connlen> <connwidth>
     connectiondata = [
         [0, 0, (0, 1, 1), "vertical", bedleak, 0.0, 0.0, 0.0, 0.0],
         [1, 0, (0, 2, 2), "vertical", bedleak, 0.0, 0.0, 0.0, 0.0],

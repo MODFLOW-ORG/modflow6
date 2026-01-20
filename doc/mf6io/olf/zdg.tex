@@ -1,0 +1,47 @@
+Input to the Zero-Depth-Gradient (ZDG) Package is read from the file that has type ``ZDG6'' in the Name File.  Any number of ZDG Packages can be specified for a single surface water flow model.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/olf-zdg-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/olf-zdg-dimensions.dat}
+\vspace{5mm}
+\noindent \textit{FOR ANY STRESS PERIOD}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/olf-zdg-period.dat}
+\packageperioddescription
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/olf-zdg-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/olf-zdg-example.dat}
+
+%\vspace{5mm}
+%\subsubsection{Available observation types}
+%Well Package observations include the simulated well rates (\texttt{wel}), the well discharge that is available for the MVR package (\texttt{to-mvr}), and the reduction in the specified \texttt{q} when the \texttt{AUTO\_FLOW\_REDUCE} option is enabled. The data required for each WEL Package observation type is defined in table~\ref{table:gwf-welobstype}. The sum of \texttt{wel} and \texttt{to-mvr} is equal to the simulated well discharge rate, which may be less than the specified \texttt{q} if the \texttt{AUTO\_FLOW\_REDUCE} option is enabled. The \texttt{DNODATA} value is returned if the \texttt{wel-reduction} observation is specified but the \texttt{AUTO\_FLOW\_REDUCE} option is not enabled. Negative and positive values for an observation represent a loss from and gain to the GWF model, respectively.
+
+%\begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
+%\caption{Available WEL Package observation types} \tabularnewline
+
+%\hline
+%\hline
+%\textbf{Stress Package} & \textbf{Observation type} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+%\hline
+%\endhead
+
+%\hline
+%\endfoot
+
+%\input{../Common/gwf-welobs.tex}
+%\label{table:gwf-welobstype}
+%\end{longtable}
+
+%\vspace{5mm}
+%\subsubsection{Example Observation Input File}
+%\lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-wel-example-obs.dat}

@@ -4,7 +4,7 @@ module UtilitiesModule
   use GlobalVariablesModule, only: optfile, PathToPostObsMf, ScriptType, &
                                    verbose, echo
   use InputOutputModule, only: GetUnit, openfile, UPCASE, URWORD
-  use SimModule, onlY: store_error, store_note, store_warning, ustop
+  use SimPHMFModule, only: store_error, store_note, store_warning, ustop
 
   private
   public :: GetArgs, Write1Drel, Write2Drel, Write3Drel, &

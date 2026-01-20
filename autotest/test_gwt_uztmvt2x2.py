@@ -52,9 +52,7 @@ from framework import TestFramework
 scheme = "UPSTREAM"
 # scheme = "TVD"
 
-cases = [
-    "uztmvt"
-]  # 2-cell model, horizontally connected with staggered alignment
+cases = ["uztmvt"]  # 2-cell model, horizontally connected with staggered alignment
 
 nrow = 2
 ncol = 2
@@ -154,36 +152,10 @@ slope = 0.001
 ustrf = 1.0
 ndv = 0
 # reach 1
-rp = [
-    0,
-    (0, 0, 0),
-    rlen,
-    rwid,
-    slope,
-    top[0, 0, 0],
-    rbth,
-    rhk,
-    roughness,
-    1,
-    ustrf,
-    0,
-]
+rp = [0, (0, 0, 0), rlen, rwid, slope, top[0, 0, 0], rbth, rhk, roughness, 1, ustrf, 0]
 sfr_pkdat.append(rp)
 # reach 2
-rp = [
-    1,
-    (0, 0, 1),
-    rlen,
-    rwid,
-    slope,
-    top[0, 0, 1],
-    rbth,
-    rhk,
-    roughness,
-    1,
-    ustrf,
-    0,
-]
+rp = [1, (0, 0, 1), rlen, rwid, slope, top[0, 0, 1], rbth, rhk, roughness, 1, ustrf, 0]
 sfr_pkdat.append(rp)
 
 sfr_perdat = {0: [0, "INFLOW", 1.0]}
@@ -233,9 +205,7 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 time discretization
-    flopy.mf6.ModflowTdis(
-        sim, nper=nper, perioddata=tdis_rc, time_units=time_units
-    )
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=tdis_rc, time_units=time_units)
 
     # Instantiating MODFLOW 6 groundwater flow model
     gwf = flopy.mf6.ModflowGwf(
@@ -391,9 +361,7 @@ def build_models(idx, test):
     # ----------------------------------------------------
     # Instantiating MODFLOW 6 GWT model
     # ----------------------------------------------------
-    gwt = flopy.mf6.ModflowGwt(
-        sim, modelname=gwtname, model_nam_file=f"{gwtname}.nam"
-    )
+    gwt = flopy.mf6.ModflowGwt(sim, modelname=gwtname, model_nam_file=f"{gwtname}.nam")
     gwt.name_file.save_flows = True
     imsgwt = flopy.mf6.ModflowIms(
         sim,
@@ -429,9 +397,7 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 transport initial concentrations
-    flopy.mf6.ModflowGwtic(
-        gwt, strt=strt_conc, pname="IC-1", filename=f"{gwtname}.ic"
-    )
+    flopy.mf6.ModflowGwtic(gwt, strt=strt_conc, pname="IC-1", filename=f"{gwtname}.ic")
 
     # Instantiating MODFLOW 6 transport advection package
     flopy.mf6.ModflowGwtadv(
@@ -450,7 +416,8 @@ def build_models(idx, test):
         filename=f"{gwtname}.cnd",
     )
 
-    # Instantiating MODFLOW 6 transport mass storage package (formerly "reaction" package in MT3DMS)
+    # Instantiating MODFLOW 6 transport mass storage package
+    # (formerly "reaction" package in MT3DMS)
     flopy.mf6.ModflowGwtmst(
         gwt,
         save_flows=True,
@@ -506,17 +473,13 @@ def build_models(idx, test):
         pname="OC-2",
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
 
     sourcerecarray = [[]]
-    flopy.mf6.ModflowGwessm(
-        gwt, sources=sourcerecarray, filename=f"{gwtname}.ssm"
-    )
+    flopy.mf6.ModflowGwessm(gwt, sources=sourcerecarray, filename=f"{gwtname}.ssm")
 
     # Instantiating MODFLOW 6 flow-transport exchange mechanism
     flopy.mf6.ModflowGwfgwt(
@@ -581,9 +544,7 @@ def check_output(idx, test):
                 continue
             else:
                 for z in np.arange(len(mvrdat[x + 1][y])):
-                    assert np.isclose(
-                        abs(mvrdat[x + 1][y][z][-1]), x + 1.0
-                    ), msg0
+                    assert np.isclose(abs(mvrdat[x + 1][y][z][-1]), x + 1.0), msg0
 
     # Transport mover (MVT) amounts are known quantities
     msg1 = "Rejected infiltration transfer mass amount not as expected"

@@ -148,7 +148,7 @@ type integer
 reader urword
 optional false
 longname maximum number of recharge cells
-description REPLACE maxbound {'{#1}': 'recharge cells'}
+description REPLACE maxbound {'{#1}': 'recharge'}
 
 
 # --------------------- gwf rch period ---------------------
@@ -156,7 +156,7 @@ description REPLACE maxbound {'{#1}': 'recharge cells'}
 block period
 name iper
 type integer
-block_variable True
+block_variable true
 in_record true
 tagged false
 shape

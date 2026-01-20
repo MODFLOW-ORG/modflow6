@@ -62,20 +62,7 @@ def make_sfr_data(sfr_cells, ireach_offset=0):
         ncon = 2
         if ridx in [0, nc - 1]:
             ncon = 1
-        t = (
-            irno,
-            cellid,
-            rlen,
-            rwid,
-            rgrd,
-            rtp,
-            rbth,
-            rhk,
-            rman,
-            ncon,
-            ustrf,
-            ndv,
-        )
+        t = (irno, cellid, rlen, rwid, rgrd, rtp, rbth, rhk, rman, ncon, ustrf, ndv)
         pak_data.append(t)
 
         if ridx == 0:  # first one only connected to the next
@@ -239,16 +226,7 @@ def build_exchanges(sim):
     mvrpack_sim = [["left", "sfr_left"], ["right", "sfr_right"]]
     mvrspd = [
         # connect left to right
-        [
-            "left",
-            "sfr_left",
-            ncol_split - 1,
-            "right",
-            "sfr_right",
-            0,
-            "FACTOR",
-            1.00,
-        ],
+        ["left", "sfr_left", ncol_split - 1, "right", "sfr_right", 0, "FACTOR", 1.00],
         # connect right to left
         [
             "right",
@@ -275,16 +253,9 @@ def build_exchanges(sim):
 
 def build_simulation(idx, sim_ws, sim_type="single"):
     name = cases[idx]
-    sim = flopy.mf6.MFSimulation(
-        sim_name=name,
-        sim_ws=sim_ws,
-    )
+    sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=sim_ws)
 
-    tdis = flopy.mf6.ModflowTdis(
-        sim,
-        time_units="DAYS",
-        nper=nper,
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper)
 
     # Flow solver
     ims = flopy.mf6.ModflowIms(
@@ -325,19 +296,19 @@ def check_output(idx, test):
     fpth = ws / "left.sfr.stg"
     stage_obj = flopy.utils.HeadFile(fpth, text="STAGE")
     v = stage_obj.get_data().squeeze()
-    assert np.allclose(
-        single_stage[0:ncol_split], v[0:ncol_split]
-    ), "sfr left (segment I) stages are not equal"
-    assert np.allclose(
-        single_stage[3 * ncol_split + 1 :], v[ncol_split:]
-    ), "sfr left (segment II) stages are not equal"
+    assert np.allclose(single_stage[0:ncol_split], v[0:ncol_split]), (
+        "sfr left (segment I) stages are not equal"
+    )
+    assert np.allclose(single_stage[3 * ncol_split + 1 :], v[ncol_split:]), (
+        "sfr left (segment II) stages are not equal"
+    )
 
     fpth = ws / "right.sfr.stg"
     stage_obj = flopy.utils.HeadFile(fpth, text="STAGE")
     v = stage_obj.get_data().squeeze()
-    assert np.allclose(
-        single_stage[ncol_split : 3 * ncol_split + 1], v
-    ), "sfr right stages are not equal"
+    assert np.allclose(single_stage[ncol_split : 3 * ncol_split + 1], v), (
+        "sfr right stages are not equal"
+    )
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

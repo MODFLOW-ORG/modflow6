@@ -26,9 +26,6 @@ contains
     allocate (newTsRecord)
     newTsRecord%tsrTime = time
     newTsRecord%tsrValue = value
-    !
-    ! -- Return
-    return
   end subroutine ConstructTimeSeriesRecord
 
   !> @brief Cast an unlimited polymorphic object as TimeSeriesRecordType
@@ -47,9 +44,6 @@ contains
     type is (TimeSeriesRecordType)
       res => obj
     end select
-    !
-    ! -- Return
-    return
   end function CastAsTimeSeriesRecordType
 
   !> @brief Add time series record to list
@@ -64,9 +58,6 @@ contains
     !
     obj => tsrecord
     call list%Add(obj)
-    !
-    ! -- Return
-    return
   end subroutine AddTimeSeriesRecordToList
 
 end module TimeSeriesRecordModule

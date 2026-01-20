@@ -25,7 +25,7 @@ module Dis2dModule
     integer(I4B), pointer :: ncol => null() !< number of columns
     real(DP), dimension(:), pointer, contiguous :: delr => null() !< spacing along a row
     real(DP), dimension(:), pointer, contiguous :: delc => null() !< spacing along a column
-    real(DP), dimension(:, :), pointer, contiguous :: botm => null() !< bottom elevations for each cell (ncol, nrow)
+    real(DP), dimension(:, :), pointer, contiguous :: bottom => null() !< bottom elevations for each cell (ncol, nrow)
     integer(I4B), dimension(:, :), pointer, contiguous :: idomain => null() !< idomain (ncol, nrow)
     real(DP), dimension(:), pointer, contiguous :: cellx => null() !< cell center x coordinate for column j
     real(DP), dimension(:), pointer, contiguous :: celly => null() !< cell center y coordinate for row i
@@ -50,6 +50,8 @@ module Dis2dModule
     procedure :: supports_layers
     procedure :: get_ncpl
     procedure :: get_polyverts
+    procedure :: get_npolyverts
+    procedure :: get_max_npolyverts
     procedure :: connection_vector
     procedure :: connection_normal
     ! -- private
@@ -80,8 +82,7 @@ module Dis2dModule
     logical :: ncol = .false.
     logical :: delr = .false.
     logical :: delc = .false.
-    logical :: top = .false.
-    logical :: botm = .false.
+    logical :: bottom = .false.
     logical :: idomain = .false.
   end type DisFoundtype
 
@@ -167,7 +168,7 @@ contains
     ! -- Deallocate Arrays
     call mem_deallocate(this%nodereduced)
     call mem_deallocate(this%nodeuser)
-    call mem_deallocate(this%botm)
+    call mem_deallocate(this%bottom)
     call mem_deallocate(this%idomain)
     !
   end subroutine dis3d_da
@@ -270,7 +271,7 @@ contains
     call mem_allocate(this%delc, this%nrow, 'DELC', this%memoryPath)
     call mem_allocate(this%idomain, this%ncol, this%nrow, 'IDOMAIN', &
                       this%memoryPath)
-    call mem_allocate(this%botm, this%ncol, this%nrow, 'BOTM', &
+    call mem_allocate(this%bottom, this%ncol, this%nrow, 'BOTTOM', &
                       this%memoryPath)
     call mem_allocate(this%cellx, this%ncol, 'CELLX', this%memoryPath)
     call mem_allocate(this%celly, this%nrow, 'CELLY', this%memoryPath)
@@ -315,7 +316,7 @@ contains
     ! -- update defaults with idm sourced values
     call mem_set_value(this%delr, 'DELR', this%input_mempath, found%delr)
     call mem_set_value(this%delc, 'DELC', this%input_mempath, found%delc)
-    call mem_set_value(this%botm, 'BOTM', this%input_mempath, found%botm)
+    call mem_set_value(this%bottom, 'BOTTOM', this%input_mempath, found%bottom)
     call mem_set_value(this%idomain, 'IDOMAIN', this%input_mempath, found%idomain)
     !
     ! -- log simulation values
@@ -342,12 +343,8 @@ contains
       write (this%iout, '(4x,a)') 'DELC set from input file'
     end if
     !
-    if (found%top) then
-      write (this%iout, '(4x,a)') 'TOP set from input file'
-    end if
-    !
-    if (found%botm) then
-      write (this%iout, '(4x,a)') 'BOTM set from input file'
+    if (found%bottom) then
+      write (this%iout, '(4x,a)') 'BOTTOM set from input file'
     end if
     !
     if (found%idomain) then
@@ -453,7 +450,7 @@ contains
                       DHALF * this%delc(i)
     end do
     !
-    ! -- Move botm into bot, and calculate area
+    ! -- Move bottom into bot, and calculate area
     node = 0
     do i = 1, this%nrow
       do j = 1, this%ncol
@@ -461,7 +458,7 @@ contains
         noder = node
         if (this%nodes < this%nodesuser) noder = this%nodereduced(node)
         if (noder <= 0) cycle
-        this%bot(noder) = this%botm(j, i)
+        this%bot(noder) = this%bottom(j, i)
         this%area(noder) = this%delr(j) * this%delc(i)
         this%xc(noder) = this%cellx(j)
         this%yc(noder) = this%celly(i)
@@ -487,24 +484,36 @@ contains
   subroutine write_grb(this, icelltype)
     ! -- modules
     use OpenSpecModule, only: access, form
+    use ConstantsModule, only: LENBIGLINE
     ! -- dummy
     class(Dis2dType) :: this
     integer(I4B), dimension(:), intent(in) :: icelltype
     ! -- local
-    integer(I4B) :: iunit, ntxt
+    integer(I4B) :: iunit, ntxt, version
     integer(I4B), parameter :: lentxt = 100
     character(len=50) :: txthdr
     character(len=lentxt) :: txt
     character(len=LINELENGTH) :: fname
+    character(len=LENBIGLINE) :: crs
+    logical(LGP) :: found_crs
     character(len=*), parameter :: fmtgrdsave = &
       "(4X,'BINARY GRID INFORMATION WILL BE WRITTEN TO:', &
        &/,6X,'UNIT NUMBER: ', I0,/,6X, 'FILE NAME: ', A)"
     !
     ! -- Initialize
+    version = 1
     ntxt = 14
     !
+    call mem_set_value(crs, 'CRS', this%input_mempath, found_crs)
+    !
+    ! -- set version
+    if (found_crs) then
+      ntxt = ntxt + 1
+      version = 2
+    end if
+    !
     ! -- Open the file
-    fname = trim(this%input_fname)//'.grb'
+    fname = trim(this%output_fname)
     iunit = getunit()
     write (this%iout, fmtgrdsave) iunit, trim(adjustl(fname))
     call openfile(iunit, this%iout, trim(adjustl(fname)), 'DATA(BINARY)', &
@@ -568,6 +577,16 @@ contains
     txt(lentxt:lentxt) = new_line('a')
     write (iunit) txt
     !
+    ! -- if version 2 write character array headers
+    if (version == 2) then
+      if (found_crs) then
+        write (txt, '(3a, i0)') 'CRS ', 'CHARACTER ', 'NDIM 1 ', &
+          len_trim(crs)
+        txt(lentxt:lentxt) = new_line('a')
+        write (iunit) txt
+      end if
+    end if
+    !
     ! -- write data
     write (iunit) this%nodesuser ! ncells
     write (iunit) this%nrow ! nrow
@@ -578,11 +597,16 @@ contains
     write (iunit) this%angrot ! angrot
     write (iunit) this%delr ! delr
     write (iunit) this%delc ! delc
-    write (iunit) this%botm ! botm
+    write (iunit) this%bottom ! bottom
     write (iunit) this%con%iausr ! iausr
     write (iunit) this%con%jausr ! jausr
     write (iunit) this%idomain ! idomain
     write (iunit) icelltype ! icelltype
+    !
+    ! -- if version 2 write character array data
+    if (version == 2) then
+      if (found_crs) write (iunit) trim(crs) ! crs user input
+    end if
     !
     ! -- Close the file
     close (iunit)
@@ -1116,6 +1140,29 @@ contains
       polyverts(:, nverts + 1) = polyverts(:, 1)
     !
   end subroutine
+
+  !> @brief Get the number of polygon vertices.
+  function get_npolyverts(this, ic, closed) result(npolyverts)
+    class(Dis2dType), intent(inout) :: this
+    integer(I4B), intent(in) :: ic
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
+    integer(I4B) :: npolyverts
+    npolyverts = 4
+    if (present(closed)) then
+      if (closed) npolyverts = 5
+    end if
+  end function get_npolyverts
+
+  !> @brief Get the maximum number of polygon vertices.
+  function get_max_npolyverts(this, closed) result(max_npolyverts)
+    class(Dis2dType), intent(inout) :: this
+    logical(LGP), intent(in), optional :: closed !< whether to close the polygon, duplicating a vertex
+    integer(I4B) :: max_npolyverts
+    max_npolyverts = 4
+    if (present(closed)) then
+      if (closed) max_npolyverts = 5
+    end if
+  end function get_max_npolyverts
 
   !> @brief Read an integer array
   !< TODO: REMOVE?

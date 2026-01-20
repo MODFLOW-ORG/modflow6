@@ -45,9 +45,6 @@ contains
     this%bndarray => null()
     this%rmultarray => null()
     this%TimeArraySeries => null()
-    !
-    ! -- Return
-    return
   end subroutine tasl_da
 
   !> @brief Construct a time series of arrays that are linked
@@ -73,9 +70,6 @@ contains
     newTasLink%BndArray => bndArray
     newTasLink%Iprpak = iprpak
     newTasLink%Text = text
-    !
-    ! -- Return
-    return
   end subroutine ConstructTimeArraySeriesLink
 
   !> @brief Cast an unlimited polymorphic object as TimeArraySeriesLinkType
@@ -93,9 +87,6 @@ contains
     type is (TimeArraySeriesLinkType)
       res => obj
     end select
-    !
-    ! -- Return
-    return
   end function CastAsTimeArraySeriesLinkType
 
   !> @brief Add time-array series to list
@@ -110,9 +101,6 @@ contains
     !
     obj => tasLink
     call list%Add(obj)
-    !
-    ! -- Return
-    return
   end subroutine AddTimeArraySeriesLinkToList
 
   !> @brief Get time-array series from a list and return
@@ -128,9 +116,6 @@ contains
     !
     obj => list%GetItem(idx)
     res => CastAsTimeArraySeriesLinkType(obj)
-    !
-    ! -- Return
-    return
   end function GetTimeArraySeriesLinkFromList
 
 end module TimeArraySeriesLinkModule

@@ -12,7 +12,7 @@ module EvtPackageWriterModule
   use GwfEvtSubs, only: GWF2EVT7AR, GWF2EVT7RP
   use LineListModule, only: LineListType, same_lines
   use PackageWriterModule, only: PackageWriterType
-  use SimModule, only: ustop, store_error, store_warning, store_note
+  use SimPHMFModule, only: ustop, store_error, store_warning, store_note
   use UtilitiesModule, only: Write1Drel, Write2Drel, Write3Drel, &
                              ConstantInt2D, ConstantReal2D, &
                              BuildArrayFormat

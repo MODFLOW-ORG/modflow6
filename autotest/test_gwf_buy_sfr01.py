@@ -52,9 +52,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -145,7 +143,8 @@ def build_models(idx, test):
         filename=f"{gwfname}.wel",
     )
 
-    # pak_data = [<rno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> <man> <ncon> <ustrf> <ndv> [<aux(naux)>] [<boundname>]]
+    # pak_data = [<rno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> ...
+    #             <man> <ncon> <ustrf> <ndv> [<aux(naux)>] [<boundname>]]
     rlen = delr
     rwid = delc
     rgrd = 1.0
@@ -273,15 +272,11 @@ def build_models(idx, test):
     )
 
     # advection
-    adv = flopy.mf6.ModflowGwtadv(
-        gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv"
-    )
+    adv = flopy.mf6.ModflowGwtadv(gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv")
 
     # storage
     porosity = 1.0
-    sto = flopy.mf6.ModflowGwtmst(
-        gwt, porosity=porosity, filename=f"{gwtname}.sto"
-    )
+    sto = flopy.mf6.ModflowGwtmst(gwt, porosity=porosity, filename=f"{gwtname}.sto")
     # sources
     sourcerecarray = [
         ("CHD-1", "AUX", "CONCENTRATION"),
@@ -353,9 +348,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -383,9 +376,7 @@ def check_output(idx, test):
     assert os.path.isfile(fname)
     cobj = flopy.utils.HeadFile(fname, text="CONCENTRATION")
     csftall = cobj.get_alldata()
-    csft = csftall[
-        -2
-    ].flatten()  # because it's lagged, get two time steps back
+    csft = csftall[-2].flatten()  # because it's lagged, get two time steps back
 
     # load the aquifer concentrations
     fname = gwtname + ".ucn"
@@ -450,9 +441,7 @@ def check_output(idx, test):
         # print(n, hsfr, hgwf, rhosfr, rhogwf, qcalc, qsim)
         # if not np.allclose(qcalc, qsim):
         #    print('reach {} flow {} not equal {}'.format(n, qcalc, qsim))
-        assert np.allclose(
-            qcalc, qsim
-        ), f"reach {n} flow {qcalc} not equal {qsim}"
+        assert np.allclose(qcalc, qsim), f"reach {n} flow {qcalc} not equal {qsim}"
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

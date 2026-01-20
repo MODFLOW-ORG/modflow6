@@ -280,14 +280,8 @@ def build_models(idx, test):
     flopy.mf6.ModflowGwfevta(gwf, surface=surf, rate=etvrate, depth=etvdepth)
 
     # Instantiate LAK package
-    (
-        idomain_wlakes,
-        pakdata_dict,
-        lak_conn,
-    ) = flopy.mf6.utils.get_lak_connections(
-        gwf.modelgrid,
-        lake_map,
-        bedleak=lak_bedleak,
+    (idomain_wlakes, pakdata_dict, lak_conn) = flopy.mf6.utils.get_lak_connections(
+        gwf.modelgrid, lake_map, bedleak=lak_bedleak
     )
     global lak_con
     lak_con = lak_conn
@@ -337,9 +331,7 @@ def check_output(idx, test):
     gwfname = "gwf-" + name
 
     # read flow results from model
-    sim1 = flopy.mf6.MFSimulation.load(
-        sim_ws=test.workspace, load_only=["dis"]
-    )
+    sim1 = flopy.mf6.MFSimulation.load(sim_ws=test.workspace, load_only=["dis"])
     gwf = sim1.get_model(gwfname)
 
     # get final lake stage

@@ -86,9 +86,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create iterative model solution and register the gwf model with it
     if newton:
@@ -99,14 +97,7 @@ def build_models(idx, test):
     else:
         newtonoptions = None
         imsla = "CG"
-        rewet_record = [
-            "wetfct",
-            0.1,
-            "iwetit",
-            1,
-            "ihdwet",
-            0,
-        ]
+        rewet_record = ["wetfct", 0.1, "iwetit", 1, "ihdwet", 0]
         wetdry = [1, 0]
 
     ims = flopy.mf6.ModflowIms(
@@ -125,9 +116,7 @@ def build_models(idx, test):
     )
 
     # create gwf model
-    gwf = flopy.mf6.ModflowGwf(
-        sim, modelname=name, newtonoptions=newtonoptions
-    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=name, newtonoptions=newtonoptions)
 
     dis = flopy.mf6.ModflowGwfdis(
         gwf,
@@ -196,9 +185,7 @@ def build_models(idx, test):
     chd.ts.initialize(
         filename=chnam,
         timeseries=chd_ts,
-        time_series_namerecord=[
-            ts_name,
-        ],
+        time_series_namerecord=[ts_name],
         interpolation_methodrecord=["linear"],
     )
 
@@ -296,9 +283,7 @@ def check_output(idx, test):
     msg = f"maximum absolute total-budget difference ({diffmax}) "
 
     # write summary
-    fpth = os.path.join(
-        test.workspace, f"{os.path.basename(test.name)}.bud.cmp.out"
-    )
+    fpth = os.path.join(test.workspace, f"{os.path.basename(test.name)}.bud.cmp.out")
     with open(fpth, "w") as f:
         for i in range(diff.shape[0]):
             if i == 0:

@@ -9,9 +9,7 @@ module EvtModule
   use SimModule, only: store_error, store_error_filename, count_errors
   use SimVariablesModule, only: errmsg
   use ObsModule, only: DefaultObsIdProcessor
-  use CharacterStringModule, only: CharacterStringType
   use MatrixBaseModule
-  use GeomUtilModule, only: get_node
   !
   implicit none
   !
@@ -26,7 +24,6 @@ module EvtModule
     ! -- logicals
     logical, pointer, private :: segsdefined
     logical, pointer, private :: fixed_cell
-    logical, pointer, private :: read_as_arrays
     logical, pointer, private :: surfratespecified
     ! -- integers
     integer(I4B), pointer, private :: nseg => null() !< number of ET segments
@@ -52,7 +49,6 @@ module EvtModule
     procedure :: bnd_da => evt_da
     procedure :: define_listlabel => evt_define_listlabel
     procedure :: bound_value => evt_bound_value
-    procedure, private :: default_nodelist
     procedure, private :: check_pxdp
     ! -- for observations
     procedure, public :: bnd_obs_supported => evt_obs_supported
@@ -97,9 +93,6 @@ contains
     packobj%id = id
     packobj%ibcnum = ibcnum
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
-    !
-    ! -- Return
-    return
   end subroutine evt_create
 
   !> @brief Allocate package scalar members
@@ -119,18 +112,13 @@ contains
     ! -- allocate internal members
     allocate (this%segsdefined)
     allocate (this%fixed_cell)
-    allocate (this%read_as_arrays)
     allocate (this%surfratespecified)
     !
     ! -- Set values
     this%nseg = 1
     this%segsdefined = .true.
     this%fixed_cell = .false.
-    this%read_as_arrays = .false.
     this%surfratespecified = .false.
-    !
-    ! -- Return
-    return
   end subroutine evt_allocate_scalars
 
   !> @brief Allocate package arrays
@@ -160,7 +148,7 @@ contains
                      'DEPTH', this%input_mempath)
     !
     ! -- set list input segment descriptors
-    if (.not. this%read_as_arrays) then
+    if (.not. this%readasarrays) then
       if (this%nseg > 1) then
         !
         ! -- set pxdp and petm input context pointers
@@ -184,9 +172,6 @@ contains
                          'PETM0', this%input_mempath)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine evt_allocate_arrays
 
   !> @brief Source options specific to EvtType
@@ -198,7 +183,6 @@ contains
     class(EvtType), intent(inout) :: this
     ! -- local
     logical(LGP) :: found_fixed_cell = .false.
-    logical(LGP) :: found_readasarrays = .false.
     logical(LGP) :: found_surfratespec = .false.
     !
     ! -- source common bound options
@@ -207,59 +191,39 @@ contains
     ! -- update defaults with idm sourced values
     call mem_set_value(this%fixed_cell, 'FIXED_CELL', &
                        this%input_mempath, found_fixed_cell)
-    call mem_set_value(this%read_as_arrays, 'READASARRAYS', &
-                       this%input_mempath, found_readasarrays)
     call mem_set_value(this%surfratespecified, 'SURFRATESPEC', &
                        this%input_mempath, found_surfratespec)
     !
-    if (found_readasarrays) then
-      if (this%dis%supports_layers()) then
-        this%text = texta
-      else
-        errmsg = 'READASARRAYS option is not compatible with selected'// &
-                 ' discretization type.'
-        call store_error(errmsg)
-        call store_error_filename(this%input_fname)
-      end if
-    end if
-    !
-    if (found_readasarrays .and. found_surfratespec) then
-      if (this%read_as_arrays) then
+    if (this%readasarrays) then
+      if (found_surfratespec) then
         errmsg = 'READASARRAYS option is not compatible with the'// &
                  ' SURF_RATE_SPECIFIED option.'
         call store_error(errmsg)
         call store_error_filename(this%input_fname)
       end if
+      !
+      this%text = texta
     end if
     !
     ! -- log evt specific options
-    call this%evt_log_options(found_fixed_cell, found_readasarrays, &
-                              found_surfratespec)
-    !
-    ! -- Return
-    return
+    call this%evt_log_options(found_fixed_cell, found_surfratespec)
   end subroutine evt_source_options
 
   !> @brief Source options specific to EvtType
   !<
-  subroutine evt_log_options(this, found_fixed_cell, found_readasarrays, &
-                             found_surfratespec)
+  subroutine evt_log_options(this, found_fixed_cell, found_surfratespec)
     ! -- modules
     use MemoryManagerModule, only: mem_reallocate, mem_setptr
     use MemoryManagerExtModule, only: mem_set_value
-    use CharacterStringModule, only: CharacterStringType
     ! -- dummy
     class(EvtType), intent(inout) :: this
     logical(LGP), intent(in) :: found_fixed_cell
-    logical(LGP), intent(in) :: found_readasarrays
     logical(LGP), intent(in) :: found_surfratespec
     ! -- formats
     character(len=*), parameter :: fmtihact = &
       &"(4x, 'EVAPOTRANSPIRATION WILL BE APPLIED TO HIGHEST ACTIVE CELL.')"
     character(len=*), parameter :: fmtfixedcell = &
       &"(4x, 'EVAPOTRANSPIRATION WILL BE APPLIED TO SPECIFIED CELL.')"
-    character(len=*), parameter :: fmtreadasarrays = &
-      &"(4x, 'EVAPOTRANSPIRATION INPUT WILL BE READ AS ARRAYS.')"
     character(len=*), parameter :: fmtsrz = &
       &"(4x, 'ET RATE AT SURFACE WILL BE ZERO.')"
     character(len=*), parameter :: fmtsrs = &
@@ -273,10 +237,6 @@ contains
       write (this%iout, fmtfixedcell)
     end if
     !
-    if (found_readasarrays) then
-      write (this%iout, fmtreadasarrays)
-    end if
-    !
     if (found_surfratespec) then
       write (this%iout, fmtsrs)
     end if
@@ -284,9 +244,6 @@ contains
     ! -- close logging block
     write (this%iout, '(1x,a)') &
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
-    !
-    ! -- Return
-    return
   end subroutine evt_log_options
 
   !> @brief Source the dimensions for this package
@@ -301,25 +258,13 @@ contains
     ! -- format
     character(len=*), parameter :: fmtnsegerr = &
       &"('Error: In EVT, NSEG must be > 0 but is specified as ',i0)"
-    !
-    ! Dimensions block is not required if:
-    !   (1) discretization is DIS or DISV, and
-    !   (2) READASARRAYS option has been specified.
-    if (this%read_as_arrays) then
-      this%maxbound = this%dis%get_ncpl()
-      !
-      ! -- verify dimensions were set
-      if (this%maxbound <= 0) then
-        write (errmsg, '(a)') &
-          'MAXBOUND must be an integer greater than zero.'
-        call store_error(errmsg)
-        call store_error_filename(this%input_fname)
-      end if
-      !
+
+    ! -- set maxbound
+    call this%BndExtType%source_dimensions()
+
+    if (this%readasarrays) then
+      ! -- base class call is sufficient
     else
-      !
-      ! -- source maxbound
-      call this%BndExtType%source_dimensions()
       !
       ! -- log found options
       write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text)) &
@@ -339,7 +284,7 @@ contains
           !
         elseif (this%nseg > 1) then
           ! NSEG>1 is supported only if readasarrays is false
-          if (this%read_as_arrays) then
+          if (this%readasarrays) then
             errmsg = 'In the EVT package, NSEG cannot be greater than 1'// &
                      ' when READASARRAYS is used.'
             call store_error(errmsg)
@@ -354,13 +299,6 @@ contains
         'END OF '//trim(adjustl(this%text))//' DIMENSIONS'
       !
     end if
-    !
-    ! -- Call define_listlabel to construct the list label that is written
-    !    when PRINT_INPUT option is used.
-    call this%define_listlabel()
-    !
-    ! -- Return
-    return
   end subroutine evt_source_dimensions
 
   !> @brief Part of allocate and read
@@ -371,12 +309,13 @@ contains
     ! -- dummy
     class(EvtType), intent(inout) :: this
     !
-    if (this%read_as_arrays) then
+    if (this%readasarrays) then
       call this%default_nodelist()
     end if
     !
-    ! -- Return
-    return
+    ! -- if fixed_cell option not set, then need to store nodelist
+    !    in the nodesontop array
+    if (.not. this%fixed_cell) call this%set_nodesontop()
   end subroutine evt_read_initial_attr
 
   !> @brief Read and Prepare
@@ -391,34 +330,25 @@ contains
     !
     if (this%iper /= kper) return
     !
-    if (this%read_as_arrays) then
-      !
-      ! -- update nodelist based on IRCH input
-      call nodelist_update(this%nodelist, this%nbound, this%maxbound, &
-                           this%dis, this%input_mempath)
-      !
-    else
-      !
-      ! -- process the input list arrays
-      call this%BndExtType%bnd_rp()
-      !
-      ! -- ensure pxdp is monotonically increasing
-      if (this%nseg > 1) then
-        call this%check_pxdp()
-      end if
-      !
-      ! -- Write the list to iout if requested
-      if (this%iprpak /= 0) then
+    ! -- process the input list arrays
+    call this%BndExtType%bnd_rp()
+    !
+    ! -- ensure pxdp is monotonically increasing
+    if (this%nseg > 1) then
+      call this%check_pxdp()
+    end if
+    !
+    if (this%iprpak /= 0) then
+      if (this%readasarrays) then
+        ! no-op
+      else
+        ! -- Write the list to iout
         call this%write_list()
       end if
-      !
     end if
     !
     ! -- copy nodelist to nodesontop if not fixed cell
     if (.not. this%fixed_cell) call this%set_nodesontop()
-    !
-    ! -- Return
-    return
   end subroutine evt_rp
 
   !> @brief Subroutine to check pxdp
@@ -482,9 +412,6 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- Return
-    return
   end subroutine check_pxdp
 
   !> @brief Store nodelist in nodesontop
@@ -504,9 +431,6 @@ contains
     do n = 1, this%nbound
       this%nodesontop(n) = this%nodelist(n)
     end do
-    !
-    ! -- Return
-    return
   end subroutine set_nodesontop
 
   !> @brief Formulate the HCOF and RHS terms
@@ -646,9 +570,6 @@ contains
       end if
       !
     end do
-    !
-    ! -- Return
-    return
   end subroutine evt_cf
 
   !> @brief Copy rhs and hcof into solution rhs and amat
@@ -677,9 +598,6 @@ contains
       ipos = ia(n)
       call matrix_sln%add_value_pos(idxglo(ipos), this%hcof(i))
     end do
-    !
-    ! -- Return
-    return
   end subroutine evt_fc
 
   !> @brief Deallocate
@@ -696,7 +614,7 @@ contains
     call mem_deallocate(this%rate, 'RATE', this%memoryPath)
     call mem_deallocate(this%depth, 'DEPTH', this%memoryPath)
     !
-    if (.not. this%read_as_arrays) then
+    if (.not. this%readasarrays) then
       if (this%nseg > 1) then
         call mem_deallocate(this%pxdp, 'PXDP', this%memoryPath)
         call mem_deallocate(this%petm, 'PETM', this%memoryPath)
@@ -711,14 +629,10 @@ contains
     call mem_deallocate(this%nseg)
     deallocate (this%segsdefined)
     deallocate (this%fixed_cell)
-    deallocate (this%read_as_arrays)
     deallocate (this%surfratespecified)
     !
     ! -- Deallocate parent package
     call this%BndExtType%bnd_da()
-    !
-    ! -- Return
-    return
   end subroutine evt_da
 
   !> @brief Define the list heading that is written to iout when PRINT_INPUT
@@ -770,57 +684,7 @@ contains
     if (this%inamedbound == 1) then
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
-    !
-    ! -- Return
-    return
   end subroutine evt_define_listlabel
-
-  !> @brief Assign default nodelist when READASARRAYS is specified.
-  !!
-  !! Equivalent to reading IEVT as CONSTANT 1
-  !<
-  subroutine default_nodelist(this)
-    ! -- modules
-    use SimModule, only: store_error
-    use ConstantsModule, only: LINELENGTH
-    ! -- dummy
-    class(EvtType) :: this
-    ! -- local
-    integer(I4B) :: il, ir, ic, ncol, nrow, nlay, nodeu, noder, ipos
-    !
-    ! -- set variables
-    if (this%dis%ndim == 3) then
-      nlay = this%dis%mshape(1)
-      nrow = this%dis%mshape(2)
-      ncol = this%dis%mshape(3)
-    elseif (this%dis%ndim == 2) then
-      nlay = this%dis%mshape(1)
-      nrow = 1
-      ncol = this%dis%mshape(2)
-    end if
-    !
-    ! -- Populate nodelist
-    ipos = 1
-    il = 1
-    do ir = 1, nrow
-      do ic = 1, ncol
-        nodeu = get_node(il, ir, ic, nlay, nrow, ncol)
-        noder = this%dis%get_nodenumber(nodeu, 0)
-        this%nodelist(ipos) = noder
-        ipos = ipos + 1
-      end do
-    end do
-    !
-    ! -- assign nbound.
-    this%nbound = ipos - 1
-    !
-    ! -- if fixed_cell option not set, then need to store nodelist
-    !    in the nodesontop array
-    if (.not. this%fixed_cell) call this%set_nodesontop()
-    !
-    ! -- Return
-    return
-  end subroutine default_nodelist
 
   ! -- Procedures related to observations
 
@@ -833,9 +697,6 @@ contains
     class(EvtType) :: this
     !
     evt_obs_supported = .true.
-    !
-    ! -- Return
-    return
   end function evt_obs_supported
 
   !> @brief Store observation type supported by EVT package
@@ -850,9 +711,6 @@ contains
     !
     call this%obs%StoreObsType('evt', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => DefaultObsIdProcessor
-    !
-    ! -- Return
-    return
   end subroutine evt_df_obs
 
   !> @brief Return requested boundary value
@@ -916,54 +774,7 @@ contains
       end if
       !
     end select
-    !
-    ! -- Return
-    return
   end function evt_bound_value
-
-  !> @brief Update the nodelist based on IEVT input
-  !!
-  !! This is a module scoped routine to check for IEVT input. If array input
-  !! was provided, INIEVT and IEVT will be allocated in the input context.
-  !! If the read state variable INIEVT is set to 1 during this period update,
-  !! IEVT input was read and is used here to update the nodelist.
-  !<
-  subroutine nodelist_update(nodelist, nbound, maxbound, &
-                             dis, input_mempath)
-    ! -- modules
-    use MemoryManagerModule, only: mem_setptr
-    use BaseDisModule, only: DisBaseType
-    ! -- dummy
-    integer(I4B), dimension(:), contiguous, &
-      pointer, intent(inout) :: nodelist
-    class(DisBaseType), pointer, intent(in) :: dis
-    character(len=*), intent(in) :: input_mempath
-    integer(I4B), intent(inout) :: nbound
-    integer(I4B), intent(in) :: maxbound
-    ! -- format
-    character(len=24) :: aname = '     LAYER OR NODE INDEX'
-    ! -- local
-    integer(I4B), dimension(:), contiguous, pointer :: ievt => null()
-    integer(I4B), pointer :: inievt => NULL()
-    !
-    ! -- set pointer to input context INIEVT
-    call mem_setptr(inievt, 'INIEVT', input_mempath)
-    !
-    ! -- check INIEVT read state
-    if (inievt == 1) then
-      ! -- ievt was read this period
-      !
-      ! -- set pointer to input context IEVT
-      call mem_setptr(ievt, 'IEVT', input_mempath)
-      !
-      ! -- update nodelist
-      call dis%nlarray_to_nodelist(ievt, nodelist, &
-                                   maxbound, nbound, aname)
-    end if
-    !
-    ! -- Return
-    return
-  end subroutine nodelist_update
 
 end module EvtModule
 

@@ -1,0 +1,49 @@
+
+Input to the Constant-Head (CHD) Package is read from the file that has type ``CHD6'' in the Name File.  Any number of CHD Packages can be specified for a single model; however, an error will occur if a CHD Package attempts to make a CHF cell a constant-head cell when that cell has already been designated as a constant-head cell either within the present CHD Package or within another CHD Package.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/chf-chd-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/chf-chd-dimensions.dat}
+\vspace{5mm}
+\noindent \textit{FOR ANY STRESS PERIOD}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/chf-chd-period.dat}
+\packageperioddescription
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/chf-chd-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/chf-chd-example.dat}
+
+%\vspace{5mm}
+%\subsubsection{Available observation types}
+%CHD Package observations are limited to the simulated constant head flow rate (\texttt{chd}). The data required for the CHD Package observation type is defined in table~\ref{table:chf-chdobstype}. Negative and positive values for an observation represent a loss from and gain to the GWF model, respectively.
+
+%\begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
+%\caption{Available CHD Package observation types} \tabularnewline
+%
+%\hline
+%\hline
+%\textbf{Model} & \textbf{Observation type} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+%\hline
+%\endhead
+%
+%\hline
+%\endfoot
+%
+%\input{../Common/gwf-chdobs.tex}
+%\label{table:gwf-chdobstype}
+%\end{longtable}
+%
+%\vspace{5mm}
+%\subsubsection{Example Observation Input File}
+%\lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-chd-example-obs.dat}
+

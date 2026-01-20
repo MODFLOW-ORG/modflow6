@@ -29,9 +29,10 @@ MODULE IMSLinearModule
     integer(I4B), pointer :: ICNVGOPT => null() !< convergence option
     integer(I4B), pointer :: ITER1 => null() !< max. iterations
     integer(I4B), pointer :: ILINMETH => null() !< linear solver method
-    integer(I4B), pointer :: iSCL => null() !< scaling method
+    integer(I4B), pointer :: ISCL => null() !< scaling method
     integer(I4B), pointer :: IORD => null() !< reordering method
     integer(I4B), pointer :: NORTH => null() !< number of orthogonalizations
+
     real(DP), pointer :: RELAX => null() !< relaxation factor
     integer(I4B), pointer :: LEVEL => null() !< nr. of preconditioner levels
     real(DP), pointer :: DROPTOL => null() !< drop tolerance for preconditioner
@@ -142,7 +143,7 @@ CONTAINS
     this%ICNVGOPT => linear_settings%icnvgopt
     this%ITER1 => linear_settings%iter1
     this%ILINMETH => linear_settings%ilinmeth
-    this%iSCL => linear_settings%iscl
+    this%ISCL => linear_settings%iscl
     this%IORD => linear_settings%iord
     this%NORTH => linear_settings%north
     this%RELAX => linear_settings%relax
@@ -175,7 +176,7 @@ CONTAINS
            ' PACKAGE, VERSION 8, 04/28/2017')
     !
     ! -- DETERMINE PRECONDITIONER
-    IF (this%LEVEL > 0 .OR. this%DROPTOL > DZERO) THEN
+    IF (this%LEVEL > 0) THEN
       this%IPC = 3
     ELSE
       this%IPC = 1
@@ -336,10 +337,7 @@ CONTAINS
     END IF
     !
     ! -- ALLOCATE MEMORY FOR STORING ITERATION CONVERGENCE DATA
-    !
-    ! -- RETURN
-    RETURN
-  END SUBROUTINE imslinear_ar
+  end SUBROUTINE imslinear_ar
 
   !> @ brief Write summary of settings
     !!
@@ -448,9 +446,6 @@ CONTAINS
         END DO
       END IF
     end if
-    !
-    ! -- return
-    return
   end subroutine imslinear_summary
 
   !> @ brief Allocate and initialize scalars
@@ -491,9 +486,6 @@ CONTAINS
     this%njlu = 0
     this%njw = 0
     this%nwlu = 0
-    !
-    ! -- return
-    return
   end subroutine allocate_scalars
 
   !> @ brief Deallocate memory
@@ -558,9 +550,6 @@ CONTAINS
     nullify (this%amat)
     nullify (this%rhs)
     nullify (this%x)
-    !
-    ! -- return
-    return
   end subroutine imslinear_da
 
   !> @ brief Set default settings
@@ -617,10 +606,7 @@ CONTAINS
       this%DROPTOL = DEM4
       this%NORTH = 2
     END SELECT
-    !
-    ! -- return
-    RETURN
-  END SUBROUTINE imslinear_set_input
+  end SUBROUTINE imslinear_set_input
 
   !> @ brief Base linear accelerator subroutine
     !!
@@ -762,9 +748,6 @@ CONTAINS
     ! -- SET IMS INNER ITERATION NUMBER (IN_ITER) TO NUMBER OF
     !       IMSLINEAR INNER ITERATIONS (innerit)
     IN_ITER = innerit
-    !
-    ! -- RETURN
-    RETURN
-  END SUBROUTINE imslinear_ap
+  end SUBROUTINE imslinear_ap
 
 END MODULE IMSLinearModule

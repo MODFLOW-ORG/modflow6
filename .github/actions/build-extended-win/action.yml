@@ -1,0 +1,23 @@
+name: Build Extended MF6 (Windows)
+description: Build Extended MODFLOW 6 on Windows
+runs:
+  using: "composite"
+  steps:
+    # first NetCDF, PETSc cygwin installation forces a different bash shell upon us...
+    - name: Setup NetCDF
+      uses: ./modflow6/.github/actions/build-netcdf-win
+
+    - name: Setup PETSc
+      uses: ./modflow6/.github/actions/build-petsc-win
+
+    - name: Build modflow6
+      shell: cmd
+      run: |
+        unix2dos -n "%GITHUB_WORKSPACE%\modflow6\.github\common\compile_modflow6_extended.bat" "%TEMP%\compile_modflow6_extended.bat"
+        "%ONEAPI_ROOT%\setvars.bat" intel64 vs2022 && "%TEMP%\compile_modflow6_extended.bat"
+
+    - name: Show Meson logs
+      if: failure()
+      shell: bash
+      working-directory: modflow6
+      run: cat builddir/meson-logs/meson-log.txt

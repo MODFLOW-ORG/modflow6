@@ -3,12 +3,12 @@
 module SwfModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, LENFTYPE, DNODATA, LINELENGTH, &
+  use ConstantsModule, only: DZERO, LENFTYPE, DNODATA, &
                              LENMEMPATH, LENPACKAGETYPE
   use SimModule, only: count_errors, store_error, store_error_filename
   use SimVariablesModule, only: errmsg
   use MemoryManagerModule, only: mem_allocate
-  use BaseModelModule, only: BaseModelType
+  use MemoryHelperModule, only: create_mem_path
   use NumericalModelModule, only: NumericalModelType
   use BndModule, only: BndType, AddBndToList, GetBndFromList
   use SwfIcModule, only: SwfIcType
@@ -23,12 +23,9 @@ module SwfModule
   implicit none
 
   private
-  public :: swf_cr
   public :: SwfModelType
-  public :: SWF_NBASEPKG, SWF_NMULTIPKG
-  public :: SWF_BASEPKG, SWF_MULTIPKG
 
-  type, extends(NumericalModelType) :: SwfModelType
+  type, abstract, extends(NumericalModelType) :: SwfModelType
     type(SwfIcType), pointer :: ic => null() ! initial conditions package
     type(SwfDfwType), pointer :: dfw => null() !< diffusive wave package
     type(SwfCxsType), pointer :: cxs => null() !< cross section package
@@ -45,6 +42,7 @@ module SwfModule
     integer(I4B), pointer :: iss => null() ! steady state flag
     integer(I4B), pointer :: inewtonur => null() ! newton under relaxation flag
   contains
+    procedure :: initialize
     procedure :: allocate_scalars
     procedure :: allocate_arrays
     procedure :: model_df => swf_df
@@ -68,109 +66,44 @@ module SwfModule
     procedure :: package_create
     procedure :: ftype_check
     procedure :: get_iasym => swf_get_iasym
-    procedure, private :: create_packages
+    procedure :: create_packages
     procedure, private :: create_bndpkgs
-    procedure, private :: log_namfile_options
+    !procedure :: log_namfile_options
     procedure, private :: steady_period_check
   end type SwfModelType
 
-  !> @brief SWF base package array descriptors
-  !!
-  !! SWF model base package types.  Only listed packages are candidates
-  !< for input and these will be loaded in the order specified.
+  ! todo: these should be removed and entirely delegated to CHF and OLF
   integer(I4B), parameter :: SWF_NBASEPKG = 9
-  character(len=LENPACKAGETYPE), dimension(SWF_NBASEPKG) :: &
-    SWF_BASEPKG = ['DISV1D6', 'DIS2D6 ', 'DISV2D6', &
-                   'DFW6   ', 'CXS6   ', 'OC6    ', &
-                   'IC6    ', 'OBS6   ', 'STO6   ']
-
-  !> @brief SWF multi package array descriptors
-  !!
-  !! SWF model multi-instance package types.  Only listed packages are
-  !< candidates for input and these will be loaded in the order specified.
   integer(I4B), parameter :: SWF_NMULTIPKG = 50
-  character(len=LENPACKAGETYPE), dimension(SWF_NMULTIPKG) :: SWF_MULTIPKG
-  data SWF_MULTIPKG/'FLW6 ', 'CHD6 ', 'CDB6 ', 'ZDG6 ', '     ', & !  5
-                   &45*'     '/ ! 50
-
-  ! size of supported model package arrays
   integer(I4B), parameter :: NIUNIT_SWF = SWF_NBASEPKG + SWF_NMULTIPKG
 
 contains
 
-  !> @brief Create a new surface water flow model object
+  !> @brief Initialize common swf members
   !<
-  subroutine swf_cr(filename, id, modelname)
+  subroutine initialize(this, modelftype, filename, id, modelname)
     ! modules
-    use ListsModule, only: basemodellist
-    use BaseModelModule, only: AddBaseModelToList
-    use MemoryHelperModule, only: create_mem_path
-    use MemoryManagerExtModule, only: mem_set_value
-    use SimVariablesModule, only: idm_context
-    use SwfNamInputModule, only: SwfNamParamFoundType
-    use BudgetModule, only: budget_cr
     ! dummy
+    class(SwfModelType) :: this
+    character(len=*), intent(in) :: modelftype !< abbreviation for model type (CHF or OLF)
     character(len=*), intent(in) :: filename !< input file
     integer(I4B), intent(in) :: id !< consecutive model number listed in mfsim.nam
     character(len=*), intent(in) :: modelname !< name of the model
     ! local
-    type(SwfModelType), pointer :: this
-    class(BaseModelType), pointer :: model
-    character(len=LENMEMPATH) :: input_mempath
-    character(len=LINELENGTH) :: lst_fname
-    type(SwfNamParamFoundType) :: found
-
-    ! Allocate a new model (this) and add it to basemodellist
-    allocate (this)
 
     ! Set memory path before allocation in memory manager can be done
     this%memoryPath = create_mem_path(modelname)
 
+    ! allocate scalars
     call this%allocate_scalars(modelname)
-    model => this
-    call AddBaseModelToList(basemodellist, model)
 
     ! Assign values
     this%filename = filename
     this%name = modelname
-    this%macronym = 'SWF'
+    this%macronym = trim(modelftype)
     this%id = id
 
-    ! set input model namfile memory path
-    input_mempath = create_mem_path(modelname, 'NAM', idm_context)
-
-    ! copy option params from input context
-    call mem_set_value(lst_fname, 'LIST', input_mempath, found%list)
-    call mem_set_value(this%inewton, 'NEWTON', input_mempath, found%newton)
-    call mem_set_value(this%inewtonur, 'UNDER_RELAXATION', input_mempath, &
-                       found%under_relaxation)
-    call mem_set_value(this%iprpak, 'PRINT_INPUT', input_mempath, &
-                       found%print_input)
-    call mem_set_value(this%iprflow, 'PRINT_FLOWS', input_mempath, &
-                       found%print_flows)
-    call mem_set_value(this%ipakcb, 'SAVE_FLOWS', input_mempath, found%save_flows)
-
-    ! create the list file
-    call this%create_lstfile(lst_fname, filename, found%list, &
-                             'SURFACE WATER FLOW MODEL (SWF)')
-
-    ! activate save_flows if found
-    if (found%save_flows) then
-      this%ipakcb = -1
-    end if
-
-    ! log set options
-    if (this%iout > 0) then
-      call this%log_namfile_options(found)
-    end if
-
-    ! Create utility objects
-    call budget_cr(this%budget, this%name)
-
-    ! create model packages
-    call this%create_packages()
-
-  end subroutine swf_cr
+  end subroutine initialize
 
   !> @brief Allocate memory for scalar members
   !<
@@ -343,7 +276,7 @@ contains
 
     ! set up output control
     if (this%indfw > 0) then
-      call this%oc%oc_ar('STAGE', this%x, this%dis, DNODATA)
+      call this%oc%oc_ar(this%x, this%dis, DNODATA)
     end if
     call this%budget%set_ibudcsv(this%oc%ibudcsv)
 
@@ -899,12 +832,12 @@ contains
   subroutine package_create(this, filtyp, ipakid, ipaknum, pakname, mempath, &
                             inunit, iout)
     ! modules
-    use ConstantsModule, only: LINELENGTH
-    use MemoryHelperModule, only: create_mem_path
     use SwfFlwModule, only: flw_create
     use ChdModule, only: chd_create
     use SwfCdbModule, only: cdb_create
     use SwfZdgModule, only: zdg_create
+    use SwfPcpModule, only: pcp_create
+    use SwfEvpModule, only: evp_create
     ! dummy
     class(SwfModelType) :: this
     character(len=*), intent(in) :: filtyp
@@ -936,6 +869,12 @@ contains
     case ('ZDG6')
       call zdg_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath, this%dis, this%cxs, this%dfw%unitconv)
+    case ('PCP6')
+      call pcp_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                      pakname, mempath, this%dis, this%dfw, this%cxs)
+    case ('EVP6')
+      call evp_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                      pakname, mempath, this%dis, this%dfw, this%cxs)
     case default
       write (errmsg, *) 'Invalid package type: ', filtyp
       call store_error(errmsg)
@@ -982,8 +921,18 @@ contains
         'DFW6 Package must be specified.'
       call store_error(errmsg)
     end if
+    if (this%incxs > 0) then
+      if (this%dis%ndim /= 1) then
+        write (errmsg, '(1x,a)') &
+          'CXS6 Package can only be used for one-dimensional discretization &
+          &package (DISV1D).  Remove CXS6 Package from model or convert &
+          &discretization package to DISV1D.'
+        call store_error(errmsg)
+      end if
+    end if
     if (count_errors() > 0) then
-      write (errmsg, '(a)') 'One or more required package(s) not specified.'
+      write (errmsg, '(a)') 'One or more required package(s) not specified &
+        &and/or there are package incompatibilities.'
       call store_error(errmsg)
       call store_error_filename(this%filename)
     end if
@@ -995,7 +944,7 @@ contains
   subroutine create_bndpkgs(this, bndpkgs, pkgtypes, pkgnames, &
                             mempaths, inunits)
     ! modules
-    use ConstantsModule, only: LINELENGTH, LENPACKAGENAME
+    use ConstantsModule, only: LENPACKAGENAME
     use CharacterStringModule, only: CharacterStringType
     ! dummy
     class(SwfModelType) :: this
@@ -1053,7 +1002,6 @@ contains
     use CharacterStringModule, only: CharacterStringType
     use ArrayHandlersModule, only: expandarray
     use MemoryManagerModule, only: mem_setptr
-    use MemoryHelperModule, only: create_mem_path
     use SimVariablesModule, only: idm_context
     use Disv1dModule, only: disv1d_cr
     use Dis2dModule, only: dis2d_cr
@@ -1085,6 +1033,7 @@ contains
     character(len=LENMEMPATH) :: mempathic = ''
     character(len=LENMEMPATH) :: mempathdfw = ''
     character(len=LENMEMPATH) :: mempathcxs = ''
+    character(len=LENMEMPATH) :: mempathoc = ''
     character(len=LENMEMPATH) :: mempathsto = ''
 
     ! set input model memory path
@@ -1128,10 +1077,12 @@ contains
         this%inic = 1
         mempathic = mempath
       case ('OC6')
-        this%inoc = inunit
+        !this%inoc = inunit
+        this%inoc = 1
+        mempathoc = mempath
       case ('OBS6')
         this%inobs = inunit
-      case ('CHD6', 'FLW6', 'CDB6', 'ZDG6')
+      case ('CHD6', 'FLW6', 'CDB6', 'ZDG6', 'PCP6', 'EVP6')
         call expandarray(bndpkgs)
         bndpkgs(size(bndpkgs)) = n
       case default
@@ -1154,7 +1105,7 @@ contains
       call sto_cr(this%sto, this%name, mempathsto, this%insto, this%iout, &
                   this%cxs)
     end if
-    call oc_cr(this%oc, this%name, this%inoc, this%iout)
+    call oc_cr(this%oc, this%name, mempathoc, this%inoc, this%iout)
     call swf_obs_cr(this%obs, this%inobs)
 
     ! Check to make sure that required ftype's have been specified
@@ -1163,34 +1114,6 @@ contains
     call this%create_bndpkgs(bndpkgs, pkgtypes, pkgnames, mempaths, inunits)
 
   end subroutine create_packages
-
-  !> @brief Write model namfile options to list file
-  !<
-  subroutine log_namfile_options(this, found)
-    use SwfNamInputModule, only: SwfNamParamFoundType
-    class(SwfModelType) :: this
-    type(SwfNamParamFoundType), intent(in) :: found
-
-    write (this%iout, '(1x,a)') 'NAMEFILE OPTIONS:'
-
-    if (found%print_input) then
-      write (this%iout, '(4x,a)') 'STRESS PACKAGE INPUT WILL BE PRINTED '// &
-        'FOR ALL MODEL STRESS PACKAGES'
-    end if
-
-    if (found%print_flows) then
-      write (this%iout, '(4x,a)') 'PACKAGE FLOWS WILL BE PRINTED '// &
-        'FOR ALL MODEL PACKAGES'
-    end if
-
-    if (found%save_flows) then
-      write (this%iout, '(4x,a)') &
-        'FLOWS WILL BE SAVED TO BUDGET FILE SPECIFIED IN OUTPUT CONTROL'
-    end if
-
-    write (this%iout, '(1x,a)') 'END NAMEFILE OPTIONS:'
-
-  end subroutine log_namfile_options
 
   !> @brief Check for steady state period
   !!

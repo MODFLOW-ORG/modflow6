@@ -13,8 +13,8 @@ module NpfWriterModule
   use GWFUPWMODULE, only: LaytypUpw, LaywetUpw => LAYWET, VkcbUpw => VKCB, &
                           WetdryUpw => WETDRY, HaniUpw => HANI
   use InputOutputModule, only: GetUnit, openfile
-  use SimModule, only: count_errors, store_error, store_note, store_warning, &
-                       ustop
+  use SimPHMFModule, only: count_errors, store_error, store_note, &
+                           store_warning, ustop
   use UtilitiesModule, only: Write2dValues
 
   type, extends(FileWriterType) :: NpfWriterType

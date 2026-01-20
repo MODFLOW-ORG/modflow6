@@ -3,7 +3,7 @@ import os
 import flopy
 import numpy as np
 import pytest
-from flopy.utils.binaryfile import write_budget, write_head
+from binary_util import write_budget, write_head
 from flopy.utils.gridutil import uniform_flow_field
 from framework import TestFramework
 
@@ -45,9 +45,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwt model
     gwtname = "gwt_" + name
@@ -104,9 +102,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -144,20 +140,14 @@ def build_models(idx, test):
             ("SATURATION", np.float64),
         ]
     )
-    sat = np.array(
-        [(i, i, 0.0, 1.0) for i in range(nlay * nrow * ncol)], dtype=dt
-    )
+    sat = np.array([(i, i, 0.0, 1.0) for i in range(nlay * nrow * ncol)], dtype=dt)
 
     fname = os.path.join(ws, "mybudget.bud")
     with open(fname, "wb") as fbin:
         for kstp in range(nstp[0]):
             write_budget(fbin, flowja, kstp=kstp + 1)
-            write_budget(
-                fbin, spdis, text="      DATA-SPDIS", imeth=6, kstp=kstp + 1
-            )
-            write_budget(
-                fbin, sat, text="        DATA-SAT", imeth=6, kstp=kstp + 1
-            )
+            write_budget(fbin, spdis, text="      DATA-SPDIS", imeth=6, kstp=kstp + 1)
+            write_budget(fbin, sat, text="        DATA-SAT", imeth=6, kstp=kstp + 1)
     fbin.close()
 
     # flow model interface

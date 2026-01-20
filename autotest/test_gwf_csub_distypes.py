@@ -97,7 +97,8 @@ def get_interbed(modelgrid):
         package_data.append(
             (
                 ifno,
-                cellid,  # will need to be detuplaized with *cellid - does not work for dis
+                # will need to be detuplaized with *cellid - does not work for dis
+                cellid,
                 "nodelay",
                 ini_stress,
                 modelgrid.cell_thickness[cellid],
@@ -165,12 +166,7 @@ def build_disu(ws, gwf, refinement_layer, gridgen):
     if refinement_layer is not None:
         x0, x1, y0, y1 = temp_gwf.modelgrid.extent
         polys = [[[(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)]]]
-        g.add_refinement_features(
-            polys,
-            "polygon",
-            1,
-            layers=[refinement_layer],
-        )
+        g.add_refinement_features(polys, "polygon", 1, layers=[refinement_layer])
     g.build()
     gridprops = g.get_gridprops_disu6()
     return flopy.mf6.ModflowGwfdisu(gwf, **gridprops)
@@ -271,10 +267,7 @@ def build_mf6(idx, ws, gridgen):
         dis = build_dis(gwf)
 
     # initial conditions
-    ic = flopy.mf6.ModflowGwfic(
-        gwf,
-        strt=top,
-    )
+    ic = flopy.mf6.ModflowGwfic(gwf, strt=top)
 
     k11 = build_3d_array(gwf.modelgrid, hk)
     icelltype = build_3d_array(gwf.modelgrid, [1, 0, 0], dtype=int)
@@ -417,8 +410,7 @@ def check_output(idx, test):
         comp = comp.sum(axis=0)
         zdis = zdis[0]
         assert np.allclose(comp, zdis), (
-            "sum of compaction is not equal to the "
-            + f"z-displacement at time {totim}"
+            "sum of compaction is not equal to the " + f"z-displacement at time {totim}"
         )
 
 

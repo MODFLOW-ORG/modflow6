@@ -19,7 +19,7 @@ module PreprocModule
   use ObsBlockModule,            only: ObsBlockType, ConstructObsBlockType, &
                                        AddObsBlockToList, GetObsBlockFromList
   use OpenSpecModule,            only: ACCESS, ACTION, FORM
-  use SimModule,                 only: count_errors, print_notes, store_error, &
+  use SimPHMFModule,             only: count_errors, print_notes, store_error, &
                                        store_error_unit, ustop
   use UtilitiesModule,           only: get_extension, CalcContribFactors
 

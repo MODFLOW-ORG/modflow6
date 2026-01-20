@@ -6,7 +6,7 @@
 MODULE PRECUTLSMOD
 
   use InputOutputModule, only: same_word
-  use SimModule, only: store_error, store_note, store_warning, ustop
+  use SimPHMFModule, only: store_error, store_note, store_warning, ustop
   use UtilitiesModule, only: findcell
 
   PRIVATE

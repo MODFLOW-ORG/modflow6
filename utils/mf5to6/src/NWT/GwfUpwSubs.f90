@@ -1,7 +1,7 @@
 module UpwSubsModule
   use ConstantsPHMFModule, only: HDRYDEFAULT
   use ModelModule, only: ModelType
-  use SimModule, only: store_error, store_note, store_warning
+  use SimPHMFModule, only: store_error, store_note, store_warning
 
   private
   public :: GWF2UPW1AR
@@ -16,7 +16,7 @@ contains
       USE GWFBASMODULE,ONLY:HDRY
       USE GWFNWTMODULE, ONLY: Numcell
       USE GWFUPWMODULE
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       use utl7module, only: URDCOM, URWORD, U2DREL
       IMPLICIT NONE
 !     ------------------------------------------------------------------
@@ -823,7 +823,7 @@ contains
 !C     ------------------------------------------------------------------
       USE GWFUPWMODULE,  ONLY:CHANI,LAYVKAUPW
       USE PARAMMODULE
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
 !C
       CHARACTER*4 PTYP
 !C     ------------------------------------------------------------------
@@ -1382,7 +1382,7 @@ contains
       USE GLOBAL,        ONLY:NCOL,NROW,NLAY,IBOUND,HNEW,DELR,DELC, &
                               BOTM,LBOTM,LAYCBD,IOUT,STRT,CV
       USE GWFUPWMODULE
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
 !C
       DOUBLE PRECISION BBOT,TTOP,HHD
 !C     ------------------------------------------------------------------

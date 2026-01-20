@@ -7,14 +7,12 @@
 module SwfStoModule
 
   use KindModule, only: DP, I4B, LGP
-  use ConstantsModule, only: DZERO, DEM6, DEM4, DHALF, DONE, DTWO, &
-                             LENBUDTXT, LINELENGTH, LENMEMPATH
+  use ConstantsModule, only: DZERO, LENBUDTXT, LINELENGTH, LENMEMPATH
   use MemoryHelperModule, only: create_mem_path
   use SimVariablesModule, only: errmsg
-  use SimModule, only: store_error, store_error_filename, count_errors
+  use SimModule, only: store_error, store_error_filename
   use BaseDisModule, only: DisBaseType
   use NumericalPackageModule, only: NumericalPackageType
-  use InputOutputModule, only: GetUnit, openfile
   use MatrixBaseModule
   use Disv1dModule, only: Disv1dType
   use SwfCxsModule, only: SwfCxsType
@@ -138,9 +136,6 @@ contains
     ! -- read the data block
     ! no griddata at the moment for SWF Storage Package
     ! call this%source_data()
-    !
-    ! -- return
-    return
   end subroutine sto_ar
 
   !> @ brief Read and prepare method for package
@@ -184,9 +179,6 @@ contains
     !
     write (this%iout, '(//1X,A,I0,A,A,/)') &
       'STRESS PERIOD ', kper, ' IS ', trim(adjustl(css(this%iss)))
-    !
-    ! -- return
-    return
   end subroutine sto_rp
 
   !> @ brief Advance the package
@@ -198,9 +190,6 @@ contains
     ! -- modules
     ! -- dummy variables
     class(SwfStoType) :: this !< SwfStoType object
-    !
-    ! -- return
-    return
   end subroutine sto_ad
 
   !> @ brief Fill A and right-hand side for the package
@@ -220,7 +209,6 @@ contains
     integer(I4B), intent(in), dimension(:) :: idxglo
     real(DP), intent(inout), dimension(:) :: rhs
     ! -- local
-    character(len=LINELENGTH) :: distype = ''
     ! -- formats
     character(len=*), parameter :: fmtsperror = &
       &"('Detected time step length of zero.  SWF Storage Package cannot be ', &
@@ -235,8 +223,7 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
 
-    call this%dis%get_dis_type(distype)
-    if (distype == 'DISV1D') then
+    if (this%dis%is_1d()) then
       call this%sto_fc_dis1d(kiter, stage_old, stage_new, matrix_sln, idxglo, rhs)
     else
       call this%sto_fc_dis2d(kiter, stage_old, stage_new, matrix_sln, idxglo, rhs)
@@ -284,9 +271,6 @@ contains
       rhs(n) = rhs(n) + qsto - derv * stage_new(n)
 
     end do
-    !
-    ! -- Return
-    return
   end subroutine sto_fc_dis1d
 
   !> @ brief Fill A and right-hand side for the package
@@ -369,9 +353,6 @@ contains
       flowja(idiag) = flowja(idiag) + this%qsto(n)
 
     end do
-    !
-    ! -- Return
-    return
   end subroutine sto_cq
 
   subroutine calc_storage_dis1d(this, n, stage_new, stage_old, dx, qsto, derv)
@@ -467,9 +448,6 @@ contains
     call rate_accumulator(this%qsto, rin, rout)
     call model_budget%addentry(rin, rout, delt, '             STO', &
                                isuppress_output, '         STORAGE')
-    !
-    ! -- return
-    return
   end subroutine sto_bd
 
   !> @ brief Save model flows for package
@@ -508,9 +486,6 @@ contains
                                  budtxt(1), cdatafmp, nvaluesp, &
                                  nwidthp, editdesc, dinact)
     end if
-    !
-    ! -- return
-    return
   end subroutine sto_save_model_flows
 
   !> @ brief Deallocate package memory
@@ -536,9 +511,6 @@ contains
     !
     ! -- deallocate parent
     call this%NumericalPackageType%da()
-    !
-    ! -- return
-    return
   end subroutine sto_da
 
   !> @ brief Allocate scalars
@@ -561,9 +533,6 @@ contains
     !
     ! -- initialize scalars
     !this%xxx = 0
-    !
-    ! -- return
-    return
   end subroutine allocate_scalars
 
   !> @ brief Allocate package arrays
@@ -594,9 +563,6 @@ contains
     do n = 1, nodes
       this%qsto(n) = DZERO
     end do
-    !
-    ! -- return
-    return
   end subroutine allocate_arrays
 
   !> @ brief Source input options for package
@@ -606,7 +572,6 @@ contains
   !<
   subroutine source_options(this)
     ! -- modules
-    use ConstantsModule, only: LENMEMPATH
     use MemoryManagerExtModule, only: mem_set_value
     use SourceCommonModule, only: filein_fname
     use SwfStoInputModule, only: SwfStoParamFoundType
@@ -624,9 +589,6 @@ contains
     !
     ! -- log found options
     call this%log_options(found)
-    !
-    ! -- return
-    return
   end subroutine source_options
 
   !> @ brief Log found options for package
@@ -654,9 +616,6 @@ contains
     end if
     !
     write (this%iout, '(1x,a)') 'END OF STORAGE OPTIONS'
-    !
-    ! -- return
-    return
   end subroutine log_options
 
   !> @ brief Source input data for package
@@ -685,9 +644,6 @@ contains
     ! -- log griddata
     write (this%iout, '(1x,a)') 'PROCESSING GRIDDATA'
     write (this%iout, '(1x,a)') 'END PROCESSING GRIDDATA'
-    !
-    ! -- return
-    return
   end subroutine source_data
 
   !> @brief Set pointers to channel properties in DFW Package

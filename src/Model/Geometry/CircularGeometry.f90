@@ -35,9 +35,6 @@ contains
     !
     ! -- Calculate area
     area_sat = DPI * this%radius**DTWO
-    !
-    ! -- Return
-    return
   end function area_sat
 
   !> @brief Return perimeter as if geometry is fully saturated
@@ -52,9 +49,6 @@ contains
     !
     ! -- Calculate area
     perimeter_sat = DTWO * DPI * this%radius
-    !
-    ! -- Return
-    return
   end function perimeter_sat
 
   !> @brief Return wetted area
@@ -84,9 +78,6 @@ contains
     else
       area_wet = DPI * this%radius * this%radius
     end if
-    !
-    ! -- Return
-    return
   end function area_wet
 
   !> @brief Return wetted perimeter
@@ -112,9 +103,6 @@ contains
     else
       perimeter_wet = DTWO * DPI * this%radius
     end if
-    !
-    ! -- Return
-    return
   end function perimeter_wet
 
   !> @brief Set a parameter for this circular object
@@ -151,9 +139,6 @@ contains
         'Unknown circular geometry attribute: ', line(istart:istop)
       call store_error(errmsg, terminate=.TRUE.)
     end select
-    !
-    ! -- Return
-    return
   end subroutine set_attribute
 
   !> @brief Print the attributes for this object
@@ -174,9 +159,6 @@ contains
     write (iout, fmttd) 'RADIUS = ', this%radius
     write (iout, fmttd) 'SATURATED AREA = ', this%area_sat()
     write (iout, fmttd) 'SATURATED WETTED PERIMETER = ', this%perimeter_sat()
-    !
-    ! -- Return
-    return
   end subroutine print_attributes
 
 end module CircularGeometryModule

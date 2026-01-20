@@ -122,9 +122,6 @@ contains
     ! -- Store pointer to labels associated with the current model so that the
     !    package has access to the corresponding dependent variable type
     mvt%depvartype = depvartype
-    !
-    ! -- Return
-    return
   end subroutine mvt_cr
 
   !> @brief Define mover transport object
@@ -152,9 +149,6 @@ contains
     !
     ! -- Read mvt options
     call this%read_options()
-    !
-    ! -- Return
-    return
   end subroutine mvt_df
 
   !> @ brief Set pointer to mvrbudobj
@@ -177,9 +171,6 @@ contains
     !
     ! -- Setup the output table
     call this%mvt_setup_outputtab()
-    !
-    ! -- Return
-    return
   end subroutine mvt_ar
 
   !> @brief Read and prepare mover transport object
@@ -207,9 +198,6 @@ contains
       call this%budget%budget_df(this%maxpackages, 'TRANSPORT MOVER', bddim='M')
       call this%budget%set_ibudcsv(this%ibudcsv)
     end if
-    !
-    ! -- Return
-    return
   end subroutine mvt_rp
 
   !> @brief Calculate coefficients and fill amat and rhs
@@ -302,9 +290,6 @@ contains
         end do
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine mvt_fc
 
   !> @ brief Set the fmi_pr and fmi_rc pointers
@@ -372,9 +357,6 @@ contains
       print *, 'Could not find FMI Package...'
       stop "error in set_fmi_pr_rc"
     end if
-    !
-    ! -- Return
-    return
   end subroutine set_fmi_pr_rc
 
   !> @brief Extra convergence check for mover
@@ -400,9 +382,6 @@ contains
         write (this%iout, fmtmvrcnvg)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine mvt_cc
 
   !> @brief Write mover terms to listing file
@@ -415,9 +394,6 @@ contains
     !
     ! -- Fill the budget object
     call this%mvt_fill_budobj(cnew1, cnew2)
-    !
-    ! -- Return
-    return
   end subroutine mvt_bd
 
   !> @brief Write mover budget terms
@@ -442,9 +418,6 @@ contains
       call this%budobj%save_flows(this%dis, ibinun, kstp, kper, delt, &
                                   pertim, totim, this%iout)
     end if
-    !
-    ! -- Return
-    return
   end subroutine mvt_ot_saveflow
 
   !> @brief Print mover flow table
@@ -459,9 +432,6 @@ contains
     if (ibudfl /= 0 .and. this%iprflow /= 0) then
       call this%mvt_print_outputtab()
     end if
-    !
-    ! -- Return
-    return
   end subroutine mvt_ot_printflow
 
   !> @brief Write mover budget to listing file
@@ -524,9 +494,6 @@ contains
     !    in a table that has one entry.  A custom table looks
     !    better here with a row for each package.
     !call this%budobj%write_budtable(kstp, kper, this%iout)
-    !
-    ! -- Return
-    return
   end subroutine mvt_ot_bdsummary
 
   !> @ brief Deallocate memory
@@ -572,9 +539,6 @@ contains
     !
     ! -- Deallocate scalars in NumericalPackageType
     call this%NumericalPackageType%da()
-    !
-    ! -- Return
-    return
   end subroutine mvt_da
 
   !> @ brief Allocate scalar variables for package
@@ -599,9 +563,6 @@ contains
     this%maxpackages = 0
     this%ibudgetout = 0
     this%ibudcsv = 0
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @brief Read mover-for-transport options block
@@ -609,7 +570,7 @@ contains
   subroutine read_options(this)
     ! -- modules
     use OpenSpecModule, only: access, form
-    use InputOutputModule, only: getunit, openfile
+    use InputOutputModule, only: assign_iounit, openfile
     ! -- dummy
     class(TspMvtType) :: this
     ! -- local
@@ -650,7 +611,7 @@ contains
           call this%parser%GetStringCaps(keyword)
           if (keyword == 'FILEOUT') then
             call this%parser%GetString(fname)
-            this%ibudgetout = getunit()
+            call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
             call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
                           form, access, 'REPLACE')
             write (this%iout, fmtflow) 'MVT', 'BUDGET', trim(adjustl(fname)), &
@@ -663,7 +624,7 @@ contains
           call this%parser%GetStringCaps(keyword)
           if (keyword == 'FILEOUT') then
             call this%parser%GetString(fname)
-            this%ibudcsv = getunit()
+            call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
             call openfile(this%ibudcsv, this%iout, fname, 'CSV', &
                           filstat_opt='REPLACE')
             write (this%iout, fmtflow) 'MVT', 'BUDGET CSV', &
@@ -681,9 +642,6 @@ contains
       end do
       write (this%iout, '(1x,a)') 'END OF MVT OPTIONS'
     end if
-    !
-    ! -- Return
-    return
   end subroutine read_options
 
   !> @brief Set up the budget object that stores all the mvr flows
@@ -732,9 +690,6 @@ contains
                                              maxlist, .false., .false., &
                                              naux)
     end do
-    !
-    ! -- Return
-    return
   end subroutine mvt_setup_budobj
 
   !> @brief Copy mover-for-transport flow terms into this%budobj
@@ -800,9 +755,6 @@ contains
     !
     ! --Terms are filled, now accumulate them for this time step
     call this%budobj%accumulate_terms()
-    !
-    ! -- Return
-    return
   end subroutine mvt_fill_budobj
 
   !> @brief Determine max number of packages in use
@@ -849,9 +801,6 @@ contains
         ipos = ipos + 1
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine mvt_scan_mvrbudobj
 
   !> @brief Set up the mover-for-transport output table
@@ -897,9 +846,6 @@ contains
       call this%outputtab%initialize_column(text, 10)
       !
     end if
-    !
-    ! -- Return
-    return
   end subroutine mvt_setup_outputtab
 
   !> @brief Set up mover-for-transport output table
@@ -953,9 +899,6 @@ contains
         inum = inum + 1
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine mvt_print_outputtab
 
 end module TspMvtModule

@@ -69,9 +69,6 @@ contains
     this%iout = iout
     allocate (this%boundTasLinks)
     allocate (this%tasfiles(0))
-    !
-    ! -- Return
-    return
   end subroutine tasmanager_cr
 
   !> @brief Define the time-array series manager
@@ -96,9 +93,6 @@ contains
       call tasptr%tas_init(this%tasfiles(i), this%modelname, &
                            this%iout, this%tasnames(i))
     end do
-    !
-    ! -- Return
-    return
   end subroutine tasmanager_df
 
   !> @brief Time step (or subtime step) advance.
@@ -184,9 +178,6 @@ contains
         end if
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine tasmgr_ad
 
   !> @brief Deallocate
@@ -223,9 +214,6 @@ contains
     ! -- nullify pointers
     this%dis => null()
     this%boundTasLinks => null()
-    !
-    ! -- Return
-    return
   end subroutine tasmgr_da
 
   !> @brief Add a time-array series file
@@ -242,9 +230,6 @@ contains
     call ExpandArray(this%tasfiles, 1)
     indx = size(this%tasfiles)
     this%tasfiles(indx) = fname
-    !
-    ! -- Return
-    return
   end subroutine add_tasfile
 
   !> @brief Zero out arrays that are represented with time series
@@ -283,9 +268,6 @@ contains
         end if
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine Reset
 
   !> @brief Make link from time-array series to package array
@@ -334,9 +316,6 @@ contains
     !
     ! -- Add link to list of links
     call this%tasmgr_add_link(newTasLink)
-    !
-    ! -- Return
-    return
   end subroutine MakeTasLink
 
   !> @brief Get link from the boundtaslinks list
@@ -353,9 +332,6 @@ contains
     if (associated(this%boundTasLinks)) then
       tasLink => GetTimeArraySeriesLinkFromList(this%boundTasLinks, indx)
     end if
-    !
-    ! -- Return
-    return
   end function GetLink
 
   !> @brief Count number of links in the boundtaslinks list
@@ -371,9 +347,6 @@ contains
     else
       CountLinks = 0
     end if
-    !
-    ! -- Return
-    return
   end function CountLinks
 
   ! -- Private procedures
@@ -405,9 +378,6 @@ contains
         tasLink%BndArray(i) = tasLink%BndArray(i) * area
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine tasmgr_convert_flux
 
   !> @brief Add a time arrays series link
@@ -419,9 +389,6 @@ contains
     ! -- local
     !
     call AddTimeArraySeriesLinkToList(this%boundTasLinks, tasLink)
-    !
-    ! -- Return
-    return
   end subroutine tasmgr_add_link
 
 end module TimeArraySeriesManagerModule

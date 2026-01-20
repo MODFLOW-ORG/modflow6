@@ -62,9 +62,6 @@ contains
                                    cxs_xf, cxs_h, cxs_rf, unitconv, &
                                    icalcmeth)
     end if
-    !
-    ! -- return
-    return
   end function calc_depth_from_q
 
   !> @brief Calculate the depth at the midpoint of a irregular cross-section
@@ -129,9 +126,6 @@ contains
     !
     ! TODO: raise an error
     print *, "bisection routine failed"
-    !
-    ! -- return
-    return
   end function calc_depth_from_q_bisect
 
   !> @brief Calculate the depth at the midpoint of a irregular cross-section
@@ -204,9 +198,6 @@ contains
 
     end do nriter
     depth = d
-    !
-    ! -- return
-    return
   end function calc_depth_from_q_nr
 
   !> @brief Calculate streamflow using Manning's equation
@@ -250,9 +241,6 @@ contains
                                  cxs_xf, cxs_h, cxs_rf, unitconv, &
                                  linmeth)
     end select
-    !
-    ! -- return
-    return
   end function calc_qman
 
   function calc_qman_composite(depth, width, rough, slope, &
@@ -304,9 +292,6 @@ contains
       call sChSmooth(depth, sat, derv)
       qman = sat * qman
     end if
-    !
-    ! -- return
-    return
   end function calc_qman_composite
 
   function calc_composite_roughness(npts, depth, width, rough, slope, &
@@ -371,9 +356,6 @@ contains
       end if
 
     end if
-    !
-    ! -- return
-    return
   end function calc_composite_roughness
 
   function calc_qman_by_section(depth, width, rough, slope, &
@@ -441,9 +423,6 @@ contains
       ! -- calculate stream flow
       qman = sat * qman
     end if
-    !
-    ! -- return
-    return
   end function calc_qman_by_section
 
   !> @brief Calculate the saturated top width for a reach
@@ -453,12 +432,20 @@ contains
   !!
   !! @return      w               saturated top width
   !<
-  function get_saturated_topwidth(npts, stations) result(w)
+  function get_saturated_topwidth(npts, xfraction, width) result(w)
     ! -- dummy variables
     integer(I4B), intent(in) :: npts !< number of station-height data for a reach
-    real(DP), dimension(npts), intent(in) :: stations !< cross-section station distances (x-distance)
+    real(DP), dimension(npts), intent(in) :: xfraction !< cross-section station fractional distances (x-distance)
+    real(DP), intent(in) :: width
     ! -- local variables
+    integer(I4B) :: n
     real(DP) :: w
+    real(DP), dimension(npts) :: stations
+    !
+    ! -- calculate station from xfractions and width
+    do n = 1, npts
+      stations(n) = xfraction(n) * width
+    end do
     !
     ! -- calculate the saturated top width
     if (npts > 1) then
@@ -466,9 +453,6 @@ contains
     else
       w = stations(1)
     end if
-    !
-    ! -- return
-    return
   end function get_saturated_topwidth
 
   !> @brief Calculate the wetted top width for a reach
@@ -506,9 +490,6 @@ contains
     do n = 1, npts - 1
       w = w + widths(n)
     end do
-    !
-    ! -- return
-    return
   end function get_wetted_topwidth
 
   !> @brief Calculate the wetted perimeter for a reach
@@ -546,9 +527,6 @@ contains
     do n = 1, npts - 1
       p = p + perimeters(n)
     end do
-    !
-    ! -- return
-    return
   end function get_wetted_perimeter
 
   !> @brief Calculate the cross-sectional area for a reach
@@ -586,9 +564,6 @@ contains
     do n = 1, npts - 1
       a = a + areas(n)
     end do
-    !
-    ! -- return
-    return
   end function get_cross_section_area
 
   !> @brief Calculate conveyance
@@ -738,9 +713,6 @@ contains
       end if
       c = c + cn
     end do
-    !
-    ! -- return
-    return
   end function get_composite_conveyance
 
   !> @brief Calculate the hydraulic radius for a reach
@@ -791,9 +763,6 @@ contains
       ! -- calculate the hydraulic radius
       r = a / p
     end if
-    !
-    ! -- return
-    return
   end function get_hydraulic_radius
 
   !> @brief Calculate the hydraulic radius for a reach
@@ -824,9 +793,6 @@ contains
     !
     ! -- calculate hydraulic radius
     r = get_hydraulic_radius(npts, stations, heights, d)
-    !
-    ! -- return
-    return
   end function get_hydraulic_radius_xf
 
   !> @brief Calculate the manning's discharge for a reach
@@ -897,9 +863,6 @@ contains
         end if
       end do
     end if
-    !
-    ! -- return
-    return
   end function get_mannings_section
 
   ! -- private functions and subroutines
@@ -962,9 +925,6 @@ contains
       end if
       p(n) = sqrt(xlen**DTWO + dlen**DTWO)
     end do
-    !
-    ! -- return
-    return
   end subroutine get_wetted_perimeters
 
   !> @brief Calculate the cross-sectional areas for each line segment
@@ -1025,9 +985,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine get_cross_section_areas
 
   !> @brief Calculate the wetted top widths for each line segment
@@ -1068,9 +1025,6 @@ contains
       ! -- calculate the wetted top width for the segment
       w(n) = x1 - x0
     end do
-    !
-    ! -- return
-    return
   end subroutine get_wetted_topwidths
 
   !> @brief Calculate the station values for the wetted portion of the cross-section
@@ -1097,46 +1051,38 @@ contains
     real(DP) :: xlen
     real(DP) :: dlen
     real(DP) :: slope
-    real(DP) :: dx
     real(DP) :: xt
-    real(DP) :: xt0
-    real(DP) :: xt1
     !
     ! -- calculate the minimum and maximum depth
     dmin = min(d0, d1)
     dmax = max(d0, d1)
     !
-    ! -- if d is less than or equal to the minimum value the
-    !    station length (xlen) is zero
+    ! -- calculate x0 and x1
     if (d <= dmin) then
+      ! -- if d is less than or equal to the minimum value the
+      !    station length (xlen) is zero
       x1 = x0
-      ! -- if d is between dmin and dmax station length is less
+    else if (d >= dmax) then
+      ! x0 and x1 unchanged (full wetted width)
+      continue
+    else
+      ! -- if d is between dmin and dmax, station length is less
       !    than d1 - d0
-    else if (d < dmax) then
       xlen = x1 - x0
       dlen = d1 - d0
-      if (abs(dlen) > DZERO) then
-        slope = xlen / dlen
-      else
-        slope = DZERO
-      end if
+      ! because of preceding checks
+      ! we know dmin<d<dmax, dmax>dmin, dlen > 0
+      ! no need to check for dlen == 0
+      slope = xlen / dlen
+      xt = x0 + slope * (d - d0)
       if (d0 > d1) then
-        dx = (d - d1) * slope
-        xt = x1 + dx
-        xt0 = xt
-        xt1 = x1
+        ! x1 unchanged
+        x0 = xt
       else
-        dx = (d - d0) * slope
-        xt = x0 + dx
-        xt0 = x0
-        xt1 = xt
+        !x0 unchanged
+        x1 = xt
       end if
-      x0 = xt0
-      x1 = xt1
     end if
-    !
-    ! -- return
-    return
   end subroutine get_wetted_station
 
 end module SwfCxsUtilsModule

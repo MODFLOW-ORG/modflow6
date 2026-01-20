@@ -120,9 +120,6 @@ contains
         chat1j(i) = wght1 * bhat1(i)
       end do
     end if
-    !
-    ! -- Return
-    return
   end subroutine qconds
 
   !> @brief Compute "ahat" and "bhat" coefficients for one side of an interface
@@ -265,9 +262,6 @@ contains
     ! -- Multiply by area.
     ahat = ahat * ar01
     bhat = bhat * ar01
-    !
-    ! -- Return
-    return
   end subroutine abhats
 
   !> @brief Compute the matrix that rotates the model-coordinate axes to the
@@ -379,9 +373,6 @@ contains
     do il = 1, nnbrs
       vccde(il, :) = matmul(transpose(rmat), vc(il, :))
     end do
-    !
-    ! -- Return
-    return
   end subroutine tranvc
 
   !> @brief Compute "a" and "b" weights for the local connections with respect

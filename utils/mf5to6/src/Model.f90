@@ -51,7 +51,7 @@ module ModelModule
   use RivPackageWriterModule, only: RivPackageWriterType
   use SfrPackageWriterModule, only: SfrPackageWriterType, &
                                     AddSfrPackageWriter
-  use SimModule, only: store_error, store_note, ustop
+  use SimPHMFModule, only: store_error, store_note, ustop
   use ImsPackageWriterModule, only: ImsPackageWriterType
   use StoWriterModule, only: StoWriterType
   use TdisVariablesModule, only: GlobalTdisWriter

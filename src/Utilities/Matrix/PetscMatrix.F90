@@ -396,7 +396,8 @@ contains
     ! local
     PetscErrorCode :: ierr
     integer(I4B) :: irow, icol, ipos
-    real(DP) :: val
+    integer(I4B), dimension(1) :: irow_idxs, icol_idxs
+    real(DP), dimension(1) :: values
     Mat :: local_mat
 
     call MatGetDiagonalBlock(this%mat, local_mat, ierr)
@@ -405,9 +406,11 @@ contains
     do irow = 1, this%nrow
       do ipos = this%ia_local(irow), this%ia_local(irow + 1) - 1
         icol = this%ja_local(ipos)
-        call MatGetValues(local_mat, 1, irow - 1, 1, icol - 1, val, ierr)
+        irow_idxs(1) = irow - 1
+        icol_idxs(1) = icol - 1
+        call MatGetValues(local_mat, 1, irow_idxs, 1, icol_idxs, values, ierr)
         CHKERRQ(ierr)
-        this%amat_local(ipos) = val
+        this%amat_local(ipos) = values(1)
       end do
     end do
 

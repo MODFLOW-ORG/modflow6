@@ -237,10 +237,7 @@ contains
     !
     ! -- RESET ICNVG
     IF (ICNVG < 0) ICNVG = 0
-    !
-    ! -- RETURN
-    RETURN
-  END SUBROUTINE ims_base_cg
+  end SUBROUTINE ims_base_cg
 
   !> @ brief Preconditioned BiConjugate Gradient Stabilized linear accelerator
   !!
@@ -549,10 +546,7 @@ contains
     !
     ! -- RESET ICNVG
     IF (ICNVG < 0) ICNVG = 0
-    !
-    ! -- RETURN
-    RETURN
-  END SUBROUTINE ims_base_bcgs
+  end SUBROUTINE ims_base_bcgs
 
   !> @ brief Calculate LORDER AND IORDER
   !!
@@ -613,10 +607,7 @@ contains
     if (count_errors() > 0) then
       call parser%StoreErrorUnit()
     end if
-    !
-    ! -- RETURN
-    RETURN
-  END SUBROUTINE ims_base_calc_order
+  end SUBROUTINE ims_base_calc_order
 
   !
   !> @ brief Scale the coefficient matrix
@@ -760,10 +751,7 @@ contains
         B(n) = B(n) / c1
       END DO
     END IF
-    !
-    ! -- RETURN
-    RETURN
-  END SUBROUTINE ims_base_scale
+  end SUBROUTINE ims_base_scale
 
   !> @ brief Update the preconditioner
   !!
@@ -873,10 +861,7 @@ contains
     if (icount > 0) then
       write (IOUT, 2000) icount
     end if
-    !
-    ! -- RETURN
-    RETURN
-  END SUBROUTINE ims_base_pcu
+  end SUBROUTINE ims_base_pcu
 
   !> @ brief Jacobi preconditioner
   !!
@@ -912,10 +897,7 @@ contains
       IF (ABS(tv) > DZERO) tv = DONE / tv
       APC(n) = tv
     END DO
-    !
-    ! -- RETURN
-    RETURN
-  END SUBROUTINE ims_base_pcjac
+  end SUBROUTINE ims_base_pcjac
 
   !> @ brief Apply the Jacobi preconditioner
   !!
@@ -936,10 +918,7 @@ contains
       tv = A(n) * D1(n)
       D2(n) = tv
     END DO
-    !
-    ! -- RETURN
-    RETURN
-  END SUBROUTINE ims_base_jaca
+  end SUBROUTINE ims_base_jaca
 
   !> @ brief Update the ILU0 preconditioner
   !!
@@ -1060,10 +1039,7 @@ contains
     !
     ! -- RESET IPCFLAG IF SUCCESSFUL COMPLETION OF MAIN
     IPCFLAG = 0
-    !
-    ! -- RETURN
-    RETURN
-  END SUBROUTINE ims_base_pcilu0
+  end SUBROUTINE ims_base_pcilu0
 
   !> @ brief Apply the ILU0 and MILU0 preconditioners
   !!
@@ -1113,10 +1089,7 @@ contains
       ! -- COMPUTE D FOR DIAGONAL - D = D / U
       D(n) = tv * APC(n)
     END DO BACKWARD
-    !
-    ! -- RETURN
-    RETURN
-  END SUBROUTINE ims_base_ilu0a
+  end SUBROUTINE ims_base_ilu0a
 
   !> @ brief Test for solver convergence
   !!
@@ -1170,10 +1143,7 @@ contains
         Icnvg = -1
       END IF
     END IF
-    !
-    ! -- return
-    RETURN
-  END SUBROUTINE ims_base_testcnvg
+  end SUBROUTINE ims_base_testcnvg
 
   subroutine ims_calc_pcdims(neq, nja, ia, level, ipc, &
                              niapc, njapc, njlu, njw, nwlu)
@@ -1288,10 +1258,7 @@ contains
         END IF
       END DO
     END DO
-    !
-    ! -- RETURN
-    RETURN
-  END SUBROUTINE ims_base_pccrs
+  end SUBROUTINE ims_base_pccrs
 
   !> @brief In-place sorting for an integer array
   !!
@@ -1314,10 +1281,7 @@ contains
         END IF
       END DO
     END DO
-    !
-    ! -- RETURN
-    RETURN
-  END SUBROUTINE ims_base_isort
+  end SUBROUTINE ims_base_isort
 
   !> @brief Calculate residual
   !!
@@ -1345,10 +1309,7 @@ contains
     DO n = 1, NEQ
       D(n) = B(n) - D(n)
     END DO
-    !
-    ! -- return
-    RETURN
-  END SUBROUTINE ims_base_residual
+  end SUBROUTINE ims_base_residual
 
   !> @brief Function returning EPFACT
   !<

@@ -1,8 +1,8 @@
 module UzrSoilModelFactoryModule
   use KindModule, only: I4B, DP
+  use FeatureFlagsModule, only: developmode
   use ConstantsModule, only: LENMEMPATH, LENVARNAME
   use SimModule, only: ustop
-  use DevFeatureModule, only: dev_feature
   use STLVecIntModule
   use UzrSoilModelModule, only: SoilModelType
   use UzrHaverkampModule, only: HaverkampModelType
@@ -108,7 +108,7 @@ contains
       allocate (VanGenuchtenModelType :: soil_model)
       soil_model%id = VANGENUCHTEN
     case (DEVSOILMODEL)
-      call dev_feature('Setting the soil model to DEVELOPMENT is a development &
+      call developmode('Setting the soil model to DEVELOPMENT is a development &
         &feature, install the nightly build or compile from source with &
         &IDEVELOPMODE = 1.')
       allocate (UzrDevSoilType :: soil_model)

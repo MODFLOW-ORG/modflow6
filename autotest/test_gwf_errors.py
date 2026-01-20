@@ -32,7 +32,7 @@ def run_mf6_error(ws, exe, err_str_list):
     msg = "mf terminated with error"
     if returncode != 0:
         if not isinstance(err_str_list, list):
-            err_str_list = list(err_str_list)
+            err_str_list = [err_str_list]
         for err_str in err_str_list:
             err = any(err_str in s for s in buff)
             if err:
@@ -66,9 +66,7 @@ def get_minimal_gwf_simulation(
         gwfkwargs = {}
         gwfkwargs["modelname"] = name
     if imskwargs is None:
-        imskwargs = {
-            "print_option": "SUMMARY",
-        }
+        imskwargs = {"print_option": "SUMMARY"}
     if diskwargs is None and disukwargs is None:
         diskwargs = {}
         diskwargs["nlay"] = 5
@@ -121,11 +119,36 @@ def test_simple_model_success(function_tmpdir, targets):
     assert final_message in buff[-1], failure_message
 
 
+def test_input_bound(function_tmpdir, targets):
+    mf6 = targets["mf6"]
+
+    # test a simple model to make sure it runs and terminates correctly
+    sim = get_minimal_gwf_simulation(str(function_tmpdir), mf6)
+    sim.write_simulation()
+
+    # update chd to underspecify maxbound
+    with open(function_tmpdir / "test.chd", "w") as f:
+        f.write("BEGIN options\n")
+        f.write("END options\n\n")
+        f.write("BEGIN dimensions\n")
+        f.write("  MAXBOUND  1\n")
+        f.write("END dimensions\n\n")
+        f.write("BEGIN period  1\n")
+        f.write("  1 1 1 0\n")
+        f.write("  1 5 5 1\n")
+        f.write("END period  1\n")
+
+    with pytest.raises(RuntimeError):
+        # make sure error is set when input dimension is too small
+        err_str = "Input error: line count exceeds input dimension. Expected rows=1."
+        run_mf6_error(str(function_tmpdir), mf6, err_str)
+
+
 def test_empty_folder(function_tmpdir, targets):
     mf6 = targets["mf6"]
     with pytest.raises(RuntimeError):
         # make sure mf6 fails when there is no simulation name file
-        err_str = "mf6: mfsim.nam is not present in working directory."
+        err_str = "mfsim.nam is not present in working directory."
         run_mf6_error(str(function_tmpdir), mf6, err_str)
 
 
@@ -135,9 +158,7 @@ def test_sim_errors(function_tmpdir, targets):
     with pytest.raises(RuntimeError):
         # verify that the correct number of errors are reported
         chdkwargs = {}
-        chdkwargs["stress_period_data"] = {
-            0: [[(0, 0, 0), 0.0] for i in range(10)]
-        }
+        chdkwargs["stress_period_data"] = {0: [[(0, 0, 0), 0.0] for i in range(10)]}
         sim = get_minimal_gwf_simulation(
             str(function_tmpdir), exe=mf6, chdkwargs=chdkwargs
         )
@@ -154,9 +175,7 @@ def test_sim_maxerrors(function_tmpdir, targets):
         simnamefilekwargs = {}
         simnamefilekwargs["maxerrors"] = 5
         chdkwargs = {}
-        chdkwargs["stress_period_data"] = {
-            0: [[(0, 0, 0), 0.0] for i in range(10)]
-        }
+        chdkwargs["stress_period_data"] = {0: [[(0, 0, 0), 0.0] for i in range(10)]}
         sim = get_minimal_gwf_simulation(
             str(function_tmpdir),
             exe=mf6,
@@ -177,9 +196,7 @@ def test_disu_errors(function_tmpdir, targets):
     mf6 = targets["mf6"]
 
     with pytest.raises(RuntimeError):
-        disukwargs = get_disu_kwargs(
-            3, 3, 3, np.ones(3), np.ones(3), 0, [-1, -2, -3]
-        )
+        disukwargs = get_disu_kwargs(3, 3, 3, np.ones(3), np.ones(3), 0, [-1, -2, -3])
         top = disukwargs["top"]
         bot = disukwargs["bot"]
         top[9] = 2.0
@@ -192,11 +209,10 @@ def test_disu_errors(function_tmpdir, targets):
         )
         sim.write_simulation()
         err_str = [
-            "1. Top elevation (    2.00000    ) for cell 10 is above bottom elevation (",
+            "1. Top elevation (    2.00000    ) for cell 10 is above bottom elevation (",  # noqa
             "-1.00000    ) for cell 1. Based on node numbering rules cell 10 must be",
             "below cell 1.",
-            "UNIT ERROR REPORT:"
-            "1. ERROR OCCURRED WHILE READING FILE './test.disu'",
+            "UNIT ERROR REPORT:1. ERROR OCCURRED WHILE READING FILE './test.disu'",
         ]
         run_mf6_error(str(function_tmpdir), mf6, err_str)
 

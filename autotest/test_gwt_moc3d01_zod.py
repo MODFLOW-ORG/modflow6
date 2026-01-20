@@ -64,9 +64,7 @@ def build_models(idx, test):
         # continue_=True,
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -280,9 +278,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -330,7 +326,7 @@ def make_plot_ct(tssim, fname=None):
 
 
 def make_plot_cd(cobj, fname=None):
-    """Concentration versus time plot"""
+    """Concentration versus distance plot"""
     import matplotlib.pyplot as plt
 
     fig = plt.figure(figsize=(6, 3))
@@ -363,34 +359,33 @@ def make_plot_cd(cobj, fname=None):
     return
 
 
+def plot_output(idx, test):
+    name = cases[idx]
+    gwtname = "gwt_" + name
+    sim = test.sims[0]
+    gwt = sim.get_model(gwtname)
+    cobj = gwt.output.concentration()
+    station = [(0, 0, 0), (0, 40, 0), (0, 110, 0)]
+    tssim = cobj.get_ts(station)
+
+    # concentration versus time
+    fname = test.workspace / "fig-ct.pdf"
+    make_plot_ct(tssim, fname)
+
+    # concentration versus distance
+    fname = test.workspace / "fig-cd.pdf"
+    make_plot_cd(cobj, fname)
+
+
 def check_output(idx, test):
     name = cases[idx]
     gwtname = "gwt_" + name
-
-    # get mobile domain concentration object
-    fpth = os.path.join(test.workspace, f"{gwtname}.ucn")
-    try:
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
-        station = [(0, 0, 0), (0, 40, 0), (0, 110, 0)]
-        tssim = cobj.get_ts(station)
-    except:
-        assert False, f'could not load data from "{fpth}"'
-
-    makeplot = False
-    if makeplot:
-        fname = "fig-ct.pdf"
-        fname = os.path.join(test.workspace, fname)
-        make_plot_ct(tssim, fname)
-
-        fname = "fig-cd.pdf"
-        fname = os.path.join(test.workspace, fname)
-        make_plot_cd(cobj, fname)
-
-    # get mobile domain budget object
-    fpth = os.path.join(test.workspace, f"{gwtname}.cbc")
-    bobj = flopy.utils.CellBudgetFile(fpth, precision="double")
+    sim = test.sims[0]
+    gwt = sim.get_model(gwtname)
+    cobj = gwt.output.concentration()
+    bobj = gwt.output.budget()
+    station = [(0, 0, 0), (0, 40, 0), (0, 110, 0)]
+    tssim = cobj.get_ts(station)
 
     # Check to make sure decay rates in budget file are correct.  If there is
     # enough mass in the cell, then the qdecay value in the budget file
@@ -406,8 +401,8 @@ def check_output(idx, test):
         if conc[i] / delt > decay_rate:
             qknown = -decay_rate * vcell * porosity
             errmsg = (
-                "Decay rate in budget file for cell {} should be "
-                "{} but found {} instead.".format(i, qdecay_budfile[i], qknown)
+                f"Decay rate in budget file for cell {i} should be "
+                f"{qdecay_budfile[i]} but found {qknown} instead."
             )
             assert np.allclose(qdecay_budfile[i], qknown), errmsg
         # print(i, qdecay_budfile[i], conc[i])
@@ -433,7 +428,7 @@ def check_output(idx, test):
             "Mass transfer rates from the gwt budget file do not "
             "compare with mass transfer rates calculated from "
             "simulated mobile and immobile domain concentrations\n"
-            "{} /= {}".format(qim_budfile, qim_calculated)
+            f"{qim_budfile} /= {qim_calculated}"
         )
         np.allclose(qim_budfile, qim_calculated), errmsg
 
@@ -562,19 +557,20 @@ def check_output(idx, test):
     tsres = tsreslist[idx]
     errmsg = (
         "Simulated concentrations do not match with known solution.\n"
-        "{} /= {}".format(tssim, tsres)
+        f"{tssim} /= {tsres}"
     )
     if tsres is not None:
         assert np.allclose(tsres, tssim), errmsg
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, function_tmpdir, targets, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        plot=lambda t: plot_output(idx, t) if plot else None,
     )
     test.run()

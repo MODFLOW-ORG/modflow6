@@ -53,9 +53,15 @@ mawsetting_d = {
 
 # simple single stress period without going inactive in 2nd stress period
 # mawsetting_a = [(0, "rate", -2000.0), (0, "head_limit", -0.4)]
-# mawsetting_b = [[(0, "rate", -2000.0), (0, "rate_scaling", -1.4, 1.0)], ["status", "inactive"]]
+# mawsetting_b = [
+#     [(0, "rate", -2000.0), (0, "rate_scaling", -1.4, 1.0)],
+#     ["status", "inactive"],
+# ]
 # mawsetting_c = [[(0, "rate", 2000.0), (0, "head_limit", 0.4)], ["status", "inactive"]]
-# mawsetting_d = [[(0, "rate", 2000.0), (0, "rate_scaling", 0.0, 1.0)], ["status", "inactive"]]
+# mawsetting_d = [
+#     [(0, "rate", 2000.0), (0, "rate_scaling", 0.0, 1.0)],
+#     ["status", "inactive"],
+# ]
 mawsettings = [mawsetting_a, mawsetting_b, mawsetting_c, mawsetting_d]
 
 
@@ -85,9 +91,7 @@ def build_models(idx, test):
     sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=ws)
 
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.MFModel(
@@ -182,9 +186,7 @@ def build_models(idx, test):
         gwf,
         budget_filerecord=f"{name}.cbc",
         head_filerecord=f"{name}.hds",
-        headprintrecord=[
-            ("COLUMNS", ncol, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        headprintrecord=[("COLUMNS", ncol, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("HEAD", "ALL")],
         printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
         filename=f"{name}.oc",
@@ -207,8 +209,8 @@ def build_models(idx, test):
 
 # 2 tests to perform here:
 # 1. within the .maw-reduction.csv file, do values of actual + reduction = requested?
-# 2. do the values in .maw-reduction.csv file match with the .maw.obs.csv file at each time
-#  (and all are reduction times present in the obs file)?
+# 2. do the values in .maw-reduction.csv file match with the .maw.obs.csv file at
+#    each time (and all are reduction times present in the obs file)?
 def check_output(idx, test):
     # MODFLOW 6 maw results
     name = cases[idx]
@@ -219,29 +221,31 @@ def check_output(idx, test):
     except:
         assert False, f'could not load data from "{fpthobs}"'
     try:
-        tcmfr = np.genfromtxt(
-            fpthmfr, names=True, delimiter=",", deletechars=""
-        )
+        tcmfr = np.genfromtxt(fpthmfr, names=True, delimiter=",", deletechars="")
     except:
         assert False, f'could not load data from "{fpthmfr}"'
 
-    # test 1: does rate-requested = rate-actual + maw-reduction at each time in the .maw.reduced.csv?
+    # test 1: does rate-requested = rate-actual + maw-reduction at each time
+    # in the .maw.reduced.csv?
     for rowmfr in tcmfr:
         v1 = rowmfr["rate-requested"]
         v2 = rowmfr["rate-actual"] + rowmfr["maw-reduction"]
-        errmsg = "MAW flow reduction output: requested rate must equal actual rate plus reduced rate.\n"
-        errmsg += f"{v1} /= {v2}"
+        errmsg = (
+            "MAW flow reduction output: "
+            "requested rate must equal actual rate plus reduced rate.\n"
+            f"{v1} /= {v2}"
+        )
         assert np.allclose(v1, v2), errmsg
 
-    # test 2: do values of rate-actual in .maw.reduced.csv equal those flow values reported in .maw.obs.csv?
-    #        (and are there matching times?)
+    # test 2: do values of rate-actual in .maw.reduced.csv equal those
+    # flow values reported in .maw.obs.csv? (and are there matching times?)
     for rowmfr in tcmfr:
         timevalmfr = rowmfr["time"]
         actvalmfr = rowmfr["rate-actual"]
         msgtime = (
             "There should be a matching time in the maw.obs.csv file for each "
             "time in the maw.reduce.csv file, but no match was found for "
-            "time = {} in the maw.obs.csv file".format(timevalmfr)
+            f"time = {timevalmfr} in the maw.obs.csv file"
         )
         blnFoundTimeMatch = False
         for rowobs in tcobs:
@@ -250,9 +254,9 @@ def check_output(idx, test):
                 blnFoundTimeMatch = True
                 actvalobs = rowobs["M1RATE"]
                 msgval = (
-                    "The maw.obs.csv file rate-actual value of {} should have "
-                    "matched the maw.reduce.csv file rate-actual value of {} "
-                    "at time {}".format(actvalobs, actvalmfr, timevalobs)
+                    f"The maw.obs.csv file rate-actual value of {actvalobs} "
+                    "should have matched the maw.reduce.csv file rate-actual "
+                    f"value of {actvalmfr} at time {timevalobs}"
                 )
                 break
         assert blnFoundTimeMatch, msgtime

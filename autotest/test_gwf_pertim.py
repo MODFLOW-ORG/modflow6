@@ -45,19 +45,10 @@ def build_models(idx, test):
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
-    ims = flopy.mf6.ModflowIms(
-        sim,
-        print_option="ALL",
-        complexity="simple",
-    )
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    ims = flopy.mf6.ModflowIms(sim, print_option="ALL", complexity="simple")
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
-    gwf = flopy.mf6.ModflowGwf(
-        sim,
-        modelname=name,
-    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
 
     # create iterative model solution and register the gwf model with it
 
@@ -73,10 +64,7 @@ def build_models(idx, test):
     )
 
     # initial conditions
-    ic = flopy.mf6.ModflowGwfic(
-        gwf,
-        strt=strt,
-    )
+    ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
     npf = flopy.mf6.ModflowGwfnpf(
@@ -124,9 +112,7 @@ def check_output(idx, test):
     q_out_sim = inc["CHD2_OUT"]
 
     assert np.allclose([q_in_sim], [q_in]), f"CHD_IN <> {q_in} ({q_in_sim})"
-    assert np.allclose(
-        [q_out_sim], [q_out]
-    ), f"CHD2_OUT <> {q_out} ({q_out_sim})"
+    assert np.allclose([q_out_sim], [q_out]), f"CHD2_OUT <> {q_out} ({q_out_sim})"
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

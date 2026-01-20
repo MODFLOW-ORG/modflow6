@@ -10,7 +10,7 @@
         use SfrSegmentModule, only: CastAsSfrSegmentType,
      &          ConstructSfrSegment, SfrSegmentType, GetSegmentFromList,
      &          AddSegmentToList
-        use SimModule, only: store_error, store_warning, ustop
+        use SimPHMFModule, only: store_error, store_warning, ustop
 
         private
         public :: GWF2SFR7AR, GWF2SFR7RP
@@ -40,7 +40,7 @@ C     ------------------------------------------------------------------
       USE GWFBCFMODULE, ONLY: SC1, SC2, LAYCON
 !      USE GWFHUFMODULE, ONLY: SC2HUF
       USE GwfSfrCheckModule
-      use SimModule, only: store_error, ustop
+      use SimPHMFModule, only: store_error, ustop
       use utl7module, only: URWORD, UPCASE, URDCOM
       IMPLICIT NONE
       INTRINSIC ABS, DBLE
@@ -1010,7 +1010,7 @@ C     ******************************************************************
      +                        LAYHDT
       USE PARAMMODULE,  ONLY: MXPAR, PARTYP, IACTIVE, IPLOC
       USE GwfSfrCheckModule
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       IMPLICIT NONE
 C     ------------------------------------------------------------------
 C     SPECIFICATIONS:
@@ -1882,7 +1882,7 @@ C     ******************************************************************
      +                        NeedLakWaterMover, Ilgrgrid, Ilgrseg,
      &                        NSFRAUX, NeedLgrWaterMover
       USE GLOBAL,       ONLY: IOUT
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       IMPLICIT NONE
 C     ------------------------------------------------------------------
 C     SPECIFICATIONS:
@@ -2455,7 +2455,7 @@ C     ******************************************************************
       USE GLOBAL,       ONLY: IOUT, IBOUND, LAYHDT
       USE GWFLPFMODULE, ONLY: LAYVKA, VKA, HK
 !      USE GWFHUFMODULE, ONLY: HGUVANI, NHUF, HKHUF=>HK, VKAH
-      use SimModule, only : ustop
+      use SimPHMFModule, only : ustop
       IMPLICIT NONE
 C     ------------------------------------------------------------------
 C     SPECIFICATIONS:
@@ -3184,7 +3184,7 @@ C     ******************************************************************
       USE GLOBAL,       ONLY: IOUT
       USE PARAMMODULE,  ONLY: IACTIVE, IPLOC, PARNAM, INAME, B
       use utl7module, only: URWORD, UPCASE
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       IMPLICIT NONE
 C     ------------------------------------------------------------------
 C     SPECIFICATIONS:

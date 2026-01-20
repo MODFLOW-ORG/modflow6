@@ -1,17 +1,18 @@
 
-	\subsection{Version mf6.1.0--December 12, 2019}
+	\subsection{Version mf6.1.0---December 12, 2019}
 	
 	\underline{NEW FUNCTIONALITY}
 	\begin{itemize}
 		\item Added the Skeletal Storage, Compaction, and Subsidence (CSUB) Package. The one-dimensional effective-stress based compaction theory implemented in the CSUB Package is documented in \cite{leake2007modflow}. The numerical approach used for delay interbeds in the CSUB package is documented in \cite{hoffmann2003modflow} and uses the same one-dimensional effective-stress based compaction theory as coarse-grained and fine-grained no-delay interbed sediments. A number of example problems that use the CSUB Package are documented in the ``MODFLOW 6 CSUB Package Example Problems'' pdf document included in this and subsequent releases.
+		\item Added restricted IDOMAIN support for DISU grids.  Users can specify an optional IDOMAIN in the DISU Package input file.  IDOMAIN values must be zero or one.  Vertical pass-through cells (specified with an IDOMAIN value of -1 in the DIS or DISV Package input files) are not supported for DISU.   
+		\item Added two new options to the NPF Package.  The K22OVERK option allows the user to enter the anisotropy ratio for K22.  If activated, the K22 values entered by the user in the NPF input file will be multiplied by the K values entered in the NPF input file.  The K33OVERK option allows the user to enter the anisotropy ratio for K33.  If activated, the K33 values entered by the user in the NPF input file will be multiplied by the K values entered in the NPF input file.  With this K33OVERK option, for example, the user can specify a value of 0.1 for K33 and have all K33 values be one tenth of the values specified for K.  The program will terminate with an error if these options are invoked, but arrays for K22 and/or K33 are not provided in the NPF input file.
 	\end{itemize}
 	
+	\textbf{\underline{BUG FIXES AND OTHER CHANGES TO EXISTING FUNCTIONALITY}} \\
 	\underline{BASIC FUNCTIONALITY}
 	\begin{itemize}
 		\item Added an error check to the DISU Package that ensures that an underlying cell has a top elevation that is less than or equal to the bottom of an overlying cell.  An underlying cell is one in which the IHC value for the connection is zero and the connecting node number is greater than the cell node number.
-		\item Added restricted IDOMAIN support for DISU grids.  Users can specify an optional IDOMAIN in the DISU Package input file.  IDOMAIN values must be zero or one.  Vertical pass-through cells (specified with an IDOMAIN value of -1 in the DIS or DISV Package input files) are not supported for DISU.   
 		\item NPF Package will now write a message to the GWF Model list file to indicate when the SAVE\_SPECIFIC\_DISCHARGE option is invoked.
-		\item Added two new options to the NPF Package.  The K22OVERK option allows the user to enter the anisotropy ratio for K22.  If activated, the K22 values entered by the user in the NPF input file will be multiplied by the K values entered in the NPF input file.  The K33OVERK option allows the user to enter the anisotropy ratio for K33.  If activated, the K33 values entered by the user in the NPF input file will be multiplied by the K values entered in the NPF input file.  With this K33OVERK option, for example, the user can specify a value of 0.1 for K33 and have all K33 values be one tenth of the values specified for K.  The program will terminate with an error if these options are invoked, but arrays for K22 and/or K33 are not provided in the NPF input file.
 		\item Added new MAXERRORS option to mfsim.nam.  If specified, the maximum number of errors stored and printed will be limited to this number.  This can prevent a situation where memory will run out when there are an excessive number of errors.
 		\item Refactored many parts of the code to remove unused variables, conform to stricter FORTRAN standard checks, and allow for new development efforts to be included in the code base.
 	\end{itemize}

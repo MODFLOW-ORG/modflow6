@@ -549,6 +549,23 @@ contains
       gamma = lpad
       alpha = alpha - delta
       beta = beta - delta
+      ! Check beta coordinate against lower limit (which in this
+      ! case is equivalent to checking alpha coordinate against
+      ! upper limit)
+      if (beta < lolimit) then
+        ! Beta is too low (alpha is too high), so nudge beta to lower limit;
+        ! this is a move parallel to the "gamma axis," which also changes alpha
+        beta = lolimit
+        alpha = DONE - beta - gamma
+        ! Check beta coordinate against upper limit (which in this
+        ! case is equivalent to checking gamma coordinate against
+        ! lower limit)
+      else if (beta > hilimit) then
+        ! Beta is too high (alpha is too low), so nudge beta to lower limit;
+        ! this is a move parallel to the "gamma axis," which also changes alpha
+        beta = hilimit
+        alpha = DONE - beta - gamma
+      end if
     end if
   end subroutine clamp_bary
 

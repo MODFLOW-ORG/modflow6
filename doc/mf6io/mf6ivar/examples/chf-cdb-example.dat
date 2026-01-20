@@ -1,0 +1,13 @@
+BEGIN options
+  PRINT_INPUT
+  OBS6  FILEIN  swf_model.cdb.obs
+END options
+
+BEGIN dimensions
+  MAXBOUND  1
+END dimensions
+
+BEGIN period  1
+  1 0      20.00000000
+END period  1
+

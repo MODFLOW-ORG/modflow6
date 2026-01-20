@@ -8,7 +8,7 @@ module DisWriterModule
                     IBOUND, NCNFBD
   use GlobalVariablesModule, only: echo
   use GWFBCFMODULE, only: LAYCON
-  use SimModule, only: store_error, store_note, store_warning, ustop
+  use SimPHMFModule, only: store_error, store_note, store_warning, ustop
   use UtilitiesModule, only: ConstantInt2D, ConstantInt3D, &
                              ConstantReal1D, ConstantReal2D, &
                              ConstantReal3D, Write2Dint, Write3Dint, &

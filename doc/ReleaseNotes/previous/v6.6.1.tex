@@ -1,0 +1,79 @@
+% Use this template for starting initializing the release notes
+% after a release has just been made.
+	
+\subsection{Version mf6.6.1---February 7, 2025}
+
+\textbf{\underline{NEW FUNCTIONALITY}}
+
+\begin{itemize}
+	\item Support for adjusting time step lengths using the adaptive time stepping (ATS) capability was added to the GWT Advection (ADV) Package of the Groundwater Transport (GWT) Model in release 6.6.0.  The same functionality that was added to GWT is now available with the Groundwater Energy Transport (GWE) Model.  A description of how this functionality works and how to activate it can be found in the release notes for version 6.6.0 (Appendix A) and in the MODFLOW 6 input-output guide.
+	\item The binary grid file written by MODFLOW 6 for DISU models did not include the IDOMAIN array.  The binary grid file now includes IDOMAIN for all discretization types, including DISU.
+	\item The binary grid file's name may now be specified in all discretization packages with option GRB6 FILEOUT followed by a file path. If this option is not provided, the binary grid file will be named as before, identical to the discretization file name plus a ``.grb'' extension. Note that renaming the binary grid file may break downstream integrations which expect the default name.
+%	\item xxx
+\end{itemize}
+
+%\underline{EXAMPLES}
+%\begin{itemize}
+%	\item xxx
+%	\item xxx
+%	\item xxx
+%\end{itemize}
+
+\textbf{\underline{BUG FIXES AND OTHER CHANGES TO EXISTING FUNCTIONALITY}}
+
+\underline{BASIC FUNCTIONALITY}
+\begin{itemize}
+	\item GWT, GWE and PRT Models require a grid identical to the grid of the corresponding GWF Model. Previously, GWT, GWE and PRT exchanges performed a minimal check that the grids have the same number of active nodes. Exchanges will now also perform an additional check that grid IDOMAIN arrays are identical.
+	\item GWT, GWE and PRT FMI Packages can now read a GWF Model's binary grid file via a new GWFGRID entry. This allows FMI Packages to perform the same grid equivalence checks as exchanges, which guarantees identical error-checking behavior whether a GWT, GWE or PRT Model is coupled to a GWF Model or running as a post-processor. The GWFGRID file entry is optional but recommended. A future version may make the GWFGRID entry mandatory.
+	\item A regression was recently introduced into the PRT model's generalized tracking method, in which a coordinate transformation was carried out prematurely. This could result in incorrect particle positions in and near quad-refined cells. This bug has been fixed.
+	\item The PRT model previously allowed particles to be released at any time. Release times falling outside the bounds of the simulation's time discretization could produce undefined behavior. Any release times occurring before the simulation begins (i.e. negative times) will now be skipped with a warning message. If EXTEND\_TRACKING is not enabled, release times occurring after the end of the simulation will now be skipped with a warning message as well. If EXTEND\_TRACKING is enabled, release times after the end of the simulation are allowed.
+	\item The PRT Model did not report time step end events correctly with the DRY\_TRACKING\_METHOD options DROP and STAY. This was only relevant for Newton formulation models.
+	\item The PRT Model did not report terminating events for particles still active at the end of the simulation. A corresponding termination event is now reported. This is according to the general expectation that all particle tracks will have exactly one terminating event. A new particle status code (10) has been introduced to indicate particle termination upon reaching a time boundary, either the particle's stop time or the simulation's end time.
+	\item In the generalized particle tracking method, a local Z coordinate could be calculated to fall slightly outside of the unit interval due to numerical imprecision. This could cause the vertical travel time calculation to fail with a floating point exception. Constrain the local Z coordinate to the unit interval to prevent this.
+	\item A profiling module is added for more enhanced performance diagnostics of the program. It can be activated through the PROFILE\_OPTION in the simulation name file.
+	\item Energy decay in the solid phase was added to the EST Package.  This capability is described in the Supplemental Technical Information document, but no actual support was provided in the source code.  Users can now specify distinct zeroth-order decay rates in either the aqueous or solid phases.
+\end{itemize}
+
+\underline{INTERNAL FLOW PACKAGES}
+\begin{itemize}
+	\item CSUB package observations that could be specified using BOUNDNAMES was inconsistent with the input and output guide and allowed BOUNDNAMES to be specified for observations that should not be able to be accumulated. CSUB package observations have been modified so that flow observations are the only observations that can be specified using BOUNDNAMES.
+	\item NPF performance: a significant improvement has been made to the run time of simulations that rely on the calculation of specific discharge in NPF and have multiple GWF models connected with GWF-GWF exchanges. The improvement is most apparent for cases with a large number of exchange nodes (NEXG). The resulting values have not changed.
+%	\item xxx
+%	\item xxx
+\end{itemize}
+
+%\underline{STRESS PACKAGES}
+%\begin{itemize}
+%	\item xxx
+%	\item xxx
+%	\item xxx
+%\end{itemize}
+
+%\underline{ADVANCED STRESS PACKAGES}
+%\begin{itemize}
+%	\item xxx
+%	\item xxx
+%	\item xxx
+%\end{itemize}
+
+%\underline{SOLUTION}
+%\begin{itemize}
+%	\item xxx
+%	\item xxx
+%	\item xxx
+%\end{itemize}
+
+%\underline{EXCHANGES}
+%\begin{itemize}
+%	\item xxx
+%	\item xxx
+%	\item xxx
+%\end{itemize}
+
+%\underline{PARALLEL}
+%\begin{itemize}
+%	\item xxx
+%	\item xxx
+%	\item xxx
+%\end{itemize}
+

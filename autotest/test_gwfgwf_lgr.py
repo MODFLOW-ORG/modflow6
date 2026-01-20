@@ -98,16 +98,12 @@ def get_model(idx, test):
     # boundary stress period data
     left_chd = [
         [(ilay, irow, 0), h_left]
-        for ilay in range(
-            1
-        )  # apply chd only to top layer to drive vertical flow
+        for ilay in range(1)  # apply chd only to top layer to drive vertical flow
         for irow in range(nrow)
     ]
     right_chd = [
         [(ilay, irow, ncol - 1), h_right]
-        for ilay in range(
-            1
-        )  # apply chd only to top layer to drive vertical flow
+        for ilay in range(1)  # apply chd only to top layer to drive vertical flow
         for irow in range(nrow)
     ]
     chd_data = left_chd + right_chd
@@ -123,9 +119,7 @@ def get_model(idx, test):
         memory_print_option="ALL",
     )
 
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     ims = flopy.mf6.ModflowIms(
         sim,
@@ -280,9 +274,9 @@ def check_output(idx, test):
         assert os.path.isfile(fpth)
         cbb = flopy.utils.CellBudgetFile(fpth, precision="double")
         flow_ja_face = cbb.get_data(idx=0)
-        assert (
-            len(flow_ja_face) > 0
-        ), "Could not check residuals as flow-ja-face could not be found"
+        assert len(flow_ja_face) > 0, (
+            "Could not check residuals as flow-ja-face could not be found"
+        )
 
         for fjf in flow_ja_face:
             fjf = fjf.flatten()

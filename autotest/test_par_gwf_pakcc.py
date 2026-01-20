@@ -8,8 +8,6 @@ with a serial model.
 This test also checks that Newton under_relaxation works in parallel.
 """
 
-import pathlib as pl
-
 import flopy
 import numpy as np
 import pytest
@@ -30,7 +28,6 @@ def build_models(idx, test):
         split_array[5:] = 1
         new_sim = mfsplit.split_model(split_array)
         new_sim.set_sim_path(test.workspace)
-        mfsplit.save_node_mapping(pl.Path(f"{test.workspace}/mapping.json"))
         return new_sim, None
     else:
         return sim, dummy

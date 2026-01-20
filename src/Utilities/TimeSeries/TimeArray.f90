@@ -67,9 +67,6 @@ contains
     !
     allocate (newTa)
     allocate (newTa%taArray(isize))
-    !
-    ! -- Return
-    return
   end subroutine ConstructTimeArray
 
   !> @brief Cast an unlimited polymorphic object as TimeArrayType
@@ -87,9 +84,6 @@ contains
     type is (TimeArrayType)
       res => obj
     end select
-    !
-    ! -- Return
-    return
   end function CastAsTimeArrayType
 
   !> @brief Add a time array to a to list
@@ -103,9 +97,6 @@ contains
     !
     obj => timearray
     call list%Add(obj)
-    !
-    ! -- Return
-    return
   end subroutine AddTimeArrayToList
 
   !> @brief Retrieve a time array from a list
@@ -121,9 +112,6 @@ contains
     !
     obj => list%GetItem(indx)
     res => CastAsTimeArrayType(obj)
-    !
-    ! -- Return
-    return
   end function GetTimeArrayFromList
 
   !> @brief Deallocate memory
@@ -134,9 +122,6 @@ contains
     !
     deallocate (this%taArray)
     this%taArray => null()
-    !
-    ! -- Return
-    return
   end subroutine ta_da
 
 end module TimeArrayModule

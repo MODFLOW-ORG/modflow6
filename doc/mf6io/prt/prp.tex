@@ -2,12 +2,14 @@ Particle Release Point (PRP) Package information is read from the file that is s
 
 The PRP Package offers multiple ways to specify particle release times.  Particle release times may either be provided explicitly, relative to the simulation start time, or configured relative to the time discretization of stress periods via period block settings.  When multiple ways of specifying release times are used together, the resulting set of release times is the union of the times specified by each method.
 
+This package contains options to configure how particles behave in dry conditions. Each of these is described in detail below. Their interaction is summarized in the PRT chapter introduction.
+
 \vspace{5mm}
 \subsubsection{Structure of Blocks}
 \lstinputlisting[style=blockdefinition]{./mf6ivar/tex/prt-prp-options.dat}
 \lstinputlisting[style=blockdefinition]{./mf6ivar/tex/prt-prp-dimensions.dat}
-%%\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/prt-prp-griddata.dat}
 \lstinputlisting[style=blockdefinition]{./mf6ivar/tex/prt-prp-packagedata.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/prt-prp-releasetimes.dat}
 \vspace{5mm}
 \noindent \textit{FOR ANY STRESS PERIOD}
 \lstinputlisting[style=blockdefinition]{./mf6ivar/tex/prt-prp-period.dat}

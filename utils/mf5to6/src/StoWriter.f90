@@ -5,7 +5,7 @@ module StoWriterModule
   use FileWriterModule, only: FileWriterType
   use GLOBAL, only: ncol, nrow, nlay, nper, LAYCBD, LENUNI
   use GlobalVariablesModule, only: echo
-  use SimModule, only: count_errors, store_error, store_note, ustop
+  use SimPHMFModule, only: count_errors, store_error, store_note, ustop
   use UtilitiesModule, only: Write2Drel
 
   type, extends(FileWriterType) :: StoWriterType

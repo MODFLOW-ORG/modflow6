@@ -2,7 +2,7 @@ module TdisWriterModule
 
   use ConstantsModule, only: DZERO
   use FileWriterModule, only: FileWriterType
-  use SimModule, only: store_error, ustop
+  use SimPHMFModule, only: store_error, ustop
   use StressPeriodModule, only: StressPeriodType
 
   implicit none

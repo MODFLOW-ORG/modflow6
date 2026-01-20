@@ -204,11 +204,21 @@ contains
       satntmp = satn
       satmtmp = satm
       if (idewatcv == 0) then
-      if (botn > botm) then
-        satmtmp = DONE
+        if (botn > botm) then
+          satmtmp = DONE
+        else
+          satntmp = DONE
+        end if
       else
-        satntmp = DONE
-      end if
+        if (botn > botm) then
+          if (satmtmp < DONE) then
+            satmtmp = DZERO
+          end if
+        else
+          if (satntmp < DONE) then
+            satntmp = DZERO
+          end if
+        end if
       end if
       bovk1 = satntmp * (topn - botn) * DHALF / vkn
       bovk2 = satmtmp * (topm - botm) * DHALF / vkm
@@ -368,7 +378,6 @@ contains
       end if
       res = DHALF * (thksatn + thksatm)
     end if
-    return
   end function thksatnm
 
   !> @brief Calculate the thickness fraction for staggered grids

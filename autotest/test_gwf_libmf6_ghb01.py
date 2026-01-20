@@ -2,7 +2,7 @@
 Simulate the effect of a general head boundary (ghb) at the downgradient end
 of the model with a head below the bottom of the cell. Compare api result to
 a non-api simulation using the well package to simulate an equivalent ghb.
-Possible solution to https://github.com/MODFLOW-USGS/modflow6/issues/724
+Possible solution to https://github.com/MODFLOW-ORG/modflow6/issues/724
 """
 
 import os
@@ -11,7 +11,7 @@ import flopy
 import numpy as np
 import pytest
 from framework import TestFramework
-from modflowapi import ModflowApi
+from modflow_devtools.markers import requires_pkg
 
 cases = ["libgwf_ghb01"]
 
@@ -83,9 +83,7 @@ def get_model(ws, name, api=False):
         memory_print_option="all",
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create iterative model solution and register the gwf model with it
     ims = flopy.mf6.ModflowIms(
@@ -180,6 +178,8 @@ def api_ghb_pak(hcof, rhs):
 
 
 def api_func(exe, idx, model_ws=None):
+    from modflowapi import ModflowApi
+
     name = cases[idx].upper()
     if model_ws is None:
         model_ws = "."
@@ -188,7 +188,7 @@ def api_func(exe, idx, model_ws=None):
     try:
         mf6 = ModflowApi(exe, working_directory=model_ws)
     except Exception as e:
-        print("Failed to load " + exe)
+        print("Failed to load " + str(exe))
         print("with message: " + str(e))
         return False, open(output_file_path).readlines()
 
@@ -237,10 +237,7 @@ def api_func(exe, idx, model_ws=None):
 
         while kiter < max_iter:
             # update api package
-            hcof[:], rhs[:] = api_ghb_pak(
-                hcof,
-                rhs,
-            )
+            hcof[:], rhs[:] = api_ghb_pak(hcof, rhs)
 
             # solve with updated api data
             has_converged = mf6.solve()
@@ -273,6 +270,7 @@ def api_func(exe, idx, model_ws=None):
     return True, open(output_file_path).readlines()
 
 
+@requires_pkg("modflowapi")
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(

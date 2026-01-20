@@ -89,9 +89,7 @@ def get_model(idx, dir, pch=None):
     sim.name_file.memory_print_option = "all"
 
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
@@ -129,9 +127,7 @@ def get_model(idx, dir, pch=None):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt, filename=f"{name}.ic")
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=False, icelltype=laytyp, k=hk, k33=hk
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=laytyp, k=hk, k33=hk)
     # storage
     sto = flopy.mf6.ModflowGwfsto(
         gwf,
@@ -242,9 +238,7 @@ def check_output(idx, test):
     msg = f"maximum absolute total-compaction difference ({diffmax}) "
 
     # write summary
-    fpth = os.path.join(
-        test.workspace, f"{os.path.basename(test.name)}.comp.cmp.out"
-    )
+    fpth = os.path.join(test.workspace, f"{os.path.basename(test.name)}.comp.cmp.out")
     with open(fpth, "w") as f:
         line = f"{'TOTIM':>15s}"
         line += f" {'CSUB':>15s}"
@@ -336,9 +330,7 @@ def cbc_compare(test):
     msg = f"maximum absolute total-budget difference ({diffmax}) "
 
     # write summary
-    fpth = os.path.join(
-        test.workspace, f"{os.path.basename(test.name)}.bud.cmp.out"
-    )
+    fpth = os.path.join(test.workspace, f"{os.path.basename(test.name)}.bud.cmp.out")
     with open(fpth, "w") as f:
         for i in range(diff.shape[0]):
             if i == 0:

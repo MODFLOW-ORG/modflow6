@@ -3,7 +3,6 @@ NetCDF export test version of test_gwf_sto01.
 """
 
 import os
-import subprocess
 
 import flopy
 import numpy as np
@@ -11,11 +10,9 @@ import pytest
 from framework import TestFramework
 from test_gwf_sto01 import cases
 
-try:
-    import xarray as xa
-    import xugrid as xu
-except ImportError:
-    pytest.skip("xarray and xugrid not found", allow_module_level=True)
+xa = pytest.importorskip("xarray")
+xu = pytest.importorskip("xugrid")
+nc = pytest.importorskip("netCDF4")
 
 htol = [None for _ in range(len(cases))]
 
@@ -47,20 +44,34 @@ def build_models(idx, test, export, gridded_input):
     sim, dummy = build(idx, test)
     sim.tdis.start_date_time = "2041-01-01T00:00:00-05:00"
     gwf = sim.gwf[0]
-    gwf.name_file.export_netcdf = export
-    gwf.dis.export_array_netcdf = True
-    gwf.ic.export_array_netcdf = True
-    gwf.npf.export_array_netcdf = True
-    gwf.sto.export_array_netcdf = True
+    gwf.dis.crs = wkt
 
     name = cases[idx]
 
-    # netcdf config
-    ncf = flopy.mf6.ModflowUtlncf(
-        gwf.dis,
-        ogc_wkt=wkt,
-        filename=f"{name}.dis.ncf",
-    )
+    if export == "ugrid":
+        gwf.name_file.nc_mesh2d_filerecord = f"{name}.nc"
+        ncf = flopy.mf6.ModflowUtlncf(
+            gwf.dis,
+            deflate=5,
+            shuffle=True,
+            chunk_time=1,
+            chunk_face=10,
+            wkt=wkt,
+            filename=f"{name}.dis.ncf",
+        )
+    elif export == "structured":
+        gwf.name_file.nc_structured_filerecord = f"{name}.nc"
+        ncf = flopy.mf6.ModflowUtlncf(
+            gwf.dis,
+            deflate=5,
+            shuffle=True,
+            chunk_time=1,
+            chunk_z=1,
+            chunk_y=5,
+            chunk_x=5,
+            wkt=wkt,
+            filename=f"{name}.dis.ncf",
+        )
 
     return sim, dummy
 
@@ -68,19 +79,65 @@ def build_models(idx, test, export, gridded_input):
 def check_output(idx, test, export, gridded_input):
     from test_gwf_sto01 import check_output as check
 
+    # verify crs data string in grb version 2 file
+    fname = os.path.join(test.workspace, test.name + ".dis.grb")
+    grbobj = flopy.mf6.utils.MfGrdFile(fname)
+    crs = grbobj._datadict["CRS"]
+    assert crs == wkt
+
+    # verify format of generated netcdf file
+    with nc.Dataset(test.workspace / f"{test.name}.nc") as ds:
+        assert ds.data_model == "NETCDF4"
+        if export == "structured":
+            cmpr = ds.variables["head"].filters()
+            chnk = ds.variables["head"].chunking()
+            assert chnk == [1, 1, 5, 5]
+            assert (
+                ds.variables["projection"].getncattr("crs_wkt").lower() == wkt.lower()
+            )
+        elif export == "ugrid":
+            cmpr = ds.variables["head_l1"].filters()
+            chnk = ds.variables["head_l1"].chunking()
+            assert chnk == [1, 10]
+            assert ds.variables["projection"].getncattr("wkt").lower() == wkt.lower()
+        assert cmpr["shuffle"]
+        assert cmpr["complevel"] == 5
+
     if gridded_input == "netcdf":
-        # re-run the simulation with model netcdf input
-        input_fname = "gwf_sto01.nc"
-        nc_fname = f"gwf_sto01.{export}.nc"
-        subprocess.run(
-            ["mv", test.workspace / input_fname, test.workspace / nc_fname]
+        # re-run the simulation in validate mode to generate netcdf input
+        test.sims[0].gwf[0].get_package("DIS").export_array_netcdf = True
+        test.sims[0].gwf[0].get_package("IC").export_array_netcdf = True
+        test.sims[0].gwf[0].get_package("NPF").export_array_netcdf = True
+        test.sims[0].gwf[0].get_package("STO").export_array_netcdf = True
+        if export == "ugrid":
+            test.sims[0].gwf[
+                0
+            ].name_file.nc_mesh2d_filerecord = f"{test.name}.{export}.nc"
+        elif export == "structured":
+            test.sims[0].gwf[
+                0
+            ].name_file.nc_structured_filerecord = f"{test.name}.{export}.nc"
+        test.sims[0].write_simulation()
+        success, buff = flopy.run_model(
+            test.targets["mf6"],
+            test.workspace / "mfsim.nam",
+            model_ws=test.workspace,
+            report=True,
+            cargs=["--mode=validate"],
         )
+        assert success
+
+        # re-run the simulation with model netcdf input
+        if export == "ugrid":
+            fileout_tag = "NETCDF_MESH2D"
+        elif export == "structured":
+            fileout_tag = "NETCDF_STRUCTURED"
 
         with open(test.workspace / "gwf_sto01.nam", "w") as f:
             f.write("BEGIN options\n")
             f.write("  SAVE_FLOWS\n")
             f.write("  NEWTON\n")
-            f.write(f"  EXPORT_NETCDF {export}\n")
+            f.write(f"  {fileout_tag}  FILEOUT  gwf_sto01.nc\n")
             f.write(f"  NETCDF  FILEIN gwf_sto01.{export}.nc\n")
             f.write("END options\n\n")
             f.write("BEGIN packages\n")
@@ -96,7 +153,6 @@ def check_output(idx, test, export, gridded_input):
 
         with open(test.workspace / "gwf_sto01.dis", "w") as f:
             f.write("BEGIN options\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("  NCF6  FILEIN  gwf_sto01.dis.ncf\n")
             f.write("END options\n\n")
             f.write("BEGIN dimensions\n")
@@ -113,7 +169,6 @@ def check_output(idx, test, export, gridded_input):
 
         with open(test.workspace / "gwf_sto01.ic", "w") as f:
             f.write("BEGIN options\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN griddata\n")
             f.write("  strt NETCDF\n")
@@ -121,7 +176,6 @@ def check_output(idx, test, export, gridded_input):
 
         with open(test.workspace / "gwf_sto01.npf", "w") as f:
             f.write("BEGIN options\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN griddata\n")
             f.write("  icelltype  NETCDF\n")
@@ -131,7 +185,6 @@ def check_output(idx, test, export, gridded_input):
 
         with open(test.workspace / "gwf_sto01.sto", "w") as f:
             f.write("BEGIN options\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN griddata\n")
             f.write("  iconvert  NETCDF\n")
@@ -166,9 +219,7 @@ def check_output(idx, test, export, gridded_input):
     elif export == "structured":
         xds = xa.open_dataset(nc_fpth)
 
-    hds_fpth = os.path.join(
-        test.workspace, f"{os.path.basename(test.name)}.hds"
-    )
+    hds_fpth = os.path.join(test.workspace, f"{os.path.basename(test.name)}.hds")
     hds = flopy.utils.HeadFile(hds_fpth, precision="double")
 
     gwf = test.sims[0].gwf[0]
@@ -187,16 +238,29 @@ def check_output(idx, test, export, gridded_input):
                 for l in range(nlay):
                     assert np.allclose(
                         np.array(rec[l]).flatten(),
-                        xds[f"head_l{l+1}"][timestep, :].data,
-                    ), f"NetCDF-Headfile comparison failure in timestep {timestep+1}"
+                        xds[f"head_l{l + 1}"][timestep, :].data,
+                    ), f"NetCDF-Headfile comparison failure in timestep {timestep + 1}"
                 timestep += 1
             elif export == "structured":
                 assert np.allclose(
                     # np.array(rec).flatten(),
                     np.array(rec),
                     xds["head"][timestep, :].data,
-                ), f"NetCDF-Headfile comparison failure in timestep {timestep+1}"
+                ), f"NetCDF-Headfile comparison failure in timestep {timestep + 1}"
                 timestep += 1
+
+    xds.close()
+
+    if gridded_input == "ascii":
+        return
+
+    # Check NetCDF input
+    nc_fpth = os.path.join(test.workspace, f"{test.name}.{export}.nc")
+    if export == "ugrid":
+        ds = xu.open_dataset(nc_fpth)
+        xds = ds.ugrid.to_dataset()
+    elif export == "structured":
+        xds = xa.open_dataset(nc_fpth)
 
     vlist = [
         "dis_delr",
@@ -224,12 +288,12 @@ def check_output(idx, test, export, gridded_input):
             if var.endswith("_l"):
                 for l in range(nlay):
                     assert np.allclose(
-                        np.array(b[l]).flatten(), xds[f"{var}{l+1}"].data
-                    ), f"NetCDF input array comparison failure, variable={var}{l+1}"
+                        np.array(b[l]).flatten(), xds[f"{var}{l + 1}"].data
+                    ), f"NetCDF input array comparison failure, variable={var}{l + 1}"
             else:
-                assert np.allclose(
-                    np.array(b).flatten(), xds[var].data
-                ), f"NetCDF input array comparison failure, variable={var}"
+                assert np.allclose(np.array(b).flatten(), xds[var].data), (
+                    f"NetCDF input array comparison failure, variable={var}"
+                )
         elif export == "structured":
             var = var.replace("_l", "")
             assert np.allclose(
@@ -240,6 +304,7 @@ def check_output(idx, test, export, gridded_input):
 
 
 @pytest.mark.netcdf
+@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.parametrize("export", ["ugrid", "structured"])
 @pytest.mark.parametrize("gridded_input", ["ascii", "netcdf"])

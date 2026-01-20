@@ -4,6 +4,7 @@ module NumericalSolutionModule
   use KindModule, only: DP, I4B, LGP
   use ErrorUtilModule, only: pstop
   use TimerModule, only: code_timer
+  use ProfilerModule
   use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, LENPAKLOC, &
                              DPREC, DZERO, DEM20, DEM15, DEM6, &
                              DEM4, DEM3, DEM2, DEM1, DHALF, DONETHIRD, &
@@ -38,6 +39,7 @@ module NumericalSolutionModule
   use VectorBaseModule
   use LinearSolverBaseModule
   use ImsLinearSettingsModule
+  use IMSLinearMisc, only: ims_misc_dvscale
   use LinearSolverFactory, only: create_linear_solver
   use MatrixBaseModule
   use ConvergenceSummaryModule
@@ -119,6 +121,10 @@ module NumericalSolutionModule
     type(ConvergenceSummaryType), pointer :: cnvg_summary => null() !< details on the convergence behavior within a timestep
     type(ImsLinearSettingsType), pointer :: linear_settings => null() !< IMS settings for linear solver
     !
+    ! -- normalization of X and RHS
+    integer(I4B), pointer :: idv_scale => null() !< flag indicating if the X and right hand side will be scaled
+    real(DP), pointer :: dscale => null() !< X and RHS scaling factor (maximum X)
+    !
     ! -- pseudo-transient continuation
     integer(I4B), pointer :: iallowptc => null() !< flag indicating if ptc applied this time step
     integer(I4B), pointer :: iptcopt => null() !< option for how to calculate the initial PTC value (ptcdel0)
@@ -127,6 +133,16 @@ module NumericalSolutionModule
     real(DP), pointer :: ptcdel => null() !< PTC delta value
     real(DP), pointer :: ptcdel0 => null() !< initial PTC delta value
     real(DP), pointer :: ptcexp => null() !< PTC exponent
+    !
+    ! -- timer handles
+    integer(I4B) :: tmr_prep_solve !< timer - prepare solve
+    integer(I4B) :: tmr_solve !< timer - solve
+    integer(I4B) :: tmr_final_solve !< timer - finalize solve
+    integer(I4B) :: tmr_formulate !< timer - formulate
+    integer(I4B) :: tmr_linsolve !< timer - linear solve
+    integer(I4B) :: tmr_flows !< timer - calculate flows
+    integer(I4B) :: tmr_budgets !< timer - calculate budgets
+    character(len=24) :: id_postfix !< solution id based postfix for timer titles
     !
     ! -- adaptive time step
     real(DP), pointer :: atsfrac => null() !< adaptive time step faction
@@ -170,6 +186,8 @@ module NumericalSolutionModule
     procedure :: sln_backtracking_xupdate
     procedure :: get_backtracking_flag
     procedure :: apply_backtracking
+    procedure :: sln_get_idvscale
+    procedure :: sln_maxval
 
     ! private
     procedure, private :: sln_connect
@@ -177,7 +195,6 @@ module NumericalSolutionModule
     procedure, private :: sln_ls
     procedure, private :: sln_setouter
     procedure, private :: sln_backtracking
-    procedure, private :: sln_maxval
     procedure, private :: sln_calcdx
     procedure, private :: sln_calc_residual
     procedure, private :: sln_l2norm
@@ -258,9 +275,6 @@ contains
     !
     ! -- Initialize block parser
     call num_sol%parser%Initialize(num_sol%iu, iout)
-    !
-    ! -- return
-    return
   end subroutine create_numerical_solution
 
   !> @ brief Allocate scalars
@@ -317,6 +331,8 @@ contains
     call mem_allocate(this%ptcdel0, 'PTCDEL0', this%memory_path)
     call mem_allocate(this%ptcexp, 'PTCEXP', this%memory_path)
     call mem_allocate(this%atsfrac, 'ATSFRAC', this%memory_path)
+    call mem_allocate(this%idv_scale, 'IDV_SCALE', this%memory_path)
+    call mem_allocate(this%dscale, 'DSCALE', this%memory_path)
     !
     ! -- initialize scalars
     this%isymmetric = 0
@@ -359,9 +375,8 @@ contains
     this%ptcdel0 = DZERO
     this%ptcexp = done
     this%atsfrac = DONETHIRD
-    !
-    ! -- return
-    return
+    this%idv_scale = 0
+    this%dscale = DONE
   end subroutine allocate_scalars
 
   !> @ brief Allocate arrays
@@ -409,9 +424,6 @@ contains
       ieq = ieq + mp%neq
       this%convmodstart(i + 1) = ieq
     end do
-    !
-    ! -- return
-    return
   end subroutine allocate_arrays
 
   !> @ brief Define the solution
@@ -502,9 +514,17 @@ contains
     !
     ! -- Assign connections, fill ia/ja, map connections
     call this%sln_connect()
-    !
-    ! -- return
-    return
+
+    ! add timers
+    write (this%id_postfix, '(a,i0,a)') " (", this%id, ")"
+    this%tmr_prep_solve = -1
+    this%tmr_solve = -1
+    this%tmr_final_solve = -1
+    this%tmr_formulate = -1
+    this%tmr_linsolve = -1
+    this%tmr_flows = -1
+    this%tmr_budgets = -1
+
   end subroutine sln_df
 
   !> @ brief Allocate and read data
@@ -641,7 +661,7 @@ contains
             msg = 'ALL'
           end select
           this%iallowptc = ival
-          write (IOUT, '(1x,A)') 'PSEUDO-TRANSIENT CONTINUATION DISABLED FOR'// &
+          write (IOUT, '(3x,A)') 'PSEUDO-TRANSIENT CONTINUATION DISABLED FOR'// &
             ' '//trim(adjustl(msg))//' STRESS-PERIOD(S)'
         case ('ATS_OUTER_MAXIMUM_FRACTION')
           rval = this%parser%GetDouble()
@@ -651,7 +671,7 @@ contains
             call store_error(errmsg)
           end if
           this%atsfrac = rval
-          write (IOUT, '(1x,A,G0)') 'ADAPTIVE TIME STEP SETTING FOUND.  FRACTION &
+          write (IOUT, '(3x,A,G0)') 'ADAPTIVE TIME STEP SETTING FOUND.  FRACTION &
             &OF OUTER MAXIMUM USED TO INCREASE OR DECREASE TIME STEP SIZE IS ',&
             &this%atsfrac
           !
@@ -749,7 +769,7 @@ contains
 00021 FORMAT(1X, 'SIMPLE OPTION:', /, &
            1X, 'DEFAULT SOLVER INPUT VALUES FOR FAST SOLUTIONS')
 00023 FORMAT(1X, 'MODERATE OPTION:', /, 1X, 'DEFAULT SOLVER', &
-           ' INPUT VALUES REFLECT MODERETELY NONLINEAR MODEL')
+           ' INPUT VALUES REFLECT MODERATELY NONLINEAR MODEL')
 00025 FORMAT(1X, 'COMPLEX OPTION:', /, 1X, 'DEFAULT SOLVER', &
            ' INPUT VALUES REFLECT STRONGLY NONLINEAR MODEL')
 
@@ -900,6 +920,7 @@ contains
     call this%linear_settings%init(this%memory_path)
     call this%linear_settings%preset_config(ifdparam)
     call this%linear_settings%read_from_file(this%parser, iout)
+    call this%linear_settings%check_settings()
     !
     if (this%linear_settings%ilinmeth == CG_METHOD) then
       this%isymmetric = 1
@@ -958,6 +979,24 @@ contains
       end do
       !
     end if
+
+    !
+    ! determine if the x and rhs should be scaled
+    this%idv_scale = this%sln_get_idvscale()
+
+    if (this%idv_scale > 0) then
+      write (iout, '(2(1x,a,/),1x,a,/,6x,a,/)') &
+        'X and RHS will be scaled to avoid very large positive or negative', &
+        'dependent variable values in the model IMS package.', &
+        'NOTE: Specified outer and inner DVCLOSE values in the model IMS &
+        &package', 'will be relative closure criteria.'
+    else if (this%idv_scale < 0) then
+      write (errmsg, '(2(a,1x))') &
+        'dependent_variable_scaling must be specified for all models in', &
+        'the solution and can only be used with GWT and GWE models. '
+      call store_error(errmsg)
+    end if
+    !
     !
     ! -- write solver data to output file
     !
@@ -1050,9 +1089,6 @@ contains
     !
     ! -- close ims input file
     call this%parser%Clear()
-    !
-    ! -- return
-    return
   end subroutine sln_ar
 
   !> @ brief Calculate delt
@@ -1095,8 +1131,6 @@ contains
       ! -- submit stable dt for upcoming step
       call ats_submit_delt(kstp, kper, delt_temp, this%memory_path, idir=idir)
     end if
-    !
-    return
   end subroutine sln_dt
 
   !> @ brief Advance solution
@@ -1122,8 +1156,6 @@ contains
     this%icnvg = 0
     this%itertot_timestep = 0
     this%iouttot_timestep = 0
-
-    return
   end subroutine sln_ad
 
   !> @ brief Output solution
@@ -1136,9 +1168,6 @@ contains
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     !
     ! -- Nothing to do here
-    !
-    ! -- return
-    return
   end subroutine sln_ot
 
   !> @ brief Finalize solution
@@ -1161,9 +1190,6 @@ contains
       write (iout, '(1x,a,1x,g0,1x,a,/)') &
         'Total solution time:  ', this%ttsoln, 'seconds'
     end if
-    !
-    ! -- return
-    return
   end subroutine sln_fp
 
   !> @ brief Deallocate solution
@@ -1280,9 +1306,8 @@ contains
     call mem_deallocate(this%ptcdel0)
     call mem_deallocate(this%ptcexp)
     call mem_deallocate(this%atsfrac)
-    !
-    ! -- return
-    return
+    call mem_deallocate(this%idv_scale)
+    call mem_deallocate(this%dscale)
   end subroutine sln_da
 
   !> @ brief Solve solution
@@ -1330,10 +1355,6 @@ contains
       ! finish up, write convergence info, CSV file, budgets and flows, ...
       call this%finalizeSolve(kiter, isgcnvg, isuppress_output)
     end select
-    !
-    ! -- return
-    return
-
   end subroutine sln_ca
 
   !> @ brief CSV header
@@ -1387,9 +1408,6 @@ contains
       end if
       write (this%icsvinnerout, '(a)') ''
     end if
-    !
-    ! -- return
-    return
   end subroutine writeCSVHeader
 
   !> @ brief PTC header
@@ -1456,6 +1474,9 @@ contains
     class(NumericalExchangeType), pointer :: cp => null()
     class(NumericalModelType), pointer :: mp => null()
 
+    ! start timer
+    call g_prof%start("Prepare solve"//this%id_postfix, this%tmr_prep_solve)
+
     ! synchronize for AD
     call this%synchronize(STG_BFR_EXG_AD, this%synchronize_ctx)
 
@@ -1473,6 +1494,9 @@ contains
 
     ! advance solution
     call this%sln_ad()
+
+    ! stop timer
+    call g_prof%stop(this%tmr_prep_solve)
 
   end subroutine prepareSolve
 
@@ -1528,6 +1552,10 @@ contains
     real(DP) :: ttsoln
     real(DP) :: dpak
     real(DP) :: outer_hncg
+
+    ! start timer
+    call g_prof%start("Solve"//this%id_postfix, this%tmr_solve)
+
     !
     ! -- initialize local variables
     icsv0 = max(1, this%itertot_sim + 1)
@@ -1581,6 +1609,7 @@ contains
     end if
     !
     call code_timer(0, ttform, this%ttform)
+    call g_prof%start("Formulate", this%tmr_formulate)
     !
     ! -- (re)build the solution matrix
     call this%sln_buildsystem(kiter, inewton=1)
@@ -1594,10 +1623,19 @@ contains
       call mp%model_nr(kiter, this%system_matrix, 1)
     end do
     call code_timer(1, ttform, this%ttform)
+    call g_prof%stop(this%tmr_formulate)
+
+    ! x and rhs scaling
+    if (this%idv_scale /= 0) then
+      call this%sln_maxval(this%neq, this%x, this%dscale)
+      call ims_misc_dvscale(0, this%neq, this%dscale, this%x, this%rhs)
+    end if
     !
     ! -- linear solve
     call code_timer(0, ttsoln, this%ttsoln)
+    call g_prof%start("Linear solve", this%tmr_linsolve)
     call this%sln_ls(kiter, kstp, kper, iter, iptc, ptcf)
+    call g_prof%stop(this%tmr_linsolve)
     call code_timer(1, ttsoln, this%ttsoln)
     !
     ! -- increment counters storing the total number of linear and
@@ -1622,9 +1660,11 @@ contains
     !
     ! -- check convergence of solution
     call this%sln_get_dxmax(this%hncg(kiter), this%lrch(1, kiter))
-    this%icnvg = 0
-    if (this%sln_has_converged(this%hncg(kiter))) then
-      this%icnvg = 1
+    if (this%icnvg /= 0) then
+      this%icnvg = 0
+      if (this%sln_has_converged(this%hncg(kiter))) then
+        this%icnvg = 1
+      end if
     end if
     !
     ! -- set failure flag
@@ -1794,9 +1834,11 @@ contains
         !
         ! -- get model number and user node number
         call this%sln_get_nodeu(this%lrch(1, kiter), m_idx, node_user)
+        mp => GetNumericalModelFromList(this%modellist, m_idx)
+        model_id = mp%id
         cpakout = ''
       else if (outer_hncg == DZERO .and. dpak == DZERO) then ! zero change, location could be any
-        m_idx = 0
+        model_id = 0
         node_user = 0
         !
         ! -- then it's a package convergence error
@@ -1806,19 +1848,12 @@ contains
         !    and package name
         outer_hncg = dpak
         ipos0 = index(cmod, '_')
-        read (cmod(1:ipos0 - 1), *) m_idx
+        read (cmod(1:ipos0 - 1), *) model_id
         node_user = ipak
         ipos0 = index(cpak, '-', back=.true.)
         cpakout = cpak(1:ipos0 - 1)
       end if
-      !
-      ! -- write line to outer iteration csv file
-      if (m_idx > 0) then
-        mp => GetNumericalModelFromList(this%modellist, m_idx) ! TODO_MJR: right list?
-        model_id = mp%id
-      else
-        model_id = 0
-      end if
+
       write (this%icsvouterout, '(*(G0,:,","))') &
         this%itertot_sim, totim, kper, kstp, kiter, iter, &
         outer_hncg, model_id, trim(cpakout), node_user
@@ -1829,6 +1864,14 @@ contains
       call this%csv_convergence_summary(this%icsvinnerout, totim, kper, kstp, &
                                         kiter, iter, icsv0, kcsv0)
     end if
+
+    ! undo x and rhs scaling
+    if (this%idv_scale /= 0) then
+      call ims_misc_dvscale(1, this%neq, this%dscale, this%x, this%rhs)
+    end if
+
+    ! stop timer
+    call g_prof%stop(this%tmr_solve)
 
   end subroutine solve
 
@@ -1856,6 +1899,10 @@ contains
     character(len=*), parameter :: fmtcnvg = &
       "(1X, I0, ' CALLS TO NUMERICAL SOLUTION ', 'IN TIME STEP ', I0, &
       &' STRESS PERIOD ',I0,/1X,I0,' TOTAL ITERATIONS')"
+
+    ! start timer
+    call g_prof%start("Finalize solve"//this%id_postfix, this%tmr_final_solve)
+
     !
     ! -- finalize the outer iteration table
     if (this%iprims > 0) then
@@ -1891,6 +1938,9 @@ contains
     !
     ! -- set solution group convergence flag
     if (this%icnvg == 0) isgcnvg = 0
+
+    call g_prof%start("Calculate flows", this%tmr_flows)
+
     !
     ! -- Calculate flow for each model
     do im = 1, this%modellist%Count()
@@ -1903,6 +1953,10 @@ contains
       cp => GetNumericalExchangeFromList(this%exchangelist, ic)
       call cp%exg_cq(isgcnvg, isuppress_output, this%id)
     end do
+
+    call g_prof%stop(this%tmr_flows)
+    call g_prof%start("Calculate budgets", this%tmr_budgets)
+
     !
     ! -- Budget terms for each model
     do im = 1, this%modellist%Count()
@@ -1915,6 +1969,10 @@ contains
       cp => GetNumericalExchangeFromList(this%exchangelist, ic)
       call cp%exg_bd(isgcnvg, isuppress_output, this%id)
     end do
+
+    ! stop timer
+    call g_prof%stop(this%tmr_budgets)
+    call g_prof%stop(this%tmr_final_solve)
 
   end subroutine finalizeSolve
 
@@ -2082,9 +2140,6 @@ contains
       ! -- update i0
       i0 = iinner
     end do
-    !
-    ! -- return
-    return
   end subroutine convergence_summary
 
   !> @ brief Solution convergence CSV summary
@@ -2207,9 +2262,6 @@ contains
     !
     ! -- flush file
     flush (iu)
-    !
-    ! -- return
-    return
   end subroutine csv_convergence_summary
 
   !> @ brief Save solution data to a file
@@ -2244,9 +2296,6 @@ contains
       write (inunit, *) this%x
       close (inunit)
     end select
-    !
-    ! -- return
-    return
   end subroutine save
 
   !> @ brief Add a model
@@ -2267,9 +2316,6 @@ contains
       m => mp
       call AddNumericalModelToList(this%modellist, m)
     end select
-    !
-    ! -- return
-    return
   end subroutine add_model
 
   !> @brief Get a list of models
@@ -2305,9 +2351,6 @@ contains
       num_ex => exchange
       call AddNumericalExchangeToList(this%exchangelist, num_ex)
     end select
-    !
-    ! -- return
-    return
   end subroutine add_exchange
 
   !> @brief Returns a pointer to the list of exchanges in this solution
@@ -2374,9 +2417,6 @@ contains
       cp => GetNumericalExchangeFromList(this%exchangelist, ic)
       call cp%exg_mc(this%system_matrix)
     end do
-    !
-    ! -- return
-    return
   end subroutine sln_connect
 
   !> @ brief Reset the solution
@@ -2392,9 +2432,6 @@ contains
     ! -- reset the solution
     call this%system_matrix%zero_entries()
     call this%vec_rhs%zero_entries()
-    !
-    ! -- return
-    return
   end subroutine sln_reset
 
   !> @ brief Solve the linear system of equations
@@ -2614,9 +2651,6 @@ contains
       in_iter = this%linear_solver%iteration_number
       this%icnvg = this%linear_solver%is_converged
     end if
-    !
-    ! -- return
-    return
   end subroutine sln_ls
 
   !
@@ -2673,9 +2707,6 @@ contains
       this%breduc = 0.1d0
       this%res_lim = 0.002d0
     end select
-    !
-    ! -- return
-    return
   end subroutine sln_setouter
 
   !> @ brief Perform backtracking
@@ -2781,9 +2812,6 @@ contains
       call this%outertab%add_term(cmsg)
       call this%outertab%add_term(' ')
     end if
-    !
-    ! -- return
-    return
   end subroutine sln_backtracking
 
   !> @ brief Backtracking update of the dependent variable
@@ -2836,6 +2864,29 @@ contains
 
   end function get_backtracking_flag
 
+  !> @brief Check if dependent variable scalining should be applied for this solution,
+  !< returns 1: yes, 0: no, -1: error
+  function sln_get_idvscale(this) result(idv_scale)
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    integer(I4B) :: idv_scale !< backtracking flag (1) backtracking performed (0) backtracking not performed
+    ! local
+    class(NumericalModelType), pointer :: mp => null()
+    integer(I4B) :: i
+
+    idv_scale = 0
+    do i = 1, this%modellist%Count()
+      mp => GetNumericalModelFromList(this%modellist, i)
+      if (mp%get_idv_scale() /= 0) then
+        idv_scale = 1
+      else
+        if (idv_scale == 1) then
+          idv_scale = -1
+        end if
+      end if
+    end do
+
+  end function sln_get_idvscale
+
   !> @brief Update x with backtracking
   !<
   subroutine apply_backtracking(this)
@@ -2879,8 +2930,6 @@ contains
     ! clean up temp. vector
     call vec_resid%destroy()
     deallocate (vec_resid)
-
-    return
   end subroutine sln_l2norm
 
   !> @ brief Get the maximum value from a vector
@@ -2890,7 +2939,7 @@ contains
   !<
   subroutine sln_maxval(this, nsize, v, vmax)
     ! -- dummy variables
-    class(NumericalSolutionType), intent(inout) :: this !< NumericalSolutionType instance
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     integer(I4B), intent(in) :: nsize !< length of vector
     real(DP), dimension(nsize), intent(in) :: v !< input vector
     real(DP), intent(inout) :: vmax !< maximum value
@@ -2915,9 +2964,6 @@ contains
         vmax = d
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine sln_maxval
 
   !> @ brief Calculate dependent-variable change
@@ -2945,9 +2991,6 @@ contains
         dx(n) = x(n) - xtemp(n)
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine sln_calcdx
 
   !> @brief Calculate pseudo-transient continuation factor
@@ -3130,9 +3173,6 @@ contains
       end do
       !
     end if
-    !
-    ! -- return
-    return
   end subroutine sln_underrelax
 
   !> @ brief Determine maximum dependent-variable change
@@ -3172,9 +3212,6 @@ contains
     !-----store maximum change value and location
     hncg = bigch
     lrch = nb
-    !
-    ! -- return
-    return
   end subroutine sln_get_dxmax
 
   function sln_has_converged(this, max_dvc) result(has_converged)
@@ -3280,9 +3317,6 @@ contains
         exit
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine sln_get_loc
 
   !> @ brief Get user node number
@@ -3322,9 +3356,6 @@ contains
         exit
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine sln_get_nodeu
 
   !> @ brief Cast a object as a Numerical Solution
@@ -3349,9 +3380,6 @@ contains
     class is (NumericalSolutionType)
       res => obj
     end select
-    !
-    ! -- return
-    return
   end function CastAsNumericalSolutionClass
 
   !> @ brief Get a numerical solution
@@ -3370,7 +3398,5 @@ contains
     !
     obj => list%GetItem(idx)
     res => CastAsNumericalSolutionClass(obj)
-    !
-    return
   end function GetNumericalSolutionFromList
 end module NumericalSolutionModule

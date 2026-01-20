@@ -1,6 +1,6 @@
 module HfBSubsNwt
   use OpenSpecModule, only: ACCESS, ACTION, FORM
-  use SimModule, only: ustop
+  use SimPHMFModule, only: ustop
   use utl7module, only: URDCOM, URWORD, UPCASE
   private
   public :: GWF2HFB7AR, GWF2HFB7UPW, SGWF2HFB7PNT, SGWF2HFB7PSV

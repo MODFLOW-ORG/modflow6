@@ -97,9 +97,7 @@ def get_model(idx, dir):
         sim_ws=dir,
     )
 
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     ims = flopy.mf6.ModflowIms(
         sim,
@@ -218,7 +216,6 @@ def build_models(idx, test):
 
 
 def check_output(idx, test):
-    pass
     # two coupled models with a uniform flow field,
     # here we assert the known head values at the
     # cell centers
@@ -228,12 +225,8 @@ def check_output(idx, test):
     fpth = os.path.join(test.workspace, f"{name_right}.hds")
     hds = flopy.utils.HeadFile(fpth)
     heads_right = hds.get_data().flatten()
-    np.testing.assert_array_almost_equal(
-        heads_left[0:5], [1.0, 2.0, 3.0, 4.0, 5.0]
-    )
-    np.testing.assert_array_almost_equal(
-        heads_right[0:5], [6.0, 7.0, 8.0, 9.0, 10.0]
-    )
+    np.testing.assert_array_almost_equal(heads_left[0:5], [1.0, 2.0, 3.0, 4.0, 5.0])
+    np.testing.assert_array_almost_equal(heads_right[0:5], [6.0, 7.0, 8.0, 9.0, 10.0])
 
 
 @pytest.mark.parallel

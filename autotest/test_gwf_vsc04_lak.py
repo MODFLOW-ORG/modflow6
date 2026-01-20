@@ -319,10 +319,7 @@ def build_models(idx, test):
                     ilak = int(lakibnd[k, i, j] - 1)
                     # back
                     if i > 0:
-                        if (
-                            lakibnd[k, i - 1, j] == 0
-                            and ibound[k, i - 1, j] == 1
-                        ):
+                        if lakibnd[k, i - 1, j] == 0 and ibound[k, i - 1, j] == 1:
                             ilakconn += 1
                             # by setting belev==telev, MF6 will automatically
                             # re-assign elevations based on cell dimensions
@@ -342,10 +339,7 @@ def build_models(idx, test):
 
                     # left
                     if j > 0:
-                        if (
-                            lakibnd[k, i, j - 1] == 0
-                            and ibound[k, i, j - 1] == 1
-                        ):
+                        if lakibnd[k, i, j - 1] == 0 and ibound[k, i, j - 1] == 1:
                             ilakconn += 1
                             h = [
                                 ilak,
@@ -363,10 +357,7 @@ def build_models(idx, test):
 
                     # right
                     if j < ncol - 1:
-                        if (
-                            lakibnd[k, i, j + 1] == 0
-                            and ibound[k, i, j + 1] == 1
-                        ):
+                        if lakibnd[k, i, j + 1] == 0 and ibound[k, i, j + 1] == 1:
                             ilakconn += 1
                             h = [
                                 ilak,
@@ -384,10 +375,7 @@ def build_models(idx, test):
 
                     # front
                     if i < nrow - 1:
-                        if (
-                            lakibnd[k, i + 1, j] == 0
-                            and ibound[k, i + 1, j] == 1
-                        ):
+                        if lakibnd[k, i + 1, j] == 0 and ibound[k, i + 1, j] == 1:
                             ilakconn += 1
                             h = [
                                 ilak,
@@ -481,9 +469,7 @@ def build_models(idx, test):
 
     # create gwt model
     # ----------------
-    gwt = flopy.mf6.ModflowGwt(
-        sim, modelname=gwtname, model_nam_file=f"{gwtname}.nam"
-    )
+    gwt = flopy.mf6.ModflowGwt(sim, modelname=gwtname, model_nam_file=f"{gwtname}.nam")
     gwt.name_file.save_flows = True
 
     imsgwt = flopy.mf6.ModflowIms(
@@ -522,9 +508,7 @@ def build_models(idx, test):
     flopy.mf6.ModflowGwtic(gwt, strt=strtconc, filename=f"{gwtname}.ic")
 
     # Instantiate mobile storage and transfer package
-    sto = flopy.mf6.ModflowGwtmst(
-        gwt, porosity=porosity, filename=f"{gwtname}.sto"
-    )
+    sto = flopy.mf6.ModflowGwtmst(gwt, porosity=porosity, filename=f"{gwtname}.sto")
 
     # Instantiating MODFLOW 6 transport advection package
     if mixelm == 0:
@@ -538,27 +522,21 @@ def build_models(idx, test):
     flopy.mf6.ModflowGwtadv(gwt, scheme=scheme, filename=f"{gwtname}.adv")
 
     # Instantiate dispersion package
-    flopy.mf6.ModflowGwtdsp(
-        gwt, alh=al, ath1=ath1, atv=atv, filename=f"{gwtname}.dsp"
-    )
+    flopy.mf6.ModflowGwtdsp(gwt, alh=al, ath1=ath1, atv=atv, filename=f"{gwtname}.dsp")
 
     # Instantiate source/sink mixing package
     sourcerecarray = [
         ("CHD-L", "AUX", "TEMPERATURE"),
         ("CHD-R", "AUX", "TEMPERATURE"),
     ]
-    flopy.mf6.ModflowGwtssm(
-        gwt, sources=sourcerecarray, filename=f"{gwtname}.ssm"
-    )
+    flopy.mf6.ModflowGwtssm(gwt, sources=sourcerecarray, filename=f"{gwtname}.ssm")
 
     # Instantiating MODFLOW 6 transport output control package
     flopy.mf6.ModflowGwtoc(
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 17, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 17, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         filename=f"{gwtname}.oc",
@@ -712,20 +690,14 @@ def check_output(idx, test):
         # than their 'no vsc' counterpart
         assert np.allclose(
             np.array(left_chk_ans), np.array(left_chk_no_vsc), atol=1e-3
-        ), (
-            "Lake inflow in no-VSC LAK simulation do not match established "
-            "solution."
-        )
+        ), "Lake inflow in no-VSC LAK simulation do not match established solution."
 
         # Check that all the flows leaving the lak in the 'with vsc' model are less
         # than their 'no vsc' counterpart (keep in mind values are negative, which
         # affects how the comparison is made)
         assert np.allclose(
             np.array(right_chk_ans), np.array(right_chk_no_vsc), atol=1e-3
-        ), (
-            "Lake outflow in no-VSC LAK simulation do not match established "
-            "solution."
-        )
+        ), "Lake outflow in no-VSC LAK simulation do not match established solution."
 
     elif idx == 1:
         with_vsc_bud_last = np.array(outbud[-1].tolist())
@@ -748,20 +720,16 @@ def check_output(idx, test):
 
         # Check that all the flows entering the lak in the 'with vsc' model are greater
         # than their 'no vsc' counterpart
-        assert (
-            np.greater(
-                np.array(left_chk_with_vsc), np.array(left_chk_no_vsc)
-            ).all()
-        ), "Lake inflow did no increase with VSC turned on and should have."
+        assert np.greater(
+            np.array(left_chk_with_vsc), np.array(left_chk_no_vsc)
+        ).all(), "Lake inflow did no increase with VSC turned on and should have."
 
         # Check that all the flows leaving the lak in the 'with vsc' model are less
         # than their 'no vsc' counterpart (keep in mind values are negative, which
         # affects how the comparison is made)
-        assert (
-            np.greater(
-                np.array(right_chk_with_vsc), np.array(right_chk_no_vsc)
-            ).all()
-        ), "Lake outflow did no decrease with VSC turned on and should have."
+        assert np.greater(
+            np.array(right_chk_with_vsc), np.array(right_chk_no_vsc)
+        ).all(), "Lake outflow did no decrease with VSC turned on and should have."
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

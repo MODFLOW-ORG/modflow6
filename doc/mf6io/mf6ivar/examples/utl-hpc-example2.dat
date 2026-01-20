@@ -1,0 +1,12 @@
+BEGIN options
+END options
+
+BEGIN partitions
+# mname   MPI-rank
+    left_gwf    0
+    inset_gwf   1
+    right_gwf   0
+    left_gwt    0
+    inset_gwt   1
+    right_gwt   0
+END partitions

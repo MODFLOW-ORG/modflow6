@@ -244,9 +244,6 @@ contains
     else
       call sim_warnings%store(msg)
     end if
-    !
-    ! -- return
-    return
   end subroutine store_warning
 
   !> @brief Store deprecation warning message

@@ -61,9 +61,7 @@ def run_flow_model(dir, exe):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
 
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.ModflowGwf(
@@ -259,9 +257,7 @@ def run_transport_model(dir, exe):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
 
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwt model
     gwt = flopy.mf6.ModflowGwt(sim, modelname=gwtname)
@@ -409,9 +405,7 @@ def run_transport_model(dir, exe):
             time_series_namerecord=time_series_namerecord,
             interpolation_methodrecord=interpolation_methodrecord,
         )
-        recharge_concentration = (
-            np.arange(nrow * ncol).reshape((nrow, ncol)) + 1
-        )
+        recharge_concentration = np.arange(nrow * ncol).reshape((nrow, ncol)) + 1
         np.savetxt(
             os.path.join(wst, f"{gwtname}.rch4.spc.tas.dat"),
             recharge_concentration,
@@ -423,9 +417,7 @@ def run_transport_model(dir, exe):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -449,9 +441,7 @@ def run_transport_model(dir, exe):
         ("GWFHEAD", "../flow/flow.hds", None),
         ("GWFBUDGET", "../flow/flow.bud", None),
     ]
-    fmi = flopy.mf6.ModflowGwtfmi(
-        gwt, packagedata=pd, flow_imbalance_correction=True
-    )
+    fmi = flopy.mf6.ModflowGwtfmi(gwt, packagedata=pd, flow_imbalance_correction=True)
 
     sim.write_simulation()
     success, buff = sim.run_simulation(silent=False)
@@ -473,10 +463,7 @@ def eval_transport(wst):
 
     # load transport budget file
     fpth = os.path.join(wst, f"{gwtname}.cbc")
-    bobj = flopy.utils.CellBudgetFile(
-        fpth,
-        precision="double",
-    )
+    bobj = flopy.utils.CellBudgetFile(fpth, precision="double")
 
     ssmbudall = bobj.get_data(text="SOURCE-SINK MIX")
     times = cobj.get_times()

@@ -1,0 +1,588 @@
+module MethodSubcellTernaryModule
+  use KindModule, only: DP, I4B, LGP
+  use ConstantsModule, only: DZERO, DSAME, DHALF, DONE, DTWO, DONETHIRD, DEP3
+  use ErrorUtilModule, only: pstop
+  use GeomUtilModule, only: clamp_bary, skew
+  use MethodModule, only: LEVEL_SUBFEATURE
+  use MethodSubcellModule, only: MethodSubcellType
+  use CellModule, only: CellType
+  use SubcellModule, only: SubcellType
+  use SubcellTriModule, only: SubcellTriType, create_subcell_tri
+  use ParticleModule, only: ParticleType
+  use TernarySolveUtils, only: traverse_triangle, step_analytical, canonical
+  use PrtFmiModule, only: PrtFmiType
+  use BaseDisModule, only: DisBaseType
+  use MathUtilModule, only: is_close
+  use DomainModule, only: DomainType
+  use ListModule, only: ListType
+  use ExitSolutionModule, only: ExitSolutionType, &
+                                LinearExitSolutionType, &
+                                OK_EXIT, OK_EXIT_CONSTANT, &
+                                NO_EXIT_STATIONARY, NO_EXIT_NO_OUTFLOW
+  implicit none
+
+  private
+  public :: MethodSubcellTernaryType
+  public :: create_method_subcell_ternary
+
+  !> @brief Barycentric velocity interpolation exit solution.
+  !! Inherit from LinearExitSolutionType to get around array
+  !! polymorphism limitations in Fortran; the exit_solutions
+  !! array below needs to be of one type for convenient use.
+  type, extends(LinearExitSolutionType) :: BarycentricExitSolutionType
+    real(DP) :: alpexit = DZERO, betexit = DZERO !< alpha and beta coefficients
+    integer(I4B) :: itopbotexit = -1, itrifaceexit = -1
+    ! transformation coefficients
+    real(DP) :: rxx = DZERO
+    real(DP) :: rxy = DZERO
+    real(DP) :: ryx = DZERO
+    real(DP) :: ryy = DZERO
+    real(DP) :: sxx = DZERO
+    real(DP) :: sxy = DZERO
+    real(DP) :: syy = DZERO
+  end type BarycentricExitSolutionType
+
+  !> @brief Ternary triangular subcell tracking method.
+  type, extends(MethodSubcellType) :: MethodSubcellTernaryType
+    integer(I4B), public, pointer :: zeromethod
+    type(BarycentricExitSolutionType), public :: exit_solutions(2) !< candidate exit solutions
+  contains
+    procedure, public :: find_exits
+    procedure, public :: pick_exit
+    procedure, public :: apply => apply_mst
+    procedure, public :: deallocate
+    procedure, private :: track_subcell
+  end type MethodSubcellTernaryType
+
+contains
+
+  !> @brief Create a new ternary subcell tracking method.
+  subroutine create_method_subcell_ternary(method)
+    ! dummy
+    type(MethodSubcellTernaryType), pointer :: method
+    ! local
+    type(SubcellTriType), pointer :: subcell
+
+    allocate (method)
+    call create_subcell_tri(subcell)
+    method%subcell => subcell
+    method%name => method%subcell%type
+    method%delegates = .false.
+  end subroutine create_method_subcell_ternary
+
+  !> @brief Deallocate the ternary subcell tracking method.
+  subroutine deallocate (this)
+    class(MethodSubcellTernaryType), intent(inout) :: this
+    deallocate (this%name)
+  end subroutine deallocate
+
+  !> @brief Apply the ternary subcell tracking method.
+  subroutine apply_mst(this, particle, tmax)
+    class(MethodSubcellTernaryType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    real(DP), intent(in) :: tmax
+
+    select type (subcell => this%subcell)
+    type is (SubcellTriType)
+      call this%track_subcell(subcell, particle, tmax)
+    end select
+  end subroutine apply_mst
+
+  !> @brief Track a particle across a triangular subcell.
+  subroutine track_subcell(this, subcell, particle, tmax)
+    use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB
+    use ParticleEventModule, only: FEATEXIT, TERMINATE, TIMESTEP, USERTIME
+    ! dummy
+    class(MethodSubcellTernaryType), intent(inout) :: this
+    class(SubcellTriType), intent(in) :: subcell
+    type(ParticleType), pointer, intent(inout) :: particle
+    real(DP), intent(in) :: tmax
+    ! local
+    real(DP) :: dt, dtexit, texit
+    real(DP) :: t0, t, x, y, z0, z
+    integer(I4B) :: exit_face, exit_soln, event_code, i, isolv
+    type(BarycentricExitSolutionType) :: exit_z, exit_lateral
+
+    event_code = -1
+    if (particle%iexmeth == 0) then
+      isolv = 1 ! default to Brent's solution method
+    else
+      isolv = particle%iexmeth
+    end if
+    t0 = particle%ttrack
+    z0 = particle%z
+
+    ! Find exit solutions in lateral and vertical directions
+    call this%find_exits(particle, subcell)
+
+    exit_z = this%exit_solutions(1)
+    exit_lateral = this%exit_solutions(2)
+
+    ! If the subcell has no exit face, terminate the particle.
+    ! TODO: consider ramifications
+    if (exit_z%itopbotexit == 0 .and. &
+        exit_lateral%itrifaceexit == 0) then
+      call this%terminate(particle, status=TERM_NO_EXITS_SUB)
+      return
+    end if
+
+    ! Determine exit solution, face, travel time, and time
+    exit_soln = this%pick_exit(particle)
+    exit_face = this%exit_solutions(exit_soln)%iboundary
+    dtexit = this%exit_solutions(exit_soln)%dt
+    if (dtexit < DZERO) then
+      call this%terminate(particle, status=TERM_NO_EXITS_SUB)
+      return
+    end if
+    texit = t0 + dtexit
+
+    ! Select user tracking times to solve. If this is the last time step
+    ! in the simulation, times falling after the simulation end time are
+    ! only included if the 'extend' option is on, otherwise only times in
+    ! the time step are included.
+    call this%tracktimes%advance()
+    if (this%tracktimes%any()) then
+      do i = this%tracktimes%selection(1), this%tracktimes%selection(2)
+        t = this%tracktimes%times(i)
+        if (t < t0) cycle
+        if (t > texit .or. t > tmax) exit
+        dt = t - t0
+        call calculate_xyz_position(dt, &
+                                    exit_lateral%rxx, exit_lateral%rxy, &
+                                    exit_lateral%ryx, exit_lateral%ryy, &
+                                    exit_lateral%sxx, exit_lateral%sxy, &
+                                    exit_lateral%syy, exit_z%status, &
+                                    subcell%x0, subcell%y0, &
+                                    exit_z%dvdx, exit_z%v, &
+                                    subcell%vzbot, subcell%ztop, subcell%zbot, &
+                                    z0, x, y, z)
+        particle%x = x
+        particle%y = y
+        particle%z = z
+        particle%ttrack = t
+        particle%istatus = ACTIVE
+        call this%usertime(particle)
+      end do
+    end if
+
+    ! Compute exit time and face and update the particle's coordinates
+    ! (local, unscaled) and other properties. The particle may at this
+    ! point lie on a boundary of the subcell or may still be within it.
+    if (texit .gt. tmax) then
+      ! The computed exit time is greater than the maximum time, so set
+      ! final time for particle trajectory equal to maximum time.
+      t = tmax
+      dt = t - t0
+      exit_face = 0
+      particle%istatus = ACTIVE
+      particle%advancing = .false.
+      event_code = TIMESTEP
+    else
+      ! The computed exit time is less than or equal to the maximum time,
+      ! so set final time for particle trajectory equal to exit time.
+      t = texit
+      dt = dtexit
+      event_code = FEATEXIT
+    end if
+    call calculate_xyz_position(dt, &
+                                exit_lateral%rxx, exit_lateral%rxy, &
+                                exit_lateral%ryx, exit_lateral%ryy, &
+                                exit_lateral%sxx, exit_lateral%sxy, &
+                                exit_lateral%syy, exit_z%status, &
+                                subcell%x0, subcell%y0, &
+                                exit_z%dvdx, exit_z%v, &
+                                subcell%vzbot, subcell%ztop, subcell%zbot, &
+                                z0, x, y, z, exit_face)
+    particle%x = x
+    particle%y = y
+    particle%z = z
+    particle%ttrack = t
+    particle%iboundary(LEVEL_SUBFEATURE) = exit_face
+
+    if (event_code == TIMESTEP) then
+      call this%timestep(particle)
+    else if (event_code == FEATEXIT) then
+      call this%subcellexit(particle)
+    end if
+
+  end subroutine track_subcell
+
+  !> @brief Determine earliest exit face
+  function pick_exit(this, particle) result(exit_soln)
+    class(MethodSubcellTernaryType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    integer(I4B) :: exit_soln
+
+    if (this%exit_solutions(1)%itopbotexit == 0) then
+      exit_soln = 2 ! lateral
+    else if (this%exit_solutions(2)%itrifaceexit == 0 .or. &
+             this%exit_solutions(1)%dt < this%exit_solutions(2)%dt) then
+      exit_soln = 1 ! top/bottom
+    else
+      exit_soln = 2 ! lateral
+    end if
+
+  end function pick_exit
+
+  !> @brief Calculate exit solutions for each coordinate direction
+  subroutine find_exits(this, particle, domain)
+    class(MethodSubcellTernaryType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(DomainType), intent(in) :: domain
+    ! local
+    integer(I4B) :: ntmax
+    real(DP) :: tol
+    real(DP) :: zirel
+    real(DP) :: rxx
+    real(DP) :: rxy
+    real(DP) :: ryx
+    real(DP) :: ryy
+    real(DP) :: sxx
+    real(DP) :: sxy
+    real(DP) :: syy
+    real(DP) :: alp0
+    real(DP) :: bet0
+    real(DP) :: alp1
+    real(DP) :: bet1
+    real(DP) :: alp2
+    real(DP) :: bet2
+    real(DP) :: alpi
+    real(DP) :: beti
+    real(DP) :: gami
+    integer(I4B) :: isolv
+    integer(I4B) :: itrifaceenter
+
+    ntmax = 10000
+    tol = particle%extol
+
+    ! Set lateral solution method
+    if (particle%iexmeth == 0) then
+      isolv = 1 ! default to Brent's
+    else
+      isolv = particle%iexmeth
+    end if
+
+    select type (subcell => domain)
+    type is (SubcellTriType)
+      ! Transform coordinates to the "canonical" configuration:
+      ! barycentric in two dimensions with alpha, beta & gamma
+      ! such that at f2 alpha = 0, f0 beta = 0, f1 gamma = 0.
+      !
+      !     v2
+      !     |\
+      !   f2| \f1
+      !     |__\
+      !   v0 f0 v1
+      !
+      call canonical(subcell%x0, subcell%y0, &
+                     subcell%x1, subcell%y1, &
+                     subcell%x2, subcell%y2, &
+                     subcell%v0x, subcell%v0y, &
+                     subcell%v1x, subcell%v1y, &
+                     subcell%v2x, subcell%v2y, &
+                     particle%x, particle%y, &
+                     rxx, rxy, ryx, ryy, &
+                     sxx, sxy, syy, &
+                     alp0, bet0, alp1, bet1, alp2, bet2, alpi, beti)
+
+      ! Clamp particle coordinates to the canonical triangular
+      ! subcell and nudge it ever so slightly inside if needed.
+      call clamp_bary(alpi, beti, gami, pad=DSAME * DEP3)
+
+      ! Do calculations related to the analytical z solution.
+      ! (TODO: just once for each cell? store at cell-level?)
+      ! Clamp the relative z coordinate to the unit interval.
+      zirel = (particle%z - subcell%zbot) / subcell%dz
+      if (zirel > DONE) then
+        zirel = DONE
+      else if (zirel < DZERO) then
+        zirel = DZERO
+      end if
+      this%exit_solutions(1) = find_vertical_exit(subcell%vzbot, subcell%vztop, &
+                                                  subcell%dz, zirel)
+
+      ! Calculate a semi-analytical lateral exit solution
+      itrifaceenter = particle%iboundary(LEVEL_SUBFEATURE) - 1
+      if (itrifaceenter == -1) itrifaceenter = 999
+      this%exit_solutions(2) = find_lateral_exit(isolv, tol, &
+                                                 itrifaceenter, &
+                                                 alp1, bet1, alp2, &
+                                                 bet2, alpi, beti)
+      this%exit_solutions(2)%rxx = rxx
+      this%exit_solutions(2)%rxy = rxy
+      this%exit_solutions(2)%ryx = ryx
+      this%exit_solutions(2)%ryy = ryy
+      this%exit_solutions(2)%sxx = sxx
+      this%exit_solutions(2)%sxy = sxy
+      this%exit_solutions(2)%syy = syy
+
+      ! Set vertical solution exit face
+      if (this%exit_solutions(1)%itopbotexit /= 0) then
+        if (this%exit_solutions(1)%itopbotexit == -1) then
+          this%exit_solutions(1)%iboundary = 4
+        else
+          this%exit_solutions(1)%iboundary = 5
+        end if
+      end if
+
+      ! Set lateral solution exit face
+      if (this%exit_solutions(2)%itrifaceexit /= 0) &
+        this%exit_solutions(2)%iboundary = this%exit_solutions(2)%itrifaceexit
+    end select
+  end subroutine find_exits
+
+  function find_lateral_exit(isolv, tol, &
+                             itrifaceenter, &
+                             alp1, bet1, alp2, bet2, alpi, beti) &
+    result(solution)
+    integer(I4B) :: isolv
+    real(DP) :: tol
+    integer(I4B) :: itrifaceenter
+    real(DP) :: alp1
+    real(DP) :: bet1
+    real(DP) :: alp2
+    real(DP) :: bet2
+    real(DP) :: alpi
+    real(DP) :: beti
+    type(BarycentricExitSolutionType) :: solution
+
+    solution = BarycentricExitSolutionType()
+    call traverse_triangle(isolv, tol, &
+                           solution%dt, solution%alpexit, solution%betexit, &
+                           itrifaceenter, solution%itrifaceexit, &
+                           alp1, bet1, alp2, bet2, alpi, beti)
+    if (solution%itrifaceexit > 0) solution%status = OK_EXIT
+  end function find_lateral_exit
+
+  function find_vertical_exit(v1, v2, dx, xL) result(solution)
+    real(DP), intent(in) :: v1
+    real(DP), intent(in) :: v2
+    real(DP), intent(in) :: dx
+    real(DP), intent(in) :: xL
+    type(BarycentricExitSolutionType) :: solution
+
+    solution = BarycentricExitSolutionType()
+    call calculate_dt(v1, v2, dx, xL, solution%v, solution%dvdx, &
+                      solution%dt, solution%status, solution%itopbotexit)
+  end function find_vertical_exit
+
+  !> @brief Do calculations related to analytical z solution
+  !!
+  !! This subroutine consists partly of code written by and/or adapted from
+  !! David W. Pollock of the USGS for MODPATH 7. The authors of the present
+  !! code are responsible for its appropriate application in this context
+  !! and for any modifications or errors.
+  !<
+  subroutine calculate_dt(v1, v2, dx, xL, v, dvdx, &
+                          dt, status, itopbotexit)
+    real(DP) :: v1
+    real(DP) :: v2
+    real(DP) :: dx
+    real(DP) :: xL
+    real(DP) :: v
+    real(DP) :: dvdx
+    real(DP) :: dt
+    real(DP) :: v2a
+    real(DP) :: v1a
+    real(DP) :: dv
+    real(DP) :: dva
+    real(DP) :: vv
+    real(DP) :: vvv
+    real(DP) :: zro
+    real(DP) :: zrom
+    real(DP) :: x
+    real(DP) :: tol
+    real(DP) :: vr1
+    real(DP) :: vr2
+    real(DP) :: vr
+    real(DP) :: v1v2
+    integer(I4B) :: status
+    integer(I4B) :: itopbotexit
+    logical(LGP) :: noOutflow
+
+    ! Initialize variables
+    status = -1
+    dt = 1.0d+20
+    v2a = v2
+    if (v2a .lt. DZERO) v2a = -v2a
+    v1a = v1
+    if (v1a .lt. DZERO) v1a = -v1a
+    dv = v2 - v1
+    dva = dv
+    if (dva .lt. DZERO) dva = -dva
+
+    ! Check for a uniform zero velocity in this direction.
+    ! If so, set status = 2 and return (dt = 1.0d+20).
+    tol = 1.0d-15
+    if ((v2a .lt. tol) .and. (v1a .lt. tol)) then
+      v = DZERO
+      dvdx = DZERO
+      status = NO_EXIT_STATIONARY
+      itopbotexit = 0
+      return
+    end if
+
+    ! Check for uniform non-zero velocity in this direction.
+    ! If so, set compute dt using the constant velocity,
+    ! set status = 1 and return.
+    vv = v1a
+    if (v2a .gt. vv) vv = v2a
+    vvv = dva / vv
+    if (vvv .lt. 1.0d-4) then
+      zro = tol
+      zrom = -zro
+      v = v1
+      x = xL * dx
+      if (v1 .gt. zro) then
+        dt = (dx - x) / v1
+        itopbotexit = -2
+      end if
+      if (v1 .lt. zrom) then
+        dt = -x / v1
+        itopbotexit = -1
+      end if
+      dvdx = DZERO
+      status = OK_EXIT_CONSTANT
+      return
+    end if
+
+    ! Velocity has a linear variation.
+    ! Compute velocity corresponding to particle position
+    dvdx = dv / dx
+    v = (DONE - xL) * v1 + xL * v2
+
+    ! If flow is into the cell from both sides there is no outflow.
+    ! In that case, set status = 3 and return
+    noOutflow = .true.
+    if (v1 .lt. DZERO) noOutflow = .false.
+    if (v2 .gt. DZERO) noOutflow = .false.
+    if (noOutflow) then
+      status = NO_EXIT_NO_OUTFLOW
+      itopbotexit = 0
+      return
+    end if
+
+    ! If there is a divide in the cell for this flow direction, check to see if the
+    ! particle is located exactly on the divide. If it is, move it very slightly to
+    ! get it off the divide. This avoids possible numerical problems related to
+    ! stagnation points.
+    if ((v1 .le. DZERO) .and. (v2 .ge. DZERO)) then
+      if (abs(v) .le. DZERO) then
+        v = 1.0d-20
+        if (v2 .le. DZERO) v = -v
+      end if
+    end if
+
+    ! If there is a flow divide, find out what side of the divide the particle
+    ! is on and set the value of vr appropriately to reflect that location.
+    vr1 = v1 / v
+    vr2 = v2 / v
+    vr = vr1
+    itopbotexit = -1
+    if (vr .le. DZERO) then
+      vr = vr2
+      itopbotexit = -2
+    end if
+
+    ! Check if velocity is in the same direction throughout cell (i.e. no flow divide).
+    ! Check if product v1*v2 > 0 then the velocity is in the same direction throughout
+    ! the cell (i.e. no flow divide). If so, set vr to reflect appropriate direction.
+    v1v2 = v1 * v2
+    if (v1v2 .gt. DZERO) then
+      if (v .gt. DZERO) then
+        vr = vr2
+        itopbotexit = -2
+      end if
+      if (v .lt. DZERO) then
+        vr = vr1
+        itopbotexit = -1
+      end if
+    end if
+
+    ! Compute travel time to exit face. Return with status = 0
+    dt = log(abs(vr)) / dvdx
+    status = OK_EXIT
+  end subroutine calculate_dt
+
+  !> @brief Calculate the particle's local unscaled xyz coordinates after dt.
+  subroutine calculate_xyz_position(dt, rxx, rxy, ryx, ryy, sxx, sxy, syy, &
+                                    izstatus, x0, y0, az, vzi, vzbot, &
+                                    ztop, zbot, zi, x, y, z, exitface)
+    ! dummy
+    real(DP) :: dt
+    real(DP) :: rxx
+    real(DP) :: rxy
+    real(DP) :: ryx
+    real(DP) :: ryy
+    real(DP) :: sxx
+    real(DP) :: sxy
+    real(DP) :: syy
+    integer(I4B) :: izstatus
+    real(DP) :: x0
+    real(DP) :: y0
+    real(DP) :: az
+    real(DP) :: vzi
+    real(DP) :: vzbot
+    real(DP) :: ztop
+    real(DP) :: zbot
+    real(DP) :: zi
+    real(DP) :: x
+    real(DP) :: y
+    real(DP) :: z
+    integer(I4B), optional :: exitface
+    ! local
+    integer(I4B) :: lexitface
+    real(DP) :: rot(2, 2), res(2), loc(2)
+    real(DP) :: alp
+    real(DP) :: bet
+
+    ! process optional exit face argument
+    if (present(exitface)) then
+      lexitface = exitface
+    else
+      lexitface = 0
+    end if
+
+    ! calculate alpha and beta
+    call step_analytical(dt, alp, bet)
+
+    ! if exit face is known, set alpha or beta coordinate
+    ! corresponding to the exit face exactly.
+    if (lexitface .eq. 1) then
+      bet = DZERO
+    else if (lexitface .eq. 2) then
+      alp = DONE - bet
+    else if (lexitface .eq. 3) then
+      alp = DZERO
+    end if
+
+    ! if exit face is top or bottom, set z coordinate exactly.
+    if (lexitface .eq. 4) then
+      z = zbot
+    else if (lexitface .eq. 5) then
+      z = ztop
+    else
+      ! otherwise calculate z.
+      if (izstatus .eq. 2) then
+        ! vz uniformly zero
+        z = zi
+      else if (izstatus .eq. 1) then
+        ! vz uniform, nonzero
+        z = zi + vzi * dt
+      else
+        ! vz nonuniform
+        z = zbot + (vzi * dexp(az * dt) - vzbot) / az
+      end if
+    end if
+
+    ! transform (alp, beta) to (x, y)
+    loc = (/alp, bet/)
+    loc = skew(loc, (/sxx, sxy, syy/), invert=.true.)
+    rot = reshape((/rxx, rxy, ryx, ryy/), shape(rot))
+    res = matmul(rot, loc) ! rotate vector
+    x = res(1) + x0
+    y = res(2) + y0
+
+  end subroutine calculate_xyz_position
+
+end module MethodSubcellTernaryModule

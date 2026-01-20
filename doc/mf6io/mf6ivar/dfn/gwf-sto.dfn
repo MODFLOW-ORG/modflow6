@@ -85,7 +85,8 @@ reader urword
 optional true
 mf6internal export_nc
 longname export array variables to netcdf output files.
-description keyword that specifies input griddata arrays should be written to the model output netcdf file.
+description keyword that specifies input gridded arrays should be written to the model output NetCDF file with attributes that support using the generated file as a MODFLOW 6 simulation input.  This option only has an effect when an output model NetCDF file is configured and the simulation is run in VALIDATE mode, otherwise it is ignored.
+extended true
 
 # dev options
 block options
@@ -115,6 +116,7 @@ shape (nodes)
 valid
 reader readarray
 layered true
+netcdf true
 optional false
 longname convertible indicator
 description is a flag for each cell that specifies whether or not a cell is convertible for the storage calculation. 0 indicates confined storage is used. $>$0 indicates confined storage is used when head is above cell top and a mixed formulation of unconfined and confined storage is used when head is below cell top.
@@ -127,6 +129,7 @@ shape (nodes)
 valid
 reader readarray
 layered true
+netcdf true
 optional false
 longname specific storage
 description is specific storage (or the storage coefficient if STORAGECOEFFICIENT is specified as an option). Specific storage values must be greater than or equal to 0. If the CSUB Package is included in the GWF model, specific storage must be zero for every cell.
@@ -139,6 +142,7 @@ shape (nodes)
 valid
 reader readarray
 layered true
+netcdf true
 optional false
 longname specific yield
 description is specific yield. Specific yield values must be greater than or equal to 0. Specific yield does not have to be specified if there are no convertible cells (ICONVERT=0 in every cell).
@@ -150,7 +154,7 @@ default_value 0.15
 block period
 name iper
 type integer
-block_variable True
+block_variable true
 in_record true
 tagged false
 shape

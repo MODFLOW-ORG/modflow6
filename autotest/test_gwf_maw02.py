@@ -59,15 +59,11 @@ compare = False
 
 def build_model(idx, ws, mf6):
     name = cases[idx]
-    sim = flopy.mf6.MFSimulation(
-        sim_name=name, version="mf6", exe_name=mf6, sim_ws=ws
-    )
+    sim = flopy.mf6.MFSimulation(sim_name=name, version="mf6", exe_name=mf6, sim_ws=ws)
 
     # create tdis package
     tdis_rc = [(perlen[i], nstp[i], tsmult[i]) for i in range(nper)]
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.MFModel(
@@ -274,9 +270,7 @@ def eval_results(name, workspace):
         f.write(line + "\n")
     f.close()
 
-    assert diffmax < budtol, (
-        msg + f"diffmax {diffmax} exceeds tolerance {budtol}"
-    )
+    assert diffmax < budtol, msg + f"diffmax {diffmax} exceeds tolerance {budtol}"
     assert diffv < budtol, msg + f"diffv {diffv} exceeds tolerance {budtol}"
 
 

@@ -84,9 +84,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
     # set ims csv files
     csv0 = f"{name}.outer.ims.csv"
     csv1 = f"{name}.inner.ims.csv"
@@ -140,9 +138,7 @@ def build_models(idx, test):
     for jdx in range(nmodels):
         mname = mnames[jdx]
 
-        gwf = flopy.mf6.ModflowGwf(
-            sim, modelname=mname, model_nam_file=f"{mname}.nam"
-        )
+        gwf = flopy.mf6.ModflowGwf(sim, modelname=mname, model_nam_file=f"{mname}.nam")
 
         dis = flopy.mf6.ModflowGwfdis(
             gwf,
@@ -196,9 +192,7 @@ def build_models(idx, test):
             gwf,
             budget_filerecord=f"{mname}.cbc",
             head_filerecord=f"{mname}.hds",
-            headprintrecord=[
-                ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-            ],
+            headprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
             saverecord=[("HEAD", "LAST")],
             printrecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
         )

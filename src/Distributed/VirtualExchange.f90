@@ -54,8 +54,11 @@ module VirtualExchangeModule
   !!         arrays are registered to be synchronized at two
   !!         consecutive stages)
   !!
-  !!  SEND: nothing to be sent.
+  !!   SEND: nothing to be sent.
   !!
+  !! Exchange mover data follows the pattern described above for nodem1/m2
+  !! except that when both models are remote, none of the mover data is
+  !! will be synchronized.
   !!
   !! This behavior is different from the general VirtualDataContainer,
   !! so the get_send_items and get_recv_items subroutines are
@@ -84,6 +87,8 @@ module VirtualExchangeModule
     procedure :: get_recv_items => vx_get_recv_items
     procedure :: has_mover => vx_has_mover
     procedure :: destroy => vx_destroy
+    ! protected
+    procedure :: add_vdi_for_stage
     ! private
     procedure, private :: init_virtual_data
     procedure, private :: allocate_data
@@ -173,74 +178,90 @@ contains
 
   end subroutine vx_prepare_stage
 
-  subroutine vx_get_recv_items(this, stage, rank, virtual_items)
+  subroutine vx_get_recv_items(this, stg, rank, vi)
     class(VirtualExchangeType) :: this
-    integer(I4B) :: stage
+    integer(I4B) :: stg
     integer(I4B) :: rank
-    type(STLVecInt) :: virtual_items
-    ! local
-    integer(I4B) :: nodem1_idx, nodem2_idx
-    class(*), pointer :: vdi
+    type(STLVecInt) :: vi
 
-    vdi => this%nodem1
-    nodem1_idx = this%virtual_data_list%GetIndex(vdi)
-    vdi => this%nodem2
-    nodem2_idx = this%virtual_data_list%GetIndex(vdi)
-
-    if (this%v_model1%is_local .and. &
-        this%v_model2%orig_rank == rank) then
-      ! this is our dual exchange on the other rank,
-      ! only receive nodem2
-      if (this%nodem2%check_stage(stage)) then
-        call virtual_items%push_back(nodem2_idx)
-      end if
-    else if (this%v_model2%is_local .and. &
-             this%v_model1%orig_rank == rank) then
-      ! the reverse case...
-      if (this%nodem1%check_stage(stage)) then
-        call virtual_items%push_back(nodem1_idx)
+    if (this%is_local .and. rank == this%orig_rank) then
+      ! treat the primary exchange case independently, we
+      ! have all data available except for nodem1 or nodem2
+      if (stg < STG_BFR_CON_DF) then
+        if (this%nodem1%is_remote) then
+          call this%add_vdi_for_stage(this%nodem1%base(), stg, vi)
+        end if
+        if (this%nodem2%is_remote) then
+          call this%add_vdi_for_stage(this%nodem2%base(), stg, vi)
+        end if
       end if
     else
-      ! receive all using base
-      call this%VirtualDataContainerType%get_recv_items(stage, rank, &
-                                                        virtual_items)
+      ! send/receive all
+      call this%add_vdi_for_stage(this%nexg%base(), stg, vi)
+      call this%add_vdi_for_stage(this%naux%base(), stg, vi)
+      call this%add_vdi_for_stage(this%ianglex%base(), stg, vi)
+      call this%add_vdi_for_stage(this%nodem1%base(), stg, vi)
+      call this%add_vdi_for_stage(this%nodem2%base(), stg, vi)
+      call this%add_vdi_for_stage(this%ihc%base(), stg, vi)
+      call this%add_vdi_for_stage(this%cl1%base(), stg, vi)
+      call this%add_vdi_for_stage(this%cl2%base(), stg, vi)
+      call this%add_vdi_for_stage(this%hwva%base(), stg, vi)
+      call this%add_vdi_for_stage(this%auxvar%base(), stg, vi)
     end if
 
   end subroutine vx_get_recv_items
 
-  subroutine vx_get_send_items(this, stage, rank, virtual_items)
+  subroutine vx_get_send_items(this, stg, rank, vi)
     class(VirtualExchangeType) :: this
-    integer(I4B) :: stage
+    integer(I4B) :: stg
     integer(I4B) :: rank
-    type(STLVecInt) :: virtual_items
-    ! local
-    integer(I4B) :: nodem1_idx, nodem2_idx
-    class(*), pointer :: vdi
+    type(STLVecInt) :: vi
 
-    vdi => this%nodem1
-    nodem1_idx = this%virtual_data_list%GetIndex(vdi)
-    vdi => this%nodem2
-    nodem2_idx = this%virtual_data_list%GetIndex(vdi)
-    if (this%v_model1%is_local .and. &
-        this%v_model2%orig_rank == rank) then
-      ! this is our dual exchange on the other rank,
-      ! only send nodem1
-      if (this%nodem1%check_stage(stage)) then
-        call virtual_items%push_back(nodem1_idx)
-      end if
-    else if (this%v_model2%is_local .and. &
-             this%v_model1%orig_rank == rank) then
-      ! the reverse case...
-      if (this%nodem2%check_stage(stage)) then
-        call virtual_items%push_back(nodem2_idx)
+    if (this%is_local .and. rank == this%orig_rank) then
+      ! this is a primary exchange, all we need to send are
+      ! the node numbers nodem1 or nodem2
+      if (stg < STG_BFR_CON_DF) then
+        if (.not. this%nodem1%is_remote) then
+          call this%add_vdi_for_stage(this%nodem1%base(), stg, vi)
+        end if
+        if (.not. this%nodem2%is_remote) then
+          call this%add_vdi_for_stage(this%nodem2%base(), stg, vi)
+        end if
       end if
     else
-      ! send all of it
-      call this%VirtualDataContainerType%get_send_items(stage, rank, &
-                                                        virtual_items)
+      ! send/receive all
+      call this%add_vdi_for_stage(this%nexg%base(), stg, vi)
+      call this%add_vdi_for_stage(this%naux%base(), stg, vi)
+      call this%add_vdi_for_stage(this%ianglex%base(), stg, vi)
+      call this%add_vdi_for_stage(this%nodem1%base(), stg, vi)
+      call this%add_vdi_for_stage(this%nodem2%base(), stg, vi)
+      call this%add_vdi_for_stage(this%ihc%base(), stg, vi)
+      call this%add_vdi_for_stage(this%cl1%base(), stg, vi)
+      call this%add_vdi_for_stage(this%cl2%base(), stg, vi)
+      call this%add_vdi_for_stage(this%hwva%base(), stg, vi)
+      call this%add_vdi_for_stage(this%auxvar%base(), stg, vi)
     end if
 
   end subroutine vx_get_send_items
+
+  !> @brief Convenience routine to add virtual data item to a list
+  !< after checking the stage
+  subroutine add_vdi_for_stage(this, vdata_item, stage, virtual_items)
+    class(VirtualExchangeType) :: this
+    class(VirtualDataType), pointer :: vdata_item
+    integer(I4B) :: stage
+    type(STLVecInt) :: virtual_items
+    ! local
+    class(*), pointer :: vdi
+    integer(I4B) :: idx
+
+    vdi => vdata_item
+    idx = this%virtual_data_list%GetIndex(vdi)
+    if (vdata_item%check_stage(stage)) then
+      call virtual_items%push_back(idx)
+    end if
+
+  end subroutine add_vdi_for_stage
 
   !> @brief Checks if there is an active mover in the exchange
   !<

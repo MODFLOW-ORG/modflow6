@@ -221,9 +221,7 @@ def get_model(idx, ws):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create iterative model solution
     ims = flopy.mf6.ModflowIms(
@@ -321,7 +319,7 @@ def get_model(idx, ws):
         gwf,
         # print_input=True,
         # interbed_stress_offset=True,
-        boundnames=True,
+        boundnames=False,
         compression_indices=True,
         update_material_properties=ump[idx],
         effective_stress_lag=True,
@@ -346,14 +344,14 @@ def get_model(idx, ws):
         )
 
     cobs = [
-        ("w1l1", "interbed-compaction", "01_09_10"),
-        ("w1l2", "interbed-compaction", "02_09_10"),
-        ("w1l3", "interbed-compaction", "03_09_10"),
-        ("w1l4", "interbed-compaction", "04_09_10"),
-        ("w2l1", "interbed-compaction", "01_12_07"),
-        ("w2l2", "interbed-compaction", "02_12_07"),
-        ("w2l3", "interbed-compaction", "03_12_07"),
-        ("w2l4", "interbed-compaction", "04_12_07"),
+        ("w1l1", "interbed-compaction", (89,)),
+        ("w1l2", "interbed-compaction", (299,)),
+        ("w1l3", "interbed-compaction", (509,)),
+        ("w1l4", "interbed-compaction", (719,)),
+        ("w2l1", "interbed-compaction", (130,)),
+        ("w2l2", "interbed-compaction", (340,)),
+        ("w2l3", "interbed-compaction", (550,)),
+        ("w2l4", "interbed-compaction", (760,)),
         ("s1l1", "coarse-compaction", (0, 8, 9)),
         ("s1l2", "coarse-compaction", (1, 8, 9)),
         ("s1l3", "coarse-compaction", (2, 8, 9)),
@@ -385,7 +383,7 @@ def get_model(idx, ws):
         ("pc4", "preconstress-cell", (3, 8, 9)),
         ("sk1l2", "ske-cell", (1, 8, 9)),
         ("sk2l4", "ske-cell", (3, 11, 6)),
-        ("t1l2", "theta", "02_09_10"),
+        ("t1l2", "theta", (1, 8, 9)),
     ]
 
     orecarray = {"csub_obs.csv": cobs}
@@ -441,9 +439,7 @@ def check_output(idx, test):
     msg = f"maximum absolute total-compaction difference ({diffmax}) "
 
     # write summary
-    fpth = os.path.join(
-        test.workspace, f"{os.path.basename(test.name)}.comp.cmp.out"
-    )
+    fpth = os.path.join(test.workspace, f"{os.path.basename(test.name)}.comp.cmp.out")
     f = open(fpth, "w")
     line = f"{'TOTIM':>15s}"
     line += f" {'CSUB':>15s}"
@@ -538,9 +534,7 @@ def cbc_compare(test):
     msg = f"maximum absolute total-budget difference ({diffmax}) "
 
     # write summary
-    fpth = os.path.join(
-        test.workspace, f"{os.path.basename(test.name)}.bud.cmp.out"
-    )
+    fpth = os.path.join(test.workspace, f"{os.path.basename(test.name)}.bud.cmp.out")
     with open(fpth, "w") as f:
         for i in range(diff.shape[0]):
             if i == 0:

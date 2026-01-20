@@ -1,12 +1,12 @@
 module GwtSrcModule
   !
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, DEM1, DONE, LENFTYPE, LENVARNAME
-  use BndModule, only: BndType
+  use SimVariablesModule, only: errmsg
+  use SimModule, only: count_errors, store_error, store_error_filename
+  use TspFmiModule, only: TspFmiType
+  use BndExtModule, only: BndExtType
   use ObsModule, only: DefaultObsIdProcessor
-  use TimeSeriesLinkModule, only: TimeSeriesLinkType, &
-                                  GetTimeSeriesLinkFromList
-  use BlockParserModule, only: BlockParserType
   use MatrixBaseModule
   !
   implicit none
@@ -17,22 +17,30 @@ module GwtSrcModule
   character(len=LENFTYPE) :: ftype = 'SRC'
   character(len=16) :: text = '             SRC'
   !
-  type, extends(BndType) :: GwtSrcType
+  type, extends(BndExtType) :: GwtSrcType
 
     character(len=LENVARNAME) :: depvartype = '' !< stores string of dependent variable type, depending on model type
+    type(TspFmiType), pointer :: fmi => null() ! pointer to GWE fmi object
+    logical(LGP), pointer :: highest_sat => NULL()
+    real(DP), dimension(:), pointer, contiguous :: smassrate => null() !< mass source loading rate
+    integer(I4B), dimension(:), pointer, contiguous :: nodesontop => NULL() ! User provided cell numbers; nodelist is cells where recharge is applied)
 
   contains
 
     procedure :: allocate_scalars => src_allocate_scalars
+    procedure :: allocate_arrays => src_allocate_arrays
+    procedure :: source_options => src_options
+    procedure :: bnd_rp => src_rp
     procedure :: bnd_cf => src_cf
     procedure :: bnd_fc => src_fc
     procedure :: bnd_da => src_da
     procedure :: define_listlabel
+    procedure :: set_nodesontop
+    procedure :: bound_value => src_bound_value
+    procedure :: mass_mult
     ! -- methods for observations
     procedure, public :: bnd_obs_supported => src_obs_supported
     procedure, public :: bnd_df_obs => src_df_obs
-    ! -- methods for time series
-    procedure, public :: bnd_rp_ts => src_rp_ts
 
   end type GwtSrcType
 
@@ -42,8 +50,10 @@ contains
   !!
   !! This subroutine points bndobj to the newly created package
   !<
-  subroutine src_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
-                        depvartype)
+  subroutine src_create(packobj, id, ibcnum, inunit, iout, namemodel, &
+                        depvartype, pakname, input_mempath, fmi)
+    ! -- modules
+    use BndModule, only: BndType
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -53,6 +63,8 @@ contains
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
     character(len=LENVARNAME), intent(in) :: depvartype
+    character(len=*), intent(in) :: input_mempath
+    type(TspFmiType), intent(in), target :: fmi
     ! -- local
     type(GwtSrcType), pointer :: srcobj
     !
@@ -61,7 +73,7 @@ contains
     packobj => srcobj
     !
     ! -- create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, input_mempath)
     packobj%text = text
     !
     ! -- allocate scalars
@@ -79,10 +91,38 @@ contains
     !
     ! -- Store the appropriate label based on the dependent variable
     srcobj%depvartype = depvartype
-    !
-    ! -- return
-    return
+
+    srcobj%fmi => fmi
+
   end subroutine src_create
+
+  !> @brief Set additional options specific to the GwtSrcType
+  !<
+  subroutine src_options(this)
+    ! -- modules
+    use MemoryManagerExtModule, only: mem_set_value
+    use CharacterStringModule, only: CharacterStringType
+    use GwtSrcInputModule, only: GwtSrcParamFoundType
+    ! -- dummy
+    class(GwtSrcType), intent(inout) :: this
+    ! -- local
+    type(GwtSrcParamFoundType) :: found
+    !
+    ! -- source base class options
+    call this%BndExtType%source_options()
+    !
+    ! -- source options from input context
+    call mem_set_value(this%highest_sat, 'HIGHEST_SAT', this%input_mempath, &
+                       found%highest_sat)
+
+    write (this%iout, '(/1x,a)') 'PROCESSING SRC OPTIONS'
+    if (found%highest_sat) then
+      write (this%iout, '(4x,a)') &
+        'Mass source loading rate will be applied to the highest cell at or below &
+        &the specified cellid with a non-zero saturation.'
+    end if
+    write (this%iout, '(1x,a)') 'END OF SRC OPTIONS'
+  end subroutine src_options
 
   !> @brief Deallocate memory
   !<
@@ -93,12 +133,16 @@ contains
     class(GwtSrcType) :: this
     !
     ! -- Deallocate parent package
-    call this%BndType%bnd_da()
+    call this%BndExtType%bnd_da()
+    !
+    ! -- arrays
+    call mem_deallocate(this%smassrate, 'SMASSRATE', this%memoryPath)
+    if (this%highest_sat) then
+      call mem_deallocate(this%nodesontop, "NODESONTOP", this%memoryPath)
+    end if
     !
     ! -- scalars
-    !
-    ! -- Return
-    return
+    call mem_deallocate(this%highest_sat)
   end subroutine src_da
 
   !> @brief Allocate scalars
@@ -110,16 +154,83 @@ contains
     ! -- dummy
     class(GwtSrcType) :: this
     !
-    ! -- call standard BndType allocate scalars
-    call this%BndType%allocate_scalars()
+    ! -- base class allocate scalars
+    call this%BndExtType%allocate_scalars()
     !
     ! -- allocate the object and assign values to object variables
+    call mem_allocate(this%highest_sat, 'HIGHEST_SAT', this%memoryPath)
     !
     ! -- Set values
-    !
-    ! -- Return
-    return
+    this%highest_sat = .FALSE.
+
   end subroutine src_allocate_scalars
+
+  !> @brief Allocate arrays
+  !!
+  !! Allocate scalars specific to this source loading package
+  !<
+  subroutine src_allocate_arrays(this, nodelist, auxvar)
+    use MemoryManagerModule, only: mem_allocate, mem_setptr, mem_checkin
+    ! -- dummy
+    class(GwtSrcType) :: this
+    integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist !< package nodelist
+    real(DP), dimension(:, :), pointer, contiguous, optional :: auxvar !< package aux variable array
+    ! local
+    integer(I4B) :: n
+    !
+    ! -- base class allocate arrays
+    call this%BndExtType%allocate_arrays(nodelist, auxvar)
+    !
+    ! -- allocate the object and assign values to object variables
+    if (this%highest_sat) then
+      call mem_allocate(this%nodesontop, this%maxbound, 'NODESONTOP', &
+                        this%memoryPath)
+    end if
+
+    ! -- set input context pointers
+    call mem_setptr(this%smassrate, 'SMASSRATE', this%input_mempath)
+    !
+    ! -- checkin input context pointers
+    call mem_checkin(this%smassrate, 'SMASSRATE', this%memoryPath, &
+                     'SMASSRATE', this%input_mempath)
+    !
+    ! -- Set values
+    if (this%highest_sat) then
+      do n = 1, this%maxbound
+        this%nodesontop(n) = 0
+      end do
+    end if
+  end subroutine src_allocate_arrays
+
+  subroutine src_rp(this)
+    ! -- modules
+    use TdisModule, only: kper
+    ! -- dummy
+    class(GwtSrcType), intent(inout) :: this
+    if (this%iper /= kper) return
+    call this%BndExtType%bnd_rp()
+    if (this%highest_sat) call this%set_nodesontop()
+  end subroutine src_rp
+
+  !> @brief Store nodelist in nodesontop
+  !<
+  subroutine set_nodesontop(this)
+    implicit none
+    ! -- dummy
+    class(GwtSrcType), intent(inout) :: this
+    ! -- local
+    integer(I4B) :: n
+    ! !
+    ! ! -- allocate if necessary
+    ! if (.not. associated(this%nodesontop)) then
+    !   allocate (this%nodesontop(this%maxbound))
+    ! end if
+    !
+    ! -- copy nodelist into nodesontop
+    do n = 1, this%nbound
+      this%nodesontop(n) = this%nodelist(n)
+    end do
+  end subroutine set_nodesontop
 
   !> @brief Formulate the HCOF and RHS terms
   !!
@@ -139,18 +250,32 @@ contains
     !
     ! -- Calculate hcof and rhs for each source entry
     do i = 1, this%nbound
-      node = this%nodelist(i)
+      !
+      ! -- Find the node number
+      if (this%highest_sat) then
+        node = this%nodesontop(i)
+      else
+        node = this%nodelist(i)
+      end if
+      !
+      ! -- reset nodelist to highest active
+      if (this%highest_sat) then
+        if (this%fmi%gwfsat(node) == 0) &
+          call this%dis%highest_saturated(node, this%fmi%gwfsat)
+        this%nodelist(i) = node
+      end if
+
       this%hcof(i) = DZERO
       if (this%ibound(node) <= 0) then
         this%rhs(i) = DZERO
         cycle
       end if
-      q = this%bound(1, i)
+      !
+      ! -- set energy loading rate accounting for multiplier
+      q = this%mass_mult(i)
+      !
       this%rhs(i) = -q
     end do
-    !
-    ! -- Return
-    return
   end subroutine src_cf
 
   !> @brief Add matrix terms related to specified mass source loading
@@ -185,9 +310,6 @@ contains
         call this%pakmvrobj%accumulate_qformvr(i, this%rhs(i))
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine src_fc
 
   !> @brief Define list labels
@@ -216,9 +338,6 @@ contains
     if (this%inamedbound == 1) then
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
-    !
-    ! -- Return
-    return
   end subroutine define_listlabel
 
   ! -- Procedures related to observations
@@ -234,9 +353,6 @@ contains
     class(GwtSrcType) :: this
     !
     src_obs_supported = .true.
-    !
-    ! -- Return
-    return
   end function src_obs_supported
 
   !> @brief Define observations
@@ -259,36 +375,48 @@ contains
     !    for to-mvr observation type.
     call this%obs%StoreObsType('to-mvr', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => DefaultObsIdProcessor
-    !
-    ! -- Return
-    return
   end subroutine src_df_obs
 
-  !> @brief Procedure related to time series
+  !> @ brief Return a bound value
   !!
-  !! Assign tsLink%Text appropriately for all time series in use by package.
-  !! In the SRC package only the SMASSRATE variable can be controlled by time
-  !! series.
+  !!  Return a bound value associated with an ncolbnd index
+  !!  and row.
   !<
-  subroutine src_rp_ts(this)
-    ! -- dummy
+  function src_bound_value(this, col, row) result(bndval)
+    ! -- modules
+    use ConstantsModule, only: DZERO
+    ! -- dummy variables
     class(GwtSrcType), intent(inout) :: this
-    ! -- local
-    integer(I4B) :: i, nlinks
-    type(TimeSeriesLinkType), pointer :: tslink => null()
+    integer(I4B), intent(in) :: col
+    integer(I4B), intent(in) :: row
+    ! -- result
+    real(DP) :: bndval
     !
-    nlinks = this%TsManager%boundtslinks%Count()
-    do i = 1, nlinks
-      tslink => GetTimeSeriesLinkFromList(this%TsManager%boundtslinks, i)
-      if (associated(tslink)) then
-        if (tslink%JCol == 1) then
-          tslink%Text = 'SMASSRATE'
-        end if
-      end if
-    end do
-    !
-    ! -- Return
-    return
-  end subroutine src_rp_ts
+    select case (col)
+    case (1)
+      bndval = this%smassrate(row)
+    case default
+    end select
+  end function src_bound_value
 
+  !> @brief Return a value that applies a multiplier
+  !!
+  !! Apply multiplier to specified mass-source load depending on user-selected
+  !! option
+  !<
+  function mass_mult(this, row) result(ener)
+    ! -- modules
+    use ConstantsModule, only: DZERO
+    ! -- dummy variables
+    class(GwtSrcType), intent(inout) :: this !< BndExtType object
+    integer(I4B), intent(in) :: row
+    ! -- result
+    real(DP) :: ener
+    !
+    if (this%iauxmultcol > 0) then
+      ener = this%smassrate(row) * this%auxvar(this%iauxmultcol, row)
+    else
+      ener = this%smassrate(row)
+    end if
+  end function mass_mult
 end module GwtSrcModule

@@ -38,9 +38,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -169,9 +167,9 @@ def check_output(idx, test):
         print(f"Calculated q is {flow_rate_calc}")
         for node, node2, q in bud:
             print(node, node2, q, flow_rate_calc)
-            assert np.isclose(
-                flow_rate_calc, abs(q)
-            ), f"Expected flow rate {flow_rate_calc} but found {q}"
+            assert np.isclose(flow_rate_calc, abs(q)), (
+                f"Expected flow rate {flow_rate_calc} but found {q}"
+            )
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

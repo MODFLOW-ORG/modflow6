@@ -2,7 +2,7 @@
 
       use InputOutputModule, only: URWORD
       use ArrayReadersMF5Module, only: ReadArray
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       use utl7module, only: URDCOM !, UBUDSV, UBDSVB, UBDSV3
         
       contains

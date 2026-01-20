@@ -1,8 +1,8 @@
-Like GWT \citep{modflow6gwt}, the GWE Model simulates three-dimensional transport in flowing groundwater.  The primary difference between GWT and GWE is that heat (i.e., temperature), instead of concentration, is the simulated ``species.'' As such, the GWE Model solves the heat transport equation using numerical methods and a generalized control-volume finite-difference approach, which can be used with regular MODFLOW grids (DIS Package) or with unstructured grids (DISV and DISU Packages).  The GWE Model is designed to work with most of the new capabilities released with the GWF Model, including the Newton flow formulation, XT3D \citep{modflow6xt3d}, unstructured grids, advanced packages, the movement of water between packages.  The GWF and GWE (and, if active, GWT) models operate simultaneously during a \mf simulation to represent coupled groundwater flow and heat transport.  The GWE Model can also run separately from a GWF Model by reading the heads and flows saved by a previously run GWF Model.  The GWE model is also capable of working with the flows from another groundwater flow model as long as the cell-by-cell and boundary flows and groundwater heads are written to ``linker'' files in the correct format.  
+Like GWT \citep{modflow6gwt}, the GWE Model simulates three-dimensional transport in flowing groundwater.  The primary difference between GWT and GWE is that heat (i.e., temperature), instead of concentration, is the simulated ``species.'' As such, the GWE Model solves the heat transport equation using numerical methods and a generalized control-volume finite-difference approach, which can be used with regular MODFLOW grids (DIS Package) or with unstructured grids (DISV and DISU Packages).  The GWE Model is designed to work with most of the new capabilities released with the GWF Model, including the Newton flow formulation, XT3D \citep{modflow6xt3d}, unstructured grids, advanced packages, and the movement of water between packages.  The GWF and GWE (and, if active, GWT) models operate simultaneously during a \mf simulation to represent coupled groundwater flow and heat transport.  The GWE Model can also run separately from a GWF Model by reading the heads and flows saved by a previously run GWF Model.  The GWE model is also capable of working with the flows from another groundwater flow model as long as the cell-by-cell and boundary flows and groundwater heads are written to ``linker'' files in the correct format.  
 
-The purpose of the GWE Model is to calculate changes in groundwater temperature in both space and time.  Groundwater temperature within an aquifer can change in response to different energy transport processes.  These processes include (1) convective (advective) transport of heat with flowing groundwater, (2) the combined hydrodynamic dispersion processes of velocity-dependent mechanical dispersion and conduction (analogous to chemical diffusion), (3) thermal equilibrium with the aquifer matrix, (4) mixing with fluids from groundwater sources and sinks, and (5) direct addition of thermal energy.
+The purpose of the GWE Model is to calculate changes in groundwater temperature in both space and time.  Groundwater temperature within an aquifer can change in response to different energy transport processes.  These processes include (1) convective (advective) transport of heat with flowing groundwater, (2) the combined hydrodynamic dispersion processes of velocity-dependent mechanical dispersion and conduction (analogous to chemical diffusion), (3) thermal equilibrium with the aquifer matrix, (4) mixing of fluids from groundwater sources and sinks, and (5) direct addition of thermal energy.
 
-For GWE, the energy present in the aquifer is assumed to instantaneously equilibrate between the aqueous and solid phase domains.  For example, a pulse of heat convecting through an aquifer will be retarded through thermal equilibration with the aquifer material.  Conversely, the introduction of cold groundwater into a previously warm region of the aquifer will warm up, at least in part, as energy within the aquifer matrix transfers to the aqueous phase.  Unlike GWT, the GWE Model type does not support an immobile domain.  The energy that is transferred between the aqeous and solid phases of the groundwater system are tracked in the GWE Model budget.
+For GWE, the temperature at any point in the aquifer is assumed to instantaneously equilibrate between the aqueous and solid phase domains.  For example, a pulse of heat convecting through an aquifer will be retarded through thermal equilibration with the aquifer material.  Conversely, the introduction of cold groundwater into a previously warm region of the aquifer will warm up, at least in part, as energy within the aquifer matrix transfers to the aqueous phase.  Unlike GWT, the GWE Model type does not support an immobile domain.  The energy that is transferred between the aqeous and solid phases of the groundwater system are tracked in the GWE Model budget.
 
 This section describes the data files for a \mf Groundwater Energy Transport (GWE) Model.  A GWE Model is added to the simulation by including a GWE entry in the MODELS block of the simulation name file.  There are three types of spatial discretization approaches that can be used with the GWE Model: DIS, DISV, and DISU.  The input instructions for these three packages are not described here in this section on GWE Model input; input instructions for these three packages are described in the section on GWF Model input.
 
@@ -19,9 +19,9 @@ The following list summarizes important aspects of GWE for simulating heat trans
 
 \begin{enumerate}
 
-\item The GWE Model uses parameters that are native to heat transport, including thermal conductivity of water, heat capacity of water, thermal conductivity of the aquifer material, heat capacity of of the aquifer material, and latent heat of vaporization. Therefore, users do not need to pre-calculate ``parameter equivalents'' when generating GWE model input; users can instead enter native parameter values that are readily available.
+\item The GWE Model uses parameters that are native to heat transport, including thermal conductivity of water, heat capacity of water, thermal conductivity of the aquifer material, heat capacity of of the aquifer material, and latent heat of vaporization. Therefore, users do not need to pre-calculate solute-transport ``parameter equivalents'' when generating GWE model input; users can instead enter native parameter values that are readily available.
 
-\item Thermal energy transport budgets written to the \mf list file are reported in units of energy (e.g., joules).  Previously, using a program like MT3D-USGS \citep{mt3dusgs} to simulate heat transport, units in the list file budget did not correspond to thermal energy, but were reported in units of $\frac{m^{3 \;\circ}C}{d}$. To convert to thermal energy units, values in the list file had to be post-processed by multiplying each line item by the density of water ($\rho_w$) and the heat capacity of water ($C_p$) \citep{langevin2008seawat}.
+\item Thermal energy transport budgets written to the \mf list file are reported in units of energy (e.g., joules).  Previously, using a program like MT3D-USGS \citep{mt3dusgs} to emulate heat transport using solute transport, units in the list file budget did not correspond to thermal energy, but were reported in units of $\frac{m^{3 \;\circ}C}{d}$. To convert to thermal energy units, values in the list file had to be post-processed by multiplying each line item by the density of water ($\rho_w$) and the heat capacity of water ($C_p$) \citep{langevin2008seawat}.
 
 \item Thermal equilibrium between the aqueous and solid phases is assumed.  Thus, simulated temperatures are representative of both phases.  As a result, thermal conduction between adjacent cells may still occur even in the absence of convection.
 
@@ -43,11 +43,11 @@ Many of the same considerations listed for the GWT model should be kept in mind 
 
 \item GWE and GWT use the same advection package source code.  As a result, advection can be simulated using central-in-space weighting, upstream weighting, or an implicit second-order TVD scheme.  Currently, neither the GWE or GWT models can use a Method of Characteristics (particle-based approaches) or an explicit TVD scheme to simulate convective (or advective) transport.  Consequently, the GWE Model may require a higher level of spatial discretization than other transport models that use higher order terms for advection dominated systems.  This can be an important limitation in problems involving sharp heat fronts. 
 
-\item The Viscosity Package may reference a GWE model directly for adjusting the viscosity-affected groundwater flow.   
+\item The Viscosity Package can use temperatures from the GWE model to adjust the viscosities in the flow model.   
 
-\item GWE and GWT use the same Source and Sink Mixing (SSM) Package for representing the effects of GWF stress package inflows and outflows on simulated temperatures and concentrations.  In a GWE simulation, there are two ways in which users can assign concentrations to the individual features in these stress package.  The first way is to activate a temperature auxiliary variable in the corresponding GWF stress package.  In the SSM input file, the user provides the name of the auxiliary variable to be used for temperature.  The second way is to create a special SPC file, which contains user-assigned time-varying temperatures for stress package features.
+\item GWE and GWT use the same Source and Sink Mixing (SSM) Package for representing the effects of GWF stress package inflows and outflows on simulated temperatures and concentrations.  In a GWE simulation, there are two ways in which users can assign temperatures to the individual features in these stress package.  The first way is to activate a temperature auxiliary variable in the corresponding GWF stress package.  In the SSM input file, the user provides the name of the auxiliary variable to be used for temperature.  The second way is to create a special SPC file, which contains user-assigned time-varying temperatures for stress package features.
 
-\item The GWE model includes an EST Package, but does not include an IST Package.  Heat transport-related parameters such as thermal conductivities and heat capacities are specified in the EST Package.
+\item The GWE model includes an Energy Storage and Transfer (EST) Package that is analogous to the MST Package in the GWT Model.  The GWE Model does not simulate immobile domains and therefore does not include an analog of the IST Package in the GWT Model.  
 
 \item A GWE-GWE Exchange (introduced in version 6.5.0) can be used to tightly couple multiple heat transport models, as might be done in a nested grid configuration.  
 
@@ -55,12 +55,10 @@ Many of the same considerations listed for the GWT model should be kept in mind 
 
 \item As is the case with GWT, the GWE Model has not yet been programmed to work with the Skeletal Storage, Compaction, and Subsidence (CSUB) Package for the GWF Model.  
 
-\item There are many other differences between the \mf GWE Model and other solute transport models that work with MODFLOW, especially with regards to program design and input and output.  Descriptions for the GWE input and output are described here.
-
 \end{enumerate}
 
 \subsection{Units of Length and Time}
-The GWF Model formulates the groundwater flow equation without using prescribed length and time units. Any consistent units of length and time can be used when specifying the input data for a simulation. This capability gives a certain amount of freedom to the user, but care must be exercised to avoid mixing units.  The program cannot detect the use of inconsistent units.
+The GWE Model formulates the groundwater energy transport equation without using prescribed length and time units. Any consistent units of length and time can be used when specifying the input data for a simulation. This capability gives a certain amount of freedom to the user, but care must be exercised to avoid mixing units.  The program cannot detect the use of inconsistent units.
 
 \subsection{Thermal Energy Budget}
 A summary of all inflow (sources) and outflow (sinks) of thermal energy is referred to as an energy budget.  \mf calculates an energy budget for the overall model as a check on the acceptability of the solution, and to provide a summary of the sources and sinks of energy to the flow system.  The energy budget is printed to the GWE Model Listing File for specified time steps.
@@ -78,15 +76,15 @@ In \mf time step lengths are controlled by the user and specified in the Tempora
 \input{gwe/namefile.tex}
 
 %\newpage
-%\subsection{Structured Discretization (DIS) Input File}
+%\subsection{Structured Discretization (DIS) Package}
 %\input{gwf/dis}
 
 %\newpage
-%\subsection{Discretization with Vertices (DISV) Input File}
+%\subsection{Discretization with Vertices (DISV) Package}
 %\input{gwf/disv}
 
 %\newpage
-%\subsection{Unstructured Discretization (DISU) Input File}
+%\subsection{Unstructured Discretization (DISU) Package}
 %\input{gwf/disu}
 
 \newpage
@@ -94,7 +92,7 @@ In \mf time step lengths are controlled by the user and specified in the Tempora
 \input{gwe/ic}
 
 \newpage
-\subsection{Output Control (OC) Option}
+\subsection{Output Control (OC) Package}
 \input{gwe/oc}
 
 \newpage

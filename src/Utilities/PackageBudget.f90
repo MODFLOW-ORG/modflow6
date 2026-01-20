@@ -76,7 +76,6 @@ contains
     this%budtxt = ''
     this%naux = 0
     this%nbound = 0
-    return
   end subroutine initialize
 
   !> @ brief Set names for this PackageBudgetType object
@@ -90,7 +89,6 @@ contains
     character(len=LENPACKAGENAME) :: budtxt !< name of budget term (CHD, RCH, EVT, DRN-TO-MVR, etc.)
     this%name = name
     this%budtxt = budtxt
-    return
   end subroutine set_name
 
   !> @ brief Set aux names for this PackageBudgetType object
@@ -108,7 +106,6 @@ contains
     call mem_reallocate(this%auxname, LENAUXNAME, naux, 'AUXNAME', &
                         this%memoryPath)
     this%auxname(:) = auxname(:)
-    return
   end subroutine set_auxname
 
   !> @ brief Point members of this class to data stored in GWF packages
@@ -143,8 +140,6 @@ contains
                          flowvarname, mem_path_target)
     call mem_reassignptr(this%auxvar, 'AUXVAR', this%memoryPath, &
                          auxvarname, mem_path_target)
-    !
-    return
   end subroutine set_pointers
 
   !> @ brief Copy data read from a budget file into this object
@@ -193,7 +188,6 @@ contains
     integer(I4B), intent(in) :: i !< entry number
     real(DP) :: flow
     flow = this%flow(i)
-    return
   end function get_flow
 
   !> @ brief Deallocate
@@ -211,7 +205,6 @@ contains
     call mem_deallocate(this%nodelist, 'NODELIST', this%memoryPath)
     call mem_deallocate(this%flow, 'FLOW', this%memoryPath)
     call mem_deallocate(this%auxvar, 'AUXVAR', this%memoryPath)
-    return
   end subroutine da
 
 end module PackageBudgetModule

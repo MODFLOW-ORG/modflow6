@@ -7,7 +7,6 @@ through the system.
 """
 
 import os
-import sys
 
 import flopy
 import numpy as np
@@ -40,9 +39,7 @@ def build_models(idx, test):
     # order to speed up this autotest
     tdis_rc = [(1.0, 1, 1.0), (365.25 * 25, 25, 1.0)]
     nper = len(tdis_rc)
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     gwf = flopy.mf6.ModflowGwf(sim, modelname=gwfname)
 
@@ -121,18 +118,14 @@ def build_models(idx, test):
         gwf,
         budget_filerecord=f"{gwfname}.bud",
         head_filerecord=f"{gwfname}.hds",
-        headprintrecord=[
-            ("COLUMNS", ncol, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        headprintrecord=[("COLUMNS", ncol, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
     )
 
     rch_on = True
     if rch_on:
-        rch = flopy.mf6.ModflowGwfrcha(
-            gwf, recharge={0: 4.79e-3}, pname="RCH-1"
-        )
+        rch = flopy.mf6.ModflowGwfrcha(gwf, recharge={0: 4.79e-3}, pname="RCH-1")
 
     chdlist = []
     fname = str(model_path / "chd.dat")
@@ -140,19 +133,8 @@ def build_models(idx, test):
         ll = line.strip().split()
         if len(ll) == 4:
             k, i, j, hd = ll
-            chdlist.append(
-                [
-                    (
-                        int(k) - 1,
-                        int(i) - 1,
-                        int(j) - 1,
-                    ),
-                    float(hd),
-                ]
-            )
-    chd = flopy.mf6.ModflowGwfchd(
-        gwf, stress_period_data=chdlist, pname="CHD-1"
-    )
+            chdlist.append([(int(k) - 1, int(i) - 1, int(j) - 1), float(hd)])
+    chd = flopy.mf6.ModflowGwfchd(gwf, stress_period_data=chdlist, pname="CHD-1")
 
     rivlist = []
     fname = str(model_path / "riv.dat")
@@ -162,11 +144,7 @@ def build_models(idx, test):
             k, i, j, s, c, rb, bn = ll
             rivlist.append(
                 [
-                    (
-                        int(k) - 1,
-                        int(i) - 1,
-                        int(j) - 1,
-                    ),
+                    (int(k) - 1, int(i) - 1, int(j) - 1),
                     float(s),
                     float(c),
                     float(rb),
@@ -447,9 +425,7 @@ def build_models(idx, test):
             if obstype == "TO-MVR":
                 ncv = 1
             obs1 = [(f"lkt{i + 1}", obstype, i + 1) for i in range(ncv)]
-            obs2 = [
-                (f"blkt{i + 1}", obstype, f"mylake{i + 1}") for i in range(ncv)
-            ]
+            obs2 = [(f"blkt{i + 1}", obstype, f"mylake{i + 1}") for i in range(ncv)]
             lkt_obs[fname] = obs1 + obs2
 
             # add LKT specific obs
@@ -464,9 +440,7 @@ def build_models(idx, test):
                 (f"lkt{2}-{iconn + 1}", obstype, 2, iconn + 1)
                 for iconn in range(nconn[1])  # lake 2
             ]
-            obs2 = [
-                (f"blkt{i + 1}", obstype, f"mylake{i + 1}") for i in range(ncv)
-            ]
+            obs2 = [(f"blkt{i + 1}", obstype, f"mylake{i + 1}") for i in range(ncv)]
             lkt_obs[fname] = obs1 + obs2
 
         lkt_obs["digits"] = 15
@@ -513,9 +487,7 @@ def build_models(idx, test):
             "EXT-OUTFLOW",
         ]:
             fname = f"{gwtname}.sft.obs.{obstype.lower()}.csv"
-            obs1 = [
-                (f"sft{i + 1}", obstype, i + 1) for i in range(sfrpd.shape[0])
-            ]
+            obs1 = [(f"sft{i + 1}", obstype, i + 1) for i in range(sfrpd.shape[0])]
             obs2 = [
                 (f"bsft{i + 1}", obstype, f"myreach{i + 1}")
                 for i in range(sfrpd.shape[0])
@@ -529,12 +501,9 @@ def build_models(idx, test):
             for id2 in reach_connections:
                 id2 = abs(id2)
                 if id1 != id2:
-                    obs1.append(
-                        (f"sft{id1 + 1}x{id2 + 1}", obstype, id1 + 1, id2 + 1)
-                    )
+                    obs1.append((f"sft{id1 + 1}x{id2 + 1}", obstype, id1 + 1, id2 + 1))
         obs2 = [
-            (f"bsft{i + 1}", obstype, f"myreach{i + 1}")
-            for i in range(sfrpd.shape[0])
+            (f"bsft{i + 1}", obstype, f"myreach{i + 1}") for i in range(sfrpd.shape[0])
         ]
         sft_obs[fname] = obs1 + obs2
 
@@ -628,21 +597,7 @@ def make_concentration_map(sim):
 
     import matplotlib.pyplot as plt
 
-    levels = [
-        1,
-        10,
-        25,
-        50,
-        100,
-        150,
-        200,
-        250,
-        300,
-        350,
-        400,
-        450,
-        500,
-    ]
+    levels = [1, 10, 25, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500]
 
     name = sim.name
     ws = sim.workspace
@@ -719,7 +674,8 @@ def check_obs(sim):
                 ):
                     print(t, x, y)
 
-    # process the sft values and make sure the individual connection rates add up to the boundname rate
+    # process the sft values and make sure the individual connection rates
+    # add up to the boundname rate
     csvfile = "gwt_prudic2004t2.sft.obs.flow-ja-face.csv"
     print(f"Checking csv file: {csvfile}")
     conc_ra = gwt.sft.obs.output.obs(f=csvfile).data
@@ -734,10 +690,13 @@ def check_obs(sim):
             success = False
             diff = connection_sum - conc_ra[f"BSFT{ireach + 1}"]
             print(
-                f"Problem with SFT {ireach + 1}; mindiff {diff.min()} and maxdiff {diff.max()}"
+                f"Problem with SFT {ireach + 1}; "
+                f"mindiff {diff.min()} and maxdiff {diff.max()}"
             )
-            # for itime, (cs, bsft) in enumerate(zip(connection_sum, conc_ra[f"BSFT{ireach + 1}"])):
-            #    print(itime, cs, bsft)
+            # for itime, (cs, bsft) in enumerate(
+            #     zip(connection_sum, conc_ra[f"BSFT{ireach + 1}"])
+            # ):
+            #     print(itime, cs, bsft)
 
     assert success, "One or more SFT obs checks did not pass"
 
@@ -772,7 +731,8 @@ def check_obs(sim):
                 ):
                     print(t, x, y)
 
-    # process the lkt values and make sure the individual connection rates add up to the boundname rate
+    # process the lkt values and make sure the individual connection rates
+    # add up to the boundname rate
     csvfile = "gwt_prudic2004t2.lkt.obs.lkt.csv"
     print(f"Checking csv file: {csvfile}")
     conc_ra = gwt.lkt.obs.output.obs(f=csvfile).data
@@ -780,17 +740,13 @@ def check_obs(sim):
     for ilake in [0, 1]:
         connection_sum = np.zeros(ntimes)
         for column_name in conc_ra.dtype.names:
-            if f"LKT{ilake + 1}" in column_name and column_name.startswith(
-                "LKT"
-            ):
+            if f"LKT{ilake + 1}" in column_name and column_name.startswith("LKT"):
                 connection_sum += conc_ra[column_name]
         is_same = np.allclose(connection_sum, conc_ra[f"BLKT{ilake + 1}"])
         if not is_same:
             success = False
             print(f"Problem with Lake {ilake + 1}")
-            for itime, (cs, blkt) in enumerate(
-                zip(connection_sum, conc_ra["BLKT1"])
-            ):
+            for itime, (cs, blkt) in enumerate(zip(connection_sum, conc_ra["BLKT1"])):
                 print(itime, cs, blkt)
 
     assert success, "One or more LKT obs checks did not pass"
@@ -814,17 +770,12 @@ def check_obs(sim):
     assert success, "One or more SFT-LKT obs checks did not pass"
 
 
+def plot_output(idx, test):
+    make_concentration_vs_time(test)
+    make_concentration_map(test)
+
+
 def check_output(idx, test):
-    makeplot = False
-    for arg in sys.argv:
-        if arg.lower() == "--makeplot":
-            makeplot = True
-
-    if makeplot:
-        make_concentration_vs_time(test)
-        make_concentration_map(test)
-
-    # ensure concentrations were saved
     ws = test.workspace
     name = test.name
     gwtname = "gwt_" + name
@@ -833,18 +784,14 @@ def check_output(idx, test):
 
     fname = gwtname + ".lkt.bin"
     fname = os.path.join(ws, fname)
-    bobj = flopy.utils.HeadFile(
-        fname, precision="double", text="concentration"
-    )
+    bobj = flopy.utils.HeadFile(fname, precision="double", text="concentration")
     lkaconc = bobj.get_alldata()[:, 0, 0, :]
     times = bobj.times
     bobj.file.close()
 
     fname = gwtname + ".sft.bin"
     fname = os.path.join(ws, fname)
-    bobj = flopy.utils.HeadFile(
-        fname, precision="double", text="concentration"
-    )
+    bobj = flopy.utils.HeadFile(fname, precision="double", text="concentration")
     sfaconc = bobj.get_alldata()[:, 0, 0, :]
     times = bobj.times
     bobj.file.close()
@@ -966,12 +913,13 @@ def check_output(idx, test):
 
 @pytest.mark.slow
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, function_tmpdir, targets, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        plot=lambda t: plot_output(idx, t) if plot else None,
     )
     test.run()

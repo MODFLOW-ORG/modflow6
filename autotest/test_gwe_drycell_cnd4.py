@@ -250,9 +250,7 @@ def add_gwf_model(sim, gwfname, newton=False):
     # sfr file
     connectiondata = [[0, -1], [1, 0]]
 
-    sfr_perioddata = [
-        [0, "inflow", 1.0],
-    ]
+    sfr_perioddata = [[0, "inflow", 1.0]]
 
     pname = "SFR-" + gwfname[-1]
     sfr = flopy.mf6.ModflowGwfsfr(
@@ -281,9 +279,7 @@ def add_gwf_model(sim, gwfname, newton=False):
 
 
 def add_gwe_model(sim, gwename):
-    gwe = flopy.mf6.ModflowGwe(
-        sim, modelname=gwename, model_nam_file=f"{gwename}.nam"
-    )
+    gwe = flopy.mf6.ModflowGwe(sim, modelname=gwename, model_nam_file=f"{gwename}.nam")
     gwe.name_file.save_flows = True
 
     imsgwe = flopy.mf6.ModflowIms(
@@ -320,14 +316,10 @@ def add_gwe_model(sim, gwename):
     )
 
     # Instantiating MODFLOW 6 transport initial concentrations
-    flopy.mf6.ModflowGweic(
-        gwe, strt=strt_temp, pname="IC", filename=f"{gwename}.ic"
-    )
+    flopy.mf6.ModflowGweic(gwe, strt=strt_temp, pname="IC", filename=f"{gwename}.ic")
 
     # Instantiating MODFLOW 6 transport advection package
-    flopy.mf6.ModflowGweadv(
-        gwe, scheme=scheme, pname="ADV", filename=f"{gwename}.adv"
-    )
+    flopy.mf6.ModflowGweadv(gwe, scheme=scheme, pname="ADV", filename=f"{gwename}.adv")
 
     # Instantiating MODFLOW 6 transport dispersion package
     flopy.mf6.ModflowGwecnd(
@@ -341,7 +333,8 @@ def add_gwe_model(sim, gwename):
         filename=f"{gwename}.cnd",
     )
 
-    # Instantiating MODFLOW 6 transport mass storage package (formerly "reaction" package in MT3DMS)
+    # Instantiating MODFLOW 6 transport mass storage package
+    # (formerly "reaction" package in MT3DMS)
     flopy.mf6.ModflowGweest(
         gwe,
         save_flows=True,
@@ -349,8 +342,8 @@ def add_gwe_model(sim, gwename):
         heat_capacity_water=cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=cps,
-        rhos=rhos,
+        heat_capacity_solid=cps,
+        density_solid=rhos,
         pname="EST",
         filename=f"{gwename}.est",
     )
@@ -371,9 +364,7 @@ def add_gwe_model(sim, gwename):
         pname="OC",
         budget_filerecord=f"{gwename}.cbc",
         temperature_filerecord=f"{gwename}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
     )
@@ -425,9 +416,7 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 time discretization
-    flopy.mf6.ModflowTdis(
-        sim, nper=nper, perioddata=tdis_rc, time_units=time_units
-    )
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=tdis_rc, time_units=time_units)
 
     # Build two flow models, one with NWT, one without
     sim = add_gwf_model(sim, gwfname1, newton=True)
@@ -510,7 +499,7 @@ def check_output(idx, test):
     )
     temp_diff = np.diff(temp_nwt.squeeze(), axis=0)
 
-    # Because of the time discretization scheme, need to check each cell in two chuncks
+    # Because of the time discretization scheme, need to check each cell in two chunks
     # Cell ID: (0, 0, 0)
     assert isMonotonic(temp_diff[:, 0, 0][::-1][0:10]), msg2
     assert isMonotonic(temp_diff[:, 0, 0][::-1][10:-1]), msg2

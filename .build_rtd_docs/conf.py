@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -14,7 +15,7 @@ import shutil
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import sys
-from subprocess import Popen, PIPE
+from subprocess import PIPE, Popen
 
 sys.path.insert(0, os.path.abspath(os.path.join("..", "doc")))
 sys.path.insert(0, os.path.abspath(os.path.join("..", "distribution")))
@@ -23,12 +24,12 @@ sys.path.insert(0, os.path.abspath(os.path.join("..", "distribution")))
 on_rtd = os.environ.get("READTHEDOCS") == "True"
 
 # -- print current directory
-print("Current Directory...'{}'".format(os.path.abspath(os.getcwd())))
+print(f"Current Directory...'{os.path.abspath(os.getcwd())}'")
 
 # -- clean up doxygen files -------------------------------------------------
 dox_pths = ("_mf6io",)
 for dox_pth in dox_pths:
-    print("cleaning....{}".format(dox_pth))
+    print(f"cleaning....{dox_pth}")
     for root, dirs, files in os.walk(dox_pth):
         for name in files:
             fpth = os.path.join(root, name)
@@ -37,46 +38,76 @@ for dox_pth in dox_pths:
 # -- Update the modflow 6 version -------------------------------------------
 print("Update the modflow6 version")
 from update_version import update_version
+
 update_version()
 
 # -- import version from doc/version.py -------------------------------------
 from version import __version__
 
-# -- copy run-time comparison markdown --------------------------------------
-print("Copy the run-time comparison table")
 dstdir = "_mf6run"
+if os.path.isdir(dstdir):
+    shutil.rmtree(dstdir)
+os.makedirs(dstdir)
+
+print(f"Copy run-time comparison table to {dstdir}")
 fpth = "run-time-comparison.md"
 src = os.path.join("..", "distribution", fpth)
 dst = os.path.join(dstdir, fpth)
-# clean up an existing _mf6run directory
-if os.path.isdir(dstdir):
-    shutil.rmtree(dstdir)
-# make the _mf6run directory
-os.makedirs(dstdir)
-# copy the file
 shutil.copy(src, dst)
 
-# -- copy developer docs
 dstdir = "_dev"
+if os.path.isdir(dstdir):
+    shutil.rmtree(dstdir)
+os.makedirs(dstdir)
+
+print(f"Copy developer docs to {dstdir}")
 fpth = "DEVELOPER.md"
 src = os.path.join("..", fpth)
 dst = os.path.join(dstdir, fpth)
-# clean up an existing _mf6run directory
-if os.path.isdir(dstdir):
-    shutil.rmtree(dstdir)
-# make the directory
-os.makedirs(dstdir)
-# copy the file
 shutil.copy(src, dst)
 
-# -- copy contributor docs
 fpth = "CONTRIBUTING.md"
 src = os.path.join("..", fpth)
 dst = os.path.join(dstdir, fpth)
 shutil.copy(src, dst)
 
-# -- copy style guide
 fpth = "styleguide.md"
+src = os.path.join(fpth)
+dst = os.path.join(dstdir, fpth)
+shutil.copy(src, dst)
+
+fpth = "readme.md"
+src = os.path.join("..", "doc", "mf6io", "mf6ivar", fpth)
+dst = os.path.join(dstdir, "dfn.md")
+shutil.copy(src, dst)
+
+fpth = "EXTENDED.md"
+src = os.path.join("..", fpth)
+dst = os.path.join(dstdir, fpth)
+shutil.copy(src, dst)
+
+fpth = "CODE_OF_CONDUCT.md"
+src = os.path.join("..", fpth)
+dst = os.path.join(dstdir, fpth)
+shutil.copy(src, dst)
+
+fpth = "README.md"
+src = os.path.join("..", "distribution", fpth)
+dst = os.path.join(dstdir, "DISTRIBUTION.md")
+shutil.copy(src, dst)
+
+fpth = "IDM.md"
+src = os.path.join("..", fpth)
+dst = os.path.join(dstdir, fpth)
+shutil.copy(src, dst)
+
+dstdir = "_misc"
+if os.path.isdir(dstdir):
+    shutil.rmtree(dstdir)
+os.makedirs(dstdir)
+
+print(f"Copy special topics to {dstdir}")
+fpth = "mf6_6_0_prt_migration_guide.md"
 src = os.path.join(fpth)
 dst = os.path.join(dstdir, fpth)
 shutil.copy(src, dst)
@@ -91,7 +122,8 @@ stdout, stderr = proc.communicate()
 if stdout:
     print(stdout.decode("utf-8"))
 if stderr:
-    print("Errors:\n{}".format(stderr.decode("utf-8")))
+    print("Errors:")
+    print(stderr.decode("utf-8"))
 
 # -- copy deprecations markdown ---------------------------------------------
 print("Copy the deprecations table")
@@ -112,7 +144,8 @@ stdout, stderr = proc.communicate()
 if stdout:
     print(stdout.decode("utf-8"))
 if stderr:
-    print("Errors:\n{}".format(stderr.decode("utf-8")))
+    print("Errors:")
+    print(stderr.decode("utf-8"))
 
 # -- update the doxygen version number ---------------------------------------
 print("Update the Doxyfile with the latest version number")
@@ -123,7 +156,7 @@ tag = "PROJECT_NUMBER"
 with open("Doxyfile", "w") as fp:
     for line in lines:
         if tag in line:
-            line = '{}         = "version {}"\n'.format(tag, __version__)
+            line = f'{tag}         = "version {__version__}"\n'
         fp.write(line)
 
 # -- Project information -----------------------------------------------------
@@ -158,11 +191,13 @@ extensions = [
     "nbsphinx_link",
     "myst_parser",
     "sphinx_markdown_tables",
+    "sphinxcontrib.mermaid",
 ]
+
+myst_fence_as_directive = ["mermaid"]
 
 # # Tell sphinx what the pygments highlight language should be.
 # highlight_language = 'fortran'
-
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 
 # Add any paths that contain templates here, relative to this directory.
@@ -193,7 +228,7 @@ html_css_files = [
 ]
 
 # html_theme_options = {
-#     "github_url": "https://github.com/MODFLOW-USGS/modflow6",
+#     "github_url": "https://github.com/MODFLOW-ORG/modflow6",
 #     "use_edit_page_button": False
 # }
 

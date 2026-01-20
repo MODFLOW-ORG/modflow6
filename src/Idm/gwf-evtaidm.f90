@@ -26,6 +26,7 @@ module GwfEvtaInputModule
     logical :: obs_filerecord = .false.
     logical :: obs6 = .false.
     logical :: obs6_filename = .false.
+    logical :: export_nc = .false.
     logical :: ievt = .false.
     logical :: surface = .false.
     logical :: rate = .false.
@@ -53,6 +54,7 @@ module GwfEvtaInputModule
     '', & ! shape
     'use array-based input', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -71,6 +73,7 @@ module GwfEvtaInputModule
     '', & ! shape
     'if cell is dry do not apply evapotranspiration to underlying cell', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -89,6 +92,7 @@ module GwfEvtaInputModule
     'NAUX', & ! shape
     'keyword to specify aux variables', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -107,6 +111,7 @@ module GwfEvtaInputModule
     '', & ! shape
     'name of auxiliary variable for multiplier', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -125,6 +130,7 @@ module GwfEvtaInputModule
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -143,6 +149,7 @@ module GwfEvtaInputModule
     '', & ! shape
     'print evapotranspiration rates to listing file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -161,6 +168,7 @@ module GwfEvtaInputModule
     '', & ! shape
     'save CHD flows to budget file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -179,6 +187,7 @@ module GwfEvtaInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -197,6 +206,7 @@ module GwfEvtaInputModule
     '', & ! shape
     'head keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -215,6 +225,7 @@ module GwfEvtaInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -233,6 +244,7 @@ module GwfEvtaInputModule
     '', & ! shape
     'file name of time series information', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -251,6 +263,7 @@ module GwfEvtaInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -269,6 +282,7 @@ module GwfEvtaInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -287,8 +301,28 @@ module GwfEvtaInputModule
     '', & ! shape
     'obs6 input filename', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfevta_export_nc = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'EVTA', & ! subcomponent
+    'OPTIONS', & ! block
+    'EXPORT_ARRAY_NETCDF', & ! tag name
+    'EXPORT_NC', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'export array variables to netcdf output files.', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -305,6 +339,7 @@ module GwfEvtaInputModule
     'NCPL', & ! shape
     'layer number for evapotranspiration', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -323,6 +358,7 @@ module GwfEvtaInputModule
     'NCPL', & ! shape
     'evapotranspiration surface', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -341,6 +377,7 @@ module GwfEvtaInputModule
     'NCPL', & ! shape
     'evapotranspiration surface', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -359,6 +396,7 @@ module GwfEvtaInputModule
     'NCPL', & ! shape
     'extinction depth', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -375,8 +413,9 @@ module GwfEvtaInputModule
     'AUXVAR', & ! fortran variable
     'DOUBLE2D', & ! type
     'NAUX NCPL', & ! shape
-    'auxiliary variable iaux', & ! longname
+    'evapotranspiration auxiliary variable iaux', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -400,6 +439,7 @@ module GwfEvtaInputModule
     gwfevta_obs_filerecord, &
     gwfevta_obs6, &
     gwfevta_obs6_filename, &
+    gwfevta_export_nc, &
     gwfevta_ievt, &
     gwfevta_surface, &
     gwfevta_rate, &
@@ -421,6 +461,7 @@ module GwfEvtaInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

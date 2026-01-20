@@ -8,14 +8,18 @@
 module ModelExportModule
 
   use KindModule, only: DP, I4B, LGP
+  use SimModule, only: store_error, store_error_filename
+  use SimVariablesModule, only: errmsg
   use ConstantsModule, only: LINELENGTH, LENMODELNAME, LENCOMPONENTNAME, &
                              LENMEMPATH
   use ListModule, only: ListType
   use NCModelExportModule, only: NCBaseModelExportType
+  use InputLoadTypeModule, only: ModelDynamicPkgsType
 
   implicit none
   private
   public :: modelexports_create
+  public :: modelexports_post_prepare
   public :: modelexports_post_step
   public :: modelexports_destroy
   public :: nc_export_active
@@ -32,15 +36,18 @@ module ModelExportModule
   !!
   !<
   type :: ExportModelType
+    type(ModelDynamicPkgsType), pointer :: loaders => null()
     character(len=LENMODELNAME) :: modelname !< name of model
     character(len=LENCOMPONENTNAME) :: modeltype !< type of model
     character(len=LINELENGTH) :: modelfname !< name of model input file
+    character(len=LINELENGTH) :: nc_fname !< name of netcdf export file
     class(NCBaseModelExportType), pointer :: nc_export => null() !< netcdf export object pointer
     integer(I4B) :: nctype !< type of netcdf export
     integer(I4B) :: disenum !< type of discretization
     integer(I4B) :: iout !< lst file descriptor
   contains
     procedure :: init
+    procedure :: post_prepare
     procedure :: post_step
     procedure :: destroy
   end type ExportModelType
@@ -55,7 +62,6 @@ contains
     integer(I4B) :: n
     type(ExportModelType), pointer :: export_model
     active = .false.
-    !
     do n = 1, export_models%Count()
       export_model => get_export_model(n)
       if (export_model%nctype /= NETCDF_UNDEF) then
@@ -68,68 +74,93 @@ contains
   !> @brief create export container variable for all local models
   !!
   subroutine modelexports_create(iout)
-    use InputLoadTypeModule, only: ModelDynamicPkgsType
-    use InputLoadTypeModule, only: model_dynamic_pkgs
+    use InputLoadTypeModule, only: model_inputs
     use MemoryManagerModule, only: mem_setptr
     use MemoryManagerExtModule, only: mem_set_value
     use MemoryHelperModule, only: create_mem_path
     use InputLoadTypeModule, only: GetDynamicModelFromList
     use SimVariablesModule, only: idm_context
-    use NCModelExportModule, only: NETCDF_UGRID, NETCDF_STRUCTURED
+    use NCModelExportModule, only: NETCDF_MESH2D, NETCDF_STRUCTURED
+    use SourceCommonModule, only: file_ext
     integer(I4B), intent(in) :: iout
-    type(ModelDynamicPkgsType), pointer :: model_dynamic_input
+    type(ModelDynamicPkgsType), pointer :: model_input
     type(ExportModelType), pointer :: export_model
-    character(len=LENMEMPATH) :: modelnam_mempath, model_mempath
+    character(len=LENMEMPATH) :: modelnam_mempath, model_mempath, ext
     integer(I4B), pointer :: disenum
-    character(len=LINELENGTH) :: exportstr
     integer(I4B) :: n
     logical(LGP) :: found
-    !
-    do n = 1, model_dynamic_pkgs%Count()
-      !
-      ! -- allocate and initialize
+
+    do n = 1, model_inputs%Count()
+      ! allocate and initialize
       allocate (export_model)
-      !
-      ! -- set pointer to dynamic input model instance
-      model_dynamic_input => GetDynamicModelFromList(model_dynamic_pkgs, n)
-      !
-      ! --set input mempaths
+
+      ! set pointer to dynamic input model instance
+      model_input => GetDynamicModelFromList(model_inputs, n)
+
+      ! set input mempaths
       modelnam_mempath = &
-        create_mem_path(component=model_dynamic_input%modelname, &
+        create_mem_path(component=model_input%modelname, &
                         subcomponent='NAM', context=idm_context)
-      model_mempath = create_mem_path(component=model_dynamic_input%modelname, &
+      model_mempath = create_mem_path(component=model_input%modelname, &
                                       context=idm_context)
-      ! -- set pointer to dis enum type
+      ! set pointer to dis enum type
       call mem_setptr(disenum, 'DISENUM', model_mempath)
-      !
-      ! --  initialize model
-      call export_model%init(model_dynamic_input%modelname, &
-                             model_dynamic_input%modeltype, &
-                             model_dynamic_input%modelfname, disenum, iout)
-      !
-      ! -- update EXPORT_NETCDF string if provided
-      call mem_set_value(exportstr, 'EXPORT_NETCDF', modelnam_mempath, found)
+
+      ! initialize model
+      call export_model%init(model_input, disenum, iout)
+
+      ! update NetCDF fileout name if provided
+      call mem_set_value(export_model%nc_fname, 'NCMESH2DFILE', &
+                         modelnam_mempath, found)
       if (found) then
-        if (exportstr == 'STRUCTURED') then
+        export_model%nctype = NETCDF_MESH2D
+      else
+        call mem_set_value(export_model%nc_fname, 'NCSTRUCTFILE', &
+                           modelnam_mempath, found)
+        if (found) then
           export_model%nctype = NETCDF_STRUCTURED
-        else
-          export_model%nctype = NETCDF_UGRID
         end if
       end if
-      !
-      ! -- add model to list
+
+      if (found) then
+        ext = file_ext(export_model%nc_fname)
+        if (ext /= 'nc') then
+          errmsg = 'NetCDF output file name must use ".nc" extension. '// &
+                   'Filename="'//trim(export_model%nc_fname)//'".'
+          call store_error(errmsg)
+          call store_error_filename(export_model%modelfname)
+        end if
+      end if
+
+      ! add model to list
       call add_export_model(export_model)
     end do
   end subroutine modelexports_create
 
-  !> @brief export model list post step
+  !> @brief export model list post prepare step
   !!
-  subroutine modelexports_post_step()
-    ! -- local variables
+  subroutine modelexports_post_prepare()
     class(*), pointer :: obj
     class(ExportModelType), pointer :: export_model
     integer(I4B) :: n
-    !
+    do n = 1, export_models%Count()
+      obj => export_models%GetItem(n)
+      if (associated(obj)) then
+        select type (obj)
+        class is (ExportModelType)
+          export_model => obj
+          call export_model%post_prepare()
+        end select
+      end if
+    end do
+  end subroutine modelexports_post_prepare
+
+  !> @brief export model list post step
+  !!
+  subroutine modelexports_post_step()
+    class(*), pointer :: obj
+    class(ExportModelType), pointer :: export_model
+    integer(I4B) :: n
     do n = 1, export_models%Count()
       obj => export_models%GetItem(n)
       if (associated(obj)) then
@@ -145,11 +176,9 @@ contains
   !> @brief destroy export model list
   !!
   subroutine modelexports_destroy()
-    ! -- local variables
     class(*), pointer :: obj
     class(ExportModelType), pointer :: export_model
     integer(I4B) :: n
-    !
     do n = 1, export_models%Count()
       obj => export_models%GetItem(n)
       if (associated(obj)) then
@@ -169,31 +198,38 @@ contains
   !> @brief initialize model export container variable
   !!
   !<
-  subroutine init(this, modelname, modeltype, modelfname, disenum, iout)
+  subroutine init(this, loaders, disenum, iout)
     use NCModelExportModule, only: NETCDF_UNDEF
     class(ExportModelType), intent(inout) :: this
-    character(len=*), intent(in) :: modelname
-    character(len=*), intent(in) :: modeltype
-    character(len=*), intent(in) :: modelfname
+    type(ModelDynamicPkgsType), pointer, intent(in) :: loaders
     integer(I4B), intent(in) :: disenum
     integer(I4B), intent(in) :: iout
-    !
-    this%modelname = modelname
-    this%modeltype = modeltype
-    this%modelfname = modelfname
+    this%loaders => loaders
+    this%modelname = loaders%modelname
+    this%modeltype = loaders%modeltype
+    this%modelfname = loaders%modelfname
+    this%nc_fname = ''
     this%nctype = NETCDF_UNDEF
     this%disenum = disenum
     this%iout = iout
-    !
     nullify (this%nc_export)
   end subroutine init
+
+  !> @brief model export container post prepare step actions
+  !!
+  !<
+  subroutine post_prepare(this)
+    class(ExportModelType), intent(inout) :: this
+    if (associated(this%nc_export)) then
+      call this%nc_export%export_input()
+    end if
+  end subroutine post_prepare
 
   !> @brief model export container post step actions
   !!
   !<
   subroutine post_step(this)
     class(ExportModelType), intent(inout) :: this
-    !
     if (associated(this%nc_export)) then
       call this%nc_export%step()
     end if
@@ -204,7 +240,6 @@ contains
   !<
   subroutine destroy(this)
     class(ExportModelType), intent(inout) :: this
-    !
     if (associated(this%nc_export)) then
       call this%nc_export%destroy()
       deallocate (this%nc_export)
@@ -216,11 +251,8 @@ contains
   !!
   !<
   subroutine add_export_model(export_model)
-    ! -- dummy variables
     type(ExportModelType), pointer, intent(inout) :: export_model
-    ! -- local variables
     class(*), pointer :: obj
-    !
     obj => export_model
     call export_models%Add(obj)
   end subroutine add_export_model
@@ -229,16 +261,12 @@ contains
   !!
   !<
   function get_export_model(idx) result(res)
-    ! -- dummy variables
     integer(I4B), intent(in) :: idx !< package number
-    ! -- local variables
     class(ExportModelType), pointer :: res
     class(*), pointer :: obj
-    !
-    ! -- initialize res
+    ! initialize res
     nullify (res)
-    !
-    ! -- get the object from the list
+    ! get the object from the list
     obj => export_models%GetItem(idx)
     if (associated(obj)) then
       select type (obj)

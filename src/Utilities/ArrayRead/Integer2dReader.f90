@@ -5,7 +5,10 @@ module Integer2dReaderModule
   use BlockParserModule, only: BlockParserType
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, store_error_unit
-  use ArrayReadersModule, only: read_binary_header
+  use ArrayReadersModule, only: read_binary_header, &
+                                check_binary_filesize, &
+                                BINARY_INT_BYTES, &
+                                BINARY_HEADER_BYTES
   use ArrayReaderBaseModule, only: ArrayReaderBaseType
 
   implicit none
@@ -91,7 +94,10 @@ contains
     integer(I4B) :: i, j
     integer(I4B) :: nvals
     integer(I4B) :: istat
+    integer(I4B) :: expected_size
+    expected_size = BINARY_HEADER_BYTES + (size(this%int2d) * BINARY_INT_BYTES)
     call read_binary_header(this%input_unit, this%iout, this%array_name, nvals)
+    call check_binary_filesize(this%input_unit, expected_size, this%array_name)
     read (this%input_unit, iostat=istat, iomsg=errmsg) &
       ((this%int2d(j, i), j=1, size(this%int2d, dim=1)), &
        i=1, size(this%int2d, dim=2))

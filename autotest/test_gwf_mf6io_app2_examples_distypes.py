@@ -4,6 +4,7 @@ import flopy
 import numpy as np
 import pytest
 from conftest import try_get_target
+from flopy.utils.compare import compare_cell_budget
 from flopy.utils.gridgen import Gridgen
 from framework import TestFramework
 
@@ -44,9 +45,7 @@ vk = [10.0, 0.01, 20.0]
 concentration = 1.0
 
 canal_head = 330.0
-canal_coordinates = [
-    (0.5 * delr, y1_base - delc * (i + 0.5)) for i in range(nrow)
-]
+canal_coordinates = [(0.5 * delr, y1_base - delc * (i + 0.5)) for i in range(nrow)]
 
 river_head = 320.0
 river_coordinates = [
@@ -225,7 +224,7 @@ def build_well_data(modelgrid, nper):
             cellid = modelgrid.intersect(x, y, z=z_node[well_layers[i]])
             if isinstance(cellid, int):
                 cellid = (cellid,)
-            spd.append((*cellid, wellq[i], concentration, f"well-{i+1}"))
+            spd.append((*cellid, wellq[i], concentration, f"well-{i + 1}"))
         spd_dict[iper] = spd
     return spd_dict
 
@@ -268,7 +267,7 @@ def build_mf6(idx, ws, gridgen):
     elif "disu" in str(ws):
         dis_type = "disu"
     else:
-        raise ValueError(f"Invalid discretization type in {str(ws)}")
+        raise ValueError(f"Invalid discretization type in {ws!s}")
 
     if "disu" in str(ws):
         list_recharge = True
@@ -334,10 +333,7 @@ def build_mf6(idx, ws, gridgen):
         strt = top
     else:
         strt = [top, top, top]
-    ic = flopy.mf6.ModflowGwfic(
-        gwf,
-        strt=strt,
-    )
+    ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     if dis_type in ("dis", "disv"):
         k11 = hk
@@ -375,10 +371,7 @@ def build_mf6(idx, ws, gridgen):
             filename=f"{name}.canal.chd",
             pname="canal",
             stress_period_data=build_chd_data(
-                gwf.modelgrid,
-                canal_coordinates,
-                canal_head,
-                boundname="canal",
+                gwf.modelgrid, canal_coordinates, canal_head, boundname="canal"
             ),
         )
 
@@ -390,10 +383,7 @@ def build_mf6(idx, ws, gridgen):
             filename=f"{name}.river.chd",
             pname="river",
             stress_period_data=build_chd_data(
-                gwf.modelgrid,
-                river_coordinates,
-                river_head,
-                boundname="river",
+                gwf.modelgrid, river_coordinates, river_head, boundname="river"
             ),
         )
     else:
@@ -402,9 +392,7 @@ def build_mf6(idx, ws, gridgen):
             auxiliary=["concentration"],
             boundnames=True,
             pname="river",
-            stress_period_data=build_riv_data(
-                gwf.modelgrid,
-            ),
+            stress_period_data=build_riv_data(gwf.modelgrid),
         )
 
     if name.startswith("ps2"):
@@ -416,10 +404,7 @@ def build_mf6(idx, ws, gridgen):
                 gwf,
                 auxiliary=["concentration"],
                 boundnames=True,
-                stress_period_data=build_drn_data(
-                    gwf.modelgrid,
-                    boundname="ghb-1",
-                ),
+                stress_period_data=build_drn_data(gwf.modelgrid, boundname="ghb-1"),
             )
         else:
             drn = flopy.mf6.ModflowGwfdrn(
@@ -544,15 +529,15 @@ def check_output(idx, test):
 
     head = gwf_base.output.head().get_data().flatten().reshape(shape3d)
     if answer is not None:
-        assert np.allclose(
-            head[0], answer
-        ), "head data for first layer does not match know result"
+        assert np.allclose(head[0], answer), (
+            "head data for first layer does not match know result"
+        )
 
     extension = "cbc"
     fpth0 = ws / f"{sim_name}.{extension}"
     # fpth1 = ws / f"mf6/{get_dis_name(name)}.{extension}"
     fpth1 = ws / f"mf6/{sim_name}.{extension}"
-    test._compare_budget_files(extension, fpth0, fpth1)
+    assert compare_cell_budget(fpth0, fpth1, outfile=ws / f"{name}.cmp")
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

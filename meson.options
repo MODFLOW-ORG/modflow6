@@ -1,5 +1,6 @@
 option('extended', type : 'boolean', value : false, description : 'Extended build with external libraries')
 option('parallel', type : 'boolean', value : false, description : 'Extended parallel build')
+option('netcdf', type : 'boolean', value : false, description : 'Extended NetCDF build')
 option('mpich', type : 'boolean', value : false, description : 'Use MPICH version of MPI')
 option('cray', type : 'boolean', value : false, description : 'Extended build on CRAY with MPICH')
 option('buildname', type : 'string', value : 'mf6', description : 'Optional build name')

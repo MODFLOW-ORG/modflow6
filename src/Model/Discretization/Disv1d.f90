@@ -4,7 +4,8 @@ module Disv1dModule
   use ConstantsModule, only: LENMEMPATH, LENVARNAME, DZERO, DONE, LINELENGTH
   use SimVariablesModule, only: errmsg, warnmsg
   use MemoryHelperModule, only: create_mem_path
-  use MemoryManagerModule, only: mem_allocate
+  use MemoryManagerModule, only: mem_allocate, mem_setptr
+  use MemoryManagerExtModule, only: mem_set_value
   use SimModule, only: count_errors, store_error, store_warning, &
                        store_error_filename
   use InputOutputModule, only: urword
@@ -20,10 +21,10 @@ module Disv1dModule
 
   type, extends(DisBaseType) :: Disv1dType
     integer(I4B), pointer :: nvert => null() !< number of x,y vertices
-    real(DP), dimension(:), pointer, contiguous :: length => null() !< length of each reach
+    real(DP), dimension(:), pointer, contiguous :: length => null() !< length of each reach (of size nodesuser)
     real(DP), dimension(:), pointer, contiguous :: width => null() !< reach width
     real(DP), dimension(:), pointer, contiguous :: bottom => null() !< reach bottom elevation
-    integer(I4B), dimension(:), pointer, contiguous :: idomain => null() !< idomain (nodes)
+    integer(I4B), dimension(:), pointer, contiguous :: idomain => null() !< idomain (of size nodesuser)
     real(DP), dimension(:, :), pointer, contiguous :: vertices => null() !< cell vertices stored as 2d array with columns of x, y
     real(DP), dimension(:, :), pointer, contiguous :: cellxy => null() !< reach midpoints stored as 2d array with columns of x, y
     real(DP), dimension(:), pointer, contiguous :: fdc => null() !< fdc stored as array
@@ -45,7 +46,7 @@ module Disv1dModule
     procedure :: source_dimensions
     procedure :: source_griddata
     procedure :: source_vertices
-    procedure :: source_cell2d
+    procedure :: source_cell1d
     procedure :: log_options
     procedure :: log_dimensions
     procedure :: log_griddata
@@ -71,14 +72,13 @@ module Disv1dModule
     logical :: angrot = .false.
     logical :: nodes = .false.
     logical :: nvert = .false.
-    logical :: length = .false.
     logical :: width = .false.
     logical :: bottom = .false.
     logical :: idomain = .false.
     logical :: iv = .false.
     logical :: xv = .false.
     logical :: yv = .false.
-    logical :: icell2d = .false.
+    logical :: icell1d = .false.
     logical :: fdc = .false.
     logical :: ncvert = .false.
     logical :: icvert = .false.
@@ -89,7 +89,6 @@ contains
   subroutine disv1d_cr(dis, name_model, input_mempath, inunit, iout)
     ! -- modules
     use KindModule, only: LGP
-    use MemoryManagerExtModule, only: mem_set_value
     ! -- dummy
     class(DisBaseType), pointer :: dis
     character(len=*), intent(in) :: name_model
@@ -122,9 +121,6 @@ contains
       end if
 
     end if
-    !
-    ! -- Return
-    return
   end subroutine disv1d_cr
 
   !> @brief Define the discretization
@@ -137,9 +133,6 @@ contains
     if (this%inunit /= 0) then
       call this%disv1d_load()
     end if
-
-    ! create connectivity using vertices and cell2d
-    call this%create_connections()
 
     ! finalize the grid
     call this%grid_finalize()
@@ -253,9 +246,6 @@ contains
     ! -- Initialize
     this%nvert = 0
     this%ndim = 1
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   subroutine disv1d_load(this)
@@ -271,7 +261,7 @@ contains
     ! If vertices provided by user, read and store vertices
     if (this%nvert > 0) then
       call this%source_vertices()
-      call this%source_cell2d()
+      call this%source_cell1d()
     end if
 
   end subroutine disv1d_load
@@ -281,7 +271,6 @@ contains
   subroutine source_options(this)
     ! -- modules
     use KindModule, only: LGP
-    use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
     ! -- dummy
     class(Disv1dType) :: this
@@ -310,9 +299,6 @@ contains
     if (this%iout > 0) then
       call this%log_options(found)
     end if
-    !
-    ! -- Return
-    return
   end subroutine source_options
 
   !> @brief Write user options to list file
@@ -353,7 +339,6 @@ contains
   !<
   subroutine source_dimensions(this)
     use KindModule, only: LGP
-    use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
     ! -- dummy
     class(Disv1dType) :: this
@@ -386,7 +371,7 @@ contains
     if (this%nvert < 1) then
       call store_warning( &
         'NVERT was not specified or was specified as zero.  The &
-        &VERTICES and CELL2D blocks will not be read for the DISV1D6 &
+        &VERTICES and CELL1D blocks will not be read for the DISV1D6 &
         &Package in model '//trim(this%memoryPath)//'.')
     end if
     !
@@ -402,12 +387,12 @@ contains
     !
     ! -- Allocate vertices array
     if (this%nvert > 0) then
-      call mem_allocate(this%vertices, 3, this%nvert, &
+      call mem_allocate(this%vertices, 2, this%nvert, &
                         'VERTICES', this%memoryPath)
       call mem_allocate(this%fdc, this%nodesuser, &
                         'FDC', this%memoryPath)
-      call mem_allocate(this%cellxy, 3, this%nodesuser, &
-                        'CELLXYZ', this%memoryPath)
+      call mem_allocate(this%cellxy, 2, this%nodesuser, &
+                        'CELLXY', this%memoryPath)
     end if
     !
     ! -- initialize all cells to be active (idomain = 1)
@@ -417,9 +402,6 @@ contains
       this%bottom(n) = DZERO
       this%idomain(n) = 1
     end do
-    !
-    ! -- Return
-    return
   end subroutine source_dimensions
 
   !> @brief Write dimensions to list file
@@ -443,32 +425,23 @@ contains
   end subroutine log_dimensions
 
   subroutine source_griddata(this)
-    ! -- modules
-    use MemoryManagerExtModule, only: mem_set_value
+    ! modules
     use SimVariablesModule, only: idm_context
-    ! -- dummy
+    ! dummy
     class(Disv1dType) :: this
-    ! -- locals
+    ! locals
     character(len=LENMEMPATH) :: idmMemoryPath
     type(DisFoundType) :: found
-    ! -- formats
-    !
-    ! -- set memory path
+    ! formats
+
+    ! set memory path
     idmMemoryPath = create_mem_path(this%name_model, 'DISV1D', idm_context)
-    !
-    ! -- update defaults with idm sourced values
-    call mem_set_value(this%length, 'LENGTH', idmMemoryPath, &
-                       found%length)
+
     call mem_set_value(this%width, 'WIDTH', idmMemoryPath, &
                        found%width)
     call mem_set_value(this%bottom, 'BOTTOM', idmMemoryPath, &
                        found%bottom)
     call mem_set_value(this%idomain, 'IDOMAIN', idmMemoryPath, found%idomain)
-
-    if (.not. found%length) then
-      write (errmsg, '(a)') 'Error in GRIDDATA block: LENGTH not found.'
-      call store_error(errmsg)
-    end if
 
     if (.not. found%width) then
       write (errmsg, '(a)') 'Error in GRIDDATA block: WIDTH not found.'
@@ -484,13 +457,11 @@ contains
       call store_error_filename(this%input_fname)
     end if
 
-    ! -- log simulation values
+    ! log simulation values
     if (this%iout > 0) then
       call this%log_griddata(found)
     end if
-    !
-    ! -- Return
-    return
+
   end subroutine source_griddata
 
   !> @brief Write griddata found to list file
@@ -500,10 +471,6 @@ contains
     type(DisFoundType), intent(in) :: found
 
     write (this%iout, '(1x,a)') 'Setting Discretization Griddata'
-
-    if (found%length) then
-      write (this%iout, '(4x,a)') 'LENGTH set from input file'
-    end if
 
     if (found%width) then
       write (this%iout, '(4x,a)') 'WIDTH set from input file'
@@ -526,8 +493,6 @@ contains
   !<
   subroutine source_vertices(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_setptr
-    use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
     ! -- dummy
     class(Disv1dType) :: this
@@ -560,25 +525,20 @@ contains
       write (this%iout, '(1x,a)') 'Setting Discretization Vertices'
       write (this%iout, '(1x,a,/)') 'End setting discretization vertices'
     end if
-    !
-    ! -- Return
-    return
   end subroutine source_vertices
 
-  !> @brief Copy cell2d information from input data context
+  !> @brief Copy cell1d information from input data context
   !! to model context
   !<
-  subroutine source_cell2d(this)
+  subroutine source_cell1d(this)
     ! -- modules
     use MemoryHelperModule, only: create_mem_path
-    use MemoryManagerModule, only: mem_setptr
-    use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
     ! -- dummy
     class(Disv1dType) :: this
     ! -- locals
     character(len=LENMEMPATH) :: idmMemoryPath
-    integer(I4B), dimension(:), contiguous, pointer :: icell2d => null()
+    integer(I4B), dimension(:), contiguous, pointer :: icell1d => null()
     integer(I4B), dimension(:), contiguous, pointer :: ncvert => null()
     integer(I4B), dimension(:), contiguous, pointer :: icvert => null()
     real(DP), dimension(:), contiguous, pointer :: fdc => null()
@@ -589,14 +549,14 @@ contains
     idmMemoryPath = create_mem_path(this%name_model, 'DISV1D', idm_context)
     !
     ! -- set pointers to input path ncvert and icvert
-    call mem_setptr(icell2d, 'ICELL2D', idmMemoryPath)
+    call mem_setptr(icell1d, 'ICELL1D', idmMemoryPath)
     call mem_setptr(ncvert, 'NCVERT', idmMemoryPath)
     call mem_setptr(icvert, 'ICVERT', idmMemoryPath)
     !
     ! --
-    if (associated(icell2d) .and. associated(ncvert) &
+    if (associated(icell1d) .and. associated(ncvert) &
         .and. associated(icvert)) then
-      call this%define_cellverts(icell2d, ncvert, icvert)
+      call this%define_cellverts(icell1d, ncvert, icvert)
     else
       call store_error('Required cell vertex arrays not found.')
     end if
@@ -609,32 +569,35 @@ contains
       do i = 1, this%nodesuser
         this%fdc(i) = fdc(i)
       end do
-      call calculate_cellxy(this%vertices, this%fdc, this%iavert, &
-                            this%javert, this%cellxy)
     else
       call store_error('Required fdc array not found.')
     end if
-    !
-    ! -- log
+
+    ! calculate length from vertices
+    call calculate_cell_length(this%vertices, this%iavert, this%javert, &
+                               this%length)
+
+    ! calculate cellxy from vertices and fdc
+    call calculate_cellxy(this%vertices, this%fdc, this%iavert, &
+                          this%javert, this%length, this%cellxy)
+
+    ! log
     if (this%iout > 0) then
-      write (this%iout, '(1x,a)') 'Setting Discretization CELL2D'
-      write (this%iout, '(1x,a,/)') 'End Setting Discretization CELL2D'
+      write (this%iout, '(1x,a)') 'Setting Discretization CELL1D'
+      write (this%iout, '(1x,a,/)') 'End Setting Discretization CELL1D'
     end if
-    !
-    ! -- Return
-    return
-  end subroutine source_cell2d
+  end subroutine source_cell1d
 
   !> @brief Construct the iavert and javert integer vectors which
   !! are compressed sparse row index arrays that relate the vertices
   !! to reaches
   !<
-  subroutine define_cellverts(this, icell2d, ncvert, icvert)
+  subroutine define_cellverts(this, icell1d, ncvert, icvert)
     ! -- modules
     use SparseModule, only: sparsematrix
     ! -- dummy
     class(Disv1dType) :: this
-    integer(I4B), dimension(:), contiguous, pointer, intent(in) :: icell2d
+    integer(I4B), dimension(:), contiguous, pointer, intent(in) :: icell1d
     integer(I4B), dimension(:), contiguous, pointer, intent(in) :: ncvert
     integer(I4B), dimension(:), contiguous, pointer, intent(in) :: icvert
     ! -- locals
@@ -648,7 +611,7 @@ contains
     ! -- add sparse matrix connections from input memory paths
     icv_idx = 1
     do i = 1, this%nodesuser
-      if (icell2d(i) /= i) call store_error('ICELL2D input sequence violation.')
+      if (icell1d(i) /= i) call store_error('ICELL1D input sequence violation.')
       do j = 1, ncvert(i)
         call vert_spm%addconnection(i, icvert(icv_idx), 0)
         if (j == 1) then
@@ -663,19 +626,17 @@ contains
     call mem_allocate(this%javert, vert_spm%nnz, 'JAVERT', this%memoryPath)
     call vert_spm%filliaja(this%iavert, this%javert, ierr)
     call vert_spm%destroy()
-    !
-    ! -- Return
-    return
   end subroutine define_cellverts
 
   !> @brief Calculate x, y, coordinates of reach midpoint
   !<
-  subroutine calculate_cellxy(vertices, fdc, iavert, javert, cellxy)
+  subroutine calculate_cellxy(vertices, fdc, iavert, javert, length, cellxy)
     ! -- dummy
     real(DP), dimension(:, :), intent(in) :: vertices !< 2d array of vertices with x, y as columns
     real(DP), dimension(:), intent(in) :: fdc !< fractional distance to reach midpoint (normally 0.5)
     integer(I4B), dimension(:), intent(in) :: iavert !< csr mapping of vertices to cell reaches
     integer(I4B), dimension(:), intent(in) :: javert !< csr mapping of vertices to cell reaches
+    real(DP), dimension(:), intent(in) :: length !< vector of cell lengths
     real(DP), dimension(:, :), intent(inout) :: cellxy !< 2d array of reach midpoint with x, y as columns
     ! -- local
     integer(I4B) :: nodes !< number of nodes
@@ -684,7 +645,6 @@ contains
     integer(I4B) :: iv0 !< index for line reach start
     integer(I4B) :: iv1 !< index for linen reach end
     integer(I4B) :: ixy !< x, y column index
-    real(DP) :: length !< reach length = sum of individual line reaches
     real(DP) :: fd0 !< fractional distance to start of this line reach
     real(DP) :: fd1 !< fractional distance to end of this line reach
     real(DP) :: fd !< fractional distance where midpoint (defined by fdc) is located
@@ -693,20 +653,13 @@ contains
     nodes = size(iavert) - 1
     do n = 1, nodes
 
-      ! calculate length of this reach
-      length = DZERO
-      do j = iavert(n), iavert(n + 1) - 2
-        length = length + &
-                 calcdist(vertices, javert(j), javert(j + 1))
-      end do
-
       ! find vertices that span midpoint
       iv0 = 0
       iv1 = 0
       fd0 = DZERO
       do j = iavert(n), iavert(n + 1) - 2
         d = calcdist(vertices, javert(j), javert(j + 1))
-        fd1 = fd0 + d / length
+        fd1 = fd0 + d / length(n)
 
         ! if true, then we know the midpoint is some fractional distance (fd)
         ! from vertex j to vertex j + 1
@@ -720,13 +673,40 @@ contains
       end do
 
       ! find x, y position of point on line
-      do ixy = 1, 3
+      do ixy = 1, 2
         cellxy(ixy, n) = (DONE - fd) * vertices(ixy, iv0) + &
                          fd * vertices(ixy, iv1)
       end do
 
     end do
   end subroutine calculate_cellxy
+
+  !> @brief Calculate x, y, coordinates of reach midpoint
+  !<
+  subroutine calculate_cell_length(vertices, iavert, javert, length)
+    ! -- dummy
+    real(DP), dimension(:, :), intent(in) :: vertices !< 2d array of vertices with x, y as columns
+    integer(I4B), dimension(:), intent(in) :: iavert !< csr mapping of vertices to cell reaches
+    integer(I4B), dimension(:), intent(in) :: javert !< csr mapping of vertices to cell reaches
+    real(DP), dimension(:), intent(inout) :: length !< 2d array of reach midpoint with x, y as columns
+    ! -- local
+    integer(I4B) :: nodes !< number of nodes
+    integer(I4B) :: n !< node index
+    integer(I4B) :: j !< vertex index
+    real(DP) :: dlen !< length
+
+    nodes = size(iavert) - 1
+    do n = 1, nodes
+
+      ! calculate length of this reach
+      dlen = DZERO
+      do j = iavert(n), iavert(n + 1) - 2
+        dlen = dlen + calcdist(vertices, javert(j), javert(j + 1))
+      end do
+      length(n) = dlen
+
+    end do
+  end subroutine calculate_cell_length
 
   !> @brief Finalize grid construction
   !<
@@ -738,6 +718,11 @@ contains
     class(Disv1dType) :: this
     ! local
     integer(I4B) :: node, noder, k
+    ! format
+    character(len=*), parameter :: fmtnr = &
+      "(/1x, 'The specified IDOMAIN results in a reduced number of cells.',&
+      &/1x, 'Number of user nodes: ',I0,&
+      &/1X, 'Number of nodes in solution: ', I0, //)"
 
     ! count active cells
     this%nodes = 0
@@ -750,12 +735,11 @@ contains
       call store_error('Model does not have any active nodes.  Make sure &
                        &IDOMAIN has some values greater than zero.')
       call store_error_filename(this%input_fname)
-      call ustop()
     end if
 
-    if (count_errors() > 0) then
-      call store_error_filename(this%input_fname)
-      call ustop()
+    ! Write message if reduced grid
+    if (this%nodes < this%nodesuser) then
+      write (this%iout, fmtnr) this%nodesuser, this%nodes
     end if
 
     ! Array size is now known, so allocate
@@ -772,8 +756,6 @@ contains
         if (this%idomain(k) > 0) then
           this%nodereduced(node) = noder
           noder = noder + 1
-        elseif (this%idomain(k) < 0) then
-          this%nodereduced(node) = -1
         else
           this%nodereduced(node) = 0
         end if
@@ -794,18 +776,18 @@ contains
       end do
     end if
 
-    ! Copy bottom into bot
+    ! Move bottom into bot and put length into disbase%area
+    ! and set x and y center coordinates
     do node = 1, this%nodesuser
-      this%bot(node) = this%bottom(node)
+      noder = node
+      if (this%nodes < this%nodesuser) noder = this%nodereduced(node)
+      if (noder <= 0) cycle
+      this%bot(noder) = this%bottom(node)
+      this%area(noder) = this%length(node)
     end do
 
-    ! Assign area in DisBaseType as length
-    do node = 1, this%nodesuser
-      this%area(node) = this%length(node)
-    end do
-
-    ! -- Return
-    return
+    ! create connectivity using vertices and cell1d
+    call this%create_connections()
   end subroutine grid_finalize
 
   subroutine allocate_arrays(this)
@@ -830,25 +812,22 @@ contains
     !
     ! -- Initialize
     this%mshape(1) = this%nodesuser
-    !
-    ! -- Return
-    return
   end subroutine allocate_arrays
 
   subroutine create_connections(this)
-    ! -- modules
-    ! -- dummy
+    ! modules
+    ! dummy
     class(Disv1dType) :: this
-    ! -- local
+    ! local
     integer(I4B) :: nrsize
-    !
-    ! -- create and fill the connections object
+
+    ! create and fill the connections object
     nrsize = 0
     if (this%nodes < this%nodesuser) nrsize = this%nodes
-    !
-    ! -- Allocate connections object
+
+    ! Allocate connections object
     allocate (this%con)
-    !
+
     ! Build connectivity based on vertices
     call this%con%disv1dconnections_verts(this%name_model, this%nodes, &
                                           this%nodesuser, nrsize, this%nvert, &
@@ -868,25 +847,37 @@ contains
     ! -- modules
     use InputOutputModule, only: getunit, openfile
     use OpenSpecModule, only: access, form
+    use ConstantsModule, only: LENBIGLINE
     ! -- dummy
     class(Disv1dType) :: this
     integer(I4B), dimension(:), intent(in) :: icelltype
     ! -- local
-    integer(I4B) :: i, iunit, ntxt
+    integer(I4B) :: i, iunit, ntxt, version
     integer(I4B), parameter :: lentxt = 100
     character(len=50) :: txthdr
     character(len=lentxt) :: txt
     character(len=LINELENGTH) :: fname
+    character(len=LENBIGLINE) :: crs
+    logical(LGP) :: found_crs
     character(len=*), parameter :: fmtgrdsave = &
       "(4X,'BINARY GRID INFORMATION WILL BE WRITTEN TO:', &
        &/,6X,'UNIT NUMBER: ', I0,/,6X, 'FILE NAME: ', A)"
     !
     ! -- Initialize
+    version = 1
     ntxt = 10
     if (this%nvert > 0) ntxt = ntxt + 5
     !
+    call mem_set_value(crs, 'CRS', this%input_mempath, found_crs)
+    !
+    ! -- set version
+    if (found_crs) then
+      ntxt = ntxt + 1
+      version = 2
+    end if
+    !
     ! -- Open the file
-    fname = trim(this%input_fname)//'.grb'
+    fname = trim(this%output_fname)
     iunit = getunit()
     write (this%iout, fmtgrdsave) iunit, trim(adjustl(fname))
     call openfile(iunit, this%iout, trim(adjustl(fname)), 'DATA(BINARY)', &
@@ -957,6 +948,16 @@ contains
       write (iunit) txt
     end if
     !
+    ! -- if version 2 write character array headers
+    if (version == 2) then
+      if (found_crs) then
+        write (txt, '(3a, i0)') 'CRS ', 'CHARACTER ', 'NDIM 1 ', &
+          len_trim(crs)
+        txt(lentxt:lentxt) = new_line('a')
+        write (iunit) txt
+      end if
+    end if
+    !
     ! -- write data
     write (iunit) this%nodesuser ! nodes
     write (iunit) this%nja ! nja
@@ -978,11 +979,13 @@ contains
       write (iunit) this%javert ! javert
     end if
     !
+    ! -- if version 2 write character array data
+    if (version == 2) then
+      if (found_crs) write (iunit) trim(crs) ! crs user input
+    end if
+    !
     ! -- Close the file
     close (iunit)
-    !
-    ! -- return
-    return
   end subroutine write_grb
 
   !>
@@ -1010,9 +1013,6 @@ contains
     else
       nodenumber = this%nodereduced(nodeu)
     end if
-    !
-    ! -- return
-    return
   end function get_nodenumber_idx1
 
   subroutine nodeu_to_string(this, nodeu, str)
@@ -1025,9 +1025,6 @@ contains
     !
     write (nstr, '(i0)') nodeu
     str = '('//trim(adjustl(nstr))//')'
-    !
-    ! -- return
-    return
   end subroutine nodeu_to_string
 
   !>
@@ -1086,10 +1083,6 @@ contains
       call store_error(errmsg)
       call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- return
-    return
-
   end function nodeu_from_string
 
   subroutine disv1d_da(this)
@@ -1117,7 +1110,7 @@ contains
     call mem_deallocate(this%bottom)
     call mem_deallocate(this%idomain)
     !
-    ! -- cdl hack for arrays for vertices and cell2d blocks
+    ! -- cdl hack for arrays for vertices and cell1d blocks
     if (deallocate_vertices) then
       call mem_deallocate(this%vertices)
       call mem_deallocate(this%fdc)
@@ -1128,9 +1121,6 @@ contains
     !
     ! -- DisBaseType deallocate
     call this%DisBaseType%dis_da()
-    !
-    ! -- Return
-    return
   end subroutine disv1d_da
 
   !> @brief Record a double precision array
@@ -1225,9 +1215,6 @@ contains
       call ubdsv1(kstp, kper, aname, -idataun, dtemp, ncol, nrow, nlay, &
                   iout, delt, pertim, totim)
     end if
-    !
-    ! -- return
-    return
   end subroutine record_array
 
   !> @brief Record list header using ubdsv06
@@ -1261,9 +1248,6 @@ contains
     call ubdsv06(kstp, kper, text, textmodel, textpackage, dstmodel, dstpackage, &
                  ibdchn, naux, auxtxt, ncol, nrow, nlay, &
                  nlist, iout, delt, pertim, totim)
-    !
-    ! -- return
-    return
   end subroutine record_srcdst_list_header
 
   !> @ brief Calculate the flow width between two cells

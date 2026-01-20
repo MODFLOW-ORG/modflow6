@@ -93,6 +93,8 @@ dmcoef = 3.2519e-7  # Molecular diffusion coefficient
 cpw = 4183.0
 rhow = 1000.0
 lhv = 2454.0
+cps = 760.0
+rhos = 1500.0
 
 # Set solver parameter values (and related)
 nouter, ninner = 100, 300
@@ -138,9 +140,7 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 time discretization
-    flopy.mf6.ModflowTdis(
-        sim, nper=nper, perioddata=tdis_rc, time_units=time_units
-    )
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=tdis_rc, time_units=time_units)
 
     # Instantiating MODFLOW 6 groundwater flow model
     gwf = flopy.mf6.ModflowGwf(
@@ -300,15 +300,16 @@ def build_models(idx, test):
             filename=f"{gwename}.cnd",
         )
 
-    # Instantiating MODFLOW 6 transport mass storage package (formerly "reaction" package in MT3DMS)
+    # Instantiating MODFLOW 6 transport mass storage package
+    # (formerly "reaction" package in MT3DMS)
     flopy.mf6.ModflowGweest(
         gwe,
         save_flows=True,
         heat_capacity_water=cpw,
         density_water=rhow,
         porosity=prsity,
-        cps=760.0,
-        rhos=1500.0,
+        heat_capacity_solid=cps,
+        density_solid=rhos,
         filename=f"{gwename}.est",
     )
 
@@ -330,9 +331,7 @@ def build_models(idx, test):
         gwe,
         budget_filerecord=f"{gwename}.cbc",
         temperature_filerecord=f"{gwename}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
     )
@@ -359,9 +358,7 @@ def check_output(idx, test):
     fpth = os.path.join(test.workspace, f"{gwename}.ucn")
     try:
         # load temperatures
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="TEMPERATURE"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="TEMPERATURE")
         conc1 = cobj.get_alldata()
     except:
         assert False, f'could not load concentration data from "{fpth}"'

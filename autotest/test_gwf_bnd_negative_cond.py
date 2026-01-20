@@ -71,10 +71,7 @@ def build_models(idx, test):
     )
 
     # create gwf model
-    gwf = flopy.mf6.ModflowGwf(
-        sim,
-        modelname=name,
-    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
 
     dis = flopy.mf6.ModflowGwfdis(
         gwf,
@@ -98,9 +95,7 @@ def build_models(idx, test):
     spd = [
         [(0, 0, 0), 1.0],
     ]
-    chd = flopy.mf6.modflow.ModflowGwfchd(
-        gwf, stress_period_data=spd, pname="chd-1"
-    )
+    chd = flopy.mf6.modflow.ModflowGwfchd(gwf, stress_period_data=spd, pname="chd-1")
 
     bnd_loc = (0, 0, 1)
     cond = 1.0
@@ -149,10 +144,7 @@ def check_output(idx, test):
             + "MULTIPLIER ( -1.00    ) IS LESS THAN ZERO"
         )
     else:
-        tag = (
-            f"1. {pak} BOUNDARY (1) CONDUCTANCE "
-            + "( -1.00    ) IS LESS THAN ZERO"
-        )
+        tag = f"1. {pak} BOUNDARY (1) CONDUCTANCE " + "( -1.00    ) IS LESS THAN ZERO"
     with open(test.workspace / "mfsim.lst", "r") as f:
         lines = f.readlines()
         error_count = 0

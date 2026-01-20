@@ -202,9 +202,7 @@ def build_models(idx, test):
     # ----------------------------------
     # Instantiating MODFLOW 6 GWE model
     # ----------------------------------
-    gwe = flopy.mf6.ModflowGwe(
-        sim, modelname=gwename, model_nam_file=f"{gwename}.nam"
-    )
+    gwe = flopy.mf6.ModflowGwe(sim, modelname=gwename, model_nam_file=f"{gwename}.nam")
     gwe.name_file.save_flows = True
 
     imsgwe = flopy.mf6.ModflowIms(
@@ -241,9 +239,7 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 transport initial concentrations
-    flopy.mf6.ModflowGweic(
-        gwe, strt=strt_temp1, pname="IC-1", filename=f"{gwename}.ic"
-    )
+    flopy.mf6.ModflowGweic(gwe, strt=strt_temp1, pname="IC-1", filename=f"{gwename}.ic")
 
     # Instantiating MODFLOW 6 transport advection package
     flopy.mf6.ModflowGweadv(
@@ -262,7 +258,8 @@ def build_models(idx, test):
         filename=f"{gwename}.cnd",
     )
 
-    # Instantiating MODFLOW 6 transport mass storage package (formerly "reaction" package in MT3DMS)
+    # Instantiating MODFLOW 6 transport mass storage package
+    # (formerly "reaction" package in MT3DMS)
     flopy.mf6.ModflowGweest(
         gwe,
         save_flows=True,
@@ -270,8 +267,8 @@ def build_models(idx, test):
         heat_capacity_water=cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=cps,
-        rhos=rhos,
+        heat_capacity_solid=cps,
+        density_solid=rhos,
         pname="EST-1",
         filename=f"{gwename}.est",
     )
@@ -282,9 +279,7 @@ def build_models(idx, test):
         pname="OC-1",
         budget_filerecord=f"{gwename}.cbc",
         temperature_filerecord=f"{gwename}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("TEMPERATURE", "LAST"), ("BUDGET", "LAST")],
     )
@@ -334,9 +329,7 @@ def check_output(idx, test):
 
     try:
         # load temperatures
-        tobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="TEMPERATURE"
-        )
+        tobj = flopy.utils.HeadFile(fpth, precision="double", text="TEMPERATURE")
         temps = tobj.get_alldata()
     except:
         assert False, f'could not load temperature data from "{fpth}"'
@@ -344,11 +337,10 @@ def check_output(idx, test):
     # Energy source loading was crafted such that each cell in
     # the simulation would rise by 1 degree at the end of the simulation.
     msg0 = (
-        "Grid cell temperatures do not reflect the expected difference"
-        "in stress period "
+        "Grid cell temperatures do not reflect the expected differencein stress period "
     )
-    ans = ncol[idx]
-    assert np.isclose(np.sum(temps[-1]), ans), msg0 + str(index)
+    answer = ncol[idx]
+    assert np.isclose(np.sum(temps[-1]), answer), msg0 + str(idx)
 
 
 # - No need to change any code below

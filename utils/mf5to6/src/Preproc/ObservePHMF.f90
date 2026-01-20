@@ -17,7 +17,7 @@ module ObserveModule
   use ConstantsPHMFModule,    only: LENOBSNAMENEW, HUGEDBL, HDRYDEFAULT
   use MathUtilModule,         only: is_close
   use ListModule,             only: ListType
-  use SimModule,              only: store_warning, store_error, &
+  use SimPHMFModule,          only: store_warning, store_error, &
                                     store_error_unit, ustop
 
   implicit none
@@ -263,7 +263,7 @@ contains
 !    SPECIFICATIONS:
 ! --------------------------------------------------------------------------
     use InputOutputModule, only: urword
-    use SimModule, only: store_error, ustop
+    use SimPHMFModule, only: store_error, ustop
     implicit none
     ! -- dummy variables
     type(ObserveType), pointer :: newObservation
@@ -329,7 +329,7 @@ contains
 !    SPECIFICATIONS:
 ! --------------------------------------------------------------------------
     use InputOutputModule, only: urword
-    use SimModule, only: store_error, ustop
+    use SimPHMFModule, only: store_error, ustop
     implicit none
     ! -- dummy variables
     type(ObserveType), pointer :: newObservation

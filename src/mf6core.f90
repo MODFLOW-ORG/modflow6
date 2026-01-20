@@ -18,6 +18,7 @@ module Mf6CoreModule
   use SolutionGroupModule, only: SolutionGroupType, GetSolutionGroupFromList
   use RunControlModule, only: RunControlType
   use SimStagesModule
+  use ProfilerModule
   implicit none
 
   class(RunControlType), pointer :: run_ctrl => null() !< the run controller for this simulation
@@ -72,6 +73,8 @@ contains
     use SimulationCreateModule, only: simulation_cr
     use SourceLoadModule, only: export_cr
 
+    call g_prof%pre_init()
+
     ! -- get the run controller for sequential or parallel builds
     run_ctrl => create_run_control()
     call run_ctrl%start()
@@ -85,6 +88,10 @@ contains
     ! -- load input context
     call static_input_load()
 
+    ! init timer and start
+    call g_prof%initialize()
+    call g_prof%start("Initialize", g_prof%tmr_init)
+
     ! -- create
     call simulation_cr()
 
@@ -97,6 +104,9 @@ contains
     ! -- create model exports
     call export_cr()
 
+    ! -- stop the timer
+    call g_prof%stop(g_prof%tmr_init)
+
   end subroutine Mf6Initialize
 
   !> @brief Run a time step
@@ -107,8 +117,9 @@ contains
     !!
   !<
   function Mf6Update() result(hasConverged)
-    ! -- return variable
     logical(LGP) :: hasConverged
+    ! start timer
+    call g_prof%start("Update", g_prof%tmr_update)
     !
     ! -- prepare timestep
     call Mf6PrepareTimestep()
@@ -118,7 +129,10 @@ contains
     !
     ! -- after timestep
     hasConverged = Mf6FinalizeTimestep()
-    !
+
+    ! stop timer
+    call g_prof%stop(g_prof%tmr_update)
+
   end function Mf6Update
 
   !> @brief Finalize the simulation
@@ -147,7 +161,11 @@ contains
     class(BaseModelType), pointer :: mp => null()
     class(BaseExchangeType), pointer :: ep => null()
     class(SpatialModelConnectionType), pointer :: mc => null()
-    !
+    integer(I4B) :: tmr_dealloc
+
+    ! start timer
+    call g_prof%start("Finalize", g_prof%tmr_finalize)
+
     !
     ! -- FINAL PROCESSING (FP)
     ! -- Final processing for each model
@@ -167,6 +185,11 @@ contains
       sp => GetBaseSolutionFromList(basesolutionlist, is)
       call sp%sln_fp()
     end do
+
+    ! start timer for deallocation
+    tmr_dealloc = -1
+    call g_prof%start("Deallocate", tmr_dealloc)
+
     !
     ! -- DEALLOCATE (DA)
     ! -- Deallocate tdis
@@ -211,10 +234,14 @@ contains
     call export_da()
     call simulation_da()
     call lists_da()
-    !
-    ! -- finish gently (No calls after this)
+
+    ! stop timer
+    call g_prof%stop(tmr_dealloc)
+
+    ! finish gently (No calls after this)
+    ! timer is stopped inside because this call does not return
     call run_ctrl%finish()
-    !
+
   end subroutine Mf6Finalize
 
   !> @brief print initial message
@@ -260,9 +287,6 @@ contains
     !
     call write_message(line)
     call write_listfile_header(iout)
-    !
-    ! -- return
-    return
   end subroutine create_lstfile
 
   !> @brief Create simulation input context
@@ -291,9 +315,6 @@ contains
     !
     ! -- load in scope exchanges
     call load_exchanges(iout)
-    !
-    ! -- return
-    return
   end subroutine static_input_load
 
   !> @brief Define the simulation
@@ -488,6 +509,7 @@ contains
     use SimModule, only: converge_reset
     use SimVariablesModule, only: isim_mode
     use IdmLoadModule, only: idm_rp
+    use SourceLoadModule, only: export_post_prepare
     ! -- local variables
     class(BaseModelType), pointer :: mp => null()
     class(BaseExchangeType), pointer :: ep => null()
@@ -499,6 +521,10 @@ contains
     integer(I4B) :: ie
     integer(I4B) :: ic
     integer(I4B) :: is
+
+    ! start timer
+    call g_prof%start("Prepare time step", g_prof%tmr_prep_tstp)
+
     !
     ! -- initialize fmt
     fmt = "(/,a,/)"
@@ -573,8 +599,14 @@ contains
       call sp%sln_dt()
     end do
     !
+    ! -- update exports
+    call export_post_prepare()
+    !
     ! -- set time step
     call tdis_set_timestep()
+
+    ! stop timer
+    call g_prof%stop(g_prof%tmr_prep_tstp)
 
   end subroutine Mf6PrepareTimestep
 
@@ -598,6 +630,9 @@ contains
     integer(I4B) :: isg
     logical :: finishedTrying
 
+    ! start timer
+    call g_prof%start("Do time step", g_prof%tmr_do_tstp)
+
     ! -- By default, the solution groups will be solved once, and
     !    may fail.  But if adaptive stepping is active, then
     !    the solution groups may be solved over and over with
@@ -619,6 +654,9 @@ contains
       iFailedStepRetry = iFailedStepRetry + 1
 
     end do retryloop
+
+    ! stop timer
+    call g_prof%stop(g_prof%tmr_do_tstp)
 
   end subroutine Mf6DoTimestep
 
@@ -653,9 +691,6 @@ contains
       call converge_reset()
 
     end if
-    !
-    ! -- return
-    return
   end subroutine sim_step_retry
 
   !> @brief Finalize time step
@@ -699,6 +734,10 @@ contains
     ! -- initialize format and line
     fmt = "(/,a,/)"
     line = 'end timestep'
+
+    ! start timer
+    call g_prof%start("Finalize time step", g_prof%tmr_final_tstp)
+
     !
     ! -- evaluate simulation mode
     select case (isim_mode)
@@ -710,6 +749,8 @@ contains
         call mp%model_message(line, fmt=fmt)
       end do
     case (MNORMAL)
+
+      call g_prof%start("Write output", g_prof%tmr_output)
       !
       ! -- Write output and final message for timestep for each model
       do im = 1, basemodellist%Count()
@@ -737,14 +778,18 @@ contains
       end do
       !
       ! -- update exports
+      call g_prof%start("NetCDF export", g_prof%tmr_nc_export)
       call export_post_step()
+      call g_prof%stop(g_prof%tmr_nc_export)
+
+      call g_prof%stop(g_prof%tmr_output)
     end select
     !
     ! -- Check if we're done
     call converge_check(hasConverged)
-    !
-    ! -- return
-    return
+
+    ! stop timer
+    call g_prof%stop(g_prof%tmr_final_tstp)
 
   end function Mf6FinalizeTimestep
 

@@ -16,8 +16,8 @@
         use ObsWriterModule, only: ObsWriterType
         use OpenSpecModule, only: ACCESS, ACTION, FORM
         use PackageWriterModule, only : PackageWriterType
-        use SimModule, only: store_error, store_note, store_warning,
-     &                       ustop
+        use SimPHMFModule, only: store_error, store_note, store_warning, 
+     &                           ustop
         use TdisWriterModule, only: TdisWriterType
         use UtilitiesModule, only: ConstantReal2D, Write1Drel,
      &                             Write2Drel

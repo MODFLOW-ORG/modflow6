@@ -20,7 +20,7 @@ module ChdPackageWriterModule
   use LineListModule, only: LineListType
   use ListModule, only: ListType
   use PackageWriterModule, only: PackageWriterType
-  use SimModule, only: store_note, store_error, ustop
+  use SimPHMFModule, only: store_note, store_error, ustop
   use TdisVariablesModule, only: GlobalTdisWriter
   use TimeSeriesRecordModule, only: TimeSeriesRecordType, &
                                     ConstructTimeSeriesRecord

@@ -1,0 +1,72 @@
+The CHF Model simulates one-dimensional routing of surface water through a channel network
+
+\subsection{Units of Length and Time}
+The CHF Model simulates surface water routing without using prescribed length and time units. Any consistent units of length and time can be used when specifying the input data for a simulation. This capability gives a certain amount of freedom to the user, but care must be exercised to avoid mixing units.  The program cannot detect the use of inconsistent units.
+
+\subsection{Flow Budget}
+A summary of all inflow (sources) and outflow (sinks) is called a flow budget.  \mf calculates a flow budget for the overall model as a check on the acceptability of the solution, and to provide a summary of the sources and sinks to the flow system.  The flow budget is printed to the CHF Model Listing File for selected time steps.
+
+\subsection{Time Stepping}
+
+For the present implementation of the CHF Model, all terms are solved implicitly using the Iterative Model Solution (IMS).  In \mf time step lengths are controlled by the user and specified in the Temporal Discretization (TDIS) input file.  Instructions for specifying time steps are described in the TDIS section of this user guide.  
+
+\newpage
+\subsection{CHF Model Name File}
+\input{chf/namefile.tex}
+
+\newpage
+\subsection{Discretization by Vertices in One Dimension (DISV1D) Package}
+\input{chf/disv1d}
+
+\newpage
+\subsection{Diffusive Wave (DFW) Package}
+\input{chf/dfw}
+
+\newpage
+\subsection{Cross Section (CXS) Package}
+\input{chf/cxs}
+
+\newpage
+\subsection{Storage (STO) Package}
+\input{chf/sto}
+
+\newpage
+\subsection{Initial Conditions (IC) Package}
+\input{chf/ic}
+
+\newpage
+\subsection{Output Control (OC) Option}
+\input{chf/oc}
+
+\newpage
+\subsection{Constant Head (CHD) Package}
+\input{chf/chd}
+
+\newpage
+\subsection{Inflow (FLW) Package}
+\input{chf/flw}
+
+\newpage
+\subsection{Precipitation (PCP) Package}
+\input{chf/pcp}
+
+\newpage
+\subsection{Evaporation (EVP) Package}
+\input{chf/evp}
+
+\newpage
+\subsection{Zero-Depth Gradient (ZDG) Package}
+\input{chf/zdg}
+
+\newpage
+\subsection{Critical Depth Boundary (CDB) Package}
+\input{chf/cdb}
+
+\newpage
+\subsection{Observation (OBS) Utility for a CHF Model}
+\input{chf/chf-obs}
+
+\newpage
+\subsection{Channel Model and Groundwater Flow Model (CHF-GWF) Exchange}
+\input{chf/chf-gwf}
+

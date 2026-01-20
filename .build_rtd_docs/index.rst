@@ -11,9 +11,9 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-   API Reference <https://modflow-usgs.github.io/modflow6/>
+   API Reference <https://MODFLOW-ORG.github.io/modflow6/>
    _mf6run/run-time-comparison.md
    _mf6run/deprecations.md
    mf6io
    dev
-
+   misc

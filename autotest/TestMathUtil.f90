@@ -1,11 +1,12 @@
 module TestMathUtil
   use KindModule, only: I4B, DP
-  use ConstantsModule, only: DNODATA, DZERO
+  use ConstantsModule, only: DNODATA, DZERO, DONE
   use testdrive, only: check, error_type, new_unittest, test_failed, &
                        to_string, unittest_type
   use MathUtilModule, only: f1d, is_close, mod_offset, &
                             zero_ch, zero_br, &
-                            get_perturbation
+                            get_perturbation, &
+                            arange, linspace
   implicit none
   private
   public :: collect_mathutil
@@ -25,7 +26,9 @@ contains
                 new_unittest("zero_br", &
                              test_zero_br), &
                 new_unittest("get_perturbation", &
-                             test_get_perturbation) &
+                             test_get_perturbation), &
+                new_unittest("arange", test_arange), &
+                new_unittest("linspace", test_linspace) &
                 ]
   end subroutine collect_mathutil
 
@@ -189,14 +192,17 @@ contains
     z = zero_ch(-1.0_DP, 1.0_DP, f, 0.001_DP)
     call check(error, is_close(z, 0.0_DP, atol=1d-6), &
                'expected 0, got: '//to_string(z))
+    if (allocated(error)) return
 
     z = zero_ch(-4.0_DP, -1.0_DP, f, 0.001_DP)
     call check(error, is_close(z, -pi, atol=1d-6), &
                'expected -pi, got: '//to_string(z))
+    if (allocated(error)) return
 
     z = zero_ch(1.0_DP, 4.0_DP, f, 0.001_DP)
     call check(error, is_close(z, pi, atol=1d-6), &
                'expected pi, got: '//to_string(z))
+    if (allocated(error)) return
   end subroutine test_zero_ch
 
   subroutine test_zero_br(error)
@@ -210,14 +216,17 @@ contains
     z = zero_br(-1.0_DP, 1.0_DP, f, 0.001_DP)
     call check(error, is_close(z, 0.0_DP, atol=1d-6), &
                'expected 0, got: '//to_string(z))
+    if (allocated(error)) return
 
     z = zero_br(-4.0_DP, -1.0_DP, f, 0.001_DP)
     call check(error, is_close(z, -pi, atol=1d-6), &
                'expected -pi, got: '//to_string(z))
+    if (allocated(error)) return
 
     z = zero_br(1.0_DP, 4.0_DP, f, 0.001_DP)
     call check(error, is_close(z, pi, atol=1d-6), &
                'expected pi, got: '//to_string(z))
+    if (allocated(error)) return
   end subroutine test_zero_br
 
   subroutine test_get_perturbation(error)
@@ -231,6 +240,7 @@ contains
     call check(error, &
                is_close(v1, v2, atol=1d-12), &
                'expected '//to_string(v1)//' got: '//to_string(v2))
+    if (allocated(error)) return
 
     ! test derivative calculation for sin(x) where x=1
     x = 1.d0
@@ -240,6 +250,7 @@ contains
     call check(error, &
                is_close(v1, v2, atol=1d-5), &
                'expected '//to_string(v1)//' got: '//to_string(v2))
+    if (allocated(error)) return
 
     ! test derivative calculation for sin(x) where x=0
     x = 0.d0
@@ -249,6 +260,7 @@ contains
     call check(error, &
                is_close(v1, v2, atol=1d-5), &
                'expected '//to_string(v1)//' got: '//to_string(v2))
+    if (allocated(error)) return
 
     ! test derivative calculation for x ** 2
     x = 1.d6
@@ -258,7 +270,48 @@ contains
     call check(error, &
                is_close(v1, v2, atol=1d-1), &
                'expected '//to_string(v1)//' got: '//to_string(v2))
+    if (allocated(error)) return
 
   end subroutine test_get_perturbation
+
+  subroutine test_arange(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP), allocatable :: a(:)
+    integer(I4B) :: i
+
+    a = arange(DZERO, 10.0_DP, DONE)
+    call check(error, size(a) == 10, "wrong size: "//to_string(size(a)))
+    if (allocated(error)) return
+    do i = 1, 10
+      call check(error, is_close(a(i), real(i - 1, DP)))
+      if (allocated(error)) return
+    end do
+
+    deallocate (a)
+
+    a = arange(DZERO, DONE, 0.1_DP)
+    call check(error, size(a) == 10, "wrong size: "//to_string(size(a)))
+    if (allocated(error)) return
+    do i = 1, 10
+      call check(error, is_close(a(i), real(i - 1, DP) / 10.0_DP))
+      if (allocated(error)) return
+    end do
+
+  end subroutine test_arange
+
+  subroutine test_linspace(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP), allocatable :: a(:)
+    integer(I4B) :: i
+
+    a = linspace(DONE, 10.0_DP, 10)
+    call check(error, size(a) == 10)
+    if (allocated(error)) return
+    do i = 1, 10
+      call check(error, is_close(a(i), real(i, DP)))
+      if (allocated(error)) return
+    end do
+
+  end subroutine test_linspace
 
 end module TestMathUtil

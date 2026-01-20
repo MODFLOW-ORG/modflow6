@@ -5,7 +5,7 @@
         use InputOutputModule, only: GetUnit
         use LGRMODULE, only: SGWF2LGR2PNT, SGWF2LGR2PSV
         use OpenSpecModule, only: ACCESS, ACTION, FORM
-        use SimModule, only: ustop
+        use SimPHMFModule, only: ustop
         use UtilitiesModule, only: GetArgs
         use utl7module, only: URDCOM, URWORD
 

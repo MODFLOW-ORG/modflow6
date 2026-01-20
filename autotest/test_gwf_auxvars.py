@@ -36,9 +36,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
@@ -75,9 +73,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=True, icelltype=1, k=1.0, k33=0.01
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=True, icelltype=1, k=1.0, k33=0.01)
     # storage
     sto = flopy.mf6.ModflowGwfsto(
         gwf,
@@ -122,7 +118,8 @@ def build_models(idx, test):
     )
     # maw.remove()
 
-    # <rno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> <man> <ncon> <ustrf> <ndv> [<aux(naux)>] [<boundname>]
+    # <rno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> ...
+    #       <man> <ncon> <ustrf> <ndv> [<aux(naux)>] [<boundname>]
     packagedata = [
         [
             0,
@@ -179,7 +176,8 @@ def build_models(idx, test):
         [0, 100.0, 1, auxvar1, auxvar2, "lake1"],
         [1, 100.0, 1, auxvar1, auxvar2, "lake2"],
     ]
-    # <ifno> <iconn> <cellid(ncelldim)> <claktype> <bedleak> <belev> <telev> <connlen> <connwidth>
+    # <ifno> <iconn> <cellid(ncelldim)> <claktype> <bedleak> <belev> <telev> ...
+    #        <connlen> <connwidth>
     connectiondata = [
         [0, 0, (0, 1, 1), "vertical", DNODATA, 0.0, 0.0, 0.0, 0.0],
         [1, 0, (0, 2, 2), "vertical", DNODATA, 0.0, 0.0, 0.0, 0.0],
@@ -200,7 +198,8 @@ def build_models(idx, test):
     )
     # lak.remove()
 
-    # <ifno> <cellid(ncelldim)> <landflag> <ivertcon> <surfdep> <vks> <thtr> <thts> <thti> <eps> [<boundname>]
+    # <ifno> <cellid(ncelldim)> <landflag> <ivertcon> <surfdep> <vks> ...
+    #        <thtr> <thts> <thti> <eps> [<boundname>]
     packagedata = [
         [0, (0, nrow - 1, 5), 1, -1, 0.1, 0.01, 0.01, 0.1, 0.01, 3.5, "uz1"],
         [1, (0, nrow - 1, 6), 1, -1, 0.1, 0.01, 0.01, 0.1, 0.01, 3.5, "uz1"],
@@ -210,9 +209,7 @@ def build_models(idx, test):
     # <ifno> <finf> <pet> <extdp> <extwc> <ha> <hroot> <rootact> [<aux(naux)>]
     perioddata = []
     for p in packagedata:
-        perioddata.append(
-            (p[0], 0.001, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, auxvar1, auxvar2)
-        )
+        perioddata.append((p[0], 0.001, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, auxvar1, auxvar2))
     uzf = flopy.mf6.ModflowGwfuzf(
         gwf,
         boundnames=True,

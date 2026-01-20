@@ -5,8 +5,15 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["henry01-gwtgwt-ups", "henry01-gwtgwt-cen", "henry01-gwtgwt-tvd"]
-advection_scheme = ["UPSTREAM", "CENTRAL", "TVD"]
+cases = [
+    pytest.param(0, "henry01-gwtgwt-ups"),
+    pytest.param(1, "henry01-gwtgwt-cen"),
+    pytest.param(2, "henry01-gwtgwt-tvd"),
+    pytest.param(3, "henry01-gwtgwt-utvd"),
+]
+
+
+advection_scheme = ["upstream", "central", "tvd", "utvd"]
 
 lx = 2.0
 lz = 1.0
@@ -80,10 +87,7 @@ def get_gwf_model(sim, model_shape, model_desc):
     )
 
     pd = [(0, 0.7, 0.0, gwtname, "none")]
-    _ = flopy.mf6.ModflowGwfbuy(
-        gwf,
-        packagedata=pd,
-    )
+    _ = flopy.mf6.ModflowGwfbuy(gwf, packagedata=pd)
 
     def chd_value(k):
         # depth = k * delz + 0.5 * delz
@@ -168,9 +172,7 @@ def get_gwt_model(sim, model_shape, model_desc, adv_scheme):
     _ = flopy.mf6.ModflowGwtic(gwt, strt=35.0, filename=f"{gwtname}.ic")
 
     # advection
-    _ = flopy.mf6.ModflowGwtadv(
-        gwt, scheme=adv_scheme, filename=f"{gwtname}.adv"
-    )
+    _ = flopy.mf6.ModflowGwtadv(gwt, scheme=adv_scheme, filename=f"{gwtname}.adv")
 
     # dispersion
     diffc = 0.57024
@@ -184,9 +186,7 @@ def get_gwt_model(sim, model_shape, model_desc, adv_scheme):
 
     # mass storage and transfer
     porosity = 0.35
-    _ = flopy.mf6.ModflowGwtmst(
-        gwt, porosity=porosity, filename=f"{gwtname}.sto"
-    )
+    _ = flopy.mf6.ModflowGwtmst(gwt, porosity=porosity, filename=f"{gwtname}.sto")
 
     # sources
     if model_desc == "right":
@@ -203,18 +203,14 @@ def get_gwt_model(sim, model_shape, model_desc, adv_scheme):
             ("CHD-1", "AUX", "CONCENTRATION"),
         ]
 
-    _ = flopy.mf6.ModflowGwtssm(
-        gwt, sources=sourcerecarray, filename=f"{gwtname}.ssm"
-    )
+    _ = flopy.mf6.ModflowGwtssm(gwt, sources=sourcerecarray, filename=f"{gwtname}.ssm")
 
     # output control
     _ = flopy.mf6.ModflowGwtoc(
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -222,8 +218,7 @@ def get_gwt_model(sim, model_shape, model_desc, adv_scheme):
     return gwt
 
 
-def build_models(idx, test):
-    name = cases[idx]
+def build_models(idx, name, test):
     print("RUINNING: ", name, advection_scheme[idx])
 
     # build MODFLOW 6 files
@@ -235,9 +230,7 @@ def build_models(idx, test):
         sim_ws=ws,
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create flow models and GWF-GWF exchange
     gwf_ref = get_gwf_model(sim, (nlay, nrow, ncol), "ref")
@@ -259,9 +252,7 @@ def build_models(idx, test):
         relaxation_factor=relax,
         filename="gwf.ims",
     )
-    sim.register_ims_package(
-        imsgwf_ref, [gwf_ref.name, gwf_left.name, gwf_right.name]
-    )
+    sim.register_ims_package(imsgwf_ref, [gwf_ref.name, gwf_left.name, gwf_right.name])
 
     angldegx = 0.0
     cdist = delr
@@ -290,12 +281,8 @@ def build_models(idx, test):
     )
 
     # create transport models and GWT-GWT exchange
-    gwt_ref = get_gwt_model(
-        sim, (nlay, nrow, ncol), "ref", advection_scheme[idx]
-    )
-    gwt_left = get_gwt_model(
-        sim, (nlay, nrow, ncol_sub), "left", advection_scheme[idx]
-    )
+    gwt_ref = get_gwt_model(sim, (nlay, nrow, ncol), "ref", advection_scheme[idx])
+    gwt_left = get_gwt_model(sim, (nlay, nrow, ncol_sub), "left", advection_scheme[idx])
     gwt_right = get_gwt_model(
         sim, (nlay, nrow, ncol_sub), "right", advection_scheme[idx]
     )
@@ -315,9 +302,7 @@ def build_models(idx, test):
         relaxation_factor=relax,
         filename="gwt.ims",
     )
-    sim.register_ims_package(
-        imsgwt_ref, [gwt_ref.name, gwt_left.name, gwt_right.name]
-    )
+    sim.register_ims_package(imsgwt_ref, [gwt_ref.name, gwt_left.name, gwt_right.name])
 
     _ = flopy.mf6.ModflowGwtgwt(
         sim,
@@ -378,32 +363,28 @@ def check_output(idx, test):
 
     # compare heads
     maxdiff = np.amax(abs(heads - heads_gwfgwf))
-    assert maxdiff < 10 * hclose, "Max. head diff. {} should \
-        be within solver tolerance (x10): {}".format(maxdiff, 10 * hclose)
+    assert maxdiff < 10 * hclose, (
+        f"Max. head diff. {maxdiff} should \
+        be within solver tolerance (x10): {10 * hclose}"
+    )
 
     fpth = os.path.join(test.workspace, "gwt_ref.ucn")
     try:
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
         conc_ref = cobj.get_data()
     except:
         assert False, f'could not load data from "{fpth}"'
 
     fpth = os.path.join(test.workspace, "gwt_left.ucn")
     try:
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
         conc_left = cobj.get_data()
     except:
         assert False, f'could not load data from "{fpth}"'
 
     fpth = os.path.join(test.workspace, "gwt_right.ucn")
     try:
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
         conc_right = cobj.get_data()
     except:
         assert False, f'could not load data from "{fpth}"'
@@ -412,18 +393,20 @@ def check_output(idx, test):
     conc_gwtgwt = np.append(conc_left, conc_right, axis=2)
 
     maxdiff = np.amax(abs(conc_gwtgwt - conc_ref))
-    assert maxdiff < conc_tol, "Max. concentration diff. {} should \
-        be within solver tolerance (x10): {}".format(maxdiff, conc_tol)
+    assert maxdiff < conc_tol, (
+        f"Max. concentration diff. {maxdiff} should \
+        be within solver tolerance (x10): {conc_tol}"
+    )
 
 
-@pytest.mark.parametrize("idx, name", enumerate(cases))
+@pytest.mark.parametrize("idx, name", cases)
 @pytest.mark.developmode
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
-        build=lambda t: build_models(idx, t),
+        build=lambda t: build_models(idx, name, t),
         check=lambda t: check_output(idx, t),
     )
     test.run()

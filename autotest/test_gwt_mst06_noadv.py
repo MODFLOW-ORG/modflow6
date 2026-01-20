@@ -40,9 +40,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwt model
     gwtname = "gwt_" + name
@@ -89,9 +87,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwtic(gwt, strt=8.0, filename=f"{gwtname}.ic")
 
     # mass storage and transfer
-    mst = flopy.mf6.ModflowGwtmst(
-        gwt, porosity=0.1, zero_order_decay=True, decay=1.0
-    )
+    mst = flopy.mf6.ModflowGwtmst(gwt, porosity=0.1, zero_order_decay=True, decay=1.0)
 
     srcs = {0: [[(0, 0, 0), 0.00]]}
     src = flopy.mf6.ModflowGwtsrc(
@@ -107,9 +103,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.bud",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -128,11 +122,10 @@ def check_output(idx, test):
     # The answer
     # print(conc[:, 1])
     cres = np.array([7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0, 0.0, 0.0])
-    msg = (
-        "simulated concentrations do not match with known "
-        "solution. {} {}".format(conc[:, 1], cres)
+    assert np.allclose(cres, conc[:, 1]), (
+        "simulated concentrations do not match with known solution. "
+        f"{conc[:, 1]} {cres}"
     )
-    assert np.allclose(cres, conc[:, 1]), msg
 
     # Check budget file
     fpth = os.path.join(test.workspace, f"{gwtname}.bud")
@@ -142,23 +135,11 @@ def check_output(idx, test):
         assert False, f'could not load data from "{fpth}"'
     decay_list = bobj.get_data(text="DECAY-AQUEOUS")
     decay_rate = [dr[0] for dr in decay_list]
-    decay_rate_answer = [
-        -8.4,
-        -8.4,
-        -8.4,
-        -8.4,
-        -8.4,
-        -8.4,
-        -8.4,
-        -8.4,
-        0.0,
-        0.0,
-    ]
-    msg = (
-        "simulated decay rates do not match with known "
-        "solution. {} {}".format(decay_rate, decay_rate_answer)
+    decay_rate_answer = [-8.4, -8.4, -8.4, -8.4, -8.4, -8.4, -8.4, -8.4, 0.0, 0.0]
+    assert np.allclose(decay_rate, decay_rate_answer), (
+        "simulated decay rates do not match with known solution. "
+        f"{decay_rate} {decay_rate_answer}"
     )
-    assert np.allclose(decay_rate, decay_rate_answer), msg
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

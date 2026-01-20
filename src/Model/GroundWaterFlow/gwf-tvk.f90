@@ -58,9 +58,6 @@ contains
     !
     allocate (tvk)
     call tvk%init(name_model, 'TVK', 'TVK', inunit, iout)
-    !
-    ! -- Return
-    return
   end subroutine tvk_cr
 
   !> @brief Announce package and set pointers to variables
@@ -92,9 +89,6 @@ contains
     call mem_setptr(this%kchangeper, 'KCHANGEPER', npfMemoryPath)
     call mem_setptr(this%kchangestp, 'KCHANGESTP', npfMemoryPath)
     call mem_setptr(this%nodekchange, 'NODEKCHANGE', npfMemoryPath)
-    !
-    ! -- Return
-    return
   end subroutine tvk_ar_set_pointers
 
   !> @brief Read a TVK-specific option from the OPTIONS block
@@ -111,9 +105,6 @@ contains
     !
     ! -- There are no TVK-specific options, so just return false
     success = .false.
-    !
-    ! -- Return
-    return
   end function tvk_read_option
 
   !> @brief Get an array value pointer given a variable name and node index
@@ -139,9 +130,6 @@ contains
     case default
       bndElem => null()
     end select
-    !
-    ! -- Return
-    return
   end function tvk_get_pointer_to_value
 
   !> @brief Mark property changes as having occurred at (kper, kstp)
@@ -157,9 +145,6 @@ contains
     !
     this%kchangeper = kper
     this%kchangestp = kstp
-    !
-    ! -- Return
-    return
   end subroutine tvk_set_changed_at
 
   !> @brief Clear all per-node change flags
@@ -178,9 +163,6 @@ contains
     do i = 1, this%dis%nodes
       this%nodekchange(i) = 0
     end do
-    !
-    ! -- Return
-    return
   end subroutine tvk_reset_change_flags
 
   !> @brief Check that a given property value is valid
@@ -234,9 +216,6 @@ contains
         call store_error(errmsg)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine tvk_validate_change
 
   !> @brief Deallocate package memory
@@ -259,9 +238,6 @@ contains
     !
     ! -- Deallocate parent
     call tvbase_da(this)
-    !
-    ! -- Return
-    return
   end subroutine tvk_da
 
 end module TvkModule

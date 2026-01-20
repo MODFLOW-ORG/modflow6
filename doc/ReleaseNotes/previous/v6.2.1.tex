@@ -1,4 +1,4 @@
-	\subsection{Version mf6.2.1--February 18, 2021}
+	\subsection{Version mf6.2.1---February 18, 2021}
 
 	\underline{NEW FUNCTIONALITY}
 	\begin{itemize}
@@ -27,7 +27,7 @@
 	        \item Budget terms for the Immobile domain Storage and Transfer (IST) Package were not being written to the binary budget file for the GWT Model.  The package was modified to write these rate terms to the GWT binary budget file using the settings specified in the GWT Output Control file.
 	        \item Bulk density does not need to be specified for the Immobile domain Storage and Transfer (IST) Package if sorption is not active; however the program was trying to access bulk density even though it is not needed, which resulted in an access violation.  Program was fixed so that bulk density does not need to be specified by the user unless sorption is active for the IST Package.
 	        \item Budget tables printed to the listing file had numeric values that were missing the `E` character if the exponent had three digits (e.g. 1.e-100 or 1.e100).  Writing of the budget table was modified to include the `E` character in this case.  This change should make it easier for programs written in other languages to parse these tables.
-	        \item In the Mass Transfer and Storage (MST) and the Immobile Storage and Transfer (IST) Packages, the keyword to activate sorption was changed from SORBTION to SORPTION.  The program will still accept SORBTION, but this keyword will be deprecated in the future.
+	        \item In the Mobile Transfer and Storage (MST) and the Immobile Storage and Transfer (IST) Packages, the keyword to activate sorption was changed from SORBTION to SORPTION.  The program will still accept SORBTION, but this keyword will be deprecated in the future.
 	        \item Revised several of the text strings written to the headers within the GWT binary budget file.  A table of possible text strings for the GWT binary budget file are now included in the mf6io.pdf document.
 	\end{itemize}
 

@@ -90,16 +90,12 @@ np_data = {
         "n": np.array([roughness] * 3, dtype=float),
     },
     xsect_types[7]: {
-        "x": np.array(
-            [0.0, 0.2 * rwid, 0.5 * rwid, 0.7 * rwid, rwid], dtype=float
-        ),
+        "x": np.array([0.0, 0.2 * rwid, 0.5 * rwid, 0.7 * rwid, rwid], dtype=float),
         "h": np.array([1.0, 0.0, 0.5, 0.0, 1.0], dtype=float),
         "n": np.array([roughness] * 5, dtype=float),
     },
     xsect_types[8]: {
-        "x": np.array(
-            [0.0, 0.1 * rwid, 0.5 * rwid, 0.9 * rwid, rwid], dtype=float
-        ),
+        "x": np.array([0.0, 0.1 * rwid, 0.5 * rwid, 0.9 * rwid, rwid], dtype=float),
         "h": np.array([1.0, 1.0, 0.0, 1.0, 1.0], dtype=float),
         "n": np.array([roughness] * 5, dtype=float),
     },
@@ -143,10 +139,7 @@ def build_models(idx, test):
     )
 
     # create iterative model solution and register the gwf model with it
-    ims = flopy.mf6.ModflowIms(
-        sim,
-        print_option="ALL",
-    )
+    ims = flopy.mf6.ModflowIms(sim, print_option="ALL")
 
     # create gwf model
     gwf = flopy.mf6.ModflowGwf(
@@ -178,9 +171,7 @@ def build_models(idx, test):
     spd = [
         [(0, 0, 0), 0.0],
     ]
-    chd = flopy.mf6.modflow.ModflowGwfchd(
-        gwf, stress_period_data=spd, pname="chd-1"
-    )
+    chd = flopy.mf6.modflow.ModflowGwfchd(gwf, stress_period_data=spd, pname="chd-1")
 
     # sfr file
     packagedata = []
@@ -264,9 +255,7 @@ def build_models(idx, test):
             ("area", "wet-area", (nreaches - 1,)),
         ]
     }
-    sfr.obs.initialize(
-        filename=fname, digits=25, print_input=True, continuous=sfr_obs
-    )
+    sfr.obs.initialize(filename=fname, digits=25, print_input=True, continuous=sfr_obs)
     if crosssections is not None:
         stations = np_data[xsect_type]["x"] / rwid
         heights = np_data[xsect_type]["h"]
@@ -300,19 +289,15 @@ def check_output(idx, test):
     obs_pth = os.path.join(test.workspace, f"{test.name}.sfr.obs.csv")
     obs = flopy.utils.Mf6Obs(obs_pth).get_data()
 
-    assert np.allclose(
-        obs["INFLOW"], np.abs(obs["OUTFLOW"])
-    ), "inflow not equal to outflow"
+    assert np.allclose(obs["INFLOW"], np.abs(obs["OUTFLOW"])), (
+        "inflow not equal to outflow"
+    )
 
     xs_type = xsect_types[idx]
     xs_d = np_data[xs_type]
 
     d = get_depths(
-        obs["INFLOW"],
-        xs_d["x"],
-        xs_d["h"],
-        roughness=xs_d["n"],
-        slope=slope,
+        obs["INFLOW"], xs_d["x"], xs_d["h"], roughness=xs_d["n"], slope=slope
     )
 
     assert np.allclose(obs["DEPTH"], d), (

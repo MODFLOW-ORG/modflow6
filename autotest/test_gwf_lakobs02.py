@@ -48,9 +48,7 @@ def build_models(idx, test):
     )
 
     # create gwf model
-    gwf = flopy.mf6.ModflowGwf(
-        sim, modelname=name
-    )  # , newtonoptions="newton")
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=name)  # , newtonoptions="newton")
 
     imsgwf = flopy.mf6.ModflowIms(
         sim,
@@ -91,12 +89,7 @@ def build_models(idx, test):
     ss = 0.0
     sto = flopy.mf6.ModflowGwfsto(gwf, sy=sy, ss=ss, iconvert=1)
 
-    lake_connect = [
-        (0, 1),
-        (1, 0),
-        (1, 2),
-        (2, 1),
-    ]
+    lake_connect = [(0, 1), (1, 0), (1, 2), (2, 1)]
     nlakeconn = len(lake_connect) + 1
 
     # pak_data = [ifno, strt, nlakeconn]
@@ -105,32 +98,10 @@ def build_models(idx, test):
     bedleak = DNODATA
     belev = botm[0]
     con_data = [
-        (
-            0,
-            idx,
-            (0, i, j),
-            "HORIZONTAL",
-            bedleak,
-            belev,
-            top,
-            delr / 2.0,
-            delr,
-        )
+        (0, idx, (0, i, j), "HORIZONTAL", bedleak, belev, top, delr / 2.0, delr)
         for idx, (i, j) in enumerate(lake_connect)
     ]
-    con_data.append(
-        (
-            0,
-            4,
-            (1, 1, 1),
-            "VERTICAL",
-            bedleak,
-            belev,
-            top,
-            0.0,
-            0.0,
-        )
-    )
+    con_data.append((0, 4, (1, 1, 1), "VERTICAL", bedleak, belev, top, 0.0, 0.0))
 
     # outlet data
     outlet_data = [
@@ -209,9 +180,9 @@ def check_output(idx, test):
         "O3": [-1.0],
     }
     for key, value in test_values.items():
-        assert np.array_equal(
-            obs_values.get_data(obsname=key)[key], value
-        ), f"failed comparison for '{key}' observation"
+        assert np.array_equal(obs_values.get_data(obsname=key)[key], value), (
+            f"failed comparison for '{key}' observation"
+        )
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

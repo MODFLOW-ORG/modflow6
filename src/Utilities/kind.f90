@@ -55,9 +55,6 @@ contains
     write (iout, '(/a)') 'Logical Variables'
     write (iout, '(2x,a,i0)') 'KIND: ', LGP
     write (iout, '(2x,a,i0)') 'SIZE IN BITS: ', bit_size(ldum)
-    !
-    ! -- Return
-    return
   end subroutine write_kindinfo
 
 end module KindModule

@@ -1,0 +1,83 @@
+
+\begingroup
+\makeatletter
+\ifx\LT@ii\@undefined\else
+\def\LT@entry#1#2{\noexpand\LT@entry{-#1}{#2}}
+\xdef\LT@i{\LT@ii}
+\fi
+\endgroup
+
+% model observations
+\begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
+\caption{Available observation types for the CHF Model} \tabularnewline
+
+\hline
+\hline
+\textbf{Model} & \textbf{Observation types} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+\hline
+\endfirsthead
+
+\captionsetup{textformat=simple}
+\caption*{\textbf{Table \arabic{table}.}{\quad}List of symbols used in this report.---Continued} \\
+
+\hline
+\hline
+\textbf{Model} & \textbf{Observation types} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+\hline
+\endhead
+
+\hline
+\endfoot
+
+\input{../Common/chf-obs.tex}
+\end{longtable}
+\addtocounter{table}{-1}
+
+% stress packages
+\begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
+\hline
+\hline
+\textbf{Stress Package} & \textbf{Observation type} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+\hline
+\endfirsthead
+
+\captionsetup{textformat=simple}
+\caption*{\textbf{Table \arabic{table}.}{\quad}Available CHF observation types.---Continued} \\
+
+\hline
+\hline
+\textbf{Stress Package} & \textbf{Observation types} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+\hline
+\endhead
+
+\hline
+\endfoot
+
+\label{table:chf-obstypetable}
+\end{longtable}
+\addtocounter{table}{-1}
+
+% exchange
+\begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
+\hline
+\hline
+\textbf{Exchange} & \textbf{Observation type} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+\hline
+\endfirsthead
+
+\captionsetup{textformat=simple}
+\caption*{\textbf{Table \arabic{table}.}{\quad}Available CHF observation types.---Continued} \\
+
+\hline
+\hline
+\textbf{Exchange} & \textbf{Observation types} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+\hline
+\endhead
+
+\hline
+\endfoot
+
+\input{../Common/chf-chfobs.tex}
+\end{longtable}
+
+\normalsize

@@ -158,7 +158,7 @@ subroutine process_budget(iunit_csv, iunit_bud, iunit_zon, iunit_grb)
                         zone_finalize, nmznfl, vbvl, vbznfl, maxzone
   use ZoneOutputModule, only: zoneoutput_init, zoneoutput_write, &
                               zoneoutput_finalize
-  use GrbModule, only: read_grb
+  use GridFileReaderModule, only: GridFileReaderType
   use MessageModule, only: write_message, write_message_centered
   implicit none
   ! -- dummy
@@ -181,6 +181,7 @@ subroutine process_budget(iunit_csv, iunit_bud, iunit_zon, iunit_grb)
   logical :: success
   logical :: hasiaja = .false.
   logical :: foundchd = .false.
+  type(GridFileReaderType) :: gfr
 ! ------------------------------------------------------------------------------
   !
   ! -- initialize local variables
@@ -195,7 +196,11 @@ subroutine process_budget(iunit_csv, iunit_bud, iunit_zon, iunit_grb)
     inquire (unit=iunit_grb, opened=opengrb)
     if (opengrb) then
       hasiaja = .true.
-      call read_grb(iunit_grb, ia, ja, mshape)
+      call gfr%initialize(iunit_grb)
+      mshape = gfr%read_grid_shape()
+      ia = gfr%read_int_1d("IA")
+      ja = gfr%read_int_1d("JA")
+      call gfr%finalize()
       ncrgrb = size(ia) - 1
     else
       errmsg = 'BUDGET FILE HAS "FLOW-JA-FACE" RECORD BUT NO GRB FILE SPECIFIED.'

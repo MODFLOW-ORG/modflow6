@@ -4,7 +4,7 @@ module PrtModule
   use InputOutputModule, only: ParseLine, upcase, lowcase
   use ConstantsModule, only: LENFTYPE, LENMEMPATH, DZERO, DONE, &
                              LENPAKLOC, LENPACKAGETYPE, LENBUDTXT, MNORMAL, &
-                             LINELENGTH
+                             LINELENGTH, LENAUXNAME
   use VersionModule, only: write_listfile_header
   use NumericalModelModule, only: NumericalModelType
   use BaseModelModule, only: BaseModelType
@@ -18,11 +18,16 @@ module PrtModule
   use PrtOcModule, only: PrtOcType
   use BudgetModule, only: BudgetType
   use ListModule, only: ListType
-  use ParticleModule, only: ParticleType, create_particle
-  use TrackModule, only: TrackFileControlType, TrackFileType
+  use ParticleModule, only: ParticleType, create_particle, ACTIVE, TERM_UNRELEASED
+  use ParticleEventsModule, only: ParticleEventDispatcherType, &
+                                  ParticleEventConsumerType
+  use ParticleTracksModule, only: ParticleTracksType, &
+                                  ParticleTrackFileType
   use SimModule, only: count_errors, store_error, store_error_filename
   use MemoryManagerModule, only: mem_allocate
-  use MethodModule, only: MethodType
+  use MethodModule, only: MethodType, LEVEL_FEATURE
+  use HashTableModule, only: HashTableType, hash_table_cr, hash_table_da
+  use ArrayHandlersModule, only: ExpandArray
 
   implicit none
 
@@ -32,9 +37,9 @@ module PrtModule
   public :: PRT_NBASEPKG, PRT_NMULTIPKG
   public :: PRT_BASEPKG, PRT_MULTIPKG
 
-  integer(I4B), parameter :: NBDITEMS = 1
+  integer(I4B), parameter :: NBDITEMS = 2
   character(len=LENBUDTXT), dimension(NBDITEMS) :: budtxt
-  data budtxt/'         STORAGE'/
+  data budtxt/'         STORAGE', '     TERMINATION'/
 
   !> @brief Particle tracking (PRT) model
   type, extends(NumericalModelType) :: PrtModelType
@@ -43,7 +48,8 @@ module PrtModule
     type(PrtOcType), pointer :: oc => null() ! output control package
     type(BudgetType), pointer :: budget => null() ! budget object
     class(MethodType), pointer :: method => null() ! tracking method
-    type(TrackFileControlType), pointer :: trackfilectl ! track file control
+    type(ParticleEventDispatcherType), pointer :: events => null() ! event dispatcher
+    class(ParticleTracksType), pointer :: tracks ! track output manager
     integer(I4B), pointer :: infmi => null() ! unit number FMI
     integer(I4B), pointer :: inmip => null() ! unit number MIP
     integer(I4B), pointer :: inmvt => null() ! unit number MVT
@@ -56,8 +62,11 @@ module PrtModule
     real(DP), dimension(:), pointer, contiguous :: masssto => null() !< particle mass storage in cells, new value
     real(DP), dimension(:), pointer, contiguous :: massstoold => null() !< particle mass storage in cells, old value
     real(DP), dimension(:), pointer, contiguous :: ratesto => null() !< particle mass storage rate in cells
+    real(DP), dimension(:), pointer, contiguous :: masstrm => null() !< particle mass terminating in cells, new value
+    real(DP), dimension(:), pointer, contiguous :: ratetrm => null() !< particle mass termination rate in cells
+    type(HashTableType), pointer :: trm_ids => null() !< terminated particle ids
   contains
-    ! -- Override BaseModelType procs
+    ! Override BaseModelType procs
     procedure :: model_df => prt_df
     procedure :: model_ar => prt_ar
     procedure :: model_rp => prt_rp
@@ -68,7 +77,7 @@ module PrtModule
     procedure :: model_da => prt_da
     procedure :: model_solve => prt_solve
 
-    ! -- Private utilities
+    ! Private utilities
     procedure :: allocate_scalars
     procedure :: allocate_arrays
     procedure, private :: package_create
@@ -78,7 +87,7 @@ module PrtModule
     procedure, private :: prt_ot_printflow
     procedure, private :: prt_ot_dv
     procedure, private :: prt_ot_bdsummary
-    procedure, private :: prt_cq_sto
+    procedure, private :: prt_cq_budterms
     procedure, private :: create_packages
     procedure, private :: create_bndpkgs
     procedure, private :: log_namfile_options
@@ -109,14 +118,14 @@ module PrtModule
   data PRT_MULTIPKG/'PRP6 ', '     ', '     ', '     ', '     ', & !  5
                    &45*'     '/ ! 50
 
-  ! -- size of supported model package arrays
+  ! size of supported model package arrays
   integer(I4B), parameter :: NIUNIT_PRT = PRT_NBASEPKG + PRT_NMULTIPKG
 
 contains
 
   !> @brief Create a new particle tracking model object
   subroutine prt_cr(filename, id, modelname)
-    ! -- modules
+    ! modules
     use ListsModule, only: basemodellist
     use BaseModelModule, only: AddBaseModelToList
     use ConstantsModule, only: LINELENGTH, LENPACKAGENAME
@@ -124,42 +133,43 @@ contains
     use MemoryHelperModule, only: create_mem_path
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
-    use GwfNamInputModule, only: GwfNamParamFoundType
-    ! -- dummy
+    use PrtNamInputModule, only: PrtNamParamFoundType
+    ! dummy
     character(len=*), intent(in) :: filename
     integer(I4B), intent(in) :: id
     character(len=*), intent(in) :: modelname
-    ! -- local
+    ! local
     type(PrtModelType), pointer :: this
     class(BaseModelType), pointer :: model
     character(len=LENMEMPATH) :: input_mempath
     character(len=LINELENGTH) :: lst_fname
-    type(GwfNamParamFoundType) :: found
+    type(PrtNamParamFoundType) :: found
 
-    ! -- Allocate a new PRT Model (this)
+    ! Allocate a new PRT Model (this)
     allocate (this)
 
-    ! -- Set this before any allocs in the memory manager can be done
+    ! Set this before any allocs in the memory manager can be done
     this%memoryPath = create_mem_path(modelname)
 
-    ! -- Allocate track control object
-    allocate (this%trackfilectl)
+    ! Allocate event system and track output manager
+    allocate (this%events)
+    allocate (this%tracks)
 
-    ! -- Allocate scalars and add model to basemodellist
+    ! Allocate scalars and add model to basemodellist
     call this%allocate_scalars(modelname)
     model => this
     call AddBaseModelToList(basemodellist, model)
 
-    ! -- Assign variables
+    ! Assign variables
     this%filename = filename
     this%name = modelname
     this%macronym = 'PRT'
     this%id = id
 
-    ! -- Set input model namfile memory path
+    ! Set input model namfile memory path
     input_mempath = create_mem_path(modelname, 'NAM', idm_context)
 
-    ! -- Copy options from input context
+    ! Copy options from input context
     call mem_set_value(this%iprpak, 'PRINT_INPUT', input_mempath, &
                        found%print_input)
     call mem_set_value(this%iprflow, 'PRINT_FLOWS', input_mempath, &
@@ -167,22 +177,26 @@ contains
     call mem_set_value(this%ipakcb, 'SAVE_FLOWS', input_mempath, &
                        found%save_flows)
 
-    ! -- Create the list file
+    ! Create the list file
     call this%create_lstfile(lst_fname, filename, found%list, &
                              'PARTICLE TRACKING MODEL (PRT)')
 
-    ! -- Activate save_flows if found
+    ! Activate save_flows if found
     if (found%save_flows) then
       this%ipakcb = -1
     end if
 
-    ! -- Log options
+    ! Create model packages
+    call this%create_packages()
+
+    ! Create hash table for terminated particle ids
+    call hash_table_cr(this%trm_ids)
+
+    ! Log options
     if (this%iout > 0) then
       call this%log_namfile_options(found)
     end if
 
-    ! -- Create model packages
-    call this%create_packages()
   end subroutine prt_cr
 
   !> @brief Define packages
@@ -191,21 +205,21 @@ contains
   !! (2) set variables and pointers
   !<
   subroutine prt_df(this)
-    ! -- modules
+    ! modules
     use PrtPrpModule, only: PrtPrpType
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
-    ! -- local
+    ! local
     integer(I4B) :: ip
     class(BndType), pointer :: packobj
 
-    ! -- Define packages and utility objects
+    ! Define packages and utility objects
     call this%dis%dis_df()
     call this%fmi%fmi_df(this%dis, 1)
     call this%oc%oc_df()
     call this%budget%budget_df(NIUNIT_PRT, 'MASS', 'M')
 
-    ! -- Define packages and assign iout for time series managers
+    ! Define packages and assign iout for time series managers
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_df(this%dis%nodes, this%dis)
@@ -213,7 +227,7 @@ contains
       packobj%TasManager%iout = this%iout
     end do
 
-    ! -- Allocate model arrays
+    ! Allocate model arrays
     call this%allocate_arrays()
 
   end subroutine prt_df
@@ -224,43 +238,74 @@ contains
   !! (2) allocates memory for arrays part of this model object
   !<
   subroutine prt_ar(this)
-    ! -- modules
+    ! modules
     use ConstantsModule, only: DHNOFLO
     use PrtPrpModule, only: PrtPrpType
     use PrtMipModule, only: PrtMipType
     use MethodPoolModule, only: method_dis, method_disv
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
-    ! -- locals
-    integer(I4B) :: ip
+    ! locals
+    integer(I4B) :: ip, nprp
     class(BndType), pointer :: packobj
 
-    ! -- Allocate and read modules attached to model
+    ! Set up basic packages
     call this%fmi%fmi_ar(this%ibound)
     if (this%inmip > 0) call this%mip%mip_ar()
 
-    ! -- set up output control
+    ! Set up output control and budget
     call this%oc%oc_ar(this%dis, DHNOFLO)
     call this%budget%set_ibudcsv(this%oc%ibudcsv)
 
-    ! -- Package input files now open, so allocate and read
+    ! Select tracking events
+    call this%tracks%select_events( &
+      this%oc%trackrelease, &
+      this%oc%trackfeatexit, &
+      this%oc%tracktimestep, &
+      this%oc%trackterminate, &
+      this%oc%trackweaksink, &
+      this%oc%trackusertime, &
+      this%oc%tracksubfexit, &
+      this%oc%trackdropped)
+
+    ! Set up boundary pkgs and pkg-scoped track files
+    nprp = 0
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       select type (packobj)
       type is (PrtPrpType)
-        call packobj%prp_set_pointers(this%ibound, this%mip%izone, &
-                                      this%trackfilectl)
+        nprp = nprp + 1
+        call packobj%prp_set_pointers(this%ibound, this%mip%izone)
+        call packobj%bnd_ar()
+        call packobj%bnd_ar()
+        if (packobj%itrkout > 0) then
+          call this%tracks%init_file( &
+            packobj%itrkout, &
+            iprp=nprp)
+        end if
+        if (packobj%itrkcsv > 0) then
+          call this%tracks%init_file( &
+            packobj%itrkcsv, &
+            csv=.true., &
+            iprp=nprp)
+        end if
+      class default
+        call packobj%bnd_ar()
       end select
-      ! -- Read and allocate package
-      call packobj%bnd_ar()
     end do
 
-    ! -- Initialize tracking method
+    ! Set up model-scoped track files
+    if (this%oc%itrkout > 0) &
+      call this%tracks%init_file(this%oc%itrkout)
+    if (this%oc%itrkcsv > 0) &
+      call this%tracks%init_file(this%oc%itrkcsv, csv=.true.)
+
+    ! Set up the tracking method
     select type (dis => this%dis)
     type is (DisType)
       call method_dis%init( &
         fmi=this%fmi, &
-        trackfilectl=this%trackfilectl, &
+        events=this%events, &
         izone=this%mip%izone, &
         flowja=this%flowja, &
         porosity=this%mip%porosity, &
@@ -270,7 +315,7 @@ contains
     type is (DisvType)
       call method_disv%init( &
         fmi=this%fmi, &
-        trackfilectl=this%trackfilectl, &
+        events=this%events, &
         izone=this%mip%izone, &
         flowja=this%flowja, &
         porosity=this%mip%porosity, &
@@ -279,33 +324,26 @@ contains
       this%method => method_disv
     end select
 
-    ! -- Initialize track output files and reporting options
-    if (this%oc%itrkout > 0) &
-      call this%trackfilectl%init_track_file(this%oc%itrkout)
-    if (this%oc%itrkcsv > 0) &
-      call this%trackfilectl%init_track_file(this%oc%itrkcsv, csv=.true.)
-    call this%trackfilectl%set_track_events( &
-      this%oc%trackrelease, &
-      this%oc%trackexit, &
-      this%oc%tracktimestep, &
-      this%oc%trackterminate, &
-      this%oc%trackweaksink, &
-      this%oc%trackusertime)
+    ! Subscribe track output manager to events
+    call this%events%subscribe(this%tracks)
+
+    ! Set verbose tracing if requested
+    if (this%oc%dump_event_trace) this%tracks%iout = 0
   end subroutine prt_ar
 
   !> @brief Read and prepare (calls package read and prepare routines)
   subroutine prt_rp(this)
     use TdisModule, only: readnewdata
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
-    ! -- local
+    ! local
     class(BndType), pointer :: packobj
     integer(I4B) :: ip
 
-    ! -- Check with TDIS on whether or not it is time to RP
+    ! Check with TDIS on whether or not it is time to RP
     if (.not. readnewdata) return
 
-    ! -- Read and prepare
+    ! Read and prepare
     if (this%inoc > 0) call this%oc%oc_rp()
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
@@ -315,28 +353,28 @@ contains
 
   !> @brief Time step advance (calls package advance subroutines)
   subroutine prt_ad(this)
-    ! -- modules
+    ! modules
     use SimVariablesModule, only: isimcheck, iFailedStepRetry
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
     class(BndType), pointer :: packobj
-    ! -- local
+    ! local
     integer(I4B) :: irestore
     integer(I4B) :: ip, n, i
 
-    ! -- Reset state variable
+    ! Reset state variable
     irestore = 0
     if (iFailedStepRetry > 0) irestore = 1
 
-    ! -- Copy masssto into massstoold
+    ! Update look-behind mass
     do n = 1, this%dis%nodes
       this%massstoold(n) = this%masssto(n)
     end do
 
-    ! -- Advance fmi
+    ! Advance fmi
     call this%fmi%fmi_ad()
 
-    ! -- Advance
+    ! Advance
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_ad()
@@ -345,12 +383,12 @@ contains
       end if
     end do
     !
-    ! -- Initialize the flowja array.  Flowja is calculated each time,
-    !    even if output is suppressed.  (Flowja represents flow of particle
-    !    mass and is positive into a cell.  Currently, each particle is assigned
-    !    unit mass.)  Flowja is updated continually as particles are tracked
-    !    over the time step and at the end of the time step.  The diagonal
-    !    position of the flowja array will contain the flow residual.
+    ! Initialize the flowja array.  Flowja is calculated each time,
+    ! even if output is suppressed.  (Flowja represents flow of particle
+    ! mass and is positive into a cell.  Currently, each particle is assigned
+    ! unit mass.)  Flowja is updated continually as particles are tracked
+    ! over the time step and at the end of the time step.  The diagonal
+    ! position of the flowja array will contain the flow residual.
     do i = 1, this%dis%nja
       this%flowja(i) = DZERO
     end do
@@ -358,97 +396,123 @@ contains
 
   !> @brief Calculate intercell flow (flowja)
   subroutine prt_cq(this, icnvg, isuppress_output)
-    ! -- modules
+    ! modules
     use SparseModule, only: csr_diagsum
     use TdisModule, only: delt
     use PrtPrpModule, only: PrtPrpType
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
     integer(I4B), intent(in) :: icnvg
     integer(I4B), intent(in) :: isuppress_output
-    ! -- local
+    ! local
     integer(I4B) :: i
     integer(I4B) :: ip
     class(BndType), pointer :: packobj
     real(DP) :: tled
 
-    ! -- Flowja is calculated each time, even if output is suppressed.
-    !    Flowja represents flow of particle mass and is positive into a cell.
-    !    Currently, each particle is assigned unit mass.
+    ! Flowja is calculated each time, even if output is suppressed.
+    ! Flowja represents flow of particle mass and is positive into a cell.
+    ! Currently, each particle is assigned unit mass.
     !
-    ! -- Reciprocal of time step size.
+    ! Reciprocal of time step size.
     tled = DONE / delt
     !
-    ! -- Flowja was updated continually as particles were tracked over the
-    !    time step.  At this point, flowja contains the net particle mass
-    !    exchanged between cells during the time step.  To convert these to
-    !    flow rates (particle mass per time), divide by the time step size.
+    ! Flowja was updated continually as particles were tracked over the
+    ! time step.  At this point, flowja contains the net particle mass
+    ! exchanged between cells during the time step.  To convert these to
+    ! flow rates (particle mass per time), divide by the time step size.
     do i = 1, this%dis%nja
       this%flowja(i) = this%flowja(i) * tled
     end do
 
-    ! -- Particle mass storage
-    call this%prt_cq_sto()
+    ! Particle mass budget terms
+    call this%prt_cq_budterms()
 
-    ! -- Go through packages and call cq routines. Just a formality.
+    ! Go through packages and call cq routines. Just a formality.
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_cq(this%masssto, this%flowja)
     end do
 
-    ! -- Finalize calculation of flowja by adding face flows to the diagonal.
-    !    This results in the flow residual being stored in the diagonal
-    !    position for each cell.
+    ! Finalize calculation of flowja by adding face flows to the diagonal.
+    ! This results in the flow residual being stored in the diagonal
+    ! position for each cell.
     call csr_diagsum(this%dis%con%ia, this%flowja)
   end subroutine prt_cq
 
-  !> @brief Calculate particle mass storage
-  subroutine prt_cq_sto(this)
-    ! -- modules
+  !> @brief Calculate particle mass budget terms
+  subroutine prt_cq_budterms(this)
+    ! modules
     use TdisModule, only: delt
     use PrtPrpModule, only: PrtPrpType
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
-    ! -- local
+    ! local
     integer(I4B) :: ip
     class(BndType), pointer :: packobj
     integer(I4B) :: n
     integer(I4B) :: np
     integer(I4B) :: idiag
+    integer(I4B) :: iprp
     integer(I4B) :: istatus
     real(DP) :: tled
-    real(DP) :: rate
+    real(DP) :: ratesto, ratetrm
+    character(len=:), allocatable :: particle_id
+    type(ParticleType), pointer :: particle
 
-    ! -- Reciprocal of time step size.
+    call create_particle(particle)
+
+    ! Reciprocal of time step size.
     tled = DONE / delt
 
-    ! -- Particle mass storage rate
+    ! Reset mass and rate arrays
     do n = 1, this%dis%nodes
       this%masssto(n) = DZERO
+      this%masstrm(n) = DZERO
       this%ratesto(n) = DZERO
+      this%ratetrm(n) = DZERO
     end do
+
+    ! Loop over PRP packages and assign particle mass to the
+    ! appropriate budget term based on the particle status.
+    iprp = 0
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       select type (packobj)
       type is (PrtPrpType)
         do np = 1, packobj%nparticles
+          call packobj%particles%get(particle, this%id, iprp, np)
           istatus = packobj%particles%istatus(np)
-          ! this may need to change if istatus flags change
-          if ((istatus > 0) .and. (istatus /= 8)) then
-            n = packobj%particles%idomain(np, 2)
-            ! -- Each particle currently assigned unit mass
-            this%masssto(n) = this%masssto(n) + DONE
+          particle_id = particle%get_id()
+          if (istatus == ACTIVE) then
+            ! calculate storage mass
+            n = packobj%particles%itrdomain(np, LEVEL_FEATURE)
+            this%masssto(n) = this%masssto(n) + DONE ! unit mass
+          else if (istatus > ACTIVE) then
+            if (this%trm_ids%get(particle_id) /= 0) cycle
+            ! calculate terminating mass
+            n = packobj%particles%itrdomain(np, LEVEL_FEATURE)
+            this%masstrm(n) = this%masstrm(n) + DONE ! unit mass
+            call this%trm_ids%add(particle_id, 1) ! mark id terminated
           end if
         end do
       end select
     end do
+
+    ! Calculate rates and update flowja
     do n = 1, this%dis%nodes
-      rate = -(this%masssto(n) - this%massstoold(n)) * tled
-      this%ratesto(n) = rate
+      ratesto = -(this%masssto(n) - this%massstoold(n)) * tled
+      ratetrm = -this%masstrm(n) * tled
+      this%ratesto(n) = ratesto
+      this%ratetrm(n) = ratetrm
       idiag = this%dis%con%ia(n)
-      this%flowja(idiag) = this%flowja(idiag) + rate
+      this%flowja(idiag) = this%flowja(idiag) + ratesto
     end do
-  end subroutine prt_cq_sto
+
+    call particle%destroy()
+    deallocate (particle)
+
+  end subroutine prt_cq_budterms
 
   !> @brief Calculate flows and budget
   !!
@@ -457,27 +521,33 @@ contains
   !!
   !<
   subroutine prt_bd(this, icnvg, isuppress_output)
-    ! -- modules
+    ! modules
     use TdisModule, only: delt
     use BudgetModule, only: rate_accumulator
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
     integer(I4B), intent(in) :: icnvg
     integer(I4B), intent(in) :: isuppress_output
-    ! -- local
+    ! local
     integer(I4B) :: ip
     class(BndType), pointer :: packobj
     real(DP) :: rin
     real(DP) :: rout
 
-    ! -- Budget routines (start by resetting).  Sole purpose of this section
-    !    is to add in and outs to model budget.  All ins and out for a model
-    !    should be added here to this%budget.  In a subsequent exchange call,
-    !    exchange flows might also be added.
+    ! Budget routines (start by resetting). Sole purpose of this section
+    ! is to add in and outs to model budget. All ins and out for a model
+    ! should be added here to this%budget. In a subsequent exchange call,
+    ! exchange flows might also be added.
     call this%budget%reset()
+    ! storage term
     call rate_accumulator(this%ratesto, rin, rout)
     call this%budget%addentry(rin, rout, delt, budtxt(1), &
                               isuppress_output, '             PRT')
+    ! termination term
+    call rate_accumulator(this%ratetrm, rin, rout)
+    call this%budget%addentry(rin, rout, delt, budtxt(2), &
+                              isuppress_output, '             PRT')
+    ! boundary packages
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_bd(this%budget)
@@ -487,9 +557,9 @@ contains
   !> @brief Print and/or save model output
   subroutine prt_ot(this)
     use TdisModule, only: tdis_ot, endofperiod
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
-    ! -- local
+    ! local
     integer(I4B) :: idvsave
     integer(I4B) :: idvprint
     integer(I4B) :: icbcfl
@@ -497,9 +567,9 @@ contains
     integer(I4B) :: ibudfl
     integer(I4B) :: ipflag
 
-    ! -- Note: particle tracking output is handled elsewhere
+    ! Note: particle tracking output is handled elsewhere
 
-    ! -- Set write and print flags
+    ! Set write and print flags
     idvsave = 0
     idvprint = 0
     icbcfl = 0
@@ -510,22 +580,22 @@ contains
     if (this%oc%oc_print('BUDGET')) ibudfl = 1
     icbcun = this%oc%oc_save_unit('BUDGET')
 
-    ! -- Override ibudfl and idvprint flags for nonconvergence
-    !    and end of period
+    ! Override ibudfl and idvprint flags for nonconvergence
+    ! and end of period
     ibudfl = this%oc%set_print_flag('BUDGET', 1, endofperiod)
     idvprint = this%oc%set_print_flag('CONCENTRATION', 1, endofperiod)
 
-    ! -- Save and print flows
+    ! Save and print flows
     call this%prt_ot_flow(icbcfl, ibudfl, icbcun)
 
-    ! -- Save and print dependent variables
+    ! Save and print dependent variables
     call this%prt_ot_dv(idvsave, idvprint, ipflag)
 
-    ! -- Print budget summaries
+    ! Print budget summaries
     call this%prt_ot_bdsummary(ibudfl, ipflag)
 
-    ! -- Timing Output; if any dependent variables or budgets
-    !    are printed, then ipflag is set to 1.
+    ! Timing Output; if any dependent variables or budgets
+    ! are printed, then ipflag is set to 1.
     if (ipflag == 1) call tdis_ot(this%iout)
   end subroutine prt_ot
 
@@ -539,27 +609,27 @@ contains
     class(BndType), pointer :: packobj
     integer(I4B) :: ip
 
-    ! -- Save PRT flows
+    ! Save PRT flows
     call this%prt_ot_saveflow(this%dis%nja, this%flowja, icbcfl, icbcun)
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_ot_model_flows(icbcfl=icbcfl, ibudfl=0, icbcun=icbcun)
     end do
 
-    ! -- Save advanced package flows
+    ! Save advanced package flows
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_ot_package_flows(icbcfl=icbcfl, ibudfl=0)
     end do
 
-    ! -- Print PRT flows
+    ! Print PRT flows
     call this%prt_ot_printflow(ibudfl, this%flowja)
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_ot_model_flows(icbcfl=icbcfl, ibudfl=ibudfl, icbcun=0)
     end do
 
-    ! -- Print advanced package flows
+    ! Print advanced package flows
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_ot_package_flows(icbcfl=0, ibudfl=ibudfl)
@@ -568,16 +638,26 @@ contains
 
   !> @brief Save intercell flows
   subroutine prt_ot_saveflow(this, nja, flowja, icbcfl, icbcun)
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
     integer(I4B), intent(in) :: nja
     real(DP), dimension(nja), intent(in) :: flowja
     integer(I4B), intent(in) :: icbcfl
     integer(I4B), intent(in) :: icbcun
-    ! -- local
+    ! local
     integer(I4B) :: ibinun
+    integer(I4B) :: naux
+    real(DP), dimension(0) :: auxrow
+    character(len=LENAUXNAME), dimension(0) :: auxname
+    logical(LGP) :: header_written
+    integer(I4B) :: i, nn
+    real(DP) :: m
+    integer(I4B) :: nsto, ntrm
+    logical(LGP), allocatable :: msto_mask(:), mtrm_mask(:)
+    integer(I4B), allocatable :: msto_nns(:), mtrm_nns(:)
+    real(DP), allocatable :: msto_vals(:), mtrm_vals(:)
 
-    ! -- Set unit number for binary output
+    ! Set unit number for binary output
     if (this%ipakcb < 0) then
       ibinun = icbcun
     elseif (this%ipakcb == 0) then
@@ -587,32 +667,85 @@ contains
     end if
     if (icbcfl == 0) ibinun = 0
 
-    ! -- Write the face flows if requested
-    if (ibinun /= 0) then
-      call this%dis%record_connection_array(flowja, ibinun, this%iout)
-    end if
+    ! Return if nothing to do
+    if (ibinun == 0) return
+
+    ! Write mass face flows
+    call this%dis%record_connection_array(flowja, ibinun, this%iout)
+
+    ! Write mass storage term
+    naux = 0
+    header_written = .false.
+    msto_mask = this%masssto > DZERO
+    msto_vals = pack(this%masssto, msto_mask)
+    msto_nns = [(i, i=1, size(this%masssto))]
+    msto_nns = pack(msto_nns, msto_mask)
+    nsto = size(msto_nns)
+    do i = 1, nsto
+      nn = msto_nns(i)
+      m = msto_vals(i)
+      if (.not. header_written) then
+        call this%dis%record_srcdst_list_header(budtxt(1), &
+                                                'PRT             ', &
+                                                'PRT             ', &
+                                                'PRT             ', &
+                                                'STORAGE         ', &
+                                                naux, auxname, ibinun, &
+                                                nsto, this%iout)
+        header_written = .true.
+      end if
+      call this%dis%record_mf6_list_entry(ibinun, nn, nn, m, &
+                                          0, auxrow, &
+                                          olconv2=.false.)
+    end do
+
+    ! Write mass termination term
+    header_written = .false.
+    mtrm_mask = this%masstrm > DZERO
+    mtrm_vals = pack(this%masstrm, mtrm_mask)
+    mtrm_nns = [(i, i=1, size(this%masstrm))]
+    mtrm_nns = pack(mtrm_nns, mtrm_mask)
+    ntrm = size(mtrm_nns)
+    do i = 1, ntrm
+      nn = mtrm_nns(i)
+      m = mtrm_vals(i)
+      if (.not. header_written) then
+        call this%dis%record_srcdst_list_header(budtxt(2), &
+                                                'PRT             ', &
+                                                'PRT             ', &
+                                                'PRT             ', &
+                                                'TERMINATION     ', &
+                                                naux, auxname, ibinun, &
+                                                ntrm, this%iout)
+        header_written = .true.
+      end if
+      call this%dis%record_mf6_list_entry(ibinun, nn, nn, m, &
+                                          0, auxrow, &
+                                          olconv2=.false.)
+    end do
+
   end subroutine prt_ot_saveflow
 
   !> @brief Print intercell flows
   subroutine prt_ot_printflow(this, ibudfl, flowja)
-    ! -- modules
+    ! modules
     use TdisModule, only: kper, kstp
     use ConstantsModule, only: LENBIGLINE
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
     integer(I4B), intent(in) :: ibudfl
     real(DP), intent(inout), dimension(:) :: flowja
-    ! -- local
+    ! local
     character(len=LENBIGLINE) :: line
     character(len=30) :: tempstr
     integer(I4B) :: n, ipos, m
     real(DP) :: qnm
-    ! -- formats
+    ! formats
     character(len=*), parameter :: fmtiprflow = &
                 "(/,4x,'CALCULATED INTERCELL FLOW &
                 &FOR PERIOD ', i0, ' STEP ', i0)"
 
-    ! -- Write flowja to list file if requested
+    ! Write flowja to list file if requested
     if (ibudfl /= 0 .and. this%iprflow > 0) then
       write (this%iout, fmtiprflow) kper, kstp
       do n = 1, this%dis%nodes
@@ -634,75 +767,75 @@ contains
 
   !> @brief Print dependent variables
   subroutine prt_ot_dv(this, idvsave, idvprint, ipflag)
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
     integer(I4B), intent(in) :: idvsave
     integer(I4B), intent(in) :: idvprint
     integer(I4B), intent(inout) :: ipflag
-    ! -- local
+    ! local
     class(BndType), pointer :: packobj
     integer(I4B) :: ip
 
-    ! -- Print advanced package dependent variables
+    ! Print advanced package dependent variables
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_ot_dv(idvsave, idvprint)
     end do
 
-    ! -- save head and print head
+    ! save head and print head
     call this%oc%oc_ot(ipflag)
   end subroutine prt_ot_dv
 
   !> @brief Print budget summary
   subroutine prt_ot_bdsummary(this, ibudfl, ipflag)
-    ! -- modules
+    ! modules
     use TdisModule, only: kstp, kper, totim, delt
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
     integer(I4B), intent(in) :: ibudfl
     integer(I4B), intent(inout) :: ipflag
-    ! -- local
+    ! local
     class(BndType), pointer :: packobj
     integer(I4B) :: ip
 
-    ! -- Package budget summary
+    ! Package budget summary
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_ot_bdsummary(kstp, kper, this%iout, ibudfl)
     end do
 
-    ! -- model budget summary
+    ! model budget summary
     call this%budget%finalize_step(delt)
     if (ibudfl /= 0) then
       ipflag = 1
-      ! -- model budget summary
+      ! model budget summary
       call this%budget%budget_ot(kstp, kper, this%iout)
     end if
 
-    ! -- Write to budget csv
+    ! Write to budget csv
     call this%budget%writecsv(totim)
   end subroutine prt_ot_bdsummary
 
   !> @brief Deallocate
   subroutine prt_da(this)
-    ! -- modules
+    ! modules
     use MemoryManagerModule, only: mem_deallocate
     use MemoryManagerExtModule, only: memorystore_remove
     use SimVariablesModule, only: idm_context
     use MethodPoolModule, only: destroy_method_pool
     use MethodCellPoolModule, only: destroy_method_cell_pool
     use MethodSubcellPoolModule, only: destroy_method_subcell_pool
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
-    ! -- local
+    ! local
     integer(I4B) :: ip
     class(BndType), pointer :: packobj
 
-    ! -- Deallocate idm memory
+    ! Deallocate idm memory
     call memorystore_remove(this%name, 'NAM', idm_context)
     call memorystore_remove(component=this%name, context=idm_context)
 
-    ! -- Internal packages
+    ! Internal packages
     call this%dis%dis_da()
     call this%fmi%fmi_da()
     call this%mip%mip_da()
@@ -714,19 +847,19 @@ contains
     deallocate (this%budget)
     deallocate (this%oc)
 
-    ! -- Method objects
+    ! Method objects
     call destroy_method_subcell_pool()
     call destroy_method_cell_pool()
     call destroy_method_pool()
 
-    ! -- Boundary packages
+    ! Boundary packages
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_da()
       deallocate (packobj)
     end do
 
-    ! -- Scalars
+    ! Scalars
     call mem_deallocate(this%infmi)
     call mem_deallocate(this%inmip)
     call mem_deallocate(this%inadv)
@@ -736,28 +869,30 @@ contains
     call mem_deallocate(this%inmvt)
     call mem_deallocate(this%inoc)
 
-    ! -- Arrays
+    ! Arrays
     call mem_deallocate(this%masssto)
     call mem_deallocate(this%massstoold)
     call mem_deallocate(this%ratesto)
+    call mem_deallocate(this%masstrm)
+    call mem_deallocate(this%ratetrm)
 
-    ! -- Track file control
-    deallocate (this%trackfilectl)
+    call this%tracks%destroy()
+    deallocate (this%events)
+    deallocate (this%tracks)
 
-    ! -- Parent type
     call this%NumericalModelType%model_da()
   end subroutine prt_da
 
-  !> @brief Allocate memory for non-allocatable members
+  !> @brief Allocate memory for scalars
   subroutine allocate_scalars(this, modelname)
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
     character(len=*), intent(in) :: modelname
 
-    ! -- allocate members from parent class
+    ! allocate members from parent class
     call this%NumericalModelType%allocate_scalars(modelname)
 
-    ! -- allocate members that are part of model class
+    ! allocate members that are part of model class
     call mem_allocate(this%infmi, 'INFMI', this%memoryPath)
     call mem_allocate(this%inmip, 'INMIP', this%memoryPath)
     call mem_allocate(this%inmvt, 'INMVT', this%memoryPath)
@@ -783,18 +918,22 @@ contains
     class(PrtModelType) :: this
     integer(I4B) :: n
 
-    ! -- Allocate arrays in parent type
+    ! Allocate arrays in parent type
     this%nja = this%dis%nja
     call this%NumericalModelType%allocate_arrays()
 
-    ! -- Allocate and initialize arrays
+    ! Allocate and initialize arrays
     call mem_allocate(this%masssto, this%dis%nodes, &
                       'MASSSTO', this%memoryPath)
     call mem_allocate(this%massstoold, this%dis%nodes, &
                       'MASSSTOOLD', this%memoryPath)
     call mem_allocate(this%ratesto, this%dis%nodes, &
                       'RATESTO', this%memoryPath)
-    ! -- explicit model, so these must be manually allocated
+    call mem_allocate(this%masstrm, this%dis%nodes, &
+                      'MASSTRM', this%memoryPath)
+    call mem_allocate(this%ratetrm, this%dis%nodes, &
+                      'RATETRM', this%memoryPath)
+    ! explicit model, so these must be manually allocated
     call mem_allocate(this%x, this%dis%nodes, 'X', this%memoryPath)
     call mem_allocate(this%rhs, this%dis%nodes, 'RHS', this%memoryPath)
     call mem_allocate(this%ibound, this%dis%nodes, 'IBOUND', this%memoryPath)
@@ -802,6 +941,8 @@ contains
       this%masssto(n) = DZERO
       this%massstoold(n) = DZERO
       this%ratesto(n) = DZERO
+      this%masstrm(n) = DZERO
+      this%ratetrm(n) = DZERO
       this%x(n) = DZERO
       this%rhs(n) = DZERO
       this%ibound(n) = 1
@@ -811,11 +952,11 @@ contains
   !> @brief Create boundary condition packages for this model
   subroutine package_create(this, filtyp, ipakid, ipaknum, pakname, mempath, &
                             inunit, iout)
-    ! -- modules
+    ! modules
     use ConstantsModule, only: LINELENGTH
     use PrtPrpModule, only: prp_create
     use ApiModule, only: api_create
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
     character(len=*), intent(in) :: filtyp
     character(len=LINELENGTH) :: errmsg
@@ -825,27 +966,27 @@ contains
     character(len=*), intent(in) :: mempath
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
-    ! -- local
+    ! local
     class(BndType), pointer :: packobj
     class(BndType), pointer :: packobj2
     integer(I4B) :: ip
 
-    ! -- This part creates the package object
+    ! This part creates the package object
     select case (filtyp)
     case ('PRP6')
       call prp_create(packobj, ipakid, ipaknum, inunit, iout, &
-                      this%name, pakname, this%fmi)
+                      this%name, pakname, mempath, this%fmi)
     case ('API6')
       call api_create(packobj, ipakid, ipaknum, inunit, iout, &
-                      this%name, pakname)
+                      this%name, pakname, mempath)
     case default
       write (errmsg, *) 'Invalid package type: ', filtyp
       call store_error(errmsg, terminate=.TRUE.)
     end select
 
-    ! -- Packages is the bndlist that is associated with the parent model
-    ! -- The following statement puts a pointer to this package in the ipakid
-    ! -- position of packages.
+    ! Packages is the bndlist that is associated with the parent model
+    ! The following statement puts a pointer to this package in the ipakid
+    ! position of packages.
     do ip = 1, this%bndlist%Count()
       packobj2 => GetBndFromList(this%bndlist, ip)
       if (packobj2%packName == pakname) then
@@ -859,13 +1000,13 @@ contains
 
   !> @brief Check to make sure required input files have been specified
   subroutine ftype_check(this, indis)
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
     integer(I4B), intent(in) :: indis
-    ! -- local
+    ! local
     character(len=LINELENGTH) :: errmsg
 
-    ! -- Check for DIS(u) and MIP. Stop if not present.
+    ! Check for DIS(u) and MIP. Stop if not present.
     if (indis == 0) then
       write (errmsg, '(1x,a)') &
         'Discretization (DIS6, DISV6, or DISU6) package not specified.'
@@ -886,93 +1027,86 @@ contains
 
   !> @brief Solve the model
   subroutine prt_solve(this)
-    ! -- modules
-    use TdisModule, only: kper, kstp, totimc, nper, nstp, delt
+    use TdisModule, only: totimc, delt, endofsimulation
     use PrtPrpModule, only: PrtPrpType
-    ! -- dummy variables
+    use ParticleModule, only: ACTIVE, TERM_UNRELEASED, TERM_TIMEOUT
+    use ParticleEventModule, only: RELEASE, TERMINATE
+    ! dummy
     class(PrtModelType) :: this
-    ! -- local variables
+    ! local
     integer(I4B) :: np, ip
     class(BndType), pointer :: packobj
     type(ParticleType), pointer :: particle
     real(DP) :: tmax
     integer(I4B) :: iprp
 
-    ! -- Initialize particle
+    ! A single particle is reused in the tracking loops
+    ! to avoid allocating and deallocating it each time.
+    ! get() and put() retrieve and store particle state.
     call create_particle(particle)
-
-    ! -- Loop over PRP packages
+    ! Loop over PRP packages and particles within them.
     iprp = 0
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       select type (packobj)
       type is (PrtPrpType)
-        ! -- Update PRP index
         iprp = iprp + 1
-
-        ! -- Initialize PRP-specific track files, if enabled
-        if (packobj%itrkout > 0) then
-          call this%trackfilectl%init_track_file( &
-            packobj%itrkout, &
-            iprp=iprp)
-        end if
-        if (packobj%itrkcsv > 0) then
-          call this%trackfilectl%init_track_file( &
-            packobj%itrkcsv, &
-            csv=.true., &
-            iprp=iprp)
-        end if
-
-        ! -- Loop over particles in package
         do np = 1, packobj%nparticles
-          ! -- Load particle from storage
-          call particle%load_particle(packobj%particles, &
-                                      this%id, iprp, np)
-
-          ! -- If particle is permanently unreleased, record its initial/terminal state
-          if (particle%istatus == 8) &
-            call this%method%save(particle, reason=3) ! reason=3: termination
-
-          ! If particle is inactive or not yet to be released, cycle
-          if (particle%istatus > 1) cycle
-
-          ! If particle released this time step, record its initial state
-          particle%istatus = 1
-          if (particle%trelease >= totimc) &
-            call this%method%save(particle, reason=0) ! reason=0: release
-
+          ! Get the particle from the store
+          call packobj%particles%get(particle, this%id, iprp, np)
+          ! If particle is permanently unreleased, cycle.
+          ! Raise a termination event if we haven't yet.
+          ! TODO: when we have generic dynamic vectors,
+          ! consider terminating permanently unreleased
+          ! in PRP instead of here. For now, status -8
+          ! indicates the permanently unreleased event
+          ! is not yet recorded, status 8 it has been.
+          if (particle%istatus == (-1 * TERM_UNRELEASED)) then
+            call this%method%terminate(particle, status=TERM_UNRELEASED)
+            call packobj%particles%put(particle, np)
+          end if
+          if (particle%istatus > ACTIVE) cycle ! Skip terminated particles
+          particle%istatus = ACTIVE ! Set active status in case of release
+          ! If the particle was released this time step, emit a release event
+          if (particle%trelease >= totimc) call this%method%release(particle)
           ! Maximum time is the end of the time step or the particle
           ! stop time, whichever comes first, unless it's the final
           ! time step and the extend option is on, in which case
           ! it's just the particle stop time.
-          if (nper == kper .and. &
-              nstp(kper) == kstp .and. &
-              particle%iextend > 0) then
+          if (endofsimulation .and. particle%extend) then
             tmax = particle%tstop
           else
             tmax = min(totimc + delt, particle%tstop)
           end if
-
-          ! Get and apply the tracking method
+          ! Apply the tracking method until the maximum time.
           call this%method%apply(particle, tmax)
-
-          ! Update particle storage
-          call packobj%particles%save_particle(particle, np)
+          ! If the particle timed out, terminate it.
+          ! "Timed out" means it's still active but
+          !   - it reached its stop time, or
+          !   - the simulation is over.
+          ! We can't detect timeout within the tracking
+          ! method because the method just receives the
+          ! maximum time with no context on what it is.
+          ! TODO maybe think about changing that?
+          if (particle%istatus <= ACTIVE .and. &
+              (particle%ttrack == particle%tstop .or. endofsimulation)) &
+            call this%method%terminate(particle, status=TERM_TIMEOUT)
+          ! Return the particle to the store
+          call packobj%particles%put(particle, np)
         end do
       end select
     end do
-
-    ! -- Deallocate particle
+    call particle%destroy()
     deallocate (particle)
   end subroutine prt_solve
 
   !> @brief Source package info and begin to process
   subroutine create_bndpkgs(this, bndpkgs, pkgtypes, pkgnames, &
                             mempaths, inunits)
-    ! -- modules
+    ! modules
     use ConstantsModule, only: LINELENGTH, LENPACKAGENAME
     use CharacterStringModule, only: CharacterStringType
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
     integer(I4B), dimension(:), allocatable, intent(inout) :: bndpkgs
     type(CharacterStringType), dimension(:), contiguous, &
@@ -983,7 +1117,7 @@ contains
       pointer, intent(inout) :: mempaths
     integer(I4B), dimension(:), contiguous, &
       pointer, intent(inout) :: inunits
-    ! -- local
+    ! local
     integer(I4B) :: ipakid, ipaknum
     character(len=LENFTYPE) :: pkgtype, bndptype
     character(len=LENPACKAGENAME) :: pkgname
@@ -992,29 +1126,27 @@ contains
     integer(I4B) :: n
 
     if (allocated(bndpkgs)) then
-      !
-      ! -- create stress packages
+      ! create stress packages
       ipakid = 1
       bndptype = ''
       do n = 1, size(bndpkgs)
-        !
         pkgtype = pkgtypes(bndpkgs(n))
         pkgname = pkgnames(bndpkgs(n))
         mempath = mempaths(bndpkgs(n))
         inunit => inunits(bndpkgs(n))
-        !
+
         if (bndptype /= pkgtype) then
           ipaknum = 1
           bndptype = pkgtype
         end if
-        !
+
         call this%package_create(pkgtype, ipakid, ipaknum, pkgname, mempath, &
                                  inunit, this%iout)
         ipakid = ipakid + 1
         ipaknum = ipaknum + 1
       end do
-      !
-      ! -- cleanup
+
+      ! cleanup
       deallocate (bndpkgs)
     end if
 
@@ -1022,7 +1154,7 @@ contains
 
   !> @brief Source package info and begin to process
   subroutine create_packages(this)
-    ! -- modules
+    ! modules
     use ConstantsModule, only: LINELENGTH, LENPACKAGENAME
     use CharacterStringModule, only: CharacterStringType
     use ArrayHandlersModule, only: expandarray
@@ -1036,9 +1168,9 @@ contains
     use PrtMipModule, only: mip_cr
     use PrtFmiModule, only: fmi_cr
     use PrtOcModule, only: oc_cr
-    ! -- dummy
+    ! dummy
     class(PrtModelType) :: this
-    ! -- local
+    ! local
     type(CharacterStringType), dimension(:), contiguous, &
       pointer :: pkgtypes => null()
     type(CharacterStringType), dimension(:), contiguous, &
@@ -1056,11 +1188,13 @@ contains
     integer(I4B) :: n
     integer(I4B) :: indis = 0 ! DIS enabled flag
     character(len=LENMEMPATH) :: mempathmip = ''
+    character(len=LENMEMPATH) :: mempathfmi = ''
+    character(len=LENMEMPATH) :: mempathoc = ''
 
-    ! -- set input memory paths, input/model and input/model/namfile
+    ! set input memory paths, input/model and input/model/namfile
     model_mempath = create_mem_path(component=this%name, context=idm_context)
 
-    ! -- set pointers to model path package info
+    ! set pointers to model path package info
     call mem_setptr(pkgtypes, 'PKGTYPES', model_mempath)
     call mem_setptr(pkgnames, 'PKGNAMES', model_mempath)
     call mem_setptr(mempaths, 'MEMPATHS', model_mempath)
@@ -1073,7 +1207,7 @@ contains
       mempath = mempaths(n)
       inunit => inunits(n)
 
-      ! -- create dis package first as it is a prerequisite for other packages
+      ! create dis package first as it is a prerequisite for other packages
       select case (pkgtype)
       case ('DIS6')
         indis = 1
@@ -1088,9 +1222,11 @@ contains
         this%inmip = 1
         mempathmip = mempath
       case ('FMI6')
-        this%infmi = inunit
+        this%infmi = 1
+        mempathfmi = mempath
       case ('OC6')
-        this%inoc = inunit
+        this%inoc = 1
+        mempathoc = mempath
       case ('PRP6')
         call expandarray(bndpkgs)
         bndpkgs(size(bndpkgs)) = n
@@ -1099,43 +1235,33 @@ contains
       end select
     end do
 
-    ! -- Create budget manager
+    ! Create budget manager
     call budget_cr(this%budget, this%name)
 
-    ! -- Create tracking method pools
+    ! Create tracking method pools
     call create_method_pool()
     call create_method_cell_pool()
     call create_method_subcell_pool()
 
-    ! -- Create packages that are tied directly to model
+    ! Create packages that are tied directly to model
     call mip_cr(this%mip, this%name, mempathmip, this%inmip, this%iout, this%dis)
-    call fmi_cr(this%fmi, this%name, this%infmi, this%iout)
-    call oc_cr(this%oc, this%name, this%inoc, this%iout)
+    call fmi_cr(this%fmi, this%name, mempathfmi, this%infmi, this%iout)
+    call oc_cr(this%oc, this%name, mempathoc, this%inoc, this%iout)
 
-    ! -- Check to make sure that required ftype's have been specified
+    ! Check to make sure that required ftype's have been specified
     call this%ftype_check(indis)
 
-    ! -- Create boundary packages
+    ! Create boundary packages
     call this%create_bndpkgs(bndpkgs, pkgtypes, pkgnames, mempaths, inunits)
   end subroutine create_packages
 
   !> @brief Write model namfile options to list file
   subroutine log_namfile_options(this, found)
-    use GwfNamInputModule, only: GwfNamParamFoundType
+    use PrtNamInputModule, only: PrtNamParamFoundType
     class(PrtModelType) :: this
-    type(GwfNamParamFoundType), intent(in) :: found
+    type(PrtNamParamFoundType), intent(in) :: found
 
     write (this%iout, '(1x,a)') 'NAMEFILE OPTIONS:'
-
-    if (found%newton) then
-      write (this%iout, '(4x,a)') &
-        'NEWTON-RAPHSON method enabled for the model.'
-      if (found%under_relaxation) then
-        write (this%iout, '(4x,a,a)') &
-          'NEWTON-RAPHSON UNDER-RELAXATION based on the bottom ', &
-          'elevation of the model will be applied to the model.'
-      end if
-    end if
 
     if (found%print_input) then
       write (this%iout, '(4x,a)') 'STRESS PACKAGE INPUT WILL BE PRINTED '// &

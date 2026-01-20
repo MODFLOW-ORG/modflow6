@@ -17,7 +17,7 @@ program mf5to6
                                     GetSfrPackageWriter, &
                                     AllSfrPkgWriters
   use SimFileWriterModule, only: SimFileWriterType
-  use SimModule, only: ustop
+  use SimPHMFModule, only: ustop
   use SimListVariablesModule, only: SimMovers
   use UtilitiesModule, only: GetArgs, PhmfOption
   !

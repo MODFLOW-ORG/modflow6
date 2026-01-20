@@ -4,7 +4,7 @@ module FileWriterModule
   use FileTypeModule, only: FileType
   use GLOBAL, only: iout
   use InputOutputModule, only: GetUnit, openfile
-  use SimModule, only: store_warning
+  use SimPHMFModule, only: store_warning
   use UtilitiesModule, only: close_file
 
   private

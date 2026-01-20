@@ -3,7 +3,6 @@ NetCDF export test version of test_gwt_dsp01.
 """
 
 import os
-import subprocess
 
 import flopy
 import numpy as np
@@ -11,11 +10,9 @@ import pytest
 from framework import TestFramework
 from test_gwt_dsp01 import cases, xt3d
 
-try:
-    import xarray as xa
-    import xugrid as xu
-except ImportError:
-    pytest.skip("xarray and xugrid not found", allow_module_level=True)
+xa = pytest.importorskip("xarray")
+xu = pytest.importorskip("xugrid")
+nc = pytest.importorskip("netCDF4")
 
 
 def build_models(idx, test, export, gridded_input):
@@ -24,7 +21,6 @@ def build_models(idx, test, export, gridded_input):
     sim, dummy = build(idx, test)
     sim.tdis.start_date_time = "2041-01-01T00:00:00-05:00"
     gwt = sim.gwt[0]
-    gwt.name_file.export_netcdf = export
     gwt.dis.export_array_netcdf = True
     gwt.ic.export_array_netcdf = True
     gwt.dsp.export_array_netcdf = True
@@ -32,19 +28,35 @@ def build_models(idx, test, export, gridded_input):
     # output control
     gwtname = "gwt_" + cases[idx]
 
-    # netcdf config
-    ncf = flopy.mf6.ModflowUtlncf(
-        gwt.dis,
-        filename=f"{gwtname}.dis.ncf",
-    )
+    fname = f"{gwtname}.{export}.nc" if gridded_input == "netcdf" else f"{gwtname}.nc"
+    if export == "ugrid":
+        gwt.name_file.nc_mesh2d_filerecord = fname
+        ncf = flopy.mf6.ModflowUtlncf(
+            gwt.dis,
+            deflate=3,
+            shuffle=False,
+            chunk_time=1,
+            chunk_face=5,
+            filename=f"{gwtname}.dis.ncf",
+        )
+    elif export == "structured":
+        gwt.name_file.nc_structured_filerecord = fname
+        ncf = flopy.mf6.ModflowUtlncf(
+            gwt.dis,
+            deflate=3,
+            shuffle=False,
+            chunk_time=1,
+            chunk_z=1,
+            chunk_y=1,
+            chunk_x=20,
+            filename=f"{gwtname}.dis.ncf",
+        )
 
     oc = flopy.mf6.ModflowGwtoc(
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "LAST")],
     )
@@ -60,16 +72,15 @@ def check_output(idx, test, export, gridded_input):
 
     if gridded_input == "netcdf":
         # re-run the simulation with model netcdf input
-        input_fname = f"{gwtname}.nc"
-        nc_fname = f"{gwtname}.{export}.nc"
-        subprocess.run(
-            ["mv", test.workspace / input_fname, test.workspace / nc_fname]
-        )
+        if export == "ugrid":
+            fileout_tag = "NETCDF_MESH2D"
+        elif export == "structured":
+            fileout_tag = "NETCDF_STRUCTURED"
 
         with open(test.workspace / f"{gwtname}.nam", "w") as f:
             f.write("BEGIN options\n")
             f.write("  SAVE_FLOWS\n")
-            f.write(f"  EXPORT_NETCDF {export}\n")
+            f.write(f"  {fileout_tag}  FILEOUT  {gwtname}.nc\n")
             f.write(f"  NETCDF  FILEIN {gwtname}.{export}.nc\n")
             f.write("END options\n\n")
             f.write("BEGIN packages\n")
@@ -86,7 +97,6 @@ def check_output(idx, test, export, gridded_input):
 
         with open(test.workspace / f"{gwtname}.dis", "w") as f:
             f.write("BEGIN options\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write(f"  NCF6  FILEIN  {gwtname}.dis.ncf\n")
             f.write("END options\n\n")
             f.write("BEGIN dimensions\n")
@@ -104,7 +114,6 @@ def check_output(idx, test, export, gridded_input):
 
         with open(test.workspace / f"{gwtname}.ic", "w") as f:
             f.write("BEGIN options\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN griddata\n")
             f.write("  strt NETCDF\n")
@@ -114,7 +123,6 @@ def check_output(idx, test, export, gridded_input):
             f.write("BEGIN options\n")
             if not xt3d[idx]:
                 f.write("  XT3D_OFF\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN griddata\n")
             f.write("  diffc  NETCDF\n")
@@ -136,11 +144,23 @@ def check_output(idx, test, export, gridded_input):
 
     check(idx, test)
 
+    # verify format of generated netcdf file
+    with nc.Dataset(test.workspace / f"{gwtname}.nc") as ds:
+        assert ds.data_model == "NETCDF4"
+        if export == "structured":
+            cmpr = ds.variables["concentration"].filters()
+            chnk = ds.variables["concentration"].chunking()
+            assert chnk == [1, 1, 1, 20]
+        elif export == "ugrid":
+            cmpr = ds.variables["concentration_l1"].filters()
+            chnk = ds.variables["concentration_l1"].chunking()
+            assert chnk == [1, 5]
+        assert not cmpr["shuffle"]
+        assert cmpr["complevel"] == 3
+
     fpth = os.path.join(test.workspace, f"{gwtname}.ucn")
     try:
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
         conc = cobj.get_data()
     except:
         assert False, f'could not load data from "{fpth}"'
@@ -168,16 +188,37 @@ def check_output(idx, test, export, gridded_input):
                 for l in range(nlay):
                     assert np.allclose(
                         np.array(rec[l]).flatten(),
-                        xds[f"concentration_l{l+1}"][timestep, :].data,
-                    ), f"NetCDF-concentration comparison failure in timestep {timestep+1}"
+                        xds[f"concentration_l{l + 1}"][timestep, :].data,
+                    ), (
+                        "NetCDF-concentration comparison failure "
+                        f"in timestep {timestep + 1}"
+                    )
                 timestep += 1
             elif export == "structured":
                 assert np.allclose(
                     # np.array(rec).flatten(),
                     np.array(rec),
                     xds["concentration"][timestep, :].data,
-                ), f"NetCDF-concentration comparison failure in timestep {timestep+1}"
+                ), f"NetCDF-concentration comparison failure in timestep {timestep + 1}"
                 timestep += 1
+
+    for v in xds.data_vars.keys():
+        assert not v.startswith("dis")
+        assert not v.startswith("ic")
+        assert not v.startswith("dsp")
+
+    xds.close()
+
+    if gridded_input == "ascii":
+        return
+
+    # Check NetCDF input
+    nc_fpth = os.path.join(test.workspace, f"{gwtname}.{export}.nc")
+    if export == "ugrid":
+        ds = xu.open_dataset(nc_fpth)
+        xds = ds.ugrid.to_dataset()
+    elif export == "structured":
+        xds = xa.open_dataset(nc_fpth)
 
     vlist = [
         "dis_delr",
@@ -205,12 +246,12 @@ def check_output(idx, test, export, gridded_input):
             if var.endswith("_l"):
                 for l in range(nlay):
                     assert np.allclose(
-                        np.array(b[l]).flatten(), xds[f"{var}{l+1}"].data
-                    ), f"NetCDF input array comparison failure, variable={var}{l+1}"
+                        np.array(b[l]).flatten(), xds[f"{var}{l + 1}"].data
+                    ), f"NetCDF input array comparison failure, variable={var}{l + 1}"
             else:
-                assert np.allclose(
-                    np.array(b).flatten(), xds[var].data
-                ), f"NetCDF input array comparison failure, variable={var}"
+                assert np.allclose(np.array(b).flatten(), xds[var].data), (
+                    f"NetCDF input array comparison failure, variable={var}"
+                )
         elif export == "structured":
             var = var.replace("_l", "")
             assert np.allclose(
@@ -231,5 +272,6 @@ def test_mf6model(idx, name, function_tmpdir, targets, export, gridded_input):
         targets=targets,
         build=lambda t: build_models(idx, t, export, gridded_input),
         check=lambda t: check_output(idx, t, export, gridded_input),
+        cargs=["--mode=validate"] if gridded_input == "netcdf" else None,
     )
     test.run()

@@ -4,13 +4,14 @@ Output Control data must be specified using words.  The numeric codes supported 
 
 For the PRINT and SAVE options, there is no option to specify individual layers.  Whenever the budget array is printed or saved, all layers are printed or saved.
 
-\subsection{Tracking Events}
+\vspace{5mm}
+\subsubsection{Tracking Events}
 
 The PRT Model distinguishes a number of tracking events that can trigger writing of particle track information to binary and/or CSV output files. When a particle track record is written to an output file, the record includes an IREASON code that indicates the type of event that triggered the output. IREASON codes and their associated tracking events are enumerated in the Particle Track Output subsection of the PRT Model Input and Output section.
  
 The Output Control package provides keyword options that correspond to the various types of tracking events that can trigger output. The keywords are of the form TRACK\_\textit{event}, where \textit{event} indicates the type of event. If no tracking event keywords are provided, output is triggered by all types of tracking events. If any tracking event keywords are provided, only the selected types of events trigger output. This mechanism can be used to filter out events that are not of interest, thereby limiting the size of output files and reducing the runtime spent on writing output.
  
-For instance, to configure PRT output for an endpoint analysis, provide the TRACK\_RELEASE and TRACK\_TERMINATE keywords. To configure PRT output for a timeseries analysis, provide the TRACK\_USERTIME keyword as well as a tracking time selection via the TRACK\_TIMES or TRACK\_TIMESFILE keyword.
+For instance, to configure PRT output for an endpoint analysis, provide the TRACK\_RELEASE and TRACK\_TERMINATE keywords. To configure PRT output for a timeseries analysis, provide the TRACK\_USERTIME keyword as well as a tracking time selection via the TRACKTIMES block.
 
 \vspace{5mm}
 \subsubsection{Structure of Blocks}
@@ -18,6 +19,8 @@ For instance, to configure PRT output for an endpoint analysis, provide the TRAC
 
 \noindent \textit{FOR EACH SIMULATION}
 \lstinputlisting[style=blockdefinition]{./mf6ivar/tex/prt-oc-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/prt-oc-dimensions.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/prt-oc-tracktimes.dat}
 \vspace{5mm}
 \noindent \textit{FOR ANY STRESS PERIOD}
 \lstinputlisting[style=blockdefinition]{./mf6ivar/tex/prt-oc-period.dat}

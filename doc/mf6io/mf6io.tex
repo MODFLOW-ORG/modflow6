@@ -37,6 +37,7 @@
 }
 \lstdefinestyle{blockdefinition}{
   moredelim=**[is][\color{blue}]{@}{@},
+  moredelim=**[is][\itshape\color{red}]{\$}{\$},
 }
 %usage: \lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-chd-dimensions.dat}
 \lstdefinestyle{inputfile}{
@@ -72,9 +73,18 @@
 \renewcommand\labelitemi{\tiny$\bullet$}
 
 \renewcommand{\cooperator}
-{the \textusgs\ Water Availability and Use Science Program}
+{Water Availability and Use Science Program}
+
 \renewcommand{\reporttitle}
 {MODFLOW 6 -- Description of Input and Output}
+
+\renewcommand{\preface}
+{The user guide describes the input and output for the U.S. Geological Survey (USGS) modular hydrologic simulation program called MODFLOW 6. The program can be downloaded from the USGS for free. The performance of MODFLOW 6 has been tested in a variety of applications. Future applications, however, might reveal errors that were not detected in the test simulations. Users are requested to send notification of any errors found in this model documentation report or in the model program to the contact listed on the \href{https://doi.org/10.5066/F76Q1VQV}{MODFLOW Web page}. Updates might be made to both the report and to the model program.   Additional details and information about ongoing developments are available through the version-controlled \href{https://github.com/MODFLOW-ORG/modflow6}{MODFLOW 6 repository}.
+
+\vspace{5mm}
+
+There are two supported executables for MODFLOW 6: standard and extended.  The standard executable has no external dependencies and is straightforward to install and use on common operating systems.  The extended executable for MODFLOW, referred to here as Extended MODFLOW, has additional capabilities beyond the standard executable.  These additional capabilities presently include parallel computing and support for NetCDF input and output files.  Extended MODFLOW relies on third-party libraries, which must be available for the software to run properly.  A section called ``Extended MODFLOW'' describes the extended capabilities.}
+
 \renewcommand{\coverphoto}{coverimage.jpg}
 \renewcommand{\GSphotocredit}{Binary computer code illustration.}
 \renewcommand{\reportseries}{}

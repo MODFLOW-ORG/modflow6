@@ -4,7 +4,6 @@ from itertools import chain
 from pathlib import Path
 from pprint import pformat
 
-
 PROJ_ROOT = Path(__file__).parents[2]
 
 

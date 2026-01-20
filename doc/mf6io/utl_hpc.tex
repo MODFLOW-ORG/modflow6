@@ -1,0 +1,21 @@
+The High Performance Computing (HPC) utility file for the simulation can be activated by specifying the HPC6 option in the simulation name file.  It's main purpose is to assign the models in a parallel simulation to the available CPU cores for cases where the internal distribution algorithm is not satisfactory. If activated, \mf will read HPC input according to the following description.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-hpc-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-hpc-partitions.dat}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/utl-hpc-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+Example 1: HPC input file distributing 6 models over 4 available CPU cores.
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/utl-hpc-example1.dat}
+
+\vspace{5mm}
+Example 2: HPC input file distributing 3 GWF models coupled individually to 3 GWT models over 2 available CPU cores. Note that the GWT models have to be assigned the same partition numbers as their GWF counterparts.
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/utl-hpc-example2.dat}

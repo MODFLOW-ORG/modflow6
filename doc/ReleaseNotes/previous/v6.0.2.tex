@@ -1,9 +1,14 @@
 
-	\subsection{Version mf6.0.2--Feb 23, 2018}
+	\subsection{Version mf6.0.2---February 23, 2018}
 	
-	\underline{BASIC FUNCTIONALITY}
+	\underline{NEW FUNCTIONALITY}
 	\begin{itemize}
 		\item Added a new option, called SAVE\_SPECIFIC\_DISCHARGE to the Node Property Flow Package.  When invoked, $x$, $y$, and $z$ specific discharge components are calculated for the center of each model cell and written to the binary budget file.
+	\end{itemize}
+	
+	\textbf{\underline{BUG FIXES AND OTHER CHANGES TO EXISTING FUNCTIONALITY}} \\
+	\underline{BASIC FUNCTIONALITY}
+	\begin{itemize}
 		\item For binary input of grid data, such as initial heads, the array reading utility was not reading a header record consisting of KSTP, KPER, PERTIM, TOTIM, TEXT, NLAY, NROW, NCOL.  This meant that a binary head file written by MODFLOW could not be used as input for a subsequent simulation.  For binary input, the array reading utility now reads a header record before reading the array values.
 		\item The NOGRB option in the discretization packages was not working.  This option will now prevent the binary grid file from being written.
 		\item Removed the PRIVATE attribute for two methods of the discretization packages so that the program works as intended with the latest Intel Fortran release.

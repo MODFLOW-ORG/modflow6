@@ -6,7 +6,7 @@ module UzfCellGroupModule
                              DTWO, DTHREE, DEP20
   use SmoothingModule
   use TdisModule, only: ITMUNI, delt, kper
-  use UzfETUtilModule, only: etfunc_lin
+  use UzfETUtilModule, only: etfunc_lin, etfunc_nlin
 
   implicit none
   private
@@ -234,9 +234,6 @@ contains
       this%landflag(icell) = 0
       this%ivertcon(icell) = 0
     end do
-    !
-    ! -- Return
-    return
   end subroutine init
 
   !> @brief Deallocate uzf object variables
@@ -331,9 +328,6 @@ contains
       call mem_deallocate(this%landflag)
       call mem_deallocate(this%ivertcon)
     end if
-    !
-    ! -- Return
-    return
   end subroutine dealloc
 
   !> @brief Set uzf object material properties
@@ -395,9 +389,6 @@ contains
     if (this%watab(icell) > this%celtop(icell)) &
       this%watab(icell) = this%celtop(icell)
     this%watabold(icell) = this%watab(icell)
-    !
-    ! -- Return
-    return
   end subroutine sethead
 
   !> @brief Set infiltration
@@ -418,9 +409,6 @@ contains
     this%finf_rej(icell) = DZERO
     this%surflux(icell) = DZERO
     this%surfluxbelow(icell) = DZERO
-    !
-    ! -- Return
-    return
   end subroutine setdatafinf
 
   !> @brief Set uzfarea using cellarea and areamult
@@ -433,9 +421,6 @@ contains
     !
     ! -- set uzf area
     this%uzfarea(icell) = this%cellarea(icell) * areamult
-    !
-    ! -- Return
-    return
   end subroutine setdatauzfarea
 
   !> @brief Set unsaturated ET-related variables
@@ -480,9 +465,6 @@ contains
       this%landtop(jbelow) = this%landtop(icell)
       this%petmax(jbelow) = this%petmax(icell)
     end if
-    !
-    ! -- Return
-    return
   end subroutine setdataet
 
   !> @brief Subtract aet from pet to calculate residual et for gw
@@ -502,9 +484,6 @@ contains
     pet = this%pet(icell) - this%etact(icell) / delt
     if (pet < DZERO) pet = DZERO
     this%gwpet(icell) = pet
-    !
-    ! -- Return
-    return
   end subroutine setgwpet
 
   !> @brief Subtract aet from pet to calculate residual et for deeper cells
@@ -529,9 +508,6 @@ contains
       if (pet < DZERO) pet = DZERO
     end if
     this%pet(jbelow) = pet
-    !
-    ! -- Return
-    return
   end subroutine setbelowpet
 
   !> @brief Set extinction water content
@@ -546,9 +522,6 @@ contains
     ! -- set extinction water content
     this%extwc(icell) = extwc
     if (jbelow > 0) this%extwc(jbelow) = extwc
-    !
-    ! -- Return
-    return
   end subroutine setdataetwc
 
   !> @brief Set variables for head-based unsaturated flow
@@ -571,9 +544,6 @@ contains
       this%hroot(jbelow) = hroot
       this%rootact(jbelow) = rootact
     end if
-    !
-    ! -- Return
-    return
   end subroutine setdataetha
 
   !> @brief Set variables to advance to new time step. nothing yet.
@@ -585,9 +555,6 @@ contains
     !
     ! -- set variables
     this%surfseep(icell) = DZERO
-    !
-    ! -- Return
-    return
   end subroutine advance
 
   !> @brief Formulate the unsaturated flow object, calculate terms for gwf
@@ -726,9 +693,6 @@ contains
     if (reset_state) then
       call this%wave_shift(thiswork, icell, 1, 0, 1, thiswork%nwavst(1), 1)
     end if
-    !
-    ! -- Return
-    return
   end subroutine solve
 
   !> @brief Add recharge or infiltration to cells
@@ -768,9 +732,6 @@ contains
     this%surfluxbelow(icell) = this%finf(jbelow)
     this%totflux(icell) = scale * this%totflux(icell) + fcheck * delt
     trhs = this%uzfarea(icell) * this%totflux(icell) / delt
-    !
-    ! -- Return
-    return
   end subroutine addrech
 
   !> @brief Reject applied infiltration due to low vks
@@ -799,12 +760,9 @@ contains
       trhs = finfact * this%uzfarea(icell) * this%celtop(icell) / range
       thcof = finfact * this%uzfarea(icell) / range
     end if
-    !
-    ! -- Return
-    return
   end subroutine rejfinf
 
-  !> @brief Calculate groudwater discharge to land surface
+  !> @brief Calculate groundwater discharge to land surface
   !<
   subroutine gwseep(this, icell, deriv, scale, hgwf, trhs, thcof, seep)
     ! -- dummy
@@ -842,9 +800,6 @@ contains
       trhs = DZERO
       thcof = DZERO
     end if
-    !
-    ! -- Return
-    return
   end subroutine gwseep
 
   !> @brief Calculate gwf et using residual uzf pet
@@ -882,42 +837,7 @@ contains
     thcof = thcof * this%uzfarea(icell)
     this%gwet(icell) = trhs - (thcof * hgwf)
     ! write(99,*)'in group', icell, this%gwet(icell)
-    !
-    ! -- Return
-    return
   end subroutine simgwet
-
-  !> @brief Square-wave ET function with smoothing at extinction depth
-  !<
-  function etfunc_nlin(s, x, c, det, trhs, thcof, hgwf)
-    ! -- Return
-    real(DP) :: etfunc_nlin
-    ! -- dummy
-    real(DP), intent(in) :: s
-    real(DP), intent(in) :: x
-    real(DP), intent(in) :: c
-    real(DP), intent(inout) :: det
-    real(DP), intent(inout) :: trhs
-    real(DP), intent(inout) :: thcof
-    real(DP), intent(in) :: hgwf
-    ! -- local
-    real(DP) :: etgw
-    real(DP) :: range
-    real(DP) :: depth, scale
-    !
-    depth = hgwf - (s - x)
-    if (depth < DZERO) depth = DZERO
-    etgw = c
-    range = DEM3 * x
-    call sCubic(depth, range, det, scale)
-    etgw = etgw * scale
-    trhs = -etgw
-    det = -det * etgw
-    etfunc_nlin = etgw
-    !
-    ! -- Return
-    return
-  end function etfunc_nlin
 
   !> @brief Calculate recharge due to a rise in the gwf head
   !<
@@ -937,9 +857,6 @@ contains
       fm2 = this%unsat_stor(icell, d1)
       totfluxtot = totfluxtot + (fm1 - fm2)
     end if
-    !
-    ! -- Return
-    return
   end subroutine uz_rise
 
   !> @brief Reset waves to default values at start of simulation
@@ -989,9 +906,6 @@ contains
       this%uzspst(1, icell) = DZERO
       this%uzthst(1, icell) = this%thtr(icell)
     end if
-    !
-    ! -- Return
-    return
   end subroutine
 
   !> @brief Prepare and route waves over time step
@@ -1030,9 +944,6 @@ contains
       if (ierr > 0) return
       totfluxtot = totfluxtot + this%totflux(icell)
     end do
-    !
-    ! -- Return
-    return
   end subroutine routewaves
 
   !> @brief Copy waves or shift waves in arrays
@@ -1058,9 +969,6 @@ contains
       this%uzspst(j, icell) = this2%uzspst(j + shft, icell2)
     end do
     this%nwavst(icell) = this2%nwavst(icell2)
-    !
-    ! -- Return
-    return
   end subroutine
 
   !> @brief Method of Characteristics solution for kinematic wave equation
@@ -1150,9 +1058,6 @@ contains
     ! -- simulate et
     if (ietflag > 0) call this%uzet(icell, delt, ietflag, ierr)
     if (ierr > 0) return
-    !
-    ! -- Return
-    return
   end subroutine uzflow
 
   !> @brief Calculate unit specific tolerances
@@ -1181,9 +1086,6 @@ contains
     factor2 = DONE / 0.3048
     feps1 = feps1 * factor1 * factor2
     feps2 = feps2 * factor1 * factor2
-    !
-    ! -- Return
-    return
   end subroutine factors
 
   !> @brief Create and set trail waves
@@ -1270,9 +1172,6 @@ contains
         leadspeed(theta1, theta2, flux1, flux2, this%thts(icell), &
                   this%thtr(icell), this%eps(icell), this%vks(icell))
     end if
-    !
-    ! -- Return
-    return
   end subroutine trailwav
 
   !> @brief Create a lead wave and route over time step
@@ -1474,9 +1373,6 @@ contains
     end if
     deallocate (checktime)
     deallocate (more)
-    !
-    ! -- Return
-    return
   end subroutine leadwav
 
   !> @brief Calculates waves speed from dflux/dtheta
@@ -1512,9 +1408,6 @@ contains
       leadspeed = (flux2 - flux1) / (theta2 - theta1)
     end if
     if (leadspeed < DEM30) leadspeed = DEM30
-    !
-    ! -- Return
-    return
   end function leadspeed
 
   !> @brief Sums up mobile water over depth interval
@@ -1559,9 +1452,6 @@ contains
       fm = fm + (this%uzthst(1, icell) - this%thtr(icell)) * d1
     end if
     unsat_stor = fm
-    !
-    ! -- Return
-    return
   end function unsat_stor
 
   !> @brief Update to new state of uz at end of time step
@@ -1638,9 +1528,6 @@ contains
       end if
       this%watabold(icell) = this%watab(icell)
     end if
-    !
-    ! -- Return
-    return
   end subroutine update_wav
 
   !> @brief Remove water from uz due to et
@@ -1975,9 +1862,6 @@ contains
     !
     ! -- deallocate temporary worker
     call uzfktemp%dealloc()
-    !
-    ! -- Return
-    return
   end subroutine uzet
 
   !> @brief Calculate capillary pressure head from B-C equation
@@ -2001,9 +1885,6 @@ contains
         caph = DZERO
       end if
     end if
-    !
-    ! -- Return
-    return
   end function caph
 
   !> @brief Calculate capillary pressure-based uz et
@@ -2017,9 +1898,6 @@ contains
     !
     rate_et_z = factor * fktho * (h - this%hroot(icell))
     if (rate_et_z < DZERO) rate_et_z = DZERO
-    !
-    ! -- Return
-    return
   end function rate_et_z
 
   !> @brief Determine the water content at a specific depth
@@ -2053,9 +1931,6 @@ contains
     else
       theta_at_depth = this%thts(icell)
     end if
-    !
-    ! -- Return
-    return
   end function get_water_content_at_depth
 
   !> @brief Calculate and return the cell-based water content value
@@ -2088,9 +1963,6 @@ contains
     else
       watercontent = DZERO
     end if
-    !
-    ! -- Return
-    return
   end function get_wcnew
 
 end module UzfCellGroupModule

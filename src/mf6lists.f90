@@ -37,8 +37,6 @@ contains
     call solutiongrouplist%Clear()
     call baseexchangelist%Clear()
     call baseconnectionlist%Clear()
-
-    return
   end subroutine lists_da
 
 end module ListsModule

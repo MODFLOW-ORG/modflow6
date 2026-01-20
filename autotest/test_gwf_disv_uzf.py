@@ -14,7 +14,7 @@ import flopy.utils.cvfdutil
 import numpy as np
 import pytest
 from flopy.utils.gridutil import get_disv_kwargs
-from framework import TestFramework
+from framework import DNODATA, TestFramework
 
 cases = ["disv_with_uzf"]
 nlay = 5
@@ -34,15 +34,7 @@ nouter, ninner = 100, 300
 hclose, rclose, relax = 1e-9, 1e-3, 0.97
 
 # use flopy util to get disv arguments
-disvkwargs = get_disv_kwargs(
-    nlay,
-    nrow,
-    ncol,
-    delr,
-    delc,
-    top,
-    botm,
-)
+disvkwargs = get_disv_kwargs(nlay, nrow, ncol, delr, delc, top, botm)
 
 # Work up UZF data
 iuzno = 0
@@ -117,20 +109,21 @@ for t in np.arange(0, nper, 1):
     uzf_spd.update({t: spd})
 
 
-# Work up the GHB boundary
+# Work up the GHB / GHBG boundary
 ghb_ids = [(ncol - 1) + i * ncol for i in range(nrow)]
 ghb_spd = []
+abhead = np.full((nlay, ncpl), DNODATA, dtype=float)
+acond = np.full((nlay, ncpl), DNODATA, dtype=float)
 cond = 1e4
 for k in np.arange(3, 5, 1):
     for i in ghb_ids:
         ghb_spd.append([(k, i), 14.0, cond])
+        abhead[k, i] = 14.0
+        acond[k, i] = cond
 
 
-def build_models(idx, test):
-    name = cases[idx]
-
+def get_model(ws, name, array_input=False):
     # build MODFLOW 6 files
-    ws = test.workspace
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
@@ -141,9 +134,7 @@ def build_models(idx, test):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
 
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.ModflowGwf(
@@ -175,19 +166,16 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=True, icelltype=1, k=0.1, k33=1
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=True, icelltype=1, k=0.1, k33=1)
 
     # aquifer storage
-    sto = flopy.mf6.ModflowGwfsto(
-        gwf, iconvert=1, ss=1e-5, sy=0.2, transient=True
-    )
+    sto = flopy.mf6.ModflowGwfsto(gwf, iconvert=1, ss=1e-5, sy=0.2, transient=True)
 
     # general-head boundary
-    ghb = flopy.mf6.ModflowGwfghb(
-        gwf, print_flows=True, stress_period_data=ghb_spd
-    )
+    if array_input:
+        ghb = flopy.mf6.ModflowGwfghbg(gwf, print_flows=True, bhead=abhead, cond=acond)
+    else:
+        ghb = flopy.mf6.ModflowGwfghb(gwf, print_flows=True, stress_period_data=ghb_spd)
 
     # unsaturated-zone flow
     etobs = []
@@ -234,22 +222,20 @@ def build_models(idx, test):
             obs_lst.append(["obs_" + str(i + 1), "head", (k, i)])
 
     obs_dict = {f"{name}.obs.csv": obs_lst}
-    obs = flopy.mf6.ModflowUtlobs(
-        gwf, pname="head_obs", digits=20, continuous=obs_dict
-    )
+    obs = flopy.mf6.ModflowUtlobs(gwf, pname="head_obs", digits=20, continuous=obs_dict)
 
-    return sim, None
+    return sim
 
 
-def check_output(idx, test):
+def check_output(ws, name):
     # Next, get the binary printed heads
-    fpth = os.path.join(test.workspace, test.name + ".hds")
+    fpth = os.path.join(ws, name + ".hds")
     hobj = flopy.utils.HeadFile(fpth, precision="double")
     hds = hobj.get_alldata()
     hds = hds.reshape((np.sum(nstp), 5, 10, 10))
 
     # Get the MF6 cell-by-cell fluxes
-    bpth = os.path.join(test.workspace, test.name + ".cbc")
+    bpth = os.path.join(ws, name + ".cbc")
     bobj = flopy.utils.CellBudgetFile(bpth, precision="double")
     bobj.get_unique_record_names()
     # '          STO-SS'
@@ -267,7 +253,7 @@ def check_output(idx, test):
     gwet = gwetv.reshape((np.sum(nstp), 5, 10, 10))
 
     # Also retrieve the binary UZET output
-    uzpth = os.path.join(test.workspace, test.name + ".uzf.bud")
+    uzpth = os.path.join(ws, name + ".uzf.bud")
     uzobj = flopy.utils.CellBudgetFile(uzpth, precision="double")
     uzobj.get_unique_record_names()
     #  b'    FLOW-JA-FACE',
@@ -289,9 +275,9 @@ def check_output(idx, test):
             hdlayer = arr[ly]
             for rw in np.arange(arr.shape[0]):
                 fullrw = hdlayer[rw]
-                assert np.all(
-                    np.diff(fullrw) < 0
-                ), "GW heads not decreasing to the right"
+                assert np.all(np.diff(fullrw) < 0), (
+                    "GW heads not decreasing to the right"
+                )
 
     # After confirming heads drop off to the right,
     # complete checks that ET totals & character (UZET vs GWET)
@@ -350,13 +336,9 @@ def check_output(idx, test):
             fullrw = arr[rw]
             for cl in np.arange(len(fullrw) - 1):
                 assert abs(fullrw[cl]) <= abs(fullrw[cl + 1]) + 0.01, (
-                    "gwet not decreasing to the right as expected. Stress Period: "
-                    + str(tm + 1)
-                    + "; Row: "
-                    + str(rw + 1)
-                    + "; Col: "
-                    + str(cl + 1)
-                    + f"{fullrw[cl]} should be less than or equal to {abs(fullrw[cl + 1])}"
+                    "gwet not decreasing to the right as expected. "
+                    f"Stress Period: {tm + 1}; Row: {rw + 1}; Col: {cl + 1}"
+                    f"\n{fullrw[cl]} should be <= to {abs(fullrw[cl + 1])}"
                 )
 
     # Confirm that total simulated ET does not exceed potential ET.
@@ -368,18 +350,40 @@ def check_output(idx, test):
         for rw in np.arange(total_et.shape[1]):
             for cl in np.arange(total_et.shape[2]):
                 assert total_et[tm, rw, cl] <= pet, (
-                    "simulated ET exceeds user-specified potential ET.  Stress Period: "
-                    + str(tm + 1)
-                    + "; Row: "
-                    + str(rw + 1)
-                    + "; Col: "
-                    + str(cl + 1)
+                    "simulated ET exceeds user-specified potential ET.  "
+                    f"Stress Period: {tm + 1}; Row: {rw + 1}; Col: {cl + 1}"
                 )
 
     print("Finished running checks")
 
 
+def build_models(idx, test):
+    # build MODFLOW 6 files
+    ws = test.workspace
+    name = cases[idx]
+    sim = get_model(ws, name)
+
+    # build comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    mc = get_model(ws, name, array_input=True)
+
+    return sim, mc
+
+
+def check_outputs(idx, test):
+    name = cases[idx]
+
+    # check output MODFLOW 6 files
+    ws = test.workspace
+    check_output(ws, name)
+
+    # check output comparison array_input model
+    ws = os.path.join(test.workspace, "mf6")
+    check_output(ws, name)
+
+
 @pytest.mark.slow
+@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
@@ -387,6 +391,7 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        check=lambda t: check_outputs(idx, t),
+        compare="mf6",
     )
     test.run()

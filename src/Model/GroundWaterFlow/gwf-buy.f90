@@ -4,7 +4,7 @@
 module GwfBuyModule
 
   use KindModule, only: DP, I4B
-  use SimModule, only: store_error, count_errors
+  use SimModule, only: store_error, count_errors, store_error_filename
   use MemoryManagerModule, only: mem_allocate, mem_reallocate, &
                                  mem_deallocate
   use ConstantsModule, only: DHALF, DZERO, DONE, LENMODELNAME, &
@@ -22,31 +22,31 @@ module GwfBuyModule
   public :: buy_cr
 
   type :: ConcentrationPointer
-    real(DP), dimension(:), pointer :: conc => null() ! pointer to concentration array
-    integer(I4B), dimension(:), pointer :: icbund => null() ! store pointer to gwt ibound array
+    real(DP), dimension(:), pointer :: conc => null() !< pointer to concentration array
+    integer(I4B), dimension(:), pointer :: icbund => null() !< store pointer to gwt ibound array
   end type ConcentrationPointer
 
   type, extends(NumericalPackageType) :: GwfBuyType
-    type(GwfNpfType), pointer :: npf => null() ! npf object
-    integer(I4B), pointer :: ioutdense => null() ! unit number for saving density
-    integer(I4B), pointer :: iform => null() ! formulation: 0 freshwater head, 1 hh rhs, 2 hydraulic head
-    integer(I4B), pointer :: ireadelev => null() ! if 1 then elev has been allocated and filled
-    integer(I4B), pointer :: ireadconcbuy => null() ! if 1 then dense has been read from this buy input file
-    integer(I4B), pointer :: iconcset => null() ! if 1 then conc is pointed to a gwt model%x
-    real(DP), pointer :: denseref => null() ! reference fluid density
-    real(DP), dimension(:), pointer, contiguous :: dense => null() ! density
-    real(DP), dimension(:), pointer, contiguous :: concbuy => null() ! concentration array if specified in buy package
-    real(DP), dimension(:), pointer, contiguous :: elev => null() ! cell center elevation (optional; if not specified, then use (top+bot)/2)
-    integer(I4B), dimension(:), pointer :: ibound => null() ! store pointer to ibound
+    type(GwfNpfType), pointer :: npf => null() !< npf object
+    integer(I4B), pointer :: ioutdense => null() !< unit number for saving density
+    integer(I4B), pointer :: iform => null() !< formulation: 0 freshwater head, 1 hh rhs, 2 hydraulic head
+    integer(I4B), pointer :: ireadelev => null() !< if 1 then elev has been allocated and filled
+    integer(I4B), pointer :: ireadconcbuy => null() !< if 1 then dense has been read from this buy input file
+    integer(I4B), pointer :: iconcset => null() !< if 1 then conc is pointed to a gwt model%x
+    real(DP), pointer :: denseref => null() !< reference fluid density
+    real(DP), dimension(:), pointer, contiguous :: dense => null() !< density
+    real(DP), dimension(:), pointer, contiguous :: concbuy => null() !< concentration array if specified in buy package
+    real(DP), dimension(:), pointer, contiguous :: elev => null() !< cell center elevation (optional; if not specified, then use (top+bot)/2)
+    integer(I4B), dimension(:), pointer :: ibound => null() !< store pointer to ibound
 
-    integer(I4B), pointer :: nrhospecies => null() ! number of species used in equation of state to calculate density
-    real(DP), dimension(:), pointer, contiguous :: drhodc => null() ! change in density with change in concentration
-    real(DP), dimension(:), pointer, contiguous :: crhoref => null() ! reference concentration used in equation of state
-    real(DP), dimension(:), pointer, contiguous :: ctemp => null() ! temporary array of size (nrhospec) to pass to calcdens
-    character(len=LENMODELNAME), dimension(:), allocatable :: cmodelname ! names of gwt models used in equation of state
-    character(len=LENAUXNAME), dimension(:), allocatable :: cauxspeciesname ! names of gwt models used in equation of state
+    integer(I4B), pointer :: nrhospecies => null() !< number of species used in equation of state to calculate density
+    real(DP), dimension(:), pointer, contiguous :: drhodc => null() !< change in density with change in concentration
+    real(DP), dimension(:), pointer, contiguous :: crhoref => null() !< reference concentration used in equation of state
+    real(DP), dimension(:), pointer, contiguous :: ctemp => null() !< temporary array of size (nrhospec) to pass to calcdens
+    character(len=LENMODELNAME), dimension(:), allocatable :: cmodelname !< names of gwt models used in equation of state
+    character(len=LENAUXNAME), dimension(:), allocatable :: cauxspeciesname !< names of gwt models used in equation of state
 
-    type(ConcentrationPointer), allocatable, dimension(:) :: modelconc ! concentration pointer for each transport model
+    type(ConcentrationPointer), allocatable, dimension(:) :: modelconc !< concentration pointer for each transport model
 
   contains
     procedure :: buy_df
@@ -66,10 +66,11 @@ module GwfBuyModule
     procedure, private :: buy_calcelev
     procedure :: allocate_scalars
     procedure, private :: allocate_arrays
-    procedure, private :: read_options
+    procedure, private :: source_options
     procedure, private :: set_options
-    procedure, private :: read_dimensions
-    procedure, private :: read_packagedata
+    procedure, private :: log_options
+    procedure, private :: source_dimensions
+    procedure, private :: source_packagedata
     procedure, private :: set_packagedata
     procedure :: set_concentration_pointer
   end type GwfBuyType
@@ -95,17 +96,15 @@ contains
     do i = 1, nrhospec
       dense = dense + drhodc(i) * (conc(i) - crhoref(i))
     end do
-    !
-    ! -- Return
-    return
   end function calcdens
 
   !> @brief Create a new BUY object
   !<
-  subroutine buy_cr(buyobj, name_model, inunit, iout)
+  subroutine buy_cr(buyobj, name_model, input_mempath, inunit, iout)
     ! -- dummy
     type(GwfBuyType), pointer :: buyobj
     character(len=*), intent(in) :: name_model
+    character(len=*), intent(in) :: input_mempath
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
     !
@@ -113,7 +112,7 @@ contains
     allocate (buyobj)
     !
     ! -- create name and memory path
-    call buyobj%set_names(1, name_model, 'BUY', 'BUY')
+    call buyobj%set_names(1, name_model, 'BUY', 'BUY', input_mempath)
     !
     ! -- Allocate scalars
     call buyobj%allocate_scalars()
@@ -121,12 +120,6 @@ contains
     ! -- Set variables
     buyobj%inunit = inunit
     buyobj%iout = iout
-    !
-    ! -- Initialize block parser
-    call buyobj%parser%Initialize(buyobj%inunit, buyobj%iout)
-    !
-    ! -- Return
-    return
   end subroutine buy_cr
 
   !> @brief Read options and package data, or set from argument
@@ -140,11 +133,11 @@ contains
     ! -- formats
     character(len=*), parameter :: fmtbuy = &
       "(1x,/1x,'BUY -- Buoyancy Package, Version 1, 5/16/2018', &
-      &' input read from unit ', i0, //)"
+      &' input read from mempath: ', a, /)"
     !
     ! --print a message identifying the buoyancy package.
     if (.not. present(buy_input)) then
-      write (this%iout, fmtbuy) this%inunit
+      write (this%iout, fmtbuy) this%input_mempath
     end if
     !
     ! -- store pointers to arguments that were passed in
@@ -153,10 +146,10 @@ contains
     if (.not. present(buy_input)) then
       !
       ! -- Read buoyancy options
-      call this%read_options()
+      call this%source_options()
       !
       ! -- Read buoyancy dimensions
-      call this%read_dimensions()
+      call this%source_dimensions()
     else
       ! set from input data instead
       call this%set_options(buy_input)
@@ -169,14 +162,11 @@ contains
     if (.not. present(buy_input)) then
       !
       ! -- Read buoyancy packagedata
-      call this%read_packagedata()
+      call this%source_packagedata()
     else
       ! set from input data instead
       call this%set_packagedata(buy_input)
     end if
-    !
-    ! -- Return
-    return
   end subroutine buy_df
 
   !> @brief Allocate and Read
@@ -195,14 +185,11 @@ contains
     if (this%npf%ixt3d /= 0) then
       call store_error('Error in model '//trim(this%name_model)// &
                        '.  The XT3D option cannot be used with the BUY Package.')
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- Calculate cell elevations
     call this%buy_calcelev()
-    !
-    ! -- Return
-    return
   end subroutine buy_ar
 
   !> @brief Buoyancy ar_bnd routine to activate density in packages
@@ -250,9 +237,6 @@ contains
       !
       ! -- nothing
     end select
-    !
-    ! -- Return
-    return
   end subroutine buy_ar_bnd
 
   !> @brief Check for new buy period data
@@ -281,12 +265,9 @@ contains
         end if
       end do
       if (count_errors() > 0) then
-        call this%parser%StoreErrorUnit()
+        call store_error_filename(this%input_fname)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine buy_rp
 
   !> @brief Advance
@@ -297,9 +278,6 @@ contains
     !
     ! -- update density using the last concentration
     call this%buy_calcdens()
-    !
-    ! -- Return
-    return
   end subroutine buy_ad
 
   !> @brief Fill coefficients
@@ -315,9 +293,6 @@ contains
         call this%buy_calcelev()
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine buy_cf
 
   !> @brief Fill coefficients
@@ -412,9 +387,6 @@ contains
     !
     ! -- deallocate
     deallocate (locconc)
-    !
-    ! -- Return
-    return
   end subroutine buy_cf_bnd
 
   !> @brief Return the density of the boundary package using one of several
@@ -456,9 +428,6 @@ contains
       ! -- neither of the above, so assign as denseref
       densebnd = denseref
     end if
-    !
-    ! -- Return
-    return
   end function get_bnd_density
 
   !> @brief Fill ghb coefficients
@@ -519,9 +488,6 @@ contains
         !
       end do
     end select
-    !
-    ! -- Return
-    return
   end subroutine buy_cf_ghb
 
   !> @brief Calculate density hcof and rhs terms for ghb conditions
@@ -568,9 +534,6 @@ contains
       ! -- this term goes on LHS for iform == 2
       rhsterm = rhsterm + DHALF * cond * t2 * hnode
     end if
-    !
-    ! -- Return
-    return
   end subroutine calc_ghb_hcof_rhs_terms
 
   !> @brief Fill riv coefficients
@@ -642,9 +605,6 @@ contains
         packobj%rhs(n) = packobj%rhs(n) - rhsterm
       end do
     end select
-    !
-    ! -- Return
-    return
   end subroutine buy_cf_riv
 
   !> @brief Fill drn coefficients
@@ -684,9 +644,6 @@ contains
         end if
       end do
     end select
-    !
-    ! -- Return
-    return
   end subroutine buy_cf_drn
 
   !> @brief Pass density information into lak package; density terms are
@@ -740,9 +697,6 @@ contains
         !
       end do
     end select
-    !
-    ! -- Return
-    return
   end subroutine buy_cf_lak
 
   !> @brief Pass density information into sfr package; density terms are
@@ -796,9 +750,6 @@ contains
         !
       end do
     end select
-    !
-    ! -- Return
-    return
   end subroutine buy_cf_sfr
 
   !> @brief Pass density information into maw package; density terms are
@@ -852,9 +803,6 @@ contains
         !
       end do
     end select
-    !
-    ! -- Return
-    return
   end subroutine buy_cf_maw
 
   !> @brief Fill coefficients
@@ -895,9 +843,6 @@ contains
         call matrix_sln%add_value_pos(idxglo(ipos), amatnm)
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine buy_fc
 
   !> @brief Save density array to binary file
@@ -935,9 +880,6 @@ contains
                                    nwidthp, editdesc, dinact)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine buy_ot_dv
 
   !> @brief Add buy term to flowja
@@ -970,9 +912,6 @@ contains
                                           deltaQ
       end do
     end do
-    !
-    ! -- Return
-    return
   end subroutine buy_cq
 
   !> @brief Deallocate
@@ -1006,148 +945,123 @@ contains
     !
     ! -- deallocate parent
     call this%NumericalPackageType%da()
-    !
-    ! -- Return
-    return
   end subroutine buy_da
 
-  !> @brief Read the dimensions for this package
+  !> @ brief Source dimensions for package
   !<
-  subroutine read_dimensions(this)
+  subroutine source_dimensions(this)
+    ! -- modules
+    use MemoryManagerExtModule, only: mem_set_value
+    use GwfBuyInputModule, only: GwfBuyParamFoundType
     ! -- dummy
     class(GwfBuyType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: errmsg, keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
-    ! -- format
-    !
-    ! -- get dimensions block
-    call this%parser%GetBlock('DIMENSIONS', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse dimensions block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'Processing BUY DIMENSIONS block'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('NRHOSPECIES')
-          this%nrhospecies = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i0)') 'NRHOSPECIES = ', this%nrhospecies
-        case default
-          write (errmsg, '(a,a)') &
-            'Unknown BUY dimension: ', trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'End of BUY DIMENSIONS block'
-    else
-      call store_error('Required BUY DIMENSIONS block not found.')
-      call this%parser%StoreErrorUnit()
-    end if
-    !
-    ! -- check dimension
+    type(GwfBuyParamFoundType) :: found
+
+    ! update defaults from input context
+    call mem_set_value(this%nrhospecies, 'NRHOSPECIES', this%input_mempath, &
+                       found%nrhospecies)
+
+    write (this%iout, '(/1x,a)') 'Processing BUY DIMENSIONS block'
+    write (this%iout, '(4x,a,i0)') 'NRHOSPECIES = ', this%nrhospecies
+    write (this%iout, '(1x,a)') 'End of BUY DIMENSIONS block'
+
+    ! check dimension
     if (this%nrhospecies < 1) then
       call store_error('NRHOSPECIES must be greater than zero.')
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- Return
-    return
-  end subroutine read_dimensions
+  end subroutine source_dimensions
 
-  !> @brief Read PACKAGEDATA block
+  !> @ brief source packagedata for package
   !<
-  subroutine read_packagedata(this)
+  subroutine source_packagedata(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr, mem_allocate
+    use MemoryManagerExtModule, only: mem_set_value
+    use CharacterStringModule, only: CharacterStringType
     ! -- dummy
-    class(GwfBuyType) :: this
+    class(GwfBuyType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: errmsg
-    character(len=LINELENGTH) :: line
-    integer(I4B) :: ierr
-    integer(I4B) :: irhospec
-    logical :: isfound, endOfBlock
-    logical :: blockrequired
+    integer(I4B), dimension(:), pointer, contiguous :: irhospec
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: modelnames, auxspeciesnames
+    real(DP), dimension(:), pointer, contiguous :: drhodc, crhoref
     integer(I4B), dimension(:), allocatable :: itemp
+    character(len=LINELENGTH) :: modelname, auxspeciesname, line, errmsg
     character(len=10) :: c10
     character(len=16) :: c16
+    integer(I4B) :: n
     ! -- format
     character(len=*), parameter :: fmterr = &
       "('Invalid value for IRHOSPEC (',i0,') detected in BUY Package. &
       &IRHOSPEC must be > 0 and <= NRHOSPECIES, and duplicate values &
       &are not allowed.')"
-    !
-    ! -- initialize
+
+    ! initialize
     allocate (itemp(this%nrhospecies))
     itemp(:) = 0
-    !
-    ! -- get packagedata block
-    blockrequired = .true.
-    call this%parser%GetBlock('PACKAGEDATA', isfound, ierr, &
-                              blockRequired=blockRequired, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse packagedata block
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'Processing BUY PACKAGEDATA block'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        irhospec = this%parser%GetInteger()
-        if (irhospec < 1 .or. irhospec > this%nrhospecies) then
-          write (errmsg, fmterr) irhospec
-          call store_error(errmsg)
-        end if
-        if (itemp(irhospec) /= 0) then
-          write (errmsg, fmterr) irhospec
-          call store_error(errmsg)
-        end if
-        itemp(irhospec) = 1
-        this%drhodc(irhospec) = this%parser%GetDouble()
-        this%crhoref(irhospec) = this%parser%GetDouble()
-        call this%parser%GetStringCaps(this%cmodelname(irhospec))
-        call this%parser%GetStringCaps(this%cauxspeciesname(irhospec))
-      end do
-      write (this%iout, '(1x,a)') 'End of BUY PACKAGEDATA block'
-    else
-      call store_error('Required BUY PACKAGEDATA block not found.')
-      call this%parser%StoreErrorUnit()
-    end if
-    !
-    ! -- Check for errors.
+
+    ! set input context pointers
+    call mem_setptr(irhospec, 'IRHOSPEC', this%input_mempath)
+    call mem_setptr(drhodc, 'DRHODC', this%input_mempath)
+    call mem_setptr(crhoref, 'CRHOREF', this%input_mempath)
+    call mem_setptr(modelnames, 'MODELNAME', this%input_mempath)
+    call mem_setptr(auxspeciesnames, 'AUXSPECIESNAME', this%input_mempath)
+
+    ! process package data
+    do n = 1, size(irhospec)
+      modelname = modelnames(n)
+      auxspeciesname = auxspeciesnames(n)
+
+      if (irhospec(n) < 1 .or. irhospec(n) > this%nrhospecies) then
+        write (errmsg, fmterr) irhospec(n)
+        call store_error(errmsg)
+      end if
+      if (itemp(irhospec(n)) /= 0) then
+        write (errmsg, fmterr) irhospec(n)
+        call store_error(errmsg)
+      end if
+      itemp(irhospec(n)) = 1
+
+      this%drhodc(irhospec(n)) = drhodc(n)
+      this%crhoref(irhospec(n)) = crhoref(n)
+      this%cmodelname(irhospec(n)) = trim(modelname)
+      this%cauxspeciesname(irhospec(n)) = trim(auxspeciesname)
+    end do
+
+    ! Check for errors.
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- write packagedata information
-    write (this%iout, '(/,a)') 'Summary of species information in BUY Package'
+
+    ! log package data
+    write (this%iout, '(/,1x,a)') 'Processing BUY PACKAGEDATA block'
+
+    ! write packagedata information
+    write (this%iout, '(1x,a)') 'Summary of species information in BUY Package'
     write (this%iout, '(1a11, 4a17)') &
       'SPECIES', 'DRHODC', 'CRHOREF', 'MODEL', &
       'AUXSPECIESNAME'
-    do irhospec = 1, this%nrhospecies
-      write (c10, '(i0)') irhospec
+    do n = 1, this%nrhospecies
+      write (c10, '(i0)') n
       line = ' '//adjustr(c10)
-      write (c16, '(g15.6)') this%drhodc(irhospec)
+      write (c16, '(g15.6)') this%drhodc(n)
       line = trim(line)//' '//adjustr(c16)
-      write (c16, '(g15.6)') this%crhoref(irhospec)
+      write (c16, '(g15.6)') this%crhoref(n)
       line = trim(line)//' '//adjustr(c16)
-      write (c16, '(a)') this%cmodelname(irhospec)
+      write (c16, '(a)') this%cmodelname(n)
       line = trim(line)//' '//adjustr(c16)
-      write (c16, '(a)') this%cauxspeciesname(irhospec)
+      write (c16, '(a)') this%cauxspeciesname(n)
       line = trim(line)//' '//adjustr(c16)
       write (this%iout, '(a)') trim(line)
     end do
-    !
-    ! -- deallocate
+
+    write (this%iout, '(1x,a)') 'End of BUY PACKAGEDATA block'
+
+    ! cleanup
     deallocate (itemp)
-    !
-    ! -- Return
-    return
-  end subroutine read_packagedata
+  end subroutine source_packagedata
 
   !> @brief Sets package data instead of reading from file
   !<
@@ -1164,9 +1078,6 @@ contains
       this%cmodelname(ispec) = input_data%cmodelname(ispec)
       this%cauxspeciesname(ispec) = input_data%cauxspeciesname(ispec)
     end do
-    !
-    ! -- Return
-    return
   end subroutine set_packagedata
 
   !> @brief Calculate buyancy term for this connection
@@ -1249,9 +1160,6 @@ contains
     !
     ! -- Calculate buoyancy term
     buy = cond * (avgdense - this%denseref) / this%denseref * (elevm - elevn)
-    !
-    ! -- Return
-    return
   end subroutine calcbuy
 
   !> @brief Calculate hydraulic head term for this connection
@@ -1345,9 +1253,6 @@ contains
       amatnn = amatnn - cond * (DONE - wt) * (rhonormm - rhonormn)
       amatnm = amatnm + cond * wt * (rhonormm - rhonormn)
     end if
-    !
-    ! -- Return
-    return
   end subroutine calchhterms
 
   !> @brief calculate fluid density from concentration
@@ -1364,7 +1269,7 @@ contains
     do n = 1, this%dis%nodes
       do i = 1, this%nrhospecies
         if (this%modelconc(i)%icbund(n) == 0) then
-          this%ctemp = DZERO
+          this%ctemp(i) = DZERO
         else
           this%ctemp(i) = this%modelconc(i)%conc(n)
         end if
@@ -1372,9 +1277,6 @@ contains
       this%dense(n) = calcdens(this%denseref, this%drhodc, this%crhoref, &
                                this%ctemp)
     end do
-    !
-    ! -- Return
-    return
   end subroutine buy_calcdens
 
   !> @brief Calculate cell elevations to use in density flow equations
@@ -1393,9 +1295,6 @@ contains
       frac = this%npf%sat(n)
       this%elev(n) = bt + DHALF * frac * (tp - bt)
     end do
-    !
-    ! -- Return
-    return
   end subroutine buy_calcelev
 
   !> @brief Allocate scalars used by the package
@@ -1432,9 +1331,6 @@ contains
     ! -- Initialize default to LHS implementation of hydraulic head formulation
     this%iform = 2
     this%iasym = 1
-    !
-    ! -- Return
-    return
   end subroutine allocate_scalars
 
   !> @brief Allocate arrays used by the package
@@ -1471,84 +1367,89 @@ contains
       this%cmodelname(i) = ''
       this%cauxspeciesname(i) = ''
     end do
-    !
-    ! -- Return
-    return
   end subroutine allocate_arrays
 
-  !> @brief Read package options
+  !> @ brief Source input options
   !<
-  subroutine read_options(this)
+  subroutine source_options(this)
     ! -- modules
+    use MemoryManagerExtModule, only: mem_set_value
     use OpenSpecModule, only: access, form
-    use InputOutputModule, only: urword, getunit, urdaux, openfile
+    use InputOutputModule, only: getunit, openfile
+    use GwfBuyInputModule, only: GwfBuyParamFoundType
     ! -- dummy
-    class(GwfBuyType) :: this
+    class(GwfBuyType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: errmsg, keyword
-    character(len=MAXCHARLEN) :: fname
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
+    character(len=LINELENGTH) :: densityfile
+    type(GwfBuyParamFoundType) :: found
+
+    ! initialize variables
+    densityfile = ''
+
+    ! update defaults from input context
+    call mem_set_value(this%iform, 'HHFORM_RHS', this%input_mempath, &
+                       found%hhform_rhs)
+    call mem_set_value(this%denseref, 'DENSEREF', this%input_mempath, &
+                       found%denseref)
+    call mem_set_value(this%iform, 'DEV_EFH_FORM', this%input_mempath, &
+                       found%dev_efh_form)
+    call mem_set_value(densityfile, 'DENSITYFILE', this%input_mempath, &
+                       found%densityfile)
+
+    ! update input dependent internal state
+    if (found%hhform_rhs) this%iasym = 0
+    if (found%dev_efh_form) then
+      this%iform = 0
+      this%iasym = 0
+    end if
+
+    ! fileout options
+    if (found%densityfile) then
+      this%ioutdense = getunit()
+      call openfile(this%ioutdense, this%iout, densityfile, 'DATA(BINARY)', &
+                    form, access, 'REPLACE')
+    end if
+
+    ! log options
+    call this%log_options(found, densityfile)
+  end subroutine source_options
+
+  !> @ brief log input options
+  !<
+  subroutine log_options(this, found, densityfile)
+    ! -- modules
+    use GwfBuyInputModule, only: GwfBuyParamFoundType
+    ! -- dummy variables
+    class(GwfBuyType), intent(inout) :: this
+    type(GwfBuyParamFoundType), intent(in) :: found
+    character(len=*), intent(in) :: densityfile
+    ! -- local variables
     ! -- formats
     character(len=*), parameter :: fmtfileout = &
       "(4x, 'BUY ', 1x, a, 1x, ' will be saved to file: ', &
-      &a, /4x, 'opened on unit: ', I7)"
+      &a, ' opened on unit: ', I7)"
     !
-    ! -- get options block
-    call this%parser%GetBlock('OPTIONS', isfound, ierr, &
-                              supportOpenClose=.true., blockRequired=.false.)
-    !
-    ! -- parse options block if detected
-    if (isfound) then
-      write (this%iout, '(1x,a)') 'Processing BUY OPTIONS block'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('HHFORMULATION_RHS')
-          this%iform = 1
-          this%iasym = 0
-          write (this%iout, '(4x,a)') &
-            'Hydraulic head formulation set to right-hand side'
-        case ('DENSEREF')
-          this%denseref = this%parser%GetDouble()
-          write (this%iout, '(4x,a,1pg15.6)') &
-            'Reference density has been set to: ', &
-            this%denseref
-        case ('DEV_EFH_FORMULATION')
-          call this%parser%DevOpt()
-          this%iform = 0
-          this%iasym = 0
-          write (this%iout, '(4x,a)') &
-            'Formulation set to equivalent freshwater head'
-        case ('DENSITY')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            this%ioutdense = getunit()
-            call openfile(this%ioutdense, this%iout, fname, 'DATA(BINARY)', &
-                          form, access, 'REPLACE')
-            write (this%iout, fmtfileout) &
-              'DENSITY', fname, this%ioutdense
-          else
-            errmsg = 'Optional density keyword must be '// &
-                     'followed by FILEOUT'
-            call store_error(errmsg)
-          end if
-        case default
-          write (errmsg, '(a,a)') 'Unknown BUY option: ', &
-            trim(keyword)
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end select
-      end do
-      write (this%iout, '(1x,a)') 'End of BUY OPTIONS block'
+    write (this%iout, '(1x,a)') 'Processing BUY OPTIONS block'
+
+    if (found%hhform_rhs) then
+      write (this%iout, '(4x,a)') &
+        'Hydraulic head formulation set to right-hand side'
     end if
-    !
-    ! -- Return
-    return
-  end subroutine read_options
+    if (found%denseref) then
+      write (this%iout, '(4x,a,1pg15.6)') &
+        'Reference density has been set to: ', this%denseref
+    end if
+    if (found%dev_efh_form) then
+      write (this%iout, '(4x,a)') &
+        'Formulation set to equivalent freshwater head'
+    end if
+    if (found%densityfile) then
+      write (this%iout, fmtfileout) &
+        'DENSITY', trim(densityfile), this%ioutdense
+    end if
+
+    write (this%iout, '(1x,a)') 'End of BUY OPTIONS block'
+  end subroutine log_options
 
   !> @brief Sets options as opposed to reading them from a file
   !<
@@ -1565,9 +1466,6 @@ contains
     if (this%iform == 0 .or. this%iform == 1) then
       this%iasym = 0
     end if
-    !
-    ! -- Return
-    return
   end subroutine set_options
 
   !> @brief Pass in a gwt model name, concentration array and ibound, and store
@@ -1596,9 +1494,6 @@ contains
         exit
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine set_concentration_pointer
 
 end module GwfBuyModule

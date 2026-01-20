@@ -53,9 +53,7 @@ def build_mf6(idx, ws, binaryobs=True):
     # build MODFLOW 6 files
     sim = flopy.mf6.MFSimulation(sim_name=name, version="mf6", sim_ws=ws)
     # create tdis package
-    flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwf = flopy.mf6.ModflowGwf(
@@ -204,8 +202,7 @@ def check_output(idx, test):
         assert d0.shape[0] == d1.shape[0], msg
         for name in names0:
             msg = (
-                f"The values for column '{name}' "
-                + "are not within 1e-5 of each other"
+                f"The values for column '{name}' " + "are not within 1e-5 of each other"
             )
             assert np.allclose(d0[name], d1[name], rtol=1e-5), msg
 

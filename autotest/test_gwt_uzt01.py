@@ -55,9 +55,7 @@ def build_models(idx, test):
     )
 
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -106,9 +104,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(
-        gwf, save_flows=False, icelltype=laytyp, k=hk
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=laytyp, k=hk)
     # storage
     sto = flopy.mf6.ModflowGwfsto(
         gwf,
@@ -135,8 +131,7 @@ def build_models(idx, test):
     # note: for specifying lake number, use fortran indexing!
     uzf_obs = {
         gwfname + ".uzf.obs.csv": [
-            (f"wc{k + 1}", "water-content", k + 1, 0.5 * delv)
-            for k in range(nlay)
+            (f"wc{k + 1}", "water-content", k + 1, 0.5 * delv) for k in range(nlay)
         ]
     }
 
@@ -219,9 +214,7 @@ def build_models(idx, test):
     obs_lst.append(["obs1", "head", (0, 0, 0)])
     obs_lst.append(["obs2", "head", (1, 0, 0)])
     obs_dict = {f"{gwfname}.obs.csv": obs_lst}
-    obs = flopy.mf6.ModflowUtlobs(
-        gwf, pname="head_obs", digits=20, continuous=obs_dict
-    )
+    obs = flopy.mf6.ModflowUtlobs(gwf, pname="head_obs", digits=20, continuous=obs_dict)
 
     # create gwt model
     gwtname = "gwt_" + name
@@ -265,15 +258,11 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwtic(gwt, strt=0.0, filename=f"{gwtname}.ic")
 
     # advection
-    adv = flopy.mf6.ModflowGwtadv(
-        gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv"
-    )
+    adv = flopy.mf6.ModflowGwtadv(gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv")
 
     # storage
     porosity = sy
-    sto = flopy.mf6.ModflowGwtmst(
-        gwt, porosity=porosity, filename=f"{gwtname}.sto"
-    )
+    sto = flopy.mf6.ModflowGwtmst(gwt, porosity=porosity, filename=f"{gwtname}.sto")
     # sources
     sourcerecarray = [
         (),
@@ -346,9 +335,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.bud",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[
             ("CONCENTRATION", "ALL"),
             ("BUDGET", "ALL"),
@@ -438,19 +425,16 @@ def check_obs(sim):
             # print(f"  Checking control volume {icv + 1}")
 
             if ".concentration.csv" in csvfile:
-                is_same = np.allclose(
-                    conc_ra[f"BUZT{icv + 1}"], conc_uzt[:, icv]
-                )
+                is_same = np.allclose(conc_ra[f"BUZT{icv + 1}"], conc_uzt[:, icv])
                 if not is_same:
                     success = False
                     print(
-                        "Binary concentrations do not match with observation concentrations for uzt1"
+                        "Binary concentrations do not match with "
+                        "observation concentrations for uzt1"
                     )
                     print(conc_ra["BUZT1"], conc_uzt)
 
-            is_same = np.allclose(
-                conc_ra[f"UZT{icv + 1}"], conc_ra[f"BUZT{icv + 1}"]
-            )
+            is_same = np.allclose(conc_ra[f"UZT{icv + 1}"], conc_ra[f"BUZT{icv + 1}"])
             if not is_same:
                 success = False
                 for t, x, y in zip(
@@ -475,7 +459,8 @@ def check_obs(sim):
             success = False
             diff = connection_sum - conc_ra[f"BMWTUZT{icv + 1}"]
             print(
-                f"Problem with UZT {icv + 1}; mindiff {diff.min()} and maxdiff {diff.max()}"
+                f"Problem with UZT {icv + 1}; "
+                f"mindiff {diff.min()} and maxdiff {diff.max()}"
             )
 
     assert success, "One or more UZT obs checks did not pass"
@@ -527,9 +512,7 @@ def check_output(idx, test):
     bobj = flopy.utils.CellBudgetFile(bpth, precision="double")
     uzet = bobj.get_data(text="UZET")
     uz_answer = [-0.432] + 14 * [0.0]
-    for uz in uzet[
-        100:
-    ]:  # Need to look later in simulation when ET demand is met
+    for uz in uzet[100:]:  # Need to look later in simulation when ET demand is met
         msg = f"unsat ET not correct.  Found {uz['q']}.  Should be {uz_answer}"
         assert np.allclose(uz["q"], uz_answer), msg
 

@@ -51,9 +51,6 @@ contains
     !
     ! -- Add the time-series tsfile to the list
     call this%add_time_series_tsfile(tsfile)
-    !
-    ! -- Return
-    return
   end subroutine Add
 
   subroutine Clear(this)
@@ -62,9 +59,6 @@ contains
     class(TimeSeriesFileListType), intent(inout) :: this
     !
     call this%tsfileList%Clear()
-    !
-    ! -- Return
-    return
   end subroutine Clear
 
   function Counttsfiles(this)
@@ -76,9 +70,6 @@ contains
     !
     Counttsfiles = this%tsfileList%Count()
     !
-    !
-    ! -- Return
-    return
   end function Counttsfiles
 
   function CountTimeSeries(this)
@@ -99,9 +90,6 @@ contains
         CountTimeSeries = CountTimeSeries + tsfile%Count()
       end if
     end do
-    !
-    ! -- Return
-    return
   end function CountTimeSeries
 
   function Gettsfile(this, indx) result(res)
@@ -113,9 +101,6 @@ contains
     type(TimeSeriesFileType), pointer :: res
     !
     res => GetTimeSeriesFileFromList(this%tsfileList, indx)
-    !
-    ! -- Return
-    return
   end function Gettsfile
 
   ! -- Private procedures
@@ -128,9 +113,6 @@ contains
     !
     call AddTimeSeriesFileToList(this%tsfileList, tsfile)
     this%numtsfiles = this%numtsfiles + 1
-    !
-    ! -- Return
-    return
   end subroutine add_time_series_tsfile
 
   subroutine tsfl_da(this)
@@ -148,9 +130,6 @@ contains
     !
     call this%tsfileList%Clear(.true.)
     !
-    !
-    ! -- Return
-    return
   end subroutine tsfl_da
 
 end module TimeSeriesFileListModule

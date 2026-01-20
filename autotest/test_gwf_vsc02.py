@@ -74,9 +74,7 @@ def build_models(idx, test):
 
     # Instantiating time discretization
     tdis_ds = ((perlen, nstp, 1.0),)
-    flopy.mf6.ModflowTdis(
-        sim, nper=nper, perioddata=tdis_ds, time_units=time_units
-    )
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=tdis_ds, time_units=time_units)
     gwf = flopy.mf6.ModflowGwf(sim, modelname=gwfname, save_flows=True)
 
     # Instantiating solver
@@ -140,9 +138,7 @@ def build_models(idx, test):
 
     # Instantiating GHB
     ghbcond = hydraulic_conductivity[idx] * delv * delc / (0.5 * delr)
-    ghbspd = [
-        [(0, i, 0), top + 3, ghbcond, initial_temperature] for i in range(nrow)
-    ]
+    ghbspd = [[(0, i, 0), top + 3, ghbcond, initial_temperature] for i in range(nrow)]
     flopy.mf6.ModflowGwfghb(
         gwf,
         stress_period_data=ghbspd,
@@ -152,8 +148,7 @@ def build_models(idx, test):
 
     # Instantiating DRN
     drnspd = [
-        [(0, i, ncol - 1), top, 1.2 * ghbcond, initial_temperature]
-        for i in range(nrow)
+        [(0, i, ncol - 1), top, 1.2 * ghbcond, initial_temperature] for i in range(nrow)
     ]
     flopy.mf6.ModflowGwfdrn(
         gwf,
@@ -282,8 +277,9 @@ def check_output(idx, test):
 
         # Ensure latest simulated value hasn't changed from stored answer
         assert np.allclose(sim_val_2, stored_ans, atol=1e-4), (
-            "Flow in the " + cases[1] + " test problem (simulates "
-            "viscosity) has changed,\n should be "
+            "Flow in the "
+            + cases[1]
+            + " test problem (simulates viscosity) has changed,\n should be "
             + str(stored_ans)
             + " but instead is "
             + str(sim_val_2)

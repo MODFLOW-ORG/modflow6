@@ -43,9 +43,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create iterative model solution and register the gwf model with it
     flopy.mf6.ModflowIms(
@@ -90,9 +88,7 @@ def build_models(idx, test):
         fname = f"{name}.{i}.obs.csv"
         obsdict[fname] = obslst
 
-    flopy.mf6.ModflowUtlobs(
-        gwf, pname="head_obs", digits=20, continuous=obsdict
-    )
+    flopy.mf6.ModflowUtlobs(gwf, pname="head_obs", digits=20, continuous=obsdict)
 
     # initial conditions
     flopy.mf6.ModflowGwfic(gwf, strt=1.0)
@@ -134,9 +130,7 @@ def check_output(idx, test):
         for j in range(ncol):
             obsname_true = f"h_{i}_{j}".upper()
             obsname_found = rec.dtype.names[j + 1].upper()
-            errmsg = (
-                'obsname in {} is incorrect.  Looking for "{}" but found "{}"'
-            )
+            errmsg = 'obsname in {} is incorrect.  Looking for "{}" but found "{}"'
             errmsg = errmsg.format(fname, obsname_true, obsname_found)
             assert obsname_true == obsname_found, errmsg
         headcsv[0, i, :] = np.array(rec.tolist()[1:])
@@ -145,9 +139,7 @@ def check_output(idx, test):
     hobj = flopy.utils.HeadFile(fn)
     headbin = hobj.get_data()
 
-    assert np.allclose(
-        headcsv, headbin
-    ), "headcsv not equal head from binary file"
+    assert np.allclose(headcsv, headbin), "headcsv not equal head from binary file"
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

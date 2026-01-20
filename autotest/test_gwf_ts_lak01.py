@@ -134,13 +134,7 @@ connectiondata = [
     (0, 56, (0, 10, 11), "HORIZONTAL", 0.1, 0, 0, 500, 500),
 ]
 
-stage, evap, runoff, withdrawal, rate = (
-    110.0,
-    0.0103,
-    1000.0,
-    10000.0,
-    -225000.0,
-)
+stage, evap, runoff, withdrawal, rate = (110.0, 0.0103, 1000.0, 10000.0, -225000.0)
 lakeperioddata0 = [
     (0, "status", "active"),
     (0, "stage", stage),

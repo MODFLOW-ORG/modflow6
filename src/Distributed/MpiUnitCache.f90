@@ -3,6 +3,7 @@ module MpiUnitCacheModule
   use ListModule
   use STLVecIntModule
   use SimStagesModule, only: NR_SIM_STAGES
+  use MpiWorldModule, only: CHECK_MPI
   use mpi
   implicit none
   private
@@ -18,7 +19,8 @@ module MpiUnitCacheModule
   contains
     procedure :: init => cc_init
     procedure :: get_cached => cc_get_cached
-    procedure :: cache => mc_cache
+    procedure :: cache => cc_cache
+    procedure :: clear => cc_clear
     procedure :: destroy => cc_destroy
     ! private
     procedure, private :: is_rank_cached
@@ -65,7 +67,7 @@ contains
   !> @brief Cache the mpi datatype for this particular
   !! rank and stage. The datatype should be committed
   !< to the type database externally.
-  subroutine mc_cache(this, rank, stage, msg_id, mpi_type)
+  subroutine cc_cache(this, rank, stage, msg_id, mpi_type)
     class(MpiUnitCacheType) :: this
     integer(I4B) :: rank
     integer(I4B) :: stage
@@ -84,7 +86,7 @@ contains
     msg_idx = this%get_msg_index(rank, stage, msg_id)
     call this%cached_messages%set(msg_idx, mpi_type)
 
-  end subroutine mc_cache
+  end subroutine cc_cache
 
   function is_rank_cached(this, rank) result(in_cache)
     class(MpiUnitCacheType) :: this
@@ -143,9 +145,9 @@ contains
 
   end function get_msg_index
 
-  !> @brief Clean up the unit cache.
+  !> @brief Clear the cache: free MPI types
   !<
-  subroutine cc_destroy(this)
+  subroutine cc_clear(this)
     class(MpiUnitCacheType) :: this
     ! local
     integer(I4B) :: i
@@ -155,8 +157,17 @@ contains
       mpi_type = this%cached_messages%at(i)
       if (mpi_type /= NO_CACHED_VALUE) then
         call MPI_Type_free(mpi_type, ierr)
+        call CHECK_MPI(ierr)
       end if
     end do
+    call this%cached_messages%clear()
+
+  end subroutine cc_clear
+
+  !> @brief Destroy unit cache.
+  !<
+  subroutine cc_destroy(this)
+    class(MpiUnitCacheType) :: this
 
     call this%cached_ranks%destroy()
     call this%cached_messages%destroy()

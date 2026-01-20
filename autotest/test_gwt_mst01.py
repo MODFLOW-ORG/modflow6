@@ -41,9 +41,7 @@ def build_models(idx, test):
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
     gwfname = "gwf_" + name
@@ -175,14 +173,10 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwtic(gwt, strt=1.0, filename=f"{gwtname}.ic")
 
     # advection
-    adv = flopy.mf6.ModflowGwtadv(
-        gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv"
-    )
+    adv = flopy.mf6.ModflowGwtadv(gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv")
 
     # mass storage and transfer
-    mst = flopy.mf6.ModflowGwtmst(
-        gwt, porosity=sy[idx], filename=f"{gwtname}.mst"
-    )
+    mst = flopy.mf6.ModflowGwtmst(gwt, porosity=sy[idx], filename=f"{gwtname}.mst")
 
     # sources
     sourcerecarray = [("WEL-1", "AUX", "CONCENTRATION")]
@@ -195,9 +189,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "ALL")],
         printrecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
     )
@@ -225,7 +217,7 @@ def check_output(idx, test):
     # end of stress period 1
     cres1 = np.ones((nlay, nrow, ncol), float)
     assert np.allclose(cres1, conc1), (
-        "simulated concentrations do not match " "with known solution."
+        "simulated concentrations do not match with known solution."
     )
 
 

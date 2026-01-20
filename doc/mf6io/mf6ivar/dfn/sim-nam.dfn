@@ -26,6 +26,15 @@ description is a flag that controls printing of detailed memory manager usage to
 mf6internal prmem
 
 block options
+name profile_option
+type string
+reader urword
+optional true
+longname profiling option
+description is a flag that controls performance profiling and reporting.  NONE disables profiling. SUMMARY means to measure and print a coarse performance profile. DETAIL means collect and print information with the highest resolution available. NONE is default if PROFILE\_OPTION is not specified.
+mf6internal prprof
+
+block options
 name maxerrors
 type integer
 reader urword
@@ -61,6 +70,7 @@ tagged true
 optional false
 longname head keyword
 description keyword to specify that record corresponds to a hpc file.
+extended true
 
 block options
 name filein
@@ -83,6 +93,7 @@ optional false
 tagged false
 longname file name of time series information
 description name of input file to define HPC file settings for the HPC package. See the ``HPC File'' section for instructions for preparing HPC input files.
+extended true
 
 
 # --------------------- sim nam timing ---------------------
@@ -189,7 +200,7 @@ description is the name of the second model that is part of this exchange.
 block solutiongroup
 name group_num
 type integer
-block_variable True
+block_variable true
 in_record true
 tagged false
 shape
@@ -236,7 +247,7 @@ block solutiongroup
 name slnmnames
 type string
 in_record true
-shape (:)
+shape (any1d)
 tagged false
 reader urword
 longname array of model names in this solution

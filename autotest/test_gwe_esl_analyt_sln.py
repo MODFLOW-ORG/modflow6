@@ -47,7 +47,7 @@ CTP ->  |                                                                  | <- 
 
   Specified temperature boundary, T_0
 
-"""
+"""  # noqa
 
 import math
 import os
@@ -216,9 +216,7 @@ def build_models(idx, test, ener_input):
     )
 
     # Initial conditions
-    flopy.mf6.ModflowGwfic(
-        gwf, strt=strt, pname="IC-HD", filename=f"{gwfname}.ic"
-    )
+    flopy.mf6.ModflowGwfic(gwf, strt=strt, pname="IC-HD", filename=f"{gwfname}.ic")
 
     # Node property flow
     flopy.mf6.ModflowGwfnpf(
@@ -308,9 +306,7 @@ def build_models(idx, test, ener_input):
     )
 
     # Initial conditions
-    flopy.mf6.ModflowGweic(
-        gwe, strt=T_0, pname="IC-1", filename=f"{gwename}.ic"
-    )
+    flopy.mf6.ModflowGweic(gwe, strt=T_0, pname="IC-1", filename=f"{gwename}.ic")
 
     # Advection
     flopy.mf6.ModflowGweadv(
@@ -336,14 +332,15 @@ def build_models(idx, test, ener_input):
         heat_capacity_water=Cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=Cps,
-        rhos=rhos,
+        heat_capacity_solid=Cps,
+        density_solid=rhos,
         pname="EST-1",
         filename=f"{gwename}.est",
     )
 
     # Constant temperature
-    # Note: Implementation of the CTP boundary depends on which analytical sln is in view
+    # Note: Implementation of the CTP boundary depends on which analytical sln
+    #       is in view
     #       See notes at top of script regarding scenarios
     if idx > 0:
         if idx == 1:
@@ -389,9 +386,7 @@ def build_models(idx, test, ener_input):
         gwe,
         budget_filerecord=f"{gwename}.cbc",
         temperature_filerecord=f"{gwename}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("TEMPERATURE", "LAST"), ("BUDGET", "LAST")],
     )
@@ -505,10 +500,10 @@ def check_output(idx, test, ener_input):
                 analytical_temps.append(T)
 
             analytical_temps = np.array(analytical_temps)
-            assert np.allclose(
-                analytical_temps, sim_temps[sp, 0, 0, :], atol=0.005
-            ), "simulated solution is whacked"
-            # plt.plot(cell_centroids, analytical_temps, "r-", label="Analytical Solution")
+            assert np.allclose(analytical_temps, sim_temps[sp, 0, 0, :], atol=0.005), (
+                "simulated solution is whacked"
+            )
+            # plt.plot(cell_centroids, analytical_temps, "r-", label="Analytical Solution")  # noqa
             # plt.plot(cell_centroids, sim_temps[sp, 0, 0, :], "b--", label="GWE")
             # plt.axhline(0.0, color='black')
             # plt.legend()
@@ -535,11 +530,11 @@ def check_output(idx, test, ener_input):
             else:
                 atol = 0.47
 
-            assert np.allclose(
-                analytical_temps, sim_temps[sp, 0, 0, :], atol=atol
-            ), "simulated solution is whacked"
+            assert np.allclose(analytical_temps, sim_temps[sp, 0, 0, :], atol=atol), (
+                "simulated solution is whacked"
+            )
 
-            # plt.plot(cell_centroids, analytical_temps, "r-", label="Analytical Solution")
+            # plt.plot(cell_centroids, analytical_temps, "r-", label="Analytical Solution")  # noqa
             # plt.plot(cell_centroids, sim_temps[sp, 0, 0, :], "b--", label="GWE")
             # plt.axhline(0.0, color='black')
             # plt.legend()

@@ -14,15 +14,20 @@ module SwfDis2DInputModule
   type SwfDis2dParamFoundType
     logical :: length_units = .false.
     logical :: nogrb = .false.
+    logical :: grb_filerecord = .false.
+    logical :: grb6 = .false.
+    logical :: fileout = .false.
+    logical :: grb6_filename = .false.
     logical :: xorigin = .false.
     logical :: yorigin = .false.
     logical :: angrot = .false.
     logical :: export_ascii = .false.
+    logical :: crs = .false.
     logical :: nrow = .false.
     logical :: ncol = .false.
     logical :: delr = .false.
     logical :: delc = .false.
-    logical :: botm = .false.
+    logical :: bottom = .false.
     logical :: idomain = .false.
   end type SwfDis2dParamFoundType
 
@@ -46,6 +51,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'model length units', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -64,8 +70,85 @@ module SwfDis2DInputModule
     '', & ! shape
     'do not write binary grid file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdis2d_grb_filerecord = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DIS2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB_FILERECORD', & ! tag name
+    'GRB_FILERECORD', & ! fortran variable
+    'RECORD GRB6 FILEOUT GRB6_FILENAME', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdis2d_grb6 = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DIS2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB6', & ! tag name
+    'GRB6', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'grb keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdis2d_fileout = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DIS2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'FILEOUT', & ! tag name
+    'FILEOUT', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'file keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdis2d_grb6_filename = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DIS2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'GRB6_FILENAME', & ! tag name
+    'GRB6_FILENAME', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file name of GRB information', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -82,6 +165,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'x-position of the model grid origin', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -100,6 +184,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'y-position of the model grid origin', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -118,6 +203,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'rotation angle', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -136,8 +222,28 @@ module SwfDis2DInputModule
     '', & ! shape
     'export array variables to layered ascii files.', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swfdis2d_crs = InputParamDefinitionType &
+    ( &
+    'SWF', & ! component
+    'DIS2D', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS', & ! tag name
+    'CRS', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS user input string', & ! longname
+    .false., & ! required
+    .true., & ! developmode
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -154,6 +260,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'number of rows', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -172,6 +279,7 @@ module SwfDis2DInputModule
     '', & ! shape
     'number of columns', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -190,6 +298,7 @@ module SwfDis2DInputModule
     'NCOL', & ! shape
     'spacing along a row', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -208,6 +317,7 @@ module SwfDis2DInputModule
     'NROW', & ! shape
     'spacing along a column', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -215,17 +325,18 @@ module SwfDis2DInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    swfdis2d_botm = InputParamDefinitionType &
+    swfdis2d_bottom = InputParamDefinitionType &
     ( &
     'SWF', & ! component
     'DIS2D', & ! subcomponent
     'GRIDDATA', & ! block
-    'BOTM', & ! tag name
-    'BOTM', & ! fortran variable
+    'BOTTOM', & ! tag name
+    'BOTTOM', & ! fortran variable
     'DOUBLE2D', & ! type
     'NCOL NROW', & ! shape
     'cell bottom elevation', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -244,6 +355,7 @@ module SwfDis2DInputModule
     'NCOL NROW', & ! shape
     'idomain existence array', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -255,15 +367,20 @@ module SwfDis2DInputModule
     [ &
     swfdis2d_length_units, &
     swfdis2d_nogrb, &
+    swfdis2d_grb_filerecord, &
+    swfdis2d_grb6, &
+    swfdis2d_fileout, &
+    swfdis2d_grb6_filename, &
     swfdis2d_xorigin, &
     swfdis2d_yorigin, &
     swfdis2d_angrot, &
     swfdis2d_export_ascii, &
+    swfdis2d_crs, &
     swfdis2d_nrow, &
     swfdis2d_ncol, &
     swfdis2d_delr, &
     swfdis2d_delc, &
-    swfdis2d_botm, &
+    swfdis2d_bottom, &
     swfdis2d_idomain &
     ]
 
@@ -281,6 +398,7 @@ module SwfDis2DInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

@@ -54,9 +54,6 @@ contains
     !
     allocate (tvs)
     call tvs%init(name_model, 'TVS', 'TVS', inunit, iout)
-    !
-    ! -- Return
-    return
   end subroutine tvs_cr
 
   !> @brief Announce package and set pointers to variables
@@ -87,9 +84,6 @@ contains
     !
     ! -- Instruct STO to integrate storage changes, since TVS is active
     this%integratechanges = 1
-    !
-    ! -- Return
-    return
   end subroutine tvs_ar_set_pointers
 
   !> @brief Read a TVS-specific option from the OPTIONS block
@@ -116,9 +110,6 @@ contains
     case default
       success = .false.
     end select
-    !
-    ! -- Return
-    return
   end function tvs_read_option
 
   !> @brief Get an array value pointer given a variable name and node index
@@ -142,9 +133,6 @@ contains
     case default
       bndElem => null()
     end select
-    !
-    ! -- Return
-    return
   end function tvs_get_pointer_to_value
 
   !> @brief Mark property changes as having occurred at (kper, kstp)
@@ -160,9 +148,6 @@ contains
     !
     ! -- No need to record TVS/STO changes, as no other packages cache
     ! -- Ss or Sy values
-    !
-    ! -- Return
-    return
   end subroutine tvs_set_changed_at
 
   !> @brief Clear all per-node change flags
@@ -177,9 +162,6 @@ contains
     !
     ! -- No need to record TVS/STO changes, as no other packages cache
     ! -- Ss or Sy values
-    !
-    ! -- Return
-    return
   end subroutine tvs_reset_change_flags
 
   !> @brief Check that a given property value is valid
@@ -224,9 +206,6 @@ contains
         call store_error(errmsg)
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine tvs_validate_change
 
   !> @brief Deallocate package memory
@@ -245,9 +224,6 @@ contains
     !
     ! -- Deallocate parent
     call tvbase_da(this)
-    !
-    ! -- Return
-    return
   end subroutine tvs_da
 
 end module TvsModule

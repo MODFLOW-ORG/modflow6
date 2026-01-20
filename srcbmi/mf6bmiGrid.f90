@@ -62,7 +62,7 @@ contains
     !DIR$ ATTRIBUTES DLLEXPORT :: get_grid_type
     ! -- dummy variables
     integer(kind=c_int), intent(in) :: grid_id
-    character(kind=c_char), intent(out) :: grid_type(BMI_LENGRIDTYPE)
+    character(kind=c_char), intent(inout) :: grid_type(BMI_LENGRIDTYPE)
     integer(kind=c_int) :: bmi_status
     ! -- local variables
     character(len=LENGRIDTYPE) :: grid_type_f

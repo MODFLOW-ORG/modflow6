@@ -44,7 +44,7 @@ C     ------------------------------------------------------------------
       USE GLOBAL,  ONLY:IOUT,NPER,NSTP,PERLEN,TSMULT,ISSFLG,
      1                  NCOL,NROW,NLAY,ITRSS
       USE OBSGHBMODULE
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       use utl7module, only: URDCOM, URWORD
       CHARACTER*200 LINE
       double precision :: dum

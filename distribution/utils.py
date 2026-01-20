@@ -1,10 +1,11 @@
 import re
 import subprocess
 import sys
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from pprint import pformat
-from typing import Iterator, List, Optional
+from typing import Optional
 
 _project_root_path = Path(__file__).resolve().parent.parent
 
@@ -14,18 +15,14 @@ def get_project_root_path():
 
 
 def get_modified_time(path: Path) -> float:
-    return (
-        path.stat().st_mtime
-        if path.is_file()
-        else datetime.today().timestamp()
-    )
+    return path.stat().st_mtime if path.is_file() else datetime.today().timestamp()
 
 
 def glob(
     path: Path,
     pattern: str,
-    included: Optional[List[str]],
-    excluded: Optional[List[str]],
+    included: Optional[list[str]],
+    excluded: Optional[list[str]],
 ) -> Iterator[Path]:
     def is_included(p):
         if included is None:

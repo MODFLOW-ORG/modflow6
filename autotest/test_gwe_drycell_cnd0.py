@@ -76,6 +76,9 @@ botm = np.array(botm)
 rhow = 1000.0
 cpw = 4183.0
 lhv = 2454.0
+cps = 760.0
+rhos = 1500.0
+
 
 # Head input
 left_hd = 15.0
@@ -99,7 +102,7 @@ dispersivity = 0.0  # dispersion (remember, 1D model)
 
 # Set solver parameter values (and related)
 nouter, ninner = 100, 300
-hclose, rclose, relax = 1e-10, 1e-10, 1.0
+hclose, rclose, relax = 1e-9, 1e-9, 1.0
 ttsmult = 1.0
 
 # Set up temporal data used by TDIS file
@@ -127,9 +130,7 @@ def build_models(idx, test):
     )
 
     # Instantiating MODFLOW 6 time discretization
-    flopy.mf6.ModflowTdis(
-        sim, nper=nper, perioddata=tdis_rc, time_units=time_units
-    )
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=tdis_rc, time_units=time_units)
 
     # Instantiating MODFLOW 6 groundwater flow model
     gwf = flopy.mf6.ModflowGwf(
@@ -228,7 +229,7 @@ def build_models(idx, test):
     gwe1.name_file.save_flows = True
     imsgwe1 = flopy.mf6.ModflowIms(
         sim,
-        print_option="SUMMARY",
+        print_option="ALL",
         outer_dvclose=hclose,
         outer_maximum=nouter,
         under_relaxation="NONE",
@@ -283,7 +284,8 @@ def build_models(idx, test):
         filename=f"{gwename1}.cnd",
     )
 
-    # Instantiating MODFLOW 6 transport mass storage package (formerly "reaction" package in MT3DMS)
+    # Instantiating MODFLOW 6 transport mass storage package
+    # (formerly "reaction" package in MT3DMS)
     flopy.mf6.ModflowGweest(
         gwe1,
         save_flows=True,
@@ -291,8 +293,8 @@ def build_models(idx, test):
         heat_capacity_water=cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=760.0,
-        rhos=1500.0,
+        heat_capacity_solid=cps,
+        density_solid=rhos,
         pname="EST-2",
         filename=f"{gwename1}.est",
     )
@@ -308,9 +310,7 @@ def build_models(idx, test):
         pname="OC-2",
         budget_filerecord=f"{gwename1}.cbc",
         temperature_filerecord=f"{gwename1}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
     )
@@ -350,9 +350,7 @@ def check_output(idx, test):
     fpth = os.path.join(test.workspace, f"{gwename}.ucn")
     try:
         # load temperatures
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="TEMPERATURE"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="TEMPERATURE")
         conc1 = cobj.get_alldata()
     except:
         assert False, f'could not load temperature data from "{fpth}"'
@@ -391,22 +389,14 @@ def check_output(idx, test):
 
     # The 'pass-through' cell (layer 1, row 1, column 4 - see diagram at top
     # of script) should be warming more than its two neighbors to the right.
-    msg4 = (
-        "Pass through cell should be warming up at a higher rate than "
-        "the dry cells."
-    )
+    msg4 = "Pass through cell should be warming up at a higher rate than the dry cells."
     assert np.all(conc1[:, 0, 0, 3] > conc1[:, 0, 0, 4]), msg4
 
     # Pass through cell should not be as warm as the cell from which it
     # receives water, since that cell will have already robbed the water
     # passing through of some of its heat
-    msg5 = (
-        "Pass through cell should not be as warm as its neighbor to "
-        "the left"
-    )
-    assert np.all(
-        np.round(conc1[:, 0, 0, 3] - conc1[:, 0, 0, 2], 8) <= 0
-    ), msg5
+    msg5 = "Pass through cell should not be as warm as its neighbor to the left"
+    assert np.all(np.round(conc1[:, 0, 0, 3] - conc1[:, 0, 0, 2], 8) <= 0), msg5
 
 
 # - No need to change any code below

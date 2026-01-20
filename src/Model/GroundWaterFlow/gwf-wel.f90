@@ -16,8 +16,8 @@ module WelModule
   ! -- modules used by WelModule methods
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DZERO, DEM1, DONE, LENFTYPE, DNODATA, LINELENGTH
-  use SimVariablesModule, only: errmsg
-  use SimModule, only: store_error, store_error_filename
+  use SimVariablesModule, only: errmsg, warnmsg
+  use SimModule, only: store_error, store_error_filename, store_warning
   use MemoryHelperModule, only: create_mem_path
   use BndModule, only: BndType
   use BndExtModule, only: BndExtType
@@ -41,6 +41,7 @@ module WelModule
     integer(I4B), pointer :: iflowred => null() !< flag indicating if the AUTO_FLOW_REDUCE option is active
     real(DP), pointer :: flowred => null() !< AUTO_FLOW_REDUCE variable
     integer(I4B), pointer :: ioutafrcsv => null() !< unit number for CSV output file containing wells with reduced puping rates
+    integer(I4B), pointer :: iflowredlen => null() !< flag indicating flowred variable is a length value
   contains
     procedure :: allocate_scalars => wel_allocate_scalars
     procedure :: allocate_arrays => wel_allocate_arrays
@@ -103,9 +104,6 @@ contains
     packobj%id = id
     packobj%ibcnum = ibcnum
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
-    !
-    ! -- return
-    return
   end subroutine wel_create
 
   !> @ brief Deallocate package memory
@@ -126,10 +124,8 @@ contains
     call mem_deallocate(this%iflowred)
     call mem_deallocate(this%flowred)
     call mem_deallocate(this%ioutafrcsv)
+    call mem_deallocate(this%iflowredlen)
     call mem_deallocate(this%q, 'Q', this%memoryPath)
-    !
-    ! -- return
-    return
   end subroutine wel_da
 
   !> @ brief Allocate scalars
@@ -151,14 +147,13 @@ contains
     call mem_allocate(this%iflowred, 'IFLOWRED', this%memoryPath)
     call mem_allocate(this%flowred, 'FLOWRED', this%memoryPath)
     call mem_allocate(this%ioutafrcsv, 'IOUTAFRCSV', this%memoryPath)
+    call mem_allocate(this%iflowredlen, 'IFLOWREDLEN', this%memoryPath)
     !
     ! -- Set values
     this%iflowred = 0
     this%ioutafrcsv = 0
     this%flowred = DZERO
-    !
-    ! -- return
-    return
+    this%iflowredlen = 0
   end subroutine wel_allocate_scalars
 
   !> @ brief Allocate arrays
@@ -184,9 +179,6 @@ contains
     ! -- checkin constant head array input context pointer
     call mem_checkin(this%q, 'Q', this%memoryPath, &
                      'Q', this%input_mempath)
-    !
-    ! -- return
-    return
   end subroutine wel_allocate_arrays
 
   !> @ brief Source additional options for package
@@ -217,31 +209,46 @@ contains
     call mem_set_value(this%flowred, 'FLOWRED', this%input_mempath, found%flowred)
     call mem_set_value(fname, 'AFRCSVFILE', this%input_mempath, found%afrcsvfile)
     call mem_set_value(this%imover, 'MOVER', this%input_mempath, found%mover)
-    !
+    call mem_set_value(this%iflowredlen, 'IFLOWREDLEN', this%input_mempath, &
+                       found%iflowredlen)
+
+    if (found%iflowredlen) then
+      if (found%flowred .eqv. .FALSE.) then
+        write (warnmsg, '(a)') &
+          'FLOW_REDUCTION_LENGTH option specified but a AUTO_FLOW_REDUCTION value &
+          &is not specified. The FLOW_REDUCTION_LENGTH option will be ignored.'
+        call store_warning(warnmsg)
+      else
+        this%iflowredlen = 1
+      end if
+    end if
+
     if (found%flowred) then
-      !
       this%iflowred = 1
-      !
       if (this%flowred <= DZERO) then
-        this%flowred = DEM1
-      else if (this%flowred > DONE) then
+        if (found%iflowredlen) then
+          write (errmsg, '(a)') &
+            'An AUTO_FLOW_REDUCTION value less than or equal to zero cannot be &
+            &specified if the FLOW_REDUCTION_LENGTH option is specified.'
+          call store_error(errmsg)
+        else
+          this%flowred = DEM1
+        end if
+      else if (this%flowred > DONE .and. this%iflowredlen == 0) then
         this%flowred = DONE
       end if
     end if
-    !
+
     if (found%afrcsvfile) then
       call this%wel_afr_csv_init(fname)
     end if
-    !
+
     if (found%mover) then
       this%imover = 1
     end if
-    !
+
     ! -- log WEL specific options
     call this%log_wel_options(found)
-    !
-    ! -- return
-    return
   end subroutine wel_options
 
   !> @ brief Log WEL specific package options
@@ -258,21 +265,31 @@ contains
       &"(4x, 'AUTOMATIC FLOW REDUCTION OF WELLS IMPLEMENTED.')"
     character(len=*), parameter :: fmtflowredv = &
       &"(4x, 'AUTOMATIC FLOW REDUCTION FRACTION (',g15.7,').')"
+    character(len=*), parameter :: fmtflowredl = &
+      &"(4x, 'AUTOMATIC FLOW REDUCTION LENGTH (',g15.7,').')"
     !
     ! -- log found options
     write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text)) &
       //' OPTIONS'
-    !
+
+    if (found%iflowredlen) then
+      write (this%iout, fmtflowred)
+      write (this%iout, '(4x,A)') &
+        'AUTOMATIC FLOW REDUCTION FRACTION INTERPRETED AS A LENGTH'
+    end if
+
     if (found%flowred) then
-      if (this%iflowred > 0) &
-        write (this%iout, fmtflowred)
-      write (this%iout, fmtflowredv) this%flowred
+      if (this%iflowredlen == 0) then
+        write (this%iout, fmtflowredv) this%flowred
+      else
+        write (this%iout, fmtflowredl) this%flowred
+      end if
     end if
     !
     if (found%afrcsvfile) then
       ! -- currently no-op
     end if
-    !
+
     if (found%mover) then
       write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
     end if
@@ -280,9 +297,6 @@ contains
     ! -- close logging block
     write (this%iout, '(1x,a)') &
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
-    !
-    ! -- return
-    return
   end subroutine log_wel_options
 
   !> @ brief WEL read and prepare
@@ -303,9 +317,6 @@ contains
     if (this%iprpak /= 0) then
       call this%write_list()
     end if
-    !
-    ! -- return
-    return
   end subroutine wel_rp
 
   !> @ brief Formulate the package hcof and rhs terms.
@@ -340,9 +351,12 @@ contains
       if (this%iflowred /= 0 .and. q < DZERO) then
         ict = this%icelltype(node)
         if (ict /= 0) then
-          tp = this%dis%top(node)
           bt = this%dis%bot(node)
-          thick = tp - bt
+          if (this%iflowredlen == 0) then
+            thick = this%dis%top(node) - bt
+          else
+            thick = DONE
+          end if
           tp = bt + this%flowred * thick
           qmult = sQSaturation(tp, bt, this%xnew(node))
           q = q * qmult
@@ -350,8 +364,6 @@ contains
       end if
       this%rhs(i) = -q
     end do
-    !
-    return
   end subroutine wel_cf
 
   !> @ brief Copy hcof and rhs terms into solution.
@@ -390,9 +402,6 @@ contains
         call this%pakmvrobj%accumulate_qformvr(i, this%rhs(i))
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine wel_fc
 
   !> @ brief Add Newton-Raphson terms for package into solution.
@@ -447,9 +456,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- return
-    return
   end subroutine wel_fn
 
   !> @brief Initialize the auto flow reduce csv output file
@@ -470,7 +476,6 @@ contains
     write (this%ioutafrcsv, '(a)') &
       'time,period,step,boundnumber,cellnumber,rate-requested,&
       &rate-actual,wel-reduction'
-    return
   end subroutine wel_afr_csv_init
 
   !> @brief Write out auto flow reductions only when & where they occur
@@ -527,9 +532,6 @@ contains
     if (this%inamedbound == 1) then
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
-    !
-    ! -- return
-    return
   end subroutine define_listlabel
 
   ! -- Procedures related to observations
@@ -548,9 +550,6 @@ contains
     !
     ! -- set boolean
     wel_obs_supported = .true.
-    !
-    ! -- return
-    return
   end function wel_obs_supported
 
   !> @brief Define the observation types available in the package
@@ -577,9 +576,6 @@ contains
     !    for wel-reduction observation type.
     call this%obs%StoreObsType('wel-reduction', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => DefaultObsIdProcessor
-    !
-    ! -- return
-    return
   end subroutine wel_df_obs
 
   !> @brief Save observations for the package
@@ -636,9 +632,6 @@ contains
     if (this%ioutafrcsv > 0) then
       call this%wel_afr_csv_write()
     end if
-    !
-    ! -- return
-    return
   end subroutine wel_bd_obs
 
   function q_mult(this, row) result(q)
@@ -655,9 +648,6 @@ contains
     else
       q = this%q(row)
     end if
-    !
-    ! -- return
-    return
   end function q_mult
 
   !> @ brief Return a bound value
@@ -685,9 +675,6 @@ contains
       call store_error(errmsg)
       call store_error_filename(this%input_fname)
     end select
-    !
-    ! -- return
-    return
   end function wel_bound_value
 
 end module WelModule

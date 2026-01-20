@@ -160,6 +160,7 @@ contains
     call this%gwfInterfaceModel%set_idsoln(this%gwfModel%idsoln)
     this%gwfInterfaceModel%npf%satomega = this%gwfModel%npf%satomega
     this%gwfInterfaceModel%npf%ixt3d = this%iXt3dOnExchange
+    this%gwfInterfaceModel%npf%icellavg = this%gwfExchange%icellavg
     call this%gwfInterfaceModel%model_df()
 
     ! Take these settings from the owning model
@@ -180,13 +181,13 @@ contains
 
     ! set defaults
     do i = 1, size(this%gwfInterfaceModel%npf%angle1)
-      this%gwfInterfaceModel%npf%angle1 = 0.0_DP
+      this%gwfInterfaceModel%npf%angle1(i) = 0.0_DP
     end do
     do i = 1, size(this%gwfInterfaceModel%npf%angle2)
-      this%gwfInterfaceModel%npf%angle2 = 0.0_DP
+      this%gwfInterfaceModel%npf%angle2(i) = 0.0_DP
     end do
     do i = 1, size(this%gwfInterfaceModel%npf%angle3)
-      this%gwfInterfaceModel%npf%angle3 = 0.0_DP
+      this%gwfInterfaceModel%npf%angle3(i) = 0.0_DP
     end do
 
     ! point X, RHS, IBOUND to connection
@@ -298,8 +299,6 @@ contains
     if (this%owns_exchange) then
       call this%gwfExchange%exg_rp()
     end if
-
-    return
   end subroutine gwfgwfcon_rp
 
   !> @brief Advance this connection
@@ -371,7 +370,7 @@ contains
     ! abort on errors
     if (count_errors() > 0) then
       write (errmsg, '(a)') 'Errors occurred while processing exchange(s)'
-      call ustop()
+      call ustop(errmsg)
     end if
 
   end subroutine validateConnection
@@ -722,7 +721,6 @@ contains
     class is (GwfGwfConnectionType)
       res => obj
     end select
-    return
   end function CastAsGwfGwfConnection
 
 end module GwfGwfConnectionModule

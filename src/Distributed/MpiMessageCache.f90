@@ -28,6 +28,7 @@ module MpiMessageCacheModule
     procedure :: init => mmc_init
     procedure :: get => mmc_get
     procedure :: put => mmc_put
+    procedure :: clear => mmc_clear
     procedure :: destroy => mmc_destroy
   end type MpiMessageCacheType
 
@@ -104,6 +105,25 @@ contains
     end select
 
   end subroutine mmc_put
+
+  !< @brief Clear the MPI type cache system
+  !<
+  subroutine mmc_clear(this)
+    class(MpiMessageCacheType) :: this !< the message cache
+    ! local
+    integer(I4B) :: i
+    class(*), pointer :: obj_ptr
+
+    ! clear caches
+    do i = 1, this%cached_ids%size
+      obj_ptr => this%unit_caches%GetItem(i)
+      select type (obj_ptr)
+      class is (MpiUnitCacheType)
+        call obj_ptr%clear()
+      end select
+    end do
+
+  end subroutine mmc_clear
 
   !< @brief Destroy the MPI type cache system.
   !<

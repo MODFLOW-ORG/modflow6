@@ -19,7 +19,7 @@ module FhbPackageWriterModule
   use LineListModule, only: LineListType
   use ListModule, only: ListType
   use PackageWriterModule, only: PackageWriterType
-  use SimModule, only: store_note
+  use SimPHMFModule, only: store_note
   use WelPackageWriterModule, only: WelPackageWriterType
 
   implicit none

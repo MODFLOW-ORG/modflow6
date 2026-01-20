@@ -53,9 +53,7 @@ def run_flow_model(dir, exe):
     sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=wsf, exe_name=exe)
     tdis_rc = [(100.0, 1, 1.0), (100.0, 1, 1.0)]
     nper = len(tdis_rc)
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     gwf = flopy.mf6.ModflowGwf(sim, modelname=gwfname, save_flows=True)
 
@@ -120,18 +118,14 @@ def run_flow_model(dir, exe):
         gwf,
         budget_filerecord=f"{gwfname}.bud",
         head_filerecord=f"{gwfname}.hds",
-        headprintrecord=[
-            ("COLUMNS", ncol, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        headprintrecord=[("COLUMNS", ncol, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
     )
 
     rch_on = False
     if rch_on:
-        rch = flopy.mf6.ModflowGwfrcha(
-            gwf, recharge={0: 4.79e-3}, pname="RCH-1"
-        )
+        rch = flopy.mf6.ModflowGwfrcha(gwf, recharge={0: 4.79e-3}, pname="RCH-1")
 
     # wel
     wellist = []
@@ -219,9 +213,7 @@ def run_flow_model(dir, exe):
     static_mvrperioddata = []
     wel_idx = 0
     for wl in np.arange(2):  # There are only a maximum of 2 wells
-        static_mvrperioddata.append(
-            ("WEL-1", wel_idx, "SFR-1", 0, "FACTOR", 1.0)
-        )
+        static_mvrperioddata.append(("WEL-1", wel_idx, "SFR-1", 0, "FACTOR", 1.0))
         wel_idx += 1
 
     mvrspd = {0: static_mvrperioddata}
@@ -256,9 +248,7 @@ def run_transport_model(dir, exe):
 
     tdis_rc = [(100.0, 10, 1.0), (100.0, 10, 1.0)]
     nper = len(tdis_rc)
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     gwt = flopy.mf6.ModflowGwt(sim, modelname=gwtname)
 
@@ -303,16 +293,10 @@ def run_transport_model(dir, exe):
     # Create the ssm sources block information
     sourcerecarray = []
     sourcerecarray += [("WEL-1", "AUX", "CONCENTRATION")]
-    sourcerecarray += [
-        (f"GHB-{i+1}", "AUX", "CONCENTRATION") for i in [0, 1, 2, 3]
-    ]
-    sourcerecarray += [
-        (f"DRN-{i+1}", "AUX", "CONCENTRATION") for i in [0, 1, 2]
-    ]
+    sourcerecarray += [(f"GHB-{i + 1}", "AUX", "CONCENTRATION") for i in [0, 1, 2, 3]]
+    sourcerecarray += [(f"DRN-{i + 1}", "AUX", "CONCENTRATION") for i in [0, 1, 2]]
 
-    ssm = flopy.mf6.ModflowGwtssm(
-        gwt, print_flows=True, sources=sourcerecarray
-    )
+    ssm = flopy.mf6.ModflowGwtssm(gwt, print_flows=True, sources=sourcerecarray)
 
     pd = [
         ("GWFHEAD", "../flow/flow.hds", None),
@@ -320,9 +304,7 @@ def run_transport_model(dir, exe):
         ("GWFMOVER", "../flow/flow.mvr.bud", None),
         ("SFR-1", "../flow/flow.sfr.bud", None),
     ]
-    fmi = flopy.mf6.ModflowGwtfmi(
-        gwt, packagedata=pd, flow_imbalance_correction=True
-    )
+    fmi = flopy.mf6.ModflowGwtfmi(gwt, packagedata=pd, flow_imbalance_correction=True)
 
     sftpkdat = []
     for irno in range(len(sfrcells)):
@@ -343,10 +325,7 @@ def run_transport_model(dir, exe):
         pname="SFT-1",
     )
 
-    mvt = flopy.mf6.modflow.ModflowGwtmvt(
-        gwt,
-        pname="MVT-1",
-    )
+    mvt = flopy.mf6.modflow.ModflowGwtmvt(gwt, pname="MVT-1")
 
     oc = flopy.mf6.ModflowGwtoc(
         gwt,
@@ -368,9 +347,7 @@ def run_transport_model(dir, exe):
     # ensure budget table can be parsed
     fname = gwtname + ".lst"
     fname = os.path.join(wst, fname)
-    budl = flopy.utils.Mf6ListBudget(
-        fname, budgetkey="MASS BUDGET FOR ENTIRE MODEL"
-    )
+    budl = flopy.utils.Mf6ListBudget(fname, budgetkey="MASS BUDGET FOR ENTIRE MODEL")
     d0 = budl.get_budget()[0]
 
     # Load the csv representation of the budget for confirming that the model ran

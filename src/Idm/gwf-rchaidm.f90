@@ -26,6 +26,7 @@ module GwfRchaInputModule
     logical :: obs_filerecord = .false.
     logical :: obs6 = .false.
     logical :: obs6_filename = .false.
+    logical :: export_nc = .false.
     logical :: irch = .false.
     logical :: recharge = .false.
     logical :: auxvar = .false.
@@ -51,6 +52,7 @@ module GwfRchaInputModule
     '', & ! shape
     'use array-based input', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -69,6 +71,7 @@ module GwfRchaInputModule
     '', & ! shape
     'if cell is dry do not apply recharge to underlying cell', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -87,6 +90,7 @@ module GwfRchaInputModule
     'NAUX', & ! shape
     'keyword to specify aux variables', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -105,6 +109,7 @@ module GwfRchaInputModule
     '', & ! shape
     'name of auxiliary variable for multiplier', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -123,6 +128,7 @@ module GwfRchaInputModule
     '', & ! shape
     'print input to listing file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -141,6 +147,7 @@ module GwfRchaInputModule
     '', & ! shape
     'print recharge rates to listing file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -159,6 +166,7 @@ module GwfRchaInputModule
     '', & ! shape
     'save CHD flows to budget file', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -177,6 +185,7 @@ module GwfRchaInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -195,6 +204,7 @@ module GwfRchaInputModule
     '', & ! shape
     'head keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -213,6 +223,7 @@ module GwfRchaInputModule
     '', & ! shape
     'file keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -231,6 +242,7 @@ module GwfRchaInputModule
     '', & ! shape
     'file name of time series information', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -249,6 +261,7 @@ module GwfRchaInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -267,6 +280,7 @@ module GwfRchaInputModule
     '', & ! shape
     'obs keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -285,8 +299,28 @@ module GwfRchaInputModule
     '', & ! shape
     'obs6 input filename', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfrcha_export_nc = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'RCHA', & ! subcomponent
+    'OPTIONS', & ! block
+    'EXPORT_ARRAY_NETCDF', & ! tag name
+    'EXPORT_NC', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'export array variables to netcdf output files.', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -303,6 +337,7 @@ module GwfRchaInputModule
     'NCPL', & ! shape
     'layer number for recharge', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -321,6 +356,7 @@ module GwfRchaInputModule
     'NCPL', & ! shape
     'recharge rate', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -337,8 +373,9 @@ module GwfRchaInputModule
     'AUXVAR', & ! fortran variable
     'DOUBLE2D', & ! type
     'NAUX NCPL', & ! shape
-    'auxiliary variable iaux', & ! longname
+    'recharge auxiliary variable iaux', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -362,6 +399,7 @@ module GwfRchaInputModule
     gwfrcha_obs_filerecord, &
     gwfrcha_obs6, &
     gwfrcha_obs6_filename, &
+    gwfrcha_export_nc, &
     gwfrcha_irch, &
     gwfrcha_recharge, &
     gwfrcha_auxvar &
@@ -381,6 +419,7 @@ module GwfRchaInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

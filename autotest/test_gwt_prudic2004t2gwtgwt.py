@@ -7,7 +7,6 @@ through the system.
 """
 
 import os
-import sys
 
 import flopy
 import numpy as np
@@ -236,9 +235,7 @@ def build_models(idx, test):
     return sim, regression
 
 
-def sfr_packagedata_to_list(
-    fname, gwf, boundnames=False, convert_to_zero_base=True
-):
+def sfr_packagedata_to_list(fname, gwf, boundnames=False, convert_to_zero_base=True):
     dt = flopy.mf6.ModflowGwfsfr.packagedata.dtype(
         gwf, cellid_expanded=True, boundnames=boundnames, timeseries=False
     )
@@ -265,9 +262,7 @@ def sfr_connectiondata_to_list(fname, convert_to_zero_base=True):
     with open(fname) as f:
         cd_list = [[int(i) for i in s.strip().split()] for s in f.readlines()]
     if convert_to_zero_base:
-        cd_list = [
-            [np.sign(irch) * (abs(irch) - 1) for irch in l] for l in cd_list
-        ]
+        cd_list = [[np.sign(irch) * (abs(irch) - 1) for irch in l] for l in cd_list]
     return cd_list
 
 
@@ -325,17 +320,13 @@ def build_gwfgwt_combo(
         gwf,
         budget_filerecord=f"{gwfname}.bud",
         head_filerecord=f"{gwfname}.hds",
-        headprintrecord=[
-            ("COLUMNS", ncol, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        headprintrecord=[("COLUMNS", ncol, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
     )
 
     if rch_on:
-        rch = flopy.mf6.ModflowGwfrcha(
-            gwf, recharge={0: 4.79e-3}, pname="RCH-1"
-        )
+        rch = flopy.mf6.ModflowGwfrcha(gwf, recharge={0: 4.79e-3}, pname="RCH-1")
 
     if icombo == 1:
         fname = "chd_north.dat"
@@ -349,9 +340,7 @@ def build_gwfgwt_combo(
         if len(ll) == 4:
             k, i, j, hd = ll
             chdlist.append([int(k) - 1, int(i) - 1, int(j) - 1, float(hd)])
-    chd = flopy.mf6.ModflowGwfchd(
-        gwf, stress_period_data=chdlist, pname="CHD-1"
-    )
+    chd = flopy.mf6.ModflowGwfchd(gwf, stress_period_data=chdlist, pname="CHD-1")
 
     if sfr_on:
         if icombo == 1:
@@ -737,19 +726,13 @@ def make_concentration_vs_time(sim, ws, ans_lak1, ans_sfr3, ans_sfr4):
         times = np.array(times) / 365.0
         if lkaconc is not None:
             plt.plot(times, lkaconc[:, 0], "b-", label="Lake 1")
-            plt.plot(
-                times, ans_lak1, ls="none", marker="o", mfc="none", mec="b"
-            )
+            plt.plot(times, ans_lak1, ls="none", marker="o", mfc="none", mec="b")
         if sft3outflowconc is not None:
             plt.plot(times, sft3outflowconc, "r-", label="Stream segment 3")
-            plt.plot(
-                times, ans_sfr3, ls="none", marker="o", mfc="none", mec="r"
-            )
+            plt.plot(times, ans_sfr3, ls="none", marker="o", mfc="none", mec="r")
         if sft4outflowconc is not None:
             plt.plot(times, sft4outflowconc, "g-", label="Stream segment 4")
-            plt.plot(
-                times, ans_sfr4, ls="none", marker="o", mfc="none", mec="g"
-            )
+            plt.plot(times, ans_sfr4, ls="none", marker="o", mfc="none", mec="g")
         plt.legend()
         plt.ylim(0, 50)
         plt.xlim(0, 25)
@@ -798,9 +781,7 @@ def make_head_map(sim, ws):
         pmv.plot_array(lakibd, masked_values=[0], alpha=0.2)
         pmv.plot_ibound(idomain)
         pmv.plot_bc(name="CHD-1", color="blue")
-        cs = pmv.contour_array(
-            head_global, levels=levels, masked_values=[1.0e30]
-        )
+        cs = pmv.contour_array(head_global, levels=levels, masked_values=[1.0e30])
         ax.clabel(cs, cs.levels[::5], fmt="%1.0f", colors="b")
         ax.set_title(f"Model layer {ilay + 1}")
 
@@ -816,21 +797,7 @@ def make_concentration_map(sim, ws):
 
     import matplotlib.pyplot as plt
 
-    levels = [
-        1,
-        10,
-        25,
-        50,
-        100,
-        150,
-        200,
-        250,
-        300,
-        350,
-        400,
-        450,
-        500,
-    ]
+    levels = [1, 10, 25, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500]
     fig, axs = plt.subplots(2, 2, figsize=(5, 7), dpi=300, tight_layout=True)
 
     # push combo concentrations into global concentration
@@ -873,7 +840,7 @@ def make_concentration_map(sim, ws):
     plt.savefig(fname)
 
 
-def check_output(idx, test):
+def get_answers():
     # these answer files are results from autotest/prudic2004test2
     fname = os.path.join(model_path, "result_conc_lak1.txt")
     ans_lak1 = np.loadtxt(fname)
@@ -881,39 +848,37 @@ def check_output(idx, test):
     ans_sfr3 = np.loadtxt(fname)
     fname = os.path.join(model_path, "result_conc_sfr4.txt")
     ans_sfr4 = np.loadtxt(fname)
+    return ans_lak1, ans_sfr3, ans_sfr4
 
-    makeplot = False
-    for arg in sys.argv:
-        if arg.lower() == "--makeplot":
-            makeplot = True
 
+def plot_output(idx, test):
     ws = test.workspace
-    simfp = flopy.mf6.MFSimulation.load(sim_ws=ws, strict=False)
+    simfp = test.sims[0]
+    ans_lak1, ans_sfr3, ans_sfr4 = get_answers()
+    make_head_map(simfp, ws)
+    if transport_on:
+        make_concentration_vs_time(simfp, ws, ans_lak1, ans_sfr3, ans_sfr4)
+        make_concentration_map(simfp, ws)
 
-    if makeplot:
-        make_head_map(simfp, ws)
-        if transport_on:
-            make_concentration_vs_time(simfp, ws, ans_lak1, ans_sfr3, ans_sfr4)
-            make_concentration_map(simfp, ws)
 
-    # ensure concentrations were saved
+def check_output(idx, test):
+    ans_lak1, ans_sfr3, ans_sfr4 = get_answers()
     ws = test.workspace
-    gwfname = gwfnames[0]
-    gwtname = gwtnames[0]
+    sim = flopy.mf6.MFSimulation.load(sim_ws=ws, strict=False)
 
     lkaconc = None
     if lkt_on and transport_on:
-        gwt = simfp.get_model(gwtnames[0])
-        bobj = gwt.lkt.output.concentration()
-        lkaconc = bobj.get_alldata()[:, 0, 0, :]
-        times = bobj.times
-        bobj.file.close()
+        gwt = sim.get_model(gwtnames[0])
+        cobj = gwt.lkt.output.concentration()
+        lkaconc = cobj.get_alldata()[:, 0, 0, :]
+        times = cobj.times
+        cobj.file.close()
 
     sft3outflowconc = None
     sft4outflowconc = None
     if sft_on and transport_on:
         # get southern model
-        gwt = simfp.get_model(gwtnames[1])
+        gwt = sim.get_model(gwtnames[1])
         sftpack = gwt.get_package("sft-3")
         times = sftpack.output.concentration().times
         conc = sftpack.output.concentration().get_alldata()[:, 0, 0, :]
@@ -950,12 +915,13 @@ def check_output(idx, test):
 
 @pytest.mark.slow
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, function_tmpdir, targets, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        plot=lambda t: plot_output(idx, t) if plot else None,
     )
     test.run()

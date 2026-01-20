@@ -73,9 +73,7 @@ def get_welbore_heat_flow(fname, srchStr):
                 # Read an established format
                 for i in np.arange(3):  # read & discard 3 lines
                     line = next(f)
-                for i in np.arange(
-                    4
-                ):  # read & digest 4 lines of needed output
+                for i in np.arange(4):  # read & digest 4 lines of needed output
                     line = next(f)
                     m_arr = line.strip().split()
                     ener_Q.append([int(m_arr[0]), float(m_arr[2])])
@@ -152,17 +150,13 @@ def build_models(idx, test):
     )
 
     # Instantiate Time Discretization package
-    flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # Instantiate Groundwater Flow model
     gwfname = "gwf-" + name
     gwename = "gwe-" + name
     newtonoptions = "NEWTON UNDER_RELAXATION"
-    gwf = flopy.mf6.ModflowGwf(
-        sim, modelname=gwfname, newtonoptions=newtonoptions
-    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=gwfname, newtonoptions=newtonoptions)
 
     ims = flopy.mf6.ModflowIms(
         sim,
@@ -251,9 +245,7 @@ def build_models(idx, test):
     mawcondeqn = "SPECIFIED"
     mawngwfnodes = nlay
     # <wellno> <radius> <bottom> <strt> <condeqn> <ngwfnodes>
-    mawpackagedata = [
-        [0, mawradius, mawbottom, mstrt, mawcondeqn, mawngwfnodes]
-    ]
+    mawpackagedata = [[0, mawradius, mawbottom, mstrt, mawcondeqn, mawngwfnodes]]
     # <wellno> <icon> <cellid(ncelldim)> <scrn_top> <scrn_bot> <hk_skin> <radius_skin>
     conncond = [0.0, 0.0, 0.0, 1000.0]
     mawconnectiondata = [
@@ -281,9 +273,7 @@ def build_models(idx, test):
             ("whead", "head", (0,)),
         ]
     }
-    maw.obs.initialize(
-        filename=opth, digits=20, print_input=True, continuous=obsdata
-    )
+    maw.obs.initialize(filename=opth, digits=20, print_input=True, continuous=obsdata)
 
     # Instantiate Output Control package
     flopy.mf6.ModflowGwfoc(
@@ -292,32 +282,18 @@ def build_models(idx, test):
         head_filerecord=f"{gwfname}.hds",
         headprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[
-            (
-                "HEAD",
-                "ALL",
-            ),
-            (
-                "BUDGET",
-                "ALL",
-            ),
+            ("HEAD", "ALL"),
+            ("BUDGET", "ALL"),
         ],
         printrecord=[
-            (
-                "HEAD",
-                "ALL",
-            ),
-            (
-                "BUDGET",
-                "ALL",
-            ),
+            ("HEAD", "ALL"),
+            ("BUDGET", "ALL"),
         ],
     )
 
     # Create GWE model
     # ----------------
-    gwe = flopy.mf6.ModflowGwe(
-        sim, modelname=gwename, model_nam_file=f"{gwename}.nam"
-    )
+    gwe = flopy.mf6.ModflowGwe(sim, modelname=gwename, model_nam_file=f"{gwename}.nam")
     gwe.name_file.save_flows = True
 
     imsgwe = flopy.mf6.ModflowIms(
@@ -361,8 +337,8 @@ def build_models(idx, test):
         heat_capacity_water=Cpw,
         density_water=rhow,
         latent_heat_vaporization=lhv,
-        cps=Cps,
-        rhos=rhos,
+        heat_capacity_solid=Cps,
+        density_solid=rhos,
         pname="MST-1",
         filename=f"{gwename}.mst",
     )
@@ -376,9 +352,7 @@ def build_models(idx, test):
         raise Exception()
 
     # Instantiate advection package
-    flopy.mf6.ModflowGweadv(
-        gwe, scheme=scheme, pname="ADV", filename=f"{gwename}.adv"
-    )
+    flopy.mf6.ModflowGweadv(gwe, scheme=scheme, pname="ADV", filename=f"{gwename}.adv")
 
     # Instantiate dispersion package
     flopy.mf6.ModflowGwecnd(
@@ -393,18 +367,14 @@ def build_models(idx, test):
     sourcerecarray = [
         ("WEL", "AUX", "TEMPERATURE"),
     ]
-    flopy.mf6.ModflowGwessm(
-        gwe, sources=sourcerecarray, filename=f"{gwename}.ssm"
-    )
+    flopy.mf6.ModflowGwessm(gwe, sources=sourcerecarray, filename=f"{gwename}.ssm")
 
     # Instantiating MODFLOW 6 transport output control package
     flopy.mf6.ModflowGweoc(
         gwe,
         budget_filerecord=f"{gwename}.cbc",
         temperature_filerecord=f"{gwename}.ucn",
-        temperatureprintrecord=[
-            ("COLUMNS", 17, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        temperatureprintrecord=[("COLUMNS", 17, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         filename=f"{gwename}.oc",
@@ -486,9 +456,7 @@ def check_output(idx, test):
     fname = gwename + ".ucn"
     fname = os.path.join(test.workspace, fname)
     assert os.path.isfile(fname)
-    gwtempobj = flopy.utils.HeadFile(
-        fname, precision="double", text="TEMPERATURE"
-    )
+    gwtempobj = flopy.utils.HeadFile(fname, precision="double", text="TEMPERATURE")
     gwe_temps = gwtempobj.get_alldata()
 
     # Calculate conductive exchange external to MF6 and compare to MF6 values
@@ -514,18 +482,14 @@ def check_output(idx, test):
     # Retrieve budget
     fname = os.path.join(test.workspace, gwename + ".lst")
     srchStr = (
-        "MWE-1 BUDGET FOR ENTIRE MODEL AT END OF TIME STEP    1, "
-        "STRESS PERIOD   1"
+        "MWE-1 BUDGET FOR ENTIRE MODEL AT END OF TIME STEP    1, STRESS PERIOD   1"
     )
     T_in, T_out, in_bud_lst, out_bud_lst = get_bud(fname, srchStr)
-    assert np.isclose(
-        T_in, T_out, atol=0.1
-    ), "There is a heat budget discrepancy where there shouldn't be"
-
-    msg1 = (
-        "Conductive heat exchanges calculated explicitly and by MF6 "
-        "do not match"
+    assert np.isclose(T_in, T_out, atol=0.1), (
+        "There is a heat budget discrepancy where there shouldn't be"
     )
+
+    msg1 = "Conductive heat exchanges calculated explicitly and by MF6 do not match"
     msg2 = (
         "Individually summing well bore 'heat flows' is not matching "
         "the global budget heat flow into the aquifer"
@@ -538,9 +502,7 @@ def check_output(idx, test):
 
     # Check top 3 layers (4th layer handled different)
     for i in np.arange(nlay - 1):
-        assert np.isclose(
-            wbcnd_mf6[i, 1], round(wellbore_cnd_time1[i], 4)
-        ), msg1
+        assert np.isclose(wbcnd_mf6[i, 1], round(wellbore_cnd_time1[i], 4)), msg1
 
     # Layer 4 "heat flow" includes convection and conduction, compare
     # "heat flow" from all layers to global budget line item 'IN: GWF'

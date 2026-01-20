@@ -54,9 +54,6 @@ contains
     do i = 1, niunit
       this%cunit(i) = cunit(i)
     end do
-    !
-    ! -- Return
-    return
   end subroutine init
 
   !> @brief Add an ftyp and unit number
@@ -115,9 +112,6 @@ contains
     end if
     this%iunit(irow)%iunit(this%iunit(irow)%nval) = iunit
     this%iunit(irow)%ipos(this%iunit(irow)%nval) = ipos
-    !
-    ! -- Return
-    return
   end subroutine
 
   !> @brief Get the last unit number for type ftyp or return 0 for iunit.

@@ -152,7 +152,7 @@ MODFLOW~6 is tested with a large number of example problems, and new capabilitie
 
 % -------------------------------------------------
 \section{Release History}
-A list of all MODFLOW 6 releases is shown in table \ref{tab:releases}.  Changes introduced in previous releases are described in Appendix~\ref{app:A}.
+A list of all previous MODFLOW 6 releases is shown in table \ref{tab:releases}.  Changes introduced in previous releases are described in Appendix~\ref{app:A}.
 
 \begin{table}[h]
 \begin{center}
@@ -164,15 +164,15 @@ A list of all MODFLOW 6 releases is shown in table \ref{tab:releases}.  Changes 
 \textbf{MODFLOW Version} & \textbf{Date} & \textbf{Digital Object Identifier}\\
 \hline
 6.0.0 & August 11, 2017 & \url{https://doi.org/10.5066/F76Q1VQV} \\
-6.0.1 & September 28, 2017 & same as above \\
-6.0.2 & February 23, 2018 & same as above \\
-6.0.3 & August 9, 2018 & same as above \\
-6.0.4 & March 7, 2019 & same as above \\
-6.1.0 & December 12, 2019 & same as above \\
-6.1.1 & June 12, 2020 & same as above \\
-6.2.0 & October 20, 2020 & same as above \\
-6.2.1 & February 18, 2021 & same as above \\
-6.2.2 & July 30, 2021 & same as above \\
+6.0.1 & September 28, 2017 & \url{https://doi.org/10.5066/F76Q1VQV} \\
+6.0.2 & February 23, 2018 & \url{https://doi.org/10.5066/F76Q1VQV} \\
+6.0.3 & August 9, 2018 & \url{https://doi.org/10.5066/F76Q1VQV} \\
+6.0.4 & March 7, 2019 & \url{https://doi.org/10.5066/F76Q1VQV} \\
+6.1.0 & December 12, 2019 & \url{https://doi.org/10.5066/F76Q1VQV} \\
+6.1.1 & June 12, 2020 & \url{https://doi.org/10.5066/F76Q1VQV} \\
+6.2.0 & October 20, 2020 & \url{https://doi.org/10.5066/F76Q1VQV} \\
+6.2.1 & February 18, 2021 & \url{https://doi.org/10.5066/F76Q1VQV} \\
+6.2.2 & July 30, 2021 & \url{https://doi.org/10.5066/F76Q1VQV} \\
 6.3.0 & March 4, 2022 & \url{https://doi.org/10.5066/P97FFF9M} \\
 6.4.0 & November 30, 2022 & \url{https://doi.org/10.5066/P9FL1JCC} \\
 6.4.1 & December 9, 2022 & \url{https://doi.org/10.5066/P9FL1JCC} \\
@@ -180,6 +180,10 @@ A list of all MODFLOW 6 releases is shown in table \ref{tab:releases}.  Changes 
 6.4.3 & February 7, 2024 & \url{https://doi.org/10.5066/P9FL1JCC} \\
 6.4.4 & February 13, 2024 & \url{https://doi.org/10.5066/P9FL1JCC} \\
 6.5.0 & May 23, 2024 & \url{https://doi.org/10.5066/P13COJJM} \\
+6.6.0 & December 19, 2024 & \url{https://doi.org/10.5066/P1DXFBUR} \\
+6.6.1 & February 7, 2025 & \url{https://doi.org/10.5066/P1DXFBUR} \\
+6.6.2 & May 12, 2025 & \url{https://doi.org/10.5066/P1DXFBUR} \\
+6.6.3 & September 29, 2025 & \url{https://doi.org/10.5066/P1DXFBUR} \\
 \hline
 \label{tab:releases}
 \end{tabular*}
@@ -192,9 +196,7 @@ A list of all MODFLOW 6 releases is shown in table \ref{tab:releases}.  Changes 
 \section{Changes Introduced in this Release}
 This section describes changes introduced into MODFLOW~6 for the current release.  These changes may substantially affect users.
 
-\begin{itemize}
 \input{develop.tex}
-\end{itemize}
 
 % -------------------------------------------------
 \section{Known Issues and Incompatibilities}
@@ -212,10 +214,10 @@ The capability to use Unsaturated Zone Flow (UZF) routing beneath lakes and stre
 For the Groundwater Transport (GWT) Model, the decay and sorption processes do not apply to the LKT, SFT, MWT and UZT Packages.
 
 \item
-The GWT Model does not work with the CSUB Package of the GWF Model.  
+The GWT and GWE Models do not work with the CSUB Package of the GWF Model.  
 
 \item
-The GWT-GWT Exchange requires that both GWF Models are run concurrently in the same simulation.  There is not an option to read GWF-GWF flows from a previous simulation.
+The GWT-GWT Exchange requires that both GWF Models are run concurrently in the same simulation.  There is not an option to read GWF-GWF flows from a previous simulation.  Likewise, the GWE-GWE Exchange also requires that both of the corresponding GWF Models are run concurrently in the same simulation.
 
 \item
 The Buoyancy (BUY) Package of the GWF Model cannot be used when the XT3D option is activated for the Node Property Flow (NPF) Package.
@@ -224,17 +226,20 @@ The Buoyancy (BUY) Package of the GWF Model cannot be used when the XT3D option 
 If a GWF-GWF Exchange is activated with the XT3D option, then the two connected GWF Models cannot have BUY Packages active.
 
 \item
-The Time-Variable Hydraulic Conductivity (TVK) Package is incompatible with the Horizontal Flow Barrier (HFB) Package if the TVK Package is used to change hydraulic properties of cells near horizontal flow barriers.
+The Time-Variable Hydraulic Conductivity (TVK) Package is incompatible with the Hydraulic Flow Barrier (HFB) Package if the TVK Package is used to change hydraulic properties of cells near hydraulic flow barriers.
 
 \item
 If a GWF-GWF Exchange is active, then neither of the connected GWF Models can have an active Viscosity (VSC) Package.
 
 \item 
-If a GWT-GWT Exchange is active, then constant concentration conditions cannot be assigned on the interface between the two connected models.  
+If a GWT-GWT or GWE-GWE Exchange is active, then constant concentration (CNC) or constant temperature (CTP) conditions should not be assigned on the interface between the two connected models because the budget reported in the listing file will contain errors.  
+
+\item
+The PRT Model reports an incomplete and unbalanced particle mass budget to the listing file and the binary cell budget file.
 
 \end{enumerate}
 
-In addition to the issues shown here, a comprehensive and up-to-date list is available under the issues tab at \url{https://github.com/MODFLOW-USGS/modflow6}.
+In addition to the issues shown here, a comprehensive and up-to-date list is available under the issues tab at \url{https://github.com/MODFLOW-ORG/modflow6}.
 
 
 % -------------------------------------------------
@@ -259,13 +264,13 @@ MODFLOW~6 has been compiled using Intel Fortran and GNU Fortran on Windows, macO
 
 MODFLOW~6 is currently tested with gfortran 11-13 on Linux, macOS, and Windows. The gfortran version can be queried with ``\verb|gfortran --version|''.  Intel Fortran Compiler Classic version 2022.3.0 is currently tested on all three platforms. Some 2021 versions have also been reported compatible. MODFLOW~6 is also compatible with the next-generation Intel Fortran Compiler `ifx`; however, additional testing is underway.
 
-Instructions for compiling the parallel version of MODFLOW~6 are available through a dedicated page on the \href{https://github.com/MODFLOW-USGS/modflow6/wiki/Parallel-MODFLOW-User-Guide}{MODFLOW~6 repository}.
+Instructions for compiling the extended version of MODFLOW~6 are available through a dedicated page on the \href{https://github.com/MODFLOW-ORG/modflow6/wiki/Extended-MODFLOW-User-Guide}{MODFLOW~6 repository}.
 
 There are several options for building MODFLOW, as described below.
 
 \begin{itemize}
 
-\item Meson is the recommended build tool for MODFLOW~6.  Refer to the \href{https://github.com/MODFLOW-USGS/modflow6/blob/develop/DEVELOPER.md#building}{detailed compilation instructions} for more information.
+\item Meson is the recommended build tool for MODFLOW~6.  Refer to the \href{https://github.com/MODFLOW-ORG/modflow6/blob/develop/DEVELOPER.md#building}{detailed compilation instructions} for more information.
 
 \item The distribution includes Microsoft Visual Studio solution and project files for compiling MODFLOW~6 on Windows using the Intel Fortran Compiler Classic.  The files have been used successfully with recent versions of Microsoft Visual Studio Community 2019 and the Intel Fortran Compiler Classic.
 
@@ -306,6 +311,12 @@ Details on the numerical methods and the underlying theory for MODFLOW~6 are des
 \item \bibentry{modflow6csub}
 
 \item \bibentry{langevin2024}
+
+\item \bibentry{larsen2024}
+
+\item \bibentry{provost2025}
+
+\item \bibentry{morway2025}
 
 \end{itemize}
  

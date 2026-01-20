@@ -7,7 +7,6 @@ in the FloPy binary output head file and package data objects.
 # Imports
 
 import os
-import subprocess
 
 import numpy as np
 import pytest
@@ -20,14 +19,12 @@ except:
     msg += " pip install flopy"
     raise Exception(msg)
 
-try:
-    import xarray as xa
-    import xugrid as xu
-except ImportError:
-    pytest.skip("xarray and xugrid not found", allow_module_level=True)
-
 from framework import TestFramework
 from test_gwe_cnd import cases
+
+xa = pytest.importorskip("xarray")
+xu = pytest.importorskip("xugrid")
+nc = pytest.importorskip("netCDF4")
 
 
 def build_models(idx, test, export, gridded_input):
@@ -36,12 +33,17 @@ def build_models(idx, test, export, gridded_input):
     sim, dummy = build(idx, test)
     sim.tdis.start_date_time = "2041-01-01T00:00:00-05:00"
     gwe = sim.gwe[0]
-    gwe.name_file.export_netcdf = export
     gwe.dis.export_array_netcdf = True
     gwe.ic.export_array_netcdf = True
     gwe.cnd.export_array_netcdf = True
 
     name = "gwe-" + cases[idx]
+
+    fname = f"{name}.{export}.nc" if gridded_input == "netcdf" else f"{name}.nc"
+    if export == "ugrid":
+        gwe.name_file.nc_mesh2d_filerecord = fname
+    elif export == "structured":
+        gwe.name_file.nc_structured_filerecord = fname
 
     # netcdf config
     ncf = flopy.mf6.ModflowUtlncf(
@@ -57,18 +59,22 @@ def check_output(idx, test, export, gridded_input):
 
     name = "gwe-" + test.name
 
+    # verify format of generated netcdf file
+    fname = f"{name}.{export}.nc" if gridded_input == "netcdf" else f"{name}.nc"
+    with nc.Dataset(test.workspace / fname) as ds:
+        assert ds.data_model == "NETCDF4"
+
     if gridded_input == "netcdf":
         # re-run the simulation with model netcdf input
-        input_fname = f"{name}.nc"
-        nc_fname = f"{name}.{export}.nc"
-        subprocess.run(
-            ["mv", test.workspace / input_fname, test.workspace / nc_fname]
-        )
+        if export == "ugrid":
+            fileout_tag = "NETCDF_MESH2D"
+        elif export == "structured":
+            fileout_tag = "NETCDF_STRUCTURED"
 
         with open(test.workspace / f"{name}.nam", "w") as f:
             f.write("BEGIN options\n")
             f.write("  SAVE_FLOWS\n")
-            f.write(f"  EXPORT_NETCDF {export}\n")
+            f.write(f"  {fileout_tag}  FILEOUT  {name}.nc\n")
             f.write(f"  NETCDF  FILEIN {name}.{export}.nc\n")
             f.write("END options\n\n")
             f.write("BEGIN packages\n")
@@ -85,7 +91,6 @@ def check_output(idx, test, export, gridded_input):
         with open(test.workspace / f"{name}.dis", "w") as f:
             f.write("BEGIN options\n")
             f.write("  NOGRB\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write(f"  NCF6  FILEIN  {name}.dis.ncf\n")
             f.write("END options\n\n")
             f.write("BEGIN dimensions\n")
@@ -103,7 +108,6 @@ def check_output(idx, test, export, gridded_input):
 
         with open(test.workspace / f"{name}.ic", "w") as f:
             f.write("BEGIN options\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN griddata\n")
             f.write("  strt NETCDF\n")
@@ -112,7 +116,6 @@ def check_output(idx, test, export, gridded_input):
         with open(test.workspace / f"{name}.cnd", "w") as f:
             f.write("BEGIN options\n")
             f.write("  XT3D_OFF\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN griddata\n")
             f.write("  alh  NETCDF\n")
@@ -133,22 +136,16 @@ def check_output(idx, test, export, gridded_input):
 
     check(idx, test)
 
-    # read transport results from GWE model
-    name = cases[idx]
-    gwename = "gwe-" + name
-
-    fpth = os.path.join(test.workspace, f"{gwename}.ucn")
+    fpth = os.path.join(test.workspace, f"{name}.ucn")
     try:
         # load temperatures
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="TEMPERATURE"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="TEMPERATURE")
         conc1 = cobj.get_alldata()
     except:
         assert False, f'could not load concentration data from "{fpth}"'
 
     # Check NetCDF output
-    nc_fpth = os.path.join(test.workspace, f"{gwename}.nc")
+    nc_fpth = os.path.join(test.workspace, f"{name}.nc")
     if export == "ugrid":
         ds = xu.open_dataset(nc_fpth)
         xds = ds.ugrid.to_dataset()
@@ -162,8 +159,7 @@ def check_output(idx, test, export, gridded_input):
     nper = getattr(tdis, "nper").data
     nlay = getattr(dis, "nlay").data
     pd = getattr(tdis, "perioddata").array
-    print(pd)
-    timestep = 0
+    kstp = 0
     for i in range(nper):
         for j in range(int(pd[i][1])):
             rec = cobj.get_data(kstpkper=(j, i))
@@ -171,16 +167,34 @@ def check_output(idx, test, export, gridded_input):
                 for l in range(nlay):
                     assert np.allclose(
                         np.array(rec[l]).flatten(),
-                        xds[f"temperature_l{l+1}"][timestep, :].data,
-                    ), f"NetCDF-temperature comparison failure in timestep {timestep+1}"
-                timestep += 1
+                        xds[f"temperature_l{l + 1}"][kstp, :].data,
+                    ), f"NetCDF-temperature comparison failure in timestep {kstp + 1}"
+                kstp += 1
             elif export == "structured":
                 assert np.allclose(
                     # np.array(rec).flatten(),
                     np.array(rec),
-                    xds["temperature"][timestep, :].data,
-                ), f"NetCDF-temperature comparison failure in timestep {timestep+1}"
-                timestep += 1
+                    xds["temperature"][kstp, :].data,
+                ), f"NetCDF-temperature comparison failure in timestep {kstp + 1}"
+                kstp += 1
+
+    for v in xds.data_vars.keys():
+        assert not v.startswith("dis")
+        assert not v.startswith("ic")
+        assert not v.startswith("cnd")
+
+    xds.close()
+
+    if gridded_input == "ascii":
+        return
+
+    # Check NetCDF input
+    nc_fpth = os.path.join(test.workspace, f"{name}.{export}.nc")
+    if export == "ugrid":
+        ds = xu.open_dataset(nc_fpth)
+        xds = ds.ugrid.to_dataset()
+    elif export == "structured":
+        xds = xa.open_dataset(nc_fpth)
 
     vlist = [
         "dis_delr",
@@ -207,12 +221,12 @@ def check_output(idx, test, export, gridded_input):
             if var.endswith("_l"):
                 for l in range(nlay):
                     assert np.allclose(
-                        np.array(b[l]).flatten(), xds[f"{var}{l+1}"].data
-                    ), f"NetCDF input array comparison failure, variable={var}{l+1}"
+                        np.array(b[l]).flatten(), xds[f"{var}{l + 1}"].data
+                    ), f"NetCDF input array comparison failure, variable={var}{l + 1}"
             else:
-                assert np.allclose(
-                    np.array(b).flatten(), xds[var].data
-                ), f"NetCDF input array comparison failure, variable={var}"
+                assert np.allclose(np.array(b).flatten(), xds[var].data), (
+                    f"NetCDF input array comparison failure, variable={var}"
+                )
         elif export == "structured":
             var = var.replace("_l", "")
             assert np.allclose(
@@ -236,5 +250,6 @@ def test_mf6model(idx, name, function_tmpdir, targets, export, gridded_input):
         build=lambda t: build_models(idx, t, export, gridded_input),
         check=lambda t: check_output(idx, t, export, gridded_input),
         targets=targets,
+        cargs=["--mode=validate"] if gridded_input == "netcdf" else None,
     )
     test.run()

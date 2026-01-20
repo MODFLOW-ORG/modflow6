@@ -37,8 +37,6 @@ contains
 
     obj => list%GetItem(idx)
     res => CastAsDistVar(obj)
-    return
-
   end function GetDistVarFromList
 
   function CastAsDistVar(obj) result(res)
@@ -53,7 +51,6 @@ contains
     class is (DistVarType)
       res => obj
     end select
-    return
   end function CastAsDistVar
 
 end module DistVariableModule

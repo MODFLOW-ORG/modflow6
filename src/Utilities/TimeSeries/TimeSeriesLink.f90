@@ -71,9 +71,6 @@ contains
     if (present(text)) then
       newTsLink%Text = text
     end if
-    !
-    ! -- Return
-    return
   end subroutine ConstructTimeSeriesLink
 
   !> @brief Cast an unlimited polymorphic object as TimeSeriesLinkType
@@ -94,9 +91,6 @@ contains
     class default
       continue
     end select
-    !
-    ! -- Return
-    return
   end function CastAsTimeSeriesLinkType
 
   !> @brief Get time series link from a list
@@ -114,9 +108,6 @@ contains
     tsLink => null()
     obj => list%GetItem(indx)
     tsLink => CastAsTimeSeriesLinkType(obj)
-    !
-    ! -- Return
-    return
   end function GetTimeSeriesLinkFromList
 
   !> @brief Add time series link to a list
@@ -131,9 +122,6 @@ contains
     !
     obj => tslink
     call list%Add(obj)
-    !
-    ! -- Return
-    return
   end subroutine AddTimeSeriesLinkToList
 
 end module TimeSeriesLinkModule

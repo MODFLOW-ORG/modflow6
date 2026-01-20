@@ -3,7 +3,7 @@ module MoverModule
   use ConstantsModule, only: DONE, DZERO, LENMODELNAME, LENPACKAGENAME, &
                              MAXCHARLEN
   use ListModule, only: ListType
-  use SimModule, only: store_error, ustop
+  use SimPHMFModule, only: store_error, ustop
   use utl7module, only: UPCASE
 
   private

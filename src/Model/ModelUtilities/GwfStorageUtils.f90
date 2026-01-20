@@ -85,9 +85,6 @@ contains
     if (present(rate)) then
       rate = aterm * hnew - rhsterm
     end if
-    !
-    ! -- return
-    return
   end subroutine SsTerms
 
   !> @brief Calculate the specific yield storage terms
@@ -134,9 +131,6 @@ contains
     if (present(rate)) then
       rate = rho2old * tthk * snold - rho2 * tthk * snnew
     end if
-    !
-    ! -- return
-    return
   end subroutine SyTerms
 
   !> @brief Calculate the specific storage capacity
@@ -163,9 +157,6 @@ contains
       thick = DONE
     end if
     sc1 = ss * thick * area
-    !
-    ! -- return
-    return
   end function SsCapacity
 
   !> @brief Calculate the specific yield capacity
@@ -183,9 +174,6 @@ contains
     real(DP) :: sc2
     ! -- calculate specific yield capacity
     sc2 = sy * area
-    !
-    ! -- return
-    return
   end function SyCapacity
 
 end module GwfStorageUtilsModule

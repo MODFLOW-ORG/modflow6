@@ -9,7 +9,7 @@ module Mf6FileStoInputModule
   use ConstantsModule, only: LINELENGTH
   use InputDefinitionModule, only: InputParamDefinitionType
   use MemoryManagerModule, only: mem_setptr, mem_allocate
-  use ModflowInputModule, only: ModflowInputType, getModflowInput
+  use ModflowInputModule, only: ModflowInputType
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
 
   implicit none
@@ -31,7 +31,6 @@ contains
 
   subroutine sto_init(this, mf6_input, component_name, component_input_name, &
                       input_name, iperblock, parser, iout)
-    use MemoryManagerExtModule, only: mem_set_value
     use BlockParserModule, only: BlockParserType
     use LoadMf6FileModule, only: LoadMf6FileType
     class(StoInputType), intent(inout) :: this
@@ -43,70 +42,60 @@ contains
     type(BlockParserType), pointer, intent(inout) :: parser
     integer(I4B), intent(in) :: iout
     type(LoadMf6FileType) :: loader
-    !
-    ! -- init loader
+
+    ! init loader
     call this%DynamicPkgLoadType%init(mf6_input, component_name, &
                                       component_input_name, input_name, &
                                       iperblock, iout)
-    !
-    ! -- initialize static loader
+    ! initialize static loader
     call loader%load(parser, mf6_input, this%nc_vars, this%input_name, iout)
-    !
-    ! -- allocate storage string
+
+    ! allocate storage string
     call mem_allocate(this%storage, LINELENGTH, 'STORAGE', this%mf6_input%mempath)
-    !
-    ! -- initialize storage to TRANSIENT (model iss=0)
+
+    ! initialize storage to TRANSIENT (model iss=0)
     this%storage = 'TRANSIENT'
-    !
-    ! -- return
-    return
   end subroutine sto_init
 
   subroutine sto_rp(this, parser)
-    ! -- modules
     use BlockParserModule, only: BlockParserType
     use DefinitionSelectModule, only: get_param_definition_type
     use IdmLoggerModule, only: idm_log_header, idm_log_close, idm_log_var
-    ! -- dummy
     class(StoInputType), intent(inout) :: this
     type(BlockParserType), pointer, intent(inout) :: parser
-    ! -- local
     character(len=LINELENGTH) :: tagname
     type(InputParamDefinitionType), pointer :: idt
     logical(LGP) :: endOfBlock
-    !
-    ! -- read next line
+
+    ! read next line
     call parser%GetNextLine(endOfBlock)
-    !
-    ! -- return if no input
+
+    ! return if no input
     if (endOfBlock) return
-    !
-    ! -- read the tag
+
+    ! read the tag
     call parser%GetStringCaps(tagname)
-    !
-    ! -- verify tag is supported
+
+    ! verify tag is supported
     idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                      this%mf6_input%component_type, &
                                      this%mf6_input%subcomponent_type, &
                                      'PERIOD', tagname, this%input_name)
-    ! -- set storage
+    ! set storage
     this%storage = idt%tagname
-    !
-    ! -- only one input line is expected, terminate block
+
+    ! only one input line is expected, terminate block
     call parser%terminateblock()
-    !
-    ! -- log lst file header
+
+    ! log lst file header
     call idm_log_header(this%mf6_input%component_name, &
                         this%mf6_input%subcomponent_name, this%iout)
-    !
+
     call idm_log_var(this%storage, tagname, this%mf6_input%mempath, this%iout)
-    !
-    ! -- close logging statement
+
+    ! close logging statement
     call idm_log_close(this%mf6_input%component_name, &
                        this%mf6_input%subcomponent_name, this%iout)
-    !
-    ! -- return
-    return
   end subroutine sto_rp
 
   subroutine sto_destroy(this)

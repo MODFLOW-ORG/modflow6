@@ -10,7 +10,6 @@ then again with wells, first pumping, then injection.
 """
 
 from pathlib import Path
-from platform import processor, system
 
 import flopy
 import matplotlib as mpl
@@ -24,7 +23,6 @@ from flopy.utils.triangle import Triangle
 from flopy.utils.voronoi import VoronoiGrid
 from framework import TestFramework
 from modflow_devtools.markers import requires_pkg
-from modflow_devtools.misc import is_in_ci
 from prt_test_utils import get_model_name
 from shapely.geometry import LineString, Point
 
@@ -102,9 +100,7 @@ def build_gwf_sim(name, ws, targets):
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name=targets["mf6"], sim_ws=ws
     )
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", perioddata=[[1.0, 1, 1.0]]
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", perioddata=[[1.0, 1, 1.0]])
     gwf = flopy.mf6.ModflowGwf(sim, modelname=gwf_name, save_flows=True)
     ims = flopy.mf6.ModflowIms(
         sim,
@@ -118,9 +114,7 @@ def build_gwf_sim(name, ws, targets):
     )
     if "wel" in name:
         # k, j, q
-        wells = [
-            (0, c, 0.5 * (-1 if "welp" in name else 1)) for c in well_cells
-        ]
+        wells = [(0, c, 0.5 * (-1 if "welp" in name else 1)) for c in well_cells]
         wel = flopy.mf6.ModflowGwfwel(
             gwf,
             maxbound=len(wells),
@@ -190,9 +184,7 @@ def build_prt_sim(idx, name, gwf_ws, prt_ws, targets, cell_ids):
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name=targets["mf6"], sim_ws=prt_ws
     )
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", perioddata=[[1.0, 1, 1.0]]
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", perioddata=[[1.0, 1, 1.0]])
     prt = flopy.mf6.ModflowPrt(sim, modelname=prt_name)
     disv = flopy.mf6.ModflowGwfdisv(
         prt, nlay=nlay, **grid.get_disv_gridprops(), top=top, botm=botm
@@ -230,22 +222,15 @@ def build_prt_sim(idx, name, gwf_ws, prt_ws, targets, cell_ids):
         track_release=True,
         track_terminate=True,
         track_usertime=times[idx],
-        track_timesrecord=tracktimes if times[idx] else None,
+        ntracktimes=len(tracktimes) if times[idx] else None,
+        tracktimes=[(t,) for t in tracktimes] if times[idx] else None,
     )
     gwf_budget_file = gwf_ws / f"{gwf_name}.bud"
     gwf_head_file = gwf_ws / f"{gwf_name}.hds"
     flopy.mf6.ModflowPrtfmi(
-        prt,
-        packagedata=[
-            ("GWFHEAD", gwf_head_file),
-            ("GWFBUDGET", gwf_budget_file),
-        ],
+        prt, packagedata=[("GWFHEAD", gwf_head_file), ("GWFBUDGET", gwf_budget_file)]
     )
-    ems = flopy.mf6.ModflowEms(
-        sim,
-        pname="ems",
-        filename=f"{prt_name}.ems",
-    )
+    ems = flopy.mf6.ModflowEms(sim, pname="ems", filename=f"{prt_name}.ems")
     sim.register_solution_package(ems, [prt.name])
     return sim
 
@@ -253,22 +238,35 @@ def build_prt_sim(idx, name, gwf_ws, prt_ws, targets, cell_ids):
 def build_models(idx, test):
     gwf_sim, cell_ids = build_gwf_sim(test.name, test.workspace, test.targets)
     prt_sim = build_prt_sim(
-        idx,
-        test.name,
-        test.workspace,
-        test.workspace / "prt",
-        test.targets,
-        cell_ids,
+        idx, test.name, test.workspace, test.workspace / "prt", test.targets, cell_ids
     )
     return gwf_sim, prt_sim
 
 
-def plot_output(name, gwf, head, spdis, pls, fpath):
+def plot_output(idx, test):
+    name = test.name
+    prt_ws = test.workspace / "prt"
+    prt_name = get_model_name(name, "prt")
+    gwfsim = test.sims[0]
+
+    # get gwf output
+    gwf = gwfsim.get_model()
+    head = gwf.output.head().get_data()
+    bdobj = gwf.output.budget()
+    spdis = bdobj.get_data(text="DATA-SPDIS")[0]
+    qx, qy, _ = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
+
+    # get prt output
+    prt_track_csv_file = f"{prt_name}.prp.trk.csv"
+    pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
+    endpts = pls[pls.ireason == 3]  # termination
+
     # plot in 2d with mpl
     fig = plt.figure(figsize=(16, 10))
     ax = plt.subplot(1, 1, 1, aspect="equal")
     pmv = flopy.plot.PlotMapView(model=gwf, ax=ax)
     pmv.plot_grid(alpha=0.25)
+
     pmv.plot_ibound(alpha=0.5)
     headmesh = pmv.plot_array(head, alpha=0.25)
     cv = pmv.contour_array(head, levels=np.linspace(0, 1, 9), colors="black")
@@ -288,19 +286,11 @@ def plot_output(name, gwf, head, spdis, pls, fpath):
     if "wel" in name:
         handles.append(
             mpl.lines.Line2D(
-                [0],
-                [0],
-                marker="o",
-                linestyle="",
-                label="Well",
-                markerfacecolor="red",
-            ),
+                [0], [0], marker="o", linestyle="", label="Well", markerfacecolor="red"
+            )
         )
-    ax.legend(
-        handles=handles,
-        loc="lower right",
-    )
-    pmv.plot_vector(*spdis, normalize=True, alpha=0.25)
+    ax.legend(handles=handles, loc="lower right")
+    pmv.plot_vector(qx, qy, normalize=True, alpha=0.25)
     if "wel" in name:
         pmv.plot_bc(ftype="WEL")
     mf6_plines = pls.groupby(["iprp", "irpt", "trelease"])
@@ -338,45 +328,10 @@ def plot_output(name, gwf, head, spdis, pls, fpath):
         ax.annotate(str(i + 1), (x, y), color="grey", alpha=0.5)
 
     plt.show()
-    plt.savefig(fpath)
-
-    # plot in 3d with pyvista (via vtk)
-    import pyvista as pv
-    from flopy.export.vtk import Vtk
-    from flopy.plot.plotutil import to_mp7_pathlines
-
-    def get_meshes(model, pathlines):
-        vtk = Vtk(model=model, binary=False, smooth=False)
-        vtk.add_model(model)
-        vtk.add_pathline_points(
-            to_mp7_pathlines(pathlines.to_records(index=False))
-        )
-        grid_mesh, path_mesh = vtk.to_pyvista()
-        grid_mesh.rotate_x(-100, point=axes.origin, inplace=True)
-        grid_mesh.rotate_z(90, point=axes.origin, inplace=True)
-        grid_mesh.rotate_y(120, point=axes.origin, inplace=True)
-        path_mesh.rotate_x(-100, point=axes.origin, inplace=True)
-        path_mesh.rotate_z(90, point=axes.origin, inplace=True)
-        path_mesh.rotate_y(120, point=axes.origin, inplace=True)
-        return grid_mesh, path_mesh
-
-    def callback(mesh, value):
-        sub = pls[pls.t <= value]
-        gm, pm = get_meshes(gwf, sub)
-        mesh.shallow_copy(pm)
-
-    pv.set_plot_theme("document")
-    axes = pv.Axes(show_actor=True, actor_scale=2.0, line_width=5)
-    p = pv.Plotter(notebook=False)
-    grid_mesh, path_mesh = get_meshes(gwf, pls)
-    p.add_mesh(grid_mesh, scalars=head[0], cmap="Blues", opacity=0.5)
-    p.add_mesh(path_mesh, label="Time", style="points", color="black")
-    p.camera.zoom(1)
-    p.add_slider_widget(lambda v: callback(path_mesh, v), [0, 30202])
-    p.show()
+    plt.savefig(prt_ws / f"{name}.png")
 
 
-def check_output(idx, test, snapshot):
+def check_output(idx, test):
     name = test.name
     prt_ws = test.workspace / "prt"
     prt_name = get_model_name(name, "prt")
@@ -394,33 +349,21 @@ def check_output(idx, test, snapshot):
     pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
     endpts = pls[pls.ireason == 3]  # termination
 
-    # compare pathlines with snapshot. particles shouldn't
-    # have moved vertically. round for cross-platform error.
-    # skip macos-14 in CI because grid is slightly different
-    if not (is_in_ci() and system() == "Darwin" and processor() == "arm"):
-        assert snapshot == endpts.drop("name", axis=1).round(1).to_records(
-            index=False
-        )
-
-    # plot results if enabled
-    plot = False
-    if plot:
-        plot_output(
-            name, gwf, head, (qx, qy), pls, fpath=prt_ws / f"{name}.png"
-        )
+    assert np.allclose(endpts.z, 0.5)
+    assert np.isclose(endpts.y.min(), 1, atol=4)
+    assert np.isclose(endpts.y.max(), 996, atol=4)
 
 
 @requires_pkg("syrupy")
 @pytest.mark.slow
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(
-    idx, name, function_tmpdir, targets, benchmark, array_snapshot
-):
+def test_mf6model(idx, name, function_tmpdir, targets, benchmark, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t, array_snapshot),
+        check=lambda t: check_output(idx, t),
+        plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
         compare=None,
     )

@@ -143,9 +143,7 @@ def build_prt_sim(idx, name, gwf_ws, prt_ws, targets):
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name=targets["mf6"], sim_ws=prt_ws
     )
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", perioddata=[[1.0, 1, 1.0]]
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", perioddata=[[1.0, 1, 1.0]])
     prt = flopy.mf6.ModflowPrt(sim, modelname=prtname)
     tri = get_tri(prt_ws / "grid", targets)
     cell2d = tri.get_cell2d()
@@ -179,7 +177,6 @@ def build_prt_sim(idx, name, gwf_ws, prt_ws, targets):
             perioddata={0: ["FIRST"]},
             boundnames=True,
             stop_at_weak_sink=True,  # currently required for this problem
-            exit_solve_tolerance=1e-5,
             extend_tracking=True,
         )
     prt_track_file = f"{prtname}.trk"
@@ -227,13 +224,35 @@ def build_models(idx, test):
     return gwf_sim, prt_sim
 
 
-def plot_output(name, grid, head, spdis, pls):
+def plot_output(idx, test):
+    name = test.name
+    prt_ws = test.workspace / "prt"
+    gwf_name = get_model_name(name, "gwf")
+    prt_name = get_model_name(name, "prt")
+    gwf_sim = test.sims[0]
+    gwf = gwf_sim.get_model(gwf_name)
+    grid = gwf.modelgrid
+
+    # get gwf output
+    gwf = gwf_sim.get_model()
+    head = gwf.output.head().get_data()
+    bdobj = gwf.output.budget()
+    spdis = bdobj.get_data(text="DATA-SPDIS")[0]
+    qx, qy, _ = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
+
+    # get prt output
+    prt_name = get_model_name(name, "prt")
+    prt_track_csv_file = f"{prt_name}.trk.csv"
+    pls = pd.read_csv(prt_ws / prt_track_csv_file, na_filter=False)
+    endpts = pls[pls.ireason == 3]  # termination
+
+    # set up plot
     fig = plt.figure(figsize=(10, 10))
     ax = plt.subplot(1, 1, 1, aspect="equal")
-    pmv = flopy.plot.PlotMapView(model=grid, ax=ax)
+    pmv = flopy.plot.PlotMapView(model=gwf, ax=ax)
     pmv.plot_grid()
     pmv.plot_array(head, cmap="Blues", alpha=0.25)
-    pmv.plot_vector(*spdis, normalize=True, alpha=0.25)
+    pmv.plot_vector(qx, qy, normalize=True, alpha=0.25)
     mf6_plines = pls.groupby(["iprp", "irpt", "trelease"])
     for ipl, ((iprp, irpt, trelease), pl) in enumerate(mf6_plines):
         pl.plot(
@@ -245,15 +264,14 @@ def plot_output(name, grid, head, spdis, pls):
             legend=False,
             color="red" if iprp == 1 else "blue",
         )
-    xc, yc = (
-        grid.get_xcellcenters_for_layer(0),
-        grid.get_ycellcenters_for_layer(0),
-    )
+    xc, yc = (grid.get_xcellcenters_for_layer(0), grid.get_ycellcenters_for_layer(0))
     for i in range(grid.ncpl):
         x, y = xc[i], yc[i]
         ax.plot(x, y, "o", color="grey", alpha=0.25, ms=2)
         ax.annotate(str(i + 1), (x, y), color="grey", alpha=0.5)
+
     plt.show()
+    plt.savefig(prt_ws / f"{name}.png")
 
 
 def check_output(idx, test, snapshot):
@@ -278,16 +296,10 @@ def check_output(idx, test, snapshot):
     endpts = pls[pls.ireason == 3]  # termination
 
     # check termination points against snapshot
-    assert snapshot == endpts.drop("name", axis=1).round(3).to_records(
-        index=False
-    )
-
-    plot_debug = False
-    if plot_debug:
-        plot_output(name, gwf.modelgrid, head, (qx, qy), pls)
+    assert snapshot == endpts.drop("name", axis=1).round(3).to_records(index=False)
 
     if "r2l" in name:
-        assert pls.shape == (164, 16)
+        assert pls.shape == (84, 16)
         assert (pls.z == 0.5).all()
         rtol = 1e-6
         assert isclose(min(pls.x), 0, rel_tol=rtol)
@@ -298,7 +310,7 @@ def check_output(idx, test, snapshot):
         assert isclose(max(pls[pls.irpt == 2].y), 86, rel_tol=rtol)
         assert set(endpts.icell) == {130, 136}
     elif "diag" in name:
-        assert pls.shape == (232, 16)
+        assert pls.shape == (114, 16)
         assert endpts.shape == (4, 16)
         assert set(endpts.icell) == {111, 112}
 
@@ -315,13 +327,15 @@ def check_output(idx, test, snapshot):
     assert not any(diff), diff
 
 
+@pytest.mark.snapshot
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets, array_snapshot):
+def test_mf6model(idx, name, function_tmpdir, targets, array_snapshot, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t, array_snapshot),
+        plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
         compare=None,
     )

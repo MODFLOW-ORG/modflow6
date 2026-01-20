@@ -1,0 +1,12 @@
+BEGIN options
+  PRINT_INPUT
+  PRINT_FLOWS
+END options
+
+BEGIN dimensions
+  MAXBOUND  1
+END dimensions
+
+BEGIN period  1
+  1 1 21       4.05000000
+END period  1

@@ -7,7 +7,7 @@ import os
 import flopy
 import numpy as np
 import pytest
-from flopy.utils.binaryfile import write_budget, write_head
+from binary_util import write_budget, write_head
 from flopy.utils.gridutil import uniform_flow_field
 from framework import TestFramework
 
@@ -144,9 +144,7 @@ def build_models(idx, test):
         ]
     )
     wel = [
-        np.array(
-            [(0 + 1, 0 + 1, inflow_rate, source_concentration)], dtype=dt
-        ),
+        np.array([(0 + 1, 0 + 1, inflow_rate, source_concentration)], dtype=dt),
         np.array([(0 + 1, 0 + 1, inflow_rate, 0.0)], dtype=dt),
     ]
     chd = np.array([(ncol - 1 + 1, ncol - 1 + 1, -inflow_rate, 0.0)], dtype=dt)
@@ -159,9 +157,7 @@ def build_models(idx, test):
             ("SATURATION", np.float64),
         ]
     )
-    sat = np.array(
-        [(i, i, 0.0, 1.0) for i in range(nlay * nrow * ncol)], dtype=dt
-    )
+    sat = np.array([(i, i, 0.0, 1.0) for i in range(nlay * nrow * ncol)], dtype=dt)
 
     fname = os.path.join(ws, "mybudget.bud")
     with open(fname, "wb") as fbin:
@@ -239,9 +235,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -270,9 +264,7 @@ def check_output(idx, test):
 
     fpth = os.path.join(test.workspace, f"{gwtname}.ucn")
     try:
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
         conc = cobj.get_data()
     except:
         assert False, f'could not load data from "{fpth}"'

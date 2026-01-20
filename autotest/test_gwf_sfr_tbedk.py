@@ -74,7 +74,8 @@ def build_models(idx, test):
     # sfr data
     nreaches = 2
 
-    # <ifno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> <man> <ncon> <ustrf> <ndv>
+    # <ifno> <cellid(ncelldim)> <rlen> <rwid> <rgrd> <rtp> <rbth> <rhk> ...
+    #        <man> <ncon> <ustrf> <ndv>
     if idx < 2:
         rhk1 = 0.0
         rhk2 = 0.0
@@ -176,9 +177,7 @@ def check_output(idx, test):
     obs_data = sfr.output.obs().get_data()
     o1 = obs_data["GWFR1"]
     o2 = obs_data["GWFR2"][::-1]
-    assert np.allclose(
-        o1, o2
-    ), f"GWFR1 ({o1}) not equal to reversed GWFR2 ({o2})"
+    assert np.allclose(o1, o2), f"GWFR1 ({o1}) not equal to reversed GWFR2 ({o2})"
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

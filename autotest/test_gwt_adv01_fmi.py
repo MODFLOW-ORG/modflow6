@@ -8,15 +8,20 @@ import os
 import flopy
 import numpy as np
 import pytest
-from flopy.utils.binaryfile import write_budget, write_head
+from binary_util import write_budget, write_head
 from flopy.utils.gridutil import uniform_flow_field
 from framework import TestFramework
 
-cases = ["adv01a_fmi", "adv01b_fmi", "adv01c_fmi"]
-scheme = ["upstream", "central", "tvd"]
+cases = [
+    pytest.param(0, "adv01a_fmi"),
+    pytest.param(1, "adv01b_fmi"),
+    pytest.param(2, "adv01c_fmi"),
+    pytest.param(3, "adv01d_fmi"),
+]
+scheme = ["upstream", "central", "tvd", "utvd"]
 
 
-def build_models(idx, test):
+def build_models(idx, name, test):
     nlay, nrow, ncol = 1, 1, 100
     nper = 1
     perlen = [5.0]
@@ -38,17 +43,13 @@ def build_models(idx, test):
     for i in range(nper):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
 
-    name = cases[idx]
-
     # build MODFLOW 6 files
     ws = test.workspace
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
     )
     # create tdis package
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwt model
     gwtname = "gwt_" + name
@@ -95,9 +96,7 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwtic(gwt, strt=0.0, filename=f"{gwtname}.ic")
 
     # advection
-    adv = flopy.mf6.ModflowGwtadv(
-        gwt, scheme=scheme[idx], filename=f"{gwtname}.adv"
-    )
+    adv = flopy.mf6.ModflowGwtadv(gwt, scheme=scheme[idx], filename=f"{gwtname}.adv")
 
     # mass storage and transfer
     mst = flopy.mf6.ModflowGwtmst(gwt, porosity=0.1)
@@ -139,20 +138,14 @@ def build_models(idx, test):
             ("SATURATION", np.float64),
         ]
     )
-    sat = np.array(
-        [(i, i, 0.0, 1.0) for i in range(nlay * nrow * ncol)], dtype=dt
-    )
+    sat = np.array([(i, i, 0.0, 1.0) for i in range(nlay * nrow * ncol)], dtype=dt)
 
     fname = os.path.join(ws, "mybudget.bud")
     with open(fname, "wb") as fbin:
         for kstp in range(1):  # nstp[0]):
             write_budget(fbin, flowja, kstp=kstp + 1)
-            write_budget(
-                fbin, spdis, text="      DATA-SPDIS", imeth=6, kstp=kstp + 1
-            )
-            write_budget(
-                fbin, sat, text="        DATA-SAT", imeth=6, kstp=kstp + 1
-            )
+            write_budget(fbin, spdis, text="      DATA-SPDIS", imeth=6, kstp=kstp + 1)
+            write_budget(fbin, sat, text="        DATA-SAT", imeth=6, kstp=kstp + 1)
             write_budget(
                 fbin,
                 wel,
@@ -183,9 +176,7 @@ def build_models(idx, test):
         gwt,
         budget_filerecord=f"{gwtname}.cbc",
         concentration_filerecord=f"{gwtname}.ucn",
-        concentrationprintrecord=[
-            ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        concentrationprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
@@ -214,15 +205,12 @@ def build_models(idx, test):
     return sim, None
 
 
-def check_output(idx, test):
-    name = cases[idx]
+def check_output(idx, name, test):
     gwtname = "gwt_" + name
 
     fpth = os.path.join(test.workspace, f"{gwtname}.ucn")
     try:
-        cobj = flopy.utils.HeadFile(
-            fpth, precision="double", text="CONCENTRATION"
-        )
+        cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
         conc = cobj.get_data()
     except:
         assert False, f'could not load data from "{fpth}"'
@@ -553,20 +541,128 @@ def check_output(idx, test):
     ]
     cres3 = np.array(cres3)
 
-    creslist = [cres1, cres2, cres3]
+    cres4 = [
+        [
+            [
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                9.99999999e-01,
+                9.99999997e-01,
+                9.99999991e-01,
+                9.99999975e-01,
+                9.99999926e-01,
+                9.99999789e-01,
+                9.99999407e-01,
+                9.99998374e-01,
+                9.99995665e-01,
+                9.99988785e-01,
+                9.99971918e-01,
+                9.99932078e-01,
+                9.99841550e-01,
+                9.99643930e-01,
+                9.99229970e-01,
+                9.98398720e-01,
+                9.96800070e-01,
+                9.93857995e-01,
+                9.88681096e-01,
+                9.79978744e-01,
+                9.66015902e-01,
+                9.44652308e-01,
+                9.13514114e-01,
+                8.70328697e-01,
+                8.13410723e-01,
+                7.42224213e-01,
+                6.57879958e-01,
+                5.63390872e-01,
+                4.63530314e-01,
+                3.64233330e-01,
+                2.71628520e-01,
+                1.90935414e-01,
+                1.25541011e-01,
+                7.65316278e-02,
+                4.28052306e-02,
+                2.16851952e-02,
+                9.78980420e-03,
+                3.85619551e-03,
+                1.28879215e-03,
+                3.52115803e-04,
+                7.49350468e-05,
+                1.17646292e-05,
+                1.32776825e-06,
+                9.64125296e-08,
+                -5.86919920e-08,
+                -7.40823239e-08,
+                -6.31800862e-08,
+                -5.27398214e-08,
+                -4.32274354e-08,
+                -3.48423105e-08,
+                -2.76485491e-08,
+                -2.16203169e-08,
+                -1.66732861e-08,
+                -1.26895729e-08,
+                -9.53670757e-09,
+                -7.08114746e-09,
+                -5.19714853e-09,
+                -3.77193598e-09,
+                -2.70809957e-09,
+                -1.92404050e-09,
+                -1.35315643e-09,
+                -9.42300766e-10,
+                -6.49908787e-10,
+                -4.44059825e-10,
+                -3.00645032e-10,
+                -2.01734707e-10,
+                -1.34185608e-10,
+                -8.84931133e-11,
+                -5.78716880e-11,
+                -3.75358997e-11,
+                -2.41500917e-11,
+                -1.54150906e-11,
+                -9.76314930e-12,
+                -6.13633357e-12,
+                -3.82789021e-12,
+                -2.37025821e-12,
+                -1.07644858e-12,
+                -2.60415045e-12,
+            ]
+        ]
+    ]
+    cres4 = np.array(cres4)
 
-    assert np.allclose(
-        creslist[idx], conc
-    ), "simulated concentrations do not match with known solution."
+    creslist = [cres1, cres2, cres3, cres4]
+
+    assert np.allclose(creslist[idx], conc), (
+        "simulated concentrations do not match with known solution."
+    )
 
 
-@pytest.mark.parametrize("idx, name", enumerate(cases))
+@pytest.mark.parametrize(("idx", "name"), cases)
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
-        build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        build=lambda t: build_models(idx, name, t),
+        check=lambda t: check_output(idx, name, t),
     )
     test.run()

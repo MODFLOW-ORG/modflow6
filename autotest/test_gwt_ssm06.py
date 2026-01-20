@@ -46,9 +46,7 @@ def run_flw_and_trnprt_models(dir, exe):
     sim = flopy.mf6.MFSimulation(sim_name=testgroup, sim_ws=ws, exe_name=exe)
     tdis_rc = [(100.0, 10, 1.0), (100.0, 10, 1.0)]
     nper = len(tdis_rc)
-    tdis = flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=nper, perioddata=tdis_rc
-    )
+    tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     gwf = flopy.mf6.ModflowGwf(sim, modelname=gwfname, save_flows=True)
 
@@ -111,9 +109,7 @@ def run_flw_and_trnprt_models(dir, exe):
         gwf,
         budget_filerecord=f"{gwfname}.bud",
         head_filerecord=f"{gwfname}.hds",
-        headprintrecord=[
-            ("COLUMNS", ncol, "WIDTH", 15, "DIGITS", 6, "GENERAL")
-        ],
+        headprintrecord=[("COLUMNS", ncol, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
     )
@@ -204,9 +200,7 @@ def run_flw_and_trnprt_models(dir, exe):
     static_mvrperioddata = []
     wel_idx = 0
     for wl in np.arange(2):  # There are only a maximum of 2 wells
-        static_mvrperioddata.append(
-            ("WEL-1", wel_idx, "SFR-1", 0, "FACTOR", 1.0)
-        )
+        static_mvrperioddata.append(("WEL-1", wel_idx, "SFR-1", 0, "FACTOR", 1.0))
         wel_idx += 1
 
     mvrspd = {0: static_mvrperioddata}
@@ -268,13 +262,9 @@ def run_flw_and_trnprt_models(dir, exe):
     # Create the ssm sources block information
     sourcerecarray = []
     # sourcerecarray += [("WEL-1", "AUX", "CONCENTRATION")]
-    sourcerecarray += [
-        (f"GHB-{i+1}", "AUX", "CONCENTRATION") for i in [0, 1, 2, 3]
-    ]
-    sourcerecarray += [
-        (f"DRN-{i+1}", "AUX", "CONCENTRATION") for i in [0, 1, 2]
-    ]
-    sourcerecarray += [(f"WEL-{i+1}", "AUX", "CONCENTRATION") for i in [0]]
+    sourcerecarray += [(f"GHB-{i + 1}", "AUX", "CONCENTRATION") for i in [0, 1, 2, 3]]
+    sourcerecarray += [(f"DRN-{i + 1}", "AUX", "CONCENTRATION") for i in [0, 1, 2]]
+    sourcerecarray += [(f"WEL-{i + 1}", "AUX", "CONCENTRATION") for i in [0]]
     ssm = flopy.mf6.ModflowGwtssm(
         gwt,
         print_flows=True,
@@ -302,10 +292,7 @@ def run_flw_and_trnprt_models(dir, exe):
         pname="SFT-1",
     )
 
-    mvt = flopy.mf6.modflow.ModflowGwtmvt(
-        gwt,
-        pname="MVT-1",
-    )
+    mvt = flopy.mf6.modflow.ModflowGwtmvt(gwt, pname="MVT-1")
 
     oc = flopy.mf6.ModflowGwtoc(
         gwt,
@@ -335,9 +322,7 @@ def run_flw_and_trnprt_models(dir, exe):
     # ensure budget table can be parsed
     fname = gwtname + ".lst"
     fname = os.path.join(ws, fname)
-    budl = flopy.utils.Mf6ListBudget(
-        fname, budgetkey="MASS BUDGET FOR ENTIRE MODEL"
-    )
+    budl = flopy.utils.Mf6ListBudget(fname, budgetkey="MASS BUDGET FOR ENTIRE MODEL")
     d0 = budl.get_budget()[0]
 
     # Load the csv representation of the budget

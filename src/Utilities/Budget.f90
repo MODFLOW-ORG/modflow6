@@ -91,9 +91,6 @@ contains
     !
     ! -- Allocate scalars
     call this%allocate_scalars(name_model)
-    !
-    ! -- Return
-    return
   end subroutine budget_cr
 
   !> @ brief Define information for this object
@@ -142,9 +139,6 @@ contains
     else
       this%labeltitle = 'PACKAGE NAME'
     end if
-    !
-    ! -- Return
-    return
   end subroutine budget_df
 
   !> @ brief Convert a number to a string
@@ -173,7 +167,6 @@ contains
       ! -- value is within range where number looks good with F format
       write (string, '(f17.4)') val
     end if
-    return
   end subroutine value_to_string
 
   !> @ brief Output the budget table
@@ -315,9 +308,6 @@ contains
 299 FORMAT(1X, /12X, 'IN - OUT =', A, 14X, 'IN - OUT =', A)
 300 FORMAT(1X, /1X, 'PERCENT DISCREPANCY =', F15.2 &
            , 5X, 'PERCENT DISCREPANCY =', F15.2/)
-    !
-    ! -- Return
-    return
   end subroutine budget_ot
 
   !> @ brief Deallocate memory
@@ -345,9 +335,6 @@ contains
     deallocate (this%vbvl)
     deallocate (this%vbnm)
     deallocate (this%rowlabel)
-    !
-    ! -- Return
-    return
   end subroutine budget_da
 
   !> @ brief Reset the budget object
@@ -367,9 +354,6 @@ contains
       this%vbvl(3, i) = DZERO
       this%vbvl(4, i) = DZERO
     end do
-
-    ! -- Return
-    return
   end subroutine reset
 
   !> @ brief Add a single row of information
@@ -432,9 +416,6 @@ contains
       this%labeled = .true.
     end if
     this%msum = this%msum + 1
-    !
-    ! -- Return
-    return
   end subroutine add_single_entry
 
   !> @ brief Add multiple rows of information
@@ -508,9 +489,6 @@ contains
     if (count_errors() > 0) then
       call store_error('Could not add multi-entry', terminate=.TRUE.)
     end if
-    !
-    ! -- Return
-    return
   end subroutine add_multi_entry
 
   !> @ brief Update accumulators
@@ -531,9 +509,6 @@ contains
       this%vbvl(1, i) = this%vbvl(1, i) + this%vbvl(3, i) * delt
       this%vbvl(2, i) = this%vbvl(2, i) + this%vbvl(4, i) * delt
     end do
-    !
-    ! -- Return
-    return
   end subroutine finalize_step
 
   !> @ brief allocate scalar variables
@@ -570,8 +545,6 @@ contains
     this%bdzone = ''
     this%ibudcsv = 0
     this%icsvheader = 0
-    !
-    return
   end subroutine allocate_scalars
 
   !> @ brief allocate array variables
@@ -607,8 +580,6 @@ contains
     this%vbvl(:, :) = DZERO
     this%vbnm(:) = ''
     this%rowlabel(:) = ''
-    !
-    return
   end subroutine allocate_arrays
 
   !> @ brief Resize the budget object
@@ -650,9 +621,6 @@ contains
     deallocate (vbvl)
     deallocate (vbnm)
     deallocate (rowlabel)
-    !
-    ! -- return
-    return
   end subroutine resize
 
   !> @ brief Rate accumulator subroutine
@@ -677,7 +645,6 @@ contains
         rin = rin + flow(n)
       end if
     end do
-    return
   end subroutine rate_accumulator
 
   !> @ brief Set unit number for csv output file
@@ -692,7 +659,6 @@ contains
     class(BudgetType) :: this !< BudgetType object
     integer(I4B), intent(in) :: ibudcsv !< unit number for csv budget output
     this%ibudcsv = ibudcsv
-    return
   end subroutine set_ibudcsv
 
   !> @ brief Write csv output
@@ -749,9 +715,6 @@ contains
       ! -- flush the file
       flush (this%ibudcsv)
     end if
-    !
-    ! -- return
-    return
   end subroutine writecsv
 
   !> @ brief Write csv header
@@ -791,9 +754,6 @@ contains
       write (this%ibudcsv, '(a)', advance='NO') trim(adjustl(txt))
     end do
     write (this%ibudcsv, '(a)') 'TOTAL_IN,TOTAL_OUT,PERCENT_DIFFERENCE'
-    !
-    ! -- return
-    return
   end subroutine write_csv_header
 
 end module BudgetModule

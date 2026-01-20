@@ -1,130 +1,135 @@
 module PrtFmiModule
 
-  use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, LENAUXNAME, LENPACKAGENAME
-  use SimModule, only: store_error, store_error_unit
+  use KindModule, only: DP, I4B, LGP
+  use ErrorUtilModule, only: pstop
+  use ConstantsModule, only: DZERO, LENAUXNAME, LENPACKAGENAME, LENVARNAME
+  use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
   use FlowModelInterfaceModule, only: FlowModelInterfaceType
   use BaseDisModule, only: DisBaseType
   use BudgetObjectModule, only: BudgetObjectType
-  use CellModule, only: MAX_POLY_CELLS
 
   implicit none
   private
   public :: PrtFmiType
   public :: fmi_cr
+  public :: IFLOWFACE_TOP, IFLOWFACE_BOTTOM
 
   character(len=LENPACKAGENAME) :: text = '    PRTFMI'
 
-  type, extends(FlowModelInterfaceType) :: PrtFmiType
+  !> @brief IFLOWFACE numbers for top and bottom faces
+  enum, bind(c)
+    enumerator :: IFLOWFACE_TOP = -1
+    enumerator :: IFLOWFACE_BOTTOM = -2
+  end enum
 
-    double precision, allocatable, public :: SourceFlows(:) ! cell source flows array
-    double precision, allocatable, public :: SinkFlows(:) ! cell sink flows array
-    double precision, allocatable, public :: StorageFlows(:) ! cell storage flows array
-    double precision, allocatable, public :: BoundaryFlows(:) ! cell boundary flows array
+  type, extends(FlowModelInterfaceType) :: PrtFmiType
+    private
+    integer(I4B), public :: max_faces !< maximum number of 3d cell faces
+    real(DP), allocatable, public :: SourceFlows(:) ! cell source flows array
+    real(DP), allocatable, public :: SinkFlows(:) ! cell sink flows array
+    real(DP), allocatable, public :: StorageFlows(:) ! cell storage flows array
+    real(DP), allocatable, public :: BoundaryFlows(:, :) ! cell boundary flows array
+    integer(I4B), allocatable, public :: BoundaryFaces(:) ! bitmask of assigned boundary faces
 
   contains
 
     procedure :: fmi_ad
     procedure :: fmi_df => prtfmi_df
     procedure, private :: accumulate_flows
+    procedure :: mark_boundary_face
+    procedure :: is_boundary_face
+    procedure :: is_net_out_boundary_face
+    procedure, private :: iflowface_to_icellface
 
   end type PrtFmiType
 
 contains
 
   !> @brief Create a new PrtFmi object
-  subroutine fmi_cr(fmiobj, name_model, inunit, iout)
-    ! -- dummy
+  subroutine fmi_cr(fmiobj, name_model, input_mempath, inunit, iout)
+    ! dummy
     type(PrtFmiType), pointer :: fmiobj
     character(len=*), intent(in) :: name_model
+    character(len=*), intent(in) :: input_mempath
     integer(I4B), intent(inout) :: inunit
     integer(I4B), intent(in) :: iout
-    !
-    ! -- Create the object
+
+    ! Create the object
     allocate (fmiobj)
-    !
-    ! -- create name and memory path
-    call fmiobj%set_names(1, name_model, 'FMI', 'FMI')
+
+    ! create name and memory path
+    call fmiobj%set_names(1, name_model, 'FMI', 'FMI', input_mempath)
     fmiobj%text = text
-    !
-    ! -- Allocate scalars
+
+    ! Allocate scalars
     call fmiobj%allocate_scalars()
-    !
-    ! -- Set variables
+
+    ! Set variables
     fmiobj%inunit = inunit
     fmiobj%iout = iout
-    !
-    ! -- Initialize block parser
-    call fmiobj%parser%Initialize(fmiobj%inunit, fmiobj%iout)
-    !
-    ! -- Assign dependent variable label
+
+    ! Assign dependent variable label
     fmiobj%depvartype = 'TRACKS          '
 
   end subroutine fmi_cr
 
   !> @brief Time step advance
   subroutine fmi_ad(this)
-    ! -- modules
+    ! modules
     use ConstantsModule, only: DHDRY
-    ! -- dummy
+    ! dummy
     class(PrtFmiType) :: this
-    ! -- local
+    ! local
     integer(I4B) :: n
     character(len=15) :: nodestr
     character(len=*), parameter :: fmtdry = &
      &"(/1X,'WARNING: DRY CELL ENCOUNTERED AT ',a,';  RESET AS INACTIVE')"
     character(len=*), parameter :: fmtrewet = &
      &"(/1X,'DRY CELL REACTIVATED AT ', a)"
-    !
-    ! -- Set flag to indicated that flows are being updated.  For the case where
-    !    flows may be reused (only when flows are read from a file) then set
-    !    the flag to zero to indicated that flows were not updated
+
+    ! Set flag to indicated that flows are being updated.  For the case where
+    ! flows may be reused (only when flows are read from a file) then set
+    ! the flag to zero to indicated that flows were not updated
     this%iflowsupdated = 1
-    !
-    ! -- If reading flows from a budget file, read the next set of records
-    if (this%iubud /= 0) then
-      call this%advance_bfr()
-    end if
-    !
-    ! -- If reading heads from a head file, read the next set of records
-    if (this%iuhds /= 0) then
-      call this%advance_hfr()
-    end if
-    !
-    ! -- If mover flows are being read from file, read the next set of records
-    if (this%iumvr /= 0) then
+
+    ! If reading flows from a budget file, read the next set of records
+    if (this%iubud /= 0) call this%advance_bfr()
+
+    ! If reading heads from a head file, read the next set of records
+    if (this%iuhds /= 0) call this%advance_hfr()
+
+    ! If mover flows are being read from file, read the next set of records
+    if (this%iumvr /= 0) &
       call this%mvrbudobj%bfr_advance(this%dis, this%iout)
-    end if
-    !
-    ! -- Accumulate flows
+
+    ! Accumulate flows
     call this%accumulate_flows()
-    !
-    ! -- if flow cell is dry, then set this%ibound = 0
+
+    ! if flow cell is dry, then set this%ibound = 0
     do n = 1, this%dis%nodes
-      !
-      ! -- Calculate the ibound-like array that has 0 if saturation
-      !    is zero and 1 otherwise
+      ! Calculate the ibound-like array that has 0 if saturation
+      ! is zero and 1 otherwise
       if (this%gwfsat(n) > DZERO) then
         this%ibdgwfsat0(n) = 1
       else
         this%ibdgwfsat0(n) = 0
       end if
-      !
-      ! -- Check if active model cell is inactive for flow
+
+      ! Check if active model cell is inactive for flow
       if (this%ibound(n) > 0) then
         if (this%gwfhead(n) == DHDRY) then
-          ! -- cell should be made inactive
+          ! cell should be made inactive
           this%ibound(n) = 0
           call this%dis%noder_to_string(n, nodestr)
           write (this%iout, fmtdry) trim(nodestr)
         end if
       end if
-      !
-      ! -- Convert dry model cell to active if flow has rewet
+
+      ! Convert dry model cell to active if flow has rewet
       if (this%ibound(n) == 0) then
         if (this%gwfhead(n) /= DHDRY) then
-          ! -- cell is now wet
+          ! cell is now wet
           this%ibound(n) = 1
           call this%dis%noder_to_string(n, nodestr)
           write (this%iout, fmtrewet) trim(nodestr)
@@ -136,47 +141,42 @@ contains
 
   !> @brief Define the flow model interface
   subroutine prtfmi_df(this, dis, idryinactive)
-    ! -- modules
-    use SimModule, only: store_error
-    ! -- dummy
     class(PrtFmiType) :: this
     class(DisBaseType), pointer, intent(in) :: dis
     integer(I4B), intent(in) :: idryinactive
-    !
-    ! -- Call parent class define
+
     call this%FlowModelInterfaceType%fmi_df(dis, idryinactive)
-    !
-    ! -- Allocate arrays
+
+    this%max_faces = this%dis%get_max_npolyverts() + 2
     allocate (this%StorageFlows(this%dis%nodes))
     allocate (this%SourceFlows(this%dis%nodes))
     allocate (this%SinkFlows(this%dis%nodes))
-    allocate (this%BoundaryFlows(this%dis%nodes * MAX_POLY_CELLS))
+    allocate (this%BoundaryFlows(this%dis%nodes, this%max_faces))
+    allocate (this%BoundaryFaces(this%dis%nodes))
 
   end subroutine prtfmi_df
 
   !> @brief Accumulate flows
   subroutine accumulate_flows(this)
-    implicit none
-    ! -- dummy
+    ! dummy
     class(PrtFmiType) :: this
-    ! -- local
+    ! local
     integer(I4B) :: j, i, ip, ib
-    integer(I4B) :: ioffset, iflowface, iauxiflowface
+    integer(I4B) :: iflowface, iauxiflowface, icellface
     real(DP) :: qbnd
     character(len=LENAUXNAME) :: auxname
     integer(I4B) :: naux
-    !
+
     this%StorageFlows = DZERO
     if (this%igwfstrgss /= 0) &
-      this%StorageFlows = this%StorageFlows + &
-                          this%gwfstrgss
+      this%StorageFlows = this%StorageFlows + this%gwfstrgss
     if (this%igwfstrgsy /= 0) &
-      this%StorageFlows = this%StorageFlows + &
-                          this%gwfstrgsy
+      this%StorageFlows = this%StorageFlows + this%gwfstrgsy
 
     this%SourceFlows = DZERO
     this%SinkFlows = DZERO
     this%BoundaryFlows = DZERO
+    this%BoundaryFaces = 0
     do ip = 1, this%nflowpack
       iauxiflowface = 0
       naux = this%gwfpackages(ip)%naux
@@ -191,19 +191,20 @@ contains
       end if
       do ib = 1, this%gwfpackages(ip)%nbound
         i = this%gwfpackages(ip)%nodelist(ib)
+        if (i <= 0) cycle
         if (this%ibound(i) <= 0) cycle
         qbnd = this%gwfpackages(ip)%get_flow(ib)
         ! todo, after initial release: default iflowface values for different packages
         iflowface = 0
+        icellface = 0
         if (iauxiflowface > 0) then
           iflowface = NINT(this%gwfpackages(ip)%auxvar(iauxiflowface, ib))
-          ! this maps bot -2 -> 9, top -1 -> 10; see note re: max faces below
-          if (iflowface < 0) iflowface = iflowface + MAX_POLY_CELLS + 1
+          icellface = this%iflowface_to_icellface(iflowface)
         end if
-        if (iflowface .gt. 0) then
-          ioffset = (i - 1) * MAX_POLY_CELLS
-          this%BoundaryFlows(ioffset + iflowface) = &
-            this%BoundaryFlows(ioffset + iflowface) + qbnd
+        if (icellface > 0) then
+          call this%mark_boundary_face(i, icellface)
+          this%BoundaryFlows(i, icellface) = &
+            this%BoundaryFlows(i, icellface) + qbnd
         else if (qbnd .gt. DZERO) then
           this%SourceFlows(i) = this%SourceFlows(i) + qbnd
         else if (qbnd .lt. DZERO) then
@@ -213,5 +214,86 @@ contains
     end do
 
   end subroutine accumulate_flows
+
+  !> @brief Mark a face as a boundary face.
+  subroutine mark_boundary_face(this, ic, icellface)
+    class(PrtFmiType) :: this
+    integer(I4B), intent(in) :: ic !< node number (reduced)
+    integer(I4B), intent(in) :: icellface !< cell face number
+    ! local
+    integer(I4B) :: bit_pos
+
+    if (ic <= 0 .or. ic > this%dis%nodes) then
+      print *, 'Invalid cell number: ', ic
+      print *, 'Expected a value in range [1, ', this%dis%nodes, ']'
+      call pstop(1)
+    end if
+    if (icellface <= 0) then
+      print *, 'Invalid face number: ', icellface
+      print *, 'Expected a value in range [1, ', this%max_faces, ']'
+      call pstop(1)
+    end if
+    bit_pos = icellface - 1 ! bit position 0-based
+    if (bit_pos < 0 .or. bit_pos > 31) then
+      print *, 'Invalid bitmask position: ', bit_pos
+      print *, 'Expected a value in range [0, 31]'
+      call pstop(1)
+    end if
+    this%BoundaryFaces(ic) = ibset(this%BoundaryFaces(ic), bit_pos)
+  end subroutine mark_boundary_face
+
+  !> @brief Check if a face is assigned to a boundary package.
+  function is_boundary_face(this, ic, icellface) result(is_boundary)
+    class(PrtFmiType) :: this
+    integer(I4B), intent(in) :: ic !< node number (reduced)
+    integer(I4B), intent(in) :: icellface !< cell face number
+    logical(LGP) :: is_boundary
+    ! local
+    integer(I4B) :: bit_pos
+
+    is_boundary = .false.
+    if (ic <= 0 .or. ic > this%dis%nodes) then
+      print *, 'Invalid cell number: ', ic
+      print *, 'Expected a value in range [1, ', this%dis%nodes, ']'
+      call pstop(1)
+    end if
+    if (icellface <= 0) then
+      print *, 'Invalid face number: ', icellface
+      print *, 'Expected a value in range [1, ', this%max_faces, ']'
+      call pstop(1)
+    end if
+    bit_pos = icellface - 1 ! bit position 0-based
+    if (bit_pos < 0 .or. bit_pos > 31) then
+      print *, 'Invalid bitmask position: ', bit_pos
+      print *, 'Expected a value in range [0, 31]'
+      call pstop(1)
+    end if
+    is_boundary = btest(this%BoundaryFaces(ic), bit_pos)
+  end function is_boundary_face
+
+  !> @brief Check if a face is an assigned boundary with net outflow.
+  function is_net_out_boundary_face(this, ic, icellface) &
+    result(is_net_out_boundary)
+    class(PrtFmiType) :: this
+    integer(I4B), intent(in) :: ic !< node number (reduced)
+    integer(I4B), intent(in) :: icellface !< cell face number
+    logical(LGP) :: is_net_out_boundary
+
+    is_net_out_boundary = .false.
+    if (.not. this%is_boundary_face(ic, icellface)) return
+    if (this%BoundaryFlows(ic, icellface) < DZERO) &
+      is_net_out_boundary = .true.
+  end function is_net_out_boundary_face
+
+  !> @brief Convert an iflowface number to a cell face number.
+  !! Maps bottom (-2) -> max_faces - 1, top (-1) -> max_faces.
+  function iflowface_to_icellface(this, iflowface) result(icellface)
+    class(PrtFmiType), intent(inout) :: this
+    integer(I4B), intent(in) :: iflowface
+    integer(I4B) :: icellface
+
+    icellface = iflowface
+    if (icellface < 0) icellface = icellface + this%max_faces - IFLOWFACE_TOP
+  end function iflowface_to_icellface
 
 end module PrtFmiModule

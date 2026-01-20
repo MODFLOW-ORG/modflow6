@@ -3,10 +3,10 @@ import os
 import sys
 import timeit
 from itertools import repeat
-from queue import Empty
+from multiprocessing import Manager, Pool, cpu_count
 from pathlib import Path
+from queue import Empty
 from subprocess import run
-from multiprocessing import cpu_count, Pool, Manager
 
 PROJ_ROOT = Path(__file__).parents[2]
 
@@ -20,12 +20,14 @@ excludedirs = [
     PROJ_ROOT / "src" / "Utilities" / "Libraries" / "sparskit2",
     PROJ_ROOT / "utils" / "mf5to6",
     PROJ_ROOT / "utils" / "zonebudget" / "msvs",
-    PROJ_ROOT / "msvs"
+    PROJ_ROOT / "msvs",
 ]
 
 # exclude these files from checks
 excludefiles = [
-    PROJ_ROOT / "src" / "Idm" / "gwf-stoidm.f90"
+    PROJ_ROOT / "src" / "Idm" / "gwf-csubidm.f90",
+    PROJ_ROOT / "src" / "Idm" / "gwf-stoidm.f90",
+    PROJ_ROOT / "src" / "Idm" / "gwf-vscidm.f90",
 ]
 
 # commands

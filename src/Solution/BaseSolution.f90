@@ -161,7 +161,6 @@ contains
     class is (BaseSolutionType)
       res => obj
     end select
-    return
   end function CastAsBaseSolutionClass
 
   subroutine AddBaseSolutionToList(list, solution)
@@ -174,8 +173,6 @@ contains
     !
     obj => solution
     call list%Add(obj)
-    !
-    return
   end subroutine AddBaseSolutionToList
 
   function GetBaseSolutionFromList(list, idx) result(res)
@@ -189,8 +186,6 @@ contains
     !
     obj => list%GetItem(idx)
     res => CastAsBaseSolutionClass(obj)
-    !
-    return
   end function GetBaseSolutionFromList
 
 end module BaseSolutionModule

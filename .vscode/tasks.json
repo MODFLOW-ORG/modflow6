@@ -566,7 +566,7 @@
         {
             "label": "Check spelling",
             "type": "shell",
-            "command": "python .github/common/check_spelling.py",
+            "command": "codespell",
             "options": {"cwd": "${workspaceFolder}"},
             "group": {
                 "kind": "build",

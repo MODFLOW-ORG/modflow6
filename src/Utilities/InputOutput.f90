@@ -17,7 +17,7 @@ module InputOutputModule
             linear_interpolate, lowcase, read_line, GetFileFromPath, &
             extract_idnum_or_bndname, urdaux, print_format, BuildFixedFormat, &
             BuildFloatFormat, BuildIntFormat, fseek_stream, get_nwords, &
-            u9rdcom, append_processor_id
+            u9rdcom, append_processor_id, assign_iounit
 
 contains
 
@@ -139,9 +139,6 @@ contains
           accarg, filact
       end if
     end if
-    !
-    ! -- Return
-    return
   end subroutine openfile
 
   !> @brief Assign a free unopened unit number
@@ -163,9 +160,6 @@ contains
     end do
     iu = i
     iunext = iu + 1
-    !
-    ! -- Return
-    return
   end subroutine freeunitnumber
 
   !> @brief Get a free unit number
@@ -183,10 +177,26 @@ contains
     ! -- code
     call freeunitnumber(iunit)
     getunit = iunit
-    !
-    ! -- Return
-    return
   end function getunit
+
+  !> @ brief assign io unit number
+  !!
+  !!  Generic method to assign io unit number to unassigned integer
+  !!  variable (initialized less than or equal to 0).  Assigns a valid
+  !!  number if unassigned, otherwise sets a terminating error.
+  !<
+  subroutine assign_iounit(iounit, errunit, description)
+    integer(I4B), intent(inout) :: iounit !< iounit variable
+    integer(I4B), intent(in) :: errunit !< input file inunit for error assignment
+    character(len=*), intent(in) :: description !< usage description for iounit
+    if (iounit > 0) then
+      write (errmsg, '(a,1x,i0)') &
+        trim(description)//' already assigned at unit: ', iounit
+      call store_error(errmsg)
+      call store_error_unit(errunit)
+    end if
+    iounit = getunit()
+  end subroutine assign_iounit
 
   !> @brief Convert to upper case
   !!
@@ -210,9 +220,6 @@ contains
       IF (word(k:k) >= 'a' .and. word(k:k) <= 'z') &
         word(k:k) = char(ichar(word(k:k)) - idiff)
     end do
-    !
-    ! -- Return
-    return
   end subroutine upcase
 
   !> @brief Convert to lower case
@@ -236,9 +243,6 @@ contains
         word(k:k) = char(ichar(word(k:k)) + idiff)
       end if
     end do
-    !
-    ! -- Return
-    return
   end subroutine lowcase
 
   !> @brief Append processor id to a string
@@ -271,9 +275,6 @@ contains
     write (name_processor, '(a,a,i0,a)') &
       name(1:ipos0 - 1), '.p', proc_id, trim(adjustl(extension_local))
     name = name_processor
-    !
-    ! -- Return
-    return
   end subroutine append_processor_id
 
   !> @brief Create a formatted line
@@ -391,9 +392,6 @@ contains
       write (line(icol:istop), '(a)') sep
       icol = istop
     end if
-    !
-    ! -- Return
-    return
   end subroutine UWWORD
 
   !> @brief Extract a word from a string
@@ -436,7 +434,6 @@ contains
     integer(I4B), intent(in) :: in !< input file unit number
     ! -- local
     character(len=20) string
-    character(len=30) rw
     character(len=1) tab
     character(len=1) charend
     character(len=200) :: msg
@@ -522,12 +519,17 @@ contains
     !
     ! -- Convert word to a number if requested.
 100 if (ncode == 2 .or. ncode == 3) then
-      rw = ' '
-      l = 30 - istop + istart
+      l = istop - istart + 1
       if (l < 1) go to 200
-      rw(l:30) = line(istart:istop)
-      if (ncode == 2) read (rw, '(i30)', err=200) n
-      if (ncode == 3) read (rw, '(f30.0)', err=200) r
+      if (istart > linlen) then
+        ! support legacy urword behavior to return a zero value when
+        ! no more data is on the line
+        if (ncode == 2) n = 0
+        if (ncode == 3) r = DZERO
+      else
+        if (ncode == 2) read (line(istart:istop), *, err=200) n
+        if (ncode == 3) read (line(istart:istop), *, err=200) r
+      end if
     end if
     return
     !
@@ -579,9 +581,6 @@ contains
     call store_error(msg)
     call store_error(trim(line))
     call store_error_unit(in)
-    !
-    ! -- Return
-    return
   end subroutine URWORD
 
   !> @brief Print a label for a list
@@ -617,9 +616,6 @@ contains
     !
     ! -- Add a line of dashes.
     write (iout, fmtmsgout2) (DASH(j), j=1, nbuf)
-    !
-    ! -- Return
-    return
   end subroutine ULSTLB
 
   !> @brief Write header records for cell-by-cell flow terms for one component
@@ -645,9 +641,6 @@ contains
     write (ibdchn) naux + 1
     if (naux > 0) write (ibdchn) (auxtxt(n), n=1, naux)
     write (ibdchn) nlist
-    !
-    ! -- Return
-    return
   end subroutine UBDSV4
 
   !> @brief Write one value of cell-by-cell flow plus auxiliary data using a
@@ -665,9 +658,6 @@ contains
     else
       write (ibdchn) icrl, q
     end if
-    !
-    ! -- Return
-    return
   end subroutine UBDSVB
 
   !> @brief Output column numbers above a matrix printout
@@ -753,9 +743,6 @@ contains
 50  ntot = ntot
     if (ntot > 1000) ntot = 1000
     write (iout, fmtmsgout2) (DOT, i=1, ntot)
-    !
-    ! -- Return
-    return
   end subroutine UCOLNO
 
   !> @brief Print 1 layer array
@@ -930,9 +917,6 @@ contains
     !
     ! -- Flush file
     flush (iout)
-    !
-    ! -- Return
-    return
   end subroutine ULAPRW
 
   !> @brief Save 1 layer array on disk
@@ -953,9 +937,6 @@ contains
     !
     ! -- flush file
     flush (ICHN)
-    !
-    ! -- Return
-    return
   end subroutine ulasav
 
   !> @brief Record cell-by-cell flow terms for one component of flow as a 3-D
@@ -990,9 +971,6 @@ contains
     !
     ! -- flush file
     flush (ibdchn)
-    !
-    ! -- Return
-    return
   end subroutine ubdsv1
 
   !> @brief Write header records for cell-by-cell flow terms for one component
@@ -1043,9 +1021,6 @@ contains
     write (ibdchn) naux + 1
     if (naux > 0) write (ibdchn) (auxtxt(n), n=1, naux)
     write (ibdchn) nlist
-    !
-    ! -- Return
-    return
   end subroutine ubdsv06
 
   !> @brief Write one value of cell-by-cell flow using a list structure.
@@ -1069,9 +1044,6 @@ contains
     else
       write (ibdchn) n, q
     end if
-    !
-    ! -- Return
-    return
   end subroutine ubdsvc
 
   !> @brief Write one value of cell-by-cell flow using a list structure.
@@ -1096,9 +1068,6 @@ contains
     else
       write (ibdchn) n, n2, q
     end if
-    !
-    ! -- Return
-    return
   end subroutine ubdsvd
 
   !> @brief Perform a case-insensitive comparison of two words
@@ -1115,9 +1084,6 @@ contains
     upword2 = word2
     call upcase(upword2)
     same_word = (upword1 == upword2)
-    !
-    ! -- Return
-    return
   end function same_word
 
   !> @brief Function for string manipulation
@@ -1131,9 +1097,6 @@ contains
     !
     res = str
     res = adjustr(res)
-    !
-    ! -- Return
-    return
   end function
 
   subroutine unitinquire(iu)
@@ -1157,9 +1120,6 @@ contains
     call write_message(line)
     write (line, fmtb) trim(fm), trim(seq), trim(unf), trim(frm)
     call write_message(line)
-    !
-    ! -- Return
-    return
   end subroutine unitinquire
 
   !> @brief Parse a line into words.
@@ -1198,9 +1158,6 @@ contains
       call URWORD(line, lloc, istart, istop, 0, idum, rdum, 0, 0)
       words(i) = line(istart:istop)
     end do
-    !
-    ! -- Return
-    return
   end subroutine ParseLine
 
   !> @brief Print 1 layer array with user formatting in wrap format
@@ -1245,9 +1202,6 @@ contains
     !
     ! -- flush file
     flush (IOUT)
-    !
-    ! -- Return
-    return
   end subroutine ulaprufw
 
   !> @brief This function reads a line of arbitrary length and returns it.
@@ -1319,9 +1273,6 @@ contains
     !
     ! An end-of-file condition returns an empty string.
     eof = .true.
-    !
-    ! -- Return
-    return
   end function read_line
 
   subroutine GetFileFromPath(pathname, filename)
@@ -1351,9 +1302,6 @@ contains
     if (istop >= istart) then
       filename = pathname(istart:istop)
     end if
-    !
-    ! -- Return
-    return
   end subroutine GetFileFromPath
 
   !> @brief Starting at position icol, define string as line(istart:istop).
@@ -1384,9 +1332,6 @@ contains
       bndname = line(istart:istop)
       call upcase(bndname)
     end if
-    !
-    ! -- Return
-    return
   end subroutine extract_idnum_or_bndname
 
   !> @brief Read auxiliary variables from an input line
@@ -1441,9 +1386,6 @@ contains
           trim(adjustl(text)), auxname(naux)
       end if
     end do auxloop
-    !
-    ! -- Return
-    return
   end subroutine urdaux
 
   !> @brief Define the print or save format
@@ -1579,9 +1521,6 @@ contains
     case ('E', 'G', 'S')
       call BuildFloatFormat(nvaluesp, nwidthp, ndigits, editdesc, cdatafmp)
     end select
-    !
-    ! -- Return
-    return
   end subroutine print_format
 
   !> @brief Build a fixed format for printing or saving a real array
@@ -1633,9 +1572,6 @@ contains
     ufmt = trim(ufmt)//cdigits
     ufmt = trim(ufmt)//')))'
     outfmt = ufmt
-    !
-    ! -- Return
-    return
   end subroutine BuildFixedFormat
 
   !> @brief Build a floating-point format for printing or saving a real array
@@ -1699,9 +1635,6 @@ contains
     ufmt = trim(ufmt)//cdigits
     ufmt = trim(ufmt)//')))'
     outfmt = ufmt
-    !
-    ! -- Return
-    return
   end subroutine BuildFloatFormat
 
   !> @brief Build a format for printing or saving an integer array
@@ -1744,9 +1677,6 @@ contains
     ufmt = trim(ufmt)//cwidth
     ufmt = trim(ufmt)//')))'
     outfmt = ufmt
-    !
-    ! -- Return
-    return
   end subroutine BuildIntFormat
 
   !> @brief Get the number of words in a string
@@ -1775,9 +1705,6 @@ contains
       if (istart == linelen) exit
       get_nwords = get_nwords + 1
     end do
-    !
-    ! -- Return
-    return
   end function get_nwords
 
   !> @brief Move the file pointer.
@@ -1817,9 +1744,6 @@ contains
     ! -- position the file pointer to ipos
     write (iu, pos=ipos, iostat=status)
     inquire (unit=iu, pos=ipos)
-    !
-    ! -- Return
-    return
   end subroutine fseek_stream
 
   !> @brief Read until non-comment line found and then return line.
@@ -1917,9 +1841,6 @@ contains
         end if
       end if
     end do pcomments
-    !
-    ! -- Return
-    return
   end subroutine u9rdcom
 
   !> @brief Read an unlimited length line from unit number lun into a deferred-

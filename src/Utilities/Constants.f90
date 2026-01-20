@@ -17,6 +17,7 @@ module ConstantsModule
   integer(I4B), parameter :: LENVARNAME = 16 !< maximum length of a variable name
   integer(I4B), parameter :: LENCOMPONENTNAME = 16 !< maximum length of a component name
   integer(I4B), parameter :: LENCONTEXTNAME = 16 !< maximum length of a memory manager context
+  integer(I4B), parameter :: LENANAME = 24 !< maximum length of the header text for an array
   integer(I4B), parameter :: LENSOLUTIONNAME = LENCOMPONENTNAME !< maximum length of the solution name
   integer(I4B), parameter :: LENMODELNAME = LENCOMPONENTNAME !< maximum length of the model name
   integer(I4B), parameter :: LENPACKAGENAME = LENCOMPONENTNAME !< maximum length of the package name

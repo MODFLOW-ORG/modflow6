@@ -12,7 +12,7 @@
       USE GWFBASMODULE,ONLY:HDRY
       USE GWFNWTMODULE
       use utl7module, only: urdcom, urword
-      use SimModule, only: ustop
+      use SimPHMFModule, only: ustop
       IMPLICIT NONE
 !     ------------------------------------------------------------------
 !     SPECIFICATIONS:
@@ -891,7 +891,7 @@ C
 *!      USE SAMGMODULE
 *      USE ilupc_mod
 *      USE machine_constants
-*      use SimModule, only: ustop
+*      use SimPHMFModule, only: ustop
 *      IMPLICIT NONE
 *!     ------------------------------------------------------------------
 *!     SPECIFICATIONS:

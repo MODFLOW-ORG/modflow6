@@ -82,8 +82,6 @@ contains
 
     ! to be set later
     this%iRchNrSrcMapped = -1
-
-    return
   end subroutine set_values
 
   !> @ brief Prepare object
@@ -183,9 +181,6 @@ contains
       end if
       this%qfrommvr_ptr => temp_ptr(this%iRchNrTgt)
     end if
-    !
-    ! -- return
-    return
   end subroutine prepare
 
   !> @ brief Echo data to list file
@@ -206,9 +201,6 @@ contains
       ' TO ID: ', this%iRchNrTgt
     write (iout, '(4x, a, a, a, 1pg15.6,/)') 'MOVER TYPE: ', &
       trim(mvrtypes(this%imvrtype)), ' ', this%value
-    !
-    ! -- return
-    return
   end subroutine echo
 
   !> @ brief Advance
@@ -221,9 +213,6 @@ contains
     ! -- dummy
     class(MvrType) :: this
     ! -- local
-    !
-    ! -- return
-    return
   end subroutine advance
 
   !> @ brief Formulate coefficients
@@ -257,9 +246,6 @@ contains
     ! -- Reduce the amount of water that is available in the provider package
     !    qformvr array.
     this%qformvr_ptr = this%qformvr_ptr - qpactual
-    !
-    ! -- return
-    return
   end subroutine update_provider
 
   !> @ brief Formulate coefficients
@@ -272,9 +258,6 @@ contains
     ! -- Add the calculated qpactual term directly into the receiver package
     !    qfrommvr array.
     this%qfrommvr_ptr = this%qfrommvr_ptr + this%qpactual
-    !
-    ! -- return
-    return
   end subroutine update_receiver
 
   !> @ brief Flow to receiver
@@ -323,9 +306,6 @@ contains
         qr = qa
       end if
     end select
-    !
-    ! -- return
-    return
   end function qrcalc
 
   !> @ brief Write flow
@@ -345,9 +325,6 @@ contains
     !
     write (iout, fmt) trim(this%mem_path_src), this%iRchNrSrc, this%qavailable, &
       this%qpactual, trim(this%mem_path_tgt), this%iRchNrTgt
-    !
-    ! -- return
-    return
   end subroutine writeflow
 
 end module MvrModule

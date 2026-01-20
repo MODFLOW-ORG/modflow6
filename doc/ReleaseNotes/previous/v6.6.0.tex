@@ -1,0 +1,103 @@
+% Use this template for starting initializing the release notes after a release
+% has just been made.
+	
+\subsection{Version mf6.6.0---December 19, 2024}
+	
+\underline{NEW FUNCTIONALITY}
+\begin{itemize}
+    \item With this release, there are now two supported executables for MODFLOW 6.  The standard executable has no external dependencies and is straightforward to install and use on common operating systems.  The extended executable for MODFLOW, which is called Extended MODFLOW, has additional capabilities beyond the standard executable.  These additional capabilities presently include parallel computing and support for NetCDF input and output files.  Extended MODFLOW relies on third-party libraries, which must be available for the software to run properly.  The MODFLOW 6---Description of Input and Output includes a new section on Extended MODFLOW.  This input and output guide was also revised to clearly mark in red those input variables that only work with Extended MODFLOW.  
+    \item A new adaptive time stepping (ATS) capability was added to the Advection (ADV) Package of the Groundwater Transport (GWT) Model.  A new input option, called ATS\_PERCEL, specifies the fractional cell distance that a particle of water can travel within one time step.  When ATS\_PERCEL is specified by the user, and the ATS utility is activated in the TDIS Package, the ADV Package will calculate the largest time step that will meet this fractional cell distance constraint, and will submit this time step to the ATS utility.  This option may improve time stepping for solute transport models and for variable-density flow and transport models by allowing step lengths to be calculated as a function of the flow system rather than being specified as input by the user.
+    \item Added the capability to write sorbate concentrations to binary output files.  A new SORBATE option is now available in the Mobile Storage and Transfer (MST) Package and the Immobile Storage and Transfer (IST) Package of the GWT Model to provide the name of the binary output file for sorbate concentrations. Sorbate concentrations will be written to the binary output file whenever concentrations for the GWT model are saved, as determined by the GWT Output Control option.
+    \item Added kinematic-wave routing option for the Streamflow Routing (SFR) Package. Prior to this change, the SFR Package could only simulate unidirectional, steady, uniform flow. With kinematic-wave routing, unidirectional waves can now propagate through the SFR network by explicitly including a storage term in the reach continuity equation. The kinematic-wave routing option is based on the ``TRANSROUTE'' option available in the SFR Package in MODFLOW-NWT. The kinematic-wave routing option is enabled by specifying ``STORAGE'' in the SFR Package OPTIONS block.
+    \item The Freundlich and Langmuir isotherms can now be used to represent sorption in the immobile domain when simulating solute transport using the Groundwater Transport (GWT) Model.  Prior to this change, only linear sorption could be used with the Immobile Storage and Transfer (IST) Package for the GWT Model.  With this change, the SORPTION keyword specified in the OPTIONS block of the IST Package must be followed by LINEAR, FREUNDLICH, or LANGMUIR.  If the FREUNDLICH or LANGMUIR isotherms are specified, then the user must also include the SP2 array in the GRIDDATA block of the IST Package.  This change breaks backward compatibility for GWT Models that used the SORPTION option in the IST Package, which previously did not require the type of sorption to be specified after the SORPTION keyword.  Details on the implementation of the nonlinear Freundlich and Langmuir sorption isotherms are described in a new chapter in the MODFLOW 6 --- Supplemental Technical Information guide, which is included with the MODFLOW 6 distribution.
+\end{itemize}
+
+\underline{EXAMPLES}
+\begin{itemize}
+    \item A new Toth example was added to show how the classic groundwater problem consisting of local, intermediate, and regional flow paths can be simulated with MODFLOW.
+    \item A new Streamflow Routing (SFR) Package example based on the Pinder-Sauer problem \citep{pinder1971numerical} modified by \cite{lal2001modification} was added to demonstrate the capabilities of the kinematic-wave approximation option.
+    \item A new Barends example was added to demonstrate the use of the Groundwater Energy (GWE) Model for simulating heat transport in a groundwater reservoir overlain by a low-permeability overburden.
+    \item A new example demonstrating application of the Viscosity (VSC) Package was added.  The example demonstrates differences that may arise in the solute transport solution with and without accounting for the effects of viscosity.
+    \item Another new example for demonstrating GWE capabilities, titled ``Aquifer Thermal Energy Storage'' (ATES) shows thermal energy being added and removed from the middle layer of a three layer system.  Thermal bleeding into the over- and underlying layers is visually depicted.  
+%	\item xxx
+\end{itemize}
+
+\textbf{\underline{BUG FIXES AND OTHER CHANGES TO EXISTING FUNCTIONALITY}} \\
+\underline{BASIC FUNCTIONALITY}
+\begin{itemize}
+    \item With the LOCAL\_Z option enabled, the PRT model's PRP package attempted to check that a particle release point's z coordinate fell within the grid's vertical extent before converting the coordinate from local (normalized on the unit interval) to a global (model) coordinate. This bug was fixed by converting coordinates before conducting checks.
+    \item The PRT model could hang upon particle termination due to no (sub)cell exit face. This occurred because a flag signaling particle advance was not set in the proper location.
+    \item Entangled with the previous issue, the ternary method could erroneously terminate a particle and report no exit face (before now this would hang) due to precision error in the exit time/position calculation. This could happen when two conditions are both met: the particle enters the subcell very close to one of its vertices, and flow very nearly parallels one of the subcell's faces. We have encountered similar situations before, solved by nudging the particle a small distance into the interior of the subcell before applying the tracking method. This particular case is resolved by increasing the padding distance from $\sisetup{input-digits = 0123456789\epsilon} \num{\epsilon e+2}$ to $\sisetup{input-digits = 0123456789\epsilon} \num{\epsilon e+5}$, where $\epsilon$ is machine precision.
+    \item For ASCII input files erroneously containing a mix of line endings, MODFLOW would sometimes proceed with unexpected results. The program was corrected to stop with an error message if an input line contained both carriage returns and line feeds.
+    \item Previously the PRT model's default behavior was to track particles until termination, beyond the specified simulation end time if necessary, as with MODPATH 7 stop time option 2 (extend). Under extended tracking, a particle entrained in a cyclic flow pattern, as can occur in variable-density flow, might cycle indefinitely and never terminate. The PRT model's default behavior has been changed to the equivalent of MP7 stop time option 1 (final), terminating any active particles at the specified simulation end time. If a new particle release point (PRP) package keyword option EXTEND\_TRACKING is provided, tracking is extended until particle termination.
+    \item A refactor of the energy storage and transfer (EST) package associated with the GWE model type results in different input requirements that breaks backward compatibility with what was required in version 6.5.0.  The PACKAGEDATA block was removed from the EST package input.  In its place, the heat capacity of water, the specified density of water, and the latent heat of vaporization are instead given default values that can be overridden by specifying alternative values in the OPTIONS block.  Additionally, the following variable names in the EST package input have been updated as follows: ``rhow'' changed to ``DENSITY\_WATER''; ``rhos'' changed to ``DENSITY\_SOLID''; ``cpw'' changed to ``HEAT\_CAPACITY\_WATER''; and ``cps'' changed to ``HEAT\_CAPACITY\_SOLID''.
+    \item The PRT model's cell face flows were improperly combined with boundary flows; for cell faces with active neighbors, the face flow replaced any boundary flows (likely a rare situation because IFLOWFACE is typically applied to faces on the boundary of the active domain). The face flow calculation has been corrected.
+    \item A bad pointer reference has been fixed in the PRT model. Depending on the combination of platform and compiler used to build the program, this could result in crashes (e.g. divide by zero errors) or in silent failures to properly pass particles downward between vertically adjacent cells, leading to early termination. The latter could occur as a consequence of undefined behavior which prevented detection of situations when a particle should exit a cell through its bottom face.
+    \item For a UZF setup with multiple UZF objects in a cell, the auxmultname option would cause the program to issue an unnecessary error.  The program was corrected to remove the unnecessary error.  The revised program was tested to ensure that the assignment of multiple UZF objects per cell works when it should and fails when the cumulative area of the UZF objects within a cell exceed the total area for the cell.
+    \item An array out of bounds error for Z-displacement output in inactive cells has been fixed in the CSUB package. Depending on the combination of platform and compiler used to build the program, this could result in crashes.
+    \item Initialize a few uninitialized variables in the CSUB package. Depending on the combination of platform and compiler used to build the program, this could result in different program behaviour.
+    \item Add a warning if saving convergence data for the CSUB package when delay beds are not included in a simulation. Also modified the convergence output data so that it is clear that DVMAX and DSTORAGEMAX data and locations are not calculated in this case (by writing `-\,-' to the output file). 
+    \item When using SFT in a model where some of the stream reaches are not connected to an active GWF cell (the cellid parameter is set equal to either 0 or NONE) memory access violations were occurring.  The program was fixed by setting the correct number of reaches connected to GWF cells.  The program was tested using a new example with a DISU grid type and multiple GWF cells deactivated (idomain equals 0) that host SFR reaches.
+    \item Support for temperature observations was missing in the Observation (OBS) utility for a GWE model and has been added.
+    \item UZF was not writing a message to the GWF listing file when it had finished reading the PACKAGEDATA block.  An appropriate message is now written to the GWF listing file.
+    \item Error checking was added to the EST package to ensure that the inputs HEAT\_CAPACITY\_WATER and DENSITY\_WATER are not 0.0.  Values of 0.0 for either parameter result in a divide by zero error.
+    \item The PRT model's particle release point (PRP) package previously accepted release time input via options-block RELEASE\_TIMES and RELEASE\_TIMES\_FILE parameters. These have been replaced with an optional RELEASETIMES block accepting a single column of real-valued input. If the block is provided, an NRELEASETIMES value must be provided in the DIMENSIONS block.
+    \item Similarly, the PRT model's output control (OC) package previously accepted tracking time input via options-block TRACK\_TIMES and TRACK\_TIMES\_FILE parameters. These have been replaced with an optional TRACKTIMES block accepting a single column of real-valued input. The block is only considered if the TRACK\_USERTIME option is enabled. If the block is provided, a DIMENSIONS block containing an NTRACKTIMES value must precede it.
+    \item The PRT model's particle release point (PRP) package previously allowed two particles to be released at the same time from the same point. This could occur if an explicitly specified release time happened to coincide with a release time configured via period block settings. Each release point may now only release one particle at a time. Times falling within a configurable tolerance of one another (defaulting to $\sisetup{input-digits = 0123456789\epsilon} \num{\epsilon e+9}$, where $\epsilon$ is machine precision) are considered coincident and merged into a single release time.
+    \item A new option RELEASE\_TIME\_FREQUENCY was added to the PRT model's particle release point (PRP) package. This option configures release times on a regular interval for the duration of the simulation, with the first release at the simulation start time. The PRP package's release schedule is the union of times configured via RELEASE\_TIME\_FREQUENCY, the RELEASETIMES block, and period block release settings, up to the tolerance mentioned in the previous item. If none of these are provided, a single release time is configured at the beginning of the first stress period's first time step. (A related bug has also been fixed which erroneously activated this default when user-specified release times were configured.)
+    \item The PRT model's particle release point (PRP) package's FRACTION period-block release time setting has been removed. Period-block release settings can now be used only to release particles at the beginning of specified time steps, as is the case for period-block timing settings in the output control (OC) packages for all models. For fine control over release timing, specify times explicitly using the RELEASETIMES block.
+    \item The Stress Package Concentration (SPC) utility available with the SSM Package is now referred to as the Stress Package Component utility in the MF6IO guide.  Additionally, some relatively minor refactoring of the code facilitates use of the SPC utility with the GWE model type so that TEMPERATURE arrays may be read by the utility.  The SPC acronym was maintained to preserve backward compatibility.
+    \item The GWF-GWF Exchange has been fixed to support the configuration of the Mover package (MVR) also in cases where the number of exchanges equals zero (NEXG = 0). In earlier versions this has caused MODFLOW to terminate with an error.
+    \item A PRT bug was fixed in which array-based input read from the RCH (recharge) or EVT (evapotranspiration) packages could fail to be processed correctly by the PRT FMI (flow model interface) package, causing a crash.
+    \item When the SQUARE\_GWET option was invoked in the UZF options block, evapotranspiration from the water table (GWET) was calculated incorrectly.  Instead of acting as a sink, the calculated evapotranspiration flux was added as a source of water.  The applied fix ensures that groundwater evapotranspiration is removed from the water table and as a result the GWET values are accumulated as outflows in the budget table.
+    \item The number of characters used to represent integers and floating point numbers in MODFLOW input files was restricted to 30.  The program was modified to accept any number of characters provided the number is valid.  This may be useful for parameter estimation programs that use character substitution to create new input files.
+    \item A string to character array conversion function in the BMI interface could fail on Apple silicon macOS with recent versions of GNU Fortran, producing array extent errors at runtime. This has been fixed by properly specifying the intent of a dummy argument in the relevant function.
+    \item The UZF Package will facilitate UZF objects with areas less than the area of the host cell.  However, within the GWE model type, the UZE package will not work properly when the area of UZF objects is not equal to the area of the host cell.  New code was added to ensure that the area of each UZF object is equal to that of the host grid cell.  When this condition is not satisfied, the new code will stop the simulation with an error message indicating which cell is in violation.
+    \item With a flow model using the Newton formulation, the PRT model could crash upon a particle's entry into a dry cell. This has been fixed.
+    \item With a flow model using the Newton formulation, the PRT model could enter an endless loop upon a particle's entry to a dry cell if that cell contains a boundary package (e.g. a pumping well). Where the particle should be captured and terminate, it would instead be passed back and forth between the cell bottom and the top of the cell below. To avoid this, particles are forbidden from backtracking (reentering the previous cell) within the same time step.
+    \item The PRT model now allows more control over vertical particle motion in dry conditions. In addition to the existing DRAPE option, which controls release-time behavior, the PRP package now provides a DRY\_TRACKING\_METHOD option which configures how dry particles (particles in dry cells, or above the water table in partially saturated cells) behave at tracking time. This option is relevant only when the Newton formulation is used, in which case dry cells remain active; otherwise, dry cells are inactive and particles will terminate. See the MF6IO document for a detailed explanation of DRY\_TRACKING\_METHOD.
+    \item The PRT model's Particle Release Point (PRP) package now provides an option EXIT\_SOLVE\_TOLERANCE which configures the tolerance to use when solving for a particle's exit location from a triangular subcell of an unstructured grid cell. This value is only used for the generalized (ternary) tracking method on vertex grids. A value of 0.00001 is set by default. This value works well for many problems, but the value that strikes the best balance between accuracy and runtime is problem-dependent.
+    \item The PRT model could write duplicative output, in volumes increasing with the current time step, due to a bug in the output file management logic. This bug has been fixed.
+\end{itemize}
+
+%\underline{INTERNAL FLOW PACKAGES}
+%\begin{itemize}
+%	\item xxx
+%	\item xxx
+%	\item xxx
+%\end{itemize}
+
+%\underline{STRESS PACKAGES}
+%\begin{itemize}
+%	\item xxx
+%	\item xxx
+%	\item xxx
+%\end{itemize}
+
+%\underline{ADVANCED STRESS PACKAGES}
+%\begin{itemize}
+%	\item xxx
+%	\item xxx
+%	\item xxx
+%\end{itemize}
+
+%\underline{SOLUTION}
+%\begin{itemize}
+%	\item xxx
+%	\item xxx
+%	\item xxx
+%\end{itemize}
+
+%\underline{EXCHANGES}
+%\begin{itemize}
+%	\item xxx
+%	\item xxx
+%	\item xxx
+%\end{itemize}
+
+\underline{PARALLEL}
+\begin{itemize}
+    \item Writing budget files for a MVR package in the GWF-GWF Exchange gave an error when running in parallel but this is fixed with this change.
+    \item An option has been added to the HPC package that prints the partition table to the simulation listing file.
+\end{itemize}
+
