@@ -1,17 +1,18 @@
 """
-Test the Kr averaging methods for the Richards based unsaturated zone 
+Test the Kr averaging methods for the Richards based unsaturated zone
 package UZR. Test flow in a single homogeneous column with upper
 and lower Dirichlet boundary.
 """
 
 import os
-import matplotlib.pyplot as plt
+
 import flopy
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from modflow_devtools.misc import is_in_ci
-from gwf_test_utils import get_uzr_soil_data, PLOT_UZR_TESTS
 from framework import TestFramework
+from gwf_test_utils import PLOT_UZR_TESTS, get_uzr_soil_data
+from modflow_devtools.misc import is_in_ci
 
 cases = ["harmonic", "arithmetic", "upstream"]
 
@@ -153,7 +154,6 @@ def build_models(idx, test):
 
 
 def check_output(idx, test):
-
     model_name = "gwf_" + test.name
 
     fpth = os.path.join(test.workspace, f"{model_name}.dis.grb")

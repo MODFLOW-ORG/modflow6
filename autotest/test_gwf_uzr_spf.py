@@ -1,18 +1,18 @@
 """
-Test the seepage face boundary for the Richards based unsaturated 
-zone package UZR. A transient 2D (xz) model with unequal constant heads 
+Test the seepage face boundary for the Richards based unsaturated
+zone package UZR. A transient 2D (xz) model with unequal constant heads
 on either side.
 """
 
 import os
-import matplotlib.pyplot as plt
+
 import flopy
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from modflow_devtools.misc import is_in_ci
-from gwf_test_utils import get_uzr_soil_data, get_balance_error, PLOT_UZR_TESTS
 from framework import TestFramework
-
+from gwf_test_utils import PLOT_UZR_TESTS, get_uzr_soil_data
+from modflow_devtools.misc import is_in_ci
 
 cases = ["npf", "npf-drn", "uzr", "uzr-drn", "uzr-spf"]
 use_uzr = [False, False, True, True, True]
@@ -219,7 +219,6 @@ def build_models(idx, test):
 
 
 def check_output(idx, test):
-
     model_name = "gwf_" + test.name
 
     # plot heads and wt
@@ -245,7 +244,7 @@ def check_output(idx, test):
         for idx, case in enumerate(cases):
             wtable = water_tables[case]
             plt.plot(x, wtable, marker=m[idx], label=case)
-        figpth = os.path.join(test.workspace, f"wt-all.png")
+        figpth = os.path.join(test.workspace, "wt-all.png")
         plt.xlim(0.0, width)
         plt.ylim(0.0, height)
         plt.legend()

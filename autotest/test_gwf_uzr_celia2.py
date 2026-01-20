@@ -3,13 +3,14 @@ Test for the Richards based unsaturated zone package UZR.
 """
 
 import os
-import matplotlib.pyplot as plt
+
 import flopy
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from framework import TestFramework
+from gwf_test_utils import PLOT_UZR_TESTS, get_balance_error, get_uzr_soil_data
 from modflow_devtools.misc import is_in_ci
-from gwf_test_utils import get_uzr_soil_data, get_balance_error, PLOT_UZR_TESTS
 
 cases = ["dense", "dt144", "dt720", "dt3600"]
 dt = [10.0, 144.0, 720.0, 3600.0]
@@ -148,7 +149,6 @@ def build_models(idx, test):
 
 
 def check_output(idx, test):
-
     model_name = "gwf_" + test.name
 
     fpth = os.path.join(test.workspace, f"{model_name}.dis.grb")
@@ -172,9 +172,9 @@ def check_output(idx, test):
 
     list_pth = os.path.join(test.workspace, f"{model_name}.lst")
     error = get_balance_error(list_pth)
-    assert (
-        abs(error) < 0.00001
-    ), f"Cumulative balance error = {error} for {model_name} too large"
+    assert abs(error) < 0.00001, (
+        f"Cumulative balance error = {error} for {model_name} too large"
+    )
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

@@ -3,13 +3,14 @@ Test for the Richards based unsaturated zone package UZR.
 """
 
 import os
-import matplotlib.pyplot as plt
+
 import flopy
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from modflow_devtools.misc import is_in_ci
-from gwf_test_utils import get_uzr_soil_data, PLOT_UZR_TESTS
 from framework import TestFramework
+from gwf_test_utils import PLOT_UZR_TESTS, get_uzr_soil_data
+from modflow_devtools.misc import is_in_ci
 
 cases = ["steady", "transient"]
 steady = [True, False]
@@ -155,7 +156,6 @@ def build_models(idx, test):
 
 
 def check_output(idx, test):
-
     model_name = "gwf_" + test.name
 
     fpth = os.path.join(test.workspace, f"{model_name}.dis.grb")
