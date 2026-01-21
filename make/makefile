@@ -41,20 +41,19 @@ SOURCEDIR34=../src/Utilities/Export
 SOURCEDIR35=../src/Utilities/Idm
 SOURCEDIR36=../src/Utilities/Idm/mf6blockfile
 SOURCEDIR37=../src/Utilities/Idm/netcdf
-SOURCEDIR38=../src/Utilities/InterpolationScheme
-SOURCEDIR39=../src/Utilities/Libraries
-SOURCEDIR40=../src/Utilities/Libraries/blas
-SOURCEDIR41=../src/Utilities/Libraries/daglib
-SOURCEDIR42=../src/Utilities/Libraries/rcm
-SOURCEDIR43=../src/Utilities/Libraries/sparsekit
-SOURCEDIR44=../src/Utilities/Libraries/sparskit2
-SOURCEDIR45=../src/Utilities/Matrix
-SOURCEDIR46=../src/Utilities/Memory
-SOURCEDIR47=../src/Utilities/Observation
-SOURCEDIR48=../src/Utilities/OutputControl
-SOURCEDIR49=../src/Utilities/Performance
-SOURCEDIR50=../src/Utilities/TimeSeries
-SOURCEDIR51=../src/Utilities/Vector
+SOURCEDIR38=../src/Utilities/Libraries
+SOURCEDIR39=../src/Utilities/Libraries/blas
+SOURCEDIR40=../src/Utilities/Libraries/daglib
+SOURCEDIR41=../src/Utilities/Libraries/rcm
+SOURCEDIR42=../src/Utilities/Libraries/sparsekit
+SOURCEDIR43=../src/Utilities/Libraries/sparskit2
+SOURCEDIR44=../src/Utilities/Matrix
+SOURCEDIR45=../src/Utilities/Memory
+SOURCEDIR46=../src/Utilities/Observation
+SOURCEDIR47=../src/Utilities/OutputControl
+SOURCEDIR48=../src/Utilities/Performance
+SOURCEDIR49=../src/Utilities/TimeSeries
+SOURCEDIR50=../src/Utilities/Vector
 
 VPATH = \
 ${SOURCEDIR1} \
@@ -106,8 +105,7 @@ ${SOURCEDIR46} \
 ${SOURCEDIR47} \
 ${SOURCEDIR48} \
 ${SOURCEDIR49} \
-${SOURCEDIR50} \
-${SOURCEDIR51} 
+${SOURCEDIR50} 
 
 .SUFFIXES: .f90 .F90 .o
 
@@ -196,7 +194,9 @@ $(OBJDIR)/gwt-advidm.o \
 $(OBJDIR)/gwf-welidm.o \
 $(OBJDIR)/gwf-welgidm.o \
 $(OBJDIR)/gwf-vscidm.o \
+$(OBJDIR)/gwf-uzridm.o \
 $(OBJDIR)/gwf-stoidm.o \
+$(OBJDIR)/gwf-spfidm.o \
 $(OBJDIR)/gwf-rividm.o \
 $(OBJDIR)/gwf-rivgidm.o \
 $(OBJDIR)/gwf-rchidm.o \
@@ -347,11 +347,14 @@ $(OBJDIR)/TernarySolveUtils.o \
 $(OBJDIR)/SubcellTri.o \
 $(OBJDIR)/MethodSubcell.o \
 $(OBJDIR)/SubcellRect.o \
+$(OBJDIR)/SfrCrossSectionUtils.o \
 $(OBJDIR)/MethodSubcellTernary.o \
 $(OBJDIR)/MethodSubcellPollock.o \
 $(OBJDIR)/TimeStepSelect.o \
 $(OBJDIR)/LinearAlgebraUtils.o \
-$(OBJDIR)/SfrCrossSectionUtils.o \
+$(OBJDIR)/SfrCrossSectionManager.o \
+$(OBJDIR)/dag_module.o \
+$(OBJDIR)/BoundaryPackageExt.o \
 $(OBJDIR)/MethodSubcellPool.o \
 $(OBJDIR)/CellPoly.o \
 $(OBJDIR)/CellRectQuad.o \
@@ -361,9 +364,16 @@ $(OBJDIR)/PrintSaveManager.o \
 $(OBJDIR)/tsp-fmi.o \
 $(OBJDIR)/SingularValueDecomposition.o \
 $(OBJDIR)/IsothermInterface.o \
-$(OBJDIR)/SfrCrossSectionManager.o \
-$(OBJDIR)/dag_module.o \
-$(OBJDIR)/BoundaryPackageExt.o \
+$(OBJDIR)/TvBase.o \
+$(OBJDIR)/Xt3dAlgorithm.o \
+$(OBJDIR)/gwf-sfr.o \
+$(OBJDIR)/gwf-riv.o \
+$(OBJDIR)/gwf-maw.o \
+$(OBJDIR)/mf6lists.o \
+$(OBJDIR)/gwf-lak.o \
+$(OBJDIR)/GwfVscInputData.o \
+$(OBJDIR)/gwf-ghb.o \
+$(OBJDIR)/gwf-drn.o \
 $(OBJDIR)/MethodCellTernary.o \
 $(OBJDIR)/MethodCellPollockQuad.o \
 $(OBJDIR)/MethodCellPollock.o \
@@ -382,16 +392,18 @@ $(OBJDIR)/LinearIsotherm.o \
 $(OBJDIR)/LangmuirIsotherm.o \
 $(OBJDIR)/IsothermEnum.o \
 $(OBJDIR)/FreundlichIsotherm.o \
-$(OBJDIR)/Xt3dAlgorithm.o \
-$(OBJDIR)/TvBase.o \
-$(OBJDIR)/gwf-sfr.o \
-$(OBJDIR)/gwf-riv.o \
-$(OBJDIR)/gwf-maw.o \
-$(OBJDIR)/mf6lists.o \
-$(OBJDIR)/gwf-lak.o \
-$(OBJDIR)/GwfVscInputData.o \
-$(OBJDIR)/gwf-ghb.o \
-$(OBJDIR)/gwf-drn.o \
+$(OBJDIR)/gwf-tvs.o \
+$(OBJDIR)/GwfStorageUtils.o \
+$(OBJDIR)/GwfStoExt.o \
+$(OBJDIR)/UzrSoilModel.o \
+$(OBJDIR)/Xt3dInterface.o \
+$(OBJDIR)/gwf-tvk.o \
+$(OBJDIR)/SpdisWorkArray.o \
+$(OBJDIR)/HGeoUtil.o \
+$(OBJDIR)/gwf-vsc.o \
+$(OBJDIR)/GwfNpfOptions.o \
+$(OBJDIR)/GwfNpfExt.o \
+$(OBJDIR)/GwfConductanceUtils.o \
 $(OBJDIR)/MethodModel.o \
 $(OBJDIR)/MethodCellPool.o \
 $(OBJDIR)/CellUtil.o \
@@ -412,13 +424,12 @@ $(OBJDIR)/CachedGradient.o \
 $(OBJDIR)/AdvSchemeEnum.o \
 $(OBJDIR)/UzfCellGroup.o \
 $(OBJDIR)/IsothermFactory.o \
-$(OBJDIR)/Xt3dInterface.o \
-$(OBJDIR)/gwf-tvk.o \
-$(OBJDIR)/SpdisWorkArray.o \
-$(OBJDIR)/HGeoUtil.o \
-$(OBJDIR)/gwf-vsc.o \
-$(OBJDIR)/GwfNpfOptions.o \
-$(OBJDIR)/GwfConductanceUtils.o \
+$(OBJDIR)/gwf-sto.o \
+$(OBJDIR)/UzrVanGenuchten.o \
+$(OBJDIR)/UzrHaverkamp.o \
+$(OBJDIR)/UzrDevSoil.o \
+$(OBJDIR)/STLVecInt.o \
+$(OBJDIR)/gwf-npf.o \
 $(OBJDIR)/ParticleTracks.o \
 $(OBJDIR)/ParticleReleaseSchedule.o \
 $(OBJDIR)/MethodDisv.o \
@@ -442,16 +453,15 @@ $(OBJDIR)/gwf-uzf.o \
 $(OBJDIR)/tsp-apt.o \
 $(OBJDIR)/gwt-mst.o \
 $(OBJDIR)/GwtDspOptions.o \
-$(OBJDIR)/gwf-tvs.o \
-$(OBJDIR)/GwfStorageUtils.o \
+$(OBJDIR)/UzrStorage.o \
+$(OBJDIR)/UzrSoilModelFactory.o \
+$(OBJDIR)/UzrFlow.o \
 $(OBJDIR)/Mover.o \
 $(OBJDIR)/GwfMvrPeriodData.o \
 $(OBJDIR)/ImsLinearMisc.o \
-$(OBJDIR)/gwf-npf.o \
 $(OBJDIR)/GwfBuyInputData.o \
 $(OBJDIR)/GweCndOptions.o \
 $(OBJDIR)/VirtualBase.o \
-$(OBJDIR)/STLVecInt.o \
 $(OBJDIR)/prt-prp.o \
 $(OBJDIR)/prt-oc.o \
 $(OBJDIR)/prt-mip.o \
@@ -468,8 +478,9 @@ $(OBJDIR)/gwt-ist.o \
 $(OBJDIR)/gwt-dsp.o \
 $(OBJDIR)/gwt-cnc.o \
 $(OBJDIR)/gwf-wel.o \
+$(OBJDIR)/gwf-spf.o \
 $(OBJDIR)/gwf-rch.o \
-$(OBJDIR)/gwf-sto.o \
+$(OBJDIR)/gwf-uzr.o \
 $(OBJDIR)/gwf-oc.o \
 $(OBJDIR)/gwf-obs.o \
 $(OBJDIR)/gwf-mvr.o \
