@@ -235,7 +235,7 @@ If a GWF-GWF Exchange is active, then neither of the connected GWF Models can ha
 If a GWT-GWT or GWE-GWE Exchange is active, then constant concentration (CNC) or constant temperature (CTP) conditions should not be assigned on the interface between the two connected models because the budget reported in the listing file will contain errors.  
 
 \item
-The PRT Model reports an incomplete and unbalanced particle mass budget to the listing file and the binary cell budget file.
+The PRT Model reports balanced particle mass budgets to the listing file and the binary cell budget file, with budget entries for release, storage, and termination. However, the termination term is aggregated and does not distinguish particle outflows to different types of boundary conditions.
 
 \end{enumerate}
 
