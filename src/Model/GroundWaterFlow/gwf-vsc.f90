@@ -1242,6 +1242,14 @@ contains
                     form, access, 'REPLACE')
     end if
 
+    ! -- verify THERMAL_FORM input value is supported
+    if (found%thermal_form) then
+      if (this%thermivisc == 0) then
+        call store_error('Unrecognized input value for THERMAL_FORM option.')
+        call store_error_filename(this%input_fname)
+      end if
+    end if
+
     ! set warnings and errors
     if (this%thermivisc == 1) then
       if (this%a2 == 0.0) then

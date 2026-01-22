@@ -1465,6 +1465,15 @@ contains
       call tvk_cr(this%tvk, this%name_model, this%intvk, this%iout)
     end if
     !
+    ! -- verify ALTERNATIVE_CELL_AVERAGING input value is supported
+    if (found%cellavg) then
+      if (this%icellavg == 0) then
+        errmsg = 'Unrecognized input value for ALTERNATIVE_CELL_AVERAGING option.'
+        call store_error(errmsg)
+        call store_error_filename(this%input_fname)
+      end if
+    end if
+    !
     ! -- log options
     if (this%iout > 0) then
       call this%log_options(found)

@@ -1,8 +1,8 @@
-An effort is underway to process program input early in program runtime, before the simulation is created, in a general way that is not dependent on any given component.  This capability is called the \mf Input Data Processor (IDP).  Components that have been updated to use IDP no longer directly read or process file inputs but instead access input data from internally managed memory locations. 
+The \mf Input Data Processor (IDP) provides input processing support early in program runtime, before the simulation is created, in a general way that is not dependent on any given component.  Components that have been updated to use IDP no longer directly read or process file inputs but instead access input data from internally managed memory locations.
 
 \subsection{Supported Components}
 
-A specific set of \mf components has been updated in the current version to use the IDP routines, as shown in Table~\ref{table:idmsupported}.  Two integration steps have been taken for each file type listed in the table.  First, IDP has been updated to support the reading and loading of variable input data for the component.  File types listed in the table, each previously read and processed by the component, are now processed by IDP.  Second, the component itself has been refactored to retrieve input from managed memory locations in a predictable way.  Components and associated file types shown in table~\ref{table:idmsupported} are described in more detail in later sections of this document.
+\mf components that are IDP integrated are shown in Table~\ref{table:idmsupported}.  Two integration steps have been taken for each file type listed in the table.  First, IDP has been updated to support the reading and loading of variable input data for the component.  File types listed in the table, each previously read and processed by the component, are now processed by IDP.  Second, the component itself has been refactored to retrieve input from managed memory locations in a predictable way.  Components and associated file types shown in table~\ref{table:idmsupported} are described in more detail in later sections of this document.
 
 %\begin{table}[H]
 %\caption{Components and subcomponents that are read using Input Data Processor (IDP) routines}
@@ -31,6 +31,7 @@ SIM/NAM & mfsim.nam \\
 SIM/TDIS & TDIS6 \\
 \hline
 GWF/NAM & GWF name file \\
+GWF/API & API6 \\
 GWF/BUY & BUY6 \\
 GWF/CHD & CHD6 \\
 GWF/CSUB & CSUB6 \\
@@ -54,6 +55,7 @@ GWF/WEL & WEL6 \\
 \hline
 GWT/NAM & GWT name file \\
 GWT/ADV & ADV6 \\
+GWT/API & API6 \\
 GWT/CNC & CNC6 \\
 GWT/DIS & DIS6 \\
 GWT/DISU & DISU6 \\
