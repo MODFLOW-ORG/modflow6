@@ -106,9 +106,10 @@ contains
     call this%sfr_calc_reach_depth(n, q2, d2)
     a2 = this%calc_area_wet(n, d2)
     celerity = (q2 - q) / (a2 - a)
-    courant = celerity * delt / this%length(n)
-    ! write(*,*) this%length(n), courant * delt
+  else
+    celerity = DZERO
   end if
+  courant = celerity * delt / this%length(n)
 
   qlat = qlat / this%length(n)
 
