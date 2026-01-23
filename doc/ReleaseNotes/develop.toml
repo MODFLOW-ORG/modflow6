@@ -159,3 +159,13 @@ description = "Simplified the PRT model's logic determining whether to terminate
 section = "fixes"
 subsection = "parallel"
 description = "The parameter CELL\\_AVERAGING in the GWF-GWF Exchange OPTIONS block was ignored for parallel runs. The cell averaging method was set to the value configured in the NPF package of the model instead. This has been fixed such that the behavior now follows the documentation."
+
+[[items]]
+section = "features"
+subsection = "internal"
+description = "The advection package (ADV) in the GWE and GWT models has been extended with a new 'total variation diminishing' scheme called UTVD. This scheme typically improves accuracy and reduces numerical dispersion more than the existing TVD scheme when simulating advective transport either on unstructured grids, or when the dominant flow direction is poorly aligned with the grid."
+
+[[items]]
+section = "examples"
+subsection = "internal"
+description = "An example was added to demonstrate the new UTVD capability in the ADV packages of the GWT and GWE models."
