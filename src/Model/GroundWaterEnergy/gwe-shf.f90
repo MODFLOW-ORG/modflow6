@@ -8,7 +8,8 @@
 !<
 
 module SensHeatModule
-  use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, LENVARNAME
+  use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, LENVARNAME, &
+                             DCTOK
   use KindModule, only: I4B, DP
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
@@ -121,7 +122,7 @@ contains
       shflx = br * lhflx
     else
       shf_const = this%cd * this%cpa * this%rhoa
-      shflx = shf_const * this%wspd(ifno) * (this%tatm(ifno) - tstrm)
+      shflx = shf_const * this%wspd(ifno) * (this%tatm(ifno) - (tstrm + DCTOK))
     end if
   end subroutine shf_cq
 
