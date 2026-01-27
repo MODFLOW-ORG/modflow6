@@ -1329,7 +1329,7 @@ contains
       end if
     case ('SHF')
       if (this%iboundpak(jj) /= 0) then
-        strmtemp = this%xnewpak(n1)
+        strmtemp = this%xnewpak(jj)
         !call this%shf_abc_term(jj, n1, n2, v)
         call this%abc%abc_cq(jj, strmtemp, v, 'shf')
       end if
