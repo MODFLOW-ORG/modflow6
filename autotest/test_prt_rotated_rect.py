@@ -297,15 +297,12 @@ def check_output(idx, test):
     for i in range(1, len(x_vals)):
         dx = x_vals[i] - x_vals[i - 1]
         # Large backward jumps indicate coordinate corruption
-        if dx < -cell_size:
-            print(f"\nDetected large backward x jump at point {i}:")
-            print(f"  x[{i-1}] = {x_vals[i-1]:.2f}")
-            print(f"  x[{i}] = {x_vals[i]:.2f}")
-            print(f"  dx = {dx:.2f}")
-            assert False, (
-                f"Detected large backward x jump ({dx:.0f}) at point {i}. "
-                f"This indicates the coordinate transform composition bug."
-            )
+        assert dx >= -cell_size, (
+            f"\nDetected large backward x jump at point {i}:"
+            f"  x[{i-1}] = {x_vals[i-1]:.2f}"
+            f"  x[{i}] = {x_vals[i]:.2f}"
+            f"  dx = {dx:.2f}"
+        )
 
     # Verify we have multiple track points (particle moved through cells)
     assert len(track_csv) >= 3, f"Expected at least 3 track points, got {len(track_csv)}"
