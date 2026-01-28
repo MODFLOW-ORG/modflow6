@@ -7,9 +7,13 @@ when composing/inverting transforms: a pure translation inversion was
 incorrectly applying rotation to the stored origin.
 
 The test uses gridgen to create a quad-refined DISV grid, then rotates
-all vertices to create cells with non-zero sinrot. With cells that have
-rotation AND quad subcells with non-zero origins, the bug causes
-coordinate corruption.
+the cell geometries manually; the bug only causes coordinate corruption
+in rectilinear cells whose vertex coordinates are rotated away from the
+axes. Gridgen produces axis-aligned quad-refined cells, so we can't use
+its raw output. Rotation via the grid's rotation parameter is also not
+sufficient to trigger the bug, since the grid rotation via `angrot` is
+not used for particle tracking, just metadata written to the grb file.
+
 """
 
 from pathlib import Path
@@ -41,7 +45,7 @@ top = 10.0
 botm = [0.0]
 
 # Non-zero rotation triggers the compose bug in quad cells
-ROTATION_ANGLE = 30.0  # degrees
+angle = 30.0  # degrees
 
 # Expected grid bounds (after 30 degree rotation)
 # Grid starts at origin (0,0) before rotation. After rotation:
@@ -51,14 +55,15 @@ ROTATION_ANGLE = 30.0  # degrees
 # - Corner (Lx,Ly) -> (Lx*cos30-Ly*sin30, Lx*sin30+Ly*cos30) = (36602, 136602)
 # Add small margin for numerical tolerance
 margin = 1000.0
-XMIN = -Ly * np.sin(np.radians(ROTATION_ANGLE)) - margin  # -50000 - margin
-XMAX = Lx * np.cos(np.radians(ROTATION_ANGLE)) + margin   # 86602 + margin
-YMIN = -margin  # 0 - margin
-YMAX = Lx * np.sin(np.radians(ROTATION_ANGLE)) + Ly * np.cos(np.radians(ROTATION_ANGLE)) + margin  # 136602 + margin
+xmin = -Ly * np.sin(np.radians(angle)) - margin  # -50000 - margin
+xmax = Lx * np.cos(np.radians(angle)) + margin  # 86602 + margin
+ymin = -margin  # 0 - margin
+ymax = (
+    Lx * np.sin(np.radians(angle)) + Ly * np.cos(np.radians(angle)) + margin
+)  # 136602 + margin
 
 
-def rotate_point(x, y, angle_deg):
-    """Rotate point around origin by angle in degrees."""
+def rotate(x, y, angle_deg):
     angle_rad = np.radians(angle_deg)
     cos_a = np.cos(angle_rad)
     sin_a = np.sin(angle_rad)
@@ -66,13 +71,6 @@ def rotate_point(x, y, angle_deg):
 
 
 def get_gridprops(test):
-    """
-    Create quad-refined grid using gridgen, then rotate vertices.
-
-    Gridgen creates proper quad-refined cells with correct connectivity.
-    Rotating the vertices afterward gives cells with non-zero sinrot,
-    which is required to trigger the compose bug.
-    """
     workspace = test.workspace
     targets = test.targets
 
@@ -89,48 +87,41 @@ def get_gridprops(test):
         botm=botm,
     )
 
-    # Create gridgen workspace
     gridgen_ws = workspace / "gridgen"
     gridgen_ws.mkdir(parents=True, exist_ok=True)
 
-    # Create Gridgen object
     g = Gridgen(
         ms.modelgrid,
         model_ws=gridgen_ws,
         exe_name=targets["gridgen"],
     )
 
-    # Add refinement polygon in center of grid to create quad-refined cells
-    # Higher refinement levels create cells with 8 vertices (4 corners + 4 edge midpoints)
-    # at the interface between different refinement zones
-    polygon = [[(30000, 30000), (30000, 70000), (70000, 70000), (70000, 30000), (30000, 30000)]]
+    polygon = [
+        [(30000, 30000), (30000, 70000), (70000, 70000), (70000, 30000), (30000, 30000)]
+    ]
     refinement_levels = 2
-    g.add_refinement_features(
-        [polygon], "polygon", refinement_levels, range(nlay)
-    )
+    g.add_refinement_features([polygon], "polygon", refinement_levels, range(nlay))
     g.build(verbose=False)
 
-    # Get gridprops from gridgen
     gridprops = g.get_gridprops_disv()
 
-    # Now rotate all vertices by ROTATION_ANGLE degrees
-    # This gives cells with non-zero sinrot, triggering the bug
+    # rotate all vertices to give cells non-zero sinrot, triggering the bug
     vertices = gridprops["vertices"]
     rotated_vertices = []
     for v in vertices:
         idx, x, y = v[0], v[1], v[2]
-        rx, ry = rotate_point(x, y, ROTATION_ANGLE)
+        rx, ry = rotate(x, y, angle)
         rotated_vertices.append([idx, rx, ry])
     gridprops["vertices"] = rotated_vertices
 
-    # Update cell centers to match rotated vertices
+    # update cell centers to match rotated vertices
     cell2d = gridprops["cell2d"]
     rotated_cell2d = []
     for cell in cell2d:
         icell = cell[0]
         xc, yc = cell[1], cell[2]
-        rxc, ryc = rotate_point(xc, yc, ROTATION_ANGLE)
-        # Keep the rest of the cell data (nvert, vertex indices)
+        rxc, ryc = rotate(xc, yc, angle)
+        # keep the rest of the cell data (nvert, vertex indices)
         rotated_cell2d.append([icell, rxc, ryc] + cell[3:])
     gridprops["cell2d"] = rotated_cell2d
 
@@ -138,7 +129,6 @@ def get_gridprops(test):
 
 
 def build_sim(idx, test):
-    """Build combined GWF-PRT simulation."""
     name = cases[idx]
     gwfname = get_model_name(name, "gwf")
     prtname = get_model_name(name, "prt")
@@ -199,7 +189,7 @@ def build_sim(idx, test):
     x_local = 50000.0
     y_local = 50000.0
     z_local = 5.0
-    x_model, y_model = rotate_point(x_local, y_local, ROTATION_ANGLE)
+    x_model, y_model = rotate(x_local, y_local, angle)
     icell = gwf.modelgrid.intersect(x_model, y_model)
     releasepts = [
         # particle index, (k, icell), x, y, z (model coordinates)
@@ -254,8 +244,8 @@ def check_output(idx, test, snapshot):
     mf6_pls = pd.read_csv(ws / f"{prtname}.trk.csv")
 
     # check coordinates are within reasonable bounds
-    x_ok = (mf6_pls["x"] >= XMIN) & (mf6_pls["x"] <= XMAX)
-    y_ok = (mf6_pls["y"] >= YMIN) & (mf6_pls["y"] <= YMAX)
+    x_ok = (mf6_pls["x"] >= xmin) & (mf6_pls["x"] <= xmax)
+    y_ok = (mf6_pls["y"] >= ymin) & (mf6_pls["y"] <= ymax)
     z_ok = (mf6_pls["z"] >= -0.1) & (mf6_pls["z"] <= top + 0.1)
     bad_points = mf6_pls[~(x_ok & y_ok & z_ok)]
     assert len(bad_points) == 0, (
@@ -271,7 +261,7 @@ def check_output(idx, test, snapshot):
         dx = x_vals[i] - x_vals[i - 1]
         assert dx >= -delr, (
             f"backward x jump at point {i}:"
-            f"x[{i-1}] = {x_vals[i-1]:.2f}"
+            f"x[{i - 1}] = {x_vals[i - 1]:.2f}"
             f"x[{i}] = {x_vals[i]:.2f}"
             f"dx = {dx:.2f}"
         )
