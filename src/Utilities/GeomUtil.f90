@@ -287,26 +287,28 @@ contains
       end if
     else
       ! -- Apply inverse of additional transformation to existing transformation
-      !
-      ! -- Calculate modified origin, R^T (XOrigin + R_add XOrigin_add), where
-      ! -- XOrigin and XOrigin_add are the existing and additional origin
-      ! -- vectors, respectively, R^T is the transpose of the existing rotation
-      ! -- matrix, and R_add is the additional rotation matrix
-      if (ltranslate) then
-        call transform(-xorigin_add, -yorigin_add, zorigin_add, &
-                       x0, y0, z0, xorigin, yorigin, zorigin, &
-                       -sinrot_add, cosrot_add, .true.)
-      end if
-      xorigin = c0 * x0 - s0 * y0
-      yorigin = s0 * x0 + c0 * y0
-      zorigin = z0
       if (lrotate) then
+        ! -- Inverting a rotation (possibly with translation): apply R^T to origin
+        ! -- Calculate modified origin as R^T (XOrigin + R_add XOrigin_add)
+        if (ltranslate) then
+          call transform(-xorigin_add, -yorigin_add, zorigin_add, &
+                         x0, y0, z0, xorigin, yorigin, zorigin, &
+                         -sinrot_add, cosrot_add, .true.)
+        end if
+        xorigin = c0 * x0 - s0 * y0
+        yorigin = s0 * x0 + c0 * y0
+        zorigin = z0
         ! -- Calculate modified rotation matrix (represented by sinrot
         ! -- and cosrot) as R_add^T R, where R and R_add^T are the existing
         ! -- rotation matrix and the transpose of the additional rotation
         ! -- matrix, respectively
         sinrot = cosrot_add * s0 - sinrot_add * c0
         cosrot = cosrot_add * c0 + sinrot_add * s0
+      else if (ltranslate) then
+        ! -- Inverting a pure translation: just subtract from existing origin
+        xorigin = x0 - xorigin_add
+        yorigin = y0 - yorigin_add
+        zorigin = z0 - zorigin_add
       end if
     end if
   end subroutine compose
