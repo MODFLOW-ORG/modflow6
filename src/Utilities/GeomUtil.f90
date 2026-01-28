@@ -286,26 +286,26 @@ contains
         cosrot = cosrot_add * c0 - sinrot_add * s0
       end if
     else
-      ! -- Apply inverse of additional transformation to existing transformation
-      if (ltranslate) then
-        call transform(-xorigin_add, -yorigin_add, zorigin_add, &
-                       x0, y0, z0, xorigin, yorigin, zorigin, &
-                       -sinrot_add, cosrot_add, .true.)
-      end if
-      ! -- FIX: Only apply rotation when lrotate is true
-      ! -- When inverting a pure translation (lrotate=false), we should NOT
-      ! -- apply the existing rotation to the origin coordinates
+      ! -- Apply inverse of additional transformation to existing transformation.
+      ! -- Update origin
       if (lrotate) then
+        if (ltranslate) then
+          call transform(-xorigin_add, -yorigin_add, zorigin_add, &
+                         x0, y0, z0, xorigin, yorigin, zorigin, &
+                         -sinrot_add, cosrot_add, .true.)
+        end if
         xorigin = c0 * x0 - s0 * y0
         yorigin = s0 * x0 + c0 * y0
         zorigin = z0
+      else if (ltranslate) then
+        xorigin = x0 - xorigin_add
+        yorigin = y0 - yorigin_add
+        zorigin = z0 - zorigin_add
+      end if
+      ! -- Update rotation
+      if (lrotate) then
         sinrot = cosrot_add * s0 - sinrot_add * c0
         cosrot = cosrot_add * c0 + sinrot_add * s0
-      else
-        xorigin = x0
-        yorigin = y0
-        zorigin = z0
-        ! sinrot and cosrot remain unchanged (s0 and c0)
       end if
     end if
   end subroutine compose
