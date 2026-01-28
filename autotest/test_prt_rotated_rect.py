@@ -28,20 +28,18 @@ from prt_test_utils import get_model_name
 simname = "prtrotrect"
 cases = [simname]
 
-# Grid parameters for base structured grid
 # Use large coordinates to amplify the compose bug effect
 # The bug causes larger errors when coordinates are far from origin
 nlay = 1
 nrow = 10
 ncol = 10
-Lx = 100000.0  # Large grid to trigger compose bug
+Lx = 100000.0
 Ly = 100000.0
 delr = Lx / ncol
 delc = Ly / nrow
 top = 10.0
 botm = [0.0]
 
-# Rotation angle applied to vertices after gridgen creates the grid
 # Non-zero rotation triggers the compose bug in quad cells
 ROTATION_ANGLE = 30.0  # degrees
 
@@ -146,16 +144,13 @@ def build_sim(idx, test):
     prtname = get_model_name(name, "prt")
     ws = test.workspace
 
-    # Get grid properties from gridgen (with rotated vertices)
     gridprops = get_gridprops(test)
 
-    # Create simulation with both GWF and PRT models
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name=test.targets["mf6"], sim_ws=ws
     )
     flopy.mf6.ModflowTdis(sim, time_units="DAYS", perioddata=[[1.0, 1, 1.0]])
 
-    # --- GWF model ---
     gwf = flopy.mf6.ModflowGwf(sim, modelname=gwfname, save_flows=True)
 
     flopy.mf6.ModflowGwfdisv(
@@ -173,11 +168,10 @@ def build_sim(idx, test):
     flopy.mf6.ModflowGwfic(gwf, strt=top)
 
     # CHD: high head on one corner, low on opposite corner
-    # Find cells at corners after rotation
     ncpl = gridprops["ncpl"]
     chd_data = [
-        [(0, 0), top],  # first cell, high head
-        [(0, ncpl - 1), 0.0],  # last cell, low head
+        [(0, 0), top],
+        [(0, ncpl - 1), 0.0],
     ]
     flopy.mf6.ModflowGwfchd(gwf, stress_period_data=chd_data)
 
@@ -191,7 +185,6 @@ def build_sim(idx, test):
     ims = flopy.mf6.ModflowIms(sim, print_option="SUMMARY")
     sim.register_solution_package(ims, [gwf.name])
 
-    # --- PRT model ---
     prt = flopy.mf6.ModflowPrt(sim, modelname=prtname)
 
     flopy.mf6.ModflowPrtdisv(
@@ -202,18 +195,12 @@ def build_sim(idx, test):
 
     flopy.mf6.ModflowPrtmip(prt, porosity=0.1)
 
-    # Release particle from center of grid
-    # Local coordinates (before rotation)
+    # release particle from center of grid
     x_local = 50000.0
     y_local = 50000.0
     z_local = 5.0
-
-    # Transform to model coordinates (after rotation)
     x_model, y_model = rotate_point(x_local, y_local, ROTATION_ANGLE)
-
-    # Find cell containing release point
     icell = gwf.modelgrid.intersect(x_model, y_model)
-
     releasepts = [
         # particle index, (k, icell), x, y, z (model coordinates)
         (0, (0, icell), x_model, y_model, z_local),
@@ -228,7 +215,6 @@ def build_sim(idx, test):
         extend_tracking=True,
     )
 
-    # Track file
     track_file = f"{prtname}.trk"
     track_csv = f"{prtname}.trk.csv"
     flopy.mf6.ModflowPrtoc(
@@ -238,7 +224,6 @@ def build_sim(idx, test):
         trackcsv_filerecord=[track_csv],
     )
 
-    # GWF-PRT exchange
     flopy.mf6.ModflowGwfprt(
         sim,
         exgtype="GWF6-PRT6",
@@ -247,7 +232,6 @@ def build_sim(idx, test):
         filename=f"{gwfname}.gwfprt",
     )
 
-    # Explicit model solution for PRT
     ems = flopy.mf6.ModflowEms(
         sim,
         pname="ems",
@@ -262,54 +246,43 @@ def build_models(idx, test):
     return build_sim(idx, test)
 
 
-def check_output(idx, test):
+def check_output(idx, test, snapshot):
     name = cases[idx]
     prtname = get_model_name(name, "prt")
     ws = test.workspace
 
-    # Load track CSV
-    track_csv = pd.read_csv(ws / f"{prtname}.trk.csv")
+    mf6_pls = pd.read_csv(ws / f"{prtname}.trk.csv")
 
-    print(f"Track data ({len(track_csv)} points):")
-    print(track_csv[["x", "y", "z", "icell", "ireason"]].to_string())
-
-    # Check all coordinates are within reasonable bounds
-    x_ok = (track_csv["x"] >= XMIN) & (track_csv["x"] <= XMAX)
-    y_ok = (track_csv["y"] >= YMIN) & (track_csv["y"] <= YMAX)
-    z_ok = (track_csv["z"] >= -0.1) & (track_csv["z"] <= top + 0.1)
-
-    bad_points = track_csv[~(x_ok & y_ok & z_ok)]
-    if len(bad_points) > 0:
-        print(f"\nFound {len(bad_points)} points outside grid bounds:")
-        print(bad_points[["x", "y", "z"]].to_string())
-        print(f"\nExpected bounds: x=[{XMIN:.0f}, {XMAX:.0f}], y=[{YMIN:.0f}, {YMAX:.0f}]")
-
+    # check coordinates are within reasonable bounds
+    x_ok = (mf6_pls["x"] >= XMIN) & (mf6_pls["x"] <= XMAX)
+    y_ok = (mf6_pls["y"] >= YMIN) & (mf6_pls["y"] <= YMAX)
+    z_ok = (mf6_pls["z"] >= -0.1) & (mf6_pls["z"] <= top + 0.1)
+    bad_points = mf6_pls[~(x_ok & y_ok & z_ok)]
     assert len(bad_points) == 0, (
         f"Found {len(bad_points)} track points outside grid bounds. "
         f"This indicates the coordinate transform composition bug."
     )
 
-    # Check for the compose bug: with the bug, coordinates become erratic
-    # The particle should move generally in a consistent direction (toward low head)
-    # Check that x coordinates don't jump backwards by more than half a cell
-    cell_size = delr  # ~10000 in this test
-    x_vals = track_csv["x"].values
+    # check for the compose bug: with the bug, coordinates become erratic.
+    # the particle should move generally in a consistent direction (toward low head).
+    # check that x coordinates don't jump backwards by more than half a cell.
+    x_vals = mf6_pls["x"].values
     for i in range(1, len(x_vals)):
         dx = x_vals[i] - x_vals[i - 1]
-        # Large backward jumps indicate coordinate corruption
-        assert dx >= -cell_size, (
-            f"\nDetected large backward x jump at point {i}:"
-            f"  x[{i-1}] = {x_vals[i-1]:.2f}"
-            f"  x[{i}] = {x_vals[i]:.2f}"
-            f"  dx = {dx:.2f}"
+        assert dx >= -delr, (
+            f"backward x jump at point {i}:"
+            f"x[{i-1}] = {x_vals[i-1]:.2f}"
+            f"x[{i}] = {x_vals[i]:.2f}"
+            f"dx = {dx:.2f}"
         )
 
-    # Verify we have multiple track points (particle moved through cells)
-    assert len(track_csv) >= 3, f"Expected at least 3 track points, got {len(track_csv)}"
+    # compare pathlines with snapshot
+    actual_data = mf6_pls.drop("name", axis=1).round(3)
+    actual_records = actual_data.to_records(index=False)
+    assert snapshot == actual_records
 
 
 def plot_output(idx, test):
-    """Plot the grid, head distribution, and particle pathline."""
     name = cases[idx]
     gwfname = get_model_name(name, "gwf")
     prtname = get_model_name(name, "prt")
@@ -362,12 +335,12 @@ def plot_output(idx, test):
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets, plot):
+def test_mf6model(idx, name, function_tmpdir, targets, plot, array_snapshot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        check=lambda t: check_output(idx, t, array_snapshot),
         plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
     )
