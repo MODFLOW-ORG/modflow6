@@ -14,7 +14,7 @@ from framework import TestFramework
 from gwf_test_utils import PLOT_UZR_TESTS, get_uzr_soil_data
 from modflow_devtools.misc import is_in_ci
 
-cases = ["harmonic", "arithmetic", "upstream"]
+cases = ["uzr-kr-hrm", "uzr-kr-amt", "uzr-kr-ups"]
 
 
 def build_models(idx, test):

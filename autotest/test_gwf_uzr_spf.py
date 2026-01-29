@@ -14,7 +14,7 @@ from framework import TestFramework
 from gwf_test_utils import PLOT_UZR_TESTS, get_uzr_soil_data
 from modflow_devtools.misc import is_in_ci
 
-cases = ["npf", "npf-drn", "uzr", "uzr-drn", "uzr-spf"]
+cases = ["wt-npf", "wt-npf-drn", "wt-uzr", "wt-uzr-drn", "wt-uzr-spf"]
 use_uzr = [False, False, True, True, True]
 use_seepage = [False, False, False, False, True]
 use_drain = [False, True, False, True, False]
@@ -55,7 +55,7 @@ def build_models(idx, test):
     strt = np.zeros((nlay, nrow, ncol)) + h_right
 
     nouter, ninner = 300, 300
-    hclose, rclose, relax = 1e-4, 1e-4, 1.0
+    hclose, rclose, relax = 1e-9, 1e-9, 1.0
 
     name = cases[idx]
 
@@ -213,6 +213,7 @@ def build_models(idx, test):
         budget_filerecord=f"{gwfname}.cbc",
         head_filerecord=f"{gwfname}.hds",
         saverecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
+        printrecord=[("BUDGET", "ALL")],
     )
 
     return sim, None
@@ -241,13 +242,14 @@ def check_output(idx, test):
     ]
     if idx == len(cases) - 1:
         plt.figure()
-        for idx, case in enumerate(cases):
-            wtable = water_tables[case]
-            plt.plot(x, wtable, marker=m[idx], label=case)
+        for (case, wt) in water_tables.items():
+            marker_idx = cases.index(case)
+            plt.plot(x, wt, marker=m[marker_idx], label=case)
         figpth = os.path.join(test.workspace, "wt-all.png")
         plt.xlim(0.0, width)
         plt.ylim(0.0, height)
         plt.legend()
+        plt.title("water table")
         plt.savefig(figpth)
 
     if PLOT_UZR_TESTS and not is_in_ci():
@@ -287,6 +289,20 @@ def check_output(idx, test):
             figpth = os.path.join(test.workspace, f"uzr-wt-{cases[idx]}.png")
             plt.savefig(figpth)
 
+    cbcpth = os.path.join(test.workspace, f"{model_name}.cbc")
+    grdpth = os.path.join(test.workspace, f"{model_name}.dis.grb")
+    grb = flopy.mf6.utils.MfGrdFile(grdpth)
+    cbb = flopy.utils.CellBudgetFile(cbcpth, precision="double")
+    flow_ja_face = cbb.get_data(text="FLOW-JA-FACE")
+    ia = grb._datadict["IA"] - 1
+    for fjf in flow_ja_face:
+        fjf = fjf.flatten()
+        res = fjf[ia[:-1]]
+        errmsg = (
+            f"min or max residual too large {res.min()} at {res.argmin()} "
+            f"and {res.max()} at {res.argmax()}"
+        )
+        assert np.allclose(res, 0.0, atol=1.0e-6), errmsg
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):

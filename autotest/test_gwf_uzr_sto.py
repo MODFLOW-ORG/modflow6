@@ -14,7 +14,7 @@ from framework import TestFramework
 from gwf_test_utils import PLOT_UZR_TESTS, get_balance_error, get_uzr_soil_data
 from modflow_devtools.misc import is_in_ci
 
-cases = ["chord-slope", "mod-picard"]
+cases = ["uzr-chord-slope", "uzr-mod-picard"]
 scheme = ["chord-slope", "modified-picard"]
 
 

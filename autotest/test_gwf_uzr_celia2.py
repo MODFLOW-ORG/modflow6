@@ -12,7 +12,7 @@ from framework import TestFramework
 from gwf_test_utils import PLOT_UZR_TESTS, get_balance_error, get_uzr_soil_data
 from modflow_devtools.misc import is_in_ci
 
-cases = ["dense", "dt144", "dt720", "dt3600"]
+cases = ["celia2-dense", "celia2-dt144", "celia2-dt720", "celia2-dt3600"]
 dt = [10.0, 144.0, 720.0, 3600.0]
 
 
