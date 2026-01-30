@@ -1,6 +1,6 @@
 # MODFLOW 6.7.0 Particle Tracking (PRT) Model Migration Guide
 
-This document describes how to migrate PRT models from MODFLOW 6.6.x to 6.7.0, as well as any significant changes in behavior.
+This document describes how to migrate PRT models from MODFLOW 6.6.x to 6.7.0, as well as significant changes in behavior.
 
 This document is not a comprehensive list of changes. See the release notes for a complete list.
 
