@@ -20,7 +20,7 @@ The Particle Release Point (PRP) package supports configuring release point vert
 
 To correct this, the release point is now interpolated vertically between the *effective top* of the cell and the cell bottom:
 
-- If the cell is **convertible**, the effective top is determined by the head in the cell, constrained to be no higher than the geometric top and no lower than the cell bottom.
+- If the cell is **convertible**, the effective top is the head in the cell, constrained to be no higher than the geometric top and no lower than the cell bottom.
 - If the cell is **confined**, the effective top is the geometric top of the cell.
 
 To distinguish convertible from confined cells at particle release time, the user must now specify a binary grid file entry (`GWFGRID`) in the PRT FMI package when release coordinates are configured with `LOCAL_Z` and the PRT model is running in a separate simulation from the GWF model. A `GWFGRID` entry is not required if the GWF and PRT models run in the same simulation.
@@ -29,7 +29,6 @@ For instance, a sample FMI package input file with `GWFGRID`:
 
 ```
 BEGIN OPTIONS
-  FLOW_IMBALANCE_CORRECTION
 END OPTIONS
 
 BEGIN PACKAGEDATA
