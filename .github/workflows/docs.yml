@@ -185,12 +185,12 @@ jobs:
         with:
           name: mf6io.pdf
           path: |
-            modflow6/mf6io.pdf
-            modflow6/ReleaseNotes.pdf
-            modflow6/zonebudget.pdf
-            modflow6/converter_mf5to6.pdf
-            modflow6/mf6suptechinfo.pdf
-            modflow6/mf6examples.pdf
+            modflow6/distribution/mf6io.pdf
+            modflow6/distribution/ReleaseNotes.pdf
+            modflow6/distribution/zonebudget.pdf
+            modflow6/distribution/converter_mf5to6.pdf
+            modflow6/distribution/mf6suptechinfo.pdf
+            modflow6/distribution/mf6examples.pdf
 
   rtd_trigger:
     name: rtd-trigger
