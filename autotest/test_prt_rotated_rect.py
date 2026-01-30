@@ -8,8 +8,8 @@ incorrectly applying rotation to the stored origin.
 
 Two cases are tested:
 
-1. A quad-refined DISV grid (via gridgen) with rotated vertices.
-2. A simple (unrefined) rectangular DISV grid with rotated vertices.
+1. A simple (unrefined) rectangular DISV grid with rotated vertices.
+2. A quad-refined DISV grid (via gridgen) with rotated vertices.
 
 Both grids have their vertex coordinates rotated manually; the bug
 causes coordinate corruption in rectilinear cells whose vertices are
@@ -34,7 +34,7 @@ from framework import TestFramework
 from prt_test_utils import get_model_name
 
 simname = "prtrotrect"
-cases = [simname, "prtrotdisv"]
+cases = [simname, f"{simname}q"]  # simple, quad-refined
 
 # Use large coordinates to amplify the compose bug effect
 # The bug causes larger errors when coordinates are far from origin
@@ -96,7 +96,7 @@ def rotate_gridprops(gridprops):
     return gridprops
 
 
-def get_gridprops_quadrefined(test):
+def get_gridprops_quad(test):
     """Quad-refined DISV grid via gridgen, with rotated vertices."""
     workspace = test.workspace
     targets = test.targets
@@ -152,7 +152,7 @@ def build_sim(idx, test):
     prtname = get_model_name(name, "prt")
     ws = test.workspace
 
-    gridprops = get_gridprops_quadrefined(test) if idx == 0 else get_gridprops_simple()
+    gridprops = get_gridprops_simple() if idx == 0 else get_gridprops_quad(test)
 
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name=test.targets["mf6"], sim_ws=ws
