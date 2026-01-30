@@ -1,18 +1,21 @@
 """
-Minimal test for rotated quad-refined cells in PRT.
+Minimal test for rotated DISV cells in PRT.
 
-This test verifies that particle tracking through rotated quad-refined
-cells correctly transforms coordinates. The bug being tested occurred
-when composing/inverting transforms: a pure translation inversion was
+This test verifies that particle tracking through rotated DISV cells
+correctly transforms coordinates. The bug being tested occurred when
+composing/inverting transforms: a pure translation inversion was
 incorrectly applying rotation to the stored origin.
 
-The test uses gridgen to create a quad-refined DISV grid, then rotates
-the cell geometries manually; the bug only causes coordinate corruption
-in rectilinear cells whose vertex coordinates are rotated away from the
-axes. Gridgen produces axis-aligned quad-refined cells, so we can't use
-its raw output. Rotation via the grid's rotation parameter is also not
-sufficient to trigger the bug, since the grid rotation via `angrot` is
-not used for particle tracking, just metadata written to the grb file.
+Two cases are tested:
+
+1. A quad-refined DISV grid (via gridgen) with rotated vertices.
+2. A simple (unrefined) rectangular DISV grid with rotated vertices.
+
+Both grids have their vertex coordinates rotated manually; the bug
+causes coordinate corruption in rectilinear cells whose vertices are
+rotated away from the axes. Rotation via the grid's `angrot` parameter
+is not sufficient to trigger the bug, since that rotation is not used
+for particle tracking, just metadata written to the grb file.
 
 """
 
@@ -26,11 +29,12 @@ import pandas as pd
 import pytest
 from flopy.utils.binaryfile import HeadFile
 from flopy.utils.gridgen import Gridgen
+from flopy.utils.gridutil import get_disv_kwargs
 from framework import TestFramework
 from prt_test_utils import get_model_name
 
 simname = "prtrotrect"
-cases = [simname]
+cases = [simname, "prtrotdisv"]
 
 # Use large coordinates to amplify the compose bug effect
 # The bug causes larger errors when coordinates are far from origin
@@ -70,11 +74,33 @@ def rotate(x, y, angle_deg):
     return x * cos_a - y * sin_a, x * sin_a + y * cos_a
 
 
-def get_gridprops(test):
+def rotate_gridprops(gridprops):
+    """Rotate all vertices and cell centers by the global angle."""
+    vertices = gridprops["vertices"]
+    rotated_vertices = []
+    for v in vertices:
+        iv, x, y = v[0], v[1], v[2]
+        rx, ry = rotate(x, y, angle)
+        rotated_vertices.append([iv, rx, ry])
+    gridprops["vertices"] = rotated_vertices
+
+    cell2d = gridprops["cell2d"]
+    rotated_cell2d = []
+    for cell in cell2d:
+        icell = cell[0]
+        xc, yc = cell[1], cell[2]
+        rxc, ryc = rotate(xc, yc, angle)
+        rotated_cell2d.append([icell, rxc, ryc] + cell[3:])
+    gridprops["cell2d"] = rotated_cell2d
+
+    return gridprops
+
+
+def get_gridprops_quadrefined(test):
+    """Quad-refined DISV grid via gridgen, with rotated vertices."""
     workspace = test.workspace
     targets = test.targets
 
-    # Create base MODFLOW-2005 model for gridgen
     ms = flopy.modflow.Modflow()
     flopy.modflow.ModflowDis(
         ms,
@@ -103,29 +129,21 @@ def get_gridprops(test):
     g.add_refinement_features([polygon], "polygon", refinement_levels, range(nlay))
     g.build(verbose=False)
 
-    gridprops = g.get_gridprops_disv()
+    return rotate_gridprops(g.get_gridprops_disv())
 
-    # rotate all vertices to give cells non-zero sinrot, triggering the bug
-    vertices = gridprops["vertices"]
-    rotated_vertices = []
-    for v in vertices:
-        idx, x, y = v[0], v[1], v[2]
-        rx, ry = rotate(x, y, angle)
-        rotated_vertices.append([idx, rx, ry])
-    gridprops["vertices"] = rotated_vertices
 
-    # update cell centers to match rotated vertices
-    cell2d = gridprops["cell2d"]
-    rotated_cell2d = []
-    for cell in cell2d:
-        icell = cell[0]
-        xc, yc = cell[1], cell[2]
-        rxc, ryc = rotate(xc, yc, angle)
-        # keep the rest of the cell data (nvert, vertex indices)
-        rotated_cell2d.append([icell, rxc, ryc] + cell[3:])
-    gridprops["cell2d"] = rotated_cell2d
-
-    return gridprops
+def get_gridprops_simple():
+    """Simple (unrefined) rectangular DISV grid with rotated vertices."""
+    gridprops = get_disv_kwargs(
+        nlay=nlay,
+        nrow=nrow,
+        ncol=ncol,
+        delr=delr,
+        delc=delc,
+        tp=top,
+        botm=botm,
+    )
+    return rotate_gridprops(gridprops)
 
 
 def build_sim(idx, test):
@@ -134,7 +152,7 @@ def build_sim(idx, test):
     prtname = get_model_name(name, "prt")
     ws = test.workspace
 
-    gridprops = get_gridprops(test)
+    gridprops = get_gridprops_quadrefined(test) if idx == 0 else get_gridprops_simple()
 
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name=test.targets["mf6"], sim_ws=ws
@@ -295,7 +313,7 @@ def plot_output(idx, test):
     # Set up plot
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 10))
     ax.set_aspect("equal")
-    ax.set_title(f"Rotated Quad-Refined Grid - {name}")
+    ax.set_title(f"Rotated DISV Grid - {name}")
 
     # Plot grid, head, and velocity vectors
     pmv = flopy.plot.PlotMapView(modelgrid=mg, ax=ax)
