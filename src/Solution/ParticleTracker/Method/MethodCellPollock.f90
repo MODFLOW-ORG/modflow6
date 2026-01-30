@@ -135,7 +135,8 @@ contains
       if (.not. particle%advancing) return
 
       ! Transform model coordinates to local cell coordinates
-      ! (translated/rotated but not scaled relative to model)
+      ! (translated/rotated but not scaled relative to model),
+      ! track the particle over the cell, then transform back.
       xOrigin = cell%xOrigin
       yOrigin = cell%yOrigin
       zOrigin = cell%zOrigin
@@ -143,11 +144,7 @@ contains
       cosrot = cell%cosrot
       call particle%transform(xOrigin, yOrigin, zOrigin, &
                               sinrot, cosrot)
-
-      ! Track the particle over the cell
       call this%track(particle, 2, tmax)
-
-      ! Transform cell coordinates back to model coordinates
       call particle%transform(xOrigin, yOrigin, zOrigin, &
                               sinrot, cosrot, invert=.true.)
       call particle%reset_transform()
