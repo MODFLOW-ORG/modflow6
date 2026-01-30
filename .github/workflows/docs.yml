@@ -167,7 +167,6 @@ jobs:
           name: rtd-files-for-${{ github.sha }}
           path: |
             modflow6/.build_rtd_docs/dev.rst
-            modflow6/.build_rtd_docs/migration.rst
             modflow6/.build_rtd_docs/index.rst
             modflow6/.build_rtd_docs/mf6io.rst
             modflow6/.build_rtd_docs/_dev/

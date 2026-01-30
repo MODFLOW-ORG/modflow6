@@ -107,10 +107,14 @@ if os.path.isdir(dstdir):
 os.makedirs(dstdir)
 
 print(f"Copy special topics to {dstdir}")
-fpth = "mf6_6_0_prt_migration_guide.md"
-src = os.path.join(fpth)
-dst = os.path.join(dstdir, fpth)
-shutil.copy(src, dst)
+fpths = [
+    "mf6_6_0_prt_migration_guide.md",
+    "mf6_7_0_prt_migration_guide.md",
+]
+for fpth in fpths:
+    src = os.path.join(fpth)
+    dst = os.path.join(dstdir, fpth)
+    shutil.copy(src, dst)
 
 # -- build the deprecations table --------------------------------------------
 print("Build the deprecations markdown table")
