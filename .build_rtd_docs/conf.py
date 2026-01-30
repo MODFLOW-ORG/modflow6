@@ -166,7 +166,7 @@ with open("Doxyfile", "w") as fp:
 # -- Project information -----------------------------------------------------
 
 project = "MODFLOW 6"
-copyright = "2024, MODFLOW Development Team"
+copyright = "2026, MODFLOW Development Team"
 author = "MODFLOW Development Team"
 
 # -- Project version ---------------------------------------------------------
