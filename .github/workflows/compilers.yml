@@ -27,6 +27,7 @@ jobs:
           - {os: macos-14, compiler: gcc, version: 12}
           - {os: macos-14, compiler: gcc, version: 13}
           - {os: macos-14, compiler: gcc, version: 14}
+          - {os: macos-15-intel, compiler: gcc, version: 13}
           - {os: windows-2022, compiler: gcc, version: 11}
           - {os: windows-2022, compiler: gcc, version: 12}
           - {os: windows-2022, compiler: gcc, version: 13}
@@ -91,6 +92,19 @@ jobs:
       - name: Custom pixi install
         working-directory: modflow6
         run: pixi run install
+
+      - name: Set GCC_LIBPATH
+        if: runner.os == 'macOS'
+        run: |
+          echo "GCC_LIBPATH=$(brew --prefix)" >> $GITHUB_ENV
+
+      - name: Hide dylibs on macOS
+        if: runner.os == 'macOS'
+        run: |
+          version=${{ matrix.version }}
+          libpath="${{ env.GCC_LIBPATH }}/opt/gcc@$version/lib/gcc/$version"
+          mv $libpath/libgfortran.5.dylib $libpath/libgfortran.5.dylib.bak
+          mv $libpath/libquadmath.0.dylib $libpath/libquadmath.0.dylib.bak
 
       - name: Set LDFLAGS (macOS)
         if: runner.os == 'macOS'
