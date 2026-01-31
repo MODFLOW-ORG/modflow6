@@ -169,3 +169,8 @@ description = "The advection package (ADV) in the GWE and GWT models has been ex
 section = "examples"
 subsection = "internal"
 description = "An example was added to demonstrate the new UTVD capability in the ADV packages of the GWT and GWE models."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "PRT maintains a transformation for each particle between the model coordinate system and coordinates local to the particle's current tracking domain. When a submethod hands control of a particle back to a delegating method, its corresponding transform is inverted to restore the delegating method's coordinate system. Up to now, this inverse operation unconditionally applied a rotation, whether or not the corresponding forward transform included a rotation. On rotated DISV grid cells, this could produce invalid particle coordinates, without substantially disturbing the remainder of the affected particle's pathline. The inverse coordinate transform has been corrected such that particle positions are reported correctly for rotated DISV grid cells."
