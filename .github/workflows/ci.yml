@@ -280,6 +280,9 @@ jobs:
           # arm mac, debug mode
           - os: macos-14
             debug: true
+          # intel mac, release mode
+          - os: macos-15-intel
+            debug: false
           # ubuntu, release mode
           - os: ubuntu-22.04
             debug: false
