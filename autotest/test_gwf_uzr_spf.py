@@ -242,7 +242,7 @@ def check_output(idx, test):
     ]
     if idx == len(cases) - 1:
         plt.figure()
-        for (case, wt) in water_tables.items():
+        for case, wt in water_tables.items():
             marker_idx = cases.index(case)
             plt.plot(x, wt, marker=m[marker_idx], label=case)
         figpth = os.path.join(test.workspace, "wt-all.png")
@@ -303,6 +303,7 @@ def check_output(idx, test):
             f"and {res.max()} at {res.argmax()}"
         )
         assert np.allclose(res, 0.0, atol=1.0e-6), errmsg
+
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):

@@ -231,7 +231,7 @@ contains
 
     ! set fileout for saturation
     call mem_set_value(sat_fname, 'SATURATIONFILE', this%input_mempath, &
-                       found%saturationfile)                       
+                       found%saturationfile)
     if (found%saturationfile) then
       write (this%iout, '(4x,3a)') 'Saturation will be written to ', &
         trim(sat_fname), ' based on HEAD save record in Output Control'
@@ -243,7 +243,7 @@ contains
     ! set fileout for pressure head
     call mem_set_value(phead_fname, 'PHEADFILE', this%input_mempath, &
                        found%pheadfile)
-    
+
     if (found%pheadfile) then
       write (this%iout, '(4x,3a)') 'Pressure head will be written to ', &
         trim(phead_fname), ' based on HEAD save record in Output Control'

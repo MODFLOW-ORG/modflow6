@@ -206,7 +206,7 @@ contains
     Qss = -sc1 * s1 * (h1 - h0) / delt
     Qus = -phi * area * thk * (s1 - s0) / delt
 
-    dQss_dh = -sc1 * s1 / delt - (sc1 * (h1 - h0)/ delt) * dsdh_lim
+    dQss_dh = -sc1 * s1 / delt - (sc1 * (h1 - h0) / delt) * dsdh_lim
     dQus_dh = -phi * area * thk * dsdh_lim / delt
 
     coeffs(1) = dQss_dh

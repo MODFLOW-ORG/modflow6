@@ -14,8 +14,12 @@ from gwf_test_utils import PLOT_UZR_TESTS, get_balance_error, get_uzr_soil_data
 from modflow_devtools.misc import is_in_ci
 
 cases = [
-    "celia1-dense", "celia1-dt10", "celia1-dt30", 
-    "celia1-dt120", "celia1-dt180", "celia1-dt360"
+    "celia1-dense",
+    "celia1-dt10",
+    "celia1-dt30",
+    "celia1-dt120",
+    "celia1-dt180",
+    "celia1-dt360",
 ]
 dt = [0.5, 10.0, 30.0, 120.0, 180.0, 360.0]
 
