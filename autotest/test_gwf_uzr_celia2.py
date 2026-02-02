@@ -15,6 +15,7 @@ from modflow_devtools.misc import is_in_ci
 cases = ["celia2-dense", "celia2-dt144", "celia2-dt720", "celia2-dt3600"]
 dt = [10.0, 144.0, 720.0, 3600.0]
 
+gwfname = "celia"
 
 def build_models(idx, test):
     column_height = 105.0
@@ -58,7 +59,6 @@ def build_models(idx, test):
     tdis = flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=tdis_rc)
 
     # create gwf model
-    gwfname = "gwf_" + name
     gwf = flopy.mf6.MFModel(
         sim,
         model_type="gwf6",
@@ -149,16 +149,14 @@ def build_models(idx, test):
 
 
 def check_output(idx, test):
-    model_name = "gwf_" + test.name
-
-    fpth = os.path.join(test.workspace, f"{model_name}.dis.grb")
+    fpth = os.path.join(test.workspace, f"{gwfname}.dis.grb")
     grb = flopy.mf6.utils.MfGrdFile(fpth)
     mg = grb.modelgrid
     nlay = mg.nlay
     dz = mg.delz.flatten()
     botm = mg.botm.flatten()
 
-    fpth = os.path.join(test.workspace, f"{model_name}.hds")
+    fpth = os.path.join(test.workspace, f"{gwfname}.hds")
     hds = flopy.utils.HeadFile(fpth)
     heads = hds.get_data(idx=-1).flatten()
 
@@ -170,10 +168,10 @@ def check_output(idx, test):
         plt.plot(depth, pheads)
         plt.savefig(f"pressure_head-{cases[idx]}.png")
 
-    list_pth = os.path.join(test.workspace, f"{model_name}.lst")
+    list_pth = os.path.join(test.workspace, f"{gwfname}.lst")
     error = get_balance_error(list_pth)
     assert abs(error) < 0.00001, (
-        f"Cumulative balance error = {error} for {model_name} too large"
+        f"Cumulative balance error = {error} for {gwfname} too large"
     )
 
 

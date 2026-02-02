@@ -109,8 +109,8 @@ contains
     real(DP) :: s0 !< the saturation at the previous time level
     real(DP) :: Cm !< the current moisture capacity
     real(DP) :: dsdh_lim !< slope
-    real(DP) :: h1 !< the current saturation
-    real(DP) :: h0 !< the saturation at the previous time level
+    real(DP) :: h1 !< the current hydraulic head
+    real(DP) :: h0 !< the hydraulic head at the previous time level
     real(DP) :: psi1 !< the current saturation
     real(DP) :: psi0 !< the saturation at the previous time level
     real(DP) :: phi !< the cell porosity
@@ -175,12 +175,12 @@ contains
     real(DP) :: s0 !< the saturation at the previous time level
     real(DP) :: Cm !< the current moisture capacity
     real(DP) :: dsdh_lim !< slope
-    real(DP) :: h1 !< the current saturation
-    real(DP) :: h0 !< the saturation at the previous time level
+    real(DP) :: h1 !< the current head
+    real(DP) :: h0 !< the head at the previous time level
     real(DP) :: psi1 !< the current saturation
     real(DP) :: psi0 !< the saturation at the previous time level
     real(DP) :: phi !< the cell porosity
-    real(DP) :: Q_n, dQdh_n !< the storage rate and derivative
+    real(DP) :: Qss, Qus, dQss_dh, dQus_dh !< the storage rate and derivative
 
     coeffs(:) = DZERO
 
@@ -203,16 +203,16 @@ contains
 
     sc1 = SsCapacity(this%gwf_sto%istor_coef, top, bot, area, this%gwf_sto%ss(n))
 
-    Q_n = sc1 * s1 * (h1 - h0) / delt
-    Q_n = Q_n + phi * area * thk * (s1 - s0) / delt
+    Qss = -sc1 * s1 * (h1 - h0) / delt
+    Qus = -phi * area * thk * (s1 - s0) / delt
 
-    dQdh_n = (sc1 / delt) * (s1 + (h1 - h0) * dsdh_lim)
-    dQdh_n = dQdh_n + phi * area * thk * dsdh_lim / delt
+    dQss_dh = -sc1 * s1 / delt - (sc1 * (h1 - h0)/ delt) * dsdh_lim
+    dQus_dh = -phi * area * thk * dsdh_lim / delt
 
-    coeffs(1) = -dQdh_n
-    coeffs(2) = Q_n - dQdh_n * h1
-
-    ! TODO_UZR: deal with the sign difference between this and existing Q's
+    coeffs(1) = dQss_dh
+    coeffs(2) = -Qss + dQss_dh * h1
+    coeffs(3) = dQus_dh
+    coeffs(4) = -Qus + dQus_dh * h1
 
   end subroutine calculate_coeffs_nwt
 
@@ -242,7 +242,11 @@ contains
     real(DP) :: flow_ss !< the specific storage rate for node n
     real(DP) :: flow_sy !< the (unsaturated) specific yield rate for node n
 
-    call this%calculate_coeffs(n, h_old, h_new, coeffs)
+    if (this%gwf_sto%inewton == 0) then
+      call this%calculate_coeffs(n, h_old, h_new, coeffs)
+    else
+      call this%calculate_coeffs_nwt(n, h_old, h_new, coeffs)
+    end if
 
     ! q_n = A_nn * h_n - rhs_n
     flow_ss = coeffs(1) * h_new(n) - coeffs(2)

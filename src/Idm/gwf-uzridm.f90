@@ -55,6 +55,7 @@ module GwfUzrInputModule
     '', & ! shape
     'model used for the soil characteristic functions', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -73,6 +74,7 @@ module GwfUzrInputModule
     '', & ! shape
     'set a soil parameterization', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -91,6 +93,7 @@ module GwfUzrInputModule
     '', & ! shape
     'model used for the relative permeability', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -109,6 +112,7 @@ module GwfUzrInputModule
     '', & ! shape
     'discretization method for storage calculation', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -127,6 +131,7 @@ module GwfUzrInputModule
     '', & ! shape
     'relative permeability averaging method', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -145,6 +150,7 @@ module GwfUzrInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -163,6 +169,7 @@ module GwfUzrInputModule
     '', & ! shape
     'saturation keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -181,6 +188,7 @@ module GwfUzrInputModule
     '', & ! shape
     'fileout keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -199,6 +207,7 @@ module GwfUzrInputModule
     '', & ! shape
     'saturation file keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -217,6 +226,7 @@ module GwfUzrInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -235,6 +245,7 @@ module GwfUzrInputModule
     '', & ! shape
     'pressure head keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -253,6 +264,7 @@ module GwfUzrInputModule
     '', & ! shape
     'pressure head file keyword', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .true., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -271,6 +283,7 @@ module GwfUzrInputModule
     'NODES', & ! shape
     'unsaturated zone indicator', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -289,6 +302,7 @@ module GwfUzrInputModule
     'NODES', & ! shape
     'porosity', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -307,6 +321,7 @@ module GwfUzrInputModule
     'NODES', & ! shape
     'residual saturation', & ! longname
     .true., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -325,6 +340,7 @@ module GwfUzrInputModule
     'NODES', & ! shape
     'alpha', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -343,6 +359,7 @@ module GwfUzrInputModule
     'NODES', & ! shape
     'n', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -361,6 +378,7 @@ module GwfUzrInputModule
     'NODES', & ! shape
     'beta', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -379,6 +397,7 @@ module GwfUzrInputModule
     'NODES', & ! shape
     'k', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -397,6 +416,7 @@ module GwfUzrInputModule
     'NODES', & ! shape
     'alpha', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -415,6 +435,7 @@ module GwfUzrInputModule
     'NODES', & ! shape
     'n', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
@@ -461,6 +482,7 @@ module GwfUzrInputModule
     '', & ! shape
     '', & ! longname
     .false., & ! required
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

@@ -250,13 +250,16 @@ contains
     real(DP), dimension(:), intent(inout) :: flowja
     real(DP), dimension(:), intent(in) :: h_new
     ! local
-    real(DP), dimension(3) :: coeffs !< the linear system coefficients
+    real(DP), dimension(3) :: coeffs !< the linear system coefficients: A_nn, A_nm, rhs_n
     real(DP) :: flow_nm !< the flow rate into node n from m
 
-    call this%calculate_coeffs(n, m, ipos, h_new, coeffs)
+    if (this%gwf_npf%inewton == 0) then
+      call this%calculate_coeffs(n, m, ipos, h_new, coeffs)
+    else
+      call this%calculate_coeffs_nwt(n, m, ipos, h_new, coeffs)
+    end if
 
-    ! calculate flow positive into cell n
-    flow_nm = coeffs(2) * h_new(m) + coeffs(1) * h_new(n)
+    flow_nm = coeffs(2) * h_new(m) + coeffs(1) * h_new(n) - coeffs(3)
     flowja(ipos) = flow_nm
     flowja(this%gwf_dis%con%isym(ipos)) = -flow_nm
 

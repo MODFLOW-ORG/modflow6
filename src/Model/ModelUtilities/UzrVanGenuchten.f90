@@ -25,7 +25,7 @@ module UzrVanGenuchtenModule
 
 contains
 
-  !> @brief Load the Haverkamp model from input data
+  !> @brief Load the Van Genuchten model from input data
   !<
   subroutine load_vangenuchten(this, porosity, sat_res)
     class(VanGenuchtenModelType), intent(inout) :: this !< this instance

@@ -14,8 +14,8 @@ from framework import TestFramework
 from gwf_test_utils import PLOT_UZR_TESTS, get_balance_error, get_uzr_soil_data
 from modflow_devtools.misc import is_in_ci
 
-cases = ["uzr-chord-slope", "uzr-mod-picard"]
-scheme = ["chord-slope", "modified-picard"]
+cases = ["uzr-sto-cs", "uzr-sto-mp", "uzr-sto-nwt"]
+scheme = ["chord-slope", "modified-picard", "newton"]
 
 
 def build_models(idx, test):
@@ -50,6 +50,7 @@ def build_models(idx, test):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
 
     name = cases[idx]
+    sto_scheme = scheme[idx]
 
     # build MODFLOW 6 files
     ws = test.workspace
@@ -61,13 +62,19 @@ def build_models(idx, test):
 
     # create gwf model
     gwfname = "gwf_" + name
-    gwf = flopy.mf6.MFModel(
+    newtonopts = ""
+    lin_acc = "CG"
+    if sto_scheme == "newton":
+        newtonopts = "newton"
+        lin_acc = "BICGSTAB"
+        sto_scheme = None
+    gwf = flopy.mf6.ModflowGwf(
         sim,
-        model_type="gwf6",
+        save_flows=True,
         modelname=gwfname,
         model_nam_file=f"{gwfname}.nam",
+        newtonoptions=newtonopts,
     )
-    gwf.name_file.save_flows = True
 
     # create iterative model solution and register the gwf model with it
     imsgwf = flopy.mf6.ModflowIms(
@@ -79,7 +86,7 @@ def build_models(idx, test):
         inner_maximum=ninner,
         inner_dvclose=hclose,
         rcloserecord=rclose,
-        linear_acceleration="CG",
+        linear_acceleration=lin_acc,
         scaling_method="NONE",
         reordering_method="NONE",
         relaxation_factor=relax,
@@ -109,7 +116,7 @@ def build_models(idx, test):
     )
 
     sto = flopy.mf6.ModflowGwfsto(
-        gwf, ss=0.0001, sy=0.3, iconvert=0, transient={0: True}
+        gwf, ss=0.0001, sy=0.3, iconvert=1, transient={0: True}
     )
 
     # unsaturated zone Richards flow
@@ -117,7 +124,7 @@ def build_models(idx, test):
     uzr = flopy.mf6.ModflowGwfuzr(
         gwf,
         iunsat=1,
-        storage_scheme=scheme[idx],
+        storage_scheme=sto_scheme,
         kr_averaging="geometric",
         soil_model="Haverkamp",
         porosity=soil_data["porosity"],
@@ -146,7 +153,7 @@ def build_models(idx, test):
         head_filerecord=f"{gwfname}.hds",
         headprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
         saverecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
-        printrecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
+        printrecord=[("HEAD", "LAST"), ("BUDGET", "ALL")],
     )
 
     return sim, None
