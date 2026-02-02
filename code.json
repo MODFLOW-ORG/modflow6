@@ -14,8 +14,8 @@
         "name": "modflow6",
         "downloadURL": "https://code.usgs.gov/usgs/modflow/modflow6/archive/master.zip",
         "contact": {
-            "name": "Christian D. Langevin",
-            "email": "langevin@usgs.gov"
+            "name": "Eric D. Morway",
+            "email": "emorway@usgs.gov"
         },
         "laborHours": -1,
         "version": "6.7.0.dev3",
