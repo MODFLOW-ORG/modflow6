@@ -174,3 +174,8 @@ description = "An example was added to demonstrate the new UTVD capability in th
 section = "fixes"
 subsection = "model"
 description = "PRT maintains a transformation for each particle between the model coordinate system and coordinates local to the particle's current tracking domain. When a submethod hands control of a particle back to a delegating method, its corresponding transform is inverted to restore the delegating method's coordinate system. Up to now, this inverse operation unconditionally applied a rotation, whether or not the corresponding forward transform included a rotation. On rotated DISV grid cells, this could produce invalid particle coordinates, without substantially disturbing the remainder of the affected particle's pathline. The inverse coordinate transform has been corrected such that particle positions are reported correctly for rotated DISV grid cells."
+
+[[items]]
+section = "fixes"
+subsection = "internal"
+description = "Fixed Newton-Raphson under-relaxation so that it is not applied to cells where the lower-most cell in a vertical stack is not convertible (ICELLTYPE=0). Vertical stacks of cells with non-convertible cells at the bottom of the stack are not evaluated since it is valid for the water-level in a non-convertible cell to be below the bottom of the cell. This approach is consistent with the approach used in previous versions of MODFLOW."
