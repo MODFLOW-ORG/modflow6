@@ -154,5 +154,4 @@ autotest/notebooks/
 # pixi environments
 .pixi
 
-**/*.lock
 doc/ReleaseNotes/develop.tex
