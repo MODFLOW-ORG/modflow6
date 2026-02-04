@@ -128,7 +128,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'Constant Concentration'}
+description REPLACE obs6_filename {'{#1}': 'CNC', '{#2}': '\ref{table:gwt-obstypetable}'}
 
 
 # --------------------- gwt cnc dimensions ---------------------
