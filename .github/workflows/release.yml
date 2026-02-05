@@ -113,14 +113,14 @@ jobs:
           ref: ${{ inputs.branch }}
 
       - name: Checkout modflow6-testmodels
-        if: inputs.run_tests == true && runner.os != 'Windows'
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/modflow6-testmodels
           path: modflow6-testmodels
 
       - name: Checkout modflow6-examples
-        if: inputs.run_tests == true && runner.os != 'Windows'
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/modflow6-examples
@@ -173,7 +173,7 @@ jobs:
           eval "$cmd"
 
       - name: Update flopy
-        if: inputs.run_tests == true && runner.os != 'Windows'
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         working-directory: modflow6
         run: |
           cmd="pixi run update-flopy"
@@ -276,8 +276,17 @@ jobs:
         working-directory: modflow6/bin
         run: |
           otool -L mf6
+          otool -L mf6.dylib
+          otool -L mf5to6
+          otool -L zbud6
           lipo -info mf6 
+          lipo -info mf6.dylib
+          lipo -info mf5to6
+          lipo -info zbud6
 
+      # TODO remove after next executables release. only necessary because
+      # tests using gridgen were failing as the current gridgen depends on
+      # some dylibs. new executables all statically link gcc/gfortran libs
       - name: Restore dylibs (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -289,17 +298,22 @@ jobs:
           mv $libpath/libquadmath.0.dylib.bak $libpath/libquadmath.0.dylib
 
       - name: Unit test MF6
-        # temporarily skip macOS.. why don't these fail in the normal CI?
+        # temporarily skip on macOS.. why don't these fail in the normal CI?
         if: (!(runner.os == 'Windows' && matrix.extended) && !(runner.os == 'macOS'))
         working-directory: modflow6
         run: pixi run test builddir
 
       - name: Get executables
-        if: inputs.run_tests == true && runner.os != 'Windows'
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         working-directory: modflow6
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: pixi run get-exes -s
+
+      - name: Clean bin directory
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
+        working-directory: modflow6/bin
+        run: rm -rf rebuilt downloaded
 
       - name: Build binaries (Windows)
         if: runner.os == 'Windows' && matrix.extended && !inputs.run_tests
@@ -360,21 +374,21 @@ jobs:
           path: modflow6/bin
       
       - name: Test MF6
-        if: inputs.run_tests == true && runner.os != 'Windows'
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
         run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
 
       - name: Test MF6 models
-        if: inputs.run_tests == true && runner.os != 'Windows'
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
         run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
 
       - name: Test converter models
-        if: inputs.run_tests == true && runner.os != 'Windows'
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
@@ -412,7 +426,7 @@ jobs:
         run: sudo ./install.sh --all-users
 
       - name: Test distribution scripts
-        if: ${{ inputs.run_tests == true && runner.os != 'Windows' }}
+        if: ${{ inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended) }}
         working-directory: modflow6
         env:
           GITHUB_TOKEN: ${{ github.token }}
