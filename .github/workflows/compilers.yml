@@ -146,8 +146,17 @@ jobs:
         working-directory: modflow6/bin
         run: |
           otool -L mf6
+          otool -L libmf6.dylib
+          otool -L mf5to6
+          otool -L zbud6
           lipo -info mf6 
-    
+          lipo -info libmf6.dylib
+          lipo -info mf5to6
+          lipo -info zbud6
+
+      # TODO remove after next executables release. only necessary because
+      # tests using gridgen were failing as the current gridgen depends on
+      # some dylibs. new executables all statically link gcc/gfortran libs
       - name: Restore dylibs (macOS)
         if: success() && runner.os == 'macOS'
         run: |

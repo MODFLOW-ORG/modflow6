@@ -276,11 +276,11 @@ jobs:
         working-directory: modflow6/bin
         run: |
           otool -L mf6
-          otool -L mf6.dylib
+          otool -L libmf6.dylib
           otool -L mf5to6
           otool -L zbud6
           lipo -info mf6 
-          lipo -info mf6.dylib
+          lipo -info libmf6.dylib
           lipo -info mf5to6
           lipo -info zbud6
 
