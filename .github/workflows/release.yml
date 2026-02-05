@@ -310,11 +310,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: pixi run get-exes -s
 
-      - name: Clean bin directory
-        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
-        working-directory: modflow6/bin
-        run: rm -rf rebuilt downloaded
-
       - name: Build binaries (Windows)
         if: runner.os == 'Windows' && matrix.extended && !inputs.run_tests
         uses: ./modflow6/.github/actions/build-extended-win
@@ -367,12 +362,6 @@ jobs:
           if exist rebuilt rd /s /q rebuilt
           if exist downloaded rd /s /q downloaded
 
-      - name: Upload binaries
-        uses: actions/upload-artifact@v6
-        with:
-          name: bin-${{ steps.ostag.outputs.ostag }}
-          path: modflow6/bin
-      
       - name: Test MF6
         if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         working-directory: modflow6
@@ -401,6 +390,17 @@ jobs:
           name: failed-${{ matrix.os }}-${{ inputs.compiler_toolchain }}-${{ inputs.compiler_version }}
           path: modflow6/autotest/.failed
       
+      - name: Clean bin directory
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
+        working-directory: modflow6/bin
+        run: rm -rf rebuilt downloaded
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v6
+        with:
+          name: bin-${{ steps.ostag.outputs.ostag }}
+          path: modflow6/bin
+
       # steps below run only on Linux to test distribution procedures, e.g.
       # compiling binaries, building documentation
       - name: Checkout usgslatex
