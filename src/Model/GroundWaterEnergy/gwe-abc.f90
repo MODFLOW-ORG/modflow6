@@ -726,7 +726,7 @@ contains
         call store_error(errmsg, terminate=.TRUE.)
       end select
     else
-      abcflx = swrflx + lwrflx + shfflx - lhfflx
+      abcflx = swrflx + lwrflx - shfflx - lhfflx
     end if
   end subroutine abc_cq
 
@@ -765,7 +765,7 @@ contains
     real(DP) :: e
     !
     e = 6.1275_DP * exp(17.2693882_DP * &
-                        (temp / (temp + DCTOK - 35.86_DP)))
+                        ((temp - DCTOK) / (temp - 35.86_DP)))
   end function calc_sat_vap_pres
 
   !> @brief Calculate ambient vapor pressure
