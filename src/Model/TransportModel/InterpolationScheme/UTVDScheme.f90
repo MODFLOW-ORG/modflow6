@@ -129,6 +129,7 @@ contains
     qnm = this%fmi%gwfflowja(iposnm)
     !
     ! -- Get the distance from node n to the face (cl1) and from node m to the face (cl2).
+    !    The distances are dependent on the the node numbering convention and the direction of the connection.
     if (n < m) then
       cl1 = this%dis%con%cl1(isympos)
       cl2 = this%dis%con%cl2(isympos)

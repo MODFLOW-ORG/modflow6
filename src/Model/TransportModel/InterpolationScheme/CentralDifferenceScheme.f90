@@ -61,6 +61,7 @@ contains
     integer(I4B), intent(in) :: iposnm
     ! -- local
     real(DP) :: lnm, lmn, omega
+    integer(I4B) :: isympos
 
     ! -- calculate weight based on distances between nodes and the shared
     !    face of the connection
@@ -70,15 +71,24 @@ contains
       lmn = DHALF * (this%dis%top(m) - this%dis%bot(m))
     else
       ! -- horizontal connection
-      lnm = this%dis%con%cl1(this%dis%con%jas(iposnm))
-      lmn = this%dis%con%cl2(this%dis%con%jas(iposnm))
-    end if
+      !  Get the distance from node n to the face (cl1) and from node m to the face (cl2).
+      !  The distances are dependent on the the node numbering convention and the direction of the connection.
+      if (n < m) then
+        isympos = this%dis%con%jas(iposnm)
+        if (n < m) then
+          lnm = this%dis%con%cl1(isympos)
+          lmn = this%dis%con%cl2(isympos)
+        else
+          lnm = this%dis%con%cl2(isympos)
+          lmn = this%dis%con%cl1(isympos)
+        end if
+      end if
 
-    omega = lmn / (lnm + lmn)
+      omega = lmn / (lnm + lmn)
 
-    phi_face%c_n = omega
-    phi_face%c_m = DONE - omega
+      phi_face%c_n = omega
+      phi_face%c_m = DONE - omega
 
-  end function compute
+      end function compute
 
-end module CentralDifferenceSchemeModule
+      end module CentralDifferenceSchemeModule
