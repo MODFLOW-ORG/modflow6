@@ -118,7 +118,7 @@ contains
     ! -- calculate sensible heat flux using HGS equation
     if (present(lhflx)) then
       br = 0.00061_DP * this%patm(ifno) * &
-           ((tstrm - this%tatm(ifno)) / (this%ew(ifno) - this%ea(ifno)))
+           (((tstrm + DCTOK) - this%tatm(ifno)) / (this%ew(ifno) - this%ea(ifno)))
       shflx = br * lhflx
     else
       shf_const = this%cd * this%cpa * this%rhoa
