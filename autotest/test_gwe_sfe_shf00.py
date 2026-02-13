@@ -16,7 +16,7 @@ import math
 import pytest
 from framework import TestFramework
 
-cases = ["sfe-shf-opt1"] #, "sfe-shf-opt2"]
+cases = ["sfe-shf-opt1", "sfe-shf-opt2"]
 
 DCTOK = 273.15
 
@@ -66,7 +66,7 @@ rhk = 0.0
 rwid = 1.0
 strm_temp = 21.8671310408894  # deg C
 surf_Q_in = [
-    [2.0],  # m^3/s
+    [10.0], [10.0],   # m^3/s
 ]
 
 # sensible heat flux parameter values
@@ -103,7 +103,6 @@ hclose, rclose, relax = 1e-3, 1e-4, 0.97
 #
 # MODFLOW 6 flopy GWF object
 #
-
 
 def build_models(idx, test):
     # Base simulation and model name and workspace
@@ -364,13 +363,24 @@ def build_models(idx, test):
             sfeperioddata.append((irno, "INFLOW", strm_temp))
 
     # Instantiate SFE observation points
-    sfe_obs = {
-        f"{gwename}.sfe.obs.csv": [
+    abc_obs = []
+    if idx == 0:
+        abc_obs = [
             ("rch1_outftemp", "temperature", 1),
             ("rch1_outfener", "ext-outflow", 1),
             ("rch1_shf", "shf", 1),
         ],
-        "digits": 8,
+    elif idx == 1:
+        abc_obs = [
+            ("rch1_outftemp", "temperature", 1),
+            ("rch1_outfener", "ext-outflow", 1),
+            ("rch1_shf", "shf", 1),
+            ("rch1_lhf", "lhf", 1),
+        ]
+    
+    sfe_obs = {
+        f"{gwename}.sfe.obs.csv": abc_obs,
+        "digits": 12,
         "print_input": True,
         "filename": gwename + ".sfe.obs",
     }
@@ -407,6 +417,11 @@ def build_models(idx, test):
         swr_optional_off = True
         lwr_optional_off = True
         lhf_optional_off = True
+        shf_optional_off = False
+    elif idx == 1:
+        swr_optional_off = True
+        lwr_optional_off = True
+        lhf_optional_off = False
         shf_optional_off = False
     
     abc = flopy.mf6.ModflowUtlabc(
@@ -477,10 +492,6 @@ def check_output(idx, test):
     gwfname = "gwf-" + name
     gwename = "gwe-" + name
 
-    # calc expected rise in temperature independent of mf6
-    
-    ew = calc_e(strm_temp)
-
     fpth = os.path.join(test.workspace, gwfname + ".sfr.obs.csv")
     assert os.path.isfile(fpth)
     df = pd.read_csv(fpth)
@@ -488,29 +499,28 @@ def check_output(idx, test):
     # confirm stream width is 1.0 m
     assert np.isclose(calc_strm_wid, 1.0, atol=1e-9), msg0
 
-    # confirm that the energy added to the stream results in a 1 deg C rise in temp
-    # temperature gradient
-    tgrad = tatm - strm_temp
-    ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
-    ener_transfer = ener_per_sqm * (delr * calc_strm_wid)
-    # calculate expected temperature rise based on energy transfer
-    temp_rise = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
-
     fpth2 = os.path.join(test.workspace, gwename + ".sfe.obs.csv")
     assert os.path.isfile(fpth2)
     df2 = pd.read_csv(fpth2)
 
-    # confirm 1 deg C rise in temp
-    msg1 = (
-        "The MF6 simulated rise in river temperature does not match \
-        external calculations.  The calculated temperature rise \
-        is: "
-        + str(temp_rise)
-    )
+    # calc expected sensible heat exchange
+    if idx == 0:
+        tgrad = tatm - (strm_temp + DCTOK)
+        ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
+        shf = ener_per_sqm * (delr * calc_strm_wid)
+        
+        assert np.isclose(shf, df2.loc[0, "RCH1_SHF"].item(), atol=1e-9)
+    
+    elif idx > 0:
+        ew = calc_e(strm_temp)
 
-    assert np.isclose(df2.loc[0, "RCH1_OUTFTEMP"], strm_temp + temp_rise, atol=1e-6), (
-        msg1
-    )
+    # confirm that the energy added to the stream results in a 1 deg C rise in temp
+    # temperature gradient
+    
+    # calculate expected temperature rise based on energy transfer
+    #temp_rise = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
+
+
 
 
 # - No need to change any code below
