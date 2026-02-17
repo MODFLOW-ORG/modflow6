@@ -7,38 +7,43 @@
 # in the channel.  The result is a 1 deg C rise in temperature in the
 # streamflow - an easy result to confirm in this test.
 
+import math
 import os
 
 import flopy
 import numpy as np
 import pandas as pd
-import math
 import pytest
 from framework import TestFramework
 
 cases = ["sfe-shf-opt1", "sfe-shf-opt2"]
 
-DCTOK = 273.15
+DCTOK = 273.16
+
 
 def calc_ea(rh, es):
     # ambient atmospheric vapor pressure
     ea = rh / 100.0 * es
     return ea
 
+
 def calc_e(temp):
     # temperature must enter as degrees Kelvin
     e = 6.1275 * math.exp(17.2693882 * ((temp - DCTOK) / (temp - 35.86)))
     return e
+
 
 def calc_lhv(tstrm, rhow):
     # calculate latent heat of vaporization
     l = 2499.64 - (2.51 * tstrm)
     return l
 
+
 def calc_evap(wfint, wfslp, wspd, ew, ea):
     # calculate evaporation rate
     evap = (wfint + (wfslp * wspd)) * (ew - ea)
     return evap
+
 
 def calc_bowen(patm, tstrmK, tatm, ew, ea):
     # calculate bowen ratio
@@ -49,7 +54,7 @@ def calc_bowen(patm, tstrmK, tatm, ew, ea):
 def process_list_file(lstfile):
     bud = None
     # get the sfe budget items
-    with open(lstfile, 'r') as f:
+    with open(lstfile, "r") as f:
         for line in f:
             if srch_str in line:
                 # read two more lines
@@ -66,12 +71,9 @@ def process_list_file(lstfile):
                 vals = line.strip().split()
                 vals = [float(v) for v in vals]
                 # make a dataframe
-                bud = pd.DataFrame(
-                    {'buditem': budnames,
-                     'value': vals
-                    })
+                bud = pd.DataFrame({"buditem": budnames, "value": vals})
                 break
-    
+
     # return the sfe budget items as a pandas dataframe
     return bud
 
@@ -111,7 +113,8 @@ rhk = 0.0
 rwid = 1.0
 strm_temp = 21.8671310408894  # deg C
 surf_Q_in = [
-    [10.0], [10.0],   # m^3/s
+    [10.0],
+    [10.0],  # m^3/s
 ]
 
 # sensible heat flux parameter values
@@ -125,11 +128,11 @@ rh = 20.0  # % (expressed as a percentage)
 # Transport related parameters
 porosity = sy  # porosity (unitless)
 K_therm = 2.0  # Thermal conductivity  # ($W/m/C$)
-rhow = 1000  # Density of water ($kg/m^3$)
-rhos = 2650  # Density of the aquifer material ($kg/m^3$)
+rhow = 1000.0  # Density of water ($kg/m^3$)
+rhos = 2650.0  # Density of the aquifer material ($kg/m^3$)
 rhoa = 1.225  # Density of the atmosphere ($kg/m^3$)
-Cpw = 4180  # Heat capacity of water ($J/kg/C$)
-Cps = 880  # Heat capacity of the solids ($J/kg/C$)
+Cpw = 4180.0  # Heat capacity of water ($J/kg/C$)
+Cps = 880.0  # Heat capacity of the solids ($J/kg/C$)
 Cpa = 717.0  # Heat capacity of the atmosphere ($J/kg/C$)
 lhv = 2454000.0  # Latent heat of vaporization ($J/kg$)
 c_d = 0.002  # Drag coefficient ($unitless$)
@@ -152,6 +155,7 @@ srch_str = "SFE PACKAGE - SUMMARY OF FLOWS FOR EACH CONTROL VOLUME"
 #
 # MODFLOW 6 flopy GWF object
 #
+
 
 def build_models(idx, test):
     # Base simulation and model name and workspace
@@ -418,7 +422,7 @@ def build_models(idx, test):
             ("rch1_outftemp", "temperature", 1),
             ("rch1_outfener", "ext-outflow", 1),
             ("rch1_shf", "shf", 1),
-        ],
+        ]
     elif idx == 1:
         abc_obs = [
             ("rch1_outftemp", "temperature", 1),
@@ -426,7 +430,7 @@ def build_models(idx, test):
             ("rch1_shf", "shf", 1),
             ("rch1_lhf", "lhf", 1),
         ]
-    
+
     sfe_obs = {
         f"{gwename}.sfe.obs.csv": abc_obs,
         "digits": 12,
@@ -473,7 +477,7 @@ def build_models(idx, test):
         lwr_optional_off = True
         lhf_optional_off = False
         shf_optional_off = False
-    
+
     abc = flopy.mf6.ModflowUtlabc(
         sfe,
         print_input=True,
@@ -484,30 +488,11 @@ def build_models(idx, test):
         density_air=rhoa,
         heat_capacity_air=Cpa,
         drag_coefficient=c_d,
-        wind_func_slope=
-        wind_func_int=
+        wind_func_slope=wfslp,
+        wind_func_int=wfint,
         reachperioddata=abc_spd,
         filename=abc_filename,
     )
-
-    # # Shf utility
-    # shf_spd = {}
-    # for kper in range(len(nstp)):
-    #     spd = []
-    #     for irno in range(ncol):
-    #         spd.append([irno, "WSPD", wspd])
-    #         spd.append([irno, "TATM", tatm])
-    #     shf_spd[kper] = spd
-    # 
-    # shf = flopy.mf6.ModflowUtlshf(
-    #     sfe,
-    #     print_input=True,
-    #     density_air=rhoa,
-    #     heat_capacity_air=Cpa,
-    #     drag_coefficient=c_d,
-    #     reachperioddata=shf_spd,
-    #     filename=shf_filename,
-    # )
 
     # Instantiate Output Control package for transport
     flopy.mf6.ModflowGweoc(
@@ -538,6 +523,8 @@ def build_models(idx, test):
 def check_output(idx, test):
     print("evaluating results...")
     msg0 = "Stream channel width less than 1.0, should be 1.0 m"
+    msg1 = "Latent heat flux does not match externally calculated value."
+    msg2 = "Sensible heat flux does not match externally calculated value."
 
     # read flow results from model
     name = cases[idx]
@@ -560,62 +547,49 @@ def check_output(idx, test):
         tgrad = tatm - (strm_temp + DCTOK)
         ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
         shf = ener_per_sqm * (delr * calc_strm_wid)
-        
+
         assert np.isclose(shf, df2.loc[0, "RCH1_SHF"].item(), atol=1e-9)
-    
+
     elif idx > 0:
         # read the outflows
         fpth2 = os.path.join(test.workspace, gwfname + ".sfr.obs.csv")
         assert os.path.isfile(fpth2)
         df2 = pd.read_csv(fpth2)
-        
+
         # read the outflow temperature
         fpth3 = os.path.join(test.workspace, gwename + ".sfe.obs.csv")
         assert os.path.isfile(fpth3)
         df3 = pd.read_csv(fpth3)
-        
+
         # get output stored in the gwe listing file
-        fname = gwename + '.lst'
+        fname = gwename + ".lst"
         lstfile = os.path.join(test.workspace, fname)
         sfe_bud = process_list_file(lstfile)
-                    
+
         # calculate the amount of energy entering the reach
         ener_in = surf_Q_in[idx][0] * strm_temp * Cpw * rhow
-        ener_out = abs(df2.loc[0, "RCH1_OUTF"]) * df3.loc[0, "RCH1_OUTFTEMP"] * Cpw * rhow
-        net_ener = ener_out - ener_in
-        
-        # pluck the storage change from the list file
-        ener_stored_in_channel = sfe_bud.loc[sfe_bud['buditem'] == 'STORAGE', 'value']
-        
-        # calculate the latent and sensible heat fluxes, should be equal to the residual
-        
-        
-        chng = 1
-        strt_strm_temp = strm_temp
-        updated_strm_temp = strm_temp
-        while chng > hclose:
-             
+        ener_out = (
+            abs(df2.loc[0, "RCH1_OUTF"]) * df3.loc[0, "RCH1_OUTFTEMP"] * Cpw * rhow
+        )
+        net_energy_in_out = ener_out - ener_in
+
+        # calculate the latent and sensible heat fluxes locally and compare
+        # to the MF6 observations recorded in the corresponding output file
         es = calc_e(tatm)
         ea = calc_ea(rh, es)
-        ew = calc_e(strm_temp + DCTOK)
+        ew = calc_e(df3.loc[0, "RCH1_OUTFTEMP"] + DCTOK)
         # calculate latent heat of vaporization
-        lhv = calc_lhv(strm_temp, rhow)
+        lhv = calc_lhv(df3.loc[0, "RCH1_OUTFTEMP"], rhow)
         # calculate evaporation/condensation rate
         evap = calc_evap(wfint, wfslp, wspd, ew, ea)
         # calculate latent heat flux
         lhflx = evap * lhv * rhow
+        assert np.isclose(lhflx, df3.loc[0, "RCH1_LHF"], atol=1e-9), msg1
         # calculate Bowen ratio
-        br = calc_bowen(patm, strm_temp + DCTOK, tatm, ew, ea)
-        # using the bowen ratio and latent heat flux, calculate the sensible heat flux
+        br = calc_bowen(patm, df3.loc[0, "RCH1_OUTFTEMP"] + DCTOK, tatm, ew, ea)
+        # using the bowen ratio and latent heat flux, calc sensible heat flux
         shflx = br * lhflx
-        
-    # confirm that the energy added to the stream results in a 1 deg C rise in temp
-    # temperature gradient
-    
-    # calculate expected temperature rise based on energy transfer
-    #temp_rise = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
-
-
+        assert np.isclose(shflx, df3.loc[0, "RCH1_SHF"], atol=1e-9), msg2
 
 
 # - No need to change any code below
