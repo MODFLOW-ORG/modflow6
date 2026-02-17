@@ -17,4 +17,4 @@ netcdf = "NETCDF"
 [[items]]
 section = "fixes"
 subsection = "stress"
-description = "The default values for DENSITY\_WATER, HEAT\_CAPACITY\_WATER, LATENT\_HEAT\_VAPORIZATION specified in the OPTIONS block were not set as indicated in the MF6IO guide.  Defaults for these three variables now set as documented in the MF6IO guide." 
+description = "The default values for DENSITY\\_WATER, HEAT\\_CAPACITY\\_WATER, LATENT\\_HEAT\\_VAPORIZATION specified in the OPTIONS block were not set as indicated in the MF6IO guide.  Defaults for these three variables now set as documented in the MF6IO guide." 
