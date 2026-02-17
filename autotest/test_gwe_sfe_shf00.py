@@ -26,9 +26,54 @@ def calc_ea(rh, es):
     return ea
 
 def calc_e(temp):
-    # temperature must enter as degrees Celcius
-    e = 6.1275 * math.exp(17.2693882 * (temp / (temp + DCTOK - 35.86)))
+    # temperature must enter as degrees Kelvin
+    e = 6.1275 * math.exp(17.2693882 * ((temp - DCTOK) / (temp - 35.86)))
     return e
+
+def calc_lhv(tstrm, rhow):
+    # calculate latent heat of vaporization
+    l = 2499.64 - (2.51 * tstrm)
+    return l
+
+def calc_evap(wfint, wfslp, wspd, ew, ea):
+    # calculate evaporation rate
+    evap = (wfint + (wfslp * wspd)) * (ew - ea)
+    return evap
+
+def calc_bowen(patm, tstrmK, tatm, ew, ea):
+    # calculate bowen ratio
+    br = 0.00061 * patm * ((tstrmK - tatm) / (ew - ea))
+    return br
+
+
+def process_list_file(lstfile):
+    bud = None
+    # get the sfe budget items
+    with open(lstfile, 'r') as f:
+        for line in f:
+            if srch_str in line:
+                # read two more lines
+                line = next(f)
+                line = next(f)
+                # process the next line
+                line = next(f)
+                budnames = line.split("  ")
+                budnames = [itm for itm in budnames if len(itm) > 0]
+                # skip a line
+                line = next(f)
+                # process another line
+                line = next(f)
+                vals = line.strip().split()
+                vals = [float(v) for v in vals]
+                # make a dataframe
+                bud = pd.DataFrame(
+                    {'buditem': budnames,
+                     'value': vals
+                    })
+                break
+    
+    # return the sfe budget items as a pandas dataframe
+    return bud
 
 
 # Model units
@@ -70,6 +115,8 @@ surf_Q_in = [
 ]
 
 # sensible heat flux parameter values
+wfslp = 1.383e-8
+wfint = 3.445e-9
 wspd = 1.0  # m/s
 patm = 954.680843658077  # mbar
 tatm = 278.16  # deg K
@@ -99,6 +146,8 @@ perlen = [1]
 
 nouter, ninner = 1000, 300
 hclose, rclose, relax = 1e-3, 1e-4, 0.97
+
+srch_str = "SFE PACKAGE - SUMMARY OF FLOWS FOR EACH CONTROL VOLUME"
 
 #
 # MODFLOW 6 flopy GWF object
@@ -411,6 +460,7 @@ def build_models(idx, test):
             spd.append([irno, "WSPD", wspd])
             spd.append([irno, "TATM", tatm])
             spd.append([irno, "PATM", patm])
+            spd.append([irno, "RH", rh])
         abc_spd[kper] = spd
 
     if idx == 0:
@@ -434,6 +484,8 @@ def build_models(idx, test):
         density_air=rhoa,
         heat_capacity_air=Cpa,
         drag_coefficient=c_d,
+        wind_func_slope=
+        wind_func_int=
         reachperioddata=abc_spd,
         filename=abc_filename,
     )
@@ -512,8 +564,51 @@ def check_output(idx, test):
         assert np.isclose(shf, df2.loc[0, "RCH1_SHF"].item(), atol=1e-9)
     
     elif idx > 0:
-        ew = calc_e(strm_temp)
-
+        # read the outflows
+        fpth2 = os.path.join(test.workspace, gwfname + ".sfr.obs.csv")
+        assert os.path.isfile(fpth2)
+        df2 = pd.read_csv(fpth2)
+        
+        # read the outflow temperature
+        fpth3 = os.path.join(test.workspace, gwename + ".sfe.obs.csv")
+        assert os.path.isfile(fpth3)
+        df3 = pd.read_csv(fpth3)
+        
+        # get output stored in the gwe listing file
+        fname = gwename + '.lst'
+        lstfile = os.path.join(test.workspace, fname)
+        sfe_bud = process_list_file(lstfile)
+                    
+        # calculate the amount of energy entering the reach
+        ener_in = surf_Q_in[idx][0] * strm_temp * Cpw * rhow
+        ener_out = abs(df2.loc[0, "RCH1_OUTF"]) * df3.loc[0, "RCH1_OUTFTEMP"] * Cpw * rhow
+        net_ener = ener_out - ener_in
+        
+        # pluck the storage change from the list file
+        ener_stored_in_channel = sfe_bud.loc[sfe_bud['buditem'] == 'STORAGE', 'value']
+        
+        # calculate the latent and sensible heat fluxes, should be equal to the residual
+        
+        
+        chng = 1
+        strt_strm_temp = strm_temp
+        updated_strm_temp = strm_temp
+        while chng > hclose:
+             
+        es = calc_e(tatm)
+        ea = calc_ea(rh, es)
+        ew = calc_e(strm_temp + DCTOK)
+        # calculate latent heat of vaporization
+        lhv = calc_lhv(strm_temp, rhow)
+        # calculate evaporation/condensation rate
+        evap = calc_evap(wfint, wfslp, wspd, ew, ea)
+        # calculate latent heat flux
+        lhflx = evap * lhv * rhow
+        # calculate Bowen ratio
+        br = calc_bowen(patm, strm_temp + DCTOK, tatm, ew, ea)
+        # using the bowen ratio and latent heat flux, calculate the sensible heat flux
+        shflx = br * lhflx
+        
     # confirm that the energy added to the stream results in a 1 deg C rise in temp
     # temperature gradient
     
