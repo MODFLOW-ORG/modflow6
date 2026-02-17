@@ -106,6 +106,7 @@ module AbcModule
     procedure, public :: abc_cq
     procedure, private :: recalc_shared_vars
     procedure, private :: calc_eatm !< function for calculating ambient vapor pressure of the atmosphere
+    procedure, private :: check_for_specified_input !< check for potential omissions in the specified input
 
   end type AbcType
 
@@ -276,12 +277,58 @@ contains
       write (this%iout, fmtlsp) trim(this%filtyp)
     end if
     !
+    ! -- evaluate sufficiency of entered data
+    call this%check_for_specified_input()
+    !
     ! -- write summary of stress period error messages
     ierr = count_errors()
     if (ierr > 0) then
       call this%parser%StoreErrorUnit()
     end if
   end subroutine abc_rp
+  
+  !> @brief Print warning messages for input data omissions
+  !!
+  !! For the ABC package, some input does not necessarily need to be entered
+  !! and will work with the default of zero, like relative humidity, for 
+  !! example.  However, it may also lead to erroneous results.  This routine
+  !! will print a warning to the listing file where suspected data omissions
+  !! may exist.
+  !<
+  subroutine check_for_specified_input(this)
+    ! -- module
+    use SimModule, only: store_warning
+    use SimVariablesModule, only: warnmsg
+    ! -- dummy
+    class(AbcType) :: this !< AbcType object
+    ! -- local
+    integer(I4B) :: i
+    !
+    ! -- if 
+    if (this%lwr_active) then
+      do i = 1, this%ncv
+        if (this%rh(i) == DZERO) then
+          write (warnmsg, *) "The longwave heat flux calculations is "// &
+            "active but relatively humidiy remains at the default value "// &
+            "of 0.0. This will cause the ambient vapor pressure to be "// &
+            "equal to zero."
+          call store_warning(warnmsg)
+        end if
+      end do
+    end if
+    !
+    if (this%lhf_active) then 
+      do i = 1, this%ncv
+        if (this%rh(i) == DZERO) then
+          write (warnmsg, *) "The latent heat flux calculations is "// &
+            "active but relatively humidiy remains at the default value "// &
+            "of 0.0. This will cause the ambient vapor pressure to be "// &
+            "equal to zero."
+          call store_warning(warnmsg)
+        end if
+      end do
+    end if
+  end subroutine check_for_specified_input
 
   !> @brief Set options specific to the AbcType
   !!
@@ -741,6 +788,8 @@ contains
     class(AbcType), intent(inout) :: this
     integer(I4B), intent(in) :: ifno !< reach id
     real(DP), intent(in) :: tstrm !< temperature of the stream reach
+    ! -- local
+    real(DP) :: tstrmK
     !
     ! -- calculate saturation vapor pressure at air temperature
     this%es(ifno) = calc_sat_vap_pres(this%tatm(ifno))
@@ -749,7 +798,8 @@ contains
     this%ea(ifno) = this%calc_eatm(ifno)
     !
     ! -- calculate saturation vapor pressure at the water temperature
-    this%ew(ifno) = calc_sat_vap_pres(tstrm)
+    tstrmK = tstrm + DCTOK
+    this%ew(ifno) = calc_sat_vap_pres(tstrmK)
   end subroutine recalc_shared_vars
 
   !> @brief Calculate saturated vapor pressure for a given temperature
