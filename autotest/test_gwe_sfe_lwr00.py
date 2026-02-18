@@ -453,9 +453,9 @@ def build_models(idx, test):
 # sim, dum = build_models(0, r"c:\temp\_shf00")
 # sim.write_simulation()
 
-# Other energy tranfers should equal 0
-#    tgrad = tatm - strm_temp
-#   shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
+# Other energy transfers should equal 0
+#  tgrad = tatm - strm_temp
+#  shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
 
 
 def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
