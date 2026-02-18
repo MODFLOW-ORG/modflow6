@@ -286,11 +286,11 @@ contains
       call this%parser%StoreErrorUnit()
     end if
   end subroutine abc_rp
-  
+
   !> @brief Print warning messages for input data omissions
   !!
   !! For the ABC package, some input does not necessarily need to be entered
-  !! and will work with the default of zero, like relative humidity, for 
+  !! and will work with the default of zero, like relative humidity, for
   !! example.  However, it may also lead to erroneous results.  This routine
   !! will print a warning to the listing file where suspected data omissions
   !! may exist.
@@ -304,7 +304,7 @@ contains
     ! -- local
     integer(I4B) :: i
     !
-    ! -- if 
+    ! -- if
     if (this%lwr_active) then
       do i = 1, this%ncv
         if (this%rh(i) == DZERO) then
@@ -317,7 +317,7 @@ contains
       end do
     end if
     !
-    if (this%lhf_active) then 
+    if (this%lhf_active) then
       do i = 1, this%ncv
         if (this%rh(i) == DZERO) then
           write (warnmsg, *) "The latent heat flux calculations is "// &
