@@ -1296,7 +1296,6 @@ contains
     logical, intent(inout) :: found
     ! -- local
     integer(I4B) :: n1, n2
-    real(DP) :: atmheat
     real(DP) :: strmtemp
     !
     found = .true.
