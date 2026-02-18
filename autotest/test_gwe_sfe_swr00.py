@@ -7,7 +7,6 @@
 # in the channel.  The result is a 1 deg C rise in temperature in the
 # streamflow - an easy result to confirm in this test.
 
-import math
 import os
 
 import flopy
