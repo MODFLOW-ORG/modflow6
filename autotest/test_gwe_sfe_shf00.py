@@ -1,11 +1,8 @@
 # Test the use of the sensible heat flux utility used in conjunction with the
 # SFE advanced package.  This test is a single cell with a single reach.
-# Channel flow characteristics are unrealistic: Manning's n is unrealistically
-# low and slope is extremely high. These conditions result in an extremely high
-# streamflow velocity that results in nearly all of the heat being added to the
-# channel exiting at the outlet with very near negligle heat storage increases
-# in the channel.  The result is a 1 deg C rise in temperature in the
-# streamflow - an easy result to confirm in this test.
+# After MODFLOW 6 completes the model run, latent and sensible heat fluxes are
+# written to the sfe output file where results are pulled and compared to
+# similar calculations herein.
 
 import math
 import os
@@ -514,10 +511,6 @@ def build_models(idx, test):
     )
 
     return sim, None
-
-
-# sim, dum = build_models(0, r"c:\temp\_shf00")
-# sim.write_simulation()
 
 
 def check_output(idx, test):
