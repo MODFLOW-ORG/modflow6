@@ -119,8 +119,6 @@ contains
     real(DP), intent(in) :: tstrm !< temperature of the stream reach
     real(DP), intent(inout) :: lwrflx !< calculated longwave radiation heat flux amount
     ! -- local
-    real(DP) :: sat_vap_ta
-    real(DP) :: amb_vap_atm
     real(DP) :: emissa
     real(DP) :: emisss
     real(DP) :: lwratm
