@@ -107,9 +107,6 @@ contains
     real(DP), intent(inout) :: lhflx !< calculated latent heat flux amount
     ! -- local
     real(DP) :: l !< latent heat vaporization
-    real(DP) :: sat_vap_tw
-    real(DP) :: sat_vap_ta
-    real(DP) :: amb_vap_atm
     real(DP) :: evap
     !
     ! -- calculate latent heat of vaporization (water temperature dependent) Eq. A.16
