@@ -32,6 +32,7 @@ module PbstBaseModule
     integer(I4B), dimension(:), pointer, contiguous :: iboundpbst => null() !< package ibound
     logical, pointer, public :: active => null() !< logical indicating if a sensible heat flux object is active
     character(len=8), dimension(:), pointer, contiguous :: status => null() !< active, inactive, constant
+    character(len=LENPACKAGENAME) :: text = '' !< text string for package transport term
     character(len=LINELENGTH), pointer, public :: inputFilename => null() !< a particular pbst input file name, could be for sensible heat flux or latent heat flux subpackages, for example
     type(TimeSeriesManagerType), pointer :: tsmanager => null()
     !
