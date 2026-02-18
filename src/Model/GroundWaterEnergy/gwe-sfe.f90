@@ -1113,7 +1113,7 @@ contains
     real(DP) :: sa !< surface area of stream reach, different than wetted area
     !
     n1 = this%flowbudptr%budterm(this%idxbudevap)%id1(ientry)
-    ! -- For now, there is only 1 aux variable under 'EVAPORATION' which 
+    ! -- For now, there is only 1 aux variable under 'EVAPORATION' which
     !    is reach surface area
     auxpos = this%flowbudptr%budterm(this%idxbudevap)%naux
     sa = this%flowbudptr%budterm(this%idxbudevap)%auxvar(auxpos, ientry)
@@ -1203,7 +1203,7 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
     !
     ! -- Store obs type and assign procedure pointer
-    !    for net atmospheric boundry condition (abc) flux observation type.
+    !    for net atmospheric boundary condition (abc) flux observation type.
     call this%obs%StoreObsType('abc', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
     !
