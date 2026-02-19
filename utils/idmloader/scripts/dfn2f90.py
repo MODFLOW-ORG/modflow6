@@ -7,6 +7,7 @@ from pprint import pprint
 
 from filters import Filters
 from jinja2 import Environment, FileSystemLoader
+from modflow_devtools.dfn import Dfn
 
 MF6_LENVARNAME = 16
 F90_LINELEN = 82
@@ -16,6 +17,27 @@ DEFAULT_DFNS_PATH = Path(__file__).parents[1] / "dfns.txt"
 DFN_PATH = PROJ_ROOT_PATH / "doc" / "mf6io" / "mf6ivar" / "dfn"
 SRC_PATH = PROJ_ROOT_PATH / "src"
 IDM_PATH = SRC_PATH / "Idm"
+
+
+_BASE_TYPE_MAP = {
+    "double precision": "DOUBLE",
+    "integer": "INTEGER",
+    "keyword": "KEYWORD",
+    "string": "STRING",
+}
+
+
+def _normalize_type(t_raw: str, shape_str: str, ndim: int, aggregate: bool) -> str:
+    """Map a raw DFN type string to its IDM Fortran representation."""
+    if aggregate:
+        return t_raw.upper()
+    t_lower = t_raw.lower()
+    if t_lower in _BASE_TYPE_MAP:
+        t = _BASE_TYPE_MAP[t_lower]
+        if shape_str and t in ("DOUBLE", "INTEGER"):
+            t = f"{t}{ndim}D"
+        return t
+    return t_raw.upper()
 
 
 @dataclass
@@ -84,46 +106,27 @@ class DfnFile:
 def parse_dfn(dfnfspec: Path) -> DfnFile:
     """Parse a DFN file into a DfnFile object."""
     component, subcomponent = dfnfspec.stem.upper().split("-")
+
+    # Pre-scan for multi_package and mf6 subpackages.
+    # _load_v1_flat only captures "# flopy ..." comments, not "# mf6 subpackage".
     multi_package = False
     subpackages = []
-
-    lines = dfnfspec.read_text(encoding="utf-8").splitlines()
-
-    # Parse raw variable entries in DFN file order
-    var_entries = []  # list of ((name, block), dict) to preserve order
-    vd = {}
-
-    for line in lines:
+    for line in dfnfspec.read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
-        if not stripped:
-            if vd:
-                name = vd.get("name", "")
-                block = vd.get("block", "")
-                var_entries.append(((name, block), vd))
-            vd = {}
+        if not stripped.startswith("#"):
             continue
-
-        if stripped.startswith("#"):
-            if "flopy multi-package" in stripped:
-                multi_package = True
-            elif "mf6 subpackage" in stripped:
-                sp = stripped.replace("# mf6 subpackage", "").strip().upper()
-                subpackages.append(sp.ljust(16))
-            continue
-
-        parts = stripped.split(None, 1)
-        if parts:
-            k = parts[0]
-            v = parts[1] if len(parts) > 1 else ""
-            vd[k] = v
-
-    if vd:
-        name = vd.get("name", "")
-        block = vd.get("block", "")
-        var_entries.append(((name, block), vd))
+        if "flopy multi-package" in stripped:
+            multi_package = True
+        elif "mf6 subpackage" in stripped:
+            sp = stripped.replace("# mf6 subpackage", "").strip().upper()
+            subpackages.append(sp.ljust(16))
 
     if not subpackages:
         subpackages = [" " * 16]
+
+    # Parse variable entries using modflow_devtools
+    with dfnfspec.open(encoding="utf-8") as f:
+        flat, _ = Dfn._load_v1_flat(f)
 
     # Track blocks in DFN order
     block_names_ordered = []
@@ -131,7 +134,8 @@ def parse_dfn(dfnfspec: Path) -> DfnFile:
 
     params = []
 
-    for (name, blockname), vd in var_entries:
+    for vd in flat.values(multi=True):
+        blockname = vd.get("block", "")
         if not blockname:
             continue
 
@@ -146,16 +150,16 @@ def parse_dfn(dfnfspec: Path) -> DfnFile:
                 "aggregate_required": False,
             }
 
-        is_block_variable = vd.get("block_variable", "").upper() == "TRUE"
+        is_block_variable = vd.get("block_variable", "").lower() == "true"
         if is_block_variable:
             block_data[blockname_upper]["has_block_var"] = True
             continue
 
-        vn = name.upper()
+        vn = vd["name"].upper()
         mf6vn = vd["mf6internal"].upper() if "mf6internal" in vd else vn
 
-        t = vd.get("type", "").upper()
-        aggregate_t = t.startswith("RECARRAY")
+        t_raw = vd.get("type", "")
+        aggregate_t = t_raw.lower().startswith("recarray")
 
         # Shape processing
         shape = vd.get("shape", "")
@@ -173,12 +177,7 @@ def parse_dfn(dfnfspec: Path) -> DfnFile:
         ndim = len(shapelist)
         shape_str = " ".join(shapelist)
 
-        # Type normalization (non-aggregate only)
-        if not aggregate_t:
-            if t == "DOUBLE PRECISION":
-                t = "DOUBLE"
-            if shape_str and t in ("DOUBLE", "INTEGER"):
-                t = f"{t}{ndim}D"
+        t = _normalize_type(t_raw, shape_str, ndim, aggregate_t)
 
         # Longname wrapping
         longname = ""
