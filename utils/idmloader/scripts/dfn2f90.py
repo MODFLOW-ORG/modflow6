@@ -1,30 +1,271 @@
 import argparse
-from os import PathLike
 import textwrap
+from dataclasses import dataclass
+from os import PathLike
 from pathlib import Path
 from pprint import pprint
 
-from jinja2 import Environment, FileSystemLoader
-
-
 from filters import Filters
+from jinja2 import Environment, FileSystemLoader
 
 MF6_LENVARNAME = 16
 F90_LINELEN = 82
 PROJ_ROOT_PATH = Path(__file__).parents[3]
-TEMPLATES_PATH = Path(__file__).parent / "templates"
+TEMPLATES_PATH = Path(__file__).parents[1] / "templates"
 DEFAULT_DFNS_PATH = Path(__file__).parents[1] / "dfns.txt"
 DFN_PATH = PROJ_ROOT_PATH / "doc" / "mf6io" / "mf6ivar" / "dfn"
 SRC_PATH = PROJ_ROOT_PATH / "src"
 IDM_PATH = SRC_PATH / "Idm"
 
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> 6d9a1472 (work on templates)
-def _get_template_env():
-    template_loader = FileSystemLoader(TEMPLATES_PATH)
+@dataclass
+class Param:
+    """Represents a single input parameter definition from a DFN file."""
+
+    component: str
+    subcomponent: str
+    block: str
+    tag: str
+    fortran_var: str
+    type: str
+    shape: str
+    longname: str
+    required: bool
+    developmode: bool
+    in_record: bool
+    preserve_case: bool
+    layered: bool
+    timeseries: bool
+    aggregate: bool = False
+    block_variable: bool = False
+
+    @property
+    def varname(self) -> str:
+        """Full Fortran variable name for this parameter definition."""
+        return (
+            f"{self.component.lower()}"
+            f"{self.subcomponent.lower()}"
+            f"_{self.fortran_var.lower()}"
+        )
+
+
+@dataclass
+class Block:
+    """Represents an input block from a DFN file."""
+
+    name: str
+    required: bool
+    aggregate: bool
+    block_var: bool
+
+
+@dataclass
+class DfnFile:
+    """Parsed representation of a DFN file."""
+
+    component: str
+    subcomponent: str
+    multi_package: bool
+    subpackages: list
+    params: list  # all params (aggregate + non-aggregate), excluding block_variable
+    blocks: list
+
+    @property
+    def param_definitions(self) -> list:
+        """Non-aggregate params for param_definitions array."""
+        return [p for p in self.params if not p.aggregate]
+
+    @property
+    def aggregate_definitions(self) -> list:
+        """Aggregate params for aggregate_definitions array."""
+        return [p for p in self.params if p.aggregate]
+
+
+def parse_dfn(dfnfspec: Path) -> DfnFile:
+    """Parse a DFN file into a DfnFile object."""
+    component, subcomponent = dfnfspec.stem.upper().split("-")
+    multi_package = False
+    subpackages = []
+
+    lines = dfnfspec.read_text(encoding="utf-8").splitlines()
+
+    # Parse raw variable entries in DFN file order
+    var_entries = []  # list of ((name, block), dict) to preserve order
+    vd = {}
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            if vd:
+                name = vd.get("name", "")
+                block = vd.get("block", "")
+                var_entries.append(((name, block), vd))
+            vd = {}
+            continue
+
+        if stripped.startswith("#"):
+            if "flopy multi-package" in stripped:
+                multi_package = True
+            elif "mf6 subpackage" in stripped:
+                sp = stripped.replace("# mf6 subpackage", "").strip().upper()
+                subpackages.append(sp.ljust(16))
+            continue
+
+        parts = stripped.split(None, 1)
+        if parts:
+            k = parts[0]
+            v = parts[1] if len(parts) > 1 else ""
+            vd[k] = v
+
+    if vd:
+        name = vd.get("name", "")
+        block = vd.get("block", "")
+        var_entries.append(((name, block), vd))
+
+    if not subpackages:
+        subpackages = [" " * 16]
+
+    # Track blocks in DFN order
+    block_names_ordered = []
+    block_data = {}  # blockname -> tracking dict
+
+    params = []
+
+    for (name, blockname), vd in var_entries:
+        if not blockname:
+            continue
+
+        blockname_upper = blockname.upper()
+
+        if blockname_upper not in block_data:
+            block_names_ordered.append(blockname_upper)
+            block_data[blockname_upper] = {
+                "required_l": [],
+                "has_block_var": False,
+                "is_aggregate": False,
+                "aggregate_required": False,
+            }
+
+        is_block_variable = vd.get("block_variable", "").upper() == "TRUE"
+        if is_block_variable:
+            block_data[blockname_upper]["has_block_var"] = True
+            continue
+
+        vn = name.upper()
+        mf6vn = vd["mf6internal"].upper() if "mf6internal" in vd else vn
+
+        t = vd.get("type", "").upper()
+        aggregate_t = t.startswith("RECARRAY")
+
+        # Shape processing
+        shape = vd.get("shape", "")
+        if component.upper() == "EXG" and vn in ("CELLIDM1", "CELLIDM2"):
+            shape = "(ncelldim)"
+        shape = shape.replace("(", "").replace(")", "").replace(",", "").upper()
+        if mf6vn == "AUXVAR":
+            if shape == "NCOL*NROW; NCPL":
+                shape = "NAUX NCPL"
+            elif shape == "NODES":
+                shape = "NAUX NODES"
+        elif shape == "NCOL*NROW; NCPL":
+            shape = "NCPL"
+        shapelist = shape.strip().split() if shape.strip() else []
+        ndim = len(shapelist)
+        shape_str = " ".join(shapelist)
+
+        # Type normalization (non-aggregate only)
+        if not aggregate_t:
+            if t == "DOUBLE PRECISION":
+                t = "DOUBLE"
+            if shape_str and t in ("DOUBLE", "INTEGER"):
+                t = f"{t}{ndim}D"
+
+        # Longname wrapping
+        longname = ""
+        if vd.get("longname"):
+            raw = vd["longname"].replace("'", "")
+            llist = textwrap.wrap(raw, 70)
+            if len(llist) == 1:
+                longname = llist[0]
+            elif len(llist) > 1:
+                longname = f"{llist[0]}&\n"
+                for ln in llist[1:-1]:
+                    longname += f"     & {ln}&\n"
+                longname += f"     & {llist[-1]}"
+
+        required = vd.get("optional", "").lower() != "true"
+        developmode = vd.get("developmode", "").lower() == "true"
+        in_record = vd.get("in_record", "").lower() == "true"
+        preserve_case = vd.get("preserve_case", "").lower() == "true"
+        layered = vd.get("layered", "").lower() == "true"
+        timeseries = vd.get("time_series", "").lower() == "true"
+
+        param = Param(
+            component=component,
+            subcomponent=subcomponent,
+            block=blockname_upper,
+            tag=vn,
+            fortran_var=mf6vn,
+            type=t,
+            shape=shape_str,
+            longname=longname,
+            required=required,
+            developmode=developmode,
+            in_record=in_record,
+            preserve_case=preserve_case,
+            layered=layered,
+            timeseries=timeseries,
+            aggregate=aggregate_t,
+        )
+        params.append(param)
+
+        # Update block tracking
+        if aggregate_t:
+            block_data[blockname_upper]["is_aggregate"] = True
+            block_data[blockname_upper]["aggregate_required"] = required
+        elif not in_record:
+            block_data[blockname_upper]["required_l"].append(required)
+
+    # Prepend OPTIONS block if not already present
+    if block_names_ordered and "OPTIONS" not in block_names_ordered:
+        block_names_ordered.insert(0, "OPTIONS")
+        block_data["OPTIONS"] = {
+            "required_l": [],
+            "has_block_var": False,
+            "is_aggregate": False,
+            "aggregate_required": False,
+        }
+
+    # Build Block objects in DFN order
+    blocks = []
+    for blockname_upper in block_names_ordered:
+        bdata = block_data[blockname_upper]
+        if bdata["is_aggregate"]:
+            block_required = bdata["aggregate_required"]
+        else:
+            block_required = any(bdata["required_l"])
+
+        blocks.append(
+            Block(
+                name=blockname_upper,
+                required=block_required,
+                aggregate=bdata["is_aggregate"],
+                block_var=bdata["has_block_var"],
+            )
+        )
+
+    return DfnFile(
+        component=component,
+        subcomponent=subcomponent,
+        multi_package=multi_package,
+        subpackages=subpackages,
+        params=params,
+        blocks=blocks,
+    )
+
+
+def _get_template_env() -> Environment:
+    template_loader = FileSystemLoader(str(TEMPLATES_PATH))
     template_env = Environment(
         loader=template_loader,
         trim_blocks=True,
@@ -36,48 +277,111 @@ def _get_template_env():
     return template_env
 
 
-def make_targets(dfn, outdir: PathLike, verbose: bool = False):
-    # TODO component file
-    # TODO selector file
-    pass
+def make_targets(dfn: DfnFile, outdir: PathLike, verbose: bool = False):
+    """Generate the Fortran IDM file for a single parsed DfnFile."""
+    outdir = Path(outdir)
+    template_env = _get_template_env()
+    component_idm_template = template_env.get_template("Componentidm.f90.jinja")
+    ofname = f"{dfn.component.lower()}-{dfn.subcomponent.lower()}idm.f90"
+    ofspec = outdir / ofname
+    if verbose:
+        print(f"  writing {ofspec}")
+    with open(ofspec, "w", newline="\n") as f:
+        f.write(component_idm_template.render(dfn=dfn))
 
 
-def make_all(dfndir: PathLike, outdir: PathLike, verbose: bool = False, version: int = 1):
-    """Generate Fortran source files from DFN files."""
-    # TODO all component and selector files
-    # TODO master selector file
-    pass
+def make_all(
+    dfn_paths: list,
+    outdir: PathLike,
+    verbose: bool = False,
+):
+    """Generate all Fortran IDM and selector source files from a list of DFN paths."""
+    outdir = Path(outdir)
+    selector_dir = outdir / "selector"
+    selector_dir.mkdir(parents=True, exist_ok=True)
+
+    template_env = _get_template_env()
+    component_idm_template = template_env.get_template("Componentidm.f90.jinja")
+    component_selector_template = template_env.get_template(
+        "IdmComponentDfnSelector.f90.jinja"
+    )
+    selector_template = template_env.get_template("IdmDfnSelector.f90.jinja")
+
+    # Parse all DFN files
+    dfn_files = []
+    for path in dfn_paths:
+        if verbose:
+            print(f"  parsing {path}")
+        dfn_files.append(parse_dfn(path))
+
+    # Write component IDM files
+    for dfn in dfn_files:
+        ofname = f"{dfn.component.lower()}-{dfn.subcomponent.lower()}idm.f90"
+        ofspec = outdir / ofname
+        if verbose:
+            print(f"  writing {ofspec}")
+        with open(ofspec, "w", newline="\n") as f:
+            f.write(component_idm_template.render(dfn=dfn))
+
+    # Group DFN files by component, preserving within-component order
+    components = {}
+    for dfn in dfn_files:
+        if dfn.component not in components:
+            components[dfn.component] = []
+        components[dfn.component].append(dfn)
+
+    # Write component selector files
+    for component, packages in components.items():
+        ofname = f"Idm{component.title()}DfnSelector.f90"
+        ofspec = selector_dir / ofname
+        if verbose:
+            print(f"  writing {ofspec}")
+        with open(ofspec, "w", newline="\n") as f:
+            f.write(
+                component_selector_template.render(
+                    component=component,
+                    packages=packages,
+                )
+            )
+
+    # Write master selector file
+    ofspec = selector_dir / "IdmDfnSelector.f90"
+    if verbose:
+        print(f"  writing {ofspec}")
+    with open(ofspec, "w", newline="\n") as f:
+        f.write(selector_template.render(components=list(components.keys())))
 
 
-def _expand_dfns(dfns: str | PathLike | list[str | PathLike]) -> list[Path]:
-    """Expand DFN file or directory paths to a list of DFN file paths"""
-    if isinstance(dfns, list):
-        dfns = [Path(p) for p in dfns]
-    elif isinstance(dfn, (str, Path)):
-        dfns = [Path(dfns)]
+def _expand_dfns(dfns_arg) -> list:
+    """
+    Expand DFN file paths, a dfns.txt listing,
+    or a directory to a list of DFN Paths.
+    """
+    if isinstance(dfns_arg, list):
+        paths = [Path(p) for p in dfns_arg]
+    elif isinstance(dfns_arg, (str, Path)):
+        paths = [Path(dfns_arg)]
     else:
-        raise TypeError(f"Unexpected dfn type: {type(dfns)}")
+        raise TypeError(f"Unexpected type: {type(dfns_arg)}")
 
-    extensions = [
-        "*.dfn",
-        # TODO support toml
-    ]
-    dfns_ = []
-    for path in dfns:
+    result = []
+    for path in paths:
         if path.is_dir():
-            for ext in extensions:
-                dfns_.extend(path.glob(ext))
-        else:
-            # if we only have a filename, assume
-            # it's in the default dfn directory.
-            # TODO remove when idm supports all dfns
-            # and we no longer have to specify files.
+            result.extend(sorted(path.glob("*.dfn")))
+        elif path.is_file() and path.suffix == ".txt":
+            # Read list of filenames from text file
+            for fname in path.read_text(encoding="utf-8").splitlines():
+                fname = fname.strip()
+                if fname and not fname.startswith("#"):
+                    p = DFN_PATH / fname
+                    if p.is_file():
+                        result.append(p)
+        elif path.is_file():
             if len(path.parts) == 1:
                 path = DFN_PATH / path
-            dfns_.append(path)
+            result.append(path)
 
-    assert all(p.is_file() for p in dfns_)
-    return dfns_
+    return result
 
 
 if __name__ == "__main__":
@@ -100,8 +404,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "dfn",
         nargs="*",
-        default=DFN_PATH,
-        help="Path to one or more DFN files or directories containing DFN files",
+        default=DEFAULT_DFNS_PATH,
+        help="Path(s) to DFN files, a dfns.txt listing, or a directory of DFN files",
     )
     parser.add_argument(
         "-o",
@@ -119,25 +423,13 @@ if __name__ == "__main__":
         help="Whether to show verbose output",
     )
     args = parser.parse_args()
-    dfns = _expand_dfns(args.dfn)
+    dfn_arg = args.dfn if args.dfn else DEFAULT_DFNS_PATH
+    dfn_paths = _expand_dfns(dfn_arg)
     outdir = Path(args.outdir) if args.outdir else Path.cwd()
-    if verbose := args.verbose:
+    verbose = args.verbose
+
+    if verbose:
         print("Generating Fortran source files from DFNs:")
-        pprint(dfns) 
+        pprint(dfn_paths)
 
-    selectors = []
-    template_env = _get_template_env
-    component_idm_template = template_env().get_template("Componentidm.f90.jinja")
-    component_selector_template = template_env().get_template("IdmComponentDfnSelector.f90.jinja")
-    selector_template = template_env().get_template("IdmDfnSelector.f90.jinja")
-    
-    for dfn in dfns:
-        with open(outdir / f"{dfn.stem}idm.f90", "w") as f:
-            f.write(component_idm_template.render(dfn=dfn))
-
-    for selector in selectors:
-        with open(outdir / f"Idm{selector['name']}DfnSelector.f90", "w") as f:
-            f.write(component_selector_template.render(selector=selector))
-
-    with open(outdir / "IdmDfnSelector.f90", "w") as f:
-        f.write(selector_template.render(selectors=selectors))
+    make_all(dfn_paths, outdir, verbose=verbose)
