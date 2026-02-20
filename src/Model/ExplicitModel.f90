@@ -1,12 +1,14 @@
 !> @brief Models that solve themselves
 module ExplicitModelModule
 
-  use KindModule, only: I4B, DP
-  use ConstantsModule, only: LINELENGTH
+  use KindModule, only: I4B, DP, LGP
+  use ConstantsModule, only: LINELENGTH, DZERO
   use ListModule, only: ListType
   use BaseModelModule, only: BaseModelType
   use BaseDisModule, only: DisBaseType
   use MemoryManagerModule, only: mem_allocate, mem_deallocate
+  use InputOutputModule, only: openfile, getunit
+  use VersionModule, only: write_listfile_header
 
   implicit none
   private
@@ -22,7 +24,9 @@ module ExplicitModelModule
   !<
   type, extends(BaseModelType) :: ExplicitModelType
     character(len=LINELENGTH), pointer :: filename => null() !< input file name
+    integer(I4B), pointer :: nja => null() !< number of connections
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< ibound
+    real(DP), dimension(:), pointer, contiguous :: flowja => null() !< intercell flows
     type(ListType), pointer :: bndlist => null() !< array of boundary packages
     class(DisBaseType), pointer :: dis => null() !< discretization object
   contains
@@ -36,6 +40,7 @@ module ExplicitModelModule
     procedure :: allocate_scalars
     procedure :: allocate_arrays
     procedure :: set_idsoln
+    procedure :: create_lstfile
   end type ExplicitModelType
 
 contains
@@ -75,9 +80,11 @@ contains
 
     ! -- deallocate scalars
     deallocate (this%filename)
+    call mem_deallocate(this%nja)
 
     ! -- deallocate arrays
     call mem_deallocate(this%ibound)
+    call mem_deallocate(this%flowja, 'FLOWJA', this%memoryPath)
 
     ! -- nullify pointers
     if (associated(this%ibound)) &
@@ -109,9 +116,17 @@ contains
     class(ExplicitModelType) :: this
     integer(I4B) :: i
 
+    call mem_allocate(this%nja, 'NJA', this%memoryPath)
+    this%nja = this%dis%nja
+
     call mem_allocate(this%ibound, this%dis%nodes, 'IBOUND', this%memoryPath)
     do i = 1, this%dis%nodes
       this%ibound(i) = 1 ! active by default
+    end do
+
+    call mem_allocate(this%flowja, this%nja, 'FLOWJA', this%memoryPath)
+    do i = 1, this%nja
+      this%flowja(i) = DZERO
     end do
   end subroutine allocate_arrays
 
@@ -164,5 +179,50 @@ contains
     integer(I4B), intent(in) :: id
     this%idsoln = id
   end subroutine set_idsoln
+
+  !> @brief Create the list file
+  !<
+  subroutine create_lstfile(this, lst_fname, model_fname, defined, headertxt)
+    ! -- dummy
+    class(ExplicitModelType) :: this
+    character(len=*), intent(inout) :: lst_fname
+    character(len=*), intent(in) :: model_fname
+    logical(LGP), intent(in) :: defined
+    character(len=*), intent(in) :: headertxt
+    ! -- local
+    integer(I4B) :: i, istart, istop
+    !
+    ! -- set list file name if not provided
+    if (.not. defined) then
+      !
+      ! -- initialize
+      lst_fname = ' '
+      istart = 0
+      istop = len_trim(model_fname)
+      !
+      ! -- identify '.' character position from back of string
+      do i = istop, 1, -1
+        if (model_fname(i:i) == '.') then
+          istart = i
+          exit
+        end if
+      end do
+      !
+      ! -- if not found start from string end
+      if (istart == 0) istart = istop + 1
+      !
+      ! -- set list file name
+      lst_fname = model_fname(1:istart)
+      istop = istart + 3
+      lst_fname(istart:istop) = '.lst'
+    end if
+    !
+    ! -- create the list file
+    this%iout = getunit()
+    call openfile(this%iout, 0, lst_fname, 'LIST', filstat_opt='REPLACE')
+    !
+    ! -- write list file header
+    call write_listfile_header(this%iout, headertxt)
+  end subroutine create_lstfile
 
 end module ExplicitModelModule

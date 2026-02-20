@@ -6,7 +6,7 @@ module PrtModule
                              LENPAKLOC, LENPACKAGETYPE, LENBUDTXT, MNORMAL, &
                              LINELENGTH, LENAUXNAME
   use VersionModule, only: write_listfile_header
-  use NumericalModelModule, only: NumericalModelType
+  use ExplicitModelModule, only: ExplicitModelType
   use BaseModelModule, only: BaseModelType
   use BndModule, only: BndType, AddBndToList, GetBndFromList
   use DisModule, only: DisType, dis_cr
@@ -42,7 +42,7 @@ module PrtModule
   data budtxt/'         STORAGE', '     TERMINATION'/
 
   !> @brief Particle tracking (PRT) model
-  type, extends(NumericalModelType) :: PrtModelType
+  type, extends(ExplicitModelType) :: PrtModelType
     type(PrtFmiType), pointer :: fmi => null() ! flow model interface
     type(PrtMipType), pointer :: mip => null() ! model input package
     type(PrtOcType), pointer :: oc => null() ! output control package
@@ -880,7 +880,7 @@ contains
     deallocate (this%events)
     deallocate (this%tracks)
 
-    call this%NumericalModelType%model_da()
+    call this%ExplicitModelType%model_da()
   end subroutine prt_da
 
   !> @brief Allocate memory for scalars
@@ -890,7 +890,7 @@ contains
     character(len=*), intent(in) :: modelname
 
     ! allocate members from parent class
-    call this%NumericalModelType%allocate_scalars(modelname)
+    call this%ExplicitModelType%allocate_scalars(modelname)
 
     ! allocate members that are part of model class
     call mem_allocate(this%infmi, 'INFMI', this%memoryPath)
@@ -918,11 +918,10 @@ contains
     class(PrtModelType) :: this
     integer(I4B) :: n
 
-    ! Allocate arrays in parent type
-    this%nja = this%dis%nja
-    call this%NumericalModelType%allocate_arrays()
+    ! Allocate arrays in parent type (ibound, flowja, nja)
+    call this%ExplicitModelType%allocate_arrays()
 
-    ! Allocate and initialize arrays
+    ! Allocate and initialize PRT-specific arrays
     call mem_allocate(this%masssto, this%dis%nodes, &
                       'MASSSTO', this%memoryPath)
     call mem_allocate(this%massstoold, this%dis%nodes, &
@@ -933,19 +932,12 @@ contains
                       'MASSTRM', this%memoryPath)
     call mem_allocate(this%ratetrm, this%dis%nodes, &
                       'RATETRM', this%memoryPath)
-    ! explicit model, so these must be manually allocated
-    call mem_allocate(this%x, this%dis%nodes, 'X', this%memoryPath)
-    call mem_allocate(this%rhs, this%dis%nodes, 'RHS', this%memoryPath)
-    call mem_allocate(this%ibound, this%dis%nodes, 'IBOUND', this%memoryPath)
     do n = 1, this%dis%nodes
       this%masssto(n) = DZERO
       this%massstoold(n) = DZERO
       this%ratesto(n) = DZERO
       this%masstrm(n) = DZERO
       this%ratetrm(n) = DZERO
-      this%x(n) = DZERO
-      this%rhs(n) = DZERO
-      this%ibound(n) = 1
     end do
   end subroutine allocate_arrays
 

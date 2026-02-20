@@ -328,7 +328,7 @@ contains
         write (iout, '(4x,2a,i0,a)') trim(model_type), ' model ', &
           n, ' will be created'
         call prt_cr(fname, n, model_names(n))
-        num_model => GetNumericalModelFromList(basemodellist, im)
+        ! PRT is an explicit model (no virtual model support needed)
         model_loc_idx(n) = im
       case default
         write (errmsg, '(a,a)') &
