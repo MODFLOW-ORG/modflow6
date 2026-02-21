@@ -37,7 +37,7 @@ module ChfEvpInputModule
   character(len=16), parameter :: &
     chf_evp_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

@@ -506,6 +506,9 @@ contains
   !! data (SIMVALS and SIMTOMVR) stored within each GWF flow package
   !<
   subroutine gwfbnd2gwefmi(this)
+    ! -- modules
+    use ConstantsModule, only: LENVARNAME
+    use BndExtModule, only: BndExtType
     ! -- dummy
     class(GwfGweExchangeType) :: this
     ! -- local
@@ -514,6 +517,7 @@ contains
     type(GwfModelType), pointer :: gwfmodel => null()
     type(GweModelType), pointer :: gwemodel => null()
     class(BndType), pointer :: packobj => null()
+    character(len=LENVARNAME) :: auxvarname
     !
     ! -- set gwfmodel
     mb => GetBaseModelFromList(basemodellist, this%m1_idx)
@@ -534,10 +538,16 @@ contains
     ngwfpack = gwfmodel%bndlist%Count()
     iterm = 1
     do ip = 1, ngwfpack
+      auxvarname = ''
       packobj => GetBndFromList(gwfmodel%bndlist, ip)
+      select type (packobj)
+      class is (BndExtType)
+        auxvarname = 'AUXVAR_IDM'
+      class is (BndType)
+        auxvarname = 'AUXVAR'
+      end select
       call gwemodel%fmi%gwfpackages(iterm)%set_pointers( &
-        'SIMVALS', &
-        packobj%memoryPath, packobj%input_mempath)
+        'SIMVALS', packobj%memoryPath, auxvarname)
       iterm = iterm + 1
       !
       ! -- If a mover is active for this package, then establish a separate
@@ -546,8 +556,7 @@ contains
       if (packobj%isadvpak /= 0) imover = 0
       if (imover /= 0) then
         call gwemodel%fmi%gwfpackages(iterm)%set_pointers( &
-          'SIMTOMVR', &
-          packobj%memoryPath, packobj%input_mempath)
+          'SIMTOMVR', packobj%memoryPath, auxvarname)
         iterm = iterm + 1
       end if
     end do

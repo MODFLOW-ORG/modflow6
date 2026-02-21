@@ -1,5 +1,6 @@
 # --------------------- exg olfgwf options ---------------------
 # flopy multi-package
+# mf6 subpackage utl-obs
 
 block options
 name print_input

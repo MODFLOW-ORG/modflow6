@@ -37,7 +37,7 @@ module ChfFlwInputModule
   character(len=16), parameter :: &
     chf_flw_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

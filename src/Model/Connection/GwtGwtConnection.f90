@@ -300,7 +300,7 @@ contains
       !cdl if (this%gwtExchange%inmvt > 0) then
       !cdl   call this%gwtExchange%mvt%mvt_ar()
       !cdl end if
-      if (this%gwtExchange%inobs > 0) then
+      if (this%gwtExchange%obs%active) then
         call this%gwtExchange%obs%obs_ar()
       end if
     end if

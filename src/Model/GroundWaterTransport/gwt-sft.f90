@@ -97,7 +97,7 @@ contains
   !> @brief Create a new sft package
   !<
   subroutine sft_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
-                        fmi, eqnsclfac, dvt, dvu, dvua)
+                        fmi, eqnsclfac, dvt, dvu, dvua, input_mempath)
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -111,6 +111,7 @@ contains
     character(len=*), intent(in) :: dvt !< For GWT, set to "CONCENTRATION" in TspAptType
     character(len=*), intent(in) :: dvu !< For GWT, set to "mass" in TspAptType
     character(len=*), intent(in) :: dvua !< For GWT, set to "M" in TspAptType
+    character(len=*), intent(in) :: input_mempath
     ! -- local
     type(GwtSftType), pointer :: sftobj
     !
@@ -119,7 +120,7 @@ contains
     packobj => sftobj
     !
     ! -- create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, input_mempath)
     packobj%text = text
     !
     ! -- allocate scalars

@@ -57,7 +57,6 @@ module GwfGwfExchangeModule
     type(GhostNodeType), pointer :: gnc => null() !< gnc object
     integer(I4B), pointer :: inmvr => null() !< unit number for mover (0 if off)
     class(GwfExgMoverType), pointer :: mvr => null() !< water mover object
-    integer(I4B), pointer :: inobs => null() !< unit number for GWF-GWF observations
     type(ObsType), pointer :: obs => null() !< observation object
     !
     ! -- internal data
@@ -196,7 +195,7 @@ contains
     end if
     !
     ! -- Create the obs package
-    call obs_cr(exchange%obs, exchange%inobs)
+    call obs_cr(exchange%obs)
   end subroutine gwfexchange_create
 
   !> @ brief Define GWF GWF exchange
@@ -989,7 +988,7 @@ contains
     if (this%inmvr > 0) call this%mvr%mvr_bdsav(icbcfl, ibudfl, 0)
     !
     ! -- Calculate and write simulated values for observations
-    if (this%inobs /= 0) then
+    if (this%obs%active) then
       call this%gwf_gwf_save_simvals()
     end if
   end subroutine gwf_gwf_bdsav
@@ -1231,6 +1230,7 @@ contains
     ! -- modules
     use ConstantsModule, only: LENVARNAME, DEM6
     use InputOutputModule, only: getunit, openfile
+    use MemoryManagerModule, only: mem_setptr
     use MemoryManagerExtModule, only: mem_set_value
     use CharacterStringModule, only: CharacterStringType
     use ExgGwfgwfInputModule, only: ExgGwfgwfParamFoundType
@@ -1239,10 +1239,12 @@ contains
     class(GwfExchangeType) :: this !<  GwfExchangeType
     integer(I4B), intent(in) :: iout
     ! -- local
+    type(CharacterStringType), dimension(:), &
+      pointer, contiguous :: obs_mempaths
     type(ExgGwfgwfParamFoundType) :: found
     character(len=LENVARNAME), dimension(3) :: cellavg_method = &
       &[character(len=LENVARNAME) :: 'HARMONIC', 'LOGARITHMIC', 'AMT-LMK']
-    character(len=LINELENGTH) :: gnc_fname, mvr_fname
+    character(len=LINELENGTH) :: gnc_fname, mvr_fname, obs_fname
     !
     ! -- update defaults with idm sourced values
     call mem_set_value(this%icellavg, 'CELL_AVERAGING', this%input_mempath, &
@@ -1312,11 +1314,10 @@ contains
     !
     ! -- enforce 0 or 1 OBS6_FILENAME entries in option block
     if (.not. this%is_datacopy) then
-      if (filein_fname(this%obs%inputFilename, 'OBS6_FILENAME', &
+      if (filein_fname(obs_fname, 'OBS6_FILENAME', &
                        this%input_mempath, this%filename)) then
-        this%obs%active = .true.
-        this%obs%inUnitObs = GetUnit()
-        call openfile(this%obs%inUnitObs, iout, this%obs%inputFilename, 'OBS')
+        call mem_setptr(obs_mempaths, 'OBS6_MEMPATH', this%input_mempath)
+        this%obs%input_mempath = obs_mempaths(1)
       end if
     end if
     !
@@ -1661,7 +1662,6 @@ contains
     call mem_allocate(this%inewton, 'INEWTON', this%memoryPath)
     call mem_allocate(this%ingnc, 'INGNC', this%memoryPath)
     call mem_allocate(this%inmvr, 'INMVR', this%memoryPath)
-    call mem_allocate(this%inobs, 'INOBS', this%memoryPath)
     call mem_allocate(this%satomega, 'SATOMEGA', this%memoryPath)
     this%icellavg = 0
     this%ivarcv = 0
@@ -1669,7 +1669,6 @@ contains
     this%inewton = 0
     this%ingnc = 0
     this%inmvr = 0
-    this%inobs = 0
     this%satomega = DZERO
   end subroutine allocate_scalars
 
@@ -1723,7 +1722,6 @@ contains
     call mem_deallocate(this%inewton)
     call mem_deallocate(this%ingnc)
     call mem_deallocate(this%inmvr)
-    call mem_deallocate(this%inobs)
     call mem_deallocate(this%satomega)
     !
     ! -- deallocate base
@@ -1884,7 +1882,7 @@ contains
     !
     ! -- write summary of error messages
     if (count_errors() > 0) then
-      call store_error_filename(this%obs%inputFilename)
+      call store_error_filename(this%obs%input_fname)
     end if
   end subroutine gwf_gwf_rp_obs
 
@@ -2020,7 +2018,7 @@ contains
             errmsg = 'Unrecognized observation type: '// &
                      trim(obsrv%ObsTypeId)
             call store_error(errmsg)
-            call store_error_filename(this%obs%inputFilename)
+            call store_error_filename(this%obs%input_fname)
           end select
           call this%obs%SaveOneSimval(obsrv, v)
         end do

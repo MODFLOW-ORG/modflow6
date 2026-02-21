@@ -40,17 +40,17 @@ contains
   !!   - allocates pointers
   !!   - initializes values
   !<
-  subroutine tsp_obs_cr(obs, inobs, dvt)
+  subroutine tsp_obs_cr(obs, input_mempath, inobs, dvt)
     ! -- dummy
     type(TspObsType), pointer, intent(out) :: obs
+    character(len=*), intent(in) :: input_mempath
     integer(I4B), pointer, intent(in) :: inobs
     character(len=LENVARNAME), intent(in) :: dvt !< "concentration" or "temperature"
     !
     allocate (obs)
     call obs%allocate_scalars()
-    obs%active = .false.
-    obs%inputFilename = ''
-    obs%inUnitObs => inobs
+    obs%inUnitObs = inobs
+    obs%input_mempath = input_mempath
     obs%depvartype = dvt
   end subroutine tsp_obs_cr
 

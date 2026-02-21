@@ -89,7 +89,7 @@ module GwfCsubInputModule
   character(len=16), parameter :: &
     gwf_csub_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

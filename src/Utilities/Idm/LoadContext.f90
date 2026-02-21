@@ -39,6 +39,7 @@ module LoadContextModule
     enumerator :: MODELPKG = 4 !< model package context type
     enumerator :: STRESSPKG = 5 !< model stress package context type
     enumerator :: EXCHANGE = 6 !< exchange context type
+    enumerator :: UTIL = 7
   end enum
 
   !> @brief Pointer type for read state variable
@@ -99,6 +100,7 @@ contains
   subroutine init(this, mf6_input, blockname, named_bound)
     use InputOutputModule, only: upcase
     use ModelPackageInputsModule, only: supported_model
+    use SourceCommonModule, only: idm_utl_type
     class(LoadContextType) :: this
     type(ModflowInputType), intent(in) :: mf6_input
     character(len=*), optional, intent(in) :: blockname
@@ -134,9 +136,14 @@ contains
     end select
 
     if (this%ctxtype == CONTEXT_UNDEF) then
-      errmsg = 'LoadContext unidentified context for mempath: '// &
-               trim(mf6_input%mempath)
-      call store_error(errmsg, .true.)
+      if (idm_utl_type(mf6_input%component_type, &
+                       mf6_input%subcomponent_type)) then
+        this%ctxtype = UTIL
+      else
+        errmsg = 'LoadContext unidentified context for mempath: '// &
+                 trim(mf6_input%mempath)
+        call store_error(errmsg, .true.)
+      end if
     end if
 
     if (present(blockname)) then
@@ -447,6 +454,8 @@ contains
         end if
       case ('NAM')
         in_scope = .true.
+      case ('OBS')
+        if (tagname == 'ID2') in_scope = .false.
       case ('SSM')
         if (tagname == 'MIXED') in_scope = .true.
       case default

@@ -35,7 +35,7 @@ module GwfGhbgInputModule
   character(len=16), parameter :: &
     gwf_ghbg_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

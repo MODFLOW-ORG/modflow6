@@ -70,6 +70,7 @@ module LoadMf6FileModule
     procedure :: parse_record_tag
     procedure :: load_tag
     procedure :: block_index_dfn
+    procedure :: add_obs_block_memrec
     procedure :: parse_structarray_block
   end type LoadMf6FileType
 
@@ -165,7 +166,7 @@ contains
 
     allocate (this%block_tags(0))
     ! load the block
-    call this%parse_block(iblk, .false.)
+    call this%parse_block(iblk, 0)
     ! post process block
     call this%block_post_process(iblk)
     ! cleanup
@@ -253,12 +254,12 @@ contains
   !> @brief parse block
   !!
   !<
-  recursive subroutine parse_block(this, iblk, recursive_call)
+  recursive subroutine parse_block(this, iblk, irecurse)
     use MemoryTypeModule, only: MemoryType
     use MemoryManagerModule, only: get_from_memorystore
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
-    logical(LGP), intent(in) :: recursive_call !< true if recursive call
+    integer(I4B), intent(in) :: irecurse !< recurse count
     logical(LGP) :: isblockfound
     logical(LGP) :: endOfBlock
     logical(LGP) :: supportOpenClose
@@ -285,7 +286,7 @@ contains
     supportOpenClose = (this%mf6_input%block_dfns(iblk)%blockname /= 'GRIDDATA')
 
     ! parser search for block
-    required = this%mf6_input%block_dfns(iblk)%required .and. .not. recursive_call
+    required = this%mf6_input%block_dfns(iblk)%required .and. (irecurse == 0)
     call this%parser%GetBlock(this%mf6_input%block_dfns(iblk)%blockname, &
                               isblockfound, ierr, &
                               supportOpenClose=supportOpenClose, &
@@ -294,7 +295,7 @@ contains
     if (isblockfound) then
       if (this%mf6_input%block_dfns(iblk)%aggregate) then
         ! process block recarray type, set of variable 1d/2d types
-        call this%parse_structarray_block(iblk)
+        call this%parse_structarray_block(iblk, irecurse)
       else
         do
           ! process each line in block
@@ -320,7 +321,7 @@ contains
     ! recurse if block is reloadable and was just read
     if (this%mf6_input%block_dfns(iblk)%block_variable) then
       if (isblockfound) then
-        call this%parse_block(iblk, .true.)
+        call this%parse_block(iblk, irecurse + 1)
       end if
     end if
   end subroutine parse_block
@@ -539,6 +540,35 @@ contains
     idt%datatype = 'INTEGER'
   end function block_index_dfn
 
+  subroutine add_obs_block_memrec(this, irecurse, obs_fname, obs_fmt)
+    use MemoryManagerModule, only: mem_allocate, mem_reallocate, &
+                                   mem_setptr, get_isize
+    use CharacterStringModule, only: CharacterStringType
+    class(LoadMf6FileType) :: this
+    integer(I4B), intent(in) :: irecurse
+    character(len=*), intent(in) :: obs_fname
+    character(len=*), intent(in) :: obs_fmt
+    type(CharacterStringType), dimension(:), pointer, contiguous :: fnames, fmts
+    integer(I4B) :: ilen, isize, idx
+    ilen = LINELENGTH
+    call get_isize('OBSFNAMES', this%mf6_input%mempath, isize)
+    if (isize < 0) then
+      call mem_allocate(fnames, ilen, 1, 'OBSFNAMES', this%mf6_input%mempath)
+      call mem_allocate(fmts, ilen, 1, 'OBSFMTS', this%mf6_input%mempath)
+      idx = 1
+    else
+      call mem_setptr(fnames, 'OBSFNAMES', this%mf6_input%mempath)
+      call mem_reallocate(fnames, ilen, isize + 1, 'OBSFNAMES', &
+                          this%mf6_input%mempath)
+      call mem_setptr(fmts, 'OBSFMTS', this%mf6_input%mempath)
+      call mem_reallocate(fmts, ilen, isize + 1, 'OBSFMTS', &
+                          this%mf6_input%mempath)
+      idx = isize + 1
+    end if
+    fnames(idx) = trim(obs_fname)
+    fmts(idx) = trim(obs_fmt)
+  end subroutine add_obs_block_memrec
+
   !> @brief parse a structured array record into memory manager
   !!
   !! A structarray is similar to a numpy recarray.  It it used to
@@ -547,13 +577,15 @@ contains
   !! vector.
   !!
   !<
-  subroutine parse_structarray_block(this, iblk)
+  subroutine parse_structarray_block(this, iblk, irecurse)
     use StructArrayModule, only: StructArrayType, constructStructArray
     use LoadContextModule, only: LoadContextType
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
+    integer(I4B), intent(in) :: irecurse
     type(LoadContextType) :: ctx
     character(len=LINELENGTH), dimension(:), allocatable :: param_names
+    character(len=LINELENGTH) :: tag, obs_fname
     type(InputParamDefinitionType), pointer :: idt !< input data type object describing this record
     type(InputParamDefinitionType), target :: blockvar_idt
     integer(I4B) :: blocknum
@@ -575,10 +607,20 @@ contains
                                     this%mf6_input%subcomponent_type, &
                                     this%mf6_input%block_dfns(iblk)%blockname)
     ! if block is reloadable read the block number
+    blocknum = 0
     if (this%mf6_input%block_dfns(iblk)%block_variable) then
-      blocknum = this%parser%GetInteger()
-    else
-      blocknum = 0
+      select case (this%mf6_input%block_dfns(iblk)%blockname)
+      case ('SOLUTIONGROUP')
+        blocknum = this%parser%GetInteger()
+      case ('CONTINUOUS')
+        blocknum = irecurse + 1
+        call this%parser%GetStringCaps(tag)
+        if (tag == 'FILEOUT') then
+          call this%parser%GetString(obs_fname, .false.)
+          call this%parser%GetStringCaps(tag)
+          call this%add_obs_block_memrec(irecurse, obs_fname, tag)
+        end if
+      end select
     end if
 
     ! set ncol

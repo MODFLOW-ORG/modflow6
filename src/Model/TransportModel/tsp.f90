@@ -701,6 +701,7 @@ contains
     character(len=LENMEMPATH) :: mempathadv = ''
     character(len=LENMEMPATH) :: mempathfmi = ''
     character(len=LENMEMPATH) :: mempathic = ''
+    character(len=LENMEMPATH) :: mempathobs = ''
     character(len=LENMEMPATH) :: mempathoc = ''
     character(len=LENMEMPATH) :: mempathssm = ''
     !
@@ -753,8 +754,10 @@ contains
         this%inoc = 1
         mempathoc = mempath
       case ('OBS6')
-        this%inobs = inunit
+        this%inobs = 1
+        mempathobs = mempath
       case default
+        ! no-op
       end select
     end do
     !
@@ -770,7 +773,7 @@ contains
     call mvt_cr(this%mvt, this%name, this%inmvt, this%iout, this%fmi, &
                 this%eqnsclfac, this%depvartype)
     call oc_cr(this%oc, this%name, mempathoc, this%inoc, this%iout)
-    call tsp_obs_cr(this%obs, this%inobs, this%depvartype)
+    call tsp_obs_cr(this%obs, mempathobs, this%inobs, this%depvartype)
   end subroutine create_tsp_packages
 
   !> @brief return 1 if option to normalize the x and rhs has been specified.

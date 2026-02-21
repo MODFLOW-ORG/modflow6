@@ -34,7 +34,7 @@ module OlfCdbInputModule
   character(len=16), parameter :: &
     olf_cdb_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

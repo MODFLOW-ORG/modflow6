@@ -32,6 +32,7 @@ module IdmGwfDfnSelectorModule
   use GwfVscInputModule
   use GwfWelInputModule
   use GwfWelgInputModule
+  use UtlObsInputModule
 
   implicit none
   private
@@ -121,6 +122,8 @@ contains
       call set_param_pointer(input_definition, gwf_wel_param_definitions)
     case ('WELG')
       call set_param_pointer(input_definition, gwf_welg_param_definitions)
+    case ('OBS')
+      call set_param_pointer(input_definition, utl_obs_param_definitions)
     case default
     end select
     return
@@ -185,6 +188,8 @@ contains
       call set_param_pointer(input_definition, gwf_wel_aggregate_definitions)
     case ('WELG')
       call set_param_pointer(input_definition, gwf_welg_aggregate_definitions)
+    case ('OBS')
+      call set_param_pointer(input_definition, utl_obs_aggregate_definitions)
     case default
     end select
     return
@@ -249,6 +254,8 @@ contains
       call set_block_pointer(input_definition, gwf_wel_block_definitions)
     case ('WELG')
       call set_block_pointer(input_definition, gwf_welg_block_definitions)
+    case ('OBS')
+      call set_block_pointer(input_definition, utl_obs_block_definitions)
     case default
     end select
     return
@@ -312,6 +319,8 @@ contains
       multi_package = gwf_wel_multi_package
     case ('WELG')
       multi_package = gwf_welg_multi_package
+    case ('OBS')
+      multi_package = utl_obs_multi_package
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="GWF"'//&
@@ -378,6 +387,8 @@ contains
       call set_subpkg_pointer(subpackages, gwf_wel_subpackages)
     case ('WELG')
       call set_subpkg_pointer(subpackages, gwf_welg_subpackages)
+    case ('OBS')
+      call set_subpkg_pointer(subpackages, utl_obs_subpackages)
     case default
     end select
     return
@@ -441,6 +452,8 @@ contains
     case ('WEL')
       integrated = .true.
     case ('WELG')
+      integrated = .true.
+    case ('OBS')
       integrated = .true.
     case default
     end select

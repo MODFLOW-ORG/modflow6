@@ -20,6 +20,7 @@ module IdmGwtDfnSelectorModule
   use GwtOcInputModule
   use GwtSrcInputModule
   use GwtSsmInputModule
+  use UtlObsInputModule
 
   implicit none
   private
@@ -85,6 +86,8 @@ contains
       call set_param_pointer(input_definition, gwt_src_param_definitions)
     case ('SSM')
       call set_param_pointer(input_definition, gwt_ssm_param_definitions)
+    case ('OBS')
+      call set_param_pointer(input_definition, utl_obs_param_definitions)
     case default
     end select
     return
@@ -125,6 +128,8 @@ contains
       call set_param_pointer(input_definition, gwt_src_aggregate_definitions)
     case ('SSM')
       call set_param_pointer(input_definition, gwt_ssm_aggregate_definitions)
+    case ('OBS')
+      call set_param_pointer(input_definition, utl_obs_aggregate_definitions)
     case default
     end select
     return
@@ -165,6 +170,8 @@ contains
       call set_block_pointer(input_definition, gwt_src_block_definitions)
     case ('SSM')
       call set_block_pointer(input_definition, gwt_ssm_block_definitions)
+    case ('OBS')
+      call set_block_pointer(input_definition, utl_obs_block_definitions)
     case default
     end select
     return
@@ -204,6 +211,8 @@ contains
       multi_package = gwt_src_multi_package
     case ('SSM')
       multi_package = gwt_ssm_multi_package
+    case ('OBS')
+      multi_package = utl_obs_multi_package
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="GWT"'//&
@@ -246,6 +255,8 @@ contains
       call set_subpkg_pointer(subpackages, gwt_src_subpackages)
     case ('SSM')
       call set_subpkg_pointer(subpackages, gwt_ssm_subpackages)
+    case ('OBS')
+      call set_subpkg_pointer(subpackages, utl_obs_subpackages)
     case default
     end select
     return
@@ -285,6 +296,8 @@ contains
     case ('SRC')
       integrated = .true.
     case ('SSM')
+      integrated = .true.
+    case ('OBS')
       integrated = .true.
     case default
     end select

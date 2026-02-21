@@ -172,7 +172,8 @@ contains
 
   !> @brief Create a New UZF Package and point packobj to the new package
   !<
-  subroutine uzf_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname)
+  subroutine uzf_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
+                        input_mempath)
     ! -- modules
     use MemoryManagerModule, only: mem_allocate
     ! -- dummy
@@ -183,6 +184,7 @@ contains
     integer(I4B), intent(in) :: iout
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
+    character(len=*), intent(in) :: input_mempath
     ! -- local
     type(UzfType), pointer :: uzfobj
     !
@@ -191,7 +193,7 @@ contains
     packobj => uzfobj
     !
     ! -- create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, input_mempath)
     packobj%text = text
     !
     ! -- allocate scalars

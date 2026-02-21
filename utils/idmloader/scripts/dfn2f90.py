@@ -580,6 +580,11 @@ class IdmDfnSelector:
         self._write_selectors()
         self._write_master()
 
+    def component(self, component, subcomponent):
+        if subcomponent == "OBS":
+            return "UTL"
+        return component
+
     def _write_master(self):
         ofspec = SRC_PATH / "Idm" / "selector" / "IdmDfnSelector.f90"
         with open(ofspec, "w") as fh:
@@ -630,8 +635,8 @@ class IdmDfnSelector:
         for sc in sc_list:
             len_sc = len(sc)
             spacer = space * (len_c + len_sc)
-
-            s += f"  use {c.title()}{sc.title()}InputModule\n"
+            cc = self.component(c, sc)
+            s += f"  use {cc.title()}{sc.title()}InputModule\n"
 
         s += (
             f"\n  implicit none\n"
@@ -696,10 +701,11 @@ class IdmDfnSelector:
         )
 
         for sc in sc_list:
+            cc = self.component(c, sc)
             s += (
                 f"    case ('{sc}')\n"
                 f"      call set_{dtype.lower()}_pointer(input_definition, "
-                f"{c.lower()}_{sc.lower()}_{defn.lower()}_definitions)\n"
+                f"{cc.lower()}_{sc.lower()}_{defn.lower()}_definitions)\n"
             )
 
         s += (
@@ -723,9 +729,10 @@ class IdmDfnSelector:
         )
 
         for sc in sc_list:
+            cc = self.component(c, sc)
             s += (
                 f"    case ('{sc}')\n"
-                f"      multi_package = {c.lower()}_{sc.lower()}_"
+                f"      multi_package = {cc.lower()}_{sc.lower()}_"
                 f"multi_package\n"
             )
 
@@ -755,10 +762,11 @@ class IdmDfnSelector:
         )
 
         for sc in sc_list:
+            cc = self.component(c, sc)
             s += (
                 f"    case ('{sc}')\n"
                 f"      call set_subpkg_pointer(subpackages, "
-                f"{c.lower()}_{sc.lower()}_subpackages)\n"
+                f"{cc.lower()}_{sc.lower()}_subpackages)\n"
             )
 
         s += (
@@ -1047,6 +1055,12 @@ if __name__ == "__main__":
         converter.write_f90(ofspec=outdir / f"{dfn.stem}idm.f90")
         converter.warn()
         converter.add_dfn_entry(dfn_d=dfn_d)
+
+    # add obs component to models
+    clist = ["SIM", "SLN", "EXG", "UTL"]
+    for c in dfn_d:
+        if c not in clist:
+            dfn_d[c].append("OBS")
 
     selectors = IdmDfnSelector(dfn_d=dfn_d)
     selectors.write()

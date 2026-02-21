@@ -1264,13 +1264,17 @@ contains
       call evt_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath)
     case ('MAW6')
-      call maw_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
+      call maw_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                      pakname, mempath)
     case ('SFR6')
-      call sfr_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
+      call sfr_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                      pakname, mempath)
     case ('LAK6')
-      call lak_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
+      call lak_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                      pakname, mempath)
     case ('UZF6')
-      call uzf_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
+      call uzf_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                      pakname, mempath)
     case ('API6')
       call api_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath)
@@ -1443,6 +1447,7 @@ contains
     character(len=LENMEMPATH) :: mempathhfb = ''
     character(len=LENMEMPATH) :: mempathic = ''
     character(len=LENMEMPATH) :: mempathnpf = ''
+    character(len=LENMEMPATH) :: mempathobs = ''
     character(len=LENMEMPATH) :: mempathoc = ''
     character(len=LENMEMPATH) :: mempathsto = ''
     character(len=LENMEMPATH) :: mempathvsc = ''
@@ -1504,7 +1509,8 @@ contains
         this%inoc = 1
         mempathoc = mempath
       case ('OBS6')
-        this%inobs = inunit
+        this%inobs = 1
+        mempathobs = mempath
       case ('WEL6', 'DRN6', 'RIV6', 'GHB6', 'RCH6', &
             'EVT6', 'API6', 'CHD6', 'MAW6', 'SFR6', &
             'LAK6', 'UZF6')
@@ -1528,7 +1534,7 @@ contains
     call ic_cr(this%ic, this%name, mempathic, this%inic, this%iout, this%dis)
     call mvr_cr(this%mvr, this%name, this%inmvr, this%iout, this%dis)
     call oc_cr(this%oc, this%name, mempathoc, this%inoc, this%iout)
-    call gwf_obs_cr(this%obs, this%inobs)
+    call gwf_obs_cr(this%obs, mempathobs, this%inobs)
     !
     ! -- Check to make sure that required ftype's have been specified
     call this%ftype_check(indis)

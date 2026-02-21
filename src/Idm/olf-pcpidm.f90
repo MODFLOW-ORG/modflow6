@@ -37,7 +37,7 @@ module OlfPcpInputModule
   character(len=16), parameter :: &
     olf_pcp_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

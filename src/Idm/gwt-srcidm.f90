@@ -38,7 +38,7 @@ module GwtSrcInputModule
   character(len=16), parameter :: &
     gwt_src_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

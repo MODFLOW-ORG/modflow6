@@ -37,7 +37,7 @@ module GwfDrngInputModule
   character(len=16), parameter :: &
     gwf_drng_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

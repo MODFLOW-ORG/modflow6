@@ -33,7 +33,7 @@ module SwfDfwInputModule
   character(len=16), parameter :: &
     swf_dfw_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

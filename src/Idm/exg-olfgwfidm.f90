@@ -31,7 +31,7 @@ module ExgOlfgwfInputModule
   character(len=16), parameter :: &
     exg_olfgwf_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

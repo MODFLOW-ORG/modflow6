@@ -29,7 +29,7 @@ module GwfApiInputModule
   character(len=16), parameter :: &
     gwf_api_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

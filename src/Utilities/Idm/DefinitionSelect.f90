@@ -87,6 +87,8 @@ contains
                                      component_type, subcomponent_type, &
                                      blockname, tagname, filename) &
     result(idt)
+    use ConstantsModule, only: LINELENGTH
+    use SourceCommonModule, only: idm_utl_type
     type(InputParamDefinitionType), dimension(:), intent(in), target :: &
       input_definition_types
     character(len=*), intent(in) :: component_type !< component type, such as GWF or GWT
@@ -96,12 +98,19 @@ contains
     character(len=*), intent(in) :: filename !< input filename
     type(InputParamDefinitionType), pointer :: idt !< corresponding InputParameterDefinitionType for this tag
     type(InputParamDefinitionType), pointer :: tmp_ptr
+    character(len=LINELENGTH) :: component
     integer(I4B) :: i
+
+    if (idm_utl_type(component_type, subcomponent_type)) then
+      component = 'UTL'
+    else
+      component = component_type
+    end if
 
     nullify (idt)
     do i = 1, size(input_definition_types)
       tmp_ptr => input_definition_types(i)
-      if (tmp_ptr%component_type == component_type .and. &
+      if (tmp_ptr%component_type == component .and. &
           tmp_ptr%subcomponent_type == subcomponent_type .and. &
           tmp_ptr%blockname == blockname .and. &
           tmp_ptr%tagname == tagname) then
@@ -124,6 +133,8 @@ contains
   !<
   function get_aggregate_definition_type(input_definition_types, component_type, &
                                          subcomponent_type, blockname) result(idt)
+    use ConstantsModule, only: LINELENGTH
+    use SourceCommonModule, only: idm_utl_type
     type(InputParamDefinitionType), dimension(:), intent(in), target :: &
       input_definition_types
     character(len=*), intent(in) :: component_type !< component type, such as GWF or GWT
@@ -131,12 +142,19 @@ contains
     character(len=*), intent(in) :: blockname !< name of the block
     type(InputParamDefinitionType), pointer :: idt !< corresponding InputParameterDefinitionType for this block
     type(InputParamDefinitionType), pointer :: tmp_ptr
+    character(len=LINELENGTH) :: component
     integer(I4B) :: i
+
+    if (idm_utl_type(component_type, subcomponent_type)) then
+      component = 'UTL'
+    else
+      component = component_type
+    end if
 
     nullify (idt)
     do i = 1, size(input_definition_types)
       tmp_ptr => input_definition_types(i)
-      if (tmp_ptr%component_type == component_type .and. &
+      if (tmp_ptr%component_type == component .and. &
           tmp_ptr%subcomponent_type == subcomponent_type .and. &
           tmp_ptr%blockname == blockname) then
         idt => input_definition_types(i)

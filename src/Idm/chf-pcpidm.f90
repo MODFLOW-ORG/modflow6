@@ -37,7 +37,7 @@ module ChfPcpInputModule
   character(len=16), parameter :: &
     chf_pcp_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

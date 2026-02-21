@@ -49,8 +49,8 @@ contains
   subroutine supported_model_packages(mtype, pkgtypes, numpkgs)
     ! -- modules
     ! -- dummy
-    character(len=LENFTYPE), intent(in) :: mtype
-    character(len=LENPACKAGETYPE), dimension(:), allocatable, &
+    character(len=*), intent(in) :: mtype
+    character(len=*), dimension(:), allocatable, &
       intent(inout) :: pkgtypes
     integer(I4B), intent(inout) :: numpkgs
     ! -- local
@@ -90,9 +90,9 @@ contains
     result(multi_package)
     ! -- modules
     ! -- dummy
-    character(len=LENFTYPE), intent(in) :: mtype_component
-    character(len=LENFTYPE), intent(in) :: ptype_component
-    character(len=LENFTYPE), intent(in) :: pkgtype
+    character(len=*), intent(in) :: mtype_component
+    character(len=*), intent(in) :: ptype_component
+    character(len=*), intent(in) :: pkgtype
     ! -- return
     logical(LGP) :: multi_package
     ! -- local

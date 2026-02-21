@@ -37,7 +37,7 @@ module SwfEvpInputModule
   character(len=16), parameter :: &
     swf_evp_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

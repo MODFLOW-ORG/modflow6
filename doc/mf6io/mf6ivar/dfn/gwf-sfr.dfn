@@ -1,6 +1,7 @@
 # --------------------- gwf sfr options ---------------------
 # flopy multi-package
 # package-type advanced-stress-package
+# mf6 subpackage utl-obs
 
 block options
 name storage

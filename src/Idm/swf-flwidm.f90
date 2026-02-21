@@ -37,7 +37,7 @@ module SwfFlwInputModule
   character(len=16), parameter :: &
     swf_flw_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

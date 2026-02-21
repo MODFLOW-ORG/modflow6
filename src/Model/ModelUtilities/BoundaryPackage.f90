@@ -94,7 +94,6 @@ module BndModule
     logical(LGP) :: AllowTimeArraySeries = .false.
     !
     ! -- pointers for observations
-    integer(I4B), pointer :: inobspkg => null() !< unit number for obs package
     type(ObsType), pointer :: obs => null() !< observation package
     !
     ! -- pointers to model/solution variables
@@ -189,7 +188,7 @@ contains
     call tasmanager_cr(this%TasManager, dis, this%name_model, this%iout)
     !
     ! -- create obs package
-    call obs_cr(this%obs, this%inobspkg)
+    call obs_cr(this%obs)
     !
     ! -- Write information to model list file
     write (this%iout, 1) this%filtyp, trim(adjustl(this%text)), this%inunit
@@ -898,7 +897,6 @@ contains
     call mem_deallocate(this%naux)
     call mem_deallocate(this%inamedbound)
     call mem_deallocate(this%iauxmultcol)
-    call mem_deallocate(this%inobspkg)
     call mem_deallocate(this%imover)
     call mem_deallocate(this%npakeq)
     call mem_deallocate(this%ioffset)
@@ -952,7 +950,6 @@ contains
     call mem_allocate(this%naux, 'NAUX', this%memoryPath)
     call mem_allocate(this%inamedbound, 'INAMEDBOUND', this%memoryPath)
     call mem_allocate(this%iauxmultcol, 'IAUXMULTCOL', this%memoryPath)
-    call mem_allocate(this%inobspkg, 'INOBSPKG', this%memoryPath)
     !
     ! -- allocate the object and assign values to object variables
     call mem_allocate(this%imover, 'IMOVER', this%memoryPath)
@@ -983,7 +980,6 @@ contains
     this%naux = 0
     this%inamedbound = 0
     this%iauxmultcol = 0
-    this%inobspkg = 0
     this%imover = 0
     this%npakeq = 0
     this%ioffset = 0
@@ -1141,7 +1137,9 @@ contains
   subroutine bnd_read_options(this)
     ! -- modules
     use InputOutputModule, only: urdaux
-    use MemoryManagerModule, only: mem_reallocate
+    use MemoryManagerModule, only: mem_reallocate, mem_setptr
+    use MemoryHelperModule, only: create_mem_path
+    use SimVariablesModule, only: idm_context
     ! -- dummy
     class(BndType), intent(inout) :: this !< BndType object
     ! -- local
@@ -1150,12 +1148,14 @@ contains
     character(len=LINELENGTH) :: keyword
     character(len=LENAUXNAME) :: sfacauxname
     character(len=LENAUXNAME), dimension(:), allocatable :: caux
+    character(len=LENMEMPATH) :: input_mempath
+    type(CharacterStringType), dimension(:), &
+      pointer, contiguous :: obs_mempath
     integer(I4B) :: lloc
     integer(I4B) :: istart
     integer(I4B) :: istop
     integer(I4B) :: n
     integer(I4B) :: ierr
-    integer(I4B) :: inobs
     logical(LGP) :: isfound
     logical(LGP) :: endOfBlock
     logical(LGP) :: foundchildclassoption
@@ -1263,16 +1263,16 @@ contains
             call store_error(errmsg)
             call this%parser%StoreErrorUnit()
           end if
-          if (this%obs%active) then
+          if (this%obs%input_mempath /= '') then
             errmsg = 'Multiple OBS6 keywords detected in OPTIONS block. '// &
                      'Only one OBS6 entry allowed for a package.'
             call store_error(errmsg)
           end if
-          this%obs%active = .true.
-          call this%parser%GetString(this%obs%inputFilename)
-          inobs = GetUnit()
-          call openfile(inobs, this%iout, this%obs%inputFilename, 'OBS')
-          this%obs%inUnitObs = inobs
+          call this%parser%GetString(this%obs%input_fname)
+          input_mempath = create_mem_path(this%name_model, this%packName, &
+                                          idm_context)
+          call mem_setptr(obs_mempath, 'OBS6_MEMPATH', input_mempath)
+          this%obs%input_mempath = obs_mempath(1)
           !
           ! -- right now these are options that are only available in the
           !    development version and are not included in the documentation.

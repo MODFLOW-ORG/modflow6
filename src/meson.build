@@ -157,6 +157,7 @@ modflow_sources = files(
     'Idm' / 'prt-prpidm.f90',
     'Idm' / 'utl-hpcidm.f90',
     'Idm' / 'utl-ncfidm.f90',
+    'Idm' / 'utl-obsidm.f90',
     'Idm' / 'selector' / 'IdmDfnSelector.f90',
     'Idm' / 'selector' / 'IdmExgDfnSelector.f90',
     'Idm' / 'selector' / 'IdmGweDfnSelector.f90',

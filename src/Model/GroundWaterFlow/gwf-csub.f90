@@ -211,7 +211,6 @@ module GwfCsubModule
     real(DP), dimension(:), pointer, contiguous :: sig0 => null() !< array of package specific boundary numbers
     !
     ! -- observation data
-    integer(I4B), pointer :: inobspkg => null() !< unit number for obs package
     type(ObsType), pointer :: obs => null() !< observation package
     !
     ! -- table objects
@@ -385,7 +384,7 @@ contains
     this%ibound => ibound
     !
     ! -- create obs package
-    call obs_cr(this%obs, this%inobspkg)
+    call obs_cr(this%obs)
     !
     ! -- source csub options
     call this%source_options()
@@ -530,20 +529,22 @@ contains
   subroutine source_options(this)
     ! -- modules
     use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL
-    use MemoryManagerModule, only: mem_reallocate
+    use MemoryManagerModule, only: mem_reallocate, mem_setptr
     use MemoryManagerExtModule, only: mem_set_value
     use OpenSpecModule, only: access, form
     use InputOutputModule, only: getunit, urdaux, openfile
+    use CharacterStringModule, only: CharacterStringType
     use GwfCsubInputModule, only: GwfCsubParamFoundType
     use SourceCommonModule, only: filein_fname
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     ! -- local variables
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: obs_mempath
     integer(I4B), pointer :: ibs
-    integer(I4B) :: inobs
     character(len=LINELENGTH) :: csv_interbed, csv_coarse
     character(len=LINELENGTH) :: cmp_fn, ecmp_fn, iecmp_fn, ibcmp_fn, cmpcoarse_fn
-    character(len=LINELENGTH) :: zdisp_fn, pkg_converge_fn
+    character(len=LINELENGTH) :: zdisp_fn, pkg_converge_fn, obs_fname
     type(GwfCsubParamFoundType) :: found
     logical(LGP) :: warn_estress_lag = .false.
 
@@ -598,13 +599,10 @@ contains
                        found%pkgconvergefn)
 
     ! -- enforce 0 or 1 OBS6_FILENAME entries in option block
-    if (filein_fname(this%obs%inputFilename, 'OBS6_FILENAME', &
+    if (filein_fname(obs_fname, 'OBS6_FILENAME', &
                      this%input_mempath, this%input_fname)) then
-      this%obs%active = .true.
-      inobs = GetUnit()
-      call openfile(inobs, this%iout, this%obs%inputFilename, 'OBS')
-      this%obs%inUnitObs = inobs
-      this%inobspkg = inobs
+      call mem_setptr(obs_mempath, 'OBS6_MEMPATH', this%input_mempath)
+      this%obs%input_mempath = obs_mempath(1)
       call this%obs%obs_df(this%iout, this%packName, this%filtyp, this%dis)
       call this%csub_df_obs()
     end if
@@ -874,7 +872,6 @@ contains
     !
     ! -- allocate the object and assign values to object variables
     call mem_allocate(this%istounit, 'ISTOUNIT', this%memoryPath)
-    call mem_allocate(this%inobspkg, 'INOBSPKG', this%memoryPath)
     call mem_allocate(this%ninterbeds, 'NINTERBEDS', this%memoryPath)
     call mem_allocate(this%maxsig0, 'MAXSIG0', this%memoryPath)
     call mem_allocate(this%nbound, 'NBOUND', this%memoryPath)
@@ -917,7 +914,6 @@ contains
     !
     ! -- initialize values
     this%istounit = 0
-    this%inobspkg = 0
     this%ninterbeds = 0
     this%maxsig0 = 0
     this%nbound = 0
@@ -2220,7 +2216,6 @@ contains
     !
     ! -- deallocate scalars
     call mem_deallocate(this%istounit)
-    call mem_deallocate(this%inobspkg)
     call mem_deallocate(this%ninterbeds)
     call mem_deallocate(this%maxsig0)
     call mem_deallocate(this%nbound)

@@ -287,7 +287,8 @@ contains
 
   !> @brief Create a new LAK Package and point bndobj to the new package
   !<
-  subroutine lak_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname)
+  subroutine lak_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
+                        input_mempath)
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -296,6 +297,7 @@ contains
     integer(I4B), intent(in) :: iout
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
+    character(len=*), intent(in) :: input_mempath
     ! -- local
     type(LakType), pointer :: lakobj
     !
@@ -304,7 +306,7 @@ contains
     packobj => lakobj
     !
     ! -- create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, input_mempath)
     packobj%text = text
     !
     ! -- allocate scalars

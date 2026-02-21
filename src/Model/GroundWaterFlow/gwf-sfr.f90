@@ -291,7 +291,8 @@ contains
   !!
   !!  Create a new SFR Package object
   !<
-  subroutine sfr_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname)
+  subroutine sfr_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
+                        input_mempath)
     ! -- modules
     use MemoryHelperModule, only: create_mem_path
     ! -- dummy
@@ -302,6 +303,7 @@ contains
     integer(I4B), intent(in) :: iout !< unit number of model listing file
     character(len=*), intent(in) :: namemodel !< model name
     character(len=*), intent(in) :: pakname !< package name
+    character(len=*), intent(in) :: input_mempath
     ! -- local
     type(SfrType), pointer :: sfrobj
     !
@@ -310,7 +312,7 @@ contains
     packobj => sfrobj
     !
     ! -- create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, input_mempath)
     packobj%text = text
     !
     ! -- allocate scalars

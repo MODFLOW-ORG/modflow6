@@ -34,7 +34,7 @@ module ChfCdbInputModule
   character(len=16), parameter :: &
     chf_cdb_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

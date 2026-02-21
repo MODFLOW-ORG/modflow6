@@ -89,7 +89,7 @@ contains
     call adv_cr(this%adv, this%name, '', adv_unit, this%iout, this%fmi, &
                 this%ieqnsclfac)
     call dsp_cr(this%dsp, this%name, '', -dsp_unit, this%iout, this%fmi)
-    call tsp_obs_cr(this%obs, inobs, this%depvartype)
+    call tsp_obs_cr(this%obs, '', inobs, this%depvartype)
   end subroutine gwtifmod_cr
 
   !> @brief Allocate scalars associated with the interface model object

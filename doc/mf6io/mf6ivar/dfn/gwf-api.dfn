@@ -1,5 +1,6 @@
 # --------------------- gwf api options ---------------------
 # flopy multi-package
+# mf6 subpackage utl-obs
 
 block options
 name boundnames

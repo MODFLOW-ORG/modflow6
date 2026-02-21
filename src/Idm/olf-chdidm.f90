@@ -37,7 +37,7 @@ module OlfChdInputModule
   character(len=16), parameter :: &
     olf_chd_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

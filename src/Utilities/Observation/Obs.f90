@@ -126,10 +126,9 @@
 !<
 module ObsModule
 
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ArrayHandlersModule, only: ExpandArray
   use BaseDisModule, only: DisBaseType
-  use BlockParserModule, only: BlockParserType
   use ConstantsModule, only: LENBIGLINE, LENFTYPE, LENOBSNAME, &
                              LENOBSTYPE, LENPACKAGENAME, LENBOUNDNAME, &
                              LINELENGTH, NAMEDBOUNDFLAG, MAXCHARLEN, &
@@ -147,7 +146,8 @@ module ObsModule
   use ObsUtilityModule, only: write_fmtd_obs, write_unfmtd_obs
   use OpenSpecModule, only: ACCESS, FORM
   use SimVariablesModule, only: errmsg
-  use SimModule, only: count_errors, store_error, store_error_unit
+  use SimModule, only: count_errors, store_error, store_error_unit, &
+                       store_error_filename
   use TdisModule, only: totim
 
   implicit none
@@ -159,11 +159,13 @@ module ObsModule
     ! -- Public members
     integer(I4B), public :: iout = 0 !< model list file unit
     integer(I4B), public :: npakobs = 0 !< number of observations
-    integer(I4B), pointer, public :: inUnitObs => null() !< observation input file unit
-    character(len=LINELENGTH), pointer, public :: inputFilename => null() !< observation input file name
-    character(len=2*LENPACKAGENAME + 4), public :: pkgName = '' !< package name
+    integer(I4B), public :: inUnitObs = 0 !< observation input file unit
+    character(len=LINELENGTH), pointer, public :: input_mempath => null() !< observation input mempath
+    character(len=LINELENGTH), pointer, public :: input_fname => null() !< observation input file name
+    character(len=LENPACKAGENAME), public :: pkgName = '' !< package name
     character(len=LENFTYPE), public :: filtyp = '' !< package file type
-    logical, pointer, public :: active => null() !> logical indicating if a observation is active
+    !logical, pointer, public :: active => null() !> logical indicating if a observation is active
+    logical, pointer, public :: active
     type(ObsContainerType), dimension(:), pointer, public :: pakobs => null() !< package observations
     type(ObsDataType), dimension(:), pointer, public :: obsData => null() !< observation data
     ! -- Private members
@@ -177,7 +179,6 @@ module ObsModule
     type(ListType), private :: obsList
     type(ObsOutputListType), pointer, private :: obsOutputList => null()
     class(DisBaseType), pointer, private :: dis => null()
-    type(BlockParserType), private :: parser
     !
     ! -- table object
     type(TableType), pointer :: obstab => null()
@@ -199,12 +200,10 @@ module ObsModule
     procedure, private :: get_obs
     procedure, private :: get_obs_array
     procedure, private :: get_obs_datum
-    procedure, private :: obs_ar1
-    procedure, private :: obs_ar2
     procedure, private :: set_obs_array
-    procedure, private :: read_observations
-    procedure, private :: read_obs_blocks
-    procedure, private :: read_obs_options
+    procedure, private :: source_observations
+    procedure, private :: source_options
+    procedure, private :: source_continuous
     procedure, private :: write_obs_simvals
   end type ObsType
 
@@ -221,14 +220,12 @@ contains
   !!  - initializes values
   !!
   !<
-  subroutine obs_cr(obs, inobs)
+  subroutine obs_cr(obs)
     ! -- dummy
     type(ObsType), pointer, intent(out) :: obs !< observation ObsType
-    integer(I4B), pointer, intent(in) :: inobs !< observation input file unit
     !
     allocate (obs)
     call obs%allocate_scalars()
-    obs%inUnitObs => inobs
   end subroutine obs_cr
 
   !> @ brief Process IDstring provided for each observation
@@ -287,39 +284,46 @@ contains
   !!
   !<
   subroutine obs_df(this, iout, pkgname, filtyp, dis)
+    ! -- modules
+    use MemoryManagerExtModule, only: mem_set_value
     ! -- dummy
     class(ObsType), intent(inout) :: this
     integer(I4B), intent(in) :: iout !< model list file unit
     character(len=*), intent(in) :: pkgname !< package name
     character(len=*), intent(in) :: filtyp !< package file type
     class(DisBaseType), pointer :: dis !< discretization object
+    ! -- local
+    logical(LGP) :: found
+    ! -- formats
+10  format(/, 'The observation utility is active for "', a, '"')
     !
     this%iout = iout
     this%pkgName = pkgname
     this%filtyp = filtyp
     this%dis => dis
     !
-    ! -- Initialize block parser
-    call this%parser%Initialize(this%inUnitObs, this%iout)
-  end subroutine obs_df
-
-  !> @ brief Allocate and read package observations
-  !!
-  !!  Subroutine to allocate and read observations for a package. Subroutine
-  !!
-  !!  - reads OPTIONS block of OBS input file
-  !!  - reads CONTINUOUS blocks of OBS input file
-  !!
-  !<
-  subroutine obs_ar(this)
-    ! -- dummy
-    class(ObsType) :: this
-    !
-    call this%obs_ar1(this%pkgName)
-    if (this%active) then
-      call this%obs_ar2(this%dis)
+    if (this%input_mempath /= '') then
+      this%active = .true.
+      !
+      ! -- Indicate that OBS is active
+      write (this%iout, 10) trim(pkgname)
+      !
+      ! -- Source Options block
+      call this%source_options()
+      !
+      ! -- define output formats
+      call this%define_fmts()
+      !
+      ! set input obs file name
+      call mem_set_value(this%input_fname, 'INPUT_FNAME', &
+                         this%input_mempath, found)
+      if (found) then
+        ! reopen input file for error handling
+        this%inUnitObs = GetUnit()
+        call openfile(this%inUnitObs, this%iout, this%input_fname, 'OBS')
+      end if
     end if
-  end subroutine obs_ar
+  end subroutine obs_df
 
   !> @ brief Advance package observations
   !!
@@ -389,7 +393,7 @@ contains
     class(ObserveType), pointer :: obsrv => null()
     !
     deallocate (this%active)
-    deallocate (this%inputFilename)
+    deallocate (this%input_mempath)
     deallocate (this%obsData)
     !
     ! -- observation table object
@@ -416,9 +420,6 @@ contains
     !
     ! -- deallocate obslist
     call this%obslist%Clear()
-    !
-    ! -- nullify
-    nullify (this%inUnitObs)
   end subroutine obs_da
 
   !> @ brief Save a simulated value
@@ -489,7 +490,7 @@ contains
       msg = 'Size of obsData array is insufficient; ' &
             //'need to increase MAXOBSTYPES.'
       call store_error(msg)
-      call store_error_unit(this%inUnitObs)
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- Convert character argument to upper case
@@ -514,59 +515,39 @@ contains
     class(ObsType) :: this
     !
     allocate (this%active)
-    allocate (this%inputFilename)
+    allocate (this%input_mempath)
+    allocate (this%input_fname)
     allocate (this%obsOutputList)
     allocate (this%obsData(MAXOBSTYPES))
     !
     ! -- Initialize
     this%active = .false.
-    this%inputFilename = ''
+    this%input_mempath = ''
+    this%input_fname = ''
   end subroutine allocate_scalars
 
-  !> @ brief Read observation options and output formats
+  !> @ brief Allocate and read package observations
   !!
-  !!  Subroutine to read the options block in the observation input file and
-  !!  define output formats.
+  !!  Subroutine to allocate and read observations for a package.
   !!
-  !<
-  subroutine obs_ar1(this, pkgname)
-    ! -- dummy
-    class(ObsType), intent(inout) :: this
-    character(len=*), intent(in) :: pkgname !< package name
-    ! -- formats
-10  format(/, 'The observation utility is active for "', a, '"')
-    !
-    if (this%inUnitObs > 0) then
-      this%active = .true.
-      !
-      ! -- Indicate that OBS is active
-      write (this%iout, 10) trim(pkgname)
-      !
-      ! -- Read Options block
-      call this%read_obs_options()
-      !
-      ! -- define output formats
-      call this%define_fmts()
-    end if
-  end subroutine obs_ar1
-
-  !> @ brief Call procedure provided by package
-  !!
-  !!  Subroutine to call procedure provided by package to interpret IDstring
-  !!  and store required data.
+  !!  - reads OPTIONS block of OBS input file
+  !!  - reads CONTINUOUS blocks of OBS input file
+  !!  - call procedure provided by package to interpret IDstring
+  !!    and store required data.
   !!
   !<
-  subroutine obs_ar2(this, dis)
+  subroutine obs_ar(this)
     ! -- dummy
     class(ObsType), intent(inout) :: this
-    class(DisBaseType) :: dis !< discretization object
     ! -- local
     integer(I4B) :: i
     type(ObsDataType), pointer :: obsDat => null()
     character(len=LENOBSTYPE) :: obsTypeID
     class(ObserveType), pointer :: obsrv => null()
     !
-    call this%read_observations()
+    if (.not. this%active) return
+    !
+    call this%source_observations()
     ! -- allocate and set observation array
     call this%get_obs_array(this%npakobs, this%pakobs)
     !
@@ -576,127 +557,81 @@ contains
       obsTypeID = obsrv%ObsTypeId
       obsDat => this%get_obs_datum(obsTypeID)
       if (associated(obsDat%ProcessIdPtr)) then
-        call obsDat%ProcessIdPtr(obsrv, dis, &
+        call obsDat%ProcessIdPtr(obsrv, this%dis, &
                                  this%inUnitObs, this%iout)
       else
-        call DefaultObsIdProcessor(obsrv, dis, &
+        call DefaultObsIdProcessor(obsrv, this%dis, &
                                    this%inUnitObs, this%iout)
       end if
     end do
     !
     if (count_errors() > 0) then
-      call store_error_unit(this%inunitobs)
+      call store_error_filename(this%input_fname)
     end if
-  end subroutine obs_ar2
+  end subroutine obs_ar
 
-  !> @ brief Read observation options block
-  !!
-  !!  Subroutine to read the options block in the observation input file.
-  !!
-  !<
-  subroutine read_obs_options(this)
+  subroutine source_options(this)
+    ! -- modules
+    use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL
+    use MemoryManagerExtModule, only: mem_set_value
+    use UtlObsInputModule, only: UtlObsParamFoundType
+    use SourceCommonModule, only: filein_fname
     ! -- dummy
     class(ObsType) :: this
     ! -- local
-    integer(I4B) :: iin
-    integer(I4B) :: ierr
-    integer(I4B) :: localprecision
-    integer(I4B) :: localdigits
-    character(len=40) :: keyword
-    character(len=LINELENGTH) :: fname
-    type(ListType), pointer :: lineList => null()
-    logical :: continueread, found, endOfBlock
+    integer(I4B), pointer :: intptr, idigits
+    type(UtlObsParamFoundType) :: found
     ! -- formats
-10  format('No options block found in OBS input. Defaults will be used.')
 40  format('Text output number of digits of precision set to: ', i2)
 50  format('Text output number of digits set to internal representation (G0).')
 60  format(/, 'Processing observation options:',/)
-    !
-    localprecision = 0
-    localdigits = -1
-    lineList => null()
-    !
-    ! -- Find and store file name
-    iin = this%inUnitObs
-    inquire (unit=iin, name=fname)
-    this%inputFilename = fname
-    !
-    ! -- Read Options block
-    continueread = .false.
-    ierr = 0
-    !
-    ! -- get BEGIN line of OPTIONS block
-    call this%parser%GetBlock('OPTIONS', found, ierr, &
-                              supportOpenClose=.true., blockRequired=.false.)
-    if (ierr /= 0) then
-      ! end of file
-      errmsg = 'End-of-file encountered while searching for'// &
-               ' OPTIONS in OBS '// &
-               'input file "'//trim(this%inputFilename)//'"'
-      call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
-    elseif (.not. found) then
-      this%blockTypeFound = ''
-      if (this%iout > 0) write (this%iout, 10)
+70  format(/, 'End processing observation options',/)
+
+    ! -- allocate and initialize variables
+    allocate (intptr)
+    allocate (idigits)
+
+    write (this%iout, 60)
+
+    ! -- update defaults from input context
+    call mem_set_value(idigits, 'DIGITS', this%input_mempath, &
+                       found%digits)
+    call mem_set_value(intptr, 'PRINT_INPUT', this%input_mempath, &
+                       found%print_input)
+
+    if (found%digits) then
+      ! -- Set localdigits to valid value: 0, or 2 to 16
+      if (idigits == 0) then
+        this%idigits = idigits
+        write (this%iout, 50)
+      else if (idigits < 1) then
+        errmsg = 'Error in OBS input: Invalid value for DIGITS option'
+        call store_error(errmsg)
+      else
+        if (idigits < 2) then
+          this%idigits = 2
+        else if (idigits > 16) then
+          this%idigits = 16
+        else
+          this%idigits = idigits
+        end if
+        write (this%iout, 40) this%idigits
+      end if
     end if
-    !
-    ! -- parse OPTIONS entries
-    if (found) then
-      write (this%iout, 60)
-      readblockoptions: do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('DIGITS')
-          !
-          ! -- error if digits already read
-          if (localdigits /= -1) then
-            errmsg = 'Error in OBS input: DIGITS has already been defined'
-            call store_error(errmsg)
-            exit readblockoptions
-          end if
-          !
-          ! -- Specifies number of significant digits used writing simulated
-          !    values to a text file. Default is stored digits.
-          !
-          ! -- Read integer value
-          localdigits = this%parser%GetInteger()
-          !
-          ! -- Set localdigits to valid value: 0, or 2 to 16
-          if (localdigits == 0) then
-            write (this%iout, 50)
-          else if (localdigits < 1) then
-            errmsg = 'Error in OBS input: Invalid value for DIGITS option'
-            call store_error(errmsg)
-            exit readblockoptions
-          else
-            if (localdigits < 2) localdigits = 2
-            if (localdigits > 16) localdigits = 16
-            write (this%iout, 40) localdigits
-          end if
-        case ('PRINT_INPUT')
-          this%echo = .true.
-          write (this%iout, '(a)') 'The PRINT_INPUT option has been specified.'
-        case default
-          errmsg = 'Error in OBS input: Unrecognized option: '// &
-                   trim(keyword)
-          call store_error(errmsg)
-          exit readblockoptions
-        end select
-      end do readblockoptions
+    if (found%print_input) then
+      this%echo = .true.
+      write (this%iout, '(a)') 'The PRINT_INPUT option has been specified.'
     end if
-    !
+
+    write (this%iout, 70)
+
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
-    !
-    write (this%iout, '(1x)')
-    !
-    ! -- Assign type variables
-    if (localprecision > 0) this%iprecision = localprecision
-    if (localdigits >= 0) this%idigits = localdigits
-  end subroutine read_obs_options
+
+    deallocate (intptr)
+    deallocate (idigits)
+  end subroutine source_options
 
   !> @ brief Define observation output formats
   !!
@@ -716,23 +651,23 @@ contains
     end if
   end subroutine define_fmts
 
-  !> @ brief Read observations
+  !> @ brief Source observations
   !!
-  !!  Subroutine to read the observations from the observation input file
-  !!  and build headers for the observation output files.
+  !!  Subroutine to source the observations from the observation input
+  !!  context and build headers for the observation output files.
   !!
   !<
-  subroutine read_observations(this)
+  subroutine source_observations(this)
     ! -- dummy
     class(ObsType) :: this
     ! -- local
     !
-    ! -- Read CONTINUOUS blocks and store observations
-    call this%read_obs_blocks(this%outputFilename)
+    ! -- Source CONTINUOUS blocks and store observations
+    call this%source_continuous()
     !
     ! -- build headers
     call this%build_headers()
-  end subroutine read_observations
+  end subroutine source_observations
 
   !> @ brief Get the number of observations
   !!
@@ -870,7 +805,7 @@ contains
     if (.not. associated(obsDatum)) then
       errmsg = 'Observation type not found: '//trim(obsTypeID)
       call store_error(errmsg)
-      call store_error_unit(this%inUnitObs)
+      call store_error_filename(this%input_fname)
     end if
   end function get_obs_datum
 
@@ -912,36 +847,41 @@ contains
     obsrv => GetObsFromList(this%obsList, indx)
   end function get_obs
 
-  !> @ brief Read observation blocks
-  !!
-  !!  Subroutine to read CONTIGUOUS block from the observation input file.
-  !!
-  !<
-  subroutine read_obs_blocks(this, fname)
-    ! -- dummy
+  subroutine source_continuous(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr, mem_allocate
+    use MemoryManagerExtModule, only: mem_set_value
+    use CharacterStringModule, only: CharacterStringType
+    ! -- dummy variables
     class(ObsType), intent(inout) :: this
-    character(len=*), intent(inout) :: fname
-    ! -- local
-    integer(I4B) :: ierr, indexobsout, numspec
-    logical :: fmtd, found, endOfBlock
-    character(len=LENBIGLINE) :: pnamein, fnamein
-    character(len=LENHUGELINE) :: line
-    character(len=LINELENGTH) :: btagfound, message, word
-    character(len=LINELENGTH) :: title
-    character(len=LINELENGTH) :: tag
-    character(len=20) :: accarg, bin, fmtarg
+    integer(I4B), dimension(:), pointer, contiguous :: iblock
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: obsfnames, obsfmts
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: obsname, obstype
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: idstr
+    character(len=LINELENGTH) :: obsfname, obsfmt, oname, otype, ids, tag, title
+    character(len=20) :: accarg, fmtarg
     type(ObserveType), pointer :: obsrv => null()
     type(ObsOutputType), pointer :: obsOutput => null()
-    integer(I4B) :: ntabrows
-    integer(I4B) :: ntabcols
-    !
-    ! -- initialize local variables
-    numspec = -1
-    errmsg = ''
-    !
-    inquire (unit=this%parser%iuactive, name=pnamein)
-    call GetFileFromPath(pnamein, fnamein)
-    !
+    integer(I4B) :: n, ntabrows, ntabcols, numspec
+    integer(I4B) :: icont, indexobsout
+    logical(LGP) :: fmtd
+
+    ! -- initialize
+    icont = 0
+    obsfname = ''
+    obsfmt = ''
+
+    ! -- set input context pointers
+    call mem_setptr(obsfnames, 'OBSFNAMES', this%input_mempath)
+    call mem_setptr(obsfmts, 'OBSFMTS', this%input_mempath)
+    call mem_setptr(iblock, 'CONTINUOUSNUM', this%input_mempath)
+    call mem_setptr(obsname, 'OBSNAME', this%input_mempath)
+    call mem_setptr(obstype, 'OBSTYPE', this%input_mempath)
+    call mem_setptr(idstr, 'ID', this%input_mempath)
+
     if (this%echo) then
       !
       ! -- create the observation table
@@ -950,8 +890,8 @@ contains
       ntabcols = 5
       !
       ! -- initialize table and define columns
-      title = 'OBSERVATIONS READ FROM FILE "'//trim(fnamein)//'"'
-      call table_cr(this%obstab, fnamein, title)
+      title = 'OBSERVATIONS READ FROM FILE "'//trim(this%input_fname)//'"'
+      call table_cr(this%obstab, this%input_fname, title)
       call this%obstab%table_df(ntabrows, ntabcols, this%iout, &
                                 finalize=.FALSE.)
       tag = 'NAME'
@@ -965,94 +905,60 @@ contains
       tag = 'OUTPUT FILENAME'
       call this%obstab%initialize_column(tag, 80, alignment=TABLEFT)
     end if
-    !
-    found = .true.
-    readblocks: do
-      if (.not. found) exit
-      !
-      call this%parser%GetBlock('*', found, ierr, .true., .false., btagfound)
-      if (.not. found) then
-        exit readblocks
-      end if
-      this%blockTypeFound = btagfound
-      !
-      ! Get keyword, which should be FILEOUT
-      call this%parser%GetStringCaps(word)
-      if (word /= 'FILEOUT') then
-        call store_error('CONTINUOUS keyword must be followed by '// &
-                         '"FILEOUT" then by filename.')
-        cycle
-      end if
-      !
-      ! -- get name of output file
-      call this%parser%GetString(fname)
-      ! Fname is the output file name defined in the BEGIN line of the block.
-      if (fname == '') then
-        message = 'Error reading OBS input file, likely due to bad'// &
-                  ' block or missing file name.'
-        call store_error(message)
-        cycle
-      else if (this%obsOutputList%ContainsFile(fname)) then
-        errmsg = 'OBS outfile "'//trim(fname)// &
-                 '" is provided more than once.'
-        call store_error(errmsg)
-        cycle
-      end if
-      !
-      ! -- look for BINARY option
-      call this%parser%GetStringCaps(bin)
-      if (bin == 'BINARY') then
-        fmtarg = FORM
-        accarg = ACCESS
-        fmtd = .false.
-      else
-        fmtarg = 'FORMATTED'
-        accarg = 'SEQUENTIAL'
-        fmtd = .true.
-      end if
-      !
-      ! -- open the output file
-      numspec = 0
-      call openfile(numspec, 0, fname, 'OBS OUTPUT', fmtarg, &
-                    accarg, 'REPLACE')
-      !
-      ! -- add output file to list of output files and assign its
-      !    FormattedOutput member appropriately
-      call this%obsOutputList%Add(fname, numspec)
-      indexobsout = this%obsOutputList%Count()
-      obsOutput => this%obsOutputList%Get(indexobsout)
-      obsOutput%FormattedOutput = fmtd
-      !
-      ! -- process lines defining observations
-      select case (btagfound)
-      case ('CONTINUOUS')
+
+    do n = 1, size(obsfnames)
+      obsfname = obsfnames(n)
+      obsfmt = obsfmts(n)
+    end do
+
+    do n = 1, size(obsname)
+
+      if (icont /= iblock(n)) then
+        icont = iblock(n)
+        obsfname = obsfnames(icont)
+        obsfmt = obsfmts(icont)
+        ! -- look for BINARY option
+        if (obsfmt == 'BINARY') then
+          fmtarg = FORM
+          accarg = ACCESS
+          fmtd = .false.
+        else
+          fmtarg = 'FORMATTED'
+          accarg = 'SEQUENTIAL'
+          fmtd = .true.
+        end if
         !
-        ! -- construct a continuous observation from each line in the block
-        readblockcontinuous: do
-          call this%parser%GetNextLine(endOfBlock)
-          if (endOfBlock) exit
-          call this%parser%GetCurrentLine(line)
-          call ConstructObservation(obsrv, line, numspec, fmtd, &
-                                    indexobsout, this%obsData, &
-                                    this%parser%iuactive)
-          !
-          ! -- increment number of observations
-          !    to be written to this output file.
-          obsOutput => this%obsOutputList%Get(indexobsout)
-          obsOutput%nobs = obsOutput%nobs + 1
-          call AddObsToList(this%obsList, obsrv)
-          !
-          ! -- write line to the observation table
-          if (this%echo) then
-            call obsrv%WriteTo(this%obstab, btagfound, fname)
-          end if
-        end do readblockcontinuous
-      case default
-        errmsg = 'Error: Observation block type not recognized: '// &
-                 trim(btagfound)
-        call store_error(errmsg)
-      end select
-    end do readblocks
+        ! -- open the output file
+        numspec = 0
+        call openfile(numspec, 0, obsfname, 'OBS OUTPUT', fmtarg, &
+                      accarg, 'REPLACE')
+        !
+        ! -- add output file to list of output files and assign its
+        !    FormattedOutput member appropriately
+        call this%obsOutputList%Add(obsfname, numspec)
+        indexobsout = this%obsOutputList%Count()
+        obsOutput => this%obsOutputList%Get(indexobsout)
+        obsOutput%FormattedOutput = fmtd
+      end if
+
+      oname = obsname(n)
+      otype = obstype(n)
+      ids = idstr(n)
+
+      call ConstructObservation(obsrv, oname, otype, ids, numspec, &
+                                fmtd, indexobsout, this%obsData)
+      !
+      ! -- increment number of observations
+      !    to be written to this output file.
+      obsOutput => this%obsOutputList%Get(indexobsout)
+      obsOutput%nobs = obsOutput%nobs + 1
+      call AddObsToList(this%obsList, obsrv)
+      !
+      ! -- write line to the observation table
+      if (this%echo) then
+        call obsrv%WriteTo(this%obstab, 'CONTINUOUS', obsfname)
+      end if
+    end do
     !
     ! -- finalize the observation table
     if (this%echo) then
@@ -1061,9 +967,9 @@ contains
     !
     ! -- determine if error condition occurs
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
-  end subroutine read_obs_blocks
+  end subroutine source_continuous
 
   !> @ brief Write observation data
   !!

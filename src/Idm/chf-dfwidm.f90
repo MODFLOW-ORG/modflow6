@@ -33,7 +33,7 @@ module ChfDfwInputModule
   character(len=16), parameter :: &
     chf_dfw_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

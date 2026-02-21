@@ -37,7 +37,7 @@ module GweCtpInputModule
   character(len=16), parameter :: &
     gwe_ctp_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

@@ -412,9 +412,14 @@ contains
     character(len=LENVARNAME) :: varname
     logical(LGP) :: overwrite
 
-    overwrite = .true.
-    if (this%struct_vectors(icol)%idt%blockname == 'SOLUTIONGROUP') &
+    select case (this%struct_vectors(icol)%idt%blockname)
+    case ('CONTINUOUS')
       overwrite = .false.
+    case ('SOLUTIONGROUP')
+      overwrite = .false.
+    case default
+      overwrite = .true.
+    end select
 
     ! set varname
     varname = this%struct_vectors(icol)%idt%mf6varname

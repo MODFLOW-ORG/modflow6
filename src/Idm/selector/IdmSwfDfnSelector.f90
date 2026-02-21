@@ -20,6 +20,7 @@ module IdmSwfDfnSelectorModule
   use SwfEvpInputModule
   use SwfStoInputModule
   use SwfZdgInputModule
+  use UtlObsInputModule
 
   implicit none
   private
@@ -85,6 +86,8 @@ contains
       call set_param_pointer(input_definition, swf_sto_param_definitions)
     case ('ZDG')
       call set_param_pointer(input_definition, swf_zdg_param_definitions)
+    case ('OBS')
+      call set_param_pointer(input_definition, utl_obs_param_definitions)
     case default
     end select
     return
@@ -125,6 +128,8 @@ contains
       call set_param_pointer(input_definition, swf_sto_aggregate_definitions)
     case ('ZDG')
       call set_param_pointer(input_definition, swf_zdg_aggregate_definitions)
+    case ('OBS')
+      call set_param_pointer(input_definition, utl_obs_aggregate_definitions)
     case default
     end select
     return
@@ -165,6 +170,8 @@ contains
       call set_block_pointer(input_definition, swf_sto_block_definitions)
     case ('ZDG')
       call set_block_pointer(input_definition, swf_zdg_block_definitions)
+    case ('OBS')
+      call set_block_pointer(input_definition, utl_obs_block_definitions)
     case default
     end select
     return
@@ -204,6 +211,8 @@ contains
       multi_package = swf_sto_multi_package
     case ('ZDG')
       multi_package = swf_zdg_multi_package
+    case ('OBS')
+      multi_package = utl_obs_multi_package
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="SWF"'//&
@@ -246,6 +255,8 @@ contains
       call set_subpkg_pointer(subpackages, swf_sto_subpackages)
     case ('ZDG')
       call set_subpkg_pointer(subpackages, swf_zdg_subpackages)
+    case ('OBS')
+      call set_subpkg_pointer(subpackages, utl_obs_subpackages)
     case default
     end select
     return
@@ -285,6 +296,8 @@ contains
     case ('STO')
       integrated = .true.
     case ('ZDG')
+      integrated = .true.
+    case ('OBS')
       integrated = .true.
     case default
     end select

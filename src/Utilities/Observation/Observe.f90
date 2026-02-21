@@ -225,28 +225,19 @@ contains
   !!  on the contents of defLine.
   !!
   !<
-  subroutine ConstructObservation(newObservation, defLine, numunit, &
-                                  formatted, indx, obsData, inunit)
+  subroutine ConstructObservation(newObservation, obs_name, obs_type, obs_ids, &
+                                  numunit, formatted, indx, obsData)
     ! -- dummy variables
     type(ObserveType), pointer :: newObservation !< new ObserveType
-    character(len=*), intent(in) :: defLine !< string with observation data
+    character(len=*), intent(in) :: obs_name
+    character(len=*), intent(in) :: obs_type
+    character(len=*), intent(in) :: obs_ids
     integer(I4B), intent(in) :: numunit !< Output unit number
     logical, intent(in) :: formatted !< logical indicating if formatted output will be written
     integer(I4B), intent(in) :: indx !< Index in ObsOutput array
     type(ObsDataType), dimension(:), pointer, intent(in) :: obsData !< obsData type
-    integer(I4B), intent(in) :: inunit !< observation input file unit
     ! -- local
-    real(DP) :: r
     integer(I4B) :: i
-    integer(I4B) :: icol
-    integer(I4B) :: iout
-    integer(I4B) :: istart
-    integer(I4B) :: istop
-    integer(I4B) :: n
-    !
-    ! -- initialize
-    iout = 0
-    icol = 1
     !
     ! -- Allocate an ObserveType object.
     allocate (newObservation)
@@ -257,14 +248,9 @@ contains
     !
     ! -- Define the contents of the ObservationSingleType object based on the
     !    contents of defLine.
-    !
-    ! -- Get observation name and store it
-    call urword(defLine, icol, istart, istop, 1, n, r, iout, inunit)
-    newObservation%Name = defLine(istart:istop)
-    !
-    ! -- Get observation type, convert it to uppercase, and store it.
-    call urword(defLine, icol, istart, istop, 1, n, r, iout, inunit)
-    newObservation%ObsTypeId = defLine(istart:istop)
+    newObservation%Name = trim(obs_name)
+    newObservation%ObsTypeId = trim(obs_type)
+    newObservation%IDstring = trim(obs_ids)
     !
     ! -- Look up package ID for this observation type and store it
     do i = 1, MAXOBSTYPES
@@ -275,14 +261,6 @@ contains
         exit
       end if
     end do
-    !
-    ! -- Remaining text is ID [and ID2]; store the remainder of the string
-    istart = istop + 1
-    istop = len_trim(defLine)
-    if (istart > istop) then
-      istart = istop
-    end if
-    newObservation%IDstring = defLine(istart:istop)
     !
     ! Store UnitNumber, FormattedOutput, and IndxObsOutput
     newObservation%UnitNumber = numunit

@@ -99,7 +99,7 @@ contains
                 this%ieqnsclfac)
     call cnd_cr(this%cnd, this%name, '', -cnd_unit, this%iout, this%fmi, &
                 this%ieqnsclfac, this%gwecommon)
-    call tsp_obs_cr(this%obs, inobs, this%depvartype)
+    call tsp_obs_cr(this%obs, '', inobs, this%depvartype)
   end subroutine gweifmod_cr
 
   !> @brief Allocate scalars associated with the interface model object

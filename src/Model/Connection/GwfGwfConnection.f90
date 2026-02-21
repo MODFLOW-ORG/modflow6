@@ -283,7 +283,7 @@ contains
       if (this%gwfExchange%inmvr > 0) then
         call this%gwfExchange%mvr%mvr_ar()
       end if
-      if (this%gwfExchange%inobs > 0) then
+      if (this%gwfExchange%obs%active) then
         call this%gwfExchange%obs%obs_ar()
       end if
     end if

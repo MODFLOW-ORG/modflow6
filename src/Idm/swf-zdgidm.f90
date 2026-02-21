@@ -39,7 +39,7 @@ module SwfZdgInputModule
   character(len=16), parameter :: &
     swf_zdg_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

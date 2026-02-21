@@ -40,7 +40,7 @@ module GwfRivInputModule
   character(len=16), parameter :: &
     gwf_riv_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

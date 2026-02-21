@@ -34,7 +34,7 @@ module GwfChdgInputModule
   character(len=16), parameter :: &
     gwf_chdg_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

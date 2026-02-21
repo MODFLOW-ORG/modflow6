@@ -37,7 +37,7 @@ module GwfRchaInputModule
   character(len=16), parameter :: &
     gwf_rcha_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

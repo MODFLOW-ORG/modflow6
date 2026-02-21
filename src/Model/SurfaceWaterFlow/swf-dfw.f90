@@ -55,7 +55,6 @@ module SwfDfwModule
     real(DP), dimension(:), pointer, contiguous :: dhdsja => null() !< gradient for each connection (of size njas)
 
     ! observation data
-    integer(I4B), pointer :: inobspkg => null() !< unit number for obs package
     type(ObsType), pointer :: obs => null() !< observation package
 
     ! pointer to cross section data
@@ -145,7 +144,7 @@ contains
     dfwobj%cxs => cxs
 
     ! create obs package
-    call obs_cr(dfwobj%obs, dfwobj%inobspkg)
+    call obs_cr(dfwobj%obs)
 
     ! check if dfw is enabled
     if (inunit > 0) then
@@ -207,7 +206,6 @@ contains
     call mem_allocate(this%unitconv, 'UNITCONV', this%memoryPath)
     call mem_allocate(this%lengthconv, 'LENGTHCONV', this%memoryPath)
     call mem_allocate(this%timeconv, 'TIMECONV', this%memoryPath)
-    call mem_allocate(this%inobspkg, 'INOBSPKG', this%memoryPath)
     call mem_allocate(this%icalcvelocity, 'ICALCVELOCITY', this%memoryPath)
     call mem_allocate(this%isavvelocity, 'ISAVVELOCITY', this%memoryPath)
     call mem_allocate(this%nedges, 'NEDGES', this%memoryPath)
@@ -219,7 +217,6 @@ contains
     this%unitconv = DONE
     this%lengthconv = DONE
     this%timeconv = DONE
-    this%inobspkg = 0
     this%icalcvelocity = 0
     this%isavvelocity = 0
     this%nedges = 0
@@ -301,7 +298,7 @@ contains
     integer(I4B) :: isize
     type(SwfDfwParamFoundType) :: found
     type(CharacterStringType), dimension(:), pointer, &
-      contiguous :: obs6_fnames
+      contiguous :: obs6_fnames, obs6_mempaths
 
     ! update defaults with idm sourced values
     call mem_set_value(this%icentral, 'ICENTRAL', &
@@ -342,13 +339,10 @@ contains
       end if
 
       call mem_setptr(obs6_fnames, 'OBS6_FILENAME', this%input_mempath)
+      call mem_setptr(obs6_mempaths, 'OBS6_MEMPATH', this%input_mempath)
 
       found%obs6_filename = .true.
-      this%obs%inputFilename = obs6_fnames(1)
-      this%obs%active = .true.
-      this%inobspkg = GetUnit()
-      this%obs%inUnitObs = this%inobspkg
-      call openfile(this%inobspkg, this%iout, this%obs%inputFilename, 'OBS')
+      this%obs%input_mempath = obs6_mempaths(1)
       call this%obs%obs_df(this%iout, this%packName, this%filtyp, this%dis)
       call this%dfw_df_obs()
     end if
@@ -1262,7 +1256,6 @@ contains
     call mem_deallocate(this%lastedge)
 
     ! obs package
-    call mem_deallocate(this%inobspkg)
     call this%obs%obs_da()
     deallocate (this%obs)
     nullify (this%obs)

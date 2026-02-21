@@ -7,11 +7,15 @@
 module IdmLoadModule
 
   use KindModule, only: DP, I4B, LGP
-  use SimVariablesModule, only: errmsg
+  use SimVariablesModule, only: errmsg, simfile, idm_context
   use ConstantsModule, only: LINELENGTH, LENMEMPATH, LENMODELNAME, &
-                             LENEXCHANGENAME, LENCOMPONENTNAME
+                             LENVARNAME, LENEXCHANGENAME, LENCOMPONENTNAME
   use SimModule, only: store_error, count_errors, store_error_filename
+  use MemoryManagerModule, only: mem_setptr, mem_allocate, mem_reallocate, &
+                                 mem_deallocate, get_isize
+  use MemoryHelperModule, only: create_mem_path, split_mem_path
   use ListModule, only: ListType
+  use CharacterStringModule, only: CharacterStringType
   use InputLoadTypeModule, only: StaticPkgLoadBaseType, &
                                  DynamicPkgLoadBaseType, &
                                  ModelDynamicPkgsType, &
@@ -71,11 +75,7 @@ contains
   !> @brief idm deallocate routine
   !<
   subroutine idm_da(iout)
-    use SimVariablesModule, only: idm_context
-    use MemoryManagerModule, only: mem_setptr
-    use MemoryHelperModule, only: create_mem_path, split_mem_path
     use MemoryManagerExtModule, only: memorystore_remove
-    use CharacterStringModule, only: CharacterStringType
     integer(I4B), intent(in) :: iout
     type(CharacterStringType), dimension(:), contiguous, &
       pointer :: mempaths
@@ -103,6 +103,96 @@ contains
     call memorystore_remove('SIM', 'NAM', idm_context)
     call memorystore_remove(component='SIM', context=idm_context)
   end subroutine idm_da
+
+  function subpkg_load(component_type, subcomponent_type, modelname, &
+                       pkgname, pkgtype, filename, modelfname, &
+                       nc_vars, iout) result(mempath)
+    use BlockParserModule, only: BlockParserType
+    use InputOutputModule, only: openfile, getunit
+    use NCFileVarsModule, only: NCFileVarsType
+    use InputLoadTypeModule, only: SubPackageListType
+    use SourceCommonModule, only: idm_utl_type, idm_subcomponent_type
+    character(len=*), intent(in) :: component_type
+    character(len=*), intent(in) :: subcomponent_type
+    character(len=*), intent(in) :: pkgname
+    character(len=*), intent(in) :: pkgtype
+    character(len=*), intent(in) :: filename
+    character(len=*), intent(in) :: modelname
+    character(len=*), intent(in) :: modelfname
+    type(NCFileVarsType), pointer, intent(in) :: nc_vars
+    integer(I4B), intent(in) :: iout
+    type(BlockParserType) :: parser
+    type(SubPackageListType) :: subpkg_list
+    character(len=LENMEMPATH) :: mempath
+    character(len=LENCOMPONENTNAME) :: ctype, sctype
+    character(len=LINELENGTH) :: subpkg_fname
+    character(len=LINELENGTH) :: kw, kw2, iotag
+    integer(I4B) :: n, ierr, inunit
+    logical(LGP) :: isfound, endOfBlock
+
+    ! initialize
+    mempath = ''
+
+    inunit = getunit()
+    call openfile(inunit, 0, trim(adjustl(filename)), pkgtype, &
+                  'FORMATTED', 'SEQUENTIAL', 'OLD')
+    call parser%Initialize(inunit, 0)
+
+    ! get options block
+    call parser%GetBlock('OPTIONS', isfound, ierr, &
+                         supportOpenClose=.true., blockRequired=.false.)
+
+    ! create subpackage list
+    call subpkg_list%create(component_type, modelname)
+
+    ! parse options block if detected
+    do
+      if (.not. isfound) exit
+
+      ! initialize per tag
+      ctype = ''
+      sctype = ''
+      iotag = ''
+      subpkg_fname = ''
+
+      ! process line
+      call parser%GetNextLine(endOfBlock)
+
+      ! exit if none
+      if (endOfBlock) exit
+
+      ! try reading first 2 line tags
+      call parser%GetStringCaps(kw)
+      call parser%GetStringCaps(kw2)
+
+      if (kw2 == 'FILEIN') then
+        if (idm_utl_type(component_type, kw)) then
+          iotag = kw
+          ctype = 'UTL'
+          sctype = idm_subcomponent_type(component_type, kw)
+          call parser%GetString(subpkg_fname, .false.)
+          call subpkg_list%add(iotag, ctype, sctype, subpkg_fname)
+        end if
+      end if
+    end do
+
+    if (mempath == '') mempath = create_mem_path(modelname, pkgname, idm_context)
+    call subpkg_list%set_names(subcomponent_type, pkgname, mempath, modelfname)
+
+    ! load idm integrated subpackages
+    do n = 1, subpkg_list%pnum
+      ! load subpackage
+      call input_load(subpkg_list%component_types(n), &
+                      subpkg_list%subcomponent_types(n), &
+                      modelname, &
+                      subpkg_list%subcomponent_names(n), &
+                      subpkg_list%pkgtypes(n), &
+                      subpkg_list%filenames(n), &
+                      modelfname, nc_vars, iout)
+    end do
+
+    call parser%clear()
+  end function subpkg_load
 
   !> @brief load an integrated model package from supported source
   !<
@@ -154,7 +244,7 @@ contains
       call input_load(static_loader%subpkg_list%component_types(n), &
                       static_loader%subpkg_list%subcomponent_types(n), &
                       static_loader%mf6_input%component_name, &
-                      static_loader%subpkg_list%subcomponent_types(n), &
+                      static_loader%subpkg_list%subcomponent_names(n), &
                       static_loader%subpkg_list%pkgtypes(n), &
                       static_loader%subpkg_list%filenames(n), &
                       modelfname, nc_vars, iout)
@@ -172,9 +262,11 @@ contains
     use NCFileVarsModule, only: NCFileVarsType
     use SourceLoadModule, only: open_source_file, netcdf_context
     use IdmDfnSelectorModule, only: idm_integrated
+    use SourceCommonModule, only: idm_utl_type
     type(ModelPackageInputsType), intent(inout) :: model_pkg_inputs
     integer(i4B), intent(in) :: iout
     type(NCFileVarsType), pointer :: nc_vars
+    character(len=LENMEMPATH) :: mempath
     integer(I4B) :: itype, ipkg
 
     nc_vars => netcdf_context(model_pkg_inputs%modeltype, &
@@ -188,7 +280,7 @@ contains
         if (idm_integrated(model_pkg_inputs%component_type, &
                            model_pkg_inputs%pkglist(itype)%subcomponent_type)) &
           then
-          ! only load if model pkg can read from input context
+          ! load package to memory
           call input_load(model_pkg_inputs%component_type, &
                           model_pkg_inputs%pkglist(itype)%subcomponent_type, &
                           model_pkg_inputs%modelname, &
@@ -197,6 +289,20 @@ contains
                           model_pkg_inputs%pkglist(itype)%filenames(ipkg), &
                           model_pkg_inputs%modelfname, nc_vars, iout)
         else
+          ! load supported subpackages
+          mempath = &
+            subpkg_load(model_pkg_inputs%component_type, &
+                        model_pkg_inputs%pkglist(itype)%subcomponent_type, &
+                        model_pkg_inputs%modelname, &
+                        model_pkg_inputs%pkglist(itype)%pkgnames(ipkg), &
+                        model_pkg_inputs%pkglist(itype)%pkgtype, &
+                        model_pkg_inputs%pkglist(itype)%filenames(ipkg), &
+                        model_pkg_inputs%modelfname, nc_vars, iout)
+
+          if (mempath /= '') then
+            model_pkg_inputs%pkglist(itype)%mempaths(ipkg) = mempath
+          end if
+
           ! open input file for package parser
           model_pkg_inputs%pkglist(itype)%inunits(ipkg) = &
             open_source_file(model_pkg_inputs%pkglist(itype)%pkgtype, &
@@ -215,11 +321,7 @@ contains
   !> @brief load model namfiles and model package files
   !<
   subroutine load_models(iout)
-    use MemoryHelperModule, only: create_mem_path
-    use MemoryManagerModule, only: mem_setptr
-    use CharacterStringModule, only: CharacterStringType
     use DistributedSimModule, only: DistributedSimType, get_dsim
-    use SimVariablesModule, only: idm_context, simfile
     use ModelPackageInputsModule, only: ModelPackageInputsType
     use SourceCommonModule, only: idm_component_type, inlen_check
     use SourceLoadModule, only: load_modelnam
@@ -282,14 +384,9 @@ contains
   !> @brief load exchange files
   !<
   subroutine load_exchanges(iout)
-    use MemoryHelperModule, only: create_mem_path
-    use MemoryManagerModule, only: mem_setptr, mem_allocate, &
-                                   mem_deallocate, get_isize
-    use CharacterStringModule, only: CharacterStringType
-    use SimVariablesModule, only: idm_context, simfile
     use DistributedSimModule, only: DistributedSimType, get_dsim
     use SourceCommonModule, only: idm_subcomponent_type, ifind_charstr, &
-                                  inlen_check
+                                  inlen_check, idm_utl_type
     use SourceLoadModule, only: create_input_loader, remote_model_ndim
     integer(I4B), intent(in) :: iout
     type(DistributedSimType), pointer :: ds
@@ -317,7 +414,7 @@ contains
     character(len=LENCOMPONENTNAME) :: sc_type, sc_name, mtype
     class(StaticPkgLoadBaseType), pointer :: static_loader
     class(DynamicPkgLoadBaseType), pointer :: dynamic_loader
-    integer(I4B) :: n, m1_idx, m2_idx, irem, isize
+    integer(I4B) :: n, m, m1_idx, m2_idx, irem, isize
 
     ! get model mask
     ds => get_dsim()
@@ -398,7 +495,7 @@ contains
         write (sc_name, '(a,i0)') trim(sc_type)//'_', n
 
         ! create and set exchange mempath
-        mempath = create_mem_path('EXG', sc_name, idm_context)
+        mempath = create_mem_path(sc_name, 'EXG', idm_context)
         emempaths(n) = mempath
 
         ! allocate and set exgid
@@ -406,10 +503,28 @@ contains
         exgid = n
 
         ! create exchange loader
-        static_loader => create_input_loader('EXG', sc_type, 'EXG', sc_name, &
+        static_loader => create_input_loader('EXG', sc_type, sc_name, 'EXG', &
                                              exgtype, 'SIM', efname, simfile)
         ! load static input
         dynamic_loader => static_loader%load(iout)
+
+        ! create subpackage list
+        call static_loader%create_subpkg_list()
+
+        ! load idm integrated subpackages
+        do m = 1, static_loader%subpkg_list%pnum
+          !
+          static_loader => &
+            create_input_loader(static_loader%subpkg_list%component_types(m), &
+                                static_loader%subpkg_list%subcomponent_types(m), &
+                                static_loader%mf6_input%component_name, &
+                                static_loader%subpkg_list%subcomponent_names(m), &
+                                static_loader%subpkg_list%pkgtypes(m), &
+                                'EXCHANGE', &
+                                static_loader%subpkg_list%filenames(m), &
+                                efname)
+          dynamic_loader => static_loader%load(iout)
+        end do
 
         if (associated(dynamic_loader)) then
           errmsg = 'IDM unimplemented. Dynamic Exchanges not supported.'
@@ -516,9 +631,6 @@ contains
   !> @brief return sim input context PRINT_INPUT value
   !<
   function input_param_log() result(paramlog)
-    use MemoryHelperModule, only: create_mem_path
-    use MemoryManagerModule, only: mem_setptr
-    use SimVariablesModule, only: idm_context
     character(len=LENMEMPATH) :: simnam_mempath
     integer(I4B) :: paramlog
     integer(I4B), pointer :: p
@@ -531,10 +643,6 @@ contains
   !> @brief load simulation summary info to input context
   !<
   subroutine simnam_load_dim()
-    use MemoryHelperModule, only: create_mem_path
-    use MemoryManagerModule, only: mem_allocate, mem_setptr
-    use SimVariablesModule, only: idm_context
-    use CharacterStringModule, only: CharacterStringType
     character(len=LENMEMPATH) :: sim_mempath, simnam_mempath
     type(CharacterStringType), dimension(:), contiguous, &
       pointer :: mtypes !< model types
@@ -602,7 +710,6 @@ contains
   subroutine allocate_simnam_param(input_mempath, idt)
     use SimVariablesModule, only: simfile
     use MemoryManagerModule, only: mem_allocate
-    use CharacterStringModule, only: CharacterStringType
     use DefinitionSelectModule, only: idt_datatype
     character(len=LENMEMPATH), intent(in) :: input_mempath
     type(InputParamDefinitionType), pointer, intent(in) :: idt
@@ -645,8 +752,6 @@ contains
   subroutine simnam_allocate()
     use MemoryHelperModule, only: create_mem_path
     use MemoryManagerModule, only: get_isize, mem_allocate
-    use SimVariablesModule, only: idm_context
-    use CharacterStringModule, only: CharacterStringType
     character(len=LENMEMPATH) :: input_mempath
     type(ModflowInputType) :: mf6_input
     type(InputParamDefinitionType), pointer :: idt

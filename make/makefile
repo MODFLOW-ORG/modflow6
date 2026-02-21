@@ -137,6 +137,7 @@ $(OBJDIR)/InputDefinition.o \
 $(OBJDIR)/ListIterator.o \
 $(OBJDIR)/PtrHashTable.o \
 $(OBJDIR)/MemoryContainerIterator.o \
+$(OBJDIR)/utl-obsidm.o \
 $(OBJDIR)/utl-ncfidm.o \
 $(OBJDIR)/utl-hpcidm.o \
 $(OBJDIR)/swf-zdgidm.o \

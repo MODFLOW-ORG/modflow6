@@ -37,7 +37,7 @@ module GweEslInputModule
   character(len=16), parameter :: &
     gwe_esl_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

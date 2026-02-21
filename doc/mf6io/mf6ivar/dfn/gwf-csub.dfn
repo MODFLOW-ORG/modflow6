@@ -1,4 +1,5 @@
 # --------------------- gwf csub options ---------------------
+# mf6 subpackage utl-obs
 
 block options
 name boundnames

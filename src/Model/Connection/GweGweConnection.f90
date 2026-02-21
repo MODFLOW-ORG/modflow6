@@ -319,7 +319,7 @@ contains
       !cdl if (this%gweExchange%inmvt > 0) then
       !cdl   call this%gweExchange%mvt%mvt_ar()
       !cdl end if
-      if (this%gweExchange%inobs > 0) then
+      if (this%gweExchange%obs%active) then
         call this%gweExchange%obs%obs_ar()
       end if
     end if

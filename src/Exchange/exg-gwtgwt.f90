@@ -64,7 +64,6 @@ module GwtGwtExchangeModule
     type(TspMvtType), pointer :: mvt => null() !< water mover object
     !
     ! -- Observation package
-    integer(I4B), pointer :: inobs => null() !< unit number for GWT-GWT observations
     type(ObsType), pointer :: obs => null() !< observation object
     !
     ! -- internal data
@@ -184,7 +183,7 @@ contains
     end if
     !
     ! -- Create the obs package
-    call obs_cr(exchange%obs, exchange%inobs)
+    call obs_cr(exchange%obs)
   end subroutine gwtexchange_create
 
   !> @ brief Define GWT GWT exchange
@@ -435,7 +434,7 @@ contains
     !cdl todo: if(this%inmvt > 0) call this%mvt%mvt_bdsav(icbcfl, ibudfl, isuppress_output)
     !
     ! -- Calculate and write simulated values for observations
-    if (this%inobs /= 0) then
+    if (this%obs%active) then
       call this%gwt_gwt_save_simvals()
     end if
   end subroutine gwt_gwt_bdsav
@@ -670,6 +669,7 @@ contains
     ! -- modules
     use ConstantsModule, only: LENVARNAME
     use InputOutputModule, only: getunit, openfile
+    use MemoryManagerModule, only: mem_setptr
     use MemoryManagerExtModule, only: mem_set_value
     use CharacterStringModule, only: CharacterStringType
     use ExgGwtgwtInputModule, only: ExgGwtgwtParamFoundType
@@ -678,10 +678,12 @@ contains
     class(GwtExchangeType) :: this !<  GwtExchangeType
     integer(I4B), intent(in) :: iout
     ! -- local
+    type(CharacterStringType), dimension(:), &
+      pointer, contiguous :: obs_mempaths
     type(ExgGwtgwtParamFoundType) :: found
     character(len=LENVARNAME), dimension(4) :: adv_scheme = &
       &[character(len=LENVARNAME) :: 'UPSTREAM', 'CENTRAL', 'TVD', 'UTVD']
-    character(len=LINELENGTH) :: mvt_fname
+    character(len=LINELENGTH) :: mvt_fname, obs_fname
     !
     ! -- update defaults with values sourced from input context
     call mem_set_value(this%gwfmodelname1, 'GWFMODELNAME1', this%input_mempath, &
@@ -745,11 +747,10 @@ contains
     end if
     !
     ! -- enforce 0 or 1 OBS6_FILENAME entries in option block
-    if (filein_fname(this%obs%inputFilename, 'OBS6_FILENAME', &
+    if (filein_fname(obs_fname, 'OBS6_FILENAME', &
                      this%input_mempath, this%filename)) then
-      this%obs%active = .true.
-      this%obs%inUnitObs = GetUnit()
-      call openfile(this%obs%inUnitObs, iout, this%obs%inputFilename, 'OBS')
+      call mem_setptr(obs_mempaths, 'OBS6_MEMPATH', this%input_mempath)
+      this%obs%input_mempath = obs_mempaths(1)
     end if
     !
     write (iout, '(1x,a)') 'END OF GWT-GWT EXCHANGE OPTIONS'
@@ -790,10 +791,8 @@ contains
     call this%DisConnExchangeType%allocate_scalars()
     !
     call mem_allocate(this%inewton, 'INEWTON', this%memoryPath)
-    call mem_allocate(this%inobs, 'INOBS', this%memoryPath)
     call mem_allocate(this%iAdvScheme, 'IADVSCHEME', this%memoryPath)
     this%inewton = 0
-    this%inobs = 0
     this%iAdvScheme = 0
     !
     call mem_allocate(this%inmvt, 'INMVT', this%memoryPath)
@@ -838,7 +837,6 @@ contains
     ! -- scalars
     deallocate (this%filename)
     call mem_deallocate(this%inewton)
-    call mem_deallocate(this%inobs)
     call mem_deallocate(this%iAdvScheme)
     call mem_deallocate(this%inmvt)
     !
@@ -997,7 +995,7 @@ contains
     !
     ! -- write summary of error messages
     if (count_errors() > 0) then
-      call store_error_filename(this%obs%inputFilename)
+      call store_error_filename(this%obs%input_fname)
     end if
   end subroutine gwt_gwt_rp_obs
 
@@ -1088,7 +1086,7 @@ contains
             errmsg = 'Unrecognized observation type: '// &
                      trim(obsrv%ObsTypeId)
             call store_error(errmsg)
-            call store_error_filename(this%obs%inputFilename)
+            call store_error_filename(this%obs%input_fname)
           end select
           call this%obs%SaveOneSimval(obsrv, v)
         end do

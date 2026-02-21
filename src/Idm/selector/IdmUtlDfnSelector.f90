@@ -7,6 +7,7 @@ module IdmUtlDfnSelectorModule
                                    InputBlockDefinitionType
   use UtlHpcInputModule
   use UtlNcfInputModule
+  use UtlObsInputModule
 
   implicit none
   private
@@ -46,6 +47,8 @@ contains
       call set_param_pointer(input_definition, utl_hpc_param_definitions)
     case ('NCF')
       call set_param_pointer(input_definition, utl_ncf_param_definitions)
+    case ('OBS')
+      call set_param_pointer(input_definition, utl_obs_param_definitions)
     case default
     end select
     return
@@ -60,6 +63,8 @@ contains
       call set_param_pointer(input_definition, utl_hpc_aggregate_definitions)
     case ('NCF')
       call set_param_pointer(input_definition, utl_ncf_aggregate_definitions)
+    case ('OBS')
+      call set_param_pointer(input_definition, utl_obs_aggregate_definitions)
     case default
     end select
     return
@@ -74,6 +79,8 @@ contains
       call set_block_pointer(input_definition, utl_hpc_block_definitions)
     case ('NCF')
       call set_block_pointer(input_definition, utl_ncf_block_definitions)
+    case ('OBS')
+      call set_block_pointer(input_definition, utl_obs_block_definitions)
     case default
     end select
     return
@@ -87,6 +94,8 @@ contains
       multi_package = utl_hpc_multi_package
     case ('NCF')
       multi_package = utl_ncf_multi_package
+    case ('OBS')
+      multi_package = utl_obs_multi_package
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="UTL"'//&
@@ -103,6 +112,8 @@ contains
       call set_subpkg_pointer(subpackages, utl_hpc_subpackages)
     case ('NCF')
       call set_subpkg_pointer(subpackages, utl_ncf_subpackages)
+    case ('OBS')
+      call set_subpkg_pointer(subpackages, utl_obs_subpackages)
     case default
     end select
     return
@@ -116,6 +127,8 @@ contains
     case ('HPC')
       integrated = .true.
     case ('NCF')
+      integrated = .true.
+    case ('OBS')
       integrated = .true.
     case default
     end select

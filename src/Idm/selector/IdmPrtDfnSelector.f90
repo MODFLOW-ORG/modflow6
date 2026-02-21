@@ -12,6 +12,7 @@ module IdmPrtDfnSelectorModule
   use PrtMipInputModule
   use PrtOcInputModule
   use PrtPrpInputModule
+  use UtlObsInputModule
 
   implicit none
   private
@@ -61,6 +62,8 @@ contains
       call set_param_pointer(input_definition, prt_oc_param_definitions)
     case ('PRP')
       call set_param_pointer(input_definition, prt_prp_param_definitions)
+    case ('OBS')
+      call set_param_pointer(input_definition, utl_obs_param_definitions)
     case default
     end select
     return
@@ -85,6 +88,8 @@ contains
       call set_param_pointer(input_definition, prt_oc_aggregate_definitions)
     case ('PRP')
       call set_param_pointer(input_definition, prt_prp_aggregate_definitions)
+    case ('OBS')
+      call set_param_pointer(input_definition, utl_obs_aggregate_definitions)
     case default
     end select
     return
@@ -109,6 +114,8 @@ contains
       call set_block_pointer(input_definition, prt_oc_block_definitions)
     case ('PRP')
       call set_block_pointer(input_definition, prt_prp_block_definitions)
+    case ('OBS')
+      call set_block_pointer(input_definition, utl_obs_block_definitions)
     case default
     end select
     return
@@ -132,6 +139,8 @@ contains
       multi_package = prt_oc_multi_package
     case ('PRP')
       multi_package = prt_prp_multi_package
+    case ('OBS')
+      multi_package = utl_obs_multi_package
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="PRT"'//&
@@ -158,6 +167,8 @@ contains
       call set_subpkg_pointer(subpackages, prt_oc_subpackages)
     case ('PRP')
       call set_subpkg_pointer(subpackages, prt_prp_subpackages)
+    case ('OBS')
+      call set_subpkg_pointer(subpackages, utl_obs_subpackages)
     case default
     end select
     return
@@ -181,6 +192,8 @@ contains
     case ('OC')
       integrated = .true.
     case ('PRP')
+      integrated = .true.
+    case ('OBS')
       integrated = .true.
     case default
     end select

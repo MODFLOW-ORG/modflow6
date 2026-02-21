@@ -37,7 +37,7 @@ module SwfChdInputModule
   character(len=16), parameter :: &
     swf_chd_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

@@ -1033,6 +1033,7 @@ contains
     character(len=LENMEMPATH) :: mempathic = ''
     character(len=LENMEMPATH) :: mempathdfw = ''
     character(len=LENMEMPATH) :: mempathcxs = ''
+    character(len=LENMEMPATH) :: mempathobs = ''
     character(len=LENMEMPATH) :: mempathoc = ''
     character(len=LENMEMPATH) :: mempathsto = ''
 
@@ -1081,7 +1082,8 @@ contains
         this%inoc = 1
         mempathoc = mempath
       case ('OBS6')
-        this%inobs = inunit
+        this%inobs = 1
+        mempathobs = mempath
       case ('CHD6', 'FLW6', 'CDB6', 'ZDG6', 'PCP6', 'EVP6')
         call expandarray(bndpkgs)
         bndpkgs(size(bndpkgs)) = n
@@ -1106,7 +1108,7 @@ contains
                   this%cxs)
     end if
     call oc_cr(this%oc, this%name, mempathoc, this%inoc, this%iout)
-    call swf_obs_cr(this%obs, this%inobs)
+    call swf_obs_cr(this%obs, mempathobs, this%inobs)
 
     ! Check to make sure that required ftype's have been specified
     call this%ftype_check(indis)

@@ -33,7 +33,7 @@ module OlfDfwInputModule
   character(len=16), parameter :: &
     olf_dfw_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

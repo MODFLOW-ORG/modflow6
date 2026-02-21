@@ -10,8 +10,7 @@ module SwfGwfExchangeModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, DZERO, LENFTYPE
   use SimVariablesModule, only: errmsg, iout, model_loc_idx
-  use SimModule, only: count_errors, store_error, store_error_unit, &
-                       store_error_filename
+  use SimModule, only: count_errors, store_error, store_error_filename
   use InputOutputModule, only: getunit, openfile
   use MemoryManagerModule, only: mem_allocate
   use BaseModelModule, only: BaseModelType, GetBaseModelFromList
@@ -53,7 +52,6 @@ module SwfGwfExchangeModule
     integer(I4B), dimension(:), pointer, contiguous :: idxsymglo => null() !< mapping to global (solution) symmetric amat
     real(DP), dimension(:), pointer, contiguous :: simvals => null() !< simulated flow rate for each exchange
 
-    integer(I4B), pointer :: inobs => null() !< unit number for GWF-GWF observations
     type(ObsType), pointer :: obs => null() !< observation object
 
     ! -- table objects
@@ -167,7 +165,7 @@ contains
     end if
 
     ! Create the obs package
-    call obs_cr(this%obs, this%inobs)
+    call obs_cr(this%obs)
 
   end subroutine initialize
 
@@ -354,7 +352,6 @@ contains
     call mem_deallocate(this%ipr_flow)
     call mem_deallocate(this%ifixedcond)
     call mem_deallocate(this%nexg)
-    call mem_deallocate(this%inobs)
   end subroutine swf_gwf_da
 
   !> @ brief Allocate scalars
@@ -375,13 +372,11 @@ contains
     call mem_allocate(this%ipr_flow, 'IPR_FLOW', this%memoryPath)
     call mem_allocate(this%ifixedcond, 'IFIXEDCOND', this%memoryPath)
     call mem_allocate(this%nexg, 'NEXG', this%memoryPath)
-    call mem_allocate(this%inobs, 'INOBS', this%memoryPath)
     !
     this%ipr_input = 0
     this%ipr_flow = 0
     this%ifixedcond = 0
     this%nexg = 0
-    this%inobs = 0
   end subroutine allocate_scalars
 
   !> @brief Allocate array data, using the number of
@@ -745,7 +740,7 @@ contains
     ibudfl = 1
     !
     ! -- Calculate and write simulated values for observations
-    if (this%inobs /= 0) then
+    if (this%obs%active) then
       call this%swf_gwf_save_simvals()
     end if
   end subroutine swf_gwf_bdsav
@@ -960,7 +955,7 @@ contains
   !<
   subroutine swf_gwf_save_simvals(this)
     ! -- modules
-    use SimModule, only: store_error, store_error_unit
+    use SimModule, only: store_error
     use SimVariablesModule, only: errmsg
     use ConstantsModule, only: DZERO
     use ObserveModule, only: ObserveType
@@ -992,7 +987,7 @@ contains
             errmsg = 'Unrecognized observation type: '// &
                      trim(obsrv%ObsTypeId)
             call store_error(errmsg)
-            call store_error_unit(this%inobs)
+            call store_error_filename(this%obs%input_fname)
           end select
           call this%obs%SaveOneSimval(obsrv, v)
         end do

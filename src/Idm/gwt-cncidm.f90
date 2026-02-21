@@ -37,7 +37,7 @@ module GwtCncInputModule
   character(len=16), parameter :: &
     gwt_cnc_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-OBS         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &
