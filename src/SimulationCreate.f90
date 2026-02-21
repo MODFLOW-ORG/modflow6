@@ -227,9 +227,8 @@ contains
     type(CharacterStringType), dimension(:), contiguous, &
       pointer :: mnames !< model names
     integer(I4B) :: im
-    class(BaseModelType), pointer :: model_ptr
     class(NumericalModelType), pointer :: num_model
-    class(ExplicitModelType), pointer :: explicit_model
+    class(ExplicitModelType), pointer :: exp_model
     character(len=LINELENGTH) :: model_type
     character(len=LINELENGTH) :: fname, model_name
     integer(I4B) :: n, nr_models_glob
@@ -270,9 +269,8 @@ contains
       ! increment global model id
       model_names(n) = model_name(1:LENMODELNAME)
       model_loc_idx(n) = -1
-      model_ptr => null()
       num_model => null()
-      explicit_model => null()
+      exp_model => null()
       !
       ! -- add a new (local or global) model
       select case (model_type)
@@ -282,11 +280,7 @@ contains
           write (iout, '(4x,2a,i0,a)') trim(model_type), ' model ', &
             n, ' will be created'
           call gwf_cr(fname, n, model_names(n))
-          model_ptr => GetBaseModelFromList(basemodellist, im)
-          select type (model_ptr)
-          class is (NumericalModelType)
-            num_model => model_ptr
-          end select
+          num_model => GetNumericalModelFromList(basemodellist, im)
           model_loc_idx(n) = im
         end if
         call add_virtual_gwf_model(n, model_names(n), num_model)
@@ -296,11 +290,7 @@ contains
           write (iout, '(4x,2a,i0,a)') trim(model_type), ' model ', &
             n, ' will be created'
           call gwt_cr(fname, n, model_names(n))
-          model_ptr => GetBaseModelFromList(basemodellist, im)
-          select type (model_ptr)
-          class is (NumericalModelType)
-            num_model => model_ptr
-          end select
+          num_model => GetNumericalModelFromList(basemodellist, im)
           model_loc_idx(n) = im
         end if
         call add_virtual_gwt_model(n, model_names(n), num_model)
@@ -310,11 +300,7 @@ contains
           write (iout, '(4x,2a,i0,a)') trim(model_type), ' model ', &
             n, ' will be created'
           call gwe_cr(fname, n, model_names(n))
-          model_ptr => GetBaseModelFromList(basemodellist, im)
-          select type (model_ptr)
-          class is (NumericalModelType)
-            num_model => model_ptr
-          end select
+          num_model => GetNumericalModelFromList(basemodellist, im)
           model_loc_idx(n) = im
         end if
         call add_virtual_gwe_model(n, model_names(n), num_model)
@@ -326,11 +312,7 @@ contains
           call chf_cr(fname, n, model_names(n))
           call developmode('CHF is still under development, install the &
             &nightly build or compile from source with IDEVELOPMODE = 1.')
-          model_ptr => GetBaseModelFromList(basemodellist, im)
-          select type (model_ptr)
-          class is (NumericalModelType)
-            num_model => model_ptr
-          end select
+          num_model => GetNumericalModelFromList(basemodellist, im)
           model_loc_idx(n) = im
         end if
       case ('OLF6')
@@ -341,11 +323,7 @@ contains
           call olf_cr(fname, n, model_names(n))
           call developmode('OLF is still under development, install the &
             &nightly build or compile from source with IDEVELOPMODE = 1.')
-          model_ptr => GetBaseModelFromList(basemodellist, im)
-          select type (model_ptr)
-          class is (NumericalModelType)
-            num_model => model_ptr
-          end select
+          num_model => GetNumericalModelFromList(basemodellist, im)
           model_loc_idx(n) = im
         end if
       case ('PRT6')
@@ -354,15 +332,11 @@ contains
           write (iout, '(4x,2a,i0,a)') trim(model_type), ' model ', &
             n, ' will be created'
           call prt_cr(fname, n, model_names(n))
-          model_ptr => GetBaseModelFromList(basemodellist, im)
-          select type (model_ptr)
-          class is (ExplicitModelType)
-            explicit_model => model_ptr
-          end select
+          exp_model => GetExplicitModelFromList(basemodellist, im)
           model_loc_idx(n) = im
         end if
         ! When virtual PRT is implemented, uncomment:
-        ! call add_virtual_prt_model(n, model_names(n), explicit_model)
+        ! call add_virtual_prt_model(n, model_names(n), exp_model)
       case default
         write (errmsg, '(a,a)') &
           'Unknown simulation model type: ', trim(model_type)
