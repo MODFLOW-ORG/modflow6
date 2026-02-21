@@ -130,11 +130,14 @@ def check_output(test):
     buff = test.buffs[0] if len(test.buffs) > 0 else []
 
     if "ims_prt" in name:
-        assert any("explicit model" in line.lower() and "ims6" in line.lower()
-                   for line in buff)
+        assert any(
+            "explicit model" in line.lower() and "ims6" in line.lower() for line in buff
+        )
     elif "ems_gwf" in name:
-        assert any("numerical model" in line.lower() and "ems6" in line.lower()
-                   for line in buff)
+        assert any(
+            "numerical model" in line.lower() and "ems6" in line.lower()
+            for line in buff
+        )
 
 
 @pytest.mark.parametrize("name", cases)
