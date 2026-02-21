@@ -41,20 +41,19 @@ SOURCEDIR34=../src/Utilities/Export
 SOURCEDIR35=../src/Utilities/Idm
 SOURCEDIR36=../src/Utilities/Idm/mf6blockfile
 SOURCEDIR37=../src/Utilities/Idm/netcdf
-SOURCEDIR38=../src/Utilities/InterpolationScheme
-SOURCEDIR39=../src/Utilities/Libraries
-SOURCEDIR40=../src/Utilities/Libraries/blas
-SOURCEDIR41=../src/Utilities/Libraries/daglib
-SOURCEDIR42=../src/Utilities/Libraries/rcm
-SOURCEDIR43=../src/Utilities/Libraries/sparsekit
-SOURCEDIR44=../src/Utilities/Libraries/sparskit2
-SOURCEDIR45=../src/Utilities/Matrix
-SOURCEDIR46=../src/Utilities/Memory
-SOURCEDIR47=../src/Utilities/Observation
-SOURCEDIR48=../src/Utilities/OutputControl
-SOURCEDIR49=../src/Utilities/Performance
-SOURCEDIR50=../src/Utilities/TimeSeries
-SOURCEDIR51=../src/Utilities/Vector
+SOURCEDIR38=../src/Utilities/Libraries
+SOURCEDIR39=../src/Utilities/Libraries/blas
+SOURCEDIR40=../src/Utilities/Libraries/daglib
+SOURCEDIR41=../src/Utilities/Libraries/rcm
+SOURCEDIR42=../src/Utilities/Libraries/sparsekit
+SOURCEDIR43=../src/Utilities/Libraries/sparskit2
+SOURCEDIR44=../src/Utilities/Matrix
+SOURCEDIR45=../src/Utilities/Memory
+SOURCEDIR46=../src/Utilities/Observation
+SOURCEDIR47=../src/Utilities/OutputControl
+SOURCEDIR48=../src/Utilities/Performance
+SOURCEDIR49=../src/Utilities/TimeSeries
+SOURCEDIR50=../src/Utilities/Vector
 
 VPATH = \
 ${SOURCEDIR1} \
@@ -106,8 +105,7 @@ ${SOURCEDIR46} \
 ${SOURCEDIR47} \
 ${SOURCEDIR48} \
 ${SOURCEDIR49} \
-${SOURCEDIR50} \
-${SOURCEDIR51} 
+${SOURCEDIR50} 
 
 .SUFFIXES: .f90 .F90 .o
 
@@ -456,6 +454,7 @@ $(OBJDIR)/prt-prp.o \
 $(OBJDIR)/prt-oc.o \
 $(OBJDIR)/prt-mip.o \
 $(OBJDIR)/MethodPool.o \
+$(OBJDIR)/ExplicitModel.o \
 $(OBJDIR)/gwf-api.o \
 $(OBJDIR)/swf.o \
 $(OBJDIR)/tsp.o \
@@ -605,8 +604,7 @@ $(OBJDIR)/gwf-sfr-transient.o \
 $(OBJDIR)/gwf-sfr-steady.o \
 $(OBJDIR)/gwf-sfr-constant.o \
 $(OBJDIR)/RectangularGeometry.o \
-$(OBJDIR)/CircularGeometry.o \
-$(OBJDIR)/ExplicitModel.o
+$(OBJDIR)/CircularGeometry.o
 
 # Define the objects that make up the program
 $(PROGRAM) : $(OBJECTS)
