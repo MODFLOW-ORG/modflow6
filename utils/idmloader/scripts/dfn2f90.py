@@ -269,7 +269,6 @@ def _get_template_env() -> Environment:
         loader=template_loader,
         trim_blocks=True,
         lstrip_blocks=True,
-        line_statement_prefix="_",
         keep_trailing_newline=True,
     )
     template_env.filters["value"] = Filters.value
