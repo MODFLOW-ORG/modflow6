@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
 from pprint import pprint
+from typing import Optional
 
 from filters import Filters
 from jinja2 import Environment, FileSystemLoader
@@ -103,7 +104,7 @@ class DfnFile:
         return [p for p in self.params if p.aggregate]
 
 
-def parse_dfn(dfnfspec: Path, common: dict = None) -> DfnFile:
+def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
     """Parse a DFN file into a DfnFile object."""
     component, subcomponent = dfnfspec.stem.upper().split("-")
 
