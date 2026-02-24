@@ -103,7 +103,7 @@ class DfnFile:
         return [p for p in self.params if p.aggregate]
 
 
-def parse_dfn(dfnfspec: Path) -> DfnFile:
+def parse_dfn(dfnfspec: Path, common: dict = None) -> DfnFile:
     """Parse a DFN file into a DfnFile object."""
     component, subcomponent = dfnfspec.stem.upper().split("-")
 
@@ -126,7 +126,7 @@ def parse_dfn(dfnfspec: Path) -> DfnFile:
 
     # Parse variable entries using modflow_devtools
     with dfnfspec.open(encoding="utf-8") as f:
-        flat, _ = Dfn._load_v1_flat(f)
+        flat, _ = Dfn._load_v1_flat(f, common=common)
 
     # Track blocks in DFN order
     block_names_ordered = []
@@ -305,12 +305,21 @@ def make_all(
     )
     selector_template = template_env.get_template("IdmDfnSelector.f90.jinja")
 
+    # Load common variables for description substitution
+    common_path = DFN_PATH / "common.dfn"
+    common = None
+    if common_path.is_file():
+        if verbose:
+            print(f"  loading {common_path}")
+        with common_path.open(encoding="utf-8") as f:
+            common, _ = Dfn._load_v1_flat(f)
+
     # Parse all DFN files
     dfn_files = []
     for path in dfn_paths:
         if verbose:
             print(f"  parsing {path}")
-        dfn_files.append(parse_dfn(path))
+        dfn_files.append(parse_dfn(path, common=common))
 
     # Write component IDM files
     for dfn in dfn_files:
@@ -356,9 +365,10 @@ def _expand_dfns(dfns_arg) -> list:
     or a directory to a list of DFN Paths.
     """
     if isinstance(dfns_arg, list):
-        paths = [Path(p) for p in dfns_arg]
+        # Strip whitespace (including \r from Windows line endings) from each path
+        paths = [Path(str(p).strip()) for p in dfns_arg]
     elif isinstance(dfns_arg, (str, Path)):
-        paths = [Path(dfns_arg)]
+        paths = [Path(str(dfns_arg).strip())]
     else:
         raise TypeError(f"Unexpected type: {type(dfns_arg)}")
 
@@ -378,7 +388,7 @@ def _expand_dfns(dfns_arg) -> list:
             # Check if it's a simple filename that needs DFN_PATH prepended
             if len(path.parts) == 1:
                 path = DFN_PATH / path
-            if path.is_file():
+            if path.exists() and path.is_file():
                 result.append(path)
 
     return result
