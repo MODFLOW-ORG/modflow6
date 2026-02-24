@@ -6,8 +6,8 @@ module IdmOlfDfnSelectorModule
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
   use OlfNamInputModule
-  use OlfDis2DInputModule
-  use OlfDisv2DInputModule
+  use OlfDis2dInputModule
+  use OlfDisv2dInputModule
   use OlfDfwInputModule
   use OlfIcInputModule
   use OlfOcInputModule

@@ -1,5 +1,5 @@
 ! ** Do Not Modify! MODFLOW 6 system generated file. **
-module OlfDisv2DInputModule
+module OlfDisv2dInputModule
   use ConstantsModule, only: LENVARNAME
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
@@ -590,4 +590,4 @@ module OlfDisv2DInputModule
     ) &
     ]
 
-end module OlfDisv2DInputModule
+end module OlfDisv2dInputModule

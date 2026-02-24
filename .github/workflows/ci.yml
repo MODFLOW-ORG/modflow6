@@ -68,6 +68,16 @@ jobs:
       - name: Check CITATION.cff
         run: pixi run check-citations
 
+      - name: Check generated Fortran IDM files are up to date
+        run: |
+          pixi run update-fortran-definitions
+          if ! git diff --exit-code src/Idm/; then
+            echo "::error::Generated Fortran IDM files are out of date!"
+            echo "::error::Run 'pixi run update-fortran-definitions' and commit changes."
+            git diff --stat src/Idm/
+            exit 1
+          fi
+
   build:
     name: Build
     runs-on: ubuntu-22.04

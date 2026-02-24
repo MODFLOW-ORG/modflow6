@@ -374,10 +374,12 @@ def _expand_dfns(dfns_arg) -> list:
                     p = DFN_PATH / fname
                     if p.is_file():
                         result.append(p)
-        elif path.is_file():
+        else:
+            # Check if it's a simple filename that needs DFN_PATH prepended
             if len(path.parts) == 1:
                 path = DFN_PATH / path
-            result.append(path)
+            if path.is_file():
+                result.append(path)
 
     return result
 
