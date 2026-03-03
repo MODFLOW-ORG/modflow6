@@ -24,6 +24,7 @@ jobs:
           pixi update --json | pixi exec pixi-diff-to-markdown >> diff.md
 
       - uses: peter-evans/create-pull-request@v8
+        id: create-pr
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: update/pixi-lock
@@ -32,3 +33,10 @@ jobs:
           body-path: diff.md
           add-paths: pixi.lock
           author: "GitHub <noreply@github.com>"
+      
+      - name: Trigger CI workflow
+        if: steps.create-pr.outputs.pull-request-number
+        run: gh workflow run ci.yml --ref update/pixi-lock
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
