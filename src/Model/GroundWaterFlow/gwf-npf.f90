@@ -457,7 +457,7 @@ contains
     ! local
     integer(I4B) :: n
     real(DP) :: satn
-    
+
     ! Perform wetting and drying
     if (this%inewton /= 1) then
       call this%wd(kiter, hnew)

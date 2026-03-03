@@ -61,7 +61,7 @@ contains
     packobj%id = id
     packobj%ibcnum = ibcnum
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
-  
+
   end subroutine sfb_create
 
   !> @brief Formulate the HCOF and RHS terms
@@ -87,7 +87,7 @@ contains
 
       this%hcof(i) = DZERO
       this%rhs(i) = npf_krel(node) * npf_k33(node) * this%dis%area(node) ! times the unit gradient
-      
+
     end do
 
   end subroutine sfb_cf
