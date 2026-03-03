@@ -1,5 +1,5 @@
 # Test the use of the atmospheric boundary condition utility used in conjunction
-# with the SFE advanced package.  This test uses four cells that each have a
+# with the SFE advanced package.  This test uses four cells that each host a
 # single reach. Channel flow characteristics are unrealistic: Manning's n is
 # unrealistically low and slope is extremely high. These conditions result in
 # an extremely high streamflow velocity that results in nearly all of the heat
@@ -24,6 +24,8 @@ import pytest
 from framework import TestFramework
 
 cases = ["sfe-abc"]
+
+DCTOK = 273.16
 
 # Model units
 length_units = "m"
@@ -58,7 +60,7 @@ laytyp = 1
 sfr_evaprate = 0.0
 rhk = 0.0
 rwid = 1.0
-strm_temp = 11.0
+strm_temp = 11.0 
 surf_Q_in = [
     [10.0],
 ]
@@ -67,6 +69,7 @@ surf_Q_in = [
 # sensible and latent heat flux parameter values
 wspd = [0.0, 0.0, 126005.30, 126005.30]  # unrealistically high to drive a -1C change
 tatm = [0.0, 5.0, 5.0, 5.0]  # used by lwr, shf, lhf
+tatm = [t + DCTOK for t in tatm]
 # shortwave radiation parameter values
 
 # unrealistically high to drive a 1 deg C rise in stream temperature
@@ -474,19 +477,19 @@ def build_models(idx, test):
 
 
 def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
-    L = (2499.64 - (2.51 * updated_strm_temp)) * 1000
+    L = (2499.64 - (2.51 * (updated_strm_temp - DCTOK)))
     e_w = 6.1275 * math.exp(
-        17.2693882 * (updated_strm_temp / (updated_strm_temp + 273.16 - 35.86))
+        17.2693882 * ((updated_strm_temp - DCTOK) / (updated_strm_temp - 35.86))
     )
-    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + 273.16 - 35.86)))
+    e_s = 6.1275 * math.exp(17.2693882 * ((tatm - DCTOK) / (tatm - 35.86)))
     e_a = (rh / 100) * e_s
     vap_press_deficit = e_w - e_a
     wind_function = wf_int + wf_slope * wspd
     Ev = wind_function * vap_press_deficit
     lhf_ener_per_sqm = Ev * L * rhow
-
+    
     ener_transfer = lhf_ener_per_sqm * delr * mf_strm_wid
-
+    
     return -ener_transfer
 
 
@@ -511,7 +514,7 @@ def check_output(idx, test):
     # confirm that the energy added to the stream results in a -1C change in temp
     # temperature gradient
 
-    tgrad = tatm - strm_temp
+    tgrad = (tatm - DCTOK) - strm_temp
     shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
     swr_ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
 
@@ -520,7 +523,7 @@ def check_output(idx, test):
     strt_strm_temp = strm_temp
     updated_strm_temp = strm_temp
     while chng > hclose:
-        ener_transfer = calc_ener_transfer(updated_strm_temp, mf_strm_wid)
+        ener_transfer = calc_ener_transfer(updated_strm_temp + DCTOK, mf_strm_wid)
         temp_change = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
         updated_temp = strt_strm_temp + temp_change
         chng = abs(updated_strm_temp - updated_temp)
