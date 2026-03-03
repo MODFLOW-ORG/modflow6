@@ -24,12 +24,14 @@ module UzrFlowModule
   type, extends(GwfNpfExtType) :: UzrFlowType
     integer(I4B), pointer, dimension(:), contiguous :: iunsat => null() !< see UZR
     integer(I4B), pointer :: kr_averaging => null() !< see UZR
+    real(DP), pointer, dimension(:), contiguous :: krel => null() !< pointer to NPF k_r
     class(SoilModelType), pointer :: soil_model => null() !< soil model used to get relative permeability
     class(DisBaseType), pointer :: gwf_dis => null()
     type(GwfNpfType), pointer :: gwf_npf => null()
   contains
     procedure :: initialize
     procedure :: is_active => uft_is_active
+    procedure :: cf => uft_cf
     procedure :: fc => uft_fc
     procedure :: fn => uft_fn
     procedure :: cq => uft_cq
@@ -56,6 +58,8 @@ contains
     this%gwf_dis => dis
     this%gwf_npf => npf
 
+    this%krel => this%gwf_npf%krel
+
   end subroutine initialize
 
   function uft_is_active(this, n, m) result(is_active)
@@ -70,6 +74,20 @@ contains
     end if
 
   end function uft_is_active
+
+  subroutine uft_cf(this, kiter, n)
+    class(UzrFlowType), intent(inout) :: this
+    integer(I4B), intent(in) :: kiter
+    integer(I4B), intent(in) :: n
+    ! local
+    real(DP) :: z_n, psi
+
+    ! calculate k_r for node n
+    z_n = DHALF * (this%gwf_dis%bot(n) + this%gwf_dis%top(n))
+    psi = this%gwf_npf%hnew(n) - z_n
+    this%krel(n) = this%soil_model%krelative(psi, n)
+
+  end subroutine uft_cf
 
   subroutine uft_fc(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
     class(UzrFlowType), intent(inout) :: this
@@ -136,28 +154,15 @@ contains
     ! local
     real(DP) :: sat_cond !< conductance at full saturation
     real(DP) :: cond !< conductance at current saturation
-    real(DP) :: z_n !< the nodal elevation for n
-    real(DP) :: z_m !< the nodal elevation for m
-    real(DP) :: psi !< the pressure head
-    real(DP) :: kr_n !< rel. permeability for node n
-    real(DP) :: kr_m !< rel. permeability for node m
     real(DP) :: kr_avg !< weighted rel. permeability between nodes
 
     coeffs(:) = DZERO
 
     sat_cond = this%gwf_npf%condsat(this%gwf_dis%con%jas(ipos))
 
-    ! calculate k_r
-    z_n = DHALF * (this%gwf_dis%bot(n) + this%gwf_dis%top(n))
-    psi = hnew(n) - z_n
-    kr_n = this%soil_model%krelative(psi, n)
-
-    z_m = DHALF * (this%gwf_dis%bot(m) + this%gwf_dis%top(m))
-    psi = hnew(m) - z_m
-    kr_m = this%soil_model%krelative(psi, m)
-
     ! averaging of k_r
-    kr_avg = kr_averaging(kr_n, kr_m, hnew(n), hnew(m), this%kr_averaging)
+    kr_avg = kr_averaging(this%krel(n), this%krel(m), hnew(n), hnew(m), &
+                          this%kr_averaging)
 
     ! calculate unsaturated conductance
     cond = kr_avg * sat_cond
@@ -196,12 +201,12 @@ contains
       iup = m
     end if
 
-    ! calculate k_up
-    z_up = DHALF * (this%gwf_dis%bot(iup) + this%gwf_dis%top(iup))
-    psi = hnew(iup) - z_up
-    kr_up = this%soil_model%krelative(psi, iup)
+    ! upstream k_relative
+    kr_up = this%krel(iup)
 
     ! dkr/dh
+    z_up = DHALF * (this%gwf_dis%bot(iup) + this%gwf_dis%top(iup))
+    psi = hnew(iup) - z_up
     shift = 1.0e-6
     if (iup == m) then
       dkrdh_n = DZERO

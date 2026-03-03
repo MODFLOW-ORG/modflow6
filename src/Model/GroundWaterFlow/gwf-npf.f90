@@ -68,6 +68,7 @@ module GwfNpfModule
     real(DP), dimension(:), pointer, contiguous :: k11 => null() !< hydraulic conductivity; if anisotropic, then this is Kx prior to rotation
     real(DP), dimension(:), pointer, contiguous :: k22 => null() !< hydraulic conductivity; if specified then this is Ky prior to rotation
     real(DP), dimension(:), pointer, contiguous :: k33 => null() !< hydraulic conductivity; if specified then this is Kz prior to rotation
+    real(DP), dimension(:), pointer, contiguous :: krel => null() !< relative permeability; unless UZR flow is active in a cell, this is 1
     real(DP), dimension(:), pointer, contiguous :: k11input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
     real(DP), dimension(:), pointer, contiguous :: k22input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
     real(DP), dimension(:), pointer, contiguous :: k33input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
@@ -449,21 +450,30 @@ contains
   !> @brief Routines associated fill coefficients
   !<
   subroutine npf_cf(this, kiter, nodes, hnew)
-    ! -- dummy
     class(GwfNpfType) :: this
     integer(I4B) :: kiter
     integer(I4B), intent(in) :: nodes
     real(DP), intent(inout), dimension(nodes) :: hnew
-    ! -- local
+    ! local
     integer(I4B) :: n
     real(DP) :: satn
-    !
-    ! -- Perform wetting and drying
+    
+    ! Perform wetting and drying
     if (this%inewton /= 1) then
       call this%wd(kiter, hnew)
     end if
-    !
-    ! -- Calculate saturation for convertible cells
+
+    ! external flow calculation
+    ! TODO_UZR: how does this work with wetting/drying and thksat calculation
+    if (associated(this%flow_extension)) then
+      do n = 1, this%dis%nodes
+        if (this%flow_extension%is_active(n, n)) then
+          call this%flow_extension%cf(kiter, n)
+        end if
+      end do
+    end if
+
+    ! Calculate saturation for convertible cells
     do n = 1, this%dis%nodes
       if (this%icelltype(n) /= 0) then
         if (this%ibound(n) == 0) then
@@ -474,6 +484,7 @@ contains
         this%sat(n) = satn
       end if
     end do
+
   end subroutine npf_cf
 
   !> @brief Formulate coefficients
@@ -1111,6 +1122,7 @@ contains
     call mem_deallocate(this%k11)
     call mem_deallocate(this%k22)
     call mem_deallocate(this%k33)
+    call mem_deallocate(this%krel)
     call mem_deallocate(this%k11input)
     call mem_deallocate(this%k22input)
     call mem_deallocate(this%k33input)
@@ -1272,6 +1284,7 @@ contains
                       this%memoryPath)
     call mem_allocate(this%icelltype, ncells, 'ICELLTYPE', this%memoryPath)
     call mem_allocate(this%k11, ncells, 'K11', this%memoryPath)
+    call mem_allocate(this%krel, ncells, 'KREL', this%memoryPath)
     call mem_allocate(this%sat, ncells, 'SAT', this%memoryPath)
     call mem_allocate(this%condsat, njas, 'CONDSAT', this%memoryPath)
     !
@@ -1309,6 +1322,7 @@ contains
       this%angle3(n) = DZERO
       this%wetdry(n) = DZERO
       this%nodekchange(n) = DZERO
+      this%krel(n) = DONE
     end do
     !
     ! -- allocate variable names

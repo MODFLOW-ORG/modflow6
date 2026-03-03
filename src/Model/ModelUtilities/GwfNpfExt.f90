@@ -7,6 +7,7 @@ module GwfNpfExtModule
   type, abstract, public :: GwfNpfExtType
   contains
     procedure(is_active_if), deferred :: is_active
+    procedure(cf_if), deferred :: cf
     procedure(fc_if), deferred :: fc
     procedure(fn_if), deferred :: fn
     procedure(cq_if), deferred :: cq
@@ -20,6 +21,12 @@ module GwfNpfExtModule
       integer(I4B), intent(in) :: m
       logical(LGP) :: is_active
     end function
+    subroutine cf_if(this, kiter, n)
+      import GwfNpfExtType, I4B
+      class(GwfNpfExtType), intent(inout) :: this
+      integer(I4B), intent(in) :: kiter
+      integer(I4B), intent(in) :: n
+    end subroutine
     subroutine fc_if(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
       import GwfNpfExtType, MatrixBaseType, I4B, DP
       class(GwfNpfExtType), intent(inout) :: this
