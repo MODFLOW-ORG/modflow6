@@ -36,11 +36,6 @@ on:
       - "doc/**.xlsx"
       - ".hpc/**"
   workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Branch to test'
-        required: false
-        default: 'develop'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
