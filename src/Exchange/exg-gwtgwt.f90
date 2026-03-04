@@ -23,7 +23,7 @@ module GwtGwtExchangeModule
   use VirtualModelModule, only: get_virtual_model
   use DisConnExchangeModule, only: DisConnExchangeType
   use GwtModule, only: GwtModelType
-  use TspMvtModule, only: TspMvtType
+  use TspExchangeMoverModule, only: TspExchangeMoverType, xmvt_cr
   use VirtualModelModule, only: VirtualModelType
   use ObserveModule, only: ObserveType
   use ObsModule, only: ObsType
@@ -61,7 +61,7 @@ module GwtGwtExchangeModule
     !
     ! -- Mover transport package
     integer(I4B), pointer :: inmvt => null() !< unit number for mover transport (0 if off)
-    type(TspMvtType), pointer :: mvt => null() !< water mover object
+    type(TspExchangeMoverType), pointer :: mvt => null() !< water mover object
     !
     ! -- Observation package
     integer(I4B), pointer :: inobs => null() !< unit number for GWT-GWT observations
@@ -769,7 +769,7 @@ contains
     ! -- Create and initialize the mover object  Here, fmi is set to the one
     !    for gwtmodel1 so that a call to save flows has an associated dis
     !    object.
-    call mvt_cr(this%mvt, this%name, this%inmvt, iout, this%gwtmodel1%fmi, &
+    call xmvt_cr(this%mvt, this%name, this%inmvt, iout, this%gwtmodel1%fmi, &
                 this%gwtmodel1%eqnsclfac, this%gwtmodel1%depvartype, &
                 gwfmodelname1=this%gwfmodelname1, &
                 gwfmodelname2=this%gwfmodelname2, &

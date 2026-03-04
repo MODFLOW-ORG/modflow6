@@ -32,6 +32,7 @@ modflow_sources = files(
     'Exchange' / 'DisConnExchange.f90',
     'Exchange' / 'GhostNode.f90',
     'Exchange' / 'GwfExchangeMover.f90',
+    'Exchange' / 'TspExchangeMover.f90',
     'Exchange' / 'NumericalExchange.f90',
     'Exchange' / 'exg-chfgwf.f90',
     'Exchange' / 'exg-gwfgwf.f90',
