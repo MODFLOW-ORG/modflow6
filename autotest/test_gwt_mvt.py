@@ -101,7 +101,6 @@ for i in np.arange(nper):
 
 
 def build_gwf_model(sim, gwfname, mod_num):
-
     # Instantiating MODFLOW 6 groundwater flow model
     gwf = flopy.mf6.ModflowGwf(
         sim,
@@ -231,7 +230,6 @@ def build_gwf_model(sim, gwfname, mod_num):
 
 
 def build_gwt_model(sim, gwtname, mod_num):
-
     # Instantiating GWT model
     gwt = flopy.mf6.ModflowGwt(sim, modelname=gwtname, model_nam_file=f"{gwtname}.nam")
 
@@ -343,7 +341,6 @@ def build_gwt_model(sim, gwtname, mod_num):
 
 
 def build_models(idx, test):
-
     # Base MF6 GWF model type
     ws = test.workspace
     name = cases[idx]
