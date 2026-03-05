@@ -530,7 +530,7 @@ def build_models(idx, test):
     # Instantiate solver for the flow models
     sim = add_flow_model_solvers(sim, gwf_models, name)
 
-    # Instantiate solver for teh transport models
+    # Instantiate solver for the transport models
     sim = add_transport_model_solvers(sim, gwt_models, name)
 
     # Next, add the simulation-level GWF-GWF and GWT-GWT movers:
