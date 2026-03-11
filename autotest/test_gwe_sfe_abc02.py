@@ -60,7 +60,7 @@ laytyp = 1
 sfr_evaprate = 0.0
 rhk = 0.0
 rwid = 1.0
-strm_temp = 11.0 
+strm_temp = 11.0
 surf_Q_in = [
     [10.0],
 ]
@@ -477,7 +477,7 @@ def build_models(idx, test):
 
 
 def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
-    L = (2499.64 - (2.51 * (updated_strm_temp - DCTOK)))
+    L = 2499.64 - (2.51 * (updated_strm_temp - DCTOK))
     e_w = 6.1275 * math.exp(
         17.2693882 * ((updated_strm_temp - DCTOK) / (updated_strm_temp - 35.86))
     )
@@ -487,9 +487,9 @@ def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
     wind_function = wf_int + wf_slope * wspd
     Ev = wind_function * vap_press_deficit
     lhf_ener_per_sqm = Ev * L * rhow
-    
+
     ener_transfer = lhf_ener_per_sqm * delr * mf_strm_wid
-    
+
     return -ener_transfer
 
 
