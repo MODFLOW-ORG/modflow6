@@ -23,3 +23,9 @@ description = "The default values for DENSITY\\_WATER, HEAT\\_CAPACITY\\_WATER, 
 section = "fixes"
 subsection = "internal"
 description = "Resolved mass-balance errors in the Central and UTVD numerical schemes caused by inconsistent interpretation of cell-to-interface distances (cl1/cl2)."
+
+[[items]]
+section = "fixes"
+subsection = "exchanges"
+description = "When a MVR connection was included as part of an exchange between two models, it was possible to list a model name in the PACKAGES block of the MVR input file that is not one of the two models included in the exchange.  A check was added that reports an error message stating that a model name listed in the exchange MVR input file is not one of the two models connected by the exchange."
+

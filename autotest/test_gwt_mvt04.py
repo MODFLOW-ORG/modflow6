@@ -2,9 +2,17 @@
 Test problem for GWT with MVT active.  Another autotest will check this autotest
 in parallel.
 
-Test that the MVT successfully transfers solute from two models is successfully
-blended into a third receiving model.  It is expected that is will work fine in
-serial, the check is will it work in parallel.
+Test to ensure MVT successfully transfers solute from two different upstream models
+to a receiving downstream model.  The resulting concentration in the downstream
+model should reflect a blended concentration.  It is expected that is will work fine in
+serial, the check is to ensure it works in parallel,
+
+Note: A second use of this test is to insert the name of a third model into an
+      exchange mover where that third model name is not a part of the original
+      exchange.  That is, an exchange is between two models and so its possible
+      that the user specifies, or lists, a legitimate model name (meaning it is
+      an actual model in the simulation) in the exchange's mover input but that
+      model name is not part of the present exchange.
 
  Model configuration
 
@@ -41,7 +49,7 @@ from framework import TestFramework
 
 # Base simulation and model name and workspace
 
-cases = ["mvt"]
+cases = ["mvt", "mvrfail"]
 
 # model units
 length_units = "meters"
@@ -405,7 +413,7 @@ def add_transport_model_solvers(sim, gwt_models, name):
     return sim
 
 
-def add_a_gwf_gwf_conn(sim, modnam_up, modnam_dn):
+def add_a_gwf_gwf_conn(sim, modnam_up, modnam_dn, idx=0):
     gwfgwf_data = [
         ((0, 0, ncol - 1), (0, 0, 0), 1, delr / 2.0, delr / 2.0, delc, 0.0, delr)
     ]
@@ -428,10 +436,25 @@ def add_a_gwf_gwf_conn(sim, modnam_up, modnam_dn):
     dn_mod_id = get_only_digit(modnam_dn)
 
     maxmvr, maxpackages = 1, 2
+    # when idx == 1, test is designed to fail because of errant modelname in
+    # exchange mover input
+    if idx == 1:
+        maxmvr, maxpackages = 1, 3
+
     mvrpack_sim = [
         [modnam_up, "SFR-" + str(up_mod_id)],
         [modnam_dn, "SFR-" + str(dn_mod_id)],
     ]
+    if idx == 1:
+        dummy_mod_id = max(up_mod_id, dn_mod_id) - min(up_mod_id, dn_mod_id)
+        dummy_modnam = modnam_up[0:3] + str(dummy_mod_id) + modnam_up[4:]
+        # ensure that the dummy model name not already in mvrpack_sim
+        assert not any(dummy_modnam in sublist for sublist in mvrpack_sim), (
+            "dummy model name is not different from model names included in \
+            the exchange"
+        )
+        mvrpack_sim.append([dummy_modnam, "SFR-" + str(dummy_mod_id)])
+
     mvrspd = [
         [
             modnam_up,
@@ -536,7 +559,7 @@ def build_models(idx, test):
     # Next, add the simulation-level GWF-GWF and GWT-GWT movers:
     # GWF-GWF
     # Model 1 -> Model 3
-    sim, gwfgwf_data1 = add_a_gwf_gwf_conn(sim, gwf_models[0], gwf_models[2])
+    sim, gwfgwf_data1 = add_a_gwf_gwf_conn(sim, gwf_models[0], gwf_models[2], idx)
     # Model 2 -> Model 3
     sim, gwfgwf_data2 = add_a_gwf_gwf_conn(sim, gwf_models[1], gwf_models[2])
 
@@ -563,21 +586,22 @@ def check_output(idx, test):
     srch_str1 = " SFT PACKAGE (SFT-3) CONCENTRATION FOR EACH CONTROL VOLUME "
     srch_str2 = " MYREACH1 "
 
-    with open(fname, "r") as f:
-        for line in f:
-            if srch_str1 in line:
-                while srch_str2 not in line:
-                    line = next(f)
-                break
+    if "fail" not in name:
+        with open(fname, "r") as f:
+            for line in f:
+                if srch_str1 in line:
+                    while srch_str2 not in line:
+                        line = next(f)
+                    break
 
-    # process the last line read
-    m_arr = line.strip().split()
+        # process the last line read
+        m_arr = line.strip().split()
 
-    # if water is successfully moved from models 1 & 2 to model 3, the stream
-    # concentration should be a blended concentration of the two upstream inputs
-    assert float(m_arr[-1]) == (
-        strt_conc[0] * surf_Q_in[0] + strt_conc[1] * surf_Q_in[1]
-    ) / sum(surf_Q_in), "SFT concentration for model3, reach 1 not equal to 200.0"
+        # if water is successfully moved from models 1 & 2 to model 3, the stream
+        # concentration should be a blended concentration of the two upstream inputs
+        assert float(m_arr[-1]) == (
+            strt_conc[0] * surf_Q_in[0] + strt_conc[1] * surf_Q_in[1]
+        ) / sum(surf_Q_in), "SFT concentration for model3, reach 1 not equal to 200.0"
 
 
 # - No need to change any code below
@@ -592,5 +616,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        xfail=[True] if "fail" in str(function_tmpdir) else [False],
     )
     test.run()

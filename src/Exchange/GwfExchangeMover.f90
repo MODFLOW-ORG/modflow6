@@ -80,6 +80,18 @@ contains
           call store_error(errmsg)
         end if
       end if
+      !
+      ! ensure that the current model name, which is listed in the PACKAGES
+      ! block of the exchange MVR input, is one of the two models connected
+      ! by the exchange. If not, then the model should not be listed.
+      if (mname == this%model1%name .or. mname == this%model2%name) then
+        continue
+      else
+        write (errmsg, '(a, a, a)') 'The input for an exchange mover &
+          &lists a model name ("', trim(mname), '") in the PACKAGES &
+          &input block that is not a member of the exchange.'
+        call store_error(errmsg)
+      end if
     end do
 
     if (count_errors() > 0) then
