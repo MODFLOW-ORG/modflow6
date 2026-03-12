@@ -2,7 +2,7 @@ Particle Release Point (PRP) Package information is read from the file that is s
 
 The PRP Package offers multiple ways to specify particle release times.  Particle release times may either be provided explicitly, relative to the simulation start time, or configured relative to the time discretization of stress periods via period block settings.  When multiple ways of specifying release times are used together, the resulting set of release times is the union of the times specified by each method.
 
-If no release settings are specified, then a single particle will be released from each release point at the beginning of the simulation.  If release times are configured via period block settings, the release setting for a given period block will continue to apply for subsequent stress periods until overridden by release settings for a later period block.  The example input file below demonstrates how to explicitly specify period block settings equivalent to the default release settings (single release at the beginning of the simulation).
+If no release settings are specified, then a single particle will be released from each release point at the beginning of the simulation.  If release times are configured via period block settings, the release setting for a given period block will continue to apply for subsequent stress periods until overridden by release settings for a later period block.  The example input file below demonstrates how to explicitly specify a single release at the beginning of the first stress period, equivalent to the default release behavior.
 
 This package contains options to configure how particles behave in dry conditions. Each of these is described in detail below. Their interaction is summarized in the PRT chapter introduction.
 
