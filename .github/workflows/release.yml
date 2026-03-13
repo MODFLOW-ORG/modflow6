@@ -144,11 +144,6 @@ jobs:
         working-directory: modflow6
         run: pixi run install
 
-      - name: Install additional netcdf testing packages
-        if: matrix.extended
-        working-directory: modflow6
-        run: pixi run pip install xarray netcdf4
-      
       - name: Set version number
         id: set_version
         run: |
