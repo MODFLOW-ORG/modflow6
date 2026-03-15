@@ -148,6 +148,15 @@ contains
     call this%FlowModelInterfaceType%fmi_df(dis, idryinactive)
 
     this%max_faces = this%dis%get_max_npolyverts() + 2
+    if (this%max_faces > 32) then
+      write (errmsg, '(a,i0,a,i0,a)') &
+        'DISV grid contains a cell with ', this%max_faces - 2, &
+        ' lateral faces. Cells may have at most 30 lateral faces.'
+      call store_error(errmsg)
+      call this%parser%StoreErrorUnit()
+      return
+    end if
+
     allocate (this%StorageFlows(this%dis%nodes))
     allocate (this%SourceFlows(this%dis%nodes))
     allocate (this%SinkFlows(this%dis%nodes))
