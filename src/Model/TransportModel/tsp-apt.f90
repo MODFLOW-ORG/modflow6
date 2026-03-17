@@ -525,6 +525,10 @@ contains
       write (this%iout, fmtlsp) trim(this%filtyp)
     end if
     !
+    ! -- call abc_rp() routine separately since its stress period info is
+    !    not strictly tied to whether apt_rp is updated (or not updated)
+    call this%ancil_rp()
+    !
     ! -- write summary of stress period error messages
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
