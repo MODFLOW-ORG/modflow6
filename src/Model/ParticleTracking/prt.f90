@@ -19,10 +19,10 @@ module PrtModule
   use BudgetModule, only: BudgetType
   use ListModule, only: ListType
   use ParticleModule, only: ParticleType, create_particle, ACTIVE, TERM_UNRELEASED
-  use ParticleEventsModule, only: ParticleEventDispatcherType, &
-                                  ParticleEventConsumerType
+  use ParticleEventsModule, only: ParticleEventDispatcherType, event_callback
   use ParticleTracksModule, only: ParticleTracksType, &
-                                  ParticleTrackFileType
+                                  ParticleTrackFileType, &
+                                  tracks_handle_event
   use SimModule, only: count_errors, store_error, store_error_filename
   use MemoryManagerModule, only: mem_allocate
   use MethodModule, only: MethodType, LEVEL_FEATURE
@@ -248,6 +248,7 @@ contains
     ! locals
     integer(I4B) :: ip, nprp
     class(BndType), pointer :: packobj
+    class(*), pointer :: p
 
     ! Set up basic packages
     call this%fmi%fmi_ar(this%ibound)
@@ -325,7 +326,8 @@ contains
     end select
 
     ! Subscribe track output manager to events
-    call this%events%subscribe(this%tracks)
+    p => this%tracks
+    call this%events%subscribe(tracks_handle_event, p)
 
     ! Set verbose tracing if requested
     if (this%oc%dump_event_trace) this%tracks%iout = 0

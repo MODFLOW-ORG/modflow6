@@ -6,14 +6,20 @@ module ParticleEventsModule
   implicit none
 
   private
+  public :: event_callback
 
-  type, public, abstract :: ParticleEventConsumerType
-  contains
-    procedure(handle_event), deferred :: handle_event
-  end type ParticleEventConsumerType
+  ! type, public, abstract :: ParticleEventConsumerType
+  ! contains
+  !   procedure(handle_event), deferred :: handle_event
+  ! end type ParticleEventConsumerType
+
+  type, public :: ParticleEventSubscription
+    procedure(event_callback), pointer, nopass :: callback
+    class(*), pointer :: context
+  end type
 
   type, public :: ParticleEventDispatcherType
-    type(ListType) :: consumers
+    type(ListType) :: subscriptions
   contains
     procedure, public :: subscribe
     procedure, public :: dispatch
@@ -21,22 +27,37 @@ module ParticleEventsModule
   end type ParticleEventDispatcherType
 
   abstract interface
-    subroutine handle_event(this, particle, event)
-      import ParticleEventConsumerType, ParticleType, ParticleEventType
-      class(ParticleEventConsumerType), intent(inout) :: this
-      type(ParticleType), pointer, intent(in) :: particle
+    ! subroutine handle_event(this, particle, event)
+    !   import ParticleEventConsumerType, ParticleType, ParticleEventType
+    !   class(ParticleEventConsumerType), intent(inout) :: this
+    !   type(ParticleType), pointer, intent(in) :: particle
+    !   class(ParticleEventType), pointer, intent(in) :: event
+    ! end subroutine handle_event
+
+    subroutine event_callback(context, particle, event)
+      import :: ParticleType, ParticleEventType
+      class(*), pointer :: context
+      type(ParticleType), pointer, intent(inout) :: particle
       class(ParticleEventType), pointer, intent(in) :: event
-    end subroutine handle_event
+    end subroutine
   end interface
 
 contains
   !> @brief Subscribe a consumer to the dispatcher.
-  subroutine subscribe(this, consumer)
+  subroutine subscribe(this, callback, context)
+    ! dummy
     class(ParticleEventDispatcherType), intent(inout) :: this
-    class(ParticleEventConsumerType), target, intent(inout) :: consumer
+    procedure(event_callback) :: callback
+    class(*), pointer :: context
+    ! local
+    type(ParticleEventSubscription), pointer :: subscription
     class(*), pointer :: p
-    p => consumer
-    call this%consumers%Add(p)
+
+    allocate (subscription)
+    subscription%callback => callback
+    subscription%context => context
+    p => subscription
+    call this%subscriptions%Add(p)
   end subroutine subscribe
 
   !> @brief Dispatch an event.
@@ -45,7 +66,7 @@ contains
     ! dummy
     class(ParticleEventDispatcherType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    class(ParticleEventType), pointer, intent(inout) :: event
+    class(ParticleEventType), pointer, intent(in) :: event
     ! local
     integer(I4B) :: i
     real(DP) :: x, y, z
@@ -72,11 +93,11 @@ contains
     event%z = z
     event%istatus = particle%istatus
 
-    do i = 1, this%consumers%Count()
-      p => this%consumers%GetItem(i)
-      select type (consumer => p)
-      class is (ParticleEventConsumerType)
-        call consumer%handle_event(particle, event)
+    do i = 1, this%subscriptions%Count()
+      p => this%subscriptions%GetItem(i)
+      select type (subscription => p)
+      type is (ParticleEventSubscription)
+        call subscription%callback(subscription%context, particle, event)
       end select
     end do
   end subroutine dispatch
@@ -84,7 +105,7 @@ contains
   !> @brief Destroy the dispatcher.
   subroutine destroy(this)
     class(ParticleEventDispatcherType), intent(inout) :: this
-    call this%consumers%Clear()
+    call this%subscriptions%Clear(destroy=.true.)
   end subroutine destroy
 
 end module ParticleEventsModule
