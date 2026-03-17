@@ -19,6 +19,8 @@ from framework import TestFramework
 
 cases = ["sfe-abc"]
 
+DCTOK = 273.16
+
 # Model units
 length_units = "m"
 time_units = "seconds"
@@ -95,7 +97,7 @@ rbthcnd = 0.0001
 
 # Constants
 stephan_boltzmann = 5.670374419e-08
-c_to_k = 273.15
+# c_to_k = 273.15
 
 # time params
 steady = {0: True, 1: False}
@@ -478,16 +480,16 @@ def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
 
     # longwave
 
-    Ql_up = emiss_water * stephan_boltzmann * ((updated_strm_temp + c_to_k) ** 4)
+    Ql_up = emiss_water * stephan_boltzmann * ((updated_strm_temp + DCTOK) ** 4)
 
-    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + c_to_k - 35.86)))
+    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + DCTOK - 35.86)))
     e_a = (rh / 100.0) * e_s
-    emiss_air = (1.24 * (e_a / (tatm + c_to_k)) ** (1.0 / 7.0)) * atmc  # calcs to 0
+    emiss_air = (1.24 * (e_a / (tatm + DCTOK)) ** (1.0 / 7.0)) * atmc  # calcs to 0
     emiss_down = (
         1.0 - shd
     ) * emiss_air + shd * emiss_riparian  # calcs to emiss_riparian
 
-    Ql_down = emiss_down * stephan_boltzmann * ((tatm + c_to_k) ** 4)
+    Ql_down = emiss_down * stephan_boltzmann * ((tatm + DCTOK) ** 4)
 
     lwr_ener_per_sqm = Ql_down * (1.0 - lwrefl) - Ql_up
 
