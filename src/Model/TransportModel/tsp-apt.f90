@@ -472,10 +472,6 @@ contains
         end if
       end do stressperiod
       !
-      ! -- call pbst_rp() routines based on which pbst sub-packages are
-      !    activated (if any)
-      call this%ancil_rp()
-      !
       if (this%iprpak /= 0) then
         call this%inputtab%finalize_table()
       end if
@@ -484,6 +480,10 @@ contains
     else
       write (this%iout, fmtlsp) trim(this%filtyp)
     end if
+    !
+    ! -- call abc_rp() routine separately since its stress period info is
+    !    not strictly tied to whether apt_rp is updated (or not updated)
+    call this%ancil_rp()
     !
     ! -- write summary of stress period error messages
     ierr = count_errors()
