@@ -22,7 +22,7 @@
 
 ! -- SFE terms
 ! STRMBD-COND               idxbudsbcd    STRMBD-COND           ktf * wa / sbthk * (t_cell - t_feat)
-! ATM BC                    idxbudabc     ATMOSPHERE            swr + lwr + shf + lhf
+! ATM BC                    idxbudabc     ATMOSPHERE            swr + lwr + shf - lhf
 ! SENSIBLE HEAT FLUX        idxbudshf     SENS HEAT             cd * rho_a * C_p_a * wspd * (t_air - t_feat)
 ! SHORTWAVE RADIATION       idxbudswr     SHORTWAVE             (1 - shd) * (1 - swrefl) * solr
 
@@ -73,8 +73,6 @@ module GweSfeModule
     integer(I4B), pointer :: idxbudiflw => null() !< index of inflow terms in flowbudptr
     integer(I4B), pointer :: idxbudoutf => null() !< index of outflow terms in flowbudptr
     integer(I4B), pointer :: idxbudabc => null() !< index of atmospheric boundary condition terms in flowbudptr
-
-    logical, pointer, public :: abc_active => null() !< logical indicating if an atmospheric boundary condition object is active
 
     logical, pointer, public :: abc_active => null() !< logical indicating if an atmospheric boundary condition object is active
 
@@ -803,6 +801,7 @@ contains
     call mem_allocate(this%idxbudroff, 'IDXBUDROFF', this%memoryPath)
     call mem_allocate(this%idxbudiflw, 'IDXBUDIFLW', this%memoryPath)
     call mem_allocate(this%idxbudoutf, 'IDXBUDOUTF', this%memoryPath)
+    call mem_allocate(this%idxbudabc, 'IDXBUDABC', this%memoryPath)
     call mem_allocate(this%abc_active, 'ABC_ACTIVE', this%memoryPath)
     call mem_allocate(this%inabc, 'INABC', this%memoryPath)
     !
@@ -812,6 +811,7 @@ contains
     this%idxbudroff = 0
     this%idxbudiflw = 0
     this%idxbudoutf = 0
+    this%idxbudabc = 0
     !
     this%abc_active = .false.
     this%inabc = 0
@@ -911,9 +911,6 @@ contains
     call mem_deallocate(this%idxbudiflw)
     call mem_deallocate(this%idxbudoutf)
     call mem_deallocate(this%idxbudabc)
-    !
-    call mem_deallocate(this%abc_active)
-    call mem_deallocate(this%inabc)
     !
     call mem_deallocate(this%abc_active)
     call mem_deallocate(this%inabc)
