@@ -1,5 +1,10 @@
-# Test for evaluating change in storage in transient GWT model
-# First test rectangular channel, then test trapazoidal geometry
+# Test for evaluating change in storage in transient GWT model.
+# The check is for SFT stream concentrations with and without the use of
+# the STORAGE keyword in the options block of SFR. When the STORAGE keyword
+# is used, the SFT-calculated concentrations are correct in the first
+# stress period. When omitted, SFT concentrations are wrong in the first
+# stress period. Checks use both rectangular and trapazoidal channel
+# geometry. First stress period is transient.
 
 import os
 
