@@ -108,7 +108,7 @@ tatm = [
     [10.0, 10.0, 10.0],
     [10.0, 10.0, 10.0],
     [10.0, 10.0, 10.0],
-    [15.0, 20.0, 30.0],
+    [30.0, 25.0, 20.0],
 ]  # deg C
 tatmK = [[item + DCTOK for item in sublist] for sublist in tatm]
 
@@ -146,7 +146,7 @@ Cpw = 4180  # Heat capacity of water ($J/kg/C$)
 Cps = 880  # Heat capacity of the solids ($J/kg/C$)
 lhv = 2454000.0  # Latent heat of vaporization ($J/kg$)
 # Thermal conductivity of the streambed material ($W/m/C$)
-#K_therm_strmbed = [1.5, 1.75, 2.0]
+# K_therm_strmbed = [1.5, 1.75, 2.0]
 K_therm_strmbed = [0.0, 0.0, 0.0]
 rbthcnd = 0.0001
 
@@ -318,6 +318,7 @@ def build_models(idx, test):
             pname="sfrxsectable" + str(n + 1),
         )
 
+    init_stgs = []
     packagedata = []
     for irch in range(nreaches):
         nconn = 1
@@ -338,6 +339,12 @@ def build_models(idx, test):
             ndv,
         ]
         packagedata.append(rp)
+
+        init_stgs = [
+            [0, 100.2533605521219],
+            [1, 100.0022143308538],
+            [2, 99.75145344348398],
+        ]
 
     connectiondata = []
     for irch in range(nreaches):
@@ -364,15 +371,19 @@ def build_models(idx, test):
             ("rch1_width", "wet-width", 1),
             ("rch2_width", "wet-width", 2),
             ("rch3_width", "wet-width", 3),
+            ("rch1_stg", "stage", 1),
+            ("rch2_stg", "stage", 2),
+            ("rch3_stg", "stage", 3),
         ],
-        "digits": 8,
+        "digits": 20,
         "print_input": True,
-        "filename": name + ".sfr.obs",
+        "filename": gwfname + ".sfr.obs",
     }
 
     budpth = f"{gwfname}.sfr.cbc"
     flopy.mf6.ModflowGwfsfr(
         gwf,
+        storage=True,
         save_flows=True,
         print_stage=True,
         print_flows=True,
@@ -385,6 +396,7 @@ def build_models(idx, test):
         packagedata=packagedata,
         connectiondata=connectiondata,
         crosssections=crosssections,
+        initialstages=init_stgs,
         perioddata=sfr_perioddata,
         observations=sfr_obs,
         pname="SFR",
@@ -597,10 +609,10 @@ def check_output(idx, test):
     # From SP1 to SP4: temperature of the atmosphere increases each successive
     #                  reach
     for i in np.arange(sfeoutdf.shape[0]):
-        assert -(sfeoutdf.loc[i, "RCH1_SHF"]) > -(sfeoutdf.loc[i, "RCH2_SHF"]), (
+        assert abs(sfeoutdf.loc[i, "RCH1_SHF"]) > abs(sfeoutdf.loc[i, "RCH2_SHF"]), (
             "shf not increasing from reach 1 to 2 as expected in SP " + str(i + 1)
         )
-        assert -(sfeoutdf.loc[i, "RCH2_SHF"]) > -(sfeoutdf.loc[i, "RCH3_SHF"]), (
+        assert abs(sfeoutdf.loc[i, "RCH2_SHF"]) > abs(sfeoutdf.loc[i, "RCH3_SHF"]), (
             "shf not increasing from reach 2 to 3 as expected in SP " + str(i + 1)
         )
 
