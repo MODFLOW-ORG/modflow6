@@ -11,14 +11,14 @@ module ParticleEventsModule
   !> @brief Subscription to particle events: a procedure to
   !! handle the event with an unlimited pointer for storing
   !! arbitrary context the handling procedure may reference.
-  type, public :: ParticleEventSubscription
+  type, public :: ParticleEventSubscriptionType
     procedure(handle_event), pointer, nopass :: handler
     class(*), pointer :: context
-  end type
+  end type ParticleEventSubscriptionType
 
   !> @brief Dispatcher for particle events. Consumers subscribe
   !! handlers to the dispatcher. Events may be dispatched, with
-  !! the first handler to claim the event stopping propagation,
+  !! the first handler to handle the event stopping propagation,
   !! or broadcast, with all handlers receiving the event.
   type, public :: ParticleEventDispatcherType
     type(ListType) :: subscriptions
@@ -49,7 +49,7 @@ contains
     procedure(handle_event) :: handler
     class(*), pointer :: context
     ! local
-    type(ParticleEventSubscription), pointer :: subscription
+    type(ParticleEventSubscriptionType), pointer :: subscription
     class(*), pointer :: p
 
     allocate (subscription)
@@ -92,8 +92,8 @@ contains
     event%istatus = particle%istatus
   end subroutine prep_event
 
-  !> @brief Dispatch an event for claiming. The first
-  !! subscriber to claim the event stops propagation.
+  !> @brief Dispatch an event for handling. The first
+  !! subscriber to handle the event stops propagation.
   subroutine dispatch(this, particle, event)
     class(ParticleEventDispatcherType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -108,7 +108,7 @@ contains
     do i = 1, this%subscriptions%Count()
       p => this%subscriptions%GetItem(i)
       select type (subscription => p)
-      type is (ParticleEventSubscription)
+      type is (ParticleEventSubscriptionType)
         handled = subscription%handler( &
                   subscription%context, &
                   particle, &
@@ -118,8 +118,8 @@ contains
     end do
   end subroutine dispatch
 
-  !> @brief Broadcast an event to all subscribers.
-  !! All get the event regardless of return value.
+  !> @brief Broadcast an event to all subscribers so
+  !! all receive the event and a chance to handle it.
   subroutine broadcast(this, particle, event)
     class(ParticleEventDispatcherType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
@@ -134,7 +134,7 @@ contains
     do i = 1, this%subscriptions%Count()
       p => this%subscriptions%GetItem(i)
       select type (subscription => p)
-      type is (ParticleEventSubscription)
+      type is (ParticleEventSubscriptionType)
         handled = subscription%handler(subscription%context, particle, event)
       end select
     end do
