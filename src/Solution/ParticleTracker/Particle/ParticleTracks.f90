@@ -37,7 +37,7 @@ module ParticleTracksModule
   public :: ParticleTrackFileType, &
             ParticleTracksType, &
             ParticleTrackEventSelectionType, &
-            tracks_handle_event
+            output_particle_event
   private :: save_event
 
   character(len=*), parameter, public :: TRACKHEADER = &
@@ -274,12 +274,14 @@ contains
     should_log = this%iout >= 0
   end function should_log
 
-  !> @brief Handle a particle event.
-  subroutine tracks_handle_event(context, particle, event)
+  !> @brief Save a particle event to files for which the particle
+  !! is eligible, and log the event to standard out if requested.
+  logical function output_particle_event(context, particle, event)
     ! dummy
     class(*), pointer :: context
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer, intent(in) :: event
+    logical :: r
     ! local
     integer(I4B) :: i
     type(ParticleTrackFileType) :: file
@@ -288,7 +290,6 @@ contains
     type is (ParticleTracksType)
       if (context%should_log()) &
         call event%log(context%iout)
-
       if (context%is_selected(event)) then
         do i = 1, context%ntrackfiles
           file = context%files(i)
@@ -297,6 +298,6 @@ contains
         end do
       end if
     end select
-  end subroutine tracks_handle_event
+  end function output_particle_event
 
 end module ParticleTracksModule

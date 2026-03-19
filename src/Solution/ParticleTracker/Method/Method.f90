@@ -237,7 +237,7 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
     allocate (ReleaseEventType :: event)
-    call this%events%dispatch(particle, event)
+    call this%events%broadcast(particle, event)
     deallocate (event)
   end subroutine release
 
@@ -250,7 +250,7 @@ contains
     particle%advancing = .false.
     if (present(status)) particle%istatus = status
     allocate (TerminationEventType :: event)
-    call this%events%dispatch(particle, event)
+    call this%events%broadcast(particle, event)
     deallocate (event)
   end subroutine terminate
 
@@ -260,7 +260,7 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
     allocate (TimeStepEventType :: event)
-    call this%events%dispatch(particle, event)
+    call this%events%broadcast(particle, event)
     deallocate (event)
   end subroutine timestep
 
@@ -270,7 +270,7 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
     allocate (WeakSinkEventType :: event)
-    call this%events%dispatch(particle, event)
+    call this%events%broadcast(particle, event)
     deallocate (event)
   end subroutine weaksink
 
@@ -280,7 +280,7 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
     allocate (UserTimeEventType :: event)
-    call this%events%dispatch(particle, event)
+    call this%events%broadcast(particle, event)
     deallocate (event)
   end subroutine usertime
 
@@ -290,7 +290,7 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
     allocate (DroppedEventType :: event)
-    call this%events%dispatch(particle, event)
+    call this%events%broadcast(particle, event)
     deallocate (event)
   end subroutine dropped
 
