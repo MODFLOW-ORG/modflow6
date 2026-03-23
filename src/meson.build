@@ -561,16 +561,16 @@ if build_machine.system() == 'windows' and (with_petsc or with_netcdf)
   mf6exe = executable(buildname,
                       'mf6.f90',
                       link_with: [mf6core],
-                      dependencies: dependencies,
+                      dependencies: dependencies + extra_deps,
                       install: true)
 else
-  mf6core = static_library('mf6core', 
-                           modflow_sources,  
+  mf6core = static_library('mf6core',
+                           modflow_sources,
                            dependencies: dependencies,
                            link_with: [mf6_external])
-  mf6exe = executable(buildname, 
-                      'mf6.f90', 
-                      link_with: [mf6core],  
-                      dependencies: dependencies, 
+  mf6exe = executable(buildname,
+                      'mf6.f90',
+                      link_with: [mf6core],
+                      dependencies: dependencies + extra_deps,
                       install: true)
 endif

@@ -6,7 +6,7 @@ module PrtModule
                              LENPAKLOC, LENPACKAGETYPE, LENBUDTXT, MNORMAL, &
                              LINELENGTH, LENAUXNAME
   use VersionModule, only: write_listfile_header
-  use NumericalModelModule, only: NumericalModelType
+  use ExplicitModelModule, only: ExplicitModelType
   use BaseModelModule, only: BaseModelType
   use BndModule, only: BndType, AddBndToList, GetBndFromList
   use DisModule, only: DisType, dis_cr
@@ -19,10 +19,10 @@ module PrtModule
   use BudgetModule, only: BudgetType
   use ListModule, only: ListType
   use ParticleModule, only: ParticleType, create_particle, ACTIVE, TERM_UNRELEASED
-  use ParticleEventsModule, only: ParticleEventDispatcherType, &
-                                  ParticleEventConsumerType
+  use ParticleEventsModule, only: ParticleEventDispatcherType, handle_event
   use ParticleTracksModule, only: ParticleTracksType, &
-                                  ParticleTrackFileType
+                                  ParticleTrackFileType, &
+                                  write_particle_event
   use SimModule, only: count_errors, store_error, store_error_filename
   use MemoryManagerModule, only: mem_allocate
   use MethodModule, only: MethodType, LEVEL_FEATURE
@@ -42,7 +42,7 @@ module PrtModule
   data budtxt/'         STORAGE', '     TERMINATION'/
 
   !> @brief Particle tracking (PRT) model
-  type, extends(NumericalModelType) :: PrtModelType
+  type, extends(ExplicitModelType) :: PrtModelType
     type(PrtFmiType), pointer :: fmi => null() ! flow model interface
     type(PrtMipType), pointer :: mip => null() ! model input package
     type(PrtOcType), pointer :: oc => null() ! output control package
@@ -248,6 +248,7 @@ contains
     ! locals
     integer(I4B) :: ip, nprp
     class(BndType), pointer :: packobj
+    class(*), pointer :: p
 
     ! Set up basic packages
     call this%fmi%fmi_ar(this%ibound)
@@ -324,8 +325,9 @@ contains
       this%method => method_disv
     end select
 
-    ! Subscribe track output manager to events
-    call this%events%subscribe(this%tracks)
+    ! Subscribe particle track output manager to events
+    p => this%tracks
+    call this%events%subscribe(write_particle_event, p)
 
     ! Set verbose tracing if requested
     if (this%oc%dump_event_trace) this%tracks%iout = 0
@@ -880,7 +882,7 @@ contains
     deallocate (this%events)
     deallocate (this%tracks)
 
-    call this%NumericalModelType%model_da()
+    call this%ExplicitModelType%model_da()
   end subroutine prt_da
 
   !> @brief Allocate memory for scalars
@@ -890,7 +892,7 @@ contains
     character(len=*), intent(in) :: modelname
 
     ! allocate members from parent class
-    call this%NumericalModelType%allocate_scalars(modelname)
+    call this%ExplicitModelType%allocate_scalars(modelname)
 
     ! allocate members that are part of model class
     call mem_allocate(this%infmi, 'INFMI', this%memoryPath)
@@ -918,11 +920,10 @@ contains
     class(PrtModelType) :: this
     integer(I4B) :: n
 
-    ! Allocate arrays in parent type
-    this%nja = this%dis%nja
-    call this%NumericalModelType%allocate_arrays()
+    ! Allocate arrays in parent type (ibound, flowja, nja)
+    call this%ExplicitModelType%allocate_arrays()
 
-    ! Allocate and initialize arrays
+    ! Allocate and initialize PRT-specific arrays
     call mem_allocate(this%masssto, this%dis%nodes, &
                       'MASSSTO', this%memoryPath)
     call mem_allocate(this%massstoold, this%dis%nodes, &
@@ -933,19 +934,12 @@ contains
                       'MASSTRM', this%memoryPath)
     call mem_allocate(this%ratetrm, this%dis%nodes, &
                       'RATETRM', this%memoryPath)
-    ! explicit model, so these must be manually allocated
-    call mem_allocate(this%x, this%dis%nodes, 'X', this%memoryPath)
-    call mem_allocate(this%rhs, this%dis%nodes, 'RHS', this%memoryPath)
-    call mem_allocate(this%ibound, this%dis%nodes, 'IBOUND', this%memoryPath)
     do n = 1, this%dis%nodes
       this%masssto(n) = DZERO
       this%massstoold(n) = DZERO
       this%ratesto(n) = DZERO
       this%masstrm(n) = DZERO
       this%ratetrm(n) = DZERO
-      this%x(n) = DZERO
-      this%rhs(n) = DZERO
-      this%ibound(n) = 1
     end do
   end subroutine allocate_arrays
 
@@ -1083,14 +1077,13 @@ contains
           ! If the particle timed out, terminate it.
           ! "Timed out" means it's still active but
           !   - it reached its stop time, or
-          !   - the simulation is over and not extended.
+          !   - the simulation is over.
           ! We can't detect timeout within the tracking
           ! method because the method just receives the
           ! maximum time with no context on what it is.
           ! TODO maybe think about changing that?
           if (particle%istatus <= ACTIVE .and. &
-              (particle%ttrack == particle%tstop .or. &
-               (endofsimulation .and. .not. particle%extend))) &
+              (particle%ttrack == particle%tstop .or. endofsimulation)) &
             call this%method%terminate(particle, status=TERM_TIMEOUT)
           ! Return the particle to the store
           call packobj%particles%put(particle, np)

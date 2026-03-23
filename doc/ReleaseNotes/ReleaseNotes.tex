@@ -66,7 +66,7 @@
 \renewcommand{\reportbodypages}{}
 \urlstyle{rm}
 \renewcommand{\reportwebsiteroot}{https://doi.org/10.5066/}
-\renewcommand{\reportwebsiteremainder}{F76Q1VQV}
+\renewcommand{\reportwebsiteremainder}{P1IJAXDZ}
 %\renewcommand{\doisecretary}{RYAN K. ZINKE}
 %\renewcommand{\usgsdirector}{William H. Werkheiser}
 %\ifdef{\usgsdirectortitle}{\renewcommand{\usgsdirectortitle}{Acting Director}}{}
@@ -184,6 +184,7 @@ A list of all previous MODFLOW 6 releases is shown in table \ref{tab:releases}. 
 6.6.1 & February 7, 2025 & \url{https://doi.org/10.5066/P1DXFBUR} \\
 6.6.2 & May 12, 2025 & \url{https://doi.org/10.5066/P1DXFBUR} \\
 6.6.3 & September 29, 2025 & \url{https://doi.org/10.5066/P1DXFBUR} \\
+6.7.0 & February 5, 2026 & \url{https://doi.org/10.5066/P1IJAXDZ} \\
 \hline
 \label{tab:releases}
 \end{tabular*}
@@ -217,7 +218,7 @@ For the Groundwater Transport (GWT) Model, the decay and sorption processes do n
 The GWT and GWE Models do not work with the CSUB Package of the GWF Model.  
 
 \item
-The GWT-GWT Exchange requires that both GWF Models are run concurrently in the same simulation.  There is not an option to read GWF-GWF flows from a previous simulation.  Likewise, the GWE-GWE Exchange also requires that both of the corresponding GWF Models are run concurrently in the same simulation.
+The GWT-GWT Exchange requires that the GWF Models corresponding to each GWT model are run concurrently in the same simulation.  There is not an option to read GWF-GWF flows from a previous simulation.  Likewise, the GWE-GWE Exchange also requires that both of the corresponding GWF Models are run concurrently in the same simulation.
 
 \item
 The Buoyancy (BUY) Package of the GWF Model cannot be used when the XT3D option is activated for the Node Property Flow (NPF) Package.
@@ -226,7 +227,7 @@ The Buoyancy (BUY) Package of the GWF Model cannot be used when the XT3D option 
 If a GWF-GWF Exchange is activated with the XT3D option, then the two connected GWF Models cannot have BUY Packages active.
 
 \item
-The Time-Variable Hydraulic Conductivity (TVK) Package is incompatible with the Horizontal Flow Barrier (HFB) Package if the TVK Package is used to change hydraulic properties of cells near horizontal flow barriers.
+The Time-Variable Hydraulic Conductivity (TVK) Package is incompatible with the Hydraulic Flow Barrier (HFB) Package, meaning that wherever the TVK Package is used to change hydraulic properties of cells, the conductance between the cell node and the adjacent hydraulic flow barrier will not be recalculated.
 
 \item
 If a GWF-GWF Exchange is active, then neither of the connected GWF Models can have an active Viscosity (VSC) Package.
@@ -235,7 +236,7 @@ If a GWF-GWF Exchange is active, then neither of the connected GWF Models can ha
 If a GWT-GWT or GWE-GWE Exchange is active, then constant concentration (CNC) or constant temperature (CTP) conditions should not be assigned on the interface between the two connected models because the budget reported in the listing file will contain errors.  
 
 \item
-The PRT Model reports an incomplete and unbalanced particle mass budget to the listing file and the binary cell budget file.
+The PRT Model reports balanced particle mass budgets to the listing file and the binary cell budget file, with budget entries for release, storage, and termination. However, the termination term is aggregated and does not distinguish particle outflows to different types of boundary conditions.
 
 \end{enumerate}
 

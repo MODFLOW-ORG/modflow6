@@ -715,11 +715,16 @@ contains
     end if
     !
     if (found%adv_scheme) then
-      ! -- count from 0
-      this%iAdvScheme = this%iAdvScheme - 1
-      write (iout, '(4x,a,a)') &
-        'ADVECTION SCHEME METHOD HAS BEEN SET TO: ', &
-        trim(adv_scheme(this%iAdvScheme + 1))
+      if (this%iAdvScheme == 0) then
+        call store_error('Unrecognized input value for ADV_SCHEME option.')
+        call store_error_filename(this%filename)
+      else
+        ! -- count from 0
+        this%iAdvScheme = this%iAdvScheme - 1
+        write (iout, '(4x,a,a)') &
+          'ADVECTION SCHEME METHOD HAS BEEN SET TO: ', &
+          trim(adv_scheme(this%iAdvScheme + 1))
+      end if
     end if
     !
     if (found%cnd_xt3d_off .and. found%cnd_xt3d_rhs) then

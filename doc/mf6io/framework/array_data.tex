@@ -84,15 +84,15 @@ With OPEN/CLOSE, the array will be read from the file whose name is specified by
 The following examples use free-format control lines for reading an array. The example array is a real array consisting of 4 rows with 7 columns per row: 
 
 \begin{lstlisting}[style=inputfile]
-CONSTANT 5.7      This sets an entire array to the value "5.7". 
-INTERNAL FACTOR 1.0 IPRN 3            This reads the array values from the 
- 1.2 3.7 9.3 4.2 2.2 9.9 1.0      file that contains the control line. 
- 3.3 4.9 7.3 7.5 8.2 8.7 6.6      Thus, the values immediately follow the 
- 4.5 5.7 2.2 1.1 1.7 6.7 6.9      control line. 
+CONSTANT 5.7                      # This sets an entire array to the value "5.7". 
+INTERNAL FACTOR 1.0 IPRN 3        # This reads the array values from the file that contains the control line. 
+ 1.2 3.7 9.3 4.2 2.2 9.9 1.0      # Thus, the values immediately follow the control line.
+ 3.3 4.9 7.3 7.5 8.2 8.7 6.6
+ 4.5 5.7 2.2 1.1 1.7 6.7 6.9 
  7.4 3.5 7.8 8.5 7.4 6.8 8.8 
-OPEN/CLOSE inp.txt FACTOR 1.0 IPRN 3    Read array from formatted file "inp.dat". 
-OPEN/CLOSE inp.bin FACTOR 1.0 (BINARY) IPRN 3     Read array from binary file "inp.bin". 
-OPEN/CLOSE test.dat FACTOR 1.0 IPRN 3     Read array from file "test.dat". 
+OPEN/CLOSE inp.txt FACTOR 1.0 IPRN 3           # Read array from formatted file "inp.dat". 
+OPEN/CLOSE inp.bin FACTOR 1.0 (BINARY) IPRN 3  # Read array from binary file "inp.bin". 
+OPEN/CLOSE test.dat FACTOR 1.0 IPRN 3          # Read array from file "test.dat". 
 \end{lstlisting}
 
 

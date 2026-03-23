@@ -6,9 +6,9 @@ module IdmSwfDfnSelectorModule
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
   use SwfNamInputModule
-  use SwfDisv1DInputModule
-  use SwfDis2DInputModule
-  use SwfDisv2DInputModule
+  use SwfDisv1dInputModule
+  use SwfDis2dInputModule
+  use SwfDisv2dInputModule
   use SwfCxsInputModule
   use SwfDfwInputModule
   use SwfIcInputModule

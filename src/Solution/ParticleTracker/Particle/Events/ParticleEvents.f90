@@ -6,75 +6,78 @@ module ParticleEventsModule
   implicit none
 
   private
+  public :: handle_event
 
-  type, public, abstract :: ParticleEventConsumerType
-  contains
-    procedure(handle_event), deferred :: handle_event
-  end type ParticleEventConsumerType
+  !> @brief Subscription to particle events: a procedure to
+  !! handle the event with an unlimited pointer for storing
+  !! arbitrary context the handling procedure may reference.
+  type, public :: ParticleEventSubscriptionType
+    procedure(handle_event), pointer, nopass :: handler
+    class(*), pointer :: context
+  end type ParticleEventSubscriptionType
 
+  !> @brief Dispatcher for particle events. Consumers subscribe
+  !! handlers to the dispatcher. Events may be dispatched, with
+  !! the first handler to handle the event stopping propagation,
+  !! or broadcast, with all handlers receiving the event.
   type, public :: ParticleEventDispatcherType
-    type(ListType) :: consumers
+    type(ListType) :: subscriptions
   contains
     procedure, public :: subscribe
     procedure, public :: dispatch
+    procedure, public :: broadcast
+    procedure :: prep_event
     procedure :: destroy
   end type ParticleEventDispatcherType
 
   abstract interface
-    subroutine handle_event(this, particle, event)
-      import ParticleEventConsumerType, ParticleType, ParticleEventType
-      class(ParticleEventConsumerType), intent(inout) :: this
-      type(ParticleType), pointer, intent(in) :: particle
+    !> @brief Event handler interface. Handlers may signal
+    !! to the dispatching caller whether they have handled
+    !! the event, but the signal is ignored for broadcasts.
+    logical function handle_event(context, particle, event)
+      import :: ParticleType, ParticleEventType
+      class(*), pointer :: context
+      type(ParticleType), pointer, intent(inout) :: particle
       class(ParticleEventType), pointer, intent(in) :: event
-    end subroutine handle_event
+    end function
   end interface
 
 contains
-  !> @brief Subscribe a consumer to the dispatcher.
-  subroutine subscribe(this, consumer)
+  !> @brief Add a subscription to the dispatcher.
+  subroutine subscribe(this, handler, context)
     class(ParticleEventDispatcherType), intent(inout) :: this
-    class(ParticleEventConsumerType), target, intent(inout) :: consumer
+    procedure(handle_event) :: handler
+    class(*), pointer :: context
+    ! local
+    type(ParticleEventSubscriptionType), pointer :: subscription
     class(*), pointer :: p
-    p => consumer
-    call this%consumers%Add(p)
+
+    allocate (subscription)
+    subscription%handler => handler
+    subscription%context => context
+    p => subscription
+    call this%subscriptions%Add(p)
   end subroutine subscribe
 
-  !> @brief Dispatch an event.
-  subroutine dispatch(this, particle, event)
-    use TdisModule, only: kper, kstp, totimc
+  !> @brief Prepare an event for dispatching, loading it with
+  !! the current state of the particle. For internal use only.
+  subroutine prep_event(this, particle, event)
+    use TdisModule, only: kper, kstp
     ! dummy
     class(ParticleEventDispatcherType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
-    class(ParticleEventType), pointer, intent(inout) :: event
+    class(ParticleEventType), pointer, intent(in) :: event
     ! local
-    integer(I4B) :: i, per, stp
     real(DP) :: x, y, z
-    class(*), pointer :: p
 
-    ! If tracking time falls exactly on a boundary between time steps,
-    ! report the previous time step for this datum. This is to follow
-    ! MP7's behavior, and because the particle will have been tracked
-    ! up to this instant under the previous time step's conditions, so
-    ! the time step we're about to start shouldn't get "credit" for it.
-    per = kper
-    stp = kstp
-    if (particle%ttrack == totimc .and. (per > 1 .or. stp > 1)) then
-      if (stp > 1) then
-        stp = stp - 1
-      else if (per > 1) then
-        per = per - 1
-        stp = 1
-      end if
-    end if
-
-    ! Convert to model coordinates if we need to
     x = particle%x
     y = particle%y
     z = particle%z
+    ! switch to model coordinates if needed
     call particle%get_model_coords(x, y, z)
 
-    event%kper = per
-    event%kstp = stp
+    event%kper = kper
+    event%kstp = kstp
     event%imdl = particle%imdl
     event%iprp = particle%iprp
     event%irpt = particle%irpt
@@ -87,20 +90,60 @@ contains
     event%y = y
     event%z = z
     event%istatus = particle%istatus
+  end subroutine prep_event
 
-    do i = 1, this%consumers%Count()
-      p => this%consumers%GetItem(i)
-      select type (consumer => p)
-      class is (ParticleEventConsumerType)
-        call consumer%handle_event(particle, event)
+  !> @brief Dispatch an event for handling. The first
+  !! subscriber to handle the event stops propagation.
+  subroutine dispatch(this, particle, event)
+    class(ParticleEventDispatcherType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(ParticleEventType), pointer, intent(in) :: event
+    ! local
+    logical(LGP) :: handled
+    integer(I4B) :: i
+    class(*), pointer :: p
+
+    call this%prep_event(particle, event)
+
+    do i = 1, this%subscriptions%Count()
+      p => this%subscriptions%GetItem(i)
+      select type (subscription => p)
+      type is (ParticleEventSubscriptionType)
+        handled = subscription%handler( &
+                  subscription%context, &
+                  particle, &
+                  event)
+        if (handled) exit
       end select
     end do
   end subroutine dispatch
 
+  !> @brief Broadcast an event to all subscribers so
+  !! all receive the event and a chance to handle it.
+  subroutine broadcast(this, particle, event)
+    class(ParticleEventDispatcherType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(ParticleEventType), pointer, intent(in) :: event
+    ! local
+    logical(LGP) :: handled
+    integer(I4B) :: i
+    class(*), pointer :: p
+
+    call this%prep_event(particle, event)
+
+    do i = 1, this%subscriptions%Count()
+      p => this%subscriptions%GetItem(i)
+      select type (subscription => p)
+      type is (ParticleEventSubscriptionType)
+        handled = subscription%handler(subscription%context, particle, event)
+      end select
+    end do
+  end subroutine broadcast
+
   !> @brief Destroy the dispatcher.
   subroutine destroy(this)
     class(ParticleEventDispatcherType), intent(inout) :: this
-    call this%consumers%Clear()
+    call this%subscriptions%Clear(destroy=.true.)
   end subroutine destroy
 
 end module ParticleEventsModule

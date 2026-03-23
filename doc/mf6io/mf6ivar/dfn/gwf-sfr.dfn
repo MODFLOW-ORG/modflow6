@@ -275,7 +275,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'SFR'}
+description REPLACE obs6_filename {'{#1}': 'SFR', '{#2}': '\\ref{table:gwf-obstypetable}'}
 
 block options
 name mover

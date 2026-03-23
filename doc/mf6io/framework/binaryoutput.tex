@@ -726,7 +726,9 @@ The remaining flow terms in table \ref{table:gwebud} are all written using IMETH
 \hline
 \endfoot
 \texttt{FLOW-JA-FACE} & 1 & intercell energy flow due to advection, conduction, and dispersion; array of size(NJA) \\
-\texttt{STORAGE-AQUEOUS} & 1 & energy aqueous storage; array of size (NCELLS) \\
+\texttt{STORAGE-CELLBLK} & 1 & energy aqueous storage; array of size (NCELLS) \\
+\texttt{DECAY-AQUEOUS} & 1 & energy aqueous decay; array of size (NCELLS) \\
+\texttt{DECAY-SOLID} & 1 & energy solid decay; array of size (NCELLS) \\
 \texttt{SOURCE-SINK MIX} & 6 & energy flow to and from SSM sources and sinks \\
 \texttt{CTP} & 6 & energy flow for constant-temperature cells \\
 \texttt{ESL} & 6 & energy flow for specified energy source loading cells \\
@@ -762,6 +764,8 @@ The remaining flow terms in table \ref{table:prtbud} are all written using IMETH
 \endfoot
 \texttt{FLOW-JA-FACE} & 1 & intercell particle mass flow; array of size (NJA) \\
 \texttt{PRP} & 6 & particle mass flow for particle releases \\
+\texttt{STORAGE} & 6 & particle mass flow for cell storage \\
+\texttt{TERMINATION} & 6 & terminating particle mass flow \\
 \label{table:prtbud}
 \end{longtable}
 

@@ -1,5 +1,5 @@
 ! ** Do Not Modify! MODFLOW 6 system generated file. **
-module SwfDis2DInputModule
+module SwfDis2dInputModule
   use ConstantsModule, only: LENVARNAME
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
@@ -429,4 +429,4 @@ module SwfDis2DInputModule
     ) &
     ]
 
-end module SwfDis2DInputModule
+end module SwfDis2dInputModule

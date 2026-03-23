@@ -757,6 +757,7 @@ contains
     integer(I4B), intent(inout) :: locmax
     ! -- local
     integer(I4B) :: n
+    integer(I4B) :: ibot
     real(DP) :: botm
     real(DP) :: xx
     real(DP) :: dxx
@@ -764,20 +765,23 @@ contains
     ! -- Newton-Raphson under-relaxation
     do n = 1, this%dis%nodes
       if (this%ibound(n) < 1) cycle
-      if (this%icelltype(n) > 0) then
-        botm = this%dis%bot(this%ibotnode(n))
-        ! -- only apply Newton-Raphson under-relaxation if
-        !    solution head is below the bottom of the model
+      ibot = this%ibotnode(n)
+      ! Newton-Raphson under-relaxation is only applied to convertible cells where
+      ! the bottom cell in a stack is convertible
+      if (this%icelltype(n) > 0 .and. this%icelltype(ibot) > 0) then
+        botm = this%dis%bot(ibot)
+        ! Newton-Raphson under-relaxation applied when solution head is
+        ! below the bottom of the model
         if (x(n) < botm) then
           inewtonur = 1
           xx = xtemp(n) * (DONE - DP9) + botm * DP9
-          dxx = x(n) - xx
+          dxx = xx - xtemp(n)
           if (abs(dxx) > abs(dxmax)) then
             locmax = n
             dxmax = dxx
           end if
           x(n) = xx
-          dx(n) = DZERO
+          dx(n) = xtemp(n) - x(n)
         end if
       end if
     end do
@@ -1418,6 +1422,15 @@ contains
       call tvk_cr(this%tvk, this%name_model, this%intvk, this%iout)
     end if
     !
+    ! -- verify ALTERNATIVE_CELL_AVERAGING input value is supported
+    if (found%cellavg) then
+      if (this%icellavg == 0) then
+        errmsg = 'Unrecognized input value for ALTERNATIVE_CELL_AVERAGING option.'
+        call store_error(errmsg)
+        call store_error_filename(this%input_fname)
+      end if
+    end if
+    !
     ! -- log options
     if (this%iout > 0) then
       call this%log_options(found)
@@ -1431,7 +1444,6 @@ contains
     class(GwfNpftype) :: this
     type(GwfNpfOptionsType), intent(in) :: options
     !
-    this%icellavg = options%icellavg
     this%ithickstrt = options%ithickstrt
     this%ihighcellsat = options%ihighcellsat
     this%iperched = options%iperched

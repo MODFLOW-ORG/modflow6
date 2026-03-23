@@ -4,19 +4,23 @@ Test local z coordinate conversion for PRT PRP package.
 This test verifies two fixes in the particle local-to-model z coordinate conversion
 when using the LOCALZ option in the PRP package:
 
-Fix #1: Clamp head to cell bottom
-    When using head as the effective cell top (in convertible cells), ensure the
-    head doesn't fall below the cell bottom. The calculation uses max(head, bottom).
+Fix #1: Constrain effective top to cell vertical extent
+    - For convertible cells, whose saturated thickness depends on head, set effective
+      cell top used for local z conversion no higher than the geometric cell top and
+      no lower than the cell bottom.
 
 Fix #2: Use correct top based on cell type
-    - Confined cells (icelltype=0): Use geometric top for local z conversion
-    - Convertible cells (icelltype!=0): Use head as effective top for local z conversion
+    - Confined cells (icelltype==0): Use geometric top for local z conversion
+    - Convertible cells (icelltype!=0): Use head (subject to constraint in fix #1) as
+      effective top for local z conversion
 
-The test includes 4 cases, each with a simple single-layer model:
+The test includes 6 cases, each with a simple single-layer model:
 1. Convertible cell with head within bounds → uses head as top
 2. Confined cell with head within bounds → uses geometric top
-3. Convertible cell with head < bottom (dry cell) → uses clamped head
+3. Convertible cell with head < bottom (dry cell) → clamps to bottom
 4. Confined cell with head < bottom → uses geometric top (ignores head)
+5. Convertible cell with head > top → clamps to top
+6. Confined cell with head > top → clamps to top
 
 Each case has both FMI (separate sims) and exchange (same sim) variants.
 
@@ -37,16 +41,20 @@ from prt_test_utils import get_model_name
 
 simname = "prtz"
 
-# Four test cases, each with FMI and exchange variants
+# Six test cases, each with FMI and exchange variants
 cases = [
-    f"{simname}cvt",  # convertible, normal head
+    f"{simname}cvt",  # convertible, bottom < head < top
     f"{simname}cvtexg",
-    f"{simname}cnf",  # confined, normal head
+    f"{simname}cnf",  # confined, bottom < head < top
     f"{simname}cnfexg",
     f"{simname}cvtdr",  # convertible, head < bottom
     f"{simname}cvtexgdr",
     f"{simname}cnflow",  # confined, head < bottom
     f"{simname}cnfexglo",
+    f"{simname}cvthi",  # convertible, head > top
+    f"{simname}cvtexghi",
+    f"{simname}cnfhi",  # confined, head > top
+    f"{simname}cnfexghi",
 ]
 
 # Model parameters (same for all cases)
@@ -116,7 +124,7 @@ case_params = {
     "cnflo": {  # Case 4: Confined, head < bottom
         "top": 10.0,
         "botm": [5.0],
-        "strt": [[3.0]],  # head below bottom (negative pressure head)
+        "strt": [[3.0]],  # head below bottom
         "icelltype": [0],
         "releasepts": [
             [0, 0, 0, 0, 2.0, 5.0, 0.0],
@@ -130,6 +138,42 @@ case_params = {
             2: 10.0,  # bot + 1.0 * (top - bot) = 5.0 + 1.0 * 5.0 = 10.0
         },
         "description": "Confined cell, head < bottom → geometric top",
+    },
+    "cvthi": {  # Case 5: Convertible, head > top (tests clamping to top)
+        "top": 10.0,
+        "botm": [5.0],
+        "strt": [[12.0]],  # head above top
+        "icelltype": [1],
+        "releasepts": [
+            [0, 0, 0, 0, 2.0, 5.0, 0.0],
+            [1, 0, 0, 0, 5.0, 5.0, 0.5],
+            [2, 0, 0, 0, 8.0, 5.0, 1.0],
+        ],
+        "expected_z": {
+            # effective top clamped to top: top = min(10.0, 12.0) = 10.0
+            0: 5.0,  # bot + 0.0 * (min(top,head) - bot) = 5.0 + 0.0 * 5.0 = 5.0
+            1: 7.5,  # bot + 0.5 * (min(top,head) - bot) = 5.0 + 0.5 * 5.0 = 7.5
+            2: 10.0,  # bot + 1.0 * (min(top,head) - bot) = 5.0 + 1.0 * 5.0 = 10.0
+        },
+        "description": "Convertible cell, head > top → clamped to top",
+    },
+    "cnfhi": {  # Case 6: Confined, head > top
+        "top": 10.0,
+        "botm": [5.0],
+        "strt": [[12.0]],  # head > top
+        "icelltype": [0],
+        "releasepts": [
+            [0, 0, 0, 0, 2.0, 5.0, 0.0],
+            [1, 0, 0, 0, 5.0, 5.0, 0.5],
+            [2, 0, 0, 0, 8.0, 5.0, 1.0],
+        ],
+        "expected_z": {
+            # Confined cell always uses geometric top, regardless of head
+            0: 5.0,  # bot + 0.0 * (top - bot) = 5.0 + 0.0 * 5.0 = 5.0
+            1: 7.5,  # bot + 0.5 * (top - bot) = 5.0 + 0.5 * 5.0 = 7.5
+            2: 10.0,  # bot + 1.0 * (top - bot) = 5.0 + 1.0 * 5.0 = 10.0
+        },
+        "description": "Confined cell, head > top → geometric top",
     },
 }
 

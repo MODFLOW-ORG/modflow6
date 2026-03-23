@@ -47,7 +47,6 @@ module SwfZdgModule
     procedure :: allocate_arrays => zdg_allocate_arrays
     procedure :: source_options => zdg_options
     procedure :: log_zdg_options
-    procedure :: bnd_rp => zdg_rp
     procedure :: bnd_cf => zdg_cf
     procedure :: bnd_fc => zdg_fc
     procedure :: bnd_da => zdg_da
@@ -234,7 +233,7 @@ contains
     ! -- modules
     use SwfZdgInputModule, only: SwfZdgParamFoundType
     ! -- dummy variables
-    class(SwfZdgType), intent(inout) :: this !< BndExtType object
+    class(SwfZdgType), intent(inout) :: this
     type(SwfZdgParamFoundType), intent(in) :: found
     ! -- local variables
     ! -- format
@@ -251,26 +250,6 @@ contains
     write (this%iout, '(1x,a)') &
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
   end subroutine log_zdg_options
-
-  !> @ brief SWF read and prepare
-    !!
-  !<
-  subroutine zdg_rp(this)
-    use TdisModule, only: kper
-    ! -- dummy
-    class(SwfZdgType), intent(inout) :: this
-    ! -- local
-    !
-    if (this%iper /= kper) return
-    !
-    ! -- Call the parent class read and prepare
-    call this%BndExtType%bnd_rp()
-    !
-    ! -- Write the list to iout if requested
-    if (this%iprpak /= 0) then
-      call this%write_list()
-    end if
-  end subroutine zdg_rp
 
   !> @ brief Formulate the package hcof and rhs terms.
   !!
@@ -552,7 +531,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy variables
-    class(SwfZdgType), intent(inout) :: this !< BndExtType object
+    class(SwfZdgType), intent(inout) :: this
     integer(I4B), intent(in) :: col
     integer(I4B), intent(in) :: row
     ! -- result

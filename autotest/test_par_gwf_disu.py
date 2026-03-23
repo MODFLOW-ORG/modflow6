@@ -216,7 +216,6 @@ def build_models(idx, test):
 
 
 def check_output(idx, test):
-    pass
     # two coupled models with a uniform flow field,
     # here we assert the known head values at the
     # cell centers

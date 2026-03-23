@@ -792,7 +792,7 @@ contains
     call this%calc_q_visc(cellid, viscratio)
   end subroutine get_visc_ratio
 
-  !> @brief Account for viscosity in the aquiferhorizontal flow barriers
+  !> @brief Account for viscosity in the aquifer hydraulic flow barriers
   !!
   !! Will return the viscosity associated with the upgradient node (cell)
   !! to the HFB package for adjusting the hydraulic characteristic (hydchr)
@@ -1240,6 +1240,14 @@ contains
       this%ioutvisc = getunit()
       call openfile(this%ioutvisc, this%iout, viscosityfile, 'DATA(BINARY)', &
                     form, access, 'REPLACE')
+    end if
+
+    ! -- verify THERMAL_FORM input value is supported
+    if (found%thermal_form) then
+      if (this%thermivisc == 0) then
+        call store_error('Unrecognized input value for THERMAL_FORM option.')
+        call store_error_filename(this%input_fname)
+      end if
     end if
 
     ! set warnings and errors

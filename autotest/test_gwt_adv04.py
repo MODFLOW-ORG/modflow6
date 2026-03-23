@@ -15,7 +15,7 @@ cases = [
     pytest.param(0, "adv04a"),
     pytest.param(1, "adv04b"),
     pytest.param(2, "adv04c"),
-    pytest.param(3, "adv04d", marks=pytest.mark.developmode),
+    pytest.param(3, "adv04d"),
 ]
 
 scheme = ["upstream", "central", "tvd", "utvd"]

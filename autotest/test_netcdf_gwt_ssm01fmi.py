@@ -7,7 +7,6 @@ inputs and compares outputs for these runs.
 # Imports
 
 import os
-import shutil
 from pathlib import Path
 
 import numpy as np
@@ -34,17 +33,6 @@ def build_models(idx, test, export):
 
     sims = build(idx, test)
     gwf = sims[0].gwf[0]
-    gwf.get_package("WEL-1").export_array_netcdf = True
-    gwf.get_package("DRN-1").export_array_netcdf = True
-    gwf.get_package("DRN-2").export_array_netcdf = True
-    gwf.get_package("DRN-3").export_array_netcdf = True
-    gwf.get_package("GHB-1").export_array_netcdf = True
-    gwf.get_package("GHB-2").export_array_netcdf = True
-    gwf.get_package("GHB-3").export_array_netcdf = True
-    gwf.get_package("GHB-4").export_array_netcdf = True
-    gwf.get_package("RIV-1").export_array_netcdf = True
-    gwf.get_package("RIV-2").export_array_netcdf = True
-    gwf.get_package("RIV-3").export_array_netcdf = True
 
     name = "flow"
 
@@ -64,17 +52,39 @@ def check_output(idx, test, export):
     name = "flow"
     flow_ws = Path(test.workspace / "flow")
     ws = Path(test.workspace / "netcdf")
-    shutil.copytree(flow_ws, ws)
 
     # verify format of generated netcdf file
-    with nc.Dataset(ws / f"{name}.nc") as ds:
+    with nc.Dataset(flow_ws / f"{name}.nc") as ds:
         assert ds.data_model == "NETCDF4"
 
-    # re-run the simulation with model netcdf input
-    input_fname = f"{name}.nc"
-    nc_fname = f"{name}.{export}.nc"
-    os.rename(ws / input_fname, ws / nc_fname)
+    # re-run the simulation in validate mode to generate netcdf input
+    test.sims[0].gwf[0].get_package("WEL-1").export_array_netcdf = True
+    test.sims[0].gwf[0].get_package("GHB-1").export_array_netcdf = True
+    test.sims[0].gwf[0].get_package("GHB-2").export_array_netcdf = True
+    test.sims[0].gwf[0].get_package("GHB-3").export_array_netcdf = True
+    test.sims[0].gwf[0].get_package("GHB-4").export_array_netcdf = True
+    test.sims[0].gwf[0].get_package("RIV-1").export_array_netcdf = True
+    test.sims[0].gwf[0].get_package("RIV-2").export_array_netcdf = True
+    test.sims[0].gwf[0].get_package("RIV-3").export_array_netcdf = True
+    test.sims[0].gwf[0].get_package("DRN-1").export_array_netcdf = True
+    test.sims[0].gwf[0].get_package("DRN-2").export_array_netcdf = True
+    test.sims[0].gwf[0].get_package("DRN-3").export_array_netcdf = True
+    if export == "ugrid":
+        test.sims[0].gwf[0].name_file.nc_mesh2d_filerecord = f"{name}.{export}.nc"
+    elif export == "structured":
+        test.sims[0].gwf[0].name_file.nc_structured_filerecord = f"{name}.{export}.nc"
+    test.sims[0].set_sim_path(ws)
+    test.sims[0].write_simulation()
+    success, buff = flopy.run_model(
+        test.targets["mf6"],
+        ws / "mfsim.nam",
+        model_ws=ws,
+        report=True,
+        cargs=["--mode=validate"],
+    )
+    assert success
 
+    # re-run the simulation with model netcdf input
     if export == "ugrid":
         fileout_tag = "NETCDF_MESH2D"
     elif export == "structured":
@@ -251,5 +261,6 @@ def test_mf6model(idx, name, function_tmpdir, targets, export):
         build=lambda t: build_models(idx, t, export),
         check=lambda t: check_output(idx, t, export),
         targets=targets,
+        cargs=[None, "--mode=validate"],
     )
     test.run()

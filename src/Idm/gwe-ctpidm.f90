@@ -15,9 +15,9 @@ module GweCtpInputModule
     logical :: auxiliary = .false.
     logical :: auxmultname = .false.
     logical :: boundnames = .false.
+    logical :: iprpak = .false.
     logical :: iprflow = .false.
     logical :: ipakcb = .false.
-    logical :: iprpak = .false.
     logical :: ts_filerecord = .false.
     logical :: ts6 = .false.
     logical :: filein = .false.
@@ -98,16 +98,35 @@ module GweCtpInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwectp_iprflow = InputParamDefinitionType &
+    gwectp_iprpak = InputParamDefinitionType &
     ( &
     'GWE', & ! component
     'CTP', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_INPUT', & ! tag name
-    'IPRFLOW', & ! fortran variable
+    'IPRPAK', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'print input to listing file', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwectp_iprflow = InputParamDefinitionType &
+    ( &
+    'GWE', & ! component
+    'CTP', & ! subcomponent
+    'OPTIONS', & ! block
+    'PRINT_FLOWS', & ! tag name
+    'IPRFLOW', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'print calculated flows to listing file', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -122,27 +141,8 @@ module GweCtpInputModule
     'GWE', & ! component
     'CTP', & ! subcomponent
     'OPTIONS', & ! block
-    'PRINT_FLOWS', & ! tag name
-    'IPAKCB', & ! fortran variable
-    'KEYWORD', & ! type
-    '', & ! shape
-    'print calculated flows to listing file', & ! longname
-    .false., & ! required
-    .false., & ! developmode
-    .false., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    gwectp_iprpak = InputParamDefinitionType &
-    ( &
-    'GWE', & ! component
-    'CTP', & ! subcomponent
-    'OPTIONS', & ! block
     'SAVE_FLOWS', & ! tag name
-    'IPRPAK', & ! fortran variable
+    'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'save constant temperature flows to budget file', & ! longname
@@ -388,9 +388,9 @@ module GweCtpInputModule
     gwectp_auxiliary, &
     gwectp_auxmultname, &
     gwectp_boundnames, &
+    gwectp_iprpak, &
     gwectp_iprflow, &
     gwectp_ipakcb, &
-    gwectp_iprpak, &
     gwectp_ts_filerecord, &
     gwectp_ts6, &
     gwectp_filein, &

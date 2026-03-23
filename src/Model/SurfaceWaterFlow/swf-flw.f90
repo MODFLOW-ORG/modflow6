@@ -33,7 +33,6 @@ module SwfFlwModule
     procedure :: allocate_arrays => flw_allocate_arrays
     procedure :: source_options => flw_options
     procedure :: log_flw_options
-    procedure :: bnd_rp => flw_rp
     procedure :: bnd_cf => flw_cf
     procedure :: bnd_fc => flw_fc
     procedure :: bnd_da => flw_da
@@ -189,7 +188,7 @@ contains
     ! -- modules
     use SwfFlwInputModule, only: SwfFlwParamFoundType
     ! -- dummy variables
-    class(SwfFlwType), intent(inout) :: this !< BndExtType object
+    class(SwfFlwType), intent(inout) :: this
     type(SwfFlwParamFoundType), intent(in) :: found
     ! -- local variables
     ! -- format
@@ -206,26 +205,6 @@ contains
     write (this%iout, '(1x,a)') &
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
   end subroutine log_flw_options
-
-  !> @ brief SWF read and prepare
-    !!
-  !<
-  subroutine flw_rp(this)
-    use TdisModule, only: kper
-    ! -- dummy
-    class(SwfFlwType), intent(inout) :: this
-    ! -- local
-    !
-    if (this%iper /= kper) return
-    !
-    ! -- Call the parent class read and prepare
-    call this%BndExtType%bnd_rp()
-    !
-    ! -- Write the list to iout if requested
-    if (this%iprpak /= 0) then
-      call this%write_list()
-    end if
-  end subroutine flw_rp
 
   !> @ brief Formulate the package hcof and rhs terms.
   !!
@@ -439,7 +418,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy variables
-    class(SwfFlwType), intent(inout) :: this !< BndExtType object
+    class(SwfFlwType), intent(inout) :: this
     integer(I4B), intent(in) :: row
     ! -- result
     real(DP) :: q
@@ -461,7 +440,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy variables
-    class(SwfFlwType), intent(inout) :: this !< BndExtType object
+    class(SwfFlwType), intent(inout) :: this
     integer(I4B), intent(in) :: col
     integer(I4B), intent(in) :: row
     ! -- result

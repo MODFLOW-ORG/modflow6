@@ -153,6 +153,7 @@ module BndModule
     procedure, public :: bnd_bd_obs
     procedure, public :: bnd_ot_obs
     procedure, public :: bnd_rp_obs
+    procedure, public :: bnd_rp_log
     !
     ! -- procedure to support time series
     procedure, public :: bnd_rp_ts
@@ -1687,6 +1688,16 @@ contains
     ! -- dummy
     class(BndType), intent(inout) :: this
   end subroutine bnd_rp_ts
+
+  !> @brief Log period input for a boundary package
+  !!
+  !! Write stress period input to the listing file if requested. This
+  !! default implementation is a no-op; BndExtType overrides it.
+  !<
+  subroutine bnd_rp_log(this)
+    ! -- dummy
+    class(BndType), intent(inout) :: this
+  end subroutine bnd_rp_log
 
   ! -- Procedures related to casting
 

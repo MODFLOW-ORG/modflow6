@@ -385,6 +385,7 @@ contains
     ! -- modules
     use ConstantsModule, only: LINELENGTH
     use InputOutputModule, only: GetUnit, openfile
+    use SimModule, only: store_error, store_error_filename
     use MemoryManagerExtModule, only: mem_set_value
     use SourceCommonModule, only: filein_fname
     use SimTdisInputModule, only: SimTdisParamFoundType
@@ -410,9 +411,14 @@ contains
                        found%start_date_time)
     !
     if (found%time_units) then
-      !
-      ! -- adjust to 0-based indexing for itmuni
-      itmuni = itmuni - 1
+      if (itmuni == 0) then
+        call store_error('Unrecognized input value for TIME_UNITS option.')
+        call store_error_filename(input_fname)
+      else
+        !
+        ! -- adjust to 0-based indexing for itmuni
+        itmuni = itmuni - 1
+      end if
     end if
     !
     ! -- enforce 0 or 1 ATS6_FILENAME entries in option block

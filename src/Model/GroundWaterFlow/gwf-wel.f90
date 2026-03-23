@@ -16,8 +16,8 @@ module WelModule
   ! -- modules used by WelModule methods
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DZERO, DEM1, DONE, LENFTYPE, DNODATA, LINELENGTH
-  use SimVariablesModule, only: errmsg
-  use SimModule, only: store_error, store_error_filename
+  use SimVariablesModule, only: errmsg, warnmsg
+  use SimModule, only: store_error, store_error_filename, store_warning
   use MemoryHelperModule, only: create_mem_path
   use BndModule, only: BndType
   use BndExtModule, only: BndExtType
@@ -41,12 +41,12 @@ module WelModule
     integer(I4B), pointer :: iflowred => null() !< flag indicating if the AUTO_FLOW_REDUCE option is active
     real(DP), pointer :: flowred => null() !< AUTO_FLOW_REDUCE variable
     integer(I4B), pointer :: ioutafrcsv => null() !< unit number for CSV output file containing wells with reduced puping rates
+    integer(I4B), pointer :: iflowredlen => null() !< flag indicating flowred variable is a length value
   contains
     procedure :: allocate_scalars => wel_allocate_scalars
     procedure :: allocate_arrays => wel_allocate_arrays
     procedure :: source_options => wel_options
     procedure :: log_wel_options
-    procedure :: bnd_rp => wel_rp
     procedure :: bnd_cf => wel_cf
     procedure :: bnd_fc => wel_fc
     procedure :: bnd_fn => wel_fn
@@ -102,6 +102,7 @@ contains
     packobj%iout = iout
     packobj%id = id
     packobj%ibcnum = ibcnum
+    packobj%ncolbnd = 1
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
   end subroutine wel_create
 
@@ -123,6 +124,7 @@ contains
     call mem_deallocate(this%iflowred)
     call mem_deallocate(this%flowred)
     call mem_deallocate(this%ioutafrcsv)
+    call mem_deallocate(this%iflowredlen)
     call mem_deallocate(this%q, 'Q', this%memoryPath)
   end subroutine wel_da
 
@@ -145,11 +147,13 @@ contains
     call mem_allocate(this%iflowred, 'IFLOWRED', this%memoryPath)
     call mem_allocate(this%flowred, 'FLOWRED', this%memoryPath)
     call mem_allocate(this%ioutafrcsv, 'IOUTAFRCSV', this%memoryPath)
+    call mem_allocate(this%iflowredlen, 'IFLOWREDLEN', this%memoryPath)
     !
     ! -- Set values
     this%iflowred = 0
     this%ioutafrcsv = 0
     this%flowred = DZERO
+    this%iflowredlen = 0
   end subroutine wel_allocate_scalars
 
   !> @ brief Allocate arrays
@@ -205,26 +209,44 @@ contains
     call mem_set_value(this%flowred, 'FLOWRED', this%input_mempath, found%flowred)
     call mem_set_value(fname, 'AFRCSVFILE', this%input_mempath, found%afrcsvfile)
     call mem_set_value(this%imover, 'MOVER', this%input_mempath, found%mover)
-    !
+    call mem_set_value(this%iflowredlen, 'IFLOWREDLEN', this%input_mempath, &
+                       found%iflowredlen)
+
+    if (found%iflowredlen) then
+      if (found%flowred .eqv. .FALSE.) then
+        write (warnmsg, '(a)') &
+          'FLOW_REDUCTION_LENGTH option specified but a AUTO_FLOW_REDUCTION value &
+          &is not specified. The FLOW_REDUCTION_LENGTH option will be ignored.'
+        call store_warning(warnmsg)
+      else
+        this%iflowredlen = 1
+      end if
+    end if
+
     if (found%flowred) then
-      !
       this%iflowred = 1
-      !
       if (this%flowred <= DZERO) then
-        this%flowred = DEM1
-      else if (this%flowred > DONE) then
+        if (found%iflowredlen) then
+          write (errmsg, '(a)') &
+            'An AUTO_FLOW_REDUCTION value less than or equal to zero cannot be &
+            &specified if the FLOW_REDUCTION_LENGTH option is specified.'
+          call store_error(errmsg)
+        else
+          this%flowred = DEM1
+        end if
+      else if (this%flowred > DONE .and. this%iflowredlen == 0) then
         this%flowred = DONE
       end if
     end if
-    !
+
     if (found%afrcsvfile) then
       call this%wel_afr_csv_init(fname)
     end if
-    !
+
     if (found%mover) then
       this%imover = 1
     end if
-    !
+
     ! -- log WEL specific options
     call this%log_wel_options(found)
   end subroutine wel_options
@@ -235,7 +257,7 @@ contains
     ! -- modules
     use GwfWelInputModule, only: GwfWelParamFoundType
     ! -- dummy variables
-    class(WelType), intent(inout) :: this !< BndExtType object
+    class(WelType), intent(inout) :: this
     type(GwfWelParamFoundType), intent(in) :: found
     ! -- local variables
     ! -- format
@@ -243,21 +265,31 @@ contains
       &"(4x, 'AUTOMATIC FLOW REDUCTION OF WELLS IMPLEMENTED.')"
     character(len=*), parameter :: fmtflowredv = &
       &"(4x, 'AUTOMATIC FLOW REDUCTION FRACTION (',g15.7,').')"
+    character(len=*), parameter :: fmtflowredl = &
+      &"(4x, 'AUTOMATIC FLOW REDUCTION LENGTH (',g15.7,').')"
     !
     ! -- log found options
     write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text)) &
       //' OPTIONS'
-    !
+
+    if (found%iflowredlen) then
+      write (this%iout, fmtflowred)
+      write (this%iout, '(4x,A)') &
+        'AUTOMATIC FLOW REDUCTION FRACTION INTERPRETED AS A LENGTH'
+    end if
+
     if (found%flowred) then
-      if (this%iflowred > 0) &
-        write (this%iout, fmtflowred)
-      write (this%iout, fmtflowredv) this%flowred
+      if (this%iflowredlen == 0) then
+        write (this%iout, fmtflowredv) this%flowred
+      else
+        write (this%iout, fmtflowredl) this%flowred
+      end if
     end if
     !
     if (found%afrcsvfile) then
       ! -- currently no-op
     end if
-    !
+
     if (found%mover) then
       write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
     end if
@@ -266,26 +298,6 @@ contains
     write (this%iout, '(1x,a)') &
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
   end subroutine log_wel_options
-
-  !> @ brief WEL read and prepare
-    !!
-  !<
-  subroutine wel_rp(this)
-    use TdisModule, only: kper
-    ! -- dummy
-    class(WelType), intent(inout) :: this
-    ! -- local
-    !
-    if (this%iper /= kper) return
-    !
-    ! -- Call the parent class read and prepare
-    call this%BndExtType%bnd_rp()
-    !
-    ! -- Write the list to iout if requested
-    if (this%iprpak /= 0) then
-      call this%write_list()
-    end if
-  end subroutine wel_rp
 
   !> @ brief Formulate the package hcof and rhs terms.
     !!
@@ -319,9 +331,12 @@ contains
       if (this%iflowred /= 0 .and. q < DZERO) then
         ict = this%icelltype(node)
         if (ict /= 0) then
-          tp = this%dis%top(node)
           bt = this%dis%bot(node)
-          thick = tp - bt
+          if (this%iflowredlen == 0) then
+            thick = this%dis%top(node) - bt
+          else
+            thick = DONE
+          end if
           tp = bt + this%flowred * thick
           qmult = sQSaturation(tp, bt, this%xnew(node))
           q = q * qmult
@@ -603,7 +618,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy variables
-    class(WelType), intent(inout) :: this !< BndExtType object
+    class(WelType), intent(inout) :: this
     integer(I4B), intent(in) :: row
     ! -- result
     real(DP) :: q
@@ -625,7 +640,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy variables
-    class(WelType), intent(inout) :: this !< BndExtType object
+    class(WelType), intent(inout) :: this
     integer(I4B), intent(in) :: col
     integer(I4B), intent(in) :: row
     ! -- result

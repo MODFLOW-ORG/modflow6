@@ -50,8 +50,9 @@ module BndExtModule
     procedure :: layarr_to_nlist
     procedure :: default_nodelist
     procedure :: check_cellid
-    procedure :: write_list
+    procedure :: write_lstfile
     procedure :: bound_value
+    procedure :: bnd_rp_log => bndext_rp_log
   end type BndExtType
 
   !> @ brief BndExtFoundType
@@ -170,6 +171,20 @@ contains
       end if
     end if
   end subroutine bndext_rp
+
+  !> @brief Write the input list to the listing file if requested
+  !!
+  !! Called from model control files after bnd_rp(), which ensures
+  !! bound_value() dispatches to the correct derived type.
+  !<
+  subroutine bndext_rp_log(this)
+    ! -- dummy
+    class(BndExtType), intent(inout) :: this
+    !
+    if (this%iprpak /= 0) then
+      call this%write_lstfile()
+    end if
+  end subroutine bndext_rp_log
 
   !> @ brief Deallocate package memory
   !<
@@ -714,13 +729,13 @@ contains
     end select
   end subroutine check_cellid
 
-  !> @ brief Log package list input
+  !> @ brief Log package stress period input
     !!
-    !! Log period list based input. This routine requires a package specific
+    !! Log period based input. This routine requires a package specific
     !! bound_value() routine to report accurate bound values.
     !!
   !<
-  subroutine write_list(this)
+  subroutine write_lstfile(this)
     ! -- modules
     use ConstantsModule, only: LINELENGTH, LENBOUNDNAME, &
                                TABLEFT, TABCENTER, DZERO
@@ -874,7 +889,7 @@ contains
     deallocate (inputtab)
     nullify (inputtab)
     deallocate (words)
-  end subroutine write_list
+  end subroutine write_lstfile
 
   !> @ brief Return a bound value
     !!

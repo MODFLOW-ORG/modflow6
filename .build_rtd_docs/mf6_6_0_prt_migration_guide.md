@@ -1,8 +1,8 @@
 # MODFLOW 6.6.0 Particle Tracking (PRT) Model Migration Guide
 
-This document describes how to migrate PRT models from MODFLOW 6.5.0 to 6.6.0. The particle tracker has evolved since the last release &mdash; while the basics remain the same, there are a few changes worthy of note and, in some cases, detailed explanation.
+This document describes how to migrate PRT models from MODFLOW 6.5.x to 6.6.0, as well as significant changes in behavior.
 
-Rather than describing bug fixes and new features separately, this document is structured by topic, and mentions relevant bug fixes within each topic section. See the release notes for a complete (though less detailed) list of fixes, some of which are unrelated to any topic described here.
+This document is not a comprehensive list of changes. See the release notes for a complete list.
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->

@@ -29,15 +29,15 @@ module ParticleTracksModule
   use CellExitEventModule, only: CellExitEventType
   use SubcellExitEventModule, only: SubcellExitEventType
   use DroppedEventModule, only: DroppedEventType
-  use ParticleEventsModule, only: ParticleEventConsumerType, &
-                                  ParticleEventDispatcherType
+  use ParticleEventsModule, only: ParticleEventDispatcherType
   use BaseDisModule, only: DisBaseType
   use GeomUtilModule, only: transform
 
   implicit none
   public :: ParticleTrackFileType, &
             ParticleTracksType, &
-            ParticleTrackEventSelectionType
+            ParticleTrackEventSelectionType, &
+            write_particle_event
   private :: save_event
 
   character(len=*), parameter, public :: TRACKHEADER = &
@@ -51,7 +51,7 @@ module ParticleTracksModule
   !> @brief Output file containing all or some particle pathlines.
   !!
   !! Can be associated with a particle release point (PRP) package
-  !! or with an entire model, and can be binary or comma-separated.
+  !! or with an entire model, and can be binary or text (CSV).
   !<
   type :: ParticleTrackFileType
     private
@@ -72,12 +72,13 @@ module ParticleTracksModule
     logical(LGP) :: dropped !< track water table drops
   end type ParticleTrackEventSelectionType
 
-  !> @brief Manages particle track output (logging/writing).
-  !!
-  !! Optionally filters events as selected in the PRT Output Control package.
-  !! An arbitrary number of files can be managed, resizing is done as needed.
+  !> @brief Particle track output manager. Handles printing as well as writing
+  !! to files. One output unit can be configured for printing. Multiple files
+  !! can be configured for writing, with each file optionally associated with
+  !! a PRP package or with the full model. Events can be filtered by type, so
+  !! that only certain event types are printed or written to files.
   !<
-  type, extends(ParticleEventConsumerType) :: ParticleTracksType
+  type :: ParticleTracksType
     private
     integer(I4B), public :: iout = -1 !<  log file unit
     integer(I4B), public :: ntrackfiles !< number of track files
@@ -89,9 +90,8 @@ module ParticleTracksModule
     procedure, public :: select_events
     procedure, public :: destroy
     procedure :: expand_files
-    procedure :: handle_event
     procedure :: should_save
-    procedure :: should_log
+    procedure :: should_print
   end type ParticleTracksType
 
 contains
@@ -120,6 +120,7 @@ contains
     this%files(this%ntrackfiles) = file
   end subroutine init_file
 
+  !> @brief Destroy the particle track manager.
   subroutine destroy(this)
     class(ParticleTracksType) :: this
     if (allocated(this%files)) deallocate (this%files)
@@ -269,32 +270,39 @@ contains
     end if
   end subroutine save_event
 
-  !> @brief Log output unit valid?
-  logical function should_log(this)
+  !> @brief Is the output unit valid?
+  logical function should_print(this)
     class(ParticleTracksType), intent(inout) :: this
-    should_log = this%iout >= 0
-  end function should_log
+    should_print = this%iout >= 0
+  end function should_print
 
-  !> @brief Handle a particle event.
-  subroutine handle_event(this, particle, event)
+  !> @brief Write a particle event to files for which the particle
+  !! is eligible, and print the event to output unit if requested.
+  !! This function is the module's main entry point. It should be
+  !! subscribed as an event handler to particle event dispatchers.
+  function write_particle_event(context, particle, event) result(handled)
     ! dummy
-    class(ParticleTracksType), intent(inout) :: this
-    type(ParticleType), pointer, intent(in) :: particle
+    class(*), pointer :: context
+    type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer, intent(in) :: event
+    logical(LGP) :: handled
     ! local
     integer(I4B) :: i
     type(ParticleTrackFileType) :: file
 
-    if (this%should_log()) &
-      call event%log(this%iout)
-
-    if (this%is_selected(event)) then
-      do i = 1, this%ntrackfiles
-        file = this%files(i)
-        if (this%should_save(particle, file)) &
-          call save_event(file%iun, particle, event, csv=file%csv)
-      end do
-    end if
-  end subroutine handle_event
+    select type (context)
+    type is (ParticleTracksType)
+      if (context%should_print()) &
+        call event%log(context%iout)
+      if (context%is_selected(event)) then
+        do i = 1, context%ntrackfiles
+          file = context%files(i)
+          if (context%should_save(particle, file)) &
+            call save_event(file%iun, particle, event, csv=file%csv)
+        end do
+      end if
+      handled = .true.
+    end select
+  end function write_particle_event
 
 end module ParticleTracksModule

@@ -73,10 +73,7 @@ contains
     use SimulationCreateModule, only: simulation_cr
     use SourceLoadModule, only: export_cr
 
-    ! init timer and start
-    call g_prof%initialize()
-    call g_prof%start("Run", g_prof%tmr_run)
-    call g_prof%start("Initialize", g_prof%tmr_init)
+    call g_prof%pre_init()
 
     ! -- get the run controller for sequential or parallel builds
     run_ctrl => create_run_control()
@@ -90,6 +87,10 @@ contains
 
     ! -- load input context
     call static_input_load()
+
+    ! init timer and start
+    call g_prof%initialize()
+    call g_prof%start("Initialize", g_prof%tmr_init)
 
     ! -- create
     call simulation_cr()
@@ -507,7 +508,7 @@ contains
     use BaseSolutionModule, only: BaseSolutionType, GetBaseSolutionFromList
     use SimModule, only: converge_reset
     use SimVariablesModule, only: isim_mode
-    use IdmLoadModule, only: idm_rp
+    use IdmLoadModule, only: idm_rp, idm_ad
     use SourceLoadModule, only: export_post_prepare
     ! -- local variables
     class(BaseModelType), pointer :: mp => null()
@@ -604,6 +605,9 @@ contains
     ! -- set time step
     call tdis_set_timestep()
 
+    ! advance IDM
+    call idm_ad()
+
     ! stop timer
     call g_prof%stop(g_prof%tmr_prep_tstp)
 
@@ -640,8 +644,10 @@ contains
     iFailedStepRetry = 0
     retryloop: do
 
-      ! -- idm advance
-      call idm_ad()
+      if (iFailedStepRetry > 0) then
+        ! advance IDM
+        call idm_ad()
+      end if
 
       do isg = 1, solutiongrouplist%Count()
         sgp => GetSolutionGroupFromList(solutiongrouplist, isg)

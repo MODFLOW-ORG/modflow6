@@ -138,7 +138,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'Evapotranspiration'}
+description REPLACE obs6_filename {'{#1}': 'EVT', '{#2}': '\\ref{table:gwf-obstypetable}'}
 
 block options
 name surf_rate_specified

@@ -119,7 +119,8 @@ contains
     real(DP), dimension(3) :: dnm ! vector from upwind to downwind cell
     real(DP) :: smooth ! Smoothness indicator for limiter i.e. ratio of gradients
     real(DP) :: alimiter ! Value of the TVD limiter
-    real(DP) :: cl1, cl2 ! Connection lengths from upwind and downwind cells to the face
+    real(DP) :: cl1, cl2 ! Connection length of cell n to the face and of cell m to the face
+    real(DP) :: cl_up, cl_dn ! Connection length of cell iup to the face and of cell idn to the face
     real(DP) :: relative_distance ! Relative distance factor for high-order term
     real(DP) :: c_virtual ! Virtual node concentration (Darwish method)
     real(DP), pointer :: min_phi, max_phi ! Local minimum and maximum among cell and neighbors
@@ -127,14 +128,24 @@ contains
     isympos = this%dis%con%jas(iposnm)
     qnm = this%fmi%gwfflowja(iposnm)
     !
+    ! -- Get the distance from node n to the face (cl1) and from node m to the face (cl2).
+    !    The distances are dependent on the the node numbering convention and the direction of the connection.
+    if (n < m) then
+      cl1 = this%dis%con%cl1(isympos)
+      cl2 = this%dis%con%cl2(isympos)
+    else
+      cl1 = this%dis%con%cl2(isympos)
+      cl2 = this%dis%con%cl1(isympos)
+    end if
+    !
     ! -- Find upstream node
     if (qnm > DZERO) then
       ! -- positive flow into n means m is upstream
       iup = m
       idn = n
 
-      cl1 = this%dis%con%cl2(isympos)
-      cl2 = this%dis%con%cl1(isympos)
+      cl_up = cl2
+      cl_dn = cl1
 
       coef_up => phi_face%c_m
       coef_dn => phi_face%c_n
@@ -142,8 +153,8 @@ contains
       iup = n
       idn = m
 
-      cl1 = this%dis%con%cl1(isympos)
-      cl2 = this%dis%con%cl2(isympos)
+      cl_up = cl1
+      cl_dn = cl2
 
       coef_up => phi_face%c_n
       coef_dn => phi_face%c_m
@@ -195,12 +206,12 @@ contains
     alimiter = this%limiter(smooth)
 
     ! High order term is:
-    relative_distance = cl1 / (cl1 + cl2)
+    relative_distance = cl_up / (cl_up + cl_dn)
     phi_face%rhs = -relative_distance * alimiter * (this%phi(idn) - this%phi(iup))
 
     ! Alternative way of writing the high order term by adding it to the
     ! coefficients matrix. The equation to be added is:
-    ! high_order = cl1 / (cl1 + cl2) * alimiter * qnm * (phi(idn) - phi(iup))
+    ! high_order = cl_up / (cl_up + cl_dn) * alimiter * qnm * (phi(idn) - phi(iup))
     ! This is split into two parts:
     ! coef_up = coef_up - relative_distance * alimiter
     ! coef_dn = coef_dn + relative_distance * alimiter

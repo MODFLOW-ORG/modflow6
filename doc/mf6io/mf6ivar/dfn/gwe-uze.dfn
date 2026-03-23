@@ -252,7 +252,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'UZE'}
+description REPLACE obs6_filename {'{#1}': 'UZE', '{#2}': '\\ref{table:gwe-obstypetable}'}
 
 
 # --------------------- gwe uze packagedata ---------------------

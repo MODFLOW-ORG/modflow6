@@ -232,13 +232,11 @@ contains
       ! Calculate vertex velocities.
       call this%vertvelo()
 
-      ! Transform particle coordinates
+      ! Transform model coordinates to local cell coordinates
+      ! (translated/rotated but not scaled relative to model),
+      ! track the particle over the cell, then transform back.
       call particle%transform(xO, yO)
-
-      ! Track the particle across the cell.
       call this%track(particle, 2, tmax)
-
-      ! Transform particle coordinates back
       call particle%transform(xO, yO, invert=.true.)
       call particle%reset_transform()
     end select

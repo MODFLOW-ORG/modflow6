@@ -25,7 +25,7 @@ cases = ["no-vsc04-lak", "vsc04-lak"]
 viscosity_on = [False, True]
 
 # Model units
-length_units = "m"
+length_units = "meters"
 time_units = "days"
 
 # model domain and grid definition

@@ -1,7 +1,7 @@
 """
 Uses constant head and general-head boundaries on the left and right
 sides of a 10 row by 10 column by 1 layer model to drive flow from left to
-right.  Tests that a horizontal flow barrier accounts for changes in
+right.  Tests that a hydraulic flow barrier accounts for changes in
 viscosity when temperature is simulated. Barrier is between middle two
 columns, but only cuts across the bottom 5 rows.
 Model 1: VSC inactive, uses a higher speified K that matches what the VSC
@@ -32,7 +32,7 @@ icell_inactive = 3
 
 # Model units
 
-length_units = "cm"
+length_units = "centimeters"
 time_units = "seconds"
 
 # Table of model parameters
@@ -171,7 +171,7 @@ def build_models(idx, test):
         auxiliary="temperature",
     )
 
-    # Instantiate Horizontal Flow-Barrier (HFB) package
+    # Instantiate Hydraulic Flow-Barrier (HFB) package
     # Barrier present between middle two columns of the model domain, but only
     # in rows 6-10.  Remember that the hydraulic characteristic is the barrier
     # hydraulic conductivity divided by the width of the horizontal-flow

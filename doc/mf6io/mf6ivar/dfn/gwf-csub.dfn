@@ -540,7 +540,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'CSUB'}
+description REPLACE obs6_filename {'{#1}': 'CSUB', '{#2}': '\\ref{table:gwf-obstypetable}'}
 
 # --------------------- gwf csub dimensions ---------------------
 

@@ -23,13 +23,11 @@ jobs:
           - {os: ubuntu-24.04, compiler: gcc, version: 12}
           - {os: ubuntu-24.04, compiler: gcc, version: 13}
           - {os: ubuntu-24.04, compiler: gcc, version: 14}
-          - {os: macos-15-intel, compiler: gcc, version: 11}
-          - {os: macos-15-intel, compiler: gcc, version: 12}
-          - {os: macos-15-intel, compiler: gcc, version: 13}
-          - {os: macos-14, compiler: gcc, version: 11}
-          - {os: macos-14, compiler: gcc, version: 12}
-          - {os: macos-14, compiler: gcc, version: 13}
-          - {os: macos-14, compiler: gcc, version: 14}
+          - {os: macos-14, compiler: gcc, version: 11, xcode-version: '15.1.0'}
+          - {os: macos-14, compiler: gcc, version: 12, xcode-version: '15.1.0'}
+          - {os: macos-14, compiler: gcc, version: 13, xcode-version: '15.1.0'}
+          - {os: macos-14, compiler: gcc, version: 14, xcode-version: '15.1.0'}
+          - {os: macos-15-intel, compiler: gcc, version: 13, xcode-version: '16.1.0'}
           - {os: windows-2022, compiler: gcc, version: 11}
           - {os: windows-2022, compiler: gcc, version: 12}
           - {os: windows-2022, compiler: gcc, version: 13}
@@ -53,16 +51,6 @@ jobs:
           - {os: ubuntu-22.04, compiler: intel-classic, version: 2021.3}
           - {os: ubuntu-22.04, compiler: intel-classic, version: 2021.2}
           - {os: ubuntu-22.04, compiler: intel-classic, version: 2021.1}
-          - {os: macos-15-intel, compiler: intel-classic, version: "2021.10"}
-          - {os: macos-15-intel, compiler: intel-classic, version: 2021.9}
-          - {os: macos-15-intel, compiler: intel-classic, version: 2021.8}
-          - {os: macos-15-intel, compiler: intel-classic, version: 2021.7}
-          - {os: macos-15-intel, compiler: intel-classic, version: 2021.6}
-          - {os: macos-15-intel, compiler: intel-classic, version: 2021.5}
-          - {os: macos-15-intel, compiler: intel-classic, version: 2021.4}
-          - {os: macos-15-intel, compiler: intel-classic, version: 2021.3}
-          - {os: macos-15-intel, compiler: intel-classic, version: 2021.2}
-          - {os: macos-15-intel, compiler: intel-classic, version: 2021.1}
           - {os: windows-2022, compiler: intel-classic, version: "2021.10"}
           - {os: windows-2022, compiler: intel-classic, version: 2021.9}
           - {os: windows-2022, compiler: intel-classic, version: 2021.8}
@@ -96,7 +84,7 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.3
+        uses: prefix-dev/setup-pixi@v0.9.4
         with:
           pixi-version: v0.41.4
           manifest-path: "modflow6/pixi.toml"
@@ -105,17 +93,39 @@ jobs:
         working-directory: modflow6
         run: pixi run install
 
+      - name: Set xcode version (macOS)
+        if: runner.os == 'macOS'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ matrix.xcode-version }}
+
+      # static link gfortran libs
+      - name: Hide dylibs (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          version="${{ matrix.version }}"
+          brew_prefix="$(brew --prefix)"
+          libpath="$brew_prefix/opt/gcc@$version/lib/gcc/$version"
+          mv $libpath/libgcc_s.1.1.dylib $libpath/libgcc_s.1.1.dylib.bak
+          mv $libpath/libgfortran.5.dylib $libpath/libgfortran.5.dylib.bak
+          mv $libpath/libquadmath.0.dylib $libpath/libquadmath.0.dylib.bak 
+
+      # use classic xcode linker, static link libgcc
       - name: Set LDFLAGS (macOS)
         if: runner.os == 'macOS'
         run: |
-          ldflags="$LDFLAGS -Wl,-ld_classic"
+          ldflags="$LDFLAGS -Wl,-ld_classic -static-libgcc"
           echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
 
-      - name: Build modflow6
+      - name: Build MF6
         working-directory: modflow6
         run: |
           pixi run setup builddir
           pixi run build builddir
+
+      - name: Build mf5to6 converter
+        working-directory: modflow6
+        run: |
           pixi run setup-mf5to6 builddir
           pixi run build-mf5to6 builddir
 
@@ -126,11 +136,37 @@ jobs:
       
       - name: Upload build log
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
-          name: meson-log.txt
+          name: ${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.version }}-meson-log.txt
           path: modflow6/builddir/meson-logs/meson-log.txt
-    
+
+      - name: Check arch/libs (macOS)
+        if: success() && runner.os == 'macOS'
+        working-directory: modflow6/bin
+        run: |
+          otool -L mf6
+          otool -L libmf6.dylib
+          otool -L mf5to6
+          otool -L zbud6
+          lipo -info mf6 
+          lipo -info libmf6.dylib
+          lipo -info mf5to6
+          lipo -info zbud6
+
+      # TODO remove after next executables release. only necessary because
+      # tests using gridgen were failing as the current gridgen depends on
+      # some dylibs. new executables all statically link gcc/gfortran libs
+      - name: Restore dylibs (macOS)
+        if: success() && runner.os == 'macOS'
+        run: |
+          version="${{ matrix.version }}"
+          brew_prefix="$(brew --prefix)"
+          libpath="$brew_prefix/opt/gcc@$version/lib/gcc/$version"
+          mv $libpath/libgcc_s.1.1.dylib.bak $libpath/libgcc_s.1.1.dylib
+          mv $libpath/libgfortran.5.dylib.bak $libpath/libgfortran.5.dylib
+          mv $libpath/libquadmath.0.dylib.bak $libpath/libquadmath.0.dylib
+
       - name: Unit test programs
         if: success()
         working-directory: modflow6
@@ -188,7 +224,7 @@ jobs:
 
       - name: Upload reports
         if: success() || failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: compat-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.version }}
           path: compat/*.csv
@@ -215,7 +251,7 @@ jobs:
         run: pip install tabulate pandas
 
       - name: Download reports
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: compat-*
           path: .github/compat/new
@@ -239,7 +275,7 @@ jobs:
 
       # only upload wide CSVs and Markdown tables
       - name: Upload artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: compat
           path: |

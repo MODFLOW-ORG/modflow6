@@ -103,6 +103,7 @@ contains
     packobj%iout = iout
     packobj%id = id
     packobj%ibcnum = ibcnum
+    packobj%ncolbnd = 1
     packobj%ictMemPath = create_mem_path(namemodel, 'DFW')
 
     ! store pointer to dis
@@ -259,11 +260,6 @@ contains
       ! the input context precipitation, which is automatically updated by idm
     else
       call this%BndExtType%bnd_rp()
-    end if
-
-    ! Write the list to iout if requested
-    if (this%iprpak /= 0) then
-      call this%write_list()
     end if
   end subroutine pcp_rp
 
@@ -497,7 +493,7 @@ contains
     ! modules
     use ConstantsModule, only: DZERO
     ! dummy
-    class(SwfPcpType), intent(inout) :: this !< BndExtType object
+    class(SwfPcpType), intent(inout) :: this
     integer(I4B), intent(in) :: col
     integer(I4B), intent(in) :: row
     ! result

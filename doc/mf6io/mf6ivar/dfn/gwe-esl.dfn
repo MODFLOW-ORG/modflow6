@@ -128,7 +128,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'Energy Source Loading'}
+description REPLACE obs6_filename {'{#1}': 'ESL', '{#2}': '\\ref{table:gwe-obstypetable}'}
 
 # --------------------- gwe esl dimensions ---------------------
 

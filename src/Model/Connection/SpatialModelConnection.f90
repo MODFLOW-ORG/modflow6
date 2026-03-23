@@ -1,9 +1,10 @@
 module SpatialModelConnectionModule
   use KindModule, only: I4B, DP, LGP
+  use ConstantsModule, only: LINELENGTH, DZERO
   use SparseModule, only: sparsematrix
   use ConnectionsModule, only: ConnectionsType
   use CsrUtilsModule, only: getCSRIndex
-  use SimModule, only: ustop
+  use SimModule, only: ustop, count_errors, store_error
   use NumericalModelModule, only: NumericalModelType
   use NumericalExchangeModule, only: NumericalExchangeType
   use DisConnExchangeModule, only: DisConnExchangeType
@@ -576,7 +577,6 @@ contains ! module procedures
   !<
   subroutine allocateArrays(this)
     use MemoryManagerModule, only: mem_allocate
-    use ConstantsModule, only: DZERO
     class(SpatialModelConnectionType) :: this !< this connection
     ! local
     integer(I4B) :: i
@@ -620,11 +620,10 @@ contains ! module procedures
   !> @brief Validate this connection
   !<
   subroutine validateConnection(this)
-    use SimVariablesModule, only: errmsg
-    use SimModule, only: store_error
     class(SpatialModelConnectionType) :: this !< this connection
     ! local
     class(DisConnExchangeType), pointer :: conEx => null()
+    character(len=LINELENGTH) :: errmsg
 
     conEx => this%prim_exchange
     if (conEx%ixt3d > 0) then
@@ -641,6 +640,10 @@ contains ! module procedures
           trim(conEx%v_model2%name), ' has no ANGLDEGX specified'
         call store_error(errmsg)
       end if
+    end if
+
+    if (count_errors() > 0) then
+      call ustop()
     end if
 
   end subroutine validateConnection

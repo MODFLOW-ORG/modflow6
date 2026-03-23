@@ -7,8 +7,8 @@
 module NCExportCreateModule
 
   use KindModule, only: DP, I4B, LGP
-  use SimVariablesModule, only: errmsg
-  use ConstantsModule, only: DIS, DISU, DISV
+  use SimVariablesModule, only: errmsg, isim_mode
+  use ConstantsModule, only: DIS, DISU, DISV, MVALIDATE
   use SimModule, only: store_error, store_error_filename
   use NumericalModelModule, only: NumericalModelType
   use BaseDisModule, only: DisBaseType
@@ -157,6 +157,12 @@ contains
     class(*), pointer :: obj
     logical(LGP) :: found, readasarrays
     integer(I4B) :: n
+
+    if (isim_mode /= MVALIDATE) then
+      ! input array export configuration is documented
+      ! as ignored if not in validate mode
+      return
+    end if
 
     ! create list of in scope loaders
     allocate (export_arrays)

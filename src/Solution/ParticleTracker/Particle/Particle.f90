@@ -52,7 +52,12 @@ module ParticleModule
   !! Particles are identified by composite key, i.e.,
   !! combinations of properties imdl, iprp, irpt, and
   !! trelease. An optional label may be provided, but
-  !! need not be unique
+  !! need not be unique.
+  !!
+  !! Particles carry a coordinate transform along with
+  !! themselves, instead of just letting the tracking
+  !! methods handle transforms, because we may need to
+  !! report an event at any time in model coordinates.
   !<
   type ParticleType
     private
@@ -356,6 +361,11 @@ contains
                    xorigin, yorigin, zorigin, &
                    sinrot, cosrot, invert)
 
+    ! Compose is needed only because we have to untransform
+    ! coordinates: we may need to report a particle event
+    ! at any point in the tracking method hierarchy, so we
+    ! need to know how to map the particle position back to
+    ! model coords from coords local to the current domain.
     call compose(this%xorigin, this%yorigin, this%zorigin, &
                  this%sinrot, this%cosrot, &
                  xorigin, yorigin, zorigin, &

@@ -14,13 +14,13 @@
         "name": "modflow6",
         "downloadURL": "https://code.usgs.gov/usgs/modflow/modflow6/archive/master.zip",
         "contact": {
-            "name": "Christian D. Langevin",
-            "email": "langevin@usgs.gov"
+            "name": "Eric D. Morway",
+            "email": "emorway@usgs.gov"
         },
         "laborHours": -1,
-        "version": "6.7.0.dev3",
+        "version": "6.8.0.dev0",
         "date": {
-            "metadataLastUpdated": "2025-09-29"
+            "metadataLastUpdated": "2026-02-06"
         },
         "organization": "U.S. Geological Survey",
         "permissions": {

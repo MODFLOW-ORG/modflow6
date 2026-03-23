@@ -89,7 +89,7 @@ strt_lk_stg = [33.75, 33.75, 33.75]
 lkbdthkcnd = [0.0001, 0.0001, 0.0001]  # Thickness to consider for feature/gw conduction
 
 # Model units
-length_units = "m"
+length_units = "meters"
 time_units = "days"
 
 # model domain and grid definition

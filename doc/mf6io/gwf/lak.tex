@@ -21,7 +21,7 @@ Input to the Lake (LAK) Package is read from the file that has type ``LAK6'' in 
 \advancedpackageperioddescription{lake}{lakes}
 
 \vspace{5mm}
-\subsubsection{Explanation of Variables}
+\subsubsection{Explanation of Variables} \label{sec:lakparams}
 \begin{description}
 \input{./mf6ivar/tex/gwf-lak-desc.tex}
 \end{description}
@@ -32,7 +32,7 @@ Input to the Lake (LAK) Package is read from the file that has type ``LAK6'' in 
 
 \vspace{5mm}
 \subsubsection{Available observation types}
-Lake Package observations include lake stage and all of the terms that contribute to the continuity equation for each lake. Additional LAK Package observations include flow rates for individual outlets, lakes, or groups of lakes (\texttt{outlet}); the lake volume (\texttt{volume}); lake surface area (\texttt{surface-area}); wetted area for a lake-aquifer connection (\texttt{wetted-area}); and the conductance for a lake-aquifer connection conductance (\texttt{conductance}). The data required for each LAK Package observation type is defined in table~\ref{table:gwf-lakobstype}. Negative and positive values for \texttt{lak} observations represent a loss from and gain to the GWF model, respectively. For all other flow terms, negative and positive values represent a loss from and gain from the LAK package, respectively.
+Lake Package observations include lake stage and all of the terms that contribute to the continuity equation for each lake. Additional LAK Package observations include flow rates for individual outlets, lakes, or groups of lakes (\texttt{outlet}); the lake volume (\texttt{volume}); lake surface area (\texttt{surface-area}); wetted area for a lake-aquifer connection (\texttt{wetted-area}); and the conductance for a lake-aquifer connection conductance (\texttt{conductance}). The data required for each LAK Package observation type is defined in table~\ref{table:gwf-lakobstype}. Negative and positive values for \texttt{lak} observations represent a loss from or gain to the GWF model, respectively. For all other observation flow terms, negative and positive values represent a loss from or gain to the LAK package, respectively.
 
 \begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
 \caption{Available LAK Package observation types} \tabularnewline
@@ -63,6 +63,18 @@ Lake Package observations include lake stage and all of the terms that contribut
 \vspace{5mm}
 \subsubsection{Example Observation Input File}
 \lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-lak-example-obs.dat}
+
+\vspace{5mm}
+\subsection{Use of the Lake Package with RCH and EVT Packages} \label{sec:lakrchet}
+
+\mf allows specification of multiple boundary conditions within a GWF cell.  For example, for cells beneath a non-embedded lake, a user can specify LAK-GWF cell connections and additionally include RCH and EVT boundary conditions to simulate recharge and evapotranspiration, respectively.  In instances where LAK and RCH, LAK and EVT, or LAK, RCH, and EVT are specified in a cell, \mf determines whether the lake has flooded over the top of the cell.  In cases where a lake has submerged a cell, \mf will deactivate RCH and EVT boundary conditions when specified.  The middle grid cell shown in fig.~\ref{fig:lak-rch-et}A depicts this condition, only lake-groundwater exchange flows will be calculated, RCH and EVT flows are deactivated.  However, when the lake (or reservoir) stage drops and the shoreline recedes, the LAK-GWF connection turns off and RCH and EVT processes will be accounted for if specified (fig.~\ref{fig:lak-rch-et}B).  This accounting of mixed boundary conditions may be especially important where significant changes in wetted lakebed area occur as a result of a change in stage, particularly in reservoirs.  In short, recharge and evapotranspiration are applied to groundwater cells underlying dry non-embedded lakes. If a dry lake rewets, then recharge and evapotranspiration to the underlying groundwater cells is deactivated.
+
+\begin{figure}[ht]
+	\centering
+	\includegraphics[scale=0.55]{../Figures/lak-et-rch-depiction}
+	\caption[Illustration of how \mf handles a cell that includes lake, evapotranspiration, and recharge boundary conditions.]{An example cross section showing how multiple boundary conditions within a single cell are handled when the boundary conditions include lake (LAK) and either recharge (RCH), evapotranspiration (EVT), or both.  (A) A simulated stress period with an elevated lake stage that floods a cell (the middle cell) deactivates the EVT and RCH boundary conditions specified by the user.  (B) When the simulated lake stage has dropped and the shoreline has receded, exposing the middle cell to the atmosphere, the RCH and EVT boundary conditions are reactivated.}
+	\label{fig:lak-rch-et}
+\end{figure}
 
 \newpage
 \subsection{Lake Table Input File}

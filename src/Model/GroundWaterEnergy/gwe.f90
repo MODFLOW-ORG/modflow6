@@ -313,6 +313,7 @@ contains
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_rp()
+      call packobj%bnd_rp_log()
       call packobj%bnd_rp_obs()
     end do
   end subroutine gwe_rp

@@ -1,7 +1,7 @@
 project(
   'MODFLOW 6',
   'fortran',
-  version: '6.7.0.dev3',
+  version: '6.8.0.dev0',
   license: 'CC0',
   meson_version: '>= 1.3.1',
   default_options : [
@@ -24,6 +24,7 @@ fc_id = fc.get_id()
 message('Compiler ID:', fc_id)
 compile_args = []
 link_args = []
+extra_deps = []
 
 # Command line options for gfortran
 if fc_id == 'gcc'
@@ -38,7 +39,7 @@ if fc_id == 'gcc'
                    '-Wno-maybe-uninitialized',   # "Uninitialized" flags produce false positives with allocatables
                    '-Wno-uninitialized',
                    ]
-  
+
   # Define OS with gfortran for OS specific code
   # These are identical to pre-defined macros available with ifort
   system = build_machine.system()

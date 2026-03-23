@@ -6,7 +6,7 @@ module IdmChfDfnSelectorModule
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
   use ChfNamInputModule
-  use ChfDisv1DInputModule
+  use ChfDisv1dInputModule
   use ChfCxsInputModule
   use ChfDfwInputModule
   use ChfIcInputModule

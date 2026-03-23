@@ -51,7 +51,9 @@ def build_models(idx, test, gridded_input):
 
     name = cases[idx]
 
-    gwf.name_file.nc_mesh2d_filerecord = f"{name}.nc"
+    gwf.name_file.nc_mesh2d_filerecord = (
+        f"{name}.ugrid.nc" if gridded_input == "netcdf" else f"{name}.nc"
+    )
 
     # netcdf config
     ncf = flopy.mf6.ModflowUtlncf(
@@ -87,27 +89,11 @@ def check_output(idx, test, gridded_input):
     crs = grbobj._datadict["CRS"]
     assert crs == wkt
 
-    # verify format of generated netcdf file
-    with nc.Dataset(test.workspace / f"{name}.nc") as ds:
-        assert ds.data_model == "NETCDF4"
-        cmpr = ds.variables["head_l1"].filters()
-        chnk = ds.variables["head_l1"].chunking()
-        assert cmpr["shuffle"]
-        assert cmpr["complevel"] == 9
-        assert chnk == [1, 3]
-        assert ds.variables["projection"].getncattr("wkt").lower() == wkt.lower()
-
     if gridded_input == "netcdf":
         # re-run the simulation with model netcdf input
-        input_fname = f"{name}.nc"
-        nc_fname = f"{name}.ugrid.nc"
-        os.rename(test.workspace / input_fname, test.workspace / nc_fname)
-
-        fileout_tag = "NETCDF_MESH2D"
-
         with open(test.workspace / f"{name}.nam", "w") as f:
             f.write("BEGIN options\n")
-            f.write(f"  {fileout_tag}  FILEOUT  {name}.nc\n")
+            f.write(f"  NETCDF_MESH2D  FILEOUT  {name}.nc\n")
             f.write(f"  NETCDF  FILEIN {name}.ugrid.nc\n")
             f.write("END options\n\n")
             f.write("BEGIN packages\n")
@@ -120,7 +106,6 @@ def check_output(idx, test, gridded_input):
 
         with open(test.workspace / f"{name}.disv", "w") as f:
             f.write("BEGIN options\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write(f"  NCF6  FILEIN  {name}.disv.ncf\n")
             f.write("END options\n\n")
             f.write("BEGIN dimensions\n")
@@ -166,7 +151,6 @@ def check_output(idx, test, gridded_input):
 
         with open(test.workspace / f"{name}.ic", "w") as f:
             f.write("BEGIN options\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN griddata\n")
             f.write("  strt NETCDF\n")
@@ -174,7 +158,6 @@ def check_output(idx, test, gridded_input):
 
         with open(test.workspace / f"{name}.npf", "w") as f:
             f.write("BEGIN options\n")
-            f.write("  EXPORT_ARRAY_NETCDF\n")
             f.write("END options\n\n")
             f.write("BEGIN griddata\n")
             f.write("  icelltype  NETCDF\n")
@@ -192,6 +175,16 @@ def check_output(idx, test, gridded_input):
         test.success = success
 
     check(idx, test)
+
+    # verify format of generated netcdf file
+    with nc.Dataset(test.workspace / f"{name}.nc") as ds:
+        assert ds.data_model == "NETCDF4"
+        cmpr = ds.variables["head_l1"].filters()
+        chnk = ds.variables["head_l1"].chunking()
+        assert cmpr["shuffle"]
+        assert cmpr["complevel"] == 9
+        assert chnk == [1, 3]
+        assert ds.variables["projection"].getncattr("wkt").lower() == wkt.lower()
 
     # Check NetCDF output
     nc_fpth = os.path.join(test.workspace, name + ".nc")
@@ -218,6 +211,21 @@ def check_output(idx, test, gridded_input):
                     xds[f"head_l{l + 1}"][timestep, :].fillna(1.00000000e30).data,
                 ), f"NetCDF-Headfile comparison failure in timestep {timestep + 1}"
             timestep += 1
+
+    for v in xds.data_vars.keys():
+        assert not v.startswith("disv")
+        assert not v.startswith("ic")
+        assert not v.startswith("npf")
+
+    xds.close()
+
+    if gridded_input == "ascii":
+        return
+
+    # Check NetCDF input
+    nc_fpth = os.path.join(test.workspace, f"{name}.ugrid.nc")
+    ds = xu.open_dataset(nc_fpth)
+    xds = ds.ugrid.to_dataset()
 
     # NetCDF variables, layered variables end with "_l"
     vlist = ["disv_top", "disv_botm_l", "npf_icelltype_l", "npf_k_l", "ic_strt_l"]
@@ -251,6 +259,7 @@ def test_mf6model(idx, name, function_tmpdir, targets, gridded_input):
         targets=targets,
         build=lambda t: build_models(idx, t, gridded_input),
         check=lambda t: check_output(idx, t, gridded_input),
+        cargs=["--mode=validate"] if gridded_input == "netcdf" else None,
         compare=None,
     )
     test.run()

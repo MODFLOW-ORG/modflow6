@@ -42,7 +42,7 @@ module NCModelExportModule
     integer(I4B), dimension(:, :), allocatable :: varids_aux
     integer(I4B), dimension(:), pointer, contiguous :: mshape => null() !< model shape
     integer(I4B), pointer :: iper !< most recent package rp load
-    integer(I4B) :: iper_export !< most recent period of netcdf package export
+    integer(I4B) :: eper !< most recent period of netcdf package export
     integer(I4B) :: nparam !< number of in scope params
     integer(I4B) :: naux !< number of auxiliary variables
   contains
@@ -97,6 +97,7 @@ module NCModelExportModule
     procedure :: init => export_init
     procedure :: get => export_get
     procedure :: input_attribute
+    procedure :: istp
     procedure :: destroy => export_destroy
   end type NCModelExportType
 
@@ -163,7 +164,7 @@ contains
     this%mshape => mshape
     this%nparam = nparam
     this%naux = naux
-    this%iper_export = 0
+    this%eper = 0
 
     input_mempath = create_mem_path(component=mf6_input%component_name, &
                                     subcomponent=mf6_input%subcomponent_name, &
@@ -272,7 +273,7 @@ contains
   !<
   subroutine export_init(this, modelname, modeltype, modelfname, nc_fname, &
                          disenum, nctype, iout)
-    use TdisModule, only: datetime0, nstp, inats
+    use TdisModule, only: datetime0, nper, nstp
     use MemoryManagerModule, only: mem_setptr
     use MemoryHelperModule, only: create_mem_path
     use MemoryManagerExtModule, only: mem_set_value
@@ -381,16 +382,12 @@ contains
       this%datetime = 'days since 1970-01-01T00:00:00'
     end if
 
-    ! Set error and exit if ATS is on
-    if (inats > 0) then
-      errmsg = 'Adaptive time stepping not currently supported &
-               &with NetCDF exports.'
-      call store_error(errmsg)
-      call store_error_filename(modelfname)
-    end if
-
     ! set total nstp
-    this%totnstp = sum(nstp)
+    if (isim_mode == MVALIDATE) then
+      this%totnstp = nper
+    else
+      this%totnstp = sum(nstp)
+    end if
   end subroutine export_init
 
   !> @brief retrieve dynamic export object from package list
@@ -427,6 +424,20 @@ contains
              memPathSeparator//trim(idt%tagname)
     end if
   end function input_attribute
+
+  !> @brief step index for timeseries data
+  !<
+  function istp(this)
+    use TdisModule, only: kstp, kper, nstp
+    class(NCModelExportType), intent(inout) :: this
+    integer(I4B) :: n, istp
+    istp = kstp
+    if (kper > 1) then
+      do n = 1, kper - 1
+        istp = istp + nstp(n)
+      end do
+    end if
+  end function istp
 
   !> @brief build netcdf variable name
   !<
@@ -524,14 +535,12 @@ contains
     class(ExportPackageType), pointer :: export_pkg
     do idx = 1, this%pkglist%Count()
       export_pkg => this%get(idx)
-      ! last loaded data is not current period
-      if (export_pkg%iper /= kper) cycle
       ! period input already exported
-      if (export_pkg%iper_export >= export_pkg%iper) cycle
-      ! set exported iper
-      export_pkg%iper_export = export_pkg%iper
+      if (export_pkg%eper >= kper) cycle
       ! update export package
       call this%package_step(export_pkg)
+      ! update exported iper
+      export_pkg%eper = kper
     end do
   end subroutine export_input
 

@@ -87,11 +87,11 @@ contains
       "2-item slice failed, got ["// &
       to_string(ts%selection(1))//","//to_string(ts%selection(2))//"]")
 
-    ! lower bound equal to a time value
+    ! lower bound equal to a time value (exclusive lower bound)
     call ts%select(0.0_DP, 2.5_DP)
     call check( &
       error, &
-      ts%selection(1) == 1 .and. ts%selection(2) == 3, &
+      ts%selection(1) == 2 .and. ts%selection(2) == 3, &
       "lb eq slice failed, got [" &
       //to_string(ts%selection(1))//","//to_string(ts%selection(2))//"]")
 
@@ -103,12 +103,30 @@ contains
       "ub eq slice failed, got [" &
       //to_string(ts%selection(1))//","//to_string(ts%selection(2))//"]")
 
-    ! both bounds equal to a time value
+    ! both bounds equal to a time value (lower exclusive, upper inclusive)
     call ts%select(0.0_DP, 2.0_DP)
     call check( &
       error, &
-      ts%selection(1) == 1 .and. ts%selection(2) == 3, &
+      ts%selection(1) == 2 .and. ts%selection(2) == 3, &
       "lb ub eq slice failed, got [" &
+      //to_string(ts%selection(1))//","//to_string(ts%selection(2))//"]")
+
+    ! Test explicit boundary behavior: interval (0.0, 1.0]
+    ! should include 1.0 but not 0.0
+    call ts%select(0.0_DP, 1.0_DP)
+    call check( &
+      error, &
+      ts%selection(1) == 2 .and. ts%selection(2) == 2, &
+      "boundary (0,1] slice failed, got [" &
+      //to_string(ts%selection(1))//","//to_string(ts%selection(2))//"]")
+
+    ! Test explicit boundary behavior: interval (1.0, 2.0]
+    ! should include 2.0 but not 1.0
+    call ts%select(1.0_DP, 2.0_DP)
+    call check( &
+      error, &
+      ts%selection(1) == 3 .and. ts%selection(2) == 3, &
+      "boundary (1,2] slice failed, got [" &
       //to_string(ts%selection(1))//","//to_string(ts%selection(2))//"]")
 
   end subroutine test_select

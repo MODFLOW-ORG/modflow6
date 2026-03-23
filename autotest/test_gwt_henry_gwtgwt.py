@@ -9,7 +9,7 @@ cases = [
     pytest.param(0, "henry01-gwtgwt-ups"),
     pytest.param(1, "henry01-gwtgwt-cen"),
     pytest.param(2, "henry01-gwtgwt-tvd"),
-    pytest.param(3, "henry01-gwtgwt-utvd", marks=pytest.mark.developmode),
+    pytest.param(3, "henry01-gwtgwt-utvd"),
 ]
 
 

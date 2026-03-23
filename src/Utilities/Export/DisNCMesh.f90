@@ -93,18 +93,21 @@ contains
     call this%define_dim()
     ! define mesh variables
     call this%create_mesh()
-    if (isim_mode /= MVALIDATE) then
+    if (isim_mode == MVALIDATE) then
+      ! define period input arrays
+      call this%df_export()
+    else
       ! define the dependent variable
       call this%define_dependent()
     end if
-    ! define period input arrays
-    call this%df_export()
     ! exit define mode
     call nf_verify(nf90_enddef(this%ncid), this%nc_fname)
     ! create mesh
     call this%add_mesh_data()
-    ! define and set package input griddata
-    call this%add_pkg_data()
+    if (isim_mode == MVALIDATE) then
+      ! define and set package input griddata
+      call this%add_pkg_data()
+    end if
     ! define and set gridmap variable
     call this%define_gridmap()
     ! synchronize file
@@ -116,7 +119,6 @@ contains
   subroutine step(this)
     use ConstantsModule, only: DHNOFLO
     use TdisModule, only: totim
-    use NetCDFCommonModule, only: ixstp
     class(Mesh2dDisExportType), intent(inout) :: this
     real(DP), dimension(:), pointer, contiguous :: dbl1d
     integer(I4B) :: n, k, nvals, istp
@@ -128,7 +130,7 @@ contains
     nullify (dbl2d)
 
     ! set global step index
-    istp = ixstp()
+    istp = this%istp()
 
     dis_shape(1) = this%dis%ncol * this%dis%nrow
     dis_shape(2) = this%dis%nlay
@@ -181,7 +183,7 @@ contains
   !> @brief netcdf export package dynamic input
   !<
   subroutine package_step(this, export_pkg)
-    use TdisModule, only: kper
+    use TdisModule, only: totim, kper
     use DefinitionSelectModule, only: get_param_definition_type
     use NCModelExportModule, only: ExportPackageType
     class(Mesh2dDisExportType), intent(inout) :: this
@@ -306,6 +308,11 @@ contains
       end select
     end do
 
+    ! write to time coordinate variable
+    call nf_verify(nf90_put_var(this%ncid, this%var_ids%time, &
+                                totim, start=(/kper/)), &
+                   this%nc_fname)
+
     ! synchronize file
     call nf_verify(nf90_sync(this%ncid), this%nc_fname)
   end subroutine package_step
@@ -379,24 +386,28 @@ contains
   !> @brief netcdf export define dimensions
   !<
   subroutine define_dim(this)
+    use ConstantsModule, only: MVALIDATE
+    use SimVariablesModule, only: isim_mode
     class(Mesh2dDisExportType), intent(inout) :: this
 
-    ! time
-    call nf_verify(nf90_def_dim(this%ncid, 'time', this%totnstp, &
-                                this%dim_ids%time), this%nc_fname)
-    call nf_verify(nf90_def_var(this%ncid, 'time', NF90_DOUBLE, &
-                                this%dim_ids%time, this%var_ids%time), &
-                   this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'calendar', &
-                                'standard'), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'units', &
-                                this%datetime), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'axis', 'T'), &
-                   this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'standard_name', &
-                                'time'), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'long_name', &
-                                'time'), this%nc_fname)
+    if (isim_mode /= MVALIDATE .or. this%pkglist%Count() > 0) then
+      ! time
+      call nf_verify(nf90_def_dim(this%ncid, 'time', this%totnstp, &
+                                  this%dim_ids%time), this%nc_fname)
+      call nf_verify(nf90_def_var(this%ncid, 'time', NF90_DOUBLE, &
+                                  this%dim_ids%time, this%var_ids%time), &
+                     this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'calendar', &
+                                  'standard'), this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'units', &
+                                  this%datetime), this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'axis', 'T'), &
+                     this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'standard_name', &
+                                  'time'), this%nc_fname)
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'long_name', &
+                                  'time'), this%nc_fname)
+    end if
 
     ! mesh
     call nf_verify(nf90_def_dim(this%ncid, 'nmesh_node', &
@@ -560,7 +571,7 @@ contains
   subroutine nc_export_int1d(p_mem, ncid, dim_ids, x_dim, y_dim, var_ids, dis, &
                              idt, mempath, nc_tag, pkgname, gridmap_name, &
                              deflate, shuffle, chunk_face, iper, nc_fname)
-    use NetCDFCommonModule, only: ixstp
+    use TdisModule, only: kper
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(MeshNCDimIdType), intent(inout) :: dim_ids
@@ -580,7 +591,7 @@ contains
     character(len=*), intent(in) :: nc_fname
     integer(I4B), dimension(:, :, :), pointer, contiguous :: int3d
     integer(I4B), dimension(:), pointer, contiguous :: int1d
-    integer(I4B) :: axis_dim, nvals, k, istp
+    integer(I4B) :: axis_dim, nvals, k
     integer(I4B), dimension(:), allocatable :: var_id
     character(len=LINELENGTH) :: longname, varname
 
@@ -629,11 +640,10 @@ contains
         call nf_verify(nf90_put_var(ncid, var_id(1), p_mem), &
                        nc_fname)
       else
-        istp = ixstp()
         nvals = dis%nrow * dis%ncol
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export(1), p_mem, &
-                                    start=(/1, istp/), &
+                                    start=(/1, kper/), &
                                     count=(/nvals, 1/)), nc_fname)
       end if
 
@@ -688,12 +698,11 @@ contains
         deallocate (var_id)
       else
         ! timeseries, add period data
-        istp = ixstp()
         do k = 1, dis%nlay
           int1d(1:nvals) => int3d(:, :, k)
           call nf_verify(nf90_put_var(ncid, &
                                       var_ids%export(k), int1d, &
-                                      start=(/1, istp/), &
+                                      start=(/1, kper/), &
                                       count=(/nvals, 1/)), nc_fname)
         end do
       end if
@@ -826,7 +835,7 @@ contains
   subroutine nc_export_dbl1d(p_mem, ncid, dim_ids, x_dim, y_dim, var_ids, dis, &
                              idt, mempath, nc_tag, pkgname, gridmap_name, &
                              deflate, shuffle, chunk_face, iper, iaux, nc_fname)
-    use NetCDFCommonModule, only: ixstp
+    use TdisModule, only: kper
     real(DP), dimension(:), pointer, contiguous, intent(in) :: p_mem
     integer(I4B), intent(in) :: ncid
     type(MeshNCDimIdType), intent(inout) :: dim_ids
@@ -847,7 +856,7 @@ contains
     character(len=*), intent(in) :: nc_fname
     real(DP), dimension(:, :, :), pointer, contiguous :: dbl3d
     real(DP), dimension(:), pointer, contiguous :: dbl1d
-    integer(I4B) :: axis_dim, nvals, k, istp
+    integer(I4B) :: axis_dim, nvals, k
     integer(NF90_INT), dimension(:), allocatable :: var_id
     character(len=LINELENGTH) :: longname, varname
 
@@ -897,11 +906,10 @@ contains
         call nf_verify(nf90_put_var(ncid, var_id(1), p_mem), &
                        nc_fname)
       else
-        istp = ixstp()
         nvals = dis%nrow * dis%ncol
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export(1), p_mem, &
-                                    start=(/1, istp/), &
+                                    start=(/1, kper/), &
                                     count=(/nvals, 1/)), nc_fname)
       end if
 
@@ -961,12 +969,11 @@ contains
         deallocate (var_id)
       else
         ! timeseries, add period data
-        istp = ixstp()
         do k = 1, dis%nlay
           dbl1d(1:nvals) => dbl3d(:, :, k)
           call nf_verify(nf90_put_var(ncid, &
                                       var_ids%export(k), dbl1d, &
-                                      start=(/1, istp/), &
+                                      start=(/1, kper/), &
                                       count=(/nvals, 1/)), nc_fname)
         end do
       end if
