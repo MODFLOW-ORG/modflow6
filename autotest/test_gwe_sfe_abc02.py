@@ -11,8 +11,22 @@
 # the first reach, longwave radiation to the second reach, sensible heat flux
 # to the third, and latent heat flux to the fourth reach.  The idea is that the
 # temperature change at the outlet of each reach, before it flows into the next
-# downstream reach, is either a positive or negative 1 deg C change streamflow,
-# a result that is relatively simple to confirm.
+# downstream reach, is equal to externally calculated changes.
+
+'''
+
+     
+               \
+                \ Reach 1 (swr)
+                 \
+  Reach 2 (lwr)   \  Reach 4 (precip)    Reach 5 (lhf)
+            -------+-------------------+-------->
+                  /
+                 /
+                / Reach 3 (shf)
+               /
+'''
+     
 
 import math
 import os
@@ -34,10 +48,10 @@ time_units = "seconds"
 # model domain and grid definition
 
 nrow = 1
-ncol = 4
+ncol = 1
 nlay = 1
-delr = 1.0
-delc = 1.0
+delr = 100.0
+delc = 100.0
 xmax = ncol * delr
 ymax = nrow * delc
 
@@ -61,27 +75,25 @@ sfr_evaprate = 0.0
 rhk = 0.0
 rwid = 1.0
 strm_temp = 11.0
-surf_Q_in = [
-    [10.0],
-]
-
+surf_Q_in = 10.0
 
 # sensible and latent heat flux parameter values
-wspd = [0.0, 0.0, 126005.30, 126005.30]  # unrealistically high to drive a -1C change
-tatm = [0.0, 5.0, 5.0, 5.0]  # used by lwr, shf, lhf
+wspd = [0.0, 0.0, 126005.30, 0.0, 126005.30]  # unrealistically high to drive a -1C change
+tatm = [11.0, 5.0, 5.0, 5.0, 5.0]  # used by lwr, shf, lhf
 tatm = [t + DCTOK for t in tatm]
 # shortwave radiation parameter values
 
-# unrealistically high to drive a 1 deg C rise in stream temperature
+# unrealistically high to drive a 0.1 deg C rise in stream temperature
 solr = [
-    43092783.5051547,
+    4180000.0,
+    0.0,
     0.0,
     0.0,
     0.0,
 ]
-shd = [0.0, 0.0, 1.0, 1.0]  # 100% shade "turns off" solar flux
-swrefl = [0.03, 0.03, 0.03, 0.03]
-rh = [0.0, 30.0, 0.0, 30.0]  # percent
+shd = [0.0, 1.0, 1.0, 1.0, 1.0]  # 100% shade "turns off" solar flux
+swrefl = [0.0, 1.0, 1.0, 1.0, 1.0]
+rh = [0.0, 30.0, 0.0, 30.0, 30.0]  # percent
 
 # atmosphere composition adjustment factor (using dummy value to drive
 # half a degree change)
@@ -90,6 +102,7 @@ atmc = [
     9667.121567,
     0.0,
     0.0,
+    0.0
 ]
 
 # latent heat flux parameter values (these values are specified in the options
@@ -226,8 +239,8 @@ def build_models(idx, test):
     # Determine the middle row and store in rMid (account for 0-base)
     rMid = 1
     # sfr data
-    nreaches = ncol
-    rlen = delr
+    
+    rlen = 1.0
     roughness = 1e-10
     rbth = 0.1
     strmbd_hk = rhk
@@ -241,14 +254,15 @@ def build_models(idx, test):
     strm_incision = 0.05
 
     # explicitly set connections
-    conns = [(0, -1), (1, 0, -2), (2, 1, -3), (3, 2)]
+    conns = [(0, -3), (1, -3), (2, -3), (3, 0, 1, 2, -4), (4, 3)]
+    nreaches = len(conns)
 
     packagedata = []
     for irch in range(nreaches):
         ncon = len(conns[irch]) - 1
         rp = [
             irch,
-            (0, 0, irch),
+            (0, 0, 0),
             rlen,
             rwid,
             slope,
@@ -266,9 +280,9 @@ def build_models(idx, test):
     for t in np.arange(len(perlen)):
         sfrbndx = []
         for i in np.arange(nreaches):
-            # only specify inflow for the first reach
-            if i == 0:
-                sfrbndx.append([i, "INFLOW", surf_Q_in[idx][i]])
+            # only specify inflow for the first three reaches
+            if i < 3:
+                sfrbndx.append([i, "INFLOW", surf_Q_in])
 
         sfr_perioddata.update({t: sfrbndx})
 
@@ -278,8 +292,17 @@ def build_models(idx, test):
             ("rch1_depth", "depth", 1),
             ("rch1_outf", "ext-outflow", 1),
             ("rch1_wetwidth", "wet-width", 1),
+            ("rch2_wetwidth", "wet-width", 2),
+            ("rch3_wetwidth", "wet-width", 3),
+            ("rch4_wetwidth", "wet-width", 4),
+            ("rch5_wetwidth", "wet-width", 5),
+            ("rch1_stg", "stage", 1), 
+            ("rch2_stg", "stage", 2), 
+            ("rch3_stg", "stage", 3), 
+            ("rch4_stg", "stage", 4),
+            ("rch5_stg", "stage", 5),
         ],
-        "digits": 8,
+        "digits": 15,
         "print_input": True,
         "filename": gwfname + ".sfr.obs",
     }
@@ -392,15 +415,38 @@ def build_models(idx, test):
     sfe_obs = {
         f"{gwename}.sfe.obs.csv": [
             ("rch1_outftemp", "temperature", 1),
-            ("rch1_outftemp", "temperature", 2),
-            ("rch1_outftemp", "temperature", 3),
-            ("rch1_outftemp", "temperature", 4),
+            ("rch2_outftemp", "temperature", 2),
+            ("rch3_outftemp", "temperature", 3),
+            ("rch4_outftemp", "temperature", 4),
+            ("rch5_lhf", "lhf", 5),
+            ("rch5_outftemp", "temperature", 5),
             ("rch1_outfener", "ext-outflow", 1),
-            ("rch1_outfener", "ext-outflow", 2),
-            ("rch1_outfener", "ext-outflow", 3),
-            ("rch1_outfener", "ext-outflow", 4),
+            ("rch2_outfener", "ext-outflow", 2),
+            ("rch3_outfener", "ext-outflow", 3),
+            ("rch4_outfener", "ext-outflow", 4),
+            ("rch5_outfener", "ext-outflow", 5),
+            ("rch1_swr", "swr", 1),
+            ("rch2_swr", "swr", 2),
+            ("rch3_swr", "swr", 3),
+            ("rch4_swr", "swr", 4),
+            ("rch5_swr", "swr", 5),
+            ("rch1_lwr", "lwr", 1),
+            ("rch2_lwr", "lwr", 2),
+            ("rch3_lwr", "lwr", 3),
+            ("rch4_lwr", "lwr", 4),
+            ("rch5_lwr", "lwr", 5),
+            ("rch1_lhf", "lhf", 1),
+            ("rch2_lhf", "lhf", 2),
+            ("rch3_lhf", "lhf", 3),
+            ("rch4_lhf", "lhf", 4),
+            ("rch5_lhf", "lhf", 5),
+            ("rch1_shf", "shf", 1),
+            ("rch2_shf", "shf", 2),
+            ("rch3_shf", "shf", 3),
+            ("rch4_shf", "shf", 4),
+            ("rch5_shf", "shf", 5),
         ],
-        "digits": 8,
+        "digits": 20,
         "print_input": True,
         "filename": gwename + ".sfe.obs",
     }
@@ -427,7 +473,7 @@ def build_models(idx, test):
     abc_spd = {}
     for kper in range(len(nstp)):
         spd = []
-        for irno in range(ncol):
+        for irno in range(len(conns)):
             spd.append([irno, "WSPD", wspd[irno]])
             spd.append([irno, "TATM", tatm[irno]])
             spd.append([irno, "SOLR", solr[irno]])
