@@ -402,13 +402,13 @@ def build_models(idx, test):
 
     # Instantiate Streamflow Energy Transport package
     sfepackagedata = []
-    for irno in range(ncol):
+    for irno in range(len(conns)):
         t = (irno, strm_temp, K_therm_strmbed, rbthcnd)
         sfepackagedata.append(t)
 
     sfeperioddata = []
-    for irno in range(ncol):
-        if irno == 0:
+    for irno in range(len(conns)):
+        if irno < 3:
             sfeperioddata.append((irno, "INFLOW", strm_temp))
 
     # Instantiate SFE observation points
@@ -418,7 +418,6 @@ def build_models(idx, test):
             ("rch2_outftemp", "temperature", 2),
             ("rch3_outftemp", "temperature", 3),
             ("rch4_outftemp", "temperature", 4),
-            ("rch5_lhf", "lhf", 5),
             ("rch5_outftemp", "temperature", 5),
             ("rch1_outfener", "ext-outflow", 1),
             ("rch2_outfener", "ext-outflow", 2),
