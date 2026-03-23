@@ -350,7 +350,6 @@ $(OBJDIR)/MethodSubcellPollock.o \
 $(OBJDIR)/TimeStepSelect.o \
 $(OBJDIR)/LinearAlgebraUtils.o \
 $(OBJDIR)/SfrCrossSectionUtils.o \
-$(OBJDIR)/MethodSubcellPool.o \
 $(OBJDIR)/CellPoly.o \
 $(OBJDIR)/CellRectQuad.o \
 $(OBJDIR)/CellRect.o \
@@ -391,7 +390,6 @@ $(OBJDIR)/GwfVscInputData.o \
 $(OBJDIR)/gwf-ghb.o \
 $(OBJDIR)/gwf-drn.o \
 $(OBJDIR)/MethodModel.o \
-$(OBJDIR)/MethodCellPool.o \
 $(OBJDIR)/CellUtil.o \
 $(OBJDIR)/swf-dfw.o \
 $(OBJDIR)/OutputControl.o \
@@ -453,7 +451,6 @@ $(OBJDIR)/STLVecInt.o \
 $(OBJDIR)/prt-prp.o \
 $(OBJDIR)/prt-oc.o \
 $(OBJDIR)/prt-mip.o \
-$(OBJDIR)/MethodPool.o \
 $(OBJDIR)/ExplicitModel.o \
 $(OBJDIR)/gwf-api.o \
 $(OBJDIR)/swf.o \
