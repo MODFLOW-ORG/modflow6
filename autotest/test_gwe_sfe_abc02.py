@@ -79,7 +79,7 @@ surf_Q_in = 10.0
 
 # sensible and latent heat flux parameter values
 wspd = [0.0, 0.0, 126005.30, 0.0, 126005.30]  # unrealistically high to drive a -1C change
-tatm = [11.0, 5.0, 5.0, 5.0, 5.0]  # used by lwr, shf, lhf
+tatm = [11.0, 45.4803757895414, 5.0, 5.0, 5.0]  # used by lwr, shf, lhf
 tatm = [t + DCTOK for t in tatm]
 # shortwave radiation parameter values
 
@@ -407,9 +407,9 @@ def build_models(idx, test):
         sfepackagedata.append(t)
 
     sfeperioddata = []
-    for irno in range(len(conns)):
-        if irno < 3:
-            sfeperioddata.append((irno, "INFLOW", strm_temp))
+    sfeperioddata.append((0, "INFLOW", strm_temp))
+    sfeperioddata.append((1, "INFLOW", 21.867108141))
+    sfeperioddata.append((2, "INFLOW", strm_temp))
 
     # Instantiate SFE observation points
     sfe_obs = {
