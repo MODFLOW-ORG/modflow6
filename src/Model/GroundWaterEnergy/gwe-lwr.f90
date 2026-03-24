@@ -127,7 +127,7 @@ contains
     ! -- intermediate calculations
     !
     ! -- atmospheric emissivity (A.14)
-    emissa = this%epsa(this%ea(ifno), this%tatm(ifno) + DCTOK, this%atmc(ifno))
+    emissa = this%epsa(this%ea(ifno), this%tatm(ifno), this%atmc(ifno))
     !
     ! -- shade-altered above-channel emissivity [Eq. 3, Fogg et al. (2023)]
     emisss = this%epss(this%shd(ifno), emissa, this%emissr)
