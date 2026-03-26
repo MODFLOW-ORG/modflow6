@@ -4,7 +4,7 @@ module PrtModule
   use InputOutputModule, only: ParseLine, upcase, lowcase
   use ConstantsModule, only: LENFTYPE, LENMEMPATH, DZERO, DONE, &
                              LENPAKLOC, LENPACKAGETYPE, LENBUDTXT, MNORMAL, &
-                             LINELENGTH, LENAUXNAME
+                             LINELENGTH, LENAUXNAME, LENPACKAGENAME
   use VersionModule, only: write_listfile_header
   use ExplicitModelModule, only: ExplicitModelType
   use BaseModelModule, only: BaseModelType
@@ -12,7 +12,7 @@ module PrtModule
   use DisModule, only: DisType, dis_cr
   use DisvModule, only: DisvType, disv_cr
   use DisuModule, only: DisuType, disu_cr
-  use PrtPrpModule, only: PrtPrpType
+  use PrtPrpModule, only: PrtPrpType, prp_create
   use PrtFmiModule, only: PrtFmiType
   use PrtMipModule, only: PrtMipType
   use PrtOcModule, only: PrtOcType
@@ -94,6 +94,7 @@ module PrtModule
     procedure, private :: prt_cq_budterms
     procedure, private :: create_packages
     procedure, private :: create_bndpkgs
+    procedure, private :: create_exg_prp
     procedure, private :: log_namfile_options
 
   end type PrtModelType
@@ -949,7 +950,6 @@ contains
                             inunit, iout)
     ! modules
     use ConstantsModule, only: LINELENGTH
-    use PrtPrpModule, only: prp_create
     use ApiModule, only: api_create
     ! dummy
     class(PrtModelType) :: this
@@ -970,7 +970,7 @@ contains
     select case (filtyp)
     case ('PRP6')
       call prp_create(packobj, ipakid, ipaknum, inunit, iout, &
-                      this%name, pakname, mempath, this%fmi)
+                      this%name, pakname, this%fmi, mempath)
     case ('API6')
       call api_create(packobj, ipakid, ipaknum, inunit, iout, &
                       this%name, pakname, mempath)
@@ -1244,7 +1244,29 @@ contains
 
     ! Create boundary packages
     call this%create_bndpkgs(bndpkgs, pkgtypes, pkgnames, mempaths, inunits)
+    call this%create_exg_prp()
   end subroutine create_packages
+
+  !> @brief Create an exchange PRP package for particles 
+  !! entering this model from other model.
+  subroutine create_exg_prp(this)
+    class(PrtModelType) :: this
+    ! local
+    class(BndType), pointer :: packobj
+    character(len=LENPACKAGENAME) :: exgprp_name
+
+    exgprp_name = 'EXGPRP'
+
+    call prp_create(packobj, &
+                    id=0, &
+                    ibcnum=0, &
+                    inunit=-1, &
+                    iout=this%iout, &
+                    namemodel=this%name, &
+                    pakname=exgprp_name, &
+                    fmi=this%fmi)
+    call AddBndToList(this%bndlist, packobj)
+  end subroutine create_exg_prp
 
   !> @brief Write model namfile options to list file
   subroutine log_namfile_options(this, found)
