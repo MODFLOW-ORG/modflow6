@@ -100,8 +100,8 @@ module PrtPrpModule
 
   !> @brief Exchange PRP package. A variant of the normal PRP package
   !! that doesn't read from input files but instead receives particle
-  !! transfers from coupled models, while preserving the existing way
-  !! of allowing PRP packages to own/manage particles.
+  !! transfers from coupled models while preserving the pattern where
+  !! PRP packages own particles. Call it "Particle Registry Package"?
   type, extends(PrtPrpType) :: ExgPrtPrpType
   contains
     procedure :: prp_allocate_scalars => exg_prp_allocate_scalars
