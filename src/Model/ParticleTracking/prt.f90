@@ -1247,7 +1247,7 @@ contains
     call this%create_exg_prp()
   end subroutine create_packages
 
-  !> @brief Create an exchange PRP package for particles 
+  !> @brief Create an exchange PRP package for particles
   !! entering this model from other model.
   subroutine create_exg_prp(this)
     class(PrtModelType) :: this
