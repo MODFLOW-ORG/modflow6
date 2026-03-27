@@ -22,16 +22,15 @@ module ExplicitModelModule
   !<
   type, extends(BaseModelType) :: ExplicitModelType
   contains
-    ! Overridden methods
     procedure :: model_ad
     procedure :: model_solve
     procedure :: model_cq
     procedure :: model_bd
     procedure :: model_da
-    ! Utility methods
     procedure :: allocate_scalars
     procedure :: allocate_arrays
     procedure :: set_idsoln
+    procedure :: has_pending
   end type ExplicitModelType
 
 contains
@@ -159,5 +158,11 @@ contains
     integer(I4B), intent(in) :: id
     this%idsoln = id
   end subroutine set_idsoln
+
+  !> @brief Whether the model has any pending work.
+  logical function has_pending(this)
+    class(ExplicitModelType), intent(in) :: this
+    has_pending = .false.
+  end function has_pending
 
 end module ExplicitModelModule
