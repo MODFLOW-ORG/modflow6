@@ -198,7 +198,7 @@ jobs:
           ref: ${{ github.ref }}
 
       - name: Setup Micromamba
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@v3
         with:
           environment-file: environment.yml
           cache-downloads: true
@@ -258,7 +258,7 @@ jobs:
           path: modflow6
 
       - name: Setup Micromamba
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@v3
         with:
           environment-file: modflow6/environment.yml
           cache-downloads: true
