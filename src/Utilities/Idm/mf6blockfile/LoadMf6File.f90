@@ -29,6 +29,7 @@ module LoadMf6FileModule
   use ModflowInputModule, only: ModflowInputType
   use MemoryManagerModule, only: mem_allocate, mem_setptr
   use StructArrayModule, only: StructArrayType
+  use StructVectorModule, only: StructVectorType
   use NCFileVarsModule, only: NCPackageVarsType
   use IdmLoggerModule, only: idm_log_var, idm_log_header, idm_log_close, &
                              idm_export
@@ -37,6 +38,12 @@ module LoadMf6FileModule
   private
   public :: LoadMf6FileType
   public :: read_control_record
+
+  !> @brief Fortran workaround for allocatable arrays of pointers; wraps a StructArray pointer for deferred TS linking.
+  !<
+  type :: StaticSAType
+    type(StructArrayType), pointer :: sa => null()
+  end type StaticSAType
 
   !> @brief Static parser based input loader
   !!
@@ -48,6 +55,7 @@ module LoadMf6FileModule
     type(BlockParserType), pointer :: parser !< ascii block parser
     integer(I4B), dimension(:), pointer, contiguous :: mshape => null() !< model shape
     type(StructArrayType), pointer :: structarray => null() !< structarray for loading list input
+    type(StaticSAType), allocatable :: ts_sas(:) !< saved structarrays for deferred TS linking
     type(ModflowInputType) :: mf6_input !< description of input
     type(NCPackageVarsType), pointer :: nc_vars => null()
     character(len=LINELENGTH) :: filename !< name of ascii input file
@@ -71,6 +79,10 @@ module LoadMf6FileModule
     procedure :: load_tag
     procedure :: block_index_dfn
     procedure :: parse_structarray_block
+    procedure :: save_ts_sa
+    procedure :: ts_sa_count
+    procedure :: get_ts_sa
+    procedure :: cleanup
   end type LoadMf6FileType
 
 contains
@@ -139,6 +151,9 @@ contains
       call mem_setptr(this%mshape, 'MODEL_SHAPE', mf6_input%component_mempath)
     end if
 
+    ! init ts stuctarray list
+    allocate (this%ts_sas(0))
+
     ! log lst file header
     call idm_log_header(this%mf6_input%component_name, &
                         this%mf6_input%subcomponent_name, this%iout)
@@ -194,8 +209,6 @@ contains
   !!
   !<
   subroutine block_post_process(this, iblk)
-    use ConstantsModule, only: LENBOUNDNAME
-    use CharacterStringModule, only: CharacterStringType
     use SourceCommonModule, only: set_model_shape
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
@@ -215,7 +228,7 @@ contains
           this%readasarrays = .true.
         else if (this%block_tags(iparam) == 'READARRAYGRID') then
           this%readarraygrid = .true.
-        else if (this%block_tags(iparam) == 'TS6') then
+        else if (this%block_tags(iparam) == 'TS6_FILENAME') then
           this%ts_active = .true.
         else if (this%block_tags(iparam) == 'EXPORT_ARRAY_ASCII') then
           this%export = .true.
@@ -326,6 +339,7 @@ contains
   end subroutine parse_block
 
   subroutine parse_io_tag(this, iblk, pkgtype, which, tag)
+    use ArrayHandlersModule, only: expandarray
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
     character(len=*), intent(in) :: pkgtype
@@ -341,6 +355,8 @@ contains
                                 tag, this%filename)
     ! load io tag
     call load_io_tag(this%parser, idt, this%mf6_input%mempath, which, this%iout)
+    call expandarray(this%block_tags)
+    this%block_tags(size(this%block_tags)) = trim(idt%tagname)
   end subroutine parse_io_tag
 
   recursive subroutine parse_record_tag(this, iblk, inidt, recursive_call)
@@ -639,12 +655,31 @@ contains
     else
       ! read from ascii
       nrowsread = this%structarray%read_from_parser(this%parser, this%ts_active, &
-                                                    this%iout)
+                                                    this%iout, this%filename)
+      ! save structarray for deferred TS linking in df() if any strlocs were stored
+      if (this%ts_active) call this%save_ts_sa()
     end if
 
     ! clean up
     call ctx%destroy()
   end subroutine parse_structarray_block
+
+  !> @brief Return number of saved static StructArrays with deferred TS strlocs
+  !<
+  function ts_sa_count(this) result(n)
+    class(LoadMf6FileType), intent(in) :: this
+    integer(I4B) :: n
+    n = size(this%ts_sas)
+  end function ts_sa_count
+
+  !> @brief Return the n-th saved static StructArray pointer
+  !<
+  function get_ts_sa(this, n) result(sa)
+    class(LoadMf6FileType), intent(in) :: this
+    integer(I4B), intent(in) :: n
+    type(StructArrayType), pointer :: sa
+    sa => this%ts_sas(n)%sa
+  end function get_ts_sa
 
   !> @brief load type keyword
   !<
@@ -1197,5 +1232,55 @@ contains
       call parser%line_reader%bkspc(parser%getunit())
     end if
   end function read_control_record
+
+  !> @brief Save structarray pointer for deferred TS linking
+  !!
+  !! Saves the current structarray pointer when it contains TS string locs,
+  !! then nullifies the pointer so load_block does not destroy it.
+  !<
+  subroutine save_ts_sa(this)
+    class(LoadMf6FileType), intent(inout) :: this
+    type(StructVectorType), pointer :: svect
+    type(StaticSAType), allocatable :: tmp(:)
+    logical(LGP) :: has_ts
+    integer(I4B) :: m, n
+
+    ! check if any column has deferred TS strlocs
+    has_ts = .false.
+    do m = 1, this%structarray%count()
+      svect => this%structarray%get(m)
+      if (svect%idt%timeseries .and. svect%ts_strlocs%count() > 0) then
+        has_ts = .true.
+        exit
+      end if
+    end do
+
+    if (has_ts) then
+      n = size(this%ts_sas)
+      allocate (tmp(n + 1))
+      tmp(1:n) = this%ts_sas
+      tmp(n + 1)%sa => this%structarray
+      call move_alloc(tmp, this%ts_sas)
+      ! nullify so load_block does not destroy the saved SA
+      nullify (this%structarray)
+    end if
+  end subroutine save_ts_sa
+
+  !> @brief Clean up saved static structarrays
+  !!
+  !! Called from destroy() of dynamic loaders.
+  !<
+  subroutine cleanup(this)
+    use StructArrayModule, only: destructStructArray
+    class(LoadMf6FileType), intent(inout) :: this
+    integer(I4B) :: n
+    do n = 1, size(this%ts_sas)
+      if (associated(this%ts_sas(n)%sa)) then
+        call destructStructArray(this%ts_sas(n)%sa)
+        nullify (this%ts_sas(n)%sa)
+      end if
+    end do
+    deallocate (this%ts_sas)
+  end subroutine cleanup
 
 end module LoadMf6FileModule

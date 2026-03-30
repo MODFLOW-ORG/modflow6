@@ -216,7 +216,8 @@ module GwfCsubInputModule
     'PRECON_HEAD', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'keyword to indicate that preconsolidation heads will be specified', & ! longname
+    'keyword to indicate that preconsolidation heads will be '// &
+    'specified', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -254,7 +255,8 @@ module GwfCsubInputModule
     'ICOMPRESS', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'keyword to indicate CR and CC are read instead of SSE and SSV', & ! longname
+    'keyword to indicate CR and CC are read instead of SSE and '// &
+    'SSV', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -273,8 +275,8 @@ module GwfCsubInputModule
     'MATPROP', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'keyword to indicate material properties can change during the&
-     & simulations', & ! longname
+    'keyword to indicate material properties can change during '// &
+    'the simulations', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -312,7 +314,8 @@ module GwfCsubInputModule
     'INTERBED_STATE', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'keyword to indicate that absolute initial states will be specified', & ! longname
+    'keyword to indicate that absolute initial states will be '// &
+    'specified', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -331,8 +334,8 @@ module GwfCsubInputModule
     'PRECON_STRESS', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'keyword to indicate that absolute initial preconsolidation stresses&
-     & (head) will be specified', & ! longname
+    'keyword to indicate that absolute initial preconsolidation '// &
+    'stresses (head) will be specified', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -351,8 +354,8 @@ module GwfCsubInputModule
     'DELAY_HEAD', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'keyword to indicate that absolute initial delay bed heads will be&
-     & specified', & ! longname
+    'keyword to indicate that absolute initial delay bed heads '// &
+    'will be specified', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -371,8 +374,8 @@ module GwfCsubInputModule
     'STRESS_LAG', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'keyword to indicate that specific storage will be calculate using the&
-     & effective stress from the previous time step', & ! longname
+    'keyword to indicate that specific storage will be calculate '// &
+    'using the effective stress from the previous time step', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -579,7 +582,8 @@ module GwfCsubInputModule
     'OPTIONS', & ! block
     'COMPACTION_ELASTIC_FILERECORD', & ! tag name
     'CMPELASTICFR', & ! fortran variable
-    'RECORD COMPACTION_ELASTIC FILEOUT ELASTIC_COMPACTION_FILENAME', & ! type
+    'RECORD COMPACTION_ELASTIC FILEOUT '// &
+    'ELASTIC_COMPACTION_FILENAME', & ! type
     '', & ! shape
     '', & ! longname
     .false., & ! required
@@ -636,7 +640,8 @@ module GwfCsubInputModule
     'OPTIONS', & ! block
     'COMPACTION_INELASTIC_FILERECORD', & ! tag name
     'CMPINELASTICFR', & ! fortran variable
-    'RECORD COMPACTION_INELASTIC FILEOUT INELASTIC_COMPACTION_FILENAME', & ! type
+    'RECORD COMPACTION_INELASTIC FILEOUT '// &
+    'INELASTIC_COMPACTION_FILENAME', & ! type
     '', & ! shape
     '', & ! longname
     .false., & ! required
@@ -693,7 +698,8 @@ module GwfCsubInputModule
     'OPTIONS', & ! block
     'COMPACTION_INTERBED_FILERECORD', & ! tag name
     'CMPINTERBEDFR', & ! fortran variable
-    'RECORD COMPACTION_INTERBED FILEOUT INTERBED_COMPACTION_FILENAME', & ! type
+    'RECORD COMPACTION_INTERBED FILEOUT '// &
+    'INTERBED_COMPACTION_FILENAME', & ! type
     '', & ! shape
     '', & ! longname
     .false., & ! required
@@ -864,7 +870,8 @@ module GwfCsubInputModule
     'OPTIONS', & ! block
     'PACKAGE_CONVERGENCE_FILERECORD', & ! tag name
     'PKGCONVERGEFR', & ! fortran variable
-    'RECORD PACKAGE_CONVERGENCE FILEOUT PACKAGE_CONVERGENCE_FILENAME', & ! type
+    'RECORD PACKAGE_CONVERGENCE FILEOUT '// &
+    'PACKAGE_CONVERGENCE_FILENAME', & ! type
     '', & ! shape
     '', & ! longname
     .false., & ! required
@@ -1509,7 +1516,8 @@ module GwfCsubInputModule
     'PACKAGEDATA', & ! block
     'PACKAGEDATA', & ! tag name
     'PACKAGEDATA', & ! fortran variable
-    'RECARRAY ICSUBNO CELLID CDELAY PCS0 THICK_FRAC RNB SSV_CC SSE_CR THETA KV H0 BOUNDNAME', & ! type
+    'RECARRAY ICSUBNO CELLID CDELAY PCS0 THICK_FRAC RNB SSV_CC '// &
+    'SSE_CR THETA KV H0 BOUNDNAME', & ! type
     'NINTERBEDS', & ! shape
     '', & ! longname
     .false., & ! required

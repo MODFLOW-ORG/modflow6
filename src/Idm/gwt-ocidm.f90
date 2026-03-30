@@ -34,7 +34,6 @@ module GwtOcInputModule
     logical :: printrecord = .false.
     logical :: print = .false.
     logical :: rtype = .false.
-    logical :: ocsetting = .false.
     logical :: all = .false.
     logical :: first = .false.
     logical :: last = .false.
@@ -469,25 +468,6 @@ module GwtOcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtoc_ocsetting = InputParamDefinitionType &
-    ( &
-    'GWT', & ! component
-    'OC', & ! subcomponent
-    'PERIOD', & ! block
-    'OCSETTING', & ! tag name
-    'OCSETTING', & ! fortran variable
-    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS', & ! type
-    '', & ! shape
-    '', & ! longname
-    .true., & ! required
-    .false., & ! developmode
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
     gwtoc_all = InputParamDefinitionType &
     ( &
     'GWT', & ! component
@@ -607,7 +587,6 @@ module GwtOcInputModule
     gwtoc_printrecord, &
     gwtoc_print, &
     gwtoc_rtype, &
-    gwtoc_ocsetting, &
     gwtoc_all, &
     gwtoc_first, &
     gwtoc_last, &
@@ -616,25 +595,28 @@ module GwtOcInputModule
     ]
 
   type(InputParamDefinitionType), parameter :: &
-    gwt_oc_aggregate_definitions(*) = &
-    [ &
-    InputParamDefinitionType &
+    gwtoc_ocsetting = InputParamDefinitionType &
     ( &
-    '', & ! component
-    '', & ! subcomponent
-    '', & ! block
-    '', & ! tag name
-    '', & ! fortran variable
-    '', & ! type
+    'GWT', & ! component
+    'OC', & ! subcomponent
+    'PERIOD', & ! block
+    'OCSETTING', & ! tag name
+    'OCSETTING', & ! fortran variable
+    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS', & ! type
     '', & ! shape
     '', & ! longname
-    .false., & ! required
+    .true., & ! required
     .false., & ! developmode
-    .false., & ! multi-record
+    .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
-    ) &
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwt_oc_aggregate_definitions(*) = &
+    [ &
+    gwtoc_ocsetting &
     ]
 
   type(InputBlockDefinitionType), parameter :: &
@@ -648,8 +630,8 @@ module GwtOcInputModule
     ), &
     InputBlockDefinitionType( &
     'PERIOD', & ! blockname
-    .false., & ! required
-    .false., & ! aggregate
+    .true., & ! required
+    .true., & ! aggregate
     .true. & ! block_variable
     ) &
     ]

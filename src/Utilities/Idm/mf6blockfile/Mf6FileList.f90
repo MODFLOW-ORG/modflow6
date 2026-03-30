@@ -6,8 +6,8 @@
 !<
 module ListLoadModule
 
-  use KindModule, only: I4B, DP, LGP
-  use ConstantsModule, only: LINELENGTH, LENBOUNDNAME
+  use KindModule, only: I4B, LGP
+  use ConstantsModule, only: LINELENGTH
   use InputDefinitionModule, only: InputParamDefinitionType
   use MemoryManagerModule, only: mem_setptr
   use CharacterStringModule, only: CharacterStringType
@@ -17,6 +17,7 @@ module ListLoadModule
                                destructStructArray
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
   use LoadContextModule, only: LoadContextType
+  use LoadMf6FileModule, only: LoadMf6FileType
 
   implicit none
   private
@@ -31,8 +32,8 @@ module ListLoadModule
     type(TimeSeriesManagerType), pointer :: tsmanager => null()
     type(StructArrayType), pointer :: structarray => null()
     type(LoadContextType) :: ctx
-    integer(I4B) :: ts_active
-    integer(I4B) :: iboundname
+    type(LoadMf6FileType) :: static_loader ! persistent static loader
+    logical(LGP) :: ts_active !< .true. if TS files are loaded
   contains
     procedure :: ainit
     procedure :: df
@@ -40,10 +41,6 @@ module ListLoadModule
     procedure :: reset
     procedure :: rp
     procedure :: destroy
-    procedure :: ts_link_bnd
-    procedure :: ts_link_aux
-    procedure :: ts_link
-    procedure :: ts_update
     procedure :: create_structarray
   end type ListLoadType
 
@@ -53,8 +50,8 @@ contains
                    input_name, iperblock, parser, iout)
     use InputOutputModule, only: getunit
     use MemoryManagerModule, only: get_isize
+    use CharacterStringModule, only: CharacterStringType
     use BlockParserModule, only: BlockParserType
-    use LoadMf6FileModule, only: LoadMf6FileType
     class(ListLoadType), intent(inout) :: this
     type(ModflowInputType), intent(in) :: mf6_input
     character(len=*), intent(in) :: component_name
@@ -63,9 +60,7 @@ contains
     integer(I4B), intent(in) :: iperblock
     type(BlockParserType), pointer, intent(inout) :: parser
     integer(I4B), intent(in) :: iout
-    type(LoadMf6FileType) :: loader
-    type(CharacterStringType), dimension(:), pointer, &
-      contiguous :: ts_fnames
+    type(CharacterStringType), dimension(:), pointer, contiguous :: ts_fnames
     character(len=LINELENGTH) :: fname
     integer(I4B) :: ts6_size, n
 
@@ -74,25 +69,27 @@ contains
                                       component_input_name, input_name, &
                                       iperblock, iout)
     ! initialize scalars
-    this%iboundname = 0
-    this%ts_active = 0
-
-    ! load static input
-    call loader%load(parser, mf6_input, this%nc_vars, this%input_name, iout)
+    this%ts_active = .false.
 
     ! create tsmanager
     allocate (this%tsmanager)
     call tsmanager_cr(this%tsmanager, iout)
 
-    ! determine if TS6 files were provided in OPTIONS block
-    call get_isize('TS6_FILENAME', this%mf6_input%mempath, ts6_size)
-    if (ts6_size > 0) then
-      this%ts_active = 1
-      call mem_setptr(ts_fnames, 'TS6_FILENAME', this%mf6_input%mempath)
-      do n = 1, size(ts_fnames)
-        fname = ts_fnames(n)
-        call this%tsmanager%add_tsfile(fname, GetUnit())
-      end do
+    ! load static input (TS6_FILENAME tag sets static_loader%ts_active)
+    call this%static_loader%load(parser, mf6_input, this%nc_vars, &
+                                 this%input_name, iout)
+
+    ! if TS files were declared, add them to our tsmanager now
+    if (this%static_loader%ts_active) then
+      this%ts_active = .true.
+      call get_isize('TS6_FILENAME', mf6_input%mempath, ts6_size)
+      if (ts6_size > 0) then
+        call mem_setptr(ts_fnames, 'TS6_FILENAME', mf6_input%mempath)
+        do n = 1, size(ts_fnames)
+          fname = ts_fnames(n)
+          call this%tsmanager%add_tsfile(fname, getunit())
+        end do
+      end if
     end if
 
     ! initialize package input context
@@ -109,9 +106,23 @@ contains
   end subroutine ainit
 
   subroutine df(this)
+    use StructArrayModule, only: StructArrayType
     class(ListLoadType), intent(inout) :: this
-    ! define tsmanager
+    type(StructArrayType), pointer :: sa
+    integer(I4B) :: n
+    ! define tsmanager (TDIS is now available)
     call this%tsmanager%tsmanager_df()
+    ! link static TS strlocs; preserve for re-registration after reset()
+    do n = 1, this%static_loader%ts_sa_count()
+      sa => this%static_loader%get_ts_sa(n)
+      if (associated(sa)) then
+        call sa%ts_update(this%tsmanager, &
+                          this%mf6_input%subcomponent_name, &
+                          this%ctx%iprpak, this%input_name, &
+                          this%ctx%auxname_cst, &
+                          clear_strlocs=.false.)
+      end if
+    end do
   end subroutine df
 
   subroutine ad(this)
@@ -121,9 +132,25 @@ contains
   end subroutine ad
 
   subroutine reset(this)
+    use StructArrayModule, only: StructArrayType
     class(ListLoadType), intent(inout) :: this
-    ! reset tsmanager
+    type(StructArrayType), pointer :: sa
+    integer(I4B) :: n
+    ! clear TS links
     call this%tsmanager%reset(this%mf6_input%subcomponent_name)
+    ! re-register static TS links (strlocs preserved in df)
+    if (this%ts_active) then
+      do n = 1, this%static_loader%ts_sa_count()
+        sa => this%static_loader%get_ts_sa(n)
+        if (associated(sa)) then
+          call sa%ts_update(this%tsmanager, &
+                            this%mf6_input%subcomponent_name, &
+                            this%ctx%iprpak, this%input_name, &
+                            this%ctx%auxname_cst, &
+                            clear_strlocs=.false.)
+        end if
+      end do
+    end if
   end subroutine reset
 
   subroutine rp(this, parser)
@@ -135,7 +162,6 @@ contains
     type(BlockParserType), pointer, intent(inout) :: parser
     integer(I4B) :: ibinary
     integer(I4B) :: oc_inunit
-    logical(LGP) :: ts_active
 
     call this%reset()
     ibinary = read_control_record(parser, oc_inunit, this%iout)
@@ -150,14 +176,17 @@ contains
       call parser%terminateblock()
       close (oc_inunit)
     else
-      ts_active = (this%ts_active /= 0)
       this%ctx%nbound = &
-        this%structarray%read_from_parser(parser, ts_active, this%iout)
+        this%structarray%read_from_parser(parser, this%ts_active, this%iout, &
+                                          this%input_name)
     end if
 
     ! update ts links
-    if (this%ts_active /= 0) then
-      call this%ts_update(this%structarray)
+    if (this%ts_active) then
+      call this%structarray%ts_update(this%tsmanager, &
+                                      this%mf6_input%subcomponent_name, &
+                                      this%ctx%iprpak, this%input_name, &
+                                      this%ctx%auxname_cst)
     end if
 
     ! close logging statement
@@ -168,6 +197,9 @@ contains
   subroutine destroy(this)
     class(ListLoadType), intent(inout) :: this
     !
+    ! clean up saved static structarrays
+    call this%static_loader%cleanup()
+    !
     ! deallocate tsmanager
     call this%tsmanager%da()
     deallocate (this%tsmanager)
@@ -177,117 +209,6 @@ contains
     call destructStructArray(this%structarray)
     call this%ctx%destroy()
   end subroutine destroy
-
-  subroutine ts_link_bnd(this, structvector, ts_strloc)
-    use TimeSeriesLinkModule, only: TimeSeriesLinkType
-    use TimeSeriesManagerModule, only: read_value_or_time_series
-    use StructVectorModule, only: StructVectorType, TSStringLocType
-    class(ListLoadType), intent(inout) :: this
-    type(StructVectorType), pointer, intent(in) :: structvector
-    type(TSStringLocType), pointer, intent(in) :: ts_strloc
-    real(DP), pointer :: bndElem
-    type(TimeSeriesLinkType), pointer :: tsLinkBnd
-    type(StructVectorType), pointer :: sv_bound
-    character(len=LENBOUNDNAME) :: boundname
-
-    nullify (tsLinkBnd)
-
-    ! set bound element
-    bndElem => structvector%dbl1d(ts_strloc%row)
-
-    ! set link
-    call read_value_or_time_series(ts_strloc%token, ts_strloc%row, &
-                                   ts_strloc%structarray_col, bndElem, &
-                                   this%mf6_input%subcomponent_name, &
-                                   'BND', this%tsmanager, &
-                                   this%ctx%iprpak, tsLinkBnd)
-    if (associated(tsLinkBnd)) then
-      ! set variable name
-      tsLinkBnd%Text = structvector%idt%mf6varname
-      ! set boundname if provided
-      if (this%ctx%boundnames > 0) then
-        sv_bound => this%structarray%get(this%iboundname)
-        boundname = sv_bound%charstr1d(ts_strloc%row)
-        tsLinkBnd%BndName = boundname
-      end if
-    end if
-  end subroutine ts_link_bnd
-
-  subroutine ts_link_aux(this, structvector, ts_strloc)
-    use TimeSeriesLinkModule, only: TimeSeriesLinkType
-    use TimeSeriesManagerModule, only: read_value_or_time_series
-    use StructVectorModule, only: StructVectorType, TSStringLocType
-    class(ListLoadType), intent(inout) :: this
-    type(StructVectorType), pointer, intent(in) :: structvector
-    type(TSStringLocType), pointer, intent(in) :: ts_strloc
-    real(DP), pointer :: bndElem
-    type(TimeSeriesLinkType), pointer :: tsLinkAux
-    type(StructVectorType), pointer :: sv_bound
-    character(len=LENBOUNDNAME) :: boundname
-
-    nullify (tsLinkAux)
-
-    ! set bound element
-    bndElem => structvector%dbl2d(ts_strloc%col, ts_strloc%row)
-
-    ! set link
-    call read_value_or_time_series(ts_strloc%token, ts_strloc%row, &
-                                   ts_strloc%structarray_col, bndElem, &
-                                   this%mf6_input%subcomponent_name, &
-                                   'AUX', this%tsmanager, &
-                                   this%ctx%iprpak, tsLinkAux)
-    if (associated(tsLinkAux)) then
-      ! set variable name
-      tsLinkAux%Text = this%ctx%auxname_cst(ts_strloc%col)
-      ! set boundname if provided
-      if (this%ctx%boundnames > 0) then
-        sv_bound => this%structarray%get(this%iboundname)
-        boundname = sv_bound%charstr1d(ts_strloc%row)
-        tsLinkAux%BndName = boundname
-      end if
-    end if
-  end subroutine ts_link_aux
-
-  subroutine ts_update(this, structarray)
-    use SimModule, only: count_errors, store_error_filename
-    use StructVectorModule, only: TSStringLocType
-    use StructVectorModule, only: StructVectorType
-    class(ListLoadType), intent(inout) :: this
-    type(StructArrayType), pointer, intent(inout) :: structarray
-    integer(I4B) :: n, m
-    type(TSStringLocType), pointer :: ts_strloc
-    type(StructVectorType), pointer :: sv
-
-    do m = 1, structarray%count()
-      sv => structarray%get(m)
-      if (sv%idt%timeseries) then
-        do n = 1, sv%ts_strlocs%count()
-          ts_strloc => sv%get_ts_strloc(n)
-          call this%ts_link(sv, ts_strloc)
-        end do
-        call sv%clear()
-      end if
-    end do
-
-    ! terminate if errors were detected
-    if (count_errors() > 0) then
-      call store_error_filename(this%input_name)
-    end if
-  end subroutine ts_update
-
-  subroutine ts_link(this, structvector, ts_strloc)
-    use StructVectorModule, only: StructVectorType, TSStringLocType
-    class(ListLoadType), intent(inout) :: this
-    type(StructVectorType), pointer, intent(in) :: structvector
-    type(TSStringLocType), pointer, intent(in) :: ts_strloc
-    select case (structvector%memtype)
-    case (2) ! dbl1d
-      call this%ts_link_bnd(structvector, ts_strloc)
-    case (6) ! dbl2d
-      call this%ts_link_aux(structvector, ts_strloc)
-    case default
-    end select
-  end subroutine ts_link
 
   subroutine create_structarray(this)
     use InputDefinitionModule, only: InputParamDefinitionType
@@ -310,8 +231,6 @@ contains
                                        this%param_names(icol), this%input_name)
       ! allocate variable in memory manager
       call this%structarray%mem_create_vector(icol, idt)
-      ! store boundname index when found
-      if (idt%mf6varname == 'BOUNDNAME') this%iboundname = icol
     end do
   end subroutine create_structarray
 

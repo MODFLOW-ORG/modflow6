@@ -56,7 +56,7 @@ module GwfNpfInputModule
   character(len=16), parameter :: &
     gwf_npf_subpackages(*) = &
     [ &
-    '                ' &
+    'UTL-TVK         ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &

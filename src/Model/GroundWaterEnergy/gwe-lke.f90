@@ -1329,7 +1329,8 @@ contains
       ! -- check for duplicate or missing lakes
       do n = 1, this%ncv
         if (nboundchk(n) == 0) then
-          write (errmsg, '(a,1x,i0)') 'No data specified for feature', n
+          write (errmsg, '(a,1x,i0,1x,a)') 'No data specified for feature', n, &
+            'in LKE PACKAGEDATA block'
           call store_error(errmsg)
         else if (nboundchk(n) > 1) then
           write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &

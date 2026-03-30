@@ -14,7 +14,7 @@ module {{ dfn.component.capitalize() }}{{ dfn.subcomponent.capitalize() }}InputM
 
   type {{ dfn.component.capitalize() }}{{ dfn.subcomponent.capitalize() }}ParamFoundType
     {% for param in dfn.param_definitions %}
-    logical :: {{ param.fortran_var.lower() }} = .false.
+    logical :: {{ param.found_name }} = .false.
     {% endfor %}
   end type {{ dfn.component.capitalize() }}{{ dfn.subcomponent.capitalize() }}ParamFoundType
 

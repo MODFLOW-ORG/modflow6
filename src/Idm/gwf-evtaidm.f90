@@ -71,7 +71,8 @@ module GwfEvtaInputModule
     'FIXED_CELL', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'if cell is dry do not apply evapotranspiration to underlying cell', & ! longname
+    'if cell is dry do not apply evapotranspiration to underlying '// &
+    'cell', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record

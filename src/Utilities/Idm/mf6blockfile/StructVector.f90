@@ -17,6 +17,18 @@ module StructVectorModule
   implicit none
   private
   public :: StructVectorType, TSStringLocType
+  public :: MTYPE_UNDEF, MTYPE_INT, MTYPE_DBL, MTYPE_STR, &
+            MTYPE_INTVEC, MTYPE_INT2D, MTYPE_DBL2D
+
+  enum, bind(C)
+    enumerator :: MTYPE_UNDEF = 0 !< undefined memtype
+    enumerator :: MTYPE_INT = 1 !< int1d column
+    enumerator :: MTYPE_DBL = 2 !< dbl1d column
+    enumerator :: MTYPE_STR = 3 !< charstr1d column
+    enumerator :: MTYPE_INTVEC = 4 !< intvector column
+    enumerator :: MTYPE_INT2D = 5 !< int2d (NCELLDIM) column
+    enumerator :: MTYPE_DBL2D = 6 !< dbl2d (NAUX/NSEG) column
+  end enum
 
   !> @brief derived type which describes time series string field
   !<
@@ -40,6 +52,7 @@ module StructVectorModule
     integer(I4B) :: memtype = 0 !< SA memtype
     integer(I4B) :: icol = 0 !< SA column
     integer(I4B) :: size = 0 !< size of array
+    integer(I4B) :: nsubmembers = 0 !< sub-member count for compound KEYWORD
     ! Data pointers
     integer(I4B), dimension(:), pointer, contiguous :: int1d => null()
     integer(I4B), dimension(:, :), pointer, contiguous :: int2d => null()

@@ -37,6 +37,7 @@ contains
     use ConstantsModule, only: LENMEMPATH
     use MemoryManagerModule, only: mem_setptr
     use MemoryHelperModule, only: create_mem_path
+    use SimVariablesModule, only: idm_context
     ! -- dummy
     type(TimeArrayType), pointer, intent(out) :: newTa
     character(len=*), intent(in) :: modelname
@@ -49,11 +50,12 @@ contains
     ! -- initialize
     nullify (mshape)
     !
-    ! -- create mempath
-    mempath = create_mem_path(component=modelname, subcomponent='DIS')
+    ! -- create mempath to model input context where MODEL_SHAPE is
+    ! -- stored during static DIS loading
+    mempath = create_mem_path(component=modelname, context=idm_context)
     !
     ! -- set mshape pointer
-    call mem_setptr(mshape, 'MSHAPE', mempath)
+    call mem_setptr(mshape, 'MODEL_SHAPE', mempath)
     !
     ! Get dimensions for supported discretization type
     if (size(mshape) == 2) then

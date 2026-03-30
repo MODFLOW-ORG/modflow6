@@ -1571,11 +1571,14 @@ contains
     real(DP), intent(in) :: conc !< solute concentration
     real(DP), intent(in) :: kf !< freundlich constant
     real(DP), intent(in) :: a !< freundlich exponent
+    real(DP), parameter :: K = 10.0_dp !< constant to limit derivative at c=0
+    real(DP) :: eps !< small concentration offset
     ! -- return
     real(DP) :: kd !< effective distribution coefficient
     !
+    eps = (K / (a * kf))**(1.0_dp / (a - 1.0_dp))
     if (conc > DZERO) then
-      kd = kf * conc**(a - DONE)
+      kd = kf * (conc + eps)**(a - DONE) - kf * eps**(a - DONE)
     else
       kd = DZERO
     end if

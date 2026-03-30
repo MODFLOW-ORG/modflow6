@@ -37,7 +37,6 @@ module SwfOcInputModule
     logical :: printrecord = .false.
     logical :: print = .false.
     logical :: rtype = .false.
-    logical :: ocsetting = .false.
     logical :: all = .false.
     logical :: first = .false.
     logical :: last = .false.
@@ -529,25 +528,6 @@ module SwfOcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    swfoc_ocsetting = InputParamDefinitionType &
-    ( &
-    'SWF', & ! component
-    'OC', & ! subcomponent
-    'PERIOD', & ! block
-    'OCSETTING', & ! tag name
-    'OCSETTING', & ! fortran variable
-    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS', & ! type
-    '', & ! shape
-    '', & ! longname
-    .true., & ! required
-    .false., & ! developmode
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
     swfoc_all = InputParamDefinitionType &
     ( &
     'SWF', & ! component
@@ -670,7 +650,6 @@ module SwfOcInputModule
     swfoc_printrecord, &
     swfoc_print, &
     swfoc_rtype, &
-    swfoc_ocsetting, &
     swfoc_all, &
     swfoc_first, &
     swfoc_last, &
@@ -679,25 +658,28 @@ module SwfOcInputModule
     ]
 
   type(InputParamDefinitionType), parameter :: &
-    swf_oc_aggregate_definitions(*) = &
-    [ &
-    InputParamDefinitionType &
+    swfoc_ocsetting = InputParamDefinitionType &
     ( &
-    '', & ! component
-    '', & ! subcomponent
-    '', & ! block
-    '', & ! tag name
-    '', & ! fortran variable
-    '', & ! type
+    'SWF', & ! component
+    'OC', & ! subcomponent
+    'PERIOD', & ! block
+    'OCSETTING', & ! tag name
+    'OCSETTING', & ! fortran variable
+    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS', & ! type
     '', & ! shape
     '', & ! longname
-    .false., & ! required
+    .true., & ! required
     .false., & ! developmode
-    .false., & ! multi-record
+    .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
-    ) &
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    swf_oc_aggregate_definitions(*) = &
+    [ &
+    swfoc_ocsetting &
     ]
 
   type(InputBlockDefinitionType), parameter :: &
@@ -711,8 +693,8 @@ module SwfOcInputModule
     ), &
     InputBlockDefinitionType( &
     'PERIOD', & ! blockname
-    .false., & ! required
-    .false., & ! aggregate
+    .true., & ! required
+    .true., & ! aggregate
     .true. & ! block_variable
     ) &
     ]

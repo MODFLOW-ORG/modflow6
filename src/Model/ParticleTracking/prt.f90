@@ -4,7 +4,7 @@ module PrtModule
   use InputOutputModule, only: ParseLine, upcase, lowcase
   use ConstantsModule, only: LENFTYPE, LENMEMPATH, DZERO, DONE, &
                              LENPAKLOC, LENPACKAGETYPE, LENBUDTXT, MNORMAL, &
-                             LINELENGTH, LENAUXNAME
+                             LINELENGTH, LENAUXNAME, LENPACKAGENAME
   use VersionModule, only: write_listfile_header
   use ExplicitModelModule, only: ExplicitModelType
   use BaseModelModule, only: BaseModelType
@@ -12,7 +12,7 @@ module PrtModule
   use DisModule, only: DisType, dis_cr
   use DisvModule, only: DisvType, disv_cr
   use DisuModule, only: DisuType, disu_cr
-  use PrtPrpModule, only: PrtPrpType
+  use PrtPrpModule, only: PrtPrpType, prp_create
   use PrtFmiModule, only: PrtFmiType
   use PrtMipModule, only: PrtMipType
   use PrtOcModule, only: PrtOcType
@@ -26,6 +26,8 @@ module PrtModule
   use SimModule, only: count_errors, store_error, store_error_filename
   use MemoryManagerModule, only: mem_allocate
   use MethodModule, only: MethodType, LEVEL_FEATURE
+  use MethodDisModule, only: MethodDisType, create_method_dis
+  use MethodDisvModule, only: MethodDisvType, create_method_disv
   use HashTableModule, only: HashTableType, hash_table_cr, hash_table_da
   use ArrayHandlersModule, only: ExpandArray
 
@@ -48,6 +50,8 @@ module PrtModule
     type(PrtOcType), pointer :: oc => null() ! output control package
     type(BudgetType), pointer :: budget => null() ! budget object
     class(MethodType), pointer :: method => null() ! tracking method
+    type(MethodDisType), pointer :: method_dis => null() ! DIS tracking method
+    type(MethodDisvType), pointer :: method_disv => null() ! DISV tracking method
     type(ParticleEventDispatcherType), pointer :: events => null() ! event dispatcher
     class(ParticleTracksType), pointer :: tracks ! track output manager
     integer(I4B), pointer :: infmi => null() ! unit number FMI
@@ -90,6 +94,7 @@ module PrtModule
     procedure, private :: prt_cq_budterms
     procedure, private :: create_packages
     procedure, private :: create_bndpkgs
+    procedure, private :: create_exg_prp
     procedure, private :: log_namfile_options
 
   end type PrtModelType
@@ -242,7 +247,6 @@ contains
     use ConstantsModule, only: DHNOFLO
     use PrtPrpModule, only: PrtPrpType
     use PrtMipModule, only: PrtMipType
-    use MethodPoolModule, only: method_dis, method_disv
     ! dummy
     class(PrtModelType) :: this
     ! locals
@@ -301,10 +305,10 @@ contains
     if (this%oc%itrkcsv > 0) &
       call this%tracks%init_file(this%oc%itrkcsv, csv=.true.)
 
-    ! Set up the tracking method
+    ! Initialize and select the tracking method based on discretization
     select type (dis => this%dis)
     type is (DisType)
-      call method_dis%init( &
+      call this%method_dis%init( &
         fmi=this%fmi, &
         events=this%events, &
         izone=this%mip%izone, &
@@ -312,9 +316,9 @@ contains
         porosity=this%mip%porosity, &
         retfactor=this%mip%retfactor, &
         tracktimes=this%oc%tracktimes)
-      this%method => method_dis
+      this%method => this%method_dis
     type is (DisvType)
-      call method_disv%init( &
+      call this%method_disv%init( &
         fmi=this%fmi, &
         events=this%events, &
         izone=this%mip%izone, &
@@ -322,7 +326,7 @@ contains
         porosity=this%mip%porosity, &
         retfactor=this%mip%retfactor, &
         tracktimes=this%oc%tracktimes)
-      this%method => method_disv
+      this%method => this%method_disv
     end select
 
     ! Subscribe particle track output manager to events
@@ -824,9 +828,6 @@ contains
     use MemoryManagerModule, only: mem_deallocate
     use MemoryManagerExtModule, only: memorystore_remove
     use SimVariablesModule, only: idm_context
-    use MethodPoolModule, only: destroy_method_pool
-    use MethodCellPoolModule, only: destroy_method_cell_pool
-    use MethodSubcellPoolModule, only: destroy_method_subcell_pool
     ! dummy
     class(PrtModelType) :: this
     ! local
@@ -850,9 +851,10 @@ contains
     deallocate (this%oc)
 
     ! Method objects
-    call destroy_method_subcell_pool()
-    call destroy_method_cell_pool()
-    call destroy_method_pool()
+    call this%method_dis%deallocate()
+    deallocate (this%method_dis)
+    call this%method_disv%deallocate()
+    deallocate (this%method_disv)
 
     ! Boundary packages
     do ip = 1, this%bndlist%Count()
@@ -948,7 +950,6 @@ contains
                             inunit, iout)
     ! modules
     use ConstantsModule, only: LINELENGTH
-    use PrtPrpModule, only: prp_create
     use ApiModule, only: api_create
     ! dummy
     class(PrtModelType) :: this
@@ -969,7 +970,7 @@ contains
     select case (filtyp)
     case ('PRP6')
       call prp_create(packobj, ipakid, ipaknum, inunit, iout, &
-                      this%name, pakname, mempath, this%fmi)
+                      this%name, pakname, this%fmi, mempath)
     case ('API6')
       call api_create(packobj, ipakid, ipaknum, inunit, iout, &
                       this%name, pakname, mempath)
@@ -1156,9 +1157,6 @@ contains
     use MemoryHelperModule, only: create_mem_path
     use SimVariablesModule, only: idm_context
     use BudgetModule, only: budget_cr
-    use MethodPoolModule, only: create_method_pool
-    use MethodCellPoolModule, only: create_method_cell_pool
-    use MethodSubcellPoolModule, only: create_method_subcell_pool
     use PrtMipModule, only: mip_cr
     use PrtFmiModule, only: fmi_cr
     use PrtOcModule, only: oc_cr
@@ -1194,14 +1192,14 @@ contains
     call mem_setptr(mempaths, 'MEMPATHS', model_mempath)
     call mem_setptr(inunits, 'INUNITS', model_mempath)
 
+    ! determine which packages we have. create
+    ! dis up front as the others depend on it.
     do n = 1, size(pkgtypes)
-      ! attributes for this input package
       pkgtype = pkgtypes(n)
       pkgname = pkgnames(n)
       mempath = mempaths(n)
       inunit => inunits(n)
 
-      ! create dis package first as it is a prerequisite for other packages
       select case (pkgtype)
       case ('DIS6')
         indis = 1
@@ -1232,22 +1230,43 @@ contains
     ! Create budget manager
     call budget_cr(this%budget, this%name)
 
-    ! Create tracking method pools
-    call create_method_pool()
-    call create_method_cell_pool()
-    call create_method_subcell_pool()
+    ! Create tracking methods
+    call create_method_dis(this%method_dis)
+    call create_method_disv(this%method_disv)
 
-    ! Create packages that are tied directly to model
+    ! Create non-boundary packages
     call mip_cr(this%mip, this%name, mempathmip, this%inmip, this%iout, this%dis)
     call fmi_cr(this%fmi, this%name, mempathfmi, this%infmi, this%iout)
     call oc_cr(this%oc, this%name, mempathoc, this%inoc, this%iout)
 
-    ! Check to make sure that required ftype's have been specified
+    ! Check required input files
     call this%ftype_check(indis)
 
     ! Create boundary packages
     call this%create_bndpkgs(bndpkgs, pkgtypes, pkgnames, mempaths, inunits)
+    call this%create_exg_prp()
   end subroutine create_packages
+
+  !> @brief Create an exchange PRP package for particles
+  !! entering this model from other model.
+  subroutine create_exg_prp(this)
+    class(PrtModelType) :: this
+    ! local
+    class(BndType), pointer :: packobj
+    character(len=LENPACKAGENAME) :: exgprp_name
+
+    exgprp_name = 'EXGPRP'
+
+    call prp_create(packobj, &
+                    id=0, &
+                    ibcnum=0, &
+                    inunit=-1, &
+                    iout=this%iout, &
+                    namemodel=this%name, &
+                    pakname=exgprp_name, &
+                    fmi=this%fmi)
+    call AddBndToList(this%bndlist, packobj)
+  end subroutine create_exg_prp
 
   !> @brief Write model namfile options to list file
   subroutine log_namfile_options(this, found)

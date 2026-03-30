@@ -101,7 +101,8 @@ contains
 
     ! read from ascii
     this%ctx%nbound = &
-      this%structarray%read_from_parser(parser, .false., this%iout)
+      this%structarray%read_from_parser(parser, .false., this%iout, &
+                                        this%input_name)
   end subroutine rp
 
   subroutine reset(this)

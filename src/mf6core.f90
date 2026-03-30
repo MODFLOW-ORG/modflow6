@@ -336,6 +336,9 @@ contains
     class(BaseExchangeType), pointer :: ep => null()
     class(SpatialModelConnectionType), pointer :: mc => null()
 
+    ! -- define input
+    call idm_df()
+
     ! -- init virtual data environment
     call run_ctrl%at_stage(STG_BFR_MDL_DF)
 
@@ -381,9 +384,6 @@ contains
       sp => GetBaseSolutionFromList(basesolutionlist, is)
       call sp%sln_df()
     end do
-
-    ! idm df
-    call idm_df()
 
   end subroutine simulation_df
 

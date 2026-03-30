@@ -86,18 +86,32 @@ contains
 
   !> @ brief log the period closing message
   !<
-  subroutine idm_log_var_ts(varname, mempath, iout, is_tas)
+  subroutine idm_log_var_ts(varname, mempath, iout, is_tas, detail)
     character(len=*), intent(in) :: varname !< variable name
     character(len=*), intent(in) :: mempath !< variable memory path
     integer(I4B), intent(in) :: iout
     logical(LGP), intent(in) :: is_tas
+    character(len=*), intent(in), optional :: detail !< additional info (ts name or count)
     if (iparamlog > 0 .and. iout > 0) then
       if (is_tas) then
-        write (iout, '(3x, a, ": ", a)') &
-          'Time-array-series controlled dynamic variable detected', trim(varname)
+        if (present(detail)) then
+          write (iout, '(3x, a, ": ", a, " (", a, ")")') &
+            'Time-array-series controlled dynamic variable detected', &
+            trim(varname), trim(detail)
+        else
+          write (iout, '(3x, a, ": ", a)') &
+            'Time-array-series controlled dynamic variable detected', &
+            trim(varname)
+        end if
       else
-        write (iout, '(3x, a, ": ", a)') &
-          'Time-series controlled dynamic variable detected', trim(varname)
+        if (present(detail)) then
+          write (iout, '(3x, a, ": ", a, " (", a, ")")') &
+            'Time-series controlled dynamic variable detected', &
+            trim(varname), trim(detail)
+        else
+          write (iout, '(3x, a, ": ", a)') &
+            'Time-series controlled dynamic variable detected', trim(varname)
+        end if
       end if
     end if
   end subroutine idm_log_var_ts

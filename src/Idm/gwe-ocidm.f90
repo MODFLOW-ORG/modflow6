@@ -34,7 +34,6 @@ module GweOcInputModule
     logical :: printrecord = .false.
     logical :: print = .false.
     logical :: rtype = .false.
-    logical :: ocsetting = .false.
     logical :: all = .false.
     logical :: first = .false.
     logical :: last = .false.
@@ -469,25 +468,6 @@ module GweOcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gweoc_ocsetting = InputParamDefinitionType &
-    ( &
-    'GWE', & ! component
-    'OC', & ! subcomponent
-    'PERIOD', & ! block
-    'OCSETTING', & ! tag name
-    'OCSETTING', & ! fortran variable
-    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS', & ! type
-    '', & ! shape
-    '', & ! longname
-    .true., & ! required
-    .false., & ! developmode
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
     gweoc_all = InputParamDefinitionType &
     ( &
     'GWE', & ! component
@@ -607,7 +587,6 @@ module GweOcInputModule
     gweoc_printrecord, &
     gweoc_print, &
     gweoc_rtype, &
-    gweoc_ocsetting, &
     gweoc_all, &
     gweoc_first, &
     gweoc_last, &
@@ -616,25 +595,28 @@ module GweOcInputModule
     ]
 
   type(InputParamDefinitionType), parameter :: &
-    gwe_oc_aggregate_definitions(*) = &
-    [ &
-    InputParamDefinitionType &
+    gweoc_ocsetting = InputParamDefinitionType &
     ( &
-    '', & ! component
-    '', & ! subcomponent
-    '', & ! block
-    '', & ! tag name
-    '', & ! fortran variable
-    '', & ! type
+    'GWE', & ! component
+    'OC', & ! subcomponent
+    'PERIOD', & ! block
+    'OCSETTING', & ! tag name
+    'OCSETTING', & ! fortran variable
+    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS', & ! type
     '', & ! shape
     '', & ! longname
-    .false., & ! required
+    .true., & ! required
     .false., & ! developmode
-    .false., & ! multi-record
+    .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
-    ) &
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwe_oc_aggregate_definitions(*) = &
+    [ &
+    gweoc_ocsetting &
     ]
 
   type(InputBlockDefinitionType), parameter :: &
@@ -648,8 +630,8 @@ module GweOcInputModule
     ), &
     InputBlockDefinitionType( &
     'PERIOD', & ! blockname
-    .false., & ! required
-    .false., & ! aggregate
+    .true., & ! required
+    .true., & ! aggregate
     .true. & ! block_variable
     ) &
     ]

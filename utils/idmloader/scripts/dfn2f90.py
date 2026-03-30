@@ -1,5 +1,6 @@
 import argparse
 import textwrap
+from collections import Counter
 from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
@@ -41,6 +42,28 @@ def _normalize_type(t_raw: str, shape_str: str, ndim: int, aggregate: bool) -> s
     return t_raw.upper()
 
 
+def _wrap_f90_content(raw: str, max_width: int = 60) -> str:
+    """Wrap a string for use in a Fortran string literal.
+
+    Returns the raw text split into newline-separated segments, each at
+    most ``max_width`` characters wide.  The ``| value`` Jinja filter
+    detects the embedded newlines and emits ``// &`` string concatenation
+    so that the generated Fortran source lines stay within the project
+    line-length limit.  Single-segment strings are returned as-is.
+    """
+    llist = textwrap.wrap(raw, max_width)
+    if not llist:
+        return ""
+    if len(llist) == 1:
+        return llist[0]
+    # Preserve the inter-word space at each line break: the space between
+    # the last word of one segment and the first word of the next is dropped
+    # by textwrap.wrap, so add it back as a trailing space on each non-last
+    # segment.  The | value filter will join quoted segments with //.
+    parts = [ln + " " for ln in llist[:-1]] + [llist[-1]]
+    return "\n".join(parts)
+
+
 @dataclass
 class Param:
     """Represents a single input parameter definition from a DFN file."""
@@ -61,15 +84,30 @@ class Param:
     timeseries: bool
     aggregate: bool = False
     block_variable: bool = False
+    block_qualified: bool = False
 
     @property
     def varname(self) -> str:
         """Full Fortran variable name for this parameter definition."""
+        if self.block_qualified:
+            return (
+                f"{self.component.lower()}"
+                f"{self.subcomponent.lower()}"
+                f"_{self.block.lower()}"
+                f"_{self.fortran_var.lower()}"
+            )
         return (
             f"{self.component.lower()}"
             f"{self.subcomponent.lower()}"
             f"_{self.fortran_var.lower()}"
         )
+
+    @property
+    def found_name(self) -> str:
+        """Field name used in the ParamFoundType derived type."""
+        if self.block_qualified:
+            return f"{self.block.lower()}_{self.fortran_var.lower()}"
+        return self.fortran_var.lower()
 
 
 @dataclass
@@ -158,9 +196,13 @@ def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
 
         vn = vd["name"].upper()
         mf6vn = vd["mf6internal"].upper() if "mf6internal" in vd else vn
+        # sanitize: hyphens are not valid in Fortran identifiers
+        mf6vn = mf6vn.replace("-", "_")
 
         t_raw = vd.get("type", "")
-        aggregate_t = t_raw.lower().startswith("recarray")
+        aggregate_t = t_raw.lower().startswith("recarray") or t_raw.lower().startswith(
+            "keystring"
+        )
 
         # Shape processing
         shape = vd.get("shape", "")
@@ -179,19 +221,14 @@ def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
         shape_str = " ".join(shapelist)
 
         t = _normalize_type(t_raw, shape_str, ndim, aggregate_t)
+        if len(t) > 60:
+            t = _wrap_f90_content(t, max_width=60)
 
         # Longname wrapping
         longname = ""
         if vd.get("longname"):
             raw = vd["longname"].replace("'", "")
-            llist = textwrap.wrap(raw, 70)
-            if len(llist) == 1:
-                longname = llist[0]
-            elif len(llist) > 1:
-                longname = f"{llist[0]}&\n"
-                for ln in llist[1:-1]:
-                    longname += f"     & {ln}&\n"
-                longname += f"     & {llist[-1]}"
+            longname = _wrap_f90_content(raw, max_width=60)
 
         required = vd.get("optional", "").lower() != "true"
         developmode = vd.get("developmode", "").lower() == "true"
@@ -235,6 +272,38 @@ def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
             "is_aggregate": False,
             "aggregate_required": False,
         }
+
+    # --- Keystring member expansion ---
+    # For blocks containing a keystring param, only the keystring placeholder
+    # itself (e.g. MAWSETTING, TVKSETTING) is excluded from param_definitions.
+    # All keystring member params are retained so the Fortran IDM framework
+    # can dispatch them.
+    keystring_blocks: set = set()  # blocks that contain a keystring param
+    for p in params:
+        if p.type.upper().startswith("KEYSTRING"):
+            keystring_blocks.add(p.block)
+
+    if keystring_blocks:
+        # Collect the keystring placeholder tag(s) to exclude per block
+        excl: dict = {}
+        for p in params:
+            if p.block not in keystring_blocks:
+                continue
+            if p.type.upper().startswith("KEYSTRING"):
+                excl.setdefault(p.block, set()).add(p.tag)
+
+        params = [
+            p for p in params if p.aggregate or p.tag not in excl.get(p.block, set())
+        ]
+
+    # --- Detect fortran_var collisions and mark block-qualified names ---
+    # When the same fortran_var name appears in more than one block, prefix
+    # the generated Fortran constant name and ParamFoundType field with the
+    # block name to avoid duplicate Fortran identifiers.
+    var_counts = Counter(p.fortran_var.upper() for p in params)
+    for p in params:
+        if var_counts[p.fortran_var.upper()] > 1:
+            p.block_qualified = True
 
     # Build Block objects in DFN order
     blocks = []

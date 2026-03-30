@@ -1,6 +1,6 @@
 Input to the Viscosity (VSC) Package is read from the file that has type ``VSC6'' in the Name File.  If the VSC Package is active within a groundwater flow model, then the model will account for the dependence of fluid viscosity on solute concentration and the resulting changes in hydraulic conductivity and stress-package conductances, which vary inversely with viscosity.  Viscosity can be calculated as a function of one or more groundwater solute transport (GWT) species using an approach described in the Supplemental Technical Information document distributed with MODFLOW 6 (Chapter 8).  Only one VSC Package can be specified for a GWF model. The VSC Package can be coupled with one or more GWT Models so that the fluid viscosity is updated dynamically with one or more simulated concentration fields.
 
-The VSC Package calculates fluid viscosity using the following equation from \cite{langevin2008seawat}:
+The VSC Package calculates fluid viscosity as a function of concentration using the following equation from \cite{langevin2008seawat}:
 
 \begin{equation}
 \label{eqn:visclinear}
@@ -9,18 +9,30 @@ The VSC Package calculates fluid viscosity using the following equation from \ci
 
 \noindent where $\mu$ is the calculated viscosity, $VISCREF$ is the viscosity of a reference fluid, typically taken to be freshwater at a temperature of 20 degrees Celsius, $NVISCSPECIES$ is the number of chemical species that contribute to the viscosity calculation, $DVISCDC_i$ is the parameter that describes how viscosity changes linearly as a function of concentration for chemical species $i$ (i.e. the slope of a line that relates viscosity to concentration), $CONCENTRATION_i$ is the concentration of species $i$, and $CVISCREF_i$ is the reference concentration for species $i$ corresponding to when the viscosity of the reference fluid is equal to $VISCREF$, which is normally set to a concentration of zero.
 
-In many applications, variations in temperature have a greater effect on fluid viscosity than variations in solute concentration. When a GWT model is formulated such that one of the transported ``species'' is heat (thermal energy), with ``concentration'' used to represent temperature \citep{zheng2010supplemental}, the viscosity can vary linearly with temperature, as it can with any other ``concentration.''  In that case, $CONCENTRATION_i$ and $CVISCREF_i$ represent the simulated and reference temperatures, respectively, and $DVISCDC_i$ represents the rate at which viscosity changes with temperature. In addition, the viscosity formula can optionally include a nonlinear dependence on temperature. In that case, equation 3 becomes
+In many applications, variations in temperature have a greater effect on fluid viscosity than variations in solute concentration. When a GWE model is present [or a GWT model is formulated such that one of the transported ``species'' is heat (thermal energy), with ``concentration'' used to represent temperature \citep{zheng2010supplemental}] the viscosity can vary linearly with temperature.  For varying viscosity with changes in temperature simulated by a GWE model, one of the ``species'' in equation 3 is temperature.  If temperature is species $j$, the term corresponding to $i=j$ in equation 3 has the form $DVISCDT \left ( TEMPERATURE - TVISCREF \right )$: 
+
+\begin{equation}
+\label{eqn:visclinearT}
+\begin{aligned}
+\mu =&VISCREF\\ 
+         &\qquad+ \sum_{i=1 \left( i \not= j \right)}^{NVISCSPECIES} DVISCDC_i \left ( CONCENTRATION_i - CVISCREF_i \right )\\
+         &\qquad+ DVISCDT \left ( TEMPERATURE - TVISCREF \right )
+\end{aligned}
+\end{equation}
+where the summation corresponds to the summation in equation \ref{eqn:visclinear} that accounts for the compounding effects of simulated dissolved solute species (but not temperature) on viscosity.
+
+Optionally, the viscosity formula can instead include a nonlinear dependence on temperature. In that case, equation~\ref{eqn:visclinear} becomes
 
 \begin{equation}
 \label{eqn:viscnonlinear}
-\mu = \mu_T(T) + \sum_{i=1}^{NVISCSPECIES} DVISCDC_i \left ( CONCENTRATION_i - CVISCREF_i \right )
+\mu = \mu_T(T) + \sum_{i=1 \left( i \not= j \right)}^{NVISCSPECIES} DVISCDC_i \left ( CONCENTRATION_i - CVISCREF_i \right )
 \end{equation}
 
-\noindent where the first term on the right-hand side, $\mu_T(T)$, is a nonlinear function of temperature, and the summation corresponds to the summation in equation \ref{eqn:visclinear}, in which one of the ``species'' is heat. The nonlinear term in equation \ref{eqn:viscnonlinear} is of the form
+\noindent where the first term on the right-hand side, $\mu_T(T)$, is a nonlinear function of temperature.  The nonlinear term in equation \ref{eqn:viscnonlinear} is of the form
 
 \begin{equation}
 \label{eqn:munonlinear}
-\mu_T(T) = CVISCREF_i \cdot A_2^{\left [ \frac {-A_3 \left ( CONCENTRATION_i - CVISCREF_i \right ) } {\left ( CONCENTRATION_i + A_4 \right ) \left ( CVISCREF_i + A_4 \right )} \right ]}
+\mu_T(T) = VISCREF \cdot A_2^{\left [ \frac {-A_3 \left ( TEMPERATURE - TVISCREF \right ) } {\left ( TEMPERATURE + A_4 \right ) \left ( TVISCREF + A_4 \right )} \right ]}
 \end{equation}
 
 \noindent where the coefficients $A_2$, $A_3$, and $A_4$ are specified by the user.  Values for $A_2$, $A_3$, and $A_4$ are commonly 10, 248.7, and 133.15, respectively  \citep{langevin2008seawat, Voss1984sutra}.

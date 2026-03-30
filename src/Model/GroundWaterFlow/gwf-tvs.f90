@@ -7,12 +7,13 @@
 !<
 module TvsModule
   use BaseDisModule, only: DisBaseType
-  use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO
+  use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, DNODATA
   use KindModule, only: I4B, DP
-  use MemoryManagerModule, only: mem_setptr
+  use MemoryManagerModule, only: mem_setptr, get_isize
   use MemoryHelperModule, only: create_mem_path
   use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
+  use TdisModule, only: kper
   use TvBaseModule, only: TvBaseType, tvbase_da
 
   implicit none
@@ -27,13 +28,15 @@ module TvsModule
     integer(I4B), pointer :: iusesy => null() !< STO flag set if any cell is convertible (0, 1)
     real(DP), dimension(:), pointer, contiguous :: ss => null() !< STO specific storage or storage coefficient
     real(DP), dimension(:), pointer, contiguous :: sy => null() !< STO specific yield
+    real(DP), dimension(:), pointer, contiguous :: ss_src => null() !< input SS values
+    real(DP), dimension(:), pointer, contiguous :: sy_src => null() !< input SY values
 
   contains
 
     procedure :: da => tvs_da
     procedure :: ar_set_pointers => tvs_ar_set_pointers
-    procedure :: read_option => tvs_read_option
-    procedure :: get_pointer_to_value => tvs_get_pointer_to_value
+    procedure :: source_package_options => tvs_source_package_options
+    procedure :: apply_row_changes => tvs_apply_row_changes
     procedure :: set_changed_at => tvs_set_changed_at
     procedure :: reset_change_flags => tvs_reset_change_flags
     procedure :: validate_change => tvs_validate_change
@@ -45,15 +48,16 @@ contains
   !!
   !! Create a new time-varying storage (TVS) object.
   !<
-  subroutine tvs_cr(tvs, name_model, inunit, iout)
+  subroutine tvs_cr(tvs, name_model, mempath, inunit, iout)
     ! -- dummy
     type(TvsType), pointer, intent(out) :: tvs
     character(len=*), intent(in) :: name_model
+    character(len=*), intent(in) :: mempath
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
     !
     allocate (tvs)
-    call tvs%init(name_model, 'TVS', 'TVS', inunit, iout)
+    call tvs%init(name_model, 'TVS', 'TVS', mempath, inunit, iout)
   end subroutine tvs_cr
 
   !> @brief Announce package and set pointers to variables
@@ -69,13 +73,10 @@ contains
     ! -- formats
     character(len=*), parameter :: fmttvs = &
       "(1x,/1x,'TVS -- TIME-VARYING S PACKAGE, VERSION 1, 08/18/2021', &
-      &' INPUT READ FROM UNIT ', i0, //)"
+      &' INPUT READ FROM MEMPATH ', A, //)"
     !
-    ! -- Print a message identifying the TVS package
-    write (this%iout, fmttvs) this%inunit
+    write (this%iout, fmttvs) this%input_mempath
     !
-    ! -- Set pointers to other package variables
-    ! -- STO
     stoMemoryPath = create_mem_path(this%name_model, 'STO')
     call mem_setptr(this%integratechanges, 'INTEGRATECHANGES', stoMemoryPath)
     call mem_setptr(this%iusesy, 'IUSESY', stoMemoryPath)
@@ -84,56 +85,66 @@ contains
     !
     ! -- Instruct STO to integrate storage changes, since TVS is active
     this%integratechanges = 1
+    !
+    ! -- set input mempath pointers
+    call mem_setptr(this%ss_src, 'SS', this%input_mempath)
+    call mem_setptr(this%sy_src, 'SY', this%input_mempath)
   end subroutine tvs_ar_set_pointers
 
-  !> @brief Read a TVS-specific option from the OPTIONS block
-  !!
-  !! Process a single TVS-specific option. Used when reading the OPTIONS block
-  !! of the TVS package input file.
+  !> @brief Source TVS-specific options from the input memory path.
   !<
-  function tvs_read_option(this, keyword) result(success)
+  subroutine tvs_source_package_options(this)
     ! -- dummy
     class(TvsType) :: this
-    character(len=*), intent(in) :: keyword
-    ! -- return
-    logical :: success
+    ! -- locals
+    integer(I4B) :: isize
     ! -- formats
     character(len=*), parameter :: fmtdsci = &
-      "(4X, 'DISABLE_STORAGE_CHANGE_INTEGRATION OPTION:', /, 1X, &
+      "(4X, 'DISABLE_STORAGE_CHANGE_INTEGRATION OPTION:', /, 6X, &
       &'Storage derivative terms will not be added to STO matrix formulation')"
     !
-    select case (keyword)
-    case ('DISABLE_STORAGE_CHANGE_INTEGRATION')
-      success = .true.
+    ! -- DISABLE_STORAGE_CHANGE_INTEGRATION is a keyword; check via get_isize
+    call get_isize('DISABLE_SC_INT', this%input_mempath, isize)
+    if (isize > 0) then
       this%integratechanges = 0
       write (this%iout, fmtdsci)
-    case default
-      success = .false.
-    end select
-  end function tvs_read_option
+    end if
+  end subroutine tvs_source_package_options
 
-  !> @brief Get an array value pointer given a variable name and node index
-  !!
-  !! Return a pointer to the given node's value in the appropriate STO array
-  !! based on the given variable name string.
+  !> @brief Apply input SS/SY column changes for period-data row n to node.
   !<
-  function tvs_get_pointer_to_value(this, n, varName) result(bndElem)
+  subroutine tvs_apply_row_changes(this, n, node)
     ! -- dummy
     class(TvsType) :: this
     integer(I4B), intent(in) :: n
-    character(len=*), intent(in) :: varName
-    ! -- return
-    real(DP), pointer :: bndElem
+    integer(I4B), intent(in) :: node
+    ! -- local
+    character(len=LINELENGTH) :: cellstr
+    ! -- formats
+    character(len=*), parameter :: fmtvalchg = &
+      "(a, ' package: Setting ', a, ' value for cell ', a, ' at start of &
+      &stress period ', i0, ' = ', g12.5)"
     !
-    select case (varName)
-    case ('SS')
-      bndElem => this%ss(n)
-    case ('SY')
-      bndElem => this%sy(n)
-    case default
-      bndElem => null()
-    end select
-  end function tvs_get_pointer_to_value
+    if (this%ss_src(n) /= DNODATA) then
+      this%ss(node) = this%ss_src(n)
+      call this%validate_change(node, 'SS')
+      if (this%iprpak /= 0) then
+        call this%dis%noder_to_string(node, cellstr)
+        write (this%iout, fmtvalchg) &
+          trim(adjustl(this%packName)), 'SS', trim(cellstr), kper, this%ss(node)
+      end if
+    end if
+    !
+    if (this%sy_src(n) /= DNODATA) then
+      this%sy(node) = this%sy_src(n)
+      call this%validate_change(node, 'SY')
+      if (this%iprpak /= 0) then
+        call this%dis%noder_to_string(node, cellstr)
+        write (this%iout, fmtvalchg) &
+          trim(adjustl(this%packName)), 'SY', trim(cellstr), kper, this%sy(node)
+      end if
+    end if
+  end subroutine tvs_apply_row_changes
 
   !> @brief Mark property changes as having occurred at (kper, kstp)
   !!
@@ -185,7 +196,6 @@ contains
       "(1x, a, ' cannot change ', a ,' for cell ', a, ' because SY is unused &
       &in this model (all ICONVERT flags are 0).')"
     !
-    ! -- Check the changed value is ok and convert to storage capacity
     if (varName == 'SS') then
       if (this%ss(n) < DZERO) then
         call this%dis%noder_to_string(n, cellstr)
@@ -216,13 +226,12 @@ contains
     ! -- dummy
     class(TvsType) :: this
     !
-    ! -- Nullify pointers to other package variables
     nullify (this%integratechanges)
     nullify (this%iusesy)
     nullify (this%ss)
     nullify (this%sy)
-    !
-    ! -- Deallocate parent
+    nullify (this%ss_src)
+    nullify (this%sy_src)
     call tvbase_da(this)
   end subroutine tvs_da
 

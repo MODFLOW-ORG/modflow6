@@ -252,7 +252,11 @@
 		<File RelativePath="..\src\Idm\swf-stoidm.f90"/>
 		<File RelativePath="..\src\Idm\swf-zdgidm.f90"/>
 		<File RelativePath="..\src\Idm\utl-hpcidm.f90"/>
-		<File RelativePath="..\src\Idm\utl-ncfidm.f90"/></Filter>
+		<File RelativePath="..\src\Idm\utl-ncfidm.f90"/>
+		<File RelativePath="..\src\Idm\utl-spcidm.f90"/>
+		<File RelativePath="..\src\Idm\utl-spcaidm.f90"/>
+		<File RelativePath="..\src\Idm\utl-tvkidm.f90"/>
+		<File RelativePath="..\src\Idm\utl-tvsidm.f90"/></Filter>
 		<Filter Name="Model">
 		<Filter Name="Connection">
 		<File RelativePath="..\src\Model\Connection\CellWithNbrs.f90"/>
@@ -447,15 +451,12 @@
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodCellPassToBot.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodCellPollock.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodCellPollockQuad.f90"/>
-		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodCellPool.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodCellTernary.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodModel.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodDis.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodDisv.f90"/>
-		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodPool.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodSubcell.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodSubcellPollock.f90"/>
-		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodSubcellPool.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\MethodSubcellTernary.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Method\TernarySolveUtils.f90"/></Filter>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\ParticleEvent.f90"/>
@@ -571,6 +572,7 @@
 			<FileConfiguration Name="Release|Win32">
 			<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/></FileConfiguration></File>
 		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\Mf6FileGridArray.f90"/>
+		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\Mf6FileKeystring.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\Mf6FileLayerArray.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\Mf6FileList.f90"/>
 		<File RelativePath="..\src\Utilities\Idm\mf6blockfile\Mf6FileSetting.f90"/>

@@ -47,7 +47,6 @@ module PrtOcInputModule
     logical :: printrecord = .false.
     logical :: print = .false.
     logical :: rtype = .false.
-    logical :: ocsetting = .false.
     logical :: all = .false.
     logical :: first = .false.
     logical :: last = .false.
@@ -729,25 +728,6 @@ module PrtOcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    prtoc_ocsetting = InputParamDefinitionType &
-    ( &
-    'PRT', & ! component
-    'OC', & ! subcomponent
-    'PERIOD', & ! block
-    'OCSETTING', & ! tag name
-    'OCSETTING', & ! fortran variable
-    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS', & ! type
-    '', & ! shape
-    '', & ! longname
-    .true., & ! required
-    .false., & ! developmode
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
     prtoc_all = InputParamDefinitionType &
     ( &
     'PRT', & ! component
@@ -880,7 +860,6 @@ module PrtOcInputModule
     prtoc_printrecord, &
     prtoc_print, &
     prtoc_rtype, &
-    prtoc_ocsetting, &
     prtoc_all, &
     prtoc_first, &
     prtoc_last, &
@@ -908,9 +887,29 @@ module PrtOcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    prtoc_ocsetting = InputParamDefinitionType &
+    ( &
+    'PRT', & ! component
+    'OC', & ! subcomponent
+    'PERIOD', & ! block
+    'OCSETTING', & ! tag name
+    'OCSETTING', & ! fortran variable
+    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS', & ! type
+    '', & ! shape
+    '', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     prt_oc_aggregate_definitions(*) = &
     [ &
-    prtoc_tracktimes &
+    prtoc_tracktimes, &
+    prtoc_ocsetting &
     ]
 
   type(InputBlockDefinitionType), parameter :: &
@@ -936,8 +935,8 @@ module PrtOcInputModule
     ), &
     InputBlockDefinitionType( &
     'PERIOD', & ! blockname
-    .false., & ! required
-    .false., & ! aggregate
+    .true., & ! required
+    .true., & ! aggregate
     .true. & ! block_variable
     ) &
     ]
