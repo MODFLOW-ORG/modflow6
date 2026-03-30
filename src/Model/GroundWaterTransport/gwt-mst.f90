@@ -666,7 +666,7 @@ contains
       rate = rate + contribution
 
       ! -- Right-hand side contribution due to linearization
-      ! -- Note: this contrubtion should cancel with the matrix contribution when the outer loop is converged
+      ! -- Note: this contribution should cancel with the matrix contribution when the outer loop is converged
       contribution = -volfracm * rhobm * sat_new * &
                      this%isotherm%derivative(cnew, n) * cnew(n) * Vcell * tled
       rate = rate - contribution

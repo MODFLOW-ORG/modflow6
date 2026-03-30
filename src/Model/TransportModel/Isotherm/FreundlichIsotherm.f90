@@ -2,7 +2,6 @@ Module FreundlichIsothermModule
 
   use KindModule, only: DP, I4B
   use IsothermInterfaceModule, only: IsothermType
-  use ConstantsModule, only: DZERO
 
   Implicit None
   Private
@@ -11,14 +10,6 @@ Module FreundlichIsothermModule
   !> @brief Freundlich isotherm implementation of `IsothermType`.
   !>
   !> Sorbed concentration is cs = Kf*c^a.
-  !>
-  !> However, this expression has a singularity at c = 0 when a < 1,
-  !> leading to infinite derivative. To avoid this, the Freundlich isotherm
-  !> is modified as follows.
-  !>
-  !> Modified Sorbed concentration is cs = Kf*(c + eps)^a - Kf*eps^a
-  !> where eps = (K/(a*Kf))^(1/(a-1)) and K is a large constant (default 10).
-  !> This ensures that the derivative at c = 0 is below K.
   !<
   type, extends(IsothermType) :: FreundlichIsothermType
     real(DP), pointer, dimension(:) :: Kf => null() !< Freundlich constant
@@ -56,13 +47,9 @@ contains
     class(FreundlichIsothermType), intent(in) :: this
     real(DP), dimension(:), intent(in) :: c !< concentration array
     integer(I4B), intent(in) :: n !< node index
-    real(DP), parameter :: K = 10.0_dp !< constant to limit derivative at c=0
-    real(DP) :: eps !< small concentration offset
 
-    eps = (K / (this%a(n) * this%Kf(n)))**(1.0_dp / (this%a(n) - 1.0_dp))
-
-    if (c(n) > DZERO) then
-      val = this%Kf(n) * (c(n) + eps)**this%a(n) - this%Kf(n) * eps**this%a(n)
+    if (c(n) > 0.0_DP) then
+      val = this%Kf(n) * c(n)**this%a(n)
     else
       val = 0.0_DP
     end if
@@ -77,13 +64,9 @@ contains
     class(FreundlichIsothermType), intent(in) :: this
     real(DP), dimension(:), intent(in) :: c !< concentration array
     integer(I4B), intent(in) :: n !< node index
-    real(DP), parameter :: K = 10.0_dp !< constant to limit derivative at c=0
-    real(DP) :: eps !< small concentration offset
 
-    eps = (K / (this%a(n) * this%Kf(n)))**(1.0_dp / (this%a(n) - 1.0_dp))
-
-    if (c(n) > DZERO) then
-      derv = this%a(n) * this%Kf(n) * ((c(n) + eps)**(this%a(n) - 1.0_DP))
+    if (c(n) > 0.0_DP) then
+      derv = this%a(n) * this%Kf(n) * c(n)**(this%a(n) - 1.0_DP)
     else
       derv = 0.0_DP
     end if
