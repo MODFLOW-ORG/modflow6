@@ -9,7 +9,8 @@
 module BndExtModule
 
   use KindModule, only: DP, LGP, I4B
-  use ConstantsModule, only: LENMEMPATH, LENBOUNDNAME, LENAUXNAME, LINELENGTH
+  use ConstantsModule, only: LENMEMPATH, LENBOUNDNAME, LENAUXNAME, LINELENGTH, &
+                             DZERO
   use ObsModule, only: obs_cr
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, count_errors, store_error_filename
@@ -33,15 +34,21 @@ module BndExtModule
     integer(I4B), pointer :: iper
     logical(LGP), pointer :: readarraygrid
     logical(LGP), pointer :: readasarrays
-    ! -- arrays
+    ! -- list/layerarray/gridarray package arrays
     integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null() !< input user cellid list
     integer(I4B), dimension(:), pointer, contiguous :: nodeulist => null() !< input user nodelist
+    ! -- advanced package arrays
+    integer(I4B), dimension(:), pointer, contiguous :: pkg_ifno => null() !< advanced feature index
+    real(DP), dimension(:, :), pointer, contiguous :: pkg_auxvar => null() !< advanced package data AUX
+    real(DP), dimension(:, :), pointer, contiguous :: featureauxvar => null() !< advanced aux staging array
   contains
     procedure :: bnd_df => bndext_df
+    procedure :: bnd_ad => bndext_ad
     procedure :: bnd_rp => bndext_rp
     procedure :: bnd_da => bndext_da
     procedure :: allocate_scalars => bndext_allocate_scalars
     procedure :: allocate_arrays => bndext_allocate_arrays
+    procedure :: allocate_featureauxvar => bndext_allocate_featureauxvar
     procedure :: source_options
     procedure :: source_dimensions
     procedure :: log_options
@@ -137,6 +144,33 @@ contains
     call this%define_listlabel()
   end subroutine bndext_df
 
+  !> @brief Advance the package one time step
+  !!
+  !! Syncs featureauxvar from the PACKAGEDATA AUX, updated by idm_ad,
+  !! then advances observations.  The featureauxvar sync runs only when
+  !! allocate_featureauxvar() was previously called.
+  !<
+  subroutine bndext_ad(this)
+    ! -- dummy
+    class(BndExtType) :: this
+    ! -- local
+    integer(I4B) :: n, ifeat, jj
+    !
+    ! -- sync PACKAGEDATA AUX from input managed array
+    if (this%isadvpak /= 0 .and. this%naux > 0 .and. &
+        associated(this%pkg_auxvar)) then
+      do n = 1, size(this%pkg_ifno)
+        ifeat = this%pkg_ifno(n)
+        do jj = 1, this%naux
+          this%featureauxvar(jj, ifeat) = this%pkg_auxvar(jj, n)
+        end do
+      end do
+    end if
+    !
+    ! -- advance observations
+    call this%obs%obs_ad()
+  end subroutine bndext_ad
+
   subroutine bndext_rp(this)
     ! -- modules
     use TdisModule, only: kper
@@ -194,15 +228,26 @@ contains
     ! -- dummy variables
     class(BndExtType) :: this !< BndExtType object
     !
-    ! -- deallocate checkin paths
-    call mem_deallocate(this%cellid, 'CELLID', this%memoryPath)
-    call mem_deallocate(this%nodeulist, 'NODEULIST', this%memoryPath)
-    call mem_deallocate(this%boundname_cst, 'BOUNDNAME_IDM', this%memoryPath)
-    call mem_deallocate(this%auxvar, 'AUXVAR_IDM', this%memoryPath)
-    !
-    ! -- reassign pointers for base class _da
-    call mem_setptr(this%boundname_cst, 'BOUNDNAME_CST', this%memoryPath)
-    call mem_setptr(this%auxvar, 'AUXVAR', this%memoryPath)
+    if (this%isadvpak /= 0) then
+      !
+      ! -- advanced package cleanup (MAW, SFR, LAK, UZF)
+      ! -- featureauxvar is owned by BndExtType; pkg_auxvar and pkg_ifno are IDM pointers
+      call mem_deallocate(this%featureauxvar, 'FEATUREAUXVAR', this%memoryPath)
+      call mem_deallocate(this%auxvar, 'AUXVAR_IDM', this%memoryPath)
+      nullify (this%pkg_auxvar)
+      nullify (this%pkg_ifno)
+    else
+      !
+      ! -- list/array package cleanup
+      call mem_deallocate(this%cellid, 'CELLID', this%memoryPath)
+      call mem_deallocate(this%nodeulist, 'NODEULIST', this%memoryPath)
+      call mem_deallocate(this%boundname_cst, 'BOUNDNAME_IDM', this%memoryPath)
+      call mem_deallocate(this%auxvar, 'AUXVAR_IDM', this%memoryPath)
+      !
+      ! -- reassign pointers for base class _da
+      call mem_setptr(this%boundname_cst, 'BOUNDNAME_CST', this%memoryPath)
+      call mem_setptr(this%auxvar, 'AUXVAR', this%memoryPath)
+    end if
     !
     ! -- scalars
     deallocate (this%readarraygrid)
@@ -260,7 +305,18 @@ contains
     integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist !< package nodelist
     real(DP), dimension(:, :), pointer, contiguous, optional :: auxvar !< package aux variable array
     !
-    ! -- allocate base BndType arrays
+    if (this%isadvpak /= 0) then
+      !
+      ! -- advanced package (MAW, SFR, LAK, UZF): allocate BndType arrays for
+      !    the connections-level arrays (nodelist, bound, auxvar, hcof, rhs, etc.)
+      !    Packages with PACKAGEDATA AUX call allocate_featureauxvar() separately.
+      call this%BndType%allocate_arrays(nodelist, auxvar)
+      call mem_checkin(this%auxvar, 'AUXVAR_IDM', this%memoryPath, 'AUXVAR', &
+                       this%memoryPath)
+      return
+    end if
+    !
+    ! -- list/layerarray/gridarray package: allocate base BndType arrays
     call this%BndType%allocate_arrays(nodelist, auxvar)
     !
     ! -- set input context pointers
@@ -287,6 +343,45 @@ contains
                        'AUXVAR', this%input_mempath)
     end if
   end subroutine bndext_allocate_arrays
+
+  !> @brief Allocate the per-feature auxiliary variable staging array
+  !!
+  !! Set input context PACKAGEDATA pointers (pkg_ifno, pkg_auxvar),
+  !! allocate featureauxvar(naux, nfeatures), and initialize it from the
+  !! input context PACKAGEDATA AUX timeseries supported values.
+  !! Call only from packages supporting PACKAGEDATA AUX variables.
+  !<
+  subroutine bndext_allocate_featureauxvar(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_allocate, mem_setptr
+    ! -- dummy
+    class(BndExtType) :: this !< BndExtType object
+    ! -- local
+    integer(I4B) :: n, ifeat, jj, nfeatures
+    !
+    ! -- set input context PACKAGEDATA pointers
+    call mem_setptr(this%pkg_ifno, 'PACKAGEDATA_IFNO', this%input_mempath)
+    if (this%naux > 0) then
+      call mem_setptr(this%pkg_auxvar, 'AUX', this%input_mempath)
+    end if
+    !
+    ! -- allocate featureauxvar(naux, nfeatures); use max(1,naux) to avoid
+    !    zero-size allocations when naux == 0
+    nfeatures = size(this%pkg_ifno)
+    call mem_allocate(this%featureauxvar, max(1, this%naux), nfeatures, &
+                      'FEATUREAUXVAR', this%memoryPath)
+    !
+    ! -- initialize from input context PACKAGEDATA AUX
+    this%featureauxvar = DZERO
+    if (this%naux > 0 .and. associated(this%pkg_auxvar)) then
+      do n = 1, nfeatures
+        ifeat = this%pkg_ifno(n)
+        do jj = 1, this%naux
+          this%featureauxvar(jj, ifeat) = this%pkg_auxvar(jj, n)
+        end do
+      end do
+    end if
+  end subroutine bndext_allocate_featureauxvar
 
   !> @ brief Source package options from input context
   !<

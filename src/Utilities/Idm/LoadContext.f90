@@ -289,7 +289,16 @@ contains
         end if
         if (allocated(cols)) deallocate (cols)
         if (allocated(ks_cols)) deallocate (ks_cols)
-        if (this%maxbound == 0) this%maxbound = this%nodes * nmembers
+        if (nmembers > 0) then
+          if (this%maxbound == 0) then
+            ! no DIMENSIONS block (e.g. TVK/TVS): use node count * member count
+            this%maxbound = this%nodes * nmembers
+          else
+            ! DIMENSIONS block present (e.g. MAW/SFR/LAK/UZF): scale feature
+            ! count by member count so every feature can use every setting
+            this%maxbound = this%maxbound * nmembers
+          end if
+        end if
       end if
     end if
   end subroutine allocate_scalars
@@ -485,6 +494,9 @@ contains
     if (idt%required) then
       in_scope = .true.
       return
+    else if (this%loadtype == ADVANCED .and. &
+             this%ctxtype == STRESSPKG) then
+      in_scope = .true.
     else
       in_scope = .false.
       datatype = idt_datatype(idt)
@@ -526,9 +538,13 @@ contains
       case ('SPC', 'SPCA')
         in_scope = .true.
       case default
-        errmsg = 'LoadContext in_scope needs new check for: '// &
-                 trim(mf6_input%subcomponent_type)//'/'//trim(idt%tagname)
-        call store_error(errmsg, .true.)
+        if (idt%in_record) then
+          in_scope = .true.
+        else
+          errmsg = 'LoadContext in_scope needs new check for: '// &
+                   trim(mf6_input%subcomponent_type)//'/'//trim(idt%tagname)
+          call store_error(errmsg, .true.)
+        end if
       end select
     end if
 

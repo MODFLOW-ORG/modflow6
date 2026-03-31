@@ -13,14 +13,15 @@ cases = [f"ts_{paktest}01"]
 def get_model(ws, name, timeseries=False):
     # static model data
     # temporal discretization
-    nper = 1
+    nper = 3
     tdis_rc = []
     for _ in range(nper):
-        tdis_rc.append((1.0, 1, 1.0))
-    ts_times = np.arange(0.0, 2.0, 1.0, dtype=float)
+        tdis_rc.append((1.0, 10, 1.0))
+    ts_times = np.arange(0.0, float(nper) + 1.0, 1.0, dtype=float)
 
     auxnames = ["temp", "conc"]
     temp, conc = 32.5, 0.1
+    strt_well1 = 0.0
 
     # spatial discretization data
     nlay, nrow, ncol = 3, 10, 10
@@ -211,24 +212,28 @@ def get_model(ws, name, timeseries=False):
 
     packagedata = [
         [0, 1.0, -20.0, 0.0, "SPECIFIED", 2, temp, conc],
+        [1, 0.5, -20.0, strt_well1, "THIEM", 2, temp, conc],
     ]
     nmawwells = len(packagedata)
     connectiondata = [
-        [1 - 1, 1 - 1, (1 - 1, 5 - 1, 8 - 1), 0.0, -20, 1.0, 1.1],
-        [1 - 1, 2 - 1, (2 - 1, 5 - 1, 8 - 1), 0.0, -20, 1.0, 1.1],
+        [0, 0, (0, 4, 7), 0.0, -20, 1.0, 1.1],
+        [0, 1, (1, 4, 7), 0.0, -20, 1.0, 1.1],
+        [1, 0, (0, 8, 2), 0.0, -20, 1.0, 1.1],
+        [1, 1, (1, 8, 2), 0.0, -20, 1.0, 1.1],
     ]
 
-    perioddata = [[0, "FLOWING_WELL", 0.0, 1.0, 0.1]]
+    perioddata = [[0, "FLOWING_WELL", 0.0, 1.0, 0.1], [1, "STATUS", "CONSTANT"]]
     rate = 4e-3
-    ts_names = ["rate"] + auxnames
+    ts_names = ["rate", "strt1"] + auxnames
     if timeseries:
+        packagedata[1][3] = "strt1"
         perioddata.append([0, "rate", "rate"])
         perioddata.append([0, "AUXILIARY", "conc", "conc"])
         perioddata.append([0, "AUXILIARY", "temp", "temp"])
         ts_methods = ["linearend"] * len(ts_names)
         ts_data = []
         for t in ts_times:
-            ts_data.append((t, rate, temp, conc))
+            ts_data.append((t, rate, strt_well1, temp, conc))
     else:
         perioddata.append([0, "rate", rate])
         perioddata.append([0, "AUXILIARY", "conc", conc])

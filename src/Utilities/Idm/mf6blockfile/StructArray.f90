@@ -779,7 +779,7 @@ contains
     integer(I4B) :: n, intval, numval, icol
     character(len=LINELENGTH) :: str
     character(len=:), allocatable :: line
-    logical(LGP) :: preserve_case
+    logical(LGP) :: preserve_case, success
 
     select case (this%struct_vectors(sv_col)%memtype)
     case (MTYPE_INT)
@@ -802,6 +802,11 @@ contains
         this%struct_vectors(sv_col)%dbl1d(irow) = &
           this%struct_vectors(sv_col)%read_token(str, this%startidx(sv_col), &
                                                  icol, irow)
+      else if (sv_col == this%ncol .and. &
+               .not. this%struct_vectors(sv_col)%idt%required) then
+        call parser%TryGetDouble(this%struct_vectors(sv_col)%dbl1d(irow), success)
+        if (.not. success) &
+          this%struct_vectors(sv_col)%dbl1d(irow) = DNODATA
       else
         this%struct_vectors(sv_col)%dbl1d(irow) = parser%GetDouble()
       end if
