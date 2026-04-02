@@ -1208,7 +1208,7 @@ contains
   !!
   !<
   subroutine ts_update(this, tsmanager, subcomp_name, iprpak, input_name, &
-                       auxname_cst, clear_strlocs)
+                       auxname_cst, clear_strlocs, is_static)
     class(StructArrayType), intent(inout) :: this
     type(TimeSeriesManagerType), pointer, intent(inout) :: tsmanager
     character(len=*), intent(in) :: subcomp_name
@@ -1217,15 +1217,18 @@ contains
     type(CharacterStringType), dimension(:), pointer, intent(in), &
       optional :: auxname_cst
     logical(LGP), optional, intent(in) :: clear_strlocs !< if .false. strlocs are preserved for re-registration (default .true.)
+    logical(LGP), optional, intent(in) :: is_static !< if .true. links survive ts reset (default .false.)
     type(TSStringLocType), pointer :: ts_strloc
     type(TimeSeriesLinkType), pointer :: tsLink
     real(DP), pointer :: bndElem
     character(len=LENBOUNDNAME) :: boundname
     integer(I4B) :: m, n, iboundname
-    logical(LGP) :: do_clear
+    logical(LGP) :: do_clear, do_static
 
     do_clear = .true.
     if (present(clear_strlocs)) do_clear = clear_strlocs
+    do_static = .false.
+    if (present(is_static)) do_static = is_static
 
     ! find BOUNDNAME column (0 = none)
     iboundname = 0
@@ -1250,6 +1253,7 @@ contains
                                          iprpak, tsLink)
           if (associated(tsLink)) then
             tsLink%Text = this%struct_vectors(m)%idt%mf6varname
+            tsLink%isStatic = do_static
             if (iboundname > 0) then
               boundname = &
                 this%struct_vectors(iboundname)%charstr1d(ts_strloc%row)
@@ -1266,6 +1270,7 @@ contains
                                          iprpak, tsLink)
           if (associated(tsLink)) then
             tsLink%Text = auxname_cst(ts_strloc%col)
+            tsLink%isStatic = do_static
             if (iboundname > 0) then
               boundname = &
                 this%struct_vectors(iboundname)%charstr1d(ts_strloc%row)

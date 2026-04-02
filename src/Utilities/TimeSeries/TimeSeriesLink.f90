@@ -32,6 +32,7 @@ module TimeSeriesLinkModule
     logical, public :: Active = .true.
     logical, public :: UseDefaultProc = .true.
     logical, public :: ConvertFlux = .false.
+    logical, public :: isStatic = .false. !< .true. = link survives tsmanager%Reset()
     type(TimeSeriesType), pointer, public :: TimeSeries => null()
   end type TimeSeriesLinkType
 

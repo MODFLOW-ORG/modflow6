@@ -1909,7 +1909,7 @@ contains
   !! Read itmp and new boundaries if itmp > 0
   !<
   subroutine maw_rp(this)
-    use ConstantsModule, only: LINELENGTH, DNODATA, DZERO, DEP20
+    use ConstantsModule, only: LENVARNAME
     use TdisModule, only: kper
     use MemoryManagerModule, only: mem_setptr
     use CharacterStringModule, only: CharacterStringType
@@ -1921,6 +1921,7 @@ contains
     character(len=LINELENGTH) :: text
     character(len=LINELENGTH) :: csteady
     character(len=LINELENGTH) :: str
+    character(len=LENVARNAME) :: setting
     character(len=LINELENGTH) :: cstr
     character(len=LINELENGTH) :: errmsgr
     integer(I4B) :: node
@@ -1970,10 +1971,10 @@ contains
         end if
         !
         ! -- dispatch key for this row
-        str = this%input%setting(n)
+        setting = this%input%setting(n)
         !
         ! -- STATUS
-        if (trim(str) == 'STATUS') then
+        if (trim(setting) == 'STATUS') then
           str = this%input%status(n)
           this%status(imaw) = str(1:8)
           select case (trim(str))
@@ -1992,12 +1993,12 @@ contains
         end if
         !
         ! -- RATE
-        if (trim(str) == 'RATE') then
+        if (trim(setting) == 'RATE') then
           this%rate(imaw) = this%input%rate(n)
         end if
         !
         ! -- WELL_HEAD
-        if (trim(str) == 'WELL_HEAD') then
+        if (trim(setting) == 'WELL_HEAD') then
           this%well_head(imaw) = this%input%well_head(n)
           this%xnewpak(imaw) = this%well_head(imaw)
           if (this%well_head(imaw) < this%bot(imaw)) then
@@ -2007,7 +2008,7 @@ contains
         end if
         !
         ! -- HEAD_LIMIT
-        if (trim(str) == 'HEAD_LIMIT') then
+        if (trim(setting) == 'HEAD_LIMIT') then
           str = this%input%head_limit(n)
           if (trim(str) == 'OFF') then
             this%shutofflevel(imaw) = DEP20
@@ -2025,7 +2026,7 @@ contains
         end if
         !
         ! -- FLOWING_WELL (compound group)
-        if (trim(str) == 'FLOWING_WELL') then
+        if (trim(setting) == 'FLOWING_WELL') then
           this%fwelev(imaw) = this%input%fwelev(n)
           this%fwcond(imaw) = this%input%fwcond(n)
           this%fwrlen(imaw) = this%input%fwrlen(n)
@@ -2039,13 +2040,13 @@ contains
         end if
         !
         ! -- SHUT_OFF (compound group)
-        if (trim(str) == 'SHUT_OFF') then
+        if (trim(setting) == 'SHUT_OFF') then
           this%shutoffmin(imaw) = this%input%minrate(n)
           this%shutoffmax(imaw) = this%input%maxrate(n)
         end if
         !
         ! -- RATE_SCALING (compound group)
-        if (trim(str) == 'RATE_SCALING') then
+        if (trim(setting) == 'RATE_SCALING') then
           this%pumpelev(imaw) = this%input%pump_elevation(n)
           this%reduction_length(imaw) = this%input%scaling_length(n)
           if (this%reduction_length(imaw) < DZERO) then
@@ -2056,7 +2057,7 @@ contains
         !
         ! -- AUXILIARY (compound group)
         if (this%naux > 0) then
-          if (trim(str) == 'PERIOD_AUXILIARY') then
+          if (trim(setting) == 'PERIOD_AUXILIARY') then
             str = this%input%auxname(n)
             do jj = 1, this%naux
               if (trim(str) /= trim(this%auxname(jj))) cycle
@@ -2230,6 +2231,7 @@ contains
   !> @brief Add package connection to matrix
   !<
   subroutine maw_ad(this)
+    use ConstantsModule, only: LENVARNAME
     use TdisModule, only: kper, kstp
     ! -- dummy
     class(MawType) :: this
@@ -2240,6 +2242,7 @@ contains
     integer(I4B) :: ibnd
     integer(I4B) :: imaw
     character(len=LINELENGTH) :: str
+    character(len=LENVARNAME) :: setting
     !
     ! -- sync PACKAGEDATA AUX from input context and advance observations
     call this%BndExtType%bnd_ad()
@@ -2249,19 +2252,19 @@ contains
       do n = 1, this%input%nbound
         imaw = this%input%ifno(n)
         if (imaw < 1 .or. imaw > this%nmawwells) cycle
-        str = this%input%setting(n)
+        setting = this%input%setting(n)
         ! RATE
-        if (trim(str) == 'RATE') then
+        if (trim(setting) == 'RATE') then
           this%rate(imaw) = this%input%rate(n)
         end if
         ! WELL_HEAD
-        if (trim(str) == 'WELL_HEAD') then
+        if (trim(setting) == 'WELL_HEAD') then
           this%well_head(imaw) = this%input%well_head(n)
           this%xnewpak(imaw) = this%well_head(imaw)
         end if
         ! AUXILIARY (PERIOD override)
         if (this%naux > 0) then
-          if (trim(str) == 'PERIOD_AUXILIARY') then
+          if (trim(setting) == 'PERIOD_AUXILIARY') then
             str = this%input%auxname(n)
             do jj = 1, this%naux
               if (trim(str) /= trim(this%auxname(jj))) cycle
