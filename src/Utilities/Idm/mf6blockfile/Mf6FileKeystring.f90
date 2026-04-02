@@ -42,6 +42,7 @@ module Mf6FileKeystringModule
     type(StructArrayType), pointer :: structarray => null()
     type(LoadContextType) :: ctx !< input load context
     type(LoadMf6FileType) :: static_loader !< persistent static loader
+    type(InputParamDefinitionType), pointer :: setting_idt => null()
     logical(LGP) :: ts_active !< .true. if TS files are loaded
     integer(I4B) :: nleading !< number of leading (pre-keystring) columns
   contains
@@ -220,19 +221,26 @@ contains
       call destructStructArray(this%structarray)
     end if
 
+    if (associated(this%setting_idt)) then
+      deallocate (this%setting_idt)
+      nullify (this%setting_idt)
+    end if
+
     call this%ctx%destroy()
     call this%DynamicPkgLoadType%destroy()
   end subroutine destroy
 
   subroutine create_structarray(this)
     use DefinitionSelectModule, only: get_param_definition_type, &
-                                      idt_parse_rectype
+                                      idt_parse_rectype, idt_default
     use InputOutputModule, only: upcase
+    use LoadContextModule, only: ADVANCED
     class(KeystringLoadType), intent(inout) :: this
     type(InputParamDefinitionType), pointer :: idt, pidt
     character(len=LINELENGTH), allocatable :: rec_cols(:)
     character(len=LINELENGTH) :: kwname, first_col
-    integer(I4B) :: icol, nrow_prealloc, jparam, nrec_col, nsub
+    integer(I4B) :: icol, sa_icol, nrow_prealloc, jparam, nrec_col, nsub
+    integer(I4B) :: nparam_total
 
     ! use pre-allocated managed memory (maxbound = features * nmembers);
     ! fall back to deferred shape (-1) if maxbound is unavailable
@@ -242,22 +250,53 @@ contains
       nrow_prealloc = -1
     end if
 
-    this%structarray => constructStructArray(this%mf6_input, this%nparam, &
+    ! SETTING column inserted at nleading+1 only when KEYWORD members are present
+    if (this%ctx%loadtype == ADVANCED) then
+      nparam_total = this%nparam + 1
+    else
+      nparam_total = this%nparam
+    end if
+
+    this%structarray => constructStructArray(this%mf6_input, nparam_total, &
                                              nrow_prealloc, 0, &
                                              this%mf6_input%mempath, &
                                              this%mf6_input%component_mempath)
-    do icol = 1, this%nparam
+
+    ! create leading (pre-keystring) columns unchanged
+    do icol = 1, this%nleading
       idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                        this%mf6_input%component_type, &
                                        this%mf6_input%subcomponent_type, &
                                        'PERIOD', &
                                        this%param_names(icol), this%input_name)
       call this%structarray%mem_create_vector(icol, idt)
+    end do
 
-      ! For KEYWORD member columns, store the compound sub-member count
-      ! from the RECORD definition so read_from_parser_keystring reads
-      ! exactly the right number of sub-values.
-      if (trim(idt%datatype) == 'KEYWORD' .and. icol > this%nleading) then
+    ! create SETTING column
+    if (this%ctx%loadtype == ADVANCED) then
+      sa_icol = this%nleading + 1
+      this%setting_idt => idt_default(this%mf6_input%component_type, &
+                                      this%mf6_input%subcomponent_type, &
+                                      'PERIOD', 'SETTING', 'SETTING', 'STRING')
+      call this%structarray%mem_create_vector(sa_icol, this%setting_idt, &
+                                              charlen=LENVARNAME)
+    end if
+
+    ! create member columns
+    do icol = this%nleading + 1, this%nparam
+      ! SA column index is shifted by 1 when SETTING column was inserted
+      if (this%ctx%loadtype == ADVANCED) then
+        sa_icol = icol + 1
+      else
+        sa_icol = icol
+      end if
+      idt => get_param_definition_type(this%mf6_input%param_dfns, &
+                                       this%mf6_input%component_type, &
+                                       this%mf6_input%subcomponent_type, &
+                                       'PERIOD', &
+                                       this%param_names(icol), this%input_name)
+      if (trim(idt%datatype) == 'KEYWORD') then
+        ! scan RECORD definition to find sub-member count
         kwname = trim(idt%tagname)
         call upcase(kwname)
         nsub = 0
@@ -277,7 +316,15 @@ contains
           end if
           if (allocated(rec_cols)) deallocate (rec_cols)
         end do
-        this%structarray%struct_vectors(icol)%nsubmembers = nsub
+        ! metadata vector: no data allocated; isubmember points to next SA col
+        call this%structarray%mem_create_metadata_vector(sa_icol, idt, &
+                                                         sa_icol + 1, nsub)
+      else if (trim(idt%datatype) == 'STRING') then
+        ! string value columns (e.g. STATUS) stored as mf6varname at LENVARNAME
+        call this%structarray%mem_create_vector(sa_icol, idt, &
+                                                charlen=LENVARNAME)
+      else
+        call this%structarray%mem_create_vector(sa_icol, idt)
       end if
     end do
   end subroutine create_structarray

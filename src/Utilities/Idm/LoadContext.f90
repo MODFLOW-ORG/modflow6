@@ -24,6 +24,7 @@ module LoadContextModule
   public :: ReadStateVarType
   public :: rsv_name
   public :: is_keystring_period
+  public :: LOAD_UNDEF, LIST, LAYERARRAY, GRIDARRAY, KEYSTRING, ADVANCED
 
   enum, bind(C)
     enumerator :: LOAD_UNDEF = 0 !< undefined load type
@@ -31,7 +32,6 @@ module LoadContextModule
     enumerator :: LAYERARRAY = 2 !< readasarrays load
     enumerator :: GRIDARRAY = 3 !< readarraygrid load
     enumerator :: KEYSTRING = 4 !< basic keystring period block load
-    ! ADVANCED: pending future development
     enumerator :: ADVANCED = 5 !< advanced keystring period block load
   end enum
 
@@ -494,9 +494,6 @@ contains
     if (idt%required) then
       in_scope = .true.
       return
-    else if (this%loadtype == ADVANCED .and. &
-             this%ctxtype == STRESSPKG) then
-      in_scope = .true.
     else
       in_scope = .false.
       datatype = idt_datatype(idt)

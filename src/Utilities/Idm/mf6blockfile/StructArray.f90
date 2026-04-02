@@ -13,7 +13,7 @@ module StructArrayModule
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, count_errors, store_error_filename
   use StructVectorModule, only: StructVectorType, TSStringLocType, &
-                                MTYPE_INT, MTYPE_DBL, MTYPE_STR, &
+                                MTYPE_UNDEF, MTYPE_INT, MTYPE_DBL, MTYPE_STR, &
                                 MTYPE_INTVEC, MTYPE_INT2D, MTYPE_DBL2D
   use TimeSeriesManagerModule, only: TimeSeriesManagerType, &
                                      read_value_or_time_series
@@ -52,6 +52,7 @@ module StructArrayModule
     type(ModflowInputType) :: mf6_input
   contains
     procedure :: mem_create_vector
+    procedure :: mem_create_metadata_vector
     procedure :: count
     procedure :: get
     procedure :: allocate_int_type
@@ -131,10 +132,11 @@ contains
 
   !> @brief create new vector in StructArrayType
   !<
-  subroutine mem_create_vector(this, icol, idt)
+  subroutine mem_create_vector(this, icol, idt, charlen)
     class(StructArrayType) :: this !< StructArrayType
     integer(I4B), intent(in) :: icol !< column to create
     type(InputParamDefinitionType), pointer :: idt
+    integer(I4B), optional, intent(in) :: charlen !< override character length for charstr1d
     type(StructVectorType) :: sv
     integer(I4B) :: numcol
 
@@ -142,6 +144,7 @@ contains
     numcol = 1
     sv%idt => idt
     sv%icol = icol
+    if (present(charlen)) sv%charlen = charlen
 
     ! set size
     if (this%deferred_shape) then
@@ -181,6 +184,36 @@ contains
       this%startidx(icol) = this%startidx(icol - 1) + this%numcols(icol - 1)
     end if
   end subroutine mem_create_vector
+
+  !> @brief Create a metadata-only StructVector for a KEYWORD indicator column
+  !!
+  !! Sets idt, isubmember, and nsubmembers but allocates no data arrays.
+  !! Used for KEYWORD indicator columns that have been consolidated into the
+  !! SETTING column; these vectors serve only as dispatch-map entries.
+  !<
+  subroutine mem_create_metadata_vector(this, icol, idt, isubmember, nsubmembers)
+    class(StructArrayType) :: this !< StructArrayType
+    integer(I4B), intent(in) :: icol !< column index
+    type(InputParamDefinitionType), pointer :: idt !< input definition (for tagname lookup)
+    integer(I4B), intent(in) :: isubmember !< icol of first submember (0 if none)
+    integer(I4B), intent(in) :: nsubmembers !< number of submembers
+    type(StructVectorType) :: sv
+
+    sv%idt => idt
+    sv%icol = icol
+    sv%isubmember = isubmember
+    sv%nsubmembers = nsubmembers
+    sv%memtype = MTYPE_UNDEF
+    sv%size = 0
+
+    this%struct_vectors(icol) = sv
+    this%numcols(icol) = 0
+    if (icol == 1) then
+      this%startidx(icol) = 1
+    else
+      this%startidx(icol) = this%startidx(icol - 1) + this%numcols(icol - 1)
+    end if
+  end subroutine mem_create_metadata_vector
 
   function count(this)
     class(StructArrayType) :: this !< StructArrayType
@@ -266,7 +299,7 @@ contains
     if (this%deferred_shape) then
       allocate (charstr1d(this%deferred_size_init))
     else
-      call mem_allocate(charstr1d, LINELENGTH, this%nrow, &
+      call mem_allocate(charstr1d, sv%charlen, this%nrow, &
                         sv%idt%mf6varname, this%mempath)
     end if
 
@@ -769,6 +802,7 @@ contains
   end subroutine check_reallocate
 
   subroutine read_param(this, parser, sv_col, irow, timeseries, iout, auxcol)
+    use InputOutputModule, only: upcase
     class(StructArrayType) :: this !< StructArrayType
     type(BlockParserType), intent(inout) :: parser !< block parser to read from
     integer(I4B), intent(in) :: sv_col
@@ -782,6 +816,10 @@ contains
     logical(LGP) :: preserve_case, success
 
     select case (this%struct_vectors(sv_col)%memtype)
+    case (MTYPE_UNDEF)
+      ! metadata vector sub-member (e.g. TAB6, FILEIN keyword markers):
+      ! consume the token from the parser but discard it
+      call parser%GetString(str)
     case (MTYPE_INT)
       ! if reloadable block and first col, store blocknum
       if (sv_col == 1 .and. this%blocknum > 0) then
@@ -945,9 +983,17 @@ contains
     integer(I4B) :: irow
     logical(LGP) :: endOfBlock, is_keyword_dispatch
     character(len=LINELENGTH) :: keyword
-    integer(I4B) :: icol, found_col, last_set_col
+    integer(I4B) :: icol, found_col, last_set_col, setting_icol
 
     irow = 0
+
+    ! SETTING column is always at nleading+1 when present; detect by tagname
+    setting_icol = 0
+    if (nleading + 1 <= this%ncol) then
+      if (trim(this%struct_vectors(nleading + 1)%idt%tagname) == 'SETTING') then
+        setting_icol = nleading + 1
+      end if
+    end if
 
     ! reset nrow if deferred shape
     if (this%deferred_shape) then
@@ -985,9 +1031,10 @@ contains
       call parser%GetString(keyword)
       call upcase(keyword)
 
-      ! find the matching keystring-member column
+      ! find the matching keystring-member column (skip SETTING column itself)
       found_col = 0
       do icol = nleading + 1, this%ncol
+        if (icol == setting_icol) cycle
         if (trim(this%struct_vectors(icol)%idt%tagname) == trim(keyword)) then
           found_col = icol
           exit
@@ -1003,24 +1050,30 @@ contains
         cycle
       end if
 
+      ! write dispatch keyword as mf6varname to SETTING column when present
+      if (setting_icol > 0) then
+        this%struct_vectors(setting_icol)%charstr1d(irow) = &
+          trim(this%struct_vectors(found_col)%idt%mf6varname)
+      end if
+
       ! determine dispatch mode and set/read matched column(s)
       is_keyword_dispatch = &
         (this%struct_vectors(found_col)%idt%datatype == 'KEYWORD')
 
       if (is_keyword_dispatch) then
         ! Compound or no-value KEYWORD dispatch:
-        ! the dispatch keyword token was already consumed; store it in the
-        ! KEYWORD column (charstr) without reading another token.
-        this%struct_vectors(found_col)%charstr1d(irow) = trim(keyword)
+        ! found_col is a metadata vector (MTYPE_UNDEF) — no data to write.
+        ! Read sub-members starting at isubmember for nsubmembers columns.
         last_set_col = found_col
-        ! read exactly nsubmembers compound sub-member columns that
-        ! immediately follow in the struct array
-        do icol = found_col + 1, &
-          found_col + this%struct_vectors(found_col)%nsubmembers
-          if (icol > this%ncol) exit
-          call this%read_param(parser, icol, irow, timeseries, iout)
-          last_set_col = icol
-        end do
+        if (this%struct_vectors(found_col)%isubmember > 0) then
+          do icol = this%struct_vectors(found_col)%isubmember, &
+            this%struct_vectors(found_col)%isubmember + &
+            this%struct_vectors(found_col)%nsubmembers - 1
+            if (icol > this%ncol) exit
+            call this%read_param(parser, icol, irow, timeseries, iout)
+            last_set_col = icol
+          end do
+        end if
       else
         ! Simple single-value dispatch: read one value for the matched column
         call this%read_param(parser, found_col, irow, timeseries, iout)
@@ -1029,6 +1082,10 @@ contains
 
       ! fill sentinels for all non-matched member columns
       do icol = nleading + 1, this%ncol
+        ! skip SETTING column (always written above when present)
+        if (icol == setting_icol) cycle
+        ! skip metadata vectors (MTYPE_UNDEF, no allocated data arrays)
+        if (this%struct_vectors(icol)%memtype == MTYPE_UNDEF) cycle
         if (icol >= found_col .and. icol <= last_set_col) cycle
         select case (this%struct_vectors(icol)%memtype)
         case (MTYPE_DBL) ! DOUBLE: use DNODATA sentinel

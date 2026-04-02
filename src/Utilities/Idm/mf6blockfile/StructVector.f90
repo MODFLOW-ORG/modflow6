@@ -53,6 +53,8 @@ module StructVectorModule
     integer(I4B) :: icol = 0 !< SA column
     integer(I4B) :: size = 0 !< size of array
     integer(I4B) :: nsubmembers = 0 !< sub-member count for compound KEYWORD
+    integer(I4B) :: isubmember = 0 !< icol of first submember (0 = not a KEYWORD metadata vector)
+    integer(I4B) :: charlen = LINELENGTH !< character length for charstr1d allocation
     ! Data pointers
     integer(I4B), dimension(:), pointer, contiguous :: int1d => null()
     integer(I4B), dimension(:, :), pointer, contiguous :: int2d => null()

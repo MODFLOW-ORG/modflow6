@@ -54,40 +54,34 @@ module MawModule
   !! Holds persistent pointers to input context arrays used at
   !! runtime. TS arrays are managed transparently by IDM.
   !<
-  type :: MawInputType
+  type :: MawInputContextType
     ! -- packagedata
     real(DP), dimension(:), pointer, contiguous :: strt => null()
     ! -- period
     integer(I4B), pointer :: nbound => null()
     integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
     type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: setting => null()
+    type(CharacterStringType), dimension(:), pointer, &
       contiguous :: status => null()
     real(DP), dimension(:), pointer, contiguous :: rate => null()
     real(DP), dimension(:), pointer, contiguous :: well_head => null()
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: head_limit => null()
-    type(CharacterStringType), dimension(:), pointer, &
-      contiguous :: flowing_well => null()
     real(DP), dimension(:), pointer, contiguous :: fwelev => null()
     real(DP), dimension(:), pointer, contiguous :: fwcond => null()
     real(DP), dimension(:), pointer, contiguous :: fwrlen => null()
-    type(CharacterStringType), dimension(:), pointer, &
-      contiguous :: shut_off => null()
     real(DP), dimension(:), pointer, contiguous :: minrate => null()
     real(DP), dimension(:), pointer, contiguous :: maxrate => null()
-    type(CharacterStringType), dimension(:), pointer, &
-      contiguous :: rate_scaling => null()
     real(DP), dimension(:), pointer, contiguous :: pump_elevation => null()
     real(DP), dimension(:), pointer, contiguous :: scaling_length => null()
-    type(CharacterStringType), dimension(:), pointer, &
-      contiguous :: auxiliary => null()
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: auxname => null()
     real(DP), dimension(:), pointer, contiguous :: auxval => null()
   contains
     procedure :: init => maw_input_init
     procedure :: destroy => maw_input_destroy
-  end type MawInputType
+  end type MawInputContextType
   !
   type, extends(BndExtType) :: MawType
     !
@@ -159,7 +153,7 @@ module MawModule
     real(DP), dimension(:), pointer, contiguous :: well_head => null()
     !
     ! -- input context data pointers
-    type(MawInputType) :: input
+    type(MawInputContextType) :: input
     !
     ! -- ia vector for connections
     integer(I4B), dimension(:), pointer, contiguous :: iaconn => null()
@@ -788,60 +782,54 @@ contains
     call this%maw_setup_tableobj()
   end subroutine maw_source_dimensions
 
-  !> @brief Bind MawInputType pointers to input context arrays.
+  !> @brief Bind MawInputContextType pointers to input context arrays.
   !!
   !! Values are updated from the input context each stress period
   !! including integrated timeseries for supported arrays.
   !<
   subroutine maw_input_init(this, mempath, naux)
-    class(MawInputType), intent(inout) :: this
+    class(MawInputContextType), intent(inout) :: this
     character(len=*), intent(in) :: mempath
     integer(I4B), intent(in) :: naux
     call mem_setptr(this%nbound, 'NBOUND', mempath)
     call mem_setptr(this%ifno, 'IFNO', mempath)
+    call mem_setptr(this%setting, 'SETTING', mempath)
     call mem_setptr(this%status, 'STATUS', mempath)
     call mem_setptr(this%rate, 'RATE', mempath)
     call mem_setptr(this%well_head, 'WELL_HEAD', mempath)
     call mem_setptr(this%head_limit, 'HEAD_LIMIT', mempath)
-    call mem_setptr(this%flowing_well, 'FLOWING_WELL', mempath)
     call mem_setptr(this%fwelev, 'FWELEV', mempath)
     call mem_setptr(this%fwcond, 'FWCOND', mempath)
     call mem_setptr(this%fwrlen, 'FWRLEN', mempath)
-    call mem_setptr(this%shut_off, 'SHUT_OFF', mempath)
     call mem_setptr(this%minrate, 'MINRATE', mempath)
     call mem_setptr(this%maxrate, 'MAXRATE', mempath)
-    call mem_setptr(this%rate_scaling, 'RATE_SCALING', mempath)
     call mem_setptr(this%pump_elevation, 'PUMP_ELEVATION', mempath)
     call mem_setptr(this%scaling_length, 'SCALING_LENGTH', mempath)
     if (naux > 0) then
-      call mem_setptr(this%auxiliary, 'PERIOD_AUXILIARY', mempath)
       call mem_setptr(this%auxname, 'AUXNAME', mempath)
       call mem_setptr(this%auxval, 'AUXVAL', mempath)
     end if
   end subroutine maw_input_init
 
-  !> @brief Nullify all MawInputType pointers.
+  !> @brief Nullify all MawInputContextType pointers.
   !<
   subroutine maw_input_destroy(this)
-    class(MawInputType), intent(inout) :: this
+    class(MawInputContextType), intent(inout) :: this
     nullify (this%strt)
     nullify (this%nbound)
     nullify (this%ifno)
+    nullify (this%setting)
     nullify (this%status)
     nullify (this%rate)
     nullify (this%well_head)
     nullify (this%head_limit)
-    nullify (this%flowing_well)
     nullify (this%fwelev)
     nullify (this%fwcond)
     nullify (this%fwrlen)
-    nullify (this%shut_off)
     nullify (this%minrate)
     nullify (this%maxrate)
-    nullify (this%rate_scaling)
     nullify (this%pump_elevation)
     nullify (this%scaling_length)
-    nullify (this%auxiliary)
     nullify (this%auxname)
     nullify (this%auxval)
   end subroutine maw_input_destroy
@@ -1981,9 +1969,12 @@ contains
           cycle
         end if
         !
+        ! -- dispatch key for this row
+        str = this%input%setting(n)
+        !
         ! -- STATUS
-        str = this%input%status(n)
-        if (trim(str) /= '') then
+        if (trim(str) == 'STATUS') then
+          str = this%input%status(n)
           this%status(imaw) = str(1:8)
           select case (trim(str))
           case ('CONSTANT')
@@ -2001,12 +1992,12 @@ contains
         end if
         !
         ! -- RATE
-        if (this%input%rate(n) /= DNODATA) then
+        if (trim(str) == 'RATE') then
           this%rate(imaw) = this%input%rate(n)
         end if
         !
         ! -- WELL_HEAD
-        if (this%input%well_head(n) /= DNODATA) then
+        if (trim(str) == 'WELL_HEAD') then
           this%well_head(imaw) = this%input%well_head(n)
           this%xnewpak(imaw) = this%well_head(imaw)
           if (this%well_head(imaw) < this%bot(imaw)) then
@@ -2016,8 +2007,8 @@ contains
         end if
         !
         ! -- HEAD_LIMIT
-        str = this%input%head_limit(n)
-        if (trim(str) /= '') then
+        if (trim(str) == 'HEAD_LIMIT') then
+          str = this%input%head_limit(n)
           if (trim(str) == 'OFF') then
             this%shutofflevel(imaw) = DEP20
           else
@@ -2034,8 +2025,7 @@ contains
         end if
         !
         ! -- FLOWING_WELL (compound group)
-        str = this%input%flowing_well(n)
-        if (trim(str) /= '') then
+        if (trim(str) == 'FLOWING_WELL') then
           this%fwelev(imaw) = this%input%fwelev(n)
           this%fwcond(imaw) = this%input%fwcond(n)
           this%fwrlen(imaw) = this%input%fwrlen(n)
@@ -2049,15 +2039,13 @@ contains
         end if
         !
         ! -- SHUT_OFF (compound group)
-        str = this%input%shut_off(n)
-        if (trim(str) /= '') then
+        if (trim(str) == 'SHUT_OFF') then
           this%shutoffmin(imaw) = this%input%minrate(n)
           this%shutoffmax(imaw) = this%input%maxrate(n)
         end if
         !
         ! -- RATE_SCALING (compound group)
-        str = this%input%rate_scaling(n)
-        if (trim(str) /= '') then
+        if (trim(str) == 'RATE_SCALING') then
           this%pumpelev(imaw) = this%input%pump_elevation(n)
           this%reduction_length(imaw) = this%input%scaling_length(n)
           if (this%reduction_length(imaw) < DZERO) then
@@ -2068,8 +2056,7 @@ contains
         !
         ! -- AUXILIARY (compound group)
         if (this%naux > 0) then
-          str = this%input%auxiliary(n)
-          if (trim(str) /= '') then
+          if (trim(str) == 'PERIOD_AUXILIARY') then
             str = this%input%auxname(n)
             do jj = 1, this%naux
               if (trim(str) /= trim(this%auxname(jj))) cycle
@@ -2262,19 +2249,19 @@ contains
       do n = 1, this%input%nbound
         imaw = this%input%ifno(n)
         if (imaw < 1 .or. imaw > this%nmawwells) cycle
+        str = this%input%setting(n)
         ! RATE
-        if (this%input%rate(n) /= DNODATA) then
+        if (trim(str) == 'RATE') then
           this%rate(imaw) = this%input%rate(n)
         end if
         ! WELL_HEAD
-        if (this%input%well_head(n) /= DNODATA) then
+        if (trim(str) == 'WELL_HEAD') then
           this%well_head(imaw) = this%input%well_head(n)
           this%xnewpak(imaw) = this%well_head(imaw)
         end if
         ! AUXILIARY (PERIOD override)
         if (this%naux > 0) then
-          str = this%input%auxiliary(n)
-          if (trim(str) /= '') then
+          if (trim(str) == 'PERIOD_AUXILIARY') then
             str = this%input%auxname(n)
             do jj = 1, this%naux
               if (trim(str) /= trim(this%auxname(jj))) cycle
