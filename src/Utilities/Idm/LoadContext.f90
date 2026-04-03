@@ -83,7 +83,10 @@ module LoadContextModule
     real(DP), dimension(:, :), pointer, &
       contiguous :: auxvar => null() !< auxiliary variable array
     integer(I4B), dimension(:), pointer, contiguous :: mshape => null() !< model shape
-    character(len=LINELENGTH), dimension(:), allocatable :: params !< in scope param tags
+    character(len=LINELENGTH), dimension(:), allocatable :: params !< in scope param tags; leading cols + member names for keystring/advanced
+    integer(I4B), allocatable :: member_nsubs(:) !< nsub per member (1..nmembers): 0=direct dispatch, N=compound keyword with N sub-members
+    logical(LGP) :: has_setting_col = .false. !< .true. if SETTING column is present (ADVANCED packages)
+    type(InputParamDefinitionType), pointer :: setting_idt => null() !< synthetic idt for SETTING column
     type(ModflowInputType) :: mf6_input !< description of input
   contains
     procedure :: init
@@ -207,7 +210,8 @@ contains
       end do
     end if
 
-    ! set in scope params for load
+    ! set in scope params for load; also populates member_nsubs, has_setting_col,
+    ! setting_idt for keystring/advanced packages
     call this%set_params()
 
     ! allocate load context scalars
@@ -530,6 +534,8 @@ contains
         end if
       case ('NAM')
         in_scope = .true.
+      case ('SFR')
+        if (tagname == 'IC') in_scope = .true.
       case ('SSM')
         if (tagname == 'MIXED') in_scope = .true.
       case ('SPC', 'SPCA')
@@ -561,12 +567,14 @@ contains
     use ArrayHandlersModule, only: expandarray
     use DefinitionSelectModule, only: get_param_definition_type, &
                                       get_aggregate_definition_type, &
-                                      idt_parse_rectype
+                                      idt_parse_rectype, idt_default
     class(LoadContextType) :: this
     type(InputParamDefinitionType), pointer :: idt, aidt
     character(len=LINELENGTH), dimension(:), allocatable :: tags
     character(len=LINELENGTH), dimension(:), allocatable :: cols
-    integer(I4B) :: keepcnt, iparam, nparam
+    character(len=LINELENGTH), allocatable :: member_names_work(:)
+    integer(I4B), allocatable :: member_nsubs_work(:)
+    integer(I4B) :: keepcnt, iparam, nparam, nmembers_work, n
     logical(LGP) :: keep, tag_found
 
     ! initialize
@@ -618,19 +626,39 @@ contains
       end if
     end do
 
-    ! update nparam
-    nparam = keepcnt
-
-    ! for LIST/KEYSTRING/ADVANCED packages record the leading-column count;
-    ! this is the count of aggregate columns before the keystring placeholder
+    ! record leading-column count before member expansion
     if (this%loadtype == LIST .or. &
         this%loadtype == KEYSTRING .or. &
-        this%loadtype == ADVANCED) this%nleading = nparam
+        this%loadtype == ADVANCED) this%nleading = keepcnt
 
-    ! allocate filtcols
+    ! for keystring/advanced: append member names and store associated metadata
+    this%has_setting_col = .false.
+    if (this%loadtype == KEYSTRING .or. this%loadtype == ADVANCED) then
+      call this%keystring_member_names(member_names_work, member_nsubs_work, &
+                                       nmembers_work)
+      do n = 1, nmembers_work
+        keepcnt = keepcnt + 1
+        call expandarray(tags)
+        tags(keepcnt) = trim(member_names_work(n))
+      end do
+      if (allocated(this%member_nsubs)) deallocate (this%member_nsubs)
+      if (nmembers_work > 0) then
+        allocate (this%member_nsubs(nmembers_work))
+        this%member_nsubs = member_nsubs_work
+      end if
+      if (this%loadtype == ADVANCED) then
+        this%has_setting_col = .true.
+        this%setting_idt => idt_default(this%mf6_input%component_type, &
+                                        this%mf6_input%subcomponent_type, &
+                                        'PERIOD', 'SETTING', 'SETTING', 'STRING')
+      end if
+    end if
+
+    ! update nparam to total (leading + members)
+    nparam = keepcnt
+
+    ! allocate and fill params
     allocate (this%params(nparam))
-
-    ! set filtcols
     do iparam = 1, nparam
       this%params(iparam) = trim(tags(iparam))
     end do
@@ -667,6 +695,11 @@ contains
     class(LoadContextType) :: this
 
     if (allocated(this%named_bound)) deallocate (this%named_bound)
+    if (allocated(this%member_nsubs)) deallocate (this%member_nsubs)
+    if (associated(this%setting_idt)) then
+      deallocate (this%setting_idt)
+      nullify (this%setting_idt)
+    end if
 
     if (this%ctxtype == EXCHANGE .or. &
         this%ctxtype == STRESSPKG) then
@@ -788,27 +821,30 @@ contains
     if (allocated(cols)) deallocate (cols)
   end function is_keystring_period
 
-  !> @brief Return keystring member column names for the PERIOD block
+  !> @brief Return keystring member column names and nsub counts.
   !!
-  !! Column order follows the KEYSTRING aggregate definition token list,
-  !! which is the single authoritative source of order — independent of
-  !! the order in which individual params appear in param_dfns.
+  !! Private helper called from set_params. Results are returned via
+  !! output parameters; the caller is responsible for storing them.
+  !! Column order follows the KEYSTRING aggregate definition token list.
   !! For each token in the aggregate:
-  !!   - RECORD compound group: sub-members are expanded in RECORD type order
-  !!   - direct-dispatch param: appended as-is
+  !!   - RECORD compound group: sub-members expanded in RECORD order;
+  !!     first entry (KEYWORD dispatch header) gets nsub = sub-member count,
+  !!     remaining entries get nsub = 0.
+  !!   - direct-dispatch param: appended with nsub = 0.
   !<
-  subroutine keystring_member_names(this, member_names, nmembers)
+  subroutine keystring_member_names(this, member_names, member_nsubs, nmembers)
     use InputOutputModule, only: upcase
     use ArrayHandlersModule, only: expandarray
     use DefinitionSelectModule, only: idt_parse_rectype, idt_datatype, &
                                       get_aggregate_definition_type
     class(LoadContextType) :: this
     character(len=LINELENGTH), allocatable, intent(out) :: member_names(:)
+    integer(I4B), allocatable, intent(out) :: member_nsubs(:)
     integer(I4B), intent(out) :: nmembers
     type(InputParamDefinitionType), pointer :: aidt, ks_aidt, idt
     character(len=LINELENGTH), allocatable :: rec_cols(:), ks_cols(:)
     character(len=LINELENGTH) :: rec_token, tagname
-    integer(I4B) :: m, n, nrec_col, nks_col
+    integer(I4B) :: m, n, nrec_col, nks_col, nmembers_before, k
 
     nmembers = 0
 
@@ -842,13 +878,25 @@ contains
         idt => this%mf6_input%param_dfns(n)
         if (idt_datatype(idt) == 'RECORD') then
           ! compound group: expand sub-members in RECORD type order
+          nmembers_before = nmembers
           call expand_record_submembers(this%mf6_input, idt, member_names, &
                                         nmembers)
+          ! first added entry is the KEYWORD header; remaining are sub-members
+          do k = nmembers_before + 1, nmembers
+            call expandarray(member_nsubs)
+            if (k == nmembers_before + 1) then
+              member_nsubs(k) = nmembers - nmembers_before - 1
+            else
+              member_nsubs(k) = 0
+            end if
+          end do
         else
           ! direct-dispatch param
           nmembers = nmembers + 1
           call expandarray(member_names)
           member_names(nmembers) = trim(this%mf6_input%param_dfns(n)%tagname)
+          call expandarray(member_nsubs)
+          member_nsubs(nmembers) = 0
         end if
         exit
       end do

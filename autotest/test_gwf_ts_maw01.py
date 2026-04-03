@@ -222,8 +222,13 @@ def get_model(ws, name, timeseries=False):
         [1, 1, (1, 8, 2), 0.0, -20, 1.0, 1.1],
     ]
 
-    perioddata = [[0, "FLOWING_WELL", 0.0, 1.0, 0.1], [1, "STATUS", "CONSTANT"]]
+    fwelev_val, fwcond_val, fwrlen_val = 0.0, 1.0, 0.1
+    perioddata = [
+        [0, "FLOWING_WELL", fwelev_val, fwcond_val, fwrlen_val],
+        [1, "STATUS", "CONSTANT"],
+    ]
     rate = 4e-3
+    # ts_names order must match ts_data tuple columns
     ts_names = ["rate", "strt1"] + auxnames
     if timeseries:
         packagedata[1][3] = "strt1"
