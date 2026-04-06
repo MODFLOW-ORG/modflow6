@@ -74,12 +74,14 @@ laytyp = 1
 sfr_evaprate = 0.0
 rhk = 0.0
 rwid = 1.0
-strm_temp = 11.0
+#strm_temp = 11.0
+strm_in_temp = [11.0,21.867108141,25.0,11.0,11.0]
 surf_Q_in = 10.0
 
 # sensible and latent heat flux parameter values
-wspd = [0.0, 0.0, 126005.30, 0.0, 126005.30]  # unrealistically high to drive a -1C change
-tatm = [11.0, 45.4803757895414, 5.0, 5.0, 5.0]  # used by lwr, shf, lhf
+wspd = [0.0, 0.0, 3919295.19947608, 0.0, 0.0]  # unrealistically high to drive a -1C change
+patm = [0.0, 0.0, 954.680843658077, 0.0, 954.680843658077]
+tatm = [11.0, 40.9752, 11.0, 11.0, 11.0]  # used by lwr, shf, lhf
 tatm = [t + DCTOK for t in tatm]
 # shortwave radiation parameter values
 
@@ -91,9 +93,9 @@ solr = [
     0.0,
     0.0,
 ]
-shd = [0.0, 1.0, 1.0, 1.0, 1.0]  # 100% shade "turns off" solar flux
-swrefl = [0.0, 1.0, 1.0, 1.0, 1.0]
-rh = [0.0, 30.0, 0.0, 30.0, 30.0]  # percent
+shd = [0.0, 0.0, 0.0, 0.0, 0.0]  # 100% shade "turns off" solar flux
+swrefl = [0.0, 1.0, 0.0, 1.0, 0.0]
+rh = [0.0, 20.0, 1.0, 0.0, 0.0]  # percent
 
 # atmosphere composition adjustment factor (using dummy value to drive
 # half a degree change)
@@ -403,13 +405,13 @@ def build_models(idx, test):
     # Instantiate Streamflow Energy Transport package
     sfepackagedata = []
     for irno in range(len(conns)):
-        t = (irno, strm_temp, K_therm_strmbed, rbthcnd)
+        t = (irno, strm_in_temp[irno], K_therm_strmbed, rbthcnd)
         sfepackagedata.append(t)
 
     sfeperioddata = []
-    sfeperioddata.append((0, "INFLOW", strm_temp))
-    sfeperioddata.append((1, "INFLOW", 21.867108141))
-    sfeperioddata.append((2, "INFLOW", strm_temp))
+    sfeperioddata.append((0, "INFLOW", strm_in_temp[0]))
+    sfeperioddata.append((1, "INFLOW", strm_in_temp[1]))
+    sfeperioddata.append((2, "INFLOW", strm_in_temp[2]))
 
     # Instantiate SFE observation points
     sfe_obs = {
@@ -480,6 +482,7 @@ def build_models(idx, test):
             spd.append([irno, "SWREFL", swrefl[irno]])
             spd.append([irno, "RH", rh[irno]])
             spd.append([irno, "ATMC", atmc[irno]])
+            spd.append([irno, "PATM", patm[irno]])
 
         abc_spd[kper] = spd
 
