@@ -1321,22 +1321,24 @@ contains
     case ('SWR')
       if (this%iboundpak(jj) /= 0) then
         !call this%swr_abc_term(jj, n1, n2, v)
+        call this%abc%abc_cq(jj, this%xnewpak(jj), v, 'swr')
       end if
     case ('LWR')
       if (this%iboundpak(jj) /= 0) then
         !call this%lwr_abc_term(jj, n1, n2, v)
+        call this%abc%abc_cq(jj, this%xnewpak(jj), v, 'lwr')
       end if
     case ('LHF')
       if (this%iboundpak(jj) /= 0) then
         strmtemp = this%xnewpak(jj)
         !call this%lhf_abc_term(jj, n1, n2, v)
-        call this%abc%abc_cq(jj, strmtemp, v, 'lhf')
+        call this%abc%abc_cq(jj, this%xnewpak(jj), v, 'lhf')
       end if
     case ('SHF')
       if (this%iboundpak(jj) /= 0) then
         strmtemp = this%xnewpak(jj)
         !call this%shf_abc_term(jj, n1, n2, v)
-        call this%abc%abc_cq(jj, strmtemp, v, 'shf')
+        call this%abc%abc_cq(jj, this%xnewpak(jj), v, 'shf')
       end if
     case default
       found = .false.
