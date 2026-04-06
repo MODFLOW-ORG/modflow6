@@ -1,10 +1,10 @@
-!> @brief This module contains the LoadContextModule
+!> @brief Load context for IDM generic dynamic loaders.
 !!
-!! This module creates a load context for IDM generic
-!! loaders (ListLoadType, LayerArrayLoadType, GridArrayLoadType)
-!! that supports consistent package side access. It also
-!! determines in scope parameters for the generic dynamic
-!! loaders and all structarray based static loads.
+!! LoadContextType classifies each input), builds the in-scope parameter
+!! list for the active block, and manages memory-manager dimension scalars
+!! and array pointers.  It is used by all dynamic loaders: ListLoadType,
+!! KeystringLoadType, LayerArrayLoadType, GridArrayLoadType, and
+!! StructArray-based static loads.
 !!
 !<
 module LoadContextModule
@@ -13,7 +13,7 @@ module LoadContextModule
   use ConstantsModule, only: DZERO, IZERO, LINELENGTH, LENAUXNAME, &
                              LENVARNAME, LENBOUNDNAME
   use SimVariablesModule, only: errmsg
-  use SimModule, only: store_error, store_error_filename
+  use SimModule, only: store_error
   use ModflowInputModule, only: ModflowInputType
   use InputDefinitionModule, only: InputParamDefinitionType
   use CharacterStringModule, only: CharacterStringType
@@ -24,25 +24,13 @@ module LoadContextModule
   public :: ReadStateVarType
   public :: rsv_name
   public :: is_keystring_period
-  public :: LOAD_UNDEF, LIST, LAYERARRAY, GRIDARRAY, KEYSTRING, ADVANCED
 
   enum, bind(C)
     enumerator :: LOAD_UNDEF = 0 !< undefined load type
-    enumerator :: LIST = 1 !< list (structarray) based load
+    enumerator :: LIST = 1 !< list load
     enumerator :: LAYERARRAY = 2 !< readasarrays load
     enumerator :: GRIDARRAY = 3 !< readarraygrid load
-    enumerator :: KEYSTRING = 4 !< basic keystring period block load
-    enumerator :: ADVANCED = 5 !< advanced keystring period block load
-  end enum
-
-  enum, bind(C)
-    enumerator :: CONTEXT_UNDEF = 0 !< undefined context type
-    enumerator :: ROOT = 1 !< root context type
-    enumerator :: SIM = 2 !< sim context type
-    enumerator :: MODEL = 3 !< model context type
-    enumerator :: MODELPKG = 4 !< model package context type
-    enumerator :: STRESSPKG = 5 !< model stress package context type
-    enumerator :: EXCHANGE = 6 !< exchange context type
+    enumerator :: KEYSTRING = 4 !< keystring period block load
   end enum
 
   !> @brief Pointer type for read state variable
@@ -56,97 +44,73 @@ module LoadContextModule
       setptr_auxvar
   end interface setptr
 
-  !> @brief derived type for boundary package input context
-  !!
-  !! Input Load Context for generic dynamic loaders and
-  !! StructArray based static loads
-  !!
+  !> @brief Input load context for generic dynamic loaders and StructArray
+  !! based static loads.  Classifies the input, determines in-scope
+  !! parameters, and manages memory-manager scalars and array pointers.
   !<
   type :: LoadContextType
-    character(len=LENVARNAME) :: blockname !< load block name
-    character(len=LENVARNAME), allocatable :: named_bound(:) !< dimension variable names to sum for maxbound
     integer(I4B), pointer :: naux => null() !< number of auxiliary variables
     integer(I4B), pointer :: maxbound => null() !< value associated with named_bound
     integer(I4B), pointer :: boundnames => null() !< are bound names optioned
-    integer(I4B), pointer :: iprpak => null() ! print input option
+    integer(I4B), pointer :: iprpak => null() !< print input option
     integer(I4B), pointer :: nbound => null() !< number of bounds in period
     integer(I4B), pointer :: ncpl => null() !< ncpl associated with model shape
     integer(I4B), pointer :: nodes => null() !< nodes associated with model shape
-    integer(I4B) :: loadtype !< enum load type
-    integer(I4B) :: ctxtype !< enum context type
-    integer(I4B) :: nleading = 0 !< count of leading (pre-keystring) columns; LIST packages only
-    logical(LGP) :: readarray !< is this an array based load
+    integer(I4B), dimension(:), pointer, contiguous :: mshape => null() !< model shape
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: auxname_cst => null() !< array of auxiliary names
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: boundname_cst => null() !< array of bound names
     real(DP), dimension(:, :), pointer, &
       contiguous :: auxvar => null() !< auxiliary variable array
-    integer(I4B), dimension(:), pointer, contiguous :: mshape => null() !< model shape
-    character(len=LINELENGTH), dimension(:), allocatable :: params !< in scope param tags; leading cols + member names for keystring/advanced
-    integer(I4B), allocatable :: member_nsubs(:) !< nsub per member (1..nmembers): 0=direct dispatch, N=compound keyword with N sub-members
-    logical(LGP) :: has_setting_col = .false. !< .true. if SETTING column is present (ADVANCED packages)
-    type(InputParamDefinitionType), pointer :: setting_idt => null() !< synthetic idt for SETTING column
+    integer(I4B) :: loadtype !< load type enum: LIST, LAYERARRAY, GRIDARRAY, KEYSTRING
+    logical(LGP) :: set_scalars = .false. !< .true. when dimension scalars must be set
+    logical(LGP) :: set_mshape = .false. !< .true. when model shape is load dependency
+    logical(LGP) :: is_exchange = .false. !< .true. for exchange contexts
+    logical(LGP) :: is_advanced = .false. !< .true. for advanced package KEYSTRING loadtype
+    type(InputParamDefinitionType), pointer :: setting_idt => null() !< internal idt for SETTING column
+    character(len=LENVARNAME) :: blockname !< load block name
+    character(len=LENVARNAME), allocatable :: named_bound(:) !< dimension variable names to sum for maxbound
+    integer(I4B) :: nleading = 0 !< count of leading (pre-keystring) columns
+    character(len=LINELENGTH), dimension(:), allocatable :: params !< in-scope param tagnames
+    integer(I4B), allocatable :: member_nsubs(:) !< nsub per member (1..nmembers)
     type(ModflowInputType) :: mf6_input !< description of input
   contains
+    ! --- public interface ---
     procedure :: init
-    procedure :: allocate_scalars
     procedure :: allocate_arrays
-    procedure :: allocate_param
-    procedure :: tags
-    procedure :: in_scope
-    procedure :: set_params
-    procedure :: keystring_member_names
+    procedure :: allocate_params
     procedure :: rsv_alloc
     procedure :: destroy
+    ! --- internal ---
+    procedure, private :: resolve_context
+    procedure, private :: resolve_loadtype
+    procedure, private :: set_params
+    procedure, private :: keystring_member_names
+    procedure, private :: resolve_dimensions
+    procedure, private :: scale_keystring_maxbound
+    procedure, private :: allocate_param
+    procedure :: check_developmode
+    procedure, private :: in_scope
+    procedure, private :: option_check
   end type LoadContextType
 
 contains
 
-  !> @brief init loader context object
+  !> @brief Initialize the load context.
+  !!
+  !! Classifies the input, builds the in-scope parameter list,
+  !! and resolves memory-manager dimension scalars.
   !<
   subroutine init(this, mf6_input, blockname, named_bound)
     use InputOutputModule, only: upcase
-    use ModelPackageInputsModule, only: supported_model
     class(LoadContextType) :: this
     type(ModflowInputType), intent(in) :: mf6_input
     character(len=*), optional, intent(in) :: blockname
     character(len=*), dimension(:), optional, intent(in) :: named_bound
-    type(InputParamDefinitionType), pointer :: idt
     integer(I4B) :: n
 
     this%mf6_input = mf6_input
-    this%readarray = .false.
-    this%loadtype = LOAD_UNDEF
-    this%ctxtype = CONTEXT_UNDEF
-
-    select case (mf6_input%load_scope)
-    case ('ROOT')
-      this%ctxtype = ROOT
-    case ('SIM')
-      if (mf6_input%subcomponent_type == 'NAM') then
-        this%ctxtype = MODEL
-      else if (mf6_input%subcomponent_type == 'TDIS' .or. &
-               mf6_input%subcomponent_type == 'HPC') then
-        this%ctxtype = SIM
-      else if (mf6_input%component_type == 'EXG') then
-        this%ctxtype = EXCHANGE
-      end if
-    case ('MODEL')
-      if (mf6_input%subcomponent_type == 'OC' .or. &
-          mf6_input%subcomponent_type == 'STO') then
-        this%ctxtype = MODELPKG
-      else
-        this%ctxtype = STRESSPKG
-      end if
-    case default
-    end select
-
-    if (this%ctxtype == CONTEXT_UNDEF) then
-      errmsg = 'LoadContext unidentified context for mempath: '// &
-               trim(mf6_input%mempath)
-      call store_error(errmsg, .true.)
-    end if
 
     if (present(blockname)) then
       this%blockname = blockname
@@ -166,12 +130,60 @@ contains
       this%named_bound(1) = 'MAXBOUND'
     end if
 
-    ! determine aggregate load type
-    do n = 1, size(mf6_input%block_dfns)
-      if (mf6_input%block_dfns(n)%blockname == this%blockname) then
-        if (mf6_input%block_dfns(n)%aggregate) then
+    call this%resolve_context()
+    call this%resolve_loadtype()
+    call this%set_params()
+    call this%resolve_dimensions()
+  end subroutine init
+
+  !> @brief Set context flags from input load_scope and component metadata.
+  !<
+  subroutine resolve_context(this)
+    class(LoadContextType) :: this
+
+    this%set_scalars = .false.
+    this%set_mshape = .false.
+    this%is_exchange = .false.
+
+    select case (this%mf6_input%load_scope)
+    case ('ROOT')
+      ! no memory setup needed for root context
+    case ('SIM')
+      ! only exchange inputs need scalar setup under SIM scope
+      if (this%mf6_input%component_type == 'EXG') then
+        this%set_scalars = .true.
+        this%is_exchange = .true.
+      end if
+    case ('MODEL')
+      this%set_scalars = .true.
+      ! OC and STO are model packages without period block stress data
+      if (this%mf6_input%subcomponent_type /= 'OC' .and. &
+          this%mf6_input%subcomponent_type /= 'STO') then
+        this%set_mshape = .true.
+      end if
+    case default
+      errmsg = 'LoadContext unrecognized load_scope for mempath: '// &
+               trim(this%mf6_input%mempath)
+      call store_error(errmsg, .true.)
+    end select
+  end subroutine resolve_context
+
+  !> @brief Determine loadtype from block and param definitions.
+  !<
+  subroutine resolve_loadtype(this)
+    use DefinitionSelectModule, only: idt_default
+    class(LoadContextType) :: this
+    type(InputParamDefinitionType), pointer :: idt
+    integer(I4B) :: n
+
+    this%loadtype = LOAD_UNDEF
+
+    ! detect aggregate (list/keystring) load type
+    do n = 1, size(this%mf6_input%block_dfns)
+      if (this%mf6_input%block_dfns(n)%blockname == this%blockname) then
+        if (this%mf6_input%block_dfns(n)%aggregate) then
           if (this%blockname == 'PERIOD' .and. &
-              is_keystring_period(mf6_input)) then
+              is_keystring_period(this%mf6_input)) then
             this%loadtype = KEYSTRING
           else
             this%loadtype = LIST
@@ -181,58 +193,47 @@ contains
       end if
     end do
 
-    ! check if KEYSTRING type is ADVANCED package
+    ! check if KEYSTRING package also has a PACKAGEDATA block
     if (this%loadtype == KEYSTRING) then
-      do n = 1, size(mf6_input%block_dfns)
-        if (mf6_input%block_dfns(n)%blockname == 'PACKAGEDATA') then
-          this%loadtype = ADVANCED
+      do n = 1, size(this%mf6_input%block_dfns)
+        if (this%mf6_input%block_dfns(n)%blockname == 'PACKAGEDATA') then
+          this%is_advanced = .true.
+          this%setting_idt => &
+            idt_default(this%mf6_input%component_type, &
+                        this%mf6_input%subcomponent_type, &
+                        'PERIOD', 'SETTING', 'SETTING', 'STRING')
           exit
         end if
       end do
     end if
 
-    ! determine if array based load
+    ! detect array-based load
     if (this%loadtype == LOAD_UNDEF) then
-      do n = 1, size(mf6_input%param_dfns)
-        idt => mf6_input%param_dfns(n)
+      do n = 1, size(this%mf6_input%param_dfns)
+        idt => this%mf6_input%param_dfns(n)
         if (idt%blockname == 'OPTIONS') then
           select case (idt%tagname)
           case ('READASARRAYS')
             this%loadtype = LAYERARRAY
-            this%readarray = .true.
           case ('READARRAYGRID')
             this%loadtype = GRIDARRAY
-            this%readarray = .true.
           case default
             ! no-op
           end select
         end if
       end do
     end if
+  end subroutine resolve_loadtype
 
-    ! set in scope params for load; also populates member_nsubs, has_setting_col,
-    ! setting_idt for keystring/advanced packages
-    call this%set_params()
-
-    ! allocate load context scalars
-    call this%allocate_scalars()
-  end subroutine init
-
-  !> @brief allocate scalars
+  !> @brief Resolve dimension scalars and scale keystring maxbound.
   !<
-  subroutine allocate_scalars(this)
+  subroutine resolve_dimensions(this)
     use MemoryManagerModule, only: mem_setptr, get_isize
-    use DefinitionSelectModule, only: get_aggregate_definition_type, &
-                                      idt_parse_rectype
     class(LoadContextType) :: this
-    type(InputParamDefinitionType), pointer :: aidt, ks_aidt
-    character(len=LINELENGTH), allocatable :: cols(:), ks_cols(:)
-    integer(I4B) :: nmembers, ncol, isize
+    integer(I4B) :: isize
     integer(I4B), pointer :: maxbound_ptr
 
-    if (this%ctxtype == EXCHANGE .or. &
-        this%ctxtype == MODELPKG .or. &
-        this%ctxtype == STRESSPKG) then
+    if (this%set_scalars) then
 
       call setptr(this%nbound, 'NBOUND', this%mf6_input%mempath)
       call setval(this%naux, 'NAUX', this%mf6_input%mempath)
@@ -260,7 +261,7 @@ contains
       this%nbound = 0
     end if
 
-    if (this%ctxtype == STRESSPKG .and. &
+    if (this%set_mshape .and. &
         this%blockname == 'PERIOD') then
       call mem_setptr(this%mshape, 'MODEL_SHAPE', &
                       this%mf6_input%component_mempath)
@@ -274,45 +275,51 @@ contains
       end if
 
       if (this%nodes == 0) this%nodes = product(this%mshape)
+      if (this%loadtype == KEYSTRING) call this%scale_keystring_maxbound()
+    end if
+  end subroutine resolve_dimensions
 
-      ! scale maxbound by keystring member count; fall back to nodes * nmembers
-      ! when no DIMENSIONS block is present (e.g. TVK/TVS)
-      if (this%loadtype == KEYSTRING .or. &
-          this%loadtype == ADVANCED) then
-        ! count members from the KEYSTRING aggregate type definition, which
-        ! names exactly the dispatchable members
-        nmembers = 0
-        aidt => get_aggregate_definition_type(this%mf6_input%aggregate_dfns, &
-                                              this%mf6_input%component_type, &
-                                              this%mf6_input%subcomponent_type, &
-                                              'PERIOD')
-        call idt_parse_rectype(aidt, cols, ncol)
-        ks_aidt => find_setting_aggregate(this%mf6_input, cols, ncol)
-        if (associated(ks_aidt)) then
-          call idt_parse_rectype(ks_aidt, ks_cols, nmembers)
-        end if
-        if (allocated(cols)) deallocate (cols)
-        if (allocated(ks_cols)) deallocate (ks_cols)
-        if (nmembers > 0) then
-          if (this%maxbound == 0) then
-            ! no DIMENSIONS block (e.g. TVK/TVS): use node count * member count
-            this%maxbound = this%nodes * nmembers
-          else
-            ! DIMENSIONS block present (e.g. MAW/SFR/LAK/UZF): scale feature
-            ! count by member count so every feature can use every setting
-            this%maxbound = this%maxbound * nmembers
-          end if
-        end if
+  !> @brief Scale maxbound by the number of KEYSTRING members.
+  !!
+  !! When a DIMENSIONS block is present (MAW/SFR/LAK/UZF) maxbound is the
+  !! feature count; multiply by member count so every feature can use every
+  !! setting in one period.  When there is no DIMENSIONS block (TVK/TVS)
+  !! fall back to nodes * member count.
+  !<
+  subroutine scale_keystring_maxbound(this)
+    use DefinitionSelectModule, only: get_aggregate_definition_type, &
+                                      idt_parse_rectype
+    class(LoadContextType) :: this
+    type(InputParamDefinitionType), pointer :: aidt, ks_aidt
+    character(len=LINELENGTH), allocatable :: cols(:), ks_cols(:)
+    integer(I4B) :: nmembers, ncol
+
+    nmembers = 0
+    aidt => get_aggregate_definition_type(this%mf6_input%aggregate_dfns, &
+                                          this%mf6_input%component_type, &
+                                          this%mf6_input%subcomponent_type, &
+                                          'PERIOD')
+    call idt_parse_rectype(aidt, cols, ncol)
+    ks_aidt => find_setting_aggregate(this%mf6_input, cols, ncol)
+    if (associated(ks_aidt)) call idt_parse_rectype(ks_aidt, ks_cols, nmembers)
+    if (allocated(cols)) deallocate (cols)
+    if (allocated(ks_cols)) deallocate (ks_cols)
+
+    if (nmembers > 0) then
+      if (this%maxbound == 0) then
+        this%maxbound = this%nodes * nmembers
+      else
+        this%maxbound = this%maxbound * nmembers
       end if
     end if
-  end subroutine allocate_scalars
+  end subroutine scale_keystring_maxbound
 
   !> @brief allocate arrays
   !!
   !! call this routine after input parameters have been allocated,
-  !!   e.g. after load_params() with create has been called for array
-  !!   based loaders or after all mem_create_vector() calls have
-  !!   been made for list based load.
+  !! e.g. after load_params() with create has been called for array
+  !! based loaders or after all mem_create_vector() calls have
+  !! been made for list based load.
   !!
   !<
   subroutine allocate_arrays(this)
@@ -321,25 +328,24 @@ contains
     integer(I4B), dimension(:, :), pointer, contiguous :: cellid
     integer(I4B), dimension(:), pointer, contiguous :: nodeulist
 
-    if (this%ctxtype == STRESSPKG .and. &
+    if (this%set_mshape .and. &
         this%blockname == 'PERIOD') then
       ! allocate cellid if this is not list input
-      if (this%readarray) then
+      if (this%loadtype == LAYERARRAY .or. &
+          this%loadtype == GRIDARRAY) then
         call mem_allocate(cellid, 0, 0, 'CELLID', this%mf6_input%mempath)
       end if
 
       ! allocate nodeulist for list and layerarray packages only;
       ! keystring and advanced packages do not use a flat nodeulist
       if (this%loadtype /= GRIDARRAY .and. &
-          this%loadtype /= KEYSTRING .and. &
-          this%loadtype /= ADVANCED) then
+          this%loadtype /= KEYSTRING) then
         call mem_allocate(nodeulist, 0, 'NODEULIST', this%mf6_input%mempath)
       end if
 
-      ! set pointers to aux/bound arrays for list and layerarray packages only;
-      ! keystring and advanced packages manage aux through struct array columns
-      if (this%loadtype /= KEYSTRING .and. &
-          this%loadtype /= ADVANCED) then
+      ! set pointers to aux/bound arrays for non-keystring packages;
+      ! keystring packages manage aux through struct array columns
+      if (this%loadtype /= KEYSTRING) then
         call setptr(this%auxname_cst, 'AUXILIARY', &
                     this%mf6_input%mempath, LENAUXNAME)
         call setptr(this%boundname_cst, 'BOUNDNAME', &
@@ -347,7 +353,7 @@ contains
         call setptr(this%auxvar, this%mf6_input%mempath)
       end if
 
-    else if (this%ctxtype == EXCHANGE) then
+    else if (this%is_exchange) then
       ! set pointers to arrays
       call setptr(this%auxname_cst, 'AUXILIARY', &
                   this%mf6_input%mempath, LENAUXNAME)
@@ -368,7 +374,8 @@ contains
     ! initialize
     dimsize = 0
 
-    if (this%readarray) then
+    if (this%loadtype == LAYERARRAY .or. &
+        this%loadtype == GRIDARRAY) then
       select case (idt%shape)
       case ('NCPL', 'NAUX NCPL')
         dimsize = this%ncpl
@@ -400,7 +407,8 @@ contains
           call allocate_int2d(size(this%mshape), this%maxbound, &
                               idt%mf6varname, this%mf6_input%mempath)
         end if
-      else if (this%readarray) then
+      else if (this%loadtype == LAYERARRAY .or. &
+               this%loadtype == GRIDARRAY) then
         call allocate_int1d(dimsize, idt%mf6varname, &
                             this%mf6_input%mempath)
       end if
@@ -408,12 +416,14 @@ contains
       if (idt%shape == 'NAUX') then
         call allocate_dbl2d(this%naux, this%maxbound, &
                             idt%mf6varname, this%mf6_input%mempath)
-      else if (this%readarray) then
+      else if (this%loadtype == LAYERARRAY .or. &
+               this%loadtype == GRIDARRAY) then
         call allocate_dbl1d(dimsize, idt%mf6varname, &
                             this%mf6_input%mempath)
       end if
     case ('DOUBLE2D')
-      if (this%readarray) then
+      if (this%loadtype == LAYERARRAY .or. &
+          this%loadtype == GRIDARRAY) then
         call allocate_dbl2d(this%naux, dimsize, idt%mf6varname, &
                             this%mf6_input%mempath)
       end if
@@ -421,145 +431,128 @@ contains
     end select
   end subroutine allocate_param
 
-  !> @brief get in scope package params
+  !> @brief Allocate each in-scope parameter in the memory manager.
   !!
-  !! set input array to tagnames of in scope params, optionally
-  !! allocate the parameters based on datatype.
-  !!
+  !! Call after init() for array-based loaders (LAYERARRAY, GRIDARRAY) that
+  !! need memory-manager storage allocated for every in-scope parameter.
+  !! Loaders access this%params and size(this%params) directly.
   !<
-  subroutine tags(this, params, nparam, input_name, create)
-    use FeatureFlagsModule, only: developmode
-    use SimVariablesModule, only: iout
+  subroutine allocate_params(this)
     use DefinitionSelectModule, only: get_param_definition_type
     class(LoadContextType) :: this
-    character(len=LINELENGTH), dimension(:), allocatable, &
-      intent(inout) :: params
-    integer(I4B), intent(inout) :: nparam
-    character(len=*), intent(in) :: input_name
-    logical(LGP), optional, intent(in) :: create
     type(InputParamDefinitionType), pointer :: idt
-    character(len=LINELENGTH) :: dev_msg
-    logical(LGP) :: allocate_params
     integer(I4B) :: n
-
-    ! initialize allocate_params
-    allocate_params = .false.
-
-    ! override default if provided
-    if (present(create)) then
-      allocate_params = create
-    end if
-
-    if (allocated(params)) deallocate (params)
-    nparam = size(this%params)
-    allocate (params(nparam))
-    do n = 1, nparam
-      idt => &
-        get_param_definition_type(this%mf6_input%param_dfns, &
-                                  this%mf6_input%component_type, &
-                                  this%mf6_input%subcomponent_type, &
-                                  this%blockname, this%params(n), '')
-
-      ! check if input param is developmode
-      if (idt%developmode) then
-        dev_msg = 'Input tag "'//trim(idt%tagname)// &
-          &'" read from file "'//trim(input_name)// &
-          &'" is still under development. Install the &
-          &nightly build or compile from source with IDEVELOPMODE = 1.'
-        call developmode(dev_msg, iout)
-      end if
-
-      params(n) = this%params(n)
-      if (allocate_params) call this%allocate_param(idt)
+    do n = 1, size(this%params)
+      idt => get_param_definition_type(this%mf6_input%param_dfns, &
+                                       this%mf6_input%component_type, &
+                                       this%mf6_input%subcomponent_type, &
+                                       this%blockname, this%params(n), '')
+      call this%allocate_param(idt)
     end do
-  end subroutine tags
+  end subroutine allocate_params
 
-  !> @brief establish if input parameter is in scope for package load
+  !> @brief Return .true. if an optional parameter is active for this load.
+  !!
+  !! Required and structural (KEYSTRING/RECARRAY/RECORD) params are handled
+  !! by the caller; this routine only evaluates optional leaf params.
+  !!
+  !! Generic conditions (AUX, BOUNDNAME, readarray indicator) are checked
+  !! first.  Package-specific conditions follow via a select on
+  !! subcomponent_type; unrecognized types return .false. (conservative).
   !<
-  function in_scope(this, mf6_input, blockname, tagname)
-    use MemoryManagerModule, only: get_isize, mem_setptr
+  function in_scope(this, tagname)
     use DefinitionSelectModule, only: get_param_definition_type, idt_datatype
     class(LoadContextType) :: this
-    type(ModflowInputType), intent(in) :: mf6_input
-    character(len=*), intent(in) :: blockname
     character(len=*), intent(in) :: tagname
     logical(LGP) :: in_scope
     type(InputParamDefinitionType), pointer :: idt
-    character(len=LENVARNAME) :: checkname
     character(len=LINELENGTH) :: datatype
-    integer(I4B) :: isize, checksize
-    integer(I4B), pointer :: intptr
 
-    idt => &
-      get_param_definition_type(mf6_input%param_dfns, &
-                                mf6_input%component_type, &
-                                mf6_input%subcomponent_type, &
-                                blockname, tagname, '')
+    idt => get_param_definition_type(this%mf6_input%param_dfns, &
+                                     this%mf6_input%component_type, &
+                                     this%mf6_input%subcomponent_type, &
+                                     this%blockname, tagname, '')
+    ! required params are always in scope
     if (idt%required) then
       in_scope = .true.
       return
     else
       in_scope = .false.
-      datatype = idt_datatype(idt)
-      if (datatype == 'KEYSTRING' .or. &
-          datatype == 'RECARRAY' .or. &
-          datatype == 'RECORD') return
     end if
 
-    ! initialize
-    checkname = ''
-    checksize = 0
+    ! structural container types are never loaded as leaf params
+    datatype = idt_datatype(idt)
+    if (datatype == 'KEYSTRING' .or. &
+        datatype == 'RECARRAY' .or. &
+        datatype == 'RECORD') return
 
-    if (tagname == 'AUXVAR' .or. &
-        tagname == 'AUX') then
-      checkname = 'NAUX'
-    else if (tagname == 'BOUNDNAME') then
-      checkname = 'BOUNDNAMES'
-    else if (tagname == 'I'//trim(mf6_input%subcomponent_type(1:3))) then
-      if (this%loadtype == LAYERARRAY) in_scope = .true.
-    else
-      select case (mf6_input%subcomponent_type)
-      case ('EVT')
-        if (tagname == 'PXDP' .or. tagname == 'PETM') then
-          checkname = 'NSEG'
-          checksize = 1
-        else if (tagname == 'PETM0') then
-          checkname = 'SURFRATESPEC'
-        end if
-      case ('MVR', 'MVT', 'MVE')
-        if (tagname == 'MNAME' .or. &
-            tagname == 'MNAME1' .or. &
-            tagname == 'MNAME2') then
-          checkname = 'MODELNAMES'
-        end if
-      case ('NAM')
-        in_scope = .true.
-      case ('SFR')
-        if (tagname == 'IC') in_scope = .true.
-      case ('SSM')
-        if (tagname == 'MIXED') in_scope = .true.
-      case ('SPC', 'SPCA')
-        in_scope = .true.
-      case default
-        if (idt%in_record) then
-          in_scope = .true.
-        else
-          errmsg = 'LoadContext in_scope needs new check for: '// &
-                   trim(mf6_input%subcomponent_type)//'/'//trim(idt%tagname)
-          call store_error(errmsg, .true.)
-        end if
-      end select
+    ! --- generic conditions ---
+    if (tagname == 'AUXVAR' .or. tagname == 'AUX') then
+      in_scope = this%option_check('NAUX', 0)
+      return
     end if
 
-    ! apply checks
-    if (.not. in_scope) then
-      call get_isize(checkname, mf6_input%mempath, isize)
-      if (isize > 0) then
-        call mem_setptr(intptr, checkname, mf6_input%mempath)
-        if (intptr > checksize) in_scope = .true.
+    if (tagname == 'BOUNDNAME') then
+      in_scope = this%option_check('BOUNDNAMES', 0)
+      return
+    end if
+
+    ! readarray indicator variable (e.g. IRCH, IRET): in scope for LAYERARRAY only
+    if (tagname == 'I'//trim(this%mf6_input%subcomponent_type(1:3))) then
+      in_scope = (this%loadtype == LAYERARRAY)
+      return
+    end if
+
+    ! --- package-specific conditions ---
+    select case (this%mf6_input%subcomponent_type)
+    case ('EVT')
+      if (tagname == 'PXDP' .or. tagname == 'PETM') then
+        in_scope = this%option_check('NSEG', 1)
+      else if (tagname == 'PETM0') then
+        in_scope = this%option_check('SURFRATESPEC', 0)
       end if
-    end if
+    case ('MVR', 'MVT', 'MVE')
+      if (tagname == 'MNAME' .or. &
+          tagname == 'MNAME1' .or. &
+          tagname == 'MNAME2') then
+        in_scope = this%option_check('MODELNAMES', 0)
+      end if
+    case ('NAM')
+      in_scope = .true.
+    case ('SFR')
+      if (tagname == 'IC') in_scope = .true.
+    case ('SSM')
+      if (tagname == 'MIXED') in_scope = .true.
+    case ('SPC', 'SPCA')
+      in_scope = .true.
+    case default
+      if (idt%in_record) then
+        in_scope = .true.
+      else
+        errmsg = 'LoadContext in_scope needs new check for: '// &
+                 trim(this%mf6_input%subcomponent_type)//'/'//trim(tagname)
+        call store_error(errmsg, .true.)
+      end if
+    end select
   end function in_scope
+
+  !> @brief Return .true. if a memory-manager integer option variable exceeds a threshold.
+  !<
+  function option_check(this, varname, threshold)
+    use MemoryManagerModule, only: get_isize, mem_setptr
+    class(LoadContextType) :: this
+    character(len=*), intent(in) :: varname
+    integer(I4B), intent(in) :: threshold
+    logical(LGP) :: option_check
+    integer(I4B) :: isize
+    integer(I4B), pointer :: intptr
+    option_check = .false.
+    call get_isize(varname, this%mf6_input%mempath, isize)
+    if (isize > 0) then
+      call mem_setptr(intptr, varname, this%mf6_input%mempath)
+      if (intptr > threshold) option_check = .true.
+    end if
+  end function option_check
 
   !> @brief set set of in scope parameters for package
   !<
@@ -567,22 +560,21 @@ contains
     use ArrayHandlersModule, only: expandarray
     use DefinitionSelectModule, only: get_param_definition_type, &
                                       get_aggregate_definition_type, &
-                                      idt_parse_rectype, idt_default
+                                      idt_parse_rectype
     class(LoadContextType) :: this
     type(InputParamDefinitionType), pointer :: idt, aidt
-    character(len=LINELENGTH), dimension(:), allocatable :: tags
+    character(len=LINELENGTH), dimension(:), allocatable :: param_buf
     character(len=LINELENGTH), dimension(:), allocatable :: cols
-    character(len=LINELENGTH), allocatable :: member_names_work(:)
-    integer(I4B), allocatable :: member_nsubs_work(:)
-    integer(I4B) :: keepcnt, iparam, nparam, nmembers_work, n
+    character(len=LINELENGTH), allocatable :: member_names(:)
+    integer(I4B), allocatable :: member_nsubs(:)
+    integer(I4B) :: keepcnt, iparam, nparam, nmembers, n
     logical(LGP) :: keep, tag_found
 
     ! initialize
     keepcnt = 0
 
     if (this%loadtype == LIST .or. &
-        this%loadtype == KEYSTRING .or. &
-        this%loadtype == ADVANCED) then
+        this%loadtype == KEYSTRING) then
       ! get aggregate param definition for period block
       aidt => &
         get_aggregate_definition_type(this%mf6_input%aggregate_dfns, &
@@ -598,8 +590,7 @@ contains
     ! allocate dfn input params
     do iparam = 1, nparam
       if (this%loadtype == LIST .or. &
-          this%loadtype == KEYSTRING .or. &
-          this%loadtype == ADVANCED) then
+          this%loadtype == KEYSTRING) then
         ! use found so keystring placeholders are silently skipped
         idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                          this%mf6_input%component_type, &
@@ -616,41 +607,32 @@ contains
       else if (idt%blockname /= this%blockname) then
         keep = .false.
       else
-        keep = this%in_scope(this%mf6_input, this%blockname, idt%tagname)
+        keep = this%in_scope(idt%tagname)
       end if
 
       if (keep) then
         keepcnt = keepcnt + 1
-        call expandarray(tags)
-        tags(keepcnt) = trim(idt%tagname)
+        call expandarray(param_buf)
+        param_buf(keepcnt) = trim(idt%tagname)
       end if
     end do
 
     ! record leading-column count before member expansion
     if (this%loadtype == LIST .or. &
-        this%loadtype == KEYSTRING .or. &
-        this%loadtype == ADVANCED) this%nleading = keepcnt
+        this%loadtype == KEYSTRING) this%nleading = keepcnt
 
-    ! for keystring/advanced: append member names and store associated metadata
-    this%has_setting_col = .false.
-    if (this%loadtype == KEYSTRING .or. this%loadtype == ADVANCED) then
-      call this%keystring_member_names(member_names_work, member_nsubs_work, &
-                                       nmembers_work)
-      do n = 1, nmembers_work
+    ! for keystring packages: append member names and store associated metadata
+    if (this%loadtype == KEYSTRING) then
+      call this%keystring_member_names(member_names, member_nsubs, nmembers)
+      do n = 1, nmembers
         keepcnt = keepcnt + 1
-        call expandarray(tags)
-        tags(keepcnt) = trim(member_names_work(n))
+        call expandarray(param_buf)
+        param_buf(keepcnt) = trim(member_names(n))
       end do
       if (allocated(this%member_nsubs)) deallocate (this%member_nsubs)
-      if (nmembers_work > 0) then
-        allocate (this%member_nsubs(nmembers_work))
-        this%member_nsubs = member_nsubs_work
-      end if
-      if (this%loadtype == ADVANCED) then
-        this%has_setting_col = .true.
-        this%setting_idt => idt_default(this%mf6_input%component_type, &
-                                        this%mf6_input%subcomponent_type, &
-                                        'PERIOD', 'SETTING', 'SETTING', 'STRING')
+      if (nmembers > 0) then
+        allocate (this%member_nsubs(nmembers))
+        this%member_nsubs = member_nsubs
       end if
     end if
 
@@ -660,11 +642,11 @@ contains
     ! allocate and fill params
     allocate (this%params(nparam))
     do iparam = 1, nparam
-      this%params(iparam) = trim(tags(iparam))
+      this%params(iparam) = trim(param_buf(iparam))
     end do
 
     ! cleanup
-    if (allocated(tags)) deallocate (tags)
+    if (allocated(param_buf)) deallocate (param_buf)
   end subroutine set_params
 
   !> @brief allocate a read state variable
@@ -701,8 +683,7 @@ contains
       nullify (this%setting_idt)
     end if
 
-    if (this%ctxtype == EXCHANGE .or. &
-        this%ctxtype == STRESSPKG) then
+    if (this%set_scalars) then
       ! deallocate local
       deallocate (this%naux)
       deallocate (this%ncpl)
@@ -742,7 +723,8 @@ contains
       token = trim(rec_cols(m))
       call upcase(token)
       ilen = len_trim(token)
-      if (ilen < 8) cycle
+      ! minimum 8 chars: a valid XSETTING token is at least 1 char prefix + 7 for 'SETTING'
+      ! if (ilen < 8) cycle
       if (token(ilen - 6:ilen) /= 'SETTING') cycle
       do n = 1, size(mf6_input%aggregate_dfns)
         tagname = mf6_input%aggregate_dfns(n)%tagname
@@ -844,7 +826,7 @@ contains
     type(InputParamDefinitionType), pointer :: aidt, ks_aidt, idt
     character(len=LINELENGTH), allocatable :: rec_cols(:), ks_cols(:)
     character(len=LINELENGTH) :: rec_token, tagname
-    integer(I4B) :: m, n, nrec_col, nks_col, nmembers_before, k
+    integer(I4B) :: m, n, nrec_col, nks_col, nmembers0, k
 
     nmembers = 0
 
@@ -878,14 +860,14 @@ contains
         idt => this%mf6_input%param_dfns(n)
         if (idt_datatype(idt) == 'RECORD') then
           ! compound group: expand sub-members in RECORD type order
-          nmembers_before = nmembers
+          nmembers0 = nmembers
           call expand_record_submembers(this%mf6_input, idt, member_names, &
                                         nmembers)
           ! first added entry is the KEYWORD header; remaining are sub-members
-          do k = nmembers_before + 1, nmembers
+          do k = nmembers0 + 1, nmembers
             call expandarray(member_nsubs)
-            if (k == nmembers_before + 1) then
-              member_nsubs(k) = nmembers - nmembers_before - 1
+            if (k == nmembers0 + 1) then
+              member_nsubs(k) = nmembers - nmembers0 - 1
             else
               member_nsubs(k) = 0
             end if
@@ -894,8 +876,8 @@ contains
           ! direct-dispatch param
           nmembers = nmembers + 1
           call expandarray(member_names)
-          member_names(nmembers) = trim(this%mf6_input%param_dfns(n)%tagname)
           call expandarray(member_nsubs)
+          member_names(nmembers) = trim(this%mf6_input%param_dfns(n)%tagname)
           member_nsubs(nmembers) = 0
         end if
         exit
@@ -904,6 +886,33 @@ contains
 
     if (allocated(ks_cols)) deallocate (ks_cols)
   end subroutine keystring_member_names
+
+  !> @brief Check whether any in-scope parameter is a development-mode feature.
+  !<
+  subroutine check_developmode(this, input_name)
+    use FeatureFlagsModule, only: developmode
+    use SimVariablesModule, only: iout
+    use DefinitionSelectModule, only: get_param_definition_type
+    class(LoadContextType) :: this
+    character(len=*), intent(in) :: input_name
+    type(InputParamDefinitionType), pointer :: idt
+    character(len=LINELENGTH) :: dev_msg
+    integer(I4B) :: n
+
+    do n = 1, size(this%params)
+      idt => get_param_definition_type(this%mf6_input%param_dfns, &
+                                       this%mf6_input%component_type, &
+                                       this%mf6_input%subcomponent_type, &
+                                       this%blockname, this%params(n), '')
+      if (idt%developmode) then
+        dev_msg = 'Input tag "'//trim(idt%tagname)// &
+          &'" read from file "'//trim(input_name)// &
+          &'" is still under development. Install the &
+          &nightly build or compile from source with IDEVELOPMODE = 1.'
+        call developmode(dev_msg, iout)
+      end if
+    end do
+  end subroutine check_developmode
 
   !> @brief create read state variable name
   !<
@@ -1029,7 +1038,7 @@ contains
     end do
   end subroutine sum_named_bounds
 
-  !> @brief allocate intptr and update from input contextset intptr to varname
+  !> @brief allocate intptr and update from input context
   !!
   !<
   subroutine setval(intptr, varname, mempath)

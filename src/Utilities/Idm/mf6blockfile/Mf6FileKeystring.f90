@@ -119,8 +119,10 @@ contains
     end if
 
     ! params is fully elaborated: leading cols + member names
-    call this%ctx%tags(this%param_names, this%nparam, this%input_name)
+    this%param_names = this%ctx%params
+    this%nparam = size(this%ctx%params)
     this%nleading = this%ctx%nleading
+    call this%ctx%check_developmode(this%input_name)
 
     ! finalize context setup (allocates NBOUND, NODEULIST, etc.)
     call this%ctx%allocate_arrays()
@@ -217,7 +219,7 @@ contains
 
     ! SETTING column inserted at nleading+1 for ADVANCED packages
     padj = 0
-    if (this%ctx%has_setting_col) padj = 1
+    if (this%ctx%is_advanced) padj = 1
 
     this%structarray => &
       constructStructArray(this%mf6_input, this%nparam + padj, &
@@ -235,7 +237,7 @@ contains
     end do
 
     ! create SETTING column (ctx owns setting_idt)
-    if (this%ctx%has_setting_col) then
+    if (this%ctx%is_advanced) then
       sa_icol = this%nleading + 1
       call this%structarray%mem_create_vector(sa_icol, this%ctx%setting_idt, &
                                               charlen=LENVARNAME)
