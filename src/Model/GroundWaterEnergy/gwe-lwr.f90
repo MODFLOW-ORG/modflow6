@@ -136,7 +136,7 @@ contains
     lwratm = this%calc_lwr(emisss, this%tatm(ifno))
     !
     ! -- long wave radiation transmitted from water surface to the atmosphere (A.13)
-    lwrstrm = this%calc_lwr(this%emissw, tstrm)
+    lwrstrm = this%calc_lwr(this%emissw, tstrm + DCTOK)
     !
     ! -- longwave radiation heat flux
     lwrflx = lwratm * (1 - this%lwrefl) - lwrstrm
@@ -179,7 +179,7 @@ contains
     real(DP) :: lwr !< longwave radiation
     !
     ! -- generalized equation for calculating longwave radiation
-    lwr = eps * DSTEFANBOLTZMANN * ((temp + DCTOK)**DFOUR)
+    lwr = eps * DSTEFANBOLTZMANN * ((temp)**DFOUR)
   end function calc_lwr
 
 end module LongwaveModule
