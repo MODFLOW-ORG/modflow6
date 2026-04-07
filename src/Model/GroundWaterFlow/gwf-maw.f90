@@ -57,6 +57,7 @@ module MawModule
   type :: MawInputContextType
     ! -- packagedata
     real(DP), dimension(:), pointer, contiguous :: strt => null()
+    integer(I4B), dimension(:), pointer, contiguous :: pkg_ifno => null()
     ! -- period
     integer(I4B), pointer :: nbound => null()
     integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
@@ -816,6 +817,7 @@ contains
   subroutine maw_input_destroy(this)
     class(MawInputContextType), intent(inout) :: this
     nullify (this%strt)
+    nullify (this%pkg_ifno)
     nullify (this%nbound)
     nullify (this%ifno)
     nullify (this%setting)
@@ -866,6 +868,7 @@ contains
     call mem_setptr(radius, 'RADIUS', this%input_mempath)
     call mem_setptr(bottom, 'BOTTOM', this%input_mempath)
     call mem_setptr(this%input%strt, 'STRT', this%input_mempath)
+    call mem_setptr(this%input%pkg_ifno, 'PACKAGEDATA_IFNO', this%input_mempath)
     call mem_setptr(condeqn, 'CONDEQN', this%input_mempath)
     call mem_setptr(ngwfnodes, 'NGWFNODES', this%input_mempath)
     if (this%inamedbound /= 0) then
@@ -1958,6 +1961,23 @@ contains
     ! -- check if input context has been updated for this stress period
     if (this%iper == kper) then
       !
+      ! -- setup table to echo period data
+      if (this%iprpak /= 0) then
+        title = trim(adjustl(this%text))//' PACKAGE ('// &
+                trim(adjustl(this%packName))//') DATA FOR PERIOD'
+        write (title, '(a,1x,i6)') trim(adjustl(title)), kper
+        call table_cr(this%inputtab, this%packName, title)
+        call this%inputtab%table_df(1, 5, this%iout, finalize=.FALSE.)
+        text = 'NUMBER'
+        call this%inputtab%initialize_column(text, 10, alignment=TABCENTER)
+        text = 'KEYWORD'
+        call this%inputtab%initialize_column(text, 20, alignment=TABLEFT)
+        do jj = 1, 3
+          write (text, '(a,1x,i6)') 'VALUE', jj
+          call this%inputtab%initialize_column(text, 15, alignment=TABCENTER)
+        end do
+      end if
+      !
       ! -- set flag to check attributes
       this%check_attr = 1
       do n = 1, this%input%nbound
@@ -2066,7 +2086,54 @@ contains
             end do
           end if
         end if
+        !
+        ! -- echo row to period data table
+        if (this%iprpak /= 0) then
+          call this%inputtab%add_term(imaw)
+          call this%inputtab%add_term(trim(setting))
+          select case (trim(setting))
+          case ('STATUS')
+            call this%inputtab%add_term(trim(str))
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+          case ('RATE')
+            call this%inputtab%add_term(this%rate(imaw))
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+          case ('WELL_HEAD')
+            call this%inputtab%add_term(this%well_head(imaw))
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+          case ('HEAD_LIMIT')
+            call this%inputtab%add_term(trim(str))
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+          case ('FLOWING_WELL')
+            call this%inputtab%add_term(this%fwelev(imaw))
+            call this%inputtab%add_term(this%fwcond(imaw))
+            call this%inputtab%add_term(this%fwrlen(imaw))
+          case ('SHUT_OFF')
+            call this%inputtab%add_term(this%shutoffmin(imaw))
+            call this%inputtab%add_term(this%shutoffmax(imaw))
+            call this%inputtab%add_term(' ')
+          case ('RATE_SCALING')
+            call this%inputtab%add_term(this%pumpelev(imaw))
+            call this%inputtab%add_term(this%reduction_length(imaw))
+            call this%inputtab%add_term(' ')
+          case ('PERIOD_AUXILIARY')
+            call this%inputtab%add_term(trim(str))
+            call this%inputtab%add_term(this%input%auxval(n))
+            call this%inputtab%add_term(' ')
+          case default
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+          end select
+        end if
       end do
+      if (this%iprpak /= 0) then
+        call this%inputtab%finalize_table()
+      end if
       !
       ! -- using data from the last stress period
     else
@@ -2236,6 +2303,7 @@ contains
     ! -- dummy
     class(MawType) :: this
     ! -- local
+    integer(I4B) :: i
     integer(I4B) :: n
     integer(I4B) :: j
     integer(I4B) :: jj
@@ -2244,7 +2312,11 @@ contains
     character(len=LINELENGTH) :: str
     character(len=LENVARNAME) :: setting
     !
-    ! -- sync PACKAGEDATA AUX from input context and advance observations
+    ! -- update AUX: bnd_ad() syncs featureauxvar from PACKAGEDATA AUX
+    !    (timeseries supported) for every feature, establishing the
+    !    per-timestep base value. The PERIOD loop below then overrides
+    !    featureauxvar for any feature that has a PERIOD AUXILIARY entry,
+    !    taking precedence over PACKAGEDATA.
     call this%BndExtType%bnd_ad()
     !
     ! -- sync PERIOD TS from input context
@@ -2257,12 +2329,12 @@ contains
         if (trim(setting) == 'RATE') then
           this%rate(imaw) = this%input%rate(n)
         end if
-        ! WELL_HEAD
+        ! WELL_HEAD (active/flowing wells only; CONSTANT wells are reset below)
         if (trim(setting) == 'WELL_HEAD') then
           this%well_head(imaw) = this%input%well_head(n)
           this%xnewpak(imaw) = this%well_head(imaw)
         end if
-        ! AUXILIARY (PERIOD override)
+        ! AUXILIARY: overrides the PACKAGEDATA base set by bnd_ad() above
         if (this%naux > 0) then
           if (trim(setting) == 'PERIOD_AUXILIARY') then
             str = this%input%auxname(n)
@@ -2276,9 +2348,7 @@ contains
       end do
     end if
     !
-    ! -- update auxiliary variables by copying from the derived-type
-    !    variable into the bndpackage auxvar variable so that this
-    !    information is properly written to the GWF budget file
+    ! -- update auxiliary variables
     if (this%naux > 0) then
       ibnd = 1
       do n = 1, this%nmawwells
@@ -2292,13 +2362,15 @@ contains
       end do
     end if
     !
-    ! -- copy xnew into xold
-    do n = 1, this%nmawwells
+    ! -- copy xnew into xold and reset CONSTANT well heads from input strt.
+    !    This unconditionally overwrites any WELL_HEAD set in the PERIOD loop
+    !    above for CONSTANT wells.
+    do i = 1, this%nmawwells
+      n = this%input%pkg_ifno(i)
       this%xoldpak(n) = this%xnewpak(n)
       this%xoldsto(n) = this%xsto(n)
       if (this%iboundpak(n) < 0) then
-        ! sync well_head from input context STRT
-        this%well_head(n) = this%input%strt(n)
+        this%well_head(n) = this%input%strt(i)
         this%xnewpak(n) = this%well_head(n)
       end if
       !

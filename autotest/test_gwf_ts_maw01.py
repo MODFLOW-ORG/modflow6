@@ -7,10 +7,10 @@ from flopy.utils.compare import eval_bud_diff
 from framework import TestFramework
 
 paktest = "maw"
-cases = [f"ts_{paktest}01"]
+cases = [f"ts_{paktest}01", f"ts_{paktest}01_reorder"]
 
 
-def get_model(ws, name, timeseries=False):
+def get_model(ws, name, timeseries=False, reorder=False):
     # static model data
     # temporal discretization
     nper = 3
@@ -21,7 +21,9 @@ def get_model(ws, name, timeseries=False):
 
     auxnames = ["temp", "conc"]
     temp, conc = 32.5, 0.1
-    strt_well1 = 0.0
+    # reorder case uses a non-zero strt so that swapping PACKAGEDATA rows
+    # produces distinct input strt values
+    strt_well1 = -5.0 if reorder else 0.0
 
     # spatial discretization data
     nlay, nrow, ncol = 3, 10, 10
@@ -243,6 +245,10 @@ def get_model(ws, name, timeseries=False):
         perioddata.append([0, "rate", rate])
         perioddata.append([0, "AUXILIARY", "conc", conc])
         perioddata.append([0, "AUXILIARY", "temp", temp])
+    if timeseries and reorder:
+        # reverse PACKAGEDATA row order (WELLNO=1 in row 0, WELLNO=0 in row 1)
+        # so that input strt is indexed differently from feature order;
+        packagedata = [packagedata[1], packagedata[0]]
 
     budpth = f"{name}.{paktest}.cbc"
     maw = flopy.mf6.ModflowGwfmaw(
@@ -406,14 +412,15 @@ def get_model(ws, name, timeseries=False):
 
 def build_models(idx, test):
     name = cases[idx]
+    reorder = idx == 1
 
     # build MODFLOW 6 files
     ws = test.workspace
-    sim = get_model(ws, name)
+    sim = get_model(ws, name, reorder=reorder)
 
     # build MODFLOW 6 files with timeseries
     ws = os.path.join(test.workspace, "mf6")
-    mc = get_model(ws, name, timeseries=True)
+    mc = get_model(ws, name, timeseries=True, reorder=reorder)
 
     return sim, mc
 
