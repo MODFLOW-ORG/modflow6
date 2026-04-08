@@ -407,7 +407,7 @@ contains
     end if
     !
     ! -- Call mvt bd routine
-    if (this%inmvt > 0) call this%mvt%mvt_bd(this%gwemodel1%x, this%gwemodel2%x)
+    if (this%inmvt > 0) call this%mvt%mvt_bd()
   end subroutine gwe_gwe_bd
 
   !> @ brief Budget save

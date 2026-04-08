@@ -58,6 +58,7 @@ module GwtGwtConnectionModule
     procedure :: exg_df => gwtgwtcon_df
     procedure :: exg_rp => gwtgwtcon_rp
     procedure :: exg_ad => gwtgwtcon_ad
+    procedure :: exg_cf => gwtgwtcon_cf
     procedure :: exg_fc => gwtgwtcon_fc
     procedure :: exg_da => gwtgwtcon_da
     procedure :: exg_cq => gwtgwtcon_cq
@@ -317,7 +318,7 @@ contains
     ! base validation, the spatial/geometry part
     call this%SpatialModelConnectionType%validateConnection()
 
-    ! we cannot validate this (yet) in parallel mode
+    ! we cannot validate this (yet) in parallel mode, TODO_MJR: feels like we can by now
     if (.not. this%gwtExchange%v_model1%is_local) return
     if (.not. this%gwtExchange%v_model2%is_local) return
 
@@ -374,13 +375,39 @@ contains
 
   end subroutine gwtgwtcon_ad
 
+  subroutine gwtgwtcon_cf(this, kiter)
+    class(GwtGwtConnectionType) :: this !< this connection
+    integer(I4B), intent(in) :: kiter !< the iteration counter
+    ! local
+    real(DP), dimension(:), pointer, contiguous :: x_m1, x_m2
+
+    call this%SpatialModelConnectionType%spatialcon_cf(kiter)
+
+    ! CF the movers in the exchange
+    if (this%owns_exchange) then
+      if (this%gwtExchange%inmvt > 0) then
+        x_m1 => null()
+        x_m2 => null()
+        if (associated(this%gwtExchange%gwtmodel1)) then
+          x_m1 => this%gwtExchange%gwtmodel1%x
+        end if
+        if (associated(this%gwtExchange%gwtmodel2)) then
+          x_m2 => this%gwtExchange%gwtmodel2%x
+        end if
+        call this%gwtExchange%mvt%xmvt_cf(x_m1, x_m2)
+      end if
+    end if
+
+  end subroutine gwtgwtcon_cf
+
   subroutine gwtgwtcon_fc(this, kiter, matrix_sln, rhs_sln, inwtflag)
     class(GwtGwtConnectionType) :: this !< the connection
     integer(I4B), intent(in) :: kiter !< the iteration counter
     class(MatrixBaseType), pointer :: matrix_sln !< the system matrix
     real(DP), dimension(:), intent(inout) :: rhs_sln !< global right-hand-side
     integer(I4B), optional, intent(in) :: inwtflag !< newton-raphson flag
-    !
+    ! local
+    real(DP), dimension(:), pointer, contiguous :: x_m1, x_m2
 
     call this%SpatialModelConnectionType%spatialcon_fc( &
       kiter, matrix_sln, rhs_sln, inwtflag)
@@ -388,8 +415,15 @@ contains
     ! FC the movers through the exchange
     if (this%owns_exchange) then
       if (this%gwtExchange%inmvt > 0) then
-        call this%gwtExchange%mvt%mvt_fc(this%gwtExchange%gwtmodel1%x, &
-                                         this%gwtExchange%gwtmodel2%x)
+        x_m1 => null()
+        x_m2 => null()
+        if (associated(this%gwtExchange%gwtmodel1)) then
+          x_m1 => this%gwtExchange%gwtmodel1%x
+        end if
+        if (associated(this%gwtExchange%gwtmodel2)) then
+          x_m2 => this%gwtExchange%gwtmodel2%x
+        end if
+        call this%gwtExchange%mvt%mvt_fc(x_m1, x_m2)
       end if
     end if
 

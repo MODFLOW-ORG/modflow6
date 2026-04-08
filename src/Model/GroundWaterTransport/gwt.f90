@@ -562,7 +562,7 @@ contains
     if (this%inmst > 0) call this%mst%mst_bd(isuppress_output, this%budget)
     if (this%inssm > 0) call this%ssm%ssm_bd(isuppress_output, this%budget)
     if (this%infmi > 0) call this%fmi%fmi_bd(isuppress_output, this%budget)
-    if (this%inmvt > 0) call this%mvt%mvt_bd(this%x, this%x)
+    if (this%inmvt > 0) call this%mvt%mvt_bd()
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_bd(this%budget)

@@ -473,7 +473,7 @@ contains
     integer(I4B), intent(in) :: kiter
     ! -- local
     !
-    ! -- Call mvr fc routine
+    ! -- Call mvr cf routine
     if (this%inmvr > 0) call this%mvr%xmvr_cf()
     !
     ! -- Rewet cells across models using the wetdry parameters in each model's
