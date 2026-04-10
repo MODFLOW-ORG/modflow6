@@ -1006,7 +1006,7 @@ contains
     integer(I4B), intent(in) :: ifno
     real(DP), intent(in) :: tstrm !< calculated stream temperature
     ! -- return
-    real(DP), intent(inout) :: evap !< calcualted evaporation
+    real(DP), intent(inout) :: evap !< calculated evaporation
     !
     ! -- ensure shared variables are updated
     call this%recalc_shared_vars(ifno, tstrm)
