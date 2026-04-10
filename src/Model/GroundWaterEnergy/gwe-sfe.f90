@@ -1238,6 +1238,11 @@ contains
     call this%obs%StoreObsType('shf', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
     !
+    ! -- Store obs type and assign procedure pointer
+    !    for evaporation rate observation type.
+    call this%obs%StoreObsType('surfevap', .true., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+    !
   end subroutine sfe_df_obs
 
   !> @brief Process package specific obs
@@ -1276,6 +1281,8 @@ contains
     case ('LHF')
       call this%rp_obs_byfeature(obsrv)
     case ('SHF')
+      call this%rp_obs_byfeature(obsrv)
+    case ('SURFEVAP')
       call this%rp_obs_byfeature(obsrv)
     case default
       found = .false.
@@ -1332,24 +1339,26 @@ contains
     case ('SWR')
       if (this%iboundpak(jj) /= 0) then
         !call this%swr_abc_term(jj, n1, n2, v)
-        call this%abc%abc_cq(jj, this%xnewpak(jj), v, 'swr')
+        call this%abc%abc_cq(jj, strmtemp, v, 'swr')
       end if
     case ('LWR')
       if (this%iboundpak(jj) /= 0) then
         !call this%lwr_abc_term(jj, n1, n2, v)
-        call this%abc%abc_cq(jj, this%xnewpak(jj), v, 'lwr')
+        call this%abc%abc_cq(jj, strmtemp, v, 'lwr')
       end if
     case ('LHF')
       if (this%iboundpak(jj) /= 0) then
-        strmtemp = this%xnewpak(jj)
         !call this%lhf_abc_term(jj, n1, n2, v)
-        call this%abc%abc_cq(jj, this%xnewpak(jj), v, 'lhf')
+        call this%abc%abc_cq(jj, strmtemp, v, 'lhf')
       end if
     case ('SHF')
       if (this%iboundpak(jj) /= 0) then
-        strmtemp = this%xnewpak(jj)
         !call this%shf_abc_term(jj, n1, n2, v)
-        call this%abc%abc_cq(jj, this%xnewpak(jj), v, 'shf')
+        call this%abc%abc_cq(jj, strmtemp, v, 'shf')
+      end if
+    case ('SURFEVAP')
+      if (this%iboundpak(jj) /= 0) then
+        call this%abc%abc_evap(jj, strmtemp, v)
       end if
     case default
       found = .false.
