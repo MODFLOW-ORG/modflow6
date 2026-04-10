@@ -107,6 +107,7 @@ module AbcModule
     procedure, private :: recalc_shared_vars
     procedure, private :: calc_eatm !< function for calculating ambient vapor pressure of the atmosphere
     procedure, private :: check_for_specified_input !< check for potential omissions in the specified input
+    procedure, public :: abc_evap !< fetches the evaporation rate for reporting as an observation
 
   end type AbcType
 
@@ -993,5 +994,26 @@ contains
       ierr = 1
     end if
   end function abc_check_valid
+
+  !> @brief Report calculated evaporation rate
+  !!
+  !! Allows for evaporation rate from water surface to be reported to an
+  !! observation output file
+  !<
+  subroutine abc_evap(this, ifno, tstrm, evap)
+    ! -- dummy
+    class(AbcType) :: this
+    integer(I4B), intent(in) :: ifno
+    real(DP), intent(in) :: tstrm !< calculated stream temperature
+    ! -- return
+    real(DP), intent(inout) :: evap !< calcualted evaporation
+    !
+    ! -- ensure shared variables are updated
+    call this%recalc_shared_vars(ifno, tstrm)
+    !
+    ! -- calculate the evaporation rate for the latest values
+    evap = this%lhf%evap(this%wfint, this%wfslope, this%wspd(ifno), &
+                         this%ew(ifno), this%ea(ifno))
+  end subroutine abc_evap
 
 end module AbcModule
