@@ -460,35 +460,17 @@ def build_models(idx, test):
 
 
 def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
-    # shortwave
-    # swr_ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
-
-    # latent
-    # L = (2499.64 - (2.51 * strm_temp)) * 1000
-    # e_w = 6.1275 * math.exp(17.2693882 * (strm_temp / (strm_temp + c_to_k - 35.86)))
-    # e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + c_to_k - 35.86)))
-    # e_a = (rh / 100) * e_s
-    # vap_press_deficit = e_w - e_a
-    # wind_function = wf_int + wf_slope * wspd
-    # Ev = wind_function * vap_press_deficit
-    # lhf_ener_per_sqm = Ev * L * rhow
-
-    # sensible
-    # bowen_ratio = 0.00061 * atmp * ((strm_temp - tatm) / (e_w - e_a))
-    # shf_ener_per_sqm = bowen_ratio * lhf_ener_per_sqm
-
     # longwave
+    Ql_up = emiss_water * stephan_boltzmann * (updated_strm_temp**4)
 
-    Ql_up = emiss_water * stephan_boltzmann * ((updated_strm_temp + DCTOK) ** 4)
-
-    e_s = 6.1275 * math.exp(17.2693882 * (tatm / (tatm + DCTOK - 35.86)))
+    e_s = 6.1275 * math.exp(17.2693882 * ((tatm - DCTOK) / (tatm - 35.86)))
     e_a = (rh / 100.0) * e_s
-    emiss_air = (1.24 * (e_a / (tatm + DCTOK)) ** (1.0 / 7.0)) * atmc  # calcs to 0
+    emiss_air = (1.24 * (e_a / tatm) ** (1.0 / 7.0)) * atmc  # calcs to 0
     emiss_down = (
         1.0 - shd
     ) * emiss_air + shd * emiss_riparian  # calcs to emiss_riparian
 
-    Ql_down = emiss_down * stephan_boltzmann * ((tatm + DCTOK) ** 4)
+    Ql_down = emiss_down * stephan_boltzmann * (tatm**4)
 
     lwr_ener_per_sqm = Ql_down * (1.0 - lwrefl) - Ql_up
 
@@ -523,7 +505,7 @@ def check_output(idx, test):
     strt_strm_temp = strm_temp
     updated_strm_temp = strm_temp
     while chng > hclose:
-        ener_transfer = calc_ener_transfer(updated_strm_temp, mf_strm_wid)
+        ener_transfer = calc_ener_transfer(updated_strm_temp + DCTOK, mf_strm_wid)
         temp_change = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
         updated_temp = strt_strm_temp + temp_change
         chng = abs(updated_strm_temp - updated_temp)
