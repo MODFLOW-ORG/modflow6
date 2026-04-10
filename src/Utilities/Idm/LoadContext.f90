@@ -724,7 +724,7 @@ contains
       call upcase(token)
       ilen = len_trim(token)
       ! minimum 8 chars: a valid XSETTING token is at least 1 char prefix + 7 for 'SETTING'
-      ! if (ilen < 8) cycle
+      if (ilen < 8) cycle
       if (token(ilen - 6:ilen) /= 'SETTING') cycle
       do n = 1, size(mf6_input%aggregate_dfns)
         tagname = mf6_input%aggregate_dfns(n)%tagname

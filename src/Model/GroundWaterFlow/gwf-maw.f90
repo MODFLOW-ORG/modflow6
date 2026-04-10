@@ -57,7 +57,6 @@ module MawModule
   type :: MawInputContextType
     ! -- packagedata
     real(DP), dimension(:), pointer, contiguous :: strt => null()
-    integer(I4B), dimension(:), pointer, contiguous :: pkg_ifno => null()
     ! -- period
     integer(I4B), pointer :: nbound => null()
     integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
@@ -817,7 +816,6 @@ contains
   subroutine maw_input_destroy(this)
     class(MawInputContextType), intent(inout) :: this
     nullify (this%strt)
-    nullify (this%pkg_ifno)
     nullify (this%nbound)
     nullify (this%ifno)
     nullify (this%setting)
@@ -868,7 +866,6 @@ contains
     call mem_setptr(radius, 'RADIUS', this%input_mempath)
     call mem_setptr(bottom, 'BOTTOM', this%input_mempath)
     call mem_setptr(this%input%strt, 'STRT', this%input_mempath)
-    call mem_setptr(this%input%pkg_ifno, 'PACKAGEDATA_IFNO', this%input_mempath)
     call mem_setptr(condeqn, 'CONDEQN', this%input_mempath)
     call mem_setptr(ngwfnodes, 'NGWFNODES', this%input_mempath)
     if (this%inamedbound /= 0) then
@@ -1961,6 +1958,9 @@ contains
     ! -- check if input context has been updated for this stress period
     if (this%iper == kper) then
       !
+      ! -- reset featureauxvar to pkg_auxvar baseline before period overrides
+      call this%set_auxvar_baseline()
+      !
       ! -- setup table to echo period data
       if (this%iprpak /= 0) then
         title = trim(adjustl(this%text))//' PACKAGE ('// &
@@ -2309,18 +2309,14 @@ contains
     integer(I4B) :: jj
     integer(I4B) :: ibnd
     integer(I4B) :: imaw
-    character(len=LINELENGTH) :: str
     character(len=LENVARNAME) :: setting
     !
-    ! -- update AUX: bnd_ad() syncs featureauxvar from PACKAGEDATA AUX
-    !    (timeseries supported) for every feature, establishing the
-    !    per-timestep base value. The PERIOD loop below then overrides
-    !    featureauxvar for any feature that has a PERIOD AUXILIARY entry,
-    !    taking precedence over PACKAGEDATA.
+    ! -- sync PACKAGEDATA AUX TS and advance observations;
+    ! -- step auxvar period block overrides
     call this%BndExtType%bnd_ad()
     !
     ! -- sync PERIOD TS from input context
-    if (this%input%nbound > 0) then
+    if (this%ts_active .and. this%input%nbound > 0) then
       do n = 1, this%input%nbound
         imaw = this%input%ifno(n)
         if (imaw < 1 .or. imaw > this%nmawwells) cycle
@@ -2333,17 +2329,6 @@ contains
         if (trim(setting) == 'WELL_HEAD') then
           this%well_head(imaw) = this%input%well_head(n)
           this%xnewpak(imaw) = this%well_head(imaw)
-        end if
-        ! AUXILIARY: overrides the PACKAGEDATA base set by bnd_ad() above
-        if (this%naux > 0) then
-          if (trim(setting) == 'PERIOD_AUXILIARY') then
-            str = this%input%auxname(n)
-            do jj = 1, this%naux
-              if (trim(str) /= trim(this%auxname(jj))) cycle
-              this%featureauxvar(jj, imaw) = this%input%auxval(n)
-              exit
-            end do
-          end if
         end if
       end do
     end if
@@ -2366,7 +2351,7 @@ contains
     !    This unconditionally overwrites any WELL_HEAD set in the PERIOD loop
     !    above for CONSTANT wells.
     do i = 1, this%nmawwells
-      n = this%input%pkg_ifno(i)
+      n = this%pkg_ifno(i)
       this%xoldpak(n) = this%xnewpak(n)
       this%xoldsto(n) = this%xsto(n)
       if (this%iboundpak(n) < 0) then

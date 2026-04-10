@@ -4,6 +4,8 @@ Focused tests for MAW PACKAGEDATA IDM enabled time-series linkage for two
 distinct TS mechanisms:
   Case 0: STRT package data timeseries variable
   Case 1: AUX package data timeseries variable
+  Case 2: verify PERIOD AUX data array override with PACKAGEDATA AUX TS
+  Case 3: verify PERIOD AUX TS data array override with PACKAGEDATA AUX TS
 
 Model geometry: 1-layer, 1-row, 3-column; CHD at flanking columns; single
     MAW well in the centre column; 3 steady-state stress periods, 1 step each.
@@ -18,7 +20,7 @@ from flopy.utils.compare import eval_bud_diff
 from framework import TestFramework
 
 paktest = "maw"
-cases = ["maw_strt_pd_ts", "maw_aux_pd_ts"]
+cases = ["maw_strt_pd_ts", "maw_aux_pd_ts", "maw_pd_oride", "maw_pd_ts_oride"]
 
 # Shared geometry and temporal discretisation
 nper = 3
@@ -40,11 +42,16 @@ well_bot = -10.0
 strt_vals = [90.0, 95.0, 85.0]
 conc_vals = [10.0, 20.0, 30.0]
 
+# PERIOD AUXILIARY override values — different from conc_vals so that a failure
+# to apply the PERIOD override is clearly distinguishable from the PKGDATA TS path.
+period_conc_vals = [40.0, 50.0, 60.0]
+
 # TS times: entries at period-end times so LINEAREND gives exact per-period values.
 # tsmanager%ad() is called with totim = end of current timestep (1.0, 2.0, 3.0).
 ts_times = [0.0, 1.0, 2.0, 3.0]
 ts_strt = [strt_vals[0]] + strt_vals  # [90, 90, 95, 85]
 ts_conc = [conc_vals[0]] + conc_vals  # [10, 10, 20, 30]
+ts_period_conc = [period_conc_vals[0]] + period_conc_vals  # [40, 40, 50, 60]
 
 
 def _base_sim(ws, name):
@@ -150,6 +157,143 @@ def _get_aux_pkgdata_ts(ws, name):
     return sim
 
 
+# Case 2 — PERIOD override PACKAGEDATA AUX TS
+# Reference model: PERIOD AUXILIARY with literal period_conc_vals; no PKGDATA TS.
+# TS model:        PACKAGEDATA AUX TS (conc_vals) + same PERIOD AUXILIARY override.
+# If PERIOD correctly overrides, both models produce identical budget files.
+def _get_pd_ovrride_ref(ws, name):
+    """Reference: PERIOD AUXILIARY literal values; no PACKAGEDATA AUX TS."""
+    sim, gwf = _base_sim(ws, name)
+    maw_spd = {
+        0: [
+            (0, "status", "constant"),
+            (0, "AUXILIARY", "concentration", period_conc_vals[0]),
+        ],
+        1: [(0, "AUXILIARY", "concentration", period_conc_vals[1])],
+        2: [(0, "AUXILIARY", "concentration", period_conc_vals[2])],
+    }
+    flopy.mf6.ModflowGwfmaw(
+        gwf,
+        nmawwells=1,
+        auxiliary=["concentration"],
+        budget_filerecord=f"{name}.{paktest}.cbc",
+        packagedata=[
+            (0, radius, well_bot, strt_vals[0], "THIEM", 1, period_conc_vals[0])
+        ],
+        connectiondata=[(0, 0, (0, 0, 1), top, well_bot, 0.0, 0.0)],
+        perioddata=maw_spd,
+        pname="maw-1",
+    )
+    return sim
+
+
+def _get_pd_ovrride_ts(ws, name):
+    """TS: PKGDATA AUX TS (conc_vals) + PERIOD AUXILIARY override (period_conc_vals).
+
+    PERIOD must win: auxvar should equal period_conc_vals each period, not conc_vals.
+    """
+    sim, gwf = _base_sim(ws, name)
+    maw_spd = {
+        0: [
+            (0, "status", "constant"),
+            (0, "AUXILIARY", "concentration", period_conc_vals[0]),
+        ],
+        1: [(0, "AUXILIARY", "concentration", period_conc_vals[1])],
+        2: [(0, "AUXILIARY", "concentration", period_conc_vals[2])],
+    }
+    maw = flopy.mf6.ModflowGwfmaw(
+        gwf,
+        nmawwells=1,
+        auxiliary=["concentration"],
+        budget_filerecord=f"{name}.{paktest}.cbc",
+        packagedata=[(0, radius, well_bot, strt_vals[0], "THIEM", 1, "conc_ts")],
+        connectiondata=[(0, 0, (0, 0, 1), top, well_bot, 0.0, 0.0)],
+        perioddata=maw_spd,
+        pname="maw-1",
+    )
+    maw.ts.initialize(
+        filename=f"{name}.{paktest}.ts",
+        timeseries=list(zip(ts_times, ts_conc)),
+        time_series_namerecord=["conc_ts"],
+        interpolation_methodrecord=["linearend"],
+    )
+    return sim
+
+
+# Case 3 — PERIOD AUX TS override PACKAGEDATA AUX TS
+# Reference model: PERIOD AUXILIARY TS (period_conc_ts) drives auxvar; no PKGDATA TS.
+# TS model:        PACKAGEDATA AUX TS (conc_ts, conc_vals) +
+#                  PERIOD AUXILIARY TS (period_conc_ts, period_conc_vals).
+# If PERIOD TS correctly overrides, both models produce identical budget files.
+def _get_period_ts_ovrride_ref(ws, name):
+    """Reference: PERIOD AUXILIARY TS drives auxvar; no PACKAGEDATA AUX TS."""
+    sim, gwf = _base_sim(ws, name)
+    maw_spd = {
+        0: [
+            (0, "status", "constant"),
+            (0, "AUXILIARY", "concentration", "period_conc_ts"),
+        ],
+        1: [(0, "AUXILIARY", "concentration", "period_conc_ts")],
+        2: [(0, "AUXILIARY", "concentration", "period_conc_ts")],
+    }
+    maw = flopy.mf6.ModflowGwfmaw(
+        gwf,
+        nmawwells=1,
+        auxiliary=["concentration"],
+        budget_filerecord=f"{name}.{paktest}.cbc",
+        packagedata=[
+            (0, radius, well_bot, strt_vals[0], "THIEM", 1, period_conc_vals[0])
+        ],
+        connectiondata=[(0, 0, (0, 0, 1), top, well_bot, 0.0, 0.0)],
+        perioddata=maw_spd,
+        pname="maw-1",
+    )
+    maw.ts.initialize(
+        filename=f"{name}.{paktest}.ts",
+        timeseries=list(zip(ts_times, ts_period_conc)),
+        time_series_namerecord=["period_conc_ts"],
+        interpolation_methodrecord=["linearend"],
+    )
+    return sim
+
+
+def _get_period_ts_ovrride_ts(ws, name):
+    """TS: PKGDATA AUX TS (conc_ts) + PERIOD AUXILIARY TS (period_conc_ts).
+
+    PERIOD TS must win: auxvar should equal period_conc_vals, not conc_vals.
+    Both TS series live in the same MAW TS file.
+    """
+    sim, gwf = _base_sim(ws, name)
+    maw_spd = {
+        0: [
+            (0, "status", "constant"),
+            (0, "AUXILIARY", "concentration", "period_conc_ts"),
+        ],
+        1: [(0, "AUXILIARY", "concentration", "period_conc_ts")],
+        2: [(0, "AUXILIARY", "concentration", "period_conc_ts")],
+    }
+    maw = flopy.mf6.ModflowGwfmaw(
+        gwf,
+        nmawwells=1,
+        auxiliary=["concentration"],
+        budget_filerecord=f"{name}.{paktest}.cbc",
+        packagedata=[(0, radius, well_bot, strt_vals[0], "THIEM", 1, "conc_ts")],
+        connectiondata=[(0, 0, (0, 0, 1), top, well_bot, 0.0, 0.0)],
+        perioddata=maw_spd,
+        pname="maw-1",
+    )
+    # Both TS series in a single file: (time, conc_ts_val, period_conc_ts_val)
+    maw.ts.initialize(
+        filename=f"{name}.{paktest}.ts",
+        timeseries=[
+            (ts_times[i], ts_conc[i], ts_period_conc[i]) for i in range(len(ts_times))
+        ],
+        time_series_namerecord=["conc_ts", "period_conc_ts"],
+        interpolation_methodrecord=["linearend", "linearend"],
+    )
+    return sim
+
+
 # Build the model
 def build_models(idx, test):
     name = cases[idx]
@@ -159,9 +303,18 @@ def build_models(idx, test):
         # Case 0: baseline is a fixed-STRT model (not compared); TS model
         # is in mf6/ sub-directory where HEAD obs are checked.
         return _get_strt_ts(ws0, name), _get_strt_ts(ws1, name)
-    else:
+    elif idx == 1:
         # Case 1: baseline uses PERIOD AUXILIARY; TS uses PACKAGEDATA AUX TS.
         return _get_aux_period(ws0, name), _get_aux_pkgdata_ts(ws1, name)
+    elif idx == 2:
+        # Case 2: PERIOD override (literal) must win over PACKAGEDATA AUX TS.
+        return _get_pd_ovrride_ref(ws0, name), _get_pd_ovrride_ts(ws1, name)
+    else:
+        # Case 3: PERIOD AUX TS must win over PACKAGEDATA AUX TS.
+        return (
+            _get_period_ts_ovrride_ref(ws0, name),
+            _get_period_ts_ovrride_ts(ws1, name),
+        )
 
 
 # Check output
@@ -182,7 +335,9 @@ def check_output(idx, test):
             f"STRT TS: well_head {heads} does not match expected {strt_vals}"
         )
     else:
-        # -- Case 1: GWF and MAW budgets must be identical between the two models --
+        # Cases 1-3: GWF and MAW budgets must be identical between reference and
+        # TS model.  For cases 2 and 3 this asserts that PERIOD (or PERIOD TS)
+        # overrides PACKAGEDATA AUX TS.
         ia = (
             flopy.mf6.utils.MfGrdFile(os.path.join(ws0, f"{name}.dis.grb"))._datadict[
                 "IA"
