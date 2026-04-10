@@ -388,6 +388,9 @@ def build_models(idx, test):
 
     abc = flopy.mf6.ModflowUtlabc(
         sfe,
+        lwr_off=True,
+        lhf_off=True,
+        shf_off=True,
         print_input=True,
         reachperioddata=abc_spd,
         filename=abc_filename,
