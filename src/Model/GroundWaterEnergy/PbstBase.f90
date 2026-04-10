@@ -50,6 +50,7 @@ module PbstBaseModule
     procedure :: pbst_check_valid
     procedure, public :: epsa !< function for calculating atmospheric emissivity
     procedure, public :: epss !< function for calculating shade-weighted atmospheric emissivity
+    procedure, public :: evap !< function for calculating evaporation rate using a mass transfer method
 
   end type PbstBaseType
 
@@ -238,5 +239,27 @@ contains
     !
     epss = (1 - shd) * epsa + shd * epsr
   end function epss
+
+  !> @brief Calculate Evaporation Rate
+  !!
+  !! Used in the latent heat flux calculation and for reporting the calculated
+  !! evaporation rate as an observation.  Units of length per time
+  !! (Need to circle back to this, but for the time being I believe this
+  !! calculation has units of mm/day)
+  !<
+  function evap(this, wfint, wfslp, wspd, ew, ea)
+    ! -- dummy
+    class(PbstBaseType) :: this
+    real(DP) :: wfint !< wind function intercept
+    real(DP) :: wfslp !< wind function slope
+    real(DP) :: wspd !< wind speed
+    real(DP) :: ew !< saturation vapor pressure at stream temperature
+    real(DP) :: ea !< ambient vapor pressure at atmospheric temperature
+    ! -- return
+    real(DP) :: evap !< evaporation rate
+    !
+    ! -- mass-transfer method for calculating evap rate (A.17)
+    evap = (wfint + wfslp * wspd) * (ew - ea)
+  end function evap
 
 end module PbstBaseModule
