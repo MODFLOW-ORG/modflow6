@@ -97,7 +97,6 @@ rbthcnd = 0.0001
 
 # Constants
 stephan_boltzmann = 5.670374419e-08
-# c_to_k = 273.15
 
 # time params
 steady = {0: True, 1: False}

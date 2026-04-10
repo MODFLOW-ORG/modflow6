@@ -113,8 +113,8 @@ contains
     l = 2499.64_DP - (2.51_DP * tstrm) ! tstrm must be in degrees C for now
     !
     ! -- mass-transfer method for calculating evap rate (A.17)
-    evap = (this%wfint + this%wfslope * this%wspd(ifno)) * &
-           (this%ew(ifno) - this%ea(ifno))
+    evap = this%evap(this%wfint, this%wfslope, this%wspd(ifno), &
+                     this%ew(ifno), this%ea(ifno))
     !
     ! -- calculate latent heat flux (A.15)
     lhflx = evap * l * rhow
