@@ -33,3 +33,8 @@ description = "When a MVR connection was included as part of an exchange between
 section = "fixes"
 subsection = "model"
 description = "The Flow Model Interface (FMI) package for transport and tracking models conducts TDIS compatibility checks during each stress period to ensure that the model's time discretization is compatible with that of the flow model. In particular, if a flow model stress period has just one time step, the transport or tracking model may have any number of time steps. However, if a flow model stress period has more than one time step, the transport or tracking model must have the same number of time steps. Simulations would previously stop with an error if the transport or tracking model violated this rule for any stress periods up to the simulation's last, but would not raise an error for the last stress period. The compatibility check was updated to include the last stress period. Simulations will now stop with an error if the transport or tracking model violates this rule for any stress period in the simulation."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "Fixed an issue with PRT which could cause double-reporting of user-defined tracking time events."
