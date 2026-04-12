@@ -1068,7 +1068,8 @@ contains
             ! Emit a usertime event if a user time coincides with release time
             call this%method%tracktimes%advance()
             if (this%method%tracktimes%any()) then
-              do i = this%method%tracktimes%selection(1), this%method%tracktimes%selection(2)
+              do i = this%method%tracktimes%selection(1), &
+                this%method%tracktimes%selection(2)
                 if (this%method%tracktimes%times(i) == particle%trelease) then
                   call this%method%usertime(particle)
                   exit
