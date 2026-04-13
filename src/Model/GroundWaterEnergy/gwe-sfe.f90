@@ -975,6 +975,13 @@ contains
     n2 = this%flowbudptr%budterm(this%idxbudevap)%id2(ientry)
     ! -- note that qbnd is negative for evap
     qbnd = this%flowbudptr%budterm(this%idxbudevap)%flow(ientry)
+    if (qbnd /= DZERO .and. this%abc_active) then
+      write (errmsg, '(a,1x,i6)') &
+        'ERROR. Specified evaporation in SFR is not compatible ABC latent &
+        &heat calculations for reach ', ientry
+      call store_error(errmsg)
+      call this%parser%StoreErrorUnit()
+    end if
     heatlat = this%gwecommon%gwerhow * this%gwecommon%gwelatheatvap
     if (present(rrate)) rrate = qbnd * heatlat
     if (present(rhsval)) rhsval = -rrate
