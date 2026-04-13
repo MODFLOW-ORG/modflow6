@@ -450,6 +450,7 @@ modflow_sources = files(
     'Utilities' / 'CharString.f90',
     'Utilities' / 'comarg.f90',
     'Utilities' / 'compilerversion.F90',
+    'Utilities' / 'CircularBuffer.f90',
     'Utilities' / 'CharString.f90',
     'Utilities' / 'Constants.f90',
     'Utilities' / 'defmacro.F90',
