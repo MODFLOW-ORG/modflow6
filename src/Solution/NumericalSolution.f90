@@ -1098,8 +1098,7 @@ contains
   !<
   subroutine sln_dt(this)
     ! -- modules
-    use TdisModule, only: kstp, kper, delt
-    use AdaptiveTimeStepModule, only: ats_submit_delt
+    use TdisModule, only: kstp, kper, delt, ats
     use ConstantsModule, only: DTWO, DTHREE
     ! -- dummy variables
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
@@ -1129,7 +1128,8 @@ contains
       end if
       !
       ! -- submit stable dt for upcoming step
-      call ats_submit_delt(kstp, kper, delt_temp, this%memory_path, idir=idir)
+      call ats%ats_submit_delt(kstp, kper, delt_temp, &
+                               this%memory_path, idir=idir)
     end if
   end subroutine sln_dt
 

@@ -1583,14 +1583,13 @@ contains
   !<
   subroutine steady_period_check(this)
     ! -- modules
-    use TdisModule, only: kper
-    use AdaptiveTimeStepModule, only: isAdaptivePeriod
+    use TdisModule, only: kper, ats
     use SimVariablesModule, only: warnmsg
     use SimModule, only: store_warning
     ! -- dummy
     class(GwfModelType) :: this
     if (this%iss == 1) then
-      if (isAdaptivePeriod(kper)) then
+      if (ats%isAdaptivePeriod(kper)) then
         write (warnmsg, '(a,a,a,i0,a)') &
           'GWF Model (', trim(this%name), ') is steady state for period ', &
           kper, ' and adaptive time stepping is active.  Adaptive time &

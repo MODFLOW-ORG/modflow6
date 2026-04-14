@@ -4,7 +4,7 @@
 module AdaptiveTimeStepModule
 
   use KindModule, only: DP, I4B, LGP
-  use SimVariablesModule, only: iout, errmsg, warnmsg
+  use SimVariablesModule, only: iout, errmsg, warnmsg, proc_id
   use SimModule, only: store_error, count_errors, store_warning
   use BlockParserModule, only: BlockParserType
   use ConstantsModule, only: DZERO, DONE, LINELENGTH, DNODATA, TABLEFT, &
@@ -12,26 +12,40 @@ module AdaptiveTimeStepModule
 
   implicit none
   private
-  public :: isAdaptivePeriod
-  public :: ats_set_delt
-  public :: ats_period_message
-  public :: ats_set_endofperiod
-  public :: ats_submit_delt
-  public :: ats_reset_delt
-  public :: ats_cr
-  public :: ats_da
 
-  integer(I4B), pointer :: nper => null() !< set equal to nper
-  integer(I4B), pointer :: maxats => null() !< number of ats entries
-  real(DP), public, pointer :: dtstable => null() !< delt value required for stability
-  integer(I4B), dimension(:), pointer, contiguous :: kperats => null() !< array of stress period numbers to apply ats (size NPER)
-  integer(I4B), dimension(:), pointer, contiguous :: iperats => null() !< array of stress period numbers to apply ats (size MAXATS)
-  real(DP), dimension(:), pointer, contiguous :: dt0 => null() !< input array of initial time step sizes
-  real(DP), dimension(:), pointer, contiguous :: dtmin => null() !< input array of minimum time step sizes
-  real(DP), dimension(:), pointer, contiguous :: dtmax => null() !< input array of maximum time step sizes
-  real(DP), dimension(:), pointer, contiguous :: dtadj => null() !< input array of time step factors for shortening or increasing
-  real(DP), dimension(:), pointer, contiguous :: dtfailadj => null() !< input array of time step factors for shortening due to nonconvergence
-  type(BlockParserType) :: parser !< block parser for reading input file
+  public :: AtsType
+
+  type :: AtsType
+    integer(I4B), pointer :: nper => null() !< set equal to nper
+    integer(I4B), pointer :: maxats => null() !< number of ats entries
+    real(DP), public, pointer :: dtstable => null() !< delt value required for stability
+    integer(I4B), dimension(:), pointer, contiguous :: kperats => null() !< array of stress period numbers to apply ats (size NPER)
+    integer(I4B), dimension(:), pointer, contiguous :: iperats => null() !< array of stress period numbers to apply ats (size MAXATS)
+    real(DP), dimension(:), pointer, contiguous :: dt0 => null() !< input array of initial time step sizes
+    real(DP), dimension(:), pointer, contiguous :: dtmin => null() !< input array of minimum time step sizes
+    real(DP), dimension(:), pointer, contiguous :: dtmax => null() !< input array of maximum time step sizes
+    real(DP), dimension(:), pointer, contiguous :: dtadj => null() !< input array of time step factors for shortening or increasing
+    real(DP), dimension(:), pointer, contiguous :: dtfailadj => null() !< input array of time step factors for shortening due to nonconvergence
+    type(BlockParserType) :: parser !< block parser for reading input file
+  contains
+    procedure, public :: ats_init
+    procedure, public :: isAdaptivePeriod
+    procedure, public :: ats_submit_delt
+    procedure, public :: ats_set_delt
+    procedure, public :: ats_reset_delt
+    procedure, public :: ats_period_message
+    procedure, public :: ats_set_endofperiod
+    procedure, public :: ats_da
+    ! private
+    procedure, private :: ats_allocate_scalars
+    procedure, private :: ats_allocate_arrays
+    procedure, private :: ats_read_options
+    procedure, private :: ats_read_dimensions
+    procedure, private :: ats_read_timing
+    procedure, private :: ats_process_input
+    procedure, private :: ats_input_table
+    procedure, private :: ats_check_timing
+  end type AtsType
 
 contains
 
@@ -41,12 +55,13 @@ contains
   !!  stress period.
   !!
   !<
-  function isAdaptivePeriod(kper) result(lv)
+  function isAdaptivePeriod(this, kper) result(lv)
+    class(AtsType) :: this
     integer(I4B), intent(in) :: kper
     logical(LGP) :: lv
     lv = .false.
-    if (associated(kperats)) then
-      if (kperats(kper) > 0) then
+    if (associated(this%kperats)) then
+      if (this%kperats(kper) > 0) then
         lv = .true.
       end if
     end if
@@ -57,9 +72,10 @@ contains
   !!  Create a new ATS object, and read and check input.
   !!
   !<
-  subroutine ats_cr(inunit, nper_tdis)
+  subroutine ats_init(this, inunit, nper_tdis)
     ! -- modules
     ! -- dummy
+    class(AtsType) :: this
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: nper_tdis
     ! -- local
@@ -69,58 +85,59 @@ contains
         &' VERSION 1 : 03/18/2021 - INPUT READ FROM UNIT ',I0)"
     !
     ! -- Allocate the scalar variables
-    call ats_allocate_scalars()
+    call this%ats_allocate_scalars()
     !
     ! -- Identify package
     write (iout, fmtheader) inunit
     !
     ! -- Initialize block parser
-    call parser%initialize(inunit, iout)
+    call this%parser%initialize(inunit, iout)
     !
     ! -- Read options
-    call ats_read_options()
+    call this%ats_read_options()
     !
     ! -- store tdis nper in nper
-    nper = nper_tdis
+    this%nper = nper_tdis
     !
     ! -- Read dimensions and then allocate arrays
-    call ats_read_dimensions()
-    call ats_allocate_arrays()
+    call this%ats_read_dimensions()
+    call this%ats_allocate_arrays()
     !
     ! -- Read timing
-    call ats_read_timing()
+    call this%ats_read_timing()
     !
     ! -- Echo input data to table
-    call ats_input_table()
+    call this%ats_input_table()
     !
     ! -- Check timing
-    call ats_check_timing()
+    call this%ats_check_timing()
     !
     ! -- Process input
-    call ats_process_input()
+    call this%ats_process_input()
     !
     ! -- Close the file
-    call parser%Clear()
-  end subroutine ats_cr
+    call this%parser%Clear()
+  end subroutine ats_init
 
   !> @ brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the ATS package.
   !!
   !<
-  subroutine ats_allocate_scalars()
+  subroutine ats_allocate_scalars(this)
     ! -- modules
     use MemoryManagerModule, only: mem_allocate
-    !
+    ! -- dummy
+    class(AtsType) :: this
     ! -- memory manager variables
-    call mem_allocate(nper, 'NPER', 'ATS')
-    call mem_allocate(maxats, 'MAXATS', 'ATS')
-    call mem_allocate(dtstable, 'DTSTABLE', 'ATS')
+    call mem_allocate(this%nper, 'NPER', 'ATS')
+    call mem_allocate(this%maxats, 'MAXATS', 'ATS')
+    call mem_allocate(this%dtstable, 'DTSTABLE', 'ATS')
     !
     ! -- Initialize variables
-    nper = 0
-    maxats = 0
-    dtstable = DNODATA
+    this%nper = 0
+    this%maxats = 0
+    this%dtstable = DNODATA
   end subroutine ats_allocate_scalars
 
   !> @ brief Allocate arrays
@@ -128,33 +145,35 @@ contains
   !! Allocate and initialize arrays for the ATS package.
   !!
   !<
-  subroutine ats_allocate_arrays()
+  subroutine ats_allocate_arrays(this)
     ! -- modules
     use MemoryManagerModule, only: mem_allocate
+    ! -- dummy
+    class(AtsType) :: this
     ! -- local
     integer(I4B) :: n
     !
-    call mem_allocate(kperats, nper, 'KPERATS', 'ATS')
-    call mem_allocate(iperats, maxats, 'IPERATS', 'ATS')
-    call mem_allocate(dt0, maxats, 'DT0', 'ATS')
-    call mem_allocate(dtmin, maxats, 'DTMIN', 'ATS')
-    call mem_allocate(dtmax, maxats, 'DTMAX', 'ATS')
-    call mem_allocate(dtadj, maxats, 'DTADJ', 'ATS')
-    call mem_allocate(dtfailadj, maxats, 'DTFAILADJ', 'ATS')
+    call mem_allocate(this%kperats, this%nper, 'KPERATS', 'ATS')
+    call mem_allocate(this%iperats, this%maxats, 'IPERATS', 'ATS')
+    call mem_allocate(this%dt0, this%maxats, 'DT0', 'ATS')
+    call mem_allocate(this%dtmin, this%maxats, 'DTMIN', 'ATS')
+    call mem_allocate(this%dtmax, this%maxats, 'DTMAX', 'ATS')
+    call mem_allocate(this%dtadj, this%maxats, 'DTADJ', 'ATS')
+    call mem_allocate(this%dtfailadj, this%maxats, 'DTFAILADJ', 'ATS')
     !
     ! -- initialize kperats
-    do n = 1, nper
-      kperats(n) = 0
+    do n = 1, this%nper
+      this%kperats(n) = 0
     end do
     !
     ! -- initialize
-    do n = 1, maxats
-      iperats(n) = 0
-      dt0(n) = DZERO
-      dtmin(n) = DZERO
-      dtmax(n) = DZERO
-      dtadj(n) = DZERO
-      dtfailadj(n) = DZERO
+    do n = 1, this%maxats
+      this%iperats(n) = 0
+      this%dt0(n) = DZERO
+      this%dtmin(n) = DZERO
+      this%dtmax(n) = DZERO
+      this%dtadj(n) = DZERO
+      this%dtfailadj(n) = DZERO
     end do
   end subroutine ats_allocate_arrays
 
@@ -163,22 +182,23 @@ contains
   !! Deallocate all ATS variables.
   !!
   !<
-  subroutine ats_da()
+  subroutine ats_da(this)
     use MemoryManagerModule, only: mem_deallocate
-    !
+    ! -- dummy
+    class(AtsType) :: this
     ! -- Scalars
-    call mem_deallocate(nper)
-    call mem_deallocate(maxats)
-    call mem_deallocate(dtstable)
+    call mem_deallocate(this%nper)
+    call mem_deallocate(this%maxats)
+    call mem_deallocate(this%dtstable)
     !
     ! -- Arrays
-    call mem_deallocate(kperats)
-    call mem_deallocate(iperats)
-    call mem_deallocate(dt0)
-    call mem_deallocate(dtmin)
-    call mem_deallocate(dtmax)
-    call mem_deallocate(dtadj)
-    call mem_deallocate(dtfailadj)
+    call mem_deallocate(this%kperats)
+    call mem_deallocate(this%iperats)
+    call mem_deallocate(this%dt0)
+    call mem_deallocate(this%dtmin)
+    call mem_deallocate(this%dtmax)
+    call mem_deallocate(this%dtadj)
+    call mem_deallocate(this%dtfailadj)
   end subroutine ats_da
 
   !> @ brief Read options
@@ -186,8 +206,9 @@ contains
   !! Read options from ATS input file.
   !!
   !<
-  subroutine ats_read_options()
+  subroutine ats_read_options(this)
     ! -- dummy
+    class(AtsType) :: this
     ! -- local
     character(len=LINELENGTH) :: keyword
     integer(I4B) :: ierr
@@ -195,22 +216,22 @@ contains
     ! -- formats
     !
     ! -- get options block
-    call parser%GetBlock('OPTIONS', isfound, ierr, &
-                         supportOpenClose=.true., blockRequired=.false.)
+    call this%parser%GetBlock('OPTIONS', isfound, ierr, &
+                              supportOpenClose=.true., blockRequired=.false.)
     !
     ! -- parse options block if detected
     if (isfound) then
       write (iout, '(1x,a)') 'PROCESSING ATS OPTIONS'
       do
-        call parser%GetNextLine(endOfBlock)
+        call this%parser%GetNextLine(endOfBlock)
         if (endOfBlock) exit
-        call parser%GetStringCaps(keyword)
+        call this%parser%GetStringCaps(keyword)
         select case (keyword)
         case default
           write (errmsg, '(a,a)') 'Unknown ATS option: ', &
             trim(keyword)
           call store_error(errmsg)
-          call parser%StoreErrorUnit()
+          call this%parser%StoreErrorUnit()
         end select
       end do
       write (iout, '(1x,a)') 'END OF ATS OPTIONS'
@@ -222,8 +243,9 @@ contains
   !! Read dimensions from ATS input file.
   !!
   !<
-  subroutine ats_read_dimensions()
+  subroutine ats_read_dimensions(this)
     ! -- dummy
+    class(AtsType) :: this
     ! -- local
     character(len=LINELENGTH) :: keyword
     integer(I4B) :: ierr
@@ -233,32 +255,32 @@ contains
       &"(1X,I0,' ADAPTIVE TIME STEP RECORDS(S) WILL FOLLOW IN PERIODDATA')"
     !
     ! -- get DIMENSIONS block
-    call parser%GetBlock('DIMENSIONS', isfound, ierr, &
-                         supportOpenClose=.true.)
+    call this%parser%GetBlock('DIMENSIONS', isfound, ierr, &
+                              supportOpenClose=.true.)
     !
     ! -- parse block if detected
     if (isfound) then
       write (iout, '(1x,a)') 'PROCESSING ATS DIMENSIONS'
       do
-        call parser%GetNextLine(endOfBlock)
+        call this%parser%GetNextLine(endOfBlock)
         if (endOfBlock) exit
-        call parser%GetStringCaps(keyword)
+        call this%parser%GetStringCaps(keyword)
         select case (keyword)
         case ('MAXATS')
-          maxats = parser%GetInteger()
-          write (iout, fmtmaxats) maxats
+          this%maxats = this%parser%GetInteger()
+          write (iout, fmtmaxats) this%maxats
         case default
           write (errmsg, '(a,a)') 'Unknown ATS dimension: ', &
             trim(keyword)
           call store_error(errmsg)
-          call parser%StoreErrorUnit()
+          call this%parser%StoreErrorUnit()
         end select
       end do
       write (iout, '(1x,a)') 'END OF ATS DIMENSIONS'
     else
       write (errmsg, '(a)') 'Required DIMENSIONS block not found.'
       call store_error(errmsg)
-      call parser%StoreErrorUnit()
+      call this%parser%StoreErrorUnit()
     end if
   end subroutine ats_read_dimensions
 
@@ -267,9 +289,10 @@ contains
   !! Read timing information from ATS input file.
   !!
   !<
-  subroutine ats_read_timing()
+  subroutine ats_read_timing(this)
     ! -- modules
     ! -- dummy
+    class(AtsType) :: this
     ! -- local
     integer(I4B) :: ierr
     integer(I4B) :: n
@@ -277,37 +300,37 @@ contains
     ! -- formats
     !
     ! -- get PERIODDATA block
-    call parser%GetBlock('PERIODDATA', isfound, ierr, &
-                         supportOpenClose=.true.)
+    call this%parser%GetBlock('PERIODDATA', isfound, ierr, &
+                              supportOpenClose=.true.)
     !
     ! -- parse block if detected
     if (isfound) then
       write (iout, '(1x,a)') 'READING ATS PERIODDATA'
-      do n = 1, maxats
-        call parser%GetNextLine(endOfBlock)
+      do n = 1, this%maxats
+        call this%parser%GetNextLine(endOfBlock)
         if (endOfBlock) exit
         !
         ! -- fill the ats data arrays
-        iperats(n) = parser%GetInteger()
-        dt0(n) = parser%GetDouble()
-        dtmin(n) = parser%GetDouble()
-        dtmax(n) = parser%GetDouble()
-        dtadj(n) = parser%GetDouble()
-        dtfailadj(n) = parser%GetDouble()
+        this%iperats(n) = this%parser%GetInteger()
+        this%dt0(n) = this%parser%GetDouble()
+        this%dtmin(n) = this%parser%GetDouble()
+        this%dtmax(n) = this%parser%GetDouble()
+        this%dtadj(n) = this%parser%GetDouble()
+        this%dtfailadj(n) = this%parser%GetDouble()
       end do
       !
       ! -- Close the block
-      call parser%terminateblock()
+      call this%parser%terminateblock()
       !
       ! -- Check for errors
       if (count_errors() > 0) then
-        call parser%StoreErrorUnit()
+        call this%parser%StoreErrorUnit()
       end if
       write (iout, '(1x,a)') 'END READING ATS PERIODDATA'
     else
       write (errmsg, '(a)') 'Required PERIODDATA block not found.'
       call store_error(errmsg)
-      call parser%StoreErrorUnit()
+      call this%parser%StoreErrorUnit()
     end if
   end subroutine ats_read_timing
 
@@ -316,15 +339,18 @@ contains
   !! Process ATS input by filling the kperats array.
   !!
   !<
-  subroutine ats_process_input()
+  subroutine ats_process_input(this)
+    ! -- dummy
+    class(AtsType) :: this
+
     integer(I4B) :: kkper
     integer(I4B) :: n
     !
     ! -- fill kperats for valid iperats values
-    do n = 1, maxats
-      kkper = iperats(n)
-      if (kkper > 0 .and. kkper <= nper) then
-        kperats(kkper) = n
+    do n = 1, this%maxats
+      kkper = this%iperats(n)
+      if (kkper > 0 .and. kkper <= this%nper) then
+        this%kperats(kkper) = n
       end if
     end do
   end subroutine ats_process_input
@@ -334,15 +360,18 @@ contains
   !! Write a table showing the ATS input read from the perioddata block.
   !!
   !<
-  subroutine ats_input_table()
+  subroutine ats_input_table(this)
     use TableModule, only: TableType, table_cr
+    ! -- dummy
+    class(AtsType) :: this
+
     integer(I4B) :: n
     character(len=LINELENGTH) :: tag
     type(TableType), pointer :: inputtab => null()
     !
     ! -- setup table
     call table_cr(inputtab, 'ATS', 'ATS PERIOD DATA')
-    call inputtab%table_df(maxats, 7, iout)
+    call inputtab%table_df(this%maxats, 7, iout)
     !
     ! add columns
     tag = 'RECORD'
@@ -361,14 +390,14 @@ contains
     call inputtab%initialize_column(tag, 10, alignment=TABCENTER)
     !
     ! -- write the data
-    do n = 1, maxats
+    do n = 1, this%maxats
       call inputtab%add_term(n)
-      call inputtab%add_term(iperats(n))
-      call inputtab%add_term(dt0(n))
-      call inputtab%add_term(dtmin(n))
-      call inputtab%add_term(dtmax(n))
-      call inputtab%add_term(dtadj(n))
-      call inputtab%add_term(dtfailadj(n))
+      call inputtab%add_term(this%iperats(n))
+      call inputtab%add_term(this%dt0(n))
+      call inputtab%add_term(this%dtmin(n))
+      call inputtab%add_term(this%dtmax(n))
+      call inputtab%add_term(this%dtadj(n))
+      call inputtab%add_term(this%dtfailadj(n))
     end do
     !
     ! -- deallocate the table
@@ -383,69 +412,72 @@ contains
   !! required ranges.
   !!
   !<
-  subroutine ats_check_timing()
+  subroutine ats_check_timing(this)
+    ! -- dummy
+    class(AtsType) :: this
+
     integer(I4B) :: n
     write (iout, '(1x,a)') 'PROCESSING ATS INPUT'
-    do n = 1, maxats
+    do n = 1, this%maxats
       !
       ! -- check iperats
-      if (iperats(n) < 1) then
+      if (this%iperats(n) < 1) then
         write (errmsg, '(a, i0, a, i0)') &
-          'IPERATS must be greater than zero.  Found ', iperats(n), &
+          'IPERATS must be greater than zero.  Found ', this%iperats(n), &
           ' for ATS PERIODDATA record ', n
         call store_error(errmsg)
       end if
-      if (iperats(n) > nper) then
+      if (this%iperats(n) > this%nper) then
         write (warnmsg, '(a, i0, a, i0)') &
-          'IPERATS greater than NPER.  Found ', iperats(n), &
+          'IPERATS greater than NPER.  Found ', this%iperats(n), &
           ' for ATS PERIODDATA record ', n
         call store_warning(warnmsg)
       end if
       !
       ! -- check dt0
-      if (dt0(n) < DZERO) then
+      if (this%dt0(n) < DZERO) then
         write (errmsg, '(a, g15.7, a, i0)') &
-          'DT0 must be >= zero.  Found ', dt0(n), &
+          'DT0 must be >= zero.  Found ', this%dt0(n), &
           ' for ATS PERIODDATA record ', n
         call store_error(errmsg)
       end if
       !
       ! -- check dtmin
-      if (dtmin(n) <= DZERO) then
+      if (this%dtmin(n) <= DZERO) then
         write (errmsg, '(a, g15.7, a, i0)') &
-          'DTMIN must be > zero.  Found ', dtmin(n), &
+          'DTMIN must be > zero.  Found ', this%dtmin(n), &
           ' for ATS PERIODDATA record ', n
         call store_error(errmsg)
       end if
       !
       ! -- check dtmax
-      if (dtmax(n) <= DZERO) then
+      if (this%dtmax(n) <= DZERO) then
         write (errmsg, '(a, g15.7, a, i0)') &
-          'DTMAX must be > zero.  Found ', dtmax(n), &
+          'DTMAX must be > zero.  Found ', this%dtmax(n), &
           ' for ATS PERIODDATA record ', n
         call store_error(errmsg)
       end if
       !
       ! -- check dtmin <= dtmax
-      if (dtmin(n) > dtmax(n)) then
+      if (this%dtmin(n) > this%dtmax(n)) then
         write (errmsg, '(a, 2g15.7, a, i0)') &
-          'DTMIN must be < dtmax.  Found ', dtmin(n), dtmax(n), &
+          'DTMIN must be < dtmax.  Found ', this%dtmin(n), this%dtmax(n), &
           ' for ATS PERIODDATA record ', n
         call store_error(errmsg)
       end if
       !
       ! -- check dtadj
-      if (dtadj(n) .ne. DZERO .and. dtadj(n) < DONE) then
+      if (this%dtadj(n) .ne. DZERO .and. this%dtadj(n) < DONE) then
         write (errmsg, '(a, g15.7, a, i0)') &
-          'DTADJ must be 0 or >= 1.0.  Found ', dtadj(n), &
+          'DTADJ must be 0 or >= 1.0.  Found ', this%dtadj(n), &
           ' for ATS PERIODDATA record ', n
         call store_error(errmsg)
       end if
       !
       ! -- check dtfailadj
-      if (dtfailadj(n) .ne. DZERO .and. dtfailadj(n) < DONE) then
+      if (this%dtfailadj(n) .ne. DZERO .and. this%dtfailadj(n) < DONE) then
         write (errmsg, '(a, g15.7, a, i0)') &
-          'DTFAILADJ must be 0 or >= 1.0.  Found ', dtfailadj(n), &
+          'DTFAILADJ must be 0 or >= 1.0.  Found ', this%dtfailadj(n), &
           ' for ATS PERIODDATA record ', n
         call store_error(errmsg)
       end if
@@ -454,7 +486,7 @@ contains
     !
     ! -- Check for errors
     if (count_errors() > 0) then
-      call parser%StoreErrorUnit()
+      call this%parser%StoreErrorUnit()
     end if
     write (iout, '(1x,a)') 'DONE PROCESSING ATS INPUT'
   end subroutine ats_check_timing
@@ -465,8 +497,9 @@ contains
   !! for this period.
   !!
   !<
-  subroutine ats_period_message(kper)
+  subroutine ats_period_message(this, kper)
     ! -- dummy
+    class(AtsType) :: this
     integer(I4B), intent(in) :: kper
     ! -- local
     integer(I4B) :: n
@@ -478,8 +511,9 @@ contains
       &28X,'MULTIPLIER/DIVIDER FOR TIME STEP     (DTADJ) = ',G15.7,/           &
       &28X,'DIVIDER FOR FAILED TIME STEP     (DTFAILADJ) = ',G15.7,/           &
       &)"
-    n = kperats(kper)
-    write (iout, fmtspts) dt0(n), dtmin(n), dtmax(n), dtadj(n), dtfailadj(n)
+    n = this%kperats(kper)
+    write (iout, fmtspts) this%dt0(n), this%dtmin(n), this%dtmax(n), &
+      this%dtadj(n), this%dtfailadj(n)
   end subroutine ats_period_message
 
   !> @ brief Allow and external caller to submit preferred time step
@@ -489,7 +523,9 @@ contains
   !!  step by the dtadj input variable.
   !!
   !<
-  subroutine ats_submit_delt(kstp, kper, dt, sloc, idir)
+  subroutine ats_submit_delt(this, kstp, kper, dt, sloc, idir)
+    ! -- dummy
+    class(AtsType) :: this
     integer(I4B), intent(in) :: kstp
     integer(I4B), intent(in) :: kper
     real(DP), intent(in) :: dt
@@ -502,9 +538,9 @@ contains
     character(len=*), parameter :: fmtdtsubmit = &
       &"(1x, 'ATS: ', A,' submitted a preferred time step size of ', G15.7)"
 
-    if (isAdaptivePeriod(kper)) then
-      n = kperats(kper)
-      tsfact = dtadj(n)
+    if (this%isAdaptivePeriod(kper)) then
+      n = this%kperats(kper)
+      tsfact = this%dtadj(n)
       if (tsfact > DONE) then
         !
         ! -- if idir is present, then dt is a length that should be adjusted
@@ -523,9 +559,9 @@ contains
         if (kstp > 1 .and. dt_temp > DZERO) then
           write (iout, fmtdtsubmit) trim(adjustl(sloc)), dt_temp
         end if
-        if (dt_temp > DZERO .and. dt_temp < dtstable) then
+        if (dt_temp > DZERO .and. dt_temp < this%dtstable) then
           ! -- Reset dtstable to a smaller value
-          dtstable = dt_temp
+          this%dtstable = dt_temp
         end if
       end if
     end if
@@ -537,9 +573,10 @@ contains
   !! controls.
   !!
   !<
-  subroutine ats_set_delt(kstp, kper, pertim, perlencurrent, delt)
+  subroutine ats_set_delt(this, kstp, kper, pertim, perlencurrent, delt)
     ! -- modules
     ! -- dummy
+    class(AtsType) :: this
     integer(I4B), intent(in) :: kstp
     integer(I4B), intent(in) :: kper
     real(DP), intent(inout) :: pertim
@@ -554,7 +591,7 @@ contains
       &' and period ', i0)"
     !
     ! -- initialize the record position (n) for this stress period
-    n = kperats(kper)
+    n = this%kperats(kper)
     !
     ! -- set tstart to the end of the last time step.
     tstart = pertim
@@ -565,30 +602,30 @@ contains
     if (kstp == 1) then
       !
       ! -- Assign first value of delt for this stress period
-      if (dt0(n) /= DZERO) then
-        delt = dt0(n)
+      if (this%dt0(n) /= DZERO) then
+        delt = this%dt0(n)
       else
         ! leave delt the way it was
       end if
     else
       !
       ! -- Assign delt based on stability
-      if (dtstable /= DNODATA) then
-        delt = dtstable
-        dtstable = DNODATA
+      if (this%dtstable /= DNODATA) then
+        delt = this%dtstable
+        this%dtstable = DNODATA
       end if
     end if
     !
     ! -- Ensure  tsmin < delt < tsmax
-    if (delt < dtmin(n)) then
-      delt = dtmin(n)
+    if (delt < this%dtmin(n)) then
+      delt = this%dtmin(n)
     end if
-    if (delt > dtmax(n)) then
-      delt = dtmax(n)
+    if (delt > this%dtmax(n)) then
+      delt = this%dtmax(n)
     end if
     !
     ! -- Cut timestep down to meet end of period
-    if (tstart + delt > perlencurrent - dtmin(n)) then
+    if (tstart + delt > perlencurrent - this%dtmin(n)) then
       delt = perlencurrent - tstart
     end if
     !
@@ -602,9 +639,11 @@ contains
   !!  did not converge.
   !!
   !<
-  subroutine ats_reset_delt(kstp, kper, lastStepFailed, delt, finishedTrying)
+  subroutine ats_reset_delt(this, kstp, kper, lastStepFailed, &
+                            delt, finishedTrying)
     ! -- modules
     ! -- dummy
+    class(AtsType) :: this
     integer(I4B), intent(in) :: kstp
     integer(I4B), intent(in) :: kper
     integer(I4B), intent(in) :: lastStepFailed
@@ -618,14 +657,14 @@ contains
     character(len=*), parameter :: fmttsi = &
       "(1X, 'Failed solution for step ', i0, ' and period ', i0, &
       &' will be retried using time step of ', G15.7)"
-    if (isAdaptivePeriod(kper)) then
+    if (this%isAdaptivePeriod(kper)) then
       if (lastStepFailed /= 0) then
         delt_temp = delt
-        n = kperats(kper)
-        tsfact = dtfailadj(n)
+        n = this%kperats(kper)
+        tsfact = this%dtfailadj(n)
         if (tsfact > DONE) then
           delt_temp = delt / tsfact
-          if (delt_temp >= dtmin(n)) then
+          if (delt_temp >= this%dtmin(n)) then
             finishedTrying = .false.
             delt = delt_temp
             write (iout, fmttsi) kstp, kper, delt
@@ -642,7 +681,9 @@ contains
   !! logical variable if so.
   !!
   !<
-  subroutine ats_set_endofperiod(kper, pertim, perlencurrent, endofperiod)
+  subroutine ats_set_endofperiod(this, kper, pertim, perlencurrent, endofperiod)
+    ! -- dummy
+    class(AtsType) :: this
     integer(I4B), intent(in) :: kper
     real(DP), intent(inout) :: pertim
     real(DP), intent(in) :: perlencurrent
@@ -651,8 +692,8 @@ contains
     integer(I4B) :: n
     !
     ! -- End of stress period and/or simulation?
-    n = kperats(kper)
-    if (abs(pertim - perlencurrent) < dtmin(n)) then
+    n = this%kperats(kper)
+    if (abs(pertim - perlencurrent) < this%dtmin(n)) then
       endofperiod = .true.
     end if
   end subroutine ats_set_endofperiod
