@@ -378,7 +378,7 @@ modflow_sources = files(
     'Solution' / 'ParticleTracker' / 'Particle' / 'Events' / 'DroppedEvent.f90',
     'Timing' / 'ats.f90',
     'Timing' / 'tdis.f90',
-    'Timing' / 'AtsFactory.f90',
+    'Timing' / 'AtsFactory.F90',
     'Utilities' / 'ArrayRead' / 'ArrayReaderBase.f90',
     'Utilities' / 'ArrayRead' / 'Double1dReader.f90',
     'Utilities' / 'ArrayRead' / 'Double2dReader.f90',

@@ -1,7 +1,7 @@
 module ParallelAtsModule
   use mpi
   use SimVariablesModule, only: proc_id
-  use MpiWorldModule, only: get_mpi_world, MpiWorldType
+  use MpiWorldModule, only: get_mpi_world, MpiWorldType, CHECK_MPI
   use KindModule, only: I4B, DP
   use AdaptiveTimeStepModule
   implicit none
@@ -42,6 +42,8 @@ contains
     mpi_world => get_mpi_world()
     call MPI_Allreduce(this%dtstable, global_dt, 1, MPI_DOUBLE_PRECISION, &
                        MPI_MIN, mpi_world%comm, ierr)
+    call CHECK_MPI(ierr)
+
     this%dtstable = global_dt
 
     call this%AtsType%ats_submit_delt(kstp, kper, dt, sloc, idir)
@@ -69,6 +71,7 @@ contains
     mpi_world => get_mpi_world()
     call MPI_Allreduce(delt, global_delt, 1, MPI_DOUBLE_PRECISION, &
                        MPI_MIN, mpi_world%comm, ierr)
+    call CHECK_MPI(ierr)
 
     delt = global_delt
 
