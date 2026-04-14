@@ -57,7 +57,6 @@ module TspFmiModule
     procedure :: fmi_bd
     procedure :: fmi_ot_flow
     procedure :: fmi_da => gwtfmi_da
-    procedure :: gwfsatold
     procedure :: initialize_gwfterms_from_bfr
     procedure :: initialize_gwfterms_from_gwfbndlist
     procedure :: source_options => gwtfmi_source_options
@@ -494,33 +493,6 @@ contains
       end if
     end do
   end subroutine set_active_status
-
-  !> @brief Calculate the previous saturation level
-  !!
-  !! Calculate the groundwater cell head saturation for the end of
-  !! the last time step
-  !<
-  function gwfsatold(this, n, delt) result(satold)
-    ! -- modules
-    ! -- dummy
-    class(TspFmiType) :: this
-    integer(I4B), intent(in) :: n
-    real(DP), intent(in) :: delt
-    ! -- result
-    real(DP) :: satold
-    ! -- local
-    real(DP) :: vcell
-    real(DP) :: vnew
-    real(DP) :: vold
-    !
-    ! -- calculate the value
-    vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
-    vnew = vcell * this%gwfsat(n)
-    vold = vnew
-    if (this%igwfstrgss /= 0) vold = vold + this%gwfstrgss(n) * delt
-    if (this%igwfstrgsy /= 0) vold = vold + this%gwfstrgsy(n) * delt
-    satold = vold / vcell
-  end function gwfsatold
 
   !> @ brief Source input options for package
   !<

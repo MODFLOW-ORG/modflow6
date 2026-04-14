@@ -38,6 +38,7 @@ module GwfNpfModule
     type(Xt3dType), pointer :: xt3d => null() !< xt3d pointer
     integer(I4B), pointer :: iname => null() !< length of variable names
     character(len=24), dimension(:), pointer :: aname => null() !< variable names
+    integer(I4B), pointer :: iss => null() !< steady state flag: 1 = steady, 0 = transient
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
     real(DP), dimension(:), pointer, contiguous :: hnew => null() !< pointer to model xnew
     integer(I4B), pointer :: ixt3d => null() !< xt3d flag (0 is off, 1 is lhs, 2 is rhs)
@@ -84,6 +85,7 @@ module GwfNpfModule
     integer(I4B), pointer :: iwetdry => null() !< flag to indicate angle1 was read
     real(DP), dimension(:), pointer, contiguous :: wetdry => null() !< wetdry array
     real(DP), dimension(:), pointer, contiguous :: sat => null() !< saturation (0. to 1.) for each cell
+    real(DP), dimension(:), pointer, contiguous :: sat_old => null() !< saturation (0. to 1.) for each cell
     real(DP), dimension(:), pointer, contiguous :: condsat => null() !< saturated conductance (symmetric array)
     integer(I4B), dimension(:), pointer, contiguous :: ibotnode => null() !< bottom node used if igwfnewtonur /= 0
     ! spdis machinery:
@@ -286,6 +288,7 @@ contains
   subroutine npf_ar(this, ic, vsc, ibound, hnew)
     ! -- modules
     use MemoryManagerModule, only: mem_reallocate
+    use MemoryHelperModule, only: create_mem_path
     ! -- dummy
     class(GwfNpftype) :: this !< instance of the NPF package
     type(GwfIcType), pointer, intent(in) :: ic !< initial conditions
@@ -299,6 +302,9 @@ contains
     this%ic => ic
     this%ibound => ibound
     this%hnew => hnew
+    !
+    ! -- set pointer to gwf iss
+    call mem_setptr(this%iss, 'ISS', create_mem_path(this%name_model))
     !
     if (this%icalcspdis == 1) then
       call mem_reallocate(this%spdis, 3, this%dis%nodes, 'SPDIS', this%memoryPath)
@@ -391,6 +397,7 @@ contains
     integer(I4B), intent(in) :: irestore
     ! -- local
     integer(I4B) :: n
+    real(DP) :: satn
     !
     ! -- loop through all cells and set hold=bot if wettable cell is dry
     if (this%irewet > 0) then
@@ -407,6 +414,20 @@ contains
         hnew(n) = DHDRY
       end do
     end if
+    !
+    ! -- store old saturation
+    do n = 1, this%dis%nodes
+      if (this%icelltype(n) /= 0) then
+        if (this%ibound(n) == 0) then
+          satn = DZERO
+        else
+          call this%thksat(n, hold(n), satn)
+        end if
+      else
+        satn = DONE
+      end if
+      this%sat_old(n) = satn
+    end do
     !
     ! -- TVK
     if (this%intvk /= 0) then
@@ -814,6 +835,13 @@ contains
       end do
       !
     end if
+
+    ! -- for steady state, sat_old = sat
+    if (this%iss == 1) then
+      do n = 1, this%dis%nodes
+        this%sat_old(n) = this%sat(n)
+      end do
+    end if
   end subroutine npf_cq
 
   !> @brief Fractional cell saturation
@@ -1071,6 +1099,7 @@ contains
     call mem_deallocate(this%k22input)
     call mem_deallocate(this%k33input)
     call mem_deallocate(this%sat, 'SAT', this%memoryPath)
+    call mem_deallocate(this%sat_old, 'SAT_OLD', this%memoryPath)
     call mem_deallocate(this%condsat)
     call mem_deallocate(this%wetdry)
     call mem_deallocate(this%angle1)
@@ -1229,6 +1258,7 @@ contains
     call mem_allocate(this%icelltype, ncells, 'ICELLTYPE', this%memoryPath)
     call mem_allocate(this%k11, ncells, 'K11', this%memoryPath)
     call mem_allocate(this%sat, ncells, 'SAT', this%memoryPath)
+    call mem_allocate(this%sat_old, ncells, 'SAT_OLD', this%memoryPath)
     call mem_allocate(this%condsat, njas, 'CONDSAT', this%memoryPath)
     !
     ! -- Optional arrays dimensioned to full size initially

@@ -31,6 +31,7 @@ module FlowModelInterfaceModule
     real(DP), dimension(:, :), pointer, contiguous :: gwfspdis => null() !< pointer to npf specific discharge array
     real(DP), dimension(:), pointer, contiguous :: gwfhead => null() !< pointer to the GWF head array
     real(DP), dimension(:), pointer, contiguous :: gwfsat => null() !< pointer to the GWF saturation array
+    real(DP), dimension(:), pointer, contiguous :: gwfsat_old => null() !< pointer to the GWF saturation array
     integer(I4B), dimension(:), pointer, contiguous :: ibdgwfsat0 => null() !< mark cells with saturation = 0 to exclude from dispersion
     integer(I4B), pointer :: idryinactive => null() !< mark cells with an additional flag to exclude from deactivation (gwe will simulate conduction through dry cells)
     real(DP), dimension(:), pointer, contiguous :: gwfstrgss => null() !< pointer to flow model QSTOSS
@@ -178,6 +179,7 @@ contains
     ! -- special treatment, these could be from mem_checkin
     call mem_deallocate(this%gwfhead, 'GWFHEAD', this%memoryPath)
     call mem_deallocate(this%gwfsat, 'GWFSAT', this%memoryPath)
+    call mem_deallocate(this%gwfsat_old, 'GWFSAT_OLD', this%memoryPath)
     call mem_deallocate(this%gwfspdis, 'GWFSPDIS', this%memoryPath)
     call mem_deallocate(this%gwfflowja, 'GWFFLOWJA', this%memoryPath)
     !
@@ -267,10 +269,12 @@ contains
       call mem_allocate(this%gwfflowja, this%dis%con%nja, &
                         'GWFFLOWJA', this%memoryPath)
       call mem_allocate(this%gwfsat, nodes, 'GWFSAT', this%memoryPath)
+      call mem_allocate(this%gwfsat_old, nodes, 'GWFSAT_OLD', this%memoryPath)
       call mem_allocate(this%gwfhead, nodes, 'GWFHEAD', this%memoryPath)
       call mem_allocate(this%gwfspdis, 3, nodes, 'GWFSPDIS', this%memoryPath)
       do n = 1, nodes
         this%gwfsat(n) = DONE
+        this%gwfsat_old(n) = DONE
         this%gwfhead(n) = DZERO
         this%gwfspdis(:, n) = DZERO
       end do
@@ -698,6 +702,7 @@ contains
               nr = this%dis%get_nodenumber(nu, 0)
               if (nr <= 0) cycle
               this%gwfsat(nr) = this%bfr%auxvar(1, i)
+              this%gwfsat_old(nr) = this%bfr%auxvar(1, i)
             end do
           case ('STO-SS')
             do nu = 1, this%dis%nodesuser
