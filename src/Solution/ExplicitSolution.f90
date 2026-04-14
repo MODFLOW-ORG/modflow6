@@ -22,7 +22,7 @@ module ExplicitSolutionModule
   use ExplicitModelModule, only: ExplicitModelType, &
                                  AddExplicitModelToList, &
                                  GetExplicitModelFromList
-  use BaseExchangeModule, only: BaseExchangeType
+  use BaseExchangeModule, only: BaseExchangeType, GetBaseExchangeFromList
   use BaseSolutionModule, only: BaseSolutionType, AddBaseSolutionToList
   use ListModule, only: ListType
   use ListsModule, only: basesolutionlist
@@ -73,7 +73,7 @@ module ExplicitSolutionModule
 
 contains
 
-  !> @ brief Create a new solution
+  !> @brief Create a new solution
   !!
   !! Create a new solution using the data in filename, assign this new
   !! solution an id number and store the solution in the basesolutionlist.
@@ -115,7 +115,7 @@ contains
     call exp_sol%parser%Initialize(exp_sol%iu, iout)
   end subroutine create_explicit_solution
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   subroutine allocate_scalars(this)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
 
@@ -132,24 +132,24 @@ contains
     this%icnvg = 0
   end subroutine allocate_scalars
 
-  !> @ brief Define the solution
+  !> @brief Define the solution
   subroutine sln_df(this)
     class(ExplicitSolutionType) :: this
   end subroutine
 
-  !> @ brief Allocate and read
+  !> @brief Allocate and read
   subroutine sln_ar(this)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
     ! close ems input file
     call this%parser%Clear()
   end subroutine sln_ar
 
-  !> @ brief Calculate time step length
+  !> @brief Calculate time step length
   subroutine sln_dt(this)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
   end subroutine sln_dt
 
-  !> @ brief Advance the solution
+  !> @brief Advance the solution
   subroutine sln_ad(this)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
 
@@ -157,7 +157,7 @@ contains
     this%icnvg = 0
   end subroutine sln_ad
 
-  !> @ brief Output
+  !> @brief Output
   subroutine sln_ot(this)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
   end subroutine sln_ot
@@ -166,7 +166,7 @@ contains
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
   end subroutine sln_fp
 
-  !> @ brief Deallocate
+  !> @brief Deallocate
   subroutine sln_da(this)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
 
@@ -183,7 +183,7 @@ contains
     call mem_deallocate(this%icnvg)
   end subroutine sln_da
 
-  !> @ brief Calculate
+  !> @brief Calculate
   subroutine sln_ca(this, isgcnvg, isuppress_output)
     ! dummy
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
@@ -218,17 +218,24 @@ contains
     end select
   end subroutine sln_ca
 
-  !> @ brief Prepare to solve
+  !> @brief Prepare to solve
   subroutine prepareSolve(this)
     ! dummy
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
     ! local
-    integer(I4B) :: im
+    integer(I4B) :: i
     class(ExplicitModelType), pointer :: mp => null()
+    class(BaseExchangeType), pointer :: ep => null()
 
-    ! advance model
-    do im = 1, this%modellist%Count()
-      mp => GetExplicitModelFromList(this%modellist, im)
+    ! advance exchanges
+    do i = 1, this%exchangelist%Count()
+      ep => GetBaseExchangeFromList(this%exchangelist, i)
+      call ep%exg_ad()
+    end do
+
+    ! advance models
+    do i = 1, this%modellist%Count()
+      mp => GetExplicitModelFromList(this%modellist, i)
       call mp%model_ad()
     end do
 
@@ -236,7 +243,7 @@ contains
     call this%sln_ad()
   end subroutine prepareSolve
 
-  !> @ brief Solve models
+  !> @brief Solve models
   subroutine solve(this, kiter)
     ! dummy
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
@@ -273,7 +280,7 @@ contains
     this%icnvg = 1
   end subroutine solve
 
-  !> @ brief Finalize solve
+  !> @brief Finalize solve
   subroutine finalizeSolve(this, kiter, isgcnvg, isuppress_output)
     ! dummy
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
@@ -297,7 +304,7 @@ contains
     end do
   end subroutine finalizeSolve
 
-  !> @ brief Save output
+  !> @brief Save output
   subroutine save(this, filename)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
     character(len=*), intent(in) :: filename !< filename to save solution data
@@ -308,7 +315,7 @@ contains
     close (inunit)
   end subroutine save
 
-  !> @ brief Add explicit model to list
+  !> @brief Add explicit model to list
   subroutine add_model(this, mp)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
     class(BaseModelType), pointer, intent(in) :: mp !< model instance
@@ -327,7 +334,7 @@ contains
     models => this%modellist
   end function get_models
 
-  !> @ brief Add exchange to list of exchanges
+  !> @brief Add exchange to list of exchanges
   subroutine add_exchange(this, exchange)
     class(ExplicitSolutionType) :: this
     class(BaseExchangeType), pointer, intent(in) :: exchange
@@ -336,7 +343,7 @@ contains
     call this%exchangelist%Add(obj)
   end subroutine add_exchange
 
-  !> @ brief Get list of exchanges
+  !> @brief Get list of exchanges
   function get_exchanges(this) result(exchanges)
     class(ExplicitSolutionType) :: this
     type(ListType), pointer :: exchanges
