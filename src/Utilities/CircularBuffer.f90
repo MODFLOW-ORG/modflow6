@@ -111,18 +111,8 @@ contains
     class(CircularBufferType), target :: this
     ! -- return
     real(DP), pointer, dimension(:) :: element
-    ! -- local
-    integer(I4B) :: index
 
-    if (this%n_size == 0) then
-      call store_error("Cannot access front of an empty CircularBufferType")
-      element => null()
-      return
-    end if
-
-    index = mod(this%head_index - this%n_size + this%n_capacity, &
-                this%n_capacity) + 1
-    element => this%data(:, index)
+    element => this%front_at_impl(1)
 
   end function front_impl
 
@@ -162,13 +152,7 @@ contains
     ! -- return
     real(DP), pointer, dimension(:) :: element
 
-    if (this%n_size == 0) then
-      call store_error("Cannot access back of an empty CircularBufferType")
-      element => null()
-      return
-    end if
-
-    element => this%data(:, this%head_index)
+    element => this%back_at_impl(1)
 
   end function back_impl
 

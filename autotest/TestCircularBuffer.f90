@@ -14,25 +14,27 @@ contains
     type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
     testsuite = [ &
-      new_unittest("push_back", test_push_back), &
-      new_unittest("pop_back", test_pop_back), &
-      new_unittest("front_and_back", test_front_and_back), &
-      new_unittest("front_at", test_front_at), &
-      new_unittest("back_at", test_back_at), &
-      new_unittest("is_full_and_is_empty", test_is_full_and_is_empty), &
-      new_unittest("wrap_around", test_wrap_around), &
-      new_unittest("pop_back_underflow", test_pop_back_underflow), &
-      new_unittest("index_out_of_bounds", test_index_out_of_bounds) &
-    ]
+                new_unittest("push_back", test_push_back), &
+                new_unittest("pop_back", test_pop_back), &
+                new_unittest("front_and_back", test_front_and_back), &
+                new_unittest("front_at", test_front_at), &
+                new_unittest("back_at", test_back_at), &
+                new_unittest("is_full_and_is_empty", test_is_full_and_is_empty), &
+                new_unittest("wrap_around", test_wrap_around), &
+                new_unittest("pop_back_underflow", test_pop_back_underflow), &
+                new_unittest("index_out_of_bounds", test_index_out_of_bounds) &
+                ]
   end subroutine collect_circular_buffer
 
   subroutine test_push_back(error)
     type(error_type), allocatable, intent(out) :: error
+    integer(I4B), parameter :: capacity = 3
+    integer(I4B), parameter :: elem_size = 2
     type(CircularBufferType) :: buffer
-    real(DP) :: element(2)
+    real(DP) :: element(elem_size)
     real(DP), pointer :: retrieved(:)
 
-    buffer = CircularBufferType(3, 2, "cbuf_pba", "TestPath")
+    buffer = CircularBufferType(capacity, elem_size, "TestName", "TestPath")
 
     element = [1.0_DP, 2.0_DP]
     call buffer%push_back(element)
@@ -51,11 +53,13 @@ contains
 
   subroutine test_front_at(error)
     type(error_type), allocatable, intent(out) :: error
+    integer(I4B), parameter :: capacity = 3
+    integer(I4B), parameter :: elem_size = 2
     type(CircularBufferType) :: buffer
-    real(DP) :: element(2)
+    real(DP) :: element(elem_size)
     real(DP), pointer :: retrieved(:)
 
-    buffer = CircularBufferType(3, 2, "cbuf_fwa", "TestPath")
+    buffer = CircularBufferType(capacity, elem_size, "TestName", "TestPath")
 
     element = [1.0_DP, 2.0_DP]; call buffer%push_back(element)
     element = [3.0_DP, 4.0_DP]; call buffer%push_back(element)
@@ -84,11 +88,13 @@ contains
 
   subroutine test_back_at(error)
     type(error_type), allocatable, intent(out) :: error
+    integer(I4B), parameter :: capacity = 3
+    integer(I4B), parameter :: elem_size = 2
     type(CircularBufferType) :: buffer
-    real(DP) :: element(2)
+    real(DP) :: element(elem_size)
     real(DP), pointer :: retrieved(:)
 
-    buffer = CircularBufferType(3, 2, "cbuf_ba", "TestPath")
+    buffer = CircularBufferType(capacity, elem_size, "TestName", "TestPath")
 
     element = [1.0_DP, 2.0_DP]; call buffer%push_back(element)
     element = [3.0_DP, 4.0_DP]; call buffer%push_back(element)
@@ -117,11 +123,13 @@ contains
 
   subroutine test_pop_back(error)
     type(error_type), allocatable, intent(out) :: error
+    integer(I4B), parameter :: capacity = 3
+    integer(I4B), parameter :: elem_size = 2
     type(CircularBufferType) :: buffer
-    real(DP) :: element(2)
+    real(DP) :: element(elem_size)
     real(DP), pointer :: retrieved(:)
 
-    buffer = CircularBufferType(3, 2, "cbuf_pb", "TestPath")
+    buffer = CircularBufferType(capacity, elem_size, "TestName", "TestPath")
 
     element = [1.0_DP, 2.0_DP]
     call buffer%push_back(element)
@@ -140,11 +148,13 @@ contains
 
   subroutine test_front_and_back(error)
     type(error_type), allocatable, intent(out) :: error
+    integer(I4B), parameter :: capacity = 3
+    integer(I4B), parameter :: elem_size = 2
     type(CircularBufferType) :: buffer
-    real(DP) :: element(2)
+    real(DP) :: element(elem_size)
     real(DP), pointer :: retrieved(:)
 
-    buffer = CircularBufferType(3, 2, "cbuf_fb", "TestPath")
+    buffer = CircularBufferType(capacity, elem_size, "TestName", "TestPath")
 
     element = [1.0_DP, 2.0_DP]
     call buffer%push_back(element)
@@ -165,33 +175,40 @@ contains
 
   subroutine test_is_full_and_is_empty(error)
     type(error_type), allocatable, intent(out) :: error
+    integer(I4B), parameter :: capacity = 2
+    integer(I4B), parameter :: elem_size = 2
     type(CircularBufferType) :: buffer
-    real(DP) :: element(2)
+    real(DP) :: element(elem_size)
 
-    buffer = CircularBufferType(2, 2, "cbuf_fie", "TestPath")
+    buffer = CircularBufferType(capacity, elem_size, "TestName", "TestPath")
 
     call check(error, buffer%is_empty(), "buffer should be empty initially")
     if (allocated(error)) return
-    call check(error, .not. buffer%is_full(), "buffer should not be full initially")
+    call check(error,.not. buffer%is_full(), &
+               "buffer should not be full initially")
     if (allocated(error)) return
 
     element = [1.0_DP, 2.0_DP]
     call buffer%push_back(element)
     call buffer%push_back(element)
 
-    call check(error, buffer%is_full(), "buffer should be full after push to capacity")
+    call check(error, buffer%is_full(), &
+               "buffer should be full after push to capacity")
     if (allocated(error)) return
-    call check(error, .not. buffer%is_empty(), "buffer should not be empty when full")
+    call check(error,.not. buffer%is_empty(), &
+               "buffer should not be empty when full")
   end subroutine test_is_full_and_is_empty
 
   subroutine test_wrap_around(error)
     type(error_type), allocatable, intent(out) :: error
+    integer(I4B), parameter :: capacity = 3
+    integer(I4B), parameter :: elem_size = 1
     type(CircularBufferType) :: buffer
-    real(DP) :: element(1)
+    real(DP) :: element(elem_size)
     real(DP), pointer :: retrieved(:)
 
     ! Fill a capacity-3 buffer then push a 4th element: oldest is overwritten.
-    buffer = CircularBufferType(3, 1, "cbuf_wrap", "TestPath")
+    buffer = CircularBufferType(capacity, elem_size, "TestName", "TestPath")
 
     element = [1.0_DP]; call buffer%push_back(element)
     element = [2.0_DP]; call buffer%push_back(element)
@@ -214,10 +231,12 @@ contains
 
   subroutine test_pop_back_underflow(error)
     type(error_type), allocatable, intent(out) :: error
+    integer(I4B), parameter :: capacity = 3
+    integer(I4B), parameter :: elem_size = 1
     type(CircularBufferType) :: buffer
-    real(DP) :: element(1)
+    real(DP) :: element(elem_size)
 
-    buffer = CircularBufferType(3, 1, "cbuf_ufl", "TestPath")
+    buffer = CircularBufferType(capacity, elem_size, "TestName", "TestPath")
     call initial_message()
 
     element = [1.0_DP]; call buffer%push_back(element)
@@ -234,11 +253,13 @@ contains
 
   subroutine test_index_out_of_bounds(error)
     type(error_type), allocatable, intent(out) :: error
+    integer(I4B), parameter :: capacity = 3
+    integer(I4B), parameter :: elem_size = 1
     type(CircularBufferType) :: buffer
-    real(DP) :: element(1)
+    real(DP) :: element(elem_size)
     real(DP), pointer :: retrieved(:)
 
-    buffer = CircularBufferType(3, 1, "cbuf_oob", "TestPath")
+    buffer = CircularBufferType(capacity, elem_size, "TestName", "TestPath")
 
     element = [1.0_DP]; call buffer%push_back(element)
     element = [2.0_DP]; call buffer%push_back(element)
