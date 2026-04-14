@@ -1029,7 +1029,7 @@ contains
     ! dummy
     class(PrtModelType) :: this
     ! local
-    integer(I4B) :: np, ip
+    integer(I4B) :: np, ip, i
     class(BndType), pointer :: packobj
     type(ParticleType), pointer :: particle
     real(DP) :: tmax
@@ -1063,7 +1063,20 @@ contains
           if (particle%istatus > ACTIVE) cycle ! Skip terminated particles
           particle%istatus = ACTIVE ! Set active status in case of release
           ! If the particle was released this time step, emit a release event
-          if (particle%trelease >= totimc) call this%method%release(particle)
+          if (particle%trelease >= totimc) then
+            call this%method%release(particle)
+            ! Emit a usertime event if a user time coincides with release time
+            call this%method%tracktimes%advance()
+            if (this%method%tracktimes%any()) then
+              do i = this%method%tracktimes%selection(1), &
+                this%method%tracktimes%selection(2)
+                if (this%method%tracktimes%times(i) == particle%trelease) then
+                  call this%method%usertime(particle)
+                  exit
+                end if
+              end do
+            end if
+          end if
           ! Maximum time is the end of the time step or the particle
           ! stop time, whichever comes first, unless it's the final
           ! time step and the extend option is on, in which case
