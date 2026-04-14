@@ -15,12 +15,11 @@ contains
 !< the parallel details for the synchronization across ranks
   function create_ats() result(ats)
     use SimVariablesModule, only: simulation_mode
-#if defined(__WITH_MPI__)
-    use ParallelAtsModule, only: ParallelAtsType
-#endif
     class(AtsType), pointer :: ats
     ! local
+#if defined(__WITH_MPI__)    
     class(ParallelAtsType), pointer :: par_ats
+#endif
 
     if (simulation_mode == 'SEQUENTIAL') then
       allocate (ats)
