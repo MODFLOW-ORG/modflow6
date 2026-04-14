@@ -17,7 +17,7 @@ contains
     use SimVariablesModule, only: simulation_mode
     class(AtsType), pointer :: ats
     ! local
-#if defined(__WITH_MPI__)    
+#if defined(__WITH_MPI__)
     class(ParallelAtsType), pointer :: par_ats
 #endif
 
