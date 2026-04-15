@@ -1064,10 +1064,10 @@ contains
     integer(I4B) :: nodenumber
     !
     if (icheck /= 0) then
-      if (nodeu < 1 .or. nodeu > this%nodes) then
+      if (nodeu < 1 .or. nodeu > this%nodesuser) then
         write (errmsg, '(a,i0,a,i0,a)') &
           'Node number (', nodeu, ') is less than 1 or greater than nodes (', &
-          this%nodes, ').'
+          this%nodesuser, ').'
         call store_error(errmsg)
       end if
     end if
