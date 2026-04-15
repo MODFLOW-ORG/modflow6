@@ -38,6 +38,8 @@ contains
     integer :: ierr
     real(DP) :: global_dt
 
+    if (.not. this%isAdaptivePeriod(kper)) return
+
     ! reduce dtstable over all ranks
     mpi_world => get_mpi_world()
     call MPI_Allreduce(this%dtstable, global_dt, 1, MPI_DOUBLE_PRECISION, &
