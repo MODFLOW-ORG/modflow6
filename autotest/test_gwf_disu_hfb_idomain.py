@@ -15,8 +15,6 @@ file then failed with:
     Node number (N) is less than 1 or greater than nodes (n_active).
 """
 
-from pathlib import Path
-
 import flopy
 import numpy as np
 import pytest
