@@ -26,6 +26,7 @@ module ParticleTracksModule
   use TerminationEventModule, only: TerminationEventType
   use WeakSinkEventModule, only: WeakSinkEventType
   use UserTimeEventModule, only: UserTimeEventType
+  use ModelExitEventModule, only: ModelExitEventType
   use CellExitEventModule, only: CellExitEventType
   use SubcellExitEventModule, only: SubcellExitEventType
   use DroppedEventModule, only: DroppedEventType
@@ -192,6 +193,8 @@ contains
     select type (event)
     type is (ReleaseEventType)
       selected = this%selected%release
+    type is (ModelExitEventType)
+      selected = this%selected%featexit
     type is (CellExitEventType)
       selected = this%selected%featexit
     type is (SubcellExitEventType)

@@ -1,37 +1,38 @@
-module DroppedEventModule
+module ModelExitEventModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LENHUGELINE
   use ErrorUtilModule, only: pstop
   use ParticleModule, only: ParticleType
-  use ParticleEventModule, only: ParticleEventType, DROPPED
+  use ParticleEventModule, only: ParticleEventType, FEATEXIT
+  use FeatureExitEventModule, only: FeatureExitEventType
   implicit none
 
   private
-  public :: DroppedEventType
+  public :: ModelExitEventType
 
-  type, extends(ParticleEventType) :: DroppedEventType
+  type, extends(FeatureExitEventType) :: ModelExitEventType
   contains
     procedure :: get_code
     procedure :: get_verb
     procedure :: get_text
-  end type DroppedEventType
+  end type ModelExitEventType
 
 contains
 
   function get_code(this) result(code)
-    class(DroppedEventType), intent(in) :: this
+    class(ModelExitEventType), intent(in) :: this
     integer(I4B) :: code
-    code = DROPPED
+    code = FEATEXIT
   end function get_code
 
   function get_verb(this) result(verb)
-    class(DroppedEventType), intent(in) :: this
+    class(ModelExitEventType), intent(in) :: this
     character(len=:), allocatable :: verb
-    verb = 'dropped to water table'
+    verb = 'exited model'
   end function get_verb
 
   function get_text(this) result(text)
-    class(DroppedEventType), intent(in) :: this
+    class(ModelExitEventType), intent(in) :: this
     character(len=:), allocatable :: text
     character(len=LENHUGELINE) :: temp
 
@@ -40,7 +41,7 @@ contains
       ', package ', this%iprp, &
       ', point ', this%irpt, &
       ', time ', this%trelease, &
-      ' '//this%get_verb()// &
+      ' '//this%get_verb(), &
       ' in model ', this%imid, &
       ', layer ', this%ilay, &
       ', cell ', this%icu, &
@@ -55,4 +56,4 @@ contains
     text = trim(adjustl(temp))
   end function get_text
 
-end module DroppedEventModule
+end module ModelExitEventModule

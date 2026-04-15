@@ -75,7 +75,8 @@ contains
       fmi=this%fmi, &
       cell=this%cell, &
       subcell=this%subcell, &
-      events=this%events, &
+      observers=this%observers, &
+      handlers=this%handlers, &
       tracktimes=this%tracktimes)
     submethod => this%method_subcell_plck
     particle%itrdomain(next_level) = 1

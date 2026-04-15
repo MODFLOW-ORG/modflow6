@@ -13,6 +13,7 @@ module IdmExgDfnSelectorModule
   use ExgGwegweInputModule
   use ExgGwfprtInputModule
   use ExgOlfgwfInputModule
+  use ExgPrtprtInputModule
 
   implicit none
   private
@@ -64,6 +65,8 @@ contains
       call set_param_pointer(input_definition, exg_gwfprt_param_definitions)
     case ('OLFGWF')
       call set_param_pointer(input_definition, exg_olfgwf_param_definitions)
+    case ('PRTPRT')
+      call set_param_pointer(input_definition, exg_prtprt_param_definitions)
     case default
     end select
     return
@@ -90,6 +93,8 @@ contains
       call set_param_pointer(input_definition, exg_gwfprt_aggregate_definitions)
     case ('OLFGWF')
       call set_param_pointer(input_definition, exg_olfgwf_aggregate_definitions)
+    case ('PRTPRT')
+      call set_param_pointer(input_definition, exg_prtprt_aggregate_definitions)
     case default
     end select
     return
@@ -116,6 +121,8 @@ contains
       call set_block_pointer(input_definition, exg_gwfprt_block_definitions)
     case ('OLFGWF')
       call set_block_pointer(input_definition, exg_olfgwf_block_definitions)
+    case ('PRTPRT')
+      call set_block_pointer(input_definition, exg_prtprt_block_definitions)
     case default
     end select
     return
@@ -141,6 +148,8 @@ contains
       multi_package = exg_gwfprt_multi_package
     case ('OLFGWF')
       multi_package = exg_olfgwf_multi_package
+    case ('PRTPRT')
+      multi_package = exg_prtprt_multi_package
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="EXG"'//&
@@ -169,6 +178,8 @@ contains
       call set_subpkg_pointer(subpackages, exg_gwfprt_subpackages)
     case ('OLFGWF')
       call set_subpkg_pointer(subpackages, exg_olfgwf_subpackages)
+    case ('PRTPRT')
+      call set_subpkg_pointer(subpackages, exg_prtprt_subpackages)
     case default
     end select
     return
@@ -194,6 +205,8 @@ contains
     case ('GWFPRT')
       integrated = .true.
     case ('OLFGWF')
+      integrated = .true.
+    case ('PRTPRT')
       integrated = .true.
     case default
     end select

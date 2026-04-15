@@ -36,7 +36,7 @@ from prt_test_utils import (
     check_track_data,
 )
 
-simname = "prtexg01"
+simname = "gwfprtexg"
 cases = [simname, f"{simname}bnms", f"{simname}idmu", f"{simname}idmn"]
 
 

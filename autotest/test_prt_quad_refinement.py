@@ -23,7 +23,7 @@ from prt_test_utils import (
     check_track_data,
 )
 
-simname = "prtqref01"
+simname = "prtqref"
 cases = [simname]
 
 

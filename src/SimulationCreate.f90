@@ -367,6 +367,7 @@ contains
     use GwfGwtExchangeModule, only: gwfgwt_cr
     use GwfGweExchangeModule, only: gwfgwe_cr
     use GwfPrtExchangeModule, only: gwfprt_cr
+    use PrtPrtExchangeModule, only: prtprt_cr
     use GwtGwtExchangeModule, only: gwtexchange_create
     use GweGweExchangeModule, only: gweexchange_create
     use OlfGwfExchangeModule, only: olfgwf_cr
@@ -475,6 +476,11 @@ contains
         end if
       case ('GWF6-PRT6')
         call gwfprt_cr(fname, exg_id, m1_id, m2_id)
+      case ('PRT6-PRT6')
+        write (exg_name, '(a,i0)') 'PRT-PRT_', exg_id
+        if (both_local) then
+          call prtprt_cr(fname, exg_name, exg_id, m1_id, m2_id, exg_mempath)
+        end if
       case ('GWT6-GWT6')
         write (exg_name, '(a,i0)') 'GWT-GWT_', exg_id
         if (.not. both_remote) then

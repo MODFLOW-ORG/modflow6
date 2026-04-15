@@ -122,6 +122,7 @@
 		<File RelativePath="..\src\Exchange\exg-gwtgwt.f90"/>
 		<File RelativePath="..\src\Exchange\exg-olfgwf.f90"/>
 		<File RelativePath="..\src\Exchange\exg-swfgwf.f90"/>
+		<File RelativePath="..\src\Exchange\exg-prtprt.f90"/>
 		<File RelativePath="..\src\Exchange\GhostNode.f90"/>
 		<File RelativePath="..\src\Exchange\GwfExchangeMover.f90"/>
 		<File RelativePath="..\src\Exchange\NumericalExchange.f90"/></Filter>
@@ -160,6 +161,7 @@
 		<File RelativePath="..\src\Idm\exg-gwfprtidm.f90"/>
 		<File RelativePath="..\src\Idm\exg-gwtgwtidm.f90"/>
 		<File RelativePath="..\src\Idm\exg-olfgwfidm.f90"/>
+		<File RelativePath="..\src\Idm\exg-prtprtidm.f90"/>
 		<File RelativePath="..\src\Idm\gwe-advidm.f90"/>
 		<File RelativePath="..\src\Idm\gwe-cndidm.f90"/>
 		<File RelativePath="..\src\Idm\gwe-ctpidm.f90"/>
@@ -462,7 +464,7 @@
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\ParticleEvent.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\ParticleEvents.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\ReleaseEvent.f90"/>
-		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\FeatExitEvent.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\FeatureExitEvent.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\CellExitEvent.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\SubcellExitEvent.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\TerminationEvent.f90"/>
@@ -470,6 +472,7 @@
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\TimeStepEvent.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\WeakSinkEvent.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\DroppedEvent.f90"/>
+		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\ModelExitEvent.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\Particle.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleReleaseSchedule.f90"/>
 		<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleTracks.f90"/>

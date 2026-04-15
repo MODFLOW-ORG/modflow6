@@ -411,7 +411,6 @@ contains
     call mem_allocate(this%ipakcb, 'IPAKCB', this%memoryPath)
     call mem_allocate(this%inamedbound, 'INAMEDBOUND', this%memoryPath)
     call mem_allocate(this%dev_ifmod_on, 'DEV_IFMOD_ON', this%memoryPath)
-
     call mem_allocate(this%auxname, LENAUXNAME, 0, &
                       'AUXNAME', this%memoryPath)
     call mem_allocate(this%auxname_cst, LENAUXNAME, 0, &

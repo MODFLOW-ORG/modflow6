@@ -22,7 +22,7 @@ module ParticleEventModule
   !<
   enum, bind(C)
     enumerator :: RELEASE = 0 !< particle was released
-    enumerator :: FEATEXIT = 1 !< particle exited a grid feature
+    enumerator :: FEATEXIT = 1 !< particle exited a domain feature
     enumerator :: TIMESTEP = 2 !< time step ended
     enumerator :: TERMINATE = 3 !< particle terminated
     enumerator :: WEAKSINK = 4 !< particle entered a weak sink
@@ -38,7 +38,7 @@ module ParticleEventModule
     integer(I4B) :: imdl, iprp, irpt ! release model, package, and point
     real(DP) :: trelease = 0.0_DP ! release time
     integer(I4B) :: kper = 0, kstp = 0 ! period and step
-    integer(I4B) :: ilay, icu, izone = 0
+    integer(I4B) :: imid, ilay, icu, izone = 0 ! current model, layer, cell, and zone
     real(DP) :: ttrack = 0.0_DP ! simulation time
     real(DP) :: x = 0.0_DP, y = 0.0_DP, z = 0.0_DP ! particle position
     integer(I4B) :: istatus = -1 ! status code

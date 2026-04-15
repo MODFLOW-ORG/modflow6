@@ -4,7 +4,7 @@ module MethodCellModule
   use ErrorUtilModule, only: pstop
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType, LEVEL_FEATURE
-  use ParticleModule, only: ParticleType, ACTIVE, TERM_NO_EXITS, TERM_BOUNDARY
+  use ParticleModule, only: ParticleType, ACTIVE, TERM_NO_EXITS
   use ParticleEventModule, only: ParticleEventType
   use CellExitEventModule, only: CellExitEventType
   use CellDefnModule, only: CellDefnType, SATURATION_DRY
@@ -50,19 +50,17 @@ contains
 
     call this%pass(particle)
 
+    ! on a cell face?
     iboundary = particle%iboundary(LEVEL_FEATURE)
     icellface = this%iboundary_to_icellface(iboundary)
     if (icellface <= 0) return
-
-    ! on a cell face, done advancing. raise an exit event
     advancing = .false.
     call this%cellexit(particle)
 
-    ! assigned boundary face with net outflow? terminate
+    ! assigned boundary face with net outflow?
     ic = particle%itrdomain(LEVEL_FEATURE)
     if (this%fmi%is_net_out_boundary_face(ic, icellface)) then
-      call this%terminate(particle, status=TERM_BOUNDARY)
-      return
+      call this%modelexit(particle)
     end if
 
   end subroutine try_pass
@@ -228,7 +226,7 @@ contains
     type is (CellExitEventType)
       event%exit_face = particle%iboundary(LEVEL_FEATURE)
     end select
-    call this%events%broadcast(particle, event)
+    call this%observers%broadcast(particle, event)
     if (particle%icycwin == 0) then
       deallocate (event)
       return

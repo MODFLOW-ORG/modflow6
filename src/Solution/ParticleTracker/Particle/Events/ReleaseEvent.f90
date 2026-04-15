@@ -41,7 +41,8 @@ contains
       ', point ', this%irpt, &
       ', time ', this%trelease, &
       ' '//this%get_verb()// &
-      ' in layer ', this%ilay, &
+      ' in model ', this%imid, &
+      ', layer ', this%ilay, &
       ', cell ', this%icu, &
       ', zone ', this%izone, &
       ' at x ', this%x, &

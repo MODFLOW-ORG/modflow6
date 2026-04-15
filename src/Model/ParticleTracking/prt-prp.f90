@@ -103,6 +103,7 @@ module PrtPrpModule
   !! transfers from coupled models while preserving the pattern where
   !! PRP packages own particles. Call it "Particle Registry Package"?
   type, extends(PrtPrpType) :: ExgPrtPrpType
+    logical(LGP), pointer :: has_pending => null() !< whether new particles have been received
   contains
     procedure :: prp_allocate_scalars => exg_prp_allocate_scalars
     procedure :: prp_allocate_arrays => exg_prp_allocate_arrays
@@ -183,6 +184,7 @@ contains
       packobj%ncolbnd = 4
       packobj%iscloc = 1
       exgprpobj%fmi => fmi
+      exgprpobj%has_pending = .false.
 
       if (iout > 0) write (iout, fmtexgheader)
     end if
@@ -368,17 +370,16 @@ contains
   subroutine exg_prp_allocate_scalars(this)
     use MemoryManagerModule, only: mem_allocate
     class(ExgPrtPrpType) :: this
-    integer(I4B), pointer :: iper, ionper
 
     this%input_mempath = trim(this%memoryPath)//'-INPUT'
 
-    call mem_allocate(iper, 'IPER', this%input_mempath)
-    call mem_allocate(ionper, 'IONPER', this%input_mempath)
+    call mem_allocate(this%iper, 'IPER', this%input_mempath)
+    call mem_allocate(this%ionper, 'IONPER', this%input_mempath)
+    call mem_allocate(this%has_pending, 'HAS_PENDING', this%input_mempath)
 
-    ! set iper = 0. this forces BndExtType%bnd_rp to
-    ! return early, since iper will never match kper.
-    iper = 0
-    ionper = 0
+    this%iper = 0
+    this%ionper = 0
+    this%has_pending = .false.
 
     call this%PrtPrpType%prp_allocate_scalars()
   end subroutine exg_prp_allocate_scalars
@@ -718,6 +719,8 @@ contains
     particle%extend = this%extend
     particle%icycwin = this%icycwin
     particle%extol = this%extol
+    particle%transferred = .false.
+
   end subroutine initialize_particle
 
   !> @ brief Read and prepare period data for particle input

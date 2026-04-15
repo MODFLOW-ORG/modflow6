@@ -118,7 +118,8 @@ contains
         call this%method_cell_ptb%init( &
           fmi=this%fmi, &
           cell=this%cell, &
-          events=this%events, &
+          observers=this%observers, &
+          handlers=this%handlers, &
           tracktimes=this%tracktimes)
         submethod => this%method_cell_ptb
       else if (particle%frctrn) then
@@ -126,7 +127,8 @@ contains
         call this%method_cell_tern%init( &
           fmi=this%fmi, &
           cell=this%cell, &
-          events=this%events, &
+          observers=this%observers, &
+          handlers=this%handlers, &
           tracktimes=this%tracktimes)
         submethod => this%method_cell_tern
       else if (cell%defn%can_be_rect) then
@@ -137,7 +139,8 @@ contains
         call this%method_cell_plck%init( &
           fmi=this%fmi, &
           cell=base, &
-          events=this%events, &
+          observers=this%observers, &
+          handlers=this%handlers, &
           tracktimes=this%tracktimes)
         submethod => this%method_cell_plck
       else if (cell%defn%can_be_quad) then
@@ -148,7 +151,8 @@ contains
         call this%method_cell_quad%init( &
           fmi=this%fmi, &
           cell=base, &
-          events=this%events, &
+          observers=this%observers, &
+          handlers=this%handlers, &
           tracktimes=this%tracktimes)
         submethod => this%method_cell_quad
       else
@@ -156,7 +160,8 @@ contains
         call this%method_cell_tern%init( &
           fmi=this%fmi, &
           cell=this%cell, &
-          events=this%events, &
+          observers=this%observers, &
+          handlers=this%handlers, &
           tracktimes=this%tracktimes)
         submethod => this%method_cell_tern
       end if
@@ -166,7 +171,6 @@ contains
   subroutine load_particle(this, cell, particle)
     ! modules
     use DisvModule, only: DisvType
-    use ParticleModule, only: TERM_BOUNDARY
     use ParticleEventModule, only: TERMINATE
     ! dummy
     class(MethodDisvType), intent(inout) :: this
@@ -233,7 +237,6 @@ contains
 
   !> @brief Pass a particle to the next cell, if there is one
   subroutine pass_disv(this, particle)
-    use ParticleModule, only: TERM_BOUNDARY
     use ParticleEventModule, only: TERMINATE
     ! dummy
     class(MethodDisvType), intent(inout) :: this
@@ -249,9 +252,8 @@ contains
       iface = particle%iboundary(LEVEL_FEATURE)
       no_neighbors = cell%defn%facenbr(iface) == 0
 
-      ! todo AMP: reconsider when multiple models supported
       if (no_neighbors) then
-        call this%terminate(particle, status=TERM_BOUNDARY)
+        call this%modelexit(particle)
         return
       end if
 

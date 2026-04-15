@@ -96,6 +96,7 @@ module ParticleModule
     real(DP), public :: cosrot !< cosine of rotation angle for coordinate transformation from model to local
     logical(LGP), public :: transformed !< whether coordinates have been transformed from model to local
     logical(LGP), public :: advancing !< whether particle is still being tracked for current time step
+    logical(LGP), public :: transferred !< whether particle has been transferred to a different model
     type(ListType), public, pointer :: history !< history of particle positions (for cycle detection)
   contains
     procedure, public :: destroy => destroy_particle
@@ -123,6 +124,7 @@ module ParticleModule
     integer(I4B), dimension(:), pointer, public, contiguous :: icycwin !< cycle detection window size
     real(DP), dimension(:), pointer, public, contiguous :: extol !< tolerance for iterative solution of particle exit location and time in generalized Pollock's method
     ! state
+    logical(LGP), dimension(:), pointer, public, contiguous :: transferred !< whether particle has been transferred to a different model
     integer(I4B), dimension(:, :), pointer, public, contiguous :: itrdomain !< array of indices for domains in the tracking domain hierarchy
     integer(I4B), dimension(:, :), pointer, public, contiguous :: iboundary !< array of indices for tracking domain boundaries
     integer(I4B), dimension(:), pointer, public, contiguous :: icu !< cell number (user)
@@ -183,6 +185,7 @@ contains
     call mem_allocate(store%icycwin, np, 'PLICYCWIN', mempath)
     call mem_allocate(store%itrdomain, np, MAX_LEVEL, 'PLIDOMAIN', mempath)
     call mem_allocate(store%iboundary, np, MAX_LEVEL, 'PLIBOUNDARY', mempath)
+    call mem_allocate(store%transferred, np, 'PLTRANSFERRED', mempath)
   end subroutine create_particle_store
 
   !> @brief Destroy particle store after use.
@@ -214,6 +217,7 @@ contains
     call mem_deallocate(this%icycwin, 'PLICYCWIN', mempath)
     call mem_deallocate(this%itrdomain, 'PLIDOMAIN', mempath)
     call mem_deallocate(this%iboundary, 'PLIBOUNDARY', mempath)
+    call mem_deallocate(this%transferred, 'PLTRANSFERRED', mempath)
   end subroutine destroy
 
   !> @brief Destroy a particle after use.
@@ -254,6 +258,7 @@ contains
     call mem_reallocate(this%icycwin, np, 'PLICYCWIN', mempath)
     call mem_reallocate(this%itrdomain, np, MAX_LEVEL, 'PLIDOMAIN', mempath)
     call mem_reallocate(this%iboundary, np, MAX_LEVEL, 'PLIBOUNDARY', mempath)
+    call mem_reallocate(this%transferred, np, 'PLTRANSFERRED', mempath)
   end subroutine resize
 
   !> @brief Load a particle from the particle store.
@@ -261,17 +266,15 @@ contains
   !! This routine is used to initialize a particle for tracking.
   !! The advancing flag and coordinate transformation are reset.
   !<
-  subroutine get(this, particle, imdl, iprp, ip)
+  subroutine get(this, particle, ip)
     class(ParticleStoreType), intent(inout) :: this !< particle store
     class(ParticleType), intent(inout) :: particle !< particle
-    integer(I4B), intent(in) :: imdl !< index of model particle originated in
-    integer(I4B), intent(in) :: iprp !< index of particle release package particle originated in
-    integer(I4B), intent(in) :: ip !< index into the particle list
+    integer(I4B), intent(in) :: ip !< index into particle list
 
     call particle%reset_transform()
     call particle%history%Clear()
-    particle%imdl = imdl
-    particle%iprp = iprp
+    particle%imdl = this%imdl(ip)
+    particle%iprp = this%iprp(ip)
     particle%irpt = this%irpt(ip)
     particle%ip = ip
     particle%name = this%name(ip)
@@ -289,9 +292,9 @@ contains
     particle%tstop = this%tstop(ip)
     particle%ttrack = this%ttrack(ip)
     particle%advancing = .true.
+    particle%transferred = this%transferred(ip)
     particle%itrdomain(1:MAX_LEVEL) = &
       this%itrdomain(ip, 1:MAX_LEVEL)
-    particle%itrdomain(1) = imdl
     particle%iboundary(1:MAX_LEVEL) = &
       this%iboundary(ip, 1:MAX_LEVEL)
     particle%frctrn = this%frctrn(ip)
@@ -337,6 +340,7 @@ contains
     this%extol(ip) = particle%extol
     this%extend(ip) = particle%extend
     this%icycwin(ip) = particle%icycwin
+    this%transferred(ip) = particle%transferred
   end subroutine put
 
   !> @brief Transform particle coordinates.

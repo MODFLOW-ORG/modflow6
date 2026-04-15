@@ -5,7 +5,7 @@ module MethodModule
   use ConstantsModule, only: DZERO
   use ErrorUtilModule, only: pstop
   use SubcellModule, only: SubcellType
-  use ParticleModule, only: ParticleType
+  use ParticleModule, only: ParticleType, TERM_BOUNDARY
   use ParticleEventsModule, only: ParticleEventDispatcherType
   use ParticleEventModule, only: ParticleEventType
   use ReleaseEventModule, only: ReleaseEventType
@@ -13,8 +13,8 @@ module MethodModule
   use TerminationEventModule, only: TerminationEventType
   use WeakSinkEventModule, only: WeakSinkEventType
   use UserTimeEventModule, only: UserTimeEventType
-  use FeatExitEventModule, only: FeatExitEventType
   use DroppedEventModule, only: DroppedEventType
+  use ModelExitEventModule, only: ModelExitEventType
   use BaseDisModule, only: DisBaseType
   use PrtFmiModule, only: PrtFmiType
   use CellModule, only: CellType
@@ -61,7 +61,8 @@ module MethodModule
     type(PrtFmiType), pointer, public :: fmi => null() !< ptr to fmi
     class(CellType), pointer, public :: cell => null() !< ptr to the current cell
     class(SubcellType), pointer, public :: subcell => null() !< ptr to the current subcell
-    type(ParticleEventDispatcherType), pointer, public :: events => null() !< ptr to event dispatcher
+    type(ParticleEventDispatcherType), pointer, public :: observers => null() !< ptr to observer dispatcher (broadcast)
+    type(ParticleEventDispatcherType), pointer, public :: handlers => null() !< ptr to handler dispatcher (dispatch)
     type(TimeSelectType), pointer, public :: tracktimes => null() !< ptr to user-defined tracking times
     integer(I4B), dimension(:), pointer, contiguous, public :: izone => null() !< pointer to zone numbers
     real(DP), dimension(:), pointer, contiguous, public :: flowja => null() !< pointer to intercell flows
@@ -89,6 +90,7 @@ module MethodModule
     procedure :: weaksink
     procedure :: usertime
     procedure :: dropped
+    procedure :: modelexit
   end type MethodType
 
   abstract interface
@@ -119,13 +121,14 @@ module MethodModule
 contains
 
   !> @brief Initialize the method with pointers to model data.
-  subroutine init(this, fmi, cell, subcell, events, tracktimes, &
+  subroutine init(this, fmi, cell, subcell, observers, handlers, tracktimes, &
                   izone, flowja, porosity, retfactor)
     class(MethodType), intent(inout) :: this
     type(PrtFmiType), intent(in), pointer, optional :: fmi
     class(CellType), intent(in), pointer, optional :: cell
     class(SubcellType), intent(in), pointer, optional :: subcell
-    type(ParticleEventDispatcherType), intent(in), pointer, optional :: events
+    type(ParticleEventDispatcherType), intent(in), pointer, optional :: observers
+    type(ParticleEventDispatcherType), intent(in), pointer, optional :: handlers
     type(TimeSelectType), intent(in), pointer, optional :: tracktimes
     integer(I4B), intent(in), pointer, optional :: izone(:)
     real(DP), intent(in), pointer, optional :: flowja(:)
@@ -135,7 +138,8 @@ contains
     if (present(fmi)) this%fmi => fmi
     if (present(cell)) this%cell => cell
     if (present(subcell)) this%subcell => subcell
-    if (present(events)) this%events => events
+    if (present(observers)) this%observers => observers
+    if (present(handlers)) this%handlers => handlers
     if (present(tracktimes)) this%tracktimes => tracktimes
     if (present(izone)) this%izone => izone
     if (present(flowja)) this%flowja => flowja
@@ -237,7 +241,7 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
     allocate (ReleaseEventType :: event)
-    call this%events%broadcast(particle, event)
+    call this%observers%broadcast(particle, event)
     deallocate (event)
   end subroutine release
 
@@ -250,7 +254,7 @@ contains
     particle%advancing = .false.
     if (present(status)) particle%istatus = status
     allocate (TerminationEventType :: event)
-    call this%events%broadcast(particle, event)
+    call this%observers%broadcast(particle, event)
     deallocate (event)
   end subroutine terminate
 
@@ -260,7 +264,7 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
     allocate (TimeStepEventType :: event)
-    call this%events%broadcast(particle, event)
+    call this%observers%broadcast(particle, event)
     deallocate (event)
   end subroutine timestep
 
@@ -270,7 +274,7 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
     allocate (WeakSinkEventType :: event)
-    call this%events%broadcast(particle, event)
+    call this%observers%broadcast(particle, event)
     deallocate (event)
   end subroutine weaksink
 
@@ -280,7 +284,7 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
     allocate (UserTimeEventType :: event)
-    call this%events%broadcast(particle, event)
+    call this%observers%broadcast(particle, event)
     deallocate (event)
   end subroutine usertime
 
@@ -290,8 +294,30 @@ contains
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
     allocate (DroppedEventType :: event)
-    call this%events%broadcast(particle, event)
+    call this%observers%broadcast(particle, event)
     deallocate (event)
   end subroutine dropped
+
+  !> @brief A particle exits a model.
+  subroutine modelexit(this, particle)
+    class(MethodType), intent(inout) :: this
+    type(ParticleType), pointer, intent(inout) :: particle
+    class(ParticleEventType), pointer :: event
+    allocate (ModelExitEventType :: event)
+
+    ! First: let observers see the event (always broadcast to all)
+    call this%observers%broadcast(particle, event)
+
+    ! Then: let handlers try to handle it (stops on first handler)
+    if (this%handlers%dispatch(particle, event)) then
+      ! if an exg took the particle, mark it transferred
+      particle%advancing = .false.
+      particle%transferred = .true.
+    else
+      ! otherwise terminate the particle at the boundary
+      call this%terminate(particle, status=TERM_BOUNDARY)
+    end if
+    deallocate (event)
+  end subroutine modelexit
 
 end module MethodModule

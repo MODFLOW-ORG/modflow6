@@ -227,16 +227,16 @@ contains
     class(ExplicitModelType), pointer :: mp => null()
     class(BaseExchangeType), pointer :: ep => null()
 
-    ! advance exchanges
-    do i = 1, this%exchangelist%Count()
-      ep => GetBaseExchangeFromList(this%exchangelist, i)
-      call ep%exg_ad()
-    end do
-
     ! advance models
     do i = 1, this%modellist%Count()
       mp => GetExplicitModelFromList(this%modellist, i)
       call mp%model_ad()
+    end do
+
+    ! advance exchanges
+    do i = 1, this%exchangelist%Count()
+      ep => GetBaseExchangeFromList(this%exchangelist, i)
+      call ep%exg_ad()
     end do
 
     ! advance solution

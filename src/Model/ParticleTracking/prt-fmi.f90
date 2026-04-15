@@ -31,17 +31,15 @@ module PrtFmiModule
     real(DP), allocatable, public :: StorageFlows(:) ! cell storage flows array
     real(DP), allocatable, public :: BoundaryFlows(:, :) ! cell boundary flows array
     integer(I4B), allocatable, public :: BoundaryFaces(:) ! bitmask of assigned boundary faces
-
   contains
-
     procedure :: fmi_ad
     procedure :: fmi_df => prtfmi_df
-    procedure, private :: accumulate_flows
     procedure :: mark_boundary_face
     procedure :: is_boundary_face
     procedure :: is_net_out_boundary_face
-    procedure, private :: iflowface_to_icellface
-
+    procedure :: add_boundary_flow
+    procedure :: iflowface_to_icellface
+    procedure, private :: accumulate_flows
   end type PrtFmiType
 
 contains
@@ -304,5 +302,18 @@ contains
     icellface = iflowface
     if (icellface < 0) icellface = icellface + this%max_faces - IFLOWFACE_TOP
   end function iflowface_to_icellface
+
+  !> @brief Add flow to a boundary face. Used from
+  !! exg-prtprt, to inject exchange boundary flows.
+  subroutine add_boundary_flow(this, ic, icellface, q)
+    ! dummy
+    class(PrtFmiType) :: this
+    integer(I4B), intent(in) :: ic !< node number (reduced)
+    integer(I4B), intent(in) :: icellface !< cell face number
+    real(DP), intent(in) :: q !< flow to add to boundary face
+
+    call this%mark_boundary_face(ic, icellface)
+    this%BoundaryFlows(ic, icellface) = this%BoundaryFlows(ic, icellface) + q
+  end subroutine add_boundary_flow
 
 end module PrtFmiModule

@@ -4,14 +4,14 @@ module CellExitEventModule
   use ErrorUtilModule, only: pstop
   use ParticleModule, only: ParticleType
   use ParticleEventModule, only: FEATEXIT
-  use FeatExitEventModule, only: FeatExitEventType
+  use FeatureExitEventModule, only: FeatureExitEventType
   implicit none
 
   private
   public :: CellExitEventType
 
-  type, extends(FeatExitEventType) :: CellExitEventType
-    integer(I4B) :: exit_face ! face through which the particle exited
+  type, extends(FeatureExitEventType) :: CellExitEventType
+    integer(I4B) :: exit_face
   contains
     procedure :: get_code
     procedure :: get_verb
@@ -43,7 +43,8 @@ contains
       ', point ', this%irpt, &
       ', time ', this%trelease, &
       ' '//this%get_verb()// &
-      ' in layer ', this%ilay, &
+      ' in model ', this%imid, &
+      ', layer ', this%ilay, &
       ', cell ', this%icu, &
       ', zone ', this%izone, &
       ' through face ', this%exit_face, &

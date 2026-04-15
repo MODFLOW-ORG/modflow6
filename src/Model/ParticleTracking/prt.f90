@@ -12,7 +12,7 @@ module PrtModule
   use DisModule, only: DisType, dis_cr
   use DisvModule, only: DisvType, disv_cr
   use DisuModule, only: DisuType, disu_cr
-  use PrtPrpModule, only: PrtPrpType, prp_create
+  use PrtPrpModule, only: PrtPrpType, ExgPrtPrpType, prp_create
   use PrtFmiModule, only: PrtFmiType
   use PrtMipModule, only: PrtMipType
   use PrtOcModule, only: PrtOcType
@@ -25,7 +25,7 @@ module PrtModule
                                   write_particle_event
   use SimModule, only: count_errors, store_error, store_error_filename
   use MemoryManagerModule, only: mem_allocate
-  use MethodModule, only: MethodType, LEVEL_FEATURE
+  use MethodModule, only: MethodType, LEVEL_MODEL, LEVEL_FEATURE
   use MethodDisModule, only: MethodDisType, create_method_dis
   use MethodDisvModule, only: MethodDisvType, create_method_disv
   use HashTableModule, only: HashTableType, hash_table_cr, hash_table_da
@@ -52,7 +52,8 @@ module PrtModule
     class(MethodType), pointer :: method => null() ! tracking method
     type(MethodDisType), pointer :: method_dis => null() ! DIS tracking method
     type(MethodDisvType), pointer :: method_disv => null() ! DISV tracking method
-    type(ParticleEventDispatcherType), pointer :: events => null() ! event dispatcher
+    type(ParticleEventDispatcherType), pointer :: observers => null() ! observer event dispatcher
+    type(ParticleEventDispatcherType), pointer :: handlers => null() ! handler event dispatcher
     class(ParticleTracksType), pointer :: tracks ! track output manager
     integer(I4B), pointer :: infmi => null() ! unit number FMI
     integer(I4B), pointer :: inmip => null() ! unit number MIP
@@ -70,7 +71,8 @@ module PrtModule
     real(DP), dimension(:), pointer, contiguous :: ratetrm => null() !< particle mass termination rate in cells
     type(HashTableType), pointer :: trm_ids => null() !< terminated particle ids
   contains
-    ! Override BaseModelType procs
+    procedure :: allocate_scalars
+    procedure :: allocate_arrays
     procedure :: model_df => prt_df
     procedure :: model_ar => prt_ar
     procedure :: model_rp => prt_rp
@@ -80,10 +82,7 @@ module PrtModule
     procedure :: model_ot => prt_ot
     procedure :: model_da => prt_da
     procedure :: model_solve => prt_solve
-
-    ! Private utilities
-    procedure :: allocate_scalars
-    procedure :: allocate_arrays
+    procedure :: has_pending => prt_has_pending
     procedure, private :: package_create
     procedure, private :: ftype_check
     procedure, private :: prt_ot_flow
@@ -157,7 +156,8 @@ contains
     this%memoryPath = create_mem_path(modelname)
 
     ! Allocate event system and track output manager
-    allocate (this%events)
+    allocate (this%observers)
+    allocate (this%handlers)
     allocate (this%tracks)
 
     ! Allocate scalars and add model to basemodellist
@@ -282,7 +282,6 @@ contains
         nprp = nprp + 1
         call packobj%prp_set_pointers(this%ibound, this%mip%izone)
         call packobj%bnd_ar()
-        call packobj%bnd_ar()
         if (packobj%itrkout > 0) then
           call this%tracks%init_file( &
             packobj%itrkout, &
@@ -310,7 +309,8 @@ contains
     type is (DisType)
       call this%method_dis%init( &
         fmi=this%fmi, &
-        events=this%events, &
+        observers=this%observers, &
+        handlers=this%handlers, &
         izone=this%mip%izone, &
         flowja=this%flowja, &
         porosity=this%mip%porosity, &
@@ -320,7 +320,8 @@ contains
     type is (DisvType)
       call this%method_disv%init( &
         fmi=this%fmi, &
-        events=this%events, &
+        observers=this%observers, &
+        handlers=this%handlers, &
         izone=this%mip%izone, &
         flowja=this%flowja, &
         porosity=this%mip%porosity, &
@@ -329,9 +330,9 @@ contains
       this%method => this%method_disv
     end select
 
-    ! Subscribe particle track output manager to events
+    ! Subscribe particle track output manager to observers
     p => this%tracks
-    call this%events%subscribe(write_particle_event, p)
+    call this%observers%subscribe(write_particle_event, p)
 
     ! Set verbose tracing if requested
     if (this%oc%dump_event_trace) this%tracks%iout = 0
@@ -487,7 +488,7 @@ contains
       select type (packobj)
       type is (PrtPrpType)
         do np = 1, packobj%nparticles
-          call packobj%particles%get(particle, this%id, iprp, np)
+          call packobj%particles%get(particle, np)
           istatus = packobj%particles%istatus(np)
           particle_id = particle%get_id()
           if (istatus == ACTIVE) then
@@ -881,7 +882,8 @@ contains
     call mem_deallocate(this%ratetrm)
 
     call this%tracks%destroy()
-    deallocate (this%events)
+    deallocate (this%observers)
+    deallocate (this%handlers)
     deallocate (this%tracks)
 
     call this%ExplicitModelType%model_da()
@@ -1044,11 +1046,15 @@ contains
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       select type (packobj)
-      type is (PrtPrpType)
+      class is (PrtPrpType)
         iprp = iprp + 1
         do np = 1, packobj%nparticles
-          ! Get the particle from the store
-          call packobj%particles%get(particle, this%id, iprp, np)
+          ! Get the particle from the store. Make sure
+          ! to preserve the original model ID and PRP ID.
+          call packobj%particles%get(particle, np)
+          ! If the particle was transferred to another model, skip
+          if (particle%imdl == this%id .and. particle%transferred) &
+            cycle
           ! If particle is permanently unreleased, cycle.
           ! Raise a termination event if we haven't yet.
           ! TODO: when we have generic dynamic vectors,
@@ -1057,13 +1063,22 @@ contains
           ! indicates the permanently unreleased event
           ! is not yet recorded, status 8 it has been.
           if (particle%istatus == (-1 * TERM_UNRELEASED)) then
+            particle%itrdomain(LEVEL_MODEL) = this%id
+            particle%imdl = this%id
+            particle%iprp = iprp
             call this%method%terminate(particle, status=TERM_UNRELEASED)
             call packobj%particles%put(particle, np)
           end if
           if (particle%istatus > ACTIVE) cycle ! Skip terminated particles
           particle%istatus = ACTIVE ! Set active status in case of release
           ! If the particle was released this time step, emit a release event
-          if (particle%trelease >= totimc) call this%method%release(particle)
+          if ((particle%ttrack <= particle%trelease) .and. &
+              (particle%trelease >= totimc)) then
+            particle%itrdomain(LEVEL_MODEL) = this%id
+            particle%imdl = this%id
+            particle%iprp = iprp
+            call this%method%release(particle)
+          end if
           ! Maximum time is the end of the time step or the particle
           ! stop time, whichever comes first, unless it's the final
           ! time step and the extend option is on, in which case
@@ -1090,10 +1105,32 @@ contains
           call packobj%particles%put(particle, np)
         end do
       end select
+
+      ! reset exchange PRP's pending flag after tracking
+      select type (packobj)
+      type is (ExgPrtPrpType)
+        packobj%has_pending = .false.
+      end select
     end do
     call particle%destroy()
     deallocate (particle)
   end subroutine prt_solve
+
+  !> @brief Whether the model has any particles awaiting tracking.
+  logical function prt_has_pending(this)
+    class(PrtModelType), intent(in) :: this
+    ! local
+    class(BndType), pointer :: packobj
+
+    prt_has_pending = .false.
+    ! exchange PRP is the last boundary package in the list
+    packobj => GetBndFromList(this%bndlist, this%bndlist%Count())
+    select type (packobj)
+    type is (ExgPrtPrpType)
+      prt_has_pending = packobj%has_pending
+    end select
+
+  end function prt_has_pending
 
   !> @brief Source package info and begin to process
   subroutine create_bndpkgs(this, bndpkgs, pkgtypes, pkgnames, &
