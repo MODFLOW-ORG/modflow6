@@ -4,7 +4,7 @@
 module AdaptiveTimeStepModule
 
   use KindModule, only: DP, I4B, LGP
-  use SimVariablesModule, only: iout, errmsg, warnmsg, proc_id
+  use SimVariablesModule, only: iout, errmsg, warnmsg
   use SimModule, only: store_error, count_errors, store_warning
   use BlockParserModule, only: BlockParserType
   use ConstantsModule, only: DZERO, DONE, LINELENGTH, DNODATA, TABLEFT, &
