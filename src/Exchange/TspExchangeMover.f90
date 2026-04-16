@@ -12,7 +12,6 @@ module TspExchangeMoverModule
 
   public :: xmvt_cr
 
-  ! TODO_MJR: rename to TspExchangeMvtType
   type, public, extends(TspMvtType) :: TspExchangeMoverType
     class(VirtualModelType), pointer :: model1 => null() !< virtual model 1
     class(VirtualModelType), pointer :: model2 => null() !< virtual model 2

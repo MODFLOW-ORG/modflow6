@@ -124,7 +124,8 @@
 		<File RelativePath="..\src\Exchange\exg-swfgwf.f90"/>
 		<File RelativePath="..\src\Exchange\GhostNode.f90"/>
 		<File RelativePath="..\src\Exchange\GwfExchangeMover.f90"/>
-		<File RelativePath="..\src\Exchange\NumericalExchange.f90"/></Filter>
+		<File RelativePath="..\src\Exchange\NumericalExchange.f90"/>
+		<File RelativePath="..\src\Exchange\TspExchangeMover.f90"/></Filter>
 		<Filter Name="Idm">
 		<Filter Name="selector">
 		<File RelativePath="..\src\Idm\selector\IdmChfDfnSelector.f90"/>
