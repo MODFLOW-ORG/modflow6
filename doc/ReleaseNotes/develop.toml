@@ -42,4 +42,4 @@ description = "When a horizontal flow barrier is placed between two cells, MODFL
 [[items]]
 section = "fixes"
 subsection = "parallel"
-description = "The adaptive time stepping algorithm (ATS) was not working correctly in parallel mode. This applies to GWT and GWE models, when the model time step derived from the ATS_PERCEL parameter is not uniform across processes. In such a case, a deadlock occurred and the simulation was stalled. This fix ensures that the actual calculation time steps are synchronized across all processes such that they remain in lockstep."
+description = "The adaptive time stepping algorithm (ATS) was not working correctly in parallel mode. This applies to GWT and GWE models, when the model time step derived from the ATS\\_PERCEL parameter is not uniform across processes. In such a case, a deadlock occurred and the simulation was stalled. This fix ensures that the actual calculation time steps are synchronized across all processes such that they remain in lockstep."
