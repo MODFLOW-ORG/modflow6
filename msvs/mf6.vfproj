@@ -5,11 +5,7 @@
 		<Platform Name="x64"/>
 	</Platforms>
 	<Configurations>
-<<<<<<< HEAD
 		<Configuration Name="Debug|Win32" UseCompiler="ifortCompiler" OutputDirectory="../bin" IntermediateDirectory="obj_temp\$(ProjectName)\$(PlatformName)\$(ConfigurationName)" TargetName="$(ProjectName)d">
-=======
-		<Configuration Name="Debug|Win32" UseCompiler="ifxCompiler" OutputDirectory="../bin" IntermediateDirectory="obj_temp\$(ProjectName)\$(PlatformName)\$(ConfigurationName)" TargetName="$(ProjectName)d">
->>>>>>> 1827366a3a (Abc 3 (#22))
 			<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" HeapArrays="0" Preprocess="preprocessYes" StandardWarnings="standardWarningsF08" WarnUnusedVariables="true" WarnUncalled="true" WarnInterfaces="true" OptDiagFile="optrpt" FloatingPointExceptionHandling="fpe0" Traceback="true" BoundsCheck="true" UninitializedVariablesCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebug"/>
 			<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" GenerateDebugInformation="true" ProgramDatabaseFile="$(IntDir)\$(TargetName).pdb" SubSystem="subSystemConsole"/>
 			<Tool Name="VFResourceCompilerTool"/>
@@ -80,12 +76,7 @@
 		<Filter Name="Header Files" Filter="fi;fd"/>
 		<Filter Name="Resource Files" Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"/>
 		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl">
-<<<<<<< HEAD
 			<File RelativePath="..\src\mf6.f90"/>
-=======
-			<File RelativePath="..\src\mf6.f90">
-			</File>
->>>>>>> 1827366a3a (Abc 3 (#22))
 		</Filter>
 	</Files>
 	<Globals/>
