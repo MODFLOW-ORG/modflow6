@@ -12,6 +12,7 @@ module PetscConvergenceModule
   private
 
   public :: petsc_cnvg_check, petsc_cnvg_check_internal
+  public :: petsc_ctx_create, petsc_ctx_destroy
   public :: KSPSetConvergenceTest
 
   ! TODO_MJR: this could be smaller, find a bound
@@ -31,45 +32,12 @@ module PetscConvergenceModule
     real(DP) :: rnorm_L2_init !< the initial L2 norm for (b - Ax)
     type(ConvergenceSummaryType), pointer :: cnvg_summary => null() !< detailed convergence information
     real(DP) :: t_convergence_check !< the time spent convergence checking
-  contains
-    procedure :: create
-    procedure :: destroy
   end type PetscCnvgCtxType
-
-  ! passing our context into PETSc requires an explicit interface
-  ! on KSPSetConvergenceTest, it is defined here:
-  interface
-    subroutine CnvgCheckFunc(ksp, n, rnorm, flag, context, ierr)
-      import tKSP, PetscCnvgCtxType
-      type(tKSP) :: ksp
-      PetscInt :: n
-      PetscReal :: rnorm
-      KSPConvergedReason :: flag
-      class(PetscCnvgCtxType), pointer :: context
-      PetscErrorCode :: ierr
-    end subroutine
-
-    subroutine CnvgDestroyFunc(context, ierr)
-      import PetscCnvgCtxType
-      class(PetscCnvgCtxType), pointer :: context
-      PetscErrorCode :: ierr
-    end subroutine
-
-    subroutine KSPSetConvergenceTest(ksp, check_convergence, context, &
-                                     destroy, ierr)
-      import tKSP, CnvgCheckFunc, PetscCnvgCtxType, CnvgDestroyFunc
-      type(tKSP) :: ksp
-      procedure(CnvgCheckFunc) :: check_convergence
-      class(PetscCnvgCtxType), pointer :: context
-      procedure(CnvgDestroyFunc) :: destroy
-      PetscErrorCode :: ierr
-    end subroutine
-  end interface
 
 contains
 
-  subroutine create(this, mat, settings, summary)
-    class(PetscCnvgCtxType) :: this
+  subroutine petsc_ctx_create(this, mat, settings, summary)
+    type(PetscCnvgCtxType) :: this
     Mat, pointer :: mat
     type(ImsLinearSettingsType), pointer :: settings
     type(ConvergenceSummaryType), pointer :: summary
@@ -89,7 +57,7 @@ contains
     call MatCreateVecs(mat, this%residual, PETSC_NULL_VEC, ierr)
     CHKERRQ(ierr)
 
-  end subroutine create
+  end subroutine petsc_ctx_create
 
   !> @brief Routine to check the convergence following the configuration
   !< of IMS. (called back from the PETSc solver)
@@ -98,7 +66,7 @@ contains
     PetscInt :: n !< Iteration number
     PetscReal :: rnorm_L2 !< 2-norm (preconditioned) residual value
     KSPConvergedReason :: flag !< Converged reason
-    class(PetscCnvgCtxType), pointer :: context !< context
+    type(PetscCnvgCtxType) :: context !< context (passed by value from C wrapper)
     PetscErrorCode :: ierr !< error
     ! local
     PetscReal, parameter :: min_one = -1.0
@@ -129,6 +97,16 @@ contains
 
     ! n == 0 is before the iteration starts
     if (n == 0) then
+      ! Re-create work vectors from solution to ensure matching Vec subtype
+      call VecDestroy(context%x_old, ierr)
+      CHKERRQ(ierr)
+      call VecDuplicate(x, context%x_old, ierr)
+      CHKERRQ(ierr)
+      call VecDestroy(context%delta_x, ierr)
+      CHKERRQ(ierr)
+      call VecDuplicate(x, context%delta_x, ierr)
+      CHKERRQ(ierr)
+
       context%rnorm_L2_init = rnorm0
       if (rnorm_L2 < RNORM_L2_TOL) then
         ! exact solution found
@@ -192,7 +170,7 @@ contains
   function apply_check(ctx, nit, dvmax, rnorm_inf, rnorm_L2) result(flag)
     use TdisModule, only: kstp
     use IMSLinearBaseModule, only: ims_base_testcnvg, ims_base_epfact
-    class(PetscCnvgCtxType) :: ctx
+    type(PetscCnvgCtxType) :: ctx
     integer(I4B) :: nit !< iteration number
     real(DP) :: dvmax !< infinity norm of dep. var. change
     real(DP) :: rnorm_inf !< infinity norm of residual change
@@ -233,7 +211,7 @@ contains
     PetscInt :: n !< Iteration number
     PetscReal :: rnorm_L2 !< 2-norm (preconditioned) residual value
     KSPConvergedReason :: flag !< Converged reason
-    class(PetscCnvgCtxType), pointer :: context !< context
+    type(PetscCnvgCtxType) :: context !< context (passed by value from C wrapper)
     PetscErrorCode :: ierr !< error
     ! local
     PetscReal, parameter :: min_one = -1.0
@@ -252,6 +230,16 @@ contains
 
     ! n == 0 is before the iteration starts
     if (n == 0) then
+      ! Re-create work vectors from solution to ensure matching Vec subtype
+      call VecDestroy(context%x_old, ierr)
+      CHKERRQ(ierr)
+      call VecDuplicate(x, context%x_old, ierr)
+      CHKERRQ(ierr)
+      call VecDestroy(context%delta_x, ierr)
+      CHKERRQ(ierr)
+      call VecDuplicate(x, context%delta_x, ierr)
+      CHKERRQ(ierr)
+
       context%rnorm_L2_init = rnorm0
       if (rnorm_L2 < RNORM_L2_TOL) then
         ! exact solution found
@@ -337,9 +325,9 @@ contains
     end if
 
     ! get dv and dr per local model (readonly!)
-    call VecGetArrayReadF90(dx, local_dx, ierr)
+    call VecGetArrayRead(dx, local_dx, ierr)
     CHKERRQ(ierr)
-    call VecGetArrayReadF90(res, local_res, ierr)
+    call VecGetArrayRead(res, local_res, ierr)
     CHKERRQ(ierr)
     do i = 1, summary%convnmod
       ! reset
@@ -367,9 +355,9 @@ contains
         summary%convlocr(i, iter_cnt) = idx_r
       end if
     end do
-    call VecRestoreArrayF90(dx, local_dx, ierr)
+    call VecRestoreArray(dx, local_dx, ierr)
     CHKERRQ(ierr)
-    call VecRestoreArrayF90(res, local_res, ierr)
+    call VecRestoreArray(res, local_res, ierr)
     CHKERRQ(ierr)
 
   end subroutine fill_cnvg_summary
@@ -403,7 +391,7 @@ contains
     end if
 
     ! get dv and dr per local model (readonly!)
-    call VecGetArrayReadF90(dx, local_dx, ierr)
+    call VecGetArrayRead(dx, local_dx, ierr)
     CHKERRQ(ierr)
     do i = 1, summary%convnmod
       ! reset
@@ -423,13 +411,13 @@ contains
         summary%convlocdv(i, iter_cnt) = idx_dv
       end if
     end do
-    call VecRestoreArrayF90(dx, local_dx, ierr)
+    call VecRestoreArray(dx, local_dx, ierr)
     CHKERRQ(ierr)
 
   end subroutine fill_cnvg_summary_internal
 
-  subroutine destroy(this)
-    class(PetscCnvgCtxType) :: this
+  subroutine petsc_ctx_destroy(this)
+    type(PetscCnvgCtxType) :: this
     ! local
     integer(I4B) :: ierr
 
@@ -440,6 +428,6 @@ contains
     call VecDestroy(this%residual, ierr)
     CHKERRQ(ierr)
 
-  end subroutine destroy
+  end subroutine petsc_ctx_destroy
 
 end module PetscConvergenceModule

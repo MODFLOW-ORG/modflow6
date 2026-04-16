@@ -4,6 +4,12 @@ channels = ["conda-forge"]
 platforms = ["win-64", "linux-64", "linux-aarch64", "osx-arm64", "osx-64"]
 version = "6.8.0.dev0"
 
+[activation.env]
+PKG_CONFIG_PATH = """
+C:\\dev\\externals\\test-drive\\install\\icx\\lib\\pkgconfig;C:\\Program Files (x86)\\Intel\\oneAPI\\mpi\\latest\\lib\\pkgconfig;C:\\dev\\externals\\petsc\\arch-mswin-icx\\lib\\pkgconfig;
+"""
+
+
 [dependencies]
 appdirs = "*"
 cffconvert = "*"
@@ -95,7 +101,7 @@ fix-python-style = { cmd = "pixi run check-python-lint --fix; pixi run fix-pytho
 
 # meson build/test for mf6 and zbud6
 builddir = "echo _builddir"
-setup = { cmd = "meson setup --prefix=$(pwd) --libdir=bin --bindir=bin", env = { PKG_CONFIG_PATH = "$CONDA_PREFIX/lib/pkgconfig" } }
+setup = { cmd = "meson setup --prefix=$(pwd) --libdir=bin --bindir=bin" }
 build = "meson install -C"
 test = "meson test --verbose --no-rebuild -C"
 

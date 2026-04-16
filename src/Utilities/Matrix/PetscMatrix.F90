@@ -126,7 +126,7 @@ contains
     call MatGetDiagonalBlock(this%mat, local_mat, ierr)
     CHKERRQ(ierr)
 
-    call MatGetRowIJF90(local_mat, 1, PETSC_FALSE, PETSC_FALSE, &
+    call MatGetRowIJ(local_mat, 1, PETSC_FALSE, PETSC_FALSE, &
                         nrows_local, ia_tmp, ja_tmp, &
                         done, ierr)
     CHKERRQ(ierr)
@@ -138,7 +138,7 @@ contains
       this%ja_local(i) = ja_tmp(i)
     end do
 
-    call MatRestoreRowIJF90(local_mat, 1, PETSC_FALSE, PETSC_FALSE, &
+    call MatRestoreRowIJ(local_mat, 1, PETSC_FALSE, PETSC_FALSE, &
                             nrows_local, ia_tmp, ja_tmp, done, ierr)
     CHKERRQ(ierr)
 

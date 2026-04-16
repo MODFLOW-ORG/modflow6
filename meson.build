@@ -125,13 +125,6 @@ elif is_netcdf_build
   message('NetCDF build:', is_netcdf_build)
 endif
 
-# windows options for petsc
-petsc_dir_rel = '..' /'petsc'
-petsc_dir_abs = meson.project_source_root() / '..' /'petsc'
-petsc_arch = 'arch-mswin-c-opt'
-petsc_compiled_rel = petsc_dir_rel / petsc_arch
-petsc_compiled_abs = petsc_dir_abs / petsc_arch
-
 # windows options for netcdf
 netcdf_dir_rel = '..' /'netcdf'
 netcdf_dir_abs = meson.project_source_root() / '..' / 'netcdf'
@@ -144,7 +137,7 @@ netcdff_compiled_abs = netcdf_dir_abs / netcdff_build
 
 # on windows only with intel
 if build_machine.system() == 'windows' and is_parallel_build
-  if fc_id != 'intel-cl'
+  if fc_id != 'intel-cl' and fc_id != 'intel-llvm-cl'
     error('Parallel build on Windows only with intel compiler. Terminating...')
   endif
 endif
@@ -157,15 +150,18 @@ extended_incdir = [ ]
 # load petsc, mpi, and netcdf dependencies/libraries
 if is_parallel_build or is_extended_build
   # find petsc
-  if build_machine.system() != 'windows'
-    petsc = dependency('PETSc', required : true)
-  else
-    # directly look for petsc
-    petsc = fc.find_library('libpetsc', dirs: petsc_compiled_abs / 'lib', required : true)
-  endif
+  petsc = dependency('PETSc', required : true)
   extra_cmp_args += [ '-D__WITH_PETSC__' ]
   dependencies += petsc
+  
   with_petsc = true
+  if host_machine.system() == 'windows'
+    user32 = fc.find_library('user32', required: true)
+    gdi32 = fc.find_library('gdi32', required: true)
+    advapi32 = fc.find_library('advapi32', required: true)
+    mkl = dependency('mkl', required: true)
+    dependencies += [mkl, user32, gdi32, advapi32]
+  endif
 
   # find mpi
   if is_mpich
@@ -259,31 +255,6 @@ compile_args += extra_cmp_args
 
 add_project_arguments(fc.get_supported_arguments(compile_args), language: 'fortran')
 add_project_link_arguments(fc.get_supported_arguments(link_args), language: 'fortran')
-
-if is_parallel_build and build_machine.system() == 'windows'
-  message('Compiling PETSc Fortran modules')
-  petsc_incdir = include_directories([petsc_dir_rel / 'include', petsc_compiled_rel / 'include'])
-  extended_incdir += ['..' / petsc_dir_rel / 'include', '..' / petsc_compiled_rel / 'include']
-  petsc_src = petsc_dir_abs / 'src'
-  sources_petsc = [petsc_src / 'dm/f90-mod/petscdmdamod.F90',
-                  petsc_src / 'dm/f90-mod/petscdmmod.F90',
-                  petsc_src / 'dm/f90-mod/petscdmplexmod.F90',
-                  petsc_src / 'dm/f90-mod/petscdmswarmmod.F90',
-                  petsc_src / 'ksp/f90-mod/petsckspdefmod.F90',
-                  petsc_src / 'ksp/f90-mod/petsckspmod.F90',
-                  petsc_src / 'ksp/f90-mod/petscpcmod.F90',
-                  petsc_src / 'mat/f90-mod/petscmatmod.F90',
-                  petsc_src / 'snes/f90-mod/petscsnesmod.F90',
-                  petsc_src / 'sys/f90-mod/petscsysmod.F90',
-                  petsc_src / 'sys/mpiuni/f90-mod/mpiunimod.F90',
-                  petsc_src / 'tao/f90-mod/petsctaomod.F90',
-                  petsc_src / 'ts/f90-mod/petsctsmod.F90',
-                  petsc_src / 'vec/f90-mod/petscvecmod.F90',]
-  petsc_modules = static_library('petsc_modules', 
-                                sources_petsc,
-                                dependencies: dependencies,
-                                include_directories: petsc_incdir)  
-endif
 
 # build mf6 and libmf6
 buildname = get_option('buildname')
