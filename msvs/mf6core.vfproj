@@ -676,6 +676,7 @@
 		<File RelativePath="..\src\Utilities\BudgetObject.f90"/>
 		<File RelativePath="..\src\Utilities\BudgetTerm.f90"/>
 		<File RelativePath="..\src\Utilities\CharString.f90"/>
+		<File RelativePath="..\src\Utilities\CircularBuffer.f90"/>
 		<File RelativePath="..\src\Utilities\comarg.f90"/>
 		<File RelativePath="..\src\Utilities\compilerversion.F90">
 			<FileConfiguration Name="Debug|Win32">
