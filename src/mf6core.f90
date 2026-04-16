@@ -676,15 +676,14 @@ contains
     use KindModule, only: DP
     use SimVariablesModule, only: lastStepFailed
     use SimModule, only: converge_reset
-    use TdisModule, only: kstp, kper, delt, tdis_delt_reset
-    use AdaptiveTimeStepModule, only: ats_reset_delt
+    use TdisModule, only: kstp, kper, delt, tdis_delt_reset, ats
     ! -- dummy variables
     logical, intent(out) :: finishedTrying !< boolean that indicates if no
     ! additional reruns of the time step are required
     !
     ! -- Check with ats to reset delt and keep trying
     finishedTrying = .true.
-    call ats_reset_delt(kstp, kper, lastStepFailed, delt, finishedTrying)
+    call ats%ats_reset_delt(kstp, kper, lastStepFailed, delt, finishedTrying)
     !
     if (.not. finishedTrying) then
       !

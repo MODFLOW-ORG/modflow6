@@ -325,8 +325,7 @@ contains
   !! will be no larger than dtmax calculated here.
   !<
   subroutine gwe_dt(this)
-    use TdisModule, only: kstp, kper
-    use AdaptiveTimeStepModule, only: ats_submit_delt
+    use TdisModule, only: kstp, kper, ats
     ! dummy
     class(GweModelType) :: this
     ! local
@@ -337,7 +336,7 @@ contains
     ! advection package courant stability
     call this%adv%adv_dt(dtmax, msg, this%est%porosity)
     if (msg /= '') then
-      call ats_submit_delt(kstp, kper, dtmax, msg)
+      call ats%ats_submit_delt(kstp, kper, dtmax, msg)
     end if
   end subroutine gwe_dt
 

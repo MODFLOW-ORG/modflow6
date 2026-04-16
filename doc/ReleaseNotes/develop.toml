@@ -38,3 +38,8 @@ description = "The Flow Model Interface (FMI) package for transport and tracking
 section = "fixes"
 subsection = "internal"
 description = "When a horizontal flow barrier is placed between two cells, MODFLOW checks to ensure that the cells are adjacent.  This check did not function correctly for DISU grids, in some cases, if the IDOMAIN functionality was used to remove cells.  The check for two adjacent DISU cells was corrected to work for IDOMAIN functionality."
+
+[[items]]
+section = "fixes"
+subsection = "parallel"
+description = "The adaptive time stepping algorithm (ATS) was not working correctly in parallel mode. This applies to GWT and GWE models, when the model time step derived from the ATS\\_PERCEL parameter is not uniform across processes. In such a case, a deadlock occurred and the simulation was stalled. This fix ensures that the actual calculation time steps are synchronized across all processes such that they remain in lockstep."
