@@ -125,21 +125,20 @@ contains
   subroutine init_virtual_data(this)
     class(VirtualExchangeType) :: this
     ! local
-    logical(LGP) :: is_nodem1_local
-    logical(LGP) :: is_nodem2_local
 
-    ! exchanges can be hybrid with both local and remote
-    ! fields, nodem1/2 array only local when corresponding
-    ! model sits on the same process
-    is_nodem1_local = this%v_model1%is_local
-    is_nodem2_local = this%v_model2%is_local
     call this%set(this%nexg%base(), 'NEXG', '', MAP_ALL_TYPE)
     call this%set(this%naux%base(), 'NAUX', '', MAP_ALL_TYPE)
     call this%set(this%ianglex%base(), 'IANGLEX', '', MAP_ALL_TYPE)
+
+    ! exchanges can be hybrid with both local and remote
+    ! fields, nodem1/2 array only local when corresponding
+    ! model sits on the same process, so we pass the
+    ! optional "is_local" argument to the following:
     call this%set(this%nodem1%base(), 'NODEM1', '', &
-                  MAP_ALL_TYPE, is_nodem1_local)
+                  MAP_ALL_TYPE, this%v_model1%is_local)
     call this%set(this%nodem2%base(), 'NODEM2', '', &
-                  MAP_ALL_TYPE, is_nodem2_local)
+                  MAP_ALL_TYPE, this%v_model2%is_local)
+
     call this%set(this%ihc%base(), 'IHC', '', MAP_ALL_TYPE)
     call this%set(this%cl1%base(), 'CL1', '', MAP_ALL_TYPE)
     call this%set(this%cl2%base(), 'CL2', '', MAP_ALL_TYPE)

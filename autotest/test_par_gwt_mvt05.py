@@ -6,14 +6,14 @@ test_gwt_adv01_gwtgwt.py and runs it in parallel mode.
 import pytest
 from framework import TestFramework
 
-cases = ["par_mvt03"]
+cases = ["par_mvt05"]
 
 
 @pytest.mark.parallel
 @pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
-    from test_gwt_mvt03 import build_models, check_output
+    from test_gwt_mvt05 import build_models, check_output
 
     test = TestFramework(
         name=name,

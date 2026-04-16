@@ -27,7 +27,7 @@ module TspMvtModule
   !<í
   type :: MvrTermType
     logical(LGP) :: prov_is_m1 !< true when provider is in model1, false when in model 2
-    real(DP), dimension(:), pointer, contiguous :: qty => null()  !< concentration or temperature of provider
+    real(DP), dimension(:), pointer, contiguous :: qty => null() !< concentration or temperature of provider
   end type MvrTermType
 
   type, extends(NumericalPackageType) :: TspMvtType
@@ -102,7 +102,7 @@ contains
   !> @brief Create a new mover transport object
   !<
   subroutine mvt_init(this, name_model, inunit, iout, fmi1, eqnsclfac, &
-                    depvartype, gwfmodelname1, gwfmodelname2, fmi2)
+                      depvartype, gwfmodelname1, gwfmodelname2, fmi2)
     ! -- dummy
     class(TspMvtType) :: this
     character(len=*), intent(in) :: name_model
@@ -268,20 +268,25 @@ contains
     do i = 1, nbudterm
       nlist = this%mvrbudobj%budterm(i)%nlist
       if (nlist == 0) cycle
-      
+
       ! fetch fmi package
       call this%set_fmi(i, fmi_pr, .true.)
       if (.not. associated(fmi_pr)) cycle
-      
+
+      cnew_pr => cnew1
+      if (associated(fmi_pr, this%fmi2)) then
+        cnew_pr => cnew2
+      end if
+
       call fmi_pr%get_package_index(this%mvrbudobj%budterm(i)%text2id1, ipr)
-    
+
       ! use package concentration for APT
       if (fmi_pr%iatp(ipr) /= 0) then
         concpak => fmi_pr%datp(ipr)%concpack
       end if
-       
+
       do n = 1, nlist
-        
+
         ! lak/sfr/maw/uzf id1 (provider)
         id1 = this%mvrbudobj%budterm(i)%id1(n)
         cp = DZERO
@@ -292,7 +297,7 @@ contains
           igwtnode = fmi_pr%gwfpackages(ipr)%nodelist(id1)
           cp = cnew_pr(igwtnode)
         end if
-        
+
         this%mvrterm(i)%qty(n) = cp
       end do
     end do
@@ -308,30 +313,29 @@ contains
     integer(I4B) :: irc
     integer(I4B) :: nbudterm
     type(TspFmiType), pointer :: fmi_rc !< pointer to receiver model fmi package
-    
+
     nbudterm = this%mvrbudobj%nbudterm
     do i = 1, nbudterm
       nlist = this%mvrbudobj%budterm(i)%nlist
       if (nlist == 0) cycle
-      
+
       call this%set_fmi(i, fmi_rc, .false.)
       if (.not. associated(fmi_rc)) cycle
 
       call fmi_rc%get_package_index(this%mvrbudobj%budterm(i)%text2id2, irc)
-      
+
       do n = 1, nlist
-        
+
         ! lak/sfr/maw/uzf id2 (receiver)
         id2 = this%mvrbudobj%budterm(i)%id2(n)
-        
+
         ! add the mover rate times the provider concentration into the receiver;
         ! accumulated since multiple providers can move water into the same receiver
         if (fmi_rc%iatp(irc) /= 0) then
-          write(*,*) "actual move: ", this%mvrterm(i)%qty(n), this%mvrbudobj%budterm(i)%flow(n)
           fmi_rc%datp(irc)%qmfrommvr(id2) = fmi_rc%datp(irc)%qmfrommvr(id2) - &
-                                             this%mvrbudobj%budterm(i)%flow(n) * &
-                                             this%mvrterm(i)%qty(n) * &
-                                             this%eqnsclfac
+                                            this%mvrbudobj%budterm(i)%flow(n) * &
+                                            this%mvrterm(i)%qty(n) * &
+                                            this%eqnsclfac
         end if
       end do
     end do
@@ -344,13 +348,13 @@ contains
     logical(LGP) :: set_provider !< set provider fmi when true, receiver fmi otherwise
     ! local
     character(len=LENMODELNAME) :: model_name
-    
+
     fmi => null()
     if (this%gwfmodelname1 == '' .and. this%gwfmodelname2 == '') then
       fmi => this%fmi1 ! fmi2 equals fmi1 here
       return
     end if
-    
+
     ! model name for provider is text1id1, receiver is text1id2
     if (set_provider) then
       model_name = this%mvrbudobj%budterm(ibudterm)%text1id1
@@ -692,7 +696,6 @@ contains
     call this%budobj%budgetobject_df(ncv, nbudterm, 0, 0, bddim_opt='M')
     !
     ! -- Allocate mvrterm
-    write(*,*) "allocate ", nbudterm
     allocate (this%mvrterm(nbudterm))
     !
     ! -- Go through the water mover budget terms and set up the transport
@@ -711,7 +714,7 @@ contains
                                              maxlist, .false., .false., &
                                              naux)
       this%mvrterm(i)%prov_is_m1 = (this%gwfmodelname1 == modelname1)
-      allocate (this%mvrterm(i)%qty(maxlist))      
+      allocate (this%mvrterm(i)%qty(maxlist))
       this%mvrterm(i)%qty = DNODATA
     end do
   end subroutine mvt_setup_budobj
@@ -748,7 +751,7 @@ contains
         n2 = this%mvrbudobj%budterm(i)%id2(j)
         q = this%mvrbudobj%budterm(i)%flow(j)
         cp = this%mvrterm(i)%qty(j)
-        
+
         ! calculate solute mover rate
         rate = DZERO
         if (fmi_rc%iatp(irc) /= 0) then
@@ -788,7 +791,7 @@ contains
     this%maxpackages = maxpackages
     !
     ! -- Allocate paknames
-    if (associated(this%paknames)) deallocate(this%paknames)
+    if (associated(this%paknames)) deallocate (this%paknames)
     allocate (this%paknames(this%maxpackages))
     do i = 1, this%maxpackages
       this%paknames(i) = ''

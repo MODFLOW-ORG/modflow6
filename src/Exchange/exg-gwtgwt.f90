@@ -358,7 +358,7 @@ contains
     integer(I4B), intent(in) :: kiter
     ! local
     real(DP), dimension(:), pointer, contiguous :: x_m1, x_m2
-    
+
     ! call mvt cf routine
     if (this%inmvt > 0) then
       x_m1 => null()
@@ -798,7 +798,7 @@ contains
     !
     ! -- Create and initialize the mover object
     call xmvt_cr(this%mvt, this%name, this%gwtmodel1, this%gwtmodel2, &
-                this%gwfmodelname1, this%gwfmodelname2, this%inmvt, iout)
+                 this%gwfmodelname1, this%gwfmodelname2, this%inmvt, iout)
 
   end subroutine read_mvt
 
