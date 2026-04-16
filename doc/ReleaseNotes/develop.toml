@@ -36,8 +36,8 @@ description = "The Flow Model Interface (FMI) package for transport and tracking
 
 [[items]]
 section = "fixes"
-subsection = "model"
-description = "Fixed an issue with PRT which could cause double-reporting of user-defined tracking time events."
+subsection = "internal"
+description = "When a horizontal flow barrier is placed between two cells, MODFLOW checks to ensure that the cells are adjacent.  This check did not function correctly for DISU grids, in some cases, if the IDOMAIN functionality was used to remove cells.  The check for two adjacent DISU cells was corrected to work for IDOMAIN functionality."
 
 [[items]]
 section = "fixes"
