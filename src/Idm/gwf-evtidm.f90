@@ -58,7 +58,8 @@ module GwfEvtInputModule
     'FIXED_CELL', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'if cell is dry do not apply evapotranspiration to underlying cell', & ! longname
+    'if cell is dry do not apply evapotranspiration to underlying '// &
+    'cell', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -581,7 +582,8 @@ module GwfEvtInputModule
     'PERIOD', & ! block
     'STRESS_PERIOD_DATA', & ! tag name
     'SPD', & ! fortran variable
-    'RECARRAY CELLID SURFACE RATE DEPTH PXDP PETM PETM0 AUX BOUNDNAME', & ! type
+    'RECARRAY CELLID SURFACE RATE DEPTH PXDP PETM PETM0 AUX '// &
+    'BOUNDNAME', & ! type
     'MAXBOUND', & ! shape
     '', & ! longname
     .true., & ! required

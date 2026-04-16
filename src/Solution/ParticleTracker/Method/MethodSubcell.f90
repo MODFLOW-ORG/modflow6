@@ -42,7 +42,7 @@ contains
       event%isc = particle%itrdomain(LEVEL_SUBFEATURE)
       event%exit_face = particle%iboundary(LEVEL_SUBFEATURE)
     end select
-    call this%events%dispatch(particle, event)
+    call this%events%broadcast(particle, event)
   end subroutine subcellexit
 
   !> @brief Get the subcell method's level.

@@ -228,7 +228,7 @@ contains
     type is (CellExitEventType)
       event%exit_face = particle%iboundary(LEVEL_FEATURE)
     end select
-    call this%events%dispatch(particle, event)
+    call this%events%broadcast(particle, event)
     if (particle%icycwin == 0) then
       deallocate (event)
       return

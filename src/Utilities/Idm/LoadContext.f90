@@ -23,12 +23,16 @@ module LoadContextModule
   public :: LoadContextType
   public :: ReadStateVarType
   public :: rsv_name
+  public :: is_keystring_period
 
   enum, bind(C)
     enumerator :: LOAD_UNDEF = 0 !< undefined load type
     enumerator :: LIST = 1 !< list (structarray) based load
     enumerator :: LAYERARRAY = 2 !< readasarrays load
     enumerator :: GRIDARRAY = 3 !< readarraygrid load
+    enumerator :: KEYSTRING = 4 !< basic keystring period block load
+    ! ADVANCED: pending future development
+    enumerator :: ADVANCED = 5 !< advanced keystring period block load
   end enum
 
   enum, bind(C)
@@ -60,7 +64,7 @@ module LoadContextModule
   !<
   type :: LoadContextType
     character(len=LENVARNAME) :: blockname !< load block name
-    character(len=LENVARNAME) :: named_bound !< name of dimensions relevant to load
+    character(len=LENVARNAME), allocatable :: named_bound(:) !< dimension variable names to sum for maxbound
     integer(I4B), pointer :: naux => null() !< number of auxiliary variables
     integer(I4B), pointer :: maxbound => null() !< value associated with named_bound
     integer(I4B), pointer :: boundnames => null() !< are bound names optioned
@@ -70,6 +74,7 @@ module LoadContextModule
     integer(I4B), pointer :: nodes => null() !< nodes associated with model shape
     integer(I4B) :: loadtype !< enum load type
     integer(I4B) :: ctxtype !< enum context type
+    integer(I4B) :: nleading = 0 !< count of leading (pre-keystring) columns; LIST packages only
     logical(LGP) :: readarray !< is this an array based load
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: auxname_cst => null() !< array of auxiliary names
@@ -88,6 +93,7 @@ module LoadContextModule
     procedure :: tags
     procedure :: in_scope
     procedure :: set_params
+    procedure :: keystring_member_names
     procedure :: rsv_alloc
     procedure :: destroy
   end type LoadContextType
@@ -102,7 +108,7 @@ contains
     class(LoadContextType) :: this
     type(ModflowInputType), intent(in) :: mf6_input
     character(len=*), optional, intent(in) :: blockname
-    character(len=*), optional, intent(in) :: named_bound
+    character(len=*), dimension(:), optional, intent(in) :: named_bound
     type(InputParamDefinitionType), pointer :: idt
     integer(I4B) :: n
 
@@ -147,20 +153,40 @@ contains
     end if
 
     if (present(named_bound)) then
-      this%named_bound = named_bound
-      call upcase(this%named_bound)
+      allocate (this%named_bound(size(named_bound)))
+      do n = 1, size(named_bound)
+        this%named_bound(n) = named_bound(n)
+        call upcase(this%named_bound(n))
+      end do
     else
-      this%named_bound = 'MAXBOUND'
+      allocate (this%named_bound(1))
+      this%named_bound(1) = 'MAXBOUND'
     end if
 
-    ! determine if list based load
+    ! determine aggregate load type
     do n = 1, size(mf6_input%block_dfns)
       if (mf6_input%block_dfns(n)%blockname == this%blockname) then
         if (mf6_input%block_dfns(n)%aggregate) then
-          this%loadtype = LIST
+          if (this%blockname == 'PERIOD' .and. &
+              is_keystring_period(mf6_input)) then
+            this%loadtype = KEYSTRING
+          else
+            this%loadtype = LIST
+          end if
+          exit
         end if
       end if
     end do
+
+    ! check if KEYSTRING type is ADVANCED package
+    if (this%loadtype == KEYSTRING) then
+      do n = 1, size(mf6_input%block_dfns)
+        if (mf6_input%block_dfns(n)%blockname == 'PACKAGEDATA') then
+          this%loadtype = ADVANCED
+          exit
+        end if
+      end do
+    end if
 
     ! determine if array based load
     if (this%loadtype == LOAD_UNDEF) then
@@ -191,8 +217,14 @@ contains
   !> @brief allocate scalars
   !<
   subroutine allocate_scalars(this)
-    use MemoryManagerModule, only: mem_setptr
+    use MemoryManagerModule, only: mem_setptr, get_isize
+    use DefinitionSelectModule, only: get_aggregate_definition_type, &
+                                      idt_parse_rectype
     class(LoadContextType) :: this
+    type(InputParamDefinitionType), pointer :: aidt, ks_aidt
+    character(len=LINELENGTH), allocatable :: cols(:), ks_cols(:)
+    integer(I4B) :: nmembers, ncol, isize
+    integer(I4B), pointer :: maxbound_ptr
 
     if (this%ctxtype == EXCHANGE .or. &
         this%ctxtype == MODELPKG .or. &
@@ -202,9 +234,23 @@ contains
       call setval(this%naux, 'NAUX', this%mf6_input%mempath)
       call setval(this%ncpl, 'NCPL', this%mf6_input%mempath)
       call setval(this%nodes, 'NODES', this%mf6_input%mempath)
-      call setval(this%maxbound, this%named_bound, this%mf6_input%mempath)
       call setval(this%boundnames, 'BOUNDNAMES', this%mf6_input%mempath)
       call setval(this%iprpak, 'IPRPAK', this%mf6_input%mempath)
+
+      ! resolve maxbound: sum all named_bound variable values
+      allocate (this%maxbound)
+      this%maxbound = 0
+      call sum_named_bounds(this%named_bound, this%mf6_input%mempath, &
+                            this%maxbound)
+      ! fallback: try MAXBOUND directly when named_bound tokens yield nothing
+      if (this%maxbound == 0) then
+        call get_isize('MAXBOUND', this%mf6_input%mempath, isize)
+        if (isize > -1) then
+          call mem_setptr(maxbound_ptr, 'MAXBOUND', this%mf6_input%mempath)
+          this%maxbound = maxbound_ptr
+          nullify (maxbound_ptr)
+        end if
+      end if
 
       ! reset nbound
       this%nbound = 0
@@ -224,6 +270,27 @@ contains
       end if
 
       if (this%nodes == 0) this%nodes = product(this%mshape)
+
+      ! scale maxbound by keystring member count; fall back to nodes * nmembers
+      ! when no DIMENSIONS block is present (e.g. TVK/TVS)
+      if (this%loadtype == KEYSTRING .or. &
+          this%loadtype == ADVANCED) then
+        ! count members from the KEYSTRING aggregate type definition, which
+        ! names exactly the dispatchable members
+        nmembers = 0
+        aidt => get_aggregate_definition_type(this%mf6_input%aggregate_dfns, &
+                                              this%mf6_input%component_type, &
+                                              this%mf6_input%subcomponent_type, &
+                                              'PERIOD')
+        call idt_parse_rectype(aidt, cols, ncol)
+        ks_aidt => find_setting_aggregate(this%mf6_input, cols, ncol)
+        if (associated(ks_aidt)) then
+          call idt_parse_rectype(ks_aidt, ks_cols, nmembers)
+        end if
+        if (allocated(cols)) deallocate (cols)
+        if (allocated(ks_cols)) deallocate (ks_cols)
+        if (this%maxbound == 0) this%maxbound = this%nodes * nmembers
+      end if
     end if
   end subroutine allocate_scalars
 
@@ -248,17 +315,24 @@ contains
         call mem_allocate(cellid, 0, 0, 'CELLID', this%mf6_input%mempath)
       end if
 
-      ! allocate nodeulist
-      if (this%loadtype /= GRIDARRAY) then
+      ! allocate nodeulist for list and layerarray packages only;
+      ! keystring and advanced packages do not use a flat nodeulist
+      if (this%loadtype /= GRIDARRAY .and. &
+          this%loadtype /= KEYSTRING .and. &
+          this%loadtype /= ADVANCED) then
         call mem_allocate(nodeulist, 0, 'NODEULIST', this%mf6_input%mempath)
       end if
 
-      ! set pointers to arrays
-      call setptr(this%auxname_cst, 'AUXILIARY', &
-                  this%mf6_input%mempath, LENAUXNAME)
-      call setptr(this%boundname_cst, 'BOUNDNAME', &
-                  this%mf6_input%mempath, LENBOUNDNAME)
-      call setptr(this%auxvar, this%mf6_input%mempath)
+      ! set pointers to aux/bound arrays for list and layerarray packages only;
+      ! keystring and advanced packages manage aux through struct array columns
+      if (this%loadtype /= KEYSTRING .and. &
+          this%loadtype /= ADVANCED) then
+        call setptr(this%auxname_cst, 'AUXILIARY', &
+                    this%mf6_input%mempath, LENAUXNAME)
+        call setptr(this%boundname_cst, 'BOUNDNAME', &
+                    this%mf6_input%mempath, LENBOUNDNAME)
+        call setptr(this%auxvar, this%mf6_input%mempath)
+      end if
 
     else if (this%ctxtype == EXCHANGE) then
       ! set pointers to arrays
@@ -449,9 +523,11 @@ contains
         in_scope = .true.
       case ('SSM')
         if (tagname == 'MIXED') in_scope = .true.
+      case ('SPC', 'SPCA')
+        in_scope = .true.
       case default
         errmsg = 'LoadContext in_scope needs new check for: '// &
-                 trim(idt%tagname)
+                 trim(mf6_input%subcomponent_type)//'/'//trim(idt%tagname)
         call store_error(errmsg, .true.)
       end select
     end if
@@ -478,12 +554,14 @@ contains
     character(len=LINELENGTH), dimension(:), allocatable :: tags
     character(len=LINELENGTH), dimension(:), allocatable :: cols
     integer(I4B) :: keepcnt, iparam, nparam
-    logical(LGP) :: keep
+    logical(LGP) :: keep, tag_found
 
     ! initialize
     keepcnt = 0
 
-    if (this%loadtype == LIST) then
+    if (this%loadtype == LIST .or. &
+        this%loadtype == KEYSTRING .or. &
+        this%loadtype == ADVANCED) then
       ! get aggregate param definition for period block
       aidt => &
         get_aggregate_definition_type(this%mf6_input%aggregate_dfns, &
@@ -498,16 +576,23 @@ contains
 
     ! allocate dfn input params
     do iparam = 1, nparam
-      if (this%loadtype == LIST) then
+      if (this%loadtype == LIST .or. &
+          this%loadtype == KEYSTRING .or. &
+          this%loadtype == ADVANCED) then
+        ! use found so keystring placeholders are silently skipped
         idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                          this%mf6_input%component_type, &
                                          this%mf6_input%subcomponent_type, &
-                                         this%blockname, cols(iparam), '')
+                                         this%blockname, cols(iparam), '', &
+                                         found=tag_found)
       else
+        tag_found = .true.
         idt => this%mf6_input%param_dfns(iparam)
       end if
 
-      if (idt%blockname /= this%blockname) then
+      if (.not. tag_found) then
+        keep = .false.
+      else if (idt%blockname /= this%blockname) then
         keep = .false.
       else
         keep = this%in_scope(this%mf6_input, this%blockname, idt%tagname)
@@ -522,6 +607,12 @@ contains
 
     ! update nparam
     nparam = keepcnt
+
+    ! for LIST/KEYSTRING/ADVANCED packages record the leading-column count;
+    ! this is the count of aggregate columns before the keystring placeholder
+    if (this%loadtype == LIST .or. &
+        this%loadtype == KEYSTRING .or. &
+        this%loadtype == ADVANCED) this%nleading = nparam
 
     ! allocate filtcols
     allocate (this%params(nparam))
@@ -562,6 +653,8 @@ contains
   subroutine destroy(this)
     class(LoadContextType) :: this
 
+    if (allocated(this%named_bound)) deallocate (this%named_bound)
+
     if (this%ctxtype == EXCHANGE .or. &
         this%ctxtype == STRESSPKG) then
       ! deallocate local
@@ -586,6 +679,170 @@ contains
     nullify (this%auxvar)
     nullify (this%mshape)
   end subroutine destroy
+
+  !> @brief Return the KEYSTRING aggregate for the SETTING token in rec_cols, or null().
+  !<
+  function find_setting_aggregate(mf6_input, rec_cols, nrec_col) result(ks_aidt)
+    use InputOutputModule, only: upcase
+    use DefinitionSelectModule, only: idt_datatype
+    type(ModflowInputType), intent(in) :: mf6_input
+    character(len=LINELENGTH), intent(in) :: rec_cols(:)
+    integer(I4B), intent(in) :: nrec_col
+    type(InputParamDefinitionType), pointer :: ks_aidt
+    character(len=LINELENGTH) :: token, tagname
+    integer(I4B) :: m, n, ilen
+    ks_aidt => null()
+    do m = 1, nrec_col
+      token = trim(rec_cols(m))
+      call upcase(token)
+      ilen = len_trim(token)
+      if (ilen < 8) cycle
+      if (token(ilen - 6:ilen) /= 'SETTING') cycle
+      do n = 1, size(mf6_input%aggregate_dfns)
+        tagname = mf6_input%aggregate_dfns(n)%tagname
+        call upcase(tagname)
+        if (trim(tagname) == trim(token)) then
+          ks_aidt => mf6_input%aggregate_dfns(n)
+          if (idt_datatype(ks_aidt) /= 'KEYSTRING') ks_aidt => null()
+          exit
+        end if
+      end do
+      exit
+    end do
+  end function find_setting_aggregate
+
+  !> @brief Append sub-member column names from a RECORD compound entry to member_names.
+  !<
+  subroutine expand_record_submembers(mf6_input, rec_idt, member_names, nmembers)
+    use InputOutputModule, only: upcase
+    use ArrayHandlersModule, only: expandarray
+    use DefinitionSelectModule, only: idt_parse_rectype, idt_datatype
+    type(ModflowInputType), intent(in) :: mf6_input
+    type(InputParamDefinitionType), pointer, intent(in) :: rec_idt
+    character(len=LINELENGTH), allocatable, intent(inout) :: member_names(:)
+    integer(I4B), intent(inout) :: nmembers
+    type(InputParamDefinitionType), pointer :: sub_idt
+    character(len=LINELENGTH), allocatable :: sub_cols(:)
+    character(len=LINELENGTH) :: token, tagname
+    integer(I4B) :: k, j, nsub_col
+    call idt_parse_rectype(rec_idt, sub_cols, nsub_col)
+    do k = 1, nsub_col
+      token = trim(sub_cols(k))
+      call upcase(token)
+      do j = 1, size(mf6_input%param_dfns)
+        sub_idt => mf6_input%param_dfns(j)
+        if (sub_idt%blockname /= 'PERIOD') cycle
+        tagname = sub_idt%tagname
+        call upcase(tagname)
+        if (trim(tagname) /= trim(token)) cycle
+        if (idt_datatype(sub_idt) == 'RECORD') cycle
+        nmembers = nmembers + 1
+        call expandarray(member_names)
+        member_names(nmembers) = trim(sub_idt%tagname)
+        exit
+      end do
+    end do
+    if (allocated(sub_cols)) deallocate (sub_cols)
+  end subroutine expand_record_submembers
+
+  !> @brief Return .true. if mf6_input's PERIOD block uses keystring dispatch.
+  !<
+  function is_keystring_period(mf6_input) result(res)
+    use DefinitionSelectModule, only: get_aggregate_definition_type, &
+                                      idt_parse_rectype
+    type(ModflowInputType), intent(in) :: mf6_input
+    logical(LGP) :: res, has_period
+    type(InputParamDefinitionType), pointer :: aidt, ks_aidt
+    character(len=LINELENGTH), allocatable :: cols(:)
+    integer(I4B) :: n, ncol
+    res = .false.
+    has_period = .false.
+    do n = 1, size(mf6_input%block_dfns)
+      if (mf6_input%block_dfns(n)%blockname == 'PERIOD') then
+        has_period = .true.
+      end if
+    end do
+    if (.not. has_period) return
+    aidt => get_aggregate_definition_type(mf6_input%aggregate_dfns, &
+                                          mf6_input%component_type, &
+                                          mf6_input%subcomponent_type, &
+                                          'PERIOD')
+    call idt_parse_rectype(aidt, cols, ncol)
+    if (ncol >= 2) then
+      ks_aidt => find_setting_aggregate(mf6_input, cols, ncol)
+      if (associated(ks_aidt)) res = .true.
+    end if
+    if (allocated(cols)) deallocate (cols)
+  end function is_keystring_period
+
+  !> @brief Return keystring member column names for the PERIOD block
+  !!
+  !! Column order follows the KEYSTRING aggregate definition token list,
+  !! which is the single authoritative source of order — independent of
+  !! the order in which individual params appear in param_dfns.
+  !! For each token in the aggregate:
+  !!   - RECORD compound group: sub-members are expanded in RECORD type order
+  !!   - direct-dispatch param: appended as-is
+  !<
+  subroutine keystring_member_names(this, member_names, nmembers)
+    use InputOutputModule, only: upcase
+    use ArrayHandlersModule, only: expandarray
+    use DefinitionSelectModule, only: idt_parse_rectype, idt_datatype, &
+                                      get_aggregate_definition_type
+    class(LoadContextType) :: this
+    character(len=LINELENGTH), allocatable, intent(out) :: member_names(:)
+    integer(I4B), intent(out) :: nmembers
+    type(InputParamDefinitionType), pointer :: aidt, ks_aidt, idt
+    character(len=LINELENGTH), allocatable :: rec_cols(:), ks_cols(:)
+    character(len=LINELENGTH) :: rec_token, tagname
+    integer(I4B) :: m, n, nrec_col, nks_col
+
+    nmembers = 0
+
+    ! get RECARRAY aggregate for period block and parse its column tokens
+    aidt => get_aggregate_definition_type(this%mf6_input%aggregate_dfns, &
+                                          this%mf6_input%component_type, &
+                                          this%mf6_input%subcomponent_type, &
+                                          this%blockname)
+    call idt_parse_rectype(aidt, rec_cols, nrec_col)
+
+    ! find the KEYSTRING aggregate for the SETTING token
+    ks_aidt => find_setting_aggregate(this%mf6_input, rec_cols, nrec_col)
+    if (allocated(rec_cols)) deallocate (rec_cols)
+    if (.not. associated(ks_aidt)) return
+
+    ! parse the KEYSTRING aggregate to get member token list — canonical order
+    call idt_parse_rectype(ks_aidt, ks_cols, nks_col)
+
+    ! walk the keystring token list in aggregate order
+    do m = 1, nks_col
+      rec_token = trim(ks_cols(m))
+      call upcase(rec_token)
+
+      ! locate matching param_dfns entry for this token
+      do n = 1, size(this%mf6_input%param_dfns)
+        if (this%mf6_input%param_dfns(n)%blockname /= 'PERIOD') cycle
+        tagname = this%mf6_input%param_dfns(n)%tagname
+        call upcase(tagname)
+        if (trim(tagname) /= trim(rec_token)) cycle
+
+        idt => this%mf6_input%param_dfns(n)
+        if (idt_datatype(idt) == 'RECORD') then
+          ! compound group: expand sub-members in RECORD type order
+          call expand_record_submembers(this%mf6_input, idt, member_names, &
+                                        nmembers)
+        else
+          ! direct-dispatch param
+          nmembers = nmembers + 1
+          call expandarray(member_names)
+          member_names(nmembers) = trim(this%mf6_input%param_dfns(n)%tagname)
+        end if
+        exit
+      end do
+    end do
+
+    if (allocated(ks_cols)) deallocate (ks_cols)
+  end subroutine keystring_member_names
 
   !> @brief create read state variable name
   !<
@@ -685,6 +942,31 @@ contains
       end do
     end do
   end subroutine allocate_dbl2d
+
+  !> @brief sum named dimension variables from mempath
+  !!
+  !! Loops over each name in named_bound and accumulates its value
+  !! from mempath into total.  Variables not present in mempath are
+  !! silently skipped.
+  !!
+  !<
+  subroutine sum_named_bounds(named_bound, mempath, total)
+    use MemoryManagerModule, only: mem_setptr, get_isize
+    character(len=*), dimension(:), intent(in) :: named_bound
+    character(len=*), intent(in) :: mempath
+    integer(I4B), intent(inout) :: total
+    integer(I4B), pointer :: dimptr
+    integer(I4B) :: n, isize
+
+    do n = 1, size(named_bound)
+      call get_isize(trim(named_bound(n)), mempath, isize)
+      if (isize > -1) then
+        call mem_setptr(dimptr, trim(named_bound(n)), mempath)
+        total = total + dimptr
+        nullify (dimptr)
+      end if
+    end do
+  end subroutine sum_named_bounds
 
   !> @brief allocate intptr and update from input contextset intptr to varname
   !!

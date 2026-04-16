@@ -15,7 +15,6 @@ module GwfNpfModule
   use GwfVscModule, only: GwfVscType
   use Xt3dModule, only: Xt3dType
   use SpdisWorkArrayModule, only: SpdisWorkArrayType
-  use InputOutputModule, only: GetUnit, openfile
   use TvkModule, only: TvkType, tvk_cr
   use MemoryManagerModule, only: mem_allocate, mem_reallocate, &
                                  mem_deallocate, mem_setptr, &
@@ -1358,15 +1357,17 @@ contains
     use MemoryManagerModule, only: mem_setptr, get_isize
     use MemoryManagerExtModule, only: mem_set_value
     use CharacterStringModule, only: CharacterStringType
-    use GwfNpfInputModule, only: GwfNpfParamFoundType
     use SourceCommonModule, only: filein_fname
+    use GwfNpfInputModule, only: GwfNpfParamFoundType
     ! -- dummy
     class(GwfNpftype) :: this
     ! -- locals
     character(len=LENVARNAME), dimension(3) :: cellavg_method = &
       &[character(len=LENVARNAME) :: 'LOGARITHMIC', 'AMT-LMK', 'AMT-HMK']
     type(GwfNpfParamFoundType) :: found
+    type(CharacterStringType), dimension(:), pointer, contiguous :: tvk6_mempaths
     character(len=LINELENGTH) :: tvk6_filename
+    character(len=LENMEMPATH) :: tvk6_mempath
     !
     ! -- update defaults with idm sourced values
     call mem_set_value(this%iprflow, 'IPRFLOW', this%input_mempath, found%iprflow)
@@ -1415,11 +1416,13 @@ contains
       this%iasym = 0
     end if
     !
-    ! -- enforce 0 or 1 TVK6_FILENAME entries in option block
-    if (filein_fname(tvk6_filename, 'TVK6_FILENAME', this%input_mempath, &
-                     this%input_fname)) then
-      call openfile(this%intvk, this%iout, tvk6_filename, 'TVK')
-      call tvk_cr(this%tvk, this%name_model, this%intvk, this%iout)
+    ! -- TVK6 subpackage
+    if (filein_fname(tvk6_filename, 'TVK6_FILENAME', &
+                     this%input_mempath, this%input_fname)) then
+      call mem_setptr(tvk6_mempaths, 'TVK6_MEMPATH', this%input_mempath)
+      tvk6_mempath = tvk6_mempaths(1)
+      this%intvk = 1 ! tvk active
+      call tvk_cr(this%tvk, this%name_model, tvk6_mempath, this%intvk, this%iout)
     end if
     !
     ! -- verify ALTERNATIVE_CELL_AVERAGING input value is supported

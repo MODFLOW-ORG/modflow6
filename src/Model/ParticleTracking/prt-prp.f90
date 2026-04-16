@@ -28,7 +28,7 @@ module PrtPrpModule
   implicit none
 
   private
-  public :: PrtPrpType
+  public :: PrtPrpType, ExgPrtPrpType
   public :: prp_create
 
   character(len=LENFTYPE) :: ftype = 'PRP'
@@ -58,7 +58,7 @@ module PrtPrpModule
     real(DP), pointer :: offset => null() !< release time offset
     real(DP), pointer :: stoptime => null() !< stop time for all release points
     real(DP), pointer :: stoptraveltime => null() !< stop travel time for all points
-    !
+    ! members
     type(PrtFmiType), pointer :: fmi => null() !< flow model interface
     type(ParticleStoreType), pointer :: particles => null() !< particle store
     type(ParticleReleaseScheduleType), pointer :: schedule => null() !< particle release schedule
@@ -98,11 +98,32 @@ module PrtPrpModule
     procedure, public :: bnd_df_obs => prp_df_obs
   end type PrtPrpType
 
+  !> @brief Exchange PRP package. A variant of the normal PRP package
+  !! that doesn't read from input files but instead receives particle
+  !! transfers from coupled models while preserving the pattern where
+  !! PRP packages own particles. Call it "Particle Registry Package"?
+  type, extends(PrtPrpType) :: ExgPrtPrpType
+  contains
+    procedure :: prp_allocate_scalars => exg_prp_allocate_scalars
+    procedure :: prp_allocate_arrays => exg_prp_allocate_arrays
+    procedure :: source_dimensions => exg_prp_dimensions
+    procedure :: source_options => exg_prp_options
+    procedure :: bnd_ar => exg_prp_ar
+    procedure :: bnd_rp => exg_prp_rp
+    procedure :: bnd_ad => exg_prp_ad
+    procedure :: bnd_cq_simrate => exg_prp_cq_simrate
+    procedure :: bnd_bd => exg_prp_bd
+    procedure :: bnd_ot_model_flows => exg_prp_ot_model_flows
+  end type ExgPrtPrpType
 contains
 
-  !> @brief Create a new particle release point package
+  !> @brief Create a new particle release point package.
+  !!
+  !! Creates either a standard PRP (reads from input file) or an exchange
+  !! PRP (programmatically populated). The type is determined by whether
+  !! input_mempath is provided: if present, standard; if absent, exchange.
   subroutine prp_create(packobj, id, ibcnum, inunit, iout, namemodel, &
-                        pakname, input_mempath, fmi)
+                        pakname, fmi, input_mempath)
     ! dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -111,41 +132,60 @@ contains
     integer(I4B), intent(in) :: iout
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
-    character(len=*), intent(in) :: input_mempath
+    character(len=*), intent(in), optional :: input_mempath
     type(PrtFmiType), pointer :: fmi
     ! local
     type(PrtPrpType), pointer :: prpobj
+    type(ExgPrtPrpType), pointer :: exgprpobj
     ! formats
     character(len=*), parameter :: fmtheader = &
       "(1x, /1x, 'PRP PARTICLE RELEASE POINT PACKAGE', &
        &' INPUT READ FROM MEMPATH: ', a, /)"
+    character(len=*), parameter :: fmtexgheader = &
+      "(1x, /1x, 'PRP-EXG EXCHANGE PARTICLE RELEASE POINT PACKAGE', &
+       &' (PROGRAMMATIC INPUT)', /)"
 
-    ! allocate the object and assign values to object variables
-    allocate (prpobj)
-    packobj => prpobj
+    if (present(input_mempath)) then
+      ! standard PRP
+      allocate (prpobj)
+      packobj => prpobj
 
-    ! create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype, input_mempath)
-    prpobj%text = text
+      call packobj%set_names(ibcnum, namemodel, pakname, ftype, input_mempath)
+      prpobj%text = text
 
-    ! allocate scalars
-    call prpobj%prp_allocate_scalars()
+      call prpobj%prp_allocate_scalars()
+      call packobj%pack_initialize()
 
-    ! initialize package
-    call packobj%pack_initialize()
+      packobj%inunit = inunit
+      packobj%iout = iout
+      packobj%id = id
+      packobj%ibcnum = ibcnum
+      packobj%ncolbnd = 4
+      packobj%iscloc = 1
+      prpobj%fmi => fmi
 
-    packobj%inunit = inunit
-    packobj%iout = iout
-    packobj%id = id
-    packobj%ibcnum = ibcnum
-    packobj%ncolbnd = 4
-    packobj%iscloc = 1
+      if (inunit > 0) write (iout, fmtheader) input_mempath
+    else
+      ! exchange PRP
+      allocate (exgprpobj)
+      packobj => exgprpobj
 
-    ! store pointer to flow model interface
-    prpobj%fmi => fmi
+      call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+      exgprpobj%text = text
 
-    ! if prp is enabled, print a message identifying it
-    if (inunit > 0) write (iout, fmtheader) input_mempath
+      call exgprpobj%prp_allocate_scalars()
+      call packobj%pack_initialize()
+
+      packobj%inunit = inunit
+      packobj%iout = iout
+      packobj%id = id
+      packobj%ibcnum = ibcnum
+      packobj%ncolbnd = 4
+      packobj%iscloc = 1
+      exgprpobj%fmi => fmi
+
+      if (iout > 0) write (iout, fmtexgheader)
+    end if
   end subroutine prp_create
 
   !> @brief Deallocate memory
@@ -305,9 +345,7 @@ contains
 
   !> @ brief Allocate and read period data
   subroutine prp_ar(this)
-    ! dummy variables
     class(PrtPrpType), intent(inout) :: this
-    ! local variables
     integer(I4B) :: n
 
     call this%obs%obs_ar()
@@ -321,6 +359,60 @@ contains
       this%nodelist(n) = this%rptnode(n)
     end do
   end subroutine prp_ar
+
+  !> @brief Allocate scalars for exchange PRP.
+  !!
+  !! The exchange PRP is a headless package (no input file) but BndExtType
+  !! expects certain variables to exist in the input context (IPER, IONPER)
+  !! so we need to manually create them before calling the parent procedure.
+  subroutine exg_prp_allocate_scalars(this)
+    use MemoryManagerModule, only: mem_allocate
+    class(ExgPrtPrpType) :: this
+    integer(I4B), pointer :: iper, ionper
+
+    this%input_mempath = trim(this%memoryPath)//'-INPUT'
+
+    call mem_allocate(iper, 'IPER', this%input_mempath)
+    call mem_allocate(ionper, 'IONPER', this%input_mempath)
+
+    ! set iper = 0. this forces BndExtType%bnd_rp to
+    ! return early, since iper will never match kper.
+    iper = 0
+    ionper = 0
+
+    call this%PrtPrpType%prp_allocate_scalars()
+  end subroutine exg_prp_allocate_scalars
+
+  !> @brief Allocate arrays for exchange PRP.
+  !!
+  !! BndExtType expects certain array variables to exist in the input context
+  !! (CELLID, NODEULIST, BOUNDNAME, AUXVAR). This method manually creates
+  !! zero-sized arrays before calling the parent's allocate_arrays.
+  subroutine exg_prp_allocate_arrays(this, nodelist, auxvar)
+    use MemoryManagerModule, only: mem_allocate
+    use CharacterStringModule, only: CharacterStringType
+    class(ExgPrtPrpType) :: this
+    integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist
+    real(DP), dimension(:, :), pointer, contiguous, optional :: auxvar
+    ! local
+    integer(I4B), dimension(:, :), pointer, contiguous :: cellid
+    integer(I4B), dimension(:), pointer, contiguous :: nodeulist
+    type(CharacterStringType), dimension(:), pointer, contiguous :: boundname
+    real(DP), dimension(:, :), pointer, contiguous :: auxvar_input
+
+    call mem_allocate(cellid, this%dis%ndim, 0, 'CELLID', this%input_mempath)
+    call mem_allocate(nodeulist, 0, 'NODEULIST', this%input_mempath)
+    call mem_allocate(boundname, LENBOUNDNAME, 0, 'BOUNDNAME', &
+                      this%input_mempath)
+    call mem_allocate(auxvar_input, 0, 0, 'AUXVAR', this%input_mempath)
+
+    call this%PrtPrpType%prp_allocate_arrays(nodelist, auxvar)
+  end subroutine exg_prp_allocate_arrays
+
+  !> @ brief No-op AR method override for exchange PRP.
+  subroutine exg_prp_ar(this)
+    class(ExgPrtPrpType), intent(inout) :: this
+  end subroutine exg_prp_ar
 
   !> @brief Advance a time step and release particles if scheduled.
   subroutine prp_ad(this)
@@ -394,6 +486,40 @@ contains
       end do
     end do
   end subroutine prp_ad
+
+  !> @brief No-op AD method override for exchange PRP.
+  subroutine exg_prp_ad(this)
+    class(ExgPrtPrpType) :: this
+  end subroutine exg_prp_ad
+
+  !> @brief No-op flow calculation for exchange PRP.
+  !!
+  !! Exchange PRP particles are transferred from other models and already
+  !! active, so their mass is already accounted for in the STORAGE term.
+  subroutine exg_prp_cq_simrate(this, hnew, flowja, imover)
+    class(ExgPrtPrpType) :: this
+    real(DP), dimension(:), intent(in) :: hnew
+    real(DP), dimension(:), intent(inout) :: flowja
+    integer(I4B), intent(in) :: imover
+  end subroutine exg_prp_cq_simrate
+
+  !> @brief No-op budget method for exchange PRP.
+  !! Likewise about the STORAGE term accounting.
+  subroutine exg_prp_bd(this, model_budget)
+    use BudgetModule, only: BudgetType
+    class(ExgPrtPrpType) :: this
+    type(BudgetType), intent(inout) :: model_budget
+  end subroutine exg_prp_bd
+
+  !> @brief No-op flow output method for exchange PRP.
+  !! No contribution to budget, no need to write output.
+  subroutine exg_prp_ot_model_flows(this, icbcfl, ibudfl, icbcun, imap)
+    class(ExgPrtPrpType) :: this
+    integer(I4B), intent(in) :: icbcfl
+    integer(I4B), intent(in) :: ibudfl
+    integer(I4B), intent(in) :: icbcun
+    integer(I4B), dimension(:), optional, intent(in) :: imap
+  end subroutine exg_prp_ot_model_flows
 
   !> @brief Log the release scheduled for this time step.
   subroutine log_release(this)
@@ -641,6 +767,11 @@ contains
     end do
   end subroutine prp_rp
 
+  !> @ brief No-op RP method override for exchange PRP.
+  subroutine exg_prp_rp(this)
+    class(ExgPrtPrpType), intent(inout) :: this
+  end subroutine exg_prp_rp
+
   !> @ brief Calculate flow between package and model.
   subroutine prp_cq_simrate(this, hnew, flowja, imover)
     ! modules
@@ -727,10 +858,10 @@ contains
       &solved varies from 0 to 1, tolerance values much less than 1 &
       &typically give the best results.')"
 
-    ! -- source base class options
+    ! source base class options
     call this%BndExtType%source_options()
 
-    ! -- update defaults from input context
+    ! update defaults from input context
     call mem_set_value(this%stoptime, 'STOPTIME', this%input_mempath, &
                        found%stoptime)
     call mem_set_value(this%stoptraveltime, 'STOPTRAVELTIME', &
@@ -853,6 +984,13 @@ contains
     this%schedule => create_release_schedule(tolerance=this%rttol)
   end subroutine prp_options
 
+  !> @ brief No-op options method override for exchange PRP.
+  !! Just creates an empty release schedule.
+  subroutine exg_prp_options(this)
+    class(ExgPrtPrpType), intent(inout) :: this
+    this%schedule => create_release_schedule(tolerance=this%rttol)
+  end subroutine exg_prp_options
+
   !> @ brief Log options specific to PrtPrpType
   subroutine prp_log_options(this, found, trackfile, trackcsvfile)
     ! -- modules
@@ -891,12 +1029,12 @@ contains
 
   !> @ brief Set dimensions specific to PrtPrpType
   subroutine prp_dimensions(this)
-    ! -- modules
+    ! modules
     use MemoryManagerExtModule, only: mem_set_value
     use PrtPrpInputModule, only: PrtPrpParamFoundType
-    ! -- dummy variables
+    ! dummy variables
     class(PrtPrpType), intent(inout) :: this
-    ! -- local variables
+    ! local variables
     type(PrtPrpParamFoundType) :: found
 
     call mem_set_value(this%nreleasepoints, 'NRELEASEPTS', this%input_mempath, &
@@ -913,14 +1051,24 @@ contains
     this%maxbound = this%nreleasepoints
     this%nbound = this%nreleasepoints
 
-    ! allocate arrays for prp package
     call this%prp_allocate_arrays()
-
-    ! read packagedata and releasetimes blocks
     call this%prp_packagedata()
     call this%prp_releasetimes()
     call this%prp_load_releasetimefrequency()
   end subroutine prp_dimensions
+
+  !> @ brief Dimensions method override for exchange PRP.
+  !! Just set all dimensions to zero and allocate arrays.
+  subroutine exg_prp_dimensions(this)
+    class(ExgPrtPrpType), intent(inout) :: this
+
+    this%nreleasepoints = 0
+    this%nreleasetimes = 0
+    this%maxbound = 0
+    this%nbound = 0
+
+    call this%prp_allocate_arrays()
+  end subroutine exg_prp_dimensions
 
   !> @brief Load package data (release points).
   subroutine prp_packagedata(this)

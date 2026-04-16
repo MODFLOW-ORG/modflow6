@@ -4,7 +4,10 @@ module MethodDisModule
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType, LEVEL_FEATURE
   use MethodModelModule, only: MethodModelType
-  use MethodCellPoolModule
+  use MethodCellPollockModule, only: MethodCellPollockType, &
+                                     create_method_cell_pollock
+  use MethodCellPassToBotModule, only: MethodCellPassToBotType, &
+                                       create_method_cell_ptb
   use CellModule
   use CellDefnModule
   use CellRectModule
@@ -21,6 +24,8 @@ module MethodDisModule
 
   type, extends(MethodModelType) :: MethodDisType
     private
+    type(MethodCellPollockType), pointer :: method_cell_plck => null()
+    type(MethodCellPassToBotType), pointer :: method_cell_ptb => null()
   contains
     procedure, public :: apply => apply_dis !< apply the DIS tracking method
     procedure, public :: deallocate !< deallocate arrays and scalars
@@ -53,12 +58,22 @@ contains
     method%cell => cell
     method%name = "dis"
     method%delegates = .true.
+
+    ! Create cell methods this method can delegate to
+    call create_method_cell_pollock(method%method_cell_plck)
+    call create_method_cell_ptb(method%method_cell_ptb)
   end subroutine create_method_dis
 
   !> @brief Destructor the tracking method
   subroutine deallocate (this)
     class(MethodDisType), intent(inout) :: this
     deallocate (this%name)
+
+    ! Deallocate owned cell methods
+    call this%method_cell_plck%deallocate()
+    deallocate (this%method_cell_plck)
+    call this%method_cell_ptb%deallocate()
+    deallocate (this%method_cell_ptb)
   end subroutine deallocate
 
   subroutine load_cell(this, ic, cell)
@@ -149,19 +164,19 @@ contains
       call this%load_cell_defn(ic, cell%defn)
       call this%load_cell(ic, cell)
       if (this%fmi%ibdgwfsat0(ic) == 0) then
-        call method_cell_ptb%init( &
+        call this%method_cell_ptb%init( &
           fmi=this%fmi, &
           cell=this%cell, &
           events=this%events, &
           tracktimes=this%tracktimes)
-        submethod => method_cell_ptb
+        submethod => this%method_cell_ptb
       else
-        call method_cell_plck%init( &
+        call this%method_cell_plck%init( &
           fmi=this%fmi, &
           cell=this%cell, &
           events=this%events, &
           tracktimes=this%tracktimes)
-        submethod => method_cell_plck
+        submethod => this%method_cell_plck
       end if
     end select
   end subroutine load_dis

@@ -1,4 +1,4 @@
-# --------------------- ssm spc options ---------------------
+# --------------------- utl spc options ---------------------
 # flopy multi-package
 
 block options
@@ -52,7 +52,7 @@ tagged false
 longname file name of time series information
 description REPLACE timeseriesfile {}
 
-# --------------------- ssm spc dimensions ---------------------
+# --------------------- utl spc dimensions ---------------------
 
 block dimensions
 name maxbound
@@ -62,7 +62,7 @@ optional false
 longname maximum number of ssm entries
 description REPLACE maxbound {'{#1}': 'spc'}
 
-# --------------------- ssm spc period ---------------------
+# --------------------- utl spc period ---------------------
 
 block period
 name iper

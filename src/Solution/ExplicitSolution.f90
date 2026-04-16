@@ -1,10 +1,16 @@
-!> @brief Explicit Solution Module
+!> @brief Explicit solutions for solving explicit models.
 !!
-!! This module contains the Explicit Solution, which is a
-!! class for solving explicit models.  The explicit solution
-!! scrolls through a list of explicit models and calls
-!! methods in a prescribed sequence.
-!!
+!! Explicit solutions manage and solve explicit models. An
+!! explicit model solves itself, as opposed to a numerical
+!! model which requires a numerical solution procedure. An
+!! explicit solution involves a double loop: an outer loop
+!! that continues until no model has pending work, as well
+!! as an inner loop that scrolls through the models in the
+!! solution and tells each to solve itself. The outer loop
+!! is necessary because the explicit models may be coupled
+!! by exchanges; models may send work during each solve to
+!! other models. The outer loop continues until all models
+!! have completed all work.
 !<
 module ExplicitSolutionModule
   use KindModule, only: I4B, DP
@@ -16,7 +22,7 @@ module ExplicitSolutionModule
   use ExplicitModelModule, only: ExplicitModelType, &
                                  AddExplicitModelToList, &
                                  GetExplicitModelFromList
-  use BaseExchangeModule, only: BaseExchangeType
+  use BaseExchangeModule, only: BaseExchangeType, GetBaseExchangeFromList
   use BaseSolutionModule, only: BaseSolutionType, AddBaseSolutionToList
   use ListModule, only: ListType
   use ListsModule, only: basesolutionlist
@@ -32,13 +38,10 @@ module ExplicitSolutionModule
   public :: ExplicitSolutionType
 
   !> @brief Manages and solves explicit models.
-  !!
-  !! An explicit solution simply scrolls through a list of explicit
-  !! models and calls solution procedures in a prescribed sequence.
-  !<
   type, extends(BaseSolutionType) :: ExplicitSolutionType
     character(len=LENMEMPATH) :: memoryPath !< the path for storing solution variables in the memory manager
     type(ListType), pointer :: modellist !< list of models in solution
+    type(ListType), pointer :: exchangelist !< list of exchanges in solution
     integer(I4B), pointer :: id !< solution number
     integer(I4B), pointer :: iu !< input file unit
     real(DP), pointer :: ttsoln !< timer - total solution time
@@ -70,98 +73,91 @@ module ExplicitSolutionModule
 
 contains
 
-  !> @ brief Create a new solution
+  !> @brief Create a new solution
   !!
   !! Create a new solution using the data in filename, assign this new
   !! solution an id number and store the solution in the basesolutionlist.
   !! Also open the filename for later reading.
   !<
   subroutine create_explicit_solution(exp_sol, filename, id)
-    ! -- modules
+    ! modules
     use InputOutputModule, only: getunit, openfile
-    ! -- dummy variables
+    ! dummy
     class(ExplicitSolutionType), pointer :: exp_sol !< the create solution
     character(len=*), intent(in) :: filename !< solution input file name
     integer(I4B), intent(in) :: id !< solution id
-    ! -- local variables
+    ! local
     integer(I4B) :: inunit
     class(BaseSolutionType), pointer :: solbase => null()
     character(len=LENSOLUTIONNAME) :: solutionname
 
-    ! -- Create a new solution and add it to the basesolutionlist container
+    ! Create a new solution and add it to the basesolutionlist container
     solbase => exp_sol
     write (solutionname, '(a, i0)') 'SLN_', id
     exp_sol%name = solutionname
     exp_sol%memoryPath = create_mem_path(solutionname)
     allocate (exp_sol%modellist)
-    !todo: do we need this?  allocate (exp_sol%exchangelist)
+    allocate (exp_sol%exchangelist)
     call exp_sol%allocate_scalars()
     call AddBaseSolutionToList(basesolutionlist, solbase)
     exp_sol%id = id
 
-    ! -- Open solution input file for reading later after problem size is known
-    !    Check to see if the file is already opened, which can happen when
-    !    running in single model mode
+    ! Open solution input file for reading later after problem size is known
+    ! Check to see if the file is already opened, which can happen when
+    ! running in single model mode
     inquire (file=filename, number=inunit)
     if (inunit < 0) inunit = getunit()
     exp_sol%iu = inunit
     write (iout, '(/a,a/)') ' Creating explicit solution (EMS): ', exp_sol%name
-    call openfile(exp_sol%iu, iout, filename, 'IMS')
+    call openfile(exp_sol%iu, iout, filename, 'EMS')
 
-    ! -- Initialize block parser
+    ! Initialize block parser
     call exp_sol%parser%Initialize(exp_sol%iu, iout)
   end subroutine create_explicit_solution
 
-  !> @ brief Allocate scalars
-  !<
+  !> @brief Allocate scalars
   subroutine allocate_scalars(this)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
 
-    ! -- allocate scalars
+    ! allocate
     call mem_allocate(this%id, 'ID', this%memoryPath)
     call mem_allocate(this%iu, 'IU', this%memoryPath)
     call mem_allocate(this%ttsoln, 'TTSOLN', this%memoryPath)
     call mem_allocate(this%icnvg, 'ICNVG', this%memoryPath)
 
-    ! -- initialize
+    ! initialize
     this%id = 0
     this%iu = 0
     this%ttsoln = DZERO
     this%icnvg = 0
   end subroutine allocate_scalars
 
-  !> @ brief Define the solution
-  !<
+  !> @brief Define the solution
   subroutine sln_df(this)
     class(ExplicitSolutionType) :: this
   end subroutine
 
-  !> @ brief Allocate and read
-  !<
+  !> @brief Allocate and read
   subroutine sln_ar(this)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
-
-    ! -- close ems input file
+    ! close ems input file
     call this%parser%Clear()
   end subroutine sln_ar
 
-  !> @ brief Calculate time step length
-  !<
+  !> @brief Calculate time step length
   subroutine sln_dt(this)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
   end subroutine sln_dt
 
-  !> @ brief Advance the solution
-  !<
+  !> @brief Advance the solution
   subroutine sln_ad(this)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
 
-    ! -- reset convergence flag
+    ! reset convergence flag
     this%icnvg = 0
   end subroutine sln_ad
 
-  !> @ brief Solution output
-  !<
+  !> @brief Output
   subroutine sln_ot(this)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
   end subroutine sln_ot
@@ -170,30 +166,30 @@ contains
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
   end subroutine sln_fp
 
-  !> @ brief Deallocate
-  !<
+  !> @brief Deallocate
   subroutine sln_da(this)
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
 
-    ! -- lists
+    ! lists
     call this%modellist%Clear()
     deallocate (this%modellist)
+    call this%exchangelist%Clear()
+    deallocate (this%exchangelist)
 
-    ! -- Scalars
+    ! scalars
     call mem_deallocate(this%id)
     call mem_deallocate(this%iu)
     call mem_deallocate(this%ttsoln)
     call mem_deallocate(this%icnvg)
   end subroutine sln_da
 
-  !> @ brief Calculate
-  !<
+  !> @brief Calculate
   subroutine sln_ca(this, isgcnvg, isuppress_output)
-    ! -- dummy variables
+    ! dummy
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
     integer(I4B), intent(inout) :: isgcnvg !< solution group convergence flag
     integer(I4B), intent(in) :: isuppress_output !< flag for suppressing output
-    ! -- local variables
+    ! local
     class(ExplicitModelType), pointer :: mp => null()
     character(len=LINELENGTH) :: line
     character(len=LINELENGTH) :: fmt
@@ -202,7 +198,6 @@ contains
 
     kiter = 1
 
-    ! advance the models and solution
     call this%prepareSolve()
 
     select case (isim_mode)
@@ -223,18 +218,24 @@ contains
     end select
   end subroutine sln_ca
 
-  !> @ brief Prepare to solve
-  !<
+  !> @brief Prepare to solve
   subroutine prepareSolve(this)
-    ! -- dummy variables
+    ! dummy
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
-    ! -- local variables
-    integer(I4B) :: im
+    ! local
+    integer(I4B) :: i
     class(ExplicitModelType), pointer :: mp => null()
+    class(BaseExchangeType), pointer :: ep => null()
 
-    ! -- Model advance
-    do im = 1, this%modellist%Count()
-      mp => GetExplicitModelFromList(this%modellist, im)
+    ! advance exchanges
+    do i = 1, this%exchangelist%Count()
+      ep => GetBaseExchangeFromList(this%exchangelist, i)
+      call ep%exg_ad()
+    end do
+
+    ! advance models
+    do i = 1, this%modellist%Count()
+      mp => GetExplicitModelFromList(this%modellist, i)
       call mp%model_ad()
     end do
 
@@ -242,76 +243,83 @@ contains
     call this%sln_ad()
   end subroutine prepareSolve
 
-  !> @ brief Solve each model
-  !<
+  !> @brief Solve models
   subroutine solve(this, kiter)
-    ! -- dummy variables
+    ! dummy
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
     integer(I4B), intent(in) :: kiter !< Picard iteration (1 for explicit)
-    ! -- local variables
+    ! local
     class(ExplicitModelType), pointer :: mp => null()
     integer(I4B) :: im
+    logical :: any_pending
     real(DP) :: ttsoln
 
     call code_timer(0, ttsoln, this%ttsoln)
-    do im = 1, this%modellist%Count()
-      mp => GetExplicitModelFromList(this%modellist, im)
-      call mp%model_solve()
+
+    ! Outer loop: repeat until no model has pending work
+    do
+      ! Solve every model in the solution
+      do im = 1, this%modellist%Count()
+        mp => GetExplicitModelFromList(this%modellist, im)
+        call mp%model_solve()
+      end do
+
+      ! Continue if any have pending work
+      any_pending = .false.
+      do im = 1, this%modellist%Count()
+        mp => GetExplicitModelFromList(this%modellist, im)
+        if (mp%has_pending()) then
+          any_pending = .true.
+          exit
+        end if
+      end do
+      if (.not. any_pending) exit
     end do
+
     call code_timer(1, ttsoln, this%ttsoln)
     this%icnvg = 1
   end subroutine solve
 
-  !> @ brief Finalize solve
-  !<
+  !> @brief Finalize solve
   subroutine finalizeSolve(this, kiter, isgcnvg, isuppress_output)
-    ! -- dummy variables
+    ! dummy
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
     integer(I4B), intent(in) :: kiter !< Picard iteration number (always 1 for explicit)
     integer(I4B), intent(inout) :: isgcnvg !< solution group convergence flag
     integer(I4B), intent(in) :: isuppress_output !< flag for suppressing output
-    ! -- local variables
+    ! local
     integer(I4B) :: im
     class(ExplicitModelType), pointer :: mp => null()
 
-    ! -- Calculate flow for each model
+    ! Calculate flow for each model
     do im = 1, this%modellist%Count()
       mp => GetExplicitModelFromList(this%modellist, im)
       call mp%model_cq(this%icnvg, isuppress_output)
     end do
 
-    ! -- Budget terms for each model
+    ! Budget terms for each model
     do im = 1, this%modellist%Count()
       mp => GetExplicitModelFromList(this%modellist, im)
       call mp%model_bd(this%icnvg, isuppress_output)
     end do
   end subroutine finalizeSolve
 
-  !> @ brief Save output
-  !<
+  !> @brief Save output
   subroutine save(this, filename)
-    ! -- dummy variables
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
     character(len=*), intent(in) :: filename !< filename to save solution data
-    ! -- local variables
     integer(I4B) :: inunit
-
     inunit = getunit()
     open (unit=inunit, file=filename, status='unknown')
     write (inunit, *) 'The save routine currently writes nothing'
     close (inunit)
   end subroutine save
 
-  !> @ brief Add explicit model to list
-  !<
+  !> @brief Add explicit model to list
   subroutine add_model(this, mp)
-    ! -- dummy variables
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
     class(BaseModelType), pointer, intent(in) :: mp !< model instance
-    ! -- local variables
     class(ExplicitModelType), pointer :: m => null()
-
-    ! -- add a model
     select type (mp)
     class is (ExplicitModelType)
       m => mp
@@ -320,26 +328,26 @@ contains
   end subroutine add_model
 
   !> @brief Get a pointer to a list of models in the solution
-  !<
   function get_models(this) result(models)
     type(ListType), pointer :: models !< pointer to the model list
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
-
     models => this%modellist
   end function get_models
 
-  !> @ brief Add exchange to list of exchanges
-  !<
+  !> @brief Add exchange to list of exchanges
   subroutine add_exchange(this, exchange)
     class(ExplicitSolutionType) :: this
     class(BaseExchangeType), pointer, intent(in) :: exchange
+    class(*), pointer :: obj
+    obj => exchange
+    call this%exchangelist%Add(obj)
   end subroutine add_exchange
 
-  !> @ brief Get list of exchanges
-  !<
+  !> @brief Get list of exchanges
   function get_exchanges(this) result(exchanges)
     class(ExplicitSolutionType) :: this
     type(ListType), pointer :: exchanges
+    exchanges => this%exchangelist
   end function get_exchanges
 
 end module ExplicitSolutionModule

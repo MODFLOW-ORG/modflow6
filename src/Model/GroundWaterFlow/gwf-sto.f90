@@ -18,7 +18,6 @@ module GwfStoModule
   use BaseDisModule, only: DisBaseType
   use NumericalPackageModule, only: NumericalPackageType
   use GwfStorageUtilsModule, only: SsCapacity, SyCapacity, SsTerms, SyTerms
-  use InputOutputModule, only: GetUnit, openfile
   use TvsModule, only: TvsType, tvs_cr
   use MatrixBaseModule
 
@@ -777,15 +776,18 @@ contains
   subroutine source_options(this)
     ! -- modules
     use ConstantsModule, only: LENMEMPATH
+    use MemoryManagerModule, only: mem_setptr, get_isize
     use MemoryManagerExtModule, only: mem_set_value
+    use CharacterStringModule, only: CharacterStringType
     use SourceCommonModule, only: filein_fname
     use GwfStoInputModule, only: GwfStoParamFoundType
     ! -- dummy variables
     class(GwfStoType) :: this !< GwfStoType object
     ! -- local variables
     type(GwfStoParamFoundType) :: found
-    character(len=LENMEMPATH) :: tvs6_mempath !< mempath of loaded subpackage
-    character(len=LINELENGTH) :: fname
+    type(CharacterStringType), dimension(:), pointer, contiguous :: tvs6_mempaths
+    character(len=LINELENGTH) :: tvs6_filename
+    character(len=LENMEMPATH) :: tvs6_mempath
     !
     ! -- source package input
     call mem_set_value(this%ipakcb, 'IPAKCB', this%input_mempath, found%ipakcb)
@@ -793,8 +795,6 @@ contains
                        found%istor_coef)
     call mem_set_value(this%iconf_ss, 'SS_CONFINED_ONLY', this%input_mempath, &
                        found%ss_confined_only)
-    call mem_set_value(tvs6_mempath, 'TVS6_MEMPATH', this%input_mempath, &
-                       found%tvs6_filename)
     call mem_set_value(this%iorig_ss, 'IORIG_SS', this%input_mempath, &
                        found%iorig_ss)
     call mem_set_value(this%iconf_ss, 'ICONF_SS', this%input_mempath, &
@@ -808,12 +808,13 @@ contains
       this%iorig_ss = 0
     end if
     !
-    ! -- enforce 0 or 1 TVS6_FILENAME entries in option block
-    if (filein_fname(fname, 'TVS6_FILENAME', this%input_mempath, &
-                     this%input_fname)) then
-      this%intvs = GetUnit()
-      call openfile(this%intvs, this%iout, fname, 'TVS')
-      call tvs_cr(this%tvs, this%name_model, this%intvs, this%iout)
+    ! -- TVS6 subpackage
+    if (filein_fname(tvs6_filename, 'TVS6_FILENAME', &
+                     this%input_mempath, this%input_fname)) then
+      call mem_setptr(tvs6_mempaths, 'TVS6_MEMPATH', this%input_mempath)
+      tvs6_mempath = tvs6_mempaths(1)
+      this%intvs = 1 ! tvs active
+      call tvs_cr(this%tvs, this%name_model, tvs6_mempath, this%intvs, this%iout)
     end if
     !
     if (found%iconf_ss) then

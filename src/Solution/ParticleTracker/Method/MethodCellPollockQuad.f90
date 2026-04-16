@@ -5,7 +5,8 @@ module MethodCellPollockQuadModule
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType, LEVEL_FEATURE, LEVEL_SUBFEATURE
   use MethodCellModule, only: MethodCellType
-  use MethodSubcellPoolModule, only: method_subcell_plck
+  use MethodSubcellPollockModule, only: MethodSubcellPollockType, &
+                                        create_method_subcell_pollock
   use CellRectQuadModule, only: CellRectQuadType, create_cell_rect_quad
   use CellDefnModule, only: CellDefnType
   use SubcellRectModule, only: SubcellRectType, create_subcell_rect
@@ -17,6 +18,7 @@ module MethodCellPollockQuadModule
   public :: create_method_cell_quad
 
   type, extends(MethodCellType) :: MethodCellPollockQuadType
+    type(MethodSubcellPollockType), pointer :: method_subcell_plck => null()
   contains
     procedure, public :: apply => apply_mcpq
     procedure, public :: deallocate
@@ -42,12 +44,19 @@ contains
     method%delegates = .true.
     call create_subcell_rect(subcell)
     method%subcell => subcell
+
+    ! Create subcell method this method can delegate to
+    call create_method_subcell_pollock(method%method_subcell_plck)
   end subroutine create_method_cell_quad
 
   !> @brief Deallocate the Pollock quad-refined cell method
   subroutine deallocate (this)
     class(MethodCellPollockQuadType), intent(inout) :: this
     deallocate (this%name)
+
+    ! Deallocate owned subcell method
+    call this%method_subcell_plck%deallocate()
+    deallocate (this%method_subcell_plck)
   end subroutine deallocate
 
   !> @brief Load subcell into tracking method
@@ -61,13 +70,13 @@ contains
     type is (SubcellRectType)
       call this%load_subcell(particle, subcell)
     end select
-    call method_subcell_plck%init( &
+    call this%method_subcell_plck%init( &
       fmi=this%fmi, &
       cell=this%cell, &
       subcell=this%subcell, &
       events=this%events, &
       tracktimes=this%tracktimes)
-    submethod => method_subcell_plck
+    submethod => this%method_subcell_plck
   end subroutine load_mcpq
 
   !> @brief Pass particle to next subcell if there is one, or to the cell face

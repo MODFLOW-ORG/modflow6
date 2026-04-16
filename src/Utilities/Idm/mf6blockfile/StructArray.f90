@@ -9,10 +9,15 @@ module StructArrayModule
 
   use KindModule, only: I4B, DP, LGP
   use ConstantsModule, only: DZERO, IZERO, DNODATA, &
-                             LINELENGTH, LENMEMPATH, LENVARNAME
+                             LINELENGTH, LENMEMPATH, LENVARNAME, LENBOUNDNAME
   use SimVariablesModule, only: errmsg
-  use SimModule, only: store_error
-  use StructVectorModule, only: StructVectorType
+  use SimModule, only: store_error, count_errors, store_error_filename
+  use StructVectorModule, only: StructVectorType, TSStringLocType, &
+                                MTYPE_INT, MTYPE_DBL, MTYPE_STR, &
+                                MTYPE_INTVEC, MTYPE_INT2D, MTYPE_DBL2D
+  use TimeSeriesManagerModule, only: TimeSeriesManagerType, &
+                                     read_value_or_time_series
+  use TimeSeriesLinkModule, only: TimeSeriesLinkType
   use InputDefinitionModule, only: InputParamDefinitionType
   use MemoryManagerModule, only: mem_allocate, mem_reallocate, mem_setptr
   use CharacterStringModule, only: CharacterStringType
@@ -56,11 +61,13 @@ module StructArrayModule
     procedure :: allocate_dbl1d_type
     procedure :: read_param
     procedure :: read_from_parser
+    procedure :: read_from_parser_keystring
     procedure :: read_from_binary
     procedure :: memload_vectors
     procedure :: load_deferred_vector
     procedure :: log_structarray_vars
     procedure :: check_reallocate
+    procedure :: ts_update
 
   end type StructArrayType
 
@@ -153,7 +160,7 @@ contains
       call this%allocate_charstr_type(sv)
     case ('INTEGER1D')
       call this%allocate_int1d_type(sv)
-      if (sv%memtype == 5) then
+      if (sv%memtype == MTYPE_INT2D) then
         numcol = sv%intshape
       end if
     case ('DOUBLE1D')
@@ -217,7 +224,7 @@ contains
       int1d(j) = IZERO
     end do
 
-    sv%memtype = 1
+    sv%memtype = MTYPE_INT
     sv%int1d => int1d
   end subroutine allocate_int_type
 
@@ -244,7 +251,7 @@ contains
       dbl1d(j) = DZERO
     end do
 
-    sv%memtype = 2
+    sv%memtype = MTYPE_DBL
     sv%dbl1d => dbl1d
   end subroutine allocate_dbl_type
 
@@ -267,7 +274,7 @@ contains
       charstr1d(j) = ''
     end do
 
-    sv%memtype = 3
+    sv%memtype = MTYPE_STR
     sv%charstr1d => charstr1d
   end subroutine allocate_charstr_type
 
@@ -329,7 +336,7 @@ contains
         end do
       end do
 
-      sv%memtype = 5
+      sv%memtype = MTYPE_INT2D
       sv%int2d => int2d
       sv%intshape => ncelldim
     else
@@ -337,7 +344,7 @@ contains
       allocate (intvector)
       ! initialize STLVecInt
       call intvector%init()
-      sv%memtype = 4
+      sv%memtype = MTYPE_INTVEC
       sv%intvector => intvector
       sv%size = -1
       ! set pointer to dynamic shape
@@ -366,7 +373,7 @@ contains
         end do
       end do
 
-      sv%memtype = 6
+      sv%memtype = MTYPE_DBL2D
       sv%dbl2d => dbl2d
       sv%intshape => naux
     else if (sv%idt%shape == 'NSEG-1') then
@@ -390,7 +397,7 @@ contains
         end do
       end do
 
-      sv%memtype = 6
+      sv%memtype = MTYPE_DBL2D
       sv%dbl2d => dbl2d
       sv%intshape => nseg_1
     else
@@ -423,7 +430,7 @@ contains
 
     ! allocate and load based on memtype
     select case (this%struct_vectors(icol)%memtype)
-    case (1) ! memtype integer
+    case (MTYPE_INT)
       if (isize > -1) then
         ! variable exists, reallocate and append
         call mem_setptr(p_int1d, varname, this%mempath)
@@ -471,7 +478,7 @@ contains
       ! update structvector
       this%struct_vectors(icol)%int1d => p_int1d
       this%struct_vectors(icol)%size = this%nrow
-    case (2) ! memtype real
+    case (MTYPE_DBL)
       if (isize > -1) then
         call mem_setptr(p_dbl1d, varname, this%mempath)
 
@@ -509,7 +516,7 @@ contains
       this%struct_vectors(icol)%dbl1d => p_dbl1d
       this%struct_vectors(icol)%size = this%nrow
       !
-    case (3) ! memtype charstring
+    case (MTYPE_STR)
       if (isize > -1) then
         call mem_setptr(p_charstr1d, varname, this%mempath)
 
@@ -548,11 +555,11 @@ contains
 
       this%struct_vectors(icol)%charstr1d => p_charstr1d
       this%struct_vectors(icol)%size = this%nrow
-    case (4) ! memtype intvector
+    case (MTYPE_INTVEC) ! intvector reallocate unimplemented
       errmsg = 'StructArray::load_deferred_vector &
                &intvector reallocate unimplemented.'
       call store_error(errmsg, terminate=.TRUE.)
-    case (5)
+    case (MTYPE_INT2D)
       if (isize > -1) then
         errmsg = 'StructArray::load_deferred_vector &
                  &int2d reallocate unimplemented.'
@@ -571,7 +578,7 @@ contains
 
       this%struct_vectors(icol)%int2d => p_int2d
       this%struct_vectors(icol)%size = this%nrow
-    case (6)
+    case (MTYPE_DBL2D)
       errmsg = 'StructArray::load_deferred_vector &
                &dbl2d reallocate unimplemented.'
       call store_error(errmsg, terminate=.TRUE.)
@@ -591,7 +598,7 @@ contains
       ! set varname
       varname = this%struct_vectors(icol)%idt%mf6varname
 
-      if (this%struct_vectors(icol)%memtype == 4) then
+      if (this%struct_vectors(icol)%memtype == MTYPE_INTVEC) then
         ! intvectors always need to be loaded
         ! size intvector to number of values read
         call this%struct_vectors(icol)%intvector%shrink_to_fit()
@@ -622,39 +629,44 @@ contains
   subroutine log_structarray_vars(this, iout)
     class(StructArrayType) :: this !< StructArrayType
     integer(I4B), intent(in) :: iout !< unit number for output
-    integer(I4B) :: j
+    integer(I4B) :: j, nts
     integer(I4B), dimension(:), pointer, contiguous :: int1d
+    character(len=LINELENGTH) :: ts_count_str
 
     ! idm variable logging
     do j = 1, this%ncol
       ! log based on memtype
       select case (this%struct_vectors(j)%memtype)
-      case (1) ! memtype integer
+      case (MTYPE_INT)
         call idm_log_var(this%struct_vectors(j)%int1d, &
                          this%struct_vectors(j)%idt%tagname, &
                          this%mempath, iout)
-      case (2) ! memtype real
-        if (this%struct_vectors(j)%ts_strlocs%count() > 0) then
+      case (MTYPE_DBL)
+        nts = this%struct_vectors(j)%ts_strlocs%count()
+        if (nts > 0) then
+          write (ts_count_str, '(i0, " time-series bound entries")') nts
           call idm_log_var(this%struct_vectors(j)%idt%tagname, &
-                           this%mempath, iout, .false.)
+                           this%mempath, iout, .false., trim(ts_count_str))
         else
           call idm_log_var(this%struct_vectors(j)%dbl1d, &
                            this%struct_vectors(j)%idt%tagname, &
                            this%mempath, iout)
         end if
-      case (4) ! memtype intvector
+      case (MTYPE_INTVEC)
         call mem_setptr(int1d, this%struct_vectors(j)%idt%mf6varname, &
                         this%mempath)
         call idm_log_var(int1d, this%struct_vectors(j)%idt%tagname, &
                          this%mempath, iout)
-      case (5) ! memtype int2d
+      case (MTYPE_INT2D)
         call idm_log_var(this%struct_vectors(j)%int2d, &
                          this%struct_vectors(j)%idt%tagname, &
                          this%mempath, iout)
-      case (6) ! memtype dbl2d
-        if (this%struct_vectors(j)%ts_strlocs%count() > 0) then
+      case (MTYPE_DBL2D)
+        nts = this%struct_vectors(j)%ts_strlocs%count()
+        if (nts > 0) then
+          write (ts_count_str, '(i0, " time-series bound entries")') nts
           call idm_log_var(this%struct_vectors(j)%idt%tagname, &
-                           this%mempath, iout, .false.)
+                           this%mempath, iout, .false., trim(ts_count_str))
         else
           call idm_log_var(this%struct_vectors(j)%dbl2d, &
                            this%struct_vectors(j)%idt%tagname, &
@@ -681,7 +693,7 @@ contains
     do j = 1, this%ncol
       ! reallocate based on memtype
       select case (this%struct_vectors(j)%memtype)
-      case (1) ! memtype integer
+      case (MTYPE_INT)
         ! check if more space needed
         if (this%nrow > this%struct_vectors(j)%size) then
           ! calculate new size
@@ -701,7 +713,7 @@ contains
           this%struct_vectors(j)%int1d => p_int1d
           this%struct_vectors(j)%size = newsize
         end if
-      case (2) ! memtype real
+      case (MTYPE_DBL)
         if (this%nrow > this%struct_vectors(j)%size) then
           newsize = this%struct_vectors(j)%size * reallocate_mult
           allocate (p_dbl1d(newsize))
@@ -716,7 +728,7 @@ contains
           this%struct_vectors(j)%size = newsize
         end if
         !
-      case (3) ! memtype charstring
+      case (MTYPE_STR)
         if (this%nrow > this%struct_vectors(j)%size) then
           newsize = this%struct_vectors(j)%size * reallocate_mult
           allocate (p_charstr1d(newsize))
@@ -731,7 +743,7 @@ contains
           this%struct_vectors(j)%charstr1d => p_charstr1d
           this%struct_vectors(j)%size = newsize
         end if
-      case (5)
+      case (MTYPE_INT2D)
         if (this%nrow > this%struct_vectors(j)%size) then
           newsize = this%struct_vectors(j)%size * reallocate_mult
           allocate (p_int2d(this%struct_vectors(j)%intshape, newsize))
@@ -770,7 +782,7 @@ contains
     logical(LGP) :: preserve_case
 
     select case (this%struct_vectors(sv_col)%memtype)
-    case (1) ! memtype integer
+    case (MTYPE_INT)
       ! if reloadable block and first col, store blocknum
       if (sv_col == 1 .and. this%blocknum > 0) then
         ! store blocknum
@@ -779,7 +791,7 @@ contains
         ! read and store int
         this%struct_vectors(sv_col)%int1d(irow) = parser%GetInteger()
       end if
-    case (2) ! memtype real
+    case (MTYPE_DBL)
       if (this%struct_vectors(sv_col)%idt%timeseries .and. timeseries) then
         call parser%GetString(str)
         if (present(auxcol)) then
@@ -793,7 +805,7 @@ contains
       else
         this%struct_vectors(sv_col)%dbl1d(irow) = parser%GetDouble()
       end if
-    case (3) ! memtype charstring
+    case (MTYPE_STR)
       if (this%struct_vectors(sv_col)%idt%shape /= '') then
         ! if last column with any shape, store rest of line
         if (sv_col == this%ncol) then
@@ -807,7 +819,7 @@ contains
         call parser%GetString(str, preserve_case)
         this%struct_vectors(sv_col)%charstr1d(irow) = str
       end if
-    case (4) ! memtype intvector
+    case (MTYPE_INTVEC)
       ! get shape for this row
       numval = this%struct_vectors(sv_col)%intvector_shape(irow)
       ! read and store row values
@@ -815,12 +827,12 @@ contains
         intval = parser%GetInteger()
         call this%struct_vectors(sv_col)%intvector%push_back(intval)
       end do
-    case (5) ! memtype int2d
+    case (MTYPE_INT2D)
       ! read and store row values
       do n = 1, this%struct_vectors(sv_col)%intshape
         this%struct_vectors(sv_col)%int2d(n, irow) = parser%GetInteger()
       end do
-    case (6) ! memtype dbl2d
+    case (MTYPE_DBL2D)
       ! read and store row values
       do n = 1, this%struct_vectors(sv_col)%intshape
         if (this%struct_vectors(sv_col)%idt%timeseries .and. timeseries) then
@@ -837,11 +849,13 @@ contains
 
   !> @brief read from the block parser to fill the StructArrayType
   !<
-  function read_from_parser(this, parser, timeseries, iout) result(irow)
+  function read_from_parser(this, parser, timeseries, iout, input_name) &
+    result(irow)
     class(StructArrayType) :: this !< StructArrayType
     type(BlockParserType) :: parser !< block parser to read from
     logical(LGP), intent(in) :: timeseries
     integer(I4B), intent(in) :: iout !< unit number for output
+    character(len=*), intent(in) :: input_name !< input filename for error messages
     integer(I4B) :: irow, j
     logical(LGP) :: endOfBlock
 
@@ -876,7 +890,7 @@ contains
             'Input error: line count exceeds input dimension. Expected rows=', &
             this%nrow, '.'
           call store_error(errmsg)
-          call parser%StoreErrorUnit()
+          call store_error_filename(input_name)
         end if
       end if
       ! handle line reads by column memtype
@@ -891,6 +905,141 @@ contains
       call this%log_structarray_vars(iout)
     end if
   end function read_from_parser
+
+  !> @brief read keystring period block into the StructArrayType
+  !!
+  !! Each input line contains nleading fixed columns followed by a dispatch
+  !! keyword.  Two dispatch modes are supported:
+  !!
+  !!   Simple dispatch: keyword matches a DOUBLE/STRING/INTEGER column.
+  !!   One value token is read from the parser into that column.
+  !!   All other member columns receive their sentinel for that row.
+  !!
+  !!   Compound dispatch: keyword matches a KEYWORD-type column (e.g.
+  !!   FLOWING_WELL).  No parser token is read for the KEYWORD column —
+  !!   the dispatch keyword itself is stored.  Subsequent non-KEYWORD
+  !!   columns (the compound sub-members, e.g. FWELEV/FWCOND/FWRLEN)
+  !!   are read from the parser in order until the next KEYWORD column
+  !!   or the end of the member columns.
+  !!
+  !!   No-value KEYWORD dispatch: a KEYWORD column with no sub-members
+  !!   immediately following stores the dispatch keyword and reads
+  !!   nothing further.
+  !!
+  !<
+  function read_from_parser_keystring(this, parser, timeseries, nleading, &
+                                      iout, input_name) result(irow)
+    use InputOutputModule, only: upcase
+    use SimModule, only: store_error_filename
+    class(StructArrayType) :: this !< StructArrayType
+    type(BlockParserType) :: parser !< block parser to read from
+    logical(LGP), intent(in) :: timeseries !< .true. when TS files loaded
+    integer(I4B), intent(in) :: nleading !< number of leading (fixed) columns
+    integer(I4B), intent(in) :: iout !< unit number for output
+    character(len=*), intent(in) :: input_name !< input filename for error messages
+    integer(I4B) :: irow
+    logical(LGP) :: endOfBlock, is_keyword_dispatch
+    character(len=LINELENGTH) :: keyword
+    integer(I4B) :: icol, found_col, last_set_col
+
+    irow = 0
+
+    ! reset nrow if deferred shape
+    if (this%deferred_shape) then
+      this%nrow = 0
+    end if
+
+    do
+      call parser%GetNextLine(endOfBlock)
+      if (endOfBlock) exit
+
+      if (this%deferred_shape) then
+        this%nrow = this%nrow + 1
+        call this%check_reallocate()
+      end if
+      irow = irow + 1
+
+      ! bounds check for pre-allocated (non-deferred) arrays
+      if (.not. this%deferred_shape) then
+        if (irow > this%nrow) then
+          write (errmsg, '(a,i0,a)') &
+            'Input error: keystring row count exceeds pre-allocated maxbound=', &
+            this%nrow, '.'
+          call store_error(errmsg)
+          call store_error_filename(input_name)
+          exit
+        end if
+      end if
+
+      ! read leading fixed columns (e.g. CELLID, IFNO)
+      do icol = 1, nleading
+        call this%read_param(parser, icol, irow, .false., iout)
+      end do
+
+      ! read dispatch keyword
+      call parser%GetString(keyword)
+      call upcase(keyword)
+
+      ! find the matching keystring-member column
+      found_col = 0
+      do icol = nleading + 1, this%ncol
+        if (trim(this%struct_vectors(icol)%idt%tagname) == trim(keyword)) then
+          found_col = icol
+          exit
+        end if
+      end do
+
+      if (found_col < 1) then
+        write (errmsg, '(a,a,a)') &
+          'Unrecognized keystring keyword "', trim(keyword), &
+          '" in PERIOD block.'
+        call store_error(errmsg)
+        call store_error_filename(input_name)
+        cycle
+      end if
+
+      ! determine dispatch mode and set/read matched column(s)
+      is_keyword_dispatch = &
+        (this%struct_vectors(found_col)%idt%datatype == 'KEYWORD')
+
+      if (is_keyword_dispatch) then
+        ! Compound or no-value KEYWORD dispatch:
+        ! the dispatch keyword token was already consumed; store it in the
+        ! KEYWORD column (charstr) without reading another token.
+        this%struct_vectors(found_col)%charstr1d(irow) = trim(keyword)
+        last_set_col = found_col
+        ! read exactly nsubmembers compound sub-member columns that
+        ! immediately follow in the struct array
+        do icol = found_col + 1, &
+          found_col + this%struct_vectors(found_col)%nsubmembers
+          if (icol > this%ncol) exit
+          call this%read_param(parser, icol, irow, timeseries, iout)
+          last_set_col = icol
+        end do
+      else
+        ! Simple single-value dispatch: read one value for the matched column
+        call this%read_param(parser, found_col, irow, timeseries, iout)
+        last_set_col = found_col
+      end if
+
+      ! fill sentinels for all non-matched member columns
+      do icol = nleading + 1, this%ncol
+        if (icol >= found_col .and. icol <= last_set_col) cycle
+        select case (this%struct_vectors(icol)%memtype)
+        case (MTYPE_DBL) ! DOUBLE: use DNODATA sentinel
+          this%struct_vectors(icol)%dbl1d(irow) = DNODATA
+        case (MTYPE_STR) ! STRING or KEYWORD: use empty string sentinel
+          this%struct_vectors(icol)%charstr1d(irow) = ''
+        end select
+      end do
+    end do
+
+    call this%memload_vectors()
+
+    if (iout > 0) then
+      call this%log_structarray_vars(iout)
+    end if
+  end function read_from_parser_keystring
 
   !> @brief read from binary input to fill the StructArrayType
   !<
@@ -921,16 +1070,16 @@ contains
       ! handle line reads by column memtype
       do j = 1, this%ncol
         select case (this%struct_vectors(j)%memtype)
-        case (1) ! memtype integer
+        case (MTYPE_INT)
           read (inunit, iostat=ierr) this%struct_vectors(j)%int1d(irow)
-        case (2) ! memtype real
+        case (MTYPE_DBL)
           read (inunit, iostat=ierr) this%struct_vectors(j)%dbl1d(irow)
-        case (3) ! memtype charstring
+        case (MTYPE_STR)
           errmsg = 'List style binary inputs not supported &
                    &for text columns, tag='// &
                    trim(this%struct_vectors(j)%idt%tagname)//'.'
           call store_error(errmsg, terminate=.TRUE.)
-        case (4) ! memtype intvector
+        case (MTYPE_INTVEC)
           ! get shape for this row
           numval = this%struct_vectors(j)%intvector_shape(irow)
           ! read and store row values
@@ -940,14 +1089,14 @@ contains
               call this%struct_vectors(j)%intvector%push_back(intval)
             end if
           end do
-        case (5) ! memtype int2d
+        case (MTYPE_INT2D)
           ! read and store row values
           do k = 1, this%struct_vectors(j)%intshape
             if (ierr == 0) then
               read (inunit, iostat=ierr) this%struct_vectors(j)%int2d(k, irow)
             end if
           end do
-        case (6) ! memtype dbl2d
+        case (MTYPE_DBL2D)
           do k = 1, this%struct_vectors(j)%intshape
             if (ierr == 0) then
               read (inunit, iostat=ierr) this%struct_vectors(j)%dbl2d(k, irow)
@@ -987,5 +1136,88 @@ contains
       call this%log_structarray_vars(iout)
     end if
   end function read_from_binary
+
+  !> @brief link time-series strings in this struct array to a tsmanager
+  !!
+  !! Iterates over struct vectors that carry deferred TS tokens and
+  !! registers each with the supplied tsmanager.  Handles both BND
+  !! (MTYPE_DBL / dbl1d) and AUX (MTYPE_DBL2D / dbl2d) columns.
+  !! Pass auxname_cst only when AUX columns may carry time series.
+  !!
+  !<
+  subroutine ts_update(this, tsmanager, subcomp_name, iprpak, input_name, &
+                       auxname_cst, clear_strlocs)
+    class(StructArrayType), intent(inout) :: this
+    type(TimeSeriesManagerType), pointer, intent(inout) :: tsmanager
+    character(len=*), intent(in) :: subcomp_name
+    integer(I4B), intent(in) :: iprpak
+    character(len=*), intent(in) :: input_name
+    type(CharacterStringType), dimension(:), pointer, intent(in), &
+      optional :: auxname_cst
+    logical(LGP), optional, intent(in) :: clear_strlocs !< if .false. strlocs are preserved for re-registration (default .true.)
+    type(TSStringLocType), pointer :: ts_strloc
+    type(TimeSeriesLinkType), pointer :: tsLink
+    real(DP), pointer :: bndElem
+    character(len=LENBOUNDNAME) :: boundname
+    integer(I4B) :: m, n, iboundname
+    logical(LGP) :: do_clear
+
+    do_clear = .true.
+    if (present(clear_strlocs)) do_clear = clear_strlocs
+
+    ! find BOUNDNAME column (0 = none)
+    iboundname = 0
+    do m = 1, this%ncol
+      if (this%struct_vectors(m)%idt%mf6varname == 'BOUNDNAME') then
+        iboundname = m
+        exit
+      end if
+    end do
+
+    do m = 1, this%ncol
+      if (.not. this%struct_vectors(m)%idt%timeseries) cycle
+      do n = 1, this%struct_vectors(m)%ts_strlocs%count()
+        ts_strloc => this%struct_vectors(m)%get_ts_strloc(n)
+        nullify (tsLink)
+        select case (this%struct_vectors(m)%memtype)
+        case (MTYPE_DBL) ! dbl1d (BND)
+          bndElem => this%struct_vectors(m)%dbl1d(ts_strloc%row)
+          call read_value_or_time_series(ts_strloc%token, ts_strloc%row, &
+                                         ts_strloc%structarray_col, bndElem, &
+                                         subcomp_name, 'BND', tsmanager, &
+                                         iprpak, tsLink)
+          if (associated(tsLink)) then
+            tsLink%Text = this%struct_vectors(m)%idt%mf6varname
+            if (iboundname > 0) then
+              boundname = &
+                this%struct_vectors(iboundname)%charstr1d(ts_strloc%row)
+              tsLink%BndName = boundname
+            end if
+          end if
+        case (MTYPE_DBL2D) ! dbl2d (AUX)
+          if (.not. present(auxname_cst)) cycle
+          if (.not. associated(auxname_cst)) cycle
+          bndElem => this%struct_vectors(m)%dbl2d(ts_strloc%col, ts_strloc%row)
+          call read_value_or_time_series(ts_strloc%token, ts_strloc%row, &
+                                         ts_strloc%structarray_col, bndElem, &
+                                         subcomp_name, 'AUX', tsmanager, &
+                                         iprpak, tsLink)
+          if (associated(tsLink)) then
+            tsLink%Text = auxname_cst(ts_strloc%col)
+            if (iboundname > 0) then
+              boundname = &
+                this%struct_vectors(iboundname)%charstr1d(ts_strloc%row)
+              tsLink%BndName = boundname
+            end if
+          end if
+        end select
+      end do
+      if (do_clear) call this%struct_vectors(m)%clear()
+    end do
+
+    if (count_errors() > 0) then
+      call store_error_filename(input_name)
+    end if
+  end subroutine ts_update
 
 end module StructArrayModule

@@ -51,7 +51,6 @@ module PrtPrpInputModule
     logical :: zrpt = .false.
     logical :: boundname = .false.
     logical :: time = .false.
-    logical :: releasesetting = .false.
     logical :: all = .false.
     logical :: first = .false.
     logical :: last = .false.
@@ -810,25 +809,6 @@ module PrtPrpInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    prtprp_releasesetting = InputParamDefinitionType &
-    ( &
-    'PRT', & ! component
-    'PRP', & ! subcomponent
-    'PERIOD', & ! block
-    'RELEASESETTING', & ! tag name
-    'RELEASESETTING', & ! fortran variable
-    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS FRACTION', & ! type
-    '', & ! shape
-    '', & ! longname
-    .true., & ! required
-    .false., & ! developmode
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
     prtprp_all = InputParamDefinitionType &
     ( &
     'PRT', & ! component
@@ -984,7 +964,6 @@ module PrtPrpInputModule
     prtprp_zrpt, &
     prtprp_boundname, &
     prtprp_time, &
-    prtprp_releasesetting, &
     prtprp_all, &
     prtprp_first, &
     prtprp_last, &
@@ -1051,11 +1030,31 @@ module PrtPrpInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    prtprp_releasesetting = InputParamDefinitionType &
+    ( &
+    'PRT', & ! component
+    'PRP', & ! subcomponent
+    'PERIOD', & ! block
+    'RELEASESETTING', & ! tag name
+    'RELEASESETTING', & ! fortran variable
+    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS FRACTION', & ! type
+    '', & ! shape
+    '', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     prt_prp_aggregate_definitions(*) = &
     [ &
     prtprp_packagedata, &
     prtprp_releasetimes, &
-    prtprp_perioddata &
+    prtprp_perioddata, &
+    prtprp_releasesetting &
     ]
 
   type(InputBlockDefinitionType), parameter :: &

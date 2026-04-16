@@ -151,7 +151,7 @@ contains
     use MemoryHelperModule, only: create_mem_path
     use SimVariablesModule, only: idm_context
     use IdmDfnSelectorModule, only: idm_integrated, idm_multi_package
-    use SourceCommonModule, only: idm_subcomponent_name
+    use SourceCommonModule, only: idm_subcomponent_name, idm_pkg_instance_name
     class(LoadablePackageType) :: this
     character(len=*), intent(in) :: modelname
     character(len=*), intent(in) :: mtype_component
@@ -180,9 +180,10 @@ contains
       if (multi_pkg_type(mtype_component, &
                          this%subcomponent_type, &
                          filetype)) then
-        write (pname, '(a,i0)') trim(this%subcomponent_type)//'-', this%pnum
+        pname = idm_pkg_instance_name(this%subcomponent_type, &
+                                      this%pnum)
       else
-        write (pname, '(a,i0)') trim(this%subcomponent_type)
+        write (pname, '(a)') trim(this%subcomponent_type)
       end if
       this%pkgnames(this%pnum) = pname
     end if

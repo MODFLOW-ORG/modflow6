@@ -16,6 +16,8 @@ module SourceCommonModule
   private
   public :: package_source_type
   public :: idm_component_type, idm_subcomponent_type, idm_subcomponent_name
+  public :: idm_pkg_instance_name
+  public :: idm_utl_type
   public :: set_model_shape
   public :: get_shape_from_string
   public :: get_layered_shape
@@ -126,12 +128,57 @@ contains
     character(len=*), intent(in) :: sc_name
     character(len=LENPACKAGENAME) :: subcomponent_name
     subcomponent_name = ''
-    if (idm_multi_package(component_type, subcomponent_type)) then
+    if (idm_utl_type(component_type, subcomponent_type) .or. &
+        idm_multi_package(component_type, subcomponent_type)) then
       subcomponent_name = sc_name
     else
       subcomponent_name = subcomponent_type
     end if
   end function idm_subcomponent_name
+
+  !> @brief default name for a multi-package instance
+  !!
+  !! Return the default '<TYPE>-<N>' name for the Nth instance of a
+  !! multi-package type, where N is the 1-based count of packages of
+  !! this type encountered in an in-order traversal of the model
+  !! namefile packages block.  This is the IDM internal package
+  !! naming convention when user names are not provided.
+  !!
+  !<
+  function idm_pkg_instance_name(pkg_type, inst) result(sc_name)
+    character(len=*), intent(in) :: pkg_type
+    integer(I4B), intent(in) :: inst
+    character(len=LENPACKAGENAME) :: sc_name
+    write (sc_name, '(a,i0)') trim(pkg_type)//'-', inst
+  end function idm_pkg_instance_name
+
+  !> @brief is utility type
+  !!
+  !! Is this subcomponent type an idm integrated utility type.
+  !!
+  !<
+  function idm_utl_type(component, subcomponent) &
+    result(utl_type)
+    use IdmDfnSelectorModule, only: idm_integrated
+    character(len=*), intent(in) :: component
+    character(len=*), intent(in) :: subcomponent !< subcomponent string, e.g. TVK, TVK6, or NPF-TVK1
+    character(len=LENCOMPONENTNAME) :: subcomponent_type
+    logical(LGP) :: utl_type
+    integer(I4B) :: ilen, idx
+    ilen = len_trim(subcomponent)
+    subcomponent_type = ''
+    idx = index(subcomponent(1:ilen), '-')
+    if (idx > 0) then
+      ! strip '-N' instance suffix (e.g. NPF-TVK1 -> TVK1, further strip below)
+      subcomponent_type = subcomponent(1:idx - 1)
+    else if (ilen > 0 .and. subcomponent(ilen:ilen) == '6') then
+      ! strip trailing '6' package-type suffix (e.g. TVK6 -> TVK)
+      subcomponent_type = subcomponent(1:ilen - 1)
+    else
+      subcomponent_type = subcomponent(1:ilen)
+    end if
+    utl_type = idm_integrated('UTL', subcomponent_type)
+  end function idm_utl_type
 
   !> @brief input file extension
   !!

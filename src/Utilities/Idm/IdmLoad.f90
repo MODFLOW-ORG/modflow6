@@ -154,7 +154,7 @@ contains
       call input_load(static_loader%subpkg_list%component_types(n), &
                       static_loader%subpkg_list%subcomponent_types(n), &
                       static_loader%mf6_input%component_name, &
-                      static_loader%subpkg_list%subcomponent_types(n), &
+                      static_loader%subpkg_list%subcomponent_names(n), &
                       static_loader%subpkg_list%pkgtypes(n), &
                       static_loader%subpkg_list%filenames(n), &
                       modelfname, nc_vars, iout)

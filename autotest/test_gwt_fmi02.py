@@ -1,20 +1,40 @@
-"""Tests to ability to run flow model first followed by transport model"""
+"""
+Tests ability to run a transport model in an independent
+simulation, consuming flows with a flow model interface.
 
-import os
+Includes 4 cases, first with the transport model's TDIS
+exactly matching the flow model's TDIS, then with more
+time steps per transport model stress period (allowed),
+then two more cases with fewer in the transport model,
+which is forbidden.
+
+The last test case is needed because the error trap is
+implemented separately for the simulation's last period.
+"""
 
 import flopy
+import pytest
+from framework import TestFramework
 
-testgroup = "fmi02"
+simname = "gwtfmi02"
+cases = [
+    f"{simname}_a",  # matching TDIS
+    f"{simname}_b",  # transport nstp > flow nstp = 1 (allowed)
+    f"{simname}_c",  # transport nstp < flow nstp (not allowed)
+    f"{simname}_d",  # like c, but only in final stress period
+]
 
 
-def run_flow_model(dir, exe):
-    name = "flow"
-    ws = os.path.join(dir, testgroup, name)
-    sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=ws, exe_name=exe)
-    pd = [(1.0, 1, 1.0), (1.0, 1, 1.0)]
-    tdis = flopy.mf6.ModflowTdis(sim, nper=len(pd), perioddata=pd)
+def get_model_name(name, mdl):
+    return f"{name}_{mdl}"
+
+
+def build_gwf_sim(name, ws, mf6, tdis_pd):
+    gwf_name = get_model_name(name, "gwf")
+    sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=ws, exe_name=mf6)
+    tdis = flopy.mf6.ModflowTdis(sim, nper=len(tdis_pd), perioddata=tdis_pd)
     ims = flopy.mf6.ModflowIms(sim)
-    gwf = flopy.mf6.ModflowGwf(sim, modelname=name, save_flows=True)
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=gwf_name, save_flows=True)
     dis = flopy.mf6.ModflowGwfdis(gwf, nrow=10, ncol=10)
     ic = flopy.mf6.ModflowGwfic(gwf)
     npf = flopy.mf6.ModflowGwfnpf(
@@ -27,56 +47,88 @@ def run_flow_model(dir, exe):
     chd = flopy.mf6.ModflowGwfchd(
         gwf, pname="CHD-1", stress_period_data=spd, auxiliary=["concentration"]
     )
-    budget_file = name + ".bud"
-    head_file = name + ".hds"
     oc = flopy.mf6.ModflowGwfoc(
         gwf,
-        budget_filerecord=budget_file,
-        head_filerecord=head_file,
+        budget_filerecord=f"{gwf_name}.bud",
+        head_filerecord=f"{gwf_name}.hds",
         saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
     )
-    sim.write_simulation()
-    sim.run_simulation()
-    fname = os.path.join(ws, budget_file)
-    assert os.path.isfile(fname)
-    fname = os.path.join(ws, head_file)
-    assert os.path.isfile(fname)
+    return sim
 
 
-def run_transport_model(dir, exe):
-    name = "transport"
-    ws = os.path.join(dir, testgroup, name)
-    sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=ws, exe_name=exe)
-    pd = [(1.0, 10, 1.0), (1.0, 10, 1.0)]
-    tdis = flopy.mf6.ModflowTdis(sim, nper=len(pd), perioddata=pd)
+def build_gwt_sim(name, gwf_ws, gwt_ws, mf6, tdis_pd):
+    gwf_name = get_model_name(name, "gwf")
+    gwt_name = get_model_name(name, "gwt")
+    sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=gwt_ws, exe_name=mf6)
+    tdis = flopy.mf6.ModflowTdis(sim, nper=len(tdis_pd), perioddata=tdis_pd)
     ims = flopy.mf6.ModflowIms(sim, linear_acceleration="BICGSTAB")
-    gwt = flopy.mf6.ModflowGwt(sim, modelname=name, save_flows=True)
+    gwt = flopy.mf6.ModflowGwt(sim, modelname=gwt_name, save_flows=True)
     dis = flopy.mf6.ModflowGwtdis(gwt, nrow=10, ncol=10)
     ic = flopy.mf6.ModflowGwtic(gwt)
     mst = flopy.mf6.ModflowGwtmst(gwt, porosity=0.2)
     adv = flopy.mf6.ModflowGwtadv(gwt)
-    pd = [("GWFBUDGET", "../flow/flow.bud", None)]
+    pd = [("GWFBUDGET", gwf_ws / f"{gwf_name}.bud", None)]
     fmi = flopy.mf6.ModflowGwtfmi(gwt, packagedata=pd)
     sources = [("CHD-1", "AUX", "CONCENTRATION")]
     ssm = flopy.mf6.ModflowGwtssm(gwt, print_flows=True, sources=sources)
-    budget_file = name + ".bud"
-    concentration_file = name + ".ucn"
     oc = flopy.mf6.ModflowGwtoc(
         gwt,
-        budget_filerecord=budget_file,
-        concentration_filerecord=concentration_file,
+        budget_filerecord=f"{gwt_name}.bud",
+        concentration_filerecord=f"{gwt_name}.ucn",
         saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("CONCENTRATION", "LAST"), ("BUDGET", "LAST")],
     )
-    sim.write_simulation()
-    sim.run_simulation()
-    fname = os.path.join(ws, budget_file)
-    assert os.path.isfile(fname)
-    fname = os.path.join(ws, concentration_file)
-    assert os.path.isfile(fname)
+    return sim
 
 
-def test_fmi(function_tmpdir, targets):
-    mf6 = targets["mf6"]
-    run_flow_model(str(function_tmpdir), mf6)
-    run_transport_model(str(function_tmpdir), mf6)
+def build_models(idx, test):
+    if "_a" in test.name:
+        gwf_tdis_pd = [(1.0, 3, 1.0), (1.0, 3, 1.0)]
+        gwt_tdis_pd = [(1.0, 3, 1.0), (1.0, 3, 1.0)]
+    elif "_b" in test.name:
+        gwf_tdis_pd = [(1.0, 1, 1.0), (1.0, 1, 1.0)]
+        gwt_tdis_pd = [(1.0, 3, 1.0), (1.0, 3, 1.0)]
+    elif "_c" in test.name:
+        gwf_tdis_pd = [(1.0, 3, 1.0), (1.0, 3, 1.0)]
+        gwt_tdis_pd = [(1.0, 1, 1.0), (1.0, 1, 1.0)]
+    elif "_d" in test.name:
+        gwf_tdis_pd = [(1.0, 3, 1.0), (1.0, 3, 1.0)]
+        gwt_tdis_pd = [(1.0, 3, 1.0), (1.0, 1, 1.0)]
+    gwf_sim = build_gwf_sim(
+        test.name, test.workspace / "gwf", test.targets["mf6"], tdis_pd=gwf_tdis_pd
+    )
+    gwt_sim = build_gwt_sim(
+        test.name,
+        test.workspace / "gwf",
+        test.workspace / "gwt",
+        test.targets["mf6"],
+        tdis_pd=gwt_tdis_pd,
+    )
+    return gwf_sim, gwt_sim
+
+
+def check_output(idx, test):
+    if "_a" in test.name:
+        pass
+    elif "_b" in test.name:
+        pass
+    elif "_c" in test.name:
+        buff = test.buffs[1]
+        assert any("INCOMPATIBLE WITH TIME" in line for line in buff)
+    elif "_d" in test.name:
+        buff = test.buffs[1]
+        assert any("INCOMPATIBLE WITH TIME" in line for line in buff)
+
+
+@pytest.mark.parametrize("idx, name", enumerate(cases))
+def test_mf6model(idx, name, function_tmpdir, targets):
+    test = TestFramework(
+        name=name,
+        workspace=function_tmpdir,
+        build=lambda t: build_models(idx, t),
+        check=lambda t: check_output(idx, t),
+        targets=targets,
+        compare=None,
+        xfail=[False, "_c" in name or "_d" in name],
+    )
+    test.run()

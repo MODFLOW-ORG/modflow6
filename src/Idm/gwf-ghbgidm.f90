@@ -276,7 +276,8 @@ module GwfGhbgInputModule
     'MAXBOUND', & ! fortran variable
     'INTEGER', & ! type
     '', & ! shape
-    'maximum number of general-head boundaries in any stress period', & ! longname
+    'maximum number of general-head boundaries in any stress '// &
+    'period', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record

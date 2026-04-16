@@ -7,12 +7,13 @@
 !<
 module TvkModule
   use BaseDisModule, only: DisBaseType
-  use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO
+  use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, DNODATA
   use KindModule, only: I4B, DP
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
   use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
+  use TdisModule, only: kper
   use TvBaseModule, only: TvBaseType, tvbase_da
 
   implicit none
@@ -31,13 +32,15 @@ module TvkModule
     integer(I4B), pointer :: kchangeper => null() !< NPF last stress period in which any node K (or K22, or K33) values were changed (0 if unchanged from start of simulation)
     integer(I4B), pointer :: kchangestp => null() !< NPF last time step in which any node K (or K22, or K33) values were changed (0 if unchanged from start of simulation)
     integer(I4B), dimension(:), pointer, contiguous :: nodekchange => null() !< NPF grid array of flags indicating for each node whether its K (or K22, or K33) value changed (1) at (kchangeper, kchangestp) or not (0)
+    real(DP), dimension(:), pointer, contiguous :: k11_src => null() !< input K values
+    real(DP), dimension(:), pointer, contiguous :: k22_src => null() !< input K22 values
+    real(DP), dimension(:), pointer, contiguous :: k33_src => null() !< input K33 values
 
   contains
 
     procedure :: da => tvk_da
     procedure :: ar_set_pointers => tvk_ar_set_pointers
-    procedure :: read_option => tvk_read_option
-    procedure :: get_pointer_to_value => tvk_get_pointer_to_value
+    procedure :: apply_row_changes => tvk_apply_row_changes
     procedure :: set_changed_at => tvk_set_changed_at
     procedure :: reset_change_flags => tvk_reset_change_flags
     procedure :: validate_change => tvk_validate_change
@@ -49,15 +52,16 @@ contains
   !!
   !! Create a new time-varying conductivity (TvkType) object.
   !<
-  subroutine tvk_cr(tvk, name_model, inunit, iout)
+  subroutine tvk_cr(tvk, name_model, mempath, inunit, iout)
     ! -- dummy
     type(TvkType), pointer, intent(out) :: tvk
     character(len=*), intent(in) :: name_model
+    character(len=*), intent(in) :: mempath
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
     !
     allocate (tvk)
-    call tvk%init(name_model, 'TVK', 'TVK', inunit, iout)
+    call tvk%init(name_model, 'TVK', 'TVK', mempath, inunit, iout)
   end subroutine tvk_cr
 
   !> @brief Announce package and set pointers to variables
@@ -73,13 +77,10 @@ contains
     ! -- formats
     character(len=*), parameter :: fmttvk = &
       "(1x,/1x,'TVK -- TIME-VARYING K PACKAGE, VERSION 1, 08/18/2021', &
-      &' INPUT READ FROM UNIT ', i0, //)"
+      &' INPUT READ FROM MEMPATH ', A, //)"
     !
-    ! -- Print a message identifying the TVK package
-    write (this%iout, fmttvk) this%inunit
+    write (this%iout, fmttvk) this%input_mempath
     !
-    ! -- Set pointers to other package variables
-    ! -- NPF
     npfMemoryPath = create_mem_path(this%name_model, 'NPF')
     call mem_setptr(this%ik22overk, 'IK22OVERK', npfMemoryPath)
     call mem_setptr(this%ik33overk, 'IK33OVERK', npfMemoryPath)
@@ -89,48 +90,61 @@ contains
     call mem_setptr(this%kchangeper, 'KCHANGEPER', npfMemoryPath)
     call mem_setptr(this%kchangestp, 'KCHANGESTP', npfMemoryPath)
     call mem_setptr(this%nodekchange, 'NODEKCHANGE', npfMemoryPath)
+    !
+    ! -- set input mempath pointers
+    call mem_setptr(this%k11_src, 'K', this%input_mempath)
+    call mem_setptr(this%k22_src, 'K22', this%input_mempath)
+    call mem_setptr(this%k33_src, 'K33', this%input_mempath)
   end subroutine tvk_ar_set_pointers
 
-  !> @brief Read a TVK-specific option from the OPTIONS block
-  !!
-  !! Process a single TVK-specific option. Used when reading the OPTIONS block
-  !! of the TVK package input file.
+  !> @brief Apply input K/K22/K33 column changes for period-data row n to node.
   !<
-  function tvk_read_option(this, keyword) result(success)
-    ! -- dummy
-    class(TvkType) :: this
-    character(len=*), intent(in) :: keyword
-    ! -- return
-    logical :: success
-    !
-    ! -- There are no TVK-specific options, so just return false
-    success = .false.
-  end function tvk_read_option
-
-  !> @brief Get an array value pointer given a variable name and node index
-  !!
-  !! Return a pointer to the given node's value in the appropriate NPF array
-  !! based on the given variable name string.
-  !<
-  function tvk_get_pointer_to_value(this, n, varName) result(bndElem)
+  subroutine tvk_apply_row_changes(this, n, node)
     ! -- dummy
     class(TvkType) :: this
     integer(I4B), intent(in) :: n
-    character(len=*), intent(in) :: varName
-    ! -- return
-    real(DP), pointer :: bndElem
+    integer(I4B), intent(in) :: node
+    ! -- local
+    character(len=LINELENGTH) :: cellstr
+    ! -- formats
+    character(len=*), parameter :: fmtvalchg = &
+      "(a, ' package: Setting ', a, ' value for cell ', a, ' at start of &
+      &stress period ', i0, ' = ', g12.5)"
     !
-    select case (varName)
-    case ('K')
-      bndElem => this%k11(n)
-    case ('K22')
-      bndElem => this%k22(n)
-    case ('K33')
-      bndElem => this%k33(n)
-    case default
-      bndElem => null()
-    end select
-  end function tvk_get_pointer_to_value
+    ! -- K is processed before K22/K33 so that validate_change can use
+    ! -- the already-updated k11 value when ik22overk/ik33overk are set.
+    if (this%k11_src(n) /= DNODATA) then
+      this%k11(node) = this%k11_src(n)
+      call this%validate_change(node, 'K')
+      if (this%iprpak /= 0) then
+        call this%dis%noder_to_string(node, cellstr)
+        write (this%iout, fmtvalchg) &
+          trim(adjustl(this%packName)), 'K', trim(cellstr), kper, this%k11(node)
+      end if
+    end if
+    !
+    if (this%k22_src(n) /= DNODATA) then
+      this%k22(node) = this%k22_src(n)
+      call this%validate_change(node, 'K22')
+      if (this%iprpak /= 0) then
+        call this%dis%noder_to_string(node, cellstr)
+        write (this%iout, fmtvalchg) &
+          trim(adjustl(this%packName)), 'K22', trim(cellstr), kper, &
+          this%k22(node)
+      end if
+    end if
+    !
+    if (this%k33_src(n) /= DNODATA) then
+      this%k33(node) = this%k33_src(n)
+      call this%validate_change(node, 'K33')
+      if (this%iprpak /= 0) then
+        call this%dis%noder_to_string(node, cellstr)
+        write (this%iout, fmtvalchg) &
+          trim(adjustl(this%packName)), 'K33', trim(cellstr), kper, &
+          this%k33(node)
+      end if
+    end if
+  end subroutine tvk_apply_row_changes
 
   !> @brief Mark property changes as having occurred at (kper, kstp)
   !!
@@ -159,7 +173,6 @@ contains
     ! -- local variables
     integer(I4B) :: i
     !
-    ! -- Clear NPF's nodekchange array
     do i = 1, this%dis%nodes
       this%nodekchange(i) = 0
     end do
@@ -226,7 +239,6 @@ contains
     ! -- dummy
     class(TvkType) :: this
     !
-    ! -- Nullify pointers to other package variables
     nullify (this%ik22overk)
     nullify (this%ik33overk)
     nullify (this%k11)
@@ -235,8 +247,9 @@ contains
     nullify (this%kchangeper)
     nullify (this%kchangestp)
     nullify (this%nodekchange)
-    !
-    ! -- Deallocate parent
+    nullify (this%k11_src)
+    nullify (this%k22_src)
+    nullify (this%k33_src)
     call tvbase_da(this)
   end subroutine tvk_da
 

@@ -37,7 +37,6 @@ module OlfOcInputModule
     logical :: printrecord = .false.
     logical :: print = .false.
     logical :: rtype = .false.
-    logical :: ocsetting = .false.
     logical :: all = .false.
     logical :: first = .false.
     logical :: last = .false.
@@ -529,25 +528,6 @@ module OlfOcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    olfoc_ocsetting = InputParamDefinitionType &
-    ( &
-    'OLF', & ! component
-    'OC', & ! subcomponent
-    'PERIOD', & ! block
-    'OCSETTING', & ! tag name
-    'OCSETTING', & ! fortran variable
-    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS', & ! type
-    '', & ! shape
-    '', & ! longname
-    .true., & ! required
-    .false., & ! developmode
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
     olfoc_all = InputParamDefinitionType &
     ( &
     'OLF', & ! component
@@ -670,7 +650,6 @@ module OlfOcInputModule
     olfoc_printrecord, &
     olfoc_print, &
     olfoc_rtype, &
-    olfoc_ocsetting, &
     olfoc_all, &
     olfoc_first, &
     olfoc_last, &
@@ -679,25 +658,28 @@ module OlfOcInputModule
     ]
 
   type(InputParamDefinitionType), parameter :: &
-    olf_oc_aggregate_definitions(*) = &
-    [ &
-    InputParamDefinitionType &
+    olfoc_ocsetting = InputParamDefinitionType &
     ( &
-    '', & ! component
-    '', & ! subcomponent
-    '', & ! block
-    '', & ! tag name
-    '', & ! fortran variable
-    '', & ! type
+    'OLF', & ! component
+    'OC', & ! subcomponent
+    'PERIOD', & ! block
+    'OCSETTING', & ! tag name
+    'OCSETTING', & ! fortran variable
+    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS', & ! type
     '', & ! shape
     '', & ! longname
-    .false., & ! required
+    .true., & ! required
     .false., & ! developmode
-    .false., & ! multi-record
+    .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
-    ) &
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    olf_oc_aggregate_definitions(*) = &
+    [ &
+    olfoc_ocsetting &
     ]
 
   type(InputBlockDefinitionType), parameter :: &
@@ -711,8 +693,8 @@ module OlfOcInputModule
     ), &
     InputBlockDefinitionType( &
     'PERIOD', & ! blockname
-    .false., & ! required
-    .false., & ! aggregate
+    .true., & ! required
+    .true., & ! aggregate
     .true. & ! block_variable
     ) &
     ]
