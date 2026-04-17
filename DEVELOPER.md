@@ -401,6 +401,32 @@ pixi run build-mf5to6 builddir
 
 **Note:** If using Visual Studio Code, you can use tasks as described [here](.vscode/README.md) to automate the above.
 
+## Version string
+
+The version string displayed by `mf6 -v` and written to listing files is composed at build time from several components defined in `src/Utilities/version.f90.in`:
+
+- `VERSIONNUMBER`: the base version (e.g. `6.8.0.dev0`), manually maintained and set one minor release ahead of the last tag on the `develop` branch
+- `VERSIONTAG`: a commit identifier suffix injected at build time (e.g. `+4d7f41ab`), or empty on official releases
+- `VERSIONQUALIFIER`: a human-readable release qualifier (e.g. ` (preliminary) 02/06/2026`), manually updated alongside `VERSIONNUMBER`
+- `VERSION`: `VERSIONNUMBER` + `VERSIONTAG` — used for the short `-v` display
+- `FULLVERSION`: `VERSIONNUMBER` + `VERSIONTAG` + `VERSIONQUALIFIER` — used for listing file headers
+
+On official releases (i.e. when `HEAD` is an exact tag match), `VERSIONTAG` is empty, so `VERSION` is simply `x.y.z`.
+
+### Meson builds
+
+`vcs_tag` in `meson.build` (and `utils/mf5to6/meson.build`) generates `version.f90` in the build directory at build time by calling `distribution/vcs_tag_suffix.py`, which substitutes the `@VCS_TAG@` placeholder in `version.f90.in`. The source file `src/Utilities/version.f90` is not used or modified by Meson builds.
+
+### Visual Studio builds
+
+The `.vfproj` files include a pre-build event that runs `distribution/vcs_tag_suffix.py` to generate `src/Utilities/version.f90` before compilation, provided Python is on the `PATH`. If Python is not available the event exits silently and the committed static `src/Utilities/version.f90` (which has an empty `VERSIONTAG`) is compiled instead.
+
+> **Git hygiene note:** If you build with Visual Studio and Python is on your `PATH`, the pre-build event will overwrite `src/Utilities/version.f90` with a generated file containing the current commit hash. This file will then appear as modified in `git status`. Do not commit this generated file — the committed version must always have `VERSIONTAG = ''`.
+
+### Makefile builds
+
+The makefiles compile `src/Utilities/version.f90` directly with no generation step. The committed static file (empty `VERSIONTAG`) is always used.
+
 ## Formatting
 
 ### Spell checking
