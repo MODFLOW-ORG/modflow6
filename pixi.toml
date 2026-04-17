@@ -6,7 +6,7 @@ version = "6.8.0.dev0"
 
 [activation.env]
 PKG_CONFIG_PATH = """
-C:\\dev\\externals\\test-drive\\install\\icx\\lib\\pkgconfig;C:\\Program Files (x86)\\Intel\\oneAPI\\mpi\\latest\\lib\\pkgconfig;C:\\dev\\externals\\petsc\\arch-mswin-icx\\lib\\pkgconfig;
+C:\\dev\\externals\\test-drive\\install\\icx\\lib\\pkgconfig;C:\\Program Files (x86)\\Intel\\oneAPI\\mpi\\latest\\lib\\pkgconfig;C:\\dev\\externals\\petsc\\install\\arch-mswin-icx\\lib\\pkgconfig;
 """
 
 
