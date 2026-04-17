@@ -199,7 +199,7 @@ contains
   !> @brief set netcdf file scoped attributes
   !<
   subroutine set(this, modelname, modeltype, modelfname, nctype, disenum)
-    use VersionModule, only: VERSION
+    use VersionModule, only: FULLVERSION
     class(NCExportAnnotation), intent(inout) :: this
     character(len=*), intent(in) :: modelname
     character(len=*), intent(in) :: modeltype
@@ -260,7 +260,7 @@ contains
     this%model = trim(modeltype)//'6: '//trim(modelname)
 
     ! modflow6 version string
-    this%source = 'MODFLOW 6 '//trim(adjustl(VERSION))
+    this%source = 'MODFLOW 6 '//trim(adjustl(FULLVERSION))
 
     ! create timestamp
     call date_and_time(values=values)

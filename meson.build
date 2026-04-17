@@ -3,13 +3,21 @@ project(
   'fortran',
   version: '6.8.0.dev0',
   license: 'CC0',
-  meson_version: '>= 1.3.1',
+  meson_version: '>= 1.7.0',
   default_options : [
     'b_vscrt=static_from_buildtype', # Link runtime libraries statically on Windows
     'buildtype=release',
     'debug=false',
     'fortran_std=f2018',
 ])
+
+version_f90 = vcs_tag(
+    command: ['python3', 'distribution/vcs_tag_suffix.py'],
+    input:  'src/Utilities/version.f90.in',
+    output: 'version.f90',
+    replace_string: '@VCS_TAG@',
+    fallback: '',
+  )
 
 if get_option('buildtype') == 'release'
   profile = 'release'

@@ -18,7 +18,9 @@ module VersionModule
   ! -- modflow 6 version
   integer(I4B), parameter :: IDEVELOPMODE = 1
   character(len=*), parameter :: VERSIONNUMBER = '6.8.0.dev0'
-  character(len=*), parameter :: VERSIONTAG = ' (preliminary) 02/06/2026'
+  character(len=*), parameter :: VERSIONQUALIFIER = ' (preliminary) 02/06/2026'
+  character(len=40), parameter :: VERSIONTAG = "@VCS_TAG@"
+  character(len=40), parameter :: FULLVERSION = VERSIONNUMBER//VERSIONQUALIFIER
   character(len=40), parameter :: VERSION = VERSIONNUMBER//VERSIONTAG
   character(len=2), parameter :: MFVNAM = ' 6'
   character(len=*), parameter :: MFTITLE = &
@@ -129,7 +131,7 @@ contains
     end if
     !
     ! -- Write version
-    call write_message_centered(text='VERSION '//VERSION, &
+    call write_message_centered(text='VERSION '//FULLVERSION, &
                                 linelen=iheader_width, iunit=iout)
     !
     ! -- Write if develop mode

@@ -1,7 +1,7 @@
 program zonbudmf6
   use KindModule
   use ConstantsModule, only: LINELENGTH, LENHUGELINE
-  use VersionModule, only: VERSION
+  use VersionModule, only: FULLVERSION
   use SimVariablesModule, only: iout, errmsg
   use SimModule, only: store_error
   use MessageModule, only: write_message, write_message_centered
@@ -23,7 +23,7 @@ program zonbudmf6
   ! -- Write title to screen
   call write_message_centered('ZONEBUDGET'//mfvnam, 80)
   call write_message_centered('U.S. GEOLOGICAL SURVEY', 80)
-  call write_message_centered('VERSION '//VERSION, 80)
+  call write_message_centered('VERSION '//FULLVERSION, 80)
   !
   ! -- Find name of zone budget name file and lst file
   fnam = 'zbud.nam'
@@ -39,7 +39,7 @@ program zonbudmf6
   call openfile(iunit_lst, 0, flst, 'LIST', filstat_opt='REPLACE')
   call write_message_centered('ZONEBUDGET'//mfvnam, 80, iunit=iout)
   call write_message_centered('U.S. GEOLOGICAL SURVEY', 80, iunit=iout)
-  call write_message_centered('VERSION '//VERSION, 80, iunit=iout)
+  call write_message_centered('VERSION '//FULLVERSION, 80, iunit=iout)
   !
   ! -- Open name file, read name file, and open csv file
   call openfile(iunit_nam, iout, fnam, 'NAM')

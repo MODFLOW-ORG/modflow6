@@ -495,13 +495,12 @@ modflow_sources = files(
     'Utilities' / 'Table.f90',
     'Utilities' / 'TableTerm.f90',
     'Utilities' / 'Timer.f90',
-    'Utilities' / 'version.f90',
     'mf6core.f90',
     'mf6lists.f90',
     'SimulationCreate.f90',
     'RunControl.f90',
     'RunControlFactory.F90'
-)
+) + [version_f90]
 
 modflow_petsc_sources = files(
   'Utilities' / 'Vector' / 'PetscVector.F90',
