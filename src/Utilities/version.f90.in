@@ -20,7 +20,10 @@ module VersionModule
   character(len=*), parameter :: VERSIONNUMBER = '6.8.0.dev0'
   character(len=*), parameter :: VERSIONQUALIFIER = ' (preliminary) 02/06/2026'
   character(len=*), parameter :: VERSIONTAG = "@VCS_TAG@"
-  character(len=*), parameter :: FULLVERSION = VERSIONNUMBER//VERSIONQUALIFIER
+  character(len=*), parameter :: FULLVERSION = &
+                                 VERSIONNUMBER// &
+                                 VERSIONTAG// &
+                                 VERSIONQUALIFIER
   character(len=*), parameter :: VERSION = VERSIONNUMBER//VERSIONTAG
   character(len=2), parameter :: MFVNAM = ' 6'
   character(len=*), parameter :: MFTITLE = &

@@ -31,11 +31,10 @@ mf6_sources = files(
     '..' / '..' / '..' / 'src' / 'Utilities' / 'PtrHashTable.f90',
     '..' / '..' / '..' / 'src' / 'Utilities' / 'PtrHashTableIterator.f90',
     '..' / '..' / '..' / 'src' / 'Utilities' / 'defmacro.F90',
-    '..' / '..' / '..' / 'src' / 'Utilities' / 'version.f90',
     '..' / '..' / '..' / 'src' / 'Utilities' / 'Table.f90',
     '..' / '..' / '..' / 'src' / 'Utilities' / 'TableTerm.f90',
     '..' / '..' / '..' / 'src' / 'Utilities' / 'FeatureFlags.f90',
-)
+) + [version_f90]
 
 
 mf5to6_sources = files(
