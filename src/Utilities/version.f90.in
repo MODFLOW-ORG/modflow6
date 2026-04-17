@@ -19,9 +19,9 @@ module VersionModule
   integer(I4B), parameter :: IDEVELOPMODE = 1
   character(len=*), parameter :: VERSIONNUMBER = '6.8.0.dev0'
   character(len=*), parameter :: VERSIONQUALIFIER = ' (preliminary) 02/06/2026'
-  character(len=40), parameter :: VERSIONTAG = "@VCS_TAG@"
-  character(len=40), parameter :: FULLVERSION = VERSIONNUMBER//VERSIONQUALIFIER
-  character(len=40), parameter :: VERSION = VERSIONNUMBER//VERSIONTAG
+  character(len=*), parameter :: VERSIONTAG = "@VCS_TAG@"
+  character(len=*), parameter :: FULLVERSION = VERSIONNUMBER//VERSIONQUALIFIER
+  character(len=*), parameter :: VERSION = VERSIONNUMBER//VERSIONTAG
   character(len=2), parameter :: MFVNAM = ' 6'
   character(len=*), parameter :: MFTITLE = &
     &'U.S. GEOLOGICAL SURVEY MODULAR HYDROLOGIC MODEL'
