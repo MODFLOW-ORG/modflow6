@@ -11,27 +11,29 @@ import sys
 def get_suffix():
     try:
         subprocess.check_output(
-            ['git', 'describe', '--exact-match', '--tags', 'HEAD'],
+            ["git", "describe", "--exact-match", "--tags", "HEAD"],
             stderr=subprocess.DEVNULL,
         )
-        return ''
+        return ""
     except subprocess.CalledProcessError:
-        sha = subprocess.check_output(
-            ['git', 'rev-parse', '--short', 'HEAD']
-        ).decode().strip()
-        return f'+{sha}'
+        sha = (
+            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+            .decode()
+            .strip()
+        )
+        return f"+{sha}"
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if len(sys.argv) not in (1, 3):
-        print(f'usage: {sys.argv[0]} [input output]', file=sys.stderr)
+        print(f"usage: {sys.argv[0]} [input output]", file=sys.stderr)
         sys.exit(1)
     suffix = get_suffix()
     if len(sys.argv) == 3:
         input_path, output_path = sys.argv[1], sys.argv[2]
         with open(input_path) as f:
-            content = f.read().replace('@VCS_TAG@', suffix)
-        with open(output_path, 'w') as f:
+            content = f.read().replace("@VCS_TAG@", suffix)
+        with open(output_path, "w") as f:
             f.write(content)
     else:
-        print(suffix, end='')
+        print(suffix, end="")
