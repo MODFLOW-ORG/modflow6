@@ -10,7 +10,7 @@
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
 				<Tool Name="VFCustomBuildTool"/>
 				<Tool Name="VFPreLinkEventTool"/>
-				<Tool Name="VFPreBuildEventTool" CommandLine="cmd /c &quot;where python &gt;nul 2&gt;&amp;1 &amp;&amp; python $(ProjectDir)..\..\..\distribution\vcs_tag_suffix.py $(ProjectDir)..\..\..\src\Utilities\version.f90.in $(ProjectDir)..\..\..\src\Utilities\version.f90&quot;"/>
+				<Tool Name="VFPreBuildEventTool"/>
 				<Tool Name="VFPostBuildEventTool" CommandLine="copy $(OutDir)\$(TargetName)$(TargetExt) ..\..\..\bin"/>
 				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
 		<Configuration Name="Release|Win32">
@@ -20,7 +20,7 @@
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
 				<Tool Name="VFCustomBuildTool"/>
 				<Tool Name="VFPreLinkEventTool"/>
-				<Tool Name="VFPreBuildEventTool" CommandLine="cmd /c &quot;where python &gt;nul 2&gt;&amp;1 &amp;&amp; python $(ProjectDir)..\..\..\distribution\vcs_tag_suffix.py $(ProjectDir)..\..\..\src\Utilities\version.f90.in $(ProjectDir)..\..\..\src\Utilities\version.f90&quot;"/>
+				<Tool Name="VFPreBuildEventTool"/>
 				<Tool Name="VFPostBuildEventTool" CommandLine="copy $(OutDir)\$(TargetName)$(TargetExt) ..\..\..\bin"/>
 				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration></Configurations>
 	<Files>

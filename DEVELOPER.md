@@ -417,15 +417,9 @@ On official releases (i.e. when `HEAD` is an exact tag match), `VERSIONTAG` is e
 
 `vcs_tag` in `meson.build` (and `utils/mf5to6/meson.build`) generates `version.f90` in the build directory at build time by calling `distribution/vcs_tag_suffix.py`, which substitutes the `@VCS_TAG@` placeholder in `version.f90.in`. The source file `src/Utilities/version.f90` is not used or modified by Meson builds.
 
-### Visual Studio builds
+### Visual Studio and makefile builds
 
-The `.vfproj` files include a pre-build event that runs `distribution/vcs_tag_suffix.py` to generate `src/Utilities/version.f90` before compilation, provided Python is on the `PATH`. If Python is not available the event exits silently and the committed static `src/Utilities/version.f90` (which has an empty `VERSIONTAG`) is compiled instead.
-
-> **Git hygiene note:** If you build with Visual Studio and Python is on your `PATH`, the pre-build event will overwrite `src/Utilities/version.f90` with a generated file containing the current commit hash. This file will then appear as modified in `git status`. Do not commit this generated file — the committed version must always have `VERSIONTAG = ''`.
-
-### Makefile builds
-
-The makefiles compile `src/Utilities/version.f90` directly with no generation step. The committed static file (empty `VERSIONTAG`) is always used.
+Visual Studio and makefile builds compile `src/Utilities/version.f90` directly. This is a static fallback with `VERSIONTAG = ''`, meaning the version string will not include a commit hash. It is kept in sync with `version.f90.in` by `distribution/update_version.py` (except for `VERSIONTAG`, which remains empty).
 
 ## Formatting
 

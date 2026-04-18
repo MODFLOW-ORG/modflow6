@@ -12,7 +12,7 @@
 			<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
 			<Tool Name="VFCustomBuildTool"/>
 			<Tool Name="VFPreLinkEventTool"/>
-			<Tool Name="VFPreBuildEventTool" CommandLine="cmd /c &quot;where python &gt;nul 2&gt;&amp;1 &amp;&amp; python $(ProjectDir)..\distribution\vcs_tag_suffix.py $(ProjectDir)..\src\Utilities\version.f90.in $(ProjectDir)..\src\Utilities\version.f90&quot;"/>
+			<Tool Name="VFPreBuildEventTool"/>
 			<Tool Name="VFPostBuildEventTool"/>
 			<Tool Name="VFManifestTool" SuppressStartupBanner="true"/>
 		</Configuration>
@@ -23,7 +23,7 @@
 			<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
 			<Tool Name="VFCustomBuildTool"/>
 			<Tool Name="VFPreLinkEventTool"/>
-			<Tool Name="VFPreBuildEventTool" CommandLine="cmd /c &quot;where python &gt;nul 2&gt;&amp;1 &amp;&amp; python $(ProjectDir)..\distribution\vcs_tag_suffix.py $(ProjectDir)..\src\Utilities\version.f90.in $(ProjectDir)..\src\Utilities\version.f90&quot;"/>
+			<Tool Name="VFPreBuildEventTool"/>
 			<Tool Name="VFPostBuildEventTool"/>
 			<Tool Name="VFManifestTool" SuppressStartupBanner="true"/>
 		</Configuration>
@@ -34,7 +34,7 @@
 			<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64"/>
 			<Tool Name="VFCustomBuildTool"/>
 			<Tool Name="VFPreLinkEventTool"/>
-			<Tool Name="VFPreBuildEventTool" CommandLine="cmd /c &quot;where python &gt;nul 2&gt;&amp;1 &amp;&amp; python $(ProjectDir)..\distribution\vcs_tag_suffix.py $(ProjectDir)..\src\Utilities\version.f90.in $(ProjectDir)..\src\Utilities\version.f90&quot;"/>
+			<Tool Name="VFPreBuildEventTool"/>
 			<Tool Name="VFPostBuildEventTool"/>
 			<Tool Name="VFManifestTool" SuppressStartupBanner="true"/>
 		</Configuration>
@@ -45,7 +45,7 @@
 			<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64"/>
 			<Tool Name="VFCustomBuildTool"/>
 			<Tool Name="VFPreLinkEventTool"/>
-			<Tool Name="VFPreBuildEventTool" CommandLine="cmd /c &quot;where python &gt;nul 2&gt;&amp;1 &amp;&amp; python $(ProjectDir)..\distribution\vcs_tag_suffix.py $(ProjectDir)..\src\Utilities\version.f90.in $(ProjectDir)..\src\Utilities\version.f90&quot;"/>
+			<Tool Name="VFPreBuildEventTool"/>
 			<Tool Name="VFPostBuildEventTool"/>
 			<Tool Name="VFManifestTool" SuppressStartupBanner="true"/>
 		</Configuration>
@@ -56,7 +56,7 @@
 			<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
 			<Tool Name="VFCustomBuildTool"/>
 			<Tool Name="VFPreLinkEventTool"/>
-			<Tool Name="VFPreBuildEventTool" CommandLine="cmd /c &quot;where python &gt;nul 2&gt;&amp;1 &amp;&amp; python $(ProjectDir)..\distribution\vcs_tag_suffix.py $(ProjectDir)..\src\Utilities\version.f90.in $(ProjectDir)..\src\Utilities\version.f90&quot;"/>
+			<Tool Name="VFPreBuildEventTool"/>
 			<Tool Name="VFPostBuildEventTool"/>
 			<Tool Name="VFManifestTool" SuppressStartupBanner="true"/>
 		</Configuration>
@@ -67,7 +67,7 @@
 			<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64"/>
 			<Tool Name="VFCustomBuildTool"/>
 			<Tool Name="VFPreLinkEventTool"/>
-			<Tool Name="VFPreBuildEventTool" CommandLine="cmd /c &quot;where python &gt;nul 2&gt;&amp;1 &amp;&amp; python $(ProjectDir)..\distribution\vcs_tag_suffix.py $(ProjectDir)..\src\Utilities\version.f90.in $(ProjectDir)..\src\Utilities\version.f90&quot;"/>
+			<Tool Name="VFPreBuildEventTool"/>
 			<Tool Name="VFPostBuildEventTool"/>
 			<Tool Name="VFManifestTool" SuppressStartupBanner="true" OutputManifestFile="$(IntDir)\$(TargetName)p$(TargetExt).embed.manifest" ResourceFile="$(IntDir)\$(TargetName)p$(TargetExt).embed.manifest.res"/>
 		</Configuration>

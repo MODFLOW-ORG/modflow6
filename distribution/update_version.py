@@ -11,6 +11,7 @@ This script is used to update several files in the modflow6 repository, includin
   ../README.md
   ../DISCLAIMER.md
   ../code.json
+  ../src/Utilities/version.f90.in
   ../src/Utilities/version.f90
 
 Information in these files include version number (major.minor.patch[label]), build
@@ -23,10 +24,10 @@ version numbers, and an optional label. Version numbers are substituted into sou
 code, latex files, markdown files, etc. The version number can be provided explicitly
 using --version, short -v.
 
-If --releasemode is provided, IDEVELOPMODE is set to 0 in src/Utilities/version.f90.
-Otherwise, IDEVELOPMODE is set to 1.
+If --releasemode is provided, IDEVELOPMODE is set to 0 in src/Utilities/version.f90.in
+and src/Utilities/version.f90. Otherwise, IDEVELOPMODE is set to 1.
 
-if --releasemode is provided, the disclaimer in src/Utilities/version.f90 and the
+if --releasemode is provided, the disclaimer in src/Utilities/version.f90.in and the
 README/DISCLAIMER markdown files is modified to reflect review and approval.
 Otherwise the language reflects preliminary/provisional
 status, and version strings contain "(preliminary)".
@@ -61,6 +62,7 @@ touched_file_paths = [
     project_root_path / "DISCLAIMER.md",
     project_root_path / "CITATION.cff",
     project_root_path / "code.json",
+    project_root_path / "src" / "Utilities" / "version.f90.in",
     project_root_path / "src" / "Utilities" / "version.f90",
 ]
 
@@ -226,44 +228,52 @@ def update_version_f90(
     timestamp: datetime,
     developmode: bool = False,
 ):
-    path = project_root_path / "src" / "Utilities" / "version.f90"
-    lines = open(path, "r").read().splitlines()
-    with open(path, "w") as f:
-        skip = False
-        version_spl = str(version).rpartition("-")
-        if version_spl[1]:
-            version_num = version_spl[0]
-            version_label = version_spl[2]
-        else:
-            version_num = str(version_spl[2])
-            version_label = ""
+    version_spl = str(version).rpartition("-")
+    if version_spl[1]:
+        version_num = version_spl[0]
+        version_label = version_spl[2]
+    else:
+        version_num = str(version_spl[2])
+        version_label = ""
 
-        for line in lines:
-            # skip all of the disclaimer text
-            if skip:
-                if ',/)"' in line:
-                    skip = False
-                continue
-            elif ":: IDEVELOPMODE =" in line:
-                line = (
-                    "  integer(I4B), parameter :: "
-                    + f"IDEVELOPMODE = {1 if developmode else 0}"
-                )
-            elif ":: VERSIONNUMBER =" in line:
-                line = line.rpartition("::")[0] + f":: VERSIONNUMBER = '{version_num}'"
-            elif ":: VERSIONTAG =" in line:
-                fmat_tstmp = timestamp.strftime("%m/%d/%Y")
-                label_clause = version_label if version_label else ""
-                label_clause += " (preliminary)" if developmode else ""
-                line = (
-                    line.rpartition("::")[0]
-                    + f":: VERSIONTAG = '{label_clause} {fmat_tstmp}'"
-                )
-            elif ":: FMTDISCLAIMER =" in line:
-                line = get_disclaimer(developmode=developmode, formatted=True)
-                skip = True
-            f.write(f"{line}\n")
-    log_update(path, version)
+    fmat_tstmp = timestamp.strftime("%m/%d/%Y")
+    label_clause = version_label if version_label else ""
+    label_clause += " (preliminary)" if developmode else ""
+    new_qualifier = f"{label_clause} {fmat_tstmp}"
+
+    paths = [
+        project_root_path / "src" / "Utilities" / "version.f90.in",
+        project_root_path / "src" / "Utilities" / "version.f90",
+    ]
+    for path in paths:
+        lines = open(path, "r").read().splitlines()
+        with open(path, "w") as f:
+            skip = False
+            for line in lines:
+                # skip all of the disclaimer text
+                if skip:
+                    if ',/)"' in line:
+                        skip = False
+                    continue
+                elif ":: IDEVELOPMODE =" in line:
+                    line = (
+                        "  integer(I4B), parameter :: "
+                        + f"IDEVELOPMODE = {1 if developmode else 0}"
+                    )
+                elif ":: VERSIONNUMBER =" in line:
+                    line = (
+                        line.rpartition("::")[0] + f":: VERSIONNUMBER = '{version_num}'"
+                    )
+                elif ":: VERSIONQUALIFIER =" in line:
+                    line = (
+                        line.rpartition("::")[0]
+                        + f":: VERSIONQUALIFIER = '{new_qualifier}'"
+                    )
+                elif ":: FMTDISCLAIMER =" in line:
+                    line = get_disclaimer(developmode=developmode, formatted=True)
+                    skip = True
+                f.write(f"{line}\n")
+        log_update(path, version)
 
 
 def update_readme_and_disclaimer(version: Version, developmode: bool = False):
@@ -413,7 +423,7 @@ def test_update_version(version, full):
             assert updated == _current_version
 
         # check IDEVELOPMODE was set correctly
-        version_f90_path = project_root_path / "src" / "Utilities" / "version.f90"
+        version_f90_path = project_root_path / "src" / "Utilities" / "version.f90.in"
         lines = version_f90_path.read_text().splitlines()
         assert any(f"IDEVELOPMODE = {0 if full else 1}" in line for line in lines)
 
@@ -446,6 +456,7 @@ as well as several other files in the repository:
   ../README.md
   ../DISCLAIMER.md
   ../code.json
+  ../src/Utilities/version.f90.in
   ../src/Utilities/version.f90
 
 These include a combination of version strings, build timestamps, disclaimer
