@@ -368,9 +368,11 @@ contains
       end if
     end if
 
+    ! For some reason `KSPConvergedReasonequals` isn't exported by petscksp when compiled with ifx, 
+    ! so we need to compare the integer values directly
     if (cnvg_reason%v < 0) then
-      if (cnvg_reason == KSP_DIVERGED_BREAKDOWN .or. &
-          cnvg_reason == KSP_DIVERGED_ITS) then
+      if (cnvg_reason%v == KSP_DIVERGED_BREAKDOWN%v .or. &
+          cnvg_reason%v == KSP_DIVERGED_ITS%v) then
         ! out of iterations, or rho/eta became zero,
         ! move to next Picard iteration and try again
         this%is_converged = 0

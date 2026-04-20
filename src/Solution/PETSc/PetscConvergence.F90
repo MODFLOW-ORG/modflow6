@@ -153,7 +153,9 @@ contains
       flag = apply_check(context, n, xnorm_inf, rnorm_inf_ims, rnorm_L2_ims)
     end if
 
-    if (flag == KSP_CONVERGED_ITERATING) then
+    ! For some reason `KSPConvergedReasonequals` isn't exported by petscksp when compiled with ifx, 
+    ! so we need to compare the integer values directly
+    if (flag%v == KSP_CONVERGED_ITERATING%v) then
       ! not yet converged, max. iters reached? Then stop.
       if (n == context%max_its) then
         flag = KSP_DIVERGED_ITS
@@ -283,7 +285,9 @@ contains
       end if
     end if
 
-    if (flag == KSP_CONVERGED_ITERATING) then
+    ! For some reason `KSPConvergedReasonequals` isn't exported by petscksp when compiled with ifx, 
+    ! so we need to compare the integer values directly
+    if (flag%v == KSP_CONVERGED_ITERATING%v) then
       ! not yet converged, max. iters reached? Then stop.
       if (n == context%max_its) then
         flag = KSP_DIVERGED_ITS

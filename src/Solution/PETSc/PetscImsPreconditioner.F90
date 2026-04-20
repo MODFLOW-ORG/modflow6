@@ -135,6 +135,7 @@ contains
   !< (this is not a type bound procedure)
   subroutine pcshell_apply(pc, x, y, ierr)
     use IMSLinearBaseModule, only: ims_base_ilu0a
+    use iso_c_binding, only: c_ptr, c_f_pointer
     external lusol ! from ilut.f90
     PC :: pc !< the shell preconditioner
     Vec :: x !< the input vector
@@ -142,10 +143,15 @@ contains
     PetscErrorCode :: ierr !< PETSc error code
     ! local
     type(PcShellCtxType), pointer :: pc_ctx => null()
+    type(c_ptr) :: ctx_ptr
     real(DP), dimension(:), pointer :: local_x, local_y
     integer(I4B) :: neq, nja
 
-    call PCShellGetContext(pc, pc_ctx, ierr)
+    ! Due to a missing export in the PETSc Fortran interface, we have to get the context as a C pointer and then convert it back to a Fortran pointer
+    ! call PCShellGetContext(pc, pc_ctx, ierr) -> This results in a linker error because petscFtnCtx is not exported as defined in petscsysmod.F90 
+    ! Workaround is to use the macro as defined in petscpc.h directly : #define PCShellGetContext ...
+    call PCShellGetContextCptr(pc, ctx_ptr, ierr)
+    call c_f_pointer(ctx_ptr, pc_ctx)
     CHKERRQ(ierr)
 
     call VecGetArrayRead(x, local_x, ierr)
@@ -174,18 +180,24 @@ contains
   !< (this is not a type bound procedure)
   subroutine pcshell_setup(pc, ierr)
     use IMSLinearBaseModule, only: ims_base_pcu
+    use iso_c_binding, only: c_ptr, c_f_pointer
     PC :: pc !< the shell preconditioner
     PetscErrorCode :: ierr !< PETSc error code
     ! local
     type(PcShellCtxType), pointer :: pc_ctx => null()
+    type(c_ptr) :: ctx_ptr
     integer(I4B) :: neq, nja
     integer(I4B) :: niapc, njapc, njlu, njw, nwlu
     integer(I4B), dimension(:), contiguous, pointer :: ia, ja
     real(DP), dimension(:), contiguous, pointer :: amat
 
-    call PCShellGetContext(pc, pc_ctx, ierr)
+    ! Due to a missing export in the PETSc Fortran interface, we have to get the context as a C pointer and then convert it back to a Fortran pointer
+    ! call PCShellGetContext(pc, pc_ctx, ierr) -> This results in a linker error because petscFtnCtx is not exported as defined in petscsysmod.F90 
+    ! Workaround is to use the macro as defined in petscpc.h directly : #define PCShellGetContext ...
+    call PCShellGetContextCptr(pc, ctx_ptr, ierr)
+    call c_f_pointer(ctx_ptr, pc_ctx)
     CHKERRQ(ierr)
-
+    
     ! note the two different matrix types here:
     ! bridging between PETSc and IMS
     call pc_ctx%system_matrix%get_aij_local(ia, ja, amat)

@@ -155,13 +155,6 @@ if is_parallel_build or is_extended_build
   dependencies += petsc
   
   with_petsc = true
-  if host_machine.system() == 'windows'
-    user32 = fc.find_library('user32', required: true)
-    gdi32 = fc.find_library('gdi32', required: true)
-    advapi32 = fc.find_library('advapi32', required: true)
-    mkl = dependency('mkl', required: true)
-    dependencies += [mkl, user32, gdi32, advapi32]
-  endif
 
   # find mpi
   if is_mpich
