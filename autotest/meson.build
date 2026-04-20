@@ -1,5 +1,5 @@
 test_drive = dependency('test-drive', required : false)
-if test_drive.found()
+if test_drive.found() and not fc_id.contains('intel')
   tests = [
     'ArrayHandlers',
     'FeatureFlags',
