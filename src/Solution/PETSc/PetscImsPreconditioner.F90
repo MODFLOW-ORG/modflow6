@@ -148,7 +148,7 @@ contains
     integer(I4B) :: neq, nja
 
     ! Due to a missing export in the PETSc Fortran interface, we have to get the context as a C pointer and then convert it back to a Fortran pointer
-    ! call PCShellGetContext(pc, pc_ctx, ierr) -> This results in a linker error because petscFtnCtx is not exported as defined in petscsysmod.F90 
+    ! call PCShellGetContext(pc, pc_ctx, ierr) -> This results in a linker error because petscFtnCtx is not exported as defined in petscsysmod.F90
     ! Workaround is to use the macro as defined in petscpc.h directly : #define PCShellGetContext ...
     call PCShellGetContextCptr(pc, ctx_ptr, ierr)
     call c_f_pointer(ctx_ptr, pc_ctx)
@@ -192,12 +192,12 @@ contains
     real(DP), dimension(:), contiguous, pointer :: amat
 
     ! Due to a missing export in the PETSc Fortran interface, we have to get the context as a C pointer and then convert it back to a Fortran pointer
-    ! call PCShellGetContext(pc, pc_ctx, ierr) -> This results in a linker error because petscFtnCtx is not exported as defined in petscsysmod.F90 
+    ! call PCShellGetContext(pc, pc_ctx, ierr) -> This results in a linker error because petscFtnCtx is not exported as defined in petscsysmod.F90
     ! Workaround is to use the macro as defined in petscpc.h directly : #define PCShellGetContext ...
     call PCShellGetContextCptr(pc, ctx_ptr, ierr)
     call c_f_pointer(ctx_ptr, pc_ctx)
     CHKERRQ(ierr)
-    
+
     ! note the two different matrix types here:
     ! bridging between PETSc and IMS
     call pc_ctx%system_matrix%get_aij_local(ia, ja, amat)

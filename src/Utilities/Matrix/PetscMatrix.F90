@@ -127,8 +127,8 @@ contains
     CHKERRQ(ierr)
 
     call MatGetRowIJ(local_mat, 1, PETSC_FALSE, PETSC_FALSE, &
-                        nrows_local, ia_tmp, ja_tmp, &
-                        done, ierr)
+                     nrows_local, ia_tmp, ja_tmp, &
+                     done, ierr)
     CHKERRQ(ierr)
 
     do i = 1, size(ia_tmp)
@@ -139,7 +139,7 @@ contains
     end do
 
     call MatRestoreRowIJ(local_mat, 1, PETSC_FALSE, PETSC_FALSE, &
-                            nrows_local, ia_tmp, ja_tmp, done, ierr)
+                         nrows_local, ia_tmp, ja_tmp, done, ierr)
     CHKERRQ(ierr)
 
   end subroutine pm_init

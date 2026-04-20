@@ -263,7 +263,7 @@ contains
     class(PetscSolverType) :: this !< This solver instance
     ! local
     PC :: pc, sub_pc
-    KSP, pointer :: sub_ksp(:)  => null()
+    KSP, pointer :: sub_ksp(:) => null()
     PetscInt :: n_local, n_first
     PetscErrorCode :: ierr
 
@@ -298,7 +298,7 @@ contains
     PetscErrorCode :: ierr
 
     call petsc_ctx_create(this%petsc_ctx, this%mat_petsc, this%linear_settings, &
-                               convergence_summary)
+                          convergence_summary)
 
     if (.not. this%use_ims_cnvgopt) then
       ! use PETSc residual L2 norm for convergence
@@ -368,7 +368,7 @@ contains
       end if
     end if
 
-    ! For some reason `KSPConvergedReasonequals` isn't exported by petscksp when compiled with ifx, 
+    ! For some reason `KSPConvergedReasonequals` isn't exported by petscksp when compiled with ifx,
     ! so we need to compare the integer values directly
     if (cnvg_reason%v < 0) then
       if (cnvg_reason%v == KSP_DIVERGED_BREAKDOWN%v .or. &
