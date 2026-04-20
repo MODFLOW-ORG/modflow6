@@ -3,6 +3,8 @@
 !! This module contains subroutines for accessing version information
 !! and writing header information to the program listing files.
 !!
+!!
+!!
 !<
 module VersionModule
   ! -- module imports
@@ -18,13 +20,13 @@ module VersionModule
   ! -- modflow 6 version
   integer(I4B), parameter :: IDEVELOPMODE = 1
   character(len=*), parameter :: VERSIONNUMBER = '6.8.0.dev0'
-  character(len=*), parameter :: VERSIONQUALIFIER = ' (preliminary) 02/06/2026'
-  character(len=*), parameter :: VERSIONTAG = ''
+  character(len=*), parameter :: VERSIONVCSTAG = ''
+  character(len=*), parameter :: VERSIONTITLE = ' (preliminary) 02/06/2026'
+  character(len=*), parameter :: VERSION = VERSIONNUMBER//VERSIONVCSTAG
   character(len=*), parameter :: FULLVERSION = &
                                  VERSIONNUMBER// &
-                                 VERSIONTAG// &
-                                 VERSIONQUALIFIER
-  character(len=*), parameter :: VERSION = VERSIONNUMBER//VERSIONTAG
+                                 VERSIONVCSTAG// &
+                                 VERSIONTITLE
   character(len=2), parameter :: MFVNAM = ' 6'
   character(len=*), parameter :: MFTITLE = &
     &'U.S. GEOLOGICAL SURVEY MODULAR HYDROLOGIC MODEL'
