@@ -239,7 +239,7 @@ def update_version_f90(
     fmat_tstmp = timestamp.strftime("%m/%d/%Y")
     label_clause = version_label if version_label else ""
     label_clause += " (preliminary)" if developmode else ""
-    new_qualifier = f"{label_clause} {fmat_tstmp}"
+    new_title = f"{label_clause} {fmat_tstmp}"
 
     paths = [
         project_root_path / "src" / "Utilities" / "version.f90.in",
@@ -264,10 +264,10 @@ def update_version_f90(
                     line = (
                         line.rpartition("::")[0] + f":: VERSIONNUMBER = '{version_num}'"
                     )
-                elif ":: VERSIONQUALIFIER =" in line:
+                elif ":: VERSIONTITLE =" in line:
                     line = (
                         line.rpartition("::")[0]
-                        + f":: VERSIONQUALIFIER = '{new_qualifier}'"
+                        + f":: VERSIONTITLE = '{new_title}'"
                     )
                 elif ":: FMTDISCLAIMER =" in line:
                     line = get_disclaimer(developmode=developmode, formatted=True)
