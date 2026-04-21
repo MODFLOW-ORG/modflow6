@@ -23,6 +23,7 @@ module AbcModule
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
   use SimModule, only: store_error, count_errors
+  use BaseDisModule, only: DisBaseType
   use SimVariablesModule, only: errmsg
   use PbstBaseModule, only: PbstBaseType, pbstbase_da
   use SensHeatModule, only: ShfType, shf_cr
@@ -32,7 +33,9 @@ module AbcModule
   use ObserveModule
   use BudgetObjectModule, only: BudgetObjectType, budgetobject_cr
   use NumericalPackageModule, only: NumericalPackageType
-  use TimeSeriesManagerModule, only: TimeSeriesManagerType, tsmanager_cr
+  use TimeArraySeriesManagerModule, only: TimeArraySeriesManagerType
+  use TimeSeriesLinkModule, only: TimeSeriesLinkType
+  use TimeSeriesManagerModule, only: TimeSeriesManagerType
   use TableModule, only: TableType, table_cr
   use BndModule, only: BndType
   use GweInputDataModule, only: GweInputDataType
@@ -95,6 +98,7 @@ module AbcModule
 
   contains
 
+    procedure, public :: abc_df
     procedure :: da => abc_da
     procedure :: ar
     procedure, public :: abc_rp
@@ -118,7 +122,10 @@ contains
   !! Create a new atmospheric boundary condition (AbcType) object. Initially for use with
   !! the SFE package.
   !<
-  subroutine abc_cr(abc, name_model, inunit, iout, fname, ncv, gwecommon)
+  subroutine abc_cr(abc, name_model, inunit, iout, fname, ncv, gwecommon, dis)
+    ! -- modules
+    use TimeSeriesManagerModule, only: tsmanager_cr
+    use TimeArraySeriesManagerModule, only: tasmanager_cr
     ! -- dummy
     type(AbcType), pointer, intent(out) :: abc
     character(len=*), intent(in) :: name_model
@@ -127,13 +134,18 @@ contains
     character(len=LINELENGTH), intent(in) :: fname
     integer(I4B), target, intent(in) :: ncv
     type(GweInputDataType), intent(in), target :: gwecommon !< shared data container for use by multiple GWE packages
+    class(DisBaseType), pointer :: dis !< discretization object
     !
     ! -- Create the object
     allocate (abc)
     !
+    ! -- set pointer to dis object for the model
+    abc%dis => dis
+    !
     call abc%set_names(1, name_model, 'ABC', 'ABC')
     !
-    !abc%text = text
+    ! -- call parent's define routine
+    !call abc%bnd_df
     !
     ! -- allocate scalars
     call abc%abc_allocate_scalars()
@@ -150,15 +162,28 @@ contains
     call lhf_cr(abc%lhf, name_model, inunit, iout, ncv)
     call lwr_cr(abc%lwr, name_model, inunit, iout, ncv)
     !
-    ! -- Create time series manager
-    call tsmanager_cr(abc%tsmanager, abc%iout, &
-                      removeTsLinksOnCompletion=.true., &
-                      extendTsToEndOfSimulation=.true.)
+    ! -- Create time series managers
+    call tsmanager_cr(abc%tsmanager, abc%iout)
+    call tasmanager_cr(abc%TasManager, dis, abc%name_model, abc%iout)
     !
     ! -- Store pointer to shared data module for accessing cpw, rhow
     !    for the heat flux calculations
     abc%gwecommon => gwecommon
   end subroutine abc_cr
+
+  !> @brief Define routine for ABC
+  !!
+  !! Run df routines for the tsmanager
+  !<
+  subroutine abc_df(this)
+    ! -- dummy
+    class(AbcType), intent(inout) :: this !< AbcType object
+    !
+    ! -- Now that time series will have been read, need to call the df
+    !    routine to define the manager
+    call this%tsmanager%tsmanager_df()
+    call this%tasmanager%tasmanager_df()
+  end subroutine abc_df
 
   !> @brief Allocate and read
   !!
