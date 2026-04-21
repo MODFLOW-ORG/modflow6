@@ -2,9 +2,9 @@
 Test problem for GWE with MVE active.  Another autotest will check this autotest
 in parallel.
 
-Test that MVE successfully transfers thermal energy from an SFE reach in one model to its 
-neighbor in another model.  It is expected that this will work fine in serial, the check 
-is will it work in parallel.
+Test that MVE successfully transfers thermal energy from an SFE reach in one
+model to its neighbor in another model.  It is expected that this will work fine
+in serial, the bigger check is whether it works in parallel.
 
  Model configuration
 
@@ -115,7 +115,7 @@ def build_gwf_model(sim, gwfname, mod_num):
         save_flows=True,
         model_nam_file=f"{gwfname}.nam",
     )
-    
+
     # Instantiating MODFLOW 6 discretization package
     flopy.mf6.ModflowGwfdis(
         gwf,
@@ -131,7 +131,7 @@ def build_gwf_model(sim, gwfname, mod_num):
         pname="DIS-" + str(mod_num),
         filename=f"{gwfname}.dis",
     )
-    
+
     # Instantiating MODFLOW 6 storage package
     flopy.mf6.ModflowGwfsto(
         gwf,
@@ -143,7 +143,7 @@ def build_gwf_model(sim, gwfname, mod_num):
         pname="STO-" + str(mod_num),
         filename=f"{gwfname}.sto",
     )
-    
+
     # Instantiating node-property flow package
     flopy.mf6.ModflowGwfnpf(
         gwf,
@@ -155,7 +155,7 @@ def build_gwf_model(sim, gwfname, mod_num):
         pname="NPF-" + str(mod_num),
         filename=f"{gwfname}.npf",
     )
-    
+
     # Instantiating initial conditions package for flow model
     flopy.mf6.ModflowGwfic(
         gwf,
@@ -163,10 +163,10 @@ def build_gwf_model(sim, gwfname, mod_num):
         pname="IC-" + str(mod_num),
         filename=f"{gwfname}.ic",
     )
-    
+
     # Instantiate streamflow routing
     packagedata = []
-    
+
     for i in np.arange(ncol):
         ncon = 2
         if i in [0, ncol - 1]:
@@ -187,7 +187,7 @@ def build_gwf_model(sim, gwfname, mod_num):
                 ndv,  # number of diversions
             ]
         )
-    
+
     con_data = []
     for irno in range(ncol):
         if irno == 0:
@@ -197,14 +197,14 @@ def build_gwf_model(sim, gwfname, mod_num):
         else:
             t = (irno, irno - 1, -(irno + 1))
         con_data.append(t)
-    
+
     sfrbndx = []
     for i in np.arange(len(packagedata)):
         if i == 0:
             sfrbndx.append([i, "INFLOW", surf_Q_in])
-    
+
     sfr_perioddata = {0: sfrbndx}
-    
+
     flopy.mf6.ModflowGwfsfr(
         gwf,
         save_flows=True,
@@ -221,7 +221,7 @@ def build_gwf_model(sim, gwfname, mod_num):
         pname="SFR-" + str(mod_num),
         filename=f"{gwfname}.sfr",
     )
-    
+
     # Instantiating output control package for flow model
     flopy.mf6.ModflowGwfoc(
         gwf,
@@ -232,16 +232,16 @@ def build_gwf_model(sim, gwfname, mod_num):
         saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
     )
-    
+
     return sim, gwf
 
 
 def build_gwe_model(sim, gwename, mod_num):
     # Instantiating GWE model
     gwe = flopy.mf6.ModflowGwe(sim, modelname=gwename, model_nam_file=f"{gwename}.nam")
-    
+
     gwe.name_file.save_flows = True
-    
+
     # Instantiating discretization package
     flopy.mf6.ModflowGwedis(
         gwe,
@@ -257,7 +257,7 @@ def build_gwe_model(sim, gwename, mod_num):
         pname="DIS-" + str(mod_num),
         filename=f"{gwename}.dis",
     )
-    
+
     # Instantiating initial temperatures
     flopy.mf6.ModflowGweic(
         gwe,
@@ -265,12 +265,12 @@ def build_gwe_model(sim, gwename, mod_num):
         pname="IC-" + str(mod_num),
         filename=f"{gwename}.ic",
     )
-    
+
     # Instantiating advection package
     flopy.mf6.ModflowGweadv(
         gwe, scheme=scheme, pname="ADV-" + str(mod_num), filename=f"{gwename}.adv"
     )
-    
+
     # Instantiating conduction package
     flopy.mf6.ModflowGwecnd(
         gwe,
@@ -282,7 +282,7 @@ def build_gwe_model(sim, gwename, mod_num):
         pname="CND-" + str(mod_num),
         filename=f"{gwename}.cnd",
     )
-    
+
     # Instantiating mass storage package
     flopy.mf6.ModflowGweest(
         gwe,
@@ -296,24 +296,30 @@ def build_gwe_model(sim, gwename, mod_num):
         pname="EST-" + str(mod_num),
         filename=f"{gwename}.est",
     )
-    
+
     # Instantiate source-sink mixing package
     flopy.mf6.ModflowGwessm(
         gwe, sources=[[]], pname="SSM-" + str(mod_num), filename=f"{gwename}.ssm"
     )
-    
+
     # Instantiate streamflow transport package
     sfepackagedata = []
     for irno in range(ncol):
-        t = (irno, strt_temp - ((mod_num - 1) * strt_temp * 0.5), ktf, rbthcnd, f"myreach{irno + 1}")
+        t = (
+            irno,
+            strt_temp - ((mod_num - 1) * strt_temp * 0.5),
+            ktf,
+            rbthcnd,
+            f"myreach{irno + 1}",
+        )
         sfepackagedata.append(t)
-    
+
     sfeperioddata = [
         (0, "STATUS", "ACTIVE"),
         (1, "STATUS", "ACTIVE"),
         (0, "INFLOW", strt_temp - ((mod_num - 1) * strt_temp)),
     ]
-    
+
     sfe_obs = {
         (gwename + ".sfe.obs.csv",): [
             (f"sfe-{i + 1}-conc", "TEMPERATURE", i + 1) for i in range(ncol)
@@ -323,7 +329,7 @@ def build_gwe_model(sim, gwename, mod_num):
     sfe_obs["digits"] = 10
     sfe_obs["print_input"] = True
     sfe_obs["filename"] = gwename + ".sfe.obs"
-    
+
     sfe = flopy.mf6.modflow.ModflowGwesfe(
         gwe,
         boundnames=True,
@@ -339,7 +345,7 @@ def build_gwe_model(sim, gwename, mod_num):
         pname="SFE-" + str(mod_num),
         filename=f"{gwename}.sfe",
     )
-    
+
     # Instantiate heat transport output control package
     flopy.mf6.ModflowGweoc(
         gwe,
@@ -350,7 +356,7 @@ def build_gwe_model(sim, gwename, mod_num):
         saverecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
     )
-    
+
     return sim, gwe
 
 
@@ -520,7 +526,7 @@ def check_output(idx, test):
     # process the last line read
     m_arr = line.strip().split()
 
-    # if mvr and mve are working correctly, the temperature of the water 
+    # if mvr and mve are working correctly, the temperature of the water
     # moved from model 1 to model 2, thestream temperature should be cut in half
     assert float(m_arr[-1]) == strt_temp / 2, (
         "SFE temperature for model2, reach 1 not equal to 50.0"
