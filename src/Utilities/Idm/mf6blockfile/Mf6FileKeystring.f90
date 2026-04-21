@@ -133,11 +133,18 @@ contains
 
   subroutine df(this)
     use StructArrayModule, only: StructArrayType
+    use MemoryManagerModule, only: mem_setptr, get_isize
+    use CharacterStringModule, only: CharacterStringType
     class(KeystringLoadType), intent(inout) :: this
     type(StructArrayType), pointer :: sa
-    integer(I4B) :: n
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      auxnames => null()
+    integer(I4B) :: n, naux
     ! init tsmanager (TDIS now available)
     call this%tsmanager%tsmanager_df()
+    ! resolve aux names for PACKAGEDATA AUX TS registration
+    call get_isize('AUXILIARY', this%mf6_input%mempath, naux)
+    if (naux > 0) call mem_setptr(auxnames, 'AUXILIARY', this%mf6_input%mempath)
     ! register static TS links; mark as static so they survive reset
     do n = 1, this%static_loader%ts_sa_count()
       sa => this%static_loader%get_ts_sa(n)
@@ -145,7 +152,7 @@ contains
         call sa%ts_update(this%tsmanager, &
                           this%mf6_input%subcomponent_name, &
                           this%ctx%iprpak, this%input_name, &
-                          is_static=.true.)
+                          is_static=.true., auxname_cst=auxnames)
       end if
     end do
   end subroutine df
@@ -221,10 +228,18 @@ contains
     padj = 0
     if (this%ctx%is_advanced) padj = 1
 
-    this%structarray => &
-      constructStructArray(this%mf6_input, this%nparam + padj, &
-                           nrow_prealloc, 0, this%mf6_input%mempath, &
-                           this%mf6_input%component_mempath)
+    if (this%ctx%is_advanced .and. nrow_prealloc < 0) then
+      ! includes APT based advanced packages
+      this%structarray => &
+        constructStructArray(this%mf6_input, this%nparam + padj, &
+                             nrow_prealloc, 0, this%mf6_input%mempath, &
+                             this%mf6_input%component_mempath, size_init=64)
+    else
+      this%structarray => &
+        constructStructArray(this%mf6_input, this%nparam + padj, &
+                             nrow_prealloc, 0, this%mf6_input%mempath, &
+                             this%mf6_input%component_mempath)
+    end if
 
     ! create leading (pre-keystring) columns unchanged
     do icol = 1, this%nleading

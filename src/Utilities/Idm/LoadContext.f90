@@ -1,6 +1,6 @@
 !> @brief Load context for IDM generic dynamic loaders.
 !!
-!! LoadContextType classifies each input), builds the in-scope parameter
+!! LoadContextType classifies each input, builds the in-scope parameter
 !! list for the active block, and manages memory-manager dimension scalars
 !! and array pointers.  It is used by all dynamic loaders: ListLoadType,
 !! KeystringLoadType, LayerArrayLoadType, GridArrayLoadType, and
@@ -193,7 +193,7 @@ contains
       end if
     end do
 
-    ! check if KEYSTRING package also has a PACKAGEDATA block
+    ! Detect advanced KEYSTRING packages (LAK, MAW, SFR).
     if (this%loadtype == KEYSTRING) then
       do n = 1, size(this%mf6_input%block_dfns)
         if (this%mf6_input%block_dfns(n)%blockname == 'PACKAGEDATA') then
@@ -519,20 +519,19 @@ contains
       end if
     case ('NAM')
       in_scope = .true.
-    case ('SFR')
-      if (tagname == 'IC') in_scope = .true.
     case ('SSM')
       if (tagname == 'MIXED') in_scope = .true.
     case ('SPC', 'SPCA')
       in_scope = .true.
+    case ('LAK', 'MAW', 'SFR')
+      in_scope = .true.
     case default
-      if (idt%in_record) then
-        in_scope = .true.
-      else
-        errmsg = 'LoadContext in_scope needs new check for: '// &
-                 trim(this%mf6_input%subcomponent_type)//'/'//trim(tagname)
-        call store_error(errmsg, .true.)
-      end if
+      ! Unrecognized subcomponent with an optional param not handled above.
+      ! This is a development error — abort with message so developer knows
+      ! which package needs a new case.
+      errmsg = 'LoadContext in_scope needs new case for: '// &
+               trim(this%mf6_input%subcomponent_type)//'/'//trim(tagname)
+      call store_error(errmsg, .true.)
     end select
   end function in_scope
 

@@ -27,7 +27,7 @@ module LoadMf6FileModule
   use DefinitionSelectModule, only: get_param_definition_type, &
                                     get_aggregate_definition_type
   use ModflowInputModule, only: ModflowInputType
-  use MemoryManagerModule, only: mem_allocate, mem_setptr
+  use MemoryManagerModule, only: mem_allocate, mem_setptr, get_mem_rank
   use StructArrayModule, only: StructArrayType
   use StructVectorModule, only: StructVectorType
   use NCFileVarsModule, only: NCPackageVarsType
@@ -574,7 +574,9 @@ contains
     type(InputParamDefinitionType), target :: blockvar_idt
     integer(I4B) :: blocknum
     integer(I4B), pointer :: nrow
+    integer(I4B), dimension(:), pointer, contiguous :: int1d
     integer(I4B) :: nrows, nrowsread
+    integer(I4B) :: mem_rank
     integer(I4B) :: ibinary, oc_inunit
     integer(I4B) :: icol, iparam
     integer(I4B) :: ncol, nparam
@@ -605,16 +607,38 @@ contains
     if (blocknum > 0) ncol = ncol + 1
     ! use shape to set the max num of rows
     if (idt%shape /= '') then
-      call mem_setptr(nrow, idt%shape, this%mf6_input%mempath)
-      nrows = nrow
+      call get_mem_rank(idt%shape, this%mf6_input%mempath, mem_rank)
+      if (mem_rank == 0) then
+        ! scalar shape variable (e.g. NLAKES, MAXBOUND) — use value directly
+        call mem_setptr(nrow, idt%shape, this%mf6_input%mempath)
+        nrows = nrow
+      else if (mem_rank == 1) then
+        ! 1D integer array shape variable (e.g. NLAKECONN) — sum elements
+        ! to get total row count; allows DFN shape (nlakeconn) in place of
+        ! the non-evaluable sum(nlakeconn) expression.
+        call mem_setptr(int1d, idt%shape, this%mf6_input%mempath)
+        nrows = sum(int1d)
+        nullify (int1d)
+      else
+        ! shape variable not found or unsupported rank — use deferred
+        nrows = -1
+      end if
     else
       nrows = -1
     end if
 
-    ! create a structured array
-    this%structarray => constructStructArray(this%mf6_input, ncol, nrows, &
-                                             blocknum, this%mf6_input%mempath, &
-                                             this%mf6_input%component_mempath)
+    ! create a structured array; use a larger deferred init for blocks with no
+    ! explicit shape, which include APT based advanced packages.
+    if (nrows < 0) then
+      this%structarray => constructStructArray(this%mf6_input, ncol, nrows, &
+                                               blocknum, this%mf6_input%mempath, &
+                                               this%mf6_input%component_mempath, &
+                                               size_init=64)
+    else
+      this%structarray => constructStructArray(this%mf6_input, ncol, nrows, &
+                                               blocknum, this%mf6_input%mempath, &
+                                               this%mf6_input%component_mempath)
+    end if
     ! create structarray vectors for each column
     do icol = 1, ncol
       ! if block is reloadable, block number is first column

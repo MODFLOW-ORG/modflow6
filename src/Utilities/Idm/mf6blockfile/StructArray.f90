@@ -77,13 +77,14 @@ contains
   !> @brief constructor for a struct_array
   !<
   function constructStructArray(mf6_input, ncol, nrow, blocknum, mempath, &
-                                component_mempath) result(struct_array)
+                                component_mempath, size_init) result(struct_array)
     type(ModflowInputType), intent(in) :: mf6_input
     integer(I4B), intent(in) :: ncol !< number of columns in the StructArrayType
     integer(I4B), intent(in) :: nrow !< number of rows in the StructArrayType
     integer(I4B), intent(in) :: blocknum !< valid block number or 0
     character(len=*), intent(in) :: mempath !< memory path for storing the vector
     character(len=*), intent(in) :: component_mempath
+    integer(I4B), optional, intent(in) :: size_init !< initial deferred allocation size (default 5)
     type(StructArrayType), pointer :: struct_array !< new StructArrayType
 
     ! allocate StructArrayType
@@ -100,6 +101,7 @@ contains
     if (struct_array%nrow == -1) then
       struct_array%nrow = 0
       struct_array%deferred_shape = .true.
+      if (present(size_init)) struct_array%deferred_size_init = size_init
     end if
 
     ! set blocknum
@@ -397,10 +399,16 @@ contains
 
     if (sv%idt%shape == 'NAUX') then
       call mem_setptr(naux, sv%idt%shape, this%mempath)
-      call mem_allocate(dbl2d, naux, this%nrow, sv%idt%mf6varname, this%mempath)
+
+      if (this%deferred_shape) then
+        ! deferred: plain allocate so check_reallocate can grow it safely
+        allocate (dbl2d(naux, sv%size))
+      else
+        call mem_allocate(dbl2d, naux, this%nrow, sv%idt%mf6varname, this%mempath)
+      end if
 
       ! initialize
-      do m = 1, this%nrow
+      do m = 1, sv%size
         do n = 1, naux
           dbl2d(n, m) = DZERO
         end do
@@ -420,11 +428,11 @@ contains
         call mem_setptr(nseg_1, 'NSEG_1', this%mempath)
       end if
 
-      ! allocate
-      call mem_allocate(dbl2d, nseg_1, this%nrow, sv%idt%mf6varname, this%mempath)
+      ! allocate; use sv%size for deferred-compatible initial row count
+      call mem_allocate(dbl2d, nseg_1, sv%size, sv%idt%mf6varname, this%mempath)
 
       ! initialize
-      do m = 1, this%nrow
+      do m = 1, sv%size
         do n = 1, nseg_1
           dbl2d(n, m) = DZERO
         end do
@@ -448,6 +456,7 @@ contains
     integer(I4B), dimension(:), pointer, contiguous :: p_int1d
     integer(I4B), dimension(:, :), pointer, contiguous :: p_int2d
     real(DP), dimension(:), pointer, contiguous :: p_dbl1d
+    real(DP), dimension(:, :), pointer, contiguous :: p_dbl2d
     type(CharacterStringType), dimension(:), pointer, contiguous :: p_charstr1d
     character(len=LENVARNAME) :: varname
     logical(LGP) :: overwrite
@@ -612,9 +621,24 @@ contains
       this%struct_vectors(icol)%int2d => p_int2d
       this%struct_vectors(icol)%size = this%nrow
     case (MTYPE_DBL2D)
-      errmsg = 'StructArray::load_deferred_vector &
-               &dbl2d reallocate unimplemented.'
-      call store_error(errmsg, terminate=.TRUE.)
+      if (isize > -1) then
+        errmsg = 'StructArray::load_deferred_vector &
+                 &dbl2d reallocate unimplemented.'
+        call store_error(errmsg, terminate=.TRUE.)
+      else
+        call mem_allocate(p_dbl2d, this%struct_vectors(icol)%intshape, &
+                          this%nrow, varname, this%mempath)
+        do i = 1, this%nrow
+          do j = 1, this%struct_vectors(icol)%intshape
+            p_dbl2d(j, i) = this%struct_vectors(icol)%dbl2d(j, i)
+          end do
+        end do
+      end if
+
+      deallocate (this%struct_vectors(icol)%dbl2d)
+
+      this%struct_vectors(icol)%dbl2d => p_dbl2d
+      this%struct_vectors(icol)%size = this%nrow
     case default
     end select
   end subroutine load_deferred_vector
@@ -717,6 +741,7 @@ contains
     integer(I4B), dimension(:), pointer, contiguous :: p_int1d
     integer(I4B), dimension(:, :), pointer, contiguous :: p_int2d
     real(DP), dimension(:), pointer, contiguous :: p_dbl1d
+    real(DP), dimension(:, :), pointer, contiguous :: p_dbl2d
     type(CharacterStringType), dimension(:), pointer, contiguous :: p_charstr1d
     integer(I4B) :: reallocate_mult
 
@@ -792,7 +817,24 @@ contains
           this%struct_vectors(j)%int2d => p_int2d
           this%struct_vectors(j)%size = newsize
         end if
-        ! TODO: case (6)
+      case (MTYPE_DBL2D)
+        if (this%nrow > this%struct_vectors(j)%size) then
+          newsize = this%struct_vectors(j)%size * reallocate_mult
+          allocate (p_dbl2d(this%struct_vectors(j)%intshape, newsize))
+
+          do i = 1, this%struct_vectors(j)%size
+            do k = 1, this%struct_vectors(j)%intshape
+              p_dbl2d(k, i) = this%struct_vectors(j)%dbl2d(k, i)
+            end do
+          end do
+
+          deallocate (this%struct_vectors(j)%dbl2d)
+
+          this%struct_vectors(j)%dbl2d => p_dbl2d
+          this%struct_vectors(j)%size = newsize
+        end if
+      case (MTYPE_UNDEF, MTYPE_INTVEC)
+        ! metadata-only or unsupported: skip reallocation check
       case default
         errmsg = 'IDM unimplemented. StructArray::check_reallocate &
                  &unsupported memtype.'
@@ -817,9 +859,10 @@ contains
 
     select case (this%struct_vectors(sv_col)%memtype)
     case (MTYPE_UNDEF)
-      ! metadata vector sub-member (e.g. TAB6, FILEIN keyword markers):
-      ! consume the token from the parser but discard it
-      call parser%GetString(str)
+      ! MTYPE_UNDEF vectors are metadata-only (KEYWORD dispatch headers).
+      write (errmsg, '(a,i0)') &
+        'IDM read_param called for MTYPE_UNDEF metadata vector at column ', sv_col
+      call store_error(errmsg, .true.)
     case (MTYPE_INT)
       ! if reloadable block and first col, store blocknum
       if (sv_col == 1 .and. this%blocknum > 0) then
@@ -1226,8 +1269,9 @@ contains
     logical(LGP) :: do_clear, do_static
 
     do_clear = .true.
-    if (present(clear_strlocs)) do_clear = clear_strlocs
     do_static = .false.
+
+    if (present(clear_strlocs)) do_clear = clear_strlocs
     if (present(is_static)) do_static = is_static
 
     ! find BOUNDNAME column (0 = none)
