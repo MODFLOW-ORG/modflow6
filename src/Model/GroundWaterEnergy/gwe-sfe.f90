@@ -50,7 +50,7 @@ module GweSfeModule
   use TspAptModule, only: TspAptType, apt_process_obsID, &
                           apt_process_obsID12
   use GweInputDataModule, only: GweInputDataType
-  use AbcModule, only: AbcType, abc_cr
+  use AbcModule
   use MatrixBaseModule
   use InputOutputModule, only: openfile
   !
@@ -228,8 +228,9 @@ contains
       ! -- create atmospheric boundary condition object
       call openfile(this%inabc, this%iout, fname, 'ABC')
       call abc_cr(this%abc, this%name_model, this%inabc, this%iout, fname, &
-                  this%ncv, this%gwecommon) !, this%mempath)
+                  this%ncv, this%gwecommon, this%numericalpackagetype%dis) !, this%mempath)
       call this%abc%read_options()
+      call this%abc%abc_df()
       !this%abc%inputFilename = fname
       !
       ! -- call _ar routine for abc sub-package
