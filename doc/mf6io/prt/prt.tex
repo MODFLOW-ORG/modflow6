@@ -8,6 +8,8 @@ The PRT Model reads a file called the Name File, which specifies most of the fil
 
 For the PRT Model, ``flows'' (unless stated otherwise) represent particle mass ``flow'' in mass per time, rather than groundwater flow.  Each particle is currently assigned unit mass, and the numerical value of the flow can be interpreted as particles per time.
 
+The PRT Model must be solved by an Explicit Model Solution (EMS) package.
+
 \subsection{Units of Length and Time}
 The PRT Model formulates the particle trajectory equations without using prescribed length and time units. Any consistent units of length and time can be used when specifying the input data for a simulation. This capability gives a certain amount of freedom to the user, but care must be exercised to avoid mixing units.  The program cannot detect the use of inconsistent units.
 
