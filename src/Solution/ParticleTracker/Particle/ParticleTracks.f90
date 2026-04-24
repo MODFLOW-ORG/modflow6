@@ -13,6 +13,9 @@
 !! them to one or more track files, binary or CSV, and for logging the
 !! events if requested. Each track file is associated with either a PRP
 !! package or with the full PRT model (there may only be 1 such latter).
+!!
+!! Events can be buffered in memory or in a scratch file, and in either
+!! case are flushed to disk only when a time step successfully finishes.
 !<
 module ParticleTracksModule
 
@@ -37,8 +40,8 @@ module ParticleTracksModule
   public :: ParticleTrackFileType, &
             ParticleTracksType, &
             ParticleTrackEventSelectionType, &
-            write_particle_event
-  private :: save_event
+            add_particle_event
+  private :: save_record
 
   character(len=*), parameter, public :: TRACKHEADER = &
     'kper,kstp,imdl,iprp,irpt,ilay,icell,izone,&
@@ -47,6 +50,14 @@ module ParticleTracksModule
   character(len=*), parameter, public :: TRACKDTYPES = &
     '<i4,<i4,<i4,<i4,<i4,<i4,<i4,<i4,&
     &<i4,<i4,<f8,<f8,<f8,<f8,<f8,|S40'
+
+  !> @brief Flat record of a particle track event.
+  type :: TrackRecordType
+    integer(I4B) :: kper, kstp, imdl, iprp, irpt, ilay, icu, izone
+    integer(I4B) :: istatus, ireason
+    real(DP) :: trelease, ttrack, x, y, z
+    character(len=40) :: name
+  end type TrackRecordType
 
   !> @brief Output file containing all or some particle pathlines.
   !!
@@ -72,45 +83,100 @@ module ParticleTracksModule
     logical(LGP) :: dropped !< track water table drops
   end type ParticleTrackEventSelectionType
 
+  !> @brief Event buffering strategy
+  type, abstract :: ParticleTrackEventBufferType
+    integer(I4B) :: nrecords = 0 !< number of records stored
+  contains
+    procedure :: init => buffer_init !< open/allocate resources
+    procedure(buffer_append), deferred :: append !< buffer one record
+    procedure(buffer_flush), deferred :: flush !< write buffered records, reset
+    procedure(buffer_simple), deferred :: discard !< reset without writing
+    procedure(buffer_simple), deferred :: destroy !< release resources
+  end type ParticleTrackEventBufferType
+
+  !> @brief In-memory particle event buffer. Records are held in a
+  !! dynamically growing array that doubles in capacity as needed.
+  type, extends(ParticleTrackEventBufferType) :: MemoryBufferType
+    type(TrackRecordType), allocatable :: records(:) !< buffer
+  contains
+    procedure :: append => memory_append
+    procedure :: flush => memory_flush
+    procedure :: discard => memory_discard
+    procedure :: destroy => memory_destroy
+  end type MemoryBufferType
+
+  !> @brief Scratch-file particle event buffer. Records are written to
+  !! an unformatted sequential scratch file that is rewound on discard
+  !! and read back sequentially on flush.
+  type, extends(ParticleTrackEventBufferType) :: ScratchFileBufferType
+    integer(I4B) :: iun = 0 !< scratch file unit
+  contains
+    procedure :: init => scratch_init
+    procedure :: append => scratch_append
+    procedure :: flush => scratch_flush
+    procedure :: discard => scratch_discard
+    procedure :: destroy => scratch_destroy
+  end type ScratchFileBufferType
+
   !> @brief Particle track output manager. Handles printing as well as writing
   !! to files. One output unit can be configured for printing. Multiple files
   !! can be configured for writing, with each file optionally associated with
   !! a PRP package or with the full model. Events can be filtered by type, so
-  !! that only certain event types are printed or written to files.
+  !! that only certain event types are printed or written to files. Particle
+  !! events are buffered in memory or in a scratch file, flushed to disk only
+  !! when the time step is successfully solved for the last time (there may
+  !! be multiple solves per time step, depending on ATS and Picard options).
   !<
   type :: ParticleTracksType
     private
-    integer(I4B), public :: iout = -1 !<  log file unit
+    integer(I4B), public :: iout = -1 !< log file unit
     integer(I4B), public :: ntrackfiles !< number of track files
     type(ParticleTrackFileType), public, allocatable :: files(:) !< track files
     type(ParticleTrackEventSelectionType), public :: selected !< event selection
+    class(ParticleTrackEventBufferType), allocatable :: buffer !< event buffer
   contains
     procedure, public :: init_file
+    procedure, public :: init_buffer
     procedure, public :: is_selected
     procedure, public :: select_events
+    procedure, public :: buffer_event
+    procedure, public :: flush_buffer
+    procedure, public :: discard_buffer
     procedure, public :: destroy
     procedure :: expand_files
-    procedure :: should_save
-    procedure :: should_print
   end type ParticleTracksType
+
+  abstract interface
+    subroutine buffer_append(this, rec)
+      import ParticleTrackEventBufferType, TrackRecordType
+      class(ParticleTrackEventBufferType) :: this
+      type(TrackRecordType), intent(in) :: rec
+    end subroutine buffer_append
+
+    subroutine buffer_flush(this, files)
+      import ParticleTrackEventBufferType, ParticleTrackFileType
+      class(ParticleTrackEventBufferType) :: this
+      type(ParticleTrackFileType), intent(in) :: files(:)
+    end subroutine buffer_flush
+
+    ! Shared interface for discard and destroy: both take only `this`.
+    subroutine buffer_simple(this)
+      import ParticleTrackEventBufferType
+      class(ParticleTrackEventBufferType) :: this
+    end subroutine buffer_simple
+  end interface
 
 contains
 
-  !> @brief Initialize a binary or CSV file.
+  !> @brief Initialize a binary or CSV output file.
   subroutine init_file(this, iun, csv, iprp)
-    ! dummy
     class(ParticleTracksType) :: this
     integer(I4B), intent(in) :: iun
     logical(LGP), intent(in), optional :: csv
     integer(I4B), intent(in), optional :: iprp
-    ! local
     type(ParticleTrackFileType), pointer :: file
 
-    if (.not. allocated(this%files)) then
-      allocate (this%files(1))
-    else
-      call this%expand_files(increment=1)
-    end if
+    call this%expand_files(increment=1)
 
     allocate (file)
     file%iun = iun
@@ -120,21 +186,32 @@ contains
     this%files(this%ntrackfiles) = file
   end subroutine init_file
 
+  !> @brief Initialize the event buffer strategy
+  subroutine init_buffer(this, scratch)
+    class(ParticleTracksType) :: this
+    logical(LGP), intent(in) :: scratch
+
+    if (scratch) then
+      allocate (ScratchFileBufferType :: this%buffer)
+    else
+      allocate (MemoryBufferType :: this%buffer)
+    end if
+    call this%buffer%init()
+  end subroutine init_buffer
+
   !> @brief Destroy the particle track manager.
   subroutine destroy(this)
     class(ParticleTracksType) :: this
+    call this%buffer%destroy()
+    if (allocated(this%buffer)) deallocate (this%buffer)
     if (allocated(this%files)) deallocate (this%files)
   end subroutine destroy
 
   !> @brief Grow the array of track files.
   subroutine expand_files(this, increment)
-    ! dummy
     class(ParticleTracksType) :: this
     integer(I4B), optional, intent(in) :: increment
-    ! local
-    integer(I4B) :: inclocal
-    integer(I4B) :: isize
-    integer(I4B) :: newsize
+    integer(I4B) :: inclocal, isize, newsize
     type(ParticleTrackFileType), allocatable, dimension(:) :: temp
 
     if (present(increment)) then
@@ -210,99 +287,175 @@ contains
       call pstop(1, "unknown event type")
       selected = .false.
     end select
-
   end function is_selected
 
-  !> @brief Check whether a particle belongs in a given file i.e.
-  !! if the file is enabled and its group matches the particle's.
-  logical function should_save(this, particle, file) result(save)
-    class(ParticleTracksType), intent(inout) :: this
-    type(ParticleType), pointer, intent(in) :: particle
-    type(ParticleTrackFileType), intent(in) :: file
-    save = (file%iun > 0 .and. &
-            (file%iprp == -1 .or. file%iprp == particle%iprp))
-  end function should_save
-
-  !> @brief Save an event to a binary or CSV file.
-  subroutine save_event(iun, particle, event, csv)
-    ! dummy
-    integer(I4B), intent(in) :: iun
+  !> @brief Buffer an event for deferred write.
+  subroutine buffer_event(this, particle, event)
+    class(ParticleTracksType) :: this
     type(ParticleType), pointer, intent(in) :: particle
     class(ParticleEventType), pointer, intent(in) :: event
+    type(TrackRecordType) :: rec
+
+    rec%kper = event%kper; rec%kstp = event%kstp
+    rec%imdl = event%imdl; rec%iprp = event%iprp
+    rec%irpt = event%irpt; rec%ilay = event%ilay
+    rec%icu = event%icu; rec%izone = event%izone
+    rec%istatus = event%istatus; rec%ireason = event%get_code()
+    rec%trelease = event%trelease; rec%ttrack = event%ttrack
+    rec%x = event%x; rec%y = event%y; rec%z = event%z
+    rec%name = trim(adjustl(particle%name))
+
+    call this%buffer%append(rec)
+  end subroutine buffer_event
+
+  !> @brief Flush the event buffer to disk.
+  subroutine flush_buffer(this)
+    class(ParticleTracksType) :: this
+    call this%buffer%flush(this%files)
+  end subroutine flush_buffer
+
+  !> @brief Discard buffered events without writing.
+  subroutine discard_buffer(this)
+    class(ParticleTracksType) :: this
+    call this%buffer%discard()
+  end subroutine discard_buffer
+
+  subroutine buffer_init(this)
+    class(ParticleTrackEventBufferType) :: this
+  end subroutine buffer_init
+
+  subroutine memory_append(this, rec)
+    class(MemoryBufferType) :: this
+    type(TrackRecordType), intent(in) :: rec
+    type(TrackRecordType), allocatable :: tmp(:)
+
+    if (.not. allocated(this%records)) then
+      allocate (this%records(64))
+    else if (this%nrecords == size(this%records)) then
+      allocate (tmp(size(this%records) * 2))
+      tmp(1:this%nrecords) = this%records
+      call move_alloc(tmp, this%records)
+    end if
+    this%nrecords = this%nrecords + 1
+    this%records(this%nrecords) = rec
+  end subroutine memory_append
+
+  subroutine memory_flush(this, files)
+    class(MemoryBufferType) :: this
+    type(ParticleTrackFileType), intent(in) :: files(:)
+    integer(I4B) :: n, i
+    type(TrackRecordType) :: rec
+
+    do n = 1, this%nrecords
+      rec = this%records(n)
+      do i = 1, size(files)
+        if (files(i)%iun > 0 .and. &
+            (files(i)%iprp == -1 .or. files(i)%iprp == rec%iprp)) &
+          call save_record(files(i)%iun, rec, files(i)%csv)
+      end do
+    end do
+    this%nrecords = 0
+  end subroutine memory_flush
+
+  subroutine memory_discard(this)
+    class(MemoryBufferType) :: this
+    this%nrecords = 0
+  end subroutine memory_discard
+
+  subroutine memory_destroy(this)
+    class(MemoryBufferType) :: this
+    if (allocated(this%records)) deallocate (this%records)
+  end subroutine memory_destroy
+
+  subroutine scratch_init(this)
+    class(ScratchFileBufferType) :: this
+    integer(I4B) :: istat
+    open (newunit=this%iun, status='scratch', form='unformatted', &
+          access='sequential', iostat=istat)
+    if (istat /= 0) &
+      call pstop(1, 'failed to open scratch track buffer file')
+  end subroutine scratch_init
+
+  subroutine scratch_append(this, rec)
+    class(ScratchFileBufferType) :: this
+    type(TrackRecordType), intent(in) :: rec
+    write (this%iun) rec
+    this%nrecords = this%nrecords + 1
+  end subroutine scratch_append
+
+  subroutine scratch_flush(this, files)
+    class(ScratchFileBufferType) :: this
+    type(ParticleTrackFileType), intent(in) :: files(:)
+    integer(I4B) :: n, i
+    type(TrackRecordType) :: rec
+
+    rewind (this%iun)
+    do n = 1, this%nrecords
+      read (this%iun) rec
+      do i = 1, size(files)
+        if (files(i)%iun > 0 .and. &
+            (files(i)%iprp == -1 .or. files(i)%iprp == rec%iprp)) &
+          call save_record(files(i)%iun, rec, files(i)%csv)
+      end do
+    end do
+    rewind (this%iun)
+    this%nrecords = 0
+  end subroutine scratch_flush
+
+  subroutine scratch_discard(this)
+    class(ScratchFileBufferType) :: this
+    rewind (this%iun)
+    this%nrecords = 0
+  end subroutine scratch_discard
+
+  subroutine scratch_destroy(this)
+    class(ScratchFileBufferType) :: this
+    if (this%iun > 0) then
+      close (this%iun)
+      this%iun = 0
+    end if
+    this%nrecords = 0
+  end subroutine scratch_destroy
+
+  !> @brief Save an event record to a binary or CSV file.
+  subroutine save_record(iun, rec, csv)
+    integer(I4B), intent(in) :: iun
+    type(TrackRecordType), intent(in) :: rec
     logical(LGP), intent(in) :: csv
 
     if (csv) then
       write (iun, '(*(G0,:,","))') &
-        event%kper, &
-        event%kstp, &
-        event%imdl, &
-        event%iprp, &
-        event%irpt, &
-        event%ilay, &
-        event%icu, &
-        event%izone, &
-        event%istatus, &
-        event%get_code(), &
-        event%trelease, &
-        event%ttrack, &
-        event%x, &
-        event%y, &
-        event%z, &
-        trim(adjustl(particle%name))
+        rec%kper, rec%kstp, rec%imdl, rec%iprp, rec%irpt, &
+        rec%ilay, rec%icu, rec%izone, rec%istatus, rec%ireason, &
+        rec%trelease, rec%ttrack, rec%x, rec%y, rec%z, trim(rec%name)
     else
       write (iun) &
-        event%kper, &
-        event%kstp, &
-        event%imdl, &
-        event%iprp, &
-        event%irpt, &
-        event%ilay, &
-        event%icu, &
-        event%izone, &
-        event%istatus, &
-        event%get_code(), &
-        event%trelease, &
-        event%ttrack, &
-        event%x, &
-        event%y, &
-        event%z, &
-        particle%name
+        rec%kper, rec%kstp, rec%imdl, rec%iprp, rec%irpt, &
+        rec%ilay, rec%icu, rec%izone, rec%istatus, rec%ireason, &
+        rec%trelease, rec%ttrack, rec%x, rec%y, rec%z, rec%name
     end if
-  end subroutine save_event
+  end subroutine save_record
 
-  !> @brief Is the output unit valid?
-  logical function should_print(this)
-    class(ParticleTracksType), intent(inout) :: this
-    should_print = this%iout >= 0
-  end function should_print
-
-  !> @brief Write a particle event to files for which the particle
-  !! is eligible, and print the event to output unit if requested.
-  !! This function is the module's main entry point. It should be
-  !! subscribed as an event handler to particle event dispatchers.
-  function write_particle_event(context, particle, event) result(handled)
-    ! dummy
+  !> @brief Add a particle event to be written to eligible
+  !! files and printed to an output file unit if requested.
+  !! This function should be subscribed as an event handler
+  !! to particle event dispatchers. Events are buffered, to
+  !! be written to output files upon successful completion
+  !! of a time step when the framework OT hook is executed.
+  function add_particle_event(context, particle, event) result(handled)
     class(*), pointer :: context
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer, intent(in) :: event
     logical(LGP) :: handled
-    ! local
-    integer(I4B) :: i
-    type(ParticleTrackFileType) :: file
 
     select type (context)
     type is (ParticleTracksType)
-      if (context%should_print()) &
+      if (context%iout >= 0) &
         call event%log(context%iout)
-      if (context%is_selected(event)) then
-        do i = 1, context%ntrackfiles
-          file = context%files(i)
-          if (context%should_save(particle, file)) &
-            call save_event(file%iun, particle, event, csv=file%csv)
-        end do
-      end if
+      if (context%is_selected(event)) &
+        call context%buffer_event(particle, event)
       handled = .true.
     end select
-  end function write_particle_event
+  end function add_particle_event
 
 end module ParticleTracksModule

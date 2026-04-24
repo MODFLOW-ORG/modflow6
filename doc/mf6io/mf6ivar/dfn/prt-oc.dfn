@@ -292,6 +292,14 @@ mf6internal dev_dump_evtrace
 longname print particle tracking events
 description print a verbose particle tracking event trace to standard output
 
+block options
+name scratch_buffer
+type keyword
+reader urword
+optional true
+longname buffer track events in scratch file instead of memory
+description keyword to stage track events in a scratch file instead of an in-memory buffer, which prevents out-of-memory errors for simulations with very many particles or events
+
 # --------------------- prt oc dimensions ------------------
 
 block dimensions
