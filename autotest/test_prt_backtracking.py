@@ -20,8 +20,8 @@ from prt_test_utils import (
 
 simname = "prtbktr"
 cases = [
-    simname + "_1per",   # 1 period, 1 step
-    simname + "_2per",   # 2 periods, 1 step each
+    simname + "_1per",  # 1 period, 1 step
+    simname + "_2per",  # 2 periods, 1 step each
     simname + "_2stp",  # 2 periods, GWF 1 step, PRT 2 steps
 ]
 
@@ -41,7 +41,8 @@ def build_gwf_sim(name, ws, mf6, nper=1):
         nper=nper,
         perioddata=[
             (FlopyReadmeCase.perlen, FlopyReadmeCase.nstp, FlopyReadmeCase.tsmult)
-        ] * nper,
+        ]
+        * nper,
     )
 
     gwfname = f"{name}_gwf"
@@ -129,7 +130,8 @@ def build_models(idx, test):
                 prt_nstp,
                 FlopyReadmeCase.tsmult,
             )
-        ] * prt_nper,
+        ]
+        * prt_nper,
     )
 
     prt_name = get_model_name(name, "prt")
@@ -178,7 +180,7 @@ def build_models(idx, test):
         trackcsv_filerecord=[prp_track_csv_file],
         stop_at_weak_sink=False,
         exit_solve_tolerance=1e-5,
-        extend_tracking=True
+        extend_tracking=True,
     )
 
     prt_budgetfile = f"{prt_name}.bud"
@@ -190,7 +192,7 @@ def build_models(idx, test):
         trackcsv_filerecord=[f"{prt_name}.trk.csv"],
         printrecord=[("BUDGET", "ALL")],
         saverecord=[("BUDGET", "ALL")],
-        dev_dump_event_trace=True
+        dev_dump_event_trace=True,
     )
 
     ems = flopy.mf6.ModflowEms(
