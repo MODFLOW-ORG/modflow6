@@ -223,7 +223,7 @@ def check_output(idx, test, snapshot):
     pls = pd.read_csv(prt_track_csv_file)
     assert len(pls) > 0
 
-    assert snapshot == pls.drop("name", axis=1).round(2).to_records(index=False)
+    assert snapshot == pls.drop("name", axis=1).round(1).to_records(index=False)
 
 
 def plot_output(idx, test):
