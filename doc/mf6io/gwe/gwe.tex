@@ -12,6 +12,8 @@ The GWE Model reads a file called the Name File, which specifies most of the fil
 
 For the GWE Model, ``flows'' (unless stated otherwise) represent the ``flow'' of energy, often expressed in units of energy (e.g., joules) per time, rather than groundwater flow.  
 
+The GWE Model must be solved by an Iterative Model Solution (IMS) package.
+
 \subsection{Information for Existing Heat Transport Modelers}
 An important goal of the \mf GWE Model is to alleviate the need for ``parameter equivalents'' when simulating heat transport in groundwater systems.  In the past, codes like HST3D \citep{kipp1987} or VS2DH \citep{healy1996} simulated energy transport directly by supporting the use of native heat transport units.  For example, users could directly specify thermal conductivity of the fluid and solid phases, as well as the heat capacity of both phases.  Alternatively, codes like MT3DMS \citep{zheng1999mt3dms}, MT3D-USGS \citep{mt3dusgs}, and MODFLOW-USG \citep{modflowusg} could be used to simulate the movement of heat in groundwater, but required users to leverage existing variables as surrogates for heat transport.  For example, the molecular diffusion parameter may be used as a surrogate for simulating thermal conduction in an aquifer \citep{mazheng2010, hechtmendez}. 
 
