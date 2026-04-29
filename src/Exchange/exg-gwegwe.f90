@@ -23,7 +23,8 @@ module GweGweExchangeModule
   use VirtualModelModule, only: get_virtual_model
   use DisConnExchangeModule, only: DisConnExchangeType
   use GweModule, only: GweModelType
-  use TspMvtModule, only: TspMvtType
+  use TransportModelModule, only: TransportModelType
+  use TspExchangeMoverModule, only: TspExchangeMoverType, xmvt_cr
   use VirtualModelModule, only: VirtualModelType
   use ObserveModule, only: ObserveType
   use ObsModule, only: ObsType
@@ -63,7 +64,7 @@ module GweGweExchangeModule
     !
     ! -- Mover transport package
     integer(I4B), pointer :: inmvt => null() !< unit number for mover transport (0 if off)
-    type(TspMvtType), pointer :: mvt => null() !< water mover object
+    type(TspExchangeMoverType), pointer :: mvt => null() !< water mover object
     !
     ! -- Observation package
     integer(I4B), pointer :: inobs => null() !< unit number for GWT-GWT observations
@@ -83,6 +84,7 @@ module GweGweExchangeModule
     procedure :: exg_ar => gwe_gwe_ar
     procedure :: exg_rp => gwe_gwe_rp
     procedure :: exg_ad => gwe_gwe_ad
+    procedure :: exg_cf => gwe_gwe_cf
     procedure :: exg_fc => gwe_gwe_fc
     procedure :: exg_bd => gwe_gwe_bd
     procedure :: exg_ot => gwe_gwe_ot
@@ -231,7 +233,11 @@ contains
     ! -- Read mover information
     if (this%inmvt > 0) then
       call this%read_mvt(iout)
-      call this%mvt%mvt_df(this%gwemodel1%dis)
+      if (this%v_model1%is_local) then
+        call this%mvt%mvt_df(this%gwemodel1%dis)
+      else
+        call this%mvt%mvt_df(this%gwemodel2%dis)
+      end if
     end if
     !
     ! -- Store obs
@@ -352,6 +358,23 @@ contains
     call this%obs%obs_ad()
   end subroutine gwe_gwe_ad
 
+  subroutine gwe_gwe_cf(this, kiter)
+    class(GweExchangeType) :: this !<  GwfExchangeType
+    integer(I4B), intent(in) :: kiter
+    ! local
+    real(DP), dimension(:), pointer, contiguous :: x_m1, x_m2
+
+    ! call mvt cf routine
+    if (this%inmvt > 0) then
+      x_m1 => null()
+      x_m2 => null()
+      if (associated(this%gwemodel1)) x_m1 => this%gwemodel1%x
+      if (associated(this%gwemodel2)) x_m2 => this%gwemodel2%x
+      call this%mvt%xmvt_cf(x_m1, x_m2)
+    end if
+
+  end subroutine gwe_gwe_cf
+
   !> @ brief Fill coefficients
   !!
   !! Calculate conductance and fill coefficient matrix
@@ -363,9 +386,17 @@ contains
     class(MatrixBaseType), pointer :: matrix_sln
     real(DP), dimension(:), intent(inout) :: rhs_sln
     integer(I4B), optional, intent(in) :: inwtflag
+    ! local
+    real(DP), dimension(:), pointer, contiguous :: x_m1, x_m2
     !
     ! -- Call mvt fc routine
-    if (this%inmvt > 0) call this%mvt%mvt_fc(this%gwemodel1%x, this%gwemodel2%x)
+    if (this%inmvt > 0) then
+      x_m1 => null()
+      x_m2 => null()
+      if (associated(this%gwemodel1)) x_m1 => this%gwemodel1%x
+      if (associated(this%gwemodel2)) x_m2 => this%gwemodel2%x
+      call this%mvt%mvt_fc(x_m1, x_m2)
+    end if
   end subroutine gwe_gwe_fc
 
   !> @ brief Budget
@@ -765,19 +796,19 @@ contains
   !<
   subroutine read_mvt(this, iout)
     ! -- modules
-    use TspMvtModule, only: mvt_cr
     ! -- dummy
     class(GweExchangeType) :: this !<  GwtExchangeType
     integer(I4B), intent(in) :: iout
+    ! -- local
+    class(TransportModelType), pointer :: tspmodel1, tspmodel2
     !
     ! -- Create and initialize the mover object  Here, fmi is set to the one
     !    for gwtmodel1 so that a call to save flows has an associated dis
     !    object.
-    call mvt_cr(this%mvt, this%name, this%inmvt, iout, this%gwemodel1%fmi, &
-                this%gwemodel1%eqnsclfac, this%gwemodel1%depvartype, &
-                gwfmodelname1=this%gwfmodelname1, &
-                gwfmodelname2=this%gwfmodelname2, &
-                fmi2=this%gwemodel2%fmi)
+    tspmodel1 => this%gwemodel1
+    tspmodel2 => this%gwemodel2
+    call xmvt_cr(this%mvt, this%name, tspmodel1, tspmodel2, &
+                 this%gwfmodelname1, this%gwfmodelname2, this%inmvt, iout)
   end subroutine read_mvt
 
   !> @ brief Allocate scalars

@@ -1,17 +1,21 @@
-module VirtualGwtExchangeModule
+module VirtualTspExchangeModule
   use KindModule, only: I4B, LGP
   use SimStagesModule
   use VirtualBaseModule
   use VirtualDataListsModule, only: virtual_exchange_list
-  use VirtualDataContainerModule, only: VDC_GWTEXG_TYPE
+  use VirtualDataContainerModule, only: VDC_GWTEXG_TYPE, VDC_GWEEXG_TYPE
   use VirtualExchangeModule
   use STLVecIntModule
   implicit none
   private
 
-  public :: add_virtual_gwt_exchange
+  public :: add_virtual_tsp_exchange
 
-  type, public, extends(VirtualExchangeType) :: VirtualGwtExchangeType
+  !> GWE and GWT work fully analogously, so we can do
+  !! with only one virtual exchange for both, at least for now
+  !!
+  !< Performance-TODO: why synchronize movers when the exchange is not primary?!
+  type, public, extends(VirtualExchangeType) :: VirtualTspExchangeType
     type(VirtualIntType), pointer :: inmvt => null()
     type(VirtualDbl1dType), pointer :: gwfsimvals => null()
     type(VirtualIntType), pointer :: mvt_maxmvt => null()
@@ -31,33 +35,39 @@ module VirtualGwtExchangeModule
     procedure, private :: init_virtual_data
     procedure, private :: allocate_data
     procedure, private :: deallocate_data
-  end type VirtualGwtExchangeType
+  end type VirtualTspExchangeType
 
 contains
 
-!> @brief Add a virtual GWT-GWT exchange to the simulation
+!> @brief Add a virtual GWT-GWT or GWE-GWE exchange to the simulation
 !<
-  subroutine add_virtual_gwt_exchange(name, exchange_id, model1_id, model2_id)
+  subroutine add_virtual_tsp_exchange(name, exchange_id, m1_id, m2_id, qtype)
     character(len=*) :: name
     integer(I4B) :: exchange_id
-    integer(I4B) :: model1_id
-    integer(I4B) :: model2_id
+    integer(I4B) :: m1_id !< id model 1
+    integer(I4B) :: m2_id !< id model 2
+    character(len=*) :: qtype !< quantity type (for GWE and GWT)
     ! local
-    class(VirtualGwtExchangeType), pointer :: v_exg
+    class(VirtualTspExchangeType), pointer :: v_exg
     class(*), pointer :: obj_ptr
 
     allocate (v_exg)
-    call v_exg%create(name, exchange_id, model1_id, model2_id)
+
+    call v_exg%create(name, exchange_id, m1_id, m2_id)
+    if (qtype == "concentration") then
+      v_exg%container_type = VDC_GWTEXG_TYPE
+    else if (qtype == "temperature") then
+      v_exg%container_type = VDC_GWEEXG_TYPE
+    end if
 
     obj_ptr => v_exg
     call virtual_exchange_list%Add(obj_ptr)
-
-  end subroutine add_virtual_gwt_exchange
+  end subroutine add_virtual_tsp_exchange
 
 !> @brief Create a virtual GWT-GWT exchange
 !<
   subroutine vtx_create(this, name, exg_id, m1_id, m2_id)
-    class(VirtualGwtExchangeType) :: this
+    class(VirtualTspExchangeType) :: this
     character(len=*) :: name
     integer(I4B) :: exg_id
     integer(I4B) :: m1_id
@@ -65,7 +75,6 @@ contains
 
     ! create base
     call this%VirtualExchangeType%create(name, exg_id, m1_id, m2_id)
-    this%container_type = VDC_GWTEXG_TYPE
 
     call this%allocate_data()
     call this%init_virtual_data()
@@ -76,7 +85,7 @@ contains
   end subroutine vtx_create
 
   subroutine init_virtual_data(this)
-    class(VirtualGwtExchangeType) :: this
+    class(VirtualTspExchangeType) :: this
 
     call this%set(this%inmvt%base(), 'INMVT', '', MAP_ALL_TYPE)
     call this%set(this%gwfsimvals%base(), 'GWFSIMVALS', '', MAP_ALL_TYPE)
@@ -89,7 +98,7 @@ contains
   end subroutine init_virtual_data
 
   subroutine vtx_prepare_stage(this, stage)
-    class(VirtualGwtExchangeType) :: this
+    class(VirtualTspExchangeType) :: this
     integer(I4B) :: stage
     ! local
     integer(I4B) :: nexg, nmax
@@ -141,7 +150,7 @@ contains
   end subroutine vtx_prepare_stage
 
   subroutine vtx_get_recv_items(this, stg, rank, vi)
-    class(VirtualGwtExchangeType) :: this
+    class(VirtualTspExchangeType) :: this
     integer(I4B) :: stg !< stage
     integer(I4B) :: rank !< rank of remote process
     type(STLVecInt) :: vi !< virtual data items
@@ -165,7 +174,7 @@ contains
   end subroutine vtx_get_recv_items
 
   subroutine vtx_get_send_items(this, stg, rank, vi)
-    class(VirtualGwtExchangeType) :: this
+    class(VirtualTspExchangeType) :: this
     integer(I4B) :: stg !< stage
     integer(I4B) :: rank !< rank of remote process
     type(STLVecInt) :: vi !< virtual data items
@@ -191,7 +200,7 @@ contains
   !> @brief Override
   !<
   function vtx_has_mover(this) result(has_mover)
-    class(VirtualGwtExchangeType) :: this
+    class(VirtualTspExchangeType) :: this
     logical(LGP) :: has_mover
 
     has_mover = this%has_mvt
@@ -199,7 +208,7 @@ contains
   end function vtx_has_mover
 
   subroutine vtx_destroy(this)
-    class(VirtualGwtExchangeType) :: this
+    class(VirtualTspExchangeType) :: this
 
     call this%VirtualExchangeType%destroy()
     call this%deallocate_data()
@@ -207,7 +216,7 @@ contains
   end subroutine vtx_destroy
 
   subroutine allocate_data(this)
-    class(VirtualGwtExchangeType) :: this
+    class(VirtualTspExchangeType) :: this
 
     allocate (this%inmvt)
     allocate (this%gwfsimvals)
@@ -218,7 +227,7 @@ contains
   end subroutine allocate_data
 
   subroutine deallocate_data(this)
-    class(VirtualGwtExchangeType) :: this
+    class(VirtualTspExchangeType) :: this
 
     deallocate (this%inmvt)
     deallocate (this%gwfsimvals)
@@ -228,4 +237,4 @@ contains
 
   end subroutine deallocate_data
 
-end module VirtualGwtExchangeModule
+end module VirtualTspExchangeModule

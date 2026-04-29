@@ -5,8 +5,9 @@ module TspExchangeMoverModule
   use ConstantsModule, only: LENVARNAME, DNODATA
   use VirtualModelModule, only: VirtualModelType, get_virtual_model
   use TspFmiModule, only: TspFmiType
-  use GwtModule, only: GwtModelType
+  use TransportModelModule, only: TransportModelType
   use MemoryManagerModule, only: mem_allocate, mem_deallocate, mem_reallocate
+  use SimVariablesModule, only: proc_id
   implicit none
   private
 
@@ -27,12 +28,12 @@ module TspExchangeMoverModule
 
 contains
 
-  subroutine xmvt_cr(mvt, name_exg, gwt_model1, gwt_model2, &
+  subroutine xmvt_cr(mvt, name_exg, tsp_model1, tsp_model2, &
                      gwfmodelname1, gwfmodelname2, inunit, iout)
     type(TspExchangeMoverType), pointer :: mvt
     character(len=*), intent(in) :: name_exg !< name of the exchange
-    class(GwtModelType), pointer :: gwt_model1 !< gwt model 1, can be null()
-    class(GwtModelType), pointer :: gwt_model2 !< gwt model 2, can be null()
+    class(TransportModelType), pointer :: tsp_model1 !< gwt model 1, can be null()
+    class(TransportModelType), pointer :: tsp_model2 !< gwt model 2, can be null()
     character(len=*), intent(in) :: gwfmodelname1
     character(len=*), intent(in) :: gwfmodelname2
     integer(I4B), intent(in) :: inunit
@@ -45,16 +46,16 @@ contains
     allocate (mvt)
 
     fmi1 => null()
-    if (associated(gwt_model1)) then
-      fmi1 => gwt_model1%fmi
-      eqnsclfac => gwt_model1%eqnsclfac
-      depvartype = gwt_model1%depvartype
+    if (associated(tsp_model1)) then
+      fmi1 => tsp_model1%fmi
+      eqnsclfac => tsp_model1%eqnsclfac
+      depvartype = tsp_model1%depvartype
     end if
     fmi2 => null()
-    if (associated(gwt_model2)) then
-      fmi2 => gwt_model2%fmi
-      eqnsclfac => gwt_model2%eqnsclfac
-      depvartype = gwt_model2%depvartype
+    if (associated(tsp_model2)) then
+      fmi2 => tsp_model2%fmi
+      eqnsclfac => tsp_model2%eqnsclfac
+      depvartype = tsp_model2%depvartype
     end if
 
     mvt%model1 => get_virtual_model(gwfmodelname1)

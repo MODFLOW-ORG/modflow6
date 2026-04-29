@@ -20,6 +20,7 @@ module GwtGwtExchangeModule
                              LENMODELNAME
   use ListModule, only: ListType
   use ListsModule, only: basemodellist
+  use TransportModelModule, only: TransportModelType
   use VirtualModelModule, only: get_virtual_model
   use DisConnExchangeModule, only: DisConnExchangeType
   use GwtModule, only: GwtModelType
@@ -795,9 +796,13 @@ contains
     ! -- dummy
     class(GwtExchangeType) :: this !<  GwtExchangeType
     integer(I4B), intent(in) :: iout
+    ! -- local
+    class(TransportModelType), pointer :: tspmodel1, tspmodel2
     !
     ! -- Create and initialize the mover object
-    call xmvt_cr(this%mvt, this%name, this%gwtmodel1, this%gwtmodel2, &
+    tspmodel1 => this%gwtmodel1
+    tspmodel2 => this%gwtmodel2
+    call xmvt_cr(this%mvt, this%name, tspmodel1, tspmodel2, &
                  this%gwfmodelname1, this%gwfmodelname2, this%inmvt, iout)
 
   end subroutine read_mvt

@@ -371,8 +371,7 @@ contains
     use GweGweExchangeModule, only: gweexchange_create
     use OlfGwfExchangeModule, only: olfgwf_cr
     use VirtualGwfExchangeModule, only: add_virtual_gwf_exchange
-    use VirtualGwtExchangeModule, only: add_virtual_gwt_exchange
-    use VirtualGweExchangeModule, only: add_virtual_gwe_exchange
+    use VirtualTspExchangeModule, only: add_virtual_tsp_exchange
     ! use VirtualPrtExchangeModule, only: add_virtual_prt_exchange
     ! -- dummy
     ! -- locals
@@ -481,14 +480,16 @@ contains
           call gwtexchange_create(fname, exg_name, exg_id, m1_id, m2_id, &
                                   exg_mempath)
         end if
-        call add_virtual_gwt_exchange(exg_name, exg_id, m1_id, m2_id)
+        call add_virtual_tsp_exchange(exg_name, exg_id, m1_id, m2_id, &
+                                      "concentration")
       case ('GWE6-GWE6')
         write (exg_name, '(a,i0)') 'GWE-GWE_', exg_id
         if (.not. both_remote) then
           call gweexchange_create(fname, exg_name, exg_id, m1_id, m2_id, &
                                   exg_mempath)
         end if
-        call add_virtual_gwe_exchange(exg_name, exg_id, m1_id, m2_id)
+        call add_virtual_tsp_exchange(exg_name, exg_id, m1_id, m2_id, &
+                                      "temperature")
       case ('OLF6-GWF6')
         write (exg_name, '(a,i0)') 'OLF-GWF_', exg_id
         if (both_local) then

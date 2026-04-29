@@ -4,7 +4,8 @@ module MapperModule
   use MemoryHelperModule, only: create_mem_path
   use IndexMapModule
   use VirtualBaseModule, only: VirtualDataType, MAP_NODE_TYPE, MAP_CONN_TYPE
-  use VirtualDataContainerModule, only: VDC_GWFEXG_TYPE, VDC_GWTEXG_TYPE
+  use VirtualDataContainerModule, only: VDC_GWFEXG_TYPE, VDC_GWTEXG_TYPE, &
+                                        VDC_GWEEXG_TYPE
   use VirtualModelModule, only: VirtualModelType, get_virtual_model
   use VirtualExchangeModule, only: VirtualExchangeType, get_virtual_exchange
   use InterfaceMapModule
@@ -78,8 +79,9 @@ contains
                                   local_mem_path, 'ID_MAPPED_M1', &
                                   virt_mem_path, (/STG_AFT_CON_RP/))
         end if
-        ! the same for MVT
-        if (vx%has_mover() .and. vx%container_type == VDC_GWTEXG_TYPE) then
+        ! the same for MVT (both GWE and GWT)
+        if (vx%has_mover() .and. (vx%container_type == VDC_GWTEXG_TYPE .or. &
+                                  vx%container_type == VDC_GWEEXG_TYPE)) then
           local_mem_path = create_mem_path(vx%name, 'MVT')
           virt_mem_path = vx%get_vrt_mem_path('QUANTITY_M1', 'MVT')
           call this%map_data_full(conn%owner%idsoln, 'QUANTITY_M1', &
@@ -108,8 +110,9 @@ contains
                                   local_mem_path, 'ID_MAPPED_M2', &
                                   virt_mem_path, (/STG_AFT_CON_RP/))
         end if
-        ! the same for MVT
-        if (vx%has_mover() .and. vx%container_type == VDC_GWTEXG_TYPE) then
+        ! the same for MVT (both GWE and GWT)
+        if (vx%has_mover() .and. (vx%container_type == VDC_GWTEXG_TYPE .or. &
+                                  vx%container_type == VDC_GWEEXG_TYPE)) then
           local_mem_path = create_mem_path(vx%name, 'MVT')
           virt_mem_path = vx%get_vrt_mem_path('QUANTITY_M2', 'MVT')
           call this%map_data_full(conn%owner%idsoln, 'QUANTITY_M2', &

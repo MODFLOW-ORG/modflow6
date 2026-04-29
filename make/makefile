@@ -573,11 +573,10 @@ $(OBJDIR)/VirtualDataManager.o \
 $(OBJDIR)/Mapper.o \
 $(OBJDIR)/ModelExport.o \
 $(OBJDIR)/IdmMf6File.o \
+$(OBJDIR)/VirtualTspExchange.o \
 $(OBJDIR)/VirtualGwtModel.o \
-$(OBJDIR)/VirtualGwtExchange.o \
 $(OBJDIR)/VirtualGwfExchange.o \
 $(OBJDIR)/VirtualGweModel.o \
-$(OBJDIR)/VirtualGweExchange.o \
 $(OBJDIR)/SolutionGroup.o \
 $(OBJDIR)/SolutionFactory.o \
 $(OBJDIR)/exg-olfgwf.o \
