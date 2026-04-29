@@ -21,7 +21,13 @@ def get_suffix():
             .decode()
             .strip()
         )
-        return f"+{sha}"
+        dirty = (
+            subprocess.run(
+                ["git", "diff", "--quiet", "HEAD"], capture_output=True
+            ).returncode
+            != 0
+        )
+        return f"+{sha}.dirty" if dirty else f"+{sha}"
 
 
 if __name__ == "__main__":
