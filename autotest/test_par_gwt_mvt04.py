@@ -1,6 +1,6 @@
 """
 This test reuses the simulation data and config in
-test_gwt_adv01_gwtgwt.py and runs it in parallel mode.
+test_gwt_mvt04.py and runs it in parallel mode.
 """
 
 import pytest
