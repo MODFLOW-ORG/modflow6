@@ -213,8 +213,8 @@ def test_binaries(dist_dir_path, releasemode):
     ).lower()
     assert output.startswith("mf6")
 
-    # make sure version string reflects approval
-    assert ("preliminary" in output) != releasemode
+    # make sure version string reflects build mode (.dev suffix for dev builds)
+    assert (".dev" in output) != releasemode
 
     # check version numbers
     version = output.lower().split(" ")[1]

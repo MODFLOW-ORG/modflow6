@@ -21,7 +21,7 @@ module VersionModule
   integer(I4B), parameter :: IDEVELOPMODE = 1
   character(len=*), parameter :: VERSIONNUMBER = '6.8.0.dev0'
   character(len=*), parameter :: VERSIONVCSTAG = ''
-  character(len=*), parameter :: VERSIONTITLE = ' (preliminary) 02/06/2026'
+  character(len=*), parameter :: VERSIONTITLE = ''
   character(len=*), parameter :: VERSION = VERSIONNUMBER//VERSIONVCSTAG
   character(len=*), parameter :: FULLVERSION = &
                                  VERSIONNUMBER// &

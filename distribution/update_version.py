@@ -29,8 +29,7 @@ and src/Utilities/version.f90. Otherwise, IDEVELOPMODE is set to 1.
 
 if --releasemode is provided, the disclaimer in src/Utilities/version.f90.in and the
 README/DISCLAIMER markdown files is modified to reflect review and approval.
-Otherwise the language reflects preliminary/provisional
-status, and version strings contain "(preliminary)".
+Otherwise the language reflects preliminary/provisional status.
 """
 
 import argparse
@@ -135,9 +134,6 @@ def get_software_citation(
     # get data Software/Code citation for FloPy
     citation = yaml.safe_load((project_root_path / "CITATION.cff").read_text())
 
-    sb = ""
-    if developmode:
-        sb = " (preliminary)"
     # format author names
     authors = []
     for author in citation["authors"]:
@@ -165,7 +161,7 @@ def get_software_citation(
     # add the rest of the citation
     line += (
         f", {timestamp.year}, "
-        f"MODFLOW 6 Modular Hydrologic Model version {version}{sb}: "
+        f"MODFLOW 6 Modular Hydrologic Model version {version}: "
         f"U.S. Geological Survey Software Release, {timestamp:%-d %B %Y}, "
         "https://doi.org/10.5066/P9FL1JCC"
     )
@@ -229,17 +225,8 @@ def update_version_f90(
     developmode: bool = False,
 ):
     version_spl = str(version).rpartition("-")
-    if version_spl[1]:
-        version_num = version_spl[0]
-        version_label = version_spl[2]
-    else:
-        version_num = str(version_spl[2])
-        version_label = ""
-
-    fmat_tstmp = timestamp.strftime("%m/%d/%Y")
-    label_clause = version_label if version_label else ""
-    label_clause += " (preliminary)" if developmode else ""
-    new_title = f"{label_clause} {fmat_tstmp}"
+    version_num = version_spl[0] if version_spl[1] else str(version_spl[2])
+    new_title = "" if developmode else f" {timestamp.strftime('%m/%d/%Y')}"
 
     paths = [
         project_root_path / "src" / "Utilities" / "version.f90.in",
@@ -283,10 +270,7 @@ def update_readme_and_disclaimer(version: Version, developmode: bool = False):
     with open(readme_path, "w") as f:
         for line in readme_lines:
             if "## Version " in line:
-                version_line = f"### Version {version}"
-                if developmode:
-                    version_line += " (preliminary)"
-                f.write(f"{version_line}\n")
+                f.write(f"### Version {version}\n")
             elif "Disclaimer" in line:
                 f.write(f"{disclaimer}\n")
                 break
@@ -433,10 +417,6 @@ def test_update_version(version, full):
         assert any(("approved for release") in line for line in lines) == full
         assert any(("preliminary or provisional") in line for line in lines) != full
 
-        # check readme has appropriate language
-        readme_path = project_root_path / "README.md"
-        lines = readme_path.read_text().splitlines()
-        assert any(("(preliminary)") in line for line in lines) != full
     finally:
         for p in touched_file_paths:
             os.system(f"git restore {p}")

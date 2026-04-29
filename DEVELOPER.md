@@ -406,12 +406,12 @@ pixi run build-mf5to6 builddir
 The version string displayed by `mf6 -v` and written to listing files is composed at build time from several components defined in `src/Utilities/version.f90.in`:
 
 - `VERSIONNUMBER`: the base version (e.g. `6.8.0.dev0`), manually maintained and set one minor release ahead of the last tag on the `develop` branch
-- `VERSIONTAG`: a commit identifier suffix injected at build time (e.g. `+4d7f41ab`), or empty on official releases
-- `VERSIONQUALIFIER`: a human-readable release qualifier (e.g. ` (preliminary) 02/06/2026`), manually updated alongside `VERSIONNUMBER`
-- `VERSION`: `VERSIONNUMBER` + `VERSIONTAG` — used for the short `-v` display
-- `FULLVERSION`: `VERSIONNUMBER` + `VERSIONTAG` + `VERSIONQUALIFIER` — used for listing file headers
+- `VERSIONVCSTAG`: a commit identifier suffix injected at build time (e.g. `+4d7f41ab`), or empty on official releases
+- `VERSIONTITLE`: the release date (e.g. ` 04/29/2026`) set by `update_version.py` for official releases, empty for development builds
+- `VERSION`: `VERSIONNUMBER` + `VERSIONVCSTAG` — used for the short `-v` display
+- `FULLVERSION`: `VERSIONNUMBER` + `VERSIONVCSTAG` + `VERSIONTITLE` — used for listing file headers
 
-On official releases (i.e. when `HEAD` is an exact tag match), `VERSIONTAG` is empty, so `VERSION` is simply `x.y.z`.
+On official releases (i.e. when `HEAD` is an exact tag match), `VERSIONVCSTAG` is empty, so `VERSION` is simply `x.y.z`.
 
 ### Meson builds
 
@@ -419,7 +419,7 @@ On official releases (i.e. when `HEAD` is an exact tag match), `VERSIONTAG` is e
 
 ### Visual Studio and makefile builds
 
-Visual Studio and makefile builds compile `src/Utilities/version.f90` directly. This is a static fallback with `VERSIONTAG = ''`, meaning the version string will not include a commit hash. It is kept in sync with `version.f90.in` by `distribution/update_version.py` (except for `VERSIONTAG`, which remains empty).
+Visual Studio and makefile builds compile `src/Utilities/version.f90` directly. This is a static fallback with `VERSIONVCSTAG = ''`, meaning the version string will not include a commit hash. It is kept in sync with `version.f90.in` by `distribution/update_version.py` (except for `VERSIONVCSTAG`, which remains empty).
 
 ## Formatting
 
