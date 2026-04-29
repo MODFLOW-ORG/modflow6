@@ -252,10 +252,7 @@ def update_version_f90(
                         line.rpartition("::")[0] + f":: VERSIONNUMBER = '{version_num}'"
                     )
                 elif ":: VERSIONTITLE =" in line:
-                    line = (
-                        line.rpartition("::")[0]
-                        + f":: VERSIONTITLE = '{new_title}'"
-                    )
+                    line = line.rpartition("::")[0] + f":: VERSIONTITLE = '{new_title}'"
                 elif ":: FMTDISCLAIMER =" in line:
                     line = get_disclaimer(developmode=developmode, formatted=True)
                     skip = True
