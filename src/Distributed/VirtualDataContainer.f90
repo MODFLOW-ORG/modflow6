@@ -125,7 +125,7 @@ contains
 
   !> @brief Init virtual data item, without allocation,
   !! and store it in this container. The 'is_local' flag
-  !! makes it possible to mark some fields local in a
+  !! makes it possible to mark some fields local in an
   !< otherwise fully remote container, or v.v.
   subroutine set(this, field, var_name, subcmp_name, map_id, is_local)
     class(VirtualDataContainerType) :: this

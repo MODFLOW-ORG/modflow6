@@ -45,6 +45,6 @@ subsection = "parallel"
 description = "The adaptive time stepping algorithm (ATS) was not working correctly in parallel mode. This applies to GWT and GWE models, when the model time step derived from the ATS\\_PERCEL parameter is not uniform across processes. In such a case, a deadlock occurred and the simulation was stalled. This fix ensures that the actual calculation time steps are synchronized across all processes such that they remain in lockstep."
 
 [[items]]
-section = "features"
+section = "fixes"
 subsection = "parallel"
-description = "The application of solute and energy movers (MVT,MVE) as part of a GWE-GWE or GWT-GWT exchange is now also supported when running the simulation in parallel mode."
+description = "Mover (MVR) Package connections across two or more models running in parallel were previously supported for flow but not for solute or energy transport.  GWT-GWT or GWE-GWE exchanges that also include MVT or MVE connections, respectively, is now supported for simulations run in parallel mode."
