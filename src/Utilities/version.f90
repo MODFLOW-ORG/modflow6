@@ -3,8 +3,6 @@
 !! This module contains subroutines for accessing version information
 !! and writing header information to the program listing files.
 !!
-!!
-!!
 !<
 module VersionModule
   ! -- module imports

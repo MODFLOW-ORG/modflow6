@@ -253,7 +253,7 @@ MODFLOW 6 version numbers follow the [semantic versioning](https://semver.org/) 
 
 The version string is stored in `version.txt` in the project root. The version string appears in several other files in the repository, as well as date and timestamp information.
 
-The `update_version.py` script synchronizes updates to `version.txt` and other files containing version information. In release mode (`--releasemode`), a `VERSIONTITLE` containing the release date is written to `version.f90` and `version.f90.in`, producing a version string like `6.5.0 04/29/2026`. In develop mode (default), `VERSIONTITLE` is left empty, producing a version string like `6.5.0.dev0+a7dcc8ba`.
+The `update_version.py` script synchronizes updates to `version.txt` and other files containing version information. In release mode (`--releasemode`), the version string includes a release date, e.g. `6.5.0 04/29/2026`. In develop mode (default), the string includes a commit hash, e.g. `6.5.0.dev0+a7dcc8ba`.
 
 ```shell
 pixi run update-version -v 6.4.1
