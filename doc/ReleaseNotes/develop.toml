@@ -47,4 +47,4 @@ description = "The adaptive time stepping algorithm (ATS) was not working correc
 [[items]]
 section = "features"
 subsection = "parallel"
-descripton = "The application of solute and energy movers (MVT,MVE) as part of a GWE-GWE or GWT-GWT exchange is now also supported when running the simulation in parallel mode."
+description = "The application of solute and energy movers (MVT,MVE) as part of a GWE-GWE or GWT-GWT exchange is now also supported when running the simulation in parallel mode."
