@@ -72,7 +72,7 @@ contains
     Mat :: local_mat
     integer(I4B), dimension(:), pointer :: ia_tmp, ja_tmp
     integer(I4B) :: nrows_local
-    logical(LGP) :: done
+    PetscBool :: done
 
     this%memory_path = mem_path
     this%nrow = sparse%nrow
