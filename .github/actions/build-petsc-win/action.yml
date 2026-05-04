@@ -10,11 +10,13 @@ runs:
         unix2dos -n "%GITHUB_WORKSPACE%\modflow6\.github\common\configure_petsc.sh" "%TEMP%\configure_petsc.sh"
         unix2dos -n "%GITHUB_WORKSPACE%\modflow6\.github\common\compile_petsc.sh" "%TEMP%\compile_petsc.sh"
 
-    - name: Hide Strawberry gmake
+    - name: Hide Strawberry programs
       shell: bash
       run: |
         mkdir "$RUNNER_TEMP/strawberry"
         mv /c/Strawberry/c/bin/gmake "$RUNNER_TEMP/strawberry/gmake"
+        mv /c/Strawberry/perl/bin/pkg-config "$RUNNER_TEMP/strawberry/pkg-config"
+        mv /c/Strawberry/perl/bin/pkg-config.bat "$RUNNER_TEMP/strawberry/pkg-config.bat"
 
     - name: Get date
       id: get-date
@@ -24,12 +26,12 @@ runs:
     - name: Setup oneAPI
       uses: ./modflow6/.github/actions/setup-par-oneapi
 
-    - name: Restore PETSc cache
-      id: petsc-cache
-      uses: actions/cache/restore@v3
-      with:
-        path: petsc
-        key: petsc-3.25.0-${{ runner.os }}-${{ steps.get-date.outputs.date }}
+    # - name: Restore PETSc cache
+    #   id: petsc-cache
+    #   uses: actions/cache/restore@v3
+    #   with:
+    #     path: petsc
+    #     key: petsc-3.25.0-${{ runner.os }}-${{ steps.get-date.outputs.date }}
 
     - name: Download PETSc
       if: steps.petsc-cache.outputs.cache-hit != 'true'
@@ -78,12 +80,12 @@ runs:
           echo "Warning: PETSc.pc not found at $PETSC_PC"
         fi
 
-    - name: Save PETSc cache
-      if: steps.petsc-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v3
-      with:
-        path: petsc
-        key: petsc-3.25.0-${{ runner.os }}-${{ steps.get-date.outputs.date }}
+    # - name: Save PETSc cache
+    #   if: steps.petsc-cache.outputs.cache-hit != 'true'
+    #   uses: actions/cache/save@v3
+    #   with:
+    #     path: petsc
+    #     key: petsc-3.25.0-${{ runner.os }}-${{ steps.get-date.outputs.date }}
 
     - name: Setup PETSC environment
       shell: cmd
