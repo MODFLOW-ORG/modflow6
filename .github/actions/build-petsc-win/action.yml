@@ -68,7 +68,7 @@ runs:
       if: steps.petsc-cache.outputs.cache-hit != 'true'
       shell: C:\tools\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
       run: |
-        PETSC_PC="$GITHUB_WORKSPACE/petsc/install/lib/pkgconfig/PETSc.pc"
+        PETSC_PC="$(cygpath -u "$GITHUB_WORKSPACE")/petsc/install/lib/pkgconfig/PETSc.pc"
         if [ -f "$PETSC_PC" ]; then
           # Convert cygwin paths to Windows paths
           sed -i 's|/cygdrive/c/|C:/|g' "$PETSC_PC"
