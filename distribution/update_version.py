@@ -228,36 +228,40 @@ def update_version_f90(
     version_num = version_spl[0] if version_spl[1] else str(version_spl[2])
     new_title = "" if developmode else f" {timestamp.strftime('%m/%d/%Y')}"
 
-    paths = [
-        project_root_path / "src" / "Utilities" / "version.f90.in",
-        project_root_path / "src" / "Utilities" / "version.f90",
-    ]
-    for path in paths:
-        lines = open(path, "r").read().splitlines()
-        with open(path, "w") as f:
-            skip = False
-            for line in lines:
-                # skip all of the disclaimer text
-                if skip:
-                    if ',/)"' in line:
-                        skip = False
-                    continue
-                elif ":: IDEVELOPMODE =" in line:
-                    line = (
-                        "  integer(I4B), parameter :: "
-                        + f"IDEVELOPMODE = {1 if developmode else 0}"
-                    )
-                elif ":: VERSIONNUMBER =" in line:
-                    line = (
-                        line.rpartition("::")[0] + f":: VERSIONNUMBER = '{version_num}'"
-                    )
-                elif ":: VERSIONTITLE =" in line:
-                    line = line.rpartition("::")[0] + f":: VERSIONTITLE = '{new_title}'"
-                elif ":: FMTDISCLAIMER =" in line:
-                    line = get_disclaimer(developmode=developmode, formatted=True)
-                    skip = True
-                f.write(f"{line}\n")
-        log_update(path, version)
+    template_path = project_root_path / "src" / "Utilities" / "version.f90.in"
+    static_path = project_root_path / "src" / "Utilities" / "version.f90"
+
+    lines = open(template_path, "r").read().splitlines()
+    updated_lines = []
+    skip = False
+    for line in lines:
+        if skip:
+            if ',/)"' in line:
+                skip = False
+            continue
+        elif ":: IDEVELOPMODE =" in line:
+            line = (
+                "  integer(I4B), parameter :: "
+                + f"IDEVELOPMODE = {1 if developmode else 0}"
+            )
+        elif ":: VERSIONNUMBER =" in line:
+            line = line.rpartition("::")[0] + f":: VERSIONNUMBER = '{version_num}'"
+        elif ":: VERSIONTITLE =" in line:
+            line = line.rpartition("::")[0] + f":: VERSIONTITLE = '{new_title}'"
+        elif ":: FMTDISCLAIMER =" in line:
+            line = get_disclaimer(developmode=developmode, formatted=True)
+            skip = True
+        updated_lines.append(line)
+
+    with open(template_path, "w") as f:
+        for line in updated_lines:
+            f.write(f"{line}\n")
+    log_update(template_path, version)
+
+    with open(static_path, "w") as f:
+        for line in updated_lines:
+            f.write(f"{line.replace('@VCS_TAG@', '')}\n")
+    log_update(static_path, version)
 
 
 def update_readme_and_disclaimer(version: Version, developmode: bool = False):

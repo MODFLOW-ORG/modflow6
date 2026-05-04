@@ -414,11 +414,7 @@ There is a "short" version string and a "full" version string, the former includ
 - `VERSION`: `VERSIONNUMBER` + `VERSIONVCSTAG` — used for the short `-v` display
 - `FULLVERSION`: `VERSIONNUMBER` + `VERSIONVCSTAG` + `VERSIONTITLE` — used for headers written to stdout and `.lst` files
 
-**Note**: the version string VCS tag mechanism only works with Meson. Visual Studio project files and makefiles reference a static `src/Utilities/version.f90` maintained alongside the `.in` template, so binaries built with Visual Studio or `make` will not include a VCS tag.
-
-### Visual Studio and makefile builds
-
-Visual Studio and makefile builds compile `src/Utilities/version.f90` directly. This is a static fallback with `VERSIONVCSTAG = ''`, meaning the version string will not include a commit hash. It is kept in sync with `version.f90.in` by `distribution/update_version.py` (except for `VERSIONVCSTAG`, which remains empty).
+**Note**: the version string VCS tag mechanism only works with Meson. Visual Studio project files and makefiles reference a static `src/Utilities/version.f90` maintained alongside the `.in` template, so binaries built with Visual Studio or `make` will not include a VCS tag. The static file is kept in sync with the template by `update_version.py`, so only the template file requires manual editing.
 
 ## Formatting
 
