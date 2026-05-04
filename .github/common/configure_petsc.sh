@@ -1,6 +1,16 @@
+# Strip down environment to prevent "xargs: environment is too large for exec" error
+# Use env -i to start with minimal environment, preserving only essentials
 cd "$GITHUB_WORKSPACE/petsc"
 PETSC_PREFIX=$(cygpath -u "$GITHUB_WORKSPACE/petsc")/install
-./configure \
+
+env -i \
+    PATH="$PATH" \
+    TEMP="$TEMP" \
+    TMP="$TMP" \
+    HOME="$HOME" \
+    INCLUDE="$INCLUDE" \
+    LIB="$LIB" \
+    ./configure \
     --prefix="$PETSC_PREFIX" \
     --with-debugging=0 \
     --with-shared-libraries=1 \
