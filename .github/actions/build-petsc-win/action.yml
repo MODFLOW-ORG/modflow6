@@ -85,6 +85,12 @@ runs:
         path: petsc
         key: petsc-${{ runner.os }}-${{ steps.get-date.outputs.date }}
 
+    - name: Restore Strawberry pkg-config
+      shell: bash
+      run: |
+        mv "$RUNNER_TEMP/strawberry/pkg-config" /c/Strawberry/perl/bin/pkg-config
+        mv "$RUNNER_TEMP/strawberry/pkg-config.bat" /c/Strawberry/perl/bin/pkg-config.bat
+
     - name: Setup PETSC environment
       shell: cmd
       run: |
