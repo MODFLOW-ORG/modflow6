@@ -31,7 +31,7 @@ runs:
       uses: actions/cache/restore@v3
       with:
         path: petsc
-        key: petsc-${{ runner.os }}-${{ steps.get-date.outputs.date }}
+        key: petsc-3.25.0-${{ runner.os }}-${{ steps.get-date.outputs.date }}
 
     - name: Download PETSc
       if: steps.petsc-cache.outputs.cache-hit != 'true'
@@ -83,7 +83,7 @@ runs:
       uses: actions/cache/save@v3
       with:
         path: petsc
-        key: petsc-${{ runner.os }}-${{ steps.get-date.outputs.date }}
+        key: petsc-3.25.0-${{ runner.os }}-${{ steps.get-date.outputs.date }}
 
     - name: Restore Strawberry pkg-config
       shell: bash
