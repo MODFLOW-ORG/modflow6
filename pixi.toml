@@ -24,6 +24,7 @@ ninja = "*"
 numpy = "<2.0.0"    # modflowapi has a resriction on the numpy version
 pandas = "*"
 pip = "*"
+pkg-config = "*"
 pooch = "*"
 pydotplus = "*"
 pyshp = "*"

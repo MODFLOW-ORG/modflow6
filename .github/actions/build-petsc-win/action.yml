@@ -10,13 +10,11 @@ runs:
         unix2dos -n "%GITHUB_WORKSPACE%\modflow6\.github\common\configure_petsc.sh" "%TEMP%\configure_petsc.sh"
         unix2dos -n "%GITHUB_WORKSPACE%\modflow6\.github\common\compile_petsc.sh" "%TEMP%\compile_petsc.sh"
 
-    - name: Hide Strawberry programs
+    - name: Hide Strawberry gmake
       shell: bash
       run: |
         mkdir "$RUNNER_TEMP/strawberry"
         mv /c/Strawberry/c/bin/gmake "$RUNNER_TEMP/strawberry/gmake"
-        mv /c/Strawberry/perl/bin/pkg-config "$RUNNER_TEMP/strawberry/pkg-config"
-        mv /c/Strawberry/perl/bin/pkg-config.bat "$RUNNER_TEMP/strawberry/pkg-config.bat"
 
     - name: Get date
       id: get-date
@@ -86,12 +84,6 @@ runs:
       with:
         path: petsc
         key: petsc-3.25.0-${{ runner.os }}-${{ steps.get-date.outputs.date }}
-
-    - name: Restore Strawberry pkg-config
-      shell: bash
-      run: |
-        mv "$RUNNER_TEMP/strawberry/pkg-config" /c/Strawberry/perl/bin/pkg-config
-        mv "$RUNNER_TEMP/strawberry/pkg-config.bat" /c/Strawberry/perl/bin/pkg-config.bat
 
     - name: Setup PETSC environment
       shell: cmd
