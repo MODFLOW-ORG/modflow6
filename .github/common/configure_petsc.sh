@@ -1,5 +1,7 @@
 cd "$GITHUB_WORKSPACE/petsc"
+PETSC_PREFIX=$(cygpath -u "$GITHUB_WORKSPACE/petsc")/install
 ./configure \
+    --prefix="$PETSC_PREFIX" \
     --with-debugging=0 \
     --with-shared-libraries=1 \
     --with-cc='cl' \
@@ -9,4 +11,5 @@ cd "$GITHUB_WORKSPACE/petsc"
     --with-mpi-include='/cygdrive/c/PROGRA~2/Intel/oneAPI/mpi/latest/include' \
     --with-mpi-lib='/cygdrive/c/PROGRA~2/Intel/oneAPI/mpi/latest/lib/impi.lib' \
     --with-mpiexec='/cygdrive/c/PROGRA~2/Intel/oneAPI/mpi/latest/bin/mpiexec -localonly' \
-    --with-python-exec='/usr/bin/PYTHON~1.EXE'
+    --with-python-exec='/usr/bin/PYTHON~1.EXE' \
+    --with-fortran-bindings='1'

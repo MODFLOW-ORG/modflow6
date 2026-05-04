@@ -37,9 +37,9 @@ runs:
       if: steps.petsc-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        curl https://web.cels.anl.gov/projects/petsc/download/release-snapshots/petsc-3.20.5.tar.gz -O -J
+        curl https://web.cels.anl.gov/projects/petsc/download/release-snapshots/petsc-3.25.0.tar.gz -O -J
         mkdir petsc
-        tar -xzf petsc-3.20.5.tar.gz -C petsc --strip-components=1
+        tar -xzf petsc-3.25.0.tar.gz -C petsc --strip-components=1
 
     - name: Setup Cygwin
       if: steps.petsc-cache.outputs.cache-hit != 'true'
@@ -64,6 +64,20 @@ runs:
       run: |
         "%ONEAPI_ROOT%\setvars.bat" intel64 vs2022 && "C:\tools\cygwin\bin\bash.exe" --login --norc -eo pipefail -o igncr "%TEMP%\compile_petsc.sh"
 
+    - name: Fix PETSc.pc paths
+      if: steps.petsc-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        PETSC_PC="$GITHUB_WORKSPACE/petsc/install/lib/pkgconfig/PETSc.pc"
+        if [ -f "$PETSC_PC" ]; then
+          # Convert cygwin paths to Windows paths
+          sed -i 's|/cygdrive/\([a-z]\)/|\U\1:/|g' "$PETSC_PC"
+          echo "Fixed PETSc.pc paths:"
+          cat "$PETSC_PC"
+        else
+          echo "Warning: PETSc.pc not found at $PETSC_PC"
+        fi
+
     - name: Save PETSc cache
       if: steps.petsc-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v3
@@ -74,8 +88,6 @@ runs:
     - name: Setup PETSC environment
       shell: cmd
       run: |
-        set PETSC_DIR=%GITHUB_WORKSPACE%\petsc
-        set PETSC_ARCH=arch-mswin-c-opt
-        echo PETSC_DIR=%PETSC_DIR%>>%GITHUB_ENV%
-        echo PETSC_ARCH=%PETSC_ARCH%>>%GITHUB_ENV%
-        echo %PETSC_DIR%\%PETSC_ARCH%\lib>>%GITHUB_PATH%
+        set PKG_CONFIG_PATH=%PKG_CONFIG_PATH%;%GITHUB_WORKSPACE%\petsc\install\lib\pkgconfig
+        echo PKG_CONFIG_PATH=%PKG_CONFIG_PATH%>>%GITHUB_ENV%
+        echo %GITHUB_WORKSPACE%\petsc\install\bin>>%GITHUB_PATH%
