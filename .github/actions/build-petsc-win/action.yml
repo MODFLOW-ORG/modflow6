@@ -70,8 +70,9 @@ runs:
       run: |
         PETSC_PC="$GITHUB_WORKSPACE/petsc/install/lib/pkgconfig/PETSc.pc"
         if [ -f "$PETSC_PC" ]; then
-          # Convert cygwin paths to Windows paths
-          sed -i 's|/cygdrive/\([a-z]\)/|\U\1:/|g' "$PETSC_PC"
+          # Convert cygwin paths to Windows paths (/cygdrive/c/ -> C:/)
+          # Git bash sed doesn't support \U, so handle common drive letters explicitly
+          sed -i 's|/cygdrive/c/|C:/|g; s|/cygdrive/d/|D:/|g; s|/cygdrive/e/|E:/|g' "$PETSC_PC"
           echo "Fixed PETSc.pc paths:"
           cat "$PETSC_PC"
         else
