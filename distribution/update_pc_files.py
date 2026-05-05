@@ -32,4 +32,3 @@ if nc_pcpath.is_file():
         print("All files are in good shape.")
 else:
     print(f"netcdf-fortran pkgconfig file '{nc_pcpath}' was not found")
-    
