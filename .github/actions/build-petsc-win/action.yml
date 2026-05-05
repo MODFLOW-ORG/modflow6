@@ -93,3 +93,4 @@ runs:
         set PKG_CONFIG_PATH=%PKG_CONFIG_PATH%;%GITHUB_WORKSPACE%\petsc\install\lib\pkgconfig
         echo PKG_CONFIG_PATH=%PKG_CONFIG_PATH%>>%GITHUB_ENV%
         echo %GITHUB_WORKSPACE%\petsc\install\bin>>%GITHUB_PATH%
+        echo %GITHUB_WORKSPACE%\petsc\install\lib>>%GITHUB_PATH%
