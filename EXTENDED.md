@@ -95,7 +95,7 @@ To connect everything, both of these folder paths have to be added to the `PKG_C
 
 The primary build system for MODFLOW is Meson (https://mesonbuild.com/). The `meson.build` script takes an additional argument to activate an extended build of the software. E.g for building and installing an extended release version:
 
-```
+```bash
 meson setup builddir -Ddebug=false -Dextended=true \
                      --prefix=$(pwd) --libdir=bin
 meson install -C builddir
@@ -115,6 +115,42 @@ The other build systems in the MODFLOW project (MS Visual Studio, `pymake`, `Mak
 *Don't use MPI and PETSc directly in your code*
 
 Extended MODFLOW was designed to have all third party functionality (MPI, PETSc and the NetCDF Fortran API) made available through the framework. Developers of models and packages **should not** directly call these libraries and change the set of excluded files described above. If you feel you need to include MPI or PETSc functionality in your code (e.g. you want to `use mpi` in your source file), contact the MODFLOW development team on how to best proceed.
+
+
+## Using `pixi` to build the extended version of MODFLOW 6 on macOS and Linux
+
+`pixi` can be used to build and test the extended version of MODFLOW 6 on macOS and Linux operating system using the `gcc-build` `pixi` environment. The `gcc-build` `pixi` environment includes gcc and gfortran in addition to the openmpi, petsc, and netcdf needed to compile the extended version of MODFLOW 6, which are available from the `conda-forge` channel.  
+
+Prior to trying to build the extended version of MODFLOW 6 execute the following command:
+
+```bash
+pixi run -e gcc-build gcc-build-update 
+```
+
+This will update the netcdf-fortran.pc file with the correct include path and remove `test-drive` from the `gcc-build` pixi environment. `test-drive` currently removed because of an [`test-drive` issue](https://github.com/fortran-lang/test-drive/commit/60c4cd6687b0c77c84e0e580df75e43ee8d2dedb) with the latest version of gcc (gcc-15). 
+
+The MODFLOW 6 meson build process is essentially the same except that it relies on tasks defined in `pixi.toml` and require that the `gcc-build` environment be specified. The commands for setup, build, and testing are:
+
+```bash
+pixi run -e gcc-build setup builddir -Dextended=true --prefix=$(pwd) --libdir=bin 
+pixi run -e gcc-build build builddir
+pixi run -e gcc-build test builddir
+```
+
+If the build is successful you will see something like:
+
+```bash
+ Normal termination of simulation.
+―――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――
+5/5 MODFLOW_6:Parallel simulation test - 2 cores  OK              1.09s
+
+
+Ok:                5   
+Fail:              0   
+
+Full log written to /location/of/your/clone/of/the/modflow6/repo/builddir/meson-logs/testlog.txt
+```
+
 
 ---
 

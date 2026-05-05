@@ -40,7 +40,6 @@ ruff = "*"
 scipy = "*"
 shapely = "*"
 syrupy = "<5"
-test-drive = "*"
 xarray = "*"
 xugrid = "*"
 
@@ -69,6 +68,8 @@ rtds_action = "*"
 
 [environments]
 rtd = { features = ["rtd"], solve-group = "default" }
+gcc-build = { features = ["gcc-build"] } 
+
 
 [tasks]
 # install
@@ -127,6 +128,27 @@ make-release-notes = { cmd = "python mk_releasenotes.py", cwd = "doc/ReleaseNote
 
 [feature.rtd.tasks]
 sphinx = { cmd = "make html", cwd = ".build_rtd_docs" }
+
+[feature.gcc-build]
+platforms = ["linux-64", "linux-aarch64", "osx-arm64", "osx-64"]
+
+[feature.gcc-build.tasks]
+update-pc-files = { cmd = "echo updating netcdf pc files && python update_pc_files.py", cwd = "distribution" }
+remove-test-drive = { cmd = "pixi remove -f gcc-build test-drive"}
+gcc-build-update = {depends-on = ["update-pc-files", "remove-test-drive"]}
+
+[feature.gcc-build.dependencies]
+gcc = "*"
+gfortran = "*"
+pkg-config = "*"
+libnetcdf = "*"
+netcdf-fortran = "*"
+openmpi = "*"
+petsc = "<3.23.0"
+# currently issue with gcc-15 - uncomment test-drive when 0.7.0 is available
+# test-drive = "*"
+# test-drive-devel = "*"
+pymetis = "*"
 
 # os-specific tasks
 [target.linux-64.tasks]
