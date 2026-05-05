@@ -26,12 +26,12 @@ runs:
     - name: Setup oneAPI
       uses: ./modflow6/.github/actions/setup-par-oneapi
 
-    # - name: Restore PETSc cache
-    #   id: petsc-cache
-    #   uses: actions/cache/restore@v3
-    #   with:
-    #     path: petsc
-    #     key: petsc-3.25.0-${{ runner.os }}-${{ steps.get-date.outputs.date }}
+    - name: Restore PETSc cache
+      id: petsc-cache
+      uses: actions/cache/restore@v3
+      with:
+        path: petsc
+        key: petsc-3.25.0-${{ runner.os }}-${{ steps.get-date.outputs.date }}
 
     - name: Download PETSc
       if: steps.petsc-cache.outputs.cache-hit != 'true'
@@ -80,12 +80,12 @@ runs:
           echo "Warning: PETSc.pc not found at $PETSC_PC"
         fi
 
-    # - name: Save PETSc cache
-    #   if: steps.petsc-cache.outputs.cache-hit != 'true'
-    #   uses: actions/cache/save@v3
-    #   with:
-    #     path: petsc
-    #     key: petsc-3.25.0-${{ runner.os }}-${{ steps.get-date.outputs.date }}
+    - name: Save PETSc cache
+      if: steps.petsc-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v3
+      with:
+        path: petsc
+        key: petsc-3.25.0-${{ runner.os }}-${{ steps.get-date.outputs.date }}
 
     - name: Setup PETSC environment
       shell: cmd
