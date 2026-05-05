@@ -63,15 +63,15 @@ Use of a package manager can simplify the process of building the extended versi
 
 ### MacOS
 
-[OpenMPI](https://formulae.brew.sh/formula/open-mpi) and [PETSc](https://formulae.brew.sh/formula/petsc) are available on Homebrew for Intel and Apple Silicon. Both of these depend on [gcc 13.1.0](https://formulae.brew.sh/formula/gcc). [NetCDF Fortran](https://formulae.brew.sh/formula/netcdf-fortran) and related dependencies are also available on Homebrew for Intel and Apple Silicon (M1). [pkg-config](https://formulae.brew.sh/formula/pkg-config) should also be installed from Homebrew, if not already installed, so that Meson will be able to resolve the installation location of MPI and PETSc.
+[OpenMPI](https://formulae.brew.sh/formula/open-mpi) and [PETSc](https://formulae.brew.sh/formula/petsc) are available on Homebrew for Intel and Apple Silicon. Both of these depend on [gcc 13.1.0](https://formulae.brew.sh/formula/gcc). [NetCDF Fortran](https://formulae.brew.sh/formula/netcdf-fortran) and related dependencies are also available on Homebrew for Intel and Apple Silicon. [pkg-config](https://formulae.brew.sh/formula/pkg-config) should also be installed from Homebrew, if not already installed, so that Meson will be able to resolve the installation location of MPI and PETSc.
 
-OpenMPI, PETSc, and NetCDF are also available from the [conda-forge package directory](https://conda-forge.org/packages/).
+OpenMPI, PETSc, NetCDF, and pkg-config are also available for MacOS (Intel and Apple Silicon) from the [conda-forge package directory](https://conda-forge.org/packages/).
 
-### Ubuntu
+### Linux
 
 OpenMPI, PETSc and NetCDF Fortran are available for a variety of Ubuntu versions using the Advanced Packaging Tool (apt). 
 
-OpenMPI, PETSc, and NetCDF are also available from the [conda-forge package directory](https://conda-forge.org/packages/).
+OpenMPI, PETSc, NetCDF, and pkg-config are also available for Linux from the [conda-forge package directory](https://conda-forge.org/packages/).
 
 ### Windows
 
