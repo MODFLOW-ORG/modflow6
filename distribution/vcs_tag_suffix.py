@@ -9,6 +9,12 @@ import sys
 
 
 def get_suffix():
+    # no vcs tag if git isn't available
+    try:
+        subprocess.run(["git", "status"], capture_output=True, check=True)
+    except (subprocess.CalledProcessError, OSError):
+        return ""
+
     try:
         subprocess.check_output(
             ["git", "describe", "--exact-match", "--tags", "HEAD"],
