@@ -1,34 +1,41 @@
 import pathlib as pl
+import shutil
 import subprocess
 
-nc_includepath = pl.Path(
-    subprocess.check_output(("nf-config", "--includedir")).decode().strip()
-)
-nc_libpath = nc_includepath.parent / "lib"
-print(
-    f"netcdf-fortran include path: {nc_includepath}\n"
-    + f"netcdf-fortran lib path:     {nc_libpath}"
-)
+exe_name = "nf-config"
+exe_path = shutil.which(exe_name)
 
-nc_pcpath = nc_libpath / "pkgconfig/netcdf-fortran.pc"
-if nc_pcpath.is_file():
-    with open(nc_pcpath, "r") as f:
-        lines = f.readlines()
-    tag = "fmoddir="
-    update = False
-    for idx, line in enumerate(lines):
-        if tag in line:
-            test = line.strip()
-            if test == tag:
-                update = True
-                lines[idx] = line.replace(tag, f"{tag}{nc_includepath}")
-            break
-    if update:
-        print(f"Updating {tag} with the include path.")
-        with open(nc_pcpath, "w") as f:
-            for line in lines:
-                f.write(line)
+if exe_path:
+    nc_includepath = pl.Path(
+        subprocess.check_output((exe_name, "--includedir")).decode().strip()
+    )
+    nc_libpath = nc_includepath.parent / "lib"
+    print(
+        f"netcdf-fortran include path: {nc_includepath}\n"
+        + f"netcdf-fortran lib path:     {nc_libpath}"
+    )
+
+    nc_pcpath = nc_libpath / "pkgconfig/netcdf-fortran.pc"
+    if nc_pcpath.is_file():
+        with open(nc_pcpath, "r") as f:
+            lines = f.readlines()
+        tag = "fmoddir="
+        update = False
+        for idx, line in enumerate(lines):
+            if tag in line:
+                test = line.strip()
+                if test == tag:
+                    update = True
+                    lines[idx] = line.replace(tag, f"{tag}{nc_includepath}")
+                break
+        if update:
+            print(f"Updating {tag} with the include path.")
+            with open(nc_pcpath, "w") as f:
+                for line in lines:
+                    f.write(line)
+        else:
+            print("All files are in good shape.")
     else:
-        print("All files are in good shape.")
+        print(f"netcdf-fortran pkgconfig file '{nc_pcpath}' was not found")
 else:
-    print(f"netcdf-fortran pkgconfig file '{nc_pcpath}' was not found")
+    print(f"'{exe_name}' was not found in the system path.")
