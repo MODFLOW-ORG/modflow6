@@ -136,7 +136,7 @@ This will update the `netcdf-fortran.pc` file with the correct include path and 
 The MODFLOW 6 meson build process is essentially the same except that it relies on tasks defined in `pixi.toml` and require that the `gcc-build` environment be specified. The commands for setup, build, and testing are:
 
 ```bash
-pixi run -e gcc-build setup builddir -Dextended=true --prefix=$(pwd) --libdir=bin 
+pixi run -e gcc-build setup builddir -Dextended=true
 pixi run -e gcc-build build builddir
 pixi run -e gcc-build test builddir
 ```
@@ -146,10 +146,10 @@ If the build is successful you will see something like:
 ```bash
  Normal termination of simulation.
 ―――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――
-5/5 MODFLOW_6:Parallel simulation test - 2 cores  OK              1.09s
+26/26 MODFLOW_6:Parallel simulation test - 2 cores  OK              1.09s
 
 
-Ok:                5   
+Ok:                26  
 Fail:              0   
 
 Full log written to /location/of/your/clone/of/the/modflow6/repo/builddir/meson-logs/testlog.txt
