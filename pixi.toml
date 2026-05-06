@@ -21,7 +21,7 @@ meson = ">=1.7.0"
 netCDF4 = "*"
 networkx = "*"
 ninja = "*"
-numpy = "<2.0.0"    # modflowapi has a resriction on the numpy version
+numpy = "<2.0.0"              # modflowapi has a resriction on the numpy version
 pandas = "*"
 pip = "*"
 pooch = "*"
@@ -45,7 +45,11 @@ xarray = "*"
 xugrid = "*"
 
 [pypi-dependencies]
-modflow-devtools = { version = ">=1.7.0,!=1.9.0,<2", extras = ["test", "dfn", "models"] }
+modflow-devtools = { version = ">=1.7.0,!=1.9.0,<2", extras = [
+    "test",
+    "dfn",
+    "models",
+] }
 xmipy = ">=1.4.0"
 
 [feature.rtd.dependencies]
@@ -69,7 +73,7 @@ rtds_action = "*"
 
 [environments]
 rtd = { features = ["rtd"], solve-group = "default" }
-gcc-build = { features = ["gcc-build"] } 
+gcc-build = { features = ["gcc-build"] }
 
 
 [tasks]
@@ -102,8 +106,8 @@ build = "meson install -C"
 test = "meson test --verbose --no-rebuild -C"
 
 # meson build mf5to6
-setup-mf5to6 = { cmd = "meson setup --prefix=$PIXI_PROJECT_ROOT", cwd = "utils/mf5to6"}
-build-mf5to6 = { cmd = "meson install -C", cwd = "utils/mf5to6"}
+setup-mf5to6 = { cmd = "meson setup --prefix=$PIXI_PROJECT_ROOT", cwd = "utils/mf5to6" }
+build-mf5to6 = { cmd = "meson install -C", cwd = "utils/mf5to6" }
 
 # pytest tasks
 get-exes = { cmd = "pytest -v --durations 0 get_exes.py", cwd = "autotest" }
@@ -114,7 +118,13 @@ update-fortran-definitions = { cmd = "cat dfns.txt | xargs python scripts/dfn2f9
 update-flopy = "python -m flopy.mf6.utils.generate_classes --dfnpath doc/mf6io/mf6ivar/dfn"
 build-makefiles = { cmd = "python build_makefiles.py", cwd = "distribution" }
 run-mf6ivar = { cmd = "python mf6ivar.py", cwd = "doc/mf6io/mf6ivar" }
-prepare-pull-request = {depends-on = ["fix-style", "fix-python-style", "build-makefiles", "run-mf6ivar", "update-fortran-definitions"]}
+prepare-pull-request = { depends-on = [
+    "fix-style",
+    "fix-python-style",
+    "build-makefiles",
+    "run-mf6ivar",
+    "update-fortran-definitions",
+] }
 
 # dist/docs
 benchmark = { cmd = "python benchmark.py", cwd = "distribution" }
@@ -135,14 +145,19 @@ platforms = ["linux-64", "linux-aarch64", "osx-arm64", "osx-64"]
 
 [feature.gcc-build.tasks]
 update-pc-files = { cmd = "echo updating netcdf pc files && python update_pc_files.py", cwd = "distribution" }
-test-drive-remove = { cmd = "pixi remove test-drive -f gcc-build"}
 test-drive-clone = { cmd = "rm -rf .test-drive/ && git clone https://github.com/fortran-lang/test-drive.git .test-drive" }
 test-drive-setup = { cmd = "meson setup _build --libdir=lib --warnlevel=0 --default-library=shared --prefix=$CONDA_PREFIX", cwd = ".test-drive" }
 test-drive-compile = { cmd = "meson compile -C _build", cwd = ".test-drive" }
 test-drive-test = { cmd = "meson test -C _build --no-rebuild --print-errorlogs", cwd = ".test-drive" }
 test-drive-install = { cmd = "meson install -C _build --no-rebuild", cwd = ".test-drive" }
-test-drive-rebuild = {depends-on = ["test-drive-clone", "test-drive-setup", "test-drive-compile", "test-drive-test", "test-drive-install"]}
-gcc-build-update = {depends-on = ["update-pc-files", "test-drive-rebuild"]}
+test-drive-rebuild = { depends-on = [
+    "test-drive-clone",
+    "test-drive-setup",
+    "test-drive-compile",
+    "test-drive-test",
+    "test-drive-install",
+] }
+gcc-build-update = { depends-on = ["update-pc-files", "test-drive-rebuild"] }
 
 [feature.gcc-build.dependencies]
 git = "*"
@@ -171,4 +186,3 @@ builddir = "echo _builddir_osx-arm64"
 
 [target.win-64.tasks]
 builddir = "echo _builddir_win-64"
-
