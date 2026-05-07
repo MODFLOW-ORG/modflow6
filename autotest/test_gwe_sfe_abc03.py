@@ -1,12 +1,7 @@
 # Test the use of the atmospheric boundary condition utility used in conjunction
-# with the SFE advanced package.  This test is a single cell with a single
-# reach.  Channel flow characteristics are unrealistic: Manning's n is
-# unrealistically low and slope is extremely high. These conditions result in
-# an extremely high streamflow velocity that results in nearly all of the heat
-# being added to the channel exiting at the outlet with very near negligle heat
-# storage increases in the channel. This test only uses latent heat flux (lhf).
-# The result is a -1 deg C change in temperature in the
-# streamflow - an easy result to confirm in this test.
+# with the SFE advanced package.  This test is focused on the use of time series
+# in setting up ABC input.  There is no "check_output" routine, the test is 
+# simply that the time series input is read in and the model runs to completion.
 
 
 import flopy
@@ -310,7 +305,7 @@ def build_models(idx, test):
     # --------------------------------------------------
     gwe = flopy.mf6.ModflowGwe(sim, modelname=gwename)
 
-    # Instantiating solver for GWT
+    # Instantiating solver for GWE
     imsgwe = flopy.mf6.ModflowIms(
         sim,
         print_option="ALL",
@@ -343,7 +338,7 @@ def build_models(idx, test):
         filename=f"{gwename}.dis",
     )
 
-    # Instantiate Mobile Storage and Transfer package
+    # Instantiate Energy Storage and Transfer package
     flopy.mf6.ModflowGweest(
         gwe,
         save_flows=True,
@@ -363,7 +358,7 @@ def build_models(idx, test):
     # Instantiate Advection package
     flopy.mf6.ModflowGweadv(gwe, scheme="UPSTREAM")
 
-    # Instantiate Dispersion package (also handles conduction)
+    # Instantiate Conduction package 
     flopy.mf6.ModflowGwecnd(
         gwe,
         xt3d_off=True,
