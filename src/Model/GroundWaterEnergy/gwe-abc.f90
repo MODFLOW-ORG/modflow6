@@ -16,7 +16,7 @@
 ! SENSIBLE HEAT FLUX        idxbudshf     SENS HEAT     cd * rho_a * C_p_a * wspd * (t_air - t_feat)
 
 module AbcModule
-  use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, LENVARNAME, &
+  use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, DONE, LENVARNAME, &
                              LENPACKAGENAME, TABLEFT, TABCENTER, LENMEMTYPE, &
                              DHUNDRED, DCTOK
   use KindModule, only: I4B, DP
@@ -622,7 +622,7 @@ contains
     if (this%lwr_active) then
       call mem_reallocate(this%atmc, this%ncv, 'ATMC', this%memoryPath)
       do n = 1, this%ncv
-        this%atmc(n) = DZERO
+        this%atmc(n) = DONE
       end do
     end if
     if (this%shf_active) then

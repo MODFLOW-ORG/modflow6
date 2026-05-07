@@ -2311,7 +2311,7 @@ contains
         ! -- set initial stage to calculate stage change
         s0 = this%stage(n)
         !
-        ! -- solve for flow in swr
+        ! -- solve for flow in sfr
         if (this%iboundpak(n) /= 0) then
           call this%sfr_solve(n, hgwf, hhcof, rrhs)
         else
