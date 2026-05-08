@@ -21,7 +21,7 @@ meson = ">=1.7.0"
 netCDF4 = "*"
 networkx = "*"
 ninja = "*"
-numpy = "*"
+numpy = "<2.0.0"  # pinned for random reasons
 pandas = "*"
 pip = "*"
 pooch = "*"
