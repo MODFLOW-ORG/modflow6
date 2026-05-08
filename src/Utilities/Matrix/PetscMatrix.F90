@@ -72,7 +72,7 @@ contains
     Mat :: local_mat
     integer(I4B), dimension(:), pointer :: ia_tmp, ja_tmp
     integer(I4B) :: nrows_local
-    logical(LGP) :: done
+    PetscBool :: done
 
     this%memory_path = mem_path
     this%nrow = sparse%nrow
@@ -126,9 +126,9 @@ contains
     call MatGetDiagonalBlock(this%mat, local_mat, ierr)
     CHKERRQ(ierr)
 
-    call MatGetRowIJF90(local_mat, 1, PETSC_FALSE, PETSC_FALSE, &
-                        nrows_local, ia_tmp, ja_tmp, &
-                        done, ierr)
+    call MatGetRowIJ(local_mat, 1, PETSC_FALSE, PETSC_FALSE, &
+                     nrows_local, ia_tmp, ja_tmp, &
+                     done, ierr)
     CHKERRQ(ierr)
 
     do i = 1, size(ia_tmp)
@@ -138,8 +138,8 @@ contains
       this%ja_local(i) = ja_tmp(i)
     end do
 
-    call MatRestoreRowIJF90(local_mat, 1, PETSC_FALSE, PETSC_FALSE, &
-                            nrows_local, ia_tmp, ja_tmp, done, ierr)
+    call MatRestoreRowIJ(local_mat, 1, PETSC_FALSE, PETSC_FALSE, &
+                         nrows_local, ia_tmp, ja_tmp, done, ierr)
     CHKERRQ(ierr)
 
   end subroutine pm_init

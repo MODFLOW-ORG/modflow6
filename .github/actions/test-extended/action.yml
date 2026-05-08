@@ -52,7 +52,7 @@ runs:
       with:
         repository: petsc/petsc
         path: petsc
-        ref: v3.22.5
+        ref: v3.25.0
 
     - name: Configure environment
       shell: bash

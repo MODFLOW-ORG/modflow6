@@ -345,7 +345,7 @@ jobs:
           copy "C:\Program Files (x86)\Intel\oneAPI\mpi\latest\bin\hydra_bstrap_proxy.exe" .
           copy "C:\Program Files (x86)\Intel\oneAPI\mpi\latest\bin\hydra_pmi_proxy.exe" .
           copy "C:\Program Files (x86)\Intel\oneAPI\mpi\latest\bin\hydra_service.exe" .
-          copy "%GITHUB_WORKSPACE%\petsc\arch-mswin-c-opt\lib\libpetsc.dll" .
+          copy "%GITHUB_WORKSPACE%\petsc\install\lib\libpetsc.dll" .
           copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.3-NC4-64\bin\hdf5.dll" .
           copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.3-NC4-64\bin\hdf5_hl.dll" .
           copy "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.3-NC4-64\bin\libcurl.dll" .

@@ -1,6 +1,8 @@
 module PetscSolverModule
+#include <petsc/finclude/petscsys.h>
 #include <petsc/finclude/petscksp.h>
   use petscksp
+  use petscsys
   use KindModule, only: I4B, DP, LGP
   use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, DZERO
   use ListsModule, only: basesolutionlist
@@ -32,7 +34,7 @@ module PetscSolverModule
     logical(LGP) :: use_ims_pc !< when true, use custom IMS-style preconditioning
     logical(LGP) :: use_ims_cnvgopt !< when true, use IMS convergence check in PETSc solve
     KSPType :: ksp_type !< the KSP solver type (CG, BCGS, ...)
-    class(PetscCnvgCtxType), pointer :: petsc_ctx => null() !< context for the PETSc custom convergence check
+    type(PetscCnvgCtxType), pointer :: petsc_ctx => null() !< context for the PETSc custom convergence check
     type(PcShellCtxType), pointer :: pc_context => null() !< context for the custom (IMS) precondioner
     type(ConvergenceSummaryType), pointer :: convergence_summary => null() !< data structure wrapping the convergence data
     character(len=LENSOLUTIONNAME + 1) :: option_prefix !< prefix for keys in petscrc database in case there are multiple solutions
@@ -106,7 +108,7 @@ contains
     this%use_ims_cnvgopt = .true. ! use IMS convergence check, override with .petscrc
     this%use_ims_pc = .true. ! use IMS preconditioning, override with .petscrc
     allocate (this%pc_context)
-    call this%pc_context%create(this%matrix, linear_settings)
+    call pctx_create(this%pc_context, this%matrix, linear_settings)
 
     if (linear_settings%ilinmeth == CG_METHOD) then
       this%ksp_type = KSPCG
@@ -188,16 +190,16 @@ contains
     class(PetscSolverType) :: this
     ! local
     PetscErrorCode :: ierr
-    logical(LGP) :: found
-    logical(LGP) :: use_petsc_pc, use_petsc_cnvg
+    PetscBool :: found
+    PetscBool :: use_petsc_pc, use_petsc_cnvg
 
-    use_petsc_pc = .false.
+    use_petsc_pc = PETSC_FALSE
     call PetscOptionsGetBool(PETSC_NULL_OPTIONS, trim(this%option_prefix), &
                              '-use_petsc_pc', use_petsc_pc, found, ierr)
     CHKERRQ(ierr)
     this%use_ims_pc = .not. use_petsc_pc
 
-    use_petsc_cnvg = .false.
+    use_petsc_cnvg = PETSC_FALSE
     call PetscOptionsGetBool(PETSC_NULL_OPTIONS, trim(this%option_prefix), &
                              '-use_petsc_cnvg', use_petsc_cnvg, found, ierr)
     CHKERRQ(ierr)
@@ -223,7 +225,7 @@ contains
     call KSPSetOperators(this%ksp_petsc, this%mat_petsc, this%mat_petsc, ierr)
     CHKERRQ(ierr)
 
-    call KSPSetInitialGuessNonzero(this%ksp_petsc, .true., ierr)
+    call KSPSetInitialGuessNonzero(this%ksp_petsc, PETSC_TRUE, ierr)
     CHKERRQ(ierr)
 
     call KSPSetType(this%ksp_petsc, this%ksp_type, ierr)
@@ -242,7 +244,7 @@ contains
       CHKERRQ(ierr)
     end if
 
-    call KSPSetErrorIfNotConverged(this%ksp_petsc, .false., ierr)
+    call KSPSetErrorIfNotConverged(this%ksp_petsc, PETSC_FALSE, ierr)
     CHKERRQ(ierr)
 
     ! finally override these options from the
@@ -261,7 +263,7 @@ contains
     class(PetscSolverType) :: this !< This solver instance
     ! local
     PC :: pc, sub_pc
-    KSP, dimension(1) :: sub_ksp
+    KSP, pointer :: sub_ksp(:) => null()
     PetscInt :: n_local, n_first
     PetscErrorCode :: ierr
 
@@ -295,8 +297,8 @@ contains
     ! local
     PetscErrorCode :: ierr
 
-    call this%petsc_ctx%create(this%mat_petsc, this%linear_settings, &
-                               convergence_summary)
+    call petsc_ctx_create(this%petsc_ctx, this%mat_petsc, this%linear_settings, &
+                          convergence_summary)
 
     if (.not. this%use_ims_cnvgopt) then
       ! use PETSc residual L2 norm for convergence
@@ -314,6 +316,7 @@ contains
   end subroutine create_convergence_check
 
   subroutine petsc_solve(this, kiter, rhs, x, cnvg_summary)
+    use iso_c_binding
     class(PetscSolverType) :: this
     integer(I4B) :: kiter
     class(VectorBaseType), pointer :: rhs
@@ -355,7 +358,7 @@ contains
 
     call KSPGetConvergedReason(this%ksp_petsc, cnvg_reason, ierr)
     CHKERRQ(ierr)
-    if (cnvg_reason > 0) then
+    if (cnvg_reason%v > 0) then
       if (this%petsc_ctx%icnvg_ims == -1) then
         ! move to next Picard iteration (e.g. with 'STRICT' option)
         this%is_converged = 0
@@ -365,9 +368,11 @@ contains
       end if
     end if
 
-    if (cnvg_reason < 0) then
-      if (cnvg_reason == KSP_DIVERGED_BREAKDOWN .or. &
-          cnvg_reason == KSP_DIVERGED_ITS) then
+    ! For some reason `KSPConvergedReasonequals` isn't exported by petscksp when compiled with ifx,
+    ! so we need to compare the integer values directly
+    if (cnvg_reason%v < 0) then
+      if (cnvg_reason%v == KSP_DIVERGED_BREAKDOWN%v .or. &
+          cnvg_reason%v == KSP_DIVERGED_ITS%v) then
         ! out of iterations, or rho/eta became zero,
         ! move to next Picard iteration and try again
         this%is_converged = 0
@@ -457,10 +462,10 @@ contains
     CHKERRQ(ierr)
 
     ! delete context
-    call this%petsc_ctx%destroy()
+    call petsc_ctx_destroy(this%petsc_ctx)
     deallocate (this%petsc_ctx)
 
-    call this%pc_context%destroy()
+    call pctx_destroy(this%pc_context)
     deallocate (this%pc_context)
 
   end subroutine petsc_destroy

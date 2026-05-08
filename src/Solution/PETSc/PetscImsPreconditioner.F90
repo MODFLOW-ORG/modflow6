@@ -14,6 +14,7 @@ module PetscImsPreconditionerModule
   public :: PcShellCtxType
   public :: pcshell_apply
   public :: pcshell_setup
+  public :: pctx_create, pctx_destroy
 
   character(len=9), dimension(4) :: IMS_PC_TYPE = ["IMS ILU0 ", &
                                                    "IMS MILU0", &
@@ -36,20 +37,7 @@ module PetscImsPreconditionerModule
     integer(I4B), dimension(:), contiguous, pointer :: JLU => null() !< (M)ILUT work array
     integer(I4B), dimension(:), contiguous, pointer :: JW => null() !< (M)ILUT work array
     real(DP), dimension(:), contiguous, pointer :: WLU => null() !< (M)ILUT work array
-  contains
-    procedure :: create => pctx_create
-    procedure :: destroy => pctx_destroy
-
   end type
-
-  interface
-    subroutine PCShellGetContext(pc, ctx, ierr)
-      import PcShellCtxType, tPC
-      type(tPC) :: pc
-      type(PcShellCtxType), pointer :: ctx
-      integer :: ierr
-    end subroutine
-  end interface
 
 contains
 
@@ -58,7 +46,7 @@ contains
   subroutine pctx_create(this, matrix, lin_settings)
     use IMSLinearBaseModule, only: ims_base_pccrs, ims_calc_pcdims
     use MemoryManagerModule, only: mem_allocate
-    class(PcShellCtxType) :: this !< this instance
+    type(PcShellCtxType) :: this !< this instance
     class(PetscMatrixType), pointer :: matrix !< the linear system matrix
     type(ImsLinearSettingsType), pointer :: lin_settings !< linear settings from IMS
     ! local
@@ -125,7 +113,7 @@ contains
   !<
   subroutine pctx_destroy(this)
     use MemoryManagerModule, only: mem_deallocate
-    class(PcShellCtxType) :: this
+    type(PcShellCtxType) :: this
 
     ! matrix
     call mem_deallocate(this%IAPC)
@@ -147,6 +135,7 @@ contains
   !< (this is not a type bound procedure)
   subroutine pcshell_apply(pc, x, y, ierr)
     use IMSLinearBaseModule, only: ims_base_ilu0a
+    use iso_c_binding, only: c_ptr, c_f_pointer
     external lusol ! from ilut.f90
     PC :: pc !< the shell preconditioner
     Vec :: x !< the input vector
@@ -154,15 +143,20 @@ contains
     PetscErrorCode :: ierr !< PETSc error code
     ! local
     type(PcShellCtxType), pointer :: pc_ctx => null()
+    type(c_ptr) :: ctx_ptr
     real(DP), dimension(:), pointer :: local_x, local_y
     integer(I4B) :: neq, nja
 
-    call PCShellGetContext(pc, pc_ctx, ierr)
+    ! Due to a missing export in the PETSc Fortran interface, we have to get the context as a C pointer and then convert it back to a Fortran pointer
+    ! call PCShellGetContext(pc, pc_ctx, ierr) -> This results in a linker error because petscFtnCtx is not exported as defined in petscsysmod.F90
+    ! Workaround is to use the macro as defined in petscpc.h directly : #define PCShellGetContext ...
+    call PCShellGetContextCptr(pc, ctx_ptr, ierr)
+    call c_f_pointer(ctx_ptr, pc_ctx)
     CHKERRQ(ierr)
 
-    call VecGetArrayReadF90(x, local_x, ierr)
+    call VecGetArrayRead(x, local_x, ierr)
     CHKERRQ(ierr)
-    call VecGetArrayF90(y, local_y, ierr)
+    call VecGetArray(y, local_y, ierr)
     CHKERRQ(ierr)
 
     neq = pc_ctx%system_matrix%nrow
@@ -175,9 +169,9 @@ contains
       call lusol(neq, local_x, local_y, pc_ctx%APC, pc_ctx%JLU, pc_ctx%IW)
     end select
 
-    call VecRestoreArrayF90(x, local_x, ierr)
+    call VecRestoreArrayRead(x, local_x, ierr)
     CHKERRQ(ierr)
-    call VecRestoreArrayF90(y, local_y, ierr)
+    call VecRestoreArray(y, local_y, ierr)
     CHKERRQ(ierr)
 
   end subroutine pcshell_apply
@@ -186,16 +180,22 @@ contains
   !< (this is not a type bound procedure)
   subroutine pcshell_setup(pc, ierr)
     use IMSLinearBaseModule, only: ims_base_pcu
+    use iso_c_binding, only: c_ptr, c_f_pointer
     PC :: pc !< the shell preconditioner
     PetscErrorCode :: ierr !< PETSc error code
     ! local
     type(PcShellCtxType), pointer :: pc_ctx => null()
+    type(c_ptr) :: ctx_ptr
     integer(I4B) :: neq, nja
     integer(I4B) :: niapc, njapc, njlu, njw, nwlu
     integer(I4B), dimension(:), contiguous, pointer :: ia, ja
     real(DP), dimension(:), contiguous, pointer :: amat
 
-    call PCShellGetContext(pc, pc_ctx, ierr)
+    ! Due to a missing export in the PETSc Fortran interface, we have to get the context as a C pointer and then convert it back to a Fortran pointer
+    ! call PCShellGetContext(pc, pc_ctx, ierr) -> This results in a linker error because petscFtnCtx is not exported as defined in petscsysmod.F90
+    ! Workaround is to use the macro as defined in petscpc.h directly : #define PCShellGetContext ...
+    call PCShellGetContextCptr(pc, ctx_ptr, ierr)
+    call c_f_pointer(ctx_ptr, pc_ctx)
     CHKERRQ(ierr)
 
     ! note the two different matrix types here:
