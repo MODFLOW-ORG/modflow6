@@ -21,7 +21,7 @@ meson = ">=1.7.0"
 netCDF4 = "*"
 networkx = "*"
 ninja = "*"
-numpy = "<2.0.0"              # modflowapi has a resriction on the numpy version
+numpy = "*"
 pandas = "*"
 pip = "*"
 pooch = "*"
@@ -46,38 +46,11 @@ xugrid = "*"
 xmipy = ">=1.4.0"
 
 [pypi-dependencies]
-modflow-devtools = { version = ">=1.7.0,!=1.9.0,<2", extras = [
-    "test",
-    "dfn",
-    "models",
-] }
+modflow-devtools = { version = "==1.8.0", extras = ["test", "dfn", "models"] }
 
+# os-specific dependencies
 [target.win-64.dependencies]
 test-drive = "!=0.6.0"
-
-[feature.rtd.dependencies]
-numpy = "*"
-bmipy = "*"
-sphinx = ">=4"
-ipython = "*"
-ipykernel = "*"
-myst-parser = "*"
-sphinx_rtd_theme = ">=1"
-sphinxcontrib-mermaid = "*"
-pytest = "*"
-filelock = "*"
-
-[feature.rtd.pypi-dependencies]
-# These dependencies are added as pypi dependencies because an osx-arm64 version of them doesn't exist on conda
-sphinx_markdown_tables = "*"
-nbsphinx = "*"
-nbsphinx_link = "*"
-rtds_action = "*"
-
-[environments]
-rtd = { features = ["rtd"], solve-group = "default" }
-gcc-extended-build = { features = ["gcc-extended-build"] }
-
 
 [tasks]
 # install
@@ -140,11 +113,68 @@ collect-deprecations = { cmd = "python deprecations.py", cwd = "doc/mf6io/mf6iva
 check-citations = "cffconvert --validate -i CITATION.cff"
 make-release-notes = { cmd = "python mk_releasenotes.py", cwd = "doc/ReleaseNotes" }
 
+# os-specific default tasks
+[target.linux-64.tasks]
+builddir = "echo _builddir_linux-64"
+
+[target.linux-aarch64.tasks]
+builddir = "echo _builddir_linux-aarch64"
+
+[target.osx-64.tasks]
+builddir = "echo _builddir_osx-64"
+
+[target.osx-arm64.tasks]
+builddir = "echo _builddir_osx-arm64"
+
+[target.win-64.tasks]
+builddir = "echo _builddir_win-64"
+
+# environments for documentation and extended build testing
+[environments]
+rtd = { features = ["rtd"], solve-group = "default" }
+gcc-extended-build = { features = ["gcc-extended-build"] }
+
+# Features
+[feature.rtd.dependencies]
+numpy = "*"
+bmipy = "*"
+sphinx = ">=4"
+ipython = "*"
+ipykernel = "*"
+myst-parser = "*"
+sphinx_rtd_theme = ">=1"
+sphinxcontrib-mermaid = "*"
+pytest = "*"
+filelock = "*"
+
+[feature.rtd.pypi-dependencies]
+# These dependencies are added as pypi dependencies because an osx-arm64 version of them doesn't exist on conda
+sphinx_markdown_tables = "*"
+nbsphinx = "*"
+nbsphinx_link = "*"
+rtds_action = "*"
+
 [feature.rtd.tasks]
 sphinx = { cmd = "make html", cwd = ".build_rtd_docs" }
 
 [feature.gcc-extended-build]
 platforms = ["linux-64", "osx-arm64"]
+
+[feature.gcc-extended-build.dependencies]
+git = "*"
+meson = "*"
+ninja = "*"
+gcc = "*"
+gfortran = "*"
+pkg-config = "*"
+libnetcdf = "*"
+netcdf-fortran = "*"
+openmpi = "*"
+petsc = "<3.23.0"
+
+[feature.gcc-extended-build.target.linux-64.dependencies]
+gcc = "13.*"
+gfortran = "13.*"
 
 [feature.gcc-extended-build.tasks]
 gcc-extended-build-update-pc-files = { cmd = "echo updating netcdf pc files && python gcc-extended-build-update-pc-files.py", cwd = "distribution" }
@@ -164,35 +194,3 @@ gcc-extended-build-update = { depends-on = [
     "gcc-extended-build-update-pc-files",
     "gcc-extended-build-test-drive-rebuild",
 ] }
-
-[feature.gcc-extended-build.dependencies]
-git = "*"
-meson = "*"
-ninja = "*"
-gcc = "*"
-gfortran = "*"
-pkg-config = "*"
-libnetcdf = "*"
-netcdf-fortran = "*"
-openmpi = "*"
-petsc = "<3.23.0"
-
-[feature.gcc-extended-build.target.linux-64.dependencies]
-gcc = "13.*"
-gfortran = "13.*"
-
-# os-specific tasks
-[target.linux-64.tasks]
-builddir = "echo _builddir_linux-64"
-
-[target.linux-aarch64.tasks]
-builddir = "echo _builddir_linux-aarch64"
-
-[target.osx-64.tasks]
-builddir = "echo _builddir_osx-64"
-
-[target.osx-arm64.tasks]
-builddir = "echo _builddir_osx-arm64"
-
-[target.win-64.tasks]
-builddir = "echo _builddir_win-64"
