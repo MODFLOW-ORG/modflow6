@@ -119,8 +119,8 @@ jobs:
       - name: Unit test MF6
         run: pixi run test builddir
 
-  pixi-gcc-build:
-    name: Pixi gcc-build environment testing
+  pixi-gcc-extended-build:
+    name: Pixi gcc-extended-build environment testing
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -134,7 +134,7 @@ jobs:
     steps:
       - name: Checkout MF6
         uses: actions/checkout@v6
-        
+
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.9.5
         with:
@@ -142,19 +142,19 @@ jobs:
 
       - name: Update netcdf-fortran.pc and test-drive
         run: |
-          pixi run -e gcc-build gcc-build-update
+          pixi run -e gcc-extended-build gcc-extended-build-update
 
-      - name: Setup and build the extended MF6 build in the gcc-build environment
+      - name: Setup and build the extended MF6 build in the gcc-extended-build environment
         run: |
-          pixi run -e gcc-build setup builddir -Dextended=true
-          pixi run -e gcc-build build builddir
+          pixi run -e gcc-extended-build setup builddir -Dextended=true
+          pixi run -e gcc-extended-build build builddir
 
       - name: Show build log
         if: failure()
         run: cat builddir/meson-logs/meson-log.txt
 
-      - name: Unit test the extended MF6 build in the gcc-build environment
-        run: pixi run -e gcc-build test builddir
+      - name: Unit test the extended MF6 build in the gcc-extended-build environment
+        run: pixi run -e gcc-extended-build test builddir
         
   build-static:
     name: Static gcc build

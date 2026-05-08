@@ -123,22 +123,22 @@ Extended MODFLOW was designed to have all third party functionality (MPI, PETSc 
 
 ## Using `pixi` to build the extended version of MODFLOW 6 on macOS and Linux
 
-`pixi` can be used to build and test the extended version of MODFLOW 6 on macOS and Linux operating system using the `gcc-build` `pixi` environment. The `gcc-build` `pixi` environment includes the gnu compilers (gcc and gfortran) and the OpenMPI, PETSc, and NetCDF libraries needed to compile the extended version of MODFLOW 6.  
+`pixi` can be used to build and test the extended version of MODFLOW 6 on macOS and Linux operating system using the `gcc-extended-build` `pixi` environment. The `gcc-extended-build` `pixi` environment includes the gnu compilers (gcc and gfortran) and the OpenMPI, PETSc, and NetCDF libraries needed to compile the extended version of MODFLOW 6.  
 
 Prior to building the extended version of MODFLOW 6 for the first time with `pixi` execute the following command:
 
 ```bash
-pixi run -e gcc-build gcc-build-update 
+pixi run -e gcc-extended-build gcc-extended-build-update 
 ```
 
-This will update the `netcdf-fortran.pc` file with the correct include path and remove `test-drive` from the `gcc-build` pixi environment. Currently, `test-drive` is removed because of an [`test-drive` issue](https://github.com/fortran-lang/test-drive/commit/60c4cd6687b0c77c84e0e580df75e43ee8d2dedb) with the latest version of gcc (gcc-15). 
+This will update the `netcdf-fortran.pc` file with the correct include path and remove `test-drive` from the `gcc-extended-build` pixi environment. Currently, `test-drive` is removed because of an [`test-drive` issue](https://github.com/fortran-lang/test-drive/commit/60c4cd6687b0c77c84e0e580df75e43ee8d2dedb) with the latest version of gcc (gcc-15). 
 
-The MODFLOW 6 meson build process is essentially the same except that it relies on tasks defined in `pixi.toml` and require that the `gcc-build` environment be specified. The commands for setup, build, and testing are:
+The MODFLOW 6 meson build process is essentially the same except that it relies on tasks defined in `pixi.toml` and require that the `gcc-extended-build` environment be specified. The commands for setup, build, and testing are:
 
 ```bash
-pixi run -e gcc-build setup builddir -Dextended=true
-pixi run -e gcc-build build builddir
-pixi run -e gcc-build test builddir
+pixi run -e gcc-extended-build setup builddir -Dextended=true
+pixi run -e gcc-extended-build build builddir
+pixi run -e gcc-extended-build test builddir
 ```
 
 If the build is successful you will see something like:
