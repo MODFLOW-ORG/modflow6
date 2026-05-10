@@ -144,6 +144,7 @@ ipykernel = "*"
 myst-parser = "*"
 sphinx_rtd_theme = ">=1"
 sphinxcontrib-mermaid = "*"
+pymetis = "*"
 pytest = "*"
 filelock = "*"
 

@@ -2690,6 +2690,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdit-py-plugins-0.5.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/metis-5.1.0-hd0bcaf9_1007.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/minizip-4.0.10-h05a5f5f_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/msgpack-python-1.1.2-py310h03d9f68_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
@@ -2739,6 +2740,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pydotplus-2.0.2-pyhd8ed1ab_7.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pygments-2.19.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pykwalify-1.8.0-pyhd8ed1ab_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/pymetis-2025.2.2-py310h9598762_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pyogrio-0.11.0-py310h0aed7a2_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.5-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pyproj-3.7.1-py310h71d0299_1.conda
@@ -3109,6 +3111,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdit-py-plugins-0.5.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/metis-5.1.0-h670dfbf_1007.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/minizip-4.0.10-he2fa2e2_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/msgpack-python-1.1.2-py310h0992a49_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
@@ -3158,6 +3161,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pydotplus-2.0.2-pyhd8ed1ab_7.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pygments-2.19.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pykwalify-1.8.0-pyhd8ed1ab_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/pymetis-2025.2.2-py310h90a75fd_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/pyogrio-0.11.0-py310h187b1c6_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.5-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/pyproj-3.7.1-py310hea7fe19_1.conda
@@ -3495,6 +3499,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdit-py-plugins-0.5.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-64/metis-5.1.0-h3023b02_1007.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/minizip-4.0.10-hfb7a1ec_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/msgpack-python-1.1.2-py310h8cf47bc_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
@@ -3543,6 +3548,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pydotplus-2.0.2-pyhd8ed1ab_7.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pygments-2.19.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pykwalify-1.8.0-pyhd8ed1ab_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-64/pymetis-2025.2.2-py310h4a2ebbb_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/pyogrio-0.11.0-py310hab8904b_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.5-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/pyproj-3.7.1-py310h805e0b6_1.conda
@@ -3854,6 +3860,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdit-py-plugins-0.5.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/metis-5.1.0-h15f6cfe_1007.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/minizip-4.0.10-hff1a8ea_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/msgpack-python-1.1.2-py310h0e897d2_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda
@@ -3902,6 +3909,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pydotplus-2.0.2-pyhd8ed1ab_7.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pygments-2.19.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pykwalify-1.8.0-pyhd8ed1ab_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pymetis-2025.2.2-py310hbb4e773_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pyogrio-0.11.0-py310hd68230c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.5-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pyproj-3.7.1-py310h5b9b180_1.conda
@@ -4199,6 +4207,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdit-py-plugins-0.5.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meson-1.9.0-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/metis-5.1.0-h17e2fc9_1007.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/minizip-4.0.10-h9fa1bad_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/mkl-2024.2.2-h57928b3_16.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/msgpack-python-1.1.2-py310he9f1925_1.conda
@@ -4243,6 +4252,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pydotplus-2.0.2-pyhd8ed1ab_7.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pygments-2.19.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pykwalify-1.8.0-pyhd8ed1ab_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/pymetis-2025.2.2-py310hfe315c2_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/pyogrio-0.11.0-py310hf80745b_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.5-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/pyproj-3.7.1-py310h61ea1ad_1.conda
@@ -19568,6 +19578,27 @@ packages:
   purls: []
   size: 3923560
   timestamp: 1728064567817
+- conda: https://conda.anaconda.org/conda-forge/linux-aarch64/metis-5.1.0-h670dfbf_1007.conda
+  sha256: 453f4733b1803452b8169c31749d92d46bf6fe7e467897d89535d3fcb6f16b6f
+  md5: e6672417b63f335358d90f5ba939c4ab
+  depends:
+  - libgcc >=13
+  - libstdcxx >=13
+  license: Apache-2.0
+  license_family: APACHE
+  purls: []
+  size: 3844618
+  timestamp: 1728064627281
+- conda: https://conda.anaconda.org/conda-forge/osx-64/metis-5.1.0-h3023b02_1007.conda
+  sha256: 9443014f00a78a216c59f17a1309e49beb24b96082d198b4ab1626522fc7da40
+  md5: 4e4566c484361d6a92478f57db53fb08
+  depends:
+  - __osx >=10.13
+  license: Apache-2.0
+  license_family: APACHE
+  purls: []
+  size: 3949838
+  timestamp: 1728064564171
 - conda: https://conda.anaconda.org/conda-forge/osx-arm64/metis-5.1.0-h15f6cfe_1007.conda
   sha256: f54ad3e5d47a0235ba2830848fee590faad550639336fe1e2413ab16fee7ac39
   md5: 7687ec5796288536947bf616179726d8
@@ -19578,6 +19609,18 @@ packages:
   purls: []
   size: 3898314
   timestamp: 1728064659078
+- conda: https://conda.anaconda.org/conda-forge/win-64/metis-5.1.0-h17e2fc9_1007.conda
+  sha256: 4c1dff710c59bb42a7a5d3e77f1772585c56df9fd62744b53b554bbdb682e2a8
+  md5: b1885dc9fc4136aba77ca8ac6c3c307a
+  depends:
+  - ucrt >=10.0.20348.0
+  - vc >=14.2,<15
+  - vc14_runtime >=14.29.30139
+  license: Apache-2.0
+  license_family: APACHE
+  purls: []
+  size: 4139214
+  timestamp: 1728064718935
 - conda: https://conda.anaconda.org/conda-forge/linux-64/minizip-4.0.10-h05a5f5f_0.conda
   sha256: 0c3700d15377156937ddc89a856527ad77e7cf3fd73cb0dffc75fce8030ddd16
   md5: da01bb40572e689bd1535a5cee6b1d68
@@ -23096,6 +23139,90 @@ packages:
   - pkg:pypi/pykwalify?source=hash-mapping
   size: 28622
   timestamp: 1753702642597
+- conda: https://conda.anaconda.org/conda-forge/linux-64/pymetis-2025.2.2-py310h9598762_0.conda
+  sha256: 1f0956e654ce338f5c30374ccf06c125fe576649c0ab39d4b4fe2d581bb1a181
+  md5: 48da2a1d34e83fa69e074a2675953479
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  - libgcc >=14
+  - libstdcxx >=14
+  - metis >=5.1.0,<5.1.1.0a0
+  - python >=3.10,<3.11.0a0
+  - python_abi 3.10.* *_cp310
+  - typing_extensions >=4.5
+  license: Apache-2.0
+  license_family: APACHE
+  purls:
+  - pkg:pypi/pymetis?source=hash-mapping
+  size: 142005
+  timestamp: 1762455220297
+- conda: https://conda.anaconda.org/conda-forge/linux-aarch64/pymetis-2025.2.2-py310h90a75fd_0.conda
+  sha256: 2e3b5518413da49f4e4d491b88c8902afe504ab7c83af91c6fbd129bd1c97cfd
+  md5: 3af194b7bd6fa7a63dbeef95277eee75
+  depends:
+  - libgcc >=14
+  - libstdcxx >=14
+  - metis >=5.1.0,<5.1.1.0a0
+  - python >=3.10,<3.11.0a0
+  - python >=3.10,<3.11.0a0 *_cpython
+  - python_abi 3.10.* *_cp310
+  - typing_extensions >=4.5
+  license: Apache-2.0
+  license_family: APACHE
+  purls:
+  - pkg:pypi/pymetis?source=hash-mapping
+  size: 136604
+  timestamp: 1762455311358
+- conda: https://conda.anaconda.org/conda-forge/osx-64/pymetis-2025.2.2-py310h4a2ebbb_0.conda
+  sha256: a02f5d00e2d749d77955cc0f569276c8c53efe3b51a9103bf926919f52560d5b
+  md5: dc571f36006eadb14da499fa8ee667a5
+  depends:
+  - __osx >=10.13
+  - libcxx >=19
+  - metis >=5.1.0,<5.1.1.0a0
+  - python >=3.10,<3.11.0a0
+  - python_abi 3.10.* *_cp310
+  - typing_extensions >=4.5
+  license: Apache-2.0
+  license_family: APACHE
+  purls:
+  - pkg:pypi/pymetis?source=hash-mapping
+  size: 126054
+  timestamp: 1762455432675
+- conda: https://conda.anaconda.org/conda-forge/osx-arm64/pymetis-2025.2.2-py310hbb4e773_0.conda
+  sha256: a1eabd89168115682a81825b60158d6e2bbc37d5e4f8dce6e77483b67cb1fd38
+  md5: 81c292601f561a5b6f584264aa394e1b
+  depends:
+  - __osx >=11.0
+  - libcxx >=19
+  - metis >=5.1.0,<5.1.1.0a0
+  - python >=3.10,<3.11.0a0
+  - python >=3.10,<3.11.0a0 *_cpython
+  - python_abi 3.10.* *_cp310
+  - typing_extensions >=4.5
+  license: Apache-2.0
+  license_family: APACHE
+  purls:
+  - pkg:pypi/pymetis?source=hash-mapping
+  size: 121703
+  timestamp: 1762455770762
+- conda: https://conda.anaconda.org/conda-forge/win-64/pymetis-2025.2.2-py310hfe315c2_0.conda
+  sha256: e46057527a2049f0876ae12fb99944ccd5ab78283906df89210b2445ba16907d
+  md5: 19d539ab1e1fda9cc9c022a481d81172
+  depends:
+  - metis >=5.1.0,<5.1.1.0a0
+  - python >=3.10,<3.11.0a0
+  - python_abi 3.10.* *_cp310
+  - typing_extensions >=4.5
+  - ucrt >=10.0.20348.0
+  - vc >=14.3,<15
+  - vc14_runtime >=14.44.35208
+  license: Apache-2.0
+  license_family: APACHE
+  purls:
+  - pkg:pypi/pymetis?source=hash-mapping
+  size: 190706
+  timestamp: 1762455589663
 - conda: https://conda.anaconda.org/conda-forge/linux-64/pyogrio-0.11.0-py310h0aed7a2_0.conda
   sha256: 528fd575f5540b7fa62d72c836c66de96dc44ccf933621c73dcba34ff48c5baf
   md5: 717aea1df1a19ae7901fe2eca2ec9269
