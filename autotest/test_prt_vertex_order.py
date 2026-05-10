@@ -408,7 +408,7 @@ def check_output(idx, test, shift, snapshot):
     )
 
     # Extract endpoints and compare to snapshot
-    mf6_eps = mf6_pls[mf6_pls.ireason == 3]
+    mf6_eps = mf6_pls[mf6_pls.ireason == 3].drop(columns=["name"], errors="ignore")
     assert snapshot == mf6_eps.round(2).to_records(index=False)
 
 
