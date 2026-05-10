@@ -21,7 +21,7 @@ meson = ">=1.7.0"
 netCDF4 = "*"
 networkx = "*"
 ninja = "*"
-numpy = "<2.0.0"  # pinned for random reasons
+numpy = ">=2.2.6,<3"  # pinned for random reasons
 pandas = "*"
 pip = "*"
 pooch = "*"
@@ -136,7 +136,7 @@ gcc-extended-build = { features = ["gcc-extended-build"] }
 
 # Features
 [feature.rtd.dependencies]
-numpy = "*"
+numpy = ">=2.2.6,<3"
 bmipy = "*"
 sphinx = ">=4"
 ipython = "*"
