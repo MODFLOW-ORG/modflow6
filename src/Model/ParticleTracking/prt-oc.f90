@@ -269,6 +269,12 @@ contains
     if (found%dev_dump_evtrace) this%dump_event_trace = .true.
     if (found%scratch_buffer) this%scratch_buffer = .true.
 
+    if (this%scratch_buffer) then
+      write (this%iout, '(4x,a)') 'TRACK EVENT BUFFER: SCRATCH FILE'
+    else
+      write (this%iout, '(4x,a)') 'TRACK EVENT BUFFER: MEMORY'
+    end if
+
     ! default to all events
     if (.not. (found%track_release .or. &
                found%track_exit .or. &
