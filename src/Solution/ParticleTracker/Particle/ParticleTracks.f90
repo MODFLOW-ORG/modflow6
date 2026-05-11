@@ -21,7 +21,6 @@ module ParticleTracksModule
 
   use KindModule, only: DP, I4B, LGP
   use ErrorUtilModule, only: pstop
-  use ConstantsModule, only: DZERO, DONE, DPIO180
   use ParticleModule, only: ParticleType, ACTIVE
   use ParticleEventModule, only: ParticleEventType
   use ReleaseEventModule, only: ReleaseEventType
@@ -35,41 +34,14 @@ module ParticleTracksModule
   use ParticleEventsModule, only: ParticleEventDispatcherType
   use BaseDisModule, only: DisBaseType
   use GeomUtilModule, only: transform
+  use ParticleTrackEventBufferModule
+  use MemoryBufferModule, only: MemoryBufferType
+  use ScratchFileBufferModule, only: ScratchFileBufferType
 
   implicit none
-  public :: ParticleTrackFileType, &
-            ParticleTracksType, &
+  public :: ParticleTracksType, &
             ParticleTrackEventSelectionType, &
             add_particle_event
-  private :: save_record
-
-  character(len=*), parameter, public :: TRACKHEADER = &
-    'kper,kstp,imdl,iprp,irpt,ilay,icell,izone,&
-    &istatus,ireason,trelease,t,x,y,z,name'
-
-  character(len=*), parameter, public :: TRACKDTYPES = &
-    '<i4,<i4,<i4,<i4,<i4,<i4,<i4,<i4,&
-    &<i4,<i4,<f8,<f8,<f8,<f8,<f8,|S40'
-
-  !> @brief Flat record of a particle track event.
-  type :: TrackRecordType
-    integer(I4B) :: kper, kstp, imdl, iprp, irpt, ilay, icu, izone
-    integer(I4B) :: istatus, ireason
-    real(DP) :: trelease, ttrack, x, y, z
-    character(len=40) :: name
-  end type TrackRecordType
-
-  !> @brief Output file containing all or some particle pathlines.
-  !!
-  !! Can be associated with a particle release point (PRP) package
-  !! or with an entire model, and can be binary or text (CSV).
-  !<
-  type :: ParticleTrackFileType
-    private
-    integer(I4B), public :: iun = 0 !< file unit number
-    logical(LGP), public :: csv = .false. !< whether the file is binary or CSV
-    integer(I4B), public :: iprp = -1 !< -1 is model-level file, 0 is exchange PRP
-  end type ParticleTrackFileType
 
   !> @brief Selection of particle events.
   type :: ParticleTrackEventSelectionType
@@ -82,41 +54,6 @@ module ParticleTracksModule
     logical(LGP) :: subfexit !< track subfeature exits
     logical(LGP) :: dropped !< track water table drops
   end type ParticleTrackEventSelectionType
-
-  !> @brief Event buffering strategy
-  type, abstract :: ParticleTrackEventBufferType
-    integer(I4B) :: nrecords = 0 !< number of records stored
-  contains
-    procedure :: init => buffer_init !< open/allocate resources
-    procedure(buffer_append), deferred :: append !< buffer one record
-    procedure(buffer_flush), deferred :: flush !< write buffered records, reset
-    procedure(buffer_simple), deferred :: discard !< reset without writing
-    procedure(buffer_simple), deferred :: destroy !< release resources
-  end type ParticleTrackEventBufferType
-
-  !> @brief In-memory particle event buffer. Records are held in a
-  !! dynamically growing array that doubles in capacity as needed.
-  type, extends(ParticleTrackEventBufferType) :: MemoryBufferType
-    type(TrackRecordType), allocatable :: records(:) !< buffer
-  contains
-    procedure :: append => memory_append
-    procedure :: flush => memory_flush
-    procedure :: discard => memory_discard
-    procedure :: destroy => memory_destroy
-  end type MemoryBufferType
-
-  !> @brief Scratch-file particle event buffer. Records are written to
-  !! an unformatted sequential scratch file that is rewound on discard
-  !! and read back sequentially on flush.
-  type, extends(ParticleTrackEventBufferType) :: ScratchFileBufferType
-    integer(I4B) :: iun = 0 !< scratch file unit
-  contains
-    procedure :: init => scratch_init
-    procedure :: append => scratch_append
-    procedure :: flush => scratch_flush
-    procedure :: discard => scratch_discard
-    procedure :: destroy => scratch_destroy
-  end type ScratchFileBufferType
 
   !> @brief Particle track output manager. Handles printing as well as writing
   !! to files. One output unit can be configured for printing. Multiple files
@@ -145,26 +82,6 @@ module ParticleTracksModule
     procedure, public :: destroy
     procedure :: expand_files
   end type ParticleTracksType
-
-  abstract interface
-    subroutine buffer_append(this, rec)
-      import ParticleTrackEventBufferType, TrackRecordType
-      class(ParticleTrackEventBufferType) :: this
-      type(TrackRecordType), intent(in) :: rec
-    end subroutine buffer_append
-
-    subroutine buffer_flush(this, files)
-      import ParticleTrackEventBufferType, ParticleTrackFileType
-      class(ParticleTrackEventBufferType) :: this
-      type(ParticleTrackFileType), intent(in) :: files(:)
-    end subroutine buffer_flush
-
-    ! Shared interface for discard and destroy: both take only `this`.
-    subroutine buffer_simple(this)
-      import ParticleTrackEventBufferType
-      class(ParticleTrackEventBufferType) :: this
-    end subroutine buffer_simple
-  end interface
 
 contains
 
@@ -319,122 +236,6 @@ contains
     class(ParticleTracksType) :: this
     call this%buffer%discard()
   end subroutine discard_buffer
-
-  subroutine buffer_init(this)
-    class(ParticleTrackEventBufferType) :: this
-  end subroutine buffer_init
-
-  subroutine memory_append(this, rec)
-    class(MemoryBufferType) :: this
-    type(TrackRecordType), intent(in) :: rec
-    type(TrackRecordType), allocatable :: tmp(:)
-
-    if (.not. allocated(this%records)) then
-      allocate (this%records(64))
-    else if (this%nrecords == size(this%records)) then
-      allocate (tmp(size(this%records) * 2))
-      tmp(1:this%nrecords) = this%records
-      call move_alloc(tmp, this%records)
-    end if
-    this%nrecords = this%nrecords + 1
-    this%records(this%nrecords) = rec
-  end subroutine memory_append
-
-  subroutine memory_flush(this, files)
-    class(MemoryBufferType) :: this
-    type(ParticleTrackFileType), intent(in) :: files(:)
-    integer(I4B) :: n, i
-    type(TrackRecordType) :: rec
-
-    do n = 1, this%nrecords
-      rec = this%records(n)
-      do i = 1, size(files)
-        if (files(i)%iun > 0 .and. &
-            (files(i)%iprp == -1 .or. files(i)%iprp == rec%iprp)) &
-          call save_record(files(i)%iun, rec, files(i)%csv)
-      end do
-    end do
-    this%nrecords = 0
-  end subroutine memory_flush
-
-  subroutine memory_discard(this)
-    class(MemoryBufferType) :: this
-    this%nrecords = 0
-  end subroutine memory_discard
-
-  subroutine memory_destroy(this)
-    class(MemoryBufferType) :: this
-    if (allocated(this%records)) deallocate (this%records)
-  end subroutine memory_destroy
-
-  subroutine scratch_init(this)
-    class(ScratchFileBufferType) :: this
-    integer(I4B) :: istat
-    open (newunit=this%iun, status='scratch', form='unformatted', &
-          access='sequential', iostat=istat)
-    if (istat /= 0) &
-      call pstop(1, 'failed to open scratch track buffer file')
-  end subroutine scratch_init
-
-  subroutine scratch_append(this, rec)
-    class(ScratchFileBufferType) :: this
-    type(TrackRecordType), intent(in) :: rec
-    write (this%iun) rec
-    this%nrecords = this%nrecords + 1
-  end subroutine scratch_append
-
-  subroutine scratch_flush(this, files)
-    class(ScratchFileBufferType) :: this
-    type(ParticleTrackFileType), intent(in) :: files(:)
-    integer(I4B) :: n, i
-    type(TrackRecordType) :: rec
-
-    rewind (this%iun)
-    do n = 1, this%nrecords
-      read (this%iun) rec
-      do i = 1, size(files)
-        if (files(i)%iun > 0 .and. &
-            (files(i)%iprp == -1 .or. files(i)%iprp == rec%iprp)) &
-          call save_record(files(i)%iun, rec, files(i)%csv)
-      end do
-    end do
-    rewind (this%iun)
-    this%nrecords = 0
-  end subroutine scratch_flush
-
-  subroutine scratch_discard(this)
-    class(ScratchFileBufferType) :: this
-    rewind (this%iun)
-    this%nrecords = 0
-  end subroutine scratch_discard
-
-  subroutine scratch_destroy(this)
-    class(ScratchFileBufferType) :: this
-    if (this%iun > 0) then
-      close (this%iun)
-      this%iun = 0
-    end if
-    this%nrecords = 0
-  end subroutine scratch_destroy
-
-  !> @brief Save an event record to a binary or CSV file.
-  subroutine save_record(iun, rec, csv)
-    integer(I4B), intent(in) :: iun
-    type(TrackRecordType), intent(in) :: rec
-    logical(LGP), intent(in) :: csv
-
-    if (csv) then
-      write (iun, '(*(G0,:,","))') &
-        rec%kper, rec%kstp, rec%imdl, rec%iprp, rec%irpt, &
-        rec%ilay, rec%icu, rec%izone, rec%istatus, rec%ireason, &
-        rec%trelease, rec%ttrack, rec%x, rec%y, rec%z, trim(rec%name)
-    else
-      write (iun) &
-        rec%kper, rec%kstp, rec%imdl, rec%iprp, rec%irpt, &
-        rec%ilay, rec%icu, rec%izone, rec%istatus, rec%ireason, &
-        rec%trelease, rec%ttrack, rec%x, rec%y, rec%z, rec%name
-    end if
-  end subroutine save_record
 
   !> @brief Add a particle event to be written to eligible
   !! files and printed to an output file unit if requested.
