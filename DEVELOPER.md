@@ -865,7 +865,7 @@ After running the reference and comparison models, the framework will try to fin
 
 ## Generating makefiles
 
-Run `build_makefiles.py` in the `distribution/` directory after adding, removing, or renaming source files. This script uses [Pymake](https://github.com/modflowpy/pymake) to regenerate makefiles. For instance:
+Makefiles are generated automatically during distribution and are not tracked in version control. The `distribution/build_makefiles.py` script uses [Pymake](https://github.com/modflowpy/pymake) to generate them. To regenerate and test makefiles locally:
 
 ```shell
 cd distribution/
@@ -894,7 +894,7 @@ pytest -v build_makefiles.py
 
 **Note**: `make` is required to test compiling MODFLOW 6 with makefiles. If `make` is not discovered on the system path, compile tests will be skipped.
 
-Makefiles may also be tested manually by changing to the appropriate `make` subdirectory (of the project root for MODFLOW 6, or inside the corresponding `utils` subdirectory for the zonebudget or converter utilities) and invoking `make` (`make clean` may first be necessary to remove previously created object files).
+Makefiles may also be tested manually by first generating them with `build_makefiles.py`, then changing to the appropriate `make` subdirectory (of the project root for MODFLOW 6, or inside the corresponding `utils` subdirectory for the zonebudget or converter utilities) and invoking `make` (`make clean` may first be necessary to remove previously created object files).
 
 ### Installing `make` on Windows
 
