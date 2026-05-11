@@ -88,3 +88,8 @@ description = "PRT was described as configuring a single release at the beginnin
 section = "fixes"
 subsection = "basic"
 description = "The BMI interface's get\\_grid\\_model\\_type function worked only for numerical model types such as GWF, GWT, and GWE, but would crash for PRT models. Fix the function's implementation to work with all model types."
+
+[[items]]
+section = "features"
+subsection = "model"
+description = "Previously PRT model particle events were written to output file(s) immediately. By default, PRT will now buffer events in memory before writing them to disk. Introduce a new option for the PRT Output Control (OC) package, SCRATCH\\_BUFFER, which enables buffering events in scratch files instead of memory. This can avoid out-of-memory errors at the price of increased file IO and runtime."
