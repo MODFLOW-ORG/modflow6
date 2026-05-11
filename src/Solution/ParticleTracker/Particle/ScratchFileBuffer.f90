@@ -5,7 +5,7 @@ module ScratchFileBufferModule
   use KindModule, only: I4B
   use ErrorUtilModule, only: pstop
   use ParticleTrackEventBufferModule, only: ParticleTrackEventBufferType, &
-                                            TrackRecordType, &
+                                            ParticleTrackRecordType, &
                                             ParticleTrackFileType, &
                                             save_record
 
@@ -39,7 +39,7 @@ contains
 
   subroutine scratch_append(this, rec)
     class(ScratchFileBufferType) :: this
-    type(TrackRecordType), intent(in) :: rec
+    type(ParticleTrackRecordType), intent(in) :: rec
     write (this%iun) rec
     this%nrecords = this%nrecords + 1
   end subroutine scratch_append
@@ -48,7 +48,7 @@ contains
     class(ScratchFileBufferType) :: this
     type(ParticleTrackFileType), intent(in) :: files(:)
     integer(I4B) :: n, i
-    type(TrackRecordType) :: rec
+    type(ParticleTrackRecordType) :: rec
 
     rewind (this%iun)
     do n = 1, this%nrecords

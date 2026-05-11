@@ -1,6 +1,6 @@
 !> @brief Particle track event buffer module.
 !!
-!! Defines the abstract ParticleTrackEventBufferType, the TrackRecordType
+!! Defines the abstract ParticleTrackEventBufferType, the ParticleTrackRecordType
 !! and ParticleTrackFileType data types, and the save_record helper used
 !! by concrete buffer implementations.
 !<
@@ -11,21 +11,13 @@ module ParticleTrackEventBufferModule
 
   implicit none
 
-  character(len=*), parameter, public :: TRACKHEADER = &
-    'kper,kstp,imdl,iprp,irpt,ilay,icell,izone,&
-    &istatus,ireason,trelease,t,x,y,z,name'
-
-  character(len=*), parameter, public :: TRACKDTYPES = &
-    '<i4,<i4,<i4,<i4,<i4,<i4,<i4,<i4,&
-    &<i4,<i4,<f8,<f8,<f8,<f8,<f8,|S40'
-
   !> @brief Flat record of a particle track event.
-  type :: TrackRecordType
+  type :: ParticleTrackRecordType
     integer(I4B) :: kper, kstp, imdl, iprp, irpt, ilay, icu, izone
     integer(I4B) :: istatus, ireason
     real(DP) :: trelease, ttrack, x, y, z
     character(len=40) :: name
-  end type TrackRecordType
+  end type ParticleTrackRecordType
 
   !> @brief Output file containing all or some particle pathlines.
   !!
@@ -52,9 +44,9 @@ module ParticleTrackEventBufferModule
 
   abstract interface
     subroutine buffer_append(this, rec)
-      import ParticleTrackEventBufferType, TrackRecordType
+      import ParticleTrackEventBufferType, ParticleTrackRecordType
       class(ParticleTrackEventBufferType) :: this
-      type(TrackRecordType), intent(in) :: rec
+      type(ParticleTrackRecordType), intent(in) :: rec
     end subroutine buffer_append
 
     subroutine buffer_flush(this, files)
@@ -79,7 +71,7 @@ contains
   !> @brief Save an event record to a binary or CSV file.
   subroutine save_record(iun, rec, csv)
     integer(I4B), intent(in) :: iun
-    type(TrackRecordType), intent(in) :: rec
+    type(ParticleTrackRecordType), intent(in) :: rec
     logical(LGP), intent(in) :: csv
 
     if (csv) then

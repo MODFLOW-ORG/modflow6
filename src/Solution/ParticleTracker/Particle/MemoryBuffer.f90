@@ -4,7 +4,7 @@ module MemoryBufferModule
 
   use KindModule, only: I4B
   use ParticleTrackEventBufferModule, only: ParticleTrackEventBufferType, &
-                                            TrackRecordType, &
+                                            ParticleTrackRecordType, &
                                             ParticleTrackFileType, &
                                             save_record
 
@@ -15,7 +15,7 @@ module MemoryBufferModule
   !> @brief In-memory particle event buffer. Records are held in a
   !! dynamically growing array that doubles in capacity as needed.
   type, extends(ParticleTrackEventBufferType) :: MemoryBufferType
-    type(TrackRecordType), allocatable :: records(:) !< buffer
+    type(ParticleTrackRecordType), allocatable :: records(:) !< buffer
   contains
     procedure :: append => memory_append
     procedure :: flush => memory_flush
@@ -27,8 +27,8 @@ contains
 
   subroutine memory_append(this, rec)
     class(MemoryBufferType) :: this
-    type(TrackRecordType), intent(in) :: rec
-    type(TrackRecordType), allocatable :: tmp(:)
+    type(ParticleTrackRecordType), intent(in) :: rec
+    type(ParticleTrackRecordType), allocatable :: tmp(:)
 
     if (.not. allocated(this%records)) then
       allocate (this%records(64))
@@ -45,7 +45,7 @@ contains
     class(MemoryBufferType) :: this
     type(ParticleTrackFileType), intent(in) :: files(:)
     integer(I4B) :: n, i
-    type(TrackRecordType) :: rec
+    type(ParticleTrackRecordType) :: rec
 
     do n = 1, this%nrecords
       rec = this%records(n)

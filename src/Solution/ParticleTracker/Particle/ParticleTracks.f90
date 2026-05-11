@@ -43,6 +43,14 @@ module ParticleTracksModule
             ParticleTrackEventSelectionType, &
             add_particle_event
 
+  character(len=*), parameter, public :: TRACKHEADER = &
+    'kper,kstp,imdl,iprp,irpt,ilay,icell,izone,&
+    &istatus,ireason,trelease,t,x,y,z,name'
+
+  character(len=*), parameter, public :: TRACKDTYPES = &
+    '<i4,<i4,<i4,<i4,<i4,<i4,<i4,<i4,&
+    &<i4,<i4,<f8,<f8,<f8,<f8,<f8,|S40'
+
   !> @brief Selection of particle events.
   type :: ParticleTrackEventSelectionType
     logical(LGP) :: release !< track release events
@@ -211,7 +219,7 @@ contains
     class(ParticleTracksType) :: this
     type(ParticleType), pointer, intent(in) :: particle
     class(ParticleEventType), pointer, intent(in) :: event
-    type(TrackRecordType) :: rec
+    type(ParticleTrackRecordType) :: rec
 
     rec%kper = event%kper; rec%kstp = event%kstp
     rec%imdl = event%imdl; rec%iprp = event%iprp
