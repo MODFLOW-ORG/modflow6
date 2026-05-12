@@ -39,7 +39,7 @@ To build and test an extended version of the program, first read the instruction
     - [Configuring unit tests](#configuring-unit-tests)
     - [Configuring integration tests](#configuring-integration-tests)
       - [Rebuilding release binaries](#rebuilding-release-binaries)
-      - [Updating FloPy packages](#updating-flopy-packages)
+      - [Synchronizing FloPy](#synchronizing-flopy)
       - [Updating Fortran definitions](#updating-fortran-definitions)
       - [Installing external models](#installing-external-models)
   - [Running tests](#running-tests)
@@ -578,25 +578,11 @@ pytest get_exes.py
 
 As above, binaries are placed in the `bin` subdirectory of the project root, with nested `bin/downloaded` and `bin/rebuilt` subdirectories containing the rebuilt latest release and downloaded binaries, respectively.
 
-##### Updating FloPy packages
+##### Synchronizing FloPy
 
-FloPy packages should be regenerated from DFN files before running tests for the first time or after definition files change. This can be done with the `autotest/update_flopy.py` script, which wipes and regenerates package classes for the FloPy installed in the Python environment.
+The `flopy.mf6` module should be regenerated from DFN files before running tests for the first time, or after definition files change. This can be done with the FloPy [MF6 class generation utility](https://flopy.readthedocs.io/en/latest/md/generate_classes.html). The `autotest/update_flopy.py` script is provided as a shortcut, equivalent to the command above. Alternatively, `pixi` users may simply run `pixi run update-flopy`.
 
 **Note:** if you've installed an editable local version of FloPy from source, running this script can overwrite files in your repository.
-
-There is a single optional argument, the path to the folder containing definition files. By default DFN files are assumed to live in `doc/mf6io/mf6ivar/dfn`, making the following functionally identical:
-
-```shell
-pixi run update-flopy
-```
-
-which uses the default dfn path. Or the location of the definition files can be explitily defined using:
-
-```shell
-pixi run update-flopy doc/mf6io/mf6ivar/dfn
-```
-
-Alternatively, run `python update_flopy.py` directly from `autotest/`.
 
 ##### Updating Fortran definitions
 
