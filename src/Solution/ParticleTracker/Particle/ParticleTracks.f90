@@ -128,8 +128,6 @@ contains
   subroutine destroy(this)
     class(ParticleTracksType) :: this
     call this%buffer%destroy()
-    if (allocated(this%buffer)) deallocate (this%buffer)
-    if (allocated(this%files)) deallocate (this%files)
   end subroutine destroy
 
   !> @brief Grow the array of track files.
