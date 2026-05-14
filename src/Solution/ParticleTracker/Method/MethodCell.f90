@@ -7,6 +7,7 @@ module MethodCellModule
   use ParticleModule, only: ParticleType, ACTIVE, TERM_NO_EXITS, TERM_BOUNDARY
   use ParticleEventModule, only: ParticleEventType
   use CellExitEventModule, only: CellExitEventType
+  use SubCellExitEventModule, only: SubCellExitEventType
   use CellDefnModule, only: CellDefnType, SATURATION_DRY
   use IteratorModule, only: IteratorType
   implicit none
@@ -279,6 +280,22 @@ contains
           end if
         end select
       end do
+    type is (SubCellExitEventType)
+      itr = particle%history%Iterator()
+      do while (itr%has_next())
+        call itr%next()
+        select type (prev => itr%value())
+        class is (SubCellExitEventType)
+          if (event%icu == prev%icu .and. &
+              event%ilay == prev%ilay .and. &
+              event%isc == prev%isc .and. &
+              event%exit_face == prev%exit_face .and. &
+              event%exit_face /= 0) then
+            found_cycle = .true.
+            exit
+          end if
+        end select
+      end do
     end select
   end function forms_cycle
 
@@ -295,6 +312,11 @@ contains
 
     select type (event)
     type is (CellExitEventType)
+      p => event
+      call particle%history%Add(p)
+      if (particle%history%Count() > particle%icycwin) &
+        call particle%history%RemoveNode(1, .true.)
+    type is (SubCellExitEventType)
       p => event
       call particle%history%Add(p)
       if (particle%history%Count() > particle%icycwin) &

@@ -1,5 +1,6 @@
 module MethodSubcellModule
   use KindModule, only: DP, I4B
+  use ErrorUtilModule, only: pstop
   use MethodModule, only: LEVEL_SUBFEATURE
   use MethodCellModule, only: MethodCellType
   use ParticleModule, only: ParticleType
@@ -35,6 +36,9 @@ contains
     class(MethodSubcellType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
+    ! local
+    integer(I4B) :: i, nhist
+    class(*), pointer :: prev
 
     allocate (SubCellExitEventType :: event)
     select type (event)
@@ -43,6 +47,25 @@ contains
       event%exit_face = particle%iboundary(LEVEL_SUBFEATURE)
     end select
     call this%events%broadcast(particle, event)
+    if (particle%icycwin == 0) then
+      deallocate (event)
+      return
+    end if
+    if (this%forms_cycle(particle, event)) then
+      print *, "Cyclic subcell pathline detected"
+      nhist = particle%history%Count()
+      do i = 1, nhist
+        prev => particle%history%GetItem(i)
+        select type (prev)
+        class is (ParticleEventType)
+          print *, "Back ", nhist - i + 1, ": ", prev%get_text()
+        end select
+      end do
+      print *, "Current :", event%get_text()
+      call pstop(1, 'Cyclic subcell pathline detected, aborting')
+    else
+      call this%store_event(particle, event)
+    end if
   end subroutine subcellexit
 
   !> @brief Get the subcell method's level.
