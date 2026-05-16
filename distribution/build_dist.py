@@ -39,6 +39,21 @@ FC = environ.get("FC", "gfortran")
 CC = environ.get("CC", "gcc")
 
 
+def copy_dfns(output_path: PathLike):
+    output_path = Path(output_path).expanduser().absolute()
+    src = PROJ_ROOT_PATH / "doc/mf6io/mf6ivar/dfn"
+    dst = output_path / "dfns"
+    print(f"Copying {src} to {dst}")
+    copytree(src, dst, ignore=ignore_patterns(".DS_Store"))
+
+
+@no_parallel
+def test_copy_dfns(tmp_path):
+    copy_dfns(tmp_path)
+    assert (tmp_path / "dfns").is_dir()
+    assert any((tmp_path / "dfns").glob("*.dfn"))
+
+
 def copy_sources(output_path: PathLike):
     output_path = Path(output_path).expanduser().absolute()
 
@@ -308,6 +323,9 @@ def build_distribution(
 
     # code.json metadata
     copy(PROJ_ROOT_PATH / "code.json", output_path)
+
+    # copy DFN files (included in all distributions)
+    copy_dfns(output_path=output_path)
 
     # full releases include examples, source code, makefiles and docs
     if developmode:

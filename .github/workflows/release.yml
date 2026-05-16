@@ -721,6 +721,7 @@ jobs:
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             zip -r $distname.zip \
               $distname/bin \
+              $distname/dfns \
               $distname/src \
               $distname/srcbmi \
               $distname/doc \
@@ -739,6 +740,7 @@ jobs:
           else
             zip -r $distname.zip \
               $distname/bin/* \
+              $distname/dfns \
               $distname/doc/mf6io.pdf \
               $distname/doc/release.pdf \
               $distname/code.json \
@@ -756,6 +758,7 @@ jobs:
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             7z a -tzip $distname.zip \
               $distname/bin \
+              $distname/dfns \
               $distname/src \
               $distname/srcbmi \
               $distname/doc \
@@ -773,6 +776,7 @@ jobs:
           else
             7z a -tzip $distname.zip \
               $distname/bin/* \
+              $distname/dfns \
               $distname/doc/mf6io.pdf \
               $distname/doc/release.pdf \
               $distname/code.json \
@@ -787,6 +791,20 @@ jobs:
         with:
           name: "${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}"
           path: "${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}.zip"
+
+      - name: Create DFN asset
+        if: runner.os == 'Linux'
+        run: |
+          distname="${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}"
+          cd "$distname/dfns"
+          zip -r "../../${{ needs.build.outputs.distname }}_dfns.zip" .
+
+      - name: Upload DFN asset
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: "${{ needs.build.outputs.distname }}_dfns"
+          path: "${{ needs.build.outputs.distname }}_dfns.zip"
 
       - name: Upload release notes
         if: runner.os == 'Linux'

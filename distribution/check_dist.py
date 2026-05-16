@@ -21,10 +21,12 @@ FC = environ.get("FC", None)
 DIST_DIRS = {
     "develop": [
         "bin",
+        "dfns",
         "doc",
     ],
     "release": [
         "bin",
+        "dfns",
         "doc",
         "examples",
         "src",
@@ -61,6 +63,15 @@ def dist_dir_path(request):
 def test_directories(dist_dir_path, releasemode):
     for dir_path in DIST_DIRS["release" if releasemode else "develop"]:
         assert (dist_dir_path / dir_path).is_dir()
+
+
+@no_parallel
+def test_dfns(dist_dir_path):
+    dfns_path = dist_dir_path / "dfns"
+    assert dfns_path.is_dir()
+    assert any(dfns_path.glob("*.dfn"))
+    assert (dfns_path / "sim-nam.dfn").is_file()
+    assert (dfns_path / "gwf-nam.dfn").is_file()
 
 
 @no_parallel
