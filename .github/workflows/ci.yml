@@ -330,10 +330,6 @@ jobs:
           - os: macos-14
             debug: true
             xcode-version: '15.1.0'
-          # intel mac, release mode
-          - os: macos-15-intel
-            debug: false
-            xcode-version: '16.1.0'
           # ubuntu, release mode
           - os: ubuntu-22.04
             debug: false

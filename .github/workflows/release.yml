@@ -70,12 +70,6 @@ jobs:
             optimization: 1
             extended: false
             xcode-version: '15.1.0'
-          - os: macos-15-intel
-            compiler: gcc
-            version: 13
-            optimization: 1
-            extended: false
-            xcode-version: '16.1.0'
           - os: windows-2022
             compiler: ${{ inputs.compiler_toolchain }}
             version: ${{ inputs.compiler_version }}
@@ -609,9 +603,6 @@ jobs:
             compiler: ${{ inputs.compiler_toolchain }}
             version: ${{ inputs.compiler_version }}
           - os: macos-14
-            compiler: gcc
-            version: 13
-          - os: macos-15-intel
             compiler: gcc
             version: 13
           - os: windows-2022
