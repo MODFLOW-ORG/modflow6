@@ -29,7 +29,7 @@ module MawModule
   use SimVariablesModule, only: errmsg, warnmsg
   use MemoryManagerModule, only: mem_allocate, mem_reallocate, mem_setptr, &
                                  mem_deallocate, get_isize
-  use MemoryManagerExtModule, only: mem_set_value
+  use MemoryManagerExtModule, only: mem_set_value, memorystore_release
   use MemoryHelperModule, only: create_mem_path
   use CharacterStringModule, only: CharacterStringType
   use OpenSpecModule, only: access, form
@@ -52,7 +52,7 @@ module MawModule
   !> @brief input context data pointers for MAW.
   !!
   !! Holds persistent pointers to input context arrays used at
-  !! runtime. TS arrays are managed transparently by IDM.
+  !! runtime.
   !<
   type :: MawInputContextType
     ! -- packagedata
@@ -991,6 +991,14 @@ contains
       end do
       this%iaconn(n + 1) = idx + 1
     end do
+    !
+    ! -- release input context packagedata memory; PACKAGEDATA_IFNO excluded
+    !    because allocate_featureauxvar retains a pointer to it
+    call memorystore_release('RADIUS', this%input_mempath)
+    call memorystore_release('BOTTOM', this%input_mempath)
+    call memorystore_release('CONDEQN', this%input_mempath)
+    call memorystore_release('NGWFNODES', this%input_mempath)
+    call memorystore_release('BOUNDNAME', this%input_mempath)
   end subroutine maw_source_packagedata
 
   !> @brief Source CONNECTIONDATA block from input context
@@ -1217,6 +1225,15 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
+    !
+    ! -- release input context connectiondata memory
+    call memorystore_release('CONNDATA_IFNO', this%input_mempath)
+    call memorystore_release('ICON', this%input_mempath)
+    call memorystore_release('CELLID', this%input_mempath)
+    call memorystore_release('SCRN_TOP', this%input_mempath)
+    call memorystore_release('SCRN_BOT', this%input_mempath)
+    call memorystore_release('HK_SKIN', this%input_mempath)
+    call memorystore_release('RADIUS_SKIN', this%input_mempath)
   end subroutine maw_source_connectiondata
 
   !> @brief Source ANGLEDATA block from input context for non-vertical MAW connections
