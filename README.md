@@ -102,6 +102,8 @@ The GWT model for MODFLOW 6 simulates three-dimensional transport of a single so
 
 [Morway, E.D., Provost, A.M., Langevin, C.D., Hughes, J.D., Russcher, M.J., Chen, C.Y., Lin, Y.F.F., 2025, A New Groundwater Energy Transport Model for the MODFLOW Hydrologic Simulator. Groundwater, v. 63, no. 3, p. 409-421, https://doi.org/10.1111/gwat.13470.]( https://doi.org/10.1111/gwat.13470)
 
+[Fienen, M.N., Hughes, J.D., Langevin, C.D., Morway, E.D., Panday, S., Provost, A.M., Russcher, M.J., 2026, A New Era of Collaborative MODFLOW Development. Groundwater, v. 64, no. 3, p. 250-251, https://doi.org/10.1111/gwat.70073.](https://doi.org/10.1111/gwat.70073)
+
 #### ***Software/Code***
 
 The following is the general citation for the MODFLOW 6 software.
