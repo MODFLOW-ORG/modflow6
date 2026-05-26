@@ -9,7 +9,7 @@ module LoadMf6FileModule
 
   use KindModule, only: DP, I4B, LGP
   use SimVariablesModule, only: errmsg
-  use SimModule, only: store_error, store_error_filename, ustop
+  use SimModule, only: store_error
   use ConstantsModule, only: LINELENGTH, LENVARNAME
   use BlockParserModule, only: BlockParserType
   use LayeredArrayReaderModule, only: read_dbl1d_layered, &
@@ -824,14 +824,6 @@ contains
     ! Check if it is a full grid sized array (NODES), otherwise use
     ! idt%shape to construct shape from variables in memoryPath
     if (idt%shape == 'NODES') then
-      if (.not. associated(mshape)) then
-        write (errmsg, '(3a)') &
-          'Grid shape unknown when loading "', trim(idt%tagname), &
-          '". Check that a discretization package is specified for this model.'
-        call store_error(errmsg)
-        call store_error_filename(input_fname)
-        call ustop()
-      end if
       nvals = product(mshape)
     else
       call get_shape_from_string(idt%shape, array_shape, mf6_input%mempath)
@@ -1020,14 +1012,6 @@ contains
 
     ! Check if it is a full grid sized array (NODES)
     if (idt%shape == 'NODES') then
-      if (.not. associated(mshape)) then
-        write (errmsg, '(3a)') &
-          'Grid shape unknown when loading "', trim(idt%tagname), &
-          '". Check that a discretization package is specified for this model.'
-        call store_error(errmsg)
-        call store_error_filename(input_fname)
-        call ustop()
-      end if
       nvals = product(mshape)
     else
       call get_shape_from_string(idt%shape, array_shape, mf6_input%mempath)
