@@ -289,9 +289,8 @@ contains
       ftype = ftypes(n)
       found = .false.
 
-      ! check for discretization package
-      if (trim(ftype) == 'DIS6' .or. trim(ftype) == 'DISV6' .or. &
-          trim(ftype) == 'DISU6') has_dis = .true.
+      ! check for discretization package (any type starting with 'DIS')
+      if (ftype(1:3) == 'DIS') has_dis = .true.
 
       ! search supported types for this filetype
       do m = 1, this%niunit
@@ -322,20 +321,13 @@ contains
       end if
     end do
 
-    ! check that a discretization package is specified when required
+    ! check that a discretization package is specified
     if (.not. has_dis) then
-      do m = 1, this%niunit
-        if (trim(this%cunit(m)) == 'DIS6' .or. &
-            trim(this%cunit(m)) == 'DISV6' .or. &
-            trim(this%cunit(m)) == 'DISU6') then
-          write (errmsg, '(3a)') &
-            'Discretization package (DIS6, DISV6, or DISU6) not specified &
-            &for model "', trim(this%modelname), '".'
-          call store_error(errmsg)
-          call store_error_filename(this%modelfname)
-          exit
-        end if
-      end do
+      write (errmsg, '(3a)') &
+        'Discretization package not specified for model "', &
+        trim(this%modelname), '".'
+      call store_error(errmsg)
+      call store_error_filename(this%modelfname)
     end if
 
     ! allocate the pkglist
