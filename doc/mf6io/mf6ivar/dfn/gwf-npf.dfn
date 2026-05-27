@@ -98,6 +98,7 @@ type double precision
 in_record true
 reader urword
 optional false
+tagged true
 longname wetting factor to use for rewetting
 description is a keyword and factor that is included in the calculation of the head that is initially established at a cell when that cell is converted from dry to wet.
 
@@ -107,6 +108,7 @@ type integer
 in_record true
 reader urword
 optional false
+tagged true
 longname interval to use for rewetting
 description is a keyword and iteration interval for attempting to wet cells. Wetting is attempted every IWETIT iteration. This applies to outer iterations and not inner iterations. If IWETIT is specified as zero or less, then the value is changed to 1.
 
@@ -116,6 +118,7 @@ type integer
 in_record true
 reader urword
 optional false
+tagged true
 longname flag to determine wetting equation
 description is a keyword and integer flag that determines which equation is used to define the initial head at cells that become wet.  If IHDWET is 0, h = BOT + WETFCT (hm - BOT). If IHDWET is not 0, h = BOT + WETFCT (THRESH).
 
