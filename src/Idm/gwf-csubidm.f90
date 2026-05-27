@@ -1386,7 +1386,7 @@ module GwfCsubInputModule
     'BOUNDNAME', & ! fortran variable
     'STRING', & ! type
     '', & ! shape
-    'well name', & ! longname
+    'interbed name', & ! longname
     .false., & ! required
     .false., & ! developmode
     .true., & ! multi-record
@@ -1424,7 +1424,7 @@ module GwfCsubInputModule
     'SIG0', & ! fortran variable
     'DOUBLE', & ! type
     '', & ! shape
-    'well stress offset', & ! longname
+    'geostatic stress offset', & ! longname
     .true., & ! required
     .false., & ! developmode
     .true., & ! multi-record
