@@ -62,7 +62,7 @@ name save_flows
 type keyword
 reader urword
 optional true
-longname save CHD flows to budget file
+longname save RCHA flows to budget file
 description REPLACE save_flows {'{#1}': 'recharge'}
 mf6internal ipakcb
 

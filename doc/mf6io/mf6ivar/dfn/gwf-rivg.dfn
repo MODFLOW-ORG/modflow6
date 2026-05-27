@@ -163,7 +163,7 @@ shape (nodes)
 reader readarray
 layered true
 netcdf true
-longname river conductnace
+longname river conductance
 description is the riverbed hydraulic conductance.
 default_value 3.e30
 

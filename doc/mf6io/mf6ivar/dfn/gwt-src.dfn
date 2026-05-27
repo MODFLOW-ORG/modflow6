@@ -52,7 +52,7 @@ type keyword
 reader urword
 optional true
 mf6internal ipakcb
-longname save well flows to budget file
+longname save SRC flows to budget file
 description REPLACE save_flows {'{#1}': 'mass source'}
 
 block options
@@ -218,5 +218,5 @@ tagged false
 in_record true
 reader urword
 optional true
-longname well name
+longname source name
 description REPLACE boundname {'{#1}': 'mass source'}

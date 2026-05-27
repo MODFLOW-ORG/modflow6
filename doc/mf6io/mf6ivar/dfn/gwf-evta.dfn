@@ -62,7 +62,7 @@ name save_flows
 type keyword
 reader urword
 optional true
-longname save CHD flows to budget file
+longname save EVTA flows to budget file
 description REPLACE save_flows {'{#1}': 'evapotranspiration'}
 mf6internal ipakcb
 
@@ -194,7 +194,7 @@ shape (ncol*nrow; ncpl)
 reader readarray
 time_series true
 netcdf true
-longname evapotranspiration surface
+longname evapotranspiration rate
 description is the maximum ET flux rate ($LT^{-1}$).
 default_value 1.e-3
 
