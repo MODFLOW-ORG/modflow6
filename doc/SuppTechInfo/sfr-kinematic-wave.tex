@@ -2,7 +2,7 @@ The \mf Streamflow Routing (SFR) Package simulates the interactions between surf
 
 \subsection{Kinematic Wave Approximation}
 
-The complete one-dimensional Saint-Venant equations for open-channel flow comprise the continuity equation and the momentum equation. The momentum equation includes terms representing local acceleration, advective acceleration, pressure gradient, gravity, and friction. The kinematic wave approximation retains only the gravity and friction terms in the momentum equation, which is equivalent to assuming that the energy grade line is parallel to the channel bed slope. Under this approximation, the discharge $Q$ ($L^3 T^{-1}$) is uniquely determined by the depth of flow and the channel geometry, and the governing equation reduces to the continuity equation alone \citep{LighthillWhitham1955, PonceSimons1977, PonceLiSimons1978}
+The one-dimensional Saint-Venant equations for open-channel flow combines the continuity equation and the momentum equation. The momentum equation includes terms representing local acceleration, advective acceleration, pressure gradient, gravity, and friction. The kinematic wave approximation retains only the gravity and friction terms in the momentum equation, which is equivalent to assuming that the energy grade line is parallel to the channel bed slope. Under this approximation, the discharge $Q$ ($L^3 T^{-1}$) is uniquely determined by the depth of flow and the channel geometry, and the governing equation reduces to the continuity equation alone \citep{LighthillWhitham1955, PonceSimons1977, PonceLiSimons1978}
 
 \begin{equation}
 	\label{eqn:sfr-continuity}
@@ -24,7 +24,7 @@ The discharge in a reach is calculated using Manning's equation \citep{Manning18
 
 \subsection{Wave Celerity and Courant Number}
 
-The kinematic wave celerity $c$ ($L T^{-1}$) is the speed at which a small perturbation in discharge propagates downstream. It is defined as the derivative of discharge with respect to cross-sectional area
+The kinematic wave celerity $c$ ($L T^{-1}$) is the speed at which a perturbation (a flood peak) propagates downstream. It is defined as the derivative of discharge with respect to cross-sectional area
 
 \begin{equation}
 	\label{eqn:sfr-celerity}
@@ -172,16 +172,16 @@ Because the area $A_D^{n,k}$ depends nonlinearly on $Q_D^{n,k}$, equation~\ref{e
 	Q_D^{n,k+1} = Q_D^{n,k} - \frac{f\!\left(Q_D^{n,k}\right)}{f'\!\left(Q_D^{n,k}\right)} .
 \end{equation}
 
-\noindent The updated discharge is floored at $10^{-30}$~m$^3$\,s$^{-1}$ to maintain a positive definite flow. Iteration continues until both the discharge correction and the residual fall below twice the perturbation $\delta$, or until the maximum of 100 Newton-Raphson iterations is reached
+\noindent The updated discharge is floored at $10^{-30}$~m$^3$\,s$^{-1}$ to maintain a positive definite flow. Iteration continues until
 
 \begin{equation}
 	\label{eqn:sfr-mf6-converge}
 	\left| Q_D^{n,k+1} - Q_D^{n,k} \right| < 2\delta
 	\quad \text{and} \quad
-	\left| f\!\left(Q_D^{n,k+1}\right) \right| < 2\delta .
+	\left| f\!\left(Q_D^{n,k+1}\right) \right| < 2\delta ,
 \end{equation}
 
-\noindent The perturbation $\delta$ is set to $0.999 \times \texttt{MAXIMUM\_DEPTH\_CHANGE}$ and is used for the numerical celerity estimate (eq.~\ref{eqn:sfr-celerity-num}), the numerical derivative (eq.~\ref{eqn:sfr-mf6-deriv}), and the Newton-Raphson convergence test. The Picard depth-change tolerance equals \texttt{MAXIMUM\_DEPTH\_CHANGE} directly. Both are governed by the same input parameter.
+\noindent or until the maximum of 100 Newton-Raphson iterations is reached. The perturbation $\delta$ is set to $0.999 \times \texttt{MAXIMUM\_DEPTH\_CHANGE}$ and is used for the numerical celerity estimate (eq.~\ref{eqn:sfr-celerity-num}), the numerical derivative (eq.~\ref{eqn:sfr-mf6-deriv}), and the Newton-Raphson convergence test. The Picard depth-change tolerance equals \texttt{MAXIMUM\_DEPTH\_CHANGE} directly. Both are governed by the same input parameter.
 
 \subsubsection{Reach Storage Change}
 
@@ -211,7 +211,7 @@ The test reach has length $\Delta x = 500$ m, width $B = 10$ m, bed slope $S_0 =
 	Q_U(t) = Q_0 \left[ 1 + 0.4 \sin\!\left( \frac{2\pi t}{T_\mathrm{wave}} \right) \right] ,
 \end{equation}
 
-\noindent where the base flow is $Q_0 = 5$ m$^3$s$^{-1}$ and the wave period is $T_\mathrm{wave} = 10\,T$. The wave celerity at base flow is $c_0 \approx 1.18$ m$\,$s$^{-1}$, giving a travel time of $T = \Delta x / c_0 \approx 423$ s.
+\noindent where the base flow is $Q_0 = 5$ m$^3$s$^{-1}$ and the wave period is $T_\mathrm{wave} = 10$ times the travel time ($T$). The wave celerity at base flow is $c_0 \approx 1.18$ m$\,$s$^{-1}$, giving a travel time of $T = \Delta x / c_0 \approx 423$ s.
 
 \subsubsection{Exact Solution}
 
@@ -244,6 +244,7 @@ The \mf scheme is run at six Courant numbers (0.5, 0.75, 1.0, 1.25, 1.5, and 2.0
 \subsection{Practical Guidance}
 
 \subsubsection{Choosing a Suitable Time Step}
+\label{sec:sfr-time-step}
 
 The accuracy of the kinematic-wave scheme depends on the Courant number $C_r = c\,\Delta t / \Delta x$ (eq.~\ref{eqn:sfr-courant}), and figure~\ref{fig:sfr-kinwave} demonstrates that $C_r$ near unity provides the best balance between accuracy and computational efficiency. A practical starting point is therefore to target $C_r \approx 1$ at or near the expected base flow.
 
@@ -267,7 +268,7 @@ Figure~\ref{fig:sfr-courant} provides two complementary views of the Courant num
 
 When a model contains reaches with different slopes and geometries, the time step should satisfy $C_r \approx 1$ for the reach with the largest celerity-to-length ratio $c / \Delta x$, because all reaches share the same global time step. Courant numbers between approximately 0.5 and 2 are generally acceptable across the network; values outside this range will introduce progressively greater numerical diffusion or phase error (fig.~\ref{fig:sfr-kinwave}).
 
-Because the code does not write celerity or Courant numbers to any model output file, Courant numbers must be estimated manually before selecting a time step. Equations~\ref{eqn:sfr-celerity-wide} and \ref{eqn:sfr-courant} provide a convenient starting point; figure~\ref{fig:sfr-courant} shows pre-computed values for a range of discharges and bed slopes. Confirming that $C_r$ lies within the acceptable range at expected base-flow conditions---and not only at mean flow---is recommended before committing to a time step for a full simulation.
+At the end of each simulation, \mf writes a Courant number summary table to the GWF model listing file. The table reports the minimum, maximum, and mean $C_r$ computed across all transient time steps for each reach; reaches that carried no flow during any transient stress period are reported as~\texttt{--}. The mean is computed over all time steps in which the reach carried flow (dry time steps are excluded). This table provides a direct check on whether the time step kept $C_r$ within the acceptable range throughout the simulation. Equations~\ref{eqn:sfr-celerity-wide} and \ref{eqn:sfr-courant} and figure~\ref{fig:sfr-courant} remain useful for estimating an appropriate time step before the first run.
 
 \begin{figure}[!ht]
 	\begin{center}
@@ -324,4 +325,4 @@ Several numerical issues can arise when using the kinematic-wave option:
 
 The \texttt{STORAGE} keyword activates kinematic-wave routing for all reaches in the SFR Package for the duration of a simulation. The option applies only during transient stress periods; steady-state stress periods, including those used to establish initial conditions before a transient simulation, use the standard instantaneous-flow SFR formulation regardless of whether \texttt{STORAGE} is specified, so mixed steady-state and transient simulations are handled automatically.
 
-Because individual reaches in a network can differ markedly in length and slope, the Courant number will vary from reach to reach for a given time step. A preliminary run using a short time step---for example, one tenth of the estimated $\Delta t_\mathrm{opt}$ for the fastest reach---can help identify which reaches have problematic Courant numbers. Once the celerity field is understood, the time step can be increased to the largest value that keeps $C_r$ within the acceptable range for the most sensitive reaches. Subdividing unusually long reaches into shorter segments, or merging very short adjacent reaches, can help to equalize Courant numbers across the network and allow a longer global time step.
+Because individual reaches in a network can differ markedly in length and slope, the Courant number will vary from reach to reach for a given time step. The Courant number summary table written to the listing file at the end of each simulation (see \nameref{sec:sfr-time-step}) reports the simulation-wide minimum, maximum, and mean $C_r$ for every reach, making it straightforward to identify which reaches have the largest or smallest Courant numbers and whether any reach consistently falls outside the acceptable range. Once the Courant field is understood, the time step can be adjusted to the largest value that keeps $C_r$ within the acceptable range for the most sensitive reaches. Subdividing unusually long reaches into shorter segments, or merging very short adjacent reaches, can help to equalize Courant numbers across the network and allow a longer global time step.

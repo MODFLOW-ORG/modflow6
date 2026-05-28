@@ -1031,11 +1031,19 @@ contains
     ! -- dummy
     class(GwfModelType) :: this
     ! -- local
+    integer(I4B) :: ip
+    class(BndType), pointer :: packobj => null()
     !
     ! -- csub final processing
     if (this%incsub > 0) then
       call this%csub%csub_fp()
     end if
+    !
+    ! -- boundary package final processing
+    do ip = 1, this%bndlist%Count()
+      packobj => GetBndFromList(this%bndlist, ip)
+      call packobj%bnd_fp()
+    end do
   end subroutine gwf_fp
 
   !> @brief Deallocate

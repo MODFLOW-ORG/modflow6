@@ -131,6 +131,7 @@ module BndModule
     procedure :: bnd_ot_package_flows
     procedure :: bnd_ot_dv
     procedure :: bnd_ot_bdsummary
+    procedure :: bnd_fp
     procedure :: bnd_da
 
     procedure :: allocate_scalars
@@ -829,6 +830,17 @@ contains
                                   this%inamedbound, this%boundname)
     end if
   end subroutine bnd_ot_model_flows
+
+  !> @ brief Final processing
+  !!
+  !!  Perform final processing for a boundary package. This method is
+  !!  called once at the end of the simulation and may be overridden
+  !!  by packages that need to write end-of-simulation output.
+  !<
+  subroutine bnd_fp(this)
+    ! -- dummy
+    class(BndType) :: this !< BndType object
+  end subroutine bnd_fp
 
   !> @ brief Deallocate package memory
   !!
