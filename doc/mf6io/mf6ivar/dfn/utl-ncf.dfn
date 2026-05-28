@@ -10,7 +10,7 @@ shape lenbigline
 reader urword
 optional true
 longname CRS well-known text (WKT) string
-description is the coordinate reference system (CRS) well-known text (WKT) string. Used to embed CRS metadata in NETCDF\_MESH2D output. Ignored if latitude and longitude griddata arrays have been provided for NETCDF\_STRUCTURED export type.
+description is the coordinate reference system (CRS) well-known text (WKT) string. Used to embed CRS metadata in NetCDF output. Ignored if latitude and longitude griddata arrays have been provided for NETCDF\_STRUCTURED export type.
 
 block options
 name deflate
