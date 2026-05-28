@@ -28,9 +28,7 @@ cases = ("sfr-kwats01",)
 
 # Ponce (1989) Ex 9-3 hydrograph (non-zero flows only; 10 intervals)
 _dt = 3600.0  # s, original hydrograph time step
-_flows = np.array(
-    [30.0, 60.0, 90.0, 120.0, 150.0, 120.0, 90.0, 60.0, 30.0, 10.0]
-)
+_flows = np.array([30.0, 60.0, 90.0, 120.0, 150.0, 120.0, 90.0, 60.0, 30.0, 10.0])
 _nsteps = len(_flows)  # 10 hydrograph intervals
 
 
@@ -75,9 +73,9 @@ def build_models(idx, test):
     dx = 7200.0  # m
     top = 20.0
     botm = 0.0
-    h_left = 11.0   # CHD head at column 1 (left)
-    h_right = 9.0   # CHD head at column 6 (right)
-    h_init = 10.0   # initial head between CHD values
+    h_left = 11.0  # CHD head at column 1 (left)
+    h_right = 9.0  # CHD head at column 6 (right)
+    h_init = 10.0  # initial head between CHD values
 
     flopy.mf6.ModflowIms(
         sim,
@@ -112,9 +110,7 @@ def build_models(idx, test):
     # SFR: single reach, Manning roughness tuned to give Cr ~ 1 at dt = _dt
     slope = 1.0 / dx
     roughness = 0.03574737676661647
-    pak_data = [
-        (0, -1, -1, -1, dx, 10.0, slope, top, 1.0, 0.0, roughness, 0, 0.0, 0)
-    ]
+    pak_data = [(0, -1, -1, -1, dx, 10.0, slope, top, 1.0, 0.0, roughness, 0, 0.0, 0)]
 
     # Inflow is set via a time series so it varies within the single long period.
     # With stepwise interpolation each value holds for one 3600 s interval.
@@ -176,7 +172,8 @@ def check_output(idx, test):
         f"first step ({dt_obs[0]:.0f} s) should exceed original dt ({_dt:.0f} s)"
     )
     assert dt_obs[1] < dt_obs[0], (
-        f"second step ({dt_obs[1]:.0f} s) should be smaller than first ({dt_obs[0]:.0f} s)"
+        f"second step ({dt_obs[1]:.0f} s) should be smaller than "
+        + f"first ({dt_obs[0]:.0f} s)"
     )
 
     # Listing file must contain the end-of-simulation Courant number table.
