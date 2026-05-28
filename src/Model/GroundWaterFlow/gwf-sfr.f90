@@ -119,6 +119,7 @@ module SfrModule
     real(DP), dimension(:), pointer, contiguous :: dsflowold => null() !< downstream reach flow for previous time step
     real(DP), dimension(:), pointer, contiguous :: usinflow => null() !< upstream reach flow for previous time step
     real(DP), dimension(:), pointer, contiguous :: usinflowold => null() !< upstream reach flow for previous time step
+    real(DP), pointer :: ats_courant => null() !< target Courant number for ATS time step submission
     real(DP), dimension(:), pointer, contiguous :: crmin => null() !< simulation-wide minimum Courant number per reach
     real(DP), dimension(:), pointer, contiguous :: crmax => null() !< simulation-wide maximum Courant number per reach
     real(DP), dimension(:), pointer, contiguous :: crsum => null() !< simulation-wide sum of Courant numbers per reach
@@ -184,6 +185,7 @@ module SfrModule
     procedure :: bnd_ot_package_flows => sfr_ot_package_flows
     procedure :: bnd_ot_dv => sfr_ot_dv
     procedure :: bnd_ot_bdsummary => sfr_ot_bdsummary
+    procedure :: bnd_dt => sfr_dt
     procedure :: bnd_fp => sfr_fp
     procedure :: bnd_da => sfr_da
     procedure :: define_listlabel
@@ -351,6 +353,7 @@ contains
     call this%BndType%allocate_scalars()
     !
     ! -- allocate the object and assign values to object variables
+    call mem_allocate(this%ats_courant, 'ATS_COURANT', this%memoryPath)
     call mem_allocate(this%istorage, 'ISTORAGE', this%memoryPath)
     call mem_allocate(this%iprhed, 'IPRHED', this%memoryPath)
     call mem_allocate(this%istageout, 'ISTAGEOUT', this%memoryPath)
@@ -397,6 +400,7 @@ contains
     this%deps = DP999 * this%dmaxchg
     this%storage_weight = DNODATA
     this%nconn = 0
+    this%ats_courant = DNODATA
     this%icheck = 1
     this%iconvchk = 1
     this%idense = 0
@@ -722,9 +726,11 @@ contains
     character(len=*), intent(inout) :: option !< option keyword string
     logical(LGP), intent(inout) :: found !< boolean indicating if option found
     ! -- local
+    integer(I4B) :: istat
     real(DP) :: r
     character(len=MAXCHARLEN) :: fname
     character(len=MAXCHARLEN) :: keyword
+    character(len=:), allocatable :: remaining_line
     ! -- formats
     character(len=*), parameter :: fmttimeconv = &
       &"(4x, 'TIME CONVERSION VALUE (',g0,') SPECIFIED.')"
@@ -840,6 +846,23 @@ contains
       !    development version and are not included in the documentation.
       !    These options are only available when IDEVELOPMODE in
       !    constants module is set to 1
+    case ('ATS_COURANT')
+      call this%parser%GetRemainingLine(remaining_line)
+      keyword = trim(adjustl(remaining_line))
+      if (len_trim(keyword) == 0) then
+        this%ats_courant = DONE
+      else
+        read (keyword, *, iostat=istat) this%ats_courant
+        if (istat /= 0 .or. this%ats_courant <= DZERO) then
+          write (errmsg, '(a,g0,a)') &
+            "ATS_COURANT SPECIFIED TO BE '", this%ats_courant, &
+            "' BUT MUST BE GREATER THAN ZERO"
+          call store_error(errmsg)
+        end if
+      end if
+      write (this%iout, '(4x,a,1pg15.6)') &
+        'TARGET COURANT NUMBER FOR ADAPTIVE TIME STEPS: ', &
+        this%ats_courant
     case ('DEV_NO_CHECK')
       call this%parser%DevOpt()
       this%icheck = 0
@@ -910,6 +933,13 @@ contains
     !
     ! -- check the storage_weight
     call this%sfr_check_storage_weight()
+    !
+    ! -- check that ATS_COURANT is only used with STORAGE
+    if (this%ats_courant /= DNODATA .and. this%istorage /= 1) then
+      write (errmsg, '(a)') &
+        'ATS_COURANT OPTION REQUIRES STORAGE OPTION TO BE ACTIVE'
+      call store_error(errmsg)
+    end if
     !
     ! -- check the sfr reach data
     call this%sfr_check_reaches()
@@ -2829,6 +2859,65 @@ contains
     end if
   end subroutine sfr_fp
 
+  !> @brief Submit ATS time step request based on kinematic wave Courant number
+  !!
+  !! If ATS_COURANT is active, loops over all reaches, computes wave celerity
+  !! from the current downstream flow, and submits to ATS the time step that
+  !! achieves the user-specified target Courant number for the most constraining
+  !! reach.
+  !!
+  !<
+  subroutine sfr_dt(this)
+    ! -- modules
+    use TdisModule, only: kstp, kper, ats
+    ! -- dummy
+    class(SfrType) :: this !< SfrType object
+    ! -- local
+    integer(I4B) :: n
+    integer(I4B) :: nrmin
+    real(DP) :: q
+    real(DP) :: q2
+    real(DP) :: d
+    real(DP) :: d2
+    real(DP) :: a
+    real(DP) :: a2
+    real(DP) :: celerity
+    real(DP) :: dt_n
+    real(DP) :: dtmin
+    character(len=LINELENGTH) :: msg
+    !
+    if (this%ats_courant == DNODATA) return
+    if (this%istorage /= 1) return
+    !
+    dtmin = DNODATA
+    nrmin = 0
+    msg = ''
+    !
+    do n = 1, this%maxbound
+      q = this%dsflow(n)
+      call this%sfr_calc_reach_depth(n, q, d)
+      a = this%calc_area_wet(n, d)
+      if (d > DZERO) then
+        q2 = q + this%deps
+        call this%sfr_calc_reach_depth(n, q2, d2)
+        a2 = this%calc_area_wet(n, d2)
+        celerity = (q2 - q) / (a2 - a)
+        if (celerity > DZERO) then
+          dt_n = this%ats_courant * this%length(n) / celerity
+          if (dt_n < dtmin) then
+            dtmin = dt_n
+            nrmin = n
+          end if
+        end if
+      end if
+    end do
+    !
+    if (nrmin > 0) then
+      write (msg, '(a,i0)') trim(this%packName)//'-REACH-', nrmin
+      call ats%ats_submit_delt(kstp, kper, dtmin, trim(msg))
+    end if
+  end subroutine sfr_dt
+
   !> @ brief Deallocate package memory
   !!
   !!  Deallocate SFR package scalars and arrays.
@@ -2951,6 +3040,7 @@ contains
     end if
     !
     ! -- deallocate scalars
+    call mem_deallocate(this%ats_courant)
     call mem_deallocate(this%istorage)
     call mem_deallocate(this%storage_weight)
     call mem_deallocate(this%iprhed)

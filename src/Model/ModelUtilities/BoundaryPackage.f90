@@ -131,6 +131,7 @@ module BndModule
     procedure :: bnd_ot_package_flows
     procedure :: bnd_ot_dv
     procedure :: bnd_ot_bdsummary
+    procedure :: bnd_dt
     procedure :: bnd_fp
     procedure :: bnd_da
 
@@ -837,6 +838,15 @@ contains
   !!  called once at the end of the simulation and may be overridden
   !!  by packages that need to write end-of-simulation output.
   !<
+  !> @brief Submit ATS time step request for this boundary package.
+  !!
+  !!  Default no-op; override in packages that can constrain the time step.
+  !<
+  subroutine bnd_dt(this)
+    ! -- dummy
+    class(BndType) :: this !< BndType object
+  end subroutine bnd_dt
+
   subroutine bnd_fp(this)
     ! -- dummy
     class(BndType) :: this !< BndType object
