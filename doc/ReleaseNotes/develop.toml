@@ -48,3 +48,8 @@ description = "The adaptive time stepping algorithm (ATS) was not working correc
 section = "fixes"
 subsection = "parallel"
 description = "Mover (MVR) Package connections across two or more models running in parallel were previously supported for flow but not for solute or energy transport.  GWT-GWT or GWE-GWE exchanges that also include MVT or MVE connections, respectively, is now supported for simulations run in parallel mode."
+
+[[items]]
+section = "fixes"
+subsection = "exchanges"
+description = "Avoids an unhandled and unnecessary exception in cases where a GWF-GWF exchange is configured with a MVR package, but the corresponding GWT-GWT exchange does not have a MVT package enabled."
