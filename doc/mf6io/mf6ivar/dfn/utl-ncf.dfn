@@ -34,7 +34,7 @@ type integer
 reader urword
 optional true
 longname chunking parameter for the time dimension
-description is the chunk size for the time dimension in a NETCDF\_MESH2D or NETCDF\_STRUCTURED output file. Must be used in combination with the chunk_\face parameter (NETCDF\_MESH2D) or the chunk\_z, chunk\_y, and chunk\_x parameter set (NETCDF\_STRUCTURED) to have an effect.
+description is the chunk size for the time dimension in a NETCDF\_MESH2D or NETCDF\_STRUCTURED output file. Must be used in combination with the chunk\_face parameter (NETCDF\_MESH2D) or the chunk\_z, chunk\_y, and chunk\_x parameter set (NETCDF\_STRUCTURED) to have an effect.
 
 block options
 name chunk_face
