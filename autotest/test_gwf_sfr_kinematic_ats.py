@@ -15,6 +15,12 @@ The test verifies that:
 - multiple sub-steps are taken within the single period (not just 1), and
 - the listing file contains the end-of-simulation Courant number table.
 
+The reach must be initialised with a positive depth (via INITIALSTAGES) so
+that dsflow is non-zero after the first sub-step.  Without initialstages the
+reach starts dry, the TVD scheme stores all inflow in step 1 with zero
+outflow, dsflow remains 0, and sfr_dt never submits a Courant-based time step
+reduction.
+
 Ponce, V. M. (1989). Engineering Hydrology, Principles and Practices.
 """
 
@@ -30,6 +36,38 @@ cases = ("sfr-kwats01",)
 _dt = 3600.0  # s, original hydrograph time step
 _flows = np.array([30.0, 60.0, 90.0, 120.0, 150.0, 120.0, 90.0, 60.0, 30.0, 10.0])
 _nsteps = len(_flows)  # 10 hydrograph intervals
+
+# SFR channel parameters (shared between depth helper and build_models)
+_B = 10.0
+_dx = 7200.0
+_slope = 1.0 / _dx
+_roughness = 0.03574737676661647
+
+
+def _q_from_depth(d):
+    """Manning's equation for a rectangular channel."""
+    if d <= 0.0:
+        return 0.0
+    A = _B * d
+    P = _B + 2.0 * d
+    return (1.0 / _roughness) * A * (A / P) ** (2.0 / 3.0) * _slope**0.5
+
+
+def _depth_from_q(Q):
+    """Invert Manning's equation by bisection."""
+    if Q <= 0.0:
+        return 0.0
+    hi = 1.0
+    while _q_from_depth(hi) < Q:
+        hi *= 2.0
+    lo = 0.0
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        if _q_from_depth(mid) < Q:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
 
 
 def build_models(idx, test):
@@ -70,7 +108,6 @@ def build_models(idx, test):
 
     # spatial discretization
     nlay, nrow, ncol = 1, 1, 6
-    dx = 7200.0  # m
     top = 20.0
     botm = 0.0
     h_left = 11.0  # CHD head at column 1 (left)
@@ -89,8 +126,8 @@ def build_models(idx, test):
         nlay=nlay,
         nrow=nrow,
         ncol=ncol,
-        delr=dx,
-        delc=dx,
+        delr=_dx,
+        delc=_dx,
         top=top,
         botm=botm,
     )
@@ -107,10 +144,14 @@ def build_models(idx, test):
     )
     flopy.mf6.ModflowGwfoc(gwf, printrecord=[("budget", "all")])
 
-    # SFR: single reach, Manning roughness tuned to give Cr ~ 1 at dt = _dt
-    slope = 1.0 / dx
-    roughness = 0.03574737676661647
-    pak_data = [(0, -1, -1, -1, dx, 10.0, slope, top, 1.0, 0.0, roughness, 0, 0.0, 0)]
+    # SFR: single reach, Manning roughness tuned to give Cr ~ 1 at dt = _dt.
+    # initialstages sets the reach to steady-state depth at the base flow so
+    # that dsflow is non-zero after the first ATS sub-step, allowing sfr_dt to
+    # submit a Courant-based time step recommendation for subsequent steps.
+    rtp = top
+    d0 = _depth_from_q(_flows[0])
+    stage0 = rtp + d0
+    pak_data = [(0, -1, -1, -1, _dx, _B, _slope, rtp, 1.0, 0.0, _roughness, 0, 0.0, 0)]
 
     # Inflow is set via a time series so it varies within the single long period.
     # With stepwise interpolation each value holds for one 3600 s interval.
@@ -124,6 +165,7 @@ def build_models(idx, test):
         packagedata=pak_data,
         connectiondata=[(0,)],
         perioddata={0: [(0, "inflow", "inflow-ts")]},
+        initialstages=[(0, stage0)],
         pname="sfr-1",
     )
     # Terminal sentinel at perlen ensures the time series covers the full
