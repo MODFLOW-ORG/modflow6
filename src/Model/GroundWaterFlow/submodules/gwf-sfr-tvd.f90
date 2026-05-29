@@ -37,6 +37,7 @@ contains
   real(DP) :: d_old
   real(DP) :: d2
   real(DP) :: a_old
+  real(DP) :: a_base
   real(DP) :: a_new
   real(DP) :: a2
   real(DP) :: v_new
@@ -65,17 +66,33 @@ contains
   call this%sfr_calc_qman(n, d_old, q_out_old)
   q_in_old = this%usinflowold(n)
   !
-  ! -- celerity and Courant number from a flow perturbation at old depth
+  ! -- celerity from a flow perturbation, using consistent depth inversions.
+  !    Both the base and perturbed depths come from sfr_calc_reach_depth so
+  !    the comparison is internally consistent (avoids a spurious mismatch
+  !    between the stored d_old and the approximate wide-channel inversion).
   dq = this%deps
   celerity = DZERO
   if (d_old > DZERO) then
+    call this%sfr_calc_reach_depth(n, q_out_old, d2)
+    a_base = this%calc_area_wet(n, d2)
     call this%sfr_calc_reach_depth(n, q_out_old + dq, d2)
     a2 = this%calc_area_wet(n, d2)
-    if (a2 > a_old) then
-      celerity = dq / (a2 - a_old)
+    if (a2 > a_base) then
+      celerity = dq / (a2 - a_base)
     end if
   end if
   courant = celerity * delt / this%length(n)
+  !
+  ! -- accumulate Courant statistics before any delegation so that the
+  !    listing table reflects the actual Courant number at every step,
+  !    including steps where Cr > 1 and routing is delegated to the
+  !    implicit scheme
+  if (courant > DZERO) then
+    if (courant < this%crmin(n)) this%crmin(n) = courant
+    if (courant > this%crmax(n)) this%crmax(n) = courant
+    this%crsum(n) = this%crsum(n) + courant
+    this%crcnt(n) = this%crcnt(n) + 1
+  end if
   !
   ! -- Cr > 1: delegate to upwind scheme (already mass-conservative)
   if (courant > DONE) then
@@ -108,7 +125,10 @@ contains
   igwfconn = this%sfr_gwf_conn(n)
   qgwf = DZERO
   !
-  ! -- initial depth estimate from actual stored depth
+  ! -- initial depth estimate from actual stored depth; when the reach is dry
+  !    (d_old = 0) but the volume balance gives a_new > 0 (wetting event), seed
+  !    Newton with the rectangular-channel estimate a_new/B so that the top
+  !    width is non-zero and the solver can iterate away from d = 0
   d1 = d_old
   d1_old = d1
   !
@@ -133,6 +153,9 @@ contains
     !
     ! -- Newton solve for depth from area: calc_area_wet(n, d1) = a_new
     d1 = max(d1, DZERO)
+    if (d1 <= DZERO .and. a_new > DZERO) then
+      d1 = a_new / max(this%station(this%iacross(n)), DEM30)
+    end if
     newton_depth: do j = 1, this%maxsfrit
       res = this%calc_area_wet(n, d1) - a_new
       tw = this%calc_top_width_wet(n, d1)
@@ -154,13 +177,7 @@ contains
   qd = max(q_tvd, DZERO)
   this%storage(n) = (a_old - a_new) * this%length(n) / delt
   !
-  ! -- accumulate Courant statistics for ATS time step and listing output
-  if (courant > DZERO) then
-    if (courant < this%crmin(n)) this%crmin(n) = courant
-    if (courant > this%crmax(n)) this%crmax(n) = courant
-    this%crsum(n) = this%crsum(n) + courant
-    this%crcnt(n) = this%crcnt(n) + 1
-  end if
+
   !
   end procedure sfr_calc_tvd
 

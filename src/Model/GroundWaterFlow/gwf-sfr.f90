@@ -932,6 +932,8 @@ contains
   !!  Method to read and prepare period data for the SFR package.
   !<
   subroutine sfr_ar(this)
+    ! -- modules
+    use TdisModule, only: inats
     ! -- dummy
     class(SfrType), intent(inout) :: this !< SfrType object
     ! -- local
@@ -970,6 +972,15 @@ contains
       write (errmsg, '(a)') &
         'ATS_COURANT OPTION REQUIRES STORAGE OPTION TO BE ACTIVE'
       call store_error(errmsg)
+    end if
+    !
+    ! -- warn when ATS_COURANT is specified but ATS is not active in TDIS
+    if (this%ats_courant /= DNODATA .and. inats == 0) then
+      write (warnmsg, '(a)') &
+        'ATS_COURANT IS SPECIFIED IN THE SFR OPTIONS BLOCK BUT THE '// &
+        'ATS PACKAGE IS NOT ACTIVE IN TDIS. COURANT-BASED TIME-STEP '// &
+        'CONTROL WILL NOT BE APPLIED.'
+      call store_warning(warnmsg)
     end if
     !
     ! -- pre-compute TVD upstream connectivity when ATS_COURANT is active

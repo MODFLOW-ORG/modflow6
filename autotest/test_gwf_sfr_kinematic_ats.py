@@ -1,25 +1,25 @@
 """
-Test the ATS_COURANT option in the SFR Package for adaptive time stepping
-using the kinematic wave approximation.  The problem is the Ponce (1989)
-Example 9-3 routing problem used in test_gwf_sfr_kinematic01.py.
+Tests for the ATS_COURANT option in the SFR Package kinematic-wave routing.
 
-The simulation uses a single stress period of 36000 s (10 x 3600 s) so that
-ATS can sub-step freely within the period.  Inflow varies via a time series
-with stepwise interpolation matching the original 3600 s hydrograph intervals.
-ATS is started with dt0 = 14400 s (4x the Courant-optimal step) so that the
-first step is deliberately over-large; ATS_COURANT then submits Courant-based
-time step requests (targeting Cr = 1) for all subsequent steps, driving them
-down to roughly the Courant-optimal interval.
+Case 0 -- sfr-kwats01: ATS_COURANT with ATS active (functional test)
+    The problem is the Ponce (1989) Example 9-3 routing problem.  A single
+    stress period of 36000 s lets ATS sub-step freely.  ATS is started with
+    dt0 = 14400 s (4x the Courant-optimal step) so the first step is
+    deliberately over-large; ATS_COURANT then drives subsequent steps down to
+    roughly the Courant-optimal interval (~3600 s).  The reach must be
+    initialised with a positive depth (via INITIALSTAGES) so that dsflow is
+    non-zero after the first sub-step; without it the reach starts dry, the
+    TVD scheme stores all inflow with zero outflow, dsflow stays 0, and
+    sfr_dt never submits a Courant-based reduction.
 
-The test verifies that:
-- multiple sub-steps are taken within the single period (not just 1), and
-- the listing file contains the end-of-simulation Courant number table.
+    Verifies:
+    - multiple ATS sub-steps are taken (not just 1), and
+    - the listing file contains the end-of-simulation Courant number table.
 
-The reach must be initialised with a positive depth (via INITIALSTAGES) so
-that dsflow is non-zero after the first sub-step.  Without initialstages the
-reach starts dry, the TVD scheme stores all inflow in step 1 with zero
-outflow, dsflow remains 0, and sfr_dt never submits a Courant-based time step
-reduction.
+Case 1 -- sfr-kwats02: ATS_COURANT without ATS in TDIS (warning test)
+    Same geometry as case 0 but TDIS uses fixed time steps and the ATS
+    package is absent.  Verifies that MODFLOW 6 issues the expected warning
+    to mfsim.lst rather than silently ignoring the option.
 
 Ponce, V. M. (1989). Engineering Hydrology, Principles and Practices.
 """
@@ -30,7 +30,7 @@ import pytest
 from framework import TestFramework
 
 paktest = "sfr"
-cases = ("sfr-kwats01",)
+cases = ("sfr-kwats01", "sfr-kwats02")
 
 # Ponce (1989) Ex 9-3 hydrograph (non-zero flows only; 10 intervals)
 _dt = 3600.0  # s, original hydrograph time step
@@ -70,12 +70,51 @@ def _depth_from_q(Q):
     return 0.5 * (lo + hi)
 
 
-def build_models(idx, test):
-    name = cases[idx]
+# ---------------------------------------------------------------------------
+# Shared GWF geometry builder
+# ---------------------------------------------------------------------------
 
-    # Single stress period long enough to hold all hydrograph intervals.
-    # One long period lets ATS take multiple sub-steps instead of being capped
-    # by a short perlen on every new period.
+
+def _build_gwf(sim, name, ncol=6):
+    """Build a minimal GWF model inside *sim* and return it."""
+    nlay, nrow = 1, 1
+    top = 20.0
+    botm = 0.0
+
+    flopy.mf6.ModflowIms(sim, outer_dvclose=1.0e-8, inner_dvclose=1.0e-9)
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
+    flopy.mf6.ModflowGwfdis(
+        gwf,
+        length_units="meters",
+        nlay=nlay,
+        nrow=nrow,
+        ncol=ncol,
+        delr=_dx,
+        delc=_dx,
+        top=top,
+        botm=botm,
+    )
+    flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=1.0e-4)
+    flopy.mf6.ModflowGwfic(gwf, strt=10.0)
+    flopy.mf6.ModflowGwfsto(gwf, iconvert=1, ss=1e-6, sy=0.2, transient={0: True})
+    flopy.mf6.ModflowGwfchd(
+        gwf,
+        stress_period_data=[
+            (0, 0, 0, 11.0),
+            (0, 0, ncol - 1, 9.0),
+        ],
+    )
+    flopy.mf6.ModflowGwfoc(gwf, printrecord=[("budget", "all")])
+    return gwf
+
+
+# ---------------------------------------------------------------------------
+# Case 0: ATS_COURANT + ATS active
+# ---------------------------------------------------------------------------
+
+
+def _build_ats_active(test):
+    name = cases[0]
     perlen = _nsteps * _dt  # 36000 s
 
     sim = flopy.mf6.MFSimulation(
@@ -94,67 +133,20 @@ def build_models(idx, test):
     # ATS: dt0 = 4x the Courant-optimal step so the first step overshoots and
     # the Courant constraint actively reduces subsequent steps to ~ _dt.
     dt0 = 4.0 * _dt  # 14400 s
-    dtmin = 30.0
-    dtmax = dt0
-    dtadj = 2.0
-    dtfailadj = 5.0
-    # iperats is 0-indexed in flopy (it adds 1 when writing), so 0 maps to
-    # stress period 1 in the MODFLOW 6 input.
     tdis.ats.initialize(
         maxats=1,
-        perioddata=[(0, dt0, dtmin, dtmax, dtadj, dtfailadj)],
+        perioddata=[(0, dt0, 30.0, dt0, 2.0, 5.0)],
         filename=f"{name}.ats",
     )
 
-    # spatial discretization
-    nlay, nrow, ncol = 1, 1, 6
-    top = 20.0
-    botm = 0.0
-    h_left = 11.0  # CHD head at column 1 (left)
-    h_right = 9.0  # CHD head at column 6 (right)
-    h_init = 10.0  # initial head between CHD values
+    gwf = _build_gwf(sim, name)
 
-    flopy.mf6.ModflowIms(
-        sim,
-        outer_dvclose=1.0e-8,
-        inner_dvclose=1.0e-9,
-    )
-    gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
-    flopy.mf6.ModflowGwfdis(
-        gwf,
-        length_units="meters",
-        nlay=nlay,
-        nrow=nrow,
-        ncol=ncol,
-        delr=_dx,
-        delc=_dx,
-        top=top,
-        botm=botm,
-    )
-    flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=1.0e-4)
-    flopy.mf6.ModflowGwfic(gwf, strt=h_init)
-    flopy.mf6.ModflowGwfsto(gwf, iconvert=1, ss=1e-6, sy=0.2, transient={0: True})
-    # CHDs in columns 1 and 6 drive left-to-right flow through the aquifer.
-    flopy.mf6.ModflowGwfchd(
-        gwf,
-        stress_period_data=[
-            (0, 0, 0, h_left),
-            (0, 0, ncol - 1, h_right),
-        ],
-    )
-    flopy.mf6.ModflowGwfoc(gwf, printrecord=[("budget", "all")])
-
-    # SFR: single reach, Manning roughness tuned to give Cr ~ 1 at dt = _dt.
-    # initialstages sets the reach to steady-state depth at the base flow so
-    # that dsflow is non-zero after the first ATS sub-step, allowing sfr_dt to
-    # submit a Courant-based time step recommendation for subsequent steps.
-    rtp = top
+    rtp = 20.0
     d0 = _depth_from_q(_flows[0])
     stage0 = rtp + d0
     pak_data = [(0, -1, -1, -1, _dx, _B, _slope, rtp, 1.0, 0.0, _roughness, 0, 0.0, 0)]
 
-    # Inflow is set via a time series so it varies within the single long period.
-    # With stepwise interpolation each value holds for one 3600 s interval.
+    # Inflow varies via a time series with stepwise interpolation.
     sfr = flopy.mf6.ModflowGwfsfr(
         gwf,
         print_flows=True,
@@ -168,8 +160,6 @@ def build_models(idx, test):
         initialstages=[(0, stage0)],
         pname="sfr-1",
     )
-    # Terminal sentinel at perlen ensures the time series covers the full
-    # simulation interval (MODFLOW 6 requires this for stepwise interpolation).
     ts_times = [i * _dt for i in range(_nsteps)] + [perlen]
     ts_vals = _flows.tolist() + [0.0]
     sfr.ts.initialize(
@@ -194,8 +184,8 @@ def build_models(idx, test):
     return sim
 
 
-def check_output(idx, test):
-    name = cases[idx]
+def _check_ats_active(test):
+    name = cases[0]
 
     obs = flopy.utils.Mf6Obs(test.workspace / f"{name}.sfr.obs.csv").get_data()
     assert len(obs) > 0, "no observations written"
@@ -207,7 +197,6 @@ def check_output(idx, test):
         f"expected >= 5 time steps from ATS sub-stepping, got {len(obs)}"
     )
 
-    # First step should be approximately dt0; subsequent steps should be smaller.
     totim = obs["totim"]
     dt_obs = np.diff(totim, prepend=0.0)
     assert dt_obs[0] > _dt, (
@@ -218,11 +207,82 @@ def check_output(idx, test):
         + f"first ({dt_obs[0]:.0f} s)"
     )
 
-    # Listing file must contain the end-of-simulation Courant number table.
     listing = (test.workspace / f"{name}.lst").read_text()
     assert "COURANT NUMBER FOR EACH REACH" in listing, (
         "Courant number table not found in listing file"
     )
+
+
+# ---------------------------------------------------------------------------
+# Case 1: ATS_COURANT without ATS in TDIS (warning test)
+# ---------------------------------------------------------------------------
+
+
+def _build_no_ats(test):
+    """Build a model with ATS_COURANT but no ATS package in TDIS."""
+    name = cases[1]
+
+    sim = flopy.mf6.MFSimulation(
+        sim_name=name,
+        sim_ws=test.workspace,
+        version="mf6",
+        exe_name="mf6",
+    )
+    # Ten fixed time steps; no ATS block.
+    flopy.mf6.ModflowTdis(
+        sim,
+        time_units="seconds",
+        nper=_nsteps,
+        perioddata=[(_dt, 1, 1.0)] * _nsteps,
+    )
+
+    gwf = _build_gwf(sim, name)
+
+    rtp = 20.0
+    pak_data = [(0, -1, -1, -1, _dx, _B, _slope, rtp, 1.0, 0.0, _roughness, 0, 0.0, 0)]
+    sfr_perioddata = {i: [(0, "inflow", float(q))] for i, q in enumerate(_flows)}
+
+    flopy.mf6.ModflowGwfsfr(
+        gwf,
+        print_flows=True,
+        storage=True,
+        ats_courant=1.0,
+        maximum_depth_change=1.0e-9,
+        nreaches=1,
+        packagedata=pak_data,
+        connectiondata=[(0,)],
+        perioddata=sfr_perioddata,
+        pname="sfr-1",
+    )
+
+    return sim
+
+
+def _check_no_ats(test):
+    """Verify that the expected warning appears in mfsim.lst."""
+    mfsim_lst = (test.workspace / "mfsim.lst").read_text()
+    warn_tag = "ATS_COURANT IS SPECIFIED IN THE SFR OPTIONS BLOCK"
+    assert warn_tag in mfsim_lst, (
+        f"Expected warning '{warn_tag}' not found in mfsim.lst"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
+
+
+def build_models(idx, test):
+    if idx == 1:
+        return _build_no_ats(test)
+    return _build_ats_active(test)
+
+
+def check_output(idx, test):
+    if idx == 1:
+        _check_no_ats(test)
+        return
+    _check_ats_active(test)
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

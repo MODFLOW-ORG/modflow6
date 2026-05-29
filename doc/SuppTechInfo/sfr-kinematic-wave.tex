@@ -257,6 +257,8 @@ The \texttt{ATS\_COURANT} value sets the target Courant number for the Adaptive 
 
 At the end of each simulation, a \texttt{COURANT NUMBER FOR EACH REACH} table is written to the GWF model listing file when \texttt{ATS\_COURANT} is specified. The table reports the minimum, maximum, and time-averaged Courant number for every reach, providing a direct check on whether the ATS-controlled time steps kept $C_r$ within the intended range.
 
+\texttt{ATS\_COURANT} requires that the ATS package be active in TDIS. If the ATS package is absent from TDIS, \mf issues a warning and the Courant-based time-step recommendations are silently discarded; the TVD scheme then runs at whatever fixed time steps are specified in TDIS, with no guarantee that $C_r \le 1$.
+
 \paragraph{Applicability and Limitations}
 
 The TVD scheme shares the same applicability conditions as the standard kinematic-wave scheme (see \nameref{sec:sfr-time-step} and the Applicability Conditions section below). Additional considerations specific to the TVD formulation are as follows.
@@ -268,6 +270,8 @@ The TVD scheme shares the same applicability conditions as the standard kinemati
   \item \textit{Explicit stability.} The TVD scheme is explicit and conditionally stable. When $C_r > 1$, the scheme automatically delegates to the implicit Newton-Raphson solver, so occasional Courant exceedances (e.g., during high-flow events) are handled gracefully. Sustained $C_r \gg 1$ will cause frequent delegation and may degrade solution quality; the ATS controller should be tuned to keep $C_r$ below unity for most steps.
 
   \item \textit{Groundwater exchange.} Stream-aquifer exchange introduces an implicit coupling that the TVD scheme resolves with a Picard outer loop (identical to the standard scheme). For reaches with strong groundwater exchange, the number of Picard iterations may be larger than for the uncoupled case.
+
+  \item \textit{Initial conditions.} The ATS time step recommendation is derived from the kinematic wave celerity estimated from the flow at the end of the previous time step. When a reach starts dry (zero depth), the estimated celerity is zero and no Courant-based time step recommendation is submitted, so the ATS controller uses the user-specified maximum time step for that step. Setting \texttt{INITIALSTAGES} to a nonzero depth (or running a steady-state warmup stress period before activating ATS) ensures that the celerity can be estimated from the first sub-step onward.
 
 \end{itemize}
 
