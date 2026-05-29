@@ -12,8 +12,8 @@ PROJ_ROOT = Path(__file__).parents[2]
 
 # exclude these directories from checks
 excludedirs = [
-    PROJ_ROOT / ".pixi",
     PROJ_ROOT / ".claude",
+    PROJ_ROOT / ".pixi",
     PROJ_ROOT / ".test-drive",
     PROJ_ROOT / "src" / "Utilities" / "Libraries" / "blas",
     PROJ_ROOT / "src" / "Utilities" / "Libraries" / "daglib",

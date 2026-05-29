@@ -120,6 +120,7 @@ module SfrModule
     real(DP), dimension(:), pointer, contiguous :: usinflow => null() !< upstream reach flow for previous time step
     real(DP), dimension(:), pointer, contiguous :: usinflowold => null() !< upstream reach flow for previous time step
     real(DP), pointer :: ats_courant => null() !< target Courant number for ATS time step submission
+    integer(I4B), dimension(:), pointer, contiguous :: itvd_upstream => null() !< upstream reach index for TVD limiter (0 = headwater or confluence)
     real(DP), dimension(:), pointer, contiguous :: crmin => null() !< simulation-wide minimum Courant number per reach
     real(DP), dimension(:), pointer, contiguous :: crmax => null() !< simulation-wide maximum Courant number per reach
     real(DP), dimension(:), pointer, contiguous :: crsum => null() !< simulation-wide sum of Courant numbers per reach
@@ -199,7 +200,9 @@ module SfrModule
     procedure, private :: sfr_solve
     procedure, private :: sfr_calc_constant
     procedure, private :: sfr_calc_transient
+    procedure, private :: sfr_calc_tvd
     procedure, private :: sfr_calc_steady
+    procedure, private :: sfr_precompute_tvd
     procedure, private :: sfr_update_flows
     procedure, private :: sfr_adjust_ro_ev
     procedure, private :: sfr_calc_qgwf
@@ -267,6 +270,25 @@ module SfrModule
     module subroutine sfr_calc_transient(this, n, d1, hgwf, &
                                          qu, qi, qfrommvr, qr, qe, qro, &
                                          qgwf, qd)
+      class(SfrType) :: this !< SfrType object
+      integer(I4B), intent(in) :: n !< reach number
+      real(DP), intent(inout) :: d1 !< current reach depth estimate
+      real(DP), intent(in) :: hgwf !< head in gw cell
+      real(DP), intent(in) :: qu !< reach upstream flow
+      real(DP), intent(in) :: qi !< reach specified inflow
+      real(DP), intent(in) :: qfrommvr !< reach flow from mover
+      real(DP), intent(in) :: qr !< reach rainfall
+      real(DP), intent(in) :: qe !< reach evaporation
+      real(DP), intent(in) :: qro !< reach runoff flow
+      real(DP), intent(inout) :: qgwf !< reach-aquifer exchange
+      real(DP), intent(inout) :: qd !< reach outflow
+    end subroutine
+  end interface
+
+  interface
+    module subroutine sfr_calc_tvd(this, n, d1, hgwf, &
+                                   qu, qi, qfrommvr, qr, qe, qro, &
+                                   qgwf, qd)
       class(SfrType) :: this !< SfrType object
       integer(I4B), intent(in) :: n !< reach number
       real(DP), intent(inout) :: d1 !< current reach depth estimate
@@ -471,6 +493,12 @@ contains
       call mem_allocate(this%crmax, this%maxbound, 'CRMAX', this%memoryPath)
       call mem_allocate(this%crsum, this%maxbound, 'CRSUM', this%memoryPath)
       call mem_allocate(this%crcnt, this%maxbound, 'CRCNT', this%memoryPath)
+      if (this%ats_courant /= DNODATA) then
+        call mem_allocate(this%itvd_upstream, this%maxbound, &
+                          'ITVD_UPSTREAM', this%memoryPath)
+      else
+        call mem_allocate(this%itvd_upstream, 0, 'ITVD_UPSTREAM', this%memoryPath)
+      end if
     end if
     !
     ! -- reach order and connection data
@@ -549,6 +577,9 @@ contains
         this%crmax(i) = -DEP20
         this%crsum(i) = DZERO
         this%crcnt(i) = 0
+        if (this%ats_courant /= DNODATA) then
+          this%itvd_upstream(i) = 0
+        end if
       end if
       !
       ! -- boundary data
@@ -939,6 +970,11 @@ contains
       write (errmsg, '(a)') &
         'ATS_COURANT OPTION REQUIRES STORAGE OPTION TO BE ACTIVE'
       call store_error(errmsg)
+    end if
+    !
+    ! -- pre-compute TVD upstream connectivity when ATS_COURANT is active
+    if (this%ats_courant /= DNODATA .and. this%istorage == 1) then
+      call this%sfr_precompute_tvd()
     end if
     !
     ! -- check the sfr reach data
@@ -2971,6 +3007,7 @@ contains
       call mem_deallocate(this%crmax)
       call mem_deallocate(this%crsum)
       call mem_deallocate(this%crcnt)
+      call mem_deallocate(this%itvd_upstream)
     end if
     !
     ! -- deallocate reach order and connection data
@@ -3069,6 +3106,39 @@ contains
     ! -- call base BndType deallocate
     call this%BndType%bnd_da()
   end subroutine sfr_da
+
+  !> @brief Pre-compute upstream reach indices for TVD limiter
+  !!
+  !! For each reach, store the index of its single upstream reach so
+  !! the TVD flux limiter can access it each time step without traversing
+  !! the connection arrays.  Reaches with zero or multiple upstream
+  !! connections get index 0 (first-order upwind is used for those).
+  !<
+  subroutine sfr_precompute_tvd(this)
+    ! -- dummy
+    class(SfrType), intent(inout) :: this !< SfrType object
+    ! -- local
+    integer(I4B) :: n
+    integer(I4B) :: j
+    integer(I4B) :: iup_count
+    integer(I4B) :: m
+    !
+    do n = 1, this%maxbound
+      iup_count = 0
+      m = 0
+      do j = this%ia(n) + 1, this%ia(n + 1) - 1
+        if (this%idir(j) > 0) then
+          iup_count = iup_count + 1
+          m = this%ja(j)
+        end if
+      end do
+      if (iup_count == 1) then
+        this%itvd_upstream(n) = m
+      else
+        this%itvd_upstream(n) = 0
+      end if
+    end do
+  end subroutine sfr_precompute_tvd
 
   !> @ brief Define the list label for the package
   !!
@@ -3756,9 +3826,15 @@ contains
         call this%sfr_calc_constant(n, d1, hgwf, qgwf, qd)
       else
         if (this%gwfiss == 0 .and. this%istorage == 1) then
-          call this%sfr_calc_transient(n, d1, hgwf, qu, qi, &
-                                       qfrommvr, qr, qe, qro, &
-                                       qgwf, qd)
+          if (this%ats_courant /= DNODATA) then
+            call this%sfr_calc_tvd(n, d1, hgwf, qu, qi, &
+                                   qfrommvr, qr, qe, qro, &
+                                   qgwf, qd)
+          else
+            call this%sfr_calc_transient(n, d1, hgwf, qu, qi, &
+                                         qfrommvr, qr, qe, qro, &
+                                         qgwf, qd)
+          end if
         else
           call this%sfr_calc_steady(n, d1, hgwf, qu, qi, &
                                     qfrommvr, qr, qe, qro, &

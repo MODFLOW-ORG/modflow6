@@ -11,8 +11,6 @@ The one-dimensional Saint-Venant equations for open-channel flow combines the co
 
 \noindent where $Q$ is the volumetric discharge ($L^3 T^{-1}$), $A$ is the cross-sectional area of flow ($L^2$), $x$ is the longitudinal distance along the channel ($L$), $t$ is time ($T$), and $q_L$ is the lateral inflow rate per unit channel length ($L^2 T^{-1}$). The kinematic wave approximation is applicable when the Froude number is less than about 2 and the channel slope is sufficiently steep relative to the backwater effect \citep{McArthur1993, WoolhiserLiggett1967, PonceLiSimons1978, Ponce1991}.
 
-\subsection{Discharge-Depth Relationship}
-
 The discharge in a reach is calculated using Manning's equation \citep{Manning1891}
 
 \begin{equation}
@@ -21,8 +19,6 @@ The discharge in a reach is calculated using Manning's equation \citep{Manning18
 \end{equation}
 
 \noindent where $\alpha$ is a unit conversion factor ($\alpha = 1$ for SI units; $\alpha = 1.486$ for U.S.~customary units), $n$ is Manning's roughness coefficient ($T L^{-1/3}$), $R$ is the hydraulic radius ($L$) defined as $R = A / P_w$ where $P_w$ is the wetted perimeter ($L$), and $S_0$ is the channel bed slope (dimensionless). Equation~\ref{eqn:sfr-manning} establishes a nonlinear, monotonically increasing relationship between $Q$ and $A$ (or equivalently, between $Q$ and flow depth $d$) for a given channel geometry. This functional relationship is used to determine the depth corresponding to a computed discharge and to evaluate the wet cross-sectional area \citep{chaudhry2008}.
-
-\subsection{Wave Celerity and Courant Number}
 
 The kinematic wave celerity $c$ ($L T^{-1}$) is the speed at which a perturbation (a flood peak) propagates downstream. It is defined as the derivative of discharge with respect to cross-sectional area
 
@@ -56,7 +52,7 @@ A four-point implicit finite-difference scheme \citep{Preissmann1961} is used to
 \begin{figure}[!ht]
 	\begin{center}
 	\includegraphics{./Figures/SFRKinematicWaveStencil.pdf}
-	\caption[Space-time grid diagrams for the kinematic-wave finite-difference stencils used in the MODFLOW~6 SFR Package]{Space-time grid diagrams showing the nodal positions and variable names for the two kinematic-wave finite-difference stencils used in the MODFLOW~6 SFR Package ($Q_a = Q_U^{n-1}$, $Q_b = Q_D^{n-1}$, $Q_c = Q_U^n$, $Q_d = Q_D^n$). Filled nodes are known values; the red node ($Q_d$) is the unknown. \textit{A}, When $C_r \le 1$, all four nodes participate in the spatial and temporal difference approximations; \textit{B}, when $C_r > 1$, only the upstream temporal difference is retained for the storage term (the $Q_b$ node is not used)}
+	\caption[Space-time grid diagrams for the kinematic-wave finite-difference stencils used in the \mf SFR Package]{Space-time grid diagrams showing the nodal positions and variable names for the two kinematic-wave finite-difference stencils used in the \mf SFR Package ($Q_a = Q_U^{n-1}$, $Q_b = Q_D^{n-1}$, $Q_c = Q_U^n$, $Q_d = Q_D^n$). Filled nodes are known values; the red node ($Q_d$) is the unknown. \textit{A}, When $C_r \le 1$, all four nodes participate in the spatial and temporal difference approximations; \textit{B}, when $C_r > 1$, only the upstream temporal difference is retained for the storage term (the $Q_b$ node is not used)}
 	\label{fig:sfr-stencil}
 	\end{center}
 \end{figure}
@@ -98,8 +94,6 @@ The two cases may be written as a single residual function $f(Q_D^n)$
 
 \noindent where the superscript $k$ denotes the Newton-Raphson iteration index and $f'$ is the derivative of the residual with respect to $Q_D^n$, approximated numerically.
 
-\subsection{Reach Storage Change}
-
 The change in water stored within a reach during a time step is required to ensure conservation of mass in the water budget. The storage change $\Delta S$ ($L^3 T^{-1}$) is calculated from the cross-sectional area values at the upstream and downstream ends of the reach at both time levels. For $C_r \le 1$
 
 \begin{equation}
@@ -120,7 +114,9 @@ The change in water stored within a reach during a time step is required to ensu
 
 The kinematic wave routing option is activated by specifying the \texttt{STORAGE} keyword in the OPTIONS block of the SFR Package input file \citep{modflow6gwf}. When \texttt{STORAGE} is activated, the SFR Package allocates storage for the upstream and downstream flow values from the previous time step and solves equation~\ref{eqn:sfr-residual} at each reach and time step using a Picard outer loop that also couples stream-aquifer exchange. The Picard loop iterates until the change in average reach depth (mean of upstream and downstream depths) falls below the \texttt{MAXIMUM\_DEPTH\_CHANGE} parameter (default $1 \times 10^{-5}$~m); for reaches with no groundwater exchange, the coupling is one-way and the loop reduces to a single iteration. The \texttt{MAXIMUM\_DEPTH\_CHANGE} parameter is package-wide and also controls the convergence tolerance for the standard instantaneous-flow formulation during steady-state stress periods. The kinematic wave routing option in \mf was validated against the modified Pinder-Sauer problem \citep{pinder1971numerical, lal2001modification}, which describes flood-wave attenuation due to bank storage effects and provides an analytical solution for stream-aquifer interaction under transient conditions.
 
-\subsubsection{Lateral Source Term}
+\subsubsection{Standard Kinematic-Wave Scheme}
+
+The standard kinematic-wave scheme solves for the unknown downstream discharge $Q_D^n$ at each reach by finding the root of the finite-difference residual using Newton-Raphson iteration. The lateral source term $q_L$ in the residual aggregates all per-reach inflow and loss contributions, and the temporal weighting parameter $\theta$ controls the balance between numerical stability and temporal accuracy. Once the Newton-Raphson iteration has converged, the volumetric storage change is computed explicitly from the converged cross-sectional areas to close the reach water budget.
 
 The net lateral source per unit length, $q_L$ ($L^2 T^{-1}$), combines all per-reach inflow and loss terms
 
@@ -131,11 +127,7 @@ The net lateral source per unit length, $q_L$ ($L^2 T^{-1}$), combines all per-r
 
 \noindent where $q_r$ is direct precipitation onto the reach ($L^3 T^{-1}$), $q_{ro}$ is overland runoff into the reach ($L^3 T^{-1}$), $q_e$ is evaporation from the reach ($L^3 T^{-1}$), and $q_{gwf}$ is the groundwater exchange flux ($L^3 T^{-1}$, positive out of the stream). Dividing by $\Delta x$ converts these volumetric fluxes to the per-unit-length form required by equation~\ref{eqn:sfr-continuity}. All terms are evaluated at the current Picard iteration.
 
-\subsubsection{Temporal Weighting}
-
 The temporal weighting parameter $\theta$ defaults to 1.0 (fully implicit) and may be adjusted using the developer option \texttt{DEV\_STORAGE\_WEIGHT}. Values of $\theta$ between 0.5 and 1.0 are accepted; values less than 0.5 are not permitted because they can produce unstable solutions. A value of $\theta = 1.0$ provides maximum numerical stability at the cost of first-order temporal accuracy and is strongly recommended for all practical applications. When $\theta = 0.5$, equation~\ref{eqn:sfr-mf6-residual} becomes the Crank-Nicolson scheme \citep{CrankNicolson1947}, which is second-order accurate in time but may exhibit oscillations when $C_r < 1$ and the spatial discretization is coarse. The Courant number is evaluated at each reach and time step using the celerity estimated from the effective upstream inflow---the upstream discharge $Q_U^n$ adjusted for lateral contributions and groundwater exchange (eq.~\ref{eqn:sfr-courant}).
-
-\subsubsection{Residual Function}
 
 The finite-difference residual for each reach is evaluated at each Newton-Raphson iteration $k$ as
 
@@ -155,8 +147,6 @@ The finite-difference residual for each reach is evaluated at each Newton-Raphso
 \end{equation}
 
 \noindent where $A_D^{n,k}$ is the wet cross-sectional area at the downstream end corresponding to $Q_D^{n,k}$, evaluated by inverting Manning's equation (eq.~\ref{eqn:sfr-manning}).
-
-\subsubsection{Newton-Raphson Update}
 
 Because the area $A_D^{n,k}$ depends nonlinearly on $Q_D^{n,k}$, equation~\ref{eqn:sfr-mf6-residual} is nonlinear and is solved with Newton-Raphson iteration, starting from the initial guess $Q_D^{n,0} = Q_D^{n-1}$ (the downstream discharge from the previous time step); when $Q_D^{n-1} = 0$---for example, at the start of a transient simulation or after a reach has gone dry---the initial guess is taken as $\tfrac{1}{2}(Q_U^n + Q_U^{n-1})$ instead. The derivative $f'$ is approximated by a forward finite difference using a small discharge perturbation $\delta$
 
@@ -183,8 +173,6 @@ Because the area $A_D^{n,k}$ depends nonlinearly on $Q_D^{n,k}$, equation~\ref{e
 
 \noindent or until the maximum of 100 Newton-Raphson iterations is reached. The perturbation $\delta$ is set to $0.999 \times \texttt{MAXIMUM\_DEPTH\_CHANGE}$ and is used for the numerical celerity estimate (eq.~\ref{eqn:sfr-celerity-num}), the numerical derivative (eq.~\ref{eqn:sfr-mf6-deriv}), and the Newton-Raphson convergence test. The Picard depth-change tolerance equals \texttt{MAXIMUM\_DEPTH\_CHANGE} directly. Both are governed by the same input parameter.
 
-\subsubsection{Reach Storage Change}
-
 After Newton-Raphson convergence, the volumetric storage change $\Delta S$ ($L^3 T^{-1}$) for the reach water budget is computed from equations~\ref{eqn:sfr-storage-low-cr} and \ref{eqn:sfr-storage-high-cr} using the converged areas
 
 \begin{equation}
@@ -198,35 +186,113 @@ After Newton-Raphson convergence, the volumetric storage change $\Delta S$ ($L^3
 	\end{dcases} .
 \end{equation}
 
+\subsubsection{TVD Kinematic-Wave Routing}
+\label{sec:sfr-tvd}
+
+An alternative explicit routing scheme based on a Total Variation Diminishing (TVD) finite-volume discretization is activated by specifying the \texttt{ATS\_COURANT} parameter in the OPTIONS block of the SFR Package. The TVD scheme replaces the Newton-Raphson iteration of the standard kinematic-wave scheme with a direct, one-step volume balance that guarantees exact mass conservation at every reach and every time step, independent of convergence tolerance \citep{Harten1983, LeVeque2002}. The standard scheme closes the budget to within the Newton-Raphson convergence tolerance, which is negligible for the default \texttt{MAXIMUM\_DEPTH\_CHANGE} $= 10^{-5}$~m but can become measurable on steep wave fronts or during dry-reach transitions.
+
+The TVD scheme is most appropriate when exact mass conservation is required---for example, when simulated streamflow will be used as input to a solute transport model. Because the explicit TVD formulation is conditionally stable only for $C_r \le 1$, targeting $C_r \approx 1$ fixes the time step at approximately $\Delta t \approx \Delta x / c$. For typical reach lengths and flow conditions this implies sub-daily time steps (e.g., $\Delta t \approx$ 400--1,000~s for 500-m reaches at moderate base flows), which may be substantially shorter than the time steps used in the groundwater model. The standard kinematic-wave scheme is sufficient for most stream-routing applications and accommodates Courant numbers from about 0.5 to 2 without such strict time-step constraints.
+
+\paragraph{TVD Scheme Formulation}
+
+The TVD scheme bypasses iterative residual-solving for the continuity equation by advancing the reach state directly through an explicit volume balance. At each time step the scheme operates as follows.
+
+\textit{Step 1 --- First-order upwind flux.}
+The outflow flux at the previous time level is estimated from Manning's equation (eq.~\ref{eqn:sfr-manning}) evaluated at the stored reach depth $d^{n-1}$
+
+\begin{equation}
+  \label{eqn:sfr-tvd-upwind}
+  q_\mathrm{out}^{n-1} = Q_\mathrm{Manning}\!\left(d^{n-1}\right) .
+\end{equation}
+
+\noindent Using the stored depth rather than a previous-step discharge variable ensures that the upwind flux reflects the actual water volume in the reach, which is critical for correct dry-reach wetting behavior.
+
+\textit{Step 2 --- Van Leer anti-diffusion correction.}
+When a reach has a single identified upstream neighbor (index $i_\mathrm{up}$), a second-order Lax-Wendroff correction is applied and bounded by the van Leer flux limiter \citep{vanLeer1974}
+
+\begin{equation}
+  \label{eqn:sfr-tvd-vanleer}
+  q_\mathrm{TVD} = q_\mathrm{out}^{n-1}
+    + \frac{1}{2}(1 - C_r)\,\phi(r)\,\Delta q_\mathrm{loc} ,
+\end{equation}
+
+\noindent where $\Delta q_\mathrm{loc} = q_\mathrm{out}^{n-1} - q_{U}^{n-1}$ is the local flow gradient, $\Delta q_\mathrm{up} = q_{U}^{n-1} - q_{U_2}^{n-1}$ is the upstream flow gradient ($q_{U}^{n-1}$ and $q_{U_2}^{n-1}$ are the inflows from the immediate and second upstream reaches), $r = \Delta q_\mathrm{up} / \Delta q_\mathrm{loc}$ is the ratio of upstream to local gradient, and $\phi(r)$ is the van Leer flux limiter
+
+\begin{equation}
+  \label{eqn:sfr-tvd-limiter}
+  \phi(r) = \frac{r + |r|}{1 + |r|} .
+\end{equation}
+
+\noindent The limiter satisfies the TVD condition \citep{Sweby1984}: $\phi(r) = 0$ when $r \le 0$ (flow reversal), recovering first-order upwind; $\phi(r) \to 2$ as $r \to \infty$ (smooth flow), approaching the full Lax-Wendroff correction; and $0 \le \phi(r) \le 2$ for all $r$, guaranteeing monotonicity. Headwater reaches and reaches at confluences with multiple upstream neighbors use the first-order upwind flux ($q_\mathrm{TVD} = q_\mathrm{out}^{n-1}$) because the flow-gradient ratio $r$ cannot be formed.
+
+\textit{Step 3 --- Direct volume balance.}
+The new stored volume is computed from a simple mass balance
+
+\begin{equation}
+  \label{eqn:sfr-tvd-volbal}
+  V^n = A^{n-1}\,\Delta x + \Delta t\!\left(Q_\mathrm{in}^n + q_\mathrm{lat} - q_\mathrm{gwf} - q_\mathrm{TVD}\right) ,
+\end{equation}
+
+\noindent where $A^{n-1}$ is the wet cross-sectional area at the start of the step, $Q_\mathrm{in}^n$ is the total inflow at the current time, and $q_\mathrm{lat}$ and $q_\mathrm{gwf}$ are the net lateral and groundwater-exchange fluxes. If $V^n < 0$, the outflow is reduced to the available water ($q_\mathrm{TVD} \gets Q_\mathrm{in}^n + q_\mathrm{lat} - q_\mathrm{gwf} + A^{n-1}\Delta x / \Delta t$, $V^n \gets 0$). The new depth $d^n$ is recovered by inverting the cross-sectional area--depth relationship, which is explicit for simple cross-sections (e.g., rectangular) and solved by Newton-Raphson for general shapes.
+
+\textit{Exact budget closure.}
+The storage contribution to the reach water budget is
+
+\begin{equation}
+  \label{eqn:sfr-tvd-storage}
+  \Delta S = \frac{A^{n-1} - A^n}{\Delta t}\,\Delta x ,
+\end{equation}
+
+\noindent where $A^n = V^n / \Delta x$. Substituting equation~\ref{eqn:sfr-tvd-volbal} into equation~\ref{eqn:sfr-tvd-storage} gives $\Delta S = q_\mathrm{TVD} - Q_\mathrm{in}^n - q_\mathrm{lat} + q_\mathrm{gwf}$, so that the budget
+
+\begin{equation}
+  Q_\mathrm{in}^n + q_\mathrm{lat} - q_\mathrm{TVD} - q_\mathrm{gwf} + \Delta S = 0
+\end{equation}
+
+\noindent holds identically. No iterative convergence is required: the percent discrepancy in the SFR water budget is zero to machine precision at every reach and every time step, regardless of the choice of \texttt{MAXIMUM\_DEPTH\_CHANGE}.
+
+\paragraph{Courant Number and ATS Time Stepping}
+
+The \texttt{ATS\_COURANT} value sets the target Courant number for the Adaptive Time Stepping (ATS) module in \mf. At the start of each time step, the SFR Package estimates the Courant number from the kinematic wave celerity (eq.~\ref{eqn:sfr-courant}) and submits a recommended time step $\Delta t = C_r^\mathrm{target}\,\Delta x / c$ to the ATS controller. The controller may select a shorter step if other packages or the outer nonlinear solver impose tighter constraints; the TVD scheme then uses whatever step the ATS controller provides and delegates to the standard Newton-Raphson solver when the resulting Courant number exceeds unity. Setting \texttt{ATS\_COURANT} = 1 targets $C_r = 1$, which minimizes both numerical diffusion and the van Leer anti-diffusion correction; smaller values are appropriate when the hydrograph must be resolved more finely in time.
+
+At the end of each simulation, a \texttt{COURANT NUMBER FOR EACH REACH} table is written to the GWF model listing file when \texttt{ATS\_COURANT} is specified. The table reports the minimum, maximum, and time-averaged Courant number for every reach, providing a direct check on whether the ATS-controlled time steps kept $C_r$ within the intended range.
+
+\paragraph{Applicability and Limitations}
+
+The TVD scheme shares the same applicability conditions as the standard kinematic-wave scheme (see \nameref{sec:sfr-time-step} and the Applicability Conditions section below). Additional considerations specific to the TVD formulation are as follows.
+
+\begin{itemize}
+
+  \item \textit{Van Leer correction requires a single upstream neighbor.} The anti-diffusion correction (eq.~\ref{eqn:sfr-tvd-vanleer}) is applied only to reaches that receive inflow from exactly one upstream reach; headwater reaches and reaches at confluences fall back to first-order upwind. Networks with many confluences will therefore realize less benefit from the van Leer correction than simple, branching networks.
+
+  \item \textit{Explicit stability.} The TVD scheme is explicit and conditionally stable. When $C_r > 1$, the scheme automatically delegates to the implicit Newton-Raphson solver, so occasional Courant exceedances (e.g., during high-flow events) are handled gracefully. Sustained $C_r \gg 1$ will cause frequent delegation and may degrade solution quality; the ATS controller should be tuned to keep $C_r$ below unity for most steps.
+
+  \item \textit{Groundwater exchange.} Stream-aquifer exchange introduces an implicit coupling that the TVD scheme resolves with a Picard outer loop (identical to the standard scheme). For reaches with strong groundwater exchange, the number of Picard iterations may be larger than for the uncoupled case.
+
+\end{itemize}
+
 \subsection{Example: Effect of Courant Number on Downstream Hydrograph}
 
-The accuracy of the \mf finite-difference scheme (eq.~\ref{eqn:sfr-mf6-residual}) is illustrated by comparing the computed downstream hydrograph against the exact kinematic-wave solution for a single rectangular reach with a sinusoidal upstream boundary condition.
+The accuracy of the \mf finite-difference scheme (eq.~\ref{eqn:sfr-mf6-residual}) is illustrated by comparing the computed downstream hydrograph against the exact kinematic-wave solution for a two-reach \mf model with a sinusoidal upstream boundary condition.
 
 \subsubsection{Problem Setup}
 
-The test reach has length $\Delta x = 500$ m, width $B = 10$ m, bed slope $S_0 = 0.001$, and Manning's roughness $n = 0.03$ s$\,$m$^{-1/3}$. No lateral inflow is applied ($q_L = 0$). The upstream boundary hydrograph is
+Each reach has length $\Delta x = 500$ m, width $B = 10$ m, bed slope $S_0 = 0.001$, and Manning's roughness $n = 0.03$ s$\,$m$^{-1/3}$. No lateral inflow is applied ($q_L = 0$). The upstream boundary hydrograph is
 
 \begin{equation}
 	\label{eqn:sfr-example-qin}
 	Q_U(t) = Q_0 \left[ 1 + 0.4 \sin\!\left( \frac{2\pi t}{T_\mathrm{wave}} \right) \right] ,
 \end{equation}
 
-\noindent where the base flow is $Q_0 = 5$ m$^3$s$^{-1}$ and the wave period is $T_\mathrm{wave} = 10$ times the travel time ($T$). The wave celerity at base flow is $c_0 \approx 1.18$ m$\,$s$^{-1}$, giving a travel time of $T = \Delta x / c_0 \approx 423$ s.
+\noindent where the base flow is $Q_0 = 5$ m$^3$s$^{-1}$ and the wave period is $T_\mathrm{wave} = 10$ times the single-reach travel time ($T$). The wave celerity at base flow is $c_0 \approx 1.18$ m$\,$s$^{-1}$, giving a travel time of $T = \Delta x / c_0 \approx 423$ s per reach.
 
 \subsubsection{Exact Solution}
 
-For the linearized kinematic wave with constant celerity and no lateral inflow, the governing equation~\ref{eqn:sfr-continuity} reduces to the pure advection equation
-
-\begin{equation}
-	\label{eqn:sfr-example-advection}
-	\frac{\partial Q}{\partial t} + c_0 \frac{\partial Q}{\partial x} = 0 ,
-\end{equation}
-
-\noindent whose exact solution is a pure translation: the downstream hydrograph equals the upstream hydrograph delayed by the travel time $T$
+For a kinematic wave with constant celerity and no lateral inflow, the exact solution is a pure translation: the downstream hydrograph at the outlet of the two-reach chain equals the upstream hydrograph delayed by two travel times
 
 \begin{equation}
 	\label{eqn:sfr-example-exact}
-	Q_D^\mathrm{exact}(t) = Q_U(t - T) .
+	Q_D^\mathrm{exact}(t) = Q_U(t - 2T) .
 \end{equation}
 
 \subsubsection{Finite-Difference Results}
@@ -236,8 +302,34 @@ The \mf scheme is run at six Courant numbers (0.5, 0.75, 1.0, 1.25, 1.5, and 2.0
 \begin{figure}[!ht]
 	\begin{center}
 	\includegraphics{./Figures/SFRKinematicWave.pdf}
-	\caption[Graphs comparing the MODFLOW~6 kinematic-wave scheme against the exact solution at six Courant numbers for a single rectangular reach]{Graphs comparing the MODFLOW~6 kinematic-wave finite-difference scheme against the exact kinematic-wave solution for a single rectangular reach ($\Delta x = 500$ m, $B = 10$ m, $S_0 = 0.001$, $n = 0.03$ s$\,$m$^{-1/3}$) with a sinusoidal upstream boundary condition (eq.~\ref{eqn:sfr-example-qin}) and no lateral inflow. The base flow is $Q_0 = 5$ m$^3$s$^{-1}$, the temporal weighting parameter is $\theta = 1.0$, and time is normalized by the kinematic-wave travel time $T = \Delta x / c_0 \approx 423$ s. \textit{A}, Courant numbers $C_r \le 1$ (0.5, 0.75, and 1.0) showing increasing numerical diffusion as $C_r$ decreases from unity; \textit{B}, Courant numbers $C_r > 1$ (1.25, 1.5, and 2.0) showing increasing phase and amplitude errors as the time step coarsens}
+	\caption[Graphs comparing the \mf kinematic-wave scheme against the exact solution at six Courant numbers for a two-reach chain]{Graphs comparing the \mf kinematic-wave finite-difference scheme against the exact kinematic-wave solution at the outlet of a two-reach \mf model (each reach: $\Delta x = 500$ m, $B = 10$ m, $S_0 = 0.001$, $n = 0.03$ s$\,$m$^{-1/3}$) with a sinusoidal upstream boundary condition (eq.~\ref{eqn:sfr-example-qin}) and no lateral inflow. The base flow is $Q_0 = 5$ m$^3$s$^{-1}$, the temporal weighting parameter is $\theta = 1.0$, and time is normalized by the single-reach travel time $T = \Delta x / c_0 \approx 423$ s. The exact solution is delayed by two travel times ($2T$). \textit{A}, Courant numbers $C_r \le 1$ (0.5, 0.75, and 1.0) showing increasing numerical diffusion as $C_r$ decreases from unity; \textit{B}, Courant numbers $C_r > 1$ (1.25, 1.5, and 2.0) showing increasing phase and amplitude errors as the time step coarsens}
 	\label{fig:sfr-kinwave}
+	\end{center}
+\end{figure}
+
+\subsubsection{TVD Results}
+
+The numerical diffusion exhibited by the standard scheme at $C_r < 1$ can be substantially reduced by using the TVD scheme (\texttt{ATS\_COURANT}). To activate the van Leer anti-diffusion correction, a two-reach \mf model is used: the upstream reach is driven by the same sinusoidal inflow (eq.~\ref{eqn:sfr-example-qin}), and the TVD scheme routes the hydrograph through the downstream reach, which has a single upstream neighbor. The exact solution for the two-reach downstream end is the upstream hydrograph delayed by two travel times, $Q_D^\mathrm{exact}(t) = Q_U(t - 2T)$.
+
+Figure~\ref{fig:sfr-kinwave-tvd} compares the standard and TVD schemes against the exact solution at $C_r = 0.5$ (panel~\textit{A}) and $C_r = 0.75$ (panel~\textit{B}). At both Courant numbers, the standard scheme diffuses the wave, reducing the peak amplitude and spreading the hydrograph. The TVD scheme, with the van Leer anti-diffusion correction active at the downstream reach, closely tracks the exact solution: the peak amplitude and wave shape are well-recovered even at $C_r = 0.5$, where the standard scheme produces marked attenuation. This demonstrates that the TVD option can provide accurate flood-wave routing at time steps significantly shorter than the optimal $C_r \approx 1$ value required by the standard scheme.
+
+\begin{figure}[!ht]
+	\begin{center}
+	\includegraphics{./Figures/SFRKinematicWaveTVDRouting.pdf}
+	\caption[Graphs comparing the \mf standard kinematic-wave and TVD schemes against the exact solution at Courant numbers of 0.5 and 0.75 for a two-reach chain]{Graphs comparing the \mf standard kinematic-wave scheme ($\theta = 1$) and the TVD scheme against the exact kinematic-wave solution for the downstream reach of a two-reach \mf model. Each reach has $\Delta x = 500$ m, $B = 10$ m, $S_0 = 0.001$, $n = 0.03$ s$\,$m$^{-1/3}$, base flow $Q_0 = 5$ m$^3$s$^{-1}$, and the same sinusoidal upstream inflow (eq.~\ref{eqn:sfr-example-qin}). The exact downstream solution is the upstream hydrograph delayed by two travel times. Time is normalized by the single-reach travel time $T \approx 423$ s. \textit{A}, $C_r = 0.5$; \textit{B}, $C_r = 0.75$. At both Courant numbers the standard scheme attenuates the peak, while the TVD scheme closely matches the exact solution}
+	\label{fig:sfr-kinwave-tvd}
+	\end{center}
+\end{figure}
+
+A key advantage of the TVD scheme is that the SFR package budget closes to machine precision at every time step. The standard scheme derives its storage term from the four-point-weighted kinematic-wave residual, so the computed change in stored volume can differ from the actual reach volume change, producing a non-zero budget percent discrepancy. The TVD scheme instead computes the new-time reach volume directly from the explicit volume balance (eq.~\ref{eqn:sfr-tvd-volbal}), guaranteeing exact closure regardless of Courant number or flow conditions.
+
+Figure~\ref{fig:sfr-kinwave-tvd-budget} quantifies this contrast for the same two-reach simulation. At both $C_r = 0.5$ and $C_r = 0.75$, the TVD scheme produces zero percent discrepancy at every time step. The standard scheme produces discrepancies approaching 1 percent, with the largest errors occurring when the sinusoidal inflow gradient is steepest. These are per-step values; because the Newton-Raphson residual changes sign between the rising and falling limbs of the hydrograph, the per-step errors largely cancel over a complete wave cycle and the cumulative volumetric error remains approximately bounded rather than growing with the number of time steps.
+
+\begin{figure}[!ht]
+	\begin{center}
+	\includegraphics{./Figures/SFRKinematicWaveTVDBudget.pdf}
+	\caption[Graphs comparing the per-step SFR budget percent discrepancy of the standard kinematic-wave and TVD schemes at Courant numbers of 0.5 and 0.75]{Graphs comparing the per-step SFR package budget percent discrepancy of the \mf standard kinematic-wave scheme ($\theta = 1$) and the TVD scheme for the same two-reach \mf model shown in figure~\ref{fig:sfr-kinwave-tvd}. Time is normalized by the single-reach travel time $T \approx 423$ s. The discrepancy axis is logarithmic; TVD values at zero are plotted at the floor of the axis. \textit{A}, $C_r = 0.5$; \textit{B}, $C_r = 0.75$. The TVD scheme closes to machine precision at every step; the standard scheme produces discrepancies approaching 1 percent, with the largest values when the flow gradient is steepest}
+	\label{fig:sfr-kinwave-tvd-budget}
 	\end{center}
 \end{figure}
 
@@ -268,7 +360,9 @@ Figure~\ref{fig:sfr-courant} provides two complementary views of the Courant num
 
 When a model contains reaches with different slopes and geometries, the time step should satisfy $C_r \approx 1$ for the reach with the largest celerity-to-length ratio $c / \Delta x$, because all reaches share the same global time step. Courant numbers between approximately 0.5 and 2 are generally acceptable across the network; values outside this range will introduce progressively greater numerical diffusion or phase error (fig.~\ref{fig:sfr-kinwave}).
 
-At the end of each simulation, \mf writes a Courant number summary table to the GWF model listing file. The table reports the minimum, maximum, and mean $C_r$ computed across all transient time steps for each reach; reaches that carried no flow during any transient stress period are reported as~\texttt{--}. The mean is computed over all time steps in which the reach carried flow (dry time steps are excluded). This table provides a direct check on whether the time step kept $C_r$ within the acceptable range throughout the simulation. Equations~\ref{eqn:sfr-celerity-wide} and \ref{eqn:sfr-courant} and figure~\ref{fig:sfr-courant} remain useful for estimating an appropriate time step before the first run.
+At the end of each simulation, \mf writes a Courant number summary table to the GWF model listing file. The table reports the minimum, maximum, and mean $C_r$ computed across all transient time steps for each reach; reaches that carried no flow during any transient stress period are reported as~\texttt{--}. The mean is computed over all time steps in which the reach carried flow (dry time steps are excluded). This table provides a direct check on whether the time step kept $C_r$ within the acceptable range throughout the simulation. Equations~\ref{eqn:sfr-celerity-wide} and \ref{eqn:sfr-courant} and figure~\ref{fig:sfr-courant} remain useful for estimating an appropriate time step before the first run. Subdividing unusually long reaches into shorter segments, or merging very short adjacent reaches, can help to equalize Courant numbers across the network and allow a longer global time step.
+
+The \texttt{STORAGE} keyword activates kinematic-wave routing for all reaches in the SFR Package. The option applies only during transient stress periods; steady-state stress periods, including those used to establish initial conditions before a transient simulation, use the standard instantaneous-flow SFR formulation regardless of whether \texttt{STORAGE} is specified, so mixed steady-state and transient simulations are handled automatically.
 
 \begin{figure}[!ht]
 	\begin{center}
@@ -317,12 +411,6 @@ Several numerical issues can arise when using the kinematic-wave option:
 
 	\item \textit{Slow convergence with strong groundwater exchange}. The kinematic-wave residual is evaluated within the outer Picard loop that couples stream-aquifer exchange. Reaches with large or rapidly varying leakage fluxes may require more outer iterations to converge. If the model fails to converge within the allowed number of outer iterations, increasing \texttt{OUTER\_MAXIMUM} in the IMS NONLINEAR block or reducing the time step may help.
 
-	\item \textit{Mass-balance drift from discharge flooring}. When the Newton-Raphson update would produce a negligible or negative discharge, the downstream flow is floored at $10^{-30}$~m$^3$\,s$^{-1}$. In reaches that intermittently go dry, repeated flooring can introduce small mass-balance errors. Monitoring the SFR volumetric budget---particularly the storage term---at each time step is recommended to verify that cumulative errors remain small.
+	\item \textit{Mass-balance drift from discharge flooring}. When the Newton-Raphson update would produce a negligible or negative discharge, the downstream flow is floored at $10^{-30}$~m$^3$\,s$^{-1}$. In reaches that intermittently go dry, repeated flooring can introduce small mass-balance errors. Monitoring the SFR volumetric budget---particularly the storage term---at each time step is recommended to verify that cumulative errors remain small. The TVD scheme (section~\ref{sec:sfr-tvd}) eliminates this source of error by computing the new reach volume directly and reducing the outflow to the available water when the reach would otherwise go dry, guaranteeing exact budget closure by construction at every step.
 
 \end{itemize}
-
-\subsubsection{Interaction with the SFR Package}
-
-The \texttt{STORAGE} keyword activates kinematic-wave routing for all reaches in the SFR Package for the duration of a simulation. The option applies only during transient stress periods; steady-state stress periods, including those used to establish initial conditions before a transient simulation, use the standard instantaneous-flow SFR formulation regardless of whether \texttt{STORAGE} is specified, so mixed steady-state and transient simulations are handled automatically.
-
-Because individual reaches in a network can differ markedly in length and slope, the Courant number will vary from reach to reach for a given time step. The Courant number summary table written to the listing file at the end of each simulation (see \nameref{sec:sfr-time-step}) reports the simulation-wide minimum, maximum, and mean $C_r$ for every reach, making it straightforward to identify which reaches have the largest or smallest Courant numbers and whether any reach consistently falls outside the acceptable range. Once the Courant field is understood, the time step can be adjusted to the largest value that keeps $C_r$ within the acceptable range for the most sensitive reaches. Subdividing unusually long reaches into shorter segments, or merging very short adjacent reaches, can help to equalize Courant numbers across the network and allow a longer global time step.
