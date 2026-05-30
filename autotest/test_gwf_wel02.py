@@ -8,14 +8,14 @@ AFR enabled.  Because cell thickness (10 m) differs from the AFR unit length
   Fraction mode: tp = botm + flowred * (top - botm) = 0 + 0.5 * 10 = 5.0 m
   Length  mode:  tp = botm + flowred * 1.0           = 0 + 0.5       = 0.5 m
 
-Each case runs Newton (main workspace) and non-Newton (mf6/ subdirectory).
-The TestFramework's automatic head comparison verifies Newton ≈ non-Newton.
-check_output() additionally verifies that the two AFR modes produce heads on
-opposite sides of a 1.0 m threshold after 4 days of pumping.
+Each case runs Newton (wel02-frac or wel02-len) and non-Newton (wel02-frac/mf6 or
+wel02-len/mf6 subdirectory). The TestFramework's automatic head comparison
+verifies Newton ≈ non-Newton. check_output() additionally verifies that the two AFR
+modes produce heads on opposite sides of a 1.0 m threshold after 4 days of pumping.
 
 Analytical estimates (smoothstep saturation, Euler forward, dt=0.1 d):
-  fraction: full pumping for ~2 d (h: 10→5), then reduced → h(4d) ≈ 1.7 m
-  length:   full pumping for ~3.8 d (h: 10→0.5), then near-zero → h(4d) ≈ 0.1 m
+  fraction: full pumping for ~2 d (h: 10 to 5), then reduced to h(4d) ≈ 1.8 m
+  length:   full pumping for ~3.8 d (h: 10 to 0.5), then near-zero to h(4d) ≈ 0.2 m
 The 1.0 m threshold separates them with > 0.7 m margin on each side.
 """
 
