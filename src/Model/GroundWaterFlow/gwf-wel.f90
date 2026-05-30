@@ -426,7 +426,11 @@ contains
           ! -- calculate derivative for well
           tp = this%dis%top(node)
           bt = this%dis%bot(node)
-          thick = tp - bt
+          if (this%iflowredlen == 0) then
+            thick = tp - bt
+          else
+            thick = DONE
+          end if
           tp = bt + this%flowred * thick
           drterm = sQSaturationDerivative(tp, bt, this%xnew(node))
           drterm = drterm * this%q_mult(i)

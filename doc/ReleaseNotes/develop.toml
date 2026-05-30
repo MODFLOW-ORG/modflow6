@@ -21,6 +21,11 @@ description = "The default values for DENSITY\\_WATER, HEAT\\_CAPACITY\\_WATER, 
 
 [[items]]
 section = "fixes"
+subsection = "stress"
+description = "For the Well (WEL) Package, when AUTO\\_FLOW\\_REDUCE is active and FLOW\\_REDUCTION\\_LENGTH is specified, the Newton-Raphson linearization incorrectly used the cell thickness instead of the unit length (1.0) when computing the turnoff threshold. This produced an incorrect Jacobian term and inconsistent behavior between the standard and Newton formulations. The thickness calculation in the Newton code path now respects the FLOW\\_REDUCTION\\_LENGTH option, consistent with the non-Newton code path."
+
+[[items]]
+section = "fixes"
 subsection = "internal"
 description = "Resolved mass-balance errors in the Central and UTVD numerical schemes caused by inconsistent interpretation of cell-to-interface distances (cl1/cl2)."
 
