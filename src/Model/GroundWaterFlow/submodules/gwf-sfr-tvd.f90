@@ -9,8 +9,9 @@ contains
   !! upwind near flow discontinuities, guaranteeing exact mass conservation.
   !!
   !! The method is activated when ATS_COURANT is specified.  When the
-  !! estimated Courant number exceeds 1, the call is delegated to
-  !! sfr_calc_transient, whose Cr > 1 branch is already mass-conservative.
+  !! estimated Courant number exceeds 1, the van Leer correction is skipped
+  !! and the first-order upwind flux (q_tvd = q_out_old) is used; the direct
+  !! volume balance still guarantees exact budget closure.
   !! Dry reaches (d_old = 0) remain in the TVD path: q_tvd = Q(0) = 0 and
   !! the direct volume balance fills the reach exactly, giving exact closure.
   !!
@@ -83,10 +84,7 @@ contains
   end if
   courant = celerity * delt / this%length(n)
   !
-  ! -- accumulate Courant statistics before any delegation so that the
-  !    listing table reflects the actual Courant number at every step,
-  !    including steps where Cr > 1 and routing is delegated to the
-  !    implicit scheme
+  ! -- accumulate Courant statistics at every step
   if (courant > DZERO) then
     if (courant < this%crmin(n)) this%crmin(n) = courant
     if (courant > this%crmax(n)) this%crmax(n) = courant
@@ -94,26 +92,24 @@ contains
     this%crcnt(n) = this%crcnt(n) + 1
   end if
   !
-  ! -- Cr > 1: delegate to upwind scheme (already mass-conservative)
-  if (courant > DONE) then
-    call this%sfr_calc_transient(n, d1, hgwf, qu, qi, qfrommvr, &
-                                 qr, qe, qro, qgwf, qd)
-    return
-  end if
-  !
-  ! -- TVD outflow flux: first-order upwind + van Leer limiter correction
+  ! -- TVD outflow flux: first-order upwind + van Leer limiter correction.
+  ! -- Van Leer correction is only applied for Cr <= 1; for Cr > 1 the
+  ! -- first-order upwind flux (q_tvd = q_out_old) is used so that the
+  ! -- direct volume balance below always closes the budget exactly.
   q_tvd = q_out_old
-  iup = this%itvd_upstream(n)
-  if (iup > 0) then
-    q_in2_old = this%usinflowold(iup)
-    dq_loc = q_out_old - q_in_old
-    dq_up = q_in_old - q_in2_old
-    if (abs(dq_loc) > DEM30) then
-      r = dq_up / dq_loc
-      ! -- van Leer limiter: phi(r) = (r + |r|) / (1 + |r|)
-      phi = (r + abs(r)) / (DONE + abs(r))
-      ! -- Lax-Wendroff anti-diffusion correction bounded by limiter
-      q_tvd = q_out_old + DHALF * (DONE - courant) * phi * dq_loc
+  if (courant <= DONE) then
+    iup = this%itvd_upstream(n)
+    if (iup > 0) then
+      q_in2_old = this%usinflowold(iup)
+      dq_loc = q_out_old - q_in_old
+      dq_up = q_in_old - q_in2_old
+      if (abs(dq_loc) > DEM30) then
+        r = dq_up / dq_loc
+        ! -- van Leer limiter: phi(r) = (r + |r|) / (1 + |r|)
+        phi = (r + abs(r)) / (DONE + abs(r))
+        ! -- Lax-Wendroff anti-diffusion correction bounded by limiter
+        q_tvd = q_out_old + DHALF * (DONE - courant) * phi * dq_loc
+      end if
     end if
   end if
   !

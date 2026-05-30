@@ -39,7 +39,40 @@ _nsteps_hyd = len(_flows)
 
 # Channel parameters
 _dx = 7200.0
-_roughness = 0.03574737676661647  # Cr ~ 1 at dt=3600 s, Q=150 m3/s
+_B = 10.0
+_slope = 1.0 / _dx
+# Roughness giving Cr = 1 at peak inflow using MODFLOW 6's simplified P=B
+# formula (rh = depth, not B*d/(B+2*d)).
+# From Cr=1: K^(3/5) * Q_peak^(2/5) = (3/5)*B*(dx/dt),  K = (1/n)*B*sqrt(S)
+_roughness = (
+    _B
+    * _slope**0.5
+    / (((3.0 / 5) * _B * _dx / _dt_hyd / max(_flows) ** (2.0 / 5)) ** (5.0 / 3))
+)
+
+
+def _q_from_depth(d):
+    """Manning's flow using MODFLOW 6's P=B formula (rh = depth)."""
+    if d <= 0.0:
+        return 0.0
+    return (1.0 / _roughness) * _B * d ** (5.0 / 3.0) * _slope**0.5
+
+
+def _depth_from_q(Q):
+    """Invert Manning's equation by bisection for a rectangular channel."""
+    if Q <= 0.0:
+        return 0.0
+    hi = 1.0
+    while _q_from_depth(hi) < Q:
+        hi *= 2.0
+    lo = 0.0
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        if _q_from_depth(mid) < Q:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
 
 
 def _build_one(name, dt, use_tvd, test):
@@ -78,10 +111,9 @@ def _build_one(name, dt, use_tvd, test):
     flopy.mf6.ModflowGwfsto(gwf, iconvert=1, ss=1e-6, sy=0.2, transient={0: True})
     flopy.mf6.ModflowGwfoc(gwf, printrecord=[("budget", "all")])
 
-    slope = 1.0 / _dx
-    pak_data = [
-        (0, -1, -1, -1, _dx, 10.0, slope, 20.0, 1.0, 0.0, _roughness, 0, 0.0, 0)
-    ]
+    rtp = 20.0
+    d0 = _depth_from_q(_flows[0])
+    pak_data = [(0, -1, -1, -1, _dx, _B, _slope, rtp, 1.0, 0.0, _roughness, 0, 0.0, 0)]
 
     sfr_kwargs = dict(
         print_flows=True,
@@ -90,6 +122,7 @@ def _build_one(name, dt, use_tvd, test):
         packagedata=pak_data,
         connectiondata=[(0,)],
         perioddata={i: [(0, "inflow", float(q))] for i, q in enumerate(_flows)},
+        initialstages=[(0, rtp + d0)],
         pname="sfr-1",
     )
     if use_tvd:
