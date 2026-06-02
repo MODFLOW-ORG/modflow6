@@ -13,6 +13,7 @@ module PrtFmiInputModule
 
   type PrtFmiParamFoundType
     logical :: save_flows = .false.
+    logical :: backward = .false.
     logical :: flowtype = .false.
     logical :: filein = .false.
     logical :: fname = .false.
@@ -37,6 +38,25 @@ module PrtFmiInputModule
     'KEYWORD', & ! type
     '', & ! shape
     'save cell-by-cell flows to budget file', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    prtfmi_backward = InputParamDefinitionType &
+    ( &
+    'PRT', & ! component
+    'FMI', & ! subcomponent
+    'OPTIONS', & ! block
+    'BACKWARD', & ! tag name
+    'BACKWARD', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'backward tracking', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -106,6 +126,7 @@ module PrtFmiInputModule
     prt_fmi_param_definitions(*) = &
     [ &
     prtfmi_save_flows, &
+    prtfmi_backward, &
     prtfmi_flowtype, &
     prtfmi_filein, &
     prtfmi_fname &

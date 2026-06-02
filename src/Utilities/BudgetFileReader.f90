@@ -47,12 +47,13 @@ contains
 
   !< @brief initialize
   !<
-  subroutine initialize(this, iu, iout, ncrbud)
+  subroutine initialize(this, iu, iout, ncrbud, backward)
     ! -- dummy
     class(BudgetFileReaderType) :: this
     integer(I4B), intent(in) :: iu
     integer(I4B), intent(in) :: iout
     integer(I4B), intent(out) :: ncrbud
+    logical(LGP), intent(in), optional :: backward
     ! -- local
     integer(I4B) :: ibudterm
     integer(I4B) :: kstp_last, kper_last
@@ -61,6 +62,8 @@ contains
     !
     this%inunit = iu
     this%nbudterms = 0
+    this%backward = .false.
+    if (present(backward)) this%backward = backward
     ncrbud = 0
     maxaux = 0
     call this%rewind()
@@ -117,6 +120,8 @@ contains
     if (iout > 0) &
       write (iout, '(a, i0, a)') 'Detected ', this%nbudterms, &
       ' unique flow terms in budget file.'
+    !
+    if (this%backward) call this%build_index()
   end subroutine initialize
 
   !< @brief read header only
@@ -197,6 +202,28 @@ contains
       iout_opt = iout
     else
       iout_opt = 0
+    end if
+    !
+    ! Handle indexed backward traversal
+    if (this%indexed .and. this%backward) then
+      ! Move to previous record
+      this%current_index = this%current_index - 1
+      if (this%current_index < 1) then
+        success = .false.
+        this%endoffile = .true.
+        return
+      end if
+      ! Seek to the record position
+      call this%seek_to_index(this%current_index)
+    else if (this%indexed) then
+      ! Forward indexed traversal
+      this%current_index = this%current_index + 1
+      if (this%current_index > this%nrecords) then
+        success = .false.
+        this%endoffile = .true.
+        return
+      end if
+      call this%seek_to_index(this%current_index)
     end if
     !
     call this%read_header(success, iout_opt)
@@ -297,6 +324,17 @@ contains
     allocate (BudgetFileHeaderType :: this%headernext)
     this%header%pos = 1
     this%headernext%pos = 1
+
+    ! Reset index position based on direction
+    if (this%indexed) then
+      if (this%backward) then
+        this%current_index = this%nrecords + 1
+      else
+        this%current_index = 0
+      end if
+    else
+      this%current_index = 0
+    end if
   end subroutine rewind
 
 end module BudgetFileReaderModule

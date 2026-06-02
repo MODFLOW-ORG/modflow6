@@ -31,17 +31,20 @@ contains
 
   !< @brief initialize
   !<
-  subroutine initialize(this, iu, iout)
+  subroutine initialize(this, iu, iout, backward)
     ! -- dummy
     class(HeadFileReaderType) :: this
     integer(I4B), intent(in) :: iu
     integer(I4B), intent(in) :: iout
+    logical(LGP), intent(in), optional :: backward
     ! -- local
     integer(I4B) :: kstp_last, kper_last
     logical :: success
     !
     this%inunit = iu
     this%nlay = 0
+    this%backward = .false.
+    if (present(backward)) this%backward = backward
     call this%rewind()
     !
     ! -- Read the first head data record to set kstp_last, kstp_last
@@ -64,6 +67,8 @@ contains
     if (iout > 0) &
       write (iout, '(a, i0, a)') 'Detected ', this%nlay, &
       ' unique records in binary file.'
+    !
+    if (this%backward) call this%build_index()
   end subroutine initialize
 
   !< @brief read header only
@@ -115,6 +120,28 @@ contains
       iout_opt = iout
     else
       iout_opt = 0
+    end if
+    !
+    ! Handle indexed backward traversal
+    if (this%indexed .and. this%backward) then
+      ! Move to previous record
+      this%current_index = this%current_index - 1
+      if (this%current_index < 1) then
+        success = .false.
+        this%endoffile = .true.
+        return
+      end if
+      ! Seek to the record position
+      call this%seek_to_index(this%current_index)
+    else if (this%indexed) then
+      ! Forward indexed traversal
+      this%current_index = this%current_index + 1
+      if (this%current_index > this%nrecords) then
+        success = .false.
+        this%endoffile = .true.
+        return
+      end if
+      call this%seek_to_index(this%current_index)
     end if
     !
     call this%read_header(success, iout_opt)
@@ -183,6 +210,17 @@ contains
     allocate (HeadFileHeaderType :: this%headernext)
     this%header%pos = 1
     this%headernext%pos = 1
+
+    ! Reset index position based on direction
+    if (this%indexed) then
+      if (this%backward) then
+        this%current_index = this%nrecords + 1
+      else
+        this%current_index = 0
+      end if
+    else
+      this%current_index = 0
+    end if
   end subroutine rewind
 
 end module HeadFileReaderModule

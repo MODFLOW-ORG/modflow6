@@ -605,7 +605,8 @@ contains
     integer(I4B) :: n
     integer(I4B) :: ipos
     integer(I4B) :: nu, nr
-    integer(I4B) :: ip, i
+    integer(I4B) :: ip, i, ii
+    integer(I4B) :: prev_gwf_kper
     logical :: readnext
     ! -- format
     character(len=*), parameter :: fmtkstpkper = &
@@ -627,15 +628,21 @@ contains
     ! -- period with only one time step, reuse that record (do not read a
     ! -- new record) if the running model is still in that same stress period,
     ! -- or if that record is the last one in the budget file.
+    ! -- In backward mode the file is traversed in reverse, so the period
+    ! -- boundary condition is headernext%kper == header%kper - 1.
     readnext = .true.
     if (kstp * kper > 1) then
       if (this%bfr%header%kstp == 1) then
         if (this%bfr%endoffile) then
           readnext = .false.
-        else if (this%bfr%headernext%kper == kper + 1) then
+        else if (.not. this%bfr%backward .and. &
+                 this%bfr%headernext%kper == kper + 1) then
+          readnext = .false.
+        else if (this%bfr%backward .and. kstp > 1 .and. &
+                 this%bfr%headernext%kper == this%bfr%header%kper - 1) then
           readnext = .false.
         end if
-      else if (this%bfr%endoffile) then
+      else if (this%bfr%endoffile .and. .not. this%bfr%backward) then
         write (errmsg, '(4x,a)') 'REACHED END OF GWF BUDGET &
           &FILE BEFORE READING SUFFICIENT BUDGET INFORMATION FOR THIS &
           &GWT SIMULATION.'
@@ -650,6 +657,9 @@ contains
       ! -- Write the current time step and stress period
       write (this%iout, fmtkstpkper) kstp, kper
       !
+      ! -- Save GWF kper before reading to verify backward progression
+      prev_gwf_kper = this%bfr%header%kper
+      !
       ! -- loop through the budget terms for this stress period
       !    i is the counter for gwf flow packages
       ip = 1
@@ -661,18 +671,25 @@ contains
           call store_error_unit(this%iubud)
         end if
         !
-        ! -- Ensure kper is same between model and budget file
-        if (kper /= this%bfr%header%kper) then
-          write (errmsg, fmtbadtdis)
-          call store_error(errmsg)
-          call store_error_unit(this%iubud)
-        end if
-        !
-        ! -- if budget file kstp > 1, then kstp must match
-        if (this%bfr%header%kstp > 1 .and. (kstp /= this%bfr%header%kstp)) then
-          write (errmsg, fmtbadtdis)
-          call store_error(errmsg)
-          call store_error_unit(this%iubud)
+        ! -- Forward mode: GWF period and step must match PRT exactly.
+        ! -- Backward mode: GWF period must decrease by one each new PRT period.
+        if (.not. this%bfr%backward) then
+          if (kper /= this%bfr%header%kper) then
+            write (errmsg, fmtbadtdis)
+            call store_error(errmsg)
+            call store_error_unit(this%iubud)
+          end if
+          if (this%bfr%header%kstp > 1 .and. (kstp /= this%bfr%header%kstp)) then
+            write (errmsg, fmtbadtdis)
+            call store_error(errmsg)
+            call store_error_unit(this%iubud)
+          end if
+        else if (kper > 1) then
+          if (this%bfr%header%kper /= prev_gwf_kper - 1) then
+            write (errmsg, fmtbadtdis)
+            call store_error(errmsg)
+            call store_error_unit(this%iubud)
+          end if
         end if
         !
         ! -- parse based on the type of data, and compress all user node
@@ -716,28 +733,46 @@ contains
               this%gwfstrgsy(nr) = this%bfr%flow(nu)
             end do
           case default
-            call this%gwfpackages(ip)%copy_values( &
-              h%nlist, &
-              this%bfr%nodesrc, &
-              this%bfr%flow, &
-              this%bfr%auxvar)
-            do i = 1, this%gwfpackages(ip)%nbound
-              nu = this%gwfpackages(ip)%nodelist(i)
-              nr = this%dis%get_nodenumber(nu, 0)
-              this%gwfpackages(ip)%nodelist(i) = nr
+            ! Match by package name and budget text
+            do ii = 1, this%nflowpack
+              if (trim(adjustl(this%gwfpackages(ii)%name)) == &
+                  trim(adjustl(h%dstpackagename)) .and. &
+                  trim(adjustl(this%gwfpackages(ii)%budtxt)) == &
+                  trim(adjustl(h%budtxt))) then
+                call this%gwfpackages(ii)%copy_values( &
+                  h%nlist, &
+                  this%bfr%nodesrc, &
+                  this%bfr%flow, &
+                  this%bfr%auxvar)
+                do i = 1, this%gwfpackages(ii)%nbound
+                  nu = this%gwfpackages(ii)%nodelist(i)
+                  nr = this%dis%get_nodenumber(nu, 0)
+                  this%gwfpackages(ii)%nodelist(i) = nr
+                end do
+                exit
+              end if
             end do
             ip = ip + 1
           end select
         end select
       end do
 
-      ! If this is the final time step, make sure no records
-      ! for this period are being skipped in the budget file.
+      ! If this is the final time step, make sure no records for this
+      ! period are being skipped. In forward mode the current period is
+      ! kper; in backward mode it is the GWF period just read (header%kper).
       if (endofsimulation .and. .not. this%bfr%endoffile) then
-        if (this%bfr%headernext%kper == kper) then
-          write (errmsg, fmtbadtdis)
-          call store_error(errmsg)
-          call store_error_unit(this%iubud)
+        if (.not. this%bfr%backward) then
+          if (this%bfr%headernext%kper == kper) then
+            write (errmsg, fmtbadtdis)
+            call store_error(errmsg)
+            call store_error_unit(this%iubud)
+          end if
+        else
+          if (this%bfr%headernext%kper == this%bfr%header%kper) then
+            write (errmsg, fmtbadtdis)
+            call store_error(errmsg)
+            call store_error_unit(this%iubud)
+          end if
         end if
       end if
     else
@@ -768,10 +803,11 @@ contains
   !> @brief Advance the head file reader
   subroutine advance_hfr(this)
     ! modules
-    use TdisModule, only: kstp, kper
+    use TdisModule, only: kstp, kper, endofsimulation
     class(FlowModelInterfaceType) :: this
     integer(I4B) :: nu, nr, i, ilay
     integer(I4B) :: ncpl
+    integer(I4B) :: prev_gwf_kper
     real(DP) :: val
     logical :: readnext
     logical :: success
@@ -781,23 +817,35 @@ contains
     character(len=*), parameter :: fmthdskstpkper = &
       "(1x,/1x, 'FMI SETTING HEAD FOR KSTP ', i0, ' AND KPER ',        &
       &i0, ' TO BINARY FILE HEADS FROM KSTP ', i0, ' AND KPER ', i0)"
+    character(len=*), parameter :: fmtbadtdis = &
+      "(4x, 'TIME DISCRETIZATION IN HEAD FILE &
+      &IS INCOMPATIBLE WITH TIME DISCRETIZATION IN COUPLED MODEL. &
+      &IF THERE IS MORE THAN ONE TIME STEP IN THE HEAD FILE FOR A &
+      &GIVEN STRESS PERIOD, HEAD FILE TIME STEPS MUST MATCH THE &
+      &COUPLED MODEL TIME STEPS ONE-FOR-ONE IN THAT STRESS PERIOD.')"
     !
     ! -- If the latest record read from the head file is from a stress
     ! -- period with only one time step, reuse that record (do not read a
     ! -- new record) if the running model is still in that same stress period,
     ! -- or if that record is the last one in the head file.
+    ! -- In backward mode the file is traversed in reverse, so the period
+    ! -- boundary condition is headernext%kper == header%kper - 1.
     readnext = .true.
     if (kstp * kper > 1) then
       if (this%hfr%header%kstp == 1) then
         if (this%hfr%endoffile) then
           readnext = .false.
-        else if (this%hfr%headernext%kper == kper + 1) then
+        else if (.not. this%hfr%backward .and. &
+                 this%hfr%headernext%kper == kper + 1) then
+          readnext = .false.
+        else if (this%hfr%backward .and. kstp > 1 .and. &
+                 this%hfr%headernext%kper == this%hfr%header%kper - 1) then
           readnext = .false.
         end if
-      else if (this%hfr%endoffile) then
+      else if (this%hfr%endoffile .and. .not. this%hfr%backward) then
         write (errmsg, '(4x,a)') 'REACHED END OF GWF HEAD &
           &FILE BEFORE READING SUFFICIENT HEAD INFORMATION FOR THIS &
-          &GWT SIMULATION.'
+          &SIMULATION.'
         call store_error(errmsg)
         call store_error_unit(this%iuhds)
       end if
@@ -808,6 +856,9 @@ contains
       !
       ! -- write to list file that heads are being read
       write (this%iout, fmtkstpkper) kstp, kper
+      !
+      ! -- Save GWF kper before reading to verify backward progression
+      prev_gwf_kper = this%hfr%header%kper
       !
       ! -- loop through the layered heads for this time step
       do ilay = 1, this%hfr%nlay
@@ -820,26 +871,25 @@ contains
           call store_error_unit(this%iuhds)
         end if
         !
-        ! -- Ensure kper is same between model and head file
-        if (kper /= this%hfr%header%kper) then
-          write (errmsg, '(4x,a)') 'PERIOD NUMBER IN HEAD FILE &
-            &DOES NOT MATCH PERIOD NUMBER IN TRANSPORT MODEL.  IF THERE &
-           &IS MORE THAN ONE TIME STEP IN THE HEAD FILE FOR A GIVEN STRESS &
-            &PERIOD, HEAD FILE TIME STEPS MUST MATCH GWT MODEL TIME STEPS &
-            &ONE-FOR-ONE IN THAT STRESS PERIOD.'
-          call store_error(errmsg)
-          call store_error_unit(this%iuhds)
-        end if
-        !
-        ! -- if head file kstp > 1, then kstp must match
-        if (this%hfr%header%kstp > 1 .and. (kstp /= this%hfr%header%kstp)) then
-          write (errmsg, '(4x,a)') 'TIME STEP NUMBER IN HEAD FILE &
-            &DOES NOT MATCH TIME STEP NUMBER IN TRANSPORT MODEL.  IF THERE &
-           &IS MORE THAN ONE TIME STEP IN THE HEAD FILE FOR A GIVEN STRESS &
-            &PERIOD, HEAD FILE TIME STEPS MUST MATCH GWT MODEL TIME STEPS &
-            &ONE-FOR-ONE IN THAT STRESS PERIOD.'
-          call store_error(errmsg)
-          call store_error_unit(this%iuhds)
+        ! -- Forward mode: GWF period and step must match PRT exactly.
+        ! -- Backward mode: GWF period must decrease by one each new PRT period.
+        if (.not. this%hfr%backward) then
+          if (kper /= this%hfr%header%kper) then
+            write (errmsg, fmtbadtdis)
+            call store_error(errmsg)
+            call store_error_unit(this%iuhds)
+          end if
+          if (this%hfr%header%kstp > 1 .and. (kstp /= this%hfr%header%kstp)) then
+            write (errmsg, fmtbadtdis)
+            call store_error(errmsg)
+            call store_error_unit(this%iuhds)
+          end if
+        else if (kper > 1) then
+          if (this%hfr%header%kper /= prev_gwf_kper - 1) then
+            write (errmsg, fmtbadtdis)
+            call store_error(errmsg)
+            call store_error_unit(this%iuhds)
+          end if
         end if
         !
         ! -- fill the head array for this layer and
@@ -852,6 +902,25 @@ contains
           if (nr > 0) this%gwfhead(nr) = val
         end do
       end do
+
+      ! If this is the final time step, make sure no records for this
+      ! period are being skipped. In forward mode the current period is
+      ! kper; in backward mode it is the GWF period just read (header%kper).
+      if (endofsimulation .and. .not. this%hfr%endoffile) then
+        if (.not. this%hfr%backward) then
+          if (this%hfr%headernext%kper == kper) then
+            write (errmsg, fmtbadtdis)
+            call store_error(errmsg)
+            call store_error_unit(this%iuhds)
+          end if
+        else
+          if (this%hfr%headernext%kper == this%hfr%header%kper) then
+            write (errmsg, fmtbadtdis)
+            call store_error(errmsg)
+            call store_error_unit(this%iuhds)
+          end if
+        end if
+      end if
     else
       write (this%iout, fmthdskstpkper) kstp, kper, &
         this%hfr%header%kstp, this%hfr%header%kper
@@ -1093,5 +1162,4 @@ contains
                        terminate=.TRUE.)
     end if
   end subroutine get_package_index
-
 end module FlowModelInterfaceModule

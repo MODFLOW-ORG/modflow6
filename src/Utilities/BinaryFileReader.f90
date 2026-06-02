@@ -17,9 +17,11 @@ module BinaryFileReaderModule
   type, abstract :: BinaryFileReaderType
     integer(I4B) :: inunit
     integer(I4B) :: nrecords
-    logical(LGP) :: indexed
-    logical(LGP) :: endoffile
-    integer(I4B), allocatable :: record_sizes(:)
+    logical(LGP) :: indexed = .false.
+    logical(LGP) :: endoffile = .false.
+    logical(LGP) :: backward = .false.
+    integer(I4B) :: current_index = 0
+    integer(I4B), allocatable :: record_positions(:)
     class(BinaryFileHeaderType), allocatable :: header
     class(BinaryFileHeaderType), allocatable :: headernext
   contains
@@ -28,6 +30,7 @@ module BinaryFileReaderModule
     procedure :: build_index
     procedure :: peek_record
     procedure :: rewind
+    procedure :: seek_to_index
   end type BinaryFileReaderType
 
   abstract interface
@@ -64,17 +67,17 @@ contains
     str = trim(str)
   end function get_str
 
-  !> @brief Build an index of data sizes in the file
+  !> @brief Build an index of record positions in the file
   subroutine build_index(this)
     class(BinaryFileReaderType), intent(inout) :: this
     ! local
     logical(LGP) :: success
-    integer(I4B) :: pos, record_size
+    integer(I4B) :: i
 
     this%indexed = .false.
     this%nrecords = 0
     call this%rewind()
-    if (allocated(this%record_sizes)) deallocate (this%record_sizes)
+    if (allocated(this%record_positions)) deallocate (this%record_positions)
 
     ! first pass: count
     do
@@ -82,17 +85,25 @@ contains
       if (.not. success) exit
       this%nrecords = this%nrecords + 1
     end do
+
     call this%rewind()
-    allocate (this%record_sizes(this%nrecords))
-    ! second pass: save
+    allocate (this%record_positions(this%nrecords))
+    ! second pass: save positions (read first so header%pos is set by inquire)
+    i = 0
     do
       call this%read_record(success)
-      inquire (this%inunit, pos=pos)
-      record_size = pos - this%header%pos
       if (.not. success) exit
-      this%record_sizes(this%nrecords) = this%header%size + record_size
+      i = i + 1
+      this%record_positions(i) = this%header%pos
     end do
     call this%rewind()
+
+    ! Initialize index position based on direction
+    if (this%backward) then
+      this%current_index = this%nrecords + 1
+    else
+      this%current_index = 0
+    end if
 
     this%indexed = .true.
   end subroutine build_index
@@ -101,16 +112,47 @@ contains
   subroutine peek_record(this)
     class(BinaryFileReaderType), intent(inout) :: this
     ! local
-    integer(I4B) :: iostat
+    integer(I4B) :: iostat, next_idx
 
     if (.not. this%endoffile) then
-      inquire (this%inunit, pos=this%headernext%pos)
-      read (this%inunit, iostat=iostat) this%headernext%kstp, this%headernext%kper
-      if (iostat == 0) then
-        call fseek_stream(this%inunit, -2 * I4B, 1, iostat)
-      else if (iostat < 0) then
-        this%endoffile = .true.
-        if (allocated(this%headernext)) deallocate (this%headernext)
+      if (this%indexed .and. this%backward) then
+        ! Use index for backward peek
+        if (this%backward) then
+          next_idx = this%current_index - 1
+        else
+          next_idx = this%current_index + 1
+        end if
+
+        if (next_idx >= 1 .and. next_idx <= this%nrecords) then
+          ! Seek to next position and read header
+          call fseek_stream( &
+            this%inunit, &
+            this%record_positions(next_idx), &
+            0, iostat)
+          read (this%inunit, iostat=iostat) &
+            this%headernext%kstp, this%headernext%kper
+          ! Seek back to current position
+          if (this%current_index >= 1 .and. &
+              this%current_index <= this%nrecords) then
+            call fseek_stream( &
+              this%inunit, &
+              this%record_positions(this%current_index), &
+              0, iostat)
+          end if
+        else
+          this%endoffile = .true.
+        end if
+      else
+        ! Original forward peek logic
+        inquire (this%inunit, pos=this%headernext%pos)
+        read (this%inunit, iostat=iostat) &
+          this%headernext%kstp, this%headernext%kper
+        if (iostat == 0) then
+          call fseek_stream(this%inunit, -2 * I4B, 1, iostat)
+        else if (iostat < 0) then
+          this%endoffile = .true.
+          if (allocated(this%headernext)) deallocate (this%headernext)
+        end if
       end if
     end if
   end subroutine peek_record
@@ -127,6 +169,41 @@ contains
     this%header%pos = 1
     this%headernext%pos = 1
     this%endoffile = .false.
+
+    ! Reset index position based on direction
+    if (this%indexed) then
+      if (this%backward) then
+        this%current_index = this%nrecords + 1
+      else
+        this%current_index = 0
+      end if
+    else
+      this%current_index = 0
+    end if
   end subroutine rewind
+
+  !> @brief Seek to a specific index position
+  subroutine seek_to_index(this, index)
+    class(BinaryFileReaderType), intent(inout) :: this
+    integer(I4B), intent(in) :: index
+    ! local
+    integer(I4B) :: iostat
+
+    if (.not. this%indexed) then
+      call pstop(1, 'Cannot seek to index in unindexed file')
+    end if
+
+    if (index < 1 .or. index > this%nrecords) then
+      this%endoffile = .true.
+      return
+    end if
+
+    call fseek_stream(this%inunit, this%record_positions(index), 0, iostat)
+    if (iostat /= 0) then
+      call pstop(1, 'Error seeking to index position')
+    end if
+
+    this%current_index = index
+  end subroutine seek_to_index
 
 end module BinaryFileReaderModule
