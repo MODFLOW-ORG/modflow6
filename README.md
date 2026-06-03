@@ -28,7 +28,7 @@ This repository's `develop` branch often contains bug fixes and new features tha
 
 ## Releases
 
-Software distributions for the current and previous official USGS releases are available [here](https://github.com/MODFLOW-ORG/modflow6/releases).  The current release is also available [here](https://water.usgs.gov/water-resources/software/MODFLOW-6/) from the USGS.
+Software distributions for the current and previous official USGS releases are available [here](https://water.usgs.gov/water-resources/software/MODFLOW-6/).  The current release is also available [here](https://github.com/MODFLOW-ORG/modflow6/releases) from the USGS.
 
 ## Examples
 MODFLOW 6 has an extensive suite of example problems that are constructed using the python [FloPy](https://github.com/modflowpy/flopy) package.  These example problems are contained in a separate git repository located [here](https://github.com/MODFLOW-ORG/modflow6-examples).  These examples are included in the official [USGS MODFLOW 6 distribution](https://water.usgs.gov/water-resources/software/MODFLOW-6/), and they are also rendered into online [descriptions](https://modflow6-examples.readthedocs.io/en/master/examples.html) and [jupyter notebooks](https://modflow6-examples.readthedocs.io/en/master/notebook_examples.html).
