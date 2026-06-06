@@ -46,7 +46,7 @@ xugrid = "*"
 xmipy = ">=1.4.0"
 
 [pypi-dependencies]
-modflow-devtools = { version = "==1.8.0", extras = ["test", "dfn", "models"] }
+modflow-devtools = { version = ">=1.9.2, <2", extras = ["test", "dfn", "models"] }
 
 # os-specific dependencies
 [target.win-64.dependencies]

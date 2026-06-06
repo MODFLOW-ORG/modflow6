@@ -329,5 +329,6 @@ else
   test('Version command line test', mf6exe, args : ['-v',])
   test('Compiler command line test', mf6exe, args : ['-c',])
   test('Test installation help', mf6exe, args : ['-h',])
+  test('Spec command line test', mf6exe, args : ['--spec'])
   test('Serial simulation test', mf6exe, workdir : testdir)
 endif

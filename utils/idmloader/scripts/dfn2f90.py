@@ -19,6 +19,37 @@ DEFAULT_DFNS_PATH = Path(__file__).parents[1] / "dfns.txt"
 DFN_PATH = PROJ_ROOT_PATH / "doc" / "mf6io" / "mf6ivar" / "dfn"
 SRC_PATH = PROJ_ROOT_PATH / "src"
 IDM_PATH = SRC_PATH / "Idm"
+# overhead chars for the two write-statement forms used by spec_line
+_WRITE_STD = "    write(output_unit, '(a)') "
+_WRITE_NO_ADV = "    write(output_unit, '(a)', advance='no') "
+_MAX_STD = 132 - len(_WRITE_STD) - 2
+_MAX_NO_ADV = 132 - len(_WRITE_NO_ADV) - 2
+
+
+def _spec_line(s: str) -> str:
+    """Jinja filter: emit Fortran write statement(s) for one DFN text line.
+
+    Short lines produce a single write; long lines are split into
+    advance='no' chunks so generated source lines stay within 132 chars.
+    Single-quotes in content are doubled to form valid Fortran literals.
+    Chunks never split a '' pair: if a slice ends with an odd number of
+    trailing quotes, it is shortened by one character so the split always
+    falls between pairs.
+    """
+    escaped = s.replace("'", "''")
+    if len(escaped) <= _MAX_STD:
+        return f"{_WRITE_STD}'{escaped}'"
+    chunks = []
+    while escaped:
+        chunk = escaped[:_MAX_NO_ADV]
+        n_trailing = len(chunk) - len(chunk.rstrip("'"))
+        if n_trailing % 2 == 1:
+            chunk = escaped[: _MAX_NO_ADV - 1]
+        chunks.append(chunk)
+        escaped = escaped[len(chunk) :]
+    lines = [f"{_WRITE_NO_ADV}'{c}'" for c in chunks]
+    lines.append("    write(output_unit, '(a)') ''")
+    return "\n".join(lines)
 
 
 _BASE_TYPE_MAP = {
@@ -342,7 +373,36 @@ def _get_template_env() -> Environment:
         keep_trailing_newline=True,
     )
     template_env.filters["value"] = Filters.value
+    template_env.filters["spec_line"] = _spec_line
     return template_env
+
+
+def make_spec(outpath: PathLike | None = None, verbose: bool = False) -> None:
+    """Generate DfnSpec.f90, writing to outpath or stdout if outpath is None."""
+    import sys
+    import warnings
+
+    template_env = _get_template_env()
+    template = template_env.get_template("DfnSpec.f90.jinja")
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=".*modflow_devtools.dfns.*experimental.*"
+        )
+        from modflow_devtools.dfns import DfnSpec
+
+        spec = DfnSpec.load(DFN_PATH)
+
+    lines = spec.dumps().splitlines()
+    content = template.render(lines=lines)
+
+    if outpath is None:
+        sys.stdout.write(content)
+    else:
+        if verbose:
+            print(f"  writing {outpath}")
+        with open(outpath, "w", newline="\n") as f:
+            f.write(content)
 
 
 def make_targets(dfn: DfnFile, outdir: PathLike, verbose: bool = False):
@@ -502,11 +562,25 @@ if __name__ == "__main__":
         default=False,
         help="Whether to show verbose output",
     )
+    parser.add_argument(
+        "--spec",
+        metavar="OUTPUT",
+        nargs="?",
+        const="-",
+        default=None,
+        help="Generate DfnSpec.f90 only, writing to OUTPUT ('-' or omitted: stdout)",
+    )
     args = parser.parse_args()
+    verbose = args.verbose
+
+    if args.spec is not None:
+        outpath = None if args.spec == "-" else Path(args.spec)
+        make_spec(outpath=outpath, verbose=verbose)
+        raise SystemExit(0)
+
     dfn_arg = args.dfn if args.dfn else DEFAULT_DFNS_PATH
     dfn_paths = _expand_dfns(dfn_arg)
     outdir = Path(args.outdir) if args.outdir else Path.cwd()
-    verbose = args.verbose
 
     if verbose:
         print("Generating Fortran source files from DFNs:")

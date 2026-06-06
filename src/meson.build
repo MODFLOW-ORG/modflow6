@@ -1,3 +1,14 @@
+python = find_program('python3', 'python')
+dfn_spec = custom_target('DfnSpec',
+  output: 'DfnSpec.f90',
+  command: [
+    python,
+    meson.project_source_root() / 'utils' / 'idmloader' / 'scripts' / 'dfn2f90.py',
+    '--spec', '@OUTPUT@',
+  ],
+  build_by_default: true,
+)
+
 external_libraries = files(
     'Utilities' / 'Libraries' / 'daglib' / 'dag_module.f90',
     'Utilities' / 'Libraries' / 'rcm' / 'rcm.f90',
@@ -543,6 +554,8 @@ endif
 if with_netcdf
   modflow_sources += modflow_netcdf_sources
 endif
+
+modflow_sources += [dfn_spec]
 
 mf6_external = static_library('mf6_external', external_libraries)
 

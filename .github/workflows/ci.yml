@@ -52,7 +52,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          pixi-version: v0.41.4
+          pixi-version: v0.70.1
 
       - name: Check Fortran source formatting
         run: pixi run check-format
@@ -98,7 +98,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          pixi-version: v0.41.4
+          pixi-version: v0.70.1
 
       - name: Setup MF6
         run: pixi run setup -Dwerror=true builddir
@@ -138,7 +138,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          pixi-version: v0.41.4
+          pixi-version: v0.70.1
 
       - name: Update netcdf-fortran.pc and test-drive
         run: |
@@ -184,7 +184,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          pixi-version: v0.41.4
+          pixi-version: v0.70.1
 
       - name: Setup static MF6
         run: pixi run setup -Dwerror=true -Ddefault_library=static builddir
@@ -261,7 +261,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          pixi-version: v0.41.4
+          pixi-version: v0.70.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -294,6 +294,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: pixi run get-exes
+
+      - name: Sync models
+        working-directory: modflow6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run mf models sync
 
       - name: Test MF6
         working-directory: modflow6
@@ -384,7 +390,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          pixi-version: v0.41.4
+          pixi-version: v0.70.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -488,10 +494,16 @@ jobs:
         run: pixi run update-flopy
 
       - name: Get executables
-        working-directory: modflow6/autotest
+        working-directory: modflow6
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: pixi run get-exes
+
+      - name: Sync models
+      working-directory: modflow6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run mf models sync
 
       - name: Set markers
         id: set_markers
@@ -637,7 +649,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          pixi-version: v0.41.4
+          pixi-version: v0.70.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -680,6 +692,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: pixi run get-exes
+
+      - name: Sync models
+        working-directory: modflow6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run mf models sync
 
       - name: Set markers
         id: set_markers
@@ -780,7 +798,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          pixi-version: v0.41.4
+          pixi-version: v0.70.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install

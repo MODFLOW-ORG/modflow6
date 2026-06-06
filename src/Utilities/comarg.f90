@@ -5,6 +5,8 @@ module CommandArguments
                              MVALIDATE
   use VersionModule, only: VERSION, FULLVERSION, MFVNAM, IDEVELOPMODE, &
                            FMTDISCLAIMER, write_license
+  use DfnSpecModule, only: write_spec
+  use FeatureFlagsModule, only: developmode
   use CompilerVersion
   use SimVariablesModule, only: istdout, isim_level, &
                                 simfile, simlstfile, simstdout, &
@@ -168,6 +170,10 @@ contains
       case ('-LIC', '--LICENSE')
         lstop = .TRUE.
         call write_license()
+      case ('-SPEC', '--SPEC')
+        lstop = .TRUE.
+        call developmode('--spec is a development feature.', istdout)
+        call write_spec()
       case ('-CO', '--COMPILER-OPT')
         lstop = .TRUE.
         call get_compile_options(coptions)
