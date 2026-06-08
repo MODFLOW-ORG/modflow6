@@ -15,7 +15,8 @@
 module WelModule
   ! -- modules used by WelModule methods
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, DEM1, DONE, LENFTYPE, DNODATA, LINELENGTH
+  use ConstantsModule, only: DZERO, DEM1, DONE, LENFTYPE, DNODATA, LINELENGTH, &
+                             LENAUXNAME
   use SimVariablesModule, only: errmsg, warnmsg
   use SimModule, only: store_error, store_error_filename, store_warning
   use MemoryHelperModule, only: create_mem_path
@@ -42,6 +43,7 @@ module WelModule
     real(DP), pointer :: flowred => null() !< AUTO_FLOW_REDUCE variable
     integer(I4B), pointer :: ioutafrcsv => null() !< unit number for CSV output file containing wells with reduced puping rates
     integer(I4B), pointer :: iflowredlen => null() !< flag indicating flowred variable is a length value
+    integer(I4B), pointer :: iauxlengthcol => null() !< column index in auxvar for AUXLENGTHNAME (0 if not active)
   contains
     procedure :: allocate_scalars => wel_allocate_scalars
     procedure :: allocate_arrays => wel_allocate_arrays
@@ -125,6 +127,7 @@ contains
     call mem_deallocate(this%flowred)
     call mem_deallocate(this%ioutafrcsv)
     call mem_deallocate(this%iflowredlen)
+    call mem_deallocate(this%iauxlengthcol)
     call mem_deallocate(this%q, 'Q', this%memoryPath)
   end subroutine wel_da
 
@@ -148,12 +151,14 @@ contains
     call mem_allocate(this%flowred, 'FLOWRED', this%memoryPath)
     call mem_allocate(this%ioutafrcsv, 'IOUTAFRCSV', this%memoryPath)
     call mem_allocate(this%iflowredlen, 'IFLOWREDLEN', this%memoryPath)
+    call mem_allocate(this%iauxlengthcol, 'IAUXLENGTHCOL', this%memoryPath)
     !
     ! -- Set values
     this%iflowred = 0
     this%ioutafrcsv = 0
     this%flowred = DZERO
     this%iflowredlen = 0
+    this%iauxlengthcol = 0
   end subroutine wel_allocate_scalars
 
   !> @ brief Allocate arrays
@@ -195,7 +200,9 @@ contains
     class(WelType), intent(inout) :: this !< WelType object
     ! -- local variables
     character(len=LINELENGTH) :: fname
+    character(len=LENAUXNAME) :: auxlengthname
     type(GwfWelParamFoundType) :: found
+    integer(I4B) :: n
     ! -- formats
     character(len=*), parameter :: fmtflowred = &
       &"(4x, 'AUTOMATIC FLOW REDUCTION OF WELLS IMPLEMENTED.')"
@@ -211,6 +218,8 @@ contains
     call mem_set_value(this%imover, 'MOVER', this%input_mempath, found%mover)
     call mem_set_value(this%iflowredlen, 'IFLOWREDLEN', this%input_mempath, &
                        found%iflowredlen)
+    call mem_set_value(auxlengthname, 'AUXLENGTHNAME', this%input_mempath, &
+                       found%auxlengthname)
 
     if (found%iflowredlen) then
       if (found%flowred .eqv. .FALSE.) then
@@ -245,6 +254,43 @@ contains
 
     if (found%mover) then
       this%imover = 1
+    end if
+
+    if (found%auxlengthname) then
+      if (.not. found%flowred) then
+        write (warnmsg, '(a)') &
+          'AUXLENGTHNAME is specified but AUTO_FLOW_REDUCE is not specified. &
+          &The AUXLENGTHNAME option will be ignored.'
+        call store_warning(warnmsg)
+      end if
+      if (.not. found%iflowredlen) then
+        write (warnmsg, '(a)') &
+          'AUXLENGTHNAME is specified but FLOW_REDUCTION_LENGTH is not &
+          &specified. The AUXLENGTHNAME value will be interpreted as a &
+          &fraction of the cell thickness.'
+        call store_warning(warnmsg)
+      end if
+      if (found%flowred) then
+        if (this%naux == 0) then
+          write (errmsg, '(a,2(1x,a))') &
+            'AUXLENGTHNAME was specified as', trim(adjustl(auxlengthname)), &
+            'but no AUX variables specified.'
+          call store_error(errmsg)
+        end if
+        this%iauxlengthcol = 0
+        do n = 1, this%naux
+          if (auxlengthname == this%auxname(n)) then
+            this%iauxlengthcol = n
+            exit
+          end if
+        end do
+        if (this%iauxlengthcol == 0) then
+          write (errmsg, '(a,2(1x,a))') &
+            'AUXLENGTHNAME was specified as', trim(adjustl(auxlengthname)), &
+            'but no AUX variable found with this name.'
+          call store_error(errmsg)
+        end if
+      end if
     end if
 
     ! -- log WEL specific options
@@ -293,6 +339,11 @@ contains
     if (found%mover) then
       write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
     end if
+
+    if (found%auxlengthname) then
+      write (this%iout, '(4x,A)') &
+        'AUXLENGTHNAME OPTION ENABLED FOR PER-WELL FLOW REDUCTION'
+    end if
     !
     ! -- close logging block
     write (this%iout, '(1x,a)') &
@@ -337,7 +388,11 @@ contains
           else
             thick = DONE
           end if
-          tp = bt + this%flowred * thick
+          if (this%iauxlengthcol > 0) then
+            tp = bt + this%auxvar(this%iauxlengthcol, i) * thick
+          else
+            tp = bt + this%flowred * thick
+          end if
           qmult = sQSaturation(tp, bt, this%xnew(node))
           q = q * qmult
         end if
@@ -431,7 +486,11 @@ contains
           else
             thick = DONE
           end if
-          tp = bt + this%flowred * thick
+          if (this%iauxlengthcol > 0) then
+            tp = bt + this%auxvar(this%iauxlengthcol, i) * thick
+          else
+            tp = bt + this%flowred * thick
+          end if
           drterm = sQSaturationDerivative(tp, bt, this%xnew(node))
           drterm = drterm * this%q_mult(i)
           !--fill amat and rhs with newton-raphson terms

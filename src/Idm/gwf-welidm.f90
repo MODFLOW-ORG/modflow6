@@ -24,6 +24,7 @@ module GwfWelInputModule
     logical :: fileout = .false.
     logical :: afrcsvfile = .false.
     logical :: iflowredlen = .false.
+    logical :: auxlengthname = .false.
     logical :: ts_filerecord = .false.
     logical :: ts6 = .false.
     logical :: filein = .false.
@@ -267,6 +268,26 @@ module GwfWelInputModule
     'KEYWORD', & ! type
     '', & ! shape
     'flow reduction length keyword', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfwel_auxlengthname = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'WEL', & ! subcomponent
+    'OPTIONS', & ! block
+    'AUXLENGTHNAME', & ! tag name
+    'AUXLENGTHNAME', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'name of auxiliary variable for per-well flow reduction '// &
+    'length or fraction', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -537,6 +558,7 @@ module GwfWelInputModule
     gwfwel_fileout, &
     gwfwel_afrcsvfile, &
     gwfwel_iflowredlen, &
+    gwfwel_auxlengthname, &
     gwfwel_ts_filerecord, &
     gwfwel_ts6, &
     gwfwel_filein, &

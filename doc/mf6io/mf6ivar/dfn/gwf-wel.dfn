@@ -121,6 +121,15 @@ description keyword that indicates the AUTO\_FLOW\_REDUCE value is a length inst
 mf6internal iflowredlen
 
 block options
+name auxlengthname
+type string
+shape
+reader urword
+optional true
+longname name of auxiliary variable for per-well flow reduction length or fraction
+description name of a variable listed in AUXILIARY that defines the per-well value used to compute the flow reduction threshold for each well. When FLOW\_REDUCTION\_LENGTH is specified, the auxiliary variable is interpreted as a length; otherwise it is interpreted as a fraction of the cell thickness. When specified, the per-well auxiliary value overrides the global AUTO\_FLOW\_REDUCE value for that well. A warning will be issued if AUXLENGTHNAME is specified but AUTO\_FLOW\_REDUCE is not specified in the OPTIONS block. A warning will be issued if AUXLENGTHNAME is specified but FLOW\_REDUCTION\_LENGTH is not specified in the OPTIONS block. The program will terminate with an error if AUXLENGTHNAME is specified but no AUXILIARY variables are specified, or if the named AUXILIARY variable cannot be found.
+
+block options
 name ts_filerecord
 type record ts6 filein ts6_filename
 shape
