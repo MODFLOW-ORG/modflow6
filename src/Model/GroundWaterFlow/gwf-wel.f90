@@ -43,12 +43,13 @@ module WelModule
     real(DP), pointer :: flowred => null() !< AUTO_FLOW_REDUCE variable
     integer(I4B), pointer :: ioutafrcsv => null() !< unit number for CSV output file containing wells with reduced puping rates
     integer(I4B), pointer :: iflowredlen => null() !< flag indicating flowred variable is a length value
-    integer(I4B), pointer :: iauxlengthcol => null() !< column index in auxvar for AUXLENGTHNAME (0 if not active)
+    integer(I4B), pointer :: iafrauxcol => null() !< column index in auxvar for AUTO_FLOW_REDUCE_AUXNAME (0 if not active)
   contains
     procedure :: allocate_scalars => wel_allocate_scalars
     procedure :: allocate_arrays => wel_allocate_arrays
     procedure :: source_options => wel_options
     procedure :: log_wel_options
+    procedure :: bnd_ck => wel_ck
     procedure :: bnd_cf => wel_cf
     procedure :: bnd_fc => wel_fc
     procedure :: bnd_fn => wel_fn
@@ -127,7 +128,7 @@ contains
     call mem_deallocate(this%flowred)
     call mem_deallocate(this%ioutafrcsv)
     call mem_deallocate(this%iflowredlen)
-    call mem_deallocate(this%iauxlengthcol)
+    call mem_deallocate(this%iafrauxcol)
     call mem_deallocate(this%q, 'Q', this%memoryPath)
   end subroutine wel_da
 
@@ -151,14 +152,14 @@ contains
     call mem_allocate(this%flowred, 'FLOWRED', this%memoryPath)
     call mem_allocate(this%ioutafrcsv, 'IOUTAFRCSV', this%memoryPath)
     call mem_allocate(this%iflowredlen, 'IFLOWREDLEN', this%memoryPath)
-    call mem_allocate(this%iauxlengthcol, 'IAUXLENGTHCOL', this%memoryPath)
+    call mem_allocate(this%iafrauxcol, 'IAFRAUXCOL', this%memoryPath)
     !
     ! -- Set values
     this%iflowred = 0
     this%ioutafrcsv = 0
     this%flowred = DZERO
     this%iflowredlen = 0
-    this%iauxlengthcol = 0
+    this%iafrauxcol = 0
   end subroutine wel_allocate_scalars
 
   !> @ brief Allocate arrays
@@ -200,7 +201,7 @@ contains
     class(WelType), intent(inout) :: this !< WelType object
     ! -- local variables
     character(len=LINELENGTH) :: fname
-    character(len=LENAUXNAME) :: auxlengthname
+    character(len=LENAUXNAME) :: afrauxname
     type(GwfWelParamFoundType) :: found
     integer(I4B) :: n
     ! -- formats
@@ -218,8 +219,8 @@ contains
     call mem_set_value(this%imover, 'MOVER', this%input_mempath, found%mover)
     call mem_set_value(this%iflowredlen, 'IFLOWREDLEN', this%input_mempath, &
                        found%iflowredlen)
-    call mem_set_value(auxlengthname, 'AUXLENGTHNAME', this%input_mempath, &
-                       found%auxlengthname)
+    call mem_set_value(afrauxname, 'AFRAUXNAME', this%input_mempath, &
+                       found%afrauxname)
 
     if (found%iflowredlen) then
       if (found%flowred .eqv. .FALSE.) then
@@ -256,37 +257,38 @@ contains
       this%imover = 1
     end if
 
-    if (found%auxlengthname) then
+    if (found%afrauxname) then
       if (.not. found%flowred) then
         write (warnmsg, '(a)') &
-          'AUXLENGTHNAME is specified but AUTO_FLOW_REDUCE is not specified. &
-          &The AUXLENGTHNAME option will be ignored.'
+          'AUTO_FLOW_REDUCE_AUXNAME is specified but AUTO_FLOW_REDUCE is not &
+          &specified. The AUTO_FLOW_REDUCE_AUXNAME option will be ignored.'
         call store_warning(warnmsg)
       end if
       if (.not. found%iflowredlen) then
         write (warnmsg, '(a)') &
-          'AUXLENGTHNAME is specified but FLOW_REDUCTION_LENGTH is not &
-          &specified. The AUXLENGTHNAME value will be interpreted as a &
-          &fraction of the cell thickness.'
+          'AUTO_FLOW_REDUCE_AUXNAME is specified but FLOW_REDUCTION_LENGTH is &
+          &not specified. The AUTO_FLOW_REDUCE_AUXNAME value will be &
+          &interpreted as a fraction of the cell thickness.'
         call store_warning(warnmsg)
       end if
       if (found%flowred) then
         if (this%naux == 0) then
           write (errmsg, '(a,2(1x,a))') &
-            'AUXLENGTHNAME was specified as', trim(adjustl(auxlengthname)), &
-            'but no AUX variables specified.'
+            'AUTO_FLOW_REDUCE_AUXNAME was specified as', &
+            trim(adjustl(afrauxname)), 'but no AUX variables specified.'
           call store_error(errmsg)
         end if
-        this%iauxlengthcol = 0
+        this%iafrauxcol = 0
         do n = 1, this%naux
-          if (auxlengthname == this%auxname(n)) then
-            this%iauxlengthcol = n
+          if (afrauxname == this%auxname(n)) then
+            this%iafrauxcol = n
             exit
           end if
         end do
-        if (this%iauxlengthcol == 0) then
+        if (this%iafrauxcol == 0) then
           write (errmsg, '(a,2(1x,a))') &
-            'AUXLENGTHNAME was specified as', trim(adjustl(auxlengthname)), &
+            'AUTO_FLOW_REDUCE_AUXNAME was specified as', &
+            trim(adjustl(afrauxname)), &
             'but no AUX variable found with this name.'
           call store_error(errmsg)
         end if
@@ -340,15 +342,83 @@ contains
       write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
     end if
 
-    if (found%auxlengthname) then
+    if (found%afrauxname) then
       write (this%iout, '(4x,A)') &
-        'AUXLENGTHNAME OPTION ENABLED FOR PER-WELL FLOW REDUCTION'
+        'AUTO_FLOW_REDUCE_AUXNAME OPTION ENABLED FOR PER-WELL FLOW REDUCTION'
     end if
     !
     ! -- close logging block
     write (this%iout, '(1x,a)') &
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
   end subroutine log_wel_options
+
+  !> @ brief Check WEL period data.
+    !!
+    !!  Verify that the per-well AUTO_FLOW_REDUCE_AUXNAME auxiliary values are
+    !!  within valid bounds. When FLOW_REDUCTION_LENGTH is not specified the
+    !!  value is interpreted as a fraction of the cell thickness and must be
+    !!  between 0 and 1. When FLOW_REDUCTION_LENGTH is specified the value is
+    !!  interpreted as a length above the cell bottom and must be between 0 and
+    !!  the cell thickness. The check runs each stress period because the
+    !!  auxiliary values may change between periods.
+    !!
+  !<
+  subroutine wel_ck(this)
+    ! -- modules
+    use SimModule, only: count_errors, store_error_unit
+    ! -- dummy variables
+    class(WelType), intent(inout) :: this !< WelType object
+    ! -- local variables
+    character(len=LINELENGTH) :: errmsg
+    integer(I4B) :: i
+    integer(I4B) :: node
+    real(DP) :: afraux
+    real(DP) :: thick
+    ! -- formats
+    character(len=*), parameter :: fmtfracerr = &
+      "('WELL (',i0,') AUTO_FLOW_REDUCE_AUXNAME value (',g0,') must be greater &
+      &than 0 and less than or equal to 1 when FLOW_REDUCTION_LENGTH is not &
+      &specified (it is interpreted as a fraction of the cell thickness).')"
+    character(len=*), parameter :: fmtlenerr = &
+      "('WELL (',i0,') AUTO_FLOW_REDUCE_AUXNAME value (',g0,') must be greater &
+      &than 0 and less than or equal to the cell thickness (',g0,') when &
+      &FLOW_REDUCTION_LENGTH is specified.')"
+    !
+    ! -- nothing to check unless AUTO_FLOW_REDUCE_AUXNAME is active
+    if (this%iflowred == 0 .or. this%iafrauxcol == 0) return
+    !
+    ! -- check the per-well auxiliary flow reduction values. The value must be
+    !    strictly greater than zero: a value of zero places the turnoff
+    !    threshold at the cell bottom, giving a zero-width smoothing interval
+    !    (a divide-by-zero in sQSaturation), consistent with the global
+    !    AUTO_FLOW_REDUCE length-mode check.
+    do i = 1, this%nbound
+      node = this%nodelist(i)
+      if (node == 0) cycle
+      ! -- the reduction is only applied to convertible cells
+      if (this%icelltype(node) == 0) cycle
+      afraux = this%auxvar(this%iafrauxcol, i)
+      if (this%iflowredlen == 0) then
+        ! -- value is a fraction of the cell thickness: valid range (0, 1]
+        if (afraux <= DZERO .or. afraux > DONE) then
+          write (errmsg, fmt=fmtfracerr) i, afraux
+          call store_error(errmsg)
+        end if
+      else
+        ! -- value is a length above the cell bottom: valid range (0, thick]
+        thick = this%dis%top(node) - this%dis%bot(node)
+        if (afraux <= DZERO .or. afraux > thick) then
+          write (errmsg, fmt=fmtlenerr) i, afraux, thick
+          call store_error(errmsg)
+        end if
+      end if
+    end do
+    !
+    ! -- terminate if any errors were detected
+    if (count_errors() > 0) then
+      call store_error_unit(this%inunit)
+    end if
+  end subroutine wel_ck
 
   !> @ brief Formulate the package hcof and rhs terms.
     !!
@@ -388,8 +458,8 @@ contains
           else
             thick = DONE
           end if
-          if (this%iauxlengthcol > 0) then
-            tp = bt + this%auxvar(this%iauxlengthcol, i) * thick
+          if (this%iafrauxcol > 0) then
+            tp = bt + this%auxvar(this%iafrauxcol, i) * thick
           else
             tp = bt + this%flowred * thick
           end if
@@ -486,8 +556,8 @@ contains
           else
             thick = DONE
           end if
-          if (this%iauxlengthcol > 0) then
-            tp = bt + this%auxvar(this%iauxlengthcol, i) * thick
+          if (this%iafrauxcol > 0) then
+            tp = bt + this%auxvar(this%iafrauxcol, i) * thick
           else
             tp = bt + this%flowred * thick
           end if

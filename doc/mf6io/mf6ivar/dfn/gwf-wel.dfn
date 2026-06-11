@@ -62,7 +62,7 @@ type double precision
 reader urword
 optional true
 longname cell fractional thickness for reduced pumping
-description keyword and real value that defines the fraction of the cell thickness used as an interval for smoothly adjusting negative pumping rates to 0 in cells with head values less than or equal to the bottom of the cell. Negative pumping rates are adjusted to 0 or a smaller negative value when the head in the cell is equal to or less than the calculated interval above the cell bottom. AUTO\_FLOW\_REDUCE is set to 0.1 if the specified value is less than or equal to zero. By default, negative pumping rates are not reduced during a simulation.  This AUTO\_FLOW\_REDUCE option only applies to wells in model cells that are marked as ``convertible'' (ICELLTYPE /= 0) in the Node Property Flow (NPF) input file. Reduction in flow will not occur for wells in cells marked as confined (ICELLTYPE = 0).
+description keyword and real value that defines the fraction of the cell thickness used as an interval for smoothly adjusting negative pumping rates to 0 in cells with head values less than or equal to the bottom of the cell. Negative pumping rates are adjusted to 0 or a smaller negative value when the head in the cell is equal to or less than the calculated interval above the cell bottom. AUTO\_FLOW\_REDUCE is set to 0.1 if the specified value is less than or equal to zero. AUTO\_FLOW\_REDUCE is set to 1.0 if the specified value is greater than 1.0 and the FLOW\_REDUCTION\_LENGTH option is not specified (that is, the value is interpreted as a fraction of the cell thickness). By default, negative pumping rates are not reduced during a simulation.  This AUTO\_FLOW\_REDUCE option only applies to wells in model cells that are marked as ``convertible'' (ICELLTYPE /= 0) in the Node Property Flow (NPF) input file. Reduction in flow will not occur for wells in cells marked as confined (ICELLTYPE = 0).
 mf6internal flowred
 
 block options
@@ -121,13 +121,14 @@ description keyword that indicates the AUTO\_FLOW\_REDUCE value is a length inst
 mf6internal iflowredlen
 
 block options
-name auxlengthname
+name auto_flow_reduce_auxname
 type string
 shape
 reader urword
 optional true
-longname name of auxiliary variable for per-well flow reduction length or fraction
-description name of a variable listed in AUXILIARY that defines the per-well value used to compute the flow reduction threshold for each well. When FLOW\_REDUCTION\_LENGTH is specified, the auxiliary variable is interpreted as a length; otherwise it is interpreted as a fraction of the cell thickness. When specified, the per-well auxiliary value overrides the global AUTO\_FLOW\_REDUCE value for that well. A warning will be issued if AUXLENGTHNAME is specified but AUTO\_FLOW\_REDUCE is not specified in the OPTIONS block. A warning will be issued if AUXLENGTHNAME is specified but FLOW\_REDUCTION\_LENGTH is not specified in the OPTIONS block. The program will terminate with an error if AUXLENGTHNAME is specified but no AUXILIARY variables are specified, or if the named AUXILIARY variable cannot be found.
+longname name of auxiliary variable for the per-well AUTO\_FLOW\_REDUCE value
+description name of a variable listed in AUXILIARY that defines the per-well AUTO\_FLOW\_REDUCE value used to compute the flow reduction threshold for each well. The auxiliary variable is interpreted the same way as the global AUTO\_FLOW\_REDUCE value: as a length above the cell bottom when FLOW\_REDUCTION\_LENGTH is specified, or otherwise as a fraction of the cell thickness. When specified, the per-well auxiliary value overrides the global AUTO\_FLOW\_REDUCE value for that well. A warning will be issued if AUTO\_FLOW\_REDUCE\_AUXNAME is specified but AUTO\_FLOW\_REDUCE is not specified in the OPTIONS block. A warning will be issued if AUTO\_FLOW\_REDUCE\_AUXNAME is specified but FLOW\_REDUCTION\_LENGTH is not specified in the OPTIONS block. The program will terminate with an error if AUTO\_FLOW\_REDUCE\_AUXNAME is specified but no AUXILIARY variables are specified, or if the named AUXILIARY variable cannot be found. The per-well value must be greater than zero and less than or equal to 1 when FLOW\_REDUCTION\_LENGTH is not specified, or greater than zero and less than or equal to the cell thickness when FLOW\_REDUCTION\_LENGTH is specified; the program will terminate with an error if a value is outside the valid range.
+mf6internal afrauxname
 
 block options
 name ts_filerecord

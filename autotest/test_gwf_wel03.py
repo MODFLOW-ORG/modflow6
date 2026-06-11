@@ -1,9 +1,9 @@
 """
-Tests the AUXLENGTHNAME option for the WEL package AUTO_FLOW_REDUCE feature.
+Tests the AUTO_FLOW_REDUCE_AUXNAME option for the WEL package AUTO_FLOW_REDUCE feature.
 
 Two unconfined cells (10 m thick) separated by an inactive cell -- so they are
 truly independent 1-cell problems -- are each pumped at -0.25 m³/d with
-FLOW_REDUCTION_LENGTH and AUXLENGTHNAME active. The per-well LENGTH auxiliary
+FLOW_REDUCTION_LENGTH and AUTO_FLOW_REDUCE_AUXNAME active. The per-well LENGTH auxiliary
 variable assigns different thresholds:
   Cell 0 (col 0): LENGTH = 2.0 m  →  tp = 0 + 2.0 = 2.0 m
   Cell 1 (col 2): LENGTH = 5.0 m  →  tp = 0 + 5.0 = 5.0 m
@@ -11,22 +11,22 @@ variable assigns different thresholds:
 Cell 1 starts reducing pumping earlier (when h ≤ 5 m, at t ≈ 2 d), retaining more
 water, so h_cell1 > h_cell0 at t = 4 d.
 
-Main model: Newton + AUXLENGTHNAME (per-well threshold via aux variable)
+Main model: Newton + AUTO_FLOW_REDUCE_AUXNAME (per-well threshold via aux variable)
 Reference  (mf6/): Newton + two separate WEL packages (one per cell), each with
   an explicit global AUTO_FLOW_REDUCE value equal to the per-well aux value.
-Standard   (std/): standard formulation + AUXLENGTHNAME (otherwise identical to
-  the main model).
+Standard   (std/): standard formulation + AUTO_FLOW_REDUCE_AUXNAME (otherwise
+  identical to the main model).
 
-The TestFramework compare="mf6" verifies that the AUXLENGTHNAME model gives
+The TestFramework compare="mf6" verifies that the AUTO_FLOW_REDUCE_AUXNAME model gives
 identical results (within 1 mm) to the explicit two-package reference, proving
-that AUXLENGTHNAME correctly overrides the global threshold per well.
+that AUTO_FLOW_REDUCE_AUXNAME correctly overrides the global threshold per well.
 check_output() additionally:
   - checks that the standard and Newton formulations give identical results
     (the AUTO_FLOW_REDUCE reduction is applied in wel_cf for both); and
   - checks the physics: h_cell1 > h_cell0.
 
-test_auxlengthname_messages() separately exercises the option's warning and
-error paths (AUXLENGTHNAME without AUTO_FLOW_REDUCE or FLOW_REDUCTION_LENGTH,
+test_afr_auxname_messages() separately exercises the option's warning and
+error paths (AUTO_FLOW_REDUCE_AUXNAME without AUTO_FLOW_REDUCE or FLOW_REDUCTION_LENGTH,
 a missing aux name, and no aux variables at all).
 """
 
@@ -66,7 +66,7 @@ strt = 10.0
 
 # --- WEL parameters ---
 wellq = -0.25  # m³/d
-# Per-well FLOW_REDUCTION_LENGTH values (via AUXLENGTHNAME aux variable):
+# Per-well FLOW_REDUCTION_LENGTH values (via AUTO_FLOW_REDUCE_AUXNAME aux variable):
 _len_cell0 = 2.0  # tp = botm + 2.0 = 2.0 m for cell 0
 _len_cell1 = 5.0  # tp = botm + 5.0 = 5.0 m for cell 1
 
@@ -144,12 +144,12 @@ def _build_tdis_ims(sim, name):
     )
 
 
-def _add_auxlengthname(wel_file, aux_name):
-    """Inject AUXLENGTHNAME keyword into an already-written .wel OPTIONS block."""
+def _add_afr_auxname(wel_file, aux_name):
+    """Inject AUTO_FLOW_REDUCE_AUXNAME into an already-written .wel OPTIONS block."""
     content = wel_file.read_text()
     content = content.replace(
         "END options",
-        f"  AUXLENGTHNAME {aux_name}\nEND options",
+        f"  AUTO_FLOW_REDUCE_AUXNAME {aux_name}\nEND options",
         1,
     )
     wel_file.write_text(content)
@@ -161,10 +161,11 @@ def _run_mf6(exe, ws):
 
 
 def _build_auxlength_sim(ws, name, newton):
-    """Build the per-well AUXLENGTHNAME model (DIS/IC/NPF/STO/OC + WEL) in ws.
+    """Build the per-well AUTO_FLOW_REDUCE_AUXNAME model (DIS/IC/NPF/STO/OC + WEL).
 
     The global AUTO_FLOW_REDUCE value is a placeholder (1.0); it is overridden
-    per-well by AUXLENGTHNAME once the keyword is injected into the .wel file.
+    per-well by AUTO_FLOW_REDUCE_AUXNAME once the keyword is injected into the
+    .wel file.
     """
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=str(ws)
@@ -190,37 +191,37 @@ def _build_auxlength_sim(ws, name, newton):
 def build_models(idx, test):
     name = cases[idx]
 
-    # --- Main model: Newton + AUXLENGTHNAME ---
-    # Flopy does not yet know about AUXLENGTHNAME, so we write the model and
+    # --- Main model: Newton + AUTO_FLOW_REDUCE_AUXNAME ---
+    # Flopy does not yet know about AUTO_FLOW_REDUCE_AUXNAME, so we write the model and
     # then inject the new keyword into the OPTIONS block of the .wel file.
     sim_main = _build_auxlength_sim(test.workspace, name, newton=True)
     sim_main.write_simulation(silent=True)
-    # Inject AUXLENGTHNAME into the written .wel file
-    _add_auxlengthname(pathlib.Path(test.workspace) / f"{name}.wel", "LENGTH")
+    # Inject AUTO_FLOW_REDUCE_AUXNAME into the written .wel file
+    _add_afr_auxname(pathlib.Path(test.workspace) / f"{name}.wel", "LENGTH")
 
     # Run the main model now; the framework never runs it because we return None.
     result = _run_mf6(test.targets["mf6"], test.workspace)
     assert result.returncode == 0, (
-        f"Main AUXLENGTHNAME model failed:\n{result.stdout}\n{result.stderr}"
+        f"Main AUTO_FLOW_REDUCE_AUXNAME model failed:\n{result.stdout}\n{result.stderr}"
     )
 
-    # --- Standard-formulation AUXLENGTHNAME model (std/) ---
+    # --- Standard-formulation AUTO_FLOW_REDUCE_AUXNAME model (std/) ---
     # Identical to the main model but without the Newton-Raphson formulation.
     # The pumping reduction is applied in wel_cf regardless of formulation, so
     # this must converge to the same heads as the Newton main model.
     std_ws = pathlib.Path(test.workspace) / "std"
     sim_std = _build_auxlength_sim(std_ws, name, newton=False)
     sim_std.write_simulation(silent=True)
-    _add_auxlengthname(std_ws / f"{name}.wel", "LENGTH")
+    _add_afr_auxname(std_ws / f"{name}.wel", "LENGTH")
     result = _run_mf6(test.targets["mf6"], std_ws)
     assert result.returncode == 0, (
-        f"Standard-formulation AUXLENGTHNAME model failed:"
+        f"Standard-formulation AUTO_FLOW_REDUCE_AUXNAME model failed:"
         f"\n{result.stdout}\n{result.stderr}"
     )
 
     # --- Reference model (mf6/): Newton + two explicit WEL packages ---
     # Each package covers one cell and carries its own AUTO_FLOW_REDUCE value,
-    # so the results should be bit-for-bit identical to the AUXLENGTHNAME model.
+    # so the results should be bit-for-bit identical to the per-well model.
     ref_ws = pathlib.Path(test.workspace) / "mf6"
     sim_ref = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=str(ref_ws)
@@ -267,10 +268,10 @@ def check_output(idx, test):
     # Compare only active cells (the inactive separator carries 1e30).
     active = h_main < 1e29
 
-    # AUXLENGTHNAME model and explicit two-package reference must agree within 1 mm.
+    # Per-well model and explicit two-package reference must agree within 1 mm.
     max_diff = float(np.max(np.abs(h_main[active] - h_ref[active])))
     assert max_diff < 1e-3, (
-        f"{name}: max head difference between AUXLENGTHNAME and "
+        f"{name}: max head difference between AUTO_FLOW_REDUCE_AUXNAME and "
         f"two-package reference = {max_diff:.2e} m (must be < 1e-3 m)"
     )
 
@@ -309,11 +310,11 @@ def test_mf6model(idx, name, function_tmpdir, targets):
 
 def _run_message_case(exe, ws, afr, frl, aux, inject):
     """Build a minimal one-cell WEL model with the given options, inject an
-    AUXLENGTHNAME keyword, run it, and return (returncode, normalized_stdout).
+    AUTO_FLOW_REDUCE_AUXNAME keyword, run it, and return (rc, normalized stdout).
 
     Parameters control whether AUTO_FLOW_REDUCE (afr) and FLOW_REDUCTION_LENGTH
     (frl) are written and whether an AUX variable (aux) is declared. The
-    AUXLENGTHNAME value injected into the OPTIONS block is given by inject.
+    AUTO_FLOW_REDUCE_AUXNAME value injected into the OPTIONS block is given by inject.
     """
     ws = pathlib.Path(ws)
     ws.mkdir(parents=True, exist_ok=True)
@@ -343,7 +344,7 @@ def _run_message_case(exe, ws, afr, frl, aux, inject):
     flopy.mf6.ModflowGwfwel(gwf, stress_period_data={0: spd}, **kw)
 
     sim.write_simulation(silent=True)
-    _add_auxlengthname(ws / "m.wel", inject)
+    _add_afr_auxname(ws / "m.wel", inject)
     result = _run_mf6(exe, ws)
     # Collapse whitespace so wrapped warning/error lines can be matched.
     return result.returncode, " ".join(result.stdout.split())
@@ -358,8 +359,10 @@ _MESSAGE_CASES = [
         "LENGTH",
         True,
         [
-            "AUXLENGTHNAME is specified but AUTO_FLOW_REDUCE is not specified",
-            "AUXLENGTHNAME is specified but FLOW_REDUCTION_LENGTH is not specified",
+            "AUTO_FLOW_REDUCE_AUXNAME is specified but AUTO_FLOW_REDUCE is "
+            "not specified",
+            "AUTO_FLOW_REDUCE_AUXNAME is specified but FLOW_REDUCTION_LENGTH "
+            "is not specified",
         ],
         id="no_afr_no_frl_warns",
     ),
@@ -370,7 +373,8 @@ _MESSAGE_CASES = [
         "LENGTH",
         True,
         [
-            "AUXLENGTHNAME is specified but FLOW_REDUCTION_LENGTH is not specified",
+            "AUTO_FLOW_REDUCE_AUXNAME is specified but FLOW_REDUCTION_LENGTH "
+            "is not specified",
             "interpreted as a fraction of the cell thickness",
         ],
         id="no_frl_fraction_warns",
@@ -381,7 +385,10 @@ _MESSAGE_CASES = [
         None,
         "LENGTH",
         False,
-        ["AUXLENGTHNAME was specified as LENGTH but no AUX variables specified"],
+        [
+            "AUTO_FLOW_REDUCE_AUXNAME was specified as LENGTH but no AUX "
+            "variables specified"
+        ],
         id="no_aux_errors",
     ),
     pytest.param(
@@ -391,8 +398,8 @@ _MESSAGE_CASES = [
         "BADNAME",
         False,
         [
-            "AUXLENGTHNAME was specified as BADNAME but no AUX variable found "
-            "with this name"
+            "AUTO_FLOW_REDUCE_AUXNAME was specified as BADNAME but no AUX "
+            "variable found with this name"
         ],
         id="bad_aux_name_errors",
     ),
@@ -402,13 +409,113 @@ _MESSAGE_CASES = [
 @pytest.mark.parametrize(
     "afr, frl, aux, inject, expect_success, required", _MESSAGE_CASES
 )
-def test_auxlengthname_messages(
+def test_afr_auxname_messages(
     afr, frl, aux, inject, expect_success, required, function_tmpdir, targets
 ):
-    """Exercise the AUXLENGTHNAME warning and error paths."""
+    """Exercise the AUTO_FLOW_REDUCE_AUXNAME warning and error paths."""
     returncode, out = _run_message_case(
         targets["mf6"], function_tmpdir, afr, frl, aux, inject
     )
+    if expect_success:
+        assert returncode == 0, f"expected success but mf6 failed:\n{out}"
+    else:
+        assert returncode != 0, f"expected failure but mf6 succeeded:\n{out}"
+    for substring in required:
+        assert substring in out, (
+            f"expected message not found:\n  {substring!r}\nin output:\n{out}"
+        )
+
+
+# Cell thickness used by the bounds-check model below (top - botm).
+_BOUNDS_THICK = 10.0
+
+
+def _run_bounds_case(exe, ws, frl, aux_values):
+    """Build a one-cell WEL model whose AUTO_FLOW_REDUCE_AUXNAME aux variable
+    takes the given per-period values, run it, and return (rc, normalized
+    stdout).
+
+    aux_values is a list with one value per stress period, so a multi-period
+    list exercises the per-period bounds check (the value may change between
+    periods). The cell is _BOUNDS_THICK thick.
+    """
+    ws = pathlib.Path(ws)
+    ws.mkdir(parents=True, exist_ok=True)
+    nper = len(aux_values)
+    sim = flopy.mf6.MFSimulation(
+        sim_name="m", version="mf6", exe_name="mf6", sim_ws=str(ws)
+    )
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=[(1.0, 1, 1.0)] * nper)
+    flopy.mf6.ModflowIms(sim)
+    gwf = flopy.mf6.ModflowGwf(sim, modelname="m", save_flows=True)
+    flopy.mf6.ModflowGwfdis(
+        gwf,
+        nlay=1,
+        nrow=1,
+        ncol=1,
+        delr=1.0,
+        delc=1.0,
+        top=_BOUNDS_THICK,
+        botm=[0.0],
+    )
+    flopy.mf6.ModflowGwfic(gwf, strt=_BOUNDS_THICK)
+    flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=1.0)
+    flopy.mf6.ModflowGwfsto(gwf, iconvert=1, ss=0.0, sy=0.1, transient={0: True})
+
+    kw = {"auxiliary": ["LENGTH"], "auto_flow_reduce": 1.0}
+    if frl:
+        kw["flow_reduction_length"] = True
+    spd = {p: [[(0, 0, 0), -0.1, av]] for p, av in enumerate(aux_values)}
+    flopy.mf6.ModflowGwfwel(gwf, stress_period_data=spd, **kw)
+
+    sim.write_simulation(silent=True)
+    _add_afr_auxname(ws / "m.wel", "LENGTH")
+    result = _run_mf6(exe, ws)
+    return result.returncode, " ".join(result.stdout.split())
+
+
+_FRAC_ERR = (
+    "must be greater than 0 and less than or equal to 1 when "
+    "FLOW_REDUCTION_LENGTH is not specified"
+)
+_LEN_ERR = "must be greater than 0 and less than or equal to the cell thickness"
+
+# (frl, aux_values, expect_success, required substrings)
+_BOUNDS_CASES = [
+    # Fraction mode: valid range is (0, 1].
+    pytest.param(False, [-0.5], False, [_FRAC_ERR], id="frac_negative"),
+    pytest.param(False, [0.0], False, [_FRAC_ERR], id="frac_zero"),
+    pytest.param(False, [1.5], False, [_FRAC_ERR], id="frac_above_one"),
+    pytest.param(False, [0.5], True, [], id="frac_valid"),
+    # Length mode: valid range is (0, cell thickness].
+    pytest.param(True, [-1.0], False, [_LEN_ERR], id="length_negative"),
+    pytest.param(True, [0.0], False, [_LEN_ERR], id="length_zero"),
+    pytest.param(
+        True,
+        [_BOUNDS_THICK + 5.0],
+        False,
+        [_LEN_ERR],
+        id="length_above_thick",
+    ),
+    pytest.param(True, [5.0], True, [], id="length_valid"),
+    # A value valid in period 1 but invalid in period 2 must still be caught,
+    # confirming the check runs every stress period.
+    pytest.param(
+        True,
+        [5.0, _BOUNDS_THICK + 5.0],
+        False,
+        [_LEN_ERR],
+        id="transient_becomes_invalid",
+    ),
+]
+
+
+@pytest.mark.parametrize("frl, aux_values, expect_success, required", _BOUNDS_CASES)
+def test_afr_auxname_bounds(
+    frl, aux_values, expect_success, required, function_tmpdir, targets
+):
+    """Per-well AUTO_FLOW_REDUCE_AUXNAME values out of range must error."""
+    returncode, out = _run_bounds_case(targets["mf6"], function_tmpdir, frl, aux_values)
     if expect_success:
         assert returncode == 0, f"expected success but mf6 failed:\n{out}"
     else:

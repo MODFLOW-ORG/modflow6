@@ -15,9 +15,14 @@ parallel = "PARALLEL"
 netcdf = "NETCDF"
 
 [[items]]
+section = "features"
+subsection = "stress"
+description = "Added a new AUTO\\_FLOW\\_REDUCE\\_AUXNAME option to the Well (WEL) Package. When AUTO\\_FLOW\\_REDUCE is active, the pumping rate of a well is smoothly reduced as the cell head drops toward the cell bottom, using a single global turnoff threshold for all wells in the package. The new AUTO\\_FLOW\\_REDUCE\\_AUXNAME option names an auxiliary variable whose value sets the turnoff threshold for each well individually, so different wells in the same package can begin reducing their pumping at different heads. The per-well auxiliary value overrides the global AUTO\\_FLOW\\_REDUCE value and is interpreted the same way: as a length above the cell bottom when FLOW\\_REDUCTION\\_LENGTH is specified, or otherwise as a fraction of the cell thickness. If AUTO\\_FLOW\\_REDUCE\\_AUXNAME is specified without AUTO\\_FLOW\\_REDUCE the option is ignored with a warning, and an error is reported if the named auxiliary variable does not exist."
+
+[[items]]
 section = "fixes"
 subsection = "stress"
-description = "The default values for DENSITY\\_WATER, HEAT\\_CAPACITY\\_WATER, LATENT\\_HEAT\\_VAPORIZATION specified in the OPTIONS block were not set as indicated in the MF6IO guide.  Defaults for these three variables now set as documented in the MF6IO guide." 
+description = "The default values for DENSITY\\_WATER, HEAT\\_CAPACITY\\_WATER, LATENT\\_HEAT\\_VAPORIZATION specified in the OPTIONS block were not set as indicated in the MF6IO guide.  Defaults for these three variables now set as documented in the MF6IO guide."
 
 [[items]]
 section = "fixes"
