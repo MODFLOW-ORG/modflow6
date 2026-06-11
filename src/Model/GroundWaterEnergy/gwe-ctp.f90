@@ -169,11 +169,6 @@ contains
     if (ierr > 0) then
       call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- Write the list to iout if requested
-    if (this%iprpak /= 0) then
-      call this%write_list()
-    end if
   end subroutine ctp_rp
 
   !> @brief Constant temperature package advance routine
@@ -446,7 +441,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy
-    class(GweCtpType), intent(inout) :: this !< BndExtType object
+    class(GweCtpType), intent(inout) :: this
     integer(I4B), intent(in) :: row
     ! -- result
     real(DP) :: temp
@@ -466,7 +461,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy variables
-    class(GweCtpType), intent(inout) :: this !< BndExtType object
+    class(GweCtpType), intent(inout) :: this
     integer(I4B), intent(in) :: col
     integer(I4B), intent(in) :: row
     ! -- result

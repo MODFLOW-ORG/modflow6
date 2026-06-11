@@ -190,6 +190,7 @@ COMMON_DFN_PATH = parse_mf6var_file(DFNS_DIR_PATH / "common.dfn")
 COMMON_DIR_PATH = MF6IVAR_DIR_PATH.parent.parent / "Common"
 DEFAULT_MODELS = ["gwf", "gwt", "gwe", "prt"]
 DEVELOP_MODELS = ["chf", "olf", "swf"]
+DEVELOP_PKGS = ["gwf-chdg", "gwf-drng", "gwf-ghbg", "gwf-rivg", "gwf-welg"]
 VALID_TYPES = list(get_args(FieldType))
 
 MD_DIR_PATH.mkdir(exist_ok=True)
@@ -652,7 +653,7 @@ def write_md(f, vardict, component, package):
         f.write(s)
 
 
-def write_appendix(blocks):
+def write_appendix(blocks, developmode=True):
     with open(Path(TEX_DIR_PATH) / "appendixA.tex", "w") as f:
         f.write("\\small\n\\begin{longtable}{p{1.5cm} p{1.5cm} p{3cm} c}\n")
         f.write(
@@ -686,6 +687,8 @@ def write_appendix(blocks):
         for b in blocks:
             l = b.strip().split("-")
             component, ftype, blockname = l
+            if not developmode and f"{component}-{ftype}".lower() in DEVELOP_PKGS:
+                continue
             if lastftype != ftype:
                 f.write("\\hline\n")
             oc = "yes"
@@ -943,7 +946,7 @@ if __name__ == "__main__":
 
     dfns = get_dfn_files(models)
     blocks = write_variables(developmode=developmode)
-    write_appendix(blocks)
+    write_appendix(blocks, developmode=developmode)
 
     if verbose:
         for block in blocks:

@@ -4,7 +4,7 @@
 
 module TspMvtModule
 
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, MAXCHARLEN, DZERO, LENPAKLOC, &
                              DNODATA, LENPACKAGENAME, TABCENTER, &
                              LENMODELNAME, LENVARNAME
@@ -22,6 +22,13 @@ module TspMvtModule
   private
   public :: TspMvtType
   public :: mvt_cr
+
+  !> @brief Type to store mover-transport flow and concentration for one budget term
+  !<í
+  type :: MvrTermType
+    logical(LGP) :: prov_is_m1 !< true when provider is in model1, false when in model 2
+    real(DP), dimension(:), pointer, contiguous :: qty => null() !< concentration or temperature of provider
+  end type MvrTermType
 
   type, extends(NumericalPackageType) :: TspMvtType
 
@@ -42,13 +49,18 @@ module TspMvtModule
     !
     ! -- table objects
     type(TableType), pointer :: outputtab => null()
+    !
+    ! -- mover transport terms
+    type(MvrTermType), dimension(:), pointer, contiguous :: mvrterm => null() !< qty and flow per budget term
 
   contains
-
+    procedure :: mvt_init
     procedure :: mvt_df
     procedure :: mvt_ar
     procedure :: mvt_rp
     procedure :: mvt_fc
+    procedure :: mvt_fill_mvrterm
+    procedure :: mvt_update_qmfrommvr
     procedure :: mvt_cc
     procedure :: mvt_bd
     procedure :: mvt_ot_saveflow
@@ -61,68 +73,85 @@ module TspMvtModule
     procedure :: mvt_fill_budobj
     procedure :: mvt_scan_mvrbudobj
     procedure :: set_pointer_mvrbudobj
-    procedure :: set_fmi_pr_rc
+    procedure :: set_fmi
     procedure, private :: mvt_setup_outputtab
     procedure, private :: mvt_print_outputtab
   end type TspMvtType
 
 contains
 
-  !> @brief Create a new mover transport object
-  !<
   subroutine mvt_cr(mvt, name_model, inunit, iout, fmi1, eqnsclfac, &
                     depvartype, gwfmodelname1, gwfmodelname2, fmi2)
-    ! -- dummy
     type(TspMvtType), pointer :: mvt
     character(len=*), intent(in) :: name_model
     integer(I4B), intent(in) :: inunit
     integer(I4B), intent(in) :: iout
-    type(TspFmiType), intent(in), target :: fmi1
+    type(TspFmiType), intent(in), pointer :: fmi1
     real(DP), intent(in), pointer :: eqnsclfac !< governing equation scale factor
     character(len=LENVARNAME), intent(in) :: depvartype !< dependent variable type ('concentration' or 'temperature')
     character(len=*), intent(in), optional :: gwfmodelname1
     character(len=*), intent(in), optional :: gwfmodelname2
-    type(TspFmiType), intent(in), target, optional :: fmi2
-    !
-    ! -- Create the object
+    type(TspFmiType), intent(in), pointer, optional :: fmi2
+
     allocate (mvt)
+    call mvt%mvt_init(name_model, inunit, iout, fmi1, eqnsclfac, &
+                      depvartype, gwfmodelname1, gwfmodelname2, fmi2)
+
+  end subroutine mvt_cr
+
+  !> @brief Create a new mover transport object
+  !<
+  subroutine mvt_init(this, name_model, inunit, iout, fmi1, eqnsclfac, &
+                      depvartype, gwfmodelname1, gwfmodelname2, fmi2)
+    ! -- dummy
+    class(TspMvtType) :: this
+    character(len=*), intent(in) :: name_model
+    integer(I4B), intent(in) :: inunit
+    integer(I4B), intent(in) :: iout
+    type(TspFmiType), intent(in), pointer :: fmi1
+    real(DP), intent(in), pointer :: eqnsclfac !< governing equation scale factor
+    character(len=LENVARNAME), intent(in) :: depvartype !< dependent variable type ('concentration' or 'temperature')
+    character(len=*), intent(in), optional :: gwfmodelname1
+    character(len=*), intent(in), optional :: gwfmodelname2
+    type(TspFmiType), intent(in), pointer, optional :: fmi2
     !
     ! -- Create name and memory path
-    call mvt%set_names(1, name_model, 'MVT', 'MVT')
+    call this%set_names(1, name_model, 'MVT', 'MVT')
     !
     ! -- Allocate scalars
-    call mvt%allocate_scalars()
+    call this%allocate_scalars()
     !
-    mvt%inunit = inunit
-    mvt%iout = iout
+    this%inunit = inunit
+    this%iout = iout
     !
     ! -- Assume that this MVT is owned by a GWT Model
-    mvt%fmi1 => fmi1
-    mvt%fmi2 => fmi1
+    this%fmi1 => fmi1
+    this%fmi2 => fmi1
     !
     ! -- Set pointers
     if (present(fmi2)) then
-      mvt%fmi2 => fmi2
+      this%fmi2 => fmi2
     end if
     !
     ! -- Set model names
     if (present(gwfmodelname1)) then
-      mvt%gwfmodelname1 = gwfmodelname1
+      this%gwfmodelname1 = gwfmodelname1
     end if
     if (present(gwfmodelname2)) then
-      mvt%gwfmodelname2 = gwfmodelname2
+      this%gwfmodelname2 = gwfmodelname2
     end if
     !
     ! -- Create the budget object
-    call budgetobject_cr(mvt%budobj, 'TRANSPORT MOVER')
+    call budgetobject_cr(this%budobj, 'TRANSPORT MOVER')
     !
     ! -- Store pointer to governing equation scale factor
-    mvt%eqnsclfac => eqnsclfac
+    this%eqnsclfac => eqnsclfac
     !
     ! -- Store pointer to labels associated with the current model so that the
     !    package has access to the corresponding dependent variable type
-    mvt%depvartype = depvartype
-  end subroutine mvt_cr
+    this%depvartype = depvartype
+
+  end subroutine mvt_init
 
   !> @brief Define mover transport object
   !<
@@ -209,155 +238,139 @@ contains
   !! hand side of the transport matrix equations.
   !<
   subroutine mvt_fc(this, cnew1, cnew2)
-    ! -- dummy
     class(TspMvtType) :: this
     real(DP), intent(in), dimension(:), contiguous, target :: cnew1
     real(DP), intent(in), dimension(:), contiguous, target :: cnew2
-    ! -- local
+
+    call this%mvt_fill_mvrterm(cnew1, cnew2)
+    call this%mvt_update_qmfrommvr()
+
+  end subroutine mvt_fc
+
+  !> @brief Fill mvrterm with provider concentration and flow for each budget term
+  !<
+  subroutine mvt_fill_mvrterm(this, cnew1, cnew2)
+    class(TspMvtType) :: this
+    real(DP), intent(in), dimension(:), contiguous, target :: cnew1
+    real(DP), intent(in), dimension(:), contiguous, target :: cnew2
+    ! local
     integer(I4B) :: i, n
-    integer(I4B) :: id1, id2, nlist
-    integer(I4B) :: ipr, irc
+    integer(I4B) :: id1, nlist
+    integer(I4B) :: ipr
     integer(I4B) :: igwtnode
     integer(I4B) :: nbudterm
-    real(DP) :: q, cp
+    real(DP) :: cp
     real(DP), dimension(:), pointer :: concpak
-    real(DP), dimension(:), contiguous, pointer :: cnew
+    real(DP), dimension(:), contiguous, pointer :: cnew_pr !, pointer to provider dep. var.
     type(TspFmiType), pointer :: fmi_pr !< pointer to provider model fmi package
-    type(TspFmiType), pointer :: fmi_rc !< pointer to receiver model fmi package
-    !
-    ! -- Add mover QC terms to the receiver packages
+
     nbudterm = this%mvrbudobj%nbudterm
     do i = 1, nbudterm
       nlist = this%mvrbudobj%budterm(i)%nlist
-      if (nlist > 0) then
-        !
-        ! -- Set pointers to the fmi packages for the provider and the receiver
-        call this%set_fmi_pr_rc(i, fmi_pr, fmi_rc)
-        !
-        ! -- Set a pointer to the GWT model concentration (or temperature)
-        !    associated with the provider
-        cnew => cnew1
-        if (associated(fmi_pr, this%fmi2)) then
-          cnew => cnew2
-        end if
-        !
-        !-- Get the package index for the provider
-        call fmi_pr%get_package_index(this%mvrbudobj%budterm(i)%text2id1, ipr)
-        !
-        ! -- Get the package index for the receiver
-        call fmi_rc%get_package_index(this%mvrbudobj%budterm(i)%text2id2, irc)
-        !
-        ! -- If provider is an advanced package, then set a pointer to its simulated concentration
-        if (fmi_pr%iatp(ipr) /= 0) then
-          concpak => fmi_pr%datp(ipr)%concpack
-        end if
-        !
-        ! -- Process flows for each entry in the list and add mass to receivers
-        do n = 1, nlist
-          !
-          ! -- lak/sfr/maw/uzf id1 (provider) and id2 (receiver)
-          id1 = this%mvrbudobj%budterm(i)%id1(n)
-          id2 = this%mvrbudobj%budterm(i)%id2(n)
-          !
-          ! -- Obtain mover flow rate from the mover flow budget object
-          q = this%mvrbudobj%budterm(i)%flow(n)
-          !
-          ! -- Assign concentration of the provider
-          cp = DZERO
-          if (fmi_pr%iatp(ipr) /= 0) then
-            !
-            ! -- Provider package is being represented by an APT (SFT, LKT, MWT, UZT,
-            !    SFE, LKE, MWE, UZE) so set the dependent variable (concentration or
-            !    temperature) to the simulated dependent variable of the APT.
-            cp = concpak(id1)
-          else
-            !
-            ! -- Provider is a regular stress package (WEL, DRN, RIV, etc.) or the
-            !    provider is an advanced stress package but is not represented with
-            !    SFT, LKT, MWT, or UZT, so use the GWT cell concentration
-            igwtnode = fmi_pr%gwfpackages(ipr)%nodelist(id1)
-            cp = cnew(igwtnode)
-            !
-          end if
-          !
-          ! -- Add the mover rate times the provider concentration into the receiver
-          !    make sure these are accumulated since multiple providers can move
-          !    water into the same receiver
-          if (fmi_rc%iatp(irc) /= 0) then
-            fmi_rc%datp(irc)%qmfrommvr(id2) = fmi_rc%datp(irc)%qmfrommvr(id2) - &
-                                              q * cp * this%eqnsclfac
-          end if
-        end do
-      end if
-    end do
-  end subroutine mvt_fc
+      if (nlist == 0) cycle
 
-  !> @ brief Set the fmi_pr and fmi_rc pointers
-  !!
-  !! The fmi_pr and fmi_rc arguments are pointers to the provider and receiver
-  !! FMI Packages.  If this MVT Package is owned by a single GWT model, then
-  !! these pointers are both set to the FMI Package of this GWT model's FMI
-  !! package.  If this MVT package is owned by a GWTGWT exchange, then the
-  !! fmi_pr and fmi_rc pointers may be assigned to FMI Packages in different
-  !! models.
+      ! fetch fmi package
+      call this%set_fmi(i, fmi_pr, .true.)
+      if (.not. associated(fmi_pr)) cycle
+
+      cnew_pr => cnew1
+      if (associated(fmi_pr, this%fmi2)) then
+        cnew_pr => cnew2
+      end if
+
+      call fmi_pr%get_package_index(this%mvrbudobj%budterm(i)%text2id1, ipr)
+
+      ! use package concentration for APT
+      if (fmi_pr%iatp(ipr) /= 0) then
+        concpak => fmi_pr%datp(ipr)%concpack
+      end if
+
+      do n = 1, nlist
+
+        ! lak/sfr/maw/uzf id1 (provider)
+        id1 = this%mvrbudobj%budterm(i)%id1(n)
+        cp = DZERO
+        if (fmi_pr%iatp(ipr) /= 0) then
+          ! concentration from APT
+          cp = concpak(id1)
+        else
+          igwtnode = fmi_pr%gwfpackages(ipr)%nodelist(id1)
+          cp = cnew_pr(igwtnode)
+        end if
+
+        this%mvrterm(i)%qty(n) = cp
+      end do
+    end do
+  end subroutine mvt_fill_mvrterm
+
+  !> @brief Assign mover transport mass into each receiver's qmfrommvr
   !<
-  subroutine set_fmi_pr_rc(this, ibudterm, fmi_pr, fmi_rc)
-    ! -- dummy
+  subroutine mvt_update_qmfrommvr(this)
+    class(TspMvtType) :: this
+    ! local
+    integer(I4B) :: i, n
+    integer(I4B) :: id2, nlist
+    integer(I4B) :: irc
+    integer(I4B) :: nbudterm
+    type(TspFmiType), pointer :: fmi_rc !< pointer to receiver model fmi package
+
+    nbudterm = this%mvrbudobj%nbudterm
+    do i = 1, nbudterm
+      nlist = this%mvrbudobj%budterm(i)%nlist
+      if (nlist == 0) cycle
+
+      call this%set_fmi(i, fmi_rc, .false.)
+      if (.not. associated(fmi_rc)) cycle
+
+      call fmi_rc%get_package_index(this%mvrbudobj%budterm(i)%text2id2, irc)
+
+      do n = 1, nlist
+
+        ! lak/sfr/maw/uzf id2 (receiver)
+        id2 = this%mvrbudobj%budterm(i)%id2(n)
+
+        ! add the mover rate times the provider concentration into the receiver;
+        ! accumulated since multiple providers can move water into the same receiver
+        if (fmi_rc%iatp(irc) /= 0) then
+          fmi_rc%datp(irc)%qmfrommvr(id2) = fmi_rc%datp(irc)%qmfrommvr(id2) - &
+                                            this%mvrbudobj%budterm(i)%flow(n) * &
+                                            this%mvrterm(i)%qty(n) * &
+                                            this%eqnsclfac
+        end if
+      end do
+    end do
+  end subroutine mvt_update_qmfrommvr
+
+  subroutine set_fmi(this, ibudterm, fmi, set_provider)
     class(TspMvtType) :: this
     integer(I4B), intent(in) :: ibudterm
-    type(TspFmiType), pointer :: fmi_pr
-    type(TspFmiType), pointer :: fmi_rc
-    !
-    fmi_pr => null()
-    fmi_rc => null()
+    type(TspFmiType), pointer :: fmi
+    logical(LGP) :: set_provider !< set provider fmi when true, receiver fmi otherwise
+    ! local
+    character(len=LENMODELNAME) :: model_name
+
+    fmi => null()
     if (this%gwfmodelname1 == '' .and. this%gwfmodelname2 == '') then
-      fmi_pr => this%fmi1
-      fmi_rc => this%fmi1
+      fmi => this%fmi1 ! fmi2 equals fmi1 here
+      return
+    end if
+
+    ! model name for provider is text1id1, receiver is text1id2
+    if (set_provider) then
+      model_name = this%mvrbudobj%budterm(ibudterm)%text1id1
     else
-      ! -- Modelname for provider is this%mvrbudobj%budterm(i)%text1id1
-      if (this%mvrbudobj%budterm(ibudterm)%text1id1 == this%gwfmodelname1) then
-        ! -- Model 1 is the provider
-        fmi_pr => this%fmi1
-      else if (this%mvrbudobj%budterm(ibudterm)%text1id1 == &
-               this%gwfmodelname2) then
-        ! -- Model 2 is the provider
-        fmi_pr => this%fmi2
-      else
-        ! -- Must be an error
-        !cdl todo: programming error
-        print *, this%mvrbudobj%budterm(ibudterm)%text1id1
-        print *, this%gwfmodelname1
-        print *, this%gwfmodelname2
-        stop "error in set_fmi_pr_rc"
-      end if
-      !
-      ! -- Modelname for receiver is this%mvrbudobj%budterm(i)%text1id2
-      if (this%mvrbudobj%budterm(ibudterm)%text1id2 == this%gwfmodelname1) then
-        ! -- Model 1 is the receiver
-        fmi_rc => this%fmi1
-      else if (this%mvrbudobj%budterm(ibudterm)%text1id2 == &
-               this%gwfmodelname2) then
-        ! -- Model 2 is the receiver
-        fmi_rc => this%fmi2
-      else
-        ! -- Must be an error
-        !cdl todo: programming error
-        print *, this%mvrbudobj%budterm(ibudterm)%text1id2
-        print *, this%gwfmodelname1
-        print *, this%gwfmodelname2
-        stop "error in set_fmi_pr_rc"
-      end if
+      model_name = this%mvrbudobj%budterm(ibudterm)%text1id2
     end if
-    !
-    if (.not. associated(fmi_pr)) then
-      print *, 'Could not find FMI Package...'
-      stop "error in set_fmi_pr_rc"
+
+    if (model_name == this%gwfmodelname1) then
+      ! model 1 is the provider/receiver
+      fmi => this%fmi1
+    else if (model_name == this%gwfmodelname2) then
+      ! model 2 is the provider
+      fmi => this%fmi2
     end if
-    if (.not. associated(fmi_rc)) then
-      print *, 'Could not find FMI Package...'
-      stop "error in set_fmi_pr_rc"
-    end if
-  end subroutine set_fmi_pr_rc
+
+  end subroutine set_fmi
 
   !> @brief Extra convergence check for mover
   !<
@@ -386,14 +399,12 @@ contains
 
   !> @brief Write mover terms to listing file
   !<
-  subroutine mvt_bd(this, cnew1, cnew2)
+  subroutine mvt_bd(this)
     ! -- dummy
     class(TspMvtType) :: this
-    real(DP), dimension(:), contiguous, intent(in) :: cnew1
-    real(DP), dimension(:), contiguous, intent(in) :: cnew2
     !
     ! -- Fill the budget object
-    call this%mvt_fill_budobj(cnew1, cnew2)
+    call this%mvt_fill_budobj()
   end subroutine mvt_bd
 
   !> @brief Write mover budget terms
@@ -505,9 +516,19 @@ contains
     use MemoryManagerModule, only: mem_deallocate
     ! -- dummy
     class(TspMvtType) :: this
+    ! -- local
+    integer(I4B) :: i
     !
     ! -- Deallocate arrays if package was active
     if (this%inunit > 0) then
+      !
+      ! -- mvrterm
+      if (associated(this%mvrterm)) then
+        do i = 1, size(this%mvrterm)
+          deallocate (this%mvrterm(i)%qty)
+        end do
+        deallocate (this%mvrterm)
+      end if
       !
       ! -- Character array
       deallocate (this%paknames)
@@ -674,6 +695,9 @@ contains
     ! -- Set up budobj
     call this%budobj%budgetobject_df(ncv, nbudterm, 0, 0, bddim_opt='M')
     !
+    ! -- Allocate mvrterm
+    allocate (this%mvrterm(nbudterm))
+    !
     ! -- Go through the water mover budget terms and set up the transport
     !    mover budget terms
     do i = 1, nbudterm
@@ -689,28 +713,25 @@ contains
                                              packagename2, &
                                              maxlist, .false., .false., &
                                              naux)
+      this%mvrterm(i)%prov_is_m1 = (this%gwfmodelname1 == modelname1)
+      allocate (this%mvrterm(i)%qty(maxlist))
+      this%mvrterm(i)%qty = DNODATA
     end do
   end subroutine mvt_setup_budobj
 
   !> @brief Copy mover-for-transport flow terms into this%budobj
   !<
-  subroutine mvt_fill_budobj(this, cnew1, cnew2)
+  subroutine mvt_fill_budobj(this)
     ! -- dummy
     class(TspMvtType) :: this
-    real(DP), intent(in), dimension(:), contiguous, target :: cnew1
-    real(DP), intent(in), dimension(:), contiguous, target :: cnew2
     ! -- local
-    type(TspFmiType), pointer :: fmi_pr
     type(TspFmiType), pointer :: fmi_rc
-    real(DP), dimension(:), contiguous, pointer :: cnew
     integer(I4B) :: nbudterm
     integer(I4B) :: nlist
-    integer(I4B) :: ipr
     integer(I4B) :: irc
     integer(I4B) :: i
     integer(I4B) :: j
     integer(I4B) :: n1, n2
-    integer(I4B) :: igwtnode
     real(DP) :: cp
     real(DP) :: q
     real(DP) :: rate
@@ -720,29 +741,18 @@ contains
     nbudterm = this%mvrbudobj%nbudterm
     do i = 1, nbudterm
       nlist = this%mvrbudobj%budterm(i)%nlist
-      call this%set_fmi_pr_rc(i, fmi_pr, fmi_rc)
-      cnew => cnew1
-      if (associated(fmi_pr, this%fmi2)) then
-        cnew => cnew2
-      end if
-      call fmi_pr%get_package_index(this%mvrbudobj%budterm(i)%text2id1, ipr)
+      call this%set_fmi(i, fmi_rc, .false.)
+      if (.not. associated(fmi_rc)) cycle
+
       call fmi_rc%get_package_index(this%mvrbudobj%budterm(i)%text2id2, irc)
       call this%budobj%budterm(i)%reset(nlist)
       do j = 1, nlist
         n1 = this%mvrbudobj%budterm(i)%id1(j)
         n2 = this%mvrbudobj%budterm(i)%id2(j)
         q = this%mvrbudobj%budterm(i)%flow(j)
-        cp = DZERO
-        if (fmi_pr%iatp(ipr) /= 0) then
-          cp = fmi_pr%datp(ipr)%concpack(n1)
-        else
-          ! -- Must be a regular stress package
-          igwtnode = fmi_pr%gwfpackages(ipr)%nodelist(n1)
-          !cdl todo: need to set cnew to model 1; right now it is coming in as argument
-          cp = cnew(igwtnode)
-        end if
-        !
-        ! -- Calculate solute mover rate
+        cp = this%mvrterm(i)%qty(j)
+
+        ! calculate solute mover rate
         rate = DZERO
         if (fmi_rc%iatp(irc) /= 0) then
           rate = -q * cp * this%eqnsclfac
@@ -781,6 +791,7 @@ contains
     this%maxpackages = maxpackages
     !
     ! -- Allocate paknames
+    if (associated(this%paknames)) deallocate (this%paknames)
     allocate (this%paknames(this%maxpackages))
     do i = 1, this%maxpackages
       this%paknames(i) = ''

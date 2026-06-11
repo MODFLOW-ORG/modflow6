@@ -63,11 +63,15 @@ Use of a package manager can simplify the process of building the extended versi
 
 ### MacOS
 
-[OpenMPI](https://formulae.brew.sh/formula/open-mpi) and [PETSc](https://formulae.brew.sh/formula/petsc) are available on Homebrew for Intel and Apple Silicon (M1). Both of these depend on [gcc 13.1.0](https://formulae.brew.sh/formula/gcc). [NetCDF Fortran](https://formulae.brew.sh/formula/netcdf-fortran) and related dependencies are also available on Homebrew for Intel and Apple Silicon (M1). [pkg-config](https://formulae.brew.sh/formula/pkg-config) should also be installed from Homebrew, if not already installed, so that Meson will be able to resolve the installation location of MPI and PETSc.
+[OpenMPI](https://formulae.brew.sh/formula/open-mpi) and [PETSc](https://formulae.brew.sh/formula/petsc) are available on Homebrew for Intel and Apple Silicon. Both of these depend on [gcc 13.1.0](https://formulae.brew.sh/formula/gcc). [NetCDF Fortran](https://formulae.brew.sh/formula/netcdf-fortran) and related dependencies are also available on Homebrew for Intel and Apple Silicon. [pkg-config](https://formulae.brew.sh/formula/pkg-config) should also be installed from Homebrew, if not already installed, so that Meson will be able to resolve the installation location of MPI and PETSc.
 
-### Ubuntu
+OpenMPI, PETSc, NetCDF, and pkg-config are also available for MacOS (Intel and Apple Silicon) from the [conda-forge package directory](https://conda-forge.org/packages/).
 
-OpenMPI, PETSc and NetCDF Fortran are available for a variety of Ubuntu versions using the Advanced Packaging Tool (apt).
+### Linux
+
+OpenMPI, PETSc and NetCDF Fortran are available for a variety of Ubuntu versions using the Advanced Packaging Tool (apt). 
+
+OpenMPI, PETSc, NetCDF, and pkg-config are also available for Linux from the [conda-forge package directory](https://conda-forge.org/packages/).
 
 ### Windows
 
@@ -95,7 +99,7 @@ To connect everything, both of these folder paths have to be added to the `PKG_C
 
 The primary build system for MODFLOW is Meson (https://mesonbuild.com/). The `meson.build` script takes an additional argument to activate an extended build of the software. E.g for building and installing an extended release version:
 
-```
+```bash
 meson setup builddir -Ddebug=false -Dextended=true \
                      --prefix=$(pwd) --libdir=bin
 meson install -C builddir
@@ -115,6 +119,42 @@ The other build systems in the MODFLOW project (MS Visual Studio, `pymake`, `Mak
 *Don't use MPI and PETSc directly in your code*
 
 Extended MODFLOW was designed to have all third party functionality (MPI, PETSc and the NetCDF Fortran API) made available through the framework. Developers of models and packages **should not** directly call these libraries and change the set of excluded files described above. If you feel you need to include MPI or PETSc functionality in your code (e.g. you want to `use mpi` in your source file), contact the MODFLOW development team on how to best proceed.
+
+
+## Using `pixi` to build the extended version of MODFLOW 6 on macOS and Linux
+
+`pixi` can be used to build and test the extended version of MODFLOW 6 on macOS and Linux operating system using the `gcc-extended-build` `pixi` environment. The `gcc-extended-build` `pixi` environment includes the gnu compilers (gcc and gfortran) and the OpenMPI, PETSc, and NetCDF libraries needed to compile the extended version of MODFLOW 6.  
+
+Prior to building the extended version of MODFLOW 6 for the first time with `pixi` execute the following command:
+
+```bash
+pixi run -e gcc-extended-build gcc-extended-build-update 
+```
+
+This will update the `netcdf-fortran.pc` file with the correct include path and remove `test-drive` from the `gcc-extended-build` pixi environment. Currently, `test-drive` is removed because of an [`test-drive` issue](https://github.com/fortran-lang/test-drive/commit/60c4cd6687b0c77c84e0e580df75e43ee8d2dedb) with the latest version of gcc (gcc-15). 
+
+The MODFLOW 6 meson build process is essentially the same except that it relies on tasks defined in `pixi.toml` and require that the `gcc-extended-build` environment be specified. The commands for setup, build, and testing are:
+
+```bash
+pixi run -e gcc-extended-build setup builddir -Dextended=true
+pixi run -e gcc-extended-build build builddir
+pixi run -e gcc-extended-build test builddir
+```
+
+If the build is successful you will see something like:
+
+```bash
+ Normal termination of simulation.
+―――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――
+26/26 MODFLOW_6:Parallel simulation test - 2 cores  OK              1.09s
+
+
+Ok:                26  
+Fail:              0   
+
+Full log written to /location/of/your/clone/of/the/modflow6/repo/builddir/meson-logs/testlog.txt
+```
+
 
 ---
 

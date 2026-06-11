@@ -74,7 +74,7 @@ module ExgGwfgweInputModule
     '', & ! blockname
     .false., & ! required
     .false., & ! aggregate
-    .false. & ! block_varaible
+    .false. & ! block_variable
     ) &
     ]
 

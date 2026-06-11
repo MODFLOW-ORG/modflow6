@@ -37,7 +37,6 @@ module ChfOcInputModule
     logical :: printrecord = .false.
     logical :: print = .false.
     logical :: rtype = .false.
-    logical :: ocsetting = .false.
     logical :: all = .false.
     logical :: first = .false.
     logical :: last = .false.
@@ -529,25 +528,6 @@ module ChfOcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    chfoc_ocsetting = InputParamDefinitionType &
-    ( &
-    'CHF', & ! component
-    'OC', & ! subcomponent
-    'PERIOD', & ! block
-    'OCSETTING', & ! tag name
-    'OCSETTING', & ! fortran variable
-    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS', & ! type
-    '', & ! shape
-    '', & ! longname
-    .true., & ! required
-    .false., & ! developmode
-    .true., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
     chfoc_all = InputParamDefinitionType &
     ( &
     'CHF', & ! component
@@ -670,7 +650,6 @@ module ChfOcInputModule
     chfoc_printrecord, &
     chfoc_print, &
     chfoc_rtype, &
-    chfoc_ocsetting, &
     chfoc_all, &
     chfoc_first, &
     chfoc_last, &
@@ -679,25 +658,28 @@ module ChfOcInputModule
     ]
 
   type(InputParamDefinitionType), parameter :: &
-    chf_oc_aggregate_definitions(*) = &
-    [ &
-    InputParamDefinitionType &
+    chfoc_ocsetting = InputParamDefinitionType &
     ( &
-    '', & ! component
-    '', & ! subcomponent
-    '', & ! block
-    '', & ! tag name
-    '', & ! fortran variable
-    '', & ! type
+    'CHF', & ! component
+    'OC', & ! subcomponent
+    'PERIOD', & ! block
+    'OCSETTING', & ! tag name
+    'OCSETTING', & ! fortran variable
+    'KEYSTRING ALL FIRST LAST FREQUENCY STEPS', & ! type
     '', & ! shape
     '', & ! longname
-    .false., & ! required
+    .true., & ! required
     .false., & ! developmode
-    .false., & ! multi-record
+    .true., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
-    ) &
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    chf_oc_aggregate_definitions(*) = &
+    [ &
+    chfoc_ocsetting &
     ]
 
   type(InputBlockDefinitionType), parameter :: &
@@ -711,8 +693,8 @@ module ChfOcInputModule
     ), &
     InputBlockDefinitionType( &
     'PERIOD', & ! blockname
-    .false., & ! required
-    .false., & ! aggregate
+    .true., & ! required
+    .true., & ! aggregate
     .true. & ! block_variable
     ) &
     ]

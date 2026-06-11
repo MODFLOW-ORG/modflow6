@@ -191,6 +191,7 @@ contains
   subroutine source_data(this, iout)
     !  modules
     use MemoryManagerModule, only: mem_setptr
+    use MemoryManagerExtModule, only: memorystore_release
     !  dummy
     class(OlfGwfExchangeType) :: this !< instance of exchange object
     integer(I4B), intent(in) :: iout !< the output file unit
@@ -281,6 +282,11 @@ contains
       call store_error('Errors encountered in exchange input file.')
       call store_error_filename(this%filename)
     end if
+
+    call memorystore_release('CELLIDM1', this%input_mempath)
+    call memorystore_release('CELLIDM2', this%input_mempath)
+    call memorystore_release('BEDLEAK', this%input_mempath)
+    call memorystore_release('CFACT', this%input_mempath)
 
   end subroutine source_data
 

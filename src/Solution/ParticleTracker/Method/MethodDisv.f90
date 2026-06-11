@@ -5,7 +5,14 @@ module MethodDisvModule
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType, LEVEL_FEATURE, LEVEL_SUBFEATURE
   use MethodModelModule, only: MethodModelType
-  use MethodCellPoolModule
+  use MethodCellPollockModule, only: MethodCellPollockType, &
+                                     create_method_cell_pollock
+  use MethodCellPollockQuadModule, only: MethodCellPollockQuadType, &
+                                         create_method_cell_quad
+  use MethodCellTernaryModule, only: MethodCellTernaryType, &
+                                     create_method_cell_ternary
+  use MethodCellPassToBotModule, only: MethodCellPassToBotType, &
+                                       create_method_cell_ptb
   use CellDefnModule
   use CellPolyModule
   use ParticleModule
@@ -22,6 +29,10 @@ module MethodDisvModule
   type, extends(MethodModelType) :: MethodDisvType
     private
     type(CellDefnType), pointer :: neighbor => null() !< ptr to a neighbor defn
+    type(MethodCellPollockType), pointer :: method_cell_plck => null()
+    type(MethodCellPollockQuadType), pointer :: method_cell_quad => null()
+    type(MethodCellTernaryType), pointer :: method_cell_tern => null()
+    type(MethodCellPassToBotType), pointer :: method_cell_ptb => null()
   contains
     procedure, public :: apply => apply_disv !< apply the DISV tracking method
     procedure, public :: deallocate !< deallocate arrays and scalars
@@ -56,12 +67,28 @@ contains
     method%name = "disv"
     method%delegates = .true.
     call create_defn(method%neighbor)
+
+    ! Create cell methods this method can delegate to
+    call create_method_cell_pollock(method%method_cell_plck)
+    call create_method_cell_quad(method%method_cell_quad)
+    call create_method_cell_ternary(method%method_cell_tern)
+    call create_method_cell_ptb(method%method_cell_ptb)
   end subroutine create_method_disv
 
   !> @brief Destroy the tracking method
   subroutine deallocate (this)
     class(MethodDisvType), intent(inout) :: this
     deallocate (this%name)
+
+    ! Deallocate owned cell methods
+    call this%method_cell_plck%deallocate()
+    deallocate (this%method_cell_plck)
+    call this%method_cell_quad%deallocate()
+    deallocate (this%method_cell_quad)
+    call this%method_cell_tern%deallocate()
+    deallocate (this%method_cell_tern)
+    call this%method_cell_ptb%deallocate()
+    deallocate (this%method_cell_ptb)
   end subroutine deallocate
 
   !> @brief Load the cell and the tracking method
@@ -88,50 +115,50 @@ contains
       if (this%fmi%ibdgwfsat0(ic) == 0) then
         ! Cell is active but dry, so select and initialize pass-to-bottom
         ! cell method and set cell method pointer
-        call method_cell_ptb%init( &
+        call this%method_cell_ptb%init( &
           fmi=this%fmi, &
           cell=this%cell, &
           events=this%events, &
           tracktimes=this%tracktimes)
-        submethod => method_cell_ptb
+        submethod => this%method_cell_ptb
       else if (particle%frctrn) then
         ! Force the ternary method
-        call method_cell_tern%init( &
+        call this%method_cell_tern%init( &
           fmi=this%fmi, &
           cell=this%cell, &
           events=this%events, &
           tracktimes=this%tracktimes)
-        submethod => method_cell_tern
+        submethod => this%method_cell_tern
       else if (cell%defn%can_be_rect) then
         ! Cell is a rectangle, convert it to a rectangular cell type and
         ! initialize Pollock's method
         call cell_poly_to_rect(cell, rect)
         base => rect
-        call method_cell_plck%init( &
+        call this%method_cell_plck%init( &
           fmi=this%fmi, &
           cell=base, &
           events=this%events, &
           tracktimes=this%tracktimes)
-        submethod => method_cell_plck
+        submethod => this%method_cell_plck
       else if (cell%defn%can_be_quad) then
         ! Cell is quad-refined, convert to a quad rect cell type and
         ! initialize the corresponding method
         call cell_poly_to_quad(cell, quad)
         base => quad
-        call method_cell_quad%init( &
+        call this%method_cell_quad%init( &
           fmi=this%fmi, &
           cell=base, &
           events=this%events, &
           tracktimes=this%tracktimes)
-        submethod => method_cell_quad
+        submethod => this%method_cell_quad
       else
         ! Default to the ternary method
-        call method_cell_tern%init( &
+        call this%method_cell_tern%init( &
           fmi=this%fmi, &
           cell=this%cell, &
           events=this%events, &
           tracktimes=this%tracktimes)
-        submethod => method_cell_tern
+        submethod => this%method_cell_tern
       end if
     end select
   end subroutine load_disv

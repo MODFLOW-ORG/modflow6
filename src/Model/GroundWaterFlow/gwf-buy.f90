@@ -978,7 +978,7 @@ contains
   subroutine source_packagedata(this)
     ! -- modules
     use MemoryManagerModule, only: mem_setptr, mem_allocate
-    use MemoryManagerExtModule, only: mem_set_value
+    use MemoryManagerExtModule, only: mem_set_value, memorystore_release
     use CharacterStringModule, only: CharacterStringType
     ! -- dummy
     class(GwfBuyType), intent(inout) :: this
@@ -1061,6 +1061,11 @@ contains
 
     ! cleanup
     deallocate (itemp)
+    call memorystore_release('IRHOSPEC', this%input_mempath)
+    call memorystore_release('DRHODC', this%input_mempath)
+    call memorystore_release('CRHOREF', this%input_mempath)
+    call memorystore_release('MODELNAME', this%input_mempath)
+    call memorystore_release('AUXSPECIESNAME', this%input_mempath)
   end subroutine source_packagedata
 
   !> @brief Sets package data instead of reading from file

@@ -1,0 +1,88 @@
+\subsection{Version mf6.7.0---February 5, 2026}
+
+\textbf{\underline{EXAMPLES}}
+\underline{INTERNAL FLOW PACKAGES}
+\begin{itemize}
+\item An example was added to demonstrate the new UTVD capability in the ADV packages of the GWT and GWE models.
+\end{itemize}
+
+\textbf{\underline{NEW FUNCTIONALITY}}
+\underline{INTERNAL FLOW PACKAGES}
+\begin{itemize}
+\item Add HIGHEST\_CELL\_SATURATION option that changes how the saturation used to calculate the flow between two horizontally connected cell. The HIGHEST\_CELL\_SATURATION option uses the maximum cell bottom to calculate the saturation used to calculate the horizontal conductance between cells. This option is intended to prevent flow from leaving a dry cell. This option is only applied when the Newton-Raphson formulation is used, A warning will be issued if this option is specified and the Newton-Raphson formulation is not specified in the GWF name file. This option, in combination with the AMT-HMK ALTERNATIVE\_CELL\_AVERAGING option, can be used to calculate the same horizontal conductance as MODFLOW-USG when upstream weighting is used (LAYCON=4).
+\item Added support for barriers to vertical flow in the HFB package. Also modified the name of the HFB package in the 'MODFLOW 6 Description of Input and Output' document from 'Horizontal Flow Barrier' to 'Hydraulic Flow Barrier'.
+\item The advection package (ADV) in the GWE and GWT models has been extended with a new 'total variation diminishing' scheme called UTVD. This scheme typically improves accuracy and reduces numerical dispersion more than the existing TVD scheme when simulating advective transport either on unstructured grids, or when the dominant flow direction is poorly aligned with the grid.
+\end{itemize}
+
+\underline{MODEL}
+\begin{itemize}
+\item Added an optional new COORDINATE\_CHECK\_METHOD option to the PRT model's Particle Release Point Package, accepting values EAGER (default) or NONE. NONE disables release-time verification that release point coordinates and release point cell IDs match, which can significantly reduce runtime when releasing many particles.
+\item Add DEPENDENT\_VARIABLE\_SCALING option to scale the dependent variable and the right-hand side to avoid very large positive or negative values in the GWT and GWE models. Specified outer and inner DVCLOSE values in the model IMS package will be relative closure criteria. This option applies the same scaling approach used in the MT3DMS GCG package.
+\end{itemize}
+
+\underline{STRESS PACKAGES}
+\begin{itemize}
+\item Added HIGHEST\_SATURATED option to the GWT SRC package. When activated, the HIGHEST\_SATURATED option will apply a mass source loading rate to the specified CELLID or the highest underlying cell with a non-zero cell saturation. The HIGHEST\_SATURATED option has an additional complication for certain types of grids specified using the DISU Package. When the DISU Package is used, a cell may have more than one cell underlying it. If the overlying cell were to become inactive, there is no straightforward method for determining how to apportion the mass source loading rate to the underlying cells. In this case, the approach described by \cite{modflowusg} is used. The mass source loading rate is assigned to the first active cell encountered (determined by searching through the underlying cell numbers from the lowest number to the highest number). In this manner, the total mass source loading rate is conserved; however, the spatial distribution of the applied mass source loading rate may not be maintained as layers become dry or wet during a simulation.
+\item Added the FLOW\_REDUCTION\_LENGTH option to WEL package that indicates the AUTO\_FLOW\_REDUCE value is a length instead of a fraction of the cell thickness. A warning will be issued if the FLOW\_REDUCTION\_LENGTH option is specified but the AUTO\_FLOW\_REDUCE option is not specified in the options block. The program will terminate with an error if the FLOW\_REDUCTION\_LENGTH option is specified and the AUTO\_FLOW\_REDUCE value specified in the options block is less than or equal to zero.
+\end{itemize}
+
+\textbf{\underline{BUG FIXES AND OTHER CHANGES TO EXISTING FUNCTIONALITY}}
+\underline{ADVANCED STRESS PACKAGES}
+\begin{itemize}
+\item The storage term for SFT was not consistent with the standard SFR flow approach (steady-state). Prior to this change, the reach volume for the previous timestep was calculated using the current storage flow rate, which is zero for SFR even though there can be a calculated change in stage. The SFT storage term is now calculated using the current and previous reach water volumes. This change may affect SFT results for existing models.
+\item The storage term for SFE, like SFT, was not consistent with the standard SFR flow approach (steady-state). Prior to this change, the reach volume for the previous timestep was calculated using the current storage flow rate, which is zero for SFR even though there can be a calculated change in stage. The SFE storage term is now calculated using the current and previous reach water volumes. This change may affect SFE results for existing models.
+\end{itemize}
+
+\underline{BASIC FUNCTIONALITY}
+\begin{itemize}
+\item Fixed a bug where the internal profiler caused certain (multi-species) simulations to stop with an error.
+\end{itemize}
+
+\underline{EXCHANGES}
+\begin{itemize}
+\item Fixed a bug that crashed the program during initialization when GWT or GWE models were connected through an Exchange and at least one model has grid type DISU and does not have the (currently optional) CELL2D information specified in its input. It could have happened for GWF models in a similar manner, though only when running in parallel mode.
+\end{itemize}
+
+\underline{INTERNAL FLOW PACKAGES}
+\begin{itemize}
+\item Fixed the DEWATERED VARIABLECV option. Previously, the saturation and vertical hydraulic conductivity of the underlying cell were included in the vertical conductance calculation when the water level in the underlying cell was below the top of the cell. This is not what is described in \citet[][equation 4-44]{modflow6gwf}. The code has been modified to only include the saturation and vertical hydraulic conductivity of the overlying cell when calculating the vertical conductance when the water-level in the underlying cell is below the top of the cell.
+\item Fixed HFB behavior when a hydraulic flow barrier is configured for a cell pair that includes an inactive cell. Previously the connection was excluded but not adjusted for in the defined number of hydraulic flow barriers, which can lead to a segmentation fault. A workaround is to only define hydraulic flow barriers for active cells. New behavior excludes the connection and adds a warning when an exclusion applies, and also adjusts the number of hydraulic flow barriers accordingly.
+\item Fixed Newton-Raphson under-relaxation so that it is not applied to cells where the lower-most cell in a vertical stack is not convertible (ICELLTYPE=0). Vertical stacks of cells with non-convertible cells at the bottom of the stack are not evaluated since it is valid for the water-level in a non-convertible cell to be below the bottom of the cell. This approach is consistent with the approach used in previous versions of MODFLOW.
+\end{itemize}
+
+\underline{MODEL}
+\begin{itemize}
+\item Balanced the PRT model mass budget with a new term to accumulate mass of terminated particles. Previously particle mass remained in storage regardless of particle status, leaving the particle mass budget unbalanced at the end of the simulation. Also, report cell-by-cell mass storage in the binary budget file; only cumulative mass storage was reported in the list file previously.
+\item Setting the PRT model's Particle Release Point (PRP) package option EXIT\_SOLVE\_TOLERANCE too high can cause the generalized (DISV) tracking method to produce invalid/meaningless results, as the algorithm considers every lateral subcell exit solution equally valid. Add a warning for tolerances above 0.01. The variable being solved varies from 0 to 1, so in most cases the tolerance should be much less than 1, but appropriate values will vary by model and desired performance (models run faster with higher tolerance).
+\item In Newton models with local z release coordinates configured via LOCAL\_Z, invalid negative particle tracking times could be produced when the head in the release-point cell is above the cell top or below the cell bottom. This was caused by an incorrect conversion of local release point vertical coordinates to model coordinates, erroneously placing particles above or below the vertical extent of the release cell. To correct this, take into account whether the cell is convertible or confined. The release point is interpolated vertically between the effective top of the cell and the cell bottom. If the cell is convertible, the effective top is determined by the head in the cell and is constrained to be no higher than the geometric top of the cell and no lower than the cell bottom. If the cell is confined, the effective top is the geometric top. So that convertible and confined cells can be distinguished at particle release time, the user must now specify a binary grid file entry (GWFGRID) to the PRT FMI package if release coordinates are configured with LOCAL\_Z and the PRT model is running in a separate simulation from the GWF model. A binary grid file entry is not required in the PRT FMI package if the GWF and PRT models run in the same simulation.
+\item PRT docs and error messages previously failed to distinguish between cells excluded from the model grid with IDOMAIN and cells merely inactive due e.g. to drying. These two concepts are distinct and should not be confused: PRT will not permit a particle to be released into a cell with IDOMAIN = 0 (excluded from the simulation) or -1 (vertical pass through), but it will permit release into an inactive cell. Behavior in this case is determined by factors such as whether the DRAPE option is activated, whether the flow model uses the Newton formulation, and (if so) which DRY\_TRACKING\_METHOD is configured.
+\item Numerical error in the iterative subcell exit solution can leave a particle slightly outside the cell or subcell it is supposedly entering.  Although logic had been implemented to correct for this and ensure that the particle lay within the expected cell or subcell before further tracking commences, this logic was insufficient and could in some cases result in negative tracking times, which terminated the simulation with an error.  The logic has been updated to correctly account for all possible cases.
+\item The PRT PRP package previously failed to correctly load release settings configured by period block. This could prevent particles from being released as configured. It could also cause excess particles to be released, as empty period blocks intended to stop fill-forward at a certain period were not properly recognized. The package has been updated to correctly load period block release settings.
+\item PRT previously reported events occurring exactly on a boundary between time steps as occurring during the preceding step. This properly 'credited' the event to the flow conditions responsible for the particle's trajectory up to that time. However, this reporting logic was inappropriately applied to events such as particle releases, as well, which caused the stress period and time step to be reported incorrectly for some events. Instead of altering stress period and time step post hoc, PRT now reports each event as occurring in the stress period and time step in which the event is triggered. This means simultaneous releases can be credited to different time steps. For example, a particle release scheduled using an explicit time specification that falls on the boundary between two time steps occurs at the first opportunity, i.e., at the end of the earlier time step. On the other hand, if a period block is used to schedule a particle release at the beginning of the later time step, the release occurs in that time step, not the previous one.
+\item Fixed vertex ordering used internally by PRT for cells with quad-refined faces. The ordering was incorrect if the cell2D block entry for a cell listed a mid-face vertex first, which could result in anomalous tracking behavior.
+\item Fixed particle status checking logic in the PRT subcell tracking method, which in some circumstances could cause the simulation to fail with an error.
+\item Simplified the PRT model's logic determining whether to terminate particles upon entering a subcell with no exit face. Previously particles encountering this situation in the simulation's final time step, with extended tracking on, would terminate with status code 10 (timeout) if flow in the subcell was stationary. A particle in a subcell with no exit face will now terminate with status code 9 (no exit face from subcell) regardless of circumstance.
+\item PRT maintains a transformation for each particle between the model coordinate system and coordinates local to the particle's current tracking domain. When a submethod hands control of a particle back to a delegating method, its corresponding transform is inverted to restore the delegating method's coordinate system. Up to now, this inverse operation unconditionally applied a rotation, whether or not the corresponding forward transform included a rotation. On rotated DISV grid cells, this could produce invalid particle coordinates, without substantially disturbing the remainder of the affected particle's pathline. The inverse coordinate transform has been corrected such that particle positions are reported correctly for rotated DISV grid cells.
+\end{itemize}
+
+\underline{NETCDF}
+\begin{itemize}
+\item Previously, gridded parameters read from ascii input files could be written to configured NetCDF files with the package EXPORT\_ARRAY\_NETCDF option in both regular and validate simulation mode. This capability will now only be supported in validate mode and is primarily intended to support generating NetCDF files that can serve as model inputs in subsequent simulation runs. Furthermore, the time dimension in these generated NetCDF input files, when defined, has been updated from NSTP to NPER, and the MODFLOW 6 NetCDF input load interfaces have been updated to reflect that change.
+\end{itemize}
+
+\underline{PARALLEL}
+\begin{itemize}
+\item Fixed the case where a simulation with GWF-GWF Exchanges containing water movers is run in parallel such that some Exchange Movers operate between different processes while others operate within the same process. In such cases a MPI communication error could occur (Internal error: Unknown error class) leading to a premature termination of the simulation run.
+\item The parameter CELL\_AVERAGING in the GWF-GWF Exchange OPTIONS block was ignored for parallel runs. The cell averaging method was set to the value configured in the NPF package of the model instead. This has been fixed such that the behavior now follows the documentation.
+\end{itemize}
+
+\underline{SOLUTION}
+\begin{itemize}
+\item Setting PRECONDITIONER\_DROP\_TOLERANCE in the IMS Linear block to a positive value in cases where the level of fill (PRECONDITIONER\_LEVELS) equals 0, erroneously activated the (M)ILUT preconditioner. Now, in such cases a warning is written, the (M)ILU preconditioner is selected, and the configured drop tolerance will be ignored.
+\end{itemize}
+
+\underline{STRESS PACKAGES}
+\begin{itemize}
+\item The OPTIONS block in the Energy Source Loading (ESL) Package accepted the AUXILIARY and AUXMULTNAME keywords; however, they had no effect on the GWE solution.  The ESL code was fixed such that when the AUXMULTCOL keyword is invoked, the user-specified amount of energy added or removed from cells will be multiplied by whatever value the user supplies in the corresponding AUXILIARY column.
+\item The OPTIONS block in the Mass Source Loading (SRC) Package accepted the AUXILIARY and AUXMULTNAME keywords; however, they had no effect on the GWT solution.  The SRC package was fixed such that when the AUXMULTCOL keyword is invoked, the user-specified amount of energy added or removed from cells will be multiplied by the value supplied by the user in the corresponding AUXILIARY column.
+\end{itemize}

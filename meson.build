@@ -1,15 +1,23 @@
 project(
   'MODFLOW 6',
   'fortran',
-  version: '6.7.0.dev3',
+  version: '6.8.0.dev0',
   license: 'CC0',
-  meson_version: '>= 1.3.1',
+  meson_version: '>= 1.7.0',
   default_options : [
     'b_vscrt=static_from_buildtype', # Link runtime libraries statically on Windows
     'buildtype=release',
     'debug=false',
     'fortran_std=f2018',
 ])
+
+version_f90 = vcs_tag(
+    command: ['python3', 'distribution/vcs_tag_suffix.py'],
+    input:  'src/Utilities/version.f90.in',
+    output: 'version.f90',
+    replace_string: '@VCS_TAG@',
+    fallback: '',
+  )
 
 if get_option('buildtype') == 'release'
   profile = 'release'
@@ -24,6 +32,7 @@ fc_id = fc.get_id()
 message('Compiler ID:', fc_id)
 compile_args = []
 link_args = []
+extra_deps = []
 
 # Command line options for gfortran
 if fc_id == 'gcc'
@@ -38,7 +47,7 @@ if fc_id == 'gcc'
                    '-Wno-maybe-uninitialized',   # "Uninitialized" flags produce false positives with allocatables
                    '-Wno-uninitialized',
                    ]
-  
+
   # Define OS with gfortran for OS specific code
   # These are identical to pre-defined macros available with ifort
   system = build_machine.system()

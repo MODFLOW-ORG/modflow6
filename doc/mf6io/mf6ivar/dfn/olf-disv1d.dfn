@@ -96,6 +96,7 @@ shape lenbigline
 preserve_case true
 reader urword
 optional true
+developmode true
 longname CRS user input string
 description is a real-world coordinate reference system (CRS) for the model, for example, an EPSG integer code (e.g. 26915), authority string (i.e. epsg:26915), or Open Geospatial Consortium Well-Known Text (WKT) specification. Limited to 5000 characters. The entry for CRS does not affect the model simulation, but it is written to the binary grid file so that postprocessors can locate the grid in space.
 

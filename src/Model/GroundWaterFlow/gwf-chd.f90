@@ -84,6 +84,7 @@ contains
     packobj%iout = iout
     packobj%id = id
     packobj%ibcnum = ibcnum
+    packobj%ncolbnd = 1
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
   end subroutine chd_create
 
@@ -160,11 +161,6 @@ contains
     ! -- Stop if errors detected
     if (ierr > 0) then
       call store_error_filename(this%input_fname)
-    end if
-    !
-    ! -- Write the list to iout if requested
-    if (this%iprpak /= 0) then
-      call this%write_list()
     end if
   end subroutine chd_rp
 
@@ -422,7 +418,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy variables
-    class(ChdType), intent(inout) :: this !< BndExtType object
+    class(ChdType), intent(inout) :: this
     integer(I4B), intent(in) :: row
     ! -- result
     real(DP) :: head
@@ -443,7 +439,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy variables
-    class(ChdType), intent(inout) :: this !< BndType object
+    class(ChdType), intent(inout) :: this
     integer(I4B), intent(in) :: col
     integer(I4B), intent(in) :: row
     ! -- result

@@ -599,7 +599,8 @@ module GwtIstInputModule
     'ZETAIM', & ! fortran variable
     'DOUBLE1D', & ! type
     'NODES', & ! shape
-    'mass transfer rate coefficient between the mobile and immobile domains', & ! longname
+    'mass transfer rate coefficient between the mobile and '// &
+    'immobile domains', & ! longname
     .true., & ! required
     .false., & ! developmode
     .false., & ! multi-record

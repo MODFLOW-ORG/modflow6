@@ -1,0 +1,58 @@
+{% macro param_inline(p) -%}
+InputParamDefinitionType &
+    ( &
+    {{ p.component | value }}, & ! component
+    {{ p.subcomponent | value }}, & ! subcomponent
+    {{ p.block | value }}, & ! block
+    {{ p.tag | value }}, & ! tag name
+    {{ p.fortran_var | value }}, & ! fortran variable
+    {{ p.type | value }}, & ! type
+    {{ p.shape | value }}, & ! shape
+    {{ p.longname | value }}, & ! longname
+    {{ p.required | value }}, & ! required
+    {{ p.developmode | value }}, & ! developmode
+    {{ p.in_record | value }}, & ! multi-record
+    {{ p.preserve_case | value }}, & ! preserve case
+    {{ p.layered | value }}, & ! layered
+    {{ p.timeseries | value }} & ! timeseries
+    ){%- endmacro %}
+
+{% macro param_definition(p) %}
+  type(InputParamDefinitionType), parameter :: &
+    {{ p.varname }} = {{ param_inline(p) }}{%- endmacro %}
+
+{% macro null_param_inline() -%}
+InputParamDefinitionType &
+    ( &
+    '', & ! component
+    '', & ! subcomponent
+    '', & ! block
+    '', & ! tag name
+    '', & ! fortran variable
+    '', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    ){%- endmacro %}
+
+{% macro block_inline(b) -%}
+InputBlockDefinitionType( &
+    '{{ b.name }}', & ! blockname
+    {{ b.required | value }}, & ! required
+    {{ b.aggregate | value }}, & ! aggregate
+    {{ b.block_var | value }} & ! block_variable
+    ){%- endmacro %}
+
+{% macro null_block_inline() -%}
+InputBlockDefinitionType &
+    ( &
+    '', & ! blockname
+    .false., & ! required
+    .false., & ! aggregate
+    .false. & ! block_variable
+    ){%- endmacro %}

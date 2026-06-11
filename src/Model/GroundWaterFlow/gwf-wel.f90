@@ -47,7 +47,6 @@ module WelModule
     procedure :: allocate_arrays => wel_allocate_arrays
     procedure :: source_options => wel_options
     procedure :: log_wel_options
-    procedure :: bnd_rp => wel_rp
     procedure :: bnd_cf => wel_cf
     procedure :: bnd_fc => wel_fc
     procedure :: bnd_fn => wel_fn
@@ -103,6 +102,7 @@ contains
     packobj%iout = iout
     packobj%id = id
     packobj%ibcnum = ibcnum
+    packobj%ncolbnd = 1
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
   end subroutine wel_create
 
@@ -257,7 +257,7 @@ contains
     ! -- modules
     use GwfWelInputModule, only: GwfWelParamFoundType
     ! -- dummy variables
-    class(WelType), intent(inout) :: this !< BndExtType object
+    class(WelType), intent(inout) :: this
     type(GwfWelParamFoundType), intent(in) :: found
     ! -- local variables
     ! -- format
@@ -298,26 +298,6 @@ contains
     write (this%iout, '(1x,a)') &
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
   end subroutine log_wel_options
-
-  !> @ brief WEL read and prepare
-    !!
-  !<
-  subroutine wel_rp(this)
-    use TdisModule, only: kper
-    ! -- dummy
-    class(WelType), intent(inout) :: this
-    ! -- local
-    !
-    if (this%iper /= kper) return
-    !
-    ! -- Call the parent class read and prepare
-    call this%BndExtType%bnd_rp()
-    !
-    ! -- Write the list to iout if requested
-    if (this%iprpak /= 0) then
-      call this%write_list()
-    end if
-  end subroutine wel_rp
 
   !> @ brief Formulate the package hcof and rhs terms.
     !!
@@ -446,7 +426,11 @@ contains
           ! -- calculate derivative for well
           tp = this%dis%top(node)
           bt = this%dis%bot(node)
-          thick = tp - bt
+          if (this%iflowredlen == 0) then
+            thick = tp - bt
+          else
+            thick = DONE
+          end if
           tp = bt + this%flowred * thick
           drterm = sQSaturationDerivative(tp, bt, this%xnew(node))
           drterm = drterm * this%q_mult(i)
@@ -638,7 +622,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy variables
-    class(WelType), intent(inout) :: this !< BndExtType object
+    class(WelType), intent(inout) :: this
     integer(I4B), intent(in) :: row
     ! -- result
     real(DP) :: q
@@ -660,7 +644,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy variables
-    class(WelType), intent(inout) :: this !< BndExtType object
+    class(WelType), intent(inout) :: this
     integer(I4B), intent(in) :: col
     integer(I4B), intent(in) :: row
     ! -- result

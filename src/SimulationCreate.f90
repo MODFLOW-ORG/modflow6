@@ -210,6 +210,7 @@ contains
     use OlfModule, only: olf_cr
     use PrtModule, only: prt_cr
     use NumericalModelModule, only: NumericalModelType, GetNumericalModelFromList
+    use ExplicitModelModule, only: ExplicitModelType, GetExplicitModelFromList
     use VirtualGwfModelModule, only: add_virtual_gwf_model
     use VirtualGwtModelModule, only: add_virtual_gwt_model
     use VirtualGweModelModule, only: add_virtual_gwe_model
@@ -227,6 +228,7 @@ contains
       pointer :: mnames !< model names
     integer(I4B) :: im
     class(NumericalModelType), pointer :: num_model
+    class(ExplicitModelType), pointer :: exp_model
     character(len=LINELENGTH) :: model_type
     character(len=LINELENGTH) :: fname, model_name
     integer(I4B) :: n, nr_models_glob
@@ -268,6 +270,7 @@ contains
       model_names(n) = model_name(1:LENMODELNAME)
       model_loc_idx(n) = -1
       num_model => null()
+      exp_model => null()
       !
       ! -- add a new (local or global) model
       select case (model_type)
@@ -324,12 +327,16 @@ contains
           model_loc_idx(n) = im
         end if
       case ('PRT6')
-        im = im + 1
-        write (iout, '(4x,2a,i0,a)') trim(model_type), ' model ', &
-          n, ' will be created'
-        call prt_cr(fname, n, model_names(n))
-        num_model => GetNumericalModelFromList(basemodellist, im)
-        model_loc_idx(n) = im
+        if (model_ranks(n) == proc_id) then
+          im = im + 1
+          write (iout, '(4x,2a,i0,a)') trim(model_type), ' model ', &
+            n, ' will be created'
+          call prt_cr(fname, n, model_names(n))
+          exp_model => GetExplicitModelFromList(basemodellist, im)
+          model_loc_idx(n) = im
+        end if
+        ! When virtual PRT is implemented, uncomment:
+        ! call add_virtual_prt_model(n, model_names(n), exp_model)
       case default
         write (errmsg, '(a,a)') &
           'Unknown simulation model type: ', trim(model_type)
@@ -364,8 +371,7 @@ contains
     use GweGweExchangeModule, only: gweexchange_create
     use OlfGwfExchangeModule, only: olfgwf_cr
     use VirtualGwfExchangeModule, only: add_virtual_gwf_exchange
-    use VirtualGwtExchangeModule, only: add_virtual_gwt_exchange
-    use VirtualGweExchangeModule, only: add_virtual_gwe_exchange
+    use VirtualTspExchangeModule, only: add_virtual_tsp_exchange
     ! use VirtualPrtExchangeModule, only: add_virtual_prt_exchange
     ! -- dummy
     ! -- locals
@@ -474,14 +480,16 @@ contains
           call gwtexchange_create(fname, exg_name, exg_id, m1_id, m2_id, &
                                   exg_mempath)
         end if
-        call add_virtual_gwt_exchange(exg_name, exg_id, m1_id, m2_id)
+        call add_virtual_tsp_exchange(exg_name, exg_id, m1_id, m2_id, &
+                                      "concentration")
       case ('GWE6-GWE6')
         write (exg_name, '(a,i0)') 'GWE-GWE_', exg_id
         if (.not. both_remote) then
           call gweexchange_create(fname, exg_name, exg_id, m1_id, m2_id, &
                                   exg_mempath)
         end if
-        call add_virtual_gwe_exchange(exg_name, exg_id, m1_id, m2_id)
+        call add_virtual_tsp_exchange(exg_name, exg_id, m1_id, m2_id, &
+                                      "temperature")
       case ('OLF6-GWF6')
         write (exg_name, '(a,i0)') 'OLF-GWF_', exg_id
         if (both_local) then
@@ -547,6 +555,8 @@ contains
     use BaseModelModule, only: BaseModelType
     use BaseExchangeModule, only: BaseExchangeType
     use InputOutputModule, only: parseline, upcase
+    use NumericalModelModule, only: NumericalModelType
+    use ExplicitModelModule, only: ExplicitModelType
     ! -- dummy
     ! -- local
     character(len=LENMEMPATH) :: input_mempath
@@ -668,10 +678,25 @@ contains
           !
           mp => GetBaseModelFromList(basemodellist, loc_idx)
           !
+          ! -- Check for solver-model type mismatch
+          select type (mp)
+          class is (ExplicitModelType)
+            write (errmsg, '(4a)') &
+              'Model "', trim(words(j)), &
+              '" is an explicit model and cannot be added to an IMS6 ', &
+              'solution. Explicit models require EMS6.'
+            call store_error(errmsg)
+          end select
+          !
           ! -- Add the model to the solution
           call sp%add_model(mp)
           mp%idsoln = isoln
         end do
+        !
+        ! -- Check for any errors
+        if (count_errors() > 0) then
+          call store_error_filename('mfsim.nam')
+        end if
       case ('EMS6')
         !
         ! -- increment solution counters
@@ -705,10 +730,25 @@ contains
           !
           mp => GetBaseModelFromList(basemodellist, loc_idx)
           !
+          ! -- Check for solver-model type mismatch
+          select type (mp)
+          class is (NumericalModelType)
+            write (errmsg, '(4a)') &
+              'Model "', trim(words(j)), &
+              '" is a numerical model and cannot be added to an EMS6 ', &
+              'solution. Numerical models require IMS6.'
+            call store_error(errmsg)
+          end select
+          !
           ! -- Add the model to the solution
           call sp%add_model(mp)
           mp%idsoln = isoln
         end do
+        !
+        ! -- Check for any errors
+        if (count_errors() > 0) then
+          call store_error_filename('mfsim.nam')
+        end if
       case default
       end select
       !

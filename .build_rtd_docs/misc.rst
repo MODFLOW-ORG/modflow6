@@ -8,3 +8,4 @@ This section contains miscellaneous content.
    :glob:
 
    _misc/mf6_6_0_prt_migration_guide
+   _misc/mf6_7_0_prt_migration_guide

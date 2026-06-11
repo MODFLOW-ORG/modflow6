@@ -41,7 +41,6 @@ optional true
 longname flag to scale X and RHS
 description flag to scale X and RHS to avoid very large positive or negative dependent variable values
 mf6internal idv_scale
-developmode true
 
 block options
 name nc_mesh2d_filerecord

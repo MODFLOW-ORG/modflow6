@@ -292,7 +292,7 @@ contains
     ! modules
     use KindModule, only: LGP
     use InputOutputModule, only: getunit, openfile
-    use MemoryManagerExtModule, only: mem_set_value
+    use MemoryManagerExtModule, only: mem_set_value, memorystore_release
     use CharacterStringModule, only: CharacterStringType
     use SwfDfwInputModule, only: SwfDfwParamFoundType
     ! dummy
@@ -351,6 +351,8 @@ contains
       call openfile(this%inobspkg, this%iout, this%obs%inputFilename, 'OBS')
       call this%obs%obs_df(this%iout, this%packName, this%filtyp, this%dis)
       call this%dfw_df_obs()
+
+      call memorystore_release('OBS6_FILENAME', this%input_mempath)
     end if
 
     ! log values to list file

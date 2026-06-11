@@ -207,8 +207,11 @@ contains
     use TdisModule, only: kper
     ! -- dummy
     class(GwtSrcType), intent(inout) :: this
+    !
     if (this%iper /= kper) return
+    !
     call this%BndExtType%bnd_rp()
+    !
     if (this%highest_sat) call this%set_nodesontop()
   end subroutine src_rp
 
@@ -408,7 +411,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy variables
-    class(GwtSrcType), intent(inout) :: this !< BndExtType object
+    class(GwtSrcType), intent(inout) :: this
     integer(I4B), intent(in) :: row
     ! -- result
     real(DP) :: ener

@@ -4,6 +4,7 @@ BEGIN dimensions
   MAXATS  2
 END dimensions
 
+# apply adaptive time stepping only to periods 2 and 7
 BEGIN perioddata
 # per    dt0   dtmin   dtmax  dtadj  dtfailadj
     2  100.0  1.0E-5  1000.0    2.0        5.0

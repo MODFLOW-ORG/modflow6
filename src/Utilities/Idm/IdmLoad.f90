@@ -27,7 +27,7 @@ module IdmLoadModule
   public :: load_exchanges
   public :: idm_df
   public :: idm_rp
-  public :: idm_ad
+  public :: idm_ts_advance
   public :: idm_da
 
 contains
@@ -58,15 +58,15 @@ contains
 
   !> @brief advance package dynamic data for period steps
   !<
-  subroutine idm_ad()
+  subroutine idm_ts_advance()
     use InputLoadTypeModule, only: GetDynamicModelFromList
     class(ModelDynamicPkgsType), pointer :: model_dynamic_input
     integer(I4B) :: n
     do n = 1, model_inputs%Count()
       model_dynamic_input => GetDynamicModelFromList(model_inputs, n)
-      call model_dynamic_input%ad()
+      call model_dynamic_input%ts_advance()
     end do
-  end subroutine idm_ad
+  end subroutine idm_ts_advance
 
   !> @brief idm deallocate routine
   !<
@@ -154,7 +154,7 @@ contains
       call input_load(static_loader%subpkg_list%component_types(n), &
                       static_loader%subpkg_list%subcomponent_types(n), &
                       static_loader%mf6_input%component_name, &
-                      static_loader%subpkg_list%subcomponent_types(n), &
+                      static_loader%subpkg_list%subcomponent_names(n), &
                       static_loader%subpkg_list%pkgtypes(n), &
                       static_loader%subpkg_list%filenames(n), &
                       modelfname, nc_vars, iout)

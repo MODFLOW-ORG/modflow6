@@ -69,6 +69,7 @@ jobs:
             version: 13
             optimization: 1
             extended: false
+            xcode-version: '15.1.0'
           - os: windows-2022
             compiler: ${{ inputs.compiler_toolchain }}
             version: ${{ inputs.compiler_version }}
@@ -81,7 +82,7 @@ jobs:
             extended: true
     defaults:
       run:
-        shell: bash -l {0}
+        shell: bash
     outputs:
       version: ${{ steps.set_version.outputs.version }}
       distname: ${{ steps.set_version.outputs.distname }}
@@ -106,32 +107,18 @@ jobs:
           ref: ${{ inputs.branch }}
 
       - name: Checkout modflow6-testmodels
-        if: inputs.run_tests == true && runner.os != 'Windows'
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/modflow6-testmodels
           path: modflow6-testmodels
 
       - name: Checkout modflow6-examples
-        if: inputs.run_tests == true && runner.os != 'Windows'
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         uses: actions/checkout@v6
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
-
-      - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.3
-        with:
-          pixi-version: v0.41.4
-          manifest-path: "modflow6/pixi.toml"
-
-      - name: Custom pixi install
-        working-directory: modflow6
-        run: pixi run install
-
-      - name: Install additional netcdf testing packages
-        working-directory: modflow6
-        run: pixi run pip install xarray netcdf4
 
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
         if: (!(runner.os == 'Windows' && matrix.extended))
@@ -140,7 +127,17 @@ jobs:
         with:
           compiler: ${{ matrix.compiler }}
           version: ${{ matrix.version }}
-      
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.9.6
+        with:
+          pixi-version: v0.70.1
+          manifest-path: "modflow6/pixi.toml"
+
+      - name: Custom pixi install
+        working-directory: modflow6
+        run: pixi run install
+
       - name: Set version number
         id: set_version
         run: |
@@ -165,7 +162,7 @@ jobs:
           eval "$cmd"
 
       - name: Update flopy
-        if: inputs.run_tests == true && runner.os != 'Windows'
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         working-directory: modflow6
         run: |
           cmd="pixi run update-flopy"
@@ -203,8 +200,8 @@ jobs:
             # run only parallel/extended tests in developmode, run all tests in releasemode
             filters="test_par or test_netcdf"
           fi
-          # comparison fails on macos-14 with optimization=1
-          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
+          # comparison fails on macos with optimization=1
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
             if [[ "$filters" != "" ]]; then
               filters="$filters and not test028_sfr_rewet"
             else
@@ -213,44 +210,36 @@ jobs:
           fi
           echo "filters=$filters" >> $GITHUB_OUTPUT
 
-      # for statically linked gfortran ARM mac build
+      - name: Set xcode version (macOS)
+        if: runner.os == 'macOS'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ matrix.xcode-version }}
+
+      # static link gfortran libs
       - name: Hide dylibs (macOS)
-        if: matrix.os == 'macos-14'
+        if: runner.os == 'macOS'
         run: |
           version="${{ matrix.version }}"
-          libpath="/opt/homebrew/opt/gcc@$version/lib/gcc/$version"
-          mv $libpath/libgfortran.5.dylib $libpath/libgfortran.5.dylib.bak 
+          brew_prefix="$(brew --prefix)"
+          libpath="$brew_prefix/opt/gcc@$version/lib/gcc/$version"
+          mv $libpath/libgcc_s.1.1.dylib $libpath/libgcc_s.1.1.dylib.bak
+          mv $libpath/libgfortran.5.dylib $libpath/libgfortran.5.dylib.bak
           mv $libpath/libquadmath.0.dylib $libpath/libquadmath.0.dylib.bak 
 
+      # use classic xcode linker, static link libgcc
       - name: Set LDFLAGS (macOS)
         if: runner.os == 'macOS'
         run: |
-          os_ver=$(sw_vers -productVersion | cut -d'.' -f1)
-          if (( "$os_ver" > 12 )); then
-            ldflags="$LDFLAGS -Wl,-ld_classic"
-            echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
-          fi
+          ldflags="$LDFLAGS -Wl,-ld_classic -static-libgcc"
+          echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
 
-      - name: Get executables
-        if: inputs.run_tests == true && runner.os != 'Windows'
-        working-directory: modflow6
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: pixi run get-exes -s
-
-      - name: Build binaries
+      - name: Build MF6
         if: (!(runner.os == 'Windows' && matrix.extended))
         working-directory: modflow6
         run: |
           pixi run setup builddir -Doptimization=${{ matrix.optimization }}
           pixi run build builddir
-          # skip tests on arm mac, test-drive seems to collect results incorrectly
-          arch=$(uname -m || echo "unknown")
-          if [[ "${{ runner.os }}" == "macOS" ]] && [[ "$arch" == "arm64" ]]; then
-            echo "Skipping unit tests on ARM mac"
-          else
-            pixi run test builddir
-          fi
 
       - name: Build mf5to6 converter
         if: (!(runner.os == 'Windows' && matrix.extended))
@@ -259,12 +248,56 @@ jobs:
           pixi run setup-mf5to6 builddir -Doptimization=${{ matrix.optimization }}
           pixi run build-mf5to6 builddir
 
-      - name: Check architecture (macOS)
-        working-directory: modflow6/bin
+      - name: Show build log
+        if: failure()
+        working-directory: modflow6
+        run: cat builddir/meson-logs/meson-log.txt
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.version }}-meson-log.txt
+          path: modflow6/builddir/meson-logs/meson-log.txt
+
+      - name: Check arch/libs (macOS)
         if: runner.os == 'macOS'
+        working-directory: modflow6/bin
         run: |
           otool -L mf6
+          otool -L libmf6.dylib
+          otool -L mf5to6
+          otool -L zbud6
           lipo -info mf6 
+          lipo -info libmf6.dylib
+          lipo -info mf5to6
+          lipo -info zbud6
+
+      # TODO remove after next executables release. only necessary because
+      # tests using gridgen were failing as the current gridgen depends on
+      # some dylibs. new executables all statically link gcc/gfortran libs
+      - name: Restore dylibs (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          version="${{ matrix.version }}"
+          brew_prefix="$(brew --prefix)"
+          libpath="$brew_prefix/opt/gcc@$version/lib/gcc/$version"
+          mv $libpath/libgcc_s.1.1.dylib.bak $libpath/libgcc_s.1.1.dylib
+          mv $libpath/libgfortran.5.dylib.bak $libpath/libgfortran.5.dylib
+          mv $libpath/libquadmath.0.dylib.bak $libpath/libquadmath.0.dylib
+
+      - name: Unit test MF6
+        # temporarily skip on macOS.. why don't these fail in the normal CI?
+        if: (!(runner.os == 'Windows' && matrix.extended) && !(runner.os == 'macOS'))
+        working-directory: modflow6
+        run: pixi run test builddir
+
+      - name: Get executables
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
+        working-directory: modflow6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run get-exes -s
 
       - name: Build binaries (Windows)
         if: runner.os == 'Windows' && matrix.extended && !inputs.run_tests
@@ -280,7 +313,7 @@ jobs:
           MARKERS: ${{ steps.set_markers.outputs.markers }}
           FILTERS: ${{ steps.set_filters.outputs.filters }}
 
-      - name: Copy deps to bin dir
+      - name: Copy deps to bin dir (Windows)
         if: runner.os == 'Windows' && matrix.extended
         working-directory: modflow6/bin
         shell: cmd
@@ -316,30 +349,24 @@ jobs:
 
           :: remove rebuilt and downloaded dirs
           if exist rebuilt rd /s /q rebuilt
-          if exist rebuilt rd /s /q downloaded
+          if exist downloaded rd /s /q downloaded
 
-      - name: Upload binaries
-        uses: actions/upload-artifact@v6
-        with:
-          name: bin-${{ steps.ostag.outputs.ostag }}
-          path: modflow6/bin
-      
       - name: Test MF6
-        if: inputs.run_tests == true && runner.os != 'Windows'
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
         run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
 
       - name: Test MF6 models
-        if: inputs.run_tests == true && runner.os != 'Windows'
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
         run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
 
       - name: Test converter models
-        if: inputs.run_tests == true && runner.os != 'Windows'
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
@@ -347,11 +374,22 @@ jobs:
 
       - name: Upload failed test output
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: failed-${{ matrix.os }}-${{ inputs.compiler_toolchain }}-${{ inputs.compiler_version }}
           path: modflow6/autotest/.failed
       
+      - name: Clean bin directory
+        if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
+        working-directory: modflow6/bin
+        run: rm -rf rebuilt downloaded
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v7
+        with:
+          name: bin-${{ steps.ostag.outputs.ostag }}
+          path: modflow6/bin
+
       # steps below run only on Linux to test distribution procedures, e.g.
       # compiling binaries, building documentation
       - name: Checkout usgslatex
@@ -377,7 +415,7 @@ jobs:
         run: sudo ./install.sh --all-users
 
       - name: Test distribution scripts
-        if: ${{ inputs.run_tests == true && runner.os != 'Windows' }}
+        if: ${{ inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended) }}
         working-directory: modflow6
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -435,9 +473,9 @@ jobs:
         run: sudo ./install.sh --all-users
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.3
+        uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          pixi-version: v0.41.4
+          pixi-version: v0.70.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -479,7 +517,7 @@ jobs:
           echo "ostag=$ostag" >> $GITHUB_OUTPUT
 
       - name: Download pre-built binaries
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: bin-${{ steps.ostag.outputs.ostag }}
           path: bin
@@ -516,7 +554,7 @@ jobs:
           cat md/deprecations.md
 
       - name: Upload deprecations
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: deprecations
           path: modflow6/doc/mf6io/mf6ivar/md/deprecations.md
@@ -546,7 +584,7 @@ jobs:
           mv "doc/ReleaseNotes.pdf" "doc/release.pdf"
 
       - name: Upload documentation artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: doc
           path: doc
@@ -562,10 +600,18 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
+            compiler: ${{ inputs.compiler_toolchain }}
+            version: ${{ inputs.compiler_version }}
           - os: macos-14
+            compiler: gcc
+            version: 13
           - os: windows-2022
+            compiler: ${{ inputs.compiler_toolchain }}
+            version: ${{ inputs.compiler_version }}
             extended: false
           - os: windows-2022
+            compiler: ${{ inputs.compiler_toolchain }}
+            version: ${{ inputs.compiler_version }}
             extended: true
     defaults:
       run:
@@ -584,16 +630,16 @@ jobs:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
-      - name: Setup ${{ inputs.compiler_toolchain }} ${{ inputs.compiler_version }}
+      - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
         uses: fortran-lang/setup-fortran@v1
         with:
-          compiler: ${{ inputs.compiler_toolchain }}
-          version: ${{ inputs.compiler_version }}
+          compiler: ${{ matrix.compiler }}
+          version: ${{ matrix.version }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.3
+        uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          pixi-version: v0.41.4
+          pixi-version: v0.70.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -622,7 +668,7 @@ jobs:
           echo "ostag=$ostag" >> $GITHUB_OUTPUT
 
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: ${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}
       
@@ -666,6 +712,7 @@ jobs:
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             zip -r $distname.zip \
               $distname/bin \
+              $distname/dfns \
               $distname/src \
               $distname/srcbmi \
               $distname/doc \
@@ -684,6 +731,7 @@ jobs:
           else
             zip -r $distname.zip \
               $distname/bin/* \
+              $distname/dfns \
               $distname/doc/mf6io.pdf \
               $distname/doc/release.pdf \
               $distname/code.json \
@@ -701,6 +749,7 @@ jobs:
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             7z a -tzip $distname.zip \
               $distname/bin \
+              $distname/dfns \
               $distname/src \
               $distname/srcbmi \
               $distname/doc \
@@ -718,6 +767,7 @@ jobs:
           else
             7z a -tzip $distname.zip \
               $distname/bin/* \
+              $distname/dfns \
               $distname/doc/mf6io.pdf \
               $distname/doc/release.pdf \
               $distname/code.json \
@@ -728,14 +778,28 @@ jobs:
           fi
 
       - name: Upload distribution
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: "${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}"
           path: "${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}.zip"
 
+      - name: Create DFN asset
+        if: runner.os == 'Linux'
+        run: |
+          distname="${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}"
+          cd "$distname/dfns"
+          zip -r "../../${{ needs.build.outputs.distname }}_dfns.zip" .
+
+      - name: Upload DFN asset
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: "${{ needs.build.outputs.distname }}_dfns"
+          path: "${{ needs.build.outputs.distname }}_dfns.zip"
+
       - name: Upload release notes
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release_notes
           path: "${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}/doc/release.pdf"

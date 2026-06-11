@@ -119,7 +119,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'Zero-Depth-Gradient Boundary'}
+description REPLACE obs6_filename {'{#1}': 'ZDG', '{#2}': '\\ref{table:gwf-obstypetable}'}
 
 
 # --------------------- olf zdg dimensions ---------------------

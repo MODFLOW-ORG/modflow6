@@ -52,7 +52,7 @@ type keyword
 reader urword
 optional true
 mf6internal ipakcb
-longname save well flows to budget file
+longname save ESL flows to budget file
 description REPLACE save_flows {'{#1}': 'energy source loading'}
 
 block options
@@ -128,7 +128,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'Energy Source Loading'}
+description REPLACE obs6_filename {'{#1}': 'ESL', '{#2}': '\\ref{table:gwe-obstypetable}'}
 
 # --------------------- gwe esl dimensions ---------------------
 
@@ -207,5 +207,5 @@ tagged false
 in_record true
 reader urword
 optional true
-longname well name
+longname energy source loading name
 description REPLACE boundname {'{#1}': 'energy source'}

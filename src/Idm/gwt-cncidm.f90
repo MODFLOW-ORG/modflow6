@@ -15,9 +15,9 @@ module GwtCncInputModule
     logical :: auxiliary = .false.
     logical :: auxmultname = .false.
     logical :: boundnames = .false.
+    logical :: iprpak = .false.
     logical :: iprflow = .false.
     logical :: ipakcb = .false.
-    logical :: iprpak = .false.
     logical :: ts_filerecord = .false.
     logical :: ts6 = .false.
     logical :: filein = .false.
@@ -98,16 +98,35 @@ module GwtCncInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtcnc_iprflow = InputParamDefinitionType &
+    gwtcnc_iprpak = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'CNC', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_INPUT', & ! tag name
-    'IPRFLOW', & ! fortran variable
+    'IPRPAK', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'print input to listing file', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtcnc_iprflow = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'CNC', & ! subcomponent
+    'OPTIONS', & ! block
+    'PRINT_FLOWS', & ! tag name
+    'IPRFLOW', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'print calculated flows to listing file', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -122,27 +141,8 @@ module GwtCncInputModule
     'GWT', & ! component
     'CNC', & ! subcomponent
     'OPTIONS', & ! block
-    'PRINT_FLOWS', & ! tag name
-    'IPAKCB', & ! fortran variable
-    'KEYWORD', & ! type
-    '', & ! shape
-    'print calculated flows to listing file', & ! longname
-    .false., & ! required
-    .false., & ! developmode
-    .false., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    gwtcnc_iprpak = InputParamDefinitionType &
-    ( &
-    'GWT', & ! component
-    'CNC', & ! subcomponent
-    'OPTIONS', & ! block
     'SAVE_FLOWS', & ! tag name
-    'IPRPAK', & ! fortran variable
+    'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'save constant concentration flows to budget file', & ! longname
@@ -388,9 +388,9 @@ module GwtCncInputModule
     gwtcnc_auxiliary, &
     gwtcnc_auxmultname, &
     gwtcnc_boundnames, &
+    gwtcnc_iprpak, &
     gwtcnc_iprflow, &
     gwtcnc_ipakcb, &
-    gwtcnc_iprpak, &
     gwtcnc_ts_filerecord, &
     gwtcnc_ts6, &
     gwtcnc_filein, &

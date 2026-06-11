@@ -4,8 +4,8 @@ module MethodCellPollockModule
   use ConstantsModule, only: DONE, DZERO
   use MethodModule, only: MethodType, LEVEL_FEATURE, LEVEL_SUBFEATURE
   use MethodCellModule, only: MethodCellType
-  use MethodSubcellPoolModule, only: method_subcell_plck, &
-                                     method_subcell_tern
+  use MethodSubcellPollockModule, only: MethodSubcellPollockType, &
+                                        create_method_subcell_pollock
   use CellRectModule, only: CellRectType, create_cell_rect
   use SubcellRectModule, only: SubcellRectType, create_subcell_rect
   use ParticleModule, only: ParticleType
@@ -16,6 +16,7 @@ module MethodCellPollockModule
   public :: create_method_cell_pollock
 
   type, extends(MethodCellType) :: MethodCellPollockType
+    type(MethodSubcellPollockType), pointer :: method_subcell_plck => null()
   contains
     procedure, public :: apply => apply_mcp
     procedure, public :: deallocate => destroy_mcp
@@ -41,12 +42,19 @@ contains
     method%delegates = .true.
     call create_subcell_rect(subcell)
     method%subcell => subcell
+
+    ! Create subcell method this method can delegate to
+    call create_method_subcell_pollock(method%method_subcell_plck)
   end subroutine create_method_cell_pollock
 
   !> @brief Destroy the tracking method
   subroutine destroy_mcp(this)
     class(MethodCellPollockType), intent(inout) :: this
     deallocate (this%name)
+
+    ! Deallocate owned subcell method
+    call this%method_subcell_plck%deallocate()
+    deallocate (this%method_subcell_plck)
   end subroutine destroy_mcp
 
   !> @brief Load subcell tracking method
@@ -63,13 +71,13 @@ contains
     type is (SubcellRectType)
       call this%load_subcell(particle, subcell)
     end select
-    call method_subcell_plck%init( &
+    call this%method_subcell_plck%init( &
       fmi=this%fmi, &
       cell=this%cell, &
       subcell=this%subcell, &
       events=this%events, &
       tracktimes=this%tracktimes)
-    submethod => method_subcell_plck
+    submethod => this%method_subcell_plck
     particle%itrdomain(next_level) = 1
   end subroutine load_mcp
 
@@ -135,7 +143,8 @@ contains
       if (.not. particle%advancing) return
 
       ! Transform model coordinates to local cell coordinates
-      ! (translated/rotated but not scaled relative to model)
+      ! (translated/rotated but not scaled relative to model),
+      ! track the particle over the cell, then transform back.
       xOrigin = cell%xOrigin
       yOrigin = cell%yOrigin
       zOrigin = cell%zOrigin
@@ -143,11 +152,7 @@ contains
       cosrot = cell%cosrot
       call particle%transform(xOrigin, yOrigin, zOrigin, &
                               sinrot, cosrot)
-
-      ! Track the particle over the cell
       call this%track(particle, 2, tmax)
-
-      ! Transform cell coordinates back to model coordinates
       call particle%transform(xOrigin, yOrigin, zOrigin, &
                               sinrot, cosrot, invert=.true.)
       call particle%reset_transform()

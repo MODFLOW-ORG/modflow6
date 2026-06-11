@@ -412,7 +412,8 @@ contains
       ! export input arrays
       if (mempath /= '') then
         ! update export
-        call mem_set_value(export_arrays, 'EXPORT_NC', mempath, found)
+        call mem_set_value(export_arrays, 'EXPORT_NC', mempath, found, &
+                           release=.false.)
         if (export_arrays > 0) then
           pkgtype = idm_subcomponent_type(this%modeltype, ptype)
           param_dfns => param_definitions(this%modeltype, pkgtype)

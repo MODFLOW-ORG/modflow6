@@ -13,7 +13,8 @@ module DisuModule
   use BaseDisModule, only: DisBaseType
   use MemoryManagerModule, only: mem_allocate, mem_deallocate, &
                                  mem_reallocate, mem_setptr
-  use MemoryManagerExtModule, only: mem_set_value, memorystore_remove
+  use MemoryManagerExtModule, only: mem_set_value, memorystore_remove, &
+                                    memorystore_release
   use TdisModule, only: kstp, kper, pertim, totim, delt
   use DisvGeom, only: line_unit_vector
 
@@ -813,6 +814,8 @@ contains
       write (this%iout, '(1x,a)') 'Discretization Vertex data loaded'
     end if
     !
+    call memorystore_release('XV', this%input_mempath)
+    call memorystore_release('YV', this%input_mempath)
   end subroutine source_vertices
 
   !> @brief Build data structures to hold cell vertex info
@@ -901,6 +904,11 @@ contains
       write (this%iout, '(1x,a)') 'Discretization Cell2d data loaded'
     end if
     !
+    call memorystore_release('ICELL2D', this%input_mempath)
+    call memorystore_release('NCVERT', this%input_mempath)
+    call memorystore_release('ICVERT', this%input_mempath)
+    call memorystore_release('XC', this%input_mempath)
+    call memorystore_release('YC', this%input_mempath)
   end subroutine source_cell2d
 
   !> @brief Write a binary grid file
@@ -1064,10 +1072,10 @@ contains
     integer(I4B) :: nodenumber
     !
     if (icheck /= 0) then
-      if (nodeu < 1 .or. nodeu > this%nodes) then
+      if (nodeu < 1 .or. nodeu > this%nodesuser) then
         write (errmsg, '(a,i0,a,i0,a)') &
           'Node number (', nodeu, ') is less than 1 or greater than nodes (', &
-          this%nodes, ').'
+          this%nodesuser, ').'
         call store_error(errmsg)
       end if
     end if

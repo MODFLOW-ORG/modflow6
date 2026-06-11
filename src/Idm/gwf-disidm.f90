@@ -267,7 +267,7 @@ module GwfDisInputModule
     'LENBIGLINE', & ! shape
     'CRS user input string', & ! longname
     .false., & ! required
-    .false., & ! developmode
+    .true., & ! developmode
     .false., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered

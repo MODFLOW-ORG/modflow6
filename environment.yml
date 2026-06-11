@@ -6,7 +6,6 @@ channels:
 
 dependencies:
   - python>=3.10
-  - boltons
   - appdirs
   - cffconvert
   - codespell
@@ -20,11 +19,12 @@ dependencies:
   - jupytext
   - matplotlib
   - meson>=1.3.1
-  - modflow-devtools>=1.7.0
+  - netCDF4
   - ninja
   - numpy
   - pip
   - pip:
+      - modflow-devtools[test,dfn,models]>=1.7.0,!=1.9.0,<2
       - git+https://github.com/modflowpy/flopy.git
       - git+https://github.com/modflowpy/pymake.git
       - git+https://github.com/Deltares/xmipy.git
@@ -44,7 +44,6 @@ dependencies:
   - shapely
   - syrupy<5
   - test-drive
-  - tomli>=2.2.1,<3
-  - tomli-w>=1.2.0,<2
   - xarray
+  - xugrid
   

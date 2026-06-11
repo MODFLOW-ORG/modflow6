@@ -8,6 +8,8 @@ The GWF Model is designed to permit input to be gathered, as it is needed, from 
 
 The GWF Model reads a file called the Name File, which specifies most of the files that will be used in a simulation. Several files are always required whereas other files are optional depending on the simulation. The Output Control Package receives instructions from the user to control the amount and frequency of output.  Details about the Name File and the Output Control Package are described in this section.
 
+The GWF Model must be solved by an Iterative Model Solution (IMS) package.
+
 \subsection{Information for Existing MODFLOW Users}
 \input{gwf/info_existing_users.tex}
 
@@ -156,7 +158,7 @@ Cell-by-cell stress flows are flow rates into or out of the model, at a particul
 \input{gwf/sfr}
 
 \newpage
-\subsection{Lake (LAK) Package}
+\subsection{Lake (LAK) Package} \label{sec:lakpak}
 \input{gwf/lak}
 
 \newpage

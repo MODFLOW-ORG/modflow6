@@ -146,7 +146,7 @@ module GwtSrcInputModule
     'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'save well flows to budget file', & ! longname
+    'save SRC flows to budget file', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -300,7 +300,7 @@ module GwtSrcInputModule
     '', & ! shape
     'apply source to highest saturated cell', & ! longname
     .false., & ! required
-    .true., & ! developmode
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered
@@ -393,7 +393,7 @@ module GwtSrcInputModule
     'BOUNDNAME', & ! fortran variable
     'STRING', & ! type
     '', & ! shape
-    'well name', & ! longname
+    'source name', & ! longname
     .false., & ! required
     .false., & ! developmode
     .true., & ! multi-record

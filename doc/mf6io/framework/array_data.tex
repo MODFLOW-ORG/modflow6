@@ -37,7 +37,7 @@ With OPEN/CLOSE, the array will be read from the file whose name is specified by
 
 \item \texttt{FACTOR <factor>}---are a keyword and a real number factor for real arrays and an integer factor for integer arrays. The individual elements of the array are multiplied by \texttt{factor} after they are read. If \texttt{factor} is specified as 0, then it is changed to 1.
 
-\item \texttt{(BINARY)}---is an option that indicates the OPEN/CLOSE file contains array data in binary (unformatted) form. A binary file that can be read by MODFLOW may be created in only two ways. The first way is to use MODFLOW to create the file by saving heads in a binary file. This is commonly done when the user desires to use computed heads from one simulation as initial heads for a subsequent simulation. The other way to create a binary file is to write a special program that generates a binary file.  ``(BINARY)'' can be specified only when the control line is OPEN/CLOSE.
+\item \texttt{(BINARY)}---is an option that indicates the OPEN/CLOSE file contains array data in binary (unformatted) form.  A binary file that can be read by MODFLOW requires special handling.  Information on the binary format of the binary file is discussed later in this section.
 
 \item \texttt{IPRN <iprn>}---are a keyword and a flag that indicates whether the array being read should be written to the Listing File after the array has been read and a code for indicating the format that should be used when the array is written. The format codes are the same as for MODFLOW-2005. IPRN is set to zero when the specified value exceeds those defined. If IPRN is less than zero or if the keyword and flag are omitted, the array will not be printed.  This IPRN capability is not functional for all data sets, and will eventually become unsupported for all packages.  For some packages that have transitioned to the new input data processor, the EXPORT\_ARRAY\_ASCII option can be specified in the package OPTIONS block.  When this option is active, input arrays will be written to external text files.
 
@@ -84,15 +84,15 @@ With OPEN/CLOSE, the array will be read from the file whose name is specified by
 The following examples use free-format control lines for reading an array. The example array is a real array consisting of 4 rows with 7 columns per row: 
 
 \begin{lstlisting}[style=inputfile]
-CONSTANT 5.7      This sets an entire array to the value "5.7". 
-INTERNAL FACTOR 1.0 IPRN 3            This reads the array values from the 
- 1.2 3.7 9.3 4.2 2.2 9.9 1.0      file that contains the control line. 
- 3.3 4.9 7.3 7.5 8.2 8.7 6.6      Thus, the values immediately follow the 
- 4.5 5.7 2.2 1.1 1.7 6.7 6.9      control line. 
+CONSTANT 5.7                      # This sets an entire array to the value "5.7". 
+INTERNAL FACTOR 1.0 IPRN 3        # This reads the array values from the file that contains the control line. 
+ 1.2 3.7 9.3 4.2 2.2 9.9 1.0      # Thus, the values immediately follow the control line.
+ 3.3 4.9 7.3 7.5 8.2 8.7 6.6
+ 4.5 5.7 2.2 1.1 1.7 6.7 6.9 
  7.4 3.5 7.8 8.5 7.4 6.8 8.8 
-OPEN/CLOSE inp.txt FACTOR 1.0 IPRN 3    Read array from formatted file "inp.dat". 
-OPEN/CLOSE inp.bin FACTOR 1.0 (BINARY) IPRN 3     Read array from binary file "inp.bin". 
-OPEN/CLOSE test.dat FACTOR 1.0 IPRN 3     Read array from file "test.dat". 
+OPEN/CLOSE inp.txt FACTOR 1.0 IPRN 3           # Read array from formatted file "inp.dat". 
+OPEN/CLOSE inp.bin FACTOR 1.0 (BINARY) IPRN 3  # Read array from binary file "inp.bin". 
+OPEN/CLOSE test.dat FACTOR 1.0 IPRN 3          # Read array from file "test.dat". 
 \end{lstlisting}
 
 

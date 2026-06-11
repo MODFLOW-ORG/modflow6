@@ -342,7 +342,7 @@ contains
   subroutine source_packagedata(this)
     ! -- modules
     use MemoryManagerModule, only: mem_setptr
-    use MemoryManagerExtModule, only: mem_set_value
+    use MemoryManagerExtModule, only: mem_set_value, memorystore_release
     use CharacterStringModule, only: CharacterStringType
     use OpenSpecModule, only: ACCESS, FORM
     use ConstantsModule, only: LINELENGTH, DEM6, LENPACKAGENAME
@@ -422,6 +422,10 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
+
+    call memorystore_release('FLOWTYPE', this%input_mempath)
+    call memorystore_release('FILEIN', this%input_mempath)
+    call memorystore_release('FNAME', this%input_mempath)
   end subroutine source_packagedata
 
   !> @brief Read/validate flow model grid
@@ -593,7 +597,7 @@ contains
   !<
   subroutine advance_bfr(this)
     ! -- modules
-    use TdisModule, only: kstp, kper
+    use TdisModule, only: kstp, kper, endofsimulation
     ! -- dummy
     class(FlowModelInterfaceType) :: this
     ! -- local
@@ -612,6 +616,12 @@ contains
       &FOR KSTP ', i0, ' AND KPER ',        &
       &i0, ' TO BUDGET FILE TERMS FROM &
       &KSTP ', i0, ' AND KPER ', i0)"
+    character(len=*), parameter :: fmtbadtdis = &
+      "(4x, 'TIME DISCRETIZATION IN BUDGET FILE &
+      &IS INCOMPATIBLE WITH TIME DISCRETIZATION IN COUPLED MODEL. &
+      &IF THERE IS MORE THAN ONE TIME STEP IN THE BUDGET FILE FOR A &
+      &GIVEN STRESS PERIOD, BUDGET FILE TIME STEPS MUST MATCH THE &
+      &COUPLED MODEL TIME STEPS ONE-FOR-ONE IN THAT STRESS PERIOD.')"
     !
     ! -- If the latest record read from the budget file is from a stress
     ! -- period with only one time step, reuse that record (do not read a
@@ -653,22 +663,14 @@ contains
         !
         ! -- Ensure kper is same between model and budget file
         if (kper /= this%bfr%header%kper) then
-          write (errmsg, '(4x,a)') 'PERIOD NUMBER IN BUDGET FILE &
-            &DOES NOT MATCH PERIOD NUMBER IN TRANSPORT MODEL.  IF THERE &
-            &IS MORE THAN ONE TIME STEP IN THE BUDGET FILE FOR A GIVEN &
-            &STRESS PERIOD, BUDGET FILE TIME STEPS MUST MATCH GWT MODEL &
-            &TIME STEPS ONE-FOR-ONE IN THAT STRESS PERIOD.'
+          write (errmsg, fmtbadtdis)
           call store_error(errmsg)
           call store_error_unit(this%iubud)
         end if
         !
         ! -- if budget file kstp > 1, then kstp must match
         if (this%bfr%header%kstp > 1 .and. (kstp /= this%bfr%header%kstp)) then
-          write (errmsg, '(4x,a)') 'TIME STEP NUMBER IN BUDGET FILE &
-            &DOES NOT MATCH TIME STEP NUMBER IN TRANSPORT MODEL.  IF THERE &
-         &IS MORE THAN ONE TIME STEP IN THE BUDGET FILE FOR A GIVEN STRESS &
-           &PERIOD, BUDGET FILE TIME STEPS MUST MATCH GWT MODEL TIME STEPS &
-            &ONE-FOR-ONE IN THAT STRESS PERIOD.'
+          write (errmsg, fmtbadtdis)
           call store_error(errmsg)
           call store_error_unit(this%iubud)
         end if
@@ -728,6 +730,16 @@ contains
           end select
         end select
       end do
+
+      ! If this is the final time step, make sure no records
+      ! for this period are being skipped in the budget file.
+      if (endofsimulation .and. .not. this%bfr%endoffile) then
+        if (this%bfr%headernext%kper == kper) then
+          write (errmsg, fmtbadtdis)
+          call store_error(errmsg)
+          call store_error_unit(this%iubud)
+        end if
+      end if
     else
       !
       ! -- write message to indicate that flows are being reused

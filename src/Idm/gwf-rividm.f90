@@ -148,7 +148,7 @@ module GwfRivInputModule
     'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'save CHD flows to budget file', & ! longname
+    'save RIV flows to budget file', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -433,7 +433,7 @@ module GwfRivInputModule
     'BOUNDNAME', & ! fortran variable
     'STRING', & ! type
     '', & ! shape
-    'drain name', & ! longname
+    'river name', & ! longname
     .false., & ! required
     .false., & ! developmode
     .true., & ! multi-record

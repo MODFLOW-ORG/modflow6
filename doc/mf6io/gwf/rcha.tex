@@ -3,6 +3,8 @@ Input to the Recharge (RCH) Package is read from the file that has type ``RCH6''
 
 Recharge input can be specified using lists or arrays.  Array-based input for recharge is activated by providing READASARRAYS within the OPTIONS block.   Instructions for specifying list-based recharge is described in the previous section.  Array-based input for recharge provides a similar approach for providing recharge rates as previous MODFLOW versions.  Array-based input for recharge can be used only with the DIS and DISV Packages.  Array-based input for recharge cannot be used with the DISU Package.
 
+\mf will allow recharge in cells that also include a lake connection.  Refer to the ``\hyperref[sec:lakrchet]{Use of the Lake Package with RCH and EVT Packages}'' section for additional details when the RCHA and LAK packages are active in the same cell.  
+
 When array-based input is used for recharge, the DIMENSIONS block should not be specified.  The array size is determined from the model grid. 
 
 \vspace{5mm}

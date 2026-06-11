@@ -52,7 +52,7 @@ name save_flows
 type keyword
 reader urword
 optional true
-longname save CHD flows to budget file
+longname save GHB flows to budget file
 description REPLACE save_flows {'{#1}': 'general-head boundary'}
 mf6internal ipakcb
 
@@ -129,7 +129,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'General-Head Boundary'}
+description REPLACE obs6_filename {'{#1}': 'GHB', '{#2}': '\\ref{table:gwf-obstypetable}'}
 
 block options
 name mover

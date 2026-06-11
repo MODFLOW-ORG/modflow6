@@ -336,6 +336,9 @@ contains
     class(BaseExchangeType), pointer :: ep => null()
     class(SpatialModelConnectionType), pointer :: mc => null()
 
+    ! -- define input
+    call idm_df()
+
     ! -- init virtual data environment
     call run_ctrl%at_stage(STG_BFR_MDL_DF)
 
@@ -381,9 +384,6 @@ contains
       sp => GetBaseSolutionFromList(basesolutionlist, is)
       call sp%sln_df()
     end do
-
-    ! idm df
-    call idm_df()
 
   end subroutine simulation_df
 
@@ -508,7 +508,7 @@ contains
     use BaseSolutionModule, only: BaseSolutionType, GetBaseSolutionFromList
     use SimModule, only: converge_reset
     use SimVariablesModule, only: isim_mode
-    use IdmLoadModule, only: idm_rp
+    use IdmLoadModule, only: idm_rp, idm_ts_advance
     use SourceLoadModule, only: export_post_prepare
     ! -- local variables
     class(BaseModelType), pointer :: mp => null()
@@ -605,6 +605,9 @@ contains
     ! -- set time step
     call tdis_set_timestep()
 
+    ! timeseries advance
+    call idm_ts_advance()
+
     ! stop timer
     call g_prof%stop(g_prof%tmr_prep_tstp)
 
@@ -624,7 +627,7 @@ contains
     use ListsModule, only: solutiongrouplist
     use SimVariablesModule, only: iFailedStepRetry
     use SolutionGroupModule, only: SolutionGroupType, GetSolutionGroupFromList
-    use IdmLoadModule, only: idm_ad
+    use IdmLoadModule, only: idm_ts_advance
     ! -- local variables
     class(SolutionGroupType), pointer :: sgp => null()
     integer(I4B) :: isg
@@ -641,8 +644,10 @@ contains
     iFailedStepRetry = 0
     retryloop: do
 
-      ! -- idm advance
-      call idm_ad()
+      if (iFailedStepRetry > 0) then
+        ! timeseries advance
+        call idm_ts_advance()
+      end if
 
       do isg = 1, solutiongrouplist%Count()
         sgp => GetSolutionGroupFromList(solutiongrouplist, isg)
@@ -671,15 +676,14 @@ contains
     use KindModule, only: DP
     use SimVariablesModule, only: lastStepFailed
     use SimModule, only: converge_reset
-    use TdisModule, only: kstp, kper, delt, tdis_delt_reset
-    use AdaptiveTimeStepModule, only: ats_reset_delt
+    use TdisModule, only: kstp, kper, delt, tdis_delt_reset, ats
     ! -- dummy variables
     logical, intent(out) :: finishedTrying !< boolean that indicates if no
     ! additional reruns of the time step are required
     !
     ! -- Check with ats to reset delt and keep trying
     finishedTrying = .true.
-    call ats_reset_delt(kstp, kper, lastStepFailed, delt, finishedTrying)
+    call ats%ats_reset_delt(kstp, kper, lastStepFailed, delt, finishedTrying)
     !
     if (.not. finishedTrying) then
       !

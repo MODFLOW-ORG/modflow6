@@ -58,6 +58,7 @@ module GweGweConnectionModule
     procedure :: exg_df => gwegwecon_df
     procedure :: exg_rp => gwegwecon_rp
     procedure :: exg_ad => gwegwecon_ad
+    procedure :: exg_cf => gwegwecon_cf
     procedure :: exg_fc => gwegwecon_fc
     procedure :: exg_da => gwegwecon_da
     procedure :: exg_cq => gwegwecon_cq
@@ -398,6 +399,31 @@ contains
 
   end subroutine gwegwecon_ad
 
+  subroutine gwegwecon_cf(this, kiter)
+    class(GweGweConnectionType) :: this !< this connection
+    integer(I4B), intent(in) :: kiter !< the iteration counter
+    ! local
+    real(DP), dimension(:), pointer, contiguous :: x_m1, x_m2
+
+    call this%SpatialModelConnectionType%spatialcon_cf(kiter)
+
+    ! CF the movers in the exchange
+    if (this%owns_exchange) then
+      if (this%gweExchange%inmvt > 0) then
+        x_m1 => null()
+        x_m2 => null()
+        if (associated(this%gweExchange%gwemodel1)) then
+          x_m1 => this%gweExchange%gwemodel1%x
+        end if
+        if (associated(this%gweExchange%gwemodel2)) then
+          x_m2 => this%gweExchange%gwemodel2%x
+        end if
+        call this%gweExchange%mvt%xmvt_cf(x_m1, x_m2)
+      end if
+    end if
+
+  end subroutine gwegwecon_cf
+
   subroutine gwegwecon_fc(this, kiter, matrix_sln, rhs_sln, inwtflag)
     ! dummy
     class(GweGweConnectionType) :: this !< the connection
@@ -405,6 +431,8 @@ contains
     class(MatrixBaseType), pointer :: matrix_sln !< the system matrix
     real(DP), dimension(:), intent(inout) :: rhs_sln !< global right-hand-side
     integer(I4B), optional, intent(in) :: inwtflag !< newton-raphson flag
+    ! local
+    real(DP), dimension(:), pointer, contiguous :: x_m1, x_m2
 
     call this%SpatialModelConnectionType%spatialcon_fc( &
       kiter, matrix_sln, rhs_sln, inwtflag)
@@ -412,8 +440,15 @@ contains
     ! _fc the movers through the exchange
     if (this%owns_exchange) then
       if (this%gweExchange%inmvt > 0) then
-        call this%gweExchange%mvt%mvt_fc(this%gweExchange%gwemodel1%x, &
-                                         this%gweExchange%gwemodel2%x)
+        x_m1 => null()
+        x_m2 => null()
+        if (associated(this%gweExchange%gwemodel1)) then
+          x_m1 => this%gweExchange%gwemodel1%x
+        end if
+        if (associated(this%gweExchange%gwemodel2)) then
+          x_m2 => this%gweExchange%gwemodel2%x
+        end if
+        call this%gweExchange%mvt%mvt_fc(x_m1, x_m2)
       end if
     end if
 

@@ -3,11 +3,9 @@ module NumericalModelModule
   use KindModule, only: DP, I4B
   use ConstantsModule, only: LINELENGTH, LENBUDTXT, LENPAKLOC
   use BaseModelModule, only: BaseModelType
-  use BaseDisModule, only: DisBaseType
   use SparseModule, only: sparsematrix
   use TimeArraySeriesManagerModule, only: TimeArraySeriesManagerType
   use ListModule, only: ListType
-  use VersionModule, only: write_listfile_header
   use MatrixBaseModule
   use VectorBaseModule
 
@@ -17,34 +15,24 @@ module NumericalModelModule
             GetNumericalModelFromList
 
   type, extends(BaseModelType) :: NumericalModelType
-    character(len=LINELENGTH), pointer :: filename => null() !input file name
-    integer(I4B), pointer :: neq => null() !number of equations
-    integer(I4B), pointer :: nja => null() !number of connections
-    integer(I4B), pointer :: moffset => null() !offset of this model in the solution
-    integer(I4B), pointer :: icnvg => null() !convergence flag
-    integer(I4B), dimension(:), pointer, contiguous :: ia => null() !csr row pointer
-    integer(I4B), dimension(:), pointer, contiguous :: ja => null() !csr columns
-    real(DP), dimension(:), pointer, contiguous :: x => null() !dependent variable (head, conc, etc)
-    real(DP), dimension(:), pointer, contiguous :: rhs => null() !right-hand side vector
-    real(DP), dimension(:), pointer, contiguous :: cond => null() !conductance matrix
-    integer(I4B), dimension(:), pointer, contiguous :: idxglo => null() !pointer to position in solution matrix
-    real(DP), dimension(:), pointer, contiguous :: xold => null() !dependent variable for previous timestep
-    real(DP), dimension(:), pointer, contiguous :: flowja => null() !intercell flows
-    integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !ibound array
-    !
-    ! -- Derived types
-    type(ListType), pointer :: bndlist => null() !array of boundary packages for this model
-    class(DisBaseType), pointer :: dis => null() !discretization object
+    integer(I4B), pointer :: neq => null() !< number of equations
+    integer(I4B), pointer :: moffset => null() !< offset of this model in the solution
+    integer(I4B), pointer :: icnvg => null() !< convergence flag
+    integer(I4B), dimension(:), pointer, contiguous :: ia => null() !< csr row pointer
+    integer(I4B), dimension(:), pointer, contiguous :: ja => null() !< csr columns
+    real(DP), dimension(:), pointer, contiguous :: x => null() !< dependent variable (head, conc, etc)
+    real(DP), dimension(:), pointer, contiguous :: rhs => null() !< right-hand side vector
+    real(DP), dimension(:), pointer, contiguous :: cond => null() !< conductance matrix
+    integer(I4B), dimension(:), pointer, contiguous :: idxglo => null() !< pointer to position in solution matrix
+    real(DP), dimension(:), pointer, contiguous :: xold => null() !< dependent variable for previous timestep
 
   contains
-    !
-    ! -- Required for all models (override procedures defined in BaseModelType)
+    ! Overridden methods
     procedure :: model_df
     procedure :: model_ar
     procedure :: model_fp
     procedure :: model_da
-    !
-    ! -- Methods specific to a numerical model
+    ! Specific methods
     procedure :: model_ac
     procedure :: model_mc
     procedure :: model_rp
@@ -64,8 +52,7 @@ module NumericalModelModule
     procedure :: model_bdsave
     procedure :: model_ot
     procedure :: model_bdentry
-    !
-    ! -- Utility methods
+    ! Utility methods
     procedure :: allocate_scalars
     procedure :: allocate_arrays
     procedure :: set_moffset
@@ -78,13 +65,10 @@ module NumericalModelModule
     procedure :: get_mnodeu
     procedure :: get_iasym
     procedure :: get_idv_scale
-    procedure :: create_lstfile
   end type NumericalModelType
 
 contains
-  !
-  ! -- Type-bound procedures for a numerical model
-  !
+
   subroutine model_df(this)
     class(NumericalModelType) :: this
   end subroutine model_df
@@ -221,34 +205,34 @@ contains
   end subroutine model_fp
 
   subroutine model_da(this)
-    ! -- modules
+    ! modules
     use MemoryManagerModule, only: mem_deallocate
     class(NumericalModelType) :: this
 
-    ! -- Scalars
+    ! deallocate scalars
     call mem_deallocate(this%neq)
     call mem_deallocate(this%nja)
     call mem_deallocate(this%icnvg)
     call mem_deallocate(this%moffset)
     deallocate (this%filename)
-    !
-    ! -- Arrays
+
+    ! deallocate arrays
     call mem_deallocate(this%xold)
     call mem_deallocate(this%flowja, 'FLOWJA', this%memoryPath)
     call mem_deallocate(this%idxglo)
-    !
-    ! -- derived types
+
+    ! deallocate derived types
     call this%bndlist%Clear()
     deallocate (this%bndlist)
-    !
-    ! -- nullify pointers
+
+    ! nullify pointers
     call mem_deallocate(this%x, 'X', this%memoryPath)
     call mem_deallocate(this%rhs, 'RHS', this%memoryPath)
     call mem_deallocate(this%ibound, 'IBOUND', this%memoryPath)
-    !
-    ! -- BaseModelType
+
+    ! base deallocation
     call this%BaseModelType%model_da()
-    !
+
   end subroutine model_da
 
   subroutine set_moffset(this, moffset)
@@ -275,18 +259,18 @@ contains
     use MemoryManagerModule, only: mem_allocate
     class(NumericalModelType) :: this
     character(len=*), intent(in) :: modelname
-    !
-    ! -- allocate basetype members
+
+    ! allocate base members
     call this%BaseModelType%allocate_scalars(modelname)
-    !
-    ! -- allocate members from this type
+
+    ! allocate members from this type
     call mem_allocate(this%neq, 'NEQ', this%memoryPath)
     call mem_allocate(this%nja, 'NJA', this%memoryPath)
     call mem_allocate(this%icnvg, 'ICNVG', this%memoryPath)
     call mem_allocate(this%moffset, 'MOFFSET', this%memoryPath)
     allocate (this%filename)
     allocate (this%bndlist)
-    !
+
     this%filename = ''
     this%neq = 0
     this%nja = 0
@@ -299,12 +283,11 @@ contains
     use MemoryManagerModule, only: mem_allocate
     class(NumericalModelType) :: this
     integer(I4B) :: i
-    !
+
     call mem_allocate(this%xold, this%neq, 'XOLD', this%memoryPath)
     call mem_allocate(this%flowja, this%nja, 'FLOWJA', this%memoryPath)
     call mem_allocate(this%idxglo, this%nja, 'IDXGLO', this%memoryPath)
-    !
-    ! -- initialize
+
     do i = 1, size(this%flowja)
       this%flowja(i) = DZERO
     end do
@@ -312,15 +295,15 @@ contains
 
   subroutine set_xptr(this, xsln, sln_offset, varNameTgt, memPathTgt)
     use MemoryManagerModule, only: mem_checkin
-    ! -- dummy
+    ! dummy
     class(NumericalModelType) :: this
     real(DP), dimension(:), pointer, contiguous, intent(in) :: xsln
     integer(I4B) :: sln_offset
     character(len=*), intent(in) :: varNameTgt
     character(len=*), intent(in) :: memPathTgt
-    ! -- local
+    ! local
     integer(I4B) :: offset
-    ! -- code
+
     offset = this%moffset - sln_offset
     this%x => xsln(offset + 1:offset + this%neq)
     call mem_checkin(this%x, 'X', this%memoryPath, varNameTgt, memPathTgt)
@@ -328,15 +311,15 @@ contains
 
   subroutine set_rhsptr(this, rhssln, sln_offset, varNameTgt, memPathTgt)
     use MemoryManagerModule, only: mem_checkin
-    ! -- dummy
+    ! dummy
     class(NumericalModelType) :: this
     real(DP), dimension(:), pointer, contiguous, intent(in) :: rhssln
     integer(I4B) :: sln_offset
     character(len=*), intent(in) :: varNameTgt
     character(len=*), intent(in) :: memPathTgt
-    ! -- local
+    ! local
     integer(I4B) :: offset
-    ! -- code
+
     offset = this%moffset - sln_offset
     this%rhs => rhssln(offset + 1:offset + this%neq)
     call mem_checkin(this%rhs, 'RHS', this%memoryPath, varNameTgt, memPathTgt)
@@ -344,15 +327,15 @@ contains
 
   subroutine set_iboundptr(this, iboundsln, sln_offset, varNameTgt, memPathTgt)
     use MemoryManagerModule, only: mem_checkin
-    ! -- dummy
+    ! dummy
     class(NumericalModelType) :: this
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: iboundsln
     integer(I4B) :: sln_offset
     character(len=*), intent(in) :: varNameTgt
     character(len=*), intent(in) :: memPathTgt
-    ! -- local
+    ! local
     integer(I4B) :: offset
-    ! -- code
+
     offset = this%moffset - sln_offset
     this%ibound => iboundsln(offset + 1:offset + this%neq)
     call mem_checkin(this%ibound, 'IBOUND', this%memoryPath, varNameTgt, &
@@ -361,10 +344,11 @@ contains
 
   subroutine get_mcellid(this, node, mcellid)
     use BndModule, only: BndType, GetBndFromList
+    ! dummy
     class(NumericalModelType) :: this
     integer(I4B), intent(in) :: node
     character(len=*), intent(inout) :: mcellid
-    ! -- local
+    ! local
     character(len=20) :: cellid
     integer(I4B) :: ip, ipaknode, istart, istop
     class(BndType), pointer :: packobj
@@ -399,7 +383,7 @@ contains
     class(NumericalModelType) :: this
     integer(I4B), intent(in) :: node
     integer(I4B), intent(inout) :: nodeu
-    ! -- local
+
     if (node <= this%dis%nodes) then
       nodeu = this%dis%get_nodeuser(node)
     else
@@ -423,10 +407,10 @@ contains
     implicit none
     class(*), pointer, intent(inout) :: obj
     class(NumericalModelType), pointer :: res
-    !
+
     res => null()
     if (.not. associated(obj)) return
-    !
+
     select type (obj)
     class is (NumericalModelType)
       res => obj
@@ -435,73 +419,27 @@ contains
 
   subroutine AddNumericalModelToList(list, model)
     implicit none
-    ! -- dummy
+    ! dummy
     type(ListType), intent(inout) :: list
     class(NumericalModelType), pointer, intent(inout) :: model
-    ! -- local
+    ! local
     class(*), pointer :: obj
-    !
+
     obj => model
     call list%Add(obj)
   end subroutine AddNumericalModelToList
 
   function GetNumericalModelFromList(list, idx) result(res)
     implicit none
-    ! -- dummy
+    ! dummy
     type(ListType), intent(inout) :: list
     integer(I4B), intent(in) :: idx
     class(NumericalModelType), pointer :: res
-    ! -- local
+    ! local
     class(*), pointer :: obj
-    !
+
     obj => list%GetItem(idx)
     res => CastAsNumericalModelClass(obj)
   end function GetNumericalModelFromList
-
-  subroutine create_lstfile(this, lst_fname, model_fname, defined, headertxt)
-    ! -- modules
-    use KindModule, only: LGP
-    use InputOutputModule, only: openfile, getunit
-    ! -- dummy
-    class(NumericalModelType) :: this
-    character(len=*), intent(inout) :: lst_fname
-    character(len=*), intent(in) :: model_fname
-    logical(LGP), intent(in) :: defined
-    character(len=*), intent(in) :: headertxt
-    ! -- local
-    integer(I4B) :: i, istart, istop
-    !
-    ! -- set list file name if not provided
-    if (.not. defined) then
-      !
-      ! -- initialize
-      lst_fname = ' '
-      istart = 0
-      istop = len_trim(model_fname)
-      !
-      ! -- identify '.' character position from back of string
-      do i = istop, 1, -1
-        if (model_fname(i:i) == '.') then
-          istart = i
-          exit
-        end if
-      end do
-      !
-      ! -- if not found start from string end
-      if (istart == 0) istart = istop + 1
-      !
-      ! -- set list file name
-      lst_fname = model_fname(1:istart)
-      istop = istart + 3
-      lst_fname(istart:istop) = '.lst'
-    end if
-    !
-    ! -- create the list file
-    this%iout = getunit()
-    call openfile(this%iout, 0, lst_fname, 'LIST', filstat_opt='REPLACE')
-    !
-    ! -- write list file header
-    call write_listfile_header(this%iout, headertxt)
-  end subroutine create_lstfile
 
 end module NumericalModelModule

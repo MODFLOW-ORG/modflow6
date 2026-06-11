@@ -4,6 +4,8 @@ module MapperModule
   use MemoryHelperModule, only: create_mem_path
   use IndexMapModule
   use VirtualBaseModule, only: VirtualDataType, MAP_NODE_TYPE, MAP_CONN_TYPE
+  use VirtualDataContainerModule, only: VDC_GWFEXG_TYPE, VDC_GWTEXG_TYPE, &
+                                        VDC_GWEEXG_TYPE
   use VirtualModelModule, only: VirtualModelType, get_virtual_model
   use VirtualExchangeModule, only: VirtualExchangeType, get_virtual_exchange
   use InterfaceMapModule
@@ -50,54 +52,72 @@ contains
     ! local
     integer(I4B) :: iconn
     class(SpatialModelConnectionType), pointer :: conn
-    class(VirtualExchangeType), pointer :: virt_exg
+    class(VirtualExchangeType), pointer :: vx
     character(len=LENMEMPATH) :: virt_mem_path, local_mem_path
 
     do iconn = 1, baseconnectionlist%Count()
       conn => get_smc_from_list(baseconnectionlist, iconn)
-      virt_exg => get_virtual_exchange(conn%prim_exchange%id)
-      if (.not. virt_exg%v_model1%is_local) then
-        virt_mem_path = virt_exg%get_vrt_mem_path('NODEM1', '')
+      vx => get_virtual_exchange(conn%prim_exchange%id)
+      if (.not. vx%v_model1%is_local) then
+        virt_mem_path = vx%get_vrt_mem_path('NODEM1', '')
         call this%map_data_full(0, 'NODEM1', conn%prim_exchange%memoryPath, &
                                 'NODEM1', virt_mem_path, (/STG_BFR_CON_DF/))
 
-        ! these are only present when there is a mover:
-        if (virt_exg%has_mover()) then
-          local_mem_path = create_mem_path(virt_exg%name, 'MVR')
-          virt_mem_path = virt_exg%get_vrt_mem_path('QPACTUAL_M1', 'MVR')
+        ! these are only present when there is a MVR:
+        if (vx%has_mover() .and. vx%container_type == VDC_GWFEXG_TYPE) then
+          local_mem_path = create_mem_path(vx%name, 'MVR')
+          virt_mem_path = vx%get_vrt_mem_path('QPACTUAL_M1', 'MVR')
           call this%map_data_full(conn%owner%idsoln, 'QPACTUAL_M1', &
                                   local_mem_path, 'QPACTUAL_M1', &
                                   virt_mem_path, (/STG_BFR_EXG_FC/))
-          virt_mem_path = virt_exg%get_vrt_mem_path('QAVAILABLE_M1', 'MVR')
+          virt_mem_path = vx%get_vrt_mem_path('QAVAILABLE_M1', 'MVR')
           call this%map_data_full(conn%owner%idsoln, 'QAVAILABLE_M1', &
                                   local_mem_path, 'QAVAILABLE_M1', &
                                   virt_mem_path, (/STG_BFR_EXG_FC/))
-          virt_mem_path = virt_exg%get_vrt_mem_path('ID_MAPPED_M1', 'MVR')
+          virt_mem_path = vx%get_vrt_mem_path('ID_MAPPED_M1', 'MVR')
           call this%map_data_full(conn%owner%idsoln, 'ID_MAPPED_M1', &
                                   local_mem_path, 'ID_MAPPED_M1', &
                                   virt_mem_path, (/STG_AFT_CON_RP/))
         end if
+        ! the same for MVT (both GWE and GWT)
+        if (vx%has_mover() .and. (vx%container_type == VDC_GWTEXG_TYPE .or. &
+                                  vx%container_type == VDC_GWEEXG_TYPE)) then
+          local_mem_path = create_mem_path(vx%name, 'MVT')
+          virt_mem_path = vx%get_vrt_mem_path('QUANTITY_M1', 'MVT')
+          call this%map_data_full(conn%owner%idsoln, 'QUANTITY_M1', &
+                                  local_mem_path, 'QUANTITY_M1', &
+                                  virt_mem_path, (/STG_BFR_EXG_FC/))
+        end if
       end if
-      if (.not. virt_exg%v_model2%is_local) then
-        virt_mem_path = virt_exg%get_vrt_mem_path('NODEM2', '')
+      if (.not. vx%v_model2%is_local) then
+        virt_mem_path = vx%get_vrt_mem_path('NODEM2', '')
         call this%map_data_full(0, 'NODEM2', conn%prim_exchange%memoryPath, &
                                 'NODEM2', virt_mem_path, (/STG_BFR_CON_DF/))
 
         ! these are only present when there is a mover:
-        if (virt_exg%has_mover()) then
-          local_mem_path = create_mem_path(virt_exg%name, 'MVR')
-          virt_mem_path = virt_exg%get_vrt_mem_path('QPACTUAL_M2', 'MVR')
+        if (vx%has_mover() .and. vx%container_type == VDC_GWFEXG_TYPE) then
+          local_mem_path = create_mem_path(vx%name, 'MVR')
+          virt_mem_path = vx%get_vrt_mem_path('QPACTUAL_M2', 'MVR')
           call this%map_data_full(conn%owner%idsoln, 'QPACTUAL_M2', &
                                   local_mem_path, 'QPACTUAL_M2', &
                                   virt_mem_path, (/STG_BFR_EXG_FC/))
-          virt_mem_path = virt_exg%get_vrt_mem_path('QAVAILABLE_M2', 'MVR')
+          virt_mem_path = vx%get_vrt_mem_path('QAVAILABLE_M2', 'MVR')
           call this%map_data_full(conn%owner%idsoln, 'QAVAILABLE_M2', &
                                   local_mem_path, 'QAVAILABLE_M2', &
                                   virt_mem_path, (/STG_BFR_EXG_FC/))
-          virt_mem_path = virt_exg%get_vrt_mem_path('ID_MAPPED_M2', 'MVR')
+          virt_mem_path = vx%get_vrt_mem_path('ID_MAPPED_M2', 'MVR')
           call this%map_data_full(conn%owner%idsoln, 'ID_MAPPED_M2', &
                                   local_mem_path, 'ID_MAPPED_M2', &
                                   virt_mem_path, (/STG_AFT_CON_RP/))
+        end if
+        ! the same for MVT (both GWE and GWT)
+        if (vx%has_mover() .and. (vx%container_type == VDC_GWTEXG_TYPE .or. &
+                                  vx%container_type == VDC_GWEEXG_TYPE)) then
+          local_mem_path = create_mem_path(vx%name, 'MVT')
+          virt_mem_path = vx%get_vrt_mem_path('QUANTITY_M2', 'MVT')
+          call this%map_data_full(conn%owner%idsoln, 'QUANTITY_M2', &
+                                  local_mem_path, 'QUANTITY_M2', &
+                                  virt_mem_path, (/STG_BFR_EXG_FC/))
         end if
       end if
     end do

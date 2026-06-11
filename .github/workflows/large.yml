@@ -67,9 +67,9 @@ jobs:
           path: modflow6-largetestmodels
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.3
+        uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          pixi-version: v0.41.4
+          pixi-version: v0.70.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -106,7 +106,7 @@ jobs:
       
       - name: Upload failed test output
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: failed-${{ runner.os }}-${{ matrix.compiler }}-${{ matrix.version }}
           path: modflow6/autotest/.failed

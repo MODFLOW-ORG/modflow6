@@ -5,6 +5,8 @@ Recharge input can be specified using lists or arrays, unless the DISU Package i
 
 List-based input offers several advantages over the array-based input for specifying recharge.  First, multiple list entries can be specified for a single cell.  This makes it possible to divide a cell into multiple areas, and assign a different recharge rate for each area (perhaps based on land use or some other criteria).  In this case, the user would likely specify an auxiliary variable to serve as a multiplier.  This multiplier would be calculated by the user and provided in the input file as the fractional cell are for the individual recharge entries.  Another advantage to using list-based input for specifying recharge is that boundnames can be specified.  Boundnames work with the Observations capability and can be used to sum recharge rates for entries with the same boundname.  A disadvantage of the list-based input is that one cannot easily assign recharge to the entire model without specifying a list of model cells.  For this reason \mf also supports array-based input for recharge.
 
+\mf will allow recharge in cells that also include a lake connection.  Refer to the ``\hyperref[sec:lakrchet]{Use of the Lake Package with RCH and EVT Packages}'' section for additional details when the RCH and LAK packages are active in the same cell.  
+
 \vspace{5mm}
 \subsubsection{Structure of Blocks}
 \vspace{5mm}

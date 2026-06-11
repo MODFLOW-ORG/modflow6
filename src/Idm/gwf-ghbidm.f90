@@ -147,7 +147,7 @@ module GwfGhbInputModule
     'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'save CHD flows to budget file', & ! longname
+    'save GHB flows to budget file', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record

@@ -421,8 +421,8 @@ contains
               !
               !cdl link up mvt to mvr
               if (gwfExg%inmvr > 0) then
-                if (gwtConn%owns_exchange) then
-                  !cdl todo: check and make sure gwtEx has mvt active
+                if (gwtConn%owns_exchange .and. &
+                    gwtConn%gwtExchange%inmvt > 0) then
                   call gwtExg%mvt%set_pointer_mvrbudobj(gwfExg%mvr%budobj)
                 end if
               end if
@@ -475,8 +475,7 @@ contains
     !
     !cdl link up mvt to mvr
     if (gwfConn%gwfExchange%inmvr > 0) then
-      if (gwtConn%owns_exchange) then
-        !cdl todo: check and make sure gwtEx has mvt active
+      if (gwtConn%owns_exchange .and. gwtConn%gwtExchange%inmvt > 0) then
         call gwtConn%gwtExchange%mvt%set_pointer_mvrbudobj( &
           gwfConn%gwfExchange%mvr%budobj)
       end if

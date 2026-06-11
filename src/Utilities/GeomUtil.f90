@@ -286,20 +286,25 @@ contains
         cosrot = cosrot_add * c0 - sinrot_add * s0
       end if
     else
-      ! -- Apply inverse of additional transformation to existing transformation
-      !
+      ! -- Apply inverse of additional transformation to existing transformation.
       ! -- Calculate modified origin, R^T (XOrigin + R_add XOrigin_add), where
       ! -- XOrigin and XOrigin_add are the existing and additional origin
       ! -- vectors, respectively, R^T is the transpose of the existing rotation
-      ! -- matrix, and R_add is the additional rotation matrix
-      if (ltranslate) then
-        call transform(-xorigin_add, -yorigin_add, zorigin_add, &
-                       x0, y0, z0, xorigin, yorigin, zorigin, &
-                       -sinrot_add, cosrot_add, .true.)
+      ! -- matrix, and R_add is the additional rotation matrix.
+      if (lrotate) then
+        if (ltranslate) then
+          call transform(-xorigin_add, -yorigin_add, zorigin_add, &
+                         x0, y0, z0, xorigin, yorigin, zorigin, &
+                         -sinrot_add, cosrot_add, .true.)
+        end if
+        xorigin = c0 * x0 - s0 * y0
+        yorigin = s0 * x0 + c0 * y0
+        zorigin = z0
+      else if (ltranslate) then
+        xorigin = x0 - xorigin_add
+        yorigin = y0 - yorigin_add
+        zorigin = z0 - zorigin_add
       end if
-      xorigin = c0 * x0 - s0 * y0
-      yorigin = s0 * x0 + c0 * y0
-      zorigin = z0
       if (lrotate) then
         ! -- Calculate modified rotation matrix (represented by sinrot
         ! -- and cosrot) as R_add^T R, where R and R_add^T are the existing

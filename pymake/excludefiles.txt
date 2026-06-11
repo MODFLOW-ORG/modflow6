@@ -2,6 +2,7 @@
 ../src/Solution/PETSc/PetscImsPreconditioner.F90
 ../src/Solution/PETSc/PetscSolver.F90
 ../src/Solution/ParallelSolution.f90
+../src/Timing/ParallelAts.f90
 ../src/Utilities/Matrix/PetscMatrix.F90
 ../src/Utilities/Vector/PetscVector.F90
 ../src/Distributed/MpiMessageBuilder.f90

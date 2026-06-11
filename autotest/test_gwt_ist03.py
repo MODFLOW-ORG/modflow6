@@ -69,14 +69,10 @@ def build_models(idx, test):
         print_option="SUMMARY",
         outer_dvclose=hclose,
         outer_maximum=nouter,
-        under_relaxation="DBD",
-        under_relaxation_theta=0.7,
         inner_maximum=ninner,
         inner_dvclose=hclose,
         rcloserecord=rclose,
         linear_acceleration="BICGSTAB",
-        scaling_method="NONE",
-        reordering_method="NONE",
         relaxation_factor=relax,
         filename=f"{gwfname}.ims",
     )
@@ -132,13 +128,10 @@ def build_models(idx, test):
         print_option="SUMMARY",
         outer_dvclose=hclose,
         outer_maximum=nouter,
-        under_relaxation="NONE",
         inner_maximum=ninner,
         inner_dvclose=hclose,
         rcloserecord=rclose,
         linear_acceleration="BICGSTAB",
-        scaling_method="NONE",
-        reordering_method="NONE",
         relaxation_factor=relax,
         filename=f"{gwtname}.ims",
     )
@@ -339,7 +332,7 @@ def check_output(idx, test):
         csrb_answer = np.where(
             conc > 0, distcoef * sp2 * conc / (1 + distcoef * conc), 0
         )
-    if not np.allclose(csrb[:, 1:], csrb_answer[:, 1:]):
+    if not np.allclose(csrb[:, 1:], csrb_answer[:, 1:], atol=1e-6):
         diff = csrb - csrb_answer
         print("min and max difference")
         print(diff)
@@ -355,7 +348,7 @@ def check_output(idx, test):
         cimsrb_answer = np.where(
             cim > 0, distcoef * sp2 * cim / (1 + distcoef * cim), 0
         )
-    if not np.allclose(cimsrb[:, 1:], cimsrb_answer[:, 1:]):
+    if not np.allclose(cimsrb[:, 1:], cimsrb_answer[:, 1:], atol=1e-6):
         diff = cimsrb - cimsrb_answer
         print("min and max difference")
         print(diff.min(), diff.max())

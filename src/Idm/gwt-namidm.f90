@@ -129,7 +129,7 @@ module GwtNamInputModule
     '', & ! shape
     'flag to scale X and RHS', & ! longname
     .false., & ! required
-    .true., & ! developmode
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

@@ -171,15 +171,15 @@ jobs:
       branch: ${{ needs.set_options.outputs.branch }}
       # If the workflow is manually triggered, the maintainer must manually set releasemode to true, otherwise the default is false.
       # If triggered by pushing a release branch, the release is developmode if the branch name contains "rc", otherwise releasemode.
-      releasemode: ${{ (github.event_name == 'workflow_dispatch' && inputs.releasemode == 'true') || github.event_name != 'workflow_dispatch' }}
+      releasemode: ${{ (github.event_name == 'workflow_dispatch' && inputs.releasemode == true) || github.event_name != 'workflow_dispatch' }}
       # If the workflow is manually triggered, the maintainer must manually set run_tests to false, otherwise the default is true.
       # If triggered by pushing a release branch, tests are enabled.
-      run_tests: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_tests == 'true') || github.event_name != 'workflow_dispatch' }}
+      run_tests: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_tests == true) || github.event_name != 'workflow_dispatch' }}
       version: ${{ needs.set_options.outputs.version }}
-      patch: ${{ (github.event_name == 'workflow_dispatch' && inputs.patch == 'true') || (github.event_name != 'workflow_dispatch' && needs.set_options.outputs.patch == 'true') }}
+      patch: ${{ (github.event_name == 'workflow_dispatch' && inputs.patch == true) || (github.event_name != 'workflow_dispatch' && needs.set_options.outputs.patch == 'true') }}
   pr:
     name: Draft release PR
-    if: ${{ github.ref_name != 'master' && ((github.event_name == 'workflow_dispatch' && inputs.releasemode == 'true') || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc'))) }}
+    if: ${{ github.ref_name != 'master' && ((github.event_name == 'workflow_dispatch' && inputs.releasemode == true) || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc'))) }}
     needs:
       - set_options
       - make_dist
@@ -198,7 +198,7 @@ jobs:
           ref: ${{ github.ref }}
 
       - name: Setup Micromamba
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@v3
         with:
           environment-file: environment.yml
           cache-downloads: true
@@ -258,14 +258,14 @@ jobs:
           path: modflow6
 
       - name: Setup Micromamba
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@v3
         with:
           environment-file: modflow6/environment.yml
           cache-downloads: true
           cache-environment: true
 
       - name: Download artifacts
-        uses: dawidd6/action-download-artifact@v12
+        uses: dawidd6/action-download-artifact@v21
 
       - name: Draft release
         working-directory: modflow6

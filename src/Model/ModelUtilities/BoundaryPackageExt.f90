@@ -50,8 +50,9 @@ module BndExtModule
     procedure :: layarr_to_nlist
     procedure :: default_nodelist
     procedure :: check_cellid
-    procedure :: write_list
+    procedure :: write_lstfile
     procedure :: bound_value
+    procedure :: bnd_rp_log => bndext_rp_log
   end type BndExtType
 
   !> @ brief BndExtFoundType
@@ -152,7 +153,7 @@ contains
     if (.not. this%readasarrays) then
       ! -- copy nbound from input context
       call mem_set_value(this%nbound, 'NBOUND', this%input_mempath, &
-                         found)
+                         found, release=.false.)
     end if
 
     if (this%readarraygrid) then
@@ -170,6 +171,20 @@ contains
       end if
     end if
   end subroutine bndext_rp
+
+  !> @brief Write the input list to the listing file if requested
+  !!
+  !! Called from model control files after bnd_rp(), which ensures
+  !! bound_value() dispatches to the correct derived type.
+  !<
+  subroutine bndext_rp_log(this)
+    ! -- dummy
+    class(BndExtType), intent(inout) :: this
+    !
+    if (this%iprpak /= 0) then
+      call this%write_lstfile()
+    end if
+  end subroutine bndext_rp_log
 
   !> @ brief Deallocate package memory
   !<
@@ -291,12 +306,13 @@ contains
     integer(I4B) :: n
     !
     ! -- update defaults with idm sourced values
-    call mem_set_value(this%naux, 'NAUX', this%input_mempath, found%naux)
+    call mem_set_value(this%naux, 'NAUX', this%input_mempath, found%naux, &
+                       release=.false.)
     call mem_set_value(this%ipakcb, 'IPAKCB', this%input_mempath, found%ipakcb)
     call mem_set_value(this%iprpak, 'IPRPAK', this%input_mempath, found%iprpak)
     call mem_set_value(this%iprflow, 'IPRFLOW', this%input_mempath, found%iprflow)
     call mem_set_value(this%inamedbound, 'BOUNDNAMES', this%input_mempath, &
-                       found%boundnames)
+                       found%boundnames, release=.false.)
     call mem_set_value(sfacauxname, 'AUXMULTNAME', this%input_mempath, &
                        found%auxmultname)
     call mem_set_value(this%inewton, 'INEWTON', this%input_mempath, found%inewton)
@@ -315,7 +331,7 @@ contains
       call mem_reallocate(this%auxname_cst, LENAUXNAME, this%naux, &
                           'AUXNAME_CST', this%memoryPath)
       call mem_set_value(this%auxname_cst, 'AUXILIARY', this%input_mempath, &
-                         found%auxiliary)
+                         found%auxiliary, release=.false.)
       !
       do n = 1, this%naux
         this%auxname(n) = this%auxname_cst(n)
@@ -465,7 +481,7 @@ contains
 
       ! -- update defaults with idm sourced values
       call mem_set_value(this%maxbound, 'MAXBOUND', this%input_mempath, &
-                         found%maxbound)
+                         found%maxbound, release=.false.)
 
       write (this%iout, '(4x,a,i7)') 'MAXBOUND = ', this%maxbound
 
@@ -714,13 +730,13 @@ contains
     end select
   end subroutine check_cellid
 
-  !> @ brief Log package list input
+  !> @ brief Log package stress period input
     !!
-    !! Log period list based input. This routine requires a package specific
+    !! Log period based input. This routine requires a package specific
     !! bound_value() routine to report accurate bound values.
     !!
   !<
-  subroutine write_list(this)
+  subroutine write_lstfile(this)
     ! -- modules
     use ConstantsModule, only: LINELENGTH, LENBOUNDNAME, &
                                TABLEFT, TABCENTER, DZERO
@@ -874,7 +890,7 @@ contains
     deallocate (inputtab)
     nullify (inputtab)
     deallocate (words)
-  end subroutine write_list
+  end subroutine write_lstfile
 
   !> @ brief Return a bound value
     !!

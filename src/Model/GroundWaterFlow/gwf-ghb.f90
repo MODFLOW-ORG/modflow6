@@ -75,6 +75,7 @@ contains
     packobj%iout = iout
     packobj%id = id
     packobj%ibcnum = ibcnum
+    packobj%ncolbnd = 2
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
   end subroutine ghb_create
 
@@ -120,7 +121,7 @@ contains
   subroutine log_ghb_options(this, found_mover)
     ! -- modules
     ! -- dummy
-    class(GhbType), intent(inout) :: this !< BndExtType object
+    class(GhbType), intent(inout) :: this
     logical(LGP), intent(in) :: found_mover
     !
     ! -- log found options
@@ -176,11 +177,6 @@ contains
     ! -- store user cond
     if (this%ivsc == 1) then
       call this%ghb_store_user_cond()
-    end if
-    !
-    ! -- Write the list to iout if requested
-    if (this%iprpak /= 0) then
-      call this%write_list()
     end if
   end subroutine ghb_rp
 
@@ -365,7 +361,7 @@ contains
   !<
   subroutine ghb_store_user_cond(this)
     ! -- dummy
-    class(GhbType), intent(inout) :: this !< BndExtType object
+    class(GhbType), intent(inout) :: this
     ! -- local
     integer(I4B) :: n
     !
@@ -381,7 +377,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy variables
-    class(GhbType), intent(inout) :: this !< BndExtType object
+    class(GhbType), intent(inout) :: this
     integer(I4B), intent(in) :: row
     ! -- result
     real(DP) :: cond
@@ -399,7 +395,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy
-    class(GhbType), intent(inout) :: this !< BndExtType object
+    class(GhbType), intent(inout) :: this
     integer(I4B), intent(in) :: col
     integer(I4B), intent(in) :: row
     ! -- result

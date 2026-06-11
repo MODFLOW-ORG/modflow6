@@ -71,7 +71,8 @@ module GwfEvtaInputModule
     'FIXED_CELL', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'if cell is dry do not apply evapotranspiration to underlying cell', & ! longname
+    'if cell is dry do not apply evapotranspiration to underlying '// &
+    'cell', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -166,7 +167,7 @@ module GwfEvtaInputModule
     'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'save CHD flows to budget file', & ! longname
+    'save EVTA flows to budget file', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -375,7 +376,7 @@ module GwfEvtaInputModule
     'RATE', & ! fortran variable
     'DOUBLE1D', & ! type
     'NCPL', & ! shape
-    'evapotranspiration surface', & ! longname
+    'evapotranspiration rate', & ! longname
     .true., & ! required
     .false., & ! developmode
     .false., & ! multi-record

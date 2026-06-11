@@ -86,7 +86,8 @@ module GwfVscInputModule
     'THERMAL_FORM', & ! fortran variable
     'STRING', & ! type
     '', & ! shape
-    'keyword to specify viscosity formulation for the temperature species', & ! longname
+    'keyword to specify viscosity formulation for the temperature '// &
+    'species', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -276,9 +277,10 @@ module GwfVscInputModule
     'DVISCDC', & ! fortran variable
     'DOUBLE', & ! type
     '', & ! shape
-    'slope of the line that defines the linear relationship between&
-     & viscosity and temperature or between viscosity and concentration,&
-     & depending on the type of species entered on each line.', & ! longname
+    'slope of the line that defines the linear relationship '// &
+    'between viscosity and temperature or between viscosity and '// &
+    'concentration, depending on the type of species entered on '// &
+    'each line.', & ! longname
     .true., & ! required
     .false., & ! developmode
     .true., & ! multi-record

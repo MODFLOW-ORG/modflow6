@@ -1,5 +1,5 @@
 ! ** Do Not Modify! MODFLOW 6 system generated file. **
-module OlfDis2DInputModule
+module OlfDis2dInputModule
   use ConstantsModule, only: LENVARNAME
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
@@ -241,7 +241,7 @@ module OlfDis2DInputModule
     'LENBIGLINE', & ! shape
     'CRS user input string', & ! longname
     .false., & ! required
-    .false., & ! developmode
+    .true., & ! developmode
     .false., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -429,4 +429,4 @@ module OlfDis2DInputModule
     ) &
     ]
 
-end module OlfDis2DInputModule
+end module OlfDis2dInputModule

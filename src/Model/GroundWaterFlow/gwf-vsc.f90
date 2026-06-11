@@ -976,6 +976,7 @@ contains
   subroutine source_packagedata(this)
     ! -- modules
     use MemoryManagerModule, only: mem_setptr
+    use MemoryManagerExtModule, only: memorystore_release
     use CharacterStringModule, only: CharacterStringType
     ! -- dummy
     class(GwfVscType), intent(inout) :: this
@@ -1071,6 +1072,12 @@ contains
 
     ! deallocate
     deallocate (itemp)
+
+    call memorystore_release('IVISCSPEC', this%input_mempath)
+    call memorystore_release('DVISCDC', this%input_mempath)
+    call memorystore_release('CVISCREF', this%input_mempath)
+    call memorystore_release('MODELNAME', this%input_mempath)
+    call memorystore_release('AUXSPECIESNAME', this%input_mempath)
   end subroutine source_packagedata
 
   !> @brief Sets package data instead of reading from file

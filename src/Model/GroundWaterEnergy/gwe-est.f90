@@ -665,9 +665,9 @@ contains
     call mem_allocate(this%idcysrc, 'IDCYSRC', this%memoryPath)
     !
     ! -- Initialize
-    this%cpw = DZERO
-    this%rhow = DZERO
-    this%latheatvap = DZERO
+    this%cpw = 4184.0_DP
+    this%rhow = DEP3
+    this%latheatvap = 2453500.0_DP
     this%idcy = IZERO
     this%idcysrc = IZERO
   end subroutine allocate_scalars

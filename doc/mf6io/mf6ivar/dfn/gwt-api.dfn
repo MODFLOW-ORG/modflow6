@@ -78,7 +78,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'api boundary'}
+description REPLACE obs6_filename {'{#1}': 'api boundary', '{#2}': '\\ref{table:gwt-obstypetable}'}
 
 block options
 name mover

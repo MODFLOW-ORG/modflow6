@@ -199,7 +199,7 @@ contains
   !> @brief set netcdf file scoped attributes
   !<
   subroutine set(this, modelname, modeltype, modelfname, nctype, disenum)
-    use VersionModule, only: VERSION
+    use VersionModule, only: FULLVERSION
     class(NCExportAnnotation), intent(inout) :: this
     character(len=*), intent(in) :: modelname
     character(len=*), intent(in) :: modeltype
@@ -260,7 +260,7 @@ contains
     this%model = trim(modeltype)//'6: '//trim(modelname)
 
     ! modflow6 version string
-    this%source = 'MODFLOW 6 '//trim(adjustl(VERSION))
+    this%source = 'MODFLOW 6 '//trim(adjustl(FULLVERSION))
 
     ! create timestamp
     call date_and_time(values=values)
@@ -278,6 +278,7 @@ contains
     use MemoryHelperModule, only: create_mem_path
     use MemoryManagerExtModule, only: mem_set_value
     use InputOutputModule, only: lowcase
+    use SourceCommonModule, only: filein_fname
     use UtlNcfInputModule, only: UtlNcfParamFoundType
     class(NCModelExportType), intent(inout) :: this
     character(len=*), intent(in) :: modelname
@@ -289,7 +290,6 @@ contains
     integer(I4B), intent(in) :: iout
     character(len=LENMEMPATH) :: model_mempath
     type(UtlNcfParamFoundType) :: ncf_found
-    logical(LGP) :: found_mempath
 
     ! allocate
     allocate (this%deflate)
@@ -349,10 +349,8 @@ contains
     call mem_setptr(this%x, 'X', model_mempath)
 
     ! set ncf_mempath if provided
-    call mem_set_value(this%ncf_mempath, 'NCF6_MEMPATH', this%dis_mempath, &
-                       found_mempath)
-
-    if (found_mempath) then
+    if (filein_fname(this%ncf_mempath, 'NCF6_MEMPATH', this%dis_mempath, &
+                     modelfname)) then
       call mem_set_value(this%wkt, 'WKT', this%ncf_mempath, &
                          ncf_found%wkt)
       call mem_set_value(this%deflate, 'DEFLATE', this%ncf_mempath, &

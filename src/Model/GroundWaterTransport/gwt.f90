@@ -318,6 +318,7 @@ contains
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_rp()
+      call packobj%bnd_rp_log()
       call packobj%bnd_rp_obs()
     end do
   end subroutine gwt_rp
@@ -329,8 +330,7 @@ contains
   !! will be no larger than dtmax calculated here.
   !<
   subroutine gwt_dt(this)
-    use TdisModule, only: kstp, kper
-    use AdaptiveTimeStepModule, only: ats_submit_delt
+    use TdisModule, only: kstp, kper, ats
     ! dummy
     class(GwtModelType) :: this
     ! local
@@ -341,7 +341,7 @@ contains
     ! advection package courant stability
     call this%adv%adv_dt(dtmax, msg, this%mst%thetam)
     if (msg /= '') then
-      call ats_submit_delt(kstp, kper, dtmax, msg)
+      call ats%ats_submit_delt(kstp, kper, dtmax, msg)
     end if
   end subroutine gwt_dt
 
@@ -561,7 +561,7 @@ contains
     if (this%inmst > 0) call this%mst%mst_bd(isuppress_output, this%budget)
     if (this%inssm > 0) call this%ssm%ssm_bd(isuppress_output, this%budget)
     if (this%infmi > 0) call this%fmi%fmi_bd(isuppress_output, this%budget)
-    if (this%inmvt > 0) call this%mvt%mvt_bd(this%x, this%x)
+    if (this%inmvt > 0) call this%mvt%mvt_bd()
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_bd(this%budget)

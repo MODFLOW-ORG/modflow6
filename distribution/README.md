@@ -105,6 +105,7 @@ If using GitHub Actions, nothing is needed besides `git`.  This section assumes 
 
 To make a release,
 
+0. freeze development
 1. review features
 2. review deprecations
 3. review release notes
@@ -118,7 +119,15 @@ To make a release,
 
 Complete steps 1-3 in consultation with the development team, then steps 4 and 5 once the release is greenlit. Step 5 triggers automation for steps 6-8. Step 6 happens automatically; steps 7 and 8 require review and manual sign-off. Steps 9 and 10 are performed manually.
 
-It is typical to undergo several iterations of 5-6 as candidate distributions are reviewed and issues are identified and resolved.
+It is typical to undergo several iterations of 5-6 as candidate distributions are reviewed and issues are identified and resolved. The MF6IO guide in particular should be carefully inspected. Some things to look for:
+
+- Have input/output samples been substituted into the appropriate sections? Is the content correct?
+- Are all expected packages mentioned and described in the relevant tables? Some tables are auto-generated, some aren't. Make sure manually managed tables have been modified if necessary.
+- Are all expected package parameters present? Parameters may have been guarded with `developmode true` in DFN files during development, make sure this attribute has been removed if parameters are to be released.
+
+### Freeze development
+
+Pause merging of new features to the mainline for 1-2 weeks prior to the anticipated release date. Feature development can continue in the meantime, but keeping the `develop` branch stable helps to minimize churn and avoid last-minute surprises.
 
 ### Review features
 
@@ -244,7 +253,7 @@ MODFLOW 6 version numbers follow the [semantic versioning](https://semver.org/) 
 
 The version string is stored in `version.txt` in the project root. The version string appears in several other files in the repository, as well as date and timestamp information.
 
-The `update_version.py` script synchronizes updates to `version.txt` and other files containing version information.
+The `update_version.py` script synchronizes updates to `version.txt` and other files containing version information. In release mode (`--releasemode`), the version string includes a release date, e.g. `6.5.0 04/29/2026`. In develop mode (default), the string includes a commit hash, e.g. `6.5.0.dev0+a7dcc8ba`.
 
 ```shell
 pixi run update-version -v 6.4.1

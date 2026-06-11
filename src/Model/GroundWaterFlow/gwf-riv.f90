@@ -78,6 +78,7 @@ contains
     packobj%iout = iout
     packobj%id = id
     packobj%ibcnum = ibcnum
+    packobj%ncolbnd = 3
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
   end subroutine riv_create
 
@@ -126,7 +127,7 @@ contains
     ! -- modules
     use GwfRivInputModule, only: GwfRivParamFoundType
     ! -- dummy variables
-    class(RivType), intent(inout) :: this !< BndExtType object
+    class(RivType), intent(inout) :: this
     type(GwfRivParamFoundType), intent(in) :: found
     !
     ! -- log found options
@@ -185,11 +186,6 @@ contains
     ! -- store user cond
     if (this%ivsc == 1) then
       call this%riv_store_user_cond()
-    end if
-    !
-    ! -- Write the list to iout if requested
-    if (this%iprpak /= 0) then
-      call this%write_list()
     end if
   end subroutine riv_rp
 
@@ -399,7 +395,7 @@ contains
   !<
   subroutine riv_store_user_cond(this)
     ! -- dummy
-    class(RivType), intent(inout) :: this !< BndExtType object
+    class(RivType), intent(inout) :: this
     ! -- local
     integer(I4B) :: n
     !
@@ -415,7 +411,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy
-    class(RivType), intent(inout) :: this !< BndExtType object
+    class(RivType), intent(inout) :: this
     integer(I4B), intent(in) :: row
     ! -- result
     real(DP) :: cond
@@ -433,7 +429,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy
-    class(RivType), intent(inout) :: this !< BndExtType object
+    class(RivType), intent(inout) :: this
     integer(I4B), intent(in) :: col
     integer(I4B), intent(in) :: row
     ! -- result

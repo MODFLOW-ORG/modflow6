@@ -7,6 +7,8 @@ module TdisModule
   use KindModule, only: DP, I4B, LGP
   use SimVariablesModule, only: iout, isim_level
   use ConstantsModule, only: LINELENGTH, LENDATETIME, LENMEMPATH, VALL
+  use AdaptiveTimeStepModule, only: AtsType
+  use AtsFactoryModule, only: create_ats
   !
   implicit none
   !
@@ -17,6 +19,7 @@ module TdisModule
   public :: tdis_delt_reset
   public :: tdis_ot
   public :: tdis_da
+  public :: ats
   !
   integer(I4B), public, pointer :: nper => null() !< number of stress period
   integer(I4B), public, pointer :: itmuni => null() !< flag indicating time units
@@ -41,6 +44,8 @@ module TdisModule
   character(len=LENDATETIME), public, pointer :: datetime0 => null() !< starting date and time for the simulation
   character(len=LENMEMPATH), pointer :: input_mempath => null() !< input context mempath for tdis
   character(len=LINELENGTH), pointer :: input_fname => null() !< input filename for tdis
+
+  class(AtsType), pointer :: ats => null()
   !
 contains
 
@@ -50,7 +55,6 @@ contains
     ! -- modules
     use InputOutputModule, only: getunit, openfile
     use ConstantsModule, only: LINELENGTH, DZERO
-    use AdaptiveTimeStepModule, only: ats_cr
     ! -- dummy
     character(len=*), intent(in) :: fname
     character(len=*), intent(in) :: inmempath
@@ -80,8 +84,9 @@ contains
     ! -- Source timing
     call tdis_source_timing()
     !
+    ats => create_ats()
     if (inats > 0) then
-      call ats_cr(inats, nper)
+      call ats%ats_init(inats, nper)
     end if
   end subroutine tdis_cr
 
@@ -92,8 +97,6 @@ contains
     use ConstantsModule, only: DONE, DZERO, MNORMAL, MVALIDATE, DNODATA
     use SimVariablesModule, only: isim_mode
     use MessageModule, only: write_message
-    use AdaptiveTimeStepModule, only: isAdaptivePeriod, dtstable, &
-                                      ats_period_message
     ! -- local
     character(len=LINELENGTH) :: line
     character(len=4) :: cpref
@@ -112,7 +115,7 @@ contains
       &1X,'MULTIPLIER FOR DELT =',F10.3)"
     !
     ! -- Initialize variables for this step
-    if (inats > 0) dtstable = DNODATA
+    if (inats > 0) ats%dtstable = DNODATA
     readnewdata = .false.
     cpref = '    '
     cend = ''
@@ -140,8 +143,8 @@ contains
     ! -- Write message if first time step
     if (kstp == 1) then
       write (iout, fmtspi) kper, perlen(kper)
-      if (isAdaptivePeriod(kper)) then
-        call ats_period_message(kper)
+      if (ats%isAdaptivePeriod(kper)) then
+        call ats%ats_period_message(kper)
       else
         write (iout, fmtspits) nstp(kper), tsmult(kper)
       end if
@@ -153,9 +156,6 @@ contains
   subroutine tdis_set_timestep()
     ! -- modules
     use ConstantsModule, only: DONE, DZERO
-    use AdaptiveTimeStepModule, only: isAdaptivePeriod, &
-                                      ats_set_delt, &
-                                      ats_set_endofperiod
     ! -- local
     logical(LGP) :: adaptivePeriod
     ! -- format
@@ -163,7 +163,7 @@ contains
                                    "(1X,'INITIAL TIME STEP SIZE =',G15.7)"
     !
     ! -- Initialize
-    adaptivePeriod = isAdaptivePeriod(kper)
+    adaptivePeriod = ats%isAdaptivePeriod(kper)
     if (kstp == 1) then
       pertim = DZERO
       topertim = DZERO
@@ -171,7 +171,7 @@ contains
     !
     ! -- Set delt
     if (adaptivePeriod) then
-      call ats_set_delt(kstp, kper, pertim, perlen(kper), delt)
+      call ats%ats_set_delt(kstp, kper, pertim, perlen(kper), delt)
     else
       call tdis_set_delt()
       if (kstp == 1) then
@@ -189,7 +189,7 @@ contains
     ! -- Set end of period indicator
     endofperiod = .false.
     if (adaptivePeriod) then
-      call ats_set_endofperiod(kper, pertim, perlen(kper), endofperiod)
+      call ats%ats_set_endofperiod(kper, pertim, perlen(kper), endofperiod)
     else
       if (kstp == nstp(kper)) then
         endofperiod = .true.
@@ -213,16 +213,13 @@ contains
   subroutine tdis_delt_reset(deltnew)
     ! -- modules
     use ConstantsModule, only: DONE, DZERO
-    use AdaptiveTimeStepModule, only: isAdaptivePeriod, &
-                                      ats_set_delt, &
-                                      ats_set_endofperiod
     ! -- dummy
     real(DP), intent(in) :: deltnew
     ! -- local
     logical(LGP) :: adaptivePeriod
     !
     ! -- Set values
-    adaptivePeriod = isAdaptivePeriod(kper)
+    adaptivePeriod = ats%isAdaptivePeriod(kper)
     delt = deltnew
     totim = totimsav + delt
     pertim = pertimsav + delt
@@ -230,7 +227,7 @@ contains
     ! -- Set end of period indicator
     endofperiod = .false.
     if (adaptivePeriod) then
-      call ats_set_endofperiod(kper, pertim, perlen(kper), endofperiod)
+      call ats%ats_set_endofperiod(kper, pertim, perlen(kper), endofperiod)
     else
       if (kstp == nstp(kper)) then
         endofperiod = .true.
@@ -345,10 +342,12 @@ contains
   subroutine tdis_da()
     ! -- modules
     use MemoryManagerModule, only: mem_deallocate
-    use AdaptiveTimeStepModule, only: ats_da
     !
     ! -- ats
-    if (inats > 0) call ats_da()
+    if (inats > 0) then
+      call ats%ats_da()
+    end if
+    deallocate (ats)
     !
     ! -- Scalars
     call mem_deallocate(nper)

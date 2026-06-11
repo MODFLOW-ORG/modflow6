@@ -151,7 +151,7 @@ contains
     use MemoryHelperModule, only: create_mem_path
     use SimVariablesModule, only: idm_context
     use IdmDfnSelectorModule, only: idm_integrated, idm_multi_package
-    use SourceCommonModule, only: idm_subcomponent_name
+    use SourceCommonModule, only: idm_subcomponent_name, idm_pkg_instance_name
     class(LoadablePackageType) :: this
     character(len=*), intent(in) :: modelname
     character(len=*), intent(in) :: mtype_component
@@ -180,9 +180,10 @@ contains
       if (multi_pkg_type(mtype_component, &
                          this%subcomponent_type, &
                          filetype)) then
-        write (pname, '(a,i0)') trim(this%subcomponent_type)//'-', this%pnum
+        pname = idm_pkg_instance_name(this%subcomponent_type, &
+                                      this%pnum)
       else
-        write (pname, '(a,i0)') trim(this%subcomponent_type)
+        write (pname, '(a)') trim(this%subcomponent_type)
       end if
       this%pkgnames(this%pnum) = pname
     end if
@@ -276,16 +277,20 @@ contains
     integer(I4B), dimension(:), allocatable :: cunit_idxs, indx
     character(len=LENPACKAGETYPE) :: ftype
     integer(I4B) :: n, m
-    logical(LGP) :: found
+    logical(LGP) :: found, has_dis
 
     ! allocate
     allocate (cunit_idxs(0))
+    has_dis = .false.
 
     ! identify input packages and check that each is supported
     do n = 1, size(ftypes)
       ! type from model nam file packages block
       ftype = ftypes(n)
       found = .false.
+
+      ! check for discretization package (any type starting with 'DIS')
+      if (ftype(1:3) == 'DIS') has_dis = .true.
 
       ! search supported types for this filetype
       do m = 1, this%niunit
@@ -315,6 +320,15 @@ contains
         call store_error_filename(this%modelfname)
       end if
     end do
+
+    ! check that a discretization package is specified
+    if (.not. has_dis) then
+      write (errmsg, '(3a)') &
+        'Discretization package not specified for model "', &
+        trim(this%modelname), '".'
+      call store_error(errmsg)
+      call store_error_filename(this%modelfname)
+    end if
 
     ! allocate the pkglist
     allocate (this%pkglist(size(cunit_idxs)))

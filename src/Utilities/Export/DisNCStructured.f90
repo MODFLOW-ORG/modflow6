@@ -708,7 +708,8 @@ contains
       ! export input arrays
       if (mempath /= '') then
         ! update export
-        call mem_set_value(export_arrays, 'EXPORT_NC', mempath, found)
+        call mem_set_value(export_arrays, 'EXPORT_NC', mempath, found, &
+                           release=.false.)
 
         if (export_arrays > 0) then
           pkgtype = idm_subcomponent_type(this%modeltype, ptype)
@@ -1177,7 +1178,7 @@ contains
         ! timeseries
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export, p_mem, &
-                                    start=(/1, kper/), &
+                                    start=(/1, 1, kper/), &
                                     count=(/dis%ncol, dis%nrow, 1/)), nc_fname)
       end if
 
@@ -1403,7 +1404,7 @@ contains
         ! timeseries
         call nf_verify(nf90_put_var(ncid, &
                                     var_ids%export, p_mem, &
-                                    start=(/1, kper/), &
+                                    start=(/1, 1, kper/), &
                                     count=(/dis%ncol, dis%nrow, 1/)), nc_fname)
       end if
 

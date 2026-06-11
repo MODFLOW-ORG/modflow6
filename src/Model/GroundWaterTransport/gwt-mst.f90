@@ -340,14 +340,10 @@ contains
     real(DP) :: vcell
     real(DP) :: volfracm
     real(DP) :: rhobm
-    real(DP), dimension(nodes) :: c_half
-    real(DP) :: cbar_derv_half
-    real(DP) :: cbar_new, cbar_half, cbar_old
-    real(DP) :: sat_new, sat_half, sat_old
+    real(DP) :: sat_new, sat_old
     !
     ! -- set variables
     tled = DONE / delt
-    c_half = 0.5_DP * (cold + cnew)
     !
     ! -- loop through and calculate sorption contribution to hcof and rhs
     do n = 1, this%dis%nodes
@@ -362,23 +358,24 @@ contains
       sat_new = this%fmi%gwfsat(n)
       sat_old = this%fmi%gwfsatold(n, delt)
 
-      ! -- Midpoint formulation using average values
-      cbar_new = this%isotherm%value(cnew, n)
-      cbar_old = this%isotherm%value(cold, n)
-      cbar_half = 0.5 * (cbar_new + cbar_old)
-
-      sat_half = 0.5 * (sat_new + sat_old)
-      cbar_derv_half = this%isotherm%derivative(c_half, n)
-
-      hhcof = -volfracm * rhobm * cbar_derv_half * sat_half * Vcell * tled
+      ! -- Matrix contribution for sorption term
+      hhcof = -volfracm * rhobm * sat_new * this%isotherm%derivative(cnew, n) &
+              * Vcell * tled
       idiag = this%dis%con%ia(n)
       call matrix_sln%add_value_pos(idxglo(idiag), hhcof)
 
-      rrhs = -volfracm * rhobm * cbar_derv_half * sat_half * cold(n) &
-             * Vcell * tled
+      ! -- Right-hand side contribution due to linearization
+      rrhs = -volfracm * rhobm * sat_new * this%isotherm%derivative(cnew, n) &
+             * cnew(n) * Vcell * tled
       rhs(n) = rhs(n) + rrhs
 
-      rrhs = volfracm * rhobm * cbar_half * (sat_new - sat_old) * Vcell * tled
+      rrhs = volfracm * rhobm * sat_new * this%isotherm%value(cnew, n) * &
+             Vcell * tled
+      rhs(n) = rhs(n) + rrhs
+
+      ! -- Right-hand side contribution from previous time step
+      rrhs = -volfracm * rhobm * sat_old * this%isotherm%value(cold, n) * &
+             Vcell * tled
       rhs(n) = rhs(n) + rrhs
 
     end do
@@ -639,14 +636,11 @@ contains
     real(DP) :: vcell
     real(DP) :: volfracm
     real(DP) :: rhobm
-    real(DP), dimension(nodes) :: c_half
-    real(DP) :: cbar_derv_half
-    real(DP) :: cbar_new, cbar_half, cbar_old
-    real(DP) :: sat_new, sat_half, sat_old
+    real(DP) :: sat_new, sat_old
+    real(DP) :: contribution
     !
     ! -- initialize
     tled = DONE / delt
-    c_half = 0.5_DP * (cold + cnew)
     !
     ! -- Calculate sorption change
     do n = 1, nodes
@@ -666,20 +660,25 @@ contains
       sat_new = this%fmi%gwfsat(n)
       sat_old = this%fmi%gwfsatold(n, delt)
 
-      ! -- Midpoint formulation using average values
-      cbar_new = this%isotherm%value(cnew, n)
-      cbar_old = this%isotherm%value(cold, n)
-      cbar_half = 0.5 * (cbar_new + cbar_old)
+      ! -- Matrix contribution for sorption term
+      contribution = -volfracm * rhobm * sat_new &
+                     * this%isotherm%derivative(cnew, n) * cnew(n) * Vcell * tled
+      rate = rate + contribution
 
-      sat_half = 0.5 * (sat_new + sat_old)
-      cbar_derv_half = this%isotherm%derivative(c_half, n)
+      ! -- Right-hand side contribution due to linearization
+      ! -- Note: this contribution should cancel with the matrix contribution when the outer loop is converged
+      contribution = -volfracm * rhobm * sat_new * &
+                     this%isotherm%derivative(cnew, n) * cnew(n) * Vcell * tled
+      rate = rate - contribution
 
-      rate = -volfracm * rhobm * cbar_derv_half * sat_half * cnew(n) &
-             * Vcell * tled
-      rate = rate + volfracm * rhobm * cbar_derv_half * sat_half * cold(n) &
-             * Vcell * tled
-      rate = rate - volfracm * rhobm * cbar_half * (sat_new - sat_old) &
-             * Vcell * tled
+      contribution = volfracm * rhobm * sat_new * this%isotherm%value(cnew, n) &
+                     * Vcell * tled
+      rate = rate - contribution
+
+      ! -- Right-hand side contribution from previous time step
+      contribution = -volfracm * rhobm * sat_old * this%isotherm%value(cold, n) &
+                     * Vcell * tled
+      rate = rate - contribution
 
       this%ratesrb(n) = rate
       idiag = this%dis%con%ia(n)

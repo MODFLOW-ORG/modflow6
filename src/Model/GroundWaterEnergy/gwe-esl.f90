@@ -332,7 +332,7 @@ contains
     ! -- modules
     use ConstantsModule, only: DZERO
     ! -- dummy variables
-    class(GweEslType), intent(inout) :: this !< BndExtType object
+    class(GweEslType), intent(inout) :: this
     integer(I4B), intent(in) :: row
     ! -- result
     real(DP) :: ener

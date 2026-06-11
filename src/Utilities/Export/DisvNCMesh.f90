@@ -407,13 +407,8 @@ contains
   subroutine add_mesh_data(this)
     use BaseDisModule, only: dis_transform_xy
     class(Mesh2dDisvExportType), intent(inout) :: this
-    integer(I4B), dimension(:), contiguous, pointer :: icell2d => null()
     integer(I4B), dimension(:), contiguous, pointer :: ncvert => null()
     integer(I4B), dimension(:), contiguous, pointer :: icvert => null()
-    real(DP), dimension(:), contiguous, pointer :: cell_x => null()
-    real(DP), dimension(:), contiguous, pointer :: cell_y => null()
-    real(DP), dimension(:), contiguous, pointer :: vert_x => null()
-    real(DP), dimension(:), contiguous, pointer :: vert_y => null()
     real(DP), dimension(:), contiguous, pointer :: cell_xt => null()
     real(DP), dimension(:), contiguous, pointer :: cell_yt => null()
     real(DP), dimension(:), contiguous, pointer :: vert_xt => null()
@@ -425,27 +420,22 @@ contains
     integer(I4B) :: istop
 
     ! set pointers to input context
-    call mem_setptr(icell2d, 'ICELL2D', this%dis_mempath)
     call mem_setptr(ncvert, 'NCVERT', this%dis_mempath)
     call mem_setptr(icvert, 'ICVERT', this%dis_mempath)
-    call mem_setptr(cell_x, 'XC', this%dis_mempath)
-    call mem_setptr(cell_y, 'YC', this%dis_mempath)
-    call mem_setptr(vert_x, 'XV', this%dis_mempath)
-    call mem_setptr(vert_y, 'YV', this%dis_mempath)
 
     ! allocate x, y transform arrays
-    allocate (cell_xt(size(cell_x)))
-    allocate (cell_yt(size(cell_y)))
-    allocate (vert_xt(size(vert_x)))
-    allocate (vert_yt(size(vert_y)))
+    allocate (cell_xt(this%disv%ncpl))
+    allocate (cell_yt(this%disv%ncpl))
+    allocate (vert_xt(this%disv%nvert))
+    allocate (vert_yt(this%disv%nvert))
 
     ! set mesh container variable value to 1
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%mesh, 1), &
                    this%nc_fname)
 
     ! transform vert x and y
-    do n = 1, size(vert_x)
-      call dis_transform_xy(vert_x(n), vert_y(n), &
+    do n = 1, this%disv%nvert
+      call dis_transform_xy(this%disv%vertices(1, n), this%disv%vertices(2, n), &
                             this%disv%xorigin, &
                             this%disv%yorigin, &
                             this%disv%angrot, &
@@ -455,8 +445,8 @@ contains
     end do
 
     ! transform cell x and y
-    do n = 1, size(cell_x)
-      call dis_transform_xy(cell_x(n), cell_y(n), &
+    do n = 1, this%disv%ncpl
+      call dis_transform_xy(this%disv%cellxy(1, n), this%disv%cellxy(2, n), &
                             this%disv%xorigin, &
                             this%disv%yorigin, &
                             this%disv%angrot, &
@@ -486,7 +476,7 @@ contains
 
     ! set face nodes array
     cnt = 0
-    do n = 1, size(ncvert)
+    do n = 1, this%disv%ncpl
       verts = NF90_FILL_INT
       idx = cnt + ncvert(n)
       iv = 0
@@ -496,6 +486,9 @@ contains
         iv = iv + 1
         verts(iv) = icvert(m)
       end do
+
+      ! don't close the cell
+      if (verts(iv) == verts(1)) verts(iv) = NF90_FILL_INT
 
       ! write face nodes array to netcdf file
       call nf_verify(nf90_put_var(this%ncid, this%var_ids%mesh_face_nodes, &

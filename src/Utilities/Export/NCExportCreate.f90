@@ -175,7 +175,8 @@ contains
 
       ! update export arrays option
       call mem_set_value(export_arrays, 'EXPORT_NC', &
-                         dynamic_pkg%mf6_input%mempath, found)
+                         dynamic_pkg%mf6_input%mempath, found, &
+                         release=.false.)
 
       readasarrays = (dynamic_pkg%readasarrays .or. dynamic_pkg%readarraygrid)
       if (export_arrays > 0 .and. readasarrays) then

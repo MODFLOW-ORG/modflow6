@@ -62,7 +62,7 @@ name save_flows
 type keyword
 reader urword
 optional true
-longname save CHD flows to budget file
+longname save RCHA flows to budget file
 description REPLACE save_flows {'{#1}': 'recharge'}
 mf6internal ipakcb
 
@@ -139,7 +139,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'Recharge'}
+description REPLACE obs6_filename {'{#1}': 'RCH', '{#2}': '\\ref{table:gwf-obstypetable}'}
 
 block options
 name export_array_netcdf

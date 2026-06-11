@@ -52,7 +52,7 @@ name save_flows
 type keyword
 reader urword
 optional true
-longname save CHD flows to budget file
+longname save RIV flows to budget file
 description REPLACE save_flows {'{#1}': 'river'}
 mf6internal ipakcb
 
@@ -129,7 +129,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'River'}
+description REPLACE obs6_filename {'{#1}': 'RIV', '{#2}': '\\ref{table:gwf-obstypetable}'}
 
 block options
 name mover
@@ -239,5 +239,5 @@ tagged false
 in_record true
 reader urword
 optional true
-longname drain name
+longname river name
 description REPLACE boundname {'{#1}': 'river'}

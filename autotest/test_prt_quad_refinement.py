@@ -11,7 +11,6 @@ from pathlib import Path
 import flopy
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import pytest
 from flopy.utils.binaryfile import HeadFile
@@ -191,9 +190,7 @@ def check_output(idx, test, snapshot):
     prt_track_csv_file = f"{prt_name}.trk.csv"
 
     # load mf6 pathline results
-    mf6_pls = pd.read_csv(gwf_ws / prt_track_csv_file).replace(
-        r"^\s*$", np.nan, regex=True
-    )
+    mf6_pls = pd.read_csv(gwf_ws / prt_track_csv_file, na_filter=False)
 
     # extract head, budget, and specific discharge results from GWF model
     gwf = sim.get_model(gwf_name)
@@ -224,7 +221,7 @@ def check_output(idx, test, snapshot):
 
     # extract endpoints and compare to snapshot
     mf6_eps = mf6_pls[mf6_pls.ireason == 3]
-    assert snapshot == mf6_eps.round(2).to_records(index=False)
+    assert snapshot == mf6_eps.drop("name", axis=1).round(2).to_records(index=False)
 
 
 def plot_output(idx, test):
@@ -239,9 +236,7 @@ def plot_output(idx, test):
     prt_track_csv_file = f"{prt_name}.trk.csv"
 
     # load mf6 pathline results
-    mf6_pls = pd.read_csv(gwf_ws / prt_track_csv_file).replace(
-        r"^\s*$", np.nan, regex=True
-    )
+    mf6_pls = pd.read_csv(gwf_ws / prt_track_csv_file, na_filter=False)
 
     # extract head, budget, and specific discharge results from GWF model
     gwf = sim.get_model(gwf_name)

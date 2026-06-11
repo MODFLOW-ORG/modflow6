@@ -3,7 +3,7 @@ module CommandArguments
   use ConstantsModule, only: LINELENGTH, LENBIGLINE, LENHUGELINE, &
                              VSUMMARY, VALL, VDEBUG, &
                              MVALIDATE
-  use VersionModule, only: VERSION, MFVNAM, IDEVELOPMODE, &
+  use VersionModule, only: VERSION, FULLVERSION, MFVNAM, IDEVELOPMODE, &
                            FMTDISCLAIMER, write_license
   use CompilerVersion
   use SimVariablesModule, only: istdout, isim_level, &
@@ -72,7 +72,7 @@ contains
     call get_compile_date(cdate)
     write (header, '(a,4(1x,a),a)') &
       trim(adjustl(cexe)), '- MODFLOW', &
-      trim(adjustl(VERSION)), '(compiled', trim(adjustl(cdate)), ')'
+      trim(adjustl(FULLVERSION)), '(compiled', trim(adjustl(cdate)), ')'
     !
     ! -- check for silent option
     do iarg = 1, icountcmd

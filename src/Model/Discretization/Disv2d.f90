@@ -13,7 +13,8 @@ module Disv2dModule
   use SimVariablesModule, only: errmsg, idm_context
   use DisvGeom, only: DisvGeomType, line_unit_vector
   use MemoryManagerModule, only: mem_allocate, mem_deallocate, mem_setptr
-  use MemoryManagerExtModule, only: mem_set_value, memorystore_remove
+  use MemoryManagerExtModule, only: mem_set_value, memorystore_remove, &
+                                    memorystore_release
   use TdisModule, only: kstp, kper, pertim, totim, delt
 
   implicit none
@@ -497,6 +498,8 @@ contains
       write (this%iout, '(1x,a)') 'Discretization Vertex data loaded'
     end if
     !
+    call memorystore_release('XV', this%input_mempath)
+    call memorystore_release('YV', this%input_mempath)
   end subroutine source_vertices
 
   !> @brief Build data structures to hold cell vertex info
@@ -586,6 +589,11 @@ contains
       write (this%iout, '(1x,a)') 'Discretization Cell2d data loaded'
     end if
     !
+    call memorystore_release('ICELL2D', this%input_mempath)
+    call memorystore_release('NCVERT', this%input_mempath)
+    call memorystore_release('ICVERT', this%input_mempath)
+    call memorystore_release('XC', this%input_mempath)
+    call memorystore_release('YC', this%input_mempath)
   end subroutine source_cell2d
 
   !> @brief Build grid connections

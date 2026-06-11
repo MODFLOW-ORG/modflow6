@@ -315,7 +315,7 @@ module GwfRivgInputModule
     'COND', & ! fortran variable
     'DOUBLE1D', & ! type
     'NODES', & ! shape
-    'river conductnace', & ! longname
+    'river conductance', & ! longname
     .true., & ! required
     .false., & ! developmode
     .false., & ! multi-record

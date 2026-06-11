@@ -164,7 +164,7 @@ module GwfRchaInputModule
     'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'save CHD flows to budget file', & ! longname
+    'save RCHA flows to budget file', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record

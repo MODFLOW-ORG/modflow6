@@ -3,7 +3,7 @@
 
 This is the development repository for the USGS MODFLOW 6 Hydrologic Model. The  official USGS distribution is available at [USGS Release Page](https://water.usgs.gov/ogw/modflow/MODFLOW.html).
 
-### Version 6.7.0.dev3 (preliminary)
+### Version 6.8.0.dev0
 
 [![GitHub release](https://img.shields.io/github/release/MODFLOW-ORG/modflow6.svg)](https://github.com/MODFLOW-ORG/modflow6/releases/latest)
 [![MODFLOW 6 continuous integration](https://github.com/MODFLOW-ORG/modflow6/actions/workflows/ci.yml/badge.svg)](https://github.com/MODFLOW-ORG/modflow6/actions/workflows/ci.yml)
@@ -28,7 +28,7 @@ This repository's `develop` branch often contains bug fixes and new features tha
 
 ## Releases
 
-Software distributions for the current and previous official USGS releases are available [here](https://github.com/MODFLOW-ORG/modflow6/releases).  The current release is also available [here](https://water.usgs.gov/water-resources/software/MODFLOW-6/) from the USGS.
+Software distributions for the current and previous official USGS releases are available [here](https://code.usgs.gov/modflow61/modflow6/-/releases).  The current release is also available [here](https://www.usgs.gov/software/modflow-6-usgs-modular-hydrologic-model) from the USGS.
 
 ## Examples
 MODFLOW 6 has an extensive suite of example problems that are constructed using the python [FloPy](https://github.com/modflowpy/flopy) package.  These example problems are contained in a separate git repository located [here](https://github.com/MODFLOW-ORG/modflow6-examples).  These examples are included in the official [USGS MODFLOW 6 distribution](https://water.usgs.gov/water-resources/software/MODFLOW-6/), and they are also rendered into online [descriptions](https://modflow6-examples.readthedocs.io/en/master/examples.html) and [jupyter notebooks](https://modflow6-examples.readthedocs.io/en/master/notebook_examples.html).
@@ -101,6 +101,8 @@ The GWT model for MODFLOW 6 simulates three-dimensional transport of a single so
 [Provost, A.M., Bardot, K., Langevin, C.D., McCallum, J.L., 2025, Accurate Simulation of Flow through Dipping Aquifers with MODFLOW 6 Using Enhanced Cell Connectivity. Groundwater, v. 63, no. 3, p. 399-408, https://doi.org/10.1111/gwat.13459.]( https://doi.org/10.1111/gwat.13459)
 
 [Morway, E.D., Provost, A.M., Langevin, C.D., Hughes, J.D., Russcher, M.J., Chen, C.Y., Lin, Y.F.F., 2025, A New Groundwater Energy Transport Model for the MODFLOW Hydrologic Simulator. Groundwater, v. 63, no. 3, p. 409-421, https://doi.org/10.1111/gwat.13470.]( https://doi.org/10.1111/gwat.13470)
+
+[Fienen, M.N., Hughes, J.D., Langevin, C.D., Morway, E.D., Panday, S., Provost, A.M., Russcher, M.J., 2026, A New Era of Collaborative MODFLOW Development. Groundwater, v. 64, no. 3, p. 250-251, https://doi.org/10.1111/gwat.70073.](https://doi.org/10.1111/gwat.70073)
 
 #### ***Software/Code***
 

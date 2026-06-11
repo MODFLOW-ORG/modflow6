@@ -35,7 +35,7 @@ reader urword
 optional true
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'constant concentration'}
-mf6internal iprflow
+mf6internal iprpak
 
 block options
 name print_flows
@@ -44,7 +44,7 @@ reader urword
 optional true
 longname print calculated flows to listing file
 description REPLACE print_flows {'{#1}': 'constant concentration'}
-mf6internal ipakcb
+mf6internal iprflow
 
 block options
 name save_flows
@@ -53,7 +53,7 @@ reader urword
 optional true
 longname save constant concentration flows to budget file
 description REPLACE save_flows {'{#1}': 'constant concentration'}
-mf6internal iprpak
+mf6internal ipakcb
 
 block options
 name ts_filerecord
@@ -128,7 +128,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'Constant Concentration'}
+description REPLACE obs6_filename {'{#1}': 'CNC', '{#2}': '\\ref{table:gwt-obstypetable}'}
 
 
 # --------------------- gwt cnc dimensions ---------------------

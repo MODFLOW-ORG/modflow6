@@ -1,5 +1,5 @@
 ! ** Do Not Modify! MODFLOW 6 system generated file. **
-module SwfDisv2DInputModule
+module SwfDisv2dInputModule
   use ConstantsModule, only: LENVARNAME
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
@@ -247,7 +247,7 @@ module SwfDisv2DInputModule
     'LENBIGLINE', & ! shape
     'CRS user input string', & ! longname
     .false., & ! required
-    .false., & ! developmode
+    .true., & ! developmode
     .false., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -590,4 +590,4 @@ module SwfDisv2DInputModule
     ) &
     ]
 
-end module SwfDisv2DInputModule
+end module SwfDisv2dInputModule

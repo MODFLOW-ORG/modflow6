@@ -9,7 +9,7 @@ module TspSsmModule
 
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DONE, DZERO, LENAUXNAME, LENFTYPE, &
-                             LENPACKAGENAME, LINELENGTH, &
+                             LENPACKAGENAME, LINELENGTH, LENMEMPATH, &
                              TABLEFT, TABCENTER, LENBUDROWLABEL, LENVARNAME
   use SimModule, only: store_error, count_errors, store_error_filename
   use SimVariablesModule, only: errmsg
@@ -195,7 +195,8 @@ contains
       if (this%fmi%iatp(ip) /= 0) cycle
       if (this%isrctype(ip) == 3 .or. this%isrctype(ip) == 4) then
         ssmiptr => this%ssmivec(ip)
-        call ssmiptr%spc_rp()
+        call ssmiptr%spc_rp(this%fmi%gwfpackages(ip)%nbound, &
+                            this%fmi%gwfpackages(ip)%budtxt)
       end if
     end do
   end subroutine ssm_rp
@@ -771,6 +772,7 @@ contains
     ! -- modules
     !use KindModule, only: LGP
     use MemoryManagerModule, only: mem_setptr
+    use MemoryManagerExtModule, only: memorystore_release
     use CharacterStringModule, only: CharacterStringType
     ! -- dummy
     class(TspSsmType) :: this
@@ -841,6 +843,10 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
+
+    call memorystore_release('PNAME_SOURCES', this%input_mempath)
+    call memorystore_release('SRCTYPE', this%input_mempath)
+    call memorystore_release('AUXNAME', this%input_mempath)
   end subroutine source_sources
 
   !> @brief Source fileinput input block
@@ -849,23 +855,24 @@ contains
   !<
   subroutine source_fileinput(this)
     ! -- modules
-    !use KindModule, only: LGP
     use MemoryManagerModule, only: mem_setptr, get_isize
+    use MemoryManagerExtModule, only: memorystore_release
     use CharacterStringModule, only: CharacterStringType
     ! -- dummy
     class(TspSsmType) :: this
     ! -- locals
     type(CharacterStringType), dimension(:), pointer, &
-      contiguous :: pnames, ftypes, iotypes, fnames, conditions
+      contiguous :: pnames, ftypes, iotypes, fnames, conditions, spc6_mempaths
     character(len=LINELENGTH) :: pname, ftype, iotype, fname, condition
+    character(len=LENMEMPATH) :: spc_mempath
     integer(I4B) :: n, ip, isize
     logical(LGP) :: found
     ! -- formats
 
     call get_isize('PNAME', this%input_mempath, isize)
-    if (isize == -1) then
+    if (isize <= 0) then
       write (this%iout, '(/1x,a)') &
-        'OPTIONAL SSM FILEINPUT BLOCK INPUT NOT FOUND.'
+        'OPTIONAL SSM FILEINPUT BLOCK NOT FOUND OR EMPTY.'
       return
     end if
 
@@ -875,6 +882,7 @@ contains
     call mem_setptr(iotypes, 'FILEIN', this%input_mempath)
     call mem_setptr(fnames, 'SPC6_FILENAME', this%input_mempath)
     call mem_setptr(conditions, 'MIXED', this%input_mempath)
+    call mem_setptr(spc6_mempaths, 'SPC6_MEMPATH', this%input_mempath)
 
     write (this%iout, '(/1x,a)') 'PROCESSING SSM FILEINPUT'
     do n = 1, size(pnames)
@@ -884,6 +892,7 @@ contains
       iotype = iotypes(n)
       fname = fnames(n)
       condition = conditions(n)
+      spc_mempath = spc6_mempaths(n)
       found = .false.
 
       do ip = 1, this%fmi%nflowpack
@@ -928,9 +937,9 @@ contains
         cycle
       end if
 
-      ! -- Use set_ssmivec to read file name and set up
-      !    ssmi file object
-      call this%set_ssmivec(ip, pname, fname)
+      ! -- Use set_ssmivec to initialize the ssmi object from the
+      !    input mempath
+      call this%set_ssmivec(ip, pname, spc_mempath, trim(fname))
 
       if (condition == 'MIXED') then
         this%isrctype(ip) = 4
@@ -946,6 +955,13 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
+
+    call memorystore_release('PNAME', this%input_mempath)
+    call memorystore_release('SPC6', this%input_mempath)
+    call memorystore_release('FILEIN', this%input_mempath)
+    call memorystore_release('SPC6_FILENAME', this%input_mempath)
+    call memorystore_release('MIXED', this%input_mempath)
+    call memorystore_release('SPC6_MEMPATH', this%input_mempath)
   end subroutine source_fileinput
 
   !> @ brief Set iauxpak array value for package ip
@@ -986,34 +1002,25 @@ contains
       iaux, ' IN PACKAGE ', trim(packname)
   end subroutine set_iauxpak
 
-  !> @ brief Set ssmivec array value for package ip
+  !> @brief Set ssmivec array value for package ip
   !!
-  !!  This routine initializes the SPC input file.
+  !!  Initialize TspSpcType from the input mempath.
   !<
-  subroutine set_ssmivec(this, ip, packname, filename)
-    ! -- module
-    use InputOutputModule, only: openfile, getunit
+  subroutine set_ssmivec(this, ip, packname, spc_mempath, input_fname)
     ! -- dummy
     class(TspSsmType), intent(inout) :: this !< TspSsmType
     integer(I4B), intent(in) :: ip !< package number
-    character(len=*), intent(in) :: packname !< name of package
-    character(len=*), intent(in) :: filename !< package input file
+    character(len=*), intent(in) :: packname !< name of corresponding flow package
+    character(len=*), intent(in) :: spc_mempath !< input mempath for this SPC instance
+    character(len=*), intent(in) :: input_fname !< SPC input file name (for error messages)
     ! -- local
     type(TspSpcType), pointer :: ssmiptr
-    integer(I4B) :: inunit
     !
-    ! -- open file
-    inunit = getunit()
-    call openfile(inunit, this%iout, filename, 'SPC', filstat_opt='OLD')
-    !
-    ! -- Create the SPC file object
+    ! -- initialize the TspSpcType reader for this package
     ssmiptr => this%ssmivec(ip)
-    call ssmiptr%initialize(this%dis, ip, inunit, this%iout, this%name_model, &
-                            trim(packname), this%depvartype)
-    !
-    write (this%iout, '(4x, a, a, a, a, a)') 'USING SPC INPUT FILE ', &
-      trim(filename), ' TO SET ', trim(this%depvartype), &
-      'S FOR PACKAGE ', trim(packname)
+    call ssmiptr%initialize(this%dis, ip, spc_mempath, this%iout, &
+                            this%name_model, trim(packname), &
+                            this%depvartype, input_fname)
   end subroutine set_ssmivec
 
   !> @ brief Setup the output table

@@ -1194,7 +1194,7 @@ contains
   subroutine csub_source_packagedata(this)
     ! -- modules
     use MemoryManagerModule, only: mem_setptr, mem_allocate
-    use MemoryManagerExtModule, only: mem_set_value
+    use MemoryManagerExtModule, only: mem_set_value, memorystore_release
     use CharacterStringModule, only: CharacterStringType
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
@@ -1544,6 +1544,19 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
+
+    call memorystore_release('ICSUBNO', this%input_mempath)
+    call memorystore_release('CELLID_PKGDATA', this%input_mempath)
+    call memorystore_release('CDELAY', this%input_mempath)
+    call memorystore_release('PCS0', this%input_mempath)
+    call memorystore_release('THICK_FRAC', this%input_mempath)
+    call memorystore_release('RNB', this%input_mempath)
+    call memorystore_release('SSV_CC', this%input_mempath)
+    call memorystore_release('SSE_CR', this%input_mempath)
+    call memorystore_release('THETA', this%input_mempath)
+    call memorystore_release('KV', this%input_mempath)
+    call memorystore_release('H0', this%input_mempath)
+    call memorystore_release('BOUNDNAME', this%input_mempath)
   end subroutine csub_source_packagedata
 
   !> @ brief Print packagedata
@@ -2308,7 +2321,7 @@ contains
 
     call mem_setptr(cellids, 'CELLID', this%input_mempath)
     call mem_set_value(this%nbound, 'NBOUND', this%input_mempath, &
-                       found)
+                       found, release=.false.)
 
     ! -- setup table for period data
     if (this%iprpak /= 0) then

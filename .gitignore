@@ -81,6 +81,14 @@ obj_temp/
 src_temp/
 pymake/dependencies/
 pymake/dependencies_std/
+pymake/makefile
+pymake/makedefaults
+make/makefile
+make/makedefaults
+utils/mf5to6/make/makefile
+utils/mf5to6/make/makedefaults
+utils/zonebudget/make/makefile
+utils/zonebudget/make/makedefaults
 
 trash/
 

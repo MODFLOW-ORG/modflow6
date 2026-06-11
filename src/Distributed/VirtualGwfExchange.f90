@@ -198,13 +198,13 @@ contains
     ! see comments in VirtualExchange for more details
     if (this%is_local .and. rank == this%orig_rank) then
       if (.not. this%mvr_id_mapped_m1%is_remote) then
-        ! only receive for model1
+        ! only send for model1
         call this%add_vdi_for_stage(this%mvr_qpactual_m1%base(), stg, vi)
         call this%add_vdi_for_stage(this%mvr_qavailable_m1%base(), stg, vi)
         call this%add_vdi_for_stage(this%mvr_id_mapped_m1%base(), stg, vi)
       end if
       if (.not. this%mvr_id_mapped_m2%is_remote) then
-        ! only receive for model2
+        ! only send for model2
         call this%add_vdi_for_stage(this%mvr_qpactual_m2%base(), stg, vi)
         call this%add_vdi_for_stage(this%mvr_qavailable_m2%base(), stg, vi)
         call this%add_vdi_for_stage(this%mvr_id_mapped_m2%base(), stg, vi)

@@ -408,7 +408,7 @@ def check_output(idx, test, shift, snapshot):
     )
 
     # Extract endpoints and compare to snapshot
-    mf6_eps = mf6_pls[mf6_pls.ireason == 3]
+    mf6_eps = mf6_pls[mf6_pls.ireason == 3].drop(columns=["name"], errors="ignore")
     assert snapshot == mf6_eps.round(2).to_records(index=False)
 
 
@@ -464,7 +464,6 @@ def plot_output(idx, test):
 
 
 @pytest.mark.snapshot
-@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.parametrize("shift", [False, True])
 def test_mf6model(idx, name, shift, function_tmpdir, targets, array_snapshot, plot):

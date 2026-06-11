@@ -3,7 +3,7 @@ import os
 import flopy
 import numpy as np
 import pytest
-from binary_util import write_budget, write_head
+from flopy.utils.binaryfile import CellBudgetFile, HeadFile
 from framework import TestFramework
 
 cases = ["dsp01a_fmi", "dsp01b_fmi"]
@@ -120,9 +120,7 @@ def build_models(idx, test):
 
     # create a heads file with head equal top
     fname = os.path.join(ws, "myhead.hds")
-    with open(fname, "wb") as fbin:
-        for kstp in range(1):  # nstp[0]):
-            write_head(fbin, top * np.ones((nrow, ncol)), kstp=kstp + 1)
+    HeadFile.write(fname, {(1, 1): top * np.ones((nrow, ncol))}, precision="double")
 
     # create a budget file with flows set to zero
     nja = (ncol - 2) * 3 + 2 * 2
@@ -151,12 +149,14 @@ def build_models(idx, test):
     sat = np.array([(i, i, 0.0, 1.0) for i in range(nlay * nrow * ncol)], dtype=dt)
 
     fname = os.path.join(ws, "mybudget.bud")
-    with open(fname, "wb") as fbin:
-        for kstp in range(1):  # nstp[0]):
-            write_budget(fbin, flowja, kstp=kstp + 1)
-            write_budget(fbin, spdis, text="      DATA-SPDIS", imeth=6, kstp=kstp + 1)
-            write_budget(fbin, sat, text="        DATA-SAT", imeth=6, kstp=kstp + 1)
-    fbin.close()
+    budget_data = [
+        {"data": flowja, "text": "    FLOW-JA-FACE", "imeth": 1, "kstp": 1, "kper": 1},
+        {"data": spdis, "text": "      DATA-SPDIS", "imeth": 6, "kstp": 1, "kper": 1},
+        {"data": sat, "text": "        DATA-SAT", "imeth": 6, "kstp": 1, "kper": 1},
+    ]
+    CellBudgetFile.write(
+        fname, budget_data, nlay=nlay, nrow=nrow, ncol=ncol, precision="double"
+    )
 
     # flow model interface
     packagedata = [

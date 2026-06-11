@@ -7,7 +7,7 @@ import os
 import flopy
 import numpy as np
 import pytest
-from binary_util import write_budget, write_head
+from flopy.utils.binaryfile import CellBudgetFile, HeadFile
 from flopy.utils.gridutil import uniform_flow_field
 from framework import TestFramework
 
@@ -115,19 +115,20 @@ def build_models(idx, test):
 
     # create a heads file with head equal top
     fname = os.path.join(ws, "myhead.hds")
-    with open(fname, "wb") as fbin:
-        kstp = 0
-        totim = 0
-        for kper in range(nper):
-            totim += perlen[kper]
-            write_head(
-                fbin,
-                top * np.ones((nrow, ncol)),
-                kstp=kstp + 1,
-                kper=kper + 1,
-                pertim=perlen[kper],
-                totim=totim,
-            )
+    head_data = []
+    totim = 0
+    for kper in range(nper):
+        totim += perlen[kper]
+        head_data.append(
+            {
+                "data": top * np.ones((nrow, ncol)),
+                "kstp": 1,
+                "kper": kper + 1,
+                "pertim": perlen[kper],
+                "totim": totim,
+            }
+        )
+    HeadFile.write(fname, head_data, precision="double")
 
     # create a budget file
     qx = specific_discharge
@@ -160,68 +161,87 @@ def build_models(idx, test):
     sat = np.array([(i, i, 0.0, 1.0) for i in range(nlay * nrow * ncol)], dtype=dt)
 
     fname = os.path.join(ws, "mybudget.bud")
-    with open(fname, "wb") as fbin:
-        kstp = 0
-        totim = 0
-        for kper in range(nper):
-            totim += perlen[kper]
-            delt = perlen[kper] / nstp[kper]
-            write_budget(
-                fbin,
-                flowja,
-                kstp=kstp + 1,
-                kper=kper + 1,
-                pertim=perlen[kper],
-                totim=totim,
-                delt=delt,
-            )
-            write_budget(
-                fbin,
-                spdis,
-                text="      DATA-SPDIS",
-                imeth=6,
-                kstp=kstp + 1,
-                kper=kper + 1,
-                pertim=perlen[kper],
-                totim=totim,
-                delt=delt,
-            )
-            write_budget(
-                fbin,
-                sat,
-                text="        DATA-SAT",
-                imeth=6,
-                kstp=kstp + 1,
-                kper=kper + 1,
-                pertim=perlen[kper],
-                totim=totim,
-                delt=delt,
-            )
-            write_budget(
-                fbin,
-                wel[kper],
-                text="             WEL",
-                imeth=6,
-                text2id2="           WEL-1",
-                kstp=kstp + 1,
-                kper=kper + 1,
-                pertim=perlen[kper],
-                totim=totim,
-                delt=delt,
-            )
-            write_budget(
-                fbin,
-                chd,
-                text="             CHD",
-                imeth=6,
-                text2id2="           CHD-1",
-                kstp=kstp + 1,
-                kper=kper + 1,
-                pertim=perlen[kper],
-                totim=totim,
-                delt=delt,
-            )
-    fbin.close()
+    budget_data = []
+    totim = 0
+    for kper in range(nper):
+        totim += perlen[kper]
+        delt = perlen[kper] / nstp[kper]
+
+        # FLOW-JA-FACE
+        budget_data.append(
+            {
+                "data": flowja,
+                "text": "    FLOW-JA-FACE",
+                "imeth": 1,
+                "kstp": 1,
+                "kper": kper + 1,
+                "pertim": perlen[kper],
+                "totim": totim,
+                "delt": delt,
+            }
+        )
+
+        # DATA-SPDIS
+        budget_data.append(
+            {
+                "data": spdis,
+                "text": "      DATA-SPDIS",
+                "imeth": 6,
+                "kstp": 1,
+                "kper": kper + 1,
+                "pertim": perlen[kper],
+                "totim": totim,
+                "delt": delt,
+            }
+        )
+
+        # DATA-SAT
+        budget_data.append(
+            {
+                "data": sat,
+                "text": "        DATA-SAT",
+                "imeth": 6,
+                "kstp": 1,
+                "kper": kper + 1,
+                "pertim": perlen[kper],
+                "totim": totim,
+                "delt": delt,
+            }
+        )
+
+        # WEL
+        budget_data.append(
+            {
+                "data": wel[kper],
+                "text": "             WEL",
+                "imeth": 6,
+                "paknam2": "           WEL-1",
+                "kstp": 1,
+                "kper": kper + 1,
+                "pertim": perlen[kper],
+                "totim": totim,
+                "delt": delt,
+            }
+        )
+
+        # CHD
+        budget_data.append(
+            {
+                "data": chd,
+                "text": "             CHD",
+                "imeth": 6,
+                "paknam2": "           CHD-1",
+                "kstp": 1,
+                "kper": kper + 1,
+                "pertim": perlen[kper],
+                "totim": totim,
+                "delt": delt,
+            }
+        )
+
+    CellBudgetFile.write(
+        fname, budget_data, nlay=nlay, nrow=nrow, ncol=ncol, precision="double"
+    )
 
     # flow model interface
     packagedata = [
@@ -276,9 +296,9 @@ def check_output(idx, test):
         assert False, f'could not load data from "{fpth}"'
 
     cnorm = obs["X008"] / 0.05
-    cnorm_max = [0.32842034, 0.875391418]
+    cnorm_max = [0.324119806, 0.873678873]
     msg = f"{cnorm_max[idx]} /= {cnorm.max()}"
-    assert np.allclose(cnorm_max[idx], cnorm.max(), atol=0.001), msg
+    assert np.allclose(cnorm_max[idx], cnorm.max(), atol=1e-6), msg
 
     savefig = False
     if savefig:

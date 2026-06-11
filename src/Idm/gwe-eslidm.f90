@@ -145,7 +145,7 @@ module GweEslInputModule
     'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'save well flows to budget file', & ! longname
+    'save ESL flows to budget file', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -373,7 +373,7 @@ module GweEslInputModule
     'BOUNDNAME', & ! fortran variable
     'STRING', & ! type
     '', & ! shape
-    'well name', & ! longname
+    'energy source loading name', & ! longname
     .false., & ! required
     .false., & ! developmode
     .true., & ! multi-record

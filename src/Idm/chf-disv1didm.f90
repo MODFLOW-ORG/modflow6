@@ -1,5 +1,5 @@
 ! ** Do Not Modify! MODFLOW 6 system generated file. **
-module ChfDisv1DInputModule
+module ChfDisv1dInputModule
   use ConstantsModule, only: LENVARNAME
   use InputDefinitionModule, only: InputParamDefinitionType, &
                                    InputBlockDefinitionType
@@ -247,7 +247,7 @@ module ChfDisv1DInputModule
     'LENBIGLINE', & ! shape
     'CRS user input string', & ! longname
     .false., & ! required
-    .false., & ! developmode
+    .true., & ! developmode
     .false., & ! multi-record
     .true., & ! preserve case
     .false., & ! layered
@@ -590,4 +590,4 @@ module ChfDisv1DInputModule
     ) &
     ]
 
-end module ChfDisv1DInputModule
+end module ChfDisv1dInputModule

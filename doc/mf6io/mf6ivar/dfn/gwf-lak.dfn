@@ -267,7 +267,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'LAK'}
+description REPLACE obs6_filename {'{#1}': 'LAK', '{#2}': '\\ref{table:gwf-obstypetable}'}
 
 block options
 name mover
@@ -308,7 +308,7 @@ type double precision
 reader urword
 optional true
 longname time conversion factor
-description real value that is used to convert user-specified Manning's roughness coefficients or gravitational acceleration used to calculate outlet flows from seconds to model time units. TIME\_CONVERSION should be set to 1.0, 60.0, 3,600.0, 86,400.0, and 31,557,600.0 when using time units (TIME\_UNITS) of seconds, minutes, hours, days, or years in the simulation, respectively. CONVTIME does not need to be specified if no lake outlets are specified or TIME\_UNITS are seconds.
+description real value that is used to convert user-specified Manning's roughness coefficients or gravitational acceleration used to calculate outlet flows from seconds to model time units. TIME\_CONVERSION should be set to 1.0, 60.0, 3,600.0, 86,400.0, and 31,557,600.0 when using time units (TIME\_UNITS) of seconds, minutes, hours, days, or years in the simulation, respectively. TIME\_CONVERSION does not need to be specified if no lake outlets are specified or TIME\_UNITS are seconds.
 
 block options
 name length_conversion

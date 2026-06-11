@@ -35,7 +35,7 @@ if test_drive.found() and not fc_id.contains('intel')
     'tester',
     sources: test_srcs,
     link_with: mf6core,
-    dependencies: test_drive,
+    dependencies: [test_drive] + dependencies + extra_deps,
   )
 
   test('Test source modules', tester)

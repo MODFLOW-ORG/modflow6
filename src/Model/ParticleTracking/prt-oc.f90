@@ -336,7 +336,7 @@ contains
   !> @brief source the tracking times block.
   subroutine prt_oc_source_tracktimes(this)
     use ParticleTracksModule, only: TRACKHEADER, TRACKDTYPES
-    use MemoryManagerExtModule, only: mem_set_value
+    use MemoryManagerExtModule, only: mem_set_value, memorystore_release
     use MemoryManagerModule, only: mem_setptr, get_isize
     ! dummy
     class(PrtOcType), intent(inout) :: this
@@ -370,6 +370,8 @@ contains
       call store_error(errmsg)
       call store_error_filename(this%input_fname)
     end if
+
+    call memorystore_release('TIME', this%input_mempath)
   end subroutine prt_oc_source_tracktimes
 
 end module PrtOcModule

@@ -2,11 +2,10 @@
 name = "modflow6"
 channels = ["conda-forge"]
 platforms = ["win-64", "linux-64", "linux-aarch64", "osx-arm64", "osx-64"]
-version = "6.7.0.dev3"
+version = "6.8.0.dev0"
 
 [dependencies]
 appdirs = "*"
-boltons = "*"
 cffconvert = "*"
 codespell = "*"
 filelock = "*"
@@ -18,11 +17,11 @@ gitpython = "*"
 jinja2 = ">=3.1.5,<4"
 jupytext = "*"
 matplotlib = "*"
-meson = ">=1.3.1"
-modflow-devtools = ">=1.7.0,<2"
+meson = ">=1.7.0"
+netCDF4 = "*"
 networkx = "*"
 ninja = "*"
-numpy = "<2.0.0"    # modflowapi has a resriction on the numpy version
+numpy = ">=2.2.6,<3"  # pinned for random reasons
 pandas = "*"
 pip = "*"
 pooch = "*"
@@ -42,33 +41,16 @@ scipy = "*"
 shapely = "*"
 syrupy = "<5"
 test-drive = "*"
-tomli = ">=2.2.1,<3"
-tomli-w = ">=1.2.0,<2"
 xarray = "*"
-xmipy = "*"
 xugrid = "*"
+xmipy = ">=1.4.0"
 
-[feature.rtd.dependencies]
-numpy = "*"
-bmipy = "*"
-sphinx = ">=4"
-ipython = "*"
-ipykernel = "*"
-myst-parser = "*"
-sphinx_rtd_theme = ">=1"
-sphinxcontrib-mermaid = "*"
-pytest = "*"
-filelock = "*"
+[pypi-dependencies]
+modflow-devtools = { version = "==1.8.0", extras = ["test", "dfn", "models"] }
 
-[feature.rtd.pypi-dependencies]
-# These dependencies are added as pypi dependencies because an osx-arm64 version of them doesn't exist on conda
-sphinx_markdown_tables = "*"
-nbsphinx = "*"
-nbsphinx_link = "*"
-rtds_action = "*"
-
-[environments]
-rtd = { features = ["rtd"], solve-group = "default" }
+# os-specific dependencies
+[target.win-64.dependencies]
+test-drive = "!=0.6.0"
 
 [tasks]
 # install
@@ -96,12 +78,13 @@ fix-python-style = { cmd = "pixi run check-python-lint --fix; pixi run fix-pytho
 # meson build/test for mf6 and zbud6
 builddir = "echo _builddir"
 setup = { cmd = "meson setup --prefix=$(pwd) --libdir=bin --bindir=bin", env = { PKG_CONFIG_PATH = "$CONDA_PREFIX/lib/pkgconfig" } }
+setup-extended = { cmd = "meson setup --prefix=$(pwd) --libdir=bin --bindir=bin -Dextended=true", env = { PKG_CONFIG_PATH = "$PETSC_DIR/$PETSC_ARCH/lib/pkgconfig:$CONDA_PREFIX/lib/pkgconfig" } }
 build = "meson install -C"
 test = "meson test --verbose --no-rebuild -C"
 
 # meson build mf5to6
-setup-mf5to6 = { cmd = "meson setup --prefix=$PIXI_PROJECT_ROOT", cwd = "utils/mf5to6"}
-build-mf5to6 = { cmd = "meson install -C", cwd = "utils/mf5to6"}
+setup-mf5to6 = { cmd = "meson setup --prefix=$PIXI_PROJECT_ROOT", cwd = "utils/mf5to6" }
+build-mf5to6 = { cmd = "meson install -C", cwd = "utils/mf5to6" }
 
 # pytest tasks
 get-exes = { cmd = "pytest -v --durations 0 get_exes.py", cwd = "autotest" }
@@ -112,7 +95,13 @@ update-fortran-definitions = { cmd = "cat dfns.txt | xargs python scripts/dfn2f9
 update-flopy = "python -m flopy.mf6.utils.generate_classes --dfnpath doc/mf6io/mf6ivar/dfn"
 build-makefiles = { cmd = "python build_makefiles.py", cwd = "distribution" }
 run-mf6ivar = { cmd = "python mf6ivar.py", cwd = "doc/mf6io/mf6ivar" }
-prepare-pull-request = {depends-on = ["fix-style", "fix-python-style", "build-makefiles", "run-mf6ivar", "update-fortran-definitions"]}
+prepare-pull-request = { depends-on = [
+    "fix-style",
+    "fix-python-style",
+    "build-makefiles",
+    "run-mf6ivar",
+    "update-fortran-definitions",
+] }
 
 # dist/docs
 benchmark = { cmd = "python benchmark.py", cwd = "distribution" }
@@ -125,10 +114,7 @@ collect-deprecations = { cmd = "python deprecations.py", cwd = "doc/mf6io/mf6iva
 check-citations = "cffconvert --validate -i CITATION.cff"
 make-release-notes = { cmd = "python mk_releasenotes.py", cwd = "doc/ReleaseNotes" }
 
-[feature.rtd.tasks]
-sphinx = { cmd = "make html", cwd = ".build_rtd_docs" }
-
-# os-specific tasks
+# os-specific default tasks
 [target.linux-64.tasks]
 builddir = "echo _builddir_linux-64"
 
@@ -144,3 +130,69 @@ builddir = "echo _builddir_osx-arm64"
 [target.win-64.tasks]
 builddir = "echo _builddir_win-64"
 
+# environments for documentation and extended build testing
+[environments]
+rtd = { features = ["rtd"], solve-group = "default" }
+gcc-extended-build = { features = ["gcc-extended-build"] }
+
+# Features
+[feature.rtd.dependencies]
+numpy = ">=2.2.6,<3"
+bmipy = "*"
+sphinx = ">=4"
+ipython = "*"
+ipykernel = "*"
+myst-parser = "*"
+sphinx_rtd_theme = ">=1"
+sphinxcontrib-mermaid = "*"
+pymetis = "*"
+pytest = "*"
+filelock = "*"
+
+[feature.rtd.pypi-dependencies]
+# These dependencies are added as pypi dependencies because an osx-arm64 version of them doesn't exist on conda
+sphinx_markdown_tables = "*"
+nbsphinx = "*"
+nbsphinx_link = "*"
+rtds_action = "*"
+
+[feature.rtd.tasks]
+sphinx = { cmd = "make html", cwd = ".build_rtd_docs" }
+
+[feature.gcc-extended-build]
+platforms = ["linux-64", "osx-arm64"]
+
+[feature.gcc-extended-build.dependencies]
+git = "*"
+meson = "*"
+ninja = "*"
+gcc = "*"
+gfortran = "*"
+pkg-config = "*"
+libnetcdf = "*"
+netcdf-fortran = "*"
+openmpi = "*"
+petsc = "<3.23.0"
+
+[feature.gcc-extended-build.target.linux-64.dependencies]
+gcc = "13.*"
+gfortran = "13.*"
+
+[feature.gcc-extended-build.tasks]
+gcc-extended-build-update-pc-files = { cmd = "echo updating netcdf pc files && python gcc-extended-build-update-pc-files.py", cwd = "distribution" }
+gcc-extended-build-test-drive-clone = { cmd = "rm -rf .test-drive/ && git clone https://github.com/fortran-lang/test-drive.git .test-drive" }
+gcc-extended-build-test-drive-setup = { cmd = "meson setup _build --libdir=lib --warnlevel=0 --default-library=shared --prefix=$CONDA_PREFIX", cwd = ".test-drive" }
+gcc-extended-build-test-drive-compile = { cmd = "meson compile -C _build", cwd = ".test-drive" }
+gcc-extended-build-test-drive-test = { cmd = "meson test -C _build --no-rebuild --print-errorlogs", cwd = ".test-drive" }
+gcc-extended-build-test-drive-install = { cmd = "meson install -C _build --no-rebuild", cwd = ".test-drive" }
+gcc-extended-build-test-drive-rebuild = { depends-on = [
+    "gcc-extended-build-test-drive-clone",
+    "gcc-extended-build-test-drive-setup",
+    "gcc-extended-build-test-drive-compile",
+    "gcc-extended-build-test-drive-test",
+    "gcc-extended-build-test-drive-install",
+] }
+gcc-extended-build-update = { depends-on = [
+    "gcc-extended-build-update-pc-files",
+    "gcc-extended-build-test-drive-rebuild",
+] }

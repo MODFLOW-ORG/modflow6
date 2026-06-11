@@ -20,10 +20,11 @@ module GwtGwtExchangeModule
                              LENMODELNAME
   use ListModule, only: ListType
   use ListsModule, only: basemodellist
+  use TransportModelModule, only: TransportModelType
   use VirtualModelModule, only: get_virtual_model
   use DisConnExchangeModule, only: DisConnExchangeType
   use GwtModule, only: GwtModelType
-  use TspMvtModule, only: TspMvtType
+  use TspExchangeMoverModule, only: TspExchangeMoverType, xmvt_cr
   use VirtualModelModule, only: VirtualModelType
   use ObserveModule, only: ObserveType
   use ObsModule, only: ObsType
@@ -61,7 +62,7 @@ module GwtGwtExchangeModule
     !
     ! -- Mover transport package
     integer(I4B), pointer :: inmvt => null() !< unit number for mover transport (0 if off)
-    type(TspMvtType), pointer :: mvt => null() !< water mover object
+    type(TspExchangeMoverType), pointer :: mvt => null() !< water mover object
     !
     ! -- Observation package
     integer(I4B), pointer :: inobs => null() !< unit number for GWT-GWT observations
@@ -81,6 +82,7 @@ module GwtGwtExchangeModule
     procedure :: exg_ar => gwt_gwt_ar
     procedure :: exg_rp => gwt_gwt_rp
     procedure :: exg_ad => gwt_gwt_ad
+    procedure :: exg_cf => gwt_gwt_cf
     procedure :: exg_fc => gwt_gwt_fc
     procedure :: exg_bd => gwt_gwt_bd
     procedure :: exg_ot => gwt_gwt_ot
@@ -228,7 +230,11 @@ contains
     ! -- Read mover information
     if (this%inmvt > 0) then
       call this%read_mvt(iout)
-      call this%mvt%mvt_df(this%gwtmodel1%dis)
+      if (this%v_model1%is_local) then
+        call this%mvt%mvt_df(this%gwtmodel1%dis)
+      else
+        call this%mvt%mvt_df(this%gwtmodel2%dis)
+      end if
     end if
     !
     ! -- Store obs
@@ -348,6 +354,23 @@ contains
     call this%obs%obs_ad()
   end subroutine gwt_gwt_ad
 
+  subroutine gwt_gwt_cf(this, kiter)
+    class(GwtExchangeType) :: this !<  GwfExchangeType
+    integer(I4B), intent(in) :: kiter
+    ! local
+    real(DP), dimension(:), pointer, contiguous :: x_m1, x_m2
+
+    ! call mvt cf routine
+    if (this%inmvt > 0) then
+      x_m1 => null()
+      x_m2 => null()
+      if (associated(this%gwtmodel1)) x_m1 => this%gwtmodel1%x
+      if (associated(this%gwtmodel2)) x_m2 => this%gwtmodel2%x
+      call this%mvt%xmvt_cf(x_m1, x_m2)
+    end if
+
+  end subroutine gwt_gwt_cf
+
   !> @ brief Fill coefficients
   !!
   !! Calculate conductance and fill coefficient matrix
@@ -359,9 +382,17 @@ contains
     class(MatrixBaseType), pointer :: matrix_sln
     real(DP), dimension(:), intent(inout) :: rhs_sln
     integer(I4B), optional, intent(in) :: inwtflag
+    ! local
+    real(DP), dimension(:), pointer, contiguous :: x_m1, x_m2
     !
     ! -- Call mvt fc routine
-    if (this%inmvt > 0) call this%mvt%mvt_fc(this%gwtmodel1%x, this%gwtmodel2%x)
+    if (this%inmvt > 0) then
+      x_m1 => null()
+      x_m2 => null()
+      if (associated(this%gwtmodel1)) x_m1 => this%gwtmodel1%x
+      if (associated(this%gwtmodel2)) x_m2 => this%gwtmodel2%x
+      call this%mvt%mvt_fc(x_m1, x_m2)
+    end if
   end subroutine gwt_gwt_fc
 
   !> @ brief Budget
@@ -403,7 +434,7 @@ contains
     end if
     !
     ! -- Call mvt bd routine
-    if (this%inmvt > 0) call this%mvt%mvt_bd(this%gwtmodel1%x, this%gwtmodel2%x)
+    if (this%inmvt > 0) call this%mvt%mvt_bd()
   end subroutine gwt_gwt_bd
 
   !> @ brief Budget save
@@ -765,15 +796,15 @@ contains
     ! -- dummy
     class(GwtExchangeType) :: this !<  GwtExchangeType
     integer(I4B), intent(in) :: iout
+    ! -- local
+    class(TransportModelType), pointer :: tspmodel1, tspmodel2
     !
-    ! -- Create and initialize the mover object  Here, fmi is set to the one
-    !    for gwtmodel1 so that a call to save flows has an associated dis
-    !    object.
-    call mvt_cr(this%mvt, this%name, this%inmvt, iout, this%gwtmodel1%fmi, &
-                this%gwtmodel1%eqnsclfac, this%gwtmodel1%depvartype, &
-                gwfmodelname1=this%gwfmodelname1, &
-                gwfmodelname2=this%gwfmodelname2, &
-                fmi2=this%gwtmodel2%fmi)
+    ! -- Create and initialize the mover object
+    tspmodel1 => this%gwtmodel1
+    tspmodel2 => this%gwtmodel2
+    call xmvt_cr(this%mvt, this%name, tspmodel1, tspmodel2, &
+                 this%gwfmodelname1, this%gwfmodelname2, this%inmvt, iout)
+
   end subroutine read_mvt
 
   !> @ brief Allocate scalars

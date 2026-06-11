@@ -138,7 +138,7 @@ tagged false
 reader urword
 optional false
 longname obs6 input filename
-description REPLACE obs6_filename {'{#1}': 'Recharge'}
+description REPLACE obs6_filename {'{#1}': 'RCH', '{#2}': '\\ref{table:gwf-obstypetable}'}
 
 # --------------------- gwf rch dimensions ---------------------
 

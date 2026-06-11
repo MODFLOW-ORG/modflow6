@@ -33,7 +33,7 @@ module GridArrayLoadModule
   contains
     procedure :: ainit
     procedure :: df
-    procedure :: ad
+    procedure :: ts_advance
     procedure :: rp
     procedure :: destroy
     procedure :: reset
@@ -94,9 +94,9 @@ contains
     class(GridArrayLoadType), intent(inout) :: this
   end subroutine df
 
-  subroutine ad(this)
+  subroutine ts_advance(this)
     class(GridArrayLoadType), intent(inout) :: this
-  end subroutine ad
+  end subroutine ts_advance
 
   subroutine rp(this, parser)
     use BlockParserModule, only: BlockParserType
