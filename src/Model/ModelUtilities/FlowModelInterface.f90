@@ -387,19 +387,19 @@ contains
       case ('GWFBUDGET')
         inunit = getunit()
         call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                      ACCESS, 'UNKNOWN')
+                      ACCESS, 'OLD')
         this%iubud = inunit
         call this%initialize_bfr()
       case ('GWFHEAD')
         inunit = getunit()
         call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                      ACCESS, 'UNKNOWN')
+                      ACCESS, 'OLD')
         this%iuhds = inunit
         call this%initialize_hfr()
       case ('GWFMOVER')
         inunit = getunit()
         call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                      ACCESS, 'UNKNOWN')
+                      ACCESS, 'OLD')
         this%iumvr = inunit
         call budgetobject_cr_bfr(this%mvrbudobj, 'MVT', this%iumvr, &
                                  this%iout)
@@ -407,7 +407,7 @@ contains
       case ('GWFGRID')
         inunit = getunit()
         call openfile(inunit, this%iout, fname, 'DATA(BINARY)', &
-                      FORM, ACCESS, 'UNKNOWN')
+                      FORM, ACCESS, 'OLD')
         this%iugrb = inunit
         call this%read_grid()
       case default
