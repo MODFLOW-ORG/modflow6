@@ -133,7 +133,7 @@ builddir = "echo _builddir_win-64"
 # environments for documentation and extended build testing
 [environments]
 rtd = { features = ["rtd"], solve-group = "default" }
-gcc-extended-build = { features = ["gcc-extended-build"] }
+gcc-extended-build = { features = ["default", "gcc-extended-build"] }
 
 # Features
 [feature.rtd.dependencies]
@@ -164,11 +164,8 @@ platforms = ["linux-64", "osx-arm64"]
 
 [feature.gcc-extended-build.dependencies]
 git = "*"
-meson = "*"
-ninja = "*"
 gcc = "*"
 gfortran = "*"
-pkg-config = "*"
 libnetcdf = "*"
 netcdf-fortran = "*"
 openmpi = "*"

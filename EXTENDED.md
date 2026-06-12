@@ -136,7 +136,7 @@ This will update the `netcdf-fortran.pc` file with the correct include path and 
 The MODFLOW 6 meson build process is essentially the same except that it relies on tasks defined in `pixi.toml` and require that the `gcc-extended-build` environment be specified. The commands for setup, build, and testing are:
 
 ```bash
-pixi run -e gcc-extended-build setup builddir -Dextended=true
+pixi run -e gcc-extended-build setup-extended builddir
 pixi run -e gcc-extended-build build builddir
 pixi run -e gcc-extended-build test builddir
 ```

@@ -144,18 +144,18 @@ jobs:
         run: |
           pixi run -e gcc-extended-build gcc-extended-build-update
 
-      - name: Setup and build the extended MF6 build in the gcc-extended-build environment
+      - name: Build extended MF6
         run: |
-          pixi run -e gcc-extended-build setup builddir -Dextended=true
+          pixi run -e gcc-extended-build setup-extended builddir
           pixi run -e gcc-extended-build build builddir
 
       - name: Show build log
         if: failure()
         run: cat builddir/meson-logs/meson-log.txt
 
-      - name: Unit test the extended MF6 build in the gcc-extended-build environment
+      - name: Unit test extended MF6
         run: pixi run -e gcc-extended-build test builddir
-        
+
   build-static:
     name: Static gcc build
     runs-on: ${{ matrix.os }}
@@ -770,13 +770,6 @@ jobs:
         with:
           path: modflow6
 
-      - name: Setup gfortran
-        if: runner.os != 'Windows'
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: 13
-
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.9.6
         with:
@@ -785,7 +778,12 @@ jobs:
 
       - name: Custom pixi install
         working-directory: modflow6
-        run: pixi run install
+        run: |
+          if [ "$RUNNER_OS" != "Windows" ]; then
+            pixi run -e gcc-extended-build install
+          else
+            pixi run install
+          fi
 
       - name: Set LDFLAGS (macOS)
         if: runner.os == 'macOS'
@@ -801,12 +799,37 @@ jobs:
         id: set_filters
         run: echo "filters=test_par or test_netcdf" >> $GITHUB_OUTPUT
 
+      - name: Update pc files
+        if: runner.os != 'Windows'
+        working-directory: modflow6
+        run: pixi run -e gcc-extended-build gcc-extended-build-update
+
+      - name: Build extended MF6
+        if: runner.os != 'Windows'
+        working-directory: modflow6
+        run: |
+          pixi run -e gcc-extended-build setup-extended builddir
+          pixi run -e gcc-extended-build build builddir
+          pixi run -e gcc-extended-build test builddir
+
+      - name: Show Meson logs
+        if: runner.os != 'Windows' && failure()
+        working-directory: modflow6
+        run: cat builddir/meson-logs/meson-log.txt
+
+      - name: Get executables
+        if: runner.os != 'Windows'
+        working-directory: modflow6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run -e gcc-extended-build get-exes
+
       - name: Test extended MF6
         if: runner.os != 'Windows'
-        uses: ./modflow6/.github/actions/test-extended
+        working-directory: modflow6
         env:
-          MARKERS: ${{ steps.set_markers.outputs.markers }}
-          FILTERS: ${{ steps.set_filters.outputs.filters }}
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run -e gcc-extended-build autotest --parallel --netcdf -m '${{ steps.set_markers.outputs.markers }}' -k '${{ steps.set_filters.outputs.filters }}'
 
       - name: Test extended MF6
         if: runner.os == 'Windows'
