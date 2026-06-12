@@ -1,0 +1,59 @@
+\subsection{River (RIV) Package}
+
+The River Package represents a head-dependent flux between the aquifer and a
+surface-water feature, limited by the riverbed bottom elevation. Its three
+per-boundary inputs are the river stage, the riverbed conductance, and the
+riverbed bottom elevation.
+
+\begin{longtable}{p{0.15\textwidth} p{0.15\textwidth} p{0.60\textwidth}}
+\caption{Memory-manager variables in the RIV Package that are candidates for
+modification through the API. See also the variables common to all stress
+packages described above.} \label{table:api-gwf-riv} \\
+
+\hline
+\textbf{Variable} & \textbf{Class} & \textbf{Guidance} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Variable} & \textbf{Class} & \textbf{Guidance} \\
+\hline
+\endhead
+
+\texttt{STAGE} & Period-reset &
+River stage (head) for each reach, dimensioned by \texttt{MAXBOUND}. Read from
+input at the start of each stress period; set it every time step to change the
+stage at run time. \\
+
+\texttt{COND} & Period-reset &
+Riverbed hydraulic conductance for each reach, dimensioned by \texttt{MAXBOUND}.
+Read from input at the start of each stress period; set it every time step to
+change the conductance at run time. \\
+
+\texttt{RBOT} & Period-reset &
+Riverbed bottom elevation for each reach, dimensioned by \texttt{MAXBOUND}. The
+exchange flux is limited when the aquifer head falls below this elevation. Read
+from input at the start of each stress period; set it every time step to change
+it at run time. \\
+
+\texttt{AUXVAR} & Period-reset &
+Auxiliary variable values, dimensioned by the number of auxiliary variables and
+\texttt{MAXBOUND} (present when \texttt{AUXILIARY} variables are specified).
+Re-read each stress period; set after \texttt{prepare\_time\_step}. Indexed by
+boundary position, so a value follows the boundary index, not the cell. \\
+
+\texttt{NODELIST} & Period-reset &
+One-based reduced node number of the cell containing each boundary, dimensioned
+by \texttt{MAXBOUND}. Set it after \texttt{prepare\_time\_step} to relocate a
+boundary (see ``Changing Boundary Locations''). \\
+
+\texttt{NBOUND} & Period-reset &
+Number of active boundaries in the current stress period, from 0 to
+\texttt{MAXBOUND}. Increase it (and fill the new entries) to activate boundaries
+or decrease it to deactivate them (see ``Changing Boundary Locations''). \\
+
+\hline
+\end{longtable}
+
+\noindent As with all of these variables, a value supplied by a time series is
+refreshed each time step and overwrites API changes.
