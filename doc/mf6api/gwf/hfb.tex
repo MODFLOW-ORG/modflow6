@@ -1,0 +1,71 @@
+\subsection{Horizontal Flow Barrier (HFB) Package}
+
+The Horizontal Flow Barrier (HFB) Package does not add a boundary term; instead it
+represents thin, low-permeability barriers by \emph{modifying the intercell
+conductance} between pairs of cells. It does this by editing the Node Property
+Flow Package's \texttt{CONDSAT} array directly. At every Read and Prepare, the
+package restores the affected connections to their pre-barrier conductance,
+re-reads the barrier input, and re-applies the barrier to \texttt{CONDSAT}.
+
+A barrier is therefore changed at run time the same way as any other intercell
+conductance: by setting the appropriate entries of \texttt{NPF/CONDSAT} (the
+symmetric connection index of barrier \texttt{i} is \texttt{IDXLOC[i]}, used with
+the model's \texttt{JAS} array to index \texttt{CONDSAT}). The barrier's input
+hydraulic characteristic, \texttt{HYDCHR}, is \emph{not} the run-time knob: it is
+re-read from input and consumed at Read and Prepare (and, for the Newton
+formulation or confined cells, baked into \texttt{CONDSAT} there), so a value set
+through the API after \texttt{prepare\_time\_step} has no effect, except when the
+XT3D option is active, where \texttt{HYDCHR} is read during formulation.
+
+\begin{longtable}{p{0.15\textwidth} p{0.15\textwidth} p{0.60\textwidth}}
+\caption{Memory-manager variables in the HFB Package that are candidates for
+modification through the API. The memory address of each variable is
+\texttt{MODELNAME/HFB/VARNAME}; the barrier conductance itself is changed through
+\texttt{MODELNAME/NPF/CONDSAT}.} \label{table:api-gwf-hfb} \\
+
+\hline
+\textbf{Variable} & \textbf{Class} & \textbf{Guidance} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Variable} & \textbf{Class} & \textbf{Guidance} \\
+\hline
+\endhead
+
+\texttt{HYDCHR} & Inert input &
+Hydraulic characteristic of each barrier, dimensioned by \texttt{MAXHFB}. Re-read
+from input and applied to \texttt{CONDSAT} during Read and Prepare; setting it
+through the API has no effect afterward (except under XT3D, where it is read
+during formulation). To change a barrier at run time, set \texttt{NPF/CONDSAT}
+instead. \\
+
+\texttt{NODEN}, \texttt{NODEM} & Period-reset &
+The two cells connected by each barrier, as one-based reduced node numbers,
+dimensioned by \texttt{MAXHFB}. Re-read each stress period. Relocating a barrier
+also requires the connection index \texttt{IDXLOC} to be made consistent, which
+happens only at Read and Prepare, so moving barriers through the API is not
+generally supported. \\
+
+\texttt{NHFB} & Period-reset &
+Number of active barriers in the current stress period. \\
+
+\texttt{MAXHFB} & Structural / read-only &
+Maximum number of barriers; the allocated size of the barrier arrays. Fixed when
+the package is allocated and cannot be changed through the API. \\
+
+\texttt{IDXLOC}, \texttt{CSATSAV}, \texttt{CONDSAV} & Structural / read-only &
+Internal bookkeeping: the symmetric connection position of each barrier
+(\texttt{IDXLOC}) and the saved conductances used to reset and re-apply the
+barrier (\texttt{CSATSAV}, \texttt{CONDSAV}). These should not be set. \\
+
+\hline
+\end{longtable}
+
+\noindent Note the interaction with \texttt{CONDSAT}: because HFB restores and
+re-applies its conductance modification at every Read and Prepare, a
+\texttt{CONDSAT} value set through the API on a connection that is spanned by a
+barrier is overwritten at the start of each stress period. On those connections
+\texttt{CONDSAT} therefore behaves as a Period-reset variable when HFB is active
+and must be re-applied each step, rather than set once as described in the
+``Modifying Conductance and Storage'' example.

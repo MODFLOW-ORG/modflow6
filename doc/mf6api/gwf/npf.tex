@@ -1,0 +1,75 @@
+\subsection{Node Property Flow (NPF) Package}
+
+The Node Property Flow (NPF) Package computes intercell conductances from the
+hydraulic conductivity input and cell geometry. The single most common API
+modification for this package is changing intercell conductance, which is done
+by setting the derived \texttt{CONDSAT} array rather than the hydraulic
+conductivity input. Under the standard (non-XT3D) formulation, the hydraulic
+conductivity arrays are read only during Allocate and Read, where they are used
+to compute \texttt{CONDSAT}; changing them after that point has no effect.
+
+\begin{longtable}{p{0.15\textwidth} p{0.15\textwidth} p{0.60\textwidth}}
+\caption{Memory-manager variables in the NPF Package that are candidates for
+modification through the API. The memory address of each variable is
+\texttt{MODELNAME/NPF/VARNAME}.} \label{table:api-gwf-npf} \\
+
+\hline
+\textbf{Variable} & \textbf{Class} & \textbf{Guidance} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Variable} & \textbf{Class} & \textbf{Guidance} \\
+\hline
+\endhead
+
+\texttt{CONDSAT} & Derived variable &
+Saturated intercell conductance, dimensioned by the number of symmetric
+connections (NJAS). Computed once during Allocate and Read from the hydraulic
+conductivity arrays, cell geometry, and \texttt{ICELLTYPE}, then used directly
+in every formulate step. Set \texttt{CONDSAT} to change intercell conductance at
+run time. \emph{Caveats:} the array is allocated with size zero when the XT3D
+option is active (conductance is then built by XT3D from the conductivity
+arrays). It is recomputed every time step when time-varying hydraulic
+conductivity (TVK) or the Viscosity (VSC) Package is active, which overwrites any
+externally set values. \\
+
+\texttt{K11} & Inert input &
+Hydraulic conductivity along the major axis, dimensioned by the number of cells
+(NODES). Used only to compute \texttt{CONDSAT} during Allocate and Read; setting
+it afterward has no effect under the standard formulation---set \texttt{CONDSAT}
+instead. \emph{Exceptions:} when XT3D is active the conductance is built from the
+conductivity arrays during formulation, so \texttt{K11} becomes influential; when
+TVK is active \texttt{K11} is re-read each time step and overwrites API changes
+(class becomes Overwritten). \\
+
+\texttt{K22} & Inert input &
+Hydraulic conductivity along the second axis, dimensioned by NODES (present when
+the \texttt{K22} input is specified). Same guidance and exceptions as
+\texttt{K11}. \\
+
+\texttt{K33} & Inert input &
+Hydraulic conductivity along the third (commonly vertical) axis, dimensioned by
+NODES (present when the \texttt{K33} input is specified). Same guidance and
+exceptions as \texttt{K11}. \\
+
+\texttt{ANGLE1}, \texttt{ANGLE2}, \texttt{ANGLE3} & Inert input &
+Rotation angles of the hydraulic conductivity ellipsoid, dimensioned by NODES
+(present only when specified). Used to compute \texttt{CONDSAT} (or the XT3D
+coefficients) during Allocate and Read; set \texttt{CONDSAT} instead under the
+standard formulation. \\
+
+\texttt{SAT} & Overwritten &
+Saturated fraction of the cell (0 to 1), dimensioned by NODES. Recomputed from
+the current head at every formulate step for convertible cells, so values set
+through the API are overwritten. To influence saturation, change the head
+(\texttt{X}) or the cell geometry instead. \\
+
+\texttt{ICELLTYPE} & Structural / read-only &
+Cell convertibility flag (0 for confined, nonzero for convertible), dimensioned
+by NODES. Read during Allocate and Read to compute \texttt{CONDSAT} and consulted
+during formulation. Changing it at run time is not supported and can produce
+inconsistent conductance and storage; treat as read-only. \\
+
+\hline
+\end{longtable}

@@ -31,15 +31,18 @@ EXAMPLES_REPO_PATH = PROJ_ROOT_PATH.parent / "modflow6-examples"
 DISTRIBUTION_PATH = PROJ_ROOT_PATH / "distribution"
 DOCS_PATH = PROJ_ROOT_PATH / "doc"
 MF6IO_PATH = DOCS_PATH / "mf6io"
+MF6API_PATH = DOCS_PATH / "mf6api"
 MF6IVAR_PATH = MF6IO_PATH / "mf6ivar"
 RELEASE_NOTES_PATH = DOCS_PATH / "ReleaseNotes"
 TEX_PATHS = {
     "develop": [
         MF6IO_PATH / "mf6io.tex",
+        MF6API_PATH / "mf6api.tex",
         DOCS_PATH / "ReleaseNotes" / "ReleaseNotes.tex",
     ],
     "release": [
         MF6IO_PATH / "mf6io.tex",
+        MF6API_PATH / "mf6api.tex",
         DOCS_PATH / "ReleaseNotes" / "ReleaseNotes.tex",
         DOCS_PATH / "zonebudget" / "zonebudget.tex",
         DOCS_PATH / "ConverterGuide" / "converter_mf5to6.tex",
@@ -345,6 +348,7 @@ def build_pdfs(
 def test_build_pdfs_from_tex(tmp_path):
     tex_paths = [
         DOCS_PATH / "mf6io" / "mf6io.tex",
+        DOCS_PATH / "mf6api" / "mf6api.tex",
         DOCS_PATH / "ReleaseNotes" / "ReleaseNotes.tex",
         DOCS_PATH / "zonebudget" / "zonebudget.tex",
         DOCS_PATH / "ConverterGuide" / "converter_mf5to6.tex",
