@@ -144,10 +144,11 @@ jobs:
         run: |
           pixi run -e gcc-extended-build gcc-extended-build-update
 
+      - name: Setup extended MF6
+        run: pixi run -e gcc-extended-build setup-extended builddir
+
       - name: Build extended MF6
-        run: |
-          pixi run -e gcc-extended-build setup-extended builddir
-          pixi run -e gcc-extended-build build builddir
+        run: pixi run -e gcc-extended-build build builddir
 
       - name: Show build log
         if: failure()
@@ -806,20 +807,27 @@ jobs:
         working-directory: modflow6
         run: pixi run -e gcc-extended-build gcc-extended-build-update
 
+      - name: Setup extended MF6
+        if: runner.os != 'Windows'
+        working-directory: modflow6
+        run: pixi run -e gcc-extended-build setup-extended builddir
+
       - name: Build extended MF6
         if: runner.os != 'Windows'
         working-directory: modflow6
-        env:
-          UCX_TLS: sm,self
-        run: |
-          pixi run -e gcc-extended-build setup-extended builddir
-          pixi run -e gcc-extended-build build builddir
-          pixi run -e gcc-extended-build test builddir
+        run: pixi run -e gcc-extended-build build builddir
 
       - name: Show Meson logs
         if: runner.os != 'Windows' && failure()
         working-directory: modflow6
         run: cat builddir/meson-logs/meson-log.txt
+
+      - name: Unit test extended MF6
+        if: runner.os != 'Windows'
+        working-directory: modflow6
+        env:
+          UCX_TLS: sm,self
+        run: pixi run -e gcc-extended-build test builddir
 
       - name: Build mf5to6
         if: runner.os != 'Windows'
