@@ -752,11 +752,10 @@ contains
       ! If the user hasn't provided any release settings (neither
       ! explicit release times, release time frequency, or period
       ! block release settings), default to a single release at the
-      ! start of the first period's first time step.
-      ! Store default configuration; advance() will be called in prp_ad().
-      if (allocated(this%period_block_lines)) deallocate (this%period_block_lines)
-      allocate (this%period_block_lines(1))
-      this%period_block_lines(1) = "FIRST"
+      ! start of the simulation (t=0). Add t=0 directly to the time
+      ! selection rather than time step selection because the latter
+      ! would fill forward, releasing at the start of every period.
+      call this%schedule%time_select%extend([DZERO])
       return
     else if (iper /= kper) then
       return
