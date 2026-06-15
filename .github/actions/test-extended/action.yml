@@ -19,7 +19,7 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        brew install netcdf-fortran libevent
+        brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/42429828b2685e19a65cbb075d1ccfe2d6e306af/Formula/n/netcdf-fortran.rb libevent
         nc-config --all
         nf-config --all
 
