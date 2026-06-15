@@ -1738,7 +1738,7 @@ contains
     end select
     !
     ! -- position the file pointer to ipos
-    read (iu, pos=ipos, iostat=status)
+    write (iu, pos=ipos, iostat=status)
     inquire (unit=iu, pos=ipos)
   end subroutine fseek_stream
 
