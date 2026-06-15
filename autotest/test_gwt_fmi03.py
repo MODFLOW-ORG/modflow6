@@ -1,12 +1,11 @@
 """
 Tests that multiple GWT models in the same simulation can reference
 the same GWF head and budget files via the FMI package without error.
-Repro https://github.com/MODFLOW-ORG/modflow6/issues/2832.
 
-A transport simulation contains two GWT models, each for a different
-species, both of whose FMI packages point to the same GWF head/budget
-files. Previously this caused an error because the second FMI open
-attempt found the file already open on a unit held by the first FMI.
+Previously this caused an error because the second FMI open attempt
+found the output files already open on units held by the first FMI.
+
+Reported in https://github.com/MODFLOW-ORG/modflow6/issues/2832.
 """
 
 import flopy
@@ -17,16 +16,12 @@ from framework import TestFramework
 simname = "gwtfmi03"
 cases = [simname]
 
-# grid
 nlay, nrow, ncol = 1, 1, 10
 delr = delc = 1.0
 top = 1.0
 botm = [0.0]
-# time discretisation
 nper = 2
 tdis_pd = [(5.0, 5, 1.0)] * nper
-
-# transport
 porosity = 0.1
 
 

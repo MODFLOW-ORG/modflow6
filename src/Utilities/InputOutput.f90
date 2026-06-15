@@ -101,7 +101,7 @@ contains
         call freeunitnumber(iu)
       end if
       !
-      ! -- Check if file is already open (retained for error reporting only)
+      ! -- Check if file is already open
       inquire (file=fname(1:iflen), number=iuop)
       open (unit=iu, file=fname(1:iflen), form=fmtarg, access=accarg, &
             status=filstat, action=filact, iostat=ivar)

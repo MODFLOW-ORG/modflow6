@@ -107,7 +107,7 @@ contains
       inquire (this%inunit, pos=this%headernext%pos)
       read (this%inunit, iostat=iostat) this%headernext%kstp, this%headernext%kper
       if (iostat == 0) then
-        call fseek_stream(this%inunit, -2 * I4B, 1, iostat)
+        read (this%inunit, pos=this%headernext%pos, iostat=iostat)
       else if (iostat < 0) then
         this%endoffile = .true.
         if (allocated(this%headernext)) deallocate (this%headernext)
