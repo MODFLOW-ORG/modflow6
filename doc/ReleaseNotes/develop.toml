@@ -83,3 +83,8 @@ description = "Previously, GWF model output files could only be referenced by a 
 section = "fixes"
 subsection = "model"
 description = "PRT was described as configuring a single release at the beginning of the simulation by default, but a release was in fact scheduled for the first time step of every stress period. Fix the default release behavior so a single release occurs at the beginning of the simulation."
+
+[[items]]
+section = "fixes"
+subsection = "basic"
+description = "The BMI interface's get_grid_model_type function worked only for numerical model types such as GWF, GWT, and GWE, but would crash for PRT models. Fix the function's implementation to work with all model types."
