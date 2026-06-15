@@ -24,10 +24,27 @@ runs:
         nf-config --all
 
     - name: Setup GNU Fortran
+      if: runner.os != 'macOS'
       uses: fortran-lang/setup-fortran@v1
       with:
         compiler: gcc
         version: 13
+
+    - name: Configure Homebrew GNU toolchain (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        gcc_prefix="$(brew --prefix gcc)"
+        gfortran="$(ls "$gcc_prefix/bin"/gfortran-* | sort -V | tail -n 1)"
+        gcc="$(ls "$gcc_prefix/bin"/gcc-* | sort -V | tail -n 1)"
+        gxx="$(ls "$gcc_prefix/bin"/g++-* | sort -V | tail -n 1)"
+        echo "$gcc_prefix/bin" >> $GITHUB_PATH
+        echo "FC=$gfortran" >> $GITHUB_ENV
+        echo "CC=$gcc" >> $GITHUB_ENV
+        echo "CXX=$gxx" >> $GITHUB_ENV
+        echo "FPM_FC=$gfortran" >> $GITHUB_ENV
+        echo "FPM_CC=$gcc" >> $GITHUB_ENV
+        echo "FPM_CXX=$gxx" >> $GITHUB_ENV
 
     - name: Build OpenMPI (macOS)
       if: runner.os == 'macOS'
@@ -36,7 +53,7 @@ runs:
         wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.6.tar.gz
         tar -xzf openmpi-4.1.6.tar.gz
         cd openmpi-4.1.6
-        ./configure --prefix=$GITHUB_WORKSPACE/openmpi --with-libevent=$(brew --prefix libevent) --enable-mpi-fortran=usempi FC=gfortran CC=gcc CXX=g++
+        ./configure --prefix=$GITHUB_WORKSPACE/openmpi --with-libevent=$(brew --prefix libevent) --enable-mpi-fortran=usempi FC=$FC CC=$CC CXX=$CXX
         make -j$(sysctl -n hw.ncpu)
         make install
 
