@@ -77,4 +77,4 @@ description = "Fix the PRT PRP package's DRAPE option's behavior. A draped parti
 [[items]]
 section = "fixes"
 subsection = "basic"
-description = "Previously, GWF model output files could only be referenced by a single coupled model's FMI package. Referencing the same GWF output files from multiple coupled models would cause a crash. Fix file-opening logic to allow multiple coupled models to refer to the same GWF model's output files."
+description = "Previously, GWF model output files could only be referenced by a single coupled model's FMI package. This might be necessary for certain configurations where multiple transport models or particle tracking models in the same simulation need flow information from a previous GWF simulation. Referencing the same GWF output files from multiple coupled models would cause a crash. Fix file-opening logic to allow multiple coupled models to refer to the same GWF model's output files."
