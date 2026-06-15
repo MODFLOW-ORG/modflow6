@@ -1717,6 +1717,7 @@ contains
     integer(I4B), intent(inout) :: status
     ! -- local
     integer(I8B) :: ipos
+    character(len=20) :: file_action
     !
     inquire (unit=iu, size=ipos)
     !
@@ -1737,8 +1738,15 @@ contains
       ipos = ipos + offset
     end select
     !
-    ! -- position the file pointer to ipos
-    write (iu, pos=ipos, iostat=status)
+    ! -- position the file pointer to ipos using read or write depending
+    !    on the file action, since write fails on read-only files and
+    !    read fails on write-only files
+    inquire (unit=iu, action=file_action)
+    if (trim(file_action) == 'READ') then
+      read (iu, pos=ipos, iostat=status)
+    else
+      write (iu, pos=ipos, iostat=status)
+    end if
     inquire (unit=iu, pos=ipos)
   end subroutine fseek_stream
 
