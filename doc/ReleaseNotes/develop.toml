@@ -87,4 +87,4 @@ description = "PRT was described as configuring a single release at the beginnin
 [[items]]
 section = "fixes"
 subsection = "basic"
-description = "The BMI interface's get_grid_model_type function worked only for numerical model types such as GWF, GWT, and GWE, but would crash for PRT models. Fix the function's implementation to work with all model types."
+description = "The BMI interface's get\\_grid\\_model\\_type function worked only for numerical model types such as GWF, GWT, and GWE, but would crash for PRT models. Fix the function's implementation to work with all model types."
