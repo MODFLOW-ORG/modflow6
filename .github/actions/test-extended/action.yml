@@ -35,9 +35,13 @@ runs:
       shell: bash
       run: |
         gcc_prefix="$(brew --prefix gcc)"
-        gfortran="$(ls "$gcc_prefix/bin"/gfortran-* | sort -V | tail -n 1)"
-        gcc="$(ls "$gcc_prefix/bin"/gcc-* | sort -V | tail -n 1)"
-        gxx="$(ls "$gcc_prefix/bin"/g++-* | sort -V | tail -n 1)"
+        gfortran="$(find "$gcc_prefix/bin" -maxdepth 1 -type f -name 'gfortran-*' | sort -V | tail -n 1)"
+        gcc="$(find "$gcc_prefix/bin" -maxdepth 1 -type f -name 'gcc-*' | sort -V | tail -n 1)"
+        gxx="$(find "$gcc_prefix/bin" -maxdepth 1 -type f -name 'g++-*' | sort -V | tail -n 1)"
+        if [[ -z "$gfortran" || -z "$gcc" || -z "$gxx" ]]; then
+          echo "Could not locate Homebrew GNU toolchain binaries in $gcc_prefix/bin"
+          exit 1
+        fi
         echo "$gcc_prefix/bin" >> $GITHUB_PATH
         echo "FC=$gfortran" >> $GITHUB_ENV
         echo "CC=$gcc" >> $GITHUB_ENV
