@@ -411,7 +411,7 @@ contains
 
   end function get_var_address
 
-  !> @brief Signal a variable change 
+  !> @brief Signal a variable change
   !!
   !! Sends a signal that a particular variable has been updated
   !! through the API so that internally the code can update

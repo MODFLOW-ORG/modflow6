@@ -371,8 +371,8 @@ contains
   end subroutine npf_ar
 
   subroutine npf_recompute_condsat(owner, status)
-    class(*), pointer, intent(inout) :: owner  !< registered context (the NPF object)
-    integer(I4B), intent(out) :: status        !< 0 = success, /= 0 = error
+    class(*), pointer, intent(inout) :: owner !< registered context (the NPF object)
+    integer(I4B), intent(out) :: status !< 0 = success, /= 0 = error
 
     status = 0
     select type (owner)
@@ -441,7 +441,7 @@ contains
     if (this%invsc /= 0) then
       call this%vsc%update_k_with_vsc()
     end if
-    
+
     if (this%irecalccondsat == 1) then
       if (this%ixt3d == 0) then
         !update the saturated conductance for all connections
