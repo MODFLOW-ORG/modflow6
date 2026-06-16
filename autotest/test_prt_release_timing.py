@@ -601,6 +601,15 @@ def check_output(test, snapshot):
         # have been tracked under the prior period's flow
         # system, the next shouldn't "get credit" for it.
         assert len(mf6_pls) == len(mp7_pls) - 9
+    elif "dflt" in name:
+        # Each particle terminates exactly at a cell face, so MF6 emits a
+        # FEATEXIT (from the outgoing cell) and a TERMINATE (in the entering
+        # cell) at identical (x,y,z,t). Sorting by (particleid, time) alone
+        # leaves those two records in an arbitrary order that differs between
+        # MF6 and MP7. Add node as a tiebreaker so both are ordered the same.
+        mf6_pls.sort_values(by=["particleid", "time", "node"], inplace=True)
+        mp7_pls.sort_values(by=["particleid", "time", "node"], inplace=True)
+        assert np.allclose(mf6_pls, mp7_pls, atol=1e-3)
     else:
         # the rest of the cases should match mp7 results,
         # with duplicate times debounced in "dupe"/"tol".
