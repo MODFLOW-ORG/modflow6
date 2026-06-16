@@ -276,7 +276,8 @@ def check_output(idx, test):
         )
 
     if drape:
-        assert mf6_pls.shape[0] == 36
+        assert mf6_pls.shape[0] == 27
+        assert mf6_pls[mf6_pls.ireason == 6].empty
     else:
         # expect no movement without drape
         assert mf6_pls.shape[0] == 9

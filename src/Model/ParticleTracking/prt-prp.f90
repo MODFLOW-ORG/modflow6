@@ -605,6 +605,7 @@ contains
     integer(I4B), intent(in) :: ip !< particle index
     real(DP), intent(in) :: trelease !< release time
     ! local
+    logical(LGP) :: draped
     integer(I4B) :: irow, icol, ilay, icpl
     integer(I4B) :: ic, icu, ic_old
     real(DP) :: x, y, z
@@ -617,7 +618,6 @@ contains
       &Make sure a GWFGRID entry is configured in the PRT FMI package.')"
 
     ic = this%rptnode(ip)
-    icu = this%dis%get_nodeuser(ic)
 
     call create_particle(particle)
 
@@ -631,25 +631,18 @@ contains
     particle%istopweaksink = this%istopweaksink
     particle%istopzone = this%istopzone
     particle%idrymeth = this%idrymeth
-    particle%icu = icu
-
-    select type (dis => this%dis)
-    type is (DisType)
-      call get_ijk(icu, dis%nrow, dis%ncol, dis%nlay, irow, icol, ilay)
-    type is (DisvType)
-      call get_jk(icu, dis%ncpl, dis%nlay, icpl, ilay)
-    end select
-    particle%ilay = ilay
-    particle%izone = this%rptzone(ic)
     particle%istatus = 0 ! status 0 until tracking starts
+
     ! If the cell is inactive, either drape the particle
     ! to the top-most active cell beneath it if drape is
     ! enabled, or else terminate permanently unreleased.
+    draped = .false.
     if (this%ibound(ic) == 0) then
       ic_old = ic
       if (this%drape) then
         call this%dis%highest_active(ic, this%ibound)
-        if (ic == ic_old .or. this%ibound(ic) == 0) then
+        draped = ic /= ic_old
+        if (.not. draped .and. this%ibound(ic) == 0) then
           ! negative unreleased status signals to the
           ! tracking method that we haven't yet saved
           ! a termination record, it needs to do so.
@@ -660,24 +653,35 @@ contains
       end if
     end if
 
-    ! load coordinates
-    x = this%rptx(ip)
-    y = this%rpty(ip)
-    if (this%localz) then
-      ! make sure FMI has cell type array. we need
-      ! it to distinguish convertible and confined
-      ! cells if release z coordinates are local
-      if (this%fmi%igwfceltyp /= 1) then
-        write (errmsg, fmticterr) trim(this%text)
-        call store_error(errmsg, terminate=.TRUE.)
-      end if
+    icu = this%dis%get_nodeuser(ic)
+    particle%icu = icu
+    select type (dis => this%dis)
+    type is (DisType)
+      call get_ijk(icu, dis%nrow, dis%ncol, dis%nlay, irow, icol, ilay)
+    type is (DisvType)
+      call get_jk(icu, dis%ncpl, dis%nlay, icpl, ilay)
+    end select
+    particle%ilay = ilay
+    particle%izone = this%rptzone(ic)
 
-      ! calculate model z coord from local z coord.
-      ! if cell is confined (icelltype == 0) use the
-      ! actual cell height (geometric top - bottom).
-      ! otherwise use head as cell top, clamping to
-      ! the cell bottom if head is below the bottom
-      ! and to geometric cell top if head is above top
+    ! if the particle was draped, override the release z coord and
+    ! set it to the saturated top of the cell. this puts a draped
+    ! a draped particle at the water table for a convertible cell
+    ! or at the geometric cell top for a confined cell. if it was
+    ! not draped and localz is enabled, calculate a model z coord
+    ! using the geometric cell top if the cell is confined or the
+    ! water table as the effective top if the cell is convertible.
+    if (draped) then
+      z = this%fmi%dis%bot(ic) + &
+          this%fmi%gwfsat(ic) * &
+          (this%fmi%dis%top(ic) - this%fmi%dis%bot(ic))
+    else if (this%localz) then
+      ! TODO: is this sufficient instead of the below??
+      ! z = this%fmi%dis%bot(ic) + &
+      !     this%rptz(ip) * &
+      !     this%fmi%gwfsat(ic) * &
+      !     (this%fmi%dis%top(ic) - this%fmi%dis%bot(ic))
+
       top = this%fmi%dis%top(ic)
       bot = this%fmi%dis%bot(ic)
       if (this%fmi%gwfceltyp(icu) /= 0) then
@@ -689,6 +693,9 @@ contains
     else
       z = this%rptz(ip)
     end if
+
+    x = this%rptx(ip)
+    y = this%rpty(ip)
 
     if (this%ichkmeth > 0) &
       call this%validate_release_point(ic, x, y, z)

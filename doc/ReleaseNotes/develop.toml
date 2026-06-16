@@ -68,3 +68,13 @@ description = "Fix an indexing issue in structured NetCDF export where READASARR
 section = "fixes"
 subsection = "basic"
 description = "Stop with an informative error if a discretization package is missing after loading the model input file's PACKAGES block."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "Fix the PRT PRP package's DRAPE option's behavior. A draped particle's release was previously reported in the original release position, followed by a DROPPED (ireason=6) event due to the particle reaching the water table at tracking time as a result of the default DRY\\_TRACKING\\_METHOD setting DROP. This is inconsistent with the intent of the DRAPE option: DRAPE is applied before release to control a particle's release position. Draped particles will now be released in the highest active cell, at the water table if the cell is convertible or at the geometric top if the cell is confined, and no DROPPED event will be reported."
+
+[[items]]
+section = "fixes"
+subsection = "basic"
+description = "Previously, GWF model output files could only be referenced by a single coupled model's FMI package. This might be necessary for certain configurations where multiple transport models or particle tracking models in the same simulation need flow information from a previous GWF simulation. Referencing the same GWF output files from multiple coupled models would cause a crash. Fix file-opening logic to allow multiple coupled models to refer to the same GWF model's output files."

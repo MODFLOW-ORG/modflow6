@@ -27,7 +27,7 @@ runs:
       uses: fortran-lang/setup-fortran@v1
       with:
         compiler: gcc
-        version: 13
+        version: ${{ runner.os == 'macOS' && '15' || '13' }}
 
     - name: Build OpenMPI (macOS)
       if: runner.os == 'macOS'
@@ -57,7 +57,8 @@ runs:
     - name: Configure environment
       shell: bash
       run: |
-        echo "PKG_CONFIG_PATH=$GITHUB_WORKSPACE/petsc/arch-gcc-opt/lib/pkgconfig" >> $GITHUB_ENV
+        echo "PETSC_DIR=$GITHUB_WORKSPACE/petsc" >> $GITHUB_ENV
+        echo "PETSC_ARCH=arch-gcc-opt" >> $GITHUB_ENV
         echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/petsc/arch-gcc-opt/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
         echo "$GITHUB_WORKSPACE/petsc/arch-gcc-opt/bin" >> $GITHUB_PATH
         if [ "$RUNNER_OS" == "macOS" ]; then
@@ -87,7 +88,7 @@ runs:
       shell: bash
       working-directory: modflow6
       run: |
-        pixi run setup -Dextended=true builddir
+        pixi run setup-extended builddir
         pixi run build builddir
         pixi run test builddir
 
