@@ -411,4 +411,42 @@ contains
 
   end function get_var_address
 
+  !> @brief Signal a variable change 
+  !!
+  !! Sends a signal that a particular variable has been updated
+  !! through the API so that internally the code can update
+  !! derived or dependent variables.
+  !<
+  function on_value_changed(c_var_address) result(bmi_status) &
+    bind(C, name="on_value_changed")
+    !DIR$ ATTRIBUTES DLLEXPORT :: set_value_double
+    use MemorySetHandlerModule, only: on_memory_set
+    character(kind=c_char), intent(in) :: c_var_address(*) !< memory address string of the variable
+    ! local
+    integer(kind=c_int) :: bmi_status !< BMI status code
+    integer(I4B) :: status
+    logical(LGP) :: valid
+    character(len=LENMEMPATH) :: mem_path
+    character(len=LENVARNAME) :: var_name
+
+    bmi_status = BMI_SUCCESS
+
+    call split_address(c_var_address, mem_path, var_name, valid)
+    if (.not. valid) then
+      bmi_status = BMI_FAILURE
+      return
+    end if
+
+    ! trigger event:
+    call on_memory_set(var_name, mem_path, status)
+    if (status /= 0) then
+      ! something went terribly wrong here, aborting
+      write (bmi_last_error, fmt_invalid_mem_access) trim(var_name)
+      call report_bmi_error(bmi_last_error)
+      bmi_status = BMI_FAILURE
+      return
+    end if
+
+  end function on_value_changed
+
 end module mf6xmi

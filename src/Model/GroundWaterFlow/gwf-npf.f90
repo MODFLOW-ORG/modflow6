@@ -103,7 +103,7 @@ module GwfNpfModule
     integer(I4B), pointer :: kchangeper => null() ! last stress period in which any node K (or K22, or K33) values were changed (0 if unchanged from start of simulation)
     integer(I4B), pointer :: kchangestp => null() ! last time step in which any node K (or K22, or K33) values were changed (0 if unchanged from start of simulation)
     integer(I4B), dimension(:), pointer, contiguous :: nodekchange => null() ! grid array of flags indicating for each node whether its K (or K22, or K33) value changed (1) at (kchangeper, kchangestp) or not (0)
-
+    integer(I4B), pointer :: irecalccondsat => null() !< to trigger recalculation of condsat on first advance
   contains
 
     procedure :: npf_df
@@ -286,14 +286,17 @@ contains
   subroutine npf_ar(this, ic, vsc, ibound, hnew)
     ! -- modules
     use MemoryManagerModule, only: mem_reallocate
+    use MemorySetHandlerModule, only: mem_register_handler, set_handler_iface
     ! -- dummy
-    class(GwfNpftype) :: this !< instance of the NPF package
+    class(GwfNpftype), target :: this !< instance of the NPF package
     type(GwfIcType), pointer, intent(in) :: ic !< initial conditions
     type(GwfVscType), pointer, intent(in) :: vsc !< viscosity package
     integer(I4B), dimension(:), pointer, contiguous, intent(inout) :: ibound !< model ibound array
     real(DP), dimension(:), pointer, contiguous, intent(inout) :: hnew !< pointer to model head array
     ! -- local
     integer(I4B) :: n
+    procedure(set_handler_iface), pointer :: csat_handler
+    class(*), pointer :: ctx
     !
     ! -- Store pointers to arguments that were passed in
     this%ic => ic
@@ -357,7 +360,27 @@ contains
     if (this%intvk /= 0) then
       call this%tvk%ar(this%dis)
     end if
+
+    ctx => this
+    csat_handler => npf_recompute_condsat
+    call mem_register_handler("K11", this%memoryPath, csat_handler, ctx)
+    call mem_register_handler("K22", this%memoryPath, csat_handler, ctx)
+    call mem_register_handler("K33", this%memoryPath, csat_handler, ctx)
+    ! TODO_MJR: extend this for all ingredients of condsat
+
   end subroutine npf_ar
+
+  subroutine npf_recompute_condsat(owner, status)
+    class(*), pointer, intent(inout) :: owner  !< registered context (the NPF object)
+    integer(I4B), intent(out) :: status        !< 0 = success, /= 0 = error
+
+    status = 0
+    select type (owner)
+    class is (GwfNpfType)
+      owner%irecalccondsat = 1
+    end select
+
+  end subroutine npf_recompute_condsat
 
   !> @brief Read and prepare method for package
   !!
@@ -418,6 +441,25 @@ contains
     if (this%invsc /= 0) then
       call this%vsc%update_k_with_vsc()
     end if
+    
+    if (this%irecalccondsat == 1) then
+      if (this%ixt3d == 0) then
+        !update the saturated conductance for all connections
+        do n = 1, this%dis%nodes
+          call this%calc_condsat(n, .false.)
+        end do
+      else
+        ! recompute XT3D coefficients for permanently confined connections
+        if (this%xt3d%lamatsaved) then
+          call this%xt3d%xt3d_fcpc(this%dis%nodes, .true.)
+        end if
+      end if
+      ! reset
+      this%irecalccondsat = 0
+
+      ! TODO_MJR: should also reset nodekchange here?
+    end if
+
     !
     ! -- If any K values have changed, we need to update CONDSAT or XT3D arrays
     if (this%kchangeper == kper .and. this%kchangestp == kstp) then
@@ -427,13 +469,13 @@ contains
         ! -- of the affected nodes
         do n = 1, this%dis%nodes
           if (this%nodekchange(n) == 1) then
-            call this%calc_condsat(n, .false.)
+            call this%calc_condsat(n, .false.) ! TODO_MJR: should nodekchange not be reset here??
           end if
         end do
       else
         !
         ! -- Recompute XT3D coefficients for permanently confined connections
-        if (this%xt3d%lamatsaved .and. .not. this%xt3d%ldispersion) then
+        if (this%xt3d%lamatsaved .and. .not. this%xt3d%ldispersion) then ! TODO_MJR: why check for dispersion here??
           call this%xt3d%xt3d_fcpc(this%dis%nodes, .true.)
         end if
       end if
@@ -1059,6 +1101,7 @@ contains
     call mem_deallocate(this%invsc)
     call mem_deallocate(this%kchangeper)
     call mem_deallocate(this%kchangestp)
+    call mem_deallocate(this%irecalccondsat)
     !
     ! -- Deallocate arrays
     deallocate (this%aname)
@@ -1141,6 +1184,7 @@ contains
     call mem_allocate(this%invsc, 'INVSC', this%memoryPath)
     call mem_allocate(this%kchangeper, 'KCHANGEPER', this%memoryPath)
     call mem_allocate(this%kchangestp, 'KCHANGESTP', this%memoryPath)
+    call mem_allocate(this%irecalccondsat, 'IRECALCCONDSAT', this%memoryPath)
     !
     ! -- set pointer to inewtonur
     call mem_setptr(this%igwfnewtonur, 'INEWTONUR', &
@@ -1181,6 +1225,7 @@ contains
     this%invsc = 0
     this%kchangeper = 0
     this%kchangestp = 0
+    this%irecalccondsat = 0
     !
     ! -- If newton is on, then NPF creates asymmetric matrix
     this%iasym = this%inewton
