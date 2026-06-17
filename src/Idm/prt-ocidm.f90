@@ -40,6 +40,7 @@ module PrtOcInputModule
     logical :: track_timesfile = .false.
     logical :: timesfile = .false.
     logical :: dev_dump_evtrace = .false.
+    logical :: scratch_buffer = .false.
     logical :: ntracktimes = .false.
     logical :: time = .false.
     logical :: saverecord = .false.
@@ -595,6 +596,25 @@ module PrtOcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    prtoc_scratch_buffer = InputParamDefinitionType &
+    ( &
+    'PRT', & ! component
+    'OC', & ! subcomponent
+    'OPTIONS', & ! block
+    'SCRATCH_BUFFER', & ! tag name
+    'SCRATCH_BUFFER', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'buffer track events in scratch file instead of memory', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     prtoc_ntracktimes = InputParamDefinitionType &
     ( &
     'PRT', & ! component
@@ -853,6 +873,7 @@ module PrtOcInputModule
     prtoc_track_timesfile, &
     prtoc_timesfile, &
     prtoc_dev_dump_evtrace, &
+    prtoc_scratch_buffer, &
     prtoc_ntracktimes, &
     prtoc_time, &
     prtoc_saverecord, &

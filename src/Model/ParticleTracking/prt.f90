@@ -22,7 +22,7 @@ module PrtModule
   use ParticleEventsModule, only: ParticleEventDispatcherType, handle_event
   use ParticleTracksModule, only: ParticleTracksType, &
                                   ParticleTrackFileType, &
-                                  write_particle_event
+                                  add_particle_event
   use SimModule, only: count_errors, store_error, store_error_filename
   use MemoryManagerModule, only: mem_allocate
   use MethodModule, only: MethodType, LEVEL_FEATURE
@@ -53,7 +53,7 @@ module PrtModule
     type(MethodDisType), pointer :: method_dis => null() ! DIS tracking method
     type(MethodDisvType), pointer :: method_disv => null() ! DISV tracking method
     type(ParticleEventDispatcherType), pointer :: events => null() ! event dispatcher
-    class(ParticleTracksType), pointer :: tracks ! track output manager
+    type(ParticleTracksType), pointer :: tracks ! track output manager
     integer(I4B), pointer :: infmi => null() ! unit number FMI
     integer(I4B), pointer :: inmip => null() ! unit number MIP
     integer(I4B), pointer :: inmvt => null() ! unit number MVT
@@ -262,6 +262,9 @@ contains
     call this%oc%oc_ar(this%dis, DHNOFLO)
     call this%budget%set_ibudcsv(this%oc%ibudcsv)
 
+    ! Initialize the event buffer (memory or scratch file per OC option)
+    call this%tracks%init_buffer(this%oc%scratch_buffer)
+
     ! Select tracking events
     call this%tracks%select_events( &
       this%oc%trackrelease, &
@@ -331,7 +334,7 @@ contains
 
     ! Subscribe particle track output manager to events
     p => this%tracks
-    call this%events%subscribe(write_particle_event, p)
+    call this%events%subscribe(add_particle_event, p)
 
     ! Set verbose tracing if requested
     if (this%oc%dump_event_trace) this%tracks%iout = 0
@@ -573,7 +576,8 @@ contains
     integer(I4B) :: ibudfl
     integer(I4B) :: ipflag
 
-    ! Note: particle tracking output is handled elsewhere
+    ! Flush buffered events to disk
+    call this%tracks%flush_buffer()
 
     ! Set write and print flags
     idvsave = 0
