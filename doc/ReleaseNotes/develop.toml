@@ -97,4 +97,4 @@ description = "Previously PRT model particle events were written to output file(
 [[items]]
 section = "fixes"
 subsection = "model"
-description = "A PRT model coupled by an exchange to a GWF model that uses adaptive time stepping (ATS) would erroneously produce output for discarded/retried time step solve attempts. PRT output would also be erroneously produced for discarded Picard iterations. This has been fixed such that PRT will only produce output for successful solve attempts when used with an ATS flow model, and only for the final Picard iteration."
+description = "A PRT model coupled by an exchange to a GWF model that uses adaptive time stepping (ATS) would erroneously produce output for discarded/retried time step solve attempts. PRT output would also be erroneously produced for discarded Picard iterations. This has been fixed such that PRT will only produce output for successful solve attempts when used with an ATS flow model, and only for the final Picard iteration when MXITER > 1."
