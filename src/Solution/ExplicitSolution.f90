@@ -211,7 +211,7 @@ contains
     case (MNORMAL)
 
       ! solve the models
-      call this%solve(kiter)
+      call this%solve(kiter, isuppress_output)
 
       ! finish up
       call this%finalizeSolve(kiter, isgcnvg, isuppress_output)
@@ -244,10 +244,11 @@ contains
   end subroutine prepareSolve
 
   !> @brief Solve models
-  subroutine solve(this, kiter)
+  subroutine solve(this, kiter, isuppress_output)
     ! dummy
     class(ExplicitSolutionType) :: this !< ExplicitSolutionType instance
     integer(I4B), intent(in) :: kiter !< Picard iteration (1 for explicit)
+    integer(I4B), intent(in) :: isuppress_output !< flag for suppressing output
     ! local
     class(ExplicitModelType), pointer :: mp => null()
     integer(I4B) :: im
@@ -261,7 +262,7 @@ contains
       ! Solve every model in the solution
       do im = 1, this%modellist%Count()
         mp => GetExplicitModelFromList(this%modellist, im)
-        call mp%model_solve()
+        call mp%model_solve(isuppress_output)
       end do
 
       ! Continue if any have pending work

@@ -371,15 +371,13 @@ contains
     integer(I4B) :: ip, n, i
 
     ! Discard buffered events from previous time step solve attempts.
-    ! PRT advance() is called by the framework on every sln_ca() call:
-    ! once per ATS retry, once per Picard iteration, and once for the
-    ! post-Picard output rerun if mxiter > 1. Because flow output may
-    ! vary on different Picard iterations, PRT must re-solve on every
-    ! call except the output rerun, but we re-solve the output rerun
-    ! anyway. Doing so is wasteful but avoids extra conditional logic,
-    ! and gives correct results: clearing the buffer unconditionally
-    ! here means only events created by the last run make it to disk
-    ! when the prt_ot() hook is called.
+    ! prt_advance() is called on every sln_ca(): once per ATS retry,
+    ! once per Picard iteration, and once for the post-Picard output
+    ! rerun if mxiter > 1. Tracking is skipped during Picard iterations
+    ! (isuppress_output=1) in prt_solve, so the buffer is empty here on
+    ! Picard calls and the discard is a no-op. On the output rerun
+    ! (isuppress_output=0), tracking runs once and the buffer is cleared
+    ! before it is filled, so only events from that run reach disk.
     call this%tracks%discard_buffer()
 
     ! Update look-behind mass
@@ -1043,19 +1041,25 @@ contains
   end subroutine ftype_check
 
   !> @brief Solve the model
-  subroutine prt_solve(this)
+  subroutine prt_solve(this, isuppress_output)
     use TdisModule, only: totimc, delt, endofsimulation
     use PrtPrpModule, only: PrtPrpType
     use ParticleModule, only: ACTIVE, TERM_UNRELEASED, TERM_TIMEOUT
     use ParticleEventModule, only: RELEASE, TERMINATE
     ! dummy
     class(PrtModelType) :: this
+    integer(I4B), intent(in) :: isuppress_output
     ! local
     integer(I4B) :: np, ip
     class(BndType), pointer :: packobj
     type(ParticleType), pointer :: particle
     real(DP) :: tmax
     integer(I4B) :: iprp
+
+    ! Skip tracking during Picard iterations: PRT doesn't affect the flow
+    ! solution, so tracking is only needed once on the final output rerun
+    ! (or on the single call when mxiter=1, which also has isuppress_output=0).
+    if (isuppress_output /= 0) return
 
     ! A single particle is reused in the tracking loops
     ! to avoid allocating and deallocating it each time.

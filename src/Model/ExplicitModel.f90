@@ -41,8 +41,9 @@ contains
   end subroutine model_ad
 
   !> @ brief Solve the model
-  subroutine model_solve(this)
+  subroutine model_solve(this, isuppress_output)
     class(ExplicitModelType) :: this
+    integer(I4B), intent(in) :: isuppress_output
   end subroutine model_solve
 
   !> @ brief Calculate model flows

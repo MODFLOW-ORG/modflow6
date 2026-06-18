@@ -277,7 +277,7 @@ contains
 
     ! execute the nth iteration
     iterationCounter = iterationCounter + 1
-    call bs%solve(iterationCounter)
+    call bs%solve(iterationCounter, 0)
 
     ! the following check is equivalent to that in NumericalSolution%sln_ca
     select type (bs)
