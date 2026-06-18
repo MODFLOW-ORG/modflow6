@@ -68,6 +68,7 @@ module MawModule
     integer(I4B), pointer :: check_attr => NULL()
     integer(I4B), pointer :: ishutoffcnt => NULL()
     integer(I4B), pointer :: ieffradopt => NULL()
+    integer(I4B), pointer :: inonvert => NULL() !< flag indicating that non-vertical (slanted) well connections are simulated
     integer(I4B), pointer :: ioutredflowcsv => NULL() !< unit number for CSV output file containing MAWs with reduced extraction/injection rates
     real(DP), pointer :: satomega => null()
     !
@@ -119,6 +120,10 @@ module MawModule
     real(DP), dimension(:), pointer, contiguous :: simcond => NULL()
     real(DP), dimension(:), pointer, contiguous :: topscrn => NULL()
     real(DP), dimension(:), pointer, contiguous :: botscrn => NULL()
+    real(DP), dimension(:), pointer, contiguous :: angle => NULL() !< tilt angle of a non-vertical connection, in degrees from vertical (0.0 = vertical)
+    real(DP), dimension(:), pointer, contiguous :: connlen => NULL() !< user-specified in-cell screen length for a non-vertical connection (<= 0.0 = derive from angle and screen elevations)
+    real(DP), dimension(:), pointer, contiguous :: usrtopscrn => NULL() !< user-specified screen top, retained so a non-vertical SPECIFIED connection can honor it
+    real(DP), dimension(:), pointer, contiguous :: usrbotscrn => NULL() !< user-specified screen bottom, retained so a non-vertical SPECIFIED connection can honor it
     !
     ! -- imap vector
     integer(I4B), dimension(:), pointer, contiguous :: imap => null()
@@ -198,6 +203,8 @@ module MawModule
     ! -- private procedures
     procedure, private :: maw_read_wells
     procedure, private :: maw_read_well_connections
+    procedure, private :: maw_read_angledata
+    procedure, private :: maw_calc_lcorr
     procedure, private :: maw_check_attributes
     procedure, private :: maw_set_stressperiod
     procedure, private :: maw_set_attribute_error
@@ -289,6 +296,7 @@ contains
     call mem_allocate(this%check_attr, 'CHECK_ATTR', this%memoryPath)
     call mem_allocate(this%ishutoffcnt, 'ISHUTOFFCNT', this%memoryPath)
     call mem_allocate(this%ieffradopt, 'IEFFRADOPT', this%memoryPath)
+    call mem_allocate(this%inonvert, 'INONVERT', this%memoryPath)
     call mem_allocate(this%ioutredflowcsv, 'IOUTREDFLOWCSV', this%memoryPath) !for writing reduced MAW flows to csv file
     call mem_allocate(this%satomega, 'SATOMEGA', this%memoryPath)
     call mem_allocate(this%bditems, 'BDITEMS', this%memoryPath)
@@ -308,6 +316,7 @@ contains
     this%imawiss = 0
     this%imawissopt = 0
     this%ieffradopt = 0
+    this%inonvert = 0
     this%ioutredflowcsv = 0
     this%satomega = DZERO
     this%bditems = 8
@@ -417,6 +426,12 @@ contains
     call mem_allocate(this%simcond, this%maxbound, 'SIMCOND', this%memoryPath)
     call mem_allocate(this%topscrn, this%maxbound, 'TOPSCRN', this%memoryPath)
     call mem_allocate(this%botscrn, this%maxbound, 'BOTSCRN', this%memoryPath)
+    call mem_allocate(this%angle, this%maxbound, 'ANGLE', this%memoryPath)
+    call mem_allocate(this%connlen, this%maxbound, 'CONNLEN', this%memoryPath)
+    call mem_allocate(this%usrtopscrn, this%maxbound, 'USRTOPSCRN', &
+                      this%memoryPath)
+    call mem_allocate(this%usrbotscrn, this%maxbound, 'USRBOTSCRN', &
+                      this%memoryPath)
     !
     ! -- allocate qleak
     call mem_allocate(this%qleak, this%maxbound, 'QLEAK', this%memoryPath)
@@ -505,6 +520,10 @@ contains
       this%simcond(j) = DZERO
       this%topscrn(j) = DZERO
       this%botscrn(j) = DZERO
+      this%angle(j) = DZERO
+      this%connlen(j) = DZERO
+      this%usrtopscrn(j) = DZERO
+      this%usrbotscrn(j) = DZERO
       this%qleak(j) = DZERO
     end do
     !
@@ -886,6 +905,9 @@ contains
         !
         ! -- top of screen
         rval = this%parser%GetDouble()
+        ! -- retain the user-specified screen top so a non-vertical SPECIFIED
+        !    connection can honor it (it is otherwise reset to the cell top)
+        this%usrtopscrn(jpos) = rval
         if (this%ieqn(n) /= 4) then
           rval = topnn
         else
@@ -898,6 +920,9 @@ contains
         !
         ! -- bottom of screen
         rval = this%parser%GetDouble()
+        ! -- retain the user-specified screen bottom so a non-vertical SPECIFIED
+        !    connection can honor it (it is otherwise reset to the cell bottom)
+        this%usrbotscrn(jpos) = rval
         if (this%ieqn(n) /= 4) then
           rval = botnn
         else
@@ -1031,6 +1056,304 @@ contains
     end if
   end subroutine maw_read_well_connections
 
+  !> @brief Read the optional ANGLEDATA block for non-vertical (slanted) MAW
+  !! well connections
+  !!
+  !! Each row identifies a non-vertical multi-aquifer well connection and the
+  !! tilt angle (deviation from vertical, in degrees) used to calculate the
+  !! in-cell screen length. An optional connection length can be specified to
+  !! set the in-cell screen length directly; the connection length is required
+  !! for horizontal connections (angle close to 90 degrees). Connections that
+  !! are not listed in the ANGLEDATA block are assumed to be vertical.
+  !<
+  subroutine maw_read_angledata(this)
+    use ConstantsModule, only: LINELENGTH, DZERO, DEM6, DTWO, DPIO180
+    use MathUtilModule, only: is_close
+    ! -- dummy
+    class(MawType), intent(inout) :: this
+    ! -- local
+    logical :: isfound
+    logical :: endOfBlock
+    logical(LGP) :: success
+    integer(I4B) :: ierr
+    integer(I4B) :: ival
+    integer(I4B) :: n
+    integer(I4B) :: j
+    integer(I4B) :: jpos
+    integer(I4B) :: ipos
+    integer(I4B) :: node
+    real(DP) :: angle
+    real(DP) :: conn_len
+    real(DP) :: dz
+    real(DP) :: omega
+    real(DP) :: lw
+    real(DP) :: topexp
+    integer(I4B), dimension(:), pointer, contiguous :: nboundchk
+    integer(I4B), dimension(:), pointer, contiguous :: iachk
+    ! -- minimum cosine of the tilt angle for which the in-cell screen length
+    !    can be derived from the screen elevations (i.e., the connection is not
+    !    treated as horizontal); connections steeper than this require a
+    !    connection length to be specified.
+    real(DP), parameter :: coszero = DEM6
+    ! -- maximum tilt angle (degrees from vertical)
+    real(DP), parameter :: dninety = 9.0d1
+    !
+    ! -- get angledata block
+    call this%parser%GetBlock('ANGLEDATA', isfound, ierr, &
+                              supportOpenClose=.true., blockRequired=.false.)
+    !
+    ! -- parse angledata block if detected
+    if (isfound) then
+      !
+      ! -- the angledata block is only valid when the NON_VERTICAL_WELLS option
+      !    has been specified
+      if (this%inonvert == 0) then
+        call store_error('An ANGLEDATA block was specified but the '// &
+                         'NON_VERTICAL_WELLS option was not specified in the '// &
+                         'OPTIONS block.')
+        call this%parser%StoreErrorUnit()
+      end if
+      !
+      ! -- allocate and initialize local storage used to check for duplicate
+      !    connection entries
+      allocate (iachk(this%nmawwells + 1))
+      iachk(1) = 1
+      do n = 1, this%nmawwells
+        iachk(n + 1) = iachk(n) + this%ngwfnodes(n)
+      end do
+      allocate (nboundchk(this%maxbound))
+      do n = 1, this%maxbound
+        nboundchk(n) = 0
+      end do
+      !
+      write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
+        ' ANGLEDATA'
+      do
+        call this%parser%GetNextLine(endOfBlock)
+        if (endOfBlock) exit
+        !
+        ! -- well number
+        ival = this%parser%GetInteger()
+        n = ival
+        if (n < 1 .or. n > this%nmawwells) then
+          write (errmsg, '(a,1x,i0,a)') &
+            'IFNO must be greater than 0 and less than or equal to ', &
+            this%nmawwells, '.'
+          call store_error(errmsg)
+          cycle
+        end if
+        !
+        ! -- connection number
+        ival = this%parser%GetInteger()
+        if (ival < 1 .or. ival > this%ngwfnodes(n)) then
+          write (errmsg, '(a,1x,i0,1x,a,1x,i0,a)') &
+            'ICON for well ', n, &
+            'must be greater than 0 and less than or equal to ', &
+            this%ngwfnodes(n), '.'
+          call store_error(errmsg)
+          cycle
+        end if
+        j = ival
+        jpos = this%get_jpos(n, j)
+        !
+        ! -- check for duplicate entries
+        ipos = iachk(n) + j - 1
+        nboundchk(ipos) = nboundchk(ipos) + 1
+        if (nboundchk(ipos) > 1) then
+          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
+            'ANGLEDATA for maw well', n, 'connection', j, &
+            'is specified more than once.'
+          call store_error(errmsg)
+        end if
+        !
+        ! -- tilt angle (degrees from vertical)
+        angle = this%parser%GetDouble()
+        !
+        ! -- optional in-cell screen length
+        call this%parser%TryGetDouble(conn_len, success)
+        if (.not. success) then
+          conn_len = DZERO
+        end if
+        !
+        ! -- store the angle and connection length
+        this%angle(jpos) = angle
+        this%connlen(jpos) = conn_len
+        !
+        ! -- the tilt angle must be between 0 and 90 degrees
+        if (angle < DZERO .or. angle > DNINETY) then
+          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a)') &
+            'ANGLE for maw well', n, 'connection', j, '(', angle, &
+            ') must be greater than or equal to 0.0 and less than or '// &
+            'equal to 90.0 degrees.'
+          call store_error(errmsg)
+          cycle
+        end if
+        !
+        ! -- a SPECIFIED connection provides the saturated conductance directly,
+        !    so the length correction is not applied; the user-specified screen
+        !    elevations (which are otherwise reset to the cell top and bottom)
+        !    are restored here, clamped to the cell, so the connection
+        !    saturation is calculated over the correct interval. It is the
+        !    user's responsibility to calculate the correct conductance.
+        if (this%ieqn(n) == 0) then
+          node = this%get_gwfnode(n, j)
+          this%topscrn(jpos) = min(this%usrtopscrn(jpos), this%dis%top(node))
+          this%botscrn(jpos) = max(this%usrbotscrn(jpos), this%dis%bot(node))
+        end if
+        !
+        ! -- screen thickness (vertical extent of the connection)
+        dz = this%topscrn(jpos) - this%botscrn(jpos)
+        if (dz <= DZERO) then
+          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
+            'The screen top must be greater than the screen bottom for maw '// &
+            'well', n, 'connection', j, 'listed in the ANGLEDATA block.'
+          call store_error(errmsg)
+          cycle
+        end if
+        !
+        omega = angle * DPIO180
+        !
+        ! -- the in-cell screen length is used only by the conductance
+        !    equations calculated by the program (it is not used by the
+        !    SPECIFIED equation). For those equations a (near) horizontal
+        !    connection requires a connection length, because the length cannot
+        !    be derived from the screen elevations, and the calculated length
+        !    must be positive.
+        if (this%ieqn(n) /= 0) then
+          if (cos(omega) <= coszero .and. conn_len <= DZERO) then
+            write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
+              'A connection length must be specified for the (near) '// &
+              'horizontal maw well', n, 'connection', j, &
+              'listed in the ANGLEDATA block.'
+            call store_error(errmsg)
+            cycle
+          end if
+          if (conn_len > DZERO) then
+            lw = conn_len
+          else
+            lw = (dz - DTWO * this%radius(n) * sin(omega)) / cos(omega)
+          end if
+          if (lw <= DZERO) then
+            write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a)') &
+              'The calculated in-cell screen length for maw well', n, &
+              'connection', j, '(', lw, &
+              ') is not greater than zero. Specify a connection length in '// &
+              'the ANGLEDATA block.'
+            call store_error(errmsg)
+            cycle
+          end if
+        end if
+        !
+        ! -- the radial (THIEM, SKIN, and CUMULATIVE) conductance equations use
+        !    the horizontal-plane flow geometry, so a (near) horizontal
+        !    connection is an approximation; recommend the MEAN equation
+        if (cos(omega) <= coszero .and. &
+            this%ieqn(n) /= 4 .and. this%ieqn(n) /= 0) then
+          write (warnmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
+            'The (near) horizontal maw well', n, 'connection', j, &
+            'uses a radial conductance equation (THIEM, SKIN, or '// &
+            'CUMULATIVE). The calculated conductance is an approximation '// &
+            'for horizontal connections; the MEAN conductance equation is '// &
+            'recommended for horizontal connections.'
+          call store_warning(warnmsg)
+        end if
+        !
+        ! -- for a (near) horizontal connection using the MEAN or SPECIFIED
+        !    conductance equation, the vertical screen extent (SCRN_TOP -
+        !    SCRN_BOT) should equal the well diameter (2 * RADIUS) because it is
+        !    used to determine the saturation of the connection. Snap the screen
+        !    top to the well diameter if the specified extent is essentially
+        !    equal to it; otherwise warn the user.
+        if (cos(omega) <= coszero .and. &
+            (this%ieqn(n) == 4 .or. this%ieqn(n) == 0)) then
+          topexp = this%botscrn(jpos) + DTWO * this%radius(n)
+          if (is_close(this%topscrn(jpos), topexp)) then
+            this%topscrn(jpos) = topexp
+          else
+            write (warnmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a)') &
+              'The vertical screen extent (SCRN_TOP - SCRN_BOT) for the '// &
+              '(near) horizontal maw well', n, 'connection', j, &
+              'is not equal to the well diameter (2 * RADIUS = ', &
+              DTWO * this%radius(n), &
+              '). The vertical screen extent is used to determine the '// &
+              'saturation of a connection and should equal the well '// &
+              'diameter for a horizontal connection.'
+            call store_warning(warnmsg)
+          end if
+        end if
+      end do
+      write (this%iout, '(1x,a)') &
+        'END OF '//trim(adjustl(this%text))//' ANGLEDATA'
+      !
+      ! -- deallocate local storage
+      deallocate (iachk)
+      deallocate (nboundchk)
+    else
+      !
+      ! -- the NON_VERTICAL_WELLS option was specified but no ANGLEDATA block
+      !    was found; warn that all connections will be treated as vertical
+      if (this%inonvert /= 0) then
+        write (warnmsg, '(a)') &
+          'The NON_VERTICAL_WELLS option was specified but an ANGLEDATA '// &
+          'block was not found. All multi-aquifer well connections will be '// &
+          'treated as vertical.'
+        call store_warning(warnmsg)
+      end if
+    end if
+    !
+    ! -- terminate if errors were encountered in the angledata block
+    if (count_errors() > 0) then
+      call this%parser%StoreErrorUnit()
+    end if
+  end subroutine maw_read_angledata
+
+  !> @brief Calculate the length correction factor for a multi-aquifer well
+  !! connection
+  !!
+  !! The saturated conductance of a non-vertical (slanted) connection is scaled
+  !! by the ratio of the in-cell screen length to the vertical screen thickness.
+  !! The factor is 1.0 for vertical connections (angle = 0 and no connection
+  !! length specified). The in-cell screen length is either specified directly
+  !! (CONNLEN > 0) or derived from the screen elevations and the tilt angle,
+  !! accounting for the vertical band occupied by the finite-radius borehole.
+  !<
+  function maw_calc_lcorr(this, i, jpos) result(lcorr)
+    use ConstantsModule, only: DZERO, DONE, DTWO, DPIO180
+    ! -- dummy
+    class(MawType), intent(inout) :: this
+    integer(I4B), intent(in) :: i !< well number
+    integer(I4B), intent(in) :: jpos !< connection position
+    ! -- return
+    real(DP) :: lcorr
+    ! -- local
+    real(DP) :: dz
+    real(DP) :: omega
+    real(DP) :: lw
+    !
+    ! -- default to no correction (vertical connection)
+    lcorr = DONE
+    if (this%angle(jpos) == DZERO .and. this%connlen(jpos) <= DZERO) then
+      return
+    end if
+    !
+    ! -- vertical screen thickness
+    dz = this%topscrn(jpos) - this%botscrn(jpos)
+    if (dz <= DZERO) then
+      return
+    end if
+    !
+    ! -- in-cell screen length: specified directly or derived from the screen
+    !    elevations and the tilt angle
+    if (this%connlen(jpos) > DZERO) then
+      lw = this%connlen(jpos)
+    else
+      omega = this%angle(jpos) * DPIO180
+      lw = (dz - DTWO * this%radius(i) * sin(omega)) / cos(omega)
+    end if
+    !
+    lcorr = lw / dz
+  end function maw_calc_lcorr
+
   !> @brief Read the dimensions for this package
   !<
   subroutine maw_read_dimensions(this)
@@ -1092,6 +1415,9 @@ contains
     !
     ! -- read well_connections block
     call this%maw_read_well_connections()
+    !
+    ! -- read optional angledata block (non-vertical well connections)
+    call this%maw_read_angledata()
     !
     ! -- Call define_listlabel to construct the list label that is written
     !    when PRINT_INPUT option is used.
@@ -1254,6 +1580,9 @@ contains
     ! -- write well connection data
     if (this%iprpak /= 0) then
       ntabcols = 10
+      if (this%inonvert /= 0) then
+        ntabcols = ntabcols + 1
+      end if
       title = trim(adjustl(this%text))//' PACKAGE ('// &
               trim(adjustl(this%packName))//') STATIC WELL CONNECTION DATA'
       call table_cr(this%inputtab, this%packName, title)
@@ -1278,6 +1607,10 @@ contains
       call this%inputtab%initialize_column(text, 10, alignment=TABCENTER)
       text = 'SATURATED WELL CONDUCT.'
       call this%inputtab%initialize_column(text, 10, alignment=TABCENTER)
+      if (this%inonvert /= 0) then
+        text = 'ANGLE (DEG)'
+        call this%inputtab%initialize_column(text, 10, alignment=TABCENTER)
+      end if
       !
       ! -- write the data to the table
       do n = 1, this%nmawwells
@@ -1315,6 +1648,9 @@ contains
             call this%inputtab%add_term(' ')
           end if
           call this%inputtab%add_term(this%satcond(jpos))
+          if (this%inonvert /= 0) then
+            call this%inputtab%add_term(this%angle(jpos))
+          end if
         end do
       end do
     end if
@@ -1730,6 +2066,12 @@ contains
     case ('NO_WELL_STORAGE')
       this%imawissopt = 1
       write (this%iout, fmtnostoragewells)
+    case ('NON_VERTICAL_WELLS')
+      this%inonvert = 1
+      write (this%iout, '(4x,a)') &
+        'NON-VERTICAL (SLANTED) MULTI-AQUIFER WELL CONNECTIONS WILL BE '// &
+        'SIMULATED. SCREEN LENGTHS FOR CONNECTIONS LISTED IN THE ANGLEDATA '// &
+        'BLOCK WILL BE USED TO CALCULATE THE SATURATED CONDUCTANCE.'
     case ('FLOW_CORRECTION')
       this%correct_flow = .TRUE.
       write (this%iout, '(4x,a,/,4x,a)') &
@@ -2803,6 +3145,10 @@ contains
     call mem_deallocate(this%simcond)
     call mem_deallocate(this%topscrn)
     call mem_deallocate(this%botscrn)
+    call mem_deallocate(this%angle)
+    call mem_deallocate(this%connlen)
+    call mem_deallocate(this%usrtopscrn)
+    call mem_deallocate(this%usrbotscrn)
     !
     ! -- imap vector
     call mem_deallocate(this%imap)
@@ -2839,6 +3185,7 @@ contains
     call mem_deallocate(this%check_attr)
     call mem_deallocate(this%ishutoffcnt)
     call mem_deallocate(this%ieffradopt)
+    call mem_deallocate(this%inonvert)
     call mem_deallocate(this%ioutredflowcsv)
     call mem_deallocate(this%satomega)
     call mem_deallocate(this%bditems)
@@ -3516,6 +3863,13 @@ contains
         'consider decreasing hk_skin for the connection or using the', &
         'mean conductance equation.'
       call store_error(errmsg)
+    end if
+    !
+    ! -- scale the saturated conductance by the length correction factor for
+    !    non-vertical (slanted) connections. The factor is 1.0 for vertical
+    !    connections, so this has no effect unless an ANGLEDATA block was read.
+    if (this%inonvert /= 0) then
+      c = c * this%maw_calc_lcorr(i, jpos)
     end if
     !
     ! -- set saturated conductance

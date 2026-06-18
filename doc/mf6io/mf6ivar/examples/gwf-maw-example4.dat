@@ -1,0 +1,42 @@
+# This example demonstrates non-vertical (slanted and horizontal) multi-aquifer
+# well connections. The NON_VERTICAL_WELLS option in the OPTIONS block activates
+# the optional ANGLEDATA block, which assigns a tilt angle (degrees from
+# vertical) to selected connections. Connections that are not listed in the
+# ANGLEDATA block (for example, well 1 connection 1) are treated as vertical.
+begin options
+  print_input
+  print_head
+  print_flows
+  boundnames
+  non_vertical_wells
+end options
+
+begin dimensions
+  nmawwells 2
+end dimensions
+
+begin packagedata
+#  ifno radius bottom strt condeqn ngwfnodes name
+      1   0.15 -100.0 9.14    mean         2 swell
+      2   0.25  -55.0 9.14    mean         2 hwell
+end packagedata
+
+begin connectiondata
+# ifno conn lay row col  stop    sbot    k  rskin
+     1    1   1  51  51    0.   -50.0 361.   .25
+     1    2   2  51  51  -50.  -100.0 361.   .25
+     2    1   2  40  50  -50.   -52.0 361.   .50
+     2    2   2  40  51  -50.   -52.0 361.   .50
+end connectiondata
+
+begin angledata
+# ifno conn angle conn_length
+     1    2  35.0
+     2    1  90.0       100.0
+     2    2  90.0       100.0
+end angledata
+
+begin period 1
+  1 rate -1767.
+  2 rate  -529.
+end period

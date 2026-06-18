@@ -108,3 +108,8 @@ description = "A PRT model coupled by an exchange to a GWF model that uses adapt
 section = "fixes"
 subsection = "model"
 description = "In MF6.7.0, the PRT model began to require binary grid (GRB) files provided to the Flow Model Interface (FMI) package to contain ICELLTYPE when any Particle Release Point (PRP) package used LOCAL\\_Z release coordinates, so PRT could distinguish confined from convertible cells when converting local z to model z coordinates. This requirement is unnecessary and has been removed. A single formula $z = bot + localz \\cdot sat \\cdot (top - bot)$ works correctly for both cell types, since $sat = 1$ for confined cells, and for convertible cells $sat = (head - bot) / (top - bot)$ clamped to $[0, 1]$. Particle z coordinates near the cell top or bottom may differ slightly from before, since saturation is smoothed near the top and bottom."
+
+[[items]]
+section = "features"
+subsection = "advanced"
+description = "The Multi-Aquifer Well (MAW) Package now supports non-vertical (slanted) well connections. When the NON\\_VERTICAL\\_WELLS option is specified, an ANGLEDATA block can be used to assign a tilt angle (deviation from vertical) to individual well connections. The saturated conductance for those connections is scaled by the in-cell screen length, which is calculated from the screen top, screen bottom, well radius, and tilt angle (or specified directly with an optional connection length), instead of the vertical screen thickness. A connection length must be specified for horizontal connections, and the MEAN conductance equation is recommended for horizontal connections."
