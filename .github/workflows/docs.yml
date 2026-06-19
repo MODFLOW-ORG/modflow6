@@ -94,7 +94,7 @@ jobs:
         run: pixi run run-mf6ivar
 
       - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@v1
+        uses: fortran-lang/setup-fortran@main
         with:
           compiler: gcc
           version: ${{ env.FC_V }}

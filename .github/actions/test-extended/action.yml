@@ -24,7 +24,7 @@ runs:
         nf-config --all
 
     - name: Setup GNU Fortran
-      uses: fortran-lang/setup-fortran@v1
+      uses: fortran-lang/setup-fortran@main
       with:
         compiler: gcc
         version: ${{ runner.os == 'macOS' && '15' || '13' }}
