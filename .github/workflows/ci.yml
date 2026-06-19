@@ -90,7 +90,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@main
+        uses: fortran-lang/setup-fortran@v1
         with:
           compiler: gcc
           version: ${{ env.FC_V }}
@@ -176,7 +176,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@main
+        uses: fortran-lang/setup-fortran@v1
         with:
           compiler: gcc
           version: ${{ env.FC_V }}
@@ -253,7 +253,7 @@ jobs:
           path: modflow6
 
       - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@main
+        uses: fortran-lang/setup-fortran@v1
         with:
           compiler: gcc
           version: ${{ env.FC_V }}
@@ -376,7 +376,7 @@ jobs:
           path: modflow6-examples
 
       - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@main
+        uses: fortran-lang/setup-fortran@v1
         with:
           compiler: gcc
           version: ${{ env.FC_V }}
@@ -645,7 +645,7 @@ jobs:
         run: pixi run install
 
       - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@main
+        uses: fortran-lang/setup-fortran@v1
         with:
           compiler: ${{ env.FC }}
           version: ${{ env.FC_V }}
@@ -772,7 +772,7 @@ jobs:
 
       - name: Setup gfortran
         if: runner.os != 'Windows'
-        uses: fortran-lang/setup-fortran@main
+        uses: fortran-lang/setup-fortran@v1
         with:
           compiler: gcc
           version: 13

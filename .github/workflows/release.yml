@@ -123,7 +123,7 @@ jobs:
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
         if: (!(runner.os == 'Windows' && matrix.extended))
         id: setup-fortran
-        uses: fortran-lang/setup-fortran@main
+        uses: fortran-lang/setup-fortran@v1
         with:
           compiler: ${{ matrix.compiler }}
           version: ${{ matrix.version }}
@@ -483,7 +483,7 @@ jobs:
         run: pixi run install
 
       - name: Setup ${{ inputs.compiler_toolchain }} ${{ inputs.compiler_version }}
-        uses: fortran-lang/setup-fortran@main
+        uses: fortran-lang/setup-fortran@v1
         with:
           compiler: ${{ inputs.compiler_toolchain }}
           version: ${{ inputs.compiler_version }}
@@ -631,7 +631,7 @@ jobs:
           path: modflow6-examples
 
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
-        uses: fortran-lang/setup-fortran@main
+        uses: fortran-lang/setup-fortran@v1
         with:
           compiler: ${{ matrix.compiler }}
           version: ${{ matrix.version }}
