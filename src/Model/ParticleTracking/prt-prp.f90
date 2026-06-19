@@ -686,13 +686,9 @@ contains
     particle%ilay = ilay
     particle%izone = this%rptzone(ic)
 
-    ! if the particle was draped, override the release z coord and
-    ! set it to the saturated top of the cell. this puts a draped
-    ! particle at the water table if the cell is convertible, and
-    ! at the geometric top if confined. if it was not draped, and
-    ! localz is enabled, calculate a model z coord from the local
-    ! z coord with the effective top as the geometric cell top if
-    ! the cell is confined or the water table if it's convertible.
+    ! if the particle was draped to this cell, set the z coord to
+    ! the effective top of the cell. if it was not draped, and is
+    ! a local z coord, calculate the corresponding model z coord.
     if (draped) then
       z = this%fmi%dis%bot(ic) + &
           this%fmi%gwfsat(ic) * &
@@ -762,7 +758,7 @@ contains
         (ionper > nper) .and. &
         size(this%schedule%time_select%times) == 0) then
       ! If the user hasn't provided any release settings (neither
-      ! explicit release times, release time frequency, or period
+      ! explicit release times, release time frequency, nor period
       ! block release settings), default to a single release at the
       ! start of the simulation (t=0). Add t=0 directly to the time
       ! selection rather than time step selection because the latter
