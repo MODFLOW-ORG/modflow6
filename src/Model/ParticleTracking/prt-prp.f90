@@ -632,7 +632,6 @@ contains
     integer(I4B) :: irow, icol, ilay, icpl
     integer(I4B) :: ic, icu, ic_old
     real(DP) :: x, y, z
-    real(DP) :: top, bot, hds
     ! formats
     character(len=*), parameter :: fmticterr = &
       "('Error in ',a,': Flow model interface does not contain ICELLTYPE. &
@@ -689,30 +688,20 @@ contains
 
     ! if the particle was draped, override the release z coord and
     ! set it to the saturated top of the cell. this puts a draped
-    ! a draped particle at the water table for a convertible cell
-    ! or at the geometric cell top for a confined cell. if it was
-    ! not draped and localz is enabled, calculate a model z coord
-    ! using the geometric cell top if the cell is confined or the
-    ! water table as the effective top if the cell is convertible.
+    ! particle at the water table if the cell is convertible, and
+    ! at the geometric top if confined. if it was not draped, and
+    ! localz is enabled, calculate a model z coord from the local
+    ! z coord with the effective top as the geometric cell top if
+    ! the cell is confined or the water table if it's convertible.
     if (draped) then
       z = this%fmi%dis%bot(ic) + &
           this%fmi%gwfsat(ic) * &
           (this%fmi%dis%top(ic) - this%fmi%dis%bot(ic))
     else if (this%localz) then
-      ! TODO: is this sufficient instead of the below??
-      ! z = this%fmi%dis%bot(ic) + &
-      !     this%rptz(ip) * &
-      !     this%fmi%gwfsat(ic) * &
-      !     (this%fmi%dis%top(ic) - this%fmi%dis%bot(ic))
-
-      top = this%fmi%dis%top(ic)
-      bot = this%fmi%dis%bot(ic)
-      if (this%fmi%gwfceltyp(icu) /= 0) then
-        hds = this%fmi%gwfhead(ic)
-        top = min(top, hds)
-        top = max(top, bot)
-      end if
-      z = bot + this%rptz(ip) * (top - bot)
+      z = this%fmi%dis%bot(ic) + &
+          this%rptz(ip) * &
+          this%fmi%gwfsat(ic) * &
+          (this%fmi%dis%top(ic) - this%fmi%dis%bot(ic))
     else
       z = this%rptz(ip)
     end if
