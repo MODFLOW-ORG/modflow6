@@ -836,7 +836,6 @@ def check_output(idx, test):
             print(f"        {res:.9e},")
     assert success, msg
 
-
     res_sfr3 = sfaconc[:, 30]
     d = res_sfr3 - ans_sfr3
     msg = f"{res_sfr3} {ans_sfr3} {d}"
