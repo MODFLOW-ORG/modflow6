@@ -9,7 +9,7 @@ import pytest
 from conftest import project_root_path
 
 data_path = project_root_path / "autotest" / "data"
-model_path = str(data_path / "prudic2004test2")
+model_path = data_path / "prudic2004test2"
 testgroup = "prudic2004t2fmi"
 
 nlay = 8
@@ -18,10 +18,10 @@ ncol = 23
 delr = 405.665
 delc = 403.717
 top = 100.0
-fname = os.path.join(model_path, "bot1.dat")
+fname = model_path / "bot1.dat"
 bot0 = np.loadtxt(fname)
 botm = [bot0] + [bot0 - (15.0 * k) for k in range(1, nlay)]
-fname = os.path.join(model_path, "idomain1.dat")
+fname = model_path / "idomain1.dat"
 idomain0 = np.loadtxt(fname, dtype=int)
 idomain = nlay * [idomain0]
 
@@ -112,7 +112,7 @@ def run_flow_model(dir, exe):
         rch = flopy.mf6.ModflowGwfrcha(gwf, recharge={0: 4.79e-3}, pname="RCH-1")
 
     chdlist = []
-    fname = os.path.join(model_path, "chd.dat")
+    fname = model_path / "chd.dat"
     for line in open(fname, "r").readlines():
         ll = line.strip().split()
         if len(ll) == 4:
@@ -121,7 +121,7 @@ def run_flow_model(dir, exe):
     chd = flopy.mf6.ModflowGwfchd(gwf, stress_period_data=chdlist, pname="CHD-1")
 
     rivlist = []
-    fname = os.path.join(model_path, "riv.dat")
+    fname = model_path / "riv.dat"
     for line in open(fname, "r").readlines():
         ll = line.strip().split()
         if len(ll) == 7:
@@ -140,7 +140,7 @@ def run_flow_model(dir, exe):
     )[0]
     for i, t in enumerate(rivlist):
         rivra[i] = tuple(t)
-    fname = os.path.join(model_path, "sfr-packagedata.dat")
+    fname = model_path / "sfr-packagedata.dat"
     sfrpd = np.genfromtxt(fname, names=True)
     sfrpackagedata = flopy.mf6.ModflowGwfsfr.packagedata.empty(
         gwf, boundnames=True, maxbound=sfrpd.shape[0]
@@ -152,7 +152,7 @@ def run_flow_model(dir, exe):
         if name in sfrpd.dtype.names:
             sfrpackagedata[name] = sfrpd[name]
     sfrpackagedata["boundname"] = rivra["boundname"]
-    fname = os.path.join(model_path, "sfr-connectiondata.dat")
+    fname = model_path / "sfr-connectiondata.dat"
     with open(fname) as f:
         lines = f.readlines()
     sfrconnectiondata = []
@@ -197,7 +197,7 @@ def run_flow_model(dir, exe):
             observations=sfr_obs,
         )
 
-    fname = os.path.join(model_path, "lakibd.dat")
+    fname = model_path / "lakibd.dat"
     lakibd = np.loadtxt(fname, dtype=int)
     lakeconnectiondata = []
     nlakecon = [0, 0]
@@ -406,6 +406,17 @@ def run_flow_model(dir, exe):
                     print(p1, node, p2, node2, q)
 
 
+def get_answers():
+    # these answer files are results from autotest/prudic2004test2
+    fname = model_path / "result_conc_lak1.txt"
+    ans_lak1 = np.loadtxt(fname)
+    fname = model_path / "result_conc_sfr3.txt"
+    ans_sfr3 = np.loadtxt(fname)
+    fname = model_path / "result_conc_sfr4.txt"
+    ans_sfr4 = np.loadtxt(fname)
+    return ans_lak1, ans_sfr3, ans_sfr4
+
+
 def run_transport_model(dir, exe):
     name = "transport"
     gwtname = name
@@ -603,105 +614,107 @@ def run_transport_model(dir, exe):
     # set atol
     atol = 0.05
 
+    ans_lak1, ans_sfr3, ans_sfr4 = get_answers()
+
     # check simulated concentration in lak 1 and 2 sfr reaches
     res_lak1 = lkaconc[:, 0]
-    ans_lak1 = [
-        -1.73249951e-19,
-        5.97398983e-02,
-        4.18358112e-01,
-        1.48857598e00,
-        3.63202585e00,
-        6.92925430e00,
-        1.11162776e01,
-        1.57328143e01,
-        2.03088745e01,
-        2.45013060e01,
-        2.81200704e01,
-        3.11132152e01,
-        3.34833369e01,
-        3.53028319e01,
-        3.66693021e01,
-        3.76781530e01,
-        3.84188513e01,
-        3.89615387e01,
-        3.93577458e01,
-        3.96464993e01,
-        3.98598113e01,
-        4.00184878e01,
-        4.01377654e01,
-        4.02288674e01,
-        4.02998291e01,
-        4.03563314e01,
-    ]
-    ans_lak1 = np.array(ans_lak1)
+    # ans_lak1 = [
+    #     -1.73249951e-19,
+    #     5.97398983e-02,
+    #     4.18358112e-01,
+    #     1.48857598e00,
+    #     3.63202585e00,
+    #     6.92925430e00,
+    #     1.11162776e01,
+    #     1.57328143e01,
+    #     2.03088745e01,
+    #     2.45013060e01,
+    #     2.81200704e01,
+    #     3.11132152e01,
+    #     3.34833369e01,
+    #     3.53028319e01,
+    #     3.66693021e01,
+    #     3.76781530e01,
+    #     3.84188513e01,
+    #     3.89615387e01,
+    #     3.93577458e01,
+    #     3.96464993e01,
+    #     3.98598113e01,
+    #     4.00184878e01,
+    #     4.01377654e01,
+    #     4.02288674e01,
+    #     4.02998291e01,
+    #     4.03563314e01,
+    # ]
+    # ans_lak1 = np.array(ans_lak1)
     d = res_lak1 - ans_lak1
     msg = f"{res_lak1}\n{ans_lak1}\n{d}"
     assert np.allclose(res_lak1, ans_lak1, atol=atol), msg
 
     res_sfr3 = sfaconc[:, 30]
-    ans_sfr3 = [
-        -7.67944651e-23,
-        5.11358249e-03,
-        3.76169957e-02,
-        1.42055634e-01,
-        3.72438193e-01,
-        7.74112522e-01,
-        1.37336373e00,
-        2.18151231e00,
-        3.19993561e00,
-        4.42853144e00,
-        5.85660993e00,
-        7.46619448e00,
-        9.22646330e00,
-        1.11069607e01,
-        1.30764504e01,
-        1.50977917e01,
-        1.71329980e01,
-        1.91636634e01,
-        2.11530199e01,
-        2.30688490e01,
-        2.48821059e01,
-        2.65691424e01,
-        2.81080543e01,
-        2.94838325e01,
-        3.06909748e01,
-        3.17352915e01,
-    ]
-    ans_sfr3 = np.array(ans_sfr3)
+    # ans_sfr3 = [
+    #     -7.67944651e-23,
+    #     5.11358249e-03,
+    #     3.76169957e-02,
+    #     1.42055634e-01,
+    #     3.72438193e-01,
+    #     7.74112522e-01,
+    #     1.37336373e00,
+    #     2.18151231e00,
+    #     3.19993561e00,
+    #     4.42853144e00,
+    #     5.85660993e00,
+    #     7.46619448e00,
+    #     9.22646330e00,
+    #     1.11069607e01,
+    #     1.30764504e01,
+    #     1.50977917e01,
+    #     1.71329980e01,
+    #     1.91636634e01,
+    #     2.11530199e01,
+    #     2.30688490e01,
+    #     2.48821059e01,
+    #     2.65691424e01,
+    #     2.81080543e01,
+    #     2.94838325e01,
+    #     3.06909748e01,
+    #     3.17352915e01,
+    # ]
+    # ans_sfr3 = np.array(ans_sfr3)
     d = res_sfr3 - ans_sfr3
     msg = f"{res_sfr3}\n{ans_sfr3}\n{d}"
     assert np.allclose(res_sfr3, ans_sfr3, atol=atol), msg
 
     res_sfr4 = sfaconc[:, 37]
-    ans_sfr4 = [
-        -2.00171747e-20,
-        3.55076535e-02,
-        2.49465789e-01,
-        8.91299656e-01,
-        2.18622372e00,
-        4.19920114e00,
-        6.79501651e00,
-        9.72255743e00,
-        1.27208739e01,
-        1.55989390e01,
-        1.82462345e01,
-        2.06258607e01,
-        2.27255881e01,
-        2.45721928e01,
-        2.62061367e01,
-        2.76640442e01,
-        2.89788596e01,
-        3.01814571e01,
-        3.12842113e01,
-        3.22945541e01,
-        3.32174210e01,
-        3.40539043e01,
-        3.48027700e01,
-        3.54636082e01,
-        3.60384505e01,
-        3.65330352e01,
-    ]
-    ans_sfr4 = np.array(ans_sfr4)
+    # ans_sfr4 = [
+    #     -2.00171747e-20,
+    #     3.55076535e-02,
+    #     2.49465789e-01,
+    #     8.91299656e-01,
+    #     2.18622372e00,
+    #     4.19920114e00,
+    #     6.79501651e00,
+    #     9.72255743e00,
+    #     1.27208739e01,
+    #     1.55989390e01,
+    #     1.82462345e01,
+    #     2.06258607e01,
+    #     2.27255881e01,
+    #     2.45721928e01,
+    #     2.62061367e01,
+    #     2.76640442e01,
+    #     2.89788596e01,
+    #     3.01814571e01,
+    #     3.12842113e01,
+    #     3.22945541e01,
+    #     3.32174210e01,
+    #     3.40539043e01,
+    #     3.48027700e01,
+    #     3.54636082e01,
+    #     3.60384505e01,
+    #     3.65330352e01,
+    # ]
+    # ans_sfr4 = np.array(ans_sfr4)
     d = res_sfr4 - ans_sfr4
     msg = f"{res_sfr4}\n{ans_sfr4}\n{d}"
     assert np.allclose(res_sfr4, ans_sfr4, atol=atol), msg
