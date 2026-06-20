@@ -831,8 +831,8 @@ def check_output(idx, test):
     success = np.allclose(res_lak1, ans_lak1, atol=atol)
     if not success:
         print("Problem with lak1 concentration")
-        for t, res, ans in zip(times, res_lak1, ans_lak1):
-            # print(t, res, ans)
+        for t, res, answer in zip(times, res_lak1, ans_lak1):
+            # print(t, res, answer)
             print(f"        {res:.9e},")
     assert success, msg
 
@@ -843,8 +843,8 @@ def check_output(idx, test):
     success = np.allclose(res_sfr3, ans_sfr3, atol=atol)
     if not success:
         print("Problem with sfr3 concentration")
-        for t, res, ans in zip(times, res_sfr3, ans_sfr3):
-            # print(t, res, ans)
+        for t, res, answer in zip(times, res_sfr3, ans_sfr3):
+            # print(t, res, answer)
             print(f"        {res:.9e},")
     assert success, msg
 
@@ -854,8 +854,8 @@ def check_output(idx, test):
     success = np.allclose(res_sfr4, ans_sfr4, atol=atol)
     if not success:
         print("Problem with sfr4 concentration")
-        for t, res, ans in zip(times, res_sfr4, ans_sfr4):
-            # print(t, res, ans)
+        for t, res, answer in zip(times, res_sfr4, ans_sfr4):
+            # print(t, res, answer)
             print(f"        {res:.9e},")
     assert success, msg
 
