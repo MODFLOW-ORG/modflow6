@@ -104,6 +104,7 @@ section = "fixes"
 subsection = "model"
 description = "In MF6.7.0, the PRT model began to require binary grid (GRB) files provided to the Flow Model Interface (FMI) package to contain ICELLTYPE when any Particle Release Point (PRP) package used LOCAL\\_Z release coordinates, so PRT could distinguish confined from convertible cells when converting local z to model z coordinates. This requirement is unnecessary and has been removed. A single formula $z = bot + localz \\cdot sat \\cdot (top - bot)$ works correctly for both cell types, since $sat = 1$ for confined cells, and for convertible cells $sat = (head - bot) / (top - bot)$ clamped to $[0, 1]$. Particle z coordinates near the cell top or bottom may differ slightly from before, since saturation is smoothed near the top and bottom."
 
-[[items]]                                                                                                                                                          section = "fixes"
+[[items]]
+section = "fixes"
 subsection = "stress"
 description = "Reverts a 6.4.3 change that reset auxiliary variable arrays to zero each stress period in READASARRAYS packages (RCHA, EVTA). The earlier change had the consequence of zeroing the AUXMULTNAME multiplier array when not re-specified in a period block, effectively eliminating recharge or ET in subsequent stress periods. This behavior now is consistent across Grid Array and Layer Array package types."
