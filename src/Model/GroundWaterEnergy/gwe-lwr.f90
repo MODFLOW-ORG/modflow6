@@ -11,7 +11,7 @@
 module LongwaveModule
 
   use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, LENVARNAME, &
-                             DSTEFANBOLTZMANN, DCTOK, DFOUR
+                             DSTEFANBOLTZMANN, DFOUR
   use KindModule, only: I4B, DP
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
@@ -112,11 +112,13 @@ contains
   !!
   !! Calculate and return the longwave radiation heat flux for one reach
   !<
-  subroutine lwr_cq(this, ifno, tstrm, lwrflx)
+  subroutine lwr_cq(this, ifno, tstrm, tfac, toff, lwrflx)
     ! -- dummy
     class(LwrType), intent(inout) :: this
     integer(I4B), intent(in) :: ifno !< stream reach integer id
     real(DP), intent(in) :: tstrm !< temperature of the stream reach
+    real(DP), intent(in) :: tfac !< temperature units adjustment factor 
+    real(DP), intent(in) :: toff !< temperature units offset
     real(DP), intent(inout) :: lwrflx !< calculated longwave radiation heat flux amount
     ! -- local
     real(DP) :: emissa
@@ -127,16 +129,16 @@ contains
     ! -- intermediate calculations
     !
     ! -- atmospheric emissivity (A.14)
-    emissa = this%epsa(this%ea(ifno), this%tatm(ifno), this%atmc(ifno))
+    emissa = this%epsa(this%ea(ifno), tfac * this%tatm(ifno) + toff, this%atmc(ifno))
     !
     ! -- shade-altered above-channel emissivity [Eq. 3, Fogg et al. (2023)]
     emisss = this%epss(this%shd(ifno), emissa, this%emissr)
     !
     ! -- long wave radiation transmitted from the atmosphere to the water surface (A.12)
-    lwratm = this%calc_lwr(emisss, this%tatm(ifno))
+    lwratm = this%calc_lwr(emisss, tfac * this%tatm(ifno) + toff)
     !
     ! -- long wave radiation transmitted from water surface to the atmosphere (A.13)
-    lwrstrm = this%calc_lwr(this%emissw, tstrm + DCTOK)
+    lwrstrm = this%calc_lwr(this%emissw, tfac * tstrm + toff)
     !
     ! -- longwave radiation heat flux
     lwrflx = lwratm * (1 - this%lwrefl) - lwrstrm
@@ -174,7 +176,7 @@ contains
     ! -- dummy
     class(LwrType) :: this
     real(DP) :: eps !< epsilon, representing either emissivity of the atmosphere, the shade-weighted emissivity of the atm, or emissivity of water
-    real(DP) :: temp !< temperature, representing either the temperature of the stream or the atmosphere in degree C
+    real(DP) :: temp !< will be temperature in Kelvin, representing either the temperature of the stream or the atmosphere in degree C
     ! -- return
     real(DP) :: lwr !< longwave radiation
     !
