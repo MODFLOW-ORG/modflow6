@@ -98,26 +98,29 @@ contains
   !!
   !! Calculate and return the latent heat flux for one reach
   !<
-  subroutine lhf_cq(this, ifno, tstrm, rhow, lhflx)
+  subroutine lhf_cq(this, ifno, tstrm, rhow, dfac, tfac, toff, lhflx)
     ! -- dummy
     class(LhfType), intent(inout) :: this
     integer(I4B), intent(in) :: ifno !< stream reach integer id
     real(DP), intent(in) :: tstrm !< temperature of the stream reach
     real(DP), intent(in) :: rhow !< density of water
+    real(DP), intent(in) :: dfac !< density units adjustment factor
+    real(DP), intent(in) :: tfac !< temperature units adjustment factor
+    real(DP), intent(in) :: toff !< temperature units offset
     real(DP), intent(inout) :: lhflx !< calculated latent heat flux amount
     ! -- local
     real(DP) :: l !< latent heat vaporization
     real(DP) :: evap
     !
     ! -- calculate latent heat of vaporization (water temperature dependent) Eq. A.16
-    l = 2499.64_DP - (2.51_DP * tstrm) ! tstrm must be in degrees C for now
+    l = 2499.64_DP - (2.51_DP * (tfac * tstrm + toff) - DCTOK) 
     !
     ! -- mass-transfer method for calculating evap rate (A.17)
     evap = this%evap(this%wfint, this%wfslope, this%wspd(ifno), &
                      this%ew(ifno), this%ea(ifno))
     !
     ! -- calculate latent heat flux (A.15)
-    lhflx = evap * l * rhow
+    lhflx = evap * l * rhow * dfac
   end subroutine lhf_cq
 
   !> @brief Deallocate package memory
