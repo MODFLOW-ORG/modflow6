@@ -104,11 +104,14 @@ contains
   !!
   !! Calculate and return the sensible heat flux for one reach
   !<
-  subroutine shf_cq(this, ifno, tstrm, shflx, lhflx)
+  subroutine shf_cq(this, ifno, tstrm, tfac, toff, pfac, shflx, lhflx)
     ! -- dummy
     class(ShfType), intent(inout) :: this
     integer(I4B), intent(in) :: ifno !< stream reach integer id
     real(DP), intent(in) :: tstrm !< temperature of the stream reach
+    real(DP), intent(in) :: tfac !< temperature units adjustment factor
+    real(DP), intent(in) :: toff !< temperature units offset
+    real(DP), intent(in) :: pfac !< atmospheric pressure units adjustment factor
     real(DP), intent(inout) :: shflx !< calculated sensible heat flux amount
     real(DP), optional, intent(in) :: lhflx !< latent heat flux
     ! -- local
@@ -117,12 +120,12 @@ contains
     !
     ! -- calculate sensible heat flux using HGS equation
     if (present(lhflx)) then
-      br = 0.00061_DP * this%patm(ifno) * &
-           (((tstrm + DCTOK) - this%tatm(ifno)) / (this%ew(ifno) - this%ea(ifno)))
+      br = 0.00061_DP * this%patm(ifno) * pfac * &
+           (((tfac * tstrm + toff) - (tfac * this%tatm(ifno) + toff)) / (this%ew(ifno) - this%ea(ifno)))
       shflx = br * lhflx
     else
       shf_const = this%cd * this%cpa * this%rhoa
-      shflx = shf_const * this%wspd(ifno) * (this%tatm(ifno) - (tstrm + DCTOK))
+      shflx = shf_const * this%wspd(ifno) * ((tfac * this%tatm(ifno) + toff) - (tfac * tstrm + toff))
     end if
   end subroutine shf_cq
 
