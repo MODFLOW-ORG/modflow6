@@ -82,6 +82,10 @@ module AbcModule
     real(DP), pointer :: lwrefl => null() !< reflectance of longwave radiation by the water surface
     real(DP), pointer :: emissw => null() !< emissivity of water
     real(DP), pointer :: emissr => null() !< emissivity of the riparian canopy
+    real(DP), pointer :: tfac => null() !< temperature adjustment factor
+    real(DP), pointer :: toff => null() !< temperature units offset
+    real(DP), pointer :: dfac => null() !< density adjustment factor
+    real(DP), pointer :: pfac => null() !< atmospheric pressure adjustment factor
     !
     real(DP), dimension(:), pointer, contiguous :: wspd => null() !< wind speed
     real(DP), dimension(:), pointer, contiguous :: tatm => null() !< temperature of the atmosphere
@@ -457,6 +461,22 @@ contains
         write (this%iout, '(4x,a,1pg15.6)') &
           "The emissivity of the riparian canopy has been set to: ", this%emissw
       end if
+    case ('TEMPERATURE_FACTOR')
+      this%tfac = this%parser%GetDouble()
+      write (this%iout, '(4x,a,1pg15.6)') &
+        "The temperature adjustment factor has been set to: ", this%tfac
+    case ('TEMPERATURE_OFFSET')
+      this%toff = this%parser%GetDouble()
+      write (this%iout, '(4x,a,1pg15.6)') &
+        "A temperature offset value has been set to: ", this%toff
+    case ('DENSITY_FACTOR')
+      this%dfac = this%parser%GetDouble()
+      write (this%iout, '(4x,a,1pg15.6)') &
+        "The density adjustment factor has been set to: ", this%dfac
+    case ('PRESSURE_FACTOR')
+      this%pfac = this%parser%GetDouble()
+      write (this%iout, '(4x,a,1pg15.6)') &
+        "The atmospheric pressure adjustment factor has been set to: ", this%pfac
     case ('SWR_OFF')
       this%swr_active = .false.
       write (this%iout, '(4x,a)') &
@@ -517,6 +537,11 @@ contains
     call mem_allocate(this%lwrefl, 'LWREFL', this%memoryPath)
     call mem_allocate(this%emissw, 'EMISSW', this%memoryPath)
     call mem_allocate(this%emissr, 'EMISSR', this%memoryPath)
+    ! -- unit conversions
+    call mem_allocate(this%tfac, 'TFAC', this%memoryPath)
+    call mem_allocate(this%toff, 'TOFF', this%memoryPath)
+    call mem_allocate(this%dfac, 'DFAC', this%memoryPath)
+    call mem_allocate(this%pfac, 'PFAC', this%memoryPath)
     !
     ! -- initialize to default values
     this%shf_active = .true. ! Initialize to one for 'on'
@@ -534,6 +559,11 @@ contains
     this%lwrefl = 0.03 ! unitless (Anderson, 1954)
     this%emissw = 0.95 ! unitless (Dingman, 2015)
     this%emissr = 0.97 ! unitless (Sobrino et al, 2005)
+    ! -- initialize temperature offset such that it assumes atmospheric temperatures are specified in Kelvin
+    this%tfac = DONE
+    this%toff = DZERO
+    this%dfac = DONE
+    this%pfac = DONE
     !
     ! -- call standard NumericalPackageType allocate scalars
     call this%BndType%allocate_scalars()
@@ -690,6 +720,10 @@ contains
     call mem_deallocate(this%lwrefl)
     call mem_deallocate(this%emissw)
     call mem_deallocate(this%emissr)
+    call mem_deallocate(this%tfac)
+    call mem_deallocate(this%toff)
+    call mem_deallocate(this%dfac)
+    call mem_deallocate(this%pfac)
     !
     ! -- Deallocate time series manager
     deallocate (this%tsmanager)
@@ -767,19 +801,19 @@ contains
     !
     ! -- calculate longwave radiation
     if (this%lwr_active) then
-      call this%lwr%lwr_cq(ifno, tstrm, lwrflx)
+      call this%lwr%lwr_cq(ifno, tstrm, this%tfac, this%toff, lwrflx)
     end if
     !
     ! -- calculate latent heat flux using Dalton-like mass transfer equation
     if (this%lhf_active) then
-      call this%lhf%lhf_cq(ifno, tstrm, this%gwecommon%gwerhow, lhfflx)
+      call this%lhf%lhf_cq(ifno, tstrm, this%gwecommon%gwerhow, this%dfac, this%tfac, this%toff, lhfflx)
     end if
     !
     ! -- calculate sensible heat flux using HGS equation
     if (this%shf_active .and. .not. this%lhf_active) then
-      call this%shf%shf_cq(ifno, tstrm, shfflx) ! default to Bowen ratio method ("1")
+      call this%shf%shf_cq(ifno, tstrm, this%tfac, this%toff, this%pfac, shfflx) ! default to HGS eqn method ("1")
     else if (this%shf_active .and. this%lhf_active) then
-      call this%shf%shf_cq(ifno, tstrm, shfflx, lhfflx) ! use Bowen ratio method ("2")
+      call this%shf%shf_cq(ifno, tstrm, this%tfac, this%toff, shfflx, lhfflx) ! use Bowen ratio method ("2")
     end if
     !
     if (present(obstype)) then
@@ -816,15 +850,17 @@ contains
     real(DP), intent(in) :: tstrm !< temperature of the stream reach
     ! -- local
     real(DP) :: tstrmK
+    real(DP) :: t_inputK
     !
     ! -- calculate saturation vapor pressure at air temperature
-    this%es(ifno) = calc_sat_vap_pres(this%tatm(ifno))
+    t_inputK = this%tfac * this%tatm(ifno) + this%toff
+    this%es(ifno) = calc_sat_vap_pres(t_inputK)
     !
     ! -- calculate ambient vapor pressure at the atmospheric temperature
     this%ea(ifno) = this%calc_eatm(ifno)
     !
     ! -- calculate saturation vapor pressure at the water temperature
-    tstrmK = tstrm + DCTOK
+    tstrmK = this%tfac * tstrm + this%toff
     this%ew(ifno) = calc_sat_vap_pres(tstrmK)
   end subroutine recalc_shared_vars
 
