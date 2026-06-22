@@ -107,4 +107,4 @@ description = "In MF6.7.0, the PRT model began to require binary grid (GRB) file
 [[items]]
 section = "fixes"
 subsection = "stress"
-description = "Reverts a 6.4.3 change that reset auxiliary variable arrays to zero each stress period in READASARRAYS packages (RCHA, EVTA). The earlier change had the consequence of zeroing the AUXMULTNAME multiplier array when not re-specified in a period block, effectively eliminating recharge or ET in subsequent stress periods. This behavior now is consistent across Grid Array and Layer Array package types."
+description = "Reverts a 6.4.3 change that reset auxiliary variable arrays to zero each stress period in READASARRAYS packages (RCHA, EVTA). The earlier change had the consequence of zeroing the AUXMULTNAME multiplier array when not re-specified in a period block, effectively eliminating recharge or ET in subsequent stress periods. This behavior now is consistent across Grid Array and Layer Array package types. GWF models that use RCHA or EVTA and the AUXMULTNAME option may give different answers depending on how auxiliary variables were specified."
