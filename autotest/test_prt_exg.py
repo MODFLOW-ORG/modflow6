@@ -34,25 +34,21 @@ from prt_test_utils import (
     FlopyReadmeCase,
     check_budget_data,
     check_track_data,
+    get_model_name,
 )
 
 simname = "prtexg01"
 cases = [simname, f"{simname}bnms", f"{simname}idmu", f"{simname}idmn"]
 
 
-def get_model_name(idx, mdl):
-    return f"{cases[idx]}_{mdl}"
-
-
-def build_mf6_sim(idx, test):
+def build_mf6_sim(name, ws, mf6):
     # create simulation
-    name = cases[idx]
-    sim = FlopyReadmeCase.get_gwf_sim(name, test.workspace, test.targets["mf6"])
+    sim = FlopyReadmeCase.get_gwf_sim(name, ws, mf6)
     gwf = sim.get_model()
 
     # create prt model
-    prt_name = get_model_name(idx, "prt")
-    prt = flopy.mf6.ModflowPrt(sim, modelname=prt_name)
+    prt_name = get_model_name(name, "prt")
+    prt = flopy.mf6.ModflowPrt(sim, modelname=prt_name, save_flows=True)
 
     # create prt discretization
     idomain = np.ones(
@@ -99,13 +95,17 @@ def build_mf6_sim(idx, test):
     )
 
     # create output control package
+    prt_budget_file = f"{prt_name}.cbb"
     prt_track_file = f"{prt_name}.trk"
     prt_track_csv_file = f"{prt_name}.trk.csv"
     flopy.mf6.ModflowPrtoc(
         prt,
         pname="oc",
+        budget_filerecord=[prt_budget_file],
         track_filerecord=[prt_track_file],
         trackcsv_filerecord=[prt_track_csv_file],
+        printrecord=[("BUDGET", "ALL")],
+        saverecord=[("BUDGET", "ALL")],
         # dev_dump_event_trace=True
     )
 
@@ -122,7 +122,7 @@ def build_mf6_sim(idx, test):
     )
 
     # create exchange
-    gwf_name = get_model_name(idx, "gwf")
+    gwf_name = get_model_name(name, "gwf")
     flopy.mf6.ModflowGwfprt(
         sim,
         exgtype="GWF6-PRT6",
@@ -141,7 +141,7 @@ def build_mf6_sim(idx, test):
     return sim
 
 
-def build_mp7_sim(idx, ws, mp7, gwf):
+def build_mp7_sim(name, ws, mp7, gwf):
     partdata = flopy.modpath.ParticleData(
         partlocs=[p[0] for p in FlopyReadmeCase.releasepts_mp7],
         localx=[p[1] for p in FlopyReadmeCase.releasepts_mp7],
@@ -150,7 +150,7 @@ def build_mp7_sim(idx, ws, mp7, gwf):
         timeoffset=0,
         drape=0,
     )
-    mp7_name = get_model_name(idx, "mp7")
+    mp7_name = get_model_name(name, "mp7")
     pg = flopy.modpath.ParticleGroup(
         particlegroupname="G1",
         particledata=partdata,
@@ -177,10 +177,10 @@ def build_mp7_sim(idx, ws, mp7, gwf):
 
 
 def build_models(idx, test):
-    mf6sim = build_mf6_sim(idx, test)
-    gwf_name = get_model_name(idx, "gwf")
+    mf6sim = build_mf6_sim(test.name, test.workspace, test.targets["mf6"])
+    gwf_name = get_model_name(test.name, "gwf")
     gwf = mf6sim.get_model(gwf_name)
-    mp7sim = build_mp7_sim(idx, test.workspace / "mp7", test.targets["mp7"], gwf)
+    mp7sim = build_mp7_sim(test.name, test.workspace / "mp7", test.targets["mp7"], gwf)
     return mf6sim, None if "idm" in test.name else mp7sim
 
 
@@ -192,9 +192,9 @@ def check_output(idx, test):
     mp7_ws = gwf_ws / "mp7"
 
     # model names
-    gwf_name = get_model_name(idx, "gwf")
-    prt_name = get_model_name(idx, "prt")
-    mp7_name = get_model_name(idx, "mp7")
+    gwf_name = get_model_name(name, "gwf")
+    prt_name = get_model_name(name, "prt")
+    mp7_name = get_model_name(name, "mp7")
 
     # extract model objects
     sim = test.sims[0]
@@ -298,9 +298,9 @@ def plot_output(idx, test):
     mp7_ws = gwf_ws / "mp7"
 
     # model names
-    gwf_name = get_model_name(idx, "gwf")
-    prt_name = get_model_name(idx, "prt")
-    mp7_name = get_model_name(idx, "mp7")
+    gwf_name = get_model_name(name, "gwf")
+    prt_name = get_model_name(name, "prt")
+    mp7_name = get_model_name(name, "mp7")
 
     # extract model objects
     sim = test.sims[0]

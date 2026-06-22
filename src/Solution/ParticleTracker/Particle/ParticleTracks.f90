@@ -246,7 +246,7 @@ contains
   !> @brief Add a particle event to be written to eligible
   !! files and printed to an output file unit if requested.
   !! This function should be subscribed as an event handler
-  !! to particle event dispatchers. Events are buffered, to
+  !! to particle event dispatchers. Events are buffered to
   !! be written to output files upon successful completion
   !! of a time step when the framework OT hook is executed.
   function add_particle_event(context, particle, event) result(handled)

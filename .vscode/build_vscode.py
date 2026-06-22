@@ -24,10 +24,10 @@ if args.pixi:
 else:
     mf5to6_run_dir = mf5to6_dir
 
-arg_extended = "-Dextended=false"
+setup_arg = "setup"
 if os.getenv("BUILD_EXTENDED_MF6") is not None:
     if os.environ["BUILD_EXTENDED_MF6"] == '1':
-        arg_extended = "-Dextended=true"
+        setup_arg = "setup-extended"
 
 if args.action == "rebuild":
     for path in (builddir, mf5to6_builddir):
@@ -45,7 +45,7 @@ if not builddir.is_dir():
         command = [
             "pixi",
             "run",
-            "setup",
+            setup_arg,
         ]
     else:
         command = [
@@ -58,7 +58,6 @@ if not builddir.is_dir():
         os.getcwd(),
         "--libdir",
         "bin",
-        arg_extended,
     ] + setup_flag
     print("Run:", shlex.join(command))
     subprocess.run(

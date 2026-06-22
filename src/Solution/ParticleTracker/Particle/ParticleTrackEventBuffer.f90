@@ -1,9 +1,4 @@
-!> @brief Particle track event buffer module.
-!!
-!! Defines the abstract ParticleTrackEventBufferType, the ParticleTrackRecordType
-!! and ParticleTrackFileType data types, and the save_record helper used
-!! by concrete buffer implementations.
-!<
+!> @brief Particle event buffering strategies.
 module ParticleTrackEventBufferModule
 
   use KindModule, only: DP, I4B, LGP

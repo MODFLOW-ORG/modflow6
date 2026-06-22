@@ -2,10 +2,12 @@ module ParticleModule
 
   use KindModule, only: DP, I4B, LGP
   use ListModule, only: ListType
+  use SimVariablesModule, only: errmsg
   use ConstantsModule, only: DZERO, DONE, LENMEMPATH, LENBOUNDNAME, &
                              LINELENGTH
   use MemoryManagerModule, only: mem_allocate, mem_deallocate, &
                                  mem_reallocate
+  use ErrorUtilModule, only: pstop
   implicit none
   public
 
@@ -141,6 +143,7 @@ module ParticleModule
     procedure, public :: resize
     procedure, public :: get
     procedure, public :: put
+    procedure, public :: copy_from
   end type ParticleStoreType
 
 contains
@@ -229,7 +232,6 @@ contains
     integer(I4B), intent(in) :: np !< number of particles
     character(*), intent(in) :: mempath !< path to memory
 
-    ! resize arrays
     call mem_reallocate(this%imdl, np, 'PLIMDL', mempath)
     call mem_reallocate(this%iprp, np, 'PLIPRP', mempath)
     call mem_reallocate(this%irpt, np, 'PLIRPT', mempath)
@@ -338,6 +340,50 @@ contains
     this%extend(ip) = particle%extend
     this%icycwin(ip) = particle%icycwin
   end subroutine put
+
+  !> @brief Copy all particle state from source to this store.
+  !! The two particle stores must already be of the same size.
+  subroutine copy_from(this, source)
+    ! dummy
+    class(ParticleStoreType), intent(inout) :: this
+    class(ParticleStoreType), intent(in) :: source
+    ! local
+    integer(I4B) :: np
+
+    np = source%num_stored()
+
+    if (this%num_stored() /= np) then
+      write (errmsg, '(a,i0,a,i0,a)') &
+        'Cannot copy particle store, size mismatch (source=', np, &
+        ', dest=', this%num_stored(), ')'
+      call pstop(1, errmsg)
+    end if
+
+    this%name(:) = source%name(:)
+    this%imdl(:) = source%imdl(:)
+    this%iprp(:) = source%iprp(:)
+    this%irpt(:) = source%irpt(:)
+    this%extend(:) = source%extend(:)
+    this%frctrn(:) = source%frctrn(:)
+    this%istopweaksink(:) = source%istopweaksink(:)
+    this%istopzone(:) = source%istopzone(:)
+    this%idrymeth(:) = source%idrymeth(:)
+    this%iexmeth(:) = source%iexmeth(:)
+    this%icycwin(:) = source%icycwin(:)
+    this%extol(:) = source%extol(:)
+    this%itrdomain(:, :) = source%itrdomain(:, :)
+    this%iboundary(:, :) = source%iboundary(:, :)
+    this%icu(:) = source%icu(:)
+    this%ilay(:) = source%ilay(:)
+    this%izone(:) = source%izone(:)
+    this%istatus(:) = source%istatus(:)
+    this%x(:) = source%x(:)
+    this%y(:) = source%y(:)
+    this%z(:) = source%z(:)
+    this%trelease(:) = source%trelease(:)
+    this%tstop(:) = source%tstop(:)
+    this%ttrack(:) = source%ttrack(:)
+  end subroutine copy_from
 
   !> @brief Transform particle coordinates.
   !!

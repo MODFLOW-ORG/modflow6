@@ -363,17 +363,22 @@ contains
   !> @brief Time step advance (calls package advance subroutines)
   subroutine prt_ad(this)
     ! modules
-    use SimVariablesModule, only: isimcheck, iFailedStepRetry
+    use SimVariablesModule, only: isimcheck
     ! dummy
     class(PrtModelType) :: this
     class(BndType), pointer :: packobj
     ! local
-    integer(I4B) :: irestore
     integer(I4B) :: ip, n, i
 
-    ! Reset state variable
-    irestore = 0
-    if (iFailedStepRetry > 0) irestore = 1
+    ! Discard buffered events from previous time step solve attempts.
+    ! prt_advance() is called on every sln_ca(): once per ATS retry,
+    ! once per Picard iteration, and once for the post-Picard output
+    ! rerun if mxiter > 1. Tracking is skipped during Picard iterations
+    ! (isuppress_output=1) in prt_solve, so the buffer is empty here on
+    ! Picard calls and the discard is a no-op. On the output rerun
+    ! (isuppress_output=0), tracking runs once and the buffer is cleared
+    ! before it is filled, so only events from that run reach disk.
+    call this%tracks%discard_buffer()
 
     ! Update look-behind mass
     do n = 1, this%dis%nodes
@@ -383,15 +388,14 @@ contains
     ! Advance fmi
     call this%fmi%fmi_ad()
 
-    ! Advance
+    ! Advance release packages
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_ad()
-      if (isimcheck > 0) then
+      if (isimcheck > 0) &
         call packobj%bnd_ck()
-      end if
     end do
-    !
+
     ! Initialize the flowja array.  Flowja is calculated each time,
     ! even if output is suppressed.  (Flowja represents flow of particle
     ! mass and is positive into a cell.  Currently, each particle is assigned
@@ -490,17 +494,17 @@ contains
       select type (packobj)
       type is (PrtPrpType)
         do np = 1, packobj%nparticles
-          call packobj%particles%get(particle, this%id, iprp, np)
-          istatus = packobj%particles%istatus(np)
+          call packobj%particles_staging%get(particle, this%id, iprp, np)
+          istatus = packobj%particles_staging%istatus(np)
           particle_id = particle%get_id()
           if (istatus == ACTIVE) then
             ! calculate storage mass
-            n = packobj%particles%itrdomain(np, LEVEL_FEATURE)
+            n = packobj%particles_staging%itrdomain(np, LEVEL_FEATURE)
             this%masssto(n) = this%masssto(n) + DONE ! unit mass
           else if (istatus > ACTIVE) then
             if (this%trm_ids%get(particle_id) /= 0) cycle
             ! calculate terminating mass
-            n = packobj%particles%itrdomain(np, LEVEL_FEATURE)
+            n = packobj%particles_staging%itrdomain(np, LEVEL_FEATURE)
             this%masstrm(n) = this%masstrm(n) + DONE ! unit mass
             call this%trm_ids%add(particle_id, 1) ! mark id terminated
           end if
@@ -566,6 +570,7 @@ contains
   !> @brief Print and/or save model output
   subroutine prt_ot(this)
     use TdisModule, only: tdis_ot, endofperiod
+    use PrtPrpModule, only: PrtPrpType
     ! dummy
     class(PrtModelType) :: this
     ! local
@@ -575,9 +580,20 @@ contains
     integer(I4B) :: icbcun
     integer(I4B) :: ibudfl
     integer(I4B) :: ipflag
+    integer(I4B) :: ip
+    class(BndType), pointer :: packobj
 
     ! Flush buffered events to disk
     call this%tracks%flush_buffer()
+
+    ! Commit each PRP's staged state
+    do ip = 1, this%bndlist%Count()
+      packobj => GetBndFromList(this%bndlist, ip)
+      select type (packobj)
+      type is (PrtPrpType)
+        call packobj%prp_commit()
+      end select
+    end do
 
     ! Set write and print flags
     idvsave = 0
@@ -1025,19 +1041,25 @@ contains
   end subroutine ftype_check
 
   !> @brief Solve the model
-  subroutine prt_solve(this)
+  subroutine prt_solve(this, isuppress_output)
     use TdisModule, only: totimc, delt, endofsimulation
     use PrtPrpModule, only: PrtPrpType
     use ParticleModule, only: ACTIVE, TERM_UNRELEASED, TERM_TIMEOUT
     use ParticleEventModule, only: RELEASE, TERMINATE
     ! dummy
     class(PrtModelType) :: this
+    integer(I4B), intent(in) :: isuppress_output
     ! local
     integer(I4B) :: np, ip
     class(BndType), pointer :: packobj
     type(ParticleType), pointer :: particle
     real(DP) :: tmax
     integer(I4B) :: iprp
+
+    ! Skip tracking during Picard iterations: PRT doesn't affect the flow
+    ! solution, so tracking is only needed once on the final output rerun
+    ! (or on the single call when mxiter=1, which also has isuppress_output=0).
+    if (isuppress_output /= 0) return
 
     ! A single particle is reused in the tracking loops
     ! to avoid allocating and deallocating it each time.
@@ -1051,8 +1073,8 @@ contains
       type is (PrtPrpType)
         iprp = iprp + 1
         do np = 1, packobj%nparticles
-          ! Get the particle from the store
-          call packobj%particles%get(particle, this%id, iprp, np)
+          ! Get the particle from the staging store
+          call packobj%particles_staging%get(particle, this%id, iprp, np)
           ! If particle is permanently unreleased, cycle.
           ! Raise a termination event if we haven't yet.
           ! TODO: when we have generic dynamic vectors,
@@ -1062,7 +1084,7 @@ contains
           ! is not yet recorded, status 8 it has been.
           if (particle%istatus == (-1 * TERM_UNRELEASED)) then
             call this%method%terminate(particle, status=TERM_UNRELEASED)
-            call packobj%particles%put(particle, np)
+            call packobj%particles_staging%put(particle, np)
           end if
           if (particle%istatus > ACTIVE) cycle ! Skip terminated particles
           particle%istatus = ACTIVE ! Set active status in case of release
@@ -1090,8 +1112,8 @@ contains
           if (particle%istatus <= ACTIVE .and. &
               (particle%ttrack == particle%tstop .or. endofsimulation)) &
             call this%method%terminate(particle, status=TERM_TIMEOUT)
-          ! Return the particle to the store
-          call packobj%particles%put(particle, np)
+          ! Return the particle to the staging store
+          call packobj%particles_staging%put(particle, np)
         end do
       end select
     end do

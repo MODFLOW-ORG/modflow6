@@ -1343,7 +1343,7 @@ contains
       outerloop: do kiter = 1, this%mxiter
 
         ! perform a single iteration
-        call this%solve(kiter)
+        call this%solve(kiter, isuppress_output)
 
         ! exit if converged
         if (this%icnvg == 1) then
@@ -1510,12 +1510,13 @@ contains
   !! and (10) underrelaxation
   !!
   !<
-  subroutine solve(this, kiter)
+  subroutine solve(this, kiter, isuppress_output)
     ! -- modules
     use TdisModule, only: kstp, kper, totim
     ! -- dummy variables
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     integer(I4B), intent(in) :: kiter !< Picard iteration number
+    integer(I4B), intent(in) :: isuppress_output !< flag for suppressing output
     ! -- local variables
     class(NumericalModelType), pointer :: mp => null()
     class(NumericalExchangeType), pointer :: cp => null()

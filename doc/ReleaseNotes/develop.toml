@@ -15,9 +15,14 @@ parallel = "PARALLEL"
 netcdf = "NETCDF"
 
 [[items]]
+section = "features"
+subsection = "stress"
+description = "Added a new AUTO\\_FLOW\\_REDUCE\\_AUXNAME option to the Well (WEL) Package. When AUTO\\_FLOW\\_REDUCE is active, the pumping rate of a well is smoothly reduced as the cell head drops toward the cell bottom, using a single global turnoff threshold for all wells in the package. The new AUTO\\_FLOW\\_REDUCE\\_AUXNAME option names an auxiliary variable whose value sets the turnoff threshold for each well individually, so different wells in the same package can begin reducing their pumping at different heads. The per-well auxiliary value overrides the global AUTO\\_FLOW\\_REDUCE value and is interpreted the same way: as a length above the cell bottom when FLOW\\_REDUCTION\\_LENGTH is specified, or otherwise as a fraction of the cell thickness. If AUTO\\_FLOW\\_REDUCE\\_AUXNAME is specified without AUTO\\_FLOW\\_REDUCE the option is ignored with a warning, and an error is reported if the named auxiliary variable does not exist."
+
+[[items]]
 section = "fixes"
 subsection = "stress"
-description = "The default values for DENSITY\\_WATER, HEAT\\_CAPACITY\\_WATER, LATENT\\_HEAT\\_VAPORIZATION specified in the OPTIONS block were not set as indicated in the MF6IO guide.  Defaults for these three variables now set as documented in the MF6IO guide." 
+description = "The default values for DENSITY\\_WATER, HEAT\\_CAPACITY\\_WATER, LATENT\\_HEAT\\_VAPORIZATION specified in the OPTIONS block were not set as indicated in the MF6IO guide.  Defaults for these three variables now set as documented in the MF6IO guide."
 
 [[items]]
 section = "fixes"
@@ -93,3 +98,18 @@ description = "The BMI interface's get\\_grid\\_model\\_type function worked onl
 section = "features"
 subsection = "model"
 description = "Previously PRT model particle events were written to output file(s) immediately. By default, PRT will now buffer events in memory before writing them to disk. Introduce a new option for the PRT Output Control (OC) package, SCRATCH\\_BUFFER, which enables buffering events in scratch files instead of memory. This can avoid out-of-memory errors at the price of increased file IO and runtime."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "A PRT model coupled by an exchange to a GWF model that uses adaptive time stepping (ATS) would erroneously produce output for discarded/retried time step solve attempts. PRT output would also be erroneously produced for discarded Picard iterations. This has been fixed such that PRT will only produce output for successful solve attempts when used with an ATS flow model, and only for the final Picard iteration when MXITER > 1."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "In MF6.7.0, the PRT model began to require binary grid (GRB) files provided to the Flow Model Interface (FMI) package to contain ICELLTYPE when any Particle Release Point (PRP) package used LOCAL\\_Z release coordinates, so PRT could distinguish confined from convertible cells when converting local z to model z coordinates. This requirement is unnecessary and has been removed. A single formula $z = bot + localz \\cdot sat \\cdot (top - bot)$ works correctly for both cell types, since $sat = 1$ for confined cells, and for convertible cells $sat = (head - bot) / (top - bot)$ clamped to $[0, 1]$. Particle z coordinates near the cell top or bottom may differ slightly from before, since saturation is smoothed near the top and bottom."
+
+[[items]]
+section = "fixes"
+subsection = "stress"
+description = "Reverts a 6.4.3 change that reset auxiliary variable arrays to zero each stress period in READASARRAYS packages (RCHA, EVTA). The earlier change had the consequence of zeroing the AUXMULTNAME multiplier array when not re-specified in a period block, effectively eliminating recharge or ET in subsequent stress periods. This behavior now is consistent across Grid Array and Layer Array package types. GWF models that use RCHA or EVTA and the AUXMULTNAME option may give different answers depending on how auxiliary variables were specified."

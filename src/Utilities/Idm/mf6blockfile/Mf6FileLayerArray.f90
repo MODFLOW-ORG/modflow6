@@ -237,7 +237,7 @@ contains
 
   subroutine reset(this)
     class(LayerArrayLoadType), intent(inout) :: this
-    integer(I4B) :: n, m
+    integer(I4B) :: n
 
     if (this%tas_active /= 0) then
       ! reset tasmanager
@@ -252,12 +252,6 @@ contains
       this%param_reads(n)%invar = 0
     end do
 
-    ! explicitly reset auxvar array each period
-    do m = 1, this%ctx%ncpl
-      do n = 1, this%ctx%naux
-        this%ctx%auxvar(n, m) = DZERO
-      end do
-    end do
   end subroutine reset
 
   subroutine init_charstr1d(this, varname, input_name)
