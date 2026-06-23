@@ -153,7 +153,7 @@ description = "When the Streamflow Routing (SFR) Package STORAGE option was acti
 [[items]]
 section = "fixes"
 subsection = "advanced"
-description = "For the Multi-Aquifer Well (MAW) Package, a well with a single connection to a low hydraulic conductivity cell could fail to converge with the Newton-Raphson formulation. In this situation a small change in flow forces a large change in the well head, so the well head could swing back and forth (oscillate) from one outer iteration to the next without settling. When the model uses the NEWTON UNDER\\_RELAXATION option, the MAW Package now damps these well-head oscillations: a well head change is reduced when it reverses direction without getting smaller, and the reduction is relaxed again as the head moves steadily toward its solution. This allows many of these wells to converge that previously did not, without slowing down wells that were already converging."
+description = "For the Multi-Aquifer Well (MAW) Package, a well with a single connection to a low hydraulic conductivity cell could fail to converge with the Newton-Raphson formulation, because the well head oscillated from one outer iteration to the next instead of settling. When the model uses the NEWTON UNDER\\_RELAXATION option, the MAW Package now damps these well-head oscillations, allowing many of these wells to converge that previously did not. To keep the damping from letting a model converge while a well is still adjusting, the package also holds off convergence until the well's pumping rate has stopped changing. Wells that are not being damped, and models that do not use the NEWTON UNDER\\_RELAXATION option, are unaffected."
 
 [[items]]
 section = "features"
@@ -163,7 +163,7 @@ description = "For the Multi-Aquifer Well (MAW) Package, a non-converging simula
 [[items]]
 section = "fixes"
 subsection = "advanced"
-description = "For the Multi-Aquifer Well (MAW) Package, the well storage term treated the well as holding water even when the simulated well head dropped below the bottom of the well, which is not physically possible. The water level used in the storage calculation is now limited so that storage smoothly goes to zero as the well head approaches the bottom of the well, removing this phantom storage. Results are unchanged while the well head remains above the bottom of the well."
+description = "For the Multi-Aquifer Well (MAW) Package, the well storage term treated the well as holding water even when the simulated well head dropped below the bottom of the well, which is not physically possible. The water level used in the storage calculation is now limited so that storage smoothly goes to zero as the well head approaches the bottom of the well, removing this unrealistic storage. Results are unchanged while the well head remains above the bottom of the well."
 
 [[items]]
 section = "fixes"
