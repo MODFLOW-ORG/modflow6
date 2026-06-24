@@ -16,6 +16,7 @@ if test_drive.found() and not fc_id.contains('intel')
     'PseudoInverse',
     'PtrHashTable',
     'Sim',
+    'Smoothing',
     'SVD',
     'SwfUtils',
     'TimeSelect',
