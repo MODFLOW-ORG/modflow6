@@ -15,9 +15,9 @@ module SwfFlwInputModule
     logical :: auxiliary = .false.
     logical :: auxmultname = .false.
     logical :: boundnames = .false.
-    logical :: print_input = .false.
-    logical :: print_flows = .false.
-    logical :: save_flows = .false.
+    logical :: iprpak = .false.
+    logical :: iprflow = .false.
+    logical :: ipakcb = .false.
     logical :: ts_filerecord = .false.
     logical :: ts6 = .false.
     logical :: filein = .false.
@@ -28,7 +28,7 @@ module SwfFlwInputModule
     logical :: maxbound = .false.
     logical :: cellid = .false.
     logical :: q = .false.
-    logical :: aux = .false.
+    logical :: auxvar = .false.
     logical :: boundname = .false.
   end type SwfFlwParamFoundType
 
@@ -98,13 +98,13 @@ module SwfFlwInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    swfflw_print_input = InputParamDefinitionType &
+    swfflw_iprpak = InputParamDefinitionType &
     ( &
     'SWF', & ! component
     'FLW', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_INPUT', & ! tag name
-    'PRINT_INPUT', & ! fortran variable
+    'IPRPAK', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'print input to listing file', & ! longname
@@ -117,13 +117,13 @@ module SwfFlwInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    swfflw_print_flows = InputParamDefinitionType &
+    swfflw_iprflow = InputParamDefinitionType &
     ( &
     'SWF', & ! component
     'FLW', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_FLOWS', & ! tag name
-    'PRINT_FLOWS', & ! fortran variable
+    'IPRFLOW', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'print calculated flows to listing file', & ! longname
@@ -136,13 +136,13 @@ module SwfFlwInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    swfflw_save_flows = InputParamDefinitionType &
+    swfflw_ipakcb = InputParamDefinitionType &
     ( &
     'SWF', & ! component
     'FLW', & ! subcomponent
     'OPTIONS', & ! block
     'SAVE_FLOWS', & ! tag name
-    'SAVE_FLOWS', & ! fortran variable
+    'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'save well flows to budget file', & ! longname
@@ -345,13 +345,13 @@ module SwfFlwInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    swfflw_aux = InputParamDefinitionType &
+    swfflw_auxvar = InputParamDefinitionType &
     ( &
     'SWF', & ! component
     'FLW', & ! subcomponent
     'PERIOD', & ! block
     'AUX', & ! tag name
-    'AUX', & ! fortran variable
+    'AUXVAR', & ! fortran variable
     'DOUBLE1D', & ! type
     'NAUX', & ! shape
     'auxiliary variables', & ! longname
@@ -388,9 +388,9 @@ module SwfFlwInputModule
     swfflw_auxiliary, &
     swfflw_auxmultname, &
     swfflw_boundnames, &
-    swfflw_print_input, &
-    swfflw_print_flows, &
-    swfflw_save_flows, &
+    swfflw_iprpak, &
+    swfflw_iprflow, &
+    swfflw_ipakcb, &
     swfflw_ts_filerecord, &
     swfflw_ts6, &
     swfflw_filein, &
@@ -401,7 +401,7 @@ module SwfFlwInputModule
     swfflw_maxbound, &
     swfflw_cellid, &
     swfflw_q, &
-    swfflw_aux, &
+    swfflw_auxvar, &
     swfflw_boundname &
     ]
 
