@@ -62,23 +62,19 @@ jobs:
           - os: ${{ inputs.linux_version }}
             compiler: ${{ inputs.compiler_toolchain }}
             version: ${{ inputs.compiler_version }}
-            optimization: 2
             extended: false
           - os: macos-14
             compiler: gcc
             version: 13
-            optimization: 1
             extended: false
             xcode-version: '15.1.0'
           - os: windows-2022
             compiler: ${{ inputs.compiler_toolchain }}
             version: ${{ inputs.compiler_version }}
-            optimization: 2
             extended: false
           - os: windows-2022
             compiler: intel-classic
             version: "2021.6"
-            optimization: 2
             extended: true
     defaults:
       run:
@@ -200,7 +196,7 @@ jobs:
             # run only parallel/extended tests in developmode, run all tests in releasemode
             filters="test_par or test_netcdf"
           fi
-          # comparison fails on macos with optimization=1
+          # sfr rewet comparison fails on macos
           if [[ "${{ runner.os }}" == "macOS" ]]; then
             if [[ "$filters" != "" ]]; then
               filters="$filters and not test028_sfr_rewet"
@@ -238,14 +234,14 @@ jobs:
         if: (!(runner.os == 'Windows' && matrix.extended))
         working-directory: modflow6
         run: |
-          pixi run setup builddir -Doptimization=${{ matrix.optimization }}
+          pixi run setup builddir
           pixi run build builddir
 
       - name: Build mf5to6 converter
         if: (!(runner.os == 'Windows' && matrix.extended))
         working-directory: modflow6
         run: |
-          pixi run setup-mf5to6 builddir -Doptimization=${{ matrix.optimization }}
+          pixi run setup-mf5to6 builddir
           pixi run build-mf5to6 builddir
 
       - name: Show build log

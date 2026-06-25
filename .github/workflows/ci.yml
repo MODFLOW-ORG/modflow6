@@ -424,8 +424,6 @@ jobs:
           setupargs=""
           if [[ "${{ matrix.debug }}" == "true" ]]; then
             setupargs="-Ddebug=true -Doptimization=0"
-          elif [[ "${{ matrix.os }}" == "macos-14" ]]; then
-            setupargs="-Doptimization=1"
           fi
           echo "MESON_SETUP_ARGS=$setupargs" >> $GITHUB_ENV
 
@@ -509,7 +507,7 @@ jobs:
         run: |
           filters=""
           if [[ "${{ matrix.os }}" == "macos-14" ]]; then
-            # comparison fails on macos-14 with optimization=1
+            # sfr rewet comparison fails on macos-14
             filters="not test028_sfr_rewet"
           fi
           echo "filters=$filters" >> $GITHUB_OUTPUT
