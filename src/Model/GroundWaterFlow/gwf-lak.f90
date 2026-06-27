@@ -4257,20 +4257,23 @@ contains
     ! -- for budget
     integer(I4B) :: j, n, igwfnode
     real(DP) :: hlak, head, flow, dqdh
-    real(DP) :: v0, v1
+    real(DP) :: v0, v1, sa, sf
     !
     call this%lak_solve(update=.false.)
     !
-    ! -- for the IMPLICIT formulation, report the lakebed seepage with the same
-    !    smoothed exchange that lak_fc_implicit assembled into the matrix, so the
-    !    lake and gwf-cell budgets match the solved flows. lak_solve above set
-    !    hcof/rhs from the (hard-cutoff) substitution exchange, which is correct
-    !    for a lake on the substitution fallback but not for an implicit lake, so
-    !    overwrite hcof/rhs for the implicit (non-fallback) lakes only.
+    ! -- for the IMPLICIT formulation, report the lake terms with the same
+    !    treatment that lak_fc_implicit assembled into the matrix, so the lake
+    !    and gwf-cell budgets match the solved flows. lak_solve above set these
+    !    from the substitution path (hard-cutoff seepage; availability-limited
+    !    losses), which is correct for a lake on the substitution fallback but
+    !    not for an implicit lake, so overwrite them for the implicit
+    !    (non-fallback) lakes only.
     if (this%iimplicit /= 0) then
       do n = 1, this%nlakes
         if (this%iboundpak(n) < 1 .or. this%ifallback(n) /= 0) cycle
         hlak = this%xnewpak(n)
+        !
+        ! -- lakebed seepage: use the same exchange the matrix assembled
         do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
           igwfnode = this%cellid(j)
           if (this%ibound(igwfnode) < 1) cycle
@@ -4280,6 +4283,22 @@ contains
           this%hcof(j) = -dqdh
           this%rhs(j) = -dqdh * head + flow
         end do
+        !
+        ! -- stage-driven losses: the matrix (lak_budget_nogwf) ramps
+        !    evaporation and withdrawal toward zero as the lake approaches its
+        !    bottom with the surfdep factor (sf) rather than the substitution
+        !    solver's availability limiting, so report them the same way. This
+        !    keeps the lake budget closed for a drying lake. (The outlet
+        !    outflow is already near zero at the bottom, as its invert is above
+        !    the lake bottom, and the storage term reflects the solved stage.)
+        call this%lak_calculate_sarea(n, hlak, sa)
+        sf = DONE
+        if (this%surfdep > DZERO) then
+          sf = sQuadraticSaturation(this%lakebot(n) + this%surfdep, &
+                                    this%lakebot(n), hlak)
+        end if
+        this%evap(n) = -this%evaporation(n) * sa * sf
+        this%withr(n) = -this%withdrawal(n) * sf
       end do
     end if
     !
