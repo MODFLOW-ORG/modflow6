@@ -34,9 +34,11 @@ import pytest
 cases = ["drylake", "drain", "fill"]
 
 
-def _enable_implicit(lak_file):
+def _enable_implicit(lak_file, force_fallback=False):
     # add the IMPLICIT keyword to the LAK OPTIONS block (flopy does not yet
-    # expose it as a keyword, so it is written directly to the input file)
+    # expose it as a keyword, so it is written directly to the input file).
+    # force_fallback also adds the hidden DEV_FORCE_FALLBACK option, which routes
+    # every active lake through the substitution fallback path.
     lines = open(lak_file).read().splitlines()
     out = []
     done = False
@@ -44,6 +46,8 @@ def _enable_implicit(lak_file):
         out.append(ln)
         if ln.strip().lower() == "begin options" and not done:
             out.append("  IMPLICIT")
+            if force_fallback:
+                out.append("  DEV_FORCE_FALLBACK")
             done = True
     assert done, f"could not find OPTIONS block in {lak_file}"
     open(lak_file, "w").write("\n".join(out) + "\n")
@@ -406,3 +410,107 @@ def test_perched_disconnected_implicit(function_tmpdir, targets):
     )
     maxdiff = float(np.nanmax(np.abs(hl - hi)))
     assert maxdiff < 1e-3, f"perched head mismatch: {maxdiff}"
+
+
+def _build_weak(ws, exe):
+    # a perched lake with a very small lakebed leakance and net rainfall inflow
+    # and no outlet. The water table (CHD) is held below the lakebed, so the lake
+    # sheds its inflow only by downward leakage; with the small leakance the stage
+    # must rise far to drive that leakage. This is the weakly connected regime the
+    # substitution fallback exists for, so it is used to exercise the fallback
+    # assembly (DEV_FORCE_FALLBACK) against the legacy formulation.
+    name = "lk"
+    nlay, nrow, ncol = 1, 15, 15
+    delr = delc = 100.0
+    top, botm = 0.0, [-100.0]
+    sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=ws, exe_name=exe)
+    flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)])
+    flopy.mf6.ModflowIms(
+        sim,
+        print_option="SUMMARY",
+        complexity="COMPLEX",
+        outer_dvclose=1e-7,
+        outer_maximum=1000,
+        inner_dvclose=1e-9,
+        inner_maximum=200,
+        linear_acceleration="BICGSTAB",
+    )
+    gwf = flopy.mf6.ModflowGwf(
+        sim, modelname=name, newtonoptions="NEWTON UNDER_RELAXATION"
+    )
+    flopy.mf6.ModflowGwfdis(
+        gwf, nlay=nlay, nrow=nrow, ncol=ncol, delr=delr, delc=delc, top=top, botm=botm
+    )
+    flopy.mf6.ModflowGwfic(gwf, strt=-40.0)
+    flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=10.0)
+    flopy.mf6.ModflowGwfsto(gwf, iconvert=1, steady_state={0: True})
+    chd = [[(0, i, 0), -35.0] for i in range(nrow)] + [
+        [(0, i, ncol - 1), -45.0] for i in range(nrow)
+    ]
+    flopy.mf6.ModflowGwfchd(gwf, stress_period_data=chd)
+    lr, lc = range(6, 9), range(6, 9)
+    # small lakebed leakance -> a weakly connected lake-stage equation
+    conn = [
+        [0, k, (0, r, c), "VERTICAL", 1.0e-5, 0.0, 0.0, 0.0, 0.0]
+        for k, (r, c) in enumerate((r, c) for r in lr for c in lc)
+    ]
+    pkd = [[0, 5.0, len(conn)]]
+    # net inflow (rainfall, no evaporation) with no outlet
+    perdata = [[0, "RAINFALL", 1.0e-3], [0, "EVAPORATION", 0.0]]
+    flopy.mf6.ModflowGwflak(
+        gwf,
+        print_stage=True,
+        stage_filerecord=f"{name}.lak.stage.bin",
+        nlakes=1,
+        noutlets=0,
+        packagedata=pkd,
+        connectiondata=conn,
+        perioddata=perdata,
+        surfdep=0.5,
+    )
+    flopy.mf6.ModflowGwfoc(
+        gwf, head_filerecord=f"{name}.hds", saverecord=[("HEAD", "LAST")]
+    )
+    return sim, name
+
+
+@pytest.mark.developmode
+def test_fallback_matches_legacy(function_tmpdir, targets):
+    # a weakly connected lake solved three ways, all of which must agree:
+    #   1. the legacy substitution solver,
+    #   2. the IMPLICIT formulation, and
+    #   3. the IMPLICIT formulation with every lake forced onto the substitution
+    #      fallback (DEV_FORCE_FALLBACK).
+    # case 3 routes the lake through the fallback assembly in lak_fc_implicit
+    # (solve the stage by substitution, then assemble it like a constant-stage
+    # lake), which must reproduce the legacy result. A small synthetic model does
+    # not stall the implicit solver on its own, so the fallback path is forced
+    # here to give a deterministic regression test of that assembly.
+    exe = targets["mf6"]
+    ws_legacy = function_tmpdir / "legacy"
+    ws_impl = function_tmpdir / "implicit"
+    ws_fb = function_tmpdir / "fallback"
+    for ws in (ws_legacy, ws_impl, ws_fb):
+        ws.mkdir()
+
+    sim_l, mname = _build_weak(str(ws_legacy), exe)
+    sim_l.write_simulation(silent=True)
+    sim_i, _ = _build_weak(str(ws_impl), exe)
+    sim_i.write_simulation(silent=True)
+    _enable_implicit(str(ws_impl / f"{mname}.lak"))
+    sim_f, _ = _build_weak(str(ws_fb), exe)
+    sim_f.write_simulation(silent=True)
+    _enable_implicit(str(ws_fb / f"{mname}.lak"), force_fallback=True)
+
+    assert _run(sim_l), "legacy solver failed for the weak lake"
+    assert _run(sim_i), "IMPLICIT failed to converge for the weak lake"
+    assert _run(sim_f), "IMPLICIT with forced fallback failed for the weak lake"
+
+    hl = _heads(str(ws_legacy), mname)
+    for label, ws in (("implicit", ws_impl), ("fallback", ws_fb)):
+        hx = _heads(str(ws), mname)
+        maxdiff = float(np.nanmax(np.abs(hl - hx)))
+        assert maxdiff < 1e-6, f"{label} head mismatch vs legacy: {maxdiff}"
+        sl = _stage(str(ws_legacy), mname)
+        sx = _stage(str(ws), mname)
+        assert abs(sl - sx) < 1e-6, f"{label} stage mismatch: {sl} vs {sx}"

@@ -231,6 +231,7 @@ modflow_sources = files(
     'Model' / 'GroundWaterFlow' / 'gwf-uzf.f90',
     'Model' / 'GroundWaterFlow' / 'gwf-vsc.f90',
     'Model' / 'GroundWaterFlow' / 'gwf-wel.f90',
+    'Model' / 'GroundWaterFlow' / 'submodules' / 'gwf-lak-implicit.f90',
     'Model' / 'GroundWaterFlow' / 'submodules' / 'gwf-sfr-steady.f90',
     'Model' / 'GroundWaterFlow' / 'submodules' / 'gwf-sfr-transient.f90',
     'Model' / 'GroundWaterFlow' / 'submodules' / 'gwf-sfr-constant.f90',

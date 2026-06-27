@@ -13,7 +13,7 @@ module LakModule
   use MemoryManagerModule, only: mem_allocate, mem_reallocate, mem_setptr, &
                                  mem_deallocate
   use MemoryHelperModule, only: create_mem_path
-  use SmoothingModule, only: sQuadraticSaturation, sQSaturation, sRamp, &
+  use SmoothingModule, only: sQuadraticSaturation, sQSaturation, &
                              sQuadraticSaturationDerivative, &
                              sQSaturationDerivative
   use BndModule, only: BndType
@@ -80,6 +80,7 @@ module LakModule
     ! -- implicit formulation: solve the lake stage as an unknown in the
     !    groundwater flow matrix instead of by the legacy substitution iteration
     integer(I4B), pointer :: iimplicit => NULL() !< flag: solve lake stage in the gwf matrix
+    integer(I4B), pointer :: iforcefb => NULL() !< flag (dev): force every active lake onto the substitution fallback
     ! -- for budgets
     integer(I4B), pointer :: bditems => NULL()
     ! -- vectors
@@ -113,6 +114,11 @@ module LakModule
     !
     ! -- lake solution data
     integer(I4B), dimension(:), pointer, contiguous :: ncncvr => null()
+    ! -- IMPLICIT substitution fallback: solve flagged lakes by substitution,
+    !    and a per-lake count of consecutive non-converging outer iterations used
+    !    to decide when to switch a stalled IMPLICIT lake to the fallback
+    integer(I4B), dimension(:), pointer, contiguous :: ifallback => null()
+    integer(I4B), dimension(:), pointer, contiguous :: nstuck => null()
     real(DP), dimension(:), pointer, contiguous :: surfin => null()
     real(DP), dimension(:), pointer, contiguous :: surfout => null()
     real(DP), dimension(:), pointer, contiguous :: surfout1 => null()
@@ -180,6 +186,10 @@ module LakModule
     real(DP), dimension(:), pointer, contiguous :: qauxcbc => null()
     real(DP), dimension(:), pointer, contiguous :: dbuff => null()
     real(DP), dimension(:), pointer, contiguous :: qleak => null()
+    ! -- connected-cell head at the previous outer iteration (per connection),
+    !    used by the IMPLICIT fallback detection to compare a lake's stage change
+    !    against the change in its connected aquifer heads
+    real(DP), dimension(:), pointer, contiguous :: holdconn => null()
     real(DP), dimension(:), pointer, contiguous :: qsto => null()
     !
     ! -- pointer to gwf iss and gwf hk
@@ -228,6 +238,8 @@ module LakModule
     procedure :: bnd_fn => lak_fn
     procedure :: bnd_nur => lak_nur
     procedure :: bnd_cc => lak_cc
+    procedure, private :: lak_set_fallback
+    procedure, private :: lak_check_disconnected
     procedure :: bnd_cq => lak_cq
     procedure :: bnd_ot_model_flows => lak_ot_model_flows
     procedure :: bnd_ot_package_flows => lak_ot_package_flows
@@ -259,6 +271,7 @@ module LakModule
     procedure, private :: lak_calculate_conn_conductance
     procedure, private :: lak_calculate_exchange
     procedure, private :: lak_calculate_conn_exchange
+    procedure, private :: lak_calculate_conn_exchange_deriv
     procedure, private :: lak_estimate_conn_exchange
     procedure, private :: lak_calculate_storagechange
     procedure, private :: lak_calculate_rainfall
@@ -278,6 +291,8 @@ module LakModule
     procedure, private :: lak_accumulate_chterm
     procedure, private :: lak_vol2stage
     procedure, private :: lak_solve
+    procedure, private :: lak_solve_single
+    procedure, private :: lak_estimate_seepage_single
     procedure, private :: lak_fc_implicit
     procedure, private :: lak_budget_nogwf
     procedure, private :: lak_outlet_outflow_rate
@@ -296,6 +311,39 @@ module LakModule
     ! -- viscosity
     procedure :: lak_activate_viscosity
   end type LakType
+
+  ! -- implicit-formulation procedures, implemented in the gwf-lak-implicit
+  !    submodule (submodules/gwf-lak-implicit.f90)
+  interface
+    module subroutine lak_budget_nogwf(this, n, stage, b)
+      class(LakType), intent(inout) :: this
+      integer(I4B), intent(in) :: n
+      real(DP), intent(in) :: stage
+      real(DP), intent(inout) :: b
+    end subroutine
+  end interface
+
+  interface
+    module subroutine lak_fc_implicit(this, rhs, matrix_sln)
+      class(LakType) :: this
+      real(DP), dimension(:), intent(inout) :: rhs
+      class(MatrixBaseType), pointer :: matrix_sln
+    end subroutine
+  end interface
+
+  interface
+    module subroutine lak_set_fallback(this, kiter, icnvgmod)
+      class(LakType), intent(inout) :: this
+      integer(I4B), intent(in) :: kiter !< outer (Picard) iteration number
+      integer(I4B), intent(in) :: icnvgmod !< 0 if the model has not converged
+    end subroutine
+  end interface
+
+  interface
+    module subroutine lak_check_disconnected(this)
+      class(LakType), intent(inout) :: this
+    end subroutine
+  end interface
 
 contains
 
@@ -368,6 +416,7 @@ contains
     call mem_allocate(this%pdmax, 'PDMAX', this%memoryPath)
     call mem_allocate(this%check_attr, 'CHECK_ATTR', this%memoryPath)
     call mem_allocate(this%iimplicit, 'IIMPLICIT', this%memoryPath)
+    call mem_allocate(this%iforcefb, 'IFORCEFB', this%memoryPath)
     call mem_allocate(this%bditems, 'BDITEMS', this%memoryPath)
     call mem_allocate(this%cbcauxitems, 'CBCAUXITEMS', this%memoryPath)
     call mem_allocate(this%idense, 'IDENSE', this%memoryPath)
@@ -393,6 +442,7 @@ contains
     this%delh = DP999 * this%dmaxchg
     this%pdmax = DEM1
     this%iimplicit = 0
+    this%iforcefb = 0
     this%bditems = 11
     this%cbcauxitems = 1
     this%idense = 0
@@ -450,6 +500,10 @@ contains
     call mem_allocate(this%qleak, this%maxbound, 'QLEAK', this%memoryPath)
     do i = 1, this%maxbound
       this%qleak(i) = DZERO
+    end do
+    call mem_allocate(this%holdconn, this%maxbound, 'HOLDCONN', this%memoryPath)
+    do i = 1, this%maxbound
+      this%holdconn(i) = DZERO
     end do
     call mem_allocate(this%qsto, this%nlakes, 'QSTO', this%memoryPath)
     do i = 1, this%nlakes
@@ -512,6 +566,8 @@ contains
     call mem_allocate(this%avail, this%nlakes, 'AVAIL', this%memoryPath)
     call mem_allocate(this%lkgwsink, this%nlakes, 'LKGWSINK', this%memoryPath)
     call mem_allocate(this%ncncvr, this%nlakes, 'NCNCVR', this%memoryPath)
+    call mem_allocate(this%ifallback, this%nlakes, 'IFALLBACK', this%memoryPath)
+    call mem_allocate(this%nstuck, this%nlakes, 'NSTUCK', this%memoryPath)
     call mem_allocate(this%surfin, this%nlakes, 'SURFIN', this%memoryPath)
     call mem_allocate(this%surfout, this%nlakes, 'SURFOUT', this%memoryPath)
     call mem_allocate(this%surfout1, this%nlakes, 'SURFOUT1', this%memoryPath)
@@ -578,6 +634,8 @@ contains
       this%runoff(n) = DZERO
       this%inflow(n) = DZERO
       this%withdrawal(n) = DZERO
+      this%ifallback(n) = 0
+      this%nstuck(n) = 0
     end do
     !
     ! -- allocate local storage for aux variables
@@ -1670,6 +1728,11 @@ contains
     !    column) to the groundwater flow matrix
     if (this%iimplicit /= 0) then
       this%npakeq = this%nlakes
+      ! -- the implicit lake-aquifer coupling is asymmetric for perched
+      !    connections, so flag the coefficient matrix as asymmetric (which
+      !    requires the BICGSTAB linear acceleration). Only raise the flag; never
+      !    clear an asymmetry already indicated elsewhere.
+      this%iasym = 1
     end if
     !
     ! -- read lakes block
@@ -1920,8 +1983,8 @@ contains
       do n = 1, this%nlakes
         write (this%iout, '(//1x,a,1x,i10)') 'STAGE/VOLUME RELATION FOR LAKE  ', n
         write (this%iout, '(/1x,5(a14))') '         STAGE', '  SURFACE AREA', &
-    &                                    '   WETTED AREA', '   CONDUCTANCE', &
-    &                                    '        VOLUME'
+     &                                    '   WETTED AREA', '   CONDUCTANCE', &
+     &                                    '        VOLUME'
         write (this%iout, "(1x,70('-'))")
         dx = (this%laketop(n) - this%lakebot(n)) / 150.
         s = this%lakebot(n)
@@ -1937,7 +2000,7 @@ contains
         !
         write (this%iout, '(//1x,a,1x,i10)') 'STAGE/VOLUME RELATION FOR LAKE  ', n
         write (this%iout, '(/1x,4(a14))') '              ', '              ', &
-    &                                    '    CALCULATED', '         STAGE'
+     &                                    '    CALCULATED', '         STAGE'
         write (this%iout, '(1x,4(a14))') '         STAGE', '        VOLUME', &
     &                                    '         STAGE', '    DIFFERENCE'
         write (this%iout, "(1x,56('-'))")
@@ -2385,6 +2448,50 @@ contains
     if (present(gwfhcof)) gwfhcof = gwfhcof0
     if (present(gwfrhs)) gwfrhs = gwfrhs0
   end subroutine lak_calculate_conn_exchange
+
+  !> @brief Lakebed seepage and its derivatives for a connection (IMPLICIT)
+  !!
+  !! Returns the lakebed seepage for one connection, positive into the lake,
+  !! and optionally its stage and head derivatives. The stage and the connected-
+  !! cell head are each held at or above the lake bottom, the same wet/dry cutoff
+  !! used by the default formulation, so the implicit seepage matches the default
+  !! formulation exactly. lak_fc_implicit uses this to assemble the matrix and
+  !! lak_cq uses it to report the budget, so the two are consistent.
+  !<
+  subroutine lak_calculate_conn_exchange_deriv(this, ilak, iconn, stage, &
+                                               head, flow, dqds, dqdh)
+    ! -- dummy
+    class(LakType), intent(inout) :: this
+    integer(I4B), intent(in) :: ilak
+    integer(I4B), intent(in) :: iconn
+    real(DP), intent(in) :: stage
+    real(DP), intent(in) :: head
+    real(DP), intent(inout) :: flow
+    real(DP), intent(inout), optional :: dqds
+    real(DP), intent(inout), optional :: dqdh
+    ! -- local
+    real(DP) :: cond, botl, dps, dph, ss, hh
+    !
+    call this%lak_calculate_conn_conductance(ilak, iconn, stage, head, cond)
+    botl = this%belev(iconn)
+    if (stage >= botl) then
+      ss = stage
+      dps = DONE
+    else
+      ss = botl
+      dps = DZERO
+    end if
+    if (head >= botl) then
+      hh = head
+      dph = DONE
+    else
+      hh = botl
+      dph = DZERO
+    end if
+    flow = cond * (hh - ss)
+    if (present(dqds)) dqds = -cond * dps
+    if (present(dqdh)) dqdh = cond * dph
+  end subroutine lak_calculate_conn_exchange_deriv
 
   !> @brief Calculate the groundwater-lake flow at a provided stage and
   !! groundwater head
@@ -3295,6 +3402,12 @@ contains
       write (this%iout, '(4x,a)') &
         'LAKE STAGE WILL BE SOLVED AS AN UNKNOWN IN THE GROUNDWATER FLOW '// &
         'MATRIX (IMPLICIT FORMULATION)'
+    case ('DEV_FORCE_FALLBACK')
+      call this%parser%DevOpt()
+      this%iforcefb = 1
+      write (this%iout, '(4x,a)') &
+        'EVERY ACTIVE LAKE WILL BE SOLVED WITH THE SUBSTITUTION FALLBACK '// &
+        'UNDER THE IMPLICIT FORMULATION'
     case ('DEV_NO_FINAL_CHECK')
       call this%parser%DevOpt()
       this%iconvchk = 0
@@ -3701,216 +3814,6 @@ contains
     end do
   end subroutine lak_fc
 
-  !> @brief Sum the non-seepage lake budget terms at a given stage
-  !!
-  !! Returns B(stage), the sum of every lake-budget term except the groundwater
-  !! seepage: rainfall + runoff + specified and external inflow + outlet inflow
-  !! and outflow - evaporation - withdrawal + transient storage. The stage-driven
-  !! losses are ramped to zero as the stage approaches the lake bottom (over the
-  !! surfdep interval) so a drying lake cannot remove more water than it holds.
-  !! lak_fc_implicit calls this routine at two stages to finite-difference the
-  !! lake-row diagonal and right-hand side.
-  !<
-  subroutine lak_budget_nogwf(this, n, stage, b)
-    ! -- modules
-    use TdisModule, only: delt
-    ! -- dummy
-    class(LakType), intent(inout) :: this
-    integer(I4B), intent(in) :: n
-    real(DP), intent(in) :: stage
-    real(DP), intent(inout) :: b
-    ! -- local
-    real(DP) :: ra, ro, qin, ex, surfin, sa, v0, v1, qout, sf
-    !
-    call this%lak_calculate_rainfall(n, stage, ra)
-    call this%lak_calculate_runoff(n, ro)
-    call this%lak_calculate_inflow(n, qin)
-    call this%lak_calculate_external(n, ex)
-    call this%lak_calculate_outlet_inflow(n, surfin)
-    call this%lak_outlet_outflow_rate(n, stage, qout)
-    call this%lak_calculate_sarea(n, stage, sa)
-    !
-    ! -- smooth flow-limiting: ramp the stage-driven losses (evaporation,
-    !    withdrawal, outlet outflow) to zero as the lake approaches its bottom
-    !    over the surfdep interval, so a drying lake cannot extract more water
-    !    than it holds. With surfdep = 0 (or a lake well above its bottom) the
-    !    factor is 1 and the losses are unlimited (matching the legacy result
-    !    whenever the lake is not water-limited).
-    sf = DONE
-    if (this%surfdep > DZERO) then
-      sf = sQuadraticSaturation(this%lakebot(n) + this%surfdep, &
-                                this%lakebot(n), stage)
-    end if
-    !
-    ! -- evaporation and withdrawal are losses (positive demand); qout is the
-    !    (negative) outlet outflow; surfin is routed inflow from upstream outlets
-    !    (lagged at the previous iterate's stage via simoutrate)
-    b = ra + ro + qin + ex + surfin &
-        + (qout - this%evaporation(n) * sa - this%withdrawal(n)) * sf
-    !
-    ! -- transient storage change (v0 - v1)/delt
-    if (this%gwfiss /= 1) then
-      call this%lak_calculate_vol(n, this%xoldpak(n), v0)
-      call this%lak_calculate_vol(n, stage, v1)
-      b = b + (v0 - v1) / delt
-    end if
-  end subroutine lak_budget_nogwf
-
-  !> @brief Assemble the lake equations into the groundwater flow matrix
-  !!
-  !! Implicit formulation. For each active lake the water-balance equation is
-  !! assembled directly into the matrix:
-  !!   - the lakebed seepage to each connected cell is a conductance coupling
-  !!     between the lake-stage row and the cell row. In the seepage, the lake
-  !!     stage and the connected-cell head are each kept at or above the lake
-  !!     bottom (smoothed with a ramp, sRamp), so the coupling changes
-  !!     continuously as a connection wets or dries: a wet connection couples
-  !!     both stage and head, while a perched connection keeps the stage
-  !!     coupling (a non-zero lake-stage diagonal) but drops the head coupling,
-  !!     and
-  !!   - the remaining (non-seepage) budget terms -- rainfall, evaporation,
-  !!     withdrawal, runoff, specified and external inflow, outlet inflow and
-  !!     outflow, and transient storage -- are linearized in stage with a finite
-  !!     difference (lak_budget_nogwf) and added to the diagonal and right-hand
-  !!     side. This captures the stage-dependent surface area and the storage
-  !!     term.
-  !! Lake-to-lake outlet routing is lagged one outer iteration through simoutrate.
-  !! A constant-stage lake holds its row at the specified stage; an inactive lake
-  !! is disconnected from the aquifer. A lake row whose diagonal is still (near)
-  !! zero (no connections and no storage) is kept solvable with a small diagonal
-  !! term that holds the stage at its current value and becomes zero at
-  !! convergence.
-  !<
-  subroutine lak_fc_implicit(this, rhs, matrix_sln)
-    ! -- dummy
-    class(LakType) :: this
-    real(DP), dimension(:), intent(inout) :: rhs
-    class(MatrixBaseType), pointer :: matrix_sln
-    ! -- local
-    integer(I4B) :: n, j, ipos, iloc, igwfnode, idiag
-    real(DP) :: hlak, head, flow, gwfhcof, gwfrhs
-    real(DP) :: b0, b1, dbds, avail, sout, csum, deps, adiag
-    real(DP) :: cond, botl, ss, hh, ps, ph, dps, dph, dqds, dqdh
-    ! -- smoothing half-width (length) for the wet/dry seepage transition
-    real(DP), parameter :: deltaw = DEM1
-    !
-    ! -- update simoutrate at the current stages so the routed outlet inflow to
-    !    downstream lakes (lak_calculate_outlet_inflow, read in lak_budget_nogwf)
-    !    reflects the latest upstream stages (lagged one outer iteration). The
-    !    outlet outflow sink itself is linearized per lake in lak_budget_nogwf.
-    if (this%noutlets > 0) then
-      do n = 1, this%nlakes
-        if (this%iboundpak(n) < 1) cycle
-        avail = DEP20
-        call this%lak_calculate_outlet_outflow(n, this%xnewpak(n), avail, sout)
-      end do
-      !
-      ! -- provide the outlet outflow to the mover (matches the mover-provider
-      !    accumulation done at the end of the legacy lak_solve)
-      if (this%imover == 1) then
-        do n = 1, this%noutlets
-          call this%pakmvrobj%accumulate_qformvr(n, -this%simoutrate(n))
-        end do
-      end if
-    end if
-    !
-    ipos = 0
-    do n = 1, this%nlakes
-      iloc = this%idxlocnode(n)
-      hlak = this%xnewpak(n)
-      if (this%iboundpak(n) > 0) then
-        !
-        ! -- active lake: linearize the non-seepage budget B(stage) about the
-        !    current stage with a finite difference. dB/dstage goes on the
-        !    lake-row diagonal and (dB/dstage*stage - B) goes on the rhs.
-        idiag = ipos + 1
-        call this%lak_budget_nogwf(n, hlak, b0)
-        call this%lak_budget_nogwf(n, hlak + this%delh, b1)
-        dbds = (b1 - b0) / this%delh
-        call matrix_sln%add_value_pos(this%idxdglo(idiag), dbds)
-        rhs(iloc) = rhs(iloc) + dbds * hlak - b0
-        adiag = dbds
-        !
-        do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-          ipos = ipos + 1
-          igwfnode = this%cellid(j)
-          if (this%ibound(igwfnode) < 1) cycle
-          head = this%xnew(igwfnode)
-          !
-          ! -- smoothed lakebed seepage. The lake stage and the connected-cell
-          !    head are each kept at or above the lake bottom (smoothed with a
-          !    ramp, sRamp) so the seepage and its derivatives stay continuous
-          !    as a connection wets or dries. A wet connection (dps = dph = 1)
-          !    couples both stage and head; a perched connection (dph = 0) drops
-          !    the head coupling but keeps the stage coupling (dqds), so the
-          !    lake-stage diagonal stays non-zero and the perched leakage still
-          !    responds to stage.
-          call this%lak_calculate_conn_conductance(n, j, hlak, head, cond)
-          botl = this%belev(j)
-          call sRamp(hlak - botl, deltaw, dps, ps)
-          call sRamp(head - botl, deltaw, dph, ph)
-          ss = botl + ps
-          hh = botl + ph
-          flow = cond * (hh - ss)
-          dqds = -cond * dps
-          dqdh = cond * dph
-          call matrix_sln%add_value_pos(this%idxdglo(ipos), dqds)
-          call matrix_sln%add_value_pos(this%idxoffdglo(ipos), dqdh)
-          call matrix_sln%add_value_pos(this%idxsymdglo(ipos), -dqdh)
-          call matrix_sln%add_value_pos(this%idxsymoffdglo(ipos), -dqds)
-          rhs(iloc) = rhs(iloc) + dqds * hlak + dqdh * head - flow
-          rhs(igwfnode) = rhs(igwfnode) - dqdh * head - dqds * hlak + flow
-          adiag = adiag + dqds
-        end do
-        !
-        ! -- keep the row solvable when its diagonal is still (near) zero -- a
-        !    lake with no wet connections and no storage. Add a small diagonal
-        !    term and a matching rhs term so the row holds the stage at its
-        !    current value; the contribution is exactly zero at convergence.
-        csum = DZERO
-        do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-          csum = csum + this%satcond(j)
-        end do
-        deps = DEM9 * csum + DPREC
-        if (abs(adiag) < deps) then
-          call matrix_sln%add_value_pos(this%idxdglo(idiag), -deps)
-          rhs(iloc) = rhs(iloc) - deps * hlak
-        end if
-      else if (this%iboundpak(n) < 0) then
-        !
-        ! -- constant-stage lake: hold the lake row at the specified stage and
-        !    add the seepage to the gwf cells as a constant exchange evaluated at
-        !    the fixed stage
-        call matrix_sln%add_value_pos(this%idxdglo(ipos + 1), DONE)
-        rhs(iloc) = hlak
-        do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-          ipos = ipos + 1
-          igwfnode = this%cellid(j)
-          if (this%ibound(igwfnode) < 1) cycle
-          head = this%xnew(igwfnode)
-          call this%lak_calculate_conn_exchange(n, j, hlak, head, flow, &
-                                                gwfhcof, gwfrhs)
-          call matrix_sln%add_value_pos(this%idxsymdglo(ipos), gwfhcof)
-          rhs(igwfnode) = rhs(igwfnode) + gwfrhs
-        end do
-      else
-        !
-        ! -- inactive lake (iboundpak == 0): the lake is absent and exchanges no
-        !    water with the aquifer. Disconnect the lake row (its global ibound
-        !    is 0, so the solver drops the equation) with a unit diagonal and add
-        !    NO seepage to the gwf cells. Only advance ipos to keep the
-        !    connection index aligned. rhs is left at zero so the large
-        !    placeholder value used for an inactive stage is not added to the
-        !    linear system.
-        call matrix_sln%add_value_pos(this%idxdglo(ipos + 1), DONE)
-        rhs(iloc) = DZERO
-        do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-          ipos = ipos + 1
-        end do
-      end if
-    end do
-  end subroutine lak_fc_implicit
-
   !> @brief Fill newton terms
   !<
   subroutine lak_fn(this, rhs, ia, idxglo, matrix_sln)
@@ -4078,6 +3981,15 @@ contains
     real(DP) :: dqoutmax
     real(DP) :: dqfrommvr
     real(DP) :: dqfrommvrmax
+    ! -- switch any stalled IMPLICIT lake to the substitution fallback
+    call this%lak_set_fallback(kiter, icnvgmod)
+    !
+    ! -- on the last outer iteration of a solution that has not converged, warn
+    !    about a perched (disconnected) lake that has no practical steady state.
+    !    Done for both formulations (the implicit path returns just below).
+    if (iend /= 0 .and. icnvgmod == 0) then
+      call this%lak_check_disconnected()
+    end if
     !
     ! -- implicit formulation: lake stage is solved in the global matrix,
     !    so its convergence is governed by the solution's dvclose check on the
@@ -4343,11 +4255,33 @@ contains
     real(DP) :: rrate
     real(DP) :: chratin, chratout
     ! -- for budget
-    integer(I4B) :: j, n
-    real(DP) :: hlak
+    integer(I4B) :: j, n, igwfnode
+    real(DP) :: hlak, head, flow, dqdh
     real(DP) :: v0, v1
     !
     call this%lak_solve(update=.false.)
+    !
+    ! -- for the IMPLICIT formulation, report the lakebed seepage with the same
+    !    smoothed exchange that lak_fc_implicit assembled into the matrix, so the
+    !    lake and gwf-cell budgets match the solved flows. lak_solve above set
+    !    hcof/rhs from the (hard-cutoff) substitution exchange, which is correct
+    !    for a lake on the substitution fallback but not for an implicit lake, so
+    !    overwrite hcof/rhs for the implicit (non-fallback) lakes only.
+    if (this%iimplicit /= 0) then
+      do n = 1, this%nlakes
+        if (this%iboundpak(n) < 1 .or. this%ifallback(n) /= 0) cycle
+        hlak = this%xnewpak(n)
+        do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
+          igwfnode = this%cellid(j)
+          if (this%ibound(igwfnode) < 1) cycle
+          head = this%xnew(igwfnode)
+          call this%lak_calculate_conn_exchange_deriv(n, j, hlak, head, &
+                                                      flow, dqdh=dqdh)
+          this%hcof(j) = -dqdh
+          this%rhs(j) = -dqdh * head + flow
+        end do
+      end do
+    end if
     !
     ! -- call base functionality in bnd_cq.  This will calculate lake-gwf flows
     !    and put them into this%simvals
@@ -4572,6 +4506,7 @@ contains
     deallocate (this%cauxcbc)
     call mem_deallocate(this%qauxcbc)
     call mem_deallocate(this%qleak)
+    call mem_deallocate(this%holdconn)
     call mem_deallocate(this%qsto)
     call mem_deallocate(this%denseterms)
     call mem_deallocate(this%viscratios)
@@ -4642,6 +4577,7 @@ contains
     call mem_deallocate(this%pdmax)
     call mem_deallocate(this%check_attr)
     call mem_deallocate(this%iimplicit)
+    call mem_deallocate(this%iforcefb)
     call mem_deallocate(this%bditems)
     call mem_deallocate(this%cbcauxitems)
     call mem_deallocate(this%idense)
@@ -4663,6 +4599,8 @@ contains
     call mem_deallocate(this%avail)
     call mem_deallocate(this%lkgwsink)
     call mem_deallocate(this%ncncvr)
+    call mem_deallocate(this%ifallback)
+    call mem_deallocate(this%nstuck)
     call mem_deallocate(this%surfin)
     call mem_deallocate(this%surfout)
     call mem_deallocate(this%surfout1)
@@ -5424,55 +5362,38 @@ contains
   end subroutine lak_bound_update
 
   !> @brief Solve for lake stage
+  !!
+  !! Solve the lake stage by substitution. With only_fallback set, solve only
+  !! the lakes flagged for the substitution fallback (this%ifallback /= 0) and
+  !! leave the remaining lakes -- whose stage is solved in the global matrix by
+  !! the IMPLICIT formulation -- untouched. Without it (the default), every
+  !! active lake is solved.
   !<
-  subroutine lak_solve(this, update)
+  subroutine lak_solve(this, update, only_fallback)
     ! -- modules
     use TdisModule, only: delt
     ! -- dummy
     class(LakType), intent(inout) :: this
     logical(LGP), intent(in), optional :: update
+    logical(LGP), intent(in), optional :: only_fallback
     ! -- local
     logical(LGP) :: lupdate
-    integer(I4B) :: i
+    logical(LGP) :: fbonly
     integer(I4B) :: j
     integer(I4B) :: n
     integer(I4B) :: iicnvg
     integer(I4B) :: iter
     integer(I4B) :: maxiter
     integer(I4B) :: ncnv
-    integer(I4B) :: idry
-    integer(I4B) :: idry1
-    integer(I4B) :: igwfnode
-    integer(I4B) :: ibflg
-    integer(I4B) :: idhp
     real(DP) :: hlak
     real(DP) :: hlak0
     real(DP) :: v0
     real(DP) :: v1
-    real(DP) :: head
-    real(DP) :: ra
     real(DP) :: ro
     real(DP) :: qinf
     real(DP) :: ex
-    real(DP) :: ev
     real(DP) :: outinf
-    real(DP) :: qlakgw
-    real(DP) :: qlakgw1
-    real(DP) :: gwfhcof
-    real(DP) :: gwfrhs
     real(DP) :: avail
-    real(DP) :: resid
-    real(DP) :: resid1
-    real(DP) :: residb
-    real(DP) :: wr
-    real(DP) :: derv
-    real(DP) :: dh
-    real(DP) :: adh
-    real(DP) :: adh0
-    real(DP) :: delh
-    real(DP) :: ts
-    real(DP) :: area
-    real(DP) :: qtolfact
     !
     ! -- set lupdate
     if (present(update)) then
@@ -5481,12 +5402,25 @@ contains
       lupdate = .true.
     end if
     !
+    ! -- set fbonly (solve only fallback lakes)
+    if (present(only_fallback)) then
+      fbonly = only_fallback
+    else
+      fbonly = .false.
+    end if
+    !
     ! -- initialize
     avail = DZERO
-    delh = this%delh
     !
     ! -- initialize
     do n = 1, this%nlakes
+      ! -- a lake not being solved on this call (an IMPLICIT lake when only the
+      !    fallback lakes are solved) is treated as already converged and left
+      !    untouched
+      if (fbonly .and. this%ifallback(n) == 0) then
+        this%ncncvr(n) = 1
+        cycle
+      end if
       this%ncncvr(n) = 0
       this%surfin(n) = DZERO
       this%surfout(n) = DZERO
@@ -5570,219 +5504,14 @@ contains
         end do
       end do
       !
-      estseep: do i = 1, 2
-        lakseep: do n = 1, this%nlakes
-          ! -- skip inactive lakes
-          if (this%iboundpak(n) == 0) then
-            cycle lakseep
-          end if
-          ! - set xoldpak to xnewpak if steady-state
-          if (this%gwfiss /= 0) then
-            this%xoldpak(n) = this%xnewpak(n)
-          end if
-          hlak = this%xnewpak(n)
-          calcconnseep: do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-            igwfnode = this%cellid(j)
-            head = this%xnew(igwfnode)
-            if (this%ncncvr(n) /= 2) then
-              if (this%ibound(igwfnode) > 0) then
-                call this%lak_estimate_conn_exchange(i, n, j, idry, hlak, &
-                                                     head, qlakgw, &
-                                                     this%flwiter(n), &
-                                                     gwfhcof, gwfrhs)
-                call this%lak_estimate_conn_exchange(i, n, j, idry1, &
-                                                     hlak + delh, head, qlakgw1, &
-                                                     this%flwiter1(n))
-                !
-                ! -- add to gwf matrix
-                if (ncnv == 0 .and. i == 2) then
-                  if (j == this%maxbound) then
-                    this%ncncvr(n) = 2
-                  end if
-                  if (idry /= 1) then
-                    this%hcof(j) = gwfhcof
-                    this%rhs(j) = gwfrhs
-                  else
-                    this%hcof(j) = DZERO
-                    this%rhs(j) = qlakgw
-                  end if
-                end if
-                if (i == 2) then
-                  this%seep(n) = this%seep(n) + qlakgw
-                  this%seep1(n) = this%seep1(n) + qlakgw1
-                end if
-              end if
-            end if
-            !
-          end do calcconnseep
-        end do lakseep
-      end do estseep
+      do n = 1, this%nlakes
+        if (fbonly .and. this%ifallback(n) == 0) cycle
+        call this%lak_estimate_seepage_single(n, ncnv)
+      end do
       !
       laklevel: do n = 1, this%nlakes
-        ! -- skip inactive lakes
-        if (this%iboundpak(n) == 0) then
-          this%ncncvr(n) = 1
-          cycle laklevel
-        end if
-        ibflg = 0
-        hlak = this%xnewpak(n)
-        if (iter < maxiter) then
-          this%stageiter(n) = this%xnewpak(n)
-        end if
-        call this%lak_calculate_rainfall(n, hlak, ra)
-        this%precip(n) = ra
-        this%flwiter(n) = this%flwiter(n) + ra
-        call this%lak_calculate_rainfall(n, hlak + delh, ra)
-        this%precip1(n) = ra
-        this%flwiter1(n) = this%flwiter1(n) + ra
-        !
-        ! -- limit withdrawals to lake inflows and lake storage
-        call this%lak_calculate_withdrawal(n, this%flwiter(n), wr)
-        this%withr(n) = wr
-        call this%lak_calculate_withdrawal(n, this%flwiter1(n), wr)
-        this%withr1(n) = wr
-        !
-        ! -- limit evaporation to lake inflows and lake storage
-        call this%lak_calculate_evaporation(n, hlak, this%flwiter(n), ev)
-        this%evap(n) = ev
-        call this%lak_calculate_evaporation(n, hlak + delh, this%flwiter1(n), ev)
-        this%evap1(n) = ev
-        !
-        ! -- no outlet flow if evaporation consumes all water
-        call this%lak_calculate_outlet_outflow(n, hlak + delh, &
-                                               this%flwiter1(n), &
-                                               this%surfout1(n))
-        call this%lak_calculate_outlet_outflow(n, hlak, this%flwiter(n), &
-                                               this%surfout(n))
-        !
-        ! -- update the surface inflow values
-        call this%lak_calculate_outlet_inflow(n, this%surfin(n))
-        !
-        !
-        if (ncnv == 1) then
-          if (this%iboundpak(n) > 0 .and. lupdate .eqv. .true.) then
-            !
-            ! -- recalculate flwin
-            hlak0 = this%xoldpak(n)
-            hlak = this%xnewpak(n)
-            call this%lak_calculate_vol(n, hlak0, v0)
-            call this%lak_calculate_vol(n, hlak, v1)
-            call this%lak_calculate_runoff(n, ro)
-            call this%lak_calculate_inflow(n, qinf)
-            call this%lak_calculate_external(n, ex)
-            this%flwin(n) = this%surfin(n) + ro + qinf + ex + &
-                            max(v0, v1) / delt
-            !
-            ! -- compute new lake stage using Newton's method
-            resid = this%precip(n) + this%evap(n) + this%withr(n) + ro + &
-                    qinf + ex + this%surfin(n) + &
-                    this%surfout(n) + this%seep(n)
-            resid1 = this%precip1(n) + this%evap1(n) + this%withr1(n) + ro + &
-                     qinf + ex + this%surfin(n) + &
-                     this%surfout1(n) + this%seep1(n)
-            !
-            ! -- add storage changes for transient stress periods
-            hlak = this%xnewpak(n)
-            if (this%gwfiss /= 1) then
-              call this%lak_calculate_vol(n, hlak, v1)
-              resid = resid + (v0 - v1) / delt
-              call this%lak_calculate_vol(n, hlak + delh, v1)
-              resid1 = resid1 + (v0 - v1) / delt
-            end if
-            !
-            ! -- determine the derivative and the stage change
-            if (ABS(resid1 - resid) > DZERO) then
-              derv = (resid1 - resid) / delh
-              dh = DZERO
-              if (ABS(derv) > DPREC) then
-                dh = resid / derv
-              end if
-            else
-              if (resid < DZERO) then
-                resid = DZERO
-              end if
-              call this%lak_vol2stage(n, resid, dh)
-              dh = hlak - dh
-              this%ncncvr(n) = 1
-            end if
-            !
-            ! -- determine if the updated stage is outside the endpoints
-            ts = hlak - dh
-            if (iter == 1) this%dh0(n) = dh
-            adh = ABS(dh)
-            adh0 = ABS(this%dh0(n))
-            if ((ts >= this%en2(n)) .or. (ts < this%en1(n))) then
-              ! -- use bisection if dh is increasing or updated stage is below the
-              !    bottom of the lake
-              if ((adh > adh0) .or. (ts - this%lakebot(n)) < DPREC) then
-                residb = resid
-                call this%lak_bisection(n, ibflg, hlak, ts, dh, residb)
-              end if
-            end if
-            !
-            ! -- set seep0 on the first lake iteration
-            if (iter == 1) then
-              this%seep0(n) = this%seep(n)
-            end if
-            !
-            ! -- check for slow convergence
-            if (this%seep(n) * this%seep0(n) < DPREC) then
-              this%iseepc(n) = this%iseepc(n) + 1
-            else
-              this%iseepc(n) = 0
-            end if
-            ! -- determine of convergence is slow and oscillating
-            idhp = 0
-            if (dh * this%dh0(n) < DPREC) idhp = 1
-            ! -- determine if stage change is increasing
-            adh = ABS(dh)
-            if (adh > adh0) idhp = 1
-            ! -- increment idhc convergence flag
-            if (idhp == 1) then
-              this%idhc(n) = this%idhc(n) + 1
-            end if
-            !
-            ! -- switch to bisection when the Newton-Raphson method oscillates
-            !    or when convergence is slow
-            if (ibflg == 1) then
-              if (this%iseepc(n) > 7 .or. this%idhc(n) > 12) then
-                call this%lak_bisection(n, ibflg, hlak, ts, dh, residb)
-              end if
-            end if
-          else
-            dh = DZERO
-          end if
-          !
-          ! -- update lake stage
-          hlak = hlak - dh
-          if (hlak < this%lakebot(n)) then
-            hlak = this%lakebot(n)
-          end if
-          !
-          ! -- calculate surface area
-          call this%lak_calculate_sarea(n, hlak, area)
-          !
-          ! -- set the Q to length factor
-          if (area > DZERO) then
-            qtolfact = delt / area
-          else
-            qtolfact = DZERO
-          end if
-          !
-          ! -- recalculate the residual
-          call this%lak_calculate_residual(n, hlak, resid)
-          !
-          ! -- evaluate convergence
-          !if (ABS(dh) < delh) then
-          if (ABS(dh) < delh .and. abs(resid) * qtolfact < this%dmaxchg) then
-            this%ncncvr(n) = 1
-          end if
-          this%xnewpak(n) = hlak
-          !
-          ! -- save iterates for lake
-          this%seep0(n) = this%seep(n)
-          this%dh0(n) = dh
-        end if
+        if (fbonly .and. this%ifallback(n) == 0) cycle laklevel
+        call this%lak_solve_single(n, iter, maxiter, ncnv, lupdate)
       end do laklevel
       !
       if (iicnvg == 1) exit converge
@@ -5798,6 +5527,294 @@ contains
       end do
     end if
   end subroutine lak_solve
+
+  !> @brief Advance one lake stage by a single substitution iteration
+  !!
+  !! Performs one Newton update (with a bisection backup) of lake n's stage in
+  !! the default substitution solver, using the per-iteration seepage estimate
+  !! (this%seep / this%seep1) already computed for the lake. Extracted from
+  !! lak_solve so the same per-lake update can be reused to solve a single lake
+  !! stage on its own -- the per-lake fallback for the IMPLICIT formulation.
+  !<
+  subroutine lak_solve_single(this, n, iter, maxiter, ncnv, lupdate)
+    ! -- modules
+    use TdisModule, only: delt
+    ! -- dummy
+    class(LakType), intent(inout) :: this
+    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: iter
+    integer(I4B), intent(in) :: maxiter
+    integer(I4B), intent(in) :: ncnv
+    logical(LGP), intent(in) :: lupdate
+    ! -- local
+    integer(I4B) :: ibflg
+    integer(I4B) :: idhp
+    real(DP) :: hlak
+    real(DP) :: hlak0
+    real(DP) :: ra
+    real(DP) :: ro
+    real(DP) :: qinf
+    real(DP) :: ex
+    real(DP) :: ev
+    real(DP) :: wr
+    real(DP) :: resid
+    real(DP) :: resid1
+    real(DP) :: residb
+    real(DP) :: derv
+    real(DP) :: dh
+    real(DP) :: ts
+    real(DP) :: adh
+    real(DP) :: adh0
+    real(DP) :: v0
+    real(DP) :: v1
+    real(DP) :: area
+    real(DP) :: qtolfact
+    real(DP) :: delh
+    !
+    delh = this%delh
+    !
+    ! -- skip inactive lakes
+    if (this%iboundpak(n) == 0) then
+      this%ncncvr(n) = 1
+      return
+    end if
+    ibflg = 0
+    hlak = this%xnewpak(n)
+    if (iter < maxiter) then
+      this%stageiter(n) = this%xnewpak(n)
+    end if
+    call this%lak_calculate_rainfall(n, hlak, ra)
+    this%precip(n) = ra
+    this%flwiter(n) = this%flwiter(n) + ra
+    call this%lak_calculate_rainfall(n, hlak + delh, ra)
+    this%precip1(n) = ra
+    this%flwiter1(n) = this%flwiter1(n) + ra
+    !
+    ! -- limit withdrawals to lake inflows and lake storage
+    call this%lak_calculate_withdrawal(n, this%flwiter(n), wr)
+    this%withr(n) = wr
+    call this%lak_calculate_withdrawal(n, this%flwiter1(n), wr)
+    this%withr1(n) = wr
+    !
+    ! -- limit evaporation to lake inflows and lake storage
+    call this%lak_calculate_evaporation(n, hlak, this%flwiter(n), ev)
+    this%evap(n) = ev
+    call this%lak_calculate_evaporation(n, hlak + delh, this%flwiter1(n), ev)
+    this%evap1(n) = ev
+    !
+    ! -- no outlet flow if evaporation consumes all water
+    call this%lak_calculate_outlet_outflow(n, hlak + delh, &
+                                           this%flwiter1(n), &
+                                           this%surfout1(n))
+    call this%lak_calculate_outlet_outflow(n, hlak, this%flwiter(n), &
+                                           this%surfout(n))
+    !
+    ! -- update the surface inflow values
+    call this%lak_calculate_outlet_inflow(n, this%surfin(n))
+    !
+    !
+    if (ncnv == 1) then
+      if (this%iboundpak(n) > 0 .and. lupdate .eqv. .true.) then
+        !
+        ! -- recalculate flwin
+        hlak0 = this%xoldpak(n)
+        hlak = this%xnewpak(n)
+        call this%lak_calculate_vol(n, hlak0, v0)
+        call this%lak_calculate_vol(n, hlak, v1)
+        call this%lak_calculate_runoff(n, ro)
+        call this%lak_calculate_inflow(n, qinf)
+        call this%lak_calculate_external(n, ex)
+        this%flwin(n) = this%surfin(n) + ro + qinf + ex + &
+                        max(v0, v1) / delt
+        !
+        ! -- compute new lake stage using Newton's method
+        resid = this%precip(n) + this%evap(n) + this%withr(n) + ro + &
+                qinf + ex + this%surfin(n) + &
+                this%surfout(n) + this%seep(n)
+        resid1 = this%precip1(n) + this%evap1(n) + this%withr1(n) + ro + &
+                 qinf + ex + this%surfin(n) + &
+                 this%surfout1(n) + this%seep1(n)
+        !
+        ! -- add storage changes for transient stress periods
+        hlak = this%xnewpak(n)
+        if (this%gwfiss /= 1) then
+          call this%lak_calculate_vol(n, hlak, v1)
+          resid = resid + (v0 - v1) / delt
+          call this%lak_calculate_vol(n, hlak + delh, v1)
+          resid1 = resid1 + (v0 - v1) / delt
+        end if
+        !
+        ! -- determine the derivative and the stage change
+        if (ABS(resid1 - resid) > DZERO) then
+          derv = (resid1 - resid) / delh
+          dh = DZERO
+          if (ABS(derv) > DPREC) then
+            dh = resid / derv
+          end if
+        else
+          if (resid < DZERO) then
+            resid = DZERO
+          end if
+          call this%lak_vol2stage(n, resid, dh)
+          dh = hlak - dh
+          this%ncncvr(n) = 1
+        end if
+        !
+        ! -- determine if the updated stage is outside the endpoints
+        ts = hlak - dh
+        if (iter == 1) this%dh0(n) = dh
+        adh = ABS(dh)
+        adh0 = ABS(this%dh0(n))
+        if ((ts >= this%en2(n)) .or. (ts < this%en1(n))) then
+          ! -- use bisection if dh is increasing or updated stage is below the
+          !    bottom of the lake
+          if ((adh > adh0) .or. (ts - this%lakebot(n)) < DPREC) then
+            residb = resid
+            call this%lak_bisection(n, ibflg, hlak, ts, dh, residb)
+          end if
+        end if
+        !
+        ! -- set seep0 on the first lake iteration
+        if (iter == 1) then
+          this%seep0(n) = this%seep(n)
+        end if
+        !
+        ! -- check for slow convergence
+        if (this%seep(n) * this%seep0(n) < DPREC) then
+          this%iseepc(n) = this%iseepc(n) + 1
+        else
+          this%iseepc(n) = 0
+        end if
+        ! -- determine of convergence is slow and oscillating
+        idhp = 0
+        if (dh * this%dh0(n) < DPREC) idhp = 1
+        ! -- determine if stage change is increasing
+        adh = ABS(dh)
+        if (adh > adh0) idhp = 1
+        ! -- increment idhc convergence flag
+        if (idhp == 1) then
+          this%idhc(n) = this%idhc(n) + 1
+        end if
+        !
+        ! -- switch to bisection when the Newton-Raphson method oscillates
+        !    or when convergence is slow
+        if (ibflg == 1) then
+          if (this%iseepc(n) > 7 .or. this%idhc(n) > 12) then
+            call this%lak_bisection(n, ibflg, hlak, ts, dh, residb)
+          end if
+        end if
+      else
+        dh = DZERO
+      end if
+      !
+      ! -- update lake stage
+      hlak = hlak - dh
+      if (hlak < this%lakebot(n)) then
+        hlak = this%lakebot(n)
+      end if
+      !
+      ! -- calculate surface area
+      call this%lak_calculate_sarea(n, hlak, area)
+      !
+      ! -- set the Q to length factor
+      if (area > DZERO) then
+        qtolfact = delt / area
+      else
+        qtolfact = DZERO
+      end if
+      !
+      ! -- recalculate the residual
+      call this%lak_calculate_residual(n, hlak, resid)
+      !
+      ! -- evaluate convergence
+      !if (ABS(dh) < delh) then
+      if (ABS(dh) < delh .and. abs(resid) * qtolfact < this%dmaxchg) then
+        this%ncncvr(n) = 1
+      end if
+      this%xnewpak(n) = hlak
+      !
+      ! -- save iterates for lake
+      this%seep0(n) = this%seep(n)
+      this%dh0(n) = dh
+    end if
+  end subroutine lak_solve_single
+
+  !> @brief Estimate the lakebed seepage for a single lake
+  !!
+  !! Runs the two-pass connection-seepage estimate for lake n at its current
+  !! stage and the perturbed stage, accumulating this%seep(n)/this%seep1(n) and,
+  !! on the final pass when ncnv == 0, the gwf-cell hcof/rhs contributions. Lakes
+  !! do not couple within this estimate (each connection touches only its own
+  !! lake's flwiter), so evaluating both passes per lake is equivalent to the
+  !! all-lakes-per-pass ordering in lak_solve. Extracted from lak_solve so the
+  !! same estimate can drive the single-lake fallback for the IMPLICIT
+  !! formulation.
+  !<
+  subroutine lak_estimate_seepage_single(this, n, ncnv)
+    ! -- dummy
+    class(LakType), intent(inout) :: this
+    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: ncnv
+    ! -- local
+    integer(I4B) :: i
+    integer(I4B) :: j
+    integer(I4B) :: igwfnode
+    integer(I4B) :: idry
+    integer(I4B) :: idry1
+    real(DP) :: hlak
+    real(DP) :: head
+    real(DP) :: qlakgw
+    real(DP) :: qlakgw1
+    real(DP) :: gwfhcof
+    real(DP) :: gwfrhs
+    real(DP) :: delh
+    !
+    delh = this%delh
+    !
+    ! -- skip inactive lakes
+    if (this%iboundpak(n) == 0) return
+    !
+    estseep: do i = 1, 2
+      ! - set xoldpak to xnewpak if steady-state
+      if (this%gwfiss /= 0) then
+        this%xoldpak(n) = this%xnewpak(n)
+      end if
+      hlak = this%xnewpak(n)
+      calcconnseep: do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
+        igwfnode = this%cellid(j)
+        head = this%xnew(igwfnode)
+        if (this%ncncvr(n) /= 2) then
+          if (this%ibound(igwfnode) > 0) then
+            call this%lak_estimate_conn_exchange(i, n, j, idry, hlak, &
+                                                 head, qlakgw, &
+                                                 this%flwiter(n), &
+                                                 gwfhcof, gwfrhs)
+            call this%lak_estimate_conn_exchange(i, n, j, idry1, &
+                                                 hlak + delh, head, qlakgw1, &
+                                                 this%flwiter1(n))
+            !
+            ! -- add to gwf matrix
+            if (ncnv == 0 .and. i == 2) then
+              if (j == this%maxbound) then
+                this%ncncvr(n) = 2
+              end if
+              if (idry /= 1) then
+                this%hcof(j) = gwfhcof
+                this%rhs(j) = gwfrhs
+              else
+                this%hcof(j) = DZERO
+                this%rhs(j) = qlakgw
+              end if
+            end if
+            if (i == 2) then
+              this%seep(n) = this%seep(n) + qlakgw
+              this%seep1(n) = this%seep1(n) + qlakgw1
+            end if
+          end if
+        end if
+      end do calcconnseep
+    end do estseep
+  end subroutine lak_estimate_seepage_single
 
   !> @ brief Lake package bisection method
   !!

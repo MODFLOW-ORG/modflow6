@@ -173,6 +173,7 @@ libnetcdf = "*"
 netcdf-fortran = "*"
 openmpi = "*"
 petsc = "<3.23.0"
+flopy = "*"  # so the get-exes task can run in this environment
 
 [feature.gcc-extended-build.target.linux-64.dependencies]
 gcc = "13.*"
@@ -196,3 +197,4 @@ gcc-extended-build-update = { depends-on = [
     "gcc-extended-build-update-pc-files",
     "gcc-extended-build-test-drive-rebuild",
 ] }
+

@@ -351,6 +351,7 @@
 				</Filter>
 				<Filter Name="GroundWaterFlow">
 					<Filter Name="submodules">
+						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-lak-implicit.f90"/>
 						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-sfr-constant.f90"/>
 						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-sfr-steady.f90"/>
 						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-sfr-transient.f90"/>
