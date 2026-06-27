@@ -373,7 +373,6 @@ def _stage(ws, name):
     return float(sf.get_data().flatten()[0])
 
 
-@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     exe = targets["mf6"]
@@ -414,7 +413,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         assert abs(sl - si) < 1e-3, f"stage mismatch for '{name}': {sl} vs {si}"
 
 
-@pytest.mark.developmode
 def test_perched_disconnected_implicit(function_tmpdir, targets):
     # a steady-state lake completely disconnected from the aquifer (every
     # connection perched). Holding the connected-cell head at the lake bottom
@@ -689,7 +687,6 @@ def _build_lkt(ws, exe):
     return sim, gwfname, gwtname
 
 
-@pytest.mark.developmode
 def test_transport_lkt(function_tmpdir, targets):
     # an active lake coupled to lake transport (LKT). The implicit LAK must feed
     # LKT the same lake-aquifer flows as the legacy solver, so the lake and
@@ -792,7 +789,6 @@ def _build_constant_stage(ws, exe):
     return sim, name
 
 
-@pytest.mark.developmode
 def test_constant_stage_lake(function_tmpdir, targets):
     # a constant-stage lake exercises the implicit constant-stage assembly branch
     # (hold the lake row at the specified stage). The aquifer heads and the held
@@ -903,7 +899,6 @@ def _stages(ws, name):
     return sf.get_data().flatten()
 
 
-@pytest.mark.developmode
 def test_two_lakes_outlet(function_tmpdir, targets):
     # two lakes joined by a lake-to-lake outlet (simoutrate routing). The
     # implicit formulation must converge, route the outlet flow, match the legacy
@@ -1009,7 +1004,6 @@ def _build_multiperiod(ws, exe):
     return sim, name
 
 
-@pytest.mark.developmode
 def test_multiperiod_ss_to_transient(function_tmpdir, targets):
     # the implicit formulation must assemble and converge across multiple stress
     # periods (steady-state then transient), reset its fallback flags each time
@@ -1040,7 +1034,6 @@ def test_multiperiod_ss_to_transient(function_tmpdir, targets):
     assert abs(sl - si) < 1e-3, f"multi-period stage mismatch: {sl} vs {si}"
 
 
-@pytest.mark.developmode
 def test_nonnewton_confined(function_tmpdir, targets):
     # the implicit formulation must assemble and converge under the standard
     # (non-Newton) formulation, not only under NEWTON. With confined cells that
@@ -1070,6 +1063,270 @@ def test_nonnewton_confined(function_tmpdir, targets):
     sl = _stage(str(ws_legacy), mname)
     si = _stage(str(ws_impl), mname)
     assert abs(sl - si) < 1e-3, f"non-Newton stage mismatch: {sl} vs {si}"
+
+
+def _build_lak_mvr(ws, exe):
+    # two lakes where the upper lake's outlet discharges to the water mover
+    # (lakeout = -1) instead of directly to the lower lake, and a MVR package
+    # routes that outlet flow into the lower lake. Exercises the implicit
+    # formulation's mover-provider accumulation (qformvr) for lake outlets, which
+    # the direct lake-to-lake outlet path does not reach.
+    name = "lk"
+    nlay, nrow, ncol = 1, 11, 11
+    delr = delc = 100.0
+    top, botm = 0.0, [-100.0]
+    sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=ws, exe_name=exe)
+    flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)])
+    flopy.mf6.ModflowIms(
+        sim,
+        print_option="SUMMARY",
+        complexity="COMPLEX",
+        outer_dvclose=1e-8,
+        outer_maximum=500,
+        inner_dvclose=1e-10,
+        inner_maximum=200,
+        linear_acceleration="BICGSTAB",
+    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
+    flopy.mf6.ModflowGwfdis(
+        gwf, nlay=nlay, nrow=nrow, ncol=ncol, delr=delr, delc=delc, top=top, botm=botm
+    )
+    flopy.mf6.ModflowGwfic(gwf, strt=2.0)
+    flopy.mf6.ModflowGwfnpf(gwf, icelltype=0, k=10.0)
+    flopy.mf6.ModflowGwfsto(gwf, iconvert=0, steady_state={0: True})
+    chd = [[(0, i, 0), 3.0] for i in range(nrow)] + [
+        [(0, i, ncol - 1), 1.0] for i in range(nrow)
+    ]
+    flopy.mf6.ModflowGwfchd(gwf, stress_period_data=chd)
+    up = [(r, c) for r in range(2, 4) for c in range(4, 7)]
+    lo = [(r, c) for r in range(7, 9) for c in range(4, 7)]
+    conn = []
+    for k, (r, c) in enumerate(up):
+        conn.append([0, k, (0, r, c), "VERTICAL", 1.0e-2, 0.0, 0.0, 0.0, 0.0])
+    for k, (r, c) in enumerate(lo):
+        conn.append([1, k, (0, r, c), "VERTICAL", 1.0, 0.0, 0.0, 0.0, 0.0])
+    pkd = [[0, 3.0, len(up)], [1, 2.0, len(lo)]]
+    # outlet from lake 0 to the mover (lakeout = -1)
+    outlets = [[0, 0, -1, "MANNING", 1.0, 10.0, 0.03, 1.0e-3]]
+    perdata = [
+        [0, "INFLOW", 50.0],
+        [0, "EVAPORATION", 0.0],
+        [1, "RAINFALL", 1.0e-3],
+        [1, "EVAPORATION", 0.0],
+    ]
+    flopy.mf6.ModflowGwflak(
+        gwf,
+        mover=True,
+        print_stage=True,
+        stage_filerecord=f"{name}.lak.stage.bin",
+        nlakes=2,
+        noutlets=1,
+        packagedata=pkd,
+        connectiondata=conn,
+        outlets=outlets,
+        perioddata=perdata,
+        pname="LAK-1",
+        surfdep=0.5,
+    )
+    # route the lake-0 outlet (outlet index 0) into lake 1 via the mover
+    flopy.mf6.ModflowGwfmvr(
+        gwf,
+        maxmvr=1,
+        maxpackages=1,
+        packages=[("LAK-1",)],
+        perioddata=[("LAK-1", 0, "LAK-1", 1, "FACTOR", 1.0)],
+        pname="MVR-1",
+    )
+    flopy.mf6.ModflowGwfoc(
+        gwf, head_filerecord=f"{name}.hds", saverecord=[("HEAD", "LAST")]
+    )
+    return sim, name
+
+
+def test_lake_outlet_mover(function_tmpdir, targets):
+    # a lake outlet routed through the water mover (MVR). The implicit
+    # formulation's mover-provider accumulation must match the legacy solver on
+    # the lake stages and heads, with the budget closing. The legacy comparison
+    # is made only when the legacy solver also converges.
+    exe = targets["mf6"]
+    ws_legacy = function_tmpdir / "legacy"
+    ws_impl = function_tmpdir / "implicit"
+    ws_legacy.mkdir()
+    ws_impl.mkdir()
+
+    sim_l, mname = _build_lak_mvr(str(ws_legacy), exe)
+    sim_l.write_simulation(silent=True)
+    sim_i, _ = _build_lak_mvr(str(ws_impl), exe)
+    sim_i.write_simulation(silent=True)
+    _enable_implicit(str(ws_impl / f"{mname}.lak"))
+
+    ok_l = _run(sim_l)
+    assert _run(sim_i), "IMPLICIT failed to converge for the lake-mover model"
+    _assert_budget_closes(str(ws_impl), mname)
+    # the upper lake must spill into the mover (stage above the outlet invert)
+    si = _stages(str(ws_impl), mname)
+    assert si[0] > 1.0, f"upper lake did not spill to the mover: {si[0]}"
+
+    if ok_l:
+        sl = _stages(str(ws_legacy), mname)
+        assert np.allclose(sl, si, atol=1e-3), f"mover stage mismatch: {sl} vs {si}"
+        hl = _heads(str(ws_legacy), mname)
+        hi = _heads(str(ws_impl), mname)
+        assert float(np.nanmax(np.abs(hl - hi))) < 1e-3, "mover head mismatch"
+
+
+def _build_withdraw(ws, exe):
+    # a transient table lake emptied by a specified WITHDRAWAL (area-independent)
+    # rather than by evaporation, with the aquifer held below the lake bottom so
+    # the lake drains. As the lake approaches its bottom the implicit formulation
+    # ramps the withdrawal toward zero (the surfdep factor), so this exercises the
+    # withdrawal branch of the implicit budget reporting and its closure.
+    name = "lk"
+    nlay, nrow, ncol = 1, 15, 15
+    delr = delc = 100.0
+    top, botm = 50.0, [-50.0]
+    sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=ws, exe_name=exe)
+    flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(2000.0, 20, 1.0)])
+    flopy.mf6.ModflowIms(
+        sim,
+        print_option="SUMMARY",
+        complexity="COMPLEX",
+        outer_dvclose=1e-7,
+        outer_maximum=500,
+        inner_dvclose=1e-9,
+        inner_maximum=200,
+        linear_acceleration="BICGSTAB",
+    )
+    gwf = flopy.mf6.ModflowGwf(
+        sim, modelname=name, newtonoptions="NEWTON UNDER_RELAXATION"
+    )
+    flopy.mf6.ModflowGwfdis(
+        gwf, nlay=nlay, nrow=nrow, ncol=ncol, delr=delr, delc=delc, top=top, botm=botm
+    )
+    flopy.mf6.ModflowGwfic(gwf, strt=22.0)
+    flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=5.0)
+    flopy.mf6.ModflowGwfsto(gwf, iconvert=1, ss=1e-5, sy=0.2, transient={0: True})
+    chd = [[(0, i, 0), 16.0] for i in range(nrow)] + [
+        [(0, i, ncol - 1), 14.0] for i in range(nrow)
+    ]
+    flopy.mf6.ModflowGwfchd(gwf, stress_period_data=chd)
+    conn = [[0, 0, (0, 7, 7), "embeddedv", 10.0, 0.0, 0.0, 1.0, 0.0]]
+    pkd = [[0, 30.0, 1]]
+    # small rainfall in, a steady withdrawal that exceeds it -> the lake drains
+    perdata = [
+        [0, "RAINFALL", 1.0e-4],
+        [0, "EVAPORATION", 0.0],
+        [0, "WITHDRAWAL", 10.0],
+    ]
+    lak_tab = [
+        [20.0, 0.0, 0.0, 0.0],
+        [22.0, 4.0e3, 4.0e3, 4.0e3],
+        [24.0, 1.2e4, 6.0e3, 6.0e3],
+        [26.0, 2.4e4, 8.0e3, 8.0e3],
+        [30.0, 5.6e4, 1.0e4, 1.0e4],
+        [40.0, 1.56e5, 1.0e4, 1.0e4],
+    ]
+    lak = flopy.mf6.ModflowGwflak(
+        gwf,
+        print_stage=True,
+        stage_filerecord=f"{name}.lak.stage.bin",
+        nlakes=1,
+        noutlets=0,
+        packagedata=pkd,
+        connectiondata=conn,
+        perioddata=perdata,
+        ntables=1,
+        tables=[0, f"{name}.laktab"],
+        surfdep=0.5,
+    )
+    flopy.mf6.ModflowUtllaktab(
+        gwf,
+        nrow=len(lak_tab),
+        ncol=4,
+        table=lak_tab,
+        filename=f"{name}.laktab",
+        pname="laktab",
+        parent_file=lak,
+    )
+    flopy.mf6.ModflowGwfoc(
+        gwf, head_filerecord=f"{name}.hds", saverecord=[("HEAD", "LAST")]
+    )
+    return sim, name
+
+
+def test_withdrawal_dries(function_tmpdir, targets):
+    # a lake emptied by a WITHDRAWAL must converge under the implicit formulation
+    # and close its budget -- the withdrawal term is ramped near the lake bottom
+    # the same way the matrix assembles it. Only the implicit run and its budget
+    # are checked (the legacy solver is not required to converge this aggressively
+    # drained case).
+    exe = targets["mf6"]
+    ws_impl = function_tmpdir / "implicit"
+    ws_impl.mkdir()
+
+    sim_i, mname = _build_withdraw(str(ws_impl), exe)
+    sim_i.write_simulation(silent=True)
+    _enable_implicit(str(ws_impl / f"{mname}.lak"))
+
+    assert _run(sim_i), "IMPLICIT failed to converge for the withdrawal case"
+    _assert_budget_closes(str(ws_impl), mname)
+    # the lake should be drawn down well below its initial stage (30) toward the
+    # lake bottom (20), exercising the near-bottom withdrawal ramp
+    assert _stage(str(ws_impl), mname) < 24.0, "lake was not drawn down"
+
+
+def test_requires_bicgstab(function_tmpdir, targets):
+    # the IMPLICIT formulation makes the coefficient matrix asymmetric, so the
+    # symmetric CG linear acceleration must be rejected with a clear error
+    # rather than silently producing a wrong or non-converged result.
+    exe = targets["mf6"]
+    ws = function_tmpdir / "cg"
+    ws.mkdir()
+    sim, mname = _build_confined(str(ws), exe)
+    sim.write_simulation(silent=True)
+    _enable_implicit(str(ws / f"{mname}.lak"))
+    # downgrade the linear acceleration to CG (incompatible with IMPLICIT);
+    # flopy writes the keyword value in lower case, so replace case-insensitively
+    ims = next(ws.glob("*.ims"))
+    ims.write_text(re.sub("bicgstab", "cg", ims.read_text(), flags=re.IGNORECASE))
+
+    success, _ = sim.run_simulation(silent=True)
+    assert not success, "IMPLICIT with CG should fail (asymmetric matrix)"
+    msg = (ws / "mfsim.lst").read_text().upper()
+    assert "ASYMMETRIC" in msg and "BICGSTAB" in msg, (
+        "expected an asymmetric-matrix / use-BICGSTAB error"
+    )
+
+
+@pytest.mark.developmode
+def test_two_lakes_outlet_fallback(function_tmpdir, targets):
+    # the two-lake outlet model with every lake forced onto the substitution
+    # fallback (DEV_FORCE_FALLBACK). The fallback path handles the lake-to-lake
+    # outlet routing (it zeroes and recomputes simoutrate before assembling the
+    # fallback lakes), so it must reproduce the legacy result exactly.
+    exe = targets["mf6"]
+    ws_legacy = function_tmpdir / "legacy"
+    ws_fb = function_tmpdir / "fallback"
+    ws_legacy.mkdir()
+    ws_fb.mkdir()
+
+    sim_l, mname = _build_twolake(str(ws_legacy), exe)
+    sim_l.write_simulation(silent=True)
+    sim_f, _ = _build_twolake(str(ws_fb), exe)
+    sim_f.write_simulation(silent=True)
+    _enable_implicit(str(ws_fb / f"{mname}.lak"), force_fallback=True)
+
+    assert _run(sim_l), "legacy solver failed for the two-lake outlet model"
+    assert _run(sim_f), "forced fallback failed for the two-lake outlet model"
+
+    _assert_budget_closes(str(ws_fb), mname)
+
+    sl = _stages(str(ws_legacy), mname)
+    sf = _stages(str(ws_fb), mname)
+    assert np.allclose(sl, sf, atol=1e-6), f"fallback stage mismatch: {sl} vs {sf}"
+    hl = _heads(str(ws_legacy), mname)
+    hf = _heads(str(ws_fb), mname)
+    assert float(np.nanmax(np.abs(hl - hf))) < 1e-6, "fallback head mismatch"
 
 
 @pytest.mark.developmode

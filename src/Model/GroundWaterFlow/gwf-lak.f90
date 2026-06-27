@@ -70,12 +70,10 @@ module LakModule
     real(DP), pointer :: outdmax => NULL()
     integer(I4B), pointer :: igwhcopt => NULL()
     integer(I4B), pointer :: iconvchk => NULL()
-    integer(I4B), pointer :: iconvresidchk => NULL()
     integer(I4B), pointer :: maxlakit => NULL() !< maximum number of iterations in LAK solve
     real(DP), pointer :: surfdep => NULL()
     real(DP), pointer :: dmaxchg => NULL()
     real(DP), pointer :: delh => NULL()
-    real(DP), pointer :: pdmax => NULL()
     integer(I4B), pointer :: check_attr => NULL()
     ! -- implicit formulation: solve the lake stage as an unknown in the
     !    groundwater flow matrix instead of by the legacy substitution iteration
@@ -408,12 +406,10 @@ contains
     call mem_allocate(this%outdmax, 'OUTDMAX', this%memoryPath)
     call mem_allocate(this%igwhcopt, 'IGWHCOPT', this%memoryPath)
     call mem_allocate(this%iconvchk, 'ICONVCHK', this%memoryPath)
-    call mem_allocate(this%iconvresidchk, 'ICONVRESIDCHK', this%memoryPath)
     call mem_allocate(this%maxlakit, 'MAXLAKIT', this%memoryPath)
     call mem_allocate(this%surfdep, 'SURFDEP', this%memoryPath)
     call mem_allocate(this%dmaxchg, 'DMAXCHG', this%memoryPath)
     call mem_allocate(this%delh, 'DELH', this%memoryPath)
-    call mem_allocate(this%pdmax, 'PDMAX', this%memoryPath)
     call mem_allocate(this%check_attr, 'CHECK_ATTR', this%memoryPath)
     call mem_allocate(this%iimplicit, 'IIMPLICIT', this%memoryPath)
     call mem_allocate(this%iforcefb, 'IFORCEFB', this%memoryPath)
@@ -435,12 +431,10 @@ contains
     this%outdmax = DZERO
     this%igwhcopt = 0
     this%iconvchk = 1
-    this%iconvresidchk = 1
     this%maxlakit = MAXADPIT
     this%surfdep = DZERO
     this%dmaxchg = DEM5
     this%delh = DP999 * this%dmaxchg
-    this%pdmax = DEM1
     this%iimplicit = 0
     this%iforcefb = 0
     this%bditems = 11
@@ -3414,20 +3408,6 @@ contains
       write (this%iout, '(4x,a)') &
         'A FINAL CONVERGENCE CHECK OF THE CHANGE IN LAKE STAGES &
         &WILL NOT BE MADE'
-    case ('DEV_NO_FINAL_RESIDUAL_CHECK')
-      call this%parser%DevOpt()
-      this%iconvresidchk = 0
-      write (this%iout, '(4x,a)') &
-        'A FINAL CONVERGENCE CHECK OF THE CHANGE IN LAKE RESIDUALS &
-        &WILL NOT BE MADE'
-    case ('DEV_MAXIMUM_PERCENT_DIFFERENCE')
-      call this%parser%DevOpt()
-      r = this%parser%GetDouble()
-      if (r < DZERO) then
-        r = DEM1
-      end if
-      this%pdmax = r
-      write (this%iout, fmtlakeopt) 'MAXIMUM_PERCENT_DIFFERENCE', this%pdmax
     case default
       !
       ! -- No options found
@@ -4588,12 +4568,10 @@ contains
     call mem_deallocate(this%outdmax)
     call mem_deallocate(this%igwhcopt)
     call mem_deallocate(this%iconvchk)
-    call mem_deallocate(this%iconvresidchk)
     call mem_deallocate(this%maxlakit)
     call mem_deallocate(this%surfdep)
     call mem_deallocate(this%dmaxchg)
     call mem_deallocate(this%delh)
-    call mem_deallocate(this%pdmax)
     call mem_deallocate(this%check_attr)
     call mem_deallocate(this%iimplicit)
     call mem_deallocate(this%iforcefb)
