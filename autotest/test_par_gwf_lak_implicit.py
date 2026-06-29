@@ -18,8 +18,8 @@ The split simulation is run two ways: once on two processes (the main run) and
 once serially (the "mf6" comparison run). The test framework compares their
 heads automatically (compare="mf6"), and the check function additionally
 compares their cell budgets. A lake is a single dependent variable that lives
-entirely on one process, so it is never split across domains -- this test confirms 
-that the implicit lake formulation (which makes the coefficient matrix asymmetric 
+entirely on one process, so it is never split across domains -- this test confirms
+that the implicit lake formulation (which makes the coefficient matrix asymmetric
 and requires BiCGSTAB) is assembled and solved correctly by the parallel (PETSc)
 solver, giving the same result as the serial run.
 
