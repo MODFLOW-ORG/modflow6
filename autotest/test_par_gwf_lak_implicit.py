@@ -215,6 +215,15 @@ def _build_base(ws, exe):
     return sim
 
 
+def _lak_package(model):
+    # return the model's LAK package by type rather than by the splitter's
+    # generated package name (which is an implementation detail of Mf6Splitter)
+    for pkg in model.packagelist:
+        if pkg.package_type.lower() == "lak":
+            return pkg
+    raise KeyError(f"no LAK package found in model {model.name}")
+
+
 def _split_with_movers(ws, exe, hpc):
     # build the base model, split it at y ~ 10000 ft, add the intra-domain
     # lake<->stream movers the splitter cannot remap, enable IMPLICIT on the
@@ -262,7 +271,7 @@ def _split_with_movers(ws, exe, hpc):
     )
 
     # enable the IMPLICIT formulation on the northern lake
-    split.get_model(north).get_package("lak-1").implicit = True
+    _lak_package(split.get_model(north)).implicit = True
 
     if hpc:
         partitions = [(m, i) for i, m in enumerate(split.model_names)]
@@ -311,6 +320,8 @@ def test_mf6model(function_tmpdir, targets):
         check=check_output,
         compare="mf6",
         parallel=True,
+        # build_models returns two simulations: index 0 is the split model run in
+        # parallel on 2 ranks, index 1 is the "mf6" comparison run serially on 1
         ncpus=[2, 1],
     )
     test.run()

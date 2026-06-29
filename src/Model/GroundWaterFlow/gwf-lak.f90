@@ -148,7 +148,7 @@ module LakModule
     real(DP), dimension(:), pointer, contiguous :: qgwf0 => null()
     ! -- groundwater flow matrix bookkeeping for the implicit formulation
     integer(I4B), dimension(:), pointer, contiguous :: idxlocnode => null() !< local index of each lake row in x/rhs
-    integer(I4B), dimension(:), pointer, contiguous :: idxdglo => null() !< position of lake-row diagonal (per connection)
+    integer(I4B), dimension(:), pointer, contiguous :: idxdiag => null() !< position of lake-row diagonal (per lake)
     integer(I4B), dimension(:), pointer, contiguous :: idxoffdglo => null() !< position of lake-row -> gwf column (per connection)
     integer(I4B), dimension(:), pointer, contiguous :: idxsymdglo => null() !< position of gwf-row diagonal (per connection)
     integer(I4B), dimension(:), pointer, contiguous :: idxsymoffdglo => null() !< position of gwf-row -> lake column (per connection)
@@ -495,10 +495,16 @@ contains
     do i = 1, this%maxbound
       this%qleak(i) = DZERO
     end do
-    call mem_allocate(this%holdconn, this%maxbound, 'HOLDCONN', this%memoryPath)
-    do i = 1, this%maxbound
-      this%holdconn(i) = DZERO
-    end do
+    ! -- holdconn is only used by the implicit fallback detector; allocate it at
+    !    size 0 otherwise so legacy LAK runs do not pay the maxbound memory cost
+    if (this%iimplicit /= 0) then
+      call mem_allocate(this%holdconn, this%maxbound, 'HOLDCONN', this%memoryPath)
+      do i = 1, this%maxbound
+        this%holdconn(i) = DZERO
+      end do
+    else
+      call mem_allocate(this%holdconn, 0, 'HOLDCONN', this%memoryPath)
+    end if
     call mem_allocate(this%qsto, this%nlakes, 'QSTO', this%memoryPath)
     do i = 1, this%nlakes
       this%qsto(i) = DZERO
@@ -676,6 +682,16 @@ contains
         !
         if (ival < 0) then
           write (errmsg, '(a,1x,i0)') 'nlakeconn MUST BE >= 0 for lake ', n
+          call store_error(errmsg)
+        end if
+        !
+        ! -- the IMPLICIT formulation solves the lake stage as a matrix unknown,
+        !    which requires at least one groundwater connection to give the lake
+        !    row a non-zero diagonal; a lake with no connections is not supported
+        if (this%iimplicit /= 0 .and. ival == 0) then
+          write (errmsg, '(a,1x,i0,1x,a)') &
+            'lake', n, 'has no connections; the IMPLICIT option requires &
+            &each lake to have at least one GWF connection.'
           call store_error(errmsg)
         end if
         !
@@ -4630,7 +4646,7 @@ contains
     !
     ! -- implicit-formulation matrix-mapping arrays
     call mem_deallocate(this%idxlocnode)
-    call mem_deallocate(this%idxdglo)
+    call mem_deallocate(this%idxdiag)
     call mem_deallocate(this%idxoffdglo)
     call mem_deallocate(this%idxsymdglo)
     call mem_deallocate(this%idxsymoffdglo)
@@ -4786,11 +4802,20 @@ contains
     integer(I4B) :: jglo
     integer(I4B) :: ipos
     !
-    ! -- allocate connection-mapping vectors (sized in both modes so da is
-    !    symmetric; only populated for the implicit formulation)
+    ! -- the connection-mapping vectors are only used by the implicit
+    !    formulation; allocate them at size 0 otherwise so legacy LAK runs do not
+    !    pay the maxbound memory cost (lak_da stays symmetric either way)
+    if (this%iimplicit == 0) then
+      call mem_allocate(this%idxlocnode, 0, 'IDXLOCNODE', this%memoryPath)
+      call mem_allocate(this%idxdiag, 0, 'IDXDIAG', this%memoryPath)
+      call mem_allocate(this%idxoffdglo, 0, 'IDXOFFDGLO', this%memoryPath)
+      call mem_allocate(this%idxsymdglo, 0, 'IDXSYMDGLO', this%memoryPath)
+      call mem_allocate(this%idxsymoffdglo, 0, 'IDXSYMOFFDGLO', this%memoryPath)
+      return
+    end if
     call mem_allocate(this%idxlocnode, this%nlakes, 'IDXLOCNODE', &
                       this%memoryPath)
-    call mem_allocate(this%idxdglo, this%maxbound, 'IDXDGLO', this%memoryPath)
+    call mem_allocate(this%idxdiag, this%nlakes, 'IDXDIAG', this%memoryPath)
     call mem_allocate(this%idxoffdglo, this%maxbound, 'IDXOFFDGLO', &
                       this%memoryPath)
     call mem_allocate(this%idxsymdglo, this%maxbound, 'IDXSYMDGLO', &
@@ -4798,16 +4823,16 @@ contains
     call mem_allocate(this%idxsymoffdglo, this%maxbound, 'IDXSYMOFFDGLO', &
                       this%memoryPath)
     !
-    if (this%iimplicit == 0) return
-    !
-    ! -- lake rows: diagonal and lake->cell off-diagonals
+    ! -- lake rows: a per-lake diagonal position and the per-connection
+    !    lake->cell off-diagonals. The diagonal is stored per lake (idxdiag) so a
+    !    lake with no connections still has a valid diagonal position.
     ipos = 1
     do n = 1, this%nlakes
       iglo = moffset + this%dis%nodes + this%ioffset + n
       this%idxlocnode(n) = this%dis%nodes + this%ioffset + n
+      this%idxdiag(n) = matrix_sln%get_position_diag(iglo)
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
         jglo = this%cellid(j) + moffset
-        this%idxdglo(ipos) = matrix_sln%get_position_diag(iglo)
         this%idxoffdglo(ipos) = matrix_sln%get_position(iglo, jglo)
         ipos = ipos + 1
       end do

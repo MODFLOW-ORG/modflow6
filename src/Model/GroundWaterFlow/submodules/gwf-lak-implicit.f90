@@ -82,7 +82,7 @@ contains
   !<
   module procedure lak_fc_implicit
   ! -- local
-  integer(I4B) :: n, j, ipos, iloc, igwfnode, idiag
+  integer(I4B) :: n, j, ipos, iloc, igwfnode
   logical(LGP) :: lfallback
   real(DP) :: hlak, head, flow, gwfhcof, gwfrhs
   real(DP) :: b0, b1, dbds, avail, sout, csum, deps, adiag
@@ -142,7 +142,7 @@ contains
       !    lake row at that stage (unit diagonal) and add the resulting
       !    lake-aquifer exchange (this%hcof/this%rhs, exactly as the legacy
       !    formulation does) to the connected gwf cells.
-      call matrix_sln%add_value_pos(this%idxdglo(ipos + 1), DONE)
+      call matrix_sln%add_value_pos(this%idxdiag(n), DONE)
       rhs(iloc) = hlak
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
         ipos = ipos + 1
@@ -156,11 +156,10 @@ contains
       ! -- active lake: linearize the non-seepage budget B(stage) about the
       !    current stage with a finite difference. dB/dstage goes on the
       !    lake-row diagonal and (dB/dstage*stage - B) goes on the rhs.
-      idiag = ipos + 1
       call this%lak_budget_nogwf(n, hlak, b0)
       call this%lak_budget_nogwf(n, hlak + this%delh, b1)
       dbds = (b1 - b0) / this%delh
-      call matrix_sln%add_value_pos(this%idxdglo(idiag), dbds)
+      call matrix_sln%add_value_pos(this%idxdiag(n), dbds)
       rhs(iloc) = rhs(iloc) + dbds * hlak - b0
       adiag = dbds
       !
@@ -179,7 +178,7 @@ contains
         !    perched leakage still responds to stage.
         call this%lak_calculate_conn_exchange_deriv(n, j, hlak, head, flow, &
                                                     dqds, dqdh)
-        call matrix_sln%add_value_pos(this%idxdglo(ipos), dqds)
+        call matrix_sln%add_value_pos(this%idxdiag(n), dqds)
         call matrix_sln%add_value_pos(this%idxoffdglo(ipos), dqdh)
         call matrix_sln%add_value_pos(this%idxsymdglo(ipos), -dqdh)
         call matrix_sln%add_value_pos(this%idxsymoffdglo(ipos), -dqds)
@@ -198,7 +197,7 @@ contains
       end do
       deps = DEM9 * csum + DPREC
       if (abs(adiag) < deps) then
-        call matrix_sln%add_value_pos(this%idxdglo(idiag), -deps)
+        call matrix_sln%add_value_pos(this%idxdiag(n), -deps)
         rhs(iloc) = rhs(iloc) - deps * hlak
       end if
     else if (this%iboundpak(n) < 0) then
@@ -206,7 +205,7 @@ contains
       ! -- constant-stage lake: hold the lake row at the specified stage and
       !    add the seepage to the gwf cells as a constant exchange evaluated at
       !    the fixed stage
-      call matrix_sln%add_value_pos(this%idxdglo(ipos + 1), DONE)
+      call matrix_sln%add_value_pos(this%idxdiag(n), DONE)
       rhs(iloc) = hlak
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
         ipos = ipos + 1
@@ -227,7 +226,7 @@ contains
       !    connection index aligned. rhs is left at zero so the large
       !    placeholder value used for an inactive stage is not added to the
       !    linear system.
-      call matrix_sln%add_value_pos(this%idxdglo(ipos + 1), DONE)
+      call matrix_sln%add_value_pos(this%idxdiag(n), DONE)
       rhs(iloc) = DZERO
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
         ipos = ipos + 1
@@ -259,8 +258,8 @@ contains
   real(DP) :: dstage, dhead
   ! -- a lake is treated as the convergence bottleneck when its stage change
   !    exceeds headratio times the largest change in its connected aquifer
-  !    heads; nstuckmax such consecutive outer iterations switch it to the
-  !    fallback. A well-connected lake converges in lockstep with its aquifer
+  !    heads; more than nstuckmax such consecutive outer iterations switch it to
+  !    the fallback. A well-connected lake converges in lockstep with its aquifer
   !    (ratio near one) and is never switched; a weakly connected or disconnected
   !    lake keeps thrashing while its connected heads settle (ratio grows without
   !    bound), so it is switched early -- before the heads commit to the stalled
@@ -271,13 +270,18 @@ contains
   if (this%iimplicit == 0) return
   !
   ! -- at the start of a time step, snapshot the connected heads and reset the
-  !    bottleneck counts
+  !    bottleneck counts. Only snapshot active cells; an inactive cell holds a
+  !    placeholder head that would otherwise distort the head-change comparison
+  !    if the cell later becomes active.
   if (kiter == 1) then
     do n = 1, this%nlakes
       this%ifallback(n) = 0
       this%nstuck(n) = 0
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-        this%holdconn(j) = this%xnew(this%cellid(j))
+        igwfnode = this%cellid(j)
+        if (this%ibound(igwfnode) >= 1) then
+          this%holdconn(j) = this%xnew(igwfnode)
+        end if
       end do
     end do
     return
@@ -296,8 +300,8 @@ contains
       igwfnode = this%cellid(j)
       if (this%ibound(igwfnode) >= 1) then
         dhead = max(dhead, abs(this%xnew(igwfnode) - this%holdconn(j)))
+        this%holdconn(j) = this%xnew(igwfnode)
       end if
-      this%holdconn(j) = this%xnew(igwfnode)
     end do
     if (this%ifallback(n) /= 0) cycle
     !
