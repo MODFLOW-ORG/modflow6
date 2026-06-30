@@ -50,7 +50,7 @@ module GwfGhbgInputModule
     '', & ! shape
     'use array-based grid input', & ! longname
     .true., & ! required
-    .true., & ! developmode
+    .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
     .false., & ! layered

@@ -15,9 +15,9 @@ module OlfFlwInputModule
     logical :: auxiliary = .false.
     logical :: auxmultname = .false.
     logical :: boundnames = .false.
-    logical :: print_input = .false.
-    logical :: print_flows = .false.
-    logical :: save_flows = .false.
+    logical :: iprpak = .false.
+    logical :: iprflow = .false.
+    logical :: ipakcb = .false.
     logical :: ts_filerecord = .false.
     logical :: ts6 = .false.
     logical :: filein = .false.
@@ -28,7 +28,7 @@ module OlfFlwInputModule
     logical :: maxbound = .false.
     logical :: cellid = .false.
     logical :: q = .false.
-    logical :: aux = .false.
+    logical :: auxvar = .false.
     logical :: boundname = .false.
   end type OlfFlwParamFoundType
 
@@ -98,13 +98,13 @@ module OlfFlwInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    olfflw_print_input = InputParamDefinitionType &
+    olfflw_iprpak = InputParamDefinitionType &
     ( &
     'OLF', & ! component
     'FLW', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_INPUT', & ! tag name
-    'PRINT_INPUT', & ! fortran variable
+    'IPRPAK', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'print input to listing file', & ! longname
@@ -117,13 +117,13 @@ module OlfFlwInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    olfflw_print_flows = InputParamDefinitionType &
+    olfflw_iprflow = InputParamDefinitionType &
     ( &
     'OLF', & ! component
     'FLW', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_FLOWS', & ! tag name
-    'PRINT_FLOWS', & ! fortran variable
+    'IPRFLOW', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'print calculated flows to listing file', & ! longname
@@ -136,13 +136,13 @@ module OlfFlwInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    olfflw_save_flows = InputParamDefinitionType &
+    olfflw_ipakcb = InputParamDefinitionType &
     ( &
     'OLF', & ! component
     'FLW', & ! subcomponent
     'OPTIONS', & ! block
     'SAVE_FLOWS', & ! tag name
-    'SAVE_FLOWS', & ! fortran variable
+    'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'save well flows to budget file', & ! longname
@@ -345,13 +345,13 @@ module OlfFlwInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    olfflw_aux = InputParamDefinitionType &
+    olfflw_auxvar = InputParamDefinitionType &
     ( &
     'OLF', & ! component
     'FLW', & ! subcomponent
     'PERIOD', & ! block
     'AUX', & ! tag name
-    'AUX', & ! fortran variable
+    'AUXVAR', & ! fortran variable
     'DOUBLE1D', & ! type
     'NAUX', & ! shape
     'auxiliary variables', & ! longname
@@ -388,9 +388,9 @@ module OlfFlwInputModule
     olfflw_auxiliary, &
     olfflw_auxmultname, &
     olfflw_boundnames, &
-    olfflw_print_input, &
-    olfflw_print_flows, &
-    olfflw_save_flows, &
+    olfflw_iprpak, &
+    olfflw_iprflow, &
+    olfflw_ipakcb, &
     olfflw_ts_filerecord, &
     olfflw_ts6, &
     olfflw_filein, &
@@ -401,7 +401,7 @@ module OlfFlwInputModule
     olfflw_maxbound, &
     olfflw_cellid, &
     olfflw_q, &
-    olfflw_aux, &
+    olfflw_auxvar, &
     olfflw_boundname &
     ]
 

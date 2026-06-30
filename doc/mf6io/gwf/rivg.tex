@@ -1,0 +1,57 @@
+Input to the River (RIV) Package is read from the file that has type ``RIV6'' in the Name File.  Any number of RIV Packages can be specified for a single groundwater flow model.
+
+River input can be specified using lists or grid arrays.  Grid array-based input for the RIV package is activated by providing READARRAYGRID within the OPTIONS block.  Instructions for specifying list-based river input is described in the previous section.
+
+When grid array-based input is used for the river package, the DIMENSIONS block is optional.  The input array size is determined from the model grid.  Cells that define no data should contain the DNODATA (3.0E+30) value.  When defined, the MAXBOUND dimension represents the maximum number of defined river (non-DNODATA) cells found in any stress period.  Defining MAXBOUND can reduce the memory footprint of the grid array-based RIV package, especially when the input grid arrays are sparse and the model grid is large.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-rivg-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-rivg-dimensions.dat}
+\vspace{5mm}
+\noindent \textit{FOR ANY STRESS PERIOD}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-rivg-period.dat}
+\packageperioddescriptiongridarray{river}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/gwf-rivg-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-rivg-example.dat}
+
+\vspace{5mm}
+\subsubsection{Available observation types}
+River Package observations include the simulated river flow rates (\texttt{riv}) and the river discharge that is available for the MVR package (\texttt{to-mvr}). The data required for each RIV Package observation type is defined in table~\ref{table:gwf-rivobstype}. The sum of \texttt{riv} and \texttt{to-mvr} is equal to the simulated river flow rate. Negative and positive values for an observation represent a loss from and gain to the GWF model, respectively.
+
+\begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
+\caption{Available RIV Package observation types} \tabularnewline
+
+\hline
+\hline
+\textbf{Stress Package} & \textbf{Observation type} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+\hline
+\endfirsthead
+
+\hline
+\hline
+\textbf{Stress Package} & \textbf{Observation type} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+\hline
+\endhead
+
+\hline
+\endfoot
+
+\input{../Common/gwf-rivobs.tex}
+\label{table:gwf-rivobstype}
+\end{longtable}
+
+\vspace{5mm}
+\subsubsection{Example Observation Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-rivg-example-obs.dat}

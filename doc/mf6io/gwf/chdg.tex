@@ -1,0 +1,57 @@
+
+Input to the Constant-Head (CHD) Package is read from the file that has type ``CHD6'' in the Name File.  Any number of CHD Packages can be specified for a single groundwater flow model; however, an error will occur if a CHD Package attempts to make a GWF cell a constant-head cell when that cell has already been designated as a constant-head cell either within the present CHD Package or within another CHD Package.
+
+Constant-Head Boundary input can be specified using lists or grid arrays.  Grid array-based input for the CHD package is activated by providing READARRAYGRID within the OPTIONS block.  Instructions for specifying list-based constant-head boundaries is described in the previous section.
+
+When grid array-based input is used for constant-head boundaries, the DIMENSIONS block is optional.  The input array size is determined from the model grid.  Cells that define no data should contain the DNODATA (3.0E+30) value.  When defined, the MAXBOUND dimension represents the maximum number of defined constant-head boundary (non-DNODATA) cells found in any stress period.  Defining MAXBOUND can reduce the memory footprint of the grid array-based CHD package, especially when the input grid arrays are sparse and the model grid is large.
+
+In previous MODFLOW versions, it was not possible to convert a constant-head cell to an active cell.  Once a cell was designated as a constant-head cell, it remained a constant-head cell until the end of the end of the simulation.  In \mf a constant-head cell will become active again if it is not included as a constant-head cell in subsequent stress periods.
+
+Previous MODFLOW versions allowed specification of SHEAD and EHEAD, which were the starting and ending prescribed heads for a stress period.  Linear interpolation was used to calculate a value for each time step.  In \mf only a single head value can be specified for any constant-head cell in any stress period.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-chdg-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-chdg-dimensions.dat}
+\vspace{5mm}
+\noindent \textit{FOR ANY STRESS PERIOD}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-chdg-period.dat}
+\packageperioddescriptiongridarray{constant-head}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/gwf-chdg-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-chdg-example.dat}
+
+\vspace{5mm}
+\subsubsection{Available observation types}
+CHD Package observations are limited to the simulated constant head flow rate (\texttt{chd}). The data required for the CHD Package observation type is defined in table~\ref{table:gwf-chdobstype}. Negative and positive values for an observation represent a loss from and gain to the GWF model, respectively.
+
+\begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
+\caption{Available CHD Package observation types} \tabularnewline
+
+\hline
+\hline
+\textbf{Model} & \textbf{Observation type} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+\hline
+\endhead
+
+\hline
+\endfoot
+
+\input{../Common/gwf-chdobs.tex}
+\label{table:gwf-chdobstype}
+\end{longtable}
+
+\vspace{5mm}
+\subsubsection{Example Observation Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-chdg-example-obs.dat}
+

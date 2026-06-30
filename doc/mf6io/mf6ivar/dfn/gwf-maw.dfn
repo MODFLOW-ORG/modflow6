@@ -179,6 +179,14 @@ longname activate flow correction
 description keyword that activates flow corrections in cases where the head in a multi-aquifer well is below the bottom of the screen for a connection or the head in a convertible cell connected to a multi-aquifer well is below the cell bottom. When flow corrections are activated, unit head gradients are used to calculate the flow between a multi-aquifer well and a connected GWF cell. By default, flow corrections are not made.
 
 block options
+name non_vertical_wells
+type keyword
+reader urword
+optional true
+longname activate non-vertical well connections
+description keyword that activates support for non-vertical (slanted) multi-aquifer well connections.  When this option is specified, an ANGLEDATA block can be used to assign a tilt angle (deviation from vertical) to individual multi-aquifer well connections.  The saturated conductance for a connection listed in the ANGLEDATA block is scaled by the in-cell screen length, which is calculated from the screen top, screen bottom, and tilt angle (or specified directly), instead of the vertical screen thickness.  By default, all multi-aquifer well connections are assumed to be vertical.  The tilt angle and connection length scale the conductance for a single connection only and do not route flow through intervening cells; a well that passes through more than one cell (a slanted well or a horizontal lateral) must have a separate connection to each cell that it penetrates.  For a connection that uses the SPECIFIED conductance equation, the saturated conductance is used unchanged (the length correction is not applied because the conductance is provided by the user), but the screen top and bottom are honored so that the connection saturation is calculated over the correct interval rather than over the full cell.
+
+block options
 name flowing_wells
 type keyword
 reader urword
@@ -506,6 +514,61 @@ in_record true
 reader urword
 longname skin radius
 description real value that defines the skin radius (filter pack radius) for the multi-aquifer well. RADIUS\_SKIN can be any value if CONDEQN is SPECIFIED or THIEM. If CONDEQN is SKIN, CUMULATIVE, or MEAN, the program will terminate with an error if  RADIUS\_SKIN is less than or equal to the RADIUS for the multi-aquifer well.
+
+
+# --------------------- gwf maw angledata ---------------------
+
+block angledata
+name angledata
+type recarray ifno icon angle conn_length
+reader urword
+optional true
+longname
+description
+
+block angledata
+name ifno
+type integer
+shape
+tagged false
+in_record true
+reader urword
+longname well number for this entry
+description integer value that defines the feature (well) number associated with the specified ANGLEDATA data on the line. IFNO must be greater than zero and less than or equal to NMAWWELLS.  This block can only be specified if the NON\_VERTICAL\_WELLS option is specified in the OPTIONS block. Multi-aquifer well connections that are not listed in the ANGLEDATA block are assumed to be vertical.  The program will terminate with an error if connection information for a multi-aquifer well connection is specified more than once.
+numeric_index true
+
+block angledata
+name icon
+type integer
+shape
+tagged false
+in_record true
+reader urword
+longname connection number
+description integer value that defines the GWF connection number for this multi-aquifer well connection entry. ICON must be greater than zero and less than or equal to NGWFNODES for multi-aquifer well IFNO.
+numeric_index true
+
+block angledata
+name angle
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname tilt angle from vertical
+description value that defines the tilt angle of the multi-aquifer well connection, in degrees measured as a deviation from vertical.  ANGLE must be greater than or equal to 0.0 (a vertical connection) and less than or equal to 90.0 (a horizontal connection) degrees.  The in-cell screen length used to calculate the saturated conductance is computed from the screen top, screen bottom, well radius, and ANGLE, unless CONN\_LENGTH is specified.
+numeric_index false
+
+block angledata
+name conn_length
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+optional true
+longname in-cell screen length
+description optional value that defines the length of the multi-aquifer well screen within the connected GWF cell.  If CONN\_LENGTH is specified (and greater than zero), it is used directly as the in-cell screen length; otherwise, the in-cell screen length is calculated from the screen top, screen bottom, well radius, and ANGLE.  CONN\_LENGTH must be specified for horizontal connections (ANGLE equal to 90.0 degrees) because the in-cell screen length cannot be derived from the screen elevations for a horizontal connection.  The MEAN conductance equation is recommended for horizontal connections.  For a horizontal connection using the MEAN conductance equation, SCRN\_TOP and SCRN\_BOT do not affect the magnitude of the saturated conductance but do determine the elevation range over which the connection saturates and dewaters; SCRN\_TOP and SCRN\_BOT should be set to the top and bottom of the horizontal borehole so that the vertical screen extent (SCRN\_TOP $-$ SCRN\_BOT) equals the well diameter (2 times RADIUS).  The program snaps SCRN\_TOP to SCRN\_BOT plus the well diameter when the specified extent is essentially equal to the well diameter, and otherwise issues a warning.
 
 
 # --------------------- gwf maw period ---------------------
