@@ -20,6 +20,9 @@ runs:
       shell: bash
       run: |
         brew install netcdf-fortran libevent
+        if brew list --formula gcc &>/dev/null; then
+          brew unlink gcc
+        fi
         nc-config --all
         nf-config --all
 
