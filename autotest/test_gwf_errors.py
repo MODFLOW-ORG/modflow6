@@ -10,6 +10,7 @@ import flopy
 import numpy as np
 import pytest
 from flopy.utils.gridutil import get_disu_kwargs
+from framework import DNODATA
 
 
 def run_mf6(argv, ws):
@@ -101,7 +102,10 @@ def get_minimal_gwf_simulation(
         disu = flopy.mf6.ModflowGwfdisu(gwf, **disukwargs)
     ic = flopy.mf6.ModflowGwfic(gwf, **ickwargs)
     npf = flopy.mf6.ModflowGwfnpf(gwf, **npfkwargs)
-    chd = flopy.mf6.modflow.mfgwfchd.ModflowGwfchd(gwf, **chdkwargs)
+    if "readarraygrid" in chdkwargs:
+        chd = flopy.mf6.modflow.mfgwfchdg.ModflowGwfchdg(gwf, **chdkwargs)
+    else:
+        chd = flopy.mf6.modflow.mfgwfchd.ModflowGwfchd(gwf, **chdkwargs)
     return sim
 
 
@@ -162,6 +166,27 @@ def test_sim_errors(function_tmpdir, targets):
         sim = get_minimal_gwf_simulation(
             str(function_tmpdir), exe=mf6, chdkwargs=chdkwargs
         )
+        sim.write_simulation()
+        err_str = ["1. Cell is already a constant head ((1,1,1))."]
+        run_mf6_error(str(function_tmpdir), mf6, err_str)
+
+
+def test_sim_errors_grid(function_tmpdir, targets):
+    mf6 = targets["mf6"]
+
+    with pytest.raises(RuntimeError):
+        # verify that the correct number of errors are reported
+        chdkwargs = {}
+        head = np.full((5, 5, 5), DNODATA, dtype=float)
+        for i in range(5):
+            head[0, i, 0] = 2.0
+        chdkwargs["readarraygrid"] = True
+        chdkwargs["head"] = head
+        sim = get_minimal_gwf_simulation(
+            str(function_tmpdir), exe=mf6, chdkwargs=chdkwargs
+        )
+        test_model = sim.get_model("test")
+        chd2 = flopy.mf6.modflow.mfgwfchdg.ModflowGwfchdg(test_model, **chdkwargs)
         sim.write_simulation()
         err_str = ["1. Cell is already a constant head ((1,1,1))."]
         run_mf6_error(str(function_tmpdir), mf6, err_str)

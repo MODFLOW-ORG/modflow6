@@ -1,5 +1,6 @@
 # --------------------- gwt mwt options ---------------------
 # flopy multi-package
+# package-type advanced-stress-package
 
 block options
 name flow_package_name

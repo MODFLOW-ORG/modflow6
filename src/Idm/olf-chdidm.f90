@@ -15,9 +15,9 @@ module OlfChdInputModule
     logical :: auxiliary = .false.
     logical :: auxmultname = .false.
     logical :: boundnames = .false.
-    logical :: print_input = .false.
-    logical :: print_flows = .false.
-    logical :: save_flows = .false.
+    logical :: iprpak = .false.
+    logical :: iprflow = .false.
+    logical :: ipakcb = .false.
     logical :: ts_filerecord = .false.
     logical :: ts6 = .false.
     logical :: filein = .false.
@@ -28,7 +28,7 @@ module OlfChdInputModule
     logical :: maxbound = .false.
     logical :: cellid = .false.
     logical :: head = .false.
-    logical :: aux = .false.
+    logical :: auxvar = .false.
     logical :: boundname = .false.
   end type OlfChdParamFoundType
 
@@ -98,13 +98,13 @@ module OlfChdInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    olfchd_print_input = InputParamDefinitionType &
+    olfchd_iprpak = InputParamDefinitionType &
     ( &
     'OLF', & ! component
     'CHD', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_INPUT', & ! tag name
-    'PRINT_INPUT', & ! fortran variable
+    'IPRPAK', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'print input to listing file', & ! longname
@@ -117,13 +117,13 @@ module OlfChdInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    olfchd_print_flows = InputParamDefinitionType &
+    olfchd_iprflow = InputParamDefinitionType &
     ( &
     'OLF', & ! component
     'CHD', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_FLOWS', & ! tag name
-    'PRINT_FLOWS', & ! fortran variable
+    'IPRFLOW', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'print CHD flows to listing file', & ! longname
@@ -136,13 +136,13 @@ module OlfChdInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    olfchd_save_flows = InputParamDefinitionType &
+    olfchd_ipakcb = InputParamDefinitionType &
     ( &
     'OLF', & ! component
     'CHD', & ! subcomponent
     'OPTIONS', & ! block
     'SAVE_FLOWS', & ! tag name
-    'SAVE_FLOWS', & ! fortran variable
+    'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'save CHD flows to budget file', & ! longname
@@ -345,13 +345,13 @@ module OlfChdInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    olfchd_aux = InputParamDefinitionType &
+    olfchd_auxvar = InputParamDefinitionType &
     ( &
     'OLF', & ! component
     'CHD', & ! subcomponent
     'PERIOD', & ! block
     'AUX', & ! tag name
-    'AUX', & ! fortran variable
+    'AUXVAR', & ! fortran variable
     'DOUBLE1D', & ! type
     'NAUX', & ! shape
     'auxiliary variables', & ! longname
@@ -388,9 +388,9 @@ module OlfChdInputModule
     olfchd_auxiliary, &
     olfchd_auxmultname, &
     olfchd_boundnames, &
-    olfchd_print_input, &
-    olfchd_print_flows, &
-    olfchd_save_flows, &
+    olfchd_iprpak, &
+    olfchd_iprflow, &
+    olfchd_ipakcb, &
     olfchd_ts_filerecord, &
     olfchd_ts6, &
     olfchd_filein, &
@@ -401,7 +401,7 @@ module OlfChdInputModule
     olfchd_maxbound, &
     olfchd_cellid, &
     olfchd_head, &
-    olfchd_aux, &
+    olfchd_auxvar, &
     olfchd_boundname &
     ]
 
