@@ -1,0 +1,3 @@
+section = "features"
+subsection = "stress"
+description = "Grid array-based input (READARRAYGRID) is now available for the CHD, WEL, DRN, RIV, and GHB stress packages.  Grid array-based input allows stress package data to be specified as full-grid arrays using the DNODATA value (3.0E+30) to identify inactive cells.  Auxiliary variable arrays persist across stress periods if not re-specified, and CONSTANT array input is supported for any array after the first in a period block."

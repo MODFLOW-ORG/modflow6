@@ -140,7 +140,7 @@ def build_notes_tex(force: bool = False, patch: bool = False):
 
     build_deprecations_tex(force=force)
 
-    toml_path = RELEASE_NOTES_PATH / "develop.toml"
+    toml_path = RELEASE_NOTES_PATH / "schema.toml"
     tex_path = RELEASE_NOTES_PATH / "develop.tex"
     if tex_path.is_file() and not force:
         print(f"{tex_path} already exists.")

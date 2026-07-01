@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "netcdf"
+description = "Fix an indexing issue in structured NetCDF export where READASARRAYS packages (RCHA, EVTA) with time-varying per-period arrays would crash with a NetCDF edge-exceeds-bound error when writing any stress period after the first."

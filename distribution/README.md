@@ -141,9 +141,9 @@ Before proceeding with a release, check for deprecated DFN variables due for rem
 
 ### Review release notes
 
-Double-check release notes in `doc/ReleaseNotes/develop.toml` with the authors of any changes to be included in the release.
+Double-check release notes in `doc/ReleaseNotes/changes/` with the authors of any changes to be included in the release. Each file in that directory is one release note item.
 
-For hotfix releases, `develop.toml` must be trimmed manually on the release branch. For patch releases made from `develop`, release notes are automatically filtered to include only fixes.
+For hotfix releases, fragment files for features not included in the hotfix must be removed manually on the release branch. For patch releases made from `develop`, release notes are automatically filtered to include only fixes.
 
 **Note**: For all releases, add a line to the Release History section of `ReleaseNotes.tex` providing the version number, date and DOI of the release, e.g. `6.4.4 & February 13, 2024 & \url{https://doi.org/10.5066/P9FL1JCC}`. DOIs are updated with minor releases and remain the same for patch releases.
 
@@ -209,7 +209,7 @@ This will substitute the new version number into the necessary files and set `ID
 
 #### Update release notes
 
-Generate a `develop.tex` file from `develop.toml`:
+Generate a `develop.tex` file from the release note fragments:
 
 ```shell
 pixi run make-release-notes
@@ -217,7 +217,7 @@ pixi run make-release-notes
 
 Move/rename it to `doc/ReleaseNotes/previous/vx.y.z.tex` (where `x.y.z` is the version just released), then insert a new line `\input{./previous/vx.y.z.tex}` at the top of `doc/ReleaseNotes/appendixA.tex`.
 
-If this was not a hotfix, trim `doc/ReleaseNotes/develop.toml` as necessary to remove items just released.
+Delete all fragment files in `doc/ReleaseNotes/changes/` that were included in the release. The `.gitkeep` file should remain so the directory is tracked by git.
 
 Create and merge (don't squash) a pull request from this branch into `develop`.
 

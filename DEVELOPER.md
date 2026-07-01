@@ -957,8 +957,8 @@ This process can be repeated periodically to stay in sync with the develop branc
 
 To deprecate a MODFLOW 6 input/output option in a DFN file:
 
-- Add a new `deprecated x.y.z` attribute to the appropriate variable in the package DFN file, where `x.y.z` is the version the deprecation is introduced. Mention the deprecation prominently in the release notes.
-- If support for the deprecated option is removed (typically after at least 2 minor or major releases or 1 year), add a new `removed x.y.z` attribute to the variable in the DFN file, where `x.y.z` is the version in which support for the option was removed. The line containing `deprecated x.y.z` should not be deleted. Mention the removal prominently in the release notes.
+- Add a new `deprecated x.y.z` attribute to the appropriate variable in the package DFN file, where `x.y.z` is the version the deprecation is introduced. Mention the deprecation prominently in the release notes by adding a fragment to `doc/ReleaseNotes/changes/`.
+- If support for the deprecated option is removed (typically after at least 2 minor or major releases or 1 year), add a new `removed x.y.z` attribute to the variable in the DFN file, where `x.y.z` is the version in which support for the option was removed. The line containing `deprecated x.y.z` should not be deleted. Mention the removal prominently in the release notes by adding a fragment to `doc/ReleaseNotes/changes/`.
 - Deprecated/removed attributes are not removed from DFN files but remain in perpetuity. The `doc/mf6io/mf6ivar/deprecations.py` script generates a markdown deprecation table which is converted to LaTeX by `doc/ReleaseNotes/mk_deprecations.py` for inclusion in the MODFLOW 6 release notes. Deprecations and removals should still be mentioned separately in the release notes, however.
 
 ### Finding deprecations

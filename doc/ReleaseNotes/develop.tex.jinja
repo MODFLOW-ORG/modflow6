@@ -1,9 +1,12 @@
-([ for section_key, section_items in items|groupby("section") ])
-\subsection{(( sections[section_key].title() ))}
-([ for subsection_key, subsection_items in section_items|groupby("subsection") ])
-([ set subsection = subsections[subsection_key] ])
-([ if subsection|length > 0 ])
-\subsubsection{(( subsection.title() ))}
+([ for section_key, section_name in sections.items() ])
+([ set section_items = items|selectattr("section", "equalto", section_key)|list ])
+([ if section_items ])
+\subsection{(( section_name.title() ))}
+([ for subsection_key, subsection_name in subsections.items() ])
+([ set subsection_items = section_items|selectattr("subsection", "equalto", subsection_key)|list ])
+([ if subsection_items ])
+([ if subsection_name|length > 0 ])
+\subsubsection{(( subsection_name.title() ))}
 ([ endif ])
 
 \begin{itemize}
@@ -11,5 +14,7 @@
 \item (( item.description ))
 ([ endfor ])
 \end{itemize}
+([ endif ])
 ([ endfor ])
+([ endif ])
 ([ endfor ])

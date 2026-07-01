@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "basic"
+description = "The BMI interface's get\\_grid\\_model\\_type function worked only for numerical model types such as GWF, GWT, and GWE, but would crash for PRT models. Fix the function's implementation to work with all model types."

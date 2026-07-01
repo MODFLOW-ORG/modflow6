@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "basic"
+description = "Stop with an informative error if a discretization package is missing after loading the model input file's PACKAGES block."

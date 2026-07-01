@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "exchanges"
+description = "When a MVR connection was included as part of an exchange between two models, it was possible to list a model name in the PACKAGES block of the MVR input file that is not one of the two models included in the exchange.  A check was added that reports an error message stating that a model name listed in the exchange MVR input file is not one of the two models connected by the exchange."

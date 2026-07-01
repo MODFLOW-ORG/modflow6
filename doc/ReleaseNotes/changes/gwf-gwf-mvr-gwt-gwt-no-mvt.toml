@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "exchanges"
+description = "Avoids an unhandled and unnecessary exception in cases where a GWF-GWF exchange is configured with a MVR package, but the corresponding GWT-GWT exchange does not have a MVT package enabled."

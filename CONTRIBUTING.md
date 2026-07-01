@@ -66,11 +66,17 @@ To submit a pull request (PR):
 
 1. To avoid duplicating effort, [search](https://github.com/MODFLOW-ORG/modflow6/pulls) for an open or closed PR that relates to your submission.
 2. Fork the MODFLOW-ORG/modflow6 repo and make your changes in a new branch, following our style and commit message guidelines and [including appropriate test cases](./DEVELOPER.md#writing-tests).
-3. [Check the spelling and formatting](./DEVELOPER.md#formatting) of any modified or new Fortran source files, python files definition files, markdown, and LaTeX files.
-4. [Rebuild makefiles](./DEVELOPER.md#generating-makefiles) and update MSVS project files if you added, removed, or renamed any source files.
-5. [Run the full test suite](./DEVELOPER.md#running-tests) and make sure all tests pass.
-6. Push your branch to GitHub and create a pull request to the `develop` branch.
-7. If we suggest changes:
+3. For user-facing changes (new features, bug fixes, behavior changes), add a release note fragment to `doc/ReleaseNotes/changes/`. Name the file with a short descriptive slug, e.g. `wel-auto-flow-reduce-auxname.toml`. Each fragment is a TOML file with three keys:
+   ```toml
+   section = "features"       # or "fixes" or "examples"
+   subsection = "stress"      # see [subsections] in doc/ReleaseNotes/schema.toml for valid values
+   description = "Description of the change..."
+   ```
+4. [Check the spelling and formatting](./DEVELOPER.md#formatting) of any modified or new Fortran source files, python files definition files, markdown, and LaTeX files.
+5. [Rebuild makefiles](./DEVELOPER.md#generating-makefiles) and update MSVS project files if you added, removed, or renamed any source files.
+6. [Run the full test suite](./DEVELOPER.md#running-tests) and make sure all tests pass.
+7. Push your branch to GitHub and create a pull request to the `develop` branch.
+8. If we suggest changes:
   a. make the required updates
   b. make sure tests still pass
   c. rebase your branch if needed

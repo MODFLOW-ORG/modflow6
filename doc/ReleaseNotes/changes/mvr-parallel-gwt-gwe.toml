@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "parallel"
+description = "Mover (MVR) Package connections across two or more models running in parallel were previously supported for flow but not for solute or energy transport.  GWT-GWT or GWE-GWE exchanges that also include MVT or MVE connections, respectively, is now supported for simulations run in parallel mode."
