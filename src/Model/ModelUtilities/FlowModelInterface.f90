@@ -300,7 +300,6 @@ contains
       ! already if the binary grid file was provided to FMI. otherwise don't
       ! initialize the cell type array to any default; unless it is received
       ! from GWF NPF by an EXG it's undefined as indicated by igwfceltyp = 0
-      ! (this is because some coupled models need cell type, but some don't)
       if (this%igwfceltyp == 0) &
         call mem_allocate(this%gwfceltyp, nodes, 'GWFCELTYP', this%memoryPath)
       !
@@ -444,8 +443,6 @@ contains
     integer(I4B) :: user_nodes
     integer(I4B), allocatable :: idomain1d(:), idomain2d(:, :), idomain3d(:, :, :)
     ! -- formats
-    character(len=*), parameter :: fmticterr = &
-      &"('Error in ',a,': Binary grid file does not contain ICELLTYPE.')"
     character(len=*), parameter :: fmtdiserr = &
       "('Error in ',a,': Models do not have the same discretization. &
       &GWF model has ', i0, ' user nodes, this model has ', i0, '. &
@@ -458,14 +455,12 @@ contains
     call this%gfr%initialize(this%iugrb)
 
     ! load icelltype array
-    if (.not. this%gfr%has_variable("ICELLTYPE")) then
-      write (errmsg, fmticterr) trim(this%text)
-      call store_error(errmsg, terminate=.TRUE.)
+    if (this%gfr%has_variable("ICELLTYPE")) then
+      this%igwfceltyp = 1
+      call mem_allocate(this%gwfceltyp, this%dis%nodesuser, &
+                        'GWFCELTYP', this%memoryPath)
+      call this%gfr%read_int_1d_into("ICELLTYPE", this%gwfceltyp)
     end if
-    this%igwfceltyp = 1
-    call mem_allocate(this%gwfceltyp, this%dis%nodesuser, &
-                      'GWFCELTYP', this%memoryPath)
-    call this%gfr%read_int_1d_into("ICELLTYPE", this%gwfceltyp)
 
     ! check grid equivalence
     select case (this%gfr%grid_type)

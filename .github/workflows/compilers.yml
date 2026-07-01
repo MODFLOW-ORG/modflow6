@@ -60,18 +60,18 @@ jobs:
         shell: bash
     steps:
       - name: Checkout modflow6
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: modflow6
 
       - name: Checkout test models
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: MODFLOW-ORG/modflow6-testmodels
           path: modflow6-testmodels
 
       - name: Checkout modflow6-examples
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
@@ -83,7 +83,7 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.6
+        uses: prefix-dev/setup-pixi@v0.10.0
         with:
           pixi-version: v0.70.1
           manifest-path: "modflow6/pixi.toml"
@@ -239,7 +239,7 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6

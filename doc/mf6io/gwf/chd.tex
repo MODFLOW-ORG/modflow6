@@ -1,6 +1,8 @@
 
 Input to the Constant-Head (CHD) Package is read from the file that has type ``CHD6'' in the Name File.  Any number of CHD Packages can be specified for a single groundwater flow model; however, an error will occur if a CHD Package attempts to make a GWF cell a constant-head cell when that cell has already been designated as a constant-head cell either within the present CHD Package or within another CHD Package.
 
+Constant-Head input can be specified using lists or arrays.  List-based input for the CHD package is the default, and is described here.  Instructions for specifying array-based CHD input are described in the next section.
+
 In previous MODFLOW versions, it was not possible to convert a constant-head cell to an active cell.  Once a cell was designated as a constant-head cell, it remained a constant-head cell until the end of the end of the simulation.  In \mf a constant-head cell will become active again if it is not included as a constant-head cell in subsequent stress periods.
 
 Previous MODFLOW versions allowed specification of SHEAD and EHEAD, which were the starting and ending prescribed heads for a stress period.  Linear interpolation was used to calculate a value for each time step.  In \mf only a single head value can be specified for any constant-head cell in any stress period.  The time-series functionality must be used in order to interpolate values to individual time steps.  

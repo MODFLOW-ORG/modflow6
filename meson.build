@@ -55,6 +55,13 @@ if fc_id == 'gcc'
     compile_args += '-D__linux__'
   elif system == 'darwin'
     compile_args += '-D__APPLE__'
+    # gfortran on macOS has a bug at optimization > 1 that produces incorrect
+    # PRT results; cap to -O1 unless the user already chose a lower level.
+    opt = get_option('optimization')
+    if opt == '2' or opt == '3' or opt == 's'
+      warning('macOS gfortran: capping optimization to -O1 to avoid a compiler bug affecting PRT results')
+      compile_args += '-O1'
+    endif
   elif system == 'windows'
     compile_args += '-D_WIN32'
   endif

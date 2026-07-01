@@ -238,18 +238,19 @@ contains
   subroutine get_grid_type_model(model_name, grid_type_f)
     ! -- modules
     use ListsModule, only: basemodellist
-    use NumericalModelModule, only: NumericalModelType, GetNumericalModelFromList
+    use BaseModelModule, only: BaseModelType, GetBaseModelFromList
     ! -- dummy variables
     character(len=LENMODELNAME) :: model_name
     character(len=LENGRIDTYPE) :: grid_type_f
     ! -- local variables
     integer(I4B) :: i
-    class(NumericalModelType), pointer :: numericalModel
+    class(BaseModelType), pointer :: baseModel
 
     do i = 1, basemodellist%Count()
-      numericalModel => GetNumericalModelFromList(basemodellist, i)
-      if (numericalModel%name == model_name) then
-        call numericalModel%dis%get_dis_type(grid_type_f)
+      baseModel => GetBaseModelFromList(basemodellist, i)
+      if (baseModel%name == model_name) then
+        call baseModel%dis%get_dis_type(grid_type_f)
+        return
       end if
     end do
   end subroutine get_grid_type_model

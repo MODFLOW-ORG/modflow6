@@ -129,11 +129,12 @@ module BaseSolutionModule
       class(BaseSolutionType) :: this
     end subroutine prepareSolve
 
-    subroutine solve(this, kiter)
+    subroutine solve(this, kiter, isuppress_output)
       use KindModule, only: I4B
       import BaseSolutionType
       class(BaseSolutionType) :: this
       integer(I4B), intent(in) :: kiter
+      integer(I4B), intent(in) :: isuppress_output
     end subroutine solve
 
     subroutine finalizeSolve(this, kiter, isgcnvg, isuppress_output)

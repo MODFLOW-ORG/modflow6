@@ -1,0 +1,52 @@
+Input to the Drain (DRN) Package is read from the file that has type ``DRN6'' in the Name File.  Any number of DRN Packages can be specified for a single groundwater flow model.
+
+Drain input can be specified using lists or grid arrays.  Grid array-based input for the DRN package is activated by providing READARRAYGRID within the OPTIONS block.  Instructions for specifying list-based drain input is described in the previous section.
+
+When grid array-based input is used for the drain package, the DIMENSIONS block is optional.  The input array size is determined from the model grid.  Cells that define no data should contain the DNODATA (3.0E+30) value.  When defined, the MAXBOUND dimension represents the maximum number of defined drain (non-DNODATA) cells found in any stress period.  Defining MAXBOUND can reduce the memory footprint of the grid array-based DRN package, especially when the input grid arrays are sparse and the model grid is large.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-drng-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-drng-dimensions.dat}
+\vspace{5mm}
+\noindent \textit{FOR ANY STRESS PERIOD}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-drng-period.dat}
+\packageperioddescriptiongridarray{drain}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/gwf-drng-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-drng-example.dat}
+
+\vspace{5mm}
+\subsubsection{Available observation types}
+Drain Package observations include the simulated drain rates (\texttt{drn}) and the drain discharge that is available for the MVR package (\texttt{to-mvr}). The data required for each DRN Package observation type is defined in table~\ref{table:gwf-drnobstype}. The sum of \texttt{drn} and \texttt{to-mvr} is equal to the simulated drain discharge rate for a drain boundary or group of drain boundaries.
+
+\begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
+\caption{Available DRN Package observation types} \tabularnewline
+
+\hline
+\hline
+\textbf{Model} & \textbf{Observation type} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+\hline
+\endhead
+
+\hline
+\endfoot
+
+DRN & drn & cellid or boundname & -- & Flow between the groundwater system and a drain boundary or group of drain boundaries. \\
+DRN & to-mvr & cellid or boundname & -- & Drain boundary discharge that is available for the MVR package for a drain boundary or a group of drain boundaries.
+\label{table:gwf-drnobstype}
+\end{longtable}
+
+\vspace{5mm}
+\subsubsection{Example Observation Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-drng-example-obs.dat}

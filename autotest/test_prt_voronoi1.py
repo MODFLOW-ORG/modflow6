@@ -159,7 +159,7 @@ def build_gwf_sim(name, ws, targets):
     }
 
 
-def build_prt_sim(idx, name, gwf_ws, prt_ws, targets, cell_ids):
+def build_prt_sim(idx, name, gwf_ws, prt_ws, targets, cell_ids, scratch_buffer=False):
     prt_ws = Path(prt_ws)
     gwf_name = get_model_name(name, "gwf")
     prt_name = get_model_name(name, "prt")
@@ -224,6 +224,7 @@ def build_prt_sim(idx, name, gwf_ws, prt_ws, targets, cell_ids):
         track_usertime=times[idx],
         ntracktimes=len(tracktimes) if times[idx] else None,
         tracktimes=[(t,) for t in tracktimes] if times[idx] else None,
+        scratch_buffer=scratch_buffer,
     )
     gwf_budget_file = gwf_ws / f"{gwf_name}.bud"
     gwf_head_file = gwf_ws / f"{gwf_name}.hds"
@@ -235,10 +236,16 @@ def build_prt_sim(idx, name, gwf_ws, prt_ws, targets, cell_ids):
     return sim
 
 
-def build_models(idx, test):
+def build_models(idx, test, scratch_buffer=False):
     gwf_sim, cell_ids = build_gwf_sim(test.name, test.workspace, test.targets)
     prt_sim = build_prt_sim(
-        idx, test.name, test.workspace, test.workspace / "prt", test.targets, cell_ids
+        idx,
+        test.name,
+        test.workspace,
+        test.workspace / "prt",
+        test.targets,
+        cell_ids,
+        scratch_buffer,
     )
     return gwf_sim, prt_sim
 
@@ -357,11 +364,12 @@ def check_output(idx, test):
 @requires_pkg("syrupy")
 @pytest.mark.slow
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets, benchmark, plot):
+@pytest.mark.parametrize("scratch_buffer", [False, True], ids=["inmem", "scratch"])
+def test_mf6model(scratch_buffer, idx, name, function_tmpdir, targets, benchmark, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
-        build=lambda t: build_models(idx, t),
+        build=lambda t: build_models(idx, t, scratch_buffer),
         check=lambda t: check_output(idx, t),
         plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,

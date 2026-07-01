@@ -15,9 +15,9 @@ module ChfFlwInputModule
     logical :: auxiliary = .false.
     logical :: auxmultname = .false.
     logical :: boundnames = .false.
-    logical :: print_input = .false.
-    logical :: print_flows = .false.
-    logical :: save_flows = .false.
+    logical :: iprpak = .false.
+    logical :: iprflow = .false.
+    logical :: ipakcb = .false.
     logical :: ts_filerecord = .false.
     logical :: ts6 = .false.
     logical :: filein = .false.
@@ -28,7 +28,7 @@ module ChfFlwInputModule
     logical :: maxbound = .false.
     logical :: cellid = .false.
     logical :: q = .false.
-    logical :: aux = .false.
+    logical :: auxvar = .false.
     logical :: boundname = .false.
   end type ChfFlwParamFoundType
 
@@ -98,13 +98,13 @@ module ChfFlwInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    chfflw_print_input = InputParamDefinitionType &
+    chfflw_iprpak = InputParamDefinitionType &
     ( &
     'CHF', & ! component
     'FLW', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_INPUT', & ! tag name
-    'PRINT_INPUT', & ! fortran variable
+    'IPRPAK', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'print input to listing file', & ! longname
@@ -117,13 +117,13 @@ module ChfFlwInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    chfflw_print_flows = InputParamDefinitionType &
+    chfflw_iprflow = InputParamDefinitionType &
     ( &
     'CHF', & ! component
     'FLW', & ! subcomponent
     'OPTIONS', & ! block
     'PRINT_FLOWS', & ! tag name
-    'PRINT_FLOWS', & ! fortran variable
+    'IPRFLOW', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'print calculated flows to listing file', & ! longname
@@ -136,13 +136,13 @@ module ChfFlwInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    chfflw_save_flows = InputParamDefinitionType &
+    chfflw_ipakcb = InputParamDefinitionType &
     ( &
     'CHF', & ! component
     'FLW', & ! subcomponent
     'OPTIONS', & ! block
     'SAVE_FLOWS', & ! tag name
-    'SAVE_FLOWS', & ! fortran variable
+    'IPAKCB', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
     'save well flows to budget file', & ! longname
@@ -345,13 +345,13 @@ module ChfFlwInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    chfflw_aux = InputParamDefinitionType &
+    chfflw_auxvar = InputParamDefinitionType &
     ( &
     'CHF', & ! component
     'FLW', & ! subcomponent
     'PERIOD', & ! block
     'AUX', & ! tag name
-    'AUX', & ! fortran variable
+    'AUXVAR', & ! fortran variable
     'DOUBLE1D', & ! type
     'NAUX', & ! shape
     'auxiliary variables', & ! longname
@@ -388,9 +388,9 @@ module ChfFlwInputModule
     chfflw_auxiliary, &
     chfflw_auxmultname, &
     chfflw_boundnames, &
-    chfflw_print_input, &
-    chfflw_print_flows, &
-    chfflw_save_flows, &
+    chfflw_iprpak, &
+    chfflw_iprflow, &
+    chfflw_ipakcb, &
     chfflw_ts_filerecord, &
     chfflw_ts6, &
     chfflw_filein, &
@@ -401,7 +401,7 @@ module ChfFlwInputModule
     chfflw_maxbound, &
     chfflw_cellid, &
     chfflw_q, &
-    chfflw_aux, &
+    chfflw_auxvar, &
     chfflw_boundname &
     ]
 

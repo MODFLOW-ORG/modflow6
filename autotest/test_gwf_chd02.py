@@ -15,7 +15,7 @@ def build_models(idx, test):
     name = cases[idx]
     nlay, nrow, ncol = 1, 1, 10
     sim = flopy.mf6.MFSimulation(sim_ws=test.workspace, sim_name=name)
-    flopy.mf6.ModflowTdis(sim)
+    flopy.mf6.ModflowTdis(sim, time_units="UNKNOWN")
     flopy.mf6.ModflowIms(sim, complexity="simple")
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name, print_input=True)
     flopy.mf6.ModflowGwfdis(

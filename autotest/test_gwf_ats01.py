@@ -20,7 +20,7 @@ dtadj = 2.0
 dtfailadj = 5.0
 
 
-def build_models(idx, test):
+def build_gwf_sim(name, ws, mf6):
     perlen = [10]
     nper = len(perlen)
     nstp = [1]
@@ -39,13 +39,8 @@ def build_models(idx, test):
     for id in range(nper):
         tdis_rc.append((perlen[id], nstp[id], tsmult[id]))
 
-    name = cases[idx]
-
     # build MODFLOW 6 files
-    ws = test.workspace
-    sim = flopy.mf6.MFSimulation(
-        sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
-    )
+    sim = flopy.mf6.MFSimulation(sim_name=name, version="mf6", exe_name=mf6, sim_ws=ws)
 
     # create tdis package
     ats_filerecord = None
@@ -69,7 +64,7 @@ def build_models(idx, test):
         )
 
     # create gwf model
-    gwfname = name
+    gwfname = f"{name}_gwf"
     newtonoptions = "NEWTON UNDER_RELAXATION"
     gwf = flopy.mf6.ModflowGwf(
         sim,
@@ -114,11 +109,18 @@ def build_models(idx, test):
     ic = flopy.mf6.ModflowGwfic(gwf, strt=strt)
 
     # node property flow
-    npf = flopy.mf6.ModflowGwfnpf(gwf, save_flows=False, icelltype=laytyp, k=hk)
+    npf = flopy.mf6.ModflowGwfnpf(
+        gwf,
+        save_flows=True,
+        save_saturation=True,
+        save_specific_discharge=True,
+        icelltype=laytyp,
+        k=hk,
+    )
     # storage
     sto = flopy.mf6.ModflowGwfsto(
         gwf,
-        save_flows=False,
+        save_flows=True,
         iconvert=laytyp,
         ss=ss,
         sy=sy,
@@ -135,7 +137,7 @@ def build_models(idx, test):
         print_input=True,
         print_flows=True,
         stress_period_data=welspdict,
-        save_flows=False,
+        save_flows=True,
     )
 
     # ghb files
@@ -147,7 +149,7 @@ def build_models(idx, test):
         print_input=True,
         print_flows=True,
         stress_period_data=ghbspdict,
-        save_flows=False,
+        save_flows=True,
     )
 
     # output control
@@ -156,7 +158,7 @@ def build_models(idx, test):
         budget_filerecord=f"{gwfname}.cbc",
         head_filerecord=f"{gwfname}.hds",
         headprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
-        saverecord=[("HEAD", "ALL")],
+        saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
         printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
     )
 
@@ -166,12 +168,22 @@ def build_models(idx, test):
     obs_dict = {f"{gwfname}.obs.csv": obs_lst}
     obs = flopy.mf6.ModflowUtlobs(gwf, pname="head_obs", digits=20, continuous=obs_dict)
 
-    return sim, None
+    return sim
+
+
+def build_models(idx, test):
+    return build_gwf_sim(
+        name=test.name,
+        ws=test.workspace,
+        mf6=test.targets["mf6"],
+    )
 
 
 def check_output(idx, test):
+    gwfname = f"{test.name}_gwf"
+
     # This will fail if budget numbers cannot be read
-    fpth = os.path.join(test.workspace, f"{test.name}.lst")
+    fpth = os.path.join(test.workspace, f"{gwfname}.lst")
     mflist = flopy.utils.Mf6ListBudget(fpth)
     names = mflist.get_record_names()
     inc = mflist.get_incremental()
@@ -181,7 +193,7 @@ def check_output(idx, test):
     assert v == 10.0, f"Last time should be 10.  Found {v}"
 
     # ensure obs results changing monotonically
-    fpth = os.path.join(test.workspace, test.name + ".obs.csv")
+    fpth = os.path.join(test.workspace, f"{gwfname}.obs.csv")
     try:
         tc = np.genfromtxt(fpth, names=True, delimiter=",")
     except:

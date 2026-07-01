@@ -47,10 +47,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout MF6
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.6
+        uses: prefix-dev/setup-pixi@v0.10.0
         with:
           pixi-version: v0.70.1
 
@@ -87,7 +87,7 @@ jobs:
       FC_V: 13
     steps:
       - name: Checkout MF6
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup ${{ env.FC }} ${{ env.FC_V }}
         uses: fortran-lang/setup-fortran@v1
@@ -96,7 +96,7 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.6
+        uses: prefix-dev/setup-pixi@v0.10.0
         with:
           pixi-version: v0.70.1
 
@@ -133,10 +133,10 @@ jobs:
         shell: bash
     steps:
       - name: Checkout MF6
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.6
+        uses: prefix-dev/setup-pixi@v0.10.0
         with:
           pixi-version: v0.70.1
 
@@ -173,7 +173,7 @@ jobs:
       FC_V: 13
     steps:
       - name: Checkout MF6
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup ${{ env.FC }} ${{ env.FC_V }}
         uses: fortran-lang/setup-fortran@v1
@@ -182,7 +182,7 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.6
+        uses: prefix-dev/setup-pixi@v0.10.0
         with:
           pixi-version: v0.70.1
 
@@ -248,7 +248,7 @@ jobs:
       FC_V: 13
     steps:
       - name: Checkout MF6
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: modflow6
 
@@ -259,7 +259,7 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.6
+        uses: prefix-dev/setup-pixi@v0.10.0
         with:
           pixi-version: v0.70.1
           manifest-path: "modflow6/pixi.toml"
@@ -359,18 +359,18 @@ jobs:
           swap-storage: true
 
       - name: Checkout MF6
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: modflow6
 
       - name: Checkout test models
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: MODFLOW-ORG/modflow6-testmodels
           path: modflow6-testmodels
 
       - name: Checkout examples
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
@@ -382,7 +382,7 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.6
+        uses: prefix-dev/setup-pixi@v0.10.0
         with:
           pixi-version: v0.70.1
           manifest-path: "modflow6/pixi.toml"
@@ -424,8 +424,6 @@ jobs:
           setupargs=""
           if [[ "${{ matrix.debug }}" == "true" ]]; then
             setupargs="-Ddebug=true -Doptimization=0"
-          elif [[ "${{ matrix.os }}" == "macos-14" ]]; then
-            setupargs="-Doptimization=1"
           fi
           echo "MESON_SETUP_ARGS=$setupargs" >> $GITHUB_ENV
 
@@ -509,7 +507,7 @@ jobs:
         run: |
           filters=""
           if [[ "${{ matrix.os }}" == "macos-14" ]]; then
-            # comparison fails on macos-14 with optimization=1
+            # sfr rewet comparison fails on macos-14
             filters="not test028_sfr_rewet"
           fi
           echo "filters=$filters" >> $GITHUB_OUTPUT
@@ -561,7 +559,7 @@ jobs:
 
       - name: Checkout usgslatex
         if: runner.os == 'Linux'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: MODFLOW-ORG/usgslatex
           path: usgslatex
@@ -618,24 +616,24 @@ jobs:
           swap-storage: true
 
       - name: Checkout MF6
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: modflow6
 
       - name: Checkout test models
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: MODFLOW-ORG/modflow6-testmodels
           path: modflow6-testmodels
 
       - name: Checkout examples
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.6
+        uses: prefix-dev/setup-pixi@v0.10.0
         with:
           pixi-version: v0.70.1
           manifest-path: "modflow6/pixi.toml"
@@ -766,7 +764,7 @@ jobs:
           swap-storage: true
 
       - name: Checkout MF6
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: modflow6
 
@@ -778,7 +776,7 @@ jobs:
           version: 13
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.9.6
+        uses: prefix-dev/setup-pixi@v0.10.0
         with:
           pixi-version: v0.70.1
           manifest-path: "modflow6/pixi.toml"

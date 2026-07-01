@@ -56,12 +56,20 @@ cases = [
     f"{simname}multi",  # FIRST in period 1, ALL in period 2, FIRST in period 3
     # test explicit release time and period-block release on a time step boundary
     f"{simname}bndy",  # RELEASETIMES: 1.0; FIRST in period 2 (also t=1.0)
+    # test default release (no period block, no release times) with multiple periods
+    f"{simname}dflt",  # no config: should release only at t=0 despite 3 periods
 ]
 
 
 def get_perioddata(name, periods=1) -> Optional[dict]:
     opt = []
-    if "sgl" in name or "dbl" in name or "open" in name or "tol" in name:
+    if (
+        "sgl" in name
+        or "dbl" in name
+        or "open" in name
+        or "tol" in name
+        or "dflt" in name
+    ):
         return None
     if "bndy" in name:
         return {
@@ -111,10 +119,10 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
     )
 
     # create tdis package
-    # 3 periods for fill-forward, multi-period, and boundary, 1 period for others
+    # 3 periods for fill-forward, multi-period, boundary, and default, 1 for others
     nper = (
         3
-        if ("fill" in name or "multi" in name or "bndy" in name)
+        if ("fill" in name or "multi" in name or "bndy" in name or "dflt" in name)
         else FlopyReadmeCase.nper
     )
     if "multi" in name:
@@ -136,7 +144,7 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
                 FlopyReadmeCase.tsmult,
             ),  # Period 2: 1 time step
         ]
-    elif "fill" in name or "bndy" in name:
+    elif "fill" in name or "bndy" in name or "dflt" in name:
         perioddata = [
             (
                 FlopyReadmeCase.perlen,
@@ -335,8 +343,13 @@ def build_models(test):
         test.name, test.workspace, test.targets["mf6"]
     )
 
-    # For fill-forward, multi-period, and boundary, update GWF to use 3 periods
-    if "fill" in test.name or "multi" in test.name or "bndy" in test.name:
+    # For fill-forward, multi-period, boundary, and default, update GWF to use 3 periods
+    if (
+        "fill" in test.name
+        or "multi" in test.name
+        or "bndy" in test.name
+        or "dflt" in test.name
+    ):
         tdis = gwf_sim.get_package("tdis")
         tdis.nper = 3
         if "multi" in test.name:
@@ -457,7 +470,7 @@ def check_output(test, snapshot):
     # Multi-period tests use 3 periods, others use 1
     nper = (
         3
-        if ("fill" in name or "multi" in name or "bndy" in name)
+        if ("fill" in name or "multi" in name or "bndy" in name or "dflt" in name)
         else FlopyReadmeCase.nper
     )
     check_budget_data(
@@ -539,6 +552,12 @@ def check_output(test, snapshot):
         expected_kpers = [1, 2]
         assert unique_kpers == expected_kpers
 
+    # check default release case: no config at all, 3 stress periods.
+    # particles should be released exactly once at t=0 (start of simulation).
+    if "dflt" in name:
+        release_times = sorted(mf6_pls["trelease"].unique())
+        assert release_times == [0.0]
+
     # convert mf6 pathlines to mp7 format
     mf6_pls = to_mp7_pathlines(mf6_pls)
 
@@ -582,6 +601,15 @@ def check_output(test, snapshot):
         # have been tracked under the prior period's flow
         # system, the next shouldn't "get credit" for it.
         assert len(mf6_pls) == len(mp7_pls) - 9
+    elif "dflt" in name:
+        # Each particle terminates exactly at a cell face, so MF6 emits a
+        # FEATEXIT (from the outgoing cell) and a TERMINATE (in the entering
+        # cell) at identical (x,y,z,t). Sorting by (particleid, time) alone
+        # leaves those two records in an arbitrary order that differs between
+        # MF6 and MP7. Add node as a tiebreaker so both are ordered the same.
+        mf6_pls.sort_values(by=["particleid", "time", "node"], inplace=True)
+        mp7_pls.sort_values(by=["particleid", "time", "node"], inplace=True)
+        assert np.allclose(mf6_pls, mp7_pls, atol=1e-3)
     else:
         # the rest of the cases should match mp7 results,
         # with duplicate times debounced in "dupe"/"tol".
