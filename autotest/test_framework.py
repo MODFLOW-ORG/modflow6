@@ -1,6 +1,10 @@
 from framework import TestFramework
 
 
+def _raise_runtime_error(*_):
+    raise RuntimeError("boom")
+
+
 def test_run_returns_buffer_when_api_func_fails(monkeypatch, function_tmpdir):
     workspace = function_tmpdir / "libmf6"
     workspace.mkdir()
@@ -11,7 +15,7 @@ def test_run_returns_buffer_when_api_func_fails(monkeypatch, function_tmpdir):
         name="libmf6_failure",
         workspace=function_tmpdir,
         targets={"libmf6": target},
-        api_func=lambda *_: (_ for _ in ()).throw(RuntimeError("boom")),
+        api_func=_raise_runtime_error,
         compare=None,
     )
 
