@@ -444,6 +444,10 @@ contains
     do i = 1, this%nbound
       node = this%nodelist(i)
       this%hcof(i) = DZERO
+      if (node <= 0) then
+        this%rhs(i) = DZERO
+        cycle
+      end if
       if (this%ibound(node) <= 0) then
         this%rhs(i) = DZERO
         cycle
@@ -497,6 +501,7 @@ contains
     ! -- Copy package rhs and hcof into solution rhs and amat
     do i = 1, this%nbound
       n = this%nodelist(i)
+      if (n <= 0) cycle
       rhs(n) = rhs(n) + this%rhs(i)
       ipos = ia(n)
       call matrix_sln%add_value_pos(idxglo(ipos), this%hcof(i))
@@ -536,6 +541,7 @@ contains
     ! -- Copy package rhs and hcof into solution rhs and amat
     do i = 1, this%nbound
       node = this%nodelist(i)
+      if (node <= 0) cycle
       !
       ! -- test if node is constant or inactive
       if (this%ibound(node) <= 0) then
@@ -605,6 +611,7 @@ contains
     ! -- format
     do i = 1, this%nbound
       nodereduced = this%nodelist(i)
+      if (nodereduced <= 0) cycle
       !
       ! -- test if node is constant or inactive
       if (this%ibound(nodereduced) <= 0) then

@@ -12,7 +12,8 @@ module BndExtModule
   use ConstantsModule, only: LENMEMPATH, LENBOUNDNAME, LENAUXNAME, LINELENGTH
   use ObsModule, only: obs_cr
   use SimVariablesModule, only: errmsg
-  use SimModule, only: store_error, count_errors, store_error_filename
+  use SimModule, only: store_error, store_error_filename, &
+                       store_warning, count_errors
   use BndModule, only: BndType
   use GeomUtilModule, only: get_node, get_ijk
 
@@ -543,22 +544,15 @@ contains
         if (noder <= 0) then
           call this%dis%nodeu_to_string(nodeu, nodestr)
           write (errmsg, *) &
-            ' Cell is outside active grid domain: '// &
+            ' Cell is outside active grid domain and will be ignored: '// &
             trim(adjustl(nodestr))
-          call store_error(errmsg)
+          call store_warning(errmsg)
         end if
         this%nodelist(n) = noder
       else
         this%nodelist(n) = nodeu
       end if
     end do
-    !
-    ! -- exit if errors were found
-    if (count_errors() > 0) then
-      write (errmsg, *) count_errors(), ' errors encountered.'
-      call store_error(errmsg)
-      call store_error_filename(this%input_fname)
-    end if
   end subroutine cellid_to_nlist
 
   !> @ brief Update package nodelist
@@ -572,6 +566,7 @@ contains
     ! -- dummy
     class(BndExtType) :: this !< BndExtType object
     integer(I4B) :: n, noder, nodeuser, ninactive
+    character(len=LINELENGTH) :: nodestr
 
     ninactive = 0
 
@@ -582,6 +577,11 @@ contains
       if (noder > 0) then
         this%nodelist(n) = noder
       else
+        call this%dis%nodeu_to_string(nodeuser, nodestr)
+        write (errmsg, *) &
+          ' Cell is outside active grid domain and will be ignored: '// &
+          trim(adjustl(nodestr))
+        call store_warning(errmsg)
         ninactive = ninactive + 1
       end if
     end do

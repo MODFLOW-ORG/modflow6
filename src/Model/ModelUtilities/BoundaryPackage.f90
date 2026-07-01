@@ -466,6 +466,7 @@ contains
     ! -- Copy package rhs and hcof into solution rhs and amat
     do i = 1, this%nbound
       n = this%nodelist(i)
+      if (n <= 0) cycle
       rhs(n) = rhs(n) + this%rhs(i)
       ipos = ia(n)
       call matrix_sln%add_value_pos(idxglo(ipos), this%hcof(i))

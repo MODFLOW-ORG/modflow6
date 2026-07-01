@@ -207,7 +207,7 @@ contains
     ! -- check stress period data
     do i = 1, this%nbound
       node = this%nodelist(i)
-      if (node == 0) cycle
+      if (node <= 0) cycle
       bt = this%dis%bot(node)
       ! -- accumulate errors
       if (this%bhead(i) < bt .and. this%icelltype(node) /= 0) then
@@ -249,7 +249,7 @@ contains
     ! -- Calculate hcof and rhs for each ghb entry
     do i = 1, this%nbound
       node = this%nodelist(i)
-      if (node == 0) cycle
+      if (node <= 0) cycle
       if (this%ibound(node) .le. 0) then
         this%hcof(i) = DZERO
         this%rhs(i) = DZERO
@@ -281,7 +281,7 @@ contains
     ! -- Copy package rhs and hcof into solution rhs and amat
     do i = 1, this%nbound
       n = this%nodelist(i)
-      if (n == 0) cycle
+      if (n <= 0) cycle
       rhs(n) = rhs(n) + this%rhs(i)
       ipos = ia(n)
       call matrix_sln%add_value_pos(idxglo(ipos), this%hcof(i))

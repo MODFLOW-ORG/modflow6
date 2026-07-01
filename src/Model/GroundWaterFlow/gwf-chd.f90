@@ -136,6 +136,7 @@ contains
     ! -- Reset previous CHDs to active cell
     do i = 1, this%nbound
       node = this%nodelist(i)
+      if (node <= 0) cycle
       this%ibound(node) = this%ibcnum
     end do
     !
@@ -146,6 +147,7 @@ contains
     ierr = 0
     do i = 1, this%nbound
       node = this%nodelist(i)
+      if (node <= 0) cycle
       ibd = this%ibound(node)
       if (ibd < 0) then
         call this%dis%noder_to_string(node, nodestr)
@@ -180,6 +182,7 @@ contains
     ! -- Process each entry in the specified-head cell list
     do i = 1, this%nbound
       node = this%nodelist(i)
+      if (node <= 0) cycle
       hb = this%head_mult(i)
       !
       this%xnew(node) = hb
@@ -211,6 +214,7 @@ contains
     ! -- check stress period data
     do i = 1, this%nbound
       node = this%nodelist(i)
+      if (node <= 0) cycle
       bt = this%dis%bot(node)
       ! -- accumulate errors
       if (this%head_mult(i) < bt .and. this%icelltype(node) /= 0) then
@@ -277,6 +281,7 @@ contains
       ! -- Loop through each boundary calculating flow.
       do i = 1, this%nbound
         node = this%nodelist(i)
+        if (node <= 0) cycle
         idiag = this%dis%con%ia(node)
         rate = DZERO
         ratein = DZERO

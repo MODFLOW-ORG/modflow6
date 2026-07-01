@@ -795,7 +795,8 @@ contains
     use ConstantsModule, only: LENBOUNDNAME, LINELENGTH
     use LongLineReaderModule, only: LongLineReaderType
     use ListReaderModule, only: ListReaderType
-    use SimModule, only: store_error, store_error_unit, count_errors
+    use SimModule, only: store_error, store_warning, &
+                         store_error_unit, count_errors
     use InputOutputModule, only: urword
     use TimeSeriesLinkModule, only: TimeSeriesLinkType
     use TimeSeriesManagerModule, only: read_value_or_time_series
@@ -914,19 +915,12 @@ contains
         if (noder <= 0) then
           call this%nodeu_to_string(nodeu, nodestr)
           write (errmsg, *) &
-            ' Cell is outside active grid domain: '// &
+            ' Cell is outside active grid domain and will be ignored: '// &
             trim(adjustl(nodestr))
-          call store_error(errmsg)
+          call store_warning(errmsg)
         end if
         nodelist(l) = noder
       end do
-      !
-      ! -- Check for errors and terminate if encountered
-      if (count_errors() > 0) then
-        write (errmsg, *) count_errors(), ' errors encountered.'
-        call store_error(errmsg)
-        call store_error_unit(in)
-      end if
     end if
   end subroutine read_list
 

@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "stress"
+description = "Placing a boundary condition in an inactive cell previously caused an error in most stress packages (WEL, DRN, RIV, CHD, GHB, FLW, CDB, ZDG, CNC, SRC, CTP, ESL). This has been changed to a warning, and the inactive boundary entry is silently ignored during the simulation. Packages that already skipped inactive cells (RCH, EVT, PCP, EVP) are unaffected."

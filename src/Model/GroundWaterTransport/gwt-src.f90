@@ -261,6 +261,12 @@ contains
         node = this%nodelist(i)
       end if
       !
+      if (node <= 0) then
+        this%hcof(i) = DZERO
+        this%rhs(i) = DZERO
+        cycle
+      end if
+      !
       ! -- reset nodelist to highest active
       if (this%highest_sat) then
         if (this%fmi%gwfsat(node) == 0) &
@@ -303,6 +309,7 @@ contains
     ! -- Copy package rhs and hcof into solution rhs and amat
     do i = 1, this%nbound
       n = this%nodelist(i)
+      if (n <= 0) cycle
       rhs(n) = rhs(n) + this%rhs(i)
       ipos = ia(n)
       call matrix_sln%add_value_pos(idxglo(ipos), this%hcof(i))

@@ -142,6 +142,7 @@ contains
     ! -- Reset previous CNCs to active cell
     do i = 1, this%nbound
       node = this%nodelist(i)
+      if (node <= 0) cycle
       this%ibound(node) = this%ibcnum
     end do
     !
@@ -152,6 +153,7 @@ contains
     ierr = 0
     do i = 1, this%nbound
       node = this%nodelist(i)
+      if (node <= 0) cycle
       ibd = this%ibound(node)
       if (ibd < 0) then
         call this%dis%noder_to_string(node, nodestr)
@@ -190,6 +192,7 @@ contains
     ! -- Process each entry in the constant concentration cell list
     do i = 1, this%nbound
       node = this%nodelist(i)
+      if (node <= 0) cycle
       cb = this%conc_mult(i)
       !
       this%xnew(node) = cb
@@ -220,6 +223,7 @@ contains
     ! -- check stress period data
     do i = 1, this%nbound
       node = this%nodelist(i)
+      if (node <= 0) cycle
       ! -- accumulate errors
       if (this%conc_mult(i) < DZERO) then
         call this%dis%noder_to_string(node, nodestr)
@@ -277,6 +281,7 @@ contains
       ! -- Loop through each boundary calculating flow.
       do i = 1, this%nbound
         node = this%nodelist(i)
+        if (node <= 0) cycle
         idiag = this%dis%con%ia(node)
         rate = DZERO
         ratein = DZERO
