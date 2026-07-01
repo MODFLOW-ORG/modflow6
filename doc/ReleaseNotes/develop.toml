@@ -153,19 +153,19 @@ description = "When the Streamflow Routing (SFR) Package STORAGE option was acti
 [[items]]
 section = "fixes"
 subsection = "advanced"
-description = "For the Multi-Aquifer Well (MAW) Package, a well with a single connection to a low hydraulic conductivity cell could fail to converge with the Newton-Raphson formulation, because the well head oscillated from one outer iteration to the next instead of settling. When the model uses the NEWTON UNDER\\_RELAXATION option, the MAW Package now damps these well-head oscillations, allowing many of these wells to converge that previously did not. To keep the damping from letting a model converge while a well is still adjusting, the package also holds off convergence until the well's pumping rate has stopped changing. Wells that are not being damped, and models that do not use the NEWTON UNDER\\_RELAXATION option, are unaffected."
+description = "The Multi-Aquifer Well (MAW) Package now damps well-head oscillations under the NEWTON UNDER\\_RELAXATION option, so wells with a single connection to a low hydraulic conductivity cell that could previously oscillate between outer iterations and fail to converge are able to settle. Convergence is also withheld until a damped well's pumping rate stops changing, so a model does not converge while a well is still adjusting. Models that do not use NEWTON UNDER\\_RELAXATION are unaffected."
 
 [[items]]
 section = "features"
 subsection = "advanced"
-description = "For the Multi-Aquifer Well (MAW) Package, a non-converging simulation gave no indication when the cause was a pumping well asking for more water than the aquifer could supply. When the solution fails to converge, the MAW Package now checks each active extraction well to see whether the requested rate is larger than the maximum rate the connected aquifer can supply with the well head drawn down to the bottom of the well. If so, a warning is written that names the well and reports both the requested rate and the maximum available rate. The warning suggests reducing the requested rate, activating or widening RATE\\_SCALING, or reviewing the connection conductance (for example, the aquifer hydraulic conductivity)."
+description = "When a simulation fails to converge, the Multi-Aquifer Well (MAW) Package now warns for any active extraction well whose requested rate exceeds the maximum the connected aquifer can supply with the well head drawn down to the bottom of the well. The warning names the well, reports the requested and maximum available rates, and suggests reducing the rate, using RATE\\_SCALING, or reviewing the connection conductance."
 
 [[items]]
 section = "fixes"
 subsection = "advanced"
-description = "For the Multi-Aquifer Well (MAW) Package, the well storage term treated the well as holding water even when the simulated well head dropped below the bottom of the well, which is not physically possible. The water level used in the storage calculation is now limited so that storage smoothly goes to zero as the well head approaches the bottom of the well, removing this unrealistic storage. Results are unchanged while the well head remains above the bottom of the well."
+description = "The Multi-Aquifer Well (MAW) Package well storage term previously held water even when the well head dropped below the bottom of the well. Storage now smoothly goes to zero as the well head approaches the well bottom, removing this unphysical storage; results are unchanged while the well head remains above the well bottom."
 
 [[items]]
 section = "fixes"
 subsection = "advanced"
-description = "For the Multi-Aquifer Well (MAW) Package, the Newton-Raphson formulation added a saturation-derivative matrix term for a well connection to a confined (non-convertible) cell. Because the connection saturation is held constant at one for a confined cell, this derivative should be zero, and the extra term could slow Newton convergence when a confined cell's head dropped into the well screen interval. The saturation derivative is now set to zero for connections to confined cells, so the Newton matrix terms are consistent with the flow that is calculated. Converged results are unaffected."
+description = "For the Multi-Aquifer Well (MAW) Package, the Newton-Raphson formulation added a nonzero saturation-derivative matrix term for connections to confined (non-convertible) cells, where the saturation is constant and the derivative should be zero. This term is now set to zero, making the Newton matrix consistent with the calculated flow and improving convergence when a confined cell's head drops into the well screen interval; converged results are unaffected."

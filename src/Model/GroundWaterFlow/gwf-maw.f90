@@ -2475,7 +2475,10 @@ contains
       !
       ! -- start each time step with no Newton under-relaxation damping so the
       !    rate convergence check does not compare rates across the time-step
-      !    boundary
+      !    boundary. Reset both the damping weight and the previous head change
+      !    so a change carried over from the last time step cannot spuriously
+      !    trigger damping on the first outer iteration.
+      this%nurdxold(n) = DZERO
       this%nurweight(n) = DONE
     end do
     !
@@ -3003,6 +3006,7 @@ contains
     real(DP) :: bmaw
     real(DP) :: hgwf
     real(DP) :: hv
+    real(DP) :: h_temp
     real(DP) :: sat
     real(DP) :: cmaw
     real(DP) :: qmax
@@ -3071,13 +3075,30 @@ contains
       do j = 1, this%ngwfnodes(n)
         jpos = this%get_jpos(n, j)
         igwfnode = this%get_gwfnode(n, j)
-        call this%maw_calculate_saturation(n, j, igwfnode, sat)
-        cmaw = this%satcond(jpos) * sat
         hgwf = this%xnew(igwfnode)
         bmaw = this%botscrn(jpos)
         hv = max(botw, bmaw)
-        if (hgwf < bmaw) hgwf = bmaw
-        qmax = qmax + cmaw * (hgwf - hv)
+        !
+        ! -- connection saturation evaluated with the well head at the bottom of
+        !    the well (hv), consistent with this maximum-supply estimate, rather
+        !    than at the current well head
+        if (this%icelltype(igwfnode) /= 0) then
+          if (this%inewton == 1) then
+            h_temp = max(hgwf, hv)
+          else
+            h_temp = DHALF * (max(hgwf, bmaw) + hv)
+          end if
+          sat = sQuadraticSaturation(this%topscrn(jpos), bmaw, h_temp, &
+                                     this%satomega)
+        else
+          sat = DONE
+        end if
+        cmaw = this%satcond(jpos) * sat
+        !
+        ! -- only accumulate connections that can supply water; a connection
+        !    whose aquifer head is below the well head at the bottom would lose
+        !    water and must not reduce the maximum the aquifer can supply
+        qmax = qmax + cmaw * max(hgwf - hv, DZERO)
       end do
       !
       ! -- warn if the well is asking for more than the aquifer can supply
