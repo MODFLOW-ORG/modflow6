@@ -363,7 +363,7 @@ contains
   !! to assure compatibility with future versions of the library.
   !<
   function api_get_var_address(c_component_name, c_subcomponent_name, &
-                           c_var_name, c_var_address) &
+                               c_var_name, c_var_address) &
     result(bmi_status) bind(C, name="get_var_address")
     !DIR$ ATTRIBUTES DLLEXPORT :: get_var_address
     ! -- modules
