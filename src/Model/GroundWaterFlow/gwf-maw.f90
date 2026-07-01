@@ -3045,6 +3045,15 @@ contains
       else
         qtolfact = DZERO
       end if
+      ! -- qsim0 and ratesim are both set in maw_fc (before the solve), so dq
+      !    is the rate change over the previous outer iteration and lags the
+      !    just-solved heads by one iteration. This is acceptable because it can
+      !    only delay convergence -- DVCLOSE independently guards correctness,
+      !    since stable heads imply stable rates. A future tightening to the
+      !    current-head rate would need a side-effect-free rate calculation
+      !    (maw_calculate_wellq mutates the RATE_SCALING/shutoff state, so it
+      !    cannot be re-evaluated here) and would change convergence paths, so
+      !    it is not behavior-preserving and would need test re-baselining.
       dq = (this%qsim0(n) - this%ratesim(n)) * qtolfact
       if (abs(dq) > abs(dpakmax)) then
         dpakmax = dq
