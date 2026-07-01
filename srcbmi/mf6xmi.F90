@@ -362,7 +362,7 @@ contains
   !! should always be used when accessing a variable through the BMI
   !! to assure compatibility with future versions of the library.
   !<
-  function get_var_address(c_component_name, c_subcomponent_name, &
+  function api_get_var_address(c_component_name, c_subcomponent_name, &
                            c_var_name, c_var_address) &
     result(bmi_status) bind(C, name="get_var_address")
     !DIR$ ATTRIBUTES DLLEXPORT :: get_var_address
@@ -409,7 +409,7 @@ contains
 
     bmi_status = BMI_SUCCESS
 
-  end function get_var_address
+  end function api_get_var_address
 
   !> @brief Signal a variable change
   !!
@@ -417,9 +417,9 @@ contains
   !! through the API so that internally the code can update
   !! derived or dependent variables.
   !<
-  function on_value_changed(c_var_address) result(bmi_status) &
+  function api_on_value_changed(c_var_address) result(bmi_status) &
     bind(C, name="on_value_changed")
-    !DIR$ ATTRIBUTES DLLEXPORT :: set_value_double
+    !DIR$ ATTRIBUTES DLLEXPORT :: on_value_changed
     use MemorySetHandlerModule, only: on_memory_set
     character(kind=c_char), intent(in) :: c_var_address(*) !< memory address string of the variable
     ! local
@@ -447,6 +447,6 @@ contains
       return
     end if
 
-  end function on_value_changed
+  end function api_on_value_changed
 
 end module mf6xmi
