@@ -625,13 +625,10 @@ contains
     ! --  modules
     use KindModule, only: I4B
     use ListsModule, only: solutiongrouplist
-    use SimVariablesModule, only: iFailedStepRetry
     use SolutionGroupModule, only: SolutionGroupType, GetSolutionGroupFromList
-    use IdmLoadModule, only: idm_ts_advance
     ! -- local variables
     class(SolutionGroupType), pointer :: sgp => null()
     integer(I4B) :: isg
-    logical :: finishedTrying
 
     ! start timer
     call g_prof%start("Do time step", g_prof%tmr_do_tstp)
@@ -641,22 +638,17 @@ contains
     !    the solution groups may be solved over and over with
     !    progressively smaller time steps to see if convergence
     !    can be obtained.
-    iFailedStepRetry = 0
+    call Mf6PrepareRetryLoop()
     retryloop: do
 
-      if (iFailedStepRetry > 0) then
-        ! timeseries advance
-        call idm_ts_advance()
-      end if
+      call Mf6StartRetry()
 
       do isg = 1, solutiongrouplist%Count()
         sgp => GetSolutionGroupFromList(solutiongrouplist, isg)
         call sgp%sgp_ca()
       end do
 
-      call sim_step_retry(finishedTrying)
-      if (finishedTrying) exit retryloop
-      iFailedStepRetry = iFailedStepRetry + 1
+      if (Mf6FinishRetry()) exit retryloop
 
     end do retryloop
 
@@ -664,6 +656,40 @@ contains
     call g_prof%stop(g_prof%tmr_do_tstp)
 
   end subroutine Mf6DoTimestep
+
+  !> @brief Called before running the retry loop,
+  !< resets the counter
+  subroutine Mf6PrepareRetryLoop()
+    use SimVariablesModule, only: iFailedStepRetry, lastStepFailed
+
+    iFailedStepRetry = 0
+    lastStepFailed = 0
+
+  end subroutine Mf6PrepareRetryLoop
+
+  !> @brief When retrying, this advances IDM
+  !<
+  subroutine Mf6StartRetry()
+    use SimVariablesModule, only: iFailedStepRetry
+    use IdmLoadModule, only: idm_ts_advance
+
+    if (iFailedStepRetry > 0) then
+      ! advance IDM
+      call idm_ts_advance()
+    end if
+
+  end subroutine Mf6StartRetry
+
+  !> @brief Check if retry is needed, and if so,
+  !< increment counter
+  function Mf6FinishRetry() result(finished)
+    use SimVariablesModule, only: iFailedStepRetry
+    logical(LGP) :: finished
+
+    call sim_step_retry(finished)
+    if (.not. finished) iFailedStepRetry = iFailedStepRetry + 1
+
+  end function Mf6FinishRetry
 
   !> @brief Rerun time step
     !!

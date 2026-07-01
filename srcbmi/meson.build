@@ -5,6 +5,7 @@ bmi_sources = files(
     'mf6bmiGrid.f90',
     'mf6bmiUtil.f90',
     'mf6xmi.F90',
+    'mf6api.f90'
 )
 
 message('MODFLOW 6 shared library name:', 'lib' + buildname)

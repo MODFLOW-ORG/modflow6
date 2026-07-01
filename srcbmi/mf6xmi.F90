@@ -223,7 +223,7 @@ contains
     ! -- modules
     use ListsModule, only: solutiongrouplist
     use BaseSolutionModule, only: BaseSolutionType
-    use SimVariablesModule, only: istdout
+    use SimVariablesModule, only: istdout, lastStepFailed
     ! -- dummy variables
     integer(kind=c_int) :: subcomponent_idx !< index of the subcomponent (i.e. Numerical Solution)
     integer(kind=c_int) :: bmi_status !< BMI status code
@@ -240,6 +240,9 @@ contains
 
     ! get the solution we are running
     bs => getSolution(subcomponent_idx)
+
+    ! reset flag for retries
+    lastStepFailed = 0
 
     ! *_ad (model, exg, sln)
     call bs%prepareSolve()
@@ -308,6 +311,7 @@ contains
     !DIR$ ATTRIBUTES DLLEXPORT :: xmi_finalize_solve
     ! -- modules
     use BaseSolutionModule, only: BaseSolutionType
+    use SimVariablesModule, only: isimcnvg, lastStepFailed
     ! -- dummy variables
     integer(kind=c_int), intent(in) :: subcomponent_idx !< index of the subcomponent (i.e. Numerical Solution)
     integer(kind=c_int) :: bmi_status !< BMI status code
@@ -325,10 +329,10 @@ contains
     ! finish up
     call bs%finalizeSolve(iterationCounter, hasConverged, 0)
 
-    ! check convergence on solution
+    ! set convergence flag and status for possible retries
     if (.not. hasConverged == 1) then
-      write (bmi_last_error, fmt_fail_cvg_sol) subcomponent_idx
-      call report_bmi_error(bmi_last_error)
+      isimcnvg = 0
+      lastStepFailed = 1
     end if
 
     ! non-convergence is no reason to crash the API:
