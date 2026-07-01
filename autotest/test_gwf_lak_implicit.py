@@ -44,8 +44,12 @@ def _write_implicit(test, builder, force_fallback=False):
     # build and write the implicit simulation in the test workspace, enabling
     # the IMPLICIT option (and optionally the forced substitution fallback)
     sim, name = builder(str(test.workspace), test.targets["mf6"])
+    _set_implicit(sim, name)
     sim.write_simulation(silent=True)
-    _enable_implicit(str(test.workspace / f"{name}.lak"), force_fallback=force_fallback)
+    lak_file = str(test.workspace / f"{name}.lak")
+    _assert_implicit_written(lak_file)
+    if force_fallback:
+        _enable_dev_fallback(lak_file)
     return sim, name
 
 
@@ -100,20 +104,35 @@ def _assert_budget_closes(ws, name, tol=0.5):
     assert disc < tol, f"budget discrepancy {disc} exceeds {tol} percent for {ws}"
 
 
-def _enable_implicit(lak_file, force_fallback=False):
-    # add the IMPLICIT keyword to the LAK OPTIONS block (flopy does not yet
-    # expose it as a keyword, so it is written directly to the input file).
-    # force_fallback also adds the hidden DEV_FORCE_FALLBACK option, which routes
-    # every active lake through the substitution fallback path.
+def _set_implicit(sim, modelname):
+    # enable the IMPLICIT option on the model's LAK package through the flopy
+    # keyword (the same way the other LAK implicit tests do)
+    gwf = sim.get_model(modelname)
+    lak = next(p for p in gwf.packagelist if p.package_type.lower() == "lak")
+    lak.implicit = True
+
+
+def _assert_implicit_written(lak_file):
+    # guard against a silent no-op: if flopy predates the IMPLICIT keyword it is
+    # dropped and the implicit run would quietly match the default formulation.
+    # CI runs update-flopy before the tests, so this only trips a stale flopy.
+    assert "IMPLICIT" in open(lak_file).read().upper(), (
+        f"IMPLICIT was not written to {os.path.basename(lak_file)}; run update-flopy"
+    )
+
+
+def _enable_dev_fallback(lak_file):
+    # add the hidden DEV_FORCE_FALLBACK option to the LAK OPTIONS block, which
+    # routes every active lake through the substitution fallback path. It is a
+    # development-only option that flopy does not expose, so unlike IMPLICIT it
+    # is written directly to the input file.
     lines = open(lak_file).read().splitlines()
     out = []
     done = False
     for ln in lines:
         out.append(ln)
         if ln.strip().lower() == "begin options" and not done:
-            out.append("  IMPLICIT")
-            if force_fallback:
-                out.append("  DEV_FORCE_FALLBACK")
+            out.append("  DEV_FORCE_FALLBACK")
             done = True
     assert done, f"could not find OPTIONS block in {lak_file}"
     open(lak_file, "w").write("\n".join(out) + "\n")
@@ -721,8 +740,9 @@ def test_transport_lkt(function_tmpdir, targets):
 
     def build(test):
         sim_i, gwfname, _ = _build_lkt(str(test.workspace), test.targets["mf6"])
+        _set_implicit(sim_i, gwfname)
         sim_i.write_simulation(silent=True)
-        _enable_implicit(str(test.workspace / f"{gwfname}.lak"))
+        _assert_implicit_written(str(test.workspace / f"{gwfname}.lak"))
         sim_l, _, _ = _build_lkt(str(test.workspace / "mf6"), test.targets["mf6"])
         sim_l.write_simulation(silent=True)
         return sim_i, sim_l
@@ -1248,10 +1268,12 @@ def test_requires_bicgstab(function_tmpdir, targets):
     # rather than silently producing a wrong or non-converged result.
     def build(test):
         sim_i, _ = _write_implicit(test, _build_confined)
-        # downgrade the linear acceleration to CG (incompatible with IMPLICIT);
-        # flopy writes the keyword value in lower case, so replace case-insensitively
-        ims = next(test.workspace.glob("*.ims"))
-        ims.write_text(re.sub("bicgstab", "cg", ims.read_text(), flags=re.IGNORECASE))
+        # downgrade the linear acceleration to CG (incompatible with IMPLICIT)
+        # and rewrite; IMPLICIT persists because it is now a flopy keyword
+        for p in sim_i.sim_package_list:
+            if p.package_type.lower() == "ims":
+                p.linear_acceleration = "CG"
+        sim_i.write_simulation(silent=True)
         return sim_i
 
     def check(test):
@@ -1346,8 +1368,10 @@ def test_fallback_matches_legacy(function_tmpdir, targets):
         ws_fb = test.workspace / "fallback"
         ws_fb.mkdir(exist_ok=True)
         sim_f, _ = _build_weak(str(ws_fb), test.targets["mf6"])
+        _set_implicit(sim_f, "lk")
         sim_f.write_simulation(silent=True)
-        _enable_implicit(str(ws_fb / "lk.lak"), force_fallback=True)
+        _assert_implicit_written(str(ws_fb / "lk.lak"))
+        _enable_dev_fallback(str(ws_fb / "lk.lak"))
         assert _run(sim_f), "IMPLICIT with forced fallback failed for the weak lake"
         _assert_budget_closes(str(ws_fb), "lk")
 
