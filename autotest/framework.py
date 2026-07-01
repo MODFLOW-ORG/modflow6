@@ -510,6 +510,7 @@ class TestFramework:
         )
 
         # run the model
+        buff = []
         try:
             # via MODFLOW API
             if "libmf6" in target.name and self.api_func:
