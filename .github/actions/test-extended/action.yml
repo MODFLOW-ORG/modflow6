@@ -20,9 +20,6 @@ runs:
       shell: bash
       run: |
         brew install netcdf-fortran libevent
-        if brew list --formula gcc &>/dev/null; then
-          brew unlink gcc
-        fi
         nc-config --all
         nf-config --all
 
@@ -31,6 +28,11 @@ runs:
       with:
         compiler: gcc
         version: ${{ runner.os == 'macOS' && '15' || '13' }}
+
+    - name: Prioritize pinned compiler on PATH (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: echo "/usr/local/bin" >> "$GITHUB_PATH"
 
     - name: Build OpenMPI (macOS)
       if: runner.os == 'macOS'
