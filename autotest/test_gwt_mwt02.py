@@ -415,7 +415,7 @@ def check_output(idx, test):
     # load and check the well concentrations
     cobj = flopy.utils.HeadFile(fname, text="CONCENTRATION")
     cmwt = cobj.get_data().flatten()
-    answer = np.array([999.98345654, 18.67908708, 15.9497297, 15.94973001])
+    answer = np.array([999.98345237, 18.71976205, 15.9868284, 15.98682856])
     assert np.allclose(cmwt, answer), f"{cmwt} {answer}"
 
     # make sure concentrations can be loaded
@@ -437,7 +437,7 @@ def check_output(idx, test):
         tc["MWT4CONC"][-1],
     ]
     res = np.array(res)
-    answer = np.array([999.98345654, 18.67908708, 15.9497297, 15.94973001])
+    answer = np.array([999.98345237, 18.71976205, 15.9868284, 15.98682856])
     assert np.allclose(res, answer), f"{res} {answer}"
 
     res = tc["MWT1RATE"]

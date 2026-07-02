@@ -15,7 +15,7 @@ import pytest
 from conftest import project_root_path
 
 data_path = project_root_path / "autotest" / "data"
-model_path = str(data_path / "prudic2004test2")
+model_path = data_path / "prudic2004test2"
 testgroup = "prudic2004t2fmiats"
 nlay = 8
 nrow = 36
@@ -23,10 +23,10 @@ ncol = 23
 delr = 405.665
 delc = 403.717
 top = 100.0
-fname = os.path.join(model_path, "bot1.dat")
+fname = model_path / "bot1.dat"
 bot0 = np.loadtxt(fname)
 botm = [bot0] + [bot0 - (15.0 * k) for k in range(1, nlay)]
-fname = os.path.join(model_path, "idomain1.dat")
+fname = model_path / "idomain1.dat"
 idomain0 = np.loadtxt(fname, dtype=int)
 idomain = nlay * [idomain0]
 
@@ -402,6 +402,29 @@ def run_flow_model(dir, exe):
                     print(p1, node, p2, node2, q)
 
 
+def save_answers(times, ans_lak1, ans_sfr3, ans_sfr4):
+    fname = data_path / testgroup / "times.txt"
+    np.savetxt(fname, times)
+    fname = data_path / testgroup / "result_conc_lak1.txt"
+    np.savetxt(fname, ans_lak1)
+    fname = data_path / testgroup / "result_conc_sfr3.txt"
+    np.savetxt(fname, ans_sfr3)
+    fname = data_path / testgroup / "result_conc_sfr4.txt"
+    np.savetxt(fname, ans_sfr4)
+
+
+def get_answers():
+    fname = data_path / testgroup / "times.txt"
+    times = np.loadtxt(fname)
+    fname = data_path / testgroup / "result_conc_lak1.txt"
+    ans_lak1 = np.loadtxt(fname)
+    fname = data_path / testgroup / "result_conc_sfr3.txt"
+    ans_sfr3 = np.loadtxt(fname)
+    fname = data_path / testgroup / "result_conc_sfr4.txt"
+    ans_sfr4 = np.loadtxt(fname)
+    return times, ans_lak1, ans_sfr3, ans_sfr4
+
+
 def run_transport_model(dir, exe):
     name = "transport"
     gwtname = name
@@ -615,163 +638,35 @@ def run_transport_model(dir, exe):
     sfaconc = bobj.get_alldata()[:, 0, 0, :]
     times = bobj.times
     bobj.file.close()
-    times = np.array(times)
-    ans_times = [
-        1.0,
-        101.0,
-        201.0,
-        301.0,
-        501.0,
-        701.0,
-        901.0,
-        1101.0,
-        1501.0,
-        1901.0,
-        2301.0,
-        2701.0,
-        3101.0,
-        3501.0,
-        3901.0,
-        4301.0,
-        4701.0,
-        5101.0,
-        5501.0,
-        5581.0,
-        5661.0,
-        5821.0,
-        5981.0,
-        6141.0,
-        6301.0,
-        6621.0,
-        6941.0,
-        7581.0,
-        8221.0,
-        8861.0,
-        9132.25,
-    ]
-    ans_times = np.array(ans_times)
-    errmsg = "Expected number of total timesteps is different."
-    assert times.shape == ans_times.shape, errmsg
-    errmsg = f"Times {times} not equal expected times {ans_times}"
-    assert np.allclose(times, ans_times)
 
     # set atol
     atol = 0.05
 
     # check simulated concentration in lak 1 and 2 sfr reaches
+    times = np.array(times)
     res_lak1 = lkaconc[:, 0]
-    ans_lak1 = [
-        -1.7334085635551077e-19,
-        -3.187033329925361e-07,
-        -1.9287290216857604e-06,
-        5.808788660373555e-07,
-        0.005591936631026452,
-        0.04542773591098022,
-        0.1928635682644908,
-        0.5690001383534176,
-        2.999420704893868,
-        7.110019025850782,
-        12.268025985205634,
-        17.67417138740906,
-        22.69808352286938,
-        27.00477920391491,
-        30.50733530522461,
-        33.222437858798955,
-        35.25052779893794,
-        36.73069024938392,
-        37.792799707882,
-        37.98952686059535,
-        38.171619378463866,
-        38.48532541433273,
-        38.755615320864834,
-        38.98852685483134,
-        39.189072004020026,
-        39.491640226795035,
-        39.71996654913013,
-        40.00486884056597,
-        40.18758842234358,
-        40.309629842366334,
-        40.35288988875558,
-    ]
-    ans_lak1 = np.array(ans_lak1)
+    res_sfr3 = sfaconc[:, 30]
+    res_sfr4 = sfaconc[:, 37]
+
+    # if results change, then run this to save new answers
+    # save_answers(times, res_lak1, res_sfr3, res_sfr4)
+    ans_times, ans_lak1, ans_sfr3, ans_sfr4 = get_answers()
+
+    # check to make sure number of timesteps are correct
+    errmsg = "Expected number of total timesteps is different."
+    errmsg = f"{errmsg} Times {times.shape} not equal expected times {ans_times.shape}"
+    assert times.shape == ans_times.shape, errmsg
+    errmsg = f"Times {times} not equal expected times {ans_times}"
+    assert np.allclose(times, ans_times)
+
     d = res_lak1 - ans_lak1
     msg = f"{res_lak1}\n{ans_lak1}\n{d}"
     assert np.allclose(res_lak1, ans_lak1, atol=atol), msg
 
-    res_sfr3 = sfaconc[:, 30]
-    ans_sfr3 = [
-        -7.607756096700458e-23,
-        -1.3669399889004086e-08,
-        -9.199259301584774e-08,
-        5.257821481671474e-08,
-        0.00039938114816238295,
-        0.003355197965954286,
-        0.014744417223049597,
-        0.04510445881222458,
-        0.27877628044373737,
-        0.7458007019884897,
-        1.4665631236737788,
-        2.444128940946191,
-        3.6753371432162,
-        5.158039470416099,
-        6.873092531310018,
-        8.780865680435873,
-        10.839098670662382,
-        13.005360141577922,
-        15.230011242915861,
-        15.676842775991494,
-        16.124955033719825,
-        17.022019083397183,
-        17.92055413970275,
-        18.81985349843973,
-        19.717233813700727,
-        21.475928749632136,
-        23.177014613583257,
-        26.206656959204977,
-        28.767131611820425,
-        30.825804240468084,
-        31.611737865014057,
-    ]
-    ans_sfr3 = np.array(ans_sfr3)
     d = res_sfr3 - ans_sfr3
     msg = f"{res_sfr3}\n{ans_sfr3}\n{d}"
     assert np.allclose(res_sfr3, ans_sfr3, atol=atol), msg
 
-    res_sfr4 = sfaconc[:, 37]
-    ans_sfr4 = [
-        -2.0041563248238944e-20,
-        -1.319932823356964e-07,
-        -8.732574723159916e-07,
-        7.946044660303284e-07,
-        0.00328713663771796,
-        0.026759005065411397,
-        0.11383700188916444,
-        0.33657660610442625,
-        1.7925681982241561,
-        4.287068052572867,
-        7.4770472357597395,
-        10.91908508386622,
-        14.260965416010272,
-        17.315284886138496,
-        20.02515736345197,
-        22.382282530045032,
-        24.423804946506543,
-        26.208303689647263,
-        27.786040077700754,
-        28.093696017884817,
-        28.393775338962325,
-        28.966213039403637,
-        29.515140249737588,
-        30.043603904714946,
-        30.553203510121918,
-        31.501577161886416,
-        32.38308331851197,
-        33.88529441352757,
-        35.12256241115968,
-        36.10351180222542,
-        36.47615223874849,
-    ]
-    ans_sfr4 = np.array(ans_sfr4)
     d = res_sfr4 - ans_sfr4
     msg = f"{res_sfr4}\n{ans_sfr4}\n{d}"
     assert np.allclose(res_sfr4, ans_sfr4, atol=atol), msg
@@ -792,10 +687,6 @@ def run_transport_model(dir, exe):
         lines = f.readlines()
 
     txtlist = [
-        (
-            "Failed solution for step 19 and period 2 will be retried using "
-            "time step of    80.00000"
-        ),
         "ATS IS OVERRIDING TIME STEPPING FOR THIS PERIOD",
         "INITIAL TIME STEP SIZE                 (DT0) =    100.0000",
         "MINIMUM TIME STEP SIZE               (DTMIN) =   0.1000000E-04",

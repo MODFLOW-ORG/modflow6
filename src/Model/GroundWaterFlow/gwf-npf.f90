@@ -70,6 +70,7 @@ module GwfNpfModule
     real(DP), dimension(:), pointer, contiguous :: k11 => null() !< hydraulic conductivity; if anisotropic, then this is Kx prior to rotation
     real(DP), dimension(:), pointer, contiguous :: k22 => null() !< hydraulic conductivity; if specified then this is Ky prior to rotation
     real(DP), dimension(:), pointer, contiguous :: k33 => null() !< hydraulic conductivity; if specified then this is Kz prior to rotation
+    real(DP), dimension(:), pointer, contiguous :: krel => null() !< relative permeability; unless UZR flow is active in a cell, this is 1
     real(DP), dimension(:), pointer, contiguous :: k11input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
     real(DP), dimension(:), pointer, contiguous :: k22input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
     real(DP), dimension(:), pointer, contiguous :: k33input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
@@ -1126,7 +1127,9 @@ contains
     end if
     !
     ! -- flow extensions
-    deallocate (this%flow_formulations)
+    if (allocated(this%flow_formulations)) then
+      deallocate (this%flow_formulations)
+    end if
     !
     ! -- Strings
     !
@@ -1175,6 +1178,7 @@ contains
     call mem_deallocate(this%k11)
     call mem_deallocate(this%k22)
     call mem_deallocate(this%k33)
+    call mem_deallocate(this%krel)
     call mem_deallocate(this%k11input)
     call mem_deallocate(this%k22input)
     call mem_deallocate(this%k33input)
@@ -1339,6 +1343,7 @@ contains
                       this%memoryPath)
     call mem_allocate(this%icelltype, ncells, 'ICELLTYPE', this%memoryPath)
     call mem_allocate(this%k11, ncells, 'K11', this%memoryPath)
+    call mem_allocate(this%krel, ncells, 'KREL', this%memoryPath)
     call mem_allocate(this%sat, ncells, 'SAT', this%memoryPath)
     call mem_allocate(this%condsat, njas, 'CONDSAT', this%memoryPath)
     !
@@ -1369,8 +1374,7 @@ contains
     ! -- Time-varying property flag arrays
     call mem_allocate(this%nodekchange, ncells, 'NODEKCHANGE', this%memoryPath)
     !
-    call mem_allocate(this%iformulation, this%dis%con%nja, 'IFORM', &
-                      this%memoryPath)
+  call mem_allocate(this%iformulation, this%dis%con%nja, 'IFORM', this%memoryPath)
     !
     ! -- set to standard NPF flow
     do n = 1, size(this%iformulation)
@@ -1384,6 +1388,7 @@ contains
       this%angle3(n) = DZERO
       this%wetdry(n) = DZERO
       this%nodekchange(n) = DZERO
+      this%krel(n) = DONE
     end do
     !
     ! -- allocate variable names

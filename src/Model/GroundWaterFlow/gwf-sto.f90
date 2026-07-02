@@ -20,6 +20,7 @@ module GwfStoModule
   use GwfStorageUtilsModule, only: SsCapacity, SyCapacity, SsTerms, SyTerms
   use TvsModule, only: TvsType, tvs_cr
   use MatrixBaseModule
+  use GwfStoExtModule, only: GwfStoExtType
 
   implicit none
   public :: GwfStoType, sto_cr
@@ -47,6 +48,8 @@ module GwfStoModule
     real(DP), dimension(:), pointer, contiguous, private :: oldsy => null() !< previous time step specific yield
     integer(I4B), pointer :: iper => null() !< input context loaded period
     character(len=:), pointer :: storage !< input context storage string
+
+    class(GwfStoExtType), pointer, private :: storage_extension => null() !< alternative storage calculation by extension
   contains
     procedure :: sto_ar
     procedure :: sto_rp
@@ -58,8 +61,9 @@ module GwfStoModule
     procedure :: sto_save_model_flows
     procedure :: sto_da
     procedure :: allocate_scalars
+    procedure :: set_storage_extension
+    ! private
     procedure, private :: allocate_arrays
-    !procedure, private :: register_handlers
     procedure, private :: source_options
     procedure, private :: source_data
     procedure, private :: log_options
@@ -272,6 +276,13 @@ contains
     do n = 1, this%dis%nodes
       idiag = this%dis%con%ia(n)
       if (this%ibound(n) < 1) cycle
+
+      if (associated(this%storage_extension)) then
+        if (this%storage_extension%is_active(n)) then
+          call this%storage_extension%fc(n, matrix_sln, rhs, idxglo, hold, hnew)
+          cycle
+        end if
+      end if
       !
       ! -- aquifer elevations and thickness
       tp = this%dis%top(n)
@@ -387,6 +398,14 @@ contains
     do n = 1, this%dis%nodes
       idiag = this%dis%con%ia(n)
       if (this%ibound(n) <= 0) cycle
+
+      if (associated(this%storage_extension)) then
+        if (this%storage_extension%is_active(n)) then
+          call this%storage_extension%fn(n, matrix_sln, rhs, idxglo, hold, hnew)
+          cycle
+        end if
+      end if
+
       !
       ! -- aquifer elevations and thickness
       tp = this%dis%top(n)
@@ -486,6 +505,14 @@ contains
       ! -- Calculate storage change
       do n = 1, this%dis%nodes
         if (this%ibound(n) <= 0) cycle
+
+        if (associated(this%storage_extension)) then
+          if (this%storage_extension%is_active(n)) then
+            call this%storage_extension%cq(n, flowja, hnew, hold)
+            cycle
+          end if
+        end if
+        !
         ! -- aquifer elevations and thickness
         tp = this%dis%top(n)
         bt = this%dis%bot(n)
@@ -585,8 +612,8 @@ contains
     call model_budget%addentry(rin, rout, delt, budtxt(1), &
                                isuppress_output, '         STORAGE')
     !
-    ! -- Add unconfined storage rates to model budget
-    if (this%iusesy == 1) then
+    ! -- Add unconfined storage rates to model budget (TODO_UZR: extension as a separate entry?)
+    if (this%iusesy == 1 .or. associated(this%storage_extension)) then
       call rate_accumulator(this%strgsy, rin, rout)
       call model_budget%addentry(rin, rout, delt, budtxt(2), &
                                  isuppress_output, '         STORAGE')
@@ -630,7 +657,7 @@ contains
                                  nwidthp, editdesc, dinact)
       !
       ! -- storage(sy)
-      if (this%iusesy == 1) then
+      if (this%iusesy == 1 .or. associated(this%storage_extension)) then
         call this%dis%record_array(this%strgsy, this%iout, iprint, -ibinun, &
                                    budtxt(2), cdatafmp, nvaluesp, &
                                    nwidthp, editdesc, dinact)
@@ -1013,5 +1040,13 @@ contains
       end do
     end if
   end subroutine save_old_ss_sy
+
+  subroutine set_storage_extension(this, sto_ext)
+    class(GwfStoType), intent(inout) :: this !< this instance
+    class(GwfStoExtType), pointer :: sto_ext !< the extended storage calculation
+
+    this%storage_extension => sto_ext
+
+  end subroutine set_storage_extension
 
 end module GwfStoModule

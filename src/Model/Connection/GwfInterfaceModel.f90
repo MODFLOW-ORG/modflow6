@@ -130,22 +130,23 @@ contains
     use MemoryManagerModule, only: mem_deallocate
     class(GwfInterfaceModelType) :: this !< the GWF interface model
 
-    ! -- Internal flow packages deallocate
+    ! Internal flow packages deallocate
     call this%dis%dis_da()
     call this%npf%npf_da()
     call this%xt3d%xt3d_da()
     call this%buy%buy_da()
-    !
-    ! -- Internal package objects
+
+    ! Internal package objects
     deallocate (this%dis)
     deallocate (this%npf)
     deallocate (this%xt3d)
-    !
-    ! -- Scalars
+
+    ! Scalars, TODO_UZR: put in base
     call mem_deallocate(this%inic)
     call mem_deallocate(this%inoc)
     call mem_deallocate(this%inobs)
     call mem_deallocate(this%innpf)
+    call mem_deallocate(this%inuzr)
     call mem_deallocate(this%inbuy)
     call mem_deallocate(this%invsc)
     call mem_deallocate(this%insto)
