@@ -86,8 +86,8 @@ def check_output(idx, test, gridded_input):
     # verify crs data string in grb version 2 file
     fname = os.path.join(test.workspace, "disv.grb")
     grbobj = flopy.mf6.utils.MfGrdFile(fname)
-    crs = grbobj._datadict["CRS"]
-    assert crs == wkt
+    assert grbobj.version == 2
+    assert grbobj.crs == wkt
 
     if gridded_input == "netcdf":
         # re-run the simulation with model netcdf input
@@ -249,7 +249,6 @@ def check_output(idx, test, gridded_input):
 
 
 @pytest.mark.netcdf
-@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.parametrize("gridded_input", ["ascii", "netcdf"])
 def test_mf6model(idx, name, function_tmpdir, targets, gridded_input):

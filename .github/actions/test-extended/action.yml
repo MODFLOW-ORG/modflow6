@@ -29,6 +29,11 @@ runs:
         compiler: gcc
         version: ${{ runner.os == 'macOS' && '15' || '13' }}
 
+    - name: Prioritize pinned compiler on PATH (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: echo "/usr/local/bin" >> "$GITHUB_PATH"
+
     - name: Build OpenMPI (macOS)
       if: runner.os == 'macOS'
       shell: bash

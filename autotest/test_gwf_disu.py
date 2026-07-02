@@ -16,6 +16,7 @@ from framework import TestFramework
 
 cases = ["disu01a", "disu01b"]
 grb_filename = "disu.grb"
+crs = "EPSG:26915"
 
 
 def build_models(idx, test):
@@ -30,10 +31,11 @@ def build_models(idx, test):
     botm = [-10, -20, -30]
     disukwargs = get_disu_kwargs(nlay, nrow, ncol, delr, delc, top, botm)
     if idx == 1:
-        # for the second test, set one cell to idomain = 0
+        # for the second test, set one cell to idomain = 0 and assign a crs
         idomain = np.ones((nlay, nrow * ncol), dtype=int)
         idomain[0, 1] = 0
         disukwargs["idomain"] = idomain
+        disukwargs["crs"] = crs
 
     sim = flopy.mf6.MFSimulation(
         sim_name=name,
@@ -55,18 +57,23 @@ def build_models(idx, test):
 def check_output(idx, test):
     fname = Path(test.workspace) / grb_filename
     grbobj = flopy.mf6.utils.MfGrdFile(fname)
-    nodes = grbobj._datadict["NODES"]
-    ia = grbobj._datadict["IA"]
-    ja = grbobj._datadict["JA"]
-    idomain = grbobj._datadict["IDOMAIN"]
+    ia = grbobj.ia
+    ja = grbobj.ja
+    idomain = grbobj.idomain
 
     if idx == 0:
+        # no crs assigned, binary grid file should be version 1
+        assert grbobj.version == 1
+        assert grbobj.crs is None
         assert np.array_equal(idomain, np.array(27 * [1]), int)
 
     if idx == 1:
-        assert np.array_equal(ia[0:4], np.array([1, 4, 4, 7]))
-        assert np.array_equal(ja[:6], np.array([1, 4, 10, 3, 6, 12]))
-        assert ia[-1] == 127
+        # crs assigned, binary grid file should be version 2
+        assert grbobj.version == 2
+        assert grbobj.crs == crs
+        assert np.array_equal(ia[0:4], np.array([0, 3, 3, 6]))
+        assert np.array_equal(ja[:6], np.array([0, 3, 9, 2, 5, 11]))
+        assert ia[-1] == 126
         assert ia.shape[0] == 28, "ia should have size of 28"
         assert ja.shape[0] == 126, "ja should have size of 126"
         assert np.array_equal(idomain, np.array([1, 0] + 25 * [1]), int)

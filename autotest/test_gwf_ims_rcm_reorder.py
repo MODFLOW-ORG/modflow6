@@ -118,7 +118,9 @@ def build_models(idx, test):
 def check_output(idx, test):
     name = test.name
     fpth = os.path.join(test.workspace, f"{name}.dis.grb")
-    ia = flopy.mf6.utils.MfGrdFile(fpth).ia
+    grbobj = flopy.mf6.utils.MfGrdFile(fpth)
+    assert grbobj.version == 1
+    ia = grbobj.ia
 
     fpth = os.path.join(test.workspace, f"{name}.cbc")
     b0 = flopy.utils.CellBudgetFile(fpth, precision="double")

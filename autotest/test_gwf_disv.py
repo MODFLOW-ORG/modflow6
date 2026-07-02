@@ -58,15 +58,14 @@ def build_models(idx, test):
 def check_output(idx, test):
     fname = Path(test.workspace) / grb_filename
     grbobj = flopy.mf6.utils.MfGrdFile(fname)
-    ncpl = grbobj._datadict["NCPL"]
-    ia = grbobj._datadict["IA"]
-    ja = grbobj._datadict["JA"]
+    assert grbobj.version == (1 if grbobj.crs is None else 2)
+    ia = grbobj.ia
+    ja = grbobj.ja
 
     if idx == 1:
-        # assert ncpl == disvkwargs["ncpl"]
-        assert np.array_equal(ia[0:4], np.array([1, 4, 4, 7]))
-        assert np.array_equal(ja[:6], np.array([1, 4, 10, 3, 6, 12]))
-        assert ia[-1] == 127
+        assert np.array_equal(ia[0:4], np.array([0, 3, 3, 6]))
+        assert np.array_equal(ja[:6], np.array([0, 3, 9, 2, 5, 11]))
+        assert ia[-1] == 126
         assert ia.shape[0] == 28, "ia should have size of 28"
         assert ja.shape[0] == 126, "ja should have size of 126"
 

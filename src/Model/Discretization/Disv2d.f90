@@ -711,7 +711,7 @@ contains
     write (txthdr, '(a)') 'GRID DISV2D'
     txthdr(50:50) = new_line('a')
     write (iunit) txthdr
-    write (txthdr, '(a)') 'VERSION 1'
+    write (txthdr, '(a, i0)') 'VERSION ', version
     txthdr(50:50) = new_line('a')
     write (iunit) txthdr
     write (txthdr, '(a, i0)') 'NTXT ', ntxt

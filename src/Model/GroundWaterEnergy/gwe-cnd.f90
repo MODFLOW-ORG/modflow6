@@ -731,29 +731,21 @@ contains
         !
         ! -- angle3 is zero
         this%angle3(n) = DZERO
-        !
-        ! -- angle2
-        a = DZERO
-        if (q > DZERO) a = qz / q
-        this%angle2(n) = asin(a)
-        !
-        ! -- angle1
-        a = q * cos(this%angle2(n))
-        if (a /= DZERO) then
-          a = qx / a
+
+        ! -- angle2: vertical inclination
+        if (q > DZERO) then
+          a = max(-DONE, min(DONE, qz / q))
         else
           a = DZERO
         end if
-        !
-        ! -- acos(1) not defined, so set to zero if necessary
-        if (a <= -DONE) then
-          this%angle1(n) = DPI
-        elseif (a >= DONE) then
-          this%angle1(n) = DZERO
+        this%angle2(n) = asin(a)
+
+        ! -- angle1: horizontal azimuth
+        if (qx /= DZERO .or. qy /= DZERO) then
+          this%angle1(n) = atan2(qy, qx)
         else
-          this%angle1(n) = acos(a)
+          this%angle1(n) = DZERO
         end if
-        !
       end if
     end do
   end subroutine calcdispellipse

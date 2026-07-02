@@ -769,7 +769,7 @@ contains
     integer(I4B), INTENT(IN) :: NEQ !< number of equations
     integer(I4B), INTENT(IN) :: NIAPC !< preconditioner number of rows
     integer(I4B), INTENT(IN) :: NJAPC !< preconditioner number of non-zero entries
-    integer(I4B), INTENT(IN) :: IPC !< precoditioner (1) ILU0 (2) MILU0 (3) ILUT (4) MILUT
+    integer(I4B), INTENT(IN) :: IPC !< preconditioner (1) ILU0 (2) MILU0 (3) ILUT (4) MILUT
     real(DP), INTENT(IN) :: RELAX !< preconditioner relaxation factor for MILU0 and MILUT
     real(DP), DIMENSION(NJA), INTENT(IN) :: AMAT !< coefficient matrix
     integer(I4B), DIMENSION(NEQ + 1), INTENT(IN) :: IA !< CRS row pointers
@@ -777,7 +777,7 @@ contains
     real(DP), DIMENSION(NJAPC), INTENT(INOUT) :: APC !< preconditioner matrix
     integer(I4B), DIMENSION(NIAPC + 1), INTENT(INOUT) :: IAPC !< preconditioner CRS row pointers
     integer(I4B), DIMENSION(NJAPC), INTENT(INOUT) :: JAPC !< preconditioner CRS column pointers
-    integer(I4B), DIMENSION(NIAPC), INTENT(INOUT) :: IW !< preconditioner integed work vector
+    integer(I4B), DIMENSION(NIAPC), INTENT(INOUT) :: IW !< preconditioner integer work vector
     real(DP), DIMENSION(NIAPC), INTENT(INOUT) :: W !< preconditioner work vector
     ! -- ILUT dummy variables
     integer(I4B), INTENT(IN) :: LEVEL !< number of levels of fill for ILUT and MILUT

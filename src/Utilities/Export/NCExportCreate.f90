@@ -154,6 +154,7 @@ contains
     class(AsciiDynamicPkgLoadBaseType), pointer :: rp_loader
     type(ExportPackageType), pointer :: export_pkg
     integer(I4B), pointer :: export_arrays
+    integer(I4B), dimension(:), pointer, contiguous :: mshape
     class(*), pointer :: obj
     logical(LGP) :: found, readasarrays
     integer(I4B) :: n
@@ -186,18 +187,20 @@ contains
           select type (rp_loader)
           type is (LayerArrayLoadType)
             ! create the export object
+            mshape => rp_loader%ctx%mshape
             allocate (export_pkg)
             call export_pkg%init(rp_loader%mf6_input, &
-                                 rp_loader%ctx%mshape, &
+                                 mshape, &
                                  rp_loader%ctx%naux, &
                                  rp_loader%param_names, rp_loader%nparam)
             obj => export_pkg
             call pkglist%add(obj)
           type is (GridArrayLoadType)
             ! create the export object
+            mshape => rp_loader%ctx%mshape
             allocate (export_pkg)
             call export_pkg%init(rp_loader%mf6_input, &
-                                 rp_loader%ctx%mshape, &
+                                 mshape, &
                                  rp_loader%ctx%naux, &
                                  rp_loader%param_names, rp_loader%nparam)
             obj => export_pkg

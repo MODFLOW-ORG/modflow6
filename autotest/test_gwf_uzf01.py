@@ -201,12 +201,11 @@ def check_output(ws, name):
     # check binary grid file
     fname = os.path.join(ws, name + ".dis.grb")
     grbobj = flopy.mf6.utils.MfGrdFile(fname)
-    ia = grbobj._datadict["IA"] - 1
-    ja = grbobj._datadict["JA"] - 1
-    grb_crs = grbobj._datadict["CRS"]
+    ia = grbobj.ia
 
     # verify crs data string in grb version 2 file
-    assert grb_crs == crs
+    assert grbobj.version == 2
+    assert grbobj.crs == crs
 
     upth = os.path.join(ws, name + ".uzf.bud")
     uobj = flopy.utils.CellBudgetFile(upth, precision="double")
@@ -270,7 +269,6 @@ def check_outputs(idx, test):
     check_output(ws, name)
 
 
-@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
