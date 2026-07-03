@@ -52,7 +52,7 @@ module GwfStoModule
     integer(I4B), pointer :: iper => null() !< input context loaded period
     character(len=:), pointer :: storage !< input context storage string
 
-    integer(I4B), dimension(:), pointer, contiguous :: iformulation => null() !< active formulation for the connection (size: n) 
+    integer(I4B), dimension(:), pointer, contiguous :: iformulation => null() !< active formulation for the connection (size: n)
                                                                               !! with values 0 (= default) up to SIZE_STORAGE_FORM - 1
     type(GwfStoFormContainerType), dimension(MAX_EXT_STO_FORMS), private :: &
       sto_formulations !< alternative storage calculations by extension
@@ -249,7 +249,7 @@ contains
     real(DP), intent(inout), dimension(:) :: rhs !< right-hand side
     ! -- local variables
     integer(I4B) :: n
-    integer(I4B) :: iform   
+    integer(I4B) :: iform
     ! -- formats
     character(len=*), parameter :: fmtsperror = &
       &"('DETECTED TIME STEP LENGTH OF ZERO.  GWF STORAGE PACKAGE CANNOT BE ', &
@@ -273,8 +273,8 @@ contains
         call this%fc_std_sto(n, matrix_sln, rhs, idxglo, hold, hnew)
       else
         call this%sto_formulations(iform)%form%fc( &
-                             n, matrix_sln, rhs, idxglo, hold, hnew)
-      end if    
+          n, matrix_sln, rhs, idxglo, hold, hnew)
+      end if
 
     end do
   end subroutine sto_fc
@@ -336,8 +336,8 @@ contains
     !
     ! -- calculate specific storage terms
     call SsTerms(this%iconvert(n), this%iorig_ss, this%iconf_ss, tp, bt, &
-                  rho1, rho1old, snnew, snold, hnew(n), hold(n), &
-                  aterm, rhsterm)
+                 rho1, rho1old, snnew, snold, hnew(n), hold(n), &
+                 aterm, rhsterm)
     !
     ! -- add specific storage terms to amat and rhs
     call matrix_sln%add_value_pos(idxglo(idiag), aterm)
@@ -365,7 +365,7 @@ contains
       !
       ! -- calculate specific storage terms
       call SyTerms(tp, bt, rho2, rho2old, snnew, snold, &
-                    aterm, rhsterm)
+                   aterm, rhsterm)
       !
       ! -- add specific yield terms to amat and rhs
       call matrix_sln%add_value_pos(idxglo(idiag), aterm)
@@ -394,7 +394,7 @@ contains
     integer(I4B) :: iform
     !
     ! -- test if steady-state stress period
-    if (this%iss /= 0) return    
+    if (this%iss /= 0) return
     !
     ! -- loop through and calculate storage contribution to hcof and rhs
     do n = 1, this%dis%nodes
@@ -405,9 +405,9 @@ contains
         call this%fn_std_sto(n, matrix_sln, rhs, idxglo, hold, hnew)
       else
         call this%sto_formulations(iform)%form%fn( &
-                             n, matrix_sln, rhs, idxglo, hold, hnew)
-      end if 
-      
+          n, matrix_sln, rhs, idxglo, hold, hnew)
+      end if
+
     end do
   end subroutine sto_fn
 
@@ -502,11 +502,11 @@ contains
     ! -- Calculate storage change
     do n = 1, this%dis%nodes
       iform = this%iformulation(n)
-      if (iform == DEFAULT_STORAGE) then        
+      if (iform == DEFAULT_STORAGE) then
         call this%cq_std_sto(n, flowja, hnew, hold)
       else
         call this%sto_formulations(iform)%form%cq( &
-                              n, flowja, hnew, hold)
+          n, flowja, hnew, hold)
       end if
     end do
   end subroutine sto_cq
@@ -570,8 +570,8 @@ contains
     !
     ! -- calculate specific storage terms and rate
     call SsTerms(this%iconvert(n), this%iorig_ss, this%iconf_ss, tp, bt, &
-                  rho1, rho1old, snnew, snold, hnew(n), hold(n), &
-                  aterm, rhsterm, rate)
+                 rho1, rho1old, snnew, snold, hnew(n), hold(n), &
+                 aterm, rhsterm, rate)
     !
     ! -- save rate
     this%strgss(n) = rate
@@ -602,7 +602,7 @@ contains
       !
       ! -- calculate specific yield storage terms and rate
       call SyTerms(tp, bt, rho2, rho2old, snnew, snold, &
-                    aterm, rhsterm, rate)
+                   aterm, rhsterm, rate)
 
     end if
     this%strgsy(n) = rate
