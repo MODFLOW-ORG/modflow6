@@ -1364,7 +1364,8 @@ contains
     ! -- Time-varying property flag arrays
     call mem_allocate(this%nodekchange, ncells, 'NODEKCHANGE', this%memoryPath)
     !
-  call mem_allocate(this%iformulation, this%dis%con%nja, 'IFORM', this%memoryPath)
+    call mem_allocate(this%iformulation, this%dis%con%nja, 'IFORM', &
+                      this%memoryPath)
     !
     ! -- set to standard NPF flow
     do n = 1, size(this%iformulation)

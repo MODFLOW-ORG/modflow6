@@ -4,7 +4,7 @@ module GwfStoExtModule
   use BudgetModule, only: BudgetType
   implicit none
   private
-  
+
   integer(I4B), public, parameter :: DEFAULT_STORAGE = 0
   integer(I4B), public, parameter :: UZR_STORAGE = 1
   integer(I4B), public, parameter :: SWI_STORAGE = 2
@@ -26,7 +26,6 @@ module GwfStoExtModule
     logical(LGP) :: is_active = .false.
     class(GwfStoFormulationType), pointer :: form => null() !< the extended flow calculator
   end type GwfStoFormContainerType
-
 
   abstract interface
     function is_active_if(this, n) result(is_active)
