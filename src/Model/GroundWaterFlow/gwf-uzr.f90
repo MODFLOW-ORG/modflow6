@@ -301,7 +301,7 @@ contains
     type(GwfStoType), pointer, intent(inout) :: sto !< the STO package to interact with
     ! local
     integer(I4B) :: ipos, n
-    
+
     do ipos = 1, dis%nja
       npf%iformulation(ipos) = UZR_FLOW
     end do

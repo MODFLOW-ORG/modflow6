@@ -12,7 +12,7 @@ module UzrStorageModule
   private
 
   public :: UzrStorageType
-      
+
   character(len=LENBUDTXT), parameter :: budtxt = '          STO-UZ'
 
   type, extends(GwfStoFormulationType) :: UzrStorageType
@@ -21,7 +21,7 @@ module UzrStorageModule
     integer(I4B), pointer, dimension(:), contiguous :: uzr_iunsat => null() !< points to external data
     class(DisBaseType), pointer :: gwf_dis => null() !< points to external data
     type(GwfStoType), pointer :: gwf_sto => null() !< points to external data
-    
+
     real(DP), dimension(:), pointer, contiguous :: strguz => null() !< internal array of unsaturated storage rates
   contains
     procedure :: initialize
@@ -307,10 +307,10 @@ contains
     integer(I4B) :: nvaluesp, nwidthp
     character(len=1) :: cdatafmp = ' ', editdesc = ' '
     real(DP) :: dinact
-    
+
     dinact = DZERO ! zero when inactive
-    call this%gwf_dis%record_array(this%strguz, this%gwf_sto%iout, iprint, -ibinun, &
-                                   budtxt, cdatafmp, nvaluesp, &
+    call this%gwf_dis%record_array(this%strguz, this%gwf_sto%iout, iprint, &
+                                   -ibinun, budtxt, cdatafmp, nvaluesp, &
                                    nwidthp, editdesc, dinact)
 
   end subroutine uft_save_flows
