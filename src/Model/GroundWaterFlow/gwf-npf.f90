@@ -153,10 +153,10 @@ module GwfNpfModule
     procedure, private :: check_options
     procedure, private :: prepcheck
     procedure, private :: preprocess_input
-    procedure, private :: cf_std_conductance
-    procedure, private :: fc_std_conductance
-    procedure, private :: fn_std_conductance
-    procedure, private :: cq_std_conductance
+    procedure, private :: cf_default_flow
+    procedure, private :: fc_default_flow
+    procedure, private :: fn_default_flow
+    procedure, private :: cq_default_flow
     procedure, private :: calc_condsat
     procedure, private :: calc_initial_sat
     procedure, private :: calc_max_conns
@@ -475,7 +475,7 @@ contains
       idiag = this%dis%con%ia(n)
       iform = this%iformulation(idiag)
       if (iform == DEFAULT_FLOW) then
-        call this%cf_std_conductance(kiter, n)
+        call this%cf_default_flow(kiter, n)
       else
         call this%flow_formulations(iform)%form%cf(kiter, n)
       end if
@@ -485,7 +485,7 @@ contains
 
   !> @brief Calculate coefficients using the
   !< standard conductance formulation
-  subroutine cf_std_conductance(this, kiter, n)
+  subroutine cf_default_flow(this, kiter, n)
     class(GwfNpfType) :: this
     integer(I4B) :: kiter
     integer(I4B) :: n
@@ -502,7 +502,7 @@ contains
       this%sat(n) = satn
     end if
 
-  end subroutine cf_std_conductance
+  end subroutine cf_default_flow
 
   !> @brief Formulate coefficients
   !<
@@ -532,8 +532,8 @@ contains
           ! flow calculation
           iform = this%iformulation(ipos)
           if (iform == DEFAULT_FLOW) then
-            call this%fc_std_conductance(n, m, ipos, matrix_sln, &
-                                         rhs, idxglo, hnew)
+            call this%fc_default_flow(n, m, ipos, matrix_sln, &
+                                      rhs, idxglo, hnew)
           else
             call this%flow_formulations(iform)%form%fc(n, m, ipos, matrix_sln, &
                                                        rhs, idxglo, hnew)
@@ -550,7 +550,7 @@ contains
 
   !> @brief Calculate and add coefficients using the
   !< standard conductance formulation
-  subroutine fc_std_conductance(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
+  subroutine fc_default_flow(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
     class(GwfNpfType) :: this !< this instance
     integer(I4B) :: n !< node number n
     integer(I4B) :: m !< node number m
@@ -637,7 +637,7 @@ contains
     call matrix_sln%add_value_pos(idxglo(isymcon), cond)
     call matrix_sln%add_value_pos(idxglo(idiagm), -cond)
 
-  end subroutine fc_std_conductance
+  end subroutine fc_default_flow
 
   !> @brief Calculate dry cell saturation
   !!
@@ -704,8 +704,8 @@ contains
 
           iform = this%iformulation(ipos)
           if (iform == DEFAULT_FLOW) then
-            call this%fn_std_conductance(n, m, ipos, matrix_sln, &
-                                         rhs, idxglo, hnew)
+            call this%fn_default_flow(n, m, ipos, matrix_sln, &
+                                      rhs, idxglo, hnew)
           else
             call this%flow_formulations(iform)%form%fn(n, m, ipos, matrix_sln, &
                                                        rhs, idxglo, hnew)
@@ -716,7 +716,7 @@ contains
     end if
   end subroutine npf_fn
 
-  subroutine fn_std_conductance(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
+  subroutine fn_default_flow(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
     class(GwfNpfType) :: this
     integer(I4B) :: n
     integer(I4B) :: m
@@ -818,7 +818,7 @@ contains
       end if
     end if
 
-  end subroutine fn_std_conductance
+  end subroutine fn_default_flow
 
   !> @brief Under-relaxation
   !!
@@ -892,7 +892,7 @@ contains
 
           iform = this%iformulation(ipos)
           if (iform == DEFAULT_FLOW) then
-            call this%cq_std_conductance(n, m, ipos, flowja, hnew)
+            call this%cq_default_flow(n, m, ipos, flowja, hnew)
           else
             call this%flow_formulations(iform)%form%cq(n, m, ipos, flowja, hnew)
           end if
@@ -902,7 +902,7 @@ contains
     end if
   end subroutine npf_cq
 
-  subroutine cq_std_conductance(this, n, m, ipos, flowja, hnew)
+  subroutine cq_default_flow(this, n, m, ipos, flowja, hnew)
     class(GwfNpfType) :: this
     integer(I4B), intent(in) :: n
     integer(I4B), intent(in) :: m
@@ -916,7 +916,7 @@ contains
     flowja(ipos) = qnm
     flowja(this%dis%con%isym(ipos)) = -qnm
 
-  end subroutine cq_std_conductance
+  end subroutine cq_default_flow
 
   !> @brief Fractional cell saturation
   !<
