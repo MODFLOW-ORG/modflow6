@@ -74,9 +74,9 @@ module GwfStoModule
     procedure, private :: source_data
     procedure, private :: log_options
     procedure, private :: save_old_ss_sy
-    procedure, private :: fc_std_sto
-    procedure, private :: fn_std_sto
-    procedure, private :: cq_std_sto
+    procedure, private :: fc_default_sto
+    procedure, private :: fn_default_sto
+    procedure, private :: cq_default_sto
 
   end type
 
@@ -270,7 +270,7 @@ contains
 
       iform = this%iformulation(n)
       if (iform == DEFAULT_STORAGE) then
-        call this%fc_std_sto(n, matrix_sln, rhs, idxglo, hold, hnew)
+        call this%fc_default_sto(n, matrix_sln, rhs, idxglo, hold, hnew)
       else
         call this%sto_formulations(iform)%form%fc( &
           n, matrix_sln, rhs, idxglo, hold, hnew)
@@ -281,7 +281,7 @@ contains
 
   !> @brief Default storage FC
   !<
-  subroutine fc_std_sto(this, n, matrix_sln, rhs, idxglo, hold, hnew)
+  subroutine fc_default_sto(this, n, matrix_sln, rhs, idxglo, hold, hnew)
     use TdisModule, only: delt
     class(GwfStoType) :: this !< GwfStoType object
     integer(I4B), intent(in) :: n
@@ -372,7 +372,7 @@ contains
       rhs(n) = rhs(n) + rhsterm
     end if
 
-  end subroutine fc_std_sto
+  end subroutine fc_default_sto
 
   !> @ brief Fill Newton-Raphson terms in A and right-hand side for the package
   !!
@@ -402,7 +402,7 @@ contains
       iform = this%iformulation(n)
       !
       if (iform == DEFAULT_STORAGE) then
-        call this%fn_std_sto(n, matrix_sln, rhs, idxglo, hold, hnew)
+        call this%fn_default_sto(n, matrix_sln, rhs, idxglo, hold, hnew)
       else
         call this%sto_formulations(iform)%form%fn( &
           n, matrix_sln, rhs, idxglo, hold, hnew)
@@ -411,7 +411,7 @@ contains
     end do
   end subroutine sto_fn
 
-  subroutine fn_std_sto(this, n, matrix_sln, rhs, idxglo, hold, hnew)
+  subroutine fn_default_sto(this, n, matrix_sln, rhs, idxglo, hold, hnew)
     use TdisModule, only: delt
     class(GwfStoType), intent(inout) :: this
     integer(I4B), intent(in) :: n
@@ -481,7 +481,7 @@ contains
       end if
     end if
 
-  end subroutine fn_std_sto
+  end subroutine fn_default_sto
 
   !> @ brief Calculate flows for package
   !!
@@ -503,7 +503,7 @@ contains
     do n = 1, this%dis%nodes
       iform = this%iformulation(n)
       if (iform == DEFAULT_STORAGE) then
-        call this%cq_std_sto(n, flowja, hnew, hold)
+        call this%cq_default_sto(n, flowja, hnew, hold)
       else
         call this%sto_formulations(iform)%form%cq( &
           n, flowja, hnew, hold)
@@ -513,7 +513,7 @@ contains
 
   !> @brief Standard flow calculation for the storage
   !<
-  subroutine cq_std_sto(this, n, flowja, hnew, hold)
+  subroutine cq_default_sto(this, n, flowja, hnew, hold)
     use TdisModule, only: delt
     class(GwfStoType), intent(inout) :: this
     integer(I4B), intent(in) :: n
@@ -611,7 +611,7 @@ contains
     idiag = this%dis%con%ia(n)
     flowja(idiag) = flowja(idiag) + rate
 
-  end subroutine cq_std_sto
+  end subroutine cq_default_sto
 
   !> @ brief Model budget calculation for package
   !!
