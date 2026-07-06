@@ -40,6 +40,12 @@ module NumericalSolutionModule
   use LinearSolverBaseModule
   use ImsLinearSettingsModule
   use IMSLinearMisc, only: ims_misc_dvscale
+  use ImsNonlinearBaseModule, only: ims_nl_underrelax, ims_nl_maxval, &
+                                    ims_nl_calcdx, ims_nl_dxmax, &
+                                    ims_nl_backtrack_flag, &
+                                    ims_nl_apply_backtrack, &
+                                    ims_nl_has_converged, &
+                                    ims_nl_nur_has_converged
   use LinearSolverFactory, only: create_linear_solver
   use MatrixBaseModule
   use ConvergenceSummaryModule
@@ -2840,28 +2846,10 @@ contains
   function get_backtracking_flag(this) result(bt_flag)
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     integer(I4B) :: bt_flag !< backtracking flag (1) backtracking performed (0) backtracking not performed
-    ! local
-    integer(I4B) :: n
-    real(DP) :: dx
-    real(DP) :: dx_abs
-    real(DP) :: dx_abs_max
 
-    ! default is off
-    bt_flag = 0
-
-    ! find max. change
-    dx_abs_max = 0.0
-    do n = 1, this%neq
-      if (this%active(n) < 1) cycle
-      dx = this%x(n) - this%xtemp(n)
-      dx_abs = abs(dx)
-      if (dx_abs > dx_abs_max) dx_abs_max = dx_abs
-    end do
-
-    ! if backtracking, set flag
-    if (this%breduc * dx_abs_max >= this%dvclose) then
-      bt_flag = 1
-    end if
+    ! -- delegate to the stateless kernel
+    bt_flag = ims_nl_backtrack_flag(this%neq, this%active, this%x, &
+                                    this%xtemp, this%breduc, this%dvclose)
 
   end function get_backtracking_flag
 
@@ -2892,15 +2880,10 @@ contains
   !<
   subroutine apply_backtracking(this)
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
-    ! local
-    integer(I4B) :: n
-    real(DP) :: delx
 
-    do n = 1, this%neq
-      if (this%active(n) < 1) cycle
-      delx = this%breduc * (this%x(n) - this%xtemp(n))
-      this%x(n) = this%xtemp(n) + delx
-    end do
+    ! -- delegate to the stateless kernel
+    call ims_nl_apply_backtrack(this%neq, this%active, this%x, this%xtemp, &
+                                this%breduc)
 
   end subroutine
 
@@ -2944,27 +2927,9 @@ contains
     integer(I4B), intent(in) :: nsize !< length of vector
     real(DP), dimension(nsize), intent(in) :: v !< input vector
     real(DP), intent(inout) :: vmax !< maximum value
-    ! -- local variables
-    integer(I4B) :: n
-    real(DP) :: d
-    real(DP) :: denom
-    real(DP) :: dnorm
     !
-    ! -- determine maximum value
-    vmax = v(1)
-    do n = 2, nsize
-      d = v(n)
-      denom = abs(vmax)
-      if (denom == DZERO) then
-        denom = DPREC
-      end if
-      !
-      ! -- calculate normalized value
-      dnorm = abs(d) / denom
-      if (dnorm > DONE) then
-        vmax = d
-      end if
-    end do
+    ! -- delegate to the stateless kernel
+    call ims_nl_maxval(nsize, v, vmax)
   end subroutine sln_maxval
 
   !> @ brief Calculate dependent-variable change
@@ -2980,18 +2945,9 @@ contains
     real(DP), dimension(neq), intent(in) :: x !< current dependent-variable
     real(DP), dimension(neq), intent(in) :: xtemp !< previous dependent-variable
     real(DP), dimension(neq), intent(inout) :: dx !< dependent-variable change
-    ! -- local
-    integer(I4B) :: n
     !
-    ! -- calculate dependent-variable change
-    do n = 1, neq
-      ! -- skip inactive nodes
-      if (active(n) < 1) then
-        dx(n) = DZERO
-      else
-        dx(n) = x(n) - xtemp(n)
-      end if
-    end do
+    ! -- delegate to the stateless kernel
+    call ims_nl_calcdx(neq, active, x, xtemp, dx)
   end subroutine sln_calcdx
 
   !> @brief Calculate pseudo-transient continuation factor
@@ -3058,122 +3014,12 @@ contains
     integer(I4B), dimension(neq), intent(in) :: active !< active cell flag (1)
     real(DP), dimension(neq), intent(inout) :: x !< current dependent-variable
     real(DP), dimension(neq), intent(in) :: xtemp !< previous dependent-variable
-    ! -- local variables
-    integer(I4B) :: n
-    real(DP) :: ww
-    real(DP) :: delx
-    real(DP) :: relax
-    real(DP) :: es
-    real(DP) :: aes
-    real(DP) :: amom
     !
-    ! -- option for using simple dampening (as done by MODFLOW-2005 PCG)
-    if (this%nonmeth == 1) then
-      do n = 1, neq
-        !
-        ! -- skip inactive nodes
-        if (active(n) < 1) cycle
-        !
-        ! -- compute step-size (delta x)
-        delx = x(n) - xtemp(n)
-        this%dxold(n) = delx
-
-        ! -- dampen dependent variable solution
-        x(n) = xtemp(n) + this%gamma * delx
-      end do
-      !
-      ! -- option for using cooley underrelaxation
-    else if (this%nonmeth == 2) then
-      !
-      ! -- set bigch
-      this%bigch = bigch
-      !
-      ! -- initialize values for first iteration
-      if (kiter == 1) then
-        relax = DONE
-        this%relaxold = DONE
-        this%bigchold = bigch
-      else
-        !
-        ! -- compute relaxation factor
-        es = this%bigch / (this%bigchold * this%relaxold)
-        aes = abs(es)
-        if (es < -DONE) then
-          relax = dhalf / aes
-        else
-          relax = (DTHREE + es) / (DTHREE + aes)
-        end if
-      end if
-      this%relaxold = relax
-      !
-      ! -- modify cooley to use weighted average of past changes
-      this%bigchold = (DONE - this%gamma) * this%bigch + this%gamma * &
-                      this%bigchold
-      !
-      ! -- compute new dependent variable after under-relaxation
-      if (relax < DONE) then
-        do n = 1, neq
-          !
-          ! -- skip inactive nodes
-          if (active(n) < 1) cycle
-          !
-          ! -- update dependent variable
-          delx = x(n) - xtemp(n)
-          this%dxold(n) = delx
-          x(n) = xtemp(n) + relax * delx
-        end do
-      end if
-      !
-      ! -- option for using delta-bar-delta scheme to under-relax for all equations
-    else if (this%nonmeth == 3) then
-      do n = 1, neq
-        !
-        ! -- skip inactive nodes
-        if (active(n) < 1) cycle
-        !
-        ! -- compute step-size (delta x) and initialize d-b-d parameters
-        delx = x(n) - xtemp(n)
-        !
-        ! -- initialize values for first iteration
-        if (kiter == 1) then
-          this%wsave(n) = DONE
-          this%hchold(n) = DEM20
-          this%deold(n) = DZERO
-        end if
-        !
-        ! -- compute new relaxation term as per delta-bar-delta
-        ww = this%wsave(n)
-        !
-        ! for flip-flop condition, decrease factor
-        if (this%deold(n) * delx < DZERO) then
-          ww = this%theta * this%wsave(n)
-          ! -- when change is of same sign, increase factor
-        else
-          ww = this%wsave(n) + this%akappa
-        end if
-        if (ww > DONE) ww = DONE
-        this%wsave(n) = ww
-        !
-        ! -- compute weighted average of past changes in hchold
-        if (kiter == 1) then
-          this%hchold(n) = delx
-        else
-          this%hchold(n) = (DONE - this%gamma) * delx + &
-                           this%gamma * this%hchold(n)
-        end if
-        !
-        ! -- store slope (change) term for next iteration
-        this%deold(n) = delx
-        this%dxold(n) = delx
-        !
-        ! -- compute accepted step-size and new dependent variable
-        amom = DZERO
-        if (kiter > 4) amom = this%amomentum
-        delx = delx * ww + amom * this%hchold(n)
-        x(n) = xtemp(n) + delx
-      end do
-      !
-    end if
+    ! -- delegate to the stateless kernel, passing persistent state explicitly
+    call ims_nl_underrelax(this%nonmeth, kiter, bigch, neq, active, x, xtemp, &
+                           this%gamma, this%theta, this%akappa, this%amomentum, &
+                           this%bigch, this%bigchold, this%relaxold, &
+                           this%dxold, this%wsave, this%hchold, this%deold)
   end subroutine sln_underrelax
 
   !> @ brief Determine maximum dependent-variable change
@@ -3187,32 +3033,9 @@ contains
     class(NumericalSolutionType), intent(inout) :: this !< NumericalSolutionType instance
     real(DP), intent(inout) :: hncg !< maximum dependent-variable change
     integer(I4B), intent(inout) :: lrch !< location of the maximum dependent-variable change
-    ! -- local variables
-    integer(I4B) :: nb
-    real(DP) :: bigch
-    real(DP) :: abigch
-    integer(I4B) :: n
-    real(DP) :: hdif
-    real(DP) :: ahdif
     !
-    ! -- determine the maximum change
-    nb = 0
-    bigch = DZERO
-    abigch = DZERO
-    do n = 1, this%neq
-      if (this%active(n) < 1) cycle
-      hdif = this%x(n) - this%xtemp(n)
-      ahdif = abs(hdif)
-      if (ahdif > abigch) then
-        bigch = hdif
-        abigch = ahdif
-        nb = n
-      end if
-    end do
-    !
-    !-----store maximum change value and location
-    hncg = bigch
-    lrch = nb
+    ! -- delegate to the stateless kernel
+    call ims_nl_dxmax(this%neq, this%active, this%x, this%xtemp, hncg, lrch)
   end subroutine sln_get_dxmax
 
   function sln_has_converged(this, max_dvc) result(has_converged)
@@ -3220,10 +3043,8 @@ contains
     real(DP) :: max_dvc !< the maximum dependent variable change
     logical(LGP) :: has_converged !< True, when converged
 
-    has_converged = .false.
-    if (abs(max_dvc) <= this%dvclose) then
-      has_converged = .true.
-    end if
+    ! -- delegate to the stateless kernel
+    has_converged = ims_nl_has_converged(max_dvc, this%dvclose)
 
   end function sln_has_converged
 
@@ -3272,11 +3093,8 @@ contains
     real(DP), intent(in) :: hncg !< largest dep. var. change at end of Picard iteration
     logical(LGP) :: has_converged !< True, when converged
 
-    has_converged = .false.
-    if (abs(dxold_max) <= this%dvclose .and. &
-        abs(hncg) <= this%dvclose) then
-      has_converged = .true.
-    end if
+    ! -- delegate to the stateless kernel
+    has_converged = ims_nl_nur_has_converged(dxold_max, hncg, this%dvclose)
 
   end function sln_nur_has_converged
 

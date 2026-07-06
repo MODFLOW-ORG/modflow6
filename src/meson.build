@@ -326,6 +326,7 @@ modflow_sources = files(
     'Solution' / 'ConvergenceSummary.f90',
     'Solution' / 'LinearMethods' / 'ImsLinearSettings.f90',
     'Solution' / 'LinearMethods' / 'ImsLinearBase.f90',
+    'Solution' / 'LinearMethods' / 'ImsNonlinearBase.f90',
     'Solution' / 'LinearMethods' / 'ImsLinear.f90',
     'Solution' / 'LinearMethods' / 'ImsReordering.f90',
     'Solution' / 'LinearMethods' / 'ImsLinearMisc.f90',

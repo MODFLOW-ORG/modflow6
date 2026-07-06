@@ -3,6 +3,7 @@ module ParallelSolutionModule
   use ConstantsModule, only: LENPAKLOC, DONE, DZERO
   use ProfilerModule
   use NumericalSolutionModule, only: NumericalSolutionType
+  use ImsNonlinearBaseModule, only: ims_nl_has_converged
   use mpi
   use MpiWorldModule
   implicit none
@@ -51,14 +52,13 @@ contains
 
     mpi_world => get_mpi_world()
 
-    has_converged = .false.
     abs_max_dvc = abs(max_dvc)
     call MPI_Allreduce(abs_max_dvc, global_max_dvc, 1, MPI_DOUBLE_PRECISION, &
                        MPI_MAX, mpi_world%comm, ierr)
     call CHECK_MPI(ierr)
-    if (global_max_dvc <= this%dvclose) then
-      has_converged = .true.
-    end if
+    ! -- compare the globally-reduced change through the shared kernel so the
+    !    parallel path cannot diverge from the serial convergence criterion
+    has_converged = ims_nl_has_converged(global_max_dvc, this%dvclose)
 
     call g_prof%stop(this%tmr_convergence)
 

@@ -6,6 +6,7 @@ program tester
   use TestFeatureFlags, only: collect_feature_flags
   use TestGeomUtil, only: collect_geomutil
   use TestHashTable, only: collect_hashtable
+  use TestImsNonlinearBase, only: collect_imsnonlinearbase
   use TestInputOutput, only: collect_inputoutput
   use TestKeyValueList, only: collect_keyvaluelist
   use TestList, only: collect_list
@@ -35,6 +36,7 @@ program tester
                new_testsuite("FeatureFlags", collect_feature_flags), &
                new_testsuite("GeomUtil", collect_geomutil), &
                new_testsuite("HashTable", collect_hashtable), &
+               new_testsuite("ImsNonlinearBase", collect_imsnonlinearbase), &
                new_testsuite("InputOutput", collect_inputoutput), &
                new_testsuite("KeyValueList", collect_keyvaluelist), &
                new_testsuite("List", collect_list), &

@@ -5,6 +5,7 @@ if test_drive.found() and not fc_id.contains('intel')
     'FeatureFlags',
     'GeomUtil',
     'HashTable',
+    'ImsNonlinearBase',
     'InputOutput',
     'KeyValueList',
     'List',
