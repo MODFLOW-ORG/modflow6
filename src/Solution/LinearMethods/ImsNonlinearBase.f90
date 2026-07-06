@@ -12,6 +12,8 @@ module ImsNonlinearBaseModule
   ! -- modules
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, DHALF, DONE, DTHREE, DEM20, DPREC
+  use MatrixBaseModule, only: MatrixBaseType
+  use VectorBaseModule, only: VectorBaseType
 
   implicit none
   private
@@ -24,6 +26,8 @@ module ImsNonlinearBaseModule
   public :: ims_nl_apply_backtrack
   public :: ims_nl_has_converged
   public :: ims_nl_nur_has_converged
+  public :: ims_nl_residual
+  public :: ims_nl_l2norm
 
 contains
 
@@ -382,5 +386,64 @@ contains
     end if
 
   end function ims_nl_nur_has_converged
+
+  !> @ brief Calculate the residual vector r = A*x - b
+  !!
+  !!  Compute the residual and zero it for inactive cells. This is the local
+  !!  body of NumericalSolutionType%sln_calc_residual. The caller supplies the
+  !!  system matrix, the x and rhs vectors, and a residual vector to fill.
+  !<
+  subroutine ims_nl_residual(matrix, vec_x, vec_rhs, neq, active, vec_resid)
+    ! -- dummy variables
+    class(MatrixBaseType) :: matrix !< the system matrix A
+    class(VectorBaseType), pointer :: vec_x !< the dependent-variable vector x
+    class(VectorBaseType), pointer :: vec_rhs !< the right-hand side vector b
+    integer(I4B), intent(in) :: neq !< number of equations
+    integer(I4B), dimension(neq), intent(in) :: active !< active cell flag (1)
+    class(VectorBaseType), pointer :: vec_resid !< the residual vector to fill
+    ! -- local
+    integer(I4B) :: n
+
+    call matrix%multiply(vec_x, vec_resid) ! r = A*x
+
+    call vec_resid%axpy(-1.0_DP, vec_rhs) ! r = r - b
+
+    do n = 1, neq
+      if (active(n) < 1) then
+        call vec_resid%set_value_local(n, 0.0_DP) ! r_i = 0 if inactive
+      end if
+    end do
+
+  end subroutine ims_nl_residual
+
+  !> @ brief Calculate the L-2 norm of the residual for all active cells
+  !!
+  !!  L2norm = || A*x - b ||_2 with inactive cells zeroed. This is the local
+  !!  body of NumericalSolutionType%sln_l2norm; a temporary residual vector is
+  !!  created from the matrix and released here.
+  !<
+  subroutine ims_nl_l2norm(matrix, vec_x, vec_rhs, neq, active, l2norm)
+    ! -- dummy variables
+    class(MatrixBaseType) :: matrix !< the system matrix A
+    class(VectorBaseType), pointer :: vec_x !< the dependent-variable vector x
+    class(VectorBaseType), pointer :: vec_rhs !< the right-hand side vector b
+    integer(I4B), intent(in) :: neq !< number of equations
+    integer(I4B), dimension(neq), intent(in) :: active !< active cell flag (1)
+    real(DP), intent(inout) :: l2norm !< calculated L-2 norm
+    ! -- local
+    class(VectorBaseType), pointer :: vec_resid
+
+    ! calc. residual vector
+    vec_resid => matrix%create_vec(neq)
+    call ims_nl_residual(matrix, vec_x, vec_rhs, neq, active, vec_resid)
+
+    ! 2-norm
+    l2norm = vec_resid%norm2()
+
+    ! clean up temp. vector
+    call vec_resid%destroy()
+    deallocate (vec_resid)
+
+  end subroutine ims_nl_l2norm
 
 end module ImsNonlinearBaseModule

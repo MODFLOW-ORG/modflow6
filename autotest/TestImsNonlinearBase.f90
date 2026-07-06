@@ -8,7 +8,11 @@ module TestImsNonlinearBase
                                     ims_nl_backtrack_flag, &
                                     ims_nl_apply_backtrack, &
                                     ims_nl_has_converged, &
-                                    ims_nl_nur_has_converged
+                                    ims_nl_nur_has_converged, &
+                                    ims_nl_residual, ims_nl_l2norm
+  use VectorBaseModule, only: VectorBaseType
+  use SparseMatrixModule, only: SparseMatrixType
+  use SparseModule, only: sparsematrix
   implicit none
   private
   public :: collect_imsnonlinearbase
@@ -40,9 +44,55 @@ contains
                 new_unittest("backtrack_flag_off", test_backtrack_flag_off), &
                 new_unittest("apply_backtrack", test_apply_backtrack), &
                 new_unittest("has_converged", test_has_converged), &
-                new_unittest("nur_has_converged", test_nur_has_converged) &
+                new_unittest("nur_has_converged", test_nur_has_converged), &
+                new_unittest("residual", test_residual), &
+                new_unittest("l2norm", test_l2norm) &
                 ]
   end subroutine collect_imsnonlinearbase
+
+  !> @brief Build a 3x3 diagonal system A = diag(2,3,5), x = b = [1,1,1].
+  !! Helper (not a registered test).
+  !<
+  subroutine build_diag_system(matrix, vec_x, vec_rhs, mem_path)
+    type(SparseMatrixType), intent(inout) :: matrix
+    class(VectorBaseType), pointer :: vec_x
+    class(VectorBaseType), pointer :: vec_rhs
+    character(len=*), intent(in) :: mem_path
+    type(sparsematrix) :: sparse
+    integer(I4B) :: i
+
+    call sparse%init(3, 3, 1)
+    do i = 1, 3
+      call sparse%addconnection(i, i, 1)
+    end do
+    call matrix%init(sparse, mem_path)
+    call sparse%destroy()
+
+    call matrix%set_diag_value(1, 2.0_DP)
+    call matrix%set_diag_value(2, 3.0_DP)
+    call matrix%set_diag_value(3, 5.0_DP)
+
+    vec_x => matrix%create_vec(3)
+    vec_rhs => matrix%create_vec(3)
+    do i = 1, 3
+      call vec_x%set_value_local(i, 1.0_DP)
+      call vec_rhs%set_value_local(i, 1.0_DP)
+    end do
+  end subroutine build_diag_system
+
+  !> @brief Release a system built by build_diag_system. Helper.
+  !<
+  subroutine free_diag_system(matrix, vec_x, vec_rhs)
+    type(SparseMatrixType), intent(inout) :: matrix
+    class(VectorBaseType), pointer :: vec_x
+    class(VectorBaseType), pointer :: vec_rhs
+
+    call vec_x%destroy()
+    deallocate (vec_x)
+    call vec_rhs%destroy()
+    deallocate (vec_rhs)
+    call matrix%destroy()
+  end subroutine free_diag_system
 
   !> @brief SIMPLE dampening (nonmeth == 1): x = xtemp + gamma * (x - xtemp)
   !<
@@ -417,5 +467,64 @@ contains
                .not. ims_nl_nur_has_converged(0.01_DP, 0.0005_DP, 0.001_DP), &
                "dxold_max exceeds => not converged")
   end subroutine test_nur_has_converged
+
+  !> @brief residual r = A*x - b, zeroed for inactive cells.
+  !! A = diag(2,3,5), x = b = [1,1,1] => r = [1,2,4]
+  !<
+  subroutine test_residual(error)
+    type(error_type), allocatable, intent(out) :: error
+    type(SparseMatrixType) :: matrix
+    class(VectorBaseType), pointer :: vec_x, vec_rhs, vec_resid
+    real(DP) :: r_all(3), r_inact(3)
+    integer(I4B) :: i
+
+    call build_diag_system(matrix, vec_x, vec_rhs, 'TEST/RESID')
+    vec_resid => matrix%create_vec(3)
+
+    ! all active: r = diag(2,3,5)*[1,1,1] - [1,1,1] = [1,2,4]
+    call ims_nl_residual(matrix, vec_x, vec_rhs, 3, [1, 1, 1], vec_resid)
+    do i = 1, 3
+      r_all(i) = vec_resid%get_value_local(i)
+    end do
+
+    ! middle cell inactive: r(2) forced to 0, others unchanged
+    call ims_nl_residual(matrix, vec_x, vec_rhs, 3, [1, 0, 1], vec_resid)
+    do i = 1, 3
+      r_inact(i) = vec_resid%get_value_local(i)
+    end do
+
+    ! free resources before asserting so a failure cannot leak
+    call vec_resid%destroy()
+    deallocate (vec_resid)
+    call free_diag_system(matrix, vec_x, vec_rhs)
+
+    call check(error, abs(r_all(1) - 1.0_DP) < tol, "r(1) expected 1")
+    if (allocated(error)) return
+    call check(error, abs(r_all(2) - 2.0_DP) < tol, "r(2) expected 2")
+    if (allocated(error)) return
+    call check(error, abs(r_all(3) - 4.0_DP) < tol, "r(3) expected 4")
+    if (allocated(error)) return
+    call check(error, abs(r_inact(2) - 0.0_DP) < tol, "r(2) inactive => 0")
+    if (allocated(error)) return
+    call check(error, abs(r_inact(1) - 1.0_DP) < tol, "r(1) unchanged")
+    if (allocated(error)) return
+    call check(error, abs(r_inact(3) - 4.0_DP) < tol, "r(3) unchanged")
+  end subroutine test_residual
+
+  !> @brief l2norm = || A*x - b ||_2. For r = [1,2,4], ||r|| = sqrt(21)
+  !<
+  subroutine test_l2norm(error)
+    type(error_type), allocatable, intent(out) :: error
+    type(SparseMatrixType) :: matrix
+    class(VectorBaseType), pointer :: vec_x, vec_rhs
+    real(DP) :: l2
+
+    call build_diag_system(matrix, vec_x, vec_rhs, 'TEST/L2NORM')
+    l2 = -1.0_DP
+    call ims_nl_l2norm(matrix, vec_x, vec_rhs, 3, [1, 1, 1], l2)
+    call free_diag_system(matrix, vec_x, vec_rhs)
+
+    call check(error, abs(l2 - sqrt(21.0_DP)) < tol, "l2norm expected sqrt(21)")
+  end subroutine test_l2norm
 
 end module TestImsNonlinearBase

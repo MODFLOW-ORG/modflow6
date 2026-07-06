@@ -45,7 +45,8 @@ module NumericalSolutionModule
                                     ims_nl_backtrack_flag, &
                                     ims_nl_apply_backtrack, &
                                     ims_nl_has_converged, &
-                                    ims_nl_nur_has_converged
+                                    ims_nl_nur_has_converged, &
+                                    ims_nl_residual, ims_nl_l2norm
   use LinearSolverFactory, only: create_linear_solver
   use MatrixBaseModule
   use ConvergenceSummaryModule
@@ -2901,19 +2902,10 @@ contains
   subroutine sln_l2norm(this, l2norm)
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     real(DP) :: l2norm !< calculated L-2 norm
-    ! local
-    class(VectorBaseType), pointer :: vec_resid
 
-    ! calc. residual vector
-    vec_resid => this%system_matrix%create_vec(this%neq)
-    call this%sln_calc_residual(vec_resid)
-
-    ! 2-norm
-    l2norm = vec_resid%norm2()
-
-    ! clean up temp. vector
-    call vec_resid%destroy()
-    deallocate (vec_resid)
+    ! -- delegate to the stateless kernel
+    call ims_nl_l2norm(this%system_matrix, this%vec_x, this%vec_rhs, &
+                       this%neq, this%active, l2norm)
   end subroutine sln_l2norm
 
   !> @ brief Get the maximum value from a vector
@@ -2985,18 +2977,10 @@ contains
   subroutine sln_calc_residual(this, vec_resid)
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     class(VectorBaseType), pointer :: vec_resid !< the residual vector
-    ! local
-    integer(I4B) :: n
 
-    call this%system_matrix%multiply(this%vec_x, vec_resid) ! r = A*x
-
-    call vec_resid%axpy(-1.0_DP, this%vec_rhs) ! r = r - b
-
-    do n = 1, this%neq
-      if (this%active(n) < 1) then
-        call vec_resid%set_value_local(n, 0.0_DP) ! r_i = 0 if inactive
-      end if
-    end do
+    ! -- delegate to the stateless kernel
+    call ims_nl_residual(this%system_matrix, this%vec_x, this%vec_rhs, &
+                         this%neq, this%active, vec_resid)
 
   end subroutine sln_calc_residual
 
