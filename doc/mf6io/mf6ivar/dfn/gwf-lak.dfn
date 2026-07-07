@@ -181,7 +181,7 @@ reader urword
 tagged true
 optional false
 longname package_convergence keyword
-description keyword to specify that record corresponds to the package convergence comma spaced values file.
+description keyword to specify that record corresponds to the package convergence comma spaced values file. A warning message will be issued if package convergence data is requested but the IMPLICIT option is specified. In that case the lake stage is included in the Iterative Model Solution (IMS) convergence check and the package convergence file is not written.
 
 block options
 name package_convergence_filename
@@ -287,12 +287,20 @@ longname surface depression depth
 description real value that defines the surface depression depth for VERTICAL lake-GWF connections. If specified, SURFDEP must be greater than or equal to zero. If SURFDEP is not specified, a default value of zero is used for all vertical lake-GWF connections.
 
 block options
+name implicit
+type keyword
+reader urword
+optional true
+longname solve lake stage in the groundwater flow matrix
+description keyword that activates the implicit formulation. With this option each lake stage is solved as an additional unknown in the groundwater flow matrix, instead of by the default substitution-iteration solver. The implicit formulation typically converges in far fewer outer iterations for steady-state and strongly coupled lakes and can solve problems for which the default formulation fails to converge. Converged results are equivalent to the default formulation. The implicit formulation makes the coefficient matrix asymmetric and therefore requires the BICGSTAB linear acceleration in the Iterative Model Solution (IMS). Each lake must have at least one groundwater connection when the IMPLICIT option is active because the implicit formulation solves the lake stage through its lakebed seepage; the program will terminate with an error if a lake with no groundwater connections is specified with the IMPLICIT option. If a lake stage becomes too poorly conditioned to solve as a matrix unknown, which can happen for a weakly connected or disconnected lake, that lake is solved automatically by the default substitution solver instead, so the implicit formulation remains as robust as the default formulation. The Newton formulation is recommended for lakes that may become perched (disconnected from the aquifer), because results obtained with the standard rewetting (REWET) capability can otherwise differ between the two approaches.
+
+block options
 name maximum_iterations
 type integer
 reader urword
 optional true
 longname LAK Newton-Raphson iterations
-description integer value that defines the maximum number of Newton-Raphson iterations allowed for a lake. By default, MAXIMUM\_ITERATIONS is equal to 100. MAXIMUM\_ITERATIONS would only need to be increased from the default value if one or more lakes in a simulation has a large water budget error.
+description integer value that defines the maximum number of Newton-Raphson iterations allowed for a lake. By default, MAXIMUM\_ITERATIONS is equal to 100. MAXIMUM\_ITERATIONS would only need to be increased from the default value if one or more lakes in a simulation has a large water budget error. This option applies only to the default substitution-iteration solver; when the IMPLICIT option is active the lake stage is solved within the groundwater flow matrix and its convergence is controlled by the Iterative Model Solution (IMS) settings instead.
 
 block options
 name maximum_stage_change
@@ -300,7 +308,7 @@ type double precision
 reader urword
 optional true
 longname stage closure tolerance
-description real value that defines the lake stage closure tolerance. By default, MAXIMUM\_STAGE\_CHANGE is equal to $1 \times 10^{-5}$. The MAXIMUM\_STAGE\_CHANGE would only need to be increased or decreased from the default value if the water budget error for one or more lakes is too small or too large, respectively.
+description real value that defines the lake stage closure tolerance. By default, MAXIMUM\_STAGE\_CHANGE is equal to $1 \times 10^{-5}$. The MAXIMUM\_STAGE\_CHANGE would only need to be increased or decreased from the default value if the water budget error for one or more lakes is too small or too large, respectively. This option applies only to the default substitution-iteration solver; when the IMPLICIT option is active the lake stage is solved within the groundwater flow matrix and its convergence is controlled by the Iterative Model Solution (IMS) settings instead.
 
 block options
 name time_conversion

@@ -13,6 +13,7 @@ module UtlNcfInputModule
 
   type UtlNcfParamFoundType
     logical :: wkt = .false.
+    logical :: crs_wkt = .false.
     logical :: deflate = .false.
     logical :: shuffle = .false.
     logical :: chunk_time = .false.
@@ -44,11 +45,30 @@ module UtlNcfInputModule
     'WKT', & ! fortran variable
     'STRING', & ! type
     'LENBIGLINE', & ! shape
-    'CRS well-known text (WKT) string', & ! longname
+    'CRS well-known text (WKT1) string', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
-    .false., & ! preserve case
+    .true., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    utlncf_crs_wkt = InputParamDefinitionType &
+    ( &
+    'UTL', & ! component
+    'NCF', & ! subcomponent
+    'OPTIONS', & ! block
+    'CRS_WKT', & ! tag name
+    'CRS_WKT', & ! fortran variable
+    'STRING', & ! type
+    'LENBIGLINE', & ! shape
+    'CRS well-known text (WKT2) string', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -139,7 +159,7 @@ module UtlNcfInputModule
     'CHUNK_Z', & ! fortran variable
     'INTEGER', & ! type
     '', & ! shape
-    'chunking parameter for structured z', & ! longname
+    'chunking parameter for the layer dimension', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -266,6 +286,7 @@ module UtlNcfInputModule
     utl_ncf_param_definitions(*) = &
     [ &
     utlncf_wkt, &
+    utlncf_crs_wkt, &
     utlncf_deflate, &
     utlncf_shuffle, &
     utlncf_chunk_time, &

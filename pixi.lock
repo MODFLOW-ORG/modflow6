@@ -1973,6 +1973,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/execnet-2.1.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/filelock-3.29.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/flaky-3.8.1-pyhd8ed1ab_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/flopy-3.10.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/folium-0.20.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/font-ttf-dejavu-sans-mono-2.37-hab24e00_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/font-ttf-inconsolata-3.000-h77eed37_0.tar.bz2
@@ -2105,6 +2106,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/execnet-2.1.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/filelock-3.29.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/flaky-3.8.1-pyhd8ed1ab_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/flopy-3.10.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/folium-0.20.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/font-ttf-dejavu-sans-mono-2.37-hab24e00_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/font-ttf-inconsolata-3.000-h77eed37_0.tar.bz2
@@ -14951,6 +14953,20 @@ packages:
   - pkg:pypi/flaky?source=hash-mapping
   size: 22239
   timestamp: 1736040820816
+- conda: https://conda.anaconda.org/conda-forge/noarch/flopy-3.10.0-pyhd8ed1ab_0.conda
+  sha256: 22cb1c2b953b35c82049f60717da62d42c2345df30f3d6803ff9043084ee760f
+  md5: 7ce2679e699e54de7eb7f44fef6af238
+  depends:
+  - matplotlib-base >=1.4.0
+  - numpy >=1.20.3,<3.0
+  - pandas >=2.0.0,<3.0
+  - python >=3.10
+  license: CC0-1.0
+  purls:
+  - pkg:pypi/flopy?source=hash-mapping
+  run_exports: {}
+  size: 808834
+  timestamp: 1770456421690
 - conda: https://conda.anaconda.org/conda-forge/noarch/folium-0.20.0-pyhd8ed1ab_0.conda
   sha256: 782fa186d7677fd3bc1ff7adb4cc3585f7d2c7177c30bcbce21f8c177135c520
   md5: a6997a7dcd6673c0692c61dfeaea14ab

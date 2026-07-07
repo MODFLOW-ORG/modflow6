@@ -7,10 +7,21 @@ block options
 name wkt
 type string
 shape lenbigline
+preserve_case true
 reader urword
 optional true
-longname CRS well-known text (WKT) string
-description is the coordinate reference system (CRS) well-known text (WKT) string. Used to embed CRS metadata in NetCDF output. Ignored if latitude and longitude griddata arrays have been provided for NETCDF\_STRUCTURED export type.
+longname CRS well-known text (WKT1) string
+description is the coordinate reference system (CRS) well-known text string in WKT1 format (OGC 01-009). Written as the ``wkt`` attribute on the projection variable. Ignored when latitude and longitude griddata arrays have been provided. To also embed the CRS in the binary grid file, provide the same string as the ``CRS`` option in the discretization input; the discretization ``CRS`` option additionally accepts other pyproj-compatible identifiers such as an EPSG code (e.g. ``EPSG:26918``).
+
+block options
+name crs_wkt
+type string
+shape lenbigline
+preserve_case true
+reader urword
+optional true
+longname CRS well-known text (WKT2) string
+description is the coordinate reference system (CRS) well-known text string in WKT2 format (ISO 19162:2019), as required by CF-1.11. Written as the ``crs\_wkt`` attribute on the projection variable. When omitted, the ``wkt`` value is written to ``crs\_wkt`` as a compatibility alias. Ignored when latitude and longitude griddata arrays have been provided. To also embed the CRS in the binary grid file, provide the same string as the ``CRS`` option in the discretization input; the discretization ``CRS`` option additionally accepts other pyproj-compatible identifiers such as an EPSG code (e.g. ``EPSG:26918``).
 
 block options
 name deflate
@@ -49,8 +60,8 @@ name chunk_z
 type integer
 reader urword
 optional true
-longname chunking parameter for structured z
-description is the chunk size for the z dimension in a NETCDF\_STRUCTURED output file. Must be used in combination with the chunk\_time, chunk\_x, and chunk\_y parameters to have an effect.
+longname chunking parameter for the layer dimension
+description is the chunk size for the layer (vertical) dimension in a NETCDF\_STRUCTURED output file. Must be used in combination with the chunk\_time, chunk\_x, and chunk\_y parameters to have an effect.
 
 block options
 name chunk_y
@@ -96,7 +107,7 @@ shape (ncpl)
 optional true
 reader readarray
 longname cell center latitude
-description cell center latitude. Only supported for NETCDF\_STRUCTURED export type.
+description cell center latitude array. Only supported for NETCDF\_STRUCTURED export type. Providing latitude and longitude arrays enables geographic-coordinate output as a special case for external tooling that requires it; the preferred approach is to use the ``wkt`` and ``crs\_wkt`` options instead. When latitude and longitude arrays are provided, any ``wkt`` or ``crs\_wkt`` option values are ignored.
 
 block griddata
 name longitude
@@ -105,4 +116,4 @@ shape (ncpl)
 optional true
 reader readarray
 longname cell center longitude
-description cell center longitude. Only supported for NETCDF\_STRUCTURED export type.
+description cell center longitude array. Only supported for NETCDF\_STRUCTURED export type. See the latitude description for usage notes.

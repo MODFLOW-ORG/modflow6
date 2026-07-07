@@ -16,6 +16,11 @@ netcdf = "NETCDF"
 
 [[items]]
 section = "features"
+subsection = "advanced"
+description = "Added a new IMPLICIT option to the Lake (LAK) Package that solves each lake stage as an additional unknown in the groundwater flow matrix instead of by the default substitution-iteration solver. The implicit formulation typically converges in far fewer outer iterations and can solve problems for which the default formulation fails to converge, while giving equivalent results. It makes the coefficient matrix asymmetric and therefore requires the BICGSTAB linear acceleration in the Iterative Model Solution (IMS). A lake that is too poorly conditioned to solve as a matrix unknown is automatically solved by the default substitution solver instead, so the option is as robust as the default formulation."
+
+[[items]]
+section = "features"
 subsection = "stress"
 description = "Added a new AUTO\\_FLOW\\_REDUCE\\_AUXNAME option to the Well (WEL) Package. When AUTO\\_FLOW\\_REDUCE is active, the pumping rate of a well is smoothly reduced as the cell head drops toward the cell bottom, using a single global turnoff threshold for all wells in the package. The new AUTO\\_FLOW\\_REDUCE\\_AUXNAME option names an auxiliary variable whose value sets the turnoff threshold for each well individually, so different wells in the same package can begin reducing their pumping at different heads. The per-well auxiliary value overrides the global AUTO\\_FLOW\\_REDUCE value and is interpreted the same way: as a length above the cell bottom when FLOW\\_REDUCTION\\_LENGTH is specified, or otherwise as a fraction of the cell thickness. If AUTO\\_FLOW\\_REDUCE\\_AUXNAME is specified without AUTO\\_FLOW\\_REDUCE the option is ignored with a warning, and an error is reported if the named auxiliary variable does not exist."
 
@@ -133,3 +138,8 @@ description = "Fixed a bug in the GWT DSP Package and GWE CND Package affecting 
 section = "features"
 subsection = "basic"
 description = "The CRS option, which specifies a real-world coordinate reference system (CRS) for a model grid, for example an EPSG code, authority string, or Open Geospatial Consortium Well-Known Text (WKT) specification, is supported for all discretization package types. When CRS is specified, the simulation writes a version 2 binary grid (GRB) file so that the CRS can be included, allowing postprocessors to locate the grid in space."
+
+[[items]]
+section = "features"
+subsection = "netcdf"
+description = "Improved CF-1.11 and UGRID-1.0 compliance for NetCDF output. A new ``crs\\_wkt`` option in the NCF utility package accepts a WKT2 (ISO 19162:2019) string for the projection variable; ``grid\\_mapping\\_name`` is now derived and written automatically. The vertical dimension is renamed from ``z`` to ``layer`` with standard CF axis attributes. UGRID face variables now carry ``mesh``, ``location``, and ``coordinates`` unconditionally."
