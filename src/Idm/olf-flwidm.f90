@@ -447,7 +447,7 @@ module OlfFlwInputModule
     ), &
     InputBlockDefinitionType( &
     'PERIOD', & ! blockname
-    .true., & ! required
+    .false., & ! required
     .true., & ! aggregate
     .true. & ! block_variable
     ) &

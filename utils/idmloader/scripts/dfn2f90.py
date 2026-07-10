@@ -185,6 +185,7 @@ def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
             block_data[blockname_upper] = {
                 "required_l": [],
                 "has_block_var": False,
+                "block_var_required": None,
                 "is_aggregate": False,
                 "aggregate_required": False,
             }
@@ -192,6 +193,8 @@ def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
         is_block_variable = vd.get("block_variable", "").lower() == "true"
         if is_block_variable:
             block_data[blockname_upper]["has_block_var"] = True
+            is_optional = vd.get("optional", "").lower() == "true"
+            block_data[blockname_upper]["block_var_required"] = not is_optional
             continue
 
         vn = vd["name"].upper()
@@ -309,7 +312,14 @@ def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
     blocks = []
     for blockname_upper in block_names_ordered:
         bdata = block_data[blockname_upper]
-        if bdata["is_aggregate"]:
+        if bdata.get("block_var_required") is not None and bdata["is_aggregate"]:
+            # For aggregate (recarray) blocks, the block_variable's optional flag
+            # controls whether the block itself is required.  This allows stress
+            # package PERIOD blocks to be made optional via "iper optional true"
+            # in the DFN while leaving non-aggregate blocks (e.g. STO PERIOD) to
+            # derive their required status from their individual params as before.
+            block_required = bdata["block_var_required"]
+        elif bdata["is_aggregate"]:
             block_required = bdata["aggregate_required"]
         else:
             block_required = any(bdata["required_l"])

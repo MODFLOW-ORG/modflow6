@@ -178,7 +178,7 @@ tagged false
 shape
 valid
 reader urword
-optional false
+optional true
 longname stress period number
 description REPLACE iper {}
 

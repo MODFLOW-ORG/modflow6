@@ -13,9 +13,9 @@ module BndModule
                              LENMEMPATH, MAXCHARLEN, LINELENGTH, &
                              DNODATA, LENLISTLABEL, LENPAKLOC, &
                              TABLEFT, TABCENTER
-  use SimVariablesModule, only: errmsg
+  use SimVariablesModule, only: errmsg, warnmsg
   use SimModule, only: count_errors, store_error, &
-                       store_error_unit
+                       store_error_unit, store_warning
   use NumericalPackageModule, only: NumericalPackageType
   use ObsModule, only: ObsType, obs_cr
   use TdisModule, only: delt, totimc
@@ -1386,8 +1386,10 @@ contains
     !
     ! -- verify dimensions were set
     if (this%maxbound <= 0) then
-      write (errmsg, '(a)') 'MAXBOUND must be an integer greater than zero.'
-      call store_error(errmsg)
+      write (warnmsg, '(a)') &
+        trim(adjustl(this%text))//' package has MAXBOUND of zero. '// &
+        'No boundary conditions will be applied.'
+      call store_warning(warnmsg)
     end if
     !
     ! -- terminate if there are errors

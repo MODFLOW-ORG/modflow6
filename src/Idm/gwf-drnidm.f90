@@ -531,7 +531,7 @@ module GwfDrnInputModule
     ), &
     InputBlockDefinitionType( &
     'PERIOD', & ! blockname
-    .true., & ! required
+    .false., & ! required
     .true., & ! aggregate
     .true. & ! block_variable
     ) &

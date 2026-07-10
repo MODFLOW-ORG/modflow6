@@ -11,8 +11,9 @@ module BndExtModule
   use KindModule, only: DP, LGP, I4B
   use ConstantsModule, only: LENMEMPATH, LENBOUNDNAME, LENAUXNAME, LINELENGTH
   use ObsModule, only: obs_cr
-  use SimVariablesModule, only: errmsg
-  use SimModule, only: store_error, count_errors, store_error_filename
+  use SimVariablesModule, only: errmsg, warnmsg
+  use SimModule, only: store_error, count_errors, store_error_filename, &
+                       store_warning
   use BndModule, only: BndType
   use GeomUtilModule, only: get_node, get_ijk
 
@@ -492,9 +493,10 @@ contains
     !
     ! -- verify dimensions were set
     if (this%maxbound <= 0) then
-      write (errmsg, '(a)') 'MAXBOUND must be an integer greater than zero.'
-      call store_error(errmsg)
-      call store_error_filename(this%input_fname)
+      write (warnmsg, '(a)') &
+        trim(adjustl(this%text))//' package has MAXBOUND of zero. '// &
+        'No boundary conditions will be applied.'
+      call store_warning(warnmsg)
     end if
   end subroutine source_dimensions
 
