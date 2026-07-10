@@ -143,3 +143,8 @@ description = "The CRS option, which specifies a real-world coordinate reference
 section = "features"
 subsection = "netcdf"
 description = "Improved CF-1.11 and UGRID-1.0 compliance for NetCDF output. A new ``crs\\_wkt`` option in the NCF utility package accepts a WKT2 (ISO 19162:2019) string for the projection variable; ``grid\\_mapping\\_name`` is now derived and written automatically. The vertical dimension is renamed from ``z`` to ``layer`` with standard CF axis attributes. UGRID face variables now carry ``mesh``, ``location``, and ``coordinates`` unconditionally."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "When the Streamflow Routing (SFR) Package STORAGE option was active, a dry reach that was gaining (groundwater head above the streambed top) with little or no inflow could remain dry and receive no groundwater discharge, instead of rewetting from groundwater as it does when the STORAGE option is not used. This has been fixed so that a dry gaining reach rewets and receives groundwater discharge."
