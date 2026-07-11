@@ -8,6 +8,7 @@ module PrtFmiModule
   use FlowModelInterfaceModule, only: FlowModelInterfaceType
   use BaseDisModule, only: DisBaseType
   use BudgetObjectModule, only: BudgetObjectType
+  use MemoryManagerModule, only: mem_allocate, mem_deallocate
 
   implicit none
   private
@@ -25,17 +26,25 @@ module PrtFmiModule
 
   type, extends(FlowModelInterfaceType) :: PrtFmiType
     private
-    integer(I4B), public :: max_faces !< maximum number of 3d cell faces
-    real(DP), allocatable, public :: SourceFlows(:) ! cell source flows array
-    real(DP), allocatable, public :: SinkFlows(:) ! cell sink flows array
-    real(DP), allocatable, public :: StorageFlows(:) ! cell storage flows array
-    real(DP), allocatable, public :: BoundaryFlows(:, :) ! cell boundary flows array
-    integer(I4B), allocatable, public :: BoundaryFaces(:) ! bitmask of assigned boundary faces
+    integer(I4B), pointer, public :: max_faces => null() !< max number of 3d cell faces
+    real(DP), dimension(:), pointer, contiguous, public :: &
+      SourceFlows => null() !< cell source flows array
+    real(DP), dimension(:), pointer, contiguous, public :: &
+      SinkFlows => null() !< cell sink flows array
+    real(DP), dimension(:), pointer, contiguous, public :: &
+      StorageFlows => null() !< cell storage flows array
+    real(DP), dimension(:, :), pointer, contiguous, public :: &
+      BoundaryFlows => null() !< cell boundary flows array
+    integer(I4B), dimension(:), pointer, contiguous, public :: &
+      BoundaryFaces => null() !< bitmask of assigned boundary faces
 
   contains
 
     procedure :: fmi_ad
     procedure :: fmi_df => prtfmi_df
+    procedure :: fmi_da => prtfmi_da
+    procedure :: allocate_scalars => prtfmi_allocate_scalars
+    procedure :: allocate_arrays => prtfmi_allocate_arrays
     procedure, private :: accumulate_flows
     procedure :: mark_boundary_face
     procedure :: is_boundary_face
@@ -157,13 +166,54 @@ contains
       return
     end if
 
-    allocate (this%StorageFlows(this%dis%nodes))
-    allocate (this%SourceFlows(this%dis%nodes))
-    allocate (this%SinkFlows(this%dis%nodes))
-    allocate (this%BoundaryFlows(this%dis%nodes, this%max_faces))
-    allocate (this%BoundaryFaces(this%dis%nodes))
-
   end subroutine prtfmi_df
+
+  !> @brief Allocate scalars
+  subroutine prtfmi_allocate_scalars(this)
+    class(PrtFmiType) :: this
+
+    call this%FlowModelInterfaceType%allocate_scalars()
+
+    call mem_allocate(this%max_faces, 'MAX_FACES', this%memoryPath)
+    this%max_faces = 0
+
+  end subroutine prtfmi_allocate_scalars
+
+  !> @brief Allocate arrays
+  subroutine prtfmi_allocate_arrays(this, nodes)
+    class(PrtFmiType) :: this
+    integer(I4B), intent(in) :: nodes
+
+    ! allocate parent arrays
+    call this%FlowModelInterfaceType%allocate_arrays(nodes)
+
+    call mem_allocate(this%StorageFlows, nodes, &
+                      'STORAGEFLOWS', this%memoryPath)
+    call mem_allocate(this%SourceFlows, nodes, &
+                      'SOURCEFLOWS', this%memoryPath)
+    call mem_allocate(this%SinkFlows, nodes, &
+                      'SINKFLOWS', this%memoryPath)
+    call mem_allocate(this%BoundaryFlows, nodes, this%max_faces, &
+                      'BOUNDARYFLOWS', this%memoryPath)
+    call mem_allocate(this%BoundaryFaces, nodes, &
+                      'BOUNDARYFACES', this%memoryPath)
+
+  end subroutine prtfmi_allocate_arrays
+
+  !> @brief Deallocate memory
+  subroutine prtfmi_da(this)
+    class(PrtFmiType) :: this
+
+    call mem_deallocate(this%max_faces)
+    call mem_deallocate(this%StorageFlows)
+    call mem_deallocate(this%SourceFlows)
+    call mem_deallocate(this%SinkFlows)
+    call mem_deallocate(this%BoundaryFlows)
+    call mem_deallocate(this%BoundaryFaces)
+
+    call this%FlowModelInterfaceType%fmi_da()
+
+  end subroutine prtfmi_da
 
   !> @brief Accumulate flows
   subroutine accumulate_flows(this)
