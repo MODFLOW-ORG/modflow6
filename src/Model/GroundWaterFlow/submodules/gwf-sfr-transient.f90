@@ -94,13 +94,16 @@ contains
   ! estimate qgwf
   igwfconn = this%sfr_gwf_conn(n)
   if (igwfconn == 1) then
-    ! -- a dry gaining reach can get stuck at zero depth under Picard iteration:
-    !    with a small time step zero depth is a stable fixed point because
-    !    conductance and saturation vanish there. Solve its depth by bisection
-    !    instead, bracketed between the wet-streambed depth (DEM5) and the
-    !    aquifer depth above the streambed top, so the reach rewets at any dt.
+    ! -- a dry gaining reach with no inflow can get stuck at zero depth under
+    !    Picard iteration: with a small time step zero depth is a stable fixed
+    !    point because conductance and saturation vanish there. Only in that
+    !    case (aquifer head above the streambed top and effectively no routed
+    !    inflow) solve the depth by bisection instead, bracketed between the
+    !    wet-streambed depth (DEM5) and the aquifer depth above the streambed
+    !    top, so the reach rewets at any dt. A reach with meaningful inflow
+    !    (dc >= DEM5) is left on the untouched Picard path.
     en2 = hgwf - this%strtop(n)
-    if (en2 > DTWO * DEM5 .and. dc < en2) then
+    if (en2 > DTWO * DEM5 .and. dc < DEM5) then
       lbisect = .true.
       en1 = DEM5
       d1 = DHALF * (en1 + en2)
