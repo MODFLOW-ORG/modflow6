@@ -6,7 +6,7 @@ With the SFR STORAGE option (transient kinematic-wave channel routing), a dry
 gaining reach (aquifer head above the streambed top) with no inflow used to stay
 dry with exactly zero groundwater discharge. At a small time step, zero reach
 depth is a stable fixed point of the reach solver because the streambed
-conductance and saturation vanish at zero depth, so the reach never rewet from
+conductance and saturation vanish at zero depth, so the reach never rewets from
 groundwater (it does rewet with the STORAGE option off, the steady solver). The
 transient depth of a gaining reach is now found by a bracketed bisection, so it
 rewets for any time-step size.
@@ -34,8 +34,9 @@ HK = 0.1
 GAIN_ABOVE = 1.0
 RTP = [10.0 - SLOPE * ((j + 0.5) * DELR) for j in range(NREACH)]
 # time step near Courant ~ 1 (celerity ~1 m/s over a 100 m reach) with enough
-# steps to reach quasi-steady state
-DELT, NSTP = 100.0, 800
+# steps to reach quasi-steady state (the exchange has fully settled well before
+# this; the unfixed solver stays trapped at zero depth for any step count)
+DELT, NSTP = 100.0, 25
 
 
 def build_models(idx, test):
