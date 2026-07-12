@@ -2473,11 +2473,9 @@ contains
         this%xnewpak(n) = this%well_head(n)
       end if
       !
-      ! -- start each time step with no Newton under-relaxation damping so the
-      !    rate convergence check does not compare rates across the time-step
-      !    boundary. Reset both the damping weight and the previous head change
-      !    so a change carried over from the last time step cannot spuriously
-      !    trigger damping on the first outer iteration.
+      ! -- start each time step with damping turned off. Clearing the weight
+      !    and the previous head change stops a leftover value from the last
+      !    time step from triggering damping on the first iteration.
       this%nurdxold(n) = DZERO
       this%nurweight(n) = DONE
     end do
@@ -2568,16 +2566,14 @@ contains
       call this%pakmvrobj%fc()
     end if
     !
-    ! -- save the well rate from the previous outer iteration before it is
-    !    recalculated below, for the rate convergence check in maw_cc
-    do n = 1, this%nmawwells
-      this%qsim0(n) = this%ratesim(n)
-    end do
-    !
     ! -- Copy package rhs and hcof into solution rhs and amat
     idx = 1
     do n = 1, this%nmawwells
       iloc = this%idxlocnode(n)
+      !
+      ! -- save the well rate from the previous outer iteration before it is
+      !    recalculated below, for the rate convergence check in maw_cc
+      this%qsim0(n) = this%ratesim(n)
       !
       ! -- update head value for constant head maw wells
       if (this%iboundpak(n) < 0) then
@@ -2620,13 +2616,12 @@ contains
         ! -- add maw storage changes
         if (this%imawiss /= 1) then
           if (this%ifwdischarge(n) /= 1) then
-            ! -- well storage. The water level used for storage is not allowed
-            !    to go below the bottom of the well: ss is a smooth version of
-            !    max(hmaw, well bottom). This way the storage release (and its
-            !    matrix term) fades out as the well empties, instead of
-            !    releasing water from a level below the well bottom that is not
-            !    really there. While the well head is above its bottom this is
-            !    exactly the original term (sd = 1, ss = hmaw, so -area/delt).
+            ! -- well storage. The storage water level is not allowed to drop
+            !    below the bottom of the well: ss is a smooth version of
+            !    max(hmaw, well bottom). The storage release then fades out as
+            !    the well empties instead of drawing water from below the well
+            !    bottom. While the head is above the bottom this is the original
+            !    term (sd = 1, ss = hmaw, giving -area/delt).
             tled = this%area(n) / delt
             sd = sQuadratic0spDerivative(hmaw, this%bot(n), this%satomega)
             ss = sQuadratic0sp(hmaw, this%bot(n), this%satomega)
@@ -2899,13 +2894,12 @@ contains
       ! -- full Newton head change proposed for this outer iteration
       dxprop = x(n) - xtemp(n)
       !
-      ! -- oscillation damping. Cut the weight only when the head change flipped
-      !    direction AND is not already shrinking on its own (it is at least
-      !    damptol times the size of the previous change); otherwise let the
-      !    weight grow back toward one. A head change that is steadily getting
-      !    smaller is left alone so a normal, converging well is not slowed
-      !    down. This handles the part of the oscillation that stays above the
-      !    well bottom, which the bottom limit below cannot catch.
+      ! -- oscillation damping. Cut the weight only when the head change flips
+      !    direction and is not already shrinking on its own (it is still at
+      !    least damptol times the previous change). Otherwise let the weight
+      !    grow back toward one, so a normal, converging well is not slowed
+      !    down. This catches oscillations above the well bottom, which the
+      !    bottom limit below cannot.
       weight = maw_damp_weight(dxprop, this%nurdxold(n), this%nurweight(n), &
                                damptheta, damptol, weightmin, recover)
       this%nurweight(n) = weight
@@ -3006,7 +3000,6 @@ contains
     real(DP) :: bmaw
     real(DP) :: hgwf
     real(DP) :: hv
-    real(DP) :: h_temp
     real(DP) :: sat
     real(DP) :: cmaw
     real(DP) :: qmax
@@ -3015,7 +3008,6 @@ contains
     real(DP) :: dq
     real(DP) :: dpakmax
     character(len=LENPAKLOC) :: cloc
-    character(len=MAXCHARLEN) :: warnmsg
     ! -- parameters
     real(DP), parameter :: qtol = 1.001_DP !the request must exceed supply by this factor to warn
     ! -- formats
@@ -3026,15 +3018,12 @@ contains
       &Consider reducing the requested rate, applying or widening RATE_SCALING, &
       &or reviewing the connection conductance (e.g. aquifer K).')"
     !
-    ! -- rate convergence check. While a well is being damped by Newton
-    !    under-relaxation (nurweight < 1), its head step is deliberately small,
-    !    so make sure the well rate has actually stopped changing before the
-    !    model is allowed to converge. The rate change is converted to a well
-    !    head-equivalent change (using the well area and time step) so it can be
-    !    compared with the solver tolerance, and is reported through dpak. This
-    !    only affects wells that are being damped, so models that do not use
-    !    Newton under-relaxation, and wells that are not oscillating, are
-    !    unchanged.
+    ! -- rate convergence check. While a well is being damped (nurweight < 1)
+    !    its head barely moves, so also require the well rate to stop changing
+    !    before the model is allowed to converge. The rate change is turned
+    !    into an equivalent head change (using the well area and time step) so
+    !    it can be compared with the solver tolerance, and is passed back in
+    !    dpak. Wells that are not being damped are left unchanged.
     dpakmax = DZERO
     locdpak = 0
     do n = 1, this%nmawwells
@@ -3045,15 +3034,13 @@ contains
       else
         qtolfact = DZERO
       end if
-      ! -- qsim0 and ratesim are both set in maw_fc (before the solve), so dq
-      !    is the rate change over the previous outer iteration and lags the
-      !    just-solved heads by one iteration. This is acceptable because it can
-      !    only delay convergence -- DVCLOSE independently guards correctness,
-      !    since stable heads imply stable rates. A future tightening to the
-      !    current-head rate would need a side-effect-free rate calculation
-      !    (maw_calculate_wellq mutates the RATE_SCALING/shutoff state, so it
-      !    cannot be re-evaluated here) and would change convergence paths, so
-      !    it is not behavior-preserving and would need test re-baselining.
+      ! -- qsim0 and ratesim both come from maw_fc (before the solve), so dq is
+      !    the rate change from the previous outer iteration -- one step behind
+      !    the newest heads. That is fine here: a lagged rate can only delay
+      !    convergence, never accept a bad answer, because the solver already
+      !    checks the heads and steady heads mean a steady rate. The up-to-date
+      !    rate is not used because recomputing it would change the well's
+      !    shutoff and RATE_SCALING state.
       dq = (this%qsim0(n) - this%ratesim(n)) * qtolfact
       if (abs(dq) > abs(dpakmax)) then
         dpakmax = dq
@@ -3091,22 +3078,12 @@ contains
         ! -- connection saturation evaluated with the well head at the bottom of
         !    the well (hv), consistent with this maximum-supply estimate, rather
         !    than at the current well head
-        if (this%icelltype(igwfnode) /= 0) then
-          if (this%inewton == 1) then
-            h_temp = max(hgwf, hv)
-          else
-            h_temp = DHALF * (max(hgwf, bmaw) + hv)
-          end if
-          sat = sQuadraticSaturation(this%topscrn(jpos), bmaw, h_temp, &
-                                     this%satomega)
-        else
-          sat = DONE
-        end if
+        call this%maw_calculate_saturation(n, j, igwfnode, sat, hv)
         cmaw = this%satcond(jpos) * sat
         !
-        ! -- only accumulate connections that can supply water; a connection
-        !    whose aquifer head is below the well head at the bottom would lose
-        !    water and must not reduce the maximum the aquifer can supply
+        ! -- only count connections that can supply water. A connection whose
+        !    aquifer head is below the well bottom would take water in, so skip
+        !    it instead of letting it lower the maximum supply.
         qmax = qmax + cmaw * max(hgwf - hv, DZERO)
       end do
       !
@@ -3181,7 +3158,12 @@ contains
       if (this%iflowingwells > 0) then
         if (this%fwcond(n) > DZERO) then
           cfw = this%fwcondsim(n)
-          this%xsto(n) = this%fwelev(n)
+          ! -- only raise the storage level to the flowing-well elevation when
+          !    the well is actually discharging (ifwdischarge == 1), matching
+          !    the storage term assembled in maw_fc
+          if (this%ifwdischarge(n) == 1) then
+            this%xsto(n) = this%fwelev(n)
+          end if
           rrate = cfw * (this%fwelev(n) - hmaw)
           this%qfw(n) = rrate
           !
@@ -3190,12 +3172,14 @@ contains
         end if
       end if
       !
-      ! -- Calculate qsto. for a well that is not a flowing well, the water
-      !    level used for storage is not allowed to drop below the bottom of
-      !    the well (this matches the matrix term in maw_fc). A flowing well
-      !    uses the flowing-well elevation (xsto), which is unchanged.
+      ! -- Calculate qsto so it matches the storage term built in maw_fc. A
+      !    flowing well that is actively discharging (ifwdischarge == 1) uses
+      !    the flowing-well elevation (xsto = fwelev). Otherwise the storage
+      !    water level is not allowed to drop below the bottom of the well.
+      !    Testing ifwdischarge (not fwcond) keeps the budget in step with the
+      !    matrix when a flowing well is at or below its discharge elevation.
       if (this%imawiss /= 1) then
-        if (this%iflowingwells > 0 .and. this%fwcond(n) > DZERO) then
+        if (this%iflowingwells > 0 .and. this%ifwdischarge(n) == 1) then
           rrate = -this%area(n) * (this%xsto(n) - this%xoldsto(n)) / delt
         else
           ss = sQuadratic0sp(hmaw, this%bot(n), this%satomega)
@@ -4160,13 +4144,14 @@ contains
 
   !> @brief Calculate the saturation between the aquifer maw well_head
   !<
-  subroutine maw_calculate_saturation(this, n, j, node, sat)
+  subroutine maw_calculate_saturation(this, n, j, node, sat, hwell_in)
     ! -- dummy
     class(MawType), intent(inout) :: this
     integer(I4B), intent(in) :: n
     integer(I4B), intent(in) :: j
     integer(I4B), intent(in) :: node
     real(DP), intent(inout) :: sat
+    real(DP), intent(in), optional :: hwell_in !well head to use instead of the current well head
     ! -- local
     integer(I4B) :: jpos
     real(DP) :: h_temp
@@ -4181,8 +4166,11 @@ contains
     ! -- calculate current saturation for convertible cells
     if (this%icelltype(node) /= 0) then
       !
-      ! -- set hwell
+      ! -- set hwell (use the caller-supplied head if provided)
       hwell = this%xnewpak(n)
+      if (present(hwell_in)) then
+        hwell = hwell_in
+      end if
       !
       ! -- set connection position
       jpos = this%get_jpos(n, j)
