@@ -264,7 +264,7 @@ contains
       fname = mfnames(n)
       model_name = mnames(n)
       !
-      call check_model_name(model_type, model_name)
+      call check_model_name(model_type, model_name, model_names(1:n - 1))
       !
       ! increment global model id
       model_names(n) = model_name(1:LENMODELNAME)
@@ -827,12 +827,14 @@ contains
     end do
   end subroutine assign_exchanges
 
-  !> @brief Check that the model name is valid
+  !> @brief Check that the model name is valid and unique
   !<
-  subroutine check_model_name(mtype, mname)
+  subroutine check_model_name(mtype, mname, existing_names)
     ! -- dummy
     character(len=*), intent(in) :: mtype
     character(len=*), intent(inout) :: mname
+    character(len=*), dimension(:), intent(in) :: existing_names !< names of
+      !! models already created earlier in the simulation nam file models block
     ! -- local
     integer :: ilen
     integer :: i
@@ -857,6 +859,13 @@ contains
         call store_error(errmsg, terminate)
       end if
     end do
+    if (ifind(existing_names, mname) > 0) then
+      write (errmsg, '(a,a)') 'Invalid model name: ', trim(mname)
+      call store_error(errmsg)
+      write (errmsg, '(a)') &
+        'Model names must be unique.'
+      call store_error(errmsg, terminate)
+    end if
   end subroutine check_model_name
 
 end module SimulationCreateModule

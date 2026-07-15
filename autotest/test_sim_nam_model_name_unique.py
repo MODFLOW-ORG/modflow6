@@ -1,21 +1,20 @@
 """
-Test to confirm that MODFLOW 6 does not explicitly enforce that model
-names (mname, doc/mf6io/mf6ivar/dfn/sim-nam.dfn) are unique across the
-"models" block of the simulation name file, even though uniqueness is an
-implicit, load-bearing requirement.
+Test that MODFLOW 6 rejects a simulation whose name file "models" block
+(doc/mf6io/mf6ivar/dfn/sim-nam.dfn) assigns the same mname to more than
+one model.
 
-check_model_name() (src/SimulationCreate.f90) only validates that a model
-name is <=16 characters and has no embedded spaces -- there is no
-duplicate-name check. But model names are used to build memory-manager
-paths (e.g. this%memoryPath = create_mem_path(modelname) in
-src/Model/GroundWaterFlow/gwf.f90) and are resolved via ifind()
-(src/Utilities/ArrayHandlers.f90), which returns only the first matching
-element. So giving two models the same name isn't rejected outright, but
-it corrupts the memory manager (colliding memory addresses trigger
-"Already existing variable" warnings, see PtrHashTableType%add in
-src/Utilities/PtrHashTable.f90) and breaks solution assignment (the
-second, identically-named model is never found by ifind(), so it's
-silently left without a solution).
+check_model_name() (src/SimulationCreate.f90) validates mname against the
+model names already seen earlier in the models block, in addition to its
+existing length (<=16 characters) and no-embedded-spaces checks, and
+fails with an informative "Model name is not unique" error.
+
+That check runs in models_create(), which is called after the IDM
+subsystem has already loaded each model's own input files into the
+memory manager, keyed in part by mname (src/Utilities/Idm/IdmLoad.f90,
+load_models()). So a duplicate mname still causes a batch of "Already
+existing variable being added to the HashTable" memory-manager warnings
+(src/Utilities/PtrHashTable.f90) before the simulation aborts with the
+clear, purpose-built error.
 
 flopy itself refuses to let two models share a name -- MFSimulation
 registers models in a dict keyed by name, so the second one just
@@ -84,7 +83,7 @@ def run_mf6(argv, ws):
     return proc.returncode, buff
 
 
-def test_model_name_uniqueness_is_implicit(function_tmpdir, targets):
+def test_duplicate_model_name_is_rejected(function_tmpdir, targets):
     mf6 = targets["mf6"]
 
     build_two_gwf_models(function_tmpdir, mf6)
@@ -95,17 +94,14 @@ def test_model_name_uniqueness_is_implicit(function_tmpdir, targets):
 
     assert returncode != 0, "mf6 unexpectedly succeeded with two models sharing a name"
 
-    # there's no dedicated "duplicate model name" check, so mf6 doesn't
-    # fail with a clean, purpose-built error message
-    assert "duplicate" not in text.lower()
-
-    # every memory-manager entry for the second model instead collides
-    # with the first model's identically-named entries
+    # memory-manager entries for the second model collide with the first
+    # model's identically-named entries, logged as warnings, before the
+    # simulation aborts
     assert "Already existing variable being added to the HashTable" in text
     assert "MODEL1" in text
 
-    # and because name-based lookups (ifind) resolve to the first match
-    # only, the second (duplicate-named) model is silently dropped from
-    # its solution, which is reported as a distinct, unrelated-looking
-    # error
-    assert "Model was not assigned to a solution: MODEL1" in text
+    # check_model_name() catches the duplicate and reports a clear,
+    # purpose-built error rather than failing later with something more
+    # cryptic (e.g. a solution-assignment error)
+    assert "Invalid model name: MODEL1" in text
+    assert "Model name is not unique" in text
