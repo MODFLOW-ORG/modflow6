@@ -1,6 +1,6 @@
 """
-Test that MODFLOW 6 rejects a simulation whose name file "models" block
-assigns the same name to more than one model.
+Simulation whose name file MODELS block assigns the same name
+to more than one model should fail with an informative error.
 """
 
 import subprocess
