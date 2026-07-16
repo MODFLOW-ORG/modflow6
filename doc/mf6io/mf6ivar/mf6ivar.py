@@ -186,7 +186,7 @@ RTD_DOC_DIR_PATH = Path(__file__).parents[3] / ".build_rtd_docs" / "_mf6io"
 COMMON_DFN_PATH = parse_mf6var_file(DFNS_DIR_PATH / "common.dfn")
 COMMON_DIR_PATH = MF6IVAR_DIR_PATH.parent.parent / "Common"
 DEFAULT_MODELS = ["gwf", "gwt", "gwe", "prt"]
-DEVELOP_MODELS = ["chf", "olf", "swf"]
+DEVELOP_MODELS = ["chf", "olf"]
 DEVELOP_PKGS = ["gwf-chdg", "gwf-drng", "gwf-ghbg", "gwf-rivg", "gwf-welg"]
 VALID_TYPES = list(get_args(FieldType))
 

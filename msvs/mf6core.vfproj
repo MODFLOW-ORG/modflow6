@@ -173,7 +173,6 @@
 					<File RelativePath="..\src\Idm\selector\IdmOlfDfnSelector.f90"/>
 					<File RelativePath="..\src\Idm\selector\IdmPrtDfnSelector.f90"/>
 					<File RelativePath="..\src\Idm\selector\IdmSimDfnSelector.f90"/>
-					<File RelativePath="..\src\Idm\selector\IdmSwfDfnSelector.f90"/>
 					<File RelativePath="..\src\Idm\selector\IdmUtlDfnSelector.f90"/>
 				</Filter>
 				<File RelativePath="..\src\Idm\chf-cdbidm.f90"/>
@@ -274,21 +273,6 @@
 				<File RelativePath="..\src\Idm\prt-prpidm.f90"/>
 				<File RelativePath="..\src\Idm\sim-namidm.f90"/>
 				<File RelativePath="..\src\Idm\sim-tdisidm.f90"/>
-				<File RelativePath="..\src\Idm\swf-cdbidm.f90"/>
-				<File RelativePath="..\src\Idm\swf-chdidm.f90"/>
-				<File RelativePath="..\src\Idm\swf-cxsidm.f90"/>
-				<File RelativePath="..\src\Idm\swf-dfwidm.f90"/>
-				<File RelativePath="..\src\Idm\swf-dis2didm.f90"/>
-				<File RelativePath="..\src\Idm\swf-disv1didm.f90"/>
-				<File RelativePath="..\src\Idm\swf-disv2didm.f90"/>
-				<File RelativePath="..\src\Idm\swf-evpidm.f90"/>
-				<File RelativePath="..\src\Idm\swf-flwidm.f90"/>
-				<File RelativePath="..\src\Idm\swf-icidm.f90"/>
-				<File RelativePath="..\src\Idm\swf-namidm.f90"/>
-				<File RelativePath="..\src\Idm\swf-ocidm.f90"/>
-				<File RelativePath="..\src\Idm\swf-pcpidm.f90"/>
-				<File RelativePath="..\src\Idm\swf-stoidm.f90"/>
-				<File RelativePath="..\src\Idm\swf-zdgidm.f90"/>
 				<File RelativePath="..\src\Idm\utl-hpcidm.f90"/>
 				<File RelativePath="..\src\Idm\utl-ncfidm.f90"/>
 				<File RelativePath="..\src\Idm\utl-spcaidm.f90"/>

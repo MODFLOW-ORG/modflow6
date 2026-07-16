@@ -26,10 +26,7 @@ module MethodSubcellPollockModule
   type, extends(MethodSubcellType) :: MethodSubcellPollockType
     private
     real(DP), allocatable, public :: qextl1(:), qextl2(:), qintl(:) !< external and internal subcell flows
-    type(LinearExitSolutionType), public :: exit_solutions(3) !< candidate exit solutions
   contains
-    procedure, public :: find_exits
-    procedure, public :: pick_exit
     procedure, public :: apply => apply_msp
     procedure, public :: deallocate
     procedure, private :: track_subcell
@@ -107,27 +104,25 @@ contains
     real(DP) :: t, x, y, z
     real(DP) :: t0, x0, y0, z0
     integer(I4B) :: i, exit_face, exit_soln
+    type(LinearExitSolutionType) :: exit_solutions(3)
     type(LinearExitSolutionType) :: exit_x, exit_y, exit_z
 
     t0 = particle%ttrack
-    x0 = particle%x / subcell%dx
-    y0 = particle%y / subcell%dy
-    z0 = particle%z / subcell%dz
 
     ! Find exit solution in each direction
-    call this%find_exits(particle, subcell)
-    exit_x = this%exit_solutions(1)
-    exit_y = this%exit_solutions(2)
-    exit_z = this%exit_solutions(3)
+    call find_exits(particle, subcell, exit_solutions, x0, y0, z0)
+    exit_x = exit_solutions(1)
+    exit_y = exit_solutions(2)
+    exit_z = exit_solutions(3)
 
     ! Set solution, face, & travel time
-    exit_soln = this%pick_exit(particle)
+    exit_soln = pick_exit(exit_solutions)
     if (exit_soln == 0) then
       exit_face = 0
       dtexit = 1.0d+30
     else
-      exit_face = this%exit_solutions(exit_soln)%iboundary
-      dtexit = this%exit_solutions(exit_soln)%dt
+      exit_face = exit_solutions(exit_soln)%iboundary
+      dtexit = exit_solutions(exit_soln)%dt
     end if
     texit = particle%ttrack + dtexit
 
@@ -142,7 +137,7 @@ contains
     ! remain active under this circumstance, though.
     ! While we may consider that someday, we simply
     ! terminate and sidestep the complexity for now.
-    if (all([this%exit_solutions%status] >= NO_EXIT_STATIONARY)) then
+    if (all([exit_solutions%status] >= NO_EXIT_STATIONARY)) then
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
       return
     end if
@@ -236,9 +231,8 @@ contains
   end subroutine track_subcell
 
   !> @brief Pick the exit solution with the shortest travel time
-  function pick_exit(this, particle) result(exit_soln)
-    class(MethodSubcellPollockType), intent(inout) :: this
-    type(ParticleType), pointer, intent(inout) :: particle
+  function pick_exit(exit_solutions) result(exit_soln)
+    type(LinearExitSolutionType), intent(in) :: exit_solutions(3)
     integer(I4B) :: exit_soln
     ! local
     real(DP) :: dtmin
@@ -246,29 +240,28 @@ contains
     exit_soln = 0
     dtmin = 1.0d+30
 
-    if (this%exit_solutions(1)%status < 2) then
+    if (exit_solutions(1)%status < 2) then
       exit_soln = 1 ! x
-      dtmin = this%exit_solutions(1)%dt
+      dtmin = exit_solutions(1)%dt
     end if
-    if (this%exit_solutions(2)%status < 2 .and. &
-        this%exit_solutions(2)%dt < dtmin) then
+    if (exit_solutions(2)%status < 2 .and. &
+        exit_solutions(2)%dt < dtmin) then
       exit_soln = 2 ! y
-      dtmin = this%exit_solutions(2)%dt
+      dtmin = exit_solutions(2)%dt
     end if
-    if (this%exit_solutions(3)%status < 2 .and. &
-        this%exit_solutions(3)%dt < dtmin) then
+    if (exit_solutions(3)%status < 2 .and. &
+        exit_solutions(3)%dt < dtmin) then
       exit_soln = 3 ! z
     end if
 
   end function pick_exit
 
   !> @brief Compute candidate exit solutions
-  subroutine find_exits(this, particle, domain)
-    class(MethodSubcellPollockType), intent(inout) :: this
+  subroutine find_exits(particle, domain, exit_solutions, x0, y0, z0)
     type(ParticleType), pointer, intent(inout) :: particle
     class(DomainType), intent(in) :: domain
-    ! local
-    real(DP) :: x0, y0, z0
+    type(LinearExitSolutionType), intent(out) :: exit_solutions(3)
+    real(DP), intent(out) :: x0, y0, z0
 
     select type (domain)
     type is (SubcellRectType)
@@ -278,27 +271,27 @@ contains
       z0 = particle%z / domain%dz
 
       ! Calculate exit solutions for each coordinate direction
-      this%exit_solutions = [ &
-                            find_exit(domain%vx1, domain%vx2, domain%dx, x0), &
-                            find_exit(domain%vy1, domain%vy2, domain%dy, y0), &
-                            find_exit(domain%vz1, domain%vz2, domain%dz, z0) &
-                            ]
+      exit_solutions = [ &
+                       find_exit(domain%vx1, domain%vx2, domain%dx, x0), &
+                       find_exit(domain%vy1, domain%vy2, domain%dy, y0), &
+                       find_exit(domain%vz1, domain%vz2, domain%dz, z0) &
+                       ]
 
       ! Set exit faces
-      if (this%exit_solutions(1)%v < DZERO) then
-        this%exit_solutions(1)%iboundary = 1
-      else if (this%exit_solutions(1)%v > DZERO) then
-        this%exit_solutions(1)%iboundary = 2
+      if (exit_solutions(1)%v < DZERO) then
+        exit_solutions(1)%iboundary = 1
+      else if (exit_solutions(1)%v > DZERO) then
+        exit_solutions(1)%iboundary = 2
       end if
-      if (this%exit_solutions(2)%v < DZERO) then
-        this%exit_solutions(2)%iboundary = 3
-      else if (this%exit_solutions(2)%v > DZERO) then
-        this%exit_solutions(2)%iboundary = 4
+      if (exit_solutions(2)%v < DZERO) then
+        exit_solutions(2)%iboundary = 3
+      else if (exit_solutions(2)%v > DZERO) then
+        exit_solutions(2)%iboundary = 4
       end if
-      if (this%exit_solutions(3)%v < DZERO) then
-        this%exit_solutions(3)%iboundary = 5
-      else if (this%exit_solutions(3)%v > DZERO) then
-        this%exit_solutions(3)%iboundary = 6
+      if (exit_solutions(3)%v < DZERO) then
+        exit_solutions(3)%iboundary = 5
+      else if (exit_solutions(3)%v > DZERO) then
+        exit_solutions(3)%iboundary = 6
       end if
     end select
   end subroutine find_exits

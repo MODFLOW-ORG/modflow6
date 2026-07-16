@@ -45,10 +45,7 @@ module MethodSubcellTernaryModule
   !> @brief Ternary triangular subcell tracking method.
   type, extends(MethodSubcellType) :: MethodSubcellTernaryType
     integer(I4B), public, pointer :: zeromethod
-    type(BarycentricExitSolutionType), public :: exit_solutions(2) !< candidate exit solutions
   contains
-    procedure, public :: find_exits
-    procedure, public :: pick_exit
     procedure, public :: apply => apply_mst
     procedure, public :: deallocate
     procedure, private :: track_subcell
@@ -101,6 +98,7 @@ contains
     real(DP) :: dt, dtexit, texit
     real(DP) :: t0, t, x, y, z0, z
     integer(I4B) :: exit_face, exit_soln, event_code, i, isolv
+    type(BarycentricExitSolutionType) :: exit_solutions(2)
     type(BarycentricExitSolutionType) :: exit_z, exit_lateral
 
     event_code = -1
@@ -113,10 +111,10 @@ contains
     z0 = particle%z
 
     ! Find exit solutions in lateral and vertical directions
-    call this%find_exits(particle, subcell)
+    call find_exits(particle, subcell, exit_solutions)
 
-    exit_z = this%exit_solutions(1)
-    exit_lateral = this%exit_solutions(2)
+    exit_z = exit_solutions(1)
+    exit_lateral = exit_solutions(2)
 
     ! If the subcell has no exit face, terminate the particle.
     ! TODO: consider ramifications
@@ -127,9 +125,9 @@ contains
     end if
 
     ! Determine exit solution, face, travel time, and time
-    exit_soln = this%pick_exit(particle)
-    exit_face = this%exit_solutions(exit_soln)%iboundary
-    dtexit = this%exit_solutions(exit_soln)%dt
+    exit_soln = pick_exit(exit_solutions)
+    exit_face = exit_solutions(exit_soln)%iboundary
+    dtexit = exit_solutions(exit_soln)%dt
     if (dtexit < DZERO) then
       call this%terminate(particle, status=TERM_NO_EXITS_SUB)
       return
@@ -208,15 +206,14 @@ contains
   end subroutine track_subcell
 
   !> @brief Determine earliest exit face
-  function pick_exit(this, particle) result(exit_soln)
-    class(MethodSubcellTernaryType), intent(inout) :: this
-    type(ParticleType), pointer, intent(inout) :: particle
+  function pick_exit(exit_solutions) result(exit_soln)
+    type(BarycentricExitSolutionType), intent(in) :: exit_solutions(2)
     integer(I4B) :: exit_soln
 
-    if (this%exit_solutions(1)%itopbotexit == 0) then
+    if (exit_solutions(1)%itopbotexit == 0) then
       exit_soln = 2 ! lateral
-    else if (this%exit_solutions(2)%itrifaceexit == 0 .or. &
-             this%exit_solutions(1)%dt < this%exit_solutions(2)%dt) then
+    else if (exit_solutions(2)%itrifaceexit == 0 .or. &
+             exit_solutions(1)%dt < exit_solutions(2)%dt) then
       exit_soln = 1 ! top/bottom
     else
       exit_soln = 2 ! lateral
@@ -225,10 +222,10 @@ contains
   end function pick_exit
 
   !> @brief Calculate exit solutions for each coordinate direction
-  subroutine find_exits(this, particle, domain)
-    class(MethodSubcellTernaryType), intent(inout) :: this
+  subroutine find_exits(particle, domain, exit_solutions)
     type(ParticleType), pointer, intent(inout) :: particle
     class(DomainType), intent(in) :: domain
+    type(BarycentricExitSolutionType), intent(out) :: exit_solutions(2)
     ! local
     integer(I4B) :: ntmax
     real(DP) :: tol
@@ -298,36 +295,36 @@ contains
       else if (zirel < DZERO) then
         zirel = DZERO
       end if
-      this%exit_solutions(1) = find_vertical_exit(subcell%vzbot, subcell%vztop, &
-                                                  subcell%dz, zirel)
+      exit_solutions(1) = find_vertical_exit(subcell%vzbot, subcell%vztop, &
+                                             subcell%dz, zirel)
 
       ! Calculate a semi-analytical lateral exit solution
       itrifaceenter = particle%iboundary(LEVEL_SUBFEATURE) - 1
       if (itrifaceenter == -1) itrifaceenter = 999
-      this%exit_solutions(2) = find_lateral_exit(isolv, tol, &
-                                                 itrifaceenter, &
-                                                 alp1, bet1, alp2, &
-                                                 bet2, alpi, beti)
-      this%exit_solutions(2)%rxx = rxx
-      this%exit_solutions(2)%rxy = rxy
-      this%exit_solutions(2)%ryx = ryx
-      this%exit_solutions(2)%ryy = ryy
-      this%exit_solutions(2)%sxx = sxx
-      this%exit_solutions(2)%sxy = sxy
-      this%exit_solutions(2)%syy = syy
+      exit_solutions(2) = find_lateral_exit(isolv, tol, &
+                                            itrifaceenter, &
+                                            alp1, bet1, alp2, &
+                                            bet2, alpi, beti)
+      exit_solutions(2)%rxx = rxx
+      exit_solutions(2)%rxy = rxy
+      exit_solutions(2)%ryx = ryx
+      exit_solutions(2)%ryy = ryy
+      exit_solutions(2)%sxx = sxx
+      exit_solutions(2)%sxy = sxy
+      exit_solutions(2)%syy = syy
 
       ! Set vertical solution exit face
-      if (this%exit_solutions(1)%itopbotexit /= 0) then
-        if (this%exit_solutions(1)%itopbotexit == -1) then
-          this%exit_solutions(1)%iboundary = 4
+      if (exit_solutions(1)%itopbotexit /= 0) then
+        if (exit_solutions(1)%itopbotexit == -1) then
+          exit_solutions(1)%iboundary = 4
         else
-          this%exit_solutions(1)%iboundary = 5
+          exit_solutions(1)%iboundary = 5
         end if
       end if
 
       ! Set lateral solution exit face
-      if (this%exit_solutions(2)%itrifaceexit /= 0) &
-        this%exit_solutions(2)%iboundary = this%exit_solutions(2)%itrifaceexit
+      if (exit_solutions(2)%itrifaceexit /= 0) &
+        exit_solutions(2)%iboundary = exit_solutions(2)%itrifaceexit
     end select
   end subroutine find_exits
 

@@ -9,7 +9,6 @@ module IdmDfnSelectorModule
   use IdmGwfDfnSelectorModule
   use IdmGwtDfnSelectorModule
   use IdmGweDfnSelectorModule
-  use IdmSwfDfnSelectorModule
   use IdmChfDfnSelectorModule
   use IdmOlfDfnSelectorModule
   use IdmPrtDfnSelectorModule
@@ -42,8 +41,6 @@ contains
       input_definition => gwt_param_definitions(subcomponent)
     case ('GWE')
       input_definition => gwe_param_definitions(subcomponent)
-    case ('SWF')
-      input_definition => swf_param_definitions(subcomponent)
     case ('CHF')
       input_definition => chf_param_definitions(subcomponent)
     case ('OLF')
@@ -73,8 +70,6 @@ contains
       input_definition => gwt_aggregate_definitions(subcomponent)
     case ('GWE')
       input_definition => gwe_aggregate_definitions(subcomponent)
-    case ('SWF')
-      input_definition => swf_aggregate_definitions(subcomponent)
     case ('CHF')
       input_definition => chf_aggregate_definitions(subcomponent)
     case ('OLF')
@@ -104,8 +99,6 @@ contains
       input_definition => gwt_block_definitions(subcomponent)
     case ('GWE')
       input_definition => gwe_block_definitions(subcomponent)
-    case ('SWF')
-      input_definition => swf_block_definitions(subcomponent)
     case ('CHF')
       input_definition => chf_block_definitions(subcomponent)
     case ('OLF')
@@ -134,8 +127,6 @@ contains
       multi_package = gwt_idm_multi_package(subcomponent)
     case ('GWE')
       multi_package = gwe_idm_multi_package(subcomponent)
-    case ('SWF')
-      multi_package = swf_idm_multi_package(subcomponent)
     case ('CHF')
       multi_package = chf_idm_multi_package(subcomponent)
     case ('OLF')
@@ -167,8 +158,6 @@ contains
       subpackages => gwt_idm_subpackages(subcomponent)
     case ('GWE')
       subpackages => gwe_idm_subpackages(subcomponent)
-    case ('SWF')
-      subpackages => swf_idm_subpackages(subcomponent)
     case ('CHF')
       subpackages => chf_idm_subpackages(subcomponent)
     case ('OLF')
@@ -201,8 +190,6 @@ contains
       integrated = gwt_idm_integrated(subcomponent)
     case ('GWE')
       integrated = gwe_idm_integrated(subcomponent)
-    case ('SWF')
-      integrated = swf_idm_integrated(subcomponent)
     case ('CHF')
       integrated = chf_idm_integrated(subcomponent)
     case ('OLF')
@@ -230,8 +217,6 @@ contains
     case ('GWT')
       integrated = .true.
     case ('GWE')
-      integrated = .true.
-    case ('SWF')
       integrated = .true.
     case ('CHF')
       integrated = .true.

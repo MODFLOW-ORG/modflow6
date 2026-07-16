@@ -17,6 +17,30 @@ module SwfCxsModule
   private
   public :: SwfCxsType, cxs_cr
 
+  !> @brief flags indicating which CXS options were found in the input
+  type :: CxsOptionsFoundType
+    logical(LGP) :: iprpak = .false.
+  end type CxsOptionsFoundType
+
+  !> @brief flags indicating which CXS dimensions were found in the input
+  type :: CxsDimensionsFoundType
+    logical(LGP) :: nsections = .false.
+    logical(LGP) :: npoints = .false.
+  end type CxsDimensionsFoundType
+
+  !> @brief flags indicating which CXS packagedata were found in the input
+  type :: CxsPackagedataFoundType
+    logical(LGP) :: idcxs = .false.
+    logical(LGP) :: nxspoints = .false.
+  end type CxsPackagedataFoundType
+
+  !> @brief flags indicating which CXS crosssectiondata were found in the input
+  type :: CxsCrosssectiondataFoundType
+    logical(LGP) :: xfraction = .false.
+    logical(LGP) :: height = .false.
+    logical(LGP) :: manfraction = .false.
+  end type CxsCrosssectiondataFoundType
+
   type, extends(NumericalPackageType) :: SwfCxsType
 
     ! provided as input
@@ -151,12 +175,11 @@ contains
     use KindModule, only: LGP
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     ! -- dummy
     class(SwfCxsType) :: this
     ! -- locals
     character(len=LENMEMPATH) :: idmMemoryPath
-    type(SwfCxsParamFoundType) :: found
+    type(CxsOptionsFoundType) :: found
     !
     ! -- set memory path
     idmMemoryPath = create_mem_path(this%name_model, 'CXS', idm_context)
@@ -174,9 +197,8 @@ contains
   !> @brief Write user options to list file
   !<
   subroutine log_options(this, found)
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     class(SwfCxsType) :: this
-    type(SwfCxsParamFoundType), intent(in) :: found
+    type(CxsOptionsFoundType), intent(in) :: found
 
     write (this%iout, '(1x,a)') 'Setting CXS Options'
 
@@ -195,12 +217,11 @@ contains
     use KindModule, only: LGP
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     ! -- dummy
     class(SwfCxsType) :: this
     ! -- locals
     character(len=LENMEMPATH) :: idmMemoryPath
-    type(SwfCxsParamFoundType) :: found
+    type(CxsDimensionsFoundType) :: found
     !
     ! -- set memory path
     idmMemoryPath = create_mem_path(this%name_model, 'CXS', idm_context)
@@ -232,9 +253,8 @@ contains
   !> @brief Write user options to list file
   !<
   subroutine log_dimensions(this, found)
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     class(SwfCxsType) :: this
-    type(SwfCxsParamFoundType), intent(in) :: found
+    type(CxsDimensionsFoundType), intent(in) :: found
 
     write (this%iout, '(1x,a)') 'Setting CXS Dimensions'
 
@@ -294,12 +314,11 @@ contains
     use KindModule, only: LGP
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     ! dummy
     class(SwfCxsType) :: this
     ! locals
     character(len=LENMEMPATH) :: idmMemoryPath
-    type(SwfCxsParamFoundType) :: found
+    type(CxsPackagedataFoundType) :: found
 
     ! set memory path
     idmMemoryPath = create_mem_path(this%name_model, 'CXS', idm_context)
@@ -384,9 +403,8 @@ contains
   !> @brief Write user packagedata to list file
   !<
   subroutine log_packagedata(this, found)
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     class(SwfCxsType) :: this
-    type(SwfCxsParamFoundType), intent(in) :: found
+    type(CxsPackagedataFoundType), intent(in) :: found
 
     write (this%iout, '(1x,a)') 'Setting CXS Package Data'
 
@@ -409,12 +427,11 @@ contains
     use KindModule, only: LGP
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     ! -- dummy
     class(SwfCxsType) :: this
     ! -- locals
     character(len=LENMEMPATH) :: idmMemoryPath
-    type(SwfCxsParamFoundType) :: found
+    type(CxsCrosssectiondataFoundType) :: found
     !
     ! -- set memory path
     idmMemoryPath = create_mem_path(this%name_model, 'CXS', idm_context)
@@ -457,9 +474,8 @@ contains
   !> @brief Write user packagedata to list file
   !<
   subroutine log_crosssectiondata(this, found)
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     class(SwfCxsType) :: this
-    type(SwfCxsParamFoundType), intent(in) :: found
+    type(CxsCrosssectiondataFoundType), intent(in) :: found
 
     write (this%iout, '(1x,a)') 'Setting CXS Cross Section Data'
 

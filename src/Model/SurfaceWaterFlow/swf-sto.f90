@@ -23,6 +23,11 @@ module SwfStoModule
   character(len=LENBUDTXT), dimension(1) :: budtxt = & !< text labels for budget terms
     &['         STORAGE']
 
+  !> @brief flags indicating which STO options were found in the input
+  type :: StoOptionsFoundType
+    logical(LGP) :: ipakcb = .false.
+  end type StoOptionsFoundType
+
   type, extends(NumericalPackageType) :: SwfStoType
     integer(I4B), pointer :: iss => null() !< steady state flag: 1 = steady, 0 = transient
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
@@ -574,11 +579,10 @@ contains
     ! -- modules
     use MemoryManagerExtModule, only: mem_set_value
     use SourceCommonModule, only: filein_fname
-    use SwfStoInputModule, only: SwfStoParamFoundType
     ! -- dummy variables
     class(SwfStoType) :: this !< SwfStoType object
     ! -- local variables
-    type(SwfStoParamFoundType) :: found
+    type(StoOptionsFoundType) :: found
     !
     ! -- source package input
     call mem_set_value(this%ipakcb, 'IPAKCB', this%input_mempath, found%ipakcb)
@@ -599,10 +603,9 @@ contains
   subroutine log_options(this, found)
     ! -- modules
     use MemoryManagerExtModule, only: mem_set_value
-    use SwfStoInputModule, only: SwfStoParamFoundType
     ! -- dummy variables
     class(SwfStoType) :: this !< SwfStoType object
-    type(SwfStoParamFoundType), intent(in) :: found
+    type(StoOptionsFoundType), intent(in) :: found
     ! -- local variables
     ! -- formats
     character(len=*), parameter :: fmtisvflow = &
@@ -626,13 +629,11 @@ contains
   subroutine source_data(this)
     ! -- modules
     use MemoryManagerExtModule, only: mem_set_value
-    use SwfStoInputModule, only: SwfStoParamFoundType
     ! -- dummy variables
     class(SwfStotype) :: this !< SwfStoType object
     ! -- local variables
     character(len=24), dimension(1) :: aname
     integer(I4B), dimension(:), pointer, contiguous :: map
-    !type(SwfStoParamFoundType) :: found
     !
     ! -- initialize data
     data aname(1)/'                     XXX'/

@@ -197,11 +197,8 @@ contains
     ! -- modules
     use InputOutputModule, only: urword
     use MemoryManagerExtModule, only: mem_set_value
-    use SwfCdbInputModule, only: SwfCdbParamFoundType
     ! -- dummy variables
     class(SwfCdbType), intent(inout) :: this !< SwfCdbType object
-    ! -- local variables
-    type(SwfCdbParamFoundType) :: found
     ! -- formats
     !
     ! -- source base BndExtType options
@@ -211,27 +208,20 @@ contains
     ! none
     !
     ! -- log SWF specific options
-    call this%log_cdb_options(found)
+    call this%log_cdb_options()
   end subroutine cdb_options
 
   !> @ brief Log SWF specific package options
   !<
-  subroutine log_cdb_options(this, found)
-    ! -- modules
-    use SwfCdbInputModule, only: SwfCdbParamFoundType
+  subroutine log_cdb_options(this)
     ! -- dummy variables
     class(SwfCdbType), intent(inout) :: this
-    type(SwfCdbParamFoundType), intent(in) :: found
     ! -- local variables
     ! -- format
     !
     ! -- log found options
     write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text)) &
       //' OPTIONS'
-    !
-    ! if (found%mover) then
-    !   write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
-    ! end if
     !
     ! -- close logging block
     write (this%iout, '(1x,a)') &
