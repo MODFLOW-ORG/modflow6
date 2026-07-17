@@ -313,13 +313,20 @@ contains
     real(DP), intent(in) :: relax !< relaxation factor (> 0 selects the modified ILU)
     integer(I4B) :: ipc !< resolved preconditioner enum (IPC_*)
     !
+    ! -- map explicitly to the target enum (do not rely on IPC_* being
+    !    consecutive); relax > 0 selects the modified variant
     if (level > 0) then
-      ipc = IPC_ILUT
+      if (relax > DZERO) then
+        ipc = IPC_MILUT
+      else
+        ipc = IPC_ILUT
+      end if
     else
-      ipc = IPC_ILU0
-    end if
-    if (relax > DZERO) then
-      ipc = ipc + 1
+      if (relax > DZERO) then
+        ipc = IPC_MILU0
+      else
+        ipc = IPC_ILU0
+      end if
     end if
   end function resolve_ipc
 

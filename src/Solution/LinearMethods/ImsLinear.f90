@@ -529,6 +529,10 @@ CONTAINS
     ! -- local variables
     integer(I4B) :: n
     !
+    ! -- release any existing preconditioner arrays so this routine is
+    !    idempotent and can be called again to reallocate at runtime
+    if (associated(this%IAPC)) call precond_destroy(this)
+    !
     ! -- determine dimensions for preconditioning arrays
     call ims_calc_pcdims(this%NEQ, this%NJA, this%IA, this%LEVEL, this%IPC, &
                          this%NIAPC, this%NJAPC, this%NJLU, this%NJW, this%NWLU)
@@ -566,18 +570,30 @@ CONTAINS
   !! disturbing the solver work arrays.
   !<
   subroutine precond_destroy(this)
-    use MemoryManagerModule, only: mem_deallocate
+    use MemoryManagerExtModule, only: memorystore_release
     ! -- dummy variables
     class(ImsLinearDataType), intent(inout) :: this !< ImsLinearDataType instance
     !
-    call mem_deallocate(this%iapc)
-    call mem_deallocate(this%japc)
-    call mem_deallocate(this%apc)
-    call mem_deallocate(this%iw)
-    call mem_deallocate(this%w)
-    call mem_deallocate(this%jlu)
-    call mem_deallocate(this%jw)
-    call mem_deallocate(this%wlu)
+    ! -- mem_deallocate is a no-op in the memory manager, so releasing the named
+    !    store entries (and nullifying the aliases below) is what actually frees
+    !    these arrays and lets the preconditioner be reallocated at runtime
+    call memorystore_release('IAPC', trim(this%memoryPath))
+    call memorystore_release('JAPC', trim(this%memoryPath))
+    call memorystore_release('APC', trim(this%memoryPath))
+    call memorystore_release('IW', trim(this%memoryPath))
+    call memorystore_release('W', trim(this%memoryPath))
+    call memorystore_release('JLU', trim(this%memoryPath))
+    call memorystore_release('JW', trim(this%memoryPath))
+    call memorystore_release('WLU', trim(this%memoryPath))
+    !
+    nullify (this%IAPC)
+    nullify (this%JAPC)
+    nullify (this%APC)
+    nullify (this%IW)
+    nullify (this%W)
+    nullify (this%JLU)
+    nullify (this%JW)
+    nullify (this%WLU)
   end subroutine precond_destroy
 
   !> @ brief Set default settings
