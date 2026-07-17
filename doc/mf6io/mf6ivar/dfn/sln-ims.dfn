@@ -334,18 +334,28 @@ description an optional keyword that defines the specific flow residual criterio
 block linear
 name linear_acceleration
 type string
+valid cg bicgstab
 reader urword
 optional false
 longname linear acceleration method
 description a keyword that defines the linear acceleration method used by the default IMS linear solvers.  CG - preconditioned conjugate gradient method.  BICGSTAB - preconditioned bi-conjugate gradient stabilized method.
 
 block linear
+name preconditioner_type
+type string
+valid ilu amg
+reader urword
+optional true
+longname preconditioner type
+description optional keyword that defines the type of preconditioner used by the IMS linear solver.  ILU -- incomplete LU factorization preconditioner (ILU(0), MILU(0), ILUT, or MILUT depending on PRECONDITIONER\_LEVELS and RELAXATION\_FACTOR).  AMG -- algebraic multi-grid preconditioner using greedy aggregation coarsening; by default the finest level is smoothed with an incomplete LU(0) factorization and coarser levels with Gauss-Seidel, and the smoother can be changed with SMOOTHER\_TYPE; PRECONDITIONER\_LEVELS sets the total number of levels in the AMG hierarchy including the finest level (default 0, treated as 1; a value of at least 7 is recommended for typical problems); RELAXATION\_FACTOR controls the scaling applied to each multigrid cycle correction (0.0 = optimal adaptive scaling, default).  By default, ILU is used.
+
+block linear
 name relaxation_factor
 type double precision
 reader urword
 optional true
-longname relaxation factor used by ILU factorization
-description optional real value that defines the relaxation factor used by the incomplete LU factorization preconditioners (MILU(0) and MILUT). RELAXATION\_FACTOR is unitless and should be greater than or equal to 0.0 and less than or equal to 1.0. RELAXATION\_FACTOR values of about 1.0 are commonly used, and experience suggests that convergence can be optimized in some cases with relax values of 0.97. A RELAXATION\_FACTOR value of 0.0 will result in either ILU(0) or ILUT preconditioning (depending on the value specified for PRECONDITIONER\_LEVELS and/or PRECONDITIONER\_DROP\_TOLERANCE). By default,  RELAXATION\_FACTOR is zero.
+longname relaxation factor used by ILU factorization or AMG multigrid cycle correction scaling
+description optional real value whose meaning depends on the active preconditioner.  For ILU preconditioners (PRECONDITIONER\_TYPE ILU or default): RELAXATION\_FACTOR defines the relaxation factor used by the modified incomplete LU factorization preconditioners (MILU(0) and MILUT).  RELAXATION\_FACTOR is unitless and should be greater than or equal to 0.0 and less than or equal to 1.0.  RELAXATION\_FACTOR values of about 1.0 are commonly used, and experience suggests that convergence can be optimized in some cases with relax values of 0.97.  A RELAXATION\_FACTOR value of 0.0 will result in either ILU(0) or ILUT preconditioning (depending on the value specified for PRECONDITIONER\_LEVELS and/or PRECONDITIONER\_DROP\_TOLERANCE).  For the AMG preconditioner (PRECONDITIONER\_TYPE AMG): RELAXATION\_FACTOR scales each multigrid cycle correction.  A value of 0.0 activates per-application optimal damping, where the factor is computed automatically as alpha = (r, z) / (z, Az) capped at 1.0 (z is the multigrid cycle correction); this minimises the A-norm of the error and is recommended with LINEAR\_ACCELERATION CG on symmetric positive definite systems.  A value greater than 0.0 (typically 1.0, undamped) uses a fixed scaling factor.  RELAXATION\_FACTOR must be 1 whenever AMG is used with a Krylov accelerator that assumes a fixed preconditioner---LINEAR\_ACCELERATION BICGSTAB, or any parallel (PETSc) run where AMG is applied per subdomain---because an adaptive factor that changes each inner iteration makes the preconditioner variable and breaks Krylov convergence; any other value causes the program to terminate with an error.  By default, RELAXATION\_FACTOR is zero.
 
 block linear
 name preconditioner_levels
@@ -353,7 +363,7 @@ type integer
 reader urword
 optional true
 longname level of fill for ILU decomposition
-description optional integer value defining the level of fill for ILU decomposition used in the ILUT and MILUT preconditioners. Higher levels of fill provide more robustness but also require more memory. For optimal performance, it is suggested that a large level of fill be applied (7 or 8) with use of a drop tolerance. Specification of a PRECONDITIONER\_LEVELS value greater than zero results in use of the ILUT preconditioner. By default, PRECONDITIONER\_LEVELS is zero and the zero-fill incomplete LU factorization preconditioners (ILU(0) and MILU(0)) are used.
+description optional integer value defining the level of fill for ILU decomposition used in the ILUT and MILUT preconditioners. Higher levels of fill provide more robustness but also require more memory. For optimal performance, it is suggested that a large level of fill be applied (7 or 8) with use of a drop tolerance. Specification of a PRECONDITIONER\_LEVELS value greater than zero results in use of the ILUT preconditioner. By default, PRECONDITIONER\_LEVELS is zero and the zero-fill incomplete LU factorization preconditioners (ILU(0) and MILU(0)) are used.  When PRECONDITIONER\_TYPE is AMG, PRECONDITIONER\_LEVELS sets the total number of levels in the AMG hierarchy (including the finest level); a value of at least 7 is recommended for typical three-dimensional problems.
 
 block linear
 name preconditioner_drop_tolerance
@@ -361,7 +371,31 @@ type double precision
 reader urword
 optional true
 longname drop tolerance used to drop preconditioner terms
-description optional real value that defines the drop tolerance used to drop preconditioner terms based on the magnitude of matrix entries in the ILUT and MILUT preconditioners. A value of $10^{-4}$ works well for most problems. By default, PRECONDITIONER\_DROP\_TOLERANCE is zero and the zero-fill incomplete LU factorization preconditioners (ILU(0) and MILU(0)) are used.
+description optional real value that defines the drop tolerance used to drop preconditioner terms based on the magnitude of matrix entries in the ILUT and MILUT preconditioners. A value of $10^{-4}$ works well for most problems. By default, PRECONDITIONER\_DROP\_TOLERANCE is zero and the zero-fill incomplete LU factorization preconditioners (ILU(0) and MILU(0)) are used.  PRECONDITIONER\_DROP\_TOLERANCE is not used when PRECONDITIONER\_TYPE is AMG; use PRECONDITIONER\_STRENGTH\_THRESHOLD instead.
+
+block linear
+name number_smoothing_iterations
+type integer
+reader urword
+optional true
+longname number of AMG smoother iterations per level
+description optional integer value defining the number of smoother sweeps applied before and after each coarse-level correction during an AMG multigrid cycle.  NUMBER\_SMOOTHING\_ITERATIONS only applies when PRECONDITIONER\_TYPE is AMG.  The value must be greater than zero.  By default, NUMBER\_SMOOTHING\_ITERATIONS is 2.  Increasing this value can improve convergence for nonsymmetric problems at the cost of increased computational effort per cycle.
+
+block linear
+name smoother_type
+type string
+reader urword
+optional true
+longname AMG smoother type
+description optional keyword that defines the smoother type used in the AMG cycle.  Valid values are ILU0 (default) and ILU0\_ALL.  ILU0 uses incomplete LU(0) factorization with zero fill-in at the finest AMG level and Gauss-Seidel at coarser levels.  ILU0\_ALL applies ILU(0) smoothing at every AMG level, which improves convergence for highly heterogeneous and nonsymmetric problems at the cost of additional memory.  SMOOTHER\_TYPE only applies when PRECONDITIONER\_TYPE is AMG.
+
+block linear
+name preconditioner_strength_threshold
+type double precision
+reader urword
+optional true
+longname AMG strength-of-connection threshold for aggregation coarsening
+description optional real value that defines the strength-of-connection threshold used during greedy pairwise aggregation in the AMG hierarchy.  A connection between nodes $i$ and $j$ is considered strong when $\frac{1}{2}(|a_{ij}|+|a_{ji}|) \ge \theta \cdot \max_k\frac{1}{2}(|a_{ik}|+|a_{ki}|)$, where $\theta$ is PRECONDITIONER\_STRENGTH\_THRESHOLD.  Only strong connections are eligible for pairwise aggregation.  The value must be greater than or equal to 0.0 and less than 1.0.  The default value is 0.25.  A value of 0.0 disables strength filtering so all connections are eligible for aggregation.  PRECONDITIONER\_STRENGTH\_THRESHOLD only applies when PRECONDITIONER\_TYPE is AMG.
 
 block linear
 name number_orthogonalizations

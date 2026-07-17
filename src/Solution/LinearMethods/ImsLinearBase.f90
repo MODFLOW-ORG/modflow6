@@ -13,7 +13,12 @@ MODULE IMSLinearBaseModule
   use BlockParserModule, only: BlockParserType
   use IMSReorderingModule, only: ims_odrv
   use ConvergenceSummaryModule
-  use ImsLinearSettingsModule, only: IPC_ILU0, IPC_MILU0, IPC_ILUT, IPC_MILUT
+  use ImsLinearAmgModule, only: ImsAmgDataType, ims_amg_apply
+  use ProfilerModule, only: g_prof
+  use IMSLinearMisc, only: ims_base_pccrs, ims_base_pcilu0, &
+                           ims_base_ilu0a
+  use ImsLinearSettingsModule, only: IPC_ILU0, IPC_MILU0, IPC_ILUT, &
+                                     IPC_MILUT, IPC_AMG
 
   IMPLICIT NONE
 
@@ -36,27 +41,28 @@ contains
                          X, B, D, P, Q, Z, &
                          NJLU, IW, JLU, &
                          NCONV, CONVNMOD, CONVMODSTART, &
-                         CACCEL, summary)
+                         CACCEL, summary, amg)
     ! -- dummy variables
-    integer(I4B), INTENT(INOUT) :: ICNVG !< convergence flag (1) non-convergence (0)
+    integer(I4B), INTENT(INOUT) :: ICNVG !< convergence flag (1) non-conv (0)
     integer(I4B), INTENT(IN) :: ITMAX !< maximum number of inner iterations
     integer(I4B), INTENT(INOUT) :: INNERIT !< inner iteration count
     integer(I4B), INTENT(IN) :: NEQ !< number of equations
     integer(I4B), INTENT(IN) :: NJA !< number of non-zero entries
     integer(I4B), INTENT(IN) :: NIAPC !< preconditioner number of rows
-    integer(I4B), INTENT(IN) :: NJAPC !< preconditioner number of non-zero entries
+    integer(I4B), INTENT(IN) :: NJAPC !< preconditioner number of non-zeros
     integer(I4B), INTENT(IN) :: IPC !< preconditioner option
     integer(I4B), INTENT(IN) :: ICNVGOPT !< flow convergence criteria option
     integer(I4B), INTENT(IN) :: NORTH !< orthogonalization frequency
     real(DP), INTENT(IN) :: DVCLOSE !< dependent-variable closure criteria
     real(DP), INTENT(IN) :: RCLOSE !< flow closure criteria
     real(DP), INTENT(IN) :: L2NORM0 !< initial L-2 norm for system of equations
-    real(DP), INTENT(IN) :: EPFACT !< factor for decreasing flow convergence criteria for subsequent Picard iterations
+    real(DP), INTENT(IN) :: EPFACT !< factor for decreasing flow convergence
+                                    !! criteria for subsequent Picard iterations
     integer(I4B), DIMENSION(NEQ + 1), INTENT(IN) :: IA0 !< CRS row pointers
     integer(I4B), DIMENSION(NJA), INTENT(IN) :: JA0 !< CRS column pointers
     real(DP), DIMENSION(NJA), INTENT(IN) :: A0 !< coefficient matrix
-    integer(I4B), DIMENSION(NIAPC + 1), INTENT(IN) :: IAPC !< preconditioner CRS row pointers
-    integer(I4B), DIMENSION(NJAPC), INTENT(IN) :: JAPC !< preconditioner CRS column pointers
+    integer(I4B), DIMENSION(NIAPC + 1), INTENT(IN) :: IAPC !< CRS row pointers
+    integer(I4B), DIMENSION(NJAPC), INTENT(IN) :: JAPC !< CRS column pointers
     real(DP), DIMENSION(NJAPC), INTENT(IN) :: APC !< preconditioner matrix
     real(DP), DIMENSION(NEQ), INTENT(INOUT) :: X !< dependent-variable vector
     real(DP), DIMENSION(NEQ), INTENT(INOUT) :: B !< right-hand side vector
@@ -66,14 +72,17 @@ contains
     real(DP), DIMENSION(NEQ), INTENT(INOUT) :: Z !< working vector
     ! -- ILUT dummy variables
     integer(I4B), INTENT(IN) :: NJLU !< preconditioner length of JLU vector
-    integer(I4B), DIMENSION(NIAPC), INTENT(IN) :: IW !< preconditioner integer working vector
-    integer(I4B), DIMENSION(NJLU), INTENT(IN) :: JLU !< preconditioner JLU working vector
+    integer(I4B), DIMENSION(NIAPC), INTENT(IN) :: IW !< precond. int work vector
+    integer(I4B), DIMENSION(NJLU), INTENT(IN) :: JLU !< preconditioner JLU vector
     ! -- convergence information dummy variables dummy variables
-    integer(I4B), INTENT(IN) :: NCONV !< maximum number of inner iterations in a time step (maxiter * maxinner)
+    integer(I4B), INTENT(IN) :: NCONV !< max inner iterations in a time step
+                                       !! (maxiter * maxinner)
     integer(I4B), INTENT(IN) :: CONVNMOD !< number of models in the solution
-    integer(I4B), DIMENSION(CONVNMOD + 1), INTENT(INOUT) :: CONVMODSTART !< pointer to the start of each model in the convmod* arrays
-    character(len=31), DIMENSION(NCONV), INTENT(INOUT) :: CACCEL !< convergence string
-    type(ConvergenceSummaryType), pointer, intent(in) :: summary !< Convergence summary report
+    integer(I4B), DIMENSION(CONVNMOD + 1), INTENT(INOUT) :: &
+      CONVMODSTART !< pointer to convmod* arrays start per model
+    character(len=31), DIMENSION(NCONV), INTENT(INOUT) :: CACCEL !< conv string
+    type(ConvergenceSummaryType), pointer, intent(in) :: summary !< Conv. summary
+    type(ImsAmgDataType), optional, intent(inout) :: amg !< optional AMG precond.
     ! -- local variables
     LOGICAL :: lorth
     logical :: lsame
@@ -112,6 +121,14 @@ contains
         ! -- ILUT AND MILUT
       CASE (IPC_ILUT, IPC_MILUT)
         CALL lusol(NEQ, D, Z, APC, JLU, IW)
+        !
+        ! -- AMG
+      CASE (IPC_AMG)
+        if (present(amg)) then
+          call g_prof%start("AMG apply", amg%itmr_apply)
+          call ims_amg_apply(amg, NEQ, D, Z)
+          call g_prof%stop(amg%itmr_apply)
+        end if
       END SELECT
       rho = ddot(NEQ, D, 1, Z, 1)
       !
@@ -256,15 +273,15 @@ contains
                            T, V, DHAT, PHAT, QHAT, &
                            NJLU, IW, JLU, &
                            NCONV, CONVNMOD, CONVMODSTART, &
-                           CACCEL, summary)
+                           CACCEL, summary, amg)
     ! -- dummy variables
-    integer(I4B), INTENT(INOUT) :: ICNVG !< convergence flag (1) non-convergence (0)
+    integer(I4B), INTENT(INOUT) :: ICNVG !< conv. flag (1) non-convergence (0)
     integer(I4B), INTENT(IN) :: ITMAX !< maximum number of inner iterations
     integer(I4B), INTENT(INOUT) :: INNERIT !< inner iteration count
     integer(I4B), INTENT(IN) :: NEQ !< number of equations
     integer(I4B), INTENT(IN) :: NJA !< number of non-zero entries
     integer(I4B), INTENT(IN) :: NIAPC !< preconditioner number of rows
-    integer(I4B), INTENT(IN) :: NJAPC !< preconditioner number of non-zero entries
+    integer(I4B), INTENT(IN) :: NJAPC !< preconditioner number of non-zeros
     integer(I4B), INTENT(IN) :: IPC !< preconditioner option
     integer(I4B), INTENT(IN) :: ICNVGOPT !< flow convergence criteria option
     integer(I4B), INTENT(IN) :: NORTH !< orthogonalization frequency
@@ -273,12 +290,13 @@ contains
     real(DP), INTENT(IN) :: DVCLOSE !< dependent-variable closure criteria
     real(DP), INTENT(IN) :: RCLOSE !< flow closure criteria
     real(DP), INTENT(IN) :: L2NORM0 !< initial L-2 norm for system of equations
-    real(DP), INTENT(IN) :: EPFACT !< factor for decreasing flow convergence criteria for subsequent Picard iterations
+    real(DP), INTENT(IN) :: EPFACT !< factor for decreasing flow convergence
+                                    !! criteria for subsequent Picard iterations
     integer(I4B), DIMENSION(NEQ + 1), INTENT(IN) :: IA0 !< CRS row pointers
     integer(I4B), DIMENSION(NJA), INTENT(IN) :: JA0 !< CRS column pointers
     real(DP), DIMENSION(NJA), INTENT(IN) :: A0 !< coefficient matrix
-    integer(I4B), DIMENSION(NIAPC + 1), INTENT(IN) :: IAPC !< preconditioner CRS row pointers
-    integer(I4B), DIMENSION(NJAPC), INTENT(IN) :: JAPC !< preconditioner CRS column pointers
+    integer(I4B), DIMENSION(NIAPC + 1), INTENT(IN) :: IAPC !< CRS row pointers
+    integer(I4B), DIMENSION(NJAPC), INTENT(IN) :: JAPC !< CRS column pointers
     real(DP), DIMENSION(NJAPC), INTENT(IN) :: APC !< preconditioner matrix
     real(DP), DIMENSION(NEQ), INTENT(INOUT) :: X !< dependent-variable vector
     real(DP), DIMENSION(NEQ), INTENT(IN) :: B !< right-hand side vector
@@ -287,19 +305,22 @@ contains
     real(DP), DIMENSION(NEQ), INTENT(INOUT) :: Q !< preconditioner working vector
     real(DP), DIMENSION(NEQ), INTENT(INOUT) :: T !< preconditioner working vector
     real(DP), DIMENSION(NEQ), INTENT(INOUT) :: V !< preconditioner working vector
-    real(DP), DIMENSION(NEQ), INTENT(INOUT) :: DHAT !< BCGS preconditioner working vector
-    real(DP), DIMENSION(NEQ), INTENT(INOUT) :: PHAT !< BCGS preconditioner working vector
-    real(DP), DIMENSION(NEQ), INTENT(INOUT) :: QHAT !< BCGS preconditioner working vector
+    real(DP), DIMENSION(NEQ), INTENT(INOUT) :: DHAT !< BCGS precond. work vector
+    real(DP), DIMENSION(NEQ), INTENT(INOUT) :: PHAT !< BCGS precond. work vector
+    real(DP), DIMENSION(NEQ), INTENT(INOUT) :: QHAT !< BCGS precond. work vector
     ! -- ILUT dummy variables
     integer(I4B), INTENT(IN) :: NJLU !< preconditioner length of JLU vector
-    integer(I4B), DIMENSION(NIAPC), INTENT(IN) :: IW !< preconditioner integer working vector
-    integer(I4B), DIMENSION(NJLU), INTENT(IN) :: JLU !< preconditioner JLU working vector
+    integer(I4B), DIMENSION(NIAPC), INTENT(IN) :: IW !< precond. int work vector
+    integer(I4B), DIMENSION(NJLU), INTENT(IN) :: JLU !< preconditioner JLU vector
     ! -- convergence information dummy variables
-    integer(I4B), INTENT(IN) :: NCONV !< maximum number of inner iterations in a time step (maxiter * maxinner)
+    integer(I4B), INTENT(IN) :: NCONV !< max inner iterations in a time step
+                                       !! (maxiter * maxinner)
     integer(I4B), INTENT(IN) :: CONVNMOD !< number of models in the solution
-    integer(I4B), DIMENSION(CONVNMOD + 1), INTENT(INOUT) :: CONVMODSTART !< pointer to the start of each model in the convmod* arrays
-    character(len=31), DIMENSION(NCONV), INTENT(INOUT) :: CACCEL !< convergence string
-    type(ConvergenceSummaryType), pointer, intent(in) :: summary !< Convergence summary report
+    integer(I4B), DIMENSION(CONVNMOD + 1), INTENT(INOUT) :: &
+      CONVMODSTART !< pointer to convmod* arrays start per model
+    character(len=31), DIMENSION(NCONV), INTENT(INOUT) :: CACCEL !< conv string
+    type(ConvergenceSummaryType), pointer, intent(in) :: summary !< Conv. summary
+    type(ImsAmgDataType), optional, intent(inout) :: amg !< optional AMG precond.
     ! -- local variables
     LOGICAL :: LORTH
     logical :: lsame
@@ -365,6 +386,14 @@ contains
         ! -- ILUT AND MILUT
       CASE (IPC_ILUT, IPC_MILUT)
         CALL lusol(NEQ, P, PHAT, APC, JLU, IW)
+        !
+        ! -- AMG
+      CASE (IPC_AMG)
+        if (present(amg)) then
+          call g_prof%start("AMG apply", amg%itmr_apply)
+          call ims_amg_apply(amg, NEQ, P, PHAT)
+          call g_prof%stop(amg%itmr_apply)
+        end if
       END SELECT
       !
       ! -- COMPUTE ITERATES
@@ -416,6 +445,14 @@ contains
         ! -- ILUT AND MILUT
       CASE (IPC_ILUT, IPC_MILUT)
         CALL lusol(NEQ, Q, QHAT, APC, JLU, IW)
+        !
+        ! -- AMG
+      CASE (IPC_AMG)
+        if (present(amg)) then
+          call g_prof%start("AMG apply", amg%itmr_apply)
+          call ims_amg_apply(amg, NEQ, Q, QHAT)
+          call g_prof%stop(amg%itmr_apply)
+        end if
       END SELECT
       !
       ! -- UPDATE T WITH A AND QHAT
@@ -564,7 +601,7 @@ contains
     integer(I4B), DIMENSION(NEQ + 1), INTENT(IN) :: IA !< row pointer
     integer(I4B), DIMENSION(NJA), INTENT(IN) :: JA !< column pointer
     integer(I4B), DIMENSION(NEQ), INTENT(INOUT) :: LORDER !< reorder vector
-    integer(I4B), DIMENSION(NEQ), INTENT(INOUT) :: IORDER !< inverse of reorder vector
+    integer(I4B), DIMENSION(NEQ), INTENT(INOUT) :: IORDER !< inv. reorder vector
     ! -- local variables
     character(len=LINELENGTH) :: errmsg
     integer(I4B) :: n
@@ -620,7 +657,7 @@ contains
   SUBROUTINE ims_base_scale(IOPT, ISCL, NEQ, NJA, IA, JA, AMAT, X, B, &
                             DSCALE, DSCALE2)
     ! -- dummy variables
-    integer(I4B), INTENT(IN) :: IOPT !< flag to scale (0) or unscale the system of equations
+    integer(I4B), INTENT(IN) :: IOPT !< flag to scale (0) or unscale equations
     integer(I4B), INTENT(IN) :: ISCL !< scaling option (1) symmetric (2) L-2 norm
     integer(I4B), INTENT(IN) :: NEQ !< number of equations
     integer(I4B), INTENT(IN) :: NJA !< number of non-zero entries
@@ -781,22 +818,23 @@ contains
     integer(I4B), DIMENSION(NIAPC), INTENT(INOUT) :: IW !< preconditioner integer work vector
     real(DP), DIMENSION(NIAPC), INTENT(INOUT) :: W !< preconditioner work vector
     ! -- ILUT dummy variables
-    integer(I4B), INTENT(IN) :: LEVEL !< number of levels of fill for ILUT and MILUT
+    integer(I4B), INTENT(IN) :: LEVEL !< number of fill levels for ILUT and MILUT
     real(DP), INTENT(IN) :: DROPTOL !< drop tolerance
     integer(I4B), INTENT(IN) :: NJLU !< length of JLU working vector
     integer(I4B), INTENT(IN) :: NJW !< length of JW working vector
     integer(I4B), INTENT(IN) :: NWLU !< length of WLU working vector
-    integer(I4B), DIMENSION(NJLU), INTENT(INOUT) :: JLU !< ILUT/MILUT JLU working vector
-    integer(I4B), DIMENSION(NJW), INTENT(INOUT) :: JW !< ILUT/MILUT JW working vector
-    real(DP), DIMENSION(NWLU), INTENT(INOUT) :: WLU !< ILUT/MILUT WLU working vector
+    integer(I4B), DIMENSION(NJLU), INTENT(INOUT) :: JLU !< ILUT/MILUT JLU vector
+    integer(I4B), DIMENSION(NJW), INTENT(INOUT) :: JW !< ILUT/MILUT JW vector
+    real(DP), DIMENSION(NWLU), INTENT(INOUT) :: WLU !< ILUT/MILUT WLU vector
     ! -- local variables
     character(len=LINELENGTH) :: errmsg
-    character(len=100), dimension(5), parameter :: cerr = &
-      ["Elimination process has generated a row in L or U whose length is > n.", &
-      &"The matrix L overflows the array al.                                  ", &
-      &"The matrix U overflows the array alu.                                 ", &
-      &"Illegal value for lfil.                                               ", &
-      &"Zero row encountered.                                                 "]
+    character(len=61), dimension(5), parameter :: &
+      cerr = &
+      ["Elimination has generated a row in L or U whose length is > n", &
+       "The matrix L overflows the array al.                         ", &
+       "The matrix U overflows the array alu.                        ", &
+       "Illegal value for lfil.                                      ", &
+       "Zero row encountered.                                        "]
     integer(I4B) :: ipcflag
     integer(I4B) :: icount
     integer(I4B) :: ierr
@@ -830,7 +868,7 @@ contains
             write (errmsg, '(a,1x,i0,1x,a)') &
               'ILUT: zero pivot encountered at step number', ierr, '.'
           else
-            write (errmsg, '(a,1x,a)') 'ILUT:', cerr(-ierr)
+            write (errmsg, '(a,1x,a)') 'ILUT:', trim(adjustl(cerr(-ierr)))
           end if
           call store_error(errmsg)
           call parser%StoreErrorUnit()
@@ -926,171 +964,12 @@ contains
   !!  Update the ILU0 preconditioner using the current coefficient matrix.
   !!
   !<
-  SUBROUTINE ims_base_pcilu0(NJA, NEQ, AMAT, IA, JA, &
-                             APC, IAPC, JAPC, IW, W, &
-                             RELAX, IPCFLAG, DELTA)
-    ! -- dummy variables
-    integer(I4B), INTENT(IN) :: NJA !< number of non-zero entries
-    integer(I4B), INTENT(IN) :: NEQ !< number of equations
-    real(DP), DIMENSION(NJA), INTENT(IN) :: AMAT !< coefficient matrix
-    integer(I4B), DIMENSION(NEQ + 1), INTENT(IN) :: IA !< CRS row pointers
-    integer(I4B), DIMENSION(NJA), INTENT(IN) :: JA !< CRS column pointers
-    real(DP), DIMENSION(NJA), INTENT(INOUT) :: APC !< preconditioned matrix
-    integer(I4B), DIMENSION(NEQ + 1), INTENT(INOUT) :: IAPC !< preconditioner CRS row pointers
-    integer(I4B), DIMENSION(NJA), INTENT(INOUT) :: JAPC !< preconditioner CRS column pointers
-    integer(I4B), DIMENSION(NEQ), INTENT(INOUT) :: IW !< preconditioner integer work vector
-    real(DP), DIMENSION(NEQ), INTENT(INOUT) :: W !< preconditioner work vector
-    real(DP), INTENT(IN) :: RELAX !< MILU0 preconditioner relaxation factor
-    integer(I4B), INTENT(INOUT) :: IPCFLAG !< preconditioner error flag
-    real(DP), INTENT(IN) :: DELTA !< factor used to correct non-diagonally dominant matrices
-    ! -- local variables
-    integer(I4B) :: ic0, ic1
-    integer(I4B) :: iic0, iic1
-    integer(I4B) :: iu, iiu
-    integer(I4B) :: j, n
-    integer(I4B) :: jj
-    integer(I4B) :: jcol, jw
-    integer(I4B) :: jjcol
-    real(DP) :: drelax
-    real(DP) :: sd1
-    real(DP) :: tl
-    real(DP) :: rs
-    real(DP) :: d
-    !
-    ! -- initialize local variables
-    drelax = RELAX
-    DO n = 1, NEQ
-      IW(n) = 0
-      W(n) = DZERO
-    END DO
-    MAIN: DO n = 1, NEQ
-      ic0 = IA(n)
-      ic1 = IA(n + 1) - 1
-      DO j = ic0, ic1
-        jcol = JA(j)
-        IW(jcol) = 1
-        W(jcol) = W(jcol) + AMAT(j)
-      END DO
-      ic0 = IAPC(n)
-      ic1 = IAPC(n + 1) - 1
-      iu = JAPC(n)
-      rs = DZERO
-      LOWER: DO j = ic0, iu - 1
-        jcol = JAPC(j)
-        iic0 = IAPC(jcol)
-        iic1 = IAPC(jcol + 1) - 1
-        iiu = JAPC(jcol)
-        tl = W(jcol) * APC(jcol)
-        W(jcol) = tl
-        DO jj = iiu, iic1
-          jjcol = JAPC(jj)
-          jw = IW(jjcol)
-          IF (jw .NE. 0) THEN
-            W(jjcol) = W(jjcol) - tl * APC(jj)
-          ELSE
-            rs = rs + tl * APC(jj)
-          END IF
-        END DO
-      END DO LOWER
-      !
-      ! -- DIAGONAL - CALCULATE INVERSE OF DIAGONAL FOR SOLUTION
-      d = W(n)
-      tl = (DONE + DELTA) * d - (drelax * rs)
-      !
-      ! -- ENSURE THAT THE SIGN OF THE DIAGONAL HAS NOT CHANGED AND IS
-      sd1 = SIGN(d, tl)
-      IF (sd1 .NE. d) THEN
-        !
-        ! -- USE SMALL VALUE IF DIAGONAL SCALING IS NOT EFFECTIVE FOR
-        !    PIVOTS THAT CHANGE THE SIGN OF THE DIAGONAL
-        IF (IPCFLAG > 1) THEN
-          tl = SIGN(DEM6, d)
-          !
-          ! -- DIAGONAL SCALING CONTINUES TO BE EFFECTIVE
-        ELSE
-          IPCFLAG = 1
-          EXIT MAIN
-        END IF
-      END IF
-      IF (ABS(tl) == DZERO) THEN
-        !
-        ! -- USE SMALL VALUE IF DIAGONAL SCALING IS NOT EFFECTIVE FOR
-        !    ZERO PIVOTS
-        IF (IPCFLAG > 1) THEN
-          tl = SIGN(DEM6, d)
-          !
-          ! -- DIAGONAL SCALING CONTINUES TO BE EFFECTIVE FOR ELIMINATING
-        ELSE
-          IPCFLAG = 1
-          EXIT MAIN
-        END IF
-      END IF
-      APC(n) = DONE / tl
-      !
-      ! -- RESET POINTER FOR IW TO ZERO
-      IW(n) = 0
-      W(n) = DZERO
-      DO j = ic0, ic1
-        jcol = JAPC(j)
-        APC(j) = W(jcol)
-        IW(jcol) = 0
-        W(jcol) = DZERO
-      END DO
-    END DO MAIN
-    !
-    ! -- RESET IPCFLAG IF SUCCESSFUL COMPLETION OF MAIN
-    IPCFLAG = 0
-  end SUBROUTINE ims_base_pcilu0
 
   !> @ brief Apply the ILU0 and MILU0 preconditioners
   !!
   !!  Apply the ILU0 and MILU0 preconditioners to the passed vector (R).
   !!
   !<
-  SUBROUTINE ims_base_ilu0a(NJA, NEQ, APC, IAPC, JAPC, R, D)
-    ! -- dummy variables
-    integer(I4B), INTENT(IN) :: NJA !< number of non-zero entries
-    integer(I4B), INTENT(IN) :: NEQ !< number of equations
-    real(DP), DIMENSION(NJA), INTENT(IN) :: APC !< ILU0/MILU0 preconditioner matrix
-    integer(I4B), DIMENSION(NEQ + 1), INTENT(IN) :: IAPC !< ILU0/MILU0 preconditioner CRS row pointers
-    integer(I4B), DIMENSION(NJA), INTENT(IN) :: JAPC !< ILU0/MILU0 preconditioner CRS column pointers
-    real(DP), DIMENSION(NEQ), INTENT(IN) :: R !< input vector
-    real(DP), DIMENSION(NEQ), INTENT(INOUT) :: D !< output vector after applying APC to R
-    ! -- local variables
-    integer(I4B) :: ic0, ic1
-    integer(I4B) :: iu
-    integer(I4B) :: jcol
-    integer(I4B) :: j, n
-    real(DP) :: tv
-    !
-    ! -- FORWARD SOLVE - APC * D = R
-    FORWARD: DO n = 1, NEQ
-      tv = R(n)
-      ic0 = IAPC(n)
-      ic1 = IAPC(n + 1) - 1
-      iu = JAPC(n) - 1
-      LOWER: DO j = ic0, iu
-        jcol = JAPC(j)
-        tv = tv - APC(j) * D(jcol)
-      END DO LOWER
-      D(n) = tv
-    END DO FORWARD
-    !
-    ! -- BACKWARD SOLVE - D = D / U
-    BACKWARD: DO n = NEQ, 1, -1
-      ic0 = IAPC(n)
-      ic1 = IAPC(n + 1) - 1
-      iu = JAPC(n)
-      tv = D(n)
-      UPPER: DO j = iu, ic1
-        jcol = JAPC(j)
-        tv = tv - APC(j) * D(jcol)
-      END DO UPPER
-      !
-      ! -- COMPUTE D FOR DIAGONAL - D = D / U
-      D(n) = tv * APC(n)
-    END DO BACKWARD
-  end SUBROUTINE ims_base_ilu0a
 
   !> @ brief Test for solver convergence
   !!
@@ -1103,14 +982,15 @@ contains
                                Dvmax, Rmax, &
                                Rmax0, Epfact, Dvclose, Rclose)
     ! -- dummy variables
-    integer(I4B), INTENT(IN) :: Icnvgopt !< convergence option - see documentation for option
-    integer(I4B), INTENT(INOUT) :: Icnvg !< flag indicating if convergence achieved (1) or not (0)
-    integer(I4B), INTENT(IN) :: Iiter !< inner iteration number (used for strict convergence option)
+    integer(I4B), INTENT(IN) :: Icnvgopt !< convergence option (see docs)
+    integer(I4B), INTENT(INOUT) :: Icnvg !< convergence flag: (1) or not (0)
+    integer(I4B), INTENT(IN) :: Iiter !< inner iteration number
     real(DP), INTENT(IN) :: Dvmax !< maximum dependent-variable change
     real(DP), INTENT(IN) :: Rmax !< maximum flow change
     real(DP), INTENT(IN) :: Rmax0 !< initial flow change (initial L2-norm)
-    real(DP), INTENT(IN) :: Epfact !< factor for reducing convergence criteria in subsequent Picard iterations
-    real(DP), INTENT(IN) :: Dvclose !< Maximum depenendent-variable change allowed
+    real(DP), INTENT(IN) :: Epfact !< factor for reducing conv. criteria
+                                     !! in subsequent Picard iterations
+    real(DP), INTENT(IN) :: Dvclose !< Maximum dep.-variable change allowed
     real(DP), INTENT(IN) :: Rclose !< Maximum flow change allowed
     ! -- code
     IF (Icnvgopt == 0) THEN
@@ -1205,84 +1085,12 @@ contains
   !!  APC(1:NEQ) is the preconditioned inverse of the diagonal, and
   !!  APC(NEQ+1:NJA) are the preconditioned entries for off diagonals.
   !<
-  SUBROUTINE ims_base_pccrs(NEQ, NJA, IA, JA, &
-                            IAPC, JAPC)
-    ! -- dummy variables
-    integer(I4B), INTENT(IN) :: NEQ !<
-    integer(I4B), INTENT(IN) :: NJA !<
-    integer(I4B), DIMENSION(NEQ + 1), INTENT(IN) :: IA !<
-    integer(I4B), DIMENSION(NJA), INTENT(IN) :: JA !<
-    integer(I4B), DIMENSION(NEQ + 1), INTENT(INOUT) :: IAPC !<
-    integer(I4B), DIMENSION(NJA), INTENT(INOUT) :: JAPC !<
-    ! -- local variables
-    integer(I4B) :: n, j
-    integer(I4B) :: i0, i1
-    integer(I4B) :: nlen
-    integer(I4B) :: ic, ip
-    integer(I4B) :: jcol
-    integer(I4B), DIMENSION(:), ALLOCATABLE :: iarr
-    ! -- code
-    ip = NEQ + 1
-    DO n = 1, NEQ
-      i0 = IA(n)
-      i1 = IA(n + 1) - 1
-      nlen = i1 - i0
-      ALLOCATE (iarr(nlen))
-      ic = 0
-      DO j = i0, i1
-        jcol = JA(j)
-        IF (jcol == n) CYCLE
-        ic = ic + 1
-        iarr(ic) = jcol
-      END DO
-      CALL ims_base_isort(nlen, iarr)
-      IAPC(n) = ip
-      DO j = 1, nlen
-        jcol = iarr(j)
-        JAPC(ip) = jcol
-        ip = ip + 1
-      END DO
-      DEALLOCATE (iarr)
-    END DO
-    IAPC(NEQ + 1) = NJA + 1
-    !
-    ! -- POSITION OF THE FIRST UPPER ENTRY FOR ROW
-    DO n = 1, NEQ
-      i0 = IAPC(n)
-      i1 = IAPC(n + 1) - 1
-      JAPC(n) = IAPC(n + 1)
-      DO j = i0, i1
-        jcol = JAPC(j)
-        IF (jcol > n) THEN
-          JAPC(n) = j
-          EXIT
-        END IF
-      END DO
-    END DO
-  end SUBROUTINE ims_base_pccrs
 
   !> @brief In-place sorting for an integer array
   !!
   !! Subroutine sort an integer array in-place.
   !!
   !<
-  SUBROUTINE ims_base_isort(NVAL, IARRAY)
-    ! -- dummy variables
-    integer(I4B), INTENT(IN) :: NVAL !< length of the integer array
-    integer(I4B), DIMENSION(NVAL), INTENT(INOUT) :: IARRAY !< integer array to be sorted
-    ! -- local variables
-    integer(I4B) :: i, j, itemp
-    ! -- code
-    DO i = 1, NVAL - 1
-      DO j = i + 1, NVAL
-        if (IARRAY(i) > IARRAY(j)) then
-          itemp = IARRAY(j)
-          IARRAY(j) = IARRAY(i)
-          IARRAY(i) = itemp
-        END IF
-      END DO
-    END DO
-  end SUBROUTINE ims_base_isort
 
   !> @brief Calculate residual
   !!
@@ -1317,7 +1125,8 @@ contains
   function ims_base_epfact(icnvgopt, kstp) result(epfact)
     integer(I4B) :: icnvgopt !< IMS convergence option
     integer(I4B) :: kstp !< time step number
-    real(DP) :: epfact !< factor for decreasing convergence criteria in subsequent Picard iterations
+    real(DP) :: epfact !< factor for decreasing convergence criteria
+                        !! in subsequent Picard iterations
 
     if (icnvgopt == 2) then
       if (kstp == 1) then

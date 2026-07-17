@@ -387,6 +387,7 @@ contains
     character(len=128) :: ksp_str, pc_str, subpc_str, &
                           dvclose_str, rclose_str, relax_str, dtol_str
     character(len=128) :: ksp_logfile
+    character(len=16) :: amg_smoother_str
     integer :: ierr
     PC :: pc
     PetscViewer :: ksp_viewer
@@ -423,12 +424,29 @@ contains
         write (iout, '(1x,a)') &
           "Residual convergence option:  PETSc L2 norm"
       end if
-      write (iout, '(1x,a,a)') &
-        "Relaxation factor MILU(T):    ", trim(adjustl(relax_str))
-      write (iout, '(1x,a,i0)') &
-        "Fill level in factorization:  ", this%linear_settings%level
-      write (iout, '(1x,a,a,/)') &
-        "Drop tolerance level fill:    ", trim(adjustl(dtol_str))
+      if (this%pc_context%ipc == IPC_AMG) then
+        select case (this%linear_settings%smoother_type)
+        case (SMOOTHER_ILU0_ALL)
+          amg_smoother_str = "ILU0_ALL"
+        case default
+          amg_smoother_str = "ILU0"
+        end select
+        write (iout, '(1x,a,i0)') &
+          "AMG hierarchy levels:         ", this%linear_settings%level
+        write (iout, '(1x,a,i0)') &
+          "AMG smoothing iterations:     ", this%linear_settings%nsmooth
+        write (iout, '(1x,a,a)') &
+          "AMG smoother type:            ", trim(amg_smoother_str)
+        write (iout, '(1x,a,a,/)') &
+          "Cycle correction scaling:     ", trim(adjustl(relax_str))
+      else
+        write (iout, '(1x,a,a)') &
+          "Relaxation factor MILU(T):    ", trim(adjustl(relax_str))
+        write (iout, '(1x,a,i0)') &
+          "Fill level in factorization:  ", this%linear_settings%level
+        write (iout, '(1x,a,a,/)') &
+          "Drop tolerance level fill:    ", trim(adjustl(dtol_str))
+      end if
     else
       ksp_logfile = trim(this%option_prefix)//"ksp_logview.txt"
       write (iout, '(/,1x,a)') "PETSc linear solver settings from .petscrc: "

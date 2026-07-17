@@ -193,6 +193,20 @@ gcc-extended-build-test-drive-rebuild = { depends-on = [
     "gcc-extended-build-test-drive-test",
     "gcc-extended-build-test-drive-install",
 ] }
+gcc-extended-build-clean = { cmd = "rm -rf builddir utils/mf5to6/builddir" }
+gcc-extended-build-setup-mf6 = { cmd = "meson setup --prefix=$(pwd) --libdir=bin --bindir=bin -Dextended=true builddir", env = { PKG_CONFIG_PATH = "$CONDA_PREFIX/lib/pkgconfig" } }
+gcc-extended-build-build-mf6 = { cmd = "meson install -C builddir" }
+gcc-extended-build-test-mf6 = { cmd = "meson test --verbose --no-rebuild -C builddir" }
+gcc-extended-build-setup-mf5to6 = { cmd = "meson setup --prefix=$PIXI_PROJECT_ROOT builddir", cwd = "utils/mf5to6" }
+gcc-extended-build-build-mf5to6 = { cmd = "meson install -C builddir", cwd = "utils/mf5to6" }
+gcc-extended-build-rebuild = { depends-on = [
+    "gcc-extended-build-clean",
+    "gcc-extended-build-setup-mf6",
+    "gcc-extended-build-build-mf6",
+    "gcc-extended-build-test-mf6",
+    "gcc-extended-build-setup-mf5to6",
+    "gcc-extended-build-build-mf5to6",
+] }
 gcc-extended-build-update = { depends-on = [
     "gcc-extended-build-update-pc-files",
     "gcc-extended-build-test-drive-rebuild",
