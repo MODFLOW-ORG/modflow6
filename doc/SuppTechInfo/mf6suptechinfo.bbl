@@ -1,4 +1,4 @@
-\begin{thebibliography}{32}
+\begin{thebibliography}{40}
 \providecommand{\natexlab}[1]{#1}
 \expandafter\ifx\csname urlstyle\endcsname\relax
   \providecommand{\doiagency}[1]{doi:\discretionary{}{}{}#1}\else
@@ -27,6 +27,11 @@ Bedekar, V., Morway, E.D., Langevin, C.D., and Tonkin, M.J., 2016, MT3D-USGS
   expanded transport capabilities for use with MODFLOW: {U.S. Geological Survey
   Techniques and Methods, book 6, chap. A53, 69 p.},
   \url{https://doi.org/10.3133/tm6a53}, \url{http://dx.doi.org/10.3133/tm6A53}.
+
+\bibitem[{Briggs and others(2000)Briggs, Henson, and McCormick}]{briggs2000}
+Briggs, W.L., Henson, V.E., and McCormick, S.F., 2000, A Multigrid Tutorial
+  (2nd ed.): Philadelphia, Society for Industrial and Applied Mathematics,
+  \url{https://doi.org/10.1137/1.9780898719505}.
 
 \bibitem[{Campbell and others(1994)Campbell, Jungbauer, Bidlake, and
   Hungerford}]{campbell1994}
@@ -146,6 +151,18 @@ Markle, J.M., Schincariol, R.A., Sass, J.H., and Molson, J.W., 2006,
   no.~4, p.~1281--1294,
   \url{https://doi.org/https://doi.org/10.2136/sssaj2005.0293}.
 
+\bibitem[{Morway and others(2025)Morway, Provost, Langevin, Hughes, Russcher,
+  Chen, and Lin}]{morway2025}
+Morway, E.D., Provost, A.M., Langevin, C.D., Hughes, J.D., Russcher, M.J.,
+  Chen, C.-Y., and Lin, Y.-F.F., 2025, A new groundwater energy transport model
+  for the modflow hydrologic simulator: Groundwater, v.~63, no.~3, p.~409--421,
+  \url{https://doi.org/10.1111/gwat.13470}.
+
+\bibitem[{Notay(2010)}]{notay2010}
+Notay, Y., 2010, An aggregation-based algebraic multigrid method: Electronic
+  Transactions on Numerical Analysis, v.~37, p.~123--146,
+  \url{https://etna.math.kent.edu/vol.37.2010/pp123-146.dir/pp123-146.pdf}.
+
 \bibitem[{Panday(2019)}]{panday2019bct}
 Panday, S., 2019, USG-Transport Version 1.4.0: The Block-Centered Transport
   Process for MODFLOW-USG: ,
@@ -176,17 +193,43 @@ Provost, A.M., Langevin, C.D., and Hughes, J.D., 2017, Documentation for the
   Geological Survey Techniques and Methods, book 6, chap. A56, 46 p.},
   \url{https://doi.org/10.3133/tm6A56}.
 
+\bibitem[{Ruge and St{\"u}ben(1987)}]{rugestuben1987}
+Ruge, J.W., and St{\"u}ben, K., 1987, Algebraic multigrid, \emph{in} McCormick,
+  S.F., ed., Frontiers in Applied Mathematics, v.~3, Multigrid Methods:
+  Philadelphia, Society for Industrial and Applied Mathematics, p. 73--130.
+
+\bibitem[{Saad(2003)}]{saad2003iterative}
+Saad, Y., 2003, Iterative methods for sparse linear systems: Philadelphia,
+  Penn., Society for Industrial and Applied Mathematics, 528~p., accessed June
+  27, 2017, at \url{https://doi.org/10.1137/1.9780898718003}.
+
+\bibitem[{St{\"u}ben(2001)}]{stuben2001}
+St{\"u}ben, K., 2001, A review of algebraic multigrid: Journal of Computational
+  and Applied Mathematics, v. 128, nos. 1--2, p.~281--309,
+  \url{https://doi.org/10.1016/S0377-0427(00)00516-1}.
+
 \bibitem[{Thorne and others(2006)Thorne, Langevin, and Sukop}]{thorne2006}
 Thorne, D., Langevin, C.D., and Sukop, M.C., 2006, Addition of simultaneous
   heat and solute transport and variable fluid viscosity to seawat: Computers
   and Geosciences, v.~32, no.~10, p.~1758--1768,
   \url{https://doi.org/https://doi.org/10.1016/j.cageo.2006.04.005}.
 
+\bibitem[{van~der Vorst(1992)}]{vandervorst1992}
+van~der Vorst, H.A., 1992, {Bi-CGSTAB}: A fast and smoothly converging variant
+  of {Bi-CG} for the solution of nonsymmetric linear systems: SIAM Journal on
+  Scientific and Statistical Computing, v.~13, no.~2, p.~631--644,
+  \url{https://doi.org/10.1137/0913035}.
+
 \bibitem[{Voss(1984)}]{voss1984sutra}
 Voss, C.I., 1984, SUTRA---A finite-element simulation model for
   saturated-unsaturated fluid-density-dependent ground-water flow with energy
   transport or chemically-reactive single-species solute transport: {U.S.
   Geological Survey Water-Resources Investigations Report 84--4369, 409 p.}
+
+\bibitem[{Wilson and Naff(2004)}]{wilsonnaff2004}
+Wilson, J.D., and Naff, R.L., 2004, {MODFLOW-2000, the U.S. Geological Survey
+  modular ground-water model---GMG linear equation solver package
+  documentation}, U.S. Geological Survey, 47~p.
 
 \bibitem[{Zhang and others(2012)Zhang, King, and Datta-Gupta}]{zhang2012}
 Zhang, Y., King, M.J., and Datta-Gupta, A., 2012, Robust streamline tracing
