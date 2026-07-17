@@ -133,7 +133,7 @@ module ConstantsModule
   real(DP), parameter :: DGRAVITY = 9.80665_DP !< real constant gravitational acceleration (m/(s s))
   real(DP), parameter :: DCD = 0.61_DP !< real constant weir coefficient in SI units
 
-  real(DP), parameter :: DCTOK = 273.16_DP !< real constant conversion of degrees celsius to Kelvin
+  real(DP), parameter :: DCTOK = 273.15_DP !< real constant conversion of degrees celsius to Kelvin
   real(DP), parameter :: DSTEFANBOLTZMANN = 5.670374419e-8_DP !< real constant Stefan-Boltzmann constant
 
   character(len=10), dimension(3, 3), parameter :: &
