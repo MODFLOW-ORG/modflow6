@@ -14,3 +14,7 @@ solution = "SOLUTION"
 exchanges = "EXCHANGES"
 parallel = "PARALLEL"
 netcdf = "NETCDF"
+
+[[items]]
+subsection = "solution"
+description = "Added an algebraic multigrid (AMG) preconditioner to the Iterative Model Solution (IMS) package as an alternative to the incomplete LU (ILU) factorization preconditioners, activated with PRECONDITIONER\\_TYPE AMG in the IMS LINEAR block. AMG can reduce the number of solver iterations relative to ILU for models with large hydraulic-property contrasts between adjacent cells, such as layered aquifer/confining-unit systems or strongly anisotropic media."

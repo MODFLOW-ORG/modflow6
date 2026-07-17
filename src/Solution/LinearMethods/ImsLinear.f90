@@ -1,4 +1,4 @@
-MODULE IMSLinearModule
+module IMSLinearModule
 
   use KindModule, only: DP, I4B
   use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, LENMEMPATH, &
@@ -7,22 +7,25 @@ MODULE IMSLinearModule
                              DHALF, DONE, DTWO, &
                              VDEBUG
   use IMSLinearBaseModule, only: ims_base_cg, ims_base_bcgs, &
-                                 ims_base_pccrs, ims_base_calc_order, &
+                                 ims_base_calc_order, &
                                  ims_base_scale, ims_base_pcu, &
                                  ims_base_residual, ims_base_epfact, &
                                  ims_calc_pcdims
+  use IMSLinearMisc, only: ims_base_pccrs
   use BlockParserModule, only: BlockParserType
   use MatrixBaseModule
   use ConvergenceSummaryModule
   use ImsLinearSettingsModule
+  use ImsLinearAmgModule, only: ImsAmgDataType, ims_amg_setup, ims_amg_da
+  use ProfilerModule, only: g_prof
 
-  IMPLICIT NONE
+  implicit none
   private
 
-  TYPE, PUBLIC :: ImsLinearDataType
+  type, public :: ImsLinearDataType
     character(len=LENMEMPATH) :: memoryPath !< the path for storing variables in the memory manager
-    integer(I4B), POINTER :: iout => NULL() !< simulation listing file unit
-    integer(I4B), POINTER :: IPRIMS => NULL() !< print flag
+    integer(I4B), pointer :: iout => null() !< simulation listing file unit
+    integer(I4B), pointer :: IPRIMS => null() !< print flag
     ! input variables (pointing to fields in input structure)
     real(DP), pointer :: DVCLOSE => null() !< dependent variable closure criterion
     real(DP), pointer :: RCLOSE => null() !< residual closure criterion
@@ -36,80 +39,85 @@ MODULE IMSLinearModule
     real(DP), pointer :: RELAX => null() !< relaxation factor
     integer(I4B), pointer :: LEVEL => null() !< nr. of preconditioner levels
     real(DP), pointer :: DROPTOL => null() !< drop tolerance for preconditioner
+    integer(I4B), pointer :: NSMOOTH => null() !< AMG smoother iterations per level
+    integer(I4B), pointer :: ISMOOTHER => null() !< AMG smoother type
+    real(DP), pointer :: STHRESH => null() !< AMG strength-of-connection threshold
     !
-    integer(I4B), POINTER :: IPC => NULL() !< preconditioner flag
-    integer(I4B), POINTER :: IACPC => NULL() !< preconditioner CRS row pointers
-    integer(I4B), POINTER :: NITERC => NULL() !<
-    integer(I4B), POINTER :: NIABCGS => NULL() !< size of working vectors for BCGS linear accelerator
-    integer(I4B), POINTER :: NIAPC => NULL() !< preconditioner number of rows
-    integer(I4B), POINTER :: NJAPC => NULL() !< preconditioner number of non-zero entries
-    real(DP), POINTER :: EPFACT => NULL() !< factor for decreasing convergence criteria in seubsequent Picard iterations
-    real(DP), POINTER :: L2NORM0 => NULL() !< initial L2 norm
+    integer(I4B), pointer :: IPC => null() !< preconditioner flag
+    integer(I4B), pointer :: IACPC => null() !< preconditioner CRS row pointers
+    integer(I4B), pointer :: NITERC => null() !<
+    integer(I4B), pointer :: NIABCGS => null() !< size of working vectors for BCGS linear accelerator
+    integer(I4B), pointer :: NIAPC => null() !< preconditioner number of rows
+    integer(I4B), pointer :: NJAPC => null() !< preconditioner number of non-zero entries
+    real(DP), pointer :: EPFACT => null() !< factor for decreasing convergence criteria in seubsequent Picard iterations
+    real(DP), pointer :: L2NORM0 => null() !< initial L2 norm
     ! -- ilut variables
-    integer(I4B), POINTER :: NJLU => NULL() !< length of jlu work vector
-    integer(I4B), POINTER :: NJW => NULL() !< length of jw work vector
-    integer(I4B), POINTER :: NWLU => NULL() !< length of wlu work vector
+    integer(I4B), pointer :: NJLU => null() !< length of jlu work vector
+    integer(I4B), pointer :: NJW => null() !< length of jw work vector
+    integer(I4B), pointer :: NWLU => null() !< length of wlu work vector
     ! -- pointers to solution variables
-    integer(I4B), POINTER :: NEQ => NULL() !< number of equations (rows in matrix)
-    integer(I4B), POINTER :: NJA => NULL() !< number of non-zero values in amat
-    integer(I4B), dimension(:), pointer, contiguous :: IA => NULL() !< position of start of each row
-    integer(I4B), dimension(:), pointer, contiguous :: JA => NULL() !< column pointer
-    real(DP), dimension(:), pointer, contiguous :: AMAT => NULL() !< coefficient matrix
-    real(DP), dimension(:), pointer, contiguous :: RHS => NULL() !< right-hand side of equation
-    real(DP), dimension(:), pointer, contiguous :: X => NULL() !< dependent variable
+    integer(I4B), pointer :: NEQ => null() !< number of equations (rows in matrix)
+    integer(I4B), pointer :: NJA => null() !< number of non-zero values in amat
+    integer(I4B), dimension(:), pointer, contiguous :: IA => null() !< position of start of each row
+    integer(I4B), dimension(:), pointer, contiguous :: JA => null() !< column pointer
+    real(DP), dimension(:), pointer, contiguous :: AMAT => null() !< coefficient matrix
+    real(DP), dimension(:), pointer, contiguous :: RHS => null() !< right-hand side of equation
+    real(DP), dimension(:), pointer, contiguous :: X => null() !< dependent variable
     ! VECTORS
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: DSCALE => NULL() !< scaling factor
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: DSCALE2 => NULL() !< unscaling factor
-    integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: IAPC => NULL() !< position of start of each row in preconditioner matrix
-    integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: JAPC => NULL() !< preconditioner matrix column pointer
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: APC => NULL() !< preconditioner coefficient matrix
-    integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: LORDER => NULL() !< reordering mapping
-    integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: IORDER => NULL() !< mapping to restore reordered matrix
-    integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: IARO => NULL() !< position of start of each row in reordered matrix
-    integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: JARO => NULL() !< reordered matrix column pointer
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: ARO => NULL() !< reordered coefficient matrix
+    real(DP), pointer, dimension(:), contiguous :: DSCALE => null() !< scaling factor
+    real(DP), pointer, dimension(:), contiguous :: DSCALE2 => null() !< unscaling factor
+    integer(I4B), pointer, dimension(:), contiguous :: IAPC => null() !< position of start of each row in preconditioner matrix
+    integer(I4B), pointer, dimension(:), contiguous :: JAPC => null() !< preconditioner matrix column pointer
+    real(DP), pointer, dimension(:), contiguous :: APC => null() !< preconditioner coefficient matrix
+    integer(I4B), pointer, dimension(:), contiguous :: LORDER => null() !< reordering mapping
+    integer(I4B), pointer, dimension(:), contiguous :: IORDER => null() !< mapping to restore reordered matrix
+    integer(I4B), pointer, dimension(:), contiguous :: IARO => null() !< position of start of each row in reordered matrix
+    integer(I4B), pointer, dimension(:), contiguous :: JARO => null() !< reordered matrix column pointer
+    real(DP), pointer, dimension(:), contiguous :: ARO => null() !< reordered coefficient matrix
     ! WORKING ARRAYS
-    integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: IW => NULL() !< integer working array
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: W => NULL() !< real working array
-    integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: ID => NULL() !< integer working array
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: D => NULL() !< real working array
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: P => NULL() !< real working array
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: Q => NULL() !< real working array
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: Z => NULL() !< real working array
+    integer(I4B), pointer, dimension(:), contiguous :: IW => null() !< integer working array
+    real(DP), pointer, dimension(:), contiguous :: W => null() !< real working array
+    integer(I4B), pointer, dimension(:), contiguous :: ID => null() !< integer working array
+    real(DP), pointer, dimension(:), contiguous :: D => null() !< real working array
+    real(DP), pointer, dimension(:), contiguous :: P => null() !< real working array
+    real(DP), pointer, dimension(:), contiguous :: Q => null() !< real working array
+    real(DP), pointer, dimension(:), contiguous :: Z => null() !< real working array
     ! BICGSTAB WORKING ARRAYS
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: T => NULL() !< BICGSTAB real working array
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: V => NULL() !< BICGSTAB real working array
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: DHAT => NULL() !< BICGSTAB real working array
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: PHAT => NULL() !< BICGSTAB real working array
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: QHAT => NULL() !< rBICGSTAB eal working array
+    real(DP), pointer, dimension(:), contiguous :: T => null() !< BICGSTAB real working array
+    real(DP), pointer, dimension(:), contiguous :: V => null() !< BICGSTAB real working array
+    real(DP), pointer, dimension(:), contiguous :: DHAT => null() !< BICGSTAB real working array
+    real(DP), pointer, dimension(:), contiguous :: PHAT => null() !< BICGSTAB real working array
+    real(DP), pointer, dimension(:), contiguous :: QHAT => null() !< rBICGSTAB eal working array
     ! POINTERS FOR USE WITH BOTH ORIGINAL AND RCM ORDERINGS
-    integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: IA0 => NULL() !< pointer to current CRS row pointers
-    integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: JA0 => NULL() !< pointer to current CRS column pointers
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: A0 => NULL() !< pointer to current coefficient matrix
+    integer(I4B), pointer, dimension(:), contiguous :: IA0 => null() !< pointer to current CRS row pointers
+    integer(I4B), pointer, dimension(:), contiguous :: JA0 => null() !< pointer to current CRS column pointers
+    real(DP), pointer, dimension(:), contiguous :: A0 => null() !< pointer to current coefficient matrix
     ! ILUT WORKING ARRAYS
-    integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: JLU => NULL() !< ilut integer working array
-    integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: JW => NULL() !< ilut integer working array
-    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: WLU => NULL() !< ilut real working array
+    integer(I4B), pointer, dimension(:), contiguous :: JLU => null() !< ilut integer working array
+    integer(I4B), pointer, dimension(:), contiguous :: JW => null() !< ilut integer working array
+    real(DP), pointer, dimension(:), contiguous :: WLU => null() !< ilut real working array
 
+    ! AMG preconditioner (persistent across outer iterations)
+    type(ImsAmgDataType) :: amg_prec
     ! PROCEDURES (METHODS)
-  CONTAINS
-    PROCEDURE :: IMSLINEAR_ALLOCATE => imslinear_ar
+  contains
+    procedure :: IMSLINEAR_ALLOCATE => imslinear_ar
     procedure :: imslinear_summary
-    PROCEDURE :: IMSLINEAR_APPLY => imslinear_ap
+    procedure :: IMSLINEAR_APPLY => imslinear_ap
     procedure :: IMSLINEAR_DA => imslinear_da
     procedure, private :: allocate_scalars
     ! -- PRIVATE PROCEDURES
-    PROCEDURE, PRIVATE :: SET_IMSLINEAR_INPUT => imslinear_set_input
-  END TYPE ImsLinearDataType
+    procedure, private :: SET_IMSLINEAR_INPUT => imslinear_set_input
+  end type ImsLinearDataType
 
-CONTAINS
+contains
 
   !> @ brief Allocate storage and read data
     !!
     !!  Allocate storage for linear accelerators and read data
     !!
   !<
-  SUBROUTINE imslinear_ar(this, NAME, IOUT, IPRIMS, MXITER, &
+  subroutine imslinear_ar(this, NAME, IOUT, IPRIMS, MXITER, &
                           NEQ, matrix, RHS, X, linear_settings)
     ! -- modules
     use MemoryManagerModule, only: mem_allocate
@@ -117,15 +125,15 @@ CONTAINS
     use SimModule, only: store_error, count_errors, &
                          deprecation_warning
     ! -- dummy variables
-    CLASS(ImsLinearDataType), INTENT(INOUT) :: this !< ImsLinearDataType instance
-    CHARACTER(LEN=LENSOLUTIONNAME), INTENT(IN) :: NAME !< solution name
-    integer(I4B), INTENT(IN) :: IOUT !< simulation listing file unit
-    integer(I4B), TARGET, INTENT(IN) :: IPRIMS !< print option
-    integer(I4B), INTENT(IN) :: MXITER !< maximum outer iterations
-    integer(I4B), TARGET, INTENT(IN) :: NEQ !< number of equations
+    class(ImsLinearDataType), intent(INOUT) :: this !< ImsLinearDataType instance
+    character(LEN=LENSOLUTIONNAME), intent(IN) :: NAME !< solution name
+    integer(I4B), intent(IN) :: IOUT !< simulation listing file unit
+    integer(I4B), target, intent(IN) :: IPRIMS !< print option
+    integer(I4B), intent(IN) :: MXITER !< maximum outer iterations
+    integer(I4B), target, intent(IN) :: NEQ !< number of equations
     class(MatrixBaseType), pointer :: matrix
-    real(DP), DIMENSION(NEQ), TARGET, INTENT(INOUT) :: RHS !< right-hand side
-    real(DP), DIMENSION(NEQ), TARGET, INTENT(INOUT) :: X !< dependent variables
+    real(DP), dimension(NEQ), target, intent(INOUT) :: RHS !< right-hand side
+    real(DP), dimension(NEQ), target, intent(INOUT) :: X !< dependent variables
     type(ImsLinearSettingsType), pointer :: linear_settings !< the settings form the IMS file
     ! -- local variables
     character(len=LINELENGTH) :: errmsg
@@ -149,6 +157,9 @@ CONTAINS
     this%RELAX => linear_settings%relax
     this%LEVEL => linear_settings%level
     this%DROPTOL => linear_settings%droptol
+    this%NSMOOTH => linear_settings%nsmooth
+    this%ISMOOTHER => linear_settings%smoother_type
+    this%STHRESH => linear_settings%strength_threshold
     !
     ! -- SET POINTERS TO SOLUTION STORAGE
     this%IPRIMS => IPRIMS
@@ -172,50 +183,59 @@ CONTAINS
     !
     ! -- PRINT A MESSAGE IDENTIFYING IMSLINEAR SOLVER PACKAGE
     write (iout, 2000)
-02000 FORMAT(1X, /1X, 'IMSLINEAR -- UNSTRUCTURED LINEAR SOLUTION', &
+02000 format(1x, /1x, 'IMSLINEAR -- UNSTRUCTURED LINEAR SOLUTION', &
            ' PACKAGE, VERSION 8, 04/28/2017')
     !
     ! -- DETERMINE PRECONDITIONER
-    this%IPC = resolve_ipc(this%LEVEL, this%RELAX)
+    this%IPC = resolve_ipc(linear_settings%ipc_type, this%LEVEL, this%RELAX)
     !
     ! -- ERROR CHECKING FOR OPTIONS
-    IF (this%ISCL < 0) this%ISCL = 0
-    IF (this%ISCL > 2) THEN
-      WRITE (errmsg, '(A)') 'IMSLINEAR7AR ISCL MUST BE <= 2'
+    if (this%ISCL < 0) this%ISCL = 0
+    if (this%ISCL > 2) then
+      write (errmsg, '(A)') 'IMSLINEAR7AR ISCL MUST BE <= 2'
       call store_error(errmsg)
-    END IF
-    IF (this%IORD < 0) this%IORD = 0
-    IF (this%IORD > 2) THEN
-      WRITE (errmsg, '(A)') 'IMSLINEAR7AR IORD MUST BE <= 2'
+    end if
+    if (this%IORD < 0) this%IORD = 0
+    if (this%IORD > 2) then
+      write (errmsg, '(A)') 'IMSLINEAR7AR IORD MUST BE <= 2'
       call store_error(errmsg)
-    END IF
-    IF (this%NORTH < 0) THEN
-      WRITE (errmsg, '(A)') 'IMSLINEAR7AR NORTH MUST >= 0'
+    end if
+    if (this%NORTH < 0) then
+      write (errmsg, '(A)') 'IMSLINEAR7AR NORTH MUST >= 0'
       call store_error(errmsg)
-    END IF
-    IF (this%RCLOSE == DZERO) THEN
-      IF (this%ICNVGOPT /= 3) THEN
-        WRITE (errmsg, '(A)') 'IMSLINEAR7AR RCLOSE MUST > 0.0'
+    end if
+    if (this%RCLOSE == DZERO) then
+      if (this%ICNVGOPT /= CNVG_REL_L2_NORM) then
+        write (errmsg, '(A)') 'IMSLINEAR7AR RCLOSE MUST > 0.0'
         call store_error(errmsg)
-      END IF
-    END IF
-    IF (this%RELAX < DZERO) THEN
-      WRITE (errmsg, '(A)') 'IMSLINEAR7AR RELAX MUST BE >= 0.0'
+      end if
+    end if
+    if (this%RELAX < DZERO) then
+      write (errmsg, '(A)') 'IMSLINEAR7AR RELAX MUST BE >= 0.0'
       call store_error(errmsg)
-    END IF
-    IF (this%RELAX > DONE) THEN
-      WRITE (errmsg, '(A)') 'IMSLINEAR7AR RELAX MUST BE <= 1.0'
+    end if
+    if (this%RELAX > DONE) then
+      write (errmsg, '(A)') 'IMSLINEAR7AR RELAX MUST BE <= 1.0'
       call store_error(errmsg)
-    END IF
+    end if
+    if (this%IPC == IPC_AMG .and. this%ILINMETH == BCGS_METHOD .and. &
+        this%RELAX /= DONE) then
+      write (errmsg, '(A)') 'PRECONDITIONER_TYPE AMG with '// &
+        'LINEAR_ACCELERATION BICGSTAB requires RELAXATION_FACTOR = 1. '// &
+        'Adaptive omega (RELAXATION_FACTOR 0) makes the preconditioner '// &
+        'variable and disrupts BiCGSTAB Krylov optimality; use '// &
+        'RELAXATION_FACTOR 1 (fixed undamped) with BICGSTAB and AMG.'
+      call store_error(errmsg)
+    end if
     !
     ! -- INITIALIZE IMSLINEAR VARIABLES
     this%NITERC = 0
     !
     ! -- ALLOCATE AND INITIALIZE MEMORY FOR IMSLINEAR
     iscllen = 1
-    IF (this%ISCL .NE. 0) iscllen = NEQ
-    CALL mem_allocate(this%DSCALE, iscllen, 'DSCALE', TRIM(this%memoryPath))
-    CALL mem_allocate(this%DSCALE2, iscllen, 'DSCALE2', TRIM(this%memoryPath))
+    if (this%ISCL /= SCL_NONE) iscllen = NEQ
+    call mem_allocate(this%DSCALE, iscllen, 'DSCALE', trim(this%memoryPath))
+    call mem_allocate(this%DSCALE2, iscllen, 'DSCALE2', trim(this%memoryPath))
     !
     ! -- allocate and initialize the preconditioner work arrays
     call precond_allocate(this)
@@ -223,90 +243,90 @@ CONTAINS
     ! -- ALLOCATE SPACE FOR PERMUTATION VECTOR
     i0 = 1
     iolen = 1
-    IF (this%IORD .NE. 0) THEN
+    if (this%IORD /= ORD_NONE) then
       i0 = this%NEQ
       iolen = this%NJA
-    END IF
-    CALL mem_allocate(this%LORDER, i0, 'LORDER', TRIM(this%memoryPath))
-    CALL mem_allocate(this%IORDER, i0, 'IORDER', TRIM(this%memoryPath))
-    CALL mem_allocate(this%IARO, i0 + 1, 'IARO', TRIM(this%memoryPath))
-    CALL mem_allocate(this%JARO, iolen, 'JARO', TRIM(this%memoryPath))
-    CALL mem_allocate(this%ARO, iolen, 'ARO', TRIM(this%memoryPath))
+    end if
+    call mem_allocate(this%LORDER, i0, 'LORDER', trim(this%memoryPath))
+    call mem_allocate(this%IORDER, i0, 'IORDER', trim(this%memoryPath))
+    call mem_allocate(this%IARO, i0 + 1, 'IARO', trim(this%memoryPath))
+    call mem_allocate(this%JARO, iolen, 'JARO', trim(this%memoryPath))
+    call mem_allocate(this%ARO, iolen, 'ARO', trim(this%memoryPath))
     !
     ! -- ALLOCATE WORKING VECTORS FOR IMSLINEAR SOLVER
-    CALL mem_allocate(this%ID, this%NEQ, 'ID', TRIM(this%memoryPath))
-    CALL mem_allocate(this%D, this%NEQ, 'D', TRIM(this%memoryPath))
-    CALL mem_allocate(this%P, this%NEQ, 'P', TRIM(this%memoryPath))
-    CALL mem_allocate(this%Q, this%NEQ, 'Q', TRIM(this%memoryPath))
-    CALL mem_allocate(this%Z, this%NEQ, 'Z', TRIM(this%memoryPath))
+    call mem_allocate(this%ID, this%NEQ, 'ID', trim(this%memoryPath))
+    call mem_allocate(this%D, this%NEQ, 'D', trim(this%memoryPath))
+    call mem_allocate(this%P, this%NEQ, 'P', trim(this%memoryPath))
+    call mem_allocate(this%Q, this%NEQ, 'Q', trim(this%memoryPath))
+    call mem_allocate(this%Z, this%NEQ, 'Z', trim(this%memoryPath))
     !
     ! -- ALLOCATE MEMORY FOR BCGS WORKING ARRAYS
     this%NIABCGS = 1
-    IF (this%ILINMETH == 2) THEN
+    if (this%ILINMETH == BCGS_METHOD) then
       this%NIABCGS = this%NEQ
-    END IF
-    CALL mem_allocate(this%T, this%NIABCGS, 'T', TRIM(this%memoryPath))
-    CALL mem_allocate(this%V, this%NIABCGS, 'V', TRIM(this%memoryPath))
-    CALL mem_allocate(this%DHAT, this%NIABCGS, 'DHAT', TRIM(this%memoryPath))
-    CALL mem_allocate(this%PHAT, this%NIABCGS, 'PHAT', TRIM(this%memoryPath))
-    CALL mem_allocate(this%QHAT, this%NIABCGS, 'QHAT', TRIM(this%memoryPath))
+    end if
+    call mem_allocate(this%T, this%NIABCGS, 'T', trim(this%memoryPath))
+    call mem_allocate(this%V, this%NIABCGS, 'V', trim(this%memoryPath))
+    call mem_allocate(this%DHAT, this%NIABCGS, 'DHAT', trim(this%memoryPath))
+    call mem_allocate(this%PHAT, this%NIABCGS, 'PHAT', trim(this%memoryPath))
+    call mem_allocate(this%QHAT, this%NIABCGS, 'QHAT', trim(this%memoryPath))
     !
     ! -- INITIALIZE IMSLINEAR VECTORS
-    DO n = 1, iscllen
+    do n = 1, iscllen
       this%DSCALE(n) = DONE
       this%DSCALE2(n) = DONE
-    END DO
+    end do
     !
     ! -- WORKING VECTORS
-    DO n = 1, this%NEQ
+    do n = 1, this%NEQ
       this%ID(n) = IZERO
       this%D(n) = DZERO
       this%P(n) = DZERO
       this%Q(n) = DZERO
       this%Z(n) = DZERO
-    END DO
-    DO n = 1, this%NIAPC
+    end do
+    do n = 1, this%NIAPC
       this%IW(n) = IZERO
       this%W(n) = DZERO
-    END DO
+    end do
     !
     ! -- BCGS WORKING VECTORS
-    DO n = 1, this%NIABCGS
+    do n = 1, this%NIABCGS
       this%T(n) = DZERO
       this%V(n) = DZERO
       this%DHAT(n) = DZERO
       this%PHAT(n) = DZERO
       this%QHAT(n) = DZERO
-    END DO
+    end do
     !
     ! -- ILUT AND MILUT WORKING VECTORS
-    DO n = 1, this%NJLU
+    do n = 1, this%NJLU
       this%JLU(n) = IZERO
-    END DO
-    DO n = 1, this%NJW
+    end do
+    do n = 1, this%NJW
       this%JW(n) = IZERO
-    END DO
-    DO n = 1, this%NWLU
+    end do
+    do n = 1, this%NWLU
       this%WLU(n) = DZERO
-    END DO
+    end do
     !
     ! -- REORDERING VECTORS
-    DO n = 1, i0 + 1
+    do n = 1, i0 + 1
       this%IARO(n) = IZERO
-    END DO
-    DO n = 1, iolen
+    end do
+    do n = 1, iolen
       this%JARO(n) = IZERO
       this%ARO(n) = DZERO
-    END DO
+    end do
     !
     ! -- REVERSE CUTHILL MCKEE AND MINIMUM DEGREE ORDERING
-    IF (this%IORD .NE. 0) THEN
-      CALL ims_base_calc_order(this%IORD, this%NEQ, this%NJA, this%IA, &
+    if (this%IORD /= ORD_NONE) then
+      call ims_base_calc_order(this%IORD, this%NEQ, this%NJA, this%IA, &
                                this%JA, this%LORDER, this%IORDER)
-    END IF
+    end if
     !
     ! -- ALLOCATE MEMORY FOR STORING ITERATION CONVERGENCE DATA
-  end SUBROUTINE imslinear_ar
+  end subroutine imslinear_ar
 
   !> @ brief Write summary of settings
     !!
@@ -318,102 +338,140 @@ CONTAINS
     class(ImsLinearDataType), intent(inout) :: this !< ImsLinearDataType instance
     integer(I4B), intent(in) :: mxiter !< maximum number of outer iterations
     ! -- local variables
-    CHARACTER(LEN=10) :: clin(0:2)
-    CHARACTER(LEN=31) :: clintit(0:2)
-    CHARACTER(LEN=20) :: cipc(0:4)
-    CHARACTER(LEN=20) :: cscale(0:2)
-    CHARACTER(LEN=25) :: corder(0:2)
-    CHARACTER(LEN=16), DIMENSION(0:4) :: ccnvgopt
-    CHARACTER(LEN=15) :: clevel
-    CHARACTER(LEN=15) :: cdroptol
+    character(len=31) :: caccel
+    character(len=10) :: clin
+    character(len=20) :: cpc
+    character(len=20) :: cscale
+    character(len=25) :: corder
+    character(len=16) :: ccnvg
+    character(len=8) :: csmoother
+    character(len=15) :: clevel
+    character(len=15) :: cdroptol
     integer(I4B) :: i
     integer(I4B) :: j
-    ! -- data
-    DATA clin/'UNKNOWN   ', &
-             &'CG        ', &
-             &'BCGS      '/
-    DATA clintit/'             UNKNOWN           ', &
-                &'       CONJUGATE-GRADIENT      ', &
-                &'BICONJUGATE-GRADIENT STABILIZED'/
-    DATA cipc/'UNKNOWN             ', &
-             &'INCOMPLETE LU       ', &
-             &'MOD. INCOMPLETE LU  ', &
-             &'INCOMPLETE LUT      ', &
-             &'MOD. INCOMPLETE LUT '/
-    DATA cscale/'NO SCALING          ', &
-               &'SYMMETRIC SCALING   ', &
-               &'L2 NORM SCALING     '/
-    DATA corder/'ORIGINAL ORDERING        ', &
-               &'RCM ORDERING             ', &
-               &'MINIMUM DEGREE ORDERING  '/
-    DATA ccnvgopt/'INFINITY NORM   ', &
-                 &'INFINITY NORM S ', &
-                 &'L2 NORM         ', &
-                 &'RELATIVE L2NORM ', &
-                 &'L2 NORM W. REL. '/
     ! -- formats
-02010 FORMAT(1X, /, 7X, 'SOLUTION BY THE', 1X, A31, 1X, 'METHOD', &
-           /, 1X, 66('-'), /, &
+02010 format(1x, /, 7x, 'SOLUTION BY THE', 1x, A31, 1x, 'METHOD', &
+           /, 1x, 66('-'), /, &
            ' MAXIMUM OF ', I0, ' CALLS OF SOLUTION ROUTINE', /, &
            ' MAXIMUM OF ', I0, &
            ' INTERNAL ITERATIONS PER CALL TO SOLUTION ROUTINE', /, &
-           ' LINEAR ACCELERATION METHOD            =', 1X, A, /, &
-           ' MATRIX PRECONDITIONING TYPE           =', 1X, A, /, &
-           ' MATRIX SCALING APPROACH               =', 1X, A, /, &
-           ' MATRIX REORDERING APPROACH            =', 1X, A, /, &
-           ' NUMBER OF ORTHOGONALIZATIONS          =', 1X, I0, /, &
+           ' LINEAR ACCELERATION METHOD            =', 1x, A, /, &
+           ' MATRIX SCALING APPROACH               =', 1x, A, /, &
+           ' MATRIX REORDERING APPROACH            =', 1x, A, /, &
+           ' NUMBER OF ORTHOGONALIZATIONS          =', 1x, I0, /, &
            ' HEAD CHANGE CRITERION FOR CLOSURE     =', E15.5, /, &
            ' RESIDUAL CHANGE CRITERION FOR CLOSURE =', E15.5, /, &
-           ' RESIDUAL CONVERGENCE OPTION           =', 1X, I0, /, &
-           ' RESIDUAL CONVERGENCE NORM             =', 1X, A, /, &
-           ' RELAXATION FACTOR                     =', E15.5)
-02015 FORMAT(' NUMBER OF LEVELS                      =', A15, /, &
+           ' RESIDUAL CONVERGENCE NORM             =', 1x, A)
+02015 format(' RELAXATION FACTOR (ILU modification)  =', E15.5, /, &
+           ' NUMBER OF LEVELS (ILU fill level)     =', A15, /, &
            ' DROP TOLERANCE                        =', A15, //)
-2030 FORMAT(1X, A20, 1X, 6(I6, 1X))
-2040 FORMAT(1X, 20('-'), 1X, 6(6('-'), 1X))
-2050 FORMAT(1X, 62('-'),/) !
+02016 format(' RELAXATION FACTOR (cycle correction)  =', E15.5, /, &
+           ' NUMBER OF LEVELS (AMG hierarchy)      =', 1x, I0, /, &
+           ' AMG SMOOTHER TYPE                     =', 1x, A, /, &
+           ' AMG STRENGTH THRESHOLD                =', E15.5, //)
+02018 format(/, 7x, A, 1x, 'PRECONDITIONER', &
+            /, 1x, 66('-'))
+2030 format(1x, A20, 1x, 6(I6, 1x))
+2040 format(1x, 20('-'), 1x, 6(6('-'), 1x))
+2050 format(1x, 62('-'),/) !
 ! -- -----------------------------------------------------------
     !
-    ! -- initialize clevel and cdroptol
-    clevel = ''
-    cdroptol = ''
+    ! -- resolve integer codes to descriptive strings
+    select case (this%ILINMETH)
+    case (CG_METHOD)
+      caccel = '       CONJUGATE-GRADIENT      '
+      clin = 'CG'
+    case (BCGS_METHOD)
+      caccel = 'BICONJUGATE-GRADIENT STABILIZED'
+      clin = 'BCGS'
+    case default
+      caccel = '             UNKNOWN           '
+      clin = 'UNKNOWN'
+    end select
+    select case (this%IPC)
+    case (IPC_ILU0)
+      cpc = 'INCOMPLETE LU'
+    case (IPC_MILU0)
+      cpc = 'MOD. INCOMPLETE LU'
+    case (IPC_ILUT)
+      cpc = 'INCOMPLETE LUT'
+    case (IPC_MILUT)
+      cpc = 'MOD. INCOMPLETE LUT'
+    case (IPC_AMG)
+      cpc = 'AMG'
+    case default
+      cpc = 'UNKNOWN'
+    end select
+    select case (this%ISCL)
+    case (SCL_DIAGONAL)
+      cscale = 'SYMMETRIC SCALING'
+    case (SCL_L2NORM)
+      cscale = 'L2 NORM SCALING'
+    case default
+      cscale = 'NO SCALING'
+    end select
+    select case (this%IORD)
+    case (ORD_RCM)
+      corder = 'RCM ORDERING'
+    case (ORD_MINIMUM_DEGREE)
+      corder = 'MINIMUM DEGREE ORDERING'
+    case default
+      corder = 'ORIGINAL ORDERING'
+    end select
+    select case (this%ICNVGOPT)
+    case (CNVG_INF_NORM_STRICT)
+      ccnvg = 'INFINITY NORM S'
+    case (CNVG_L2_NORM)
+      ccnvg = 'L2 NORM'
+    case (CNVG_REL_L2_NORM)
+      ccnvg = 'RELATIVE L2 NORM'
+    case (CNVG_L2_NORM_REL)
+      ccnvg = 'L2 NORM W. REL.'
+    case default
+      ccnvg = 'INFINITY NORM'
+    end select
+    select case (this%ISMOOTHER)
+    case (SMOOTHER_ILU0)
+      csmoother = 'ILU0'
+    case default
+      csmoother = 'ILU0_ALL'
+    end select
     !
-    ! -- write common variables to all linear accelerators
+    ! -- format clevel and cdroptol (always, so 0 values are shown explicitly)
+    write (clevel, '(i15)') this%level
+    write (cdroptol, '(e15.5)') this%droptol
+    !
+    ! -- write solver settings
     write (this%iout, 2010) &
-      clintit(this%ILINMETH), MXITER, this%ITER1, &
-      clin(this%ILINMETH), cipc(this%IPC), &
-      cscale(this%ISCL), corder(this%IORD), &
+      caccel, MXITER, this%ITER1, &
+      trim(clin), trim(cscale), trim(corder), &
       this%NORTH, this%DVCLOSE, this%RCLOSE, &
-      this%ICNVGOPT, ccnvgopt(this%ICNVGOPT), &
-      this%RELAX
-    if (this%level > 0) then
-      write (clevel, '(i15)') this%level
-    end if
-    if (this%droptol > DZERO) then
-      write (cdroptol, '(e15.5)') this%droptol
-    end if
-    IF (this%level > 0 .or. this%droptol > DZERO) THEN
-      write (this%iout, 2015) trim(adjustl(clevel)), &
+      trim(ccnvg)
+    ! -- write preconditioner-specific settings under a labelled header
+    write (this%iout, 2018) trim(cpc)
+    if (this%IPC == IPC_AMG) then
+      write (this%iout, 2016) this%RELAX, max(1, this%LEVEL), &
+        trim(csmoother), this%STHRESH
+    else
+      write (this%iout, 2015) this%RELAX, trim(adjustl(clevel)), &
         trim(adjustl(cdroptol))
-    ELSE
-      write (this%iout, '(//)')
-    END IF
+    end if
 
     if (this%iord /= 0) then
       !
       ! -- WRITE SUMMARY OF REORDERING INFORMATION TO LIST FILE
       if (this%iprims == 2) then
-        DO i = 1, this%neq, 6
+        do i = 1, this%neq, 6
           write (this%iout, 2030) 'ORIGINAL NODE      :', &
-            (j, j=i, MIN(i + 5, this%neq))
+            (j, j=i, min(i + 5, this%neq))
           write (this%iout, 2040)
           write (this%iout, 2030) 'REORDERED INDEX    :', &
-            (this%lorder(j), j=i, MIN(i + 5, this%neq))
+            (this%lorder(j), j=i, min(i + 5, this%neq))
           write (this%iout, 2030) 'REORDERED NODE     :', &
-            (this%iorder(j), j=i, MIN(i + 5, this%neq))
+            (this%iorder(j), j=i, min(i + 5, this%neq))
           write (this%iout, 2050)
-        END DO
-      END IF
+        end do
+      end if
     end if
   end subroutine imslinear_summary
 
@@ -468,6 +526,7 @@ CONTAINS
     ! -- dummy variables
     class(ImsLinearDataType), intent(inout) :: this !< linear datatype instance
     !
+    !
     ! -- arrays
     call mem_deallocate(this%dscale)
     call mem_deallocate(this%dscale2)
@@ -502,6 +561,7 @@ CONTAINS
     call mem_deallocate(this%njw)
     call mem_deallocate(this%nwlu)
     call mem_deallocate(this%NJA)
+    call ims_amg_da(this%amg_prec)
     !
     ! -- nullify pointers
     nullify (this%iprims)
@@ -601,15 +661,15 @@ CONTAINS
     !!  Set default linear accelerator settings.
     !!
   !<
-  SUBROUTINE imslinear_set_input(this, IFDPARAM)
+  subroutine imslinear_set_input(this, IFDPARAM)
     ! -- dummy variables
-    CLASS(ImsLinearDataType), INTENT(INOUT) :: this !< ImsLinearDataType instance
-    integer(I4B), INTENT(IN) :: IFDPARAM !< complexity option
+    class(ImsLinearDataType), intent(INOUT) :: this !< ImsLinearDataType instance
+    integer(I4B), intent(IN) :: IFDPARAM !< complexity option
     ! -- code
-    SELECT CASE (IFDPARAM)
+    select case (IFDPARAM)
       !
       ! -- Simple option
-    CASE (1)
+    case (1)
       this%ITER1 = 50
       this%ILINMETH = 1
       this%IPC = IPC_ILU0
@@ -623,7 +683,7 @@ CONTAINS
       this%NORTH = 0
       !
       ! -- Moderate
-    CASE (2)
+    case (2)
       this%ITER1 = 100
       this%ILINMETH = 2
       this%IPC = IPC_MILU0
@@ -631,13 +691,13 @@ CONTAINS
       this%IORD = 0
       this%DVCLOSE = DEM2
       this%RCLOSE = DEM1
-      this%RELAX = 0.97D0
+      this%RELAX = 0.97d0
       this%LEVEL = 0
       this%DROPTOL = DZERO
       this%NORTH = 0
       !
       ! -- Complex
-    CASE (3)
+    case (3)
       this%ITER1 = 500
       this%ILINMETH = 2
       this%IPC = IPC_ILUT
@@ -649,8 +709,8 @@ CONTAINS
       this%LEVEL = 5
       this%DROPTOL = DEM4
       this%NORTH = 2
-    END SELECT
-  end SUBROUTINE imslinear_set_input
+    end select
+  end subroutine imslinear_set_input
 
   !> @ brief Base linear accelerator subroutine
     !!
@@ -659,22 +719,22 @@ CONTAINS
     !!  and calls the appropriate linear accelerator.
     !!
   !<
-  SUBROUTINE imslinear_ap(this, ICNVG, KSTP, KITER, IN_ITER, &
+  subroutine imslinear_ap(this, ICNVG, KSTP, KITER, IN_ITER, &
                           NCONV, CONVNMOD, CONVMODSTART, &
                           CACCEL, summary)
     ! -- modules
-    USE SimModule
+    use SimModule
     ! -- dummy variables
-    CLASS(ImsLinearDataType), INTENT(INOUT) :: this !< ImsLinearDataType instance
-    integer(I4B), INTENT(INOUT) :: ICNVG !< convergence flag (1) non-convergence (0)
-    integer(I4B), INTENT(IN) :: KSTP !< time step number
-    integer(I4B), INTENT(IN) :: KITER !< outer iteration number
-    integer(I4B), INTENT(INOUT) :: IN_ITER !< inner iteration number
+    class(ImsLinearDataType), intent(INOUT) :: this !< ImsLinearDataType instance
+    integer(I4B), intent(INOUT) :: ICNVG !< convergence flag (1) non-convergence (0)
+    integer(I4B), intent(IN) :: KSTP !< time step number
+    integer(I4B), intent(IN) :: KITER !< outer iteration number
+    integer(I4B), intent(INOUT) :: IN_ITER !< inner iteration number
     ! -- convergence information dummy variables
-    integer(I4B), INTENT(IN) :: NCONV !<
-    integer(I4B), INTENT(IN) :: CONVNMOD !<
-    integer(I4B), DIMENSION(CONVNMOD + 1), INTENT(INOUT) :: CONVMODSTART !<
-    character(len=31), DIMENSION(NCONV), INTENT(INOUT) :: CACCEL !<
+    integer(I4B), intent(IN) :: NCONV !<
+    integer(I4B), intent(IN) :: CONVNMOD !<
+    integer(I4B), dimension(CONVNMOD + 1), intent(INOUT) :: CONVMODSTART !<
+    character(len=31), dimension(NCONV), intent(INOUT) :: CACCEL !<
     type(ConvergenceSummaryType), pointer, intent(in) :: summary !< Convergence summary report
     ! -- local variables
     integer(I4B) :: n
@@ -687,49 +747,57 @@ CONTAINS
     this%EPFACT = ims_base_epfact(this%ICNVGOPT, KSTP)
     !
     ! -- SCALE PROBLEM
-    IF (this%ISCL .NE. 0) THEN
-      CALL ims_base_scale(0, this%ISCL, &
+    if (this%ISCL /= SCL_NONE) then
+      call ims_base_scale(0, this%ISCL, &
                           this%NEQ, this%NJA, this%IA, this%JA, &
                           this%AMAT, this%X, this%RHS, &
                           this%DSCALE, this%DSCALE2)
-    END IF
+    end if
     !
     ! -- PERMUTE ROWS, COLUMNS, AND RHS
-    IF (this%IORD /= 0) THEN
-      CALL dperm(this%NEQ, this%AMAT, this%JA, this%IA, &
+    if (this%IORD /= ORD_NONE) then
+      call dperm(this%NEQ, this%AMAT, this%JA, this%IA, &
                  this%ARO, this%JARO, this%IARO, &
                  this%LORDER, this%ID, 1)
-      CALL dvperm(this%NEQ, this%X, this%LORDER)
-      CALL dvperm(this%NEQ, this%RHS, this%LORDER)
+      call dvperm(this%NEQ, this%X, this%LORDER)
+      call dvperm(this%NEQ, this%RHS, this%LORDER)
       this%IA0 => this%IARO
       this%JA0 => this%JARO
       this%A0 => this%ARO
-    ELSE
+    else
       this%IA0 => this%IA
       this%JA0 => this%JA
       this%A0 => this%AMAT
-    END IF
+    end if
     !
     ! -- UPDATE PRECONDITIONER
-    CALL ims_base_pcu(this%iout, this%NJA, this%NEQ, this%NIAPC, this%NJAPC, &
-                      this%IPC, this%RELAX, this%A0, this%IA0, this%JA0, &
-                      this%APC, this%IAPC, this%JAPC, this%IW, this%W, &
-                      this%LEVEL, this%DROPTOL, this%NJLU, this%NJW, &
-                      this%NWLU, this%JLU, this%JW, this%WLU)
+    if (this%IPC == IPC_AMG) then
+      call g_prof%start("AMG setup", this%amg_prec%itmr_setup)
+      call ims_amg_setup(this%amg_prec, this%NEQ, this%NJA, this%IA0, this%JA0, &
+                         this%A0, max(1, this%LEVEL), this%NSMOOTH, &
+                         this%RELAX, this%STHRESH, this%ISMOOTHER)
+      call g_prof%stop(this%amg_prec%itmr_setup)
+    else
+      call ims_base_pcu(this%iout, this%NJA, this%NEQ, this%NIAPC, this%NJAPC, &
+                        this%IPC, this%RELAX, this%A0, this%IA0, this%JA0, &
+                        this%APC, this%IAPC, this%JAPC, this%IW, this%W, &
+                        this%LEVEL, this%DROPTOL, this%NJLU, this%NJW, &
+                        this%NWLU, this%JLU, this%JW, this%WLU)
+    end if
     !
     ! -- INITIALIZE SOLUTION VARIABLE AND ARRAYS
-    IF (KITER == 1) then
+    if (KITER == 1) then
       this%NITERC = 0
       summary%iter_cnt = 0
     end if
     irc = 1
     ICNVG = 0
-    DO n = 1, this%NEQ
+    do n = 1, this%NEQ
       this%D(n) = DZERO
       this%P(n) = DZERO
       this%Q(n) = DZERO
       this%Z(n) = DZERO
-    END DO
+    end do
     !
     ! -- CALCULATE INITIAL RESIDUAL
     call ims_base_residual(this%NEQ, this%NJA, this%X, this%RHS, this%D, &
@@ -738,14 +806,14 @@ CONTAINS
     !
     ! -- CHECK FOR EXACT SOLUTION
     itmax = this%ITER1
-    IF (this%L2NORM0 == DZERO) THEN
+    if (this%L2NORM0 == DZERO) then
       itmax = 0
       ICNVG = 1
-    END IF
+    end if
     !
     ! -- SOLUTION BY THE CONJUGATE GRADIENT METHOD
-    IF (this%ILINMETH == 1) THEN
-      CALL ims_base_cg(ICNVG, itmax, innerit, &
+    if (this%ILINMETH == CG_METHOD) then
+      call ims_base_cg(ICNVG, itmax, innerit, &
                        this%NEQ, this%NJA, this%NIAPC, this%NJAPC, &
                        this%IPC, this%ICNVGOPT, this%NORTH, &
                        this%DVCLOSE, this%RCLOSE, this%L2NORM0, &
@@ -754,11 +822,11 @@ CONTAINS
                        this%X, this%RHS, this%D, this%P, this%Q, this%Z, &
                        this%NJLU, this%IW, this%JLU, &
                        NCONV, CONVNMOD, CONVMODSTART, &
-                       CACCEL, summary)
+                       CACCEL, summary, amg=this%amg_prec)
       !
       ! -- SOLUTION BY THE BICONJUGATE GRADIENT STABILIZED METHOD
-    ELSE IF (this%ILINMETH == 2) THEN
-      CALL ims_base_bcgs(ICNVG, itmax, innerit, &
+    else if (this%ILINMETH == BCGS_METHOD) then
+      call ims_base_bcgs(ICNVG, itmax, innerit, &
                          this%NEQ, this%NJA, this%NIAPC, this%NJAPC, &
                          this%IPC, this%ICNVGOPT, this%NORTH, &
                          this%ISCL, this%DSCALE, &
@@ -769,29 +837,29 @@ CONTAINS
                          this%T, this%V, this%DHAT, this%PHAT, this%QHAT, &
                          this%NJLU, this%IW, this%JLU, &
                          NCONV, CONVNMOD, CONVMODSTART, &
-                         CACCEL, summary)
-    END IF
+                         CACCEL, summary, amg=this%amg_prec)
+    end if
     !
     ! -- BACK PERMUTE AMAT, SOLUTION, AND RHS
-    IF (this%IORD /= 0) THEN
-      CALL dperm(this%NEQ, this%A0, this%JA0, this%IA0, &
+    if (this%IORD /= ORD_NONE) then
+      call dperm(this%NEQ, this%A0, this%JA0, this%IA0, &
                  this%AMAT, this%JA, this%IA, &
                  this%IORDER, this%ID, 1)
-      CALL dvperm(this%NEQ, this%X, this%IORDER)
-      CALL dvperm(this%NEQ, this%RHS, this%IORDER)
-    END IF
+      call dvperm(this%NEQ, this%X, this%IORDER)
+      call dvperm(this%NEQ, this%RHS, this%IORDER)
+    end if
     !
     ! -- UNSCALE PROBLEM
-    IF (this%ISCL .NE. 0) THEN
-      CALL ims_base_scale(1, this%ISCL, &
+    if (this%ISCL /= SCL_NONE) then
+      call ims_base_scale(1, this%ISCL, &
                           this%NEQ, this%NJA, this%IA, this%JA, &
                           this%AMAT, this%X, this%RHS, &
                           this%DSCALE, this%DSCALE2)
-    END IF
+    end if
     !
     ! -- SET IMS INNER ITERATION NUMBER (IN_ITER) TO NUMBER OF
     !       IMSLINEAR INNER ITERATIONS (innerit)
     IN_ITER = innerit
-  end SUBROUTINE imslinear_ap
+  end subroutine imslinear_ap
 
-END MODULE IMSLinearModule
+end module IMSLinearModule
