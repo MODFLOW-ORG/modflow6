@@ -39,6 +39,7 @@ module NumericalSolutionModule
   use VectorBaseModule
   use LinearSolverBaseModule
   use ImsLinearSettingsModule
+  use ImsLinearPeriodModule, only: ImsLinearPeriodType
   use IMSLinearMisc, only: ims_misc_dvscale
   use LinearSolverFactory, only: create_linear_solver
   use MatrixBaseModule
@@ -149,6 +150,7 @@ module NumericalSolutionModule
     !
     ! -- linear accelerator storage
     type(ImsLinearDataType), pointer :: imslinear => null() !< IMS linear acceleration object
+    type(ImsLinearPeriodType) :: linear_period !< stress-period-varying linear settings
     !
     ! -- sparse object
     type(sparsematrix) :: sparse !< sparse object
@@ -166,6 +168,7 @@ module NumericalSolutionModule
     procedure :: sln_ar
     procedure :: sln_dt
     procedure :: sln_ad
+    procedure :: sln_rp => numsol_rp
     procedure :: sln_ot
     procedure :: sln_ca
     procedure :: sln_fp
@@ -628,6 +631,21 @@ contains
           else
             write (errmsg, '(a)') 'Optional CSV_OUTER_OUTPUT '// &
               'keyword must be followed by FILEOUT'
+            call store_error(errmsg)
+          end if
+        case ('LINEAR_PERIODDATA')
+          call this%parser%GetStringCaps(keyword)
+          if (keyword == 'FILEIN') then
+            call this%parser%GetString(fname)
+            i = getunit()
+            call openfile(i, iout, fname, 'IMSLINEARPERIOD')
+            call this%linear_period%init(i, iout)
+            write (iout, '(1x,3a,i0)') &
+              'LINEAR_PERIODDATA input will be read from file "', &
+              trim(fname), '" on unit ', i
+          else
+            write (errmsg, '(a)') 'Optional LINEAR_PERIODDATA keyword '// &
+              'must be followed by FILEIN'
             call store_error(errmsg)
           end if
         case ('CSV_INNER_OUTPUT')
@@ -1113,6 +1131,31 @@ contains
     this%iouttot_timestep = 0
   end subroutine sln_ad
 
+  !> @brief Read and prepare period-scoped linear settings for the solution
+  !!
+  !! Overrides the BaseSolution no-op. Applies stress-period linear-setting
+  !! changes to this solution's IMS linear settings and reconfigures the
+  !! preconditioner when required. Currently a stub, pending the period-settings
+  !! reader and reconfigure orchestrator.
+  !<
+  subroutine numsol_rp(this)
+    ! -- modules
+    use TdisModule, only: kper
+    ! -- dummy variables
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    ! -- local variables
+    logical(LGP) :: changed
+    !
+    ! -- apply stress-period-varying linear settings (serial IMS only) and
+    !    reconfigure the preconditioner when a change requires it
+    if (this%linsolver /= IMS_SOLVER) return
+    if (.not. this%linear_period%active) return
+    call this%linear_period%read_period(this%linear_settings, kper, changed)
+    if (changed) then
+      call this%imslinear%reconfigure()
+    end if
+  end subroutine numsol_rp
+
   !> @ brief Output solution
   !!
   !!  Output solution data. Currently does nothing.
@@ -1213,6 +1256,9 @@ contains
     ! -- linear solver
     call this%linear_solver%destroy()
     deallocate (this%linear_solver)
+    !
+    ! -- period-varying linear settings
+    call this%linear_period%da()
     !
     ! -- linear solver settings
     call this%linear_settings%destroy()

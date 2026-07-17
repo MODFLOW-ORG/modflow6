@@ -596,6 +596,7 @@ contains
     ! -- time update for each solution
     do is = 1, basesolutionlist%Count()
       sp => GetBaseSolutionFromList(basesolutionlist, is)
+      call sp%sln_rp()
       call sp%sln_dt()
     end do
     !

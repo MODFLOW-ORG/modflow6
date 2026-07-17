@@ -169,6 +169,50 @@ optional true
 longname fraction of outer maximum used with ats
 description real value defining the fraction of the maximum allowable outer iterations used with the Adaptive Time Step (ATS) capability if it is active.  If this value is set to zero by the user, then this solution will have no effect on ATS behavior.  This value must be greater than or equal to zero and less than or equal to 0.5 or the program will terminate with an error.  If it is not specified by the user, then it is assigned a default value of one third.  When the number of outer iterations for this solution is less than the product of this value and the maximum allowable outer iterations, then ATS will increase the time step length by a factor of DTADJ in the ATS input file.  When the number of outer iterations for this solution is greater than the maximum allowable outer iterations minus the product of this value and the maximum allowable outer iterations, then the ATS (if active) will decrease the time step length by a factor of 1 / DTADJ.
 
+block options
+name linear_period_filerecord
+type record linear_perioddata filein linear_period_filename
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name linear_perioddata
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname linear period data keyword
+description keyword to specify that record corresponds to a linear period data input file.  Records in the linear period data file override selected linear settings (the inner closure tolerances, the inner maximum, and the preconditioner) for specific stress periods.
+
+block options
+name filein
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname file keyword
+description keyword to specify that an input filename is expected next.
+
+block options
+name linear_period_filename
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname file name of linear period data
+description defines a linear period data input file.  The linear period data file specifies keyword PERIOD blocks whose settings override the LINEAR block settings for the specified stress period and all subsequent stress periods until changed.
+
 
 block options
 name dev_ptc

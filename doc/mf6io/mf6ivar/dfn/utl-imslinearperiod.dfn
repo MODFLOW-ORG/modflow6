@@ -1,0 +1,66 @@
+# --------------------- utl imslinearperiod options ---------------------
+# flopy subpackage linear_period_filerecord imslinearperiod perioddata imslinearperiod_perioddata
+# flopy parent_name_type parent_package MFPackage
+
+# --------------------- utl imslinearperiod period ---------------------
+
+block period
+name iper
+type integer
+block_variable true
+in_record true
+tagged false
+shape
+valid
+reader urword
+optional false
+longname stress period number
+description integer value specifying the starting stress period number for which the settings specified in the PERIOD block apply.  The settings persist until a subsequent PERIOD block changes them; stress periods without a PERIOD block continue to use the running settings.
+
+block period
+name inner_dvclose
+type double precision
+reader urword
+optional true
+longname dependent-variable change tolerance
+description real value that overrides INNER\_DVCLOSE from the LINEAR block for this stress period and all subsequent stress periods until changed.
+
+block period
+name inner_rclose
+type double precision
+reader urword
+optional true
+longname residual change tolerance
+description real value that overrides INNER\_RCLOSE from the LINEAR block for this stress period and all subsequent stress periods until changed.
+
+block period
+name inner_maximum
+type integer
+reader urword
+optional true
+longname maximum number of inner iterations
+description integer value that overrides INNER\_MAXIMUM from the LINEAR block for this stress period and all subsequent stress periods until changed.
+
+block period
+name preconditioner_levels
+type integer
+reader urword
+optional true
+longname preconditioner levels
+description integer value that overrides PRECONDITIONER\_LEVELS from the LINEAR block for this stress period and all subsequent stress periods until changed.  Changing this value causes the preconditioner to be reallocated and refactored.
+
+block period
+name preconditioner_drop_tolerance
+type double precision
+reader urword
+optional true
+longname preconditioner drop tolerance
+description real value that overrides PRECONDITIONER\_DROP\_TOLERANCE from the LINEAR block for this stress period and all subsequent stress periods until changed.
+
+block period
+name relaxation_factor
+type double precision
+reader urword
+optional true
+longname relaxation factor
+description real value that overrides RELAXATION\_FACTOR from the LINEAR block for this stress period and all subsequent stress periods until changed.
