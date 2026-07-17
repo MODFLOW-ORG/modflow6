@@ -96,6 +96,7 @@ MODULE IMSLinearModule
     PROCEDURE :: IMSLINEAR_ALLOCATE => imslinear_ar
     procedure :: imslinear_summary
     PROCEDURE :: IMSLINEAR_APPLY => imslinear_ap
+    procedure :: reconfigure => imslinear_reconfigure
     procedure :: IMSLINEAR_DA => imslinear_da
     procedure, private :: allocate_scalars
     ! -- PRIVATE PROCEDURES
@@ -595,6 +596,71 @@ CONTAINS
     nullify (this%JW)
     nullify (this%WLU)
   end subroutine precond_destroy
+
+  !> @brief Reconfigure the preconditioner after a runtime settings change
+  !!
+  !! Re-resolves the preconditioner type from the (possibly updated) settings and
+  !! reallocates the preconditioner work arrays only when their dimensions
+  !! change. A type change with unchanged array sizes (e.g. ILU0 to MILU0) reuses
+  !! the existing arrays and is re-factored on the next apply; inner closure
+  !! tolerances are seen through aliased settings pointers and need no action.
+  !<
+  subroutine imslinear_reconfigure(this)
+    ! -- dummy variables
+    class(ImsLinearDataType), intent(inout) :: this !< ImsLinearDataType instance
+    ! -- local variables
+    integer(I4B) :: new_ipc
+    integer(I4B) :: niapc, njapc, njlu, njw, nwlu
+    !
+    ! -- resolve the preconditioner type and its allocation dimensions from the
+    !    current settings
+    new_ipc = resolve_ipc(this%LEVEL, this%RELAX)
+    call ims_calc_pcdims(this%NEQ, this%NJA, this%IA, this%LEVEL, new_ipc, &
+                         niapc, njapc, njlu, njw, nwlu)
+    this%IPC = new_ipc
+    !
+    ! -- reallocate only when the preconditioner array dimensions change
+    if (niapc /= this%NIAPC .or. njapc /= this%NJAPC .or. njlu /= this%NJLU &
+        .or. njw /= this%NJW .or. nwlu /= this%NWLU) then
+      call precond_reallocate(this)
+    end if
+  end subroutine imslinear_reconfigure
+
+  !> @brief Resize the preconditioner work arrays in place
+  !!
+  !! Recomputes the preconditioner array dimensions for the current
+  !! preconditioner type and resizes the memory-manager-backed work arrays with
+  !! mem_reallocate (which keeps the existing store entries, unlike a
+  !! deallocate/allocate cycle). The ILU0/MILU0 sparsity is regenerated and the
+  !! factorization is recomputed on the next apply.
+  !<
+  subroutine precond_reallocate(this)
+    use MemoryManagerModule, only: mem_reallocate
+    ! -- dummy variables
+    class(ImsLinearDataType), intent(inout) :: this !< ImsLinearDataType instance
+    ! -- local variables
+    integer(I4B) :: n
+    !
+    call ims_calc_pcdims(this%NEQ, this%NJA, this%IA, this%LEVEL, this%IPC, &
+                         this%NIAPC, this%NJAPC, this%NJLU, this%NJW, this%NWLU)
+    call mem_reallocate(this%IAPC, this%NIAPC + 1, 'IAPC', trim(this%memoryPath))
+    call mem_reallocate(this%JAPC, this%NJAPC, 'JAPC', trim(this%memoryPath))
+    call mem_reallocate(this%APC, this%NJAPC, 'APC', trim(this%memoryPath))
+    call mem_reallocate(this%IW, this%NIAPC, 'IW', trim(this%memoryPath))
+    call mem_reallocate(this%W, this%NIAPC, 'W', trim(this%memoryPath))
+    call mem_reallocate(this%JLU, this%NJLU, 'JLU', trim(this%memoryPath))
+    call mem_reallocate(this%JW, this%NJW, 'JW', trim(this%memoryPath))
+    call mem_reallocate(this%WLU, this%NWLU, 'WLU', trim(this%memoryPath))
+    !
+    ! -- regenerate IAPC/JAPC for ILU0 and MILU0 and re-initialize APC
+    if (this%IPC == IPC_ILU0 .or. this%IPC == IPC_MILU0) then
+      call ims_base_pccrs(this%NEQ, this%NJA, this%IA, this%JA, &
+                          this%IAPC, this%JAPC)
+    end if
+    do n = 1, this%NJAPC
+      this%APC(n) = DZERO
+    end do
+  end subroutine precond_reallocate
 
   !> @ brief Set default settings
     !!

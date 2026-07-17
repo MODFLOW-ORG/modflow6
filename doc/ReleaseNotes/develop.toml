@@ -250,3 +250,8 @@ description = "The definition file sln-pts.dfn has been removed. It described an
 section = "fixes"
 subsection = "basic"
 description = "The script that builds the table of deprecations and removals for the release notes accumulated the deprecated and removed versions of a variable under two different keys, so a variable carrying both attributes lost its deprecation version and was reported as having been deprecated in the version in which it was removed. The table was correct until now only because every previous removal was made in the same version as its deprecation."
+
+[[items]]
+section = "features"
+subsection = "basic"
+description = "The Iterative Model Solution (IMS) now supports stress-period-varying linear settings. A LINEAR\\_PERIODDATA option in the IMS OPTIONS block names an input file with keyword PERIOD blocks that override selected LINEAR-block settings---the inner closure tolerances (INNER\\_DVCLOSE, INNER\\_RCLOSE), the inner maximum (INNER\\_MAXIMUM), and the preconditioner (PRECONDITIONER\\_LEVELS, PRECONDITIONER\\_DROP\\_TOLERANCE, RELAXATION\\_FACTOR)---for the specified stress period and all subsequent stress periods until changed. Changing the preconditioner reallocates and refactors it as needed."
