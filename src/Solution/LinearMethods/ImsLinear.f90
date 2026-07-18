@@ -597,13 +597,11 @@ CONTAINS
     nullify (this%WLU)
   end subroutine precond_destroy
 
-  !> @brief Reconfigure the preconditioner after a runtime settings change
+  !> @brief Reconfigure the preconditioner after a settings change
   !!
-  !! Re-resolves the preconditioner type from the (possibly updated) settings and
-  !! reallocates the preconditioner work arrays only when their dimensions
-  !! change. A type change with unchanged array sizes (e.g. ILU0 to MILU0) reuses
-  !! the existing arrays and is re-factored on the next apply; inner closure
-  !! tolerances are seen through aliased settings pointers and need no action.
+  !! Re-resolve the preconditioner type from the current settings and reallocate
+  !! the work arrays only when their dimensions change; the factorization is
+  !! redone on the next apply.
   !<
   subroutine imslinear_reconfigure(this)
     ! -- dummy variables
@@ -628,11 +626,8 @@ CONTAINS
 
   !> @brief Resize the preconditioner work arrays in place
   !!
-  !! Recomputes the preconditioner array dimensions for the current
-  !! preconditioner type and resizes the memory-manager-backed work arrays with
-  !! mem_reallocate (which keeps the existing store entries, unlike a
-  !! deallocate/allocate cycle). The ILU0/MILU0 sparsity is regenerated and the
-  !! factorization is recomputed on the next apply.
+  !! Recompute the preconditioner dimensions for the current type and resize the
+  !! work arrays with mem_reallocate. The ILU0/MILU0 sparsity is regenerated.
   !<
   subroutine precond_reallocate(this)
     use MemoryManagerModule, only: mem_reallocate

@@ -1,9 +1,7 @@
 !> @brief Implementation of stress-period-varying IMS linear settings
 !!
 !! Submodule of ImsLinearPeriodModule holding the period-data reader. PERIOD
-!! blocks are read on demand as the simulation advances, and their keyword
-!! overrides are applied to the running linear settings in place, so a setting
-!! persists to later periods until a subsequent PERIOD block changes it.
+!! blocks are read on demand and applied to the running linear settings in place.
 !<
 submodule(ImsLinearPeriodModule) ImsLinearPeriodImpl
   use ConstantsModule, only: LINELENGTH
