@@ -1132,16 +1132,15 @@ contains
     this%iouttot_timestep = 0
   end subroutine sln_ad
 
-  !> @brief Read and prepare period-scoped linear settings for the solution
+  !> @brief Apply stress-period-varying linear settings for the solution
   !!
-  !! Overrides the BaseSolution no-op. Applies stress-period linear-setting
-  !! changes to this solution's IMS linear settings and reconfigures the
-  !! preconditioner when required. Currently a stub, pending the period-settings
-  !! reader and reconfigure orchestrator.
+  !! On the first time step of a stress period, apply any period overrides to the
+  !! linear settings, resize the convergence-history arrays, and reconfigure the
+  !! solver when a change requires it.
   !<
   subroutine numsol_rp(this)
     ! -- modules
-    use TdisModule, only: kper
+    use TdisModule, only: kper, readnewdata
     ! -- dummy variables
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     ! -- local variables
@@ -1149,11 +1148,17 @@ contains
     logical(LGP) :: allow_tol
     logical(LGP) :: allow_precond
     !
+    ! -- only read period data on the first time step of a stress period,
+    !    mirroring the readnewdata guard used by the model and exchange _rp
+    !    routines. sln_rp is called every time step, so without this guard the
+    !    current PERIOD block would be re-entered and read past its END.
+    if (.not. readnewdata) return
+    !
     ! -- apply stress-period-varying linear settings and reconfigure the solver
-    !    when a change requires it (serial IMS and parallel PETSc). Reading is
-    !    per-rank, mirroring how the IMS input file itself is read, so no MPI
-    !    synchronization is needed: identical input yields identical settings and
-    !    an identical (local) reallocation on every rank.
+    !    when a change requires it. Reading is per-rank, mirroring how the IMS
+    !    input file itself is read, so no MPI synchronization is needed:
+    !    identical input yields identical settings and an identical (local)
+    !    reallocation on every rank.
     if (.not. this%linear_period%active) return
     !
     ! -- determine which setting categories the active solver mode honors, then
@@ -1173,14 +1178,11 @@ contains
     end if
   end subroutine numsol_rp
 
-  !> @brief Resize the convergence-history arrays after a settings change
+  !> @brief Resize the convergence-history arrays when the inner maximum changes
   !!
-  !! The per-timestep convergence-history arrays (caccel and the convergence
-  !! summary) are sized from nitermax = inner_maximum * outer_maximum when solver
-  !! output is requested. A stress-period change to the inner maximum can grow
-  !! this bound, so the arrays are resized before the next solve to avoid writing
-  !! out of bounds. No action is taken when the bound is unchanged. This is a
-  !! purely local operation, correct on every rank in a parallel run.
+  !! caccel and the convergence summary are sized from inner_maximum * mxiter, so
+  !! a change to the inner maximum requires them to be resized before the next
+  !! solve. No action is taken when the size is unchanged.
   !<
   subroutine sln_reallocate_cnvg(this)
     ! -- dummy variables

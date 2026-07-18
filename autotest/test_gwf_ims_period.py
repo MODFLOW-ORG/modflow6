@@ -1,19 +1,14 @@
 """
-Tests the stress-period-varying IMS linear settings (LINEAR_PERIODDATA).
+Serial tests for the stress-period-varying IMS linear settings (LINEAR_PERIODDATA).
 
-The feature is not yet supported directly by flopy, so the base model is built
-with flopy and the LINEAR_PERIODDATA option plus the period-data file are
-injected into the written input.
+flopy does not support the option yet, so LINEAR_PERIODDATA and the period-data
+file are injected into the written input.
 
 Cases:
-  - ims_period       : PERIOD 2 raises INNER_MAXIMUM (which grows the solver
-                       convergence-history arrays, exercising their runtime
-                       reallocation) and switches the preconditioner ILU0 -> ILUT
-                       (forces the preconditioner to be reallocated); PERIOD 3
-                       lowers INNER_MAXIMUM again and tightens INNER_DVCLOSE. Must
-                       run and process both period blocks.
-  - ims_period_badkw : a keyword not allowed in a PERIOD block (SCALING_METHOD)
-                       must terminate with an error (xfail).
+  - ims_period       : PERIOD 2 raises INNER_MAXIMUM and switches the
+                       preconditioner (both force a reallocation); PERIOD 3 lowers
+                       INNER_MAXIMUM and tightens INNER_DVCLOSE.
+  - ims_period_badkw : a keyword not allowed in a PERIOD block is an error (xfail).
 """
 
 import os
@@ -52,7 +47,12 @@ def build_models(idx, test):
     ws = test.workspace
     name = cases[idx]
     sim = flopy.mf6.MFSimulation(sim_name=name, exe_name="mf6", sim_ws=ws)
-    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=[(1.0, 1, 1.0)] * nper)
+    # periods 2 and 3 carry PERIOD blocks and use multiple time steps, so the
+    # period data must be read only on the first step of each period (the block
+    # must not be re-entered on later steps within the period)
+    flopy.mf6.ModflowTdis(
+        sim, nper=nper, perioddata=[(1.0, 1, 1.0), (4.0, 4, 1.0), (3.0, 3, 1.0)]
+    )
     flopy.mf6.ModflowIms(sim, complexity="simple", print_option="all")
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name, save_flows=True)
     flopy.mf6.ModflowGwfdis(

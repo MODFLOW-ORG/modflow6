@@ -383,12 +383,10 @@ contains
 
   end subroutine petsc_solve
 
-  !> @brief Report which stress-period-varying setting categories are honored.
+  !> @brief Report which period-varying setting categories are honored
   !!
-  !! When a native PETSc convergence check or preconditioner is selected through
-  !! the .petscrc file, the corresponding IMS settings are not owned by \mf and
-  !! cannot vary by stress period; those categories are reported as disabled so
-  !! the period reader rejects them rather than silently ignoring them.
+  !! A native PETSc convergence check or preconditioner (selected in the .petscrc
+  !! file) disables the tolerance or preconditioner category, respectively.
   !<
   subroutine petsc_get_period_caps(this, allow_tol, allow_precond)
     class(PetscSolverType) :: this !< this solver instance
@@ -398,11 +396,10 @@ contains
     allow_precond = this%use_ims_pc
   end subroutine petsc_get_period_caps
 
-  !> @brief Reconfigure the PETSc solver after a runtime settings change
+  !> @brief Reconfigure the PETSc solver after a settings change
   !!
-  !! Pushes updated inner tolerances/maximum into the custom convergence context
-  !! (which caches them at setup rather than aliasing the settings) and rebuilds
-  !! the IMS shell preconditioner arrays when a preconditioner control changed.
+  !! Push updated tolerances into the convergence context and rebuild the IMS
+  !! shell preconditioner arrays when a preconditioner control changed.
   !<
   subroutine petsc_reconfigure(this)
     class(PetscSolverType) :: this !< this solver instance

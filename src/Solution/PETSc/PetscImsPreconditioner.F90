@@ -124,12 +124,9 @@ contains
 
   !> @brief Reconfigure the shell preconditioner after a settings change
   !!
-  !! Re-resolves the IMS preconditioner type from the (possibly updated) linear
-  !! settings, aliased into this context, and resizes the work arrays only when
-  !! their dimensions change. A type change with unchanged array sizes (e.g.
-  !! ILU0 to MILU0 when a relaxation factor is added) reuses the existing arrays
-  !! and is re-factored on the next call to pcshell_setup. This mirrors the
-  !! serial imslinear_reconfigure and relies on the same common IMS machinery.
+  !! Re-resolve the preconditioner type from the current settings and resize the
+  !! work arrays only when their dimensions change; the factorization is redone
+  !! on the next call to pcshell_setup.
   !<
   subroutine pctx_reconfigure(this)
     use IMSLinearBaseModule, only: ims_base_pccrs, ims_calc_pcdims

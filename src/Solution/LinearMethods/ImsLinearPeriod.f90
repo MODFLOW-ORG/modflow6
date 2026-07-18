@@ -1,14 +1,9 @@
 !> @brief Stress-period-varying IMS linear settings
 !!
 !! Optional utility, enabled from the IMS OPTIONS block, that overrides selected
-!! linear settings (inner closure tolerances, inner maximum, and the
-!! preconditioner) on a per-stress-period basis. The period file uses keyword
-!! PERIOD blocks drawn from the LINEAR-block vocabulary with sticky-until-changed
-!! semantics: a setting persists to later periods until a subsequent PERIOD block
-!! overrides it, and periods without a block inherit the running settings.
-!!
-!! The implementation lives in the ims-linear-period submodule so the core IMS
-!! source files stay small.
+!! linear settings on a per-stress-period basis using keyword PERIOD blocks with
+!! sticky-until-changed semantics. The implementation is in the ims-linear-period
+!! submodule.
 !<
 module ImsLinearPeriodModule
   use KindModule, only: DP, I4B, LGP
@@ -44,12 +39,9 @@ module ImsLinearPeriodModule
 
     !> @brief Apply this stress period's linear-setting overrides
     !!
-    !! Reads the PERIOD block for stress period kper (if present) and mutates the
-    !! running settings in place (sticky-until-changed). Sets changed to .true.
-    !! when any setting was modified so the caller can reconfigure the solver.
-    !! The allow_tol/allow_precond flags gate which setting categories the active
-    !! solver mode honors; a keyword whose category is disabled is rejected with
-    !! an error rather than silently ignored.
+    !! Read the PERIOD block for stress period kper, if present, and mutate the
+    !! running settings in place (sticky-until-changed). allow_tol/allow_precond
+    !! gate which categories are honored; a disabled keyword is an error.
     !<
     module subroutine imslinperiod_read_period(this, settings, kper, &
                                                allow_tol, allow_precond, changed)

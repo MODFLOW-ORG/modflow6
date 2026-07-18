@@ -1,26 +1,18 @@
 """
-Parallel (PETSc) tests for the stress-period-varying IMS linear settings
-(LINEAR_PERIODDATA).
+Parallel (PETSc) tests for the stress-period-varying IMS linear settings.
 
-Two coupled GWF models are split over two cpus, producing a uniform flow field.
-The period-data file is read per-rank (mirroring how the IMS input file itself is
-read) and the resulting settings change is applied locally on every rank, so no
-MPI synchronization is required.
+Two coupled GWF models are split over two cpus. The period-data file is read
+per-rank and applied locally, so no MPI synchronization is required.
 
 Cases:
-  - par_ims_period        : default PETSc mode (IMS convergence + IMS shell
-                            preconditioner). PERIOD 2 raises INNER_MAXIMUM (grows
-                            the convergence-history arrays), switches the
-                            preconditioner (ILU family -> ILUT family, forcing a
-                            reallocation), and tightens the tolerances; PERIOD 3
-                            lowers INNER_MAXIMUM again. The run must complete and
+  - par_ims_period        : default PETSc mode. PERIOD 2 raises INNER_MAXIMUM,
+                            switches the preconditioner, and tightens the
+                            tolerances; PERIOD 3 lowers INNER_MAXIMUM. Must
                             reproduce the uniform flow field.
-  - par_ims_period_badpc  : a .petscrc selects a native PETSc preconditioner, so
-                            a PRECONDITIONER_LEVELS override in a PERIOD block is
-                            rejected (xfail).
-  - par_ims_period_badcnvg: a .petscrc selects a native PETSc convergence check,
-                            so an INNER_DVCLOSE override in a PERIOD block is
-                            rejected (xfail).
+  - par_ims_period_badpc  : PRECONDITIONER_LEVELS is rejected when .petscrc
+                            selects a native PETSc preconditioner (xfail).
+  - par_ims_period_badcnvg: INNER_DVCLOSE is rejected when .petscrc selects a
+                            native PETSc convergence check (xfail).
 """
 
 import glob

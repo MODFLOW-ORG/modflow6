@@ -27,9 +27,7 @@ module LinearSolverBaseModule
 
     procedure(create_matrix_if), deferred :: create_matrix
 
-    ! non-deferred hooks for stress-period-varying linear settings; the base
-    ! implementations suit a solver that honors every setting (e.g. IMS), and
-    ! are overridden where a mode can disable some settings (e.g. PETSc)
+    ! hooks for stress-period-varying linear settings (overridable)
     procedure :: get_period_caps => lsb_get_period_caps
     procedure :: reconfigure => lsb_reconfigure
   end type LinearSolverBaseType
@@ -68,10 +66,7 @@ module LinearSolverBaseModule
 
 contains
 
-  !> @brief Report which categories of stress-period-varying linear settings
-  !! this solver honors. The base solver honors all of them; solvers that can
-  !! delegate part of the setup to an external configuration (e.g. PETSc reading
-  !! a .petscrc file) override this to disable the categories they do not own.
+  !> @brief Report which period-varying setting categories this solver honors
   !<
   subroutine lsb_get_period_caps(this, allow_tol, allow_precond)
     class(LinearSolverBaseType) :: this !< linear solver instance
@@ -81,8 +76,8 @@ contains
     allow_precond = .true.
   end subroutine lsb_get_period_caps
 
-  !> @brief Reconfigure the solver after a runtime linear-settings change. The
-  !< base implementation is a no-op; solvers that cache settings override it.
+  !> @brief Reconfigure the solver after a settings change (no-op by default)
+  !<
   subroutine lsb_reconfigure(this)
     class(LinearSolverBaseType) :: this !< linear solver instance
   end subroutine lsb_reconfigure
