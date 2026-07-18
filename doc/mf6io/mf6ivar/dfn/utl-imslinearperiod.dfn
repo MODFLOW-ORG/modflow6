@@ -1,7 +1,3 @@
-# --------------------- utl imslinearperiod options ---------------------
-# flopy subpackage linear_period_filerecord imslinearperiod perioddata imslinearperiod_perioddata
-# flopy parent_name_type parent_package MFPackage
-
 # --------------------- utl imslinearperiod period ---------------------
 
 block period
