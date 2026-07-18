@@ -6,9 +6,12 @@ with flopy and the LINEAR_PERIODDATA option plus the period-data file are
 injected into the written input.
 
 Cases:
-  - ims_period       : PERIOD 2 switches the preconditioner ILU0 -> ILUT (forces
-                       the preconditioner to be reallocated), PERIOD 3 tightens
-                       INNER_DVCLOSE. Must run and process both period blocks.
+  - ims_period       : PERIOD 2 raises INNER_MAXIMUM (which grows the solver
+                       convergence-history arrays, exercising their runtime
+                       reallocation) and switches the preconditioner ILU0 -> ILUT
+                       (forces the preconditioner to be reallocated); PERIOD 3
+                       lowers INNER_MAXIMUM again and tightens INNER_DVCLOSE. Must
+                       run and process both period blocks.
   - ims_period_badkw : a keyword not allowed in a PERIOD block (SCALING_METHOD)
                        must terminate with an error (xfail).
 """
@@ -69,10 +72,12 @@ def build_models(idx, test):
     if idx == 0:
         period = (
             "BEGIN PERIOD 2\n"
+            "  INNER_MAXIMUM 500\n"
             "  PRECONDITIONER_LEVELS 5\n"
             "  PRECONDITIONER_DROP_TOLERANCE 1.0e-4\n"
             "END PERIOD\n\n"
             "BEGIN PERIOD 3\n"
+            "  INNER_MAXIMUM 50\n"
             "  INNER_DVCLOSE 1.0e-9\n"
             "END PERIOD\n"
         )

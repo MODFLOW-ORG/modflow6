@@ -47,11 +47,17 @@ module ImsLinearPeriodModule
     !! Reads the PERIOD block for stress period kper (if present) and mutates the
     !! running settings in place (sticky-until-changed). Sets changed to .true.
     !! when any setting was modified so the caller can reconfigure the solver.
+    !! The allow_tol/allow_precond flags gate which setting categories the active
+    !! solver mode honors; a keyword whose category is disabled is rejected with
+    !! an error rather than silently ignored.
     !<
-    module subroutine imslinperiod_read_period(this, settings, kper, changed)
+    module subroutine imslinperiod_read_period(this, settings, kper, &
+                                               allow_tol, allow_precond, changed)
       class(ImsLinearPeriodType), intent(inout) :: this !< period-settings utility
       type(ImsLinearSettingsType), intent(inout) :: settings !< running linear settings
       integer(I4B), intent(in) :: kper !< current stress period
+      logical(LGP), intent(in) :: allow_tol !< inner tolerances/maximum may vary
+      logical(LGP), intent(in) :: allow_precond !< preconditioner settings may vary
       logical(LGP), intent(out) :: changed !< true if any setting was changed
     end subroutine imslinperiod_read_period
 

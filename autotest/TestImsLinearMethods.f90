@@ -48,7 +48,7 @@ contains
     call period%init(0, 0)
     call check(error,.not. period%active)
     if (allocated(error)) return
-    call period%read_period(settings, 1, changed)
+    call period%read_period(settings, 1, .true., .true., changed)
     call check(error,.not. changed)
     if (allocated(error)) return
     call period%da()

@@ -73,11 +73,35 @@ contains
       if (end_of_block) exit
       call this%parser%GetStringCaps(keyword)
       select case (keyword)
-      case ('INNER_DVCLOSE', 'INNER_RCLOSE', 'INNER_MAXIMUM', &
-            'PRECONDITIONER_LEVELS', 'PRECONDITIONER_DROP_TOLERANCE', &
+      case ('INNER_DVCLOSE', 'INNER_RCLOSE', 'INNER_MAXIMUM')
+        ! -- inner tolerances/maximum: honored unless a native PETSc
+        !    convergence check owns them (set via the .petscrc file)
+        if (.not. allow_tol) then
+          write (errmsg, '(3a)') &
+            'Keyword "', trim(keyword), '" cannot be varied in an IMSLINEAR &
+            &PERIOD block because a native PETSc convergence check is in use &
+            &(configured with the .petscrc file).'
+          call store_error(errmsg)
+          call this%parser%StoreErrorUnit()
+        else
+          call settings%apply_keyword(this%parser, keyword)
+          changed = .true.
+        end if
+      case ('PRECONDITIONER_LEVELS', 'PRECONDITIONER_DROP_TOLERANCE', &
             'RELAXATION_FACTOR')
-        call settings%apply_keyword(this%parser, keyword)
-        changed = .true.
+        ! -- preconditioner controls: honored unless a native PETSc
+        !    preconditioner owns them (set via the .petscrc file)
+        if (.not. allow_precond) then
+          write (errmsg, '(3a)') &
+            'Keyword "', trim(keyword), '" cannot be varied in an IMSLINEAR &
+            &PERIOD block because a native PETSc preconditioner is in use &
+            &(configured with the .petscrc file).'
+          call store_error(errmsg)
+          call this%parser%StoreErrorUnit()
+        else
+          call settings%apply_keyword(this%parser, keyword)
+          changed = .true.
+        end if
       case default
         write (errmsg, '(3a)') &
           'Keyword "', trim(keyword), &
