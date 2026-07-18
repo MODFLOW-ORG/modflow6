@@ -208,6 +208,7 @@ module NumericalSolutionModule
     procedure, private :: allocate_arrays
     procedure, private :: convergence_summary
     procedure, private :: csv_convergence_summary
+    procedure, private :: sln_reallocate_cnvg
     procedure, private :: sln_buildsystem
     procedure, private :: writeCSVHeader
     procedure, private :: writePTCInfoToFile
@@ -1145,16 +1146,62 @@ contains
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     ! -- local variables
     logical(LGP) :: changed
+    logical(LGP) :: allow_tol
+    logical(LGP) :: allow_precond
     !
-    ! -- apply stress-period-varying linear settings (serial IMS only) and
-    !    reconfigure the preconditioner when a change requires it
-    if (this%linsolver /= IMS_SOLVER) return
+    ! -- apply stress-period-varying linear settings and reconfigure the solver
+    !    when a change requires it (serial IMS and parallel PETSc). Reading is
+    !    per-rank, mirroring how the IMS input file itself is read, so no MPI
+    !    synchronization is needed: identical input yields identical settings and
+    !    an identical (local) reallocation on every rank.
     if (.not. this%linear_period%active) return
-    call this%linear_period%read_period(this%linear_settings, kper, changed)
-    if (changed) then
+    !
+    ! -- determine which setting categories the active solver mode honors, then
+    !    apply this period's overrides (rejecting disabled categories)
+    call this%linear_solver%get_period_caps(allow_tol, allow_precond)
+    call this%linear_period%read_period(this%linear_settings, kper, &
+                                        allow_tol, allow_precond, changed)
+    if (.not. changed) return
+    !
+    ! -- resize the convergence-history arrays when the inner maximum changed,
+    !    then reconfigure the preconditioner/tolerances for the active solver
+    call this%sln_reallocate_cnvg()
+    if (this%linsolver == IMS_SOLVER) then
       call this%imslinear%reconfigure()
+    else
+      call this%linear_solver%reconfigure()
     end if
   end subroutine numsol_rp
+
+  !> @brief Resize the convergence-history arrays after a settings change
+  !!
+  !! The per-timestep convergence-history arrays (caccel and the convergence
+  !! summary) are sized from nitermax = inner_maximum * outer_maximum when solver
+  !! output is requested. A stress-period change to the inner maximum can grow
+  !! this bound, so the arrays are resized before the next solve to avoid writing
+  !! out of bounds. No action is taken when the bound is unchanged. This is a
+  !! purely local operation, correct on every rank in a parallel run.
+  !<
+  subroutine sln_reallocate_cnvg(this)
+    ! -- dummy variables
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    ! -- local variables
+    integer(I4B) :: new_nitermax
+    !
+    if (this%iprims == 2 .or. this%icsvinnerout > 0) then
+      new_nitermax = this%linear_settings%iter1 * this%mxiter
+    else
+      new_nitermax = 1
+    end if
+    if (new_nitermax == this%nitermax) return
+    this%nitermax = new_nitermax
+    !
+    ! -- caccel is a plain allocatable-style pointer; the convergence summary
+    !    resizes its own memory-manager-backed arrays via reinit
+    if (associated(this%caccel)) deallocate (this%caccel)
+    allocate (this%caccel(this%nitermax))
+    call this%cnvg_summary%reinit(this%nitermax)
+  end subroutine sln_reallocate_cnvg
 
   !> @ brief Output solution
   !!

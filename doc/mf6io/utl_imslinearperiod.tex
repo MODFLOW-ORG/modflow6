@@ -4,6 +4,8 @@ The linear period data file contains keyword PERIOD blocks that override selecte
 
 Changing the inner closure tolerances or the inner maximum takes effect immediately at no additional cost.  Changing a preconditioner control (PRECONDITIONER\_LEVELS, PRECONDITIONER\_DROP\_TOLERANCE, or RELAXATION\_FACTOR) causes \mf to re-resolve the preconditioner type and, when the preconditioner storage requirements change, to reallocate and refactor the preconditioner before the next solve.
 
+When \mf is run in parallel, the linear period data file is read independently on every process (as the IMS input file itself is), and the settings change is applied on each process, so no additional synchronization is required.  Parallel simulations use the PETSc solver, which by default uses the same IMS convergence check and preconditioner as the serial solver; in this default configuration all of the PERIOD-block keywords are supported.  If, however, a native PETSc preconditioner or convergence check is selected through the \texttt{.petscrc} file, the corresponding keywords cannot be varied by stress period: PRECONDITIONER\_LEVELS, PRECONDITIONER\_DROP\_TOLERANCE, and RELAXATION\_FACTOR require the IMS preconditioner, and INNER\_DVCLOSE, INNER\_RCLOSE, and INNER\_MAXIMUM require the IMS convergence check.  Specifying such a keyword in a PERIOD block while the corresponding native PETSc option is active causes \mf to terminate with an error.
+
 \vspace{5mm}
 \subsection{Structure of Blocks}
 \lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-imslinearperiod-period.dat}
