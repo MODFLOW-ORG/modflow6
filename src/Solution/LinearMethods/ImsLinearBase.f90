@@ -13,6 +13,7 @@ MODULE IMSLinearBaseModule
   use BlockParserModule, only: BlockParserType
   use IMSReorderingModule, only: ims_odrv
   use ConvergenceSummaryModule
+  use ImsLinearSettingsModule, only: IPC_ILU0, IPC_MILU0, IPC_ILUT, IPC_MILUT
 
   IMPLICIT NONE
 
@@ -105,11 +106,11 @@ contains
       SELECT CASE (IPC)
         !
         ! -- ILU0 AND MILU0
-      CASE (1, 2)
+      CASE (IPC_ILU0, IPC_MILU0)
         CALL ims_base_ilu0a(NJA, NEQ, APC, IAPC, JAPC, D, Z)
         !
         ! -- ILUT AND MILUT
-      CASE (3, 4)
+      CASE (IPC_ILUT, IPC_MILUT)
         CALL lusol(NEQ, D, Z, APC, JLU, IW)
       END SELECT
       rho = ddot(NEQ, D, 1, Z, 1)
@@ -358,11 +359,11 @@ contains
       SELECT CASE (IPC)
         !
         ! -- ILU0 AND MILU0
-      CASE (1, 2)
+      CASE (IPC_ILU0, IPC_MILU0)
         CALL ims_base_ilu0a(NJA, NEQ, APC, IAPC, JAPC, P, PHAT)
         !
         ! -- ILUT AND MILUT
-      CASE (3, 4)
+      CASE (IPC_ILUT, IPC_MILUT)
         CALL lusol(NEQ, P, PHAT, APC, JLU, IW)
       END SELECT
       !
@@ -409,11 +410,11 @@ contains
       SELECT CASE (IPC)
         !
         ! -- ILU0 AND MILU0
-      CASE (1, 2)
+      CASE (IPC_ILU0, IPC_MILU0)
         CALL ims_base_ilu0a(NJA, NEQ, APC, IAPC, JAPC, Q, QHAT)
         !
         ! -- ILUT AND MILUT
-      CASE (3, 4)
+      CASE (IPC_ILUT, IPC_MILUT)
         CALL lusol(NEQ, Q, QHAT, APC, JLU, IW)
       END SELECT
       !
@@ -813,13 +814,13 @@ contains
       SELECT CASE (IPC)
         !
         ! -- ILU0 AND MILU0
-      CASE (1, 2)
+      CASE (IPC_ILU0, IPC_MILU0)
         CALL ims_base_pcilu0(NJA, NEQ, AMAT, IA, JA, &
                              APC, IAPC, JAPC, IW, W, &
                              RELAX, ipcflag, delta)
         !
         ! -- ILUT AND MILUT
-      CASE (3, 4)
+      CASE (IPC_ILUT, IPC_MILUT)
         ierr = 0
         CALL ilut(NEQ, AMAT, JA, IA, LEVEL, DROPTOL, &
                   APC, JLU, IW, NJAPC, WLU, JW, ierr, &
