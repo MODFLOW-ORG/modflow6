@@ -41,6 +41,7 @@ module ImsLinearSettingsModule
     procedure :: preset_config
     procedure :: read_from_file
     procedure :: apply_keyword
+    procedure :: write_keyword
     procedure :: check_settings
     procedure :: destroy
   end type
@@ -268,6 +269,49 @@ contains
     end select
 
   end subroutine apply_keyword
+
+  !> @brief Write the stored value of a single LINEAR-block keyword
+  !!
+  !! Echoes the value currently held in the settings for the given keyword, so a
+  !! setting that apply_keyword can change can also be reported. Shares the
+  !! keyword vocabulary with apply_keyword; keywords whose value is not reported
+  !! individually are skipped.
+  !<
+  subroutine write_keyword(this, iout, keyword)
+    class(ImsLinearSettingsType) :: this !< linear settings
+    integer(I4B), intent(in) :: iout !< listing file unit
+    character(len=*), intent(in) :: keyword !< keyword (already upper-cased)
+    ! local
+    character(len=LINELENGTH) :: cval
+
+    if (iout <= 0) return
+
+    select case (keyword)
+    case ('INNER_DVCLOSE', 'INNER_HCLOSE')
+      write (cval, '(1pe15.5)') this%dvclose
+    case ('INNER_RCLOSE')
+      write (cval, '(1pe15.5)') this%rclose
+    case ('INNER_MAXIMUM')
+      write (cval, '(i0)') this%iter1
+    case ('RELAXATION_FACTOR')
+      write (cval, '(1pe15.5)') this%relax
+    case ('PRECONDITIONER_LEVELS')
+      write (cval, '(i0)') this%level
+    case ('PRECONDITIONER_DROP_TOLERANCE')
+      write (cval, '(1pe15.5)') this%droptol
+    case default
+      return
+    end select
+
+    write (iout, '(4x,3a)') trim(keyword), ' = ', trim(adjustl(cval))
+    !
+    ! -- INNER_RCLOSE carries an optional trailing keyword that also selects the
+    !    residual convergence option, so report that alongside the value
+    if (keyword == 'INNER_RCLOSE') then
+      write (iout, '(4x,a,i0)') 'RESIDUAL CONVERGENCE OPTION = ', this%icnvgopt
+    end if
+
+  end subroutine write_keyword
 
   !> @brief Check the settings after reading the configuration from file
   !<

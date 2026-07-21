@@ -83,6 +83,7 @@ contains
           call this%parser%StoreErrorUnit()
         else
           call settings%apply_keyword(this%parser, keyword)
+          call settings%write_keyword(this%iout, keyword)
           changed = .true.
         end if
       case ('PRECONDITIONER_LEVELS', 'PRECONDITIONER_DROP_TOLERANCE', &
@@ -98,6 +99,7 @@ contains
           call this%parser%StoreErrorUnit()
         else
           call settings%apply_keyword(this%parser, keyword)
+          call settings%write_keyword(this%iout, keyword)
           changed = .true.
         end if
       case default
