@@ -183,6 +183,26 @@ def _rank_files(ws, serial, parallel):
     return paths
 
 
+def _period_block_settings(lst, kper, path):
+    """Parse the settings reported in a PROCESSING LINEAR PERIOD DATA block."""
+    match = re.search(
+        rf"PROCESSING LINEAR PERIOD DATA FOR STRESS PERIOD {kper}\n(.*?)\n"
+        rf"\s*END PROCESSING LINEAR PERIOD DATA FOR STRESS PERIOD {kper}",
+        lst,
+        re.DOTALL,
+    )
+    assert match, (
+        f"the period {kper} block in {path} reports no settings; the listing "
+        f"would keep advertising the base values after the period changed them"
+    )
+    reported = {}
+    for line in match.group(1).splitlines():
+        key, sep, value = line.partition("=")
+        if sep:
+            reported[key.strip()] = value.strip()
+    return reported
+
+
 def _read_inner_csv(path):
     """Group the inner-iteration csv rows by stress period and outer iteration."""
     import csv
@@ -211,6 +231,19 @@ def check_output(idx, test):
         assert "PROCESSING LINEAR PERIOD DATA FOR STRESS PERIOD 2" in lst, (
             f"the period 2 linear settings were not processed ({path})"
         )
+
+        # the updated settings are echoed, so the listing reports the values that
+        # are actually in effect rather than only the base LINEAR block values
+        reported = _period_block_settings(lst, 2, path)
+        assert int(reported["INNER_MAXIMUM"]) == inner_max_tight, (
+            f"the listing reports INNER_MAXIMUM {reported['INNER_MAXIMUM']} for "
+            f"period 2, expected {inner_max_tight} ({path})"
+        )
+        assert float(reported["INNER_DVCLOSE"]) == pytest.approx(dvclose_tight), (
+            f"the listing reports INNER_DVCLOSE {reported['INNER_DVCLOSE']} for "
+            f"period 2, expected {dvclose_tight} ({path})"
+        )
+
         # PRINT_OPTION ALL writes an inner and outer summary for each period
         for tag in ("OUTER ITERATION SUMMARY", "INNER ITERATION SUMMARY"):
             assert lst.count(tag) == nper, (
