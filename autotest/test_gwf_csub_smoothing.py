@@ -9,10 +9,12 @@ effective-stress window.
 
 Tests that the option is read and shifts delay interbed storage from inelastic
 toward elastic near the switch: with smoothing the elastic delay interbed
-storage goes from zero to nonzero and the inelastic storage decreases. Also
-confirms the smoothed storage is applied consistently in the budget by checking
-that the mass balance closes (the smoothed ssk is used in both the solve and
-the storage budget).
+storage goes from zero to nonzero and the inelastic storage decreases. The
+reported elastic/inelastic split is weighted by the smoothing fraction, so it
+only repartitions storage between the two budget terms and the total delay
+interbed storage is conserved. Also confirms the smoothed storage is applied
+consistently in the budget by checking that the mass balance closes (the
+smoothed ssk is used in both the solve and the storage budget).
 
 Does not test the convergence improvement the option provides. That failure is
 an emergent property of a large coupled model and cannot be reproduced in a
@@ -158,6 +160,14 @@ def check_output(idx, test):
     assert on_ela > 1.0, f"smoothing did not add elastic storage ({on_ela})"
     assert on_ine < off_ine, (
         f"smoothing did not reduce inelastic storage ({on_ine} !< {off_ine})"
+    )
+    # the weighted split only repartitions storage between the elastic and
+    # inelastic budget terms, so the total delay interbed storage is conserved
+    # aside from the small in-window blend of the skeletal storage coefficient
+    off_tot, on_tot = off_ine + off_ela, on_ine + on_ela
+    assert abs(on_tot - off_tot) < 0.01 * off_tot, (
+        f"smoothing changed total delay interbed storage beyond the blend "
+        f"({on_tot} vs {off_tot})"
     )
 
     # smoothed ssk must be applied consistently in the budget -> mass balance closes

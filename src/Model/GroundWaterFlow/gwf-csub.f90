@@ -5634,7 +5634,7 @@ contains
 
   !> @brief Calculate delay interbed cell storage coefficients
   !<
-  subroutine csub_delay_calc_ssksske(this, ib, n, hcell, ssk, sske, dsskde)
+  subroutine csub_delay_calc_ssksske(this, ib, n, hcell, ssk, sske, dsskde, wfac)
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     integer(I4B), intent(in) :: ib !< interbed number
@@ -5643,6 +5643,7 @@ contains
     real(DP), intent(inout) :: ssk !< delay interbed skeletal specific storage
     real(DP), intent(inout) :: sske !< delay interbed elastic skeletal specific storage
     real(DP), intent(inout), optional :: dsskde !< d(ssk)/d(effective stress)
+    real(DP), intent(inout), optional :: wfac !< inelastic weight (0 elastic, 1 inelastic) for the budget split
     ! -- local variables
     integer(I4B) :: idelay
     integer(I4B) :: ielastic
@@ -5727,6 +5728,10 @@ contains
     sske = f * this%rci(ib)
     ssk = f * this%rci(ib)
     if (present(dsskde)) dsskde = DZERO
+    ! -- wfac is the inelastic fraction of the storage change used to split the
+    !    reported elastic/inelastic budget; 0 while elastic, 1 once inelastic,
+    !    and equal to the smoothing weight w across the transition window
+    if (present(wfac)) wfac = DZERO
     if (ielastic == 0) then
       es = this%dbes(n, idelay)
       pcs = this%dbpcs(n, idelay)
@@ -5739,6 +5744,7 @@ contains
         w = sQuadraticSaturation(estop, pcs, es)
         ssk = f * (this%rci(ib) + w * (this%ci(ib) - this%rci(ib)))
         if (w > DHALF) this%idbconvert(n, idelay) = 1
+        if (present(wfac)) wfac = w
         if (present(dsskde)) then
           dwde = sQuadraticSaturationDerivative(estop, pcs, es)
           dsskde = f * (this%ci(ib) - this%rci(ib)) * dwde
@@ -5748,6 +5754,7 @@ contains
         if (es > pcs) then
           this%idbconvert(n, idelay) = 1
           ssk = f * this%ci(ib)
+          if (present(wfac)) wfac = DONE
         end if
       end if
     end if
@@ -6183,6 +6190,7 @@ contains
     integer(I4B) :: n
     real(DP) :: sske
     real(DP) :: ssk
+    real(DP) :: wfac
     real(DP) :: fmult
     real(DP) :: v1
     real(DP) :: v2
@@ -6211,7 +6219,7 @@ contains
       fmult = this%dbdzini(1, idelay)
       dzhalf = DHALF * this%dbdzini(1, idelay)
       do n = 1, this%ndelaycells
-        call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske)
+        call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske, wfac=wfac)
         z = this%dbz(n, idelay)
         zbot = z - dzhalf
         h = this%dbh(n, idelay)
@@ -6228,13 +6236,11 @@ contains
           v2 = dsn0 * sske * (this%dbpcs(n, idelay) - this%dbes0(n, idelay))
         end if
         !
-        ! -- calculate inelastic and elastic storage components
-        if (this%idbconvert(n, idelay) /= 0) then
-          stoi = stoi + v1 * fmult
-          stoe = stoe + v2 * fmult
-        else
-          stoe = stoe + (v1 + v2) * fmult
-        end if
+        ! -- split the storage change into inelastic and elastic components
+        !    weighted by wfac so the reported budget blends across the smoothed
+        !    transition; wfac is 0/1 for the hard switch, reproducing the split
+        stoi = stoi + wfac * v1 * fmult
+        stoe = stoe + ((DONE - wfac) * v1 + v2) * fmult
         !
         ! calculate inelastic and elastic storativity
         ske = ske + sske * fmult
@@ -6325,6 +6331,7 @@ contains
     real(DP) :: snold
     real(DP) :: sske
     real(DP) :: ssk
+    real(DP) :: wfac
     real(DP) :: fmult
     real(DP) :: h
     real(DP) :: h0
@@ -6352,7 +6359,7 @@ contains
         h = this%dbh(n, idelay)
         h0 = this%dbh0(n, idelay)
         call this%csub_delay_calc_sat(node, idelay, n, h, h0, dsn, dsn0)
-        call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske)
+        call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske, wfac=wfac)
         if (ielastic /= 0) then
           v1 = dsn * ssk * this%dbes(n, idelay) - sske * this%dbes0(n, idelay)
           v2 = DZERO
@@ -6366,13 +6373,11 @@ contains
         ! -- save compaction data
         this%dbcomp(n, idelay) = v * snnew
         !
-        ! -- calculate inelastic and elastic storage components
-        if (this%idbconvert(n, idelay) /= 0) then
-          compi = compi + v1 * fmult
-          compe = compe + v2 * fmult
-        else
-          compe = compe + (v1 + v2) * fmult
-        end if
+        ! -- split compaction into inelastic and elastic components weighted by
+        !    wfac so the reported budget blends across the smoothed transition;
+        !    wfac is 0/1 for the hard switch, reproducing the original split
+        compi = compi + wfac * v1 * fmult
+        compe = compe + ((DONE - wfac) * v1 + v2) * fmult
       end do
     end if
     !
