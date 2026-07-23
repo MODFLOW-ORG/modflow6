@@ -112,7 +112,7 @@ module GwfCsubModule
     real(DP), pointer :: beta => null() !< water compressibility
     real(DP), pointer :: brg => null() !< product of gammaw and water compressibility
     real(DP), pointer :: satomega => null() !< newton-raphson saturation omega
-    real(DP), pointer :: pcsomega => null() !< preconsolidation elastic<->inelastic switch smoothing window (fraction of pcs; 0 = hard switch)
+    real(DP), pointer :: pcsomega => null() !< elastic<->inelastic switch smoothing window (fraction of pcs; 0 = hard switch)
     ! -- integer pointer to storage package variables
     integer(I4B), pointer :: gwfiss => NULL() !< pointer to model iss flag
     integer(I4B), pointer :: gwfiss0 => NULL() !< iss flag for last stress period
@@ -562,8 +562,7 @@ contains
                        found%save_flows)
     call mem_set_value(this%gammaw, 'GAMMAW', this%input_mempath, found%gammaw)
     call mem_set_value(this%beta, 'BETA', this%input_mempath, found%beta)
-    ! -- ELASTIC_INELASTIC_SMOOTHING keyword activates the smoothed elastic to
-    !    inelastic transition using a default window of DEM3 (fraction of pcs)
+    ! -- ELASTIC_INELASTIC_SMOOTHING sets the default smoothing window (DEM3 * pcs)
     allocate (iei_smoothing)
     iei_smoothing = 0
     call mem_set_value(iei_smoothing, 'EI_SMOOTHING', &
@@ -965,7 +964,6 @@ contains
     this%beta = 4.6512e-10_DP
     this%brg = this%gammaw * this%beta
     ! -- fraction of pcs over which ssk blends elastic->inelastic; 0 = hard switch
-    !    (set by the ELASTIC_INELASTIC_SMOOTHING option in source_options)
     this%pcsomega = DZERO
     !
     ! -- set omega value used for saturation calculations
@@ -5635,14 +5633,6 @@ contains
   end subroutine csub_delay_calc_stress
 
   !> @brief Calculate delay interbed cell storage coefficients
-  !!
-  !! Method to calculate the ssk and sske value for a node in a delay
-  !! interbed cell.
-  !!
-  !! @param[in,out]  ssk  skeletal specific storage value dependent on the
-  !!                      preconsolidation stress
-  !! @param[in,out]  sske elastic skeletal specific storage value
-  !!
   !<
   subroutine csub_delay_calc_ssksske(this, ib, n, hcell, ssk, sske, dsskde)
     ! -- dummy variables
@@ -5652,7 +5642,7 @@ contains
     real(DP), intent(in) :: hcell !< current head in a cell
     real(DP), intent(inout) :: ssk !< delay interbed skeletal specific storage
     real(DP), intent(inout) :: sske !< delay interbed elastic skeletal specific storage
-    real(DP), intent(inout), optional :: dsskde !< d(ssk)/d(effective stress) via the smoothed switch
+    real(DP), intent(inout), optional :: dsskde !< d(ssk)/d(effective stress)
     ! -- local variables
     integer(I4B) :: idelay
     integer(I4B) :: ielastic
@@ -5740,11 +5730,11 @@ contains
     if (ielastic == 0) then
       es = this%dbes(n, idelay)
       pcs = this%dbpcs(n, idelay)
-      if (this%pcsomega > DZERO) then
-        ! -- smooth (C1) blend of elastic (rci) -> inelastic (ci) skeletal
-        !    specific storage as effective stress crosses the preconsolidation
-        !    stress, over a window of pcsomega * pcs above pcs. w = 0 at/below
-        !    pcs (fully elastic), 1 at/above pcs + window (fully inelastic).
+      ! -- require pcs > DZERO so the smoothing window (pcsomega * pcs) is
+      !    positive, as sQuadraticSaturation and its derivative need
+      if (this%pcsomega > DZERO .and. pcs > DZERO) then
+        ! -- blend elastic (rci) -> inelastic (ci) skeletal storage over a
+        !    window of pcsomega * pcs above pcs; w runs 0 (elastic) to 1 (inelastic)
         estop = pcs + this%pcsomega * pcs
         w = sQuadraticSaturation(estop, pcs, es)
         ssk = f * (this%rci(ib) + w * (this%ci(ib) - this%rci(ib)))
@@ -6047,7 +6037,7 @@ contains
     ! -- calculate the derivative of the saturation
     dsnderv = this%csub_delay_calc_sat_derivative(node, idelay, n, hcell)
     !
-    ! -- calculate ssk and sske (and the smoothed switch derivative dssk/des)
+    ! -- calculate ssk, sske, and the smoothing derivative dsskde
     call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske, dsskde)
     !
     ! -- calculate storage terms
