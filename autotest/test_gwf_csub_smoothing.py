@@ -64,18 +64,30 @@ def build_sim(ws, name, smoothing):
     )
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name, newtonoptions="NEWTON")
     flopy.mf6.ModflowGwfdis(
-        gwf, nlay=nlay, nrow=nrow, ncol=ncol, delr=1000.0, delc=1000.0,
-        top=top, botm=botm,
+        gwf,
+        nlay=nlay,
+        nrow=nrow,
+        ncol=ncol,
+        delr=1000.0,
+        delc=1000.0,
+        top=top,
+        botm=botm,
     )
     flopy.mf6.ModflowGwfic(gwf, strt=0.0)
     flopy.mf6.ModflowGwfnpf(gwf, icelltype=0, k=1.0, k33=2e-3)
     flopy.mf6.ModflowGwfsto(
-        gwf, iconvert=0, ss=0.0, sy=0.0,
-        steady_state={0: True}, transient={1: True},
+        gwf,
+        iconvert=0,
+        ss=0.0,
+        sy=0.0,
+        steady_state={0: True},
+        transient={1: True},
     )
     # layer 2 specified head, ramped down over the transient period
     chd = flopy.mf6.ModflowGwfchd(
-        gwf, maxbound=1, stress_period_data={0: [[(1, 0, 0), "ct"]]},
+        gwf,
+        maxbound=1,
+        stress_period_data={0: [[(1, 0, 0), "ct"]]},
     )
     chd.ts.initialize(
         filename=f"{name}.ts",
@@ -99,7 +111,9 @@ def build_sim(ws, name, smoothing):
         packagedata=pkgdata,
     )
     flopy.mf6.ModflowGwfoc(
-        gwf, head_filerecord=f"{name}.hds", saverecord=[("HEAD", "LAST")],
+        gwf,
+        head_filerecord=f"{name}.hds",
+        saverecord=[("HEAD", "LAST")],
     )
     return sim
 
@@ -137,10 +151,14 @@ def check_output(idx, test):
     # the drawdown drives the interbed inelastic in both runs (switch is active)
     assert off_ine > 1.0e3, f"interbed did not load inelastically ({off_ine})"
     # without smoothing the hard switch leaves no near-switch elastic storage
-    assert abs(off_ela) < 1.0, f"unexpected elastic storage without smoothing ({off_ela})"
+    assert abs(off_ela) < 1.0, (
+        f"unexpected elastic storage without smoothing ({off_ela})"
+    )
     # with smoothing, storage near the switch shifts from inelastic to elastic
     assert on_ela > 1.0, f"smoothing did not add elastic storage ({on_ela})"
-    assert on_ine < off_ine, f"smoothing did not reduce inelastic storage ({on_ine} !< {off_ine})"
+    assert on_ine < off_ine, (
+        f"smoothing did not reduce inelastic storage ({on_ine} !< {off_ine})"
+    )
 
     # smoothed ssk must be applied consistently in the budget -> mass balance closes
     for ws in (test.workspace, os.path.join(test.workspace, smooth_ws)):
