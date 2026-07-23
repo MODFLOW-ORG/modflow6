@@ -189,7 +189,7 @@ module GwfCsubInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfcsub_elastic_inelastic_smoothing = InputParamDefinitionType &
+    gwfcsub_ei_smoothing = InputParamDefinitionType &
     ( &
     'GWF', & ! component
     'CSUB', & ! subcomponent
@@ -1461,7 +1461,7 @@ module GwfCsubInputModule
     gwfcsub_save_flows, &
     gwfcsub_gammaw, &
     gwfcsub_beta, &
-    gwfcsub_elastic_inelastic_smoothing, &
+    gwfcsub_ei_smoothing, &
     gwfcsub_head_based, &
     gwfcsub_precon_head, &
     gwfcsub_ndelaycells, &
