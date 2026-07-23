@@ -5642,8 +5642,8 @@ contains
     real(DP), intent(in) :: hcell !< current head in a cell
     real(DP), intent(inout) :: ssk !< delay interbed skeletal specific storage
     real(DP), intent(inout) :: sske !< delay interbed elastic skeletal specific storage
-    real(DP), intent(inout), optional :: dsskde !< d(ssk)/d(effective stress)
-    real(DP), intent(inout), optional :: wfac !< inelastic weight (0 elastic, 1 inelastic) for the budget split
+    real(DP), intent(out), optional :: dsskde !< d(ssk)/d(effective stress)
+    real(DP), intent(out), optional :: wfac !< inelastic weight (0 elastic, 1 inelastic) for the budget split
     ! -- local variables
     integer(I4B) :: idelay
     integer(I4B) :: ielastic
