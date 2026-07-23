@@ -112,6 +112,7 @@ module GwfCsubModule
     real(DP), pointer :: beta => null() !< water compressibility
     real(DP), pointer :: brg => null() !< product of gammaw and water compressibility
     real(DP), pointer :: satomega => null() !< newton-raphson saturation omega
+    real(DP), pointer :: pcsomega => null() !< preconsolidation elastic<->inelastic switch smoothing window (fraction of pcs; 0 = hard switch)
     ! -- integer pointer to storage package variables
     integer(I4B), pointer :: gwfiss => NULL() !< pointer to model iss flag
     integer(I4B), pointer :: gwfiss0 => NULL() !< iss flag for last stress period
@@ -529,7 +530,7 @@ contains
   !<
   subroutine source_options(this)
     ! -- modules
-    use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL
+    use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL, DEM3
     use MemoryManagerModule, only: mem_reallocate
     use MemoryManagerExtModule, only: mem_set_value
     use OpenSpecModule, only: access, form
@@ -541,6 +542,7 @@ contains
     ! -- local variables
     integer(I4B), pointer :: ibs
     integer(I4B) :: inobs
+    integer(I4B), pointer :: iei_smoothing
     character(len=LINELENGTH) :: csv_interbed, csv_coarse
     character(len=LINELENGTH) :: cmp_fn, ecmp_fn, iecmp_fn, ibcmp_fn, cmpcoarse_fn
     character(len=LINELENGTH) :: zdisp_fn, pkg_converge_fn
@@ -560,6 +562,16 @@ contains
                        found%save_flows)
     call mem_set_value(this%gammaw, 'GAMMAW', this%input_mempath, found%gammaw)
     call mem_set_value(this%beta, 'BETA', this%input_mempath, found%beta)
+    ! -- ELASTIC_INELASTIC_SMOOTHING keyword activates the smoothed elastic to
+    !    inelastic transition using a default window of DEM3 (fraction of pcs)
+    allocate (iei_smoothing)
+    iei_smoothing = 0
+    call mem_set_value(iei_smoothing, 'EI_SMOOTHING', &
+                       this%input_mempath, found%ei_smoothing)
+    if (found%ei_smoothing) then
+      this%pcsomega = DEM3
+    end if
+    deallocate (iei_smoothing)
     call mem_set_value(this%ipch, 'HEAD_BASED', this%input_mempath, &
                        found%head_based)
     call mem_set_value(this%ipch, 'PRECON_HEAD', this%input_mempath, &
@@ -909,6 +921,7 @@ contains
     call mem_allocate(this%beta, 'BETA', this%memoryPath)
     call mem_allocate(this%brg, 'BRG', this%memoryPath)
     call mem_allocate(this%satomega, 'SATOMEGA', this%memoryPath)
+    call mem_allocate(this%pcsomega, 'PCSOMEGA', this%memoryPath)
     call mem_allocate(this%icellf, 'ICELLF', this%memoryPath)
     call mem_allocate(this%gwfiss0, 'GWFISS0', this%memoryPath)
     !
@@ -951,6 +964,9 @@ contains
     this%gammaw = DGRAVITY * 1000._DP
     this%beta = 4.6512e-10_DP
     this%brg = this%gammaw * this%beta
+    ! -- fraction of pcs over which ssk blends elastic->inelastic; 0 = hard switch
+    !    (set by the ELASTIC_INELASTIC_SMOOTHING option in source_options)
+    this%pcsomega = DZERO
     !
     ! -- set omega value used for saturation calculations
     if (this%inewton /= 0) then
@@ -2268,6 +2284,7 @@ contains
     call mem_deallocate(this%beta)
     call mem_deallocate(this%brg)
     call mem_deallocate(this%satomega)
+    call mem_deallocate(this%pcsomega)
     call mem_deallocate(this%icellf)
     call mem_deallocate(this%gwfiss0)
     !
@@ -5627,7 +5644,7 @@ contains
   !! @param[in,out]  sske elastic skeletal specific storage value
   !!
   !<
-  subroutine csub_delay_calc_ssksske(this, ib, n, hcell, ssk, sske)
+  subroutine csub_delay_calc_ssksske(this, ib, n, hcell, ssk, sske, dsskde)
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     integer(I4B), intent(in) :: ib !< interbed number
@@ -5635,6 +5652,7 @@ contains
     real(DP), intent(in) :: hcell !< current head in a cell
     real(DP), intent(inout) :: ssk !< delay interbed skeletal specific storage
     real(DP), intent(inout) :: sske !< delay interbed elastic skeletal specific storage
+    real(DP), intent(inout), optional :: dsskde !< d(ssk)/d(effective stress) via the smoothed switch
     ! -- local variables
     integer(I4B) :: idelay
     integer(I4B) :: ielastic
@@ -5656,6 +5674,10 @@ contains
     real(DP) :: theta
     real(DP) :: f
     real(DP) :: f0
+    real(DP) :: pcs
+    real(DP) :: estop
+    real(DP) :: w
+    real(DP) :: dwde
     !
     ! -- initialize variables
     sske = DZERO
@@ -5714,10 +5736,29 @@ contains
     this%idbconvert(n, idelay) = 0
     sske = f * this%rci(ib)
     ssk = f * this%rci(ib)
+    if (present(dsskde)) dsskde = DZERO
     if (ielastic == 0) then
-      if (this%dbes(n, idelay) > this%dbpcs(n, idelay)) then
-        this%idbconvert(n, idelay) = 1
-        ssk = f * this%ci(ib)
+      es = this%dbes(n, idelay)
+      pcs = this%dbpcs(n, idelay)
+      if (this%pcsomega > DZERO) then
+        ! -- smooth (C1) blend of elastic (rci) -> inelastic (ci) skeletal
+        !    specific storage as effective stress crosses the preconsolidation
+        !    stress, over a window of pcsomega * pcs above pcs. w = 0 at/below
+        !    pcs (fully elastic), 1 at/above pcs + window (fully inelastic).
+        estop = pcs + this%pcsomega * pcs
+        w = sQuadraticSaturation(estop, pcs, es)
+        ssk = f * (this%rci(ib) + w * (this%ci(ib) - this%rci(ib)))
+        if (w > DHALF) this%idbconvert(n, idelay) = 1
+        if (present(dsskde)) then
+          dwde = sQuadraticSaturationDerivative(estop, pcs, es)
+          dsskde = f * (this%ci(ib) - this%rci(ib)) * dwde
+        end if
+      else
+        ! -- original hard elastic<->inelastic switch
+        if (es > pcs) then
+          this%idbconvert(n, idelay) = 1
+          ssk = f * this%ci(ib)
+        end if
       end if
     end if
   end subroutine csub_delay_calc_ssksske
@@ -5943,6 +5984,7 @@ contains
     real(DP) :: pcs
     real(DP) :: qsto
     real(DP) :: stoderv
+    real(DP) :: dsskde
     real(DP) :: qwc
     real(DP) :: wcderv
     !
@@ -6005,8 +6047,8 @@ contains
     ! -- calculate the derivative of the saturation
     dsnderv = this%csub_delay_calc_sat_derivative(node, idelay, n, hcell)
     !
-    ! -- calculate ssk and sske
-    call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske)
+    ! -- calculate ssk and sske (and the smoothed switch derivative dssk/des)
+    call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske, dsskde)
     !
     ! -- calculate storage terms
     smult = dzini * tled
@@ -6022,6 +6064,10 @@ contains
                       dsn0 * sske * (pcs - es0))
       stoderv = -smult * dsn * ssk * hbarderv + &
                 smult * ssk * (gs - hbar + zbot - pcs) * dsnderv
+      ! -- derivative of ssk through the smoothed preconsolidation switch.
+      !    es = gs - hbar + zbot  =>  d(es)/d(h) = -hbarderv
+      stoderv = stoderv - &
+                smult * dsn * dsskde * hbarderv * (gs - hbar + zbot - pcs)
     end if
     !
     ! -- Add additional term if using lagged effective stress

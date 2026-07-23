@@ -45,6 +45,15 @@ description compressibility of water. Typical values of BETA are 4.6512e-10 1/Pa
 default_value 4.6512e-10
 
 block options
+name elastic_inelastic_smoothing
+type keyword
+reader urword
+optional true
+longname elastic to inelastic smoothing
+description keyword to activate smoothing of the delay interbed skeletal specific storage as the effective stress exceeds the preconsolidation stress. When active, the skeletal specific storage is smoothly transitioned from the elastic value to the inelastic value over a small window (0.001 of the preconsolidation stress) instead of switching discontinuously at the preconsolidation stress. Activating this option can improve convergence of models with delay interbeds. By default, the elastic to inelastic transition is discontinuous.
+mf6internal ei_smoothing
+
+block options
 name head_based
 type keyword
 reader urword
@@ -663,7 +672,7 @@ tagged false
 in_record true
 reader urword
 longname initial stress
-description is the initial offset from the calculated initial effective stress or initial preconsolidation stress in the interbed, in units of height of a column of water. PCS0 is the initial preconsolidation stress if SPECIFIED\_INITIAL\_INTERBED\_STATE or SPECIFIED\_INITIAL\_PRECONSOLIDATION\_STRESS are specified in the OPTIONS block. If HEAD\_BASED is specified in the OPTIONS block, PCS0 is the initial offset from the calculated initial head or initial preconsolidation head in the CSUB interbed and the initial preconsolidation stress is calculated from the calculated initial effective stress or calculated initial geostatic stress, respectively.
+description is the initial offset from the calculated initial effective stress or initial preconsolidation stress in the interbed, in units of height of a column of water. PCS0 is the initial preconsolidation stress if SPECIFIED\_INITIAL\_INTERBED\_STATE or SPECIFIED\_INITIAL\_PRECONSOLIDATION\_STRESS are specified in the OPTIONS block. If HEAD\_BASED is specified in the OPTIONS block, PCS0 is the initial offset from the calculated initial head or initial preconsolidation head in the CSUB interbed and the initial preconsolidation stress is calculated from the calculated initial effective stress or calculated initial geostatic stress, respectively. When PCS0 is a relative offset, the sign depends on the formulation. For the default effective-stress formulation, specify a positive PCS0 for an overconsolidated interbed since the preconsolidation stress is greater than the initial effective stress. If HEAD\_BASED is specified, specify a negative PCS0 for an overconsolidated interbed since the preconsolidation head is less than the initial head. A PCS0 of zero is normally consolidated in both formulations.
 
 block packagedata
 name thick_frac
