@@ -7,7 +7,7 @@ Stripped-down test to check whether temperature-dependent viscosity is
 accounted for by MODFLOW 6 in the GWF solution and in the MAW well connection.
 Within a single simulation, there are 3 GWF/GWE models with 1, 2, and 5 layers,
 respectively.  This test checks to make sure that regardless of the layering
-that is used, the calculated head inside the resepective MAW wells (there is
+that is used, the calculated head inside the respective MAW wells (there is
 1 injection well and 1 extraction well) are always the same for a uniform
 temperature profile.  If the test ensuring that the MAW well heads are the
 same regardless of layering passes, the next test is that for the extraction
