@@ -206,7 +206,7 @@ def add_gwf_model(sim, idx, gwfname, gwename, nlay):
                 0.10,
                 botm[-1, 0, 0],
                 head_ini[idx],
-                "THEIM",
+                "THIEM",
                 nlay,
                 T_aux,
                 w["name"],
