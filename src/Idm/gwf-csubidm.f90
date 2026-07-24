@@ -17,6 +17,7 @@ module GwfCsubInputModule
     logical :: save_flows = .false.
     logical :: gammaw = .false.
     logical :: beta = .false.
+    logical :: ei_smoothing = .false.
     logical :: head_based = .false.
     logical :: precon_head = .false.
     logical :: ndelaycells = .false.
@@ -179,6 +180,25 @@ module GwfCsubInputModule
     'DOUBLE', & ! type
     '', & ! shape
     'compressibility of water', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfcsub_ei_smoothing = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'CSUB', & ! subcomponent
+    'OPTIONS', & ! block
+    'ELASTIC_INELASTIC_SMOOTHING', & ! tag name
+    'EI_SMOOTHING', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'elastic to inelastic smoothing', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -1441,6 +1461,7 @@ module GwfCsubInputModule
     gwfcsub_save_flows, &
     gwfcsub_gammaw, &
     gwfcsub_beta, &
+    gwfcsub_ei_smoothing, &
     gwfcsub_head_based, &
     gwfcsub_precon_head, &
     gwfcsub_ndelaycells, &

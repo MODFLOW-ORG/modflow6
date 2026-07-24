@@ -112,6 +112,7 @@ module GwfCsubModule
     real(DP), pointer :: beta => null() !< water compressibility
     real(DP), pointer :: brg => null() !< product of gammaw and water compressibility
     real(DP), pointer :: satomega => null() !< newton-raphson saturation omega
+    real(DP), pointer :: pcsomega => null() !< elastic<->inelastic switch smoothing window (fraction of pcs; 0 = hard switch)
     ! -- integer pointer to storage package variables
     integer(I4B), pointer :: gwfiss => NULL() !< pointer to model iss flag
     integer(I4B), pointer :: gwfiss0 => NULL() !< iss flag for last stress period
@@ -529,7 +530,7 @@ contains
   !<
   subroutine source_options(this)
     ! -- modules
-    use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL
+    use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL, DEM3
     use MemoryManagerModule, only: mem_reallocate
     use MemoryManagerExtModule, only: mem_set_value
     use OpenSpecModule, only: access, form
@@ -541,6 +542,7 @@ contains
     ! -- local variables
     integer(I4B), pointer :: ibs
     integer(I4B) :: inobs
+    integer(I4B), pointer :: iei_smoothing
     character(len=LINELENGTH) :: csv_interbed, csv_coarse
     character(len=LINELENGTH) :: cmp_fn, ecmp_fn, iecmp_fn, ibcmp_fn, cmpcoarse_fn
     character(len=LINELENGTH) :: zdisp_fn, pkg_converge_fn
@@ -560,6 +562,15 @@ contains
                        found%save_flows)
     call mem_set_value(this%gammaw, 'GAMMAW', this%input_mempath, found%gammaw)
     call mem_set_value(this%beta, 'BETA', this%input_mempath, found%beta)
+    ! -- ELASTIC_INELASTIC_SMOOTHING sets the default smoothing window (DEM3 * pcs)
+    allocate (iei_smoothing)
+    iei_smoothing = 0
+    call mem_set_value(iei_smoothing, 'EI_SMOOTHING', &
+                       this%input_mempath, found%ei_smoothing)
+    if (found%ei_smoothing) then
+      this%pcsomega = DEM3
+    end if
+    deallocate (iei_smoothing)
     call mem_set_value(this%ipch, 'HEAD_BASED', this%input_mempath, &
                        found%head_based)
     call mem_set_value(this%ipch, 'PRECON_HEAD', this%input_mempath, &
@@ -909,6 +920,7 @@ contains
     call mem_allocate(this%beta, 'BETA', this%memoryPath)
     call mem_allocate(this%brg, 'BRG', this%memoryPath)
     call mem_allocate(this%satomega, 'SATOMEGA', this%memoryPath)
+    call mem_allocate(this%pcsomega, 'PCSOMEGA', this%memoryPath)
     call mem_allocate(this%icellf, 'ICELLF', this%memoryPath)
     call mem_allocate(this%gwfiss0, 'GWFISS0', this%memoryPath)
     !
@@ -951,6 +963,8 @@ contains
     this%gammaw = DGRAVITY * 1000._DP
     this%beta = 4.6512e-10_DP
     this%brg = this%gammaw * this%beta
+    ! -- fraction of pcs over which ssk blends elastic->inelastic; 0 = hard switch
+    this%pcsomega = DZERO
     !
     ! -- set omega value used for saturation calculations
     if (this%inewton /= 0) then
@@ -2268,6 +2282,7 @@ contains
     call mem_deallocate(this%beta)
     call mem_deallocate(this%brg)
     call mem_deallocate(this%satomega)
+    call mem_deallocate(this%pcsomega)
     call mem_deallocate(this%icellf)
     call mem_deallocate(this%gwfiss0)
     !
@@ -5618,16 +5633,8 @@ contains
   end subroutine csub_delay_calc_stress
 
   !> @brief Calculate delay interbed cell storage coefficients
-  !!
-  !! Method to calculate the ssk and sske value for a node in a delay
-  !! interbed cell.
-  !!
-  !! @param[in,out]  ssk  skeletal specific storage value dependent on the
-  !!                      preconsolidation stress
-  !! @param[in,out]  sske elastic skeletal specific storage value
-  !!
   !<
-  subroutine csub_delay_calc_ssksske(this, ib, n, hcell, ssk, sske)
+  subroutine csub_delay_calc_ssksske(this, ib, n, hcell, ssk, sske, dsskde, wfac)
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     integer(I4B), intent(in) :: ib !< interbed number
@@ -5635,6 +5642,8 @@ contains
     real(DP), intent(in) :: hcell !< current head in a cell
     real(DP), intent(inout) :: ssk !< delay interbed skeletal specific storage
     real(DP), intent(inout) :: sske !< delay interbed elastic skeletal specific storage
+    real(DP), intent(out), optional :: dsskde !< d(ssk)/d(effective stress)
+    real(DP), intent(out), optional :: wfac !< inelastic weight (0 elastic, 1 inelastic) for the budget split
     ! -- local variables
     integer(I4B) :: idelay
     integer(I4B) :: ielastic
@@ -5656,6 +5665,10 @@ contains
     real(DP) :: theta
     real(DP) :: f
     real(DP) :: f0
+    real(DP) :: pcs
+    real(DP) :: estop
+    real(DP) :: w
+    real(DP) :: dwde
     !
     ! -- initialize variables
     sske = DZERO
@@ -5714,10 +5727,35 @@ contains
     this%idbconvert(n, idelay) = 0
     sske = f * this%rci(ib)
     ssk = f * this%rci(ib)
+    if (present(dsskde)) dsskde = DZERO
+    ! -- wfac is the inelastic fraction of the storage change used to split the
+    !    reported elastic/inelastic budget; 0 while elastic, 1 once inelastic,
+    !    and equal to the smoothing weight w across the transition window
+    if (present(wfac)) wfac = DZERO
     if (ielastic == 0) then
-      if (this%dbes(n, idelay) > this%dbpcs(n, idelay)) then
-        this%idbconvert(n, idelay) = 1
-        ssk = f * this%ci(ib)
+      es = this%dbes(n, idelay)
+      pcs = this%dbpcs(n, idelay)
+      ! -- require pcs > DZERO so the smoothing window (pcsomega * pcs) is
+      !    positive, as sQuadraticSaturation and its derivative need
+      if (this%pcsomega > DZERO .and. pcs > DZERO) then
+        ! -- blend elastic (rci) -> inelastic (ci) skeletal storage over a
+        !    window of pcsomega * pcs above pcs; w runs 0 (elastic) to 1 (inelastic)
+        estop = pcs + this%pcsomega * pcs
+        w = sQuadraticSaturation(estop, pcs, es)
+        ssk = f * (this%rci(ib) + w * (this%ci(ib) - this%rci(ib)))
+        if (w > DHALF) this%idbconvert(n, idelay) = 1
+        if (present(wfac)) wfac = w
+        if (present(dsskde)) then
+          dwde = sQuadraticSaturationDerivative(estop, pcs, es)
+          dsskde = f * (this%ci(ib) - this%rci(ib)) * dwde
+        end if
+      else
+        ! -- original hard elastic<->inelastic switch
+        if (es > pcs) then
+          this%idbconvert(n, idelay) = 1
+          ssk = f * this%ci(ib)
+          if (present(wfac)) wfac = DONE
+        end if
       end if
     end if
   end subroutine csub_delay_calc_ssksske
@@ -5943,6 +5981,7 @@ contains
     real(DP) :: pcs
     real(DP) :: qsto
     real(DP) :: stoderv
+    real(DP) :: dsskde
     real(DP) :: qwc
     real(DP) :: wcderv
     !
@@ -6005,8 +6044,8 @@ contains
     ! -- calculate the derivative of the saturation
     dsnderv = this%csub_delay_calc_sat_derivative(node, idelay, n, hcell)
     !
-    ! -- calculate ssk and sske
-    call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske)
+    ! -- calculate ssk, sske, and the smoothing derivative dsskde
+    call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske, dsskde)
     !
     ! -- calculate storage terms
     smult = dzini * tled
@@ -6022,6 +6061,10 @@ contains
                       dsn0 * sske * (pcs - es0))
       stoderv = -smult * dsn * ssk * hbarderv + &
                 smult * ssk * (gs - hbar + zbot - pcs) * dsnderv
+      ! -- derivative of ssk through the smoothed preconsolidation switch.
+      !    es = gs - hbar + zbot  =>  d(es)/d(h) = -hbarderv
+      stoderv = stoderv - &
+                smult * dsn * dsskde * hbarderv * (gs - hbar + zbot - pcs)
     end if
     !
     ! -- Add additional term if using lagged effective stress
@@ -6147,6 +6190,7 @@ contains
     integer(I4B) :: n
     real(DP) :: sske
     real(DP) :: ssk
+    real(DP) :: wfac
     real(DP) :: fmult
     real(DP) :: v1
     real(DP) :: v2
@@ -6175,7 +6219,7 @@ contains
       fmult = this%dbdzini(1, idelay)
       dzhalf = DHALF * this%dbdzini(1, idelay)
       do n = 1, this%ndelaycells
-        call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske)
+        call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske, wfac=wfac)
         z = this%dbz(n, idelay)
         zbot = z - dzhalf
         h = this%dbh(n, idelay)
@@ -6192,13 +6236,11 @@ contains
           v2 = dsn0 * sske * (this%dbpcs(n, idelay) - this%dbes0(n, idelay))
         end if
         !
-        ! -- calculate inelastic and elastic storage components
-        if (this%idbconvert(n, idelay) /= 0) then
-          stoi = stoi + v1 * fmult
-          stoe = stoe + v2 * fmult
-        else
-          stoe = stoe + (v1 + v2) * fmult
-        end if
+        ! -- split the storage change into inelastic and elastic components
+        !    weighted by wfac so the reported budget blends across the smoothed
+        !    transition; wfac is 0/1 for the hard switch, reproducing the split
+        stoi = stoi + wfac * v1 * fmult
+        stoe = stoe + ((DONE - wfac) * v1 + v2) * fmult
         !
         ! calculate inelastic and elastic storativity
         ske = ske + sske * fmult
@@ -6289,6 +6331,7 @@ contains
     real(DP) :: snold
     real(DP) :: sske
     real(DP) :: ssk
+    real(DP) :: wfac
     real(DP) :: fmult
     real(DP) :: h
     real(DP) :: h0
@@ -6316,7 +6359,7 @@ contains
         h = this%dbh(n, idelay)
         h0 = this%dbh0(n, idelay)
         call this%csub_delay_calc_sat(node, idelay, n, h, h0, dsn, dsn0)
-        call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske)
+        call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske, wfac=wfac)
         if (ielastic /= 0) then
           v1 = dsn * ssk * this%dbes(n, idelay) - sske * this%dbes0(n, idelay)
           v2 = DZERO
@@ -6330,13 +6373,11 @@ contains
         ! -- save compaction data
         this%dbcomp(n, idelay) = v * snnew
         !
-        ! -- calculate inelastic and elastic storage components
-        if (this%idbconvert(n, idelay) /= 0) then
-          compi = compi + v1 * fmult
-          compe = compe + v2 * fmult
-        else
-          compe = compe + (v1 + v2) * fmult
-        end if
+        ! -- split compaction into inelastic and elastic components weighted by
+        !    wfac so the reported budget blends across the smoothed transition;
+        !    wfac is 0/1 for the hard switch, reproducing the original split
+        compi = compi + wfac * v1 * fmult
+        compe = compe + ((DONE - wfac) * v1 + v2) * fmult
       end do
     end if
     !

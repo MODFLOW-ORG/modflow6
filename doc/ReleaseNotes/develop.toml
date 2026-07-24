@@ -169,3 +169,8 @@ description = "The Multi-Aquifer Well (MAW) Package well storage term previously
 section = "fixes"
 subsection = "advanced"
 description = "For the Multi-Aquifer Well (MAW) Package, the Newton-Raphson formulation added a nonzero saturation-derivative matrix term for connections to confined (non-convertible) cells, where the saturation is constant and the derivative should be zero. This term is now set to zero, making the Newton matrix consistent with the calculated flow and improving convergence when a confined cell's head drops into the well screen interval; converged results are unaffected."
+
+[[items]]
+section = "fixes"
+subsection = "internal"
+description = "A new ELASTIC\\_INELASTIC\\_SMOOTHING option was added to the Skeletal Storage, Compaction, and Subsidence (CSUB) Package. In the Newton-Raphson formulation the skeletal specific storage of a delay interbed cell switched abruptly from the elastic to the inelastic value when the effective stress exceeded the preconsolidation stress, so a delay cell held near the preconsolidation stress could oscillate between the two values from one outer iteration to the next and fail to converge. The new option smooths the elastic to inelastic transition over a small effective-stress window and adds the corresponding term to the Newton formulation, improving convergence. Across the smoothing window the reported elastic and inelastic storage and compaction components are partitioned by the smoothing weight so they blend continuously rather than switching abruptly; the total is unchanged. The option is disabled by default, so existing results are unchanged."
