@@ -61,7 +61,7 @@ module GwfCsubModule
   !
   ! -- local parameter
   real(DP), parameter :: dlog10es = 0.4342942_DP !< derivative of the log of effective stress
-  real(DP), parameter :: stressfloor = DEM3 !< effective-stress regularization floor (fraction of pcs)
+  real(DP), parameter :: stressfloor = DEM3 !< effective-stress regularization floor (fraction of geostatic stress)
   !
   ! CSUB type
   type, extends(NumericalPackageType) :: GwfCsubType
@@ -820,8 +820,8 @@ contains
       end if
       if (this%istrict_stress == 0) then
         write (this%iout, '(4x,a,1(/,6x,a))') &
-          'SMALL OR NEGATIVE EFFECTIVE STRESS WILL BE REGULARIZED BY', &
-          'FLOORING THE SPECIFIC STORAGE'
+          'SMALL OR NEGATIVE EFFECTIVE STRESS WILL BE REGULARIZED BY FLOORING', &
+          'THE EFFECTIVE STRESS USED TO CALCULATE THE SPECIFIC STORAGE'
       else
         write (this%iout, '(4x,a,1(/,6x,a))') &
           'SMALL OR NEGATIVE EFFECTIVE STRESS WILL TERMINATE THE SIMULATION', &
@@ -4035,7 +4035,7 @@ contains
       !    node relative to the center of the cell based on the
       !    current and previous head
       call this%csub_calc_sfacts(node, bot, znode, theta, es, es0, &
-                                 this%pcs(ib), f)
+                                 this%cg_gs(node), f)
     end if
     sto_fac = tled * snnew * thick * f
     sto_fac0 = tled * snold * thick * f
@@ -4867,7 +4867,7 @@ contains
       !    node relative to the center of the cell based on the
       !    current and previous head
       call this%csub_calc_sfacts(n, bot, znode, theta, es, es0, &
-                                 this%cg_pcs(n), f)
+                                 this%cg_gs(n), f)
     end if
     sske = f * this%cg_ske_cr(n)
   end subroutine csub_cg_calc_sske
@@ -5394,7 +5394,7 @@ contains
   !! @param[in,out]  fact  skeletal storage coefficient factor
   !!
   !<
-  subroutine csub_calc_sfacts(this, node, bot, znode, theta, es, es0, pcs, fact)
+  subroutine csub_calc_sfacts(this, node, bot, znode, theta, es, es0, geo, fact)
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     integer(I4B), intent(in) :: node !< cell node number
@@ -5403,7 +5403,7 @@ contains
     real(DP), intent(in) :: theta !< porosity
     real(DP), intent(in) :: es !< current effective stress
     real(DP), intent(in) :: es0 !< previous effective stress
-    real(DP), intent(in) :: pcs !< preconsolidation stress (regularization reference)
+    real(DP), intent(in) :: geo !< geostatic stress (regularization reference)
     real(DP), intent(inout) :: fact !< skeletal storage coefficient factor (1/((1+void_ratio)*bar(es)))
     ! -- local variables
     real(DP) :: esv
@@ -5423,11 +5423,11 @@ contains
     ! -- effective stress adjusted to the vertical node position
     adjes = this%csub_calc_adjes(node, esv, bot, znode)
     !
-    ! -- smoothly floor the adjusted effective stress at stressfloor * pcs so the
+    ! -- smoothly floor the adjusted effective stress at stressfloor * geo so the
     !    storage factor (1/es) stays bounded and positive as es approaches zero;
     !    unchanged above the floor, disabled by STRICT_EFFECTIVE_STRESS
-    if (this%istrict_stress == 0 .and. pcs > DZERO) then
-      esfloor = stressfloor * pcs
+    if (this%istrict_stress == 0 .and. geo > DZERO) then
+      esfloor = stressfloor * geo
       adjes = sQuadratic0sp(adjes, esfloor, esfloor)
     end if
     !
@@ -5788,7 +5788,7 @@ contains
       !    node relative to the center of the cell based on the
       !    current and previous head
       call this%csub_calc_sfacts(node, zbot, znode, theta, es, es0, &
-                                 this%dbpcs(n, idelay), f)
+                                 this%dbgeo(n, idelay), f)
     end if
     this%idbconvert(n, idelay) = 0
     sske = f * this%rci(ib)
