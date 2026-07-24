@@ -2124,9 +2124,9 @@ contains
     if (this%nreg_ts > 0) then
       write (warnmsg, '(a,1x,i0,1x,3a)') &
         'CSUB negative effective stress was regularized in', this%nreg_ts, &
-        'time step(s); see the model listing file for the affected cells and ', &
-        'time steps. This typically occurs in uppermost cells where simulated ', &
-        'water levels rise above land surface.'
+        'time step(s); see the model listing file for the number of cells ', &
+        'regularized in each time step. This typically occurs in uppermost ', &
+        'cells where simulated water levels rise above land surface.'
       call store_warning(warnmsg)
     end if
     !
