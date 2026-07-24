@@ -33,8 +33,8 @@ time_units = "days"
 
 Lx = 2500.0
 Ly = 2500.0
-dx = 10.0
-dy = 10.0
+dx = 100.0
+dy = 100.0
 
 ncol = int(Lx / dx)
 nrow = int(Ly / dy)
@@ -81,7 +81,7 @@ wells = [
         "name": "PROD",
         "role": "production",
         "row": nrow // 2,
-        "col": ncol // 2 - 50,
+        "col": ncol // 2 - int(ncol * 0.2),
         "q_m3_d": -2400.0,
         "T_rate_C": None,  # production does not get an imposed MWE RATE temperature
         "T_aux_C": T_ini_C,  # local reservoir temperature as AUX
@@ -90,7 +90,7 @@ wells = [
         "name": "INJ",
         "role": "injection",
         "row": nrow // 2,
-        "col": ncol // 2 + 50,
+        "col": ncol // 2 + int(ncol * 0.2),
         "q_m3_d": 2400.0,
         "T_rate_C": T_inj_C,  # injection: 20 degrees through MWE RATE
         "T_aux_C": T_inj_C,  # also MAW AUX TEMP = 20, as in the Laurant logic
