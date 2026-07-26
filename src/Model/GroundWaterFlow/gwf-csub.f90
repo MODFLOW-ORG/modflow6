@@ -9,12 +9,11 @@
 module GwfCsubModule
   use KindModule, only: I4B, DP, LGP
   use ConstantsModule, only: DPREC, DZERO, DEM20, DEM15, DEM10, DEM8, DEM7, &
-                             DEM6, DEM4, DP9, DHALF, DEM1, DONE, DTWO, DTHREE, &
-                             DGRAVITY, DTEN, DHUNDRED, DNODATA, DHNOFLO, &
-                             LENFTYPE, LENPACKAGENAME, LENMEMPATH, &
+                             DEM6, DEM4, DEM3, DP9, DHALF, DEM1, DONE, DTWO, &
+                             DTHREE, DGRAVITY, DTEN, DHUNDRED, DNODATA, &
+                             DHNOFLO, LENFTYPE, LENPACKAGENAME, LENMEMPATH, &
                              LINELENGTH, LENBOUNDNAME, NAMEDBOUNDFLAG, &
-                             LENBUDTXT, LENAUXNAME, LENPAKLOC, &
-                             LENLISTLABEL, &
+                             LENBUDTXT, LENAUXNAME, LENPAKLOC, LENLISTLABEL, &
                              TABLEFT, TABCENTER, TABRIGHT, &
                              TABSTRING, TABUCSTRING, TABINTEGER, TABREAL
   use MemoryHelperModule, only: create_mem_path
@@ -62,6 +61,7 @@ module GwfCsubModule
   !
   ! -- local parameter
   real(DP), parameter :: dlog10es = 0.4342942_DP !< derivative of the log of effective stress
+  real(DP), parameter :: stressfloor = DEM3 !< effective-stress regularization floor (fraction of geostatic stress)
   !
   ! CSUB type
   type, extends(NumericalPackageType) :: GwfCsubType
@@ -77,6 +77,8 @@ module GwfCsubModule
     logical(LGP), pointer :: lhead_based => null() !< logical variable indicating if head-based solution
     ! -- integer scalars
     integer(I4B), pointer :: istounit => null() !< unit number of storage package
+    integer(I4B), pointer :: istrict_stress => null() !< 1 terminates on negative effective stress, 0 regularizes (default)
+    integer(I4B), pointer :: nreg_ts => null() !< count of time steps with effective-stress regularization
     integer(I4B), pointer :: istrainib => null() !< unit number of interbed strain output
     integer(I4B), pointer :: istrainsk => null() !< unit number of coarse-grained strain output
     integer(I4B), pointer :: ioutcomp => null() !< unit number for cell-by-cell compaction output
@@ -543,6 +545,7 @@ contains
     integer(I4B), pointer :: ibs
     integer(I4B) :: inobs
     integer(I4B), pointer :: iei_smoothing
+    integer(I4B), pointer :: istrict
     character(len=LINELENGTH) :: csv_interbed, csv_coarse
     character(len=LINELENGTH) :: cmp_fn, ecmp_fn, iecmp_fn, ibcmp_fn, cmpcoarse_fn
     character(len=LINELENGTH) :: zdisp_fn, pkg_converge_fn
@@ -571,6 +574,15 @@ contains
       this%pcsomega = DEM3
     end if
     deallocate (iei_smoothing)
+    ! -- STRICT_EFFECTIVE_STRESS terminates on negative effective stress
+    allocate (istrict)
+    istrict = 0
+    call mem_set_value(istrict, 'STRICT_STRESS', this%input_mempath, &
+                       found%strict_stress)
+    if (found%strict_stress) then
+      this%istrict_stress = 1
+    end if
+    deallocate (istrict)
     call mem_set_value(this%ipch, 'HEAD_BASED', this%input_mempath, &
                        found%head_based)
     call mem_set_value(this%ipch, 'PRECON_HEAD', this%input_mempath, &
@@ -806,6 +818,15 @@ contains
           'SPECIFIC STORAGE VALUES WILL BE CALCULATED USING THE CURRENT', &
           'EFFECTIVE STRESS'
       end if
+      if (this%istrict_stress == 0) then
+        write (this%iout, '(4x,a,1(/,6x,a))') &
+          'SMALL OR NEGATIVE EFFECTIVE STRESS WILL BE REGULARIZED BY FLOORING', &
+          'THE EFFECTIVE STRESS USED TO CALCULATE THE SPECIFIC STORAGE'
+      else
+        write (this%iout, '(4x,a,1(/,6x,a))') &
+          'SMALL OR NEGATIVE EFFECTIVE STRESS WILL TERMINATE THE SIMULATION', &
+          '(STRICT_EFFECTIVE_STRESS SPECIFIED)'
+      end if
     else if (warn_estress_lag) then
       write (this%iout, '(4x,a,2(/,6x,a))') &
         'EFFECTIVE_STRESS_LAG HAS BEEN SPECIFIED BUT HAS NO EFFECT WHEN', &
@@ -896,6 +917,8 @@ contains
     call mem_allocate(this%initialized, 'INITIALIZED', this%memoryPath)
     call mem_allocate(this%ieslag, 'IESLAG', this%memoryPath)
     call mem_allocate(this%ipch, 'IPCH', this%memoryPath)
+    call mem_allocate(this%istrict_stress, 'ISTRICT_STRESS', this%memoryPath)
+    call mem_allocate(this%nreg_ts, 'NREG_TS', this%memoryPath)
     call mem_allocate(this%lhead_based, 'LHEAD_BASED', this%memoryPath)
     call mem_allocate(this%iupdatestress, 'IUPDATESTRESS', this%memoryPath)
     call mem_allocate(this%ispecified_pcs, 'ISPECIFIED_PCS', this%memoryPath)
@@ -940,6 +963,8 @@ contains
     this%initialized = 0
     this%ieslag = 0
     this%ipch = 0
+    this%istrict_stress = 0
+    this%nreg_ts = 0
     this%lhead_based = .FALSE.
     this%iupdatestress = 1
     this%ispecified_pcs = 0
@@ -2095,6 +2120,16 @@ contains
     ! -- dummy variables
     class(GwfCsubType) :: this
     !
+    ! -- summarize effective-stress regularization for the run
+    if (this%nreg_ts > 0) then
+      write (warnmsg, '(a,1x,i0,1x,3a)') &
+        'CSUB negative effective stress was regularized in', this%nreg_ts, &
+        'time step(s); see the model listing file for the number of cells ', &
+        'regularized in each time step. This typically occurs in uppermost ', &
+        'cells where simulated water levels rise above land surface.'
+      call store_warning(warnmsg)
+    end if
+    !
     ! -- Deallocate arrays if package is active
     if (this%inunit > 0) then
       call mem_deallocate(this%unodelist)
@@ -2283,6 +2318,8 @@ contains
     call mem_deallocate(this%brg)
     call mem_deallocate(this%satomega)
     call mem_deallocate(this%pcsomega)
+    call mem_deallocate(this%istrict_stress)
+    call mem_deallocate(this%nreg_ts)
     call mem_deallocate(this%icellf)
     call mem_deallocate(this%gwfiss0)
     !
@@ -3815,11 +3852,14 @@ contains
   !!
   !<
   subroutine csub_cg_chk_stress(this)
+    ! -- modules
+    use TdisModule, only: kper, kstp
     ! -- dummy variables
     class(GwfCsubType) :: this
     ! -- local variables
     character(len=20) :: cellid
     integer(I4B) :: ierr
+    integer(I4B) :: iwarn
     integer(I4B) :: node
     real(DP) :: gs
     real(DP) :: bot
@@ -3829,22 +3869,19 @@ contains
     !
     ! -- initialize variables
     ierr = 0
+    iwarn = 0
     !
-    ! -- check geostatic stress if necessary
-    !
-    ! -- save effective stress from the last iteration and
-    !    calculate the new effective stress for a cell
+    ! -- check effective stress in each cell (effective-stress formulation only)
     do node = 1, this%dis%nodes
       if (this%ibound(node) < 1) cycle
+      if (this%lhead_based .EQV. .TRUE.) cycle
       bot = this%dis%bot(node)
       gs = this%cg_gs(node)
       es = this%cg_es(node)
-      phead = DZERO
-      if (this%ibound(node) /= 0) then
-        phead = gs - es
-      end if
+      phead = gs - es
       hcell = phead + bot
-      if (this%lhead_based .EQV. .FALSE.) then
+      if (this%istrict_stress /= 0) then
+        ! -- deprecated STRICT_EFFECTIVE_STRESS: terminate on negative stress
         if (es < DEM6) then
           ierr = ierr + 1
           call this%dis%noder_to_string(node, cellid)
@@ -3854,10 +3891,15 @@ contains
             ' - (', hcell, ' - ', bot, ').'
           call store_error(errmsg)
         end if
+      else
+        ! -- default: count cells with negative (regularized) effective stress
+        if (es < DEM6) then
+          iwarn = iwarn + 1
+        end if
       end if
     end do
     !
-    ! -- write a summary error message
+    ! -- STRICT_EFFECTIVE_STRESS: write a summary error message and terminate
     if (ierr > 0) then
       write (errmsg, '(a,1x,i0,3(1x,a))') &
         'Solution: small to negative effective stress values in', ierr, &
@@ -3866,6 +3908,14 @@ contains
         'exceeding the top of the model.'
       call store_error(errmsg)
       call store_error_filename(this%input_fname)
+    end if
+    !
+    ! -- default: note the regularized cells and count the time step
+    if (iwarn > 0) then
+      this%nreg_ts = this%nreg_ts + 1
+      write (this%iout, '(1x,a,1x,i0,1x,a,1x,i0,1x,a,1x,i0,a)') &
+        'CSUB negative effective stress regularized in', iwarn, &
+        'cell(s) in stress period', kper, 'time step', kstp, '.'
     end if
   end subroutine csub_cg_chk_stress
 
@@ -3984,7 +4034,8 @@ contains
       ! -- calculate the compression index factors for the delay
       !    node relative to the center of the cell based on the
       !    current and previous head
-      call this%csub_calc_sfacts(node, bot, znode, theta, es, es0, f)
+      call this%csub_calc_sfacts(node, bot, znode, theta, es, es0, &
+                                 this%cg_gs(node), f)
     end if
     sto_fac = tled * snnew * thick * f
     sto_fac0 = tled * snold * thick * f
@@ -4815,7 +4866,8 @@ contains
       ! -- calculate the compression index factors for the delay
       !    node relative to the center of the cell based on the
       !    current and previous head
-      call this%csub_calc_sfacts(n, bot, znode, theta, es, es0, f)
+      call this%csub_calc_sfacts(n, bot, znode, theta, es, es0, &
+                                 this%cg_gs(n), f)
     end if
     sske = f * this%cg_ske_cr(n)
   end subroutine csub_cg_calc_sske
@@ -5342,7 +5394,7 @@ contains
   !! @param[in,out]  fact  skeletal storage coefficient factor
   !!
   !<
-  subroutine csub_calc_sfacts(this, node, bot, znode, theta, es, es0, fact)
+  subroutine csub_calc_sfacts(this, node, bot, znode, theta, es, es0, geo, fact)
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     integer(I4B), intent(in) :: node !< cell node number
@@ -5351,10 +5403,13 @@ contains
     real(DP), intent(in) :: theta !< porosity
     real(DP), intent(in) :: es !< current effective stress
     real(DP), intent(in) :: es0 !< previous effective stress
+    real(DP), intent(in) :: geo !< geostatic stress (regularization reference)
     real(DP), intent(inout) :: fact !< skeletal storage coefficient factor (1/((1+void_ratio)*bar(es)))
     ! -- local variables
     real(DP) :: esv
     real(DP) :: void_ratio
+    real(DP) :: adjes
+    real(DP) :: esfloor
     real(DP) :: denom
     !
     ! -- initialize variables
@@ -5365,10 +5420,20 @@ contains
       esv = es
     end if
     !
+    ! -- effective stress adjusted to the vertical node position
+    adjes = this%csub_calc_adjes(node, esv, bot, znode)
+    !
+    ! -- smoothly floor the adjusted effective stress at stressfloor * geo so the
+    !    storage factor (1/es) stays bounded and positive as es approaches zero;
+    !    unchanged above the floor, disabled by STRICT_EFFECTIVE_STRESS
+    if (this%istrict_stress == 0 .and. geo > DZERO) then
+      esfloor = stressfloor * geo
+      adjes = sQuadratic0sp(adjes, esfloor, esfloor)
+    end if
+    !
     ! -- calculate storage factors for the effective stress case
     void_ratio = this%csub_calc_void_ratio(theta)
-    denom = this%csub_calc_adjes(node, esv, bot, znode)
-    denom = denom * (DONE + void_ratio)
+    denom = adjes * (DONE + void_ratio)
     if (denom /= DZERO) then
       fact = DONE / denom
     end if
@@ -5722,7 +5787,8 @@ contains
       ! -- calculate the compression index factors for the delay
       !    node relative to the center of the cell based on the
       !    current and previous head
-      call this%csub_calc_sfacts(node, zbot, znode, theta, es, es0, f)
+      call this%csub_calc_sfacts(node, zbot, znode, theta, es, es0, &
+                                 this%dbgeo(n, idelay), f)
     end if
     this%idbconvert(n, idelay) = 0
     sske = f * this%rci(ib)

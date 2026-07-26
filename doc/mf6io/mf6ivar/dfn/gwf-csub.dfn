@@ -54,6 +54,16 @@ description keyword to activate smoothing of the delay interbed skeletal specifi
 mf6internal ei_smoothing
 
 block options
+name strict_effective_stress
+type keyword
+reader urword
+optional true
+deprecated 6.8.0
+longname terminate on negative effective stress
+description keyword to terminate the simulation when the calculated effective stress is small or negative, instead of regularizing it. By default the effective stress used to calculate the skeletal specific storage is not allowed to fall below a small fraction (0.001) of the geostatic stress, which keeps the specific storage bounded and allows the simulation to continue; a warning reports the number of time steps in which a negative effective stress was regularized. Negative effective stress typically occurs in uppermost cells where simulated water levels rise above land surface. This keyword is deprecated and will be removed in a future release.
+mf6internal strict_stress
+
+block options
 name head_based
 type keyword
 reader urword
