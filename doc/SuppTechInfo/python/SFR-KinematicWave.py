@@ -41,7 +41,7 @@ def _Q_from_depth(d):
     if d <= 0.0:
         return 0.0
     A = B * d
-    P = B + 2.0 * d
+    P = B  # MF6 uses a wetted perimeter of B, so R = A / P = d
     return (1.0 / N_MANN) * A * (A / P) ** (2.0 / 3.0) * S0**0.5
 
 

@@ -288,7 +288,7 @@ Each reach has length $\Delta x = 500$ m, width $B = 10$ m, bed slope $S_0 = 0.0
 	Q_U(t) = Q_0 \left[ 1 + 0.4 \sin\!\left( \frac{2\pi t}{T_\mathrm{wave}} \right) \right] ,
 \end{equation}
 
-\noindent where the base flow is $Q_0 = 5$ m$^3$s$^{-1}$ and the wave period is $T_\mathrm{wave} = 10$ times the single-reach travel time ($T$). The wave celerity at base flow is $c_0 \approx 1.18$ m$\,$s$^{-1}$, giving a travel time of $T = \Delta x / c_0 \approx 423$ s per reach.
+\noindent where the base flow is $Q_0 = 5$ m$^3$s$^{-1}$ and the wave period is $T_\mathrm{wave} = 10$ times the single-reach travel time ($T$). The wave celerity at base flow is $c_0 \approx 1.30$ m$\,$s$^{-1}$, giving a travel time of $T = \Delta x / c_0 \approx 384$ s per reach.
 
 \subsubsection{Exact Solution}
 
@@ -306,7 +306,7 @@ The \mf scheme is run at six Courant numbers (0.5, 0.75, 1.0, 1.25, 1.5, and 2.0
 \begin{figure}[!ht]
 	\begin{center}
 	\includegraphics{./Figures/SFRKinematicWave.pdf}
-	\caption[Graphs comparing the \mf kinematic-wave scheme against the exact solution at six Courant numbers for a two-reach chain]{Graphs comparing the \mf kinematic-wave finite-difference scheme against the exact kinematic-wave solution at the outlet of a two-reach \mf model (each reach: $\Delta x = 500$ m, $B = 10$ m, $S_0 = 0.001$, $n = 0.03$ s$\,$m$^{-1/3}$) with a sinusoidal upstream boundary condition (eq.~\ref{eqn:sfr-example-qin}) and no lateral inflow. The base flow is $Q_0 = 5$ m$^3$s$^{-1}$, the temporal weighting parameter is $\theta = 1.0$, and time is normalized by the single-reach travel time $T = \Delta x / c_0 \approx 423$ s. The exact solution is delayed by two travel times ($2T$). \textit{A}, Courant numbers $C_r \le 1$ (0.5, 0.75, and 1.0) showing increasing numerical diffusion as $C_r$ decreases from unity; \textit{B}, Courant numbers $C_r > 1$ (1.25, 1.5, and 2.0) showing increasing phase and amplitude errors as the time step coarsens}
+	\caption[Graphs comparing the \mf kinematic-wave scheme against the exact solution at six Courant numbers for a two-reach chain]{Graphs comparing the \mf kinematic-wave finite-difference scheme against the exact kinematic-wave solution at the outlet of a two-reach \mf model (each reach: $\Delta x = 500$ m, $B = 10$ m, $S_0 = 0.001$, $n = 0.03$ s$\,$m$^{-1/3}$) with a sinusoidal upstream boundary condition (eq.~\ref{eqn:sfr-example-qin}) and no lateral inflow. The base flow is $Q_0 = 5$ m$^3$s$^{-1}$, the temporal weighting parameter is $\theta = 1.0$, and time is normalized by the single-reach travel time $T = \Delta x / c_0 \approx 384$ s. The exact solution is delayed by two travel times ($2T$). \textit{A}, Courant numbers $C_r \le 1$ (0.5, 0.75, and 1.0) showing increasing numerical diffusion as $C_r$ decreases from unity; \textit{B}, Courant numbers $C_r > 1$ (1.25, 1.5, and 2.0) showing increasing phase and amplitude errors as the time step coarsens}
 	\label{fig:sfr-kinwave}
 	\end{center}
 \end{figure}
@@ -320,7 +320,7 @@ Figure~\ref{fig:sfr-kinwave-tvd} compares the standard and TVD schemes against t
 \begin{figure}[!ht]
 	\begin{center}
 	\includegraphics{./Figures/SFRKinematicWaveTVDRouting.pdf}
-	\caption[Graphs comparing the \mf standard kinematic-wave and TVD schemes against the exact solution at Courant numbers of 0.5 and 0.75 for a two-reach chain]{Graphs comparing the \mf standard kinematic-wave scheme ($\theta = 1$) and the TVD scheme against the exact kinematic-wave solution for the downstream reach of a two-reach \mf model. Each reach has $\Delta x = 500$ m, $B = 10$ m, $S_0 = 0.001$, $n = 0.03$ s$\,$m$^{-1/3}$, base flow $Q_0 = 5$ m$^3$s$^{-1}$, and the same sinusoidal upstream inflow (eq.~\ref{eqn:sfr-example-qin}). The exact downstream solution is the upstream hydrograph delayed by two travel times. Time is normalized by the single-reach travel time $T \approx 423$ s. \textit{A}, $C_r = 0.5$; \textit{B}, $C_r = 0.75$. At both Courant numbers the standard scheme attenuates the peak, while the TVD scheme closely matches the exact solution}
+	\caption[Graphs comparing the \mf standard kinematic-wave and TVD schemes against the exact solution at Courant numbers of 0.5 and 0.75 for a two-reach chain]{Graphs comparing the \mf standard kinematic-wave scheme ($\theta = 1$) and the TVD scheme against the exact kinematic-wave solution for the downstream reach of a two-reach \mf model. Each reach has $\Delta x = 500$ m, $B = 10$ m, $S_0 = 0.001$, $n = 0.03$ s$\,$m$^{-1/3}$, base flow $Q_0 = 5$ m$^3$s$^{-1}$, and the same sinusoidal upstream inflow (eq.~\ref{eqn:sfr-example-qin}). The exact downstream solution is the upstream hydrograph delayed by two travel times. Time is normalized by the single-reach travel time $T \approx 384$ s. \textit{A}, $C_r = 0.5$; \textit{B}, $C_r = 0.75$. At both Courant numbers the standard scheme attenuates the peak, while the TVD scheme closely matches the exact solution}
 	\label{fig:sfr-kinwave-tvd}
 	\end{center}
 \end{figure}
@@ -332,7 +332,7 @@ Figure~\ref{fig:sfr-kinwave-tvd-budget} quantifies this contrast for the same tw
 \begin{figure}[!ht]
 	\begin{center}
 	\includegraphics{./Figures/SFRKinematicWaveTVDBudget.pdf}
-	\caption[Graphs comparing the per-step SFR budget percent discrepancy of the standard kinematic-wave and TVD schemes at Courant numbers of 0.5 and 0.75]{Graphs comparing the per-step SFR package budget percent discrepancy of the \mf standard kinematic-wave scheme ($\theta = 1$) and the TVD scheme for the same two-reach \mf model shown in figure~\ref{fig:sfr-kinwave-tvd}. Time is normalized by the single-reach travel time $T \approx 423$ s. The discrepancy axis is logarithmic; TVD values at zero are plotted at the floor of the axis. \textit{A}, $C_r = 0.5$; \textit{B}, $C_r = 0.75$. The TVD scheme closes to machine precision at every step; the standard scheme produces discrepancies approaching 1 percent, with the largest values when the flow gradient is steepest}
+	\caption[Graphs comparing the per-step SFR budget percent discrepancy of the standard kinematic-wave and TVD schemes at Courant numbers of 0.5 and 0.75]{Graphs comparing the per-step SFR package budget percent discrepancy of the \mf standard kinematic-wave scheme ($\theta = 1$) and the TVD scheme for the same two-reach \mf model shown in figure~\ref{fig:sfr-kinwave-tvd}. Time is normalized by the single-reach travel time $T \approx 384$ s. The discrepancy axis is logarithmic; TVD values at zero are plotted at the floor of the axis. \textit{A}, $C_r = 0.5$; \textit{B}, $C_r = 0.75$. The TVD scheme closes to machine precision at every step; the standard scheme produces discrepancies approaching 1 percent, with the largest values when the flow gradient is steepest}
 	\label{fig:sfr-kinwave-tvd-budget}
 	\end{center}
 \end{figure}
