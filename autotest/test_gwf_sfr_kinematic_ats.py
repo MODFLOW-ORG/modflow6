@@ -1,25 +1,13 @@
 """
-Tests for the ATS_COURANT option in the SFR Package kinematic-wave routing.
+Tests for the SFR kinematic-wave ATS_COURANT option.
 
-Case 0 -- sfr-kwats01: ATS_COURANT with ATS active (functional test)
-    The problem is the Ponce (1989) Example 9-3 routing problem.  A single
-    stress period of 36000 s lets ATS sub-step freely.  ATS is started with
-    dt0 = 14400 s (4x the Courant-optimal step) so the first step is
-    deliberately over-large; ATS_COURANT then drives subsequent steps down to
-    roughly the Courant-optimal interval (~3600 s).  The reach must be
-    initialised with a positive depth (via INITIALSTAGES) so that dsflow is
-    non-zero after the first sub-step; without it the reach starts dry, the
-    TVD scheme stores all inflow with zero outflow, dsflow stays 0, and
-    sfr_dt never submits a Courant-based reduction.
+Single-reach Ponce (1989) Ex. 9-3 routing problem.
 
-    Verifies:
-    - multiple ATS sub-steps are taken (not just 1), and
-    - the listing file contains the end-of-simulation Courant number table.
-
-Case 1 -- sfr-kwats02: ATS_COURANT without ATS in TDIS (warning test)
-    Same geometry as case 0 but TDIS uses fixed time steps and the ATS
-    package is absent.  Verifies that MODFLOW 6 issues the expected warning
-    to mfsim.lst rather than silently ignoring the option.
+Cases:
+  - sfr-kwats01 : ATS_COURANT with ATS active; dt0 overshoots so the Courant
+                  constraint drives sub-steps down. Verifies multiple sub-steps
+                  and that the Courant table is written.
+  - sfr-kwats02 : ATS_COURANT without ATS in TDIS; verifies the warning.
 
 Ponce, V. M. (1989). Engineering Hydrology, Principles and Practices.
 """

@@ -1,17 +1,13 @@
 """
-Unit tests for the SFR TVD (Total Variation Diminishing) flux limiter.
+Unit tests for the SFR TVD (van Leer) flux limiter.
 
-Uses the single-reach Ponce (1989) Example 9-3 channel with fixed time steps
-equal to the Courant-optimal interval (~3600 s) so the van Leer anti-diffusion
-correction is near-zero (Cr ~ 1) and the TVD scheme reduces to first-order
-upwind.  A second case uses shorter steps (dt = 1800 s, Cr ~ 0.5) where the
-van Leer correction is non-trivial.
+Single-reach Ponce (1989) Ex. 9-3 channel. Verifies exact SFR budget closure,
+non-negative bounded outflow, and that the Courant table is written.
 
-Properties verified:
-- PERCENT DISCREPANCY = 0.00 at every step for TVD cases.
-- Non-negative outflow everywhere (TVD monotonicity).
-- Outflow peak does not exceed inflow peak (bounded solution).
-- Listing file contains the COURANT NUMBER FOR EACH REACH table.
+Cases:
+  - sfr-tvd-cr1  : TVD, dt = 3600 s (Cr ~ 1, correction near-zero).
+  - sfr-tvd-base : standard transient baseline, no TVD.
+  - sfr-tvd-cr05 : TVD, dt = 1800 s (Cr ~ 0.5, van Leer active).
 
 Ponce, V. M. (1989). Engineering Hydrology, Principles and Practices.
 """

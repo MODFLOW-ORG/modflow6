@@ -1,27 +1,18 @@
 """
 Integration tests for the SFR TVD scheme at a stream confluence.
 
-Network diagram:
-
+Network:
     R0 --> R1 --> R2 ──┐
                         ├── R5 --> R6 --> R7 --> R8
          R3 --> R4 ────┘
 
-Reach R5 is a confluence that receives flow from two upstream reaches (R2
-and R4).  Because the van Leer anti-diffusion correction requires a single
-identified upstream neighbor to form the flow-gradient ratio r, it cannot
-be applied at R5.  The TVD flux at R5 therefore falls back to first-order
-upwind.  Reaches with exactly one upstream neighbor (R1, R2, R4, R6, R7)
-can form r and apply the anti-diffusion correction.
+R5 has two upstream reaches, so the van Leer correction falls back to upwind
+there. Two headwater hydrographs (R0, R3) drive asymmetric flow. Verifies exact
+SFR budget closure, non-negative bounded outlet flow, and the Courant table.
 
-Different inflow hydrographs are applied at the two headwaters (R0 and R3)
-to exercise asymmetric confluence behavior.
-
-Properties verified (TVD case):
-- SFR PERCENT DISCREPANCY = 0.00 at every time step.
-- Non-negative outflow at the outlet (R8).
-- Outlet-flow peak does not exceed the combined upstream inflow peak.
-- Listing file contains the COURANT NUMBER FOR EACH REACH table.
+Cases:
+  - sfr-tvd-cflu   : TVD, dt = 1800 s (Cr ~ 0.5).
+  - sfr-tvd-cflu-b : standard transient baseline, no TVD.
 
 Ponce, V. M. (1989). Engineering Hydrology, Principles and Practices.
 """
