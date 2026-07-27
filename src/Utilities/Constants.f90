@@ -136,9 +136,6 @@ module ConstantsModule
   real(DP), parameter :: DCTOK = 273.15_DP !< real constant conversion of degrees celsius to Kelvin
   real(DP), parameter :: DSTEFANBOLTZMANN = 5.670374419e-8_DP !< real constant Stefan-Boltzmann constant
 
-  real(DP), parameter :: DCTOK = 273.15_DP !< real constant conversion of degrees celsius to Kelvin
-  real(DP), parameter :: DSTEFANBOLTZMANN = 5.670374419e-8_DP !< real constant Stefan-Boltzmann constant
-
   character(len=10), dimension(3, 3), parameter :: &
     cidxnames = reshape( &
     ['      NODE', '          ', '          ', &
