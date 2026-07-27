@@ -2,14 +2,14 @@ The \mf Streamflow Routing (SFR) Package simulates the interactions between surf
 
 \subsection{Kinematic Wave Approximation}
 
-The one-dimensional Saint-Venant equations for open-channel flow combines the continuity equation and the momentum equation. The momentum equation includes terms representing local acceleration, advective acceleration, pressure gradient, gravity, and friction. The kinematic wave approximation retains only the gravity and friction terms in the momentum equation, which is equivalent to assuming that the energy grade line is parallel to the channel bed slope. Under this approximation, the discharge $Q$ ($L^3 T^{-1}$) is uniquely determined by the depth of flow and the channel geometry, and the governing equation reduces to the continuity equation alone \citep{LighthillWhitham1955, PonceSimons1977, PonceLiSimons1978}
+The one-dimensional Saint-Venant equations for open-channel flow combine the continuity equation and the momentum equation. The momentum equation includes terms representing local acceleration, advective acceleration, pressure gradient, gravity, and friction. The kinematic wave approximation retains only the gravity and friction terms in the momentum equation, which is equivalent to assuming that the energy grade line is parallel to the channel bed slope. Under this approximation, the discharge $Q$ ($L^3T^{-1}$) is uniquely determined by the depth of flow and the channel geometry, and the governing equation reduces to the continuity equation alone \citep{LighthillWhitham1955, PonceSimons1977, PonceLiSimons1978}
 
 \begin{equation}
 	\label{eqn:sfr-continuity}
 	\frac{\partial Q}{\partial x} + \frac{\partial A}{\partial t} = q_L ,
 \end{equation}
 
-\noindent where $Q$ is the volumetric discharge ($L^3 T^{-1}$), $A$ is the cross-sectional area of flow ($L^2$), $x$ is the longitudinal distance along the channel ($L$), $t$ is time ($T$), and $q_L$ is the lateral inflow rate per unit channel length ($L^2 T^{-1}$). The kinematic wave approximation is applicable when the Froude number is less than about 2 and the channel slope is sufficiently steep relative to the backwater effect \citep{McArthur1993, WoolhiserLiggett1967, PonceLiSimons1978, Ponce1991}.
+\noindent where $Q$ is the volumetric discharge ($L^3T^{-1}$), $A$ is the cross-sectional area of flow ($L^2$), $x$ is the longitudinal distance along the channel ($L$), $t$ is time ($T$), and $q_L$ is the lateral inflow rate per unit channel length ($L^2T^{-1}$). The kinematic wave approximation is applicable when the Froude number is less than about 2 and the channel slope is sufficiently steep relative to the backwater effect \citep{McArthur1993, WoolhiserLiggett1967, PonceLiSimons1978, Ponce1991}.
 
 The discharge in a reach is calculated using Manning's equation \citep{Manning1891}
 
@@ -18,9 +18,9 @@ The discharge in a reach is calculated using Manning's equation \citep{Manning18
 	Q = \frac{\alpha}{n} A R^{2/3} S_0^{1/2} ,
 \end{equation}
 
-\noindent where $\alpha$ is a unit conversion factor ($\alpha = 1$ for SI units; $\alpha = 1.486$ for U.S.~customary units), $n$ is Manning's roughness coefficient ($T L^{-1/3}$), $R$ is the hydraulic radius ($L$) defined as $R = A / P_w$ where $P_w$ is the wetted perimeter ($L$), and $S_0$ is the channel bed slope (dimensionless). Equation~\ref{eqn:sfr-manning} establishes a nonlinear, monotonically increasing relationship between $Q$ and $A$ (or equivalently, between $Q$ and flow depth $d$) for a given channel geometry. This functional relationship is used to determine the depth corresponding to a computed discharge and to evaluate the wet cross-sectional area \citep{chaudhry2008}.
+\noindent where $\alpha$ is a unit conversion factor ($\alpha = 1$ for SI units; $\alpha = 1.486$ for U.S.~customary units), $n$ is Manning's roughness coefficient ($TL^{-1/3}$), $R$ is the hydraulic radius ($L$) defined as $R = A / P_w$ where $P_w$ is the wetted perimeter ($L$), and $S_0$ is the channel bed slope (dimensionless). Equation~\ref{eqn:sfr-manning} establishes a nonlinear, monotonically increasing relationship between $Q$ and $A$ (or equivalently, between $Q$ and flow depth $d$) for a given channel geometry. This functional relationship is used to determine the depth corresponding to a computed discharge and to evaluate the wet cross-sectional area \citep{chaudhry2008}.
 
-The kinematic wave celerity $c$ ($L T^{-1}$) is the speed at which a perturbation (a flood peak) propagates downstream. It is defined as the derivative of discharge with respect to cross-sectional area
+The kinematic wave celerity $c$ ($LT^{-1}$) is the speed at which a perturbation (a flood peak) propagates downstream. It is defined as the derivative of discharge with respect to cross-sectional area
 
 \begin{equation}
 	\label{eqn:sfr-celerity}
@@ -67,7 +67,7 @@ When $C_r \le 1$, the scheme applies a temporal weighting parameter $\theta$ ($0
 	+ \frac{1}{2} \frac{\left( A_D^n - A_D^{n-1} \right) + \left( A_U^n - A_U^{n-1} \right)}{\Delta t} = q_L ,
 \end{equation}
 
-\noindent where $q_L$ is the net lateral inflow per unit length at the current time step ($L^2 T^{-1}$), including contributions from overland runoff, evaporation, precipitation, groundwater exchange, and water mover fluxes. When $\theta = 1$, the scheme reduces to a fully implicit, first-order accurate spatial discretization. When $\theta = 0.5$, the scheme is second-order accurate in time and is equivalent to the Crank-Nicolson approximation.
+\noindent where $q_L$ is the net lateral inflow per unit length at the current time step ($L^2T^{-1}$), including contributions from overland runoff, evaporation, precipitation, groundwater exchange, and water mover fluxes. When $\theta = 1$, the scheme reduces to a fully implicit, first-order accurate spatial discretization. When $\theta = 0.5$, the scheme is second-order accurate in time and is equivalent to the Crank-Nicolson approximation.
 
 When $C_r > 1$, the scheme uses only the current time step values at the upstream node for the storage term, which prevents the introduction of numerical instabilities that can arise when the wave speed exceeds the Courant stability limit for the $C_r \le 1$ scheme
 
@@ -94,7 +94,7 @@ The two cases may be written as a single residual function $f(Q_D^n)$
 
 \noindent where the superscript $k$ denotes the Newton-Raphson iteration index and $f'$ is the derivative of the residual with respect to $Q_D^n$, approximated numerically.
 
-The change in water stored within a reach during a time step is required to ensure conservation of mass in the water budget. The storage change $\Delta S$ ($L^3 T^{-1}$) is calculated from the cross-sectional area values at the upstream and downstream ends of the reach at both time levels. For $C_r \le 1$
+The change in water stored within a reach during a time step is required to ensure conservation of mass in the water budget. The storage change $\Delta S$ ($L^3T^{-1}$) is calculated from the cross-sectional area values at the upstream and downstream ends of the reach at both time levels. For $C_r \le 1$
 
 \begin{equation}
 	\label{eqn:sfr-storage-low-cr}
@@ -118,14 +118,14 @@ The kinematic wave routing option is activated by specifying the \texttt{STORAGE
 
 The standard kinematic-wave scheme solves for the unknown downstream discharge $Q_D^n$ at each reach by finding the root of the finite-difference residual using Newton-Raphson iteration. The lateral source term $q_L$ in the residual aggregates all per-reach inflow and loss contributions, and the temporal weighting parameter $\theta$ controls the balance between numerical stability and temporal accuracy. Once the Newton-Raphson iteration has converged, the volumetric storage change is computed explicitly from the converged cross-sectional areas to close the reach water budget.
 
-The net lateral source per unit length, $q_L$ ($L^2 T^{-1}$), combines all per-reach inflow and loss terms
+The net lateral source per unit length, $q_L$ ($L^2T^{-1}$), combines all per-reach inflow and loss terms
 
 \begin{equation}
 	\label{eqn:sfr-qlat}
 	q_L = \frac{q_r + q_{ro} - q_e}{\Delta x} - \frac{q_{gwf}}{\Delta x} ,
 \end{equation}
 
-\noindent where $q_r$ is direct precipitation onto the reach ($L^3 T^{-1}$), $q_{ro}$ is overland runoff into the reach ($L^3 T^{-1}$), $q_e$ is evaporation from the reach ($L^3 T^{-1}$), and $q_{gwf}$ is the groundwater exchange flux ($L^3 T^{-1}$, positive out of the stream). Dividing by $\Delta x$ converts these volumetric fluxes to the per-unit-length form required by equation~\ref{eqn:sfr-continuity}. All terms are evaluated at the current Picard iteration.
+\noindent where $q_r$ is direct precipitation onto the reach ($L^3T^{-1}$), $q_{ro}$ is overland runoff into the reach ($L^3T^{-1}$), $q_e$ is evaporation from the reach ($L^3T^{-1}$), and $q_{gwf}$ is the groundwater exchange flux ($L^3T^{-1}$, positive out of the stream). Dividing by $\Delta x$ converts these volumetric fluxes to the per-unit-length form required by equation~\ref{eqn:sfr-continuity}. All terms are evaluated at the current Picard iteration.
 
 The temporal weighting parameter $\theta$ defaults to 1.0 (fully implicit) and may be adjusted using the developer option \texttt{DEV\_STORAGE\_WEIGHT}. Values of $\theta$ between 0.5 and 1.0 are accepted; values less than 0.5 are not permitted because they can produce unstable solutions. A value of $\theta = 1.0$ provides maximum numerical stability at the cost of first-order temporal accuracy and is strongly recommended for all practical applications. When $\theta = 0.5$, equation~\ref{eqn:sfr-mf6-residual} becomes the Crank-Nicolson scheme \citep{CrankNicolson1947}, which is second-order accurate in time but may exhibit oscillations when $C_r < 1$ and the spatial discretization is coarse. The Courant number is evaluated at each reach and time step using the celerity estimated from the effective upstream inflow---the upstream discharge $Q_U^n$ adjusted for lateral contributions and groundwater exchange (eq.~\ref{eqn:sfr-courant}).
 
@@ -148,7 +148,7 @@ The finite-difference residual for each reach is evaluated at each Newton-Raphso
 
 \noindent where $A_D^{n,k}$ is the wet cross-sectional area at the downstream end corresponding to $Q_D^{n,k}$, evaluated by inverting Manning's equation (eq.~\ref{eqn:sfr-manning}).
 
-Because the area $A_D^{n,k}$ depends nonlinearly on $Q_D^{n,k}$, equation~\ref{eqn:sfr-mf6-residual} is nonlinear and is solved with Newton-Raphson iteration, starting from the initial guess $Q_D^{n,0} = Q_D^{n-1}$ (the downstream discharge from the previous time step); when $Q_D^{n-1} = 0$---for example, at the start of a transient simulation or after a reach has gone dry---the initial guess is taken as $\tfrac{1}{2}(Q_U^n + Q_U^{n-1})$ instead. The derivative $f'$ is approximated by a forward finite difference using a small discharge perturbation $\delta$
+Because the area $A_D^{n,k}$ depends nonlinearly on $Q_D^{n,k}$, equation~\ref{eqn:sfr-mf6-residual} is nonlinear and is solved with Newton-Raphson iteration, starting from the initial guess $Q_D^{n,0} = Q_D^{n-1}$ (the downstream discharge from the previous time step); when $Q_D^{n-1} = 0$---for example, at the start of a transient simulation or after a reach has gone dry---the initial guess is taken as $\tfrac{1}{2}(Q_U^n + Q_D^{n-1})$ instead. The derivative $f'$ is approximated by a forward finite difference using a small discharge perturbation $\delta$
 
 \begin{equation}
 	\label{eqn:sfr-mf6-deriv}
@@ -173,7 +173,7 @@ Because the area $A_D^{n,k}$ depends nonlinearly on $Q_D^{n,k}$, equation~\ref{e
 
 \noindent or until the maximum of 100 Newton-Raphson iterations is reached. The perturbation $\delta$ is set to $0.999 \times \texttt{MAXIMUM\_DEPTH\_CHANGE}$ and is used for the numerical celerity estimate (eq.~\ref{eqn:sfr-celerity-num}), the numerical derivative (eq.~\ref{eqn:sfr-mf6-deriv}), and the Newton-Raphson convergence test. The Picard depth-change tolerance equals \texttt{MAXIMUM\_DEPTH\_CHANGE} directly. Both are governed by the same input parameter.
 
-After Newton-Raphson convergence, the volumetric storage change $\Delta S$ ($L^3 T^{-1}$) for the reach water budget is computed from equations~\ref{eqn:sfr-storage-low-cr} and \ref{eqn:sfr-storage-high-cr} using the converged areas
+After Newton-Raphson convergence, the volumetric storage change $\Delta S$ ($L^3T^{-1}$) for the reach water budget is computed from equations~\ref{eqn:sfr-storage-low-cr} and \ref{eqn:sfr-storage-high-cr} using the converged areas
 
 \begin{equation}
 	\label{eqn:sfr-mf6-storage}
@@ -197,7 +197,7 @@ The TVD scheme is most appropriate when exact mass conservation is required---fo
 
 The TVD scheme bypasses iterative residual-solving for the continuity equation by advancing the reach state directly through an explicit volume balance. At each time step the scheme operates as follows.
 
-\textit{Step 1 --- First-order upwind flux.}
+\textit{Step 1---First-order upwind flux.}
 The outflow flux at the previous time level is estimated from Manning's equation (eq.~\ref{eqn:sfr-manning}) evaluated at the stored reach depth $d^{n-1}$
 
 \begin{equation}
@@ -207,7 +207,7 @@ The outflow flux at the previous time level is estimated from Manning's equation
 
 \noindent Using the stored depth rather than a previous-step discharge variable ensures that the upwind flux reflects the actual water volume in the reach, which is critical for correct dry-reach wetting behavior.
 
-\textit{Step 2 --- Van Leer anti-diffusion correction.}
+\textit{Step 2---Van Leer anti-diffusion correction.}
 When a reach has a single identified upstream neighbor (index $i_\mathrm{up}$), a second-order Lax-Wendroff correction is applied and bounded by the van Leer flux limiter \citep{vanLeer1974}
 
 \begin{equation}
@@ -225,7 +225,7 @@ When a reach has a single identified upstream neighbor (index $i_\mathrm{up}$), 
 
 \noindent The limiter satisfies the TVD condition \citep{Sweby1984}: $\phi(r) = 0$ when $r \le 0$ (flow reversal), recovering first-order upwind; $\phi(r) \to 2$ as $r \to \infty$ (smooth flow), approaching the full Lax-Wendroff correction; and $0 \le \phi(r) \le 2$ for all $r$, guaranteeing monotonicity. Headwater reaches and reaches at confluences with multiple upstream neighbors use the first-order upwind flux ($q_\mathrm{TVD} = q_\mathrm{out}^{n-1}$) because the flow-gradient ratio $r$ cannot be formed.
 
-\textit{Step 3 --- Direct volume balance.}
+\textit{Step 3---Direct volume balance.}
 The new stored volume is computed from a simple mass balance
 
 \begin{equation}
@@ -253,9 +253,9 @@ The storage contribution to the reach water budget is
 
 \paragraph{Courant Number and ATS Time Stepping}
 
-The \texttt{ATS\_COURANT} value sets the target Courant number for the Adaptive Time Stepping (ATS) module in \mf. At the start of each time step, the SFR Package estimates the Courant number from the kinematic wave celerity (eq.~\ref{eqn:sfr-courant}) and submits a recommended time step $\Delta t = C_r^\mathrm{target}\,\Delta x / c$ to the ATS controller. The controller may select a shorter step if other packages or the outer nonlinear solver impose tighter constraints; the TVD scheme then uses whatever step the ATS controller provides and delegates to the standard Newton-Raphson solver when the resulting Courant number exceeds unity. Setting \texttt{ATS\_COURANT} = 1 targets $C_r = 1$, which minimizes both numerical diffusion and the van Leer anti-diffusion correction; smaller values are appropriate when the hydrograph must be resolved more finely in time.
+The \texttt{ATS\_COURANT} value sets the target Courant number for the Adaptive Time Stepping (ATS) module in \mf. At the start of each time step, the SFR Package estimates the Courant number from the kinematic wave celerity (eq.~\ref{eqn:sfr-courant}) and submits a recommended time step $\Delta t = C_r^\mathrm{target}\,\Delta x / c$ to the ATS controller. The controller may select a shorter step if other packages or the outer nonlinear solver impose tighter constraints; the TVD scheme then uses whatever step the ATS controller provides. When the resulting Courant number exceeds unity, the van Leer correction is skipped and the scheme reverts to first-order upwind, with the direct volume balance still closing the budget exactly. Setting \texttt{ATS\_COURANT} = 1 targets $C_r = 1$, which minimizes both numerical diffusion and the van Leer anti-diffusion correction; smaller values are appropriate when the hydrograph must be resolved more finely in time.
 
-At the end of each simulation, a \texttt{COURANT NUMBER FOR EACH REACH} table is written to the GWF model listing file when \texttt{ATS\_COURANT} is specified. The table reports the minimum, maximum, and time-averaged Courant number for every reach, providing a direct check on whether the ATS-controlled time steps kept $C_r$ within the intended range.
+At the end of each simulation, a \texttt{COURANT NUMBER FOR EACH REACH} table is written to the GWF model listing file when the \texttt{STORAGE} option is active. The table reports the minimum, maximum, and time-averaged Courant number for every reach, providing a direct check on whether the ATS-controlled time steps kept $C_r$ within the intended range.
 
 \texttt{ATS\_COURANT} requires that the ATS package be active in TDIS. If the ATS package is absent from TDIS, \mf issues a warning and the Courant-based time-step recommendations are silently discarded; the TVD scheme then runs at whatever fixed time steps are specified in TDIS, with no guarantee that $C_r \le 1$.
 
@@ -267,7 +267,7 @@ The TVD scheme shares the same applicability conditions as the standard kinemati
 
   \item \textit{Van Leer correction requires a single upstream neighbor.} The anti-diffusion correction (eq.~\ref{eqn:sfr-tvd-vanleer}) is applied only to reaches that receive inflow from exactly one upstream reach; headwater reaches and reaches at confluences fall back to first-order upwind. Networks with many confluences will therefore realize less benefit from the van Leer correction than simple, branching networks.
 
-  \item \textit{Explicit stability.} The TVD scheme is explicit and conditionally stable. When $C_r > 1$, the scheme automatically delegates to the implicit Newton-Raphson solver, so occasional Courant exceedances (e.g., during high-flow events) are handled gracefully. Sustained $C_r \gg 1$ will cause frequent delegation and may degrade solution quality; the ATS controller should be tuned to keep $C_r$ below unity for most steps.
+  \item \textit{Explicit stability.} The TVD scheme is explicit and conditionally stable. When $C_r > 1$, the van Leer correction is skipped and the scheme reverts to first-order upwind; the direct volume balance still closes the budget exactly, but the explicit update is stable only for $C_r \le 1$, so sustained $C_r > 1$ can produce oscillations even though the budget continues to close. The ATS controller should be tuned to keep $C_r$ below unity for most steps.
 
   \item \textit{Groundwater exchange.} Stream-aquifer exchange introduces an implicit coupling that the TVD scheme resolves with a Picard outer loop (identical to the standard scheme). For reaches with strong groundwater exchange, the number of Picard iterations may be larger than for the uncoupled case.
 
@@ -405,9 +405,9 @@ Several numerical issues can arise when using the kinematic-wave option:
 
 \begin{itemize}
 
-	\item \textit{Artificial smoothing of flood peaks} ($C_r \ll 1$). When the time step is much shorter than $\Delta t_\mathrm{opt}$, the numerical scheme introduces an artificial spreading effect---called numerical diffusion---that is not present in the physical system. The result is that computed peak flows at the downstream end of a reach are lower than they should be, and the flood hydrograph appears broader and more rounded: the rising limb rises more gradually, the peak is reduced, and the recession drains more slowly. The wave still translates at roughly the correct speed, but its shape is progressively damped with each time step. Figure~\ref{fig:sfr-kinwave}\textit{A} illustrates this for $C_r = 0.5$ and $C_r = 0.75$: both solutions show the correct timing but underestimate the peak and overestimate the through relative to the exact solution. Increasing the time step, or subdividing long reaches into shorter segments to reduce $\Delta x$, brings $C_r$ closer to unity and reduces the smoothing.
+	\item \textit{Artificial smoothing of flood peaks} ($C_r \ll 1$). When the time step is much shorter than $\Delta t_\mathrm{opt}$, the numerical scheme introduces an artificial spreading effect---called numerical diffusion---that is not present in the physical system. The result is that computed peak flows at the downstream end of a reach are lower than they should be, and the flood hydrograph appears broader and more rounded: the rising limb rises more gradually, the peak is reduced, and the recession drains more slowly. The wave still translates at roughly the correct speed, but its shape is progressively damped with each time step. Figure~\ref{fig:sfr-kinwave}\textit{A} illustrates this for $C_r = 0.5$ and $C_r = 0.75$: both solutions show the correct timing but underestimate the peak and overestimate the trough relative to the exact solution. Increasing the time step, or subdividing long reaches into shorter segments to reduce $\Delta x$, brings $C_r$ closer to unity and reduces the smoothing.
 
-	\item \textit{Flood-wave timing and peak-flow errors} ($C_r \gg 1$). When the time step is much larger than $\Delta t_\mathrm{opt}$, the scheme takes too few samples of the upstream hydrograph to reconstruct its shape accurately. The practical consequence is that the computed downstream hydrograph can show the flood peak arriving at the wrong time and at the wrong magnitude---peak flows are underestimated and the through between successive waves is filled in, making the hydrograph appear flatter and more spread out than the true response. The effect worsens as $C_r$ increases beyond 2. Figure~\ref{fig:sfr-kinwave}\textit{B} illustrates this for $C_r = 1.5$ and $C_r = 2$: both solutions preserve the general shape but drift progressively in phase and underestimate the peak. Reducing the time step so that $C_r \lesssim 2$ is recommended; for applications where accurate flood timing or peak-flow magnitude is important, targeting $C_r$ close to 1 is preferable.
+	\item \textit{Flood-wave timing and peak-flow errors} ($C_r \gg 1$). When the time step is much larger than $\Delta t_\mathrm{opt}$, the scheme takes too few samples of the upstream hydrograph to reconstruct its shape accurately. The practical consequence is that the computed downstream hydrograph can show the flood peak arriving at the wrong time and at the wrong magnitude---peak flows are underestimated and the trough between successive waves is filled in, making the hydrograph appear flatter and more spread out than the true response. The effect worsens as $C_r$ increases beyond 2. Figure~\ref{fig:sfr-kinwave}\textit{B} illustrates this for $C_r = 1.5$ and $C_r = 2$: both solutions preserve the general shape but drift progressively in phase and underestimate the peak. Reducing the time step so that $C_r \lesssim 2$ is recommended; for applications where accurate flood timing or peak-flow magnitude is important, targeting $C_r$ close to 1 is preferable.
 
 	\item \textit{Oscillatory solutions} ($\theta < 1$). Reducing the temporal weighting parameter below 1 using the developer option \texttt{DEV\_STORAGE\_WEIGHT} can cause oscillatory solutions at low Courant numbers because the Crank-Nicolson scheme is prone to dispersion errors near $C_r = 0$. The default value $\theta = 1.0$ is strongly recommended for all practical applications.
 
