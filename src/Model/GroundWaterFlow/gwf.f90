@@ -1025,13 +1025,7 @@ contains
 
   end subroutine gwf_ot_bdsummary
 
-  !> @brief Final processing
-  !<
-  !> @brief GWF Model time step submission
-  !!
-  !!  Call bnd_dt for each boundary package so that packages with
-  !!  ATS time step constraints (e.g., SFR ATS_COURANT) can submit
-  !!  a requested time step length to the ATS package.
+  !> @brief Submit boundary-package ATS time step requests
   !<
   subroutine gwf_dt(this)
     ! -- dummy

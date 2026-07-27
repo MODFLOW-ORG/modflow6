@@ -832,21 +832,15 @@ contains
     end if
   end subroutine bnd_ot_model_flows
 
-  !> @ brief Final processing
-  !!
-  !!  Perform final processing for a boundary package. This method is
-  !!  called once at the end of the simulation and may be overridden
-  !!  by packages that need to write end-of-simulation output.
-  !<
-  !> @brief Submit ATS time step request for this boundary package.
-  !!
-  !!  Default no-op; override in packages that can constrain the time step.
+  !> @brief Submit an ATS time step request (no-op by default)
   !<
   subroutine bnd_dt(this)
     ! -- dummy
     class(BndType) :: this !< BndType object
   end subroutine bnd_dt
 
+  !> @brief Final processing at end of simulation (no-op by default)
+  !<
   subroutine bnd_fp(this)
     ! -- dummy
     class(BndType) :: this !< BndType object

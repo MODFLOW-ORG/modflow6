@@ -201,6 +201,7 @@ module SfrModule
     procedure, private :: sfr_calc_constant
     procedure, private :: sfr_calc_transient
     procedure, private :: sfr_calc_tvd
+    procedure, private :: sfr_calc_celerity
     procedure, private :: sfr_calc_steady
     procedure, private :: sfr_precompute_tvd
     procedure, private :: sfr_update_flows
@@ -978,8 +979,11 @@ contains
     if (this%ats_courant /= DNODATA .and. inats == 0) then
       write (warnmsg, '(a)') &
         'ATS_COURANT IS SPECIFIED IN THE SFR OPTIONS BLOCK BUT THE '// &
-        'ATS PACKAGE IS NOT ACTIVE IN TDIS. COURANT-BASED TIME-STEP '// &
-        'CONTROL WILL NOT BE APPLIED.'
+        'ATS PACKAGE IS NOT ACTIVE IN TDIS, SO THE TIME STEP IS NOT '// &
+        'ADAPTED TO THE COURANT NUMBER. IF THE COURANT NUMBER EXCEEDS 1 '// &
+        'THE EXPLICIT KINEMATIC-WAVE ROUTING MAY OSCILLATE WHILE STILL '// &
+        'CLOSING THE BUDGET. ACTIVATE THE ATS PACKAGE OR USE A SMALLER '// &
+        'TIME STEP.'
       call store_warning(warnmsg)
     end if
     !
@@ -2868,10 +2872,7 @@ contains
     call this%budobj%write_budtable(kstp, kper, iout, ibudfl, totim, delt)
   end subroutine sfr_ot_bdsummary
 
-  !> @ brief Final processing
-   !!
-   !!  Write the simulation-wide Courant number summary table to the
-   !!  listing file when the STORAGE option is active.
+  !> @brief Write the Courant-number summary table to the listing file
   !<
   subroutine sfr_fp(this)
     ! -- dummy
@@ -2906,13 +2907,7 @@ contains
     end if
   end subroutine sfr_fp
 
-  !> @brief Submit ATS time step request based on kinematic wave Courant number
-  !!
-  !! If ATS_COURANT is active, loops over all reaches, computes wave celerity
-  !! from the current downstream flow, and submits to ATS the time step that
-  !! achieves the user-specified target Courant number for the most constraining
-  !! reach.
-  !!
+  !> @brief Submit the ATS time step for the most Courant-constraining reach
   !<
   subroutine sfr_dt(this)
     ! -- modules
@@ -2922,12 +2917,6 @@ contains
     ! -- local
     integer(I4B) :: n
     integer(I4B) :: nrmin
-    real(DP) :: q
-    real(DP) :: q2
-    real(DP) :: d
-    real(DP) :: d2
-    real(DP) :: a
-    real(DP) :: a2
     real(DP) :: celerity
     real(DP) :: dt_n
     real(DP) :: dtmin
@@ -2938,23 +2927,14 @@ contains
     !
     dtmin = DNODATA
     nrmin = 0
-    msg = ''
     !
     do n = 1, this%maxbound
-      q = this%dsflow(n)
-      call this%sfr_calc_reach_depth(n, q, d)
-      a = this%calc_area_wet(n, d)
-      if (d > DZERO) then
-        q2 = q + this%deps
-        call this%sfr_calc_reach_depth(n, q2, d2)
-        a2 = this%calc_area_wet(n, d2)
-        celerity = (q2 - q) / (a2 - a)
-        if (celerity > DZERO) then
-          dt_n = this%ats_courant * this%length(n) / celerity
-          if (dt_n < dtmin) then
-            dtmin = dt_n
-            nrmin = n
-          end if
+      call this%sfr_calc_celerity(n, this%dsflow(n), celerity)
+      if (celerity > DZERO) then
+        dt_n = this%ats_courant * this%length(n) / celerity
+        if (dt_n < dtmin) then
+          dtmin = dt_n
+          nrmin = n
         end if
       end if
     end do
@@ -2964,6 +2944,31 @@ contains
       call ats%ats_submit_delt(kstp, kper, dtmin, trim(msg))
     end if
   end subroutine sfr_dt
+
+  !> @brief Kinematic-wave celerity from a flow perturbation (0 if dry)
+  !<
+  subroutine sfr_calc_celerity(this, n, q, celerity)
+    ! -- dummy
+    class(SfrType) :: this !< SfrType object
+    integer(I4B), intent(in) :: n !< reach number
+    real(DP), intent(in) :: q !< reach flow
+    real(DP), intent(out) :: celerity !< kinematic-wave celerity
+    ! -- local
+    real(DP) :: d
+    real(DP) :: a
+    real(DP) :: a2
+    !
+    celerity = DZERO
+    call this%sfr_calc_reach_depth(n, q, d)
+    if (d > DZERO) then
+      a = this%calc_area_wet(n, d)
+      call this%sfr_calc_reach_depth(n, q + this%deps, d)
+      a2 = this%calc_area_wet(n, d)
+      if (a2 > a) then
+        celerity = this%deps / (a2 - a)
+      end if
+    end if
+  end subroutine sfr_calc_celerity
 
   !> @ brief Deallocate package memory
   !!
@@ -3070,12 +3075,10 @@ contains
     end if
     !
     ! -- deallocate Courant number table
-    if (this%istorage == 1) then
-      if (associated(this%couranttab)) then
-        call this%couranttab%table_da()
-        deallocate (this%couranttab)
-        nullify (this%couranttab)
-      end if
+    if (associated(this%couranttab)) then
+      call this%couranttab%table_da()
+      deallocate (this%couranttab)
+      nullify (this%couranttab)
     end if
     !
     ! -- deallocate package csv table
@@ -3118,12 +3121,9 @@ contains
     call this%BndType%bnd_da()
   end subroutine sfr_da
 
-  !> @brief Pre-compute upstream reach indices for TVD limiter
+  !> @brief Pre-compute the single upstream reach index for the TVD limiter
   !!
-  !! For each reach, store the index of its single upstream reach so
-  !! the TVD flux limiter can access it each time step without traversing
-  !! the connection arrays.  Reaches with zero or multiple upstream
-  !! connections get index 0 (first-order upwind is used for those).
+  !! Index 0 for reaches with zero or multiple upstream connections.
   !<
   subroutine sfr_precompute_tvd(this)
     ! -- dummy

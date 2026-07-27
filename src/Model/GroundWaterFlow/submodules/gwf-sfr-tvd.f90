@@ -1,29 +1,11 @@
 submodule(SfrModule) SfrModuleTvd
 contains
 
-  !> @brief Kinematic wave routing with TVD flux limiter
+  !> @brief Kinematic-wave routing with TVD flux limiter
   !!
-  !! Explicit TVD (Total Variation Diminishing) update for the kinematic
-  !! wave continuity equation.  The van Leer flux limiter provides
-  !! second-order accuracy in smooth flow regions and reverts to first-order
-  !! upwind near flow discontinuities, guaranteeing exact mass conservation.
-  !!
-  !! The method is activated when ATS_COURANT is specified.  When the
-  !! estimated Courant number exceeds 1, the van Leer correction is skipped
-  !! and the first-order upwind flux (q_tvd = q_out_old) is used; the direct
-  !! volume balance still guarantees exact budget closure.
-  !! Dry reaches (d_old = 0) remain in the TVD path: q_tvd = Q(0) = 0 and
-  !! the direct volume balance fills the reach exactly, giving exact closure.
-  !!
-  !! The old-time depth is taken from stageold(n) - strtop(n), the reach
-  !! depth frozen at the start of the time step by sfr_ad.  Using stageold
-  !! rather than the current iterate depth(n) makes the TVD update idempotent
-  !! across outer Picard iterations, so the outer solver converges in two
-  !! passes even for multi-reach networks.
-  !!
-  !! The pre-computed itvd_upstream(n) array holds the index of the single
-  !! upstream reach feeding reach n.  Headwaters and confluences (index = 0)
-  !! use first-order upwind for the outflow flux.
+  !! Explicit van Leer TVD update of the continuity equation with exact
+  !! volume balance; reverts to first-order upwind for Cr > 1 and at
+  !! confluences.
   !<
   module procedure sfr_calc_tvd
   use TdisModule, only: delt
@@ -34,13 +16,9 @@ contains
   integer(I4B) :: iup
   real(DP) :: celerity
   real(DP) :: courant
-  real(DP) :: dq
   real(DP) :: d_old
-  real(DP) :: d2
   real(DP) :: a_old
-  real(DP) :: a_base
   real(DP) :: a_new
-  real(DP) :: a2
   real(DP) :: v_new
   real(DP) :: q_out_old
   real(DP) :: q_in_old
@@ -67,21 +45,8 @@ contains
   call this%sfr_calc_qman(n, d_old, q_out_old)
   q_in_old = this%usinflowold(n)
   !
-  ! -- celerity from a flow perturbation, using consistent depth inversions.
-  !    Both the base and perturbed depths come from sfr_calc_reach_depth so
-  !    the comparison is internally consistent (avoids a spurious mismatch
-  !    between the stored d_old and the approximate wide-channel inversion).
-  dq = this%deps
-  celerity = DZERO
-  if (d_old > DZERO) then
-    call this%sfr_calc_reach_depth(n, q_out_old, d2)
-    a_base = this%calc_area_wet(n, d2)
-    call this%sfr_calc_reach_depth(n, q_out_old + dq, d2)
-    a2 = this%calc_area_wet(n, d2)
-    if (a2 > a_base) then
-      celerity = dq / (a2 - a_base)
-    end if
-  end if
+  ! -- celerity from a flow perturbation
+  call this%sfr_calc_celerity(n, q_out_old, celerity)
   courant = celerity * delt / this%length(n)
   !
   ! -- accumulate Courant statistics at every step
@@ -92,10 +57,7 @@ contains
     this%crcnt(n) = this%crcnt(n) + 1
   end if
   !
-  ! -- TVD outflow flux: first-order upwind + van Leer limiter correction.
-  ! -- Van Leer correction is only applied for Cr <= 1; for Cr > 1 the
-  ! -- first-order upwind flux (q_tvd = q_out_old) is used so that the
-  ! -- direct volume balance below always closes the budget exactly.
+  ! -- TVD outflow: upwind + van Leer correction (Cr <= 1 only)
   q_tvd = q_out_old
   if (courant <= DONE) then
     iup = this%itvd_upstream(n)
@@ -113,6 +75,11 @@ contains
     end if
   end if
   !
+  ! -- the anti-diffusion correction cannot drive the outflow negative; clamp
+  !    here (before the volume balance) so the stored volume and the reported
+  !    outflow use the same flux and the budget still closes exactly
+  q_tvd = max(q_tvd, DZERO)
+  !
   ! -- total new-time volumetric inflows
   q_in_new = qu + qi + qfrommvr
   q_lat = qr + qro - qe
@@ -121,10 +88,8 @@ contains
   igwfconn = this%sfr_gwf_conn(n)
   qgwf = DZERO
   !
-  ! -- initial depth estimate from actual stored depth; when the reach is dry
-  !    (d_old = 0) but the volume balance gives a_new > 0 (wetting event), seed
-  !    Newton with the rectangular-channel estimate a_new/B so that the top
-  !    width is non-zero and the solver can iterate away from d = 0
+  ! -- seed depth; on wetting (dry reach, a_new > 0) use a_new/B for a
+  !    non-zero top width
   d1 = d_old
   d1_old = d1
   !
