@@ -238,6 +238,9 @@ If a GWT-GWT or GWE-GWE Exchange is active, then constant concentration (CNC) or
 \item
 The PRT Model reports balanced particle mass budgets to the listing file and the binary cell budget file, with budget entries for release, storage, and termination. However, the termination term is aggregated and does not distinguish particle outflows to different types of boundary conditions.
 
+\item
+When the Streamflow Routing (SFR) Package STORAGE option is used with the ATS\_COURANT option (the explicit TVD kinematic-wave routing scheme), a dry gaining reach (groundwater head above the streambed top) with little or no routed inflow may fail to rewet and can remain dry with zero groundwater discharge. The standard kinematic-wave scheme (STORAGE without ATS\_COURANT) rewets these reaches correctly and should be used where dry gaining reaches are expected.
+
 \end{enumerate}
 
 In addition to the issues shown here, a comprehensive and up-to-date list is available under the issues tab at \url{https://github.com/MODFLOW-ORG/modflow6}.
