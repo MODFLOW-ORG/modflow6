@@ -512,6 +512,8 @@ contains
               this%dbdz(n, idelay) = rval
               this%dbdz0(n, idelay) = rval
             end do
+            ! -- recompute delay-bed cell elevations from the scaled thickness
+            call this%csub_delay_init_zcell(ib)
           end if
         end do
         this%cg_thickini(node) = DZERO
