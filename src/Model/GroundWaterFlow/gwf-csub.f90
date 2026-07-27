@@ -9,8 +9,8 @@
 module GwfCsubModule
   use KindModule, only: I4B, DP, LGP
   use ConstantsModule, only: DPREC, DZERO, DEM20, DEM15, DEM10, DEM8, DEM7, &
-                             DEM6, DEM4, DEM3, DP9, DHALF, DEM1, DONE, DTWO, &
-                             DTHREE, DGRAVITY, DTEN, DHUNDRED, DNODATA, &
+                             DEM6, DEM5, DEM4, DEM3, DP9, DHALF, DEM1, DONE, &
+                             DTWO, DTHREE, DGRAVITY, DTEN, DHUNDRED, DNODATA, &
                              DHNOFLO, LENFTYPE, LENPACKAGENAME, LENMEMPATH, &
                              LINELENGTH, LENBOUNDNAME, NAMEDBOUNDFLAG, &
                              LENBUDTXT, LENAUXNAME, LENPAKLOC, LENLISTLABEL, &
@@ -367,6 +367,7 @@ contains
     integer(I4B) :: idelay
     integer(I4B) :: ib
     integer(I4B) :: node
+    integer(I4B) :: n
     integer(I4B) :: istoerr
     real(DP) :: top
     real(DP) :: bot
@@ -375,9 +376,13 @@ contains
     real(DP) :: theta
     real(DP) :: v
     real(DP) :: vtot
+    real(DP) :: cell_thickness
+    real(DP) :: overshoot
+    real(DP) :: f
+    real(DP) :: rval
     ! -- format
     character(len=*), parameter :: fmtcsub = &
-      "(1x,/1x,'CSUB -- COMPACTION PACKAGE, VERSION 1, 12/15/2019', &
+      "(1x,/1x,'CSUB -- COMPACTION PACKAGE, VERSION 1.15, 7/27/2026', &
      &' INPUT READ FROM MEMPATH: ', A, /)"
     !
     ! --print a message identifying the csub package.
@@ -478,10 +483,39 @@ contains
       this%cg_thickini(node) = this%cg_thickini(node) - v
     end do
     !
-    ! -- evaluate if any cg_thick values are less than 0
+    ! -- evaluate if the interbed thicknesses in a cell exceed the cell
+    !    thickness (cg_thickini < 0). A small excess (numerical roundoff in the
+    !    summed interbed thicknesses) is resolved by proportionally scaling the
+    !    cell's interbed thicknesses to fit; a larger excess is a genuine
+    !    over-specification and is an error
     do node = 1, this%dis%nodes
       thick = this%cg_thickini(node)
-      if (thick < DZERO) then
+      if (thick >= DZERO) cycle
+      cell_thickness = this%cell_thick(node)
+      overshoot = -thick
+      if (overshoot <= DEM5 * cell_thickness) then
+        ! -- roundoff: scale the cell's interbed thicknesses so they fill the
+        !    cell exactly (cell_thickness - thick is the summed interbed
+        !    thickness, which exceeds cell_thickness by overshoot)
+        f = cell_thickness / (cell_thickness - thick)
+        do ib = 1, this%ninterbeds
+          if (node /= this%nodelist(ib)) cycle
+          this%thickini(ib) = this%thickini(ib) * f
+          if (this%iupdatematprop /= 0) then
+            this%thick(ib) = this%thick(ib) * f
+          end if
+          idelay = this%idelay(ib)
+          if (idelay /= 0) then
+            rval = this%thickini(ib) / real(this%ndelaycells, DP)
+            do n = 1, this%ndelaycells
+              this%dbdzini(n, idelay) = rval
+              this%dbdz(n, idelay) = rval
+              this%dbdz0(n, idelay) = rval
+            end do
+          end if
+        end do
+        this%cg_thickini(node) = DZERO
+      else
         call this%dis%noder_to_string(node, cellid)
         write (errmsg, '(a,g0,a,1x,a,a)') &
           'Coarse grained material thickness is less than zero (', &

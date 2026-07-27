@@ -179,3 +179,8 @@ description = "A new ELASTIC\\_INELASTIC\\_SMOOTHING option was added to the Ske
 section = "features"
 subsection = "advanced"
 description = "The Skeletal Storage, Compaction, and Subsidence (CSUB) Package previously terminated when the calculated effective stress became small or negative in the effective-stress formulation, where the skeletal specific storage varies as the inverse of the effective stress and is unbounded as the effective stress approaches zero. The effective stress used to calculate the specific storage is now not allowed to fall below a small fraction (0.001) of the geostatic stress, which bounds the specific storage and allows the simulation to continue. The active behavior is reported in the CSUB package settings. A note is written to the model listing file for each time step with a negative effective stress, and a warning reporting the total number of affected time steps is written at the end of the simulation. Negative effective stress typically occurs in uppermost cells where simulated water levels rise above land surface. The head-based formulation is unaffected. The deprecated STRICT\\_EFFECTIVE\\_STRESS option restores the previous terminate-on-negative-stress behavior."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "The Skeletal Storage, Compaction, and Subsidence (CSUB) Package terminated when the summed interbed thickness in a cell exceeded the cell thickness, even when the difference was a numerical-roundoff artifact of the input precision. When the excess is within a small fraction (1e-5) of the cell thickness, the interbed thicknesses in the cell are now proportionally scaled to fit and the simulation continues. A larger excess is still an error."
