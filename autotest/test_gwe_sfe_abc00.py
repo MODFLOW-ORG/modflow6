@@ -17,9 +17,9 @@ import pandas as pd
 import pytest
 from framework import TestFramework
 
-cases = ["sfe-abc-lhf"]
+cases = ["sfe-abc", "sfe-abc-fah", "sfe-abc-cel"]
 
-DCTOK = 273.16
+DCTOK = 273.15
 
 # Model units
 length_units = "m"
@@ -56,10 +56,19 @@ rwid = 1.0
 strm_temp = 11.0
 surf_Q_in = [
     [10.0],
+    [10.0],
+    [10.0],
 ]
 # sensible and latent heat flux parameter values
 wspd = 126005.30  # unrealistically high to drive a -1C change
-tatm = 5.0 + DCTOK
+tatm = [5.0 + DCTOK, 41.0, 5.0]
+#                       K,             F,      C
+temperature_offset = [0.0, 255.372222222, 273.15]
+temperature_factor = [1.0, 0.55555555556, 1.0000]
+
+strm_temp_C = 11.0
+strm_temp = [11.0 + DCTOK, 51.8, strm_temp_C]
+
 # shortwave radiation parameter values
 solr = 47880870.9  # unrealistically high to drive a 1 deg C rise in stream temperature
 shd = 1.0  # 100% shade "turns off" solar flux
@@ -348,13 +357,13 @@ def build_models(idx, test):
     # Instantiate Streamflow Energy Transport package
     sfepackagedata = []
     for irno in range(ncol):
-        t = (irno, strm_temp, K_therm_strmbed, rbthcnd)
+        t = (irno, strm_temp[idx], K_therm_strmbed, rbthcnd)
         sfepackagedata.append(t)
 
     sfeperioddata = []
     for irno in range(ncol):
         if irno == 0:
-            sfeperioddata.append((irno, "INFLOW", strm_temp))
+            sfeperioddata.append((irno, "INFLOW", strm_temp[idx]))
 
     # Instantiate SFE observation points
     sfe_obs = {
@@ -391,7 +400,7 @@ def build_models(idx, test):
         spd = []
         for irno in range(ncol):
             spd.append([irno, "WSPD", wspd])
-            spd.append([irno, "TATM", tatm])
+            spd.append([irno, "TATM", tatm[idx]])
             spd.append([irno, "SOLR", solr])
             spd.append([irno, "SHD", shd])
             spd.append([irno, "SWREFL", swrefl])
@@ -406,6 +415,8 @@ def build_models(idx, test):
         drag_coefficient=c_d,
         wind_func_slope=wf_slope,
         wind_func_int=wf_int,
+        temperature_factor=temperature_factor[idx],
+        temperature_offset=temperature_offset[idx],
         reachperioddata=abc_spd,
         filename=abc_filename,
     )
@@ -432,16 +443,18 @@ def build_models(idx, test):
     return sim, None
 
 
-# sim, dum = build_models(0, r"c:\temp\_shf00")
-# sim.write_simulation()
-
-
-def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
+def calc_ener_transfer(idx, updated_strm_temp, mf_strm_wid):
     L = 2499.64 - (2.51 * (updated_strm_temp - DCTOK))
     e_w = 6.1275 * math.exp(
         17.2693882 * ((updated_strm_temp - DCTOK) / (updated_strm_temp - 35.86))
     )
-    e_s = 6.1275 * math.exp(17.2693882 * ((tatm - DCTOK) / (tatm - 35.86)))
+    e_s = 6.1275 * math.exp(
+        17.2693882
+        * (
+            ((temperature_factor[idx] * tatm[idx] + temperature_offset[idx]) - DCTOK)
+            / ((temperature_factor[idx] * tatm[idx] + temperature_offset[idx]) - 35.86)
+        )
+    )
     e_a = (rh / 100) * e_s
     vap_press_deficit = e_w - e_a
     wind_function = wf_int + wf_slope * wspd
@@ -474,16 +487,20 @@ def check_output(idx, test):
     # confirm that the energy added to the stream results in a -1C change in temp
     # temperature gradient
 
-    tgrad = (tatm - DCTOK) - strm_temp
+    tgrad = tatm[idx] - strm_temp[idx]
     shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
     swr_ener_per_sqm = solr * (1 - shd) * (1 - swrefl)
 
     # latent calcs
     chng = 1
-    strt_strm_temp = strm_temp
-    updated_strm_temp = strm_temp
+    strt_strm_temp = strm_temp[idx]
+    updated_strm_temp = strm_temp[idx]
     while chng > hclose:
-        ener_transfer = calc_ener_transfer(updated_strm_temp + DCTOK, mf_strm_wid)
+        ener_transfer = calc_ener_transfer(
+            idx,
+            temperature_factor[idx] * updated_strm_temp + temperature_offset[idx],
+            mf_strm_wid,
+        )
         temp_change = ener_transfer / (surf_Q_in[idx][0] * Cpw * rhow)
         updated_temp = strt_strm_temp + temp_change
         chng = abs(updated_strm_temp - updated_temp)
@@ -495,11 +512,9 @@ def check_output(idx, test):
 
     # confirm 1 deg C decrease in temp
 
-    msg1 = "Python temperature change is = " + str(temp_change)
-    msg2 = "MODFLOW temperature = " + str(df2.loc[0, "RCH1_OUTFTEMP"])
-    msg3 = "MODFLOW temperature change is " + str(
-        strm_temp - df2.loc[0, "RCH1_OUTFTEMP"]
-    )
+    msg1 = "Python Delta temp = " + str(temp_change)
+    msg2 = "MF6 temp = " + str(df2.loc[0, "RCH1_OUTFTEMP"])
+    msg3 = "MF6 Delta temp: " + str(strm_temp - df2.loc[0, "RCH1_OUTFTEMP"])
 
     assert np.isclose(
         df2.loc[0, "RCH1_OUTFTEMP"], strt_strm_temp + temp_change, atol=1e-6

@@ -1,4 +1,4 @@
-# Test the use of the atmospheric boundary condition utility used in conjunction 
+# Test the use of the atmospheric boundary condition utility used in conjunction
 # with the SFE advanced package.  This test is a single cell with a single reach.
 # Channel flow characteristics are unrealistic: Manning's n is unrealistically
 # low and slope is extremely high. These conditions result in an extremely high
@@ -6,7 +6,7 @@
 # channel exiting at the outlet with very near negligle heat storage increases
 # in the channel. This test only uses longwave radiation heat flux (lwr).
 #
-# A second sub-test was added that checks things work when temperatures are 
+# A second sub-test was added that checks things work when temperatures are
 # entered in Fahrenheit
 #
 # The result is a 1 deg C change in temperature in the
@@ -60,7 +60,9 @@ rhk = 0.0
 rwid = 1.0
 strm_temp = 11.0
 surf_Q_in = [
-    [10.0], [10.0], [10.0],
+    [10.0],
+    [10.0],
+    [10.0],
 ]
 # sensible and latent heat flux parameter values
 wspd = 126005.30  # unrealistically high to drive a -1C change
@@ -460,14 +462,6 @@ def build_models(idx, test):
     return sim, None
 
 
-# sim, dum = build_models(0, r"c:\temp\_shf00")
-# sim.write_simulation()
-
-# Other energy transfers should equal 0
-#  tgrad = tatm - strm_temp
-#  shf_ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
-
-
 def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
     # longwave
     Ql_up = emiss_water * stephan_boltzmann * (updated_strm_temp**4)
@@ -479,7 +473,7 @@ def calc_ener_transfer(updated_strm_temp, mf_strm_wid):
         1.0 - shd
     ) * emiss_air + shd * emiss_riparian  # calcs to emiss_riparian
 
-    Ql_down = emiss_down * stephan_boltzmann * (tatm[0]**4)
+    Ql_down = emiss_down * stephan_boltzmann * (tatm[0] ** 4)
 
     lwr_ener_per_sqm = Ql_down * (1.0 - lwrefl) - Ql_up
 
@@ -523,8 +517,6 @@ def check_output(idx, test):
     fpth2 = os.path.join(test.workspace, gwename + ".sfe.obs.csv")
     assert os.path.isfile(fpth2)
     df2 = pd.read_csv(fpth2)
-
-    # confirm 1 deg C decrease in temp
 
     msg1 = "Python temperature change is = " + str(temp_change)
     msg2 = "MODFLOW temperature = " + str(df2.loc[0, "RCH1_OUTFTEMP"])

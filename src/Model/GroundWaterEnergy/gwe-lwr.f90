@@ -117,7 +117,7 @@ contains
     class(LwrType), intent(inout) :: this
     integer(I4B), intent(in) :: ifno !< stream reach integer id
     real(DP), intent(in) :: tstrm !< temperature of the stream reach
-    real(DP), intent(in) :: tfac !< temperature units adjustment factor 
+    real(DP), intent(in) :: tfac !< temperature units adjustment factor
     real(DP), intent(in) :: toff !< temperature units offset
     real(DP), intent(inout) :: lwrflx !< calculated longwave radiation heat flux amount
     ! -- local
@@ -129,7 +129,8 @@ contains
     ! -- intermediate calculations
     !
     ! -- atmospheric emissivity (A.14)
-    emissa = this%epsa(this%ea(ifno), tfac * this%tatm(ifno) + toff, this%atmc(ifno))
+    emissa = this%epsa(this%ea(ifno), tfac * this%tatm(ifno) + toff, &
+                       this%atmc(ifno))
     !
     ! -- shade-altered above-channel emissivity [Eq. 3, Fogg et al. (2023)]
     emisss = this%epss(this%shd(ifno), emissa, this%emissr)
@@ -176,7 +177,7 @@ contains
     ! -- dummy
     class(LwrType) :: this
     real(DP) :: eps !< epsilon, representing either emissivity of the atmosphere, the shade-weighted emissivity of the atm, or emissivity of water
-    real(DP) :: temp !< will be temperature in Kelvin, representing either the temperature of the stream or the atmosphere in degree C
+    real(DP) :: temp !< represents either the temperature of the stream or the atmosphere in degree K
     ! -- return
     real(DP) :: lwr !< longwave radiation
     !

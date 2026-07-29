@@ -113,7 +113,7 @@ contains
     real(DP) :: evap
     !
     ! -- calculate latent heat of vaporization (water temperature dependent) Eq. A.16
-    l = 2499.64_DP - (2.51_DP * (tfac * tstrm + toff) - DCTOK) 
+    l = 2499.64_DP - (2.51_DP * ((tfac * tstrm + toff) - DCTOK))
     !
     ! -- mass-transfer method for calculating evap rate (A.17)
     evap = this%evap(this%wfint, this%wfslope, this%wspd(ifno), &
