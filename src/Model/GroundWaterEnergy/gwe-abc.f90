@@ -806,14 +806,16 @@ contains
     !
     ! -- calculate latent heat flux using Dalton-like mass transfer equation
     if (this%lhf_active) then
-      call this%lhf%lhf_cq(ifno, tstrm, this%gwecommon%gwerhow, this%dfac, this%tfac, this%toff, lhfflx)
+      call this%lhf%lhf_cq(ifno, tstrm, this%gwecommon%gwerhow, this%dfac, &
+                           this%tfac, this%toff, lhfflx)
     end if
     !
     ! -- calculate sensible heat flux using HGS equation
     if (this%shf_active .and. .not. this%lhf_active) then
       call this%shf%shf_cq(ifno, tstrm, this%tfac, this%toff, this%pfac, shfflx) ! default to HGS eqn method ("1")
     else if (this%shf_active .and. this%lhf_active) then
-      call this%shf%shf_cq(ifno, tstrm, this%tfac, this%toff, shfflx, lhfflx) ! use Bowen ratio method ("2")
+      call this%shf%shf_cq(ifno, tstrm, this%tfac, this%toff, this%pfac, &
+                           shfflx, lhfflx) ! use Bowen ratio method ("2")
     end if
     !
     if (present(obstype)) then
