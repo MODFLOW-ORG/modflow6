@@ -47,8 +47,10 @@ contains
     character(kind=c_char), intent(inout) :: name(BMI_LENCOMPONENTNAME)
     integer(kind=c_int) :: bmi_status !< BMI status code
     ! -- local variables
+    character(len=*), parameter :: component_name = 'MODFLOW 6'
 
-    name = string_to_char_array('MODFLOW 6', 9)
+    name(1:len(component_name) + 1) = &
+      string_to_char_array(component_name, len(component_name))
     bmi_status = BMI_SUCCESS
 
   end function bmi_get_component_name
