@@ -184,3 +184,8 @@ description = "The Skeletal Storage, Compaction, and Subsidence (CSUB) Package p
 section = "fixes"
 subsection = "advanced"
 description = "The Skeletal Storage, Compaction, and Subsidence (CSUB) Package terminated when the summed interbed thickness in a cell exceeded the cell thickness, even when the difference was a numerical-roundoff artifact of the input precision. When the excess is within a small fraction (1e-5) of the cell thickness, the interbed thicknesses in the cell are now proportionally scaled to fit and the simulation continues. A larger excess is still an error."
+
+[[items]]
+section = "fixes"
+subsection = "basic"
+description = "The BMI get\\_version, get\\_component\\_name, and get\\_grid\\_type functions assigned the converted C string to a character array longer than the string itself. The assignment is not conforming, which left the amount of the caller's buffer that is written up to the compiler. The assignments were corrected to write only the string and its null terminator."
