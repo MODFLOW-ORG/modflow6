@@ -139,7 +139,7 @@ type double precision
 reader urword
 optional true
 longname temperature adjustment factor
-description real value that is used to convert user-specified temperature units into degrees Kelvin, along with the temperature offset amount (TEMPERATURE\_OFFSET). The empirical equations used by the ABC utility require temperatures be in degrees Kelvin. Users can use temperature units of their own choosing, but if specified in units other than Kelvin, for example degrees Celcius or Fahrenheit, then the user must provide a temperature adjustment factor (TEMPERATURE\_FACTOR) and temperature offset (TEMPERATURE\_OFFSET, described below) for converting units. TEMPERATURE\_FACTOR should be set to 1.0 and 5/9 when using temperature units (TEMPERATURE\_UNITS) of Celcius or Fahrenheit in the simulation, respectively. TEMPERATURE\_FACTOR does not need to be specified if TEMPERATURE\_UNITS are Kelvin.
+description real value that is used to convert user-specified temperature units into degrees Kelvin, along with the temperature offset amount (TEMPERATURE\_OFFSET). The empirical equations used by the ABC utility require temperatures be in degrees Kelvin. Users can use temperature units of their own choosing, but if specified in units other than Kelvin, for example degrees Celsius or Fahrenheit, then the user must provide a temperature adjustment factor (TEMPERATURE\_FACTOR) and temperature offset (TEMPERATURE\_OFFSET, described below) for converting units. TEMPERATURE\_FACTOR should be set to 1.0 and 5/9 when using temperature units (TEMPERATURE\_UNITS) of Celsius or Fahrenheit in the simulation, respectively. TEMPERATURE\_FACTOR does not need to be specified if TEMPERATURE\_UNITS are Kelvin.
 default_value 1.0
 mf6internal tfac
 
@@ -149,7 +149,7 @@ type double precision
 reader urword
 optional true
 longname temperature offset amount
-description real value that is used to convert user-specified temperature units into degrees Kelvin, which the ABC utility empirical equations require.  If atmospheric temperature is specified in units other than Kelvin, for example degrees Celcius or Fahrenheit, then TEMPERATURE\_OFFSET should be set to 273.15 and 255.3722 when using temperature units (TEMPERATURE\_UNITS) of Celcius or Fahrenheit in the simulation, respectively. TEMPERATURE\_OFFSET does not need to be specified if TEMPERATURE\_UNITS are Kelvin.
+description real value that is used to convert user-specified temperature units into degrees Kelvin, which the ABC utility empirical equations require.  If atmospheric temperature is specified in units other than Kelvin, for example degrees Celsius or Fahrenheit, then TEMPERATURE\_OFFSET should be set to 273.15 and 255.3722 when using temperature units (TEMPERATURE\_UNITS) of Celsius or Fahrenheit in the simulation, respectively. TEMPERATURE\_OFFSET does not need to be specified if TEMPERATURE\_UNITS are Kelvin.
 default_value 0.0
 mf6internal toff
 
