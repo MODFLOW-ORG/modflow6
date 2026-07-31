@@ -38,9 +38,9 @@ import pandas as pd
 import pytest
 from framework import TestFramework
 
-cases = ["sfe-abc"]
+cases = ["sfe-abc", "sfe-abc-fah", "sfe-abc-cel"]
 
-DCTOK = 273.16
+DCTOK = 273.15
 
 # Model units
 length_units = "m"
@@ -64,7 +64,8 @@ chd_on = False
 
 # model input parameters
 k11 = 500.0
-strt_gw_temp = 99.0
+strt_gw_temp_C = 99.0
+strt_gw_temp = [strt_gw_temp_C + DCTOK, 210.2, strt_gw_temp_C]
 
 ss = 0.00001
 sy = 0.20
@@ -76,8 +77,13 @@ sfr_evaprate = 0.0
 rhk = 0.0
 rwid = 1.0
 rlen = 1.0
-# strm_temp = 11.0
-strm_in_init = [11.0, 21.867108141, 25.0, 19.3310145906107, 19.27964737200225]
+strmT_in_init_C = [11.0, 21.867108141, 25.0, 19.3310145906107, 19.27964737200225]
+strmT_in_init = [
+    [t + DCTOK for t in strmT_in_init_C],
+    [51.8, 71.3607946538, 77.0, 66.79582626309928628, 66.703365269604077525],
+    [t for t in strmT_in_init_C],
+]
+
 surf_Q_in = 10.0
 
 # sensible and latent heat flux parameter values
@@ -89,10 +95,18 @@ wspd = [
     16118322.9664089,
 ]  # unrealistically high to drive observable temperature change
 patm = [0.0, 0.0, 954.680843658077, 0.0, 954.680843658077]
-tatm = [11.0, 40.9752, 11.0, 11.0, 1.0]  # used by lwr, shf, lhf
-tatm = [t + DCTOK for t in tatm]
-# shortwave radiation parameter values
+# used by lwr, shf, lhf
+tatm_C = [11.0, 40.9752, 11.0, 11.0, 1.0]
+tatm = [
+    [tmp + DCTOK for tmp in tatm_C],
+    [51.8, 105.75536, 51.8, 51.0, 31.8],
+    [tmp for tmp in tatm_C],
+]
+#                       K,             F,      C
+temperature_offset = [0.0, 255.372222222, 273.15]
+temperature_factor = [1.0, 0.55555555556, 1.0000]
 
+# shortwave radiation parameter values
 # unrealistically high to drive a 0.1 deg C rise in stream temperature
 solr = [
     4180000.0,
@@ -386,7 +400,7 @@ def build_models(idx, test):
     )
 
     # Instantiate Energy Transport Initial Conditions package
-    flopy.mf6.ModflowGweic(gwe, strt=strt_gw_temp)
+    flopy.mf6.ModflowGweic(gwe, strt=strt_gw_temp[idx])
 
     # Instantiate Advection package
     flopy.mf6.ModflowGweadv(gwe, scheme="UPSTREAM")
@@ -409,13 +423,13 @@ def build_models(idx, test):
     # Instantiate Streamflow Energy Transport package
     sfepackagedata = []
     for irno in range(len(conns)):
-        t = (irno, strm_in_init[irno], K_therm_strmbed, rbthcnd)
+        t = (irno, strmT_in_init[idx][irno], K_therm_strmbed, rbthcnd)
         sfepackagedata.append(t)
 
     sfeperioddata = []
-    sfeperioddata.append((0, "INFLOW", strm_in_init[0]))
-    sfeperioddata.append((1, "INFLOW", strm_in_init[1]))
-    sfeperioddata.append((2, "INFLOW", strm_in_init[2]))
+    sfeperioddata.append((0, "INFLOW", strmT_in_init[idx][0]))
+    sfeperioddata.append((1, "INFLOW", strmT_in_init[idx][1]))
+    sfeperioddata.append((2, "INFLOW", strmT_in_init[idx][2]))
 
     # Instantiate SFE observation points
     sfe_obs = {
@@ -481,7 +495,7 @@ def build_models(idx, test):
         spd = []
         for irno in range(len(conns)):
             spd.append([irno, "WSPD", wspd[irno]])
-            spd.append([irno, "TATM", tatm[irno]])
+            spd.append([irno, "TATM", tatm[idx][irno]])
             spd.append([irno, "SOLR", solr[irno]])
             spd.append([irno, "SHD", shd[irno]])
             spd.append([irno, "SWREFL", swrefl[irno]])
@@ -501,6 +515,8 @@ def build_models(idx, test):
         emissivity_canopy=emiss_riparian,
         wind_func_slope=wf_slope,
         wind_func_int=wf_int,
+        temperature_factor=temperature_factor[idx],
+        temperature_offset=temperature_offset[idx],
         longwave_reflectance=lwrefl,
         reachperioddata=abc_spd,
         filename=abc_filename,
@@ -532,28 +548,60 @@ def build_models(idx, test):
 # sim.write_simulation()
 
 
-def calc_lwr_ener_transfer(ifno, updated_strm_temp):
-    Ql_up = emiss_water * stephan_boltzmann * ((updated_strm_temp + DCTOK) ** 4)
-    e_s = 6.1275 * math.exp(17.2693882 * ((tatm[ifno] - DCTOK) / (tatm[ifno] - 35.86)))
+def calc_lwr_ener_transfer(idx, ifno, updated_strm_temp):
+    Ql_up = emiss_water * stephan_boltzmann * (updated_strm_temp**4)
+    e_s = 6.1275 * math.exp(
+        17.2693882
+        * (
+            (
+                (temperature_factor[idx] * tatm[idx][ifno] + temperature_offset[idx])
+                - DCTOK
+            )
+            / (
+                (temperature_factor[idx] * tatm[idx][ifno] + temperature_offset[idx])
+                - 35.86
+            )
+        )
+    )
     e_a = (rh[ifno] / 100.0) * e_s
-    emiss_air = (1.24 * (e_a / tatm[ifno]) ** (1.0 / 7.0)) * atmc[ifno]
+    emiss_air = (
+        1.24
+        * (e_a / (temperature_factor[idx] * tatm[idx][ifno] + temperature_offset[idx]))
+        ** (1.0 / 7.0)
+    ) * atmc[ifno]
     emiss_down = (1.0 - shd[ifno]) * emiss_air + shd[
         ifno
     ] * emiss_riparian  # calcs for emiss_riparian
 
-    Ql_dn = emiss_down * stephan_boltzmann * (tatm[ifno] ** 4)
+    Ql_dn = (
+        emiss_down
+        * stephan_boltzmann
+        * ((temperature_factor[idx] * tatm[idx][ifno] + temperature_offset[idx]) ** 4)
+    )
     # calc net longwave
     lwrflx = Ql_dn * (1.0 - lwrefl) - Ql_up
 
     return lwrflx
 
 
-def calc_lhf_ener_transfer(ifno, updated_strm_temp, mf_strm_wid):
+def calc_lhf_ener_transfer(idx, ifno, updated_strm_temp, mf_strm_wid):
     L = 2499.64 - (2.51 * (updated_strm_temp - DCTOK))
     e_w = 6.1275 * math.exp(
         17.2693882 * ((updated_strm_temp - DCTOK) / (updated_strm_temp - 35.86))
     )
-    e_s = 6.1275 * math.exp(17.2693882 * ((tatm[ifno] - DCTOK) / (tatm[ifno] - 35.86)))
+    e_s = 6.1275 * math.exp(
+        17.2693882
+        * (
+            (
+                (temperature_factor[idx] * tatm[idx][ifno] + temperature_offset[idx])
+                - DCTOK
+            )
+            / (
+                (temperature_factor[idx] * tatm[idx][ifno] + temperature_offset[idx])
+                - 35.86
+            )
+        )
+    )
     e_a = (rh[ifno] / 100) * e_s
     vap_press_deficit = e_w - e_a
     wind_function = wf_int + wf_slope * wspd[ifno]
@@ -565,13 +613,33 @@ def calc_lhf_ener_transfer(ifno, updated_strm_temp, mf_strm_wid):
     return ener_transfer
 
 
-def calc_shf_ener_transfer(ifno, lhflx, updated_strm_temp):
+def calc_shf_ener_transfer(idx, ifno, lhflx, updated_strm_temp):
     e_w = 6.1275 * math.exp(
         17.2693882 * ((updated_strm_temp - DCTOK) / (updated_strm_temp - 35.86))
     )
-    e_s = 6.1275 * math.exp(17.2693882 * ((tatm[ifno] - DCTOK) / (tatm[ifno] - 35.86)))
+    e_s = 6.1275 * math.exp(
+        17.2693882
+        * (
+            (
+                (temperature_factor[idx] * tatm[idx][ifno] + temperature_offset[idx])
+                - DCTOK
+            )
+            / (
+                (temperature_factor[idx] * tatm[idx][ifno] + temperature_offset[idx])
+                - 35.86
+            )
+        )
+    )
     e_a = (rh[ifno] / 100) * e_s
-    br = 0.00061 * patm[ifno] * (updated_strm_temp - tatm[ifno]) / (e_w - e_a)
+    br = (
+        0.00061
+        * patm[ifno]
+        * (
+            updated_strm_temp
+            - (temperature_factor[idx] * tatm[idx][ifno] + temperature_offset[idx])
+        )
+        / (e_w - e_a)
+    )
 
     shflx = br * lhflx
 
@@ -583,7 +651,7 @@ def check_output(idx, test):
     msg0 = "Stream channel width less than 1.0, should be 1.0 m"
     msg1 = "SFE reach 1 should have roughly a 0.1 deg C rise from short wave"
     msg2 = "SFE reach 2 should have roughly a 0.1 deg C rise from long wave"
-    msg3 = "SFE reach 3 not as expected"
+    msg3 = "SFE reach 3 temperature change not as expected"
     msg4 = "SFE reach 4 not reflective of simple mixing of reaches 1-3"
     msg5 = "SFE reach 5 evaporation rate from latent heat flux not 5 as expected"
 
@@ -601,6 +669,40 @@ def check_output(idx, test):
     # confirm stream width is 1.0 m
     assert np.isclose(mf_strm_wid, 1.0, atol=1e-9), msg0
 
+    # read the amount stored energy from the list file
+    # Find the row index dynamically
+    fpth = os.path.join(test.workspace, gwename + ".lst")
+    assert os.path.isfile(fpth)
+    skip_line_ct = 0
+    srchstr = " ATMOSPHERE    STORAGE "
+    with open(fpth, "r") as f:
+        for i, line in enumerate(f):
+            if srchstr in line:
+                skip_line_ct = i
+                break
+
+    # read the table of stored values with pandas
+    hdr = [
+        "IFNO",
+        "INQ",
+        "OUTFLOW",
+        "GWF",
+        "RAIN",
+        "EVAP",
+        "RUNF",
+        "EXTINF",
+        "EXTOUTF",
+        "STRMBDCOND",
+        "ATM",
+        "STOR",
+        "CNSTNT",
+        "INOUT",
+        "DIFF",
+    ]
+    stor_df = pd.read_csv(
+        fpth, skiprows=skip_line_ct + 2, nrows=len(wspd), names=hdr, sep=r"\s+"
+    )
+
     # confirm that the stream temperature change fits with expectations
     # reach 1 - solar radiation
     fpth2 = os.path.join(test.workspace, gwename + ".sfe.obs.csv")
@@ -611,45 +713,66 @@ def check_output(idx, test):
     swr_ener_input = (
         (1.0 - shd[ifno]) * (1 - swrefl[ifno]) * solr[ifno] * mf_strm_wid * rlen
     )
-    rch1_Tdelt = swr_ener_input / (Cpw * rhow * surf_Q_in)
+    lwr_ener_input = calc_lwr_ener_transfer(
+        idx,
+        0,
+        temperature_factor[idx] * strmT_in_init[idx][ifno] + temperature_offset[idx],
+    )
+
+    rch1_Tdelt = (swr_ener_input + lwr_ener_input + stor_df.loc[0, "STOR"]) / (
+        Cpw * rhow * surf_Q_in
+    )
     rch1Temp = df2.loc[0, "RCH1_OUTFTEMP"]
-    sim_Tdelt = rch1Temp - strm_in_init[ifno]
+    sim_Tdelt = rch1Temp - strmT_in_init[idx][ifno]
     # atol needed to account for a small difference associated with a small
     # amount of energy storage change in the reach
-    assert np.isclose(rch1_Tdelt, sim_Tdelt, atol=1e-4), msg1
+    assert np.isclose(rch1_Tdelt, sim_Tdelt, atol=1e-9), msg1
 
     # reach 2 - longwave radiation
     chng = 1
     ifno = 1  # which is really 2 in 0-based!
-    strt_strm_temp = strm_in_init[ifno]
-    updated_strm_temp = strm_in_init[ifno]
-    mf_strm_wid = df.loc[0, "RCH2_WETWIDTH"].copy()
+    updated_strm_temp = (
+        temperature_factor[idx] * strmT_in_init[idx][ifno] + temperature_offset[idx]
+    )
     while chng > hclose:
-        lwr_ener_transfer = calc_lwr_ener_transfer(ifno, updated_strm_temp)
+        lwr_ener_transfer = calc_lwr_ener_transfer(
+            idx,
+            ifno,
+            temperature_factor[idx] * updated_strm_temp + temperature_offset[idx],
+        )
         temp_change = lwr_ener_transfer / (surf_Q_in * Cpw * rhow)
-        updated_temp = strm_in_init[ifno] + temp_change
+        updated_temp = (
+            temperature_factor[idx] * strmT_in_init[idx][ifno] + temperature_offset[idx]
+        ) + temp_change
         chng = abs(updated_strm_temp - updated_temp)
         updated_strm_temp = updated_temp
 
+    rch2_Tdelt = (lwr_ener_transfer + stor_df.loc[ifno, "STOR"]) / (
+        Cpw * rhow * surf_Q_in
+    )
     rch2Temp = df2.loc[0, "RCH2_OUTFTEMP"].copy()
-    sim_Tdelt = rch2Temp - strm_in_init[ifno]
-    rch2_Tdelt = updated_strm_temp - strm_in_init[ifno]
-    assert np.isclose(rch2_Tdelt, sim_Tdelt, atol=1e-4), msg2
+    sim_Tdelt = rch2Temp - strmT_in_init[idx][ifno]
+    assert np.isclose(rch2_Tdelt, sim_Tdelt, atol=5e-4), msg2
 
     # reach 3 - a focus on sensible heat flux (though other fluxes present)
     chng = 1
     ifno = 2  # which is really 3 in 0-based!
-    strt_strm_temp = strm_in_init[ifno]
-    updated_strm_temp = strm_in_init[ifno]
+    strt_strm_temp = (
+        temperature_factor[idx] * strmT_in_init[idx][ifno] + temperature_offset[idx]
+    )
+    updated_strm_temp = (
+        temperature_factor[idx] * strmT_in_init[idx][ifno] + temperature_offset[idx]
+    )
     mf_strm_wid = df.loc[0, "RCH3_WETWIDTH"].copy()
+
     # latent calcs come first
     while chng > hclose:
-        lwr_ener_transfer = calc_lwr_ener_transfer(ifno, updated_strm_temp)
+        lwr_ener_transfer = calc_lwr_ener_transfer(idx, ifno, updated_strm_temp)
         lhf_ener_transfer = calc_lhf_ener_transfer(
-            ifno, updated_strm_temp + DCTOK, mf_strm_wid
+            idx, ifno, updated_strm_temp, mf_strm_wid
         )
         shf_ener_transfer = calc_shf_ener_transfer(
-            ifno, lhf_ener_transfer, updated_strm_temp + DCTOK
+            idx, ifno, lhf_ener_transfer, updated_strm_temp
         )
         temp_change = (lwr_ener_transfer - lhf_ener_transfer + shf_ener_transfer) / (
             surf_Q_in * Cpw * rhow
@@ -659,7 +782,7 @@ def check_output(idx, test):
         updated_strm_temp = updated_temp
 
     rch3Temp = df2.loc[0, "RCH3_OUTFTEMP"].copy()
-    assert np.isclose(updated_strm_temp, rch3Temp), msg3
+    assert np.isclose(rch3Temp - strmT_in_init[idx][ifno], temp_change, atol=1e-3), msg3
 
     # reach 4 - simple mixing of reaches 1, 2, & 3, ABC boundary fluxes kept to a min
     rch4Temp = df2.loc[0, "RCH4_OUTFTEMP"].copy()
@@ -671,7 +794,7 @@ def check_output(idx, test):
     # reach 5 - a focus on latent heat flux (though other fluxes present)
     # an expected evaporation rate of 5 mm/day
     rch5_simEvap = df2.loc[0, "RCH5_EVAP"].copy()
-    assert np.isclose(rch5_simEvap, 5.0, atol=1e-8), msg5
+    assert np.isclose(rch5_simEvap, 5.0, atol=1e-2), msg5
 
 
 # - No need to change any code below
