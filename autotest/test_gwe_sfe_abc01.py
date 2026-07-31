@@ -30,7 +30,7 @@ from framework import TestFramework
 
 cases = ["sfe-abc-fail"]
 
-DCTOK = 273.16
+DCTOK = 273.15
 
 # Model units
 length_units = "m"
@@ -72,10 +72,13 @@ surf_Q_in = 10.0
 # sensible and latent heat flux parameter values
 wspd = 1.0
 patm = 954.0
-tatm = 20.0
-tatmK = tatm + DCTOK
-# shortwave radiation parameter values
+tatm_C = 20.0
+tatm = [tatm_C + DCTOK]
+#                       K,             F,      C
+temperature_offset = [0.0]
+temperature_factor = [1.0]
 
+# shortwave radiation parameter values
 # unrealistically high to drive a 0.1 deg C rise in stream temperature
 solr = 4180000.0
 shd = 0.20
@@ -430,7 +433,7 @@ def build_models(idx, test):
         spd = []
         for irno in range(len(conns)):
             spd.append([irno, "WSPD", wspd])
-            spd.append([irno, "TATM", tatm])
+            spd.append([irno, "TATM", tatm[idx]])
             spd.append([irno, "SOLR", solr])
             spd.append([irno, "SHD", shd])
             spd.append([irno, "SWREFL", swrefl])
@@ -450,6 +453,8 @@ def build_models(idx, test):
         emissivity_canopy=emiss_riparian,
         wind_func_slope=wf_slope,
         wind_func_int=wf_int,
+        temperature_factor=temperature_factor[idx],
+        temperature_offset=temperature_offset[idx],
         longwave_reflectance=lwrefl,
         reachperioddata=abc_spd,
         filename=abc_filename,
@@ -475,6 +480,10 @@ def build_models(idx, test):
     )
 
     return sim, None
+
+
+# As described in the header, the "test" for this autotest is that it fails,
+# which means the autotest will pass
 
 
 # - No need to change any code below
