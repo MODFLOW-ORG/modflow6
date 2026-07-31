@@ -1,6 +1,6 @@
 # Test the use of the atmospheric boundary condition utility used in conjunction
 # with the SFE advanced package.  This test is focused on the use of time series
-# in setting up ABC input.  There is no "check_output" routine, the test is 
+# as ABC input.  There is no "check_output" routine, the test is
 # simply that the time series input is read in and the model runs to completion.
 
 
@@ -11,7 +11,7 @@ from framework import TestFramework
 
 cases = ["sfe-abc-ts"]
 
-DCTOK = 273.16
+DCTOK = 273.15
 
 # Model units
 length_units = "m"
@@ -51,6 +51,8 @@ rhk = 0.0
 rwid = 1.0
 strm_temp = 11.0
 surf_Q_in = 10.0
+temperature_offset = 273.15
+temperature_factor = 1.0
 # ABC parameter values
 # wind speed
 wspd = np.random.uniform(0.5, 5.0, size=[5, 5])
@@ -61,12 +63,13 @@ for t in range(len(nstp) + 1):
 
 # atmospheric temperature
 tatm = np.random.uniform(10.0, 15.0, size=[5, 5])
-tatmK = tatm + DCTOK
+# tatmK = tatm + DCTOK
 tatm_cols = ["tatm_rch1", "tatm_rch2", "tatm_rch3", "tatm_rch4", "tatm_rch5"]
 tatm_data = []
 for t in range(len(nstp) + 1):
     tatm_data.append(
-        (t, tatmK[t, 0], tatmK[t, 1], tatmK[t, 2], tatmK[t, 3], tatmK[t, 4])
+        # (t, tatmK[t, 0], tatmK[t, 1], tatmK[t, 2], tatmK[t, 3], tatmK[t, 4])
+        (t, tatm[t, 0], tatm[t, 1], tatm[t, 2], tatm[t, 3], tatm[t, 4])
     )
 
 # shortwave radiation parameter values
@@ -227,8 +230,7 @@ def build_models(idx, test):
     roughness = 0.03
     rbth = 0.1
     strmbd_hk = rhk
-    strm_up = [up for up in np.arange(0.95, 0.91, -0.01)]
-    strm_dn = [dwn for dwn in np.arange(0.94, 0.90, -0.01)]
+
     # divide by 10 to further reduce slop
     slope = 0.001
     ustrf = 1.0
@@ -358,7 +360,7 @@ def build_models(idx, test):
     # Instantiate Advection package
     flopy.mf6.ModflowGweadv(gwe, scheme="UPSTREAM")
 
-    # Instantiate Conduction package 
+    # Instantiate Conduction package
     flopy.mf6.ModflowGwecnd(
         gwe,
         xt3d_off=True,
@@ -456,6 +458,8 @@ def build_models(idx, test):
         wind_func_slope=wf_slope,
         wind_func_int=wf_int,
         reachperioddata=abc_spd,
+        temperature_factor=temperature_factor,
+        temperature_offset=temperature_offset,
         filename=abc_filename,
     )
 
