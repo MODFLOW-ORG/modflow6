@@ -36,6 +36,11 @@ description = "For the Well (WEL) Package, when AUTO\\_FLOW\\_REDUCE is active a
 
 [[items]]
 section = "fixes"
+subsection = "stress"
+description = "Errors detected while reading the OPTIONS block of the Drain (DRN) and Well (WEL) Packages, such as an AUXDEPTHNAME or AUTO\\_FLOW\\_REDUCE\\_AUXNAME that names an auxiliary variable that does not exist, were reported for the input file of the next package read rather than for the file that contained the error. These errors are now reported for the DRN or WEL input file."
+
+[[items]]
+section = "fixes"
 subsection = "internal"
 description = "Resolved mass-balance errors in the Central and UTVD numerical schemes caused by inconsistent interpretation of cell-to-interface distances (cl1/cl2)."
 

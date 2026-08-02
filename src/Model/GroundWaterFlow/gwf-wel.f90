@@ -18,7 +18,8 @@ module WelModule
   use ConstantsModule, only: DZERO, DEM1, DONE, LENFTYPE, DNODATA, LINELENGTH, &
                              LENAUXNAME
   use SimVariablesModule, only: errmsg, warnmsg
-  use SimModule, only: store_error, store_error_filename, store_warning
+  use SimModule, only: count_errors, store_error, store_error_filename, &
+                       store_warning
   use MemoryHelperModule, only: create_mem_path
   use BndModule, only: BndType
   use BndExtModule, only: BndExtType
@@ -297,6 +298,11 @@ contains
 
     ! -- log WEL specific options
     call this%log_wel_options(found)
+    !
+    ! -- terminate if errors were detected
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
   end subroutine wel_options
 
   !> @ brief Log WEL specific package options
