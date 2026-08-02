@@ -184,29 +184,47 @@ contains
   !! matrix-vector product.
   !<
   subroutine ims_amg_summary(amg, iout, sthresh)
+    ! -- modules
+    use ConstantsModule, only: TABCENTER, TABRIGHT
+    use TableModule, only: TableType, table_cr
+    ! -- dummy
     type(ImsAmgDataType), intent(in) :: amg !< AMG preconditioner
     integer(I4B), intent(in) :: iout !< listing file unit
     real(DP), intent(in) :: sthresh !< strength-of-connection threshold
     ! -- local
+    type(TableType), pointer :: tbl => null()
+    character(len=LINELENGTH) :: tag
     integer(I4B) :: l
     integer(I4B) :: neq_tot, nja_tot
     real(DP) :: ratio, fsingle, fweak
     ! -- formats
-02010 format(/, 7x, 'AMG HIERARCHY', /, 1x, 88('-'), /, &
-            ' LEVEL', 6x, 'ROWS', 8x, 'NONZEROS', 3x, 'NNZ/ROW', 6x, &
-            'THETA', 4x, 'COARSENING', 4x, 'SINGLETON', 5x, 'WEAK', /, &
-            62x, 'RATIO', 9x, 'PCT', 8x, 'PCT', /, 1x, 88('-'))
-02020 format(1x, I4, 2x, I11, 2x, I13, 2x, F8.2, 2x, F9.4, 2x, F11.3, 2x, &
-           F10.1, 2x, F9.1)
-02030 format(1x, 88('-'), /, &
-           ' GRID COMPLEXITY (sum rows / fine rows)         =', F10.3, /, &
-           ' OPERATOR COMPLEXITY (sum nonzeros / fine nnz)  =', F10.3, /, &
-           ' STRENGTH THRESHOLD (finest level)              =', E15.5, //)
+02010 format(/, ' GRID COMPLEXITY (sum rows / fine rows)         =', F10.3, /, &
+            ' OPERATOR COMPLEXITY (sum nonzeros / fine nnz)  =', F10.3, /, &
+            ' STRENGTH THRESHOLD (finest level)              =', E15.5, //)
 
     if (iout <= 0) return
     if (amg%nlevels <= 0 .or. .not. allocated(amg%levels)) return
 
-    write (iout, 2010)
+    tag = 'AMG HIERARCHY'
+    call table_cr(tbl, 'AMG', tag)
+    call tbl%table_df(amg%nlevels, 8, iout)
+    tag = 'LEVEL'
+    call tbl%initialize_column(tag, 7, alignment=TABCENTER)
+    tag = 'ROWS'
+    call tbl%initialize_column(tag, 12, alignment=TABRIGHT)
+    tag = 'NONZEROS'
+    call tbl%initialize_column(tag, 14, alignment=TABRIGHT)
+    tag = 'NONZEROS PER ROW'
+    call tbl%initialize_column(tag, 12, alignment=TABRIGHT)
+    tag = 'STRENGTH THRESHOLD'
+    call tbl%initialize_column(tag, 12, alignment=TABRIGHT)
+    tag = 'COARSENING RATIO'
+    call tbl%initialize_column(tag, 12, alignment=TABRIGHT)
+    tag = 'SINGLETON AGGREGATES, IN PERCENT'
+    call tbl%initialize_column(tag, 12, alignment=TABRIGHT)
+    tag = 'WEAK CONNECTIONS, IN PERCENT'
+    call tbl%initialize_column(tag, 12, alignment=TABRIGHT)
+
     neq_tot = 0
     nja_tot = 0
     do l = 0, amg%nlevels - 1
@@ -228,11 +246,21 @@ contains
       else
         fweak = DZERO
       end if
-      write (iout, 2020) l, amg%levels(l)%neq, amg%levels(l)%nja, &
-        real(amg%levels(l)%nja, DP) / real(max(1, amg%levels(l)%neq), DP), &
-        amg%levels(l)%sthresh, ratio, fsingle, fweak
+      call tbl%add_term(l)
+      call tbl%add_term(amg%levels(l)%neq)
+      call tbl%add_term(amg%levels(l)%nja)
+      call tbl%add_term(real(amg%levels(l)%nja, DP) / &
+                        real(max(1, amg%levels(l)%neq), DP))
+      call tbl%add_term(amg%levels(l)%sthresh)
+      call tbl%add_term(ratio)
+      call tbl%add_term(fsingle)
+      call tbl%add_term(fweak)
     end do
-    write (iout, 2030) &
+    call tbl%table_da()
+    deallocate (tbl)
+    nullify (tbl)
+
+    write (iout, 2010) &
       real(neq_tot, DP) / real(max(1, amg%levels(0)%neq), DP), &
       real(nja_tot, DP) / real(max(1, amg%levels(0)%nja), DP), &
       sthresh
