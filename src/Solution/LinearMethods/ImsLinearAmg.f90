@@ -5,7 +5,7 @@
 !<
 module ImsLinearAmgModule
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, DHALF, DONE, DEP20, LINELENGTH
+  use ConstantsModule, only: DZERO, DHALF, DONE, DHUNDRED, DEP20, LINELENGTH
   use SimModule, only: store_error
   use IMSLinearMisc, only: ims_base_pccrs, ims_base_pcilu0, ims_base_ilu0a
   use ImsLinearSettingsModule, only: SMOOTHER_ILU0, SMOOTHER_ILU0_ALL
@@ -15,10 +15,18 @@ module ImsLinearAmgModule
   private
 
   public :: ImsAmgDataType, ims_amg_setup, ims_amg_apply, &
-            ims_amg_da, ims_amg_update
+            ims_amg_da, ims_amg_update, ims_amg_summary
 
   !> number of smoother sweeps used for the approximate coarsest-level solve
   integer(I4B), parameter :: COARSE_SOLVE_ITERS = 50
+
+  !> per-level decay applied to the strength threshold
+  !!
+  !! Galerkin coarsening densifies the operator, so a fixed threshold measured
+  !! against the largest entry in a row rejects a growing share of connections
+  !! and stalls the coarsening. Relaxing the threshold as levels coarsen keeps
+  !! the aggregation productive.
+  real(DP), parameter :: STHRESH_DECAY = DHALF
 
   !> @brief Storage for one level in the AMG hierarchy
   !<
@@ -38,6 +46,11 @@ module ImsLinearAmgModule
     integer(I4B), allocatable :: japc(:) !< ILU0 CSR column pointers (size nja)
     real(DP), allocatable :: apc(:) !< ILU0 factorization values (size nja)
     real(DP), allocatable :: work(:) !< smoother work vector (size neq)
+    ! aggregation diagnostics (set by build_aggregation)
+    real(DP) :: sthresh = DZERO !< strength threshold applied at this level
+    integer(I4B) :: nsingle = 0 !< aggregates holding one cell
+    integer(I4B) :: ncand = 0 !< unaggregated neighbours considered
+    integer(I4B) :: nweak = 0 !< candidates rejected by the strength threshold
     ! per-level profiler handle/title (used only under PROFILE_OPTION DETAIL)
     integer(I4B) :: itmr_smooth = -1 !< "AMG smooth L<n>" timer handle
     character(len=LEN_SECTION_TITLE) :: tmr_title = "" !< section title for this level
@@ -132,7 +145,7 @@ contains
 
     do l = 0, nlevs - 2
       if (amg%levels(l)%neq <= 2) exit
-      call build_aggregation(amg%levels(l), sthresh)
+      call build_aggregation(amg%levels(l), sthresh * STHRESH_DECAY**l)
       nc = amg%levels(l)%nc
       if (nc <= 1) exit
       call build_coarse_matrix(amg%levels(l), amg%levels(l + 1))
@@ -162,6 +175,69 @@ contains
     end if
 
   end subroutine ims_amg_setup
+
+  !> @brief Write the AMG hierarchy to the listing file
+  !!
+  !! Reports per-level size and coarsening statistics along with the grid and
+  !! operator complexities, which together indicate whether the aggregation is
+  !! coarsening effectively and what one cycle costs relative to one fine-level
+  !! matrix-vector product.
+  !<
+  subroutine ims_amg_summary(amg, iout, sthresh)
+    type(ImsAmgDataType), intent(in) :: amg !< AMG preconditioner
+    integer(I4B), intent(in) :: iout !< listing file unit
+    real(DP), intent(in) :: sthresh !< strength-of-connection threshold
+    ! -- local
+    integer(I4B) :: l
+    integer(I4B) :: neq_tot, nja_tot
+    real(DP) :: ratio, fsingle, fweak
+    ! -- formats
+02010 format(/, 7x, 'AMG HIERARCHY', /, 1x, 88('-'), /, &
+            ' LEVEL', 6x, 'ROWS', 8x, 'NONZEROS', 3x, 'NNZ/ROW', 6x, &
+            'THETA', 4x, 'COARSENING', 4x, 'SINGLETON', 5x, 'WEAK', /, &
+            62x, 'RATIO', 9x, 'PCT', 8x, 'PCT', /, 1x, 88('-'))
+02020 format(1x, I4, 2x, I11, 2x, I13, 2x, F8.2, 2x, F9.4, 2x, F11.3, 2x, &
+           F10.1, 2x, F9.1)
+02030 format(1x, 88('-'), /, &
+           ' GRID COMPLEXITY (sum rows / fine rows)         =', F10.3, /, &
+           ' OPERATOR COMPLEXITY (sum nonzeros / fine nnz)  =', F10.3, /, &
+           ' STRENGTH THRESHOLD (finest level)              =', E15.5, //)
+
+    if (iout <= 0) return
+    if (amg%nlevels <= 0 .or. .not. allocated(amg%levels)) return
+
+    write (iout, 2010)
+    neq_tot = 0
+    nja_tot = 0
+    do l = 0, amg%nlevels - 1
+      neq_tot = neq_tot + amg%levels(l)%neq
+      nja_tot = nja_tot + amg%levels(l)%nja
+      ! coarsening ratio and diagnostics are undefined on the coarsest level,
+      ! which is solved rather than aggregated
+      if (l < amg%nlevels - 1 .and. amg%levels(l)%nc > 0) then
+        ratio = real(amg%levels(l)%neq, DP) / real(amg%levels(l)%nc, DP)
+        fsingle = DHUNDRED * real(amg%levels(l)%nsingle, DP) / &
+                  real(amg%levels(l)%nc, DP)
+      else
+        ratio = DZERO
+        fsingle = DZERO
+      end if
+      if (amg%levels(l)%ncand > 0) then
+        fweak = DHUNDRED * real(amg%levels(l)%nweak, DP) / &
+                real(amg%levels(l)%ncand, DP)
+      else
+        fweak = DZERO
+      end if
+      write (iout, 2020) l, amg%levels(l)%neq, amg%levels(l)%nja, &
+        real(amg%levels(l)%nja, DP) / real(max(1, amg%levels(l)%neq), DP), &
+        amg%levels(l)%sthresh, ratio, fsingle, fweak
+    end do
+    write (iout, 2030) &
+      real(neq_tot, DP) / real(max(1, amg%levels(0)%neq), DP), &
+      real(nja_tot, DP) / real(max(1, amg%levels(0)%nja), DP), &
+      sthresh
+
+  end subroutine ims_amg_summary
 
   !> @brief Apply the AMG preconditioner: z = M^{-1} r
   !! (plain subroutine interface)
@@ -536,11 +612,13 @@ contains
       lev%agg(i) = 0
     end do
     nc = 0
+    lev%sthresh = sthresh
+    lev%nsingle = 0
+    lev%ncand = 0
+    lev%nweak = 0
 
     do i = 1, lev%neq
       if (lev%agg(i) /= 0) cycle
-      nc = nc + 1
-      lev%agg(i) = nc
       maxoff_i = DZERO
       i0 = lev%ia(i)
       i1 = lev%ia(i + 1) - 1
@@ -577,14 +655,22 @@ contains
           end if
         end do
         str = DHALF * (abs(lev%a(k)) + str_ji)
-        if (sthresh > DZERO .and. str < sthresh * maxoff_i) cycle
+        lev%ncand = lev%ncand + 1
+        if (sthresh > DZERO .and. str < sthresh * maxoff_i) then
+          lev%nweak = lev%nweak + 1
+          cycle
+        end if
         if (str > best_str) then
           best_j = j
           best_str = str
         end if
       end do
+      nc = nc + 1
+      lev%agg(i) = nc
       if (best_j > 0) then
         lev%agg(best_j) = nc
+      else
+        lev%nsingle = lev%nsingle + 1
       end if
     end do
 
@@ -829,7 +915,8 @@ contains
     end do
 
     ! Approximate solve on the coarsest level
- call g_prof%start(levels(nlevels - 1)%tmr_title, levels(nlevels - 1)%itmr_smooth)
+    call g_prof%start(levels(nlevels - 1)%tmr_title, &
+                      levels(nlevels - 1)%itmr_smooth)
     call smooth_down(levels(nlevels - 1), COARSE_SOLVE_ITERS)
     call g_prof%stop(levels(nlevels - 1)%itmr_smooth)
 
