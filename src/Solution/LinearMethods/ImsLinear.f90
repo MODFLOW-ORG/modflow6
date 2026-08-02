@@ -16,7 +16,8 @@ module IMSLinearModule
   use MatrixBaseModule
   use ConvergenceSummaryModule
   use ImsLinearSettingsModule
-  use ImsLinearAmgModule, only: ImsAmgDataType, ims_amg_setup, ims_amg_da
+  use ImsLinearAmgModule, only: ImsAmgDataType, ims_amg_setup, ims_amg_da, &
+                                ims_amg_summary
   use ProfilerModule, only: g_prof
 
   implicit none
@@ -741,6 +742,7 @@ contains
     integer(I4B) :: innerit
     integer(I4B) :: irc
     integer(I4B) :: itmax
+    integer(I4B) :: nlev_prev
     real(DP) :: dnrm2
     !
     ! -- set epfact based on timestep
@@ -773,10 +775,16 @@ contains
     ! -- UPDATE PRECONDITIONER
     if (this%IPC == IPC_AMG) then
       call g_prof%start("AMG setup", this%amg_prec%itmr_setup)
+      nlev_prev = this%amg_prec%nlevels
       call ims_amg_setup(this%amg_prec, this%NEQ, this%NJA, this%IA0, this%JA0, &
                          this%A0, max(1, this%LEVEL), this%NSMOOTH, &
                          this%RELAX, this%STHRESH, this%ISMOOTHER)
       call g_prof%stop(this%amg_prec%itmr_setup)
+      ! report the hierarchy the first time it is built; later calls reuse the
+      ! structure and only update the matrix values
+      if (nlev_prev == 0) then
+        call ims_amg_summary(this%amg_prec, this%iout, this%STHRESH)
+      end if
     else
       call ims_base_pcu(this%iout, this%NJA, this%NEQ, this%NIAPC, this%NJAPC, &
                         this%IPC, this%RELAX, this%A0, this%IA0, this%JA0, &
