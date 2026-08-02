@@ -10,6 +10,9 @@ module ImsLinearSettingsModule
   integer(I4B), public, parameter :: CG_METHOD = 1
   integer(I4B), public, parameter :: BCGS_METHOD = 2
 
+  !> default number of levels in the AMG hierarchy
+  integer(I4B), public, parameter :: AMG_LEVELS_DEFAULT = 10
+
   !> @brief IMS linear preconditioner types
   !<
   enum, bind(C)
@@ -76,6 +79,7 @@ module ImsLinearSettingsModule
     real(DP), pointer :: droptol => null() !< drop tolerance for preconditioner
     integer(I4B), pointer :: ifdparam => null() !< complexity option
     integer(I4B), pointer :: ipc_type => null() !< preconditioner type (0=ILU default, 1=AMG)
+    logical(LGP) :: level_specified = .false. !< PRECONDITIONER_LEVELS was read from file
     integer(I4B), pointer :: nsmooth => null() !< AMG smoother iterations per level
     integer(I4B), pointer :: smoother_type => null() !< AMG smoother type
     real(DP), pointer :: strength_threshold => null() !< AMG strength-of-connection threshold
@@ -272,6 +276,7 @@ contains
           this%relax = parser%GetDouble()
         case ('PRECONDITIONER_LEVELS')
           this%level = parser%GetInteger()
+          this%level_specified = .true.
           if (this%level < 0) then
             write (errmsg, '(a,1x,a)') &
               'IMSLINEAR PRECONDITIONER_LEVELS must be greater than', &
@@ -375,6 +380,12 @@ contains
       write (warnmsg, '(a)') "PRECONDITIONER_DROP_TOLERANCE is ignored because &
                              &PRECONDITIONER_LEVELS equals zero."
       call store_warning(warnmsg)
+    end if
+
+    ! -- the COMPLEXITY presets set PRECONDITIONER_LEVELS for the ILU fill
+    !    level, which is not a useful hierarchy depth for AMG
+    if (this%ipc_type == 1 .and. .not. this%level_specified) then
+      this%level = AMG_LEVELS_DEFAULT
     end if
 
   end subroutine check_settings
