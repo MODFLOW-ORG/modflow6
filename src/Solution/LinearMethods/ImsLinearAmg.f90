@@ -167,10 +167,10 @@ contains
     amg%smoother_type = smoother_type
 
     if (smoother_type == SMOOTHER_ILU0) then
-      call build_ilu0(amg%levels(0))
+      call build_ilu0(amg%levels(0), .false.)
     else
       do l = 0, amg%nlevels - 1
-        call build_ilu0(amg%levels(l))
+        call build_ilu0(amg%levels(l), l > 0)
       end do
     end if
 
@@ -494,10 +494,10 @@ contains
 
     call g_prof%start("AMG ILU0 factor", amg%itmr_ilu)
     if (amg%smoother_type == SMOOTHER_ILU0) then
-      call build_ilu0(amg%levels(0))
+      call build_ilu0(amg%levels(0), .false.)
     else
       do l = 0, amg%nlevels - 1
-        call build_ilu0(amg%levels(l))
+        call build_ilu0(amg%levels(l), l > 0)
       end do
     end if
     call g_prof%stop(amg%itmr_ilu)
@@ -1025,13 +1025,16 @@ contains
 
   !> @brief Build or update the ILU(0) factorization for the finest AMG level
   !<
-  subroutine build_ilu0(lev)
-    type(AmgLevelType), intent(inout) :: lev !< finest AMG level
+  subroutine build_ilu0(lev, use_l1)
+    type(AmgLevelType), intent(inout) :: lev !< AMG level
+    logical, intent(in) :: use_l1 !< factor an l1-modified matrix
     ! -- local
     integer(I4B), allocatable :: iw(:)
     real(DP), allocatable :: w(:)
+    integer(I4B), allocatable :: dpos(:)
+    real(DP), allocatable :: dsave(:)
     integer(I4B) :: ipcflag
-    integer(I4B) :: n
+    integer(I4B) :: i, k, n
     real(DP) :: amax
 
     ! Guard: skip factorization if matrix contains overflow-scale values;
@@ -1062,10 +1065,36 @@ contains
 
     allocate (iw(lev%neq), w(lev%neq))
     ipcflag = 0
+    ! -- factor an l1-modified matrix on the coarser levels, where Galerkin
+    !    coarsening of a Newton matrix can leave rows that are not diagonally
+    !    dominant and whose factorization amplifies the error. lev%a is
+    !    restored afterwards because the residual calculations need it.
+    if (use_l1) then
+      allocate (dpos(lev%neq), dsave(lev%neq))
+      do i = 1, lev%neq
+        dpos(i) = 0
+        do k = lev%ia(i), lev%ia(i + 1) - 1
+          if (lev%ja(k) == i) then
+            dpos(i) = k
+            dsave(i) = lev%a(k)
+            lev%a(k) = DONE / lev%diag(i)
+            exit
+          end if
+        end do
+      end do
+    end if
+
     call ims_base_pcilu0(lev%nja, lev%neq, lev%a, lev%ia, lev%ja, &
                          lev%apc, lev%iapc, lev%japc, iw, w, &
                          DZERO, ipcflag, DZERO)
     deallocate (iw, w)
+
+    if (use_l1) then
+      do i = 1, lev%neq
+        if (dpos(i) > 0) lev%a(dpos(i)) = dsave(i)
+      end do
+      deallocate (dpos, dsave)
+    end if
 
   end subroutine build_ilu0
 
