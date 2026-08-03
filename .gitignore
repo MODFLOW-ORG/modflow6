@@ -166,4 +166,8 @@ autotest/notebooks/
 **/*.lock
 doc/ReleaseNotes/develop.tex
 
+# gcc-extended-build environment directories to ignore
+.test-drive/
+
+
 agent

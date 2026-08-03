@@ -23,6 +23,8 @@ excludedirs = [
     PROJ_ROOT / "utils" / "mf5to6",
     PROJ_ROOT / "utils" / "zonebudget" / "msvs",
     PROJ_ROOT / "msvs",
+    PROJ_ROOT / ".test-drive",
+    PROJ_ROOT / ".claude",
 ]
 
 # exclude these files from checks
