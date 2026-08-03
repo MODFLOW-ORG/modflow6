@@ -27,7 +27,7 @@ description = "Added a new AUTO\\_FLOW\\_REDUCE\\_AUXNAME option to the Well (WE
 [[items]]
 section = "features"
 subsection = "solution"
-description = "Added an algebraic multigrid (AMG) preconditioner to the Iterative Model Solution (IMS) package as an alternative to the incomplete LU (ILU) factorization preconditioners, activated with PRECONDITIONER\\_TYPE AMG in the IMS LINEAR block. AMG can reduce the number of solver iterations relative to ILU for models with large hydraulic-property contrasts between adjacent cells, such as layered aquifer/confining-unit systems or strongly anisotropic media."
+description = "Added an algebraic multigrid (AMG) preconditioner to the Iterative Model Solution (IMS) package as an alternative to the incomplete LU (ILU) factorization preconditioners, activated with PRECONDITIONER\\_TYPE AMG in the IMS LINEAR block. AMG builds a hierarchy of progressively coarser representations of the coefficient matrix and applies a multigrid cycle as the preconditioner, which can reduce the number of solver iterations for models with large hydraulic-property contrasts between adjacent cells.  Fewer iterations do not always mean a shorter run: a multigrid cycle is substantially more expensive to apply than an incomplete LU factorization, and for the single-layer two-dimensional models tested to date the ILU preconditioners were faster when a sufficient level of fill was specified with PRECONDITIONER\\_LEVELS.  AMG is provided as an alternative to be evaluated against ILU for a given model rather than as a general replacement."
 
 [[items]]
 section = "fixes"
