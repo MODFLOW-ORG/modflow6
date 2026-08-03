@@ -30,9 +30,10 @@ module ImsLinearSettingsModule
   !<
   enum, bind(C)
     enumerator :: SMOOTHER_ILU0 = 1 !< ILU(0) smoother at finest level (default)
+    enumerator :: SMOOTHER_L1GS = 2 !< l1 Gauss-Seidel smoother at all AMG levels
     enumerator :: SMOOTHER_ILU0_ALL = 3 !< ILU(0) smoother at all AMG levels
   end enum
-  public :: SMOOTHER_ILU0, SMOOTHER_ILU0_ALL
+  public :: SMOOTHER_ILU0, SMOOTHER_L1GS, SMOOTHER_ILU0_ALL
 
   !> @brief IMS matrix scaling methods
   !<
@@ -332,12 +333,14 @@ contains
           call parser%GetStringCaps(keyword)
           if (keyword == 'ILU0') then
             this%smoother_type = SMOOTHER_ILU0
+          else if (keyword == 'L1GS') then
+            this%smoother_type = SMOOTHER_L1GS
           else if (keyword == 'ILU0_ALL') then
             this%smoother_type = SMOOTHER_ILU0_ALL
           else
             write (errmsg, '(3a)') &
               'Unknown IMSLINEAR SMOOTHER_TYPE (', trim(keyword), &
-              '). Valid values are ILU0 and ILU0_ALL.'
+              '). Valid values are ILU0, L1GS, and ILU0_ALL.'
             call store_error(errmsg)
           end if
           !
