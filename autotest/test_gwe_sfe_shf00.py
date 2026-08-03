@@ -13,9 +13,18 @@ import pandas as pd
 import pytest
 from framework import TestFramework
 
-cases = ["sfe-shf-opt1", "sfe-shf-opt2"]
+# Option 1 is sensible heat flux only
+# Option 2 is sensible and latent heat fluxes
+cases = [
+    "shf-opt1-kel",
+    "shf-opt1-fah",
+    "shf-opt1-cel",
+    "shf-opt2-kel",
+    "shf-opt2-fah",
+    "shf-opt2-cel",
+]
 
-DCTOK = 273.16
+DCTOK = 273.15
 
 
 def calc_ea(rh, es):
@@ -32,7 +41,7 @@ def calc_e(temp):
 
 def calc_lhv(tstrm, rhow):
     # calculate latent heat of vaporization
-    l = 2499.64 - (2.51 * tstrm)
+    l = 2499.64 - (2.51 * (tstrm - DCTOK))
     return l
 
 
@@ -75,6 +84,11 @@ def process_list_file(lstfile):
     return bud
 
 
+def convert_to_C(temp_in_K):
+    # the passed temperature will also be set to K
+    return temp_in_K - DCTOK
+
+
 # Model units
 length_units = "m"
 time_units = "seconds"
@@ -108,19 +122,22 @@ laytyp = 1
 sfr_evaprate = 0.0
 rhk = 0.0
 rwid = 1.0
-strm_temp = 21.8671310408894  # deg C
-surf_Q_in = [
-    [10.0],
-    [10.0],  # m^3/s
-]
+strm_temp_C = 21.8671310408894  # deg C
+strm_temp = [strm_temp_C + DCTOK, 71.36083587360086256, strm_temp_C]
+surf_Q_in = 10.0  # m^3/s
+
 
 # sensible heat flux parameter values
 wfslp = 1.383e-8
 wfint = 3.445e-9
 wspd = 1.0  # m/s
 patm = 954.680843658077  # mbar
-tatm = 278.16  # deg K
 rh = 20.0  # % (expressed as a percentage)
+tatmC = 5.0  # deg K = 278.15
+tatm = [tatmC + DCTOK, 41.0, tatmC]
+#                       K,             F,      C
+temperature_offset = [0.0, 255.372222222, 273.15]
+temperature_factor = [1.0, 0.55555555556, 1.0000]
 
 # Transport related parameters
 porosity = sy  # porosity (unitless)
@@ -287,14 +304,9 @@ def build_models(idx, test):
     connectiondata = [0]
 
     sfr_perioddata = {}
-    for t in np.arange(len(surf_Q_in[idx])):
-        sfrbndx = []
-        for i in np.arange(nreaches):
-            if i == 0:
-                sfrbndx.append([i, "INFLOW", surf_Q_in[idx][t]])
-            # sfrbndx.append([i, "EVAPORATION", sfr_evaprate])
-
-        sfr_perioddata.update({t: sfrbndx})
+    sfrbndx = []
+    sfrbndx.append([0, "INFLOW", surf_Q_in])
+    sfr_perioddata.update({0: sfrbndx})
 
     # Instantiate SFR observation points
     sfr_obs = {
@@ -404,23 +416,23 @@ def build_models(idx, test):
     # Instantiate Streamflow Energy Transport package
     sfepackagedata = []
     for irno in range(ncol):
-        t = (irno, strm_temp, K_therm_strmbed, rbthcnd)
+        t = (irno, strm_temp[idx % 3], K_therm_strmbed, rbthcnd)
         sfepackagedata.append(t)
 
     sfeperioddata = []
     for irno in range(ncol):
         if irno == 0:
-            sfeperioddata.append((irno, "INFLOW", strm_temp))
+            sfeperioddata.append((irno, "INFLOW", strm_temp[idx % 3]))
 
     # Instantiate SFE observation points
     abc_obs = []
-    if idx == 0:
+    if idx // 3 == 0:
         abc_obs = [
             ("rch1_outftemp", "temperature", 1),
             ("rch1_outfener", "ext-outflow", 1),
             ("rch1_shf", "shf", 1),
         ]
-    elif idx == 1:
+    elif idx // 3 == 1:
         abc_obs = [
             ("rch1_outftemp", "temperature", 1),
             ("rch1_outfener", "ext-outflow", 1),
@@ -459,17 +471,17 @@ def build_models(idx, test):
         spd = []
         for irno in range(ncol):
             spd.append([irno, "WSPD", wspd])
-            spd.append([irno, "TATM", tatm])
+            spd.append([irno, "TATM", tatm[idx % 3]])
             spd.append([irno, "PATM", patm])
             spd.append([irno, "RH", rh])
         abc_spd[kper] = spd
 
-    if idx == 0:
+    if idx // 3 == 0:
         swr_optional_off = True
         lwr_optional_off = True
         lhf_optional_off = True
         shf_optional_off = False
-    elif idx == 1:
+    elif idx // 3 == 1:
         swr_optional_off = True
         lwr_optional_off = True
         lhf_optional_off = False
@@ -487,6 +499,8 @@ def build_models(idx, test):
         drag_coefficient=c_d,
         wind_func_slope=wfslp,
         wind_func_int=wfint,
+        temperature_factor=temperature_factor[idx % 3],
+        temperature_offset=temperature_offset[idx % 3],
         reachperioddata=abc_spd,
         filename=abc_filename,
     )
@@ -525,6 +539,7 @@ def check_output(idx, test):
     gwename = "gwe-" + name
 
     fpth = os.path.join(test.workspace, gwfname + ".sfr.obs.csv")
+    # fpth = os.path.join(test, gwfname + ".sfr.obs.csv")
     assert os.path.isfile(fpth)
     df = pd.read_csv(fpth)
     calc_strm_wid = df.loc[0, "RCH1_WETWIDTH"].copy()
@@ -532,18 +547,24 @@ def check_output(idx, test):
     assert np.isclose(calc_strm_wid, 1.0, atol=1e-9), msg0
 
     fpth2 = os.path.join(test.workspace, gwename + ".sfe.obs.csv")
+    # fpth2 = os.path.join(test, gwename + ".sfe.obs.csv")
     assert os.path.isfile(fpth2)
     df2 = pd.read_csv(fpth2)
 
     # calc expected sensible heat exchange
-    if idx == 0:
-        tgrad = tatm - (strm_temp + DCTOK)
+    if idx // 3 == 0:
+        tgrad = (
+            temperature_factor[idx % 3] * tatm[idx % 3] + temperature_offset[idx % 3]
+        ) - (
+            temperature_factor[idx % 3] * df2.loc[0, "RCH1_OUTFTEMP"]
+            + temperature_offset[idx % 3]
+        )
         ener_per_sqm = c_d * rhoa * Cpa * wspd * tgrad
         shf = ener_per_sqm * (delr * calc_strm_wid)
 
         assert np.isclose(shf, df2.loc[0, "RCH1_SHF"].item(), atol=1e-9)
 
-    elif idx > 0:
+    elif idx // 3 > 0:
         # read the outflows
         fpth2 = os.path.join(test.workspace, gwfname + ".sfr.obs.csv")
         assert os.path.isfile(fpth2)
@@ -557,10 +578,17 @@ def check_output(idx, test):
         # get output stored in the gwe listing file
         fname = gwename + ".lst"
         lstfile = os.path.join(test.workspace, fname)
-        sfe_bud = process_list_file(lstfile)
 
         # calculate the amount of energy entering the reach
-        ener_in = surf_Q_in[idx][0] * strm_temp * Cpw * rhow
+        ener_in = (
+            surf_Q_in
+            * convert_to_C(
+                temperature_factor[idx % 3] * strm_temp[idx % 3]
+                + temperature_offset[idx % 3]
+            )
+            * Cpw
+            * rhow
+        )
         ener_out = (
             abs(df2.loc[0, "RCH1_OUTF"]) * df3.loc[0, "RCH1_OUTFTEMP"] * Cpw * rhow
         )
@@ -568,18 +596,36 @@ def check_output(idx, test):
 
         # calculate the latent and sensible heat fluxes locally and compare
         # to the MF6 observations recorded in the corresponding output file
-        es = calc_e(tatm)
+        es = calc_e(
+            temperature_factor[idx % 3] * tatm[idx % 3] + temperature_offset[idx % 3]
+        )
         ea = calc_ea(rh, es)
-        ew = calc_e(df3.loc[0, "RCH1_OUTFTEMP"] + DCTOK)
+        ew = calc_e(
+            temperature_factor[idx % 3] * df3.loc[0, "RCH1_OUTFTEMP"]
+            + temperature_offset[idx % 3]
+        )
         # calculate latent heat of vaporization
-        lhv = calc_lhv(df3.loc[0, "RCH1_OUTFTEMP"], rhow)
+        lhv = calc_lhv(
+            temperature_factor[idx % 3] * df3.loc[0, "RCH1_OUTFTEMP"]
+            + temperature_offset[idx % 3],
+            rhow,
+        )
         # calculate evaporation/condensation rate
         evap = calc_evap(wfint, wfslp, wspd, ew, ea)
         # calculate latent heat flux
         lhflx = evap * lhv * rhow
         assert np.isclose(lhflx, df3.loc[0, "RCH1_LHF"], atol=1e-9), msg1
         # calculate Bowen ratio
-        br = calc_bowen(patm, df3.loc[0, "RCH1_OUTFTEMP"] + DCTOK, tatm, ew, ea)
+        br = calc_bowen(
+            patm,
+            (
+                temperature_factor[idx % 3] * df3.loc[0, "RCH1_OUTFTEMP"]
+                + temperature_offset[idx % 3]
+            ),
+            (temperature_factor[idx % 3] * tatm[idx % 3] + temperature_offset[idx % 3]),
+            ew,
+            ea,
+        )
         # using the bowen ratio and latent heat flux, calc sensible heat flux
         shflx = br * lhflx
         assert np.isclose(shflx, df3.loc[0, "RCH1_SHF"], atol=1e-9), msg2
