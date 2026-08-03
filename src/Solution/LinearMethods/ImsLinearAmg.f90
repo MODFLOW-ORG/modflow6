@@ -22,10 +22,8 @@ module ImsLinearAmgModule
 
   !> per-level decay applied to the strength threshold
   !!
-  !! Galerkin coarsening densifies the operator, so a fixed threshold measured
-  !! against the largest entry in a row rejects a growing share of connections
-  !! and stalls the coarsening. Relaxing the threshold as levels coarsen keeps
-  !! the aggregation productive.
+  !! A fixed threshold rejects a growing share of connections as the Galerkin
+  !! product densifies each level, which stalls the coarsening.
   real(DP), parameter :: STHRESH_DECAY = DHALF
 
   !> @brief Storage for one level in the AMG hierarchy
@@ -178,10 +176,8 @@ contains
 
   !> @brief Write the AMG hierarchy to the listing file
   !!
-  !! Reports per-level size and coarsening statistics along with the grid and
-  !! operator complexities, which together indicate whether the aggregation is
-  !! coarsening effectively and what one cycle costs relative to one fine-level
-  !! matrix-vector product.
+  !! Reports the per-level sizes and coarsening statistics along with the grid
+  !! and operator complexities.
   !<
   subroutine ims_amg_summary(amg, iout, sthresh)
     ! -- modules
