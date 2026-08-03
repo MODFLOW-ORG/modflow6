@@ -8,7 +8,8 @@ module ImsLinearAmgModule
   use ConstantsModule, only: DZERO, DHALF, DONE, DHUNDRED, DEP20, LINELENGTH
   use SimModule, only: store_error
   use IMSLinearMisc, only: ims_base_pccrs, ims_base_pcilu0, ims_base_ilu0a
-  use ImsLinearSettingsModule, only: SMOOTHER_ILU0, SMOOTHER_ILU0_ALL
+  use ImsLinearSettingsModule, only: SMOOTHER_ILU0, SMOOTHER_L1GS, &
+                                     SMOOTHER_ILU0_ALL
   use ProfilerModule, only: g_prof, LEN_SECTION_TITLE
 
   implicit none
@@ -156,7 +157,7 @@ contains
     end do
 
     do l = 0, amg%nlevels - 1
-      call alloc_work(amg%levels(l))
+      call alloc_work(amg%levels(l), smoother_type == SMOOTHER_L1GS)
       write (amg%levels(l)%tmr_title, '(a,i0)') "AMG smooth L", l
     end do
 
@@ -164,9 +165,12 @@ contains
     amg%omega = omega
     amg%smoother_type = smoother_type
 
+    ! -- L1GS smooths every level with Gauss-Seidel and builds no
+    !    factorization; smooth_down falls back to Gauss-Seidel when the ILU(0)
+    !    arrays are not allocated
     if (smoother_type == SMOOTHER_ILU0) then
       call build_ilu0(amg%levels(0))
-    else
+    else if (smoother_type == SMOOTHER_ILU0_ALL) then
       do l = 0, amg%nlevels - 1
         call build_ilu0(amg%levels(l))
       end do
@@ -484,14 +488,15 @@ contains
     end do
 
     do l = 0, amg%nlevels - 1
-      call update_diag(amg%levels(l))
+      call update_diag(amg%levels(l), &
+                       amg%smoother_type == SMOOTHER_L1GS)
     end do
     call g_prof%stop(amg%itmr_cvals)
 
     call g_prof%start("AMG ILU0 factor", amg%itmr_ilu)
     if (amg%smoother_type == SMOOTHER_ILU0) then
       call build_ilu0(amg%levels(0))
-    else
+    else if (amg%smoother_type == SMOOTHER_ILU0_ALL) then
       do l = 0, amg%nlevels - 1
         call build_ilu0(amg%levels(l))
       end do
@@ -595,20 +600,32 @@ contains
 
   !> @brief Recompute inverse diagonal for one AMG level
   !<
-  subroutine update_diag(lev)
+  subroutine update_diag(lev, use_l1)
     type(AmgLevelType), intent(inout) :: lev !< AMG level
+    logical, intent(in) :: use_l1 !< use the l1 diagonal
     ! -- local
     integer(I4B) :: i, k
-    real(DP) :: dval
+    real(DP) :: dval, offsum
 
     do i = 1, lev%neq
       dval = DZERO
+      offsum = DZERO
       do k = lev%ia(i), lev%ia(i + 1) - 1
         if (lev%ja(k) == i) then
           dval = lev%a(k)
-          exit
+        else if (use_l1) then
+          offsum = offsum + abs(lev%a(k))
         end if
       end do
+      ! -- a row that is not diagonally dominant is given the absolute row
+      !    sum, which makes the sweep a contraction on that row
+      if (use_l1 .and. abs(dval) < offsum) then
+        if (dval < DZERO) then
+          dval = -offsum
+        else
+          dval = offsum
+        end if
+      end if
       if (abs(dval) > DZERO) then
         lev%diag(i) = DONE / dval
       else
@@ -790,8 +807,9 @@ contains
 
   !> @brief Allocate work vectors and compute inverse diagonal for one level
   !<
-  subroutine alloc_work(lev)
+  subroutine alloc_work(lev, use_l1)
     type(AmgLevelType), intent(inout) :: lev !< AMG level
+    logical, intent(in) :: use_l1 !< use the l1 diagonal
     ! -- local
     integer(I4B) :: i
 
@@ -805,7 +823,7 @@ contains
     if (.not. allocated(lev%diag)) then
       allocate (lev%diag(lev%neq))
     end if
-    call update_diag(lev)
+    call update_diag(lev, use_l1)
 
   end subroutine alloc_work
 
