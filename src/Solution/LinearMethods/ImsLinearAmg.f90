@@ -17,7 +17,7 @@ module ImsLinearAmgModule
   public :: ImsAmgDataType, ims_amg_setup, ims_amg_apply, &
             ims_amg_da, ims_amg_update, ims_amg_summary
 
-  !> maximum number of smoother sweeps used for the coarsest-level solve
+  !> number of smoother sweeps used for the approximate coarsest-level solve
   integer(I4B), parameter :: COARSE_SOLVE_ITERS = 50
 
   !> per-level decay applied to the strength threshold
@@ -167,10 +167,10 @@ contains
     amg%smoother_type = smoother_type
 
     if (smoother_type == SMOOTHER_ILU0) then
-      call build_ilu0(amg%levels(0), .false.)
+      call build_ilu0(amg%levels(0))
     else
       do l = 0, amg%nlevels - 1
-        call build_ilu0(amg%levels(l), l > 0)
+        call build_ilu0(amg%levels(l))
       end do
     end if
 
@@ -494,10 +494,10 @@ contains
 
     call g_prof%start("AMG ILU0 factor", amg%itmr_ilu)
     if (amg%smoother_type == SMOOTHER_ILU0) then
-      call build_ilu0(amg%levels(0), .false.)
+      call build_ilu0(amg%levels(0))
     else
       do l = 0, amg%nlevels - 1
-        call build_ilu0(amg%levels(l), l > 0)
+        call build_ilu0(amg%levels(l))
       end do
     end if
     call g_prof%stop(amg%itmr_ilu)
@@ -603,28 +603,16 @@ contains
     type(AmgLevelType), intent(inout) :: lev !< AMG level
     ! -- local
     integer(I4B) :: i, k
-    real(DP) :: dval, offsum
+    real(DP) :: dval
 
     do i = 1, lev%neq
       dval = DZERO
-      offsum = DZERO
       do k = lev%ia(i), lev%ia(i + 1) - 1
         if (lev%ja(k) == i) then
           dval = lev%a(k)
-        else
-          offsum = offsum + abs(lev%a(k))
+          exit
         end if
       end do
-      ! -- l1 diagonal: a row that is not diagonally dominant is given the
-      !    absolute row sum instead, which keeps the smoother from amplifying
-      !    the error. Dominant rows, which is the usual case, are unchanged.
-      if (abs(dval) < offsum) then
-        if (dval < DZERO) then
-          dval = -offsum
-        else
-          dval = offsum
-        end if
-      end if
       if (abs(dval) > DZERO) then
         lev%diag(i) = DONE / dval
       else
@@ -957,7 +945,7 @@ contains
     ! Approximate solve on the coarsest level
     call g_prof%start(levels(nlevels - 1)%tmr_title, &
                       levels(nlevels - 1)%itmr_smooth)
-    call coarse_solve(levels(nlevels - 1))
+    call smooth_down(levels(nlevels - 1), COARSE_SOLVE_ITERS)
     call g_prof%stop(levels(nlevels - 1)%itmr_smooth)
 
     ! Ascend: prolong the coarse correction then post-smooth
@@ -970,71 +958,15 @@ contains
 
   end subroutine amg_vcycle
 
-  !> @brief Euclidean norm of the residual on one AMG level
-  !<
-  function level_resnorm(lev) result(rnorm)
-    type(AmgLevelType), intent(in) :: lev !< AMG level
-    real(DP) :: rnorm !< residual norm
-    ! -- local
-    integer(I4B) :: i, k
-    real(DP) :: res
-
-    rnorm = DZERO
-    do i = 1, lev%neq
-      res = lev%r(i)
-      do k = lev%ia(i), lev%ia(i + 1) - 1
-        res = res - lev%a(k) * lev%e(lev%ja(k))
-      end do
-      rnorm = rnorm + res * res
-    end do
-    rnorm = sqrt(rnorm)
-
-  end function level_resnorm
-
-  !> @brief Solve the coarsest level with the smoother
-  !!
-  !! The correction is discarded if the residual grows, so the sweep count is
-  !! unchanged on a healthy problem. Gauss-Seidel and ILU(0)
-  !! only converge for a diagonally dominant or definite matrix, and a coarse
-  !! matrix formed from an anisotropic Newton matrix need not be either, so
-  !! sweeping a fixed number of times can amplify the error instead of
-  !! reducing it.
-  !<
-  subroutine coarse_solve(lev)
-    type(AmgLevelType), intent(inout) :: lev !< coarsest AMG level
-    ! -- local
-    integer(I4B) :: it, i
-    real(DP) :: rnorm, rnorm0
-
-    rnorm0 = level_resnorm(lev)
-    if (rnorm0 <= DZERO) return
-
-    do it = 1, COARSE_SOLVE_ITERS
-      call smooth_down(lev, 1)
-      rnorm = level_resnorm(lev)
-      ! -- the comparison is negated so a NaN residual also exits
-      if (.not. (rnorm <= rnorm0)) then
-        do i = 1, lev%neq
-          lev%e(i) = DZERO
-        end do
-        exit
-      end if
-    end do
-
-  end subroutine coarse_solve
-
   !> @brief Build or update the ILU(0) factorization for the finest AMG level
   !<
-  subroutine build_ilu0(lev, use_l1)
-    type(AmgLevelType), intent(inout) :: lev !< AMG level
-    logical, intent(in) :: use_l1 !< factor an l1-modified matrix
+  subroutine build_ilu0(lev)
+    type(AmgLevelType), intent(inout) :: lev !< finest AMG level
     ! -- local
     integer(I4B), allocatable :: iw(:)
     real(DP), allocatable :: w(:)
-    integer(I4B), allocatable :: dpos(:)
-    real(DP), allocatable :: dsave(:)
     integer(I4B) :: ipcflag
-    integer(I4B) :: i, k, n
+    integer(I4B) :: n
     real(DP) :: amax
 
     ! Guard: skip factorization if matrix contains overflow-scale values;
@@ -1065,36 +997,10 @@ contains
 
     allocate (iw(lev%neq), w(lev%neq))
     ipcflag = 0
-    ! -- factor an l1-modified matrix on the coarser levels, where Galerkin
-    !    coarsening of a Newton matrix can leave rows that are not diagonally
-    !    dominant and whose factorization amplifies the error. lev%a is
-    !    restored afterwards because the residual calculations need it.
-    if (use_l1) then
-      allocate (dpos(lev%neq), dsave(lev%neq))
-      do i = 1, lev%neq
-        dpos(i) = 0
-        do k = lev%ia(i), lev%ia(i + 1) - 1
-          if (lev%ja(k) == i) then
-            dpos(i) = k
-            dsave(i) = lev%a(k)
-            lev%a(k) = DONE / lev%diag(i)
-            exit
-          end if
-        end do
-      end do
-    end if
-
     call ims_base_pcilu0(lev%nja, lev%neq, lev%a, lev%ia, lev%ja, &
                          lev%apc, lev%iapc, lev%japc, iw, w, &
                          DZERO, ipcflag, DZERO)
     deallocate (iw, w)
-
-    if (use_l1) then
-      do i = 1, lev%neq
-        if (dpos(i) > 0) lev%a(dpos(i)) = dsave(i)
-      end do
-      deallocate (dpos, dsave)
-    end if
 
   end subroutine build_ilu0
 
