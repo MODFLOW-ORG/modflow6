@@ -23,7 +23,7 @@ from framework import TestFramework
 
 cases = ["sfe-shf"]  # , "sfe-shf-ts"]
 
-DCTOK = 273.16
+DCTOK = 273.15
 
 #
 # The last letter in the names above indicates the following
@@ -95,7 +95,8 @@ laytyp = 1
 k11 = 500.0
 # SFR/SFE
 rhk = [0.0, k11]
-strm_temp = [18.0, 18.0]
+strm_temp_C = [68.0, 68.0]  # deg C
+strm_temp = [tmp + DCTOK for tmp in strm_temp_C]
 rlen = delr
 surf_Q_in = [8.64, 86.4, 8.64, 8.64]  # 86400 m^3/d = 1 m^3/s = 35.315 cfs
 # SHF
@@ -104,14 +105,15 @@ surf_Q_in = [8.64, 86.4, 8.64, 8.64]  # 86400 m^3/d = 1 m^3/s = 35.315 cfs
 # For stress period 3, increase wpd (everything else remains as is)
 # For stress period 4, increase tatm (everything else remains as is)
 wspd = [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [6.0, 5.0, 4.0], [1.0, 1.0, 1.0]]
-tatm = [
+tatmC = [
     [10.0, 10.0, 10.0],
     [10.0, 10.0, 10.0],
     [10.0, 10.0, 10.0],
-    [30.0, 25.0, 20.0],
+    [90.0, 85.0, 80.0],
 ]  # deg C
-tatmK = [[item + DCTOK for item in sublist] for sublist in tatm]
-
+tatmK = [[item + DCTOK for item in sublist] for sublist in tatmC]
+temperature_factor = 1.0
+temperature_offset = 0.0
 
 # Package boundary conditions
 sfr_evaprate = 0.1
@@ -500,7 +502,7 @@ def build_models(idx, test):
             ("rch3_outfener", "ext-outflow", 3),
             ("rch3_shf", "shf", 3),
         ],
-        "digits": 8,
+        "digits": 15,
         "print_input": True,
         "filename": gwename + ".sfe.obs",
     }
@@ -511,7 +513,7 @@ def build_models(idx, test):
         boundnames=False,
         save_flows=True,
         print_input=False,
-        print_flows=False,
+        print_flows=True,
         print_temperature=True,
         temperature_filerecord=gwename + ".sfe.bin",
         budget_filerecord=gwename + ".sfe.bud",
@@ -538,6 +540,8 @@ def build_models(idx, test):
         density_air=1.225,
         heat_capacity_air=717.0,
         drag_coefficient=0.002,
+        temperature_factor=temperature_factor,
+        temperature_offset=temperature_offset,
         reachperioddata=abc_spd,
         swr_off=True,
         lwr_off=True,
