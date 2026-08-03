@@ -17,7 +17,7 @@ module ImsLinearAmgModule
   public :: ImsAmgDataType, ims_amg_setup, ims_amg_apply, &
             ims_amg_da, ims_amg_update, ims_amg_summary
 
-  !> number of smoother sweeps used for the approximate coarsest-level solve
+  !> maximum number of smoother sweeps used for the coarsest-level solve
   integer(I4B), parameter :: COARSE_SOLVE_ITERS = 50
 
   !> per-level decay applied to the strength threshold
@@ -603,16 +603,28 @@ contains
     type(AmgLevelType), intent(inout) :: lev !< AMG level
     ! -- local
     integer(I4B) :: i, k
-    real(DP) :: dval
+    real(DP) :: dval, offsum
 
     do i = 1, lev%neq
       dval = DZERO
+      offsum = DZERO
       do k = lev%ia(i), lev%ia(i + 1) - 1
         if (lev%ja(k) == i) then
           dval = lev%a(k)
-          exit
+        else
+          offsum = offsum + abs(lev%a(k))
         end if
       end do
+      ! -- l1 diagonal: a row that is not diagonally dominant is given the
+      !    absolute row sum instead, which keeps the smoother from amplifying
+      !    the error. Dominant rows, which is the usual case, are unchanged.
+      if (abs(dval) < offsum) then
+        if (dval < DZERO) then
+          dval = -offsum
+        else
+          dval = offsum
+        end if
+      end if
       if (abs(dval) > DZERO) then
         lev%diag(i) = DONE / dval
       else
@@ -945,7 +957,7 @@ contains
     ! Approximate solve on the coarsest level
     call g_prof%start(levels(nlevels - 1)%tmr_title, &
                       levels(nlevels - 1)%itmr_smooth)
-    call smooth_down(levels(nlevels - 1), COARSE_SOLVE_ITERS)
+    call coarse_solve(levels(nlevels - 1))
     call g_prof%stop(levels(nlevels - 1)%itmr_smooth)
 
     ! Ascend: prolong the coarse correction then post-smooth
@@ -957,6 +969,59 @@ contains
     end do
 
   end subroutine amg_vcycle
+
+  !> @brief Euclidean norm of the residual on one AMG level
+  !<
+  function level_resnorm(lev) result(rnorm)
+    type(AmgLevelType), intent(in) :: lev !< AMG level
+    real(DP) :: rnorm !< residual norm
+    ! -- local
+    integer(I4B) :: i, k
+    real(DP) :: res
+
+    rnorm = DZERO
+    do i = 1, lev%neq
+      res = lev%r(i)
+      do k = lev%ia(i), lev%ia(i + 1) - 1
+        res = res - lev%a(k) * lev%e(lev%ja(k))
+      end do
+      rnorm = rnorm + res * res
+    end do
+    rnorm = sqrt(rnorm)
+
+  end function level_resnorm
+
+  !> @brief Solve the coarsest level with the smoother
+  !!
+  !! The correction is discarded if the residual grows, so the sweep count is
+  !! unchanged on a healthy problem. Gauss-Seidel and ILU(0)
+  !! only converge for a diagonally dominant or definite matrix, and a coarse
+  !! matrix formed from an anisotropic Newton matrix need not be either, so
+  !! sweeping a fixed number of times can amplify the error instead of
+  !! reducing it.
+  !<
+  subroutine coarse_solve(lev)
+    type(AmgLevelType), intent(inout) :: lev !< coarsest AMG level
+    ! -- local
+    integer(I4B) :: it, i
+    real(DP) :: rnorm, rnorm0
+
+    rnorm0 = level_resnorm(lev)
+    if (rnorm0 <= DZERO) return
+
+    do it = 1, COARSE_SOLVE_ITERS
+      call smooth_down(lev, 1)
+      rnorm = level_resnorm(lev)
+      ! -- the comparison is negated so a NaN residual also exits
+      if (.not. (rnorm <= rnorm0)) then
+        do i = 1, lev%neq
+          lev%e(i) = DZERO
+        end do
+        exit
+      end if
+    end do
+
+  end subroutine coarse_solve
 
   !> @brief Build or update the ILU(0) factorization for the finest AMG level
   !<
