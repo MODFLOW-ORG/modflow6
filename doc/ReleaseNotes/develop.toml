@@ -33,7 +33,7 @@ description = "A TVD (Total Variation Diminishing) kinematic-wave routing scheme
 [[items]]
 section = "documentation"
 subsection = "advanced"
-description = "A new chapter describing the SFR Package kinematic-wave routing options has been added to the Supplemental Technical Information document. The chapter covers the kinematic wave approximation, the four-point implicit finite-difference discretization, the standard (STORAGE keyword) and TVD (ATS\\_COURANT keyword) routing schemes, example comparisons against exact kinematic-wave solutions for a two-reach MODFLOW 6 model at Courant numbers ranging from 0.5 to 2.0, and practical guidance for selecting a suitable time step."
+description = "A new chapter describing the SFR Package kinematic-wave routing options has been added to the Supplemental Technical Information document. The chapter describes the kinematic wave approximation, the four-point implicit finite-difference discretization, the standard (STORAGE keyword) and TVD (ATS\\_COURANT keyword) routing schemes, example comparisons against exact kinematic-wave solutions for a two-reach MODFLOW 6 model at Courant numbers ranging from 0.5 to 2.0, and practical guidance for selecting a suitable time step."
 
 [[items]]
 section = "fixes"
