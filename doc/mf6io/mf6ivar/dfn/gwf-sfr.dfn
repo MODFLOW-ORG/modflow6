@@ -349,7 +349,7 @@ type double precision
 reader urword
 optional true
 longname reach storage time weighting
-description real number value that defines the time weighting factor used to calculate the change in channel storage. STORAGE\_WEIGHT must have a value between 0.5 and 1. Default STORAGE\_WEIGHT value is 1.
+description real number value that defines the time weighting factor used to calculate the change in channel storage. DEV\_STORAGE\_WEIGHT must have a value between 0.5 and 1. The default DEV\_STORAGE\_WEIGHT value is 1, which is fully implicit and is recommended for all practical applications.
 
 
 # --------------------- gwf sfr dimensions ---------------------
