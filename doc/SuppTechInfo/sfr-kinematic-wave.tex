@@ -9,7 +9,7 @@ The one-dimensional Saint-Venant equations for open-channel flow combine the con
 	\frac{\partial Q}{\partial x} + \frac{\partial A}{\partial t} = q_L ,
 \end{equation}
 
-\noindent where $Q$ is the volumetric discharge ($L^3T^{-1}$); $A$ is the cross-sectional area of flow ($L^2$); $x$ is the longitudinal distance along the channel ($L$); $t$ is time ($T$); and $q_L$ is the lateral inflow rate per unit channel length ($L^2T^{-1}$). The kinematic-wave approximation is applicable when the Froude number is less than about 2 and the channel slope is sufficiently steep relative to the backwater effect \citep{McArthur1993, WoolhiserLiggett1967, PonceLiSimons1978, Ponce1991}.
+\noindent where $Q$ is the volumetric discharge ($L^3T^{-1}$); $A$ is the cross-sectional area of flow ($L^2$); $x$ is the longitudinal distance along the channel ($L$); $t$ is time ($T$); and $q_L$ is the lateral inflow rate per unit channel length ($L^2T^{-1}$). The kinematic-wave approximation is applicable when the channel slope is sufficiently steep relative to the backwater effect and the Froude number is less than about 2, above which roll waves can develop and the kinematic wave no longer approximates the dynamic wave \citep{McArthur1993, WoolhiserLiggett1967, PonceLiSimons1978, Ponce1991}.
 
 The discharge in a reach is calculated using Manning's equation \citep{Manning1891}
 
@@ -397,7 +397,7 @@ The kinematic-wave approximation is most appropriate for steep to moderately slo
 
 	\item \textit{Reaches with strong stream-aquifer exchange}. Where large and rapidly varying groundwater seepage substantially alters the flow depth within a reach, the simple celerity estimate may be unreliable and convergence may be slow.
 
-	\item \textit{Supercritical or near-critical flow} ($F_0 \ge 1$). The kinematic-wave approximation assumes subcritical flow; reaches with very steep slopes and high velocities may reach or exceed critical conditions at high discharges.
+	\item \textit{Supercritical or near-critical flow} ($F_0 \gtrsim 1$). The theoretical limit of the kinematic-wave approximation is the onset of roll waves near a Froude number of 2, but the celerity estimate used here (eq.~\ref{eqn:sfr-celerity-wide}) is derived from Manning's equation and becomes less reliable as the flow approaches critical. Reaches with very steep slopes and high velocities may reach or exceed critical conditions at high discharges, and convergence may be slow.
 
 \end{itemize}
 
