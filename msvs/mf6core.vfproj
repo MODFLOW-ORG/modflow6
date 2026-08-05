@@ -339,6 +339,7 @@
 						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-sfr-constant.f90"/>
 						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-sfr-steady.f90"/>
 						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-sfr-transient.f90"/>
+						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-sfr-tvd.f90"/>
 					</Filter>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-api.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-buy.f90"/>

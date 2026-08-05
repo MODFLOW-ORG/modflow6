@@ -153,6 +153,7 @@ def check_output(idx, test):
         ), f"failed comparison for '{name}' observation"
 
 
+@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(

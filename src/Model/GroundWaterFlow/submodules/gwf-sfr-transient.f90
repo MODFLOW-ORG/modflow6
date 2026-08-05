@@ -129,6 +129,12 @@ contains
     celerity = DZERO
   end if
   courant = celerity * delt / this%length(n)
+  if (courant > DZERO) then
+    if (courant < this%crmin(n)) this%crmin(n) = courant
+    if (courant > this%crmax(n)) this%crmax(n) = courant
+    this%crsum(n) = this%crsum(n) + courant
+    this%crcnt(n) = this%crcnt(n) + 1
+  end if
 
   qlat = qlat / this%length(n)
 

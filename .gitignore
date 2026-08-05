@@ -167,3 +167,5 @@ autotest/notebooks/
 doc/ReleaseNotes/develop.tex
 
 agent
+# test-drive repo for pixi gcc-extended-build environment
+.test-drive/
