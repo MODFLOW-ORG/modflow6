@@ -279,6 +279,30 @@ longname
 description REPLACE mover {'{#1}': 'LAK'}
 
 block options
+name dev_force_fallback
+type keyword
+reader urword
+optional true
+longname force the substitution fallback solution
+description keyword that solves every active lake with the substitution fallback under the implicit formulation, instead of only those lakes that are too poorly conditioned to solve as a matrix unknown.  This development option is not supported.
+
+block options
+name dev_groundwater_head_conductance
+type keyword
+reader urword
+optional true
+longname use the groundwater head to calculate horizontal conductance
+description keyword that calculates the conductance for horizontal connections using the groundwater head instead of the lake stage.  This development option is not supported.
+
+block options
+name dev_maximum_outlet_depth
+type double precision
+reader urword
+optional true
+longname maximum outlet depth
+description real number value that defines the maximum depth used to calculate outlet flow.  This development option is not supported.
+
+block options
 name surfdep
 type double precision
 reader urword
