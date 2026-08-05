@@ -909,6 +909,7 @@ contains
         'A FINAL CONVERGENCE CHECK OF THE CHANGE IN STREAM FLOW ROUTING &
         &STAGES AND FLOWS WILL NOT BE MADE'
     case ('DEV_STORAGE_WEIGHT')
+      call this%parser%DevOpt()
       r = this%parser%GetDouble()
       if (r < DHALF .or. r > DONE) then
         write (errmsg, '(a,g0,a)') &
