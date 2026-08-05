@@ -9,12 +9,11 @@
 module GwfCsubModule
   use KindModule, only: I4B, DP, LGP
   use ConstantsModule, only: DPREC, DZERO, DEM20, DEM15, DEM10, DEM8, DEM7, &
-                             DEM6, DEM4, DP9, DHALF, DEM1, DONE, DTWO, DTHREE, &
-                             DGRAVITY, DTEN, DHUNDRED, DNODATA, DHNOFLO, &
-                             LENFTYPE, LENPACKAGENAME, LENMEMPATH, &
+                             DEM6, DEM5, DEM4, DEM3, DP9, DHALF, DEM1, DONE, &
+                             DTWO, DTHREE, DGRAVITY, DTEN, DHUNDRED, DNODATA, &
+                             DHNOFLO, LENFTYPE, LENPACKAGENAME, LENMEMPATH, &
                              LINELENGTH, LENBOUNDNAME, NAMEDBOUNDFLAG, &
-                             LENBUDTXT, LENAUXNAME, LENPAKLOC, &
-                             LENLISTLABEL, &
+                             LENBUDTXT, LENAUXNAME, LENPAKLOC, LENLISTLABEL, &
                              TABLEFT, TABCENTER, TABRIGHT, &
                              TABSTRING, TABUCSTRING, TABINTEGER, TABREAL
   use MemoryHelperModule, only: create_mem_path
@@ -62,6 +61,7 @@ module GwfCsubModule
   !
   ! -- local parameter
   real(DP), parameter :: dlog10es = 0.4342942_DP !< derivative of the log of effective stress
+  real(DP), parameter :: stressfloor = DEM3 !< effective-stress regularization floor (fraction of geostatic stress)
   !
   ! CSUB type
   type, extends(NumericalPackageType) :: GwfCsubType
@@ -77,6 +77,8 @@ module GwfCsubModule
     logical(LGP), pointer :: lhead_based => null() !< logical variable indicating if head-based solution
     ! -- integer scalars
     integer(I4B), pointer :: istounit => null() !< unit number of storage package
+    integer(I4B), pointer :: istrict_stress => null() !< 1 terminates on negative effective stress, 0 regularizes (default)
+    integer(I4B), pointer :: nreg_ts => null() !< count of time steps with effective-stress regularization
     integer(I4B), pointer :: istrainib => null() !< unit number of interbed strain output
     integer(I4B), pointer :: istrainsk => null() !< unit number of coarse-grained strain output
     integer(I4B), pointer :: ioutcomp => null() !< unit number for cell-by-cell compaction output
@@ -112,6 +114,7 @@ module GwfCsubModule
     real(DP), pointer :: beta => null() !< water compressibility
     real(DP), pointer :: brg => null() !< product of gammaw and water compressibility
     real(DP), pointer :: satomega => null() !< newton-raphson saturation omega
+    real(DP), pointer :: pcsomega => null() !< elastic<->inelastic switch smoothing window (fraction of pcs; 0 = hard switch)
     ! -- integer pointer to storage package variables
     integer(I4B), pointer :: gwfiss => NULL() !< pointer to model iss flag
     integer(I4B), pointer :: gwfiss0 => NULL() !< iss flag for last stress period
@@ -364,6 +367,7 @@ contains
     integer(I4B) :: idelay
     integer(I4B) :: ib
     integer(I4B) :: node
+    integer(I4B) :: n
     integer(I4B) :: istoerr
     real(DP) :: top
     real(DP) :: bot
@@ -372,9 +376,13 @@ contains
     real(DP) :: theta
     real(DP) :: v
     real(DP) :: vtot
+    real(DP) :: cell_thickness
+    real(DP) :: overshoot
+    real(DP) :: f
+    real(DP) :: rval
     ! -- format
     character(len=*), parameter :: fmtcsub = &
-      "(1x,/1x,'CSUB -- COMPACTION PACKAGE, VERSION 1, 12/15/2019', &
+      "(1x,/1x,'CSUB -- COMPACTION PACKAGE, VERSION 1.15, 7/27/2026', &
      &' INPUT READ FROM MEMPATH: ', A, /)"
     !
     ! --print a message identifying the csub package.
@@ -475,10 +483,41 @@ contains
       this%cg_thickini(node) = this%cg_thickini(node) - v
     end do
     !
-    ! -- evaluate if any cg_thick values are less than 0
+    ! -- evaluate if the interbed thicknesses in a cell exceed the cell
+    !    thickness (cg_thickini < 0). A small excess (numerical roundoff in the
+    !    summed interbed thicknesses) is resolved by proportionally scaling the
+    !    cell's interbed thicknesses to fit; a larger excess is a genuine
+    !    over-specification and is an error
     do node = 1, this%dis%nodes
       thick = this%cg_thickini(node)
-      if (thick < DZERO) then
+      if (thick >= DZERO) cycle
+      cell_thickness = this%cell_thick(node)
+      overshoot = -thick
+      if (overshoot <= DEM5 * cell_thickness) then
+        ! -- roundoff: scale the cell's interbed thicknesses so they fill the
+        !    cell exactly (cell_thickness - thick is the summed interbed
+        !    thickness, which exceeds cell_thickness by overshoot)
+        f = cell_thickness / (cell_thickness - thick)
+        do ib = 1, this%ninterbeds
+          if (node /= this%nodelist(ib)) cycle
+          this%thickini(ib) = this%thickini(ib) * f
+          if (this%iupdatematprop /= 0) then
+            this%thick(ib) = this%thick(ib) * f
+          end if
+          idelay = this%idelay(ib)
+          if (idelay /= 0) then
+            rval = this%thickini(ib) / real(this%ndelaycells, DP)
+            do n = 1, this%ndelaycells
+              this%dbdzini(n, idelay) = rval
+              this%dbdz(n, idelay) = rval
+              this%dbdz0(n, idelay) = rval
+            end do
+            ! -- recompute delay-bed cell elevations from the scaled thickness
+            call this%csub_delay_init_zcell(ib)
+          end if
+        end do
+        this%cg_thickini(node) = DZERO
+      else
         call this%dis%noder_to_string(node, cellid)
         write (errmsg, '(a,g0,a,1x,a,a)') &
           'Coarse grained material thickness is less than zero (', &
@@ -529,7 +568,7 @@ contains
   !<
   subroutine source_options(this)
     ! -- modules
-    use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL
+    use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL, DEM3
     use MemoryManagerModule, only: mem_reallocate
     use MemoryManagerExtModule, only: mem_set_value
     use OpenSpecModule, only: access, form
@@ -541,6 +580,8 @@ contains
     ! -- local variables
     integer(I4B), pointer :: ibs
     integer(I4B) :: inobs
+    integer(I4B), pointer :: iei_smoothing
+    integer(I4B), pointer :: istrict
     character(len=LINELENGTH) :: csv_interbed, csv_coarse
     character(len=LINELENGTH) :: cmp_fn, ecmp_fn, iecmp_fn, ibcmp_fn, cmpcoarse_fn
     character(len=LINELENGTH) :: zdisp_fn, pkg_converge_fn
@@ -560,6 +601,24 @@ contains
                        found%save_flows)
     call mem_set_value(this%gammaw, 'GAMMAW', this%input_mempath, found%gammaw)
     call mem_set_value(this%beta, 'BETA', this%input_mempath, found%beta)
+    ! -- ELASTIC_INELASTIC_SMOOTHING sets the default smoothing window (DEM3 * pcs)
+    allocate (iei_smoothing)
+    iei_smoothing = 0
+    call mem_set_value(iei_smoothing, 'EI_SMOOTHING', &
+                       this%input_mempath, found%ei_smoothing)
+    if (found%ei_smoothing) then
+      this%pcsomega = DEM3
+    end if
+    deallocate (iei_smoothing)
+    ! -- STRICT_EFFECTIVE_STRESS terminates on negative effective stress
+    allocate (istrict)
+    istrict = 0
+    call mem_set_value(istrict, 'STRICT_STRESS', this%input_mempath, &
+                       found%strict_stress)
+    if (found%strict_stress) then
+      this%istrict_stress = 1
+    end if
+    deallocate (istrict)
     call mem_set_value(this%ipch, 'HEAD_BASED', this%input_mempath, &
                        found%head_based)
     call mem_set_value(this%ipch, 'PRECON_HEAD', this%input_mempath, &
@@ -795,6 +854,15 @@ contains
           'SPECIFIC STORAGE VALUES WILL BE CALCULATED USING THE CURRENT', &
           'EFFECTIVE STRESS'
       end if
+      if (this%istrict_stress == 0) then
+        write (this%iout, '(4x,a,1(/,6x,a))') &
+          'SMALL OR NEGATIVE EFFECTIVE STRESS WILL BE REGULARIZED BY FLOORING', &
+          'THE EFFECTIVE STRESS USED TO CALCULATE THE SPECIFIC STORAGE'
+      else
+        write (this%iout, '(4x,a,1(/,6x,a))') &
+          'SMALL OR NEGATIVE EFFECTIVE STRESS WILL TERMINATE THE SIMULATION', &
+          '(STRICT_EFFECTIVE_STRESS SPECIFIED)'
+      end if
     else if (warn_estress_lag) then
       write (this%iout, '(4x,a,2(/,6x,a))') &
         'EFFECTIVE_STRESS_LAG HAS BEEN SPECIFIED BUT HAS NO EFFECT WHEN', &
@@ -885,6 +953,8 @@ contains
     call mem_allocate(this%initialized, 'INITIALIZED', this%memoryPath)
     call mem_allocate(this%ieslag, 'IESLAG', this%memoryPath)
     call mem_allocate(this%ipch, 'IPCH', this%memoryPath)
+    call mem_allocate(this%istrict_stress, 'ISTRICT_STRESS', this%memoryPath)
+    call mem_allocate(this%nreg_ts, 'NREG_TS', this%memoryPath)
     call mem_allocate(this%lhead_based, 'LHEAD_BASED', this%memoryPath)
     call mem_allocate(this%iupdatestress, 'IUPDATESTRESS', this%memoryPath)
     call mem_allocate(this%ispecified_pcs, 'ISPECIFIED_PCS', this%memoryPath)
@@ -909,6 +979,7 @@ contains
     call mem_allocate(this%beta, 'BETA', this%memoryPath)
     call mem_allocate(this%brg, 'BRG', this%memoryPath)
     call mem_allocate(this%satomega, 'SATOMEGA', this%memoryPath)
+    call mem_allocate(this%pcsomega, 'PCSOMEGA', this%memoryPath)
     call mem_allocate(this%icellf, 'ICELLF', this%memoryPath)
     call mem_allocate(this%gwfiss0, 'GWFISS0', this%memoryPath)
     !
@@ -928,6 +999,8 @@ contains
     this%initialized = 0
     this%ieslag = 0
     this%ipch = 0
+    this%istrict_stress = 0
+    this%nreg_ts = 0
     this%lhead_based = .FALSE.
     this%iupdatestress = 1
     this%ispecified_pcs = 0
@@ -951,6 +1024,8 @@ contains
     this%gammaw = DGRAVITY * 1000._DP
     this%beta = 4.6512e-10_DP
     this%brg = this%gammaw * this%beta
+    ! -- fraction of pcs over which ssk blends elastic->inelastic; 0 = hard switch
+    this%pcsomega = DZERO
     !
     ! -- set omega value used for saturation calculations
     if (this%inewton /= 0) then
@@ -2081,6 +2156,16 @@ contains
     ! -- dummy variables
     class(GwfCsubType) :: this
     !
+    ! -- summarize effective-stress regularization for the run
+    if (this%nreg_ts > 0) then
+      write (warnmsg, '(a,1x,i0,1x,3a)') &
+        'CSUB negative effective stress was regularized in', this%nreg_ts, &
+        'time step(s); see the model listing file for the number of cells ', &
+        'regularized in each time step. This typically occurs in uppermost ', &
+        'cells where simulated water levels rise above land surface.'
+      call store_warning(warnmsg)
+    end if
+    !
     ! -- Deallocate arrays if package is active
     if (this%inunit > 0) then
       call mem_deallocate(this%unodelist)
@@ -2268,6 +2353,9 @@ contains
     call mem_deallocate(this%beta)
     call mem_deallocate(this%brg)
     call mem_deallocate(this%satomega)
+    call mem_deallocate(this%pcsomega)
+    call mem_deallocate(this%istrict_stress)
+    call mem_deallocate(this%nreg_ts)
     call mem_deallocate(this%icellf)
     call mem_deallocate(this%gwfiss0)
     !
@@ -3800,11 +3888,14 @@ contains
   !!
   !<
   subroutine csub_cg_chk_stress(this)
+    ! -- modules
+    use TdisModule, only: kper, kstp
     ! -- dummy variables
     class(GwfCsubType) :: this
     ! -- local variables
     character(len=20) :: cellid
     integer(I4B) :: ierr
+    integer(I4B) :: iwarn
     integer(I4B) :: node
     real(DP) :: gs
     real(DP) :: bot
@@ -3814,22 +3905,19 @@ contains
     !
     ! -- initialize variables
     ierr = 0
+    iwarn = 0
     !
-    ! -- check geostatic stress if necessary
-    !
-    ! -- save effective stress from the last iteration and
-    !    calculate the new effective stress for a cell
+    ! -- check effective stress in each cell (effective-stress formulation only)
     do node = 1, this%dis%nodes
       if (this%ibound(node) < 1) cycle
+      if (this%lhead_based .EQV. .TRUE.) cycle
       bot = this%dis%bot(node)
       gs = this%cg_gs(node)
       es = this%cg_es(node)
-      phead = DZERO
-      if (this%ibound(node) /= 0) then
-        phead = gs - es
-      end if
+      phead = gs - es
       hcell = phead + bot
-      if (this%lhead_based .EQV. .FALSE.) then
+      if (this%istrict_stress /= 0) then
+        ! -- deprecated STRICT_EFFECTIVE_STRESS: terminate on negative stress
         if (es < DEM6) then
           ierr = ierr + 1
           call this%dis%noder_to_string(node, cellid)
@@ -3839,10 +3927,15 @@ contains
             ' - (', hcell, ' - ', bot, ').'
           call store_error(errmsg)
         end if
+      else
+        ! -- default: count cells with negative (regularized) effective stress
+        if (es < DEM6) then
+          iwarn = iwarn + 1
+        end if
       end if
     end do
     !
-    ! -- write a summary error message
+    ! -- STRICT_EFFECTIVE_STRESS: write a summary error message and terminate
     if (ierr > 0) then
       write (errmsg, '(a,1x,i0,3(1x,a))') &
         'Solution: small to negative effective stress values in', ierr, &
@@ -3851,6 +3944,14 @@ contains
         'exceeding the top of the model.'
       call store_error(errmsg)
       call store_error_filename(this%input_fname)
+    end if
+    !
+    ! -- default: note the regularized cells and count the time step
+    if (iwarn > 0) then
+      this%nreg_ts = this%nreg_ts + 1
+      write (this%iout, '(1x,a,1x,i0,1x,a,1x,i0,1x,a,1x,i0,a)') &
+        'CSUB negative effective stress regularized in', iwarn, &
+        'cell(s) in stress period', kper, 'time step', kstp, '.'
     end if
   end subroutine csub_cg_chk_stress
 
@@ -3969,7 +4070,8 @@ contains
       ! -- calculate the compression index factors for the delay
       !    node relative to the center of the cell based on the
       !    current and previous head
-      call this%csub_calc_sfacts(node, bot, znode, theta, es, es0, f)
+      call this%csub_calc_sfacts(node, bot, znode, theta, es, es0, &
+                                 this%cg_gs(node), f)
     end if
     sto_fac = tled * snnew * thick * f
     sto_fac0 = tled * snold * thick * f
@@ -4800,7 +4902,8 @@ contains
       ! -- calculate the compression index factors for the delay
       !    node relative to the center of the cell based on the
       !    current and previous head
-      call this%csub_calc_sfacts(n, bot, znode, theta, es, es0, f)
+      call this%csub_calc_sfacts(n, bot, znode, theta, es, es0, &
+                                 this%cg_gs(n), f)
     end if
     sske = f * this%cg_ske_cr(n)
   end subroutine csub_cg_calc_sske
@@ -5327,7 +5430,7 @@ contains
   !! @param[in,out]  fact  skeletal storage coefficient factor
   !!
   !<
-  subroutine csub_calc_sfacts(this, node, bot, znode, theta, es, es0, fact)
+  subroutine csub_calc_sfacts(this, node, bot, znode, theta, es, es0, geo, fact)
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     integer(I4B), intent(in) :: node !< cell node number
@@ -5336,10 +5439,13 @@ contains
     real(DP), intent(in) :: theta !< porosity
     real(DP), intent(in) :: es !< current effective stress
     real(DP), intent(in) :: es0 !< previous effective stress
+    real(DP), intent(in) :: geo !< geostatic stress (regularization reference)
     real(DP), intent(inout) :: fact !< skeletal storage coefficient factor (1/((1+void_ratio)*bar(es)))
     ! -- local variables
     real(DP) :: esv
     real(DP) :: void_ratio
+    real(DP) :: adjes
+    real(DP) :: esfloor
     real(DP) :: denom
     !
     ! -- initialize variables
@@ -5350,10 +5456,20 @@ contains
       esv = es
     end if
     !
+    ! -- effective stress adjusted to the vertical node position
+    adjes = this%csub_calc_adjes(node, esv, bot, znode)
+    !
+    ! -- smoothly floor the adjusted effective stress at stressfloor * geo so the
+    !    storage factor (1/es) stays bounded and positive as es approaches zero;
+    !    unchanged above the floor, disabled by STRICT_EFFECTIVE_STRESS
+    if (this%istrict_stress == 0 .and. geo > DZERO) then
+      esfloor = stressfloor * geo
+      adjes = sQuadratic0sp(adjes, esfloor, esfloor)
+    end if
+    !
     ! -- calculate storage factors for the effective stress case
     void_ratio = this%csub_calc_void_ratio(theta)
-    denom = this%csub_calc_adjes(node, esv, bot, znode)
-    denom = denom * (DONE + void_ratio)
+    denom = adjes * (DONE + void_ratio)
     if (denom /= DZERO) then
       fact = DONE / denom
     end if
@@ -5618,16 +5734,8 @@ contains
   end subroutine csub_delay_calc_stress
 
   !> @brief Calculate delay interbed cell storage coefficients
-  !!
-  !! Method to calculate the ssk and sske value for a node in a delay
-  !! interbed cell.
-  !!
-  !! @param[in,out]  ssk  skeletal specific storage value dependent on the
-  !!                      preconsolidation stress
-  !! @param[in,out]  sske elastic skeletal specific storage value
-  !!
   !<
-  subroutine csub_delay_calc_ssksske(this, ib, n, hcell, ssk, sske)
+  subroutine csub_delay_calc_ssksske(this, ib, n, hcell, ssk, sske, dsskde, wfac)
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     integer(I4B), intent(in) :: ib !< interbed number
@@ -5635,6 +5743,8 @@ contains
     real(DP), intent(in) :: hcell !< current head in a cell
     real(DP), intent(inout) :: ssk !< delay interbed skeletal specific storage
     real(DP), intent(inout) :: sske !< delay interbed elastic skeletal specific storage
+    real(DP), intent(out), optional :: dsskde !< d(ssk)/d(effective stress)
+    real(DP), intent(out), optional :: wfac !< inelastic weight (0 elastic, 1 inelastic) for the budget split
     ! -- local variables
     integer(I4B) :: idelay
     integer(I4B) :: ielastic
@@ -5656,6 +5766,10 @@ contains
     real(DP) :: theta
     real(DP) :: f
     real(DP) :: f0
+    real(DP) :: pcs
+    real(DP) :: estop
+    real(DP) :: w
+    real(DP) :: dwde
     !
     ! -- initialize variables
     sske = DZERO
@@ -5709,15 +5823,41 @@ contains
       ! -- calculate the compression index factors for the delay
       !    node relative to the center of the cell based on the
       !    current and previous head
-      call this%csub_calc_sfacts(node, zbot, znode, theta, es, es0, f)
+      call this%csub_calc_sfacts(node, zbot, znode, theta, es, es0, &
+                                 this%dbgeo(n, idelay), f)
     end if
     this%idbconvert(n, idelay) = 0
     sske = f * this%rci(ib)
     ssk = f * this%rci(ib)
+    if (present(dsskde)) dsskde = DZERO
+    ! -- wfac is the inelastic fraction of the storage change used to split the
+    !    reported elastic/inelastic budget; 0 while elastic, 1 once inelastic,
+    !    and equal to the smoothing weight w across the transition window
+    if (present(wfac)) wfac = DZERO
     if (ielastic == 0) then
-      if (this%dbes(n, idelay) > this%dbpcs(n, idelay)) then
-        this%idbconvert(n, idelay) = 1
-        ssk = f * this%ci(ib)
+      es = this%dbes(n, idelay)
+      pcs = this%dbpcs(n, idelay)
+      ! -- require pcs > DZERO so the smoothing window (pcsomega * pcs) is
+      !    positive, as sQuadraticSaturation and its derivative need
+      if (this%pcsomega > DZERO .and. pcs > DZERO) then
+        ! -- blend elastic (rci) -> inelastic (ci) skeletal storage over a
+        !    window of pcsomega * pcs above pcs; w runs 0 (elastic) to 1 (inelastic)
+        estop = pcs + this%pcsomega * pcs
+        w = sQuadraticSaturation(estop, pcs, es)
+        ssk = f * (this%rci(ib) + w * (this%ci(ib) - this%rci(ib)))
+        if (w > DHALF) this%idbconvert(n, idelay) = 1
+        if (present(wfac)) wfac = w
+        if (present(dsskde)) then
+          dwde = sQuadraticSaturationDerivative(estop, pcs, es)
+          dsskde = f * (this%ci(ib) - this%rci(ib)) * dwde
+        end if
+      else
+        ! -- original hard elastic<->inelastic switch
+        if (es > pcs) then
+          this%idbconvert(n, idelay) = 1
+          ssk = f * this%ci(ib)
+          if (present(wfac)) wfac = DONE
+        end if
       end if
     end if
   end subroutine csub_delay_calc_ssksske
@@ -5943,6 +6083,7 @@ contains
     real(DP) :: pcs
     real(DP) :: qsto
     real(DP) :: stoderv
+    real(DP) :: dsskde
     real(DP) :: qwc
     real(DP) :: wcderv
     !
@@ -6005,8 +6146,8 @@ contains
     ! -- calculate the derivative of the saturation
     dsnderv = this%csub_delay_calc_sat_derivative(node, idelay, n, hcell)
     !
-    ! -- calculate ssk and sske
-    call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske)
+    ! -- calculate ssk, sske, and the smoothing derivative dsskde
+    call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske, dsskde)
     !
     ! -- calculate storage terms
     smult = dzini * tled
@@ -6022,6 +6163,10 @@ contains
                       dsn0 * sske * (pcs - es0))
       stoderv = -smult * dsn * ssk * hbarderv + &
                 smult * ssk * (gs - hbar + zbot - pcs) * dsnderv
+      ! -- derivative of ssk through the smoothed preconsolidation switch.
+      !    es = gs - hbar + zbot  =>  d(es)/d(h) = -hbarderv
+      stoderv = stoderv - &
+                smult * dsn * dsskde * hbarderv * (gs - hbar + zbot - pcs)
     end if
     !
     ! -- Add additional term if using lagged effective stress
@@ -6147,6 +6292,7 @@ contains
     integer(I4B) :: n
     real(DP) :: sske
     real(DP) :: ssk
+    real(DP) :: wfac
     real(DP) :: fmult
     real(DP) :: v1
     real(DP) :: v2
@@ -6175,7 +6321,7 @@ contains
       fmult = this%dbdzini(1, idelay)
       dzhalf = DHALF * this%dbdzini(1, idelay)
       do n = 1, this%ndelaycells
-        call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske)
+        call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske, wfac=wfac)
         z = this%dbz(n, idelay)
         zbot = z - dzhalf
         h = this%dbh(n, idelay)
@@ -6192,13 +6338,11 @@ contains
           v2 = dsn0 * sske * (this%dbpcs(n, idelay) - this%dbes0(n, idelay))
         end if
         !
-        ! -- calculate inelastic and elastic storage components
-        if (this%idbconvert(n, idelay) /= 0) then
-          stoi = stoi + v1 * fmult
-          stoe = stoe + v2 * fmult
-        else
-          stoe = stoe + (v1 + v2) * fmult
-        end if
+        ! -- split the storage change into inelastic and elastic components
+        !    weighted by wfac so the reported budget blends across the smoothed
+        !    transition; wfac is 0/1 for the hard switch, reproducing the split
+        stoi = stoi + wfac * v1 * fmult
+        stoe = stoe + ((DONE - wfac) * v1 + v2) * fmult
         !
         ! calculate inelastic and elastic storativity
         ske = ske + sske * fmult
@@ -6289,6 +6433,7 @@ contains
     real(DP) :: snold
     real(DP) :: sske
     real(DP) :: ssk
+    real(DP) :: wfac
     real(DP) :: fmult
     real(DP) :: h
     real(DP) :: h0
@@ -6316,7 +6461,7 @@ contains
         h = this%dbh(n, idelay)
         h0 = this%dbh0(n, idelay)
         call this%csub_delay_calc_sat(node, idelay, n, h, h0, dsn, dsn0)
-        call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske)
+        call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske, wfac=wfac)
         if (ielastic /= 0) then
           v1 = dsn * ssk * this%dbes(n, idelay) - sske * this%dbes0(n, idelay)
           v2 = DZERO
@@ -6330,13 +6475,11 @@ contains
         ! -- save compaction data
         this%dbcomp(n, idelay) = v * snnew
         !
-        ! -- calculate inelastic and elastic storage components
-        if (this%idbconvert(n, idelay) /= 0) then
-          compi = compi + v1 * fmult
-          compe = compe + v2 * fmult
-        else
-          compe = compe + (v1 + v2) * fmult
-        end if
+        ! -- split compaction into inelastic and elastic components weighted by
+        !    wfac so the reported budget blends across the smoothed transition;
+        !    wfac is 0/1 for the hard switch, reproducing the original split
+        compi = compi + wfac * v1 * fmult
+        compe = compe + ((DONE - wfac) * v1 + v2) * fmult
       end do
     end if
     !

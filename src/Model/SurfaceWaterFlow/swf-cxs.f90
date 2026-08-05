@@ -17,6 +17,31 @@ module SwfCxsModule
   private
   public :: SwfCxsType, cxs_cr
 
+  !> @brief flags indicating which CXS options were found in the input
+  type :: CxsOptionsFoundType
+    logical(LGP) :: iprpak = .false.
+  end type CxsOptionsFoundType
+
+  !> @brief flags indicating which CXS dimensions were found in the input
+  type :: CxsDimensionsFoundType
+    logical(LGP) :: nsections = .false.
+    logical(LGP) :: npoints = .false.
+  end type CxsDimensionsFoundType
+
+  !> @brief flags indicating which CXS packagedata were found in the input
+  type :: CxsPackagedataFoundType
+    logical(LGP) :: idcxs = .false.
+    logical(LGP) :: nxspoints = .false.
+  end type CxsPackagedataFoundType
+
+  !> @brief flags indicating which CXS crosssectiondata were found in the input
+  type :: CxsCrosssectiondataFoundType
+    logical(LGP) :: ifno = .false.
+    logical(LGP) :: xfraction = .false.
+    logical(LGP) :: height = .false.
+    logical(LGP) :: manfraction = .false.
+  end type CxsCrosssectiondataFoundType
+
   type, extends(NumericalPackageType) :: SwfCxsType
 
     ! provided as input
@@ -43,6 +68,7 @@ module SwfCxsModule
     procedure :: log_packagedata
     procedure :: check_packagedata
     procedure :: source_crosssectiondata
+    procedure :: check_crosssectiondata
     procedure :: log_crosssectiondata
     procedure :: cxs_da
     procedure :: get_cross_section_info
@@ -151,12 +177,11 @@ contains
     use KindModule, only: LGP
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     ! -- dummy
     class(SwfCxsType) :: this
     ! -- locals
     character(len=LENMEMPATH) :: idmMemoryPath
-    type(SwfCxsParamFoundType) :: found
+    type(CxsOptionsFoundType) :: found
     !
     ! -- set memory path
     idmMemoryPath = create_mem_path(this%name_model, 'CXS', idm_context)
@@ -174,9 +199,8 @@ contains
   !> @brief Write user options to list file
   !<
   subroutine log_options(this, found)
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     class(SwfCxsType) :: this
-    type(SwfCxsParamFoundType), intent(in) :: found
+    type(CxsOptionsFoundType), intent(in) :: found
 
     write (this%iout, '(1x,a)') 'Setting CXS Options'
 
@@ -195,12 +219,11 @@ contains
     use KindModule, only: LGP
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     ! -- dummy
     class(SwfCxsType) :: this
     ! -- locals
     character(len=LENMEMPATH) :: idmMemoryPath
-    type(SwfCxsParamFoundType) :: found
+    type(CxsDimensionsFoundType) :: found
     !
     ! -- set memory path
     idmMemoryPath = create_mem_path(this%name_model, 'CXS', idm_context)
@@ -232,9 +255,8 @@ contains
   !> @brief Write user options to list file
   !<
   subroutine log_dimensions(this, found)
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     class(SwfCxsType) :: this
-    type(SwfCxsParamFoundType), intent(in) :: found
+    type(CxsDimensionsFoundType), intent(in) :: found
 
     write (this%iout, '(1x,a)') 'Setting CXS Dimensions'
 
@@ -294,25 +316,24 @@ contains
     use KindModule, only: LGP
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     ! dummy
     class(SwfCxsType) :: this
     ! locals
     character(len=LENMEMPATH) :: idmMemoryPath
-    type(SwfCxsParamFoundType) :: found
+    type(CxsPackagedataFoundType) :: found
 
     ! set memory path
     idmMemoryPath = create_mem_path(this%name_model, 'CXS', idm_context)
 
     ! update defaults with idm sourced values
-    call mem_set_value(this%idcxs, 'IDCXS', idmMemoryPath, &
+    call mem_set_value(this%idcxs, 'IFNO_PKGDATA', idmMemoryPath, &
                        found%idcxs)
     call mem_set_value(this%nxspoints, 'NXSPOINTS', idmMemoryPath, &
                        found%nxspoints)
 
     ! ensure idcxs was found
     if (.not. found%idcxs) then
-      write (errmsg, '(a)') 'Error in PACKAGEDATA block: IDCXS not found.'
+      write (errmsg, '(a)') 'Error in PACKAGEDATA block: IFNO not found.'
       call store_error(errmsg)
     end if
 
@@ -358,7 +379,7 @@ contains
     do i = 1, size(this%idcxs)
       if (this%idcxs(i) <= 0 .or. this%idcxs(i) > this%nsections) then
         write (errmsg, '(a, i0, a)') &
-        'IDCXS values must be greater than 0 and less than NSECTIONS.  &
+        'IFNO values must be greater than 0 and less than NSECTIONS.  &
         &Found ', this%idcxs(i), '.'
         call store_error(errmsg)
       end if
@@ -384,14 +405,13 @@ contains
   !> @brief Write user packagedata to list file
   !<
   subroutine log_packagedata(this, found)
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     class(SwfCxsType) :: this
-    type(SwfCxsParamFoundType), intent(in) :: found
+    type(CxsPackagedataFoundType), intent(in) :: found
 
     write (this%iout, '(1x,a)') 'Setting CXS Package Data'
 
     if (found%idcxs) then
-      write (this%iout, '(4x,a)') 'IDCXS set from input file.'
+      write (this%iout, '(4x,a)') 'IFNO set from input file.'
     end if
 
     if (found%nxspoints) then
@@ -409,23 +429,33 @@ contains
     use KindModule, only: LGP
     use MemoryManagerExtModule, only: mem_set_value
     use SimVariablesModule, only: idm_context
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     ! -- dummy
     class(SwfCxsType) :: this
     ! -- locals
     character(len=LENMEMPATH) :: idmMemoryPath
-    type(SwfCxsParamFoundType) :: found
+    type(CxsCrosssectiondataFoundType) :: found
+    integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
     !
     ! -- set memory path
     idmMemoryPath = create_mem_path(this%name_model, 'CXS', idm_context)
     !
     ! -- update defaults with idm sourced values
+    allocate (ifno(this%npoints))
+    call mem_set_value(ifno, 'IFNO', idmMemoryPath, &
+                       found%ifno)
     call mem_set_value(this%xfraction, 'XFRACTION', idmMemoryPath, &
                        found%xfraction)
     call mem_set_value(this%height, 'HEIGHT', idmMemoryPath, &
                        found%height)
     call mem_set_value(this%manfraction, 'MANFRACTION', idmMemoryPath, &
                        found%manfraction)
+    !
+    ! -- ensure ifno was found
+    if (.not. found%ifno) then
+      write (errmsg, '(a)') &
+        'Error in CROSSSECTIONDATA block: IFNO not found.'
+      call store_error(errmsg)
+    end if
     !
     ! -- ensure xfraction was found
     if (.not. found%xfraction) then
@@ -448,20 +478,61 @@ contains
       call store_error(errmsg)
     end if
     !
+    ! -- check that ifno is consistent with the section groupings
+    !    implied by PACKAGEDATA's NXSPOINTS
+    if (found%ifno) then
+      call this%check_crosssectiondata(ifno)
+    end if
+    deallocate (ifno)
+    !
     ! -- log values to list file
     if (this%iout > 0) then
       call this%log_crosssectiondata(found)
     end if
   end subroutine source_crosssectiondata
 
+  !> @brief Check crosssectiondata IFNO against PACKAGEDATA section groupings
+  !<
+  subroutine check_crosssectiondata(this, ifno)
+    ! -- dummy
+    class(SwfCxsType) :: this !< this instance
+    integer(I4B), dimension(:), intent(in) :: ifno !< cross section number for each point
+    ! -- local
+    integer(I4B) :: n
+    integer(I4B) :: i
+    integer(I4B) :: i0
+    integer(I4B) :: i1
+
+    do n = 1, this%nsections
+      i0 = this%iacross(n)
+      i1 = this%iacross(n + 1) - 1
+      do i = i0, i1
+        if (ifno(i) /= this%idcxs(n)) then
+          write (errmsg, '(a, i0, a, i0, a, i0, a)') &
+          'IFNO value in CROSSSECTIONDATA does not match the cross &
+          &section implied by PACKAGEDATA.  Found IFNO = ', ifno(i), &
+          ' at point ', i, ' but expected ', this%idcxs(n), '.'
+          call store_error(errmsg)
+        end if
+      end do
+    end do
+
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+  end subroutine check_crosssectiondata
+
   !> @brief Write user packagedata to list file
   !<
   subroutine log_crosssectiondata(this, found)
-    use SwfCxsInputModule, only: SwfCxsParamFoundType
     class(SwfCxsType) :: this
-    type(SwfCxsParamFoundType), intent(in) :: found
+    type(CxsCrosssectiondataFoundType), intent(in) :: found
 
     write (this%iout, '(1x,a)') 'Setting CXS Cross Section Data'
+
+    if (found%ifno) then
+      write (this%iout, '(4x,a)') 'IFNO set from input file.'
+    end if
 
     if (found%xfraction) then
       write (this%iout, '(4x,a)') 'XFRACTION set from input file.'

@@ -17,6 +17,8 @@ module GwfCsubInputModule
     logical :: save_flows = .false.
     logical :: gammaw = .false.
     logical :: beta = .false.
+    logical :: ei_smoothing = .false.
+    logical :: strict_stress = .false.
     logical :: head_based = .false.
     logical :: precon_head = .false.
     logical :: ndelaycells = .false.
@@ -179,6 +181,44 @@ module GwfCsubInputModule
     'DOUBLE', & ! type
     '', & ! shape
     'compressibility of water', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfcsub_ei_smoothing = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'CSUB', & ! subcomponent
+    'OPTIONS', & ! block
+    'ELASTIC_INELASTIC_SMOOTHING', & ! tag name
+    'EI_SMOOTHING', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'elastic to inelastic smoothing', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfcsub_strict_stress = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'CSUB', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRICT_EFFECTIVE_STRESS', & ! tag name
+    'STRICT_STRESS', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'terminate on negative effective stress', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -1441,6 +1481,8 @@ module GwfCsubInputModule
     gwfcsub_save_flows, &
     gwfcsub_gammaw, &
     gwfcsub_beta, &
+    gwfcsub_ei_smoothing, &
+    gwfcsub_strict_stress, &
     gwfcsub_head_based, &
     gwfcsub_precon_head, &
     gwfcsub_ndelaycells, &

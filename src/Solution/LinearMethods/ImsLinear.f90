@@ -166,7 +166,7 @@ CONTAINS
     this%iout = iout
     !
     ! -- DEFAULT VALUES
-    this%IPC = 0
+    this%IPC = IPC_UNKNOWN
     !
     this%IACPC = 0
     !
@@ -176,14 +176,7 @@ CONTAINS
            ' PACKAGE, VERSION 8, 04/28/2017')
     !
     ! -- DETERMINE PRECONDITIONER
-    IF (this%LEVEL > 0) THEN
-      this%IPC = 3
-    ELSE
-      this%IPC = 1
-    END IF
-    IF (this%RELAX > DZERO) THEN
-      this%IPC = this%IPC + 1
-    END IF
+    this%IPC = resolve_ipc(this%LEVEL, this%RELAX)
     !
     ! -- ERROR CHECKING FOR OPTIONS
     IF (this%ISCL < 0) this%ISCL = 0
@@ -224,29 +217,8 @@ CONTAINS
     CALL mem_allocate(this%DSCALE, iscllen, 'DSCALE', TRIM(this%memoryPath))
     CALL mem_allocate(this%DSCALE2, iscllen, 'DSCALE2', TRIM(this%memoryPath))
     !
-    ! -- determine dimensions for preconditing arrays
-    call ims_calc_pcdims(this%NEQ, this%NJA, this%IA, this%LEVEL, this%IPC, &
-                         this%NIAPC, this%NJAPC, this%NJLU, this%NJW, this%NWLU)
-    !
-    ! -- ALLOCATE BASE PRECONDITIONER VECTORS
-    CALL mem_allocate(this%IAPC, this%NIAPC + 1, 'IAPC', TRIM(this%memoryPath))
-    CALL mem_allocate(this%JAPC, this%NJAPC, 'JAPC', TRIM(this%memoryPath))
-    CALL mem_allocate(this%APC, this%NJAPC, 'APC', TRIM(this%memoryPath))
-    !
-    ! -- ALLOCATE MEMORY FOR ILU0 AND MILU0 NON-ZERO ROW ENTRY VECTOR
-    CALL mem_allocate(this%IW, this%NIAPC, 'IW', TRIM(this%memoryPath))
-    CALL mem_allocate(this%W, this%NIAPC, 'W', TRIM(this%memoryPath))
-    !
-    ! -- ALLOCATE MEMORY FOR ILUT VECTORS
-    CALL mem_allocate(this%JLU, this%NJLU, 'JLU', TRIM(this%memoryPath))
-    CALL mem_allocate(this%JW, this%NJW, 'JW', TRIM(this%memoryPath))
-    CALL mem_allocate(this%WLU, this%NWLU, 'WLU', TRIM(this%memoryPath))
-    !
-    ! -- GENERATE IAPC AND JAPC FOR ILU0 AND MILU0
-    IF (this%IPC == 1 .OR. this%IPC == 2) THEN
-      CALL ims_base_pccrs(this%NEQ, this%NJA, this%IA, this%JA, &
-                          this%IAPC, this%JAPC)
-    END IF
+    ! -- allocate and initialize the preconditioner work arrays
+    call precond_allocate(this)
     !
     ! -- ALLOCATE SPACE FOR PERMUTATION VECTOR
     i0 = 1
@@ -283,9 +255,6 @@ CONTAINS
     DO n = 1, iscllen
       this%DSCALE(n) = DONE
       this%DSCALE2(n) = DONE
-    END DO
-    DO n = 1, this%NJAPC
-      this%APC(n) = DZERO
     END DO
     !
     ! -- WORKING VECTORS
@@ -502,14 +471,7 @@ CONTAINS
     ! -- arrays
     call mem_deallocate(this%dscale)
     call mem_deallocate(this%dscale2)
-    call mem_deallocate(this%iapc)
-    call mem_deallocate(this%japc)
-    call mem_deallocate(this%apc)
-    call mem_deallocate(this%iw)
-    call mem_deallocate(this%w)
-    call mem_deallocate(this%jlu)
-    call mem_deallocate(this%jw)
-    call mem_deallocate(this%wlu)
+    call precond_destroy(this)
     call mem_deallocate(this%lorder)
     call mem_deallocate(this%iorder)
     call mem_deallocate(this%iaro)
@@ -552,6 +514,88 @@ CONTAINS
     nullify (this%x)
   end subroutine imslinear_da
 
+  !> @brief Allocate and initialize the preconditioner work arrays
+  !!
+  !! Determines the preconditioner array dimensions from the current
+  !! NEQ/NJA/LEVEL/IPC and allocates the ILU-family work arrays
+  !! (IAPC/JAPC/APC/IW/W/JLU/JW/WLU); for ILU0/MILU0 the IAPC/JAPC sparsity is
+  !! generated. Separated from imslinear_ar so the preconditioner can be
+  !! (re)allocated at runtime.
+  !<
+  subroutine precond_allocate(this)
+    use MemoryManagerModule, only: mem_allocate
+    ! -- dummy variables
+    class(ImsLinearDataType), intent(inout) :: this !< ImsLinearDataType instance
+    ! -- local variables
+    integer(I4B) :: n
+    !
+    ! -- release any existing preconditioner arrays so this routine is
+    !    idempotent and can be called again to reallocate at runtime
+    if (associated(this%IAPC)) call precond_destroy(this)
+    !
+    ! -- determine dimensions for preconditioning arrays
+    call ims_calc_pcdims(this%NEQ, this%NJA, this%IA, this%LEVEL, this%IPC, &
+                         this%NIAPC, this%NJAPC, this%NJLU, this%NJW, this%NWLU)
+    !
+    ! -- allocate base preconditioner vectors
+    call mem_allocate(this%IAPC, this%NIAPC + 1, 'IAPC', trim(this%memoryPath))
+    call mem_allocate(this%JAPC, this%NJAPC, 'JAPC', trim(this%memoryPath))
+    call mem_allocate(this%APC, this%NJAPC, 'APC', trim(this%memoryPath))
+    !
+    ! -- allocate ILU0/MILU0 non-zero row entry vectors
+    call mem_allocate(this%IW, this%NIAPC, 'IW', trim(this%memoryPath))
+    call mem_allocate(this%W, this%NIAPC, 'W', trim(this%memoryPath))
+    !
+    ! -- allocate ILUT vectors
+    call mem_allocate(this%JLU, this%NJLU, 'JLU', trim(this%memoryPath))
+    call mem_allocate(this%JW, this%NJW, 'JW', trim(this%memoryPath))
+    call mem_allocate(this%WLU, this%NWLU, 'WLU', trim(this%memoryPath))
+    !
+    ! -- generate IAPC and JAPC for ILU0 and MILU0
+    if (this%IPC == IPC_ILU0 .or. this%IPC == IPC_MILU0) then
+      call ims_base_pccrs(this%NEQ, this%NJA, this%IA, this%JA, &
+                          this%IAPC, this%JAPC)
+    end if
+    !
+    ! -- initialize preconditioner values
+    do n = 1, this%NJAPC
+      this%APC(n) = DZERO
+    end do
+  end subroutine precond_allocate
+
+  !> @brief Deallocate the preconditioner work arrays
+  !!
+  !! Preconditioner-only teardown, separated from imslinear_da so the
+  !! preconditioner can be destroyed and reallocated at runtime without
+  !! disturbing the solver work arrays.
+  !<
+  subroutine precond_destroy(this)
+    use MemoryManagerExtModule, only: memorystore_release
+    ! -- dummy variables
+    class(ImsLinearDataType), intent(inout) :: this !< ImsLinearDataType instance
+    !
+    ! -- mem_deallocate is a no-op in the memory manager, so releasing the named
+    !    store entries (and nullifying the aliases below) is what actually frees
+    !    these arrays and lets the preconditioner be reallocated at runtime
+    call memorystore_release('IAPC', trim(this%memoryPath))
+    call memorystore_release('JAPC', trim(this%memoryPath))
+    call memorystore_release('APC', trim(this%memoryPath))
+    call memorystore_release('IW', trim(this%memoryPath))
+    call memorystore_release('W', trim(this%memoryPath))
+    call memorystore_release('JLU', trim(this%memoryPath))
+    call memorystore_release('JW', trim(this%memoryPath))
+    call memorystore_release('WLU', trim(this%memoryPath))
+    !
+    nullify (this%IAPC)
+    nullify (this%JAPC)
+    nullify (this%APC)
+    nullify (this%IW)
+    nullify (this%W)
+    nullify (this%JLU)
+    nullify (this%JW)
+    nullify (this%WLU)
+  end subroutine precond_destroy
+
   !> @ brief Set default settings
     !!
     !!  Set default linear accelerator settings.
@@ -568,7 +612,7 @@ CONTAINS
     CASE (1)
       this%ITER1 = 50
       this%ILINMETH = 1
-      this%IPC = 1
+      this%IPC = IPC_ILU0
       this%ISCL = 0
       this%IORD = 0
       this%DVCLOSE = DEM3
@@ -582,7 +626,7 @@ CONTAINS
     CASE (2)
       this%ITER1 = 100
       this%ILINMETH = 2
-      this%IPC = 2
+      this%IPC = IPC_MILU0
       this%ISCL = 0
       this%IORD = 0
       this%DVCLOSE = DEM2
@@ -596,7 +640,7 @@ CONTAINS
     CASE (3)
       this%ITER1 = 500
       this%ILINMETH = 2
-      this%IPC = 3
+      this%IPC = IPC_ILUT
       this%ISCL = 0
       this%IORD = 0
       this%DVCLOSE = DEM1

@@ -136,12 +136,11 @@ contains
     ! -- modules
     use SimModule, only: store_error, store_error_filename
     use MemoryManagerExtModule, only: mem_set_value
-    use SwfIcInputModule, only: SwfIcParamFoundType
     ! -- dummy
     class(SwfIcType) :: this
     ! -- local
     character(len=LINELENGTH) :: errmsg
-    type(SwfIcParamFoundType) :: found
+    logical(LGP) :: found_strt
     integer(I4B), dimension(:), pointer, contiguous :: map
     !
     ! -- set map to convert user to reduced node data
@@ -149,10 +148,10 @@ contains
     if (this%dis%nodes < this%dis%nodesuser) map => this%dis%nodeuser
     !
     ! -- set values
-    call mem_set_value(this%strt, 'STRT', this%input_mempath, map, found%strt)
+    call mem_set_value(this%strt, 'STRT', this%input_mempath, map, found_strt)
     !
     ! -- ensure STRT was found
-    if (.not. found%strt) then
+    if (.not. found_strt) then
       write (errmsg, '(a)') 'Error in GRIDDATA block: STRT not found.'
       call store_error(errmsg, terminate=.false.)
       call store_error_filename(this%input_fname)
