@@ -277,6 +277,8 @@ modflow_sources = files(
     'Model' / 'ModelUtilities' / 'TimeSelect.f90',
     'Model' / 'ModelUtilities' / 'TimeStepSelect.f90',
     'Model' / 'ModelUtilities' / 'UzfCellGroup.f90',
+    'Model' / 'ModelUtilities' / 'submodules' / 'uzf-waves.f90',
+    'Model' / 'ModelUtilities' / 'submodules' / 'uzf-et.f90',
     'Model' / 'ModelUtilities' / 'UzfEtUtil.f90',
     'Model' / 'ModelUtilities' / 'VectorInterpolation.f90',
     'Model' / 'ModelUtilities' / 'Xt3dAlgorithm.f90',

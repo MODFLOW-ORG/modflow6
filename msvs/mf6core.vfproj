@@ -410,6 +410,8 @@
 					<File RelativePath="..\src\Model\ModelUtilities\TspAdvOptions.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\TspSpc.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\UzfCellGroup.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\submodules\uzf-waves.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\submodules\uzf-et.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\UzfEtUtil.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\VectorInterpolation.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\Xt3dAlgorithm.f90"/>

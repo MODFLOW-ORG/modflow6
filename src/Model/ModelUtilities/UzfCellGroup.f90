@@ -143,6 +143,169 @@ module UzfCellGroupModule
     procedure :: get_wcnew
   end type UzfCellGroupType
 
+  interface
+
+    module subroutine setwaves(this, icell)
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell
+    end subroutine setwaves
+
+    module subroutine routewaves(this, totfluxtot, delt, ietflag, icell, ierr)
+      class(UzfCellGroupType) :: this
+      real(DP), intent(inout) :: totfluxtot
+      real(DP), intent(in) :: delt
+      integer(I4B), intent(in) :: ietflag
+      integer(I4B), intent(in) :: icell
+      integer(I4B), intent(inout) :: ierr
+    end subroutine routewaves
+
+    module subroutine shift_waves(this, icell, shft, strt, stp, cntr)
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell
+      integer(I4B), intent(in) :: shft
+      integer(I4B), intent(in) :: strt
+      integer(I4B), intent(in) :: stp
+      integer(I4B), intent(in) :: cntr
+    end subroutine shift_waves
+
+    module subroutine store_waves(this, icell, store)
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell
+      type(UzfWaveStoreType), intent(inout) :: store
+    end subroutine store_waves
+
+    module subroutine load_waves(this, icell, store)
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell
+      type(UzfWaveStoreType), intent(in) :: store
+    end subroutine load_waves
+
+    module subroutine uzflow(this, thick, thickold, delt, ietflag, icell, ierr)
+      class(UzfCellGroupType) :: this
+      real(DP), intent(inout) :: thickold
+      real(DP), intent(inout) :: thick
+      real(DP), intent(in) :: delt
+      integer(I4B), intent(in) :: ietflag
+      integer(I4B), intent(in) :: icell
+      integer(I4B), intent(inout) :: ierr
+    end subroutine uzflow
+
+    module subroutine factors(eps_thick, eps_flux)
+      real(DP), intent(out) :: eps_thick
+      real(DP), intent(out) :: eps_flux
+    end subroutine factors
+
+    module subroutine trailwav(this, icell, ierr)
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell
+      integer(I4B), intent(inout) :: ierr
+    end subroutine trailwav
+
+  module subroutine leadwav(this, time, single_wave, trail_added, thetab, fluxb, &
+                              dflux_surf, eps_flux, delt, icell)
+      class(UzfCellGroupType) :: this
+      real(DP), intent(inout) :: thetab
+      real(DP), intent(inout) :: fluxb
+      real(DP), intent(in) :: eps_flux
+      real(DP), intent(inout) :: time
+      integer(I4B), intent(inout) :: single_wave
+      integer(I4B), intent(inout) :: trail_added
+      real(DP), intent(inout) :: dflux_surf
+      real(DP), intent(in) :: delt
+      integer(I4B), intent(in) :: icell
+    end subroutine leadwav
+
+    module function unsat_stor(this, icell, d1)
+      real(DP) :: unsat_stor
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell
+      real(DP), intent(inout) :: d1
+    end function unsat_stor
+
+    module subroutine update_wav(this, icell, delt, iss, itest)
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell
+      integer(I4B), intent(in) :: itest
+      integer(I4B), intent(in) :: iss
+      real(DP), intent(in) :: delt
+    end subroutine update_wav
+
+    module subroutine uz_rise(this, icell, totfluxtot)
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell
+      real(DP), intent(inout) :: totfluxtot
+    end subroutine uz_rise
+
+    module function get_water_content_at_depth(this, icell, depth) result(theta_at_depth)
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell !< uzf cell containing depth
+      real(DP), intent(in) :: depth !< depth within the cell
+      real(DP) :: theta_at_depth
+    end function get_water_content_at_depth
+
+    module function get_wcnew(this, icell) result(watercontent)
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell !< uzf cell containing depth
+      real(DP) :: watercontent
+    end function get_wcnew
+
+    module function leadspeed(theta1, theta2, flux1, flux2, thts, thtr, eps, vks)
+      real(DP) :: leadspeed
+      real(DP), intent(in) :: theta1
+      real(DP), intent(in) :: theta2
+      real(DP), intent(in) :: flux1
+      real(DP), intent(inout) :: flux2
+      real(DP), intent(in) :: thts
+      real(DP), intent(in) :: thtr
+      real(DP), intent(in) :: eps
+      real(DP), intent(in) :: vks
+    end function leadspeed
+
+    module subroutine setgwpet(this, icell)
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell
+    end subroutine setgwpet
+
+    module subroutine setbelowpet(this, icell, jbelow)
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell
+      integer(I4B), intent(in) :: jbelow
+    end subroutine setbelowpet
+
+    module subroutine simgwet(this, igwetflag, icell, hgwf, trhs, thcof, det)
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: igwetflag
+      integer(I4B), intent(in) :: icell
+      real(DP), intent(in) :: hgwf
+      real(DP), intent(inout) :: trhs
+      real(DP), intent(inout) :: thcof
+      real(DP), intent(inout) :: det
+    end subroutine simgwet
+
+    module subroutine uzet(this, icell, delt, ietflag, ierr)
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell
+      real(DP), intent(in) :: delt
+      integer(I4B), intent(in) :: ietflag
+      integer(I4B), intent(inout) :: ierr
+    end subroutine uzet
+
+    module function caph(this, icell, tho)
+      real(DP) :: caph
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell
+      real(DP), intent(in) :: tho
+    end function caph
+
+    module function rate_et_z(this, icell, factor, fktho, h)
+      real(DP) :: rate_et_z
+      class(UzfCellGroupType) :: this
+      integer(I4B), intent(in) :: icell
+      real(DP), intent(in) :: factor, fktho, h
+    end function rate_et_z
+
+  end interface
+
 contains
 
   !> @brief Allocate and set uzf object variables
@@ -477,49 +640,6 @@ contains
     end if
   end subroutine setdataet
 
-  !> @brief Subtract aet from pet to calculate residual et for gw
-  !<
-  subroutine setgwpet(this, icell)
-    ! -- modules
-    use TdisModule, only: delt
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell
-    ! -- dummy
-    real(DP) :: pet
-    !
-    pet = DZERO
-    !
-    ! -- reduce pet for gw by uzet
-    pet = this%pet(icell) - this%et_uz(icell) / delt
-    if (pet < DZERO) pet = DZERO
-    this%gw_pet(icell) = pet
-  end subroutine setgwpet
-
-  !> @brief Subtract aet from pet to calculate residual et for deeper cells
-  !<
-  subroutine setbelowpet(this, icell, jbelow)
-    ! -- modules
-    use TdisModule, only: delt
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell
-    integer(I4B), intent(in) :: jbelow
-    ! -- dummy
-    real(DP) :: pet
-    !
-    pet = DZERO
-    !
-    ! -- transfer unmet pet to lower cell
-    !
-    if (this%ext_depth_uz(jbelow) > DEM3) then
-      pet = this%pet(icell) - this%et_uz(icell) / delt - &
-            this%gwet(icell) / this%uzfarea(icell)
-      if (pet < DZERO) pet = DZERO
-    end if
-    this%pet(jbelow) = pet
-  end subroutine setbelowpet
-
   !> @brief Set extinction water content
   !<
   subroutine setdataetwc(this, icell, jbelow, extwc)
@@ -817,1213 +937,5 @@ contains
       thcof = DZERO
     end if
   end subroutine gwseep
-
-  !> @brief Calculate gwf et using residual uzf pet
-  !<
-  subroutine simgwet(this, igwetflag, icell, hgwf, trhs, thcof, det)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: igwetflag
-    integer(I4B), intent(in) :: icell
-    real(DP), intent(in) :: hgwf
-    real(DP), intent(inout) :: trhs
-    real(DP), intent(inout) :: thcof
-    real(DP), intent(inout) :: det
-    ! -- local
-    real(DP) :: s, x, c, b, et
-    !
-    this%gwet(icell) = DZERO
-    trhs = DZERO
-    thcof = DZERO
-    det = DZERO
-    s = this%landtop(icell)
-    x = this%ext_depth(icell)
-    c = this%gw_pet(icell)
-    b = this%celbot(icell)
-    if (b > hgwf) return
-    if (x < DEM6) return
-    if (igwetflag == 1) then
-      et = etfunc_lin(s, x, c, det, trhs, thcof, hgwf, &
-                      this%celtop(icell), this%celbot(icell))
-    else if (igwetflag == 2) then
-      et = etfunc_nlin(s, x, c, det, trhs, thcof, hgwf)
-    end if
-    ! this%gwet(icell) = et * this%uzfarea(icell)
-    trhs = trhs * this%uzfarea(icell)
-    thcof = thcof * this%uzfarea(icell)
-    this%gwet(icell) = trhs - (thcof * hgwf)
-    ! write(99,*)'in group', icell, this%gwet(icell)
-  end subroutine simgwet
-
-  !> @brief Calculate recharge due to a rise in the gwf head
-  !<
-  subroutine uz_rise(this, icell, totfluxtot)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell
-    real(DP), intent(inout) :: totfluxtot
-    ! -- local
-    real(DP) :: fm1, fm2, d1
-    !
-    ! -- additional recharge from a rising water table
-    if (this%water_table(icell) - this%water_table_old(icell) > DEM30) then
-      d1 = this%celtop(icell) - this%water_table_old(icell)
-      fm1 = this%unsat_stor(icell, d1)
-      d1 = this%celtop(icell) - this%water_table(icell)
-      fm2 = this%unsat_stor(icell, d1)
-      totfluxtot = totfluxtot + (fm1 - fm2)
-    end if
-  end subroutine uz_rise
-
-  !> @brief Reset waves to default values at start of simulation
-  !<
-  subroutine setwaves(this, icell)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    ! -- local
-    integer(I4B), intent(in) :: icell
-    real(DP) :: bottom, top
-    integer(I4B) :: jk
-    real(DP) :: thick
-    !
-    ! -- initialize
-    this%flux_to_wt(icell) = DZERO
-    this%nwaves(icell) = 1
-    this%wave_depth(:, icell) = DZERO
-    thick = this%celtop(icell) - this%water_table(icell)
-    do jk = 1, this%nwaves_max
-      this%wave_theta(jk, icell) = this%theta_res(icell)
-    end do
-    !
-    ! -- initialize waves for first stress period
-    if (thick > DZERO) then
-      this%wave_depth(1, icell) = thick
-      this%wave_theta(1, icell) = this%theta_init(icell)
-      top = this%wave_theta(1, icell) - this%theta_res(icell)
-      if (top < DZERO) top = DZERO
-      bottom = this%theta_sat(icell) - this%theta_res(icell)
-      if (bottom < DZERO) bottom = DZERO
-   this%wave_flux(1, icell) = this%vks(icell) * (top / bottom)**this%bc_eps(icell)
-      if (this%wave_theta(1, icell) < this%theta_res(icell)) &
-        this%wave_theta(1, icell) = this%theta_res(icell)
-      !
-      ! -- calculate water stored in the unsaturated zone
-      if (top > DZERO) then
-        this%wave_speed(1, icell) = DZERO
-      else
-        this%wave_flux(1, icell) = DZERO
-        this%wave_speed(1, icell) = DZERO
-      end if
-      !
-      ! no unsaturated zone
-    else
-      this%wave_flux(1, icell) = DZERO
-      this%wave_depth(1, icell) = DZERO
-      this%wave_speed(1, icell) = DZERO
-      this%wave_theta(1, icell) = this%theta_res(icell)
-    end if
-  end subroutine
-
-  !> @brief Prepare and route waves over time step
-  !<
-  subroutine routewaves(this, totfluxtot, delt, ietflag, icell, ierr)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    real(DP), intent(inout) :: totfluxtot
-    real(DP), intent(in) :: delt
-    integer(I4B), intent(in) :: ietflag
-    integer(I4B), intent(in) :: icell
-    integer(I4B), intent(inout) :: ierr
-    ! -- local
-    real(DP) :: thick, thickold
-    integer(I4B) :: idelt, iwav, ik
-    !
-    ! -- initialize
-    this%flux_to_wt(icell) = DZERO
-    this%et_uz(icell) = DZERO
-    thick = this%celtop(icell) - this%water_table(icell)
-    thickold = this%celtop(icell) - this%water_table_old(icell)
-    !
-    ! -- no uz, clear waves
-    if (thickold < DZERO) then
-      do iwav = 1, this%nwaves(icell)
-        this%wave_theta(iwav, icell) = this%theta_res(icell)
-        this%wave_depth(iwav, icell) = DZERO
-        this%wave_speed(iwav, icell) = DZERO
-        this%wave_flux(iwav, icell) = DZERO
-      end do
-      this%nwaves(icell) = 1
-    end if
-    idelt = 1
-    do ik = 1, idelt
-      call this%uzflow(thick, thickold, delt, ietflag, icell, ierr)
-      if (ierr > 0) return
-      totfluxtot = totfluxtot + this%flux_to_wt(icell)
-    end do
-  end subroutine routewaves
-
-  !> @brief Move waves within a cell by shft positions
-  !!
-  !! Waves strt to stp are overwritten by the waves shft positions away.
-  !! cntr is the loop increment; it must run the loop in the direction that
-  !! keeps the source ahead of the destination.
-  !<
-  subroutine shift_waves(this, icell, shft, strt, stp, cntr)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell
-    integer(I4B), intent(in) :: shft
-    integer(I4B), intent(in) :: strt
-    integer(I4B), intent(in) :: stp
-    integer(I4B), intent(in) :: cntr
-    ! -- local
-    integer(I4B) :: j
-    !
-    do j = strt, stp, cntr
-      this%wave_theta(j, icell) = this%wave_theta(j + shft, icell)
-      this%wave_depth(j, icell) = this%wave_depth(j + shft, icell)
-      this%wave_flux(j, icell) = this%wave_flux(j + shft, icell)
-      this%wave_speed(j, icell) = this%wave_speed(j + shft, icell)
-    end do
-  end subroutine shift_waves
-
-  !> @brief Save the wave train of one cell into a snapshot
-  !<
-  subroutine store_waves(this, icell, store)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell
-    type(UzfWaveStoreType), intent(inout) :: store
-    ! -- local
-    integer(I4B) :: j
-    !
-    do j = 1, this%nwaves(icell)
-      store%theta(j) = this%wave_theta(j, icell)
-      store%depth(j) = this%wave_depth(j, icell)
-      store%flux(j) = this%wave_flux(j, icell)
-      store%speed(j) = this%wave_speed(j, icell)
-    end do
-    store%nwaves = this%nwaves(icell)
-  end subroutine store_waves
-
-  !> @brief Restore the wave train of one cell from a snapshot
-  !<
-  subroutine load_waves(this, icell, store)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell
-    type(UzfWaveStoreType), intent(in) :: store
-    ! -- local
-    integer(I4B) :: j
-    !
-    do j = 1, store%nwaves
-      this%wave_theta(j, icell) = store%theta(j)
-      this%wave_depth(j, icell) = store%depth(j)
-      this%wave_flux(j, icell) = store%flux(j)
-      this%wave_speed(j, icell) = store%speed(j)
-    end do
-    this%nwaves(icell) = store%nwaves
-  end subroutine load_waves
-
-  !> @brief Method of Characteristics solution for kinematic wave equation
-  !<
-  subroutine uzflow(this, thick, thickold, delt, ietflag, icell, ierr)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    real(DP), intent(inout) :: thickold
-    real(DP), intent(inout) :: thick
-    real(DP), intent(in) :: delt
-    integer(I4B), intent(in) :: ietflag
-    integer(I4B), intent(in) :: icell
-    integer(I4B), intent(inout) :: ierr
-    ! -- local
-    real(DP) :: dflux_surf, time, eps_thick, eps_flux
-    real(DP) :: thetadif, thetab, fluxb, oldsflx
-    integer(I4B) :: trail_added, single_wave
-    !
-    time = DZERO
-    this%flux_to_wt(icell) = DZERO
-    trail_added = 0
-    oldsflx = this%wave_flux(this%nwaves(icell), icell)
-    call factors(eps_thick, eps_flux)
-    !
-    ! -- check for falling or rising water table
-    if ((thick - thickold) > eps_thick) then
-      thetadif = abs(this%wave_theta(1, icell) - this%theta_res(icell))
-      if (thetadif > DEM6) then
-        call this%shift_waves(icell, -1, &
-                              this%nwaves(icell) + 1, 2, -1)
-        if (this%wave_depth(2, icell) < DEM30) &
-          this%wave_depth(2, icell) = (this%ntrailwaves + DTWO) * DEM6
-        if (this%wave_theta(2, icell) > this%theta_res(icell)) then
-          this%wave_speed(2, icell) = this%wave_flux(2, icell) / &
-                               (this%wave_theta(2, icell) - this%theta_res(icell))
-        else
-          this%wave_speed(2, icell) = DZERO
-        end if
-        this%wave_theta(1, icell) = this%theta_res(icell)
-        this%wave_flux(1, icell) = DZERO
-        this%wave_speed(1, icell) = DZERO
-        this%wave_depth(1, icell) = thick
-        this%nwaves(icell) = this%nwaves(icell) + 1
-        if (this%nwaves(icell) >= this%nwaves_max) then
-          ! -- too many waves error
-          ierr = 1
-          return
-        end if
-      else
-        this%wave_depth(1, icell) = thick
-      end if
-    end if
-    thetab = this%wave_theta(1, icell)
-    fluxb = this%wave_flux(1, icell)
-    this%flux_to_wt(icell) = DZERO
-    single_wave = 0
- dflux_surf = (this%surf_infil(icell) - this%wave_flux(this%nwaves(icell), icell))
-    !
-    ! -- increase new waves in infiltration changes
-    if (dflux_surf > eps_flux .OR. dflux_surf < -eps_flux) then
-      this%nwaves(icell) = this%nwaves(icell) + 1
-      if (this%nwaves(icell) >= this%nwaves_max) then
-        !
-        ! -- too many waves error
-        ierr = 1
-        return
-      end if
-    else if (this%nwaves(icell) == 1) then
-      single_wave = 1
-    end if
-    if (this%nwaves(icell) > 1) then
-      if (dflux_surf < -eps_flux) then
-        call this%trailwav(icell, ierr)
-        if (ierr > 0) return
-        trail_added = 1
-      end if
-    call this%leadwav(time, single_wave, trail_added, thetab, fluxb, dflux_surf, &
-                        eps_flux, delt, icell)
-    end if
-    if (single_wave == 1) then
-      this%flux_to_wt(icell) = this%flux_to_wt(icell) + &
-                               (delt - time) * this%wave_flux(1, icell)
-      time = DZERO
-      single_wave = 0
-    end if
-    !
-    ! -- simulate et
-    if (ietflag > 0) call this%uzet(icell, delt, ietflag, ierr)
-    if (ierr > 0) return
-  end subroutine uzflow
-
-  !> @brief Calculate unit specific tolerances
-  !<
-  subroutine factors(eps_thick, eps_flux)
-    ! -- dummy
-    real(DP), intent(out) :: eps_thick
-    real(DP), intent(out) :: eps_flux
-    real(DP) :: factor1
-    real(DP) :: factor2
-    !
-    ! calculate constants for uzflow
-    factor1 = DONE
-    factor2 = DONE
-    eps_thick = DEM9
-    eps_flux = DEM9
-    if (ITMUNI == 1) then
-      factor1 = DONE / 86400.D0
-    else if (ITMUNI == 2) then
-      factor1 = DONE / 1440.D0
-    else if (ITMUNI == 3) then
-      factor1 = DONE / 24.0D0
-    else if (ITMUNI == 5) then
-      factor1 = 365.0D0
-    end if
-    factor2 = DONE / 0.3048
-    eps_thick = eps_thick * factor1 * factor2
-    eps_flux = eps_flux * factor1 * factor2
-  end subroutine factors
-
-  !> @brief Create and set trail waves
-  !<
-  subroutine trailwav(this, icell, ierr)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell
-    integer(I4B), intent(inout) :: ierr
-    ! -- local
-    real(DP) :: theta_surf, theta_step, ftrail, eps_m1
-    real(DP) :: dtheta_inv
-    real(DP) :: flux1, flux2, theta1, theta2
-    real(DP) :: fnuminc
-    integer(I4B) :: j, jj, jk, nwaves_m1
-    !
-    ! -- initialize
-    eps_m1 = dble(this%bc_eps(icell)) - DONE
-    dtheta_inv = DONE / (this%theta_sat(icell) - this%theta_res(icell))
-    nwaves_m1 = this%nwaves(icell) - 1
-    !
-    ! -- initialize trailwaves
-    theta_surf = (((this%surf_infil(icell) / this%vks(icell))** &
-                   (DONE / this%bc_eps(icell))) * &
-          (this%theta_sat(icell) - this%theta_res(icell))) + this%theta_res(icell)
-    if (this%wave_theta(nwaves_m1, icell) - theta_surf > DEM9) then
-      fnuminc = DZERO
-      do jk = 1, this%ntrailwaves
-        fnuminc = fnuminc + float(jk)
-      end do
-  theta_step = (this%wave_theta(nwaves_m1, icell) - theta_surf) / (fnuminc - DONE)
-      jj = this%ntrailwaves
-      ftrail = dble(this%ntrailwaves) + DONE
-      do j = this%nwaves(icell), this%nwaves(icell) + this%ntrailwaves - 1
-        if (j > this%nwaves_max) then
-          ! -- too many waves error
-          ierr = 1
-          return
-        end if
-        if (j > this%nwaves(icell)) then
-          this%wave_theta(j, icell) = this%wave_theta(j - 1, icell) &
-                                      - ((ftrail - float(jj)) * theta_step)
-        else
-          this%wave_theta(j, icell) = this%wave_theta(j - 1, icell) - DEM9
-        end if
-        jj = jj - 1
-        if (this%wave_theta(j, icell) <= this%theta_res(icell) + DEM9) &
-          this%wave_theta(j, icell) = this%theta_res(icell) + DEM9
-        this%wave_flux(j, icell) = &
-       this%vks(icell) * (((this%wave_theta(j, icell) - this%theta_res(icell)) * &
-                              dtheta_inv)**this%bc_eps(icell))
-        theta2 = this%wave_theta(j - 1, icell)
-        flux2 = this%wave_flux(j - 1, icell)
-        flux1 = this%wave_flux(j, icell)
-        theta1 = this%wave_theta(j, icell)
-        this%wave_speed(j, icell) = leadspeed(theta1, theta2, flux1, flux2, &
-                                   this%theta_sat(icell), this%theta_res(icell), &
-                                              this%bc_eps(icell), this%vks(icell))
-        this%wave_depth(j, icell) = DZERO
-        if (j == this%nwaves(icell)) then
-          this%wave_depth(j, icell) = this%wave_depth(j, icell) + &
-                                      (this%ntrailwaves + 1) * DEM9
-        else
-          this%wave_depth(j, icell) = this%wave_depth(j - 1, icell) - DEM9
-        end if
-      end do
-      this%nwaves(icell) = this%nwaves(icell) + this%ntrailwaves - 1
-      if (this%nwaves(icell) >= this%nwaves_max) then
-        ! -- too many waves error
-        ierr = 1
-        return
-      end if
-    else
-      this%wave_depth(this%nwaves(icell), icell) = DZERO
-      this%wave_flux(this%nwaves(icell), icell) = &
-        this%vks(icell) * (((this%wave_theta(this%nwaves(icell), icell) - &
-                             this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
-      this%wave_theta(this%nwaves(icell), icell) = theta_surf
-      theta2 = this%wave_theta(this%nwaves(icell) - 1, icell)
-      flux2 = this%wave_flux(this%nwaves(icell) - 1, icell)
-      flux1 = this%wave_flux(this%nwaves(icell), icell)
-      theta1 = this%wave_theta(this%nwaves(icell), icell)
-      this%wave_speed(this%nwaves(icell), icell) = &
-        leadspeed(theta1, theta2, flux1, flux2, this%theta_sat(icell), &
-                  this%theta_res(icell), this%bc_eps(icell), this%vks(icell))
-    end if
-  end subroutine trailwav
-
-  !> @brief Create a lead wave and route over time step
-  !<
-  subroutine leadwav(this, time, single_wave, trail_added, thetab, fluxb, &
-                     dflux_surf, eps_flux, delt, icell)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    real(DP), intent(inout) :: thetab
-    real(DP), intent(inout) :: fluxb
-    real(DP), intent(in) :: eps_flux
-    real(DP), intent(inout) :: time
-    integer(I4B), intent(inout) :: single_wave
-    integer(I4B), intent(inout) :: trail_added
-    real(DP), intent(inout) :: dflux_surf
-    real(DP), intent(in) :: delt
-    integer(I4B), intent(in) :: icell
-    ! -- local
-    real(DP) :: dt_to_bottom, dt_first, fcheck
-    real(DP) :: eps_m1, time_new, bottom, time_left
-    real(DP) :: dtheta_inv, diff, flux_bot_prev
-    real(DP) :: flux1, flux2, theta1, theta2, ftest
-    integer(I4B) :: wave_exited, iremove, j, l
-    integer(I4B) :: nwavp1, j_first
-    !
-    ftest = DZERO
-    eps_m1 = dble(this%bc_eps(icell)) - DONE
-    dtheta_inv = DONE / (this%theta_sat(icell) - this%theta_res(icell))
-    !
-    ! -- initialize new wave
-    if (trail_added == 0) then
-      if (dflux_surf > eps_flux) then
-        this%wave_flux(this%nwaves(icell), icell) = this%surf_infil(icell)
-        if (this%wave_flux(this%nwaves(icell), icell) < DEM30) &
-          this%wave_flux(this%nwaves(icell), icell) = DZERO
-        this%wave_theta(this%nwaves(icell), icell) = &
-          (((this%wave_flux(this%nwaves(icell), icell) / this%vks(icell))** &
- (DONE / this%bc_eps(icell))) * (this%theta_sat(icell) - this%theta_res(icell))) &
-          + this%theta_res(icell)
-        theta2 = this%wave_theta(this%nwaves(icell), icell)
-        flux2 = this%wave_flux(this%nwaves(icell), icell)
-        flux1 = this%wave_flux(this%nwaves(icell) - 1, icell)
-        theta1 = this%wave_theta(this%nwaves(icell) - 1, icell)
-        this%wave_speed(this%nwaves(icell), icell) = &
-          leadspeed(theta1, theta2, flux1, flux2, this%theta_sat(icell), &
-                    this%theta_res(icell), this%bc_eps(icell), this%vks(icell))
-        this%wave_depth(this%nwaves(icell), icell) = DZERO
-      end if
-    end if
-    !
-    ! -- route all waves and interception of waves over times step
-    diff = DONE
-    time_left = DZERO
-    wave_exited = 0
-    flux_bot_prev = this%wave_flux(1, icell)
-    if (this%nwaves(icell) == 0) single_wave = 1
-    if (single_wave /= 1) then
-      do while (diff > DEM6)
-        nwavp1 = this%nwaves(icell) + 1
-        time_left = delt - Time
-        do j = 1, this%nwaves(icell)
-          this%overtake_time(j) = DEP20
-          this%wave_merges(j) = 0
-        end do
-        dt_first = time_left
-        if (this%nwaves(icell) > 2) then
-          j = 2
-          !
-          ! -- calculate time until wave overtakes wave ahead
-          nwavp1 = this%nwaves(icell) + 1
-          do while (j < nwavp1)
-            ftest = this%wave_speed(j - 1, icell) - this%wave_speed(j, icell)
-            if (abs(ftest) > DEM30) then
-              this%overtake_time(j) = (this%wave_depth(j, icell) - &
-                                       this%wave_depth(j - 1, icell)) / ftest
-              if (this%overtake_time(j) < DEM30) this%overtake_time(j) = DEP20
-            end if
-            j = j + 1
-          end do
-        end if
-        !
-        ! - calc time until wave reaches bottom of cell
-        dt_to_bottom = DEP20
-        if (this%nwaves(icell) > 1) then
-          if (this%wave_speed(2, icell) > DZERO) then
-            bottom = this%wave_speed(2, icell)
-            if (bottom < DEM15) bottom = DEM15
-   dt_to_bottom = (this%wave_depth(1, icell) - this%wave_depth(2, icell)) / bottom
-            if (dt_to_bottom < DZERO) dt_to_bottom = DEM12
-          end if
-        end if
-        !
-        ! -- calc time for wave interception
-        j_first = 0
-        do j = this%nwaves(icell), 3, -1
-          if (dt_first - this%overtake_time(j) > -DEM9) then
-            this%wave_merges(j) = 1
-            j_first = j
-            dt_first = this%overtake_time(j)
-          end if
-        end do
-        do j = 3, this%nwaves(icell)
-          if (dt_first - this%overtake_time(j) < DEM9) then
-            if (j /= j_first) this%wave_merges(j) = 0
-          end if
-        end do
-        !
-        ! -- what happens first, waves hits bottom or interception
-        iremove = 0
-        time_new = Time
-        fcheck = (Time + dt_first) - delt
-        if (dt_first < DEM7) fcheck = -DONE
-        if (dt_to_bottom < dt_first .AND. Time + dt_to_bottom < delt) then
-          j = 2
-          do while (j < nwavp1)
-            !
-            ! -- route waves
-            this%wave_depth(j, icell) = this%wave_depth(j, icell) + &
-                                        this%wave_speed(j, icell) * dt_to_bottom
-            j = j + 1
-          end do
-          fluxb = this%wave_flux(2, icell)
-          thetab = this%wave_theta(2, icell)
-          wave_exited = 1
-          call this%shift_waves(icell, 1, 1, &
-                                this%nwaves(icell) - 1, 1)
-          iremove = 1
-          time_new = time + dt_to_bottom
-          this%wave_speed(1, icell) = DZERO
-          !
-          ! -- do waves intercept before end of time step
-        else if (fcheck < DZERO .AND. this%nwaves(icell) > 2) then
-          j = 2
-          do while (j < nwavp1)
-            this%wave_depth(j, icell) = this%wave_depth(j, icell) + &
-                                        this%wave_speed(j, icell) * dt_first
-            j = j + 1
-          end do
-          !
-          ! -- combine waves that intercept, remove a wave
-          j = 3
-          l = j
-          do while (j < this%nwaves(icell) + 1)
-            if (this%wave_merges(j) == 1) then
-              l = j
-              theta2 = this%wave_theta(j, icell)
-              flux2 = this%wave_flux(j, icell)
-              if (j == 3) then
-                flux1 = fluxb
-                theta1 = thetab
-              else
-                flux1 = this%wave_flux(j - 2, icell)
-                theta1 = this%wave_theta(j - 2, icell)
-              end if
-             this%wave_speed(j, icell) = leadspeed(theta1, theta2, flux1, flux2, &
-                                                    this%theta_sat(icell), &
-                                                    this%theta_res(icell), &
-                                              this%bc_eps(icell), this%vks(icell))
-              !
-              ! -- update waves
-              call this%shift_waves(icell, 1, l - 1, &
-                                    this%nwaves(icell) - 1, 1)
-              l = this%nwaves(icell) + 1
-              iremove = iremove + 1
-            end if
-            j = j + 1
-          end do
-          time_new = time_new + dt_first
-          !
-          ! -- calc. total flux to bottom during remaining time in step
-        else
-          j = 2
-          do while (j < nwavp1)
-            this%wave_depth(j, icell) = this%wave_depth(j, icell) + &
-                                        this%wave_speed(j, icell) * time_left
-            j = j + 1
-          end do
-          time_new = delt
-        end if
-        this%flux_to_wt(icell) = this%flux_to_wt(icell) + flux_bot_prev * (time_new - time)
-        if (wave_exited == 1) then
-          flux_bot_prev = this%wave_flux(1, icell)
-          wave_exited = 0
-        end if
-        !
-        ! -- remove dead waves
-        this%nwaves(icell) = this%nwaves(icell) - iremove
-        time = time_new
-        diff = delt - Time
-        if (this%nwaves(icell) == 1) then
-          single_wave = 1
-          exit
-        end if
-      end do
-    end if
-  end subroutine leadwav
-
-  !> @brief Calculates waves speed from dflux/dtheta
-  !<
-  function leadspeed(theta1, theta2, flux1, flux2, thts, thtr, eps, vks)
-    ! -- Return
-    real(DP) :: leadspeed
-    ! -- dummy
-    real(DP), intent(in) :: theta1
-    real(DP), intent(in) :: theta2
-    real(DP), intent(in) :: flux1
-    real(DP), intent(inout) :: flux2
-    real(DP), intent(in) :: thts
-    real(DP), intent(in) :: thtr
-    real(DP), intent(in) :: eps
-    real(DP), intent(in) :: vks
-    ! -- local
-    real(DP) :: comp1, comp2, thsrinv, epsfksths
-    real(DP) :: eps_m1, fhold, comp3
-    !
-    eps_m1 = eps - DONE
-    thsrinv = DONE / (thts - thtr)
-    epsfksths = eps * vks * thsrinv
-    comp1 = theta2 - theta1
-    comp2 = abs(flux2 - flux1)
-    comp3 = theta1 - thtr
-    if (comp2 < DEM15) flux2 = flux1 + DEM15
-    if (abs(comp1) < DEM30) then
-      fhold = DEM30
-      if (comp3 > DEM30) fhold = (comp3 * thsrinv)**eps
-      if (fhold < DEM30) fhold = DEM30
-      leadspeed = epsfksths * (fhold**eps_m1)
-    else
-      leadspeed = (flux2 - flux1) / (theta2 - theta1)
-    end if
-    if (leadspeed < DEM30) leadspeed = DEM30
-  end function leadspeed
-
-  !> @brief Sums up mobile water over depth interval
-  !<
-  function unsat_stor(this, icell, d1)
-    ! -- Return
-    real(DP) :: unsat_stor
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell
-    real(DP), intent(inout) :: d1
-    ! -- local
-    real(DP) :: fm
-    integer(I4B) :: j, k, nwavm1, jj
-    !
-    fm = DZERO
-    j = this%nwaves(icell) + 1
-    k = this%nwaves(icell)
-    nwavm1 = k - 1
-    if (d1 > this%wave_depth(1, icell)) d1 = this%wave_depth(1, icell)
-    !
-    ! -- find deepest wave above depth d1, counter held as j
-    do while (k > 0)
-      if (this%wave_depth(k, icell) - d1 < -DEM30) j = k
-      k = k - 1
-    end do
-    if (j > this%nwaves(icell)) then
-      fm = fm + (this%wave_theta(this%nwaves(icell), icell) - this%theta_res(icell)) * d1
-    elseif (this%nwaves(icell) > 1) then
-      if (j > 1) then
-        fm = fm + (this%wave_theta(j - 1, icell) - this%theta_res(icell)) &
-             * (d1 - this%wave_depth(j, icell))
-      end if
-      do jj = j, nwavm1
-        fm = fm + (this%wave_theta(jj, icell) - this%theta_res(icell)) &
-             * (this%wave_depth(jj, icell) &
-                - this%wave_depth(jj + 1, icell))
-      end do
-  fm = fm + (this%wave_theta(this%nwaves(icell), icell) - this%theta_res(icell)) &
-           * (this%wave_depth(this%nwaves(icell), icell))
-    else
-      fm = fm + (this%wave_theta(1, icell) - this%theta_res(icell)) * d1
-    end if
-    unsat_stor = fm
-  end function unsat_stor
-
-  !> @brief Update to new state of uz at end of time step
-  !<
-  subroutine update_wav(this, icell, delt, iss, itest)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell
-    integer(I4B), intent(in) :: itest
-    integer(I4B), intent(in) :: iss
-    real(DP), intent(in) :: delt
-    ! -- local
-    real(DP) :: bot, depthsave, top
-    real(DP) :: thick, dtheta_inv
-    integer(I4B) :: nwavhld, k, j
-    !
-    bot = this%water_table(icell)
-    top = this%celtop(icell)
-    thick = top - bot
-    nwavhld = this%nwaves(icell)
-    if (itest == 1) then
-      this%wave_flux(1, icell) = DZERO
-      this%wave_theta(1, icell) = this%theta_res(icell)
-      return
-    end if
-    if (iss == 1) then
-      if (this%theta_sat(icell) - this%theta_res(icell) < DEM7) then
-        dtheta_inv = DONE / DEM7
-      else
-        dtheta_inv = DONE / (this%theta_sat(icell) - this%theta_res(icell))
-      end if
-      this%flux_to_wt(icell) = this%surf_infil(icell) * delt
-      this%water_table_old(icell) = this%water_table(icell)
-      this%wave_theta(1, icell) = this%theta_init(icell)
-      this%wave_flux(1, icell) = &
-        this%vks(icell) * (((this%wave_theta(1, icell) - this%theta_res(icell)) &
-                            * dtheta_inv)**this%bc_eps(icell))
-      this%wave_depth(1, icell) = thick
-      this%wave_speed(1, icell) = thick
-      this%nwaves(icell) = 1
-    else
-      !
-      ! -- water table rises through waves
-      if (this%water_table(icell) - this%water_table_old(icell) > DEM30) then
-        depthsave = this%wave_depth(1, icell)
-        j = 0
-        k = this%nwaves(icell)
-        do while (k > 0)
-          if (this%wave_depth(k, icell) - thick < -DEM30) j = k
-          k = k - 1
-        end do
-        this%wave_depth(1, icell) = thick
-        if (j > 1) then
-          this%wave_speed(1, icell) = DZERO
-          this%nwaves(icell) = this%nwaves(icell) - j + 2
-          this%wave_theta(1, icell) = this%wave_theta(j - 1, icell)
-          this%wave_flux(1, icell) = this%wave_flux(j - 1, icell)
-          if (j > 2) call this%shift_waves(icell, j - 2, 2, &
-                                           nwavhld - (j - 2), 1)
-        elseif (j == 0) then
-          this%wave_speed(1, icell) = DZERO
-          this%wave_theta(1, icell) = this%wave_theta(this%nwaves(icell), icell)
-          this%wave_flux(1, icell) = this%wave_flux(this%nwaves(icell), icell)
-          this%nwaves(icell) = 1
-        end if
-      end if
-      !
-      ! -- calculate new unsat. storage
-      if (thick <= DZERO) then
-        this%wave_speed(1, icell) = DZERO
-        this%nwaves(icell) = 1
-        this%wave_theta(1, icell) = this%theta_res(icell)
-        this%wave_flux(1, icell) = DZERO
-      end if
-      this%water_table_old(icell) = this%water_table(icell)
-    end if
-  end subroutine update_wav
-
-  !> @brief Remove water from uz due to et
-  !<
-  subroutine uzet(this, icell, delt, ietflag, ierr)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell
-    real(DP), intent(in) :: delt
-    integer(I4B), intent(in) :: ietflag
-    integer(I4B), intent(inout) :: ierr
-    ! -- local
-    real(DP) :: diff
-    real(DP) :: thetaout
-    real(DP) :: fm
-    real(DP) :: st
-    real(DP) :: dtheta_inv
-    real(DP) :: epsfksthts
-    real(DP) :: fmp
-    real(DP) :: fktho
-    real(DP) :: theta1
-    real(DP) :: theta2
-    real(DP) :: flux1
-    real(DP) :: flux2
-    real(DP) :: hcap
-    real(DP) :: factor
-    real(DP) :: tho
-    real(DP) :: depth
-    real(DP) :: extwc1
-    real(DP) :: petsub
-    integer(I4B) :: i
-    integer(I4B) :: j
-    integer(I4B) :: jhold
-    integer(I4B) :: jk
-    integer(I4B) :: kj
-    integer(I4B) :: kk
-    integer(I4B) :: numadd
-    integer(I4B) :: k
-    integer(I4B) :: nwv
-    integer(I4B) :: itest
-    !
-    ! -- initialize
-    this%et_uz(icell) = DZERO
-    if (this%ext_depth_uz(icell) < DEM7) return
-    petsub = this%root_act(icell) * this%pet(icell) * &
-             this%ext_depth_uz(icell) / this%ext_depth(icell)
-    thetaout = delt * petsub / this%ext_depth(icell)
-    if (ietflag == 1) thetaout = delt * this%pet(icell) / this%ext_depth(icell)
-    if (thetaout < DEM10) return
-    depth = this%wave_depth(1, icell)
-    st = this%unsat_stor(icell, depth)
-    if (st < DEM4) return
-    !
-    ! -- store original wave characteristics so the aet-to-pet loop can retry
-    nwv = this%nwaves(icell)
-    itest = 0
-    call this%store_waves(icell, this%etsav)
-    factor = DONE
-    this%et_uz(icell) = DZERO
-    if (this%theta_sat(icell) - this%theta_res(icell) < DEM7) then
-      dtheta_inv = 1.0 / DEM7
-    else
-      dtheta_inv = DONE / (this%theta_sat(icell) - this%theta_res(icell))
-    end if
-    epsfksthts = this%bc_eps(icell) * this%vks(icell) * dtheta_inv
-    this%et_uz(icell) = DZERO
-    fmp = DZERO
-    extwc1 = this%theta_ext(icell) - this%theta_res(icell)
-    if (extwc1 < DEM6) extwc1 = DEM7
-    numadd = 0
-    fm = st
-    k = 0
-    !
-    ! -- loop for reducing aet to pet when et is head dependent
-    do while (itest == 0)
-      k = k + 1
-      if (k > 1 .AND. ABS(fmp - petsub) > DEM5 * petsub) then
-        factor = factor / (fm / petsub)
-      end if
-      !
-      ! -- one wave shallower than extdp
-      if (this%nwaves(icell) == 1 .AND. &
-          this%wave_depth(1, icell) <= this%ext_depth_uz(icell)) then
-        if (ietflag == 2) then
-          tho = this%wave_theta(1, icell)
-          fktho = this%wave_flux(1, icell)
-          hcap = this%caph(icell, tho)
-          thetaout = this%rate_et_z(icell, factor, fktho, hcap)
-        end if
- if ((this%wave_theta(1, icell) - thetaout) > this%theta_res(icell) + extwc1) then
-          this%wave_theta(1, icell) = this%wave_theta(1, icell) - thetaout
-          this%wave_flux(1, icell) = &
-            this%vks(icell) * (((this%wave_theta(1, icell) - &
-                         this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
-        else if (this%wave_theta(1, icell) > this%theta_res(icell) + extwc1) then
-          this%wave_theta(1, icell) = this%theta_res(icell) + extwc1
-          this%wave_flux(1, icell) = &
-            this%vks(icell) * (((this%wave_theta(1, icell) - &
-                         this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
-        end if
-        !
-        ! -- all waves shallower than extinction depth
-      else if (this%nwaves(icell) > 1 .AND. &
-       this%wave_depth(this%nwaves(icell), icell) > this%ext_depth_uz(icell)) then
-        if (ietflag == 2) then
-          tho = this%wave_theta(this%nwaves(icell), icell)
-          fktho = this%wave_flux(this%nwaves(icell), icell)
-          hcap = this%caph(icell, tho)
-          thetaout = this%rate_et_z(icell, factor, fktho, hcap)
-        end if
-        if (this%nwaves(icell) + 1 > this%nwaves_max) then
-          !
-          ! -- too many waves error
-          ierr = 1
-          goto 500
-        end if
-        if (this%wave_theta(this%nwaves(icell), icell) - thetaout > &
-            this%theta_res(icell) + extwc1) then
-          this%wave_theta(this%nwaves(icell) + 1, icell) = &
-            this%wave_theta(this%nwaves(icell), icell) - thetaout
-          numadd = 1
-        else if (this%wave_theta(this%nwaves(icell), icell) > &
-                 this%theta_res(icell) + extwc1) then
-   this%wave_theta(this%nwaves(icell) + 1, icell) = this%theta_res(icell) + extwc1
-          numadd = 1
-        end if
-        if (numadd == 1) then
-          this%wave_flux(this%nwaves(icell) + 1, icell) = &
-            this%vks(icell) * &
-            (((this%wave_theta(this%nwaves(icell) + 1, icell) - &
-               this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
-          theta2 = this%wave_theta(this%nwaves(icell) + 1, icell)
-          flux2 = this%wave_flux(this%nwaves(icell) + 1, icell)
-          flux1 = this%wave_flux(this%nwaves(icell), icell)
-          theta1 = this%wave_theta(this%nwaves(icell), icell)
-          this%wave_speed(this%nwaves(icell) + 1, icell) = &
-            leadspeed(theta1, theta2, flux1, flux2, this%theta_sat(icell), &
-                      this%theta_res(icell), this%bc_eps(icell), this%vks(icell))
-         this%wave_depth(this%nwaves(icell) + 1, icell) = this%ext_depth_uz(icell)
-          this%nwaves(icell) = this%nwaves(icell) + 1
-          if (this%nwaves(icell) > this%nwaves_max) then
-            !
-            ! -- too many waves error, deallocate temp arrays and return
-            ierr = 1
-            goto 500
-          end if
-        else
-          numadd = 0
-        end if
-        !
-        ! -- one wave below extinction depth
-      else if (this%nwaves(icell) == 1) then
-        if (this%nwaves(icell) + 1 > this%nwaves_max) then
-          !
-          ! -- too many waves error
-          ierr = 1
-          goto 500
-        end if
-        if (ietflag == 2) then
-          tho = this%wave_theta(1, icell)
-          fktho = this%wave_flux(1, icell)
-          hcap = this%caph(icell, tho)
-          thetaout = this%rate_et_z(icell, factor, fktho, hcap)
-        end if
- if ((this%wave_theta(1, icell) - thetaout) > this%theta_res(icell) + extwc1) then
-          if (thetaout > DEM30) then
-            this%wave_theta(2, icell) = this%wave_theta(1, icell) - thetaout
-            this%wave_flux(2, icell) = &
-       this%vks(icell) * (((this%wave_theta(2, icell) - this%theta_res(icell)) * &
-                                  dtheta_inv)**this%bc_eps(icell))
-            this%wave_depth(2, icell) = this%ext_depth_uz(icell)
-            theta2 = this%wave_theta(2, icell)
-            flux2 = this%wave_flux(2, icell)
-            flux1 = this%wave_flux(1, icell)
-            theta1 = this%wave_theta(1, icell)
-            this%wave_speed(2, icell) = &
-              leadspeed(theta1, theta2, flux1, flux2, this%theta_sat(icell), &
-                       this%theta_res(icell), this%bc_eps(icell), this%vks(icell))
-            this%nwaves(icell) = this%nwaves(icell) + 1
-            if (this%nwaves(icell) > this%nwaves_max) then
-              !
-              ! -- too many waves error
-              ierr = 1
-              goto 500
-            end if
-          end if
-        else if (this%wave_theta(1, icell) > this%theta_res(icell) + extwc1) then
-          if (thetaout > DEM30) then
-            this%wave_theta(2, icell) = this%theta_res(icell) + extwc1
-            this%wave_flux(2, icell) = &
-              this%vks(icell) * (((this%wave_theta(2, icell) - &
-                         this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
-            this%wave_depth(2, icell) = this%ext_depth_uz(icell)
-            theta2 = this%wave_theta(2, icell)
-            flux2 = this%wave_flux(2, icell)
-            flux1 = this%wave_flux(1, icell)
-            theta1 = this%wave_theta(1, icell)
-            this%wave_speed(2, icell) = &
-              leadspeed(theta1, theta2, flux1, flux2, this%theta_sat(icell), &
-                       this%theta_res(icell), this%bc_eps(icell), this%vks(icell))
-            this%nwaves(icell) = this%nwaves(icell) + 1
-            if (this%nwaves(icell) > this%nwaves_max) then
-              !
-              ! -- too many waves error
-              ierr = 1
-              goto 500
-            end if
-          end if
-        end if
-      else
-        !
-        ! -- extinction depth splits waves
-        if (this%wave_depth(1, icell) - this%ext_depth_uz(icell) > DEM7) then
-          j = 2
-          jk = 0
-          !
-          ! -- locate extinction depth between waves
-          do while (jk == 0)
-            diff = this%wave_depth(j, icell) - this%ext_depth_uz(icell)
-            if (diff > dzero) then
-              j = j + 1
-            else
-              jk = 1
-            end if
-          end do
-          kk = j
-          if (this%wave_theta(j, icell) > this%theta_res(icell) + extwc1) then
-            !
-            ! -- create a wave at extinction depth
-            if (abs(diff) > DEM5) then
-              if (this%nwaves(icell) + 1 > this%nwaves_max) then
-                !
-                ! -- too many waves error
-                ierr = 1
-                goto 500
-              end if
-              call this%shift_waves(icell, -1, &
-                                    this%nwaves(icell) + 1, j, -1)
-              this%wave_depth(j, icell) = this%ext_depth_uz(icell)
-              this%nwaves(icell) = this%nwaves(icell) + 1
-              if (this%nwaves(icell) > this%nwaves_max) then
-                !
-                ! -- too many waves error
-                ierr = 1
-                goto 500
-              end if
-            end if
-            kk = j
-          else
-            jhold = this%nwaves(icell)
-            i = j + 1
-            do while (i < this%nwaves(icell))
-              if (this%wave_theta(i, icell) > this%theta_res(icell) + extwc1) then
-                jhold = i
-                i = this%nwaves(icell) + 1
-              end if
-              i = i + 1
-            end do
-            j = jhold
-            kk = jhold
-          end if
-        else
-          kk = 1
-        end if
-        !
-        ! -- all waves above extinction depth
-        do while (kk <= this%nwaves(icell))
-          if (ietflag == 2) then
-            tho = this%wave_theta(kk, icell)
-            fktho = this%wave_flux(kk, icell)
-            hcap = this%caph(icell, tho)
-            thetaout = this%rate_et_z(icell, factor, fktho, hcap)
-          end if
-          if (this%wave_theta(kk, icell) > this%theta_res(icell) + extwc1) then
-            if (this%wave_theta(kk, icell) - thetaout > &
-                this%theta_res(icell) + extwc1) then
-              this%wave_theta(kk, icell) = this%wave_theta(kk, icell) - thetaout
-        else if (this%wave_theta(kk, icell) > this%theta_res(icell) + extwc1) then
-              this%wave_theta(kk, icell) = this%theta_res(icell) + extwc1
-            end if
-            if (kk == 1) then
-              this%wave_flux(kk, icell) = &
-                this%vks(icell) * &
-                (((this%wave_theta(kk, icell) - &
-                   this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
-            end if
-            if (kk > 1) then
-              flux1 = &
-                this%vks(icell) * ((this%wave_theta(kk - 1, icell) - &
-                          this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell)
-              flux2 = &
-                this%vks(icell) * ((this%wave_theta(kk, icell) - &
-                          this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell)
-              this%wave_flux(kk, icell) = flux2
-              theta2 = this%wave_theta(kk, icell)
-              theta1 = this%wave_theta(kk - 1, icell)
-            this%wave_speed(kk, icell) = leadspeed(theta1, theta2, flux1, flux2, &
-                                                     this%theta_sat(icell), &
-                                                     this%theta_res(icell), &
-                                              this%bc_eps(icell), this%vks(icell))
-            end if
-          end if
-          kk = kk + 1
-        end do
-      end if
-      !
-      ! -- calculate aet
-      kj = 1
-      do while (kj <= this%nwaves(icell) - 1)
- if (abs(this%wave_theta(kj, icell) - this%wave_theta(kj + 1, icell)) < DEM6) then
-          call this%shift_waves(icell, 1, kj + 1, &
-                                this%nwaves(icell) - 1, 1)
-          kj = kj - 1
-          this%nwaves(icell) = this%nwaves(icell) - 1
-        end if
-        kj = kj + 1
-      end do
-      depth = this%wave_depth(1, icell)
-      fm = this%unsat_stor(icell, depth)
-      this%et_uz(icell) = st - fm
-      fm = this%et_uz(icell) / delt
-      if (this%et_uz(icell) < dzero) then
-        call this%load_waves(icell, this%etsav)
-        this%nwaves(icell) = nwv
-        this%et_uz(icell) = DZERO
-      elseif (petsub - fm < -DEM15 .AND. ietflag == 2) then
-        !
-        ! -- aet greater than pet, reset and try again
-        call this%load_waves(icell, this%etsav)
-        this%nwaves(icell) = nwv
-        this%et_uz(icell) = DZERO
-      else
-        itest = 1
-      end if
-      !
-      ! -- end aet-pet loop for head dependent et
-      fmp = fm
-      if (k > 100) then
-        itest = 1
-      elseif (ietflag < 2) then
-        fmp = petsub
-        itest = 1
-      end if
-    end do
-500 continue
-  end subroutine uzet
-
-  !> @brief Calculate capillary pressure head from B-C equation
-  !<
-  function caph(this, icell, tho)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell
-    real(DP), intent(in) :: tho
-    ! -- local
-    real(DP) :: caph, lambda, star
-    !
-    caph = -DEM6
-    star = (tho - this%theta_res(icell)) / (this%theta_sat(icell) - this%theta_res(icell))
-    if (star < DEM15) star = DEM15
-    lambda = DTWO / (this%bc_eps(icell) - DTHREE)
-    if (star > DEM15) then
-      if (tho - this%theta_sat(icell) < DEM15) then
-        caph = this%air_entry(icell) * star**(-DONE / lambda)
-      else
-        caph = DZERO
-      end if
-    end if
-  end function caph
-
-  !> @brief Calculate capillary pressure-based uz et
-  !<
-  function rate_et_z(this, icell, factor, fktho, h)
-    ! -- Return
-    real(DP) :: rate_et_z
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell
-    real(DP), intent(in) :: factor, fktho, h
-    !
-    rate_et_z = factor * fktho * (h - this%root_pot(icell))
-    if (rate_et_z < DZERO) rate_et_z = DZERO
-  end function rate_et_z
-
-  !> @brief Determine the water content at a specific depth
-  !!
-  !! Because UZF-calculated waves are internal to UZF objects, different water
-  !! contents exists at different depths.
-  !<
-  function get_water_content_at_depth(this, icell, depth) result(theta_at_depth)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell !< uzf cell containing depth
-    real(DP), intent(in) :: depth !< depth within the cell
-    ! -- return
-    real(DP) :: theta_at_depth
-    ! -- local
-    real(DP) :: d1
-    real(DP) :: d2
-    real(DP) :: f1
-    real(DP) :: f2
-    !
-    if (this%water_table(icell) < this%celtop(icell)) then
-      if (this%celtop(icell) - depth > this%water_table(icell)) then
-        d1 = depth - DEM3
-        d2 = depth + DEM3
-        f1 = this%unsat_stor(icell, d1)
-        f2 = this%unsat_stor(icell, d2)
-        theta_at_depth = this%theta_res(icell) + (f2 - f1) / (d2 - d1)
-      else
-        theta_at_depth = this%theta_sat(icell)
-      end if
-    else
-      theta_at_depth = this%theta_sat(icell)
-    end if
-  end function get_water_content_at_depth
-
-  !> @brief Calculate and return the cell-based water content value
-  !<
-  function get_wcnew(this, icell) result(watercontent)
-    ! -- dummy
-    class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: icell !< uzf cell containing depth
-    ! -- return
-    real(DP) :: watercontent
-    ! -- local
-    real(DP) :: top
-    real(DP) :: bot
-    real(DP) :: theta_r
-    real(DP) :: thk
-    real(DP) :: hgwf
-    real(DP) :: fm
-    real(DP) :: d
-    !
-    hgwf = this%water_table(icell)
-    top = this%celtop(icell)
-    bot = this%celbot(icell)
-    thk = top - max(bot, hgwf)
-    if (thk > DZERO) then
-      theta_r = this%theta_res(icell)
-      d = thk
-      fm = this%unsat_stor(icell, d)
-      watercontent = fm / thk
-      watercontent = watercontent + theta_r
-    else
-      watercontent = DZERO
-    end if
-  end function get_wcnew
 
 end module UzfCellGroupModule
