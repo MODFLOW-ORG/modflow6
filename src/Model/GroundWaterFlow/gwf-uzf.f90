@@ -96,15 +96,21 @@ module UzfModule
     real(DP), dimension(:), pointer, contiguous :: wcnew => null() !< water content for this time step
     real(DP), dimension(:), pointer, contiguous :: wcold => null() !< water content for previous time step
     !
-    ! -- timeseries aware package variables; these variables with
-    !    _pvar have uzfobj counterparts
-    real(DP), dimension(:), pointer, contiguous :: sinf_pvar => null()
-    real(DP), dimension(:), pointer, contiguous :: pet_pvar => null()
-    real(DP), dimension(:), pointer, contiguous :: extdp => null()
-    real(DP), dimension(:), pointer, contiguous :: extwc_pvar => null()
-    real(DP), dimension(:), pointer, contiguous :: ha_pvar => null()
-    real(DP), dimension(:), pointer, contiguous :: hroot_pvar => null()
-    real(DP), dimension(:), pointer, contiguous :: rootact_pvar => null()
+    ! -- time series targets, each shadowing a uzfobj array of the same meaning.
+    !    The duplication is deliberate and cannot be removed by pointing the
+    !    time series manager straight at the uzfobj arrays. uzf_ad walks the
+    !    cells in order and the set routines write both the current cell and the
+    !    cell below it, so a cell that is the cell_below of another has its
+    !    uzfobj value overwritten before the loop reaches it. These arrays hold
+    !    the value the user supplied for each cell, untouched by that
+    !    propagation, and are the source uzf_ad reads from every time step.
+    real(DP), dimension(:), pointer, contiguous :: sinf_pvar => null() !< specified infiltration
+    real(DP), dimension(:), pointer, contiguous :: pet_pvar => null() !< potential et
+    real(DP), dimension(:), pointer, contiguous :: extdp => null() !< extinction depth
+    real(DP), dimension(:), pointer, contiguous :: extwc_pvar => null() !< extinction water content
+    real(DP), dimension(:), pointer, contiguous :: ha_pvar => null() !< air entry potential
+    real(DP), dimension(:), pointer, contiguous :: hroot_pvar => null() !< root potential
+    real(DP), dimension(:), pointer, contiguous :: rootact_pvar => null() !< root activity
     !
     ! -- aux variable
     real(DP), dimension(:, :), pointer, contiguous :: uauxvar => null()
