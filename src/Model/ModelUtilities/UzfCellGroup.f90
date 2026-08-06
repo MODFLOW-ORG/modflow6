@@ -12,9 +12,22 @@ module UzfCellGroupModule
   private
   public :: UzfCellGroupType
 
+  !> @brief Snapshot of one cell's wave train
+  !!
+  !! Holds the waves of a single cell so they can be restored after a trial
+  !! solution. Two are kept: one for the outer-iteration reset in solve() and
+  !! one for the aet-to-pet retry loop in uzet().
+  !<
+  type :: UzfWaveStoreType
+    real(DP), pointer, dimension(:), contiguous :: uzdpst => null()
+    real(DP), pointer, dimension(:), contiguous :: uzthst => null()
+    real(DP), pointer, dimension(:), contiguous :: uzflst => null()
+    real(DP), pointer, dimension(:), contiguous :: uzspst => null()
+    integer(I4B), pointer :: nwavst => null()
+  end type UzfWaveStoreType
+
   type :: UzfCellGroupType
 
-    integer(I4B) :: imem_manager
     real(DP), pointer, dimension(:), contiguous :: thtr => null()
     real(DP), pointer, dimension(:), contiguous :: thts => null()
     real(DP), pointer, dimension(:), contiguous :: thti => null()
@@ -30,8 +43,8 @@ module UzfCellGroupModule
     real(DP), dimension(:, :), pointer, contiguous :: uzdpst => null()
     integer(I4B), pointer, dimension(:), contiguous :: nwavst => null()
     real(DP), pointer, dimension(:), contiguous :: totflux => null()
-    integer(I4B), pointer, dimension(:), contiguous :: nwav => null()
-    integer(I4B), pointer, dimension(:), contiguous :: ntrail => null()
+    integer(I4B), pointer :: nwav => null() !< wave capacity per cell, same for every cell
+    integer(I4B), pointer :: ntrail => null() !< number of trailing waves, same for every cell
     real(DP), pointer, dimension(:), contiguous :: sinf => null()
     real(DP), pointer, dimension(:), contiguous :: finf => null()
     real(DP), pointer, dimension(:), contiguous :: pet => null()
@@ -55,6 +68,14 @@ module UzfCellGroupModule
     real(DP), pointer, dimension(:), contiguous :: gwpet => null()
     integer(I4B), pointer, dimension(:), contiguous :: landflag => null()
     integer(I4B), pointer, dimension(:), contiguous :: ivertcon => null()
+    !
+    ! -- wave snapshots, one cell each
+    type(UzfWaveStoreType) :: wavsav !< waves saved across an outer iteration
+    type(UzfWaveStoreType) :: etsav !< waves saved across the uzet retry loop
+    !
+    ! -- work arrays for leadwav, sized for the wave capacity of one cell
+    real(DP), pointer, dimension(:), contiguous :: checktime => null()
+    integer(I4B), pointer, dimension(:), contiguous :: wavmore => null()
 
   contains
 
@@ -67,7 +88,9 @@ module UzfCellGroupModule
     procedure :: setdataetwc
     procedure :: setdataetha
     procedure :: setwaves
-    procedure :: wave_shift
+    procedure :: shift_waves
+    procedure :: store_waves
+    procedure :: load_waves
     procedure :: routewaves
     procedure :: uzflow
     procedure :: addrech
@@ -100,103 +123,95 @@ contains
     use MemoryManagerModule, only: mem_allocate
     ! -- dummy
     class(UzfCellGroupType) :: this
-    integer(I4B), intent(in) :: nwav
     integer(I4B), intent(in) :: ncells
-    character(len=*), intent(in), optional :: memory_path
+    integer(I4B), intent(in) :: nwav
+    character(len=*), intent(in) :: memory_path
     ! -- local
     integer(I4B) :: icell
+    integer(I4B) :: j
     !
-    ! -- Use mem_allocate if memory path is passed in, otherwise it's a temp object
-    if (present(memory_path)) then
-      this%imem_manager = 1
-      call mem_allocate(this%uzdpst, nwav, ncells, 'UZDPST', memory_path)
-      call mem_allocate(this%uzthst, nwav, ncells, 'UZTHST', memory_path)
-      call mem_allocate(this%uzflst, nwav, ncells, 'UZFLST', memory_path)
-      call mem_allocate(this%uzspst, nwav, ncells, 'UZSPST', memory_path)
-      call mem_allocate(this%nwavst, ncells, 'NWAVST', memory_path)
-      call mem_allocate(this%thtr, ncells, 'THTR', memory_path)
-      call mem_allocate(this%thts, ncells, 'THTS', memory_path)
-      call mem_allocate(this%thti, ncells, 'THTI', memory_path)
-      call mem_allocate(this%eps, ncells, 'EPS', memory_path)
-      call mem_allocate(this%ha, ncells, 'HA', memory_path)
-      call mem_allocate(this%hroot, ncells, 'HROOT', memory_path)
-      call mem_allocate(this%rootact, ncells, 'ROOTACT', memory_path)
-      call mem_allocate(this%extwc, ncells, 'EXTWC', memory_path)
-      call mem_allocate(this%etact, ncells, 'ETACT', memory_path)
-      call mem_allocate(this%nwav, ncells, 'NWAV', memory_path)
-      call mem_allocate(this%ntrail, ncells, 'NTRAIL', memory_path)
-      call mem_allocate(this%totflux, ncells, 'TOTFLUX', memory_path)
-      call mem_allocate(this%sinf, ncells, 'SINF', memory_path)
-      call mem_allocate(this%finf, ncells, 'FINF', memory_path)
-      call mem_allocate(this%finf_rej, ncells, 'FINF_REJ', memory_path)
-      call mem_allocate(this%gwet, ncells, 'GWET', memory_path)
-      call mem_allocate(this%uzfarea, ncells, 'UZFAREA', memory_path)
-      call mem_allocate(this%cellarea, ncells, 'CELLAREA', memory_path)
-      call mem_allocate(this%celtop, ncells, 'CELTOP', memory_path)
-      call mem_allocate(this%celbot, ncells, 'CELBOT', memory_path)
-      call mem_allocate(this%landtop, ncells, 'LANDTOP', memory_path)
-      call mem_allocate(this%watab, ncells, 'WATAB', memory_path)
-      call mem_allocate(this%watabold, ncells, 'WATABOLD', memory_path)
-      call mem_allocate(this%surfdep, ncells, 'SURFDEP', memory_path)
-      call mem_allocate(this%vks, ncells, 'VKS', memory_path)
-      call mem_allocate(this%surflux, ncells, 'SURFLUX', memory_path)
-      call mem_allocate(this%surfluxbelow, ncells, 'SURFLUXBELOW', memory_path)
-      call mem_allocate(this%surfseep, ncells, 'SURFSEEP', memory_path)
-      call mem_allocate(this%gwpet, ncells, 'GWPET', memory_path)
-      call mem_allocate(this%pet, ncells, 'PET', memory_path)
-      call mem_allocate(this%petmax, ncells, 'PETMAX', memory_path)
-      call mem_allocate(this%extdp, ncells, 'EXTDP', memory_path)
-      call mem_allocate(this%extdpuz, ncells, 'EXTDPUZ', memory_path)
-      call mem_allocate(this%landflag, ncells, 'LANDFLAG', memory_path)
-      call mem_allocate(this%ivertcon, ncells, 'IVERTCON', memory_path)
-    else
-      this%imem_manager = 0
-      allocate (this%uzdpst(nwav, ncells))
-      allocate (this%uzthst(nwav, ncells))
-      allocate (this%uzflst(nwav, ncells))
-      allocate (this%uzspst(nwav, ncells))
-      allocate (this%nwavst(ncells))
-      allocate (this%thtr(ncells))
-      allocate (this%thts(ncells))
-      allocate (this%thti(ncells))
-      allocate (this%eps(ncells))
-      allocate (this%ha(ncells))
-      allocate (this%hroot(ncells))
-      allocate (this%rootact(ncells))
-      allocate (this%extwc(ncells))
-      allocate (this%etact(ncells))
-      allocate (this%nwav(ncells))
-      allocate (this%ntrail(ncells))
-      allocate (this%totflux(ncells))
-      allocate (this%sinf(ncells))
-      allocate (this%finf(ncells))
-      allocate (this%finf_rej(ncells))
-      allocate (this%gwet(ncells))
-      allocate (this%uzfarea(ncells))
-      allocate (this%cellarea(ncells))
-      allocate (this%celtop(ncells))
-      allocate (this%celbot(ncells))
-      allocate (this%landtop(ncells))
-      allocate (this%watab(ncells))
-      allocate (this%watabold(ncells))
-      allocate (this%surfdep(ncells))
-      allocate (this%vks(ncells))
-      allocate (this%surflux(ncells))
-      allocate (this%surfluxbelow(ncells))
-      allocate (this%surfseep(ncells))
-      allocate (this%gwpet(ncells))
-      allocate (this%pet(ncells))
-      allocate (this%petmax(ncells))
-      allocate (this%extdp(ncells))
-      allocate (this%extdpuz(ncells))
-      allocate (this%landflag(ncells))
-      allocate (this%ivertcon(ncells))
-    end if
+    ! -- wave state, one column per cell
+    call mem_allocate(this%uzdpst, nwav, ncells, 'UZDPST', memory_path)
+    call mem_allocate(this%uzthst, nwav, ncells, 'UZTHST', memory_path)
+    call mem_allocate(this%uzflst, nwav, ncells, 'UZFLST', memory_path)
+    call mem_allocate(this%uzspst, nwav, ncells, 'UZSPST', memory_path)
+    call mem_allocate(this%nwavst, ncells, 'NWAVST', memory_path)
+    call mem_allocate(this%nwav, 'NWAV', memory_path)
+    call mem_allocate(this%ntrail, 'NTRAIL', memory_path)
+    !
+    ! -- cell properties and state
+    call mem_allocate(this%thtr, ncells, 'THTR', memory_path)
+    call mem_allocate(this%thts, ncells, 'THTS', memory_path)
+    call mem_allocate(this%thti, ncells, 'THTI', memory_path)
+    call mem_allocate(this%eps, ncells, 'EPS', memory_path)
+    call mem_allocate(this%ha, ncells, 'HA', memory_path)
+    call mem_allocate(this%hroot, ncells, 'HROOT', memory_path)
+    call mem_allocate(this%rootact, ncells, 'ROOTACT', memory_path)
+    call mem_allocate(this%extwc, ncells, 'EXTWC', memory_path)
+    call mem_allocate(this%etact, ncells, 'ETACT', memory_path)
+    call mem_allocate(this%totflux, ncells, 'TOTFLUX', memory_path)
+    call mem_allocate(this%sinf, ncells, 'SINF', memory_path)
+    call mem_allocate(this%finf, ncells, 'FINF', memory_path)
+    call mem_allocate(this%finf_rej, ncells, 'FINF_REJ', memory_path)
+    call mem_allocate(this%gwet, ncells, 'GWET', memory_path)
+    call mem_allocate(this%uzfarea, ncells, 'UZFAREA', memory_path)
+    call mem_allocate(this%cellarea, ncells, 'CELLAREA', memory_path)
+    call mem_allocate(this%celtop, ncells, 'CELTOP', memory_path)
+    call mem_allocate(this%celbot, ncells, 'CELBOT', memory_path)
+    call mem_allocate(this%landtop, ncells, 'LANDTOP', memory_path)
+    call mem_allocate(this%watab, ncells, 'WATAB', memory_path)
+    call mem_allocate(this%watabold, ncells, 'WATABOLD', memory_path)
+    call mem_allocate(this%surfdep, ncells, 'SURFDEP', memory_path)
+    call mem_allocate(this%vks, ncells, 'VKS', memory_path)
+    call mem_allocate(this%surflux, ncells, 'SURFLUX', memory_path)
+    call mem_allocate(this%surfluxbelow, ncells, 'SURFLUXBELOW', memory_path)
+    call mem_allocate(this%surfseep, ncells, 'SURFSEEP', memory_path)
+    call mem_allocate(this%gwpet, ncells, 'GWPET', memory_path)
+    call mem_allocate(this%pet, ncells, 'PET', memory_path)
+    call mem_allocate(this%petmax, ncells, 'PETMAX', memory_path)
+    call mem_allocate(this%extdp, ncells, 'EXTDP', memory_path)
+    call mem_allocate(this%extdpuz, ncells, 'EXTDPUZ', memory_path)
+    call mem_allocate(this%landflag, ncells, 'LANDFLAG', memory_path)
+    call mem_allocate(this%ivertcon, ncells, 'IVERTCON', memory_path)
+    !
+    ! -- wave snapshots and leadwav work arrays, one cell wide
+    call mem_allocate(this%wavsav%uzdpst, nwav, 'SAV_UZDPST', memory_path)
+    call mem_allocate(this%wavsav%uzthst, nwav, 'SAV_UZTHST', memory_path)
+    call mem_allocate(this%wavsav%uzflst, nwav, 'SAV_UZFLST', memory_path)
+    call mem_allocate(this%wavsav%uzspst, nwav, 'SAV_UZSPST', memory_path)
+    call mem_allocate(this%wavsav%nwavst, 'SAV_NWAVST', memory_path)
+    call mem_allocate(this%etsav%uzdpst, nwav, 'ETSAV_UZDPST', memory_path)
+    call mem_allocate(this%etsav%uzthst, nwav, 'ETSAV_UZTHST', memory_path)
+    call mem_allocate(this%etsav%uzflst, nwav, 'ETSAV_UZFLST', memory_path)
+    call mem_allocate(this%etsav%uzspst, nwav, 'ETSAV_UZSPST', memory_path)
+    call mem_allocate(this%etsav%nwavst, 'ETSAV_NWAVST', memory_path)
+    call mem_allocate(this%checktime, nwav, 'CHECKTIME', memory_path)
+    call mem_allocate(this%wavmore, nwav, 'WAVMORE', memory_path)
+    !
+    ! -- wave capacity and trailing wave count are the same for every cell
+    this%nwav = nwav
+    this%ntrail = 0
+    this%wavsav%nwavst = 0
+    this%etsav%nwavst = 0
+    do j = 1, nwav
+      this%wavsav%uzdpst(j) = DZERO
+      this%wavsav%uzthst(j) = DZERO
+      this%wavsav%uzflst(j) = DZERO
+      this%wavsav%uzspst(j) = DZERO
+      this%etsav%uzdpst(j) = DZERO
+      this%etsav%uzthst(j) = DZERO
+      this%etsav%uzflst(j) = DZERO
+      this%etsav%uzspst(j) = DZERO
+      this%checktime(j) = DZERO
+      this%wavmore(j) = 0
+    end do
     do icell = 1, ncells
-      this%uzdpst(:, icell) = DZERO
-      this%uzthst(:, icell) = DZERO
-      this%uzflst(:, icell) = DZERO
-      this%uzspst(:, icell) = DZERO
+      do j = 1, nwav
+        this%uzdpst(j, icell) = DZERO
+        this%uzthst(j, icell) = DZERO
+        this%uzflst(j, icell) = DZERO
+        this%uzspst(j, icell) = DZERO
+      end do
       this%nwavst(icell) = 1
       this%thtr(icell) = DZERO
       this%thts(icell) = DZERO
@@ -207,8 +222,6 @@ contains
       this%rootact(icell) = DZERO
       this%extwc(icell) = DZERO
       this%etact(icell) = DZERO
-      this%nwav(icell) = nwav
-      this%ntrail(icell) = 0
       this%totflux(icell) = DZERO
       this%sinf(icell) = DZERO
       this%finf(icell) = DZERO
@@ -244,90 +257,58 @@ contains
     ! -- dummy
     class(UzfCellGroupType) :: this
     !
-    ! -- deallocate based on whether or not memory manager was used
-    if (this%imem_manager == 0) then
-      deallocate (this%uzdpst)
-      deallocate (this%uzthst)
-      deallocate (this%uzflst)
-      deallocate (this%uzspst)
-      deallocate (this%nwavst)
-      deallocate (this%thtr)
-      deallocate (this%thts)
-      deallocate (this%thti)
-      deallocate (this%eps)
-      deallocate (this%ha)
-      deallocate (this%hroot)
-      deallocate (this%rootact)
-      deallocate (this%extwc)
-      deallocate (this%etact)
-      deallocate (this%nwav)
-      deallocate (this%ntrail)
-      deallocate (this%totflux)
-      deallocate (this%sinf)
-      deallocate (this%finf)
-      deallocate (this%finf_rej)
-      deallocate (this%gwet)
-      deallocate (this%uzfarea)
-      deallocate (this%cellarea)
-      deallocate (this%celtop)
-      deallocate (this%celbot)
-      deallocate (this%landtop)
-      deallocate (this%watab)
-      deallocate (this%watabold)
-      deallocate (this%surfdep)
-      deallocate (this%vks)
-      deallocate (this%surflux)
-      deallocate (this%surfluxbelow)
-      deallocate (this%surfseep)
-      deallocate (this%gwpet)
-      deallocate (this%pet)
-      deallocate (this%petmax)
-      deallocate (this%extdp)
-      deallocate (this%extdpuz)
-      deallocate (this%landflag)
-      deallocate (this%ivertcon)
-    else
-      call mem_deallocate(this%uzdpst)
-      call mem_deallocate(this%uzthst)
-      call mem_deallocate(this%uzflst)
-      call mem_deallocate(this%uzspst)
-      call mem_deallocate(this%nwavst)
-      call mem_deallocate(this%thtr)
-      call mem_deallocate(this%thts)
-      call mem_deallocate(this%thti)
-      call mem_deallocate(this%eps)
-      call mem_deallocate(this%ha)
-      call mem_deallocate(this%hroot)
-      call mem_deallocate(this%rootact)
-      call mem_deallocate(this%extwc)
-      call mem_deallocate(this%etact)
-      call mem_deallocate(this%nwav)
-      call mem_deallocate(this%ntrail)
-      call mem_deallocate(this%totflux)
-      call mem_deallocate(this%sinf)
-      call mem_deallocate(this%finf)
-      call mem_deallocate(this%finf_rej)
-      call mem_deallocate(this%gwet)
-      call mem_deallocate(this%uzfarea)
-      call mem_deallocate(this%cellarea)
-      call mem_deallocate(this%celtop)
-      call mem_deallocate(this%celbot)
-      call mem_deallocate(this%landtop)
-      call mem_deallocate(this%watab)
-      call mem_deallocate(this%watabold)
-      call mem_deallocate(this%surfdep)
-      call mem_deallocate(this%vks)
-      call mem_deallocate(this%surflux)
-      call mem_deallocate(this%surfluxbelow)
-      call mem_deallocate(this%surfseep)
-      call mem_deallocate(this%gwpet)
-      call mem_deallocate(this%pet)
-      call mem_deallocate(this%petmax)
-      call mem_deallocate(this%extdp)
-      call mem_deallocate(this%extdpuz)
-      call mem_deallocate(this%landflag)
-      call mem_deallocate(this%ivertcon)
-    end if
+    call mem_deallocate(this%uzdpst)
+    call mem_deallocate(this%uzthst)
+    call mem_deallocate(this%uzflst)
+    call mem_deallocate(this%uzspst)
+    call mem_deallocate(this%nwavst)
+    call mem_deallocate(this%nwav)
+    call mem_deallocate(this%ntrail)
+    call mem_deallocate(this%thtr)
+    call mem_deallocate(this%thts)
+    call mem_deallocate(this%thti)
+    call mem_deallocate(this%eps)
+    call mem_deallocate(this%ha)
+    call mem_deallocate(this%hroot)
+    call mem_deallocate(this%rootact)
+    call mem_deallocate(this%extwc)
+    call mem_deallocate(this%etact)
+    call mem_deallocate(this%totflux)
+    call mem_deallocate(this%sinf)
+    call mem_deallocate(this%finf)
+    call mem_deallocate(this%finf_rej)
+    call mem_deallocate(this%gwet)
+    call mem_deallocate(this%uzfarea)
+    call mem_deallocate(this%cellarea)
+    call mem_deallocate(this%celtop)
+    call mem_deallocate(this%celbot)
+    call mem_deallocate(this%landtop)
+    call mem_deallocate(this%watab)
+    call mem_deallocate(this%watabold)
+    call mem_deallocate(this%surfdep)
+    call mem_deallocate(this%vks)
+    call mem_deallocate(this%surflux)
+    call mem_deallocate(this%surfluxbelow)
+    call mem_deallocate(this%surfseep)
+    call mem_deallocate(this%gwpet)
+    call mem_deallocate(this%pet)
+    call mem_deallocate(this%petmax)
+    call mem_deallocate(this%extdp)
+    call mem_deallocate(this%extdpuz)
+    call mem_deallocate(this%landflag)
+    call mem_deallocate(this%ivertcon)
+    call mem_deallocate(this%wavsav%uzdpst)
+    call mem_deallocate(this%wavsav%uzthst)
+    call mem_deallocate(this%wavsav%uzflst)
+    call mem_deallocate(this%wavsav%uzspst)
+    call mem_deallocate(this%wavsav%nwavst)
+    call mem_deallocate(this%etsav%uzdpst)
+    call mem_deallocate(this%etsav%uzthst)
+    call mem_deallocate(this%etsav%uzflst)
+    call mem_deallocate(this%etsav%uzspst)
+    call mem_deallocate(this%etsav%nwavst)
+    call mem_deallocate(this%checktime)
+    call mem_deallocate(this%wavmore)
   end subroutine dealloc
 
   !> @brief Set uzf object material properties
@@ -367,7 +348,7 @@ contains
     this%thts(icell) = thts
     this%thti(icell) = thti
     this%eps(icell) = eps
-    this%ntrail(icell) = ntrail
+    this%ntrail = ntrail
     this%pet(icell) = DZERO
     this%extdp(icell) = DZERO
     this%extwc(icell) = DZERO
@@ -560,14 +541,13 @@ contains
   !> @brief Formulate the unsaturated flow object, calculate terms for gwf
   !! equation
   !<
-  subroutine solve(this, thiswork, jbelow, icell, totfluxtot, ietflag, &
+  subroutine solve(this, jbelow, icell, totfluxtot, ietflag, &
                    issflag, iseepflag, hgwf, qfrommvr, ierr, &
                    reset_state, trhs, thcof, deriv, watercontent)
     ! -- modules
     use TdisModule, only: delt
     ! -- dummy
     class(UzfCellGroupType) :: this
-    type(UzfCellGroupType) :: thiswork !< work object for resetting wave state
     integer(I4B), intent(in) :: jbelow !< number of underlying uzf object or 0 if none
     integer(I4B), intent(in) :: icell !< number of this uzf object
     real(DP), intent(inout) :: totfluxtot !<
@@ -622,7 +602,7 @@ contains
     !
     ! -- save wave states for resetting after iteration.
     if (reset_state) then
-      call thiswork%wave_shift(this, 1, icell, 0, 1, this%nwavst(icell), 1)
+      call this%store_waves(icell, this%wavsav)
     end if
     !
     if (this%watab(icell) > this%celtop(icell)) &
@@ -695,7 +675,7 @@ contains
     !
     ! -- reset waves to previous state for next iteration
     if (reset_state) then
-      call this%wave_shift(thiswork, icell, 1, 0, 1, thiswork%nwavst(1), 1)
+      call this%load_waves(icell, this%wavsav)
     end if
   end subroutine solve
 
@@ -879,7 +859,7 @@ contains
     this%nwavst(icell) = 1
     this%uzdpst(:, icell) = DZERO
     thick = this%celtop(icell) - this%watab(icell)
-    do jk = 1, this%nwav(icell)
+    do jk = 1, this%nwav
       this%uzthst(jk, icell) = this%thtr(icell)
     end do
     !
@@ -950,14 +930,16 @@ contains
     end do
   end subroutine routewaves
 
-  !> @brief Copy waves or shift waves in arrays
+  !> @brief Move waves within a cell by shft positions
+  !!
+  !! Waves strt to stp are overwritten by the waves shft positions away.
+  !! cntr is the loop increment; it must run the loop in the direction that
+  !! keeps the source ahead of the destination.
   !<
-  subroutine wave_shift(this, this2, icell, icell2, shft, strt, stp, cntr)
+  subroutine shift_waves(this, icell, shft, strt, stp, cntr)
     ! -- dummy
     class(UzfCellGroupType) :: this
-    type(UzfCellGroupType) :: this2
     integer(I4B), intent(in) :: icell
-    integer(I4B), intent(in) :: icell2
     integer(I4B), intent(in) :: shft
     integer(I4B), intent(in) :: strt
     integer(I4B), intent(in) :: stp
@@ -965,15 +947,51 @@ contains
     ! -- local
     integer(I4B) :: j
     !
-    ! -- copy waves from one uzf cell group to another
     do j = strt, stp, cntr
-      this%uzthst(j, icell) = this2%uzthst(j + shft, icell2)
-      this%uzdpst(j, icell) = this2%uzdpst(j + shft, icell2)
-      this%uzflst(j, icell) = this2%uzflst(j + shft, icell2)
-      this%uzspst(j, icell) = this2%uzspst(j + shft, icell2)
+      this%uzthst(j, icell) = this%uzthst(j + shft, icell)
+      this%uzdpst(j, icell) = this%uzdpst(j + shft, icell)
+      this%uzflst(j, icell) = this%uzflst(j + shft, icell)
+      this%uzspst(j, icell) = this%uzspst(j + shft, icell)
     end do
-    this%nwavst(icell) = this2%nwavst(icell2)
-  end subroutine
+  end subroutine shift_waves
+
+  !> @brief Save the wave train of one cell into a snapshot
+  !<
+  subroutine store_waves(this, icell, store)
+    ! -- dummy
+    class(UzfCellGroupType) :: this
+    integer(I4B), intent(in) :: icell
+    type(UzfWaveStoreType), intent(inout) :: store
+    ! -- local
+    integer(I4B) :: j
+    !
+    do j = 1, this%nwavst(icell)
+      store%uzthst(j) = this%uzthst(j, icell)
+      store%uzdpst(j) = this%uzdpst(j, icell)
+      store%uzflst(j) = this%uzflst(j, icell)
+      store%uzspst(j) = this%uzspst(j, icell)
+    end do
+    store%nwavst = this%nwavst(icell)
+  end subroutine store_waves
+
+  !> @brief Restore the wave train of one cell from a snapshot
+  !<
+  subroutine load_waves(this, icell, store)
+    ! -- dummy
+    class(UzfCellGroupType) :: this
+    integer(I4B), intent(in) :: icell
+    type(UzfWaveStoreType), intent(in) :: store
+    ! -- local
+    integer(I4B) :: j
+    !
+    do j = 1, store%nwavst
+      this%uzthst(j, icell) = store%uzthst(j)
+      this%uzdpst(j, icell) = store%uzdpst(j)
+      this%uzflst(j, icell) = store%uzflst(j)
+      this%uzspst(j, icell) = store%uzspst(j)
+    end do
+    this%nwavst(icell) = store%nwavst
+  end subroutine load_waves
 
   !> @brief Method of Characteristics solution for kinematic wave equation
   !<
@@ -1001,10 +1019,10 @@ contains
     if ((thick - thickold) > feps1) then
       thetadif = abs(this%uzthst(1, icell) - this%thtr(icell))
       if (thetadif > DEM6) then
-        call this%wave_shift(this, icell, icell, -1, &
-                             this%nwavst(icell) + 1, 2, -1)
+        call this%shift_waves(icell, -1, &
+                              this%nwavst(icell) + 1, 2, -1)
         if (this%uzdpst(2, icell) < DEM30) &
-          this%uzdpst(2, icell) = (this%ntrail(icell) + DTWO) * DEM6
+          this%uzdpst(2, icell) = (this%ntrail + DTWO) * DEM6
         if (this%uzthst(2, icell) > this%thtr(icell)) then
           this%uzspst(2, icell) = this%uzflst(2, icell) / &
                                   (this%uzthst(2, icell) - this%thtr(icell))
@@ -1016,7 +1034,7 @@ contains
         this%uzspst(1, icell) = DZERO
         this%uzdpst(1, icell) = thick
         this%nwavst(icell) = this%nwavst(icell) + 1
-        if (this%nwavst(icell) >= this%nwav(icell)) then
+        if (this%nwavst(icell) >= this%nwav) then
           ! -- too many waves error
           ierr = 1
           return
@@ -1034,7 +1052,7 @@ contains
     ! -- increase new waves in infiltration changes
     if (ffcheck > feps2 .OR. ffcheck < -feps2) then
       this%nwavst(icell) = this%nwavst(icell) + 1
-      if (this%nwavst(icell) >= this%nwav(icell)) then
+      if (this%nwavst(icell) >= this%nwav) then
         !
         ! -- too many waves error
         ierr = 1
@@ -1117,14 +1135,14 @@ contains
               (this%thts(icell) - this%thtr(icell))) + this%thtr(icell)
     if (this%uzthst(nwavstm1, icell) - smoist > DEM9) then
       fnuminc = DZERO
-      do jk = 1, this%ntrail(icell)
+      do jk = 1, this%ntrail
         fnuminc = fnuminc + float(jk)
       end do
       smoistinc = (this%uzthst(nwavstm1, icell) - smoist) / (fnuminc - DONE)
-      jj = this%ntrail(icell)
-      ftrail = dble(this%ntrail(icell)) + DONE
-      do j = this%nwavst(icell), this%nwavst(icell) + this%ntrail(icell) - 1
-        if (j > this%nwav(icell)) then
+      jj = this%ntrail
+      ftrail = dble(this%ntrail) + DONE
+      do j = this%nwavst(icell), this%nwavst(icell) + this%ntrail - 1
+        if (j > this%nwav) then
           ! -- too many waves error
           ierr = 1
           return
@@ -1151,13 +1169,13 @@ contains
         this%uzdpst(j, icell) = DZERO
         if (j == this%nwavst(icell)) then
           this%uzdpst(j, icell) = this%uzdpst(j, icell) + &
-                                  (this%ntrail(icell) + 1) * DEM9
+                                  (this%ntrail + 1) * DEM9
         else
           this%uzdpst(j, icell) = this%uzdpst(j - 1, icell) - DEM9
         end if
       end do
-      this%nwavst(icell) = this%nwavst(icell) + this%ntrail(icell) - 1
-      if (this%nwavst(icell) >= this%nwav(icell)) then
+      this%nwavst(icell) = this%nwavst(icell) + this%ntrail - 1
+      if (this%nwavst(icell) >= this%nwav) then
         ! -- too many waves error
         ierr = 1
         return
@@ -1198,13 +1216,9 @@ contains
     real(DP) :: eps_m1, timenew, bottom, timedt
     real(DP) :: thtsrinv, diff, fluxhld2
     real(DP) :: flux1, flux2, theta1, theta2, ftest
-    real(DP), allocatable, dimension(:) :: checktime
     integer(I4B) :: iflx, iremove, j, l
     integer(I4B) :: nwavp1, jshort
-    integer(I4B), allocatable, dimension(:) :: more
     !
-    allocate (checktime(this%nwavst(icell)))
-    allocate (more(this%nwavst(icell)))
     ftest = DZERO
     eps_m1 = dble(this%eps(icell)) - DONE
     thtsrinv = DONE / (this%thts(icell) - this%thtr(icell))
@@ -1241,8 +1255,8 @@ contains
         nwavp1 = this%nwavst(icell) + 1
         timedt = delt - Time
         do j = 1, this%nwavst(icell)
-          checktime(j) = DEP20
-          more(j) = 0
+          this%checktime(j) = DEP20
+          this%wavmore(j) = 0
         end do
         shortest = timedt
         if (this%nwavst(icell) > 2) then
@@ -1253,9 +1267,9 @@ contains
           do while (j < nwavp1)
             ftest = this%uzspst(j - 1, icell) - this%uzspst(j, icell)
             if (abs(ftest) > DEM30) then
-              checktime(j) = (this%uzdpst(j, icell) - &
-                              this%uzdpst(j - 1, icell)) / ftest
-              if (checktime(j) < DEM30) checktime(j) = DEP20
+              this%checktime(j) = (this%uzdpst(j, icell) - &
+                                   this%uzdpst(j - 1, icell)) / ftest
+              if (this%checktime(j) < DEM30) this%checktime(j) = DEP20
             end if
             j = j + 1
           end do
@@ -1275,15 +1289,15 @@ contains
         ! -- calc time for wave interception
         jshort = 0
         do j = this%nwavst(icell), 3, -1
-          if (shortest - checktime(j) > -DEM9) then
-            more(j) = 1
+          if (shortest - this%checktime(j) > -DEM9) then
+            this%wavmore(j) = 1
             jshort = j
-            shortest = checktime(j)
+            shortest = this%checktime(j)
           end if
         end do
         do j = 3, this%nwavst(icell)
-          if (shortest - checktime(j) < DEM9) then
-            if (j /= jshort) more(j) = 0
+          if (shortest - this%checktime(j) < DEM9) then
+            if (j /= jshort) this%wavmore(j) = 0
           end if
         end do
         !
@@ -1304,8 +1318,8 @@ contains
           fluxb = this%uzflst(2, icell)
           thetab = this%uzthst(2, icell)
           iflx = 1
-          call this%wave_shift(this, icell, icell, 1, 1, &
-                               this%nwavst(icell) - 1, 1)
+          call this%shift_waves(icell, 1, 1, &
+                                this%nwavst(icell) - 1, 1)
           iremove = 1
           timenew = time + bottomtime
           this%uzspst(1, icell) = DZERO
@@ -1323,7 +1337,7 @@ contains
           j = 3
           l = j
           do while (j < this%nwavst(icell) + 1)
-            if (more(j) == 1) then
+            if (this%wavmore(j) == 1) then
               l = j
               theta2 = this%uzthst(j, icell)
               flux2 = this%uzflst(j, icell)
@@ -1340,8 +1354,8 @@ contains
                                                 this%eps(icell), this%vks(icell))
               !
               ! -- update waves
-              call this%wave_shift(this, icell, icell, 1, l - 1, &
-                                   this%nwavst(icell) - 1, 1)
+              call this%shift_waves(icell, 1, l - 1, &
+                                    this%nwavst(icell) - 1, 1)
               l = this%nwavst(icell) + 1
               iremove = iremove + 1
             end if
@@ -1375,8 +1389,6 @@ contains
         end if
       end do
     end if
-    deallocate (checktime)
-    deallocate (more)
   end subroutine leadwav
 
   !> @brief Calculates waves speed from dflux/dtheta
@@ -1514,8 +1526,8 @@ contains
           this%nwavst(icell) = this%nwavst(icell) - j + 2
           this%uzthst(1, icell) = this%uzthst(j - 1, icell)
           this%uzflst(1, icell) = this%uzflst(j - 1, icell)
-          if (j > 2) call this%wave_shift(this, icell, icell, j - 2, 2, &
-                                          nwavhld - (j - 2), 1)
+          if (j > 2) call this%shift_waves(icell, j - 2, 2, &
+                                           nwavhld - (j - 2), 1)
         elseif (j == 0) then
           this%uzspst(1, icell) = DZERO
           this%uzthst(1, icell) = this%uzthst(this%nwavst(icell), icell)
@@ -1545,7 +1557,6 @@ contains
     integer(I4B), intent(in) :: ietflag
     integer(I4B), intent(inout) :: ierr
     ! -- local
-    type(UzfCellGroupType) :: uzfktemp
     real(DP) :: diff
     real(DP) :: thetaout
     real(DP) :: fm
@@ -1587,13 +1598,10 @@ contains
     st = this%unsat_stor(icell, depth)
     if (st < DEM4) return
     !
-    ! -- allocate temporary wave storage.
+    ! -- store original wave characteristics so the aet-to-pet loop can retry
     nwv = this%nwavst(icell)
     itest = 0
-    call uzfktemp%init(1, nwv)
-    !
-    ! store original wave characteristics
-    call uzfktemp%wave_shift(this, 1, icell, 0, 1, nwv, 1)
+    call this%store_waves(icell, this%etsav)
     factor = DONE
     this%etact(icell) = DZERO
     if (this%thts(icell) - this%thtr(icell) < DEM7) then
@@ -1677,7 +1685,7 @@ contains
                       this%thtr(icell), this%eps(icell), this%vks(icell))
           this%uzdpst(this%nwavst(icell) + 1, icell) = this%extdpuz(icell)
           this%nwavst(icell) = this%nwavst(icell) + 1
-          if (this%nwavst(icell) > this%nwav(icell)) then
+          if (this%nwavst(icell) > this%nwav) then
             !
             ! -- too many waves error, deallocate temp arrays and return
             ierr = 1
@@ -1716,7 +1724,7 @@ contains
               leadspeed(theta1, theta2, flux1, flux2, this%thts(icell), &
                         this%thtr(icell), this%eps(icell), this%vks(icell))
             this%nwavst(icell) = this%nwavst(icell) + 1
-            if (this%nwavst(icell) > this%nwav(icell)) then
+            if (this%nwavst(icell) > this%nwav) then
               !
               ! -- too many waves error
               ierr = 1
@@ -1738,7 +1746,7 @@ contains
               leadspeed(theta1, theta2, flux1, flux2, this%thts(icell), &
                         this%thtr(icell), this%eps(icell), this%vks(icell))
             this%nwavst(icell) = this%nwavst(icell) + 1
-            if (this%nwavst(icell) > this%nwav(icell)) then
+            if (this%nwavst(icell) > this%nwav) then
               !
               ! -- too many waves error
               ierr = 1
@@ -1767,17 +1775,17 @@ contains
             !
             ! -- create a wave at extinction depth
             if (abs(diff) > DEM5) then
-              if (this%nwavst(icell) + 1 > this%nwav(icell)) then
+              if (this%nwavst(icell) + 1 > this%nwav) then
                 !
                 ! -- too many waves error
                 ierr = 1
                 goto 500
               end if
-              call this%wave_shift(this, icell, icell, -1, &
-                                   this%nwavst(icell) + 1, j, -1)
+              call this%shift_waves(icell, -1, &
+                                    this%nwavst(icell) + 1, j, -1)
               this%uzdpst(j, icell) = this%extdpuz(icell)
               this%nwavst(icell) = this%nwavst(icell) + 1
-              if (this%nwavst(icell) > this%nwav(icell)) then
+              if (this%nwavst(icell) > this%nwav) then
                 !
                 ! -- too many waves error
                 ierr = 1
@@ -1847,8 +1855,8 @@ contains
       kj = 1
       do while (kj <= this%nwavst(icell) - 1)
         if (abs(this%uzthst(kj, icell) - this%uzthst(kj + 1, icell)) < DEM6) then
-          call this%wave_shift(this, icell, icell, 1, kj + 1, &
-                               this%nwavst(icell) - 1, 1)
+          call this%shift_waves(icell, 1, kj + 1, &
+                                this%nwavst(icell) - 1, 1)
           kj = kj - 1
           this%nwavst(icell) = this%nwavst(icell) - 1
         end if
@@ -1859,13 +1867,13 @@ contains
       this%etact(icell) = st - fm
       fm = this%etact(icell) / delt
       if (this%etact(icell) < dzero) then
-        call this%wave_shift(uzfktemp, icell, 1, 0, 1, nwv, 1)
+        call this%load_waves(icell, this%etsav)
         this%nwavst(icell) = nwv
         this%etact(icell) = DZERO
       elseif (petsub - fm < -DEM15 .AND. ietflag == 2) then
         !
         ! -- aet greater than pet, reset and try again
-        call this%wave_shift(uzfktemp, icell, 1, 0, 1, nwv, 1)
+        call this%load_waves(icell, this%etsav)
         this%nwavst(icell) = nwv
         this%etact(icell) = DZERO
       else
@@ -1882,9 +1890,6 @@ contains
       end if
     end do
 500 continue
-    !
-    ! -- deallocate temporary worker
-    call uzfktemp%dealloc()
   end subroutine uzet
 
   !> @brief Calculate capillary pressure head from B-C equation

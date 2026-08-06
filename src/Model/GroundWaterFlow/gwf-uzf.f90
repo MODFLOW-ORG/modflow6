@@ -59,7 +59,6 @@ module UzfModule
     !
     ! -- uzf kinematic object
     type(UzfCellGroupType), pointer :: uzfobj => null()
-    type(UzfCellGroupType) :: uzfobjwork
     !
     ! -- pointer to gwf variables
     integer(I4B), pointer :: gwfiss => null()
@@ -611,7 +610,6 @@ contains
     ! -- initialize uzf group object
     allocate (this%uzfobj)
     call this%uzfobj%init(this%nodes, this%nwav_pvar, this%memoryPath)
-    call this%uzfobjwork%init(1, this%nwav_pvar)
     !
     !--Read uzf cell properties and set values
     call this%read_cell_properties()
@@ -1693,7 +1691,7 @@ contains
         m = n
         !
         ! -- solve for current uzf cell
-        call this%uzfobj%solve(this%uzfobjwork, ivertflag, i, &
+        call this%uzfobj%solve(ivertflag, i, &
                                this%totfluxtot, this%ietflag, &
                                this%issflag, this%iseepflag, hgwf, &
                                qfrommvr, ierr, &
@@ -2621,7 +2619,6 @@ contains
     call this%uzfobj%dealloc()
     deallocate (this%uzfobj)
     nullify (this%uzfobj)
-    call this%uzfobjwork%dealloc()
     !
     call this%budobj%budgetobject_da()
     deallocate (this%budobj)
