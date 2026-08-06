@@ -158,7 +158,6 @@ module UzfModule
     procedure, private :: uzf_solve
     procedure, private :: read_cell_properties
     procedure, private :: print_cell_properties
-    procedure, private :: findcellabove
     procedure, private :: check_cell_area
     !
     ! -- budget
@@ -970,7 +969,7 @@ contains
     do i = 1, this%nodes
       !
       ! -- Set ivertflag
-      ivertflag = this%uzfobj%ivertcon(i)
+      ivertflag = this%uzfobj%cell_below(i)
       !
       ! -- recalculate uzfarea
       if (this%iauxmultcol > 0) then
@@ -1360,11 +1359,11 @@ contains
       if (this%ibound(n) < 1) cycle
       !
       ! -- infiltration terms
-      this%appliedinf(i) = this%uzfobj%sinf(i) * this%uzfobj%uzfarea(i)
-      this%infiltration(i) = this%uzfobj%surflux(i) * this%uzfobj%uzfarea(i)
+      this%appliedinf(i) = this%uzfobj%finf_spec(i) * this%uzfobj%uzfarea(i)
+      this%infiltration(i) = this%uzfobj%surf_infil(i) * this%uzfobj%uzfarea(i)
       !
       ! -- qtomvr
-      qout = this%rejinf(i) + this%uzfobj%surfseep(i)
+      qout = this%rejinf(i) + this%uzfobj%surf_seep(i)
       qtomvr = DZERO
       if (this%imover == 1) then
         qtomvr = this%pakmvrobj%get_qtomvr(i)
@@ -1389,7 +1388,7 @@ contains
       this%rejinf(i) = q
       !
       ! -- calculate groundwater discharge and what goes to mover
-      this%gwd(i) = this%uzfobj%surfseep(i)
+      this%gwd(i) = this%uzfobj%surf_seep(i)
       qfact = DZERO
       if (qout > DZERO) then
         qfact = this%gwd(i) / qout
@@ -1409,7 +1408,7 @@ contains
       !
       ! -- calculate and store remaining budget terms
       this%gwet_pvar(i) = this%uzfobj%gwet(i)
-      this%uzet(i) = this%uzfobj%etact(i) * this%uzfobj%uzfarea(i) / delt
+      this%uzet(i) = this%uzfobj%et_uz(i) * this%uzfobj%uzfarea(i) / delt
       !
       ! -- End of UZF cell loop
       !
@@ -1419,6 +1418,8 @@ contains
     call this%uzf_fill_budobj()
   end subroutine uzf_cq
 
+  !> @brief Calculate the change in mobile water stored in the unsaturated zone
+  !<
   function get_storage_change(top, bot, carea, hold, hnew, wcold, wcnew, &
                               thtr, delt, iss) result(qsto)
     ! -- dummy
@@ -1657,7 +1658,7 @@ contains
     ! -- Initialize
     ierr = 0
     do i = 1, this%nodes
-      this%uzfobj%pet(i) = this%uzfobj%petmax(i)
+      this%uzfobj%pet(i) = this%uzfobj%pet_max(i)
     end do
     !
     ! -- Calculate hcof and rhs for each UZF entry
@@ -1675,8 +1676,8 @@ contains
       !
       ! -- Initialize variables
       n = this%nodelist(i)
-      ivertflag = this%uzfobj%ivertcon(i)
-      watabold = this%uzfobj%watabold(i)
+      ivertflag = this%uzfobj%cell_below(i)
+      watabold = this%uzfobj%water_table_old(i)
       !
       if (this%ibound(n) > 0) then
         !
@@ -1715,7 +1716,7 @@ contains
         !
         ! -- distribute PET to deeper cells
         if (this%ietflag > 0) then
-          if (this%uzfobj%ivertcon(i) > 0) then
+          if (this%uzfobj%cell_below(i) > 0) then
             call this%uzfobj%setbelowpet(i, ivertflag)
           end if
         end if
@@ -1726,8 +1727,8 @@ contains
         ! -- save current rejected infiltration, groundwater recharge, and
         !    groundwater discharge
         this%rejinf(i) = this%uzfobj%finf_rej(i) * this%uzfobj%uzfarea(i)
-        this%rch(i) = this%uzfobj%totflux(i) * this%uzfobj%uzfarea(i) / delt
-        this%gwd(i) = this%uzfobj%surfseep(i)
+        this%rch(i) = this%uzfobj%flux_to_wt(i) * this%uzfobj%uzfarea(i) / delt
+        this%gwd(i) = this%uzfobj%surf_seep(i)
         !
         ! -- add to hcof and rhs
         this%hcof(i) = thcof1 + thcof2
@@ -1747,9 +1748,9 @@ contains
                                           this%uzfobj%celbot(i), &
                                           this%uzfobj%uzfarea(i), &
                                           watabold, &
-                                          this%uzfobj%watab(i), &
+                                          this%uzfobj%water_table(i), &
                                           this%wcold(i), this%wcnew(i), &
-                                          this%uzfobj%thtr(i), delt, this%issflag)
+                                     this%uzfobj%theta_res(i), delt, this%issflag)
         !
       end if
     end do
@@ -1779,31 +1780,6 @@ contains
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
   end subroutine define_listlabel
-
-  !> @brief Identify overlying cell ID based on user-specified mapping
-  !<
-  subroutine findcellabove(this, n, nml)
-    ! -- dummy
-    class(UzfType) :: this
-    integer(I4B), intent(in) :: n
-    integer(I4B), intent(inout) :: nml
-    ! -- local
-    integer(I4B) :: m, ipos
-    !
-    ! -- Return nml = n if no cell is above it
-    nml = n
-    do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
-      m = this%dis%con%ja(ipos)
-      if (this%dis%con%ihc(ipos) /= 0) then
-        if (n < m) then
-          ! -- m is beneath n
-        else
-          nml = m ! -- m is above n
-          exit
-        end if
-      end if
-    end do
-  end subroutine findcellabove
 
   !> @brief Read UZF cell properties and set them for UzfCellGroup type
   !<
@@ -2110,13 +2086,13 @@ contains
       call this%inputtab%add_term(i)
       call this%inputtab%add_term(cellid)
       call this%inputtab%add_term(this%uzfobj%landflag(i))
-      call this%inputtab%add_term(this%uzfobj%ivertcon(i))
+      call this%inputtab%add_term(this%uzfobj%cell_below(i))
       call this%inputtab%add_term(this%uzfobj%surfdep(i))
       call this%inputtab%add_term(this%uzfobj%vks(i))
-      call this%inputtab%add_term(this%uzfobj%thtr(i))
-      call this%inputtab%add_term(this%uzfobj%thts(i))
-      call this%inputtab%add_term(this%uzfobj%thti(i))
-      call this%inputtab%add_term(this%uzfobj%eps(i))
+      call this%inputtab%add_term(this%uzfobj%theta_res(i))
+      call this%inputtab%add_term(this%uzfobj%theta_sat(i))
+      call this%inputtab%add_term(this%uzfobj%theta_init(i))
+      call this%inputtab%add_term(this%uzfobj%bc_eps(i))
       if (this%inamedbound == 1) then
         call this%inputtab%add_term(this%uzfname(i))
       end if
@@ -2151,7 +2127,7 @@ contains
     do i = 1, this%nodes
       !
       ! -- Initialize variables
-      i2 = this%uzfobj%ivertcon(i)
+      i2 = this%uzfobj%cell_below(i)
       area = this%uzfobj%uzfarea(i)
       !
       ! Create pointer to object below
@@ -2727,7 +2703,7 @@ contains
     ! -- Determine the number of uzf to uzf connections
     nlen = 0
     do n = 1, this%nodes
-      ivertflag = this%uzfobj%ivertcon(n)
+      ivertflag = this%uzfobj%cell_below(n)
       if (ivertflag > 0) then
         nlen = nlen + 1
       end if
@@ -2768,7 +2744,7 @@ contains
       call this%budobj%budterm(idx)%reset(nlen * 2)
       q = DZERO
       do n = 1, this%nodes
-        ivertflag = this%uzfobj%ivertcon(n)
+        ivertflag = this%uzfobj%cell_below(n)
         if (ivertflag > 0) then
           n1 = n
           n2 = ivertflag
@@ -2932,7 +2908,7 @@ contains
     ! -- FLOW JA FACE
     nlen = 0
     do n = 1, this%nodes
-      ivertflag = this%uzfobj%ivertcon(n)
+      ivertflag = this%uzfobj%cell_below(n)
       if (ivertflag > 0) then
         nlen = nlen + 1
       end if
@@ -2941,10 +2917,10 @@ contains
       idx = idx + 1
       call this%budobj%budterm(idx)%reset(nlen * 2)
       do n = 1, this%nodes
-        ivertflag = this%uzfobj%ivertcon(n)
+        ivertflag = this%uzfobj%cell_below(n)
         if (ivertflag > 0) then
           a = this%uzfobj%uzfarea(n)
-          q = this%uzfobj%surfluxbelow(n) * a
+          q = this%uzfobj%surf_infil_below(n) * a
           this%qauxcbc(1) = a
           if (q > DZERO) then
             q = -q
@@ -3005,10 +2981,10 @@ contains
     do n = 1, this%nodes
       q = -this%qsto(n)
       top = this%uzfobj%celtop(n)
-      bot = this%uzfobj%watab(n)
+      bot = this%uzfobj%water_table(n)
       thick = top - bot
       if (thick > DZERO) then
-        fm = thick * (this%wcnew(n) - this%uzfobj%thtr(n))
+        fm = thick * (this%wcnew(n) - this%uzfobj%theta_res(n))
         v = fm * this%uzfobj%uzfarea(n)
       else
         v = DZERO
