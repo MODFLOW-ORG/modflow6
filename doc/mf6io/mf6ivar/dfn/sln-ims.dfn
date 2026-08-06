@@ -167,6 +167,71 @@ longname fraction of outer maximum used with ats
 description real value defining the fraction of the maximum allowable outer iterations used with the Adaptive Time Step (ATS) capability if it is active.  If this value is set to zero by the user, then this solution will have no effect on ATS behavior.  This value must be greater than or equal to zero and less than or equal to 0.5 or the program will terminate with an error.  If it is not specified by the user, then it is assigned a default value of one third.  When the number of outer iterations for this solution is less than the product of this value and the maximum allowable outer iterations, then ATS will increase the time step length by a factor of DTADJ in the ATS input file.  When the number of outer iterations for this solution is greater than the maximum allowable outer iterations minus the product of this value and the maximum allowable outer iterations, then the ATS (if active) will decrease the time step length by a factor of 1 / DTADJ.
 
 
+block options
+name dev_ptc
+type keyword
+reader urword
+optional true
+longname activate pseudo-transient continuation
+description keyword that activates pseudo-transient continuation (PTC).  PTC is active by default, so this keyword has an effect only when it follows NO\_PTC in the OPTIONS block.  This development option is not supported.
+
+block options
+name dev_ptc_output_filerecord
+type record dev_ptc_output fileout dev_ptcfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name dev_ptc_output
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname pseudo-transient continuation output keyword
+description keyword to specify that the record corresponds to the pseudo-transient continuation output file.  Specifying the record also activates pseudo-transient continuation.  This development option is not supported.
+
+block options
+name dev_ptcfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname file keyword
+description name of the ascii output file to write pseudo-transient continuation information.
+
+block options
+name dev_ptc_option
+type keyword
+reader urword
+optional true
+longname use the norms to set the initial pseudo-transient continuation value
+description keyword that uses the norm of the right-hand side and the L2 norm of the residual to set the initial pseudo-transient continuation value, instead of the default approach.  Specifying the keyword also activates pseudo-transient continuation.  This development option is not supported.
+
+block options
+name dev_ptc_exponent
+type double precision
+reader urword
+optional true
+longname pseudo-transient continuation exponent
+description real number value that defines the exponent used to reduce the pseudo-transient continuation value between outer iterations.  The value must be greater than zero and is 1 by default.  Specifying the value also activates pseudo-transient continuation.  This development option is not supported.
+
+block options
+name dev_ptc_del0
+type double precision
+reader urword
+optional true
+longname initial pseudo-transient continuation value
+description real number value that defines the initial pseudo-transient continuation value, which is equivalent to an initial time step length.  The value must be greater than zero.  Specifying the value also activates pseudo-transient continuation.  This development option is not supported.
+
 # --------------------- sln ims nonlinear ---------------------
 
 block nonlinear
