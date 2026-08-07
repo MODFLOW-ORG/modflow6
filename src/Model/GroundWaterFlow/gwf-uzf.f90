@@ -65,9 +65,8 @@ module UzfModule
     real(DP), dimension(:), pointer, contiguous :: gwfhcond => null()
     !
     ! -- uzf data
-    integer(I4B), pointer :: nwav_pvar => null()
-    integer(I4B), pointer :: ntrail_pvar => null()
-    integer(I4B), pointer :: nsets => null()
+    integer(I4B), pointer :: ntrail_input => null() !< NTRAILWAVES
+    integer(I4B), pointer :: nwavesets => null() !< NWAVESETS
     integer(I4B), pointer :: nodes => null()
     integer(I4B), pointer :: readflag => null()
     integer(I4B), pointer :: ietflag => null() !< et flag, 0 is off, 1 or 2 are different types
@@ -85,7 +84,6 @@ module UzfModule
     real(DP), dimension(:), pointer, contiguous :: rejinf0 => null()
     real(DP), dimension(:), pointer, contiguous :: rejinftomvr => null()
     real(DP), dimension(:), pointer, contiguous :: infiltration => null()
-    real(DP), dimension(:), pointer, contiguous :: gwet_pvar => null()
     real(DP), dimension(:), pointer, contiguous :: uzet => null()
     real(DP), dimension(:), pointer, contiguous :: gwd => null()
     real(DP), dimension(:), pointer, contiguous :: gwd0 => null()
@@ -104,13 +102,13 @@ module UzfModule
     !    uzfobj value overwritten before the loop reaches it. These arrays hold
     !    the value the user supplied for each cell, untouched by that
     !    propagation, and are the source uzf_ad reads from every time step.
-    real(DP), dimension(:), pointer, contiguous :: sinf_pvar => null() !< specified infiltration
-    real(DP), dimension(:), pointer, contiguous :: pet_pvar => null() !< potential et
-    real(DP), dimension(:), pointer, contiguous :: extdp => null() !< extinction depth
-    real(DP), dimension(:), pointer, contiguous :: extwc_pvar => null() !< extinction water content
-    real(DP), dimension(:), pointer, contiguous :: ha_pvar => null() !< air entry potential
-    real(DP), dimension(:), pointer, contiguous :: hroot_pvar => null() !< root potential
-    real(DP), dimension(:), pointer, contiguous :: rootact_pvar => null() !< root activity
+    real(DP), dimension(:), pointer, contiguous :: finf_input => null() !< FINF
+    real(DP), dimension(:), pointer, contiguous :: pet_input => null() !< PET
+    real(DP), dimension(:), pointer, contiguous :: extdp_input => null() !< EXTDP
+    real(DP), dimension(:), pointer, contiguous :: extwc_input => null() !< EXTWC
+    real(DP), dimension(:), pointer, contiguous :: ha_input => null() !< HA
+    real(DP), dimension(:), pointer, contiguous :: hroot_input => null() !< HROOT
+    real(DP), dimension(:), pointer, contiguous :: rootact_input => null() !< ROOTACT
     !
     ! -- aux variable
     real(DP), dimension(:, :), pointer, contiguous :: uauxvar => null()
@@ -323,7 +321,6 @@ contains
                       this%memoryPath)
     call mem_allocate(this%infiltration, this%nodes, 'INFILTRATION', &
                       this%memoryPath)
-    call mem_allocate(this%gwet_pvar, this%nodes, 'GWET_PVAR', this%memoryPath)
     call mem_allocate(this%uzet, this%nodes, 'UZET', this%memoryPath)
     call mem_allocate(this%gwd, this%nodes, 'GWD', this%memoryPath)
     call mem_allocate(this%gwd0, this%nodes, 'GWD0', this%memoryPath)
@@ -338,13 +335,13 @@ contains
     call mem_allocate(this%ja, this%nodes, 'JA', this%memoryPath)
     !
     ! -- allocate timeseries aware variables
-    call mem_allocate(this%sinf_pvar, this%nodes, 'SINF_PVAR', this%memoryPath)
-    call mem_allocate(this%pet_pvar, this%nodes, 'PET_PVAR', this%memoryPath)
-    call mem_allocate(this%extdp, this%nodes, 'EXDP_PVAR', this%memoryPath)
-    call mem_allocate(this%extwc_pvar, this%nodes, 'EXTWC_PVAR', this%memoryPath)
-    call mem_allocate(this%ha_pvar, this%nodes, 'HA_PVAR', this%memoryPath)
-    call mem_allocate(this%hroot_pvar, this%nodes, 'HROOT_PVAR', this%memoryPath)
-    call mem_allocate(this%rootact_pvar, this%nodes, 'ROOTACT_PVAR', &
+    call mem_allocate(this%finf_input, this%nodes, 'FINF_INPUT', this%memoryPath)
+    call mem_allocate(this%pet_input, this%nodes, 'PET_INPUT', this%memoryPath)
+   call mem_allocate(this%extdp_input, this%nodes, 'EXTDP_INPUT', this%memoryPath)
+   call mem_allocate(this%extwc_input, this%nodes, 'EXTWC_INPUT', this%memoryPath)
+    call mem_allocate(this%ha_input, this%nodes, 'HA_INPUT', this%memoryPath)
+   call mem_allocate(this%hroot_input, this%nodes, 'HROOT_INPUT', this%memoryPath)
+    call mem_allocate(this%rootact_input, this%nodes, 'ROOTACT_INPUT', &
                       this%memoryPath)
     call mem_allocate(this%uauxvar, this%naux, this%nodes, 'UAUXVAR', &
                       this%memoryPath)
@@ -355,7 +352,6 @@ contains
       this%rejinf(n) = DZERO
       this%rejinf0(n) = DZERO
       this%rejinftomvr(n) = DZERO
-      this%gwet_pvar(n) = DZERO
       this%uzet(n) = DZERO
       this%gwd(n) = DZERO
       this%gwd0(n) = DZERO
@@ -367,13 +363,13 @@ contains
       ! -- integer variables
       this%ja(n) = 0
       ! -- timeseries aware variables
-      this%sinf_pvar(n) = DZERO
-      this%pet_pvar(n) = DZERO
-      this%extdp(n) = DZERO
-      this%extwc_pvar(n) = DZERO
-      this%ha_pvar(n) = DZERO
-      this%hroot_pvar(n) = DZERO
-      this%rootact_pvar(n) = DZERO
+      this%finf_input(n) = DZERO
+      this%pet_input(n) = DZERO
+      this%extdp_input(n) = DZERO
+      this%extwc_input(n) = DZERO
+      this%ha_input(n) = DZERO
+      this%hroot_input(n) = DZERO
+      this%rootact_input(n) = DZERO
       do j = 1, this%naux
         if (this%iauxmultcol > 0 .and. j == this%iauxmultcol) then
           this%uauxvar(j, n) = DONE
@@ -580,8 +576,8 @@ contains
     !
     ! -- initialize dimensions to -1
     this%nodes = -1
-    this%ntrail_pvar = 0
-    this%nsets = 0
+    this%ntrail_input = 0
+    this%nwavesets = 0
     !
     ! -- get dimensions block
     call this%parser%GetBlock('DIMENSIONS', isfound, ierr, &
@@ -600,11 +596,11 @@ contains
           this%nodes = this%parser%GetInteger()
           write (this%iout, '(4x,a,i0)') 'NUZFCELLS = ', this%nodes
         case ('NTRAILWAVES')
-          this%ntrail_pvar = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i0)') 'NTRAILWAVES = ', this%ntrail_pvar
+          this%ntrail_input = this%parser%GetInteger()
+          write (this%iout, '(4x,a,i0)') 'NTRAILWAVES = ', this%ntrail_input
         case ('NWAVESETS')
-          this%nsets = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i0)') 'NTRAILSETS = ', this%nsets
+          this%nwavesets = this%parser%GetInteger()
+          write (this%iout, '(4x,a,i0)') 'NTRAILSETS = ', this%nwavesets
         case default
           write (errmsg, '(a,a)') &
             'Unknown '//trim(this%text)//' dimension: ', trim(keyword)
@@ -627,13 +623,13 @@ contains
       call store_error(errmsg)
     end if
 
-    if (this%ntrail_pvar <= 1) then
+    if (this%ntrail_input <= 1) then
       write (errmsg, '(a)') &
         'NTRAILWAVES must be greater than 1. A value of 7 is recommended.'
       call store_error(errmsg)
     end if
     !
-    if (this%nsets <= 0) then
+    if (this%nwavesets <= 0) then
       write (errmsg, '(a)') &
         'NWAVESETS was not specified or was specified incorrectly.'
       call store_error(errmsg)
@@ -645,7 +641,6 @@ contains
     end if
     !
     ! -- set the number of waves
-    this%nwav_pvar = this%ntrail_pvar * this%nsets
     !
     ! -- Call define_listlabel to construct the list label that is written
     !    when PRINT_INPUT option is used.
@@ -656,7 +651,8 @@ contains
     !
     ! -- initialize uzf group object
     allocate (this%uzfobj)
-    call this%uzfobj%init(this%nodes, this%nwav_pvar, this%memoryPath)
+    call this%uzfobj%init(this%nodes, this%ntrail_input * this%nwavesets, &
+                          this%memoryPath)
     !
     !--Read uzf cell properties and set values
     call this%read_cell_properties()
@@ -833,7 +829,7 @@ contains
         ! -- FINF
         call this%parser%GetStringCaps(text)
         jj = 1 ! For SINF
-        bndElem => this%sinf_pvar(n)
+        bndElem => this%finf_input(n)
         call read_value_or_time_series_adv(text, n, jj, bndElem, this%packName, &
                                            'BND', this%tsManager, this%iprpak, &
                                            'SINF')
@@ -841,7 +837,7 @@ contains
         ! -- PET
         call this%parser%GetStringCaps(text)
         jj = 1 ! For PET
-        bndElem => this%pet_pvar(n)
+        bndElem => this%pet_input(n)
         call read_value_or_time_series_adv(text, n, jj, bndElem, this%packName, &
                                            'BND', this%tsManager, this%iprpak, &
                                            'PET')
@@ -849,7 +845,7 @@ contains
         ! -- EXTD
         call this%parser%GetStringCaps(text)
         jj = 1 ! For EXTDP
-        bndElem => this%extdp(n)
+        bndElem => this%extdp_input(n)
         call read_value_or_time_series_adv(text, n, jj, bndElem, this%packName, &
                                            'BND', this%tsManager, this%iprpak, &
                                            'EXTDP')
@@ -857,7 +853,7 @@ contains
         ! -- EXTWC
         call this%parser%GetStringCaps(text)
         jj = 1 ! For EXTWC
-        bndElem => this%extwc_pvar(n)
+        bndElem => this%extwc_input(n)
         call read_value_or_time_series_adv(text, n, jj, bndElem, this%packName, &
                                            'BND', this%tsManager, this%iprpak, &
                                            'EXTWC')
@@ -865,7 +861,7 @@ contains
         ! -- HA
         call this%parser%GetStringCaps(text)
         jj = 1 ! For HA
-        bndElem => this%ha_pvar(n)
+        bndElem => this%ha_input(n)
         call read_value_or_time_series_adv(text, n, jj, bndElem, this%packName, &
                                            'BND', this%tsManager, this%iprpak, &
                                            'HA')
@@ -873,7 +869,7 @@ contains
         ! -- HROOT
         call this%parser%GetStringCaps(text)
         jj = 1 ! For HROOT
-        bndElem => this%hroot_pvar(n)
+        bndElem => this%hroot_input(n)
         call read_value_or_time_series_adv(text, n, jj, bndElem, this%packName, &
                                            'BND', this%tsManager, this%iprpak, &
                                            'HROOT')
@@ -881,7 +877,7 @@ contains
         ! -- ROOTACT
         call this%parser%GetStringCaps(text)
         jj = 1 ! For ROOTACT
-        bndElem => this%rootact_pvar(n)
+        bndElem => this%rootact_input(n)
         call read_value_or_time_series_adv(text, n, jj, bndElem, this%packName, &
                                            'BND', this%tsManager, this%iprpak, &
                                            'ROOTACT')
@@ -909,15 +905,15 @@ contains
           ! -- write data to the table
           call this%inputtab%add_term(n)
           call this%inputtab%add_term(cellid)
-          call this%inputtab%add_term(this%sinf_pvar(n))
+          call this%inputtab%add_term(this%finf_input(n))
           if (this%ietflag /= 0) then
-            call this%inputtab%add_term(this%pet_pvar(n))
-            call this%inputtab%add_term(this%extdp(n))
-            call this%inputtab%add_term(this%extwc_pvar(n))
+            call this%inputtab%add_term(this%pet_input(n))
+            call this%inputtab%add_term(this%extdp_input(n))
+            call this%inputtab%add_term(this%extwc_input(n))
             if (this%ietflag == 2) then
-              call this%inputtab%add_term(this%ha_pvar(n))
-              call this%inputtab%add_term(this%hroot_pvar(n))
-              call this%inputtab%add_term(this%rootact_pvar(n))
+              call this%inputtab%add_term(this%ha_input(n))
+              call this%inputtab%add_term(this%hroot_input(n))
+              call this%inputtab%add_term(this%rootact_input(n))
             end if
           end if
           if (this%inamedbound == 1) then
@@ -1026,22 +1022,22 @@ contains
       end if
       !
       ! -- FINF
-      rval1 = this%sinf_pvar(n)
+      rval1 = this%finf_input(n)
       call this%uzfobj%setdatafinf(n, rval1)
       !
       ! -- PET, EXTDP
-      rval1 = this%pet_pvar(n)
-      rval2 = this%extdp(n)
+      rval1 = this%pet_input(n)
+      rval2 = this%extdp_input(n)
       call this%uzfobj%setdataet(n, ivertflag, rval1, rval2)
       !
       ! -- ETWC
-      rval1 = this%extwc_pvar(n)
+      rval1 = this%extwc_input(n)
       call this%uzfobj%setdataetwc(n, ivertflag, rval1)
       !
       ! -- HA, HROOT, ROOTACT
-      rval1 = this%ha_pvar(n)
-      rval2 = this%hroot_pvar(n)
-      rval3 = this%rootact_pvar(n)
+      rval1 = this%ha_input(n)
+      rval2 = this%hroot_input(n)
+      rval3 = this%rootact_input(n)
       call this%uzfobj%setdataetha(n, ivertflag, rval1, rval2, rval3)
     end do
     !
@@ -1455,7 +1451,6 @@ contains
       this%gwd(n) = q
       !
       ! -- calculate and store remaining budget terms
-      this%gwet_pvar(n) = this%uzfobj%gwet(n)
       this%uzet(n) = this%uzfobj%et_uz(n) * this%uzfobj%uzfarea(n) / delt
       !
       ! -- End of UZF cell loop
@@ -1534,7 +1529,7 @@ contains
     !
     ! -- groundwater et (gwet array is positive, so switch ratin/ratout)
     if (this%igwetflag /= 0) then
-      call rate_accumulator(-this%gwet_pvar, ratin, ratout)
+      call rate_accumulator(-this%uzfobj%gwet, ratin, ratout)
       call model_budget%addentry(ratin, ratout, delt, this%bdtxt(4), &
                                  isuppress_output, this%packName)
     end if
@@ -1606,7 +1601,7 @@ contains
               trim(this%packName)//') FLOW RATES'
       call save_print_model_flows(icbcfl, ibudfl, icbcun, this%iprflow, &
                                   this%outputtab, this%nbound, this%nodelist, &
-                                  -this%gwet_pvar, this%ibound, title, &
+                                  -this%uzfobj%gwet, this%ibound, title, &
                                   this%bdtxt(itxt), this%ipakcb, this%dis, &
                                   this%naux, this%name_model, this%name_model, &
                                   this%name_model, this%packName, this%auxname, &
@@ -1862,11 +1857,10 @@ contains
     call mem_allocate(this%ibudgetout, 'IBUDGETOUT', this%memoryPath)
     call mem_allocate(this%ibudcsv, 'IBUDCSV', this%memoryPath)
     call mem_allocate(this%ipakcsv, 'IPAKCSV', this%memoryPath)
-    call mem_allocate(this%ntrail_pvar, 'NTRAIL_PVAR', this%memoryPath)
-    call mem_allocate(this%nsets, 'NSETS', this%memoryPath)
+    call mem_allocate(this%ntrail_input, 'NTRAIL_INPUT', this%memoryPath)
+    call mem_allocate(this%nwavesets, 'NWAVESETS', this%memoryPath)
     call mem_allocate(this%nodes, 'NODES', this%memoryPath)
     call mem_allocate(this%istocb, 'ISTOCB', this%memoryPath)
-    call mem_allocate(this%nwav_pvar, 'NWAV_PVAR', this%memoryPath)
     call mem_allocate(this%totfluxtot, 'TOTFLUXTOT', this%memoryPath)
     call mem_allocate(this%bditems, 'BDITEMS', this%memoryPath)
     call mem_allocate(this%nbdtxt, 'NBDTXT', this%memoryPath)
@@ -1942,11 +1936,10 @@ contains
     call mem_deallocate(this%ibudgetout)
     call mem_deallocate(this%ibudcsv)
     call mem_deallocate(this%ipakcsv)
-    call mem_deallocate(this%ntrail_pvar)
-    call mem_deallocate(this%nsets)
+    call mem_deallocate(this%ntrail_input)
+    call mem_deallocate(this%nwavesets)
     call mem_deallocate(this%nodes)
     call mem_deallocate(this%istocb)
-    call mem_deallocate(this%nwav_pvar)
     call mem_deallocate(this%totfluxtot)
     call mem_deallocate(this%bditems)
     call mem_deallocate(this%nbdtxt)
@@ -1970,7 +1963,6 @@ contains
     call mem_deallocate(this%rejinf0)
     call mem_deallocate(this%rejinftomvr)
     call mem_deallocate(this%infiltration)
-    call mem_deallocate(this%gwet_pvar)
     call mem_deallocate(this%uzet)
     call mem_deallocate(this%gwd)
     call mem_deallocate(this%gwd0)
@@ -1988,13 +1980,13 @@ contains
     call mem_deallocate(this%ja)
     !
     ! -- deallocate timeseries aware variables
-    call mem_deallocate(this%sinf_pvar)
-    call mem_deallocate(this%pet_pvar)
-    call mem_deallocate(this%extdp)
-    call mem_deallocate(this%extwc_pvar)
-    call mem_deallocate(this%ha_pvar)
-    call mem_deallocate(this%hroot_pvar)
-    call mem_deallocate(this%rootact_pvar)
+    call mem_deallocate(this%finf_input)
+    call mem_deallocate(this%pet_input)
+    call mem_deallocate(this%extdp_input)
+    call mem_deallocate(this%extwc_input)
+    call mem_deallocate(this%ha_input)
+    call mem_deallocate(this%hroot_input)
+    call mem_deallocate(this%rootact_input)
     call mem_deallocate(this%uauxvar)
     !
     ! -- Parent object

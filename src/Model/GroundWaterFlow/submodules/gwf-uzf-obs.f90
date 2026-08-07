@@ -226,7 +226,7 @@ contains
           end if
         case ('UZF-GWET')
           if (this%igwetflag > 0) then
-            v = this%gwet_pvar(n)
+            v = this%uzfobj%gwet(n)
             if (v > DZERO) then
               v = -v
             end if
