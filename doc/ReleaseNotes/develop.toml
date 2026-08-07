@@ -210,3 +210,28 @@ description = "The Skeletal Storage, Compaction, and Subsidence (CSUB) Package t
 section = "fixes"
 subsection = "basic"
 description = "The BMI get\\_version, get\\_component\\_name, and get\\_grid\\_type functions assigned the converted C string to a character array longer than the string itself. The assignment is not conforming, which left the amount of the caller's buffer that is written up to the compiler. The assignments were corrected to write only the string and its null terminator."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "In the Unsaturated Zone Flow (UZF) Package, the branch of the trailing-wave routine taken when the water content behind the leading wave is already at or below the value implied by the applied infiltration rate indexed the wave arrays with the array holding the wave count of every UZF cell, instead of the wave count of the cell being solved. In Fortran this is a vector subscript rather than a single element, so wave depth, water content, and flux were reset at wave positions belonging to other cells, corrupting the wave train of the cell being solved. The routine now indexes the cell being solved. The branch is reached whenever the applied infiltration rate decreases, so simulated recharge, unsaturated zone evapotranspiration, water content, and unsaturated zone storage can change in any transient simulation. The corrupted wave train created spurious unsaturated zone storage: in one of the UZF test problems the largest UZF budget percent discrepancy falls from 4.9e-3 to 4e-6 percent. Simulated heads change very little in that problem, but models in which the number of waves differs between UZF cells, which is typical where infiltration varies in space, are affected more than models in which it does not."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "The Unsaturated Zone Flow (UZF) Package wave speed routine assigned its working variable only when the water content behind the wave exceeded the residual water content, and then read that variable regardless. Where the water content was at the residual value, which occurs wherever a wave is reset, the wave speed was computed from whatever the variable happened to contain. Simulated results were therefore dependent on the compiler and on the state of memory, and were not necessarily reproducible between builds of the same program. The variable is now initialized before use."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "The Unsaturated Zone Flow (UZF) Package evapotranspiration routine created a new wave one position beyond the current number of waves and only then compared the number of waves with the number allocated, which is NTRAILWAVES multiplied by NWAVESETS. A cell that was already at capacity therefore wrote past the end of its wave storage and into the wave storage of the next UZF cell before the error was detected. The capacity is now checked before the wave is created, so the condition is reported as an error asking for NWAVESETS to be increased, as intended."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "The Unsaturated Zone Flow (UZF) Package reset only the first six waves of a UZF cell that no longer contains an unsaturated zone. Any waves beyond the sixth kept the water content, depth, flux, and speed they had before the water table rose above the top of the cell, and were reused if an unsaturated zone formed again. All waves in the cell are now reset. Simulated results can change for cells that carry more than six waves."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "The Unsaturated Zone Flow (UZF) Package accepted NTRAILWAVES of 1, which caused a division by zero when trailing waves were created. NTRAILWAVES is now required to be greater than 1, and the error message recommends a value of 7."
