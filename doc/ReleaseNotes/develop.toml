@@ -235,3 +235,13 @@ description = "The Unsaturated Zone Flow (UZF) Package reset only the first six 
 section = "fixes"
 subsection = "advanced"
 description = "The Unsaturated Zone Flow (UZF) Package accepted NTRAILWAVES of 1, which caused a division by zero when trailing waves were created. NTRAILWAVES is now required to be greater than 1, and the error message recommends a value of 7."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "The Unsaturated Zone Flow (UZF) Package allocated and deallocated a complete set of unsaturated-zone work arrays on every evapotranspiration calculation, and a second, smaller set on every wave-routing calculation. Both occur once per UZF cell per outer iteration per time step, so the allocation traffic dominated the time spent in the package. The work arrays are now allocated once when the package is set up. Simulation run times are reduced by 19 to 34 percent for the UZF test problems and by about 50 percent for problems in which UZF accounts for most of the work; the reduction does not diminish as the number of UZF cells increases. Results are unchanged."
+
+[[items]]
+section = "fixes"
+subsection = "basic"
+description = "The Unsaturated Zone Flow (UZF) Package unsaturated-zone state is registered with the memory manager, and is therefore visible through the BMI and XMI interfaces, under names inherited from MODFLOW-2005 that did not describe their contents. The wave arrays UZDPST, UZTHST, UZFLST, UZSPST, and NWAVST are now WAVE\\_DEPTH, WAVE\\_THETA, WAVE\\_FLUX, WAVE\\_SPEED, and NWAVES, and the cell properties THTR, THTS, THTI, EXTWC, EPS, HA, HROOT, and ROOTACT are now THETA\\_RES, THETA\\_SAT, THETA\\_INIT, THETA\\_EXT, BC\\_EPS, AIR\\_ENTRY, ROOT\\_POT, and ROOT\\_ACT. Other UZF variables are renamed on the same principle, and the extinction depth, which was registered as EXDP\\_PVAR, is now EXTDP\\_INPUT. Programs that read UZF variables by name through the BMI or XMI interface must be updated. Input files, keywords, and simulated results are unaffected."
