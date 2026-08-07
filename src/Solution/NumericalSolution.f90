@@ -734,7 +734,7 @@ contains
         case ('DEV_PTC_EXPONENT')
           call this%parser%DevOpt()
           rval = this%parser%GetDouble()
-          if (rval < DZERO) then
+          if (rval <= DZERO) then
             write (errmsg, '(a)') 'PTC_EXPONENT must be > 0.'
             call store_error(errmsg)
           else
@@ -746,7 +746,7 @@ contains
         case ('DEV_PTC_DEL0')
           call this%parser%DevOpt()
           rval = this%parser%GetDouble()
-          if (rval < DZERO) then
+          if (rval <= DZERO) then
             write (errmsg, '(a)') 'IMS sln_ar: PTC_DEL0 must be > 0.'
             call store_error(errmsg)
           else
