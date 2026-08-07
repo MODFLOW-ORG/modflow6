@@ -505,14 +505,16 @@ contains
   !
   fm = DZERO
   jabove = this%nwaves(icell) + 1
-  j = this%nwaves(icell)
-  nwaves_m1 = j - 1
+  nwaves_m1 = this%nwaves(icell) - 1
   if (d1 > this%wave_depth(1, icell)) d1 = this%wave_depth(1, icell)
   !
-  ! -- jabove is the deepest wave lying above depth d1
-  do while (j > 0)
-    if (this%wave_depth(j, icell) - d1 < -DEM30) jabove = j
-    j = j - 1
+  ! -- jabove is the deepest wave lying above depth d1. Wave depth decreases
+  !    with index, so the first wave that qualifies is the one wanted.
+  do j = 1, this%nwaves(icell)
+    if (this%wave_depth(j, icell) - d1 < -DEM30) then
+      jabove = j
+      exit
+    end if
   end do
   if (jabove > this%nwaves(icell)) then
       fm = fm + (this%wave_theta(this%nwaves(icell), icell) - this%theta_res(icell)) * d1
@@ -572,10 +574,11 @@ contains
     if (this%water_table(icell) - this%water_table_old(icell) > DEM30) then
       depthsave = this%wave_depth(1, icell)
       jabove = 0
-      j = this%nwaves(icell)
-      do while (j > 0)
-        if (this%wave_depth(j, icell) - thick < -DEM30) jabove = j
-        j = j - 1
+      do j = 1, this%nwaves(icell)
+        if (this%wave_depth(j, icell) - thick < -DEM30) then
+          jabove = j
+          exit
+        end if
       end do
       this%wave_depth(1, icell) = thick
       if (jabove > 1) then

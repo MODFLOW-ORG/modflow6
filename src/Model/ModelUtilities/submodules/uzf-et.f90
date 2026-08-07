@@ -89,6 +89,7 @@ contains
   real(DP) :: tho
   real(DP) :: depth
   real(DP) :: extwc1
+  real(DP) :: theta_min
   real(DP) :: petsub
   integer(I4B) :: j
   integer(I4B) :: jext
@@ -126,6 +127,10 @@ contains
   fmp = DZERO
   extwc1 = this%theta_ext(icell) - this%theta_res(icell)
   if (extwc1 < DEM6) extwc1 = DEM7
+  !
+  ! -- lowest water content et can draw a wave down to. Formed from extwc1
+  !    rather than from theta_ext directly, because extwc1 is clamped above.
+  theta_min = this%theta_res(icell) + extwc1
   numadd = 0
   fm = st
   k = 0
@@ -146,13 +151,13 @@ contains
         hcap = this%caph(icell, tho)
         thetaout = this%rate_et_z(icell, factor, fktho, hcap)
       end if
- if ((this%wave_theta(1, icell) - thetaout) > this%theta_res(icell) + extwc1) then
+      if ((this%wave_theta(1, icell) - thetaout) > theta_min) then
         this%wave_theta(1, icell) = this%wave_theta(1, icell) - thetaout
         this%wave_flux(1, icell) = &
           this%vks(icell) * (((this%wave_theta(1, icell) - &
                          this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
-      else if (this%wave_theta(1, icell) > this%theta_res(icell) + extwc1) then
-        this%wave_theta(1, icell) = this%theta_res(icell) + extwc1
+      else if (this%wave_theta(1, icell) > theta_min) then
+        this%wave_theta(1, icell) = theta_min
         this%wave_flux(1, icell) = &
           this%vks(icell) * (((this%wave_theta(1, icell) - &
                          this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
@@ -168,13 +173,13 @@ contains
         thetaout = this%rate_et_z(icell, factor, fktho, hcap)
       end if
       if (this%wave_theta(this%nwaves(icell), icell) - thetaout > &
-          this%theta_res(icell) + extwc1) then
+          theta_min) then
         this%wave_theta(this%nwaves(icell) + 1, icell) = &
           this%wave_theta(this%nwaves(icell), icell) - thetaout
         numadd = 1
       else if (this%wave_theta(this%nwaves(icell), icell) > &
-               this%theta_res(icell) + extwc1) then
-   this%wave_theta(this%nwaves(icell) + 1, icell) = this%theta_res(icell) + extwc1
+               theta_min) then
+        this%wave_theta(this%nwaves(icell) + 1, icell) = theta_min
         numadd = 1
       end if
       if (numadd == 1) then
@@ -209,7 +214,7 @@ contains
         hcap = this%caph(icell, tho)
         thetaout = this%rate_et_z(icell, factor, fktho, hcap)
       end if
- if ((this%wave_theta(1, icell) - thetaout) > this%theta_res(icell) + extwc1) then
+      if ((this%wave_theta(1, icell) - thetaout) > theta_min) then
         if (thetaout > DEM30) then
           this%wave_theta(2, icell) = this%wave_theta(1, icell) - thetaout
           this%wave_flux(2, icell) = &
@@ -231,9 +236,9 @@ contains
             goto 500
           end if
         end if
-      else if (this%wave_theta(1, icell) > this%theta_res(icell) + extwc1) then
+      else if (this%wave_theta(1, icell) > theta_min) then
         if (thetaout > DEM30) then
-          this%wave_theta(2, icell) = this%theta_res(icell) + extwc1
+          this%wave_theta(2, icell) = theta_min
           this%wave_flux(2, icell) = &
             this%vks(icell) * (((this%wave_theta(2, icell) - &
                          this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
@@ -271,7 +276,7 @@ contains
           end if
         end do
         j = jext
-        if (this%wave_theta(jext, icell) > this%theta_res(icell) + extwc1) then
+        if (this%wave_theta(jext, icell) > theta_min) then
           !
           ! -- create a wave at extinction depth
           if (abs(diff) > DEM5) then
@@ -291,7 +296,7 @@ contains
           jwet = this%nwaves(icell)
           j = jext + 1
           do while (j < this%nwaves(icell))
-            if (this%wave_theta(j, icell) > this%theta_res(icell) + extwc1) then
+            if (this%wave_theta(j, icell) > theta_min) then
               jwet = j
               j = this%nwaves(icell) + 1
             end if
@@ -312,12 +317,12 @@ contains
           hcap = this%caph(icell, tho)
           thetaout = this%rate_et_z(icell, factor, fktho, hcap)
         end if
-        if (this%wave_theta(j, icell) > this%theta_res(icell) + extwc1) then
+        if (this%wave_theta(j, icell) > theta_min) then
           if (this%wave_theta(j, icell) - thetaout > &
-              this%theta_res(icell) + extwc1) then
+              theta_min) then
             this%wave_theta(j, icell) = this%wave_theta(j, icell) - thetaout
-         else if (this%wave_theta(j, icell) > this%theta_res(icell) + extwc1) then
-            this%wave_theta(j, icell) = this%theta_res(icell) + extwc1
+          else if (this%wave_theta(j, icell) > theta_min) then
+            this%wave_theta(j, icell) = theta_min
           end if
           if (j == 1) then
             this%wave_flux(j, icell) = &
