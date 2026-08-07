@@ -337,10 +337,13 @@ contains
     ! -- allocate timeseries aware variables
     call mem_allocate(this%finf_input, this%nodes, 'FINF_INPUT', this%memoryPath)
     call mem_allocate(this%pet_input, this%nodes, 'PET_INPUT', this%memoryPath)
-   call mem_allocate(this%extdp_input, this%nodes, 'EXTDP_INPUT', this%memoryPath)
-   call mem_allocate(this%extwc_input, this%nodes, 'EXTWC_INPUT', this%memoryPath)
+    call mem_allocate(this%extdp_input, this%nodes, 'EXTDP_INPUT', &
+                      this%memoryPath)
+    call mem_allocate(this%extwc_input, this%nodes, 'EXTWC_INPUT', &
+                      this%memoryPath)
     call mem_allocate(this%ha_input, this%nodes, 'HA_INPUT', this%memoryPath)
-   call mem_allocate(this%hroot_input, this%nodes, 'HROOT_INPUT', this%memoryPath)
+    call mem_allocate(this%hroot_input, this%nodes, 'HROOT_INPUT', &
+                      this%memoryPath)
     call mem_allocate(this%rootact_input, this%nodes, 'ROOTACT_INPUT', &
                       this%memoryPath)
     call mem_allocate(this%uauxvar, this%naux, this%nodes, 'UAUXVAR', &
@@ -1805,7 +1808,8 @@ contains
                                           watabold, &
                                           this%uzfobj%water_table(n), &
                                           this%wcold(n), this%wcnew(n), &
-                                     this%uzfobj%theta_res(n), delt, this%issflag)
+                                          this%uzfobj%theta_res(n), delt, &
+                                          this%issflag)
         !
       end if
     end do
