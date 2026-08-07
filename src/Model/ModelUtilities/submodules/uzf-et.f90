@@ -172,6 +172,12 @@ contains
         hcap = this%caph(icell, tho)
         thetaout = this%rate_et_z(icell, factor, fktho, hcap)
       end if
+      if (this%nwaves(icell) + 1 > this%nwaves_max) then
+        !
+        ! -- too many waves error
+        ierr = 1
+        goto 500
+      end if
       if (this%wave_theta(this%nwaves(icell), icell) - thetaout > &
           theta_min) then
         this%wave_theta(this%nwaves(icell) + 1, icell) = &
@@ -208,6 +214,12 @@ contains
       !
       ! -- one wave below extinction depth
     else if (this%nwaves(icell) == 1) then
+      if (this%nwaves(icell) + 1 > this%nwaves_max) then
+        !
+        ! -- too many waves error
+        ierr = 1
+        goto 500
+      end if
       if (ietflag == 2) then
         tho = this%wave_theta(1, icell)
         fktho = this%wave_flux(1, icell)
@@ -278,6 +290,12 @@ contains
           !
           ! -- create a wave at extinction depth
           if (abs(diff) > DEM5) then
+            if (this%nwaves(icell) + 1 > this%nwaves_max) then
+              !
+              ! -- too many waves error
+              ierr = 1
+              goto 500
+            end if
             call this%shift_waves(icell, -1, &
                                   this%nwaves(icell) + 1, jext, -1)
             this%wave_depth(jext, icell) = this%ext_depth_uz(icell)
