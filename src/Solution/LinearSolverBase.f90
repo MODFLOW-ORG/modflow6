@@ -1,5 +1,5 @@
 module LinearSolverBaseModule
-  use KindModule, only: I4B, DP
+  use KindModule, only: I4B, DP, LGP
   use ConstantsModule, only: LENSOLUTIONNAME
   use MatrixBaseModule
   use VectorBaseModule
@@ -26,6 +26,10 @@ module LinearSolverBaseModule
     procedure(destroy_if), deferred :: destroy
 
     procedure(create_matrix_if), deferred :: create_matrix
+
+    ! hooks for stress-period-varying linear settings (overridable)
+    procedure :: get_period_caps => lsb_get_period_caps
+    procedure :: reconfigure => lsb_reconfigure
   end type LinearSolverBaseType
 
   abstract interface
@@ -59,5 +63,23 @@ module LinearSolverBaseModule
       class(MatrixBaseType), pointer :: matrix
     end function
   end interface
+
+contains
+
+  !> @brief Report which period-varying setting categories this solver honors
+  !<
+  subroutine lsb_get_period_caps(this, allow_tol, allow_precond)
+    class(LinearSolverBaseType) :: this !< linear solver instance
+    logical(LGP), intent(out) :: allow_tol !< inner tolerances/maximum may vary
+    logical(LGP), intent(out) :: allow_precond !< preconditioner settings may vary
+    allow_tol = .true.
+    allow_precond = .true.
+  end subroutine lsb_get_period_caps
+
+  !> @brief Reconfigure the solver after a settings change (no-op by default)
+  !<
+  subroutine lsb_reconfigure(this)
+    class(LinearSolverBaseType) :: this !< linear solver instance
+  end subroutine lsb_reconfigure
 
 end module LinearSolverBaseModule

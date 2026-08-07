@@ -1,0 +1,21 @@
+The linear period data utility for the Iterative Model Solution (IMS) can be activated by specifying the LINEAR\_PERIODDATA option in the IMS input file.  If activated, \mf will read linear period data according to the following description.
+
+The linear period data file contains keyword PERIOD blocks that override selected settings from the LINEAR block of the IMS input file on a stress-period basis.  A PERIOD block applies to the stress period given in its header and to all subsequent stress periods until a later PERIOD block changes the settings.  Stress periods without a PERIOD block continue to use the running settings.  Only the following LINEAR-block keywords may appear in a PERIOD block: INNER\_DVCLOSE, INNER\_RCLOSE, INNER\_MAXIMUM, PRECONDITIONER\_LEVELS, PRECONDITIONER\_DROP\_TOLERANCE, and RELAXATION\_FACTOR.  Any other keyword will cause \mf to terminate with an error.
+
+Changing the inner closure tolerances or the inner maximum takes effect immediately at no additional cost.  Changing a preconditioner control (PRECONDITIONER\_LEVELS, PRECONDITIONER\_DROP\_TOLERANCE, or RELAXATION\_FACTOR) causes \mf to re-resolve the preconditioner type and, when the preconditioner storage requirements change, to reallocate and refactor the preconditioner before the next solve.
+
+When \mf is run in parallel, the linear period data file is read independently on every process (as the IMS input file itself is), and the settings change is applied on each process, so no additional synchronization is required.  Parallel simulations use the PETSc solver, which by default uses the same IMS convergence check and preconditioner as the serial solver; in this default configuration all of the PERIOD-block keywords are supported.  If, however, a native PETSc preconditioner or convergence check is selected through the \texttt{.petscrc} file, the corresponding keywords cannot be varied by stress period: PRECONDITIONER\_LEVELS, PRECONDITIONER\_DROP\_TOLERANCE, and RELAXATION\_FACTOR require the IMS preconditioner, and INNER\_DVCLOSE, INNER\_RCLOSE, and INNER\_MAXIMUM require the IMS convergence check.  Specifying such a keyword in a PERIOD block while the corresponding native PETSc option is active causes \mf to terminate with an error.
+
+\vspace{5mm}
+\subsection{Structure of Blocks}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-imslinearperiod-period.dat}
+
+\vspace{5mm}
+\subsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/utl-imslinearperiod-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/utl-imslinearperiod-example.dat}

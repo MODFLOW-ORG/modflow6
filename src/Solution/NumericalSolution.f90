@@ -39,6 +39,7 @@ module NumericalSolutionModule
   use VectorBaseModule
   use LinearSolverBaseModule
   use ImsLinearSettingsModule
+  use ImsLinearPeriodModule, only: ImsLinearPeriodType
   use IMSLinearMisc, only: ims_misc_dvscale
   use LinearSolverFactory, only: create_linear_solver
   use MatrixBaseModule
@@ -149,6 +150,7 @@ module NumericalSolutionModule
     !
     ! -- linear accelerator storage
     type(ImsLinearDataType), pointer :: imslinear => null() !< IMS linear acceleration object
+    type(ImsLinearPeriodType) :: linear_period !< stress-period-varying linear settings
     !
     ! -- sparse object
     type(sparsematrix) :: sparse !< sparse object
@@ -166,6 +168,7 @@ module NumericalSolutionModule
     procedure :: sln_ar
     procedure :: sln_dt
     procedure :: sln_ad
+    procedure :: sln_rp => numsol_rp
     procedure :: sln_ot
     procedure :: sln_ca
     procedure :: sln_fp
@@ -205,6 +208,7 @@ module NumericalSolutionModule
     procedure, private :: allocate_arrays
     procedure, private :: convergence_summary
     procedure, private :: csv_convergence_summary
+    procedure, private :: sln_reallocate_cnvg
     procedure, private :: sln_buildsystem
     procedure, private :: writeCSVHeader
     procedure, private :: writePTCInfoToFile
@@ -628,6 +632,21 @@ contains
           else
             write (errmsg, '(a)') 'Optional CSV_OUTER_OUTPUT '// &
               'keyword must be followed by FILEOUT'
+            call store_error(errmsg)
+          end if
+        case ('LINEAR_PERIODDATA')
+          call this%parser%GetStringCaps(keyword)
+          if (keyword == 'FILEIN') then
+            call this%parser%GetString(fname)
+            i = getunit()
+            call openfile(i, iout, fname, 'IMSLINEARPERIOD')
+            call this%linear_period%init(i, iout)
+            write (iout, '(1x,3a,i0)') &
+              'LINEAR_PERIODDATA input will be read from file "', &
+              trim(fname), '" on unit ', i
+          else
+            write (errmsg, '(a)') 'Optional LINEAR_PERIODDATA keyword '// &
+              'must be followed by FILEIN'
             call store_error(errmsg)
           end if
         case ('CSV_INNER_OUTPUT')
@@ -1113,6 +1132,79 @@ contains
     this%iouttot_timestep = 0
   end subroutine sln_ad
 
+  !> @brief Apply stress-period-varying linear settings for the solution
+  !!
+  !! On the first time step of a stress period, apply any period overrides to the
+  !! linear settings, resize the convergence-history arrays, and reconfigure the
+  !! solver when a change requires it.
+  !<
+  subroutine numsol_rp(this)
+    ! -- modules
+    use TdisModule, only: kper, readnewdata
+    ! -- dummy variables
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    ! -- local variables
+    logical(LGP) :: changed
+    logical(LGP) :: allow_tol
+    logical(LGP) :: allow_precond
+    !
+    ! -- only read period data on the first time step of a stress period,
+    !    mirroring the readnewdata guard used by the model and exchange _rp
+    !    routines. sln_rp is called every time step, so without this guard the
+    !    current PERIOD block would be re-entered and read past its END.
+    if (.not. readnewdata) return
+    !
+    ! -- apply stress-period-varying linear settings and reconfigure the solver
+    !    when a change requires it. Reading is per-rank, mirroring how the IMS
+    !    input file itself is read, so no MPI synchronization is needed:
+    !    identical input yields identical settings and an identical (local)
+    !    reallocation on every rank.
+    if (.not. this%linear_period%active) return
+    !
+    ! -- determine which setting categories the active solver mode honors, then
+    !    apply this period's overrides (rejecting disabled categories)
+    call this%linear_solver%get_period_caps(allow_tol, allow_precond)
+    call this%linear_period%read_period(this%linear_settings, kper, &
+                                        allow_tol, allow_precond, changed)
+    if (.not. changed) return
+    !
+    ! -- resize the convergence-history arrays when the inner maximum changed,
+    !    then reconfigure the preconditioner/tolerances for the active solver
+    call this%sln_reallocate_cnvg()
+    if (this%linsolver == IMS_SOLVER) then
+      call this%imslinear%reconfigure()
+    else
+      call this%linear_solver%reconfigure()
+    end if
+  end subroutine numsol_rp
+
+  !> @brief Resize the convergence-history arrays when the inner maximum changes
+  !!
+  !! caccel and the convergence summary are sized from inner_maximum * mxiter, so
+  !! a change to the inner maximum requires them to be resized before the next
+  !! solve. No action is taken when the size is unchanged.
+  !<
+  subroutine sln_reallocate_cnvg(this)
+    ! -- dummy variables
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    ! -- local variables
+    integer(I4B) :: new_nitermax
+    !
+    if (this%iprims == 2 .or. this%icsvinnerout > 0) then
+      new_nitermax = this%linear_settings%iter1 * this%mxiter
+    else
+      new_nitermax = 1
+    end if
+    if (new_nitermax == this%nitermax) return
+    this%nitermax = new_nitermax
+    !
+    ! -- caccel is a plain allocatable-style pointer; the convergence summary
+    !    resizes its own memory-manager-backed arrays via reinit
+    if (associated(this%caccel)) deallocate (this%caccel)
+    allocate (this%caccel(this%nitermax))
+    call this%cnvg_summary%reinit(this%nitermax)
+  end subroutine sln_reallocate_cnvg
+
   !> @ brief Output solution
   !!
   !!  Output solution data. Currently does nothing.
@@ -1213,6 +1305,9 @@ contains
     ! -- linear solver
     call this%linear_solver%destroy()
     deallocate (this%linear_solver)
+    !
+    ! -- period-varying linear settings
+    call this%linear_period%da()
     !
     ! -- linear solver settings
     call this%linear_settings%destroy()
