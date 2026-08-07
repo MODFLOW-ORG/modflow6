@@ -25,6 +25,7 @@ reader urword
 tagged true
 optional true
 deprecated 6.1.1
+removed 6.8.0
 longname
 description
 
@@ -37,6 +38,7 @@ reader urword
 tagged true
 optional false
 deprecated 6.1.1
+removed 6.8.0
 longname budget keyword
 description keyword to specify that the record corresponds to the comma separated values solver convergence output.  The CSV\_OUTPUT option has been deprecated and split into the CSV_OUTER_OUTPUT and CSV_INNER_OUTPUT options.  Starting with MODFLOW 6 version 6.1.1 if the CSV_OUTPUT option is specified, then it is treated as the CSV_OUTER_OUTPUT option.
 
@@ -50,6 +52,7 @@ reader urword
 tagged false
 optional false
 deprecated 6.1.1
+removed 6.8.0
 longname file keyword
 description name of the ascii comma separated values output file to write solver convergence information. If PRINT\_OPTION is NONE or SUMMARY, comma separated values output includes maximum head change convergence information at the end of each outer iteration for each time step. If PRINT\_OPTION is ALL, comma separated values output includes maximum head change and maximum residual convergence information for the solution and each model (if the solution includes more than one model) and linear acceleration information for each inner iteration.
 
@@ -240,6 +243,7 @@ type double precision
 reader urword
 optional true
 deprecated 6.1.1
+removed 6.8.0
 longname head change criterion
 description real value defining the head change criterion for convergence of the outer (nonlinear) iterations, in units of length. When the maximum absolute value of the head change at all nodes during an iteration is less than or equal to OUTER\_HCLOSE, iteration stops. Commonly, OUTER\_HCLOSE equals 0.01.  The OUTER\_HCLOSE option has been deprecated in favor of the more general OUTER\_DVCLOSE (for dependent variable), however either one can be specified in order to maintain backward compatibility.
 
@@ -257,6 +261,7 @@ type double precision
 reader urword
 optional true
 deprecated 6.1.1
+removed 6.8.0
 description real value defining the residual tolerance for convergence of model packages that solve a separate equation not solved by the IMS linear solver. This value represents the maximum allowable residual between successive outer iterations at any single model package element. An example of a model package that would use OUTER\_RCLOSEBND to evaluate convergence is the SFR package which solves a continuity equation for each reach.  The OUTER\_RCLOSEBND option is deprecated and has no effect on simulation results as of version 6.1.1.  The keyword, OUTER\_RCLOSEBND can be still be specified for backward compatibility with previous versions of MODFLOW 6 but eventually specification of OUTER\_RCLOSEBND will cause MODFLOW 6 to terminate with an error.
 longname boundary package flow residual tolerance
 
@@ -357,6 +362,7 @@ type double precision
 reader urword
 optional true
 deprecated 6.1.1
+removed 6.8.0
 longname head change tolerance
 description real value defining the head change criterion for convergence of the inner (linear) iterations, in units of length. When the maximum absolute value of the head change at all nodes during an iteration is less than or equal to INNER\_HCLOSE, the matrix solver assumes convergence. Commonly, INNER\_HCLOSE is set equal to or an order of magnitude less than the OUTER\_HCLOSE value specified for the NONLINEAR block.  The INNER\_HCLOSE keyword has been deprecated in favor of the more general INNER\_DVCLOSE (for dependent variable), however either one can be specified in order to maintain backward compatibility.
 

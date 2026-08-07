@@ -235,3 +235,18 @@ description = "The Unsaturated Zone Flow (UZF) Package reset only the first six 
 section = "fixes"
 subsection = "advanced"
 description = "The Unsaturated Zone Flow (UZF) Package accepted NTRAILWAVES of 1, which caused a division by zero when trailing waves were created. NTRAILWAVES is now required to be greater than 1, and the error message recommends a value of 7."
+
+[[items]]
+section = "fixes"
+subsection = "solution"
+description = "Six Iterative Model Solution (IMS) input variables that were deprecated in version 6.1.1 have been removed. In the OPTIONS block, CSV\\_OUTPUT has been removed; use CSV\\_OUTER\\_OUTPUT, which writes the same outer iteration information. In the NONLINEAR block, OUTER\\_HCLOSE has been removed; use OUTER\\_DVCLOSE, which it was being copied into. OUTER\\_RCLOSEBND has been removed; it had no effect, because package convergence has been evaluated using OUTER\\_DVCLOSE since version 6.1.1. In the LINEAR block, INNER\\_HCLOSE has been removed; use INNER\\_DVCLOSE, which it was being copied into. A simulation that specifies any of these now stops with an unknown keyword error instead of a deprecation warning."
+
+[[items]]
+section = "fixes"
+subsection = "solution"
+description = "The definition file sln-pts.dfn has been removed. It described an Iterative Model Solution style input file for a particle tracking solution that was never implemented; no MODFLOW 6 solution reads it, and it was not included in the input and output guide. The Particle Tracking (PRT) model uses the Explicit Model Solution, which is defined by sln-ems.dfn and has no input variables of its own."
+
+[[items]]
+section = "fixes"
+subsection = "basic"
+description = "The script that builds the table of deprecations and removals for the release notes accumulated the deprecated and removed versions of a variable under two different keys, so a variable carrying both attributes lost its deprecation version and was reported as having been deprecated in the version in which it was removed. The table was correct until now only because every previous removal was made in the same version as its deprecation."

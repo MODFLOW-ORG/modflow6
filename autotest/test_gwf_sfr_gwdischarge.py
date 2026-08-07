@@ -30,7 +30,6 @@ def build_models(idx, test):
     flopy.mf6.ModflowIms(
         sim,
         inner_dvclose=1e-5,
-        inner_hclose=1e-6,
     )
 
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name)

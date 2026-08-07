@@ -138,7 +138,6 @@ contains
     logical(LGP) :: block_found, end_of_block
     integer(I4B) :: ierr
     character(len=LINELENGTH) :: errmsg
-    character(len=LINELENGTH) :: warnmsg
     character(len=LINELENGTH) :: keyword
     integer(I4B) :: iscaling, iordering
 
@@ -235,18 +234,6 @@ contains
               'must be greater than or equal to zero'
             call store_error(errmsg)
           end if
-          !
-          ! -- deprecated variables
-        case ('INNER_HCLOSE')
-          this%dvclose = parser%GetDouble()
-          !
-          ! -- create warning message
-          write (warnmsg, '(a)') &
-            'SETTING INNER_DVCLOSE TO INNER_HCLOSE VALUE'
-          !
-          ! -- create deprecation warning
-          call deprecation_warning('LINEAR', 'INNER_HCLOSE', '6.1.1', &
-                                   warnmsg, parser%GetUnit())
           !
           ! -- default
         case default
