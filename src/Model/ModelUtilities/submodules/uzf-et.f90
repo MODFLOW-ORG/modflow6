@@ -198,7 +198,7 @@ contains
         this%nwaves(icell) = this%nwaves(icell) + 1
         if (this%nwaves(icell) > this%nwaves_max) then
           !
-          ! -- too many waves error, deallocate temp arrays and return
+          ! -- too many waves error
           ierr = 1
           goto 500
         end if
