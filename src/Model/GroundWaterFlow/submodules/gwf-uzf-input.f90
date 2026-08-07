@@ -171,7 +171,7 @@ contains
         node = this%igwfnode(n)
         call this%uzfobj%setdata(n, this%dis%area(node), this%dis%top(node), &
                                  this%dis%bot(node), surfdep, vks, thtr, thts, &
-                                 thti, eps, this%ntrail_pvar, landflag, &
+                                 thti, eps, this%ntrail_input, landflag, &
                                  ivertcon)
         if (ivertcon > 0) then
           this%iuzf2uzf = 1
