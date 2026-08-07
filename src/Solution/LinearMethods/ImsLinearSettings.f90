@@ -287,7 +287,7 @@ contains
     if (iout <= 0) return
 
     select case (keyword)
-    case ('INNER_DVCLOSE', 'INNER_HCLOSE')
+    case ('INNER_DVCLOSE')
       write (cval, '(1pe15.5)') this%dvclose
     case ('INNER_RCLOSE')
       write (cval, '(1pe15.5)') this%rclose
