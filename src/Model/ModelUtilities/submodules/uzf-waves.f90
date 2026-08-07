@@ -63,13 +63,13 @@ contains
   !
   ! -- no uz, clear waves
   if (thickold < DZERO) then
-    do j = 1, 6
+    do j = 1, this%nwaves(icell)
       this%wave_theta(j, icell) = this%theta_res(icell)
       this%wave_depth(j, icell) = DZERO
       this%wave_speed(j, icell) = DZERO
       this%wave_flux(j, icell) = DZERO
-      this%nwaves(icell) = 1
     end do
+    this%nwaves(icell) = 1
   end if
   idelt = 1
   do ik = 1, idelt
@@ -302,12 +302,12 @@ contains
       return
     end if
   else
-    this%wave_depth(this%nwaves, icell) = DZERO
-    this%wave_flux(this%nwaves, icell) = &
-      this%vks(icell) * (((this%wave_theta(this%nwaves, icell) - &
-                           this%theta_res(icell)) * dtheta_inv)** &
-                         this%bc_eps(icell))
-    this%wave_theta(this%nwaves, icell) = theta_surf
+    this%wave_depth(this%nwaves(icell), icell) = DZERO
+    sat = (this%wave_theta(this%nwaves(icell), icell) - &
+           this%theta_res(icell)) * dtheta_inv
+    this%wave_flux(this%nwaves(icell), icell) = &
+      this%vks(icell) * (sat**this%bc_eps(icell))
+    this%wave_theta(this%nwaves(icell), icell) = theta_surf
     theta2 = this%wave_theta(this%nwaves(icell) - 1, icell)
     flux2 = this%wave_flux(this%nwaves(icell) - 1, icell)
     flux1 = this%wave_flux(this%nwaves(icell), icell)
@@ -701,6 +701,7 @@ contains
   comp3 = theta1 - thtr
   if (comp2 < DEM15) flux2 = flux1 + DEM15
   if (abs(comp1) < DEM30) then
+    fhold = DEM30
     if (comp3 > DEM30) fhold = (comp3 * thsrinv)**eps
     if (fhold < DEM30) fhold = DEM30
     leadspeed = epsfksths * (fhold**eps_m1)
