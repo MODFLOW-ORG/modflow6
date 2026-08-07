@@ -201,8 +201,8 @@ module UzfCellGroupModule
       integer(I4B), intent(inout) :: ierr
     end subroutine trailwav
 
-  module subroutine leadwav(this, time, single_wave, trail_added, thetab, fluxb, &
-                              dflux_surf, eps_flux, delt, icell)
+    module subroutine leadwav(this, time, single_wave, trail_added, thetab, &
+                              fluxb, dflux_surf, eps_flux, delt, icell)
       class(UzfCellGroupType) :: this
       real(DP), intent(inout) :: thetab
       real(DP), intent(inout) :: fluxb
@@ -236,7 +236,8 @@ module UzfCellGroupModule
       real(DP), intent(inout) :: totfluxtot
     end subroutine uz_rise
 
-    module function get_water_content_at_depth(this, icell, depth) result(theta_at_depth)
+    module function get_water_content_at_depth(this, icell, &
+                                               depth) result(theta_at_depth)
       class(UzfCellGroupType) :: this
       integer(I4B), intent(in) :: icell !< uzf cell containing depth
       real(DP), intent(in) :: depth !< depth within the cell
@@ -352,11 +353,13 @@ contains
     call mem_allocate(this%celbot, ncells, 'CELBOT', memory_path)
     call mem_allocate(this%landtop, ncells, 'LANDTOP', memory_path)
     call mem_allocate(this%water_table, ncells, 'WATER_TABLE', memory_path)
-   call mem_allocate(this%water_table_old, ncells, 'WATER_TABLE_OLD', memory_path)
+    call mem_allocate(this%water_table_old, ncells, 'WATER_TABLE_OLD', &
+                      memory_path)
     call mem_allocate(this%surfdep, ncells, 'SURFDEP', memory_path)
     call mem_allocate(this%vks, ncells, 'VKS', memory_path)
     call mem_allocate(this%surf_infil, ncells, 'SURF_INFIL', memory_path)
- call mem_allocate(this%surf_infil_below, ncells, 'SURF_INFIL_BELOW', memory_path)
+    call mem_allocate(this%surf_infil_below, ncells, 'SURF_INFIL_BELOW', &
+                      memory_path)
     call mem_allocate(this%surf_seep, ncells, 'SURF_SEEP', memory_path)
     call mem_allocate(this%gw_pet, ncells, 'GW_PET', memory_path)
     call mem_allocate(this%pet, ncells, 'PET', memory_path)
@@ -773,7 +776,8 @@ contains
     !
     ! -- calculate rejected infiltration
     this%finf_rej(icell) = this%finf(icell) + &
-                         (qfrommvr / this%uzfarea(icell)) - this%surf_infil(icell)
+                           (qfrommvr / this%uzfarea(icell)) &
+                           - this%surf_infil(icell)
     !
     ! -- calculate groundwater discharge
     if (iseepflag > 0 .and. this%landflag(icell) == 1) then
@@ -783,7 +787,8 @@ contains
     !
     ! -- route water through unsat zone, calc. storage change and recharge
     test = this%water_table(icell)
-    if (this%water_table_old(icell) - test < -DEM15) test = this%water_table_old(icell)
+    if (this%water_table_old(icell) - test < -DEM15) &
+      test = this%water_table_old(icell)
     if (this%celtop(icell) - test > DEM15) then
       if (issflag == 0) then
         call this%routewaves(totfluxtot, delt, ietflag, icell, ierr)

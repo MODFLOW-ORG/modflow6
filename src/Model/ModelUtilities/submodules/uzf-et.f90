@@ -90,6 +90,7 @@ contains
   real(DP) :: depth
   real(DP) :: extwc1
   real(DP) :: theta_min
+  real(DP) :: sat
   real(DP) :: petsub
   integer(I4B) :: j
   integer(I4B) :: jext
@@ -153,19 +154,18 @@ contains
       end if
       if ((this%wave_theta(1, icell) - thetaout) > theta_min) then
         this%wave_theta(1, icell) = this%wave_theta(1, icell) - thetaout
-        this%wave_flux(1, icell) = &
-          this%vks(icell) * (((this%wave_theta(1, icell) - &
-                         this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
+        sat = (this%wave_theta(1, icell) - this%theta_res(icell)) * dtheta_inv
+        this%wave_flux(1, icell) = this%vks(icell) * (sat**this%bc_eps(icell))
       else if (this%wave_theta(1, icell) > theta_min) then
         this%wave_theta(1, icell) = theta_min
-        this%wave_flux(1, icell) = &
-          this%vks(icell) * (((this%wave_theta(1, icell) - &
-                         this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
+        sat = (this%wave_theta(1, icell) - this%theta_res(icell)) * dtheta_inv
+        this%wave_flux(1, icell) = this%vks(icell) * (sat**this%bc_eps(icell))
       end if
       !
       ! -- all waves shallower than extinction depth
     else if (this%nwaves(icell) > 1 .AND. &
-       this%wave_depth(this%nwaves(icell), icell) > this%ext_depth_uz(icell)) then
+             this%wave_depth(this%nwaves(icell), &
+                             icell) > this%ext_depth_uz(icell)) then
       if (ietflag == 2) then
         tho = this%wave_theta(this%nwaves(icell), icell)
         fktho = this%wave_flux(this%nwaves(icell), icell)
@@ -217,9 +217,8 @@ contains
       if ((this%wave_theta(1, icell) - thetaout) > theta_min) then
         if (thetaout > DEM30) then
           this%wave_theta(2, icell) = this%wave_theta(1, icell) - thetaout
-          this%wave_flux(2, icell) = &
-       this%vks(icell) * (((this%wave_theta(2, icell) - this%theta_res(icell)) * &
-                                dtheta_inv)**this%bc_eps(icell))
+          sat = (this%wave_theta(2, icell) - this%theta_res(icell)) * dtheta_inv
+          this%wave_flux(2, icell) = this%vks(icell) * (sat**this%bc_eps(icell))
           this%wave_depth(2, icell) = this%ext_depth_uz(icell)
           theta2 = this%wave_theta(2, icell)
           flux2 = this%wave_flux(2, icell)
@@ -239,9 +238,8 @@ contains
       else if (this%wave_theta(1, icell) > theta_min) then
         if (thetaout > DEM30) then
           this%wave_theta(2, icell) = theta_min
-          this%wave_flux(2, icell) = &
-            this%vks(icell) * (((this%wave_theta(2, icell) - &
-                         this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
+          sat = (this%wave_theta(2, icell) - this%theta_res(icell)) * dtheta_inv
+          this%wave_flux(2, icell) = this%vks(icell) * (sat**this%bc_eps(icell))
           this%wave_depth(2, icell) = this%ext_depth_uz(icell)
           theta2 = this%wave_theta(2, icell)
           flux2 = this%wave_flux(2, icell)
@@ -331,19 +329,18 @@ contains
                  this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
           end if
           if (j > 1) then
-            flux1 = &
-              this%vks(icell) * ((this%wave_theta(j - 1, icell) - &
-                          this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell)
-            flux2 = &
-              this%vks(icell) * ((this%wave_theta(j, icell) - &
-                          this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell)
+            sat = (this%wave_theta(j - 1, icell) - this%theta_res(icell)) * &
+                  dtheta_inv
+            flux1 = this%vks(icell) * sat**this%bc_eps(icell)
+            sat = (this%wave_theta(j, icell) - this%theta_res(icell)) * dtheta_inv
+            flux2 = this%vks(icell) * sat**this%bc_eps(icell)
             this%wave_flux(j, icell) = flux2
             theta2 = this%wave_theta(j, icell)
             theta1 = this%wave_theta(j - 1, icell)
-            this%wave_speed(j, icell) = leadspeed(theta1, theta2, flux1, flux2, &
-                                                  this%theta_sat(icell), &
-                                                  this%theta_res(icell), &
-                                              this%bc_eps(icell), this%vks(icell))
+            this%wave_speed(j, icell) = &
+              leadspeed(theta1, theta2, flux1, flux2, this%theta_sat(icell), &
+                        this%theta_res(icell), this%bc_eps(icell), &
+                        this%vks(icell))
           end if
         end if
         j = j + 1
@@ -353,7 +350,8 @@ contains
     ! -- calculate aet
     j = 1
     do while (j <= this%nwaves(icell) - 1)
-   if (abs(this%wave_theta(j, icell) - this%wave_theta(j + 1, icell)) < DEM6) then
+      if (abs(this%wave_theta(j, icell) - this%wave_theta(j + 1, &
+                                                          icell)) < DEM6) then
         call this%shift_waves(icell, 1, j + 1, &
                               this%nwaves(icell) - 1, 1)
         j = j - 1
@@ -399,7 +397,8 @@ contains
   real(DP) :: star
   !
   caph = -DEM6
-    star = (tho - this%theta_res(icell)) / (this%theta_sat(icell) - this%theta_res(icell))
+  star = (tho - this%theta_res(icell)) / &
+         (this%theta_sat(icell) - this%theta_res(icell))
   if (star < DEM15) star = DEM15
   lambda = DTWO / (this%bc_eps(icell) - DTHREE)
   if (star > DEM15) then

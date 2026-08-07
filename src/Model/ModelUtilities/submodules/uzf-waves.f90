@@ -27,7 +27,8 @@ contains
     if (top < DZERO) top = DZERO
     bottom = this%theta_sat(icell) - this%theta_res(icell)
     if (bottom < DZERO) bottom = DZERO
-   this%wave_flux(1, icell) = this%vks(icell) * (top / bottom)**this%bc_eps(icell)
+    this%wave_flux(1, icell) = this%vks(icell) &
+                               * (top / bottom)**this%bc_eps(icell)
     if (this%wave_theta(1, icell) < this%theta_res(icell)) &
       this%wave_theta(1, icell) = this%theta_res(icell)
     !
@@ -149,8 +150,9 @@ contains
       if (this%wave_depth(2, icell) < DEM30) &
         this%wave_depth(2, icell) = (this%ntrailwaves + DTWO) * DEM6
       if (this%wave_theta(2, icell) > this%theta_res(icell)) then
-        this%wave_speed(2, icell) = this%wave_flux(2, icell) / &
-                               (this%wave_theta(2, icell) - this%theta_res(icell))
+        this%wave_speed(2, icell) = &
+          this%wave_flux(2, icell) / &
+          (this%wave_theta(2, icell) - this%theta_res(icell))
       else
         this%wave_speed(2, icell) = DZERO
       end if
@@ -172,7 +174,8 @@ contains
   fluxb = this%wave_flux(1, icell)
   this%flux_to_wt(icell) = DZERO
   single_wave = 0
- dflux_surf = (this%surf_infil(icell) - this%wave_flux(this%nwaves(icell), icell))
+  dflux_surf = (this%surf_infil(icell) - this%wave_flux(this%nwaves(icell), &
+                                                        icell))
   !
   ! -- increase new waves in infiltration changes
   if (dflux_surf > eps_flux .OR. dflux_surf < -eps_flux) then
@@ -238,6 +241,7 @@ contains
   ! -- local
   real(DP) :: theta_surf, theta_step, ftrail, eps_m1
   real(DP) :: dtheta_inv
+  real(DP) :: sat
   real(DP) :: flux1, flux2, theta1, theta2
   real(DP) :: fnuminc
   integer(I4B) :: j, jj, jk, nwaves_m1
@@ -247,15 +251,16 @@ contains
   nwaves_m1 = this%nwaves(icell) - 1
   !
   ! -- initialize trailwaves
-  theta_surf = (((this%surf_infil(icell) / this%vks(icell))** &
-                 (DONE / this%bc_eps(icell))) * &
-          (this%theta_sat(icell) - this%theta_res(icell))) + this%theta_res(icell)
+  sat = (this%surf_infil(icell) / this%vks(icell))**(DONE / this%bc_eps(icell))
+  theta_surf = (sat * (this%theta_sat(icell) - this%theta_res(icell))) + &
+               this%theta_res(icell)
   if (this%wave_theta(nwaves_m1, icell) - theta_surf > DEM9) then
     fnuminc = DZERO
     do jk = 1, this%ntrailwaves
       fnuminc = fnuminc + float(jk)
     end do
-  theta_step = (this%wave_theta(nwaves_m1, icell) - theta_surf) / (fnuminc - DONE)
+    theta_step = (this%wave_theta(nwaves_m1, &
+                                  icell) - theta_surf) / (fnuminc - DONE)
     jj = this%ntrailwaves
     ftrail = dble(this%ntrailwaves) + DONE
     do j = this%nwaves(icell), this%nwaves(icell) + this%ntrailwaves - 1
@@ -273,16 +278,15 @@ contains
       jj = jj - 1
       if (this%wave_theta(j, icell) <= this%theta_res(icell) + DEM9) &
         this%wave_theta(j, icell) = this%theta_res(icell) + DEM9
-      this%wave_flux(j, icell) = &
-       this%vks(icell) * (((this%wave_theta(j, icell) - this%theta_res(icell)) * &
-                            dtheta_inv)**this%bc_eps(icell))
+      sat = (this%wave_theta(j, icell) - this%theta_res(icell)) * dtheta_inv
+      this%wave_flux(j, icell) = this%vks(icell) * (sat**this%bc_eps(icell))
       theta2 = this%wave_theta(j - 1, icell)
       flux2 = this%wave_flux(j - 1, icell)
       flux1 = this%wave_flux(j, icell)
       theta1 = this%wave_theta(j, icell)
-      this%wave_speed(j, icell) = leadspeed(theta1, theta2, flux1, flux2, &
-                                   this%theta_sat(icell), this%theta_res(icell), &
-                                            this%bc_eps(icell), this%vks(icell))
+      this%wave_speed(j, icell) = &
+        leadspeed(theta1, theta2, flux1, flux2, this%theta_sat(icell), &
+                  this%theta_res(icell), this%bc_eps(icell), this%vks(icell))
       this%wave_depth(j, icell) = DZERO
       if (j == this%nwaves(icell)) then
         this%wave_depth(j, icell) = this%wave_depth(j, icell) + &
@@ -301,7 +305,8 @@ contains
     this%wave_depth(this%nwaves, icell) = DZERO
     this%wave_flux(this%nwaves, icell) = &
       this%vks(icell) * (((this%wave_theta(this%nwaves, icell) - &
-                         this%theta_res(icell)) * dtheta_inv)**this%bc_eps(icell))
+                           this%theta_res(icell)) * dtheta_inv)** &
+                         this%bc_eps(icell))
     this%wave_theta(this%nwaves, icell) = theta_surf
     theta2 = this%wave_theta(this%nwaves(icell) - 1, icell)
     flux2 = this%wave_flux(this%nwaves(icell) - 1, icell)
@@ -336,8 +341,9 @@ contains
         this%wave_flux(this%nwaves(icell), icell) = DZERO
       this%wave_theta(this%nwaves(icell), icell) = &
         (((this%wave_flux(this%nwaves(icell), icell) / this%vks(icell))** &
- (DONE / this%bc_eps(icell))) * (this%theta_sat(icell) - this%theta_res(icell))) &
-        + this%theta_res(icell)
+          (DONE / this%bc_eps(icell))) * &
+         (this%theta_sat(icell) - this%theta_res(icell))) + &
+        this%theta_res(icell)
       theta2 = this%wave_theta(this%nwaves(icell), icell)
       flux2 = this%wave_flux(this%nwaves(icell), icell)
       flux1 = this%wave_flux(this%nwaves(icell) - 1, icell)
@@ -386,7 +392,8 @@ contains
         if (this%wave_speed(2, icell) > DZERO) then
           bottom = this%wave_speed(2, icell)
           if (bottom < DEM15) bottom = DEM15
-   dt_to_bottom = (this%wave_depth(1, icell) - this%wave_depth(2, icell)) / bottom
+          dt_to_bottom = (this%wave_depth(1, icell) - &
+                          this%wave_depth(2, icell)) / bottom
           if (dt_to_bottom < DZERO) dt_to_bottom = DEM12
         end if
       end if
@@ -453,10 +460,10 @@ contains
               flux1 = this%wave_flux(j - 2, icell)
               theta1 = this%wave_theta(j - 2, icell)
             end if
-            this%wave_speed(j, icell) = leadspeed(theta1, theta2, flux1, flux2, &
-                                                  this%theta_sat(icell), &
-                                                  this%theta_res(icell), &
-                                              this%bc_eps(icell), this%vks(icell))
+            this%wave_speed(j, icell) = &
+              leadspeed(theta1, theta2, flux1, flux2, this%theta_sat(icell), &
+                        this%theta_res(icell), this%bc_eps(icell), &
+                        this%vks(icell))
             !
             ! -- update waves
             call this%shift_waves(icell, 1, jmerge - 1, &
@@ -478,7 +485,8 @@ contains
         end do
         time_new = delt
       end if
-        this%flux_to_wt(icell) = this%flux_to_wt(icell) + flux_bot_prev * (time_new - time)
+      this%flux_to_wt(icell) = this%flux_to_wt(icell) + flux_bot_prev &
+                               * (time_new - time)
       if (wave_exited == 1) then
         flux_bot_prev = this%wave_flux(1, icell)
         wave_exited = 0
@@ -517,7 +525,8 @@ contains
     end if
   end do
   if (jabove > this%nwaves(icell)) then
-      fm = fm + (this%wave_theta(this%nwaves(icell), icell) - this%theta_res(icell)) * d1
+    fm = fm + (this%wave_theta(this%nwaves(icell), &
+                               icell) - this%theta_res(icell)) * d1
   elseif (this%nwaves(icell) > 1) then
     if (jabove > 1) then
       fm = fm + (this%wave_theta(jabove - 1, icell) - this%theta_res(icell)) &
@@ -528,8 +537,9 @@ contains
            * (this%wave_depth(j, icell) &
               - this%wave_depth(j + 1, icell))
     end do
-  fm = fm + (this%wave_theta(this%nwaves(icell), icell) - this%theta_res(icell)) &
-         * (this%wave_depth(this%nwaves(icell), icell))
+    fm = fm + (this%wave_theta(this%nwaves(icell), icell) - &
+               this%theta_res(icell)) * &
+         this%wave_depth(this%nwaves(icell), icell)
   else
     fm = fm + (this%wave_theta(1, icell) - this%theta_res(icell)) * d1
   end if
