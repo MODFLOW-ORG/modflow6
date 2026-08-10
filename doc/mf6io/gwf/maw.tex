@@ -16,6 +16,11 @@ Input to the Multi-Aquifer Well (MAW) Package is read from the file that has typ
 \advancedpackageperioddescription{well}{wells}
 
 \vspace{5mm}
+\noindent The CONNECTION\_STATUS setting represents a multi-aquifer well connection that has been sealed off from the well, such as a connection that has been backplugged or cased over. A connection is simulated only if both the multi-aquifer well and the connection are active, so a well with a STATUS of INACTIVE has no flow through any of its connections regardless of the status of the individual connections; the connection settings that were specified previously are used again when the well is made ACTIVE. Connection data must be specified for the maximum number of connections that a well will have at any time during the simulation, and a connection that represents a part of a well that has not yet been drilled should be given a CONNECTION\_STATUS of INACTIVE until it is completed.
+
+A packer that isolates part of a multi-aquifer well from the pumped interval, but leaves the isolated interval open to the aquifer, cannot be represented using CONNECTION\_STATUS because the isolated interval has its own water level. Each multi-aquifer well is simulated using a single head, so a well that is divided by a packer should be represented using a separate multi-aquifer well for each isolated interval.
+
+\vspace{5mm}
 \subsubsection{Explanation of Variables}
 \begin{description}
 \input{./mf6ivar/tex/gwf-maw-desc.tex}
