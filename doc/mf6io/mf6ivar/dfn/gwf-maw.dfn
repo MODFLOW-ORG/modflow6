@@ -629,13 +629,13 @@ numeric_index true
 
 block period
 name mawsetting
-type keystring status flowing_wellrecord rate well_head head_limit shutoffrecord rate_scalingrecord auxiliaryrecord
+type keystring status connection_statusrecord bottom flowing_wellrecord rate well_head head_limit shutoffrecord rate_scalingrecord auxiliaryrecord
 shape
 tagged false
 in_record true
 reader urword
 longname
-description line of information that is parsed into a keyword and values.  Keyword values that can be used to start the MAWSETTING string include: STATUS, FLOWING\_WELL, RATE, WELL\_HEAD, HEAD\_LIMIT, SHUT\_OFF, RATE\_SCALING, and AUXILIARY.
+description line of information that is parsed into a keyword and values.  Keyword values that can be used to start the MAWSETTING string include: STATUS, CONNECTION\_STATUS, BOTTOM, FLOWING\_WELL, RATE, WELL\_HEAD, HEAD\_LIMIT, SHUT\_OFF, RATE\_SCALING, and AUXILIARY.
 
 block period
 name status
@@ -646,6 +646,60 @@ in_record true
 reader urword
 longname well status
 description keyword option to define well status.  STATUS can be ACTIVE, INACTIVE, or CONSTANT. By default, STATUS is ACTIVE.
+
+block period
+name connection_statusrecord
+mf6internal connstatusrec
+type record connection_status icon connstatus
+shape
+tagged
+in_record true
+reader urword
+longname
+description
+
+block period
+name connection_status
+mf6internal conn_status
+type keyword
+shape
+in_record true
+reader urword
+longname connection status keyword
+description keyword to indicate that the status of an individual multi-aquifer well connection is being changed.  If CONNECTION\_STATUS is specified, both ICON and CONNSTATUS must be specified.
+
+block period
+name icon
+mf6internal period_icon
+type integer
+shape
+tagged false
+in_record true
+reader urword
+longname connection number
+description integer value that defines the connection number of multi-aquifer well IFNO for which CONNSTATUS is being specified.  ICON must be greater than zero and less than or equal to NGWFNODES for multi-aquifer well IFNO.
+numeric_index true
+
+block period
+name connstatus
+type string
+shape
+tagged false
+in_record true
+reader urword
+longname connection status
+description keyword option to define the status of an individual multi-aquifer well connection.  CONNSTATUS can be ACTIVE or INACTIVE.  By default, every multi-aquifer well connection is ACTIVE.  An INACTIVE connection does not exchange water with the connected GWF cell and is reported in the multi-aquifer well budget file with a flow rate of zero.  A connection is simulated only if both the multi-aquifer well and the connection are active, so setting the well STATUS to INACTIVE suspends all of its connections without changing their individual settings; the previously specified connection settings are used again when the well is made ACTIVE.  CONNECTION\_STATUS does not change the volume of water stored in the multi-aquifer well; use BOTTOM to change the elevation at which the well is empty when the lower part of a well is filled.
+
+block period
+name bottom
+mf6internal period_bottom
+type double precision
+shape
+tagged true
+in_record true
+reader urword
+longname well bottom
+description real value that defines the bottom elevation of the multi-aquifer well.  BOTTOM can be used to raise the bottom of a well that has been filled or plugged, so that the well stops yielding water at the elevation of the fill instead of at its original bottom.  BOTTOM does not change the amount of water released from or taken into multi-aquifer well storage for a given change in head, which is determined by the well radius; it changes the elevation at which the multi-aquifer well is empty.  The volume of water displaced by the material used to fill the well is not included in the multi-aquifer well budget.  BOTTOM must be less than or equal to the simulated head in the well and must be less than or equal to the screen bottom of every active connection for the multi-aquifer well.
 
 block period
 name flowing_wellrecord

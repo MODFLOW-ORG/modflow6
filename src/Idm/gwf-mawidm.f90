@@ -68,6 +68,11 @@ module GwfMawInputModule
     logical :: connlen = .false.
     logical :: ifno = .false.
     logical :: status = .false.
+    logical :: connstatusrec = .false.
+    logical :: conn_status = .false.
+    logical :: period_icon = .false.
+    logical :: connstatus = .false.
+    logical :: period_bottom = .false.
     logical :: flwwellrecord = .false.
     logical :: flowing_well = .false.
     logical :: fwelev = .false.
@@ -1163,6 +1168,101 @@ module GwfMawInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    gwfmaw_connstatusrec = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'MAW', & ! subcomponent
+    'PERIOD', & ! block
+    'CONNECTION_STATUSRECORD', & ! tag name
+    'CONNSTATUSREC', & ! fortran variable
+    'RECORD CONNECTION_STATUS ICON CONNSTATUS', & ! type
+    '', & ! shape
+    '', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfmaw_conn_status = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'MAW', & ! subcomponent
+    'PERIOD', & ! block
+    'CONNECTION_STATUS', & ! tag name
+    'CONN_STATUS', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'connection status keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfmaw_period_icon = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'MAW', & ! subcomponent
+    'PERIOD', & ! block
+    'ICON', & ! tag name
+    'PERIOD_ICON', & ! fortran variable
+    'INTEGER', & ! type
+    '', & ! shape
+    'connection number', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfmaw_connstatus = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'MAW', & ! subcomponent
+    'PERIOD', & ! block
+    'CONNSTATUS', & ! tag name
+    'CONNSTATUS', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'connection status', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfmaw_period_bottom = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'MAW', & ! subcomponent
+    'PERIOD', & ! block
+    'BOTTOM', & ! tag name
+    'PERIOD_BOTTOM', & ! fortran variable
+    'DOUBLE', & ! type
+    '', & ! shape
+    'well bottom', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     gwfmaw_flwwellrecord = InputParamDefinitionType &
     ( &
     'GWF', & ! component
@@ -1601,6 +1701,11 @@ module GwfMawInputModule
     gwfmaw_connlen, &
     gwfmaw_ifno, &
     gwfmaw_status, &
+    gwfmaw_connstatusrec, &
+    gwfmaw_conn_status, &
+    gwfmaw_period_icon, &
+    gwfmaw_connstatus, &
+    gwfmaw_period_bottom, &
     gwfmaw_flwwellrecord, &
     gwfmaw_flowing_well, &
     gwfmaw_fwelev, &
@@ -1709,8 +1814,9 @@ module GwfMawInputModule
     'PERIOD', & ! block
     'MAWSETTING', & ! tag name
     'MAWSETTING', & ! fortran variable
-    'KEYSTRING STATUS FLOWING_WELLRECORD RATE WELL_HEAD '// &
-    'HEAD_LIMIT SHUTOFFRECORD RATE_SCALINGRECORD AUXILIARYRECORD', & ! type
+    'KEYSTRING STATUS CONNECTION_STATUSRECORD BOTTOM '// &
+    'FLOWING_WELLRECORD RATE WELL_HEAD HEAD_LIMIT SHUTOFFRECORD '// &
+    'RATE_SCALINGRECORD AUXILIARYRECORD', & ! type
     '', & ! shape
     '', & ! longname
     .true., & ! required

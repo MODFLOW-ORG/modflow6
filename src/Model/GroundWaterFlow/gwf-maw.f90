@@ -64,6 +64,10 @@ module MawModule
       contiguous :: setting => null()
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: status => null()
+    integer(I4B), dimension(:), pointer, contiguous :: period_icon => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: connstatus => null()
+    real(DP), dimension(:), pointer, contiguous :: period_bottom => null()
     real(DP), dimension(:), pointer, contiguous :: rate => null()
     real(DP), dimension(:), pointer, contiguous :: well_head => null()
     type(CharacterStringType), dimension(:), pointer, &
@@ -160,6 +164,7 @@ module MawModule
     !
     ! -- vector data for each connections
     integer(I4B), dimension(:), pointer, contiguous :: gwfnodes => NULL()
+    integer(I4B), dimension(:), pointer, contiguous :: iboundconn => NULL() !< connection status, 0 = inactive; a connection is simulated only if its well is also active
     real(DP), dimension(:), pointer, contiguous :: sradius => NULL()
     real(DP), dimension(:), pointer, contiguous :: hk => NULL()
     real(DP), dimension(:), pointer, contiguous :: satcond => NULL()
@@ -465,6 +470,8 @@ contains
     !
     ! -- allocate connection data
     call mem_allocate(this%gwfnodes, this%maxbound, 'GWFNODES', this%memoryPath)
+    call mem_allocate(this%iboundconn, this%maxbound, 'IBOUNDCONN', &
+                      this%memoryPath)
     call mem_allocate(this%sradius, this%maxbound, 'SRADIUS', this%memoryPath)
     call mem_allocate(this%hk, this%maxbound, 'HK', this%memoryPath)
     call mem_allocate(this%satcond, this%maxbound, 'SATCOND', this%memoryPath)
@@ -559,6 +566,7 @@ contains
     do j = 1, this%maxbound
       this%imap(j) = 0
       this%gwfnodes(j) = 0
+      this%iboundconn(j) = 1
       this%sradius(j) = DZERO
       this%hk(j) = DZERO
       this%satcond(j) = DZERO
@@ -795,6 +803,9 @@ contains
     call mem_setptr(this%ifno, 'IFNO', mempath)
     call mem_setptr(this%setting, 'SETTING', mempath)
     call mem_setptr(this%status, 'STATUS', mempath)
+    call mem_setptr(this%period_icon, 'PERIOD_ICON', mempath)
+    call mem_setptr(this%connstatus, 'CONNSTATUS', mempath)
+    call mem_setptr(this%period_bottom, 'PERIOD_BOTTOM', mempath)
     call mem_setptr(this%rate, 'RATE', mempath)
     call mem_setptr(this%well_head, 'WELL_HEAD', mempath)
     call mem_setptr(this%head_limit, 'HEAD_LIMIT', mempath)
@@ -820,6 +831,9 @@ contains
     nullify (this%ifno)
     nullify (this%setting)
     nullify (this%status)
+    nullify (this%period_icon)
+    nullify (this%connstatus)
+    nullify (this%period_bottom)
     nullify (this%rate)
     nullify (this%well_head)
     nullify (this%head_limit)
@@ -1950,8 +1964,10 @@ contains
     integer(I4B) :: j
     integer(I4B) :: jpos
     integer(I4B) :: jj
+    integer(I4B) :: icon
     integer(I4B) :: istat
     integer(I4B) :: iheadlimit_warning
+    real(DP) :: rval
     ! -- formats
     character(len=*), parameter :: fmtlsp = &
       &"(1X,/1X,'REUSING ',A,'S FROM LAST STRESS PERIOD')"
@@ -2027,6 +2043,59 @@ contains
               trim(str)//"'."
             call store_error(errmsg)
           end select
+        end if
+        !
+        ! -- CONNECTION_STATUS (compound group)
+        if (trim(setting) == 'CONN_STATUS') then
+          icon = this%input%period_icon(n)
+          if (icon < 1 .or. icon > this%ngwfnodes(imaw)) then
+            write (errmsg, '(2(a,1x),i0,1x,a,1x,i0,a)') &
+              'ICON must be greater than 0 and', &
+              'less than or equal to ', this%ngwfnodes(imaw), &
+              'for maw well', imaw, '.'
+            call store_error(errmsg)
+          else
+            str = this%input%connstatus(n)
+            jpos = this%get_jpos(imaw, icon)
+            select case (trim(str))
+            case ('INACTIVE')
+              this%iboundconn(jpos) = 0
+            case ('ACTIVE')
+              this%iboundconn(jpos) = 1
+            case default
+              write (errmsg, '(2a)') &
+                'Unknown '//trim(this%text)//" maw connection status "// &
+                "keyword: '", trim(str)//"'."
+              call store_error(errmsg)
+            end select
+          end if
+        end if
+        !
+        ! -- BOTTOM
+        if (trim(setting) == 'PERIOD_BOTTOM') then
+          rval = this%input%period_bottom(n)
+          !
+          ! -- the well bottom is the datum for well storage, so raising it
+          !    above the current head or above the screen bottom of a
+          !    connection that is still active is inconsistent input
+          if (rval > this%xnewpak(imaw)) then
+            write (cstr, fmthdbot) this%xnewpak(imaw), rval
+            call this%maw_set_attribute_error(imaw, 'BOTTOM', trim(cstr))
+          else
+            do jj = 1, this%ngwfnodes(imaw)
+              jpos = this%get_jpos(imaw, jj)
+              if (this%iboundconn(jpos) == 0) cycle
+              if (rval > this%botscrn(jpos)) then
+                write (errmsg, '(a,g0,a,1x,i0,1x,a,1x,i0,1x,a,g0,a)') &
+                  'BOTTOM (', rval, ') for maw well', imaw, 'is above the '// &
+                  'screen bottom of active connection', jj, '(', &
+                  this%botscrn(jpos), ').'
+                call store_error(errmsg)
+                exit
+              end if
+            end do
+            this%bot(imaw) = rval
+          end if
         end if
         !
         ! -- RATE
@@ -2111,6 +2180,14 @@ contains
           select case (trim(setting))
           case ('STATUS')
             call this%inputtab%add_term(trim(str))
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+          case ('CONN_STATUS')
+            call this%inputtab%add_term(icon)
+            call this%inputtab%add_term(trim(str))
+            call this%inputtab%add_term(' ')
+          case ('PERIOD_BOTTOM')
+            call this%inputtab%add_term(this%bot(imaw))
             call this%inputtab%add_term(' ')
             call this%inputtab%add_term(' ')
           case ('RATE')
@@ -2550,8 +2627,8 @@ contains
       !
       ! -- process each maw/gwf connection
       do j = 1, this%ngwfnodes(n)
-        if (this%iboundpak(n) /= 0) then
-          jpos = this%get_jpos(n, j)
+        jpos = this%get_jpos(n, j)
+        if (this%iboundpak(n) /= 0 .and. this%iboundconn(jpos) /= 0) then
           igwfnode = this%get_gwfnode(n, j)
           hgwf = this%xnew(igwfnode)
           !
@@ -2680,8 +2757,8 @@ contains
       !
       ! -- process each maw/gwf connection
       do j = 1, this%ngwfnodes(n)
-        if (this%iboundpak(n) /= 0) then
-          jpos = this%get_jpos(n, j)
+        jpos = this%get_jpos(n, j)
+        if (this%iboundpak(n) /= 0 .and. this%iboundconn(jpos) /= 0) then
           igwfnode = this%get_gwfnode(n, j)
           hgwf = this%xnew(igwfnode)
           !
@@ -3304,6 +3381,7 @@ contains
     call mem_deallocate(this%gwfnodes)
     call mem_deallocate(this%sradius)
     call mem_deallocate(this%hk)
+    call mem_deallocate(this%iboundconn)
     call mem_deallocate(this%satcond)
     call mem_deallocate(this%simcond)
     call mem_deallocate(this%topscrn)
@@ -4501,6 +4579,7 @@ contains
     ! -- calculate inflow from aquifer
     do j = 1, this%ngwfnodes(n)
       jpos = this%get_jpos(n, j)
+      if (this%iboundconn(jpos) == 0) cycle
       igwfnode = this%get_gwfnode(n, j)
       call this%maw_calculate_saturation(n, j, igwfnode, sat)
       cmaw = this%satcond(jpos) * vscratio * sat
@@ -4553,7 +4632,7 @@ contains
         !
         ! -- use connection method so the gwf-maw budget flows
         !    are consistent with the maw-gwf budget flows
-        if (this%iboundpak(n) == 0) then
+        if (this%iboundpak(n) == 0 .or. this%iboundconn(jpos) == 0) then
           cmaw = DZERO
           term = DZERO
           cterm = DZERO

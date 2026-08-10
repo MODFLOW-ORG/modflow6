@@ -1131,6 +1131,8 @@ contains
         if (this%struct_vectors(icol)%memtype == MTYPE_UNDEF) cycle
         if (icol >= found_col .and. icol <= last_set_col) cycle
         select case (this%struct_vectors(icol)%memtype)
+        case (MTYPE_INT) ! INTEGER: use zero sentinel
+          this%struct_vectors(icol)%int1d(irow) = 0
         case (MTYPE_DBL) ! DOUBLE: use DNODATA sentinel
           this%struct_vectors(icol)%dbl1d(irow) = DNODATA
         case (MTYPE_STR) ! STRING or KEYWORD: use empty string sentinel
