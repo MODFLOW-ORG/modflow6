@@ -46,6 +46,7 @@ module GwfMawInputModule
     logical :: obs6_filename = .false.
     logical :: mover = .false.
     logical :: ieffradopt = .false.
+    logical :: dev_peaceman_effective_radius = .false.
     logical :: nmawwells = .false.
     logical :: packagedata_ifno = .false.
     logical :: radius = .false.
@@ -736,6 +737,25 @@ module GwfMawInputModule
     'KEYWORD', & ! type
     '', & ! shape
     'use Peaceman effective radius for structured grids', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfmaw_dev_peaceman_effective_radius = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'MAW', & ! subcomponent
+    'OPTIONS', & ! block
+    'DEV_PEACEMAN_EFFECTIVE_RADIUS', & ! tag name
+    'DEV_PEACEMAN_EFFECTIVE_RADIUS', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'use the Peaceman effective radius', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -1579,6 +1599,7 @@ module GwfMawInputModule
     gwfmaw_obs6_filename, &
     gwfmaw_mover, &
     gwfmaw_ieffradopt, &
+    gwfmaw_dev_peaceman_effective_radius, &
     gwfmaw_nmawwells, &
     gwfmaw_packagedata_ifno, &
     gwfmaw_radius, &
