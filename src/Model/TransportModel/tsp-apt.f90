@@ -2150,8 +2150,8 @@ contains
     do j = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
       q = DZERO
       n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(j)
+      igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(j)
       if (this%iboundpak(n1) /= 0) then
-        igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(j)
         q = this%hcof(j) * x(igwfnode) - this%rhs(j)
         q = -q ! flip sign so relative to advanced package feature
       end if

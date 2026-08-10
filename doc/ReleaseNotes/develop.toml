@@ -250,3 +250,8 @@ description = "The definition file sln-pts.dfn has been removed. It described an
 section = "fixes"
 subsection = "basic"
 description = "The script that builds the table of deprecations and removals for the release notes accumulated the deprecated and removed versions of a variable under two different keys, so a variable carrying both attributes lost its deprecation version and was reported as having been deprecated in the version in which it was removed. The table was correct until now only because every previous removal was made in the same version as its deprecation."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "The groundwater cell number written to the binary budget file for the GWF flow term of the advanced transport and energy transport packages, and for the lakebed and well-aquifer conduction terms of the Lake (LKE) and Multi-Aquifer Well (MWE) Energy Transport Packages, was only evaluated for features with an ACTIVE status. A feature with an INACTIVE status was written with the cell number left over from the last active feature, or with an undefined value if no feature had been active since the package was set up, which was the case when every feature was inactive in the first stress period. Budget entries for inactive features were therefore attributed to the wrong groundwater cell, and an undefined value could terminate the simulation with an out-of-bounds error in a model with a reduced node numbering, or be dropped from the budget file entirely. The cell number is now evaluated for every feature regardless of its status; the flow rate written for an inactive feature is zero, as before."
