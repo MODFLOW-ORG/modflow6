@@ -9,7 +9,6 @@ from pathlib import Path
 from pprint import pprint
 from tempfile import TemporaryDirectory
 from typing import Optional
-from urllib.error import HTTPError
 from warnings import warn
 
 import pytest
@@ -399,11 +398,8 @@ def fetch_usgs_pubs(out_path: PathLike, force: bool = False):
         try:
             download_and_unzip(url, path=out_path, delete_zip=False)
             assert (out_path / url.rpartition("/")[2]).is_file()
-        except HTTPError as e:
-            if "404" in str(e):
-                warn(f"Publication not found: {url}")
-            else:
-                raise
+        except OSError as e:
+            warn(f"Failed to download publication {url}: {e}")
 
 
 def build_documentation(
