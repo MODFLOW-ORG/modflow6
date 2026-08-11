@@ -78,40 +78,38 @@ contains
     if (allocated(error)) return
   end subroutine test_strand_rate_linear
 
-  !> @brief A saturated cell returns nothing and does not divide by zero
+  !> @brief A cell that has stranded nothing returns nothing
   !<
   subroutine test_return_fraction_saturated(error)
     type(error_type), allocatable, intent(out) :: error
 
-    call check(error, return_fraction(DZERO, DONE) == DZERO)
+    call check(error, return_fraction(DZERO, DZERO) == DZERO)
     if (allocated(error)) return
-    call check(error, return_fraction(0.1_DP, DONE) == DZERO)
+    call check(error, return_fraction(0.1_DP, DZERO) == DZERO)
     if (allocated(error)) return
   end subroutine test_return_fraction_saturated
 
-  !> @brief A fully dry cell returns the share it rewets to
+  !> @brief Rewetting part of what drained returns that share
   !<
   subroutine test_return_fraction_dry(error)
     type(error_type), allocatable, intent(out) :: error
-    real(DP) :: sat_new
 
-    sat_new = 0.4_DP
-    call check(error, is_close(return_fraction(sat_new, DZERO), sat_new))
+    call check(error, is_close(return_fraction(0.2_DP, 0.5_DP), 0.4_DP))
     if (allocated(error)) return
   end subroutine test_return_fraction_dry
 
-  !> @brief Rewetting the whole unsaturated part returns the whole reservoir
+  !> @brief Rewetting all of what drained returns the whole reservoir
   !<
   subroutine test_return_fraction_full(error)
     type(error_type), allocatable, intent(out) :: error
-    real(DP) :: sat_old
+    real(DP) :: held
 
-    sat_old = 0.3_DP
-    call check(error, return_fraction(DONE - sat_old, sat_old) == DONE)
+    held = 0.7_DP
+    call check(error, return_fraction(held, held) == DONE)
     if (allocated(error)) return
 
-    ! more than the unsaturated part cannot return more than everything
-    call check(error, return_fraction(DONE, sat_old) == DONE)
+    ! rewetting more than was drained cannot return more than everything
+    call check(error, return_fraction(DONE, held) == DONE)
     if (allocated(error)) return
   end subroutine test_return_fraction_full
 
@@ -122,7 +120,7 @@ contains
     real(DP) :: mass, ret
 
     mass = DZERO
-    ret = mass * return_fraction(0.5_DP, 0.2_DP)
+    ret = mass * return_fraction(0.2_DP, 0.5_DP)
     call check(error, ret == DZERO)
     if (allocated(error)) return
 
@@ -187,14 +185,14 @@ contains
     stranded = strand_rate(ds, vcell, theta_r, conc, volfracm, rhob, &
                            kd * conc, delt) * delt
 
-    ! rewet all the way back to saturated: the whole reservoir returns
-    returned = stranded * return_fraction(sat_old - sat_new, sat_new)
+    ! rewetting all of what drained returns the whole reservoir
+    returned = stranded * return_fraction(ds, ds)
     call check(error, is_close(returned, stranded))
     if (allocated(error)) return
 
-    ! a partial rewetting returns the share of the unsaturated part it fills
-    returned = stranded * return_fraction(0.3_DP, sat_new)
-    call check(error, is_close(returned, stranded * 0.3_DP / (DONE - sat_new)))
+    ! a partial rewetting returns the corresponding share of what drained
+    returned = stranded * return_fraction(0.3_DP, ds)
+    call check(error, is_close(returned, stranded * 0.3_DP / ds))
     if (allocated(error)) return
   end subroutine test_strand_return_inverse
 
