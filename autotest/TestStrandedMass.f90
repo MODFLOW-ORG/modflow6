@@ -149,6 +149,14 @@ contains
     if (allocated(error)) return
     call check(error, decay_amount(DZERO, lambda, delt) == DZERO)
     if (allocated(error)) return
+
+    ! a negative rate is production, so the reservoir gains mass
+    call check(error, decay_amount(mass, -lambda, delt) < DZERO)
+    if (allocated(error)) return
+
+    ! an empty reservoir cannot produce mass
+    call check(error, decay_amount(DZERO, -lambda, delt) == DZERO)
+    if (allocated(error)) return
   end subroutine test_decay_amount
 
   !> @brief Stranding and returning are exact inverses over a full cycle
