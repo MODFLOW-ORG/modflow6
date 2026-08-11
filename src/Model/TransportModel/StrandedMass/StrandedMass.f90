@@ -163,6 +163,10 @@ contains
   end function return_fraction
 
   !> @brief Mass lost from a reservoir to first-order decay over a step
+  !!
+  !! A negative rate is production, following the sign convention of the decay
+  !! rates of the mobile domain, and returns a negative amount. Production is
+  !! proportional to the mass held, so an empty reservoir stays empty.
   !<
   pure function decay_amount(mass, lambda, delt) result(amount)
     real(DP), intent(in) :: mass !< mass held in the reservoir
@@ -170,7 +174,7 @@ contains
     real(DP), intent(in) :: delt !< length of the time step
     real(DP) :: amount
 
-    if (lambda <= DZERO .or. mass <= DZERO) then
+    if (lambda == DZERO .or. mass <= DZERO) then
       amount = DZERO
     else
       amount = mass * (DONE - exp(-lambda * delt))
