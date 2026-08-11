@@ -23,6 +23,7 @@ module GwtMstModule
   use IsothermFactoryModule, only: create_isotherm
   use IsothermEnumModule
   use StrandedMassModule, only: StrandedMassType
+  use BudgetModule, only: BudgetType, budget_cr
 
   implicit none
   public :: GwtMstType
@@ -32,6 +33,14 @@ module GwtMstModule
   character(len=LENBUDTXT), dimension(NBDITEMS) :: budtxt
   data budtxt/' STORAGE-AQUEOUS', '   DECAY-AQUEOUS', &
     '  STORAGE-SORBED', '    DECAY-SORBED', 'STORAGE-STRANDED'/
+  !
+  ! -- budget of the stranded mass reservoirs, which is reported separately
+  !    because decay of stranded mass never passes through the concentration
+  !    equation
+  integer(I4B), parameter :: NBDITEMS_STRAND = 5
+  character(len=LENBUDTXT), dimension(NBDITEMS_STRAND) :: budtxt_strand
+  data budtxt_strand/' STORAGE-AQUEOUS', '  STORAGE-SORBED', &
+    '   DECAY-AQUEOUS', '    DECAY-SORBED', '   MOBILE-DOMAIN'/
 
   !> @brief Enumerator that defines the decay options
   !<
@@ -78,7 +87,10 @@ module GwtMstModule
     integer(I4B), pointer :: istrand => null() !< stranded mass active flag
     integer(I4B), pointer :: ioutstranded => null() !< unit number for stranded mass output
     real(DP), dimension(:), pointer, contiguous :: theta_r => null() !< residual water content, volume of water that does not drain per aquifer volume
+    real(DP), dimension(:), pointer, contiguous :: cstrand => null() !< stranded mass held in each cell
     type(StrandedMassType), pointer :: strand => null() !< stranded mass reservoirs
+    type(BudgetType), pointer :: strandbudget => null() !< budget of the reservoirs
+    real(DP) :: budterm_strand(2, NBDITEMS_STRAND) !< reservoir mass summaries
     ! -- misc
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
@@ -98,6 +110,8 @@ module GwtMstModule
     procedure :: mst_cq_srb
     procedure :: mst_cq_dcy_srb
     procedure :: mst_cq_strand
+    procedure :: mst_calc_stranded
+    procedure :: mst_ot_bdsummary
     procedure :: mst_calc_csrb
     procedure :: mst_bd
     procedure :: mst_ot_flow
@@ -183,6 +197,19 @@ contains
     if (this%istrand /= IZERO) then
       allocate (this%strand)
       call this%strand%init(this%name_model, 'MST-STRND', dis%nodes)
+      call budget_cr(this%strandbudget, this%memoryPath)
+      call this%strandbudget%budget_df(NBDITEMS_STRAND, 'MASS', 'M', &
+                                       bdzone=this%packName)
+      this%budterm_strand(:, :) = DZERO
+      !
+      ! -- zero-order decay of a reservoir that can be empty is ill-posed, so
+      !    stranded mass does not decay in that case
+      if (this%idcy == DECAY_ZERO_ORDER) then
+        write (warnmsg, '(a)') 'Zero-order decay is active with STRANDED_MASS. &
+          &Stranded mass does not decay because zero-order decay would drive &
+          &an empty reservoir negative.'
+        call store_warning(warnmsg)
+      end if
     end if
   end subroutine mst_ar
 
@@ -612,7 +639,7 @@ contains
     ! -- modules
     use TdisModule, only: delt
     use StrandedMassModule, only: strand_rate_aqueous, strand_rate_sorbed, &
-                                  return_fraction
+                                  return_fraction, decay_amount
     ! -- dummy
     class(GwtMstType) :: this !< GwtMstType object
     integer(I4B), intent(in) :: nodes !< number of nodes
@@ -620,16 +647,31 @@ contains
     real(DP), dimension(:), contiguous, intent(inout) :: flowja !< flow between two connected control volumes
     ! -- local
     integer(I4B) :: n, idiag
-    real(DP) :: rate, raq, rsrb
+    real(DP) :: rate, tled
+    real(DP) :: maq, msrb
+    real(DP) :: daq, dsrb
+    real(DP) :: lambda_aq, lambda_srb
     real(DP) :: vcell, volfracm, rhobm
     real(DP) :: sat_new, sat_old, ds, dw, f
+    logical :: decay_strand
+    !
+    tled = DONE / delt
+    !
+    ! -- stranded mass decays at the rate that belongs to its phase, but
+    !    zero-order decay would drive an empty reservoir negative
+    decay_strand = (this%idcy == DECAY_FIRST_ORDER)
+    !
+    ! -- reset the reservoir budget summaries for this time step
+    this%budterm_strand(:, :) = DZERO
     !
     do n = 1, this%dis%nodes
       !
       ! -- initialize rates
       this%strand%ratestrand(n) = DZERO
+      this%strand%ratedcystrand(n) = DZERO
+      this%strand%ratedcystrands(n) = DZERO
       !
-      ! -- skip if transport inactive; the reservoir keeps its mass
+      ! -- skip if transport inactive; the reservoirs keep their mass
       if (this%ibound(n) <= 0) cycle
       !
       vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
@@ -638,39 +680,75 @@ contains
       sat_new = this%fmi%gwfsat(n)
       sat_old = this%fmi%gwfsatold(n, delt)
       !
-      raq = DZERO
-      rsrb = DZERO
+      ! -- maq and msrb are the mass added to each reservoir over the step,
+      !    negative when mass returns to the mobile domain
+      maq = DZERO
+      msrb = DZERO
       if (sat_new < sat_old) then
         !
         ! -- draining, mass leaves the mobile domain
         ds = sat_old - sat_new
-        raq = strand_rate_aqueous(ds, vcell, this%theta_r(n), cnew(n), delt)
-        rsrb = strand_rate_sorbed(ds, vcell, volfracm, rhobm, &
-                                  this%isotherm%value(cnew, n), delt)
-        rate = -(raq + rsrb)
-        this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) + &
-                                          raq * delt
-        this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) + &
-                                         rsrb * delt
+        maq = strand_rate_aqueous(ds, vcell, this%theta_r(n), cnew(n), delt) * &
+              delt
+        msrb = strand_rate_sorbed(ds, vcell, volfracm, rhobm, &
+                                  this%isotherm%value(cnew, n), delt) * delt
       else if (sat_new > sat_old) then
         !
         ! -- rewetting, mass returns to the mobile domain
         dw = sat_new - sat_old
         f = return_fraction(dw, sat_old)
-        raq = this%strand%stranded_aqueous(n) * f
-        rsrb = this%strand%stranded_sorbed(n) * f
-        rate = (raq + rsrb) / delt
-        this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) - raq
-        this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) - rsrb
-      else
-        rate = DZERO
+        maq = -this%strand%stranded_aqueous(n) * f
+        msrb = -this%strand%stranded_sorbed(n) * f
       end if
+      this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) + maq
+      this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) + msrb
       !
+      ! -- the mobile domain gains what the reservoirs lose
+      rate = -(maq + msrb) * tled
       this%strand%ratestrand(n) = rate
       idiag = this%dis%con%ia(n)
       flowja(idiag) = flowja(idiag) + rate
+      call accumulate_strandterm(this%budterm_strand, 5, -rate)
+      !
+      ! -- decay of the reservoirs, which leaves the simulation entirely and
+      !    so is reported here rather than in the model budget
+      daq = DZERO
+      dsrb = DZERO
+      if (decay_strand) then
+        lambda_aq = DZERO
+        lambda_srb = DZERO
+        if (size(this%decay) > 1) lambda_aq = this%decay(n)
+        if (size(this%decay_sorbed) > 1) lambda_srb = this%decay_sorbed(n)
+        daq = decay_amount(this%strand%stranded_aqueous(n), lambda_aq, delt)
+        dsrb = decay_amount(this%strand%stranded_sorbed(n), lambda_srb, delt)
+        this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) - daq
+        this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) - dsrb
+        this%strand%ratedcystrand(n) = -daq * tled
+        this%strand%ratedcystrands(n) = -dsrb * tled
+      end if
+      call accumulate_strandterm(this%budterm_strand, 3, -daq * tled)
+      call accumulate_strandterm(this%budterm_strand, 4, -dsrb * tled)
+      !
+      ! -- storage is what the transfer and the decay leave behind, so the
+      !    reservoir budget closes by construction
+      call accumulate_strandterm(this%budterm_strand, 1, -(maq - daq) * tled)
+      call accumulate_strandterm(this%budterm_strand, 2, -(msrb - dsrb) * tled)
     end do
   end subroutine mst_cq_strand
+
+  !> @ brief Accumulate an in or out rate into a reservoir budget term
+  !<
+  subroutine accumulate_strandterm(budterm, i, rate)
+    real(DP), dimension(:, :), intent(inout) :: budterm !< reservoir budget summaries
+    integer(I4B), intent(in) :: i !< budget term number
+    real(DP), intent(in) :: rate !< rate, positive into the reservoirs
+
+    if (rate > DZERO) then
+      budterm(1, i) = budterm(1, i) + rate
+    else
+      budterm(2, i) = budterm(2, i) - rate
+    end if
+  end subroutine accumulate_strandterm
 
   !> @ brief Calculate storage terms for package
   !!
@@ -1111,7 +1189,61 @@ contains
       end if
     end if
 
+    ! save stranded mass array
+    if (this%ioutstranded /= 0 .and. idvsave /= 0) then
+      iprint = 0
+      dinact = DHNOFLO
+      call this%mst_calc_stranded()
+      call this%dis%record_array(this%cstrand, this%iout, iprint, &
+                                 this%ioutstranded, '        STRANDED', &
+                                 cdatafmp, nvaluesp, nwidthp, editdesc, dinact)
+    end if
+
   end subroutine mst_ot_dv
+
+  !> @ brief Sum the stranded mass reservoirs of each cell
+  !<
+  subroutine mst_calc_stranded(this)
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    ! -- local
+    integer(I4B) :: n
+
+    do n = 1, this%dis%nodes
+      this%cstrand(n) = this%strand%stranded_aqueous(n) + &
+                        this%strand%stranded_sorbed(n)
+    end do
+  end subroutine mst_calc_stranded
+
+  !> @ brief Output the budget of the stranded mass reservoirs
+  !!
+  !!  The reservoirs are their own budget zone because decay of stranded mass
+  !!  never passes through the concentration equation, so reporting it in the
+  !!  model budget would leave that budget unpaired.
+  !<
+  subroutine mst_ot_bdsummary(this, kstp, kper, iout, ibudfl)
+    ! -- modules
+    use TdisModule, only: delt, totim
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    integer(I4B), intent(in) :: kstp !< time step number
+    integer(I4B), intent(in) :: kper !< period number
+    integer(I4B), intent(in) :: iout !< unit number of the model listing file
+    integer(I4B), intent(in) :: ibudfl !< flag indicating budget should be written
+    ! -- local
+    integer(I4B) :: isuppress_output = 0
+
+    if (this%istrand == IZERO) return
+
+    call this%strandbudget%reset()
+    call this%strandbudget%addentry(this%budterm_strand, delt, budtxt_strand, &
+                                    isuppress_output)
+    call this%strandbudget%finalize_step(delt)
+    if (ibudfl /= 0) then
+      call this%strandbudget%budget_ot(kstp, kper, iout)
+    end if
+    call this%strandbudget%writecsv(totim)
+  end subroutine mst_ot_bdsummary
 
   !> @ brief Deallocate
   !!
@@ -1146,6 +1278,7 @@ contains
       call mem_deallocate(this%istrand)
       call mem_deallocate(this%ioutstranded)
       call mem_deallocate(this%theta_r)
+      call mem_deallocate(this%cstrand)
       this%ibound => null()
       this%fmi => null()
     end if
@@ -1161,6 +1294,11 @@ contains
       call this%strand%da()
       deallocate (this%strand)
       nullify (this%strand)
+    end if
+    if (associated(this%strandbudget)) then
+      call this%strandbudget%budget_da()
+      deallocate (this%strandbudget)
+      nullify (this%strandbudget)
     end if
     !
     ! -- deallocate parent
@@ -1241,8 +1379,10 @@ contains
     ! -- strand
     if (this%istrand == IZERO) then
       call mem_allocate(this%theta_r, 1, 'THETA_R', this%memoryPath)
+      call mem_allocate(this%cstrand, 1, 'CSTRAND', this%memoryPath)
     else
       call mem_allocate(this%theta_r, nodes, 'THETA_R', this%memoryPath)
+      call mem_allocate(this%cstrand, nodes, 'CSTRAND', this%memoryPath)
     end if
     !
     ! -- srb
@@ -1291,6 +1431,9 @@ contains
     end do
     do n = 1, size(this%theta_r)
       this%theta_r(n) = DZERO
+    end do
+    do n = 1, size(this%cstrand)
+      this%cstrand(n) = DZERO
     end do
   end subroutine allocate_arrays
 
@@ -1661,6 +1804,18 @@ contains
     real(DP), dimension(:), intent(in) :: volfracim !< immobile domain volume fraction that contributes to total immobile volume fraction
     ! -- local
     integer(I4B) :: n
+    !
+    ! -- An immobile domain scales its own mass by the cell saturation, so it
+    !    would redissolve its solute on drainage while the mobile domain
+    !    stranded its own.  Stranding must be added to the immobile domains
+    !    before the two can be used together.
+    if (this%istrand /= IZERO) then
+      write (errmsg, '(a)') 'STRANDED_MASS is specified in the MST package, &
+        &but an immobile domain (IST) is active.  Stranded mass is not &
+        &supported for immobile domains.'
+      call store_error(errmsg)
+      call store_error_filename(this%input_fname)
+    end if
     !
     ! -- Add to volfracim
     do n = 1, this%dis%nodes
