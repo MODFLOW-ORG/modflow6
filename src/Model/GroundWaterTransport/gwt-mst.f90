@@ -22,6 +22,7 @@ module GwtMstModule
   use IsothermInterfaceModule, only: IsothermType
   use IsothermFactoryModule, only: create_isotherm
   use IsothermEnumModule
+  use StrandedMassModule, only: StrandedMassType
 
   implicit none
   public :: GwtMstType
@@ -72,6 +73,12 @@ module GwtMstModule
     real(DP), dimension(:), pointer, contiguous :: ratedcys => null() !< rate of sorbed mass decay
     real(DP), dimension(:), pointer, contiguous :: csrb => null() !< sorbate concentration
     class(IsothermType), pointer :: isotherm => null() !< pointer to isotherm object
+    !
+    ! -- stranded mass
+    integer(I4B), pointer :: istrand => null() !< stranded mass active flag
+    integer(I4B), pointer :: ioutstranded => null() !< unit number for stranded mass output
+    real(DP), dimension(:), pointer, contiguous :: theta_r => null() !< residual water content, volume of water that does not drain per aquifer volume
+    type(StrandedMassType), pointer :: strand => null() !< stranded mass reservoirs
     ! -- misc
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
@@ -169,6 +176,12 @@ contains
     !
     ! -- Create isotherm object if sorption is active
     this%isotherm => create_isotherm(this%isrb, this%distcoef, this%sp2)
+    !
+    ! -- Create the stranded mass reservoirs if the option is active
+    if (this%istrand /= IZERO) then
+      allocate (this%strand)
+      call this%strand%init(this%name_model, 'MST-STRND', dis%nodes)
+    end if
   end subroutine mst_ar
 
   !> @ brief Fill coefficient method for package
@@ -967,6 +980,9 @@ contains
       call mem_deallocate(this%ratesrb)
       call mem_deallocate(this%csrb)
       call mem_deallocate(this%ratedcys)
+      call mem_deallocate(this%istrand)
+      call mem_deallocate(this%ioutstranded)
+      call mem_deallocate(this%theta_r)
       this%ibound => null()
       this%fmi => null()
     end if
@@ -977,6 +993,11 @@ contains
     if (associated(this%isotherm)) then
       deallocate (this%isotherm)
       nullify (this%isotherm)
+    end if
+    if (associated(this%strand)) then
+      call this%strand%da()
+      deallocate (this%strand)
+      nullify (this%strand)
     end if
     !
     ! -- deallocate parent
@@ -1000,11 +1021,15 @@ contains
     call mem_allocate(this%isrb, 'ISRB', this%memoryPath)
     call mem_allocate(this%ioutsorbate, 'IOUTSORBATE', this%memoryPath)
     call mem_allocate(this%idcy, 'IDCY', this%memoryPath)
+    call mem_allocate(this%istrand, 'ISTRAND', this%memoryPath)
+    call mem_allocate(this%ioutstranded, 'IOUTSTRANDED', this%memoryPath)
     !
     ! -- Initialize
     this%isrb = IZERO
     this%ioutsorbate = 0
     this%idcy = IZERO
+    this%istrand = IZERO
+    this%ioutstranded = 0
   end subroutine allocate_scalars
 
   !> @ brief Allocate arrays for package
@@ -1050,6 +1075,13 @@ contains
     call mem_allocate(this%decay_sorbed, 1, 'DECAY_SORBED', &
                       this%memoryPath)
     !
+    ! -- strand
+    if (this%istrand == IZERO) then
+      call mem_allocate(this%theta_r, 1, 'THETA_R', this%memoryPath)
+    else
+      call mem_allocate(this%theta_r, nodes, 'THETA_R', this%memoryPath)
+    end if
+    !
     ! -- srb
     if (this%isrb == SORPTION_OFF) then
       call mem_allocate(this%bulk_density, 1, 'BULK_DENSITY', this%memoryPath)
@@ -1094,6 +1126,9 @@ contains
       this%ratedcys(n) = DZERO
       this%decayslast(n) = DZERO
     end do
+    do n = 1, size(this%theta_r)
+      this%theta_r(n) = DZERO
+    end do
   end subroutine allocate_arrays
 
   !> @ brief Source options for package
@@ -1114,6 +1149,7 @@ contains
     character(len=LENVARNAME), dimension(3) :: sorption_method = &
       &[character(len=LENVARNAME) :: 'LINEAR', 'FREUNDLICH', 'LANGMUIR']
     character(len=LINELENGTH) :: fname
+    character(len=LINELENGTH) :: strandfname
     !
     ! -- update defaults with memory sourced values
     call mem_set_value(this%ipakcb, 'SAVE_FLOWS', this%input_mempath, &
@@ -1126,6 +1162,10 @@ contains
                        sorption_method, found%sorption)
     call mem_set_value(fname, 'SORBATEFILE', this%input_mempath, &
                        found%sorbatefile)
+    call mem_set_value(this%istrand, 'ISTRAND', this%input_mempath, &
+                       found%istrand)
+    call mem_set_value(strandfname, 'STRANDEDFILE', this%input_mempath, &
+                       found%strandedfile)
 
     ! -- found side effects
     if (found%save_flows) this%ipakcb = -1
@@ -1144,20 +1184,32 @@ contains
       call openfile(this%ioutsorbate, this%iout, fname, 'DATA(BINARY)', &
                     form, access, 'REPLACE', mode_opt=MNORMAL)
     end if
+    if (found%istrand) this%istrand = 1
+    if (found%strandedfile) then
+      if (this%istrand == IZERO) then
+        call store_error('STRANDED FILEOUT was specified but the &
+                         &STRANDED_MASS keyword was not specified.')
+        call store_error_filename(this%input_fname)
+      end if
+      this%ioutstranded = getunit()
+      call openfile(this%ioutstranded, this%iout, strandfname, 'DATA(BINARY)', &
+                    form, access, 'REPLACE', mode_opt=MNORMAL)
+    end if
     !
     ! -- log options
     if (this%iout > 0) then
-      call this%log_options(found, fname)
+      call this%log_options(found, fname, strandfname)
     end if
   end subroutine source_options
 
   !> @brief Log user options to list file
   !<
-  subroutine log_options(this, found, sorbate_fname)
+  subroutine log_options(this, found, sorbate_fname, stranded_fname)
     use GwtMstInputModule, only: GwtMstParamFoundType
     class(GwTMstType) :: this
     type(GwtMstParamFoundType), intent(in) :: found
     character(len=*), intent(in) :: sorbate_fname
+    character(len=*), intent(in) :: stranded_fname
     ! -- formats
     character(len=*), parameter :: fmtisvflow = &
       "(4x,'CELL-BY-CELL FLOW INFORMATION WILL BE SAVED TO BINARY FILE &
@@ -1172,6 +1224,8 @@ contains
       &"(4x,'FIRST-ORDER DECAY IS ACTIVE. ')"
     character(len=*), parameter :: fmtidcy2 = &
       &"(4x,'ZERO-ORDER DECAY IS ACTIVE. ')"
+    character(len=*), parameter :: fmtstrand = &
+      &"(4x,'STRANDED MASS IS ACTIVE. ')"
     character(len=*), parameter :: fmtfileout = &
       "(4x,'MST ',1x,a,1x,' WILL BE SAVED TO FILE: ',a,/4x,&
       &'OPENED ON UNIT: ',I7)"
@@ -1199,6 +1253,13 @@ contains
     if (found%sorbatefile) then
       write (this%iout, fmtfileout) &
         'SORBATE', sorbate_fname, this%ioutsorbate
+    end if
+    if (found%istrand) then
+      write (this%iout, fmtstrand)
+    end if
+    if (found%strandedfile) then
+      write (this%iout, fmtfileout) &
+        'STRANDED', stranded_fname, this%ioutstranded
     end if
     write (this%iout, '(1x,a)') 'END OF MOBILE STORAGE AND TRANSFER OPTIONS'
   end subroutine log_options
@@ -1250,6 +1311,12 @@ contains
       if (asize > 0) &
         call mem_reallocate(this%sp2, this%dis%nodes, 'SP2', this%memoryPath)
     end if
+    if (this%istrand == IZERO) then
+      call get_isize('THETA_R', this%input_mempath, asize)
+      if (asize > 0) &
+        call mem_reallocate(this%theta_r, this%dis%nodes, 'THETA_R', &
+                            this%memoryPath)
+    end if
     !
     ! -- update defaults with memory sourced values
     call mem_set_value(this%porosity, 'POROSITY', this%input_mempath, map, &
@@ -1264,6 +1331,8 @@ contains
                        found%distcoef)
     call mem_set_value(this%sp2, 'SP2', this%input_mempath, map, &
                        found%sp2)
+    call mem_set_value(this%theta_r, 'THETA_R', this%input_mempath, map, &
+                       found%theta_r)
 
     ! -- log options
     if (this%iout > 0) then
@@ -1274,6 +1343,25 @@ contains
     if (.not. found%porosity) then
       write (errmsg, '(a)') 'POROSITY not specified in GRIDDATA block.'
       call store_error(errmsg)
+    end if
+
+    ! -- Check stranded mass input
+    if (found%theta_r .and. this%istrand == IZERO) then
+      write (errmsg, '(a)') 'RESIDUAL_WATER_CONTENT was specified in the &
+        &GRIDDATA block but the STRANDED_MASS keyword was not specified in &
+        &the OPTIONS block.'
+      call store_error(errmsg)
+    end if
+    if (this%istrand /= IZERO .and. found%theta_r) then
+      do n = 1, this%dis%nodes
+        if (this%theta_r(n) > this%porosity(n)) then
+          write (errmsg, '(a,g0,a,1x,i0,1x,a,g0,a)') &
+            'RESIDUAL_WATER_CONTENT (', this%theta_r(n), ') for cell', n, &
+            'is greater than the porosity (', this%porosity(n), ').'
+          call store_error(errmsg)
+          exit
+        end if
+      end do
     end if
 
     ! -- Check for required sorption variables

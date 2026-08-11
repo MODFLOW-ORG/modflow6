@@ -36,6 +36,49 @@ longname activate sorption
 description is a text keyword to indicate that sorption will be activated.  Valid sorption options include LINEAR, FREUNDLICH, and LANGMUIR.  Use of this keyword requires that BULK\_DENSITY and DISTCOEF are specified in the GRIDDATA block.  If sorption is specified as FREUNDLICH or LANGMUIR then SP2 is also required in the GRIDDATA block.
 
 block options
+name stranded_mass
+type keyword
+reader urword
+optional true
+longname activate stranded mass
+description is a text keyword to indicate that stranded mass will be activated.  Solute that is held by residual water and by the solid phase does not drain when the water table falls; when this option is active that mass is held out of the mobile domain until the cell rewets, instead of being redissolved into the water that remains.  Use of this keyword allows RESIDUAL\_WATER\_CONTENT to be specified in the GRIDDATA block.  If RESIDUAL\_WATER\_CONTENT is not specified it defaults to zero, in which case only sorbed mass is stranded.  Mass held out of the mobile domain decays at the rates specified for the aqueous and sorbed phases, and is returned to the mobile domain in proportion to the part of the unsaturated cell volume that rewets.  This option cannot be used with the Immobile Storage and Transfer (IST) Package.
+mf6internal istrand
+
+block options
+name stranded_filerecord
+type record stranded fileout strandedfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+mf6internal stranded_rec
+
+block options
+name stranded
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname stranded keyword
+description keyword to specify that record corresponds to stranded mass.
+
+block options
+name strandedfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname file keyword
+description name of the output file to write stranded mass information.
+
+block options
 name sorbate_filerecord
 type record sorbate fileout sorbatefile
 shape
@@ -110,6 +153,18 @@ layered true
 netcdf true
 longname porosity
 description is the mobile domain porosity, defined as the mobile domain pore volume per mobile domain volume.  Additional information on porosity within the context of mobile and immobile domain transport simulations is included in the MODFLOW 6 Supplemental Technical Information document. 
+
+block griddata
+name residual_water_content
+type double precision
+shape (nodes)
+reader readarray
+layered true
+netcdf true
+optional true
+longname residual water content
+description is the residual water content of the mobile domain, defined as the volume of water that does not drain per volume of aquifer.  Solute held in this water is stranded when a cell drains rather than being redissolved into the water that remains.  residual\_water\_content must be less than or equal to the porosity of the mobile domain, and can only be specified if the STRANDED\_MASS keyword is specified in the options block.  If residual\_water\_content is not specified it defaults to zero, in which case only sorbed mass is stranded.
+mf6internal theta_r
 
 block griddata
 name decay
