@@ -29,6 +29,7 @@ module StrandedMassModule
     integer(I4B), pointer :: nodes => null() !< number of cells
     real(DP), dimension(:), pointer, contiguous :: stranded_aqueous => null() !< mass stranded from residual water
     real(DP), dimension(:), pointer, contiguous :: stranded_sorbed => null() !< mass stranded from the solid phase
+    real(DP), dimension(:), pointer, contiguous :: held => null() !< drained fraction of the cell that the reservoirs represent
     real(DP), dimension(:), pointer, contiguous :: ratestrand => null() !< mobile-side transfer rate, positive on return
     real(DP), dimension(:), pointer, contiguous :: ratedcystrand => null() !< decay rate of the aqueous reservoir
     real(DP), dimension(:), pointer, contiguous :: ratedcystrands => null() !< decay rate of the sorbed reservoir
@@ -58,6 +59,7 @@ contains
                       this%memoryPath)
     call mem_allocate(this%stranded_sorbed, nodes, 'STRANDED_SORBED', &
                       this%memoryPath)
+    call mem_allocate(this%held, nodes, 'HELD_FRACTION', this%memoryPath)
     call mem_allocate(this%ratestrand, nodes, 'RATESTRAND', this%memoryPath)
     call mem_allocate(this%ratedcystrand, nodes, 'RATEDCYSTRAND', &
                       this%memoryPath)
@@ -67,6 +69,7 @@ contains
     do n = 1, nodes
       this%stranded_aqueous(n) = DZERO
       this%stranded_sorbed(n) = DZERO
+      this%held(n) = DZERO
       this%ratestrand(n) = DZERO
       this%ratedcystrand(n) = DZERO
       this%ratedcystrands(n) = DZERO
@@ -80,6 +83,7 @@ contains
 
     call mem_deallocate(this%stranded_aqueous)
     call mem_deallocate(this%stranded_sorbed)
+    call mem_deallocate(this%held)
     call mem_deallocate(this%ratestrand)
     call mem_deallocate(this%ratedcystrand)
     call mem_deallocate(this%ratedcystrands)
@@ -142,22 +146,23 @@ contains
            strand_rate_sorbed(ds, vcell, volfracm, rhob, sval, delt)
   end function strand_rate
 
-  !> @brief Share of the reservoir returned by rewetting
+  !> @brief Share of the reservoirs returned by rewetting
   !!
-  !! The stranded mass is taken to be spread uniformly through the unsaturated
-  !! part of the cell, so the newly rewetted share returns.
+  !! The stranded mass is taken to be spread uniformly through the part of the
+  !! cell that drained while it was held, so the share of that part which
+  !! rewets is returned. Measuring against what drained, rather than against
+  !! the unsaturated part of the cell, makes returning the exact inverse of
+  !! stranding over a full cycle and leaves nothing behind.
   !<
-  pure function return_fraction(dw, sat_old) result(f)
+  pure function return_fraction(dw, held) result(f)
     real(DP), intent(in) :: dw !< increase in saturation over the step
-    real(DP), intent(in) :: sat_old !< saturation at the end of the last step
+    real(DP), intent(in) :: held !< drained fraction the reservoirs represent
     real(DP) :: f
-    real(DP) :: unsat
 
-    unsat = DONE - sat_old
-    if (unsat < DEM6 .or. dw <= DZERO) then
+    if (held < DEM6 .or. dw <= DZERO) then
       f = DZERO
     else
-      f = dw / unsat
+      f = dw / held
       if (f > DONE) f = DONE
     end if
   end function return_fraction
