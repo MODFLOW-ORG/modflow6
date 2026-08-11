@@ -56,6 +56,7 @@ module GwtModule
     procedure :: model_bd => gwt_bd
     procedure :: tsp_ot_flow => gwt_ot_flow
     procedure :: tsp_ot_dv => gwt_ot_dv
+    procedure :: tsp_ot_bdsummary => gwt_ot_bdsummary
     procedure :: model_da => gwt_da
     procedure :: model_bdentry => gwt_bdentry
     procedure :: allocate_scalars
@@ -603,6 +604,24 @@ contains
     call this%TransportModelType%tsp_ot_dv(idvsave, idvprint, ipflag)
 
   end subroutine gwt_ot_dv
+
+  !> @brief Print GWT budget summaries
+  !<
+  subroutine gwt_ot_bdsummary(this, ibudfl, ipflag)
+    use TdisModule, only: kstp, kper
+    class(GwtModelType) :: this
+    integer(I4B), intent(in) :: ibudfl
+    integer(I4B), intent(inout) :: ipflag
+
+    ! stranded mass reservoirs are their own budget zone
+    if (this%inmst > 0) then
+      call this%mst%mst_ot_bdsummary(kstp, kper, this%iout, ibudfl)
+    end if
+
+    ! call general transport model budget summary routines
+    call this%TransportModelType%tsp_ot_bdsummary(ibudfl, ipflag)
+
+  end subroutine gwt_ot_bdsummary
 
   !> @brief Deallocate
   !!
