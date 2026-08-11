@@ -291,7 +291,8 @@ contains
       !
       vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
       volfracm = this%get_volfracm(n)
-      rhobm = this%bulk_density(n)
+      rhobm = DZERO
+      if (this%isrb /= SORPTION_OFF) rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
       sat_old = this%fmi%gwfsatold(n, delt)
       !
@@ -301,11 +302,18 @@ contains
         !    are held out of the mobile domain.  The isotherm is linearized
         !    about cnew in the same way as the sorption term.
         ds = sat_old - sat_new
-        hhcof = -ds * vcell * (this%theta_r(n) + volfracm * rhobm * &
-                               this%isotherm%derivative(cnew, n)) * tled
-        rrhs = ds * vcell * volfracm * rhobm * &
-               (this%isotherm%value(cnew, n) - &
-                this%isotherm%derivative(cnew, n) * cnew(n)) * tled
+        hhcof = -ds * vcell * this%theta_r(n) * tled
+        rrhs = DZERO
+        !
+        ! -- the sorbed phase contributes only when sorption is active, and
+        !    the isotherm is not created otherwise
+        if (this%isrb /= SORPTION_OFF) then
+          hhcof = hhcof - ds * vcell * volfracm * rhobm * &
+                  this%isotherm%derivative(cnew, n) * tled
+          rrhs = ds * vcell * volfracm * rhobm * &
+                 (this%isotherm%value(cnew, n) - &
+                  this%isotherm%derivative(cnew, n) * cnew(n)) * tled
+        end if
         idiag = this%dis%con%ia(n)
         call matrix_sln%add_value_pos(idxglo(idiag), hhcof)
         rhs(n) = rhs(n) + rrhs
@@ -315,7 +323,7 @@ contains
         !    volume holds returns as a mass source, which is known from the
         !    previous time step and so is explicit
         dw = sat_new - sat_old
-        swtpdt = return_fraction(dw, sat_old)
+        swtpdt = return_fraction(dw, this%strand%held(n))
         rrhs = -this%strand%total(n) * swtpdt * tled
         rhs(n) = rhs(n) + rrhs
       end if
@@ -676,7 +684,8 @@ contains
       !
       vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
       volfracm = this%get_volfracm(n)
-      rhobm = this%bulk_density(n)
+      rhobm = DZERO
+      if (this%isrb /= SORPTION_OFF) rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
       sat_old = this%fmi%gwfsatold(n, delt)
       !
@@ -690,15 +699,19 @@ contains
         ds = sat_old - sat_new
         maq = strand_rate_aqueous(ds, vcell, this%theta_r(n), cnew(n), delt) * &
               delt
-        msrb = strand_rate_sorbed(ds, vcell, volfracm, rhobm, &
-                                  this%isotherm%value(cnew, n), delt) * delt
+        if (this%isrb /= SORPTION_OFF) then
+          msrb = strand_rate_sorbed(ds, vcell, volfracm, rhobm, &
+                                    this%isotherm%value(cnew, n), delt) * delt
+        end if
+        this%strand%held(n) = this%strand%held(n) + ds
       else if (sat_new > sat_old) then
         !
         ! -- rewetting, mass returns to the mobile domain
         dw = sat_new - sat_old
-        f = return_fraction(dw, sat_old)
+        f = return_fraction(dw, this%strand%held(n))
         maq = -this%strand%stranded_aqueous(n) * f
         msrb = -this%strand%stranded_sorbed(n) * f
+        this%strand%held(n) = max(this%strand%held(n) - dw, DZERO)
       end if
       this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) + maq
       this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) + msrb
