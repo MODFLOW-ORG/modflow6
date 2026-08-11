@@ -16,6 +16,10 @@ module GwtMstInputModule
     logical :: order1_decay = .false.
     logical :: order0_decay = .false.
     logical :: sorption = .false.
+    logical :: istrand = .false.
+    logical :: stranded_rec = .false.
+    logical :: stranded = .false.
+    logical :: strandedfile = .false.
     logical :: sorbate_rec = .false.
     logical :: sorbate = .false.
     logical :: fileout = .false.
@@ -23,6 +27,7 @@ module GwtMstInputModule
     logical :: export_ascii = .false.
     logical :: export_nc = .false.
     logical :: porosity = .false.
+    logical :: theta_r = .false.
     logical :: decay = .false.
     logical :: decay_sorbed = .false.
     logical :: bulk_density = .false.
@@ -110,6 +115,82 @@ module GwtMstInputModule
     .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtmst_istrand = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'MST', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED_MASS', & ! tag name
+    'ISTRAND', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'activate stranded mass', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtmst_stranded_rec = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'MST', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED_FILERECORD', & ! tag name
+    'STRANDED_REC', & ! fortran variable
+    'RECORD STRANDED FILEOUT STRANDEDFILE', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtmst_stranded = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'MST', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED', & ! tag name
+    'STRANDED', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'stranded keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtmst_strandedfile = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'MST', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDEDFILE', & ! tag name
+    'STRANDEDFILE', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -248,6 +329,25 @@ module GwtMstInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    gwtmst_theta_r = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'MST', & ! subcomponent
+    'GRIDDATA', & ! block
+    'RESIDUAL_WATER_CONTENT', & ! tag name
+    'THETA_R', & ! fortran variable
+    'DOUBLE1D', & ! type
+    'NODES', & ! shape
+    'residual water content', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .true., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     gwtmst_decay = InputParamDefinitionType &
     ( &
     'GWT', & ! component
@@ -349,6 +449,10 @@ module GwtMstInputModule
     gwtmst_order1_decay, &
     gwtmst_order0_decay, &
     gwtmst_sorption, &
+    gwtmst_istrand, &
+    gwtmst_stranded_rec, &
+    gwtmst_stranded, &
+    gwtmst_strandedfile, &
     gwtmst_sorbate_rec, &
     gwtmst_sorbate, &
     gwtmst_fileout, &
@@ -356,6 +460,7 @@ module GwtMstInputModule
     gwtmst_export_ascii, &
     gwtmst_export_nc, &
     gwtmst_porosity, &
+    gwtmst_theta_r, &
     gwtmst_decay, &
     gwtmst_decay_sorbed, &
     gwtmst_bulk_density, &
