@@ -28,10 +28,10 @@ module GwtMstModule
   public :: GwtMstType
   public :: mst_cr
   !
-  integer(I4B), parameter :: NBDITEMS = 4
+  integer(I4B), parameter :: NBDITEMS = 5
   character(len=LENBUDTXT), dimension(NBDITEMS) :: budtxt
   data budtxt/' STORAGE-AQUEOUS', '   DECAY-AQUEOUS', &
-    '  STORAGE-SORBED', '    DECAY-SORBED'/
+    '  STORAGE-SORBED', '    DECAY-SORBED', 'STORAGE-STRANDED'/
 
   !> @brief Enumerator that defines the decay options
   !<
@@ -91,11 +91,13 @@ module GwtMstModule
     procedure :: mst_fc_dcy
     procedure :: mst_fc_srb
     procedure :: mst_fc_dcy_srb
+    procedure :: mst_fc_strand
     procedure :: mst_cq
     procedure :: mst_cq_sto
     procedure :: mst_cq_dcy
     procedure :: mst_cq_srb
     procedure :: mst_cq_dcy_srb
+    procedure :: mst_cq_strand
     procedure :: mst_calc_csrb
     procedure :: mst_bd
     procedure :: mst_ot_flow
@@ -221,7 +223,77 @@ contains
       call this%mst_fc_dcy_srb(nodes, cold, nja, matrix_sln, idxglo, rhs, &
                                cnew, kiter)
     end if
+    !
+    ! -- stranded mass contribution
+    if (this%istrand /= IZERO) then
+      call this%mst_fc_strand(nodes, nja, matrix_sln, idxglo, rhs, cnew)
+    end if
   end subroutine mst_fc
+
+  !> @ brief Fill stranded mass coefficient method for package
+  !!
+  !!  Method to calculate and fill the coefficients that hold solute out of
+  !!  the mobile domain as a cell drains and return it as the cell rewets.
+  !<
+  subroutine mst_fc_strand(this, nodes, nja, matrix_sln, idxglo, rhs, cnew)
+    ! -- modules
+    use TdisModule, only: delt
+    use StrandedMassModule, only: return_fraction
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    integer, intent(in) :: nodes !< number of nodes
+    integer(I4B), intent(in) :: nja !< number of GWT connections
+    class(MatrixBaseType), pointer :: matrix_sln !< solution coefficient matrix
+    integer(I4B), intent(in), dimension(nja) :: idxglo !< mapping vector for model (local) to solution (global)
+    real(DP), intent(inout), dimension(nodes) :: rhs !< right-hand side vector for model
+    real(DP), intent(in), dimension(nodes) :: cnew !< concentration at end of this time step
+    ! -- local
+    integer(I4B) :: n, idiag
+    real(DP) :: tled
+    real(DP) :: hhcof, rrhs
+    real(DP) :: vcell, volfracm, rhobm
+    real(DP) :: sat_new, sat_old, ds, dw
+    real(DP) :: swtpdt
+    !
+    tled = DONE / delt
+    !
+    do n = 1, this%dis%nodes
+      !
+      ! -- skip if transport inactive
+      if (this%ibound(n) <= 0) cycle
+      !
+      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      volfracm = this%get_volfracm(n)
+      rhobm = this%bulk_density(n)
+      sat_new = this%fmi%gwfsat(n)
+      sat_old = this%fmi%gwfsatold(n, delt)
+      !
+      if (sat_new < sat_old) then
+        !
+        ! -- draining: solute in residual water and all of the sorbed mass
+        !    are held out of the mobile domain.  The isotherm is linearized
+        !    about cnew in the same way as the sorption term.
+        ds = sat_old - sat_new
+        hhcof = -ds * vcell * (this%theta_r(n) + volfracm * rhobm * &
+                               this%isotherm%derivative(cnew, n)) * tled
+        rrhs = ds * vcell * volfracm * rhobm * &
+               (this%isotherm%value(cnew, n) - &
+                this%isotherm%derivative(cnew, n) * cnew(n)) * tled
+        idiag = this%dis%con%ia(n)
+        call matrix_sln%add_value_pos(idxglo(idiag), hhcof)
+        rhs(n) = rhs(n) + rrhs
+      else if (sat_new > sat_old) then
+        !
+        ! -- rewetting: the share of the reservoir that the newly wetted
+        !    volume holds returns as a mass source, which is known from the
+        !    previous time step and so is explicit
+        dw = sat_new - sat_old
+        swtpdt = return_fraction(dw, sat_old)
+        rrhs = -this%strand%total(n) * swtpdt * tled
+        rhs(n) = rhs(n) + rrhs
+      end if
+    end do
+  end subroutine mst_fc_strand
 
   !> @ brief Fill storage coefficient method for package
   !!
@@ -518,11 +590,87 @@ contains
       call this%mst_cq_dcy_srb(nodes, cnew, cold, flowja)
     end if
     !
+    ! -- stranded mass
+    if (this%istrand /= IZERO) then
+      call this%mst_cq_strand(nodes, cnew, flowja)
+    end if
+    !
     ! -- calculate csrb
     if (this%isrb /= SORPTION_OFF) then
       call this%mst_calc_csrb(cnew)
     end if
   end subroutine mst_cq
+
+  !> @ brief Calculate stranded mass terms for package
+  !!
+  !!  Method to calculate the mass held out of the mobile domain on drainage
+  !!  and returned on rewetting, and to move it between the mobile domain and
+  !!  the reservoirs.  The reservoirs are updated from the same quantities that
+  !!  are reported to the budget, so the two cannot drift apart.
+  !<
+  subroutine mst_cq_strand(this, nodes, cnew, flowja)
+    ! -- modules
+    use TdisModule, only: delt
+    use StrandedMassModule, only: strand_rate_aqueous, strand_rate_sorbed, &
+                                  return_fraction
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    integer(I4B), intent(in) :: nodes !< number of nodes
+    real(DP), intent(in), dimension(nodes) :: cnew !< concentration at end of this time step
+    real(DP), dimension(:), contiguous, intent(inout) :: flowja !< flow between two connected control volumes
+    ! -- local
+    integer(I4B) :: n, idiag
+    real(DP) :: rate, raq, rsrb
+    real(DP) :: vcell, volfracm, rhobm
+    real(DP) :: sat_new, sat_old, ds, dw, f
+    !
+    do n = 1, this%dis%nodes
+      !
+      ! -- initialize rates
+      this%strand%ratestrand(n) = DZERO
+      !
+      ! -- skip if transport inactive; the reservoir keeps its mass
+      if (this%ibound(n) <= 0) cycle
+      !
+      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      volfracm = this%get_volfracm(n)
+      rhobm = this%bulk_density(n)
+      sat_new = this%fmi%gwfsat(n)
+      sat_old = this%fmi%gwfsatold(n, delt)
+      !
+      raq = DZERO
+      rsrb = DZERO
+      if (sat_new < sat_old) then
+        !
+        ! -- draining, mass leaves the mobile domain
+        ds = sat_old - sat_new
+        raq = strand_rate_aqueous(ds, vcell, this%theta_r(n), cnew(n), delt)
+        rsrb = strand_rate_sorbed(ds, vcell, volfracm, rhobm, &
+                                  this%isotherm%value(cnew, n), delt)
+        rate = -(raq + rsrb)
+        this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) + &
+                                          raq * delt
+        this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) + &
+                                         rsrb * delt
+      else if (sat_new > sat_old) then
+        !
+        ! -- rewetting, mass returns to the mobile domain
+        dw = sat_new - sat_old
+        f = return_fraction(dw, sat_old)
+        raq = this%strand%stranded_aqueous(n) * f
+        rsrb = this%strand%stranded_sorbed(n) * f
+        rate = (raq + rsrb) / delt
+        this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) - raq
+        this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) - rsrb
+      else
+        rate = DZERO
+      end if
+      !
+      this%strand%ratestrand(n) = rate
+      idiag = this%dis%con%ia(n)
+      flowja(idiag) = flowja(idiag) + rate
+    end do
+  end subroutine mst_cq_strand
 
   !> @ brief Calculate storage terms for package
   !!
@@ -857,6 +1005,15 @@ contains
       call model_budget%addentry(rin, rout, delt, budtxt(4), &
                                  isuppress_output, rowlabel=this%packName)
     end if
+    !
+    ! -- strand.  Only the transfer between the mobile domain and the
+    !    reservoirs belongs in the model budget; decay of the reservoirs never
+    !    passes through the concentration equation and is reported separately.
+    if (this%istrand /= IZERO) then
+      call rate_accumulator(this%strand%ratestrand, rin, rout)
+      call model_budget%addentry(rin, rout, delt, budtxt(5), &
+                                 isuppress_output, rowlabel=this%packName)
+    end if
   end subroutine mst_bd
 
   !> @ brief Output flow terms for package
@@ -910,6 +1067,12 @@ contains
       if (this%isrb /= SORPTION_OFF .and. this%idcy /= DECAY_OFF) &
         call this%dis%record_array(this%ratedcys, this%iout, iprint, -ibinun, &
                                    budtxt(4), cdatafmp, nvaluesp, &
+                                   nwidthp, editdesc, dinact)
+      !
+      ! -- strand
+      if (this%istrand /= IZERO) &
+        call this%dis%record_array(this%strand%ratestrand, this%iout, iprint, &
+                                   -ibinun, budtxt(5), cdatafmp, nvaluesp, &
                                    nwidthp, editdesc, dinact)
     end if
   end subroutine mst_ot_flow
