@@ -10,8 +10,9 @@
 module GwtMstModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DONE, DZERO, IZERO, DTWO, DHALF, LENBUDTXT, &
-                             MAXCHARLEN, MNORMAL, LINELENGTH, DHNOFLO, DNODATA
+  use ConstantsModule, only: DONE, DZERO, IZERO, DTWO, DHALF, DEM6, &
+                             LENBUDTXT, MAXCHARLEN, MNORMAL, LINELENGTH, &
+                             DHNOFLO, DNODATA
   use SimVariablesModule, only: errmsg, warnmsg
   use SimModule, only: store_error, count_errors, &
                        store_warning, store_error_filename
@@ -86,6 +87,7 @@ module GwtMstModule
     ! -- stranded mass
     integer(I4B), pointer :: istrand => null() !< stranded mass active flag
     integer(I4B), pointer :: ioutstranded => null() !< unit number for stranded mass output
+    logical :: warned_sy = .false. !< specific yield above the mobile porosity has been reported
     real(DP), dimension(:), pointer, contiguous :: cstrand => null() !< stranded mass held in each cell
     type(StrandedMassType), pointer :: strand => null() !< stranded mass reservoirs
     type(BudgetType), pointer :: strandbudget => null() !< budget of the reservoirs
@@ -732,7 +734,7 @@ contains
     real(DP) :: lambda_aq, lambda_srb
     real(DP) :: vcell, volfracm, rhobm
     real(DP) :: sat_new, sat_old, ds, dw, f
-    real(DP) :: released
+    real(DP) :: released, vdrain
     logical :: decay_strand
     !
     tled = DONE / delt
@@ -771,6 +773,20 @@ contains
         !
         ! -- draining, mass leaves the mobile domain
         ds = sat_old - sat_new
+        !
+        ! -- the flow model cannot drain more water than the mobile domain
+        !    holds; if it does, the specific yield exceeds the mobile porosity
+        vdrain = ds * vcell * this%thetam(n)
+        if (.not. this%warned_sy .and. ds > DEM6 .and. &
+            released > vdrain * (DONE + DEM6)) then
+          write (warnmsg, '(a)') 'Specific yield is greater than the mobile &
+            &porosity in at least one cell, so the flow model releases more &
+            &water from storage than the mobile domain holds. No solute is &
+            &held back from residual water in those cells. Sorbed mass is &
+            &stranded as usual.'
+          call store_warning(warnmsg)
+          this%warned_sy = .true.
+        end if
         maq = retained_volume(ds, vcell, this%thetam(n), released) * cnew(n)
         if (this%isrb /= SORPTION_OFF) then
           msrb = strand_rate_sorbed(ds, vcell, volfracm, rhobm, &
