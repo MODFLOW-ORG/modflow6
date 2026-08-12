@@ -8,7 +8,7 @@
 module StrandedMassModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, DONE, DEM6, LENMEMPATH
+  use ConstantsModule, only: DZERO, DONE, DEM6, DNODATA, LENMEMPATH
   use MemoryManagerModule, only: mem_allocate, mem_deallocate
   use MemoryHelperModule, only: create_mem_path
 
@@ -16,7 +16,7 @@ module StrandedMassModule
   private
   public :: StrandedMassType
   public :: strand_rate, strand_rate_aqueous, strand_rate_sorbed
-  public :: return_fraction, decay_amount
+  public :: return_fraction, decay_amount, retained_volume
 
   !> @brief Stranded mass reservoirs for one transport domain
   !!
@@ -30,6 +30,7 @@ module StrandedMassModule
     real(DP), dimension(:), pointer, contiguous :: stranded_aqueous => null() !< mass stranded from residual water
     real(DP), dimension(:), pointer, contiguous :: stranded_sorbed => null() !< mass stranded from the solid phase
     real(DP), dimension(:), pointer, contiguous :: held => null() !< drained fraction of the cell that the reservoirs represent
+    real(DP), dimension(:), pointer, contiguous :: sat_old => null() !< saturation at the end of the previous time step
     real(DP), dimension(:), pointer, contiguous :: ratestrand => null() !< mobile-side transfer rate, positive on return
     real(DP), dimension(:), pointer, contiguous :: ratedcystrand => null() !< decay rate of the aqueous reservoir
     real(DP), dimension(:), pointer, contiguous :: ratedcystrands => null() !< decay rate of the sorbed reservoir
@@ -60,6 +61,7 @@ contains
     call mem_allocate(this%stranded_sorbed, nodes, 'STRANDED_SORBED', &
                       this%memoryPath)
     call mem_allocate(this%held, nodes, 'HELD_FRACTION', this%memoryPath)
+    call mem_allocate(this%sat_old, nodes, 'SAT_OLD', this%memoryPath)
     call mem_allocate(this%ratestrand, nodes, 'RATESTRAND', this%memoryPath)
     call mem_allocate(this%ratedcystrand, nodes, 'RATEDCYSTRAND', &
                       this%memoryPath)
@@ -70,6 +72,7 @@ contains
       this%stranded_aqueous(n) = DZERO
       this%stranded_sorbed(n) = DZERO
       this%held(n) = DZERO
+      this%sat_old(n) = DNODATA
       this%ratestrand(n) = DZERO
       this%ratedcystrand(n) = DZERO
       this%ratedcystrands(n) = DZERO
@@ -84,6 +87,7 @@ contains
     call mem_deallocate(this%stranded_aqueous)
     call mem_deallocate(this%stranded_sorbed)
     call mem_deallocate(this%held)
+    call mem_deallocate(this%sat_old)
     call mem_deallocate(this%ratestrand)
     call mem_deallocate(this%ratedcystrand)
     call mem_deallocate(this%ratedcystrands)
@@ -145,6 +149,24 @@ contains
     rate = strand_rate_aqueous(ds, vcell, theta_r, conc, delt) + &
            strand_rate_sorbed(ds, vcell, volfracm, rhob, sval, delt)
   end function strand_rate
+
+  !> @brief Volume of water that stays behind when a cell drains
+  !!
+  !! The mobile water volume of a cell changes by the porosity times the change
+  !! in saturation, but the flow model only releases the drainable part of it to
+  !! storage. The difference is the water that is retained against drainage, and
+  !! it carries its solute with it.
+  !<
+  pure function retained_volume(dsat, vcell, thetam, released) result(vret)
+    real(DP), intent(in) :: dsat !< decrease in saturation over the step
+    real(DP), intent(in) :: vcell !< cell volume
+    real(DP), intent(in) :: thetam !< mobile domain porosity
+    real(DP), intent(in) :: released !< water volume released to storage
+    real(DP) :: vret
+
+    vret = dsat * vcell * thetam - released
+    if (vret < DZERO) vret = DZERO
+  end function retained_volume
 
   !> @brief Share of the reservoirs returned by rewetting
   !!
