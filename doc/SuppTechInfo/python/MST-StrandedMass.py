@@ -215,7 +215,7 @@ figpth = Path(__file__).resolve().parent.parent / "Figures"
 PAIRED = {"basesm": "base", "sorbsm": "sorb", "dcysm": "dcy"}
 
 
-def comparison_figure(fname, tags, caption_tags):
+def comparison_figure(fname, tags, caption_tags, legend_ncols=1):
     """Concentration, solute mass, and stranded mass for a set of cases."""
     with styles.USGSPlot():
         fig, axes = plt.subplots(
@@ -236,7 +236,7 @@ def comparison_figure(fname, tags, caption_tags):
         styles.heading(ax=ax, letter="A")
         styles.graph_legend(
             ax=ax,
-            ncols=1,
+            ncols=legend_ncols,
             loc="upper right",
             fontsize=7,
             handlelength=2.0,
@@ -258,7 +258,7 @@ def comparison_figure(fname, tags, caption_tags):
         styles.heading(ax=ax, letter="B")
         styles.graph_legend(
             ax=ax,
-            ncols=1,
+            ncols=legend_ncols,
             loc="upper right",
             fontsize=7,
             handlelength=2.0,
@@ -287,7 +287,7 @@ def comparison_figure(fname, tags, caption_tags):
         styles.heading(ax=ax, letter="C")
         styles.graph_legend(
             ax=ax,
-            ncols=1,
+            ncols=legend_ncols,
             loc="upper right",
             fontsize=7,
             handlelength=2.0,
@@ -319,7 +319,10 @@ print(f"Saved {figpth / 'MSTStrandedMassHead.pdf'}")
 # -- figure 2, without decay; figure 3, with decay
 comparison_figure("MSTStrandedMassNoSorption.pdf", ["base", "basesm"], None)
 comparison_figure(
-    "MSTStrandedMassSorption.pdf", ["sorb", "sorbsm", "dcy", "dcysm"], None
+    "MSTStrandedMassSorption.pdf",
+    ["sorb", "sorbsm", "dcy", "dcysm"],
+    None,
+    legend_ncols=2,
 )
 
 # -- summary numbers quoted in the chapter text
