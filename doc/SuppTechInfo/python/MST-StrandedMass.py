@@ -34,7 +34,7 @@ DELR = DELC = 100.0
 AREA = DELR * DELC
 VCELL = AREA * (TOP - BOTM)
 POROSITY = 0.3
-SY = 0.3
+SY = 0.15
 RHOB = 1600.0
 KD = 1.0e-4
 CINIT = 100.0
@@ -47,9 +47,14 @@ HMEAN, HAMP = 24.0, 14.0
 
 
 def head_schedule():
-    """Sinusoidal head in the constant head cell, one value per stress period."""
+    """Sinusoidal head in the constant head cell, one value per stress period.
+
+    The first period holds the water table still, which lets the saturation of
+    the previous time step initialize before any mass is stranded.
+    """
     t = np.arange(1, NPER + 1) * PERLEN
-    return HMEAN + HAMP * np.sin(2.0 * np.pi * t / TCYCLE)
+    h = HMEAN + HAMP * np.sin(2.0 * np.pi * t / TCYCLE)
+    return np.concatenate(([h[0]], h))
 
 
 def build_model(ws, sorption, decay, stranded):
@@ -61,7 +66,7 @@ def build_model(ws, sorption, decay, stranded):
         sim_name=name, version="mf6", exe_name=str(MF6_EXE), sim_ws=str(ws)
     )
     flopy.mf6.ModflowTdis(
-        sim, time_units="DAYS", nper=NPER, perioddata=[(PERLEN, 1, 1.0)] * NPER
+        sim, time_units="DAYS", nper=len(hds), perioddata=[(PERLEN, 1, 1.0)] * len(hds)
     )
 
     imsgwf = flopy.mf6.ModflowIms(
@@ -79,7 +84,7 @@ def build_model(ws, sorption, decay, stranded):
     flopy.mf6.ModflowGwfdis(
         gwf, nlay=1, nrow=1, ncol=2, delr=DELR, delc=DELC, top=TOP, botm=BOTM
     )
-    flopy.mf6.ModflowGwfic(gwf, strt=TOP)
+    flopy.mf6.ModflowGwfic(gwf, strt=hds[0])
     flopy.mf6.ModflowGwfnpf(
         gwf, save_flows=True, save_saturation=True, icelltype=1, k=100.0
     )
@@ -163,10 +168,10 @@ def run_case(tmp, tag, sorption, decay, stranded):
 
 
 CASES = [
-    ("base", False, False, False, "no sorption", "0.45", "-"),
+    ("base", False, False, False, "current approach", "#1f77b4", "-"),
+    ("basesm", False, False, True, "stranded mass", "#d62728", "-"),
     ("sorb", True, False, False, "sorption", "#1f77b4", "-"),
     ("sorbsm", True, False, True, "sorption, stranded mass", "#d62728", "-"),
-    ("basedcy", False, True, False, "no sorption, decay", "0.45", "--"),
     ("dcy", True, True, False, "sorption and decay", "#1f77b4", "--"),
     ("dcysm", True, True, True, "sorption and decay, stranded mass", "#d62728", "--"),
 ]
@@ -199,7 +204,7 @@ def comparison_figure(fname, tags, caption_tags):
             label, color, ls = LOOKUP[tag]
             ax.plot(times, results[tag][2], color=color, ls=ls, lw=1.2, label=label)
         ax.set_ylabel("Concentration, in grams\nper cubic meter")
-        ax.set_ylim(0.0, 480.0)
+        ax.set_ylim(0.0, 180.0)
         ax.tick_params(direction="in", top=True, right=True)
         styles.heading(ax=ax, letter="A")
         styles.graph_legend(
@@ -226,7 +231,7 @@ def comparison_figure(fname, tags, caption_tags):
                 label=label,
             )
         ax.set_ylabel("Stranded mass, in kilograms")
-        ax.set_ylim(0.0, 2800.0)
+        ax.set_ylim(0.0, 7500.0)
         ax.set_xlabel("Time, in days")
         ax.set_xlim(0.0, times[-1])
         ax.tick_params(direction="in", top=True, right=True)
@@ -263,8 +268,10 @@ fig.savefig(figpth / "MSTStrandedMassHead.pdf", dpi=300)
 print(f"Saved {figpth / 'MSTStrandedMassHead.pdf'}")
 
 # -- figure 2, without decay; figure 3, with decay
-comparison_figure("MSTStrandedMassNoDecay.pdf", ["base", "sorb", "sorbsm"], None)
-comparison_figure("MSTStrandedMassDecay.pdf", ["basedcy", "dcy", "dcysm"], None)
+comparison_figure("MSTStrandedMassNoSorption.pdf", ["base", "basesm"], None)
+comparison_figure(
+    "MSTStrandedMassSorption.pdf", ["sorb", "sorbsm", "dcy", "dcysm"], None
+)
 
 # -- summary numbers quoted in the chapter text
 for tag, _, _, _, label, _, _ in CASES:
