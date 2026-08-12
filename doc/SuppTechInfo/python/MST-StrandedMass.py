@@ -164,7 +164,26 @@ def run_case(tmp, tag, sorption, decay, stranded):
     if stranded:
         sf = flopy.utils.HeadFile(ws / "gwt-sm.strand.bin", text="STRANDED")
         s = np.array([sf.get_data(totim=t).flatten()[0] for t in times])
-    return times, h, c, s
+    return times, h, c, s, case_mass(ws, times, sorption, stranded)
+
+
+def case_mass(ws, times, sorption, stranded):
+    """Solute mass in the model, dissolved, sorbed, and stranded."""
+    conc = flopy.utils.HeadFile(ws / "gwt-sm.ucn", text="CONCENTRATION")
+    head = flopy.utils.HeadFile(ws / "gwf-sm.hds")
+    sf = None
+    if stranded:
+        sf = flopy.utils.HeadFile(ws / "gwt-sm.strand.bin", text="STRANDED")
+    fac = POROSITY + (RHOB * KD if sorption else 0.0)
+    m = np.zeros(times.shape, dtype=float)
+    for i, t in enumerate(times):
+        c = conc.get_data(totim=t).flatten()
+        h = head.get_data(totim=t).flatten()
+        sat = np.clip((h - BOTM) / (TOP - BOTM), 0.0, 1.0)
+        m[i] = float((VCELL * sat * fac * c).sum())
+        if sf is not None:
+            m[i] = m[i] + float(sf.get_data(totim=t).sum())
+    return m
 
 
 CASES = [
@@ -188,13 +207,17 @@ heads = results["base"][1]
 figpth = Path(__file__).resolve().parent.parent / "Figures"
 
 
+#: the case each stranded mass case is compared against
+PAIRED = {"basesm": "base", "sorbsm": "sorb", "dcysm": "dcy"}
+
+
 def comparison_figure(fname, tags, caption_tags):
-    """Concentration and stranded mass for a set of cases."""
+    """Concentration, mass difference, and stranded mass for a set of cases."""
     with styles.USGSPlot():
         fig, axes = plt.subplots(
-            nrows=2,
+            nrows=3,
             ncols=1,
-            figsize=(6.8, 3.9),
+            figsize=(6.8, 5.6),
             sharex=True,
             constrained_layout=True,
         )
@@ -218,6 +241,33 @@ def comparison_figure(fname, tags, caption_tags):
         )
 
         ax = axes[1]
+        ax.axhline(0.0, color="0.6", lw=0.6, zorder=0)
+        for tag in tags:
+            if tag not in PAIRED or PAIRED[tag] not in tags:
+                continue
+            label, color, ls = LOOKUP[tag]
+            base = results[PAIRED[tag]][4]
+            diff = 100.0 * (results[tag][4] - base) / base[0]
+            ax.plot(times, diff, color=color, ls=ls, lw=1.2, label=label)
+        ax.set_ylabel(
+            "Difference in solute mass\nfrom the current approach,\n"
+            "in percent of initial mass"
+        )
+        # -- room below the curves for the explanation
+        ax.set_ylim(-72.0, 55.0)
+        ax.tick_params(direction="in", top=True, right=True)
+        styles.heading(ax=ax, letter="B")
+        styles.graph_legend(
+            ax=ax,
+            ncols=1,
+            loc="lower right",
+            fontsize=7,
+            handlelength=2.0,
+            framealpha=0.9,
+            edgecolor="0.7",
+        )
+
+        ax = axes[2]
         for tag in tags:
             if results[tag][3] is None:
                 continue
@@ -235,7 +285,7 @@ def comparison_figure(fname, tags, caption_tags):
         ax.set_xlabel("Time, in days")
         ax.set_xlim(0.0, times[-1])
         ax.tick_params(direction="in", top=True, right=True)
-        styles.heading(ax=ax, letter="B")
+        styles.heading(ax=ax, letter="C")
         styles.graph_legend(
             ax=ax,
             ncols=1,
@@ -279,3 +329,10 @@ for tag, _, _, _, label, _, _ in CASES:
     s = results[tag][3]
     smax = "n/a" if s is None else f"{s.max() / 1000.0:9.1f} kg"
     print(f"{label:38s} c_max={c.max():8.3f}  c_end={c[-1]:8.3f}  strand_max={smax}")
+
+for tag, ref in PAIRED.items():
+    d = 100.0 * (results[tag][4] - results[ref][4]) / results[ref][4][0]
+    print(
+        f"{LOOKUP[tag][0]:38s} mass difference min={d.min():6.2f} %  "
+        f"max={d.max():6.2f} %  end={d[-1]:6.2f} %"
+    )
