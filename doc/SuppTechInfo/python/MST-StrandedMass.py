@@ -194,7 +194,7 @@ def comparison_figure(fname, tags, caption_tags):
         fig, axes = plt.subplots(
             nrows=2,
             ncols=1,
-            figsize=(6.8, 5.4),
+            figsize=(6.8, 3.9),
             sharex=True,
             constrained_layout=True,
         )
@@ -204,7 +204,7 @@ def comparison_figure(fname, tags, caption_tags):
             label, color, ls = LOOKUP[tag]
             ax.plot(times, results[tag][2], color=color, ls=ls, lw=1.2, label=label)
         ax.set_ylabel("Concentration, in grams\nper cubic meter")
-        ax.set_ylim(0.0, 180.0)
+        ax.set_ylim(0.0, 265.0)
         ax.tick_params(direction="in", top=True, right=True)
         styles.heading(ax=ax, letter="A")
         styles.graph_legend(
@@ -231,7 +231,7 @@ def comparison_figure(fname, tags, caption_tags):
                 label=label,
             )
         ax.set_ylabel("Stranded mass, in kilograms")
-        ax.set_ylim(0.0, 7500.0)
+        ax.set_ylim(0.0, 9800.0)
         ax.set_xlabel("Time, in days")
         ax.set_xlim(0.0, times[-1])
         ax.tick_params(direction="in", top=True, right=True)
