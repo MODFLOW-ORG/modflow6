@@ -168,7 +168,11 @@ def run_case(tmp, tag, sorption, decay, stranded):
 
 
 def case_mass(ws, times, sorption, stranded):
-    """Solute mass in the model, dissolved, sorbed, and stranded."""
+    """Solute mass of the tested cell, dissolved, sorbed, and stranded.
+
+    The tested cell exchanges no solute with its neighbor, so the storage
+    terms are the only process that can change this quantity.
+    """
     conc = flopy.utils.HeadFile(ws / "gwt-sm.ucn", text="CONCENTRATION")
     head = flopy.utils.HeadFile(ws / "gwf-sm.hds")
     sf = None
@@ -177,12 +181,12 @@ def case_mass(ws, times, sorption, stranded):
     fac = POROSITY + (RHOB * KD if sorption else 0.0)
     m = np.zeros(times.shape, dtype=float)
     for i, t in enumerate(times):
-        c = conc.get_data(totim=t).flatten()
-        h = head.get_data(totim=t).flatten()
-        sat = np.clip((h - BOTM) / (TOP - BOTM), 0.0, 1.0)
-        m[i] = float((VCELL * sat * fac * c).sum())
+        c = conc.get_data(totim=t).flatten()[0]
+        h = head.get_data(totim=t).flatten()[0]
+        sat = min(max((h - BOTM) / (TOP - BOTM), 0.0), 1.0)
+        m[i] = VCELL * sat * fac * c
         if sf is not None:
-            m[i] = m[i] + float(sf.get_data(totim=t).sum())
+            m[i] = m[i] + float(sf.get_data(totim=t).flatten()[0])
     return m
 
 
@@ -246,10 +250,10 @@ def comparison_figure(fname, tags, caption_tags):
             ax.plot(
                 times, results[tag][4] / 1000.0, color=color, ls=ls, lw=1.2, label=label
             )
-        ax.set_ylabel("Solute mass in the\nmodel, in kilograms")
+        ax.set_ylabel("Solute mass of the tested\ncell, in kilograms")
         # -- headroom above the curves for the explanation
         mmax = max(results[tag][4].max() for tag in tags) / 1000.0
-        ax.set_ylim(0.0, 1.42 * mmax)
+        ax.set_ylim(0.0, 1.62 * mmax)
         ax.tick_params(direction="in", top=True, right=True)
         styles.heading(ax=ax, letter="B")
         styles.graph_legend(
@@ -331,6 +335,20 @@ for tag, _, _, _, label, _, _ in CASES:
         f"{label:38s} mass min={m.min():9.1f} kg  max={m.max():9.1f} kg  "
         f"start={m[0]:9.1f} kg  end={m[-1]:9.1f} kg"
     )
+
+print("\n=== per-cycle peak stranded mass and cell concentration ===")
+for tag in PAIRED:
+    st = results[tag][3]
+    cc = results[tag][2]
+    for cyc in range(4):
+        sel = (times > 25 + cyc * 100) & (times <= 125 + cyc * 100)
+        if not sel.any():
+            continue
+        i = int(np.argmax(np.where(sel, st, -np.inf)))
+        print(
+            f"{tag:8s} cycle {cyc + 1}  peak stranded {st[i] / 1000.0:8.1f} kg  "
+            f"C at peak {cc[i]:7.2f}  ratio {st[i] / cc[i] / 1000.0:7.4f}"
+        )
 
 for tag, ref in PAIRED.items():
     d = 100.0 * (results[tag][4] - results[ref][4]) / results[ref][4][0]
