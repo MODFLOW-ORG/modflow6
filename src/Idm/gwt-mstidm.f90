@@ -27,7 +27,6 @@ module GwtMstInputModule
     logical :: export_ascii = .false.
     logical :: export_nc = .false.
     logical :: porosity = .false.
-    logical :: theta_r = .false.
     logical :: decay = .false.
     logical :: decay_sorbed = .false.
     logical :: bulk_density = .false.
@@ -329,25 +328,6 @@ module GwtMstInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtmst_theta_r = InputParamDefinitionType &
-    ( &
-    'GWT', & ! component
-    'MST', & ! subcomponent
-    'GRIDDATA', & ! block
-    'RESIDUAL_WATER_CONTENT', & ! tag name
-    'THETA_R', & ! fortran variable
-    'DOUBLE1D', & ! type
-    'NODES', & ! shape
-    'residual water content', & ! longname
-    .false., & ! required
-    .false., & ! developmode
-    .false., & ! multi-record
-    .false., & ! preserve case
-    .true., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
     gwtmst_decay = InputParamDefinitionType &
     ( &
     'GWT', & ! component
@@ -460,7 +440,6 @@ module GwtMstInputModule
     gwtmst_export_ascii, &
     gwtmst_export_nc, &
     gwtmst_porosity, &
-    gwtmst_theta_r, &
     gwtmst_decay, &
     gwtmst_decay_sorbed, &
     gwtmst_bulk_density, &
