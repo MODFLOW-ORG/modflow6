@@ -57,11 +57,11 @@ LIB_EXT = ".dll" if SYSTEM == "Windows" else ".so" if SYSTEM == "Linux" else ".d
 
 # publications
 PUB_URLS = [
-    "https://pubs.usgs.gov/tm/06/a55/tm6a55.pdf",
-    "https://pubs.usgs.gov/tm/06/a56/tm6a56.pdf",
-    "https://pubs.usgs.gov/tm/06/a57/tm6a57.pdf",
-    "https://pubs.usgs.gov/tm/06/a61/tm6a61.pdf",
-    "https://pubs.usgs.gov/tm/06/a62/tm6a62.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a55.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a56.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a57.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a61.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a62.pdf",
 ]
 
 
