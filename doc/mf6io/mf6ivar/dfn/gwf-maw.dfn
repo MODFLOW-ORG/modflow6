@@ -328,6 +328,14 @@ longname
 description REPLACE mover {'{#1}': 'MAW'}
 
 
+block options
+name dev_peaceman_effective_radius
+type keyword
+reader urword
+optional true
+longname use the Peaceman effective radius
+description keyword that calculates the effective radius for structured grids using the approach of Peaceman (1983) instead of the default approach.  This development option is not supported.
+
 # --------------------- gwf maw dimensions ---------------------
 
 block dimensions

@@ -598,8 +598,8 @@ contains
     do j = 1, this%flowbudptr%budterm(this%idxbudmwcd)%nlist
       q = DZERO
       n1 = this%flowbudptr%budterm(this%idxbudmwcd)%id1(j)
+      igwfnode = this%flowbudptr%budterm(this%idxbudmwcd)%id2(j)
       if (this%iboundpak(n1) /= 0) then
-        igwfnode = this%flowbudptr%budterm(this%idxbudmwcd)%id2(j)
         auxpos = this%flowbudptr%budterm(this%idxbudgwf)%naux
         wa = this%flowbudptr%budterm(this%idxbudgwf)%auxvar(auxpos, j)
         ktf = this%ktf(n1)

@@ -9,7 +9,6 @@ from pathlib import Path
 from pprint import pprint
 from tempfile import TemporaryDirectory
 from typing import Optional
-from urllib.error import HTTPError
 from warnings import warn
 
 import pytest
@@ -58,11 +57,11 @@ LIB_EXT = ".dll" if SYSTEM == "Windows" else ".so" if SYSTEM == "Linux" else ".d
 
 # publications
 PUB_URLS = [
-    "https://pubs.usgs.gov/tm/06/a55/tm6a55.pdf",
-    "https://pubs.usgs.gov/tm/06/a56/tm6a56.pdf",
-    "https://pubs.usgs.gov/tm/06/a57/tm6a57.pdf",
-    "https://pubs.usgs.gov/tm/06/a61/tm6a61.pdf",
-    "https://pubs.usgs.gov/tm/06/a62/tm6a62.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a55.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a56.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a57.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a61.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a62.pdf",
 ]
 
 
@@ -399,11 +398,8 @@ def fetch_usgs_pubs(out_path: PathLike, force: bool = False):
         try:
             download_and_unzip(url, path=out_path, delete_zip=False)
             assert (out_path / url.rpartition("/")[2]).is_file()
-        except HTTPError as e:
-            if "404" in str(e):
-                warn(f"Publication not found: {url}")
-            else:
-                raise
+        except OSError as e:
+            warn(f"Failed to download publication {url}: {e}")
 
 
 def build_documentation(

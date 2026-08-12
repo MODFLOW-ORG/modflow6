@@ -41,7 +41,6 @@ cases = [
     f"{simname}open",  # RELEASETIMES block: 0.5 and 0.6, OPEN/CLOSE
     # period block options
     f"{simname}all",  # ALL
-    f"{simname}frac",  # ALL FRACTION 0.5, expect removal warning
     f"{simname}frst",  # FIRST
     f"{simname}stps",  # STEPS 1
     f"{simname}freq",  # FREQUENCY 1 and RELEASE_TIME_FREQUENCY 0.2
@@ -93,9 +92,6 @@ def get_perioddata(name, periods=1) -> Optional[dict]:
         opt.append(("FIRST",))
     elif "all" in name:
         opt.append(("ALL",))
-    elif "frac" in name:
-        opt.append(("ALL",))
-        opt.append(("FRACTION", 0.5))
     elif "stps" in name:
         opt.append(("STEPS", 1))
     elif "freq" in name:
@@ -451,12 +447,8 @@ def check_output(test, snapshot):
     assert list_file.is_file()
     lines = open(list_file).readlines()
     lines = [l.strip() for l in lines]
-    if "frac" in name:
-        # FRACTION no longer supported
-        return
-    else:
-        li = lines.index("PARTICLE RELEASE FOR PRP 1")
-        assert "RELEASE SCHEDULE:" in lines[li + 1]
+    li = lines.index("PARTICLE RELEASE FOR PRP 1")
+    assert "RELEASE SCHEDULE:" in lines[li + 1]
 
     # make sure pathline df has "name" (boundname) column and empty values
     assert "name" in mf6_pls
@@ -728,7 +720,5 @@ def test_mf6model(name, function_tmpdir, targets, array_snapshot, plot):
         plot=lambda t: plot_output(t) if plot else None,
         targets=targets,
         compare=None,
-        # expect case using FRACTION to fail
-        xfail=[False, True, False] if "frac" in name else False,
     )
     test.run()

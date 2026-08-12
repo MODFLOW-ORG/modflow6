@@ -543,7 +543,6 @@ contains
     ! -- local variables
     class(NumericalModelType), pointer :: mp => null()
     class(NumericalExchangeType), pointer :: cp => null()
-    character(len=linelength) :: warnmsg
     character(len=linelength) :: keyword
     character(len=linelength) :: fname
     character(len=linelength) :: msg
@@ -675,29 +674,6 @@ contains
             &OF OUTER MAXIMUM USED TO INCREASE OR DECREASE TIME STEP SIZE IS ',&
             &this%atsfrac
           !
-          ! -- DEPRECATED OPTIONS
-        case ('CSV_OUTPUT')
-          call this%parser%GetStringCaps(keyword)
-          if (keyword == 'FILEOUT') then
-            call this%parser%GetString(fname)
-            this%icsvouterout = getunit()
-            call openfile(this%icsvouterout, iout, fname, 'CSV_OUTPUT', &
-                          filstat_opt='REPLACE')
-            write (iout, fmtcsvout) trim(fname), this%icsvouterout
-            !
-            ! -- create warning message
-            write (warnmsg, '(a)') &
-              'OUTER ITERATION INFORMATION WILL BE SAVED TO '//trim(fname)
-            !
-            ! -- create deprecation warning
-            call deprecation_warning('OPTIONS', 'CSV_OUTPUT', '6.1.1', &
-                                     warnmsg, this%parser%GetUnit())
-          else
-            write (errmsg, '(a)') 'Optional CSV_OUTPUT '// &
-              'keyword must be followed by FILEOUT'
-            call store_error(errmsg)
-          end if
-          !
           ! -- right now these are options that are only available in the
           !    development version and are not included in the documentation.
           !    These options are only available when IDEVELOPMODE in
@@ -734,7 +710,7 @@ contains
         case ('DEV_PTC_EXPONENT')
           call this%parser%DevOpt()
           rval = this%parser%GetDouble()
-          if (rval < DZERO) then
+          if (rval <= DZERO) then
             write (errmsg, '(a)') 'PTC_EXPONENT must be > 0.'
             call store_error(errmsg)
           else
@@ -746,7 +722,7 @@ contains
         case ('DEV_PTC_DEL0')
           call this%parser%DevOpt()
           rval = this%parser%GetDouble()
-          if (rval < DZERO) then
+          if (rval <= DZERO) then
             write (errmsg, '(a)') 'IMS sln_ar: PTC_DEL0 must be > 0.'
             call store_error(errmsg)
           else
@@ -840,27 +816,6 @@ contains
           this%breduc = this%parser%GetDouble()
         case ('BACKTRACKING_RESIDUAL_LIMIT')
           this%res_lim = this%parser%GetDouble()
-          !
-          ! -- deprecated variables
-        case ('OUTER_HCLOSE')
-          this%dvclose = this%parser%GetDouble()
-          !
-          ! -- create warning message
-          write (warnmsg, '(a)') &
-            'SETTING OUTER_DVCLOSE TO OUTER_HCLOSE VALUE'
-          !
-          ! -- create deprecation warning
-          call deprecation_warning('NONLINEAR', 'OUTER_HCLOSE', '6.1.1', &
-                                   warnmsg, this%parser%GetUnit())
-        case ('OUTER_RCLOSEBND')
-          !
-          ! -- create warning message
-          write (warnmsg, '(a)') &
-            'OUTER_DVCLOSE IS USED TO EVALUATE PACKAGE CONVERGENCE'
-          !
-          ! -- create deprecation warning
-          call deprecation_warning('NONLINEAR', 'OUTER_RCLOSEBND', '6.1.1', &
-                                   warnmsg, this%parser%GetUnit())
         case default
           write (errmsg, '(3a)') &
             'Unknown IMS NONLINEAR keyword (', trim(keyword), ').'

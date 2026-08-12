@@ -280,6 +280,14 @@ longname
 description REPLACE mover {'{#1}': 'UZF'}
 
 block options
+name dev_no_final_check
+type keyword
+reader urword
+optional true
+longname do not check final convergence
+description keyword that deactivates the final convergence check of the change in UZF recharge.  This development option is not supported.
+
+block options
 name simulate_et
 type keyword
 tagged true
