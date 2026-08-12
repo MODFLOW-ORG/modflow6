@@ -5,11 +5,12 @@ moves, without the stranded mass option.
 Panel A shows a falling water table. The sorbate of the interval that drains is
 released to the water that remains, because the sorbed mass of a cell is scaled
 by the saturation, and the solute in the water that is retained against drainage
-is no longer counted, because the mobile water volume is taken as the saturation
-times the porosity.
+is not carried into the next time step, because the mobile water volume is taken
+as the saturation times the porosity, so mass is lost.
 
 Panel B shows the water table rising again. The interval returns to the mobile
-domain, but the solute it was holding is not returned with it.
+domain as though it had held water at the concentration of the previous time
+step, so mass is created.
 """
 
 from pathlib import Path
@@ -106,18 +107,17 @@ with styles.USGSPlot():
     )
     annotate(
         ax,
-        "sorbate of the drained interval is\nreleased to the water that remains",
+        "sorbate of the drained interval is released\n"
+        "to the water that remains, and $C$ rises",
         (XR + 0.5, LO + 0.5),
         (XR + W / 2.0, YB - 1.15),
     )
     annotate(
         ax,
-        "solute in the water retained in the\ndrained interval is no longer counted",
+        "solute in the water retained in the drained interval\n"
+        "is not carried into the next time step, and mass is lost",
         (XR + W - 0.5, (LO + HI) / 2.0),
         (XR + W / 2.0, YT + 2.2),
-    )
-    ax.text(
-        XR + W / 2.0, (YB + LO) / 2.0, "$C$ rises", ha="center", va="center", fontsize=8
     )
     styles.heading(ax=ax, letter="A")
 
@@ -142,23 +142,17 @@ with styles.USGSPlot():
     )
     annotate(
         ax,
-        "the interval returns to the mobile domain\nwithout the solute it was holding",
+        "the interval returns to the mobile domain as though it\n"
+        "had held water at the concentration of the previous\n"
+        "time step, and mass is created",
         (XR + W / 2.0, (LO + HI) / 2.0),
         (XR + W / 2.0, YT + 2.2),
-    )
-    ax.text(
-        XR + W / 2.0,
-        (YB + LO) / 2.0,
-        "$C$ is diluted",
-        ha="center",
-        va="center",
-        fontsize=8,
     )
     styles.heading(ax=ax, letter="B")
 
     for ax in axes:
         ax.set_xlim(0.2, 8.6)
-        ax.set_ylim(-1.9, 10.6)
+        ax.set_ylim(-1.9, 11.2)
         ax.set_axis_off()
 
     # -- explanation
