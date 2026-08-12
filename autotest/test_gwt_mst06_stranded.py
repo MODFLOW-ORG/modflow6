@@ -6,8 +6,8 @@ A single thick cell is drained and rewetted by a constant head in the cell next
 to it, so the saturation of the tested cell varies over a wide range.
 
 Cases:
-  - mst06_noop  : stranding active with no residual water and no sorption must
-                  reproduce the results of a model with the option off.
+  - mst06_noop  : stranding active without sorption has nothing to strand and
+                  must reproduce the results of a model with the option off.
   - mst06_sorb  : sorbed mass only; the mass held out of the mobile domain over
                   a drainage step is checked against the analytical amount.
   - mst06_cycle : the cell is drained and rewetted over a full cycle, so all of
@@ -111,7 +111,7 @@ def get_model(name, ws, hds, strand, sorb):
     if sorb:
         kwargs.update(sorption="linear", bulk_density=rhob, distcoef=kd)
     if strand:
-        kwargs.update(stranded_mass=True, residual_water_content=0.0)
+        kwargs.update(stranded_mass=True)
         if sorb:
             kwargs.update(stranded_filerecord=[(f"{gwtname}.strand.bin",)])
     flopy.mf6.ModflowGwtmst(gwt, **kwargs)
@@ -180,7 +180,7 @@ def check_output(idx, test):
     )
 
     if name == "mst06_noop":
-        # with no residual water and no sorption there is nothing to strand
+        # without sorption there is nothing to strand
         base = series(os.path.join(ws, "mf6"), name, "ucn", "CONCENTRATION")
         conc = series(ws, name, "ucn", "CONCENTRATION")
         assert np.array_equal(conc, base), (
@@ -191,9 +191,9 @@ def check_output(idx, test):
     stranded = series(ws, name, "strand.bin", "STRANDED")
 
     if name == "mst06_sorb":
-        # with no residual water the mass held out of the mobile domain over a
-        # drainage step is the sorbed mass carried by the water that drained,
-        # so it is the volume released from storage times rhob * kd * c
+        # the mass held out of the mobile domain over a drainage step is the
+        # sorbed mass carried by the water that drained, so it is the volume
+        # released from storage times rhob * kd * c
         conc = series(ws, name, "ucn", "CONCENTRATION")
         cbc = flopy.utils.CellBudgetFile(
             os.path.join(ws, f"gwf-{name}.cbc"), precision="double"
