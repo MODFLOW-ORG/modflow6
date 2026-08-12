@@ -8,20 +8,23 @@ by the saturation, and the solute in the water that is retained against drainage
 is not carried into the next time step, because the mobile water volume is taken
 as the saturation times the porosity, so mass is lost.
 
-Panel B shows the water table rising again. The interval returns to the mobile
-domain as though it had held water at the concentration of the previous time
-step, so mass is created.
+Panel B shows the water table rising again. The interval is saturated once more,
+as though it had held water at the concentration of the previous time step, so
+mass is created.
 """
 
 from pathlib import Path
 
 import flopy.plot.styles as styles
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.patches import FancyArrow, Rectangle
 
 WATER = "#9ecae1"
 DRAINED = "#efe3c8"
 SOLID = "0.35"
+SEED = 20260812  # the scatter of sorbate is the same every time the figure is built
+NDOT = 60
 ARROW = "#d62728"
 
 XL, XR, W = 0.8, 5.6, 2.6  # left cell x, right cell x, cell width
@@ -44,12 +47,11 @@ def draw_cell(ax, x, wt, label):
     )
     ax.plot([x, x + W], [wt, wt], color="black", lw=1.0, zorder=5)
 
-    # sorbate held on the solid aquifer material, over the full cell
-    for yy in [YB + 0.45 + 0.7 * i for i in range(8)]:
-        if yy > YT - 0.2:
-            continue
-        for xx in (x + 0.28, x + W - 0.28):
-            ax.plot(xx, yy, marker="o", ms=2.6, color=SOLID, zorder=6)
+    # sorbate held on the solid aquifer material, scattered over the whole cell
+    rng = np.random.default_rng(SEED)
+    xs = rng.uniform(x + 0.18, x + W - 0.18, NDOT)
+    ys = rng.uniform(YB + 0.18, YT - 0.18, NDOT)
+    ax.plot(xs, ys, marker="o", ms=2.2, color=SOLID, ls="none", zorder=6)
 
     ax.text(x + W / 2.0, YT + 0.25, label, ha="center", va="bottom", fontsize=7)
 
@@ -84,9 +86,9 @@ def draw_change(ax, x, y0, y1, facecolor):
 
 
 with styles.USGSPlot():
-    fig, axes = plt.subplots(ncols=2, figsize=(6.8, 3.4), constrained_layout=True)
+    fig, axes = plt.subplots(ncols=2, figsize=(6.8, 3.7), constrained_layout=True)
 
-    # -- A, the water table falls
+    # -- A, the water table falls and the saturated volume decreases
     ax = axes[0]
     draw_cell(ax, XL, HI, "before")
     draw_cell(ax, XR, LO, "after")
@@ -109,19 +111,20 @@ with styles.USGSPlot():
         ax,
         "sorbate of the drained interval is released\n"
         "to the water that remains, and $C$ rises",
-        (XR + 0.5, LO + 0.5),
-        (XR + W / 2.0, YB - 1.15),
+        (XR + 0.55, LO - 0.55),
+        (XR + W / 2.0, YB - 1.5),
     )
     annotate(
         ax,
-        "solute in the water retained in the drained interval\n"
-        "is not carried into the next time step, and mass is lost",
-        (XR + W - 0.5, (LO + HI) / 2.0),
-        (XR + W / 2.0, YT + 2.2),
+        "solute in the water retained in the\n"
+        "drained interval is not carried into the\n"
+        "next time step, and mass is lost",
+        (XR + W - 0.45, (LO + HI) / 2.0 + 0.5),
+        (XR + W / 2.0 + 1.5, YT + 2.6),
     )
     styles.heading(ax=ax, letter="A")
 
-    # -- B, the water table rises again
+    # -- B, the water table rises and the saturated volume increases
     ax = axes[1]
     draw_cell(ax, XL, LO, "before")
     draw_cell(ax, XR, HI, "after")
@@ -142,11 +145,11 @@ with styles.USGSPlot():
     )
     annotate(
         ax,
-        "the interval returns to the mobile domain as though it\n"
-        "had held water at the concentration of the previous\n"
-        "time step, and mass is created",
-        (XR + W / 2.0, (LO + HI) / 2.0),
-        (XR + W / 2.0, YT + 2.2),
+        "the interval is saturated again as though\n"
+        "it had held water at the concentration of\n"
+        "the previous time step, and mass is created",
+        (XR + W - 0.45, (LO + HI) / 2.0 + 0.5),
+        (XR + W / 2.0 + 1.5, YT + 2.6),
     )
     styles.heading(ax=ax, letter="B")
 
@@ -170,17 +173,18 @@ with styles.USGSPlot():
         "interval whose saturation changes",
         "sorbate held on the solid aquifer material",
     ]
-    axes[0].legend(
+    leg = fig.legend(
         keys,
         labels,
         loc="lower center",
-        bbox_to_anchor=(1.05, -0.06),
         ncols=2,
         fontsize=6.5,
-        frameon=True,
-        edgecolor="0.7",
+        frameon=False,
         handlelength=1.6,
+        title="EXPLANATION",
     )
+    leg.get_title().set_fontsize(7.5)
+    leg.get_title().set_fontweight("bold")
 
 figpth = Path(__file__).resolve().parent.parent / "Figures"
 fig.savefig(figpth / "MSTStrandedMassConcept.pdf", dpi=300)
