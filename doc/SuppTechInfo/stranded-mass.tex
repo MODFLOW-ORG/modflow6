@@ -18,14 +18,21 @@ A cell that uses the option carries an additional state variable, the stranded m
 
 \subsubsection{Drainage}
 
-Over a time step in which the saturation of a cell decreases, the mass moved out of the mobile domain and into the stranded mass is
+Over a time step in which the saturation of a cell decreases, two quantities of solute stay behind. The first is the solute held by the water that does not drain. The mobile water volume of a cell is $S_w \theta_m V_{cell}$, so it changes by $\Delta S_w \theta_m V_{cell}$, but the flow model releases only the drainable part of the pore space to storage. The difference is the volume of water that is retained against drainage,
+
+\begin{equation}
+\label{eqn:strandretained}
+V_{r} = \Delta S_w \, \theta_m \, V_{cell} - V_{s} ,
+\end{equation}
+
+\noindent where $V_{r}$ is the retained water volume ($L^3$) and $V_{s}$ is the volume of water released to storage over the time step ($L^3$), which for an unconfined cell is the specific yield times the change in head times the area of the cell. The retained volume is not a new input; it follows from the porosity of the transport model and the specific yield of the flow model, and it is set to zero if those two would make it negative. The second quantity is the sorbed solute, because the solid aquifer material does not drain. The mass moved out of the mobile domain and into the stranded mass is
 
 \begin{equation}
 \label{eqn:strandrate}
-\Delta M_{st} = \Delta S_w \, V_{cell} \, \hat{f}_m \rho_{b,m} \overline{C} ,
+\Delta M_{st} = V_{r} \, C + \Delta S_w \, V_{cell} \, \hat{f}_m \rho_{b,m} \overline{C} ,
 \end{equation}
 
-\noindent where $\Delta M_{st}$ is the mass added to the stranded mass over the time step ($M$), $\Delta S_w$ is the decrease in saturation over the time step ($L^3/L^3$), and $V_{cell}$ is the volume of the cell ($L^3$). The right side of equation~\ref{eqn:strandrate} is the sorbed mass that the storage term would otherwise have released, so the two cancel and none of the sorbate that the cell gives up reaches the water that remains.
+\noindent where $\Delta M_{st}$ is the mass added to the stranded mass over the time step ($M$), $\Delta S_w$ is the decrease in saturation over the time step ($L^3/L^3$), and $V_{cell}$ is the volume of the cell ($L^3$). The second term on the right side of equation~\ref{eqn:strandrate} is the sorbed mass that the storage term would otherwise have released, so the two cancel and none of the sorbate that the cell gives up reaches the water that remains. The first term is the solute in the retained water, which the storage term of the mobile domain no longer carries once the water table has passed.
 
 The sorbate concentration $\overline{C}$ depends on the unknown concentration through the sorption isotherm, so equation~\ref{eqn:strandrate} is added to the coefficient matrix and the right-hand side using the same linearization that the MST Package applies to the storage of sorbate for a nonlinear isotherm. For a linear isotherm the coefficient is $\Delta S_w V_{cell} \hat{f}_m \rho_{b,m} K_d / \Delta t$, where $K_d$ is the distribution coefficient ($L^3/M$) and $\Delta t$ is the length of the time step ($T$).
 
@@ -66,11 +73,11 @@ The first two terms are transfers, exactly paired with the mobile domain, and ar
 
 The stranded mass of a cell is updated from the same quantities that are reported to the budget, once per time step rather than within the iteration of the nonlinear solution. Deriving the state and the reported rate from one number, rather than computing each separately, is what keeps the two from drifting apart.
 
-\subsubsection{Definition of the change in saturation}
+\subsubsection{Saturation at the end of the previous time step}
 
-The change in saturation used in equations~\ref{eqn:strandrate} and~\ref{eqn:strandreturn} is the change that the storage terms of the MST Package use, which is obtained from the water released to or taken into storage by the flow model rather than from the geometry of the cell. Using the same quantity is what makes the mass held back cancel the mass that the storage term would otherwise have released, and is the reason the percent discrepancy of the model budget is unaffected by the option.
+The change in saturation used in equations~\ref{eqn:strandretained} through~\ref{eqn:strandreturn} is the change in the saturation of the cell, and the saturation at the end of the previous time step is stored for that purpose rather than reconstructed from the water released to storage. The reconstruction that the storage terms use is correct only when the specific yield equals the porosity of the mobile domain, and the reconstruction that the sorbed term uses does not include the porosity at all, so neither returns the position of the water table at the end of the previous time step. Both terms use the stored saturation when the option is active, which is what makes the mass held back cancel the mass the storage terms release and leaves the percent discrepancy of the model budget at zero.
 
-Solute held by water that does not drain, the residual water content of the unsaturated zone, is not represented. That process has no counterpart in the storage terms of the MST Package to cancel, and so would require a change in saturation defined from the geometry of the cell. Only the sorbed phase is stranded.
+The flow model interface is not connected to the package when its input is read, so the saturation of the previous time step is not available during the first time step of a simulation. That time step is treated as it would be without the option, and no mass is stranded during it. A simulation that begins with a large change in the water table should include a short leading stress period during which the water table does not move.
 
 \subsection{Extension to Immobile Domains}
 
@@ -82,7 +89,7 @@ Immobile domains are not supported in the present implementation. Specifying STR
 
 \subsection{Example: Oscillating Water Table}
 
-The effect of the option is shown for a single cell whose water table rises and falls. The cell is 100 by 100 meters in plan, extends from an elevation of 40 meters to an elevation of 0 meters, and has a mobile-domain porosity of 0.3 and a specific yield of 0.3. A constant head in the cell next to it varies sinusoidally with a period of 100 days about a mean of 24 meters with an amplitude of 14 meters, so that the saturation of the cell varies between about 0.26 and 0.95 over four cycles (fig.~\ref{fig:strandedmasshead}). The initial concentration is 100 grams per cubic meter throughout, and water entering through the constant head has a concentration of zero. Where sorption is active it is represented with a linear isotherm using a bulk density of 1,600 kilograms per cubic meter and a distribution coefficient of $1 \times 10^{-4}$ cubic meters per kilogram; where decay is active, the first-order rate is 0.005 per day for both the dissolved and the sorbed phase. A time step of one day is used throughout.
+The effect of the option is shown for a single cell whose water table rises and falls. The cell is 100 by 100 meters in plan, extends from an elevation of 40 meters to an elevation of 0 meters, and has a mobile-domain porosity of 0.3 and a specific yield of 0.15, so that half of the pore space drains and half is retained. A constant head in the cell next to it varies sinusoidally with a period of 100 days about a mean of 24 meters with an amplitude of 14 meters, so that the saturation of the cell varies between about 0.26 and 0.95 over four cycles (fig.~\ref{fig:strandedmasshead}). The initial concentration is 100 grams per cubic meter throughout, and water entering through the constant head has a concentration of zero. Where sorption is active it is represented with a linear isotherm using a bulk density of 1,600 kilograms per cubic meter and a distribution coefficient of $1 \times 10^{-4}$ cubic meters per kilogram; where decay is active, the first-order rate is 0.005 per day for both the dissolved and the sorbed phase. A time step of one day is used throughout, and the water table is held still during the first stress period so that the saturation of the previous time step is available for the rest of the simulation.
 
 \begin{figure}[!ht]
 	\begin{center}
@@ -92,25 +99,25 @@ The effect of the option is shown for a single cell whose water table rises and 
 	\end{center}
 \end{figure}
 
-Simulated concentrations rise as the cell drains in every case, because the water that remains occupies a smaller volume. Without decay (fig.~\ref{fig:strandedmassnodecay}\textit{A}), the peak concentration reaches 390 grams per cubic meter when sorption is not active. Adding sorption lowers the peak to 289 grams per cubic meter, because sorbate buffers the dissolved concentration. Activating the stranded mass option lowers the peak further, to 246 grams per cubic meter, a reduction of 15 percent, because the sorbate that the cell gives up as it drains is held out of the mobile domain instead of being redissolved. The mass held out of the mobile domain (fig.~\ref{fig:strandedmassnodecay}\textit{B}) rises and falls with the water table, reaching about 2,180 kilograms at the driest part of each cycle and returning nearly to zero when the cell refills. Successive cycles repeat, because the mass that is held back in one cycle is returned in the next.
+Simulated concentrations rise as the cell drains in every case, because the water that remains occupies a smaller volume. Without sorption or decay (fig.~\ref{fig:strandedmassnosorption}\textit{A}), the peak concentration reaches 163 grams per cubic meter with the current approach and 126 grams per cubic meter when the option is used, a reduction of 23 percent, because the solute in the water that does not drain is held out of the mobile domain instead of being carried by the water that remains. The mass held out of the mobile domain (fig.~\ref{fig:strandedmassnosorption}\textit{B}) rises and falls with the water table, reaching about 3,640 kilograms at the driest part of each cycle and returning to zero when the cell refills. Successive cycles repeat, because the mass held back in one cycle is returned in the next.
 
 \begin{figure}[!ht]
 	\begin{center}
-	\includegraphics{./Figures/MSTStrandedMassNoDecay.pdf}
-	\caption[Graphs comparing simulated concentrations with and without the stranded mass option for the oscillating water table example]{Graphs comparing simulated concentrations with and without the stranded mass option of the MST Package for the oscillating water table example shown in figure~\ref{fig:strandedmasshead}, without decay. The cell has a mobile-domain porosity of 0.3, a specific yield of 0.3, a bulk density of 1,600 kilograms per cubic meter, a distribution coefficient of $1 \times 10^{-4}$ cubic meters per kilogram, and an initial concentration of 100 grams per cubic meter. \textit{A}, Simulated concentration without sorption, with sorption, and with sorption and the stranded mass option; \textit{B}, mass held out of the mobile domain}
-	\label{fig:strandedmassnodecay}
+	\includegraphics{./Figures/MSTStrandedMassNoSorption.pdf}
+	\caption[Graphs comparing simulated concentrations with and without the stranded mass option, without sorption, for the oscillating water table example]{Graphs comparing simulated concentrations with and without the stranded mass option of the MST Package for the oscillating water table example shown in figure~\ref{fig:strandedmasshead}, without sorption and without decay. The cell has a mobile-domain porosity of 0.3, a specific yield of 0.15, and an initial concentration of 100 grams per cubic meter. \textit{A}, Simulated concentration; \textit{B}, mass held out of the mobile domain}
+	\label{fig:strandedmassnosorption}
 	\end{center}
 \end{figure}
 
-With first-order decay active (fig.~\ref{fig:strandedmassdecay}\textit{A}), concentrations decrease from cycle to cycle as mass is lost from the simulation. The peak concentration in the first cycle is 265 grams per cubic meter without sorption, 192 grams per cubic meter with sorption, and 167 grams per cubic meter with sorption and the stranded mass option, a reduction of 13 percent. The mass held out of the mobile domain (fig.~\ref{fig:strandedmassdecay}\textit{B}) reaches about 1,440 kilograms in the first cycle and decreases in successive cycles, both because the concentration in the cell is lower and because the stranded mass decays while it is held. Comparing figures~\ref{fig:strandedmassnodecay} and~\ref{fig:strandedmassdecay} shows that the option changes the simulated concentration in the same direction and by a similar proportion whether or not decay is active.
+Adding sorption (fig.~\ref{fig:strandedmasssorption}\textit{A}) lowers the peak concentration to 146 grams per cubic meter, because sorbate buffers the dissolved concentration, and the option lowers it further to 100 grams per cubic meter, a reduction of 31 percent, because the sorbate that the cell gives up as it drains is held back along with the solute in the retained water. With first-order decay active, concentrations decrease from cycle to cycle as mass is lost from the simulation, and the concentration at the end of the simulation falls from 14.4 to 9.9 grams per cubic meter when the option is used. The mass held out of the mobile domain (fig.~\ref{fig:strandedmasssorption}\textit{B}) reaches about 6,780 kilograms in each cycle without decay, roughly twice the amount held back when only the retained water contributes, and decreases from cycle to cycle when decay is active, both because the concentration in the cell is lower and because the stranded mass decays while it is held.
 
-The percent discrepancy of the model budget remained at 0.00 for every time step of all six simulations.
+The percent discrepancy of the model budget remained at 0.00 for every time step of all six simulations. Over a drainage and rewetting cycle in a cell whose specific yield is less than its porosity, the sum of the mobile and the stranded mass is conserved to machine precision when the option is used, whereas about nine percent of the initial mass of the cell is unaccounted for when it is not.
 
 \begin{figure}[!ht]
 	\begin{center}
-	\includegraphics{./Figures/MSTStrandedMassDecay.pdf}
-	\caption[Graphs comparing simulated concentrations with and without the stranded mass option, with first-order decay, for the oscillating water table example]{Graphs comparing simulated concentrations with and without the stranded mass option of the MST Package for the oscillating water table example shown in figure~\ref{fig:strandedmasshead}, with first-order decay. The first-order decay rate is 0.005 per day for both the dissolved and the sorbed phase; the remaining properties are the same as those given in figure~\ref{fig:strandedmassnodecay}. \textit{A}, Simulated concentration without sorption, with sorption, and with sorption and the stranded mass option; \textit{B}, mass held out of the mobile domain}
-	\label{fig:strandedmassdecay}
+	\includegraphics{./Figures/MSTStrandedMassSorption.pdf}
+	\caption[Graphs comparing simulated concentrations with and without the stranded mass option, with sorption, for the oscillating water table example]{Graphs comparing simulated concentrations with and without the stranded mass option of the MST Package for the oscillating water table example shown in figure~\ref{fig:strandedmasshead}, with sorption and with sorption and first-order decay. Sorption is represented with a linear isotherm using a bulk density of 1,600 kilograms per cubic meter and a distribution coefficient of $1 \times 10^{-4}$ cubic meters per kilogram, and the first-order decay rate is 0.005 per day for both the dissolved and the sorbed phase; the remaining properties are the same as those given in figure~\ref{fig:strandedmassnosorption}. \textit{A}, Simulated concentration; \textit{B}, mass held out of the mobile domain}
+	\label{fig:strandedmasssorption}
 	\end{center}
 \end{figure}
 
@@ -126,7 +133,9 @@ The approach is also an approximation, and it is worth being clear about what it
 
 \item \textbf{Sorbate is held out of equilibrium.} Sorbate in the drained part of a cell is assumed to keep the mass it had when the cell drained. In reality the solid aquifer material above the water table remains in contact with the residual water, and the sorbed and dissolved phases of that water continue to interact. Assuming that the mass is held unchanged is defensible when the residual water is nearly immobile and the contact with the mobile domain is slight, and becomes less so as the drained interval becomes wetter.
 
-\item \textbf{Solute in residual water is not represented.} Only the sorbed phase is stranded. Solute held by the water that does not drain is returned to the mobile domain as it is without the option, so the option does not remove the effect of drainage on the simulated concentration; it removes the part of that effect that comes from the solid phase. For a strongly sorbing solute that part is the larger one, and for a solute that does not sorb the option has no effect at all.
+\item \textbf{The retained water is taken from the specific yield.} The volume of water that stays behind is the difference between the change in the mobile water volume and the water released to storage, so it is whatever the porosity of the transport model and the specific yield of the flow model imply. That is a strength, in that the two models cannot disagree about it and no value has to be estimated, and a limitation, in that a simulation whose specific yield was calibrated to reproduce heads rather than measured as a drainable porosity will carry that choice into the transport solution.
+
+\item \textbf{The unsaturated zone packages are not accounted for.} The Unsaturated Zone Flow (UZF) Package and the Unsaturated Zone Transport (UZT) Package represent the drained part of a cell explicitly, and the MST Package has no knowledge of them. A simulation that uses UZF and UZT together with this option represents the same drained volume twice, once as water and solute moving through the unsaturated zone and once as mass held out of the mobile domain, and the two representations do not agree with one another: UZT carries no sorbed phase and no decay, whereas the stranded mass carries both. The option is intended for simulations that do not represent the unsaturated zone explicitly, and it should not be used together with UZT.
 
 \item \textbf{The distribution within the drained interval is uniform.} The share of the stranded mass that returns is proportional to the share of the drained interval that rewets. A water table that falls slowly and rises quickly, or a cell that is thick relative to the range of the water table, will return mass in a different order than a model that resolved the vertical distribution would.
 
