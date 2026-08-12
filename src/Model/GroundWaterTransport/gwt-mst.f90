@@ -11,7 +11,7 @@ module GwtMstModule
 
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DONE, DZERO, IZERO, DTWO, DHALF, LENBUDTXT, &
-                             MAXCHARLEN, MNORMAL, LINELENGTH, DHNOFLO
+                             MAXCHARLEN, MNORMAL, LINELENGTH, DHNOFLO, DNODATA
   use SimVariablesModule, only: errmsg, warnmsg
   use SimModule, only: store_error, count_errors, &
                        store_warning, store_error_filename
@@ -99,6 +99,8 @@ module GwtMstModule
     procedure :: mst_ar
     procedure :: mst_fc
     procedure :: mst_fc_sto
+    procedure :: mst_vold
+    procedure :: mst_satold
     procedure :: mst_fc_dcy
     procedure :: mst_fc_srb
     procedure :: mst_fc_dcy_srb
@@ -178,17 +180,7 @@ contains
     !
     ! -- Source options
     call this%source_options()
-    !
-    ! -- Only sorbed mass is stranded, so the option does nothing without
-    !    sorption.  Turning it off here keeps the reservoirs and their budget
-    !    out of a run that cannot use them.
-    if (this%istrand /= IZERO .and. this%isrb == SORPTION_OFF) then
-      write (warnmsg, '(a)') 'STRANDED_MASS was specified but SORPTION was &
-        &not.  Stranded mass applies to sorbed mass, so the option has no &
-        &effect and is being turned off.'
-      call store_warning(warnmsg)
-      this%istrand = IZERO
-    end if
+
     !
     ! -- store pointers to arguments that were passed in
     this%dis => dis
@@ -207,6 +199,7 @@ contains
     if (this%istrand /= IZERO) then
       allocate (this%strand)
       call this%strand%init(this%name_model, 'MST-STRND', dis%nodes)
+
       call budget_cr(this%strandbudget, this%memoryPath)
       call this%strandbudget%budget_df(NBDITEMS_STRAND, 'MASS', 'M', &
                                        bdzone=this%packName)
@@ -275,7 +268,7 @@ contains
   subroutine mst_fc_strand(this, nodes, nja, matrix_sln, idxglo, rhs, cnew)
     ! -- modules
     use TdisModule, only: delt
-    use StrandedMassModule, only: return_fraction
+    use StrandedMassModule, only: return_fraction, retained_volume
     ! -- dummy
     class(GwtMstType) :: this !< GwtMstType object
     integer, intent(in) :: nodes !< number of nodes
@@ -290,6 +283,7 @@ contains
     real(DP) :: hhcof, rrhs
     real(DP) :: vcell, volfracm, rhobm
     real(DP) :: sat_new, sat_old, ds, dw
+    real(DP) :: vret, released
     real(DP) :: swtpdt
     !
     tled = DONE / delt
@@ -304,7 +298,9 @@ contains
       rhobm = DZERO
       if (this%isrb /= SORPTION_OFF) rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%fmi%gwfsatold(n, delt)
+      sat_old = this%mst_satold(n, delt)
+      released = DZERO
+      if (this%fmi%igwfstrgsy /= 0) released = this%fmi%gwfstrgsy(n) * delt
       !
       if (sat_new < sat_old) then
         !
@@ -312,11 +308,21 @@ contains
         !    are held out of the mobile domain.  The isotherm is linearized
         !    about cnew in the same way as the sorption term.
         ds = sat_old - sat_new
-        hhcof = -ds * vcell * volfracm * rhobm * &
-                this%isotherm%derivative(cnew, n) * tled
-        rrhs = ds * vcell * volfracm * rhobm * &
-               (this%isotherm%value(cnew, n) - &
-                this%isotherm%derivative(cnew, n) * cnew(n)) * tled
+        !
+        ! -- water that is retained against drainage keeps its solute
+        vret = retained_volume(ds, vcell, this%thetam(n), released)
+        hhcof = -vret * tled
+        rrhs = DZERO
+        !
+        ! -- the sorbed phase contributes only when sorption is active, and
+        !    the isotherm is not created otherwise
+        if (this%isrb /= SORPTION_OFF) then
+          hhcof = hhcof - ds * vcell * volfracm * rhobm * &
+                  this%isotherm%derivative(cnew, n) * tled
+          rrhs = ds * vcell * volfracm * rhobm * &
+                 (this%isotherm%value(cnew, n) - &
+                  this%isotherm%derivative(cnew, n) * cnew(n)) * tled
+        end if
         idiag = this%dis%con%ia(n)
         call matrix_sln%add_value_pos(idxglo(idiag), hhcof)
         rhs(n) = rhs(n) + rrhs
@@ -332,6 +338,70 @@ contains
       end if
     end do
   end subroutine mst_fc_strand
+
+  !> @ brief Saturation of a cell at the end of the previous time step
+  !!
+  !!  When stranded mass is active the saturation of the previous time step is
+  !!  stored, and it is used in place of the value reconstructed from the
+  !!  storage flow so that the mass held back cancels the mass the storage terms
+  !!  release.
+  !<
+  function mst_satold(this, n, delt) result(sat_old)
+    ! -- modules
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    integer(I4B), intent(in) :: n !< cell number
+    real(DP), intent(in) :: delt !< length of the time step
+    ! -- return
+    real(DP) :: sat_old
+
+    if (this%istrand /= IZERO) then
+      if (this%strand%sat_old(n) /= DNODATA) then
+        sat_old = this%strand%sat_old(n)
+        return
+      end if
+    end if
+    sat_old = this%fmi%gwfsatold(n, delt)
+  end function mst_satold
+
+  !> @ brief Water volume of a cell at the end of the previous time step
+  !!
+  !!  The storage flow of the flow model releases only the drainable part of
+  !!  the pore space, so reconstructing the old volume from it understates the
+  !!  volume whenever the specific yield is less than the mobile porosity. When
+  !!  stranded mass is active the saturation of the previous time step is known,
+  !!  and the volume is calculated from it directly. The flow released by
+  !!  compression is kept, because it is water that left the cell.
+  !<
+  function mst_vold(this, n, vnew, delt) result(vold)
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    integer(I4B), intent(in) :: n !< cell number
+    real(DP), intent(in) :: vnew !< water volume at the end of this time step
+    real(DP), intent(in) :: delt !< length of the time step
+    ! -- return
+    real(DP) :: vold
+    ! -- local
+    real(DP) :: vcell
+
+    !
+    ! -- the saturation of the previous time step is not known until the end of
+    !    the first time step, because the flow model interface is not connected
+    !    when the package is read, so the first time step uses the reconstructed
+    !    volume as it would without the option
+    if (this%istrand /= IZERO) then
+      if (this%strand%sat_old(n) /= DNODATA) then
+        vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+        vold = vcell * this%strand%sat_old(n) * this%thetam(n)
+        if (this%fmi%igwfstrgss /= 0) vold = vold + this%fmi%gwfstrgss(n) * delt
+        return
+      end if
+    end if
+
+    vold = vnew
+    if (this%fmi%igwfstrgss /= 0) vold = vold + this%fmi%gwfstrgss(n) * delt
+    if (this%fmi%igwfstrgsy /= 0) vold = vold + this%fmi%gwfstrgsy(n) * delt
+  end function mst_vold
 
   !> @ brief Fill storage coefficient method for package
   !!
@@ -366,9 +436,7 @@ contains
       ! -- calculate new and old water volumes
       vnew = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n)) * &
              this%fmi%gwfsat(n) * this%thetam(n)
-      vold = vnew
-      if (this%fmi%igwfstrgss /= 0) vold = vold + this%fmi%gwfstrgss(n) * delt
-      if (this%fmi%igwfstrgsy /= 0) vold = vold + this%fmi%gwfstrgsy(n) * delt
+      vold = this%mst_vold(n, vnew, delt)
       !
       ! -- add terms to diagonal and rhs accumulators
       hhcof = -vnew * tled
@@ -479,7 +547,7 @@ contains
       volfracm = this%get_volfracm(n)
       rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%fmi%gwfsatold(n, delt)
+      sat_old = this%mst_satold(n, delt)
 
       ! -- Matrix contribution for sorption term
       hhcof = -volfracm * rhobm * sat_new * this%isotherm%derivative(cnew, n) &
@@ -650,7 +718,7 @@ contains
     ! -- modules
     use TdisModule, only: delt
     use StrandedMassModule, only: strand_rate_sorbed, return_fraction, &
-                                  decay_amount
+                                  decay_amount, retained_volume
     ! -- dummy
     class(GwtMstType) :: this !< GwtMstType object
     integer(I4B), intent(in) :: nodes !< number of nodes
@@ -664,6 +732,7 @@ contains
     real(DP) :: lambda_aq, lambda_srb
     real(DP) :: vcell, volfracm, rhobm
     real(DP) :: sat_new, sat_old, ds, dw, f
+    real(DP) :: released
     logical :: decay_strand
     !
     tled = DONE / delt
@@ -690,7 +759,9 @@ contains
       rhobm = DZERO
       if (this%isrb /= SORPTION_OFF) rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%fmi%gwfsatold(n, delt)
+      sat_old = this%mst_satold(n, delt)
+      released = DZERO
+      if (this%fmi%igwfstrgsy /= 0) released = this%fmi%gwfstrgsy(n) * delt
       !
       ! -- maq and msrb are the mass added to each reservoir over the step,
       !    negative when mass returns to the mobile domain
@@ -700,8 +771,11 @@ contains
         !
         ! -- draining, mass leaves the mobile domain
         ds = sat_old - sat_new
-        msrb = strand_rate_sorbed(ds, vcell, volfracm, rhobm, &
-                                  this%isotherm%value(cnew, n), delt) * delt
+        maq = retained_volume(ds, vcell, this%thetam(n), released) * cnew(n)
+        if (this%isrb /= SORPTION_OFF) then
+          msrb = strand_rate_sorbed(ds, vcell, volfracm, rhobm, &
+                                    this%isotherm%value(cnew, n), delt) * delt
+        end if
         this%strand%held(n) = this%strand%held(n) + ds
       else if (sat_new > sat_old) then
         !
@@ -745,6 +819,9 @@ contains
       !    reservoir budget closes by construction
       call accumulate_strandterm(this%budterm_strand, 1, -(maq - daq) * tled)
       call accumulate_strandterm(this%budterm_strand, 2, -(msrb - dsrb) * tled)
+      !
+      ! -- remember where the water table was, for the next time step
+      this%strand%sat_old(n) = sat_new
     end do
   end subroutine mst_cq_strand
 
@@ -796,9 +873,7 @@ contains
       ! -- calculate new and old water volumes
       vnew = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n)) * &
              this%fmi%gwfsat(n) * this%thetam(n)
-      vold = vnew
-      if (this%fmi%igwfstrgss /= 0) vold = vold + this%fmi%gwfstrgss(n) * delt
-      if (this%fmi%igwfstrgsy /= 0) vold = vold + this%fmi%gwfstrgsy(n) * delt
+      vold = this%mst_vold(n, vnew, delt)
       !
       ! -- calculate rate
       hhcof = -vnew * tled
@@ -909,7 +984,7 @@ contains
       rhobm = this%bulk_density(n)
       volfracm = this%get_volfracm(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%fmi%gwfsatold(n, delt)
+      sat_old = this%mst_satold(n, delt)
 
       ! -- Matrix contribution for sorption term
       contribution = -volfracm * rhobm * sat_new &
