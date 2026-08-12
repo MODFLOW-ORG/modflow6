@@ -163,7 +163,6 @@ description real value that is used to convert user-specified density units into
 default_value 1.0
 mf6internal dfac
 
-
 block options
 name swr_off
 tagged true
