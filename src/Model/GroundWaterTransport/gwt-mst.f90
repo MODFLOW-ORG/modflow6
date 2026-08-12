@@ -86,7 +86,6 @@ module GwtMstModule
     ! -- stranded mass
     integer(I4B), pointer :: istrand => null() !< stranded mass active flag
     integer(I4B), pointer :: ioutstranded => null() !< unit number for stranded mass output
-    real(DP), dimension(:), pointer, contiguous :: theta_r => null() !< residual water content, volume of water that does not drain per aquifer volume
     real(DP), dimension(:), pointer, contiguous :: cstrand => null() !< stranded mass held in each cell
     type(StrandedMassType), pointer :: strand => null() !< stranded mass reservoirs
     type(BudgetType), pointer :: strandbudget => null() !< budget of the reservoirs
@@ -179,6 +178,17 @@ contains
     !
     ! -- Source options
     call this%source_options()
+    !
+    ! -- Only sorbed mass is stranded, so the option does nothing without
+    !    sorption.  Turning it off here keeps the reservoirs and their budget
+    !    out of a run that cannot use them.
+    if (this%istrand /= IZERO .and. this%isrb == SORPTION_OFF) then
+      write (warnmsg, '(a)') 'STRANDED_MASS was specified but SORPTION was &
+        &not.  Stranded mass applies to sorbed mass, so the option has no &
+        &effect and is being turned off.'
+      call store_warning(warnmsg)
+      this%istrand = IZERO
+    end if
     !
     ! -- store pointers to arguments that were passed in
     this%dis => dis
@@ -302,18 +312,11 @@ contains
         !    are held out of the mobile domain.  The isotherm is linearized
         !    about cnew in the same way as the sorption term.
         ds = sat_old - sat_new
-        hhcof = -ds * vcell * this%theta_r(n) * tled
-        rrhs = DZERO
-        !
-        ! -- the sorbed phase contributes only when sorption is active, and
-        !    the isotherm is not created otherwise
-        if (this%isrb /= SORPTION_OFF) then
-          hhcof = hhcof - ds * vcell * volfracm * rhobm * &
-                  this%isotherm%derivative(cnew, n) * tled
-          rrhs = ds * vcell * volfracm * rhobm * &
-                 (this%isotherm%value(cnew, n) - &
-                  this%isotherm%derivative(cnew, n) * cnew(n)) * tled
-        end if
+        hhcof = -ds * vcell * volfracm * rhobm * &
+                this%isotherm%derivative(cnew, n) * tled
+        rrhs = ds * vcell * volfracm * rhobm * &
+               (this%isotherm%value(cnew, n) - &
+                this%isotherm%derivative(cnew, n) * cnew(n)) * tled
         idiag = this%dis%con%ia(n)
         call matrix_sln%add_value_pos(idxglo(idiag), hhcof)
         rhs(n) = rhs(n) + rrhs
@@ -646,8 +649,8 @@ contains
   subroutine mst_cq_strand(this, nodes, cnew, flowja)
     ! -- modules
     use TdisModule, only: delt
-    use StrandedMassModule, only: strand_rate_aqueous, strand_rate_sorbed, &
-                                  return_fraction, decay_amount
+    use StrandedMassModule, only: strand_rate_sorbed, return_fraction, &
+                                  decay_amount
     ! -- dummy
     class(GwtMstType) :: this !< GwtMstType object
     integer(I4B), intent(in) :: nodes !< number of nodes
@@ -697,12 +700,8 @@ contains
         !
         ! -- draining, mass leaves the mobile domain
         ds = sat_old - sat_new
-        maq = strand_rate_aqueous(ds, vcell, this%theta_r(n), cnew(n), delt) * &
-              delt
-        if (this%isrb /= SORPTION_OFF) then
-          msrb = strand_rate_sorbed(ds, vcell, volfracm, rhobm, &
-                                    this%isotherm%value(cnew, n), delt) * delt
-        end if
+        msrb = strand_rate_sorbed(ds, vcell, volfracm, rhobm, &
+                                  this%isotherm%value(cnew, n), delt) * delt
         this%strand%held(n) = this%strand%held(n) + ds
       else if (sat_new > sat_old) then
         !
@@ -1290,7 +1289,6 @@ contains
       call mem_deallocate(this%ratedcys)
       call mem_deallocate(this%istrand)
       call mem_deallocate(this%ioutstranded)
-      call mem_deallocate(this%theta_r)
       call mem_deallocate(this%cstrand)
       this%ibound => null()
       this%fmi => null()
@@ -1391,10 +1389,8 @@ contains
     !
     ! -- strand
     if (this%istrand == IZERO) then
-      call mem_allocate(this%theta_r, 1, 'THETA_R', this%memoryPath)
       call mem_allocate(this%cstrand, 1, 'CSTRAND', this%memoryPath)
     else
-      call mem_allocate(this%theta_r, nodes, 'THETA_R', this%memoryPath)
       call mem_allocate(this%cstrand, nodes, 'CSTRAND', this%memoryPath)
     end if
     !
@@ -1441,9 +1437,6 @@ contains
     do n = 1, size(this%ratedcys)
       this%ratedcys(n) = DZERO
       this%decayslast(n) = DZERO
-    end do
-    do n = 1, size(this%theta_r)
-      this%theta_r(n) = DZERO
     end do
     do n = 1, size(this%cstrand)
       this%cstrand(n) = DZERO
@@ -1630,12 +1623,6 @@ contains
       if (asize > 0) &
         call mem_reallocate(this%sp2, this%dis%nodes, 'SP2', this%memoryPath)
     end if
-    if (this%istrand == IZERO) then
-      call get_isize('THETA_R', this%input_mempath, asize)
-      if (asize > 0) &
-        call mem_reallocate(this%theta_r, this%dis%nodes, 'THETA_R', &
-                            this%memoryPath)
-    end if
     !
     ! -- update defaults with memory sourced values
     call mem_set_value(this%porosity, 'POROSITY', this%input_mempath, map, &
@@ -1650,8 +1637,6 @@ contains
                        found%distcoef)
     call mem_set_value(this%sp2, 'SP2', this%input_mempath, map, &
                        found%sp2)
-    call mem_set_value(this%theta_r, 'THETA_R', this%input_mempath, map, &
-                       found%theta_r)
 
     ! -- log options
     if (this%iout > 0) then
@@ -1662,25 +1647,6 @@ contains
     if (.not. found%porosity) then
       write (errmsg, '(a)') 'POROSITY not specified in GRIDDATA block.'
       call store_error(errmsg)
-    end if
-
-    ! -- Check stranded mass input
-    if (found%theta_r .and. this%istrand == IZERO) then
-      write (errmsg, '(a)') 'RESIDUAL_WATER_CONTENT was specified in the &
-        &GRIDDATA block but the STRANDED_MASS keyword was not specified in &
-        &the OPTIONS block.'
-      call store_error(errmsg)
-    end if
-    if (this%istrand /= IZERO .and. found%theta_r) then
-      do n = 1, this%dis%nodes
-        if (this%theta_r(n) > this%porosity(n)) then
-          write (errmsg, '(a,g0,a,1x,i0,1x,a,g0,a)') &
-            'RESIDUAL_WATER_CONTENT (', this%theta_r(n), ') for cell', n, &
-            'is greater than the porosity (', this%porosity(n), ').'
-          call store_error(errmsg)
-          exit
-        end if
-      end do
     end if
 
     ! -- Check for required sorption variables
