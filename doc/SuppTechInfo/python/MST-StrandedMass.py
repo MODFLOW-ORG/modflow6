@@ -212,7 +212,7 @@ PAIRED = {"basesm": "base", "sorbsm": "sorb", "dcysm": "dcy"}
 
 
 def comparison_figure(fname, tags, caption_tags):
-    """Concentration, mass difference, and stranded mass for a set of cases."""
+    """Concentration, solute mass, and stranded mass for a set of cases."""
     with styles.USGSPlot():
         fig, axes = plt.subplots(
             nrows=3,
@@ -241,26 +241,21 @@ def comparison_figure(fname, tags, caption_tags):
         )
 
         ax = axes[1]
-        ax.axhline(0.0, color="0.6", lw=0.6, zorder=0)
         for tag in tags:
-            if tag not in PAIRED or PAIRED[tag] not in tags:
-                continue
             label, color, ls = LOOKUP[tag]
-            base = results[PAIRED[tag]][4]
-            diff = 100.0 * (results[tag][4] - base) / base[0]
-            ax.plot(times, diff, color=color, ls=ls, lw=1.2, label=label)
-        ax.set_ylabel(
-            "Difference in solute mass\nfrom the current approach,\n"
-            "in percent of initial mass"
-        )
-        # -- room below the curves for the explanation
-        ax.set_ylim(-72.0, 55.0)
+            ax.plot(
+                times, results[tag][4] / 1000.0, color=color, ls=ls, lw=1.2, label=label
+            )
+        ax.set_ylabel("Solute mass in the\nmodel, in kilograms")
+        # -- headroom above the curves for the explanation
+        mmax = max(results[tag][4].max() for tag in tags) / 1000.0
+        ax.set_ylim(0.0, 1.42 * mmax)
         ax.tick_params(direction="in", top=True, right=True)
         styles.heading(ax=ax, letter="B")
         styles.graph_legend(
             ax=ax,
             ncols=1,
-            loc="lower right",
+            loc="upper right",
             fontsize=7,
             handlelength=2.0,
             framealpha=0.9,
@@ -329,6 +324,13 @@ for tag, _, _, _, label, _, _ in CASES:
     s = results[tag][3]
     smax = "n/a" if s is None else f"{s.max() / 1000.0:9.1f} kg"
     print(f"{label:38s} c_max={c.max():8.3f}  c_end={c[-1]:8.3f}  strand_max={smax}")
+
+for tag, _, _, _, label, _, _ in CASES:
+    m = results[tag][4] / 1000.0
+    print(
+        f"{label:38s} mass min={m.min():9.1f} kg  max={m.max():9.1f} kg  "
+        f"start={m[0]:9.1f} kg  end={m[-1]:9.1f} kg"
+    )
 
 for tag, ref in PAIRED.items():
     d = 100.0 * (results[tag][4] - results[ref][4]) / results[ref][4][0]
