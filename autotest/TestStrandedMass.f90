@@ -5,9 +5,8 @@ module TestStrandedMass
   use MathUtilModule, only: is_close
   use testdrive, only: check, error_type, new_unittest, test_failed, &
                        to_string, unittest_type
-  use StrandedMassModule, only: strand_rate, strand_rate_aqueous, &
-                                strand_rate_sorbed, return_fraction, &
-                                decay_amount
+  use StrandedMassModule, only: strand_rate_sorbed, retained_volume, &
+                                return_fraction, decay_amount
 
   implicit none
   private
@@ -18,8 +17,9 @@ contains
   subroutine collect_strandedmass(testsuite)
     type(unittest_type), allocatable, intent(out) :: testsuite(:)
     testsuite = [ &
-                new_unittest("strand_rate_no_drainage", &
-                             test_strand_rate_no_drainage), &
+                new_unittest("retained_no_drainage", &
+                             test_retained_no_drainage), &
+                new_unittest("retained_volume", test_retained_volume), &
                 new_unittest("strand_rate_linear", test_strand_rate_linear), &
                 new_unittest("return_fraction_saturated", &
                              test_return_fraction_saturated), &
@@ -34,28 +34,58 @@ contains
                 ]
   end subroutine collect_strandedmass
 
-  !> @brief No drainage strands nothing
+  !> @brief No drainage retains nothing
   !<
-  subroutine test_strand_rate_no_drainage(error)
+  subroutine test_retained_no_drainage(error)
     type(error_type), allocatable, intent(out) :: error
-    real(DP) :: rate
 
-    rate = strand_rate(DZERO, 10.0_DP, 0.05_DP, 1.0_DP, 0.8_DP, 1600.0_DP, &
-                       0.2_DP, 1.0_DP)
-    call check(error, rate == DZERO)
+    call check(error, retained_volume(DZERO, 100.0_DP, 0.3_DP, DZERO) == DZERO)
     if (allocated(error)) return
-  end subroutine test_strand_rate_no_drainage
+    call check(error, strand_rate_sorbed(DZERO, 100.0_DP, 0.9_DP, 1600.0_DP, &
+                                         0.2_DP, 1.0_DP) == DZERO)
+    if (allocated(error)) return
+  end subroutine test_retained_no_drainage
 
-  !> @brief Linear sorption gives ds * vcell * (theta_r + volfracm * rhob * kd) * C / delt
+  !> @brief Water retained against drainage is what the flow model does not release
+  !<
+  subroutine test_retained_volume(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP) :: ds, vcell, thetam, sy, released, thickness
+
+    ds = 0.25_DP
+    thickness = 40.0_DP
+    vcell = 100.0_DP * thickness
+    thetam = 0.3_DP
+
+    ! the flow model releases the drainable part of the pore space, so the
+    ! water that stays behind is the rest of it
+    sy = 0.15_DP
+    released = sy * ds * thickness * (vcell / thickness)
+    call check(error, is_close(retained_volume(ds, vcell, thetam, released), &
+                               (thetam - sy) * ds * vcell))
+    if (allocated(error)) return
+
+    ! a specific yield equal to the porosity retains nothing
+    sy = thetam
+    released = sy * ds * vcell
+    call check(error, retained_volume(ds, vcell, thetam, released) == DZERO)
+    if (allocated(error)) return
+
+    ! a specific yield greater than the porosity cannot retain a negative volume
+    released = 2.0_DP * thetam * ds * vcell
+    call check(error, retained_volume(ds, vcell, thetam, released) == DZERO)
+    if (allocated(error)) return
+  end subroutine test_retained_volume
+
+  !> @brief Sorbed mass stranded by drainage, for a linear isotherm
   !<
   subroutine test_strand_rate_linear(error)
     type(error_type), allocatable, intent(out) :: error
-    real(DP) :: ds, vcell, theta_r, conc, volfracm, rhob, kd, delt
+    real(DP) :: ds, vcell, conc, volfracm, rhob, kd, delt
     real(DP) :: rate, expected
 
     ds = 0.25_DP
     vcell = 100.0_DP
-    theta_r = 0.05_DP
     conc = 3.0_DP
     volfracm = 0.9_DP
     rhob = 1600.0_DP
@@ -63,18 +93,9 @@ contains
     delt = 2.0_DP
 
     ! for a linear isotherm the sorbed concentration is kd * C
-    rate = strand_rate(ds, vcell, theta_r, conc, volfracm, rhob, kd * conc, &
-                       delt)
-    expected = ds * vcell * (theta_r + volfracm * rhob * kd) * conc / delt
+    rate = strand_rate_sorbed(ds, vcell, volfracm, rhob, kd * conc, delt)
+    expected = ds * vcell * volfracm * rhob * kd * conc / delt
     call check(error, is_close(rate, expected))
-    if (allocated(error)) return
-
-    ! the two parts must sum to the total
-    call check(error, is_close(rate, &
-                               strand_rate_aqueous(ds, vcell, theta_r, conc, &
-                                                   delt) + &
-                               strand_rate_sorbed(ds, vcell, volfracm, rhob, &
-                                                  kd * conc, delt)))
     if (allocated(error)) return
   end subroutine test_strand_rate_linear
 
@@ -167,23 +188,23 @@ contains
   !<
   subroutine test_strand_return_inverse(error)
     type(error_type), allocatable, intent(out) :: error
-    real(DP) :: sat_old, sat_new, ds, vcell, theta_r, conc, volfracm, rhob
-    real(DP) :: kd, delt, stranded, returned
+    real(DP) :: ds, vcell, conc, volfracm, rhob, kd, delt, thetam, released
+    real(DP) :: stranded, returned
 
     vcell = 250.0_DP
-    theta_r = 0.06_DP
     conc = 7.5_DP
     volfracm = 0.85_DP
     rhob = 1750.0_DP
     kd = 5.0e-5_DP
     delt = 3.0_DP
+    thetam = 0.3_DP
+    ds = 0.4_DP
+    released = 0.15_DP * ds * vcell
 
-    ! drain from saturated, holding the mass that left the mobile system
-    sat_old = DONE
-    sat_new = 0.4_DP
-    ds = sat_old - sat_new
-    stranded = strand_rate(ds, vcell, theta_r, conc, volfracm, rhob, &
-                           kd * conc, delt) * delt
+    ! drain, holding the solute of the retained water and all of the sorbate
+    stranded = retained_volume(ds, vcell, thetam, released) * conc + &
+               strand_rate_sorbed(ds, vcell, volfracm, rhob, kd * conc, delt) * &
+               delt
 
     ! rewetting all of what drained returns the whole reservoir
     returned = stranded * return_fraction(ds, ds)

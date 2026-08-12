@@ -15,8 +15,8 @@ module StrandedMassModule
   implicit none
   private
   public :: StrandedMassType
-  public :: strand_rate, strand_rate_aqueous, strand_rate_sorbed
-  public :: return_fraction, decay_amount, retained_volume
+  public :: strand_rate_sorbed, retained_volume
+  public :: return_fraction, decay_amount
 
   !> @brief Stranded mass reservoirs for one transport domain
   !!
@@ -104,19 +104,6 @@ contains
     mass = this%stranded_aqueous(n) + this%stranded_sorbed(n)
   end function strand_total
 
-  !> @brief Rate at which solute in residual water is stranded by drainage
-  !<
-  pure function strand_rate_aqueous(ds, vcell, theta_r, conc, delt) result(rate)
-    real(DP), intent(in) :: ds !< decrease in saturation over the step
-    real(DP), intent(in) :: vcell !< cell volume
-    real(DP), intent(in) :: theta_r !< residual water content
-    real(DP), intent(in) :: conc !< solute concentration
-    real(DP), intent(in) :: delt !< length of the time step
-    real(DP) :: rate
-
-    rate = ds * vcell * theta_r * conc / delt
-  end function strand_rate_aqueous
-
   !> @brief Rate at which sorbed solute is stranded by drainage
   !<
   pure function strand_rate_sorbed(ds, vcell, volfracm, rhob, sval, delt) &
@@ -131,24 +118,6 @@ contains
 
     rate = ds * vcell * volfracm * rhob * sval / delt
   end function strand_rate_sorbed
-
-  !> @brief Total rate at which mass is stranded by drainage
-  !<
-  pure function strand_rate(ds, vcell, theta_r, conc, volfracm, rhob, sval, &
-                            delt) result(rate)
-    real(DP), intent(in) :: ds !< decrease in saturation over the step
-    real(DP), intent(in) :: vcell !< cell volume
-    real(DP), intent(in) :: theta_r !< residual water content
-    real(DP), intent(in) :: conc !< solute concentration
-    real(DP), intent(in) :: volfracm !< volume fraction of the domain
-    real(DP), intent(in) :: rhob !< bulk density
-    real(DP), intent(in) :: sval !< sorbed concentration from the isotherm
-    real(DP), intent(in) :: delt !< length of the time step
-    real(DP) :: rate
-
-    rate = strand_rate_aqueous(ds, vcell, theta_r, conc, delt) + &
-           strand_rate_sorbed(ds, vcell, volfracm, rhob, sval, delt)
-  end function strand_rate
 
   !> @brief Volume of water that stays behind when a cell drains
   !!
