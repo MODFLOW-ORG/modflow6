@@ -317,7 +317,9 @@ fig.savefig(figpth / "MSTStrandedMassHead.pdf", dpi=300)
 print(f"Saved {figpth / 'MSTStrandedMassHead.pdf'}")
 
 # -- figure 2, without decay; figure 3, with decay
-comparison_figure("MSTStrandedMassNoSorption.pdf", ["base", "basesm"], None)
+comparison_figure(
+    "MSTStrandedMassNoSorption.pdf", ["base", "basesm"], None, legend_ncols=2
+)
 comparison_figure(
     "MSTStrandedMassSorption.pdf",
     ["sorb", "sorbsm", "dcy", "dcysm"],
