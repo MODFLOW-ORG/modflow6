@@ -82,17 +82,35 @@ Immobile domains are not supported in the present implementation. Specifying STR
 
 \subsection{Example: Oscillating Water Table}
 
-The effect of the option is shown for a single cell whose water table rises and falls. The cell is 100 by 100 meters in plan, extends from an elevation of 40 meters to an elevation of 0 meters, and has a mobile-domain porosity of 0.3 and a specific yield of 0.3. A constant head in the cell next to it varies sinusoidally with a period of 100 days about a mean of 24 meters with an amplitude of 14 meters, so that the saturation of the cell varies between about 0.25 and 0.95 over four cycles (fig.~\ref{fig:strandedmass}\textit{A}). The initial concentration is 100 grams per cubic meter throughout, and water entering through the constant head has a concentration of zero. Sorption is represented with a linear isotherm using a bulk density of 1,600 kilograms per cubic meter and a distribution coefficient of $1 \times 10^{-4}$ cubic meters per kilogram; where decay is active, the first-order rate is 0.005 per day for both the dissolved and the sorbed phase.
-
-Five transport simulations were run on the same flow field. Simulated concentrations (fig.~\ref{fig:strandedmass}\textit{B}) rise as the cell drains in every case, because the water that remains occupies a smaller volume. Without sorption the peak concentration reaches 376 grams per cubic meter. Adding sorption lowers the peak to 313 grams per cubic meter, because sorbate buffers the dissolved concentration. Activating the stranded mass option lowers the peak further, to 261 grams per cubic meter, a reduction of 17 percent, because the sorbate that the cell gives up as it drains is held out of the mobile domain instead of being redissolved. With first-order decay active the peak concentration falls from 193 to 167 grams per cubic meter, a reduction of 13 percent.
-
-The mass held out of the mobile domain (fig.~\ref{fig:strandedmass}\textit{C}) rises and falls with the water table, reaching about 2,400 kilograms at the driest part of each cycle and returning nearly to zero when the cell refills. With decay active the stranded mass is smaller, both because the concentration in the cell is lower and because the stranded mass decays while it is held, and the peak decreases over successive cycles. The percent discrepancy of the model budget remained at 0.00 for every time step of all five simulations.
+The effect of the option is shown for a single cell whose water table rises and falls. The cell is 100 by 100 meters in plan, extends from an elevation of 40 meters to an elevation of 0 meters, and has a mobile-domain porosity of 0.3 and a specific yield of 0.3. A constant head in the cell next to it varies sinusoidally with a period of 100 days about a mean of 24 meters with an amplitude of 14 meters, so that the saturation of the cell varies between about 0.26 and 0.95 over four cycles (fig.~\ref{fig:strandedmasshead}). The initial concentration is 100 grams per cubic meter throughout, and water entering through the constant head has a concentration of zero. Where sorption is active it is represented with a linear isotherm using a bulk density of 1,600 kilograms per cubic meter and a distribution coefficient of $1 \times 10^{-4}$ cubic meters per kilogram; where decay is active, the first-order rate is 0.005 per day for both the dissolved and the sorbed phase. A time step of one day is used throughout.
 
 \begin{figure}[!ht]
 	\begin{center}
-	\includegraphics{./Figures/MSTStrandedMass.pdf}
-	\caption[Graphs showing the effect of the stranded mass option for a cell with an oscillating water table]{Graphs showing the effect of the stranded mass option of the MST Package for a cell with an oscillating water table. The cell extends from an elevation of 40 meters to an elevation of 0 meters and has a mobile-domain porosity of 0.3, a specific yield of 0.3, a bulk density of 1,600 kilograms per cubic meter, a distribution coefficient of $1 \times 10^{-4}$ cubic meters per kilogram, and an initial concentration of 100 grams per cubic meter. \textit{A}, Simulated head in the cell and the corresponding water saturation; \textit{B}, simulated concentration for five combinations of sorption, first-order decay, and the stranded mass option; \textit{C}, mass held out of the mobile domain for the two simulations that use the stranded mass option}
-	\label{fig:strandedmass}
+	\includegraphics{./Figures/MSTStrandedMassHead.pdf}
+	\caption[Graph showing the simulated head and water saturation for the oscillating water table example]{Graph showing the simulated head in the tested cell and the corresponding water saturation for the oscillating water table example. The cell extends from an elevation of 40 meters to an elevation of 0 meters, and the constant head in the cell next to it varies sinusoidally with a period of 100 days about a mean of 24 meters with an amplitude of 14 meters}
+	\label{fig:strandedmasshead}
+	\end{center}
+\end{figure}
+
+Simulated concentrations rise as the cell drains in every case, because the water that remains occupies a smaller volume. Without decay (fig.~\ref{fig:strandedmassnodecay}\textit{A}), the peak concentration reaches 390 grams per cubic meter when sorption is not active. Adding sorption lowers the peak to 289 grams per cubic meter, because sorbate buffers the dissolved concentration. Activating the stranded mass option lowers the peak further, to 246 grams per cubic meter, a reduction of 15 percent, because the sorbate that the cell gives up as it drains is held out of the mobile domain instead of being redissolved. The mass held out of the mobile domain (fig.~\ref{fig:strandedmassnodecay}\textit{B}) rises and falls with the water table, reaching about 2,180 kilograms at the driest part of each cycle and returning nearly to zero when the cell refills. Successive cycles repeat, because the mass that is held back in one cycle is returned in the next.
+
+\begin{figure}[!ht]
+	\begin{center}
+	\includegraphics{./Figures/MSTStrandedMassNoDecay.pdf}
+	\caption[Graphs comparing simulated concentrations with and without the stranded mass option for the oscillating water table example]{Graphs comparing simulated concentrations with and without the stranded mass option of the MST Package for the oscillating water table example shown in figure~\ref{fig:strandedmasshead}, without decay. The cell has a mobile-domain porosity of 0.3, a specific yield of 0.3, a bulk density of 1,600 kilograms per cubic meter, a distribution coefficient of $1 \times 10^{-4}$ cubic meters per kilogram, and an initial concentration of 100 grams per cubic meter. \textit{A}, Simulated concentration without sorption, with sorption, and with sorption and the stranded mass option; \textit{B}, mass held out of the mobile domain}
+	\label{fig:strandedmassnodecay}
+	\end{center}
+\end{figure}
+
+With first-order decay active (fig.~\ref{fig:strandedmassdecay}\textit{A}), concentrations decrease from cycle to cycle as mass is lost from the simulation. The peak concentration in the first cycle is 265 grams per cubic meter without sorption, 192 grams per cubic meter with sorption, and 167 grams per cubic meter with sorption and the stranded mass option, a reduction of 13 percent. The mass held out of the mobile domain (fig.~\ref{fig:strandedmassdecay}\textit{B}) reaches about 1,440 kilograms in the first cycle and decreases in successive cycles, both because the concentration in the cell is lower and because the stranded mass decays while it is held. Comparing figures~\ref{fig:strandedmassnodecay} and~\ref{fig:strandedmassdecay} shows that the option changes the simulated concentration in the same direction and by a similar proportion whether or not decay is active.
+
+The percent discrepancy of the model budget remained at 0.00 for every time step of all six simulations.
+
+\begin{figure}[!ht]
+	\begin{center}
+	\includegraphics{./Figures/MSTStrandedMassDecay.pdf}
+	\caption[Graphs comparing simulated concentrations with and without the stranded mass option, with first-order decay, for the oscillating water table example]{Graphs comparing simulated concentrations with and without the stranded mass option of the MST Package for the oscillating water table example shown in figure~\ref{fig:strandedmasshead}, with first-order decay. The first-order decay rate is 0.005 per day for both the dissolved and the sorbed phase; the remaining properties are the same as those given in figure~\ref{fig:strandedmassnodecay}. \textit{A}, Simulated concentration without sorption, with sorption, and with sorption and the stranded mass option; \textit{B}, mass held out of the mobile domain}
+	\label{fig:strandedmassdecay}
 	\end{center}
 \end{figure}
 

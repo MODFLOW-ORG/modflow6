@@ -1,5 +1,5 @@
 """
-Figure showing the effect of the MST stranded mass option on a cell with an
+Figures showing the effect of the MST stranded mass option on a cell with an
 oscillating water table.
 
 A single active cell is drained and rewetted by a sinusoidal head in the cell
@@ -11,8 +11,8 @@ next to it. Five transport simulations are run on the same flow field:
   sorp+decay      sorption and first-order decay, stranded mass off
   sorp+decay+SM   sorption and first-order decay, stranded mass on
 
-Panel A shows the head, panel B the simulated concentration, and panel C the
-mass held out of the mobile domain.
+Three figures are written: the oscillating water table, the comparison without
+decay, and the comparison with decay.
 """
 
 import subprocess
@@ -40,8 +40,8 @@ KD = 1.0e-4
 CINIT = 100.0
 DECAY = 5.0e-3
 
-PERLEN = 5.0
-NPER = 80
+PERLEN = 1.0
+NPER = 400
 TCYCLE = 100.0
 HMEAN, HAMP = 24.0, 14.0
 
@@ -166,6 +166,7 @@ CASES = [
     ("base", False, False, False, "no sorption", "0.45", "-"),
     ("sorb", True, False, False, "sorption", "#1f77b4", "-"),
     ("sorbsm", True, False, True, "sorption, stranded mass", "#d62728", "-"),
+    ("basedcy", False, True, False, "no sorption, decay", "0.45", "--"),
     ("dcy", True, True, False, "sorption and decay", "#1f77b4", "--"),
     ("dcysm", True, True, True, "sorption and decay, stranded mass", "#d62728", "--"),
 ]
@@ -179,72 +180,91 @@ with tempfile.TemporaryDirectory() as tmp:
 times = results["base"][0]
 heads = results["base"][1]
 
-with styles.USGSPlot():
-    fig, axes = plt.subplots(
-        nrows=3, ncols=1, figsize=(6.8, 7.0), sharex=True, constrained_layout=True
-    )
+figpth = Path(__file__).resolve().parent.parent / "Figures"
 
-    # -- A, head and saturation
-    ax = axes[0]
+
+def comparison_figure(fname, tags, caption_tags):
+    """Concentration and stranded mass for a set of cases."""
+    with styles.USGSPlot():
+        fig, axes = plt.subplots(
+            nrows=2,
+            ncols=1,
+            figsize=(6.8, 5.4),
+            sharex=True,
+            constrained_layout=True,
+        )
+
+        ax = axes[0]
+        for tag in tags:
+            label, color, ls = LOOKUP[tag]
+            ax.plot(times, results[tag][2], color=color, ls=ls, lw=1.2, label=label)
+        ax.set_ylabel("Concentration, in grams\nper cubic meter")
+        ax.set_ylim(0.0, 480.0)
+        ax.tick_params(direction="in", top=True, right=True)
+        styles.heading(ax=ax, letter="A")
+        styles.graph_legend(
+            ax=ax,
+            ncols=1,
+            loc="upper right",
+            fontsize=7,
+            handlelength=2.0,
+            framealpha=0.9,
+            edgecolor="0.7",
+        )
+
+        ax = axes[1]
+        for tag in tags:
+            if results[tag][3] is None:
+                continue
+            label, color, ls = LOOKUP[tag]
+            ax.plot(
+                times,
+                results[tag][3] / 1000.0,
+                color=color,
+                ls=ls,
+                lw=1.2,
+                label=label,
+            )
+        ax.set_ylabel("Stranded mass, in kilograms")
+        ax.set_ylim(0.0, 2800.0)
+        ax.set_xlabel("Time, in days")
+        ax.set_xlim(0.0, times[-1])
+        ax.tick_params(direction="in", top=True, right=True)
+        styles.heading(ax=ax, letter="B")
+        styles.graph_legend(
+            ax=ax,
+            ncols=1,
+            loc="upper right",
+            fontsize=7,
+            handlelength=2.0,
+            framealpha=0.9,
+            edgecolor="0.7",
+        )
+
+    fig.savefig(figpth / fname, dpi=300)
+    print(f"Saved {figpth / fname}")
+
+
+LOOKUP = {tag: (label, color, ls) for tag, _, _, _, label, color, ls in CASES}
+
+# -- figure 1, the oscillating water table
+with styles.USGSPlot():
+    fig, ax = plt.subplots(figsize=(6.8, 2.6), constrained_layout=True)
     ax.plot(times, heads, color="black", lw=1.2)
     ax.set_ylabel("Head, in meters")
+    ax.set_xlabel("Time, in days")
     ax.set_ylim(0.0, TOP)
+    ax.set_xlim(0.0, times[-1])
     ax.tick_params(direction="in", top=True, right=True)
     ax2 = ax.twinx()
     ax2.set_ylim(0.0, 1.0)
     ax2.set_ylabel("Saturation")
-    styles.heading(ax=ax, letter="A")
+fig.savefig(figpth / "MSTStrandedMassHead.pdf", dpi=300)
+print(f"Saved {figpth / 'MSTStrandedMassHead.pdf'}")
 
-    # -- B, concentration
-    ax = axes[1]
-    for tag, _, _, _, label, color, ls in CASES:
-        ax.plot(times, results[tag][2], color=color, ls=ls, lw=1.2, label=label)
-    ax.set_ylabel("Concentration, in grams per cubic meter")
-    ax.set_ylim(0.0, 480.0)
-    ax.tick_params(direction="in", top=True, right=True)
-    styles.heading(ax=ax, letter="B")
-    styles.graph_legend(
-        ax=ax,
-        ncols=2,
-        loc="upper center",
-        fontsize=7,
-        handlelength=2.0,
-        framealpha=0.9,
-        edgecolor="0.7",
-    )
-
-    # -- C, mass held out of the mobile domain
-    ax = axes[2]
-    for tag, _, _, _, label, color, ls in CASES:
-        if results[tag][3] is None:
-            continue
-        ax.plot(
-            times,
-            results[tag][3] / 1000.0,
-            color=color,
-            ls=ls,
-            lw=1.2,
-            label=label,
-        )
-    ax.set_ylabel("Stranded mass, in kilograms")
-    ax.set_ylim(0.0, 3200.0)
-    ax.set_xlabel("Time, in days")
-    ax.set_xlim(0.0, times[-1])
-    ax.tick_params(direction="in", top=True, right=True)
-    styles.heading(ax=ax, letter="C")
-    styles.graph_legend(
-        ax=ax,
-        ncols=1,
-        loc="upper right",
-        fontsize=7,
-        handlelength=2.0,
-        framealpha=0.9,
-        edgecolor="0.7",
-    )
-
-figpth = Path(__file__).resolve().parent.parent / "Figures"
-fig.savefig(figpth / "MSTStrandedMass.pdf", dpi=300)
-print(f"Saved {figpth / 'MSTStrandedMass.pdf'}")
+# -- figure 2, without decay; figure 3, with decay
+comparison_figure("MSTStrandedMassNoDecay.pdf", ["base", "sorb", "sorbsm"], None)
+comparison_figure("MSTStrandedMassDecay.pdf", ["basedcy", "dcy", "dcysm"], None)
 
 # -- summary numbers quoted in the chapter text
 for tag, _, _, _, label, _, _ in CASES:
