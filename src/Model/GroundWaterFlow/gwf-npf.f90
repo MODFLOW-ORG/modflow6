@@ -560,7 +560,10 @@ contains
 
   !> @brief Saturation implied by the heads the simulation starts from
   !!
-  !! Saturation is not evaluated from the initial heads until the first solve.
+  !! Saturation is initialized to one during allocate and read so that the
+  !! saturated conductance can be calculated, and is not computed from the
+  !! initial heads until the first solve, so a package that needs the
+  !! saturation the first time step starts from has to ask for it.
   !<
   subroutine npf_initial_saturation(this, sat)
     ! -- dummy
@@ -571,6 +574,7 @@ contains
     real(DP) :: satn
     !
     do n = 1, this%dis%nodes
+      satn = DONE
       if (this%icelltype(n) /= 0) then
         !
         ! -- a convertible cell that is inactive at the start, such as one
@@ -581,11 +585,6 @@ contains
         else
           call this%thksat(n, this%ic%strt(n), satn)
         end if
-      else
-        !
-        ! -- a confined cell is saturated, unless THICKSTRT sets its
-        !    saturated thickness from the starting head
-        satn = this%calc_initial_sat(n)
       end if
       sat(n) = satn
     end do
