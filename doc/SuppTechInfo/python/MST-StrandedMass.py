@@ -3,16 +3,15 @@ Figures showing the effect of the MST stranded mass option on a cell with an
 oscillating water table.
 
 A single active cell is drained and rewetted by a sinusoidal head in the cell
-next to it. Five transport simulations are run on the same flow field:
+next to it. Six transport simulations are run on the same flow field, each with
+the stranded mass option off and on:
 
   base            no sorption, no decay
-  sorption        sorption, stranded mass off
-  sorption+SM     sorption, stranded mass on
-  sorp+decay      sorption and first-order decay, stranded mass off
-  sorp+decay+SM   sorption and first-order decay, stranded mass on
+  sorption        sorption
+  sorp+decay      sorption and first-order decay
 
 Three figures are written: the oscillating water table, the comparison without
-decay, and the comparison with decay.
+sorption, and the comparison with sorption.
 """
 
 import subprocess

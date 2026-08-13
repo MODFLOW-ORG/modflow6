@@ -2,10 +2,8 @@
 This test reuses the simulation data and config in
 test_gwt_mst06_stranded_gwtgwt.py and runs it in parallel mode.
 
-The stranded mass reservoirs belong to a cell rather than to a connection, so
-nothing about them crosses the exchange between the two models. This confirms
-that a domain which strands and returns mass gives the same answer whether its
-models are solved on one process or on two.
+A reservoir belongs to a cell rather than to a connection, so nothing about it
+crosses the exchange between the two models.
 """
 
 import pytest
