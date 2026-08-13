@@ -239,10 +239,6 @@ contains
   end subroutine mst_ar
 
   !> @brief Set the saturation that the first time step starts from
-  !!
-  !! Without it the first time step falls back to reconstructing the previous
-  !! saturation from the flow to storage, which is what this option exists to
-  !! avoid, so the mass that the first drainage leaves behind is lost.
   !<
   subroutine mst_set_initial_saturation(this, sat)
     ! -- dummy
@@ -304,9 +300,6 @@ contains
   end subroutine mst_fc
 
   !> @ brief Fill stranded mass coefficient method for package
-  !!
-  !!  Method to calculate and fill the coefficients that hold solute out of
-  !!  the mobile domain as a cell drains and return it as the cell rewets.
   !<
   subroutine mst_fc_strand(this, nodes, nja, matrix_sln, idxglo, rhs, cnew)
     ! -- modules
@@ -384,10 +377,7 @@ contains
 
   !> @ brief Saturation of a cell at the end of the previous time step
   !!
-  !!  When stranded mass is active the saturation of the previous time step is
-  !!  stored, and it is used in place of the value reconstructed from the
-  !!  storage flow so that the mass held back cancels the mass the storage terms
-  !!  release.
+  !!  The stored value is used when stranded mass is active.
   !<
   function mst_satold(this, n, delt) result(sat_old)
     ! -- modules
@@ -409,12 +399,8 @@ contains
 
   !> @ brief Water volume of a cell at the end of the previous time step
   !!
-  !!  The storage flow of the flow model releases only the drainable part of
-  !!  the pore space, so reconstructing the old volume from it understates the
-  !!  volume whenever the specific yield is less than the mobile porosity. When
-  !!  stranded mass is active the saturation of the previous time step is known,
-  !!  and the volume is calculated from it directly. The flow released by
-  !!  compression is kept, because it is water that left the cell.
+  !!  Calculated from the stored saturation when stranded mass is active, and
+  !!  reconstructed from the storage flow otherwise.
   !<
   function mst_vold(this, n, vnew, delt) result(vold)
     ! -- dummy
@@ -752,10 +738,7 @@ contains
 
   !> @ brief Calculate stranded mass terms for package
   !!
-  !!  Method to calculate the mass held out of the mobile domain on drainage
-  !!  and returned on rewetting, and to move it between the mobile domain and
-  !!  the reservoirs.  The reservoirs are updated from the same quantities that
-  !!  are reported to the budget, so the two cannot drift apart.
+  !!  The reservoirs are updated from the quantities reported to the budget.
   !<
   subroutine mst_cq_strand(this, nodes, cnew, flowja)
     ! -- modules
@@ -898,9 +881,7 @@ contains
 
   !> @ brief Decay the stranded mass reservoirs of one cell
   !!
-  !!  Mass held out of the mobile domain decays whether or not the cell is
-  !!  active, so that a cell which stays dry does not return the mass it left
-  !!  with undiminished.
+  !!  Reservoirs decay whether or not the cell is active.
   !<
   subroutine mst_decay_strand(this, n, delt, tled, decay_strand, daq, dsrb)
     ! -- modules
@@ -1413,9 +1394,8 @@ contains
 
   !> @ brief Output the budget of the stranded mass reservoirs
   !!
-  !!  The reservoirs are their own budget zone because decay of stranded mass
-  !!  never passes through the concentration equation, so reporting it in the
-  !!  model budget would leave that budget unpaired.
+  !!  The reservoirs are their own budget zone because their decay never
+  !!  passes through the concentration equation.
   !<
   subroutine mst_ot_bdsummary(this, kstp, kper, iout, ibudfl)
     ! -- modules
