@@ -215,6 +215,22 @@ contains
           &an empty reservoir negative.'
         call store_warning(warnmsg)
       end if
+      !
+      ! -- the volume of water retained against drainage is the difference
+      !    between the change in the mobile water volume and the water the
+      !    flow model releases from storage, so the STO-SY term is required.
+      !    Without it every drained pore volume would be treated as retained.
+      !    A flow model that is coupled to this one supplies the term whenever
+      !    it uses specific yield, so only flows read from a file can lack it.
+      if (this%fmi%flows_from_file .and. this%fmi%igwfstrgsy == 0) then
+        write (errmsg, '(a)') 'STRANDED_MASS is active but the STO-SY flow &
+          &term was not found in the budget file read by the FMI Package. &
+          &Add SAVE_FLOWS to the STO Package of the flow model and rerun it. &
+          &If the flow model does not use specific yield, no cell drains and &
+          &the option has no effect, so remove STRANDED_MASS.'
+        call store_error(errmsg)
+        call store_error_filename(this%input_fname)
+      end if
     end if
   end subroutine mst_ar
 
