@@ -294,6 +294,14 @@ contains
           gwtmodel%fmi%igwfstrgsy = 1
         end if
       end if
+      !
+      ! -- give the transport model the saturation the simulation starts from,
+      !    which the first time step of stranded mass needs and which npf does
+      !    not store, because it initializes saturation for the conductance
+      allocate (satinit(gwfmodel%dis%nodes))
+      call gwfmodel%npf%npf_initial_saturation(satinit)
+      call gwtmodel%mst%mst_set_initial_saturation(satinit)
+      deallocate (satinit)
     end if
     !
     ! -- Set a pointer to conc in buy
