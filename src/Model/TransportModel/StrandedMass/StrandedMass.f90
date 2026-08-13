@@ -1,9 +1,6 @@
 !> @brief Stranded mass left behind by a falling water table
 !!
-!! Solute held by residual water and by the solid phase does not drain with the
-!! water table. This module holds that mass out of the mobile system and returns
-!! it when the cell rewets. Transfers are paired, so mass is conserved by
-!! construction rather than by correction.
+!! Transfers are paired, so mass is conserved by construction.
 !<
 module StrandedMassModule
 
@@ -20,9 +17,7 @@ module StrandedMassModule
 
   !> @brief Stranded mass reservoirs for one transport domain
   !!
-  !! The reservoir is split so that each part decays at the rate belonging to
-  !! its phase. The owning package supplies its own properties; this type never
-  !! reaches into a package.
+  !! The reservoir is split so each part decays at the rate of its phase.
   !<
   type :: StrandedMassType
     character(len=LENMEMPATH) :: memoryPath = '' !< memory path of the reservoir
@@ -121,10 +116,7 @@ contains
 
   !> @brief Volume of water that stays behind when a cell drains
   !!
-  !! The mobile water volume of a cell changes by the porosity times the change
-  !! in saturation, but the flow model only releases the drainable part of it to
-  !! storage. The difference is the water that is retained against drainage, and
-  !! it carries its solute with it.
+  !! The change in mobile water volume less the water released to storage.
   !<
   pure function retained_volume(dsat, vcell, thetam, released) result(vret)
     real(DP), intent(in) :: dsat !< decrease in saturation over the step
@@ -139,11 +131,8 @@ contains
 
   !> @brief Share of the reservoirs returned by rewetting
   !!
-  !! The stranded mass is taken to be spread uniformly through the part of the
-  !! cell that drained while it was held, so the share of that part which
-  !! rewets is returned. Measuring against what drained, rather than against
-  !! the unsaturated part of the cell, makes returning the exact inverse of
-  !! stranding over a full cycle and leaves nothing behind.
+  !! The share of the drained part of the cell that rewets, so that a full
+  !! cycle returns exactly what it stranded.
   !<
   pure function return_fraction(dw, held) result(f)
     real(DP), intent(in) :: dw !< increase in saturation over the step
@@ -160,9 +149,7 @@ contains
 
   !> @brief Mass lost from a reservoir to first-order decay over a step
   !!
-  !! A negative rate is production, following the sign convention of the decay
-  !! rates of the mobile domain, and returns a negative amount. Production is
-  !! proportional to the mass held, so an empty reservoir stays empty.
+  !! A negative rate is production and returns a negative amount.
   !<
   pure function decay_amount(mass, lambda, delt) result(amount)
     real(DP), intent(in) :: mass !< mass held in the reservoir
