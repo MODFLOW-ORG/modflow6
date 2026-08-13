@@ -88,6 +88,8 @@ module GwtMstModule
     integer(I4B), pointer :: istrand => null() !< stranded mass active flag
     integer(I4B), pointer :: ioutstranded => null() !< unit number for stranded mass output
     logical :: warned_sy = .false. !< specific yield above the mobile porosity has been reported
+    logical :: satold_valid = .false. !< the stored saturation of the previous time step can be used
+    logical :: warned_firststep = .false. !< a first time step without a stored saturation has been reported
     real(DP), dimension(:), pointer, contiguous :: cstrand => null() !< stranded mass held in each cell
     type(StrandedMassType), pointer :: strand => null() !< stranded mass reservoirs
     type(BudgetType), pointer :: strandbudget => null() !< budget of the reservoirs
@@ -99,6 +101,7 @@ module GwtMstModule
   contains
 
     procedure :: mst_ar
+    procedure :: mst_set_initial_saturation
     procedure :: mst_fc
     procedure :: mst_fc_sto
     procedure :: mst_vold
@@ -233,6 +236,27 @@ contains
       end if
     end if
   end subroutine mst_ar
+
+  !> @brief Set the saturation that the first time step starts from
+  !!
+  !! Without it the first time step falls back to reconstructing the previous
+  !! saturation from the flow to storage, which is what this option exists to
+  !! avoid, so the mass that the first drainage leaves behind is lost.
+  !<
+  subroutine mst_set_initial_saturation(this, sat)
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    real(DP), dimension(:), intent(in) :: sat !< saturation from the initial heads
+    ! -- local
+    integer(I4B) :: n
+    !
+    if (this%istrand == IZERO) return
+    !
+    do n = 1, this%dis%nodes
+      this%strand%sat_old(n) = sat(n)
+    end do
+    this%satold_valid = .true.
+  end subroutine mst_set_initial_saturation
 
   !> @ brief Fill coefficient method for package
   !!
@@ -793,7 +817,7 @@ contains
         ! -- the flow model cannot drain more water than the mobile domain
         !    holds; if it does, the specific yield exceeds the mobile porosity
         vdrain = ds * vcell * this%thetam(n)
-        if (.not. this%warned_sy .and. ds > DEM6 .and. &
+        if (.not. this%warned_sy .and. this%satold_valid .and. ds > DEM6 .and. &
             released > vdrain * (DONE + DEM6)) then
           write (warnmsg, '(a)') 'Specific yield is greater than the mobile &
             &porosity in at least one cell, so the flow model releases more &
@@ -854,7 +878,26 @@ contains
       !
       ! -- remember where the water table was, for the next time step
       this%strand%sat_old(n) = sat_new
+      !
+      ! -- the saturation the simulation started from is supplied by a flow
+      !    model solved in the same simulation, and cannot be recovered from a
+      !    budget file, whose first record is the end of the first time step
+      if (.not. this%satold_valid .and. .not. this%warned_firststep) then
+        if (abs(sat_new - sat_old) > DEM6) then
+          write (warnmsg, '(a)') 'The water table moved during the first time &
+            &step and the saturation the simulation started from was not &
+            &available, so no mass was stranded then. The saturation is &
+            &supplied by a flow model solved in the same simulation; a &
+            &transport model that reads its flows from a file should begin &
+            &with a stress period during which the water table does not move.'
+          call store_warning(warnmsg)
+          this%warned_firststep = .true.
+        end if
+      end if
     end do
+    !
+    ! -- every cell now carries the saturation it ended this time step with
+    this%satold_valid = .true.
   end subroutine mst_cq_strand
 
   !> @ brief Accumulate an in or out rate into a reservoir budget term

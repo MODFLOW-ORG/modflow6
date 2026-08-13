@@ -35,8 +35,9 @@ kd = 1.0e-4
 cinit = 100.0
 
 # head in the constant head cell for each stress period
-# the leading period does not drain, which lets the saturation of the
-# previous time step initialize before any mass is stranded
+# the leading period does not drain; the saturation the simulation starts from
+# comes from the flow model, so it is not needed, and test_first_time_step
+# below checks that adding it changes nothing
 drain = [40.0, 35.0, 30.0, 25.0, 20.0, 15.0]
 # the last periods let the cell equilibrate back to full saturation
 cycle = drain + [20.0, 25.0, 30.0, 35.0] + [40.0] * 6
@@ -238,6 +239,46 @@ def check_output(idx, test):
         assert np.allclose(ends, 0.0, atol=stranded.max() * 1e-4), (
             f"the reservoir did not empty at the end of every cycle, {ends}"
         )
+
+
+def test_first_time_step(function_tmpdir, targets):
+    """Mass is stranded from the first time step.
+
+    The saturation the simulation starts from is supplied by the flow model, so
+    a stress period during which the water table does not move is no longer
+    needed in front of one that drains. Running the same problem with and
+    without that period must give the same answer at the same elapsed time.
+    """
+    exe = str(targets["mf6"])
+    lead = [40.0] + heads["mst06_cycle"][1:]
+    nolead = heads["mst06_cycle"][1:]
+    out = {}
+    for tag, hds in (("lead", lead), ("nolead", nolead)):
+        ws = function_tmpdir / tag
+        ws.mkdir()
+        sim = get_model(f"mst06_{tag}", ws, hds, True, True)
+        sim.exe_name = exe
+        sim.write_simulation(silent=True)
+        success, buff = sim.run_simulation(silent=True)
+        assert success, f"{tag} simulation failed\n{buff}"
+        f = flopy.utils.HeadFile(ws / f"gwt-mst06_{tag}.ucn", text="CONCENTRATION")
+        out[tag] = np.array([f.get_data(totim=t).flatten() for t in f.get_times()])
+
+    # the leading period only shifts the answer one period later in time
+    a = out["lead"][1:]
+    b = out["nolead"]
+    assert a.shape == b.shape, f"{a.shape} vs {b.shape}"
+    assert np.allclose(a, b, rtol=1e-9, atol=1e-9), (
+        "a leading stress period that does not drain changed the result, so the "
+        f"first time step is not stranding mass; difference {np.abs(a - b).max()}"
+    )
+    # the cell drains in the first period without the leading one, so the
+    # comparison would be vacuous if nothing had been stranded
+    st = flopy.utils.HeadFile(
+        function_tmpdir / "nolead" / "gwt-mst06_nolead.strand.bin", text="STRANDED"
+    )
+    first = st.get_data(totim=st.get_times()[0]).flatten()[0]
+    assert first > 0.0, "no mass was stranded during the first time step"
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
