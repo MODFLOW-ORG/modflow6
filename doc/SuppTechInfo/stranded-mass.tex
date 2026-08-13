@@ -81,6 +81,8 @@ Three quantities change the stranded mass of a cell, and only one of them is dec
 
 The first two terms are transfers, exactly paired with the mobile domain, and are reported together as a single entry, STORAGE-STRANDED, in the model budget. Decay of stranded mass is different: it is mass that leaves the simulation without passing through the concentration equation. Reporting it in the model budget would leave that budget with an outflow that has no matching inflow and would drive the percent discrepancy away from zero. It is reported instead in a budget for the package, in the same way that the Immobile Storage and Transfer (IST) Package reports the budget of an immobile domain, together with the storage of the stranded mass and the transfer with the mobile domain. The mobile domain never sees the decayed mass; decay reduces the stranded mass, which reduces the mass available to return later.
 
+The stranded mass of every cell is written to a binary array file when the STRANDED FILEOUT option is used, in the same way that the sorbate concentration is written when the SORBATE FILEOUT option is used, and a time series for one cell is obtained from that file. Neither quantity is available as an observation, so neither can be requested for a single cell through the Observation (OBS) utility.
+
 The stranded mass of a cell is updated from the same quantities that are reported to the budget, once per time step rather than within the iteration of the nonlinear solution. Deriving the state and the reported rate from one number, rather than computing each separately, is what keeps the two from drifting apart.
 
 \subsubsection{Saturation at the end of the previous time step}
