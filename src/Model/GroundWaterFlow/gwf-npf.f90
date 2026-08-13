@@ -473,10 +473,7 @@ contains
 
   !> @brief Saturation implied by the heads the simulation starts from
   !!
-  !! Saturation is initialized to one during allocate and read so that the
-  !! saturated conductance can be calculated, and is not computed from the
-  !! initial heads until the first solve, so a package that needs the
-  !! saturation the first time step starts from has to ask for it.
+  !! Saturation is not evaluated from the initial heads until the first solve.
   !<
   subroutine npf_initial_saturation(this, sat)
     ! -- dummy
