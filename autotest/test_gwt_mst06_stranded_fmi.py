@@ -12,6 +12,9 @@ Cases:
                       simulation through a GWF-GWT exchange.
   - requires_stosy  : a budget file without STO-SY is an error rather than a
                       run in which every drained pore volume is retained.
+  - confined_flow   : a confined flow model writes no STO-SY because it has no
+                      specific yield, and is the same error even though no cell
+                      drains and the option would have had no effect.
 """
 
 import flopy
@@ -44,7 +47,7 @@ def add_ims(sim, filename):
     )
 
 
-def add_gwf(sim, name, save_sto):
+def add_gwf(sim, name, save_sto, confined=False):
     # SAVE_FLOWS on the model writes the storage terms whatever the STO
     # package asks for, so suppressing STO-SY means turning it off there too;
     # NPF and CHD keep theirs, so the budget file still has everything else
@@ -61,11 +64,17 @@ def add_gwf(sim, name, save_sto):
         save_flows=True,
         save_specific_discharge=True,
         save_saturation=True,
-        icelltype=1,
+        icelltype=0 if confined else 1,
         k=100.0,
     )
+    # a confined cell has no specific yield, so STO writes STO-SS but no STO-SY
     flopy.mf6.ModflowGwfsto(
-        gwf, iconvert=1, ss=0.0, sy=sy, transient={0: True}, save_flows=save_sto
+        gwf,
+        iconvert=0 if confined else 1,
+        ss=1.0e-5 if confined else 0.0,
+        sy=sy,
+        transient={0: True},
+        save_flows=save_sto,
     )
     flopy.mf6.ModflowGwfchd(
         gwf,
@@ -125,10 +134,10 @@ def run_coupled(ws, exe):
     return sim.run_simulation(silent=True)
 
 
-def run_flow(ws, exe, save_sto):
+def run_flow(ws, exe, save_sto, confined=False):
     sim = flopy.mf6.MFSimulation(sim_name="f", sim_ws=str(ws), exe_name=exe)
     flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=perioddata)
-    add_gwf(sim, "f", save_sto)
+    add_gwf(sim, "f", save_sto, confined)
     add_ims(sim, "f.ims")
     sim.write_simulation(silent=True)
     return sim.run_simulation(silent=True)
@@ -148,6 +157,15 @@ def run_transport(ws, exe, flow_ws):
     add_ims(sim, "t.ims")
     sim.write_simulation(silent=True)
     return sim.run_simulation(silent=True)
+
+
+def assert_stosy_error(ws, buff):
+    """The run stopped for the missing storage term and not for something else."""
+    # the message is wrapped in the listing file, so compare without the breaks
+    listing = " ".join((ws / "mfsim.lst").read_text().split())
+    assert (
+        "STRANDED_MASS is active but the STO-SY flow term was not found" in listing
+    ), f"unexpected error message\n{buff}"
 
 
 def series(ws, fname, text):
@@ -203,11 +221,36 @@ def test_stranded_fmi_requires_stosy(function_tmpdir, targets):
 
     success, buff = run_transport(tran, exe, flow)
     assert not success, "transport ran without STO-SY instead of terminating"
-    # the message is wrapped in the listing file, so compare without the breaks
-    listing = " ".join((tran / "mfsim.lst").read_text().split())
-    assert (
-        "STRANDED_MASS is active but the STO-SY flow term was not found" in listing
-    ), f"unexpected error message\n{buff}"
+    assert_stosy_error(tran, buff)
+
+
+def test_stranded_fmi_confined_flow(function_tmpdir, targets):
+    exe = str(targets["mf6"])
+    flow = function_tmpdir / "flow"
+    tran = function_tmpdir / "transport"
+    for d in (flow, tran):
+        d.mkdir(parents=True)
+
+    # a confined flow model saves its storage flows but has no specific yield
+    success, buff = run_flow(flow, exe, True, confined=True)
+    assert success, f"flow simulation failed\n{buff}"
+    names = [
+        n.strip()
+        for n in flopy.utils.CellBudgetFile(
+            flow / "f.cbc", precision="double"
+        ).get_unique_record_names(decode=True)
+    ]
+    assert "STO-SS" in names, "the flow model saved no storage flows at all"
+    assert "STO-SY" not in names, (
+        "the confined flow model wrote STO-SY, so this case does not test "
+        "what it claims"
+    )
+
+    # no cell drains, so the option would have had no effect; it is still an
+    # error, because a budget file cannot show whether that is the reason
+    success, buff = run_transport(tran, exe, flow)
+    assert not success, "transport ran without STO-SY instead of terminating"
+    assert_stosy_error(tran, buff)
 
 
 if __name__ == "__main__":
