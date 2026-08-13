@@ -102,6 +102,7 @@ module GwtMstModule
 
     procedure :: mst_ar
     procedure :: mst_set_initial_saturation
+    procedure, private :: mst_decay_strand
     procedure :: mst_fc
     procedure :: mst_fc_sto
     procedure :: mst_vold
@@ -793,8 +794,18 @@ contains
       this%strand%ratedcystrand(n) = DZERO
       this%strand%ratedcystrands(n) = DZERO
       !
-      ! -- skip if transport inactive; the reservoirs keep their mass
-      if (this%ibound(n) <= 0) cycle
+      ! -- an inactive cell keeps the mass its reservoirs hold, and records
+      !    the saturation it now has, so that the step in which it becomes
+      !    active again is seen as the rewetting it is.  Leaving the stored
+      !    saturation at the value from before the cell went dry makes a cell
+      !    that comes back wetter than that look as though it had drained.
+      if (this%ibound(n) <= 0) then
+        call this%mst_decay_strand(n, delt, tled, decay_strand, daq, dsrb)
+        call accumulate_strandterm(this%budterm_strand, 1, daq * tled)
+        call accumulate_strandterm(this%budterm_strand, 2, dsrb * tled)
+        this%strand%sat_old(n) = this%fmi%gwfsat(n)
+        cycle
+      end if
       !
       vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
       volfracm = this%get_volfracm(n)
@@ -854,22 +865,7 @@ contains
       !
       ! -- decay of the reservoirs, which leaves the simulation entirely and
       !    so is reported here rather than in the model budget
-      daq = DZERO
-      dsrb = DZERO
-      if (decay_strand) then
-        lambda_aq = DZERO
-        lambda_srb = DZERO
-        if (size(this%decay) > 1) lambda_aq = this%decay(n)
-        if (size(this%decay_sorbed) > 1) lambda_srb = this%decay_sorbed(n)
-        daq = decay_amount(this%strand%stranded_aqueous(n), lambda_aq, delt)
-        dsrb = decay_amount(this%strand%stranded_sorbed(n), lambda_srb, delt)
-        this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) - daq
-        this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) - dsrb
-        this%strand%ratedcystrand(n) = -daq * tled
-        this%strand%ratedcystrands(n) = -dsrb * tled
-      end if
-      call accumulate_strandterm(this%budterm_strand, 3, -daq * tled)
-      call accumulate_strandterm(this%budterm_strand, 4, -dsrb * tled)
+      call this%mst_decay_strand(n, delt, tled, decay_strand, daq, dsrb)
       !
       ! -- storage is what the transfer and the decay leave behind, so the
       !    reservoir budget closes by construction
@@ -899,6 +895,44 @@ contains
     ! -- every cell now carries the saturation it ended this time step with
     this%satold_valid = .true.
   end subroutine mst_cq_strand
+
+  !> @ brief Decay the stranded mass reservoirs of one cell
+  !!
+  !!  Mass held out of the mobile domain decays whether or not the cell is
+  !!  active, so that a cell which stays dry does not return the mass it left
+  !!  with undiminished.
+  !<
+  subroutine mst_decay_strand(this, n, delt, tled, decay_strand, daq, dsrb)
+    ! -- modules
+    use StrandedMassModule, only: decay_amount
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    integer(I4B), intent(in) :: n !< cell number
+    real(DP), intent(in) :: delt !< length of the time step
+    real(DP), intent(in) :: tled !< reciprocal of the time step length
+    logical, intent(in) :: decay_strand !< stranded mass decays
+    real(DP), intent(out) :: daq !< mass lost from the aqueous reservoir
+    real(DP), intent(out) :: dsrb !< mass lost from the sorbed reservoir
+    ! -- local
+    real(DP) :: lambda_aq, lambda_srb
+    !
+    daq = DZERO
+    dsrb = DZERO
+    if (decay_strand) then
+      lambda_aq = DZERO
+      lambda_srb = DZERO
+      if (size(this%decay) > 1) lambda_aq = this%decay(n)
+      if (size(this%decay_sorbed) > 1) lambda_srb = this%decay_sorbed(n)
+      daq = decay_amount(this%strand%stranded_aqueous(n), lambda_aq, delt)
+      dsrb = decay_amount(this%strand%stranded_sorbed(n), lambda_srb, delt)
+      this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) - daq
+      this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) - dsrb
+      this%strand%ratedcystrand(n) = -daq * tled
+      this%strand%ratedcystrands(n) = -dsrb * tled
+    end if
+    call accumulate_strandterm(this%budterm_strand, 3, -daq * tled)
+    call accumulate_strandterm(this%budterm_strand, 4, -dsrb * tled)
+  end subroutine mst_decay_strand
 
   !> @ brief Accumulate an in or out rate into a reservoir budget term
   !<
