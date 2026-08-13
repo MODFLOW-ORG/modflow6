@@ -2,11 +2,10 @@
 Tests the MST stranded mass option for a domain split into two models coupled
 by a GWT-GWT exchange, which is the arrangement a parallel run uses.
 
-Four cells in a row are divided between a left and a right model. A constant
-head in the right model drains and rewets the whole row, so cells of both
-models strand mass and return it. The reservoirs belong to a cell rather than
-to a connection, so nothing crosses the exchange, and the checks below hold
-whether the two models are solved on one process or on two.
+Four cells in a row are divided between a left and a right model, and a
+constant head in the right model drains and rewets the whole row. A reservoir
+belongs to a cell rather than to a connection, so nothing crosses the exchange
+and the checks below hold on one process or on two.
 
 Cases:
   - mst06_gwtgwt : the budget of each model closes, both models strand mass,

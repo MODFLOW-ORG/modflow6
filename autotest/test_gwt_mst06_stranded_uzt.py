@@ -3,8 +3,7 @@ Tests the report that the MST stranded mass option makes when the Unsaturated
 Zone Transport (UZT) Package is active in the same model.
 
 Both represent the part of a cell that the water table has drained, so a cell
-in both carries its solute twice. UZF covers only part of a model in many
-simulations, and stranded mass is meaningful in the rest of it, so the
+in both carries its solute twice. UZF often covers only part of a model, so the
 combination is reported rather than refused.
 
 Cases:
