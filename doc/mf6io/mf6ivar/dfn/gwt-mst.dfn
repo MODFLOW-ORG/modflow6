@@ -76,7 +76,7 @@ reader urword
 tagged false
 optional false
 longname file keyword
-description name of the output file to write stranded mass information.
+description name of the binary output file to write stranded mass information.  Writing this file is the way to obtain the stranded mass of a single cell over time; like the sorbate concentration, stranded mass is not available through the Observation (OBS) utility.
 
 block options
 name sorbate_filerecord
