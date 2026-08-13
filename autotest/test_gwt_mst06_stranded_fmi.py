@@ -2,10 +2,9 @@
 Tests the MST stranded mass option when the flow model is run as a separate
 simulation and the transport model reads its flows through the FMI Package.
 
-The volume of water retained against drainage is the difference between the
-change in the mobile water volume and the water the flow model releases from
-storage, so the STO-SY flow term is required. A coupled flow model always
-supplies it; a budget file supplies it only if the flow model saved it.
+The retained water volume is derived from the STO-SY flow term, which a
+coupled flow model always supplies but a budget file carries only if the flow
+model saved it.
 
 Cases:
   - matches_coupled : results are identical to the same models run in one

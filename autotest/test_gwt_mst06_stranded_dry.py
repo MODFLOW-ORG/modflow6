@@ -2,11 +2,8 @@
 Tests the MST stranded mass option for a cell that drains completely, is
 deactivated for transport, and is later rewet.
 
-The saturation of an inactive cell is recorded while it is inactive, so that
-the step in which it becomes active again is seen as rewetting. Leaving the
-stored saturation at the value from before the cell went dry made a cell that
-came back wetter than that look as though it had drained, and it stranded more
-mass instead of returning what it held.
+The saturation of an inactive cell is recorded, so that the step in which it
+becomes active again is seen as rewetting rather than as further drainage.
 
 Cases:
   - nodecay : the reservoir holds its mass unchanged while the cell is dry and
