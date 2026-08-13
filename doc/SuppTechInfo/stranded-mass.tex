@@ -91,6 +91,13 @@ The first time step needs the saturation that the simulation starts from, and th
 
 A transport model that reads its flows from a budget file cannot be given that saturation, because the first record of a budget file is the end of the first time step rather than the beginning of it. Such a simulation treats the first time step as it would be treated without the option, strands no mass during it, and writes a warning to the simulation listing file if the water table moved. A simulation of that kind should begin with a short stress period during which the water table does not move.
 
+\subsubsection{Cells that drain completely}
+
+A cell whose water table falls below its bottom is deactivated for transport, and takes no part in the solution until it is rewet.
+Its reservoirs are not emptied: the mass they hold is retained, decays at the rate that belongs to its phase, and is returned when the cell is rewet, in proportion to the part of the drained volume that resaturates.
+The saturation of the cell is recorded while it is inactive, so that the step in which it becomes active again is treated as the rewetting it is.
+Recording it matters because the saturation from before the cell went dry would otherwise stand, and a cell that returns wetter than it was when it was deactivated, but not full, would appear to have drained further and would strand mass instead of returning it.
+
 \subsection{Extension to Immobile Domains}
 
 An immobile domain represented with the IST Package scales its mass by the water saturation in the same way that the mobile domain does, so an immobile domain also returns its solute to the water that remains when a cell drains. Stranding is a property of a domain rather than of a cell: a simulation with $nim$ immobile domains would require $nim + 1$ sets of stranded mass, one for the mobile domain and one for each immobile domain, because each domain carries its own bulk density, sorption parameters, and decay rates.
