@@ -744,7 +744,7 @@ contains
     ! -- modules
     use TdisModule, only: delt
     use StrandedMassModule, only: strand_rate_sorbed, return_fraction, &
-                                  decay_amount, retained_volume
+                                  retained_volume
     ! -- dummy
     class(GwtMstType) :: this !< GwtMstType object
     integer(I4B), intent(in) :: nodes !< number of nodes
@@ -755,7 +755,6 @@ contains
     real(DP) :: rate, tled
     real(DP) :: maq, msrb
     real(DP) :: daq, dsrb
-    real(DP) :: lambda_aq, lambda_srb
     real(DP) :: vcell, volfracm, rhobm
     real(DP) :: sat_new, sat_old, ds, dw, f
     real(DP) :: released, vdrain
