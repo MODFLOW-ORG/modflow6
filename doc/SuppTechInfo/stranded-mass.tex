@@ -146,6 +146,45 @@ The percent discrepancy of the model budget remained at 0.00 for every time step
 	\end{center}
 \end{figure}
 
+\subsection{Sensitivity to Specific Yield and to Sorption}
+
+The size of the effect is set by two quantities, and the oscillating water table example is repeated over a range of each of them to show how (fig.~\ref{fig:strandedmasssensitivity}).
+The volume of water retained against drainage is the change in the mobile water volume less the water released to storage, so the first quantity is the specific yield relative to the porosity, and the sweep over it omits sorption so that the retained water is isolated (fig.~\ref{fig:strandedmasssensitivity}\textit{A}).
+Nothing at all is held back where the two are equal, which is the result the formulation requires and is reproduced exactly.
+As the specific yield falls the mass held out of the mobile domain rises to 20 percent of the initial mass of the cell at five sixths of the porosity, 49 percent at one half, and 67 percent at one sixth.
+The departure in concentration from the simulation without the option rises with it at first, to 37 percent of the initial concentration at one half, and then flattens, because the solute held back and the water that would have diluted it are removed together.
+
+The second quantity is the distribution coefficient, and the sweep over it holds the specific yield at half the porosity (fig.~\ref{fig:strandedmasssensitivity}\textit{B}).
+The value at a distribution coefficient of zero is the retained water alone, 49 percent, and the sorbed mass adds to it, reaching 67 percent at $4 \times 10^{-4}$ m$^3$/kg.
+A simulation whose specific yield is close to its porosity and whose solute sorbs weakly will see little from this option; one whose specific yield was calibrated to reproduce heads, and is well below a measured drainable porosity, will see a great deal.
+
+\begin{figure}[!ht]
+	\begin{center}
+	\includegraphics{./Figures/MSTStrandedMassSensitivity.pdf}
+	\caption[Graphs showing the sensitivity of the stranded mass option to the specific yield and to the distribution coefficient]{Graphs showing the peak mass held out of the mobile domain, and the peak departure in concentration from a simulation without the option, for the oscillating water table example shown in figure~\ref{fig:strandedmasshead}. Mass is given as a percentage of the mass of the tested cell at the start of the simulation and concentration as a percentage of the initial concentration. \textit{A}, Against the specific yield divided by the porosity, without sorption; \textit{B}, against the distribution coefficient, with a specific yield of half the porosity}
+	\label{fig:strandedmasssensitivity}
+	\end{center}
+\end{figure}
+
+\subsection{Example: A Cell That Drains Completely}
+
+The cell of the preceding examples never empties, and a cell that does is treated differently, so a second example lowers the water table below the bottom of the cell and returns it (fig.~\ref{fig:strandedmassdry}).
+The cell is the upper of three layers, is 10 \si{\meter} thick, and is drained by a constant head in the lowest layer of the column beside it; the properties are those of the first example, and the first-order rate, where decay is active, is 0.01 \si{\per\day}.
+The cell is deactivated for transport for four of the nine stress periods, and has no head and no concentration during them, which is shown as a gap in figures~\ref{fig:strandedmassdry}\textit{A} and~\ref{fig:strandedmassdry}\textit{B}.
+
+The mass its reservoirs hold is retained through that period (fig.~\ref{fig:strandedmassdry}\textit{C}).
+Without decay it is held unchanged at 2,176 \si{\kilo\gram}, and with decay it falls from 1,572 to 1,165 \si{\kilo\gram}, which is the rate given for the phase applied to a mass that takes no other part in the simulation.
+Both are returned when the cell is rewet, and both reservoirs are empty once the cell is saturated again.
+The saturation of the cell is recorded while it is inactive so that the step which reactivates it is treated as the rewetting it is; without that record the saturation from before the cell emptied would stand, a cell returning wetter than that but not full would appear to have drained further, and it would strand mass at the moment it should return it.
+
+\begin{figure}[!ht]
+	\begin{center}
+	\includegraphics{./Figures/MSTStrandedMassDry.pdf}
+	\caption[Graphs showing stranded mass for a cell that drains completely and is later rewet]{Graphs showing the stranded mass of a cell whose water table falls below the bottom of the cell, with and without first-order decay. The cell is inactive for transport over the shaded interval. The dotted line in \textit{A} is the bottom of the cell. \textit{A}, Head in the tested cell; \textit{B}, simulated concentration; \textit{C}, mass held out of the mobile domain}
+	\label{fig:strandedmassdry}
+	\end{center}
+\end{figure}
+
 \subsection{Assessment}
 
 The approach is conservative by construction. The mobile domain loses exactly the mass that the stranded mass gains and gains exactly the mass that it loses, so the sum of the mobile and stranded mass changes only through decay and the flows across the boundaries of the model. There is no interpolation, no limiting, and no path that creates or discards mass, so a discrepancy in the model budget would indicate an error in the implementation rather than a modeling choice. This is a stronger property than that of the approaches available in MT3D-USGS \citep{mt3dusgs}, where a cell that rewets is assigned either an inverse-distance-weighted average of the concentrations of its neighbors, which creates mass, or a concentration of zero, which destroys it.
