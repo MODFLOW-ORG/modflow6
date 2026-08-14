@@ -150,7 +150,8 @@ print(
     f"stranded held   {st[dry][0] / 1e3:9.3f} -> {st[dry][-1] / 1e3:9.3f} kg (no decay)"
 )
 print(
-    f"stranded decays {st_d[dry][0] / 1e3:9.3f} -> {st_d[dry][-1] / 1e3:9.3f} kg (decay)"
+    f"stranded decays {st_d[dry][0] / 1e3:9.3f} ->"
+    f" {st_d[dry][-1] / 1e3:9.3f} kg (decay)"
 )
 
 # the cell has no head or concentration while it is inactive
