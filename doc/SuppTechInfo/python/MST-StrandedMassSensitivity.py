@@ -150,7 +150,8 @@ def sweep(tmp, values, vary):
         mass.append(100.0 * s_on.max() / m0)
         conc.append(100.0 * np.abs(c_on - c_off).max() / CINIT)
         print(
-            f"  {vary}={v:<9.3g} stranded {mass[-1]:6.2f} %  departure {conc[-1]:6.2f} %"
+            f"  {vary}={v:<9.3g} stranded {mass[-1]:6.2f} %"
+            f"  departure {conc[-1]:6.2f} %"
         )
     return np.array(mass), np.array(conc)
 
