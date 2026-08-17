@@ -243,11 +243,6 @@ description = "Six Iterative Model Solution (IMS) input variables that were depr
 
 [[items]]
 section = "fixes"
-subsection = "solution"
-description = "The definition file sln-pts.dfn has been removed. It described an Iterative Model Solution style input file for a particle tracking solution that was never implemented; no MODFLOW 6 solution reads it, and it was not included in the input and output guide. The Particle Tracking (PRT) model uses the Explicit Model Solution, which is defined by sln-ems.dfn and has no input variables of its own."
-
-[[items]]
-section = "fixes"
 subsection = "basic"
 description = "The script that builds the table of deprecations and removals for the release notes accumulated the deprecated and removed versions of a variable under two different keys, so a variable carrying both attributes lost its deprecation version and was reported as having been deprecated in the version in which it was removed. The table was correct until now only because every previous removal was made in the same version as its deprecation."
 
