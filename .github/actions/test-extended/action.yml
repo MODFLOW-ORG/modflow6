@@ -27,7 +27,7 @@ runs:
       uses: fortran-lang/setup-fortran@v1
       with:
         compiler: gcc
-        version: ${{ runner.os == 'macOS' && '15' || '13' }}
+        version: ${{ runner.os == 'macOS' && '16' || '13' }}
 
     - name: Prioritize pinned compiler on PATH (macOS)
       if: runner.os == 'macOS'
