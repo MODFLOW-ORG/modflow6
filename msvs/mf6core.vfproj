@@ -288,6 +288,9 @@
 				<File RelativePath="..\src\Model\TransportModel\Isotherm\LangmuirIsotherm.f90"/>
 				<File RelativePath="..\src\Model\TransportModel\Isotherm\LinearIsotherm.f90"/>
 			</Filter>
+			<Filter Name="StrandedMass">
+				<File RelativePath="..\src\Model\TransportModel\StrandedMass\StrandedMass.f90"/>
+			</Filter>
 			<Filter Name="Model">
 				<Filter Name="ChannelFlow">
 					<File RelativePath="..\src\Model\ChannelFlow\chf.f90"/>

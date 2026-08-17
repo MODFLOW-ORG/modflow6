@@ -19,6 +19,7 @@ program tester
   use TestPtrHashTable, only: collect_ptrhashtable
   use TestSim, only: collect_sim
   use TestSmoothing, only: collect_smoothing
+  use TestStrandedMass, only: collect_strandedmass
   use TestSVD, only: collect_svd
   use TestSwfUtils, only: collect_swfutils
   use TestTimeSelect, only: collect_timeselect
@@ -51,6 +52,7 @@ program tester
                new_testsuite("PtrHashTable", collect_ptrhashtable), &
                new_testsuite("Sim", collect_sim), &
                new_testsuite("Smoothing", collect_smoothing), &
+               new_testsuite("StrandedMass", collect_strandedmass), &
                new_testsuite("SVD", collect_svd), &
                new_testsuite("SwfUtils", collect_swfutils), &
                new_testsuite("TimeSelect", collect_timeselect), &

@@ -36,6 +36,49 @@ longname activate sorption
 description is a text keyword to indicate that sorption will be activated.  Valid sorption options include LINEAR, FREUNDLICH, and LANGMUIR.  Use of this keyword requires that BULK\_DENSITY and DISTCOEF are specified in the GRIDDATA block.  If sorption is specified as FREUNDLICH or LANGMUIR then SP2 is also required in the GRIDDATA block.
 
 block options
+name stranded_mass
+type keyword
+reader urword
+optional true
+longname activate stranded mass
+description is a text keyword to indicate that stranded mass will be activated.  Solute that stays behind when a cell drains is then held out of the mobile domain until the cell rewets, instead of being returned to the water that remains.  Two quantities are held back: the solute in the water retained against drainage, whose volume follows from POROSITY and the specific yield of the Storage (STO) Package rather than from user input and is zero unless the specific yield is the smaller, and the sorbed mass.  Stranded mass decays at the rates given for the aqueous and sorbed phases and is written to a binary array file with the STRANDED FILEOUT option.  When flows are read from a budget file, that file must contain the STO-SY term, which requires SAVE\_FLOWS in the STO Package of the flow model, and no mass is stranded during the first time step.  This option cannot be used with the Immobile Storage and Transfer (IST) Package, and a model that also has the Unsaturated Zone Transport (UZT) Package is reported with a warning.
+mf6internal istrand
+
+block options
+name stranded_filerecord
+type record stranded fileout strandedfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+mf6internal stranded_rec
+
+block options
+name stranded
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname stranded keyword
+description keyword to specify that record corresponds to stranded mass.
+
+block options
+name strandedfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname file keyword
+description name of the binary output file to write stranded mass information.  Writing this file is the way to obtain the stranded mass of a single cell over time; like the sorbate concentration, stranded mass is not available through the Observation (OBS) utility.
+
+block options
 name sorbate_filerecord
 type record sorbate fileout sorbatefile
 shape

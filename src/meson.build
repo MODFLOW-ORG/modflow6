@@ -296,6 +296,7 @@ modflow_sources = files(
     'Model' / 'TransportModel' / 'Isotherm' / 'IsothermInterface.f90',
     'Model' / 'TransportModel' / 'Isotherm' / 'LangmuirIsotherm.f90',
     'Model' / 'TransportModel' / 'Isotherm' / 'LinearIsotherm.f90',
+    'Model' / 'TransportModel' / 'StrandedMass' / 'StrandedMass.f90',
     'Model' / 'TransportModel' / 'tsp.f90',
     'Model' / 'TransportModel' / 'tsp-adv.f90',
     'Model' / 'TransportModel' / 'tsp-apt.f90',

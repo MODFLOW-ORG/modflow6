@@ -16,6 +16,10 @@ module GwtMstInputModule
     logical :: order1_decay = .false.
     logical :: order0_decay = .false.
     logical :: sorption = .false.
+    logical :: istrand = .false.
+    logical :: stranded_rec = .false.
+    logical :: stranded = .false.
+    logical :: strandedfile = .false.
     logical :: sorbate_rec = .false.
     logical :: sorbate = .false.
     logical :: fileout = .false.
@@ -110,6 +114,82 @@ module GwtMstInputModule
     .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtmst_istrand = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'MST', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED_MASS', & ! tag name
+    'ISTRAND', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'activate stranded mass', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtmst_stranded_rec = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'MST', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED_FILERECORD', & ! tag name
+    'STRANDED_REC', & ! fortran variable
+    'RECORD STRANDED FILEOUT STRANDEDFILE', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtmst_stranded = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'MST', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED', & ! tag name
+    'STRANDED', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'stranded keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtmst_strandedfile = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'MST', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDEDFILE', & ! tag name
+    'STRANDEDFILE', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -349,6 +429,10 @@ module GwtMstInputModule
     gwtmst_order1_decay, &
     gwtmst_order0_decay, &
     gwtmst_sorption, &
+    gwtmst_istrand, &
+    gwtmst_stranded_rec, &
+    gwtmst_stranded, &
+    gwtmst_strandedfile, &
     gwtmst_sorbate_rec, &
     gwtmst_sorbate, &
     gwtmst_fileout, &

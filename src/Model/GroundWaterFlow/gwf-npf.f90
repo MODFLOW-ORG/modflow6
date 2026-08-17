@@ -113,6 +113,7 @@ module GwfNpfModule
     procedure :: npf_rp
     procedure :: npf_ad
     procedure :: npf_cf
+    procedure :: npf_initial_saturation
     procedure :: npf_fc
     procedure :: npf_fn
     procedure :: npf_cq
@@ -469,6 +470,31 @@ contains
       end if
     end do
   end subroutine npf_cf
+
+  !> @brief Saturation implied by the heads the simulation starts from
+  !!
+  !! Saturation is not evaluated from the initial heads until the first solve.
+  !<
+  subroutine npf_initial_saturation(this, sat)
+    ! -- dummy
+    class(GwfNpfType) :: this !< GwfNpfType object
+    real(DP), dimension(:), intent(inout) :: sat !< saturation from the initial heads
+    ! -- local
+    integer(I4B) :: n
+    real(DP) :: satn
+    !
+    do n = 1, this%dis%nodes
+      satn = DONE
+      if (this%icelltype(n) /= 0) then
+        if (this%ibound(n) == 0) then
+          satn = DZERO
+        else
+          call this%thksat(n, this%ic%strt(n), satn)
+        end if
+      end if
+      sat(n) = satn
+    end do
+  end subroutine npf_initial_saturation
 
   !> @brief Formulate coefficients
   !<
