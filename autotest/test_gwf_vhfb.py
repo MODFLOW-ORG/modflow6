@@ -1,6 +1,15 @@
 """
-Test the dependent_variable_scale option for gwt for a one-dimensional model grid
-of square cells.
+Tests a vertical hydraulic flow barrier against the vertical hydraulic
+conductivity that represents the same resistance.
+
+A barrier is placed on every connection between the two layers of an 11 by 11
+grid, and the heads are compared against a model in which that resistance is
+entered as vertical hydraulic conductivity instead.
+
+Cases:
+  - vhfb00, vhfb01 : standard conductance, without and with Newton.
+  - vhfb02, vhfb03 : XT3D, without and with Newton.
+  - vhfb04, vhfb05 : logarithmic cell averaging, without and with Newton.
 """
 
 import flopy
