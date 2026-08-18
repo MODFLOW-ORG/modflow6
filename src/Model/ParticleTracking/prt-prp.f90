@@ -569,16 +569,12 @@ contains
     real(DP) :: cellsize, tol
 
     call this%fmi%dis%get_polyverts(ic, polyverts)
-    ! point_in_polygon tests for a point on a cell edge using exact
-    ! floating point equality by default, which is unreliable when
-    ! coordinates are large relative to the cell size, as is typical
-    ! for models using projected (e.g. UTM) coordinates. A release
-    ! point on, or very close to, a cell edge (e.g. one placed there
-    ! deliberately by the user) could then be spuriously rejected as
+    ! Check that the point is within the cell. The point-in-polygon
+    ! check is exact by default, which is unreliable when coords are
+    ! are rotated or very large relative to the cell's size: release
+    ! points on or very close to the cell edge could be rejected as
     ! outside the cell. Give the check a tolerance scaled to the
-    ! cell's extent so this is no longer sensitive to coordinate
-    ! magnitude. This is a temporary fix; see
-    ! https://github.com/MODFLOW-ORG/modflow6/issues/2825.
+    ! cell extent to reduce sensitivity to coordinate inexactness.
     cellsize = max(maxval(polyverts(1, :)) - minval(polyverts(1, :)), &
                    maxval(polyverts(2, :)) - minval(polyverts(2, :)))
     tol = cellsize * cellsize * DEM7
