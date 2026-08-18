@@ -1,14 +1,5 @@
 """
-Subcell tracking methods "snap" particles to whichever (sub)cell they're
-assigned to. This is both a separation of concerns (the tracking methods
-can be kept smaller/simpler, avoiding redundant logic to cross-check the
-cell ID against the particle's coordinates) and a user-facing feature: a
-particle released close to a cell boundary may be determined invalid due
-to floating point imprecision, by default, so the user may choose to set
-COORDINATE_CHECK_METHOD NONE to tolerate particles ending up outside the
-cells they are assigned to. This is effectively a "snap to cell" feature.
-
-These test cases exercise this "snap" or "clamp" behavior in lateral and
+These test cases exercise cell "snap" or "clamp" behavior in lateral and
 vertical dimensions. There is currently no distance limit; particles may
 begin arbitrarily far outside the cell.
 
