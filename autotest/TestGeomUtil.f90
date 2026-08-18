@@ -331,7 +331,7 @@ contains
     yoff = yll + 5.0_DP
 
     ! without a tolerance, the near-edge point is (correctly) rejected
-    call check(error, .not. point_in_polygon(xoff, yoff, poly), &
+    call check(error,.not. point_in_polygon(xoff, yoff, poly), &
                "near-edge point wrongly accepted without tolerance")
     if (allocated(error)) return
 

@@ -23,7 +23,7 @@ contains
   !! Vertices and edge points are considered in the polygon. By
   !! default, a point must lie exactly on an edge to be considered
   !! within the polygon. A tolerance may be specified to instead
-  !! accept coordinates within tol of an edge. 
+  !! accept coordinates within tol of an edge.
   !!
   !! Adapted from https://stackoverflow.com/a/63436180/6514033,
   !<
