@@ -254,4 +254,4 @@ description = "The groundwater cell number written to the binary budget file for
 [[items]]
 section = "fixes"
 subsection = "advanced"
-description = "The PRT model's Particle Release Point (PRP) package performs release point validation using a point-in-polygon test that compared raw coordinates for exact floating point equality. This could incorrectly locate points close to a cell boundary as outside the cell, especially for cells with large coordinate values. Add a small tolerance to the containment check, scaled to the cell's extent, to reduce the odds that a valid point will fail the check for reasons of numerical inexactness."
+description = "The PRT model's Particle Release Point (PRP) package performs release point validation using a point-in-polygon test that compared raw coordinates for exact floating point equality. This could incorrectly locate points close to a cell boundary as outside the cell, especially for cells with rotated or very large coordinate values. Add a small tolerance to the containment check, scaled to the cell's extent, to reduce the odds that a valid point will fail the check for reasons of numerical inexactness."
