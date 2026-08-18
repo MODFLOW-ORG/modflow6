@@ -2,7 +2,7 @@ module PrtPrpModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, DEM1, DEM5, DONE, LENFTYPE, LINELENGTH, &
                              LENBOUNDNAME, LENPAKLOC, TABLEFT, TABCENTER, &
-                             MNORMAL, DSAME, DEP3, DEP9, DEM2, DEM9
+                             MNORMAL, DSAME, DEP3, DEP9, DEM2, DEM7
   use BndModule, only: BndType
   use BndExtModule, only: BndExtType
   use ObsModule, only: DefaultObsIdProcessor
@@ -581,7 +581,7 @@ contains
     ! https://github.com/MODFLOW-ORG/modflow6/issues/2825.
     cellsize = max(maxval(polyverts(1, :)) - minval(polyverts(1, :)), &
                    maxval(polyverts(2, :)) - minval(polyverts(2, :)))
-    tol = cellsize * cellsize * DEM9
+    tol = cellsize * cellsize * DEM7
     if (.not. point_in_polygon(x, y, polyverts, tol)) then
       write (errmsg, '(a,g0,a,g0,a,i0)') &
         'Error: release point (x=', x, ', y=', y, ') is not in cell ', &
