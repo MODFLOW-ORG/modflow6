@@ -2,7 +2,7 @@ module PrtPrpModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, DEM1, DEM5, DONE, LENFTYPE, LINELENGTH, &
                              LENBOUNDNAME, LENPAKLOC, TABLEFT, TABCENTER, &
-                             MNORMAL, DSAME, DEP3, DEP9, DEM2
+                             MNORMAL, DSAME, DEP3, DEP9, DEM2, DEM9
   use BndModule, only: BndType
   use BndExtModule, only: BndExtType
   use ObsModule, only: DefaultObsIdProcessor
@@ -566,9 +566,23 @@ contains
     real(DP), intent(in) :: x, y, z !< release point
     ! local
     real(DP), allocatable :: polyverts(:, :)
+    real(DP) :: cellsize, tol
 
     call this%fmi%dis%get_polyverts(ic, polyverts)
-    if (.not. point_in_polygon(x, y, polyverts)) then
+    ! point_in_polygon tests for a point on a cell edge using exact
+    ! floating point equality by default, which is unreliable when
+    ! coordinates are large relative to the cell size, as is typical
+    ! for models using projected (e.g. UTM) coordinates. A release
+    ! point on, or very close to, a cell edge (e.g. one placed there
+    ! deliberately by the user) could then be spuriously rejected as
+    ! outside the cell. Give the check a tolerance scaled to the
+    ! cell's extent so this is no longer sensitive to coordinate
+    ! magnitude. This is a temporary fix; see
+    ! https://github.com/MODFLOW-ORG/modflow6/issues/2825.
+    cellsize = max(maxval(polyverts(1, :)) - minval(polyverts(1, :)), &
+                   maxval(polyverts(2, :)) - minval(polyverts(2, :)))
+    tol = cellsize * cellsize * DEM9
+    if (.not. point_in_polygon(x, y, polyverts, tol)) then
       write (errmsg, '(a,g0,a,g0,a,i0)') &
         'Error: release point (x=', x, ', y=', y, ') is not in cell ', &
         this%dis%get_nodeuser(ic)

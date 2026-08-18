@@ -4,7 +4,7 @@ module TestGeomUtil
                        to_string, unittest_type
   use GeomUtilModule, only: get_node, get_ijk, get_jk, point_in_polygon, &
                             skew, area, shared_face
-  use ConstantsModule, only: LINELENGTH
+  use ConstantsModule, only: LINELENGTH, DEM9
   use DisvGeom, only: shared_edge
   implicit none
   private
@@ -23,6 +23,8 @@ contains
                              test_point_in_polygon_tri), &
                 new_unittest("point_in_polygon_irr", &
                              test_point_in_polygon_irr), &
+                new_unittest("point_in_polygon_tol", &
+                             test_point_in_polygon_tol), &
                 new_unittest("skew", test_skew), &
                 new_unittest("area", test_area), &
                 new_unittest("shared_face", test_shared_face), &
@@ -296,6 +298,77 @@ contains
     deallocate (vert_pts)
     deallocate (face_pts)
   end subroutine test_point_in_polygon_irr
+
+  !> @brief Test the optional edge tolerance at large (e.g. UTM-scale)
+  !! coordinates.
+  !!
+  !! point_in_polygon tests for a point on an edge using exact
+  !! floating point equality by default, which is unreliable when
+  !! coordinates are large relative to the size of the polygon (as
+  !! for a DISV cell in a model using projected coordinates), and can
+  !! cause a point on, or intended to be on, an edge to be spuriously
+  !! classified as outside the polygon (see
+  !! https://github.com/MODFLOW-ORG/modflow6/issues/2825). A caller
+  !! that needs robustness to this can supply a tolerance, scaled to
+  !! its own polygon, via the optional tol argument. Without tol, the
+  !! routine remains exact, as a general-purpose geometry routine
+  !! should be.
+  !<
+  subroutine test_point_in_polygon_tol(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP), allocatable :: poly(:, :)
+    real(DP) :: xll, yll, dx, dy
+    real(DP) :: xoff, yoff, cellsize, tol
+
+    xll = 512345.678901_DP
+    yll = 4567890.123456_DP
+    dx = 10.0_DP
+    dy = 10.0_DP
+
+    allocate (poly(2, 4))
+    poly(:, 1) = (/xll, yll/)
+    poly(:, 2) = (/xll, yll + dy/)
+    poly(:, 3) = (/xll + dx, yll + dy/)
+    poly(:, 4) = (/xll + dx, yll/)
+
+    ! points exactly on a vertex or edge are always in the polygon,
+    ! tolerance or not
+    call check(error, point_in_polygon(xll, yll, poly), &
+               "point on vertex failed")
+    if (allocated(error)) return
+    call check(error, point_in_polygon(xll + dx, yll + 5.0_DP, poly), &
+               "point on edge failed")
+    if (allocated(error)) return
+
+    ! a point a few ULPs off the true edge, representative of rounding
+    ! error at this coordinate magnitude
+    xoff = xll + dx + 4.0_DP * spacing(xll + dx)
+    yoff = yll + 5.0_DP
+
+    ! without a tolerance, the near-edge point is (correctly) rejected
+    call check(error, .not. point_in_polygon(xoff, yoff, poly), &
+               "near-edge point wrongly accepted without tolerance")
+    if (allocated(error)) return
+
+    ! a tolerance scaled to the cell (as a caller like PRT would
+    ! compute) accepts the same near-edge point
+    cellsize = max(maxval(poly(1, :)) - minval(poly(1, :)), &
+                   maxval(poly(2, :)) - minval(poly(2, :)))
+    tol = cellsize * cellsize * DEM9
+    call check(error, point_in_polygon(xoff, yoff, poly, tol), &
+               "near-edge point wrongly rejected with tolerance")
+    if (allocated(error)) return
+
+    ! a point clearly outside the cell is still rejected, even with
+    ! the tolerance
+    call check(error, &
+               .not. point_in_polygon(xll + dx + 0.001_DP, yoff, &
+                                      poly, tol), &
+               "clearly-outside point wrongly accepted with tolerance")
+    if (allocated(error)) return
+
+    deallocate (poly)
+  end subroutine test_point_in_polygon_tol
 
   subroutine test_skew(error)
     type(error_type), allocatable, intent(out) :: error

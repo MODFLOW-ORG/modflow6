@@ -1,7 +1,7 @@
 module GeomUtilModule
   use KindModule, only: I4B, DP, LGP
   use ErrorUtilModule, only: pstop
-  use ConstantsModule, only: DZERO, DSAME, DONE, DTWO, DHALF, &
+  use ConstantsModule, only: DZERO, DONE, DTWO, DHALF, &
                              DONETHIRD, DEP3
 
   implicit none
@@ -20,17 +20,31 @@ contains
 
   !> @brief Check if a point is within a polygon.
   !!
-  !! Vertices and edge points are considered in the polygon.
+  !! Vertices and edge points are considered in the polygon. By
+  !! default, a point lying exactly on an edge (in floating point
+  !! terms) is required for the point to be considered on that edge.
+  !! An optional tolerance may be given to instead accept a point
+  !! within tol of an edge, in the sense that the (twice-signed-area)
+  !! cross product used for the edge test is within tol of zero; this
+  !! is a caller's responsibility to scale appropriately (e.g. to the
+  !! size of the polygon), as this routine has no basis on which to
+  !! choose a tolerance itself.
+  !!
   !! Adapted from https://stackoverflow.com/a/63436180/6514033,
   !<
-  logical function point_in_polygon(x, y, poly)
+  logical function point_in_polygon(x, y, poly, tol)
     ! dummy
     real(DP), intent(in) :: x !< x point coordinate
     real(DP), intent(in) :: y !< y point coordinate
     real(DP), allocatable, intent(in) :: poly(:, :) !< polygon vertices (column-major indexing)
+    real(DP), intent(in), optional :: tol !< tolerance for the on-edge cross product test (default 0)
     ! local
     integer(I4B) :: i, ii, num_verts
-    real(DP) :: xa, xb, ya, yb, c = 0.0_DP
+    real(DP) :: xa, xb, ya, yb, c
+    real(DP) :: ltol
+
+    ltol = DZERO
+    if (present(tol)) ltol = tol
 
     point_in_polygon = .false.
     num_verts = size(poly, 2)
@@ -62,8 +76,8 @@ contains
         end if
         ! cross product
         c = (xa - x) * (yb - y) - (xb - x) * (ya - y)
-        if (c == 0.0_DP) then
-          ! on edge
+        if (abs(c) <= ltol) then
+          ! on (or within tol of) edge
           point_in_polygon = .true.
           exit
         else if ((ya < yb) .eqv. (c > 0)) then
