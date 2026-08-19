@@ -63,7 +63,6 @@ contains
     ! local
     real(DP) :: x_origin
     real(DP) :: y_origin
-    real(DP) :: z_origin
     real(DP) :: sinrot
     real(DP) :: cosrot
 
@@ -72,10 +71,11 @@ contains
       ! Transform particle position into local subcell coordinates,
       ! track particle across subcell, convert back to model coords
       ! (sinrot and cosrot should be 0 and 1, respectively, i.e. no
-      ! rotation, also no z translation; only x and y translations)
+      ! rotation, also no z translation; only x and y translations,
+      ! since subcell%zOrigin is always 0 -- z is translated once,
+      ! at the cell level, not again here)
       x_origin = subcell%xOrigin
       y_origin = subcell%yOrigin
-      z_origin = subcell%zOrigin
       sinrot = subcell%sinrot
       cosrot = subcell%cosrot
       call particle%transform(x_origin, y_origin)
