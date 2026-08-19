@@ -57,9 +57,9 @@ contains
         point_in_polygon = .true.
         exit
       else if (ya == yb .and. &
-               y == ya .and. &
+               abs(y - ya) * abs(xb - xa) <= ltol .and. &
                between(x, xa, xb)) then
-        ! on horizontal edge
+        ! on (or within tol of) horizontal edge
         point_in_polygon = .true.
         exit
       else if (between(y, ya, yb)) then

@@ -351,6 +351,29 @@ contains
                "clearly-outside point wrongly accepted with tolerance")
     if (allocated(error)) return
 
+    ! the same checks, repeated for a point near a horizontal edge
+    ! (top edge, ya == yb) rather than a vertical one, since the
+    ! on-edge check is derived separately for horizontal edges
+    xoff = xll + 5.0_DP
+    yoff = yll + dy + 4.0_DP * spacing(yll + dy)
+
+    call check(error,.not. point_in_polygon(xoff, yoff, poly), &
+               "near-horizontal-edge point wrongly accepted " &
+               //"without tolerance")
+    if (allocated(error)) return
+
+    call check(error, point_in_polygon(xoff, yoff, poly, tol), &
+               "near-horizontal-edge point wrongly rejected " &
+               //"with tolerance")
+    if (allocated(error)) return
+
+    call check(error, &
+               .not. point_in_polygon(xoff, yll + dy + 0.001_DP, &
+                                      poly, tol), &
+               "clearly-outside point wrongly accepted with tolerance " &
+               //"(horizontal edge)")
+    if (allocated(error)) return
+
     deallocate (poly)
   end subroutine test_point_in_polygon_tol
 
