@@ -3,9 +3,8 @@ These test cases exercise cell "snap" or "clamp" behavior in lateral and
 vertical dimensions. There is currently no distance limit; particles may
 begin arbitrarily far outside the cell.
 
-For rectilinear cells using Pollock's method, a particle will be snapped
-to the point within the cell nearest to its original point outside it: a
-"box clamp", in other words.
+For rectilinear cells using Pollock's method, a particle will be clamped
+to the point within the cell nearest to the point outside: a "box clamp".
 
 For cells using the generalized (ternary) tracking method, a particle is
 not guaranteed to end up at the nearest point within the cell.
@@ -29,8 +28,8 @@ DISTANCES = {
 METHODS = {"p": "pollock", "n": "ternary"}
 DIRECTIONS = {"": "x", "z": "z"}
 
-cases_nudge = [
-    (f"nudge{dircode}{mcode}{dcode}", method, offset, direction)
+cases = [
+    (f"{dircode}{mcode}{dcode}", method, offset, direction)
     for dircode, direction in DIRECTIONS.items()
     for mcode, method in METHODS.items()
     for dcode, offset in DISTANCES.items()
@@ -75,7 +74,7 @@ def build_gwf_sim_disv(name, ws, mf6):
     return sim
 
 
-def build_prt_sim_nudge(name, gwf_ws, prt_ws, mf6, method, offset, direction):
+def build_prt_sim(name, gwf_ws, prt_ws, mf6, method, offset, direction):
     gridprops = get_gridprops_rect()
 
     sim = flopy.mf6.MFSimulation(
@@ -141,9 +140,9 @@ def build_prt_sim_nudge(name, gwf_ws, prt_ws, mf6, method, offset, direction):
     return sim
 
 
-def build_models_nudge(test, method, offset, direction):
+def build_models(test, method, offset, direction):
     gwf_sim = build_gwf_sim_disv(test.name, test.workspace, test.targets["mf6"])
-    prt_sim = build_prt_sim_nudge(
+    prt_sim = build_prt_sim(
         test.name,
         test.workspace,
         test.workspace / "prt",
@@ -155,7 +154,7 @@ def build_models_nudge(test, method, offset, direction):
     return gwf_sim, prt_sim
 
 
-def check_output_nudge(test, offset, direction):
+def check_output(test, offset, direction):
     prt_name = get_model_name(test.name, "prt")
     prt_ws = test.workspace / "prt"
     mf6_pls = pd.read_csv(prt_ws / f"{prt_name}.trk.csv", na_filter=False)
@@ -172,7 +171,7 @@ def check_output_nudge(test, offset, direction):
         assert release["y"] == pytest.approx(9.5)
         assert release["z"] == pytest.approx(FlopyReadmeCase.botm[0] - offset)
 
-    # subsequent events should report the "snapped" coordinates
+    # subsequent events should report the clamped coordinates
     ncol = FlopyReadmeCase.ncol
     nrow = FlopyReadmeCase.nrow
     top = FlopyReadmeCase.top
@@ -185,13 +184,13 @@ def check_output_nudge(test, offset, direction):
     assert (mf6_pls["t"].diff().dropna() >= -1e-9).all()
 
 
-@pytest.mark.parametrize("name, method, offset, direction", cases_nudge)
-def test_mf6model_nudge(name, method, offset, direction, function_tmpdir, targets):
+@pytest.mark.parametrize("name, method, offset, direction", cases)
+def test_mf6model(name, method, offset, direction, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
-        build=lambda t: build_models_nudge(t, method, offset, direction),
-        check=lambda t: check_output_nudge(t, offset, direction),
+        build=lambda t: build_models(t, method, offset, direction),
+        check=lambda t: check_output(t, offset, direction),
         targets=targets,
         compare=None,
     )
