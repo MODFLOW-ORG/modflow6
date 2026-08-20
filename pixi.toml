@@ -2,7 +2,7 @@
 name = "modflow6"
 channels = ["conda-forge"]
 platforms = ["win-64", "linux-64", "linux-aarch64", "osx-arm64", "osx-64"]
-version = "6.8.0.dev0"
+version = "6.8.0"
 
 [dependencies]
 appdirs = "*"

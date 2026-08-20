@@ -1,6 +1,6 @@
 [
     {
-        "status": "Preliminary",
+        "status": "Release",
         "languages": [
             "Fortran2008"
         ],
@@ -18,9 +18,9 @@
             "email": "emorway@usgs.gov"
         },
         "laborHours": -1,
-        "version": "6.8.0.dev0",
+        "version": "6.8.0",
         "date": {
-            "metadataLastUpdated": "2026-02-06"
+            "metadataLastUpdated": "2026-08-20"
         },
         "organization": "U.S. Geological Survey",
         "permissions": {
