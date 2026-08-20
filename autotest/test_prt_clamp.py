@@ -184,6 +184,7 @@ def check_output(test, offset, direction):
     assert (mf6_pls["t"].diff().dropna() >= -1e-9).all()
 
 
+@pytest.mark.developmode
 @pytest.mark.parametrize("name, method, offset, direction", cases)
 def test_mf6model(name, method, offset, direction, function_tmpdir, targets):
     test = TestFramework(
