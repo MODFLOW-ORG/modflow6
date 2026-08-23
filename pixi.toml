@@ -44,6 +44,9 @@ test-drive = "*"
 xarray = "*"
 xugrid = "*"
 xmipy = ">=1.4.0"
+h5py = ">=3.13.0,<4"
+scikit-learn = ">=1.9.0,<2"
+pymetis = ">=2025.2.2,<2026"
 
 [pypi-dependencies]
 modflow-devtools = { version = "==1.8.0", extras = ["test", "dfn", "models"] }
