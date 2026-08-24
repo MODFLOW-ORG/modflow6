@@ -181,7 +181,7 @@ contains
     end if
     !
     ! -- store error unit
-    inquire (unit=iunit, name=fname)
+    call get_filename(iunit, fname)
     write (errmsg, '(3a)') &
       "Error occurred while reading file '", trim(adjustl(fname)), "'"
     call sim_uniterrors%store(errmsg)
