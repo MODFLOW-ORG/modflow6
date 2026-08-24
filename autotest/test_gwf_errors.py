@@ -369,7 +369,9 @@ def test_lak_packagedata_bad_aux_error_no_crash(function_tmpdir, targets):
     output = "\n".join(buff)
 
     assert returncode != 0, "mf6 should have failed on a non-numeric LAK aux value"
-    assert "SIGSEGV" not in output, f"mf6 crashed instead of reporting an error:\n{output}"
+    assert "SIGSEGV" not in output, (
+        f"mf6 crashed instead of reporting an error:\n{output}"
+    )
     # mf6 wraps this message across lines, so check the two halves separately
     assert "Expected numeric value or time-series name, but" in output, output
     assert "found 'mylake'." in output, output
