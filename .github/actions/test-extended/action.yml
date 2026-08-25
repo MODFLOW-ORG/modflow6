@@ -27,7 +27,7 @@ runs:
       uses: fortran-lang/setup-fortran@v1
       with:
         compiler: gcc
-        version: ${{ runner.os == 'macOS' && '15' || '13' }}
+        version: ${{ runner.os == 'macOS' && '16' || '13' }}
 
     - name: Prioritize pinned compiler on PATH (macOS)
       if: runner.os == 'macOS'
@@ -88,6 +88,26 @@ runs:
       shell: bash
       working-directory: petsc
       run: cat configure.log
+
+    - name: Rebuild test-drive against pinned compiler (macOS)
+      # pixi's test-drive package is prebuilt by conda-forge's own toolchain, which
+      # isn't ABI-compatible with the Homebrew gfortran pinned above -- mixing the two
+      # crashes every Fortran unit test on startup. Rebuild test-drive from source with
+      # the pinned compiler so it matches what actually builds/links the MF6 test binaries.
+      if: runner.os == 'macOS'
+      shell: bash
+      working-directory: modflow6
+      run: |
+        rm -rf .test-drive
+        git clone https://github.com/fortran-lang/test-drive.git .test-drive
+        pixi run bash -c '
+          set -e
+          cd .test-drive
+          meson setup _build --libdir=lib --warnlevel=0 --default-library=shared --prefix="$CONDA_PREFIX"
+          meson compile -C _build
+          meson install -C _build --no-rebuild
+        '
+        rm -rf .test-drive
 
     - name: Build modflow6
       shell: bash

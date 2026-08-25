@@ -1,7 +1,7 @@
 module GeomUtilModule
   use KindModule, only: I4B, DP, LGP
   use ErrorUtilModule, only: pstop
-  use ConstantsModule, only: DZERO, DSAME, DONE, DTWO, DHALF, &
+  use ConstantsModule, only: DZERO, DONE, DTWO, DHALF, &
                              DONETHIRD, DEP3
 
   implicit none
@@ -20,17 +20,26 @@ contains
 
   !> @brief Check if a point is within a polygon.
   !!
-  !! Vertices and edge points are considered in the polygon.
+  !! Vertices and edge points are considered in the polygon. By
+  !! default, a point must lie exactly on an edge to be considered
+  !! within the polygon. A tolerance may be specified to instead
+  !! accept coordinates within tol of an edge.
+  !!
   !! Adapted from https://stackoverflow.com/a/63436180/6514033,
   !<
-  logical function point_in_polygon(x, y, poly)
+  logical function point_in_polygon(x, y, poly, tol)
     ! dummy
     real(DP), intent(in) :: x !< x point coordinate
     real(DP), intent(in) :: y !< y point coordinate
     real(DP), allocatable, intent(in) :: poly(:, :) !< polygon vertices (column-major indexing)
+    real(DP), intent(in), optional :: tol !< tolerance (default 0)
     ! local
     integer(I4B) :: i, ii, num_verts
-    real(DP) :: xa, xb, ya, yb, c = 0.0_DP
+    real(DP) :: xa, xb, ya, yb, c
+    real(DP) :: ltol
+
+    ltol = DZERO
+    if (present(tol)) ltol = tol
 
     point_in_polygon = .false.
     num_verts = size(poly, 2)
@@ -48,9 +57,9 @@ contains
         point_in_polygon = .true.
         exit
       else if (ya == yb .and. &
-               y == ya .and. &
+               abs(y - ya) * abs(xb - xa) <= ltol .and. &
                between(x, xa, xb)) then
-        ! on horizontal edge
+        ! on (or within tol of) horizontal edge
         point_in_polygon = .true.
         exit
       else if (between(y, ya, yb)) then
@@ -62,8 +71,8 @@ contains
         end if
         ! cross product
         c = (xa - x) * (yb - y) - (xb - x) * (ya - y)
-        if (c == 0.0_DP) then
-          ! on edge
+        if (abs(c) <= ltol) then
+          ! on (or within tol of) edge
           point_in_polygon = .true.
           exit
         else if ((ya < yb) .eqv. (c > 0)) then

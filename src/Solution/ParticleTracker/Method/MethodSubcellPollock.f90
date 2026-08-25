@@ -63,7 +63,6 @@ contains
     ! local
     real(DP) :: x_origin
     real(DP) :: y_origin
-    real(DP) :: z_origin
     real(DP) :: sinrot
     real(DP) :: cosrot
 
@@ -72,13 +71,23 @@ contains
       ! Transform particle position into local subcell coordinates,
       ! track particle across subcell, convert back to model coords
       ! (sinrot and cosrot should be 0 and 1, respectively, i.e. no
-      ! rotation, also no z translation; only x and y translations)
+      ! rotation, also no z translation; only x and y translations,
+      ! since subcell%zOrigin is always 0 -- z is translated once,
+      ! at the cell level, not again here)
       x_origin = subcell%xOrigin
       y_origin = subcell%yOrigin
-      z_origin = subcell%zOrigin
       sinrot = subcell%sinrot
       cosrot = subcell%cosrot
       call particle%transform(x_origin, y_origin)
+
+      ! Clamp the particle into the subcell in case roundoff in the
+      ! model-to-local coordinate transform (e.g. under grid rotation)
+      ! left it just outside, analogous to the nudge applied to the
+      ! ternary method's barycentric coordinates.
+      particle%x = min(max(particle%x, DZERO), subcell%dx)
+      particle%y = min(max(particle%y, DZERO), subcell%dy)
+      particle%z = min(max(particle%z, DZERO), subcell%dz)
+
       call this%track_subcell(subcell, particle, tmax)
       call particle%transform(x_origin, y_origin, invert=.true.)
     end select
@@ -109,7 +118,8 @@ contains
 
     t0 = particle%ttrack
 
-    ! Find exit solution in each direction
+    ! Find exit solution in each direction; also returns the
+    ! local subcell coordinates used, so we don't recompute them
     call find_exits(particle, subcell, exit_solutions, x0, y0, z0)
     exit_x = exit_solutions(1)
     exit_y = exit_solutions(2)
@@ -257,6 +267,11 @@ contains
   end function pick_exit
 
   !> @brief Compute candidate exit solutions
+  !!
+  !! Also returns the local subcell coordinates used (x0, y0, z0),
+  !! so track_subcell doesn't need to recompute them from the
+  !! particle's position.
+  !<
   subroutine find_exits(particle, domain, exit_solutions, x0, y0, z0)
     type(ParticleType), pointer, intent(inout) :: particle
     class(DomainType), intent(in) :: domain

@@ -84,7 +84,7 @@ git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 ### Python
 
-Python 3.10+ is required to run MODFLOW 6 tests and in some cases to build MODFLOW 6. Information on installing the python environment is given in the [Installing Python environment](#install-the-python-environment) section. The MODFLOW 6 python environment should be installed after [locally cloning the repository](#get-the-modflow-6-repository).
+Python 3.11+ is required to run MODFLOW 6 tests and in some cases to build MODFLOW 6. Information on installing the python environment is given in the [Installing Python environment](#install-the-python-environment) section. The MODFLOW 6 python environment should be installed after [locally cloning the repository](#get-the-modflow-6-repository).
 
 ### Fortran compiler
 
@@ -226,7 +226,7 @@ git remote add upstream https://github.com/MODFLOW-ORG/modflow6.git
 
 ## Install the python environment
 
-Python 3.10+ is required to run MODFLOW 6 tests and in some cases to build MODFLOW 6. Miniforge is the recommended python distribution if you do not have an existing Conda or Mamba based python distribution.
+Python 3.11+ is required to run MODFLOW 6 tests and in some cases to build MODFLOW 6. Miniforge is the recommended python distribution if you do not have an existing Conda or Mamba based python distribution.
 
 The [environment file for MODFLOW 6](./environment.yml) includes all of the required [python dependencies](#python-dependencies). Install the `modflow6` environment using the Conda `environment.yml` file in the repository.
 

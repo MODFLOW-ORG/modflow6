@@ -154,6 +154,12 @@ jobs:
         run: cat builddir/meson-logs/meson-log.txt
 
       - name: Unit test the extended MF6 build in the gcc-extended-build environment
+        env:
+          # avoid UCX's TCP transport, which can SIGFPE querying network
+          # interface speed on some CI runners (unrelated to MF6 itself);
+          # tests only ever run within a single node so ob1/vader suffice
+          OMPI_MCA_pml: ob1
+          OMPI_MCA_btl: self,vader
         run: pixi run -e gcc-extended-build test builddir
         
   build-static:

@@ -16,7 +16,7 @@ type double precision
 reader urword
 optional true
 longname target Courant number for adaptive time stepping
-description real number value that defines the target Courant number submitted by the SFR Package to the adaptive time stepping (ATS) package.  If ATS\_COURANT is specified without a value, the target Courant number defaults to 1.0.  If ATS\_COURANT is specified and the ATS Package is active, the SFR Package will compute the time step that achieves the target Courant number for the most constraining reach (the reach with the highest wave celerity-to-length ratio) and submit that time step to the ATS Package.  The STORAGE option must be active when ATS\_COURANT is specified.  ATS\_COURANT must be greater than zero.  A value of 1.0 targets unit Courant number; values between 0.5 and 2.0 are generally acceptable for kinematic wave routing.
+description real number value that defines the target Courant number submitted by the SFR Package to the adaptive time stepping (ATS) package.  If ATS\_COURANT is specified and the ATS Package is active, the SFR Package will compute the time step that achieves the target Courant number for the most constraining reach (the reach with the highest wave celerity-to-length ratio) and submit that time step to the ATS Package.  The STORAGE option must be active when ATS\_COURANT is specified.  ATS\_COURANT must be greater than zero.  A recommended baseline value is 1.0, which targets unit Courant number; values between 0.5 and 2.0 are generally acceptable for kinematic wave routing.
 
 block options
 name auxiliary

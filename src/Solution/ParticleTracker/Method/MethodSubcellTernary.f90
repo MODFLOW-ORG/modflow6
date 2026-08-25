@@ -108,10 +108,12 @@ contains
       isolv = particle%iexmeth
     end if
     t0 = particle%ttrack
-    z0 = particle%z
 
-    ! Find exit solutions in lateral and vertical directions
-    call find_exits(particle, subcell, exit_solutions)
+    ! Find exit solutions in lateral and vertical directions. z0 comes
+    ! back clamped to [zbot, ztop] (mirroring the nudge clamp_bary applies
+    ! to the lateral coordinates), so it can safely anchor the position
+    ! update even if the raw particle%z lies outside the subcell.
+    call find_exits(particle, subcell, exit_solutions, z0)
 
     exit_z = exit_solutions(1)
     exit_lateral = exit_solutions(2)
@@ -222,10 +224,11 @@ contains
   end function pick_exit
 
   !> @brief Calculate exit solutions for each coordinate direction
-  subroutine find_exits(particle, domain, exit_solutions)
+  subroutine find_exits(particle, domain, exit_solutions, z0)
     type(ParticleType), pointer, intent(inout) :: particle
     class(DomainType), intent(in) :: domain
     type(BarycentricExitSolutionType), intent(out) :: exit_solutions(2)
+    real(DP), intent(out) :: z0
     ! local
     integer(I4B) :: ntmax
     real(DP) :: tol
@@ -288,13 +291,16 @@ contains
 
       ! Do calculations related to the analytical z solution.
       ! (TODO: just once for each cell? store at cell-level?)
-      ! Clamp the relative z coordinate to the unit interval.
+      ! Clamp the relative z coordinate to the unit interval, and nudge
+      ! the particle's z ever so slightly inside the subcell if needed,
+      ! analogous to the lateral clamp_bary nudge above.
       zirel = (particle%z - subcell%zbot) / subcell%dz
       if (zirel > DONE) then
         zirel = DONE
       else if (zirel < DZERO) then
         zirel = DZERO
       end if
+      z0 = subcell%zbot + zirel * subcell%dz
       exit_solutions(1) = find_vertical_exit(subcell%vzbot, subcell%vztop, &
                                              subcell%dz, zirel)
 

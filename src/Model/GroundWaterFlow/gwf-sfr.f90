@@ -758,11 +758,9 @@ contains
     character(len=*), intent(inout) :: option !< option keyword string
     logical(LGP), intent(inout) :: found !< boolean indicating if option found
     ! -- local
-    integer(I4B) :: istat
     real(DP) :: r
     character(len=MAXCHARLEN) :: fname
     character(len=MAXCHARLEN) :: keyword
-    character(len=:), allocatable :: remaining_line
     ! -- formats
     character(len=*), parameter :: fmttimeconv = &
       &"(4x, 'TIME CONVERSION VALUE (',g0,') SPECIFIED.')"
@@ -879,22 +877,17 @@ contains
       !    These options are only available when IDEVELOPMODE in
       !    constants module is set to 1
     case ('ATS_COURANT')
-      call this%parser%GetRemainingLine(remaining_line)
-      keyword = trim(adjustl(remaining_line))
-      if (len_trim(keyword) == 0) then
-        this%ats_courant = DONE
+      this%ats_courant = this%parser%GetDouble()
+      if (this%ats_courant <= DZERO) then
+        write (errmsg, '(a,g0,a)') &
+          "ATS_COURANT SPECIFIED TO BE '", this%ats_courant, &
+          "' BUT MUST BE GREATER THAN ZERO"
+        call store_error(errmsg)
       else
-        read (keyword, *, iostat=istat) this%ats_courant
-        if (istat /= 0 .or. this%ats_courant <= DZERO) then
-          write (errmsg, '(a,g0,a)') &
-            "ATS_COURANT SPECIFIED TO BE '", this%ats_courant, &
-            "' BUT MUST BE GREATER THAN ZERO"
-          call store_error(errmsg)
-        end if
+        write (this%iout, '(4x,a,1pg15.6)') &
+          'TARGET COURANT NUMBER FOR ADAPTIVE TIME STEPS: ', &
+          this%ats_courant
       end if
-      write (this%iout, '(4x,a,1pg15.6)') &
-        'TARGET COURANT NUMBER FOR ADAPTIVE TIME STEPS: ', &
-        this%ats_courant
     case ('DEV_NO_CHECK')
       call this%parser%DevOpt()
       this%icheck = 0

@@ -243,11 +243,6 @@ description = "Six Iterative Model Solution (IMS) input variables that were depr
 
 [[items]]
 section = "fixes"
-subsection = "solution"
-description = "The definition file sln-pts.dfn has been removed. It described an Iterative Model Solution style input file for a particle tracking solution that was never implemented; no MODFLOW 6 solution reads it, and it was not included in the input and output guide. The Particle Tracking (PRT) model uses the Explicit Model Solution, which is defined by sln-ems.dfn and has no input variables of its own."
-
-[[items]]
-section = "fixes"
 subsection = "basic"
 description = "The script that builds the table of deprecations and removals for the release notes accumulated the deprecated and removed versions of a variable under two different keys, so a variable carrying both attributes lost its deprecation version and was reported as having been deprecated in the version in which it was removed. The table was correct until now only because every previous removal was made in the same version as its deprecation."
 
@@ -255,3 +250,13 @@ description = "The script that builds the table of deprecations and removals for
 section = "fixes"
 subsection = "advanced"
 description = "The groundwater cell number written to the binary budget file for the GWF flow term of the advanced transport and energy transport packages, and for the lakebed and well-aquifer conduction terms of the Lake (LKE) and Multi-Aquifer Well (MWE) Energy Transport Packages, was only evaluated for features with an ACTIVE status. A feature with an INACTIVE status was written with the cell number left over from the last active feature, or with an undefined value if no feature had been active since the package was set up, which was the case when every feature was inactive in the first stress period. Budget entries for inactive features were therefore attributed to the wrong groundwater cell, and an undefined value could terminate the simulation with an out-of-bounds error in a model with a reduced node numbering, or be dropped from the budget file entirely. The cell number is now evaluated for every feature regardless of its status; the flow rate written for an inactive feature is zero, as before."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "The PRT model's Particle Release Point (PRP) package performs release point validation using a point-in-polygon test that compares raw coordinates for exact floating point equality. This could incorrectly flag points close to a cell boundary as outside the cell, especially for rotated cells or cells with very large coordinate values. Add a small tolerance to the containment check, scaled to the cell's extent, to reduce the odds that a point will fail the check due to numerical inexactness."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "The PRT model did not consistently clamp particle coordinates to the extent of the cell before applying the tracking method. This could cause an incorrect exit face or travel time solution, for example due to roundoff in the coordinate transformations computed as the particle moves between cells. This has been corrected; coordinates will now be clamped to the cell boundary in all dimensions. Results may change slightly for models with particle positions lying close to cell boundaries."
