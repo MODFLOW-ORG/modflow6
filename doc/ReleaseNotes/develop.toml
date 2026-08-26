@@ -36,6 +36,16 @@ subsection = "advanced"
 description = "A new chapter describing the SFR Package kinematic-wave routing options has been added to the Supplemental Technical Information document. The chapter describes the kinematic wave approximation, the four-point implicit finite-difference discretization, the standard (STORAGE keyword) and TVD (ATS\\_COURANT keyword) routing schemes, example comparisons against exact kinematic-wave solutions for a two-reach MODFLOW 6 model at Courant numbers ranging from 0.5 to 2.0, and practical guidance for selecting a suitable time step."
 
 [[items]]
+section = "documentation"
+subsection = "advanced"
+description = "A new chapter describing recent changes to the MAW Package that facilitates non-vertical wells has been added to the Supplemental Technical Information document.  The chapter describes the use of the NON\\_VERTICAL\\_WELLS option.  Specifically, it provides details on how the in-cell conductance between the aquifer and a tilted MAW feature is calculated using the screen top, screen bottom, well radius, a tilt angle, and the saturated conductance."
+
+[[items]]
+section = "documentation"
+subsection = "advanced"
+description = "A new chapter describing the IMPLICIT option in the LAK Package has been added to the Supplemental Technical Information document.  The new option treats lake stage as an additional unknown in the groundwater matrix, solving it simultaneously with groundwater heads and assembling seepage as conductance couplings between lake and cell rows (in the matrix). Non-seepage budget terms are linearized and incorporated into the matrix. Newton under-relaxation is recommended for lakes that may dry to prevent stage from dropping below the lake bottom. The implicit approach eliminates stage lag, greatly accelerates convergence for strongly coupled lakes, and reliably solves cases where the default method may struggle. Ultimately, both formulations should yield equivalent water balances and results at convergence, the new option may offer speedier solutions in some cases."
+
+[[items]]
 section = "fixes"
 subsection = "stress"
 description = "The default values for DENSITY\\_WATER, HEAT\\_CAPACITY\\_WATER, LATENT\\_HEAT\\_VAPORIZATION specified in the OPTIONS block were not set as indicated in the MF6IO guide.  Defaults for these three variables now set as documented in the MF6IO guide."
@@ -88,7 +98,7 @@ description = "Avoids an unhandled and unnecessary exception in cases where a GW
 [[items]]
 section = "fixes"
 subsection = "netcdf"
-description = "Fix an indexing issue in structured NetCDF export where READASARRAYS packages (RCHA, EVTA) with time-varying per-period arrays would crash with a NetCDF edge-exceeds-bound error when writing any stress period after the first."
+description = "Fixed an indexing issue in structured NetCDF export where READASARRAYS packages (RCHA, EVTA) with time-varying per-period arrays would crash with a NetCDF edge-exceeds-bound error when writing any stress period after the first."
 
 [[items]]
 section = "fixes"
@@ -98,27 +108,27 @@ description = "Stop with an informative error if a discretization package is mis
 [[items]]
 section = "fixes"
 subsection = "model"
-description = "Fix the PRT PRP package's DRAPE option's behavior. A draped particle's release was previously reported in the original release position, followed by a DROPPED (ireason=6) event due to the particle reaching the water table at tracking time as a result of the default DRY\\_TRACKING\\_METHOD setting DROP. This is inconsistent with the intent of the DRAPE option: DRAPE is applied before release to control a particle's release position. Draped particles will now be released in the highest active cell, at the water table if the cell is convertible or at the geometric top if the cell is confined, and no DROPPED event will be reported."
+description = "Fixed the PRT PRP package's DRAPE option's behavior. A draped particle's release was previously reported in the original release position, followed by a DROPPED (ireason=6) event due to the particle reaching the water table at tracking time as a result of the default DRY\\_TRACKING\\_METHOD setting DROP. This is inconsistent with the intent of the DRAPE option: DRAPE is applied before release to control a particle's release position. Draped particles will now be released in the highest active cell, at the water table if the cell is convertible or at the geometric top if the cell is confined, and no DROPPED event will be reported."
 
 [[items]]
 section = "fixes"
 subsection = "basic"
-description = "Previously, GWF model output files could only be referenced by a single coupled model's FMI package. This might be necessary for certain configurations where multiple transport models or particle tracking models in the same simulation need flow information from a previous GWF simulation. Referencing the same GWF output files from multiple coupled models would cause a crash. Fix file-opening logic to allow multiple coupled models to refer to the same GWF model's output files."
+description = "Previously, GWF model output files could only be referenced by a single coupled model's FMI package. This might be necessary for certain configurations where multiple transport models or particle tracking models in the same simulation need flow information from a previous GWF simulation. Referencing the same GWF output files from multiple coupled models would cause a crash. Fixed file-opening logic to allow multiple coupled models to refer to the same GWF model's output files."
 
 [[items]]
 section = "fixes"
 subsection = "model"
-description = "PRT was described as configuring a single release at the beginning of the simulation by default, but a release was in fact scheduled for the first time step of every stress period. Fix the default release behavior so a single release occurs at the beginning of the simulation."
+description = "PRT was described as configuring a single release at the beginning of the simulation by default, but a release was in fact scheduled for the first time step of every stress period. Fixed the default release behavior so a single release occurs at the beginning of the simulation."
 
 [[items]]
 section = "fixes"
 subsection = "basic"
-description = "The BMI interface's get\\_grid\\_model\\_type function worked only for numerical model types such as GWF, GWT, and GWE, but would crash for PRT models. Fix the function's implementation to work with all model types."
+description = "The BMI interface's get\\_grid\\_model\\_type function worked only for numerical model types such as GWF, GWT, and GWE, but would crash for PRT models. Fixed the function's implementation to work with all model types."
 
 [[items]]
 section = "features"
 subsection = "model"
-description = "Previously PRT model particle events were written to output file(s) immediately. By default, PRT will now buffer events in memory before writing them to disk. Introduce a new option for the PRT Output Control (OC) package, SCRATCH\\_BUFFER, which enables buffering events in scratch files instead of memory. This can avoid out-of-memory errors at the price of increased file IO and runtime."
+description = "Previously PRT model particle events were written to output file(s) immediately. By default, PRT will now buffer events in memory before writing them to disk. Introduced a new option for the PRT Output Control (OC) package, SCRATCH\\_BUFFER, which enables buffering events in scratch files instead of memory. This can avoid out-of-memory errors at the price of increased file IO and runtime."
 
 [[items]]
 section = "fixes"
@@ -214,7 +224,7 @@ description = "The BMI get\\_version, get\\_component\\_name, and get\\_grid\\_t
 [[items]]
 section = "fixes"
 subsection = "advanced"
-description = "In the Unsaturated Zone Flow (UZF) Package, the branch of the trailing-wave routine taken when the water content behind the leading wave is already at or below the value implied by the applied infiltration rate indexed the wave arrays with the array holding the wave count of every UZF cell, instead of the wave count of the cell being solved. In Fortran this is a vector subscript rather than a single element, so wave depth, water content, and flux were reset at wave positions belonging to other cells, corrupting the wave train of the cell being solved. The routine now indexes the cell being solved. The branch is reached whenever the applied infiltration rate decreases, so simulated recharge, unsaturated zone evapotranspiration, water content, and unsaturated zone storage can change in any transient simulation. The corrupted wave train created spurious unsaturated zone storage: in one of the UZF test problems the largest UZF budget percent discrepancy falls from 4.9e-3 to 4e-6 percent. Simulated heads change very little in that problem, but models in which the number of waves differs between UZF cells, which is typical where infiltration varies in space, are affected more than models in which it does not."
+description = "In the Unsaturated Zone Flow (UZF) Package, when the water content behind the leading wave is already at or below the value implied by the applied infiltration rate, the trailing-wave routine indexed the wave arrays with the array holding the wave count of every UZF cell, instead of with the wave count of the cell being solved. In Fortran this is a vector subscript rather than a single element, so wave depth, water content, and flux were reset at wave positions belonging to other cells, corrupting the wave train of the cell being solved. The routine now indexes the cell being solved. The branch is reached whenever the applied infiltration rate decreases, so simulated recharge, unsaturated zone evapotranspiration, water content, and unsaturated zone storage can change in any transient simulation. The corrupted wave train created spurious unsaturated zone storage: in one of the UZF test problems the largest UZF budget percent discrepancy falls from 4.9e-3 to 4e-6 percent. Simulated heads change very little in that problem, but models in which the number of waves differs between UZF cells, which is typical where infiltration varies in space, are affected more than models in which it does not."
 
 [[items]]
 section = "fixes"
@@ -254,7 +264,7 @@ description = "The groundwater cell number written to the binary budget file for
 [[items]]
 section = "fixes"
 subsection = "model"
-description = "The PRT model's Particle Release Point (PRP) package performs release point validation using a point-in-polygon test that compares raw coordinates for exact floating point equality. This could incorrectly flag points close to a cell boundary as outside the cell, especially for rotated cells or cells with very large coordinate values. Add a small tolerance to the containment check, scaled to the cell's extent, to reduce the odds that a point will fail the check due to numerical inexactness."
+description = "The PRT model's Particle Release Point (PRP) package performs release point validation using a point-in-polygon test that compares raw coordinates for exact floating point equality. This could incorrectly flag points close to a cell boundary as outside the cell, especially for rotated cells or cells with very large coordinate values. Added a small tolerance to the containment check, scaled to the cell's extent, to reduce the odds that a point will fail the check due to numerical inexactness."
 
 [[items]]
 section = "fixes"
