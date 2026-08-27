@@ -43,6 +43,7 @@ module MawModule
   private
   public :: maw_create
   public :: maw_damp_weight
+  public :: maw_screen_length
   !
   type, extends(BndType) :: MawType
     !
@@ -1237,7 +1238,7 @@ contains
         if (conn_len > DZERO) then
           lw = conn_len
         else if (cos(omega) > coszero) then
-          lw = (dz - DTWO * this%radius(n) * sin(omega)) / cos(omega)
+          lw = maw_screen_length(dz, this%radius(n), omega)
         else
           lw = DZERO
         end if
@@ -1350,6 +1351,23 @@ contains
     end if
   end subroutine maw_read_angledata
 
+  !> @brief In-cell screen length of a non-vertical well connection
+  !!
+  !! The length is derived from the vertical screen extent, the well radius,
+  !! and the tilt angle, and grows without bound as the connection approaches
+  !! horizontal.
+  !<
+  pure function maw_screen_length(dz, radius, omega) result(lw)
+    ! -- dummy
+    real(DP), intent(in) :: dz !< vertical screen extent
+    real(DP), intent(in) :: radius !< well radius
+    real(DP), intent(in) :: omega !< tilt angle from vertical, in radians
+    ! -- return
+    real(DP) :: lw
+    !
+    lw = (dz - DTWO * radius * sin(omega)) / cos(omega)
+  end function maw_screen_length
+
   !> @brief Maximum horizontal extent of a cell
   !!
   !! The extent is the largest distance between two cell vertices for grids
@@ -1358,6 +1376,7 @@ contains
   !<
   function maw_cell_extent(this, node) result(extent)
     use ConstantsModule, only: DIS, DISV, DTWO
+    use GeomUtilModule, only: polygon_extent
     ! -- dummy
     class(MawType), intent(inout) :: this
     integer(I4B), intent(in) :: node !< reduced node number of the connected cell
@@ -1365,25 +1384,11 @@ contains
     real(DP) :: extent
     ! -- local
     real(DP), allocatable, dimension(:, :) :: polyverts
-    integer(I4B) :: i
-    integer(I4B) :: j
-    integer(I4B) :: nverts
-    real(DP) :: dx
-    real(DP) :: dy
     !
     select case (this%dis%get_dis_enum())
     case (DIS, DISV)
       call this%dis%get_polyverts(node, polyverts)
-      nverts = size(polyverts, dim=2)
-      extent = DZERO
-      do i = 1, nverts - 1
-        do j = i + 1, nverts
-          dx = polyverts(1, i) - polyverts(1, j)
-          dy = polyverts(2, i) - polyverts(2, j)
-          extent = max(extent, dx * dx + dy * dy)
-        end do
-      end do
-      extent = sqrt(extent)
+      extent = polygon_extent(polyverts(1, :), polyverts(2, :))
       deallocate (polyverts)
     case default
       !
@@ -1434,7 +1439,7 @@ contains
       lw = this%connlen(jpos)
     else
       omega = this%angle(jpos) * DPIO180
-      lw = (dz - DTWO * this%radius(i) * sin(omega)) / cos(omega)
+      lw = maw_screen_length(dz, this%radius(i), omega)
     end if
     !
     lcorr = lw / dz

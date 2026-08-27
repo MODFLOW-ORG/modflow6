@@ -3,8 +3,9 @@ module TestGeomUtil
   use testdrive, only: check, error_type, new_unittest, test_failed, &
                        to_string, unittest_type
   use GeomUtilModule, only: get_node, get_ijk, get_jk, point_in_polygon, &
-                            skew, area, shared_face
-  use ConstantsModule, only: LINELENGTH, DEM7
+                            skew, area, polygon_extent, shared_face
+  use ConstantsModule, only: LINELENGTH, DEM7, DPIO180
+  use MathUtilModule, only: is_close
   use DisvGeom, only: shared_edge
   implicit none
   private
@@ -27,6 +28,9 @@ contains
                              test_point_in_polygon_tol), &
                 new_unittest("skew", test_skew), &
                 new_unittest("area", test_area), &
+                new_unittest("polygon_extent", test_polygon_extent), &
+                new_unittest("polygon_extent_degenerate", &
+                             test_polygon_extent_degenerate), &
                 new_unittest("shared_face", test_shared_face), &
                 new_unittest("shared_face_large", &
                              test_shared_face_large) &
@@ -439,6 +443,72 @@ contains
     if (allocated(error)) return
 
     deallocate (poly)
+
+  end subroutine
+
+  subroutine test_polygon_extent(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP), allocatable :: poly(:, :)
+    real(DP) :: e
+    integer(I4B) :: i
+
+    ! a rectangle, as a dis cell always is: the extent is the diagonal
+    allocate (poly(2, 4))
+    poly(:, 1) = (/0.0_DP, 0.0_DP/)
+    poly(:, 2) = (/0.0_DP, 10.0_DP/)
+    poly(:, 3) = (/20.0_DP, 10.0_DP/)
+    poly(:, 4) = (/20.0_DP, 0.0_DP/)
+
+    e = polygon_extent(poly(1, :), poly(2, :))
+    call check(error, is_close(e, 22.360679774997898_DP), to_string(e))
+    if (allocated(error)) return
+
+    ! the vertices may be given in any order
+    poly = cshift(poly, shift=2, dim=2)
+    e = polygon_extent(poly(1, :), poly(2, :))
+    call check(error, is_close(e, 22.360679774997898_DP), to_string(e))
+    if (allocated(error)) return
+    deallocate (poly)
+
+    ! a regular hexagon, one shape a disv cell takes: the extent is the
+    ! longest diagonal, which is twice the circumradius
+    allocate (poly(2, 6))
+    do i = 1, 6
+      poly(1, i) = 10.0_DP * cos(real(i - 1, DP) * DPIO180 * 60.0_DP)
+      poly(2, i) = 10.0_DP * sin(real(i - 1, DP) * DPIO180 * 60.0_DP)
+    end do
+
+    e = polygon_extent(poly(1, :), poly(2, :))
+    call check(error, is_close(e, 20.0_DP), to_string(e))
+    if (allocated(error)) return
+    deallocate (poly)
+
+    ! a triangle: the extent is the longest side
+    allocate (poly(2, 3))
+    poly(:, 1) = (/0.0_DP, 0.0_DP/)
+    poly(:, 2) = (/3.0_DP, 0.0_DP/)
+    poly(:, 3) = (/0.0_DP, 4.0_DP/)
+
+    e = polygon_extent(poly(1, :), poly(2, :))
+    call check(error, is_close(e, 5.0_DP), to_string(e))
+    if (allocated(error)) return
+    deallocate (poly)
+
+  end subroutine
+
+  subroutine test_polygon_extent_degenerate(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP) :: e
+
+    ! a single vertex has no extent
+    e = polygon_extent((/1.0_DP/), (/2.0_DP/))
+    call check(error, is_close(e, 0.0_DP), to_string(e))
+    if (allocated(error)) return
+
+    ! two vertices are a distance apart
+    e = polygon_extent((/0.0_DP, 3.0_DP/), (/0.0_DP, 4.0_DP/))
+    call check(error, is_close(e, 5.0_DP), to_string(e))
+    if (allocated(error)) return
 
   end subroutine
 

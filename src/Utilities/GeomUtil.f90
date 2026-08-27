@@ -9,7 +9,7 @@ module GeomUtilModule
   public :: between, point_in_polygon, &
             get_node, get_ijk, get_jk, &
             skew, transform, compose, &
-            area, shared_face, clamp_bary
+            area, polygon_extent, shared_face, clamp_bary
 contains
 
   !> @brief Check if a value is between two other values (inclusive).
@@ -402,6 +402,31 @@ contains
     a = -DHALF * sum(xv(:) * cshift(yv(:), s) - cshift(xv(:), s) * yv(:))
 
   end function area
+
+  !> @brief Calculate the maximum distance between two polygon vertices.
+  pure function polygon_extent(xv, yv) result(e)
+    ! dummy
+    real(DP), dimension(:), intent(in) :: xv
+    real(DP), dimension(:), intent(in) :: yv
+    ! result
+    real(DP) :: e
+    ! local
+    integer(I4B) :: i
+    integer(I4B) :: j
+    real(DP) :: dx
+    real(DP) :: dy
+
+    e = DZERO
+    do i = 1, size(xv) - 1
+      do j = i + 1, size(xv)
+        dx = xv(i) - xv(j)
+        dy = yv(i) - yv(j)
+        e = max(e, dx * dx + dy * dy)
+      end do
+    end do
+    e = sqrt(e)
+
+  end function polygon_extent
 
   !> @brief Find the lateral face shared by two cells.
   !!
