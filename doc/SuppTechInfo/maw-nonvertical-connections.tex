@@ -76,7 +76,10 @@ Equation~\ref{eqn:mawnv-lw} is undefined for a horizontal connection ($\omega = 
 The horizontal distance spanned by a connection is $L_w \sin \omega$, which grows without bound as the tilt angle approaches horizontal (fig.~\ref{fig:mawnvextent}).
 For a cell 20 length units long and 10 length units thick with a screen that spans the cell thickness, the horizontal distance spanned by the connection is 17 length units at $\omega = 60^{\circ}$ but 112 length units at $\omega = 85^{\circ}$, which is nearly six times the length of the cell.
 A screen cannot be longer than the cell it is connected to, and a connection that spans more than the connected cell is given a saturated conductance that is correspondingly too large.
-The \mf~program does not compare the horizontal distance spanned by a connection to the size of the connected cell, so the tilt angle and screen elevations should be selected so that the screen remains within the connected cell.
+The \mf~program compares the horizontal distance spanned by a connection to the maximum horizontal extent of the connected cell and writes a warning when it is exceeded.
+The maximum horizontal extent of a cell is calculated from the cell vertices for the DIS and DISV grids and from the cell area for the DISU grid, which does not require them.
+A tilt angle is not accompanied by an azimuth, so the comparison cannot account for the direction the screen is oriented in and a screen can extend beyond a cell that is much longer in one horizontal direction than the other without a warning being written.
+The tilt angle, screen elevations, and connection length should be selected so that the screen remains within the connected cell.
 A well that passes through more than one cell should instead be specified with a separate connection to each cell that it penetrates, using $\mli{CONN\_LENGTH}_n$ to specify the in-cell screen length where the tilt angle is too close to horizontal for the screen elevations to define it.
 
 \begin{figure}[!ht]
