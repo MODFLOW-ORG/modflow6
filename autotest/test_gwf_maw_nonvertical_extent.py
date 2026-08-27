@@ -26,6 +26,9 @@ The same four wells are simulated on each grid:
                 extent, which must not be warned about
 * lat_outside - a horizontal connection with a CONN_LENGTH greater than the cell
                 extent, which must be warned about
+* specified   - the same as lat_outside but using the SPECIFIED conductance
+                equation, for which the program does not calculate the
+                conductance and must not report it as too large
 """
 
 import math
@@ -55,15 +58,25 @@ extent = math.sqrt(2.0) * delr
 radius = 0.25
 sradius = 0.5
 hks = hk
+satcond = 1.0
 mawrate = -1.0
 
-# wells: (column, angle in degrees, connection length, expect a warning)
+# wells: (column, angle in degrees, connection length, conductance equation,
+# expect a warning)
 wells = [
-    (2, 60.0, None, False),
-    (4, 85.0, None, True),
-    (6, 90.0, 15.0, False),
-    (8, 90.0, 50.0, True),
+    (1, 60.0, None, "MEAN", False),
+    (3, 85.0, None, "MEAN", True),
+    (5, 90.0, 15.0, "MEAN", False),
+    (7, 90.0, 50.0, "MEAN", True),
+    (9, 90.0, 50.0, "SPECIFIED", True),
 ]
+
+# the conductance clause of the warning depends on the conductance equation
+CALCULATED = "The calculated saturated conductance is correspondingly too large."
+SPECIFIED = (
+    "The specified saturated conductance is applied to a screen "
+    "that is longer than the cell."
+)
 
 # a horizontal connection is saturated over the well diameter
 lat_top = 0.5 * (top + botm) + radius
@@ -140,8 +153,8 @@ def build_models(idx, test):
     connectiondata = []
     angledata = []
     perioddata = []
-    for ifno, (col, angle, conn_len, _) in enumerate(wells):
-        packagedata.append([ifno, radius, botm, strt, "MEAN", 1])
+    for ifno, (col, angle, conn_len, condeqn, _) in enumerate(wells):
+        packagedata.append([ifno, radius, botm, strt, condeqn, 1])
         if conn_len is None:
             scrn_top, scrn_bot = top, botm
         else:
@@ -177,25 +190,26 @@ def warned_connections(ws):
     pattern = (
         r"The horizontal distance spanned by maw well (\d+) connection \d+ "
         r"\(([-+.0-9eE]+)\) is greater than the maximum horizontal extent of "
-        r"the connected cell \(([-+.0-9eE]+)\)"
+        r"the connected cell \(([-+.0-9eE]+)\), so the screen extends beyond "
+        r"the cell it is connected to\. (.+?) Reduce ANGLE"
     )
     return {
-        int(m.group(1)): (float(m.group(2)), float(m.group(3)))
+        int(m.group(1)): (float(m.group(2)), float(m.group(3)), m.group(4))
         for m in re.finditer(pattern, text)
     }
 
 
 def check_output(idx, test):
     warned = warned_connections(test.workspace)
-    expected = {i + 1 for i, w in enumerate(wells) if w[3]}
+    expected = {i + 1 for i, w in enumerate(wells) if w[4]}
     assert set(warned) == expected, (
         f"warned about wells {sorted(warned)}, expected {sorted(expected)}"
     )
 
-    for ifno, (col, angle, conn_len, warn) in enumerate(wells):
+    for ifno, (col, angle, conn_len, condeqn, warn) in enumerate(wells):
         if not warn:
             continue
-        hlen, reported = warned[ifno + 1]
+        hlen, reported, clause = warned[ifno + 1]
         assert np.isclose(hlen, horizontal_distance(angle, conn_len), rtol=1e-6), (
             f"well {ifno + 1} horizontal distance {hlen} is not the expected "
             f"{horizontal_distance(angle, conn_len)}"
@@ -204,6 +218,12 @@ def check_output(idx, test):
         # from the cell area for disu, and must be the same for all three
         assert np.isclose(reported, extent, rtol=1e-6), (
             f"well {ifno + 1} cell extent {reported} is not the expected {extent}"
+        )
+        # the program does not calculate the conductance of a SPECIFIED
+        # connection, so it must not report it as too large
+        expect = SPECIFIED if condeqn == "SPECIFIED" else CALCULATED
+        assert clause == expect, (
+            f"well {ifno + 1} reported '{clause}', expected '{expect}'"
         )
 
 

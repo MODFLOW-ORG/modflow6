@@ -1106,6 +1106,7 @@ contains
     real(DP) :: hlen
     real(DP) :: extent
     real(DP) :: topexp
+    character(len=LINELENGTH) :: cndmsg
     integer(I4B), dimension(:), pointer, contiguous :: nboundchk
     integer(I4B), dimension(:), pointer, contiguous :: iachk
     ! -- minimum cosine of the tilt angle for which the in-cell screen length
@@ -1275,15 +1276,26 @@ contains
           hlen = lw * sin(omega)
           extent = this%maw_cell_extent(node)
           if (hlen > extent) then
+            !
+            ! -- the length correction is not applied to a SPECIFIED
+            !    connection, so the conductance of one is not the program's
+            !    to describe as too large
+            if (this%ieqn(n) == 0) then
+              cndmsg = 'The specified saturated conductance is applied to a '// &
+                       'screen that is longer than the cell.'
+            else
+              cndmsg = 'The calculated saturated conductance is '// &
+                       'correspondingly too large.'
+            end if
             write (warnmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a,g0,a)') &
               'The horizontal distance spanned by maw well', n, 'connection', &
               j, '(', hlen, &
               ') is greater than the maximum horizontal extent of the '// &
               'connected cell (', extent, &
               '), so the screen extends beyond the cell it is connected '// &
-              'to and the calculated saturated conductance is too large. '// &
-              'Reduce ANGLE or CONN_LENGTH, or specify a separate '// &
-              'connection to each cell the well penetrates.'
+              'to. '//trim(cndmsg)//' Reduce ANGLE or CONN_LENGTH, or '// &
+              'specify a separate connection to each cell the well '// &
+              'penetrates.'
             call store_warning(warnmsg)
           end if
         end if
