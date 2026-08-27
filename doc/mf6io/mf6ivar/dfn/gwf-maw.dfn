@@ -564,7 +564,7 @@ tagged false
 in_record true
 reader urword
 longname tilt angle from vertical
-description value that defines the tilt angle of the multi-aquifer well connection, in degrees measured as a deviation from vertical.  ANGLE must be greater than or equal to 0.0 (a vertical connection) and less than or equal to 90.0 (a horizontal connection) degrees.  The in-cell screen length used to calculate the saturated conductance is computed from the screen top, screen bottom, well radius, and ANGLE, unless CONN\_LENGTH is specified.
+description value that defines the tilt angle of the multi-aquifer well connection, in degrees measured as a deviation from vertical.  ANGLE must be greater than or equal to 0.0 (a vertical connection) and less than or equal to 90.0 (a horizontal connection) degrees.  The in-cell screen length used to calculate the saturated conductance is computed from the screen top, screen bottom, well radius, and ANGLE, unless CONN\_LENGTH is specified.  The horizontal distance spanned by a connection grows rapidly as ANGLE approaches 90.0 degrees and is not compared to the size of the connected cell, so a well that passes through more than one cell should be specified with a separate connection to each cell that it penetrates.
 numeric_index false
 
 block angledata
