@@ -182,8 +182,9 @@ contains
     ! -- initialize rank to a value to communicate failure
     rank = -1
     !
-    ! -- get the entry from the memory manager
-    call get_from_memorystore(name, mem_path, mt, found)
+    ! -- get the entry from the memory manager; check=.false. so that a missing
+    !    variable returns rank=-1 rather than terminating (intended behavior)
+    call get_from_memorystore(name, mem_path, mt, found, check=.false.)
     !
     ! -- set rank
     if (found) then

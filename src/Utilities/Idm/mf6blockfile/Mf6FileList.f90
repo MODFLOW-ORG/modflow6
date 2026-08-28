@@ -95,8 +95,10 @@ contains
     ! initialize package input context
     call this%ctx%init(mf6_input)
 
-    ! store in scope SA cols for list input
-    call this%ctx%tags(this%param_names, this%nparam, this%input_name)
+    ! set in-scope param names directly from context
+    this%param_names = this%ctx%params
+    this%nparam = size(this%ctx%params)
+    call this%ctx%check_developmode(this%input_name)
 
     ! construct and set up the struct array object
     call this%create_structarray()
@@ -112,7 +114,7 @@ contains
     integer(I4B) :: n
     ! define tsmanager (TDIS is now available)
     call this%tsmanager%tsmanager_df()
-    ! link static TS strlocs; preserve for re-registration after reset()
+    ! register static TS links; mark as static so they survive reset()
     do n = 1, this%static_loader%ts_sa_count()
       sa => this%static_loader%get_ts_sa(n)
       if (associated(sa)) then
@@ -120,7 +122,7 @@ contains
                           this%mf6_input%subcomponent_name, &
                           this%ctx%iprpak, this%input_name, &
                           this%ctx%auxname_cst, &
-                          clear_strlocs=.false.)
+                          is_static=.true.)
       end if
     end do
   end subroutine df
@@ -132,25 +134,9 @@ contains
   end subroutine ts_advance
 
   subroutine reset(this)
-    use StructArrayModule, only: StructArrayType
     class(ListLoadType), intent(inout) :: this
-    type(StructArrayType), pointer :: sa
-    integer(I4B) :: n
-    ! clear TS links
+    ! clear period TS links; static links (isStatic=.true.) survive
     call this%tsmanager%reset(this%mf6_input%subcomponent_name)
-    ! re-register static TS links (strlocs preserved in df)
-    if (this%ts_active) then
-      do n = 1, this%static_loader%ts_sa_count()
-        sa => this%static_loader%get_ts_sa(n)
-        if (associated(sa)) then
-          call sa%ts_update(this%tsmanager, &
-                            this%mf6_input%subcomponent_name, &
-                            this%ctx%iprpak, this%input_name, &
-                            this%ctx%auxname_cst, &
-                            clear_strlocs=.false.)
-        end if
-      end do
-    end if
   end subroutine reset
 
   subroutine rp(this, parser)

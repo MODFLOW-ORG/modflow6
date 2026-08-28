@@ -27,7 +27,7 @@ module LoadMf6FileModule
   use DefinitionSelectModule, only: get_param_definition_type, &
                                     get_aggregate_definition_type
   use ModflowInputModule, only: ModflowInputType
-  use MemoryManagerModule, only: mem_allocate, mem_setptr
+  use MemoryManagerModule, only: mem_allocate, mem_setptr, get_isize, get_mem_rank
   use StructArrayModule, only: StructArrayType
   use StructVectorModule, only: StructVectorType
   use NCFileVarsModule, only: NCPackageVarsType
@@ -94,7 +94,6 @@ contains
   !!
   !<
   subroutine load(this, parser, mf6_input, nc_vars, filename, iout)
-    use MemoryManagerModule, only: get_isize
     class(LoadMf6FileType) :: this
     type(BlockParserType), target, intent(inout) :: parser
     type(ModflowInputType), intent(in) :: mf6_input
@@ -127,7 +126,6 @@ contains
   !!
   !<
   subroutine init(this, parser, mf6_input, filename, iout)
-    use MemoryManagerModule, only: get_isize
     class(LoadMf6FileType) :: this
     type(BlockParserType), target, intent(inout) :: parser
     type(ModflowInputType), intent(in) :: mf6_input
@@ -571,19 +569,28 @@ contains
     type(LoadContextType) :: ctx
     character(len=LINELENGTH), dimension(:), allocatable :: param_names
     type(InputParamDefinitionType), pointer :: idt !< input data type object describing this record
+    type(InputParamDefinitionType), pointer :: shape_idt
     type(InputParamDefinitionType), target :: blockvar_idt
     integer(I4B) :: blocknum
     integer(I4B), pointer :: nrow
+    integer(I4B), dimension(:), pointer, contiguous :: int1d
     integer(I4B) :: nrows, nrowsread
+    integer(I4B) :: mem_rank, isize
     integer(I4B) :: ibinary, oc_inunit
     integer(I4B) :: icol, iparam
     integer(I4B) :: ncol, nparam
+    logical(LGP) :: shape_found
+
+    nrows = -1
+    mem_rank = -1
 
     ! initialize load context
     call ctx%init(this%mf6_input, blockname= &
                   this%mf6_input%block_dfns(iblk)%blockname)
-    ! set in scope params for load
-    call ctx%tags(param_names, nparam, this%filename)
+    ! set in-scope params directly from context
+    param_names = ctx%params
+    nparam = size(ctx%params)
+    call ctx%check_developmode(this%filename)
     ! set input definition for this block
     idt => &
       get_aggregate_definition_type(this%mf6_input%aggregate_dfns, &
@@ -603,16 +610,54 @@ contains
     if (blocknum > 0) ncol = ncol + 1
     ! use shape to set the max num of rows
     if (idt%shape /= '') then
-      call mem_setptr(nrow, idt%shape, this%mf6_input%mempath)
-      nrows = nrow
-    else
-      nrows = -1
+      shape_idt => &
+        get_param_definition_type(this%mf6_input%param_dfns, &
+                                  this%mf6_input%component_type, &
+                                  this%mf6_input%subcomponent_type, &
+                                  'DIMENSIONS', idt%shape, this%filename, &
+                                  found=shape_found)
+      if (shape_found) then
+        call get_isize(shape_idt%mf6varname, this%mf6_input%mempath, isize)
+        if (isize < 0) then
+          if (shape_idt%required) then
+            write (errmsg, '(3a)') 'Required dimension "', &
+              trim(idt%shape), '" not found.'
+            call store_error(errmsg)
+            call this%parser%StoreErrorUnit()
+          end if
+        else
+          call get_mem_rank(shape_idt%mf6varname, this%mf6_input%mempath, &
+                            mem_rank)
+        end if
+      end if
+      if (mem_rank == 0) then
+        ! scalar shape variable (e.g. NLAKES, MAXBOUND) — use value directly
+        call mem_setptr(nrow, shape_idt%mf6varname, this%mf6_input%mempath)
+        nrows = nrow
+      else if (mem_rank == 1) then
+        ! 1D integer array shape variable (e.g. NLAKECONN) — sum elements
+        ! to get total row count; allows DFN shape (nlakeconn) in place of
+        ! the non-evaluable sum(nlakeconn) expression.
+        call mem_setptr(int1d, shape_idt%mf6varname, this%mf6_input%mempath)
+        nrows = sum(int1d)
+        nullify (int1d)
+      end if
+      ! -- else: shape variable not found or unsupported rank; nrows stays
+      !    at its initial -1, so the block falls back to deferred sizing
     end if
 
-    ! create a structured array
-    this%structarray => constructStructArray(this%mf6_input, ncol, nrows, &
-                                             blocknum, this%mf6_input%mempath, &
-                                             this%mf6_input%component_mempath)
+    ! create a structured array; use a larger deferred init for blocks with no
+    ! explicit shape, which include APT based advanced packages.
+    if (nrows < 0) then
+      this%structarray => constructStructArray(this%mf6_input, ncol, nrows, &
+                                               blocknum, this%mf6_input%mempath, &
+                                               this%mf6_input%component_mempath, &
+                                               size_init=64)
+    else
+      this%structarray => constructStructArray(this%mf6_input, ncol, nrows, &
+                                               blocknum, this%mf6_input%mempath, &
+                                               this%mf6_input%component_mempath)
+    end if
     ! create structarray vectors for each column
     do icol = 1, ncol
       ! if block is reloadable, block number is first column
@@ -722,8 +767,7 @@ contains
   !> @brief load io tag
   !<
   subroutine load_io_tag(parser, idt, memoryPath, which, iout)
-    use MemoryManagerModule, only: mem_allocate, mem_reallocate, &
-                                   mem_setptr, get_isize
+    use MemoryManagerModule, only: mem_allocate, mem_reallocate
     use CharacterStringModule, only: CharacterStringType
     type(BlockParserType), intent(inout) :: parser !< block parser
     type(InputParamDefinitionType), intent(in) :: idt !< input data type object describing this record

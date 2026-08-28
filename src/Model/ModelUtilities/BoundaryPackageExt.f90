@@ -9,7 +9,9 @@
 module BndExtModule
 
   use KindModule, only: DP, LGP, I4B
-  use ConstantsModule, only: LENMEMPATH, LENBOUNDNAME, LENAUXNAME, LINELENGTH
+  use ConstantsModule, only: LENMEMPATH, LENBOUNDNAME, LENAUXNAME, LINELENGTH, &
+                             DZERO, DNODATA
+  use CharacterStringModule, only: CharacterStringType
   use ObsModule, only: obs_cr
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, count_errors, store_error_filename
@@ -33,15 +35,22 @@ module BndExtModule
     integer(I4B), pointer :: iper
     logical(LGP), pointer :: readarraygrid
     logical(LGP), pointer :: readasarrays
-    ! -- arrays
+    logical(LGP), pointer :: ts_active !< .true. if TS6 files are configured in OPTIONS
+    ! -- list/layerarray/gridarray package arrays
     integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null() !< input user cellid list
     integer(I4B), dimension(:), pointer, contiguous :: nodeulist => null() !< input user nodelist
+    ! -- advanced package arrays
+    integer(I4B), dimension(:), pointer, contiguous :: pkg_ifno => null() !< advanced feature index
+    real(DP), dimension(:, :), pointer, contiguous :: pkg_auxvar => null() !< advanced package data AUX
+    real(DP), dimension(:, :), pointer, contiguous :: featureauxvar => null() !< advanced aux staging array
   contains
     procedure :: bnd_df => bndext_df
+    procedure :: bnd_ad => bndext_ad
     procedure :: bnd_rp => bndext_rp
     procedure :: bnd_da => bndext_da
     procedure :: allocate_scalars => bndext_allocate_scalars
     procedure :: allocate_arrays => bndext_allocate_arrays
+    procedure :: allocate_featureauxvar
     procedure :: source_options
     procedure :: source_dimensions
     procedure :: log_options
@@ -53,6 +62,10 @@ module BndExtModule
     procedure :: write_lstfile
     procedure :: bound_value
     procedure :: bnd_rp_log => bndext_rp_log
+    procedure :: set_auxvar_baseline
+    procedure :: sync_auxvar
+    procedure :: validate_ifno
+    procedure :: report_ifno_coverage
   end type BndExtType
 
   !> @ brief BndExtFoundType
@@ -83,6 +96,7 @@ contains
   subroutine bndext_df(this, neq, dis)
     ! -- modules
     use BaseDisModule, only: DisBaseType
+    use MemoryManagerModule, only: get_isize
     use TimeArraySeriesManagerModule, only: TimeArraySeriesManagerType, &
                                             tasmanager_cr
     use TimeSeriesManagerModule, only: TimeSeriesManagerType, tsmanager_cr
@@ -90,6 +104,8 @@ contains
     class(BndExtType), intent(inout) :: this !< BndExtType object
     integer(I4B), intent(inout) :: neq !< number of equations
     class(DisBaseType), pointer :: dis !< discretization object
+    ! -- local
+    integer(I4B) :: isize
     !
     ! -- set pointer to dis object for the model
     this%dis => dis
@@ -110,6 +126,10 @@ contains
     !
     ! -- source options
     call this%source_options()
+    !
+    ! -- detect TS6 files; used by subclass _ad to bypass per-timestep re-dispatch
+    call get_isize('TS6_FILENAME', this%input_mempath, isize)
+    if (isize > 0) this%ts_active = .true.
     !
     ! -- Define time series managers
     call this%tsmanager%tsmanager_df()
@@ -136,6 +156,28 @@ contains
     !    when PRINT_INPUT option is used.
     call this%define_listlabel()
   end subroutine bndext_df
+
+  !> @brief Advance the package one time step
+  !!
+  !! For advanced packages with TS6 files active, resets featureauxvar to
+  !! the PACKAGEDATA AUX baseline and re-applies PERIOD AUXILIARY overrides,
+  !! so a time-series-linked AUXVAL is picked up each timestep. Does not
+  !! call this%TsManager%ad()/this%TasManager%ad() -- those managers are
+  !! unused by this type (see bndext_df).
+  !<
+  subroutine bndext_ad(this)
+    ! -- dummy
+    class(BndExtType) :: this
+    !
+    ! -- when TS files are active, re-sync featureauxvar each timestep
+    if (this%ts_active .and. this%isadvpak /= 0) then
+      call this%set_auxvar_baseline()
+      call this%sync_auxvar()
+    end if
+    !
+    ! -- advance observations
+    call this%obs%obs_ad()
+  end subroutine bndext_ad
 
   subroutine bndext_rp(this)
     ! -- modules
@@ -186,6 +228,145 @@ contains
     end if
   end subroutine bndext_rp_log
 
+  !> @brief Reset featureauxvar to PACKAGEDATA AUX baseline
+  !!
+  !! Copies current pkg_auxvar values into featureauxvar, resetting any
+  !! PERIOD override from a prior period. Called at period start, and each
+  !! timestep from bndext_ad when TS6 files are active.
+  !<
+  subroutine set_auxvar_baseline(this)
+    ! -- dummy
+    class(BndExtType), intent(inout) :: this
+    ! -- local
+    integer(I4B) :: n, ifeat, jj
+    !
+    if (this%naux <= 0 .or. .not. associated(this%pkg_auxvar)) return
+    do n = 1, size(this%pkg_ifno)
+      ifeat = this%pkg_ifno(n)
+      do jj = 1, this%naux
+        this%featureauxvar(jj, ifeat) = this%pkg_auxvar(jj, n)
+      end do
+    end do
+  end subroutine set_auxvar_baseline
+
+  !> @brief Re-apply PERIOD AUXILIARY overrides to featureauxvar each timestep
+  !!
+  !! Reads updated time series values from the input context and applies
+  !! them to the auxvar staging array.
+  !<
+  subroutine sync_auxvar(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr, get_isize
+    ! -- dummy
+    class(BndExtType), intent(inout) :: this
+    ! -- local
+    integer(I4B), pointer :: nbound => null()
+    integer(I4B), dimension(:), pointer, contiguous :: period_ifno => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      period_setting => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      period_auxname => null()
+    real(DP), dimension(:), pointer, contiguous :: period_auxval => null()
+    integer(I4B) :: i, ifeat, jj, isize
+    character(len=LINELENGTH) :: str, setting
+    !
+    if (.not. associated(this%featureauxvar)) return
+    if (this%naux <= 0) return
+    !
+    call get_isize('NBOUND', this%input_mempath, isize)
+    if (isize < 1) return
+    call mem_setptr(nbound, 'NBOUND', this%input_mempath)
+    if (nbound <= 0) return
+    !
+    ! -- AUXNAME/AUXVAL only exist when at least one AUXILIARY was declared
+    call get_isize('AUXNAME', this%input_mempath, isize)
+    if (isize < 1) return
+    !
+    call mem_setptr(period_ifno, 'IFNO', this%input_mempath)
+    call mem_setptr(period_setting, 'SETTING', this%input_mempath)
+    call mem_setptr(period_auxname, 'AUXNAME', this%input_mempath)
+    call mem_setptr(period_auxval, 'AUXVAL', this%input_mempath)
+    !
+    do i = 1, nbound
+      setting = period_setting(i)
+      if (trim(setting) /= 'PERIOD_AUXILIARY') cycle
+      ifeat = period_ifno(i)
+      if (ifeat < 1 .or. ifeat > size(this%featureauxvar, 2)) cycle
+      str = period_auxname(i)
+      do jj = 1, this%naux
+        if (trim(str) /= trim(this%auxname(jj))) cycle
+        if (period_auxval(i) /= DNODATA) &
+          this%featureauxvar(jj, ifeat) = period_auxval(i)
+        exit
+      end do
+    end do
+  end subroutine sync_auxvar
+
+  !> @ brief Validate a list-input row's IFNO and update the per-feature
+  !!  coverage counter
+  !!
+  !! Returns the validated feature index, or 0 if out of range (an error is
+  !! logged; the caller should skip further processing for the row).
+  !<
+  function validate_ifno(this, ifno_val, nfeatures, nboundchk, &
+                         feature_label, blockname) result(idx)
+    ! -- dummy
+    class(BndExtType), intent(inout) :: this
+    integer(I4B), intent(in) :: ifno_val
+    integer(I4B), intent(in) :: nfeatures
+    integer(I4B), dimension(:), intent(inout) :: nboundchk
+    character(len=*), intent(in) :: feature_label
+    character(len=*), intent(in) :: blockname
+    ! -- return
+    integer(I4B) :: idx
+    !
+    idx = ifno_val
+    if (idx < 1 .or. idx > nfeatures) then
+      write (errmsg, '(a,1x,a,1x,a,i0,a,1x,i0,a)') &
+        trim(blockname), trim(feature_label), '(', idx, &
+        ') must be greater than 0 and less than or equal to', nfeatures, '.'
+      call store_error(errmsg)
+      idx = 0
+      return
+    end if
+    nboundchk(idx) = nboundchk(idx) + 1
+  end function validate_ifno
+
+  !> @ brief Report missing or duplicate list-input rows for each feature
+  !!
+  !! Set check_missing=.false. for an optional block where not every
+  !! feature is expected to have a row (duplicates are still reported).
+  !<
+  subroutine report_ifno_coverage(this, nboundchk, nfeatures, feature_label, &
+                                  blockname, check_missing)
+    ! -- dummy
+    class(BndExtType), intent(inout) :: this
+    integer(I4B), dimension(:), intent(in) :: nboundchk
+    integer(I4B), intent(in) :: nfeatures
+    character(len=*), intent(in) :: feature_label
+    character(len=*), intent(in) :: blockname
+    logical(LGP), intent(in), optional :: check_missing
+    ! -- local
+    integer(I4B) :: n
+    logical(LGP) :: do_check_missing
+    !
+    do_check_missing = .true.
+    if (present(check_missing)) do_check_missing = check_missing
+    !
+    do n = 1, nfeatures
+      if (do_check_missing .and. nboundchk(n) == 0) then
+        write (errmsg, '(a,1x,a,1x,a,1x,i0,a)') &
+          trim(blockname), 'no data specified for', trim(feature_label), n, '.'
+        call store_error(errmsg)
+      else if (nboundchk(n) > 1) then
+        write (errmsg, '(a,1x,a,1x,a,1x,i0,1x,a,1x,i0,1x,a)') &
+          trim(blockname), 'data for', trim(feature_label), n, &
+          'specified', nboundchk(n), 'times.'
+        call store_error(errmsg)
+      end if
+    end do
+  end subroutine report_ifno_coverage
+
   !> @ brief Deallocate package memory
   !<
   subroutine bndext_da(this)
@@ -194,21 +375,35 @@ contains
     ! -- dummy variables
     class(BndExtType) :: this !< BndExtType object
     !
-    ! -- deallocate checkin paths
-    call mem_deallocate(this%cellid, 'CELLID', this%memoryPath)
-    call mem_deallocate(this%nodeulist, 'NODEULIST', this%memoryPath)
-    call mem_deallocate(this%boundname_cst, 'BOUNDNAME_IDM', this%memoryPath)
-    call mem_deallocate(this%auxvar, 'AUXVAR_IDM', this%memoryPath)
-    !
-    ! -- reassign pointers for base class _da
-    call mem_setptr(this%boundname_cst, 'BOUNDNAME_CST', this%memoryPath)
-    call mem_setptr(this%auxvar, 'AUXVAR', this%memoryPath)
+    if (this%isadvpak /= 0) then
+      !
+      ! -- advanced package cleanup (MAW, SFR, LAK, UZF)
+      if (associated(this%featureauxvar)) then
+        call mem_deallocate(this%featureauxvar, 'FEATUREAUXVAR', this%memoryPath)
+      end if
+      call mem_deallocate(this%auxvar, 'AUXVAR_IDM', this%memoryPath)
+      nullify (this%pkg_auxvar)
+      nullify (this%pkg_ifno)
+    else
+      !
+      ! -- list/array package cleanup
+      call mem_deallocate(this%cellid, 'CELLID', this%memoryPath)
+      call mem_deallocate(this%nodeulist, 'NODEULIST', this%memoryPath)
+      call mem_deallocate(this%boundname_cst, 'BOUNDNAME_IDM', this%memoryPath)
+      call mem_deallocate(this%auxvar, 'AUXVAR_IDM', this%memoryPath)
+      !
+      ! -- reassign pointers for base class _da
+      call mem_setptr(this%boundname_cst, 'BOUNDNAME_CST', this%memoryPath)
+      call mem_setptr(this%auxvar, 'AUXVAR', this%memoryPath)
+    end if
     !
     ! -- scalars
     deallocate (this%readarraygrid)
     deallocate (this%readasarrays)
+    deallocate (this%ts_active)
     nullify (this%readarraygrid)
     nullify (this%readasarrays)
+    nullify (this%ts_active)
     nullify (this%iper)
     !
     ! -- deallocate
@@ -238,10 +433,12 @@ contains
     ! -- allocate internal scalars
     allocate (this%readarraygrid)
     allocate (this%readasarrays)
+    allocate (this%ts_active)
 
     ! -- initialize internal scalars
     this%readarraygrid = .false.
     this%readasarrays = .false.
+    this%ts_active = .false.
   end subroutine bndext_allocate_scalars
 
   !> @ brief Allocate package arrays
@@ -260,7 +457,17 @@ contains
     integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist !< package nodelist
     real(DP), dimension(:, :), pointer, contiguous, optional :: auxvar !< package aux variable array
     !
-    ! -- allocate base BndType arrays
+    if (this%isadvpak /= 0) then
+      !
+      ! -- advanced package (MAW, SFR, LAK, UZF): allocate BndType arrays for
+      !    the connections-level arrays (nodelist, bound, auxvar, hcof, rhs, etc.)
+      call this%BndType%allocate_arrays(nodelist, auxvar)
+      call mem_checkin(this%auxvar, 'AUXVAR_IDM', this%memoryPath, 'AUXVAR', &
+                       this%memoryPath)
+      return
+    end if
+    !
+    ! -- list/layerarray/gridarray package: allocate base BndType arrays
     call this%BndType%allocate_arrays(nodelist, auxvar)
     !
     ! -- set input context pointers
@@ -287,6 +494,41 @@ contains
                        'AUXVAR', this%input_mempath)
     end if
   end subroutine bndext_allocate_arrays
+
+  !> @brief Allocate the per-feature auxiliary variable staging array
+  !!
+  !! Call only from packages supporting PACKAGEDATA AUX variables.
+  !<
+  subroutine allocate_featureauxvar(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_allocate, mem_setptr
+    ! -- dummy
+    class(BndExtType) :: this !< BndExtType object
+    ! -- local
+    integer(I4B) :: n, ifeat, jj, nfeatures
+    !
+    ! -- set input context PACKAGEDATA pointers
+    call mem_setptr(this%pkg_ifno, 'PACKAGEDATA_IFNO', this%input_mempath)
+    if (this%naux > 0) then
+      call mem_setptr(this%pkg_auxvar, 'AUX', this%input_mempath)
+    end if
+    !
+    ! -- allocate featureauxvar(naux, nfeatures)
+    nfeatures = size(this%pkg_ifno)
+    call mem_allocate(this%featureauxvar, this%naux, nfeatures, &
+                      'FEATUREAUXVAR', this%memoryPath)
+    !
+    ! -- initialize from input context PACKAGEDATA AUX
+    this%featureauxvar = DZERO
+    if (this%naux > 0 .and. associated(this%pkg_auxvar)) then
+      do n = 1, nfeatures
+        ifeat = this%pkg_ifno(n)
+        do jj = 1, this%naux
+          this%featureauxvar(jj, ifeat) = this%pkg_auxvar(jj, n)
+        end do
+      end do
+    end if
+  end subroutine allocate_featureauxvar
 
   !> @ brief Source package options from input context
   !<

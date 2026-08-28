@@ -342,23 +342,23 @@ contains
     ! specified in this or another stress period,
     ! a new tslink would be set up.
     !
-    ! Reassign all linked elements to zero
+    ! Reassign all non-static linked elements to zero
     nlinks = this%boundTsLinks%Count()
     do i = 1, nlinks
       tslink => GetTimeSeriesLinkFromList(this%boundTsLinks, i)
       if (associated(tslink)) then
-        if (tslink%PackageName == pkgName) then
+        if (tslink%PackageName == pkgName .and. .not. tslink%isStatic) then
           tslink%BndElement = DZERO
         end if
       end if
     end do
     !
-    ! Remove links belonging to calling package
+    ! Remove non-static links belonging to calling package
     nlinks = this%boundTsLinks%Count()
     do i = nlinks, 1, -1
       tslink => GetTimeSeriesLinkFromList(this%boundTsLinks, i)
       if (associated(tslink)) then
-        if (tslink%PackageName == pkgName) then
+        if (tslink%PackageName == pkgName .and. .not. tslink%isStatic) then
           call this%boundTsLinks%RemoveNode(i, .true.)
         end if
       end if
@@ -367,7 +367,7 @@ contains
     do i = nlinks, 1, -1
       tslink => GetTimeSeriesLinkFromList(this%auxvarTsLinks, i)
       if (associated(tslink)) then
-        if (tslink%PackageName == pkgName) then
+        if (tslink%PackageName == pkgName .and. .not. tslink%isStatic) then
           call this%auxvarTsLinks%RemoveNode(i, .true.)
         end if
       end if

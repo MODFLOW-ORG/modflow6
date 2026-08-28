@@ -74,8 +74,7 @@ contains
     type(CharacterStringType), dimension(:), pointer, contiguous :: ts_fnames
     character(len=LINELENGTH) :: fname
     character(len=LENVARNAME), allocatable :: named_bound(:)
-    character(len=LINELENGTH), dimension(:), allocatable :: member_names
-    integer(I4B) :: n, nmembers, isize
+    integer(I4B) :: n, isize
 
     call this%DynamicPkgLoadType%init(mf6_input, component_name, &
                                       component_input_name, input_name, &
@@ -119,16 +118,11 @@ contains
       call this%ctx%init(mf6_input)
     end if
 
-    call this%ctx%tags(this%param_names, this%nparam, this%input_name)
+    ! params is fully elaborated: leading cols + member names
+    this%param_names = this%ctx%params
+    this%nparam = size(this%ctx%params)
     this%nleading = this%ctx%nleading
-
-    ! append keystring member column names
-    call this%ctx%keystring_member_names(member_names, nmembers)
-    do n = 1, nmembers
-      this%nparam = this%nparam + 1
-      call expandarray(this%param_names)
-      this%param_names(this%nparam) = trim(member_names(n))
-    end do
+    call this%ctx%check_developmode(this%input_name)
 
     ! finalize context setup (allocates NBOUND, NODEULIST, etc.)
     call this%ctx%allocate_arrays()
@@ -139,19 +133,26 @@ contains
 
   subroutine df(this)
     use StructArrayModule, only: StructArrayType
+    use MemoryManagerModule, only: mem_setptr, get_isize
+    use CharacterStringModule, only: CharacterStringType
     class(KeystringLoadType), intent(inout) :: this
     type(StructArrayType), pointer :: sa
-    integer(I4B) :: n
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      auxnames => null()
+    integer(I4B) :: n, naux
     ! init tsmanager (TDIS now available)
     call this%tsmanager%tsmanager_df()
-    ! link static TS strlocs; preserve for re-registration after reset()
+    ! resolve aux names for PACKAGEDATA AUX TS registration
+    call get_isize('AUXILIARY', this%mf6_input%mempath, naux)
+    if (naux > 0) call mem_setptr(auxnames, 'AUXILIARY', this%mf6_input%mempath)
+    ! register static TS links; mark as static so they survive reset
     do n = 1, this%static_loader%ts_sa_count()
       sa => this%static_loader%get_ts_sa(n)
       if (associated(sa)) then
         call sa%ts_update(this%tsmanager, &
                           this%mf6_input%subcomponent_name, &
                           this%ctx%iprpak, this%input_name, &
-                          clear_strlocs=.false.)
+                          is_static=.true., auxname_cst=auxnames)
       end if
     end do
   end subroutine df
@@ -187,24 +188,9 @@ contains
   end subroutine rp
 
   subroutine reset(this)
-    use StructArrayModule, only: StructArrayType
     class(KeystringLoadType), intent(inout) :: this
-    type(StructArrayType), pointer :: sa
-    integer(I4B) :: n
-    ! clear TS links
+    ! clear period TS links; static links (isStatic=.true.) survive
     call this%tsmanager%reset(this%mf6_input%subcomponent_name)
-    ! re-register static TS links (strlocs preserved in df)
-    if (this%ts_active) then
-      do n = 1, this%static_loader%ts_sa_count()
-        sa => this%static_loader%get_ts_sa(n)
-        if (associated(sa)) then
-          call sa%ts_update(this%tsmanager, &
-                            this%mf6_input%subcomponent_name, &
-                            this%ctx%iprpak, this%input_name, &
-                            clear_strlocs=.false.)
-        end if
-      end do
-    end if
   end subroutine reset
 
   subroutine destroy(this)
@@ -225,14 +211,10 @@ contains
   end subroutine destroy
 
   subroutine create_structarray(this)
-    use DefinitionSelectModule, only: get_param_definition_type, &
-                                      idt_parse_rectype
-    use InputOutputModule, only: upcase
+    use DefinitionSelectModule, only: get_param_definition_type
     class(KeystringLoadType), intent(inout) :: this
-    type(InputParamDefinitionType), pointer :: idt, pidt
-    character(len=LINELENGTH), allocatable :: rec_cols(:)
-    character(len=LINELENGTH) :: kwname, first_col
-    integer(I4B) :: icol, nrow_prealloc, jparam, nrec_col, nsub
+    type(InputParamDefinitionType), pointer :: idt
+    integer(I4B) :: icol, sa_icol, nrow_prealloc, nsub, padj
 
     ! use pre-allocated managed memory (maxbound = features * nmembers);
     ! fall back to deferred shape (-1) if maxbound is unavailable
@@ -242,42 +224,60 @@ contains
       nrow_prealloc = -1
     end if
 
-    this%structarray => constructStructArray(this%mf6_input, this%nparam, &
-                                             nrow_prealloc, 0, &
-                                             this%mf6_input%mempath, &
-                                             this%mf6_input%component_mempath)
-    do icol = 1, this%nparam
+    ! SETTING column inserted at nleading+1 for ADVANCED packages
+    padj = 0
+    if (this%ctx%is_advanced) padj = 1
+
+    if (this%ctx%is_advanced .and. nrow_prealloc < 0) then
+      ! includes APT based advanced packages
+      this%structarray => &
+        constructStructArray(this%mf6_input, this%nparam + padj, &
+                             nrow_prealloc, 0, this%mf6_input%mempath, &
+                             this%mf6_input%component_mempath, size_init=64)
+    else
+      this%structarray => &
+        constructStructArray(this%mf6_input, this%nparam + padj, &
+                             nrow_prealloc, 0, this%mf6_input%mempath, &
+                             this%mf6_input%component_mempath)
+    end if
+
+    ! create leading (pre-keystring) columns unchanged
+    do icol = 1, this%nleading
       idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                        this%mf6_input%component_type, &
                                        this%mf6_input%subcomponent_type, &
                                        'PERIOD', &
                                        this%param_names(icol), this%input_name)
       call this%structarray%mem_create_vector(icol, idt)
+    end do
 
-      ! For KEYWORD member columns, store the compound sub-member count
-      ! from the RECORD definition so read_from_parser_keystring reads
-      ! exactly the right number of sub-values.
-      if (trim(idt%datatype) == 'KEYWORD' .and. icol > this%nleading) then
-        kwname = trim(idt%tagname)
-        call upcase(kwname)
-        nsub = 0
-        do jparam = 1, size(this%mf6_input%param_dfns)
-          pidt => this%mf6_input%param_dfns(jparam)
-          if (pidt%blockname /= 'PERIOD') cycle
-          if (pidt%datatype(1:6) /= 'RECORD') cycle
-          call idt_parse_rectype(pidt, rec_cols, nrec_col)
-          if (nrec_col >= 1) then
-            first_col = trim(rec_cols(1))
-            call upcase(first_col)
-            if (trim(first_col) == trim(kwname)) then
-              nsub = nrec_col - 1
-              if (allocated(rec_cols)) deallocate (rec_cols)
-              exit
-            end if
-          end if
-          if (allocated(rec_cols)) deallocate (rec_cols)
-        end do
-        this%structarray%struct_vectors(icol)%nsubmembers = nsub
+    ! create SETTING column (ctx owns setting_idt)
+    if (this%ctx%is_advanced) then
+      sa_icol = this%nleading + 1
+      call this%structarray%mem_create_vector(sa_icol, this%ctx%setting_idt, &
+                                              charlen=LENVARNAME)
+    end if
+
+    ! create member columns
+    do icol = this%nleading + 1, this%nparam
+      sa_icol = icol + padj
+      idt => get_param_definition_type(this%mf6_input%param_dfns, &
+                                       this%mf6_input%component_type, &
+                                       this%mf6_input%subcomponent_type, &
+                                       'PERIOD', &
+                                       this%param_names(icol), this%input_name)
+      ! nsub from context: 0 = direct dispatch, N = KEYWORD compound with N sub-members
+      nsub = this%ctx%member_nsubs(icol - this%nleading)
+      if (nsub > 0) then
+        ! metadata vector: no data allocated; isubmember points to next SA col
+        call this%structarray%mem_create_metadata_vector(sa_icol, idt, &
+                                                         sa_icol + 1, nsub)
+      else if (trim(idt%datatype) == 'STRING') then
+        ! string value columns (e.g. STATUS) stored at LENVARNAME
+        call this%structarray%mem_create_vector(sa_icol, idt, &
+                                                charlen=LENVARNAME)
+      else
+        call this%structarray%mem_create_vector(sa_icol, idt)
       end if
     end do
   end subroutine create_structarray
