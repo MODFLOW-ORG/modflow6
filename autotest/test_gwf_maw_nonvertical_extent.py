@@ -9,10 +9,11 @@ is given a saturated conductance that is too large. MODFLOW 6 compares the
 horizontal distance to the maximum horizontal extent of the connected cell and
 issues a warning when it is exceeded.
 
-The cell extent is calculated from the cell vertices for the DIS and DISV grids
-and from the cell area for the DISU grid, which does not require them. All
-three grids in this test are the same square cells, so all three must report the
-same extent.
+The cell extent is calculated from the cell vertices where they are defined and
+is estimated from the cell area where they are not. The vertices are optional
+for a DISU grid, so it is run both with and without them. All four grids in this
+test are the same square cells, so all four must report the same extent, and
+only the DISU grid without vertices must report it as estimated.
 
 The same four wells are simulated on each grid:
 
@@ -41,8 +42,8 @@ import pytest
 from flopy.utils.gridutil import get_disu_kwargs, get_disv_kwargs
 from framework import TestFramework
 
-cases = ["mawnvext_dis", "mawnvext_disv", "mawnvext_disu"]
-grids = ["dis", "disv", "disu"]
+cases = ["mawnvext_dis", "mawnvext_disv", "mawnvext_disu", "mawnvext_disuv"]
+grids = ["dis", "disv", "disu", "disu_vertices"]
 
 # grid and aquifer properties; square cells so the maximum horizontal extent of
 # a cell is the diagonal, and is the same for all three grids
@@ -115,9 +116,18 @@ def add_grid(gwf, grid):
         flopy.mf6.ModflowGwfdisv(gwf, **kwargs)
         return [(0, j) for j in range(ncol)]
     else:
-        # the cell vertices are not written, so the cell extent is calculated
-        # from the cell area
-        kwargs = get_disu_kwargs(nlay, nrow, ncol, delr, delc, top, [botm])
+        # the cell vertices are optional; the extent is estimated from the cell
+        # area when they are not given
+        kwargs = get_disu_kwargs(
+            nlay,
+            nrow,
+            ncol,
+            delr,
+            delc,
+            top,
+            [botm],
+            return_vertices=grid == "disu_vertices",
+        )
         flopy.mf6.ModflowGwfdisu(gwf, **kwargs)
         return [j for j in range(ncol)]
 
@@ -189,18 +199,26 @@ def warned_connections(ws):
         text = " ".join(f.read().split())
     pattern = (
         r"The horizontal distance spanned by maw well (\d+) connection \d+ "
-        r"\(([-+.0-9eE]+)\) is greater than the maximum horizontal extent of "
-        r"the connected cell \(([-+.0-9eE]+)\), so the screen extends beyond "
-        r"the cell it is connected to\. (.+?) Reduce ANGLE"
+        r"\(([-+.0-9eE]+)\) is greater than the (estimated )?maximum "
+        r"horizontal extent of the connected cell \(([-+.0-9eE]+)\), so the "
+        r"screen extends beyond the cell it is connected to\. (.+?) Reduce "
+        r"ANGLE"
     )
     return {
-        int(m.group(1)): (float(m.group(2)), float(m.group(3)), m.group(4))
+        int(m.group(1)): (
+            float(m.group(2)),
+            float(m.group(4)),
+            m.group(5),
+            m.group(3) is not None,
+        )
         for m in re.finditer(pattern, text)
     }
 
 
 def check_output(idx, test):
     warned = warned_connections(test.workspace)
+    # only the disu grid without vertices estimates the extent from the area
+    estimate = grids[idx] == "disu"
     expected = {i + 1 for i, w in enumerate(wells) if w[4]}
     assert set(warned) == expected, (
         f"warned about wells {sorted(warned)}, expected {sorted(expected)}"
@@ -209,15 +227,21 @@ def check_output(idx, test):
     for ifno, (col, angle, conn_len, condeqn, warn) in enumerate(wells):
         if not warn:
             continue
-        hlen, reported, clause = warned[ifno + 1]
+        hlen, reported, clause, estimated = warned[ifno + 1]
         assert np.isclose(hlen, horizontal_distance(angle, conn_len), rtol=1e-6), (
             f"well {ifno + 1} horizontal distance {hlen} is not the expected "
             f"{horizontal_distance(angle, conn_len)}"
         )
-        # the extent is calculated from the cell vertices for dis and disv and
-        # from the cell area for disu, and must be the same for all three
+        # the extent is calculated from the cell vertices where they are
+        # defined and estimated from the cell area where they are not, and
+        # must be the same for all four grids
         assert np.isclose(reported, extent, rtol=1e-6), (
             f"well {ifno + 1} cell extent {reported} is not the expected {extent}"
+        )
+        assert estimated == estimate, (
+            f"well {ifno + 1} reported the extent as "
+            f"{'estimated' if estimated else 'calculated'} on the "
+            f"{grids[idx]} grid"
         )
         # the program does not calculate the conductance of a SPECIFIED
         # connection, so it must not report it as too large

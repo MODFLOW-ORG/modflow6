@@ -1107,6 +1107,8 @@ contains
     real(DP) :: extent
     real(DP) :: topexp
     character(len=LINELENGTH) :: cndmsg
+    character(len=LINELENGTH) :: extmsg
+    logical(LGP) :: estimated
     integer(I4B), dimension(:), pointer, contiguous :: nboundchk
     integer(I4B), dimension(:), pointer, contiguous :: iachk
     ! -- minimum cosine of the tilt angle for which the in-cell screen length
@@ -1274,8 +1276,16 @@ contains
         !    cannot exceed the horizontal extent of the connected cell
         if (lw > DZERO) then
           hlen = lw * sin(omega)
-          extent = this%maw_cell_extent(node)
+          extent = this%maw_cell_extent(node, estimated)
           if (hlen > extent) then
+            !
+            ! -- the extent is estimated from the cell area where the cell
+            !    vertices are not defined
+            if (estimated) then
+              extmsg = 'estimated maximum horizontal extent'
+            else
+              extmsg = 'maximum horizontal extent'
+            end if
             !
             ! -- the length correction is not applied to a SPECIFIED
             !    connection, so the conductance of one is not the program's
@@ -1290,12 +1300,12 @@ contains
             write (warnmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a,g0,a)') &
               'The horizontal distance spanned by maw well', n, 'connection', &
               j, '(', hlen, &
-              ') is greater than the maximum horizontal extent of the '// &
+              ') is greater than the '//trim(extmsg)//' of the '// &
               'connected cell (', extent, &
               '), so the screen extends beyond the cell it is connected '// &
               'to. '//trim(cndmsg)//' Reduce ANGLE or CONN_LENGTH, or '// &
-              'specify a separate connection to each cell the well '// &
-              'penetrates.'
+              'specify a separate connection to each cell the connection '// &
+              'passes through.'
             call store_warning(warnmsg)
           end if
         end if
@@ -1382,32 +1392,39 @@ contains
 
   !> @brief Maximum horizontal extent of a cell
   !!
-  !! The extent is the largest distance between two cell vertices for grids
-  !! that define them, and the diagonal of a square with the same area for
-  !! grids that do not.
+  !! The extent is the largest distance between two cell vertices where they
+  !! are defined, and is estimated as the diagonal of a square with the same
+  !! area where they are not.
   !<
-  function maw_cell_extent(this, node) result(extent)
-    use ConstantsModule, only: DIS, DISV, DTWO
+  function maw_cell_extent(this, node, estimated) result(extent)
+    use ConstantsModule, only: DIS, DISV, DISU, DTWO
     use GeomUtilModule, only: polygon_extent
     ! -- dummy
     class(MawType), intent(inout) :: this
     integer(I4B), intent(in) :: node !< reduced node number of the connected cell
+    logical(LGP), intent(out) :: estimated !< extent is estimated from the cell area
     ! -- return
     real(DP) :: extent
     ! -- local
     real(DP), allocatable, dimension(:, :) :: polyverts
+    integer(I4B) :: nverts
     !
+    ! -- the vertices are optional for a disu grid and are not defined for
+    !    grids that have no cell polygons
+    nverts = 0
     select case (this%dis%get_dis_enum())
-    case (DIS, DISV)
+    case (DIS, DISV, DISU)
+      nverts = this%dis%get_npolyverts(node)
+    end select
+    !
+    estimated = nverts == 0
+    if (estimated) then
+      extent = sqrt(DTWO * this%dis%area(node))
+    else
       call this%dis%get_polyverts(node, polyverts)
       extent = polygon_extent(polyverts(1, :), polyverts(2, :))
       deallocate (polyverts)
-    case default
-      !
-      ! -- disu does not define cell vertices, so the extent is taken from the
-      !    cell area; the two are equal for a square cell
-      extent = sqrt(DTWO * this%dis%area(node))
-    end select
+    end if
   end function maw_cell_extent
 
   !> @brief Calculate the length correction factor for a multi-aquifer well
