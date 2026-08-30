@@ -118,6 +118,8 @@ contains
                       this%fmi%memoryPath)
     call mem_allocate(this%fmi%gwfsat, this%neq, 'GWFSAT', &
                       this%fmi%memoryPath)
+    call mem_allocate(this%fmi%gwfsat_old, this%neq, 'GWFSAT_OLD', &
+                      this%fmi%memoryPath)
     call mem_allocate(this%fmi%gwfspdis, 3, this%neq, 'GWFSPDIS', &
                       this%fmi%memoryPath)
   end subroutine allocate_fmi
