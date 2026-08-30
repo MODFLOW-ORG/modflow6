@@ -52,6 +52,11 @@ description = "Errors detected while reading the OPTIONS block of the Drain (DRN
 
 [[items]]
 section = "fixes"
+subsection = "solution"
+description = "A time step length submitted to the adaptive time stepping (ATS) Package by a package that needs to limit the step for its own stability was discarded whenever DTADJ for that period was zero or one.  DTADJ is the multiplier ATS applies when it lengthens or shortens the step in response to the solver iteration count, and the documentation states that a value of zero or one means it has no effect on the simulation.  It should have no bearing on a step length that a package submits directly, because ATS assigns such a length to the time step rather than scaling it.  Three packages submit a step this way: the ADV Package of the GWT and GWE models submits the advective Courant limit, and the SFR Package of the GWF model submits the kinematic wave limit.  With DTADJ set to zero or one those limits had no effect at all, in either direction, so the time step was neither raised nor lowered toward the stable value.  In particular the ATS\\_PERCEL option of the ADV Package, which limits the fraction of a cell that may be traversed in one time step, was accepted without complaint and then ignored.  The test that discards the submitted length now applies only where DTADJ is actually used."
+
+[[items]]
+section = "fixes"
 subsection = "internal"
 description = "Resolved mass-balance errors in the Central and UTVD numerical schemes caused by inconsistent interpretation of cell-to-interface distances (cl1/cl2)."
 
