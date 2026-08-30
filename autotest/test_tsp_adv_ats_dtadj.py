@@ -86,8 +86,7 @@ def ims(sim, name, acceleration):
     )
 
 
-def build_models(idx, test):
-    name = list(cases)[idx]
+def build_models(name, test):
     mtype, dtadj, dt0 = cases[name]
 
     sim = flopy.mf6.MFSimulation(
@@ -198,8 +197,7 @@ def build_models(idx, test):
     return sim, None
 
 
-def check_output(idx, test):
-    name = list(cases)[idx]
+def check_output(name, test):
     mtype, dtadj, dt0 = cases[name]
     tname = f"{mtype}_{name}"
     text = "CONCENTRATION" if mtype == "gwt" else "TEMPERATURE"
@@ -224,13 +222,13 @@ def check_output(idx, test):
     )
 
 
-@pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+@pytest.mark.parametrize("name", cases)
+def test_mf6model(name, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
-        build=lambda t: build_models(idx, t),
-        check=lambda t: check_output(idx, t),
+        build=lambda t: build_models(name, t),
+        check=lambda t: check_output(name, t),
     )
     test.run()
