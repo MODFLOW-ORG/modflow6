@@ -27,6 +27,7 @@ module MeshModelModule
   public :: ncvar_deflate
   public :: ncvar_gridmap
   public :: ncvar_mf6attr
+  public :: ncvar_layer
 
   !> @brief type for storing model export dimension ids
   !<
@@ -54,6 +55,7 @@ module MeshModelModule
     integer(I4B) :: layer !< layer coordinate variable
     integer(I4B), dimension(:), allocatable :: export !< in scope layer export
     integer(I4B), dimension(:), allocatable :: dependent !< layered dependent variables array
+    integer(I4B), dimension(:), allocatable :: elevation !< z_lN per-layer cell center elevation variables array
   contains
   end type MeshNCVarIdType
 
@@ -290,7 +292,7 @@ contains
 
     ! add grid mapping and mf6 attr (mesh, location, coordinates, grid_mapping)
     call ncvar_gridmap(this%ncid, varid, &
-                       this%gridmap_name, this%nc_fname)
+                       this%gridmap_name, layer, this%nc_fname)
     call ncvar_mf6attr(this%ncid, varid, layer, iaux, nc_tag, this%nc_fname)
 
     ! store variable id
@@ -473,10 +475,23 @@ contains
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &
                                   '_FillValue', (/DHNOFLO/)), &
                      this%nc_fname)
+      ! cell_methods (CF-1.13 7.3): dependent variable values are the
+      ! instantaneous simulated state at each output time, not a time
+      ! mean/accumulation over the interval -- an intensive quantity whose
+      ! default method is already "point" per CF's own Appendix E, stated
+      ! explicitly here per CF's recommendation to do so for every
+      ! spatio-temporal dimension.
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &
+                                  'cell_methods', 'time: point'), &
+                     this%nc_fname)
 
       ! add grid mapping (mesh, location, coordinates, grid_mapping)
       call ncvar_gridmap(this%ncid, this%var_ids%dependent(k), &
-                         this%gridmap_name, this%nc_fname)
+                         this%gridmap_name, k, this%nc_fname)
+
+      ! add layer attribute
+      call ncvar_layer(this%ncid, this%var_ids%dependent(k), k, &
+                       this%nc_fname)
     end do
   end subroutine define_dependent
 
@@ -499,7 +514,7 @@ contains
         call nf_verify(nf90_put_att(this%ncid, var_id, 'wkt', this%wkt), &
                        this%nc_fname)
       end if
-      ! crs_wkt (WKT2, ISO 19162:2019) -- required by CF-1.11
+      ! crs_wkt (WKT2, ISO 19162:2019) -- required by CF-1.13
       if (this%crs_wkt /= '') then
         effective_crs_wkt = this%crs_wkt
       else
@@ -699,17 +714,30 @@ contains
   end subroutine ncvar_deflate
 
   !> @brief put variable gridmap attributes
+  !!
+  !! layer must be the 1-based layer number when varid is a per-layer
+  !! variable (e.g. npf_k_l3), or 0 when it is not layered (e.g. a flat
+  !! NCPL-shaped array). z_l{layer} is only referenced from coordinates
+  !! when layer > 0, since it is the only case where z_l{layer} shares
+  !! nmesh_face with varid (CF-1.13 5.2 subset rule).
   !<
-  subroutine ncvar_gridmap(ncid, varid, gridmap_name, nc_fname)
+  subroutine ncvar_gridmap(ncid, varid, gridmap_name, layer, nc_fname)
     integer(I4B), intent(in) :: ncid
     integer(I4B), intent(in) :: varid
     character(len=*), intent(in) :: gridmap_name
+    integer(I4B), intent(in) :: layer
     character(len=*), intent(in) :: nc_fname
+    character(len=LINELENGTH) :: coords
     ! UGRID topology attrs are CRS-independent -- always written on face vars
     call nf_verify(nf90_put_att(ncid, varid, 'mesh', 'mesh'), nc_fname)
     call nf_verify(nf90_put_att(ncid, varid, 'location', 'face'), nc_fname)
-    call nf_verify(nf90_put_att(ncid, varid, 'coordinates', &
-                                'mesh_face_x mesh_face_y'), nc_fname)
+    if (layer > 0) then
+      write (coords, '(a,i0)') 'mesh_face_x mesh_face_y z_l', layer
+    else
+      coords = 'mesh_face_x mesh_face_y'
+    end if
+    call nf_verify(nf90_put_att(ncid, varid, 'coordinates', trim(coords)), &
+                   nc_fname)
     ! grid_mapping only written when a CRS is configured
     if (gridmap_name /= '') then
       call nf_verify(nf90_put_att(ncid, varid, 'grid_mapping', &
@@ -729,15 +757,29 @@ contains
     if (nc_tag /= '') then
       call nf_verify(nf90_put_att(ncid, varid, 'modflow_input', &
                                   nc_tag), nc_fname)
-      if (layer > 0) then
-        call nf_verify(nf90_put_att(ncid, varid, 'layer', &
-                                    layer), nc_fname)
-      end if
+      call ncvar_layer(ncid, varid, layer, nc_fname)
       if (iaux > 0) then
         call nf_verify(nf90_put_att(ncid, varid, 'modflow_iaux', &
                                     iaux), nc_fname)
       end if
     end if
   end subroutine ncvar_mf6attr
+
+  !> @brief put the layer attribute (only when layer > 0)
+  !!
+  !! layer identifies which layer a per-layer-split mesh variable belongs
+  !! to (e.g. head_l3, npf_k_l3) -- distinct from the layer dimension
+  !! coordinate. Not a CF/UGRID attribute; MF6-internal. Applies to every
+  !! per-layer-split variable.
+  !<
+  subroutine ncvar_layer(ncid, varid, layer, nc_fname)
+    integer(I4B), intent(in) :: ncid
+    integer(I4B), intent(in) :: varid
+    integer(I4B), intent(in) :: layer
+    character(len=*), intent(in) :: nc_fname
+    if (layer > 0) then
+      call nf_verify(nf90_put_att(ncid, varid, 'layer', layer), nc_fname)
+    end if
+  end subroutine ncvar_layer
 
 end module MeshModelModule

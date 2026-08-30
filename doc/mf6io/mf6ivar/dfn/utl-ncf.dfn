@@ -11,7 +11,7 @@ preserve_case true
 reader urword
 optional true
 longname CRS well-known text (WKT1) string
-description is the coordinate reference system (CRS) well-known text string in WKT1 format (OGC 01-009). Written as the ``wkt`` attribute on the projection variable. Ignored when latitude and longitude griddata arrays have been provided. To also embed the CRS in the binary grid file, provide the same string as the ``CRS`` option in the discretization input; the discretization ``CRS`` option additionally accepts other pyproj-compatible identifiers such as an EPSG code (e.g. ``EPSG:26918``).
+description is the coordinate reference system (CRS) well-known text string in WKT1 format (OGC 01-009). Written as the ``wkt`` attribute on the projection variable. Ignored when latitude and longitude griddata arrays have been provided. To also embed the CRS in the binary grid file, provide the same string as the ``CRS`` option in the discretization input; the discretization ``CRS`` option additionally accepts other pyproj-compatible identifiers such as an EPSG code (e.g. ``EPSG:26918``). For a NETCDF\_STRUCTURED export, this value is also used to derive ``GeoTransform`` and ``spatial\_ref`` attributes on the projection variable, for compatibility with GDAL-based tools such as QGIS. For a rotated grid (ANGROT not 0.0), ``GeoTransform`` is computed with a rotation-aware affine formula and remains correct; the ``x``/``y`` coordinate variables themselves, however, remain grid-local rather than real-world for a rotated grid.
 
 block options
 name crs_wkt
@@ -21,7 +21,7 @@ preserve_case true
 reader urword
 optional true
 longname CRS well-known text (WKT2) string
-description is the coordinate reference system (CRS) well-known text string in WKT2 format (ISO 19162:2019), as required by CF-1.11. Written as the ``crs\_wkt`` attribute on the projection variable. When omitted, the ``wkt`` value is written to ``crs\_wkt`` as a compatibility alias. Ignored when latitude and longitude griddata arrays have been provided. To also embed the CRS in the binary grid file, provide the same string as the ``CRS`` option in the discretization input; the discretization ``CRS`` option additionally accepts other pyproj-compatible identifiers such as an EPSG code (e.g. ``EPSG:26918``).
+description is the coordinate reference system (CRS) well-known text string in WKT2 format (ISO 19162:2019), as required by CF-1.13. Written as the ``crs\_wkt`` attribute on the projection variable. When omitted, the ``wkt`` value is written to ``crs\_wkt`` as a compatibility alias. Ignored when latitude and longitude griddata arrays have been provided. To also embed the CRS in the binary grid file, provide the same string as the ``CRS`` option in the discretization input; the discretization ``CRS`` option additionally accepts other pyproj-compatible identifiers such as an EPSG code (e.g. ``EPSG:26918``). Providing ``crs\_wkt`` without also providing ``wkt`` does not produce ``GeoTransform`` or ``spatial\_ref`` attributes, since MF6 has no way to derive a WKT1 string from WKT2; provide ``wkt`` as well if GDAL-based raster placement is needed.
 
 block options
 name deflate

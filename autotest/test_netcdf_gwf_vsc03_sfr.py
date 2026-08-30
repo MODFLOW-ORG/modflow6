@@ -292,6 +292,39 @@ def check_output(idx, test, export, gridded_input):
                 xds[var].data,
             ), f"NetCDF input array comparison failure, variable={var}"
 
+    if export == "structured":
+        # z cell-center elevation, verified elementwise against this
+        # model's own top/botm.  Unlike most netcdf test models, top here
+        # is spatially varying (topElev_sfrCentered), not a uniform scalar
+        # -- this exercises the per-cell (row, col) indexing in the z
+        # computation, not just the formula on uniform input.
+        top = xds["dis_top"].data
+        botm = xds["dis_botm"].data
+        z = xds["z"].data
+        expected_z = np.empty_like(z)
+        expected_z[0] = (top + botm[0]) / 2.0
+        for k in range(1, nlay):
+            expected_z[k] = (botm[k - 1] + botm[k]) / 2.0
+        assert np.allclose(z, expected_z), (
+            "z cell-center elevation mismatch against dis_top/dis_botm"
+        )
+    elif export == "ugrid":
+        # z_l1, z_l2, ... verified elementwise against this model's own
+        # dis_top/dis_botm_lN -- same spatially-varying top as the
+        # structured check above, but here it also exercises DIS-mesh's
+        # (row, col) -> nmesh_face flattening loop, not just a formula on
+        # already-face-indexed data.
+        top = xds["dis_top"].data
+        prev = top
+        for k in range(1, nlay + 1):
+            z_k = xds[f"z_l{k}"].data
+            botm_k = xds[f"dis_botm_l{k}"].data
+            expected_z_k = (prev + botm_k) / 2.0
+            assert np.allclose(z_k, expected_z_k), (
+                f"z_l{k} cell-center elevation mismatch against dis_top/dis_botm_l{k}"
+            )
+            prev = botm_k
+
 
 @pytest.mark.netcdf
 @pytest.mark.parametrize(

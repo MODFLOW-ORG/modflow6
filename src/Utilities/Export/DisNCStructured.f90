@@ -9,7 +9,7 @@ module DisNCStructuredModule
 
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, LENBIGLINE, LENCOMPONENTNAME, &
-                             LENMEMPATH, DNODATA, DZERO
+                             LENMEMPATH, DNODATA, DZERO, DHALF, DPIO180
   use SimVariablesModule, only: errmsg, warnmsg
   use SimModule, only: store_error, store_warning, store_error_filename
   use MemoryManagerModule, only: mem_setptr
@@ -37,12 +37,12 @@ module DisNCStructuredModule
   type :: StructuredNCVarIdType
     integer(I4B) :: x !< x coordinate variable
     integer(I4B) :: y !< y coordinate variable
-    integer(I4B) :: z !< z coordinate variable
+    integer(I4B) :: z !< layer coordinate variable (holdover name; z is the discrete layer index, not a position)
+    integer(I4B) :: elevation !< z auxiliary coordinate variable (cell center elevation, a real vertical position)
     integer(I4B) :: time !< time coordinate variable
     integer(I4B) :: dependent !< dependent variable
     integer(I4B) :: x_bnds !< x boundaries 2D array
     integer(I4B) :: y_bnds !< y boundaries 2D array
-    integer(I4B) :: z_bnds !< z boundaries 2D array
     integer(I4B) :: latitude !< latitude 2D array
     integer(I4B) :: longitude !< longitude 2D array
     integer(I4B) :: export !< in scope export
@@ -172,7 +172,12 @@ contains
       if (this%gridmap_name /= '') then
         if (this%dis%angrot /= DZERO) then
           write (warnmsg, '(a)') 'CRS parameter set with structured rotated &
-            &grid. Projected coordinates will have grid local values. &
+            &grid. The x/y coordinate variables have grid-local, not &
+            &real-world, values, so deriving real longitude/latitude from &
+            &grid_mapping via these coordinates will be incorrect. This &
+            &does not affect the projection variable''s GeoTransform &
+            &attribute (if written), which is computed independently of &
+            &x/y and remains correct for GDAL-based raster placement. &
             &Applies to file "'//trim(nc_fname)//'".'
           call store_warning(warnmsg)
         end if
@@ -420,6 +425,9 @@ contains
     class(ExportPackageType), pointer, intent(in) :: export_pkg
     character(len=LINELENGTH) :: varname, longname, nc_tag
     integer(I4B) :: varid
+    logical(LGP) :: has_layer
+
+    has_layer = .not. (idt%shape == 'NCPL' .or. idt%shape == 'NAUX NCPL')
 
     ! set variable input tag
     nc_tag = this%input_attribute(export_pkg%mf6_input%subcomponent_name, &
@@ -500,7 +508,7 @@ contains
 
     ! add grid mapping and mf6 attr
     call ncvar_gridmap(this%ncid, varid, this%gridmap_name, this%latlon, &
-                       this%nc_fname)
+                       has_layer, this%nc_fname)
     call ncvar_mf6attr(this%ncid, varid, iaux, nc_tag, this%nc_fname)
 
     ! store variable id
@@ -795,13 +803,6 @@ contains
                    this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%z, 'long_name', &
                                 'model layer'), this%nc_fname)
-    !call nf_verify(nf90_put_att(this%ncid, this%var_ids%z, 'bounds', 'z_bnds'), &
-    !               this%nc_fname)
-    !call nf_verify(nf90_def_var(this%ncid, 'z_bnds', NF90_DOUBLE, &
-    !                            (/this%dim_ids%bnd, this%dim_ids%z/), &
-    !                            this%var_ids%z_bnds), this%nc_fname)
-    !call nf_verify(nf90_put_var(this%ncid, this%var_ids%z_bnds, &
-    !                            this%elev_bnds), this%nc_fname)
 
     ! Y dimension
     call nf_verify(nf90_def_dim(this%ncid, 'y', this%dis%nrow, this%dim_ids%y), &
@@ -848,6 +849,27 @@ contains
     call nf_verify(nf90_def_var(this%ncid, 'x_bnds', NF90_DOUBLE, &
                                 (/this%dim_ids%bnd, this%dim_ids%x/), &
                                 this%var_ids%x_bnds), this%nc_fname)
+
+    ! z: cell center elevation auxiliary coordinate -- a real vertical
+    ! position, unlike the discrete layer index.  Always written,
+    ! independent of CRS/NCF configuration.
+    call nf_verify(nf90_def_var(this%ncid, 'z', NF90_DOUBLE, &
+                                (/this%dim_ids%x, this%dim_ids%y, &
+                                  this%dim_ids%z/), &
+                                this%var_ids%elevation), this%nc_fname)
+    call ncvar_chunk3d(this%ncid, this%var_ids%elevation, this%chunk_x, &
+                       this%chunk_y, this%chunk_z, this%nc_fname)
+    call ncvar_deflate(this%ncid, this%var_ids%elevation, this%deflate, &
+                       this%shuffle, this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%elevation, 'units', &
+                                this%lenunits), this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%elevation, &
+                                'standard_name', 'altitude'), this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%elevation, &
+                                'positive', 'up'), this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%elevation, &
+                                'long_name', 'cell center elevation'), &
+                   this%nc_fname)
   end subroutine define_dim
 
   !> @brief create the model layer dependent variables
@@ -883,10 +905,18 @@ contains
                                 this%annotation%longname), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, '_FillValue', &
                                 (/DHNOFLO/)), this%nc_fname)
+    ! cell_methods (CF-1.13 7.3): dependent variable values are the
+    ! instantaneous simulated state at each output time, not a time
+    ! mean/accumulation over the interval -- an intensive quantity whose
+    ! default method is already "point" per CF's own Appendix E, stated
+    ! explicitly here per CF's recommendation to do so for every
+    ! spatio-temporal dimension.
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, &
+                                'cell_methods', 'time: point'), this%nc_fname)
 
     ! add grid mapping
     call ncvar_gridmap(this%ncid, this%var_ids%dependent, this%gridmap_name, &
-                       this%latlon, this%nc_fname)
+                       this%latlon, .true., this%nc_fname)
   end subroutine define_dependent
 
   !> @brief create the file grid mapping container variable
@@ -896,6 +926,8 @@ contains
     integer(I4B) :: var_id
     character(len=LINELENGTH) :: gmname
     character(len=LENBIGLINE) :: effective_crs_wkt
+    character(len=LINELENGTH) :: geotransform
+    real(DP) :: dx_eff, dy_eff, ang, gt0, gt1, gt2, gt3, gt4, gt5
 
     if (this%wkt /= '' .or. this%crs_wkt /= '') then
       call nf_verify(nf90_redef(this%ncid), this%nc_fname)
@@ -906,7 +938,7 @@ contains
         call nf_verify(nf90_put_att(this%ncid, var_id, 'wkt', this%wkt), &
                        this%nc_fname)
       end if
-      ! crs_wkt (WKT2, ISO 19162:2019) -- required by CF-1.11
+      ! crs_wkt (WKT2, ISO 19162:2019) -- required by CF-1.13
       if (this%crs_wkt /= '') then
         effective_crs_wkt = this%crs_wkt
       else
@@ -919,6 +951,36 @@ contains
       if (gmname /= '') then
         call nf_verify(nf90_put_att(this%ncid, var_id, 'grid_mapping_name', &
                                     trim(gmname)), this%nc_fname)
+      end if
+      ! GeoTransform/spatial_ref (GDAL raster placement).  Rotation-aware:
+      ! GDAL's affine model supports planar rotation via the GT[2]/GT[4]
+      ! shear terms, independent of the x/y coordinate arrays -- unlike x/y
+      ! (true CF dimension coordinates, which cannot represent a rotated
+      ! position without becoming 2D auxiliary coordinates), GeoTransform
+      ! is computed directly from xorigin/yorigin/angrot/delr/delc, so it
+      ! remains correct even though add_grid_data() keeps x/y grid-local
+      ! for rotated grids.  Formula reduces exactly to the unrotated case
+      ! when angrot == 0.  Also requires WKT1 (this%wkt): MF6 has no CRS
+      ! library to convert WKT2 to WKT1, so CRS_WKT-only input does not
+      ! produce GeoTransform/spatial_ref.  dx/dy are effective (average)
+      ! pixel sizes over the full grid extent -- a GDAL limitation for
+      ! variable-spacing grids, not an MF6 one.
+      if (this%wkt /= '') then
+        ang = this%dis%angrot * DPIO180
+        dx_eff = sum(this%dis%delr) / size(this%dis%cellx)
+        dy_eff = -sum(this%dis%delc) / size(this%dis%celly)
+        gt0 = this%dis%xorigin - sum(this%dis%delc) * sin(ang)
+        gt1 = dx_eff * cos(ang)
+        gt2 = -dy_eff * sin(ang)
+        gt3 = this%dis%yorigin + sum(this%dis%delc) * cos(ang)
+        gt4 = dx_eff * sin(ang)
+        gt5 = dy_eff * cos(ang)
+        write (geotransform, '(6(1x,es16.8))') gt0, gt1, gt2, gt3, gt4, gt5
+        call nf_verify(nf90_put_att(this%ncid, var_id, 'GeoTransform', &
+                                    trim(adjustl(geotransform))), &
+                       this%nc_fname)
+        call nf_verify(nf90_put_att(this%ncid, var_id, 'spatial_ref', &
+                                    this%wkt), this%nc_fname)
       end if
       call nf_verify(nf90_enddef(this%ncid), this%nc_fname)
       call nf_verify(nf90_put_var(this%ncid, var_id, 1), &
@@ -978,9 +1040,10 @@ contains
   !<
   subroutine add_grid_data(this)
     class(DisNCStructuredType), intent(inout) :: this
-    integer(I4B) :: ibnd, n !, k, i, j
+    integer(I4B) :: ibnd, n, k
     real(DP), dimension(:, :), pointer, contiguous :: dbl2d
     real(DP), dimension(:), allocatable :: x, y
+    real(DP), dimension(:, :, :), allocatable :: elev3d
     real(DP) :: xoff, yoff
 
     if (this%dis%angrot /= DZERO) then
@@ -1012,6 +1075,22 @@ contains
 
     deallocate (x)
     deallocate (y)
+
+    ! z: cell center elevation, layer 1 = midpoint of top/bot3d(1),
+    ! layer k>1 = midpoint of bot3d(k-1)/bot3d(k)
+    allocate (elev3d(this%dis%ncol, this%dis%nrow, this%nlay))
+    do k = 1, this%nlay
+      if (k == 1) then
+        elev3d(:, :, k) = (this%dis%top2d(:, :) + this%dis%bot3d(:, :, k)) * &
+                          DHALF
+      else
+        elev3d(:, :, k) = (this%dis%bot3d(:, :, k - 1) + &
+                           this%dis%bot3d(:, :, k)) * DHALF
+      end if
+    end do
+    call nf_verify(nf90_put_var(this%ncid, this%var_ids%elevation, elev3d), &
+                   this%nc_fname)
+    deallocate (elev3d)
 
     ! bounds x
     allocate (dbl2d(2, size(this%dis%cellx)))
@@ -1095,20 +1174,44 @@ contains
   end subroutine ncvar_deflate
 
   !> @brief put variable gridmap attributes
+  !!
+  !! has_layer must be true only for variables carrying the layer, y, and x
+  !! dimensions -- z(layer, y, x) can only be legally referenced via
+  !! `coordinates` from a variable whose dimensions are a superset of its
+  !! own (CF-1.13 5.2). 2D (y, x)-only variables such as dis_top must pass
+  !! has_layer=.false. z is written unconditionally, independent of
+  !! gridmap_name/latlon.
   !<
-  subroutine ncvar_gridmap(ncid, varid, gridmap_name, latlon, nc_fname)
+  subroutine ncvar_gridmap(ncid, varid, gridmap_name, latlon, has_layer, &
+                           nc_fname)
     integer(I4B), intent(in) :: ncid
     integer(I4B), intent(in) :: varid
     character(len=*), intent(in) :: gridmap_name
     logical(LGP), intent(in) :: latlon
+    logical(LGP), intent(in) :: has_layer
     character(len=*), intent(in) :: nc_fname
+    character(len=LINELENGTH) :: coords
+    coords = ''
+    ! NOTE: x/y are not listed here even when gridmap_name is set -- unlike
+    ! lon/lat (real 2D auxiliary coordinates), x/y are true CF dimension
+    ! coordinates already discoverable by dimension-name matching alone, so
+    ! listing them in 'coordinates' is redundant (CF-1.13 Ch.5 preamble).
+    if (latlon) then
+      coords = 'lon lat'
+    end if
+    if (has_layer) then
+      if (len_trim(coords) > 0) then
+        coords = trim(coords)//' z'
+      else
+        coords = 'z'
+      end if
+    end if
+    if (len_trim(coords) > 0) then
+      call nf_verify(nf90_put_att(ncid, varid, 'coordinates', trim(coords)), &
+                     nc_fname)
+    end if
     if (gridmap_name /= '') then
-      call nf_verify(nf90_put_att(ncid, varid, 'coordinates', 'x y'), &
-                     nc_fname)
       call nf_verify(nf90_put_att(ncid, varid, 'grid_mapping', gridmap_name), &
-                     nc_fname)
-    else if (latlon) then
-      call nf_verify(nf90_put_att(ncid, varid, 'coordinates', 'lon lat'), &
                      nc_fname)
     end if
   end subroutine ncvar_gridmap
@@ -1228,7 +1331,8 @@ contains
                                     idt%longname), nc_fname)
 
         ! add grid mapping and mf6 attr
-        call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, nc_fname)
+        call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, .true., &
+                           nc_fname)
         call ncvar_mf6attr(ncid, var_id, 0, nc_tag, nc_fname)
 
         ! exit define mode and write data
@@ -1292,7 +1396,8 @@ contains
                                 idt%longname), nc_fname)
 
     ! add grid mapping and mf6 attr
-    call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, nc_fname)
+    call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, .false., &
+                       nc_fname)
     call ncvar_mf6attr(ncid, var_id, 0, nc_tag, nc_fname)
 
     ! exit define mode and write data
@@ -1347,7 +1452,8 @@ contains
                                 idt%longname), nc_fname)
 
     ! add grid mapping and mf6 attr
-    call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, nc_fname)
+    call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, .true., &
+                       nc_fname)
     call ncvar_mf6attr(ncid, var_id, 0, nc_tag, nc_fname)
 
     ! exit define mode and write data
@@ -1462,7 +1568,8 @@ contains
                                     longname), nc_fname)
 
         ! add grid mapping and mf6 attr
-        call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, nc_fname)
+        call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, .true., &
+                           nc_fname)
         call ncvar_mf6attr(ncid, var_id, iaux, nc_tag, nc_fname)
 
         ! exit define mode and write data
@@ -1526,7 +1633,8 @@ contains
                                 idt%longname), nc_fname)
 
     ! add grid mapping and mf6 attr
-    call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, nc_fname)
+    call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, .false., &
+                       nc_fname)
     call ncvar_mf6attr(ncid, var_id, 0, nc_tag, nc_fname)
 
     ! exit define mode and write data
@@ -1584,7 +1692,8 @@ contains
                                 longname), nc_fname)
 
     ! add grid mapping and mf6 attr
-    call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, nc_fname)
+    call ncvar_gridmap(ncid, var_id, gridmap_name, latlon, .true., &
+                       nc_fname)
     call ncvar_mf6attr(ncid, var_id, 0, nc_tag, nc_fname)
 
     ! exit define mode and write data
