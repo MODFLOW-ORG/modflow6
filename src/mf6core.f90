@@ -302,10 +302,18 @@ contains
                              load_models, load_exchanges
     use MemoryHelperModule, only: create_mem_path
     use MemoryManagerModule, only: mem_setptr, mem_allocate
-    use SimVariablesModule, only: iparamlog
+    use SimVariablesModule, only: iparamlog, idm_context, isimstrict
+    ! -- locals
+    character(len=LENMEMPATH) :: input_mempath
+    integer(I4B), pointer :: simstrict
     !
     ! -- load simnam input context
     call simnam_load(iparamlog)
+    !
+    ! -- read STRICT before loading packages so parse_block can honor it
+    input_mempath = create_mem_path('SIM', 'NAM', idm_context)
+    call mem_setptr(simstrict, 'STRICT', input_mempath)
+    isimstrict = simstrict
     !
     ! -- load tdis to input context
     call simtdis_load()
