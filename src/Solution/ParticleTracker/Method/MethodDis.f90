@@ -485,14 +485,15 @@ contains
     class(MethodDisType), intent(inout) :: this
     type(CellDefnType), pointer, intent(inout) :: defn
     ! local
-    integer(I4B) :: m, n, nfaces
+    integer(I4B) :: m, n, nfaces, ipos
     real(DP) :: q
 
     nfaces = defn%npolyverts + 3
     do m = 1, nfaces
       n = defn%facenbr(m)
       if (n > 0) then
-        q = this%fmi%gwfflowja(this%fmi%dis%con%ia(defn%icell) + n)
+        ipos = this%fmi%dis%con%ia(defn%icell) + n
+        q = this%fmi%get_gwfflowja(ipos)
         defn%faceflow(m) = defn%faceflow(m) + q
       end if
     end do

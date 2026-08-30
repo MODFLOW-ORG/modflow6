@@ -270,3 +270,8 @@ description = "The PRT model's Particle Release Point (PRP) package performs rel
 section = "fixes"
 subsection = "model"
 description = "The PRT model did not consistently clamp particle coordinates to the extent of the cell before applying the tracking method. This could cause an incorrect exit face or travel time solution, for example due to roundoff in the coordinate transformations computed as the particle moves between cells. This has been corrected; coordinates will now be clamped to the cell boundary in all dimensions. Results may change slightly for models with particle positions lying close to cell boundaries."
+
+[[items]]
+section = "features"
+subsection = "model"
+description = "Currently MF6 requires coupled models to have identical active domains. Relax this for PRT models to allow particle tracking on a subset of the active flow system."

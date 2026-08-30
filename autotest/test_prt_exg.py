@@ -1,22 +1,20 @@
 """
-Test GWF and PRT models in the same simulation
-with an exchange.
+Test GWF and PRT models in the same simulation with an exchange.
 
-The grid is a 10x10 square with a single layer,
-the same flow system shown on the FloPy readme.
-Particles are released from the top left cell.
+The grid is a 10x10 square with a single layer, the same flow system
+shown on the FloPy readme. Particles are released from the top left
+cell. Results are compared against a MODPATH 7 model.
 
-Results are compared against a MODPATH 7 model.
-
-This test includes four cases: one which gives
-boundnames to particles, one which does not, a
-third in which the flow model has a uniformly
-active idomain array while the tracking model
-does not, and a final case in which flow and
-tracking model have different IDOMAIN arrays,
-both non-uniform, where the active region is
-the same size but consists of different cells.
-Both latter cases should be caught as errors.
+Four cases:
+  - prtexg01: base case.
+  - prtexg01bnms: as above, but particles are given boundnames.
+  - prtexg01idmu: PRT's idomain excludes one cell that's active in
+    GWF. Allowed: PRT's active domain may be a subset of GWF's, so
+    the cell is simply excluded from tracking.
+  - prtexg01idmn: PRT's idomain includes one cell that's inactive in
+    GWF. Not allowed, since PRT would have no flow information for
+    that cell -- exg_ar rejects the simulation, so this case is
+    expected to fail.
 """
 
 from pathlib import Path
@@ -55,12 +53,11 @@ def build_mf6_sim(name, ws, mf6):
         (FlopyReadmeCase.nlay, FlopyReadmeCase.nrow, FlopyReadmeCase.ncol)
     )
     if "idm" in name:
-        # add an inactive cell to
-        # tracking model idomain
+        # exclude one cell from PRT's idomain that's active in GWF
         idomain[-1, -1, -1] = 0
     if "idmn" in name:
-        # add a (different) inactive
-        # cell to flow model idomain
+        # reactivate that cell in GWF, but deactivate (0, 0, 0), where
+        # PRT is still active: violates the subset requirement
         gwf_idomain = idomain.copy()
         gwf_idomain[-1, -1, -1] = 1
         gwf_idomain[0, 0, 0] = 0
@@ -204,7 +201,16 @@ def check_output(idx, test):
     # extract model grid
     mg = gwf.modelgrid
 
-    if "idm" in name:
+    if "idmn" in name:
+        # exg_ar should have rejected this simulation
+        return
+
+    if "idmu" in name:
+        # ran to completion; no MP7 comparison, just check for output
+        prt_track_csv_file = f"{prt_name}.trk.csv"
+        assert (gwf_ws / prt_track_csv_file).is_file()
+        pls = pd.read_csv(gwf_ws / prt_track_csv_file)
+        assert len(pls) > 0
         return
 
     # check mf6 output files exist
@@ -391,6 +397,6 @@ def test_mf6model(idx, name, function_tmpdir, targets, plot):
         plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
         compare=None,
-        xfail="idm" in name,
+        xfail="idmn" in name,
     )
     test.run()
