@@ -30,6 +30,9 @@ module IdmGwfDfnSelectorModule
   use GwfRivgInputModule
   use GwfStoInputModule
   use GwfVscInputModule
+  use GwfSfbInputModule
+  use GwfSpfInputModule
+  use GwfUzrInputModule
   use GwfWelInputModule
   use GwfWelgInputModule
 
@@ -117,6 +120,12 @@ contains
       call set_param_pointer(input_definition, gwf_sto_param_definitions)
     case ('VSC')
       call set_param_pointer(input_definition, gwf_vsc_param_definitions)
+    case ('SFB')
+      call set_param_pointer(input_definition, gwf_sfb_param_definitions)
+    case ('SPF')
+      call set_param_pointer(input_definition, gwf_spf_param_definitions)
+    case ('UZR')
+      call set_param_pointer(input_definition, gwf_uzr_param_definitions)
     case ('WEL')
       call set_param_pointer(input_definition, gwf_wel_param_definitions)
     case ('WELG')
@@ -181,6 +190,12 @@ contains
       call set_param_pointer(input_definition, gwf_sto_aggregate_definitions)
     case ('VSC')
       call set_param_pointer(input_definition, gwf_vsc_aggregate_definitions)
+    case ('SFB')
+      call set_param_pointer(input_definition, gwf_sfb_aggregate_definitions)
+    case ('SPF')
+      call set_param_pointer(input_definition, gwf_spf_aggregate_definitions)
+    case ('UZR')
+      call set_param_pointer(input_definition, gwf_uzr_aggregate_definitions)
     case ('WEL')
       call set_param_pointer(input_definition, gwf_wel_aggregate_definitions)
     case ('WELG')
@@ -245,6 +260,12 @@ contains
       call set_block_pointer(input_definition, gwf_sto_block_definitions)
     case ('VSC')
       call set_block_pointer(input_definition, gwf_vsc_block_definitions)
+    case ('SFB')
+      call set_block_pointer(input_definition, gwf_sfb_block_definitions)
+    case ('SPF')
+      call set_block_pointer(input_definition, gwf_spf_block_definitions)
+    case ('UZR')
+      call set_block_pointer(input_definition, gwf_uzr_block_definitions)
     case ('WEL')
       call set_block_pointer(input_definition, gwf_wel_block_definitions)
     case ('WELG')
@@ -308,6 +329,12 @@ contains
       multi_package = gwf_sto_multi_package
     case ('VSC')
       multi_package = gwf_vsc_multi_package
+    case ('SFB')
+      multi_package = gwf_sfb_multi_package
+    case ('SPF')
+      multi_package = gwf_spf_multi_package
+    case ('UZR')
+      multi_package = gwf_uzr_multi_package
     case ('WEL')
       multi_package = gwf_wel_multi_package
     case ('WELG')
@@ -374,6 +401,12 @@ contains
       call set_subpkg_pointer(subpackages, gwf_sto_subpackages)
     case ('VSC')
       call set_subpkg_pointer(subpackages, gwf_vsc_subpackages)
+    case ('SFB')
+      call set_subpkg_pointer(subpackages, gwf_sfb_subpackages)
+    case ('SPF')
+      call set_subpkg_pointer(subpackages, gwf_spf_subpackages)
+    case ('UZR')
+      call set_subpkg_pointer(subpackages, gwf_uzr_subpackages)
     case ('WEL')
       call set_subpkg_pointer(subpackages, gwf_wel_subpackages)
     case ('WELG')
@@ -437,6 +470,12 @@ contains
     case ('STO')
       integrated = .true.
     case ('VSC')
+      integrated = .true.
+    case ('SFB')
+      integrated = .true.
+    case ('SPF')
+      integrated = .true.
+    case ('UZR')
       integrated = .true.
     case ('WEL')
       integrated = .true.

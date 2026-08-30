@@ -232,7 +232,10 @@
 				<File RelativePath="..\src\Idm\gwf-rchidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-rivgidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-rividm.f90"/>
+				<File RelativePath="..\src\Idm\gwf-sfbidm.f90"/>
+				<File RelativePath="..\src\Idm\gwf-spfidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-stoidm.f90"/>
+				<File RelativePath="..\src\Idm\gwf-uzridm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-vscidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-welgidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-welidm.f90"/>
@@ -358,11 +361,14 @@
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-oc.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-rch.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-riv.f90"/>
+					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-sfb.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-sfr.f90"/>
+					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-spf.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-sto.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-tvk.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-tvs.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-uzf.f90"/>
+					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-uzr.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-vsc.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-wel.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf.f90"/>
@@ -393,8 +399,10 @@
 					<File RelativePath="..\src\Model\ModelUtilities\GwfBuyInputData.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\GwfConductanceUtils.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\GwfMvrPeriodData.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\GwfNpfExt.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\GwfNpfOptions.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\GwfSfrCommon.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\GwfStoExt.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\GwfStorageUtils.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\GwfVscInputData.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\GwtDspOptions.f90"/>
@@ -411,6 +419,13 @@
 					<File RelativePath="..\src\Model\ModelUtilities\TspSpc.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\UzfCellGroup.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\UzfEtUtil.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\UzrDevSoil.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\UzrFlow.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\UzrHaverkamp.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\UzrSoilModel.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\UzrSoilModelFactory.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\UzrStorage.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\UzrVanGenuchten.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\VectorInterpolation.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\Xt3dAlgorithm.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\Xt3dInterface.f90"/>
@@ -556,6 +571,7 @@
 						<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/>
 					</FileConfiguration>
 				</File>
+				<File RelativePath="..\src\Solution\ParticleTracker\Particle\MemoryBuffer.f90"/>
 				<File RelativePath="..\src\Solution\NumericalSolution.f90"/>
 				<File RelativePath="..\src\Solution\ParallelSolution.f90">
 					<FileConfiguration Name="Debug|Win32" ExcludedFromBuild="true">
@@ -572,10 +588,9 @@
 				<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\ParticleEvents.f90"/>
 				<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleReleaseSchedule.f90"/>
 				<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleTrackEventBuffer.f90"/>
-				<File RelativePath="..\src\Solution\ParticleTracker\Particle\MemoryBuffer.f90"/>
-				<File RelativePath="..\src\Solution\ParticleTracker\Particle\ScratchFileBuffer.f90"/>
 				<File RelativePath="..\src\Solution\ParticleTracker\Particle\ParticleTracks.f90"/>
 				<File RelativePath="..\src\Solution\ParticleTracker\Particle\Events\ReleaseEvent.f90"/>
+				<File RelativePath="..\src\Solution\ParticleTracker\Particle\ScratchFileBuffer.f90"/>
 				<File RelativePath="..\src\Solution\SolutionFactory.F90">
 					<FileConfiguration Name="Debug|Win32">
 						<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/>
