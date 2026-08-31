@@ -397,19 +397,20 @@ contains
     integer(I4B) :: node, noder, j, k
     real(DP) :: top
     real(DP) :: dz
+    character(len=LINELENGTH) :: cellstr
     ! -- formats
     character(len=*), parameter :: fmtdz = &
       "('CELL (',i0,',',i0,') THICKNESS <= 0. ', &
       &'TOP, BOT: ',2(1pg24.15))"
     character(len=*), parameter :: fmtdzt = &
-      "(4x,'The top of this cell is the bottom elevation specified for the ',&
+      "('. The top of this cell is the bottom elevation specified for the ',&
       &'cell directly above it, cell (',i0,',',i0,').')"
     character(len=*), parameter :: fmtdzi = &
-      "(4x,'That cell is inactive or a vertical pass-through cell ',&
-      &'(IDOMAIN <= 0); making a cell inactive does not change the geometry ',&
-      &'of its neighboring cells. Set its BOTM so this cell has positive ',&
-      &'thickness (for a pass-through cell, set its BOTM equal to the bottom ',&
-      &'elevation of the cell above it, giving it negligible thickness).')"
+      ' That cell is inactive or a vertical pass-through cell (IDOMAIN <= &
+      &0); making a cell inactive does not change the geometry of its &
+      &neighboring cells. Set its BOTM so this cell has positive thickness &
+      &(for a pass-through cell, set its BOTM equal to the bottom elevation &
+      &of the cell above it, giving it negligible thickness).'
     character(len=*), parameter :: fmtnr = &
       "(/1x, 'The specified IDOMAIN results in a reduced number of cells.',&
       &/1x, 'Number of user nodes: ',I0,&
@@ -444,15 +445,14 @@ contains
           dz = top - this%bot2d(j, k)
           if (dz <= DZERO) then
             write (errmsg, fmt=fmtdz) k, j, top, this%bot2d(j, k)
-            call store_error(errmsg)
             if (k > 1) then
-              write (errmsg, fmt=fmtdzt) k - 1, j
-              call store_error(errmsg)
+              write (cellstr, fmt=fmtdzt) k - 1, j
+              errmsg = trim(errmsg)//trim(cellstr)
               if (this%idomain(j, k - 1) < 1) then
-                write (errmsg, fmt=fmtdzi)
-                call store_error(errmsg)
+                errmsg = trim(errmsg)//fmtdzi
               end if
             end if
+            call store_error(errmsg)
           end if
         end if
       end do
