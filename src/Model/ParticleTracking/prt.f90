@@ -1125,9 +1125,7 @@ contains
             ! happens anyway, that's a programmer error: tracking
             ! methods assume a nonnegative time interval, and calling
             ! apply() with tmax < ttrack sends them a negative one,
-            ! which corrupts the particle's path or, for large enough
-            ! |tmax - ttrack|, overflows the analytic exponential
-            ! formulas and crashes (see GitHub issue #2941).
+            ! which corrupts the tracking method.
             if (tmax < particle%ttrack) &
               call pstop(1, 'Programmer error: PRT tracking tmax &
                 &precedes particle%ttrack.')
