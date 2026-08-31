@@ -494,6 +494,7 @@ contains
       packobj => GetBndFromList(this%bndlist, ip)
       select type (packobj)
       type is (PrtPrpType)
+        iprp = iprp + 1
         do np = 1, packobj%nparticles
           call packobj%particles_staging%get(particle, this%id, iprp, np)
           istatus = packobj%particles_staging%istatus(np)

@@ -279,4 +279,9 @@ description = "The PRT model did not consistently clamp particle coordinates to 
 [[items]]
 section = "fixes"
 subsection = "model"
-description = "PRT could encounter a floating point exception and crash while applying the tracking algorithm if any PRP package set STOPTIME prior to any of its release times. Terminate particles whose STOPTIME precedes release time immediately with status code 8 (unreleased), and show a warning."
+description = "The PRT model could encounter a floating point exception and crash while applying the tracking algorithm if any PRP package set STOPTIME prior to any of its release times. Terminate particles whose STOPTIME precedes release time immediately with status code 8 (unreleased), and show a warning."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "The PRT model previously accumulated mass for particles only from the first Particle Release Point (PRP) package, producing a budget discrepancy for any PRT model with more than one PRP package. Mass is now correctly accumulated to balance the budget."
