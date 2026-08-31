@@ -17,6 +17,7 @@ module InterpolationSchemeInterfaceModule
   contains
     procedure(compute_if), deferred :: compute
     procedure(set_field_if), deferred :: set_field
+    procedure :: prepare
   end type InterpolationSchemeInterface
 
   abstract interface
@@ -57,5 +58,20 @@ module InterpolationSchemeInterfaceModule
     end subroutine
 
   end interface
+
+contains
+
+  !> @brief Prepare the scheme for a new time step
+  !!
+  !! Schemes whose face values depend on the time step length, or on the field
+  !! at the start of the time step rather than on the field being iterated on,
+  !! override this to calculate those values once per time step.  Schemes that
+  !! interpolate only in space have nothing to do here.
+  !<
+  subroutine prepare(this, phiold)
+    ! -- dummy
+    class(InterpolationSchemeInterface) :: this
+    real(DP), dimension(:), pointer, contiguous, intent(in) :: phiold !< field at start of time step
+  end subroutine prepare
 
 end module InterpolationSchemeInterfaceModule
