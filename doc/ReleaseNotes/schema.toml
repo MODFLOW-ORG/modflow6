@@ -14,3 +14,8 @@ exchanges = "EXCHANGES"
 solution = "SOLUTION"
 parallel = "PARALLEL"
 netcdf = "NETCDF"
+
+[[items]]
+section = "features"
+subsection = "exchanges"
+description = "The IDOMAIN array of a GWT model no longer has to be identical to the IDOMAIN array of the GWF model that supplies its flows through a GWF-GWT exchange. Cells that are active in the GWF model can now be excluded from the GWT model, so that transport is simulated for only part of the flow system. A cell that is active in the GWT model must still be active in the GWF model, and an error is reported for every cell that violates that requirement. Water that crosses the boundary of a reduced transport domain is carried by the flow imbalance, so the FLOW\\_IMBALANCE\\_CORRECTION option should be activated in the FMI Package; a warning is written when it is not. A reduced transport domain is not supported for a model that is also coupled through a GWT-GWT exchange, for a parallel simulation, or for an advanced transport package (LKT, SFT, MWT, UZT) connected to a cell outside the transport domain, and each of these is reported as an error."
