@@ -153,6 +153,12 @@ contains
     !    the flag to zero to indicate that flows were not updated
     this%iflowsupdated = 1
     !
+    ! -- If the flow model uses a larger grid, transfer its results onto
+    !    this model grid
+    if (this%igwfmapped /= 0) then
+      call this%map_gwf_values()
+    end if
+    !
     ! -- If reading flows from a budget file, read the next set of records
     if (this%iubud /= 0) then
       call this%advance_bfr()
