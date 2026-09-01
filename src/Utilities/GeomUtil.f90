@@ -310,8 +310,8 @@ contains
         yorigin = s0 * x0 + c0 * y0
         zorigin = z0
       else if (ltranslate) then
-        xorigin = x0 - xorigin_add
-        yorigin = y0 - yorigin_add
+        xorigin = x0 - (c0 * xorigin_add - s0 * yorigin_add)
+        yorigin = y0 - (s0 * xorigin_add + c0 * yorigin_add)
         zorigin = z0 - zorigin_add
       end if
       if (lrotate) then

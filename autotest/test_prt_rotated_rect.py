@@ -31,7 +31,7 @@ from flopy.utils.binaryfile import HeadFile
 from flopy.utils.gridgen import Gridgen
 from flopy.utils.gridutil import get_disv_kwargs
 from framework import TestFramework
-from prt_test_utils import get_model_name
+from prt_test_utils import check_track_continuity, get_model_name
 
 simname = "prtrotrect"
 cases = [simname, f"{simname}q"]  # simple, quad-refined
@@ -283,6 +283,9 @@ def check_output(idx, test, snapshot):
             f"x[{i}] = {x_vals[i]:.2f}"
             f"dx = {dx:.2f}"
         )
+
+    # check lateral path continuity
+    check_track_continuity(mf6_pls)
 
     # compare pathlines with snapshot
     actual_data = mf6_pls.drop("name", axis=1).round(3)

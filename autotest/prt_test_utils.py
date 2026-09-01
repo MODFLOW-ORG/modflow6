@@ -262,6 +262,78 @@ def check_track_data(
     assert all(data_bin["istatus"] >= 0)
     assert all(data_bin["ireason"] >= 0)
 
+    # pathlines must be spatially continuous
+    check_track_continuity(data_bin)
+
+
+def check_track_continuity(track, atol=1e-4, rtol=1e-6):
+    """
+    Assert that particle pathlines are laterally continuous: a particle
+    may not occupy two different (x, y) positions at the same time.
+
+    Only x and y are checked: a particle can legitimately move in z at a
+    single instant (DRAPE / dry-tracking drop to the water table).
+
+    Parameters
+    ----------
+    track : path-like or pandas.DataFrame or numpy.ndarray
+        Track data as a CSV path, DataFrame, or structured array. Must
+        provide t, x, y and whatever of imdl, iprp, irpt, trelease is
+        available to group rows by particle.
+    atol, rtol : float
+        A lateral move counts as a discontinuity when it exceeds
+        ``atol + rtol * max|coordinate|`` (the relative term absorbs the
+        limited precision of the track file at large coordinates).
+    """
+
+    if isinstance(track, (str, os.PathLike)):
+        data = np.genfromtxt(
+            track, dtype=None, delimiter=",", names=True, encoding=None
+        )
+    elif hasattr(track, "to_records"):
+        data = track.to_records(index=False)
+    else:
+        data = track
+    data = np.atleast_1d(data)
+    if len(data) < 2:
+        return
+
+    names = data.dtype.names
+    key_cols = [c for c in ("imdl", "iprp", "irpt", "trelease") if c in names]
+
+    # sort by particle
+    order = (
+        np.lexsort([data[c] for c in reversed(key_cols)])
+        if key_cols
+        else np.arange(len(data))
+    )
+    d = data[order]
+
+    scale = max(np.abs(d["x"]).max(), np.abs(d["y"]).max(), 1.0)
+    tol = atol + rtol * scale
+
+    same_particle = np.ones(len(d), dtype=bool)
+    for c in key_cols:
+        same_particle[1:] &= d[c][1:] == d[c][:-1]
+    same_time = np.abs(np.diff(d["t"])) <= tol
+    moved = np.hypot(np.diff(d["x"]), np.diff(d["y"])) > tol
+
+    bad = np.zeros(len(d), dtype=bool)
+    bad[1:] = same_particle[1:] & same_time & moved
+    if not bad.any():
+        return
+
+    lines = ["Discontinuous pathline(s): particle in two places at one time"]
+    for j in np.where(bad)[0]:
+        prev, cur = d[j - 1], d[j]
+        key = ", ".join(f"{c}={cur[c]}" for c in key_cols)
+        lines.append(
+            f"  [{key}] t={cur['t']:.6g}: "
+            f"({prev['x']:.4f}, {prev['y']:.4f}) -> "
+            f"({cur['x']:.4f}, {cur['y']:.4f})"
+        )
+    raise AssertionError("\n".join(lines))
+
 
 def check_budget_data(lst: os.PathLike, perlen=1, nper=1, nstp=1):
     # load PRT model's list file
