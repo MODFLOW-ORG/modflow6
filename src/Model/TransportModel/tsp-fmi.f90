@@ -154,6 +154,12 @@ contains
      &"(/1X,'DRY CELL REACTIVATED AT ', a,&
      &' WITH STARTING CONCENTRATION =',G13.5)"
     !
+    ! -- If the flow model uses a larger grid, transfer its results onto
+    !    this model grid
+    if (this%igwfmapped /= 0) then
+      call this%map_gwf_values()
+    end if
+    !
     ! -- Read flows and heads for this time step, unless this is a retry of
     !    a failed time step. A retry is for the same time step and stress
     !    period, so the records read on the first attempt still apply.
@@ -543,7 +549,11 @@ contains
     integer(I4B) :: n
     !
     do n = 1, this%dis%nodes
-      this%satnew(n) = sat(n)
+      if (this%igwfmapped /= 0) then
+        this%satnew(n) = sat(this%gwfnodemap(n))
+      else
+        this%satnew(n) = sat(n)
+      end if
     end do
   end subroutine set_initial_saturation
 
