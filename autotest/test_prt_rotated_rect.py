@@ -42,9 +42,7 @@ margin = 1000.0
 xmin = -Ly * np.sin(np.radians(angle)) - margin
 xmax = Lx * np.cos(np.radians(angle)) + margin
 ymin = -margin
-ymax = (
-    Lx * np.sin(np.radians(angle)) + Ly * np.cos(np.radians(angle)) + margin
-)
+ymax = Lx * np.sin(np.radians(angle)) + Ly * np.cos(np.radians(angle)) + margin
 
 
 def rotate(x, y, angle_deg):
