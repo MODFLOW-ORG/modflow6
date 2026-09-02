@@ -8,8 +8,8 @@ full-domain pair that provides the reference solution, and a pair whose
 downgradient model excludes the last thirty columns.  Excluding those cells
 shifts the reduced node numbers of the exchange cells, so the flow and transport
 exchanges match only when their cells are compared as user node numbers.  The
-CND package is given no conductivity so that the energy transport is purely
-advective and the reduced domain reproduces the full-domain solution exactly.
+models have no CND package, so the energy transport is purely advective and the
+reduced domain reproduces the full-domain solution exactly.
 
 Cases:
   - gwegweexg : the flow models are coupled by a classic GWF-GWF exchange.
@@ -128,10 +128,6 @@ def build_transport_model(sim, name, xorigin, idomain, upgradient):
         heat_capacity_solid=cps,
         density_solid=rhos,
     )
-    # a CND package with no conductivity leaves the energy transport purely
-    # advective; it is present because the GWE-GWE interface model takes its
-    # equation scaling factor from CND
-    flopy.mf6.ModflowGwecnd(gwe, xt3d_off=True, ktw=0.0, kts=0.0)
     flopy.mf6.ModflowGwefmi(gwe, flow_imbalance_correction=True)
     if upgradient:
         sources = [("WEL-1", "AUX", "TEMPERATURE")]
