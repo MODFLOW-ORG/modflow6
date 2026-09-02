@@ -15,6 +15,7 @@ module DisConnExchangeModule
   public :: DisConnExchangeType
   public :: CastAsDisConnExchangeClass, AddDisConnExchangeToList, &
             GetDisConnExchangeFromList
+  public :: same_exchange_cells
 
   !> Exchange based on connection between discretizations of DisBaseType.
   !! The data specifies the connections, similar to the information stored
@@ -89,6 +90,43 @@ module DisConnExchangeModule
   end type DisConnExchangeFoundType
 
 contains
+
+  !> @brief Determine whether two exchanges connect the same cells
+  !!
+  !! Cells are compared as user node numbers so that an exchange between models
+  !! that use a subset of the cells of another pair of models still matches.
+  !! Reduced node numbers are compared instead when a model is not local,
+  !! because its discretization is not available to convert them.
+  !<
+  function same_exchange_cells(exg1, exg2) result(match)
+    ! -- dummy
+    class(DisConnExchangeType) :: exg1 !< first exchange
+    class(DisConnExchangeType) :: exg2 !< second exchange
+    ! -- return
+    logical(LGP) :: match
+    ! -- local
+    integer(I4B) :: i
+    logical(LGP) :: islocal
+    !
+    match = .false.
+    if (exg1%nexg /= exg2%nexg) return
+    !
+    islocal = associated(exg1%model1) .and. associated(exg1%model2) .and. &
+              associated(exg2%model1) .and. associated(exg2%model2)
+    !
+    do i = 1, exg1%nexg
+      if (islocal) then
+        if (exg1%model1%dis%get_nodeuser(exg1%nodem1(i)) /= &
+            exg2%model1%dis%get_nodeuser(exg2%nodem1(i))) return
+        if (exg1%model2%dis%get_nodeuser(exg1%nodem2(i)) /= &
+            exg2%model2%dis%get_nodeuser(exg2%nodem2(i))) return
+      else
+        if (exg1%nodem1(i) /= exg2%nodem1(i)) return
+        if (exg1%nodem2(i) /= exg2%nodem2(i)) return
+      end if
+    end do
+    match = .true.
+  end function same_exchange_cells
 
   !> @brief Source options from input context
   !<

@@ -16,6 +16,7 @@ module GwfGweExchangeModule
   use BaseModelModule, only: BaseModelType, GetBaseModelFromList
   use GwfModule, only: GwfModelType
   use GweModule, only: GweModelType
+  use DisConnExchangeModule, only: same_exchange_cells
   use BndModule, only: BndType, GetBndFromList
 
   implicit none
@@ -401,21 +402,6 @@ contains
     integer(I4B) :: gwfConnIdx, gwfExIdx
     logical(LGP) :: areEqual
     !
-    ! a transport model that uses a subset of the flow model cells cannot
-    ! also be coupled through a GWE-GWE exchange
-    if (gweModel%fmi%igwfmapped /= 0) then
-      do ic1 = 1, baseconnectionlist%Count()
-        conn => get_smc_from_list(baseconnectionlist, ic1)
-        if (.not. associated(conn%owner, gweModel)) cycle
-        write (errmsg, '(3a)') 'GWE model ', trim(gweModel%name), ' uses a &
-          &subset of the GWF model cells, which is not supported for a model &
-          &that is also coupled through a GWE-GWE exchange.'
-        call store_error(errmsg)
-        exit
-      end do
-      if (count_errors() > 0) call store_error_filename(this%filename)
-    end if
-    !
     ! loop over all connections
     gweloop: do ic1 = 1, baseconnectionlist%Count()
       !
@@ -445,17 +431,11 @@ contains
           if (gwfConn%gwfExchange%v_model2%name /= &
               gweConn%gweExchange%gwfmodelname2) cycle
           !
-          ! then, connecting the same nodes nrs will be
-          ! sufficient evidence of equality
-          areEqual = (gwfConn%gwfExchange%nexg == gweConn%gweExchange%nexg)
+          ! connecting the same cells is sufficient evidence of equality
+          areEqual = same_exchange_cells(gwfConn%prim_exchange, &
+                                         gweConn%prim_exchange)
           if (areEqual) then
-            areEqual = all(gwfConn%prim_exchange%nodem1 == &
-                           gweConn%prim_exchange%nodem1)
-            areEqual = areEqual .and. all(gwfConn%prim_exchange%nodem2 == &
-                                          gweConn%prim_exchange%nodem2)
-          end if
-          if (areEqual) then
-            ! same DIS, same exchange: link and go to next GWE conn.
+            ! same cells, same exchange: link and go to next GWE conn.
             write (iout, '(/6a)') 'Linking exchange ', &
               trim(gweConn%prim_exchange%name), &
               ' to ', trim(gwfConn%prim_exchange%name), &
@@ -487,14 +467,8 @@ contains
             if (gwfEx%v_model1%name /= gweConn%gweExchange%gwfmodelname1) cycle
             if (gwfEx%v_model2%name /= gweConn%gweExchange%gwfmodelname2) cycle
 
-            ! check exchanges have same node counts
-            areEqual = size(gwfEx%nodem1) == size(gweConn%prim_exchange%nodem1)
-            ! then, connecting the same nodes nrs will be
-            ! sufficient evidence of equality
-            if (areEqual) &
-              areEqual = all(gwfEx%nodem1 == gweConn%prim_exchange%nodem1)
-            if (areEqual) &
-              areEqual = all(gwfEx%nodem2 == gweConn%prim_exchange%nodem2)
+            ! connecting the same cells is sufficient evidence of equality
+            areEqual = same_exchange_cells(gwfEx, gweConn%prim_exchange)
             if (areEqual) then
               ! link exchange to connection
               write (iout, '(/6a)') 'Linking exchange ', &
