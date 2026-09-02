@@ -289,4 +289,4 @@ description = "The PRT model previously accumulated mass for particles only from
 [[items]]
 section = "fixes"
 subsection = "model"
-description = "The PRT model could report particle coordinates incorrectly on rotated grids with quad refinement. The cumulative coordinate transformation applied by the tracking method was not correctly reversed before coordinates were reported, causing an offset proportional to the cell rotation to be added to positions. The overall path was not affected. Reported coordinates on affected models may change slightly."
+description = "The PRT model could report particle coordinates incorrectly on rotated grids with quad refinement. The cumulative coordinate transformation applied by the tracking method was not correctly reversed before coordinates were reported, adding an offset that grows with the grid rotation angle (and with cell size). The overall path was not affected. Reported coordinates on affected models may change slightly."

@@ -1,21 +1,13 @@
 """
-Minimal test for rotated DISV cells in PRT.
-
-This test verifies that particle tracking through rotated DISV cells
-correctly transforms coordinates. The bug being tested occurred when
-composing/inverting transforms: a pure translation inversion was
-incorrectly applying rotation to the stored origin.
+Test PRT models with DISV grids rotated away from the axes. There have been
+cases of coordinate corruption in rectilinear cells rotated in this way.
 
 Two cases are tested:
 
-1. A simple (unrefined) rectangular DISV grid with rotated vertices.
-2. A quad-refined DISV grid (via gridgen) with rotated vertices.
+1. An unrefined rectangular DISV grid
+2. A quad-refined DISV grid
 
-Both grids have their vertex coordinates rotated manually; the bug
-causes coordinate corruption in rectilinear cells whose vertices are
-rotated away from the axes. Rotation via the grid's `angrot` parameter
-is not sufficient to trigger the bug, since that rotation is not used
-for particle tracking, just metadata written to the grb file.
+Both grids have their vertex coordinates rotated away from the axes manually.
 
 """
 
@@ -36,8 +28,6 @@ from prt_test_utils import check_track_continuity, get_model_name
 simname = "prtrotrect"
 cases = [simname, f"{simname}q"]  # simple, quad-refined
 
-# Use large coordinates to amplify the compose bug effect
-# The bug causes larger errors when coordinates are far from origin
 nlay = 1
 nrow = 10
 ncol = 10
@@ -47,24 +37,14 @@ delr = Lx / ncol
 delc = Ly / nrow
 top = 10.0
 botm = [0.0]
-
-# Non-zero rotation triggers the compose bug in quad cells
 angle = 30.0  # degrees
-
-# Expected grid bounds (after 30 degree rotation)
-# Grid starts at origin (0,0) before rotation. After rotation:
-# - Corner (0,0) -> (0,0)
-# - Corner (Lx,0) -> (Lx*cos30, Lx*sin30) = (86602, 50000)
-# - Corner (0,Ly) -> (-Ly*sin30, Ly*cos30) = (-50000, 86602)
-# - Corner (Lx,Ly) -> (Lx*cos30-Ly*sin30, Lx*sin30+Ly*cos30) = (36602, 136602)
-# Add small margin for numerical tolerance
 margin = 1000.0
-xmin = -Ly * np.sin(np.radians(angle)) - margin  # -50000 - margin
-xmax = Lx * np.cos(np.radians(angle)) + margin  # 86602 + margin
-ymin = -margin  # 0 - margin
+xmin = -Ly * np.sin(np.radians(angle)) - margin
+xmax = Lx * np.cos(np.radians(angle)) + margin
+ymin = -margin
 ymax = (
     Lx * np.sin(np.radians(angle)) + Ly * np.cos(np.radians(angle)) + margin
-)  # 136602 + margin
+)
 
 
 def rotate(x, y, angle_deg):
@@ -271,9 +251,7 @@ def check_output(idx, test, snapshot):
         f"This indicates the coordinate transform composition bug."
     )
 
-    # check for the compose bug: with the bug, coordinates become erratic.
-    # the particle should move generally in a consistent direction (toward low head).
-    # check that x coordinates don't jump backwards by more than half a cell.
+    # check motion is consistently in the right direction
     x_vals = mf6_pls["x"].values
     for i in range(1, len(x_vals)):
         dx = x_vals[i] - x_vals[i - 1]

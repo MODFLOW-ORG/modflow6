@@ -243,27 +243,25 @@ contains
     end if
   end subroutine transform
 
-  !> @brief Apply a 3D translation and 2D rotation to an existing transformation.
+  !> @brief Compose an affine transform onto an existing one, or remove (invert) it.
   subroutine compose(xorigin, yorigin, zorigin, &
                      sinrot, cosrot, &
                      xorigin_new, yorigin_new, zorigin_new, &
                      sinrot_new, cosrot_new, &
                      invert)
     ! -- dummy
-    real(DP) :: xorigin, yorigin, zorigin !< origin coordinates (original)
-    real(DP) :: sinrot, cosrot !< sine and cosine of rotation (original)
-    real(DP), optional :: xorigin_new, yorigin_new, zorigin_new !< origin coordinates (new)
-    real(DP), optional :: sinrot_new, cosrot_new !< sine and cosine of rotation (new)
-    logical(LGP), optional :: invert !< whether to invert
+    real(DP) :: xorigin, yorigin, zorigin !< cumulative transform T, origin (in/out)
+    real(DP) :: sinrot, cosrot !< cumulative transform T, rotation as (sin, cos) (in/out)
+    real(DP), optional :: xorigin_new, yorigin_new, zorigin_new !< transform A to compose, origin
+    real(DP), optional :: sinrot_new, cosrot_new !< transform A to compose, rotation as (sin, cos)
+    logical(LGP), optional :: invert !< whether to remove A rather than compose it
     ! -- local
     logical(LGP) :: ltranslate, lrotate, linvert
-    real(DP) :: xorigin_add, yorigin_add, zorigin_add
-    real(DP) :: sinrot_add, cosrot_add
-    real(DP) :: x0, y0, z0, s0, c0
+    real(DP) :: xa, ya, za, sa, ca !< transform A (origin, then sin/cos of phi)
+    real(DP) :: x0, y0, z0, s0, c0 !< incoming T (origin, then sin/cos of its angle)
 
     ! -- Process option arguments and set defaults and flags
-    call defaults(xorigin_add, yorigin_add, zorigin_add, &
-                  sinrot_add, cosrot_add, linvert, &
+    call defaults(xa, ya, za, sa, ca, linvert, &
                   ltranslate, lrotate, &
                   xorigin_new, yorigin_new, zorigin_new, &
                   sinrot_new, cosrot_new, invert)
@@ -275,39 +273,34 @@ contains
     s0 = sinrot
     c0 = cosrot
 
-    ! -- Modify transformation. compose(T, A) folds the added transform
-    ! -- A = (a, phi) into the cumulative transform T = (t, alpha); the inverse
-    ! -- peels it back off.
+    ! -- Given transformations A = (a, phi) and T = (t, alpha)
     ! --   forward:  alpha' = alpha + phi,   t' = t + R(alpha) a
     ! --   inverse:  alpha  = alpha' - phi,  t  = t' - R(alpha' - phi) a
-    ! -- where R(theta) is rotation by theta, carried in (sinrot, cosrot), and
-    ! -- a = (xorigin_add, yorigin_add, zorigin_add). The rotation update is
-    ! -- done first so the inverse origin update can reuse R(alpha' - phi).
     if (.not. linvert) then
       if (lrotate) then
-        ! -- alpha' = alpha + phi  (the complex product z_add * z)
-        sinrot = cosrot_add * s0 + sinrot_add * c0
-        cosrot = cosrot_add * c0 - sinrot_add * s0
+        ! -- alpha' = alpha + phi
+        sinrot = ca * s0 + sa * c0
+        cosrot = ca * c0 - sa * s0
       end if
       if (ltranslate) then
-        ! -- t' = t + R(alpha) a, with R(alpha) = (c0, s0) the existing rotation
-        xorigin = x0 + (c0 * xorigin_add - s0 * yorigin_add)
-        yorigin = y0 + (s0 * xorigin_add + c0 * yorigin_add)
-        zorigin = z0 + zorigin_add
+        ! -- t' = t + R(alpha) a, with R(alpha) built from the incoming (s0, c0)
+        xorigin = x0 + (c0 * xa - s0 * ya)
+        yorigin = y0 + (s0 * xa + c0 * ya)
+        zorigin = z0 + za
       end if
     else
       if (lrotate) then
-        ! -- alpha = alpha' - phi  (the complex product conjg(z_add) * z);
+        ! -- alpha = alpha' - phi
         ! -- (sinrot, cosrot) now hold R(alpha' - phi)
-        sinrot = cosrot_add * s0 - sinrot_add * c0
-        cosrot = cosrot_add * c0 + sinrot_add * s0
+        sinrot = ca * s0 - sa * c0
+        cosrot = ca * c0 + sa * s0
       end if
       if (ltranslate) then
-        ! -- t = t' - R(alpha' - phi) a. For phi = 0 this is t' - R(alpha') a;
+        ! -- t = t' - R(alpha' - phi) a. For phi = 0 this is t' - R(alpha') a.
         ! -- if A carries no rotation, (sinrot, cosrot) still hold R(alpha').
-        xorigin = x0 - (cosrot * xorigin_add - sinrot * yorigin_add)
-        yorigin = y0 - (sinrot * xorigin_add + cosrot * yorigin_add)
-        zorigin = z0 - zorigin_add
+        xorigin = x0 - (cosrot * xa - sinrot * ya)
+        yorigin = y0 - (sinrot * xa + cosrot * ya)
+        zorigin = z0 - za
       end if
     end if
   end subroutine compose
@@ -351,14 +344,14 @@ contains
         cosrot = cosrot_opt
       else
         ! -- If sinrot_opt is specified but cosrot_opt is not,
-        ! -- default to corresponding non-negative cosrot_add
+        ! -- default to corresponding non-negative cosrot
         cosrot = dsqrt(DONE - sinrot * sinrot)
       end if
       rotate = .true.
     else if (present(cosrot_opt)) then
       cosrot = cosrot_opt
       ! -- cosrot_opt is specified but sinrot_opt is not, so
-      ! -- default to corresponding non-negative sinrot_add
+      ! -- default to corresponding non-negative sinrot
       sinrot = dsqrt(DONE - cosrot * cosrot)
       rotate = .true.
     end if
