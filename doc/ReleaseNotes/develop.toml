@@ -285,3 +285,8 @@ description = "The PRT model could encounter a floating point exception and cras
 section = "fixes"
 subsection = "model"
 description = "The PRT model previously accumulated mass for particles only from the first Particle Release Point (PRP) package, producing a budget discrepancy for any PRT model with more than one PRP package. Mass is now correctly accumulated to balance the budget."
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "The PRT model could report particle coordinates incorrectly on rotated grids with quad refinement. The cumulative coordinate transformation applied by the tracking method was not correctly reversed before coordinates were reported, causing an offset proportional to the cell rotation to be added to positions. The overall path was not affected. Reported coordinates on affected models may change slightly."
