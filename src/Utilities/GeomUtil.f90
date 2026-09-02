@@ -277,8 +277,7 @@ contains
 
     ! -- Modify transformation. compose(T, A) folds the added transform
     ! -- A = (a, phi) into the cumulative transform T = (t, alpha); the inverse
-    ! -- (invert=.true.) peels it back off. Forward and inverse are mirrored
-    ! -- closed forms and must remain exact inverses of one another:
+    ! -- peels it back off.
     ! --   forward:  alpha' = alpha + phi,   t' = t + R(alpha) a
     ! --   inverse:  alpha  = alpha' - phi,  t  = t' - R(alpha' - phi) a
     ! -- where R(theta) is rotation by theta, carried in (sinrot, cosrot), and
