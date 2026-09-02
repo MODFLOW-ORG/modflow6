@@ -583,8 +583,6 @@ contains
 
   end subroutine
 
-  ! transform() applied then inverted recovers the original point, for
-  ! translated and/or rotated frames. Baseline for the compose tests below.
   subroutine test_transform_roundtrip(error)
     type(error_type), allocatable, intent(out) :: error
     real(DP) :: xo, yo, zo, sr, cr, ang
@@ -592,10 +590,15 @@ contains
     integer(I4B) :: i
     ! xo, yo, zo, angle(deg): identity / translate / rotate / both
     real(DP), parameter :: frames(4, 4) = reshape([ &
-                           0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
-                           10.0_DP, -5.0_DP, 2.0_DP, 0.0_DP, &
-                           0.0_DP, 0.0_DP, 0.0_DP, 25.0_DP, &
-                           10.0_DP, -5.0_DP, 2.0_DP, 25.0_DP], [4, 4])
+                                                  0.0_DP, 0.0_DP, &
+                                                  0.0_DP, 0.0_DP, &
+                                                  10.0_DP, -5.0_DP, &
+                                                  2.0_DP, 0.0_DP, &
+                                                  0.0_DP, 0.0_DP, &
+                                                  0.0_DP, 25.0_DP, &
+                                                  10.0_DP, -5.0_DP, &
+                                                  2.0_DP, 25.0_DP], &
+                                                  [4, 4])
 
     px = 2.3_DP
     py = -4.1_DP
@@ -617,10 +620,6 @@ contains
     end do
   end subroutine test_transform_roundtrip
 
-  ! compose(T, A) matches the closed form t' = t + R(alpha) a, alpha' = alpha
-  ! + phi, and compose(T, A, invert=.true.) restores T exactly, for every
-  ! combination of translate/rotate in T and A. The rotated-T x translate-only-A
-  ! case is the regression test for the inverse-compose origin bug.
   subroutine test_compose_roundtrip(error)
     type(error_type), allocatable, intent(out) :: error
     real(DP) :: xo, yo, zo, sr, cr
@@ -630,15 +629,25 @@ contains
     integer(I4B) :: it, ia
     ! xo, yo, zo, angle(deg): identity / translate / rotate / both
     real(DP), parameter :: t4(4, 4) = reshape([ &
-                           0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
-                           10.0_DP, -5.0_DP, 2.0_DP, 0.0_DP, &
-                           0.0_DP, 0.0_DP, 0.0_DP, 25.0_DP, &
-                           10.0_DP, -5.0_DP, 2.0_DP, 25.0_DP], [4, 4])
+                                              0.0_DP, 0.0_DP, &
+                                              0.0_DP, 0.0_DP, &
+                                              10.0_DP, -5.0_DP, &
+                                              2.0_DP, 0.0_DP, &
+                                              0.0_DP, 0.0_DP, &
+                                              0.0_DP, 25.0_DP, &
+                                              10.0_DP, -5.0_DP, &
+                                              2.0_DP, 25.0_DP], &
+                                              [4, 4])
     real(DP), parameter :: a4(4, 4) = reshape([ &
-                           0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
-                           1.5_DP, 0.5_DP, 0.0_DP, 0.0_DP, &
-                           0.0_DP, 0.0_DP, 0.0_DP, 13.0_DP, &
-                           1.5_DP, 0.5_DP, 0.0_DP, 13.0_DP], [4, 4])
+                                              0.0_DP, 0.0_DP, &
+                                              0.0_DP, 0.0_DP, &
+                                              1.5_DP, 0.5_DP, &
+                                              0.0_DP, 0.0_DP, &
+                                              0.0_DP, 0.0_DP, &
+                                              0.0_DP, 13.0_DP, &
+                                              1.5_DP, 0.5_DP, &
+                                              0.0_DP, 13.0_DP], &
+                                              [4, 4])
 
     do it = 1, 4
       do ia = 1, 4
@@ -653,7 +662,6 @@ contains
         sa = sin(a4(4, ia) * DPIO180)
         ca = cos(a4(4, ia) * DPIO180)
 
-        ! -- forward vs closed form
         xo = xo0
         yo = yo0
         zo = zo0
@@ -673,7 +681,6 @@ contains
                    " A "//to_string(ia))
         if (allocated(error)) return
 
-        ! -- inverse undoes forward exactly
         call compose(xo, yo, zo, sr, cr, ax, ay, az, sa, ca, invert=.true.)
         call check(error, is_close(xo, xo0, atol=DEM7) .and. &
                    is_close(yo, yo0, atol=DEM7) .and. &
