@@ -14,6 +14,7 @@ module GwfGwtExchangeModule
   use GwfGwfExchangeModule, only: GwfExchangeType, &
                                   GetGwfExchangeFromList
   use GwtGwtExchangeModule, only: GwtExchangeType
+  use DisConnExchangeModule, only: same_exchange_cells
   use BaseModelModule, only: BaseModelType, GetBaseModelFromList
   use GwfModule, only: GwfModelType
   use GwtModule, only: GwtModelType
@@ -403,21 +404,6 @@ contains
     integer(I4B) :: gwfConnIdx, gwfExIdx
     logical(LGP) :: areEqual
     !
-    ! a transport model that uses a subset of the flow model cells cannot
-    ! also be coupled through a GWT-GWT exchange
-    if (gwtModel%fmi%igwfmapped /= 0) then
-      do ic1 = 1, baseconnectionlist%Count()
-        conn => get_smc_from_list(baseconnectionlist, ic1)
-        if (.not. associated(conn%owner, gwtModel)) cycle
-        write (errmsg, '(3a)') 'GWT model ', trim(gwtModel%name), ' uses a &
-          &subset of the GWF model cells, which is not supported for a model &
-          &that is also coupled through a GWT-GWT exchange.'
-        call store_error(errmsg)
-        exit
-      end do
-      if (count_errors() > 0) call store_error_filename(this%filename)
-    end if
-    !
     ! loop over all connections
     gwtloop: do ic1 = 1, baseconnectionlist%Count()
       !
@@ -452,13 +438,9 @@ contains
           if (gwfExg%v_model1%name /= gwtExg%gwfmodelname1) cycle
           if (gwfExg%v_model2%name /= gwtExg%gwfmodelname2) cycle
           !
-          areEqual = (gwfExg%nexg == gwtExg%nexg)
+          areEqual = same_exchange_cells(gwfExg, gwtExg)
           if (areEqual) then
-            areEqual = all(gwfExg%nodem1 == gwtExg%nodem1)
-            areEqual = areEqual .and. all(gwfExg%nodem2 == gwtExg%nodem2)
-          end if
-          if (areEqual) then
-            ! same DIS, same exchange: link and go to next GWT conn.
+            ! same cells, same exchange: link and go to next GWT conn.
             write (iout, '(/6a)') 'Linking exchange ', &
               trim(gwtExg%name), ' to ', trim(gwfExg%name), &
               ' (using interface model) for GWT model ', &
@@ -485,12 +467,7 @@ contains
             if (gwfExg%v_model1%name /= gwtExg%gwfmodelname1) cycle
             if (gwfExg%v_model2%name /= gwtExg%gwfmodelname2) cycle
             !
-            areEqual = (gwfExg%nexg == gwtExg%nexg)
-            !
-            if (areEqual) then
-              areEqual = all(gwfExg%nodem1 == gwtExg%nodem1)
-              areEqual = areEqual .and. all(gwfExg%nodem2 == gwtExg%nodem2)
-            end if
+            areEqual = same_exchange_cells(gwfExg, gwtExg)
             if (areEqual) then
               ! link exchange to connection
               write (iout, '(/6a)') 'Linking exchange ', &
