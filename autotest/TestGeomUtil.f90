@@ -3,7 +3,8 @@ module TestGeomUtil
   use testdrive, only: check, error_type, new_unittest, test_failed, &
                        to_string, unittest_type
   use GeomUtilModule, only: get_node, get_ijk, get_jk, point_in_polygon, &
-                            skew, area, polygon_extent, shared_face
+                            skew, area, polygon_extent, shared_face, &
+                            transform, compose
   use ConstantsModule, only: LINELENGTH, DEM7, DPIO180
   use MathUtilModule, only: is_close
   use DisvGeom, only: shared_edge
@@ -33,7 +34,11 @@ contains
                              test_polygon_extent_degenerate), &
                 new_unittest("shared_face", test_shared_face), &
                 new_unittest("shared_face_large", &
-                             test_shared_face_large) &
+                             test_shared_face_large), &
+                new_unittest("transform_roundtrip", &
+                             test_transform_roundtrip), &
+                new_unittest("compose_roundtrip", &
+                             test_compose_roundtrip) &
                 ]
   end subroutine collect_geomutil
 
@@ -577,5 +582,109 @@ contains
     print *, 'shared_edge took: ', tstop - tstart
 
   end subroutine
+
+  ! transform() applied then inverted recovers the original point, for
+  ! translated and/or rotated frames. Baseline for the compose tests below.
+  subroutine test_transform_roundtrip(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP) :: xo, yo, zo, sr, cr, ang
+    real(DP) :: px, py, pz, qx, qy, qz, rx, ry, rz
+    integer(I4B) :: i
+    ! xo, yo, zo, angle(deg): identity / translate / rotate / both
+    real(DP), parameter :: frames(4, 4) = reshape([ &
+                           0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
+                           10.0_DP, -5.0_DP, 2.0_DP, 0.0_DP, &
+                           0.0_DP, 0.0_DP, 0.0_DP, 25.0_DP, &
+                           10.0_DP, -5.0_DP, 2.0_DP, 25.0_DP], [4, 4])
+
+    px = 2.3_DP
+    py = -4.1_DP
+    pz = 0.7_DP
+    do i = 1, 4
+      xo = frames(1, i)
+      yo = frames(2, i)
+      zo = frames(3, i)
+      ang = frames(4, i) * DPIO180
+      sr = sin(ang)
+      cr = cos(ang)
+      call transform(px, py, pz, qx, qy, qz, xo, yo, zo, sr, cr)
+      call transform(qx, qy, qz, rx, ry, rz, xo, yo, zo, sr, cr, invert=.true.)
+      call check(error, is_close(rx, px, atol=DEM7) .and. &
+                 is_close(ry, py, atol=DEM7) .and. &
+                 is_close(rz, pz, atol=DEM7), &
+                 "transform round trip failed, frame "//to_string(i))
+      if (allocated(error)) return
+    end do
+  end subroutine test_transform_roundtrip
+
+  ! compose(T, A) matches the closed form t' = t + R(alpha) a, alpha' = alpha
+  ! + phi, and compose(T, A, invert=.true.) restores T exactly, for every
+  ! combination of translate/rotate in T and A. The rotated-T x translate-only-A
+  ! case is the regression test for the inverse-compose origin bug.
+  subroutine test_compose_roundtrip(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP) :: xo, yo, zo, sr, cr
+    real(DP) :: xo0, yo0, zo0, sr0, cr0
+    real(DP) :: ax, ay, az, sa, ca
+    real(DP) :: ex, ey, esr, ecr
+    integer(I4B) :: it, ia
+    ! xo, yo, zo, angle(deg): identity / translate / rotate / both
+    real(DP), parameter :: t4(4, 4) = reshape([ &
+                           0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
+                           10.0_DP, -5.0_DP, 2.0_DP, 0.0_DP, &
+                           0.0_DP, 0.0_DP, 0.0_DP, 25.0_DP, &
+                           10.0_DP, -5.0_DP, 2.0_DP, 25.0_DP], [4, 4])
+    real(DP), parameter :: a4(4, 4) = reshape([ &
+                           0.0_DP, 0.0_DP, 0.0_DP, 0.0_DP, &
+                           1.5_DP, 0.5_DP, 0.0_DP, 0.0_DP, &
+                           0.0_DP, 0.0_DP, 0.0_DP, 13.0_DP, &
+                           1.5_DP, 0.5_DP, 0.0_DP, 13.0_DP], [4, 4])
+
+    do it = 1, 4
+      do ia = 1, 4
+        xo0 = t4(1, it)
+        yo0 = t4(2, it)
+        zo0 = t4(3, it)
+        sr0 = sin(t4(4, it) * DPIO180)
+        cr0 = cos(t4(4, it) * DPIO180)
+        ax = a4(1, ia)
+        ay = a4(2, ia)
+        az = a4(3, ia)
+        sa = sin(a4(4, ia) * DPIO180)
+        ca = cos(a4(4, ia) * DPIO180)
+
+        ! -- forward vs closed form
+        xo = xo0
+        yo = yo0
+        zo = zo0
+        sr = sr0
+        cr = cr0
+        call compose(xo, yo, zo, sr, cr, ax, ay, az, sa, ca)
+        ex = xo0 + (cr0 * ax - sr0 * ay)
+        ey = yo0 + (sr0 * ax + cr0 * ay)
+        esr = ca * sr0 + sa * cr0
+        ecr = ca * cr0 - sa * sr0
+        call check(error, is_close(xo, ex, atol=DEM7) .and. &
+                   is_close(yo, ey, atol=DEM7) .and. &
+                   is_close(zo, zo0 + az, atol=DEM7) .and. &
+                   is_close(sr, esr, atol=DEM7) .and. &
+                   is_close(cr, ecr, atol=DEM7), &
+                   "compose forward mismatch, T "//to_string(it)// &
+                   " A "//to_string(ia))
+        if (allocated(error)) return
+
+        ! -- inverse undoes forward exactly
+        call compose(xo, yo, zo, sr, cr, ax, ay, az, sa, ca, invert=.true.)
+        call check(error, is_close(xo, xo0, atol=DEM7) .and. &
+                   is_close(yo, yo0, atol=DEM7) .and. &
+                   is_close(zo, zo0, atol=DEM7) .and. &
+                   is_close(sr, sr0, atol=DEM7) .and. &
+                   is_close(cr, cr0, atol=DEM7), &
+                   "compose round trip failed, T "//to_string(it)// &
+                   " A "//to_string(ia))
+        if (allocated(error)) return
+      end do
+    end do
+  end subroutine test_compose_roundtrip
 
 end module TestGeomUtil

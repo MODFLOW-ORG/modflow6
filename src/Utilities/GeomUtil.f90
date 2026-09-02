@@ -275,52 +275,40 @@ contains
     s0 = sinrot
     c0 = cosrot
 
-    ! -- Modify transformation
+    ! -- Modify transformation. compose(T, A) folds the added transform
+    ! -- A = (a, phi) into the cumulative transform T = (t, alpha); the inverse
+    ! -- (invert=.true.) peels it back off. Forward and inverse are mirrored
+    ! -- closed forms and must remain exact inverses of one another:
+    ! --   forward:  alpha' = alpha + phi,   t' = t + R(alpha) a
+    ! --   inverse:  alpha  = alpha' - phi,  t  = t' - R(alpha' - phi) a
+    ! -- where R(theta) is rotation by theta, carried in (sinrot, cosrot), and
+    ! -- a = (xorigin_add, yorigin_add, zorigin_add). The rotation update is
+    ! -- done first so the inverse origin update can reuse R(alpha' - phi).
     if (.not. linvert) then
-      ! -- Apply additional transformation to existing transformation
-      if (ltranslate) then
-        ! -- Calculate modified origin, XOrigin + R^T XOrigin_add, where
-        ! -- XOrigin and XOrigin_add are the existing and additional origin
-        ! -- vectors, respectively, and R^T is the transpose of the existing
-        ! -- rotation matrix
-        call transform(xorigin_add, yorigin_add, zorigin_add, &
-                       xorigin, yorigin, zorigin, &
-                       x0, y0, z0, s0, c0, .true.)
-      end if
       if (lrotate) then
-        ! -- Calculate modified rotation matrix (represented by sinrot
-        ! -- and cosrot) as R_add R, where R and R_add are the existing
-        ! -- and additional rotation matrices, respectively
+        ! -- alpha' = alpha + phi  (the complex product z_add * z)
         sinrot = cosrot_add * s0 + sinrot_add * c0
         cosrot = cosrot_add * c0 - sinrot_add * s0
       end if
-    else
-      ! -- Apply inverse of additional transformation to existing transformation.
-      ! -- Calculate modified origin, R^T (XOrigin + R_add XOrigin_add), where
-      ! -- XOrigin and XOrigin_add are the existing and additional origin
-      ! -- vectors, respectively, R^T is the transpose of the existing rotation
-      ! -- matrix, and R_add is the additional rotation matrix.
-      if (lrotate) then
-        if (ltranslate) then
-          call transform(-xorigin_add, -yorigin_add, zorigin_add, &
-                         x0, y0, z0, xorigin, yorigin, zorigin, &
-                         -sinrot_add, cosrot_add, .true.)
-        end if
-        xorigin = c0 * x0 - s0 * y0
-        yorigin = s0 * x0 + c0 * y0
-        zorigin = z0
-      else if (ltranslate) then
-        xorigin = x0 - (c0 * xorigin_add - s0 * yorigin_add)
-        yorigin = y0 - (s0 * xorigin_add + c0 * yorigin_add)
-        zorigin = z0 - zorigin_add
+      if (ltranslate) then
+        ! -- t' = t + R(alpha) a, with R(alpha) = (c0, s0) the existing rotation
+        xorigin = x0 + (c0 * xorigin_add - s0 * yorigin_add)
+        yorigin = y0 + (s0 * xorigin_add + c0 * yorigin_add)
+        zorigin = z0 + zorigin_add
       end if
+    else
       if (lrotate) then
-        ! -- Calculate modified rotation matrix (represented by sinrot
-        ! -- and cosrot) as R_add^T R, where R and R_add^T are the existing
-        ! -- rotation matrix and the transpose of the additional rotation
-        ! -- matrix, respectively
+        ! -- alpha = alpha' - phi  (the complex product conjg(z_add) * z);
+        ! -- (sinrot, cosrot) now hold R(alpha' - phi)
         sinrot = cosrot_add * s0 - sinrot_add * c0
         cosrot = cosrot_add * c0 + sinrot_add * s0
+      end if
+      if (ltranslate) then
+        ! -- t = t' - R(alpha' - phi) a. For phi = 0 this is t' - R(alpha') a;
+        ! -- if A carries no rotation, (sinrot, cosrot) still hold R(alpha').
+        xorigin = x0 - (cosrot * xorigin_add - sinrot * yorigin_add)
+        yorigin = y0 - (sinrot * xorigin_add + cosrot * yorigin_add)
+        zorigin = z0 - zorigin_add
       end if
     end if
   end subroutine compose
