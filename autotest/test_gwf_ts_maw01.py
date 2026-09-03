@@ -7,20 +7,23 @@ from flopy.utils.compare import eval_bud_diff
 from framework import TestFramework
 
 paktest = "maw"
-cases = [f"ts_{paktest}01"]
+cases = [f"ts_{paktest}01", f"ts_{paktest}01_reorder"]
 
 
-def get_model(ws, name, timeseries=False):
+def get_model(ws, name, timeseries=False, reorder=False):
     # static model data
     # temporal discretization
-    nper = 1
+    nper = 3
     tdis_rc = []
     for _ in range(nper):
-        tdis_rc.append((1.0, 1, 1.0))
-    ts_times = np.arange(0.0, 2.0, 1.0, dtype=float)
+        tdis_rc.append((1.0, 10, 1.0))
+    ts_times = np.arange(0.0, float(nper) + 1.0, 1.0, dtype=float)
 
     auxnames = ["temp", "conc"]
     temp, conc = 32.5, 0.1
+    # reorder case uses a non-zero strt so that swapping PACKAGEDATA rows
+    # produces distinct input strt values
+    strt_well1 = -5.0 if reorder else 0.0
 
     # spatial discretization data
     nlay, nrow, ncol = 3, 10, 10
@@ -211,28 +214,41 @@ def get_model(ws, name, timeseries=False):
 
     packagedata = [
         [0, 1.0, -20.0, 0.0, "SPECIFIED", 2, temp, conc],
+        [1, 0.5, -20.0, strt_well1, "THIEM", 2, temp, conc],
     ]
     nmawwells = len(packagedata)
     connectiondata = [
-        [1 - 1, 1 - 1, (1 - 1, 5 - 1, 8 - 1), 0.0, -20, 1.0, 1.1],
-        [1 - 1, 2 - 1, (2 - 1, 5 - 1, 8 - 1), 0.0, -20, 1.0, 1.1],
+        [0, 0, (0, 4, 7), 0.0, -20, 1.0, 1.1],
+        [0, 1, (1, 4, 7), 0.0, -20, 1.0, 1.1],
+        [1, 0, (0, 8, 2), 0.0, -20, 1.0, 1.1],
+        [1, 1, (1, 8, 2), 0.0, -20, 1.0, 1.1],
     ]
 
-    perioddata = [[0, "FLOWING_WELL", 0.0, 1.0, 0.1]]
+    fwelev_val, fwcond_val, fwrlen_val = 0.0, 1.0, 0.1
+    perioddata = [
+        [0, "FLOWING_WELL", fwelev_val, fwcond_val, fwrlen_val],
+        [1, "STATUS", "CONSTANT"],
+    ]
     rate = 4e-3
-    ts_names = ["rate"] + auxnames
+    # ts_names order must match ts_data tuple columns
+    ts_names = ["rate", "strt1"] + auxnames
     if timeseries:
+        packagedata[1][3] = "strt1"
         perioddata.append([0, "rate", "rate"])
         perioddata.append([0, "AUXILIARY", "conc", "conc"])
         perioddata.append([0, "AUXILIARY", "temp", "temp"])
         ts_methods = ["linearend"] * len(ts_names)
         ts_data = []
         for t in ts_times:
-            ts_data.append((t, rate, temp, conc))
+            ts_data.append((t, rate, strt_well1, temp, conc))
     else:
         perioddata.append([0, "rate", rate])
         perioddata.append([0, "AUXILIARY", "conc", conc])
         perioddata.append([0, "AUXILIARY", "temp", temp])
+    if timeseries and reorder:
+        # reverse PACKAGEDATA row order (WELLNO=1 in row 0, WELLNO=0 in row 1)
+        # so that input strt is indexed differently from feature order;
+        packagedata = [packagedata[1], packagedata[0]]
 
     budpth = f"{name}.{paktest}.cbc"
     maw = flopy.mf6.ModflowGwfmaw(
@@ -396,14 +412,15 @@ def get_model(ws, name, timeseries=False):
 
 def build_models(idx, test):
     name = cases[idx]
+    reorder = idx == 1
 
     # build MODFLOW 6 files
     ws = test.workspace
-    sim = get_model(ws, name)
+    sim = get_model(ws, name, reorder=reorder)
 
     # build MODFLOW 6 files with timeseries
     ws = os.path.join(test.workspace, "mf6")
-    mc = get_model(ws, name, timeseries=True)
+    mc = get_model(ws, name, timeseries=True, reorder=reorder)
 
     return sim, mc
 

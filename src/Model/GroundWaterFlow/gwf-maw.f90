@@ -8,28 +8,33 @@ module MawModule
                              LENAUXNAME, LENFTYPE, LENPAKLOC, DHNOFLO, DHDRY, &
                              DNODATA, &
                              MAXCHARLEN, TABLEFT, TABCENTER, TABRIGHT, &
-                             TABSTRING, TABUCSTRING, TABINTEGER, TABREAL
+                             TABSTRING, TABUCSTRING, TABINTEGER, TABREAL, MNORMAL
   use SmoothingModule, only: sQuadraticSaturation, sQSaturation, &
                              sQuadraticSaturationDerivative, &
                              sQSaturationDerivative, &
                              sQuadratic0sp, &
                              sQuadratic0spDerivative
   use BndModule, only: BndType
+  use BndExtModule, only: BndExtType
   use BudgetObjectModule, only: BudgetObjectType, budgetobject_cr
   use TableModule, only: TableType, table_cr
   use ObserveModule, only: ObserveType
   use ObsModule, only: ObsType
   use GeomUtilModule, only: get_node
   use InputOutputModule, only: URWORD, extract_idnum_or_bndname, &
-                               GetUnit, openfile
+                               GetUnit, openfile, assign_iounit
   use BaseDisModule, only: DisBaseType
-  use SimModule, only: count_errors, store_error, store_error_unit, &
+  use SimModule, only: count_errors, store_error, store_error_filename, &
                        store_warning
-  use BlockParserModule, only: BlockParserType
   use SimVariablesModule, only: errmsg, warnmsg
   use MemoryManagerModule, only: mem_allocate, mem_reallocate, mem_setptr, &
-                                 mem_deallocate
+                                 mem_deallocate, get_isize
+  use MemoryManagerExtModule, only: mem_set_value, memorystore_release
   use MemoryHelperModule, only: create_mem_path
+  use CharacterStringModule, only: CharacterStringType
+  use OpenSpecModule, only: access, form
+  use SourceCommonModule, only: filein_fname
+  use GwfMawInputModule, only: GwfMawParamFoundType
   use MatrixBaseModule
   !
   implicit none
@@ -45,7 +50,42 @@ module MawModule
   public :: maw_damp_weight
   public :: maw_screen_length
   !
-  type, extends(BndType) :: MawType
+  !> @brief input context data pointers for MAW.
+  !!
+  !! Holds persistent pointers to input context arrays used at
+  !! runtime.
+  !<
+  type :: MawInputType
+    ! -- packagedata (TS-linked; set in maw_source_packagedata)
+    real(DP), dimension(:), pointer, contiguous :: strt => null()
+    ! -- period
+    integer(I4B), pointer :: nbound => null()
+    integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: setting => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: status => null()
+    real(DP), dimension(:), pointer, contiguous :: rate => null()
+    real(DP), dimension(:), pointer, contiguous :: well_head => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: head_limit => null()
+    real(DP), dimension(:), pointer, contiguous :: fwelev => null()
+    real(DP), dimension(:), pointer, contiguous :: fwcond => null()
+    real(DP), dimension(:), pointer, contiguous :: fwrlen => null()
+    real(DP), dimension(:), pointer, contiguous :: minrate => null()
+    real(DP), dimension(:), pointer, contiguous :: maxrate => null()
+    real(DP), dimension(:), pointer, contiguous :: pump_elevation => null()
+    real(DP), dimension(:), pointer, contiguous :: scaling_length => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: auxname => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: auxval => null()
+  contains
+    procedure :: init => maw_input_init
+    procedure :: destroy => maw_input_destroy
+  end type MawInputType
+  !
+  type, extends(BndExtType) :: MawType
     !
     ! -- scalars
     ! -- characters
@@ -113,7 +153,14 @@ module MawModule
     ! -- time-series aware data
     real(DP), dimension(:), pointer, contiguous :: rate => null()
     real(DP), dimension(:), pointer, contiguous :: well_head => null()
-    real(DP), dimension(:, :), pointer, contiguous :: mauxvar => null()
+    !
+    ! -- .true. once a PERIOD WELL_HEAD entry has been given for a well;
+    !    WELL_HEAD then takes precedence over the PACKAGEDATA STRT baseline
+    !    for CONSTANT/INACTIVE wells
+    logical(LGP), dimension(:), pointer, contiguous :: well_head_set => null()
+    !
+    ! -- input context data pointers
+    type(MawInputType) :: input
     !
     ! -- ia vector for connections
     integer(I4B), dimension(:), pointer, contiguous :: iaconn => null()
@@ -181,8 +228,8 @@ module MawModule
     procedure :: maw_allocate_scalars
     procedure :: maw_allocate_well_conn_arrays
     procedure :: maw_allocate_arrays
-    procedure :: bnd_options => maw_read_options
-    procedure :: read_dimensions => maw_read_dimensions
+    procedure :: source_options => maw_source_options
+    procedure :: source_dimensions => maw_source_dimensions
     procedure :: read_initial_attr => maw_read_initial_attr
     procedure :: set_pointers => maw_set_pointers
     procedure :: bnd_ac => maw_ac
@@ -208,14 +255,14 @@ module MawModule
     procedure, public :: bnd_rp_obs => maw_rp_obs
     procedure, public :: bnd_bd_obs => maw_bd_obs
     ! -- private procedures
-    procedure, private :: maw_read_wells
-    procedure, private :: maw_read_well_connections
-    procedure, private :: maw_read_angledata
+    procedure, private :: maw_source_packagedata
+    procedure, private :: maw_source_connectiondata
+    procedure, private :: maw_source_angledata
     procedure, private :: maw_cell_extent
     procedure, private :: maw_calc_lcorr
     procedure, private :: maw_check_attributes
-    procedure, private :: maw_set_stressperiod
     procedure, private :: maw_set_attribute_error
+    procedure, private :: maw_set_period_value
     procedure, private :: maw_calculate_saturation
     procedure, private :: maw_calculate_satcond
     procedure, private :: maw_calculate_conn_terms
@@ -245,7 +292,8 @@ contains
 !!
 !! After creating the package object point bndobj to the new package
 !<
-  subroutine maw_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname)
+  subroutine maw_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
+                        mempath)
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -254,6 +302,7 @@ contains
     integer(I4B), intent(in) :: iout
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
+    character(len=*), intent(in) :: mempath
     type(MawType), pointer :: mawobj
     !
     ! -- allocate the object and assign values to object variables
@@ -261,7 +310,7 @@ contains
     packobj => mawobj
     !
     ! -- create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, mempath)
     packobj%text = text
     !
     ! -- allocate scalars
@@ -288,8 +337,8 @@ contains
     ! -- dummy
     class(MawType), intent(inout) :: this
     !
-    ! -- call standard BndType allocate scalars
-    call this%BndType%allocate_scalars()
+    ! -- call standard BndExtType allocate scalars
+    call this%BndExtType%allocate_scalars()
     !
     ! -- allocate the object and assign values to object variables
     call mem_allocate(this%correct_flow, 'CORRECT_FLOW', this%memoryPath)
@@ -339,13 +388,12 @@ contains
   !<
   subroutine maw_allocate_well_conn_arrays(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate
+    use MemoryManagerModule, only: mem_allocate, mem_setptr
     ! -- dummy
     class(MawType), intent(inout) :: this
     ! -- local
     integer(I4B) :: j
     integer(I4B) :: n
-    integer(I4B) :: jj
     !
     ! -- allocate character array for budget text
     call mem_allocate(this%cmawbudget, LENBUDTXT, this%bditems, 'CMAWBUDGET', &
@@ -406,17 +454,13 @@ contains
     call mem_allocate(this%nurweight, this%nmawwells, 'NURWEIGHT', &
                       this%memoryPath)
     !
-    ! -- timeseries aware variables
-    call mem_allocate(this%rate, this%nmawwells, 'RATE', this%memoryPath)
-    call mem_allocate(this%well_head, this%nmawwells, 'WELL_HEAD', &
+    ! -- alias into the input context's permanent, feature-indexed arrays
+    ! (allocated and DZERO-initialized by the loader)
+    call mem_setptr(this%rate, 'RATE', this%input_mempath)
+    call mem_setptr(this%well_head, 'WELL_HEAD', this%input_mempath)
+    call mem_allocate(this%well_head_set, this%nmawwells, 'WELL_HEAD_SET', &
                       this%memoryPath)
-    if (this%naux > 0) then
-      jj = this%naux
-    else
-      jj = 1
-    end if
-    call mem_allocate(this%mauxvar, jj, this%nmawwells, 'MAUXVAR', &
-                      this%memoryPath)
+    this%well_head_set = .false.
     !
     ! -- allocate and initialize dbuff
     if (this%iheadout > 0) then
@@ -482,9 +526,6 @@ contains
       ! -- timeseries aware variables
       this%rate(n) = DZERO
       this%well_head(n) = DZERO
-      do jj = 1, max(1, this%naux)
-        this%mauxvar(jj, n) = DZERO
-      end do
       !
       ! -- dbuff
       if (this%iheadout > 0) then
@@ -559,488 +600,599 @@ contains
     class(MawType), intent(inout) :: this
     ! -- local
     !
-    ! -- call standard BndType allocate scalars
-    call this%BndType%allocate_arrays()
+    ! -- allocate BndType connection-level arrays
+    call this%BndExtType%allocate_arrays()
+    !
+    ! -- allocate featureauxvar PACKAGEDATA variables
+    call this%BndExtType%allocate_featureauxvar()
   end subroutine maw_allocate_arrays
 
-  !> @brief Read the packagedata for this package
+  !> @brief Source OPTIONS block from input context
   !<
-  subroutine maw_read_wells(this)
-    use ConstantsModule, only: LINELENGTH
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
+  subroutine maw_source_options(this)
     ! -- dummy
     class(MawType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: text
-    character(len=LINELENGTH) :: keyword
-    character(len=LINELENGTH) :: cstr
-    character(len=LENBOUNDNAME) :: bndName
-    character(len=LENBOUNDNAME) :: bndNameTemp
-    character(len=9) :: cno
-    logical :: isfound
-    logical :: endOfBlock
-    integer(I4B) :: ival
-    integer(I4B) :: n
-    integer(I4B) :: j
-    integer(I4B) :: ii
-    integer(I4B) :: jj
-    integer(I4B) :: ieqn
-    integer(I4B) :: itmp
-    integer(I4B) :: ierr
-    integer(I4B) :: idx
-    real(DP) :: rval
-    real(DP), pointer :: bndElem => null()
-    ! -- local allocatable arrays
-    character(len=LINELENGTH), dimension(:), allocatable :: strttext
-    character(len=LENBOUNDNAME), dimension(:), allocatable :: nametxt
-    character(len=50), dimension(:, :), allocatable :: caux
-    integer(I4B), dimension(:), allocatable :: nboundchk
-    integer(I4B), dimension(:), allocatable :: wellieqn
-    integer(I4B), dimension(:), allocatable :: ngwfnodes
-    real(DP), dimension(:), allocatable :: radius
-    real(DP), dimension(:), allocatable :: bottom
-    ! -- format
-    character(len=*), parameter :: fmthdbot = &
-      "('well head (', G0, ') must be greater than or equal to the &
-      &BOTTOM_ELEVATION (', G0, ').')"
+    type(GwfMawParamFoundType) :: found
+    integer(I4B) :: isize
+    character(len=LINELENGTH) :: fname
+    ! -- formats
+    character(len=*), parameter :: fmtflowingwells = &
+      &"(4x, 'FLOWING WELLS WILL BE SIMULATED.')"
+    character(len=*), parameter :: fmtshutdown = &
+      &"(4x, 'SHUTDOWN ', a, ' VALUE (',g15.7,') SPECIFIED.')"
+    character(len=*), parameter :: fmtnostoragewells = &
+      &"(4x, 'WELL STORAGE WILL NOT BE SIMULATED.')"
+    character(len=*), parameter :: fmtmawbin = &
+      "(4x, 'MAW ', 1x, a, 1x, ' WILL BE SAVED TO FILE: ', a, /4x, &
+     &'OPENED ON UNIT: ', I0)"
     !
-    ! -- allocate and initialize temporary variables
-    allocate (strttext(this%nmawwells))
-    allocate (nametxt(this%nmawwells))
-    if (this%naux > 0) then
-      allocate (caux(this%naux, this%nmawwells))
+    ! -- call base class to handle AUXILIARY/NAUX, BOUNDNAMES, PRINT_INPUT,
+    !    PRINT_FLOWS, SAVE_FLOWS, OBS6_FILENAME, AUXMULTNAME
+    call this%BndExtType%source_options()
+    !
+    write (this%iout, '(1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' OPTIONS'
+    !
+    ! -- PRINT_HEAD
+    call get_isize('PRINT_HEAD', this%input_mempath, isize)
+    if (isize > 0) then
+      this%iprhed = 1
+      write (this%iout, '(4x,a)') &
+        trim(adjustl(this%text))//' heads will be printed to listing file.'
     end if
-    allocate (nboundchk(this%nmawwells))
-    allocate (wellieqn(this%nmawwells))
-    allocate (ngwfnodes(this%nmawwells))
-    allocate (radius(this%nmawwells))
-    allocate (bottom(this%nmawwells))
     !
-    ! -- initialize temporary variables
-    do n = 1, this%nmawwells
-      nboundchk(n) = 0
-    end do
+    ! -- HEAD FILEOUT
+    call mem_set_value(fname, 'HEADFILE', this%input_mempath, found%headfile)
+    if (found%headfile) then
+      call assign_iounit(this%iheadout, this%inunit, "HEAD fileout")
+      call openfile(this%iheadout, this%iout, fname, 'DATA(BINARY)', &
+                    form, access, 'REPLACE', mode_opt=MNORMAL)
+      write (this%iout, fmtmawbin) 'HEAD', trim(adjustl(fname)), this%iheadout
+    end if
     !
-    ! -- initialize itmp
-    itmp = 0
+    ! -- BUDGET FILEOUT
+    call mem_set_value(fname, 'BUDGETFILE', this%input_mempath, found%budgetfile)
+    if (found%budgetfile) then
+      call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
+      call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
+                    form, access, 'REPLACE', mode_opt=MNORMAL)
+      write (this%iout, fmtmawbin) 'BUDGET', trim(adjustl(fname)), this%ibudgetout
+    end if
+    !
+    ! -- BUDGETCSV FILEOUT
+    call mem_set_value(fname, 'BUDGETCSVFILE', this%input_mempath, &
+                       found%budgetcsvfile)
+    if (found%budgetcsvfile) then
+      call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
+      call openfile(this%ibudcsv, this%iout, fname, 'CSV', filstat_opt='REPLACE')
+      write (this%iout, fmtmawbin) &
+        'BUDGET CSV', trim(adjustl(fname)), this%ibudcsv
+    end if
+    !
+    ! -- NO_WELL_STORAGE
+    call get_isize('NO_WELL_STORAGE', this%input_mempath, isize)
+    if (isize > 0) then
+      this%imawissopt = 1
+      write (this%iout, fmtnostoragewells)
+    end if
+    !
+    ! -- FLOW_CORRECTION
+    call get_isize('FLOW_CORRECTION', this%input_mempath, isize)
+    if (isize > 0) then
+      this%correct_flow = .TRUE.
+      write (this%iout, '(4x,a,/,4x,a)') &
+        'MAW-GWF FLOW CORRECTIONS WILL BE APPLIED WHEN MAW HEADS ARE BELOW', &
+        'OR GWF HEADS IN CONNECTED CELLS ARE BELOW THE CELL BOTTOM.'
+    end if
+    !
+    ! -- FLOWING_WELLS
+    call get_isize('FLOWING_WELLS', this%input_mempath, isize)
+    if (isize > 0) then
+      this%iflowingwells = 1
+      write (this%iout, fmtflowingwells)
+    end if
+    !
+    ! -- SHUTDOWN_THETA
+    call mem_set_value(this%theta, 'SHUTDOWN_THETA', this%input_mempath, &
+                       found%shutdown_theta)
+    if (found%shutdown_theta) then
+      write (this%iout, fmtshutdown) 'THETA', this%theta
+    end if
+    !
+    ! -- SHUTDOWN_KAPPA
+    call mem_set_value(this%kappa, 'SHUTDOWN_KAPPA', this%input_mempath, &
+                       found%shutdown_kappa)
+    if (found%shutdown_kappa) then
+      write (this%iout, fmtshutdown) 'KAPPA', this%kappa
+    end if
+    !
+    ! -- MAW_FLOW_REDUCE_CSV FILEOUT
+    call mem_set_value(fname, 'MFRCSVFILE', this%input_mempath, found%mfrcsvfile)
+    if (found%mfrcsvfile) then
+      call this%maw_redflow_csv_init(fname)
+    end if
+    !
+    ! -- MOVER
+    call get_isize('MOVER', this%input_mempath, isize)
+    if (isize > 0) then
+      this%imover = 1
+      write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
+    end if
+    !
+    ! -- DEV_PEACEMAN_EFFECTIVE_RADIUS
+    call get_isize('IEFFRADOPT', this%input_mempath, isize)
+    if (isize > 0) then
+      this%ieffradopt = 1
+      write (this%iout, '(4x,a)') &
+        'EFFECTIVE RADIUS FOR STRUCTURED GRIDS WILL BE CALCULATED &
+        &USING PEACEMAN 1983'
+    end if
+    !
+    ! -- NON_VERTICAL_WELLS
+    call get_isize('INONVERT', this%input_mempath, isize)
+    if (isize > 0) then
+      this%inonvert = 1
+      write (this%iout, '(4x,a)') &
+        'NON-VERTICAL (SLANTED) WELL CONNECTIONS ENABLED'
+    end if
+    !
+    write (this%iout, '(1x,a)') 'END OF '//trim(adjustl(this%text))//' OPTIONS'
+  end subroutine maw_source_options
+
+  !> @brief Source DIMENSIONS block from input context
+  !<
+  subroutine maw_source_dimensions(this)
+    ! -- dummy
+    class(MawType), intent(inout) :: this
+    ! -- local
+    type(GwfMawParamFoundType) :: found
+    !
+    ! -- initialize dimensions
+    this%nmawwells = -1
+    this%maxbound = -1
+    !
+    write (this%iout, '(/1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' DIMENSIONS'
+    !
+    ! -- read NMAWWELLS
+    call mem_set_value(this%nmawwells, 'NMAWWELLS', this%input_mempath, &
+                       found%nmawwells)
+    if (found%nmawwells) then
+      write (this%iout, '(4x,a,i0)') 'NMAWWELLS = ', this%nmawwells
+    end if
+    !
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' DIMENSIONS'
+    !
+    if (this%nmawwells < 0) then
+      write (errmsg, '(a)') &
+        'NMAWWELLS was not specified or was specified incorrectly.'
+      call store_error(errmsg)
+      call store_error_filename(this%input_fname)
+    end if
     !
     ! -- set npakeq to nmawwells
     this%npakeq = this%nmawwells
     !
-    ! -- read maw well data
-    ! -- get wells block
-    call this%parser%GetBlock('PACKAGEDATA', isfound, ierr, &
-                              supportopenclose=.true.)
+    ! -- read PACKAGEDATA
+    call this%maw_source_packagedata()
     !
-    ! -- parse locations block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') &
-        'PROCESSING '//trim(adjustl(this%text))//' PACKAGEDATA'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        ival = this%parser%GetInteger()
-        n = ival
+    ! -- read CONNECTIONDATA
+    call this%maw_source_connectiondata()
+    !
+    ! -- read optional ANGLEDATA (non-vertical well connections)
+    call this%maw_source_angledata()
+    !
+    ! -- Call define_listlabel
+    call this%define_listlabel()
+    !
+    ! -- setup the budget object
+    call this%maw_setup_budobj()
+    !
+    ! -- setup the head table object
+    call this%maw_setup_tableobj()
+  end subroutine maw_source_dimensions
 
-        if (n < 1 .or. n > this%nmawwells) then
-          write (errmsg, '(a,1x,i0,a)') &
-            'IMAW must be greater than 0 and less than or equal to', &
-            this%nmawwells, '.'
-          call store_error(errmsg)
-          cycle
-        end if
-        !
-        ! -- increment nboundchk
-        nboundchk(n) = nboundchk(n) + 1
-        !
-        ! -- radius
-        rval = this%parser%GetDouble()
-        if (rval <= DZERO) then
-          write (errmsg, '(a,1x,i0,1x,a)') &
-            'Radius for well', n, 'must be greater than zero.'
-          call store_error(errmsg)
-        end if
-        radius(n) = rval
-        !
-        ! -- well bottom
-        bottom(n) = this%parser%GetDouble()
-        !
-        ! -- strt
-        call this%parser%GetString(strttext(n))
-        !
-        ! -- ieqn
-        call this%parser%GetStringCaps(keyword)
-        if (keyword == 'SPECIFIED') then
-          ieqn = 0
-        else if (keyword == 'THIEM') then
-          ieqn = 1
-        else if (keyword == 'THEIM') then ! # codespell:ignore
-          ieqn = 1
-          write (warnmsg, '(a,a,a,a,a,a)') &
-            "CONDEQN in '", trim(this%packName), "' should be ", &
-            "corrected from '", trim(keyword), "' to 'THIEM'."
-          call store_warning(warnmsg)
-        else if (keyword == 'SKIN') then
-          ieqn = 2
-        else if (keyword == 'CUMULATIVE') then
-          ieqn = 3
-        else if (keyword == 'MEAN') then
-          ieqn = 4
-        else
-          write (errmsg, '(a,1x,i0,1x,a)') &
-            'CONDEQN for well', n, &
-            "must be 'CUMULATIVE', 'THIEM', 'MEAN', or 'SKIN'."
-        end if
-        wellieqn(n) = ieqn
-        !
-        ! -- ngwnodes
-        ival = this%parser%GetInteger()
-        if (ival < 1) then
-          ival = 0
-          write (errmsg, '(a,1x,i0,1x,a)') &
-            'NGWFNODES for well', n, 'must be greater than zero.'
-          call store_error(errmsg)
-        end if
+  !> @brief Bind MawInputType pointers to input context arrays.
+  !!
+  !! Values are updated from the input context each stress period
+  !! including integrated timeseries for supported arrays.
+  !<
+  subroutine maw_input_init(this, mempath, naux)
+    class(MawInputType), intent(inout) :: this
+    character(len=*), intent(in) :: mempath
+    integer(I4B), intent(in) :: naux
+    call mem_setptr(this%nbound, 'NBOUND', mempath)
+    call mem_setptr(this%ifno, 'IFNO', mempath)
+    call mem_setptr(this%setting, 'SETTING', mempath)
+    call mem_setptr(this%status, 'STATUS', mempath)
+    call mem_setptr(this%rate, 'RATE', mempath)
+    call mem_setptr(this%well_head, 'WELL_HEAD', mempath)
+    call mem_setptr(this%head_limit, 'HEAD_LIMIT', mempath)
+    call mem_setptr(this%fwelev, 'FWELEV', mempath)
+    call mem_setptr(this%fwcond, 'FWCOND', mempath)
+    call mem_setptr(this%fwrlen, 'FWRLEN', mempath)
+    call mem_setptr(this%minrate, 'MINRATE', mempath)
+    call mem_setptr(this%maxrate, 'MAXRATE', mempath)
+    call mem_setptr(this%pump_elevation, 'PUMP_ELEVATION', mempath)
+    call mem_setptr(this%scaling_length, 'SCALING_LENGTH', mempath)
+    if (naux > 0) then
+      call mem_setptr(this%auxname, 'AUXNAME', mempath)
+      call mem_setptr(this%auxval, 'AUXVAL', mempath)
+    end if
+  end subroutine maw_input_init
 
-        if (ival > 0) then
-          ngwfnodes(n) = ival
-        end if
-        !
-        ! -- increment maxbound
-        itmp = itmp + ival
-        !
-        ! -- get aux data
-        do jj = 1, this%naux
-          call this%parser%GetString(caux(jj, n))
-        end do
-        !
-        ! -- set default bndName
-        write (cno, '(i9.9)') n
-        bndName = 'MAWWELL'//cno
-        !
-        ! -- read well name
-        if (this%inamedbound /= 0) then
-          call this%parser%GetStringCaps(bndNameTemp)
-          if (bndNameTemp /= '') then
-            bndName = bndNameTemp
-          end if
-        end if
-        nametxt(n) = bndName
-      end do
+  !> @brief Nullify all MawInputType pointers.
+  !<
+  subroutine maw_input_destroy(this)
+    class(MawInputType), intent(inout) :: this
+    nullify (this%strt)
+    nullify (this%nbound)
+    nullify (this%ifno)
+    nullify (this%setting)
+    nullify (this%status)
+    nullify (this%rate)
+    nullify (this%well_head)
+    nullify (this%head_limit)
+    nullify (this%fwelev)
+    nullify (this%fwcond)
+    nullify (this%fwrlen)
+    nullify (this%minrate)
+    nullify (this%maxrate)
+    nullify (this%pump_elevation)
+    nullify (this%scaling_length)
+    nullify (this%auxname)
+    nullify (this%auxval)
+  end subroutine maw_input_destroy
 
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%text))//' PACKAGEDATA'
-      !
-      ! -- check for duplicate or missing wells
-      do n = 1, this%nmawwells
-        if (nboundchk(n) == 0) then
-          write (errmsg, '(a,1x,i0,a)') 'No data specified for maw well', n, '.'
-          call store_error(errmsg)
-        else if (nboundchk(n) > 1) then
-          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
-            'Data for maw well', n, 'specified', nboundchk(n), 'times.'
-          call store_error(errmsg)
-        end if
-      end do
-    else
-      call store_error('Required packagedata block not found.')
+  !> @brief Source PACKAGEDATA block from input context
+  !<
+  subroutine maw_source_packagedata(this)
+    ! -- dummy
+    class(MawType), intent(inout) :: this
+    ! -- local
+    integer(I4B) :: n, jj, idx, imaw
+    character(len=9) :: cno9
+    character(len=LINELENGTH) :: keyword
+    real(DP) :: rval
+    integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
+    real(DP), dimension(:), pointer, contiguous :: radius => null()
+    real(DP), dimension(:), pointer, contiguous :: bottom => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: condeqn => null()
+    integer(I4B), dimension(:), pointer, contiguous :: ngwfnodes => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: boundname => null()
+    integer(I4B), allocatable :: nboundchk(:)
+    ! -- formats
+    character(len=*), parameter :: fmthdbot = &
+      "('well head (', G0, ') must be greater than or equal to the &
+      &BOTTOM_ELEVATION (', G0, ').')"
+    !
+    write (this%iout, '(/1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' PACKAGEDATA'
+    !
+    ! -- get input context PACKAGEDATA column arrays
+    call mem_setptr(ifno, 'PACKAGEDATA_IFNO', this%input_mempath)
+    call mem_setptr(radius, 'RADIUS', this%input_mempath)
+    call mem_setptr(bottom, 'BOTTOM', this%input_mempath)
+    call mem_setptr(this%input%strt, 'STRT', this%input_mempath)
+    call mem_setptr(condeqn, 'CONDEQN', this%input_mempath)
+    call mem_setptr(ngwfnodes, 'NGWFNODES', this%input_mempath)
+    if (this%inamedbound /= 0) then
+      call mem_setptr(boundname, 'BOUNDNAME', this%input_mempath)
     end if
     !
-    ! -- terminate if any errors were detected
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-    !
-    ! -- set MAXBOUND
-    this%maxbound = itmp
+    ! -- total GWF connections is the sum of per-well node counts;
+    ! -- allocate well and connection arrays before filling them
+    this%maxbound = sum(ngwfnodes)
     write (this%iout, '(//4x,a,i7)') 'MAXBOUND = ', this%maxbound
-    !
-    ! -- allocate well and connection data
     call this%maw_allocate_well_conn_arrays()
     !
-    ! -- fill well data with data stored in temporary local arrays
+    ! -- validate and fill allocated arrays in feature-number order
+    allocate (nboundchk(this%nmawwells))
+    nboundchk = 0
     do n = 1, this%nmawwells
+      imaw = this%validate_ifno(ifno(n), this%nmawwells, nboundchk, &
+                                'IMAW', 'PACKAGEDATA')
+      if (imaw == 0) cycle
+      !
+      ! -- radius
       rval = radius(n)
-      this%radius(n) = rval
-      this%area(n) = DPI * rval**DTWO
-      this%bot(n) = bottom(n)
-      this%ieqn(n) = wellieqn(n)
-      this%ngwfnodes(n) = ngwfnodes(n)
-      this%cmawname(n) = nametxt(n)
+      if (rval <= DZERO) then
+        write (errmsg, '(a,1x,i0,1x,a)') &
+          'Radius for well', imaw, 'must be greater than zero.'
+        call store_error(errmsg)
+      end if
+      this%radius(imaw) = rval
+      this%area(imaw) = DPI * rval**DTWO
       !
-      ! fill timeseries aware data
+      ! -- well bottom
+      this%bot(imaw) = bottom(n)
       !
-      ! -- well_head and strt
-      jj = 1 ! For WELL_HEAD
-      bndElem => this%well_head(n)
-      call read_value_or_time_series_adv(strttext(n), n, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'WELL_HEAD')
+      ! -- conductance equation
+      keyword = condeqn(n)
+      select case (trim(keyword))
+      case ('SPECIFIED')
+        this%ieqn(imaw) = 0
+      case ('THIEM')
+        this%ieqn(imaw) = 1
+      case ('THEIM') ! # codespell:ignore
+        this%ieqn(imaw) = 1
+        write (warnmsg, '(a,a,a,a,a,a)') &
+          "CONDEQN in '", trim(this%packName), "' should be ", &
+          "corrected from '", trim(keyword), "' to 'THIEM'."
+        call store_warning(warnmsg)
+      case ('SKIN')
+        this%ieqn(imaw) = 2
+      case ('CUMULATIVE')
+        this%ieqn(imaw) = 3
+      case ('MEAN')
+        this%ieqn(imaw) = 4
+      case default
+        write (errmsg, '(a,1x,i0,1x,a)') &
+          'CONDEQN for well', imaw, &
+          "must be 'CUMULATIVE', 'THIEM', 'MEAN', or 'SKIN'."
+        call store_error(errmsg)
+        this%ieqn(imaw) = 0
+      end select
       !
-      ! -- set starting head value
-      this%strt(n) = this%well_head(n)
+      ! -- ngwfnodes
+      if (ngwfnodes(n) < 1) then
+        write (errmsg, '(a,1x,i0,1x,a)') &
+          'NGWFNODES for well', imaw, 'must be greater than zero.'
+        call store_error(errmsg)
+      end if
+      this%ngwfnodes(imaw) = ngwfnodes(n)
       !
-      ! -- check for error condition
-      if (this%strt(n) < this%bot(n)) then
-        write (cstr, fmthdbot) this%strt(n), this%bot(n)
-        call this%maw_set_attribute_error(n, 'STRT', trim(cstr))
+      ! -- read the TS integrated numeric value directly
+      this%well_head(imaw) = this%input%strt(n)
+      this%strt(imaw) = this%input%strt(n)
+      if (this%strt(imaw) < this%bot(imaw)) then
+        write (keyword, fmthdbot) this%strt(imaw), this%bot(imaw)
+        call this%maw_set_attribute_error(imaw, 'STRT', trim(keyword))
       end if
       !
-      ! -- fill aux data
-      do jj = 1, this%naux
-        text = caux(jj, n)
-        ii = n
-        bndElem => this%mauxvar(jj, ii)
-        call read_value_or_time_series_adv(text, ii, jj, bndElem, this%packName, &
-                                           'AUX', this%tsManager, this%iprpak, &
-                                           this%auxname(jj))
-      end do
+      ! -- well name / boundname
+      write (cno9, '(i9.9)') imaw
+      this%cmawname(imaw) = 'MAWWELL'//cno9
+      if (this%inamedbound /= 0) then
+        text = boundname(n)
+        if (trim(text) /= '') then
+          this%cmawname(imaw) = trim(text)
+        end if
+      end if
     end do
+    !
+    ! -- check for duplicate or missing wells
+    call this%report_ifno_coverage(nboundchk, this%nmawwells, 'well', &
+                                   'PACKAGEDATA')
+    deallocate (nboundchk)
+    !
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' PACKAGEDATA'
+    !
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
     !
     ! -- set iaconn and imap for each connection
     idx = 0
     this%iaconn(1) = 1
     do n = 1, this%nmawwells
-      do j = 1, this%ngwfnodes(n)
+      do jj = 1, this%ngwfnodes(n)
         idx = idx + 1
         this%imap(idx) = n
       end do
       this%iaconn(n + 1) = idx + 1
     end do
     !
-    ! -- deallocate local storage
-    deallocate (strttext)
-    deallocate (nametxt)
-    if (this%naux > 0) then
-      deallocate (caux)
-    end if
-    deallocate (nboundchk)
-    deallocate (wellieqn)
-    deallocate (ngwfnodes)
-    deallocate (radius)
-    deallocate (bottom)
-  end subroutine maw_read_wells
+    ! -- release input context packagedata memory; PACKAGEDATA_IFNO excluded
+    !    because allocate_featureauxvar retains a pointer to it
+    call memorystore_release('RADIUS', this%input_mempath)
+    call memorystore_release('BOTTOM', this%input_mempath)
+    call memorystore_release('CONDEQN', this%input_mempath)
+    call memorystore_release('NGWFNODES', this%input_mempath)
+    call memorystore_release('BOUNDNAME', this%input_mempath)
+  end subroutine maw_source_packagedata
 
-  !> @brief Read the dimensions for this package
+  !> @brief Source CONNECTIONDATA block from input context
   !<
-  subroutine maw_read_well_connections(this)
-    use ConstantsModule, only: LINELENGTH
+  subroutine maw_source_connectiondata(this)
     ! -- dummy
     class(MawType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: cellid
+    integer(I4B) :: n, nconn, imaw, iconn, ipos, jpos, j, jj
+    integer(I4B) :: nn, nn2
+    integer(I4B) :: ireset_scrntop, ireset_scrnbot, ireset_wellbot
+    real(DP) :: rval, topnn, botnn, botw
+    character(len=LINELENGTH) :: cellid_str
     character(len=30) :: nodestr
-    logical :: isfound
-    logical :: endOfBlock
-    integer(I4B) :: ierr
-    integer(I4B) :: ival
-    integer(I4B) :: j
-    integer(I4B) :: jj
-    integer(I4B) :: n
-    integer(I4B) :: nn
-    integer(I4B) :: nn2
-    integer(I4B) :: ipos
-    integer(I4B) :: jpos
-    integer(I4B) :: ireset_scrntop
-    integer(I4B) :: ireset_scrnbot
-    integer(I4B) :: ireset_wellbot
-    real(DP) :: rval
-    real(DP) :: topnn
-    real(DP) :: botnn
-    real(DP) :: botw
-    integer(I4B), dimension(:), pointer, contiguous :: nboundchk
-    integer(I4B), dimension(:), pointer, contiguous :: iachk
+    integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
+    integer(I4B), dimension(:), pointer, contiguous :: icon => null()
+    integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null()
+    real(DP), dimension(:), pointer, contiguous :: scrn_top => null()
+    real(DP), dimension(:), pointer, contiguous :: scrn_bot => null()
+    real(DP), dimension(:), pointer, contiguous :: hk_skin => null()
+    real(DP), dimension(:), pointer, contiguous :: radius_skin => null()
+    integer(I4B), allocatable :: iachk(:)
+    integer(I4B), allocatable :: nboundchk(:)
     !
-    ! -- initialize counters
     ireset_scrntop = 0
     ireset_scrnbot = 0
     ireset_wellbot = 0
     !
-    ! -- allocate and initialize local storage
+    write (this%iout, '(/1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' CONNECTIONDATA'
+    !
+    ! -- get input context CONNECTIONDATA columns
+    call mem_setptr(ifno, 'CONNDATA_IFNO', this%input_mempath)
+    call mem_setptr(icon, 'ICON', this%input_mempath)
+    call mem_setptr(cellid, 'CELLID', this%input_mempath)
+    call mem_setptr(scrn_top, 'SCRN_TOP', this%input_mempath)
+    call mem_setptr(scrn_bot, 'SCRN_BOT', this%input_mempath)
+    call mem_setptr(hk_skin, 'HK_SKIN', this%input_mempath)
+    call mem_setptr(radius_skin, 'RADIUS_SKIN', this%input_mempath)
+    !
+    nconn = size(ifno)
+    !
+    ! -- allocate check arrays
     allocate (iachk(this%nmawwells + 1))
     iachk(1) = 1
     do n = 1, this%nmawwells
       iachk(n + 1) = iachk(n) + this%ngwfnodes(n)
     end do
     allocate (nboundchk(this%maxbound))
-    do n = 1, this%maxbound
-      nboundchk(n) = 0
+    nboundchk = 0
+    !
+    do n = 1, nconn
+      imaw = ifno(n)
+      iconn = icon(n)
+      !
+      ! -- check for error condition
+      if (imaw < 1 .or. imaw > this%nmawwells) then
+        write (errmsg, '(a,1x,i0,a)') &
+          'IMAW must be greater than 0 and less than or equal to ', &
+          this%nmawwells, '.'
+        call store_error(errmsg)
+        cycle
+      end if
+      if (iconn < 1 .or. iconn > this%ngwfnodes(imaw)) then
+        write (errmsg, '(a,1x,i0,1x,a,1x,i0,a)') &
+          'JCONN for well ', imaw, &
+          'must be greater than 1 and less than or equal to ', &
+          this%ngwfnodes(imaw), '.'
+        call store_error(errmsg)
+        cycle
+      end if
+      !
+      ipos = iachk(imaw) + iconn - 1
+      nboundchk(ipos) = nboundchk(ipos) + 1
+      j = iconn
+      jpos = this%get_jpos(imaw, iconn)
+      !
+      ! -- convert cellid integer array to string and get node number
+      write (cellid_str, '(10(i0,1x))') cellid(1:this%dis%ndim, n)
+      nn = this%dis%noder_from_cellid(cellid_str, this%inunit, this%iout)
+      topnn = this%dis%top(nn)
+      botnn = this%dis%bot(nn)
+      botw = this%bot(imaw)
+      !
+      ! -- set gwf node number for connection
+      this%gwfnodes(jpos) = nn
+      !
+      ! -- top of screen; retain user value before clipping for non-vertical SPECIFIED connections
+      this%usrtopscrn(jpos) = scrn_top(n)
+      rval = scrn_top(n)
+      if (this%ieqn(imaw) /= 4) then
+        rval = topnn
+      else
+        if (rval > topnn) then
+          ireset_scrntop = ireset_scrntop + 1
+          rval = topnn
+        end if
+      end if
+      this%topscrn(jpos) = rval
+      !
+      ! -- bottom of screen; retain user value before clipping for non-vertical SPECIFIED connections
+      this%usrbotscrn(jpos) = scrn_bot(n)
+      rval = scrn_bot(n)
+      if (this%ieqn(imaw) /= 4) then
+        rval = botnn
+      else
+        if (rval < botnn) then
+          ireset_scrnbot = ireset_scrnbot + 1
+          rval = botnn
+        end if
+      end if
+      this%botscrn(jpos) = rval
+      !
+      ! -- adjust the bottom of the well for all conductance approaches
+      !    except for "mean"
+      if (rval < botw) then
+        if (this%ieqn(imaw) /= 4) then
+          ireset_wellbot = ireset_wellbot + 1
+          botw = rval
+          this%bot(imaw) = rval
+        else
+          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a,g0,a)') &
+            'Screen bottom for maw well', imaw, 'connection', j, '(', &
+            this%botscrn(jpos), ') is less than the well bottom (', &
+            this%bot(imaw), ').'
+          call store_error(errmsg)
+        end if
+      end if
+      !
+      ! -- hydraulic conductivity or conductance
+      rval = hk_skin(n)
+      if (this%ieqn(imaw) == 0) then
+        this%satcond(jpos) = rval
+      else if (this%ieqn(imaw) == 2 .OR. this%ieqn(imaw) == 3 .OR. &
+               this%ieqn(imaw) == 4) then
+        this%hk(jpos) = rval
+      end if
+      !
+      ! -- skin radius
+      rval = radius_skin(n)
+      if (this%ieqn(imaw) == 2 .OR. this%ieqn(imaw) == 3 .OR. &
+          this%ieqn(imaw) == 4) then
+        this%sradius(jpos) = rval
+        if (this%sradius(jpos) <= this%radius(imaw)) then
+          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a,g0,a)') &
+            'Screen radius for maw well', imaw, 'connection', j, '(', &
+            this%sradius(jpos), &
+            ') is less than or equal to the well radius (', &
+            this%radius(imaw), ').'
+          call store_error(errmsg)
+        end if
+      end if
     end do
     !
-    ! -- get well_connections block
-    call this%parser%GetBlock('CONNECTIONDATA', isfound, ierr, &
-                              supportOpenClose=.true.)
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' CONNECTIONDATA'
     !
-    ! -- parse well_connections block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
-        ' CONNECTIONDATA'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        !
-        ! -- well number
-        ival = this%parser%GetInteger()
-        n = ival
-        !
-        ! -- check for error condition
-        if (n < 1 .or. n > this%nmawwells) then
-          write (errmsg, '(a,1x,i0,a)') &
-            'IMAW must be greater than 0 and less than or equal to ', &
-            this%nmawwells, '.'
-          call store_error(errmsg)
-          cycle
-        end if
-        !
-        ! -- read connection number
-        ival = this%parser%GetInteger()
-        if (ival < 1 .or. ival > this%ngwfnodes(n)) then
+    ! -- check for missing or duplicate connections
+    ipos = 0
+    do n = 1, this%nmawwells
+      do j = 1, this%ngwfnodes(n)
+        ipos = ipos + 1
+        if (nboundchk(ipos) == 0) then
           write (errmsg, '(a,1x,i0,1x,a,1x,i0,a)') &
-            'JCONN for well ', n, &
-            'must be greater than 1 and less than or equal to ', &
-            this%ngwfnodes(n), '.'
+            'No data specified for maw well', n, 'connection', j, '.'
           call store_error(errmsg)
-          cycle
-        end if
-
-        ipos = iachk(n) + ival - 1
-        nboundchk(ipos) = nboundchk(ipos) + 1
-
-        j = ival
-        jpos = this%get_jpos(n, ival)
-        !
-        ! -- read gwfnodes from the line
-        call this%parser%GetCellid(this%dis%ndim, cellid)
-        nn = this%dis%noder_from_cellid(cellid, this%inunit, this%iout)
-        topnn = this%dis%top(nn)
-        botnn = this%dis%bot(nn)
-        botw = this%bot(n)
-        !
-        ! -- set gwf node number for connection
-        this%gwfnodes(jpos) = nn
-        !
-        ! -- top of screen
-        rval = this%parser%GetDouble()
-        ! -- retain the user-specified screen top so a non-vertical SPECIFIED
-        !    connection can honor it (it is otherwise reset to the cell top)
-        this%usrtopscrn(jpos) = rval
-        if (this%ieqn(n) /= 4) then
-          rval = topnn
-        else
-          if (rval > topnn) then
-            ireset_scrntop = ireset_scrntop + 1
-            rval = topnn
-          end if
-        end if
-        this%topscrn(jpos) = rval
-        !
-        ! -- bottom of screen
-        rval = this%parser%GetDouble()
-        ! -- retain the user-specified screen bottom so a non-vertical SPECIFIED
-        !    connection can honor it (it is otherwise reset to the cell bottom)
-        this%usrbotscrn(jpos) = rval
-        if (this%ieqn(n) /= 4) then
-          rval = botnn
-        else
-          if (rval < botnn) then
-            ireset_scrnbot = ireset_scrnbot + 1
-            rval = botnn
-          end if
-        end if
-        this%botscrn(jpos) = rval
-        !
-        ! -- adjust the bottom of the well for all conductance approaches
-        !    except for "mean"
-        if (rval < botw) then
-          if (this%ieqn(n) /= 4) then
-            ireset_wellbot = ireset_wellbot + 1
-            botw = rval
-            this%bot(n) = rval
-          else
-            write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a,g0,a)') &
-              'Screen bottom for maw well', n, 'connection', j, '(', &
-              this%botscrn(jpos), ') is less than the well bottom (', &
-              this%bot(n), ').'
-            call store_error(errmsg)
-          end if
-        end if
-        !
-        ! -- hydraulic conductivity or conductance
-        rval = this%parser%GetDouble()
-        if (this%ieqn(n) == 0) then
-          this%satcond(jpos) = rval
-        else if (this%ieqn(n) == 2 .OR. this%ieqn(n) == 3 .OR. &
-                 this%ieqn(n) == 4) then
-          this%hk(jpos) = rval
-        end if
-        !
-        ! -- skin radius
-        rval = this%parser%GetDouble()
-        if (this%ieqn(n) == 2 .OR. this%ieqn(n) == 3 .OR. &
-            this%ieqn(n) == 4) then
-          this%sradius(jpos) = rval
-          if (this%sradius(jpos) <= this%radius(n)) then
-            write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a,g0,a)') &
-              'Screen radius for maw well', n, 'connection', j, '(', &
-              this%sradius(jpos), &
-              ') is less than or equal to the well radius (', &
-              this%radius(n), ').'
-            call store_error(errmsg)
-          end if
+        else if (nboundchk(ipos) > 1) then
+          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,1x,i0,1x,a)') &
+            'Data for maw well', n, 'connection', j, &
+            'specified', nboundchk(ipos), 'times.'
+          call store_error(errmsg)
         end if
       end do
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%text))//' CONNECTIONDATA'
-
-      ipos = 0
-      do n = 1, this%nmawwells
-        do j = 1, this%ngwfnodes(n)
-          ipos = ipos + 1
-          !
-          ! -- check for missing or duplicate maw well connections
-          if (nboundchk(ipos) == 0) then
-            write (errmsg, '(a,1x,i0,1x,a,1x,i0,a)') &
-              'No data specified for maw well', n, 'connection', j, '.'
-            call store_error(errmsg)
-          else if (nboundchk(ipos) > 1) then
-            write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,1x,i0,1x,a)') &
-              'Data for maw well', n, 'connection', j, &
-              'specified', nboundchk(n), 'times.'
-            call store_error(errmsg)
-          end if
-        end do
-      end do
-      !
-      ! -- make sure that more than one connection per cell is only specified
-      !    wells using the mean conducance type
-      do n = 1, this%nmawwells
-        if (this%ieqn(n) /= 4) then
-          do j = 1, this%ngwfnodes(n)
-            nn = this%get_gwfnode(n, j)
-            do jj = 1, this%ngwfnodes(n)
-              !
-              ! -- skip current maw node
-              if (jj == j) then
-                cycle
-              end if
-              nn2 = this%get_gwfnode(n, jj)
-              if (nn2 == nn) then
-                call this%dis%noder_to_string(nn, nodestr)
-                write (errmsg, '(a,1x,i0,1x,a,1x,i0,3(1x,a))') &
-                  'Only one connection can be specified for maw well', &
-                  n, 'connection', j, 'to gwf cell', trim(adjustl(nodestr)), &
-                  'unless the mean condeqn is specified.'
-                call store_error(errmsg)
-              end if
-            end do
-          end do
-        end if
-      end do
-    else
-      call store_error('Required connectiondata block not found.')
-    end if
+    end do
     !
-    ! -- deallocate local variable
+    ! -- make sure that more than one connection per cell is only specified
+    !    for wells using the mean conductance type
+    do n = 1, this%nmawwells
+      if (this%ieqn(n) /= 4) then
+        do j = 1, this%ngwfnodes(n)
+          nn = this%get_gwfnode(n, j)
+          do jj = 1, this%ngwfnodes(n)
+            if (jj == j) cycle
+            nn2 = this%get_gwfnode(n, jj)
+            if (nn2 == nn) then
+              call this%dis%noder_to_string(nn, nodestr)
+              write (errmsg, '(a,1x,i0,1x,a,1x,i0,3(1x,a))') &
+                'Only one connection can be specified for maw well', &
+                n, 'connection', j, 'to gwf cell', trim(adjustl(nodestr)), &
+                'unless the mean condeqn is specified.'
+              call store_error(errmsg)
+            end if
+          end do
+        end do
+      end if
+    end do
+    !
+    ! -- deallocate local storage
     deallocate (iachk)
     deallocate (nboundchk)
     !
@@ -1066,97 +1218,75 @@ contains
       call store_warning(warnmsg)
     end if
     !
-    ! -- write summary of maw well_connection error messages
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
-  end subroutine maw_read_well_connections
+    !
+    ! -- release input context connectiondata memory
+    call memorystore_release('CONNDATA_IFNO', this%input_mempath)
+    call memorystore_release('ICON', this%input_mempath)
+    call memorystore_release('CELLID', this%input_mempath)
+    call memorystore_release('SCRN_TOP', this%input_mempath)
+    call memorystore_release('SCRN_BOT', this%input_mempath)
+    call memorystore_release('HK_SKIN', this%input_mempath)
+    call memorystore_release('RADIUS_SKIN', this%input_mempath)
+  end subroutine maw_source_connectiondata
 
-  !> @brief Read the optional ANGLEDATA block for non-vertical (slanted) MAW
-  !! well connections
-  !!
-  !! Each row identifies a non-vertical multi-aquifer well connection and the
-  !! tilt angle (deviation from vertical, in degrees) used to calculate the
-  !! in-cell screen length. An optional connection length can be specified to
-  !! set the in-cell screen length directly; the connection length is required
-  !! for horizontal connections (angle close to 90 degrees). Connections that
-  !! are not listed in the ANGLEDATA block are assumed to be vertical.
+  !> @brief Source ANGLEDATA block from input context for non-vertical MAW connections
   !<
-  subroutine maw_read_angledata(this)
-    use ConstantsModule, only: LINELENGTH, DZERO, DEM6, DTWO, DPIO180
+  subroutine maw_source_angledata(this)
+    use ConstantsModule, only: DZERO, DEM6, DTWO, DPIO180, DNODATA
     use MathUtilModule, only: is_close
+    use MemoryManagerExtModule, only: memorystore_release
     ! -- dummy
     class(MawType), intent(inout) :: this
     ! -- local
-    logical :: isfound
-    logical :: endOfBlock
-    logical(LGP) :: success
-    integer(I4B) :: ierr
-    integer(I4B) :: ival
-    integer(I4B) :: n
-    integer(I4B) :: j
-    integer(I4B) :: jpos
-    integer(I4B) :: ipos
-    integer(I4B) :: node
-    real(DP) :: angle
-    real(DP) :: conn_len
-    real(DP) :: dz
-    real(DP) :: omega
-    real(DP) :: lw
+    integer(I4B) :: n, imaw, iconn, jpos, ichk, nangle, node
+    real(DP) :: angle, dz, omega, lw, topexp
     real(DP) :: hlen
     real(DP) :: extent
-    real(DP) :: topexp
     character(len=LINELENGTH) :: cndmsg
     character(len=LINELENGTH) :: extmsg
     logical(LGP) :: estimated
-    integer(I4B), dimension(:), pointer, contiguous :: nboundchk
-    integer(I4B), dimension(:), pointer, contiguous :: iachk
-    ! -- minimum cosine of the tilt angle for which the in-cell screen length
-    !    can be derived from the screen elevations (i.e., the connection is not
-    !    treated as horizontal); connections steeper than this require a
-    !    connection length to be specified.
+    integer(I4B), dimension(:), pointer, contiguous :: angledata_ifno => null()
+    integer(I4B), dimension(:), pointer, contiguous :: angledata_icon => null()
+    real(DP), dimension(:), pointer, contiguous :: angle_arr => null()
+    real(DP), dimension(:), pointer, contiguous :: connlen_arr => null()
+    integer(I4B), allocatable :: iachk(:)
+    integer(I4B), allocatable :: nboundchk(:)
     real(DP), parameter :: coszero = DEM6
-    ! -- maximum tilt angle (degrees from vertical)
     real(DP), parameter :: dninety = 9.0d1
     !
-    ! -- get angledata block
-    call this%parser%GetBlock('ANGLEDATA', isfound, ierr, &
-                              supportOpenClose=.true., blockRequired=.false.)
+    call get_isize('ANGLEDATA_IFNO', this%input_mempath, nangle)
     !
-    ! -- parse angledata block if detected
-    if (isfound) then
+    if (nangle > 0) then
       !
-      ! -- the angledata block is only valid when the NON_VERTICAL_WELLS option
-      !    has been specified
       if (this%inonvert == 0) then
         call store_error('An ANGLEDATA block was specified but the '// &
                          'NON_VERTICAL_WELLS option was not specified in the '// &
                          'OPTIONS block.')
-        call this%parser%StoreErrorUnit()
+        call store_error_filename(this%input_fname)
       end if
       !
-      ! -- allocate and initialize local storage used to check for duplicate
-      !    connection entries
+      call mem_setptr(angledata_ifno, 'ANGLEDATA_IFNO', this%input_mempath)
+      call mem_setptr(angledata_icon, 'ANGLEDATA_ICON', this%input_mempath)
+      call mem_setptr(angle_arr, 'ANGLE', this%input_mempath)
+      call mem_setptr(connlen_arr, 'CONNLEN', this%input_mempath)
+      !
       allocate (iachk(this%nmawwells + 1))
       iachk(1) = 1
       do n = 1, this%nmawwells
         iachk(n + 1) = iachk(n) + this%ngwfnodes(n)
       end do
       allocate (nboundchk(this%maxbound))
-      do n = 1, this%maxbound
-        nboundchk(n) = 0
-      end do
+      nboundchk = 0
       !
       write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
         ' ANGLEDATA'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        !
-        ! -- well number
-        ival = this%parser%GetInteger()
-        n = ival
-        if (n < 1 .or. n > this%nmawwells) then
+      !
+      do n = 1, nangle
+        imaw = angledata_ifno(n)
+        if (imaw < 1 .or. imaw > this%nmawwells) then
           write (errmsg, '(a,1x,i0,a)') &
             'IFNO must be greater than 0 and less than or equal to ', &
             this%nmawwells, '.'
@@ -1164,53 +1294,42 @@ contains
           cycle
         end if
         !
-        ! -- connection number
-        ival = this%parser%GetInteger()
-        if (ival < 1 .or. ival > this%ngwfnodes(n)) then
+        iconn = angledata_icon(n)
+        if (iconn < 1 .or. iconn > this%ngwfnodes(imaw)) then
           write (errmsg, '(a,1x,i0,1x,a,1x,i0,a)') &
-            'ICON for well ', n, &
+            'ICON for well ', imaw, &
             'must be greater than 0 and less than or equal to ', &
-            this%ngwfnodes(n), '.'
+            this%ngwfnodes(imaw), '.'
           call store_error(errmsg)
           cycle
         end if
-        j = ival
-        jpos = this%get_jpos(n, j)
+        jpos = this%get_jpos(imaw, iconn)
         !
-        ! -- check for duplicate entries
-        ipos = iachk(n) + j - 1
-        nboundchk(ipos) = nboundchk(ipos) + 1
-        if (nboundchk(ipos) > 1) then
+        ichk = iachk(imaw) + iconn - 1
+        nboundchk(ichk) = nboundchk(ichk) + 1
+        if (nboundchk(ichk) > 1) then
           write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
-            'ANGLEDATA for maw well', n, 'connection', j, &
+            'ANGLEDATA for maw well', imaw, 'connection', iconn, &
             'is specified more than once.'
           call store_error(errmsg)
         end if
         !
-        ! -- tilt angle (degrees from vertical)
-        angle = this%parser%GetDouble()
-        !
-        ! -- optional in-cell screen length
-        call this%parser%TryGetDouble(conn_len, success)
-        if (.not. success) then
-          conn_len = DZERO
+        angle = angle_arr(n)
+        this%angle(jpos) = angle
+        if (connlen_arr(n) /= DNODATA) then
+          this%connlen(jpos) = max(connlen_arr(n), DZERO)
         end if
         !
-        ! -- store the angle and connection length
-        this%angle(jpos) = angle
-        this%connlen(jpos) = conn_len
-        !
-        ! -- the tilt angle must be between 0 and 90 degrees
-        if (angle < DZERO .or. angle > DNINETY) then
+        if (angle < DZERO .or. angle > dninety) then
           write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a)') &
-            'ANGLE for maw well', n, 'connection', j, '(', angle, &
+            'ANGLE for maw well', imaw, 'connection', iconn, '(', angle, &
             ') must be greater than or equal to 0.0 and less than or '// &
             'equal to 90.0 degrees.'
           call store_error(errmsg)
           cycle
         end if
         !
-        node = this%get_gwfnode(n, j)
+        node = this%get_gwfnode(imaw, iconn)
         !
         ! -- a SPECIFIED connection provides the saturated conductance directly,
         !    so the length correction is not applied; the user-specified screen
@@ -1218,17 +1337,16 @@ contains
         !    are restored here, clamped to the cell, so the connection
         !    saturation is calculated over the correct interval. It is the
         !    user's responsibility to calculate the correct conductance.
-        if (this%ieqn(n) == 0) then
+        if (this%ieqn(imaw) == 0) then
           this%topscrn(jpos) = min(this%usrtopscrn(jpos), this%dis%top(node))
           this%botscrn(jpos) = max(this%usrbotscrn(jpos), this%dis%bot(node))
         end if
         !
-        ! -- screen thickness (vertical extent of the connection)
         dz = this%topscrn(jpos) - this%botscrn(jpos)
         if (dz <= DZERO) then
           write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
             'The screen top must be greater than the screen bottom for maw '// &
-            'well', n, 'connection', j, 'listed in the ANGLEDATA block.'
+            'well', imaw, 'connection', iconn, 'listed in the ANGLEDATA block.'
           call store_error(errmsg)
           cycle
         end if
@@ -1238,10 +1356,10 @@ contains
         ! -- the in-cell screen length is specified directly or derived from
         !    the screen elevations, well radius, and tilt angle; it cannot be
         !    derived for a (near) horizontal connection
-        if (conn_len > DZERO) then
-          lw = conn_len
+        if (this%connlen(jpos) > DZERO) then
+          lw = this%connlen(jpos)
         else if (cos(omega) > coszero) then
-          lw = maw_screen_length(dz, this%radius(n), omega)
+          lw = maw_screen_length(dz, this%radius(imaw), omega)
         else
           lw = DZERO
         end if
@@ -1252,19 +1370,19 @@ contains
         !    connection requires a connection length, because the length cannot
         !    be derived from the screen elevations, and the calculated length
         !    must be positive.
-        if (this%ieqn(n) /= 0) then
-          if (cos(omega) <= coszero .and. conn_len <= DZERO) then
+        if (this%ieqn(imaw) /= 0) then
+          if (cos(omega) <= coszero .and. this%connlen(jpos) <= DZERO) then
             write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
               'A connection length must be specified for the (near) '// &
-              'horizontal maw well', n, 'connection', j, &
+              'horizontal maw well', imaw, 'connection', iconn, &
               'listed in the ANGLEDATA block.'
             call store_error(errmsg)
             cycle
           end if
           if (lw <= DZERO) then
             write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a)') &
-              'The calculated in-cell screen length for maw well', n, &
-              'connection', j, '(', lw, &
+              'The calculated in-cell screen length for maw well', imaw, &
+              'connection', iconn, '(', lw, &
               ') is not greater than zero. Specify a connection length in '// &
               'the ANGLEDATA block.'
             call store_error(errmsg)
@@ -1290,7 +1408,7 @@ contains
             ! -- the length correction is not applied to a SPECIFIED
             !    connection, so the conductance of one is not the program's
             !    to describe as too large
-            if (this%ieqn(n) == 0) then
+            if (this%ieqn(imaw) == 0) then
               cndmsg = 'The specified saturated conductance is applied to a '// &
                        'screen that is longer than the cell.'
             else
@@ -1298,8 +1416,8 @@ contains
                        'correspondingly too large.'
             end if
             write (warnmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a,g0,a)') &
-              'The horizontal distance spanned by maw well', n, 'connection', &
-              j, '(', hlen, &
+              'The horizontal distance spanned by maw well', imaw, &
+              'connection', iconn, '(', hlen, &
               ') is greater than the '//trim(extmsg)//' of the '// &
               'connected cell (', extent, &
               '), so the screen extends beyond the cell it is connected '// &
@@ -1314,9 +1432,9 @@ contains
         !    the horizontal-plane flow geometry, so a (near) horizontal
         !    connection is an approximation; recommend the MEAN equation
         if (cos(omega) <= coszero .and. &
-            this%ieqn(n) /= 4 .and. this%ieqn(n) /= 0) then
+            this%ieqn(imaw) /= 4 .and. this%ieqn(imaw) /= 0) then
           write (warnmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
-            'The (near) horizontal maw well', n, 'connection', j, &
+            'The (near) horizontal maw well', imaw, 'connection', iconn, &
             'uses a radial conductance equation (THIEM, SKIN, or '// &
             'CUMULATIVE). The calculated conductance is an approximation '// &
             'for horizontal connections; the MEAN conductance equation is '// &
@@ -1324,23 +1442,17 @@ contains
           call store_warning(warnmsg)
         end if
         !
-        ! -- for a (near) horizontal connection using the MEAN or SPECIFIED
-        !    conductance equation, the vertical screen extent (SCRN_TOP -
-        !    SCRN_BOT) should equal the well diameter (2 * RADIUS) because it is
-        !    used to determine the saturation of the connection. Snap the screen
-        !    top to the well diameter if the specified extent is essentially
-        !    equal to it; otherwise warn the user.
         if (cos(omega) <= coszero .and. &
-            (this%ieqn(n) == 4 .or. this%ieqn(n) == 0)) then
-          topexp = this%botscrn(jpos) + DTWO * this%radius(n)
+            (this%ieqn(imaw) == 4 .or. this%ieqn(imaw) == 0)) then
+          topexp = this%botscrn(jpos) + DTWO * this%radius(imaw)
           if (is_close(this%topscrn(jpos), topexp)) then
             this%topscrn(jpos) = topexp
           else
             write (warnmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a)') &
               'The vertical screen extent (SCRN_TOP - SCRN_BOT) for the '// &
-              '(near) horizontal maw well', n, 'connection', j, &
+              '(near) horizontal maw well', imaw, 'connection', iconn, &
               'is not equal to the well diameter (2 * RADIUS = ', &
-              DTWO * this%radius(n), &
+              DTWO * this%radius(imaw), &
               '). The vertical screen extent is used to determine the '// &
               'saturation of a connection and should equal the well '// &
               'diameter for a horizontal connection.'
@@ -1348,16 +1460,18 @@ contains
           end if
         end if
       end do
+      !
       write (this%iout, '(1x,a)') &
         'END OF '//trim(adjustl(this%text))//' ANGLEDATA'
       !
-      ! -- deallocate local storage
       deallocate (iachk)
       deallocate (nboundchk)
-    else
       !
-      ! -- the NON_VERTICAL_WELLS option was specified but no ANGLEDATA block
-      !    was found; warn that all connections will be treated as vertical
+      call memorystore_release('ANGLEDATA_IFNO', this%input_mempath)
+      call memorystore_release('ANGLEDATA_ICON', this%input_mempath)
+      call memorystore_release('ANGLE', this%input_mempath)
+      call memorystore_release('CONNLEN', this%input_mempath)
+    else
       if (this%inonvert /= 0) then
         write (warnmsg, '(a)') &
           'The NON_VERTICAL_WELLS option was specified but an ANGLEDATA '// &
@@ -1367,11 +1481,8 @@ contains
       end if
     end if
     !
-    ! -- terminate if errors were encountered in the angledata block
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-  end subroutine maw_read_angledata
+    if (count_errors() > 0) call store_error_filename(this%input_fname)
+  end subroutine maw_source_angledata
 
   !> @brief In-cell screen length of a non-vertical well connection
   !!
@@ -1473,82 +1584,6 @@ contains
     !
     lcorr = lw / dz
   end function maw_calc_lcorr
-
-  !> @brief Read the dimensions for this package
-  !<
-  subroutine maw_read_dimensions(this)
-    use ConstantsModule, only: LINELENGTH
-    ! -- dummy
-    class(MawType), intent(inout) :: this
-    ! -- local
-    character(len=LENBOUNDNAME) :: keyword
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
-    ! -- format
-    !
-    ! -- initialize dimensions to -1
-    this%nmawwells = -1
-    this%maxbound = -1
-    !
-    ! -- get dimensions block
-    call this%parser%GetBlock('DIMENSIONS', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse dimensions block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') &
-        'PROCESSING '//trim(adjustl(this%text))//' DIMENSIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('NMAWWELLS')
-          this%nmawwells = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i0)') 'NMAWWELLS = ', this%nmawwells
-        case default
-          write (errmsg, '(3a)') &
-            'Unknown '//trim(this%text)//' dimension: ', trim(keyword), '.'
-          call store_error(errmsg)
-        end select
-      end do
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%text))//' DIMENSIONS'
-    else
-      call store_error('Required dimensions block not found.', terminate=.TRUE.)
-    end if
-    !
-    ! -- verify dimensions were set correctly
-    if (this%nmawwells < 0) then
-      write (errmsg, '(a)') &
-        'NMAWWELLS was not specified or was specified incorrectly.'
-      call store_error(errmsg)
-    end if
-    !
-    ! -- stop if errors were encountered in the DIMENSIONS block
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-    !
-    ! -- read wells block
-    call this%maw_read_wells()
-    !
-    ! -- read well_connections block
-    call this%maw_read_well_connections()
-    !
-    ! -- read optional angledata block (non-vertical well connections)
-    call this%maw_read_angledata()
-    !
-    ! -- Call define_listlabel to construct the list label that is written
-    !    when PRINT_INPUT option is used.
-    call this%define_listlabel()
-    !
-    ! -- setup the budget object
-    call this%maw_setup_budobj()
-    !
-    ! -- setup the head table object
-    call this%maw_setup_tableobj()
-  end subroutine maw_read_dimensions
 
   !> @brief Read the initial parameters for this package
   !<
@@ -1783,141 +1818,9 @@ contains
     !
     ! -- check for any error conditions
     if (count_errors() > 0) then
-      call store_error_unit(this%inunit)
+      call store_error_filename(this%input_fname)
     end if
   end subroutine maw_read_initial_attr
-
-  !> @brief Set a stress period attribute for mawweslls(imaw) using keywords
-  !<
-  subroutine maw_set_stressperiod(this, imaw, iheadlimit_warning)
-    ! -- modules
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-    ! -- dummy
-    class(MawType), intent(inout) :: this
-    integer(I4B), intent(in) :: imaw
-    integer(I4B), intent(inout) :: iheadlimit_warning
-    ! -- local
-    character(len=LINELENGTH) :: errmsgr
-    character(len=LINELENGTH) :: text
-    character(len=LINELENGTH) :: cstr
-    character(len=LINELENGTH) :: caux
-    character(len=LINELENGTH) :: keyword
-    integer(I4B) :: ii
-    integer(I4B) :: jj
-    real(DP) :: rval
-    real(DP), pointer :: bndElem => null()
-    integer(I4B) :: istat
-    ! -- formats
-    character(len=*), parameter :: fmthdbot = &
-      &"('well head (',G0,') must be >= BOTTOM_ELEVATION (',G0, ').')"
-    !
-    ! -- read remainder of variables on the line
-    call this%parser%GetStringCaps(keyword)
-    select case (keyword)
-    case ('STATUS')
-      call this%parser%GetStringCaps(text)
-      this%status(imaw) = text(1:8)
-      select case (text)
-      case ('CONSTANT')
-        this%iboundpak(imaw) = -1
-      case ('INACTIVE')
-        this%iboundpak(imaw) = 0
-      case ('ACTIVE')
-        this%iboundpak(imaw) = 1
-      case default
-        write (errmsg, '(2a)') &
-          'Unknown '//trim(this%text)//" maw status keyword: '", &
-          trim(text)//"'."
-        call store_error(errmsg)
-      end select
-    case ('RATE')
-      call this%parser%GetString(text)
-      jj = 1 ! For RATE
-      bndElem => this%rate(imaw)
-      call read_value_or_time_series_adv(text, imaw, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'RATE')
-    case ('WELL_HEAD')
-      call this%parser%GetString(text)
-      jj = 1 ! For WELL_HEAD
-      bndElem => this%well_head(imaw)
-      call read_value_or_time_series_adv(text, imaw, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'WELL_HEAD')
-      !
-      ! -- set xnewpak to well_head
-      this%xnewpak(imaw) = this%well_head(imaw)
-      !
-      ! -- check for error condition
-      if (this%well_head(imaw) < this%bot(imaw)) then
-        write (cstr, fmthdbot) &
-          this%well_head(imaw), this%bot(imaw)
-        call this%maw_set_attribute_error(imaw, 'WELL HEAD', trim(cstr))
-      end if
-    case ('FLOWING_WELL')
-      this%fwelev(imaw) = this%parser%GetDouble()
-      this%fwcond(imaw) = this%parser%GetDouble()
-      this%fwrlen(imaw) = this%parser%GetDouble()
-      !
-      ! -- test for condition where flowing well data is specified but
-      !    flowing_wells is not specified in the options block
-      if (this%iflowingwells == 0) then
-        this%iflowingwells = -1
-        text = 'Flowing well data is specified in the '//trim(this%packName)// &
-               ' package but FLOWING_WELL was not specified in the '// &
-               'OPTIONS block.'
-        call store_warning(text)
-      end if
-    case ('RATE_SCALING')
-      rval = this%parser%GetDouble()
-      this%pumpelev(imaw) = rval
-      rval = this%parser%GetDouble()
-      this%reduction_length(imaw) = rval
-      if (rval < DZERO) then
-        call this%maw_set_attribute_error(imaw, trim(keyword), &
-                                          'must be greater than or equal to 0.')
-      end if
-    case ('HEAD_LIMIT')
-      call this%parser%GetString(text)
-      if (trim(text) == 'OFF') then
-        this%shutofflevel(imaw) = DEP20
-      else
-        read (text, *, iostat=istat, iomsg=errmsgr) &
-          this%shutofflevel(imaw)
-        if (istat /= 0) then
-          errmsg = 'Could not read HEAD_LIMIT value. '//trim(errmsgr)
-          call store_error(errmsg)
-        end if
-        if (this%shutofflevel(imaw) <= this%bot(imaw)) then
-          iheadlimit_warning = iheadlimit_warning + 1
-        end if
-      end if
-    case ('SHUT_OFF')
-      rval = this%parser%GetDouble()
-      this%shutoffmin(imaw) = rval
-      rval = this%parser%GetDouble()
-      this%shutoffmax(imaw) = rval
-    case ('AUXILIARY')
-      call this%parser%GetStringCaps(caux)
-      do jj = 1, this%naux
-        if (trim(adjustl(caux)) /= trim(adjustl(this%auxname(jj)))) cycle
-        call this%parser%GetString(text)
-        ii = imaw
-        bndElem => this%mauxvar(jj, ii)
-        call read_value_or_time_series_adv(text, ii, jj, bndElem, &
-                                           this%packName, 'AUX', &
-                                           this%tsManager, this%iprpak, &
-                                           this%auxname(jj))
-        exit
-      end do
-    case default
-      write (errmsg, '(2a)') &
-        'Unknown '//trim(this%text)//" maw data keyword: '", &
-        trim(keyword)//"'."
-      call store_error(errmsg)
-    end select
-
-  end subroutine maw_set_stressperiod
 
   !> @brief Issue a parameter error for mawweslls(imaw)
   !<
@@ -1940,6 +1843,25 @@ contains
     end if
     call store_error(errmsg)
   end subroutine maw_set_attribute_error
+
+  !> @brief Apply a PERIOD setting value to well imaw
+  !!
+  !! Shared by maw_rp (once per period) and maw_ad (per-timestep resync of
+  !! TS-linked settings); validation stays with the caller.
+  !<
+  subroutine maw_set_period_value(this, n, imaw, setting)
+    ! -- dummy
+    class(MawType), intent(inout) :: this
+    integer(I4B), intent(in) :: n !< row index into input context arrays
+    integer(I4B), intent(in) :: imaw !< well number
+    character(len=*), intent(in) :: setting !< uppercase tagname dispatch key
+    !
+    select case (trim(setting))
+    case ('WELL_HEAD')
+      this%well_head_set(imaw) = .true.
+      this%xnewpak(imaw) = this%well_head(imaw)
+    end select
+  end subroutine maw_set_period_value
 
   !> @brief Issue parameter errors for mawwells(imaw)
   !<
@@ -2100,130 +2022,6 @@ contains
     end do
   end subroutine maw_mc
 
-  !> @brief Set options specific to MawType.
-  !!
-  !! Overrides BndType%bnd_options
-  !<
-  subroutine maw_read_options(this, option, found)
-    use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL
-    use OpenSpecModule, only: access, form
-    use InputOutputModule, only: urword, assign_iounit, openfile
-    ! -- dummy
-    class(MawType), intent(inout) :: this
-    character(len=*), intent(inout) :: option
-    logical, intent(inout) :: found
-    ! -- local
-    character(len=MAXCHARLEN) :: fname, keyword
-    ! -- formats
-    character(len=*), parameter :: fmtflowingwells = &
-      &"(4x, 'FLOWING WELLS WILL BE SIMULATED.')"
-    character(len=*), parameter :: fmtshutdown = &
-      &"(4x, 'SHUTDOWN ', a, ' VALUE (',g15.7,') SPECIFIED.')"
-    character(len=*), parameter :: fmtnostoragewells = &
-      &"(4x, 'WELL STORAGE WILL NOT BE SIMULATED.')"
-    character(len=*), parameter :: fmtmawbin = &
-      "(4x, 'MAW ', 1x, a, 1x, ' WILL BE SAVED TO FILE: ', a, /4x, &
-     &'OPENED ON UNIT: ', I0)"
-    !
-    ! -- Check for 'FLOWING_WELLS' and set this%iflowingwells
-    found = .true.
-    select case (option)
-    case ('PRINT_HEAD')
-      this%iprhed = 1
-      write (this%iout, '(4x,a)') &
-        trim(adjustl(this%text))//' heads will be printed to listing file.'
-    case ('HEAD')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        call assign_iounit(this%iheadout, this%inunit, "HEAD fileout")
-        call openfile(this%iheadout, this%iout, fname, 'DATA(BINARY)', &
-                      form, access, 'REPLACE', mode_opt=MNORMAL)
-        write (this%iout, fmtmawbin) 'HEAD', trim(adjustl(fname)), &
-          this%iheadout
-      else
-        call store_error('Optional maw stage keyword must be '// &
-                         'followed by fileout.')
-      end if
-    case ('BUDGET')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
-        call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
-                      form, access, 'REPLACE', mode_opt=MNORMAL)
-        write (this%iout, fmtmawbin) 'BUDGET', trim(adjustl(fname)), &
-          this%ibudgetout
-      else
-        call store_error('Optional maw budget keyword must be '// &
-                         'followed by fileout.')
-      end if
-    case ('BUDGETCSV')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
-        call openfile(this%ibudcsv, this%iout, fname, 'CSV', &
-                      filstat_opt='REPLACE')
-        write (this%iout, fmtmawbin) 'BUDGET CSV', trim(adjustl(fname)), &
-          this%ibudcsv
-      else
-        call store_error('OPTIONAL BUDGETCSV KEYWORD MUST BE FOLLOWED BY &
-          &FILEOUT')
-      end if
-    case ('FLOWING_WELLS')
-      this%iflowingwells = 1
-      write (this%iout, fmtflowingwells)
-    case ('SHUTDOWN_THETA')
-      this%theta = this%parser%GetDouble()
-      write (this%iout, fmtshutdown) 'THETA', this%theta
-    case ('SHUTDOWN_KAPPA')
-      this%kappa = this%parser%GetDouble()
-      write (this%iout, fmtshutdown) 'KAPPA', this%kappa
-    case ('MOVER')
-      this%imover = 1
-      write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
-    case ('NO_WELL_STORAGE')
-      this%imawissopt = 1
-      write (this%iout, fmtnostoragewells)
-    case ('NON_VERTICAL_WELLS')
-      this%inonvert = 1
-      write (this%iout, '(4x,a)') &
-        'NON-VERTICAL (SLANTED) MULTI-AQUIFER WELL CONNECTIONS WILL BE '// &
-        'SIMULATED. SCREEN LENGTHS FOR CONNECTIONS LISTED IN THE ANGLEDATA '// &
-        'BLOCK WILL BE USED TO CALCULATE THE SATURATED CONDUCTANCE.'
-    case ('FLOW_CORRECTION')
-      this%correct_flow = .TRUE.
-      write (this%iout, '(4x,a,/,4x,a)') &
-        'MAW-GWF FLOW CORRECTIONS WILL BE APPLIED WHEN MAW HEADS ARE BELOW', &
-        'OR GWF HEADS IN CONNECTED CELLS ARE BELOW THE CELL BOTTOM.'
-    case ('MAW_FLOW_REDUCE_CSV')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        call this%maw_redflow_csv_init(fname)
-      else
-        call store_error('OPTIONAL MAW_FLOW_REDUCE_CSV KEYWORD MUST BE &
-          &FOLLOWED BY FILEOUT')
-      end if
-      !
-      ! -- right now these are options that are only available in the
-      !    development version and are not included in the documentation.
-      !    These options are only available when IDEVELOPMODE in
-      !    constants module is set to 1
-    case ('DEV_PEACEMAN_EFFECTIVE_RADIUS')
-      call this%parser%DevOpt()
-      this%ieffradopt = 1
-      write (this%iout, '(4x,a)') &
-        'EFFECTIVE RADIUS FOR STRUCTURED GRIDS WILL BE CALCULATED &
-        &USING PEACEMAN 1983'
-    case default
-      !
-      ! -- No options found
-      found = .false.
-    end select
-  end subroutine maw_read_options
-
   !> @brief Allocate and Read
   !!
   !! Create new MAW package and point bndobj to the new package
@@ -2247,6 +2045,9 @@ contains
     ! -- read optional initial package parameters
     call this%read_initial_attr()
     !
+    ! -- bind persistent pointers to input context data
+    call this%input%init(this%input_mempath, this%naux)
+    !
     ! -- setup pakmvrobj
     if (this%imover /= 0) then
       allocate (this%pakmvrobj)
@@ -2259,18 +2060,22 @@ contains
   !! Read itmp and new boundaries if itmp > 0
   !<
   subroutine maw_rp(this)
-    use ConstantsModule, only: LINELENGTH
-    use TdisModule, only: kper, nper
+    use ConstantsModule, only: LENVARNAME
+    use TdisModule, only: kper
+    use MemoryManagerModule, only: mem_setptr
+    use CharacterStringModule, only: CharacterStringType
+    use SimModule, only: store_error_filename
     ! -- dummy
     class(MawType), intent(inout) :: this
     ! -- local
     character(len=LINELENGTH) :: title
-    character(len=LINELENGTH) :: line
     character(len=LINELENGTH) :: text
-    character(len=16) :: csteady
-    logical :: isfound
-    logical :: endOfBlock
-    integer(I4B) :: ierr
+    character(len=LINELENGTH) :: csteady
+    character(len=LINELENGTH) :: str
+    character(len=LINELENGTH) :: auxvalstr
+    character(len=LENVARNAME) :: setting
+    character(len=LINELENGTH) :: cstr
+    character(len=LINELENGTH) :: errmsgr
     integer(I4B) :: node
     integer(I4B) :: n
     integer(I4B) :: ntabcols
@@ -2279,12 +2084,14 @@ contains
     integer(I4B) :: ibnd
     integer(I4B) :: j
     integer(I4B) :: jpos
+    integer(I4B) :: jj
+    integer(I4B) :: istat
     integer(I4B) :: iheadlimit_warning
     ! -- formats
-    character(len=*), parameter :: fmtblkerr = &
-      &"('Looking for BEGIN PERIOD iper.  Found ', a, ' instead.')"
     character(len=*), parameter :: fmtlsp = &
       &"(1X,/1X,'REUSING ',A,'S FROM LAST STRESS PERIOD')"
+    character(len=*), parameter :: fmthdbot = &
+      &"('well head (',G0,') must be >= BOTTOM_ELEVATION (',G0, ').')"
     !
     ! -- initialize counters
     iheadlimit_warning = 0
@@ -2300,43 +2107,11 @@ contains
     ! -- set nbound to maxbound
     this%nbound = this%maxbound
     !
-    ! -- Set ionper to the stress period number for which a new block of data
-    !    will be read.
-    if (this%inunit == 0) return
-    !
-    ! -- get stress period data
-    if (this%ionper < kper) then
+    ! -- check if input context has been updated for this stress period
+    if (this%iper == kper) then
       !
-      ! -- get period block
-      call this%parser%GetBlock('PERIOD', isfound, ierr, &
-                                supportOpenClose=.true., &
-                                blockRequired=.false.)
-      if (isfound) then
-        !
-        ! -- read ionper and check for increasing period numbers
-        call this%read_check_ionper()
-      else
-        !
-        ! -- PERIOD block not found
-        if (ierr < 0) then
-          ! -- End of file found; data applies for remainder of simulation.
-          this%ionper = nper + 1
-        else
-          ! -- Found invalid block
-          call this%parser%GetCurrentLine(line)
-          write (errmsg, fmtblkerr) adjustl(trim(line))
-          call store_error(errmsg, terminate=.TRUE.)
-        end if
-      end if
-    end if
-    !
-    ! -- Read data if ionper == kper
-    if (this%ionper == kper) then
-      !
-      ! -- setup table for period data
+      ! -- setup table to echo period data
       if (this%iprpak /= 0) then
-        !
-        ! -- reset the input table object
         title = trim(adjustl(this%text))//' PACKAGE ('// &
                 trim(adjustl(this%packName))//') DATA FOR PERIOD'
         write (title, '(a,1x,i6)') trim(adjustl(title)), kper
@@ -2346,19 +2121,16 @@ contains
         call this%inputtab%initialize_column(text, 10, alignment=TABCENTER)
         text = 'KEYWORD'
         call this%inputtab%initialize_column(text, 20, alignment=TABLEFT)
-        do n = 1, 3
-          write (text, '(a,1x,i6)') 'VALUE', n
+        do jj = 1, 3
+          write (text, '(a,1x,i6)') 'VALUE', jj
           call this%inputtab%initialize_column(text, 15, alignment=TABCENTER)
         end do
       end if
       !
       ! -- set flag to check attributes
       this%check_attr = 1
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-
-        imaw = this%parser%GetInteger()
+      do n = 1, this%input%nbound
+        imaw = this%input%ifno(n)
         if (imaw < 1 .or. imaw > this%nmawwells) then
           write (errmsg, '(2(a,1x),i0,a)') &
             'IMAW must be greater than 0 and', &
@@ -2367,13 +2139,136 @@ contains
           cycle
         end if
         !
-        ! -- set stress period data
-        call this%maw_set_stressperiod(imaw, iheadlimit_warning)
+        ! -- dispatch key for this row
+        setting = this%input%setting(n)
         !
-        ! -- write line to table
+        ! -- STATUS
+        if (trim(setting) == 'STATUS') then
+          str = this%input%status(n)
+          this%status(imaw) = str(1:8)
+          select case (trim(str))
+          case ('CONSTANT')
+            this%iboundpak(imaw) = -1
+          case ('INACTIVE')
+            this%iboundpak(imaw) = 0
+          case ('ACTIVE')
+            this%iboundpak(imaw) = 1
+          case default
+            write (errmsg, '(2a)') &
+              'Unknown '//trim(this%text)//" maw status keyword: '", &
+              trim(str)//"'."
+            call store_error(errmsg)
+          end select
+        end if
+        !
+        ! -- RATE / WELL_HEAD
+        call this%maw_set_period_value(n, imaw, setting)
+        if (trim(setting) == 'WELL_HEAD') then
+          if (this%well_head(imaw) < this%bot(imaw)) then
+            write (cstr, fmthdbot) this%well_head(imaw), this%bot(imaw)
+            call this%maw_set_attribute_error(imaw, 'WELL HEAD', trim(cstr))
+          end if
+        end if
+        !
+        ! -- HEAD_LIMIT
+        if (trim(setting) == 'HEAD_LIMIT') then
+          str = this%input%head_limit(n)
+          if (trim(str) == 'OFF') then
+            this%shutofflevel(imaw) = DEP20
+          else
+            read (str, *, iostat=istat, iomsg=errmsgr) &
+              this%shutofflevel(imaw)
+            if (istat /= 0) then
+              errmsg = 'Could not read HEAD_LIMIT value. '//trim(errmsgr)
+              call store_error(errmsg)
+            end if
+            if (this%shutofflevel(imaw) <= this%bot(imaw)) then
+              iheadlimit_warning = iheadlimit_warning + 1
+            end if
+          end if
+        end if
+        !
+        ! -- FLOWING_WELL (compound group)
+        if (trim(setting) == 'FLOWING_WELL') then
+          this%fwelev(imaw) = this%input%fwelev(n)
+          this%fwcond(imaw) = this%input%fwcond(n)
+          this%fwrlen(imaw) = this%input%fwrlen(n)
+          if (this%iflowingwells == 0) then
+            this%iflowingwells = -1
+            text = 'Flowing well data is specified in the '// &
+                   trim(this%packName)//' package but FLOWING_WELL was'// &
+                   ' not specified in the OPTIONS block.'
+            call store_warning(text)
+          end if
+        end if
+        !
+        ! -- SHUT_OFF (compound group)
+        if (trim(setting) == 'SHUT_OFF') then
+          this%shutoffmin(imaw) = this%input%minrate(n)
+          this%shutoffmax(imaw) = this%input%maxrate(n)
+        end if
+        !
+        ! -- RATE_SCALING (compound group)
+        if (trim(setting) == 'RATE_SCALING') then
+          this%pumpelev(imaw) = this%input%pump_elevation(n)
+          this%reduction_length(imaw) = this%input%scaling_length(n)
+          if (this%reduction_length(imaw) < DZERO) then
+            call this%maw_set_attribute_error(imaw, 'RATE_SCALING', &
+              &'must be greater than or equal to 0.')
+          end if
+        end if
+        !
+        ! -- AUXILIARY (compound group); the current value is already set --
+        ! -- only extract auxname here for echoing this period's row below
+        if (this%naux > 0) then
+          if (trim(setting) == 'AUXILIARY') then
+            str = this%input%auxname(n)
+            auxvalstr = this%input%auxval(n)
+          end if
+        end if
+        !
+        ! -- echo row to period data table
         if (this%iprpak /= 0) then
-          call this%parser%GetCurrentLine(line)
-          call this%inputtab%line_to_columns(line)
+          call this%inputtab%add_term(imaw)
+          call this%inputtab%add_term(trim(setting))
+          select case (trim(setting))
+          case ('STATUS')
+            call this%inputtab%add_term(trim(str))
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+          case ('RATE')
+            call this%inputtab%add_term(this%rate(imaw))
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+          case ('WELL_HEAD')
+            call this%inputtab%add_term(this%well_head(imaw))
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+          case ('HEAD_LIMIT')
+            call this%inputtab%add_term(trim(str))
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+          case ('FLOWING_WELL')
+            call this%inputtab%add_term(this%fwelev(imaw))
+            call this%inputtab%add_term(this%fwcond(imaw))
+            call this%inputtab%add_term(this%fwrlen(imaw))
+          case ('SHUT_OFF')
+            call this%inputtab%add_term(this%shutoffmin(imaw))
+            call this%inputtab%add_term(this%shutoffmax(imaw))
+            call this%inputtab%add_term(' ')
+          case ('RATE_SCALING')
+            call this%inputtab%add_term(this%pumpelev(imaw))
+            call this%inputtab%add_term(this%reduction_length(imaw))
+            call this%inputtab%add_term(' ')
+          case ('AUXILIARY')
+            call this%inputtab%add_term(trim(str))
+            call this%inputtab%add_term(trim(auxvalstr))
+            call this%inputtab%add_term(' ')
+          case default
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+          end select
         end if
       end do
       if (this%iprpak /= 0) then
@@ -2396,7 +2291,7 @@ contains
     !
     ! -- write summary of maw well stress period error messages
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- qa data if necessary
@@ -2543,39 +2438,57 @@ contains
   !> @brief Add package connection to matrix
   !<
   subroutine maw_ad(this)
+    use ConstantsModule, only: LENVARNAME
     use TdisModule, only: kper, kstp
     ! -- dummy
     class(MawType) :: this
     ! -- local
+    integer(I4B) :: i
     integer(I4B) :: n
     integer(I4B) :: j
     integer(I4B) :: jj
     integer(I4B) :: ibnd
+    integer(I4B) :: imaw
+    character(len=LENVARNAME) :: setting
     !
-    ! -- Advance the time series
-    call this%TsManager%ad()
+    ! -- sync PACKAGEDATA AUX TS and advance observations;
+    ! -- step auxvar period block overrides
+    call this%BndExtType%bnd_ad()
     !
-    ! -- update auxiliary variables by copying from the derived-type time
-    !    series variable into the bndpackage auxvar variable so that this
-    !    information is properly written to the GWF budget file
+    ! -- sync PERIOD TS from input context
+    if (this%ts_active .and. this%input%nbound > 0) then
+      do n = 1, this%input%nbound
+        imaw = this%input%ifno(n)
+        if (imaw < 1 .or. imaw > this%nmawwells) cycle
+        setting = this%input%setting(n)
+        call this%maw_set_period_value(n, imaw, setting)
+      end do
+    end if
+    !
+    ! -- update auxiliary variables
     if (this%naux > 0) then
       ibnd = 1
       do n = 1, this%nmawwells
         do j = 1, this%ngwfnodes(n)
           do jj = 1, this%naux
             if (this%noupdateauxvar(jj) /= 0) cycle
-            this%auxvar(jj, ibnd) = this%mauxvar(jj, n)
+            this%auxvar(jj, ibnd) = this%featureauxvar(jj, n)
           end do
           ibnd = ibnd + 1
         end do
       end do
     end if
     !
-    ! -- copy xnew into xold
-    do n = 1, this%nmawwells
+    ! -- copy xnew into xold; CONSTANT well heads track the PACKAGEDATA STRT
+    !    baseline until a PERIOD WELL_HEAD entry overrides it
+    do i = 1, this%nmawwells
+      n = this%pkg_ifno(i)
       this%xoldpak(n) = this%xnewpak(n)
       this%xoldsto(n) = this%xsto(n)
       if (this%iboundpak(n) < 0) then
+        if (.not. this%well_head_set(n)) then
+          this%well_head(n) = this%input%strt(i)
+        end if
         this%xnewpak(n) = this%well_head(n)
       end if
       !
@@ -2605,11 +2518,6 @@ contains
     if (this%imover == 1) then
       call this%pakmvrobj%ad()
     end if
-    !
-    ! -- For each observation, push simulated value and corresponding
-    !    simulation time from "current" to "preceding" and reset
-    !    "current" value.
-    call this%obs%obs_ad()
   end subroutine maw_ad
 
   !> @brief Formulate the HCOF and RHS terms
@@ -3503,10 +3411,10 @@ contains
     call mem_deallocate(this%nurdxold)
     call mem_deallocate(this%nurweight)
     !
-    ! -- timeseries aware variables
-    call mem_deallocate(this%mauxvar)
-    call mem_deallocate(this%rate)
-    call mem_deallocate(this%well_head)
+    ! -- input-context-owned aliases, not package-allocated
+    nullify (this%rate)
+    nullify (this%well_head)
+    call mem_deallocate(this%well_head_set)
     !
     ! -- connection data
     call mem_deallocate(this%iaconn)
@@ -3569,8 +3477,11 @@ contains
     ! -- pointers to gwf variables
     nullify (this%gwfiss)
     !
-    ! -- call standard BndType deallocate
-    call this%BndType%bnd_da()
+    ! -- nullify MAW input context pointers
+    call this%input%destroy()
+    !
+    ! -- deallocate base
+    call this%BndExtType%bnd_da()
   end subroutine maw_da
 
   !> @brief Define the list heading that is written to iout when PRINT_INPUT
@@ -3836,7 +3747,7 @@ contains
       !
       ! -- write summary of error messages
       if (count_errors() > 0) then
-        call store_error_unit(this%inunit)
+        call store_error_filename(this%input_fname)
       end if
     end if
     !
@@ -3967,7 +3878,7 @@ contains
       !
       ! -- evaluate if there are any observation errors
       if (count_errors() > 0) then
-        call store_error_unit(this%inunit)
+        call store_error_filename(this%input_fname)
       end if
     end if
   end subroutine maw_rp_obs

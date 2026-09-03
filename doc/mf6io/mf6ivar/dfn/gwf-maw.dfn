@@ -27,6 +27,7 @@ reader urword
 optional true
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'multi-aquifer well'}
+mf6internal iprpak
 
 block options
 name print_head
@@ -43,6 +44,7 @@ reader urword
 optional true
 longname print calculated flows to listing file
 description REPLACE print_flows {'{#1}': 'multi-aquifer well'}
+mf6internal iprflow
 
 block options
 name save_flows
@@ -51,6 +53,7 @@ reader urword
 optional true
 longname save well flows to budget file
 description REPLACE save_flows {'{#1}': 'multi-aquifer well'}
+mf6internal ipakcb
 
 block options
 name head_filerecord
@@ -87,6 +90,7 @@ description name of the binary output file to write head information.
 
 block options
 name budget_filerecord
+mf6internal budfilerec
 type record budget fileout budgetfile
 shape
 reader urword
@@ -131,6 +135,7 @@ description name of the binary output file to write budget information.
 
 block options
 name budgetcsv_filerecord
+mf6internal budcsvfilerec
 type record budgetcsv fileout budgetcsvfile
 shape
 reader urword
@@ -183,6 +188,7 @@ name non_vertical_wells
 type keyword
 reader urword
 optional true
+mf6internal inonvert
 longname activate non-vertical well connections
 description keyword that activates support for non-vertical (slanted) multi-aquifer well connections.  When this option is specified, an ANGLEDATA block can be used to assign a tilt angle (deviation from vertical) to individual multi-aquifer well connections.  The saturated conductance for a connection listed in the ANGLEDATA block is scaled by the in-cell screen length, which is calculated from the screen top, screen bottom, and tilt angle (or specified directly), instead of the vertical screen thickness.  By default, all multi-aquifer well connections are assumed to be vertical.  The tilt angle and connection length scale the conductance for a single connection only and do not route flow through intervening cells; a well that passes through more than one cell (a slanted well or a horizontal lateral) must have a separate connection to each cell that it penetrates.  For a connection that uses the SPECIFIED conductance equation, the saturated conductance is used unchanged (the length correction is not applied because the conductance is provided by the user), but the screen top and bottom are honored so that the connection saturation is calculated over the correct interval rather than over the full cell.
 
@@ -212,6 +218,7 @@ description value that defines the weight applied to discharge rate for wells th
 
 block options
 name mfrcsv_filerecord
+mf6internal mfrcsvfilerec
 type record maw_flow_reduce_csv fileout mfrcsvfile
 shape
 reader urword
@@ -222,6 +229,7 @@ description
 
 block options
 name maw_flow_reduce_csv
+mf6internal maw_flw_red_csv
 type keyword
 shape
 in_record true
@@ -327,7 +335,6 @@ optional true
 longname
 description REPLACE mover {'{#1}': 'MAW'}
 
-
 block options
 name dev_peaceman_effective_radius
 type keyword
@@ -335,6 +342,7 @@ reader urword
 optional true
 longname use the Peaceman effective radius
 description keyword that calculates the effective radius for structured grids using the approach of Peaceman (1983) instead of the default approach.  This development option is not supported.
+mf6internal ieffradopt
 
 # --------------------- gwf maw dimensions ---------------------
 
@@ -367,6 +375,7 @@ reader urword
 longname well number for this entry
 description integer value that defines the feature (well) number associated with the specified PACKAGEDATA data on the line. IFNO must be greater than zero and less than or equal to NMAWWELLS. Multi-aquifer well information must be specified for every multi-aquifer well or the program will terminate with an error.  The program will also terminate with an error if information for a multi-aquifer well is specified more than once.
 numeric_index true
+mf6internal packagedata_ifno
 
 block packagedata
 name radius
@@ -394,6 +403,7 @@ type double precision
 shape
 tagged false
 in_record true
+time_series true
 reader urword
 longname starting head
 description starting head for the multi-aquifer well. The program will terminate with an error if the starting head is less than the specified well bottom.
@@ -461,6 +471,7 @@ reader urword
 longname well number for this entry
 description integer value that defines the feature (well) number associated with the specified CONNECTIONDATA data on the line. IFNO must be greater than zero and less than or equal to NMAWWELLS. Multi-aquifer well connection information must be specified for every multi-aquifer well connection to the GWF model (NGWFNODES) or the program will terminate with an error.  The program will also terminate with an error if connection information for a multi-aquifer well connection to the GWF model is specified more than once.
 numeric_index true
+mf6internal conndata_ifno
 
 block connectiondata
 name icon
@@ -541,6 +552,7 @@ shape
 tagged false
 in_record true
 reader urword
+mf6internal angledata_ifno
 longname well number for this entry
 description integer value that defines the feature (well) number associated with the specified ANGLEDATA data on the line. IFNO must be greater than zero and less than or equal to NMAWWELLS.  This block can only be specified if the NON\_VERTICAL\_WELLS option is specified in the OPTIONS block. Multi-aquifer well connections that are not listed in the ANGLEDATA block are assumed to be vertical.  The program will terminate with an error if connection information for a multi-aquifer well connection is specified more than once.
 numeric_index true
@@ -552,6 +564,7 @@ shape
 tagged false
 in_record true
 reader urword
+mf6internal angledata_icon
 longname connection number
 description integer value that defines the GWF connection number for this multi-aquifer well connection entry. ICON must be greater than zero and less than or equal to NGWFNODES for multi-aquifer well IFNO.
 numeric_index true
@@ -575,6 +588,7 @@ tagged false
 in_record true
 reader urword
 optional true
+mf6internal connlen
 longname in-cell screen length
 description optional value that defines the length of the multi-aquifer well screen within the connected GWF cell.  If CONN\_LENGTH is specified (and greater than zero), it is used directly as the in-cell screen length; otherwise, the in-cell screen length is calculated from the screen top, screen bottom, well radius, and ANGLE.  CONN\_LENGTH must be specified for horizontal connections (ANGLE equal to 90.0 degrees) because the in-cell screen length cannot be derived from the screen elevations for a horizontal connection.  A warning is issued if the horizontal distance spanned by the connection is greater than the maximum horizontal extent of the connected cell.  The MEAN conductance equation is recommended for horizontal connections.  For a horizontal connection using the MEAN conductance equation, SCRN\_TOP and SCRN\_BOT do not affect the magnitude of the saturated conductance but do determine the elevation range over which the connection saturates and dewaters; SCRN\_TOP and SCRN\_BOT should be set to the top and bottom of the horizontal borehole so that the vertical screen extent (SCRN\_TOP $-$ SCRN\_BOT) equals the well diameter (2 times RADIUS).  The program snaps SCRN\_TOP to SCRN\_BOT plus the well diameter when the specified extent is essentially equal to the well diameter, and otherwise issues a warning.
 
@@ -635,6 +649,7 @@ description keyword option to define well status.  STATUS can be ACTIVE, INACTIV
 
 block period
 name flowing_wellrecord
+mf6internal flwwellrecord
 type record flowing_well fwelev fwcond fwrlen
 shape
 tagged
@@ -684,23 +699,25 @@ description length used to reduce the conductance of the flowing well.  When the
 
 block period
 name rate
-type double precision
+type string
 shape
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal rate_in
 longname well pumping rate
 description is the volumetric pumping rate for the multi-aquifer well. A positive value indicates recharge and a negative value indicates discharge (pumping). RATE only applies to active (STATUS is ACTIVE) multi-aquifer wells. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value. By default, the RATE for each multi-aquifer well is zero.
 
 block period
 name well_head
-type double precision
+type string
 shape
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal well_head_in
 longname well head
 description is the head in the multi-aquifer well. WELL\_HEAD is only applied to constant head (STATUS is CONSTANT) and inactive (STATUS is INACTIVE) multi-aquifer wells. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value. The program will terminate with an error if WELL\_HEAD is less than the bottom of the well.
 
@@ -755,6 +772,7 @@ description is the maximum rate that a well must exceed to reactivate a well dur
 
 block period
 name rate_scalingrecord
+mf6internal ratescalingrec
 type record rate_scaling pump_elevation scaling_length
 shape
 tagged
@@ -808,6 +826,7 @@ type keyword
 shape
 in_record true
 reader urword
+mf6internal period_auxiliary
 longname
 description keyword for specifying auxiliary variable.
 
@@ -823,11 +842,10 @@ description name for the auxiliary variable to be assigned AUXVAL.  AUXNAME must
 
 block period
 name auxval
-type double precision
+type string
 shape
 tagged false
 in_record true
 reader urword
-time_series true
 longname auxiliary variable value
 description value for the auxiliary variable. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
