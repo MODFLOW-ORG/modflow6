@@ -1,7 +1,6 @@
 import argparse
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from warnings import warn
 
 import flopy
 import pytest
@@ -15,15 +14,26 @@ repository = "MODFLOW-ORG/modflow6"
 top_bin_path = project_root_path / "bin"
 
 
-def get_asset_name(asset: dict) -> str:
+def find_release_asset(release: dict) -> dict | None:
+    """
+    Find the platform-specific distribution archive for the current OS among
+    a release's assets. Distribution archives are named "mf<version>_<ostag>.zip"
+    (e.g. "mf6.8.0_linux.zip"). An exact-name match is required so that non-dist
+    assets ("mf<version>_dfns.zip", "release.pdf") and other flavors
+    ("mf<version>_win64ext.zip") are not selected. Intel macOS ("mac")
+    distributions were dropped after 6.7.0, so fall back to the ARM build.
+    """
+    assets = release["assets"]
+    version = release["tag_name"].lstrip("v")
     ostag = get_ostag()
-    name = asset["name"]
-    if "win" in ostag:
-        return name
-    else:
-        prefix = name.rpartition("_")[0]
-        prefix += f"_{ostag}"
-        return f"{prefix}.zip"
+    names = [f"mf{version}_{ostag}.zip"]
+    if ostag == "mac":
+        names.append(f"mf{version}_macarm.zip")
+    for name in names:
+        asset = next((a for a in assets if a["name"] == name), None)
+        if asset is not None:
+            return asset
+    return None
 
 
 @pytest.fixture
@@ -40,10 +50,11 @@ def downloaded_bin_path() -> Path:
 def test_rebuild_release(rebuilt_bin_path: Path):
     print(f"Rebuilding and installing last release to: {rebuilt_bin_path}")
     release = get_release(repository)
-    assets = release["assets"]
-    asset = next(iter([a for a in assets if a["name"] == get_asset_name(a)]), None)
-    if not asset:
-        warn(f"Couldn't find asset for OS {get_ostag()}, available assets:\n{assets}")
+    asset = find_release_asset(release)
+    assert asset is not None, (
+        f"Couldn't find a distribution asset for OS {get_ostag()}, available "
+        f"assets:\n{[a['name'] for a in release['assets']]}"
+    )
 
     with TemporaryDirectory() as td:
         # download the release
@@ -52,18 +63,31 @@ def test_rebuild_release(rebuilt_bin_path: Path):
             asset["browser_download_url"], path=download_path, verbose=True
         )
 
-        # update IDEVELOPMODE
+        # Force IDEVELOPMODE = 1 so DEV_* options used by "_dev" regression
+        # models are accepted. Patch both version.f90 and version.f90.in: the
+        # distribution's Meson build regenerates version.f90 from the template
+        # via vcs_tag() at configure time, so patching version.f90 alone has
+        # no effect.
         source_files_path = download_path / asset["name"].replace(".zip", "") / "src"
-        version_file_path = source_files_path / "Utilities" / "version.f90"
-        with open(version_file_path) as f:
-            lines = f.read().splitlines()
-        assert len(lines) > 0, f"File is empty: {source_files_path}"
-        with open(version_file_path, "w") as f:
-            for line in lines:
-                tag = "IDEVELOPMODE = 0"
-                if tag in line:
-                    line = line.replace(tag, "IDEVELOPMODE = 1")
-                f.write(f"{line}\n")
+        version_dir = source_files_path / "Utilities"
+        patched = False
+        for version_file_path in (
+            version_dir / "version.f90",
+            version_dir / "version.f90.in",
+        ):
+            if not version_file_path.is_file():
+                continue
+            with open(version_file_path) as f:
+                lines = f.read().splitlines()
+            assert len(lines) > 0, f"File is empty: {version_file_path}"
+            with open(version_file_path, "w") as f:
+                for line in lines:
+                    tag = "IDEVELOPMODE = 0"
+                    if tag in line:
+                        line = line.replace(tag, "IDEVELOPMODE = 1")
+                        patched = True
+                    f.write(f"{line}\n")
+        assert patched, f"Failed to patch IDEVELOPMODE under {version_dir}"
 
         # rebuild with Meson
         meson_build(
