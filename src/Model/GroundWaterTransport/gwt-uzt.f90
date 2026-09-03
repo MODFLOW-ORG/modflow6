@@ -27,8 +27,10 @@
 module GwtUztModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, DONE, LINELENGTH
-  use SimModule, only: store_error
+  use ConstantsModule, only: DZERO, DONE, LINELENGTH, DNODATA, LENVARNAME
+  use SimModule, only: store_error, store_error_filename
+  use MemoryManagerModule, only: mem_setptr
+  use CharacterStringModule, only: CharacterStringType
   use BndModule, only: BndType, GetBndFromList
   use TspFmiModule, only: TspFmiType
   use UzfModule, only: UzfType
@@ -71,7 +73,6 @@ module GwtUztModule
     procedure :: pak_df_obs => uzt_df_obs
     procedure :: pak_rp_obs => uzt_rp_obs
     procedure :: pak_bd_obs => uzt_bd_obs
-    procedure :: pak_set_stressperiod => uzt_set_stressperiod
     procedure :: get_mvr_depvar
 
   end type GwtUztType
@@ -81,7 +82,7 @@ contains
   !> @brief Create a new UZT package
   !<
   subroutine uzt_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
-                        fmi, eqnsclfac, dvt, dvu, dvua)
+                        mempath, fmi, eqnsclfac, dvt, dvu, dvua)
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -90,6 +91,7 @@ contains
     integer(I4B), intent(in) :: iout
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
+    character(len=*), intent(in) :: mempath !< input memory path
     type(TspFmiType), pointer :: fmi
     real(DP), intent(in), pointer :: eqnsclfac !< governing equation scale factor
     character(len=*), intent(in) :: dvt !< For GWT, set to "CONCENTRATION" in TspAptType
@@ -103,7 +105,7 @@ contains
     packobj => uztobj
     !
     ! -- create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, mempath)
     packobj%text = text
     !
     ! -- allocate scalars
@@ -118,6 +120,7 @@ contains
     packobj%ibcnum = ibcnum
     packobj%ncolbnd = 1
     packobj%iscloc = 1
+    packobj%isadvpak = 1
     !
     ! -- Store pointer to flow model interface.  When the GwfGwt exchange is
     !    created, it sets fmi%bndlist so that the GWT model has access to all
@@ -185,7 +188,7 @@ contains
       write (errmsg, '(a)') 'Could not find flow package with name '&
                             &//trim(adjustl(this%flowpackagename))//'.'
       call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- allocate space for idxbudssm, which indicates whether this is a
@@ -558,24 +561,18 @@ contains
   !<
   subroutine uzt_allocate_arrays(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate
+    use MemoryManagerModule, only: mem_setptr
     ! -- dummy
     class(GwtUztType), intent(inout) :: this
-    ! -- local
-    integer(I4B) :: n
     !
-    ! -- time series
-    call mem_allocate(this%concinfl, this%ncv, 'CONCINFL', this%memoryPath)
-    call mem_allocate(this%concuzet, this%ncv, 'CONCUZET', this%memoryPath)
+    ! -- alias into the input context's permanent, feature-indexed arrays
+    ! (allocated and DZERO-initialized by the loader)
+    call mem_setptr(this%concinfl, 'INFILTRATION', this%input_mempath)
+    call mem_setptr(this%concuzet, 'UZET', this%input_mempath)
     !
     ! -- call standard TspAptType allocate arrays
     call this%TspAptType%apt_allocate_arrays()
     !
-    ! -- Initialize
-    do n = 1, this%ncv
-      this%concinfl(n) = DZERO
-      this%concuzet(n) = DZERO
-    end do
   end subroutine uzt_allocate_arrays
 
   !> @brief Deallocate memory
@@ -595,9 +592,9 @@ contains
     call mem_deallocate(this%idxbuduzet)
     call mem_deallocate(this%idxbudritm)
     !
-    ! -- deallocate time series
-    call mem_deallocate(this%concinfl)
-    call mem_deallocate(this%concuzet)
+    ! -- input-context-owned aliases, not package-allocated
+    nullify (this%concinfl)
+    nullify (this%concuzet)
     !
     ! -- deallocate scalars in TspAptType
     call this%TspAptType%bnd_da()
@@ -866,57 +863,5 @@ contains
       found = .false.
     end select
   end subroutine uzt_bd_obs
-
-  !> @brief Sets the stress period attributes for keyword use.
-  !<
-  subroutine uzt_set_stressperiod(this, itemno, keyword, found)
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-    ! -- dummy
-    class(GwtUztType), intent(inout) :: this
-    integer(I4B), intent(in) :: itemno
-    character(len=*), intent(in) :: keyword
-    logical, intent(inout) :: found
-    ! -- local
-    character(len=LINELENGTH) :: temp_text
-    integer(I4B) :: ierr
-    integer(I4B) :: jj
-    real(DP), pointer :: bndElem => null()
-    ! -- formats
-    !
-    ! INFILTRATION <infiltration>
-    ! UZET <uzet>
-    !
-    found = .true.
-    select case (keyword)
-    case ('INFILTRATION')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(temp_text)
-      jj = 1
-      bndElem => this%concinfl(itemno)
-      call read_value_or_time_series_adv(temp_text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'INFILTRATION')
-    case ('UZET')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(temp_text)
-      jj = 1
-      bndElem => this%concuzet(itemno)
-      call read_value_or_time_series_adv(temp_text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'UZET')
-    case default
-      !
-      ! -- keyword not recognized so return to caller with found = .false.
-      found = .false.
-    end select
-    !
-999 continue
-  end subroutine uzt_set_stressperiod
 
 end module GwtUztModule

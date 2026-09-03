@@ -34,7 +34,11 @@
 module GweLkeModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, DONE, LINELENGTH, LENBOUNDNAME, DEP20
+  use ConstantsModule, only: DZERO, DONE, LINELENGTH, LENBOUNDNAME, DEP20, &
+                             DNODATA, LENVARNAME
+  use SimModule, only: store_error, store_error_filename, count_errors
+  use MemoryManagerModule, only: mem_setptr
+  use CharacterStringModule, only: CharacterStringType
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, count_errors
   use BndModule, only: BndType, GetBndFromList
@@ -78,6 +82,7 @@ module GweLkeModule
     procedure :: bnd_da => lke_da
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => lke_allocate_arrays
+    procedure :: apt_source_cvs => lke_read_cvs
     procedure :: find_apt_package => find_lke_package
     procedure :: pak_fc_expanded => lke_fc_expanded
     procedure :: pak_solve => lke_solve
@@ -93,8 +98,6 @@ module GweLkeModule
     procedure :: pak_df_obs => lke_df_obs
     procedure :: pak_rp_obs => lke_rp_obs
     procedure :: pak_bd_obs => lke_bd_obs
-    procedure :: pak_set_stressperiod => lke_set_stressperiod
-    procedure :: apt_read_cvs => lke_read_cvs
 
   end type GweLkeType
 
@@ -103,7 +106,7 @@ contains
   !> @brief Create a new lke package
   !<
   subroutine lke_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
-                        fmi, eqnsclfac, gwecommon, dvt, dvu, dvua)
+                        mempath, fmi, eqnsclfac, gwecommon, dvt, dvu, dvua)
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -112,6 +115,7 @@ contains
     integer(I4B), intent(in) :: iout
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
+    character(len=*), intent(in) :: mempath !< input memory path
     type(TspFmiType), pointer :: fmi
     real(DP), intent(in), pointer :: eqnsclfac !< governing equation scale factor
     type(GweInputDataType), intent(in), target :: gwecommon !< shared data container for use by multiple GWE packages
@@ -126,7 +130,7 @@ contains
     packobj => lkeobj
     !
     ! -- Create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, mempath)
     packobj%text = text
     !
     ! -- Allocate scalars
@@ -141,6 +145,7 @@ contains
     packobj%ibcnum = ibcnum
     packobj%ncolbnd = 1
     packobj%iscloc = 1
+    packobj%isadvpak = 1
     !
     ! -- Store pointer to flow model interface.  When the GwfGwe exchange is
     !    created, it sets fmi%bndlist so that the GWE model has access to all
@@ -213,7 +218,7 @@ contains
       write (errmsg, '(a)') 'Could not find flow package with name '&
                             &//trim(adjustl(this%flowpackagename))//'.'
       call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- Allocate space for idxbudssm, which indicates whether this is a
@@ -741,28 +746,19 @@ contains
   !<
   subroutine lke_allocate_arrays(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate
+    use MemoryManagerModule, only: mem_setptr
     ! -- dummy
     class(GweLkeType), intent(inout) :: this
-    ! -- local
-    integer(I4B) :: n
     !
-    ! -- Time series
-    call mem_allocate(this%temprain, this%ncv, 'TEMPRAIN', this%memoryPath)
-    call mem_allocate(this%tempevap, this%ncv, 'TEMPEVAP', this%memoryPath)
-    call mem_allocate(this%temproff, this%ncv, 'TEMPROFF', this%memoryPath)
-    call mem_allocate(this%tempiflw, this%ncv, 'TEMPIFLW', this%memoryPath)
+    ! -- alias into the input context's permanent, feature-indexed arrays
+    ! (allocated and DZERO-initialized by the loader)
+    call mem_setptr(this%temprain, 'RAINFALL', this%input_mempath)
+    call mem_setptr(this%tempevap, 'EVAPORATION', this%input_mempath)
+    call mem_setptr(this%temproff, 'RUNOFF', this%input_mempath)
+    call mem_setptr(this%tempiflw, 'EXT-INFLOW', this%input_mempath)
     !
     ! -- Call standard TspAptType allocate arrays
     call this%TspAptType%apt_allocate_arrays()
-    !
-    ! -- Initialize
-    do n = 1, this%ncv
-      this%temprain(n) = DZERO
-      this%tempevap(n) = DZERO
-      this%temproff(n) = DZERO
-      this%tempiflw(n) = DZERO
-    end do
     !
   end subroutine lke_allocate_arrays
 
@@ -783,11 +779,11 @@ contains
     call mem_deallocate(this%idxbudoutf)
     call mem_deallocate(this%idxbudlbcd)
     !
-    ! -- Deallocate time series
-    call mem_deallocate(this%temprain)
-    call mem_deallocate(this%tempevap)
-    call mem_deallocate(this%temproff)
-    call mem_deallocate(this%tempiflw)
+    ! -- input-context-owned aliases, not package-allocated
+    nullify (this%temprain)
+    nullify (this%tempevap)
+    nullify (this%temproff)
+    nullify (this%tempiflw)
     !
     ! -- Deallocate arrays
     call mem_deallocate(this%ktf)
@@ -1109,254 +1105,43 @@ contains
     end select
   end subroutine lke_bd_obs
 
-  !> @brief Sets the stress period attributes for keyword use.
-  !<
-  subroutine lke_set_stressperiod(this, itemno, keyword, found)
-    ! -- modules
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-    ! -- dummy
-    class(GweLkeType), intent(inout) :: this
-    integer(I4B), intent(in) :: itemno
-    character(len=*), intent(in) :: keyword
-    logical, intent(inout) :: found
-    ! -- local
-    character(len=LINELENGTH) :: text
-    integer(I4B) :: ierr
-    integer(I4B) :: jj
-    real(DP), pointer :: bndElem => null()
-    !
-    ! RAINFALL <rainfall>
-    ! EVAPORATION <evaporation>
-    ! RUNOFF <runoff>
-    ! EXT-INFLOW <inflow>
-    ! WITHDRAWAL <withdrawal>
-    !
-    found = .true.
-    select case (keyword)
-    case ('RAINFALL')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1
-      bndElem => this%temprain(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'RAINFALL')
-    case ('EVAPORATION')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1
-      bndElem => this%tempevap(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'EVAPORATION')
-    case ('RUNOFF')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1
-      bndElem => this%temproff(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'RUNOFF')
-    case ('EXT-INFLOW')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1
-      bndElem => this%tempiflw(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'EXT-INFLOW')
-    case default
-      !
-      ! -- Keyword not recognized so return to caller with found = .false.
-      found = .false.
-    end select
-    !
-999 continue
-  end subroutine lke_set_stressperiod
-
-  !> @brief Read feature information for this advanced package
+  !> @brief Source LKE PACKAGEDATA, including thermal conduction fields.
   !<
   subroutine lke_read_cvs(this)
-    ! -- modules
-    use MemoryManagerModule, only: mem_allocate
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-    ! -- dummy
+    use MemoryManagerModule, only: mem_allocate, mem_setptr
+    use MemoryManagerExtModule, only: memorystore_release
     class(GweLkeType), intent(inout) :: this
-    ! -- local
-    character(len=LINELENGTH) :: text
-    character(len=LENBOUNDNAME) :: bndName, bndNameTemp
-    character(len=9) :: cno
-    character(len=50), dimension(:), allocatable :: caux
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
-    integer(I4B) :: n
-    integer(I4B) :: ii, jj
-    integer(I4B) :: iaux
-    integer(I4B) :: itmp
-    integer(I4B) :: nlak
-    integer(I4B) :: nconn
-    integer(I4B), dimension(:), pointer, contiguous :: nboundchk
-    real(DP), pointer :: bndElem => null()
+    integer(I4B) :: n, ifeat
+    real(DP), dimension(:), pointer, contiguous :: ktf_ptr => null()
+    real(DP), dimension(:), pointer, contiguous :: rbthcnd_ptr => null()
     !
-    ! -- initialize itmp
-    itmp = 0
+    ! -- base class reads STRT, AUX, BOUNDNAME and sets pkg_ifno
+    call this%TspAptType%apt_source_cvs()
     !
-    ! -- allocate apt data
-    call mem_allocate(this%strt, this%ncv, 'STRT', this%memoryPath)
+    ! -- allocate GWE-specific arrays
     call mem_allocate(this%ktf, this%ncv, 'KTF', this%memoryPath)
     call mem_allocate(this%rfeatthk, this%ncv, 'RFEATTHK', this%memoryPath)
-    call mem_allocate(this%lauxvar, this%naux, this%ncv, 'LAUXVAR', &
-                      this%memoryPath)
     !
-    ! -- lake boundary and concentrations
-    if (this%imatrows == 0) then
-      call mem_allocate(this%iboundpak, this%ncv, 'IBOUND', this%memoryPath)
-      call mem_allocate(this%xnewpak, this%ncv, 'XNEWPAK', this%memoryPath)
-    end if
-    call mem_allocate(this%xoldpak, this%ncv, 'XOLDPAK', this%memoryPath)
-    !
-    ! -- allocate character storage not managed by the memory manager
-    allocate (this%featname(this%ncv)) ! ditch after boundnames allocated??
-    !allocate(this%status(this%ncv))
-    !
-    do n = 1, this%ncv
-      this%strt(n) = DEP20
-      this%ktf(n) = DZERO
-      this%rfeatthk(n) = DZERO
-      this%lauxvar(:, n) = DZERO
-      this%xoldpak(n) = DEP20
-      if (this%imatrows == 0) then
-        this%iboundpak(n) = 1
-        this%xnewpak(n) = DEP20
+    ! -- populate from PACKAGEDATA
+    call mem_setptr(ktf_ptr, 'KTF', this%input_mempath)
+    call mem_setptr(rbthcnd_ptr, 'RBTHCND', this%input_mempath)
+    do n = 1, size(this%pkg_ifno)
+      ifeat = this%pkg_ifno(n)
+      if (ifeat < 1 .or. ifeat > this%ncv) cycle
+      this%ktf(ifeat) = ktf_ptr(n)
+      this%rfeatthk(ifeat) = rbthcnd_ptr(n)
+      if (this%rfeatthk(ifeat) <= DZERO) then
+        write (errmsg, '(4x,a)') &
+          '****ERROR. Specified thickness used for thermal '// &
+          'conduction MUST BE > 0 else divide by zero error occurs'
+        call store_error(errmsg)
       end if
     end do
-    !
-    ! -- allocate local storage for aux variables
-    if (this%naux > 0) then
-      allocate (caux(this%naux))
-    end if
-    !
-    ! -- allocate and initialize temporary variables
-    allocate (nboundchk(this%ncv))
-    do n = 1, this%ncv
-      nboundchk(n) = 0
-    end do
-    !
-    ! -- get packagedata block
-    call this%parser%GetBlock('PACKAGEDATA', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse locations block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
-        ' PACKAGEDATA'
-      nlak = 0
-      nconn = 0
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        n = this%parser%GetInteger()
-
-        if (n < 1 .or. n > this%ncv) then
-          write (errmsg, '(a,1x,i6)') &
-            'Itemno must be > 0 and <= ', this%ncv
-          call store_error(errmsg)
-          cycle
-        end if
-        !
-        ! -- increment nboundchk
-        nboundchk(n) = nboundchk(n) + 1
-        !
-        ! -- strt
-        this%strt(n) = this%parser%GetDouble()
-        !
-        ! -- read additional thermal conductivity terms
-        this%ktf(n) = this%parser%GetDouble()
-        this%rfeatthk(n) = this%parser%GetDouble()
-        if (this%rfeatthk(n) <= DZERO) then
-          write (errmsg, '(4x,a)') &
-          '****ERROR. Specified thickness used for thermal &
-          &conduction MUST BE > 0 else divide by zero error occurs'
-          call store_error(errmsg)
-          cycle
-        end if
-        !
-        ! -- get aux data
-        do iaux = 1, this%naux
-          call this%parser%GetString(caux(iaux))
-        end do
-
-        ! -- set default bndName
-        write (cno, '(i9.9)') n
-        bndName = 'Feature'//cno
-
-        ! -- featname
-        if (this%inamedbound /= 0) then
-          call this%parser%GetStringCaps(bndNameTemp)
-          if (bndNameTemp /= '') then
-            bndName = bndNameTemp
-          end if
-        end if
-        this%featname(n) = bndName
-
-        ! -- fill time series aware data
-        ! -- fill aux data
-        do jj = 1, this%naux
-          text = caux(jj)
-          ii = n
-          bndElem => this%lauxvar(jj, ii)
-          call read_value_or_time_series_adv(text, ii, jj, bndElem, &
-                                             this%packName, 'AUX', &
-                                             this%tsManager, this%iprpak, &
-                                             this%auxname(jj))
-        end do
-        !
-        nlak = nlak + 1
-      end do
-      !
-      ! -- check for duplicate or missing lakes
-      do n = 1, this%ncv
-        if (nboundchk(n) == 0) then
-          write (errmsg, '(a,1x,i0,1x,a)') 'No data specified for feature', n, &
-            'in LKE PACKAGEDATA block'
-          call store_error(errmsg)
-        else if (nboundchk(n) > 1) then
-          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
-            'Data for feature', n, 'specified', nboundchk(n), 'times'
-          call store_error(errmsg)
-        end if
-      end do
-      !
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%text))//' PACKAGEDATA'
-    else
-      call store_error('Required packagedata block not found.')
-    end if
-    !
-    ! -- terminate if any errors were detected
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
-    !
-    ! -- deallocate local storage for aux variables
-    if (this%naux > 0) then
-      deallocate (caux)
-    end if
-    !
-    ! -- deallocate local storage for nboundchk
-    deallocate (nboundchk)
+    call memorystore_release('KTF', this%input_mempath)
+    call memorystore_release('RBTHCND', this%input_mempath)
   end subroutine lke_read_cvs
 
 end module GweLkeModule

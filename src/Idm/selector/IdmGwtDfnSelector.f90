@@ -20,6 +20,10 @@ module IdmGwtDfnSelectorModule
   use GwtOcInputModule
   use GwtSrcInputModule
   use GwtSsmInputModule
+  use GwtLktInputModule
+  use GwtMwtInputModule
+  use GwtSftInputModule
+  use GwtUztInputModule
 
   implicit none
   private
@@ -85,6 +89,14 @@ contains
       call set_param_pointer(input_definition, gwt_src_param_definitions)
     case ('SSM')
       call set_param_pointer(input_definition, gwt_ssm_param_definitions)
+    case ('LKT')
+      call set_param_pointer(input_definition, gwt_lkt_param_definitions)
+    case ('MWT')
+      call set_param_pointer(input_definition, gwt_mwt_param_definitions)
+    case ('SFT')
+      call set_param_pointer(input_definition, gwt_sft_param_definitions)
+    case ('UZT')
+      call set_param_pointer(input_definition, gwt_uzt_param_definitions)
     case default
     end select
     return
@@ -125,6 +137,14 @@ contains
       call set_param_pointer(input_definition, gwt_src_aggregate_definitions)
     case ('SSM')
       call set_param_pointer(input_definition, gwt_ssm_aggregate_definitions)
+    case ('LKT')
+      call set_param_pointer(input_definition, gwt_lkt_aggregate_definitions)
+    case ('MWT')
+      call set_param_pointer(input_definition, gwt_mwt_aggregate_definitions)
+    case ('SFT')
+      call set_param_pointer(input_definition, gwt_sft_aggregate_definitions)
+    case ('UZT')
+      call set_param_pointer(input_definition, gwt_uzt_aggregate_definitions)
     case default
     end select
     return
@@ -165,6 +185,14 @@ contains
       call set_block_pointer(input_definition, gwt_src_block_definitions)
     case ('SSM')
       call set_block_pointer(input_definition, gwt_ssm_block_definitions)
+    case ('LKT')
+      call set_block_pointer(input_definition, gwt_lkt_block_definitions)
+    case ('MWT')
+      call set_block_pointer(input_definition, gwt_mwt_block_definitions)
+    case ('SFT')
+      call set_block_pointer(input_definition, gwt_sft_block_definitions)
+    case ('UZT')
+      call set_block_pointer(input_definition, gwt_uzt_block_definitions)
     case default
     end select
     return
@@ -204,6 +232,14 @@ contains
       multi_package = gwt_src_multi_package
     case ('SSM')
       multi_package = gwt_ssm_multi_package
+    case ('LKT')
+      multi_package = gwt_lkt_multi_package
+    case ('MWT')
+      multi_package = gwt_mwt_multi_package
+    case ('SFT')
+      multi_package = gwt_sft_multi_package
+    case ('UZT')
+      multi_package = gwt_uzt_multi_package
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="GWT"'//&
@@ -246,6 +282,14 @@ contains
       call set_subpkg_pointer(subpackages, gwt_src_subpackages)
     case ('SSM')
       call set_subpkg_pointer(subpackages, gwt_ssm_subpackages)
+    case ('LKT')
+      call set_subpkg_pointer(subpackages, gwt_lkt_subpackages)
+    case ('MWT')
+      call set_subpkg_pointer(subpackages, gwt_mwt_subpackages)
+    case ('SFT')
+      call set_subpkg_pointer(subpackages, gwt_sft_subpackages)
+    case ('UZT')
+      call set_subpkg_pointer(subpackages, gwt_uzt_subpackages)
     case default
     end select
     return
@@ -285,6 +329,14 @@ contains
     case ('SRC')
       integrated = .true.
     case ('SSM')
+      integrated = .true.
+    case ('LKT')
+      integrated = .true.
+    case ('MWT')
+      integrated = .true.
+    case ('SFT')
+      integrated = .true.
+    case ('UZT')
       integrated = .true.
     case default
     end select

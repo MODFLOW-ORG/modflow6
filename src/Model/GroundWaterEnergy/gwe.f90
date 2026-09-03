@@ -752,20 +752,24 @@ contains
                       pakname, this%gwecommon, mempath)
     case ('LKE6')
       call lke_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
-                      pakname, this%fmi, this%eqnsclfac, this%gwecommon, &
-                      this%depvartype, this%depvarunit, this%depvarunitabbrev)
+                      pakname, mempath, this%fmi, this%eqnsclfac, &
+                      this%gwecommon, this%depvartype, this%depvarunit, &
+                      this%depvarunitabbrev)
     case ('SFE6')
       call sfe_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
-                      pakname, this%fmi, this%eqnsclfac, this%gwecommon, &
-                      this%depvartype, this%depvarunit, this%depvarunitabbrev)
+                      pakname, mempath, this%fmi, this%eqnsclfac, &
+                      this%gwecommon, this%depvartype, this%depvarunit, &
+                      this%depvarunitabbrev)
     case ('MWE6')
       call mwe_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
-                      pakname, this%fmi, this%eqnsclfac, this%gwecommon, &
-                      this%depvartype, this%depvarunit, this%depvarunitabbrev)
+                      pakname, mempath, this%fmi, this%eqnsclfac, &
+                      this%gwecommon, this%depvartype, this%depvarunit, &
+                      this%depvarunitabbrev)
     case ('UZE6')
       call uze_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
-                      pakname, this%fmi, this%eqnsclfac, this%gwecommon, &
-                      this%depvartype, this%depvarunit, this%depvarunitabbrev)
+                      pakname, mempath, this%fmi, this%eqnsclfac, &
+                      this%gwecommon, this%depvartype, this%depvarunit, &
+                      this%depvarunitabbrev)
       !case('API6')
       !  call api_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
       !                  pakname)

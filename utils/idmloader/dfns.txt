@@ -102,3 +102,11 @@ utl-tvk.dfn
 utl-tvs.dfn
 utl-spc.dfn
 utl-spca.dfn
+gwt-lkt.dfn
+gwt-mwt.dfn
+gwt-sft.dfn
+gwt-uzt.dfn
+gwe-lke.dfn
+gwe-mwe.dfn
+gwe-sfe.dfn
+gwe-uze.dfn

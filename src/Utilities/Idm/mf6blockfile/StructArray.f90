@@ -13,7 +13,7 @@ module StructArrayModule
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, count_errors, store_error_filename
   use StructVectorModule, only: StructVectorType, TSStringLocType, &
-                                MTYPE_INT, MTYPE_DBL, MTYPE_STR, &
+                                MTYPE_UNDEF, MTYPE_INT, MTYPE_DBL, MTYPE_STR, &
                                 MTYPE_INTVEC, MTYPE_INT2D, MTYPE_DBL2D
   use TimeSeriesManagerModule, only: TimeSeriesManagerType, &
                                      read_value_or_time_series
@@ -52,6 +52,7 @@ module StructArrayModule
     type(ModflowInputType) :: mf6_input
   contains
     procedure :: mem_create_vector
+    procedure :: mem_create_metadata_vector
     procedure :: count
     procedure :: get
     procedure :: allocate_int_type
@@ -76,13 +77,14 @@ contains
   !> @brief constructor for a struct_array
   !<
   function constructStructArray(mf6_input, ncol, nrow, blocknum, mempath, &
-                                component_mempath) result(struct_array)
+                                component_mempath, size_init) result(struct_array)
     type(ModflowInputType), intent(in) :: mf6_input
     integer(I4B), intent(in) :: ncol !< number of columns in the StructArrayType
     integer(I4B), intent(in) :: nrow !< number of rows in the StructArrayType
     integer(I4B), intent(in) :: blocknum !< valid block number or 0
     character(len=*), intent(in) :: mempath !< memory path for storing the vector
     character(len=*), intent(in) :: component_mempath
+    integer(I4B), optional, intent(in) :: size_init !< initial deferred allocation size (default 5)
     type(StructArrayType), pointer :: struct_array !< new StructArrayType
 
     ! allocate StructArrayType
@@ -99,6 +101,10 @@ contains
     if (struct_array%nrow == -1) then
       struct_array%nrow = 0
       struct_array%deferred_shape = .true.
+      if (present(size_init)) then
+        ! ignore a non-sensible value and keep the default deferred_size_init
+        if (size_init >= 1) struct_array%deferred_size_init = size_init
+      end if
     end if
 
     ! set blocknum
@@ -131,10 +137,11 @@ contains
 
   !> @brief create new vector in StructArrayType
   !<
-  subroutine mem_create_vector(this, icol, idt)
+  subroutine mem_create_vector(this, icol, idt, charlen)
     class(StructArrayType) :: this !< StructArrayType
     integer(I4B), intent(in) :: icol !< column to create
     type(InputParamDefinitionType), pointer :: idt
+    integer(I4B), optional, intent(in) :: charlen !< override character length for charstr1d
     type(StructVectorType) :: sv
     integer(I4B) :: numcol
 
@@ -142,6 +149,7 @@ contains
     numcol = 1
     sv%idt => idt
     sv%icol = icol
+    if (present(charlen)) sv%charlen = charlen
 
     ! set size
     if (this%deferred_shape) then
@@ -181,6 +189,36 @@ contains
       this%startidx(icol) = this%startidx(icol - 1) + this%numcols(icol - 1)
     end if
   end subroutine mem_create_vector
+
+  !> @brief Create a metadata-only StructVector for a KEYWORD indicator column
+  !!
+  !! Sets idt, isubmember, and nsubmembers but allocates no data arrays.
+  !! Used for KEYWORD indicator columns that have been consolidated into the
+  !! SETTING column; these vectors serve only as dispatch-map entries.
+  !<
+  subroutine mem_create_metadata_vector(this, icol, idt, isubmember, nsubmembers)
+    class(StructArrayType) :: this !< StructArrayType
+    integer(I4B), intent(in) :: icol !< column index
+    type(InputParamDefinitionType), pointer :: idt !< input definition (for tagname lookup)
+    integer(I4B), intent(in) :: isubmember !< icol of first submember (0 if none)
+    integer(I4B), intent(in) :: nsubmembers !< number of submembers
+    type(StructVectorType) :: sv
+
+    sv%idt => idt
+    sv%icol = icol
+    sv%isubmember = isubmember
+    sv%nsubmembers = nsubmembers
+    sv%memtype = MTYPE_UNDEF
+    sv%size = 0
+
+    this%struct_vectors(icol) = sv
+    this%numcols(icol) = 0
+    if (icol == 1) then
+      this%startidx(icol) = 1
+    else
+      this%startidx(icol) = this%startidx(icol - 1) + this%numcols(icol - 1)
+    end if
+  end subroutine mem_create_metadata_vector
 
   function count(this)
     class(StructArrayType) :: this !< StructArrayType
@@ -266,7 +304,7 @@ contains
     if (this%deferred_shape) then
       allocate (charstr1d(this%deferred_size_init))
     else
-      call mem_allocate(charstr1d, LINELENGTH, this%nrow, &
+      call mem_allocate(charstr1d, sv%charlen, this%nrow, &
                         sv%idt%mf6varname, this%mempath)
     end if
 
@@ -288,6 +326,7 @@ contains
     type(StructVectorType), intent(inout) :: sv
     integer(I4B), dimension(:, :), pointer, contiguous :: int2d
     type(STLVecInt), pointer :: intvector
+    type(STLVecInt), pointer :: intvector_ia
     integer(I4B), pointer :: ncelldim, exgid
     character(len=LENMEMPATH) :: input_mempath
     character(len=LENMODELNAME) :: mname
@@ -347,8 +386,19 @@ contains
       sv%memtype = MTYPE_INTVEC
       sv%intvector => intvector
       sv%size = -1
-      ! set pointer to dynamic shape
-      call mem_setptr(sv%intvector_shape, sv%idt%shape, this%mempath)
+      ! seed the CSR row-offset vector (ia(1) = 1)
+      allocate (intvector_ia)
+      call intvector_ia%init()
+      call intvector_ia%push_back(1)
+      sv%intvector_ia => intvector_ia
+      if (trim(sv%idt%shape) == ':') then
+        ! ragged column: width unknown until read_param reads to end of
+        ! record; intvector_shape stays unassociated
+        sv%intvector_ragged = .true.
+      else
+        ! set pointer to dynamic shape
+        call mem_setptr(sv%intvector_shape, sv%idt%shape, this%mempath)
+      end if
     end if
   end subroutine allocate_int1d_type
 
@@ -364,10 +414,16 @@ contains
 
     if (sv%idt%shape == 'NAUX') then
       call mem_setptr(naux, sv%idt%shape, this%mempath)
-      call mem_allocate(dbl2d, naux, this%nrow, sv%idt%mf6varname, this%mempath)
+
+      if (this%deferred_shape) then
+        ! deferred: plain allocate so check_reallocate can grow it safely
+        allocate (dbl2d(naux, sv%size))
+      else
+        call mem_allocate(dbl2d, naux, this%nrow, sv%idt%mf6varname, this%mempath)
+      end if
 
       ! initialize
-      do m = 1, this%nrow
+      do m = 1, sv%size
         do n = 1, naux
           dbl2d(n, m) = DZERO
         end do
@@ -387,11 +443,15 @@ contains
         call mem_setptr(nseg_1, 'NSEG_1', this%mempath)
       end if
 
-      ! allocate
-      call mem_allocate(dbl2d, nseg_1, this%nrow, sv%idt%mf6varname, this%mempath)
+      if (this%deferred_shape) then
+        ! deferred: plain allocate so check_reallocate can grow it safely
+        allocate (dbl2d(nseg_1, sv%size))
+      else
+        call mem_allocate(dbl2d, nseg_1, sv%size, sv%idt%mf6varname, this%mempath)
+      end if
 
       ! initialize
-      do m = 1, this%nrow
+      do m = 1, sv%size
         do n = 1, nseg_1
           dbl2d(n, m) = DZERO
         end do
@@ -415,6 +475,7 @@ contains
     integer(I4B), dimension(:), pointer, contiguous :: p_int1d
     integer(I4B), dimension(:, :), pointer, contiguous :: p_int2d
     real(DP), dimension(:), pointer, contiguous :: p_dbl1d
+    real(DP), dimension(:, :), pointer, contiguous :: p_dbl2d
     type(CharacterStringType), dimension(:), pointer, contiguous :: p_charstr1d
     character(len=LENVARNAME) :: varname
     logical(LGP) :: overwrite
@@ -522,8 +583,8 @@ contains
 
         if (overwrite) then
           if (this%nrow > isize) then
-            call mem_reallocate(p_charstr1d, LINELENGTH, this%nrow, varname, &
-                                this%mempath)
+            call mem_reallocate(p_charstr1d, this%struct_vectors(icol)%charlen, &
+                                this%nrow, varname, this%mempath)
           end if
 
           do i = 1, this%nrow
@@ -536,15 +597,15 @@ contains
             end do
           end if
         else
-          call mem_reallocate(p_charstr1d, LINELENGTH, this%nrow + isize, &
-                              varname, this%mempath)
+          call mem_reallocate(p_charstr1d, this%struct_vectors(icol)%charlen, &
+                              this%nrow + isize, varname, this%mempath)
           do i = 1, this%nrow
             p_charstr1d(isize + i) = this%struct_vectors(icol)%charstr1d(i)
           end do
         end if
       else
-        call mem_allocate(p_charstr1d, LINELENGTH, this%nrow, varname, &
-                          this%mempath)
+        call mem_allocate(p_charstr1d, this%struct_vectors(icol)%charlen, &
+                          this%nrow, varname, this%mempath)
         do i = 1, this%nrow
           p_charstr1d(i) = this%struct_vectors(icol)%charstr1d(i)
           call this%struct_vectors(icol)%charstr1d(i)%destroy()
@@ -579,9 +640,24 @@ contains
       this%struct_vectors(icol)%int2d => p_int2d
       this%struct_vectors(icol)%size = this%nrow
     case (MTYPE_DBL2D)
-      errmsg = 'StructArray::load_deferred_vector &
-               &dbl2d reallocate unimplemented.'
-      call store_error(errmsg, terminate=.TRUE.)
+      if (isize > -1) then
+        errmsg = 'StructArray::load_deferred_vector &
+                 &dbl2d reallocate unimplemented.'
+        call store_error(errmsg, terminate=.TRUE.)
+      else
+        call mem_allocate(p_dbl2d, this%struct_vectors(icol)%intshape, &
+                          this%nrow, varname, this%mempath)
+        do i = 1, this%nrow
+          do j = 1, this%struct_vectors(icol)%intshape
+            p_dbl2d(j, i) = this%struct_vectors(icol)%dbl2d(j, i)
+          end do
+        end do
+      end if
+
+      deallocate (this%struct_vectors(icol)%dbl2d)
+
+      this%struct_vectors(icol)%dbl2d => p_dbl2d
+      this%struct_vectors(icol)%size = this%nrow
     case default
     end select
   end subroutine load_deferred_vector
@@ -592,6 +668,7 @@ contains
     class(StructArrayType) :: this !< StructArrayType
     integer(I4B) :: icol, j
     integer(I4B), dimension(:), pointer, contiguous :: p_intvector
+    integer(I4B), dimension(:), pointer, contiguous :: p_intvector_ia
     character(len=LENVARNAME) :: varname
 
     do icol = 1, this%ncol
@@ -617,6 +694,17 @@ contains
         call this%struct_vectors(icol)%intvector%destroy()
         deallocate (this%struct_vectors(icol)%intvector)
         nullify (this%struct_vectors(icol)%intvector_shape)
+
+        ! publish the parallel CSR-style row-offset vector as <TAGNAME>_IA
+        call mem_allocate(p_intvector_ia, &
+                          this%struct_vectors(icol)%intvector_ia%size, &
+                          trim(varname)//'_IA', this%mempath)
+        do j = 1, this%struct_vectors(icol)%intvector_ia%size
+          p_intvector_ia(j) = this%struct_vectors(icol)%intvector_ia%at(j)
+        end do
+        call this%struct_vectors(icol)%intvector_ia%destroy()
+        deallocate (this%struct_vectors(icol)%intvector_ia)
+        nullify (this%struct_vectors(icol)%intvector_ia)
       else if (this%deferred_shape) then
         ! load as shape wasn't known
         call this%load_deferred_vector(icol)
@@ -684,6 +772,7 @@ contains
     integer(I4B), dimension(:), pointer, contiguous :: p_int1d
     integer(I4B), dimension(:, :), pointer, contiguous :: p_int2d
     real(DP), dimension(:), pointer, contiguous :: p_dbl1d
+    real(DP), dimension(:, :), pointer, contiguous :: p_dbl2d
     type(CharacterStringType), dimension(:), pointer, contiguous :: p_charstr1d
     integer(I4B) :: reallocate_mult
 
@@ -759,7 +848,24 @@ contains
           this%struct_vectors(j)%int2d => p_int2d
           this%struct_vectors(j)%size = newsize
         end if
-        ! TODO: case (6)
+      case (MTYPE_DBL2D)
+        if (this%nrow > this%struct_vectors(j)%size) then
+          newsize = this%struct_vectors(j)%size * reallocate_mult
+          allocate (p_dbl2d(this%struct_vectors(j)%intshape, newsize))
+
+          do i = 1, this%struct_vectors(j)%size
+            do k = 1, this%struct_vectors(j)%intshape
+              p_dbl2d(k, i) = this%struct_vectors(j)%dbl2d(k, i)
+            end do
+          end do
+
+          deallocate (this%struct_vectors(j)%dbl2d)
+
+          this%struct_vectors(j)%dbl2d => p_dbl2d
+          this%struct_vectors(j)%size = newsize
+        end if
+      case (MTYPE_UNDEF, MTYPE_INTVEC)
+        ! metadata-only or unsupported: skip reallocation check
       case default
         errmsg = 'IDM unimplemented. StructArray::check_reallocate &
                  &unsupported memtype.'
@@ -769,6 +875,7 @@ contains
   end subroutine check_reallocate
 
   subroutine read_param(this, parser, sv_col, irow, timeseries, iout, auxcol)
+    use InputOutputModule, only: upcase
     class(StructArrayType) :: this !< StructArrayType
     type(BlockParserType), intent(inout) :: parser !< block parser to read from
     integer(I4B), intent(in) :: sv_col
@@ -779,9 +886,14 @@ contains
     integer(I4B) :: n, intval, numval, icol
     character(len=LINELENGTH) :: str
     character(len=:), allocatable :: line
-    logical(LGP) :: preserve_case
+    logical(LGP) :: preserve_case, success
 
     select case (this%struct_vectors(sv_col)%memtype)
+    case (MTYPE_UNDEF)
+      ! MTYPE_UNDEF vectors are metadata-only (KEYWORD dispatch headers).
+      write (errmsg, '(a,i0)') &
+        'IDM read_param called for MTYPE_UNDEF metadata vector at column ', sv_col
+      call store_error(errmsg, .true.)
     case (MTYPE_INT)
       ! if reloadable block and first col, store blocknum
       if (sv_col == 1 .and. this%blocknum > 0) then
@@ -802,6 +914,11 @@ contains
         this%struct_vectors(sv_col)%dbl1d(irow) = &
           this%struct_vectors(sv_col)%read_token(str, this%startidx(sv_col), &
                                                  icol, irow)
+      else if (sv_col == this%ncol .and. &
+               .not. this%struct_vectors(sv_col)%idt%required) then
+        call parser%TryGetDouble(this%struct_vectors(sv_col)%dbl1d(irow), success)
+        if (.not. success) &
+          this%struct_vectors(sv_col)%dbl1d(irow) = DNODATA
       else
         this%struct_vectors(sv_col)%dbl1d(irow) = parser%GetDouble()
       end if
@@ -820,18 +937,56 @@ contains
         this%struct_vectors(sv_col)%charstr1d(irow) = str
       end if
     case (MTYPE_INTVEC)
-      ! get shape for this row
-      numval = this%struct_vectors(sv_col)%intvector_shape(irow)
-      ! read and store row values
-      do n = 1, numval
-        intval = parser%GetInteger()
-        call this%struct_vectors(sv_col)%intvector%push_back(intval)
-      end do
+      if (this%struct_vectors(sv_col)%intvector_ragged) then
+        ! read to end of record; consumers compare the actual count read
+        ! against whatever width they independently expect
+        numval = 0
+        success = .true.
+        do while (success)
+          call parser%TryGetInteger(intval, success)
+          if (success) then
+            call this%struct_vectors(sv_col)%intvector%push_back(intval)
+            numval = numval + 1
+          end if
+        end do
+      else
+        ! get shape for this row
+        numval = this%struct_vectors(sv_col)%intvector_shape(irow)
+        ! read and store row values
+        do n = 1, numval
+          intval = parser%GetInteger()
+          call this%struct_vectors(sv_col)%intvector%push_back(intval)
+        end do
+      end if
+      ! extend the CSR-style row-offset vector with this row's running total
+      call this%struct_vectors(sv_col)%intvector_ia%push_back( &
+        this%struct_vectors(sv_col)%intvector_ia%at( &
+        this%struct_vectors(sv_col)%intvector_ia%size) + numval)
     case (MTYPE_INT2D)
       ! read and store row values
-      do n = 1, this%struct_vectors(sv_col)%intshape
-        this%struct_vectors(sv_col)%int2d(n, irow) = parser%GetInteger()
-      end do
+      ! handle 'NONE' keyword (SFR unconnected reaches) for backward compatibility
+      if (trim(this%mf6_input%subcomponent_type) == 'SFR' .and. &
+          this%struct_vectors(sv_col)%idt%tagname == 'CELLID') then
+        call parser%GetString(str)
+        call upcase(str)
+        if (str == 'NONE') then
+          ! NONE means unconnected; store zeros for all dimensions
+          do n = 1, this%struct_vectors(sv_col)%intshape
+            this%struct_vectors(sv_col)%int2d(n, irow) = 0
+          end do
+        else
+          ! first token already read as str; parse as integer and read the rest
+          read (str, *, iostat=numval) intval
+          this%struct_vectors(sv_col)%int2d(1, irow) = intval
+          do n = 2, this%struct_vectors(sv_col)%intshape
+            this%struct_vectors(sv_col)%int2d(n, irow) = parser%GetInteger()
+          end do
+        end if
+      else
+        do n = 1, this%struct_vectors(sv_col)%intshape
+          this%struct_vectors(sv_col)%int2d(n, irow) = parser%GetInteger()
+        end do
+      end if
     case (MTYPE_DBL2D)
       ! read and store row values
       do n = 1, this%struct_vectors(sv_col)%intshape
@@ -852,7 +1007,7 @@ contains
   function read_from_parser(this, parser, timeseries, iout, input_name) &
     result(irow)
     class(StructArrayType) :: this !< StructArrayType
-    type(BlockParserType) :: parser !< block parser to read from
+    type(BlockParserType), intent(inout) :: parser !< block parser to read from
     logical(LGP), intent(in) :: timeseries
     integer(I4B), intent(in) :: iout !< unit number for output
     character(len=*), intent(in) :: input_name !< input filename for error messages
@@ -932,7 +1087,7 @@ contains
     use InputOutputModule, only: upcase
     use SimModule, only: store_error_filename
     class(StructArrayType) :: this !< StructArrayType
-    type(BlockParserType) :: parser !< block parser to read from
+    type(BlockParserType), intent(inout) :: parser !< block parser to read from
     logical(LGP), intent(in) :: timeseries !< .true. when TS files loaded
     integer(I4B), intent(in) :: nleading !< number of leading (fixed) columns
     integer(I4B), intent(in) :: iout !< unit number for output
@@ -944,7 +1099,7 @@ contains
 
     irow = 0
 
-    ! SETTING column, when present, is always at nleading+1
+    ! SETTING column is always at nleading+1 when present; detect by tagname
     setting_icol = 0
     if (nleading + 1 <= this%ncol) then
       if (trim(this%struct_vectors(nleading + 1)%idt%tagname) == 'SETTING') then
@@ -988,13 +1143,24 @@ contains
       call parser%GetString(keyword)
       call upcase(keyword)
 
-      ! find the matching keystring-member column
+      ! find the matching keystring-member column (skip SETTING column, and
+      ! skip a KEYWORD header's own sub-members -- those are only reachable
+      ! through their header, never as a top-level dispatch keyword)
       found_col = 0
-      do icol = nleading + 1, this%ncol
-        if (icol == setting_icol) cycle
+      icol = nleading + 1
+      do while (icol <= this%ncol)
+        if (icol == setting_icol) then
+          icol = icol + 1
+          cycle
+        end if
         if (trim(this%struct_vectors(icol)%idt%tagname) == trim(keyword)) then
           found_col = icol
           exit
+        end if
+        if (this%struct_vectors(icol)%nsubmembers > 0) then
+          icol = icol + this%struct_vectors(icol)%nsubmembers + 1
+        else
+          icol = icol + 1
         end if
       end do
 
@@ -1007,10 +1173,10 @@ contains
         cycle
       end if
 
-      ! write dispatch keyword (as mf6varname) to SETTING column when present
+      ! write dispatch keyword as tagname to SETTING column when present
       if (setting_icol > 0) then
         this%struct_vectors(setting_icol)%charstr1d(irow) = &
-          trim(this%struct_vectors(found_col)%idt%mf6varname)
+          trim(this%struct_vectors(found_col)%idt%tagname)
       end if
 
       ! determine dispatch mode and set/read matched column(s)
@@ -1019,18 +1185,18 @@ contains
 
       if (is_keyword_dispatch) then
         ! Compound or no-value KEYWORD dispatch:
-        ! the dispatch keyword token was already consumed; store it in the
-        ! KEYWORD column (charstr) without reading another token.
-        this%struct_vectors(found_col)%charstr1d(irow) = trim(keyword)
+        ! found_col is a metadata vector (MTYPE_UNDEF) — no data to write.
+        ! Read sub-members starting at isubmember for nsubmembers columns.
         last_set_col = found_col
-        ! read exactly nsubmembers compound sub-member columns that
-        ! immediately follow in the struct array
-        do icol = found_col + 1, &
-          found_col + this%struct_vectors(found_col)%nsubmembers
-          if (icol > this%ncol) exit
-          call this%read_param(parser, icol, irow, timeseries, iout)
-          last_set_col = icol
-        end do
+        if (this%struct_vectors(found_col)%isubmember > 0) then
+          do icol = this%struct_vectors(found_col)%isubmember, &
+            this%struct_vectors(found_col)%isubmember + &
+            this%struct_vectors(found_col)%nsubmembers - 1
+            if (icol > this%ncol) exit
+            call this%read_param(parser, icol, irow, timeseries, iout)
+            last_set_col = icol
+          end do
+        end if
       else
         ! Simple single-value dispatch: read one value for the matched column
         call this%read_param(parser, found_col, irow, timeseries, iout)
@@ -1039,9 +1205,14 @@ contains
 
       ! fill sentinels for all non-matched member columns
       do icol = nleading + 1, this%ncol
+        ! skip SETTING column (always written above when present)
         if (icol == setting_icol) cycle
+        ! skip metadata vectors (MTYPE_UNDEF, no allocated data arrays)
+        if (this%struct_vectors(icol)%memtype == MTYPE_UNDEF) cycle
         if (icol >= found_col .and. icol <= last_set_col) cycle
         select case (this%struct_vectors(icol)%memtype)
+        case (MTYPE_INT) ! INTEGER: use IZERO sentinel
+          this%struct_vectors(icol)%int1d(irow) = IZERO
         case (MTYPE_DBL) ! DOUBLE: use DNODATA sentinel
           this%struct_vectors(icol)%dbl1d(irow) = DNODATA
         case (MTYPE_STR) ! STRING or KEYWORD: use empty string sentinel
@@ -1096,6 +1267,12 @@ contains
                    trim(this%struct_vectors(j)%idt%tagname)//'.'
           call store_error(errmsg, terminate=.TRUE.)
         case (MTYPE_INTVEC)
+          if (this%struct_vectors(j)%intvector_ragged) then
+            errmsg = 'List style binary inputs not supported for &
+                     &self-sizing (ragged) columns, tag='// &
+                     trim(this%struct_vectors(j)%idt%tagname)//'.'
+            call store_error(errmsg, terminate=.TRUE.)
+          end if
           ! get shape for this row
           numval = this%struct_vectors(j)%intvector_shape(irow)
           ! read and store row values
@@ -1162,7 +1339,7 @@ contains
   !!
   !<
   subroutine ts_update(this, tsmanager, subcomp_name, iprpak, input_name, &
-                       auxname_cst, clear_strlocs)
+                       auxname_cst, clear_strlocs, ifno_map)
     class(StructArrayType), intent(inout) :: this
     type(TimeSeriesManagerType), pointer, intent(inout) :: tsmanager
     character(len=*), intent(in) :: subcomp_name
@@ -1171,11 +1348,12 @@ contains
     type(CharacterStringType), dimension(:), pointer, intent(in), &
       optional :: auxname_cst
     logical(LGP), optional, intent(in) :: clear_strlocs !< if .false. strlocs are preserved for re-registration (default .true.)
+    integer(I4B), dimension(:), optional, intent(in) :: ifno_map !< if present, maps ts_strloc%row (PACKAGEDATA row) to its feature number, used as the TS link row address
     type(TSStringLocType), pointer :: ts_strloc
     type(TimeSeriesLinkType), pointer :: tsLink
     real(DP), pointer :: bndElem
     character(len=LENBOUNDNAME) :: boundname
-    integer(I4B) :: m, n, iboundname
+    integer(I4B) :: m, n, iboundname, irow
     logical(LGP) :: do_clear
 
     do_clear = .true.
@@ -1195,11 +1373,16 @@ contains
       do n = 1, this%struct_vectors(m)%ts_strlocs%count()
         ts_strloc => this%struct_vectors(m)%get_ts_strloc(n)
         nullify (tsLink)
+        irow = ts_strloc%row
+        if (present(ifno_map)) irow = ifno_map(ts_strloc%row)
         select case (this%struct_vectors(m)%memtype)
         case (MTYPE_DBL) ! dbl1d (BND)
           bndElem => this%struct_vectors(m)%dbl1d(ts_strloc%row)
-          call read_value_or_time_series(ts_strloc%token, ts_strloc%row, &
-                                         ts_strloc%structarray_col, bndElem, &
+          ! -- JCol=0, matching apply_setting_value's own fixed JCol for
+          ! -- generic BND PERIOD settings, so a stale PACKAGEDATA-level
+          ! -- link is found and cleared the same way AUX's is
+          call read_value_or_time_series(ts_strloc%token, irow, &
+                                         0, bndElem, &
                                          subcomp_name, 'BND', tsmanager, &
                                          iprpak, tsLink)
           if (associated(tsLink)) then
@@ -1214,8 +1397,13 @@ contains
           if (.not. present(auxname_cst)) cycle
           if (.not. associated(auxname_cst)) cycle
           bndElem => this%struct_vectors(m)%dbl2d(ts_strloc%col, ts_strloc%row)
-          call read_value_or_time_series(ts_strloc%token, ts_strloc%row, &
-                                         ts_strloc%structarray_col, bndElem, &
+          ! -- JCol must be the position within the AUX array (ts_strloc%col),
+          ! -- not the absolute row-schema column (structarray_col), so that
+          ! -- apply_period_auxiliary's remove_existing_link search (which
+          ! -- addresses AUX columns by their 1..naux position) can find and
+          ! -- clear this link when a PERIOD AUXILIARY override supersedes it
+          call read_value_or_time_series(ts_strloc%token, irow, &
+                                         ts_strloc%col, bndElem, &
                                          subcomp_name, 'AUX', tsmanager, &
                                          iprpak, tsLink)
           if (associated(tsLink)) then

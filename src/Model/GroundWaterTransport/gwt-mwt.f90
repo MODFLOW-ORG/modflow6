@@ -35,8 +35,10 @@
 module GwtMwtModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, LINELENGTH
-  use SimModule, only: store_error
+  use ConstantsModule, only: DZERO, LINELENGTH, DNODATA, LENVARNAME
+  use SimModule, only: store_error, store_error_filename
+  use MemoryManagerModule, only: mem_setptr
+  use CharacterStringModule, only: CharacterStringType
   use BndModule, only: BndType, GetBndFromList
   use TspFmiModule, only: TspFmiType
   use MawModule, only: MawType
@@ -79,7 +81,6 @@ module GwtMwtModule
     procedure :: pak_df_obs => mwt_df_obs
     procedure :: pak_rp_obs => mwt_rp_obs
     procedure :: pak_bd_obs => mwt_bd_obs
-    procedure :: pak_set_stressperiod => mwt_set_stressperiod
 
   end type GwtMwtType
 
@@ -88,7 +89,7 @@ contains
   !> Create new MWT package
   !<
   subroutine mwt_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
-                        fmi, eqnsclfac, dvt, dvu, dvua)
+                        mempath, fmi, eqnsclfac, dvt, dvu, dvua)
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -97,6 +98,7 @@ contains
     integer(I4B), intent(in) :: iout
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
+    character(len=*), intent(in) :: mempath !< input memory path
     type(TspFmiType), pointer :: fmi
     real(DP), intent(in), pointer :: eqnsclfac !< governing equation scale factor
     character(len=*), intent(in) :: dvt !< For GWT, set to "CONCENTRATION" in TspAptType
@@ -110,7 +112,7 @@ contains
     packobj => mwtobj
     !
     ! -- create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, mempath)
     packobj%text = text
     !
     ! -- allocate scalars
@@ -125,6 +127,7 @@ contains
     packobj%ibcnum = ibcnum
     packobj%ncolbnd = 1
     packobj%iscloc = 1
+    packobj%isadvpak = 1
 
     ! -- Store pointer to flow model interface.  When the GwfGwt exchange is
     !    created, it sets fmi%bndlist so that the GWT model has access to all
@@ -192,7 +195,7 @@ contains
       write (errmsg, '(a)') 'Could not find flow package with name '&
                             &//trim(adjustl(this%flowpackagename))//'.'
       call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- allocate space for idxbudssm, which indicates whether this is a
@@ -548,22 +551,16 @@ contains
   !<
   subroutine mwt_allocate_arrays(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate
+    use MemoryManagerModule, only: mem_setptr
     ! -- dummy
     class(GwtMwtType), intent(inout) :: this
-    ! -- local
-    integer(I4B) :: n
     !
-    ! -- time series
-    call mem_allocate(this%concrate, this%ncv, 'CONCRATE', this%memoryPath)
+    ! -- alias into the input context's permanent, feature-indexed RATE
+    ! array (allocated and DZERO-initialized by the loader)
+    call mem_setptr(this%concrate, 'RATE', this%input_mempath)
     !
     ! -- call standard TspAptType allocate arrays
     call this%TspAptType%apt_allocate_arrays()
-    !
-    ! -- Initialize
-    do n = 1, this%ncv
-      this%concrate(n) = DZERO
-    end do
     !
   end subroutine mwt_allocate_arrays
 
@@ -582,8 +579,8 @@ contains
     call mem_deallocate(this%idxbudrtmv)
     call mem_deallocate(this%idxbudfrtm)
     !
-    ! -- deallocate time series
-    call mem_deallocate(this%concrate)
+    ! -- input-context-owned alias, not package-allocated
+    nullify (this%concrate)
     !
     ! -- deallocate scalars in TspAptType
     call this%TspAptType%bnd_da()
@@ -832,46 +829,5 @@ contains
       found = .false.
     end select
   end subroutine mwt_bd_obs
-
-  !> @brief Sets the stress period attributes for keyword use.
-  !<
-  subroutine mwt_set_stressperiod(this, itemno, keyword, found)
-    ! -- modules
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-    ! -- dummy
-    class(GwtMwtType), intent(inout) :: this
-    integer(I4B), intent(in) :: itemno
-    character(len=*), intent(in) :: keyword
-    logical, intent(inout) :: found
-    ! -- local
-    character(len=LINELENGTH) :: text
-    integer(I4B) :: ierr
-    integer(I4B) :: jj
-    real(DP), pointer :: bndElem => null()
-    ! -- formats
-    !
-    ! RATE <rate>
-    !
-    found = .true.
-    select case (keyword)
-    case ('RATE')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1
-      bndElem => this%concrate(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'RATE')
-    case default
-      !
-      ! -- keyword not recognized so return to caller with found = .false.
-      found = .false.
-    end select
-    !
-999 continue
-  end subroutine mwt_set_stressperiod
 
 end module GwtMwtModule

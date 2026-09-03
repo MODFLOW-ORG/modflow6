@@ -8,6 +8,7 @@ type string
 shape
 reader urword
 optional true
+mf6internal flow_pkg_name
 longname keyword to specify name of corresponding flow package
 description keyword to specify the name of the corresponding flow package.  If not specified, then the corresponding flow package must have the same name as this advanced transport package (the name associated with this package in the GWE name file).
 
@@ -26,6 +27,7 @@ type string
 shape
 reader urword
 optional true
+mf6internal fp_aux_name
 longname keyword to specify name of temperature auxiliary variable in flow package
 description keyword to specify the name of an auxiliary variable in the corresponding flow package.  If specified, then the simulated temperatures from this advanced transport package will be copied into the auxiliary variable specified with this name.  Note that the flow package must have an auxiliary variable with this name or the program will terminate with an error.  If the flows for this advanced transport package are read from a file, then this option will have no effect.
 
@@ -43,6 +45,7 @@ name print_input
 type keyword
 reader urword
 optional true
+mf6internal iprpak
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'well'}
 
@@ -51,6 +54,7 @@ name print_temperature
 type keyword
 reader urword
 optional true
+mf6internal iprconc
 longname print calculated temperatures to listing file
 description REPLACE print_temperature {'{#1}': 'well', '{#2}': 'temperature', '{#3}': 'TEMPERATURE'}
 
@@ -59,6 +63,7 @@ name print_flows
 type keyword
 reader urword
 optional true
+mf6internal iprflow
 longname print calculated flows to listing file
 description REPLACE print_flows {'{#1}': 'well'}
 
@@ -67,6 +72,7 @@ name save_flows
 type keyword
 reader urword
 optional true
+mf6internal ipakcb
 longname save well flows to budget file
 description REPLACE save_flows {'{#1}': 'well'}
 
@@ -79,6 +85,7 @@ tagged true
 optional true
 longname
 description
+mf6internal temp_filerec
 
 block options
 name temperature
@@ -112,6 +119,7 @@ tagged true
 optional true
 longname
 description
+mf6internal budfilerec
 
 block options
 name budget
@@ -156,6 +164,7 @@ tagged true
 optional true
 longname
 description
+mf6internal budcsvfilerec
 
 block options
 name budgetcsv
@@ -263,13 +272,14 @@ name dev_nonexpanding_matrix
 type keyword
 reader urword
 optional true
+mf6internal dev_nonexpanding
 longname do not add rows to the solution matrix
 description keyword that solves the feature temperature with a general mixing equation and adds the result to the right-hand side of the GWE equations, instead of adding a row to the solution matrix for each feature.  This development option is not supported.
 
 block packagedata
 name packagedata
 type recarray mawno strt ktf fthk aux boundname
-shape (maxbound)
+shape (nmawwells)
 reader urword
 longname
 description
@@ -284,6 +294,7 @@ reader urword
 longname well number for this entry
 description integer value that defines the well number associated with the specified PACKAGEDATA data on the line. MAWNO must be greater than zero and less than or equal to NMAWWELLS. Well information must be specified for every well or the program will terminate with an error.  The program will also terminate with an error if information for a well is specified more than once.
 numeric_index true
+mf6internal packagedata_ifno
 
 block packagedata
 name strt
@@ -372,6 +383,7 @@ reader urword
 longname well number for this entry
 description integer value that defines the well number associated with the specified PERIOD data on the line. MAWNO must be greater than zero and less than or equal to NMAWWELLS.
 numeric_index true
+mf6internal ifno
 
 block period
 name mwesetting
@@ -400,6 +412,7 @@ shape
 tagged true
 in_record true
 time_series true
+mf6internal temperature_in
 reader urword
 longname well temperature
 description real or character value that defines the temperature for the well. The specified TEMPERATURE is only applied if the well is a constant temperature well. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
@@ -412,6 +425,7 @@ tagged true
 in_record true
 reader urword
 time_series true
+mf6internal rate_in
 longname well injection temperature
 description real or character value that defines the injection temperature $(e.g.,\:^{\circ}C\:or\:^{\circ}F)$ for the well. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -433,6 +447,7 @@ in_record true
 reader urword
 longname
 description keyword for specifying auxiliary variable.
+mf6internal period_auxiliary
 
 block period
 name auxname
@@ -446,11 +461,10 @@ description name for the auxiliary variable to be assigned AUXVAL.  AUXNAME must
 
 block period
 name auxval
-type double precision
+type string
 shape
 tagged false
 in_record true
 reader urword
-time_series true
 longname auxiliary variable value
 description value for the auxiliary variable. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.

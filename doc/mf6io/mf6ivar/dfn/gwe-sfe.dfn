@@ -8,6 +8,7 @@ type string
 shape
 reader urword
 optional true
+mf6internal flow_pkg_name
 longname keyword to specify name of corresponding flow package
 description keyword to specify the name of the corresponding flow package.  If not specified, then the corresponding flow package must have the same name as this advanced transport package (the name associated with this package in the GWE name file).
 
@@ -26,6 +27,7 @@ type string
 shape
 reader urword
 optional true
+mf6internal fp_aux_name
 longname keyword to specify name of temperature auxiliary variable in flow package
 description keyword to specify the name of an auxiliary variable provided in the corresponding flow package (i.e., FLOW\_PACKAGE\_NAME).  If specified, then the simulated temperatures from this advanced energy transport package will be copied into the auxiliary variable specified with this name.  Note that the flow package must have an auxiliary variable with this name or the program will terminate with an error.  If the flows for this advanced energy transport package are read from a file, then this option will have no effect.
 
@@ -43,6 +45,7 @@ name print_input
 type keyword
 reader urword
 optional true
+mf6internal iprpak
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'reach'}
 
@@ -51,6 +54,7 @@ name print_temperature
 type keyword
 reader urword
 optional true
+mf6internal iprconc
 longname print calculated temperature to listing file
 description REPLACE print_temperature {'{#1}': 'reach', '{#2}': 'temperatures', '{#3}': 'TEMPERATURE'}
 
@@ -59,6 +63,7 @@ name print_flows
 type keyword
 reader urword
 optional true
+mf6internal iprflow
 longname print calculated flows to listing file
 description REPLACE print_flows {'{#1}': 'reach'}
 
@@ -67,6 +72,7 @@ name save_flows
 type keyword
 reader urword
 optional true
+mf6internal ipakcb
 longname save reach flows to budget file
 description REPLACE save_flows {'{#1}': 'reach'}
 
@@ -79,6 +85,7 @@ tagged true
 optional true
 longname
 description
+mf6internal temp_filerec
 
 block options
 name temperature
@@ -112,6 +119,7 @@ tagged true
 optional true
 longname
 description
+mf6internal budfilerec
 
 block options
 name budget
@@ -156,6 +164,7 @@ tagged true
 optional true
 longname
 description
+mf6internal budcsvfilerec
 
 block options
 name budgetcsv
@@ -263,13 +272,14 @@ name dev_nonexpanding_matrix
 type keyword
 reader urword
 optional true
+mf6internal dev_nonexpanding
 longname do not add rows to the solution matrix
 description keyword that solves the feature temperature with a general mixing equation and adds the result to the right-hand side of the GWE equations, instead of adding a row to the solution matrix for each feature.  This development option is not supported.
 
 block packagedata
 name packagedata
 type recarray rno strt ktf rbthcnd aux boundname
-shape (maxbound)
+shape (nreaches)
 reader urword
 longname
 description
@@ -284,6 +294,7 @@ reader urword
 longname reach number for this entry
 description integer value that defines the reach number associated with the specified PACKAGEDATA data on the line. RNO must be greater than zero and less than or equal to NREACHES. Reach information must be specified for every reach or the program will terminate with an error.  The program will also terminate with an error if information for a reach is specified more than once.
 numeric_index true
+mf6internal packagedata_ifno
 
 block packagedata
 name strt
@@ -372,6 +383,7 @@ reader urword
 longname reach number for this entry
 description integer value that defines the reach number associated with the specified PERIOD data on the line. RNO must be greater than zero and less than or equal to NREACHES.
 numeric_index true
+mf6internal ifno
 
 block period
 name reachsetting
@@ -400,6 +412,7 @@ shape
 tagged true
 in_record true
 time_series true
+mf6internal temperature_in
 reader urword
 longname reach temperature
 description real or character value that defines the temperature for the reach. The specified TEMPERATURE is only applied if the reach is a constant temperature reach. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
@@ -412,6 +425,7 @@ tagged true
 in_record true
 reader urword
 time_series true
+mf6internal rainfall_in
 longname rainfall temperature
 description real or character value that defines the rainfall temperature $(e.g.,\:^{\circ}C\:or\:^{\circ}F)$ for the reach. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -423,6 +437,7 @@ tagged true
 in_record true
 reader urword
 time_series true
+mf6internal evaporation_in
 longname evaporation temperature
 description use of the EVAPORATION keyword is allowed in the SFE package; however, the specified value is not currently used in SFE calculations.  Instead, the latent heat of evaporation is multiplied by the simulated evaporation rate for determining the thermal energy lost from a stream reach.
 
@@ -434,6 +449,7 @@ tagged true
 in_record true
 reader urword
 time_series true
+mf6internal runoff_in
 longname runoff temperature
 description real or character value that defines the temperature of runoff $(e.g.,\:^{\circ}C\:or\:^{\circ}F)$ for the reach.  Users are free to use whatever temperature scale they want, which might include negative temperatures.  If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -445,6 +461,7 @@ tagged true
 in_record true
 reader urword
 time_series true
+mf6internal inflow_in
 longname inflow temperature
 description real or character value that defines the temperature of inflow $(e.g.,\:^{\circ}C\:or\:^{\circ}F)$ for the reach. Users are free to use whatever temperature scale they want, which might include negative temperatures.  If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -466,6 +483,7 @@ in_record true
 reader urword
 longname
 description keyword for specifying auxiliary variable.
+mf6internal period_auxiliary
 
 block period
 name auxname
@@ -479,11 +497,10 @@ description name for the auxiliary variable to be assigned AUXVAL.  AUXNAME must
 
 block period
 name auxval
-type double precision
+type string
 shape
 tagged false
 in_record true
 reader urword
-time_series true
 longname auxiliary variable value
 description value for the auxiliary variable. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.

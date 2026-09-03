@@ -10,6 +10,7 @@ reader urword
 optional true
 longname keyword to specify name of corresponding flow package
 description keyword to specify the name of the corresponding flow package.  If not specified, then the corresponding flow package must have the same name as this advanced transport package (the name associated with this package in the GWT name file).
+mf6internal flow_pkg_name
 
 block options
 name auxiliary
@@ -28,6 +29,7 @@ reader urword
 optional true
 longname keyword to specify name of concentration auxiliary variable in flow package
 description keyword to specify the name of an auxiliary variable in the corresponding flow package.  If specified, then the simulated concentrations from this advanced transport package will be copied into the auxiliary variable specified with this name.  Note that the flow package must have an auxiliary variable with this name or the program will terminate with an error.  If the flows for this advanced transport package are read from a file, then this option will have no effect.
+mf6internal fp_aux_name
 
 block options
 name boundnames
@@ -43,6 +45,7 @@ name print_input
 type keyword
 reader urword
 optional true
+mf6internal iprpak
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'unsaturated zone flow'}
 
@@ -53,12 +56,14 @@ reader urword
 optional true
 longname print calculated concentrations to listing file
 description REPLACE print_concentration {'{#1}': 'UZF cell', '{#2}': 'concentration', '{#3}': 'CONCENTRATION'}
+mf6internal iprconc
 
 block options
 name print_flows
 type keyword
 reader urword
 optional true
+mf6internal iprflow
 longname print calculated flows to listing file
 description REPLACE print_flows {'{#1}': 'unsaturated zone'}
 
@@ -67,6 +72,7 @@ name save_flows
 type keyword
 reader urword
 optional true
+mf6internal ipakcb
 longname save UZT cell flows to budget file
 description REPLACE save_flows {'{#1}': 'unsaturated zone'}
 
@@ -79,6 +85,7 @@ tagged true
 optional true
 longname
 description
+mf6internal conc_filerec
 
 block options
 name concentration
@@ -112,6 +119,7 @@ tagged true
 optional true
 longname
 description
+mf6internal budfilerec
 
 block options
 name budget
@@ -156,6 +164,7 @@ tagged true
 optional true
 longname
 description
+mf6internal budcsvfilerec
 
 block options
 name budgetcsv
@@ -263,13 +272,14 @@ name dev_nonexpanding_matrix
 type keyword
 reader urword
 optional true
+mf6internal dev_nonexpanding
 longname do not add rows to the solution matrix
 description keyword that solves the feature concentration with a general mixing equation and adds the result to the right-hand side of the GWT equations, instead of adding a row to the solution matrix for each feature.  This development option is not supported.
 
 block packagedata
 name packagedata
 type recarray ifno strt aux boundname
-shape (maxbound)
+shape (nuzfcells)
 reader urword
 longname
 description
@@ -284,6 +294,7 @@ reader urword
 longname UZF cell number for this entry
 description integer value that defines the feature (UZF object) number associated with the specified PACKAGEDATA data on the line. IFNO must be greater than zero and less than or equal to NUZFCELLS. Unsaturated zone flow information must be specified for every UZF cell or the program will terminate with an error.  The program will also terminate with an error if information for a UZF cell is specified more than once.
 numeric_index true
+mf6internal packagedata_ifno
 
 block packagedata
 name strt
@@ -380,6 +391,7 @@ shape
 tagged true
 in_record true
 time_series true
+mf6internal concentration_in
 reader urword
 longname unsaturated zone flow cell concentration
 description real or character value that defines the concentration for the unsaturated zone flow cell. The specified CONCENTRATION is only applied if the unsaturated zone flow cell is a constant concentration cell. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
@@ -392,6 +404,7 @@ tagged true
 in_record true
 reader urword
 time_series true
+mf6internal infiltration_in
 longname infiltration concentration
 description real or character value that defines the infiltration solute concentration $(ML^{-3})$ for the UZF cell. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -403,6 +416,7 @@ tagged true
 in_record true
 reader urword
 time_series true
+mf6internal uzet_in
 longname unsaturated zone et concentration
 description real or character value that defines the concentration of unsaturated zone evapotranspiration water $(ML^{-3})$ for the UZF cell. If this concentration value is larger than the simulated concentration in the UZF cell, then the unsaturated zone ET water will be removed at the same concentration as the UZF cell.  If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -424,6 +438,7 @@ in_record true
 reader urword
 longname
 description keyword for specifying auxiliary variable.
+mf6internal period_auxiliary
 
 block period
 name auxname
@@ -437,11 +452,10 @@ description name for the auxiliary variable to be assigned AUXVAL.  AUXNAME must
 
 block period
 name auxval
-type double precision
+type string
 shape
 tagged false
 in_record true
 reader urword
-time_series true
 longname auxiliary variable value
 description value for the auxiliary variable. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.

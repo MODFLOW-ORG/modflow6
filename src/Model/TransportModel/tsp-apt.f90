@@ -40,18 +40,26 @@ module TspAptModule
                              LENBOUNDNAME, LENPACKAGENAME, NAMEDBOUNDFLAG, &
                              DNODATA, TABLEFT, TABCENTER, TABRIGHT, &
                              TABSTRING, TABUCSTRING, TABINTEGER, TABREAL, &
-                             LENAUXNAME, LENVARNAME
-  use SimModule, only: store_error, store_error_unit, count_errors
+                             LENAUXNAME, LENVARNAME, MNORMAL
+  use SimModule, only: store_error, store_error_unit, store_error_filename, &
+                       count_errors
   use SimVariablesModule, only: errmsg
   use BndModule, only: BndType
+  use BndExtModule, only: BndExtType
   use TspFmiModule, only: TspFmiType
   use BudgetObjectModule, only: BudgetObjectType, budgetobject_cr
   use BudgetTermModule, only: BudgetTermType
   use TableModule, only: TableType, table_cr
   use ObserveModule, only: ObserveType
-  use InputOutputModule, only: extract_idnum_or_bndname, str_pad_left
+  use InputOutputModule, only: extract_idnum_or_bndname, str_pad_left, &
+                               assign_iounit, openfile
+  use OpenSpecModule, only: access, form
   use BaseDisModule, only: DisBaseType
   use MatrixBaseModule
+  use MemoryManagerModule, only: mem_allocate, mem_deallocate, mem_setptr, &
+                                 get_isize
+  use MemoryManagerExtModule, only: mem_set_value, memorystore_release
+  use CharacterStringModule, only: CharacterStringType
 
   implicit none
 
@@ -62,7 +70,7 @@ module TspAptModule
   character(len=LENFTYPE) :: ftype = 'APT'
   character(len=LENVARNAME) :: text = '             APT'
 
-  type, extends(BndType) :: TspAptType
+  type, extends(BndExtType) :: TspAptType
 
     character(len=LENPACKAGENAME) :: flowpackagename = '' !< name of corresponding flow package
     character(len=8), &
@@ -94,7 +102,7 @@ module TspAptModule
     character(len=LENBOUNDNAME), &
       dimension(:), pointer, contiguous :: featname => null()
     real(DP), dimension(:), pointer, contiguous :: concfeat => null() !< concentration (or temperature) of the feature
-    real(DP), dimension(:, :), pointer, contiguous :: lauxvar => null() !< auxiliary variable
+    ! lauxvar replaced by BndExtType%featureauxvar
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
     real(DP), dimension(:), pointer, contiguous :: qsto => null() !< mass (or energy) flux due to storage change
     real(DP), dimension(:), pointer, contiguous :: ccterm => null() !< mass (or energy) flux required to maintain constant concentration (or temperature)
@@ -131,6 +139,7 @@ module TspAptModule
     procedure :: bnd_ar => apt_ar
     procedure :: bnd_rp => apt_rp
     procedure :: bnd_ad => apt_ad
+    procedure, public :: apt_ad_resync !< made public for sft/sfe
     procedure :: bnd_reset => apt_reset
     procedure :: bnd_fc => apt_fc
     procedure, public :: apt_fc_expanded ! Made public for uze
@@ -139,8 +148,8 @@ module TspAptModule
     procedure, private :: apt_fc_nonexpanded
     procedure, public :: apt_cfupdate ! Made public for uze
     procedure :: apt_check_valid
-    procedure :: apt_set_stressperiod
-    procedure :: pak_set_stressperiod
+    procedure :: apt_source_period
+    procedure :: apt_ad_ts
     procedure :: apt_accumulate_ccterm
     procedure :: bnd_cq => apt_cq
     procedure :: bnd_ot_package_flows => apt_ot_package_flows
@@ -153,9 +162,9 @@ module TspAptModule
     procedure :: find_apt_package
     procedure :: apt_solve
     procedure :: pak_solve
-    procedure :: bnd_options => apt_options
-    procedure :: read_dimensions => apt_read_dimensions
-    procedure :: apt_read_cvs
+    procedure :: source_options => apt_source_options
+    procedure :: source_dimensions => apt_source_dimensions
+    procedure :: apt_source_cvs
     procedure :: read_initial_attr => apt_read_initial_attr
     procedure :: define_listlabel
     ! -- methods for observations
@@ -350,7 +359,7 @@ contains
                    trim(adjustl(this%cauxfpconc))//' in flow package '// &
                    trim(adjustl(this%flowpackagename))
           call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
+          call store_error_filename(this%input_fname)
         else
           ! -- tell package not to update this auxiliary variable
           this%flowpackagebnd%noupdateauxvar(this%iauxfpconc) = 1
@@ -365,113 +374,81 @@ contains
   !! This subroutine calls the attached packages' read and prepare routines.
   !<
   subroutine apt_rp(this)
-    use TdisModule, only: kper, nper
+    use TdisModule, only: kper
+    use ConstantsModule, only: LENVARNAME
     ! -- dummy
     class(TspAptType), intent(inout) :: this
     ! -- local
-    integer(I4B) :: ierr
-    integer(I4B) :: n
-    logical :: isfound, endOfBlock
-    character(len=LINELENGTH) :: title
-    character(len=LINELENGTH) :: line
-    integer(I4B) :: itemno
-    integer(I4B) :: igwfnode
-    ! -- formats
-    character(len=*), parameter :: fmtblkerr = &
-      &"('Error.  Looking for BEGIN PERIOD iper.  Found ', a, ' instead.')"
+    integer(I4B) :: n, itemno, igwfnode
+    integer(I4B), pointer :: nbound => null()
+    integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      setting => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      status => null()
+    character(len=LINELENGTH) :: str
+    character(len=LENVARNAME) :: key
     character(len=*), parameter :: fmtlsp = &
-      &"(1X,/1X,'REUSING ',A,'S FROM LAST STRESS PERIOD')"
+      "(1X,/1X,'REUSING ',A,'S FROM LAST &
+      &STRESS PERIOD')"
     !
     ! -- set nbound to maxbound
     this%nbound = this%maxbound
     !
-    ! -- Set ionper to the stress period number for which a new block of data
-    !    will be read.
-    if (this%inunit == 0) return
-    !
-    ! -- get stress period data
-    if (this%ionper < kper) then
+    ! -- check if the input context has data for this stress period
+    if (this%iper == kper) then
       !
-      ! -- get period block
-      call this%parser%GetBlock('PERIOD', isfound, ierr, &
-                                supportOpenClose=.true., &
-                                blockRequired=.false.)
-      if (isfound) then
+      ! -- get period data arrays
+      call mem_setptr(nbound, 'NBOUND', this%input_mempath)
+      if (nbound > 0) then
+        call mem_setptr(ifno, 'IFNO', this%input_mempath)
+        call mem_setptr(setting, 'SETTING', this%input_mempath)
+        call mem_setptr(status, 'STATUS', this%input_mempath)
         !
-        ! -- read ionper and check for increasing period numbers
-        call this%read_check_ionper()
-      else
-        !
-        ! -- PERIOD block not found
-        if (ierr < 0) then
-          ! -- End of file found; data applies for remainder of simulation.
-          this%ionper = nper + 1
-        else
-          ! -- Found invalid block
-          call this%parser%GetCurrentLine(line)
-          write (errmsg, fmtblkerr) adjustl(trim(line))
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end if
-      end if
-    end if
-    !
-    ! -- Read data if ionper == kper
-    if (this%ionper == kper) then
-      !
-      ! -- setup table for period data
-      if (this%iprpak /= 0) then
-        !
-        ! -- reset the input table object
-        title = trim(adjustl(this%text))//' PACKAGE ('// &
-                trim(adjustl(this%packName))//') DATA FOR PERIOD'
-        write (title, '(a,1x,i6)') trim(adjustl(title)), kper
-        call table_cr(this%inputtab, this%packName, title)
-        call this%inputtab%table_df(1, 4, this%iout, finalize=.FALSE.)
-        text = 'NUMBER'
-        call this%inputtab%initialize_column(text, 10, alignment=TABCENTER)
-        text = 'KEYWORD'
-        call this%inputtab%initialize_column(text, 20, alignment=TABLEFT)
-        do n = 1, 2
-          write (text, '(a,1x,i6)') 'VALUE', n
-          call this%inputtab%initialize_column(text, 15, alignment=TABCENTER)
+        do n = 1, nbound
+          itemno = ifno(n)
+          if (this%apt_check_valid(itemno) /= 0) cycle
+          key = setting(n)
+          !
+          ! -- STATUS (string; not TS-capable)
+          if (trim(key) == 'STATUS') then
+            str = status(n)
+            select case (trim(str))
+            case ('CONSTANT')
+              this%iboundpak(itemno) = -1
+            case ('INACTIVE')
+              this%iboundpak(itemno) = 0
+            case ('ACTIVE')
+              this%iboundpak(itemno) = 1
+            case default
+              write (errmsg, '(a,a)') &
+                'Unknown '//trim(this%text)//' status keyword: ', &
+                trim(str)//'.'
+              call store_error(errmsg)
+            end select
+            this%status(itemno) = trim(str)
+            !
+            ! -- CONCENTRATION/TEMPERATURE is handled above and AUXILIARY
+            ! by the framework; apt_source_period only needs to handle
+            ! genuinely package-specific settings (e.g. BEDK, WELL_HEAD)
+          else if (trim(key) /= 'AUXILIARY' .and. &
+                   trim(key) /= trim(this%depvartype)) then
+            call this%apt_source_period(n, itemno, key)
+          end if
         end do
       end if
       !
-      ! -- read data
-      stressperiod: do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        !
-        ! -- get feature number
-        itemno = this%parser%GetInteger()
-        !
-        ! -- read data from the rest of the line
-        call this%apt_set_stressperiod(itemno)
-        !
-        ! -- write line to table
-        if (this%iprpak /= 0) then
-          call this%parser%GetCurrentLine(line)
-          call this%inputtab%line_to_columns(line)
-        end if
-      end do stressperiod
-
-      if (this%iprpak /= 0) then
-        call this%inputtab%finalize_table()
-      end if
-      !
-      ! -- using stress period data from the previous stress period
     else
       write (this%iout, fmtlsp) trim(this%filtyp)
     end if
     !
     ! -- write summary of stress period error messages
-    ierr = count_errors()
-    if (ierr > 0) then
-      call this%parser%StoreErrorUnit()
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
     end if
     !
-    ! -- fill arrays
+    ! -- fill nodelist every period; non-vertical connections are not updated
+    !    by cf so must be set here
     do n = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
       igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(n)
       this%nodelist(n) = igwfnode
@@ -483,124 +460,6 @@ contains
     class(TspAptType), intent(inout) :: this
     ! function available for override by packages
   end subroutine apt_ad_chk
-
-  !> @brief Advanced package transport set stress period routine.
-  !!
-  !! Set a stress period attribute for an advanced transport package feature
-  !! (itemno) using keywords.
-  !<
-  subroutine apt_set_stressperiod(this, itemno)
-    ! -- module
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-    ! -- dummy
-    class(TspAptType), intent(inout) :: this
-    integer(I4B), intent(in) :: itemno
-    ! -- local
-    character(len=LINELENGTH) :: text
-    character(len=LINELENGTH) :: caux
-    character(len=LINELENGTH) :: keyword
-    integer(I4B) :: ierr
-    integer(I4B) :: ii
-    integer(I4B) :: jj
-    real(DP), pointer :: bndElem => null()
-    logical :: found
-    ! -- formats
-    !
-    ! -- Support these general options in LKT, SFT, MWT, UZT
-    ! STATUS <status>
-    ! CONCENTRATION <concentration> or TEMPERATURE <temperature>
-    ! WITHDRAWAL <withdrawal>
-    ! AUXILIARY <auxname> <auxval>
-    !
-    ! -- read line
-    call this%parser%GetStringCaps(keyword)
-    select case (keyword)
-    case ('STATUS')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetStringCaps(text)
-      this%status(itemno) = text(1:8)
-      if (text == 'CONSTANT') then
-        this%iboundpak(itemno) = -1
-      else if (text == 'INACTIVE') then
-        this%iboundpak(itemno) = 0
-      else if (text == 'ACTIVE') then
-        this%iboundpak(itemno) = 1
-      else
-        write (errmsg, '(a,a)') &
-          'Unknown '//trim(this%text)//' status keyword: ', text//'.'
-        call store_error(errmsg)
-      end if
-    case ('CONCENTRATION', 'TEMPERATURE')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1 ! For feature concentration
-      bndElem => this%concfeat(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, this%depvartype)
-    case ('AUXILIARY')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetStringCaps(caux)
-      do jj = 1, this%naux
-        if (trim(adjustl(caux)) /= trim(adjustl(this%auxname(jj)))) cycle
-        call this%parser%GetString(text)
-        ii = itemno
-        bndElem => this%lauxvar(jj, ii)
-        call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                           this%packName, 'AUX', &
-                                           this%tsManager, this%iprpak, &
-                                           this%auxname(jj))
-        exit
-      end do
-    case default
-      !
-      ! -- call the specific package to look for stress period data
-      call this%pak_set_stressperiod(itemno, keyword, found)
-      !
-      ! -- terminate with error if data not valid
-      if (.not. found) then
-        write (errmsg, '(2a)') &
-          'Unknown '//trim(adjustl(this%text))//' data keyword: ', &
-          trim(keyword)//'.'
-        call store_error(errmsg)
-      end if
-    end select
-    !
-    ! -- terminate if any errors were detected
-999 if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-  end subroutine apt_set_stressperiod
-
-  !> @brief Advanced package transport set stress period routine.
-  !!
-  !! Set a stress period attribute for an individual package. This routine
-  !! must be overridden.
-  !<
-  subroutine pak_set_stressperiod(this, itemno, keyword, found)
-    ! -- dummy
-    class(TspAptType), intent(inout) :: this
-    integer(I4B), intent(in) :: itemno
-    character(len=*), intent(in) :: keyword
-    logical, intent(inout) :: found
-    ! -- local
-
-    ! -- formats
-    !
-    ! -- this routine should never be called
-    found = .false.
-    call store_error('Program error: pak_set_stressperiod not implemented.', &
-                     terminate=.TRUE.)
-  end subroutine pak_set_stressperiod
 
   !> @brief Advanced package transport routine
   !!
@@ -640,25 +499,44 @@ contains
   !! Add package connections to matrix
   !<
   subroutine apt_ad(this)
+    ! -- dummy
+    class(TspAptType) :: this
+    !
+    ! -- sync PACKAGEDATA AUX TS and advance observations
+    call this%BndExtType%bnd_ad()
+    !
+    call this%apt_ad_resync()
+  end subroutine apt_ad
+
+  !> @brief Per-timestep TS re-sync and state update
+  !!
+  !! Called directly by packages that override bnd_ad (e.g. SFT/SFE) so
+  !! apt_ad_ts/apt_ad_chk still dispatch to their own overrides.
+  !<
+  subroutine apt_ad_resync(this)
     ! -- modules
     use SimVariablesModule, only: iFailedStepRetry
+    use TdisModule, only: kstp
     ! -- dummy
     class(TspAptType) :: this
     ! -- local
     integer(I4B) :: n
     integer(I4B) :: j, iaux
     !
-    ! -- Advance the time series
-    call this%TsManager%ad()
+    ! -- re-sync period TS; package-specific fields via apt_ad_ts
+    if (this%ts_active) then
+      call this%apt_ad_ts()
+    end if
     !
-    ! -- update auxiliary variables by copying from the derived-type time
-    !    series variable into the bndpackage auxvar variable so that this
-    !    information is properly written to the GWF budget file
-    if (this%naux > 0) then
+    ! -- update auxiliary variables by copying from featureauxvar into
+    !    bndpackage auxvar for GWF budget file output; featureauxvar can
+    !    only have changed at period start (kstp==1) or, when TS-active,
+    !    this timestep's apt_ad_ts() call above
+    if (this%naux > 0 .and. (kstp == 1 .or. this%ts_active)) then
       do j = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
         n = this%flowbudptr%budterm(this%idxbudgwf)%id1(j)
         do iaux = 1, this%naux
-          this%auxvar(iaux, j) = this%lauxvar(iaux, n)
+          this%auxvar(iaux, j) = this%featureauxvar(iaux, n)
         end do
       end do
     end if
@@ -681,19 +559,32 @@ contains
       end do
     end if
     !
-    ! -- pakmvrobj ad
-    !if (this%imover == 1) then
-    !  call this%pakmvrobj%ad()
-    !end if
-    !
-    ! -- For each observation, push simulated value and corresponding
-    !    simulation time from "current" to "preceding" and reset
-    !    "current" value.
-    call this%obs%obs_ad()
-    !
     ! -- run package-specific checks
     call this%apt_ad_chk()
-  end subroutine apt_ad
+  end subroutine apt_ad_resync
+
+  !> @brief Virtual hook: called every timestep, after the time series
+  !! manager advances, before apt_ad_chk. No-op extension point for
+  !! packages to override.
+  !<
+  subroutine apt_ad_ts(this)
+    ! -- dummy
+    class(TspAptType), intent(inout) :: this
+    ! function available for override by packages
+  end subroutine apt_ad_ts
+
+  !> @brief Virtual hook: read package-specific period data.
+  !! Override in individual packages to dispatch PERIOD fields beyond
+  !! STATUS and CONCENTRATION/TEMPERATURE.
+  !<
+  subroutine apt_source_period(this, n, itemno, key)
+    ! -- dummy
+    class(TspAptType), intent(inout) :: this
+    integer(I4B), intent(in) :: n !< row index into period data arrays
+    integer(I4B), intent(in) :: itemno !< feature number
+    character(len=*), intent(in) :: key !< SETTING dispatch key
+    ! base class: no-op; overridden by individual packages
+  end subroutine apt_source_period
 
   !> @brief Override bnd reset for custom mover logic
   subroutine apt_reset(this)
@@ -1061,8 +952,8 @@ contains
     class(TspAptType) :: this
     ! -- local
     !
-    ! -- allocate scalars in NumericalPackageType
-    call this%BndType%allocate_scalars()
+    ! -- allocate scalars in BndExtType
+    call this%BndExtType%allocate_scalars()
     !
     ! -- Allocate
     call mem_allocate(this%iauxfpconc, 'IAUXFPCONC', this%memoryPath)
@@ -1169,14 +1060,14 @@ contains
   !<
   subroutine apt_allocate_arrays(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate
+    use MemoryManagerModule, only: mem_allocate, mem_setptr
     ! -- dummy
     class(TspAptType), intent(inout) :: this
     ! -- local
     integer(I4B) :: n
     !
-    ! -- call standard BndType allocate scalars
-    call this%BndType%allocate_arrays()
+    ! -- call standard BndExtType allocate arrays
+    call this%BndExtType%allocate_arrays()
     !
     ! -- Allocate
     !
@@ -1193,8 +1084,10 @@ contains
     ! -- allocate character array for status
     allocate (this%status(this%ncv))
     !
-    ! -- time series
-    call mem_allocate(this%concfeat, this%ncv, 'CONCFEAT', this%memoryPath)
+    ! -- alias into the input context's permanent, feature-indexed
+    ! CONCENTRATION/TEMPERATURE array (allocated and DZERO-initialized by
+    ! the loader)
+    call mem_setptr(this%concfeat, trim(this%depvartype), this%input_mempath)
     !
     ! -- budget terms
     call mem_allocate(this%qsto, this%ncv, 'QSTO', this%memoryPath)
@@ -1214,7 +1107,6 @@ contains
       this%ccterm(n) = DZERO
       this%qmfrommvr(n) = DZERO
       this%concbudssm(:, n) = DZERO
-      this%concfeat(n) = DZERO
     end do
   end subroutine apt_allocate_arrays
 
@@ -1234,14 +1126,13 @@ contains
     call mem_deallocate(this%qsto)
     call mem_deallocate(this%ccterm)
     call mem_deallocate(this%strt)
-    call mem_deallocate(this%lauxvar)
     call mem_deallocate(this%xoldpak)
     if (this%imatrows == 0) then
       call mem_deallocate(this%iboundpak)
       call mem_deallocate(this%xnewpak)
     end if
     call mem_deallocate(this%concbudssm)
-    call mem_deallocate(this%concfeat)
+    nullify (this%concfeat) ! input-context-owned alias, not package-allocated
     call mem_deallocate(this%qmfrommvr)
     deallocate (this%status)
     deallocate (this%featname)
@@ -1288,8 +1179,8 @@ contains
     call mem_deallocate(this%idxprepak)
     call mem_deallocate(this%idxlastpak)
     !
-    ! -- deallocate scalars in NumericalPackageType
-    call this%BndType%bnd_da()
+    ! -- deallocate scalars in BndExtType
+    call this%BndExtType%bnd_da()
   end subroutine apt_da
 
   !> @brief Find corresponding advanced package transport package
@@ -1306,120 +1197,113 @@ contains
                      terminate=.TRUE.)
   end subroutine find_apt_package
 
-  !> @brief Set options specific to the TspAptType
-  !!
-  !! This routine overrides BndType%bnd_options
+  !> @brief Source OPTIONS block from the input context
   !<
-  subroutine apt_options(this, option, found)
-    use ConstantsModule, only: MAXCHARLEN, DZERO
-    use OpenSpecModule, only: access, form
-    use InputOutputModule, only: urword, getunit, assign_iounit, openfile
+  subroutine apt_source_options(this)
     ! -- dummy
     class(TspAptType), intent(inout) :: this
-    character(len=*), intent(inout) :: option
-    logical, intent(inout) :: found
     ! -- local
-    character(len=MAXCHARLEN) :: fname, keyword
+    character(len=LINELENGTH) :: fname
+    logical :: found
     ! -- formats
     character(len=*), parameter :: fmtaptbin = &
       "(4x, a, 1x, a, 1x, ' WILL BE SAVED TO FILE: ', a, &
       &/4x, 'OPENED ON UNIT: ', I0)"
     !
-    found = .true.
-    select case (option)
-    case ('FLOW_PACKAGE_NAME')
-      call this%parser%GetStringCaps(this%flowpackagename)
+    ! -- call base class for AUXILIARY/BOUNDNAMES/PRINT_INPUT/PRINT_FLOWS/
+    !    SAVE_FLOWS/OBS6/TS6 options
+    call this%BndExtType%source_options()
+    !
+    write (this%iout, '(1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' OPTIONS'
+    !
+    ! -- FLOW_PKG_NAME (DFN: flow_package_name)
+    call mem_set_value(this%flowpackagename, 'FLOW_PKG_NAME', &
+                       this%input_mempath, found)
+    if (found) then
       write (this%iout, '(4x,a)') &
         'THIS '//trim(adjustl(this%text))//' PACKAGE CORRESPONDS TO A GWF &
         &PACKAGE WITH THE NAME '//trim(adjustl(this%flowpackagename))
-    case ('FLOW_PACKAGE_AUXILIARY_NAME')
-      call this%parser%GetStringCaps(this%cauxfpconc)
+    end if
+    !
+    ! -- FP_AUX_NAME (DFN: flow_package_auxiliary_name)
+    call mem_set_value(this%cauxfpconc, 'FP_AUX_NAME', &
+                       this%input_mempath, found)
+    if (found) then
       write (this%iout, '(4x,a)') &
         'SIMULATED CONCENTRATIONS WILL BE COPIED INTO THE FLOW PACKAGE &
         &AUXILIARY VARIABLE WITH THE NAME '//trim(adjustl(this%cauxfpconc))
-    case ('DEV_NONEXPANDING_MATRIX')
-      ! -- use an iterative solution where concentration is not solved
-      !    as part of the matrix.  It is instead solved separately with a
-      !    general mixing equation and then added to the RHS of the GWT
-      !    equations
-      call this%parser%DevOpt()
-      this%imatrows = 0
-      write (this%iout, '(4x,a)') &
-        trim(adjustl(this%text))// &
-        ' WILL NOT ADD ADDITIONAL ROWS TO THE A MATRIX.'
-    case ('PRINT_CONCENTRATION', 'PRINT_TEMPERATURE')
-      this%iprconc = 1
-      write (this%iout, '(4x,a,1x,a,1x,a)') trim(adjustl(this%text))// &
-        trim(adjustl(this%depvartype))//'S WILL BE PRINTED TO LISTING &
-          &FILE.'
-    case ('CONCENTRATION', 'TEMPERATURE')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        this%iconcout = getunit()
-        call openfile(this%iconcout, this%iout, fname, 'DATA(BINARY)', &
-                      form, access, 'REPLACE')
-        write (this%iout, fmtaptbin) &
-          trim(adjustl(this%text)), trim(adjustl(this%depvartype)), &
-          trim(fname), this%iconcout
-      else
-        write (errmsg, "('Optional', 1x, a, 1X, 'keyword must &
-                         &be followed by FILEOUT')") this%depvartype
-        call store_error(errmsg)
-      end if
-    case ('BUDGET')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
-        call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
-                      form, access, 'REPLACE')
-        write (this%iout, fmtaptbin) trim(adjustl(this%text)), 'BUDGET', &
-          trim(fname), this%ibudgetout
-      else
-        call store_error('Optional BUDGET keyword must be followed by FILEOUT')
-      end if
-    case ('BUDGETCSV')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
-        call openfile(this%ibudcsv, this%iout, fname, 'CSV', &
-                      filstat_opt='REPLACE')
-        write (this%iout, fmtaptbin) trim(adjustl(this%text)), 'BUDGET CSV', &
-          trim(fname), this%ibudcsv
-      else
-        call store_error('Optional BUDGETCSV keyword must be followed by &
-          &FILEOUT')
-      end if
-    case default
-      !
-      ! -- No options found
-      found = .false.
-    end select
-  end subroutine apt_options
+    end if
+    !
+    ! -- DEV_NONEXPANDING_MATRIX is intentionally not sourced: its
+    !    imatrows=0 solve path (apt_solve) divides by a per-feature
+    !    storage term that is zero when volume comes from connection
+    !    geometry rather than a stage-volume table.
+    !
+    ! -- IPRCONC (DFN: print_concentration or print_temperature)
+    call mem_set_value(this%iprconc, 'IPRCONC', this%input_mempath, found)
+    if (found) then
+      write (this%iout, '(4x,a)') trim(adjustl(this%text))// &
+        ' '//trim(adjustl(this%depvartype))//'S WILL BE PRINTED TO LISTING FILE.'
+    end if
+    !
+    ! -- concentration/temperature output file: 'CONCFILE' (GWT) or 'TEMPFILE' (GWE)
+    if (this%depvartype == 'CONCENTRATION') then
+      call mem_set_value(fname, 'CONCFILE', this%input_mempath, found)
+    else
+      call mem_set_value(fname, 'TEMPFILE', this%input_mempath, found)
+    end if
+    if (found) then
+      call assign_iounit(this%iconcout, this%inunit, &
+                         trim(this%depvartype)//" fileout")
+      call openfile(this%iconcout, this%iout, fname, 'DATA(BINARY)', &
+                    form, access, 'REPLACE', mode_opt=MNORMAL)
+      write (this%iout, fmtaptbin) trim(adjustl(this%text)), &
+        trim(adjustl(this%depvartype)), trim(fname), this%iconcout
+    end if
+    !
+    ! -- BUDGET FILEOUT
+    call mem_set_value(fname, 'BUDGETFILE', this%input_mempath, found)
+    if (found) then
+      call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
+      call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
+                    form, access, 'REPLACE', mode_opt=MNORMAL)
+      write (this%iout, fmtaptbin) trim(adjustl(this%text)), 'BUDGET', &
+        trim(fname), this%ibudgetout
+    end if
+    !
+    ! -- BUDGETCSV FILEOUT
+    call mem_set_value(fname, 'BUDGETCSVFILE', this%input_mempath, found)
+    if (found) then
+      call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
+      call openfile(this%ibudcsv, this%iout, fname, 'CSV', filstat_opt='REPLACE')
+      write (this%iout, fmtaptbin) trim(adjustl(this%text)), 'BUDGET CSV', &
+        trim(fname), this%ibudcsv
+    end if
+    !
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' OPTIONS'
+  end subroutine apt_source_options
 
-  !> @brief Determine dimensions for this advanced package
+  !> @brief Source DIMENSIONS from the flow package; allocate package arrays
   !<
-  subroutine apt_read_dimensions(this)
+  subroutine apt_source_dimensions(this)
     ! -- dummy
     class(TspAptType), intent(inout) :: this
     ! -- local
     integer(I4B) :: ierr
-    ! -- format
     !
-    ! -- Set a pointer to the GWF LAK Package budobj
+    ! -- default flow package name to package name if not specified in OPTIONS
     if (this%flowpackagename == '') then
       this%flowpackagename = this%packName
       write (this%iout, '(4x,a)') &
         'THE FLOW PACKAGE NAME FOR '//trim(adjustl(this%text))//' WAS NOT &
         &SPECIFIED.  SETTING FLOW PACKAGE NAME TO '// &
-        &trim(adjustl(this%flowpackagename))
-
+        trim(adjustl(this%flowpackagename))
     end if
     call this%find_apt_package()
     !
-    ! -- Set dimensions from the GWF advanced package
+    ! -- derive dimensions from the corresponding GWF advanced package
     this%ncv = this%flowbudptr%ncv
     this%maxbound = this%flowbudptr%budterm(this%idxbudgwf)%maxlist
     this%nbound = this%maxbound
@@ -1438,79 +1322,48 @@ contains
     write (this%iout, '(a, //)') 'DONE SETTING DIMENSIONS FOR '// &
       trim(adjustl(this%text))
     !
-    ! -- Check for errors
     if (this%ncv < 0) then
       write (errmsg, '(a)') &
         'Number of control volumes could not be determined correctly.'
       call store_error(errmsg)
     end if
-    !
-    ! -- stop if errors were encountered in the DIMENSIONS block
     ierr = count_errors()
-    if (ierr > 0) then
-      call store_error_unit(this%inunit)
-    end if
+    if (ierr > 0) call store_error_filename(this%input_fname)
     !
-    ! -- read packagedata block
-    call this%apt_read_cvs()
+    ! -- source packagedata from the input context
+    call this%apt_source_cvs()
     !
-    ! -- Call define_listlabel to construct the list label that is written
-    !    when PRINT_INPUT option is used.
     call this%define_listlabel()
-    !
-    ! -- setup the budget object
     call this%apt_setup_budobj()
-    !
-    ! -- setup the conc table object
     call this%apt_setup_tableobj()
-  end subroutine apt_read_dimensions
+  end subroutine apt_source_dimensions
 
-  !> @brief Read feature information for this advanced package
+  !> @brief Source PACKAGEDATA feature information from the input context
   !<
-  subroutine apt_read_cvs(this)
-    ! -- modules
-    use MemoryManagerModule, only: mem_allocate
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
+  subroutine apt_source_cvs(this)
     ! -- dummy
     class(TspAptType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: text
-    character(len=LENBOUNDNAME) :: bndName, bndNameTemp
+    character(len=LENBOUNDNAME) :: bndName
     character(len=9) :: cno
-    character(len=50), dimension(:), allocatable :: caux
-    integer(I4B) :: ierr
-    logical :: isfound, endOfBlock
-    integer(I4B) :: n
-    integer(I4B) :: ii, jj
-    integer(I4B) :: iaux
-    integer(I4B) :: itmp
-    integer(I4B) :: nlak
-    integer(I4B) :: nconn
-    integer(I4B), dimension(:), pointer, contiguous :: nboundchk
-    real(DP), pointer :: bndElem => null()
+    integer(I4B) :: n, itemno, isize, nfeat
+    integer(I4B), allocatable, dimension(:) :: nboundchk
+    real(DP), dimension(:), pointer, contiguous :: strt_ptr => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      boundname_ptr => null()
     !
-    ! -- initialize itmp
-    itmp = 0
-    !
-    ! -- allocate apt data
+    ! -- allocate package simulation arrays
     call mem_allocate(this%strt, this%ncv, 'STRT', this%memoryPath)
-    call mem_allocate(this%lauxvar, this%naux, this%ncv, 'LAUXVAR', &
-                      this%memoryPath)
-    !
-    ! -- lake boundary and concentrations
     if (this%imatrows == 0) then
       call mem_allocate(this%iboundpak, this%ncv, 'IBOUND', this%memoryPath)
       call mem_allocate(this%xnewpak, this%ncv, 'XNEWPAK', this%memoryPath)
     end if
     call mem_allocate(this%xoldpak, this%ncv, 'XOLDPAK', this%memoryPath)
+    allocate (this%featname(this%ncv))
     !
-    ! -- allocate character storage not managed by the memory manager
-    allocate (this%featname(this%ncv)) ! ditch after boundnames allocated??
-    !allocate(this%status(this%ncv))
-    !
+    ! -- initialize arrays
     do n = 1, this%ncv
       this%strt(n) = DEP20
-      this%lauxvar(:, n) = DZERO
       this%xoldpak(n) = DEP20
       if (this%imatrows == 0) then
         this%iboundpak(n) = 1
@@ -1518,109 +1371,55 @@ contains
       end if
     end do
     !
-    ! -- allocate local storage for aux variables
-    if (this%naux > 0) then
-      allocate (caux(this%naux))
-    end if
+    ! -- set up featureauxvar; allocate_featureauxvar also sets pkg_ifno
+    !    from PACKAGEDATA_IFNO
+    call this%allocate_featureauxvar()
     !
-    ! -- allocate and initialize temporary variables
+    ! -- validate PACKAGEDATA specifies IFNO exactly once for every feature
+    nfeat = size(this%pkg_ifno)
     allocate (nboundchk(this%ncv))
-    do n = 1, this%ncv
-      nboundchk(n) = 0
+    nboundchk = 0
+    do n = 1, nfeat
+      itemno = this%validate_ifno(this%pkg_ifno(n), this%ncv, nboundchk, 'IFNO', &
+                                  trim(adjustl(this%text))//' PACKAGEDATA')
     end do
-    !
-    ! -- get packagedata block
-    call this%parser%GetBlock('PACKAGEDATA', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse locations block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
-        ' PACKAGEDATA'
-      nlak = 0
-      nconn = 0
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        n = this%parser%GetInteger()
-
-        if (n < 1 .or. n > this%ncv) then
-          write (errmsg, '(a,1x,i6)') &
-            'Itemno must be > 0 and <= ', this%ncv
-          call store_error(errmsg)
-          cycle
-        end if
-        !
-        ! -- increment nboundchk
-        nboundchk(n) = nboundchk(n) + 1
-        !
-        ! -- strt
-        this%strt(n) = this%parser%GetDouble()
-        !
-        ! -- get aux data
-        do iaux = 1, this%naux
-          call this%parser%GetString(caux(iaux))
-        end do
-
-        ! -- set default bndName
-        write (cno, '(i9.9)') n
-        bndName = 'Feature'//cno
-
-        ! -- featname
-        if (this%inamedbound /= 0) then
-          call this%parser%GetStringCaps(bndNameTemp)
-          if (bndNameTemp /= '') then
-            bndName = bndNameTemp
-          end if
-        end if
-        this%featname(n) = bndName
-
-        ! -- fill time series aware data
-        ! -- fill aux data
-        do jj = 1, this%naux
-          text = caux(jj)
-          ii = n
-          bndElem => this%lauxvar(jj, ii)
-          call read_value_or_time_series_adv(text, ii, jj, bndElem, &
-                                             this%packName, 'AUX', &
-                                             this%tsManager, this%iprpak, &
-                                             this%auxname(jj))
-        end do
-        !
-        nlak = nlak + 1
-      end do
-      !
-      ! -- check for duplicate or missing lakes
-      do n = 1, this%ncv
-        if (nboundchk(n) == 0) then
-          write (errmsg, '(a,1x,i0)') 'No data specified for feature', n
-          call store_error(errmsg)
-        else if (nboundchk(n) > 1) then
-          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
-            'Data for feature', n, 'specified', nboundchk(n), 'times'
-          call store_error(errmsg)
-        end if
-      end do
-      !
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%text))//' PACKAGEDATA'
-    else
-      call store_error('Required packagedata block not found.')
-    end if
-    !
-    ! -- terminate if any errors were detected
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-    !
-    ! -- deallocate local storage for aux variables
-    if (this%naux > 0) then
-      deallocate (caux)
-    end if
-    !
-    ! -- deallocate local storage for nboundchk
+    call this%report_ifno_coverage(nboundchk, this%ncv, 'feature', &
+                                   trim(adjustl(this%text))//' PACKAGEDATA')
     deallocate (nboundchk)
-  end subroutine apt_read_cvs
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+    !
+    ! -- source STRT from the input context
+    call mem_setptr(strt_ptr, 'STRT', this%input_mempath)
+    do n = 1, nfeat
+      itemno = this%pkg_ifno(n)
+      this%strt(itemno) = strt_ptr(n)
+    end do
+    call memorystore_release('STRT', this%input_mempath)
+    !
+    ! -- set default feature names then override with BOUNDNAME if present
+    do n = 1, this%ncv
+      write (cno, '(i9.9)') n
+      this%featname(n) = 'Feature'//cno
+    end do
+    if (this%inamedbound /= 0) then
+      call get_isize('BOUNDNAME', this%input_mempath, isize)
+      if (isize > 0) then
+        call mem_setptr(boundname_ptr, 'BOUNDNAME', this%input_mempath)
+        do n = 1, nfeat
+          itemno = this%pkg_ifno(n)
+          if (itemno < 1 .or. itemno > this%ncv) cycle
+          bndName = boundname_ptr(n)
+          if (trim(bndName) /= '') this%featname(itemno) = trim(bndName)
+        end do
+      end if
+    end if
+    call memorystore_release('BOUNDNAME', this%input_mempath)
+    !
+    write (this%iout, '(/1x,a)') 'END OF '//trim(adjustl(this%text))// &
+      ' PACKAGEDATA'
+  end subroutine apt_source_cvs
 
   !> @brief Read the initial parameters for an advanced package
   !<
@@ -2217,7 +2016,7 @@ contains
       do n1 = 1, this%ncv
         q = DZERO
         do i = 1, naux
-          auxvartmp(i) = this%lauxvar(i, n1)
+          auxvartmp(i) = this%featureauxvar(i, n1)
         end do
         call this%budobj%budterm(idx)%update_term(n1, n1, q, auxvartmp)
       end do

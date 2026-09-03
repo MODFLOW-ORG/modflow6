@@ -8,6 +8,7 @@ type string
 shape
 reader urword
 optional true
+mf6internal flow_pkg_name
 longname keyword to specify name of corresponding flow package
 description keyword to specify the name of the corresponding flow package.  If not specified, then the corresponding flow package must have the same name as this advanced transport package (the name associated with this package in the GWT name file).
 
@@ -26,6 +27,7 @@ type string
 shape
 reader urword
 optional true
+mf6internal fp_aux_name
 longname keyword to specify name of concentration auxiliary variable in flow package
 description keyword to specify the name of an auxiliary variable in the corresponding flow package.  If specified, then the simulated concentrations from this advanced transport package will be copied into the auxiliary variable specified with this name.  Note that the flow package must have an auxiliary variable with this name or the program will terminate with an error.  If the flows for this advanced transport package are read from a file, then this option will have no effect.
 
@@ -43,6 +45,7 @@ name print_input
 type keyword
 reader urword
 optional true
+mf6internal iprpak
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'reach'}
 
@@ -51,6 +54,7 @@ name print_concentration
 type keyword
 reader urword
 optional true
+mf6internal iprconc
 longname print calculated concentrations to listing file
 description REPLACE print_concentration {'{#1}': 'reach', '{#2}': 'concentration', '{#3}': 'CONCENTRATION'}
 
@@ -59,6 +63,7 @@ name print_flows
 type keyword
 reader urword
 optional true
+mf6internal iprflow
 longname print calculated flows to listing file
 description REPLACE print_flows {'{#1}': 'reach'}
 
@@ -67,6 +72,7 @@ name save_flows
 type keyword
 reader urword
 optional true
+mf6internal ipakcb
 longname save reach flows to budget file
 description REPLACE save_flows {'{#1}': 'reach'}
 
@@ -77,6 +83,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal conc_filerec
 longname
 description
 
@@ -110,6 +117,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal budfilerec
 longname
 description
 
@@ -154,6 +162,7 @@ shape
 reader urword
 tagged true
 optional true
+mf6internal budcsvfilerec
 longname
 description
 
@@ -263,13 +272,14 @@ name dev_nonexpanding_matrix
 type keyword
 reader urword
 optional true
+mf6internal dev_nonexpanding
 longname do not add rows to the solution matrix
 description keyword that solves the feature concentration with a general mixing equation and adds the result to the right-hand side of the GWT equations, instead of adding a row to the solution matrix for each feature.  This development option is not supported.
 
 block packagedata
 name packagedata
 type recarray ifno strt aux boundname
-shape (maxbound)
+shape (nreaches)
 reader urword
 longname
 description
@@ -284,6 +294,7 @@ reader urword
 longname reach number for this entry
 description integer value that defines the feature (reach) number associated with the specified PACKAGEDATA data on the line. IFNO must be greater than zero and less than or equal to NREACHES. Reach information must be specified for every reach or the program will terminate with an error.  The program will also terminate with an error if information for a reach is specified more than once.
 numeric_index true
+mf6internal packagedata_ifno
 
 block packagedata
 name strt
@@ -380,6 +391,7 @@ shape
 tagged true
 in_record true
 time_series true
+mf6internal concentration_in
 reader urword
 longname reach concentration
 description real or character value that defines the concentration for the reach. The specified CONCENTRATION is only applied if the reach is a constant concentration reach. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
@@ -392,6 +404,7 @@ tagged true
 in_record true
 reader urword
 time_series true
+mf6internal rainfall_in
 longname rainfall concentration
 description real or character value that defines the rainfall solute concentration $(ML^{-3})$ for the reach. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -403,6 +416,7 @@ tagged true
 in_record true
 reader urword
 time_series true
+mf6internal evaporation_in
 longname evaporation concentration
 description real or character value that defines the concentration of evaporated water $(ML^{-3})$ for the reach. If this concentration value is larger than the simulated concentration in the reach, then the evaporated water will be removed at the same concentration as the reach.  If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -414,6 +428,7 @@ tagged true
 in_record true
 reader urword
 time_series true
+mf6internal runoff_in
 longname runoff concentration
 description real or character value that defines the concentration of runoff $(ML^{-3})$ for the reach. Value must be greater than or equal to zero. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -425,6 +440,7 @@ tagged true
 in_record true
 reader urword
 time_series true
+mf6internal inflow_in
 longname inflow concentration
 description real or character value that defines the concentration of inflow $(ML^{-3})$ for the reach. Value must be greater than or equal to zero. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -446,6 +462,7 @@ in_record true
 reader urword
 longname
 description keyword for specifying auxiliary variable.
+mf6internal period_auxiliary
 
 block period
 name auxname
@@ -459,11 +476,10 @@ description name for the auxiliary variable to be assigned AUXVAL.  AUXNAME must
 
 block period
 name auxval
-type double precision
+type string
 shape
 tagged false
 in_record true
 reader urword
-time_series true
 longname auxiliary variable value
 description value for the auxiliary variable. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.

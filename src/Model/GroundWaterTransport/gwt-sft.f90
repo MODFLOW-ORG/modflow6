@@ -33,8 +33,10 @@
 module GwtSftModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, DONE, LINELENGTH
-  use SimModule, only: store_error
+  use ConstantsModule, only: DZERO, DONE, LINELENGTH, DNODATA, LENVARNAME
+  use SimModule, only: store_error, store_error_filename
+  use MemoryManagerModule, only: mem_setptr
+  use CharacterStringModule, only: CharacterStringType
   use BndModule, only: BndType, GetBndFromList
   use TspFmiModule, only: TspFmiType
   use SfrModule, only: SfrType
@@ -87,7 +89,6 @@ module GwtSftModule
     procedure :: pak_df_obs => sft_df_obs
     procedure :: pak_rp_obs => sft_rp_obs
     procedure :: pak_bd_obs => sft_bd_obs
-    procedure :: pak_set_stressperiod => sft_set_stressperiod
     procedure :: apt_get_volumes => sft_get_volumes
 
   end type GwtSftType
@@ -97,7 +98,7 @@ contains
   !> @brief Create a new sft package
   !<
   subroutine sft_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
-                        fmi, eqnsclfac, dvt, dvu, dvua)
+                        mempath, fmi, eqnsclfac, dvt, dvu, dvua)
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -106,6 +107,7 @@ contains
     integer(I4B), intent(in) :: iout
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
+    character(len=*), intent(in) :: mempath !< input memory path
     type(TspFmiType), pointer :: fmi
     real(DP), intent(in), pointer :: eqnsclfac !< governing equation scale factor
     character(len=*), intent(in) :: dvt !< For GWT, set to "CONCENTRATION" in TspAptType
@@ -119,7 +121,7 @@ contains
     packobj => sftobj
     !
     ! -- create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, mempath)
     packobj%text = text
     !
     ! -- allocate scalars
@@ -134,6 +136,7 @@ contains
     packobj%ibcnum = ibcnum
     packobj%ncolbnd = 1
     packobj%iscloc = 1
+    packobj%isadvpak = 1
     !
     ! -- Store pointer to flow model interface.  When the GwfGwt exchange is
     !    created, it sets fmi%bndlist so that the GWT model has access to all
@@ -201,7 +204,7 @@ contains
       write (errmsg, '(a)') 'Could not find flow package with name '&
                             &//trim(adjustl(this%flowpackagename))//'.'
       call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- allocate space for idxbudssm, which indicates whether this is a
@@ -588,17 +591,18 @@ contains
   !<
   subroutine sft_allocate_arrays(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate
+    use MemoryManagerModule, only: mem_allocate, mem_setptr
     ! -- dummy
     class(GwtSftType), intent(inout) :: this
     ! -- local
     integer(I4B) :: n
     !
-    ! -- time series
-    call mem_allocate(this%concrain, this%ncv, 'CONCRAIN', this%memoryPath)
-    call mem_allocate(this%concevap, this%ncv, 'CONCEVAP', this%memoryPath)
-    call mem_allocate(this%concroff, this%ncv, 'CONCROFF', this%memoryPath)
-    call mem_allocate(this%conciflw, this%ncv, 'CONCIFLW', this%memoryPath)
+    ! -- alias into the input context's permanent, feature-indexed arrays
+    ! (allocated and DZERO-initialized by the loader)
+    call mem_setptr(this%concrain, 'RAINFALL', this%input_mempath)
+    call mem_setptr(this%concevap, 'EVAPORATION', this%input_mempath)
+    call mem_setptr(this%concroff, 'RUNOFF', this%input_mempath)
+    call mem_setptr(this%conciflw, 'INFLOW', this%input_mempath)
 
     call mem_allocate(this%vnew, this%ncv, 'VNEW', this%memoryPath)
     call mem_allocate(this%vold, this%ncv, 'VOLD', this%memoryPath)
@@ -609,10 +613,6 @@ contains
     !
     ! -- Initialize
     do n = 1, this%ncv
-      this%concrain(n) = DZERO
-      this%concevap(n) = DZERO
-      this%concroff(n) = DZERO
-      this%conciflw(n) = DZERO
       this%vnew(n) = DZERO
       this%vold(n) = DZERO
     end do
@@ -627,8 +627,10 @@ contains
     ! local
     integer(I4B) :: n
 
-    ! call base bnd_ad
-    call this%TspAptType%bnd_ad()
+    ! call base bnd_ad and run the per-timestep resync directly
+    ! (see apt_ad_resync)
+    call this%BndExtType%bnd_ad()
+    call this%apt_ad_resync()
 
     ! update vold
     do n = 1, this%ncv
@@ -653,11 +655,11 @@ contains
     call mem_deallocate(this%idxbudiflw)
     call mem_deallocate(this%idxbudoutf)
     !
-    ! -- deallocate time series
-    call mem_deallocate(this%concrain)
-    call mem_deallocate(this%concevap)
-    call mem_deallocate(this%concroff)
-    call mem_deallocate(this%conciflw)
+    ! -- input-context-owned aliases, not package-allocated
+    nullify (this%concrain)
+    nullify (this%concevap)
+    nullify (this%concroff)
+    nullify (this%conciflw)
 
     call mem_deallocate(this%vnew)
     call mem_deallocate(this%vold)
@@ -948,83 +950,6 @@ contains
       found = .false.
     end select
   end subroutine sft_bd_obs
-
-  !> @brief Sets the stress period attributes for keyword use.
-  !<
-  subroutine sft_set_stressperiod(this, itemno, keyword, found)
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-    ! -- dummy
-    class(GwtSftType), intent(inout) :: this
-    integer(I4B), intent(in) :: itemno
-    character(len=*), intent(in) :: keyword
-    logical, intent(inout) :: found
-    ! -- local
-    character(len=LINELENGTH) :: text
-    integer(I4B) :: ierr
-    integer(I4B) :: jj
-    real(DP), pointer :: bndElem => null()
-    ! -- formats
-    !
-    ! RAINFALL <rainfall>
-    ! EVAPORATION <evaporation>
-    ! RUNOFF <runoff>
-    ! INFLOW <inflow>
-    ! WITHDRAWAL <withdrawal>
-    !
-    found = .true.
-    select case (keyword)
-    case ('RAINFALL')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1
-      bndElem => this%concrain(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'RAINFALL')
-    case ('EVAPORATION')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1
-      bndElem => this%concevap(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'EVAPORATION')
-    case ('RUNOFF')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1
-      bndElem => this%concroff(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'RUNOFF')
-    case ('INFLOW')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1
-      bndElem => this%conciflw(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'INFLOW')
-    case default
-      !
-      ! -- keyword not recognized so return to caller with found = .false.
-      found = .false.
-    end select
-    !
-999 continue
-  end subroutine sft_set_stressperiod
 
   !> @brief Return the sfr new volume and old volume
   !<

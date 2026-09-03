@@ -27,8 +27,10 @@
 module GweUzeModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, DONE, LINELENGTH
-  use SimModule, only: store_error
+  use ConstantsModule, only: DZERO, DONE, LINELENGTH, DNODATA, LENVARNAME
+  use SimModule, only: store_error, store_error_filename, count_errors
+  use MemoryManagerModule, only: mem_setptr
+  use CharacterStringModule, only: CharacterStringType
   use BndModule, only: BndType, GetBndFromList
   use TspFmiModule, only: TspFmiType
   use UzfModule, only: UzfType
@@ -78,7 +80,6 @@ module GweUzeModule
     procedure :: pak_df_obs => uze_df_obs
     procedure :: pak_rp_obs => uze_rp_obs
     procedure :: pak_bd_obs => uze_bd_obs
-    procedure :: pak_set_stressperiod => uze_set_stressperiod
     procedure :: apt_ad_chk => uze_ad_chk
     procedure :: bnd_ac => uze_ac
     procedure :: bnd_mc => uze_mc
@@ -92,7 +93,7 @@ contains
   !> @brief Create a new UZE package
   !<
   subroutine uze_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
-                        fmi, eqnsclfac, gwecommon, dvt, dvu, dvua)
+                        mempath, fmi, eqnsclfac, gwecommon, dvt, dvu, dvua)
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -101,6 +102,7 @@ contains
     integer(I4B), intent(in) :: iout
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
+    character(len=*), intent(in) :: mempath !< input memory path
     type(TspFmiType), pointer :: fmi
     real(DP), intent(in), pointer :: eqnsclfac !< governing equation scale factor
     type(GweInputDataType), intent(in), target :: gwecommon !< shared data container for use by multiple GWE packages
@@ -115,7 +117,7 @@ contains
     packobj => uzeobj
     !
     ! -- Create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, mempath)
     packobj%text = text
     !
     ! -- Allocate scalars
@@ -130,6 +132,7 @@ contains
     packobj%ibcnum = ibcnum
     packobj%ncolbnd = 1
     packobj%iscloc = 1
+    packobj%isadvpak = 1
 
     ! -- Store pointer to flow model interface.  When the GwfGwt exchange is
     !    created, it sets fmi%bndlist so that the GWT model has access to all
@@ -204,7 +207,7 @@ contains
       write (errmsg, '(a)') 'Could not find flow package with name '&
                             &//trim(adjustl(this%flowpackagename))//'.'
       call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- Allocate space for idxbudssm, which indicates whether this is a
@@ -943,24 +946,18 @@ contains
   !<
   subroutine uze_allocate_arrays(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate
+    use MemoryManagerModule, only: mem_setptr
     ! -- dummy
     class(GweUzeType), intent(inout) :: this
-    ! -- local
-    integer(I4B) :: n
     !
-    ! -- Time series
-    call mem_allocate(this%tempinfl, this%ncv, 'TEMPINFL', this%memoryPath)
-    call mem_allocate(this%tempuzet, this%ncv, 'TEMPUZET', this%memoryPath)
+    ! -- alias into the input context's permanent, feature-indexed arrays
+    ! (allocated and DZERO-initialized by the loader)
+    call mem_setptr(this%tempinfl, 'INFILTRATION', this%input_mempath)
+    call mem_setptr(this%tempuzet, 'UZET', this%input_mempath)
     !
     ! -- Call standard TspAptType allocate arrays
     call this%TspAptType%apt_allocate_arrays()
     !
-    ! -- Initialize
-    do n = 1, this%ncv
-      this%tempinfl(n) = DZERO
-      this%tempuzet(n) = DZERO
-    end do
   end subroutine uze_allocate_arrays
 
   !> @brief Deallocate memory
@@ -978,9 +975,9 @@ contains
     call mem_deallocate(this%idxbudritm)
     call mem_deallocate(this%idxbudtheq)
     !
-    ! -- Deallocate time series
-    call mem_deallocate(this%tempinfl)
-    call mem_deallocate(this%tempuzet)
+    ! -- input-context-owned aliases, not package-allocated
+    nullify (this%tempinfl)
+    nullify (this%tempuzet)
     !
     ! -- Deallocate scalars in TspAptType
     call this%TspAptType%bnd_da()
@@ -1332,7 +1329,7 @@ contains
       end if
     end do
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
   end subroutine uze_ad_chk
 
@@ -1356,57 +1353,5 @@ contains
       &package.'
     call store_error(errmsg)
   end subroutine area_error
-
-  !> @brief Sets the stress period attributes for keyword use.
-  !<
-  subroutine uze_set_stressperiod(this, itemno, keyword, found)
-    ! -- modules
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-    ! -- dummy
-    class(GweUzeType), intent(inout) :: this
-    integer(I4B), intent(in) :: itemno
-    character(len=*), intent(in) :: keyword
-    logical, intent(inout) :: found
-    ! -- local
-    character(len=LINELENGTH) :: temp_text
-    integer(I4B) :: ierr
-    integer(I4B) :: jj
-    real(DP), pointer :: bndElem => null()
-    !
-    ! INFILTRATION <infiltration>
-    ! UZET <uzet>
-    !
-    found = .true.
-    select case (keyword)
-    case ('INFILTRATION')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(temp_text)
-      jj = 1
-      bndElem => this%tempinfl(itemno)
-      call read_value_or_time_series_adv(temp_text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'INFILTRATION')
-    case ('UZET')
-      ierr = this%apt_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(temp_text)
-      jj = 1
-      bndElem => this%tempuzet(itemno)
-      call read_value_or_time_series_adv(temp_text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'UZET')
-    case default
-      !
-      ! -- Keyword not recognized so return to caller with found = .false.
-      found = .false.
-    end select
-    !
-999 continue
-  end subroutine uze_set_stressperiod
 
 end module GweUzeModule
