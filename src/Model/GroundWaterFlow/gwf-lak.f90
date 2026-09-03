@@ -5,32 +5,38 @@ module LakModule
                              IWETLAKE, MAXADPIT, DZERO, DPREC, DEM30, DEM9, &
                              DEM6, DEM5, DEM4, DEM2, DEM1, DHALF, DP7, DP9, &
                              DP999, DONE, DTWO, DPI, DTHREE, DEIGHT, DTEN, &
-                             DEP20, DONETHIRD, DTWOTHIRDS, DFIVETHIRDS, &
-                             DGRAVITY, DCD, NAMEDBOUNDFLAG, LENFTYPE, &
-                             LENPACKAGENAME, LENPAKLOC, DNODATA, TABLEFT, &
-                             TABCENTER, TABRIGHT, TABSTRING, TABUCSTRING, &
-                             TABINTEGER, TABREAL
+                             DHUNDRED, DEP20, DONETHIRD, DTWOTHIRDS, &
+                             DFIVETHIRDS, DGRAVITY, DCD, NAMEDBOUNDFLAG, &
+                             LENFTYPE, LENPACKAGENAME, LENPAKLOC, DNODATA, &
+                             MNORMAL, TABLEFT, TABCENTER, TABRIGHT, &
+                             TABSTRING, TABUCSTRING, TABINTEGER, TABREAL
   use MemoryManagerModule, only: mem_allocate, mem_reallocate, mem_setptr, &
-                                 mem_deallocate
+                                 mem_deallocate, get_isize
+  use MemoryManagerExtModule, only: mem_set_value, memorystore_release
   use MemoryHelperModule, only: create_mem_path
   use SmoothingModule, only: sQuadraticSaturation, sQSaturation, &
                              sQuadraticSaturationDerivative, &
                              sQSaturationDerivative
   use BndModule, only: BndType
+  use BndExtModule, only: BndExtType
   use BudgetObjectModule, only: BudgetObjectType, budgetobject_cr
   use TableModule, only: TableType, table_cr
   use ObserveModule, only: ObserveType
   use ObsModule, only: ObsType
   use GeomUtilModule, only: get_node
-  use InputOutputModule, only: URWORD, extract_idnum_or_bndname
+  use InputOutputModule, only: URWORD, extract_idnum_or_bndname, &
+                               GetUnit, openfile, assign_iounit
   use BaseDisModule, only: DisBaseType
   use SimModule, only: count_errors, store_error, store_error_unit, &
-                       store_warning, deprecation_warning
+                       store_warning, store_error_filename, &
+                       deprecation_warning
   use MathUtilModule, only: is_close
   use BlockParserModule, only: BlockParserType
-  use BaseDisModule, only: DisBaseType
+  use CharacterStringModule, only: CharacterStringType
+  use OpenSpecModule, only: access, form
   use SimVariablesModule, only: errmsg, warnmsg
   use MatrixBaseModule
+  use GwfLakInputModule, only: GwfLakParamFoundType
   !
   implicit none
   !
@@ -48,7 +54,36 @@ module LakModule
     real(DP), dimension(:), pointer, contiguous :: tabwarea => null()
   end type LakTabType
   !
-  type, extends(BndType) :: LakType
+  !> @brief input context runtime pointers for LAK
+  !!
+  !! Groups all input context PERIOD and OUTLETS array pointers used at
+  !! runtime. All pointers are set once in lak_ar and remain valid for
+  !! the simulation lifetime.
+  !<
+  type :: LakInputType
+    ! -- period
+    integer(I4B), pointer :: nbound => null()
+    integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      setting => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      status => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      auxname => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      auxval => null()
+    ! -- outlets (static, TS-linked)
+    integer(I4B), dimension(:), pointer, contiguous :: outletno => null()
+    real(DP), dimension(:), pointer, contiguous :: outlets_invert => null()
+    real(DP), dimension(:), pointer, contiguous :: outlets_width => null()
+    real(DP), dimension(:), pointer, contiguous :: outlets_rough => null()
+    real(DP), dimension(:), pointer, contiguous :: outlets_slope => null()
+  contains
+    procedure :: init => lak_input_init
+    procedure :: destroy => lak_input_destroy
+  end type LakInputType
+  !
+  type, extends(BndExtType) :: LakType
     ! -- scalars
     ! -- characters
     character(len=16), dimension(:), pointer, contiguous :: clakbudget => NULL()
@@ -101,7 +136,6 @@ module LakModule
     real(DP), dimension(:), pointer, contiguous :: runoff => null()
     real(DP), dimension(:), pointer, contiguous :: inflow => null()
     real(DP), dimension(:), pointer, contiguous :: withdrawal => null()
-    real(DP), dimension(:, :), pointer, contiguous :: lauxvar => null()
     !
     ! -- table data
     integer(I4B), dimension(:), pointer, contiguous :: ialaktab => null()
@@ -155,7 +189,7 @@ module LakModule
     !
     ! -- lake connection data
     integer(I4B), dimension(:), pointer, contiguous :: imap => null()
-    integer(I4B), dimension(:), pointer, contiguous :: cellid => null()
+    integer(I4B), dimension(:), pointer, contiguous :: gwfconn => null()
     integer(I4B), dimension(:), pointer, contiguous :: nodesontop => null()
     integer(I4B), dimension(:), pointer, contiguous :: ictype => null()
     real(DP), dimension(:), pointer, contiguous :: bedleak => null()
@@ -179,6 +213,13 @@ module LakModule
     real(DP), dimension(:), pointer, contiguous :: outrough => null()
     real(DP), dimension(:), pointer, contiguous :: outslope => null()
     real(DP), dimension(:), pointer, contiguous :: simoutrate => null()
+    ! -- true once a PERIOD-block setting has overridden the OUTLETS
+    !    block's own (separately time-series-linked) baseline geometry for
+    !    that outlet; prevents lak_ad's OUTLETS resync from clobbering it
+    logical(LGP), dimension(:), pointer, contiguous :: outlet_invert_set => null()
+    logical(LGP), dimension(:), pointer, contiguous :: outlet_width_set => null()
+    logical(LGP), dimension(:), pointer, contiguous :: outlet_rough_set => null()
+    logical(LGP), dimension(:), pointer, contiguous :: outlet_slope_set => null()
     !
     ! -- lake output data
     real(DP), dimension(:), pointer, contiguous :: qauxcbc => null()
@@ -205,6 +246,9 @@ module LakModule
     ! -- lake budget object
     type(BudgetObjectType), pointer :: budobj => null()
     !
+    ! -- input context runtime pointers (PERIOD + OUTLETS arrays)
+    type(LakInputType) :: input
+    !
     ! -- lake table objects
     type(TableType), pointer :: stagetab => null()
     type(TableType), pointer :: pakcsvtab => null()
@@ -222,8 +266,8 @@ module LakModule
 
     procedure :: lak_allocate_scalars
     procedure :: lak_allocate_arrays
-    procedure :: bnd_options => lak_options
-    procedure :: read_dimensions => lak_read_dimensions
+    procedure :: source_options => lak_source_options
+    procedure :: source_dimensions => lak_source_dimensions
     procedure :: read_initial_attr => lak_read_initial_attr
     procedure :: set_pointers => lak_set_pointers
     procedure :: bnd_ar => lak_ar
@@ -251,13 +295,13 @@ module LakModule
     procedure, public :: bnd_rp_obs => lak_rp_obs
     procedure, public :: bnd_bd_obs => lak_bd_obs
     ! -- private procedures
-    procedure, private :: lak_read_lakes
-    procedure, private :: lak_read_lake_connections
-    procedure, private :: lak_read_outlets
-    procedure, private :: lak_read_tables
+    procedure, private :: lak_source_packagedata
+    procedure, private :: lak_source_connectiondata
+    procedure, private :: lak_source_outlets
+    procedure, private :: lak_source_tables
     procedure, private :: lak_read_table
     procedure, private :: lak_check_valid
-    procedure, private :: lak_set_stressperiod
+    procedure, private :: lak_set_nonneg_value
     procedure, private :: lak_set_attribute_error
     procedure, private :: lak_bound_update
     procedure, private :: lak_calculate_sarea
@@ -347,7 +391,10 @@ contains
 
   !> @brief Create a new LAK Package and point bndobj to the new package
   !<
-  subroutine lak_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname)
+  subroutine lak_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
+                        mempath)
+    ! -- modules
+    use MemoryHelperModule, only: create_mem_path
     ! -- dummy
     class(BndType), pointer :: packobj
     integer(I4B), intent(in) :: id
@@ -356,6 +403,7 @@ contains
     integer(I4B), intent(in) :: iout
     character(len=*), intent(in) :: namemodel
     character(len=*), intent(in) :: pakname
+    character(len=*), intent(in) :: mempath
     ! -- local
     type(LakType), pointer :: lakobj
     !
@@ -364,7 +412,7 @@ contains
     packobj => lakobj
     !
     ! -- create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, mempath)
     packobj%text = text
     !
     ! -- allocate scalars
@@ -389,8 +437,8 @@ contains
     ! -- dummy
     class(LakType), intent(inout) :: this
     !
-    ! -- call standard BndType allocate scalars
-    call this%BndType%allocate_scalars()
+    ! -- call standard BndExtType allocate scalars
+    call this%BndExtType%allocate_scalars()
     !
     ! -- allocate the object and assign values to object variables
     call mem_allocate(this%iprhed, 'IPRHED', this%memoryPath)
@@ -452,8 +500,11 @@ contains
     ! -- local
     integer(I4B) :: i
     !
-    ! -- call standard BndType allocate scalars
-    call this%BndType%allocate_arrays()
+    ! -- call standard BndExtType allocate arrays
+    call this%BndExtType%allocate_arrays()
+    !
+    ! -- allocate featureauxvar and set pkg_ifno/pkg_auxvar input context pointers
+    call this%BndExtType%allocate_featureauxvar()
     !
     ! -- allocate character array for budget text
     allocate (this%clakbudget(this%bditems))
@@ -517,35 +568,27 @@ contains
     call mem_allocate(this%viscratios, 2, 0, 'VISCRATIOS', this%memoryPath)
   end subroutine lak_allocate_arrays
 
-  !> @brief Read the dimensions for this package
+  !> @brief Source PACKAGEDATA block from input context
   !<
-  subroutine lak_read_lakes(this)
-    ! -- modules
-    use ConstantsModule, only: LINELENGTH
-    use SimModule, only: store_error, count_errors, store_error_unit
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
+  subroutine lak_source_packagedata(this)
     ! -- dummy
     class(LakType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: text
-    character(len=LENBOUNDNAME) :: bndName, bndNameTemp
-    character(len=9) :: cno
-    character(len=50), dimension(:), allocatable :: caux
-    integer(I4B) :: ierr, ival
-    logical(LGP) :: isfound, endOfBlock
     integer(I4B) :: n
-    integer(I4B) :: ii, jj
-    integer(I4B) :: iaux
-    integer(I4B) :: itmp
-    integer(I4B) :: nlak
-    integer(I4B) :: nconn
-    integer(I4B), dimension(:), pointer, contiguous :: nboundchk
-    real(DP), pointer :: bndElem => null()
+    integer(I4B) :: ilak, nconn
+    character(len=9) :: cno
+    character(len=LENBOUNDNAME) :: bndName
+    integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
+    real(DP), dimension(:), pointer, contiguous :: strt => null()
+    integer(I4B), dimension(:), pointer, contiguous :: nlakeconn => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      boundname_cst => null()
+    integer(I4B), allocatable :: nboundchk(:)
     !
-    ! -- initialize itmp
-    itmp = 0
+    write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
+      ' PACKAGEDATA'
     !
-    ! -- allocate lake data
+    ! -- allocate lake arrays
     call mem_allocate(this%nlakeconn, this%nlakes, 'NLAKECONN', this%memoryPath)
     call mem_allocate(this%idxlakeconn, this%nlakes + 1, 'IDXLAKECONN', &
                       this%memoryPath)
@@ -554,15 +597,14 @@ contains
     call mem_allocate(this%laketop, this%nlakes, 'LAKETOP', this%memoryPath)
     call mem_allocate(this%lakebot, this%nlakes, 'LAKEBOT', this%memoryPath)
     call mem_allocate(this%sareamax, this%nlakes, 'SAREAMAX', this%memoryPath)
-    call mem_allocate(this%stage, this%nlakes, 'STAGE', this%memoryPath)
-    call mem_allocate(this%rainfall, this%nlakes, 'RAINFALL', this%memoryPath)
-    call mem_allocate(this%evaporation, this%nlakes, 'EVAPORATION', &
-                      this%memoryPath)
-    call mem_allocate(this%runoff, this%nlakes, 'RUNOFF', this%memoryPath)
-    call mem_allocate(this%inflow, this%nlakes, 'INFLOW', this%memoryPath)
-    call mem_allocate(this%withdrawal, this%nlakes, 'WITHDRAWAL', this%memoryPath)
-    call mem_allocate(this%lauxvar, this%naux, this%nlakes, 'LAUXVAR', &
-                      this%memoryPath)
+    ! -- alias into the input context's permanent, feature-indexed arrays
+    ! (allocated and DZERO-initialized by the loader)
+    call mem_setptr(this%stage, 'STAGE', this%input_mempath)
+    call mem_setptr(this%rainfall, 'RAINFALL', this%input_mempath)
+    call mem_setptr(this%evaporation, 'EVAPORATION', this%input_mempath)
+    call mem_setptr(this%runoff, 'RUNOFF', this%input_mempath)
+    call mem_setptr(this%inflow, 'INFLOW', this%input_mempath)
+    call mem_setptr(this%withdrawal, 'WITHDRAWAL', this%input_mempath)
     call mem_allocate(this%avail, this%nlakes, 'AVAIL', this%memoryPath)
     call mem_allocate(this%lkgwsink, this%nlakes, 'LKGWSINK', this%memoryPath)
     call mem_allocate(this%ncncvr, this%nlakes, 'NCNCVR', this%memoryPath)
@@ -608,10 +650,11 @@ contains
     call mem_allocate(this%s0, this%nlakes, 'S0', this%memoryPath)
     call mem_allocate(this%qgwf0, this%nlakes, 'QGWF0', this%memoryPath)
     !
-    ! -- allocate character storage not managed by the memory manager
-    allocate (this%lakename(this%nlakes)) ! ditch after boundnames allocated??
+    ! -- allocate character storage
+    allocate (this%lakename(this%nlakes))
     allocate (this%status(this%nlakes))
     !
+    ! -- initialize arrays
     do n = 1, this%nlakes
       this%ntabrow(n) = 0
       this%status(n) = 'ACTIVE'
@@ -627,8 +670,6 @@ contains
         this%xnewpak(n) = DEP20
       end if
       this%xoldpak(n) = DEP20
-      !
-      ! -- initialize boundary values to zero
       this%rainfall(n) = DZERO
       this%evaporation(n) = DZERO
       this%runoff(n) = DZERO
@@ -638,120 +679,74 @@ contains
       this%nstuck(n) = 0
     end do
     !
-    ! -- allocate local storage for aux variables
-    if (this%naux > 0) then
-      allocate (caux(this%naux))
+    ! -- get input context PACKAGEDATA column arrays
+    call mem_setptr(ifno, 'PACKAGEDATA_IFNO', this%input_mempath)
+    call mem_setptr(strt, 'STRT', this%input_mempath)
+    call mem_setptr(nlakeconn, 'NLAKECONN', this%input_mempath)
+    if (this%inamedbound /= 0) then
+      call mem_setptr(boundname_cst, 'BOUNDNAME', this%input_mempath)
     end if
     !
-    ! -- allocate and initialize temporary variables
+    ! -- allocate check array
     allocate (nboundchk(this%nlakes))
+    nboundchk = 0
+    ilak = 0
+    nconn = 0
+    !
     do n = 1, this%nlakes
-      nboundchk(n) = 0
+      !
+      ! -- lake number from input
+      ilak = this%validate_ifno(ifno(n), this%nlakes, nboundchk, &
+                                'lakeno', 'PACKAGEDATA')
+      if (ilak == 0) cycle
+      !
+      ! -- strt
+      this%strt(ilak) = strt(n)
+      !
+      ! -- nlakeconn
+      if (nlakeconn(n) < 0) then
+        write (errmsg, '(a,1x,i0)') 'nlakeconn MUST BE >= 0 for lake ', ilak
+        call store_error(errmsg)
+      end if
+      !
+      ! -- the IMPLICIT formulation solves the lake stage as a matrix unknown,
+      !    which requires at least one groundwater connection to give the lake
+      !    row a non-zero diagonal; a lake with no connections is not supported
+      if (this%iimplicit /= 0 .and. nlakeconn(n) == 0) then
+        write (errmsg, '(a,1x,i0,1x,a)') &
+          'lake', ilak, 'has no connections; the IMPLICIT option requires &
+          &each lake to have at least one GWF connection.'
+        call store_error(errmsg)
+      end if
+      !
+      nconn = nconn + nlakeconn(n)
+      this%nlakeconn(ilak) = nlakeconn(n)
+      !
+      ! -- set default bndName
+      write (cno, '(i9.9)') ilak
+      bndName = 'Lake'//cno
+      !
+      ! -- lakename from boundname if provided
+      if (this%inamedbound /= 0) then
+        bndName = boundname_cst(n)
+        if (trim(bndName) == '') then
+          write (cno, '(i9.9)') ilak
+          bndName = 'Lake'//cno
+        end if
+      end if
+      this%lakename(ilak) = bndName
     end do
     !
-    ! -- read lake well data
-    ! -- get lakes block
-    call this%parser%GetBlock('PACKAGEDATA', isfound, ierr, &
-                              supportOpenClose=.true.)
+    ! -- check for duplicate or missing lakes
+    call this%report_ifno_coverage(nboundchk, this%nlakes, 'lake', &
+                                   'PACKAGEDATA')
     !
-    ! -- parse locations block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
-        ' PACKAGEDATA'
-      nlak = 0
-      nconn = 0
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        n = this%parser%GetInteger()
-        !
-        if (n < 1 .or. n > this%nlakes) then
-          write (errmsg, '(a,1x,i0)') 'lakeno MUST BE > 0 and <= ', this%nlakes
-          call store_error(errmsg)
-          cycle
-        end if
-        !
-        ! -- increment nboundchk
-        nboundchk(n) = nboundchk(n) + 1
-        !
-        ! -- strt
-        this%strt(n) = this%parser%GetDouble()
-        !
-        ! nlakeconn
-        ival = this%parser%GetInteger()
-        !
-        if (ival < 0) then
-          write (errmsg, '(a,1x,i0)') 'nlakeconn MUST BE >= 0 for lake ', n
-          call store_error(errmsg)
-        end if
-        !
-        ! -- the IMPLICIT formulation solves the lake stage as a matrix unknown,
-        !    which requires at least one groundwater connection to give the lake
-        !    row a non-zero diagonal; a lake with no connections is not supported
-        if (this%iimplicit /= 0 .and. ival == 0) then
-          write (errmsg, '(a,1x,i0,1x,a)') &
-            'lake', n, 'has no connections; the IMPLICIT option requires &
-            &each lake to have at least one GWF connection.'
-          call store_error(errmsg)
-        end if
-        !
-        nconn = nconn + ival
-        this%nlakeconn(n) = ival
-        !
-        ! -- get aux data
-        do iaux = 1, this%naux
-          call this%parser%GetString(caux(iaux))
-        end do
-        !
-        ! -- set default bndName
-        write (cno, '(i9.9)') n
-        bndName = 'Lake'//cno
-        !
-        ! -- lakename
-        if (this%inamedbound /= 0) then
-          call this%parser%GetStringCaps(bndNameTemp)
-          if (bndNameTemp /= '') then
-            bndName = bndNameTemp
-          end if
-        end if
-        this%lakename(n) = bndName
-        !
-        ! -- fill time series aware data
-        ! -- fill aux data
-        do jj = 1, this%naux
-          text = caux(jj)
-          ii = n
-          bndElem => this%lauxvar(jj, ii)
-          call read_value_or_time_series_adv(text, ii, jj, bndElem, &
-                                             this%packName, 'AUX', &
-                                             this%tsManager, this%iprpak, &
-                                             this%auxname(jj))
-        end do
-        !
-        nlak = nlak + 1
-      end do
-      !
-      ! -- check for duplicate or missing lakes
-      do n = 1, this%nlakes
-        if (nboundchk(n) == 0) then
-          write (errmsg, '(a,1x,i0)') 'NO DATA SPECIFIED FOR LAKE', n
-          call store_error(errmsg)
-        else if (nboundchk(n) > 1) then
-          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
-            'DATA FOR LAKE', n, 'SPECIFIED', nboundchk(n), 'TIMES'
-          call store_error(errmsg)
-        end if
-      end do
-      !
-      write (this%iout, '(1x,a)') 'END OF '//trim(adjustl(this%text))// &
-        ' PACKAGEDATA'
-    else
-      call store_error('REQUIRED PACKAGEDATA BLOCK NOT FOUND.')
-    end if
+    write (this%iout, '(1x,a)') 'END OF '//trim(adjustl(this%text))// &
+      ' PACKAGEDATA'
     !
     ! -- terminate if any errors were detected
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- set MAXBOUND
@@ -764,215 +759,202 @@ contains
       this%idxlakeconn(n + 1) = this%idxlakeconn(n) + this%nlakeconn(n)
     end do
     !
-    ! -- deallocate local storage for aux variables
-    if (this%naux > 0) then
-      deallocate (caux)
-    end if
-    !
-    ! -- deallocate local storage for nboundchk
+    ! -- deallocate check array
     deallocate (nboundchk)
-  end subroutine lak_read_lakes
+    !
+    ! -- release input context packagedata memory; PACKAGEDATA_IFNO excluded
+    !    because allocate_featureauxvar retains a pointer to it
+    call memorystore_release('STRT', this%input_mempath)
+    call memorystore_release('NLAKECONN', this%input_mempath)
+    call memorystore_release('BOUNDNAME', this%input_mempath)
+  end subroutine lak_source_packagedata
 
-  !> @brief Read the lake connections for this package
+  !> @brief Source CONNECTIONDATA block from input context
   !<
-  subroutine lak_read_lake_connections(this)
-    use ConstantsModule, only: LINELENGTH, LENVARNAME
-    use SimModule, only: store_error, count_errors
+  subroutine lak_source_connectiondata(this)
     ! -- dummy
     class(LakType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: keyword, cellid
-    integer(I4B) :: ierr, ival
-    logical(LGP) :: isfound, endOfBlock
+    integer(I4B) :: n, j, ipos, nn
+    integer(I4B) :: ilak, iconn
+    integer(I4B) :: ipos0, icellid0, icellid, nn2
     logical(LGP) :: is_lake_bed
-    real(DP) :: rval
-    integer(I4B) :: j, n
-    integer(I4B) :: nn
-    integer(I4B) :: ipos, ipos0
-    integer(I4B) :: icellid, icellid0
-    real(DP) :: top
-    real(DP) :: bot
-    integer(I4B), dimension(:), pointer, contiguous :: nboundchk
-    character(len=LENVARNAME) :: ctypenm
+    character(len=LINELENGTH) :: cellid_str
+    character(len=LINELENGTH) :: ctypenm
+    character(len=LINELENGTH) :: cbleak
+    real(DP) :: top, bot, rval
+    integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
+    integer(I4B), dimension(:), pointer, contiguous :: iconns => null()
+    integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      claktype => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      bedleak => null()
+    real(DP), dimension(:), pointer, contiguous :: belev => null()
+    real(DP), dimension(:), pointer, contiguous :: telev => null()
+    real(DP), dimension(:), pointer, contiguous :: connlen => null()
+    real(DP), dimension(:), pointer, contiguous :: connwidth => null()
+    integer(I4B), allocatable :: nboundchk(:)
     !
-    ! -- allocate local storage
+    ! -- allocate connection data arrays
+    call mem_allocate(this%imap, this%MAXBOUND, 'IMAP', this%memoryPath)
+    call mem_allocate(this%gwfconn, this%MAXBOUND, 'GWFCONN', this%memoryPath)
+    call mem_allocate(this%nodesontop, this%MAXBOUND, 'NODESONTOP', &
+                      this%memoryPath)
+    call mem_allocate(this%ictype, this%MAXBOUND, 'ICTYPE', this%memoryPath)
+    call mem_allocate(this%bedleak, this%MAXBOUND, 'BEDLEAK', this%memoryPath)
+    call mem_allocate(this%belev, this%MAXBOUND, 'BELEV', this%memoryPath)
+    call mem_allocate(this%telev, this%MAXBOUND, 'TELEV', this%memoryPath)
+    call mem_allocate(this%connlength, this%MAXBOUND, 'CONNLENGTH', &
+                      this%memoryPath)
+    call mem_allocate(this%connwidth, this%MAXBOUND, 'CONNWIDTH', &
+                      this%memoryPath)
+    call mem_allocate(this%sarea, this%MAXBOUND, 'SAREA', this%memoryPath)
+    call mem_allocate(this%warea, this%MAXBOUND, 'WAREA', this%memoryPath)
+    call mem_allocate(this%satcond, this%MAXBOUND, 'SATCOND', this%memoryPath)
+    call mem_allocate(this%simcond, this%MAXBOUND, 'SIMCOND', this%memoryPath)
+    call mem_allocate(this%simlakgw, this%MAXBOUND, 'SIMLAKGW', this%memoryPath)
+    !
+    write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
+      ' CONNECTIONDATA'
+    !
+    ! -- get input context CONNECTIONDATA column arrays
+    call mem_setptr(ifno, 'CONNDATA_IFNO', this%input_mempath)
+    call mem_setptr(iconns, 'ICONN', this%input_mempath)
+    call mem_setptr(cellid, 'CELLID', this%input_mempath)
+    call mem_setptr(claktype, 'CLAKTYPE', this%input_mempath)
+    call mem_setptr(bedleak, 'BEDLEAK', this%input_mempath)
+    call mem_setptr(belev, 'BELEV', this%input_mempath)
+    call mem_setptr(telev, 'TELEV', this%input_mempath)
+    call mem_setptr(connlen, 'CONNLEN', this%input_mempath)
+    call mem_setptr(connwidth, 'CONNWIDTH', this%input_mempath)
+    !
+    ! -- allocate check array
     allocate (nboundchk(this%MAXBOUND))
+    nboundchk = 0
+    !
     do n = 1, this%MAXBOUND
-      nboundchk(n) = 0
+      !
+      ilak = ifno(n)
+      iconn = iconns(n)
+      !
+      if (ilak < 1 .or. ilak > this%nlakes) then
+        write (errmsg, '(a,1x,i0)') 'lakeno MUST BE > 0 and <= ', this%nlakes
+        call store_error(errmsg)
+        cycle
+      end if
+      if (iconn < 1 .or. iconn > this%nlakeconn(ilak)) then
+        write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
+          'iconn FOR LAKE ', ilak, 'MUST BE > 0 and <= ', this%nlakeconn(ilak)
+        call store_error(errmsg)
+        cycle
+      end if
+      !
+      ipos = this%idxlakeconn(ilak) + iconn - 1
+      this%imap(ipos) = ilak
+      nboundchk(ipos) = nboundchk(ipos) + 1
+      !
+      ! -- convert cellid integer array to string and resolve to a node number.
+      write (cellid_str, '(10(i0,1x))') cellid(1:this%dis%ndim, n)
+      nn = this%dis%noder_from_cellid(cellid_str, this%inunit, this%iout)
+      if (nn < 1) then
+        write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
+          'INVALID cellid FOR LAKE ', ilak, 'connection', iconn
+        call store_error(errmsg)
+      end if
+      this%gwfconn(ipos) = nn
+      this%nodesontop(ipos) = nn
+      !
+      ! -- connection type
+      ctypenm = claktype(n)
+      select case (trim(ctypenm))
+      case ('VERTICAL')
+        this%ictype(ipos) = 0
+      case ('HORIZONTAL')
+        this%ictype(ipos) = 1
+      case ('EMBEDDEDH')
+        this%ictype(ipos) = 2
+      case ('EMBEDDEDV')
+        this%ictype(ipos) = 3
+      case default
+        write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,a,a)') &
+          'UNKNOWN ctype FOR LAKE ', ilak, 'connection', iconn, &
+          '(', trim(ctypenm), ')'
+        call store_error(errmsg)
+      end select
+      !
+      ! -- bed leakance
+      cbleak = bedleak(n)
+      select case (trim(cbleak))
+      case ('NONE')
+        is_lake_bed = .FALSE.
+        rval = DNODATA
+        write (warnmsg, '(2(a,1x,i0,1x),a,1pe8.1,a)') &
+          'BEDLEAK for connection', iconn, 'in lake', ilak, &
+          'is specified to be NONE. Lake connections where the lake-GWF '// &
+          'connection conductance is solely a function of aquifer '// &
+          'properties in the connected GWF cell should be specified '// &
+          'with a DNODATA (', DNODATA, ') value.'
+        call deprecation_warning('CONNECTIONDATA', 'bedleak=NONE', '6.4.3', &
+                                 warnmsg, this%inunit)
+      case default
+        read (cbleak, *) rval
+        if (is_close(rval, DNODATA)) then
+          is_lake_bed = .FALSE.
+        else
+          is_lake_bed = .TRUE.
+        end if
+      end select
+      this%bedleak(ipos) = rval
+      if (is_lake_bed .and. this%bedleak(ipos) < DZERO) then
+        write (errmsg, '(a,1x,i0,1x,a)') 'bedleak FOR LAKE ', ilak, &
+          'MUST BE >= 0'
+        call store_error(errmsg)
+      end if
+      !
+      ! -- belev
+      this%belev(ipos) = belev(n)
+      !
+      ! -- telev
+      this%telev(ipos) = telev(n)
+      !
+      ! -- connection length
+      rval = connlen(n)
+      if (rval <= DZERO) then
+        if (this%ictype(ipos) == 1 .or. this%ictype(ipos) == 2 .or. &
+            this%ictype(ipos) == 3) then
+          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,a,1x,a)') &
+            'connection length (connlen) FOR LAKE ', ilak, &
+            ', CONNECTION NO.', iconn, ', MUST BE > 0 FOR SPECIFIED ', &
+            'connection type (ctype)', trim(ctypenm)
+          call store_error(errmsg)
+        else
+          rval = DZERO
+        end if
+      end if
+      this%connlength(ipos) = rval
+      !
+      ! -- connection width
+      rval = connwidth(n)
+      if (rval < DZERO) then
+        if (this%ictype(ipos) == 1) then
+          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
+            'cell width (connwidth) FOR LAKE ', ilak, &
+            ' HORIZONTAL CONNECTION ', iconn, 'MUST BE >= 0'
+          call store_error(errmsg)
+        else
+          rval = DZERO
+        end if
+      end if
+      this%connwidth(ipos) = rval
     end do
     !
-    ! -- get connectiondata block
-    call this%parser%GetBlock('CONNECTIONDATA', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse connectiondata block if detected
-    if (isfound) then
-      ! -- allocate connection data using memory manager
-      call mem_allocate(this%imap, this%MAXBOUND, 'IMAP', this%memoryPath)
-      call mem_allocate(this%cellid, this%MAXBOUND, 'CELLID', this%memoryPath)
-      call mem_allocate(this%nodesontop, this%MAXBOUND, 'NODESONTOP', &
-                        this%memoryPath)
-      call mem_allocate(this%ictype, this%MAXBOUND, 'ICTYPE', this%memoryPath)
-      call mem_allocate(this%bedleak, this%MAXBOUND, 'BEDLEAK', this%memoryPath) ! don't need to save this - use a temporary vector
-      call mem_allocate(this%belev, this%MAXBOUND, 'BELEV', this%memoryPath)
-      call mem_allocate(this%telev, this%MAXBOUND, 'TELEV', this%memoryPath)
-      call mem_allocate(this%connlength, this%MAXBOUND, 'CONNLENGTH', &
-                        this%memoryPath)
-      call mem_allocate(this%connwidth, this%MAXBOUND, 'CONNWIDTH', &
-                        this%memoryPath)
-      call mem_allocate(this%sarea, this%MAXBOUND, 'SAREA', this%memoryPath)
-      call mem_allocate(this%warea, this%MAXBOUND, 'WAREA', this%memoryPath)
-      call mem_allocate(this%satcond, this%MAXBOUND, 'SATCOND', this%memoryPath)
-      call mem_allocate(this%simcond, this%MAXBOUND, 'SIMCOND', this%memoryPath)
-      call mem_allocate(this%simlakgw, this%MAXBOUND, 'SIMLAKGW', this%memoryPath)
-      !
-      ! -- process the lake connection data
-      write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
-        ' LAKE_CONNECTIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        n = this%parser%GetInteger()
-        !
-        if (n < 1 .or. n > this%nlakes) then
-          write (errmsg, '(a,1x,i0)') 'lakeno MUST BE > 0 and <= ', this%nlakes
-          call store_error(errmsg)
-          cycle
-        end if
-        !
-        ! -- read connection number
-        ival = this%parser%GetInteger()
-        if (ival < 1 .or. ival > this%nlakeconn(n)) then
-          write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
-            'iconn FOR LAKE ', n, 'MUST BE > 1 and <= ', this%nlakeconn(n)
-          call store_error(errmsg)
-          cycle
-        end if
-        !
-        j = ival
-        ipos = this%idxlakeconn(n) + ival - 1
-        !
-        ! -- set imap
-        this%imap(ipos) = n
-        !
-        !
-        ! -- increment nboundchk
-        nboundchk(ipos) = nboundchk(ipos) + 1
-        !
-        ! -- read gwfnodes from the line
-        call this%parser%GetCellid(this%dis%ndim, cellid)
-        nn = this%dis%noder_from_cellid(cellid, &
-                                        this%parser%iuactive, this%iout)
-        !
-        ! -- determine if a valid cell location was provided
-        if (nn < 1) then
-          write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
-            'INVALID cellid FOR LAKE ', n, 'connection', j
-          call store_error(errmsg)
-        end if
-        !
-        ! -- set gwf cellid for connection
-        this%cellid(ipos) = nn
-        this%nodesontop(ipos) = nn
-        !
-        ! -- read ictype
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('VERTICAL')
-          this%ictype(ipos) = 0
-        case ('HORIZONTAL')
-          this%ictype(ipos) = 1
-        case ('EMBEDDEDH')
-          this%ictype(ipos) = 2
-        case ('EMBEDDEDV')
-          this%ictype(ipos) = 3
-        case default
-          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,a,a)') &
-            'UNKNOWN ctype FOR LAKE ', n, 'connection', j, &
-            '(', trim(keyword), ')'
-          call store_error(errmsg)
-        end select
-        write (ctypenm, '(a16)') keyword
-        !
-        ! -- bed leakance
-        !this%bedleak(ipos) = this%parser%GetDouble() !TODO: use this when NONE keyword deprecated
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('NONE')
-          is_lake_bed = .FALSE.
-          this%bedleak(ipos) = DNODATA
-          !
-          ! -- create warning message
-          write (warnmsg, '(2(a,1x,i0,1x),a,1pe8.1,a)') &
-            'BEDLEAK for connection', j, 'in lake', n, 'is specified to '// &
-            'be NONE. Lake connections where the lake-GWF connection '// &
-            'conductance is solely a function of aquifer properties '// &
-            'in the connected GWF cell should be specified with a '// &
-            'DNODATA (', DNODATA, ') value.'
-          !
-          ! -- create deprecation warning
-          call deprecation_warning('CONNECTIONDATA', 'bedleak=NONE', '6.4.3', &
-                                   warnmsg, this%parser%GetUnit())
-        case default
-          read (keyword, *) rval
-          if (is_close(rval, DNODATA)) then
-            is_lake_bed = .FALSE.
-          else
-            is_lake_bed = .TRUE.
-          end if
-          this%bedleak(ipos) = rval
-        end select
-        !
-        if (is_lake_bed .and. this%bedleak(ipos) < DZERO) then
-          write (errmsg, '(a,1x,i0,1x,a)') 'bedleak FOR LAKE ', n, 'MUST BE >= 0'
-          call store_error(errmsg)
-        end if
-        !
-        ! -- belev
-        this%belev(ipos) = this%parser%GetDouble()
-        !
-        ! -- telev
-        this%telev(ipos) = this%parser%GetDouble()
-        !
-        ! -- connection length
-        rval = this%parser%GetDouble()
-        if (rval <= DZERO) then
-          if (this%ictype(ipos) == 1 .or. this%ictype(ipos) == 2 .or. &
-              this%ictype(ipos) == 3) then
-            write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,a,1x,a)') &
-              'connection length (connlen) FOR LAKE ', n, &
-              ', CONNECTION NO.', j, ', MUST BE > 0 FOR SPECIFIED ', &
-              'connection type (ctype)', ctypenm
-            call store_error(errmsg)
-          else
-            rval = DZERO
-          end if
-        end if
-        this%connlength(ipos) = rval
-        !
-        ! -- connection width
-        rval = this%parser%GetDouble()
-        if (rval < dzero) then
-          if (this%ictype(ipos) == 1) then
-            write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
-              'cell width (connwidth) FOR LAKE ', n, &
-              ' HORIZONTAL CONNECTION ', j, 'MUST BE >= 0'
-            call store_error(errmsg)
-          else
-            rval = DZERO
-          end if
-        end if
-        this%connwidth(ipos) = rval
-      end do
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%text))//' CONNECTIONDATA'
-    else
-      call store_error('REQUIRED CONNECTIONDATA BLOCK NOT FOUND.')
-    end if
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' CONNECTIONDATA'
     !
     ! -- terminate if any errors were detected
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- check that embedded lakes have only one connection
@@ -992,20 +974,20 @@ contains
     !   with a vertical connection
     do n = 1, this%nlakes
       ipos0 = this%idxlakeconn(n)
-      icellid0 = this%cellid(ipos0)
+      icellid0 = this%gwfconn(ipos0)
       if (this%ictype(ipos0) /= 2 .and. this%ictype(ipos0) /= 3) cycle
-      do nn = 1, this%nlakes
-        if (nn == n) cycle
+      do nn2 = 1, this%nlakes
+        if (nn2 == n) cycle
         j = 0
-        do ipos = this%idxlakeconn(nn), this%idxlakeconn(nn + 1) - 1
+        do ipos = this%idxlakeconn(nn2), this%idxlakeconn(nn2 + 1) - 1
           j = j + 1
-          icellid = this%cellid(ipos)
+          icellid = this%gwfconn(ipos)
           if (icellid == icellid0) then
             if (this%ictype(ipos) == 0) then
               write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,1x,i0,1x,a)') &
                 'EMBEDDED LAKE', n, &
                 'CANNOT COINCIDE WITH VERTICAL CONNECTION', j, &
-                'IN LAKE', nn, '.'
+                'IN LAKE', nn2, '.'
               call store_error(errmsg)
             end if
           end if
@@ -1013,20 +995,18 @@ contains
       end do
     end do
     !
-    ! -- process the data
+    ! -- process the data (post-processing: telev/belev/laketop/lakebot)
     do n = 1, this%nlakes
       j = 0
       do ipos = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
         j = j + 1
-        nn = this%cellid(ipos)
+        nn = this%gwfconn(ipos)
         top = this%dis%top(nn)
         bot = this%dis%bot(nn)
-        ! vertical connection
         if (this%ictype(ipos) == 0) then
           this%telev(ipos) = top + this%surfdep
           this%belev(ipos) = top
           this%lakebot(n) = min(this%belev(ipos), this%lakebot(n))
-          ! horizontal connection
         else if (this%ictype(ipos) == 1) then
           if (this%belev(ipos) == this%telev(ipos)) then
             this%telev(ipos) = top
@@ -1051,14 +1031,13 @@ contains
           end if
           this%laketop(n) = max(this%telev(ipos), this%laketop(n))
           this%lakebot(n) = min(this%belev(ipos), this%lakebot(n))
-          ! embedded connections
         else if (this%ictype(ipos) == 2 .or. this%ictype(ipos) == 3) then
           this%telev(ipos) = top
           this%belev(ipos) = bot
           this%lakebot(n) = bot
         end if
         !
-        ! -- check for missing or duplicate lake connections
+        ! -- check for missing or duplicate connections
         if (nboundchk(ipos) == 0) then
           write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
             'NO DATA SPECIFIED FOR LAKE', n, 'CONNECTION', j
@@ -1069,126 +1048,98 @@ contains
             'SPECIFIED', nboundchk(ipos), 'TIMES'
           call store_error(errmsg)
         end if
-        !
-        ! -- set laketop if it has not been assigned
       end do
       if (this%laketop(n) == -DEP20) then
         this%laketop(n) = this%lakebot(n) + 100.
       end if
     end do
     !
-    ! -- deallocate local variable
     deallocate (nboundchk)
     !
-    ! -- write summary of lake_connection error messages
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
-  end subroutine lak_read_lake_connections
+    !
+    ! -- release input context connectiondata memory
+    call memorystore_release('CONNDATA_IFNO', this%input_mempath)
+    call memorystore_release('ICONN', this%input_mempath)
+    call memorystore_release('CELLID', this%input_mempath)
+    call memorystore_release('CLAKTYPE', this%input_mempath)
+    call memorystore_release('BEDLEAK', this%input_mempath)
+    call memorystore_release('BELEV', this%input_mempath)
+    call memorystore_release('TELEV', this%input_mempath)
+    call memorystore_release('CONNLEN', this%input_mempath)
+    call memorystore_release('CONNWIDTH', this%input_mempath)
+  end subroutine lak_source_connectiondata
 
-  !> @brief Read the lake tables for this package
+  !> @brief Source TABLES block from input context
   !<
-  subroutine lak_read_tables(this)
-    use ConstantsModule, only: LINELENGTH
-    use SimModule, only: store_error, count_errors
+  subroutine lak_source_tables(this)
     ! -- dummy
     class(LakType), intent(inout) :: this
     ! -- local
+    integer(I4B) :: n, ntabs
+    integer(I4B) :: ilak, iconn
+    character(len=LINELENGTH) :: fname
+    integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      tab6_filename => null()
     type(LakTabType), dimension(:), allocatable :: laketables
-    character(len=LINELENGTH) :: line
-    character(len=LINELENGTH) :: keyword
-    integer(I4B) :: ierr
-    logical(LGP) :: isfound, endOfBlock
-    integer(I4B) :: n
-    integer(I4B) :: iconn
-    integer(I4B) :: ntabs
-    integer(I4B), dimension(:), pointer, contiguous :: nboundchk
+    integer(I4B), allocatable :: nboundchk(:)
     !
-    ! -- skip of no outlets
+    ! -- skip if no tables
     if (this%ntables < 1) return
     !
-    ! -- allocate and initialize nboundchk
-    allocate (nboundchk(this%nlakes))
-    do n = 1, this%nlakes
-      nboundchk(n) = 0
-    end do
-    !
-    ! -- allocate derived type for table data
-    allocate (laketables(this%nlakes))
-    !
-    ! -- get lake_tables block
-    call this%parser%GetBlock('TABLES', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse lake_tables block if detected
-    if (isfound) then
-      ntabs = 0
-      ! -- process the lake table data
-      write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
-        ' LAKE_TABLES'
-      readtable: do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        n = this%parser%GetInteger()
-        !
-        if (n < 1 .or. n > this%nlakes) then
-          write (errmsg, '(a,1x,i0)') 'lakeno MUST BE > 0 and <= ', this%nlakes
-          call store_error(errmsg)
-          cycle readtable
-        end if
-        !
-        ! -- increment ntab and nboundchk
-        ntabs = ntabs + 1
-        nboundchk(n) = nboundchk(n) + 1
-        !
-        ! -- read FILE keyword
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('TAB6')
-          call this%parser%GetStringCaps(keyword)
-          if (trim(adjustl(keyword)) /= 'FILEIN') then
-            errmsg = 'TAB6 keyword must be followed by "FILEIN" '// &
-                     'then by filename.'
-            call store_error(errmsg)
-            cycle readtable
-          end if
-          call this%parser%GetString(line)
-          call this%lak_read_table(n, line, laketables(n))
-        case default
-          write (errmsg, '(a,1x,i0,1x,a)') &
-            'LAKE TABLE ENTRY for LAKE ', n, 'MUST INCLUDE TAB6 KEYWORD'
-          call store_error(errmsg)
-          cycle readtable
-        end select
-      end do readtable
-      !
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%text))//' LAKE_TABLES'
-      !
-      ! -- check for missing or duplicate lake connections
-      if (ntabs < this%ntables) then
-        write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
-          'TABLE DATA ARE SPECIFIED', ntabs, &
-          'TIMES BUT NTABLES IS SET TO', this%ntables
-        call store_error(errmsg)
-      end if
-      do n = 1, this%nlakes
-        if (this%ntabrow(n) > 0 .and. nboundchk(n) > 1) then
-          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
-            'TABLE DATA FOR LAKE', n, 'SPECIFIED', nboundchk(n), 'TIMES'
-          call store_error(errmsg)
-        end if
-      end do
-    else
-      call store_error('REQUIRED TABLES BLOCK NOT FOUND.')
+    ! -- guard: TABLES block required when ntables > 0
+    call get_isize('TABLES_IFNO', this%input_mempath, ntabs)
+    if (ntabs < 1) then
+      write (errmsg, '(a)') &
+        'NTABLES > 0 BUT A TABLES BLOCK WAS NOT FOUND IN THE LAK INPUT.'
+      call store_error(errmsg, .true.)
     end if
     !
-    ! -- deallocate local storage
+    write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
+      ' TABLES'
+    !
+    ! -- set input context pointers
+    call mem_setptr(ifno, 'TABLES_IFNO', this%input_mempath)
+    call mem_setptr(tab6_filename, 'TAB6_FILENAME', this%input_mempath)
+    !
+    ntabs = size(ifno)
+    !
+    ! -- allocate
+    allocate (laketables(this%nlakes))
+    allocate (nboundchk(this%nlakes))
+    nboundchk = 0
+    !
+    do n = 1, ntabs
+      ilak = this%validate_ifno(ifno(n), this%nlakes, nboundchk, &
+                                'lakeno', 'TABLES')
+      if (ilak == 0) cycle
+      fname = tab6_filename(n)
+      call this%lak_read_table(ilak, trim(fname), laketables(ilak))
+    end do
+    !
+    write (this%iout, '(1x,a)') 'END OF '//trim(adjustl(this%text))//' TABLES'
+    !
+    ! -- check for missing or duplicate table data
+    if (ntabs < this%ntables) then
+      write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
+        'TABLE DATA ARE SPECIFIED', ntabs, &
+        'TIMES BUT NTABLES IS SET TO', this%ntables
+      call store_error(errmsg)
+    end if
+    ! -- a table that never loaded any rows is not reported as a duplicate
+    do n = 1, this%nlakes
+      if (this%ntabrow(n) == 0) nboundchk(n) = 0
+    end do
+    call this%report_ifno_coverage(nboundchk, this%nlakes, 'lakeno', &
+                                   'TABLES', check_missing=.false.)
+    !
     deallocate (nboundchk)
     !
-    ! -- write summary of lake_table error messages
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- convert laketables to vectors
@@ -1207,7 +1158,7 @@ contains
       end if
     end do
     deallocate (laketables)
-  end subroutine lak_read_tables
+  end subroutine lak_source_tables
 
   !> @brief Copy the laketables structure data into flattened vectors that are
   !! stored in the memory manager
@@ -1491,248 +1442,179 @@ contains
     call parser%Clear()
   end subroutine lak_read_table
 
-  !> @brief Read the lake outlets for this package
+  !> @brief Source OUTLETS block from input context
   !<
-  subroutine lak_read_outlets(this)
-    use ConstantsModule, only: LINELENGTH
-    use SimModule, only: store_error, count_errors
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
+  subroutine lak_source_outlets(this)
     ! -- dummy
     class(LakType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: text, keyword
-    character(len=LENBOUNDNAME) :: bndName
-    character(len=9) :: citem
-    integer(I4B) :: ierr, ival
-    logical(LGP) :: isfound, endOfBlock
-    integer(I4B) :: n
-    integer(I4B) :: jj
-    integer(I4B), dimension(:), pointer, contiguous :: nboundchk
-    real(DP), pointer :: bndElem => null()
+    integer(I4B) :: n, isize, ioutlet
+    character(len=LINELENGTH) :: keyword
+    integer(I4B), dimension(:), pointer, contiguous :: outletno => null()
+    integer(I4B), dimension(:), pointer, contiguous :: lakein => null()
+    integer(I4B), dimension(:), pointer, contiguous :: lakeout => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      couttype => null()
+    real(DP), dimension(:), pointer, contiguous :: outlets_invert => null()
+    real(DP), dimension(:), pointer, contiguous :: outlets_width => null()
+    real(DP), dimension(:), pointer, contiguous :: outlets_rough => null()
+    real(DP), dimension(:), pointer, contiguous :: outlets_slope => null()
+    integer(I4B), allocatable :: nboundchk(:)
     !
-    ! -- get well_connections block
-    call this%parser%GetBlock('OUTLETS', isfound, ierr, &
-                              supportOpenClose=.true., blockRequired=.false.)
+    ! -- skip if no outlets
+    if (this%noutlets < 1) return
     !
-    ! -- parse outlets block if detected
-    if (isfound) then
-      if (this%noutlets > 0) then
-        !
-        ! -- allocate and initialize local variables
-        allocate (nboundchk(this%noutlets))
-        do n = 1, this%noutlets
-          nboundchk(n) = 0
-        end do
-        !
-        ! -- allocate outlet data using memory manager
-        call mem_allocate(this%lakein, this%NOUTLETS, 'LAKEIN', this%memoryPath)
-        call mem_allocate(this%lakeout, this%NOUTLETS, 'LAKEOUT', this%memoryPath)
-        call mem_allocate(this%iouttype, this%NOUTLETS, 'IOUTTYPE', &
-                          this%memoryPath)
-        call mem_allocate(this%outrate, this%NOUTLETS, 'OUTRATE', this%memoryPath)
-        call mem_allocate(this%outinvert, this%NOUTLETS, 'OUTINVERT', &
-                          this%memoryPath)
-        call mem_allocate(this%outwidth, this%NOUTLETS, 'OUTWIDTH', &
-                          this%memoryPath)
-        call mem_allocate(this%outrough, this%NOUTLETS, 'OUTROUGH', &
-                          this%memoryPath)
-        call mem_allocate(this%outslope, this%NOUTLETS, 'OUTSLOPE', &
-                          this%memoryPath)
-        call mem_allocate(this%simoutrate, this%NOUTLETS, 'SIMOUTRATE', &
-                          this%memoryPath)
-        !
-        ! -- initialize outlet rate
-        do n = 1, this%noutlets
-          this%outrate(n) = DZERO
-        end do
-        !
-        ! -- process the lake connection data
-        write (this%iout, '(/1x,a)') &
-          'PROCESSING '//trim(adjustl(this%text))//' OUTLETS'
-        readoutlet: do
-          call this%parser%GetNextLine(endOfBlock)
-          if (endOfBlock) exit
-          n = this%parser%GetInteger()
-
-          if (n < 1 .or. n > this%noutlets) then
-            write (errmsg, '(a,1x,i0)') &
-              'outletno MUST BE > 0 and <= ', this%noutlets
-            call store_error(errmsg)
-            cycle readoutlet
-          end if
-          !
-          ! -- increment nboundchk
-          nboundchk(n) = nboundchk(n) + 1
-          !
-          ! -- read outlet lakein
-          ival = this%parser%GetInteger()
-          if (ival < 1 .or. ival > this%nlakes) then
-            write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
-              'lakein FOR OUTLET ', n, 'MUST BE > 0 and <= ', this%nlakes
-            call store_error(errmsg)
-            cycle readoutlet
-          end if
-          this%lakein(n) = ival
-          !
-          ! -- read outlet lakeout
-          ival = this%parser%GetInteger()
-          if (ival < 0 .or. ival > this%nlakes) then
-            write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
-              'lakeout FOR OUTLET ', n, 'MUST BE >= 0 and <= ', this%nlakes
-            call store_error(errmsg)
-            cycle readoutlet
-          end if
-          this%lakeout(n) = ival
-          !
-          ! -- read ictype
-          call this%parser%GetStringCaps(keyword)
-          select case (keyword)
-          case ('SPECIFIED')
-            this%iouttype(n) = 0
-          case ('MANNING')
-            this%iouttype(n) = 1
-          case ('WEIR')
-            this%iouttype(n) = 2
-          case default
-            write (errmsg, '(a,1x,i0,1x,a,a,a)') &
-              'UNKNOWN couttype FOR OUTLET ', n, '(', trim(keyword), ')'
-            call store_error(errmsg)
-            cycle readoutlet
-          end select
-          !
-          ! -- build bndname for outlet
-          write (citem, '(i9.9)') n
-          bndName = 'OUTLET'//citem
-          !
-          ! -- set a few variables for timeseries aware variables
-          jj = 1
-          !
-          ! -- outlet invert
-          call this%parser%GetString(text)
-          bndElem => this%outinvert(n)
-          call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                             this%packName, 'BND', &
-                                             this%tsManager, this%iprpak, &
-                                             'INVERT')
-          !
-          ! -- outlet width
-          call this%parser%GetString(text)
-          bndElem => this%outwidth(n)
-          call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                             this%packName, 'BND', &
-                                             this%tsManager, this%iprpak, 'WIDTH')
-          !
-          ! -- outlet roughness
-          call this%parser%GetString(text)
-          bndElem => this%outrough(n)
-          call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                             this%packName, 'BND', &
-                                             this%tsManager, this%iprpak, 'ROUGH')
-          !
-          ! -- outlet slope
-          call this%parser%GetString(text)
-          bndElem => this%outslope(n)
-          call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                             this%packName, 'BND', &
-                                             this%tsManager, this%iprpak, 'SLOPE')
-        end do readoutlet
-        write (this%iout, '(1x,a)') 'END OF '//trim(adjustl(this%text))// &
-          ' OUTLETS'
-        !
-        ! -- check for duplicate or missing outlets
-        do n = 1, this%noutlets
-          if (nboundchk(n) == 0) then
-            write (errmsg, '(a,1x,i0)') 'NO DATA SPECIFIED FOR OUTLET', n
-            call store_error(errmsg)
-          else if (nboundchk(n) > 1) then
-            write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
-              'DATA FOR OUTLET', n, 'SPECIFIED', nboundchk(n), 'TIMES'
-            call store_error(errmsg)
-          end if
-        end do
-        !
-        ! -- deallocate local storage
-        deallocate (nboundchk)
-      else
-        write (errmsg, '(a,1x,a)') &
-          'AN OUTLETS BLOCK SHOULD NOT BE SPECIFIED IF NOUTLETS IS NOT', &
-          'SPECIFIED OR IS SPECIFIED TO BE 0.'
+    ! -- guard: OUTLETS block required when noutlets > 0
+    call get_isize('OUTLETS_OUTLETNO', this%input_mempath, isize)
+    if (isize < 1) then
+      write (errmsg, '(a)') &
+        'NOUTLETS > 0 BUT AN OUTLETS BLOCK WAS NOT FOUND IN THE LAK INPUT.'
+      call store_error(errmsg, .true.)
+    end if
+    !
+    ! -- allocate outlet arrays
+    call mem_allocate(this%lakein, this%noutlets, 'LAKEIN', this%memoryPath)
+    call mem_allocate(this%lakeout, this%noutlets, 'LAKEOUT', this%memoryPath)
+    call mem_allocate(this%iouttype, this%noutlets, 'IOUTTYPE', this%memoryPath)
+    ! -- alias into the input context's permanent, feature-indexed arrays
+    ! (allocated and DZERO-initialized by the loader)
+    call mem_setptr(this%outrate, 'RATE', this%input_mempath)
+    call mem_setptr(this%outinvert, 'INVERT', this%input_mempath)
+    call mem_setptr(this%outwidth, 'WIDTH', this%input_mempath)
+    call mem_setptr(this%outrough, 'ROUGH', this%input_mempath)
+    call mem_setptr(this%outslope, 'SLOPE', this%input_mempath)
+    call mem_allocate(this%simoutrate, this%noutlets, 'SIMOUTRATE', &
+                      this%memoryPath)
+    call mem_allocate(this%outlet_invert_set, this%noutlets, &
+                      'INVERT_SET', this%memoryPath)
+    call mem_allocate(this%outlet_width_set, this%noutlets, &
+                      'WIDTH_SET', this%memoryPath)
+    call mem_allocate(this%outlet_rough_set, this%noutlets, &
+                      'ROUGH_SET', this%memoryPath)
+    call mem_allocate(this%outlet_slope_set, this%noutlets, &
+                      'SLOPE_SET', this%memoryPath)
+    this%outlet_invert_set = .false.
+    this%outlet_width_set = .false.
+    this%outlet_rough_set = .false.
+    this%outlet_slope_set = .false.
+    !
+    write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
+      ' OUTLETS'
+    !
+    ! -- set input context pointers
+    call mem_setptr(outletno, 'OUTLETS_OUTLETNO', this%input_mempath)
+    call mem_setptr(lakein, 'LAKEIN', this%input_mempath)
+    call mem_setptr(lakeout, 'LAKEOUT', this%input_mempath)
+    call mem_setptr(couttype, 'COUTTYPE', this%input_mempath)
+    call mem_setptr(outlets_invert, 'OUTLETS_INVERT', this%input_mempath)
+    call mem_setptr(outlets_width, 'OUTLETS_WIDTH', this%input_mempath)
+    call mem_setptr(outlets_rough, 'OUTLETS_ROUGH', this%input_mempath)
+    call mem_setptr(outlets_slope, 'OUTLETS_SLOPE', this%input_mempath)
+    !
+    allocate (nboundchk(this%noutlets))
+    nboundchk = 0
+    !
+    do n = 1, size(outletno)
+      ioutlet = this%validate_ifno(outletno(n), this%noutlets, &
+                                   nboundchk, 'outletno', 'OUTLETS')
+      if (ioutlet == 0) cycle
+      !
+      ! -- lakein
+      if (lakein(n) < 1 .or. lakein(n) > this%nlakes) then
+        write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
+          'lakein FOR OUTLET ', ioutlet, 'MUST BE > 0 and <= ', this%nlakes
         call store_error(errmsg)
       end if
+      this%lakein(ioutlet) = lakein(n)
       !
-    else
-      if (this%noutlets > 0) then
-        call store_error('REQUIRED OUTLETS BLOCK NOT FOUND.')
+      ! -- lakeout
+      if (lakeout(n) < 0 .or. lakeout(n) > this%nlakes) then
+        write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
+          'lakeout FOR OUTLET ', ioutlet, 'MUST BE >= 0 and <= ', this%nlakes
+        call store_error(errmsg)
       end if
-    end if
+      this%lakeout(ioutlet) = lakeout(n)
+      !
+      ! -- outlet type
+      keyword = couttype(n)
+      select case (trim(keyword))
+      case ('SPECIFIED')
+        this%iouttype(ioutlet) = 0
+      case ('MANNING')
+        this%iouttype(ioutlet) = 1
+      case ('WEIR')
+        this%iouttype(ioutlet) = 2
+      case default
+        write (errmsg, '(a,1x,i0,1x,a,a,a)') &
+          'UNKNOWN couttype FOR OUTLET ', ioutlet, '(', trim(keyword), ')'
+        call store_error(errmsg)
+      end select
+      !
+      ! -- outlet invert, width, roughness, slope
+      this%outinvert(ioutlet) = outlets_invert(n)
+      this%outwidth(ioutlet) = outlets_width(n)
+      this%outrough(ioutlet) = outlets_rough(n)
+      this%outslope(ioutlet) = outlets_slope(n)
+    end do
     !
-    ! -- write summary of lake_connection error messages
-    ierr = count_errors()
-    if (ierr > 0) then
-      call this%parser%StoreErrorUnit()
+    write (this%iout, '(1x,a)') 'END OF '//trim(adjustl(this%text))//' OUTLETS'
+    !
+    ! -- check for duplicate or missing outlets
+    call this%report_ifno_coverage(nboundchk, this%noutlets, 'outlet', &
+                                   'OUTLETS')
+    !
+    deallocate (nboundchk)
+    !
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
     end if
-  end subroutine lak_read_outlets
+  end subroutine lak_source_outlets
 
-  !> @brief Read the dimensions for this package
+  !> @brief Source DIMENSIONS block from input context and load static data
   !<
-  subroutine lak_read_dimensions(this)
-    use ConstantsModule, only: LINELENGTH
-    use SimModule, only: store_error, count_errors
+  subroutine lak_source_dimensions(this)
     ! -- dummy
     class(LakType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: keyword
-    integer(I4B) :: ierr
-    logical(LGP) :: isfound, endOfBlock
+    type(GwfLakParamFoundType) :: found
     !
     ! -- initialize dimensions to -1
     this%nlakes = -1
     this%maxbound = -1
     !
-    ! -- get dimensions block
-    call this%parser%GetBlock('DIMENSIONS', isfound, ierr, &
-                              supportOpenClose=.true.)
+    write (this%iout, '(/1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' DIMENSIONS'
     !
-    ! -- parse dimensions block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
-        ' DIMENSIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('NLAKES')
-          this%nlakes = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i7)') 'NLAKES = ', this%nlakes
-        case ('NOUTLETS')
-          this%noutlets = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i7)') 'NOUTLETS = ', this%noutlets
-        case ('NTABLES')
-          this%ntables = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i7)') 'NTABLES = ', this%ntables
-        case default
-          write (errmsg, '(a,a)') &
-            'UNKNOWN '//trim(this%text)//' DIMENSION: ', trim(keyword)
-          call store_error(errmsg)
-        end select
-      end do
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%text))//' DIMENSIONS'
-    else
-      call store_error('REQUIRED DIMENSIONS BLOCK NOT FOUND.')
-    end if
+    ! -- NLAKES (mf6internal: nlakes); kept in the input context (not
+    !    released) since PERIOD settings resolve it by name via SHAPE
+    call mem_set_value(this%nlakes, 'NLAKES', this%input_mempath, &
+                       found%nlakes, release=.false.)
+    if (found%nlakes) write (this%iout, '(4x,a,i7)') 'NLAKES = ', this%nlakes
+    !
+    ! -- NOUTLETS (mf6internal: noutlets); kept in the input context (not
+    !    released) since PERIOD settings resolve it by name via SHAPE
+    call mem_set_value(this%noutlets, 'NOUTLETS', this%input_mempath, &
+                       found%noutlets, release=.false.)
+    if (found%noutlets) write (this%iout, '(4x,a,i7)') &
+      'NOUTLETS = ', this%noutlets
+    !
+    ! -- NTABLES (mf6internal: ntables)
+    call mem_set_value(this%ntables, 'NTABLES', this%input_mempath, found%ntables)
+    if (found%ntables) write (this%iout, '(4x,a,i7)') 'NTABLES = ', this%ntables
+    !
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' DIMENSIONS'
     !
     if (this%nlakes < 0) then
       write (errmsg, '(a)') &
         'NLAKES WAS NOT SPECIFIED OR WAS SPECIFIED INCORRECTLY.'
       call store_error(errmsg)
+      call store_error_filename(this%input_fname)
+      return
     end if
     !
-    ! -- stop if errors were encountered in the DIMENSIONS block
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
+    ! -- read PACKAGEDATA
+    call this%lak_source_packagedata()
     !
     ! -- for the implicit formulation each lake adds one equation (one row and
     !    column) to the groundwater flow matrix
@@ -1745,20 +1627,16 @@ contains
       this%iasym = 1
     end if
     !
-    ! -- read lakes block
-    call this%lak_read_lakes()
+    ! -- read CONNECTIONDATA
+    call this%lak_source_connectiondata()
     !
-    ! -- read lake_connections block
-    call this%lak_read_lake_connections()
+    ! -- read TABLES
+    call this%lak_source_tables()
     !
-    ! -- read tables block
-    call this%lak_read_tables()
+    ! -- read OUTLETS
+    call this%lak_source_outlets()
     !
-    ! -- read outlets block
-    call this%lak_read_outlets()
-    !
-    ! -- Call define_listlabel to construct the list label that is written
-    !    when PRINT_INPUT option is used.
+    ! -- Call define_listlabel
     call this%define_listlabel()
     !
     ! -- setup the budget object
@@ -1766,7 +1644,7 @@ contains
     !
     ! -- setup the stage table object
     call this%lak_setup_tableobj()
-  end subroutine lak_read_dimensions
+  end subroutine lak_source_dimensions
 
   !> @brief Read the initial parameters for this package
   !<
@@ -1774,12 +1652,10 @@ contains
     use ConstantsModule, only: LINELENGTH
     use MemoryHelperModule, only: create_mem_path
     use SimModule, only: store_error, count_errors
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
     ! -- dummy
     class(LakType), intent(inout) :: this
     ! -- local
-    character(len=LINELENGTH) :: text
-    integer(I4B) :: j, jj, n
+    integer(I4B) :: j, n
     integer(I4B) :: nn
     integer(I4B) :: idx
     real(DP) :: top
@@ -1801,7 +1677,6 @@ contains
     character(len=14) :: cbedcond
     character(len=10), dimension(0:3) :: ctype
     character(len=15) :: nodestr
-    real(DP), pointer :: bndElem => null()
     ! -- data
     data ctype(0)/'VERTICAL  '/
     data ctype(1)/'HORIZONTAL'/
@@ -1811,12 +1686,7 @@ contains
     ! -- initialize xnewpak and set stage
     do n = 1, this%nlakes
       this%xnewpak(n) = this%strt(n)
-      write (text, '(g15.7)') this%strt(n)
-      jj = 1 ! For STAGE
-      bndElem => this%stage(n)
-      call read_value_or_time_series_adv(text, n, jj, bndElem, this%packName, &
-                                         'BND', this%tsManager, this%iprpak, &
-                                         'STAGE')
+      this%stage(n) = this%strt(n)
     end do
     !
     ! -- initialize status (iboundpak) of lakes to active
@@ -1856,7 +1726,7 @@ contains
     ! -- calculate saturated conductance for each connection
     do n = 1, this%nlakes
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-        nn = this%cellid(j)
+        nn = this%gwfconn(j)
         top = this%dis%top(nn)
         bot = this%dis%bot(nn)
         ! vertical connection
@@ -1951,7 +1821,7 @@ contains
               fact = DONE / fact
             end if
           end if
-          nn = this%cellid(j)
+          nn = this%gwfconn(j)
           area = this%warea(j)
           c1 = DZERO
           if (is_close(clb(j), DNODATA)) then
@@ -2145,7 +2015,7 @@ contains
       if (present(hin)) then
         head = hin
       else
-        igwfnode = this%cellid(i)
+        igwfnode = this%gwfconn(i)
         head = this%xnew(igwfnode)
       end if
       call this%lak_calculate_conn_warea(ilak, i, stage, head, wa)
@@ -2192,7 +2062,7 @@ contains
                                            vv, wa)
       end if
     else
-      node = this%cellid(iconn)
+      node = this%gwfconn(iconn)
       ! -- confined cell
       if (this%icelltype(node) == 0) then
         sat = DONE
@@ -2344,13 +2214,13 @@ contains
       ! horizontal connection
       ! use full saturated conductance if the connected cell is not convertible
     else if (this%ictype(iconn) == 1) then
-      node = this%cellid(iconn)
+      node = this%gwfconn(iconn)
       if (this%icelltype(node) == 0) then
         sat = DONE
       end if
       ! embedded connection
     else if (this%ictype(iconn) == 2 .or. this%ictype(iconn) == 3) then
-      node = this%cellid(iconn)
+      node = this%gwfconn(iconn)
       if (this%icelltype(node) == 0) then
         vv = this%telev(iconn)
         call this%lak_calculate_conn_warea(ilak, iconn, vv, vv, wa)
@@ -2389,7 +2259,7 @@ contains
     !
     totflow = DZERO
     do j = this%idxlakeconn(ilak), this%idxlakeconn(ilak + 1) - 1
-      igwfnode = this%cellid(j)
+      igwfnode = this%gwfconn(j)
       hgwf = this%xnew(igwfnode)
       call this%lak_calculate_conn_exchange(ilak, j, stage, hgwf, flow)
       totflow = totflow + flow
@@ -3040,226 +2910,30 @@ contains
     end if
   end function lak_check_valid
 
-  !> @brief Set a stress period attribute for lakweslls(itemno) using keywords
-  !<
-  subroutine lak_set_stressperiod(this, itemno)
-    ! -- modules
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-    use SimModule, only: store_error
+  !> @brief Apply a PERIOD lake setting and require its value be non-negative
+  subroutine lak_set_nonneg_value(this, n, itemno, setting, value_array, label)
     ! -- dummy
     class(LakType), intent(inout) :: this
+    integer(I4B), intent(in) :: n
     integer(I4B), intent(in) :: itemno
+    character(len=*), intent(in) :: setting
+    real(DP), dimension(:), intent(inout) :: value_array
+    character(len=*), intent(in) :: label
     ! -- local
-    character(len=LINELENGTH) :: text
-    character(len=LINELENGTH) :: caux
-    character(len=LINELENGTH) :: keyword
-    integer(I4B) :: ierr
-    integer(I4B) :: ii
-    integer(I4B) :: jj
-    real(DP), pointer :: bndElem => null()
+    integer(I4B) :: istat
     !
-    ! -- read line
-    call this%parser%GetStringCaps(keyword)
-    select case (keyword)
-    case ('STATUS')
-      ierr = this%lak_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetStringCaps(text)
-      this%status(itemno) = text(1:8)
-      if (text == 'CONSTANT') then
-        this%iboundpak(itemno) = -1
-      else if (text == 'INACTIVE') then
-        this%iboundpak(itemno) = 0
-      else if (text == 'ACTIVE') then
-        this%iboundpak(itemno) = 1
-      else
-        write (errmsg, '(a,a)') &
-          'Unknown '//trim(this%text)//' lak status keyword: ', text//'.'
-        call store_error(errmsg)
-      end if
-    case ('STAGE')
-      ierr = this%lak_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1 ! For STAGE
-      bndElem => this%stage(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'STAGE')
-    case ('RAINFALL')
-      ierr = this%lak_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1 ! For RAINFALL
-      bndElem => this%rainfall(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'RAINFALL')
-      if (this%rainfall(itemno) < DZERO) then
-        write (errmsg, '(a,i0,a,G0,a)') &
-          'Lake ', itemno, ' was assigned a rainfall value of ', &
-          this%rainfall(itemno), '. Rainfall must be positive.'
-        call store_error(errmsg)
-      end if
-    case ('EVAPORATION')
-      ierr = this%lak_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1 ! For EVAPORATION
-      bndElem => this%evaporation(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'EVAPORATION')
-      if (this%evaporation(itemno) < DZERO) then
-        write (errmsg, '(a,i0,a,G0,a)') &
-          'Lake ', itemno, ' was assigned an evaporation value of ', &
-          this%evaporation(itemno), '. Evaporation must be positive.'
-        call store_error(errmsg)
-      end if
-    case ('RUNOFF')
-      ierr = this%lak_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1 ! For RUNOFF
-      bndElem => this%runoff(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'RUNOFF')
-      if (this%runoff(itemno) < DZERO) then
-        write (errmsg, '(a,i0,a,G0,a)') &
-          'Lake ', itemno, ' was assigned a runoff value of ', &
-          this%runoff(itemno), '. Runoff must be positive.'
-        call store_error(errmsg)
-      end if
-    case ('INFLOW')
-      ierr = this%lak_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1 ! For specified INFLOW
-      bndElem => this%inflow(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'INFLOW')
-      if (this%inflow(itemno) < DZERO) then
-        write (errmsg, '(a,i0,a,G0,a)') &
-          'Lake ', itemno, ' was assigned an inflow value of ', &
-          this%inflow(itemno), '. Inflow must be positive.'
-        call store_error(errmsg)
-      end if
-    case ('WITHDRAWAL')
-      ierr = this%lak_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1 ! For specified WITHDRAWAL
-      bndElem => this%withdrawal(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'WITHDRAWAL')
-      if (this%withdrawal(itemno) < DZERO) then
-        write (errmsg, '(a,i0,a,G0,a)') &
-          'Lake ', itemno, ' was assigned a withdrawal value of ', &
-          this%withdrawal(itemno), '. Withdrawal must be positive.'
-        call store_error(errmsg)
-      end if
-    case ('RATE')
-      ierr = this%lak_check_valid(-itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1 ! For specified OUTLET RATE
-      bndElem => this%outrate(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'RATE')
-    case ('INVERT')
-      ierr = this%lak_check_valid(-itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1 ! For OUTLET INVERT
-      bndElem => this%outinvert(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'INVERT')
-    case ('WIDTH')
-      ierr = this%lak_check_valid(-itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1 ! For OUTLET WIDTH
-      bndElem => this%outwidth(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'WIDTH')
-    case ('ROUGH')
-      ierr = this%lak_check_valid(-itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1 ! For OUTLET ROUGHNESS
-      bndElem => this%outrough(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'ROUGH')
-    case ('SLOPE')
-      ierr = this%lak_check_valid(-itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetString(text)
-      jj = 1 ! For OUTLET SLOPE
-      bndElem => this%outslope(itemno)
-      call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                         this%packName, 'BND', this%tsManager, &
-                                         this%iprpak, 'SLOPE')
-    case ('AUXILIARY')
-      ierr = this%lak_check_valid(itemno)
-      if (ierr /= 0) then
-        goto 999
-      end if
-      call this%parser%GetStringCaps(caux)
-      do jj = 1, this%naux
-        if (trim(adjustl(caux)) /= trim(adjustl(this%auxname(jj)))) cycle
-        call this%parser%GetString(text)
-        ii = itemno
-        bndElem => this%lauxvar(jj, ii)
-        call read_value_or_time_series_adv(text, itemno, jj, bndElem, &
-                                           this%packName, 'AUX', &
-                                           this%tsManager, this%iprpak, &
-                                           this%auxname(jj))
-        exit
-      end do
-    case default
-      write (errmsg, '(2a)') &
-        'Unknown '//trim(this%text)//' lak data keyword: ', &
-        trim(keyword)//'.'
-    end select
-    !
-    ! -- Return
-999 return
-  end subroutine lak_set_stressperiod
+    istat = this%lak_check_valid(itemno)
+    if (istat /= 0) return
+    if (itemno < 1 .or. itemno > this%nlakes) return
+    if (value_array(itemno) < DZERO) then
+      write (errmsg, '(a,i0,a,g0,a)') &
+        'Lake ', itemno, ' was assigned a '//trim(label)//' value of ', &
+        value_array(itemno), '. Value must be positive.'
+      call store_error(errmsg)
+    end if
+  end subroutine lak_set_nonneg_value
 
-  !> @brief Issue a parameter error for lakweslls(ilak)
-  !!
-  !! Read itmp and new boundaries if itmp > 0
+  !> @brief Issue a parameter error for lake ilak
   !<
   subroutine lak_set_attribute_error(this, ilak, keyword, msg)
     ! -- modules
@@ -3279,32 +2953,24 @@ contains
     call store_error(errmsg)
   end subroutine lak_set_attribute_error
 
-  !> @brief Set options specific to LakType
-  !!
-  !! lak_options overrides BndType%bnd_options
+  !> @brief Source OPTIONS block from input context
   !<
-  subroutine lak_options(this, option, found)
-    ! -- modules
-    use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL
-    use OpenSpecModule, only: access, form
-    use SimModule, only: store_error
-    use InputOutputModule, only: urword, getunit, assign_iounit, openfile
+  subroutine lak_source_options(this)
     ! -- dummy
     class(LakType), intent(inout) :: this
-    character(len=*), intent(inout) :: option
-    logical(LGP), intent(inout) :: found
     ! -- local
-    character(len=MAXCHARLEN) :: fname, keyword
-    real(DP) :: r
+    type(GwfLakParamFoundType) :: found
+    integer(I4B) :: isize
+    character(len=LINELENGTH) :: fname
     ! -- formats
     character(len=*), parameter :: fmtlengthconv = &
       &"(4x, 'LENGTH CONVERSION VALUE (',g15.7,') SPECIFIED.')"
     character(len=*), parameter :: fmttimeconv = &
       &"(4x, 'TIME CONVERSION VALUE (',g15.7,') SPECIFIED.')"
-    character(len=*), parameter :: fmtoutdmax = &
-      &"(4x, 'MAXIMUM OUTLET WATER DEPTH (',g15.7,') SPECIFIED.')"
     character(len=*), parameter :: fmtlakeopt = &
       &"(4x, 'LAKE ', a, ' VALUE (',g15.7,') SPECIFIED.')"
+    character(len=*), parameter :: fmtoutdmax = &
+      &"(4x, 'MAXIMUM OUTLET WATER DEPTH (',g15.7,') SPECIFIED.')"
     character(len=*), parameter :: fmtlakbin = &
       "(4x, 'LAK ', 1x, a, 1x, ' WILL BE SAVED TO FILE: ', &
       &a, /4x, 'OPENED ON UNIT: ', I0)"
@@ -3313,123 +2979,188 @@ contains
     character(len=*), parameter :: fmtdmaxchg = &
       &"(4x, 'MAXIMUM STAGE CHANGE VALUE (',g0,') SPECIFIED.')"
     !
-    found = .true.
-    select case (option)
-    case ('PRINT_STAGE')
+    ! -- call base class to handle AUXILIARY/NAUX, BOUNDNAMES, PRINT_INPUT,
+    !    PRINT_FLOWS, SAVE_FLOWS, OBS6_FILENAME
+    call this%BndExtType%source_options()
+    !
+    write (this%iout, '(1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' OPTIONS'
+    !
+    ! -- PRINT_STAGE
+    call get_isize('PRINT_STAGE', this%input_mempath, isize)
+    if (isize > 0) then
       this%iprhed = 1
       write (this%iout, '(4x,a)') trim(adjustl(this%text))// &
         ' STAGES WILL BE PRINTED TO LISTING FILE.'
-    case ('STAGE')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        this%istageout = getunit()
-        call openfile(this%istageout, this%iout, fname, 'DATA(BINARY)', &
-                      form, access, 'REPLACE', mode_opt=MNORMAL)
-        write (this%iout, fmtlakbin) 'STAGE', trim(adjustl(fname)), &
-          this%istageout
-      else
-        call store_error('OPTIONAL STAGE KEYWORD MUST BE FOLLOWED BY FILEOUT')
-      end if
-    case ('BUDGET')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
-        call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
-                      form, access, 'REPLACE', mode_opt=MNORMAL)
-        write (this%iout, fmtlakbin) 'BUDGET', trim(adjustl(fname)), &
-          this%ibudgetout
-      else
-        call store_error('OPTIONAL BUDGET KEYWORD MUST BE FOLLOWED BY FILEOUT')
-      end if
-    case ('BUDGETCSV')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
-        call openfile(this%ibudcsv, this%iout, fname, 'CSV', &
-                      filstat_opt='REPLACE')
-        write (this%iout, fmtlakbin) 'BUDGET CSV', trim(adjustl(fname)), &
-          this%ibudcsv
-      else
-        call store_error('OPTIONAL BUDGETCSV KEYWORD MUST BE FOLLOWED BY &
-          &FILEOUT')
-      end if
-    case ('PACKAGE_CONVERGENCE')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        ! -- defer opening until lak_ar, where the IMPLICIT option is known. The
-        !    file is not opened for the implicit formulation (lak_cc does not
-        !    write package convergence in that case).
-        this%pakcsvfile = trim(adjustl(fname))
-      else
-        call store_error('OPTIONAL PACKAGE_CONVERGENCE KEYWORD MUST BE '// &
-                         'FOLLOWED BY FILEOUT')
-      end if
-    case ('MOVER')
+    end if
+    !
+    ! -- STAGE FILEOUT
+    call mem_set_value(fname, 'STAGEFILE', this%input_mempath, found%stagefile)
+    if (found%stagefile) then
+      this%istageout = GetUnit()
+      call openfile(this%istageout, this%iout, fname, 'DATA(BINARY)', &
+                    form, access, 'REPLACE', mode_opt=MNORMAL)
+      write (this%iout, fmtlakbin) 'STAGE', trim(adjustl(fname)), this%istageout
+    end if
+    !
+    ! -- BUDGET FILEOUT
+    call mem_set_value(fname, 'BUDGETFILE', this%input_mempath, found%budgetfile)
+    if (found%budgetfile) then
+      call assign_iounit(this%ibudgetout, this%inunit, 'BUDGET fileout')
+      call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
+                    form, access, 'REPLACE', mode_opt=MNORMAL)
+      write (this%iout, fmtlakbin) 'BUDGET', trim(adjustl(fname)), this%ibudgetout
+    end if
+    !
+    ! -- BUDGETCSV FILEOUT
+    call mem_set_value(fname, 'BUDGETCSVFILE', this%input_mempath, &
+                       found%budgetcsvfile)
+    if (found%budgetcsvfile) then
+      call assign_iounit(this%ibudcsv, this%inunit, 'BUDGETCSV fileout')
+      call openfile(this%ibudcsv, this%iout, fname, 'CSV', filstat_opt='REPLACE')
+      write (this%iout, fmtlakbin) 'BUDGET CSV', trim(adjustl(fname)), &
+        this%ibudcsv
+    end if
+    !
+    ! -- PACKAGE_CONVERGENCE FILEOUT (mf6internal: pkgconvfname)
+    ! -- defer opening until lak_ar, where the IMPLICIT option is known. The
+    !    file is not opened for the implicit formulation (lak_cc does not
+    !    write package convergence in that case).
+    call mem_set_value(fname, 'PKGCONVFNAME', this%input_mempath, &
+                       found%pkgconvfname)
+    if (found%pkgconvfname) then
+      this%pakcsvfile = trim(adjustl(fname))
+    end if
+    !
+    ! -- MOVER
+    call get_isize('MOVER', this%input_mempath, isize)
+    if (isize > 0) then
       this%imover = 1
       write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
-    case ('LENGTH_CONVERSION')
-      this%convlength = this%parser%GetDouble()
-      write (this%iout, fmtlengthconv) this%convlength
-    case ('TIME_CONVERSION')
-      this%convtime = this%parser%GetDouble()
-      write (this%iout, fmttimeconv) this%convtime
-    case ('SURFDEP')
-      r = this%parser%GetDouble()
-      if (r < DZERO) then
-        r = DZERO
-      end if
-      this%surfdep = r
+    end if
+    !
+    ! -- LENGTH_CONVERSION (mf6internal: convlength)
+    call mem_set_value(this%convlength, 'CONVLENGTH', this%input_mempath, &
+                       found%convlength)
+    if (found%convlength) write (this%iout, fmtlengthconv) this%convlength
+    !
+    ! -- TIME_CONVERSION (mf6internal: convtime)
+    call mem_set_value(this%convtime, 'CONVTIME', this%input_mempath, &
+                       found%convtime)
+    if (found%convtime) write (this%iout, fmttimeconv) this%convtime
+    !
+    ! -- SURFDEP (mf6internal: surfdep)
+    call mem_set_value(this%surfdep, 'SURFDEP', this%input_mempath, found%surfdep)
+    if (found%surfdep) then
+      if (this%surfdep < DZERO) this%surfdep = DZERO
       write (this%iout, fmtlakeopt) 'SURFDEP', this%surfdep
-    case ('MAXIMUM_ITERATIONS')
-      this%maxlakit = this%parser%GetInteger()
-      write (this%iout, fmtiter) this%maxlakit
-    case ('MAXIMUM_STAGE_CHANGE')
-      r = this%parser%GetDouble()
-      this%dmaxchg = r
-      this%delh = DP999 * r
+    end if
+    !
+    ! -- MAXIMUM_ITERATIONS (mf6internal: maxlakit)
+    call mem_set_value(this%maxlakit, 'MAXLAKIT', this%input_mempath, &
+                       found%maxlakit)
+    if (found%maxlakit) write (this%iout, fmtiter) this%maxlakit
+    !
+    ! -- MAXIMUM_STAGE_CHANGE (mf6internal: dmaxchg)
+    call mem_set_value(this%dmaxchg, 'DMAXCHG', this%input_mempath, found%dmaxchg)
+    if (found%dmaxchg) then
+      this%delh = DP999 * this%dmaxchg
       write (this%iout, fmtdmaxchg) this%dmaxchg
-      !
-      ! -- right now these are options that are only available in the
-      !    development version and are not included in the documentation.
-      !    These options are only available when IDEVELOPMODE in
-      !    constants module is set to 1
-    case ('DEV_GROUNDWATER_HEAD_CONDUCTANCE')
-      call this%parser%DevOpt()
+    end if
+    !
+    ! -- DEV_GROUNDWATER_HEAD_CONDUCTANCE (mf6internal: igwhcopt)
+    call get_isize('IGWHCOPT', this%input_mempath, isize)
+    if (isize > 0) then
       this%igwhcopt = 1
       write (this%iout, '(4x,a)') &
         'CONDUCTANCE FOR HORIZONTAL CONNECTIONS WILL BE CALCULATED &
         &USING THE GROUNDWATER HEAD'
-    case ('DEV_MAXIMUM_OUTLET_DEPTH')
-      call this%parser%DevOpt()
-      this%outdmax = this%parser%GetDouble()
-      write (this%iout, fmtoutdmax) this%outdmax
-    case ('IMPLICIT')
+    end if
+    !
+    ! -- IMPLICIT (mf6internal: iimplicit)
+    call get_isize('IIMPLICIT', this%input_mempath, isize)
+    if (isize > 0) then
       this%iimplicit = 1
       write (this%iout, '(4x,a)') &
         'LAKE STAGE WILL BE SOLVED AS AN UNKNOWN IN THE GROUNDWATER FLOW '// &
         'MATRIX (IMPLICIT FORMULATION)'
-    case ('DEV_FORCE_FALLBACK')
-      call this%parser%DevOpt()
+    end if
+    !
+    ! -- DEV_FORCE_FALLBACK (mf6internal: iforcefb)
+    call get_isize('IFORCEFB', this%input_mempath, isize)
+    if (isize > 0) then
       this%iforcefb = 1
       write (this%iout, '(4x,a)') &
         'EVERY ACTIVE LAKE WILL BE SOLVED WITH THE SUBSTITUTION FALLBACK '// &
         'UNDER THE IMPLICIT FORMULATION'
-    case ('DEV_NO_FINAL_CHECK')
-      call this%parser%DevOpt()
+    end if
+    !
+    ! -- DEV_NO_FINAL_CHECK (mf6internal: iconvchk)
+    call get_isize('ICONVCHK', this%input_mempath, isize)
+    if (isize > 0) then
       this%iconvchk = 0
       write (this%iout, '(4x,a)') &
         'A FINAL CONVERGENCE CHECK OF THE CHANGE IN LAKE STAGES &
         &WILL NOT BE MADE'
-    case default
-      !
-      ! -- No options found
-      found = .false.
-    end select
-  end subroutine lak_options
+    end if
+    !
+    ! -- DEV_MAXIMUM_OUTLET_DEPTH (mf6internal: outdmax)
+    call mem_set_value(this%outdmax, 'OUTDMAX', this%input_mempath, found%outdmax)
+    if (found%outdmax) write (this%iout, fmtoutdmax) this%outdmax
+    !
+    write (this%iout, '(1x,a)') 'END OF '//trim(adjustl(this%text))//' OPTIONS'
+  end subroutine lak_source_options
+
+  !> @brief Bind LakInputType pointers.
+  !!
+  !! Called once from lak_ar; pointers remain valid for the simulation lifetime.
+  !! Input tsmanager advances TS-linked values transparently each timestep.
+  !<
+  subroutine lak_input_init(this, mempath, naux, noutlets)
+    use MemoryManagerModule, only: mem_setptr
+    ! -- dummy
+    class(LakInputType), intent(inout) :: this
+    character(len=*), intent(in) :: mempath
+    integer(I4B), intent(in) :: naux
+    integer(I4B), intent(in) :: noutlets
+    !
+    ! -- period
+    call mem_setptr(this%nbound, 'NBOUND', mempath)
+    call mem_setptr(this%ifno, 'IFNO', mempath)
+    call mem_setptr(this%setting, 'SETTING', mempath)
+    call mem_setptr(this%status, 'STATUS', mempath)
+    if (naux > 0) then
+      call mem_setptr(this%auxname, 'AUXNAME', mempath)
+      call mem_setptr(this%auxval, 'AUXVAL', mempath)
+    end if
+    ! -- outlets
+    if (noutlets > 0) then
+      call mem_setptr(this%outletno, 'OUTLETS_OUTLETNO', mempath)
+      call mem_setptr(this%outlets_invert, 'OUTLETS_INVERT', mempath)
+      call mem_setptr(this%outlets_width, 'OUTLETS_WIDTH', mempath)
+      call mem_setptr(this%outlets_rough, 'OUTLETS_ROUGH', mempath)
+      call mem_setptr(this%outlets_slope, 'OUTLETS_SLOPE', mempath)
+    end if
+  end subroutine lak_input_init
+
+  !> @brief Nullify all LakInputType pointers.
+  !<
+  subroutine lak_input_destroy(this)
+    ! -- dummy
+    class(LakInputType), intent(inout) :: this
+    !
+    nullify (this%nbound)
+    nullify (this%ifno)
+    nullify (this%setting)
+    nullify (this%status)
+    nullify (this%auxname)
+    nullify (this%auxval)
+    nullify (this%outletno)
+    nullify (this%outlets_invert)
+    nullify (this%outlets_width)
+    nullify (this%outlets_rough)
+    nullify (this%outlets_slope)
+  end subroutine lak_input_destroy
 
   !> @brief Allocate and Read
   !!
@@ -3476,6 +3207,9 @@ contains
     ! -- read optional initial package parameters
     call this%read_initial_attr()
     !
+    ! -- bind input context persistent pointers
+    call this%input%init(this%input_mempath, this%naux, this%noutlets)
+    !
     ! -- setup pakmvrobj
     if (this%imover /= 0) then
       allocate (this%pakmvrobj)
@@ -3483,75 +3217,36 @@ contains
     end if
   end subroutine lak_ar
 
-  !> @brief Read and Prepare
-  !!
-  !! Read itmp and read new boundaries if itmp > 0
+  !> @brief Read and prepare (stress period data)
   !<
   subroutine lak_rp(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH
-    use TdisModule, only: kper, nper
-    use SimModule, only: store_error, count_errors
+    use ConstantsModule, only: LENVARNAME
+    use TdisModule, only: kper
     ! -- dummy
     class(LakType), intent(inout) :: this
     ! -- local
+    character(len=LINELENGTH) :: str = ' '
+    character(len=LINELENGTH) :: auxvalstr = ' '
     character(len=LINELENGTH) :: title
-    character(len=LINELENGTH) :: line
     character(len=LINELENGTH) :: text
-    logical(LGP) :: isfound
-    logical(LGP) :: endOfBlock
-    integer(I4B) :: ierr
-    integer(I4B) :: node
-    integer(I4B) :: n
-    integer(I4B) :: itemno
-    integer(I4B) :: j
+    character(len=LENVARNAME) :: setting
+    integer(I4B) :: node, n, j, itemno
+    integer(I4B) :: istat
     ! -- formats
-    character(len=*), parameter :: fmtblkerr = &
-      &"('Looking for BEGIN PERIOD iper.  Found ', a, ' instead.')"
     character(len=*), parameter :: fmtlsp = &
       &"(1X,/1X,'REUSING ',A,'S FROM LAST STRESS PERIOD')"
     !
     ! -- set nbound to maxbound
     this%nbound = this%maxbound
     !
-    ! -- Set ionper to the stress period number for which a new block of data
-    !    will be read.
-    if (this%inunit == 0) return
-    !
-    ! -- get stress period data
-    if (this%ionper < kper) then
+    ! -- check if data has been loaded for this stress period
+    if (this%iper == kper) then
       !
-      ! -- get period block
-      call this%parser%GetBlock('PERIOD', isfound, ierr, &
-                                supportOpenClose=.true., &
-                                blockRequired=.false.)
-      if (isfound) then
-        !
-        ! -- read ionper and check for increasing period numbers
-        call this%read_check_ionper()
-      else
-        !
-        ! -- PERIOD block not found
-        if (ierr < 0) then
-          ! -- End of file found; data applies for remainder of simulation.
-          this%ionper = nper + 1
-        else
-          ! -- Found invalid block
-          call this%parser%GetCurrentLine(line)
-          write (errmsg, fmtblkerr) adjustl(trim(line))
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end if
-      end if
-    end if
-    !
-    ! -- Read data if ionper == kper
-    if (this%ionper == kper) then
+      this%check_attr = 1
       !
-      ! -- setup table for period data
+      ! -- setup table to echo period data
       if (this%iprpak /= 0) then
-        !
-        ! -- reset the input table object
         title = trim(adjustl(this%text))//' PACKAGE ('// &
                 trim(adjustl(this%packName))//') DATA FOR PERIOD'
         write (title, '(a,1x,i6)') trim(adjustl(title)), kper
@@ -3567,56 +3262,175 @@ contains
         end do
       end if
       !
-      ! -- read the data
-      this%check_attr = 1
-      stressperiod: do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
+      ! -- process each period data entry
+      do n = 1, this%input%nbound
+        itemno = this%input%ifno(n)
         !
-        ! -- get lake or outlet number
-        itemno = this%parser%GetInteger()
+        ! -- dispatch key for this row
+        setting = this%input%setting(n)
+        str = ' '
         !
-        ! -- read data from the rest of the line
-        call this%lak_set_stressperiod(itemno)
-        !
-        ! -- write line to table
-        if (this%iprpak /= 0) then
-          call this%parser%GetCurrentLine(line)
-          call this%inputtab%line_to_columns(line)
+        ! -- STATUS (lake only; not TS-enabled)
+        if (trim(setting) == 'STATUS') then
+          str = this%input%status(n)
+          istat = this%lak_check_valid(itemno)
+          if (istat == 0 .and. itemno >= 1 .and. itemno <= this%nlakes) then
+            if (trim(str) == 'CONSTANT') then
+              this%iboundpak(itemno) = -1
+            else if (trim(str) == 'INACTIVE') then
+              this%iboundpak(itemno) = 0
+            else if (trim(str) == 'ACTIVE') then
+              this%iboundpak(itemno) = 1
+            else
+              write (errmsg, '(a,a)') &
+                'Unknown '//trim(this%text)//' STATUS keyword: ', &
+                trim(str)//'.'
+              call store_error(errmsg)
+            end if
+            this%status(itemno) = trim(str)
+          end if
         end if
-      end do stressperiod
-      !
+        !
+        ! -- STAGE (validate itemno; assignment via helper)
+        if (trim(setting) == 'STAGE') then
+          istat = this%lak_check_valid(itemno)
+        end if
+        !
+        ! -- RAINFALL, EVAPORATION, RUNOFF, INFLOW, WITHDRAWAL (require
+        !    non-negative)
+        if (trim(setting) == 'RAINFALL') &
+          call this%lak_set_nonneg_value(n, itemno, setting, this%rainfall, &
+                                         'rainfall')
+        if (trim(setting) == 'EVAPORATION') &
+          call this%lak_set_nonneg_value(n, itemno, setting, &
+                                         this%evaporation, 'evaporation')
+        if (trim(setting) == 'RUNOFF') &
+          call this%lak_set_nonneg_value(n, itemno, setting, this%runoff, &
+                                         'runoff')
+        if (trim(setting) == 'INFLOW') &
+          call this%lak_set_nonneg_value(n, itemno, setting, this%inflow, &
+                                         'inflow')
+        if (trim(setting) == 'WITHDRAWAL') &
+          call this%lak_set_nonneg_value(n, itemno, setting, &
+                                         this%withdrawal, 'withdrawal')
+        !
+        ! -- RATE, INVERT, WIDTH, ROUGH, SLOPE (outlet; validate with
+        !    negative sign convention)
+        if (trim(setting) == 'RATE' .or. trim(setting) == 'INVERT' .or. &
+            trim(setting) == 'WIDTH' .or. trim(setting) == 'ROUGH' .or. &
+            trim(setting) == 'SLOPE') then
+          istat = this%lak_check_valid(-itemno)
+        end if
+        !
+        ! -- INVERT, WIDTH, ROUGH, SLOPE latch here so the OUTLETS block's
+        !    own (separately time-series-linked) baseline resync in lak_ad
+        !    stops overwriting this outlet's PERIOD-block override
+        if (istat == 0 .and. itemno >= 1 .and. itemno <= this%noutlets) then
+          if (trim(setting) == 'INVERT') this%outlet_invert_set(itemno) = .true.
+          if (trim(setting) == 'WIDTH') this%outlet_width_set(itemno) = .true.
+          if (trim(setting) == 'ROUGH') this%outlet_rough_set(itemno) = .true.
+          if (trim(setting) == 'SLOPE') this%outlet_slope_set(itemno) = .true.
+        end if
+        !
+        ! -- AUXILIARY; featureauxvar set via sync_auxvar()
+        if (this%naux > 0) then
+          if (trim(setting) == 'AUXILIARY') then
+            if (itemno >= 1 .and. itemno <= this%nlakes) then
+              str = this%input%auxname(n)
+              auxvalstr = this%input%auxval(n)
+            end if
+          end if
+        end if
+        !
+        ! -- echo row to period data table
+        if (this%iprpak /= 0) then
+          call this%inputtab%add_term(itemno)
+          call this%inputtab%add_term(trim(setting))
+          select case (trim(setting))
+          case ('STATUS')
+            call this%inputtab%add_term(trim(str))
+            call this%inputtab%add_term(' ')
+          case ('STAGE')
+            call this%inputtab%add_term(this%stage(itemno))
+            call this%inputtab%add_term(' ')
+          case ('RAINFALL')
+            call this%inputtab%add_term(this%rainfall(itemno))
+            call this%inputtab%add_term(' ')
+          case ('EVAPORATION')
+            call this%inputtab%add_term(this%evaporation(itemno))
+            call this%inputtab%add_term(' ')
+          case ('RUNOFF')
+            call this%inputtab%add_term(this%runoff(itemno))
+            call this%inputtab%add_term(' ')
+          case ('INFLOW')
+            call this%inputtab%add_term(this%inflow(itemno))
+            call this%inputtab%add_term(' ')
+          case ('WITHDRAWAL')
+            call this%inputtab%add_term(this%withdrawal(itemno))
+            call this%inputtab%add_term(' ')
+          case ('RATE')
+            call this%inputtab%add_term(this%outrate(itemno))
+            call this%inputtab%add_term(' ')
+          case ('INVERT')
+            call this%inputtab%add_term(this%outinvert(itemno))
+            call this%inputtab%add_term(' ')
+          case ('WIDTH')
+            call this%inputtab%add_term(this%outwidth(itemno))
+            call this%inputtab%add_term(' ')
+          case ('ROUGH')
+            call this%inputtab%add_term(this%outrough(itemno))
+            call this%inputtab%add_term(' ')
+          case ('SLOPE')
+            call this%inputtab%add_term(this%outslope(itemno))
+            call this%inputtab%add_term(' ')
+          case ('AUXILIARY')
+            call this%inputtab%add_term(trim(str))
+            call this%inputtab%add_term(trim(auxvalstr))
+          case default
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+          end select
+        end if
+      end do
       if (this%iprpak /= 0) then
         call this%inputtab%finalize_table()
       end if
       !
-      ! -- using stress period data from the previous stress period
+      ! -- write summary of lake stress period error messages
+      if (count_errors() > 0) then
+        call store_error_filename(this%input_fname)
+      end if
+      !
+      ! -- fill bound array with lake stage, conductance, and bottom elevation
+      do n = 1, this%nlakes
+        do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
+          node = this%gwfconn(j)
+          this%nodelist(j) = node
+          this%bound(1, j) = this%xnewpak(n)
+          this%bound(2, j) = this%satcond(j)
+          this%bound(3, j) = this%belev(j)
+        end do
+      end do
+      !
+      ! -- copy lakein into iprmap so mvr budget contains lake instead of outlet
+      if (this%imover == 1) then
+        do n = 1, this%noutlets
+          this%pakmvrobj%iprmap(n) = this%lakein(n)
+        end do
+      end if
     else
       write (this%iout, fmtlsp) trim(this%filtyp)
     end if
     !
-    ! -- write summary of lake stress period error messages
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-    !
-    ! -- fill bound array with lake stage, conductance, and bottom elevation
+    ! -- fill nodelist and bound(3) every period; nodelist for non-vertical
+    !    connections is not updated by lak_cf so must be set here.
+    !    bound(3) (bed elevation) is static and only needs to be set once.
     do n = 1, this%nlakes
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-        node = this%cellid(j)
-        this%nodelist(j) = node
-        this%bound(1, j) = this%xnewpak(n)
-        this%bound(2, j) = this%satcond(j)
+        this%nodelist(j) = this%gwfconn(j)
         this%bound(3, j) = this%belev(j)
       end do
     end do
-    !
-    ! -- copy lakein into iprmap so mvr budget contains lake instead of outlet
-    if (this%imover == 1) then
-      do n = 1, this%noutlets
-        this%pakmvrobj%iprmap(n) = this%lakein(n)
-      end do
-    end if
   end subroutine lak_rp
 
   !> @brief Add package connection to matrix
@@ -3630,19 +3444,38 @@ contains
     integer(I4B) :: n
     integer(I4B) :: j
     integer(I4B) :: iaux
+    integer(I4B) :: itemno
     !
-    ! -- Advance the time series
-    call this%TsManager%ad()
+    ! -- sync PACKAGEDATA AUX TS and advance observations;
+    !    sync_period_auxvar (inside bnd_ad) handles PERIOD AUXILIARY TS
+    call this%BndExtType%bnd_ad()
     !
-    ! -- update auxiliary variables by copying from the derived-type time
-    !    series variable into the bndpackage auxvar variable so that this
-    !    information is properly written to the GWF budget file
+    ! -- re-sync static OUTLETS TS values (invert, width, rough, slope);
+    ! -- skip any field a PERIOD-block setting has already overridden for
+    !    this outlet -- that override must persist until a later PERIOD
+    !    block changes it, not be overwritten by this baseline resync
+    if (this%ts_active .and. this%noutlets > 0) then
+      do n = 1, size(this%input%outletno)
+        itemno = this%input%outletno(n)
+        if (itemno < 1 .or. itemno > this%noutlets) cycle
+        if (.not. this%outlet_invert_set(itemno)) &
+          this%outinvert(itemno) = this%input%outlets_invert(n)
+        if (.not. this%outlet_width_set(itemno)) &
+          this%outwidth(itemno) = this%input%outlets_width(n)
+        if (.not. this%outlet_rough_set(itemno)) &
+          this%outrough(itemno) = this%input%outlets_rough(n)
+        if (.not. this%outlet_slope_set(itemno)) &
+          this%outslope(itemno) = this%input%outlets_slope(n)
+      end do
+    end if
+    !
+    ! -- update auxiliary variables
     if (this%naux > 0) then
       do n = 1, this%nlakes
         do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
           do iaux = 1, this%naux
             if (this%noupdateauxvar(iaux) /= 0) cycle
-            this%auxvar(iaux, j) = this%lauxvar(iaux, n)
+            this%auxvar(iaux, j) = this%featureauxvar(iaux, n)
           end do
         end do
       end do
@@ -3679,11 +3512,6 @@ contains
     if (this%imover == 1) then
       call this%pakmvrobj%ad()
     end if
-    !
-    ! -- For each observation, push simulated value and corresponding
-    !    simulation time from "current" to "preceding" and reset
-    !    "current" value.
-    call this%obs%obs_ad()
   end subroutine lak_ad
 
   !> @brief Formulate the HCOF and RHS terms
@@ -3721,7 +3549,7 @@ contains
           call this%dis%highest_active(igwfnode, this%ibound)
         end if
         this%nodelist(j) = igwfnode
-        this%cellid(j) = igwfnode
+        this%gwfconn(j) = igwfnode
       end do
     end do
     !
@@ -3736,7 +3564,7 @@ contains
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
         !
         ! -- assign gwf node number
-        igwfnode = this%cellid(j)
+        igwfnode = this%gwfconn(j)
         !
         ! -- skip inactive or constant head GWF cells
         if (this%ibound(igwfnode) < 1) then
@@ -3801,7 +3629,7 @@ contains
     do n = 1, this%nlakes
       if (this%iboundpak(n) == 0) cycle
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-        igwfnode = this%cellid(j)
+        igwfnode = this%gwfconn(j)
         if (this%ibound(igwfnode) < 1) cycle
         ipossymd = idxglo(ia(igwfnode))
         call matrix_sln%add_value_pos(ipossymd, this%hcof(j))
@@ -3850,7 +3678,7 @@ contains
       call this%lak_calculate_available(n, hlak, avail, &
                                         ra, ro, qinf, ex, this%delh)
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-        igwfnode = this%cellid(j)
+        igwfnode = this%gwfconn(j)
         ipos = ia(igwfnode)
         head = this%xnew(igwfnode)
         if (-this%hcof(j) > DZERO) then
@@ -4271,7 +4099,7 @@ contains
         !
         ! -- lakebed seepage: use the same exchange the matrix assembled
         do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-          igwfnode = this%cellid(j)
+          igwfnode = this%gwfconn(j)
           if (this%ibound(igwfnode) < 1) cycle
           head = this%xnew(igwfnode)
           call this%lak_calculate_conn_exchange_deriv(n, j, hlak, head, &
@@ -4513,6 +4341,9 @@ contains
     ! -- dummy
     class(LakType) :: this
     !
+    ! -- nullify input context runtime pointers
+    call this%input%destroy()
+    !
     ! -- arrays
     deallocate (this%lakename)
     deallocate (this%status)
@@ -4545,12 +4376,13 @@ contains
       call mem_deallocate(this%lakein)
       call mem_deallocate(this%lakeout)
       call mem_deallocate(this%iouttype)
-      call mem_deallocate(this%outrate)
-      call mem_deallocate(this%outinvert)
-      call mem_deallocate(this%outwidth)
-      call mem_deallocate(this%outrough)
-      call mem_deallocate(this%outslope)
+      ! -- outrate/outinvert/outwidth/outrough/outslope are live aliases
+      ! into the input context's permanent arrays, not owned here
       call mem_deallocate(this%simoutrate)
+      call mem_deallocate(this%outlet_invert_set)
+      call mem_deallocate(this%outlet_width_set)
+      call mem_deallocate(this%outlet_rough_set)
+      call mem_deallocate(this%outlet_slope_set)
     end if
     !
     ! -- stage table
@@ -4602,13 +4434,8 @@ contains
     call mem_deallocate(this%laketop)
     call mem_deallocate(this%lakebot)
     call mem_deallocate(this%sareamax)
-    call mem_deallocate(this%stage)
-    call mem_deallocate(this%rainfall)
-    call mem_deallocate(this%evaporation)
-    call mem_deallocate(this%runoff)
-    call mem_deallocate(this%inflow)
-    call mem_deallocate(this%withdrawal)
-    call mem_deallocate(this%lauxvar)
+    ! -- stage/rainfall/evaporation/runoff/inflow/withdrawal are live aliases
+    ! into the input context's permanent arrays, not owned here
     call mem_deallocate(this%avail)
     call mem_deallocate(this%lkgwsink)
     call mem_deallocate(this%ncncvr)
@@ -4664,7 +4491,7 @@ contains
     !
     ! -- lake connection variables
     call mem_deallocate(this%imap)
-    call mem_deallocate(this%cellid)
+    call mem_deallocate(this%gwfconn)
     call mem_deallocate(this%nodesontop)
     call mem_deallocate(this%ictype)
     call mem_deallocate(this%bedleak)
@@ -4682,7 +4509,7 @@ contains
     nullify (this%gwfiss)
     !
     ! -- Parent object
-    call this%BndType%bnd_da()
+    call this%BndExtType%bnd_da()
   end subroutine lak_da
 
   !> @brief Define the list heading that is written to iout when PRINT_INPUT
@@ -4775,7 +4602,7 @@ contains
       nglo = moffset + this%dis%nodes + this%ioffset + n
       call sparse%addconnection(nglo, nglo, 1)
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-        jj = this%cellid(j)
+        jj = this%gwfconn(j)
         jglo = jj + moffset
         call sparse%addconnection(nglo, jglo, 1)
         call sparse%addconnection(jglo, nglo, 1)
@@ -4832,7 +4659,7 @@ contains
       this%idxlocnode(n) = this%dis%nodes + this%ioffset + n
       this%idxdiag(n) = matrix_sln%get_position_diag(iglo)
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-        jglo = this%cellid(j) + moffset
+        jglo = this%gwfconn(j) + moffset
         this%idxoffdglo(ipos) = matrix_sln%get_position(iglo, jglo)
         ipos = ipos + 1
       end do
@@ -4843,7 +4670,7 @@ contains
     do n = 1, this%nlakes
       jglo = moffset + this%dis%nodes + this%ioffset + n
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-        iglo = this%cellid(j) + moffset
+        iglo = this%gwfconn(j) + moffset
         this%idxsymdglo(ipos) = matrix_sln%get_position_diag(iglo)
         this%idxsymoffdglo(ipos) = matrix_sln%get_position(iglo, jglo)
         ipos = ipos + 1
@@ -5030,7 +4857,7 @@ contains
           case ('LAK')
             n = this%imap(jj)
             if (this%iboundpak(n) /= 0) then
-              igwfnode = this%cellid(jj)
+              igwfnode = this%gwfconn(jj)
               hgwf = this%xnew(igwfnode)
               if (this%hcof(jj) /= DZERO) then
                 v = -(this%hcof(jj) * (this%xnewpak(n) - hgwf))
@@ -5094,7 +4921,7 @@ contains
             n = this%imap(jj)
             if (this%iboundpak(n) /= 0) then
               hlak = this%xnewpak(n)
-              igwfnode = this%cellid(jj)
+              igwfnode = this%gwfconn(jj)
               hgwf = this%xnew(igwfnode)
               call this%lak_calculate_conn_warea(n, jj, hlak, hgwf, v)
             end if
@@ -5102,7 +4929,7 @@ contains
             n = this%imap(jj)
             if (this%iboundpak(n) /= 0) then
               hlak = this%xnewpak(n)
-              igwfnode = this%cellid(jj)
+              igwfnode = this%gwfconn(jj)
               hgwf = this%xnew(igwfnode)
               call this%lak_calculate_conn_conductance(n, jj, hlak, hgwf, v)
             end if
@@ -5374,7 +5201,7 @@ contains
     do n = 1, this%nlakes
       hlak = this%xnewpak(n)
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-        node = this%cellid(j)
+        node = this%gwfconn(j)
         head = this%xnew(node)
         call this%lak_calculate_conn_conductance(n, j, hlak, head, clak)
         this%bound(1, j) = hlak
@@ -5803,7 +5630,7 @@ contains
       end if
       hlak = this%xnewpak(n)
       calcconnseep: do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-        igwfnode = this%cellid(j)
+        igwfnode = this%gwfconn(j)
         head = this%xnew(igwfnode)
         if (this%ncncvr(n) /= 2) then
           if (this%ibound(igwfnode) > 0) then
@@ -5925,7 +5752,7 @@ contains
     !
     ! -- calculate the aquifer sources to the lake
     do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-      igwfnode = this%cellid(j)
+      igwfnode = this%gwfconn(j)
       if (this%ibound(igwfnode) == 0) cycle
       head = this%xnew(igwfnode) + hp
       call this%lak_estimate_conn_exchange(1, n, j, idry, hlak, head, qlakgw, &
@@ -6003,7 +5830,7 @@ contains
     !
     ! -- calculate groundwater seepage
     do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-      igwfnode = this%cellid(j)
+      igwfnode = this%gwfconn(j)
       if (this%ibound(igwfnode) == 0) cycle
       head = this%xnew(igwfnode) + hp
       call this%lak_estimate_conn_exchange(2, n, j, idry, hlak, head, qlakgw, &
@@ -6116,7 +5943,7 @@ contains
     q = DZERO
     do n = 1, this%nlakes
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-        n2 = this%cellid(j)
+        n2 = this%gwfconn(j)
         call this%budobj%budterm(idx)%update_term(n, n2, q)
       end do
     end do
@@ -6340,7 +6167,7 @@ contains
     call this%budobj%budterm(idx)%reset(this%maxbound)
     do n = 1, this%nlakes
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-        n2 = this%cellid(j)
+        n2 = this%gwfconn(j)
         q = this%qleak(j)
         lkstg = this%xnewpak(n)
         ! -- For the case when the lak stage is exactly equal
@@ -6461,7 +6288,7 @@ contains
         q = DZERO
         do jj = 1, naux
           ii = n
-          auxvartmp(jj) = this%lauxvar(jj, ii)
+          auxvartmp(jj) = this%featureauxvar(jj, ii)
         end do
         call this%budobj%budterm(idx)%update_term(n, n, q, auxvartmp)
       end do

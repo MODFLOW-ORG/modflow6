@@ -27,6 +27,7 @@ reader urword
 optional true
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'lake'}
+mf6internal iprpak
 
 block options
 name print_stage
@@ -43,6 +44,7 @@ reader urword
 optional true
 longname print calculated flows to listing file
 description REPLACE print_flows {'{#1}': 'lake'}
+mf6internal iprflow
 
 block options
 name save_flows
@@ -51,6 +53,7 @@ reader urword
 optional true
 longname save lake flows to budget file
 description REPLACE save_flows {'{#1}': 'lake'}
+mf6internal ipakcb
 
 block options
 name stage_filerecord
@@ -64,6 +67,7 @@ description
 
 block options
 name stage
+mf6internal options_stage
 type keyword
 shape
 in_record true
@@ -87,6 +91,7 @@ description name of the binary output file to write stage information.
 
 block options
 name budget_filerecord
+mf6internal budfilerec
 type record budget fileout budgetfile
 shape
 reader urword
@@ -131,6 +136,7 @@ description name of the binary output file to write budget information.
 
 block options
 name budgetcsv_filerecord
+mf6internal budcsvfilerec
 type record budgetcsv fileout budgetcsvfile
 shape
 reader urword
@@ -164,6 +170,7 @@ description name of the comma-separated value (CSV) output file to write budget 
 
 block options
 name package_convergence_filerecord
+mf6internal pkgconvfilerec
 type record package_convergence fileout package_convergence_filename
 shape
 reader urword
@@ -182,6 +189,7 @@ tagged true
 optional false
 longname package_convergence keyword
 description keyword to specify that record corresponds to the package convergence comma spaced values file. A warning message will be issued if package convergence data is requested but the IMPLICIT option is specified. In that case the lake stage is included in the Iterative Model Solution (IMS) convergence check and the package convergence file is not written.
+mf6internal pkgconv
 
 block options
 name package_convergence_filename
@@ -193,6 +201,7 @@ tagged false
 optional false
 longname file keyword
 description name of the comma spaced values output file to write package convergence information.
+mf6internal pkgconvfname
 
 block options
 name ts_filerecord
@@ -217,6 +226,7 @@ description keyword to specify that record corresponds to a time-series file.
 
 block options
 name filein
+mf6internal options_filein
 type keyword
 shape
 in_record true
@@ -280,6 +290,7 @@ description REPLACE mover {'{#1}': 'LAK'}
 
 block options
 name dev_force_fallback
+mf6internal iforcefb
 type keyword
 reader urword
 optional true
@@ -288,6 +299,7 @@ description keyword that solves every active lake with the substitution fallback
 
 block options
 name dev_groundwater_head_conductance
+mf6internal igwhcopt
 type keyword
 reader urword
 optional true
@@ -296,6 +308,7 @@ description keyword that calculates the conductance for horizontal connections u
 
 block options
 name dev_maximum_outlet_depth
+mf6internal outdmax
 type double precision
 reader urword
 optional true
@@ -309,9 +322,11 @@ reader urword
 optional true
 longname surface depression depth
 description real value that defines the surface depression depth for VERTICAL lake-GWF connections. If specified, SURFDEP must be greater than or equal to zero. If SURFDEP is not specified, a default value of zero is used for all vertical lake-GWF connections.
+mf6internal surfdep
 
 block options
 name implicit
+mf6internal iimplicit
 type keyword
 reader urword
 optional true
@@ -325,6 +340,7 @@ reader urword
 optional true
 longname LAK Newton-Raphson iterations
 description integer value that defines the maximum number of Newton-Raphson iterations allowed for a lake. By default, MAXIMUM\_ITERATIONS is equal to 100. MAXIMUM\_ITERATIONS would only need to be increased from the default value if one or more lakes in a simulation has a large water budget error. This option applies only to the default substitution-iteration solver; when the IMPLICIT option is active the lake stage is solved within the groundwater flow matrix and its convergence is controlled by the Iterative Model Solution (IMS) settings instead.
+mf6internal maxlakit
 
 block options
 name maximum_stage_change
@@ -333,6 +349,7 @@ reader urword
 optional true
 longname stage closure tolerance
 description real value that defines the lake stage closure tolerance. By default, MAXIMUM\_STAGE\_CHANGE is equal to $1 \times 10^{-5}$. The MAXIMUM\_STAGE\_CHANGE would only need to be increased or decreased from the default value if the water budget error for one or more lakes is too small or too large, respectively. This option applies only to the default substitution-iteration solver; when the IMPLICIT option is active the lake stage is solved within the groundwater flow matrix and its convergence is controlled by the Iterative Model Solution (IMS) settings instead.
+mf6internal dmaxchg
 
 block options
 name time_conversion
@@ -341,6 +358,7 @@ reader urword
 optional true
 longname time conversion factor
 description real value that is used to convert user-specified Manning's roughness coefficients or gravitational acceleration used to calculate outlet flows from seconds to model time units. TIME\_CONVERSION should be set to 1.0, 60.0, 3,600.0, 86,400.0, and 31,557,600.0 when using time units (TIME\_UNITS) of seconds, minutes, hours, days, or years in the simulation, respectively. TIME\_CONVERSION does not need to be specified if no lake outlets are specified or TIME\_UNITS are seconds.
+mf6internal convtime
 
 block options
 name length_conversion
@@ -349,6 +367,16 @@ reader urword
 optional true
 longname length conversion factor
 description real value that is used to convert outlet user-specified Manning's roughness coefficients or gravitational acceleration used to calculate outlet flows from meters to model length units. LENGTH\_CONVERSION should be set to 3.28081, 1.0, and 100.0 when using length units (LENGTH\_UNITS) of feet, meters, or centimeters in the simulation, respectively. LENGTH\_CONVERSION does not need to be specified if no lake outlets are specified or LENGTH\_UNITS are meters.
+mf6internal convlength
+
+block options
+name dev_no_final_check
+type keyword
+reader urword
+optional true
+longname disable final convergence check for lake stages
+description flag disabling the final convergence check of the change in lake stages. By default this check is enabled.
+mf6internal iconvchk
 
 
 # --------------------- gwf lak dimensions ---------------------
@@ -383,7 +411,7 @@ description value specifying the number of lakes tables that will be used to def
 block packagedata
 name packagedata
 type recarray ifno strt nlakeconn aux boundname
-shape (maxbound)
+shape (nlakes)
 reader urword
 longname
 description
@@ -398,6 +426,7 @@ reader urword
 longname lake number for this entry
 description integer value that defines the feature (lake) number associated with the specified PACKAGEDATA data on the line. IFNO must be greater than zero and less than or equal to NLAKES. Lake information must be specified for every lake or the program will terminate with an error.  The program will also terminate with an error if information for a lake is specified more than once.
 numeric_index true
+mf6internal packagedata_ifno
 
 block packagedata
 name strt
@@ -448,7 +477,7 @@ description REPLACE boundname {'{#1}': 'lake'}
 block connectiondata
 name connectiondata
 type recarray ifno iconn cellid claktype bedleak belev telev connlen connwidth
-shape (sum(nlakeconn))
+shape (nlakeconn)
 reader urword
 longname
 description
@@ -463,6 +492,7 @@ reader urword
 longname lake number for this entry
 description integer value that defines the feature (lake) number associated with the specified CONNECTIONDATA data on the line. IFNO must be greater than zero and less than or equal to NLAKES. Lake connection information must be specified for every lake connection to the GWF model (NLAKECONN) or the program will terminate with an error.  The program will also terminate with an error if connection information for a lake connection to the GWF model is specified more than once.
 numeric_index true
+mf6internal conndata_ifno
 
 block connectiondata
 name iconn
@@ -553,6 +583,7 @@ name tables
 type recarray ifno tab6 filein tab6_filename
 shape (ntables)
 reader urword
+optional true
 longname
 description
 
@@ -566,6 +597,7 @@ reader urword
 longname lake number for this entry
 description integer value that defines the feature (lake) number associated with the specified TABLES data on the line. IFNO must be greater than zero and less than or equal to NLAKES. The program will terminate with an error if table information for a lake is specified more than once or the number of specified tables is less than NTABLES.
 numeric_index true
+mf6internal tables_ifno
 
 block tables
 name tab6
@@ -580,6 +612,7 @@ description keyword to specify that record corresponds to a table file.
 
 block tables
 name filein
+mf6internal tables_filein
 type keyword
 shape
 in_record true
@@ -591,6 +624,7 @@ description keyword to specify that an input filename is expected next.
 
 block tables
 name tab6_filename
+mf6internal tab6_filename
 type string
 preserve_case true
 in_record true
@@ -609,6 +643,7 @@ name outlets
 type recarray outletno lakein lakeout couttype invert width rough slope
 shape (noutlets)
 reader urword
+optional true
 longname
 description
 
@@ -622,6 +657,7 @@ reader urword
 longname outlet number for this entry
 description integer value that defines the outlet number associated with the specified OUTLETS data on the line. OUTLETNO must be greater than zero and less than or equal to NOUTLETS. Outlet information must be specified for every outlet or the program will terminate with an error. The program will also terminate with an error if information for a outlet is specified more than once.
 numeric_index true
+mf6internal outlets_outletno
 
 block outlets
 name lakein
@@ -663,6 +699,7 @@ tagged false
 in_record true
 reader urword
 time_series true
+mf6internal outlets_invert
 longname invert elevation
 description real value that defines the invert elevation for the lake outlet. Any value can be specified if COUTTYPE is SPECIFIED. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -674,6 +711,7 @@ tagged false
 in_record true
 reader urword
 time_series true
+mf6internal outlets_width
 longname outlet width
 description real value that defines the width of the lake outlet. Any value can be specified if COUTTYPE is SPECIFIED. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -685,6 +723,7 @@ tagged false
 in_record true
 reader urword
 time_series true
+mf6internal outlets_rough
 longname roughness coefficient
 description real value that defines the roughness coefficient for the lake outlet. Any value can be specified if COUTTYPE is not MANNING. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -696,6 +735,7 @@ tagged false
 in_record true
 reader urword
 time_series true
+mf6internal outlets_slope
 longname bed slope
 description real value that defines the bed slope for the lake outlet. Any value can be specified if COUTTYPE is not MANNING. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -733,6 +773,7 @@ reader urword
 longname lake or outlet number for this entry
 description integer value that defines the lake or outlet number associated with the specified PERIOD data on the line.  NUMBER must be greater than zero and less than or equal to NLAKES for a lake number and less than or equal to NOUTLETS for an outlet number.
 numeric_index true
+mf6internal ifno
 
 block period
 name laksetting
@@ -758,9 +799,11 @@ block period
 name stage
 type string
 shape
+mf6dimension (nlakes)
 tagged true
 in_record true
 time_series true
+mf6internal stage_in
 reader urword
 longname lake stage
 description real or character value that defines the stage for the lake. The specified STAGE is only applied if the lake is a constant stage lake. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
@@ -769,10 +812,12 @@ block period
 name rainfall
 type string
 shape
+mf6dimension (nlakes)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal rainfall_in
 longname rainfall rate
 description real or character value that defines the rainfall rate $(LT^{-1})$ for the lake. Value must be greater than or equal to zero. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -780,10 +825,12 @@ block period
 name evaporation
 type string
 shape
+mf6dimension (nlakes)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal evaporation_in
 longname evaporation rate
 description real or character value that defines the maximum evaporation rate $(LT^{-1})$ for the lake. Value must be greater than or equal to zero. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -791,10 +838,12 @@ block period
 name runoff
 type string
 shape
+mf6dimension (nlakes)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal runoff_in
 longname runoff rate
 description real or character value that defines the runoff rate $(L^3 T^{-1})$ for the lake. Value must be greater than or equal to zero. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -802,10 +851,12 @@ block period
 name inflow
 type string
 shape
+mf6dimension (nlakes)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal inflow_in
 longname inflow rate
 description real or character value that defines the volumetric inflow rate $(L^3 T^{-1})$ for the lake. Value must be greater than or equal to zero. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value. By default, inflow rates are zero for each lake.
 
@@ -813,10 +864,12 @@ block period
 name withdrawal
 type string
 shape
+mf6dimension (nlakes)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal withdrawal_in
 longname maximum withdrawal rate
 description real or character value that defines the maximum withdrawal rate $(L^3 T^{-1})$ for the lake. Value must be greater than or equal to zero. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -824,10 +877,12 @@ block period
 name rate
 type string
 shape
+mf6dimension (noutlets)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal rate_in
 longname extraction rate
 description real or character value that defines the extraction rate for the lake outflow. A positive value indicates inflow and a negative value indicates outflow from the lake. RATE only applies to outlets associated with active lakes (STATUS is ACTIVE). A specified RATE is only applied if COUTTYPE for the OUTLETNO is SPECIFIED. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value. By default, the RATE for each SPECIFIED lake outlet is zero.
 
@@ -835,10 +890,12 @@ block period
 name invert
 type string
 shape
+mf6dimension (noutlets)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal invert_in
 longname invert elevation
 description real or character value that defines the invert elevation for the lake outlet. A specified INVERT value is only used for active lakes if COUTTYPE for lake outlet OUTLETNO is not SPECIFIED. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -846,10 +903,12 @@ block period
 name rough
 type string
 shape
+mf6dimension (noutlets)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal rough_in
 longname roughness coefficient
 description real value that defines the roughness coefficient for the lake outlet. Any value can be specified if COUTTYPE is not MANNING. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -857,10 +916,12 @@ block period
 name width
 type string
 shape
+mf6dimension (noutlets)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal width_in
 longname outlet width
 description real or character value that defines the width of the lake outlet. A specified WIDTH value is only used for active lakes if COUTTYPE for lake outlet OUTLETNO is not SPECIFIED. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -868,15 +929,18 @@ block period
 name slope
 type string
 shape
+mf6dimension (noutlets)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal slope_in
 longname bed slope
 description real or character value that defines the bed slope for the lake outlet. A specified SLOPE value is only used for active lakes if COUTTYPE for lake outlet OUTLETNO is MANNING. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
 block period
 name auxiliaryrecord
+mf6internal auxrecord
 type record auxiliary auxname auxval
 shape
 tagged
@@ -891,6 +955,7 @@ type keyword
 shape
 in_record true
 reader urword
+mf6internal period_auxiliary
 longname
 description keyword for specifying auxiliary variable.
 
@@ -906,7 +971,7 @@ description name for the auxiliary variable to be assigned AUXVAL.  AUXNAME must
 
 block period
 name auxval
-type double precision
+type string
 shape
 tagged false
 in_record true
