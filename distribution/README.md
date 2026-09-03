@@ -184,7 +184,11 @@ This is the approved USGS MODFLOW <semver> release.
 Visit the USGS "MODFLOW and Related Programs" site for information on MODFLOW 6 and related software: https://doi.org/10.5066/F76Q1VQV
 ```
 
-Update the DOI link in the citation if necessary. The DOI on the last line is the original and stays the same.
+The citation string can be rendered with `pixi run update-version -c`. Pass the
+release DOI link via `--doi` (`-d`), e.g.
+`pixi run update-version -c -d https://doi.org/10.5066/P1PGE9XW`; without it the
+umbrella MODFLOW software DOI is used. The DOI on the last line is the original
+and stays the same.
 
 Publish the release.
 

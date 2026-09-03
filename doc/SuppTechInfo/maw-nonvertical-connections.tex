@@ -73,6 +73,23 @@ Equation~\ref{eqn:mawnv-lw} is undefined for a horizontal connection ($\omega = 
 
 \noindent and a connection length is required for horizontal connections.
 
+The horizontal distance spanned by a connection is $L_w \sin \omega$, which grows without bound as the tilt angle approaches horizontal (fig.~\ref{fig:mawnvextent}).
+For a cell 20 length units long and 10 length units thick with a screen that spans the cell thickness, the horizontal distance spanned by the connection is 17 length units at $\omega = 60^{\circ}$ but 112 length units at $\omega = 85^{\circ}$, which is nearly six times the length of the cell.
+A screen cannot be longer than the cell it is connected to, and a connection that spans more than the connected cell is given a saturated conductance that is correspondingly too large.
+The \mf~program compares the horizontal distance spanned by a connection to the maximum horizontal extent of the connected cell and writes a warning when it is exceeded.
+The maximum horizontal extent of a cell is calculated from the cell vertices where they are defined and is estimated as the diagonal of a square with the same area where they are not, which can happen for a DISU grid because the VERTICES and CELL2D blocks are optional.
+A tilt angle is not accompanied by an azimuth, so the comparison cannot account for the direction the screen is oriented in and a screen can extend beyond a cell that is much longer in one horizontal direction than the other without a warning being written.
+The tilt angle, screen elevations, and connection length should be selected so that the screen remains within the connected cell.
+A connection that is intended to pass through more than one cell should instead be specified as a separate connection to each cell that it passes through, using $\mli{CONN\_LENGTH}_n$ to specify the in-cell screen length where the tilt angle is too close to horizontal for the screen elevations to define it.
+
+\begin{figure}[!ht]
+	\begin{center}
+	\includegraphics[width=0.85\textwidth]{./Figures/MAWNonVerticalExtent.pdf}
+	\caption[Diagram of the horizontal distance spanned by a non-vertical connection]{Diagram showing the horizontal distance spanned by a non-vertical multi-aquifer well connection, $L_w \sin \omega$, for a screen (red) that spans the thickness of the connected cell (white). Both panels are drawn to the same scale for cells 20 length units long and 10 length units thick. At a tilt angle of $60^{\circ}$ (A) the screen remains within the connected cell. At a tilt angle of $85^{\circ}$ (B) the screen extends through five additional cells (gray) that the multi-aquifer well is not connected to; the connection should instead be specified as a separate connection to each cell that the screen passes through. The screen is drawn extending to the right for illustration only; the direction a screen is oriented in is not specified and is not determined by the program}
+	\label{fig:mawnvextent}
+	\end{center}
+\end{figure}
+
 \subsection{Length-Corrected Saturated Conductance}
 
 The saturated conductance of a non-vertical connection is calculated by scaling the saturated conductance computed for a vertical connection, $C_{\mli{MAW},n}^{0,\mli{vert}}$, by the ratio of the in-cell screen length to the vertical screen thickness,

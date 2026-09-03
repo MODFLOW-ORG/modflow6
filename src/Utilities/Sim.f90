@@ -130,6 +130,7 @@ contains
     integer(I4B) :: ilen
     !
     ! -- get file name from unit number
+    ipos = 0
     inquire (unit=iunit, name=fname)
     !
     ! -- determine the operating system

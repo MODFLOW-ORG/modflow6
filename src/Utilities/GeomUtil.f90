@@ -9,7 +9,7 @@ module GeomUtilModule
   public :: between, point_in_polygon, &
             get_node, get_ijk, get_jk, &
             skew, transform, compose, &
-            area, shared_face, clamp_bary
+            area, polygon_extent, shared_face, clamp_bary
 contains
 
   !> @brief Check if a value is between two other values (inclusive).
@@ -243,27 +243,25 @@ contains
     end if
   end subroutine transform
 
-  !> @brief Apply a 3D translation and 2D rotation to an existing transformation.
+  !> @brief Compose an affine transform onto an existing one, or remove (invert) it.
   subroutine compose(xorigin, yorigin, zorigin, &
                      sinrot, cosrot, &
                      xorigin_new, yorigin_new, zorigin_new, &
                      sinrot_new, cosrot_new, &
                      invert)
     ! -- dummy
-    real(DP) :: xorigin, yorigin, zorigin !< origin coordinates (original)
-    real(DP) :: sinrot, cosrot !< sine and cosine of rotation (original)
-    real(DP), optional :: xorigin_new, yorigin_new, zorigin_new !< origin coordinates (new)
-    real(DP), optional :: sinrot_new, cosrot_new !< sine and cosine of rotation (new)
-    logical(LGP), optional :: invert !< whether to invert
+    real(DP) :: xorigin, yorigin, zorigin !< cumulative transform T, origin (in/out)
+    real(DP) :: sinrot, cosrot !< cumulative transform T, rotation as (sin, cos) (in/out)
+    real(DP), optional :: xorigin_new, yorigin_new, zorigin_new !< transform A to compose, origin
+    real(DP), optional :: sinrot_new, cosrot_new !< transform A to compose, rotation as (sin, cos)
+    logical(LGP), optional :: invert !< whether to remove A rather than compose it
     ! -- local
     logical(LGP) :: ltranslate, lrotate, linvert
-    real(DP) :: xorigin_add, yorigin_add, zorigin_add
-    real(DP) :: sinrot_add, cosrot_add
-    real(DP) :: x0, y0, z0, s0, c0
+    real(DP) :: xa, ya, za, sa, ca !< transform A (origin, then sin/cos of phi)
+    real(DP) :: x0, y0, z0, s0, c0 !< incoming T (origin, then sin/cos of its angle)
 
     ! -- Process option arguments and set defaults and flags
-    call defaults(xorigin_add, yorigin_add, zorigin_add, &
-                  sinrot_add, cosrot_add, linvert, &
+    call defaults(xa, ya, za, sa, ca, linvert, &
                   ltranslate, lrotate, &
                   xorigin_new, yorigin_new, zorigin_new, &
                   sinrot_new, cosrot_new, invert)
@@ -275,52 +273,34 @@ contains
     s0 = sinrot
     c0 = cosrot
 
-    ! -- Modify transformation
+    ! -- Given transformations A = (a, phi) and T = (t, alpha)
+    ! --   forward:  alpha' = alpha + phi,   t' = t + R(alpha) a
+    ! --   inverse:  alpha  = alpha' - phi,  t  = t' - R(alpha' - phi) a
     if (.not. linvert) then
-      ! -- Apply additional transformation to existing transformation
-      if (ltranslate) then
-        ! -- Calculate modified origin, XOrigin + R^T XOrigin_add, where
-        ! -- XOrigin and XOrigin_add are the existing and additional origin
-        ! -- vectors, respectively, and R^T is the transpose of the existing
-        ! -- rotation matrix
-        call transform(xorigin_add, yorigin_add, zorigin_add, &
-                       xorigin, yorigin, zorigin, &
-                       x0, y0, z0, s0, c0, .true.)
-      end if
       if (lrotate) then
-        ! -- Calculate modified rotation matrix (represented by sinrot
-        ! -- and cosrot) as R_add R, where R and R_add are the existing
-        ! -- and additional rotation matrices, respectively
-        sinrot = cosrot_add * s0 + sinrot_add * c0
-        cosrot = cosrot_add * c0 - sinrot_add * s0
+        ! -- alpha' = alpha + phi
+        sinrot = ca * s0 + sa * c0
+        cosrot = ca * c0 - sa * s0
+      end if
+      if (ltranslate) then
+        ! -- t' = t + R(alpha) a, with R(alpha) built from the incoming (s0, c0)
+        xorigin = x0 + (c0 * xa - s0 * ya)
+        yorigin = y0 + (s0 * xa + c0 * ya)
+        zorigin = z0 + za
       end if
     else
-      ! -- Apply inverse of additional transformation to existing transformation.
-      ! -- Calculate modified origin, R^T (XOrigin + R_add XOrigin_add), where
-      ! -- XOrigin and XOrigin_add are the existing and additional origin
-      ! -- vectors, respectively, R^T is the transpose of the existing rotation
-      ! -- matrix, and R_add is the additional rotation matrix.
       if (lrotate) then
-        if (ltranslate) then
-          call transform(-xorigin_add, -yorigin_add, zorigin_add, &
-                         x0, y0, z0, xorigin, yorigin, zorigin, &
-                         -sinrot_add, cosrot_add, .true.)
-        end if
-        xorigin = c0 * x0 - s0 * y0
-        yorigin = s0 * x0 + c0 * y0
-        zorigin = z0
-      else if (ltranslate) then
-        xorigin = x0 - xorigin_add
-        yorigin = y0 - yorigin_add
-        zorigin = z0 - zorigin_add
+        ! -- alpha = alpha' - phi
+        ! -- (sinrot, cosrot) now hold R(alpha' - phi)
+        sinrot = ca * s0 - sa * c0
+        cosrot = ca * c0 + sa * s0
       end if
-      if (lrotate) then
-        ! -- Calculate modified rotation matrix (represented by sinrot
-        ! -- and cosrot) as R_add^T R, where R and R_add^T are the existing
-        ! -- rotation matrix and the transpose of the additional rotation
-        ! -- matrix, respectively
-        sinrot = cosrot_add * s0 - sinrot_add * c0
-        cosrot = cosrot_add * c0 + sinrot_add * s0
+      if (ltranslate) then
+        ! -- t = t' - R(alpha' - phi) a. For phi = 0 this is t' - R(alpha') a.
+        ! -- if A carries no rotation, (sinrot, cosrot) still hold R(alpha').
+        xorigin = x0 - (cosrot * xa - sinrot * ya)
+        yorigin = y0 - (sinrot * xa + cosrot * ya)
+        zorigin = z0 - za
       end if
     end if
   end subroutine compose
@@ -364,14 +344,14 @@ contains
         cosrot = cosrot_opt
       else
         ! -- If sinrot_opt is specified but cosrot_opt is not,
-        ! -- default to corresponding non-negative cosrot_add
+        ! -- default to corresponding non-negative cosrot
         cosrot = dsqrt(DONE - sinrot * sinrot)
       end if
       rotate = .true.
     else if (present(cosrot_opt)) then
       cosrot = cosrot_opt
       ! -- cosrot_opt is specified but sinrot_opt is not, so
-      ! -- default to corresponding non-negative sinrot_add
+      ! -- default to corresponding non-negative sinrot
       sinrot = dsqrt(DONE - cosrot * cosrot)
       rotate = .true.
     end if
@@ -402,6 +382,31 @@ contains
     a = -DHALF * sum(xv(:) * cshift(yv(:), s) - cshift(xv(:), s) * yv(:))
 
   end function area
+
+  !> @brief Calculate the maximum distance between two polygon vertices.
+  pure function polygon_extent(xv, yv) result(e)
+    ! dummy
+    real(DP), dimension(:), intent(in) :: xv
+    real(DP), dimension(:), intent(in) :: yv
+    ! result
+    real(DP) :: e
+    ! local
+    integer(I4B) :: i
+    integer(I4B) :: j
+    real(DP) :: dx
+    real(DP) :: dy
+
+    e = DZERO
+    do i = 1, size(xv) - 1
+      do j = i + 1, size(xv)
+        dx = xv(i) - xv(j)
+        dy = yv(i) - yv(j)
+        e = max(e, dx * dx + dy * dy)
+      end do
+    end do
+    e = sqrt(e)
+
+  end function polygon_extent
 
   !> @brief Find the lateral face shared by two cells.
   !!

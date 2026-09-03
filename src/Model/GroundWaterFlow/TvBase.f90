@@ -7,12 +7,13 @@
 !<
 module TvBaseModule
   use BaseDisModule, only: DisBaseType
-  use ConstantsModule, only: LINELENGTH, MAXCHARLEN, DZERO
+  use ConstantsModule, only: MAXCHARLEN, DZERO
   use GeomUtilModule, only: get_node
   use KindModule, only: I4B, DP, LGP
   use NumericalPackageModule, only: NumericalPackageType
   use SimModule, only: count_errors, store_error, store_error_filename
   use SimVariablesModule, only: errmsg
+  use STLVecIntModule, only: STLVecInt
   use TdisModule, only: kper, nper, kstp
   use MemoryManagerModule, only: mem_setptr, get_isize
 
@@ -24,8 +25,9 @@ module TvBaseModule
   public :: tvbase_da
 
   type, abstract, extends(NumericalPackageType) :: TvBaseType
-    integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null() !< input cellids of time varying value
     logical(LGP) :: ts_active = .false. !< is timeseries active in package
+    integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null() !< input cellids of time varying value
+    type(STLVecInt) :: tracked_nodeu !< unreduced node numbers ever set, in first-set order, no duplicates
   contains
     procedure :: init
     procedure :: ar
@@ -33,7 +35,8 @@ module TvBaseModule
     procedure :: ad
     procedure :: da => tvbase_da
     procedure, private :: tvbase_allocate_scalars
-    procedure, private :: tv_get_node
+    procedure, private :: sync_node_changes
+    procedure, private :: cellid_to_nodeu
     procedure(ar_set_pointers), deferred :: ar_set_pointers
     procedure :: source_options => tvbase_source_options
     procedure :: source_package_options => tvbase_source_package_options
@@ -58,16 +61,22 @@ module TvBaseModule
       class(TvBaseType) :: this
     end subroutine
 
-    !> @brief Apply input column changes for period-data row n to node.
+    !> @brief Apply this node's current input value(s) to the model
+    !! property array(s).
+    !!
+    !! Called for every tracked node; each field's own DNODATA check
+    !! determines whether there is anything to do. node may be invalid
+    !! even when a field has a value at nodeu, so each live-field branch
+    !! must validate node itself before using it.
     !<
-    subroutine apply_row_changes(this, n, node)
+    subroutine apply_row_changes(this, nodeu, node)
       ! -- modules
       use KindModule, only: I4B
       import TvBaseType
       ! -- dummy
       class(TvBaseType) :: this
-      integer(I4B), intent(in) :: n !< row index in period data arrays
-      integer(I4B), intent(in) :: node !< reduced node number
+      integer(I4B), intent(in) :: nodeu !< unreduced node number, indexes the permanent input arrays
+      integer(I4B), intent(in) :: node !< reduced node number; may be invalid, see above
     end subroutine
 
     !> @brief Mark property changes as having occurred at (kper, kstp)
@@ -212,6 +221,7 @@ contains
     !
     ! -- set input mempath pointers
     call mem_setptr(this%cellid, 'CELLID', this%input_mempath)
+    call this%tracked_nodeu%init()
     !
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
@@ -225,42 +235,34 @@ contains
     class(TvBaseType) :: this
     ! -- local variables
     integer(I4B), pointer :: iper, nbound
-    integer(I4B) :: n, node
-    character(len=LINELENGTH) :: cellstr
+    integer(I4B) :: n, nodeu, nodeu_count
     !
     ! -- check last loaded input period
     call mem_setptr(iper, 'IPER', this%input_mempath)
     if (iper /= kper) return
     !
+    ! -- record every node newly addressed by this period's own rows in
+    ! -- tracked_nodeu, so sync_node_changes never has to scan the full
+    ! -- node space to find which nodes have a live tracked value
+    call mem_setptr(nbound, 'NBOUND', this%input_mempath)
+    if (nbound > 0) then
+      nodeu_count = product(this%dis%mshape)
+      do n = 1, nbound
+        nodeu = this%cellid_to_nodeu(n)
+        if (nodeu < 1 .or. nodeu > nodeu_count) then
+          write (errmsg, '(a,i0,a)') &
+            'CELLID at PERIOD row ', n, ' is not in the active model domain.'
+          call store_error(errmsg)
+          cycle
+        end if
+        call this%tracked_nodeu%push_back_unique(nodeu)
+      end do
+    end if
+    !
     ! -- When timeseries are active, ad applies values at every time step
     if (this%ts_active) return
     !
-    call mem_setptr(nbound, 'NBOUND', this%input_mempath)
-    !
-    ! -- Reset per-node property change flags
-    call this%reset_change_flags()
-    !
-    do n = 1, nbound
-      node = this%tv_get_node(n)
-      if (node < 1 .or. node > this%dis%nodes) then
-        call this%dis%noder_to_string(node, cellstr)
-        write (errmsg, '(a,2(1x,a))') &
-          'CELLID', trim(cellstr), 'is not in the active model domain.'
-        call store_error(errmsg)
-        cycle
-      end if
-      !
-      call this%apply_row_changes(n, node)
-    end do
-    !
-    ! -- Record that changes were made at the current stress period / time step
-    if (nbound > 0) then
-      call this%set_changed_at(kper, kstp)
-    end if
-    !
-    if (count_errors() > 0) then
-      call store_error_filename(this%input_fname)
-    end if
+    call this%sync_node_changes()
   end subroutine rp
 
   !> @brief Apply advanced values at each time step.
@@ -268,53 +270,45 @@ contains
   subroutine ad(this)
     ! -- dummy
     class(TvBaseType) :: this
-    ! -- local variables
-    integer(I4B), pointer :: nbound
-    integer(I4B) :: n, node
     !
     ! -- no-op when timeseries aren't active.
     if (.not. this%ts_active) return
     !
-    call mem_setptr(nbound, 'NBOUND', this%input_mempath)
-    if (nbound > 0) then
-      ! -- Record that changes were made at the current time step
-      call this%set_changed_at(kper, kstp)
-      ! -- Reset node change flags
-      call this%reset_change_flags()
-      ! -- Apply row changes
-      do n = 1, nbound
-        node = this%tv_get_node(n)
-        if (node < 1 .or. node > this%dis%nodes) cycle
-        call this%apply_row_changes(n, node)
-      end do
-    end if
+    call this%sync_node_changes()
+  end subroutine ad
+
+  !> @brief Sync every tracked node's current input value into the model
+  !! property array(s) it belongs to (e.g. NPF's K11).
+  !<
+  subroutine sync_node_changes(this)
+    ! -- dummy
+    class(TvBaseType) :: this
+    ! -- local variables
+    integer(I4B) :: i, nodeu, node
+    !
+    if (this%tracked_nodeu%size <= 0) return
+    !
+    call this%set_changed_at(kper, kstp)
+    call this%reset_change_flags()
+    !
+    do i = 1, this%tracked_nodeu%size
+      nodeu = this%tracked_nodeu%at(i)
+      node = this%dis%get_nodenumber(nodeu, 1)
+      call this%apply_row_changes(nodeu, node)
+    end do
     !
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
-  end subroutine ad
+  end subroutine sync_node_changes
 
-  !> @brief Deallocate package memory
-  !!
-  !! Deallocate package scalars and arrays.
+  !> @brief Return the unreduced node number for CELLID row n.
   !<
-  subroutine tvbase_da(this)
-    ! -- dummy
-    class(TvBaseType) :: this
-    !
-    nullify (this%cellid)
-    call this%NumericalPackageType%da()
-  end subroutine tvbase_da
-
-  !> @brief Return the reduced node number for CELLID row n; caller must bounds-check.
-  !<
-  function tv_get_node(this, n) result(node)
+  function cellid_to_nodeu(this, n) result(nodeu)
     ! -- dummy
     class(TvBaseType) :: this
     integer(I4B), intent(in) :: n !< row index in the period-data arrays
     ! -- return
-    integer(I4B) :: node
-    ! -- local
     integer(I4B) :: nodeu
     !
     if (this%dis%ndim == 1) then
@@ -332,7 +326,19 @@ contains
                        this%dis%mshape(2), &
                        this%dis%mshape(3))
     end if
-    node = this%dis%get_nodenumber(nodeu, 1)
-  end function tv_get_node
+  end function cellid_to_nodeu
+
+  !> @brief Deallocate package memory
+  !!
+  !! Deallocate package scalars and arrays.
+  !<
+  subroutine tvbase_da(this)
+    ! -- dummy
+    class(TvBaseType) :: this
+    !
+    nullify (this%cellid)
+    call this%tracked_nodeu%destroy()
+    call this%NumericalPackageType%da()
+  end subroutine tvbase_da
 
 end module TvBaseModule

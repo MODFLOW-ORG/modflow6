@@ -99,33 +99,36 @@ description line of information that is parsed into a property name keyword and 
 
 block period
 name k
-type double precision
+type string
 shape
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal k_in
 longname hydraulic conductivity (L/T)
 description is the new value to be assigned as the cell's hydraulic conductivity from the start of the specified stress period, as per K in the NPF package.  If the OPTIONS block includes a TS6 entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
 block period
 name k22
-type double precision
+type string
 shape
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal k22_in
 longname hydraulic conductivity of second ellipsoid axis (L/T)
 description is the new value to be assigned as the cell's hydraulic conductivity of the second ellipsoid axis (or the ratio of K22/K if the K22OVERK NPF package option is specified) from the start of the specified stress period, as per K22 in the NPF package.  For an unrotated case this is the hydraulic conductivity in the y direction.  If the OPTIONS block includes a TS6 entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
 block period
 name k33
-type double precision
+type string
 shape
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal k33_in
 longname hydraulic conductivity of third ellipsoid axis (L/T)
 description is the new value to be assigned as the cell's hydraulic conductivity of the third ellipsoid axis (or the ratio of K33/K if the K33OVERK NPF package option is specified) from the start of the specified stress period, as per K33 in the NPF package.  For an unrotated case, this is the vertical hydraulic conductivity.  If the OPTIONS block includes a TS6 entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.

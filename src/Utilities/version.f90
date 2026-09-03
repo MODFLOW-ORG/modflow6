@@ -17,8 +17,8 @@ module VersionModule
   public
   ! -- modflow 6 version
   integer(I4B), parameter :: IDEVELOPMODE = 1
-  character(len=*), parameter :: VERSIONNUMBER = '6.8.0.dev0'
-  character(len=*), parameter :: VERSIONVCSTAG = ''
+  character(len=*), parameter :: VERSIONNUMBER = '6.9.0.dev0'
+  character(len=*), parameter :: VERSIONVCSTAG = ""
   character(len=*), parameter :: VERSIONTITLE = ''
   character(len=*), parameter :: VERSION = VERSIONNUMBER//VERSIONVCSTAG
   character(len=*), parameter :: FULLVERSION = &
@@ -221,3 +221,4 @@ contains
   end subroutine write_license
 
 end module VersionModule
+

@@ -18,9 +18,9 @@
             "email": "emorway@usgs.gov"
         },
         "laborHours": -1,
-        "version": "6.8.0.dev0",
+        "version": "6.9.0.dev0",
         "date": {
-            "metadataLastUpdated": "2026-02-06"
+            "metadataLastUpdated": "2026-09-02"
         },
         "organization": "U.S. Geological Survey",
         "permissions": {

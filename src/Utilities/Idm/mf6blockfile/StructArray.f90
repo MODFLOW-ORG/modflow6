@@ -940,9 +940,17 @@ contains
     integer(I4B) :: irow
     logical(LGP) :: endOfBlock, is_keyword_dispatch
     character(len=LINELENGTH) :: keyword
-    integer(I4B) :: icol, found_col, last_set_col
+    integer(I4B) :: icol, found_col, last_set_col, setting_icol
 
     irow = 0
+
+    ! SETTING column, when present, is always at nleading+1
+    setting_icol = 0
+    if (nleading + 1 <= this%ncol) then
+      if (trim(this%struct_vectors(nleading + 1)%idt%tagname) == 'SETTING') then
+        setting_icol = nleading + 1
+      end if
+    end if
 
     ! reset nrow if deferred shape
     if (this%deferred_shape) then
@@ -983,6 +991,7 @@ contains
       ! find the matching keystring-member column
       found_col = 0
       do icol = nleading + 1, this%ncol
+        if (icol == setting_icol) cycle
         if (trim(this%struct_vectors(icol)%idt%tagname) == trim(keyword)) then
           found_col = icol
           exit
@@ -996,6 +1005,12 @@ contains
         call store_error(errmsg)
         call store_error_filename(input_name)
         cycle
+      end if
+
+      ! write dispatch keyword (as mf6varname) to SETTING column when present
+      if (setting_icol > 0) then
+        this%struct_vectors(setting_icol)%charstr1d(irow) = &
+          trim(this%struct_vectors(found_col)%idt%mf6varname)
       end if
 
       ! determine dispatch mode and set/read matched column(s)
@@ -1024,6 +1039,7 @@ contains
 
       ! fill sentinels for all non-matched member columns
       do icol = nleading + 1, this%ncol
+        if (icol == setting_icol) cycle
         if (icol >= found_col .and. icol <= last_set_col) cycle
         select case (this%struct_vectors(icol)%memtype)
         case (MTYPE_DBL) ! DOUBLE: use DNODATA sentinel

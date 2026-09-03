@@ -43,6 +43,7 @@ module MawModule
   private
   public :: maw_create
   public :: maw_damp_weight
+  public :: maw_screen_length
   !
   type, extends(BndType) :: MawType
     !
@@ -210,6 +211,7 @@ module MawModule
     procedure, private :: maw_read_wells
     procedure, private :: maw_read_well_connections
     procedure, private :: maw_read_angledata
+    procedure, private :: maw_cell_extent
     procedure, private :: maw_calc_lcorr
     procedure, private :: maw_check_attributes
     procedure, private :: maw_set_stressperiod
@@ -1101,7 +1103,12 @@ contains
     real(DP) :: dz
     real(DP) :: omega
     real(DP) :: lw
+    real(DP) :: hlen
+    real(DP) :: extent
     real(DP) :: topexp
+    character(len=LINELENGTH) :: cndmsg
+    character(len=LINELENGTH) :: extmsg
+    logical(LGP) :: estimated
     integer(I4B), dimension(:), pointer, contiguous :: nboundchk
     integer(I4B), dimension(:), pointer, contiguous :: iachk
     ! -- minimum cosine of the tilt angle for which the in-cell screen length
@@ -1203,6 +1210,8 @@ contains
           cycle
         end if
         !
+        node = this%get_gwfnode(n, j)
+        !
         ! -- a SPECIFIED connection provides the saturated conductance directly,
         !    so the length correction is not applied; the user-specified screen
         !    elevations (which are otherwise reset to the cell top and bottom)
@@ -1210,7 +1219,6 @@ contains
         !    saturation is calculated over the correct interval. It is the
         !    user's responsibility to calculate the correct conductance.
         if (this%ieqn(n) == 0) then
-          node = this%get_gwfnode(n, j)
           this%topscrn(jpos) = min(this%usrtopscrn(jpos), this%dis%top(node))
           this%botscrn(jpos) = max(this%usrbotscrn(jpos), this%dis%bot(node))
         end if
@@ -1227,6 +1235,17 @@ contains
         !
         omega = angle * DPIO180
         !
+        ! -- the in-cell screen length is specified directly or derived from
+        !    the screen elevations, well radius, and tilt angle; it cannot be
+        !    derived for a (near) horizontal connection
+        if (conn_len > DZERO) then
+          lw = conn_len
+        else if (cos(omega) > coszero) then
+          lw = maw_screen_length(dz, this%radius(n), omega)
+        else
+          lw = DZERO
+        end if
+        !
         ! -- the in-cell screen length is used only by the conductance
         !    equations calculated by the program (it is not used by the
         !    SPECIFIED equation). For those equations a (near) horizontal
@@ -1242,11 +1261,6 @@ contains
             call store_error(errmsg)
             cycle
           end if
-          if (conn_len > DZERO) then
-            lw = conn_len
-          else
-            lw = (dz - DTWO * this%radius(n) * sin(omega)) / cos(omega)
-          end if
           if (lw <= DZERO) then
             write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a)') &
               'The calculated in-cell screen length for maw well', n, &
@@ -1255,6 +1269,44 @@ contains
               'the ANGLEDATA block.'
             call store_error(errmsg)
             cycle
+          end if
+        end if
+        !
+        ! -- a connection spans a horizontal distance of lw * sin(omega), which
+        !    cannot exceed the horizontal extent of the connected cell
+        if (lw > DZERO) then
+          hlen = lw * sin(omega)
+          extent = this%maw_cell_extent(node, estimated)
+          if (hlen > extent) then
+            !
+            ! -- the extent is estimated from the cell area where the cell
+            !    vertices are not defined
+            if (estimated) then
+              extmsg = 'estimated maximum horizontal extent'
+            else
+              extmsg = 'maximum horizontal extent'
+            end if
+            !
+            ! -- the length correction is not applied to a SPECIFIED
+            !    connection, so the conductance of one is not the program's
+            !    to describe as too large
+            if (this%ieqn(n) == 0) then
+              cndmsg = 'The specified saturated conductance is applied to a '// &
+                       'screen that is longer than the cell.'
+            else
+              cndmsg = 'The calculated saturated conductance is '// &
+                       'correspondingly too large.'
+            end if
+            write (warnmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,g0,a,g0,a)') &
+              'The horizontal distance spanned by maw well', n, 'connection', &
+              j, '(', hlen, &
+              ') is greater than the '//trim(extmsg)//' of the '// &
+              'connected cell (', extent, &
+              '), so the screen extends beyond the cell it is connected '// &
+              'to. '//trim(cndmsg)//' Reduce ANGLE or CONN_LENGTH, or '// &
+              'specify a separate connection to each cell the connection '// &
+              'passes through.'
+            call store_warning(warnmsg)
           end if
         end if
         !
@@ -1321,6 +1373,60 @@ contains
     end if
   end subroutine maw_read_angledata
 
+  !> @brief In-cell screen length of a non-vertical well connection
+  !!
+  !! The length is derived from the vertical screen extent, the well radius,
+  !! and the tilt angle, and grows without bound as the connection approaches
+  !! horizontal.
+  !<
+  pure function maw_screen_length(dz, radius, omega) result(lw)
+    ! -- dummy
+    real(DP), intent(in) :: dz !< vertical screen extent
+    real(DP), intent(in) :: radius !< well radius
+    real(DP), intent(in) :: omega !< tilt angle from vertical, in radians
+    ! -- return
+    real(DP) :: lw
+    !
+    lw = (dz - DTWO * radius * sin(omega)) / cos(omega)
+  end function maw_screen_length
+
+  !> @brief Maximum horizontal extent of a cell
+  !!
+  !! The extent is the largest distance between two cell vertices where they
+  !! are defined, and is estimated as the diagonal of a square with the same
+  !! area where they are not.
+  !<
+  function maw_cell_extent(this, node, estimated) result(extent)
+    use ConstantsModule, only: DIS, DISV, DISU, DTWO
+    use GeomUtilModule, only: polygon_extent
+    ! -- dummy
+    class(MawType), intent(inout) :: this
+    integer(I4B), intent(in) :: node !< reduced node number of the connected cell
+    logical(LGP), intent(out) :: estimated !< extent is estimated from the cell area
+    ! -- return
+    real(DP) :: extent
+    ! -- local
+    real(DP), allocatable, dimension(:, :) :: polyverts
+    integer(I4B) :: nverts
+    !
+    ! -- the vertices are optional for a disu grid and are not defined for
+    !    grids that have no cell polygons
+    nverts = 0
+    select case (this%dis%get_dis_enum())
+    case (DIS, DISV, DISU)
+      nverts = this%dis%get_npolyverts(node)
+    end select
+    !
+    estimated = nverts == 0
+    if (estimated) then
+      extent = sqrt(DTWO * this%dis%area(node))
+    else
+      call this%dis%get_polyverts(node, polyverts)
+      extent = polygon_extent(polyverts(1, :), polyverts(2, :))
+      deallocate (polyverts)
+    end if
+  end function maw_cell_extent
+
   !> @brief Calculate the length correction factor for a multi-aquifer well
   !! connection
   !!
@@ -1362,7 +1468,7 @@ contains
       lw = this%connlen(jpos)
     else
       omega = this%angle(jpos) * DPIO180
-      lw = (dz - DTWO * this%radius(i) * sin(omega)) / cos(omega)
+      lw = maw_screen_length(dz, this%radius(i), omega)
     end if
     !
     lcorr = lw / dz

@@ -162,17 +162,22 @@ contains
   !<
   subroutine allocate_arrays(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate
+    use MemoryManagerModule, only: mem_allocate, mem_setptr
     ! -- dummy variables
     class(TspSpcType) :: this !< TspSpcType object
     ! -- local
     integer(I4B) :: i
     !
-    call mem_allocate(this%dblvec, this%maxbound, 'DBLVEC', this%memoryPath)
-    !
-    do i = 1, this%maxbound
-      this%dblvec(i) = DZERO
-    end do
+    if (this%readasarrays) then
+      call mem_allocate(this%dblvec, this%maxbound, 'DBLVEC', this%memoryPath)
+      do i = 1, this%maxbound
+        this%dblvec(i) = DZERO
+      end do
+    else
+      ! list mode: alias into the loader's permanent, BNDNO-indexed array
+      ! (allocated and DZERO-initialized by the loader)
+      call mem_setptr(this%dblvec, trim(this%depvarname), this%input_mempath)
+    end if
   end subroutine allocate_arrays
 
   !> @brief Get the data value from this package
@@ -211,18 +216,16 @@ contains
     end if
   end function get_value
 
-  !> @brief Apply current input mempath values to dblvec
+  !> @brief Apply current input mempath values to dblvec, then echo them
   !!
-  !! For list-based SPC, iterates BNDNO/value rows. For array-based SPCA,
-  !! copies the depvarname array directly.
-  !!
+  !! Array mode copies the depvarname array into dblvec. List mode's
+  !! dblvec is already a permanent, BNDNO-indexed alias into the input
+  !! context, so there is nothing to copy.
   !<
   subroutine apply_input_values(this)
     ! -- dummy
     class(TspSpcType), intent(inout) :: this !< TspSpcType object
     ! -- local
-    integer(I4B), pointer :: nbound
-    integer(I4B), dimension(:), pointer, contiguous :: bndno_arr
     real(DP), dimension(:), pointer, contiguous :: val_arr
     integer(I4B) :: n
     ! -- formats
@@ -234,37 +237,18 @@ contains
       &"(5X,I6,2X,G12.5)"
     !
     if (this%readasarrays) then
-      ! -- array mode: copy depvarname array into dblvec
       call mem_setptr(val_arr, trim(this%depvarname), this%input_mempath)
       do n = 1, this%maxbound
         this%dblvec(n) = val_arr(n)
       end do
-      if (this%iprpak /= 0) then
-        write (this%iout, fmthdr) trim(this%depvarname), &
-          trim(this%packNameFlow)
-        write (this%iout, fmtdvhdr) trim(this%depvarname)
-        do n = 1, this%maxbound
-          write (this%iout, fmtdvval) n, this%dblvec(n)
-        end do
-      end if
-    else
-      ! -- list mode: apply BNDNO-indexed values; DNODATA entries are skipped
-      call mem_setptr(nbound, 'NBOUND', this%input_mempath)
-      call mem_setptr(bndno_arr, 'BNDNO', this%input_mempath)
-      call mem_setptr(val_arr, trim(this%depvarname), this%input_mempath)
-      do n = 1, nbound
-        if (val_arr(n) /= DNODATA) then
-          this%dblvec(bndno_arr(n)) = val_arr(n)
-        end if
+    end if
+    if (this%iprpak /= 0) then
+      write (this%iout, fmthdr) trim(this%depvarname), &
+        trim(this%packNameFlow)
+      write (this%iout, fmtdvhdr) trim(this%depvarname)
+      do n = 1, this%maxbound
+        write (this%iout, fmtdvval) n, this%dblvec(n)
       end do
-      if (this%iprpak /= 0) then
-        write (this%iout, fmthdr) trim(this%depvarname), &
-          trim(this%packNameFlow)
-        write (this%iout, fmtdvhdr) trim(this%depvarname)
-        do n = 1, this%maxbound
-          write (this%iout, fmtdvval) n, this%dblvec(n)
-        end do
-      end if
     end if
   end subroutine apply_input_values
 
@@ -325,7 +309,11 @@ contains
     class(TspSpcType) :: this !< TspSpcType object
     !
     nullify (this%dis)
-    call mem_deallocate(this%dblvec)
+    if (this%readasarrays) then
+      call mem_deallocate(this%dblvec)
+    else
+      nullify (this%dblvec) ! input-context-owned alias, not package-allocated
+    end if
     call mem_deallocate(this%id)
     call mem_deallocate(this%iout)
     call mem_deallocate(this%maxbound)

@@ -128,8 +128,17 @@ def get_disclaimer(developmode: bool = False, formatted: bool = False) -> str:
     return _approved_fmtdisclaimer if formatted else _approved_disclaimer
 
 
+# Umbrella DOI for the "MODFLOW and Related Programs" software release page.
+# Used as the software citation DOI when a release-specific one isn't passed
+# via --doi.
+_default_doi = "https://doi.org/10.5066/F76Q1VQV"
+
+
 def get_software_citation(
-    timestamp: datetime, version: Version, developmode: bool = False
+    timestamp: datetime,
+    version: Version,
+    doi: str = _default_doi,
+    developmode: bool = False,
 ) -> str:
     # get data Software/Code citation for FloPy
     citation = yaml.safe_load((project_root_path / "CITATION.cff").read_text())
@@ -163,7 +172,7 @@ def get_software_citation(
         f", {timestamp.year}, "
         f"MODFLOW 6 Modular Hydrologic Model version {version}: "
         f"U.S. Geological Survey Software Release, {timestamp:%-d %B %Y}, "
-        "https://doi.org/10.5066/P9FL1JCC"
+        f"{doi}"
     )
 
     return line
@@ -454,7 +463,10 @@ The version number is read from version.txt in the project root.
 Use `--releasemode` to control whether IDEVELOPMODE is set to 0 instead
 of 1, and to alter mf6's output and disclaimer text reflecting approval.
 
-Use `--citation` (`-c`) to render the current software citation.
+Use `--citation` (`-c`) to render the current software citation. Pass the
+release DOI link via `--doi` (`-d`), e.g.
+`--doi https://doi.org/10.5066/P1PGE9XW`; if omitted, the umbrella MODFLOW
+software DOI is used.
             """
         ),
     )
@@ -471,6 +483,15 @@ Use `--citation` (`-c`) to render the current software citation.
         required=False,
         action="store_true",
         help="Show the version, don't update anything. Defaults to false",
+    )
+    parser.add_argument(
+        "-d",
+        "--doi",
+        required=False,
+        default=_default_doi,
+        help="DOI link (e.g. https://doi.org/10.5066/P1PGE9XW) to substitute "
+        "into the software citation rendered by --citation. Defaults to the "
+        f"umbrella MODFLOW software DOI ({_default_doi}).",
     )
     parser.add_argument(
         "-a",
@@ -499,7 +520,10 @@ Use `--citation` (`-c`) to render the current software citation.
     elif citation:
         print(
             get_software_citation(
-                timestamp=datetime.now(), version=version, developmode=developmode
+                timestamp=datetime.now(),
+                version=version,
+                doi=args.doi,
+                developmode=developmode,
             )
         )
     else:

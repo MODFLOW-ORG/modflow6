@@ -24,6 +24,8 @@ module LoadContextModule
   public :: ReadStateVarType
   public :: rsv_name
   public :: is_keystring_period
+  public :: has_dimensions_block
+  public :: is_cellid_addressed
 
   enum, bind(C)
     enumerator :: LOAD_UNDEF = 0 !< undefined load type
@@ -31,8 +33,6 @@ module LoadContextModule
     enumerator :: LAYERARRAY = 2 !< readasarrays load
     enumerator :: GRIDARRAY = 3 !< readarraygrid load
     enumerator :: KEYSTRING = 4 !< basic keystring period block load
-    ! ADVANCED: pending future development
-    enumerator :: ADVANCED = 5 !< advanced keystring period block load
   end enum
 
   enum, bind(C)
@@ -76,6 +76,10 @@ module LoadContextModule
     integer(I4B) :: ctxtype !< enum context type
     integer(I4B) :: nleading = 0 !< count of leading (pre-keystring) columns; LIST packages only
     logical(LGP) :: readarray !< is this an array based load
+    logical(LGP) :: is_dimensions_scoped = .false. !< .true. for DIMENSIONS-block-paired (e.g. SPC) KEYSTRING loadtype
+    logical(LGP) :: is_cellid_scoped = .false. !< .true. for CELLID-addressed (e.g. TVK/TVS) KEYSTRING loadtype
+    logical(LGP) :: has_setting_dispatch = .false. !< .true. when is_dimensions_scoped .or. is_cellid_scoped
+    type(InputParamDefinitionType), pointer :: setting_idt => null() !< internal idt for SETTING column
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: auxname_cst => null() !< array of auxiliary names
     type(CharacterStringType), dimension(:), pointer, &
@@ -105,6 +109,7 @@ contains
   subroutine init(this, mf6_input, blockname, named_bound)
     use InputOutputModule, only: upcase
     use ModelPackageInputsModule, only: supported_model
+    use DefinitionSelectModule, only: idt_default
     class(LoadContextType) :: this
     type(ModflowInputType), intent(in) :: mf6_input
     character(len=*), optional, intent(in) :: blockname
@@ -178,14 +183,18 @@ contains
       end if
     end do
 
-    ! check if KEYSTRING type is ADVANCED package
+    ! classify KEYSTRING subtypes needing sticky PERIOD-setting persistence:
+    ! DIMENSIONS-block-paired (e.g. SPC) and CELLID-addressed (e.g. TVK/TVS)
     if (this%loadtype == KEYSTRING) then
-      do n = 1, size(mf6_input%block_dfns)
-        if (mf6_input%block_dfns(n)%blockname == 'PACKAGEDATA') then
-          this%loadtype = ADVANCED
-          exit
-        end if
-      end do
+      this%is_dimensions_scoped = has_dimensions_block(mf6_input)
+      this%is_cellid_scoped = is_cellid_addressed(mf6_input)
+      this%has_setting_dispatch = &
+        this%is_dimensions_scoped .or. this%is_cellid_scoped
+      if (this%has_setting_dispatch) then
+        this%setting_idt => &
+          idt_default(mf6_input%component_type, mf6_input%subcomponent_type, &
+                      'PERIOD', 'SETTING', 'SETTING', 'STRING')
+      end if
     end if
 
     ! determine if array based load
@@ -273,8 +282,7 @@ contains
 
       ! scale maxbound by keystring member count; fall back to nodes * nmembers
       ! when no DIMENSIONS block is present (e.g. TVK/TVS)
-      if (this%loadtype == KEYSTRING .or. &
-          this%loadtype == ADVANCED) then
+      if (this%loadtype == KEYSTRING) then
         ! count members from the KEYSTRING aggregate type definition, which
         ! names exactly the dispatchable members
         nmembers = 0
@@ -289,7 +297,13 @@ contains
         end if
         if (allocated(cols)) deallocate (cols)
         if (allocated(ks_cols)) deallocate (ks_cols)
-        if (this%maxbound == 0) this%maxbound = this%nodes * nmembers
+        if (this%maxbound == 0) then
+          this%maxbound = this%nodes * nmembers
+        else if (this%is_dimensions_scoped .and. nmembers > 0) then
+          ! DIMENSIONS-block-paired (e.g. SPC): scale the raw feature-count
+          ! maxbound by member count; resolve_nfeatures divides it back out
+          this%maxbound = this%maxbound * nmembers
+        end if
       end if
     end if
   end subroutine allocate_scalars
@@ -316,17 +330,15 @@ contains
       end if
 
       ! allocate nodeulist for list and layerarray packages only;
-      ! keystring and advanced packages do not use a flat nodeulist
+      ! keystring packages do not use a flat nodeulist
       if (this%loadtype /= GRIDARRAY .and. &
-          this%loadtype /= KEYSTRING .and. &
-          this%loadtype /= ADVANCED) then
+          this%loadtype /= KEYSTRING) then
         call mem_allocate(nodeulist, 0, 'NODEULIST', this%mf6_input%mempath)
       end if
 
       ! set pointers to aux/bound arrays for list and layerarray packages only;
-      ! keystring and advanced packages manage aux through struct array columns
-      if (this%loadtype /= KEYSTRING .and. &
-          this%loadtype /= ADVANCED) then
+      ! keystring packages manage aux through struct array columns
+      if (this%loadtype /= KEYSTRING) then
         call setptr(this%auxname_cst, 'AUXILIARY', &
                     this%mf6_input%mempath, LENAUXNAME)
         call setptr(this%boundname_cst, 'BOUNDNAME', &
@@ -560,8 +572,7 @@ contains
     keepcnt = 0
 
     if (this%loadtype == LIST .or. &
-        this%loadtype == KEYSTRING .or. &
-        this%loadtype == ADVANCED) then
+        this%loadtype == KEYSTRING) then
       ! get aggregate param definition for period block
       aidt => &
         get_aggregate_definition_type(this%mf6_input%aggregate_dfns, &
@@ -577,8 +588,7 @@ contains
     ! allocate dfn input params
     do iparam = 1, nparam
       if (this%loadtype == LIST .or. &
-          this%loadtype == KEYSTRING .or. &
-          this%loadtype == ADVANCED) then
+          this%loadtype == KEYSTRING) then
         ! use found so keystring placeholders are silently skipped
         idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                          this%mf6_input%component_type, &
@@ -608,11 +618,10 @@ contains
     ! update nparam
     nparam = keepcnt
 
-    ! for LIST/KEYSTRING/ADVANCED packages record the leading-column count;
-    ! this is the count of aggregate columns before the keystring placeholder
+    ! for LIST/KEYSTRING packages record the leading-column count; this
+    ! is the count of aggregate columns before the keystring placeholder
     if (this%loadtype == LIST .or. &
-        this%loadtype == KEYSTRING .or. &
-        this%loadtype == ADVANCED) this%nleading = nparam
+        this%loadtype == KEYSTRING) this%nleading = nparam
 
     ! allocate filtcols
     allocate (this%params(nparam))
@@ -654,6 +663,11 @@ contains
     class(LoadContextType) :: this
 
     if (allocated(this%named_bound)) deallocate (this%named_bound)
+
+    if (associated(this%setting_idt)) then
+      deallocate (this%setting_idt)
+      nullify (this%setting_idt)
+    end if
 
     if (this%ctxtype == EXCHANGE .or. &
         this%ctxtype == STRESSPKG) then
@@ -774,6 +788,47 @@ contains
     end if
     if (allocated(cols)) deallocate (cols)
   end function is_keystring_period
+
+  !> @brief Return .true. if mf6_input is a keystring PERIOD dispatch paired
+  !! with a DIMENSIONS block (e.g. SPC) rather than PACKAGEDATA.
+  !<
+  function has_dimensions_block(mf6_input) result(res)
+    type(ModflowInputType), intent(in) :: mf6_input
+    logical(LGP) :: res
+    integer(I4B) :: n
+    logical(LGP) :: has_dimensions
+    res = .false.
+    if (.not. is_keystring_period(mf6_input)) return
+    has_dimensions = .false.
+    do n = 1, size(mf6_input%block_dfns)
+      if (mf6_input%block_dfns(n)%blockname == 'DIMENSIONS') then
+        has_dimensions = .true.
+      end if
+      ! PACKAGEDATA-paired (e.g. LAK/MAW/SFR/UZF) takes precedence over a
+      ! coincidental DIMENSIONS block (e.g. NOUTLETS, NTABLES)
+      if (mf6_input%block_dfns(n)%blockname == 'PACKAGEDATA') return
+    end do
+    res = has_dimensions
+  end function has_dimensions_block
+
+  !> @brief Return .true. if mf6_input is a keystring PERIOD dispatch whose
+  !! leading column is CELLID (e.g. TVK/TVS) rather than a stable integer
+  !! feature number.
+  !<
+  function is_cellid_addressed(mf6_input) result(res)
+    type(ModflowInputType), intent(in) :: mf6_input
+    logical(LGP) :: res
+    integer(I4B) :: n
+    res = .false.
+    if (.not. is_keystring_period(mf6_input)) return
+    do n = 1, size(mf6_input%param_dfns)
+      if (mf6_input%param_dfns(n)%blockname == 'PERIOD' .and. &
+          mf6_input%param_dfns(n)%tagname == 'CELLID') then
+        res = .true.
+        exit
+      end if
+    end do
+  end function is_cellid_addressed
 
   !> @brief Return keystring member column names for the PERIOD block
   !!

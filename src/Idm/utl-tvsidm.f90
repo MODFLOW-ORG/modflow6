@@ -19,8 +19,8 @@ module UtlTvsInputModule
     logical :: filein = .false.
     logical :: ts6_filename = .false.
     logical :: cellid = .false.
-    logical :: ss = .false.
-    logical :: sy = .false.
+    logical :: ss_in = .false.
+    logical :: sy_in = .false.
   end type UtlTvsParamFoundType
 
   logical :: utl_tvs_multi_package = .false.
@@ -165,14 +165,14 @@ module UtlTvsInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    utltvs_ss = InputParamDefinitionType &
+    utltvs_ss_in = InputParamDefinitionType &
     ( &
     'UTL', & ! component
     'TVS', & ! subcomponent
     'PERIOD', & ! block
     'SS', & ! tag name
-    'SS', & ! fortran variable
-    'DOUBLE', & ! type
+    'SS_IN', & ! fortran variable
+    'STRING', & ! type
     '', & ! shape
     'specific storage', & ! longname
     .true., & ! required
@@ -184,14 +184,14 @@ module UtlTvsInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    utltvs_sy = InputParamDefinitionType &
+    utltvs_sy_in = InputParamDefinitionType &
     ( &
     'UTL', & ! component
     'TVS', & ! subcomponent
     'PERIOD', & ! block
     'SY', & ! tag name
-    'SY', & ! fortran variable
-    'DOUBLE', & ! type
+    'SY_IN', & ! fortran variable
+    'STRING', & ! type
     '', & ! shape
     'specific yield', & ! longname
     .true., & ! required
@@ -212,8 +212,8 @@ module UtlTvsInputModule
     utltvs_filein, &
     utltvs_ts6_filename, &
     utltvs_cellid, &
-    utltvs_ss, &
-    utltvs_sy &
+    utltvs_ss_in, &
+    utltvs_sy_in &
     ]
 
   type(InputParamDefinitionType), parameter :: &

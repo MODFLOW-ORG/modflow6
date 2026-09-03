@@ -23,7 +23,8 @@ module PrtModule
   use ParticleTracksModule, only: ParticleTracksType, &
                                   ParticleTrackFileType, &
                                   add_particle_event
-  use SimModule, only: count_errors, store_error, store_error_filename
+  use SimModule, only: count_errors, store_error, store_error_filename, &
+                       store_warning
   use MemoryManagerModule, only: mem_allocate
   use MethodModule, only: MethodType, LEVEL_FEATURE
   use MethodDisModule, only: MethodDisType, create_method_dis
@@ -493,6 +494,7 @@ contains
       packobj => GetBndFromList(this%bndlist, ip)
       select type (packobj)
       type is (PrtPrpType)
+        iprp = iprp + 1
         do np = 1, packobj%nparticles
           call packobj%particles_staging%get(particle, this%id, iprp, np)
           istatus = packobj%particles_staging%istatus(np)
@@ -1046,6 +1048,7 @@ contains
     use PrtPrpModule, only: PrtPrpType
     use ParticleModule, only: ACTIVE, TERM_UNRELEASED, TERM_TIMEOUT
     use ParticleEventModule, only: RELEASE, TERMINATE
+    use SimVariablesModule, only: warnmsg
     ! dummy
     class(PrtModelType) :: this
     integer(I4B), intent(in) :: isuppress_output
@@ -1088,30 +1091,59 @@ contains
           end if
           if (particle%istatus > ACTIVE) cycle ! Skip terminated particles
           particle%istatus = ACTIVE ! Set active status in case of release
-          ! If the particle was released this time step, emit a release event
-          if (particle%trelease >= totimc) call this%method%release(particle)
-          ! Maximum time is the end of the time step or the particle
-          ! stop time, whichever comes first, unless it's the final
-          ! time step and the extend option is on, in which case
-          ! it's just the particle stop time.
-          if (endofsimulation .and. particle%extend) then
-            tmax = particle%tstop
-          else
-            tmax = min(totimc + delt, particle%tstop)
+          if (particle%trelease >= totimc) then
+            if (particle%trelease > particle%tstop) then
+              ! The package's stop time is earlier than the release time.
+              ! Terminate it permanently unreleased and show a warning.
+              write (warnmsg, '(a,g0,a,g0,a,g0,a)') &
+                'Particle release point ', particle%irpt, ' has &
+                &release time ', particle%trelease, ' after package &
+                &stop time ', particle%tstop, '; particle will not &
+                &be released.'
+              call store_warning(warnmsg)
+              call this%method%terminate(particle, status=TERM_UNRELEASED)
+            else
+              ! The particle was released this time step; emit a
+              ! release event.
+              call this%method%release(particle)
+            end if
           end if
-          ! Apply the tracking method until the maximum time.
-          call this%method%apply(particle, tmax)
-          ! If the particle timed out, terminate it.
-          ! "Timed out" means it's still active but
-          !   - it reached its stop time, or
-          !   - the simulation is over.
-          ! We can't detect timeout within the tracking
-          ! method because the method just receives the
-          ! maximum time with no context on what it is.
-          ! TODO maybe think about changing that?
-          if (particle%istatus <= ACTIVE .and. &
-              (particle%ttrack == particle%tstop .or. endofsimulation)) &
-            call this%method%terminate(particle, status=TERM_TIMEOUT)
+          if (particle%istatus <= ACTIVE) then
+            ! Maximum time is the end of the time step or the particle
+            ! stop time, whichever comes first, unless it's the final
+            ! time step and the extend option is on, in which case
+            ! it's just the particle stop time.
+            if (endofsimulation .and. particle%extend) then
+              tmax = particle%tstop
+            else
+              tmax = min(totimc + delt, particle%tstop)
+            end if
+            ! tmax should never be less than the particle's current
+            ! tracked time: ttrack can't get ahead of totimc, the
+            ! smaller of the two terms tmax is drawn from, and a
+            ! release whose time precedes the stop time was already
+            ! caught above and never reaches this point. If it
+            ! happens anyway, that's a programmer error: tracking
+            ! methods assume a nonnegative time interval, and calling
+            ! apply() with tmax < ttrack sends them a negative one,
+            ! which corrupts the tracking method.
+            if (tmax < particle%ttrack) &
+              call pstop(1, 'Programmer error: PRT tracking tmax &
+                &precedes particle%ttrack.')
+            ! Apply the tracking method until the maximum time.
+            call this%method%apply(particle, tmax)
+            ! If the particle timed out, terminate it.
+            ! "Timed out" means it's still active but
+            !   - it reached its stop time, or
+            !   - the simulation is over.
+            ! We can't detect timeout within the tracking
+            ! method because the method just receives the
+            ! maximum time with no context on what it is.
+            ! TODO maybe think about changing that?
+            if (particle%istatus <= ACTIVE .and. &
+                (particle%ttrack == particle%tstop .or. endofsimulation)) &
+              call this%method%terminate(particle, status=TERM_TIMEOUT)
+          end if
           ! Return the particle to the staging store
           call packobj%particles_staging%put(particle, np)
         end do
