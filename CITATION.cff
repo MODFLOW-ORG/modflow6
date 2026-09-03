@@ -33,6 +33,20 @@ authors:
   alias: mjr-deltares
   affiliation: Deltares
   orcid: https://orcid.org/0000-0001-8799-6514
+- family-names: Reno
+  given-names: Michael J.
+  affiliation: U.S. Geological Survey
+  alias: mjreno
+- family-names: Bonelli
+  given-names: Wesley P.
+  alias: wpbonelli
+  affiliation: U.S. Geological Survey
+  orcid: https://orcid.org/0000-0002-2665-5078
+- family-names: Morway
+  given-names: Eric D.
+  alias: emorway-usgs
+  affiliation: U.S. Geological Survey
+  orcid: https://orcid.org/0000-0002-8553-6140
 - family-names: Niswonger
   given-names: Richard G.
   affiliation: U.S. Geological Survey
@@ -44,25 +58,6 @@ authors:
   given-names: Damian
   alias: damianmerrick
   affiliation: HydroAlgorithmics
-- family-names: Morway
-  given-names: Eric D.
-  alias: emorway-usgs
-  affiliation: U.S. Geological Survey
-  orcid: https://orcid.org/0000-0002-8553-6140
-- family-names: Reno
-  given-names: Michael J.
-  affiliation: U.S. Geological Survey
-  alias: mjreno
-- family-names: Bonelli
-  given-names: Wesley P.
-  alias: wpbonelli
-  affiliation: U.S. Geological Survey
-  orcid: https://orcid.org/0000-0002-2665-5078
-- family-names: Boyce
-  given-names: Scott E.
-  alias: ScottBoyce
-  affiliation: U.S. Geological Survey
-  orcid: https://orcid.org/0000-0003-0626-9492
 - family-names: Banta
   given-names: Edward R.
   affiliation: U.S. Geological Survey
