@@ -183,9 +183,11 @@ contains
     integer(I4B), pointer :: intvar
     integer(I4B) :: iparam
 
-    ! set in scope param names
-    call this%ctx%tags(this%param_names, this%nparam, this%input_name, &
-                       create=.true.)
+    ! set in-scope param names directly from context
+    this%param_names = this%ctx%params
+    this%nparam = size(this%ctx%params)
+    call this%ctx%allocate_params()
+    call this%ctx%check_developmode(this%input_name)
     call this%ctx%allocate_arrays()
 
     ! allocate and set param_reads pointer array
@@ -252,6 +254,13 @@ contains
         do n = 1, this%ctx%nodes
           if (nodes(n) /= DNODATA) then
             nnode = nnode + 1
+            if (nnode > this%ctx%maxbound) then
+              write (errmsg, '(a,i0,a)') &
+                'Input error: number of defined (non-DNODATA) cells &
+                &exceeds MAXBOUND=', this%ctx%maxbound, '.'
+              call store_error(errmsg)
+              call store_error_filename(this%input_name)
+            end if
             dbl1d(nnode) = nodes(n)
             this%nodeulist(nnode) = n
           end if
@@ -286,6 +295,13 @@ contains
         do n = 1, this%ctx%nodes
           if (nodes(n) /= DNODATA) then
             nnode = nnode + 1
+            if (nnode > this%ctx%maxbound) then
+              write (errmsg, '(a,i0,a)') &
+                'Input error: number of defined (non-DNODATA) cells &
+                &exceeds MAXBOUND=', this%ctx%maxbound, '.'
+              call store_error(errmsg)
+              call store_error_filename(this%input_name)
+            end if
             dbl2d(iaux, nnode) = nodes(n)
             this%nodeulist(nnode) = n
           end if

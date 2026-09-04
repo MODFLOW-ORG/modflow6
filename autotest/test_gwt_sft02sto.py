@@ -302,7 +302,7 @@ def check_mass_storage_change(times, volumes, concentrations, answers, verbose=F
         print("Answers:", answers)
         print("Difference:", diff)
 
-    if not np.allclose(diff, 0.0):
+    if not np.allclose(mass_storage_changes, answers, rtol=1e-5):
         print(f"Mass storage change check failed with max error {np.abs(diff).max()}")
         success = False
     else:

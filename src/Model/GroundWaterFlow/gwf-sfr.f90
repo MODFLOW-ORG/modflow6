@@ -24,14 +24,18 @@ module SfrModule
                              sQuadraticSaturationDerivative, &
                              sQSaturationDerivative, &
                              sCubicSaturation, sChSmooth
+  use CharacterStringModule, only: CharacterStringType
   use BndModule, only: BndType
+  use BndExtModule, only: BndExtType
+  use MemoryManagerExtModule, only: memorystore_release
+
   use BudgetObjectModule, only: BudgetObjectType, budgetobject_cr
   use TableModule, only: TableType, table_cr
   use ObserveModule, only: ObserveType
   use InputOutputModule, only: extract_idnum_or_bndname, upcase
   use BaseDisModule, only: DisBaseType
   use SimModule, only: count_errors, store_error, store_error_unit, &
-                       store_warning, deprecation_warning
+                       store_error_filename, store_warning, deprecation_warning
   use SimVariablesModule, only: errmsg, warnmsg
   use GwfSfrCrossSectionUtilsModule, only: get_saturated_topwidth, &
                                            get_wetted_topwidth, &
@@ -49,8 +53,43 @@ module SfrModule
   private
   public :: sfr_create
   public :: SfrType
-  !
-  type, extends(BndType) :: SfrType
+
+  !> @brief input context data pointers for SFR.
+  !!
+  !! Groups all input context array pointers used at runtime.
+  !! PACKAGEDATA pointers (rhk, man, ustrf) are set in
+  !! sfr_source_packagedata; PERIOD pointers are set once in sfr_ar.
+  !!
+  !<
+  type :: SfrInputType
+    ! -- packagedata (TS-linked; set in sfr_source_packagedata)
+    real(DP), dimension(:), pointer, contiguous :: rhk => null()
+    real(DP), dimension(:), pointer, contiguous :: man => null()
+    real(DP), dimension(:), pointer, contiguous :: ustrf => null()
+    ! -- period
+    integer(I4B), pointer :: nbound => null()
+    integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: status => null()
+    real(DP), dimension(:), pointer, contiguous :: bedk => null()
+    real(DP), dimension(:), pointer, contiguous :: manning => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: setting => null()
+    integer(I4B), dimension(:), pointer, contiguous :: idv => null()
+    real(DP), dimension(:), pointer, contiguous :: divflow => null()
+    real(DP), dimension(:), pointer, contiguous :: upstream_frac => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: tab6_filename => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: auxname => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: auxval => null()
+  contains
+    procedure :: init => sfr_input_init
+    procedure :: destroy => sfr_input_destroy
+  end type SfrInputType
+
+  type, extends(BndExtType) :: SfrType
     ! -- scalars
     ! -- for budgets
     ! -- characters
@@ -112,6 +151,9 @@ module SfrModule
     real(DP), dimension(:), pointer, contiguous :: slope => null() !< reach slope
     integer(I4B), dimension(:), pointer, contiguous :: nconnreach => null() !< number of connections for each reach
     real(DP), dimension(:), pointer, contiguous :: ustrf => null() !< upstream flow fraction for upstream connections
+    logical(LGP), dimension(:), pointer, contiguous :: bedk_set => null() !< reach has an active PERIOD BEDK override
+    logical(LGP), dimension(:), pointer, contiguous :: manning_set => null() !< reach has an active PERIOD MANNING override
+    logical(LGP), dimension(:), pointer, contiguous :: ustrf_set => null() !< reach has an active PERIOD UPSTREAM_FRACTION override
     real(DP), dimension(:), pointer, contiguous :: ftotnd => null() !< total fraction of connected reaches that are not diversions
     integer(I4B), dimension(:), pointer, contiguous :: ndiv => null() !< number of diversions for each reach
     real(DP), dimension(:), pointer, contiguous :: usflow => null() !< upstream reach flow
@@ -152,8 +194,6 @@ module SfrModule
     real(DP), dimension(:), pointer, contiguous :: inflow => null() !< reach upstream inflow
     real(DP), dimension(:), pointer, contiguous :: runoff => null() !< reach maximum runoff
     real(DP), dimension(:), pointer, contiguous :: sstage => null() !< reach specified stage
-    ! -- reach aux variables
-    real(DP), dimension(:, :), pointer, contiguous :: rauxvar => null() !< reach aux variable
     ! -- diversion data
     integer(I4B), dimension(:), pointer, contiguous :: iadiv => null() !< row pointer for reach diversions
     integer(I4B), dimension(:), pointer, contiguous :: divreach => null() !< diversion reach
@@ -168,12 +208,16 @@ module SfrModule
     ! -- viscosity variables
     real(DP), dimension(:, :), pointer, contiguous :: viscratios => null() !< viscosity ratios (1: sfr vsc ratio; 2: gwf vsc ratio)
     !
+    ! -- input context data pointers (PACKAGEDATA + PERIOD arrays)
+    type(SfrInputType) :: input
+    !
     ! -- type bound procedures
   contains
     procedure :: sfr_allocate_scalars
     procedure :: sfr_allocate_arrays
-    procedure :: bnd_options => sfr_options
-    procedure :: read_dimensions => sfr_read_dimensions
+    procedure :: source_options => sfr_source_options
+    procedure :: source_dimensions => sfr_source_dimensions
+
     ! procedure :: set_pointers => sfr_set_pointers
     procedure :: bnd_ar => sfr_ar
     procedure :: bnd_rp => sfr_rp
@@ -196,7 +240,7 @@ module SfrModule
     procedure, public :: bnd_rp_obs => sfr_rp_obs
     procedure, public :: bnd_bd_obs => sfr_bd_obs
     ! -- private procedures
-    procedure, private :: sfr_set_stressperiod
+
     procedure, private :: sfr_solve
     procedure, private :: sfr_calc_constant
     procedure, private :: sfr_calc_transient
@@ -219,12 +263,12 @@ module SfrModule
     procedure, private :: calc_surface_area
     procedure, private :: calc_surface_area_wet
     procedure, private :: calc_top_width_wet
-    ! -- reading
-    procedure, private :: sfr_read_packagedata
-    procedure, private :: sfr_read_crossection
-    procedure, private :: sfr_read_connectiondata
-    procedure, private :: sfr_read_diversions
-    procedure, private :: sfr_read_initial_stages
+    ! -- input context sourcing
+    procedure, private :: sfr_source_packagedata
+    procedure, private :: sfr_source_crosssections
+    procedure, private :: sfr_source_connectiondata
+    procedure, private :: sfr_source_diversions
+    procedure, private :: sfr_source_initialstages
     ! -- calculations
     procedure, private :: sfr_calc_reach_depth
     procedure, private :: sfr_calc_xs_depth
@@ -236,6 +280,7 @@ module SfrModule
     procedure, private :: sfr_check_diversions
     procedure, private :: sfr_check_initialstages
     procedure, private :: sfr_check_ustrf
+    procedure, private :: sfr_set_period_value
     ! -- budget
     procedure, private :: sfr_setup_budobj
     procedure, private :: sfr_fill_budobj
@@ -322,7 +367,8 @@ contains
   !!
   !!  Create a new SFR Package object
   !<
-  subroutine sfr_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname)
+  subroutine sfr_create(packobj, id, ibcnum, inunit, iout, namemodel, pakname, &
+                        mempath)
     ! -- modules
     use MemoryHelperModule, only: create_mem_path
     ! -- dummy
@@ -333,6 +379,7 @@ contains
     integer(I4B), intent(in) :: iout !< unit number of model listing file
     character(len=*), intent(in) :: namemodel !< model name
     character(len=*), intent(in) :: pakname !< package name
+    character(len=*), intent(in) :: mempath !< input mempath
     ! -- local
     type(SfrType), pointer :: sfrobj
     !
@@ -341,7 +388,7 @@ contains
     packobj => sfrobj
     !
     ! -- create name and memory path
-    call packobj%set_names(ibcnum, namemodel, pakname, ftype)
+    call packobj%set_names(ibcnum, namemodel, pakname, ftype, mempath)
     packobj%text = text
     !
     ! -- allocate scalars
@@ -372,11 +419,10 @@ contains
     ! -- dummy
     class(SfrType), intent(inout) :: this !< SfrType object
     !
-    ! -- call standard BndType allocate scalars
-    call this%BndType%allocate_scalars()
+    ! -- call standard BndExtType allocate scalars
+    call this%BndExtType%allocate_scalars()
     !
     ! -- allocate the object and assign values to object variables
-    call mem_allocate(this%ats_courant, 'ATS_COURANT', this%memoryPath)
     call mem_allocate(this%istorage, 'ISTORAGE', this%memoryPath)
     call mem_allocate(this%iprhed, 'IPRHED', this%memoryPath)
     call mem_allocate(this%istageout, 'ISTAGEOUT', this%memoryPath)
@@ -394,6 +440,7 @@ contains
     call mem_allocate(this%dmaxchg, 'DMAXCHG', this%memoryPath)
     call mem_allocate(this%deps, 'DEPS', this%memoryPath)
     call mem_allocate(this%storage_weight, 'STORAGE_WEIGHT', this%memoryPath)
+    call mem_allocate(this%ats_courant, 'ATS_COURANT', this%memoryPath)
     call mem_allocate(this%nconn, 'NCONN', this%memoryPath)
     call mem_allocate(this%icheck, 'ICHECK', this%memoryPath)
     call mem_allocate(this%iconvchk, 'ICONVCHK', this%memoryPath)
@@ -422,8 +469,8 @@ contains
     this%dmaxchg = DEM5
     this%deps = DP999 * this%dmaxchg
     this%storage_weight = DNODATA
-    this%nconn = 0
     this%ats_courant = DNODATA
+    this%nconn = 0
     this%icheck = 1
     this%iconvchk = 1
     this%idense = 0
@@ -438,12 +485,11 @@ contains
   !<
   subroutine sfr_allocate_arrays(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate
+    use MemoryManagerModule, only: mem_allocate, mem_setptr
     ! -- dummy
     class(SfrType), intent(inout) :: this !< SfrType object
     ! -- local
     integer(I4B) :: i
-    integer(I4B) :: j
     !
     ! -- allocate character array for budget text
     allocate (this%csfrbudget(this%bditems))
@@ -465,6 +511,14 @@ contains
     call mem_allocate(this%nconnreach, this%maxbound, 'NCONNREACH', &
                       this%memoryPath)
     call mem_allocate(this%ustrf, this%maxbound, 'USTRF', this%memoryPath)
+    call mem_allocate(this%bedk_set, this%maxbound, 'BEDK_SET', this%memoryPath)
+    call mem_allocate(this%manning_set, this%maxbound, 'MANNING_SET', &
+                      this%memoryPath)
+    call mem_allocate(this%ustrf_set, this%maxbound, 'USTRF_SET', &
+                      this%memoryPath)
+    this%bedk_set = .false.
+    this%manning_set = .false.
+    this%ustrf_set = .false.
     call mem_allocate(this%ftotnd, this%maxbound, 'FTOTND', this%memoryPath)
     call mem_allocate(this%ndiv, this%maxbound, 'NDIV', this%memoryPath)
     call mem_allocate(this%usflow, this%maxbound, 'USFLOW', this%memoryPath)
@@ -513,15 +567,15 @@ contains
     !
     ! -- boundary data
     call mem_allocate(this%rough, this%maxbound, 'ROUGH', this%memoryPath)
-    call mem_allocate(this%rain, this%maxbound, 'RAIN', this%memoryPath)
-    call mem_allocate(this%evap, this%maxbound, 'EVAP', this%memoryPath)
-    call mem_allocate(this%inflow, this%maxbound, 'INFLOW', this%memoryPath)
-    call mem_allocate(this%runoff, this%maxbound, 'RUNOFF', this%memoryPath)
-    call mem_allocate(this%sstage, this%maxbound, 'SSTAGE', this%memoryPath)
     !
-    ! -- aux variables
-    call mem_allocate(this%rauxvar, this%naux, this%maxbound, &
-                      'RAUXVAR', this%memoryPath)
+    ! -- alias into the input context's permanent, feature-indexed arrays
+    ! (allocated and DZERO-initialized by the loader)
+    call mem_setptr(this%rain, 'RAINFALL', this%input_mempath)
+    call mem_setptr(this%evap, 'EVAPORATION', this%input_mempath)
+    call mem_setptr(this%inflow, 'INFLOW', this%input_mempath)
+    call mem_setptr(this%runoff, 'RUNOFF', this%input_mempath)
+    call mem_setptr(this%sstage, 'STAGE', this%input_mempath)
+    !
     !
     ! -- diversion variables
     call mem_allocate(this%iadiv, this%maxbound + 1, 'IADIV', this%memoryPath)
@@ -585,16 +639,7 @@ contains
       !
       ! -- boundary data
       this%rough(i) = DZERO
-      this%rain(i) = DZERO
-      this%evap(i) = DZERO
-      this%inflow(i) = DZERO
-      this%runoff(i) = DZERO
-      this%sstage(i) = DZERO
       !
-      ! -- aux variables
-      do j = 1, this%naux
-        this%rauxvar(j, i) = DZERO
-      end do
       !
       ! -- cross-section data
       this%ncrosspts(i) = 0
@@ -657,270 +702,903 @@ contains
     call mem_allocate(this%viscratios, 2, 0, 'VISCRATIOS', this%memoryPath)
   end subroutine sfr_allocate_arrays
 
-  !> @ brief Read dimensions for package
-  !!
-  !!  Read dimensions for the SFR package.
+  !> @brief Source OPTIONS from input context
   !<
-  subroutine sfr_read_dimensions(this)
-    ! -- dummy
-    class(SfrType), intent(inout) :: this !< SfrType object
-    ! -- local
-    character(len=LINELENGTH) :: keyword
-    integer(I4B) :: ierr
-    logical(LGP) :: isfound
-    logical(LGP) :: endOfBlock
-    !
-    ! -- initialize dimensions to 0
-    this%maxbound = 0
-    !
-    ! -- get dimensions block
-    call this%parser%GetBlock('DIMENSIONS', isFound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse dimensions block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') &
-        'PROCESSING '//trim(adjustl(this%text))//' DIMENSIONS'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('NREACHES')
-          this%maxbound = this%parser%GetInteger()
-          write (this%iout, '(4x,a,i0)') 'NREACHES = ', this%maxbound
-        case default
-          write (errmsg, '(2a)') &
-            'Unknown '//trim(this%text)//' dimension: ', trim(keyword)
-          call store_error(errmsg)
-        end select
-      end do
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%text))//' DIMENSIONS'
-    else
-      call store_error('Required dimensions block not found.')
-    end if
-    !
-    ! -- verify dimensions were set
-    if (this%maxbound < 1) then
-      write (errmsg, '(a)') &
-        'NREACHES was not specified or was specified incorrectly.'
-      call store_error(errmsg)
-    end if
-    !
-    ! -- write summary of error messages for block
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-    !
-    ! -- Call define_listlabel to construct the list label that is written
-    !    when PRINT_INPUT option is used.
-    call this%define_listlabel()
-    !
-    ! -- Define default cross-section data size
-    this%ncrossptstot = this%maxbound
-    !
-    ! -- Allocate arrays in package superclass
-    call this%sfr_allocate_arrays()
-    !
-    ! -- read package data
-    call this%sfr_read_packagedata()
-    !
-    ! -- read cross-section data
-    call this%sfr_read_crossection()
-    !
-    ! -- read connection data
-    call this%sfr_read_connectiondata()
-    !
-    ! -- read diversion data
-    call this%sfr_read_diversions()
-    !
-    ! -- read initial stage data
-    call this%sfr_read_initial_stages()
-    !
-    ! -- setup the budget object
-    call this%sfr_setup_budobj()
-    !
-    ! -- setup the stage table object
-    call this%sfr_setup_tableobj()
-  end subroutine sfr_read_dimensions
-
-  !> @ brief Read additional options for package
-  !!
-  !!  Read additional options for SFR package.
-  !<
-  subroutine sfr_options(this, option, found)
+  subroutine sfr_source_options(this)
     ! -- modules
+    use MemoryManagerModule, only: get_isize
+    use MemoryManagerExtModule, only: mem_set_value
+    use InputOutputModule, only: GetUnit, assign_iounit, openfile
     use OpenSpecModule, only: access, form
-    use InputOutputModule, only: getunit, assign_iounit, openfile
     ! -- dummy
     class(SfrType), intent(inout) :: this !< SfrType object
-    character(len=*), intent(inout) :: option !< option keyword string
-    logical(LGP), intent(inout) :: found !< boolean indicating if option found
     ! -- local
-    real(DP) :: r
-    character(len=MAXCHARLEN) :: fname
-    character(len=MAXCHARLEN) :: keyword
+    character(len=LINELENGTH) :: fname
+    logical(LGP) :: found
     ! -- formats
-    character(len=*), parameter :: fmttimeconv = &
-      &"(4x, 'TIME CONVERSION VALUE (',g0,') SPECIFIED.')"
-    character(len=*), parameter :: fmtlengthconv = &
-      &"(4x, 'LENGTH CONVERSION VALUE (',g0,') SPECIFIED.')"
     character(len=*), parameter :: fmtpicard = &
       &"(4x, 'MAXIMUM SFR PICARD ITERATION VALUE (',i0,') SPECIFIED.')"
     character(len=*), parameter :: fmtiter = &
       &"(4x, 'MAXIMUM SFR ITERATION VALUE (',i0,') SPECIFIED.')"
     character(len=*), parameter :: fmtdmaxchg = &
       &"(4x, 'MAXIMUM DEPTH CHANGE VALUE (',g0,') SPECIFIED.')"
-    character(len=*), parameter :: fmtsfrbin = &
-      "(4x, 'SFR ', 1x, a, 1x, ' WILL BE SAVED TO FILE: ', a, /4x, &
-    &'OPENED ON UNIT: ', I0)"
+    character(len=*), parameter :: fmtlengthconv = &
+      &"(4x, 'LENGTH CONVERSION VALUE (',g0,') SPECIFIED.')"
+    character(len=*), parameter :: fmttimeconv = &
+      &"(4x, 'TIME CONVERSION VALUE (',g0,') SPECIFIED.')"
     character(len=*), parameter :: fmtstoweight = &
       &"(4x, 'KINEMATIC STORAGE WEIGHT (',g0,') SPECIFIED.')"
+    character(len=*), parameter :: fmtsfrbin = &
+      "(4x, 'SFR ', 1x, a, 1x, ' WILL BE SAVED TO FILE: ', a, /4x, &
+      &'OPENED ON UNIT: ', I0)"
+    integer(I4B) :: isize
     !
-    ! -- Check for SFR options
-    found = .true.
-    select case (option)
-    case ('STORAGE')
+    ! -- source base BndExtType options (NAUX, BOUNDNAMES, PRINT_INPUT, etc.)
+    call this%BndExtType%source_options()
+    !
+    write (this%iout, '(/1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' OPTIONS'
+    !
+    ! -- STORAGE
+    call get_isize('STORAGE', this%input_mempath, isize)
+    if (isize > 0) then
       this%istorage = 1
       write (this%iout, '(4x,a)') trim(adjustl(this%text))// &
         ' REACH STORAGE IS ACTIVE.'
-    case ('PRINT_STAGE')
-      this%iprhed = 1
-      write (this%iout, '(4x,a)') trim(adjustl(this%text))// &
-        ' STAGES WILL BE PRINTED TO LISTING FILE.'
-    case ('STAGE')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        this%istageout = getunit()
-        call openfile(this%istageout, this%iout, fname, 'DATA(BINARY)', &
-                      form, access, 'REPLACE', MNORMAL)
-        write (this%iout, fmtsfrbin) &
-          'STAGE', trim(adjustl(fname)), this%istageout
-      else
-        call store_error('Optional stage keyword must &
-                         &be followed by fileout.')
-      end if
-    case ('BUDGET')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        call assign_iounit(this%ibudgetout, this%inunit, "BUDGET fileout")
-        call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
-                      form, access, 'REPLACE', MNORMAL)
-        write (this%iout, fmtsfrbin) &
-          'BUDGET', trim(adjustl(fname)), this%ibudgetout
-      else
-        call store_error('Optional budget keyword must be '// &
-                         'followed by fileout.')
-      end if
-    case ('BUDGETCSV')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        call assign_iounit(this%ibudcsv, this%inunit, "BUDGETCSV fileout")
-        call openfile(this%ibudcsv, this%iout, fname, 'CSV', &
-                      filstat_opt='REPLACE')
-        write (this%iout, fmtsfrbin) &
-          'BUDGET CSV', trim(adjustl(fname)), this%ibudcsv
-      else
-        call store_error('OPTIONAL BUDGETCSV KEYWORD MUST BE FOLLOWED BY &
-          &FILEOUT')
-      end if
-    case ('PACKAGE_CONVERGENCE')
-      call this%parser%GetStringCaps(keyword)
-      if (keyword == 'FILEOUT') then
-        call this%parser%GetString(fname)
-        this%ipakcsv = getunit()
-        call openfile(this%ipakcsv, this%iout, fname, 'CSV', &
-                      filstat_opt='REPLACE', mode_opt=MNORMAL)
-        write (this%iout, fmtsfrbin) &
-          'PACKAGE_CONVERGENCE', trim(adjustl(fname)), this%ipakcsv
-      else
-        call store_error('Optional package_convergence keyword must be '// &
-                         'followed by fileout.')
-      end if
-    case ('UNIT_CONVERSION')
-      this%unitconv = this%parser%GetDouble()
-      !
-      ! -- create warning message
-      write (warnmsg, '(a)') &
-        'SETTING UNIT_CONVERSION DIRECTLY'
-      !
-      ! -- create deprecation warning
-      call deprecation_warning('OPTIONS', 'UNIT_CONVERSION', '6.4.2', &
-                               warnmsg, this%parser%GetUnit())
-    case ('LENGTH_CONVERSION')
-      this%lengthconv = this%parser%GetDouble()
-      write (this%iout, fmtlengthconv) this%lengthconv
-    case ('TIME_CONVERSION')
-      this%timeconv = this%parser%GetDouble()
-      write (this%iout, fmttimeconv) this%timeconv
-    case ('MAXIMUM_PICARD_ITERATIONS')
-      this%maxsfrpicard = this%parser%GetInteger()
-      write (this%iout, fmtpicard) this%maxsfrpicard
-    case ('MAXIMUM_ITERATIONS')
-      this%maxsfrit = this%parser%GetInteger()
-      write (this%iout, fmtiter) this%maxsfrit
-    case ('MAXIMUM_DEPTH_CHANGE')
-      r = this%parser%GetDouble()
-      this%dmaxchg = r
-      this%deps = DP999 * r
-      write (this%iout, fmtdmaxchg) this%dmaxchg
-    case ('MOVER')
-      this%imover = 1
-      write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
-      !
-      ! -- right now these are options that are only available in the
-      !    development version and are not included in the documentation.
-      !    These options are only available when IDEVELOPMODE in
-      !    constants module is set to 1
-    case ('ATS_COURANT')
-      this%ats_courant = this%parser%GetDouble()
+    end if
+    !
+    ! -- ATS_COURANT
+    call mem_set_value(this%ats_courant, 'ATS_COURANT', &
+                       this%input_mempath, found)
+    if (found) then
       if (this%ats_courant <= DZERO) then
         write (errmsg, '(a,g0,a)') &
           "ATS_COURANT SPECIFIED TO BE '", this%ats_courant, &
           "' BUT MUST BE GREATER THAN ZERO"
         call store_error(errmsg)
+        call store_error_filename(this%input_fname)
       else
         write (this%iout, '(4x,a,1pg15.6)') &
           'TARGET COURANT NUMBER FOR ADAPTIVE TIME STEPS: ', &
           this%ats_courant
       end if
-    case ('DEV_NO_CHECK')
-      call this%parser%DevOpt()
-      this%icheck = 0
-      write (this%iout, '(4x,A)') 'SFR CHECKS OF REACH GEOMETRY '// &
-        'RELATIVE TO MODEL GRID AND '// &
-        'REASONABLE PARAMETERS WILL NOT '// &
-        'BE PERFORMED.'
-    case ('DEV_NO_FINAL_CHECK')
-      call this%parser%DevOpt()
-      this%iconvchk = 0
-      write (this%iout, '(4x,a)') &
-        'A FINAL CONVERGENCE CHECK OF THE CHANGE IN STREAM FLOW ROUTING &
-        &STAGES AND FLOWS WILL NOT BE MADE'
-    case ('DEV_STORAGE_WEIGHT')
-      call this%parser%DevOpt()
-      r = this%parser%GetDouble()
-      if (r < DHALF .or. r > DONE) then
+    end if
+    !
+    ! -- PRINT_STAGE
+    call get_isize('PRINT_STAGE', this%input_mempath, isize)
+    if (isize > 0) then
+      this%iprhed = 1
+      write (this%iout, '(4x,a)') trim(adjustl(this%text))// &
+        ' STAGES WILL BE PRINTED TO LISTING FILE.'
+    end if
+    !
+    ! -- STAGEFILE
+    call mem_set_value(fname, 'STAGEFILE', this%input_mempath, found)
+    if (found) then
+      this%istageout = GetUnit()
+      call openfile(this%istageout, this%iout, fname, 'DATA(BINARY)', &
+                    form, access, 'REPLACE', MNORMAL)
+      write (this%iout, fmtsfrbin) 'STAGE', trim(fname), this%istageout
+    end if
+    !
+    ! -- BUDGETFILE
+    call mem_set_value(fname, 'BUDGETFILE', this%input_mempath, found)
+    if (found) then
+      call assign_iounit(this%ibudgetout, this%inunit, 'BUDGET fileout')
+      call openfile(this%ibudgetout, this%iout, fname, 'DATA(BINARY)', &
+                    form, access, 'REPLACE', MNORMAL)
+      write (this%iout, fmtsfrbin) 'BUDGET', trim(fname), this%ibudgetout
+    end if
+    !
+    ! -- BUDGETCSVFILE
+    call mem_set_value(fname, 'BUDGETCSVFILE', this%input_mempath, found)
+    if (found) then
+      call assign_iounit(this%ibudcsv, this%inunit, 'BUDGETCSV fileout')
+      call openfile(this%ibudcsv, this%iout, fname, 'CSV', &
+                    filstat_opt='REPLACE')
+      write (this%iout, fmtsfrbin) 'BUDGET CSV', trim(fname), this%ibudcsv
+    end if
+    !
+    ! -- PACKAGE_CONVERGENCE_FILENAME (mf6internal: pkgconvfname)
+    call mem_set_value(fname, 'PKGCONVFNAME', this%input_mempath, found)
+    if (found) then
+      this%ipakcsv = GetUnit()
+      call openfile(this%ipakcsv, this%iout, fname, 'CSV', &
+                    filstat_opt='REPLACE', mode_opt=MNORMAL)
+      write (this%iout, fmtsfrbin) 'PACKAGE_CONVERGENCE', trim(fname), &
+        this%ipakcsv
+    end if
+    !
+    ! -- MOVER
+    call get_isize('MOVER', this%input_mempath, isize)
+    if (isize > 0) then
+      this%imover = 1
+      write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
+    end if
+    !
+    ! -- MAXIMUM_PICARD_ITERATIONS (mf6internal: maxsfrpicard)
+    call mem_set_value(this%maxsfrpicard, 'MAXSFRPICARD', &
+                       this%input_mempath, found)
+    if (found) write (this%iout, fmtpicard) this%maxsfrpicard
+    !
+    ! -- MAXIMUM_ITERATIONS (mf6internal: maxsfrit)
+    call mem_set_value(this%maxsfrit, 'MAXSFRIT', &
+                       this%input_mempath, found)
+    if (found) write (this%iout, fmtiter) this%maxsfrit
+    !
+    ! -- MAXIMUM_DEPTH_CHANGE (mf6internal: dmaxchg)
+    call mem_set_value(this%dmaxchg, 'DMAXCHG', &
+                       this%input_mempath, found)
+    if (found) then
+      this%deps = DP999 * this%dmaxchg
+      write (this%iout, fmtdmaxchg) this%dmaxchg
+    end if
+    !
+    ! -- LENGTH_CONVERSION (mf6internal: lengthconv)
+    call mem_set_value(this%lengthconv, 'LENGTHCONV', &
+                       this%input_mempath, found)
+    if (found) write (this%iout, fmtlengthconv) this%lengthconv
+    !
+    ! -- TIME_CONVERSION
+    call mem_set_value(this%timeconv, 'TIME_CONVERSION', &
+                       this%input_mempath, found)
+    if (found) write (this%iout, fmttimeconv) this%timeconv
+    !
+    ! -- UNIT_CONVERSION (deprecated)
+    call mem_set_value(this%unitconv, 'UNIT_CONVERSION', &
+                       this%input_mempath, found)
+    if (found) then
+      write (warnmsg, '(a)') 'SETTING UNIT_CONVERSION DIRECTLY'
+      call deprecation_warning('OPTIONS', 'UNIT_CONVERSION', '6.4.2', &
+                               warnmsg, this%inunit)
+    end if
+    !
+    ! -- DEV_STORAGE_WEIGHT (mf6internal: storage_weight)
+    call mem_set_value(this%storage_weight, 'STORAGE_WEIGHT', &
+                       this%input_mempath, found)
+    if (found) then
+      if (this%storage_weight < DHALF .or. this%storage_weight > DONE) then
         write (errmsg, '(a,g0,a)') &
-          "STORAGE_WEIGHT SPECIFIED TO BE '", r, &
+          "STORAGE_WEIGHT SPECIFIED TO BE '", this%storage_weight, &
           "' BUT CANNOT BE LESS THAN 0.5 OR GREATER THAN 1.0"
         call store_error(errmsg)
+        call store_error_filename(this%input_fname)
       else
-        this%storage_weight = r
         write (this%iout, fmtstoweight) this%storage_weight
       end if
+    end if
+    !
+    ! -- DEV_NO_CHECK (mf6internal: icheck)
+    call get_isize('ICHECK', this%input_mempath, isize)
+    if (isize > 0) then
+      this%icheck = 0
+      write (this%iout, '(4x,a)') &
+        'REACH GEOMETRY AND PARAMETER CHECKS WILL NOT BE MADE'
+    end if
+    !
+    ! -- DEV_NO_FINAL_CHECK (mf6internal: iconvchk)
+    call get_isize('ICONVCHK', this%input_mempath, isize)
+    if (isize > 0) then
+      this%iconvchk = 0
+      write (this%iout, '(4x,a)') &
+        'A FINAL CONVERGENCE CHECK OF THE CHANGE IN STREAM FLOW ROUTING '// &
+        'STAGES AND FLOWS WILL NOT BE MADE'
+    end if
+    !
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' OPTIONS'
+  end subroutine sfr_source_options
+
+  !> @brief Source DIMENSIONS block from input context and load static data
+  !<
+  subroutine sfr_source_dimensions(this)
+    ! -- modules
+    use MemoryManagerExtModule, only: mem_set_value
+    ! -- dummy
+    class(SfrType), intent(inout) :: this !< SfrType object
+    ! -- local
+    logical(LGP) :: found
+    !
+    ! -- initialize dimensions to 0
+    this%maxbound = 0
+    !
+    write (this%iout, '(/1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' DIMENSIONS'
+    !
+    ! -- source NREACHES; kept in the input context (not released) since
+    !    PERIOD settings resolve it by name via SHAPE
+    call mem_set_value(this%maxbound, 'NREACHES', this%input_mempath, found, &
+                       release=.false.)
+    if (found) then
+      write (this%iout, '(4x,a,i0)') 'NREACHES = ', this%maxbound
+    end if
+    !
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' DIMENSIONS'
+    !
+    if (this%maxbound < 1) then
+      write (errmsg, '(a)') &
+        'NREACHES was not specified or was specified incorrectly.'
+      call store_error(errmsg)
+      call store_error_filename(this%input_fname)
+    end if
+    !
+    ! -- set npakeq (SFR adds no extra equations)
+    this%npakeq = 0
+    !
+    ! -- define the default label
+    call this%define_listlabel()
+    !
+    ! -- define default cross-section data size
+    this%ncrossptstot = this%maxbound
+    !
+    ! -- allocate arrays
+    call this%sfr_allocate_arrays()
+    !
+    ! -- source packagedata
+    call this%sfr_source_packagedata()
+    !
+    ! -- source crosssections
+    call this%sfr_source_crosssections()
+    !
+    ! -- source connectiondata
+    call this%sfr_source_connectiondata()
+    !
+    ! -- source diversions
+    call this%sfr_source_diversions()
+    !
+    ! -- source initialstages
+    call this%sfr_source_initialstages()
+    !
+    ! -- setup the budget object
+    call this%sfr_setup_budobj()
+    !
+    ! -- setup the stage table object
+    call this%sfr_setup_tableobj()
+  end subroutine sfr_source_dimensions
+
+  !> @brief Source PACKAGEDATA block from input context
+  !<
+  subroutine sfr_source_packagedata(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr
+    use CharacterStringModule, only: CharacterStringType
+    ! -- dummy
+    class(SfrType), intent(inout) :: this !< SfrType object
+    ! -- local
+    integer(I4B) :: i, n, nconzero
+    integer(I4B) :: ipos
+    character(len=10) :: cnum
+    character(len=LENBOUNDNAME) :: bndName
+    character(len=LINELENGTH) :: cellid_str
+    integer(I4B), allocatable :: nboundchk(:)
+    integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
+    integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null()
+    real(DP), dimension(:), pointer, contiguous :: rlen => null()
+    real(DP), dimension(:), pointer, contiguous :: rwid => null()
+    real(DP), dimension(:), pointer, contiguous :: rgrd => null()
+    real(DP), dimension(:), pointer, contiguous :: rtp => null()
+    real(DP), dimension(:), pointer, contiguous :: rbth => null()
+    integer(I4B), dimension(:), pointer, contiguous :: ncon => null()
+    integer(I4B), dimension(:), pointer, contiguous :: ndv => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      boundname => null()
+    !
+    write (this%iout, '(/1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' PACKAGEDATA'
+    !
+    ! -- get input context PACKAGEDATA column arrays
+    call mem_setptr(ifno, 'PACKAGEDATA_IFNO', this%input_mempath)
+    call mem_setptr(cellid, 'CELLID', this%input_mempath)
+    call mem_setptr(rlen, 'RLEN', this%input_mempath)
+    call mem_setptr(rwid, 'RWID', this%input_mempath)
+    call mem_setptr(rgrd, 'RGRD', this%input_mempath)
+    call mem_setptr(rtp, 'RTP', this%input_mempath)
+    call mem_setptr(rbth, 'RBTH', this%input_mempath)
+    call mem_setptr(this%input%rhk, 'RHK', this%input_mempath)
+    call mem_setptr(this%input%man, 'MAN', this%input_mempath)
+    call mem_setptr(ncon, 'NCON', this%input_mempath)
+    call mem_setptr(this%input%ustrf, 'USTRF', this%input_mempath)
+    call mem_setptr(ndv, 'NDV', this%input_mempath)
+    if (this%inamedbound /= 0) then
+      call mem_setptr(boundname, 'BOUNDNAME', this%input_mempath)
+    end if
+    !
+    ! -- allocate check array
+    allocate (nboundchk(this%maxbound))
+    nboundchk = 0
+    nconzero = 0
+    !
+    ! -- populate reach data from input context arrays
+    do i = 1, this%maxbound
+      n = ifno(i)
       !
-      ! -- no valid options found
-    case default
+      n = this%validate_ifno(n, this%maxbound, nboundchk, &
+                             'rno', 'PACKAGEDATA')
+      if (n == 0) cycle
       !
-      ! -- No options found
-      found = .false.
-    end select
-  end subroutine sfr_options
+      ! -- cellid → igwfnode: convert integer cellid array to string
+      ! -- all-zero or negative cellid means unconnected reach (NONE keyword or 0 0 0)
+      if (all(cellid(1:this%dis%ndim, i) <= 0)) then
+        this%igwfnode(n) = 0
+      else
+        write (cellid_str, '(10(i0,1x))') cellid(1:this%dis%ndim, i)
+        this%igwfnode(n) = this%dis%noder_from_cellid(cellid_str, &
+                                                      this%inunit, this%iout, &
+                                                      flag_string=.false., &
+                                                      allow_zero=.true.)
+      end if
+      this%igwftopnode(n) = this%igwfnode(n)
+      if (this%igwfnode(n) < 1) this%ianynone = this%ianynone + 1
+      !
+      ! -- scalar reach properties
+      this%length(n) = rlen(i)
+      this%width(n) = rwid(i)
+      this%slope(n) = rgrd(i)
+      this%strtop(n) = rtp(i)
+      this%bthick(n) = rbth(i)
+      !
+      ! -- ncon and nconn
+      this%nconnreach(n) = ncon(i)
+      this%nconn = this%nconn + ncon(i)
+      if (ncon(i) < 0) then
+        write (errmsg, '(a,1x,i0,1x,a,i0,a)') &
+          'NCON for reach', n, &
+          'must be greater than or equal to 0 (', ncon(i), ').'
+        call store_error(errmsg)
+      else if (ncon(i) == 0) then
+        nconzero = nconzero + 1
+      end if
+      !
+      ! -- ndv (diversions)
+      this%ndiv(n) = ndv(i)
+      if (ndv(i) > 0) this%idiversions = 1
+      !
+      ! -- bound name
+      write (cnum, '(i10.10)') n
+      bndName = 'Reach'//cnum
+      if (this%inamedbound /= 0) then
+        bndName = boundname(i)
+      end if
+      this%sfrname(n) = bndName
+      !
+      ! -- hk, roughness (Manning), upstream fraction: copy from input context
+      !    (the time series manager advances these each timestep if
+      !     TS-linked; sfr_ad re-syncs from input context to keep them
+      !     current)
+      this%hk(n) = this%input%rhk(i)
+      this%rough(n) = this%input%man(i)
+      this%ustrf(n) = this%input%ustrf(i)
+      !
+      ! -- initialize sstage to reach top
+      this%sstage(n) = this%strtop(n)
+    end do
+    !
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' PACKAGEDATA'
+    !
+    ! -- check every reach is specified exactly once
+    call this%report_ifno_coverage(nboundchk, this%maxbound, 'reach', &
+                                   'PACKAGEDATA')
+    deallocate (nboundchk)
+    !
+    if (nconzero > 0) then
+      write (warnmsg, '(a,1x,a,1x,a,1x,i0,1x,a)') &
+        'SFR Package', trim(this%packName), &
+        'has', nconzero, 'reach(es) with zero connections.'
+      call store_warning(warnmsg)
+    end if
+    !
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+    !
+    ! -- initialize default cross-section data
+    ipos = 1
+    this%iacross(1) = ipos
+    do i = 1, this%maxbound
+      this%ncrosspts(i) = 1
+      this%station(ipos) = this%width(i)
+      this%xsheight(ipos) = DZERO
+      this%xsrough(ipos) = DONE
+      ipos = ipos + 1
+      this%iacross(i + 1) = ipos
+    end do
+    !
+    ! -- release input context packagedata memory; PACKAGEDATA_IFNO excluded
+    !    (allocate_featureauxvar); RHK/MAN/USTRF excluded (persistent context)
+    call memorystore_release('CELLID', this%input_mempath)
+    call memorystore_release('RLEN', this%input_mempath)
+    call memorystore_release('RWID', this%input_mempath)
+    call memorystore_release('RGRD', this%input_mempath)
+    call memorystore_release('RTP', this%input_mempath)
+    call memorystore_release('RBTH', this%input_mempath)
+    call memorystore_release('NCON', this%input_mempath)
+    call memorystore_release('NDV', this%input_mempath)
+    call memorystore_release('BOUNDNAME', this%input_mempath)
+  end subroutine sfr_source_packagedata
+
+  !> @brief Source CROSSSECTIONS block from input context
+  !<
+  subroutine sfr_source_crosssections(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr, mem_reallocate, get_isize
+    use CharacterStringModule, only: CharacterStringType
+    use sfrCrossSectionManager, only: cross_section_cr, SfrCrossSection
+    ! -- dummy
+    class(SfrType), intent(inout) :: this !< SfrType object
+    ! -- local
+    integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      tab6_filename => null()
+    type(SfrCrossSection), pointer :: cross_data => null()
+    integer(I4B) :: i, n, ncrossptstot
+    integer(I4B), allocatable :: nboundchk(:)
+    integer(I4B) :: isize
+    character(len=LINELENGTH) :: tabfname
+    !
+    ! -- check if CROSSSECTIONS block was loaded (optional block)
+    call get_isize('CROSSSECT_IFNO', this%input_mempath, isize)
+    if (isize < 1) return
+    !
+    write (this%iout, '(/1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' CROSSSECTIONS'
+    !
+    ! -- get input context arrays
+    call mem_setptr(ifno, 'CROSSSECT_IFNO', this%input_mempath)
+    call mem_setptr(tab6_filename, 'XS_TAB6_FILENAME', this%input_mempath)
+    !
+    ! -- create cross-section object
+    call cross_section_cr(cross_data, this%iout, this%iprpak, this%maxbound)
+    call cross_data%initialize(this%ncrossptstot, this%ncrosspts, &
+                               this%iacross, this%station, this%xsheight, &
+                               this%xsrough)
+    !
+    allocate (nboundchk(this%maxbound))
+    nboundchk = 0
+    !
+    do i = 1, isize
+      n = this%validate_ifno(ifno(i), this%maxbound, nboundchk, &
+                             'reach', 'CROSSSECTIONS')
+      if (n == 0) cycle
+      tabfname = tab6_filename(i)
+      call cross_data%read_table(n, this%width(n), trim(adjustl(tabfname)))
+    end do
+    !
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' CROSSSECTIONS'
+    !
+    ! -- CROSSSECTIONS is optional; only duplicates are reported
+    call this%report_ifno_coverage(nboundchk, this%maxbound, 'reach', &
+                                   'CROSSSECTIONS', check_missing=.false.)
+    deallocate (nboundchk)
+    !
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+    !
+    ! -- reallocate cross-section arrays if needed
+    ncrossptstot = cross_data%get_ncrossptstot()
+    if (ncrossptstot /= this%ncrossptstot) then
+      this%ncrossptstot = ncrossptstot
+      call mem_reallocate(this%station, this%ncrossptstot, 'STATION', &
+                          this%memoryPath)
+      call mem_reallocate(this%xsheight, this%ncrossptstot, 'XSHEIGHT', &
+                          this%memoryPath)
+      call mem_reallocate(this%xsrough, this%ncrossptstot, 'XSROUGH', &
+                          this%memoryPath)
+    end if
+    !
+    call cross_data%output(this%width, this%rough)
+    call cross_data%pack(this%ncrossptstot, this%ncrosspts, this%iacross, &
+                         this%station, this%xsheight, this%xsrough)
+    call cross_data%destroy()
+    deallocate (cross_data)
+    nullify (cross_data)
+    !
+    ! -- release input context crosssections memory
+    call memorystore_release('CROSSSECT_IFNO', this%input_mempath)
+    call memorystore_release('XS_TAB6_FILENAME', this%input_mempath)
+  end subroutine sfr_source_crosssections
+
+  !> @brief Source CONNECTIONDATA block from input context
+  !<
+  subroutine sfr_source_connectiondata(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr, mem_reallocate, get_isize
+    use SparseModule, only: sparsematrix
+    ! -- dummy
+    class(SfrType), intent(inout) :: this !< SfrType object
+    ! -- local
+    integer(I4B), dimension(:), pointer, contiguous :: cd_ifno => null()
+    integer(I4B), dimension(:), pointer, contiguous :: ic_flat => null()
+    integer(I4B), dimension(:), pointer, contiguous :: cd_ia => null()
+    type(sparsematrix), pointer :: sparse => null()
+    integer(I4B), dimension(:), pointer, contiguous :: rowmaxnnz => null()
+    integer(I4B), allocatable :: nboundchk(:)
+    integer(I4B), allocatable :: iconndata(:, :)
+    integer(I4B), allocatable :: iup(:)
+    integer(I4B), allocatable :: order(:)
+    type(dag) :: sfr_dag
+    integer(I4B) :: i, n, j, jj, jcol, jcol2, nja, nconnmax
+    integer(I4B) :: ival, idir, nup, ipos, istat, ierr, jlocal, nread
+    !
+    write (this%iout, '(/1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' CONNECTIONDATA'
+    !
+    ! -- get input context CONNECTIONDATA arrays
+    call mem_setptr(cd_ifno, 'CONNDATA_IFNO', this%input_mempath)
+    call mem_setptr(ic_flat, 'IC', this%input_mempath)
+    call mem_setptr(cd_ia, 'IC_IA', this%input_mempath)
+    !
+    ! -- allocate and initialize check array
+    allocate (nboundchk(this%maxbound))
+    nboundchk = 0
+    !
+    ! -- build rowmaxnnz from nconnreach
+    nja = 0
+    nconnmax = 0
+    allocate (rowmaxnnz(this%maxbound))
+    do n = 1, this%maxbound
+      ival = this%nconnreach(n)
+      if (ival < 0) ival = 0
+      rowmaxnnz(n) = ival + 1
+      nja = nja + ival + 1
+      if (ival > nconnmax) nconnmax = ival
+    end do
+    !
+    ! -- reallocate connection arrays
+    call mem_reallocate(this%ja, nja, 'JA', this%memoryPath)
+    call mem_reallocate(this%idir, nja, 'IDIR', this%memoryPath)
+    call mem_reallocate(this%idiv, nja, 'IDIV', this%memoryPath)
+    call mem_reallocate(this%qconn, nja, 'QCONN', this%memoryPath)
+    this%idir = 0
+    this%idiv = 0
+    this%qconn = DZERO
+    !
+    ! -- allocate iconndata
+    allocate (iconndata(nconnmax, this%maxbound))
+    iconndata = 0
+    !
+    allocate (sparse)
+    call sparse%init(this%maxbound, this%maxbound, rowmaxnnz)
+    !
+    ! -- process connection data rows
+    do i = 1, this%maxbound
+      n = this%validate_ifno(cd_ifno(i), this%maxbound, nboundchk, &
+                             'reach', 'CONNECTIONDATA')
+      if (n == 0) cycle
+      nread = cd_ia(i + 1) - cd_ia(i)
+      if (nread /= this%nconnreach(n)) then
+        write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,1x,i0,a)') &
+          'Reach', n, 'connectiondata specifies', nread, &
+          'connections but NCON for this reach in packagedata is', &
+          this%nconnreach(n), '.'
+        call store_error(errmsg)
+        cycle
+      end if
+      call sparse%addconnection(n, n, 1)
+      jlocal = 0
+      do j = cd_ia(i), cd_ia(i + 1) - 1
+        jlocal = jlocal + 1
+        ival = ic_flat(j)
+        iconndata(jlocal, n) = ival
+        if (ival < 0) then
+          idir = -1
+          ival = abs(ival)
+        else if (ival == 0) then
+          call store_error('Missing or zero connection reach in connectiondata.')
+          cycle
+        else
+          idir = 1
+        end if
+        if (ival > this%maxbound) then
+          call store_error('Reach number exceeds NREACHES in connectiondata.')
+          cycle
+        end if
+        call sparse%addconnection(n, ival, 1)
+      end do
+    end do
+    !
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' CONNECTIONDATA'
+    !
+    call this%report_ifno_coverage(nboundchk, this%maxbound, 'reach', &
+                                   'CONNECTIONDATA')
+    !
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+    !
+    ! -- fill ia and ja from sparse
+    call sparse%filliaja(this%ia, this%ja, ierr, sort=.TRUE.)
+    if (ierr /= 0) then
+      write (errmsg, '(a,3(1x,a))') &
+        'Could not fill', trim(this%packName), &
+        'package IA and JA connection data.', &
+        'Check connectivity data in connectiondata block.'
+      call store_error(errmsg)
+    end if
+    !
+    ! -- fill flat connection storage with direction
+    do n = 1, this%maxbound
+      do j = this%ia(n) + 1, this%ia(n + 1) - 1
+        jcol = this%ja(j)
+        do jj = 1, this%nconnreach(n)
+          jcol2 = iconndata(jj, n)
+          if (abs(jcol2) == jcol) then
+            idir = 1
+            if (jcol2 < 0) idir = -1
+            this%idir(j) = idir
+            exit
+          end if
+        end do
+      end do
+    end do
+    !
+    ! -- deallocate temporaries
+    deallocate (rowmaxnnz)
+    deallocate (nboundchk)
+    deallocate (iconndata)
+    call sparse%destroy()
+    deallocate (sparse)
+    !
+    ! -- compute reach order using DAG
+    call sfr_dag%set_vertices(this%maxbound)
+    fill_dag: do n = 1, this%maxbound
+      nup = 0
+      do j = this%ia(n) + 1, this%ia(n + 1) - 1
+        if (this%idir(j) > 0) nup = nup + 1
+      end do
+      if (nup == 0) cycle fill_dag
+      allocate (iup(nup))
+      ipos = 1
+      do j = this%ia(n) + 1, this%ia(n + 1) - 1
+        if (this%idir(j) > 0) then
+          iup(ipos) = this%ja(j)
+          ipos = ipos + 1
+        end if
+      end do
+      call sfr_dag%set_edges(n, iup)
+      deallocate (iup)
+    end do fill_dag
+    call sfr_dag%toposort(order, istat)
+    if (istat == -1) then
+      write (warnmsg, '(a)') &
+        trim(adjustl(this%text))//' PACKAGE ('// &
+        trim(adjustl(this%packName))//') cannot calculate a '// &
+        'Directed Asyclic Graph for reach connectivity because '// &
+        'of circular dependency. Using the reach number for '// &
+        'solution ordering.'
+      call store_warning(warnmsg)
+    end if
+    do n = 1, this%maxbound
+      if (istat == 0) then
+        this%isfrorder(n) = order(n)
+      else
+        this%isfrorder(n) = n
+      end if
+    end do
+    call sfr_dag%destroy()
+    if (istat == 0) deallocate (order)
+    !
+    ! -- release input context connectiondata memory
+    call memorystore_release('CONNDATA_IFNO', this%input_mempath)
+    call memorystore_release('IC', this%input_mempath)
+    call memorystore_release('IC_IA', this%input_mempath)
+  end subroutine sfr_source_connectiondata
+
+  !> @brief Source DIVERSIONS block from input context
+  !<
+  subroutine sfr_source_diversions(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr, mem_reallocate, get_isize
+    use CharacterStringModule, only: CharacterStringType
+    ! -- dummy
+    class(SfrType), intent(inout) :: this !< SfrType object
+    ! -- local
+    integer(I4B), dimension(:), pointer, contiguous :: d_ifno => null()
+    integer(I4B), dimension(:), pointer, contiguous :: d_idv => null()
+    integer(I4B), dimension(:), pointer, contiguous :: d_iconr => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      d_cprior => null()
+    integer(I4B) :: i, n, idiv, ndiversions, i0, ipos, jpos
+    integer(I4B) :: isize
+    integer(I4B), allocatable :: iachk(:), nboundchk(:)
+    character(len=16) :: cval
+    !
+    ! -- build iadiv and count total diversions
+    ndiversions = 0
+    i0 = 1
+    this%iadiv(1) = i0
+    do n = 1, this%maxbound
+      ndiversions = ndiversions + this%ndiv(n)
+      i0 = i0 + this%ndiv(n)
+      this%iadiv(n + 1) = i0
+    end do
+    !
+    ! -- reallocate diversion arrays
+    if (ndiversions > 0) then
+      call mem_reallocate(this%divreach, ndiversions, 'DIVREACH', &
+                          this%memoryPath)
+      allocate (this%divcprior(ndiversions))
+      call mem_reallocate(this%divflow, ndiversions, 'DIVFLOW', this%memoryPath)
+      call mem_reallocate(this%divq, ndiversions, 'DIVQ', this%memoryPath)
+      this%divflow = DZERO
+      this%divq = DZERO
+    end if
+    !
+    ! -- check if DIVERSIONS block was loaded (optional block)
+    call get_isize('DIVERSIONS_IFNO', this%input_mempath, isize)
+    if (isize < 1) then
+      if (this%idiversions /= 0) then
+        call store_error('REQUIRED DIVERSIONS BLOCK NOT FOUND.')
+        call store_error_filename(this%input_fname)
+      end if
+      return
+    end if
+    !
+    if (this%idiversions == 0) then
+      write (errmsg, '(a,1x,a)') &
+        'A diversions block should not be', &
+        'specified if diversions are not specified.'
+      call store_error(errmsg)
+      call store_error_filename(this%input_fname)
+      return
+    end if
+    !
+    write (this%iout, '(/1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' DIVERSIONS'
+    !
+    ! -- get input context arrays
+    call mem_setptr(d_ifno, 'DIVERSIONS_IFNO', this%input_mempath)
+    call mem_setptr(d_idv, 'DIVERSIONS_IDV', this%input_mempath)
+    call mem_setptr(d_iconr, 'ICONR', this%input_mempath)
+    call mem_setptr(d_cprior, 'CPRIOR', this%input_mempath)
+    !
+    ! -- build check arrays
+    allocate (iachk(this%maxbound + 1))
+    allocate (nboundchk(ndiversions))
+    nboundchk = 0
+    iachk(1) = 1
+    do n = 1, this%maxbound
+      iachk(n + 1) = iachk(n) + this%ndiv(n)
+    end do
+    !
+    do i = 1, isize
+      n = d_ifno(i)
+      if (n < 1 .or. n > this%maxbound) then
+        write (errmsg, '(a,i0,a)') 'Reach number should be between 1 and ', &
+          this%maxbound, '.'
+        call store_error(errmsg)
+        cycle
+      end if
+      if (this%ndiv(n) < 1) then
+        write (errmsg, '(a,i0)') &
+          'Diversions cannot be specified for reach ', n
+        call store_error(errmsg)
+        cycle
+      end if
+      idiv = d_idv(i)
+      if (idiv < 1 .or. idiv > this%ndiv(n)) then
+        write (errmsg, '(a,i0,a,i0,a)') &
+          'Reach ', n, ' diversion number should be between 1 and ', &
+          this%ndiv(n), '.'
+        call store_error(errmsg)
+        cycle
+      end if
+      ipos = iachk(n) + idiv - 1
+      nboundchk(ipos) = nboundchk(ipos) + 1
+      jpos = this%iadiv(n) + idiv - 1
+      this%divreach(jpos) = d_iconr(i)
+      cval = d_cprior(i)
+      select case (trim(cval))
+      case ('UPTO', 'THRESHOLD', 'FRACTION', 'EXCESS')
+      case default
+        errmsg = 'Invalid cprior type '//trim(cval)//'.'
+        call store_error(errmsg)
+      end select
+      this%divcprior(jpos) = trim(cval)
+    end do
+    !
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' DIVERSIONS'
+    !
+    do n = 1, this%maxbound
+      do idiv = 1, this%ndiv(n)
+        ipos = iachk(n) + idiv - 1
+        if (nboundchk(ipos) == 0) then
+          write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
+            'No data specified for reach', n, 'diversion', idiv
+          call store_error(errmsg)
+        else if (nboundchk(ipos) > 1) then
+          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,1x,i0,1x,a)') &
+            'Data for reach', n, 'diversion', idiv, &
+            'specified', nboundchk(ipos), 'times'
+          call store_error(errmsg)
+        end if
+      end do
+    end do
+    deallocate (iachk)
+    deallocate (nboundchk)
+    !
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+    !
+    ! -- release input context diversions memory
+    call memorystore_release('DIVERSIONS_IFNO', this%input_mempath)
+    call memorystore_release('DIVERSIONS_IDV', this%input_mempath)
+    call memorystore_release('ICONR', this%input_mempath)
+    call memorystore_release('CPRIOR', this%input_mempath)
+  end subroutine sfr_source_diversions
+
+  !> @brief Source INITIALSTAGES block from input context
+  !<
+  subroutine sfr_source_initialstages(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr, get_isize
+    ! -- dummy
+    class(SfrType), intent(inout) :: this !< SfrType object
+    ! -- local
+    integer(I4B), dimension(:), pointer, contiguous :: is_ifno => null()
+    real(DP), dimension(:), pointer, contiguous :: is_stage => null()
+    integer(I4B) :: i, n
+    integer(I4B) :: isize
+    integer(I4B), allocatable :: nboundchk(:)
+    real(DP) :: rval
+    !
+    ! -- check if INITIALSTAGES block was loaded (optional block)
+    call get_isize('INITSTAGE_IFNO', this%input_mempath, isize)
+    if (isize < 1) then
+      ! -- set default initial stage to reach top if STORAGE active
+      if (this%istorage == 1) then
+        do n = 1, this%maxbound
+          this%stage(n) = this%strtop(n)
+        end do
+      end if
+      return
+    end if
+    !
+    write (this%iout, '(/1x,a)') &
+      'PROCESSING '//trim(adjustl(this%text))//' INITIALSTAGES'
+    !
+    call mem_setptr(is_ifno, 'INITSTAGE_IFNO', this%input_mempath)
+    call mem_setptr(is_stage, 'INITIALSTAGE', this%input_mempath)
+    !
+    allocate (nboundchk(this%maxbound))
+    nboundchk = 0
+    !
+    do i = 1, isize
+      n = this%validate_ifno(is_ifno(i), this%maxbound, nboundchk, &
+                             'reach', 'INITIALSTAGES')
+      if (n == 0) cycle
+      rval = is_stage(i)
+      this%stage(n) = rval
+      this%depth(n) = rval - this%strtop(n)
+      if (rval < this%strtop(n)) then
+        write (errmsg, '(a,g0,a,1x,i0,1x,a,g0,a)') &
+          'Initial stage (', rval, ') for reach', n, &
+          'is less than the reach top (', this%strtop(n), ').'
+        call store_error(errmsg)
+      end if
+    end do
+    !
+    write (this%iout, '(1x,a)') &
+      'END OF '//trim(adjustl(this%text))//' INITIALSTAGES'
+    !
+    call this%report_ifno_coverage(nboundchk, this%maxbound, 'reach', &
+                                   'INITIALSTAGES')
+    deallocate (nboundchk)
+    !
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+    !
+    ! -- release input context initialstages memory
+    call memorystore_release('INITSTAGE_IFNO', this%input_mempath)
+    call memorystore_release('INITIALSTAGE', this%input_mempath)
+  end subroutine sfr_source_initialstages
 
   !> @ brief Allocate and read method for package
   !!
@@ -938,8 +1616,16 @@ contains
     ! -- allocate and read observations
     call this%obs%obs_ar()
     !
-    ! -- call standard BndType allocate scalars
-    call this%BndType%allocate_arrays()
+    ! -- allocate BndType connection-level arrays (nodelist, bound, auxvar, etc.)
+    call this%BndExtType%allocate_arrays()
+    !
+    ! -- allocate featureauxvar and set pkg_ifno/pkg_auxvar input context
+    !    pointers
+    call this%BndExtType%allocate_featureauxvar()
+    !
+    ! -- set persistent PERIOD pointers into input context (valid for
+    !    simulation lifetime)
+    call this%input%init(this%input_mempath, this%naux)
     !
     ! -- set boundname for each connection
     if (this%inamedbound /= 0) then
@@ -1005,7 +1691,7 @@ contains
     ! -- terminate if errors were detected in any of the static sfr data
     ierr = count_errors()
     if (ierr > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- setup pakmvrobj
@@ -1015,1003 +1701,41 @@ contains
     end if
   end subroutine sfr_ar
 
-  !> @ brief Read packagedata for the package
-  !!
-  !!  Method to read packagedata for each reach for the SFR package.
-  !<
-  subroutine sfr_read_packagedata(this)
-    ! -- modules
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-    ! -- dummy
-    class(SfrType), intent(inout) :: this !< SfrType object
-    ! -- local
-    character(len=LINELENGTH) :: text
-    character(len=LINELENGTH) :: cellid
-    character(len=10) :: cnum
-    character(len=LENBOUNDNAME) :: bndName
-    character(len=LENBOUNDNAME) :: bndNameTemp
-    character(len=LENBOUNDNAME) :: hkname
-    character(len=LENBOUNDNAME) :: manningname
-    character(len=LENBOUNDNAME) :: ustrfname
-    character(len=50), dimension(:), allocatable :: caux
-    integer(I4B) :: n, ierr, ival
-    logical(LGP) :: isfound
-    logical(LGP) :: endOfBlock
-    integer(I4B) :: i
-    integer(I4B) :: ii
-    integer(I4B) :: jj
-    integer(I4B) :: iaux
-    integer(I4B) :: nconzero
-    integer(I4B) :: ipos
-    integer, allocatable, dimension(:) :: nboundchk
-    real(DP), pointer :: bndElem => null()
-    !
-    ! -- allocate space for checking sfr reach data
-    allocate (nboundchk(this%maxbound))
-    do i = 1, this%maxbound
-      nboundchk(i) = 0
-    end do
-    nconzero = 0
-    !
-    ! -- allocate local storage for aux variables
-    if (this%naux > 0) then
-      allocate (caux(this%naux))
-    end if
-    !
-    ! -- read reach data
-    call this%parser%GetBlock('PACKAGEDATA', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse reaches block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
-        ' PACKAGEDATA'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        ! -- read reach number
-        n = this%parser%GetInteger()
-
-        if (n < 1 .or. n > this%maxbound) then
-          write (errmsg, '(a,1x,a,1x,i0)') &
-            'Reach number (rno) must be greater than 0 and less', &
-            'than or equal to', this%maxbound
-          call store_error(errmsg)
-          cycle
-        end if
-
-        ! -- increment nboundchk
-        nboundchk(n) = nboundchk(n) + 1
-        !
-        ! -- get model node number
-        call this%parser%GetCellid(this%dis%ndim, cellid, flag_string=.true.)
-        this%igwfnode(n) = this%dis%noder_from_cellid(cellid, this%inunit, &
-                                                      this%iout, &
-                                                      flag_string=.true., &
-                                                      allow_zero=.true.)
-        this%igwftopnode(n) = this%igwfnode(n)
-        !
-        ! -- read the cellid string and determine if 'none' is specified
-        if (this%igwfnode(n) < 1) then
-          this%ianynone = this%ianynone + 1
-          call upcase(cellid)
-          if (cellid == 'NONE') then
-            call this%parser%GetStringCaps(cellid)
-            !
-            ! -- create warning message
-            write (cnum, '(i0)') n
-            warnmsg = 'CELLID for unconnected reach '//trim(cnum)// &
-                      ' specified to be NONE. Unconnected reaches '// &
-                      'should be specified with a zero for each grid '// &
-                      'dimension. For example, for a DIS grid a CELLID '// &
-                      'of 0 0 0 should be specified for unconnected reaches'
-            !
-            ! -- create deprecation warning
-            call deprecation_warning('PACKAGEDATA', 'CELLID=NONE', '6.4.3', &
-                                     warnmsg, this%parser%GetUnit())
-          else
-
-          end if
-        end if
-        ! -- get reach length
-        this%length(n) = this%parser%GetDouble()
-        ! -- get reach width
-        this%width(n) = this%parser%GetDouble()
-        ! -- get reach slope
-        this%slope(n) = this%parser%GetDouble()
-        ! -- get reach streambed top elevation
-        this%strtop(n) = this%parser%GetDouble()
-        ! -- get reach bed thickness
-        this%bthick(n) = this%parser%GetDouble()
-        ! -- get reach bed hk
-        call this%parser%GetStringCaps(hkname)
-        ! -- get reach roughness
-        call this%parser%GetStringCaps(manningname)
-        ! -- get number of connections for reach
-        ival = this%parser%GetInteger()
-        this%nconnreach(n) = ival
-        this%nconn = this%nconn + ival
-        if (ival < 0) then
-          write (errmsg, '(a,1x,i0,1x,a,i0,a)') &
-            'NCON for reach', n, &
-            'must be greater than or equal to 0 (', ival, ').'
-          call store_error(errmsg)
-        else if (ival == 0) then
-          nconzero = nconzero + 1
-        end if
-        ! -- get upstream fraction for reach
-        call this%parser%GetString(ustrfname)
-        ! -- get number of diversions for reach
-        ival = this%parser%GetInteger()
-        this%ndiv(n) = ival
-        if (ival > 0) then
-          this%idiversions = 1
-        else if (ival < 0) then
-          ival = 0
-        end if
-
-        ! -- get aux data
-        do iaux = 1, this%naux
-          call this%parser%GetString(caux(iaux))
-        end do
-
-        ! -- set default bndName
-        write (cnum, '(i10.10)') n
-        bndName = 'Reach'//cnum
-
-        ! -- get reach name
-        if (this%inamedbound /= 0) then
-          call this%parser%GetStringCaps(bndNameTemp)
-          if (bndNameTemp /= '') then
-            bndName = bndNameTemp
-          end if
-          !this%boundname(n) = bndName
-        end if
-        this%sfrname(n) = bndName
-        !
-        ! -- set reach hydraulic conductivity
-        text = hkname
-        jj = 1 !for 'BEDK'
-        bndElem => this%hk(n)
-        call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                           this%packName, 'BND', &
-                                           this%tsManager, this%iprpak, &
-                                           'BEDK')
-        !
-        ! -- set Mannings
-        text = manningname
-        jj = 1 !for 'MANNING'
-        bndElem => this%rough(n)
-        call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                           this%packName, 'BND', &
-                                           this%tsManager, this%iprpak, &
-                                           'MANNING')
-        !
-        ! -- set upstream fraction
-        text = ustrfname
-        jj = 1 ! For 'USTRF'
-        bndElem => this%ustrf(n)
-        call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                           this%packName, 'BND', &
-                                           this%tsManager, this%iprpak, 'USTRF')
-        !
-        ! -- get aux data
-        do jj = 1, this%naux
-          text = caux(jj)
-          ii = n
-          bndElem => this%rauxvar(jj, ii)
-          call read_value_or_time_series_adv(text, ii, jj, bndElem, &
-                                             this%packName, 'AUX', &
-                                             this%tsManager, this%iprpak, &
-                                             this%auxname(jj))
-        end do
-        !
-        ! -- initialize sstage to the top of the reach
-        !    this value would be used by simple routing reaches
-        !    on kper = 1 and kstp = 1 if a stage is not specified
-        !    on the status line for the reach
-        this%sstage(n) = this%strtop(n)
-
-      end do
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%text))//' PACKAGEDATA'
-    else
-      call store_error('REQUIRED PACKAGEDATA BLOCK NOT FOUND.')
-    end if
-    !
-    ! -- Check to make sure that every reach is specified and that no reach
-    !    is specified more than once.
-    do i = 1, this%maxbound
-      if (nboundchk(i) == 0) then
-        write (errmsg, '(a,i0,1x,a)') &
-          'Information for reach ', i, 'not specified in packagedata block.'
-        call store_error(errmsg)
-      else if (nboundchk(i) > 1) then
-        write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
-          'Reach information specified', nboundchk(i), 'times for reach', i
-        call store_error(errmsg)
-      end if
-    end do
-    deallocate (nboundchk)
-    !
-    ! -- Submit warning message if any reach has zero connections
-    if (nconzero > 0) then
-      write (warnmsg, '(a,1x,a,1x,a,1x,i0,1x, a)') &
-        'SFR Package', trim(this%packName), &
-        'has', nconzero, 'reach(es) with zero connections.'
-      call store_warning(warnmsg)
-    end if
-    !
-    ! -- terminate if errors encountered in reach block
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-    !
-    ! -- initialize the cross-section data
-    ipos = 1
-    this%iacross(1) = ipos
-    do i = 1, this%maxbound
-      this%ncrosspts(i) = 1
-      this%station(ipos) = this%width(i)
-      this%xsheight(ipos) = DZERO
-      this%xsrough(ipos) = DONE
-      ipos = ipos + 1
-      this%iacross(i + 1) = ipos
-    end do
-    !
-    ! -- deallocate local storage for aux variables
-    if (this%naux > 0) then
-      deallocate (caux)
-    end if
-  end subroutine sfr_read_packagedata
-
-  !> @ brief Read crosssection block for the package
-  !!
-  !!  Method to read crosssection data for the SFR package.
-  !<
-  subroutine sfr_read_crossection(this)
-    ! -- modules
-    use MemoryManagerModule, only: mem_reallocate
-    use sfrCrossSectionManager, only: cross_section_cr, SfrCrossSection
-    ! -- dummy
-    class(SfrType), intent(inout) :: this !< SfrType object
-    ! -- local
-    character(len=LINELENGTH) :: keyword
-    character(len=LINELENGTH) :: line
-    logical(LGP) :: isfound
-    logical(LGP) :: endOfBlock
-    integer(I4B) :: n
-    integer(I4B) :: ierr
-    integer(I4B) :: ncrossptstot
-    integer, allocatable, dimension(:) :: nboundchk
-    type(SfrCrossSection), pointer :: cross_data => null()
-    !
-    ! -- read cross-section data
-    call this%parser%GetBlock('CROSSSECTIONS', isfound, ierr, &
-                              supportOpenClose=.true., &
-                              blockRequired=.false.)
-    !
-    ! -- parse reach connectivity block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') &
-        'PROCESSING '//trim(adjustl(this%text))//' CROSSSECTIONS'
-      !
-      ! -- allocate and initialize local variables for reach cross-sections
-      allocate (nboundchk(this%maxbound))
-      do n = 1, this%maxbound
-        nboundchk(n) = 0
-      end do
-      !
-      ! -- create and initialize cross-section data
-      call cross_section_cr(cross_data, this%iout, this%iprpak, this%maxbound)
-      call cross_data%initialize(this%ncrossptstot, this%ncrosspts, &
-                                 this%iacross, &
-                                 this%station, this%xsheight, &
-                                 this%xsrough)
-      !
-      ! -- read all of the entries in the block
-      readtable: do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        !
-        ! -- get reach number
-        n = this%parser%GetInteger()
-        !
-        ! -- check for reach number error
-        if (n < 1 .or. n > this%maxbound) then
-          write (errmsg, '(a,1x,a,1x,i0)') &
-            'SFR reach in crosssections block is less than one or greater', &
-            'than NREACHES:', n
-          call store_error(errmsg)
-          cycle readtable
-        end if
-        !
-        ! -- increment nboundchk
-        nboundchk(n) = nboundchk(n) + 1
-        !
-        ! -- read FILE keyword
-        call this%parser%GetStringCaps(keyword)
-        select case (keyword)
-        case ('TAB6')
-          call this%parser%GetStringCaps(keyword)
-          if (trim(adjustl(keyword)) /= 'FILEIN') then
-            errmsg = 'TAB6 keyword must be followed by "FILEIN" '// &
-                     'then by filename.'
-            call store_error(errmsg)
-            cycle readtable
-          end if
-          call this%parser%GetString(line)
-          call cross_data%read_table(n, this%width(n), &
-                                     trim(adjustl(line)))
-        case default
-          write (errmsg, '(a,1x,i4,1x,a)') &
-            'CROSS-SECTION TABLE ENTRY for REACH ', n, &
-            'MUST INCLUDE TAB6 KEYWORD'
-          call store_error(errmsg)
-          cycle readtable
-        end select
-      end do readtable
-
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%text))//' CROSSSECTIONS'
-
-      !
-      ! -- check for duplicate sfr crosssections
-      do n = 1, this%maxbound
-        if (nboundchk(n) > 1) then
-          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
-            'Cross-section data for reach', n, &
-            'specified', nboundchk(n), 'times.'
-          call store_error(errmsg)
-        end if
-      end do
-      !
-      ! -- terminate if errors encountered in cross-sections block
-      if (count_errors() > 0) then
-        call this%parser%StoreErrorUnit()
-      end if
-      !
-      ! -- determine the current size of cross-section data
-      ncrossptstot = cross_data%get_ncrossptstot()
-      !
-      ! -- reallocate sfr package cross-section data
-      if (ncrossptstot /= this%ncrossptstot) then
-        this%ncrossptstot = ncrossptstot
-        call mem_reallocate(this%station, this%ncrossptstot, 'STATION', &
-                            this%memoryPath)
-        call mem_reallocate(this%xsheight, this%ncrossptstot, 'XSHEIGHT', &
-                            this%memoryPath)
-        call mem_reallocate(this%xsrough, this%ncrossptstot, 'XSROUGH', &
-                            this%memoryPath)
-      end if
-      !
-      ! -- write cross-section data to the model listing file
-      call cross_data%output(this%width, this%rough)
-      !
-      ! -- pack cross-section data
-      call cross_data%pack(this%ncrossptstot, this%ncrosspts, &
-                           this%iacross, &
-                           this%station, &
-                           this%xsheight, &
-                           this%xsrough)
-      !
-      ! -- deallocate temporary local storage for reach cross-sections
-      deallocate (nboundchk)
-      call cross_data%destroy()
-      deallocate (cross_data)
-      nullify (cross_data)
-    end if
-  end subroutine sfr_read_crossection
-
-  !> @ brief Read connectiondata for the package
-  !!
-  !!  Method to read connectiondata for each reach for the SFR package.
-  !<
-  subroutine sfr_read_connectiondata(this)
-    ! -- modules
-    use MemoryManagerModule, only: mem_reallocate
-    use SparseModule, only: sparsematrix
-    ! -- dummy
-    class(SfrType), intent(inout) :: this !< SfrType object
-    ! -- local
-    character(len=LINELENGTH) :: line
-    logical(LGP) :: isfound
-    logical(LGP) :: endOfBlock
-    integer(I4B) :: n
-    integer(I4B) :: i
-    integer(I4B) :: j
-    integer(I4B) :: jj
-    integer(I4B) :: jcol
-    integer(I4B) :: jcol2
-    integer(I4B) :: nja
-    integer(I4B) :: ival
-    integer(I4B) :: idir
-    integer(I4B) :: ierr
-    integer(I4B) :: nconnmax
-    integer(I4B) :: nup
-    integer(I4B) :: ipos
-    integer(I4B) :: istat
-    integer(I4B), dimension(:), pointer, contiguous :: rowmaxnnz => null()
-    integer, allocatable, dimension(:) :: nboundchk
-    integer, allocatable, dimension(:, :) :: iconndata
-    type(sparsematrix), pointer :: sparse => null()
-    integer(I4B), dimension(:), allocatable :: iup
-    integer(I4B), dimension(:), allocatable :: order
-    type(dag) :: sfr_dag
-    !
-    ! -- allocate and initialize local variables for reach connections
-    allocate (nboundchk(this%maxbound))
-    do n = 1, this%maxbound
-      nboundchk(n) = 0
-    end do
-    !
-    ! -- calculate the number of non-zero entries (size of ja maxtrix)
-    nja = 0
-    nconnmax = 0
-    allocate (rowmaxnnz(this%maxbound))
-    do n = 1, this%maxbound
-      ival = this%nconnreach(n)
-      if (ival < 0) ival = 0
-      rowmaxnnz(n) = ival + 1
-      nja = nja + ival + 1
-      if (ival > nconnmax) then
-        nconnmax = ival
-      end if
-    end do
-    !
-    ! -- reallocate connection data for package
-    call mem_reallocate(this%ja, nja, 'JA', this%memoryPath)
-    call mem_reallocate(this%idir, nja, 'IDIR', this%memoryPath)
-    call mem_reallocate(this%idiv, nja, 'IDIV', this%memoryPath)
-    call mem_reallocate(this%qconn, nja, 'QCONN', this%memoryPath)
-    !
-    ! -- initialize connection data
-    do n = 1, nja
-      this%idir(n) = 0
-      this%idiv(n) = 0
-      this%qconn(n) = DZERO
-    end do
-    !
-    ! -- allocate space for iconndata
-    allocate (iconndata(nconnmax, this%maxbound))
-    !
-    ! -- initialize iconndata
-    do n = 1, this%maxbound
-      do j = 1, nconnmax
-        iconndata(j, n) = 0
-      end do
-    end do
-    !
-    ! -- allocate space for connectivity
-    allocate (sparse)
-    !
-    ! -- set up sparse
-    call sparse%init(this%maxbound, this%maxbound, rowmaxnnz)
-    !
-    ! -- read connection data
-    call this%parser%GetBlock('CONNECTIONDATA', isfound, ierr, &
-                              supportOpenClose=.true.)
-    !
-    ! -- parse reach connectivity block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') &
-        'PROCESSING '//trim(adjustl(this%text))//' CONNECTIONDATA'
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        !
-        ! -- get reach number
-        n = this%parser%GetInteger()
-        !
-        ! -- check for error
-        if (n < 1 .or. n > this%maxbound) then
-          write (errmsg, '(a,1x,a,1x,i0)') &
-            'SFR reach in connectiondata block is less than one or greater', &
-            'than NREACHES:', n
-          call store_error(errmsg)
-          cycle
-        end if
-        !
-        ! -- increment nboundchk
-        nboundchk(n) = nboundchk(n) + 1
-        !
-        ! -- add diagonal connection for reach
-        call sparse%addconnection(n, n, 1)
-        !
-        ! -- fill off diagonals
-        do i = 1, this%nconnreach(n)
-          !
-          ! -- get connected reach
-          ival = this%parser%GetInteger()
-          !
-          ! -- save connection data to temporary iconndata
-          iconndata(i, n) = ival
-          !
-          ! -- determine idir
-          if (ival < 0) then
-            idir = -1
-            ival = abs(ival)
-          elseif (ival == 0) then
-            call store_error('Missing or zero connection reach in line:')
-            call store_error(line)
-          else
-            idir = 1
-          end if
-          if (ival > this%maxbound) then
-            call store_error('Reach number exceeds NREACHES in line:')
-            call store_error(line)
-          end if
-          !
-          ! -- add connection to sparse
-          call sparse%addconnection(n, ival, 1)
-        end do
-      end do
-
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%text))//' CONNECTIONDATA'
-
-      do n = 1, this%maxbound
-        !
-        ! -- check for missing or duplicate sfr connections
-        if (nboundchk(n) == 0) then
-          write (errmsg, '(a,1x,i0)') &
-            'No connection data specified for reach', n
-          call store_error(errmsg)
-        else if (nboundchk(n) > 1) then
-          write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a)') &
-            'Connection data for reach', n, &
-            'specified', nboundchk(n), 'times.'
-          call store_error(errmsg)
-        end if
-      end do
-    else
-      call store_error('Required connectiondata block not found.')
-    end if
-    !
-    ! -- terminate if errors encountered in connectiondata block
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-    !
-    ! -- create ia and ja from sparse
-    call sparse%filliaja(this%ia, this%ja, ierr, sort=.TRUE.)
-    !
-    ! -- test for error condition
-    if (ierr /= 0) then
-      write (errmsg, '(a,3(1x,a))') &
-        'Could not fill', trim(this%packName), &
-        'package IA and JA connection data.', &
-        'Check connectivity data in connectiondata block.'
-      call store_error(errmsg)
-    end if
-    !
-    ! -- fill flat connection storage
-    do n = 1, this%maxbound
-      do j = this%ia(n) + 1, this%ia(n + 1) - 1
-        jcol = this%ja(j)
-        do jj = 1, this%nconnreach(n)
-          jcol2 = iconndata(jj, n)
-          if (abs(jcol2) == jcol) then
-            idir = 1
-            if (jcol2 < 0) then
-              idir = -1
-            end if
-            this%idir(j) = idir
-            exit
-          end if
-        end do
-      end do
-    end do
-    !
-    ! -- deallocate temporary local storage for reach connections
-    deallocate (rowmaxnnz)
-    deallocate (nboundchk)
-    deallocate (iconndata)
-    !
-    ! -- destroy sparse
-    call sparse%destroy()
-    deallocate (sparse)
-    !
-    ! -- calculate reach order using DAG
-    !
-    ! -- initialize the DAG
-    call sfr_dag%set_vertices(this%maxbound)
-    !
-    ! -- fill DAG
-    fill_dag: do n = 1, this%maxbound
-      !
-      ! -- determine the number of upstream reaches
-      nup = 0
-      do j = this%ia(n) + 1, this%ia(n + 1) - 1
-        if (this%idir(j) > 0) then
-          nup = nup + 1
-        end if
-      end do
-      !
-      ! -- cycle if nu upstream reacches
-      if (nup == 0) cycle fill_dag
-      !
-      ! -- allocate local storage
-      allocate (iup(nup))
-      !
-      ! -- fill local storage
-      ipos = 1
-      do j = this%ia(n) + 1, this%ia(n + 1) - 1
-        if (this%idir(j) > 0) then
-          iup(ipos) = this%ja(j)
-          ipos = ipos + 1
-        end if
-      end do
-      !
-      ! -- add upstream connections to DAG
-      call sfr_dag%set_edges(n, iup)
-      !
-      ! -- clean up local storage
-      deallocate (iup)
-    end do fill_dag
-    !
-    ! -- perform toposort on DAG
-    call sfr_dag%toposort(order, istat)
-    !
-    ! -- write warning if circular dependency
-    if (istat == -1) then
-      write (warnmsg, '(a)') &
-        trim(adjustl(this%text))//' PACKAGE ('// &
-        trim(adjustl(this%packName))//') cannot calculate a '// &
-        'Directed Asyclic Graph for reach connectivity because '// &
-        'of circular dependency. Using the reach number for '// &
-        'solution ordering.'
-      call store_warning(warnmsg)
-    end if
-    !
-    ! -- fill isfrorder
-    do n = 1, this%maxbound
-      if (istat == 0) then
-        this%isfrorder(n) = order(n)
-      else
-        this%isfrorder(n) = n
-      end if
-    end do
-    !
-    ! -- clean up DAG and remaining local storage
-    call sfr_dag%destroy()
-    if (istat == 0) then
-      deallocate (order)
-    end if
-  end subroutine sfr_read_connectiondata
-
-  !> @ brief Read diversions for the package
-  !!
-  !!  Method to read diversions for the SFR package.
-  !<
-  subroutine sfr_read_diversions(this)
-    ! -- modules
-    use MemoryManagerModule, only: mem_reallocate
-    ! -- dummy
-    class(SfrType), intent(inout) :: this !< SfrType object
-    ! -- local
-    character(len=10) :: cnum
-    character(len=10) :: cval
-    integer(I4B) :: j
-    integer(I4B) :: n
-    integer(I4B) :: ierr
-    integer(I4B) :: ival
-    integer(I4B) :: i0
-    integer(I4B) :: ipos
-    integer(I4B) :: jpos
-    integer(I4B) :: ndiv
-    integer(I4B) :: ndiversions
-    integer(I4B) :: idivreach
-    logical(LGP) :: isfound
-    logical(LGP) :: endOfBlock
-    integer(I4B) :: idiv
-    integer, allocatable, dimension(:) :: iachk
-    integer, allocatable, dimension(:) :: nboundchk
-    !
-    ! -- determine the total number of diversions and fill iadiv
-    ndiversions = 0
-    i0 = 1
-    this%iadiv(1) = i0
-    do n = 1, this%maxbound
-      ndiversions = ndiversions + this%ndiv(n)
-      i0 = i0 + this%ndiv(n)
-      this%iadiv(n + 1) = i0
-    end do
-    !
-    ! -- reallocate memory for diversions
-    if (ndiversions > 0) then
-      call mem_reallocate(this%divreach, ndiversions, 'DIVREACH', &
-                          this%memoryPath)
-      allocate (this%divcprior(ndiversions))
-      call mem_reallocate(this%divflow, ndiversions, 'DIVFLOW', this%memoryPath)
-      call mem_reallocate(this%divq, ndiversions, 'DIVQ', this%memoryPath)
-    end if
-    !
-    ! -- initialize diversion flow
-    do n = 1, ndiversions
-      this%divflow(n) = DZERO
-      this%divq(n) = DZERO
-    end do
-    !
-    ! -- read diversions
-    call this%parser%GetBlock('DIVERSIONS', isfound, ierr, &
-                              supportOpenClose=.true., &
-                              blockRequired=.false.)
-    !
-    ! -- parse reach connectivity block if detected
-    if (isfound) then
-      if (this%idiversions /= 0) then
-        write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
-          ' DIVERSIONS'
-        !
-        ! -- allocate and initialize local variables for diversions
-        ndiv = 0
-        do n = 1, this%maxbound
-          ndiv = ndiv + this%ndiv(n)
-        end do
-        allocate (iachk(this%maxbound + 1))
-        allocate (nboundchk(ndiv))
-        iachk(1) = 1
-        do n = 1, this%maxbound
-          iachk(n + 1) = iachk(n) + this%ndiv(n)
-        end do
-        do n = 1, ndiv
-          nboundchk(n) = 0
-        end do
-        !
-        ! -- read diversion data
-        do
-          call this%parser%GetNextLine(endOfBlock)
-          if (endOfBlock) exit
-          !
-          ! -- get reach number
-          n = this%parser%GetInteger()
-          if (n < 1 .or. n > this%maxbound) then
-            write (cnum, '(i0)') n
-            errmsg = 'Reach number should be between 1 and '// &
-                     trim(cnum)//'.'
-            call store_error(errmsg)
-            cycle
-          end if
-          !
-          ! -- make sure reach has at least one diversion
-          if (this%ndiv(n) < 1) then
-            write (cnum, '(i0)') n
-            errmsg = 'Diversions cannot be specified '// &
-                     'for reach '//trim(cnum)
-            call store_error(errmsg)
-            cycle
-          end if
-          !
-          ! -- read diversion number
-          ival = this%parser%GetInteger()
-          if (ival < 1 .or. ival > this%ndiv(n)) then
-            write (cnum, '(i0)') n
-            errmsg = 'Reach  '//trim(cnum)
-            write (cnum, '(i0)') this%ndiv(n)
-            errmsg = trim(errmsg)//' diversion number should be between '// &
-                     '1 and '//trim(cnum)//'.'
-            call store_error(errmsg)
-            cycle
-          end if
-
-          ! -- increment nboundchk
-          ipos = iachk(n) + ival - 1
-          nboundchk(ipos) = nboundchk(ipos) + 1
-
-          idiv = ival
-          !
-          ! -- get target reach for diversion
-          ival = this%parser%GetInteger()
-          if (ival < 1 .or. ival > this%maxbound) then
-            write (cnum, '(i0)') ival
-            errmsg = 'Diversion target reach number should be '// &
-                     'between 1 and '//trim(cnum)//'.'
-            call store_error(errmsg)
-            cycle
-          end if
-          idivreach = ival
-          jpos = this%iadiv(n) + idiv - 1
-          this%divreach(jpos) = idivreach
-          !
-          ! -- get cprior
-          call this%parser%GetStringCaps(cval)
-          ival = -1
-          select case (cval)
-          case ('UPTO')
-            ival = 0
-          case ('THRESHOLD')
-            ival = -1
-          case ('FRACTION')
-            ival = -2
-          case ('EXCESS')
-            ival = -3
-          case default
-            errmsg = 'Invalid cprior type '//trim(cval)//'.'
-            call store_error(errmsg)
-          end select
-          !
-          ! -- set cprior for diversion
-          this%divcprior(jpos) = cval
-        end do
-
-        write (this%iout, '(1x,a)') 'END OF '//trim(adjustl(this%text))// &
-          ' DIVERSIONS'
-
-        do n = 1, this%maxbound
-          do j = 1, this%ndiv(n)
-            ipos = iachk(n) + j - 1
-            !
-            ! -- check for missing or duplicate reach diversions
-            if (nboundchk(ipos) == 0) then
-              write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
-                'No data specified for reach', n, 'diversion', j
-              call store_error(errmsg)
-            else if (nboundchk(ipos) > 1) then
-              write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,1x,i0,1x,a)') &
-                'Data for reach', n, 'diversion', j, &
-                'specified', nboundchk(ipos), 'times'
-              call store_error(errmsg)
-            end if
-          end do
-        end do
-        !
-        ! -- deallocate local variables
-        deallocate (iachk)
-        deallocate (nboundchk)
-      else
-        !
-        ! -- error condition
-        write (errmsg, '(a,1x,a)') &
-          'A diversions block should not be', &
-          'specified if diversions are not specified.'
-        call store_error(errmsg)
-      end if
-    else
-      if (this%idiversions /= 0) then
-        call store_error('REQUIRED DIVERSIONS BLOCK NOT FOUND.')
-      end if
-    end if
-    !
-    ! -- write summary of diversion error messages
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-  end subroutine sfr_read_diversions
-
-  !> @ brief Read initialstages data for the package
-  !!
-  !!  Method to read initialstages data for each reach for the SFR package.
-  !<
-  subroutine sfr_read_initial_stages(this)
-    ! -- modules
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-    ! -- dummy
-    class(SfrType), intent(inout) :: this !< SfrType object
-    ! -- local
-    integer(I4B) :: n
-    integer(I4B) :: ierr
-    logical(LGP) :: isfound
-    logical(LGP) :: endOfBlock
-    integer(I4B) :: i
-    real(DP) :: rval
-    integer, allocatable, dimension(:) :: nboundchk
-    !
-    ! -- read data
-    call this%parser%GetBlock('INITIALSTAGES', isfound, ierr, &
-                              supportOpenClose=.true., &
-                              blockRequired=.false.)
-    !
-    ! -- parse block if detected
-    if (isfound) then
-      write (this%iout, '(/1x,a)') &
-        'PROCESSING '//trim(adjustl(this%text))//' INITIALSTAGES'
-
-      allocate (nboundchk(this%maxbound))
-      do n = 1, this%maxbound
-        nboundchk(n) = 0
-      end do
-
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-
-        ! -- read reach number
-        n = this%parser%GetInteger()
-
-        if (n < 1 .or. n > this%maxbound) then
-          write (errmsg, '(a,i0,a,1x,i0,a)') &
-            'Reach number (', n, ') must be greater than 0 and less &
-            &than or equal to', this%maxbound, '.'
-          call store_error(errmsg)
-          cycle
-        end if
-
-        ! -- increment nboundchk
-        nboundchk(n) = nboundchk(n) + 1
-
-        rval = this%parser%GetDouble()
-        this%stage(n) = rval
-        this%depth(n) = rval - this%strtop(n)
-
-        if (rval < this%strtop(n)) then
-          write (errmsg, '(a,g0,a,1x,i0,1x,a,g0,a)') &
-            'Initial stage (', rval, ') for reach', n, &
-            'is less than the reach top (', this%strtop(n), ').'
-          call store_error(errmsg)
-        end if
-      end do
-
-      write (this%iout, '(1x,a)') &
-        'END OF '//trim(adjustl(this%text))//' INITIALSTAGES'
-
-      !
-      ! -- Check to make sure that every reach is specified and that no reach
-      !    is specified more than once.
-      do i = 1, this%maxbound
-        if (nboundchk(i) == 0) then
-          write (errmsg, '(a,i0,1x,a)') &
-            'Information for reach ', i, 'not specified in initialstages block.'
-          call store_error(errmsg)
-        else if (nboundchk(i) > 1) then
-          write (errmsg, '(a,1x,i0,1x,a,1x,i0)') &
-            'Initial stage information specified', &
-            nboundchk(i), 'times for reach', i
-          call store_error(errmsg)
-        end if
-      end do
-      deallocate (nboundchk)
-    else
-      ! -- set default initial stage based on a zero depth
-      if (this%istorage == 1) then
-        do n = 1, this%maxbound
-          rval = this%strtop(n)
-          this%stage(n) = rval
-        end do
-      end if
-    end if
-    !
-    ! -- terminate if errors encountered in reach block
-    if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
-    end if
-  end subroutine sfr_read_initial_stages
-
   !> @ brief Read and prepare period data for package
   !!
   !!  Method to read and prepare period data for the SFR package.
   !<
   subroutine sfr_rp(this)
     ! -- modules
-    use TdisModule, only: kper, nper
+    use ConstantsModule, only: LENVARNAME
+    use TdisModule, only: kper
     use MemoryManagerModule, only: mem_reallocate
     use sfrCrossSectionManager, only: cross_section_cr, SfrCrossSection
     ! -- dummy
     class(SfrType), intent(inout) :: this !< SfrType object
     ! -- local
-    character(len=LINELENGTH) :: title
-    character(len=LINELENGTH) :: line
     character(len=LINELENGTH) :: crossfile
-    integer(I4B) :: ierr
+    character(len=LINELENGTH) :: str
+    character(len=LINELENGTH) :: auxvalstr
+    character(len=LINELENGTH) :: title
+    character(len=LINELENGTH) :: text
+    character(len=LENVARNAME) :: setting
+    character(len=10) :: cnum
+    character(len=10) :: cp
     integer(I4B) :: n
+    integer(I4B) :: i
+    integer(I4B) :: ii
+    integer(I4B) :: jj
+    integer(I4B) :: idiv
     integer(I4B) :: ichkustrm
-    integer(I4B) :: ichkcross
     integer(I4B) :: ncrossptstot
-    logical(LGP) :: isfound
-    logical(LGP) :: endOfBlock
     type(SfrCrossSection), pointer :: cross_data => null()
     ! -- formats
-    character(len=*), parameter :: fmtblkerr = &
-      &"('Looking for BEGIN PERIOD iper.  Found ', a, ' instead.')"
     character(len=*), parameter :: fmtlsp = &
       &"(1X,/1X,'REUSING ',A,'S FROM LAST STRESS PERIOD')"
-    character(len=*), parameter :: fmtnbd = &
-      "(1X,/1X,'The number of active ',A,'S (',I6, &
-      &') is greater than maximum (',I6,')')"
     !
     ! -- initialize flags
     ichkustrm = 0
-    ichkcross = 0
     if (kper == 1) then
       ichkustrm = 1
     end if
@@ -2019,36 +1743,8 @@ contains
     ! -- set nbound to maxbound
     this%nbound = this%maxbound
     !
-    ! -- Set ionper to the stress period number for which a new block of data
-    !    will be read.
-    if (this%ionper < kper) then
-      !
-      ! -- get period block
-      call this%parser%GetBlock('PERIOD', isfound, ierr, &
-                                supportOpenClose=.true., &
-                                blockRequired=.false.)
-      if (isfound) then
-        !
-        ! -- read ionper and check for increasing period numbers
-        call this%read_check_ionper()
-      else
-        !
-        ! -- PERIOD block not found
-        if (ierr < 0) then
-          ! -- End of file found; data applies for remainder of simulation.
-          this%ionper = nper + 1
-        else
-          ! -- Found invalid block
-          call this%parser%GetCurrentLine(line)
-          write (errmsg, fmtblkerr) adjustl(trim(line))
-          call store_error(errmsg)
-          call this%parser%StoreErrorUnit()
-        end if
-      end if
-    end if
-    !
-    ! -- Read data if ionper == kper
-    if (this%ionper == kper) then
+    ! -- check if input context has been updated for this stress period
+    if (this%iper == kper) then
       !
       ! -- create and initialize cross-section data
       call cross_section_cr(cross_data, this%iout, this%iprpak, this%maxbound)
@@ -2057,10 +1753,8 @@ contains
                                  this%station, this%xsheight, &
                                  this%xsrough)
       !
-      ! -- setup table for period data
+      ! -- setup table to echo period data
       if (this%iprpak /= 0) then
-        !
-        ! -- reset the input table object
         title = trim(adjustl(this%text))//' PACKAGE ('// &
                 trim(adjustl(this%packName))//') DATA FOR PERIOD'
         write (title, '(a,1x,i6)') trim(adjustl(title)), kper
@@ -2070,17 +1764,15 @@ contains
         call this%inputtab%initialize_column(text, 10, alignment=TABCENTER)
         text = 'KEYWORD'
         call this%inputtab%initialize_column(text, 20, alignment=TABLEFT)
-        do n = 1, 2
-          write (text, '(a,1x,i6)') 'VALUE', n
+        do jj = 1, 2
+          write (text, '(a,1x,i6)') 'VALUE', jj
           call this%inputtab%initialize_column(text, 15, alignment=TABCENTER)
         end do
       end if
       !
-      ! -- read data
-      do
-        call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
-        n = this%parser%GetInteger()
+      ! -- process each period data entry
+      do i = 1, this%input%nbound
+        n = this%input%ifno(i)
         if (n < 1 .or. n > this%maxbound) then
           write (errmsg, '(a,1x,a,1x,i0,a)') &
             'Reach number (RNO) must be greater than 0 and', &
@@ -2089,34 +1781,135 @@ contains
           cycle
         end if
         !
-        ! -- read data from the rest of the line
-        call this%sfr_set_stressperiod(n, ichkustrm, crossfile)
+        ! -- dispatch key for this row
+        setting = this%input%setting(i)
         !
-        ! -- write line to table
-        if (this%iprpak /= 0) then
-          call this%parser%GetCurrentLine(line)
-          call this%inputtab%line_to_columns(line)
+        ! -- STATUS
+        if (trim(setting) == 'STATUS') then
+          str = this%input%status(i)
+          ichkustrm = 1
+          if (str == 'INACTIVE') then
+            this%iboundpak(n) = 0
+          else if (str == 'ACTIVE') then
+            this%iboundpak(n) = 1
+          else if (str == 'SIMPLE') then
+            this%iboundpak(n) = -1
+          else
+            write (errmsg, '(2a)') &
+              'Unknown '//trim(this%text)//' sfr status keyword: ', trim(str)
+            call store_error(errmsg)
+          end if
         end if
         !
-        ! -- process cross-section file
-        if (trim(adjustl(crossfile)) /= 'NONE') then
-          call cross_data%read_table(n, this%width(n), &
-                                     trim(adjustl(crossfile)))
+        ! -- BEDK, MANNING, STAGE, INFLOW, RAINFALL, EVAPORATION, RUNOFF,
+        !    UPSTREAM_FRAC; sfr_ad re-syncs these each timestep if TS-linked
+        call this%sfr_set_period_value(i, n, setting)
+        if (trim(setting) == 'UPSTREAM_FRAC') ichkustrm = 1
+        !
+        ! -- DIVERSION (compound group)
+        if (trim(setting) == 'DIVERSION') then
+          if (this%ndiv(n) < 1) then
+            write (cnum, '(i0)') n
+            errmsg = 'diversions cannot be specified for reach '//trim(cnum)
+            call store_error(errmsg)
+          else
+            idiv = this%input%idv(i)
+            if (idiv < 1 .or. idiv > this%ndiv(n)) then
+              write (cnum, '(i0)') n
+              errmsg = 'Reach  '//trim(cnum)
+              write (cnum, '(i0)') this%ndiv(n)
+              errmsg = trim(errmsg)//' diversion number should be between 1 '// &
+                       'and '//trim(cnum)//'.'
+              call store_error(errmsg)
+            else
+              ii = this%iadiv(n) + idiv - 1
+              if (this%input%divflow(i) /= DNODATA) then
+                this%divflow(ii) = this%input%divflow(i)
+              end if
+              ! -- if cprior is 'FRACTION', check 0.0 <= divflow <= 1.0
+              cp = this%divcprior(ii)
+              if (cp == 'FRACTION' .and. &
+                  (this%divflow(ii) < DZERO .or. this%divflow(ii) > DONE)) then
+                write (errmsg, '(a,1x,i0,a)') &
+                  'cprior is type FRACTION for diversion no.', ii, &
+                  ', but divflow not within the range 0.0 to 1.0'
+                call store_error(errmsg)
+              end if
+            end if
+          end if
+        end if
+        !
+        ! -- CROSS_SECTION (compound group)
+        if (trim(setting) == 'CROSS_SECTION') then
+          crossfile = this%input%tab6_filename(i)
+          call cross_data%read_table(n, this%width(n), trim(adjustl(crossfile)))
+        end if
+        !
+        ! -- AUXILIARY (compound group); apply_period_auxiliary() has already
+        ! -- written the current value into the live-aliased featureauxvar --
+        ! -- only extract auxname here for echoing this period's row below
+        if (this%naux > 0) then
+          if (trim(setting) == 'AUXILIARY') then
+            str = this%input%auxname(i)
+            auxvalstr = this%input%auxval(i)
+          end if
+        end if
+        !
+        ! -- echo row to period data table
+        if (this%iprpak /= 0) then
+          call this%inputtab%add_term(n)
+          call this%inputtab%add_term(trim(setting))
+          select case (trim(setting))
+          case ('STATUS')
+            call this%inputtab%add_term(trim(str))
+            call this%inputtab%add_term(' ')
+          case ('BEDK')
+            call this%inputtab%add_term(this%hk(n))
+            call this%inputtab%add_term(' ')
+          case ('MANNING')
+            call this%inputtab%add_term(this%rough(n))
+            call this%inputtab%add_term(' ')
+          case ('STAGE')
+            call this%inputtab%add_term(this%sstage(n))
+            call this%inputtab%add_term(' ')
+          case ('INFLOW')
+            call this%inputtab%add_term(this%inflow(n))
+            call this%inputtab%add_term(' ')
+          case ('RAINFALL')
+            call this%inputtab%add_term(this%rain(n))
+            call this%inputtab%add_term(' ')
+          case ('EVAPORATION')
+            call this%inputtab%add_term(this%evap(n))
+            call this%inputtab%add_term(' ')
+          case ('RUNOFF')
+            call this%inputtab%add_term(this%runoff(n))
+            call this%inputtab%add_term(' ')
+          case ('UPSTREAM_FRAC')
+            call this%inputtab%add_term(this%ustrf(n))
+            call this%inputtab%add_term(' ')
+          case ('DIVERSION')
+            call this%inputtab%add_term(idiv)
+            call this%inputtab%add_term(this%divflow(ii))
+          case ('CROSS_SECTION')
+            call this%inputtab%add_term(trim(crossfile))
+            call this%inputtab%add_term(' ')
+          case ('AUXILIARY')
+            call this%inputtab%add_term(trim(str))
+            call this%inputtab%add_term(trim(auxvalstr))
+          case default
+            call this%inputtab%add_term(' ')
+            call this%inputtab%add_term(' ')
+          end select
         end if
       end do
-      !
-      ! -- write raw period data
       if (this%iprpak /= 0) then
         call this%inputtab%finalize_table()
       end if
       !
-      ! -- finalize cross-sections
-
-      !
       ! -- determine the current size of cross-section data
       ncrossptstot = cross_data%get_ncrossptstot()
       !
-      ! -- reallocate sfr package cross-section data
+      ! -- reallocate sfr package cross-section data if size changed
       if (ncrossptstot /= this%ncrossptstot) then
         this%ncrossptstot = ncrossptstot
         call mem_reallocate(this%station, this%ncrossptstot, 'STATION', &
@@ -2141,20 +1934,19 @@ contains
       call cross_data%destroy()
       deallocate (cross_data)
       nullify (cross_data)
-      !
-      ! -- Reuse data from last stress period
     else
       write (this%iout, fmtlsp) trim(this%filtyp)
     end if
     !
-    ! -- check upstream fraction values
+    ! -- check upstream fraction values every period; ftotnd must be
+    !    initialized for sfr_update_flows even when there is no period data
     if (ichkustrm /= 0) then
       call this%sfr_check_ustrf()
     end if
     !
     ! -- write summary of package block error messages
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
   end subroutine sfr_rp
 
@@ -2165,13 +1957,21 @@ contains
   !<
   subroutine sfr_ad(this)
     ! -- modules
-    use TimeSeriesManagerModule, only: var_timeseries
+    use ConstantsModule, only: LENVARNAME
     ! -- dummy
     class(SfrType) :: this !< SfrType object
     ! -- local
     integer(I4B) :: n
+    integer(I4B) :: i
+    integer(I4B) :: ii
+    integer(I4B) :: idiv
     integer(I4B) :: iaux
+    character(len=LENVARNAME) :: setting
 
+    ! -- sync PACKAGEDATA AUX TS and advance observations;
+    ! -- step auxvar period block overrides
+    call this%BndExtType%bnd_ad()
+    !
     ! -- update previous values
     if (this%istorage == 1) then
       do n = 1, this%maxbound
@@ -2181,19 +1981,43 @@ contains
       end do
     end if
     !
-    ! -- Most advanced package AD routines have to restore state if
-    !    the solution failed and the time step is being retried with a smaller
-    !    step size.  This is not needed here because there is no old stage
-    !    or storage effects in the stream.
-    !
-    ! -- Advance the time series manager
-    call this%TsManager%ad()
-    !
-    ! -- check upstream fractions if time series are being used to
-    !    define this variable
-    if (var_timeseries(this%tsManager, this%packName, 'USTRF')) then
-      call this%sfr_check_ustrf()
+    ! -- sync PACKAGEDATA and PERIOD TS fields from input context each
+    !    timestep; skip when no TS6 files are configured because input
+    !    context values are already up to date from the most recent sfr_rp
+    !    call.
+    if (this%ts_active) then
+      do i = 1, this%maxbound
+        n = this%pkg_ifno(i)
+        if (.not. this%bedk_set(n)) this%hk(n) = this%input%rhk(i)
+        if (.not. this%manning_set(n)) this%rough(n) = this%input%man(i)
+        if (.not. this%ustrf_set(n)) this%ustrf(n) = this%input%ustrf(i)
+      end do
+      !
+      if (this%input%nbound > 0) then
+        do i = 1, this%input%nbound
+          n = this%input%ifno(i)
+          if (n < 1 .or. n > this%maxbound) cycle
+          ! -- BEDK, MANNING, UPSTREAM_FRAC, STAGE, INFLOW, RAINFALL, EVAPORATION, RUNOFF
+          setting = this%input%setting(i)
+          call this%sfr_set_period_value(i, n, setting)
+          ! -- DIVFLOW
+          if (trim(setting) == 'DIVERSION') then
+            if (this%ndiv(n) >= 1) then
+              idiv = this%input%idv(i)
+              if (idiv >= 1 .and. idiv <= this%ndiv(n)) then
+                ii = this%iadiv(n) + idiv - 1
+                if (this%input%divflow(i) /= DNODATA) &
+                  this%divflow(ii) = this%input%divflow(i)
+              end if
+            end if
+          end if
+        end do
+      end if
     end if
+    !
+    ! -- check upstream fractions (only needed when USTRF may be TS-updated;
+    !    sfr_rp already validates ustrf once per period via ichkustrm)
+    if (this%ts_active) call this%sfr_check_ustrf()
     !
     ! -- update auxiliary variables by copying from the derived-type time
     !    series variable into the bndpackage auxvar variable so that this
@@ -2202,7 +2026,7 @@ contains
       do n = 1, this%maxbound
         do iaux = 1, this%naux
           if (this%noupdateauxvar(iaux) /= 0) cycle
-          this%auxvar(iaux, n) = this%rauxvar(iaux, n)
+          this%auxvar(iaux, n) = this%featureauxvar(iaux, n)
         end do
       end do
     end if
@@ -2219,11 +2043,6 @@ contains
     if (this%imover == 1) then
       call this%pakmvrobj%ad()
     end if
-    !
-    ! -- For each observation, push simulated value and corresponding
-    !    simulation time from "current" to "preceding" and reset
-    !    "current" value.
-    call this%obs%obs_ad()
   end subroutine sfr_ad
 
   !> @ brief Formulate the package hcof and rhs terms.
@@ -2604,7 +2423,6 @@ contains
         end if
       end if
     end if
-    !
   end subroutine sfr_cc
 
   !> @ brief Calculate package flows.
@@ -2993,6 +2811,9 @@ contains
     call mem_deallocate(this%slope)
     call mem_deallocate(this%nconnreach)
     call mem_deallocate(this%ustrf)
+    call mem_deallocate(this%bedk_set)
+    call mem_deallocate(this%manning_set)
+    call mem_deallocate(this%ustrf_set)
     call mem_deallocate(this%ftotnd)
     call mem_deallocate(this%usflow)
     call mem_deallocate(this%dsflow)
@@ -3030,14 +2851,11 @@ contains
     !
     ! -- deallocate boundary data
     call mem_deallocate(this%rough)
-    call mem_deallocate(this%rain)
-    call mem_deallocate(this%evap)
-    call mem_deallocate(this%inflow)
-    call mem_deallocate(this%runoff)
-    call mem_deallocate(this%sstage)
-    !
-    ! -- deallocate aux variables
-    call mem_deallocate(this%rauxvar)
+    nullify (this%rain)
+    nullify (this%evap)
+    nullify (this%inflow)
+    nullify (this%runoff)
+    nullify (this%sstage)
     !
     ! -- deallocate diversion variables
     call mem_deallocate(this%iadiv)
@@ -3111,8 +2929,11 @@ contains
     call mem_deallocate(this%ncrossptstot)
     nullify (this%gwfiss)
     !
-    ! -- call base BndType deallocate
-    call this%BndType%bnd_da()
+    ! -- nullify SFR input context pointers (input context owns the memory)
+    call this%input%destroy()
+    !
+    ! -- call base BndExtType deallocate
+    call this%BndExtType%bnd_da()
   end subroutine sfr_da
 
   !> @brief Pre-compute the single upstream reach index for the TVD limiter
@@ -3373,7 +3194,7 @@ contains
       !
       ! -- write summary of package error messages
       if (count_errors() > 0) then
-        call this%parser%StoreErrorUnit()
+        call store_error_filename(this%input_fname)
       end if
     end if
   end subroutine sfr_bd_obs
@@ -3480,7 +3301,7 @@ contains
       !
       ! -- evaluate if there are any observation errors
       if (count_errors() > 0) then
-        call this%parser%StoreErrorUnit()
+        call store_error_filename(this%input_fname)
       end if
     end if
   end subroutine sfr_rp_obs
@@ -3523,205 +3344,6 @@ contains
     ! -- store reach number (NodeNumber)
     obsrv%NodeNumber = nn1
   end subroutine sfr_process_obsID
-
-  !
-  ! -- private sfr methods
-  !
-
-  !> @brief Set period data
-  !!
-  !! Method to read and set period data for a SFR package reach.
-  !<
-  subroutine sfr_set_stressperiod(this, n, ichkustrm, crossfile)
-    ! -- modules
-    use TimeSeriesManagerModule, only: read_value_or_time_series_adv
-    ! -- dummy
-    class(SfrType), intent(inout) :: this !< SfrType object
-    integer(I4B), intent(in) :: n !< reach number
-    integer(I4B), intent(inout) :: ichkustrm !< flag indicating if upstream fraction data specified
-    character(len=LINELENGTH), intent(inout) :: crossfile !< cross-section file name
-    ! -- local
-    character(len=10) :: cnum
-    character(len=LINELENGTH) :: text
-    character(len=LINELENGTH) :: caux
-    character(len=LINELENGTH) :: keyword
-    integer(I4B) :: ival
-    integer(I4B) :: ii
-    integer(I4B) :: jj
-    integer(I4B) :: idiv
-    integer(I4B) :: ixserror
-    character(len=10) :: cp
-    real(DP) :: divq
-    real(DP), pointer :: bndElem => null()
-    !
-    ! -- initialize variables
-    crossfile = 'NONE'
-    !
-    ! -- read line
-    call this%parser%GetStringCaps(keyword)
-    select case (keyword)
-    case ('STATUS')
-      ichkustrm = 1
-      call this%parser%GetStringCaps(text)
-      if (text == 'INACTIVE') then
-        this%iboundpak(n) = 0
-      else if (text == 'ACTIVE') then
-        this%iboundpak(n) = 1
-      else if (text == 'SIMPLE') then
-        this%iboundpak(n) = -1
-      else
-        write (errmsg, '(2a)') &
-          'Unknown '//trim(this%text)//' sfr status keyword: ', trim(text)
-        call store_error(errmsg)
-      end if
-    case ('BEDK')
-      call this%parser%GetString(text)
-      jj = 1 ! For 'BEDK'
-      bndElem => this%hk(n)
-      call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                         this%packName, 'BND', &
-                                         this%tsManager, this%iprpak, &
-                                         'BEDK')
-    case ('MANNING')
-      call this%parser%GetString(text)
-      jj = 1 ! For 'MANNING'
-      bndElem => this%rough(n)
-      call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                         this%packName, 'BND', &
-                                         this%tsManager, this%iprpak, &
-                                         'MANNING')
-    case ('STAGE')
-      call this%parser%GetString(text)
-      jj = 1 ! For 'STAGE'
-      bndElem => this%sstage(n)
-      call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                         this%packName, 'BND', &
-                                         this%tsManager, this%iprpak, 'STAGE')
-    case ('RAINFALL')
-      call this%parser%GetString(text)
-      jj = 1 ! For 'RAIN'
-      bndElem => this%rain(n)
-      call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                         this%packName, 'BND', &
-                                         this%tsManager, this%iprpak, 'RAIN')
-    case ('EVAPORATION')
-      call this%parser%GetString(text)
-      jj = 1 ! For 'EVAP'
-      bndElem => this%evap(n)
-      call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                         this%packName, 'BND', &
-                                         this%tsManager, this%iprpak, &
-                                         'EVAP')
-    case ('RUNOFF')
-      call this%parser%GetString(text)
-      jj = 1 ! For 'RUNOFF'
-      bndElem => this%runoff(n)
-      call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                         this%packName, 'BND', &
-                                         this%tsManager, this%iprpak, &
-                                         'RUNOFF')
-    case ('INFLOW')
-      call this%parser%GetString(text)
-      jj = 1 ! For 'INFLOW'
-      bndElem => this%inflow(n)
-      call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                         this%packName, 'BND', &
-                                         this%tsManager, this%iprpak, &
-                                         'INFLOW')
-    case ('DIVERSION')
-      !
-      ! -- make sure reach has at least one diversion
-      if (this%ndiv(n) < 1) then
-        write (cnum, '(i0)') n
-        errmsg = 'diversions cannot be specified for reach '//trim(cnum)
-        call store_error(errmsg)
-      end if
-      !
-      ! -- read diversion number
-      ival = this%parser%GetInteger()
-      if (ival < 1 .or. ival > this%ndiv(n)) then
-        write (cnum, '(i0)') n
-        errmsg = 'Reach  '//trim(cnum)
-        write (cnum, '(i0)') this%ndiv(n)
-        errmsg = trim(errmsg)//' diversion number should be between 1 '// &
-                 'and '//trim(cnum)//'.'
-        call store_error(errmsg)
-      end if
-      idiv = ival
-      !
-      ! -- read value
-      call this%parser%GetString(text)
-      ii = this%iadiv(n) + idiv - 1
-      jj = 1 ! For 'DIVERSION'
-      bndElem => this%divflow(ii)
-      call read_value_or_time_series_adv(text, ii, jj, bndElem, &
-                                         this%packName, 'BND', &
-                                         this%tsManager, this%iprpak, &
-                                         'DIVFLOW')
-      !
-      ! -- if diversion cprior is 'fraction', ensure that 0.0 <= fraction <= 1.0
-      cp = this%divcprior(ii)
-      divq = this%divflow(ii)
-      if (cp == 'FRACTION' .and. (divq < DZERO .or. divq > DONE)) then
-        write (errmsg, '(a,1x,i0,a)') &
-          'cprior is type FRACTION for diversion no.', ii, &
-          ', but divflow not within the range 0.0 to 1.0'
-        call store_error(errmsg)
-      end if
-    case ('UPSTREAM_FRACTION')
-      ichkustrm = 1
-      call this%parser%GetString(text)
-      jj = 1 ! For 'USTRF'
-      bndElem => this%ustrf(n)
-      call read_value_or_time_series_adv(text, n, jj, bndElem, &
-                                         this%packName, 'BND', &
-                                         this%tsManager, this%iprpak, 'USTRF')
-
-    case ('CROSS_SECTION')
-      ixserror = 0
-      !
-      ! -- read FILE keyword
-      call this%parser%GetStringCaps(keyword)
-      select case (keyword)
-      case ('TAB6')
-        call this%parser%GetStringCaps(keyword)
-        if (trim(adjustl(keyword)) /= 'FILEIN') then
-          errmsg = 'TAB6 keyword must be followed by "FILEIN" '// &
-                   'then by filename.'
-          call store_error(errmsg)
-          ixserror = 1
-        end if
-        if (ixserror == 0) then
-          call this%parser%GetString(crossfile)
-        end if
-      case default
-        write (errmsg, '(a,1x,i4,1x,a)') &
-          'CROSS-SECTION TABLE ENTRY for REACH ', n, &
-          'MUST INCLUDE TAB6 KEYWORD'
-        call store_error(errmsg)
-      end select
-
-    case ('AUXILIARY')
-      call this%parser%GetStringCaps(caux)
-      do jj = 1, this%naux
-        if (trim(adjustl(caux)) /= trim(adjustl(this%auxname(jj)))) cycle
-        call this%parser%GetString(text)
-        ii = n
-        bndElem => this%rauxvar(jj, ii)
-        call read_value_or_time_series_adv(text, ii, jj, bndElem, &
-                                           this%packName, 'AUX', &
-                                           this%tsManager, this%iprpak, &
-                                           this%auxname(jj))
-        exit
-      end do
-
-    case default
-      write (errmsg, '(a,a)') &
-        'Unknown '//trim(this%text)//' sfr data keyword: ', &
-        trim(keyword)//'.'
-      call store_error(errmsg)
-    end select
-  end subroutine sfr_set_stressperiod
 
   !> @brief Solve reach continuity equation
   !!
@@ -4705,8 +4327,8 @@ contains
       end do
     end if
     !
-    ! -- check the reach connections for simple errors
-    ! -- connection check
+    ! -- verify every listed connection is reciprocated: if reach n lists
+    ! -- reach nn, reach nn must list reach n back
     do n = 1, this%MAXBOUND
       write (crch, '(i5)') n
       eachconn: do i = this%ia(n) + 1, this%ia(n + 1) - 1
@@ -4741,9 +4363,8 @@ contains
       end if
     end do
     !
-    ! -- check for incorrect connections between upstream connections
-    !
-    ! -- check upstream connections for each reach
+    ! -- verify upstream connections don't form a mutual pair: two reaches
+    ! -- cannot each list the other as upstream
     ierr = 0
     do n = 1, this%maxbound
       write (crch, '(i5)') n
@@ -4774,7 +4395,7 @@ contains
     !
     ! -- terminate if connectivity errors
     if (count_errors() > 0) then
-      call this%parser%StoreErrorUnit()
+      call store_error_filename(this%input_fname)
     end if
     !
     ! -- check that downstream reaches for a reach are
@@ -5257,6 +4878,33 @@ contains
       end if
     end do
   end subroutine sfr_check_ustrf
+
+  !> @brief Apply a PERIOD setting value to reach n
+  !!
+  !! Shared by sfr_rp (once per period) and sfr_ad (per-timestep resync of
+  !! TS-linked settings); validation stays with the caller. DIVERSION is
+  !! handled separately by both callers because its target index depends on
+  !! reach-specific validation (ndiv, idiv range).
+  !<
+  subroutine sfr_set_period_value(this, i, n, setting)
+    ! -- dummy
+    class(SfrType), intent(inout) :: this
+    integer(I4B), intent(in) :: i !< row index into input context arrays
+    integer(I4B), intent(in) :: n !< reach number
+    character(len=*), intent(in) :: setting !< uppercase mf6varname dispatch key
+    !
+    select case (trim(setting))
+    case ('BEDK')
+      this%hk(n) = this%input%bedk(i)
+      this%bedk_set(n) = .true.
+    case ('MANNING')
+      this%rough(n) = this%input%manning(i)
+      this%manning_set(n) = .true.
+    case ('UPSTREAM_FRAC')
+      this%ustrf(n) = this%input%upstream_frac(i)
+      this%ustrf_set(n) = .true.
+    end select
+  end subroutine sfr_set_period_value
 
   !> @brief Setup budget object for package
   !!
@@ -6105,5 +5753,54 @@ contains
       end if
     end if
   end subroutine sfr_calculate_density_exchange
+
+  !> @brief Bind SfrInputType PERIOD pointers to input context arrays.
+  !!
+  !! Called once from sfr_ar; pointers remain valid for the simulation
+  !! lifetime. PACKAGEDATA pointers (rhk, man, ustrf) are set separately
+  !! in sfr_source_packagedata.
+  !!
+  !<
+  subroutine sfr_input_init(this, mempath, naux)
+    use MemoryManagerModule, only: mem_setptr
+    class(SfrInputType), intent(inout) :: this
+    character(len=*), intent(in) :: mempath
+    integer(I4B), intent(in) :: naux
+    call mem_setptr(this%nbound, 'NBOUND', mempath)
+    call mem_setptr(this%ifno, 'IFNO', mempath)
+    call mem_setptr(this%setting, 'SETTING', mempath)
+    call mem_setptr(this%status, 'STATUS', mempath)
+    call mem_setptr(this%bedk, 'BEDK', mempath)
+    call mem_setptr(this%manning, 'MANNING', mempath)
+    call mem_setptr(this%idv, 'IDV', mempath)
+    call mem_setptr(this%divflow, 'DIVFLOW', mempath)
+    call mem_setptr(this%upstream_frac, 'UPSTREAM_FRAC', mempath)
+    call mem_setptr(this%tab6_filename, 'TAB6_FILENAME', mempath)
+    if (naux > 0) then
+      call mem_setptr(this%auxname, 'AUXNAME', mempath)
+      call mem_setptr(this%auxval, 'AUXVAL', mempath)
+    end if
+  end subroutine sfr_input_init
+
+  !> @brief Nullify all SfrInputType pointers.
+  !<
+  subroutine sfr_input_destroy(this)
+    class(SfrInputType), intent(inout) :: this
+    nullify (this%rhk)
+    nullify (this%man)
+    nullify (this%ustrf)
+    nullify (this%nbound)
+    nullify (this%ifno)
+    nullify (this%status)
+    nullify (this%bedk)
+    nullify (this%manning)
+    nullify (this%setting)
+    nullify (this%idv)
+    nullify (this%divflow)
+    nullify (this%upstream_frac)
+    nullify (this%tab6_filename)
+    nullify (this%auxname)
+    nullify (this%auxval)
+  end subroutine sfr_input_destroy
 
 end module SfrModule

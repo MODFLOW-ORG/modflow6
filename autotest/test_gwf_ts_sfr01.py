@@ -7,17 +7,325 @@ from flopy.utils.compare import eval_bud_diff
 from framework import TestFramework
 
 paktest = "sfr"
-cases = ["ts_sfr01"]
+cases = ["ts_sfr01", "sfr_pkgdata_ts", "sfr_period_wins", "sfr_pd_ts_wins"]
+
+# ---------------------------------------------------------------------------
+# Shared data for SFR auxvar TS cases (cases 1-3)
+# ---------------------------------------------------------------------------
+_sfr_nper = 3
+_sfr_period_data_aux = [(1.0, 1, 1.0)] * _sfr_nper
+_sfr_ts_times = [0.0, 1.0, 2.0, 3.0]
+
+# PKGDATA baseline aux values — change each period so any failure to update is visible
+_sfr_pkgd_temp = [32.5, 40.0, 50.0]
+_sfr_pkgd_conc = [0.1, 0.2, 0.3]
+
+# PERIOD override values — distinct from pkgdata so a priority failure is visible
+_sfr_per_temp = [20.0, 25.0, 15.0]
+_sfr_per_conc = [0.5, 0.6, 0.7]
+
+# TS arrays with a leading duplicate (LINEAREND gives the right value at period-end)
+_sfr_ts_pkgd_temp = [_sfr_pkgd_temp[0]] + _sfr_pkgd_temp
+_sfr_ts_pkgd_conc = [_sfr_pkgd_conc[0]] + _sfr_pkgd_conc
+_sfr_ts_per_temp = [_sfr_per_temp[0]] + _sfr_per_temp
+_sfr_ts_per_conc = [_sfr_per_conc[0]] + _sfr_per_conc
+
+
+def _sfr_base_sim(ws, name):
+    """Minimal 1-layer 1-row 5-col GWF sim for SFR auxvar TS tests."""
+    sim = flopy.mf6.MFSimulation(sim_name=name, exe_name="mf6", sim_ws=ws)
+    flopy.mf6.ModflowTdis(sim, nper=_sfr_nper, perioddata=_sfr_period_data_aux)
+    flopy.mf6.ModflowIms(sim, print_option="NONE")
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=name, save_flows=True)
+    flopy.mf6.ModflowGwfdis(
+        gwf,
+        nlay=1,
+        nrow=1,
+        ncol=5,
+        delr=100.0,
+        delc=100.0,
+        top=10.0,
+        botm=[0.0],
+    )
+    flopy.mf6.ModflowGwfnpf(gwf, k=1.0)
+    flopy.mf6.ModflowGwfic(gwf, strt=5.0)
+    flopy.mf6.ModflowGwfchd(
+        gwf,
+        stress_period_data=[[(0, 0, 0), 5.0], [(0, 0, 4), 4.0]],
+    )
+    flopy.mf6.ModflowGwfoc(
+        gwf,
+        budget_filerecord=f"{name}.cbc",
+        saverecord=[("BUDGET", "ALL")],
+    )
+    return sim, gwf
+
+
+def _sfr3_build(gwf, name, packagedata, perioddata, timeseries=None):
+    """Attach a 3-reach SFR with aux=[temp,conc] to gwf."""
+    connectiondata = [[0, -1], [1, 0, -2], [2, 1]]
+    sfr = flopy.mf6.ModflowGwfsfr(
+        gwf,
+        auxiliary=["temp", "conc"],
+        budget_filerecord=f"{name}.{paktest}.cbc",
+        nreaches=3,
+        packagedata=packagedata,
+        connectiondata=connectiondata,
+        perioddata=perioddata,
+        pname="sfr-1",
+    )
+    if timeseries is not None:
+        ts_names, ts_methods, ts_data = timeseries
+        sfr.ts.initialize(
+            filename=f"{name}.sfr.ts",
+            timeseries=ts_data,
+            time_series_namerecord=ts_names,
+            interpolation_methodrecord=ts_methods,
+        )
+    return sfr
+
+
+def _sfr3_pkgdata(temp, conc):
+    """3-reach packagedata with literal temp/conc aux values."""
+    rows = []
+    for i in range(3):
+        ncon = 1 if i in (0, 2) else 2
+        rows.append(
+            [
+                i,
+                (0, 0, i + 1),
+                100.0,
+                5.0,
+                1e-3,
+                4.0,
+                1.0,
+                1e-5,
+                0.04,
+                ncon,
+                1.0,
+                0,
+                temp,
+                conc,
+            ]
+        )
+    return rows
+
+
+def _sfr3_pkgdata_ts(temp_ts, conc_ts):
+    """3-reach packagedata with TS name strings for temp/conc aux values."""
+    rows = []
+    for i in range(3):
+        ncon = 1 if i in (0, 2) else 2
+        rows.append(
+            [
+                i,
+                (0, 0, i + 1),
+                100.0,
+                5.0,
+                1e-3,
+                4.0,
+                1.0,
+                1e-5,
+                0.04,
+                ncon,
+                1.0,
+                0,
+                temp_ts,
+                conc_ts,
+            ]
+        )
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Case 1 — PKGDATA AUX TS only
+#
+# Reference: PERIOD AUXILIARY literal values change each period.
+# TS model:  PKGDATA AUX TS drives aux; no PERIOD AUXILIARY override.
+# Both produce identical GWF+SFR budgets (auxvars do not affect GWF flow).
+# ---------------------------------------------------------------------------
+
+
+def _get_sfr_pkgdata_ts_ref(ws, name):
+    """Reference: PERIOD AUXILIARY literals change each period."""
+    sim, gwf = _sfr_base_sim(ws, name)
+    pkgdata = _sfr3_pkgdata(_sfr_pkgd_temp[0], _sfr_pkgd_conc[0])
+    perioddata = {
+        0: [
+            [0, "inflow", 0.1],
+            [0, "AUXILIARY", "temp", _sfr_pkgd_temp[0]],
+            [0, "AUXILIARY", "conc", _sfr_pkgd_conc[0]],
+        ],
+        1: [
+            [0, "AUXILIARY", "temp", _sfr_pkgd_temp[1]],
+            [0, "AUXILIARY", "conc", _sfr_pkgd_conc[1]],
+        ],
+        2: [
+            [0, "AUXILIARY", "temp", _sfr_pkgd_temp[2]],
+            [0, "AUXILIARY", "conc", _sfr_pkgd_conc[2]],
+        ],
+    }
+    _sfr3_build(gwf, name, pkgdata, perioddata)
+    return sim
+
+
+def _get_sfr_pkgdata_ts(ws, name):
+    """TS: PKGDATA AUX TS drives aux; no PERIOD AUXILIARY."""
+    sim, gwf = _sfr_base_sim(ws, name)
+    pkgdata = _sfr3_pkgdata_ts("pkgd_temp", "pkgd_conc")
+    perioddata = {0: [[0, "inflow", 0.1]]}
+    ts_data = list(zip(_sfr_ts_times, _sfr_ts_pkgd_temp, _sfr_ts_pkgd_conc))
+    _sfr3_build(
+        gwf,
+        name,
+        pkgdata,
+        perioddata,
+        timeseries=(["pkgd_temp", "pkgd_conc"], ["linearend", "linearend"], ts_data),
+    )
+    return sim
+
+
+# ---------------------------------------------------------------------------
+# Case 2 — PERIOD override wins over PKGDATA AUX TS
+#
+# Reference: PERIOD AUXILIARY literal values (_sfr_per_*); no PKGDATA TS.
+# TS model:  PKGDATA AUX TS (_sfr_pkgd_*) + PERIOD AUXILIARY (_sfr_per_*).
+# PERIOD must win → same auxvars → identical budgets.
+# ---------------------------------------------------------------------------
+
+
+def _get_sfr_period_wins_ref(ws, name):
+    """Reference: PERIOD AUXILIARY literal (per) values; PKGDATA literal."""
+    sim, gwf = _sfr_base_sim(ws, name)
+    pkgdata = _sfr3_pkgdata(_sfr_per_temp[0], _sfr_per_conc[0])
+    perioddata = {
+        0: [
+            [0, "inflow", 0.1],
+            [0, "AUXILIARY", "temp", _sfr_per_temp[0]],
+            [0, "AUXILIARY", "conc", _sfr_per_conc[0]],
+        ],
+        1: [
+            [0, "AUXILIARY", "temp", _sfr_per_temp[1]],
+            [0, "AUXILIARY", "conc", _sfr_per_conc[1]],
+        ],
+        2: [
+            [0, "AUXILIARY", "temp", _sfr_per_temp[2]],
+            [0, "AUXILIARY", "conc", _sfr_per_conc[2]],
+        ],
+    }
+    _sfr3_build(gwf, name, pkgdata, perioddata)
+    return sim
+
+
+def _get_sfr_period_wins_ts(ws, name):
+    """TS: PKGDATA AUX TS (pkgd values) + PERIOD AUXILIARY override (per values).
+
+    PERIOD must win: auxvar should equal _sfr_per_* each period.
+    """
+    sim, gwf = _sfr_base_sim(ws, name)
+    pkgdata = _sfr3_pkgdata_ts("pkgd_temp", "pkgd_conc")
+    perioddata = {
+        0: [
+            [0, "inflow", 0.1],
+            [0, "AUXILIARY", "temp", _sfr_per_temp[0]],
+            [0, "AUXILIARY", "conc", _sfr_per_conc[0]],
+        ],
+        1: [
+            [0, "AUXILIARY", "temp", _sfr_per_temp[1]],
+            [0, "AUXILIARY", "conc", _sfr_per_conc[1]],
+        ],
+        2: [
+            [0, "AUXILIARY", "temp", _sfr_per_temp[2]],
+            [0, "AUXILIARY", "conc", _sfr_per_conc[2]],
+        ],
+    }
+    ts_data = list(zip(_sfr_ts_times, _sfr_ts_pkgd_temp, _sfr_ts_pkgd_conc))
+    _sfr3_build(
+        gwf,
+        name,
+        pkgdata,
+        perioddata,
+        timeseries=(["pkgd_temp", "pkgd_conc"], ["linearend", "linearend"], ts_data),
+    )
+    return sim
+
+
+# ---------------------------------------------------------------------------
+# Case 3 — PERIOD AUX TS wins over PKGDATA AUX TS
+#
+# Reference: PKGDATA literal + PERIOD AUXILIARY TS (per_ts values).
+# TS model:  PKGDATA AUX TS (pkgd values) + PERIOD AUXILIARY TS (per_ts values).
+# PERIOD TS must win → same auxvars → identical budgets.
+# ---------------------------------------------------------------------------
+
+
+def _get_sfr_pd_ts_wins_ref(ws, name):
+    """Reference: PKGDATA literal + PERIOD AUXILIARY TS (per values)."""
+    sim, gwf = _sfr_base_sim(ws, name)
+    pkgdata = _sfr3_pkgdata(_sfr_per_temp[0], _sfr_per_conc[0])
+    perioddata = {
+        0: [
+            [0, "inflow", 0.1],
+            [0, "AUXILIARY", "temp", "per_temp"],
+            [0, "AUXILIARY", "conc", "per_conc"],
+        ],
+    }
+    ts_data = list(zip(_sfr_ts_times, _sfr_ts_per_temp, _sfr_ts_per_conc))
+    _sfr3_build(
+        gwf,
+        name,
+        pkgdata,
+        perioddata,
+        timeseries=(["per_temp", "per_conc"], ["linearend", "linearend"], ts_data),
+    )
+    return sim
+
+
+def _get_sfr_pd_ts_wins_ts(ws, name):
+    """TS: PKGDATA AUX TS (pkgd values) + PERIOD AUXILIARY TS (per values).
+
+    PERIOD TS must win: auxvar should equal _sfr_per_* values.
+    Both series are written to a single SFR TS file.
+    """
+    sim, gwf = _sfr_base_sim(ws, name)
+    pkgdata = _sfr3_pkgdata_ts("pkgd_temp", "pkgd_conc")
+    perioddata = {
+        0: [
+            [0, "inflow", 0.1],
+            [0, "AUXILIARY", "temp", "per_temp"],
+            [0, "AUXILIARY", "conc", "per_conc"],
+        ],
+    }
+    ts_data = [
+        (t, pt, pc, tt, tc)
+        for t, pt, pc, tt, tc in zip(
+            _sfr_ts_times,
+            _sfr_ts_pkgd_temp,
+            _sfr_ts_pkgd_conc,
+            _sfr_ts_per_temp,
+            _sfr_ts_per_conc,
+        )
+    ]
+    _sfr3_build(
+        gwf,
+        name,
+        pkgdata,
+        perioddata,
+        timeseries=(
+            ["pkgd_temp", "pkgd_conc", "per_temp", "per_conc"],
+            ["linearend"] * 4,
+            ts_data,
+        ),
+    )
+    return sim
 
 
 def get_model(ws, name, timeseries=False):
     # static model data
     # temporal discretization
-    nper = 1
-    tdis_rc = []
-    for _ in range(nper):
-        tdis_rc.append((1.0, 1, 1.0))
-    ts_times = np.arange(0.0, 2.0, 1.0, dtype=float)
+    nper = 3
+    tdis_rc = [(1.0, 1, 1.0), (1.0, 10, 1.0), (1.0, 10, 1.0)]
+    ts_times = np.arange(0.0, float(nper) + 1.0, 1.0, dtype=float)
 
     auxnames = ["temp", "conc"]
     temp, conc = 32.5, 0.1
@@ -511,80 +819,92 @@ def get_model(ws, name, timeseries=False):
 
 def build_models(idx, test):
     name = cases[idx]
+    ws0 = test.workspace
+    ws1 = os.path.join(test.workspace, "mf6")
 
-    # build MODFLOW 6 files
-    ws = test.workspace
-    sim = get_model(ws, name)
+    if idx == 0:
+        return get_model(ws0, name), get_model(ws1, name, timeseries=True)
+    elif idx == 1:
+        return _get_sfr_pkgdata_ts_ref(ws0, name), _get_sfr_pkgdata_ts(ws1, name)
+    elif idx == 2:
+        return _get_sfr_period_wins_ref(ws0, name), _get_sfr_period_wins_ts(ws1, name)
+    else:
+        return _get_sfr_pd_ts_wins_ref(ws0, name), _get_sfr_pd_ts_wins_ts(ws1, name)
 
-    # build MODFLOW 6 files with timeseries
-    ws = os.path.join(test.workspace, "mf6")
-    mc = get_model(ws, name, timeseries=True)
 
-    return sim, mc
+def _check_sfr_aux(cobj, expected_temp, expected_conc):
+    """Assert SFR's AUXILIARY budget term's per-reach temp/conc equal
+    expected_temp/expected_conc (shape (nper, nreaches)) each period."""
+    aux = cobj.get_data(text="AUXILIARY")
+    for iper in range(_sfr_nper):
+        temp = aux[iper]["TEMP"]
+        conc = aux[iper]["CONC"]
+        assert np.allclose(temp, expected_temp[iper]), (
+            f"period {iper}: SFR AUX temp {temp} != expected {expected_temp[iper]}"
+        )
+        assert np.allclose(conc, expected_conc[iper]), (
+            f"period {iper}: SFR AUX conc {conc} != expected {expected_conc[iper]}"
+        )
 
 
 def check_result(idx, test):
-    # get ia/ja from binary grid file
-    fname = f"{os.path.basename(test.name)}.dis.grb"
-    fpth = os.path.join(test.workspace, fname)
-    grbobj = flopy.mf6.utils.MfGrdFile(fpth)
-    ia = grbobj._datadict["IA"] - 1
+    name = os.path.basename(test.name)
+    ws0 = test.workspace
+    ws1 = os.path.join(test.workspace, "mf6")
 
-    fname = f"{os.path.basename(test.name)}.cbc"
+    # GWF budget comparison (all cases)
+    ia = (
+        flopy.mf6.utils.MfGrdFile(os.path.join(ws0, f"{name}.dis.grb"))._datadict["IA"]
+        - 1
+    )
+    cobj0 = flopy.utils.CellBudgetFile(
+        os.path.join(ws0, f"{name}.cbc"), precision="double"
+    )
+    cobj1 = flopy.utils.CellBudgetFile(
+        os.path.join(ws1, f"{name}.cbc"), precision="double"
+    )
+    eval_bud_diff(os.path.join(ws0, f"{name}.cbc.cmp.out"), cobj0, cobj1, ia)
 
-    # open first gwf cbc file
-    fpth = os.path.join(test.workspace, fname)
-    cobj0 = flopy.utils.CellBudgetFile(fpth, precision="double")
+    # SFR package budget comparison (all cases)
+    sfr_cbc = f"{name}.{paktest}.cbc"
+    cobj0 = flopy.utils.CellBudgetFile(os.path.join(ws0, sfr_cbc), precision="double")
+    cobj1 = flopy.utils.CellBudgetFile(os.path.join(ws1, sfr_cbc), precision="double")
+    eval_bud_diff(os.path.join(ws0, f"{name}.{paktest}.cbc.cmp.out"), cobj0, cobj1)
 
-    # open second gwf cbc file
-    fpth = os.path.join(test.workspace, "mf6", fname)
-    cobj1 = flopy.utils.CellBudgetFile(fpth, precision="double")
+    if idx == 0:
+        # Spot checks specific to the ts_sfr01 geometry
+        v0 = cobj0.get_data(totim=1.0, text="FLOW-JA-FACE")[0]
+        q = [v0["q"][i] for i, node in enumerate(v0["node"]) if node > 5]
+        v0 = np.array(q)
+        check = np.ones(v0.shape, dtype=float) * 5e-2
+        check[-2] = 4e-2
+        assert np.allclose(v0, check), "FLOW-JA-FACE failed"
 
-    # define file path and evaluate difference
-    fname = f"{os.path.basename(test.name)}.cbc.cmp.out"
-    fpth = os.path.join(test.workspace, fname)
-    eval_bud_diff(fpth, cobj0, cobj1, ia)
+        v0 = cobj0.get_data(totim=1.0, text="EXT-OUTFLOW")[0]
+        v0 = v0["q"][4:]
+        check = np.array([-0.80871, -5e-2, -2.5e-2, -5e-2, -2.0e-2, -5e-2])
+        assert np.allclose(v0, check), "EXT-OUTFLOW failed"
 
-    # evaluate the sfr package budget file
-    fname = f"{os.path.basename(test.name)}.{paktest}.cbc"
-    # open first sfr cbc file
-    fpth = os.path.join(test.workspace, fname)
-    cobj0 = flopy.utils.CellBudgetFile(fpth, precision="double")
+        v0 = cobj0.get_data(totim=1.0, text="FROM-MVR")[0]
+        v0 = v0["q"][4:]
+        check = np.array([4.5e-2, 0.0, 0.0, 0.0, 0.0, 0.0])
+        assert np.allclose(v0, check), "FROM-MVR failed"
 
-    # open second sfr cbc file
-    fpth = os.path.join(test.workspace, "mf6", fname)
-    cobj1 = flopy.utils.CellBudgetFile(fpth, precision="double")
-
-    # define file path and evaluate difference
-    fname = f"{os.path.basename(test.name)}.{paktest}.cbc.cmp.out"
-    fpth = os.path.join(test.workspace, fname)
-    eval_bud_diff(fpth, cobj0, cobj1)
-
-    # do some spot checks on the first sfr cbc file
-    v0 = cobj0.get_data(totim=1.0, text="FLOW-JA-FACE")[0]
-    q = []
-    for i, node in enumerate(v0["node"]):
-        if node > 5:
-            q.append(v0["q"][i])
-    v0 = np.array(q)
-    check = np.ones(v0.shape, dtype=float) * 5e-2
-    check[-2] = 4e-2
-    assert np.allclose(v0, check), "FLOW-JA-FACE failed"
-
-    v0 = cobj0.get_data(totim=1.0, text="EXT-OUTFLOW")[0]
-    v0 = v0["q"][4:]
-    check = np.array([-0.80871, -5e-2, -2.5e-2, -5e-2, -2.0e-2, -5e-2])
-    assert np.allclose(v0, check), "EXT-OUTFLOW failed"
-
-    v0 = cobj0.get_data(totim=1.0, text="FROM-MVR")[0]
-    v0 = v0["q"][4:]
-    check = np.array([4.5e-2, 0.0, 0.0, 0.0, 0.0, 0.0])
-    assert np.allclose(v0, check), "FROM-MVR failed"
-
-    v0 = cobj0.get_data(totim=1.0, text="TO-MVR")[0]
-    v0 = v0["q"][4:]
-    check = np.array([0.0, 0.0, -2.5e-2, 0.0, -2.0e-2, 0.0])
-    assert np.allclose(v0, check), "FROM-MVR failed"
+        v0 = cobj0.get_data(totim=1.0, text="TO-MVR")[0]
+        v0 = v0["q"][4:]
+        check = np.array([0.0, 0.0, -2.5e-2, 0.0, -2.0e-2, 0.0])
+        assert np.allclose(v0, check), "TO-MVR failed"
+    elif idx == 1:
+        # PKGDATA AUX TS drives all reaches; no PERIOD override
+        expected_temp = [[t] * 3 for t in _sfr_pkgd_temp]
+        expected_conc = [[c] * 3 for c in _sfr_pkgd_conc]
+        _check_sfr_aux(cobj1, expected_temp, expected_conc)
+    else:
+        # idx 2/3: PERIOD AUXILIARY (literal or TS) overrides reach 0 only;
+        # reaches 1/2 stay driven by the PKGDATA AUX TS
+        expected_temp = [[t, p, p] for t, p in zip(_sfr_per_temp, _sfr_pkgd_temp)]
+        expected_conc = [[c, p, p] for c, p in zip(_sfr_per_conc, _sfr_pkgd_conc)]
+        _check_sfr_aux(cobj1, expected_temp, expected_conc)
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

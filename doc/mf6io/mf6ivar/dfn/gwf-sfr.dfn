@@ -43,6 +43,7 @@ reader urword
 optional true
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'stream reach'}
+mf6internal iprpak
 
 block options
 name print_stage
@@ -59,6 +60,7 @@ reader urword
 optional true
 longname print calculated flows to listing file
 description REPLACE print_flows {'{#1}': 'stream reach'}
+mf6internal iprflow
 
 block options
 name save_flows
@@ -67,6 +69,7 @@ reader urword
 optional true
 longname save stream reach flows to budget file
 description REPLACE save_flows {'{#1}': 'stream reach'}
+mf6internal ipakcb
 
 block options
 name stage_filerecord
@@ -80,6 +83,7 @@ description
 
 block options
 name stage
+mf6internal options_stage
 type keyword
 shape
 in_record true
@@ -103,6 +107,7 @@ description name of the binary output file to write stage information.
 
 block options
 name budget_filerecord
+mf6internal budfilerec
 type record budget fileout budgetfile
 shape
 reader urword
@@ -147,6 +152,7 @@ description name of the binary output file to write budget information.
 
 block options
 name budgetcsv_filerecord
+mf6internal budcsvfilerec
 type record budgetcsv fileout budgetcsvfile
 shape
 reader urword
@@ -180,6 +186,7 @@ description name of the comma-separated value (CSV) output file to write budget 
 
 block options
 name package_convergence_filerecord
+mf6internal pkgconvfilerec
 type record package_convergence fileout package_convergence_filename
 shape
 reader urword
@@ -190,6 +197,7 @@ description
 
 block options
 name package_convergence
+mf6internal pkgconv
 type keyword
 shape
 in_record true
@@ -201,6 +209,7 @@ description keyword to specify that record corresponds to the package convergenc
 
 block options
 name package_convergence_filename
+mf6internal pkgconvfname
 type string
 shape
 in_record true
@@ -233,6 +242,7 @@ description keyword to specify that record corresponds to a time-series file.
 
 block options
 name filein
+mf6internal options_filein
 type keyword
 shape
 in_record true
@@ -296,6 +306,7 @@ description REPLACE mover {'{#1}': 'SFR'}
 
 block options
 name maximum_picard_iterations
+mf6internal maxsfrpicard
 type integer
 reader urword
 optional true
@@ -304,6 +315,7 @@ description integer value that defines the maximum number of Streamflow Routing 
 
 block options
 name maximum_iterations
+mf6internal maxsfrit
 type integer
 reader urword
 optional true
@@ -312,6 +324,7 @@ description integer value that defines the maximum number of Streamflow Routing 
 
 block options
 name maximum_depth_change
+mf6internal dmaxchg
 type double precision
 reader urword
 optional true
@@ -329,6 +342,7 @@ description real value that is used to convert user-specified Manning's roughnes
 
 block options
 name length_conversion
+mf6internal lengthconv
 type double precision
 reader urword
 optional true
@@ -345,6 +359,7 @@ description real value that is used to convert user-specified Manning's roughnes
 
 block options
 name dev_storage_weight
+mf6internal storage_weight
 type double precision
 reader urword
 optional true
@@ -354,11 +369,21 @@ description real number value that defines the time weighting factor used to cal
 
 block options
 name dev_no_check
+mf6internal icheck
 type keyword
 reader urword
 optional true
 longname do not check reach geometry and parameters
 description keyword that deactivates the checks of reach geometry relative to the model grid and of reach parameters for reasonable values.  This development option is not supported.
+
+block options
+name dev_no_final_check
+mf6internal iconvchk
+type keyword
+reader urword
+optional true
+longname do not perform final convergence check
+description keyword that deactivates the final convergence check of the change in stream flow routing stages and flows.  This development option is not supported.
 
 # --------------------- gwf sfr dimensions ---------------------
 
@@ -376,13 +401,14 @@ description integer value specifying the number of stream reaches.  There must b
 block packagedata
 name packagedata
 type recarray ifno cellid rlen rwid rgrd rtp rbth rhk man ncon ustrf ndv aux boundname
-shape (maxbound)
+shape (nreaches)
 reader urword
 longname
 description
 
 block packagedata
 name ifno
+mf6internal packagedata_ifno
 type integer
 shape
 tagged false
@@ -465,7 +491,7 @@ description real or character value that defines the hydraulic conductivity of t
 
 block packagedata
 name man
-type string
+type double precision
 shape
 tagged false
 in_record true
@@ -535,13 +561,14 @@ name crosssections
 type recarray ifno tab6 filein tab6_filename
 shape
 valid
-optional false
+optional true
 reader urword
 longname
 description
 
 block crosssections
 name ifno
+mf6internal crosssect_ifno
 type integer
 shape
 tagged false
@@ -553,6 +580,7 @@ numeric_index true
 
 block crosssections
 name tab6
+mf6internal xs_tab6
 type keyword
 shape
 in_record true
@@ -564,6 +592,7 @@ description keyword to specify that record corresponds to a cross-section table 
 
 block crosssections
 name filein
+mf6internal xs_filein
 type keyword
 shape
 in_record true
@@ -575,6 +604,7 @@ description keyword to specify that an input filename is expected next.
 
 block crosssections
 name tab6_filename
+mf6internal xs_tab6_filename
 type string
 preserve_case true
 in_record true
@@ -589,13 +619,14 @@ description character string that defines the path and filename for the file con
 block connectiondata
 name connectiondata
 type recarray ifno ic
-shape (maxbound)
+shape (nreaches)
 reader urword
 longname
 description
 
 block connectiondata
 name ifno
+mf6internal conndata_ifno
 type integer
 shape
 tagged false
@@ -608,7 +639,7 @@ numeric_index true
 block connectiondata
 name ic
 type integer
-shape (ncon(ifno))
+shape (:)
 tagged false
 in_record true
 reader urword
@@ -625,13 +656,15 @@ support_negative_index true
 block diversions
 name diversions
 type recarray ifno idv iconr cprior
-shape (maxbound)
+shape
+optional true
 reader urword
 longname
 description
 
 block diversions
 name ifno
+mf6internal diversions_ifno
 type integer
 shape
 tagged false
@@ -643,6 +676,7 @@ numeric_index true
 
 block diversions
 name idv
+mf6internal diversions_idv
 type integer
 shape
 tagged false
@@ -678,15 +712,16 @@ description character string value that defines the the prioritization system fo
 block initialstages
 name initialstages
 type recarray ifno initialstage
-shape (maxbound)
+shape (nreaches)
 valid
-optional false
+optional true
 reader urword
 longname
 description
 
 block initialstages
 name ifno
+mf6internal initstage_ifno
 type integer
 shape
 tagged false
@@ -765,7 +800,7 @@ description keyword option to define stream reach status.  STATUS can be ACTIVE,
 
 block period
 name bedk
-type string
+type double precision
 shape
 tagged true
 in_record true
@@ -776,7 +811,7 @@ description real or character value that defines the hydraulic conductivity of t
 
 block period
 name manning
-type string
+type double precision
 shape
 tagged true
 in_record true
@@ -789,10 +824,12 @@ block period
 name stage
 type string
 shape
+mf6dimension (nreaches)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal stage_in
 longname reach stage
 description real or character value that defines the stage for the reach. The specified STAGE is only applied if the reach uses the simple routing option. If STAGE is not specified for reaches that use the simple routing option, the specified stage is set to the top of the reach. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
 
@@ -800,10 +837,12 @@ block period
 name inflow
 type string
 shape
+mf6dimension (nreaches)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal inflow_in
 longname inflow rate
 description real or character value that defines the volumetric inflow rate for the streamflow routing reach. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value. By default, inflow rates are zero for each reach.
 
@@ -811,10 +850,12 @@ block period
 name rainfall
 type string
 shape
+mf6dimension (nreaches)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal rainfall_in
 longname rainfall rate
 description real or character value that defines the  volumetric rate per unit area of water added by precipitation directly on the streamflow routing reach. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value. By default, rainfall  rates are zero for each reach.
 
@@ -822,10 +863,12 @@ block period
 name evaporation
 type string
 shape
+mf6dimension (nreaches)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal evaporation_in
 longname evaporation rate
 description real or character value that defines the volumetric rate per unit area of water subtracted by evaporation from the streamflow routing reach. A positive evaporation rate should be provided. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value. If the volumetric evaporation rate for a reach exceeds the sources of water to the reach (upstream and specified inflows, rainfall, and runoff but excluding groundwater leakage into the reach) the volumetric evaporation rate is limited to the sources of water to the reach. By default, evaporation rates are zero for each reach.
 
@@ -833,10 +876,12 @@ block period
 name runoff
 type string
 shape
+mf6dimension (nreaches)
 tagged true
 in_record true
 reader urword
 time_series true
+mf6internal runoff_in
 longname runoff rate
 description real or character value that defines the volumetric rate of diffuse overland runoff that enters the streamflow routing reach. If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value. If the volumetric runoff rate for a reach is negative and exceeds inflows to the reach (upstream and specified inflows, and rainfall but excluding groundwater leakage into the reach) the volumetric runoff rate is limited to inflows to the reach and the volumetric evaporation rate for the reach is set to zero. By default, runoff rates are zero for each reach.
 
@@ -883,16 +928,19 @@ description real or character value that defines the volumetric diversion (DIVFL
 
 block period
 name upstream_fraction
+mf6internal upstream_frac
 type double precision
 shape
 tagged true
 in_record true
 reader urword
+time_series true
 longname fraction of upstream flow
 description real value that defines the fraction of upstream flow (USTRF) from each upstream reach that is applied as upstream inflow to the reach. The sum of all USTRF values for all reaches connected to the same upstream reach must be equal to one.
 
 block period
 name cross_sectionrecord
+mf6internal xsectionrecord
 type record cross_section tab6 filein tab6_filename
 shape
 tagged
@@ -957,6 +1005,7 @@ description
 
 block period
 name auxiliary
+mf6internal period_auxiliary
 type keyword
 shape
 in_record true
@@ -976,11 +1025,10 @@ description name for the auxiliary variable to be assigned AUXVAL.  AUXNAME must
 
 block period
 name auxval
-type double precision
+type string
 shape
 tagged false
 in_record true
 reader urword
-time_series true
 longname auxiliary variable value
 description value for the auxiliary variable.  If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.

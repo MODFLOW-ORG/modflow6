@@ -89,7 +89,7 @@ class Param:
     @property
     def varname(self) -> str:
         """Full Fortran variable name for this parameter definition."""
-        if self.block_qualified:
+        if self.block_qualified and self.block.upper() != "PERIOD":
             return (
                 f"{self.component.lower()}"
                 f"{self.subcomponent.lower()}"
@@ -105,7 +105,7 @@ class Param:
     @property
     def found_name(self) -> str:
         """Field name used in the ParamFoundType derived type."""
-        if self.block_qualified:
+        if self.block_qualified and self.block.upper() != "PERIOD":
             return f"{self.block.lower()}_{self.fortran_var.lower()}"
         return self.fortran_var.lower()
 
@@ -167,6 +167,22 @@ def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
     with dfnfspec.open(encoding="utf-8") as f:
         flat, _ = Dfn._load_v1_flat(f, common=common)
 
+    # Pre-pass: build lookups for compound shape rowmap generation
+    # block_ifno_mf6vn: {blockname_upper: mf6varname_of_ifno}
+    # varname_block: {varname_upper: blockname_upper} (first block defining it)
+    block_ifno_mf6vn = {}
+    varname_block = {}
+    for _vd in flat.values(multi=True):
+        _bn = _vd.get("block", "").upper()
+        _vn = _vd.get("name", "").upper()
+        if not _bn:
+            continue
+        if _vn == "IFNO":
+            _mf6 = _vd.get("mf6internal", "ifno").upper()
+            block_ifno_mf6vn[_bn] = _mf6
+        if _vn not in varname_block:
+            varname_block[_vn] = _bn
+
     # Track blocks in DFN order
     block_names_ordered = []
     block_data = {}  # blockname -> tracking dict
@@ -206,6 +222,14 @@ def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
 
         # Shape processing
         shape = vd.get("shape", "")
+        mf6dimension = vd.get("mf6dimension", "")
+        if shape and mf6dimension:
+            raise ValueError(
+                f"{component}-{subcomponent} {vn}: 'shape' and "
+                "'mf6dimension' are mutually exclusive"
+            )
+        if mf6dimension:
+            shape = mf6dimension
         if component.upper() == "EXG" and vn in ("CELLIDM1", "CELLIDM2"):
             shape = "(ncelldim)"
         shape = shape.replace("(", "").replace(")", "").replace(",", "").upper()

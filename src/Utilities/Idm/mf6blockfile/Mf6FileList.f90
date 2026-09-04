@@ -95,8 +95,10 @@ contains
     ! initialize package input context
     call this%ctx%init(mf6_input)
 
-    ! store in scope SA cols for list input
-    call this%ctx%tags(this%param_names, this%nparam, this%input_name)
+    ! set in-scope param names directly from context
+    this%param_names = this%ctx%params
+    this%nparam = size(this%ctx%params)
+    call this%ctx%check_developmode(this%input_name)
 
     ! construct and set up the struct array object
     call this%create_structarray()
