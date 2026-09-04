@@ -47,9 +47,14 @@ authors:
   alias: emorway-usgs
   affiliation: U.S. Geological Survey
   orcid: https://orcid.org/0000-0002-8553-6140
+- family-names: Titus
+  given-names: Sunny
+  alias: manangka
+  affiliation: Deltares
+  orcid: https://orcid.org/0009-0005-6666-3792
 - family-names: Niswonger
   given-names: Richard G.
-  affiliation: U.S. Geological Survey
+  affiliation: GSI Environmental
   orcid: https://orcid.org/0000-0001-6397-2403
 - family-names: Panday
   given-names: Sorab
