@@ -19,6 +19,7 @@ module TspAdvModule
   use CentralDifferenceSchemeModule, only: CentralDifferenceSchemeType
   use TVDSchemeModule, only: TVDSchemeType
   use UTVDSchemeModule, only: UTVDSchemeType
+  use UltimateSchemeModule, only: UltimateSchemeType
 
   implicit none
   private
@@ -29,6 +30,8 @@ module TspAdvModule
     integer(I4B), pointer :: iadvwt => null() !< advection scheme. See ADV_SCHEME_* constants
     real(DP), pointer :: ats_percel => null() !< user-specified fractional number of cells advection can move a particle during one time step
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
+    real(DP), dimension(:), pointer, contiguous :: porosity => null() !< pointer to mobile domain porosity
+    real(DP), dimension(:), pointer, contiguous :: retardation => null() !< pointer to retardation factor; ratio of total to mobile-water storage capacity
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
     real(DP), pointer :: eqnsclfac => null() !< governing equation scale factor; =1. for solute; =rhow*cpw for energy
 
@@ -38,6 +41,7 @@ module TspAdvModule
 
     procedure :: adv_df
     procedure :: adv_ar
+    procedure :: adv_ad
     procedure :: adv_dt
     procedure :: adv_fc
     procedure :: adv_cq
@@ -45,6 +49,7 @@ module TspAdvModule
 
     procedure :: allocate_scalars
     procedure, private :: source_options
+    procedure, private :: check_ultimate
 
   end type TspAdvType
 
@@ -113,19 +118,26 @@ contains
   !!
   !!  Method to allocate and read static data for the ADV package.
   !<
-  subroutine adv_ar(this, dis, ibound)
+  subroutine adv_ar(this, dis, ibound, porosity, retardation)
     ! -- modules
     use SimModule, only: store_error
     ! -- dummy
     class(TspAdvType) :: this
     class(DisBaseType), pointer, intent(in) :: dis
     integer(I4B), dimension(:), pointer, contiguous, intent(in) :: ibound
+    ! porosity and retardation are not available to interface models
+    real(DP), dimension(:), pointer, contiguous, intent(in), &
+      optional :: porosity !< mobile domain porosity
+    real(DP), dimension(:), pointer, contiguous, intent(in), &
+      optional :: retardation !< retardation factor
     ! -- local
     integer(I4B) :: iadvwt_value
     class(IGradientType), allocatable :: gradient
     ! -- adv pointers to arguments that were passed in
     this%dis => dis
     this%ibound => ibound
+    if (present(porosity)) this%porosity => porosity
+    if (present(retardation)) this%retardation => retardation
     !
     ! -- Create interpolation scheme
     iadvwt_value = this%iadvwt ! Dereference iadvwt to work with case statement
@@ -144,21 +156,116 @@ contains
       this%gradient = CachedGradientType(gradient, this%dis)
       this%face_interpolation = &
         UTVDSchemeType(this%dis, this%fmi, this%gradient)
+    case (ADV_SCHEME_ULTIMATE)
+      call this%check_ultimate()
+      this%face_interpolation = &
+        UltimateSchemeType(this%dis, this%fmi, this%ibound, this%porosity, &
+                           this%retardation)
     case default
       call store_error("Unknown advection scheme", terminate=.TRUE.)
     end select
   end subroutine adv_ar
 
+  !> @brief Check that the requirements of the ULTIMATE scheme are met
+  !!
+  !! The ULTIMATE scheme is explicit and is formulated for structured grids, so
+  !! it cannot be used in all of the situations the other advection schemes can.
+  !! Terminate with an error if any of its requirements are not satisfied.
+  !<
+  subroutine check_ultimate(this)
+    ! -- modules
+    use ConstantsModule, only: LENVARNAME
+    use TdisModule, only: inats, nper, ats
+    use SimModule, only: store_error, store_error_filename, count_errors
+    use SimVariablesModule, only: errmsg, simulation_mode
+    ! -- dummy
+    class(TspAdvType) :: this
+    ! -- local
+    character(len=LENVARNAME) :: dis_type
+    integer(I4B) :: kper
+    integer(I4B) :: nperbad
+
+    call this%dis%get_dis_type(dis_type)
+    if (dis_type /= 'DIS') then
+      call store_error('The ULTIMATE advection scheme requires a structured &
+                       &(DIS) discretization.')
+    end if
+
+    if (simulation_mode /= 'SEQUENTIAL') then
+      call store_error('The ULTIMATE advection scheme cannot be used in a &
+                       &parallel simulation.')
+    end if
+
+    if (.not. associated(this%porosity) .or. &
+        .not. associated(this%retardation)) then
+      call store_error('The ULTIMATE advection scheme requires porosity and &
+                       &retardation, which are not available to this model.')
+    end if
+
+    ! The scheme is stable only for a Courant number of one or less, so the
+    ! time step must be under the control of the ATS Package.
+    if (inats == 0) then
+      call store_error('The ULTIMATE advection scheme is explicit and requires &
+                       &the adaptive time stepping (ATS) Package to be active.')
+    else
+      ! The scheme has no stability limit in a period that is not under
+      ! adaptive control, because the constraint the ADV Package submits is
+      ! only applied in adaptive periods.
+      nperbad = 0
+      do kper = 1, nper
+        if (.not. ats%isAdaptivePeriod(kper)) nperbad = nperbad + 1
+      end do
+      if (nperbad > 0) then
+        write (errmsg, '(a,i0,a)') &
+          'The ULTIMATE advection scheme is explicit and requires every stress &
+          &period to be under adaptive time step control.  Found ', nperbad, &
+          ' stress period(s) not listed in the ATS Package.  The time step &
+          &constraint submitted by the ADV Package is not applied in those &
+          &periods, leaving the scheme with no stability limit.'
+        call store_error(errmsg)
+      end if
+    end if
+
+    if (this%ats_percel == DNODATA) then
+      call store_error('The ULTIMATE advection scheme is explicit and requires &
+                       &the ATS_PERCEL option to be specified in the ADV &
+                       &Package.')
+    else if (this%ats_percel > DONE) then
+      write (errmsg, '(a,g0,a)') &
+        'ATS_PERCEL must not be greater than 1.0 for the ULTIMATE advection &
+        &scheme.  Found ', this%ats_percel, '.'
+      call store_error(errmsg)
+    end if
+
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+  end subroutine check_ultimate
+
+  !> @brief Advance the ADV package
+  !!
+  !! Give the interpolation scheme the opportunity to calculate any values that
+  !! depend on the time step length or on the field at the start of the time
+  !! step.  Must be called after the flows for this time step are available and
+  !! after the time step length is final.
+  !<
+  subroutine adv_ad(this, cold)
+    ! -- dummy
+    class(TspAdvType) :: this !< this instance
+    real(DP), dimension(:), pointer, contiguous, intent(in) :: cold !< concentration/temperature at start of time step
+
+    call this%face_interpolation%prepare(cold)
+  end subroutine adv_ad
+
   !> @brief  Calculate maximum time step length
   !!
   !!  Return the largest time step that meets stability constraints
   !<
-  subroutine adv_dt(this, dtmax, msg, thetam)
+  subroutine adv_dt(this, dtmax, msg)
     ! dummy
     class(TspAdvType) :: this !< this instance
     real(DP), intent(out) :: dtmax !< maximum allowable dt subject to stability constraint
     character(len=*), intent(inout) :: msg !< package/cell dt constraint message
-    real(DP), dimension(:), intent(in) :: thetam !< porosity
     ! local
     integer(I4B) :: n
     integer(I4B) :: m
@@ -201,7 +308,15 @@ contains
       flowmax = max(flowsumneg, flowsumpos)
       if (flowmax < DPREC) cycle
       cell_volume = this%dis%get_cell_volume(n, this%dis%top(n))
-      dt = cell_volume * this%fmi%gwfsat(n) * thetam(n) / flowmax
+      dt = cell_volume * this%fmi%gwfsat(n) * this%porosity(n) / flowmax
+      !
+      ! -- The ULTIMATE scheme is explicit, so its time step is a stability
+      !    limit and must be based on the velocity at which the front actually
+      !    advances, which sorption or heat stored in the solid matrix slows by
+      !    the retardation factor.  For the other schemes ATS_PERCEL is an
+      !    accuracy control rather than a stability limit, and retardation is
+      !    left out of it so that their behavior is unchanged.
+      if (this%iadvwt == ADV_SCHEME_ULTIMATE) dt = dt * this%retardation(n)
       dt = dt * this%ats_percel
       if (dt < dtmax) then
         dtmax = dt
@@ -348,8 +463,9 @@ contains
     ! -- dummy
     class(TspAdvType) :: this
     ! -- locals
-    character(len=LENVARNAME), dimension(4) :: scheme = &
-      &[character(len=LENVARNAME) :: 'UPSTREAM', 'CENTRAL', 'TVD', 'UTVD']
+    character(len=LENVARNAME), dimension(5) :: scheme = &
+      &[character(len=LENVARNAME) :: 'UPSTREAM', 'CENTRAL', 'TVD', 'UTVD', &
+      &'ULTIMATE']
     logical(LGP) :: found_scheme, found_atspercel
     ! -- formats
     character(len=*), parameter :: fmtiadvwt = &
@@ -365,7 +481,8 @@ contains
       ! should currently be set to index of scheme names
       if (this%iadvwt == 0) then
         write (errmsg, '(a, a)') &
-          'Unknown scheme, must be "UPSTREAM", "CENTRAL", "TVD" or "UTVD"'
+          'Unknown scheme, must be "UPSTREAM", "CENTRAL", "TVD", "UTVD" or &
+          &"ULTIMATE"'
         call store_error(errmsg)
         call store_error_filename(this%input_fname)
       else

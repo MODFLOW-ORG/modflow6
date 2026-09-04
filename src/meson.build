@@ -290,6 +290,7 @@ modflow_sources = files(
     'Model' / 'TransportModel' / 'InterpolationScheme' / 'TVDScheme.f90',
     'Model' / 'TransportModel' / 'InterpolationScheme' / 'UpstreamScheme.f90',
     'Model' / 'TransportModel' / 'InterpolationScheme' / 'UTVDScheme.f90',
+    'Model' / 'TransportModel' / 'InterpolationScheme' / 'UltimateScheme.f90',
     'Model' / 'TransportModel' / 'Isotherm' / 'FreundlichIsotherm.f90',
     'Model' / 'TransportModel' / 'Isotherm' / 'IsothermEnum.f90',
     'Model' / 'TransportModel' / 'Isotherm' / 'IsothermFactory.f90',
