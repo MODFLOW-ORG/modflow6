@@ -221,7 +221,7 @@ pixi run make-release-notes
 
 Move/rename it to `doc/ReleaseNotes/previous/vx.y.z.tex` (where `x.y.z` is the version just released), then insert a new line `\input{./previous/vx.y.z.tex}` at the top of `doc/ReleaseNotes/appendixA.tex`.
 
-If this was not a hotfix, trim `doc/ReleaseNotes/develop.toml` as necessary to remove items just released.
+Then reset `doc/ReleaseNotes/develop.toml` for the next development cycle by removing every `[[items]]` entry. Keep the `[sections]` and `[subsections]` tables intact &mdash; clear only the `[[items]]`. For a minor release, remove all items. For a patch release, remove only the fix items that the release included; the rest carry forward to the next minor release.
 
 Create and merge (don't squash) a pull request from this branch into `develop`.
 
