@@ -51,6 +51,7 @@ module GwtMstModule
     ! -- storage
     real(DP), dimension(:), pointer, contiguous :: porosity => null() !< mobile porosity defined as volume mobile voids per volume of mobile domain
     real(DP), dimension(:), pointer, contiguous :: thetam => null() !< mobile porosity defined as volume mobile voids per volume of aquifer
+    real(DP), dimension(:), pointer, contiguous :: retardation => null() !< ratio of total (dissolved plus sorbed) storage capacity to dissolved storage capacity
     real(DP), dimension(:), pointer, contiguous :: volfracim => null() !< sum of all immobile domain volume fractions
     real(DP), dimension(:), pointer, contiguous :: ratesto => null() !< rate of mobile storage
     !
@@ -79,6 +80,7 @@ module GwtMstModule
   contains
 
     procedure :: mst_ar
+    procedure :: mst_calc_retardation
     procedure :: mst_fc
     procedure :: mst_fc_sto
     procedure :: mst_fc_dcy
@@ -951,6 +953,7 @@ contains
     if (this%inunit > 0) then
       call mem_deallocate(this%porosity)
       call mem_deallocate(this%thetam)
+      call mem_deallocate(this%retardation)
       call mem_deallocate(this%volfracim)
       call mem_deallocate(this%ratesto)
       call mem_deallocate(this%idcy)
@@ -1025,6 +1028,8 @@ contains
     ! -- sto
     call mem_allocate(this%porosity, nodes, 'POROSITY', this%memoryPath)
     call mem_allocate(this%thetam, nodes, 'THETAM', this%memoryPath)
+    call mem_allocate(this%retardation, nodes, 'RETARDATION', &
+                      this%memoryPath)
     call mem_allocate(this%volfracim, nodes, 'VOLFRACIM', this%memoryPath)
     call mem_allocate(this%ratesto, nodes, 'RATESTO', this%memoryPath)
     !
@@ -1094,7 +1099,40 @@ contains
       this%ratedcys(n) = DZERO
       this%decayslast(n) = DZERO
     end do
+    do n = 1, size(this%retardation)
+      this%retardation(n) = DONE
+    end do
   end subroutine allocate_arrays
+
+  !> @brief Calculate the retardation factor for each cell
+  !!
+  !! The retardation factor is the ratio of the total storage capacity of a
+  !! cell, dissolved plus sorbed, to the dissolved storage capacity alone.  It
+  !! is the factor by which sorption slows the advance of a solute front, and it
+  !! is one wherever sorption is not active.  For the nonlinear isotherms it
+  !! depends on concentration, so it is evaluated using the concentration passed
+  !! in and must be recalculated when that concentration changes.
+  !<
+  subroutine mst_calc_retardation(this, cnew)
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    real(DP), intent(in), dimension(:) :: cnew !< concentration at which to evaluate the isotherm
+    ! -- local
+    integer(I4B) :: n
+    real(DP) :: thetamn
+    !
+    ! -- Without sorption the retardation factor stays at its initial value
+    if (this%isrb == SORPTION_OFF) return
+    !
+    do n = 1, this%dis%nodes
+      this%retardation(n) = DONE
+      if (this%ibound(n) <= 0) cycle
+      thetamn = this%thetam(n)
+      if (thetamn <= DZERO) cycle
+      this%retardation(n) = DONE + this%get_volfracm(n) * this%bulk_density(n) &
+                            * this%isotherm%derivative(cnew, n) / thetamn
+    end do
+  end subroutine mst_calc_retardation
 
   !> @ brief Source options for package
   !!

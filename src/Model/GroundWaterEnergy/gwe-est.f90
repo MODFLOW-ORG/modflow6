@@ -54,6 +54,7 @@ module GweEstModule
     real(DP), dimension(:), pointer, contiguous :: cps => null() !< heat capacity of solid
     real(DP), dimension(:), pointer, contiguous :: rhos => null() !< density of solid
     real(DP), dimension(:), pointer, contiguous :: porosity => null() !< porosity
+    real(DP), dimension(:), pointer, contiguous :: retardation => null() !< ratio of total (water plus solid) heat capacity to the heat capacity of the water alone
     real(DP), dimension(:), pointer, contiguous :: ratesto => null() !< rate of energy storage
     !
     ! -- decay
@@ -75,6 +76,7 @@ module GweEstModule
   contains
 
     procedure :: est_ar
+    procedure :: est_calc_retardation
     procedure :: est_fc
     procedure :: est_fc_sto
     procedure :: est_fc_dcy_water
@@ -622,6 +624,7 @@ contains
     ! -- Deallocate arrays if package was active
     if (this%inunit > 0) then
       call mem_deallocate(this%porosity)
+      call mem_deallocate(this%retardation)
       call mem_deallocate(this%ratesto)
       call mem_deallocate(this%idcy)
       call mem_deallocate(this%idcysrc)
@@ -689,6 +692,8 @@ contains
     ! -- Allocate
     ! -- sto
     call mem_allocate(this%porosity, nodes, 'POROSITY', this%memoryPath)
+    call mem_allocate(this%retardation, nodes, 'RETARDATION', &
+                      this%memoryPath)
     call mem_allocate(this%ratesto, nodes, 'RATESTO', this%memoryPath)
     call mem_allocate(this%cps, nodes, 'CPS', this%memoryPath)
     call mem_allocate(this%rhos, nodes, 'RHOS', this%memoryPath)
@@ -715,6 +720,7 @@ contains
     ! -- Initialize
     do n = 1, nodes
       this%porosity(n) = DZERO
+      this%retardation(n) = DONE
       this%ratesto(n) = DZERO
       this%cps(n) = DZERO
       this%rhos(n) = DZERO
@@ -728,6 +734,32 @@ contains
       this%decaylasts(n) = DZERO
     end do
   end subroutine allocate_arrays
+
+  !> @brief Calculate the thermal retardation factor for each cell
+  !!
+  !! The retardation factor is the ratio of the total heat capacity of a cell,
+  !! water plus solid, to the heat capacity of the water alone.  It is the
+  !! factor by which heat stored in the solid matrix slows the advance of a
+  !! thermal front relative to the water velocity.  Both terms are scaled by the
+  !! governing equation scale factor, rhow*cpw, in the same way the storage
+  !! terms of this package are.
+  !<
+  subroutine est_calc_retardation(this)
+    ! -- dummy
+    class(GweEstType) :: this !< GweEstType object
+    ! -- local
+    integer(I4B) :: n
+    real(DP) :: capacity_water
+    !
+    do n = 1, this%dis%nodes
+      this%retardation(n) = DONE
+      if (this%ibound(n) <= 0) cycle
+      capacity_water = this%eqnsclfac * this%fmi%gwfsat(n) * this%porosity(n)
+      if (capacity_water <= DZERO) cycle
+      this%retardation(n) = DONE + this%rhos(n) * this%cps(n) * &
+                            (DONE - this%porosity(n)) / capacity_water
+    end do
+  end subroutine est_calc_retardation
 
   !> @brief Update simulation mempath options
   !<
