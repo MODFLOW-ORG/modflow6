@@ -16,10 +16,23 @@ if __name__ == "__main__":
     parser.add_argument("--toml", default="develop.toml")
     parser.add_argument("--tex", default="develop.tex")
     parser.add_argument("--patch", default=False, action="store_true")
+    parser.add_argument(
+        "--archive",
+        default=False,
+        action="store_true",
+        help=(
+            "Render in the format used for the per-version files archived in "
+            "previous/ and appendixA.tex: a '\\subsection{Version mf...}' header "
+            "and underlined section/subsection labels. The default format omits "
+            "the version header and uses '\\subsection'/'\\subsubsection', as "
+            "needed for the current-release section of the release notes."
+        ),
+    )
     args = parser.parse_args()
     toml_path = Path(args.toml).expanduser().absolute()
     tex_path = Path(args.tex).expanduser().absolute()
     patch = args.patch
+    archive = args.archive
     if not toml_path.is_file():
         warn(f"Release notes TOML file not found: {toml_path}")
         sys.exit(0)
@@ -64,12 +77,12 @@ if __name__ == "__main__":
             if not any(items):
                 warn("No release notes found, aborting")
                 sys.exit(0)
-            tex_file.write(
-                template.render(
-                    sections=sections,
-                    subsections=subsections,
-                    items=items,
-                    version=version,
-                    date=date,
-                )
+            rendered = template.render(
+                sections=sections,
+                subsections=subsections,
+                items=items,
+                version=version,
+                date=date,
+                archive=archive,
             )
+            tex_file.write(rendered.rstrip() + "\n")

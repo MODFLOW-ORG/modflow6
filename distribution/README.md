@@ -213,13 +213,17 @@ This will substitute the new version number into the necessary files and set `ID
 
 #### Update release notes
 
-Generate a `develop.tex` file from `develop.toml`:
+Generate the archived per-version notes from `develop.toml`:
 
 ```shell
-pixi run make-release-notes
+pixi run make-release-notes --archive
 ```
 
-Move/rename it to `doc/ReleaseNotes/previous/vx.y.z.tex` (where `x.y.z` is the version just released), then insert a new line `\input{./previous/vx.y.z.tex}` at the top of `doc/ReleaseNotes/appendixA.tex`.
+`make-release-notes` renders `develop.tex` in one of two formats. The default format (no flag) is what the docs build inlines into the "Changes Introduced in this Release" section: `\subsection`/`\subsubsection` headings, no version header. The `--archive` format is the one used by the files in `doc/ReleaseNotes/previous/`: a `\subsection{Version mf...}` header followed by `\textbf{\underline{...}}` section labels and `\underline{...}` subsection labels. Use `--archive` here.
+
+Move/rename the generated `develop.tex` to `doc/ReleaseNotes/previous/vx.y.z.tex` (where `x.y.z` is the version just released), then insert a new line `\input{./previous/vx.y.z.tex}` at the top of `doc/ReleaseNotes/appendixA.tex`.
+
+The version and date in the `\subsection{Version mf...}` header come from `version.txt` and the current date, so at this point in the cycle the generator emits the next development version and today's date. Fix that header line in the archived file to read the released version and its release date, e.g. `\subsection{Version mf6.8.0---September 2, 2026}`.
 
 Then reset `doc/ReleaseNotes/develop.toml` for the next development cycle by removing every `[[items]]` entry. Keep the `[sections]` and `[subsections]` tables intact &mdash; clear only the `[[items]]`. For a minor release, remove all items. For a patch release, remove only the fix items that the release included; the rest carry forward to the next minor release.
 
