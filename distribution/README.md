@@ -213,7 +213,7 @@ This will substitute the new version number into the necessary files and set `ID
 
 #### Update release notes
 
-Generate the archived per-version notes from `develop.toml`:
+Generate the archived release notes LaTeX from `develop.toml`:
 
 ```shell
 pixi run make-release-notes --archive
@@ -223,7 +223,7 @@ pixi run make-release-notes --archive
 
 Move/rename the generated `develop.tex` to `doc/ReleaseNotes/previous/vx.y.z.tex` (where `x.y.z` is the version just released), then insert a new line `\input{./previous/vx.y.z.tex}` at the top of `doc/ReleaseNotes/appendixA.tex`.
 
-The version and date in the `\subsection{Version mf...}` header come from `version.txt` and the current date, so at this point in the cycle the generator emits the next development version and today's date. Fix that header line in the archived file to read the released version and its release date, e.g. `\subsection{Version mf6.8.0---September 2, 2026}`.
+In `--archive` mode the version and date in the `\subsection{Version mf...}` header are taken from the last row of the Release History table in `ReleaseNotes.tex`, so make sure that row has been added (see the note under [Review release notes](#review-release-notes)) before generating. Pass `--version`/`--date` to override.
 
 Then reset `doc/ReleaseNotes/develop.toml` for the next development cycle by removing every `[[items]]` entry. Keep the `[sections]` and `[subsections]` tables intact &mdash; clear only the `[[items]]`. For a minor release, remove all items. For a patch release, remove only the fix items that the release included; the rest carry forward to the next minor release.
 

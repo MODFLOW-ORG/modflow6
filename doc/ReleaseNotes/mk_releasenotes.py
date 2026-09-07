@@ -1,14 +1,39 @@
-# This script converts the release notes TOML file
-# to a latex file, from which is later built a PDF.
+"""Convert the release notes TOML file to a LaTeX file for the PDF build.
+
+Two formats (see --archive). The --archive format is more compact, for the
+archive section of the release notes document, and has a leading version string
+header (read from the last row of the releases table in ReleaseNotes.tex). The
+default format, for the release notes document section, omits that header and
+uses more widely spaced section headers.
+"""
+
 import argparse
 import datetime
+import re
 import sys
 from pathlib import Path
 from warnings import warn
 
+notes_dir = Path(__file__).parent
 version_file = Path(__file__).parents[2] / "version.txt"
 version = version_file.read_text().strip()
 date = datetime.date.today().strftime("%b %d, %Y")
+
+
+def latest_release():
+    """Version and date of the most recent release, read from the last row
+    of the releases table in ReleaseNotes.tex."""
+    rows = re.findall(
+        r"^\s*(\d+\.\d+\.\d+)\s*&\s*([^&]+?)\s*&\s*\\url",
+        (notes_dir / "ReleaseNotes.tex").read_text(),
+        re.MULTILINE,
+    )
+    if not rows:
+        raise ValueError(
+            "No rows found in the releases table in ReleaseNotes.tex; "
+            "pass --version and --date explicitly"
+        )
+    return rows[-1]
 
 
 if __name__ == "__main__":
@@ -21,18 +46,33 @@ if __name__ == "__main__":
         default=False,
         action="store_true",
         help=(
-            "Render in the format used for the per-version files archived in "
-            "previous/ and appendixA.tex: a '\\subsection{Version mf...}' header "
-            "and underlined section/subsection labels. The default format omits "
-            "the version header and uses '\\subsection'/'\\subsubsection', as "
-            "needed for the current-release section of the release notes."
+            "Render this version's release notes in a more compact format for the "
+            "archive section of the release notes document. Version/date are read "
+            "from the last row of the releases table in ReleaseNotes.tex unless a "
+            "--version and/or --date are given. The default rendering format, for "
+            "the release notes document section, omits the leading version string "
+            "header and uses more widely spaced section headers."
         ),
+    )
+    parser.add_argument(
+        "--version",
+        default=None,
+        help="Override the version string in the --archive header.",
+    )
+    parser.add_argument(
+        "--date",
+        default=None,
+        help="Override the date in the --archive header.",
     )
     args = parser.parse_args()
     toml_path = Path(args.toml).expanduser().absolute()
     tex_path = Path(args.tex).expanduser().absolute()
     patch = args.patch
     archive = args.archive
+    if archive:
+        release_version, release_date = latest_release()
+        version = args.version or release_version
+        date = args.date or release_date
     if not toml_path.is_file():
         warn(f"Release notes TOML file not found: {toml_path}")
         sys.exit(0)
