@@ -211,19 +211,17 @@ pixi run update-version -v 6.x.y.dev0
 
 This will substitute the new version number into the necessary files and set `IDEVELOPMODE` back to 1.
 
-#### Update release notes
+#### Archive release notes
 
-Generate the archived release notes LaTeX from `develop.toml`:
+Generate LaTeX for archiving this version's release notes.
 
 ```shell
 pixi run make-release-notes --archive
 ```
 
-`make-release-notes` renders `develop.tex` in one of two formats. The default format (no flag) is what the docs build inlines into the "Changes Introduced in this Release" section: `\subsection`/`\subsubsection` headings, no version header. The `--archive` format is the one used by the files in `doc/ReleaseNotes/previous/`: a `\subsection{Version mf...}` header followed by `\textbf{\underline{...}}` section labels and `\underline{...}` subsection labels. Use `--archive` here.
-
 Move/rename the generated `develop.tex` to `doc/ReleaseNotes/previous/vx.y.z.tex` (where `x.y.z` is the version just released), then insert a new line `\input{./previous/vx.y.z.tex}` at the top of `doc/ReleaseNotes/appendixA.tex`.
 
-In `--archive` mode the version and date in the `\subsection{Version mf...}` header are taken from the last row of the Release History table in `ReleaseNotes.tex`, so make sure that row has been added (see the note under [Review release notes](#review-release-notes)) before generating. Pass `--version`/`--date` to override.
+**Note**: in `--archive` mode the version and date in the `\subsection{Version mf...}` header are taken from the last row of the Release History table in `ReleaseNotes.tex`, which should have been added as a pre-release step (see the note under [Review release notes](#review-release-notes)).
 
 Then reset `doc/ReleaseNotes/develop.toml` for the next development cycle by removing every `[[items]]` entry. Keep the `[sections]` and `[subsections]` tables intact &mdash; clear only the `[[items]]`. For a minor release, remove all items. For a patch release, remove only the fix items that the release included; the rest carry forward to the next minor release.
 
