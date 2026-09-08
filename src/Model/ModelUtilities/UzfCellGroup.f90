@@ -138,6 +138,7 @@ module UzfCellGroupModule
     procedure :: gwseep
     procedure :: setbelowpet
     procedure :: setgwpet
+    procedure :: checkin_deprecated_names
     procedure :: dealloc
     procedure :: get_water_content_at_depth
     procedure :: get_wcnew
@@ -442,7 +443,83 @@ contains
       this%landflag(icell) = 0
       this%cell_below(icell) = 0
     end do
+    !
+    ! -- check in the pre-refactor variable names
+    call this%checkin_deprecated_names(memory_path)
   end subroutine init
+
+  !> @brief Check in the pre-refactor names of the renamed uzf variables
+  !!
+  !! The aliases share memory with the renamed arrays so that a program
+  !! addressing uzf variables through the API resolves either name.
+  !<
+  subroutine checkin_deprecated_names(this, memory_path)
+    ! -- modules
+    use MemoryManagerModule, only: mem_checkin
+    ! -- dummy
+    class(UzfCellGroupType) :: this
+    character(len=*), intent(in) :: memory_path
+    ! -- code
+    !
+    ! -- wave state
+    call mem_checkin(this%wave_depth, 'UZDPST', memory_path, &
+                     'WAVE_DEPTH', memory_path)
+    call mem_checkin(this%wave_theta, 'UZTHST', memory_path, &
+                     'WAVE_THETA', memory_path)
+    call mem_checkin(this%wave_flux, 'UZFLST', memory_path, &
+                     'WAVE_FLUX', memory_path)
+    call mem_checkin(this%wave_speed, 'UZSPST', memory_path, &
+                     'WAVE_SPEED', memory_path)
+    call mem_checkin(this%nwaves, 'NWAVST', memory_path, &
+                     'NWAVES', memory_path)
+    call mem_checkin(this%nwaves_max, 'NWAV_PVAR', memory_path, &
+                     'NWAVES_MAX', memory_path)
+    ! -- cell properties and state
+    call mem_checkin(this%theta_res, 'THTR', memory_path, &
+                     'THETA_RES', memory_path)
+    call mem_checkin(this%theta_sat, 'THTS', memory_path, &
+                     'THETA_SAT', memory_path)
+    call mem_checkin(this%theta_init, 'THTI', memory_path, &
+                     'THETA_INIT', memory_path)
+    call mem_checkin(this%bc_eps, 'EPS', memory_path, &
+                     'BC_EPS', memory_path)
+    call mem_checkin(this%air_entry, 'HA', memory_path, &
+                     'AIR_ENTRY', memory_path)
+    call mem_checkin(this%root_pot, 'HROOT', memory_path, &
+                     'ROOT_POT', memory_path)
+    call mem_checkin(this%root_act, 'ROOTACT', memory_path, &
+                     'ROOT_ACT', memory_path)
+    call mem_checkin(this%theta_ext, 'EXTWC', memory_path, &
+                     'THETA_EXT', memory_path)
+    call mem_checkin(this%et_uz, 'ETACT', memory_path, &
+                     'ET_UZ', memory_path)
+    call mem_checkin(this%flux_to_wt, 'TOTFLUX', memory_path, &
+                     'FLUX_TO_WT', memory_path)
+    call mem_checkin(this%finf_spec, 'SINF', memory_path, &
+                     'FINF_SPEC', memory_path)
+    call mem_checkin(this%gwet, 'GWET_PVAR', memory_path, &
+                     'GWET', memory_path)
+    call mem_checkin(this%pet_max, 'PETMAX', memory_path, &
+                     'PET_MAX', memory_path)
+    call mem_checkin(this%gw_pet, 'GWPET', memory_path, &
+                     'GW_PET', memory_path)
+    call mem_checkin(this%ext_depth, 'EXTDP', memory_path, &
+                     'EXT_DEPTH', memory_path)
+    call mem_checkin(this%ext_depth_uz, 'EXTDPUZ', memory_path, &
+                     'EXT_DEPTH_UZ', memory_path)
+    call mem_checkin(this%water_table, 'WATAB', memory_path, &
+                     'WATER_TABLE', memory_path)
+    call mem_checkin(this%water_table_old, 'WATABOLD', memory_path, &
+                     'WATER_TABLE_OLD', memory_path)
+    call mem_checkin(this%surf_infil, 'SURFLUX', memory_path, &
+                     'SURF_INFIL', memory_path)
+    call mem_checkin(this%surf_infil_below, 'SURFLUXBELOW', memory_path, &
+                     'SURF_INFIL_BELOW', memory_path)
+    call mem_checkin(this%surf_seep, 'SURFSEEP', memory_path, &
+                     'SURF_SEEP', memory_path)
+    call mem_checkin(this%cell_below, 'IVERTCON', memory_path, &
+                     'CELL_BELOW', memory_path)
+  end subroutine checkin_deprecated_names
 
   !> @brief Deallocate uzf object variables
   !<
