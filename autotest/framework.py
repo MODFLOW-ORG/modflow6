@@ -1,11 +1,10 @@
 import os
 import shutil
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from itertools import repeat
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
 from traceback import format_exc
-from typing import Callable, Optional, Union
 from warnings import warn
 
 import flopy
@@ -245,7 +244,7 @@ class TestFramework:
         overwrite: bool = True,
         verbose: bool = False,
         xfail: bool | list[bool] = False,
-        cargs: Optional[list] = None,
+        cargs: list | None = None,
     ):
         # make sure workspace exists
         workspace = Path(workspace).expanduser().absolute()
@@ -466,10 +465,10 @@ class TestFramework:
 
     def _run(
         self,
-        workspace: Union[str, os.PathLike],
-        target: Union[str, os.PathLike],
+        workspace: str | os.PathLike,
+        target: str | os.PathLike,
         xfail: bool = False,
-        cargs: Optional[str] = None,
+        cargs: str | None = None,
         ncpus: int = 1,
     ) -> tuple[bool, list[str]]:
         """

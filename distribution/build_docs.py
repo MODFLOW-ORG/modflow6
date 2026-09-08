@@ -8,7 +8,6 @@ from os import PathLike, environ
 from pathlib import Path
 from pprint import pprint
 from tempfile import TemporaryDirectory
-from typing import Optional
 from warnings import warn
 
 import pytest
@@ -66,7 +65,7 @@ PUB_URLS = [
 
 
 @pytest.fixture
-def github_user() -> Optional[str]:
+def github_user() -> str | None:
     return environ.get("GITHUB_USER", None)
 
 

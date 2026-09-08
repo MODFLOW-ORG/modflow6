@@ -39,7 +39,6 @@ import textwrap
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import pytest
 import yaml
@@ -229,7 +228,7 @@ def update_version_tex(version: Version, timestamp: datetime, developmode: bool 
 
 
 def update_version_f90(
-    version: Optional[Version],
+    version: Version | None,
     timestamp: datetime,
     developmode: bool = False,
 ):

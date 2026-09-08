@@ -12,7 +12,6 @@ Results are compared against a MODPATH 7 model.
 """
 
 from pathlib import Path
-from typing import Optional
 
 import flopy
 import matplotlib.pyplot as plt
@@ -60,7 +59,7 @@ cases = [
 ]
 
 
-def get_perioddata(name, periods=1) -> Optional[dict]:
+def get_perioddata(name, periods=1) -> dict | None:
     opt = []
     if (
         "sgl" in name
