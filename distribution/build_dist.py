@@ -79,6 +79,15 @@ def copy_sources(output_path: PathLike):
     copy(PROJ_ROOT_PATH / "meson.build", output_path)
     copy(PROJ_ROOT_PATH / "meson.options", output_path)
 
+    # copy the version-tag helper invoked by meson.build and
+    # utils/mf5to6/meson.build; without it vcs_tag() can't run in
+    # a build from the distribution archive
+    (output_path / "distribution").mkdir(exist_ok=True)
+    copy(
+        PROJ_ROOT_PATH / "distribution" / "vcs_tag_suffix.py",
+        output_path / "distribution",
+    )
+
     # copy source folder
     src_path = PROJ_ROOT_PATH / "src"
     dst_path = output_path / "src"
@@ -112,6 +121,7 @@ def test_copy_sources(tmp_path):
     assert (tmp_path / "srcbmi" / "meson.build").is_file()
     assert (tmp_path / "utils" / "mf5to6" / "meson.build").is_file()
     assert (tmp_path / "msvs" / "mf6.sln").is_file()
+    assert (tmp_path / "distribution" / "vcs_tag_suffix.py").is_file()
 
     assert (tmp_path / "utils").is_dir()
     assert (tmp_path / "utils" / "mf5to6").is_dir()

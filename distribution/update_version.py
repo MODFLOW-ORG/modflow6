@@ -7,6 +7,7 @@ This script is used to update several files in the modflow6 repository, includin
 
   ../version.txt
   ../meson.build
+  ../utils/mf5to6/meson.build
   ../doc/version.tex
   ../README.md
   ../DISCLAIMER.md
@@ -55,6 +56,7 @@ version_file_path = project_root_path / "version.txt"
 touched_file_paths = [
     version_file_path,
     project_root_path / "meson.build",
+    project_root_path / "utils" / "mf5to6" / "meson.build",
     project_root_path / "doc" / "version.tex",
     project_root_path / "doc" / "version.py",
     project_root_path / "README.md",
@@ -199,14 +201,18 @@ def update_version_txt_and_py(version: Version, timestamp: datetime):
 
 
 def update_meson_build(version: Version):
-    path = project_root_path / "meson.build"
-    lines = open(path, "r").read().splitlines()
-    with open(path, "w") as f:
-        for line in lines:
-            if "version:" in line and "meson_version:" not in line:
-                line = f"  version: '{version}',"
-            f.write(f"{line}\n")
-    log_update(path, version)
+    paths = [
+        project_root_path / "meson.build",
+        project_root_path / "utils" / "mf5to6" / "meson.build",
+    ]
+    for path in paths:
+        lines = open(path, "r").read().splitlines()
+        with open(path, "w") as f:
+            for line in lines:
+                if "version:" in line and "meson_version:" not in line:
+                    line = f"  version: '{version}',"
+                f.write(f"{line}\n")
+        log_update(path, version)
 
 
 def update_version_tex(version: Version, timestamp: datetime, developmode: bool = True):
@@ -442,6 +448,7 @@ as well as several other files in the repository:
 
   ../version.txt
   ../meson.build
+  ../utils/mf5to6/meson.build
   ../doc/version.tex
   ../README.md
   ../DISCLAIMER.md
