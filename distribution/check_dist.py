@@ -154,9 +154,7 @@ def test_meson_build(dist_dir_path, releasemode):
 
     # base version string; in releasemode this is a bare "X.Y.Z"
     version_f90 = (dist_dir_path / "src" / "Utilities" / "version.f90").read_text()
-    number_line = next(
-        l for l in version_f90.splitlines() if ":: VERSIONNUMBER =" in l
-    )
+    number_line = next(l for l in version_f90.splitlines() if ":: VERSIONNUMBER =" in l)
     base_version = number_line.split("'")[1]
 
     for label, setup_cwd, exe_rel in [
