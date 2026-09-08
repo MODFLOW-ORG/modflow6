@@ -93,10 +93,12 @@ contains
 
   !> @brief Determine whether two exchanges connect the same cells
   !!
-  !! Cells are compared as user node numbers so that an exchange between models
-  !! that use a subset of the cells of another pair of models still matches.
-  !! Reduced node numbers are compared instead when a model is not local,
-  !! because its discretization is not available to convert them.
+  !! Cells are compared as user node numbers so that the match succeeds when the
+  !! two pairs of models reduce the same grid differently.  A side is compared
+  !! only where both models are local, because the node numbers of a model on
+  !! another process are in that process' numbering and there is no
+  !! discretization here to convert them with.  That side is compared on the
+  !! process that owns it, so both sides are still checked.
   !<
   function same_exchange_cells(exg1, exg2) result(match)
     ! -- dummy
@@ -106,23 +108,22 @@ contains
     logical(LGP) :: match
     ! -- local
     integer(I4B) :: i
-    logical(LGP) :: islocal
+    logical(LGP) :: check1, check2
     !
     match = .false.
     if (exg1%nexg /= exg2%nexg) return
     !
-    islocal = associated(exg1%model1) .and. associated(exg1%model2) .and. &
-              associated(exg2%model1) .and. associated(exg2%model2)
+    check1 = associated(exg1%model1) .and. associated(exg2%model1)
+    check2 = associated(exg1%model2) .and. associated(exg2%model2)
     !
     do i = 1, exg1%nexg
-      if (islocal) then
+      if (check1) then
         if (exg1%model1%dis%get_nodeuser(exg1%nodem1(i)) /= &
             exg2%model1%dis%get_nodeuser(exg2%nodem1(i))) return
+      end if
+      if (check2) then
         if (exg1%model2%dis%get_nodeuser(exg1%nodem2(i)) /= &
             exg2%model2%dis%get_nodeuser(exg2%nodem2(i))) return
-      else
-        if (exg1%nodem1(i) /= exg2%nodem1(i)) return
-        if (exg1%nodem2(i) /= exg2%nodem2(i)) return
       end if
     end do
     match = .true.

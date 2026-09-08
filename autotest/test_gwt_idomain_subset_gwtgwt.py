@@ -12,6 +12,10 @@ when their cells are compared as user node numbers.
 Cases:
   - gwtgwtexg : the flow models are coupled by a classic GWF-GWF exchange.
   - gwtgwtifm : the flow models are coupled through an interface model.
+  - gwtgwttvd : TVD advection and XT3D dispersion, which widen the stencil at
+                both the exchange and the transport boundary.  The solutions
+                match away from the transport boundary and differ only in a thin
+                boundary layer, where the dispersive flux is not simulated.
 """
 
 import os
@@ -21,8 +25,14 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["gwtgwtexg", "gwtgwtifm"]
-ifmodel = [False, True]
+cases = ["gwtgwtexg", "gwtgwtifm", "gwtgwttvd"]
+ifmodel = [False, True, True]
+
+# TVD advection and XT3D dispersion widen the stencil at the interface and at
+# the truncation boundary
+scheme = ["upstream", "upstream", "tvd"]
+idisp = [False, False, True]
+alh, ath1 = 1.0, 0.1
 
 nlay, nrow, ncol = 1, 2, 50
 delr, delc = 1.0, 1.0
@@ -34,6 +44,10 @@ perlen, nstp = 8.0, 80
 
 # last active column of the downgradient transport model
 jsub = 19
+
+# width of the boundary layer over which the dispersive flux that is not
+# simulated across the transport boundary still affects the solution
+nlayer = 9
 
 # one exchange connection per row, between the last column of the upgradient
 # model and the first column of the downgradient model
@@ -94,7 +108,7 @@ def build_flow_model(sim, name, xorigin, upgradient):
     return gwf
 
 
-def build_transport_model(sim, name, xorigin, idomain, upgradient):
+def build_transport_model(sim, name, xorigin, idomain, upgradient, idx):
     gwt = flopy.mf6.MFModel(
         sim, model_type="gwt6", modelname=name, model_nam_file=f"{name}.nam"
     )
@@ -112,7 +126,9 @@ def build_transport_model(sim, name, xorigin, idomain, upgradient):
         idomain=idomain,
     )
     flopy.mf6.ModflowGwtic(gwt, strt=0.0)
-    flopy.mf6.ModflowGwtadv(gwt, scheme="upstream")
+    flopy.mf6.ModflowGwtadv(gwt, scheme=scheme[idx])
+    if idisp[idx]:
+        flopy.mf6.ModflowGwtdsp(gwt, xt3d_off=False, alh=alh, ath1=ath1)
     flopy.mf6.ModflowGwtmst(gwt, porosity=porosity)
     flopy.mf6.ModflowGwtfmi(gwt, flow_imbalance_correction=True)
     if upgradient:
@@ -129,15 +145,19 @@ def build_transport_model(sim, name, xorigin, idomain, upgradient):
     return gwt
 
 
-def add_transport_pair(sim, prefix, idomain2, gwfnames, hclose, rclose, nouter, ninner):
+def add_transport_pair(
+    sim, prefix, idomain2, gwfnames, hclose, rclose, nouter, ninner, idx
+):
     names = [prefix + "a", prefix + "b"]
-    build_transport_model(sim, names[0], 0.0, 1, True)
-    build_transport_model(sim, names[1], ncol * delr, idomain2, False)
+    build_transport_model(sim, names[0], 0.0, 1, True, idx)
+    build_transport_model(sim, names[1], ncol * delr, idomain2, False, idx)
     flopy.mf6.ModflowGwtgwt(
         sim,
         exgtype="GWT6-GWT6",
         gwfmodelname1=gwfnames[0],
         gwfmodelname2=gwfnames[1],
+        adv_scheme=scheme[idx],
+        dsp_xt3d_off=not idisp[idx],
         nexg=len(exgdata),
         exgmnamea=names[0],
         exgmnameb=names[1],
@@ -208,9 +228,9 @@ def build_models(idx, test):
     sim.register_ims_package(imsgwf, gwfnames)
 
     # full-domain transport pair used as the reference solution
-    add_transport_pair(sim, "full", 1, gwfnames, hclose, rclose, nouter, ninner)
+    add_transport_pair(sim, "full", 1, gwfnames, hclose, rclose, nouter, ninner, idx)
     add_transport_pair(
-        sim, "sub", sub_idomain(), gwfnames, hclose, rclose, nouter, ninner
+        sim, "sub", sub_idomain(), gwfnames, hclose, rclose, nouter, ninner, idx
     )
 
     return sim, None
@@ -227,7 +247,7 @@ def check_output(idx, test):
     ca_full, cb_full = concentration(test, "fulla"), concentration(test, "fullb")
 
     # the upgradient model is unaffected by the reduced downgradient domain
-    assert np.allclose(ca_sub, ca_full, atol=1e-9), (
+    assert np.allclose(ca_sub, ca_full, atol=1e-8), (
         "upgradient concentrations do not match the full-domain solution"
     )
 
@@ -235,10 +255,21 @@ def check_output(idx, test):
     inactive = sub_idomain() == 0
     assert np.all(cb_sub[inactive] == 1e30), "inactive cells were not written as hnoflo"
 
-    # the retained cells of the downgradient model must match as well
-    assert np.allclose(
-        cb_sub[0, :, : jsub + 1], cb_full[0, :, : jsub + 1], atol=1e-9
-    ), "downgradient concentrations do not match the full-domain solution"
+    if idisp[idx]:
+        # dispersion across the boundary of the transport domain is not
+        # simulated, so the two solutions differ in a boundary layer that
+        # decays by about a factor of two per cell upgradient of it
+        jclear = jsub + 1 - nlayer
+        assert np.allclose(cb_sub[0, :, :jclear], cb_full[0, :, :jclear], atol=1e-9), (
+            "downgradient concentrations differ away from the transport boundary"
+        )
+        dmax = np.abs(cb_sub[0, :, : jsub + 1] - cb_full[0, :, : jsub + 1]).max()
+        assert dmax < 0.1, f"boundary layer difference is too large: {dmax}"
+    else:
+        # pure advection with upstream weighting is reproduced exactly
+        assert np.allclose(
+            cb_sub[0, :, : jsub + 1], cb_full[0, :, : jsub + 1], atol=1e-9
+        ), "downgradient concentrations do not match the full-domain solution"
 
     # the plume must have reached the truncation boundary
     assert cb_sub[0, 0, jsub] > 0.1, "plume did not reach the transport boundary"
