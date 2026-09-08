@@ -34,3 +34,8 @@ description = "Budget values with three-digit exponents were not always written 
 section = "fixes"
 subsection = "advanced"
 description = "The Unsaturated Zone Flow (UZF) Package allocated and deallocated a complete set of unsaturated-zone work arrays on every evapotranspiration calculation, and a second, smaller set on every wave-routing calculation, once per UZF cell per outer iteration per time step. The work arrays are now allocated once when the package is set up, which reduces run times by 19 to 34 percent for the UZF test problems. Results are unchanged. The wave capacity NWAV and the number of trailing waves NTRAIL are now scalars rather than arrays with one value per UZF cell, so a program that reads them through the BMI or XMI interface must be updated."
+
+[[items]]
+section = "fixes"
+subsection = "advanced"
+description = "A Lake (LAK) Package using the IMPLICIT option reported roughly twice the outlet flow to the Water Mover (MVR) Package whenever any lake was solved by the substitution fallback. The mover provider term was accumulated once by the implicit formulation and again at the end of the fallback solve, so TO-MVR was about double the outlet discharge and the surplus appeared as a positive EXT-OUTFLOW, an apparent inflow that allowed the lake budget to close on the wrong flows. The mover term is now accumulated once, after the fallback stages are known. Models that do not use the IMPLICIT option, or that use it without a lake on the fallback, are unaffected."
