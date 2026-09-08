@@ -289,7 +289,6 @@ contains
   subroutine check_discretization(this, gwfmodel, gwtmodel)
     ! -- modules
     use BaseDisModule, only: DisBaseType
-    use SimVariablesModule, only: simulation_mode
     use TspAptModule, only: TspAptType
     ! -- dummy
     class(GwfGwtExchangeType) :: this
@@ -316,9 +315,6 @@ contains
       "('IDOMAIN for the GWT Model is not a subset of IDOMAIN for the GWF&
       & Model for exchange ',a,'.  ', i0, ' cells are active in the GWT Model&
       & and inactive in the GWF Model.')"
-    character(len=*), parameter :: fmtparerr = &
-      "('GWT Model uses a subset of the GWF Model cells for exchange ',a,'.&
-      &  This is not supported for a parallel simulation.')"
     character(len=*), parameter :: fmtapterr = &
       "('Advanced transport package ',a,' is connected to cell ',a,', which &
       &is not active in the GWT Model.  Cells connected to an advanced &
@@ -354,12 +350,6 @@ contains
     !
     ! -- nothing more to do if the two models use the same cells
     if (gwtmodel%dis%nodes == gwfdis%nodes) return
-    !
-    if (simulation_mode == 'PARALLEL') then
-      write (errmsg, fmtparerr) trim(this%name)
-      call store_error(errmsg)
-      call store_error_filename(this%filename)
-    end if
     !
     call gwtmodel%fmi%map_gwf_grid(gwfdis)
     !
