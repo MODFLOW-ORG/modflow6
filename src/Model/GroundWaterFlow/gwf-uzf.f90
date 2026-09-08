@@ -133,6 +133,7 @@ module UzfModule
   contains
 
     procedure :: uzf_allocate_arrays
+    procedure :: uzf_checkin_deprecated_names
     procedure :: uzf_allocate_scalars
     procedure :: bnd_options => uzf_options
     procedure :: read_dimensions => uzf_readdimensions
@@ -412,6 +413,38 @@ contains
     end do
   end subroutine uzf_allocate_arrays
 
+  !> @brief Check in the pre-refactor names of the renamed uzf variables
+  !!
+  !! The aliases share memory with the renamed arrays so that a program
+  !! addressing uzf variables through the API resolves either name.
+  !<
+  subroutine uzf_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_checkin
+    ! -- dummy
+    class(UzfType), intent(inout) :: this
+    ! -- code
+    !
+    call mem_checkin(this%finf_input, 'SINF_PVAR', this%memoryPath, &
+                     'FINF_INPUT', this%memoryPath)
+    call mem_checkin(this%pet_input, 'PET_PVAR', this%memoryPath, &
+                     'PET_INPUT', this%memoryPath)
+    call mem_checkin(this%extdp_input, 'EXDP_PVAR', this%memoryPath, &
+                     'EXTDP_INPUT', this%memoryPath)
+    call mem_checkin(this%extwc_input, 'EXTWC_PVAR', this%memoryPath, &
+                     'EXTWC_INPUT', this%memoryPath)
+    call mem_checkin(this%ha_input, 'HA_PVAR', this%memoryPath, &
+                     'HA_INPUT', this%memoryPath)
+    call mem_checkin(this%hroot_input, 'HROOT_PVAR', this%memoryPath, &
+                     'HROOT_INPUT', this%memoryPath)
+    call mem_checkin(this%rootact_input, 'ROOTACT_PVAR', this%memoryPath, &
+                     'ROOTACT_INPUT', this%memoryPath)
+    call mem_checkin(this%ntrail_input, 'NTRAIL_PVAR', this%memoryPath, &
+                     'NTRAIL_INPUT', this%memoryPath)
+    call mem_checkin(this%nwavesets, 'NSETS', this%memoryPath, &
+                     'NWAVESETS', this%memoryPath)
+  end subroutine uzf_checkin_deprecated_names
+
   !> @brief Set options specific to UzfType
   !!
   !! Overrides BoundaryPackageType%child_class_options
@@ -656,6 +689,9 @@ contains
     allocate (this%uzfobj)
     call this%uzfobj%init(this%nodes, this%ntrail_input * this%nwavesets, &
                           this%memoryPath)
+    !
+    ! -- check in the pre-refactor variable names
+    call this%uzf_checkin_deprecated_names()
     !
     !--Read uzf cell properties and set values
     call this%read_cell_properties()
