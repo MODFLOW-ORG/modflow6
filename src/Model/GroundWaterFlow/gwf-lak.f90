@@ -5542,8 +5542,10 @@ contains
     !
     ! -- Mover terms: store outflow after diversion loss
     !    as qformvr and reduce outflow (qd)
-    !    by how much was actually sent to the mover
-    if (this%imover == 1) then
+    !    by how much was actually sent to the mover. A fallback-only solve
+    !    skips this because the implicit formulation accumulates the mover
+    !    terms for every outlet once the fallback stages are known.
+    if (this%imover == 1 .and. .not. fbonly) then
       do n = 1, this%noutlets
         call this%pakmvrobj%accumulate_qformvr(n, -this%simoutrate(n))
       end do

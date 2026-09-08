@@ -936,6 +936,48 @@ def _stages(ws, name):
     return sf.get_data().flatten()
 
 
+def _build_twolake_mvr(ws, exe):
+    # the two-lake outlet model with the outlet discharging to the mover
+    # (lakeout = -1) rather than routing lake to lake, and a mover returning the
+    # flow to the lower lake. The lake package budget is saved so the mover
+    # provider and external outflow terms can be compared directly.
+    sim, name = _build_twolake(ws, exe)
+    gwf = sim.get_model(name)
+    lak = next(p for p in gwf.packagelist if p.package_type.lower() == "lak")
+    lak.mover = True
+    lak.save_flows = True
+    lak.budget_filerecord = f"{name}.lak.bud"
+    lak.outlets = [[0, 0, -1, "MANNING", 1.0, 10.0, 0.03, 1.0e-3]]
+    flopy.mf6.ModflowGwfmvr(
+        gwf,
+        maxmvr=1,
+        maxpackages=1,
+        packages=[("LAK_0",)],
+        perioddata={0: [["LAK_0", 0, "LAK_0", 1, "FACTOR", 1.0]]},
+        pname="MVR-1",
+    )
+    # the package budget is only written when the model saves budgets
+    flopy.mf6.ModflowGwfoc(
+        gwf,
+        head_filerecord=f"{name}.hds",
+        budget_filerecord=f"{name}.cbc",
+        saverecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
+    )
+    return sim, name
+
+
+def _lak_flows(ws, name, text):
+    bud = flopy.utils.CellBudgetFile(
+        os.path.join(ws, f"{name}.lak.bud"), precision="double"
+    )
+    names = [
+        (r.decode() if isinstance(r, bytes) else r).strip()
+        for r in bud.get_unique_record_names()
+    ]
+    assert text in names, f"{text} not in {names}"
+    return np.array([r["q"] for r in bud.get_data(text=text)[-1]])
+
+
 def test_two_lakes_outlet(function_tmpdir, targets):
     # two lakes joined by a lake-to-lake outlet (simoutrate routing). The
     # implicit formulation must converge, route the outlet flow, match the legacy
@@ -1331,6 +1373,46 @@ def test_two_lakes_outlet_fallback(function_tmpdir, targets):
         hl = _heads(str(ws_l), "lk")
         hf = _heads(ws_f, "lk")
         assert float(np.nanmax(np.abs(hl - hf))) < 1e-6, "fallback head mismatch"
+
+    _framework(function_tmpdir, targets, build, check, compare=None).run()
+
+
+@pytest.mark.developmode
+def test_outlet_mover_fallback(function_tmpdir, targets):
+    # regression test for #2968. test_lake_outlet_mover already covers an outlet
+    # routed through the mover, but not with a lake on the substitution fallback,
+    # which is what triggered the defect: the mover provider term was accumulated
+    # once in lak_fc_implicit and again at the end of the fallback-only
+    # lak_solve, so any model with a fallback lake advertised twice the outlet
+    # flow to the mover. TO-MVR came out roughly doubled and the surplus appeared
+    # as a positive EXT-OUTFLOW, an apparent inflow that let the lake budget
+    # close on the wrong flows.
+    def build(test):
+        sim_f, _ = _write_implicit(test, _build_twolake_mvr, force_fallback=True)
+        return sim_f, None
+
+    def check(test):
+        ws_f = str(test.workspace)
+        _assert_budget_closes(ws_f, "lk")
+
+        ws_l = test.workspace / "mf6"
+        ws_l.mkdir(exist_ok=True)
+        sim_l, _ = _build_twolake_mvr(str(ws_l), test.targets["mf6"])
+        sim_l.write_simulation(silent=True)
+        assert _run(sim_l), "legacy solver failed for the two-lake mover model"
+
+        ql = _lak_flows(str(ws_l), "lk", "TO-MVR")
+        qf = _lak_flows(ws_f, "lk", "TO-MVR")
+        assert np.abs(ql).max() > 1.0e-6, "the outlet did not spill to the mover"
+        assert np.allclose(ql, qf, rtol=1e-6, atol=1e-9), (
+            f"mover flow does not match the legacy solver: {ql} vs {qf}"
+        )
+
+        # the doubled provider term showed up as a positive (inflow) EXT-OUTFLOW
+        eo = _lak_flows(ws_f, "lk", "EXT-OUTFLOW")
+        assert np.abs(eo).max() < 1e-6 * np.abs(ql).max(), (
+            f"unexpected external outflow with a mover on the outlet: {eo}"
+        )
 
     _framework(function_tmpdir, targets, build, check, compare=None).run()
 

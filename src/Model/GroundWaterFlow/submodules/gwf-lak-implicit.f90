@@ -98,14 +98,6 @@ contains
       avail = DEP20
       call this%lak_calculate_outlet_outflow(n, this%xnewpak(n), avail, sout)
     end do
-    !
-    ! -- provide the outlet outflow to the mover (matches the mover-provider
-    !    accumulation done at the end of the legacy lak_solve)
-    if (this%imover == 1) then
-      do n = 1, this%noutlets
-        call this%pakmvrobj%accumulate_qformvr(n, -this%simoutrate(n))
-      end do
-    end if
   end if
   !
   ! -- development option: force every active lake onto the fallback (used to
@@ -130,6 +122,15 @@ contains
   end do
   if (lfallback) then
     call this%lak_solve(only_fallback=.true.)
+  end if
+  !
+  ! -- provide the outlet outflow to the mover, once, now that simoutrate is
+  !    final for the implicit lakes and for any lake solved by the fallback
+  !    (matches the mover-provider accumulation at the end of lak_solve)
+  if (this%noutlets > 0 .and. this%imover == 1) then
+    do n = 1, this%noutlets
+      call this%pakmvrobj%accumulate_qformvr(n, -this%simoutrate(n))
+    end do
   end if
   !
   ipos = 0
