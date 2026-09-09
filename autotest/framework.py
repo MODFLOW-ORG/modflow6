@@ -488,8 +488,12 @@ class TestFramework:
         workspace = Path(workspace).expanduser().absolute()
         assert workspace.is_dir(), f"Workspace not found: {workspace}"
 
-        # make sure executable exists and framework knows about it
-        tgt = Path(shutil.which(target))
+        # make sure executable exists and framework knows about it.
+        # shutil.which() on Windows (Python 3.12+) won't resolve a full
+        # path whose extension isn't in PATHEXT (e.g. libmf6.dll), so
+        # fall back to the target path itself when it doesn't resolve.
+        resolved = shutil.which(str(target))
+        tgt = Path(resolved) if resolved else Path(target)
         assert tgt.is_file(), f"Target executable not found: {target}"
         assert tgt in self.targets.values(), (
             "Targets must be explicitly registered with the test framework"
