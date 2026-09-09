@@ -716,6 +716,7 @@ jobs:
               $distname/make \
               $distname/msvs \
               $distname/utils \
+              $distname/distribution \
               $distname/code.json \
               $distname/meson.build \
               $distname/meson.options \
@@ -753,6 +754,7 @@ jobs:
               $distname/make \
               $distname/msvs \
               $distname/utils \
+              $distname/distribution \
               $distname/code.json \
               $distname/meson.build \
               $distname/meson.options \

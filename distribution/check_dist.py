@@ -34,6 +34,7 @@ DIST_DIRS = {
         "msvs",
         "make",
         "utils",
+        "distribution",
     ],
 }
 
@@ -82,6 +83,9 @@ def test_sources(dist_dir_path, releasemode):
     # check top-level meson files
     assert (dist_dir_path / "meson.build").is_file()
     assert (dist_dir_path / "meson.options").is_file()
+
+    # check the version-tag helper invoked by the meson builds (issue #2973)
+    assert (dist_dir_path / "distribution" / "vcs_tag_suffix.py").is_file()
 
     # check src subdir
     assert (dist_dir_path / "src").is_dir()
@@ -135,6 +139,63 @@ def test_makefiles(dist_dir_path, releasemode):
                 cwd=dist_dir_path / "utils" / "mf5to6" / "make",
                 shell=True,
             )
+        )
+
+
+@no_parallel
+@pytest.mark.skipif(not FC, reason="needs Fortran compiler")
+def test_meson_build(dist_dir_path, releasemode):
+    """Rebuild mf6 and mf5to6 from the archived sources with meson"""
+    if not releasemode:
+        pytest.skip(reason="sources not included in provisional distribution")
+
+    # the helper the meson builds invoke for the version suffix
+    assert (dist_dir_path / "distribution" / "vcs_tag_suffix.py").is_file()
+
+    # base version string; in releasemode this is a bare "X.Y.Z"
+    version_f90 = (dist_dir_path / "src" / "Utilities" / "version.f90").read_text()
+    number_line = next(l for l in version_f90.splitlines() if ":: VERSIONNUMBER =" in l)
+    base_version = number_line.split("'")[1]
+
+    for label, setup_cwd, exe_rel in [
+        ("mf6", dist_dir_path, Path("src") / f"mf6{EXE_EXT}"),
+        (
+            "mf5to6",
+            dist_dir_path / "utils" / "mf5to6",
+            Path("src") / f"mf5to6{EXE_EXT}",
+        ),
+    ]:
+        build_dir = setup_cwd / "builddir"
+        subprocess.check_call(["meson", "setup", "builddir"], cwd=setup_cwd)
+        subprocess.check_call(["meson", "compile", "-C", "builddir"], cwd=setup_cwd)
+        exe_path = build_dir / exe_rel
+        assert exe_path.is_file(), f"{label} was not built at {exe_path}"
+
+        if label == "mf6":
+            # mf6 -v prints "mf6: <VERSION>" and exits 0
+            tokens = subprocess.check_output([str(exe_path), "-v"]).decode().split()
+            anchor = "mf6:"
+        else:
+            # mf5to6 has no version flag; its banner's second line is
+            # "Version <FULLVERSION> [MM/DD/YYYY]". It then wants input, so
+            # feed it EOF and ignore the (nonzero) exit status.
+            proc = subprocess.run(
+                [str(exe_path)],
+                input="",
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=build_dir,
+            )
+            tokens = proc.stdout.split()
+            anchor = "Version"
+        print(f"{label} version string:", " ".join(tokens))
+
+        # token after the anchor is the full version string
+        reported = tokens[tokens.index(anchor) + 1]
+
+        assert reported == base_version, (
+            f"{label} reports {reported!r}, expected {base_version!r}"
         )
 
 
