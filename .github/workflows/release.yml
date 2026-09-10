@@ -127,7 +127,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.10.2
         with:
-          pixi-version: v0.70.1
+          pixi-version: v0.80.0
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -471,7 +471,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.10.2
         with:
-          pixi-version: v0.70.1
+          pixi-version: v0.80.0
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -635,7 +635,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.10.2
         with:
-          pixi-version: v0.70.1
+          pixi-version: v0.80.0
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
