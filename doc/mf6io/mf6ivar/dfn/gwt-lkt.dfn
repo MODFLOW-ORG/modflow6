@@ -9,6 +9,7 @@ shape
 reader urword
 optional true
 longname keyword to specify name of corresponding flow package
+mf6internal flow_pkg_name
 description keyword to specify the name of the corresponding flow package.  If not specified, then the corresponding flow package must have the same name as this advanced transport package (the name associated with this package in the GWT name file).
 
 block options
@@ -27,6 +28,7 @@ shape
 reader urword
 optional true
 longname keyword to specify name of concentration auxiliary variable in flow package
+mf6internal fp_aux_name
 description keyword to specify the name of an auxiliary variable in the corresponding flow package.  If specified, then the simulated concentrations from this advanced transport package will be copied into the auxiliary variable specified with this name.  Note that the flow package must have an auxiliary variable with this name or the program will terminate with an error.  If the flows for this advanced transport package are read from a file, then this option will have no effect.
 
 block options
@@ -43,6 +45,7 @@ name print_input
 type keyword
 reader urword
 optional true
+mf6internal iprpak
 longname print input to listing file
 description REPLACE print_input {'{#1}': 'lake'}
 
@@ -52,6 +55,7 @@ type keyword
 reader urword
 optional true
 longname print calculated stages to listing file
+mf6internal iprconc
 description REPLACE print_concentration {'{#1}': 'lake', '{#2}': 'concentration', '{#3}': 'CONCENTRATION'}
 
 block options
@@ -59,6 +63,7 @@ name print_flows
 type keyword
 reader urword
 optional true
+mf6internal iprflow
 longname print calculated flows to listing file
 description REPLACE print_flows {'{#1}': 'lake'}
 
@@ -67,6 +72,7 @@ name save_flows
 type keyword
 reader urword
 optional true
+mf6internal ipakcb
 longname save lake flows to budget file
 description REPLACE save_flows {'{#1}': 'lake'}
 
@@ -79,6 +85,7 @@ tagged true
 optional true
 longname
 description
+mf6internal conc_filerec
 
 block options
 name concentration
@@ -112,6 +119,7 @@ tagged true
 optional true
 longname
 description
+mf6internal budfilerec
 
 block options
 name budget
@@ -156,6 +164,7 @@ tagged true
 optional true
 longname
 description
+mf6internal budcsvfilerec
 
 block options
 name budgetcsv
@@ -263,13 +272,14 @@ name dev_nonexpanding_matrix
 type keyword
 reader urword
 optional true
+mf6internal dev_nonexpanding
 longname do not add rows to the solution matrix
 description keyword that solves the feature concentration with a general mixing equation and adds the result to the right-hand side of the GWT equations, instead of adding a row to the solution matrix for each feature.  This development option is not supported.
 
 block packagedata
 name packagedata
 type recarray ifno strt aux boundname
-shape (maxbound)
+shape (nlakes)
 reader urword
 longname
 description
@@ -284,6 +294,7 @@ reader urword
 longname lake number for this entry
 description integer value that defines the feature (lake) number associated with the specified PACKAGEDATA data on the line. IFNO must be greater than zero and less than or equal to NLAKES. Lake information must be specified for every lake or the program will terminate with an error.  The program will also terminate with an error if information for a lake is specified more than once.
 numeric_index true
+mf6internal packagedata_ifno
 
 block packagedata
 name strt
@@ -375,7 +386,7 @@ description keyword option to define lake status.  STATUS can be ACTIVE, INACTIV
 
 block period
 name concentration
-type string
+type double precision
 shape
 tagged true
 in_record true
@@ -386,7 +397,7 @@ description real or character value that defines the concentration for the lake.
 
 block period
 name rainfall
-type string
+type double precision
 shape
 tagged true
 in_record true
@@ -397,7 +408,7 @@ description real or character value that defines the rainfall solute concentrati
 
 block period
 name evaporation
-type string
+type double precision
 shape
 tagged true
 in_record true
@@ -408,7 +419,7 @@ description real or character value that defines the concentration of evaporated
 
 block period
 name runoff
-type string
+type double precision
 shape
 tagged true
 in_record true
@@ -419,7 +430,7 @@ description real or character value that defines the concentration of runoff $(M
 
 block period
 name ext-inflow
-type string
+type double precision
 shape
 tagged true
 in_record true
@@ -446,6 +457,7 @@ in_record true
 reader urword
 longname
 description keyword for specifying auxiliary variable.
+mf6internal period_auxiliary
 
 block period
 name auxname

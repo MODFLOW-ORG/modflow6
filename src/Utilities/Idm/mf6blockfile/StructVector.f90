@@ -34,7 +34,7 @@ module StructVectorModule
   !<
   type :: TSStringLocType
     integer(I4B) :: structarray_col !< global SA column index
-    integer(I4B) :: col !< SV column (1 if 1d array)
+    integer(I4B) :: col !< SV column (1d array, or always 1 for keystring loads)
     integer(I4B) :: row !< SV row
     character(LINELENGTH) :: token !< TS string token
   contains
@@ -53,6 +53,9 @@ module StructVectorModule
     integer(I4B) :: icol = 0 !< SA column
     integer(I4B) :: size = 0 !< size of array
     integer(I4B) :: nsubmembers = 0 !< sub-member count for compound KEYWORD
+    integer(I4B) :: isubmember = 0 !< icol of first submember (0 = not a KEYWORD metadata vector)
+    integer(I4B) :: charlen = LINELENGTH !< character length for charstr1d allocation
+    character(len=LENVARNAME) :: varname_override = '' !< overrides idt%mf6varname as the memory-manager name
     ! Data pointers
     integer(I4B), dimension(:), pointer, contiguous :: int1d => null()
     integer(I4B), dimension(:, :), pointer, contiguous :: int2d => null()
@@ -61,6 +64,8 @@ module StructVectorModule
     type(CharacterStringType), dimension(:), pointer, contiguous :: &
       charstr1d => null()
     type(STLVecInt), pointer :: intvector => null()
+    logical(LGP) :: intvector_ragged = .false. !< .true. if column has no predetermined width; read to end of record
+    type(STLVecInt), pointer :: intvector_ia => null() !< CSR row-start offsets into intvector; published as "<TAGNAME>_IA"
     ! Shape data pointers
     integer(I4B), pointer :: intshape => null()
     integer(I4B), dimension(:), pointer, contiguous :: intvector_shape => null()
