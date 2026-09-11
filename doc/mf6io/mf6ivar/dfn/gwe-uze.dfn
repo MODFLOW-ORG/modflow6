@@ -286,7 +286,6 @@ description
 
 block packagedata
 name uzfno
-mf6internal ifno
 type integer
 shape
 tagged false
@@ -365,7 +364,6 @@ reader urword
 longname unsaturated zone flow cell number for this entry
 description integer value that defines the UZF cell number associated with the specified PERIOD data on the line. UZFNO must be greater than zero and less than or equal to NUZFCELLS.
 numeric_index true
-mf6internal ifno
 
 block period
 name uzesetting

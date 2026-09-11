@@ -286,7 +286,6 @@ description
 
 block packagedata
 name mawno
-mf6internal ifno
 type integer
 shape
 tagged false
@@ -385,7 +384,6 @@ reader urword
 longname well number for this entry
 description integer value that defines the well number associated with the specified PERIOD data on the line. MAWNO must be greater than zero and less than or equal to NMAWWELLS.
 numeric_index true
-mf6internal ifno
 
 block period
 name mwesetting

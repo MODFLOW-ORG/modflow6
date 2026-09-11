@@ -286,7 +286,6 @@ description
 
 block packagedata
 name rno
-mf6internal ifno
 type integer
 shape
 tagged false
@@ -385,7 +384,6 @@ reader urword
 longname reach number for this entry
 description integer value that defines the reach number associated with the specified PERIOD data on the line. RNO must be greater than zero and less than or equal to NREACHES.
 numeric_index true
-mf6internal ifno
 
 block period
 name reachsetting

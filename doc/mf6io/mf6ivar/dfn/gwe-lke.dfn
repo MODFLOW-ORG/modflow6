@@ -286,7 +286,6 @@ description
 
 block packagedata
 name lakeno
-mf6internal ifno
 type integer
 shape
 tagged false
@@ -385,7 +384,6 @@ reader urword
 longname lake number for this entry
 description integer value that defines the lake number associated with the specified PERIOD data on the line. LAKENO must be greater than zero and less than or equal to NLAKES.
 numeric_index true
-mf6internal ifno
 
 block period
 name laksetting
