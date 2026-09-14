@@ -53,7 +53,7 @@ type integer
 reader urword
 optional true
 longname chunking parameter for the mesh face dimension
-description is the keyword used to provide a data chunk size for the face dimension in a NETCDF\_MESH2D output file. Must be used in combination with the the chunk\_time parameter to have an effect.
+description is the chunk size for the face dimension in a NETCDF\_MESH2D output file. Must be used in combination with the chunk\_time parameter to have an effect.
 
 block options
 name chunk_z
