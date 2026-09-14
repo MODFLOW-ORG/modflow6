@@ -72,7 +72,11 @@ def get_model(ws, name, uzf=False):
     sto = flopy.mf6.ModflowGwfsto(gwf, sy=sy, ss=ss, transient={0: True}, iconvert=1)
     if uzf:
         uzf = flopy.mf6.ModflowGwfuzf(
-            gwf, simulate_gwseep=True, packagedata=uzf_pd, print_input=True
+            gwf,
+            simulate_gwseep=True,
+            nuzfcells=len(uzf_pd),
+            packagedata=uzf_pd,
+            print_input=True,
         )
         uzf.obs.initialize(
             filename=f"{name}.uzf.obs",

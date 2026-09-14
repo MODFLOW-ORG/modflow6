@@ -19,9 +19,9 @@ module UtlTvkInputModule
     logical :: filein = .false.
     logical :: ts6_filename = .false.
     logical :: cellid = .false.
-    logical :: k_in = .false.
-    logical :: k22_in = .false.
-    logical :: k33_in = .false.
+    logical :: k = .false.
+    logical :: k22 = .false.
+    logical :: k33 = .false.
   end type UtlTvkParamFoundType
 
   logical :: utl_tvk_multi_package = .false.
@@ -148,14 +148,14 @@ module UtlTvkInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    utltvk_k_in = InputParamDefinitionType &
+    utltvk_k = InputParamDefinitionType &
     ( &
     'UTL', & ! component
     'TVK', & ! subcomponent
     'PERIOD', & ! block
     'K', & ! tag name
-    'K_IN', & ! fortran variable
-    'STRING', & ! type
+    'K', & ! fortran variable
+    'DOUBLE', & ! type
     '', & ! shape
     'hydraulic conductivity (L/T)', & ! longname
     .true., & ! required
@@ -167,14 +167,14 @@ module UtlTvkInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    utltvk_k22_in = InputParamDefinitionType &
+    utltvk_k22 = InputParamDefinitionType &
     ( &
     'UTL', & ! component
     'TVK', & ! subcomponent
     'PERIOD', & ! block
     'K22', & ! tag name
-    'K22_IN', & ! fortran variable
-    'STRING', & ! type
+    'K22', & ! fortran variable
+    'DOUBLE', & ! type
     '', & ! shape
     'hydraulic conductivity of second ellipsoid axis (L/T)', & ! longname
     .true., & ! required
@@ -186,14 +186,14 @@ module UtlTvkInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    utltvk_k33_in = InputParamDefinitionType &
+    utltvk_k33 = InputParamDefinitionType &
     ( &
     'UTL', & ! component
     'TVK', & ! subcomponent
     'PERIOD', & ! block
     'K33', & ! tag name
-    'K33_IN', & ! fortran variable
-    'STRING', & ! type
+    'K33', & ! fortran variable
+    'DOUBLE', & ! type
     '', & ! shape
     'hydraulic conductivity of third ellipsoid axis (L/T)', & ! longname
     .true., & ! required
@@ -213,9 +213,9 @@ module UtlTvkInputModule
     utltvk_filein, &
     utltvk_ts6_filename, &
     utltvk_cellid, &
-    utltvk_k_in, &
-    utltvk_k22_in, &
-    utltvk_k33_in &
+    utltvk_k, &
+    utltvk_k22, &
+    utltvk_k33 &
     ]
 
   type(InputParamDefinitionType), parameter :: &

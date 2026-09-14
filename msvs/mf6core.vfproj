@@ -233,6 +233,7 @@
 				<File RelativePath="..\src\Idm\gwf-rivgidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-rividm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-stoidm.f90"/>
+				<File RelativePath="..\src\Idm\gwf-uzfidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-vscidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-welgidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-welidm.f90"/>
