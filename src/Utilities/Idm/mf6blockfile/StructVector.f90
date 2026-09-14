@@ -52,8 +52,8 @@ module StructVectorModule
     integer(I4B) :: memtype = 0 !< SA memtype
     integer(I4B) :: icol = 0 !< SA column
     integer(I4B) :: size = 0 !< size of array
-    integer(I4B) :: nsubmembers = 0 !< sub-member count for compound KEYWORD
-    integer(I4B) :: isubmember = 0 !< icol of first submember (0 = not a KEYWORD metadata vector)
+    integer(I4B) :: head_nbody = 0 !< on a record head column: number of body columns that follow it (0 on non-head columns)
+    integer(I4B) :: body_start = 0 !< on a record head column: SA column index of its first body (0 = not a head/metadata vector)
     integer(I4B) :: charlen = LINELENGTH !< character length for charstr1d allocation
     character(len=LENVARNAME) :: varname_override = '' !< overrides idt%mf6varname as the memory-manager name
     ! Data pointers

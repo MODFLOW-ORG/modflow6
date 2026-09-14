@@ -563,7 +563,7 @@ contains
   !<
   subroutine parse_structarray_block(this, iblk)
     use StructArrayModule, only: StructArrayType, constructStructArray
-    use LoadContextModule, only: LoadContextType, is_id_addressed_keystring
+    use LoadContextModule, only: LoadContextType, is_feature_keystring
     class(LoadMf6FileType) :: this
     integer(I4B), intent(in) :: iblk
     type(LoadContextType) :: ctx
@@ -717,7 +717,7 @@ contains
     ! an advanced package's PACKAGEDATA row count is published as
     ! MAXBOUND, the feature count the PERIOD block's load context needs
     if (this%mf6_input%block_dfns(iblk)%blockname == 'PACKAGEDATA' .and. &
-        is_id_addressed_keystring(this%mf6_input) .and. ctx%is_advanced) then
+        is_feature_keystring(this%mf6_input) .and. ctx%is_advanced) then
       call get_isize('MAXBOUND', this%mf6_input%mempath, isize)
       if (isize < 0) then
         call mem_allocate(pkgdata_maxbound, 'MAXBOUND', this%mf6_input%mempath)

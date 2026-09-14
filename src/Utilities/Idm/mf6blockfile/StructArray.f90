@@ -203,22 +203,22 @@ contains
 
   !> @brief Create a metadata-only StructVector for a KEYWORD indicator column
   !!
-  !! Sets idt, isubmember, and nsubmembers but allocates no data arrays.
+  !! Sets idt, body_start, and head_nbody but allocates no data arrays.
   !! Used for KEYWORD indicator columns that have been consolidated into the
   !! SETTING column; these vectors serve only as dispatch-map entries.
   !<
-  subroutine mem_create_metadata_vector(this, icol, idt, isubmember, nsubmembers)
+  subroutine mem_create_metadata_vector(this, icol, idt, body_start, head_nbody)
     class(StructArrayType) :: this !< StructArrayType
     integer(I4B), intent(in) :: icol !< column index
     type(InputParamDefinitionType), pointer :: idt !< input definition (for tagname lookup)
-    integer(I4B), intent(in) :: isubmember !< icol of first submember (0 if none)
-    integer(I4B), intent(in) :: nsubmembers !< number of submembers
+    integer(I4B), intent(in) :: body_start !< SA column index of the head's first body (0 if none)
+    integer(I4B), intent(in) :: head_nbody !< number of body columns following the head
     type(StructVectorType) :: sv
 
     sv%idt => idt
     sv%icol = icol
-    sv%isubmember = isubmember
-    sv%nsubmembers = nsubmembers
+    sv%body_start = body_start
+    sv%head_nbody = head_nbody
     sv%memtype = MTYPE_UNDEF
     sv%size = 0
 
@@ -1219,8 +1219,8 @@ contains
           found_col = icol
           exit
         end if
-        if (this%struct_vectors(icol)%nsubmembers > 0) then
-          icol = icol + this%struct_vectors(icol)%nsubmembers + 1
+        if (this%struct_vectors(icol)%head_nbody > 0) then
+          icol = icol + this%struct_vectors(icol)%head_nbody + 1
         else
           icol = icol + 1
         end if
@@ -1248,12 +1248,12 @@ contains
 
       if (is_keyword_dispatch) then
         ! compound/no-value KEYWORD dispatch has no data of its own;
-        ! read its sub-members starting at isubmember instead
+        ! read its body members starting at body_start instead
         last_set_col = found_col
-        if (this%struct_vectors(found_col)%isubmember > 0) then
-          do icol = this%struct_vectors(found_col)%isubmember, &
-            this%struct_vectors(found_col)%isubmember + &
-            this%struct_vectors(found_col)%nsubmembers - 1
+        if (this%struct_vectors(found_col)%body_start > 0) then
+          do icol = this%struct_vectors(found_col)%body_start, &
+            this%struct_vectors(found_col)%body_start + &
+            this%struct_vectors(found_col)%head_nbody - 1
             if (icol > this%ncol) exit
             call this%read_param(parser, icol, irow, timeseries, iout)
             last_set_col = icol
