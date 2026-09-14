@@ -28,7 +28,7 @@ module Mf6FileKeystringModule
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
   use LoadContextModule, only: LoadContextType, is_advanced, &
                                KeystringItemType, ADDR_FEATURE, ADDR_NODE, &
-                               ADDR_INDEXED_BODY
+                               ADDR_SUBINDEX
   use LoadMf6FileModule, only: LoadMf6FileType
   use BlockParserModule, only: BlockParserType
 
@@ -55,28 +55,28 @@ module Mf6FileKeystringModule
     type(LoadMf6FileType) :: static_loader !< persistent static loader
     logical(LGP) :: ts_active !< .true. if TS files are loaded
     integer(I4B) :: nleading !< number of leading (pre-keystring) columns
-    ! cached once in allocate_indexed_body (df()-time), since
-    ! ctx%indexed_body_dependency's named dimension may be released by rp()-time
-    integer(I4B), dimension(:), allocatable :: indexed_body_nfeatures !< per-column feature count (0 = n/a)
-    type(IntArrayType), dimension(:), allocatable :: indexed_body_offsets !< per-column offset table
-    integer(I4B), dimension(:), allocatable :: indexed_body_index_icol !< per-column sibling index SA column
-    integer(I4B), dimension(:), allocatable :: indexed_body_head_icol !< per-column indexed-body head SA column
-    character(len=LENVARNAME) :: indexed_body_id_varname = '' !< leading column's mf6varname
+    ! cached once in allocate_subindex (df()-time), since
+    ! ctx%subindex_dependency's named dimension may be released by rp()-time
+    integer(I4B), dimension(:), allocatable :: subindex_nfeatures !< per-column feature count (0 = n/a)
+    type(IntArrayType), dimension(:), allocatable :: subindex_offsets !< per-column offset table
+    integer(I4B), dimension(:), allocatable :: subindex_icol !< per-column subindex SA column
+    integer(I4B), dimension(:), allocatable :: subindex_head_icol !< per-column subindex head SA column
+    character(len=LENVARNAME) :: subindex_id_varname = '' !< leading column's mf6varname
   contains
     procedure :: ainit
     procedure :: df
     procedure :: ts_advance
     procedure :: rp
-    procedure :: allocate_indexed_body
+    procedure :: allocate_subindex
     procedure :: allocate_permanent_array
     procedure :: allocate_items
     procedure, private :: valid_address
     procedure :: apply_auxiliary
-    procedure :: apply_indexed_body
+    procedure :: apply_subindex
     procedure :: apply_items
     procedure :: resolve_row_addr
-    procedure :: resolve_indexed_body_offsets
-    procedure :: resolve_indexed_body_address
+    procedure :: resolve_subindex_offsets
+    procedure :: resolve_subindex_address
     procedure :: reset
     procedure :: destroy
     procedure :: create_structarray
@@ -204,8 +204,8 @@ contains
     end do
     ! allocate feature-addressed (DZERO) and node-addressed (DNODATA) items
     call this%allocate_items()
-    ! indexed-body df-time dimension fields + permanent arrays
-    if (this%ctx%is_advanced) call this%allocate_indexed_body()
+    ! subindex df-time dimension fields + permanent arrays
+    if (this%ctx%is_advanced) call this%allocate_subindex()
   end subroutine df
 
   subroutine ts_advance(this)
@@ -229,7 +229,7 @@ contains
                                                   this%input_name)
 
     if (this%ctx%is_advanced) call this%apply_auxiliary()
-    if (this%ctx%is_advanced) call this%apply_indexed_body()
+    if (this%ctx%is_advanced) call this%apply_subindex()
     ! apply feature- and node-addressed items
     call this%apply_items()
 
@@ -243,26 +243,26 @@ contains
                        this%mf6_input%subcomponent_name, this%iout)
   end subroutine rp
 
-  !> @brief Allocate ctx%indexed_body_dependency targets (indexed-body
+  !> @brief Allocate ctx%subindex_dependency targets (subindex
   !! params excluded from allocate_items), and cache
-  !! everything apply_indexed_body needs every period.
+  !! everything apply_subindex needs every period.
   !<
-  subroutine allocate_indexed_body(this)
+  subroutine allocate_subindex(this)
     use DefinitionSelectModule, only: get_param_definition_type
     class(KeystringLoadType), intent(inout) :: this
     type(InputParamDefinitionType), pointer :: idt, id_idt
-    character(len=LENVARNAME) :: dimname, index_tagname
+    character(len=LENVARNAME) :: dimname, subindex_tagname
     integer(I4B) :: icol, sa_icol, padj, nfeatures, n
     logical(LGP) :: found
 
-    if (.not. allocated(this%indexed_body_nfeatures)) then
-      allocate (this%indexed_body_nfeatures(this%structarray%count()))
-      allocate (this%indexed_body_offsets(this%structarray%count()))
-      allocate (this%indexed_body_index_icol(this%structarray%count()))
-      allocate (this%indexed_body_head_icol(this%structarray%count()))
-      this%indexed_body_nfeatures = 0
-      this%indexed_body_index_icol = 0
-      this%indexed_body_head_icol = 0
+    if (.not. allocated(this%subindex_nfeatures)) then
+      allocate (this%subindex_nfeatures(this%structarray%count()))
+      allocate (this%subindex_offsets(this%structarray%count()))
+      allocate (this%subindex_icol(this%structarray%count()))
+      allocate (this%subindex_head_icol(this%structarray%count()))
+      this%subindex_nfeatures = 0
+      this%subindex_icol = 0
+      this%subindex_head_icol = 0
     end if
 
     padj = 0
@@ -271,48 +271,50 @@ contains
     id_idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                         this%mf6_input%component_type, &
                                         this%mf6_input%subcomponent_type, &
-                                        'PERIOD', this%param_names(1), &
+                                        this%ctx%blockname, &
+                                        this%param_names(1), &
                                         this%input_name)
-    this%indexed_body_id_varname = trim(id_idt%mf6varname)
+    this%subindex_id_varname = trim(id_idt%mf6varname)
 
     do icol = this%nleading + 1, this%nparam
-      if (.not. this%ctx%items(icol - this%nleading)%is_body) cycle
+      if (.not. this%ctx%keystring_items(icol - this%nleading)%is_body) cycle
       idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                        this%mf6_input%component_type, &
                                        this%mf6_input%subcomponent_type, &
-                                       'PERIOD', this%param_names(icol), &
+                                       this%ctx%blockname, &
+                                       this%param_names(icol), &
                                        this%input_name)
-      found = this%ctx%indexed_body_dependency(idt%tagname, dimname, &
-                                               index_tagname)
+      found = this%ctx%subindex_dependency(idt%tagname, dimname, &
+                                           subindex_tagname)
       if (.not. found) cycle
 
       sa_icol = icol + padj
       nfeatures = this%ctx%resolve_item_nfeatures(idt%tagname, dimname, 0)
       if (nfeatures < 1) cycle
-      this%indexed_body_nfeatures(sa_icol) = nfeatures
-      this%indexed_body_offsets(sa_icol)%vals = &
-        this%resolve_indexed_body_offsets(dimname)
+      this%subindex_nfeatures(sa_icol) = nfeatures
+      this%subindex_offsets(sa_icol)%vals = &
+        this%resolve_subindex_offsets(dimname)
       call this%allocate_permanent_array( &
         trim(idt%mf6varname), nfeatures, DZERO)
 
-      ! resolve the sibling index column (by ctx-given tag) and this
-      ! target's indexed-body head, both structurally (body_start/head_nbody)
+      ! resolve the subindex column (by ctx-given tag) and this
+      ! target's subindex head, both structurally (body_start/head_nbody)
       do n = 1, this%structarray%count()
         if (trim(this%structarray%struct_vectors(n)%idt%tagname) == &
-            trim(index_tagname)) this%indexed_body_index_icol(sa_icol) = n
+            trim(subindex_tagname)) this%subindex_icol(sa_icol) = n
         if (this%structarray%struct_vectors(n)%head_nbody > 0) then
           if (sa_icol >= this%structarray%struct_vectors(n)%body_start .and. &
               sa_icol < this%structarray%struct_vectors(n)%body_start + &
               this%structarray%struct_vectors(n)%head_nbody) &
-            this%indexed_body_head_icol(sa_icol) = n
+            this%subindex_head_icol(sa_icol) = n
         end if
       end do
-      ! neither sibling found (misconfigured ctx entry): not a target
-      if (this%indexed_body_index_icol(sa_icol) == 0 .or. &
-          this%indexed_body_head_icol(sa_icol) == 0) &
-        this%indexed_body_nfeatures(sa_icol) = 0
+      ! neither subindex nor head found (misconfigured ctx entry): not a target
+      if (this%subindex_icol(sa_icol) == 0 .or. &
+          this%subindex_head_icol(sa_icol) == 0) &
+        this%subindex_nfeatures(sa_icol) = 0
     end do
-  end subroutine allocate_indexed_body
+  end subroutine allocate_subindex
 
   !> @brief Allocate a permanent per-feature array named `name` with
   !! init_value, unless already allocated.
@@ -340,17 +342,18 @@ contains
     class(KeystringLoadType), intent(inout) :: this
     integer(I4B) :: k
 
-    if (.not. allocated(this%ctx%items)) return
+    if (.not. allocated(this%ctx%keystring_items)) return
 
-    do k = 1, size(this%ctx%items)
-      if (.not. this%ctx%items(k)%idm_managed) cycle
-      ! indexed-body arrays are allocated in allocate_indexed_body (df-time
+    do k = 1, size(this%ctx%keystring_items)
+      if (.not. this%ctx%keystring_items(k)%idm_managed) cycle
+      ! subindex arrays are allocated in allocate_subindex (df-time
       ! dimension); skip here
-      if (this%ctx%items(k)%addr_mode == ADDR_INDEXED_BODY) cycle
-      if (this%ctx%items(k)%nfeatures < 1) cycle
-      call this%allocate_permanent_array(this%ctx%items(k)%mf6varname, &
-                                         this%ctx%items(k)%nfeatures, &
-                                         this%ctx%items(k)%init_value)
+      if (this%ctx%keystring_items(k)%addr_mode == ADDR_SUBINDEX) cycle
+      if (this%ctx%keystring_items(k)%nfeatures < 1) cycle
+      call this%allocate_permanent_array( &
+        this%ctx%keystring_items(k)%idt%mf6varname, &
+        this%ctx%keystring_items(k)%nfeatures, &
+        this%ctx%keystring_items(k)%init_value)
     end do
     if (count_errors() > 0) then
       call store_error_filename(this%input_name)
@@ -422,7 +425,8 @@ contains
     idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                      this%mf6_input%component_type, &
                                      this%mf6_input%subcomponent_type, &
-                                     'PERIOD', this%param_names(1), &
+                                     this%ctx%blockname, &
+                                     this%param_names(1), &
                                      this%input_name)
     ifno_tagname = trim(idt%tagname)
 
@@ -431,7 +435,8 @@ contains
     idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                      this%mf6_input%component_type, &
                                      this%mf6_input%subcomponent_type, &
-                                     'PERIOD', 'AUXILIARY', this%input_name)
+                                     this%ctx%blockname, 'AUXILIARY', &
+                                     this%input_name)
 
     call mem_setptr(period_ifno, 'IFNO', this%mf6_input%mempath)
     call mem_setptr(period_setting, 'SETTING', this%mf6_input%mempath)
@@ -494,12 +499,12 @@ contains
     call this%structarray%struct_vectors(sa_icol)%clear()
   end subroutine apply_auxiliary
 
-  !> @brief Apply PERIOD settings for ctx%indexed_body_dependency's targets,
+  !> @brief Apply PERIOD settings for ctx%subindex_dependency's targets,
   !! via ts_update_indexed -- same mechanism as BEDK/MANNING, but each
-  !! row's target index comes from a named sibling field through the
+  !! row's target index comes from a named subindex field through the
   !! cached offset table rather than the leading id column alone.
   !<
-  subroutine apply_indexed_body(this)
+  subroutine apply_subindex(this)
     class(KeystringLoadType), intent(inout) :: this
     type(InputParamDefinitionType), pointer :: idt, head_idt
     real(DP), dimension(:), pointer, contiguous :: featarr => null()
@@ -507,7 +512,7 @@ contains
     integer(I4B), dimension(:), allocatable :: row_addr
     integer(I4B) :: icol, sa_icol, padj, isize
 
-    if (.not. allocated(this%indexed_body_nfeatures)) return
+    if (.not. allocated(this%subindex_nfeatures)) return
 
     call get_isize('NBOUND', this%mf6_input%mempath, isize)
     if (isize < 1) return
@@ -519,24 +524,24 @@ contains
 
     do icol = this%nleading + 1, this%nparam
       sa_icol = icol + padj
-      if (sa_icol > size(this%indexed_body_nfeatures)) cycle
-      if (this%indexed_body_nfeatures(sa_icol) < 1) cycle
+      if (sa_icol > size(this%subindex_nfeatures)) cycle
+      if (this%subindex_nfeatures(sa_icol) < 1) cycle
 
       idt => this%structarray%struct_vectors(sa_icol)%idt
       head_idt => &
-        this%structarray%struct_vectors(this%indexed_body_head_icol(sa_icol))%idt
+        this%structarray%struct_vectors(this%subindex_head_icol(sa_icol))%idt
       call mem_setptr(featarr, trim(idt%mf6varname), this%mf6_input%mempath)
       row_addr = &
-        this%resolve_indexed_body_address( &
-        this%indexed_body_id_varname, trim(head_idt%mf6varname), &
-        this%indexed_body_index_icol(sa_icol), &
-        this%indexed_body_offsets(sa_icol)%vals, &
-        this%indexed_body_nfeatures(sa_icol), nbound)
+        this%resolve_subindex_address( &
+        this%subindex_id_varname, trim(head_idt%mf6varname), &
+        this%subindex_icol(sa_icol), &
+        this%subindex_offsets(sa_icol)%vals, &
+        this%subindex_nfeatures(sa_icol), nbound)
       call this%structarray%ts_update_indexed( &
         sa_icol, this%tsmanager, this%mf6_input%subcomponent_name, &
         this%ctx%iprpak, nbound, row_addr, trim(idt%tagname), featarr)
     end do
-  end subroutine apply_indexed_body
+  end subroutine apply_subindex
 
   !> @brief Apply IDM-managed feature- and node-addressed settings to their
   !! permanent arrays; each row's address comes from resolve_row_addr.
@@ -559,7 +564,7 @@ contains
     character(len=LENVARNAME) :: leading_tag
     type(InputParamDefinitionType), pointer :: lead_idt
 
-    if (.not. allocated(this%ctx%items)) return
+    if (.not. allocated(this%ctx%keystring_items)) return
 
     call get_isize('NBOUND', this%mf6_input%mempath, isize)
     if (isize < 1) return
@@ -584,25 +589,26 @@ contains
       lead_idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                             this%mf6_input%component_type, &
                                             this%mf6_input%subcomponent_type, &
-                                            'PERIOD', this%param_names(1), &
+                                            this%ctx%blockname, &
+                                            this%param_names(1), &
                                             this%input_name)
       leading_tag = trim(lead_idt%tagname)
     end if
 
-    do k = 1, size(this%ctx%items)
-      if (.not. this%ctx%items(k)%idm_managed) cycle
-      if (this%ctx%items(k)%addr_mode == ADDR_INDEXED_BODY) cycle ! separate path
-      if (this%ctx%items(k)%nfeatures < 1) cycle
-      call mem_setptr(featarr, this%ctx%items(k)%mf6varname, &
+    do k = 1, size(this%ctx%keystring_items)
+      if (.not. this%ctx%keystring_items(k)%idm_managed) cycle
+      if (this%ctx%keystring_items(k)%addr_mode == ADDR_SUBINDEX) cycle ! separate path
+      if (this%ctx%keystring_items(k)%nfeatures < 1) cycle
+      call mem_setptr(featarr, this%ctx%keystring_items(k)%idt%mf6varname, &
                       this%mf6_input%mempath)
 
       ! dispatch key: a RECORD body matches its owning head's SETTING
       ! keyword (the token on the row); a standalone item matches its own
       ! mf6varname. resolve_row_addr maps the matched row to a feature.
-      if (this%ctx%items(k)%is_body) then
-        dispatch_key = this%ctx%items(k)%head_setting_varname
+      if (this%ctx%keystring_items(k)%is_body) then
+        dispatch_key = this%ctx%keystring_items(k)%head_setting_varname
       else
-        dispatch_key = this%ctx%items(k)%mf6varname
+        dispatch_key = this%ctx%keystring_items(k)%idt%mf6varname
       end if
 
       allocate (row_addr(nbound))
@@ -610,13 +616,14 @@ contains
         row_addr(i) = 0
         setting = period_setting(i)
         if (trim(setting) /= trim(dispatch_key)) cycle
-        row_addr(i) = this%resolve_row_addr(this%ctx%items(k), i, period_ifno, &
-                                            cellid, ndim, leading_tag)
+        row_addr(i) = &
+          this%resolve_row_addr(this%ctx%keystring_items(k), i, period_ifno, &
+                                cellid, ndim, leading_tag)
       end do
       call this%structarray%ts_update_indexed( &
-        this%ctx%items(k)%sa_icol, this%tsmanager, &
+        this%ctx%keystring_items(k)%sa_icol, this%tsmanager, &
         this%mf6_input%subcomponent_name, this%ctx%iprpak, nbound, row_addr, &
-        this%ctx%items(k)%tag, featarr)
+        this%ctx%keystring_items(k)%idt%tagname, featarr)
       deallocate (row_addr)
     end do
     if (count_errors() > 0) then
@@ -668,7 +675,7 @@ contains
   !! dimension, permuted into feature-index order first. Indexed by
   !! feature (not the dimension's own summed total).
   !<
-  function resolve_indexed_body_offsets(this, dimname) result(offsets)
+  function resolve_subindex_offsets(this, dimname) result(offsets)
     class(KeystringLoadType), intent(inout) :: this
     character(len=*), intent(in) :: dimname
     integer(I4B), dimension(:), allocatable :: offsets
@@ -694,20 +701,20 @@ contains
       offsets(n) = running
       running = running + counts(n)
     end do
-  end function resolve_indexed_body_offsets
+  end function resolve_subindex_offsets
 
   !> @brief Row -> resolved feature index for an item whose local
-  !! position comes from a sibling index field, via the offset table.
+  !! position comes from a subindex field, via the offset table.
   !<
-  function resolve_indexed_body_address(this, id_mf6varname, head_mf6varname, &
-                                        index_icol, offsets, nfeatures, nbound) &
+  function resolve_subindex_address(this, id_mf6varname, head_mf6varname, &
+                                    subindex_icol, offsets, nfeatures, nbound) &
     result(row_addr)
     use SimModule, only: store_error
     use SimVariablesModule, only: errmsg
     class(KeystringLoadType), intent(inout) :: this
     character(len=*), intent(in) :: id_mf6varname
     character(len=*), intent(in) :: head_mf6varname
-    integer(I4B), intent(in) :: index_icol !< SA column holding the sibling local index (e.g. IDV)
+    integer(I4B), intent(in) :: subindex_icol !< SA column holding the subindex (e.g. IDV)
     integer(I4B), dimension(:), intent(in) :: offsets
     integer(I4B), intent(in) :: nfeatures
     integer(I4B), intent(in) :: nbound
@@ -722,7 +729,7 @@ contains
     call mem_setptr(period_ifno, id_mf6varname, this%mf6_input%mempath)
     call mem_setptr(period_setting, 'SETTING', this%mf6_input%mempath)
     id_tag = trim(this%structarray%struct_vectors(1)%idt%tagname)
-    idx_tag = trim(this%structarray%struct_vectors(index_icol)%idt%tagname)
+    idx_tag = trim(this%structarray%struct_vectors(subindex_icol)%idt%tagname)
     allocate (row_addr(nbound))
     do i = 1, nbound
       row_addr(i) = 0
@@ -736,7 +743,7 @@ contains
       else
         nlocal = nfeatures - offsets(ifno) + 1
       end if
-      idx_local = this%structarray%struct_vectors(index_icol)%int1d(i)
+      idx_local = this%structarray%struct_vectors(subindex_icol)%int1d(i)
       if (idx_local < 1 .or. idx_local > nlocal) then
         write (errmsg, '(a,1x,a,1x,i0,1x,a,1x,i0,1x,a,1x,a,1x,i0,a)') &
           'index', trim(idx_tag), idx_local, 'must be between 1 and', nlocal, &
@@ -746,7 +753,7 @@ contains
       end if
       row_addr(i) = offsets(ifno) + idx_local - 1
     end do
-  end function resolve_indexed_body_address
+  end function resolve_subindex_address
 
   subroutine reset(this)
     use StructArrayModule, only: StructArrayType
@@ -804,7 +811,7 @@ contains
 
     has_setting = this%ctx%has_setting_dispatch
 
-    ! use pre-allocated managed memory (maxbound = features * nitems);
+    ! use pre-allocated managed memory (maxbound = features * nkeystring_items);
     ! fall back to deferred shape (-1) if maxbound is unavailable
     if (associated(this%ctx%maxbound) .and. this%ctx%maxbound > 0) then
       nrow_prealloc = this%ctx%maxbound
@@ -835,7 +842,7 @@ contains
       idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                        this%mf6_input%component_type, &
                                        this%mf6_input%subcomponent_type, &
-                                       'PERIOD', &
+                                       this%ctx%blockname, &
                                        this%param_names(icol), this%input_name)
       call this%structarray%mem_create_vector(icol, idt)
     end do
@@ -853,10 +860,10 @@ contains
       idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                        this%mf6_input%component_type, &
                                        this%mf6_input%subcomponent_type, &
-                                       'PERIOD', &
+                                       this%ctx%blockname, &
                                        this%param_names(icol), this%input_name)
       ! nsub from descriptor: 0 = direct dispatch, N = KEYWORD compound with N body members
-      nsub = this%ctx%items(icol - this%nleading)%head_nbody
+      nsub = this%ctx%keystring_items(icol - this%nleading)%head_nbody
       if (nsub > 0) then
         ! metadata vector: no data allocated; body_start points to next SA col
         call this%structarray%mem_create_metadata_vector(sa_icol, idt, &
@@ -866,10 +873,10 @@ contains
         call this%structarray%mem_create_vector(sa_icol, idt, &
                                                 charlen=LENVARNAME)
       else if (idt%datatype == 'DOUBLE' .and. &
-               (this%ctx%items(icol - this%nleading)%idm_managed .or. &
-                this%ctx%items(icol - this%nleading)%addr_mode == &
-                ADDR_INDEXED_BODY)) then
-        ! managed/indexed-body double: raw read array uses the suffixed input
+               (this%ctx%keystring_items(icol - this%nleading)%idm_managed .or. &
+                this%ctx%keystring_items(icol - this%nleading)%addr_mode == &
+                ADDR_SUBINDEX)) then
+        ! managed/subindex double: raw read array uses the suffixed input
         ! name, leaving mf6varname for the permanent array the loader populates
         call this%structarray%mem_create_vector(sa_icol, idt, &
                                                 varname=idm_input_varname(idt))

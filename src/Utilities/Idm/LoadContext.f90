@@ -49,15 +49,14 @@ module LoadContextModule
   ! addressing modes for an applied keystring setting
   integer(I4B), parameter, public :: ADDR_NONE = 0 !< not an applied setting
   integer(I4B), parameter, public :: ADDR_FEATURE = 1 !< addressed by leading id (IFNO/BNDNO)
-  integer(I4B), parameter, public :: ADDR_NODE = 2 !< addressed by CELLID -> reduced node
-  integer(I4B), parameter, public :: ADDR_INDEXED_BODY = 3 !< addressed by (id, sibling index)
+  integer(I4B), parameter, public :: ADDR_NODE = 2 !< addressed by CELLID
+  integer(I4B), parameter, public :: ADDR_SUBINDEX = 3 !< addressed by (id, subindex)
 
   !> @brief One descriptor per expanded keystring item, so loaders iterate
   !! uniformly instead of re-deriving per-mode state.
   !<
   type, public :: KeystringItemType
-    character(len=LENVARNAME) :: tag = '' !< public tag (e.g. RATE)
-    character(len=LENVARNAME) :: mf6varname = '' !< permanent-array name
+    type(InputParamDefinitionType), pointer :: idt => null() !< input definition
     integer(I4B) :: sa_icol = 0 !< struct-array column (SETTING offset resolved)
     logical(LGP) :: is_body = .false. !< RECORD body (non-head)
     integer(I4B) :: head_nbody = 0 !< if a head: number of body members; else 0
@@ -66,9 +65,6 @@ module LoadContextModule
     integer(I4B) :: addr_mode = ADDR_NONE !< how a row resolves to an index
     real(DP) :: init_value = DZERO !< DZERO (feature/SPC) | DNODATA (node)
     integer(I4B) :: nfeatures = 0 !< permanent-array length (per-item; LAK lake/outlet)
-    integer(I4B) :: index_icol = 0 !< indexed-body: sibling index SA column (df-time)
-    integer(I4B) :: head_icol = 0 !< indexed-body: owning head SA column (df-time)
-    integer(I4B), allocatable :: offsets(:) !< indexed-body: per-feature offsets (df-time)
   end type KeystringItemType
 
   !> @brief Input load context for generic dynamic loaders and StructArray
@@ -76,6 +72,7 @@ module LoadContextModule
   !! parameters, and manages memory-manager scalars and array pointers.
   !<
   type :: LoadContextType
+    ! memory-manager dimension/option scalars and arrays
     integer(I4B), pointer :: naux => null() !< number of auxiliary variables
     integer(I4B), pointer :: maxbound => null() !< value associated with named_bound
     integer(I4B), pointer :: boundnames => null() !< are bound names optioned
@@ -90,23 +87,26 @@ module LoadContextModule
       contiguous :: boundname_cst => null() !< array of bound names
     real(DP), dimension(:, :), pointer, &
       contiguous :: auxvar => null() !< auxiliary variable array
+    ! classification
     integer(I4B) :: loadtype !< load type enum: LIST, LAYERARRAY, GRIDARRAY, KEYSTRING
     logical(LGP) :: set_scalars = .false. !< .true. when dimension scalars must be set
     logical(LGP) :: set_mshape = .false. !< .true. when model shape is load dependency
     logical(LGP) :: is_exchange = .false. !< .true. for exchange contexts
-    logical(LGP) :: keystring_by_feature = .false. !< .true. for feature-addressed (IFNO/NUMBER/BNDNO) KEYSTRING loadtype
-    logical(LGP) :: keystring_by_node = .false. !< .true. for CELLID-addressed (e.g. TVK/TVS) KEYSTRING loadtype
-    logical(LGP) :: has_setting_dispatch = .false. !< .true. when keystring_by_feature .or. keystring_by_node
     logical(LGP) :: is_advanced = .false. !< .true. for an advanced package, any loadtype
-    type(InputParamDefinitionType), pointer :: setting_idt => null() !< internal idt for SETTING column
+    ! input handle and in-scope params
     character(len=LENVARNAME) :: blockname !< load block name
     character(len=LENVARNAME) :: named_bound !< name of dimension variable for maxbound; defaults to MAXBOUND
     integer(I4B) :: nleading = 0 !< count of leading (pre-keystring) columns
     character(len=LINELENGTH), dimension(:), allocatable :: params !< in-scope param tagnames
-    integer(I4B) :: nitems = 0 !< count of expanded keystring items (0 for non-keystring)
-    type(KeystringItemType), allocatable :: items(:)
-    character(len=LENVARNAME) :: feature_id_varname = '' !< leading id column mf6varname (feature-addressed)
     type(ModflowInputType) :: mf6_input !< description of input
+    ! keystring-specific (only set for KEYSTRING loads)
+    logical(LGP) :: keystring_by_feature = .false. !< .true. for feature-addressed (IFNO/NUMBER/BNDNO) KEYSTRING loadtype
+    logical(LGP) :: keystring_by_node = .false. !< .true. for CELLID-addressed (e.g. TVK/TVS) KEYSTRING loadtype
+    logical(LGP) :: has_setting_dispatch = .false. !< .true. when keystring_by_feature .or. keystring_by_node
+    type(InputParamDefinitionType), pointer :: setting_idt => null() !< internal idt for SETTING column
+    integer(I4B) :: nkeystring_items = 0 !< count of expanded keystring items (0 for non-keystring)
+    type(KeystringItemType), allocatable :: keystring_items(:)
+    character(len=LENVARNAME) :: feature_id_varname = '' !< leading id column mf6varname (feature-addressed)
   contains
     ! --- public interface ---
     procedure :: init
@@ -124,9 +124,9 @@ module LoadContextModule
     procedure, private :: allocate_param
     procedure :: check_developmode
     procedure, private :: in_scope
-    procedure :: indexed_body_dependency
+    procedure :: subindex_dependency
     procedure, private :: option_check
-    procedure :: build_items
+    procedure :: build_keystring_items
     procedure, private :: resolve_nfeatures
     procedure :: resolve_item_nfeatures
     procedure, private :: shape_param_is_array
@@ -167,7 +167,7 @@ contains
     call this%set_params()
     call this%resolve_dimensions()
     ! build the per-item descriptor table (keystring only)
-    if (this%loadtype == KEYSTRING) call this%build_items()
+    if (this%loadtype == KEYSTRING) call this%build_keystring_items()
   end subroutine init
 
   !> @brief Set context flags from input load_scope and component metadata.
@@ -251,7 +251,7 @@ contains
         this%setting_idt => &
           idt_default(this%mf6_input%component_type, &
                       this%mf6_input%subcomponent_type, &
-                      'PERIOD', 'SETTING', 'SETTING', 'STRING')
+                      this%blockname, 'SETTING', 'SETTING', 'STRING')
       end if
     end if
 
@@ -317,18 +317,18 @@ contains
   !<
   subroutine scale_keystring_maxbound(this)
     class(LoadContextType) :: this
-    integer(I4B) :: nitems
+    integer(I4B) :: nkeystring_items
 
-    nitems = this%nitems
+    nkeystring_items = this%nkeystring_items
 
-    if (nitems > 0) then
+    if (nkeystring_items > 0) then
       if (this%maxbound == 0) then
         if (.not. this%keystring_by_feature) then
-          this%maxbound = this%nodes * nitems
+          this%maxbound = this%nodes * nkeystring_items
         end if
         ! else: feature-addressed, genuinely zero stays 0
       else
-        this%maxbound = this%maxbound * nitems
+        this%maxbound = this%maxbound * nkeystring_items
       end if
     end if
   end subroutine scale_keystring_maxbound
@@ -534,30 +534,30 @@ contains
     end select
   end function in_scope
 
-  !> @brief Hardcoded per-package dependency for an indexed-body param
+  !> @brief Hardcoded per-package dependency for a subindex param
   !! with no SHAPE of its own -- same category of special-casing as
-  !! in_scope, for a dimension name and sibling index field instead.
+  !! in_scope, for a dimension name and subindex field instead.
   !<
-  function indexed_body_dependency(this, tagname, dimname, index_tagname) &
+  function subindex_dependency(this, tagname, dimname, subindex_tagname) &
     result(found)
     class(LoadContextType) :: this
     character(len=*), intent(in) :: tagname
     character(len=LENVARNAME), intent(out) :: dimname
-    character(len=LENVARNAME), intent(out) :: index_tagname
+    character(len=LENVARNAME), intent(out) :: subindex_tagname
     logical(LGP) :: found
 
     found = .false.
     dimname = ''
-    index_tagname = ''
+    subindex_tagname = ''
     select case (this%mf6_input%subcomponent_type)
     case ('SFR')
       if (tagname == 'DIVFLOW') then
         dimname = 'NDV'
-        index_tagname = 'IDV'
+        subindex_tagname = 'IDV'
         found = .true.
       end if
     end select
-  end function indexed_body_dependency
+  end function subindex_dependency
 
   !> @brief Return .true. if a memory-manager integer option variable exceeds a threshold.
   !<
@@ -580,12 +580,12 @@ contains
   !> @brief Build the per-item descriptor table, the single source of
   !! truth for how each keystring item is allocated and applied.
   !<
-  subroutine build_items(this)
+  subroutine build_keystring_items(this)
     use DefinitionSelectModule, only: get_param_definition_type
     class(LoadContextType) :: this
     type(InputParamDefinitionType), pointer :: idt
-    integer(I4B) :: icol, k, padj, nfeatures, nitems
-    character(len=LENVARNAME) :: dimname, index_tagname
+    integer(I4B) :: icol, k, padj, nfeatures, nkeystring_items
+    character(len=LENVARNAME) :: dimname, subindex_tagname
     logical(LGP) :: found, node
     character(len=LINELENGTH), allocatable :: item_names(:)
     integer(I4B), allocatable :: head_nbody(:)
@@ -595,8 +595,9 @@ contains
     if (.not. this%has_setting_dispatch) return
 
     ! derive per-item metadata (single computation; not stored as ctx state)
-    call this%keystring_item_names(item_names, head_nbody, item_is_body, nitems)
-    if (nitems < 1) return
+    call this%keystring_item_names(item_names, head_nbody, item_is_body, &
+                                   nkeystring_items)
+    if (nkeystring_items < 1) return
 
     ! generic leading-id address varname (feature-addressed packages,
     ! advanced or not, e.g. SPC): the leading column's mf6varname.
@@ -604,14 +605,14 @@ contains
       idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                        this%mf6_input%component_type, &
                                        this%mf6_input%subcomponent_type, &
-                                       'PERIOD', this%params(1), '')
+                                       this%blockname, this%params(1), '')
       this%feature_id_varname = trim(idt%mf6varname)
     end if
 
     padj = 1 ! SETTING column present whenever has_setting_dispatch
     node = this%keystring_by_node
 
-    allocate (this%items(nitems))
+    allocate (this%keystring_items(nkeystring_items))
     nfeatures = this%resolve_nfeatures()
     cur_head = ''
 
@@ -620,57 +621,57 @@ contains
       idt => get_param_definition_type(this%mf6_input%param_dfns, &
                                        this%mf6_input%component_type, &
                                        this%mf6_input%subcomponent_type, &
-                                       'PERIOD', this%params(icol), '')
-      this%items(k)%tag = trim(idt%tagname)
-      this%items(k)%mf6varname = trim(idt%mf6varname)
-      this%items(k)%sa_icol = icol + padj
-      this%items(k)%is_body = item_is_body(k)
-      this%items(k)%head_nbody = head_nbody(k)
+                                       this%blockname, this%params(icol), '')
+      this%keystring_items(k)%idt => idt
+      this%keystring_items(k)%sa_icol = icol + padj
+      this%keystring_items(k)%is_body = item_is_body(k)
+      this%keystring_items(k)%head_nbody = head_nbody(k)
 
       ! track the current record head's SETTING keyword; a body dispatches
       ! on its owning head's keyword (the SETTING token on the input row),
       ! not on its own mf6varname.
-      if (.not. this%items(k)%is_body) then
-        if (this%items(k)%head_nbody > 0) then
+      if (.not. this%keystring_items(k)%is_body) then
+        if (this%keystring_items(k)%head_nbody > 0) then
           cur_head = trim(idt%mf6varname) ! opening a RECORD
         else
           cur_head = '' ! standalone item; not a record head
         end if
       else
-        this%items(k)%head_setting_varname = trim(cur_head)
+        this%keystring_items(k)%head_setting_varname = trim(cur_head)
       end if
 
       ! managed only for DOUBLE + timeseries standalone settings, which
       ! require a permanent array for cross-period timeseries persistence.
-      this%items(k)%idm_managed = (idt%datatype == 'DOUBLE' .and. &
-                                   idt%timeseries .and. &
-                                   .not. this%items(k)%is_body)
+      this%keystring_items(k)%idm_managed = &
+        (idt%datatype == 'DOUBLE' .and. idt%timeseries .and. &
+         .not. this%keystring_items(k)%is_body)
 
-      if (this%items(k)%idm_managed) then
+      if (this%keystring_items(k)%idm_managed) then
         if (node) then
-          this%items(k)%addr_mode = ADDR_NODE
-          this%items(k)%init_value = DNODATA
-          if (associated(this%nodes)) this%items(k)%nfeatures = this%nodes
+          this%keystring_items(k)%addr_mode = ADDR_NODE
+          this%keystring_items(k)%init_value = DNODATA
+          if (associated(this%nodes)) &
+            this%keystring_items(k)%nfeatures = this%nodes
         else
-          this%items(k)%addr_mode = ADDR_FEATURE
-          this%items(k)%init_value = DZERO
-          this%items(k)%nfeatures = &
+          this%keystring_items(k)%addr_mode = ADDR_FEATURE
+          this%keystring_items(k)%init_value = DZERO
+          this%keystring_items(k)%nfeatures = &
             this%resolve_item_nfeatures(idt%tagname, idt%shape, nfeatures)
         end if
       end if
 
-      ! indexed-body (SFR DIVFLOW): classify here; df-time fields
+      ! subindex (SFR DIVFLOW): classify here; df-time fields
       ! (index_icol/head_icol/offsets/nfeatures) are completed in df().
-      if (this%is_advanced .and. this%items(k)%is_body) then
-        found = this%indexed_body_dependency(idt%tagname, dimname, &
-                                             index_tagname)
+      if (this%is_advanced .and. this%keystring_items(k)%is_body) then
+        found = this%subindex_dependency(idt%tagname, dimname, &
+                                         subindex_tagname)
         if (found) then
-          this%items(k)%addr_mode = ADDR_INDEXED_BODY
-          this%items(k)%idm_managed = .true.
+          this%keystring_items(k)%addr_mode = ADDR_SUBINDEX
+          this%keystring_items(k)%idm_managed = .true.
         end if
       end if
     end do
-  end subroutine build_items
+  end subroutine build_keystring_items
 
   !> @brief Resolve the permanent array's feature count. The explicit
   !! DIMENSIONS dimension (named_bound) is authoritative when present;
@@ -683,7 +684,7 @@ contains
     use SimModule, only: store_error
     class(LoadContextType) :: this
     integer(I4B) :: nfeatures
-    integer(I4B) :: isize, nitems, nrow, ndim
+    integer(I4B) :: isize, nkeystring_items, nrow, ndim
     integer(I4B), pointer :: dimval
     logical(LGP) :: have_dim, have_nrow
     character(len=LINELENGTH) :: errmsg
@@ -721,9 +722,9 @@ contains
     ! defensive: only if neither an explicit dimension nor PACKAGEDATA
     ! is available (not expected for current packages)
     nfeatures = 0
-    nitems = this%nitems
-    if (nitems > 0 .and. associated(this%maxbound)) then
-      if (this%maxbound > 0) nfeatures = this%maxbound / nitems
+    nkeystring_items = this%nkeystring_items
+    if (nkeystring_items > 0 .and. associated(this%maxbound)) then
+      if (this%maxbound > 0) nfeatures = this%maxbound / nkeystring_items
     end if
   end function resolve_nfeatures
 
@@ -804,7 +805,7 @@ contains
     character(len=LINELENGTH), allocatable :: item_names(:)
     integer(I4B), allocatable :: head_nbody(:)
     logical(LGP), allocatable :: item_is_body(:)
-    integer(I4B) :: keepcnt, iparam, nparam, nitems, n
+    integer(I4B) :: keepcnt, iparam, nparam, nkeystring_items, n
     logical(LGP) :: keep, tag_found
 
     ! initialize
@@ -859,12 +860,12 @@ contains
         this%loadtype == KEYSTRING) this%nleading = keepcnt
 
     ! for keystring packages: append item names (metadata head_nbody/
-    ! item_is_body is derived into the descriptor by build_items)
+    ! item_is_body is derived into the descriptor by build_keystring_items)
     if (this%loadtype == KEYSTRING) then
       call this%keystring_item_names(item_names, head_nbody, &
-                                     item_is_body, nitems)
-      this%nitems = nitems
-      do n = 1, nitems
+                                     item_is_body, nkeystring_items)
+      this%nkeystring_items = nkeystring_items
+      do n = 1, nkeystring_items
         keepcnt = keepcnt + 1
         call expandarray(param_buf)
         param_buf(keepcnt) = trim(item_names(n))
@@ -974,14 +975,14 @@ contains
 
   !> @brief Append body column names from a RECORD compound entry to item_names.
   !<
-  subroutine expand_record_body(mf6_input, rec_idt, item_names, nitems)
+  subroutine expand_record_body(mf6_input, rec_idt, item_names, nkeystring_items)
     use InputOutputModule, only: upcase
     use ArrayHandlersModule, only: expandarray
     use DefinitionSelectModule, only: idt_parse_rectype, idt_datatype
     type(ModflowInputType), intent(in) :: mf6_input
     type(InputParamDefinitionType), pointer, intent(in) :: rec_idt
     character(len=LINELENGTH), allocatable, intent(inout) :: item_names(:)
-    integer(I4B), intent(inout) :: nitems
+    integer(I4B), intent(inout) :: nkeystring_items
     type(InputParamDefinitionType), pointer :: sub_idt
     character(len=LINELENGTH), allocatable :: sub_cols(:)
     character(len=LINELENGTH) :: token, tagname
@@ -997,9 +998,9 @@ contains
         call upcase(tagname)
         if (trim(tagname) /= trim(token)) cycle
         if (idt_datatype(sub_idt) == 'RECORD') cycle
-        nitems = nitems + 1
+        nkeystring_items = nkeystring_items + 1
         call expandarray(item_names)
-        item_names(nitems) = trim(sub_idt%tagname)
+        item_names(nkeystring_items) = trim(sub_idt%tagname)
         exit
       end do
     end do
@@ -1097,7 +1098,7 @@ contains
   !! and any direct-dispatch param are not.
   !<
   subroutine keystring_item_names(this, item_names, head_nbody, &
-                                  item_is_body, nitems)
+                                  item_is_body, nkeystring_items)
     use InputOutputModule, only: upcase
     use ArrayHandlersModule, only: expandarray
     use DefinitionSelectModule, only: idt_parse_rectype, idt_datatype, &
@@ -1106,13 +1107,13 @@ contains
     character(len=LINELENGTH), allocatable, intent(out) :: item_names(:)
     integer(I4B), allocatable, intent(out) :: head_nbody(:)
     logical(LGP), allocatable, intent(out) :: item_is_body(:)
-    integer(I4B), intent(out) :: nitems
+    integer(I4B), intent(out) :: nkeystring_items
     type(InputParamDefinitionType), pointer :: aidt, ks_aidt, idt
     character(len=LINELENGTH), allocatable :: rec_cols(:), ks_cols(:)
     character(len=LINELENGTH) :: rec_token, tagname
     integer(I4B) :: m, n, nrec_col, nks_col, nitems0, k
 
-    nitems = 0
+    nkeystring_items = 0
 
     ! get RECARRAY aggregate for period block and parse its column tokens
     aidt => get_aggregate_definition_type(this%mf6_input%aggregate_dfns, &
@@ -1136,7 +1137,7 @@ contains
 
       ! locate matching param_dfns entry for this token
       do n = 1, size(this%mf6_input%param_dfns)
-        if (this%mf6_input%param_dfns(n)%blockname /= 'PERIOD') cycle
+        if (this%mf6_input%param_dfns(n)%blockname /= this%blockname) cycle
         tagname = this%mf6_input%param_dfns(n)%tagname
         call upcase(tagname)
         if (trim(tagname) /= trim(rec_token)) cycle
@@ -1144,15 +1145,15 @@ contains
         idt => this%mf6_input%param_dfns(n)
         if (idt_datatype(idt) == 'RECORD') then
           ! compound group: expand body members in RECORD type order
-          nitems0 = nitems
+          nitems0 = nkeystring_items
           call expand_record_body(this%mf6_input, idt, item_names, &
-                                  nitems)
+                                  nkeystring_items)
           ! first added entry is the KEYWORD head; remaining are body members
-          do k = nitems0 + 1, nitems
+          do k = nitems0 + 1, nkeystring_items
             call expandarray(head_nbody)
             call expandarray(item_is_body)
             if (k == nitems0 + 1) then
-              head_nbody(k) = nitems - nitems0 - 1
+              head_nbody(k) = nkeystring_items - nitems0 - 1
               item_is_body(k) = .false.
             else
               head_nbody(k) = 0
@@ -1161,13 +1162,14 @@ contains
           end do
         else
           ! direct-dispatch param
-          nitems = nitems + 1
+          nkeystring_items = nkeystring_items + 1
           call expandarray(item_names)
           call expandarray(head_nbody)
           call expandarray(item_is_body)
-          item_names(nitems) = trim(this%mf6_input%param_dfns(n)%tagname)
-          head_nbody(nitems) = 0
-          item_is_body(nitems) = .false.
+          item_names(nkeystring_items) = &
+            trim(this%mf6_input%param_dfns(n)%tagname)
+          head_nbody(nkeystring_items) = 0
+          item_is_body(nkeystring_items) = .false.
         end if
         exit
       end do
