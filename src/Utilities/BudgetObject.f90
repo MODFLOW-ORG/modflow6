@@ -482,7 +482,7 @@ contains
     real(DP), intent(in) :: pertim
     real(DP), intent(in) :: totim
     integer(I4B), intent(in) :: iout
-    ! -- dummy
+    ! -- local
     integer(I4B) :: i
     !
     ! -- Save flows for each budget term
