@@ -72,6 +72,8 @@ module PrtPrpModule
     real(DP), pointer, contiguous :: rpty(:) => null() !< release point y coordinates
     real(DP), pointer, contiguous :: rptz(:) => null() !< release point z coordinates
     real(DP), pointer, contiguous :: rptm(:) => null() !< total mass released from point
+    real(DP), pointer, contiguous :: rptlast(:) => null() !< release time of this point's last successfully recorded release() call
+    real(DP), pointer, contiguous :: rptlasttotimc(:) => null() !< totimc as of rptlast, to tell a genuinely new time step from a repeat call (Picard iteration or ATS retry) for the one already recorded
     character(len=LENBOUNDNAME), pointer, contiguous :: rptname(:) => null() !< release point names
     character(len=LINELENGTH), allocatable :: period_block_lines(:) !< last period block configuration for fill-forward
     integer(I4B) :: applied_kper !< period for which configuration was last applied
@@ -228,6 +230,8 @@ contains
     call mem_deallocate(this%rptz)
     call mem_deallocate(this%rptnode)
     call mem_deallocate(this%rptm)
+    call mem_deallocate(this%rptlast)
+    call mem_deallocate(this%rptlasttotimc)
     call mem_deallocate(this%rptname, 'RPTNAME', this%memoryPath)
 
     ! Deallocate period block storage
@@ -277,6 +281,10 @@ contains
     call mem_allocate(this%rptz, this%nreleasepoints, 'RPTZ', this%memoryPath)
     call mem_allocate(this%rptm, this%nreleasepoints, 'RPTMASS', &
                       this%memoryPath)
+    call mem_allocate(this%rptlast, this%nreleasepoints, 'RPTLAST', &
+                      this%memoryPath)
+    call mem_allocate(this%rptlasttotimc, this%nreleasepoints, &
+                      'RPTLASTTOTIMC', this%memoryPath)
     call mem_allocate(this%rptnode, this%nreleasepoints, 'RPTNODER', &
                       this%memoryPath)
     call mem_allocate(this%rptname, LENBOUNDNAME, this%nreleasepoints, &
@@ -285,6 +293,8 @@ contains
     ! Initialize arrays
     do nps = 1, this%nreleasepoints
       this%rptm(nps) = DZERO
+      this%rptlast(nps) = -DONE
+      this%rptlasttotimc(nps) = -DONE
     end do
   end subroutine prp_allocate_arrays
 
@@ -614,13 +624,41 @@ contains
   !! budget reporting).
   !<
   subroutine release(this, ip, trelease)
+    use TdisModule, only: totimc
     ! dummy
     class(PrtPrpType), intent(inout) :: this !< this instance
     integer(I4B), intent(in) :: ip !< particle index
     real(DP), intent(in) :: trelease !< release time
     ! local
     integer(I4B) :: np
+    logical(LGP) :: new_timestep
     type(ParticleType), pointer :: particle
+
+    ! A release point never releases more than one particle at a given
+    ! instant (see the "gumball machine" note in prp_ad). The schedule
+    ! is responsible for enforcing that by never offering this routine
+    ! two coincident release times for the same point to begin with,
+    ! but this is the one place particles actually come into being, so
+    ! it's the right choke point to guard the invariant itself: if
+    ! it's ever violated anyway -- a bug in the schedule, or some
+    ! future caller that bypasses it -- fail loudly here rather than
+    ! silently double-releasing and corrupting the mass budget (as in
+    ! issue #2980).
+    !
+    ! Only check (and only record) this if totimc has genuinely
+    ! advanced since this point's release was last recorded. prp_ad
+    ! can call release() again for the *same* time step -- once per
+    ! Picard iteration, and again per ATS retry -- and each such call
+    ! resets and rebuilds particles_staging from scratch, so it must
+    ! be free to release this point again without tripping over its
+    ! own, not-yet-committed prior attempt.
+    new_timestep = totimc > this%rptlasttotimc(ip)
+    if (new_timestep .and. this%rptlast(ip) >= DZERO .and. &
+        is_close(this%rptlast(ip), trelease, atol=this%rttol)) &
+      call pstop(1, 'Programmer error: PRP release() called twice for &
+        &the same (or coincident) release time at the same release &
+        &point; the release schedule should have merged these into a &
+        &single release.')
 
     call this%initialize_particle(particle, ip, trelease)
     np = this%nparticles + 1
@@ -628,6 +666,8 @@ contains
     call this%particles_staging%put(particle, np)
     deallocate (particle)
     this%rptm(ip) = this%rptm(ip) + DONE ! TODO configurable mass
+    this%rptlast(ip) = trelease
+    this%rptlasttotimc(ip) = totimc
 
   end subroutine release
 

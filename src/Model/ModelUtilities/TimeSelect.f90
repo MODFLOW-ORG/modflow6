@@ -6,6 +6,7 @@ module TimeSelectModule
   use ArrayHandlersModule, only: ExpandArray
   use ErrorUtilModule, only: pstop
   use SortModule, only: qsort
+  use MathUtilModule, only: is_close
 
   implicit none
   public :: TimeSelectType
@@ -46,6 +47,7 @@ module TimeSelectModule
     procedure :: count
     procedure :: sort
     procedure :: extend
+    procedure :: contains_close
   end type TimeSelectType
 
 contains
@@ -288,5 +290,34 @@ contains
     this%times = [this%times, a]
     call this%sort()
   end subroutine extend
+
+  !> @brief Check whether any configured time is within tolerance of t.
+  !!
+  !! Unlike any()/select(), this checks the full times array, not just
+  !! the current time step's slice: it answers "has this instant been
+  !! (or will it be) accounted for by this time selection at all",
+  !! regardless of which time step it falls in or has already been
+  !! claimed by. Useful for reconciling this fixed, fully-known-up-
+  !! front time selection against some other, independently computed
+  !! candidate instant (e.g. one implied by a period-block release
+  !! setting) that might coincide with one of these times without the
+  !! caller having any way to know which time step selected it.
+  !<
+  function contains_close(this, t, tolerance) result(found)
+    class(TimeSelectType) :: this
+    real(DP), intent(in) :: t
+    real(DP), intent(in) :: tolerance
+    logical(LGP) :: found
+    integer(I4B) :: i
+
+    found = .false.
+    if (.not. allocated(this%times)) return
+    do i = 1, size(this%times)
+      if (is_close(this%times(i), t, atol=tolerance)) then
+        found = .true.
+        return
+      end if
+    end do
+  end function contains_close
 
 end module TimeSelectModule

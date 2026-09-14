@@ -15,7 +15,8 @@ contains
                 new_unittest("is_increasing", test_is_increasing), &
                 new_unittest("select", test_select), &
                 new_unittest("extend_and_sort", &
-                             test_extend_and_sort) &
+                             test_extend_and_sort), &
+                new_unittest("contains_close", test_contains_close) &
                 ]
   end subroutine collect_timeselect
 
@@ -143,5 +144,31 @@ contains
     call check(error, ts%increasing())
 
   end subroutine test_extend_and_sort
+
+  subroutine test_contains_close(error)
+    type(error_type), allocatable, intent(out) :: error
+    type(TimeSelectType) :: ts
+
+    call ts%init()
+    call ts%extend((/0.0_DP, 1.0_DP, 2.0_DP/))
+
+    ! exact match
+    call check(error, ts%contains_close(1.0_DP, 1.0e-6_DP))
+
+    ! within tolerance
+    call check(error, ts%contains_close(1.0_DP + 1.0e-8_DP, 1.0e-6_DP))
+
+    ! outside tolerance
+    call check(error,.not. ts%contains_close(1.5_DP, 1.0e-6_DP))
+
+    ! outside tolerance, but close to the array's end (guards against
+    ! only checking the first/last entry instead of scanning fully)
+    call check(error,.not. ts%contains_close(2.5_DP, 1.0e-6_DP))
+
+    ! empty array
+    call ts%init()
+    call check(error,.not. ts%contains_close(0.0_DP, 1.0e-6_DP))
+
+  end subroutine test_contains_close
 
 end module TestTimeSelect

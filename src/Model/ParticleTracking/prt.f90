@@ -1090,22 +1090,31 @@ contains
             call packobj%particles_staging%put(particle, np)
           end if
           if (particle%istatus > ACTIVE) cycle ! Skip terminated particles
-          particle%istatus = ACTIVE ! Set active status in case of release
-          if (particle%trelease >= totimc) then
-            if (particle%trelease > particle%tstop) then
-              ! The package's stop time is earlier than the release time.
-              ! Terminate it permanently unreleased and show a warning.
-              write (warnmsg, '(a,g0,a,g0,a,g0,a)') &
-                'Particle release point ', particle%irpt, ' has &
-                &release time ', particle%trelease, ' after package &
-                &stop time ', particle%tstop, '; particle will not &
-                &be released.'
-              call store_warning(warnmsg)
-              call this%method%terminate(particle, status=TERM_UNRELEASED)
-            else
-              ! The particle was released this time step; emit a
-              ! release event.
-              call this%method%release(particle)
+          ! istatus is 0 only prior to a particle's first visit here (see
+          ! initialize_particle). Gate the release check on that instead of
+          ! solely on trelease >= totimc: a particle's trelease can equal
+          ! the start time of a later time step too (e.g. when it lands
+          ! exactly on a time step boundary), and without this guard an
+          ! already-released, still-active particle would spuriously be
+          ! released a second time on that later time step.
+          if (particle%istatus == 0) then
+            particle%istatus = ACTIVE ! Set active status in case of release
+            if (particle%trelease >= totimc) then
+              if (particle%trelease > particle%tstop) then
+                ! The package's stop time is earlier than the release time.
+                ! Terminate it permanently unreleased and show a warning.
+                write (warnmsg, '(a,g0,a,g0,a,g0,a)') &
+                  'Particle release point ', particle%irpt, ' has &
+                  &release time ', particle%trelease, ' after package &
+                  &stop time ', particle%tstop, '; particle will not &
+                  &be released.'
+                call store_warning(warnmsg)
+                call this%method%terminate(particle, status=TERM_UNRELEASED)
+              else
+                ! The particle was released this time step; emit a
+                ! release event.
+                call this%method%release(particle)
+              end if
             end if
           end if
           if (particle%istatus <= ACTIVE) then

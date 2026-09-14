@@ -3,7 +3,7 @@ module ParticleReleaseScheduleModule
 
   use ArrayHandlersModule, only: ExpandArray
   use ConstantsModule, only: DZERO, DONE, LINELENGTH
-  use KindModule, only: I4B, LGP, DP
+  use KindModule, only: I4B, DP
   use MathUtilModule, only: is_close
   use TimeSelectModule, only: TimeSelectType
   use TimeStepSelectModule, only: TimeStepSelectType
@@ -103,7 +103,32 @@ contains
   !! the given period. Finally, refresh the schedule array,
   !! deduplicating any times closer than the set tolerance.
   !!
-  !! This routine is idempotent.
+  !! Coincidence is checked not only among times scheduled within
+  !! this call, but also between a period-block time (e.g. FIRST)
+  !! and the full, fixed set of explicitly configured release times
+  !! (time_select%times), not just whichever of those this call's
+  !! own window selected. time_select%times is completely known
+  !! before the simulation's time step loop ever starts (explicit
+  !! release times, RELEASETIMESFILE, and RELEASE_TIME_FREQUENCY are
+  !! all loaded up front), so this check is a simple, static lookup:
+  !! no bookkeeping of what was released on a previous call is
+  !! needed, or could go stale across time steps or repeat calls.
+  !!
+  !! This asymmetry -- checking the period-block time against the
+  !! explicit array, not the other way around -- isn't arbitrary.
+  !! An explicit release time can only ever be selected once, by
+  !! whichever time step's window contains it (time_select%advance's
+  !! own (t0, t1] convention already guarantees that); a period-block
+  !! time is instead computed fresh from totimc every time step, with
+  !! no memory of its own, and totimc always lands exactly on a
+  !! window's boundary, which the (t0, t1] convention deliberately
+  !! excludes from that window (it's the *next* window's start). So
+  !! a period-block time can never be "reselected" the way an
+  !! explicit one might be; the only failure mode is it independently
+  !! duplicating an explicit release the explicit mechanism already
+  !! owns, in whatever time step that turned out to be, which is
+  !! exactly what checking against the full, static explicit array
+  !! (rather than only this call's own slice of it) rules out.
   !<
   subroutine advance(this, lines)
     use TdisModule, only: totimc, kstp, endofperiod
@@ -132,12 +157,15 @@ contains
     tprevious = -DONE
     trelease = -DONE
 
-    ! Add a release time configured by period-block
-    ! settings, if one is scheduled this time step.
+    ! Add a release time configured by period-block settings, if one
+    ! is scheduled this time step and doesn't coincide with any
+    ! explicitly configured release time (see above).
     if (this%step_select%is_selected(kstp, endofperiod=endofperiod)) then
       trelease = totimc
-      call this%schedule(trelease)
-      tprevious = trelease
+      if (.not. this%time_select%contains_close(trelease, this%tolerance)) then
+        call this%schedule(trelease)
+        tprevious = trelease
+      end if
     end if
 
     ! Schedule explicitly specified release times, up
