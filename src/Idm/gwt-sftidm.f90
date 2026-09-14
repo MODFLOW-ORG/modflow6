@@ -9,6 +9,7 @@ module GwtSftInputModule
   public gwt_sft_block_definitions
   public GwtSftParamFoundType
   public gwt_sft_multi_package
+  public gwt_sft_is_advanced
   public gwt_sft_subpackages
 
   type GwtSftParamFoundType
@@ -56,6 +57,7 @@ module GwtSftInputModule
   end type GwtSftParamFoundType
 
   logical :: gwt_sft_multi_package = .true.
+  logical :: gwt_sft_is_advanced = .true.
 
   character(len=16), parameter :: &
     gwt_sft_subpackages(*) = &

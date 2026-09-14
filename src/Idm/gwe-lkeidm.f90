@@ -9,6 +9,7 @@ module GweLkeInputModule
   public gwe_lke_block_definitions
   public GweLkeParamFoundType
   public gwe_lke_multi_package
+  public gwe_lke_is_advanced
   public gwe_lke_subpackages
 
   type GweLkeParamFoundType
@@ -58,6 +59,7 @@ module GweLkeInputModule
   end type GweLkeParamFoundType
 
   logical :: gwe_lke_multi_package = .true.
+  logical :: gwe_lke_is_advanced = .true.
 
   character(len=16), parameter :: &
     gwe_lke_subpackages(*) = &

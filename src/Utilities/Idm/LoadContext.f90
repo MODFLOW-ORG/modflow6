@@ -17,6 +17,7 @@ module LoadContextModule
   use ModflowInputModule, only: ModflowInputType
   use InputDefinitionModule, only: InputParamDefinitionType
   use CharacterStringModule, only: CharacterStringType
+  use IdmDfnSelectorModule, only: idm_is_advanced
 
   implicit none
   private
@@ -1075,22 +1076,12 @@ contains
     end select
   end function is_feature_tag
 
-  !> @brief Return .true. if mf6_input is an advanced package (PERIOD
-  !! settings persist until reissued). Hardcoded against each package's
-  !! own "# package-type advanced-stress-package" dfn marker, pending a
-  !! dfn2f90.py-generated attribute for this.
+  !> @brief Return .true. if mf6_input is an advanced package
   !<
   function is_advanced(mf6_input) result(res)
     type(ModflowInputType), intent(in) :: mf6_input
     logical(LGP) :: res
-    select case (mf6_input%subcomponent_type)
-    case ('LAK', 'MAW', 'SFR', 'UZF', &
-          'LKT', 'MWT', 'SFT', 'UZT', &
-          'LKE', 'MWE', 'SFE', 'UZE')
-      res = .true.
-    case default
-      res = .false.
-    end select
+    res = idm_is_advanced(mf6_input%component_type, mf6_input%subcomponent_type)
   end function is_advanced
 
   !> @brief Return keystring item column names, per-head body counts, and

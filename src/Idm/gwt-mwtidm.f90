@@ -9,6 +9,7 @@ module GwtMwtInputModule
   public gwt_mwt_block_definitions
   public GwtMwtParamFoundType
   public gwt_mwt_multi_package
+  public gwt_mwt_is_advanced
   public gwt_mwt_subpackages
 
   type GwtMwtParamFoundType
@@ -53,6 +54,7 @@ module GwtMwtInputModule
   end type GwtMwtParamFoundType
 
   logical :: gwt_mwt_multi_package = .true.
+  logical :: gwt_mwt_is_advanced = .true.
 
   character(len=16), parameter :: &
     gwt_mwt_subpackages(*) = &

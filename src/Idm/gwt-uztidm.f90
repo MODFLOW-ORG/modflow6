@@ -9,6 +9,7 @@ module GwtUztInputModule
   public gwt_uzt_block_definitions
   public GwtUztParamFoundType
   public gwt_uzt_multi_package
+  public gwt_uzt_is_advanced
   public gwt_uzt_subpackages
 
   type GwtUztParamFoundType
@@ -54,6 +55,7 @@ module GwtUztInputModule
   end type GwtUztParamFoundType
 
   logical :: gwt_uzt_multi_package = .true.
+  logical :: gwt_uzt_is_advanced = .true.
 
   character(len=16), parameter :: &
     gwt_uzt_subpackages(*) = &

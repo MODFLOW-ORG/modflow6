@@ -9,6 +9,7 @@ module GweUzeInputModule
   public gwe_uze_block_definitions
   public GweUzeParamFoundType
   public gwe_uze_multi_package
+  public gwe_uze_is_advanced
   public gwe_uze_subpackages
 
   type GweUzeParamFoundType
@@ -54,6 +55,7 @@ module GweUzeInputModule
   end type GweUzeParamFoundType
 
   logical :: gwe_uze_multi_package = .true.
+  logical :: gwe_uze_is_advanced = .true.
 
   character(len=16), parameter :: &
     gwe_uze_subpackages(*) = &

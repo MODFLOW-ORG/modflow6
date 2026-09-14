@@ -9,6 +9,7 @@ module GweSfeInputModule
   public gwe_sfe_block_definitions
   public GweSfeParamFoundType
   public gwe_sfe_multi_package
+  public gwe_sfe_is_advanced
   public gwe_sfe_subpackages
 
   type GweSfeParamFoundType
@@ -58,6 +59,7 @@ module GweSfeInputModule
   end type GweSfeParamFoundType
 
   logical :: gwe_sfe_multi_package = .true.
+  logical :: gwe_sfe_is_advanced = .true.
 
   character(len=16), parameter :: &
     gwe_sfe_subpackages(*) = &

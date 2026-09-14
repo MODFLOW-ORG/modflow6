@@ -9,6 +9,7 @@ module GwtLktInputModule
   public gwt_lkt_block_definitions
   public GwtLktParamFoundType
   public gwt_lkt_multi_package
+  public gwt_lkt_is_advanced
   public gwt_lkt_subpackages
 
   type GwtLktParamFoundType
@@ -56,6 +57,7 @@ module GwtLktInputModule
   end type GwtLktParamFoundType
 
   logical :: gwt_lkt_multi_package = .true.
+  logical :: gwt_lkt_is_advanced = .true.
 
   character(len=16), parameter :: &
     gwt_lkt_subpackages(*) = &
