@@ -358,10 +358,9 @@ def check_budget_data(lst: os.PathLike, perlen=1, nper=1, nstp=1):
     ]
     assert all(en in names for en in expected_entries)
 
-    # the mass budget should balance at every time step: a nonzero
+    # mass budget should balance at every time step: a nonzero
     # PERCENT_DISCREPANCY means particle mass is being lost or
-    # double-counted somewhere (e.g. two coincident particles
-    # sharing a termination-accounting id -- see issue #2980)
+    # double-counted somewhere
     percent_discrepancy = inc["PERCENT_DISCREPANCY"]
     assert np.allclose(percent_discrepancy, 0.0, atol=1e-6), (
         f"Mass budget does not balance; PERCENT_DISCREPANCY={percent_discrepancy}"

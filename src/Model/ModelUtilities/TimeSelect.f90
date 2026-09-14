@@ -293,15 +293,10 @@ contains
 
   !> @brief Check whether any configured time is within tolerance of t.
   !!
-  !! Unlike any()/select(), this checks the full times array, not just
-  !! the current time step's slice: it answers "has this instant been
-  !! (or will it be) accounted for by this time selection at all",
-  !! regardless of which time step it falls in or has already been
-  !! claimed by. Useful for reconciling this fixed, fully-known-up-
-  !! front time selection against some other, independently computed
-  !! candidate instant (e.g. one implied by a period-block release
-  !! setting) that might coincide with one of these times without the
-  !! caller having any way to know which time step selected it.
+  !! Unlike any()/select(), this checks the full array of times, not just
+  !! the current time step's slice. Useful for deduplicating: times may
+  !! come from multiple sources (e.g. period block configuration and an
+  !! explicitly specified set of release times).
   !<
   function contains_close(this, t, tolerance) result(found)
     class(TimeSelectType) :: this

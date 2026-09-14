@@ -129,6 +129,12 @@ contains
   !! owns, in whatever time step that turned out to be, which is
   !! exactly what checking against the full, static explicit array
   !! (rather than only this call's own slice of it) rules out.
+  !!
+  !! A user-visible consequence: a coincident release is always
+  !! reported under the *earlier* of the two time steps, since that's
+  !! always where the explicit array's own convention puts it, and
+  !! the period-block candidate always defers to that, never the
+  !! reverse. See RELEASESETTING's documentation (prt-prp.dfn).
   !<
   subroutine advance(this, lines)
     use TdisModule, only: totimc, kstp, endofperiod
