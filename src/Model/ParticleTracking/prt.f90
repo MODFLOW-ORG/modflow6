@@ -1090,22 +1090,24 @@ contains
             call packobj%particles_staging%put(particle, np)
           end if
           if (particle%istatus > ACTIVE) cycle ! Skip terminated particles
-          particle%istatus = ACTIVE ! Set active status in case of release
-          if (particle%trelease >= totimc) then
-            if (particle%trelease > particle%tstop) then
-              ! The package's stop time is earlier than the release time.
-              ! Terminate it permanently unreleased and show a warning.
-              write (warnmsg, '(a,g0,a,g0,a,g0,a)') &
-                'Particle release point ', particle%irpt, ' has &
-                &release time ', particle%trelease, ' after package &
-                &stop time ', particle%tstop, '; particle will not &
-                &be released.'
-              call store_warning(warnmsg)
-              call this%method%terminate(particle, status=TERM_UNRELEASED)
-            else
-              ! The particle was released this time step; emit a
-              ! release event.
-              call this%method%release(particle)
+          if (particle%istatus == 0) then
+            particle%istatus = ACTIVE ! Set active status in case of release
+            if (particle%trelease >= totimc) then
+              if (particle%trelease > particle%tstop) then
+                ! The package's stop time is earlier than the release time.
+                ! Terminate it permanently unreleased and show a warning.
+                write (warnmsg, '(a,g0,a,g0,a,g0,a)') &
+                  'Particle release point ', particle%irpt, ' has &
+                  &release time ', particle%trelease, ' after package &
+                  &stop time ', particle%tstop, '; particle will not &
+                  &be released.'
+                call store_warning(warnmsg)
+                call this%method%terminate(particle, status=TERM_UNRELEASED)
+              else
+                ! The particle was released this time step; emit a
+                ! release event.
+                call this%method%release(particle)
+              end if
             end if
           end if
           if (particle%istatus <= ACTIVE) then

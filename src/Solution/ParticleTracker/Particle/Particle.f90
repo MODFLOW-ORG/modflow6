@@ -21,7 +21,7 @@ module ParticleModule
   !! A particle may terminate for several reasons, all mutually exclusive.
   !! A particle's final tracking status will always be greater than one.
   !!
-  !! Status codes 0-3 and 5-8 correspond directly to MODPATH 7 status codes.
+  !! Status codes 1-3 and 5-8 correspond directly to MODPATH 7 status codes.
   !! Code 4 does not apply to PRT because PRT does not distinguish forwards
   !! from backwards tracking. Status code 9 provides more specific, subcell-
   !! level information about a particle which terminates due to no outflow.

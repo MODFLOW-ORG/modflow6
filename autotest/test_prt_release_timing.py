@@ -522,18 +522,19 @@ def check_output(test, snapshot):
         assert np.allclose(release_times, expected_release_times)
 
     # check kper/kstp reporting for time boundary case.
-    # events at the same time can be on different sides
-    # of the boundary depending how they're configured.
     if "bndy" in name:
-        # Both releases at t=1.0 (boundary between kper=1,kstp=1 and kper=2,kstp=1):
+        # Two release specs coincide at t=1.0, the boundary between
+        # kper=1,kstp=1 and kper=2,kstp=1:
         # 1. Explicit release with RELEASETIMES block at t=1.0
         # 2. Period-block release with FIRST in period 2
         #
-        # Expected behavior:
-        # - Explicit release falls within the timeslice for period 1 step 1,
-        #   (0.0, 1.0], so reported as period 1
-        # - Period-block release when PRT solves period 2 step 1 should be
-        #   reported as period 2
+        # A release point never releases more than one particle at a
+        # given instant, so these are consolidated into a single
+        # particle rather than releasing two indistinguishable
+        # particles at the same place and time. The explicit release
+        # falls within the timeslice for period 1 step 1, (0.0, 1.0],
+        # so that's when the single particle is actually released;
+        # the coincident period-block release is suppressed.
         release_times = sorted(mf6_pls["trelease"].unique())
         expected_release_times = [1.0]
         assert len(release_times) == len(expected_release_times)
@@ -542,6 +543,9 @@ def check_output(test, snapshot):
         unique_kpers = sorted(releases_at_boundary["kper"].unique())
         expected_kpers = [1, 2]
         assert unique_kpers == expected_kpers
+        # exactly one RELEASE event (ireason == 0) per release point
+        release_events = releases_at_boundary[releases_at_boundary["ireason"] == 0]
+        assert len(release_events) == len(FlopyReadmeCase.releasepts_prt)
 
     # check default release case: no config at all, 3 stress periods.
     # particles should be released exactly once at t=0 (start of simulation).

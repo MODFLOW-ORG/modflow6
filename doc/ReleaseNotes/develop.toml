@@ -14,3 +14,8 @@ solution = "SOLUTION"
 exchanges = "EXCHANGES"
 parallel = "PARALLEL"
 netcdf = "NETCDF"
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "PRT could erroneously release multiple particles from the same release point at the same time, causing an unbalanced mass budget, when a PRP package's period-block release setting coincides with an explicitly configured release time landing on a time boundary between two steps. The resulting pair of otherwise-identical particles were not distinguished in internal accounting, and could silently corrupt internal accounting. PRT distinguishes particles on the basis of four properties (model index, package index, release point index, release time), and uses a 'gumball dispenser' metaphor for release points, stipulating that multiple particles may not be released from a single point at the same time. Coincident releases are now consolidated into a single release as intended, and reported under the earlier of the two time steps for times falling on a time step boundary."
