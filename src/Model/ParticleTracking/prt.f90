@@ -1090,13 +1090,6 @@ contains
             call packobj%particles_staging%put(particle, np)
           end if
           if (particle%istatus > ACTIVE) cycle ! Skip terminated particles
-          ! istatus is 0 only prior to a particle's first visit here (see
-          ! initialize_particle). Gate the release check on that instead of
-          ! solely on trelease >= totimc: a particle's trelease can equal
-          ! the start time of a later time step too (e.g. when it lands
-          ! exactly on a time step boundary), and without this guard an
-          ! already-released, still-active particle would spuriously be
-          ! released a second time on that later time step.
           if (particle%istatus == 0) then
             particle%istatus = ACTIVE ! Set active status in case of release
             if (particle%trelease >= totimc) then

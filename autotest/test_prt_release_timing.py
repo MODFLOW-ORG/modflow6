@@ -534,11 +534,7 @@ def check_output(test, snapshot):
         # particles at the same place and time. The explicit release
         # falls within the timeslice for period 1 step 1, (0.0, 1.0],
         # so that's when the single particle is actually released;
-        # the coincident period-block release is suppressed. The
-        # particle is still active (stored) at the end of period 1,
-        # so its lifecycle naturally continues into period 2, where
-        # it terminates -- hence records under both kper=1 and
-        # kper=2, but from exactly one release, not two.
+        # the coincident period-block release is suppressed.
         release_times = sorted(mf6_pls["trelease"].unique())
         expected_release_times = [1.0]
         assert len(release_times) == len(expected_release_times)
@@ -547,8 +543,7 @@ def check_output(test, snapshot):
         unique_kpers = sorted(releases_at_boundary["kper"].unique())
         expected_kpers = [1, 2]
         assert unique_kpers == expected_kpers
-        # exactly one RELEASE event (ireason == 0) per release point,
-        # not one per coincident release spec
+        # exactly one RELEASE event (ireason == 0) per release point
         release_events = releases_at_boundary[releases_at_boundary["ireason"] == 0]
         assert len(release_events) == len(FlopyReadmeCase.releasepts_prt)
 
