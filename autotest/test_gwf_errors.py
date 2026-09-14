@@ -316,22 +316,7 @@ def test_wel_options_error_file(function_tmpdir, targets):
 
 def test_lak_packagedata_bad_aux_error_no_crash(function_tmpdir, targets):
     """A LAK PACKAGEDATA aux value that is neither numeric nor a defined
-    time-series name must be reported as a normal input error, not crash.
-
-    read_value_or_time_series_adv() falls back to treating a non-numeric
-    aux token as a time-series name and looks it up via
-    TimeSeriesManager%get_time_series(). That function's BndTsHashTable is
-    only allocated when the simulation has at least one TS6 file
-    (tsmanager_df() calls HashBndTimeSeries() only if numtsfiles > 0), so
-    with none present here, the hash table pointer stays unassociated. Before
-    the fix, get_time_series() dereferenced it unconditionally and crashed
-    with SIGSEGV instead of falling through to the intended
-    "Expected numeric value or time-series name" error.
-
-    A caller ending up with a non-numeric aux value like this is easy in
-    practice: e.g. mis-ordering a packagedata row so a boundname lands in
-    the aux position (aux is written before boundname in PACKAGEDATA).
-    """
+    time-series name is reported as an input error."""
     mf6 = targets["mf6"]
 
     sim = get_minimal_gwf_simulation(str(function_tmpdir), exe=mf6)
@@ -348,9 +333,7 @@ def test_lak_packagedata_bad_aux_error_no_crash(function_tmpdir, targets):
     sim.write_simulation()
 
     # rewrite the PACKAGEDATA row with aux and boundname swapped -- "mylake"
-    # (not numeric, not a TS6 name) ends up in the aux column. No TS6 files
-    # are referenced anywhere in this simulation, so BndTsHashTable is never
-    # allocated.
+    # (not numeric, not a TS6 name) ends up in the aux column.
     lak_file = function_tmpdir / "test.lak"
     lines = lak_file.read_text().splitlines(keepends=True)
     in_packagedata = False
@@ -372,9 +355,7 @@ def test_lak_packagedata_bad_aux_error_no_crash(function_tmpdir, targets):
     assert "SIGSEGV" not in output, (
         f"mf6 crashed instead of reporting an error:\n{output}"
     )
-    # mf6 wraps this message across lines, so check the two halves separately
-    assert "Expected numeric value or time-series name, but" in output, output
-    assert "found 'mylake'." in output, output
+    assert 'Error converting "mylake" to a real number' in output, output
     assert "Error occurred while reading file 'test.lak'" in output
 
 
