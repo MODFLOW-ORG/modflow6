@@ -14,3 +14,8 @@ solution = "SOLUTION"
 exchanges = "EXCHANGES"
 parallel = "PARALLEL"
 netcdf = "NETCDF"
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "PRT could report an incorrect mass budget when a PRP package's period-block release setting (e.g. FIRST) coincided with an explicitly configured release time (RELEASETIMES, RELEASETIMESFILE, or RELEASE\\_TIME\\_FREQUENCY) landing exactly on the boundary between two time steps. Each release specification independently released a particle at the same point and instant, and the resulting pair of otherwise-identical particles collided in termination-mass accounting, silently dropping one of them from the budget. Coincident releases are now always consolidated into a single release, reported under the earlier of the two time steps; an internal check was also added so that a release point releasing twice at the same instant, from any cause, produces an error rather than a silent duplicate."
