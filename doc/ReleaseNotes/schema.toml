@@ -1,16 +1,16 @@
 [sections]
 features = "NEW FUNCTIONALITY"
-fixes = "BUG FIXES AND OTHER CHANGES TO EXISTING FUNCTIONALITY"
 examples = "EXAMPLES"
+fixes = "BUG FIXES AND OTHER CHANGES TO EXISTING FUNCTIONALITY"
 documentation = "DOCUMENTATION"
 
 [subsections]
 basic = "BASIC FUNCTIONALITY"
-model = "MODEL"
 internal = "INTERNAL FLOW PACKAGES"
 stress = "STRESS PACKAGES"
 advanced = "ADVANCED STRESS PACKAGES"
-solution = "SOLUTION"
+model = "MODEL"
 exchanges = "EXCHANGES"
+solution = "SOLUTION"
 parallel = "PARALLEL"
 netcdf = "NETCDF"

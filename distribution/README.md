@@ -141,9 +141,9 @@ Before proceeding with a release, check for deprecated DFN variables due for rem
 
 ### Review release notes
 
-Double-check release notes in `doc/ReleaseNotes/develop.toml` with the authors of any changes to be included in the release.
+Double-check release notes in `doc/ReleaseNotes/items/` with the authors of any changes to be included in the release. Each file in that directory is one release note item.
 
-For hotfix releases, `develop.toml` must be trimmed manually on the release branch. For patch releases made from `develop`, release notes are automatically filtered to include only fixes.
+For hotfix releases, fragment files for features not included in the hotfix must be removed manually on the release branch. For patch releases made from `develop`, release notes are automatically filtered to include only fixes.
 
 **Note**: For all releases, add a line to the Release History section of `ReleaseNotes.tex` providing the version number, date and DOI of the release, e.g. `6.4.4 & February 13, 2024 & \url{https://doi.org/10.5066/P9FL1JCC}`. DOIs are updated with minor releases and remain the same for patch releases.
 
@@ -213,7 +213,7 @@ This will substitute the new version number into the necessary files and set `ID
 
 #### Archive release notes
 
-Generate LaTeX for archiving this version's release notes.
+Generate a `develop.tex` file for archiving this version's release notes from the release note fragments:
 
 ```shell
 pixi run make-release-notes --archive
@@ -223,7 +223,7 @@ Move/rename the generated `develop.tex` to `doc/ReleaseNotes/previous/vx.y.z.tex
 
 **Note**: in `--archive` mode the version and date in the `\subsection{Version mf...}` header are taken from the last row of the Release History table in `ReleaseNotes.tex`, which should have been added as a pre-release step (see the note under [Review release notes](#review-release-notes)).
 
-Then reset `doc/ReleaseNotes/develop.toml` for the next development cycle by removing every `[[items]]` entry. Keep the `[sections]` and `[subsections]` tables intact &mdash; clear only the `[[items]]`. For a minor release, remove all items. For a patch release, remove only the fix items that the release included; the rest carry forward to the next minor release.
+Then reset the release notes for the next development cycle by deleting all fragment files in `doc/ReleaseNotes/items/` that were included in the release. The `.gitkeep` file should remain so the directory is tracked by git. For a minor release, remove all fragments. For a patch release, remove only the fix fragments that the release included; the rest carry forward to the next minor release.
 
 Create and merge (don't squash) a pull request from this branch into `develop`.
 
