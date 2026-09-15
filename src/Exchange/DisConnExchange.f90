@@ -102,8 +102,8 @@ contains
   !<
   function same_exchange_cells(exg1, exg2) result(match)
     ! -- dummy
-    class(DisConnExchangeType) :: exg1 !< first exchange
-    class(DisConnExchangeType) :: exg2 !< second exchange
+    class(DisConnExchangeType), intent(in) :: exg1 !< first exchange
+    class(DisConnExchangeType), intent(in) :: exg2 !< second exchange
     ! -- return
     logical(LGP) :: match
     ! -- local
