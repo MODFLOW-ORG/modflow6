@@ -118,10 +118,13 @@ contains
     !
     do i = 1, exg1%nexg
       if (check1) then
+        ! -- a cell outside the active domain is already an input error
+        if (exg1%nodem1(i) <= 0 .or. exg2%nodem1(i) <= 0) return
         if (exg1%model1%dis%get_nodeuser(exg1%nodem1(i)) /= &
             exg2%model1%dis%get_nodeuser(exg2%nodem1(i))) return
       end if
       if (check2) then
+        if (exg1%nodem2(i) <= 0 .or. exg2%nodem2(i) <= 0) return
         if (exg1%model2%dis%get_nodeuser(exg1%nodem2(i)) /= &
             exg2%model2%dis%get_nodeuser(exg2%nodem2(i))) return
       end if
