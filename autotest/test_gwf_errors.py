@@ -242,6 +242,85 @@ def test_disu_errors(function_tmpdir, targets):
         run_mf6_error(str(function_tmpdir), mf6, err_str)
 
 
+def run_mf6_normalized(ws, exe):
+    """Run mf6 and return (returncode, whitespace-normalized stdout)."""
+    returncode, buff = run_mf6([exe], ws)
+    return returncode, " ".join(" ".join(buff).split())
+
+
+def test_dis_passthrough_thickness_error(function_tmpdir, targets):
+    """A cell left with a nonpositive thickness beneath a vertical pass-through
+    cell reports a single, self-explanatory THICKNESS <= 0 error that names the
+    overlying cell and points at its IDOMAIN status."""
+    mf6 = targets["mf6"]
+
+    nlay, nrow, ncol = 4, 1, 3
+    botm = np.empty((nlay, nrow, ncol))
+    botm[0] = 30.0
+    botm[1] = 20.0
+    botm[2] = 10.0
+    botm[2, 0, 1] = 4.0  # stale BOTM on the pass-through cell, below layer 4
+    botm[3] = 5.0
+    idomain = np.ones((nlay, nrow, ncol), dtype=int)
+    idomain[2, 0, 1] = -1  # vertical pass-through at layer 3, column 2
+
+    diskwargs = {
+        "nlay": nlay,
+        "nrow": nrow,
+        "ncol": ncol,
+        "top": 40.0,
+        "botm": botm,
+        "idomain": idomain,
+    }
+    sim = get_minimal_gwf_simulation(str(function_tmpdir), exe=mf6, diskwargs=diskwargs)
+    sim.write_simulation()
+
+    returncode, output = run_mf6_normalized(str(function_tmpdir), mf6)
+    assert returncode != 0, "mf6 should have failed on a nonpositive thickness"
+
+    # only the pass-through column fails ...
+    assert "CELL (4,1,2) THICKNESS <= 0." in output
+    assert "CELL (4,1,1)" not in output
+    assert "CELL (4,1,3)" not in output
+    # ... and the explanation is folded into that one numbered item
+    assert "2. CELL (" not in output
+    assert (
+        "The top of this cell is the bottom elevation specified for the "
+        "cell directly above it, cell (3,1,2)." in output
+    )
+    assert "inactive or a vertical pass-through cell (IDOMAIN <= 0)" in output
+    assert "ERROR OCCURRED WHILE READING FILE 'test.dis'" in output
+
+
+def test_dis_thickness_error_without_passthrough_note(function_tmpdir, targets):
+    """An ordinary nonpositive thickness between two active cells names the
+    overlying cell but does not mention pass-through cells."""
+    mf6 = targets["mf6"]
+
+    diskwargs = {
+        "nlay": 3,
+        "nrow": 1,
+        "ncol": 1,
+        "top": 10.0,
+        "botm": [5.0, 2.0, 4.0],  # layer 3 bottom sits above layer 2 bottom
+    }
+    chdkwargs = {"stress_period_data": {0: [[(0, 0, 0), 5.0]]}}
+    sim = get_minimal_gwf_simulation(
+        str(function_tmpdir), exe=mf6, diskwargs=diskwargs, chdkwargs=chdkwargs
+    )
+    sim.write_simulation()
+
+    returncode, output = run_mf6_normalized(str(function_tmpdir), mf6)
+    assert returncode != 0, "mf6 should have failed on a nonpositive thickness"
+
+    assert "CELL (3,1,1) THICKNESS <= 0." in output
+    assert (
+        "The top of this cell is the bottom elevation specified for the "
+        "cell directly above it, cell (2,1,1)." in output
+    )
+    assert "pass-through" not in output
+
+
 def test_drn_options_error_file(function_tmpdir, targets):
     """Errors in DRN options are reported for the DRN input file."""
     mf6 = targets["mf6"]
