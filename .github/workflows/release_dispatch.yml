@@ -51,7 +51,7 @@ on:
 jobs:
   set_options:
     name: Set release options
-    if: github.ref_name != 'master'
+    if: github.event_name != 'release' && github.ref_name != 'master'
     runs-on: ubuntu-22.04
     defaults:
       run:
@@ -284,3 +284,79 @@ jobs:
           Visit the USGS "MODFLOW and Related Programs" site for information on MODFLOW 6 and related software: https://doi.org/10.5066/F76Q1VQV
           '
           gh release create "$version" ../mf*/mf*.zip ../release_notes/release.pdf --target master --title "$title" --notes "$notes" --draft --latest
+
+  reset:
+    name: Reset develop
+    # runs after a release is published. opens a PR to merge master back
+    # into develop with the version string updated for the next cycle
+    if: github.event_name == 'release'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      pull-requests: write
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: Checkout modflow6
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/modflow6
+          ref: master
+          fetch-depth: 0
+
+      - name: Setup Micromamba
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-file: environment.yml
+          cache-downloads: true
+          cache-environment: true
+
+      - name: Archive release notes
+        working-directory: doc/ReleaseNotes
+        run: |
+          # the released version, since we branched from master (and this runs
+          # before the version bump below)
+          ver=$(cat ../../version.txt)
+
+          # a non-zero patch number means a patch release: archive and clear
+          # only the fix items, the rest carry to the next minor release
+          patch=""
+          [ "$(echo "$ver" | cut -d. -f3)" != "0" ] && patch="--patch"
+
+          # archive this version's notes to previous/v$ver.tex, register them
+          # in appendixA.tex, and clear the archived items from develop.toml
+          python reset_releasenotes.py $patch
+
+      - name: Update version and open PR
+        working-directory: distribution
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # the released version, since we branched from master
+          ver=$(cat ../version.txt)
+          branch="post-release-$ver-reset"
+
+          # bump minor and add '.dev0' suffix
+          next=$(python update_version.py --post-release)
+
+          # lint the generated source
+          fprettify -c ../.fprettify.yaml ../src/Utilities/version.f90
+
+          # commit and push
+          git config core.sharedRepository true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add -A
+          git commit -m "ci(release): update version to $next, archive release notes"
+          git push origin "$branch"
+
+          # create PR
+          body='
+          # Reset `develop` after release '$ver'
+
+          Merge (do not squash) this pull request to bring `master` back into `develop`,
+          set the development version to `'$next'`, and archive the `'$ver'` release notes.
+          '
+          gh pr create -B "develop" -H "$branch" --title "Post release $ver reset" --body "$body"

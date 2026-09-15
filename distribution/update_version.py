@@ -36,6 +36,7 @@ Otherwise the language reflects preliminary/provisional status.
 import argparse
 import json
 import os
+import sys
 import textwrap
 from collections import OrderedDict
 from datetime import datetime
@@ -180,7 +181,7 @@ def get_software_citation(
 
 
 def log_update(path, version: Version):
-    print(f"Updated {path} with version {version}")
+    print(f"Updated {path} with version {version}", file=sys.stderr)
 
 
 def update_version_txt_and_py(version: Version, timestamp: datetime):
@@ -392,6 +393,17 @@ _initial_version = Version("0.0.1")
 _current_version = Version(version_file_path.read_text().strip())
 
 
+def release_version() -> Version:
+    """Current development version, any development segment (e.g. '.dev0') removed."""
+    return Version(_current_version.base_version)
+
+
+def post_release_version() -> Version:
+    """Development version for the next cycle: minor incremented, '.dev0' suffix."""
+    version = Version(_current_version.base_version)
+    return Version(f"{version.major}.{version.minor + 1}.0.dev0")
+
+
 @no_parallel
 @pytest.mark.skip(reason="reverts repo files on cleanup, treat carefully")
 @pytest.mark.parametrize(
@@ -464,11 +476,19 @@ text, text indicating whether the release is provisional or approved, source
 code setting the variable IDEVELOPMODE to either 0 or 1, and other data.
 
 Provide a `--version` string following semantic versioning conventions.
-If --version is not provided, the version number will not be changed,
-just timestamps.
+If none of --version, --release or --post-release is provided, the version
+number will not be changed, just timestamps.
 
-Use `--get` (`-g`) to show the current version without making changes.
-The version number is read from version.txt in the project root.
+Use `--release` (`-r`) to use the current development version with any
+development segment (e.g. '.dev0') removed. Use `--post-release` (`-p`) to
+use the next development version, with the minor version incremented and a
+'.dev0' suffix re-added; this is the version the post-release reset sets on
+the develop branch.
+
+Use `--get` (`-g`) or `--dry-run` to print the resolved version without
+making changes. The resolved version is printed on the last line in every
+mode, so `--post-release` alone both updates the files and reports the new
+version.
 
 Use `--releasemode` to control whether IDEVELOPMODE is set to 0 instead
 of 1, and to alter mf6's output and disclaimer text reflecting approval.
@@ -518,16 +538,44 @@ software DOI is used.
         required=False,
         help="Specify the release version. Value must follow PEP 440.",
     )
+    parser.add_argument(
+        "-r",
+        "--release",
+        required=False,
+        action="store_true",
+        help="Use the current development version with any development segment "
+        "(e.g. '.dev0') removed. Defaults to false.",
+    )
+    parser.add_argument(
+        "-p",
+        "--post-release",
+        required=False,
+        action="store_true",
+        help="Use the next development version, with the minor version "
+        "incremented and a '.dev0' suffix re-added. Defaults to false.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        required=False,
+        action="store_true",
+        help="Print the resolved version and exit without updating anything. "
+        "Defaults to false.",
+    )
 
     args = parser.parse_args()
-    get = args.get
     citation = args.citation
     developmode = not args.releasemode
-    version = Version(args.version) if args.version else _current_version
 
-    if get:
-        print(Version((project_root_path / "version.txt").read_text().strip()))
-    elif citation:
+    if args.post_release:
+        version = post_release_version()
+    elif args.release:
+        version = release_version()
+    elif args.version:
+        version = Version(args.version)
+    else:
+        version = _current_version
+
+    if citation:
         print(
             get_software_citation(
                 timestamp=datetime.now(),
@@ -536,9 +584,12 @@ software DOI is used.
                 developmode=developmode,
             )
         )
+    elif args.get or args.dry_run:
+        print(version)
     else:
         mode = "develop" if developmode else "release"
-        print(f"Updating to version {version} in {mode} mode")
+        print(f"Updating to version {version} in {mode} mode", file=sys.stderr)
         update_version(
             version=version, timestamp=datetime.now(), developmode=developmode
         )
+        print(version)

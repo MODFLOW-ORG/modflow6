@@ -194,38 +194,7 @@ Publish the release.
 
 ### Reset the develop branch
 
-Make a new branch from `master`:
-
-```shell
-git checkout master
-git switch -c post-6.x.y-release-reset
-```
-
-#### Update version strings
-
-Update the version number for the next development cycle:
-
-```shell
-pixi run update-version -v 6.x.y.dev0
-```
-
-This will substitute the new version number into the necessary files and set `IDEVELOPMODE` back to 1.
-
-#### Archive release notes
-
-Generate LaTeX for archiving this version's release notes.
-
-```shell
-pixi run make-release-notes --archive
-```
-
-Move/rename the generated `develop.tex` to `doc/ReleaseNotes/previous/vx.y.z.tex` (where `x.y.z` is the version just released), then insert a new line `\input{./previous/vx.y.z.tex}` at the top of `doc/ReleaseNotes/appendixA.tex`.
-
-**Note**: in `--archive` mode the version and date in the `\subsection{Version mf...}` header are taken from the last row of the Release History table in `ReleaseNotes.tex`, which should have been added as a pre-release step (see the note under [Review release notes](#review-release-notes)).
-
-Then reset `doc/ReleaseNotes/develop.toml` for the next development cycle by removing every `[[items]]` entry. Keep the `[sections]` and `[subsections]` tables intact &mdash; clear only the `[[items]]`. For a minor release, remove all items. For a patch release, remove only the fix items that the release included; the rest carry forward to the next minor release.
-
-Create and merge (don't squash) a pull request from this branch into `develop`.
+When a release is published, the `reset` job in `.github/workflows/release_dispatch.yml` creates a branch called `post-release-<version>-reset` from `master`, with several changes: updating version strings (bump minor number, add `.dev0` suffix), setting `IDEVELOPMODE = 1`, and archiving/clearing the release notes. The job then creates a PR from this branch into `develop`. Merge (do not squash) the PR.
 
 ### Release downstream repos
 

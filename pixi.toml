@@ -113,6 +113,7 @@ update-version = { cmd = "python update_version.py", cwd = "distribution" }
 collect-deprecations = { cmd = "python deprecations.py", cwd = "doc/mf6io/mf6ivar" }
 check-citations = "cffconvert --validate -i CITATION.cff"
 make-release-notes = { cmd = "python mk_releasenotes.py", cwd = "doc/ReleaseNotes" }
+reset-release-notes = { cmd = "python reset_releasenotes.py", cwd = "doc/ReleaseNotes" }
 
 # os-specific default tasks
 [target.linux-64.tasks]
