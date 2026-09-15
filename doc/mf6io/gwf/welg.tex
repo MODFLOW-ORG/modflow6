@@ -1,8 +1,6 @@
-Input to the Well (WEL) Package is read from the file that has type ``WEL6'' in the Name File.  Any number of WEL Packages can be specified for a single groundwater flow model.
+Input to the Well (WELG) Package is read from the file that has type ``WEL6'' in the Name File.  Any number of WEL6 packages can be specified for a single groundwater flow model.  The package type in the GWF Model name file PACKAGES block is always ``WEL6'' regardless of whether list-based or grid array-based input is used; the READARRAYGRID option within the package input file activates grid array-based input.
 
-Well input can be specified using lists or grid arrays.  Grid array-based input for the WEL package is activated by providing READARRAYGRID within the OPTIONS block.  Instructions for specifying list-based well input are provided in the previous section.
-
-When grid array-based input is used for the well package, the DIMENSIONS block is optional.  The input array size is determined from the model grid.  Cells that define no data should contain the DNODATA (3.0E+30) value.  When defined, the MAXBOUND dimension represents the maximum number of defined well (non-DNODATA) cells found in any stress period.  Defining MAXBOUND can reduce the memory footprint of the grid array-based WEL package, especially when the input grid arrays are sparse and the model grid is large.
+When grid array-based input is used for the well package, the DIMENSIONS block is optional.  The input array size is determined from the model grid.  Cells that define no data should contain the DNODATA (3.0E+30) value.  When defined, the MAXBOUND dimension represents the maximum number of defined well (non-DNODATA) cells found in any stress period.  Defining MAXBOUND can reduce the memory footprint of the grid array-based WELG Package, especially when the input grid arrays are sparse and the model grid is large.  Grid array-based input for wells can be used with the DIS and DISV Packages.
 
 \vspace{5mm}
 \subsubsection{Structure of Blocks}
