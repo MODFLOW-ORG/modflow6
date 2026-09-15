@@ -17,6 +17,10 @@ Cases:
               flow model is an error (xfail).
   - idomapt : a transport domain that excludes a cell connected to an advanced
               package handled by MWE is an error (xfail).
+  - idommwe : the transport domain drops the upgradient cells and keeps a
+              well handled by MWE with well-bore conduction, so the transport
+              and flow node numbers of the well cell differ; temperatures must
+              match the full-domain model in the retained cells.
 """
 
 import os
@@ -27,7 +31,7 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["gweidomsub", "gweidomint", "gweidomnot", "gweidomapt"]
+cases = ["gweidomsub", "gweidomint", "gweidomnot", "gweidomapt", "gweidommwe"]
 
 nlay, nrow, ncol = 1, 1, 100
 delr, delc = 1.0, 1.0
@@ -44,17 +48,20 @@ cps, rhos = 800.0, 2650.0
 perlen, nstp = 50.0, 500
 
 # first and last active transport column for each case
-icol0 = [0, 20, 0, 0]
-icol1 = [59, 59, 59, 59]
+icol0 = [0, 20, 0, 0, 20]
+icol1 = [59, 59, 59, 59, 59]
 
 # column deactivated in the flow model, or None
-icolgwf = [None, None, 80, None]
+icolgwf = [None, None, 80, None, None]
 
 # column with a multi-aquifer well outside the transport domain, or None
-icolmaw = [None, None, None, 80]
+icolmaw = [None, None, None, 80, 40]
+
+# multi-aquifer well injection rate
+mawrate = [0.0, 0.0, 0.0, 0.0, 0.5]
 
 # column with a specified transport temperature, or None
-icolctp = [None, 20, None, None]
+icolctp = [None, 20, None, None, 20]
 
 
 def transport_idomain(idx):
@@ -120,7 +127,7 @@ def build_flow_model(sim, gwfname, idx, hclose, rclose, nouter, ninner):
             nmawwells=1,
             packagedata=[[0, 0.1, 0.0, 1.0, "THIEM", 1]],
             connectiondata=[[0, 0, (0, 0, icolmaw[idx]), 1.0, 0.0, 1.0, 0.1]],
-            perioddata={0: [[0, "RATE", 0.0]]},
+            perioddata={0: [[0, "RATE", mawrate[idx]]]},
             pname="MAW-1",
         )
     flopy.mf6.ModflowGwfoc(
@@ -188,7 +195,8 @@ def build_transport_model(
         flopy.mf6.ModflowGwemwe(
             gwe,
             flow_package_name="MAW-1",
-            packagedata=[[0, 0.0, 0.0, 1.0]],
+            packagedata=[[0, 0.0, 1.0, 1.0]],
+            mweperioddata={0: [[0, "RATE", 1.0]]},
             pname="MWE-1",
         )
     flopy.mf6.ModflowGweoc(
@@ -217,7 +225,7 @@ def build_models(idx, test):
     build_flow_model(sim, gwfname, idx, hclose, rclose, nouter, ninner)
 
     # full-domain transport model used as the reference solution
-    if idx in (0, 1):
+    if idx in (0, 1, 4):
         gwename = "full_" + name
         build_transport_model(
             sim,
@@ -228,6 +236,7 @@ def build_models(idx, test):
             rclose,
             nouter,
             ninner,
+            imaw=icolmaw[idx] is not None,
         )
         flopy.mf6.ModflowGwfgwe(
             sim,

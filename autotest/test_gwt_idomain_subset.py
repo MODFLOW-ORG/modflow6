@@ -16,6 +16,10 @@ Cases:
               flow model is an error (xfail).
   - idomapt : a transport domain that excludes a cell connected to an advanced
               package handled by MWT is an error (xfail).
+  - idommwt : the transport domain drops the upgradient cells and keeps a
+              well handled by MWT, so the transport and flow node numbers of
+              the well cell differ; concentrations must match the full-domain
+              model in the retained cells.
 """
 
 import os
@@ -26,7 +30,7 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["idomsub", "idomint", "idomnot", "idomapt"]
+cases = ["idomsub", "idomint", "idomnot", "idomapt", "idommwt"]
 
 nlay, nrow, ncol = 1, 1, 100
 delr, delc = 1.0, 1.0
@@ -38,17 +42,20 @@ porosity = 0.1
 perlen, nstp = 5.0, 200
 
 # first and last active transport column for each case
-icol0 = [0, 20, 0, 0]
-icol1 = [59, 59, 59, 59]
+icol0 = [0, 20, 0, 0, 20]
+icol1 = [59, 59, 59, 59, 59]
 
 # column deactivated in the flow model, or None
-icolgwf = [None, None, 80, None]
+icolgwf = [None, None, 80, None, None]
 
 # column with a multi-aquifer well outside the transport domain, or None
-icolmaw = [None, None, None, 80]
+icolmaw = [None, None, None, 80, 40]
+
+# multi-aquifer well injection rate
+mawrate = [0.0, 0.0, 0.0, 0.0, 0.5]
 
 # column with a specified transport concentration, or None
-icolcnc = [None, 20, None, None]
+icolcnc = [None, 20, None, None, 20]
 
 
 def transport_idomain(idx):
@@ -114,7 +121,7 @@ def build_flow_model(sim, gwfname, idx, hclose, rclose, nouter, ninner):
             nmawwells=1,
             packagedata=[[0, 0.1, 0.0, 1.0, "THIEM", 1]],
             connectiondata=[[0, 0, (0, 0, icolmaw[idx]), 1.0, 0.0, 1.0, 0.1]],
-            perioddata={0: [[0, "RATE", 0.0]]},
+            perioddata={0: [[0, "RATE", mawrate[idx]]]},
             pname="MAW-1",
         )
     flopy.mf6.ModflowGwfoc(
@@ -176,6 +183,7 @@ def build_transport_model(
             gwt,
             flow_package_name="MAW-1",
             packagedata=[[0, 0.0]],
+            mwtperioddata={0: [[0, "RATE", 1.0]]},
             pname="MWT-1",
         )
     flopy.mf6.ModflowGwtoc(
@@ -204,7 +212,7 @@ def build_models(idx, test):
     build_flow_model(sim, gwfname, idx, hclose, rclose, nouter, ninner)
 
     # full-domain transport model used as the reference solution
-    if idx in (0, 1):
+    if idx in (0, 1, 4):
         gwtname = "gwtfull_" + name
         build_transport_model(
             sim,
@@ -215,6 +223,7 @@ def build_models(idx, test):
             rclose,
             nouter,
             ninner,
+            imaw=icolmaw[idx] is not None,
         )
         flopy.mf6.ModflowGwfgwt(
             sim,
@@ -294,7 +303,7 @@ def check_output(idx, test):
     inactive = transport_idomain(idx) == 0
     assert np.all(csub[inactive] == 1e30), "inactive cells were not written as hnoflo"
 
-    if idx not in (0, 1):
+    if idx not in (0, 1, 4):
         return
 
     # concentrations in the retained cells must match the full-domain model

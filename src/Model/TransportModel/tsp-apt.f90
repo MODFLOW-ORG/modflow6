@@ -159,6 +159,7 @@ module TspAptModule
     procedure :: apt_allocate_index_arrays
     procedure :: apt_allocate_arrays
     procedure :: find_apt_package
+    procedure :: get_cell_node
     procedure :: apt_solve
     procedure :: pak_solve
     procedure :: source_options => apt_source_options
@@ -222,7 +223,7 @@ contains
       ! -- apt-gwf connections
       do i = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
         n = this%flowbudptr%budterm(this%idxbudgwf)%id1(i)
-        jj = this%flowbudptr%budterm(this%idxbudgwf)%id2(i)
+        jj = this%get_cell_node(i)
         nglo = moffset + this%dis%nodes + this%ioffset + n
         jglo = jj + moffset
         call sparse%addconnection(nglo, jglo, 1)
@@ -272,7 +273,7 @@ contains
       end do
       do ipos = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
         n = this%flowbudptr%budterm(this%idxbudgwf)%id1(ipos)
-        j = this%flowbudptr%budterm(this%idxbudgwf)%id2(ipos)
+        j = this%get_cell_node(ipos)
         iglo = moffset + this%dis%nodes + this%ioffset + n
         jglo = j + moffset
         this%idxdglo(ipos) = matrix_sln%get_position_diag(iglo)
@@ -282,7 +283,7 @@ contains
       ! -- apt contributions to gwf portion of global matrix
       do ipos = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
         n = this%flowbudptr%budterm(this%idxbudgwf)%id1(ipos)
-        j = this%flowbudptr%budterm(this%idxbudgwf)%id2(ipos)
+        j = this%get_cell_node(ipos)
         iglo = j + moffset
         jglo = moffset + this%dis%nodes + this%ioffset + n
         this%idxsymdglo(ipos) = matrix_sln%get_position_diag(iglo)
@@ -514,7 +515,7 @@ contains
     ! -- fill nodelist every period; non-vertical connections are not updated
     !    by cf so must be set here
     do n = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
-      igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(n)
+      igwfnode = this%get_cell_node(n)
       this%nodelist(n) = igwfnode
     end do
   end subroutine apt_rp
@@ -700,7 +701,7 @@ contains
     !
     ! -- add hcof and rhs terms (from apt_solve) to the gwf matrix
     do j = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
-      igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(j)
+      igwfnode = this%get_cell_node(j)
       if (this%ibound(igwfnode) < 1) cycle
       idiag = idxglo(ia(igwfnode))
       call matrix_sln%add_value_pos(idiag, this%hcof(j))
@@ -1261,6 +1262,22 @@ contains
                      terminate=.TRUE.)
   end subroutine find_apt_package
 
+  !> @brief Return the model node for an entry in the flow package GWF term
+  !<
+  function get_cell_node(this, ientry) result(n)
+    ! -- dummy
+    class(TspAptType) :: this
+    integer(I4B), intent(in) :: ientry !< entry in the GWF term
+    ! -- return
+    integer(I4B) :: n
+    !
+    ! -- the flow package stores flow model node numbers
+    n = this%flowbudptr%budterm(this%idxbudgwf)%id2(ientry)
+    if (this%fmi%igwfmapped /= 0) then
+      n = this%fmi%gwfnodeinv(n)
+    end if
+  end function get_cell_node
+
   !> @brief Source OPTIONS block from the input context
   !<
   subroutine apt_source_options(this)
@@ -1578,7 +1595,7 @@ contains
       n = this%flowbudptr%budterm(this%idxbudgwf)%id1(j)
       this%hcof(j) = DZERO
       this%rhs(j) = DZERO
-      igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(j)
+      igwfnode = this%get_cell_node(j)
       qbnd = this%flowbudptr%budterm(this%idxbudgwf)%flow(j)
       if (qbnd <= DZERO) then
         ctmp = this%xnewpak(n)
@@ -1848,7 +1865,7 @@ contains
     q = DZERO
     do n = 1, maxlist
       n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(n)
-      n2 = this%flowbudptr%budterm(this%idxbudgwf)%id2(n)
+      n2 = this%get_cell_node(n)
       call this%budobj%budterm(idx)%update_term(n1, n2, q)
     end do
     !
@@ -2012,7 +2029,7 @@ contains
     do j = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
       q = DZERO
       n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(j)
-      igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(j)
+      igwfnode = this%get_cell_node(j)
       if (this%iboundpak(n1) /= 0) then
         q = this%hcof(j) * x(igwfnode) - this%rhs(j)
         q = -q ! flip sign so relative to advanced package feature
@@ -2611,7 +2628,7 @@ contains
           case ('LKT', 'SFT', 'MWT', 'UZT', 'LKE', 'SFE', 'MWE', 'UZE')
             n = this%flowbudptr%budterm(this%idxbudgwf)%id1(jj)
             if (this%iboundpak(n) /= 0) then
-              igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(jj)
+              igwfnode = this%get_cell_node(jj)
               v = this%hcof(jj) * this%xnew(igwfnode) - this%rhs(jj)
               v = -v
             end if
