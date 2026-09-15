@@ -5,7 +5,7 @@
 !<
 
 module TransportModelModule
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LENFTYPE, LINELENGTH, DZERO, LENPAKLOC, &
                              LENMEMPATH, LENVARNAME
   use SimVariablesModule, only: errmsg
@@ -643,6 +643,8 @@ contains
     class(BndType), pointer :: packobj => null()
     integer(I4B) :: ip, j
     integer(I4B) :: nu, n, nf, nerr
+    integer(I4B) :: ipos
+    logical(LGP) :: same
     character(len=20) :: nodestr
     ! -- parameters
     integer(I4B), parameter :: MAXCELLS = 20
@@ -692,8 +694,28 @@ contains
       call store_error_filename(exgfile)
     end if
     !
-    ! -- nothing more to do if the two models use the same cells
-    if (this%dis%nodes == gwfdis%nodes) return
+    ! -- nothing more to do if the two models use the same cells and
+    !    connections; vertical pass-through cells can change the connections
+    !    without changing the number of cells
+    if (this%dis%nodes == gwfdis%nodes .and. &
+        this%dis%con%nja == gwfdis%con%nja) then
+      same = .true.
+      do n = 1, this%dis%nodes + 1
+        if (this%dis%con%ia(n) /= gwfdis%con%ia(n)) then
+          same = .false.
+          exit
+        end if
+      end do
+      if (same) then
+        do ipos = 1, this%dis%con%nja
+          if (this%dis%con%ja(ipos) /= gwfdis%con%ja(ipos)) then
+            same = .false.
+            exit
+          end if
+        end do
+      end if
+      if (same) return
+    end if
     !
     call this%fmi%map_gwf_grid(gwfdis)
     !
