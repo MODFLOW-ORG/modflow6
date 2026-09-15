@@ -76,14 +76,14 @@ contains
   !! is disconnected from the aquifer. A lake row whose diagonal is still (near)
   !! zero (no connections and no storage) is kept solvable with a small diagonal
   !! term that holds the stage at its current value and becomes zero at
-  !! convergence. A lake flagged for the substitution fallback (lak_set_fallback)
+  !! convergence. A lake flagged for the legacy solver (lak_set_legacy)
   !! is instead solved by the default substitution solver and assembled like a
   !! constant-stage lake at that solved stage.
   !<
   module procedure lak_fc_implicit
   ! -- local
   integer(I4B) :: n, j, ipos, iloc, igwfnode
-  logical(LGP) :: lfallback
+  logical(LGP) :: llegacy
   real(DP) :: hlak, head, flow, gwfhcof, gwfrhs
   real(DP) :: b0, b1, dbds, avail, sout, csum, deps, adiag
   real(DP) :: dqds, dqdh
@@ -108,37 +108,37 @@ contains
     end if
   end if
   !
-  ! -- development option: force every active lake onto the fallback (used to
-  !    test the fallback assembly against the legacy formulation)
-  if (this%iforcefb /= 0) then
+  ! -- development option: force every active lake onto the legacy solver (used
+  !    to test that assembly against the legacy formulation)
+  if (this%iforceleg /= 0) then
     do n = 1, this%nlakes
-      if (this%iboundpak(n) > 0) this%ifallback(n) = 1
+      if (this%iboundpak(n) > 0) this%ilegacy(n) = 1
     end do
   end if
   !
-  ! -- solve the stage of any lake assigned to the substitution fallback
-  !    against the current groundwater heads. A fallback lake is then
+  ! -- solve the stage of any lake assigned to the legacy solver against the
+  !    current groundwater heads. Such a lake is then
   !    assembled below like a constant-stage lake at its solved stage, so a
   !    weakly connected or disconnected lake -- which is poorly conditioned as
   !    a matrix unknown -- is handled by the robust 1D substitution instead.
-  lfallback = .false.
+  llegacy = .false.
   do n = 1, this%nlakes
-    if (this%ifallback(n) /= 0) then
-      lfallback = .true.
+    if (this%ilegacy(n) /= 0) then
+      llegacy = .true.
       exit
     end if
   end do
-  if (lfallback) then
-    call this%lak_solve(only_fallback=.true.)
+  if (llegacy) then
+    call this%lak_solve(only_legacy=.true.)
   end if
   !
   ipos = 0
   do n = 1, this%nlakes
     iloc = this%idxlocnode(n)
     hlak = this%xnewpak(n)
-    if (this%ifallback(n) /= 0 .and. this%iboundpak(n) > 0) then
+    if (this%ilegacy(n) /= 0 .and. this%iboundpak(n) > 0) then
       !
-      ! -- fallback lake: its stage was solved by substitution above. Hold the
+      ! -- legacy-solved lake: its stage was solved by substitution above. Hold the
       !    lake row at that stage (unit diagonal) and add the resulting
       !    lake-aquifer exchange (this%hcof/this%rhs, exactly as the legacy
       !    formulation does) to the connected gwf cells.
@@ -235,7 +235,7 @@ contains
   end do
   end procedure lak_fc_implicit
 
-  !> @brief Switch a stalled IMPLICIT lake to the substitution fallback
+  !> @brief Switch a stalled IMPLICIT lake back to the legacy solver
   !!
   !! Under the IMPLICIT option a weakly connected or disconnected lake (one with
   !! a small lakebed conductance) gives a poorly conditioned lake-stage equation
@@ -244,7 +244,7 @@ contains
   !! connected aquifer heads, which have settled. A well-connected lake, by
   !! contrast, changes its stage in step with its aquifer. When the stage change
   !! exceeds the connected-head change by a large factor for several outer
-  !! iterations (see the inline criterion), the lake is flagged (ifallback), and
+  !! iterations (see the inline criterion), the lake is flagged (ilegacy), and
   !! lak_fc_implicit then solves and assembles it with the robust substitution
   !! solver instead. A lake that changes in step with its aquifer is never
   !! switched. The flag and the per-lake tracking are cleared at the start of
@@ -252,18 +252,18 @@ contains
   !! implicit formulation in the next, where transient storage or different
   !! stresses may make its stage equation better conditioned.
   !<
-  module procedure lak_set_fallback
+  module procedure lak_set_legacy
   ! -- local
   integer(I4B) :: n, j, igwfnode
   real(DP) :: dstage, dhead
   ! -- a lake is treated as the convergence bottleneck when its stage change
   !    exceeds headratio times the largest change in its connected aquifer
   !    heads; more than nstuckmax such consecutive outer iterations switch it to
-  !    the fallback. A well-connected lake converges in lockstep with its aquifer
+  !    the legacy solver. A well-connected lake converges in lockstep with its aquifer
   !    (ratio near one) and is never switched; a weakly connected or disconnected
   !    lake keeps thrashing while its connected heads settle (ratio grows without
   !    bound), so it is switched early -- before the heads commit to the stalled
-  !    configuration -- which the fallback then resolves quickly.
+  !    configuration -- which the legacy solver then resolves quickly.
   real(DP), parameter :: headratio = DTEN
   integer(I4B), parameter :: nstuckmax = 5
   !
@@ -275,7 +275,7 @@ contains
   !    if the cell later becomes active.
   if (kiter == 1) then
     do n = 1, this%nlakes
-      this%ifallback(n) = 0
+      this%ilegacy(n) = 0
       this%nstuck(n) = 0
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
         igwfnode = this%cellid(j)
@@ -303,26 +303,26 @@ contains
         this%holdconn(j) = this%xnew(igwfnode)
       end if
     end do
-    if (this%ifallback(n) /= 0) cycle
+    if (this%ilegacy(n) /= 0) cycle
     !
     ! -- count outer iterations in which the unconverged stage is changing much
-    !    faster than its (settling) aquifer; switch to the fallback after enough
+    !    faster than its (settling) aquifer; switch to the legacy solver after enough
     if (dstage > this%dmaxchg .and. dstage > headratio * dhead) then
       this%nstuck(n) = this%nstuck(n) + 1
     else
       this%nstuck(n) = 0
     end if
     if (this%nstuck(n) > nstuckmax) then
-      this%ifallback(n) = 1
+      this%ilegacy(n) = 1
     end if
   end do
-  end procedure lak_set_fallback
+  end procedure lak_set_legacy
 
-  !> @brief Warn when a fallback lake still prevents IMPLICIT convergence
+  !> @brief Warn when a legacy-solved lake still prevents IMPLICIT convergence
   !!
   !! Called on the last outer iteration of a solution that did not converge. By
   !! this point any stalled lake has already been switched to the substitution
-  !! fallback (lak_set_fallback). If at least one lake is on the fallback and the
+  !! legacy solver (lak_set_legacy). If at least one lake is on it and the
   !! solution still did not converge, the implicit formulation needed more outer
   !! iterations than were allowed; a one-time warning reports this and points the
   !! user to the remedies, including the default formulation, which converges
@@ -333,21 +333,21 @@ contains
   ! -- local
   character(len=LINELENGTH) :: warnmsg
   integer(I4B) :: n
-  logical(LGP) :: hasfallback
+  logical(LGP) :: haslegacy
   !
   ! -- only the implicit formulation couples the stage to the solver
   if (this%iimplicit == 0) return
   !
-  ! -- only warn if a lake was switched to the fallback (otherwise the lake is
+  ! -- only warn if a lake was switched to the legacy solver (otherwise the lake is
   !    not the cause of the non-convergence)
-  hasfallback = .false.
+  haslegacy = .false.
   do n = 1, this%nlakes
-    if (this%ifallback(n) /= 0) then
-      hasfallback = .true.
+    if (this%ilegacy(n) /= 0) then
+      haslegacy = .true.
       exit
     end if
   end do
-  if (.not. hasfallback) return
+  if (.not. haslegacy) return
   !
   ! -- warn with remedies; deduplicated so it is issued at most once
   write (warnmsg, '(a)') &

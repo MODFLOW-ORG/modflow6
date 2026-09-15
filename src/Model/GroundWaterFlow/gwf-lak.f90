@@ -78,7 +78,7 @@ module LakModule
     ! -- implicit formulation: solve the lake stage as an unknown in the
     !    groundwater flow matrix instead of by the legacy substitution iteration
     integer(I4B), pointer :: iimplicit => NULL() !< flag: solve lake stage in the gwf matrix
-    integer(I4B), pointer :: iforcefb => NULL() !< flag (dev): force every active lake onto the substitution fallback
+    integer(I4B), pointer :: iforceleg => NULL() !< flag (dev): force every active lake onto the legacy solver
     ! -- for budgets
     integer(I4B), pointer :: bditems => NULL()
     ! -- vectors
@@ -112,10 +112,10 @@ module LakModule
     !
     ! -- lake solution data
     integer(I4B), dimension(:), pointer, contiguous :: ncncvr => null()
-    ! -- IMPLICIT substitution fallback: solve flagged lakes by substitution,
+    ! -- IMPLICIT legacy solve: solve flagged lakes by substitution,
     !    and a per-lake count of consecutive non-converging outer iterations used
-    !    to decide when to switch a stalled IMPLICIT lake to the fallback
-    integer(I4B), dimension(:), pointer, contiguous :: ifallback => null()
+    !    to decide when to switch a stalled IMPLICIT lake to the legacy solver
+    integer(I4B), dimension(:), pointer, contiguous :: ilegacy => null()
     integer(I4B), dimension(:), pointer, contiguous :: nstuck => null()
     real(DP), dimension(:), pointer, contiguous :: surfin => null()
     real(DP), dimension(:), pointer, contiguous :: surfout => null()
@@ -185,7 +185,7 @@ module LakModule
     real(DP), dimension(:), pointer, contiguous :: dbuff => null()
     real(DP), dimension(:), pointer, contiguous :: qleak => null()
     ! -- connected-cell head at the previous outer iteration (per connection),
-    !    used by the IMPLICIT fallback detection to compare a lake's stage change
+    !    used by the IMPLICIT legacy-switch detection to compare a lake's stage change
     !    against the change in its connected aquifer heads
     real(DP), dimension(:), pointer, contiguous :: holdconn => null()
     real(DP), dimension(:), pointer, contiguous :: qsto => null()
@@ -236,7 +236,7 @@ module LakModule
     procedure :: bnd_fn => lak_fn
     procedure :: bnd_nur => lak_nur
     procedure :: bnd_cc => lak_cc
-    procedure, private :: lak_set_fallback
+    procedure, private :: lak_set_legacy
     procedure, private :: lak_check_disconnected
     procedure :: bnd_cq => lak_cq
     procedure :: bnd_ot_model_flows => lak_ot_model_flows
@@ -330,7 +330,7 @@ module LakModule
   end interface
 
   interface
-    module subroutine lak_set_fallback(this, kiter, icnvgmod)
+    module subroutine lak_set_legacy(this, kiter, icnvgmod)
       class(LakType), intent(inout) :: this
       integer(I4B), intent(in) :: kiter !< outer (Picard) iteration number
       integer(I4B), intent(in) :: icnvgmod !< 0 if the model has not converged
@@ -412,7 +412,7 @@ contains
     call mem_allocate(this%delh, 'DELH', this%memoryPath)
     call mem_allocate(this%check_attr, 'CHECK_ATTR', this%memoryPath)
     call mem_allocate(this%iimplicit, 'IIMPLICIT', this%memoryPath)
-    call mem_allocate(this%iforcefb, 'IFORCEFB', this%memoryPath)
+    call mem_allocate(this%iforceleg, 'IFORCEFB', this%memoryPath)
     call mem_allocate(this%bditems, 'BDITEMS', this%memoryPath)
     call mem_allocate(this%cbcauxitems, 'CBCAUXITEMS', this%memoryPath)
     call mem_allocate(this%idense, 'IDENSE', this%memoryPath)
@@ -436,7 +436,7 @@ contains
     this%dmaxchg = DEM5
     this%delh = DP999 * this%dmaxchg
     this%iimplicit = 0
-    this%iforcefb = 0
+    this%iforceleg = 0
     this%bditems = 11
     this%cbcauxitems = 1
     this%idense = 0
@@ -495,7 +495,7 @@ contains
     do i = 1, this%maxbound
       this%qleak(i) = DZERO
     end do
-    ! -- holdconn is only used by the implicit fallback detector; allocate it at
+    ! -- holdconn is only used by the implicit legacy-switch detector; allocate it at
     !    size 0 otherwise so legacy LAK runs do not pay the maxbound memory cost
     if (this%iimplicit /= 0) then
       call mem_allocate(this%holdconn, this%maxbound, 'HOLDCONN', this%memoryPath)
@@ -566,7 +566,7 @@ contains
     call mem_allocate(this%avail, this%nlakes, 'AVAIL', this%memoryPath)
     call mem_allocate(this%lkgwsink, this%nlakes, 'LKGWSINK', this%memoryPath)
     call mem_allocate(this%ncncvr, this%nlakes, 'NCNCVR', this%memoryPath)
-    call mem_allocate(this%ifallback, this%nlakes, 'IFALLBACK', this%memoryPath)
+    call mem_allocate(this%ilegacy, this%nlakes, 'ILEGACY', this%memoryPath)
     call mem_allocate(this%nstuck, this%nlakes, 'NSTUCK', this%memoryPath)
     call mem_allocate(this%surfin, this%nlakes, 'SURFIN', this%memoryPath)
     call mem_allocate(this%surfout, this%nlakes, 'SURFOUT', this%memoryPath)
@@ -634,7 +634,7 @@ contains
       this%runoff(n) = DZERO
       this%inflow(n) = DZERO
       this%withdrawal(n) = DZERO
-      this%ifallback(n) = 0
+      this%ilegacy(n) = 0
       this%nstuck(n) = 0
     end do
     !
@@ -3412,12 +3412,12 @@ contains
       write (this%iout, '(4x,a)') &
         'LAKE STAGE WILL BE SOLVED AS AN UNKNOWN IN THE GROUNDWATER FLOW '// &
         'MATRIX (IMPLICIT FORMULATION)'
-    case ('DEV_FORCE_FALLBACK')
+    case ('DEV_FORCE_LEGACY')
       call this%parser%DevOpt()
-      this%iforcefb = 1
+      this%iforceleg = 1
       write (this%iout, '(4x,a)') &
-        'EVERY ACTIVE LAKE WILL BE SOLVED WITH THE SUBSTITUTION FALLBACK '// &
-        'UNDER THE IMPLICIT FORMULATION'
+        'EVERY ACTIVE LAKE WILL BE SOLVED WITH THE LEGACY SUBSTITUTION '// &
+        'SOLVER UNDER THE IMPLICIT FORMULATION'
     case ('DEV_NO_FINAL_CHECK')
       call this%parser%DevOpt()
       this%iconvchk = 0
@@ -3977,8 +3977,8 @@ contains
     real(DP) :: dqoutmax
     real(DP) :: dqfrommvr
     real(DP) :: dqfrommvrmax
-    ! -- switch any stalled IMPLICIT lake to the substitution fallback
-    call this%lak_set_fallback(kiter, icnvgmod)
+    ! -- switch any stalled IMPLICIT lake back to the legacy solver
+    call this%lak_set_legacy(kiter, icnvgmod)
     !
     ! -- on the last outer iteration of a solution that has not converged, warn
     !    about a perched (disconnected) lake that has no practical steady state.
@@ -4261,12 +4261,12 @@ contains
     !    treatment that lak_fc_implicit assembled into the matrix, so the lake
     !    and gwf-cell budgets match the solved flows. lak_solve above set these
     !    from the substitution path (hard-cutoff seepage; availability-limited
-    !    losses), which is correct for a lake on the substitution fallback but
+    !    losses), which is correct for a lake on the legacy solver but
     !    not for an implicit lake, so overwrite them for the implicit
-    !    (non-fallback) lakes only.
+    !    (non-legacy) lakes only.
     if (this%iimplicit /= 0) then
       do n = 1, this%nlakes
-        if (this%iboundpak(n) < 1 .or. this%ifallback(n) /= 0) cycle
+        if (this%iboundpak(n) < 1 .or. this%ilegacy(n) /= 0) cycle
         hlak = this%xnewpak(n)
         !
         ! -- lakebed seepage: use the same exchange the matrix assembled
@@ -4590,7 +4590,7 @@ contains
     call mem_deallocate(this%delh)
     call mem_deallocate(this%check_attr)
     call mem_deallocate(this%iimplicit)
-    call mem_deallocate(this%iforcefb)
+    call mem_deallocate(this%iforceleg)
     call mem_deallocate(this%bditems)
     call mem_deallocate(this%cbcauxitems)
     call mem_deallocate(this%idense)
@@ -4612,7 +4612,7 @@ contains
     call mem_deallocate(this%avail)
     call mem_deallocate(this%lkgwsink)
     call mem_deallocate(this%ncncvr)
-    call mem_deallocate(this%ifallback)
+    call mem_deallocate(this%ilegacy)
     call mem_deallocate(this%nstuck)
     call mem_deallocate(this%surfin)
     call mem_deallocate(this%surfout)
@@ -5385,22 +5385,22 @@ contains
 
   !> @brief Solve for lake stage
   !!
-  !! Solve the lake stage by substitution. With only_fallback set, solve only
-  !! the lakes flagged for the substitution fallback (this%ifallback /= 0) and
+  !! Solve the lake stage by substitution. With only_legacy set, solve only
+  !! the lakes flagged for the legacy solver (this%ilegacy /= 0) and
   !! leave the remaining lakes -- whose stage is solved in the global matrix by
   !! the IMPLICIT formulation -- untouched. Without it (the default), every
   !! active lake is solved.
   !<
-  subroutine lak_solve(this, update, only_fallback)
+  subroutine lak_solve(this, update, only_legacy)
     ! -- modules
     use TdisModule, only: delt
     ! -- dummy
     class(LakType), intent(inout) :: this
     logical(LGP), intent(in), optional :: update
-    logical(LGP), intent(in), optional :: only_fallback
+    logical(LGP), intent(in), optional :: only_legacy
     ! -- local
     logical(LGP) :: lupdate
-    logical(LGP) :: fbonly
+    logical(LGP) :: legonly
     integer(I4B) :: j
     integer(I4B) :: n
     integer(I4B) :: iicnvg
@@ -5424,11 +5424,11 @@ contains
       lupdate = .true.
     end if
     !
-    ! -- set fbonly (solve only fallback lakes)
-    if (present(only_fallback)) then
-      fbonly = only_fallback
+    ! -- set legonly (solve only the lakes flagged for the legacy solver)
+    if (present(only_legacy)) then
+      legonly = only_legacy
     else
-      fbonly = .false.
+      legonly = .false.
     end if
     !
     ! -- initialize
@@ -5437,9 +5437,9 @@ contains
     ! -- initialize
     do n = 1, this%nlakes
       ! -- a lake not being solved on this call (an IMPLICIT lake when only the
-      !    fallback lakes are solved) is treated as already converged and left
+      !    flagged lakes are solved) is treated as already converged and left
       !    untouched
-      if (fbonly .and. this%ifallback(n) == 0) then
+      if (legonly .and. this%ilegacy(n) == 0) then
         this%ncncvr(n) = 1
         cycle
       end if
@@ -5527,12 +5527,12 @@ contains
       end do
       !
       do n = 1, this%nlakes
-        if (fbonly .and. this%ifallback(n) == 0) cycle
+        if (legonly .and. this%ilegacy(n) == 0) cycle
         call this%lak_estimate_seepage_single(n, ncnv)
       end do
       !
       laklevel: do n = 1, this%nlakes
-        if (fbonly .and. this%ifallback(n) == 0) cycle laklevel
+        if (legonly .and. this%ilegacy(n) == 0) cycle laklevel
         call this%lak_solve_single(n, iter, maxiter, ncnv, lupdate)
       end do laklevel
       !
@@ -5556,7 +5556,7 @@ contains
   !! the default substitution solver, using the per-iteration seepage estimate
   !! (this%seep / this%seep1) already computed for the lake. Extracted from
   !! lak_solve so the same per-lake update can be reused to solve a single lake
-  !! stage on its own -- the per-lake fallback for the IMPLICIT formulation.
+  !! stage on its own -- the per-lake legacy solve for the IMPLICIT formulation.
   !<
   subroutine lak_solve_single(this, n, iter, maxiter, ncnv, lupdate)
     ! -- modules
@@ -5769,7 +5769,7 @@ contains
   !! do not couple within this estimate (each connection touches only its own
   !! lake's flwiter), so evaluating both passes per lake is equivalent to the
   !! all-lakes-per-pass ordering in lak_solve. Extracted from lak_solve so the
-  !! same estimate can drive the single-lake fallback for the IMPLICIT
+  !! same estimate can drive the single-lake legacy solve for the IMPLICIT
   !! formulation.
   !<
   subroutine lak_estimate_seepage_single(this, n, ncnv)

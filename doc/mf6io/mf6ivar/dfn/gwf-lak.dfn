@@ -279,12 +279,12 @@ longname
 description REPLACE mover {'{#1}': 'LAK'}
 
 block options
-name dev_force_fallback
+name dev_force_legacy
 type keyword
 reader urword
 optional true
-longname force the substitution fallback solution
-description keyword that solves every active lake with the substitution fallback under the implicit formulation, instead of only those lakes that are too poorly conditioned to solve as a matrix unknown.  This development option is not supported.
+longname force the legacy solution for every lake
+description keyword that solves every active lake with the default (legacy) substitution solver under the implicit formulation, instead of only those lakes that are too poorly conditioned to solve as a matrix unknown.  This development option exists to test that path and is not supported.
 
 block options
 name dev_groundwater_head_conductance
