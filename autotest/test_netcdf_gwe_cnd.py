@@ -26,6 +26,28 @@ xa = pytest.importorskip("xarray")
 xu = pytest.importorskip("xugrid")
 nc = pytest.importorskip("netCDF4")
 
+# WKT1 for EPSG:26918 (NAD83 / UTM zone 18N)
+WKT1 = (
+    'PROJCS["NAD83 / UTM zone 18N",'
+    'GEOGCS["NAD83",'
+    'DATUM["North_American_Datum_1983",'
+    'SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],'
+    'AUTHORITY["EPSG","6269"]],'
+    'PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],'
+    'UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],'
+    'AUTHORITY["EPSG","4269"]],'
+    'PROJECTION["Transverse_Mercator"],'
+    'PARAMETER["latitude_of_origin",0],'
+    'PARAMETER["central_meridian",-75],'
+    'PARAMETER["scale_factor",0.9996],'
+    'PARAMETER["false_easting",500000],'
+    'PARAMETER["false_northing",0],'
+    'UNIT["metre",1,AUTHORITY["EPSG","9001"]],'
+    'AXIS["Easting",EAST],'
+    'AXIS["Northing",NORTH],'
+    'AUTHORITY["EPSG","26918"]]'
+)
+
 
 def build_models(idx, test, export, gridded_input):
     from test_gwe_cnd import build_models as build
@@ -48,6 +70,7 @@ def build_models(idx, test, export, gridded_input):
     # netcdf config
     ncf = flopy.mf6.ModflowUtlncf(
         gwe.dis,
+        wkt=WKT1,
         filename=f"{name}.dis.ncf",
     )
 
@@ -135,6 +158,31 @@ def check_output(idx, test, export, gridded_input):
         test.success = success
 
     check(idx, test)
+
+    # verify GeoTransform/spatial_ref and z/z_lN on the
+    # real dependent-variable output file
+    with nc.Dataset(test.workspace / f"{name}.nc") as ds:
+        if export == "structured":
+            proj = ds.variables["projection"]
+            assert "GeoTransform" in proj.ncattrs()
+            assert "spatial_ref" in proj.ncattrs()
+            assert proj.getncattr("spatial_ref") == WKT1
+            gt = [float(v) for v in proj.getncattr("GeoTransform").split()]
+            assert len(gt) == 6
+
+            z = ds.variables["z"]
+            assert z.getncattr("standard_name") == "altitude"
+            assert z.getncattr("positive") == "up"
+            assert "coordinates" in ds.variables["temperature"].ncattrs()
+            assert "z" in ds.variables["temperature"].getncattr("coordinates").split()
+        elif export == "ugrid":
+            # test_gwe_cnd is a single-layer (nlay=1) model
+            z = ds.variables["z_l1"]
+            assert z.getncattr("standard_name") == "altitude"
+            assert z.getncattr("positive") == "up"
+            assert z.getncattr("layer") == 1
+            coords = ds.variables["temperature_l1"].getncattr("coordinates").split()
+            assert "z_l1" in coords
 
     fpth = os.path.join(test.workspace, f"{name}.ucn")
     try:

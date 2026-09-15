@@ -222,7 +222,7 @@ contains
     this%longname = ''
 
     ! set file conventions
-    this%conventions = 'CF-1.11'
+    this%conventions = 'CF-1.13'
     if (nctype == NETCDF_MESH2D) this%conventions = &
       trim(this%conventions)//' UGRID-1.0'
 
@@ -558,7 +558,7 @@ contains
     end do
   end subroutine export_input
 
-  !> @brief map a WKT string to a CF-1.11 grid_mapping_name
+  !> @brief map a WKT string to a CF-1.13 grid_mapping_name
   !!
   !! Accepts either WKT1 (OGC 01-009, PROJECTION["name"]) or WKT2
   !! (ISO 19162:2019, METHOD["name"]) format.  WKT1 is tried first;

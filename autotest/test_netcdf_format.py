@@ -1,5 +1,6 @@
 """
-NetCDF CF/UGRID/MF6 convention attribute verification test.
+NetCDF structured/mesh format, attribute, and CF/UGRID/MF6 convention
+verification test.
 
 Builds a minimal transient GWF model (DIS, IC, NPF, STO, CHD, WEL, OC) and
 verifies that both OUTPUT and INPUT NetCDF files carry the expected convention
@@ -22,10 +23,12 @@ round-trip correctness is covered by other tests.
 
 Conventions
 -----------
-CF-1.11  (https://cfconventions.org/cf-conventions/cf-conventions.html)
+CF-1.13  (https://cfconventions.org/cf-conventions/cf-conventions.html)
   5.6  grid_mapping, crs_wkt, grid_mapping_name on the projection variable
   4.3  vertical (layer) coordinate: axis, positive, units
   4.4  time coordinate: standard_name, units, calendar
+  7.3  cell_methods on the dependent variable ("time: point" -- an
+       instantaneous state, not a time mean/accumulation)
 
 UGRID-1.0  (https://ugrid-conventions.github.io/ugrid-conventions/)
   mesh topology variable; face-indexed data variables carrying mesh,
@@ -35,6 +38,7 @@ MF6 internal: modflow_model, modflow_grid, modflow_input
 """
 
 import flopy
+import numpy as np
 import pytest
 from framework import TestFramework
 
@@ -106,6 +110,7 @@ SS = 1e-5
 SY = 0.15
 XORIGIN = 500_000.0
 YORIGIN = 100_000_000.0
+ANGROT_ROTATED = 15.0
 
 # two stress periods: steady then transient
 NPER = 2
@@ -160,6 +165,7 @@ def build_models(test, fmt, ncf_config):
         botm=BOTM,
         xorigin=XORIGIN,
         yorigin=YORIGIN,
+        angrot=ANGROT_ROTATED if ncf_config == "rotated" else 0.0,
     )
 
     flopy.mf6.ModflowGwfic(gwf, strt=STRT)
@@ -213,6 +219,15 @@ def build_models(test, fmt, ncf_config):
             ncf_kwargs["crs_wkt"] = WKT2
         elif ncf_config == "geographic_wkt":
             ncf_kwargs["wkt"] = WKT1_GEO
+        elif ncf_config == "rotated":
+            ncf_kwargs["wkt"] = WKT1
+        elif ncf_config == "latlon":
+            # explicit ncpl works around a flopy bug: without it, flopy
+            # infers NCPL as NROW instead of NROW*NCOL for structured
+            # latitude/longitude griddata, corrupting the written .ncf file
+            ncf_kwargs["ncpl"] = NROW * NCOL
+            ncf_kwargs["latitude"] = np.linspace(40.0, 40.02, NROW * NCOL)
+            ncf_kwargs["longitude"] = np.linspace(-75.0, -74.98, NROW * NCOL)
 
         flopy.mf6.ModflowUtlncf(dis, **ncf_kwargs)
 
@@ -250,8 +265,8 @@ def _check_global_attrs(ds, name, fmt, ncf_config, label=""):
         )
 
     conventions = ds.getncattr("Conventions")
-    assert "CF-1.11" in conventions, (
-        f"Conventions must include CF-1.11{ctx}: {conventions!r}"
+    assert "CF-1.13" in conventions, (
+        f"Conventions must include CF-1.13{ctx}: {conventions!r}"
     )
     if fmt == "ugrid":
         assert "UGRID-1.0" in conventions, (
@@ -293,6 +308,78 @@ def _check_layer_coord(ds, label=""):
     assert list(vals) == list(range(1, NLAY + 1)), (
         f"layer values must be 1..nlay{ctx}, got {list(vals)}"
     )
+
+
+def _check_z_coord(ds, fmt, label=""):
+    """z (structured) / z_l1, z_l2, ... (mesh/UGRID): unconditional
+    auxiliary vertical position coordinate -- distinct from the discrete
+    layer index. Split per layer for mesh since face-indexed variables
+    carry no layer dimension to legally reference a
+    combined z(layer, nmesh_face) coordinate (CF-1.13 5.2)."""
+    ctx = f" [{label}]" if label else ""
+    expected = [
+        (TOP + BOTM[0]) / 2.0,
+        (BOTM[0] + BOTM[1]) / 2.0,
+    ]
+
+    if fmt == "structured":
+        assert "z" in ds.variables, f"z coordinate variable missing{ctx}"
+        z = ds.variables["z"]
+        assert z.dimensions == ("layer", "y", "x"), (
+            f"z must be dimensioned (layer, y, x){ctx}, got {z.dimensions}"
+        )
+        assert "axis" not in z.ncattrs(), (
+            f"z must not carry an axis attribute (layer remains the sole Z axis){ctx}"
+        )
+        assert z.getncattr("standard_name") == "altitude", (
+            f"z standard_name must be 'altitude'{ctx}"
+        )
+        assert z.getncattr("positive") == "up", f"z positive must be 'up'{ctx}"
+        assert z.getncattr("long_name") == "cell center elevation", (
+            f"z long_name must be 'cell center elevation'{ctx}"
+        )
+        assert "units" in z.ncattrs(), f"z units missing{ctx}"
+
+        vals = z[:]
+        for k in range(NLAY):
+            assert np.allclose(vals[k, :, :], expected[k]), (
+                f"z layer {k + 1} value mismatch{ctx}: "
+                f"got {vals[k, :, :]}, expected {expected[k]}"
+            )
+        return
+
+    # mesh/UGRID: z_l1, z_l2, ... one per layer, dimensioned (nmesh_face,)
+    assert "z" not in ds.variables, (
+        f"a bare 'z' variable must not appear in mesh/UGRID output -- "
+        f"mesh format uses per-layer z_lN{ctx}"
+    )
+    for k in range(1, NLAY + 1):
+        vname = f"z_l{k}"
+        assert vname in ds.variables, f"{vname} variable missing{ctx}"
+        z = ds.variables[vname]
+        assert z.dimensions == ("nmesh_face",), (
+            f"{vname} must be dimensioned (nmesh_face,){ctx}, got {z.dimensions}"
+        )
+        assert "axis" not in z.ncattrs(), (
+            f"{vname} must not carry an axis attribute{ctx}"
+        )
+        assert z.getncattr("standard_name") == "altitude", (
+            f"{vname} standard_name must be 'altitude'{ctx}"
+        )
+        assert z.getncattr("positive") == "up", f"{vname} positive must be 'up'{ctx}"
+        assert z.getncattr("long_name") == f"cell center elevation (layer {k})", (
+            f"{vname} long_name must be 'cell center elevation (layer {k})'{ctx}"
+        )
+        assert "units" in z.ncattrs(), f"{vname} units missing{ctx}"
+        assert "layer" in z.ncattrs(), f"layer attr missing on {vname}{ctx}"
+        assert z.getncattr("layer") == k, (
+            f"layer attr must be {k} on {vname}{ctx}: {z.getncattr('layer')}"
+        )
+
+        vals = z[:]
+        assert np.allclose(vals, expected[k - 1]), (
+            f"{vname} value mismatch{ctx}: got {vals}, expected {expected[k - 1]}"
+        )
 
 
 def _check_time_coord(ds, label=""):
@@ -350,11 +437,38 @@ def _check_projection(ds, fmt, ncf_config, label=""):
         f"{proj.getncattr('grid_mapping_name')!r}"
     )
 
-    # GeoTransform / spatial_ref: Phase 2 — not yet written by MF6
-    # TODO: assert once Phase 2 (GeoTransform from Fortran) is implemented
-    assert "GeoTransform" not in proj.ncattrs(), (
-        f"GeoTransform not expected until Phase 2 — remove when it lands{ctx}"
-    )
+    # GeoTransform / spatial_ref: structured-only, requires WKT1
+    # (this%wkt) since MF6 has no CRS library to derive WKT1 from WKT2, and
+    # only for unrotated grids (this model has ANGROT=0).
+    expect_geotransform = fmt == "structured" and ncf_config in ("wkt_only", "both")
+    if expect_geotransform:
+        assert "GeoTransform" in proj.ncattrs(), (
+            f"GeoTransform missing for {ncf_config!r}{ctx}"
+        )
+        gt = [float(v) for v in proj.getncattr("GeoTransform").split()]
+        assert len(gt) == 6, f"GeoTransform must have 6 values{ctx}: {gt}"
+        expected_gt = [
+            XORIGIN,
+            sum(DELR) / NCOL,
+            0.0,
+            YORIGIN + sum(DELC),
+            0.0,
+            -sum(DELC) / NROW,
+        ]
+        assert np.allclose(gt, expected_gt), (
+            f"GeoTransform value mismatch{ctx}: {gt} != {expected_gt}"
+        )
+        assert "spatial_ref" in proj.ncattrs(), f"spatial_ref missing{ctx}"
+        assert proj.getncattr("spatial_ref") == WKT1, f"spatial_ref must be WKT1{ctx}"
+    else:
+        assert "GeoTransform" not in proj.ncattrs(), (
+            f"GeoTransform must not be written for fmt={fmt!r}, "
+            f"ncf_config={ncf_config!r}{ctx}"
+        )
+        assert "spatial_ref" not in proj.ncattrs(), (
+            f"spatial_ref must not be written for fmt={fmt!r}, "
+            f"ncf_config={ncf_config!r}{ctx}"
+        )
 
 
 def _check_coord_gridmapping(ds, fmt, ncf_config, label=""):
@@ -409,10 +523,58 @@ def _check_data_var(var, vname, fmt, ncf_config, label=""):
             f"grid_mapping must not be written on {vname} without CRS{ctx}"
         )
 
+    # z: structured only, unconditional -- present in
+    # coordinates iff the variable actually carries the layer dimension
+    # (CF-1.13 5.2 subset rule; z's own dims are (layer, y, x)).
+    if fmt == "structured":
+        has_layer = "layer" in var.dimensions
+        coords = (
+            var.getncattr("coordinates").split()
+            if "coordinates" in var.ncattrs()
+            else []
+        )
+        if has_layer:
+            assert "z" in coords, (
+                f"z missing from coordinates on layered var {vname}{ctx}: {coords}"
+            )
+        else:
+            assert "z" not in coords, (
+                f"z must not appear in coordinates on non-layered var "
+                f"{vname}{ctx}: {coords}"
+            )
+        # x/y are never listed here, CRS or not -- they are true CF
+        # dimension coordinates, already discoverable by dimension-name
+        # matching alone (CF-1.13 Ch.5 preamble), unlike lon/lat (real 2D
+        # auxiliary coordinates, which do need to be listed).
+        assert "x" not in coords and "y" not in coords, (
+            f"x/y must never appear in coordinates on {vname}{ctx}: {coords}"
+        )
+    else:
+        # z_lN: the layer attribute (not the variable name) identifies
+        # whether vname is a per-layer-split variable, and which layer it
+        # belongs to
+        is_layered = "layer" in var.ncattrs()
+        coords = (
+            var.getncattr("coordinates").split()
+            if "coordinates" in var.ncattrs()
+            else []
+        )
+        if is_layered:
+            expected_z = f"z_l{var.getncattr('layer')}"
+            assert expected_z in coords, (
+                f"{expected_z} missing from coordinates on {vname}{ctx}: {coords}"
+            )
+        else:
+            assert not any(c.startswith("z_l") for c in coords), (
+                f"no z_lN may appear in coordinates on non-layered var "
+                f"{vname}{ctx}: {coords}"
+            )
+
 
 def _check_output_nc(ds, name, fmt, ncf_config):
     _check_global_attrs(ds, name, fmt, ncf_config, label="output")
     _check_layer_coord(ds, label="output")
+    _check_z_coord(ds, fmt, label="output")
     _check_time_coord(ds, label="output")
     _check_projection(ds, fmt, ncf_config, label="output")
     _check_coord_gridmapping(ds, fmt, ncf_config, label="output")
@@ -420,12 +582,29 @@ def _check_output_nc(ds, name, fmt, ncf_config):
     if fmt == "structured":
         assert "head" in ds.variables, "head variable missing from structured output"
         _check_data_var(ds.variables["head"], "head", fmt, ncf_config, label="output")
+        # cell_methods (item 8): dependent variable is an instantaneous
+        # state at each output time, not a time mean/accumulation
+        assert ds.variables["head"].getncattr("cell_methods") == "time: point", (
+            "head cell_methods must be 'time: point'"
+        )
     else:
         for k in range(1, NLAY + 1):
             vname = f"head_l{k}"
             assert vname in ds.variables, f"{vname} missing from UGRID output"
             head = ds.variables[vname]
             _check_data_var(head, vname, fmt, ncf_config, label="output")
+
+            assert head.getncattr("cell_methods") == "time: point", (
+                f"{vname} cell_methods must be 'time: point'"
+            )
+
+            # layer attribute must match this variable's actual layer, not
+            # just be present -- independent check against the known k,
+            # not derived from the attribute itself
+            assert "layer" in head.ncattrs(), f"layer attr missing on {vname}"
+            assert head.getncattr("layer") == k, (
+                f"layer attr must be {k} on {vname}: {head.getncattr('layer')}"
+            )
 
             # UGRID topology attrs always present on face vars regardless of CRS
             assert head.getncattr("mesh") == "mesh", f"{vname} mesh attr must be 'mesh'"
@@ -445,7 +624,7 @@ def _check_output_nc(ds, name, fmt, ncf_config):
 # grid_mapping is only meaningful on variables whose dimensions include the full
 # horizontal spatial extent (nrow x ncol or nlay x nrow x ncol). 1D dimension arrays
 # (delr=ncol, delc=nrow) define grid geometry but are not georeferenced fields,
-# so grid_mapping does not apply — consistent with CF-1.11 §5.6.
+# so grid_mapping does not apply — consistent with CF-1.13 5.6.
 _STRUCTURED_VARS_NONSPATIAL = [
     "dis_delr",  # 1D (ncol) — grid spacing, not a georeferenced field
     "dis_delc",  # 1D (nrow) — grid spacing, not a georeferenced field
@@ -545,6 +724,7 @@ def _check_input_var(
 def _check_input_nc(ds, name, fmt, ncf_config):
     _check_global_attrs(ds, name, fmt, ncf_config, label="input")
     _check_layer_coord(ds, label="input")
+    _check_z_coord(ds, fmt, label="input")
     _check_projection(ds, fmt, ncf_config, label="input")
     _check_coord_gridmapping(ds, fmt, ncf_config, label="input")
     # time coord only present on period-data variables; don't require it on input
@@ -658,6 +838,16 @@ def _check_geo_crs_output(test, fmt):
     with nc.Dataset(ws / f"{name}.nc") as ds:
         _check_global_attrs(ds, name, fmt, "geographic_wkt", label="geo_output")
         _check_layer_coord(ds, label="geo_output")
+        _check_z_coord(ds, fmt, label="geo_output")
+        if fmt == "structured":
+            # grid_mapping name (the variable "projection" is still pointed
+            # to) is independent of grid_mapping_name (the CF attribute
+            # value on that variable, empty here since geographic CRS has no
+            # PROJECTION[ keyword) -- head still gets grid_mapping + "z"
+            # (x/y are never listed in coordinates, CRS or not).
+            _check_data_var(
+                ds.variables["head"], "head", fmt, "geographic_wkt", label="geo_output"
+            )
         assert "projection" in ds.variables, (
             "projection variable missing for geographic CRS"
         )
@@ -671,11 +861,141 @@ def _check_geo_crs_output(test, fmt):
         )
 
 
+def _check_latlon_output(test):
+    """latitude/longitude griddata: coordinates = "lon lat z", no grid_mapping."""
+    name = test.name
+    ws = test.workspace
+    with nc.Dataset(ws / f"{name}.nc") as ds:
+        _check_global_attrs(ds, name, "structured", "latlon", label="latlon_output")
+        _check_layer_coord(ds, label="latlon_output")
+        _check_z_coord(ds, "structured", label="latlon_output")
+
+        assert "lat" in ds.variables, "lat variable missing"
+        assert "lon" in ds.variables, "lon variable missing"
+        lat = ds.variables["lat"]
+        lon = ds.variables["lon"]
+        assert lat.getncattr("standard_name") == "latitude", (
+            "lat standard_name must be 'latitude'"
+        )
+        assert lon.getncattr("standard_name") == "longitude", (
+            "lon standard_name must be 'longitude'"
+        )
+        assert lat.getncattr("units") == "degrees_north", (
+            "lat units must be 'degrees_north'"
+        )
+        assert lon.getncattr("units") == "degrees_east", (
+            "lon units must be 'degrees_east'"
+        )
+
+        assert "projection" not in ds.variables, (
+            "projection variable must not be written for latlon config"
+        )
+        head = ds.variables["head"]
+        assert "grid_mapping" not in head.ncattrs(), (
+            "grid_mapping must not be written for latlon config"
+        )
+        coords = head.getncattr("coordinates").split()
+        assert "lon" in coords and "lat" in coords, (
+            f"lon/lat missing from head coordinates: {coords}"
+        )
+        assert "z" in coords, f"z missing from head coordinates: {coords}"
+        assert "x" not in coords and "y" not in coords, (
+            f"x/y must not appear in coordinates for latlon config: {coords}"
+        )
+
+
+def _rotated_geotransform_corners(gt):
+    """Real-world (x, y) at the four pixel-grid corners implied by a
+    6-element GDAL GeoTransform."""
+    corners = []
+    for xpixel in (0, NCOL):
+        for yline in (0, NROW):
+            xg = gt[0] + xpixel * gt[1] + yline * gt[2]
+            yg = gt[3] + xpixel * gt[4] + yline * gt[5]
+            corners.append((xg, yg))
+    return corners
+
+
+def _check_rotated_output(test, fmt):
+    """Rotated structured grid: GeoTransform must be present and correct
+    (rotation-aware formula, DELR/DELC uniform in this model so the
+    effective-pixel-size approximation is exact, not just close). x/y
+    dimension coordinates remain grid-local regardless (CF dimension
+    coordinates cannot represent a rotated position) -- unaffected by this
+    change, not re-checked here."""
+    name = test.name
+    ws = test.workspace
+    with nc.Dataset(ws / f"{name}.nc") as ds:
+        proj = ds.variables["projection"]
+        if fmt == "structured":
+            assert "GeoTransform" in proj.ncattrs(), (
+                "GeoTransform missing for rotated structured grid"
+            )
+            gt = [float(v) for v in proj.getncattr("GeoTransform").split()]
+            assert len(gt) == 6, f"GeoTransform must have 6 values: {gt}"
+
+            ang = np.radians(ANGROT_ROTATED)
+            dx_eff = sum(DELR) / NCOL
+            dy_eff = -sum(DELC) / NROW
+            expected_gt = [
+                XORIGIN - sum(DELC) * np.sin(ang),
+                dx_eff * np.cos(ang),
+                -dy_eff * np.sin(ang),
+                YORIGIN + sum(DELC) * np.cos(ang),
+                dx_eff * np.sin(ang),
+                dy_eff * np.cos(ang),
+            ]
+            assert np.allclose(gt, expected_gt), (
+                f"rotated GeoTransform value mismatch: {gt} != {expected_gt}"
+            )
+            assert "spatial_ref" in proj.ncattrs(), "spatial_ref missing"
+            assert proj.getncattr("spatial_ref") == WKT1, "spatial_ref must be WKT1"
+        else:
+            # mesh format already handled rotation correctly before this
+            # change (via dis_transform_xy) -- confirm unaffected/unchanged
+            assert "GeoTransform" not in proj.ncattrs(), (
+                "GeoTransform must never be written for mesh format"
+            )
+            assert "spatial_ref" not in proj.ncattrs(), (
+                "spatial_ref must never be written for mesh format"
+            )
+
+
+def _check_rotated_cross_format(struct_test, ugrid_test):
+    """Strong cross-check: verify structured's new GeoTransform-implied grid
+    corners (a newly-Fortran-implemented rotation formula) against mesh
+    format's independently-implemented, already-shipped, real-world node
+    coordinates (dis_transform_xy) -- both generated by real MF6 runs of the
+    identical rotated grid, not just checked against a Python derivation."""
+    with nc.Dataset(struct_test.workspace / f"{struct_test.name}.nc") as ds:
+        gt = [
+            float(v)
+            for v in ds.variables["projection"].getncattr("GeoTransform").split()
+        ]
+    expected_corners = _rotated_geotransform_corners(gt)
+
+    with nc.Dataset(ugrid_test.workspace / f"{ugrid_test.name}.nc") as ds:
+        node_x = ds.variables["mesh_node_x"][:]
+        node_y = ds.variables["mesh_node_y"][:]
+
+    # tolerance reflects GeoTransform's ES16.8 text-formatting precision
+    # (9 significant digits) at YORIGIN's ~1e8 magnitude, i.e. ~0.1 unit --
+    # not the underlying formula's precision, which matches exactly (see
+    # test_rotated_geotransform's direct np.allclose check on the raw GT
+    # values, unaffected by this compounding-corner-arithmetic concern)
+    for xg, yg in expected_corners:
+        dist = np.sqrt((node_x - xg) ** 2 + (node_y - yg) ** 2)
+        assert dist.min() < 1.0, (
+            f"structured GeoTransform corner ({xg}, {yg}) has no matching "
+            f"mesh node (closest distance {dist.min()!r}) -- structured "
+            f"and mesh rotation implementations disagree"
+        )
+
+
 cases = ["gwf_cf_conv"]
 
 
 @pytest.mark.netcdf
-@pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.parametrize("fmt", ["structured", "ugrid"])
 @pytest.mark.parametrize("ncf_config", ["none", "wkt_only", "crs_wkt_only", "both"])
@@ -693,7 +1013,6 @@ def test_mf6model(idx, name, function_tmpdir, targets, fmt, ncf_config, gridded_
 
 
 @pytest.mark.netcdf
-@pytest.mark.developmode
 @pytest.mark.parametrize("fmt", ["structured", "ugrid"])
 def test_geographic_crs_no_grid_mapping_name(fmt, function_tmpdir, targets):
     """Geographic CRS: projection variable written but grid_mapping_name absent."""
@@ -706,3 +1025,70 @@ def test_geographic_crs_no_grid_mapping_name(fmt, function_tmpdir, targets):
         compare=None,
     )
     test.run()
+
+
+@pytest.mark.netcdf
+def test_latlon_griddata(function_tmpdir, targets):
+    """latitude/longitude griddata (structured only): coordinates = "lon lat z",
+    no grid_mapping/projection."""
+    test = TestFramework(
+        name="gwf_latlon",
+        workspace=function_tmpdir,
+        build=lambda t: build_models(t, "structured", "latlon"),
+        check=lambda t: _check_latlon_output(t),
+        targets=targets,
+        compare=None,
+    )
+    test.run()
+
+
+@pytest.mark.netcdf
+@pytest.mark.parametrize("fmt", ["structured", "ugrid"])
+def test_rotated_geotransform(fmt, function_tmpdir, targets):
+    """Rotated grid (ANGROT != 0) with a CRS configured: structured now gets
+    a rotation-aware GeoTransform (reopened 2026-07-09 -- previously
+    withheld entirely for rotated grids); mesh format is unaffected (it
+    already handled rotation correctly via dis_transform_xy)."""
+    test = TestFramework(
+        name="gwf_rotated",
+        workspace=function_tmpdir,
+        build=lambda t: build_models(t, fmt, "rotated"),
+        check=lambda t: _check_rotated_output(t, fmt),
+        targets=targets,
+        compare=None,
+    )
+    test.run()
+
+
+@pytest.mark.netcdf
+def test_rotated_geotransform_matches_mesh(function_tmpdir, targets):
+    """Strong cross-check: build the identical rotated grid in both
+    structured and mesh format, and confirm structured's new
+    GeoTransform-implied corner coordinates match mesh's independently
+    computed, already-shipped real-world node coordinates -- validates the
+    new Fortran implementation against a second, trusted code path, not
+    just a Python-side derivation."""
+    (function_tmpdir / "structured").mkdir()
+    (function_tmpdir / "ugrid").mkdir()
+
+    struct_test = TestFramework(
+        name="gwf_rotated",
+        workspace=function_tmpdir / "structured",
+        build=lambda t: build_models(t, "structured", "rotated"),
+        check=lambda t: _check_rotated_output(t, "structured"),
+        targets=targets,
+        compare=None,
+    )
+    struct_test.run()
+
+    ugrid_test = TestFramework(
+        name="gwf_rotated",
+        workspace=function_tmpdir / "ugrid",
+        build=lambda t: build_models(t, "ugrid", "rotated"),
+        check=lambda t: _check_rotated_output(t, "ugrid"),
+        targets=targets,
+        compare=None,
+    )
+    ugrid_test.run()
+
+    _check_rotated_cross_format(struct_test, ugrid_test)
