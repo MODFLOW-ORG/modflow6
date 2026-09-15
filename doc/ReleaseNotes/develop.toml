@@ -14,3 +14,8 @@ solution = "SOLUTION"
 exchanges = "EXCHANGES"
 parallel = "PARALLEL"
 netcdf = "NETCDF"
+
+[[items]]
+section = "features"
+subsection = "model"
+description = "Added a new STRANDED\\_MASS option to the Mobile Storage and Transfer (MST) Package of the Groundwater Transport (GWT) Model. The mobile domain scales the solute mass of a cell by its saturation, so when the water table falls the solute the drained part held is returned to the water that remains and the simulated concentration rises. With this option that solute is instead held out of the mobile domain until the cell rewets, and the mass returned is the mass the same cell gave up. Two quantities are held back: the solute in the water retained against drainage, which follows from the porosity of the transport model and the specific yield of the flow model rather than from new input, and the sorbed mass. Stranded mass decays at the rates given for the aqueous and sorbed phases, is reported in a budget for the package, and can be written to a binary array file. Results change for an unconfined model whose specific yield differs from its porosity, and are unchanged when the option is not used."
