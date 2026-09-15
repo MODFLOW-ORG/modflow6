@@ -1,0 +1,503 @@
+"""
+ Test the use of the atmospheric boundary condition utility used in conjunction
+ with the SFE advanced package.  This test uses five reaches all hosted within
+ a single cell. The test is meant to error-out because it specifies a user-
+ defined evaporation rate but also tries to invoke the ABC package to calculate
+ latent heat flux.  MF6 should prevent the user from invoking both approaches
+ and instead force the user to choose.  If this is successful, it means MF6
+ successfully errored out.
+
+
+   Reach configuration:
+     
+               \
+                \ Reach 1 
+                 \
+                  \  
+   Reach 2         v   Reach 4    Reach 5 
+            ------>+------------+----------->
+                   ^
+                  /
+                 /
+                / Reach 3 (shf)
+               /
+"""
+
+import flopy
+import numpy as np
+import pytest
+from framework import TestFramework
+
+cases = ["sfe-abc-fail"]
+
+DCTOK = 273.15
+
+# Model units
+length_units = "m"
+time_units = "seconds"
+
+# model domain and grid definition
+
+nrow = 1
+ncol = 1
+nlay = 1
+delr = 100.0
+delc = 100.0
+xmax = ncol * delr
+ymax = nrow * delc
+
+ibound = 1
+top = 1.0
+botm = 0.0
+strthd = 0.0
+chd_on = False
+
+# model input parameters
+k11 = 500.0
+strt_gw_temp = 99.0
+
+ss = 0.00001
+sy = 0.20
+hani = 1
+laytyp = 1
+
+# Package boundary conditions
+sfr_evaprate = 0.0
+rhk = 0.0
+rwid = 1.0
+rlen = 1.0
+strm_initial_temp = 11.0
+surf_Q_in = 10.0
+
+# sensible and latent heat flux parameter values
+wspd = 1.0
+patm = 954.0
+tatm_C = 20.0
+tatm = [tatm_C + DCTOK]
+#                       K,             F,      C
+temperature_offset = [0.0]
+temperature_factor = [1.0]
+
+# shortwave radiation parameter values
+# unrealistically high to drive a 0.1 deg C rise in stream temperature
+solr = 4180000.0
+shd = 0.20
+swrefl = 0.10
+rh = 20.0
+lwrefl = 0.03  # Fogg et al 2023
+
+# atmosphere composition adjustment factor (using dummy value to drive
+# half a degree change)
+atmc = 0.80
+
+# latent heat flux parameter values (these values are specified in the options
+# block and are therefore constant across reaches
+c_d = 0.0  # Drag coefficient ($unitless$)
+wf_slope = 1.383e-08  # wind function slope ($1/mbar$)
+wf_int = 3.445e-09  # wind function intercept ($m/s$)
+emiss_water = 0.95  # Fogg et al 2023
+emiss_riparian = 0.97  # Fogg et al 2023
+stephan_boltzmann = 5.670374419e-08
+
+# Transport related parameters
+porosity = sy  # porosity (unitless)
+K_therm = 2.0  # Thermal conductivity  # ($W/m/C$)
+rhow = 1000.0  # Density of water ($kg/m^3$)
+rhos = 2650.0  # Density of the aquifer material ($kg/m^3$)
+rhoa = 1.225  # Density of the atmosphere ($kg/m^3$)
+Cpw = 4180.0  # Heat capacity of water ($J/kg/C$)
+Cps = 880.0  # Heat capacity of the solids ($J/kg/C$)
+Cpa = 717.0  # Heat capacity of the atmosphere ($J/kg/C$)
+lhv = 2454000.0  # Latent heat of vaporization ($J/kg$)
+
+# Thermal conductivity of the streambed material ($W/m/C$)
+K_therm_strmbed = 0.0
+rbthcnd = 0.0001
+
+# time params
+steady = {0: True, 1: False}
+transient = {0: False, 1: True}
+nstp = [1]
+tsmult = [1]
+perlen = [1]
+
+nouter, ninner = 1000, 300
+hclose, rclose, relax = 1e-10, 1e-10, 0.97
+
+#
+# MODFLOW 6 flopy GWF object
+#
+
+
+def build_models(idx, test):
+    # Base simulation and model name and workspace
+    ws = test.workspace
+    name = cases[idx]
+
+    print(f"Building model...{name}")
+
+    # generate names for each model
+    gwfname = "gwf-" + name
+    gwename = "gwe-" + name
+
+    sim = flopy.mf6.MFSimulation(
+        sim_name=name, sim_ws=ws, exe_name="mf6", version="mf6"
+    )
+
+    # Instantiating time discretization
+    tdis_rc = []
+    for i in range(len(nstp)):
+        tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
+
+    flopy.mf6.ModflowTdis(
+        sim, nper=len(nstp), perioddata=tdis_rc, time_units=time_units
+    )
+
+    gwf = flopy.mf6.ModflowGwf(
+        sim,
+        modelname=gwfname,
+        save_flows=True,
+        newtonoptions="newton",
+    )
+
+    # Instantiating solver
+    ims = flopy.mf6.ModflowIms(
+        sim,
+        print_option="ALL",
+        outer_dvclose=hclose,
+        outer_maximum=nouter,
+        under_relaxation="cooley",
+        inner_maximum=ninner,
+        inner_dvclose=hclose,
+        rcloserecord=rclose,
+        linear_acceleration="BICGSTAB",
+        scaling_method="NONE",
+        reordering_method="NONE",
+        relaxation_factor=relax,
+        filename=f"{gwfname}.ims",
+    )
+    sim.register_ims_package(ims, [gwfname])
+
+    # Instantiate discretization package
+    flopy.mf6.ModflowGwfdis(
+        gwf,
+        length_units=length_units,
+        nlay=nlay,
+        nrow=nrow,
+        ncol=ncol,
+        delr=delr,
+        delc=delc,
+        top=top,
+        botm=botm,
+    )
+
+    # Instantiate node property flow package
+    flopy.mf6.ModflowGwfnpf(
+        gwf,
+        save_specific_discharge=True,
+        icelltype=1,  # >0 means saturated thickness varies with computed head
+        k=k11,
+    )
+
+    # Instantiate storage package
+    flopy.mf6.ModflowGwfsto(
+        gwf,
+        save_flows=False,
+        iconvert=laytyp,
+        ss=ss,
+        sy=sy,
+        steady_state=steady,
+        transient=transient,
+    )
+
+    # Instantiate initial conditions package
+    flopy.mf6.ModflowGwfic(gwf, strt=strthd)
+
+    # Instantiate output control package
+    flopy.mf6.ModflowGwfoc(
+        gwf,
+        budget_filerecord=f"{gwfname}.cbc",
+        head_filerecord=f"{gwfname}.hds",
+        headprintrecord=[("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")],
+        saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
+        printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
+    )
+
+    # Instantiate streamflow routing package
+    # Determine the middle row and store in rMid (account for 0-base)
+    rMid = 1
+    # sfr data
+    roughness = 1e-10
+    rbth = 0.1
+    strmbd_hk = rhk
+    strm_up = 0.95
+    strm_dn = 0.94
+    # divide by 10 to further reduce slop
+    slope = 0.04
+    nconn = 0
+    ustrf = 1.0
+    ndv = 0
+    strm_incision = 0.05
+
+    # explicitly set connections
+    conns = [(0, -3), (1, -3), (2, -3), (3, 0, 1, 2, -4), (4, 3)]
+    nreaches = len(conns)
+
+    packagedata = []
+    for irch in range(nreaches):
+        ncon = len(conns[irch]) - 1
+        rp = [
+            irch,
+            (0, 0, 0),
+            rlen,
+            rwid,
+            slope,
+            top - strm_incision,
+            rbth,
+            strmbd_hk,
+            roughness,
+            ncon,
+            ustrf,
+            ndv,
+        ]
+        packagedata.append(rp)
+
+    sfr_perioddata = {}
+    for t in np.arange(len(perlen)):
+        sfrbndx = []
+        for i in np.arange(nreaches):
+            # only specify inflow for the first three reaches
+            if i < 3:
+                sfrbndx.append([i, "INFLOW", surf_Q_in])
+
+        sfrbndx.append([4, "EVAPORATION", "0.005"])
+
+        sfr_perioddata.update({t: sfrbndx})
+
+    # Instantiate SFR observation points
+    sfr_obs = {
+        f"{gwfname}.sfr.obs.csv": [
+            ("rch1_depth", "depth", 1),
+            ("rch1_outf", "ext-outflow", 1),
+            ("rch1_wetwidth", "wet-width", 1),
+            ("rch2_wetwidth", "wet-width", 2),
+            ("rch3_wetwidth", "wet-width", 3),
+            ("rch4_wetwidth", "wet-width", 4),
+            ("rch5_wetwidth", "wet-width", 5),
+            ("rch1_stg", "stage", 1),
+            ("rch2_stg", "stage", 2),
+            ("rch3_stg", "stage", 3),
+            ("rch4_stg", "stage", 4),
+            ("rch5_stg", "stage", 5),
+        ],
+        "digits": 15,
+        "print_input": True,
+        "filename": gwfname + ".sfr.obs",
+    }
+
+    budpth = f"{gwfname}.sfr.cbc"
+    flopy.mf6.ModflowGwfsfr(
+        gwf,
+        save_flows=True,
+        print_stage=True,
+        print_flows=True,
+        print_input=True,
+        length_conversion=1.0,
+        time_conversion=1.0,
+        budget_filerecord=budpth,
+        mover=False,
+        nreaches=nreaches,
+        packagedata=packagedata,
+        connectiondata=conns,
+        perioddata=sfr_perioddata,
+        observations=sfr_obs,
+        pname="SFR",
+        filename=f"{gwfname}.sfr",
+    )
+
+    # --------------------------------------------------
+    # Setup the GWE model for simulating heat transport
+    # --------------------------------------------------
+    gwe = flopy.mf6.ModflowGwe(sim, modelname=gwename)
+
+    # Instantiating solver for GWT
+    imsgwe = flopy.mf6.ModflowIms(
+        sim,
+        print_option="ALL",
+        outer_dvclose=hclose,
+        outer_maximum=nouter,
+        under_relaxation="NONE",
+        inner_maximum=ninner,
+        inner_dvclose=hclose,
+        rcloserecord=f"{rclose} strict",
+        linear_acceleration="BICGSTAB",
+        scaling_method="NONE",
+        reordering_method="NONE",
+        relaxation_factor=relax,
+        filename=f"{gwename}.ims",
+    )
+    sim.register_ims_package(imsgwe, [gwename])
+
+    # Instantiating DIS for GWE
+    flopy.mf6.ModflowGwedis(
+        gwe,
+        length_units=length_units,
+        nlay=nlay,
+        nrow=nrow,
+        ncol=ncol,
+        delr=delr,
+        delc=delc,
+        top=top,
+        botm=botm,
+        pname="DIS",
+        filename=f"{gwename}.dis",
+    )
+
+    # Instantiate Mobile Storage and Transfer package
+    flopy.mf6.ModflowGweest(
+        gwe,
+        save_flows=True,
+        porosity=porosity,
+        heat_capacity_water=Cpw,
+        density_water=rhow,
+        latent_heat_vaporization=lhv,
+        heat_capacity_solid=Cps,
+        density_solid=rhos,
+        pname="EST",
+        filename=f"{gwename}.est",
+    )
+
+    # Instantiate Energy Transport Initial Conditions package
+    flopy.mf6.ModflowGweic(gwe, strt=strt_gw_temp)
+
+    # Instantiate Advection package
+    flopy.mf6.ModflowGweadv(gwe, scheme="UPSTREAM")
+
+    # Instantiate Dispersion package (also handles conduction)
+    flopy.mf6.ModflowGwecnd(
+        gwe,
+        xt3d_off=True,
+        ktw=0.5918,
+        kts=0.2700,
+        pname="CND",
+        filename=f"{gwename}.cnd",
+    )
+
+    # Instantiating MODFLOW 6 transport source-sink mixing package
+    # [b/c at least one boundary back is active (SFR), ssm must be on]
+    sourcerecarray = [[]]
+    flopy.mf6.ModflowGwessm(gwe, sources=sourcerecarray, filename=f"{gwename}.ssm")
+
+    # Instantiate Streamflow Energy Transport package
+    sfepackagedata = []
+    for irno in range(len(conns)):
+        t = (irno, strm_initial_temp, K_therm_strmbed, rbthcnd)
+        sfepackagedata.append(t)
+
+    sfeperioddata = []
+    sfeperioddata.append((0, "INFLOW", strm_initial_temp))
+    sfeperioddata.append((1, "INFLOW", strm_initial_temp))
+    sfeperioddata.append((2, "INFLOW", strm_initial_temp))
+
+    # Instantiate SFE observation points
+    sfe_obs = {
+        f"{gwename}.sfe.obs.csv": [
+            ("rch5_evap", "surfevap", 5),
+        ],
+        "digits": 20,
+        "print_input": True,
+        "filename": gwename + ".sfe.obs",
+    }
+
+    abc_filename = f"{gwename}.sfe.abc"
+    sfe = flopy.mf6.modflow.ModflowGwesfe(
+        gwe,
+        boundnames=False,
+        save_flows=True,
+        print_input=False,
+        print_flows=True,
+        print_temperature=True,
+        temperature_filerecord=gwename + ".sfe.bin",
+        budget_filerecord=gwename + ".sfe.bud",
+        packagedata=sfepackagedata,
+        reachperioddata=sfeperioddata,
+        flow_package_name="SFR",
+        observations=sfe_obs,
+        pname="SFE",
+        filename=f"{gwename}.sfe",
+    )
+
+    # Abc utility
+    abc_spd = {}
+    for kper in range(len(nstp)):
+        spd = []
+        for irno in range(len(conns)):
+            spd.append([irno, "WSPD", wspd])
+            spd.append([irno, "TATM", tatm[idx]])
+            spd.append([irno, "SOLR", solr])
+            spd.append([irno, "SHD", shd])
+            spd.append([irno, "SWREFL", swrefl])
+            spd.append([irno, "RH", rh])
+            spd.append([irno, "ATMC", atmc])
+            spd.append([irno, "PATM", patm])
+
+        abc_spd[kper] = spd
+
+    abc = flopy.mf6.ModflowUtlabc(
+        sfe,
+        print_input=True,
+        density_air=rhoa,
+        heat_capacity_air=Cpa,
+        drag_coefficient=c_d,
+        emissivity_water=emiss_water,
+        emissivity_canopy=emiss_riparian,
+        wind_func_slope=wf_slope,
+        wind_func_int=wf_int,
+        temperature_factor=temperature_factor[idx],
+        temperature_offset=temperature_offset[idx],
+        longwave_reflectance=lwrefl,
+        reachperioddata=abc_spd,
+        filename=abc_filename,
+    )
+
+    # Instantiate Output Control package for transport
+    flopy.mf6.ModflowGweoc(
+        gwe,
+        temperature_filerecord=f"{gwename}.ucn",
+        saverecord=[("TEMPERATURE", "ALL")],
+        temperatureprintrecord=[("COLUMNS", 3, "WIDTH", 20, "DIGITS", 8, "GENERAL")],
+        printrecord=[("TEMPERATURE", "ALL"), ("BUDGET", "ALL")],
+        filename=f"{gwename}.oc",
+    )
+
+    # Instantiate Gwf-Gwe Exchange package
+    flopy.mf6.ModflowGwfgwe(
+        sim,
+        exgtype="GWF6-GWE6",
+        exgmnamea=gwfname,
+        exgmnameb=gwename,
+        filename=f"{gwename}.gwfgwe",
+    )
+
+    return sim, None
+
+
+# As described in the header, the "test" for this autotest is that it fails,
+# which means the autotest will pass
+
+
+# - No need to change any code below
+@pytest.mark.parametrize(
+    "idx, name",
+    list(enumerate(cases)),
+)
+def test_mf6model(idx, name, function_tmpdir, targets):
+    test = TestFramework(
+        name=name,
+        workspace=function_tmpdir,
+        targets=targets,
+        build=lambda t: build_models(idx, t),
+        compare=None,
+        xfail="fail" in name,
+    )
+    test.run()

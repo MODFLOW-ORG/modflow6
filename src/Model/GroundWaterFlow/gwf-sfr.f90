@@ -2311,7 +2311,7 @@ contains
         ! -- set initial stage to calculate stage change
         s0 = this%stage(n)
         !
-        ! -- solve for flow in swr
+        ! -- solve for flow in sfr
         if (this%iboundpak(n) /= 0) then
           call this%sfr_solve(n, hgwf, hhcof, rrhs)
         else
@@ -5358,14 +5358,15 @@ contains
     text = '     EVAPORATION'
     idx = idx + 1
     maxlist = this%maxbound
-    naux = 0
+    naux = 1
+    auxtxt(1) = '    SURFACE-AREA'
     call this%budobj%budterm(idx)%initialize(text, &
                                              this%name_model, &
                                              this%packName, &
                                              this%name_model, &
                                              this%packName, &
-                                             maxlist, .false., .false., &
-                                             naux)
+                                             maxlist, .false., .true., &
+                                             naux, auxtxt)
     !
     ! --
     text = '          RUNOFF'
@@ -5497,7 +5498,7 @@ contains
     real(DP) :: d
     real(DP) :: ca
     real(DP) :: a
-    real(DP) :: wp
+    real(DP) :: wp !< wetted perimeter
     real(DP) :: l
     !
     ! -- initialize counter
@@ -5582,11 +5583,18 @@ contains
     call this%budobj%budterm(idx)%reset(this%maxbound)
     do n = 1, this%maxbound
       if (this%iboundpak(n) /= 0) then
+        if (this%depth(n) > DZERO) then
+          a = this%calc_surface_area_wet(n, this%depth(n))
+        else
+          a = DZERO
+        end if
+        this%qauxcbc(1) = a
         q = -this%simevap(n)
       else
+        this%qauxcbc(1) = DZERO
         q = DZERO
       end if
-      call this%budobj%budterm(idx)%update_term(n, n, q)
+      call this%budobj%budterm(idx)%update_term(n, n, q, this%qauxcbc)
     end do
     !
     ! -- RUNOFF
