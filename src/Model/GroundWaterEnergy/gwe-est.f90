@@ -227,11 +227,10 @@ contains
       !
       ! -- calculate new and old water volumes and solid volume
       vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
-      vnew = vcell * this%fmi%gwfsat(n) * this%porosity(n)
-      vold = vnew
-      if (this%fmi%igwfstrgss /= 0) vold = vold + this%fmi%gwfstrgss(n) * delt
-      if (this%fmi%igwfstrgsy /= 0) vold = vold + this%fmi%gwfstrgsy(n) * delt
       vsolid = vcell * (DONE - this%porosity(n))
+
+      vnew = vcell * this%fmi%gwfsat(n) * this%porosity(n)
+      vold = vcell * this%fmi%gwfsat_old(n) * this%porosity(n)
       !
       ! -- add terms to diagonal and rhs accumulators
       term = (this%rhos(n) * this%cps(n)) * vsolid
@@ -400,13 +399,9 @@ contains
       !
       ! -- calculate new and old water volumes and solid volume
       vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
-      vwatnew = vcell * this%fmi%gwfsat(n) * this%porosity(n)
-      vwatold = vwatnew
-      if (this%fmi%igwfstrgss /= 0) vwatold = vwatold + this%fmi%gwfstrgss(n) &
-                                              * delt
-      if (this%fmi%igwfstrgsy /= 0) vwatold = vwatold + this%fmi%gwfstrgsy(n) &
-                                              * delt
       vsolid = vcell * (DONE - this%porosity(n))
+      vwatnew = vcell * this%fmi%gwfsat(n) * this%porosity(n)
+      vwatold = vcell * this%fmi%gwfsat_old(n) * this%porosity(n)
       !
       ! -- calculate rate
       term = (this%rhos(n) * this%cps(n)) * vsolid

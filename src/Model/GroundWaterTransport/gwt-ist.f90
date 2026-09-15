@@ -317,7 +317,7 @@ contains
       ! calculate new and old water volumes
       vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
       swtpdt = this%fmi%gwfsat(n)
-      swt = this%fmi%gwfsatold(n, delt)
+      swt = this%fmi%gwfsat_old(n)
       thetaim = this%get_thetaim(n)
       idiag = ia(n)
 
@@ -447,7 +447,7 @@ contains
         ! calculate new and old water volumes
         vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
         swtpdt = this%fmi%gwfsat(n)
-        swt = this%fmi%gwfsatold(n, delt)
+        swt = this%fmi%gwfsat_old(n)
         thetaim = this%get_thetaim(n)
 
         ! set exchange coefficient
