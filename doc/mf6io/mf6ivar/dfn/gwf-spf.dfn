@@ -1,0 +1,145 @@
+# --------------------- gwf spf options ---------------------
+# flopy multi-package
+# package-type stress-package
+
+block options
+name auxiliary
+type string
+shape (naux)
+reader urword
+optional true
+longname keyword to specify aux variables
+description REPLACE auxnames {'{#1}': 'Groundwater Flow'}
+
+block options
+name boundnames
+type keyword
+shape
+reader urword
+optional true
+longname
+description REPLACE boundnames {'{#1}': 'seepage'}
+
+block options
+name print_input
+type keyword
+reader urword
+optional true
+longname print input to listing file
+description REPLACE print_input {'{#1}': 'seepage'}
+mf6internal iprpak
+
+block options
+name print_flows
+type keyword
+reader urword
+optional true
+longname print seepage rates to listing file
+description REPLACE print_flows {'{#1}': 'seepage'}
+mf6internal iprflow
+
+block options
+name save_flows
+type keyword
+reader urword
+optional true
+longname save seepage flows to budget file
+description REPLACE save_flows {'{#1}': 'seepage'}
+mf6internal ipakcb
+
+block options
+name some_option
+type keyword
+reader urword
+optional true
+longname some option
+description description of some option
+
+
+# --------------------- gwf spf dimensions ---------------------
+
+block dimensions
+name maxbound
+type integer
+reader urword
+optional false
+longname maximum number of seepage cells
+description REPLACE maxbound {'{#1}': 'seepage cells'}
+
+
+# --------------------- gwf rch period ---------------------
+
+block period
+name iper
+type integer
+block_variable True
+in_record true
+tagged false
+shape
+valid
+reader urword
+optional false
+longname stress period number
+description REPLACE iper {}
+
+block period
+name stress_period_data
+type recarray cellid dist area aux boundname
+shape (maxbound)
+reader urword
+longname
+description
+mf6internal spd
+
+block period
+name cellid
+type integer
+shape (ncelldim)
+tagged false
+in_record true
+reader urword
+longname cell identifier
+description REPLACE cellid {}
+
+block period
+name dist
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname distance
+description is the distance to the seepage face
+
+block period
+name area
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname area
+description is the area of the seepage face
+
+block period
+name aux
+type double precision
+in_record true
+tagged false
+shape (naux)
+reader urword
+optional true
+longname auxiliary variables
+description REPLACE aux {'{#1}': 'seepage boundary'}
+mf6internal auxvar
+
+block period
+name boundname
+type string
+shape
+tagged false
+in_record true
+reader urword
+optional true
+longname seepage boundary name
+description REPLACE boundname {'{#1}': 'seepage'}
