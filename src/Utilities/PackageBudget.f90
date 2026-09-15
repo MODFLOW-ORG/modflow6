@@ -208,6 +208,7 @@ contains
     class(PackageBudgetType) :: this !< PackageBudgetType object
     integer(I4B), dimension(:), contiguous, intent(in) :: nodemap !< model node for each flow model node
     integer(I4B) :: i
+    integer(I4B) :: nf
     !
     if (this%imapped == 0) return
     !
@@ -216,7 +217,14 @@ contains
                           this%memoryPath)
     end if
     do i = 1, this%nbound
-      this%nodelist(i) = nodemap(this%nodelist_src(i))
+      ! -- an entry with no flow model cell, such as an unconnected reach,
+      !    stays zero
+      nf = this%nodelist_src(i)
+      if (nf > 0) then
+        this%nodelist(i) = nodemap(nf)
+      else
+        this%nodelist(i) = 0
+      end if
     end do
   end subroutine map_nodelist
 
