@@ -550,7 +550,7 @@ contains
     q = DZERO
     do n = 1, maxlist
       n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(n)
-      n2 = this%flowbudptr%budterm(this%idxbudgwf)%id2(n)
+      n2 = this%get_cell_node(n)
       call this%budobj%budterm(idx)%update_term(n1, n2, q)
     end do
   end subroutine sfe_setup_budobj
@@ -908,7 +908,7 @@ contains
     n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(ientry)
     ! -- use igwfnode instead of n2 for consistency with usage in apt;
     !    helps highlight that cell number is sought and used
-    igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(ientry)
+    igwfnode = this%get_cell_node(ientry)
     ! -- For now, there is only 1 aux variable under 'GWF'
     auxpos = this%flowbudptr%budterm(this%idxbudgwf)%naux
     wa = this%flowbudptr%budterm(this%idxbudgwf)%auxvar(auxpos, ientry)

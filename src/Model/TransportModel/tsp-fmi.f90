@@ -154,6 +154,12 @@ contains
     !    the flag to zero to indicate that flows were not updated
     this%iflowsupdated = 1
     !
+    ! -- If the flow model uses a larger grid, transfer its results onto
+    !    this model grid
+    if (this%igwfmapped /= 0) then
+      call this%map_gwf_values()
+    end if
+    !
     ! -- If reading flows from a budget file, read the next set of records
     if (this%iubud /= 0) then
       call this%advance_bfr()
@@ -330,9 +336,18 @@ contains
     deallocate (this%aptbudobj)
     call mem_deallocate(this%flowcorrect)
     call mem_deallocate(this%ibdgwfsat0)
-    if (this%flows_from_file) then
+    if (this%flows_from_file .or. this%igwfmapped /= 0) then
       call mem_deallocate(this%gwfstrgss)
       call mem_deallocate(this%gwfstrgsy)
+    end if
+    !
+    ! -- deallocate the flow model grid maps
+    if (this%igwfmapped /= 0) then
+      call mem_deallocate(this%gwfnodemap)
+      call mem_deallocate(this%gwfnodeinv)
+      call mem_deallocate(this%gwfjamap)
+      call mem_deallocate(this%gwfdropia)
+      call mem_deallocate(this%gwfdropja)
     end if
     !
     ! -- special treatment, these could be from mem_checkin
@@ -347,6 +362,7 @@ contains
     call mem_deallocate(this%iflowerr)
     call mem_deallocate(this%igwfstrgss)
     call mem_deallocate(this%igwfstrgsy)
+    call mem_deallocate(this%igwfmapped)
     call mem_deallocate(this%iubud)
     call mem_deallocate(this%iuhds)
     call mem_deallocate(this%iumvr)

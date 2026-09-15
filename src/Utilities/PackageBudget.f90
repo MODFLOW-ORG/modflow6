@@ -33,7 +33,9 @@ module PackageBudgetModule
       contiguous :: auxname => null() !< vector of auxname
     integer(I4B), pointer :: naux => null() !< number of auxiliary variables
     integer(I4B), pointer :: nbound => null() !< number of boundaries for current stress period
+    integer(I4B) :: imapped = 0 !< 1 if nodelist is mapped from a larger flow model grid
     integer(I4B), dimension(:), pointer, contiguous :: nodelist => null() !< vector of reduced node numbers
+    integer(I4B), dimension(:), pointer, contiguous :: nodelist_src => null() !< flow model nodelist when mapped
     real(DP), dimension(:), pointer, contiguous :: flow => null() !< calculated flow
     real(DP), dimension(:, :), pointer, contiguous :: auxvar => null() !< auxiliary variable array
 
@@ -44,6 +46,7 @@ module PackageBudgetModule
     procedure :: set_auxname
     procedure :: set_pointers
     procedure :: copy_values
+    procedure :: map_nodelist
     procedure :: get_flow
     procedure :: da
 
@@ -116,13 +119,20 @@ contains
   !!  GWF Package members stored in BndType.
   !!
   !<
-  subroutine set_pointers(this, flowvarname, mem_path_target, input_mempath)
+  subroutine set_pointers(this, flowvarname, mem_path_target, input_mempath, &
+                          imapped)
     use ConstantsModule, only: LENVARNAME
+    use MemoryManagerModule, only: mem_setptr
     class(PackageBudgetType) :: this !< PackageBudgetType object
     character(len=*), intent(in) :: flowvarname !< name of variable storing flow (SIMVALS, SIMTOMVR)
     character(len=*), intent(in) :: mem_path_target !< path where target variable is stored
     character(len=*), intent(in) :: input_mempath
+    integer(I4B), intent(in), optional :: imapped !< 1 to keep a locally mapped nodelist
     character(len=LENVARNAME) :: auxvarname
+    !
+    ! -- a mapped nodelist is owned here and refilled from the flow model
+    !    nodelist each time step
+    if (present(imapped)) this%imapped = imapped
     !
     ! -- set memory manager aux varname
     if (input_mempath /= '') then
@@ -134,8 +144,12 @@ contains
     ! -- Reassign pointers to variables in the flow model
     call mem_reassignptr(this%nbound, 'NBOUND', this%memoryPath, &
                          'NBOUND', mem_path_target)
-    call mem_reassignptr(this%nodelist, 'NODELIST', this%memoryPath, &
-                         'NODELIST', mem_path_target)
+    if (this%imapped == 0) then
+      call mem_reassignptr(this%nodelist, 'NODELIST', this%memoryPath, &
+                           'NODELIST', mem_path_target)
+    else
+      call mem_setptr(this%nodelist_src, 'NODELIST', mem_path_target)
+    end if
     call mem_reassignptr(this%flow, 'FLOW', this%memoryPath, &
                          flowvarname, mem_path_target)
     call mem_reassignptr(this%auxvar, 'AUXVAR', this%memoryPath, &
@@ -177,6 +191,35 @@ contains
       this%auxvar(:, i) = auxvar(:, i)
     end do
   end subroutine copy_values
+
+  !> @ brief Fill the nodelist from the flow model nodelist
+  !!
+  !!  Entries in flow model cells that are excluded from this model are set to
+  !!  zero and skipped by the transport model.
+  !<
+  subroutine map_nodelist(this, nodemap)
+    class(PackageBudgetType) :: this !< PackageBudgetType object
+    integer(I4B), dimension(:), contiguous, intent(in) :: nodemap !< model node for each flow model node
+    integer(I4B) :: i
+    integer(I4B) :: nf
+    !
+    if (this%imapped == 0) return
+    !
+    if (size(this%nodelist) < this%nbound) then
+      call mem_reallocate(this%nodelist, this%nbound, 'NODELIST', &
+                          this%memoryPath)
+    end if
+    do i = 1, this%nbound
+      ! -- an entry with no flow model cell, such as an unconnected reach,
+      !    stays zero
+      nf = this%nodelist_src(i)
+      if (nf > 0) then
+        this%nodelist(i) = nodemap(nf)
+      else
+        this%nodelist(i) = 0
+      end if
+    end do
+  end subroutine map_nodelist
 
   !> @ brief Get flow rate for specified entry
   !!
