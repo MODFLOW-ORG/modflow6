@@ -40,6 +40,8 @@ module ImsLinearSettingsModule
     procedure :: init
     procedure :: preset_config
     procedure :: read_from_file
+    procedure :: apply_keyword
+    procedure :: write_keyword
     procedure :: check_settings
     procedure :: destroy
   end type
@@ -139,7 +141,6 @@ contains
     integer(I4B) :: ierr
     character(len=LINELENGTH) :: errmsg
     character(len=LINELENGTH) :: keyword
-    integer(I4B) :: iscaling, iordering
 
     call parser%GetBlock('LINEAR', block_found, ierr, supportOpenClose=.true., &
                          blockRequired=.FALSE.)
@@ -150,97 +151,7 @@ contains
         call parser%GetNextLine(end_of_block)
         if (end_of_block) exit
         call parser%GetStringCaps(keyword)
-        ! -- parse keyword
-        select case (keyword)
-        case ('INNER_DVCLOSE')
-          this%dvclose = parser%GetDouble()
-        case ('INNER_RCLOSE')
-          this%rclose = parser%GetDouble()
-          ! -- look for additional key words
-          call parser%GetStringCaps(keyword)
-          if (keyword == 'STRICT') then
-            this%icnvgopt = 1
-          else if (keyword == 'L2NORM_RCLOSE') then
-            this%icnvgopt = 2
-          else if (keyword == 'RELATIVE_RCLOSE') then
-            this%icnvgopt = 3
-          else if (keyword == 'L2NORM_RELATIVE_RCLOSE') then
-            this%icnvgopt = 4
-          end if
-        case ('INNER_MAXIMUM')
-          this%iter1 = parser%GetInteger()
-        case ('LINEAR_ACCELERATION')
-          call parser%GetStringCaps(keyword)
-          if (keyword .eq. 'CG') then
-            this%ilinmeth = 1
-          else if (keyword .eq. 'BICGSTAB') then
-            this%ilinmeth = 2
-          else
-            this%ilinmeth = 0
-            write (errmsg, '(3a)') &
-              'Unknown IMSLINEAR LINEAR_ACCELERATION method (', &
-              trim(keyword), ').'
-            call store_error(errmsg)
-          end if
-        case ('SCALING_METHOD')
-          call parser%GetStringCaps(keyword)
-          iscaling = 0
-          if (keyword .eq. 'NONE') then
-            iscaling = 0
-          else if (keyword .eq. 'DIAGONAL') then
-            iscaling = 1
-          else if (keyword .eq. 'L2NORM') then
-            iscaling = 2
-          else
-            write (errmsg, '(3a)') &
-              'Unknown IMSLINEAR SCALING_METHOD (', trim(keyword), ').'
-            call store_error(errmsg)
-          end if
-          this%iscl = iscaling
-        case ('RED_BLACK_ORDERING')
-          iordering = 0
-        case ('REORDERING_METHOD')
-          call parser%GetStringCaps(keyword)
-          iordering = 0
-          if (keyword == 'NONE') then
-            iordering = 0
-          else if (keyword == 'RCM') then
-            iordering = 1
-          else if (keyword == 'MD') then
-            iordering = 2
-          else
-            write (errmsg, '(3a)') &
-              'Unknown IMSLINEAR REORDERING_METHOD (', trim(keyword), ').'
-            call store_error(errmsg)
-          end if
-          this%iord = iordering
-        case ('NUMBER_ORTHOGONALIZATIONS')
-          this%north = parser%GetInteger()
-        case ('RELAXATION_FACTOR')
-          this%relax = parser%GetDouble()
-        case ('PRECONDITIONER_LEVELS')
-          this%level = parser%GetInteger()
-          if (this%level < 0) then
-            write (errmsg, '(a,1x,a)') &
-              'IMSLINEAR PRECONDITIONER_LEVELS must be greater than', &
-              'or equal to zero'
-            call store_error(errmsg)
-          end if
-        case ('PRECONDITIONER_DROP_TOLERANCE')
-          this%droptol = parser%GetDouble()
-          if (this%droptol < DZERO) then
-            write (errmsg, '(a,1x,a)') &
-              'IMSLINEAR PRECONDITIONER_DROP_TOLERANCE', &
-              'must be greater than or equal to zero'
-            call store_error(errmsg)
-          end if
-          !
-          ! -- default
-        case default
-          write (errmsg, '(3a)') &
-            'Unknown IMSLINEAR keyword (', trim(keyword), ').'
-          call store_error(errmsg)
-        end select
+        call this%apply_keyword(parser, keyword)
       end do
       write (iout, '(1x,a)') 'END OF LINEAR DATA'
     else
@@ -251,6 +162,156 @@ contains
     end if
 
   end subroutine read_from_file
+
+  !> @brief Apply a single LINEAR-block keyword to the settings
+  !!
+  !! Reads the value(s) for the given keyword from the parser and stores them in
+  !! the settings. Shared by the LINEAR-block reader and the period-varying
+  !! settings reader so the keyword vocabulary has a single definition.
+  !<
+  subroutine apply_keyword(this, parser, keyword)
+    class(ImsLinearSettingsType) :: this !< linear settings
+    type(BlockParserType) :: parser !< block parser
+    character(len=*), intent(in) :: keyword !< keyword (already upper-cased)
+    ! local
+    character(len=LINELENGTH) :: errmsg
+    character(len=LINELENGTH) :: kw
+    integer(I4B) :: iscaling, iordering
+
+    select case (keyword)
+    case ('INNER_DVCLOSE')
+      this%dvclose = parser%GetDouble()
+    case ('INNER_RCLOSE')
+      this%rclose = parser%GetDouble()
+      ! -- look for additional key words
+      call parser%GetStringCaps(kw)
+      if (kw == 'STRICT') then
+        this%icnvgopt = 1
+      else if (kw == 'L2NORM_RCLOSE') then
+        this%icnvgopt = 2
+      else if (kw == 'RELATIVE_RCLOSE') then
+        this%icnvgopt = 3
+      else if (kw == 'L2NORM_RELATIVE_RCLOSE') then
+        this%icnvgopt = 4
+      end if
+    case ('INNER_MAXIMUM')
+      this%iter1 = parser%GetInteger()
+    case ('LINEAR_ACCELERATION')
+      call parser%GetStringCaps(kw)
+      if (kw == 'CG') then
+        this%ilinmeth = 1
+      else if (kw == 'BICGSTAB') then
+        this%ilinmeth = 2
+      else
+        this%ilinmeth = 0
+        write (errmsg, '(3a)') &
+          'Unknown IMSLINEAR LINEAR_ACCELERATION method (', trim(kw), ').'
+        call store_error(errmsg)
+      end if
+    case ('SCALING_METHOD')
+      call parser%GetStringCaps(kw)
+      iscaling = 0
+      if (kw == 'NONE') then
+        iscaling = 0
+      else if (kw == 'DIAGONAL') then
+        iscaling = 1
+      else if (kw == 'L2NORM') then
+        iscaling = 2
+      else
+        write (errmsg, '(3a)') &
+          'Unknown IMSLINEAR SCALING_METHOD (', trim(kw), ').'
+        call store_error(errmsg)
+      end if
+      this%iscl = iscaling
+    case ('RED_BLACK_ORDERING')
+      iordering = 0
+    case ('REORDERING_METHOD')
+      call parser%GetStringCaps(kw)
+      iordering = 0
+      if (kw == 'NONE') then
+        iordering = 0
+      else if (kw == 'RCM') then
+        iordering = 1
+      else if (kw == 'MD') then
+        iordering = 2
+      else
+        write (errmsg, '(3a)') &
+          'Unknown IMSLINEAR REORDERING_METHOD (', trim(kw), ').'
+        call store_error(errmsg)
+      end if
+      this%iord = iordering
+    case ('NUMBER_ORTHOGONALIZATIONS')
+      this%north = parser%GetInteger()
+    case ('RELAXATION_FACTOR')
+      this%relax = parser%GetDouble()
+    case ('PRECONDITIONER_LEVELS')
+      this%level = parser%GetInteger()
+      if (this%level < 0) then
+        write (errmsg, '(a,1x,a)') &
+          'IMSLINEAR PRECONDITIONER_LEVELS must be greater than', &
+          'or equal to zero'
+        call store_error(errmsg)
+      end if
+    case ('PRECONDITIONER_DROP_TOLERANCE')
+      this%droptol = parser%GetDouble()
+      if (this%droptol < DZERO) then
+        write (errmsg, '(a,1x,a)') &
+          'IMSLINEAR PRECONDITIONER_DROP_TOLERANCE', &
+          'must be greater than or equal to zero'
+        call store_error(errmsg)
+      end if
+      !
+      ! -- default
+    case default
+      write (errmsg, '(3a)') &
+        'Unknown IMSLINEAR keyword (', trim(keyword), ').'
+      call store_error(errmsg)
+    end select
+
+  end subroutine apply_keyword
+
+  !> @brief Write the stored value of a single LINEAR-block keyword
+  !!
+  !! Echoes the value currently held in the settings for the given keyword, so a
+  !! setting that apply_keyword can change can also be reported. Shares the
+  !! keyword vocabulary with apply_keyword; keywords whose value is not reported
+  !! individually are skipped.
+  !<
+  subroutine write_keyword(this, iout, keyword)
+    class(ImsLinearSettingsType) :: this !< linear settings
+    integer(I4B), intent(in) :: iout !< listing file unit
+    character(len=*), intent(in) :: keyword !< keyword (already upper-cased)
+    ! local
+    character(len=LINELENGTH) :: cval
+
+    if (iout <= 0) return
+
+    select case (keyword)
+    case ('INNER_DVCLOSE')
+      write (cval, '(1pe15.5)') this%dvclose
+    case ('INNER_RCLOSE')
+      write (cval, '(1pe15.5)') this%rclose
+    case ('INNER_MAXIMUM')
+      write (cval, '(i0)') this%iter1
+    case ('RELAXATION_FACTOR')
+      write (cval, '(1pe15.5)') this%relax
+    case ('PRECONDITIONER_LEVELS')
+      write (cval, '(i0)') this%level
+    case ('PRECONDITIONER_DROP_TOLERANCE')
+      write (cval, '(1pe15.5)') this%droptol
+    case default
+      return
+    end select
+
+    write (iout, '(4x,3a)') trim(keyword), ' = ', trim(adjustl(cval))
+    !
+    ! -- INNER_RCLOSE carries an optional trailing keyword that also selects the
+    !    residual convergence option, so report that alongside the value
+    if (keyword == 'INNER_RCLOSE') then
+      write (iout, '(4x,a,i0)') 'RESIDUAL CONVERGENCE OPTION = ', this%icnvgopt
+    end if
+
+  end subroutine write_keyword
 
   !> @brief Check the settings after reading the configuration from file
   !<

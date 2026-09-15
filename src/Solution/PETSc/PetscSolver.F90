@@ -42,6 +42,8 @@ module PetscSolverModule
     procedure :: print_summary => petsc_print_summary
     procedure :: destroy => petsc_destroy
     procedure :: create_matrix => petsc_create_matrix
+    procedure :: get_period_caps => petsc_get_period_caps
+    procedure :: reconfigure => petsc_reconfigure
 
     ! private
     procedure, private :: petsc_check_settings
@@ -380,6 +382,39 @@ contains
     end if
 
   end subroutine petsc_solve
+
+  !> @brief Report which period-varying setting categories are honored
+  !!
+  !! A native PETSc convergence check or preconditioner (selected in the .petscrc
+  !! file) disables the tolerance or preconditioner category, respectively.
+  !<
+  subroutine petsc_get_period_caps(this, allow_tol, allow_precond)
+    class(PetscSolverType) :: this !< this solver instance
+    logical(LGP), intent(out) :: allow_tol !< inner tolerances/maximum may vary
+    logical(LGP), intent(out) :: allow_precond !< preconditioner settings may vary
+    allow_tol = this%use_ims_cnvgopt
+    allow_precond = this%use_ims_pc
+  end subroutine petsc_get_period_caps
+
+  !> @brief Reconfigure the PETSc solver after a settings change
+  !!
+  !! Push updated tolerances into the convergence context and rebuild the IMS
+  !! shell preconditioner arrays when a preconditioner control changed.
+  !<
+  subroutine petsc_reconfigure(this)
+    class(PetscSolverType) :: this !< this solver instance
+
+    if (this%use_ims_cnvgopt) then
+      this%petsc_ctx%dvclose = this%linear_settings%dvclose
+      this%petsc_ctx%rclose = this%linear_settings%rclose
+      this%petsc_ctx%max_its = this%linear_settings%iter1
+    end if
+
+    if (this%use_ims_pc) then
+      call this%pc_context%reconfigure()
+    end if
+
+  end subroutine petsc_reconfigure
 
   subroutine petsc_print_summary(this)
     class(PetscSolverType) :: this

@@ -38,6 +38,7 @@ module PetscImsPreconditionerModule
     real(DP), dimension(:), contiguous, pointer :: WLU => null() !< (M)ILUT work array
   contains
     procedure :: create => pctx_create
+    procedure :: reconfigure => pctx_reconfigure
     procedure :: destroy => pctx_destroy
 
   end type
@@ -120,6 +121,56 @@ contains
     end do
 
   end subroutine pctx_create
+
+  !> @brief Reconfigure the shell preconditioner after a settings change
+  !!
+  !! Re-resolve the preconditioner type from the current settings and resize the
+  !! work arrays only when their dimensions change; the factorization is redone
+  !! on the next call to pcshell_setup.
+  !<
+  subroutine pctx_reconfigure(this)
+    use IMSLinearBaseModule, only: ims_base_pccrs, ims_calc_pcdims
+    use MemoryManagerModule, only: mem_reallocate
+    class(PcShellCtxType) :: this !< this instance
+    ! local
+    integer(I4B) :: n, neq, nja
+    integer(I4B), dimension(:), contiguous, pointer :: ia, ja
+    real(DP), dimension(:), contiguous, pointer :: amat
+    integer(I4B) :: niapc, njapc, njlu, njw, nwlu
+
+    ! -- re-resolve the preconditioner type from the current settings
+    this%ipc = 1
+    if (this%linear_settings%level > 0) this%ipc = this%ipc + 2
+    if (this%linear_settings%relax > 0.0_DP) this%ipc = this%ipc + 1
+    this%ims_pc_type = IMS_PC_TYPE(this%ipc)
+
+    call this%system_matrix%get_aij_local(ia, ja, amat)
+    neq = this%system_matrix%nrow
+    nja = this%system_matrix%nnz_local
+    call ims_calc_pcdims(neq, nja, ia, this%linear_settings%level, this%ipc, &
+                         niapc, njapc, njlu, njw, nwlu)
+
+    ! -- reallocate only when the preconditioner array dimensions change
+    if (niapc + 1 /= size(this%IAPC) .or. njapc /= size(this%JAPC) .or. &
+        njlu /= size(this%JLU) .or. njw /= size(this%JW) .or. &
+        nwlu /= size(this%WLU)) then
+      call mem_reallocate(this%IAPC, niapc + 1, 'IAPC', this%memory_path)
+      call mem_reallocate(this%JAPC, njapc, 'JAPC', this%memory_path)
+      call mem_reallocate(this%APC, njapc, 'APC', this%memory_path)
+      call mem_reallocate(this%IW, niapc, 'IW', this%memory_path)
+      call mem_reallocate(this%W, niapc, 'W', this%memory_path)
+      call mem_reallocate(this%JLU, njlu, 'JLU', this%memory_path)
+      call mem_reallocate(this%JW, njw, 'JW', this%memory_path)
+      call mem_reallocate(this%WLU, nwlu, 'WLU', this%memory_path)
+      if (this%ipc == 1 .or. this%ipc == 2) then
+        call ims_base_pccrs(niapc, njapc, ia, ja, this%IAPC, this%JAPC)
+      end if
+      do n = 1, njapc
+        this%APC(n) = DZERO
+      end do
+    end if
+
+  end subroutine pctx_reconfigure
 
   !> @brief Cleanup the context
   !<

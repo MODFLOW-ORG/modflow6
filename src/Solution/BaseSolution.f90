@@ -23,6 +23,7 @@ module BaseSolutionModule
     procedure(sln_ot), deferred :: sln_ot
     procedure(sln_fp), deferred :: sln_fp
     procedure(sln_da), deferred :: sln_da
+    procedure :: sln_rp => sln_rp_default
     procedure(slnsave), deferred :: save
     procedure(slnaddmodel), deferred :: add_model
     procedure(slnaddexchange), deferred :: add_exchange
@@ -55,11 +56,6 @@ module BaseSolutionModule
     end subroutine
 
     subroutine sln_ar(this)
-      import BaseSolutionType
-      class(BaseSolutionType) :: this
-    end subroutine
-
-    subroutine sln_rp(this)
       import BaseSolutionType
       class(BaseSolutionType) :: this
     end subroutine
@@ -188,5 +184,16 @@ contains
     obj => list%GetItem(idx)
     res => CastAsBaseSolutionClass(obj)
   end function GetBaseSolutionFromList
+
+  !> @brief Default solution read-and-prepare hook (no-op)
+  !!
+  !! Called each time step from the prepare-time-step loop. Concrete solutions
+  !! override this to apply stress-period changes such as period-varying linear
+  !! settings.
+  !<
+  subroutine sln_rp_default(this)
+    class(BaseSolutionType) :: this !< BaseSolutionType instance
+    ! -- default: nothing to do
+  end subroutine sln_rp_default
 
 end module BaseSolutionModule
