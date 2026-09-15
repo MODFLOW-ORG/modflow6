@@ -86,6 +86,7 @@ module FlowModelInterfaceModule
     procedure :: initialize_hfr
     procedure :: map_gwf_grid
     procedure :: map_gwf_values
+    procedure :: is_dropped
     procedure :: set_gwf_sources
     procedure :: set_gwf_storage
     procedure :: source_options
@@ -241,7 +242,7 @@ contains
         this%gwfjamap(ipos) = jpos
       end do
       do jpos = gwfdis%con%ia(nf) + 1, gwfdis%con%ia(nf + 1) - 1
-        if (this%gwfnodeinv(gwfdis%con%ja(jpos)) == 0) ndrop = ndrop + 1
+        if (this%is_dropped(n, gwfdis%con%ja(jpos))) ndrop = ndrop + 1
       end do
       this%gwfdropia(n + 1) = ndrop + 1
     end do
@@ -253,13 +254,35 @@ contains
     do n = 1, this%dis%nodes
       nf = this%gwfnodemap(n)
       do jpos = gwfdis%con%ia(nf) + 1, gwfdis%con%ia(nf + 1) - 1
-        if (this%gwfnodeinv(gwfdis%con%ja(jpos)) == 0) then
+        if (this%is_dropped(n, gwfdis%con%ja(jpos))) then
           ndrop = ndrop + 1
           this%gwfdropja(ndrop) = jpos
         end if
       end do
     end do
   end subroutine map_gwf_grid
+
+  !> @brief Determine whether a flow model connection is excluded from this model
+  !<
+  function is_dropped(this, n, mf) result(dropped)
+    ! -- dummy
+    class(FlowModelInterfaceType) :: this
+    integer(I4B), intent(in) :: n !< node in this model
+    integer(I4B), intent(in) :: mf !< connected node in the flow model
+    ! -- return
+    logical(LGP) :: dropped
+    ! -- local
+    integer(I4B) :: m
+    !
+    ! -- the connected cell is excluded, or both cells are retained but this
+    !    model does not connect them, as for a vertical pass-through cell
+    m = this%gwfnodeinv(mf)
+    if (m == 0) then
+      dropped = .true.
+    else
+      dropped = this%dis%con%getjaindex(n, m) <= 0
+    end if
+  end function is_dropped
 
   !> @brief Set pointers to the flow model arrays that are mapped each time step
   !<
