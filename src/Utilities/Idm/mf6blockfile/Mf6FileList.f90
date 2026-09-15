@@ -6,15 +6,16 @@
 !<
 module ListLoadModule
 
-  use KindModule, only: I4B, LGP
-  use ConstantsModule, only: LINELENGTH
+  use KindModule, only: I4B, DP, LGP
+  use ConstantsModule, only: LINELENGTH, DNODATA, DZERO
   use InputDefinitionModule, only: InputParamDefinitionType
-  use MemoryManagerModule, only: mem_setptr
+  use MemoryManagerModule, only: mem_setptr, mem_allocate, get_isize
   use CharacterStringModule, only: CharacterStringType
   use ModflowInputModule, only: ModflowInputType
-  use TimeSeriesManagerModule, only: TimeSeriesManagerType, tsmanager_cr
+  use TimeSeriesManagerModule, only: TimeSeriesManagerType, tsmanager_cr, &
+                                     read_value_or_time_series_adv
   use StructArrayModule, only: StructArrayType, constructStructArray, &
-                               destructStructArray
+                               destructStructArray, idm_input_varname
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
   use LoadContextModule, only: LoadContextType
   use LoadMf6FileModule, only: LoadMf6FileType
@@ -42,6 +43,7 @@ module ListLoadModule
     procedure :: rp
     procedure :: destroy
     procedure :: create_structarray
+    procedure :: apply_persistent_settings
   end type ListLoadType
 
 contains
@@ -95,8 +97,10 @@ contains
     ! initialize package input context
     call this%ctx%init(mf6_input)
 
-    ! store in scope SA cols for list input
-    call this%ctx%tags(this%param_names, this%nparam, this%input_name)
+    ! set in-scope param names directly from context
+    this%param_names = this%ctx%params
+    this%nparam = size(this%ctx%params)
+    call this%ctx%check_developmode(this%input_name)
 
     ! construct and set up the struct array object
     call this%create_structarray()
@@ -136,8 +140,10 @@ contains
     class(ListLoadType), intent(inout) :: this
     type(StructArrayType), pointer :: sa
     integer(I4B) :: n
-    ! clear TS links
-    call this%tsmanager%reset(this%mf6_input%subcomponent_name)
+    ! clear TS links, unless persistent (unmentioned rows keep their link)
+    if (.not. this%ctx%is_advanced) then
+      call this%tsmanager%reset(this%mf6_input%subcomponent_name)
+    end if
     ! re-register static TS links (strlocs preserved in df)
     if (this%ts_active) then
       do n = 1, this%static_loader%ts_sa_count()
@@ -181,7 +187,11 @@ contains
                                           this%input_name)
     end if
 
-    ! update ts links
+    ! must run before ts_update below, so AUX's ts_strlocs are claimed
+    ! by ts_update_adv first, not consumed into the transient array
+    call this%apply_persistent_settings()
+
+    ! update ts links for all other columns
     if (this%ts_active) then
       call this%structarray%ts_update(this%tsmanager, &
                                       this%mf6_input%subcomponent_name, &
@@ -215,7 +225,10 @@ contains
     use DefinitionSelectModule, only: get_param_definition_type
     class(ListLoadType), intent(inout) :: this
     type(InputParamDefinitionType), pointer :: idt
-    integer(I4B) :: icol
+    real(DP), dimension(:), pointer, contiguous :: featarr
+    real(DP), dimension(:, :), pointer, contiguous :: featarr2d
+    integer(I4B), pointer :: naux
+    integer(I4B) :: icol, isize
 
     ! construct and set up the struct array object
     this%structarray => constructStructArray(this%mf6_input, this%nparam, &
@@ -229,9 +242,132 @@ contains
                                        this%mf6_input%subcomponent_type, &
                                        'PERIOD', &
                                        this%param_names(icol), this%input_name)
+      ! persistent array allocated under mf6varname; raw column below
+      ! uses IDM's derived input name instead
+      if (this%ctx%is_advanced .and. idt%datatype == 'DOUBLE' .and. &
+          idt%timeseries) then
+        call get_isize(trim(idt%mf6varname), this%mf6_input%mempath, isize)
+        if (isize <= 0) then
+          call mem_allocate(featarr, this%ctx%maxbound, trim(idt%mf6varname), &
+                            this%mf6_input%mempath)
+          featarr = DZERO
+        end if
+      else if (this%ctx%is_advanced .and. idt%datatype == 'DOUBLE1D' .and. &
+               idt%timeseries) then
+        ! AUX is NAUX-gated, so its bare tag can't be reclaimed the
+        ! same way; it keeps its own synthetic tag
+        call get_isize(trim(idt%tagname)//'VAR', this%mf6_input%mempath, &
+                       isize)
+        if (isize <= 0) then
+          call mem_setptr(naux, trim(idt%shape), this%mf6_input%mempath)
+          call mem_allocate(featarr2d, naux, this%ctx%maxbound, &
+                            trim(idt%tagname)//'VAR', this%mf6_input%mempath)
+          featarr2d = DZERO
+        end if
+      end if
       ! allocate variable in memory manager
-      call this%structarray%mem_create_vector(icol, idt)
+      if (this%ctx%is_advanced .and. idt%datatype == 'DOUBLE' .and. &
+          idt%timeseries) then
+        call this%structarray%mem_create_vector(icol, idt, &
+                                                varname=idm_input_varname(idt))
+      else
+        call this%structarray%mem_create_vector(icol, idt)
+      end if
     end do
   end subroutine create_structarray
+
+  !> @brief Resolve this period's rows for an advanced package's TS-capable
+  !! fields into their permanent, feature-indexed backing arrays.
+  !!
+  !! Every row's IFNO is validated against maxbound before use.
+  !<
+  subroutine apply_persistent_settings(this)
+    use DefinitionSelectModule, only: get_param_definition_type
+    use SimModule, only: store_error, count_errors, store_error_filename
+    use SimVariablesModule, only: errmsg
+    class(ListLoadType), intent(inout) :: this
+    type(InputParamDefinitionType), pointer :: idt
+    integer(I4B), dimension(:), pointer, contiguous :: ifno
+    integer(I4B), dimension(:), allocatable :: row_ifno
+    real(DP), dimension(:), pointer, contiguous :: featarr
+    real(DP), dimension(:, :), pointer, contiguous :: featarr2d
+    integer(I4B), pointer :: naux
+    integer(I4B) :: icol, n, i, j, nfeatures
+
+    if (.not. this%ctx%is_advanced) return
+
+    ! leading column's own name/tag (e.g. IFNO), resolved from the
+    ! recarray definition rather than hardcoded
+    idt => get_param_definition_type(this%mf6_input%param_dfns, &
+                                     this%mf6_input%component_type, &
+                                     this%mf6_input%subcomponent_type, &
+                                     'PERIOD', this%param_names(1), &
+                                     this%input_name)
+    call mem_setptr(ifno, trim(idt%mf6varname), this%mf6_input%mempath)
+
+    nfeatures = this%ctx%maxbound
+    allocate (row_ifno(this%ctx%nbound))
+    do n = 1, this%ctx%nbound
+      if (ifno(n) >= 1 .and. ifno(n) <= nfeatures) then
+        row_ifno(n) = ifno(n)
+      else
+        write (errmsg, '(a,1x,i0,1x,a,1x,i0,1x,a,1x,i0,a)') &
+          trim(idt%tagname), ifno(n), 'on row', n, &
+          'must be greater than 0 and less than or equal to', nfeatures, '.'
+        call store_error(errmsg)
+        row_ifno(n) = 0
+      end if
+    end do
+
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_name)
+    end if
+
+    do icol = 1, this%nparam
+      idt => get_param_definition_type(this%mf6_input%param_dfns, &
+                                       this%mf6_input%component_type, &
+                                       this%mf6_input%subcomponent_type, &
+                                       'PERIOD', &
+                                       this%param_names(icol), this%input_name)
+      if (idt%datatype == 'DOUBLE' .and. idt%timeseries) then
+        call mem_setptr(featarr, trim(idt%mf6varname), this%mf6_input%mempath)
+        if (this%ts_active) then
+          call this%structarray%ts_update_indexed( &
+            icol, this%tsmanager, this%mf6_input%subcomponent_name, &
+            this%ctx%iprpak, this%ctx%nbound, row_ifno, &
+            varname=trim(idt%tagname), featarr=featarr)
+        else
+          do n = 1, this%ctx%nbound
+            i = row_ifno(n)
+            if (i < 1) cycle
+            if (this%structarray%struct_vectors(icol)%dbl1d(n) == DNODATA) cycle
+            featarr(i) = this%structarray%struct_vectors(icol)%dbl1d(n)
+          end do
+        end if
+      else if (idt%datatype == 'DOUBLE1D' .and. idt%timeseries) then
+        call mem_setptr(featarr2d, trim(idt%tagname)//'VAR', &
+                        this%mf6_input%mempath)
+        if (this%ts_active) then
+          call this%structarray%ts_update_adv( &
+            icol, this%tsmanager, this%mf6_input%subcomponent_name, &
+            this%ctx%iprpak, this%ctx%nbound, row_ifno, &
+            auxname_cst=this%ctx%auxname_cst, featarr2d=featarr2d)
+        else
+          call mem_setptr(naux, trim(idt%shape), this%mf6_input%mempath)
+          do n = 1, this%ctx%nbound
+            i = row_ifno(n)
+            if (i < 1) cycle
+            do j = 1, naux
+              if (this%structarray%struct_vectors(icol)%dbl2d(j, n) == DNODATA) &
+                cycle
+              featarr2d(j, i) = &
+                this%structarray%struct_vectors(icol)%dbl2d(j, n)
+            end do
+          end do
+        end if
+      end if
+    end do
+    deallocate (row_ifno)
+  end subroutine apply_persistent_settings
 
 end module ListLoadModule

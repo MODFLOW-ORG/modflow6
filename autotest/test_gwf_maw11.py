@@ -2,6 +2,7 @@ import os
 from types import SimpleNamespace as Case
 
 import flopy
+import numpy as np
 import pytest
 from framework import TestFramework
 
@@ -242,6 +243,16 @@ def check_output(idx, test):
     rtm = mawobj.get_data(text="RATE-TO-MVR")
     ctm = mawobj.get_data(text="CONSTANT-TO-MVR")
 
+    # CONSTANT well head must follow PERIOD WELL_HEAD (80.0), not the
+    # PACKAGEDATA STRT baseline (100.0).
+    obspth = os.path.join(test.workspace, "maw_obs.csv")
+    obs = np.genfromtxt(obspth, delimiter=",", names=True)
+    heads = obs["MH1"][1:]  # periods 2-5; period 1 well is INACTIVE (no head)
+    assert np.allclose(heads, 80.0), (
+        f"CONSTANT well head should equal the PERIOD WELL_HEAD value (80.0), "
+        f"not the PACKAGEDATA STRT baseline (100.0); got {heads}"
+    )
+
 
 @pytest.mark.parametrize("idx, name", list(enumerate(cases)))
 def test_mf6model(idx, name, function_tmpdir, targets):
@@ -252,3 +263,4 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         check=lambda t: check_output(idx, t),
         targets=targets,
     )
+    test.run()
