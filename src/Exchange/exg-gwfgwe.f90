@@ -3,8 +3,7 @@ module GwfGweExchangeModule
   use ConstantsModule, only: LENPACKAGENAME, LINELENGTH
   use ListsModule, only: basemodellist, baseexchangelist, &
                          baseconnectionlist
-  use SimModule, only: store_error, store_error_filename, store_warning, &
-                       count_errors
+  use SimModule, only: store_error, store_warning
   use SimVariablesModule, only: errmsg, warnmsg
   use BaseExchangeModule, only: BaseExchangeType, AddBaseExchangeToList
   use SpatialModelConnectionModule, only: SpatialModelConnectionType, &
@@ -34,7 +33,6 @@ module GwfGweExchangeModule
     procedure :: exg_df
     procedure :: exg_ar
     procedure :: exg_da
-    procedure, private :: check_discretization
     procedure, private :: set_model_pointers
     procedure, private :: allocate_scalars
     procedure, private :: gwfbnd2gwefmi
@@ -170,7 +168,7 @@ contains
     ! -- Check the discretization and, when the energy transport model uses a
     !    subset of the flow model cells, build the maps between the two grids.
     !    This must be done before the transport model arrays are allocated.
-    call this%check_discretization(gwfmodel, gwemodel)
+    call gwemodel%check_gwf_domain(gwfmodel%dis, this%name, this%filename)
     !
     ! -- Set pointer to flowja
     if (gwemodel%fmi%igwfmapped == 0) then
@@ -278,98 +276,6 @@ contains
     ! -- connect Connections
     call this%gwfconn2gweconn(gwfmodel, gwemodel)
   end subroutine exg_ar
-
-  !> @brief Check that the transport grid is a subset of the flow grid
-  !!
-  !! The two models must use the same user grid.  Every cell that is active in
-  !! the transport model must also be active in the flow model, but the
-  !! transport model may exclude cells that are active in the flow model.
-  !<
-  subroutine check_discretization(this, gwfmodel, gwemodel)
-    ! -- modules
-    use BaseDisModule, only: DisBaseType
-    use TspAptModule, only: TspAptType
-    ! -- dummy
-    class(GwfGweExchangeType) :: this
-    type(GwfModelType), pointer :: gwfmodel !< the flow model
-    type(GweModelType), pointer :: gwemodel !< the energy transport model
-    ! -- local
-    class(BndType), pointer :: packobj => null()
-    class(DisBaseType), pointer :: gwfdis => null()
-    integer(I4B) :: ip, j
-    integer(I4B) :: nu, n, nf, nerr
-    character(len=20) :: nodestr
-    ! -- parameters
-    integer(I4B), parameter :: MAXCELLS = 20
-    ! -- formats
-    character(len=*), parameter :: fmtdiserr = &
-      "('GWF and GWE Models do not have the same discretization for exchange&
-      & ',a,'.&
-      &  GWF Model has ', i0, ' user nodes and the GWE Model has ', i0, '.&
-      &  Ensure the discretization packages define the same grid.')"
-    character(len=*), parameter :: fmtidomerr = &
-      "('Cell ', a, ' is active in the GWE Model but is not active in the GWF&
-      & Model for exchange ',a,'.')"
-    character(len=*), parameter :: fmtidomsum = &
-      "('IDOMAIN for the GWE Model is not a subset of IDOMAIN for the GWF&
-      & Model for exchange ',a,'.  ', i0, ' cells are active in the GWE Model&
-      & and inactive in the GWF Model.')"
-    character(len=*), parameter :: fmtapterr = &
-      "('Advanced transport package ',a,' is connected to cell ',a,', which &
-      &is not active in the GWE Model.  Cells connected to an advanced &
-      &package must be included in the transport domain.')"
-    !
-    gwfdis => gwfmodel%dis
-    !
-    ! -- the user grids must be the same
-    if (gwemodel%dis%nodesuser /= gwfdis%nodesuser) then
-      write (errmsg, fmtdiserr) trim(this%name), gwfdis%nodesuser, &
-        gwemodel%dis%nodesuser
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    !
-    ! -- every active transport cell must be active in the flow model
-    nerr = 0
-    do nu = 1, gwemodel%dis%nodesuser
-      n = gwemodel%dis%get_nodenumber(nu, 0)
-      if (n <= 0) cycle
-      nf = gwfdis%get_nodenumber(nu, 0)
-      if (nf > 0) cycle
-      nerr = nerr + 1
-      if (nerr > MAXCELLS) cycle
-      call gwemodel%dis%nodeu_to_string(nu, nodestr)
-      write (errmsg, fmtidomerr) trim(adjustl(nodestr)), trim(this%name)
-      call store_error(errmsg)
-    end do
-    if (nerr > 0) then
-      write (errmsg, fmtidomsum) trim(this%name), nerr
-      call store_error(errmsg)
-      call store_error_filename(this%filename)
-    end if
-    !
-    ! -- nothing more to do if the two models use the same cells
-    if (gwemodel%dis%nodes == gwfdis%nodes) return
-    !
-    call gwemodel%fmi%map_gwf_grid(gwfdis)
-    !
-    ! -- an advanced transport package works from flow model cell numbers
-    !    rather than from the mapped nodelist
-    do ip = 1, gwemodel%bndlist%Count()
-      packobj => GetBndFromList(gwemodel%bndlist, ip)
-      select type (packobj)
-      class is (TspAptType)
-        do j = 1, packobj%flowbudptr%budterm(packobj%idxbudgwf)%nlist
-          nf = packobj%flowbudptr%budterm(packobj%idxbudgwf)%id2(j)
-          if (gwemodel%fmi%gwfnodeinv(nf) > 0) cycle
-          call gwfdis%noder_to_string(nf, nodestr)
-          write (errmsg, fmtapterr) trim(packobj%packName), &
-            trim(adjustl(nodestr))
-          call store_error(errmsg)
-        end do
-      end select
-    end do
-    if (count_errors() > 0) call store_error_filename(this%filename)
-  end subroutine check_discretization
 
   !> @brief Link GWE connections to GWF connections or exchanges
   !<
