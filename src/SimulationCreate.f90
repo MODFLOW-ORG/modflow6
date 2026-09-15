@@ -98,11 +98,11 @@ contains
     use MemoryManagerModule, only: mem_setptr
     use SimVariablesModule, only: idm_context
     use MemoryManagerModule, only: mem_set_print_option
-    use SimVariablesModule, only: isimcontinue, isimcheck
+    use SimVariablesModule, only: isimcontinue, isimcheck, isimstrict
     ! -- dummy
     ! -- locals
     character(len=LENMEMPATH) :: input_mempath
-    integer(I4B), pointer :: simcontinue, nocheck, maxerror
+    integer(I4B), pointer :: simcontinue, nocheck, maxerror, simstrict
     character(len=:), pointer :: prmem
     character(len=LINELENGTH) :: errmsg
     !
@@ -112,11 +112,13 @@ contains
     ! -- set pointers to input context option params
     call mem_setptr(simcontinue, 'CONTINUE', input_mempath)
     call mem_setptr(nocheck, 'NOCHECK', input_mempath)
+    call mem_setptr(simstrict, 'STRICT', input_mempath)
     call mem_setptr(prmem, 'PRMEM', input_mempath)
     call mem_setptr(maxerror, 'MAXERRORS', input_mempath)
     !
     ! -- update sim options
     isimcontinue = simcontinue
+    isimstrict = simstrict
     if (nocheck == 1) then
       isimcheck = 0
     else
@@ -154,6 +156,11 @@ contains
       if (prmem /= '') then
         write (iout, '(4x, a, a, a)') &
           'MEMORY_PRINT_OPTION SET TO "', trim(prmem), '".'
+      end if
+      !
+      if (isimstrict == 1) then
+        write (iout, '(4x, a)') &
+          'STRICT MODE: UNRECOGNIZED TOP-LEVEL INPUT OPTIONS WILL CAUSE AN ERROR.'
       end if
       !
       write (iout, '(1x,a)') 'END OF SIMULATION OPTIONS'
