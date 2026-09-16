@@ -14,3 +14,8 @@ solution = "SOLUTION"
 exchanges = "EXCHANGES"
 parallel = "PARALLEL"
 netcdf = "NETCDF"
+
+[[items]]
+section = "features"
+subsection = "advanced"
+description = "The Lake Energy Transport (LKE) Package now supports a \\texttt{lakebed-cond} observation type, which reports the amount of heat conductively exchanged between a lake and the lakebed material.  This is the LKE equivalent of the \\texttt{strmbd-cond} observation type of the Streamflow Energy Transport (SFE) Package.  The conductive exchange of a single lakebed connection is observed when the lake number is given as the observation ID; the total conductive exchange of a lake is observed when the lake boundname is given instead."
