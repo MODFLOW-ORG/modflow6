@@ -14,3 +14,8 @@ solution = "SOLUTION"
 exchanges = "EXCHANGES"
 parallel = "PARALLEL"
 netcdf = "NETCDF"
+
+[[items]]
+section = "fixes"
+subsection = "internal"
+description = "MODFLOW 6 did not support more than one hydraulic flow barrier (HFB) on the same cell connection, but it did not report duplicates either. The saturated conductance of the connection was saved after the first barrier had already modified it, so it was never restored to its unmodified value and drifted further with each stress period, and for a confined connection the barrier correction was subtracted from the solution matrix diagonal once per duplicate. MODFLOW 6 now terminates with an error naming the two barriers and the two cells when more than one HFB is assigned to the same cell connection, in either cell order."
