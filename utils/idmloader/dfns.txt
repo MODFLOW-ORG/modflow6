@@ -23,6 +23,7 @@ gwf-rch.dfn
 gwf-rcha.dfn
 gwf-riv.dfn
 gwf-rivg.dfn
+gwf-sfr.dfn
 gwf-sto.dfn
 gwf-vsc.dfn
 gwf-wel.dfn

@@ -274,9 +274,11 @@ contains
     integer(I4B), pointer :: intvar
     integer(I4B) :: iparam
 
-    ! set in scope param names
-    call this%ctx%tags(this%param_names, this%nparam, this%input_name, &
-                       create=.true.)
+    ! set in-scope param names directly from context
+    this%param_names = this%ctx%params
+    this%nparam = size(this%ctx%params)
+    call this%ctx%allocate_params()
+    call this%ctx%check_developmode(this%input_name)
     call this%ctx%allocate_arrays()
 
     ! allocate and set param_reads pointer array
