@@ -1,5 +1,5 @@
 module UzrFlowModule
-  use KindModule, only: I4B, LGP, DP
+  use KindModule, only: I4B, DP
   use ConstantsModule, only: DONE, DTWO, DHALF, DZERO, LENVARNAME
   use MatrixBaseModule, only: MatrixBaseType
   use BaseDisModule, only: DisBaseType
@@ -30,7 +30,6 @@ module UzrFlowModule
     type(GwfNpfType), pointer :: gwf_npf => null()
   contains
     procedure :: initialize
-    procedure :: is_active => uft_is_active
     procedure :: cf => uft_cf
     procedure :: fc => uft_fc
     procedure :: fn => uft_fn
@@ -61,19 +60,6 @@ contains
     this%krel => this%gwf_npf%krel
 
   end subroutine initialize
-
-  function uft_is_active(this, n, m) result(is_active)
-    class(UzrFlowType), intent(inout) :: this
-    integer(I4B), intent(in) :: n
-    integer(I4B), intent(in) :: m
-    logical(LGP) :: is_active
-
-    is_active = .false.
-    if (this%iunsat(n) == 1 .or. this%iunsat(m) == 1) then
-      is_active = .true.
-    end if
-
-  end function uft_is_active
 
   subroutine uft_cf(this, kiter, n)
     class(UzrFlowType), intent(inout) :: this
