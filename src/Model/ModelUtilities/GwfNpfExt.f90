@@ -1,5 +1,5 @@
 module GwfNpfFormulationModule
-  use KindModule, only: I4B, LGP, DP
+  use KindModule, only: I4B, DP
   use MatrixBaseModule, only: MatrixBaseType
   implicit none
   private
@@ -11,7 +11,6 @@ module GwfNpfFormulationModule
 
   type, abstract, public :: GwfNpfFormulationType
   contains
-    procedure(is_active_if), deferred :: is_active
     procedure(cf_if), deferred :: cf
     procedure(fc_if), deferred :: fc
     procedure(fn_if), deferred :: fn
@@ -25,13 +24,6 @@ module GwfNpfFormulationModule
   end type GwfNpfFormContainerType
 
   abstract interface
-    function is_active_if(this, n, m) result(is_active)
-      import GwfNpfFormulationType, I4B, LGP
-      class(GwfNpfFormulationType), intent(inout) :: this
-      integer(I4B), intent(in) :: n
-      integer(I4B), intent(in) :: m
-      logical(LGP) :: is_active
-    end function
     subroutine cf_if(this, kiter, n)
       import GwfNpfFormulationType, I4B
       class(GwfNpfFormulationType), intent(inout) :: this
