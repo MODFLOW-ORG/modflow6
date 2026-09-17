@@ -1,10 +1,10 @@
 module GwfGweExchangeModule
   use KindModule, only: DP, I4B, LGP
-  use ConstantsModule, only: LENPACKAGENAME
+  use ConstantsModule, only: LENPACKAGENAME, LINELENGTH
   use ListsModule, only: basemodellist, baseexchangelist, &
                          baseconnectionlist
-  use SimModule, only: store_error
-  use SimVariablesModule, only: errmsg
+  use SimModule, only: store_error, store_warning
+  use SimVariablesModule, only: errmsg, warnmsg
   use BaseExchangeModule, only: BaseExchangeType, AddBaseExchangeToList
   use SpatialModelConnectionModule, only: SpatialModelConnectionType, &
                                           get_smc_from_list
@@ -15,6 +15,7 @@ module GwfGweExchangeModule
   use BaseModelModule, only: BaseModelType, GetBaseModelFromList
   use GwfModule, only: GwfModelType
   use GweModule, only: GweModelType
+  use DisConnExchangeModule, only: same_exchange_cells
   use BndModule, only: BndType, GetBndFromList
 
   implicit none
@@ -25,6 +26,7 @@ module GwfGweExchangeModule
 
     integer(I4B), pointer :: m1_idx => null() !< index into the list of base exchanges for model 1
     integer(I4B), pointer :: m2_idx => null() !< index into the list of base exchanges for model 2
+    character(len=LINELENGTH) :: filename !< the input file for the GWF-GWE exchange
 
   contains
 
@@ -66,6 +68,7 @@ contains
     write (cint, '(i0)') id
     exchange%name = 'GWF-GWE_'//trim(adjustl(cint))
     exchange%memoryPath = exchange%name
+    exchange%filename = filename
     !
     ! -- allocate scalars
     call exchange%allocate_scalars()
@@ -162,12 +165,18 @@ contains
       call store_error(errmsg, terminate=.true.)
     end if
     !
+    ! -- Check the discretization and, when the energy transport model uses a
+    !    subset of the flow model cells, build the maps between the two grids.
+    !    This must be done before the transport model arrays are allocated.
+    call gwemodel%check_gwf_domain(gwfmodel%dis, this%name, this%filename)
+    !
     ! -- Set pointer to flowja
-    gwemodel%fmi%gwfflowja => gwfmodel%flowja
-    call mem_checkin(gwemodel%fmi%gwfflowja, &
-                     'GWFFLOWJA', gwemodel%fmi%memoryPath, &
-                     'FLOWJA', gwfmodel%memoryPath)
-
+    if (gwemodel%fmi%igwfmapped == 0) then
+      gwemodel%fmi%gwfflowja => gwfmodel%flowja
+      call mem_checkin(gwemodel%fmi%gwfflowja, &
+                       'GWFFLOWJA', gwemodel%fmi%memoryPath, &
+                       'FLOWJA', gwfmodel%memoryPath)
+    end if
     !
     ! -- Set the npf flag so that specific discharge is available for
     !    transport calculations if dispersion is active
@@ -181,9 +190,6 @@ contains
   subroutine exg_ar(this)
     ! -- modules
     use MemoryManagerModule, only: mem_checkin
-    use DisModule, only: DisType
-    use DisvModule, only: DisvType
-    use DisuModule, only: DisuType
     ! -- dummy
     class(GwfGweExchangeType) :: this
     ! -- local
@@ -191,17 +197,11 @@ contains
     type(GwfModelType), pointer :: gwfmodel => null()
     type(GweModelType), pointer :: gwemodel => null()
     ! -- formats
-    character(len=*), parameter :: fmtdiserr = &
-      "('GWF and GWE Models do not have the same discretization for exchange&
-      & ',a,'.&
-      &  GWF Model has ', i0, ' user nodes and ', i0, ' reduced nodes.&
-      &  GWE Model has ', i0, ' user nodes and ', i0, ' reduced nodes.&
-      &  Ensure discretization packages, including IDOMAIN, are identical.')"
-    character(len=*), parameter :: fmtidomerr = &
-      "('GWF and GWE Models do not have the same discretization for exchange&
-      & ',a,'.&
-      &  GWF Model and GWE Model have different IDOMAIN arrays.&
-      &  Ensure discretization packages, including IDOMAIN, are identical.')"
+    character(len=*), parameter :: fmtnocorr = &
+      "('GWE Model uses a subset of the GWF Model cells for exchange ',a,'.&
+      &  Water that flows across the boundary of the transport domain is not&
+      &  accounted for unless FLOW_IMBALANCE_CORRECTION is activated in the&
+      &  GWE FMI Package.')"
     !
     ! -- set gwfmodel
     mb => GetBaseModelFromList(basemodellist, this%m1_idx)
@@ -217,70 +217,39 @@ contains
       gwemodel => mb
     end select
     !
-    ! -- Check to make sure sizes are identical
-    if (gwemodel%dis%nodes /= gwfmodel%dis%nodes .or. &
-        gwemodel%dis%nodesuser /= gwfmodel%dis%nodesuser) then
-      write (errmsg, fmtdiserr) trim(this%name), &
-        gwfmodel%dis%nodesuser, &
-        gwfmodel%dis%nodes, &
-        gwemodel%dis%nodesuser, &
-        gwemodel%dis%nodes
-      call store_error(errmsg, terminate=.TRUE.)
+    ! -- setup pointers to gwf variables allocated in gwf_ar.  When the
+    !    transport model uses a subset of the flow model cells the arrays are
+    !    owned by fmi and refilled through the grid maps each time step.
+    if (gwemodel%fmi%igwfmapped /= 0) then
+      call gwemodel%fmi%set_gwf_sources(gwfmodel%x, gwfmodel%npf%sat, &
+                                        gwfmodel%npf%spdis, gwfmodel%flowja)
+      if (gwemodel%fmi%iflowerr == 0) then
+        write (warnmsg, fmtnocorr) trim(this%name)
+        call store_warning(warnmsg)
+      end if
+    else
+      gwemodel%fmi%gwfhead => gwfmodel%x
+      call mem_checkin(gwemodel%fmi%gwfhead, &
+                       'GWFHEAD', gwemodel%fmi%memoryPath, &
+                       'X', gwfmodel%memoryPath)
+      gwemodel%fmi%gwfsat => gwfmodel%npf%sat
+      call mem_checkin(gwemodel%fmi%gwfsat, &
+                       'GWFSAT', gwemodel%fmi%memoryPath, &
+                       'SAT', gwfmodel%npf%memoryPath)
+      gwemodel%fmi%gwfspdis => gwfmodel%npf%spdis
+      call mem_checkin(gwemodel%fmi%gwfspdis, &
+                       'GWFSPDIS', gwemodel%fmi%memoryPath, &
+                       'SPDIS', gwfmodel%npf%memoryPath)
     end if
-    !
-    ! -- Make sure idomains are identical
-    select type (gwfdis => gwfmodel%dis)
-    type is (DisType)
-      select type (gwedis => gwemodel%dis)
-      type is (DisType)
-        if (.not. all(gwfdis%idomain == gwedis%idomain)) then
-          write (errmsg, fmtidomerr) trim(this%name)
-          call store_error(errmsg, terminate=.TRUE.)
-        end if
-      end select
-    type is (DisvType)
-      select type (gwedis => gwemodel%dis)
-      type is (DisvType)
-        if (.not. all(gwfdis%idomain == gwedis%idomain)) then
-          write (errmsg, fmtidomerr) trim(this%name)
-          call store_error(errmsg, terminate=.TRUE.)
-        end if
-      end select
-    type is (DisuType)
-      select type (gwedis => gwemodel%dis)
-      type is (DisuType)
-        if (.not. all(gwfdis%idomain == gwedis%idomain)) then
-          write (errmsg, fmtidomerr) trim(this%name)
-          call store_error(errmsg, terminate=.TRUE.)
-        end if
-      end select
-    end select
-    !
-    ! -- setup pointers to gwf variables allocated in gwf_ar
-    gwemodel%fmi%gwfhead => gwfmodel%x
-    call mem_checkin(gwemodel%fmi%gwfhead, &
-                     'GWFHEAD', gwemodel%fmi%memoryPath, &
-                     'X', gwfmodel%memoryPath)
-    gwemodel%fmi%gwfsat => gwfmodel%npf%sat
-    call mem_checkin(gwemodel%fmi%gwfsat, &
-                     'GWFSAT', gwemodel%fmi%memoryPath, &
-                     'SAT', gwfmodel%npf%memoryPath)
-    gwemodel%fmi%gwfspdis => gwfmodel%npf%spdis
-    call mem_checkin(gwemodel%fmi%gwfspdis, &
-                     'GWFSPDIS', gwemodel%fmi%memoryPath, &
-                     'SPDIS', gwfmodel%npf%memoryPath)
     gwemodel%fmi%igwfspdis = gwfmodel%npf%icalcspdis
     !
     ! -- setup pointers to the flow storage rates. GWF strg arrays are
     !    available after the gwf_ar routine is called.
     if (gwemodel%inest > 0) then
       if (gwfmodel%insto > 0) then
-        gwemodel%fmi%gwfstrgss => gwfmodel%sto%strgss
-        gwemodel%fmi%igwfstrgss = 1
-        if (gwfmodel%sto%iusesy == 1) then
-          gwemodel%fmi%gwfstrgsy => gwfmodel%sto%strgsy
-          gwemodel%fmi%igwfstrgsy = 1
-        end if
+        call gwemodel%fmi%set_gwf_storage(gwfmodel%sto%strgss, &
+                                          gwfmodel%sto%strgsy, &
+                                          gwfmodel%sto%iusesy)
       end if
     end if
     !
@@ -349,14 +318,11 @@ contains
           objPtr => conn
           gwfConn => CastAsGwfGwfConnection(objPtr)
           !
-          ! for now, connecting the same nodes nrs will be
-          ! sufficient evidence of equality
-          areEqual = all(gwfConn%prim_exchange%nodem1 == &
-                         gweConn%prim_exchange%nodem1)
-          areEqual = areEqual .and. all(gwfConn%prim_exchange%nodem2 == &
-                                        gweConn%prim_exchange%nodem2)
+          ! connecting the same cells is sufficient evidence of equality
+          areEqual = same_exchange_cells(gwfConn%prim_exchange, &
+                                         gweConn%prim_exchange)
           if (areEqual) then
-            ! same DIS, same exchange: link and go to next GWE conn.
+            ! same cells, same exchange: link and go to next GWE conn.
             write (iout, '(/6a)') 'Linking exchange ', &
               trim(gweConn%prim_exchange%name), &
               ' to ', trim(gwfConn%prim_exchange%name), &
@@ -382,14 +348,8 @@ contains
           if (associated(gwfEx%model1, gwfModel) .or. &
               associated(gwfEx%model2, gwfModel)) then
 
-            ! check exchanges have same node counts
-            areEqual = size(gwfEx%nodem1) == size(gweConn%prim_exchange%nodem1)
-            ! then, connecting the same nodes nrs will be
-            ! sufficient evidence of equality
-            if (areEqual) &
-              areEqual = all(gwfEx%nodem1 == gweConn%prim_exchange%nodem1)
-            if (areEqual) &
-              areEqual = all(gwfEx%nodem2 == gweConn%prim_exchange%nodem2)
+            ! connecting the same cells is sufficient evidence of equality
+            areEqual = same_exchange_cells(gwfEx, gweConn%prim_exchange)
             if (areEqual) then
               ! link exchange to connection
               write (iout, '(/6a)') 'Linking exchange ', &
@@ -514,6 +474,7 @@ contains
     type(GwfModelType), pointer :: gwfmodel => null()
     type(GweModelType), pointer :: gwemodel => null()
     class(BndType), pointer :: packobj => null()
+    integer(I4B) :: imapped
     !
     ! -- set gwfmodel
     mb => GetBaseModelFromList(basemodellist, this%m1_idx)
@@ -532,12 +493,13 @@ contains
     ! -- Call routines in FMI that will set pointers to the necessary flow
     !    data (SIMVALS and SIMTOMVR) stored within each GWF flow package
     ngwfpack = gwfmodel%bndlist%Count()
+    imapped = gwemodel%fmi%igwfmapped
     iterm = 1
     do ip = 1, ngwfpack
       packobj => GetBndFromList(gwfmodel%bndlist, ip)
       call gwemodel%fmi%gwfpackages(iterm)%set_pointers( &
         'SIMVALS', &
-        packobj%memoryPath, packobj%input_mempath)
+        packobj%memoryPath, packobj%input_mempath, imapped)
       iterm = iterm + 1
       !
       ! -- If a mover is active for this package, then establish a separate
@@ -547,7 +509,7 @@ contains
       if (imover /= 0) then
         call gwemodel%fmi%gwfpackages(iterm)%set_pointers( &
           'SIMTOMVR', &
-          packobj%memoryPath, packobj%input_mempath)
+          packobj%memoryPath, packobj%input_mempath, imapped)
         iterm = iterm + 1
       end if
     end do

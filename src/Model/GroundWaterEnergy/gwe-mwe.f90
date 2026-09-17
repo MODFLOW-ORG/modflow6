@@ -519,7 +519,7 @@ contains
     q = DZERO
     do n = 1, maxlist
       n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(n)
-      n2 = this%flowbudptr%budterm(this%idxbudgwf)%id2(n)
+      n2 = this%get_cell_node(n)
       call this%budobj%budterm(idx)%update_term(n1, n2, q)
     end do
   end subroutine mwe_setup_budobj
@@ -598,7 +598,7 @@ contains
     do j = 1, this%flowbudptr%budterm(this%idxbudmwcd)%nlist
       q = DZERO
       n1 = this%flowbudptr%budterm(this%idxbudmwcd)%id1(j)
-      igwfnode = this%flowbudptr%budterm(this%idxbudmwcd)%id2(j)
+      igwfnode = this%get_cell_node(j)
       if (this%iboundpak(n1) /= 0) then
         auxpos = this%flowbudptr%budterm(this%idxbudgwf)%naux
         wa = this%flowbudptr%budterm(this%idxbudgwf)%auxvar(auxpos, j)

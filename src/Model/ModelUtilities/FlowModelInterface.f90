@@ -4,7 +4,7 @@ module FlowModelInterfaceModule
   use ConstantsModule, only: DONE, DZERO, DHALF, LINELENGTH, LENBUDTXT, &
                              LENPACKAGENAME, LENVARNAME, LENMEMPATH
   use SimModule, only: store_error, count_errors, store_error_unit, &
-                       store_error_filename
+                       store_error_filename, ustop
   use SimVariablesModule, only: errmsg
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
@@ -40,6 +40,18 @@ module FlowModelInterfaceModule
     integer(I4B), pointer :: igwfstrgss => null() !< indicates if gwfstrgss is available
     integer(I4B), pointer :: igwfstrgsy => null() !< indicates if gwfstrgsy is available
     integer(I4B), pointer :: igwfceltyp => null() !< indicates if gwfceltyp is available
+    integer(I4B), pointer :: igwfmapped => null() !< indicates the flow model grid is larger than this model grid
+    integer(I4B), dimension(:), pointer, contiguous :: gwfnodemap => null() !< flow model node for each node in this model
+    integer(I4B), dimension(:), pointer, contiguous :: gwfnodeinv => null() !< node in this model for each flow model node, 0 if excluded
+    integer(I4B), dimension(:), pointer, contiguous :: gwfjamap => null() !< flow model connection for each connection in this model
+    integer(I4B), dimension(:), pointer, contiguous :: gwfdropia => null() !< index into gwfdropja for each node in this model
+    integer(I4B), dimension(:), pointer, contiguous :: gwfdropja => null() !< flow model connections excluded from this model
+    real(DP), dimension(:), pointer, contiguous :: gwfflowja_src => null() !< flow model flowja when mapped
+    real(DP), dimension(:, :), pointer, contiguous :: gwfspdis_src => null() !< flow model specific discharge when mapped
+    real(DP), dimension(:), pointer, contiguous :: gwfhead_src => null() !< flow model head when mapped
+    real(DP), dimension(:), pointer, contiguous :: gwfsat_src => null() !< flow model saturation when mapped
+    real(DP), dimension(:), pointer, contiguous :: gwfstrgss_src => null() !< flow model QSTOSS when mapped
+    real(DP), dimension(:), pointer, contiguous :: gwfstrgsy_src => null() !< flow model QSTOSY when mapped
     integer(I4B), pointer :: iubud => null() !< unit number GWF budget file
     integer(I4B), pointer :: iuhds => null() !< unit number GWF head file
     integer(I4B), pointer :: iumvr => null() !< unit number GWF mover budget file
@@ -72,6 +84,11 @@ module FlowModelInterfaceModule
     procedure :: initialize_gwfterms_from_bfr
     procedure :: initialize_gwfterms_from_gwfbndlist
     procedure :: initialize_hfr
+    procedure :: map_gwf_grid
+    procedure :: map_gwf_values
+    procedure :: is_dropped
+    procedure :: set_gwf_sources
+    procedure :: set_gwf_storage
     procedure :: source_options
     procedure :: source_packagedata
     procedure :: read_grid
@@ -151,6 +168,232 @@ contains
     call this%allocate_arrays(this%dis%nodes)
   end subroutine fmi_ar
 
+  !> @brief Map this model grid onto a larger flow model grid
+  !!
+  !! Build the node and connection maps used to transfer flow model results
+  !! into this model when the flow model has active cells that are excluded
+  !! from this model.
+  !<
+  subroutine map_gwf_grid(this, gwfdis)
+    ! -- modules
+    use MemoryManagerModule, only: mem_allocate
+    ! -- dummy
+    class(FlowModelInterfaceType) :: this
+    class(DisBaseType), pointer, intent(in) :: gwfdis !< flow model discretization
+    ! -- local
+    integer(I4B) :: n, m, nf, mf
+    integer(I4B) :: ipos, jpos
+    integer(I4B) :: ndrop
+    character(len=20) :: nodestr, nodestrm
+    ! -- formats
+    character(len=*), parameter :: fmtnodeerr = &
+      "('Cell ', a, ' is active in this model but is not active in the &
+      &connected flow model.')"
+    character(len=*), parameter :: fmtconerr = &
+      "('Cells ', a, ' and ', a, ' are connected in this model but are not &
+      &connected in the flow model.')"
+    !
+    this%igwfmapped = 1
+    call mem_allocate(this%gwfnodemap, this%dis%nodes, 'GWFNODEMAP', &
+                      this%memoryPath)
+    call mem_allocate(this%gwfnodeinv, gwfdis%nodes, 'GWFNODEINV', &
+                      this%memoryPath)
+    call mem_allocate(this%gwfjamap, this%dis%con%nja, 'GWFJAMAP', &
+                      this%memoryPath)
+    call mem_allocate(this%gwfdropia, this%dis%nodes + 1, 'GWFDROPIA', &
+                      this%memoryPath)
+    !
+    ! -- map each node in this model to a node in the flow model
+    do nf = 1, gwfdis%nodes
+      this%gwfnodeinv(nf) = 0
+    end do
+    do n = 1, this%dis%nodes
+      nf = gwfdis%get_nodenumber(this%dis%get_nodeuser(n), 0)
+      if (nf <= 0) then
+        call this%dis%noder_to_string(n, nodestr)
+        write (errmsg, fmtnodeerr) trim(adjustl(nodestr))
+        call store_error(errmsg)
+        cycle
+      end if
+      this%gwfnodemap(n) = nf
+      this%gwfnodeinv(nf) = n
+    end do
+    if (count_errors() > 0) call ustop()
+    !
+    ! -- map each connection in this model to a connection in the flow model
+    !    and count the flow model connections that are excluded from this model
+    ndrop = 0
+    this%gwfdropia(1) = 1
+    do n = 1, this%dis%nodes
+      nf = this%gwfnodemap(n)
+      do ipos = this%dis%con%ia(n), this%dis%con%ia(n + 1) - 1
+        m = this%dis%con%ja(ipos)
+        mf = this%gwfnodemap(m)
+        jpos = gwfdis%con%getjaindex(nf, mf)
+        if (jpos <= 0) then
+          call this%dis%noder_to_string(n, nodestr)
+          call this%dis%noder_to_string(m, nodestrm)
+          write (errmsg, fmtconerr) trim(adjustl(nodestr)), &
+            trim(adjustl(nodestrm))
+          call store_error(errmsg)
+          cycle
+        end if
+        this%gwfjamap(ipos) = jpos
+      end do
+      do jpos = gwfdis%con%ia(nf) + 1, gwfdis%con%ia(nf + 1) - 1
+        if (this%is_dropped(n, gwfdis%con%ja(jpos))) ndrop = ndrop + 1
+      end do
+      this%gwfdropia(n + 1) = ndrop + 1
+    end do
+    if (count_errors() > 0) call ustop()
+    !
+    ! -- store the flow model connections that are excluded from this model
+    call mem_allocate(this%gwfdropja, ndrop, 'GWFDROPJA', this%memoryPath)
+    ndrop = 0
+    do n = 1, this%dis%nodes
+      nf = this%gwfnodemap(n)
+      do jpos = gwfdis%con%ia(nf) + 1, gwfdis%con%ia(nf + 1) - 1
+        if (this%is_dropped(n, gwfdis%con%ja(jpos))) then
+          ndrop = ndrop + 1
+          this%gwfdropja(ndrop) = jpos
+        end if
+      end do
+    end do
+  end subroutine map_gwf_grid
+
+  !> @brief Determine whether a flow model connection is excluded from this model
+  !<
+  function is_dropped(this, n, mf) result(dropped)
+    ! -- dummy
+    class(FlowModelInterfaceType) :: this
+    integer(I4B), intent(in) :: n !< node in this model
+    integer(I4B), intent(in) :: mf !< connected node in the flow model
+    ! -- return
+    logical(LGP) :: dropped
+    ! -- local
+    integer(I4B) :: m
+    !
+    ! -- the connected cell is excluded, or both cells are retained but this
+    !    model does not connect them, as for a vertical pass-through cell
+    m = this%gwfnodeinv(mf)
+    if (m == 0) then
+      dropped = .true.
+    else
+      dropped = this%dis%con%getjaindex(n, m) <= 0
+    end if
+  end function is_dropped
+
+  !> @brief Set pointers to the flow model arrays that are mapped each time step
+  !<
+  subroutine set_gwf_sources(this, head, sat, spdis, flowja)
+    ! -- dummy
+    class(FlowModelInterfaceType) :: this
+    real(DP), dimension(:), pointer, contiguous :: head !< flow model head
+    real(DP), dimension(:), pointer, contiguous :: sat !< flow model saturation
+    real(DP), dimension(:, :), pointer, contiguous :: spdis !< flow model specific discharge
+    real(DP), dimension(:), pointer, contiguous :: flowja !< flow model flowja
+    !
+    this%gwfhead_src => head
+    this%gwfsat_src => sat
+    this%gwfspdis_src => spdis
+    this%gwfflowja_src => flowja
+  end subroutine set_gwf_sources
+
+  !> @brief Connect this model to the flow model storage rates
+  !<
+  subroutine set_gwf_storage(this, strgss, strgsy, iusesy)
+    ! -- modules
+    use MemoryManagerModule, only: mem_reallocate
+    ! -- dummy
+    class(FlowModelInterfaceType) :: this
+    real(DP), dimension(:), pointer, contiguous :: strgss !< flow model QSTOSS
+    real(DP), dimension(:), pointer, contiguous :: strgsy !< flow model QSTOSY
+    integer(I4B), intent(in) :: iusesy !< flow model specific yield flag
+    ! -- local
+    integer(I4B) :: n
+    !
+    this%igwfstrgss = 1
+    if (this%igwfmapped /= 0) then
+      this%gwfstrgss_src => strgss
+      call mem_reallocate(this%gwfstrgss, this%dis%nodes, 'GWFSTRGSS', &
+                          this%memoryPath)
+      do n = 1, this%dis%nodes
+        this%gwfstrgss(n) = DZERO
+      end do
+    else
+      this%gwfstrgss => strgss
+    end if
+    !
+    if (iusesy /= 1) return
+    this%igwfstrgsy = 1
+    if (this%igwfmapped /= 0) then
+      this%gwfstrgsy_src => strgsy
+      call mem_reallocate(this%gwfstrgsy, this%dis%nodes, 'GWFSTRGSY', &
+                          this%memoryPath)
+      do n = 1, this%dis%nodes
+        this%gwfstrgsy(n) = DZERO
+      end do
+    else
+      this%gwfstrgsy => strgsy
+    end if
+  end subroutine set_gwf_storage
+
+  !> @brief Transfer flow model results onto this model grid
+  !!
+  !! Flow across flow model connections that are excluded from this model is
+  !! removed from the diagonal so that it is carried by the flow imbalance.
+  !<
+  subroutine map_gwf_values(this)
+    ! -- dummy
+    class(FlowModelInterfaceType) :: this
+    ! -- local
+    integer(I4B) :: i, n, nf
+    integer(I4B) :: ipos, idiag
+    !
+    do n = 1, this%dis%nodes
+      nf = this%gwfnodemap(n)
+      this%gwfhead(n) = this%gwfhead_src(nf)
+      this%gwfsat(n) = this%gwfsat_src(nf)
+    end do
+    !
+    if (this%igwfspdis /= 0) then
+      do n = 1, this%dis%nodes
+        nf = this%gwfnodemap(n)
+        do i = 1, 3
+          this%gwfspdis(i, n) = this%gwfspdis_src(i, nf)
+        end do
+      end do
+    end if
+    !
+    if (this%igwfstrgss /= 0) then
+      do n = 1, this%dis%nodes
+        this%gwfstrgss(n) = this%gwfstrgss_src(this%gwfnodemap(n))
+      end do
+    end if
+    if (this%igwfstrgsy /= 0) then
+      do n = 1, this%dis%nodes
+        this%gwfstrgsy(n) = this%gwfstrgsy_src(this%gwfnodemap(n))
+      end do
+    end if
+    !
+    do n = 1, this%dis%nodes
+      do ipos = this%dis%con%ia(n), this%dis%con%ia(n + 1) - 1
+        this%gwfflowja(ipos) = this%gwfflowja_src(this%gwfjamap(ipos))
+      end do
+    end do
+    do n = 1, this%dis%nodes
+      idiag = this%dis%con%ia(n)
+      do i = this%gwfdropia(n), this%gwfdropia(n + 1) - 1
+        this%gwfflowja(idiag) = this%gwfflowja(idiag) - &
+                                this%gwfflowja_src(this%gwfdropja(i))
+      end do
+    end do
+    !
+    do i = 1, this%nflowpack
+      call this%gwfpackages(i)%map_nodelist(this%gwfnodeinv)
+    end do
+  end subroutine map_gwf_values
+
   !> @brief Deallocate variables
   !<
   subroutine fmi_da(this)
@@ -169,10 +412,21 @@ contains
     call mem_deallocate(this%igwfmvrterm)
     call mem_deallocate(this%ibdgwfsat0)
     !
-    if (this%flows_from_file) then
+    if (this%flows_from_file .or. this%igwfmapped /= 0) then
       call mem_deallocate(this%gwfstrgss)
       call mem_deallocate(this%gwfstrgsy)
+    end if
+    if (this%flows_from_file) then
       call mem_deallocate(this%gwfceltyp)
+    end if
+    !
+    ! -- deallocate the flow model grid maps
+    if (this%igwfmapped /= 0) then
+      call mem_deallocate(this%gwfnodemap)
+      call mem_deallocate(this%gwfnodeinv)
+      call mem_deallocate(this%gwfjamap)
+      call mem_deallocate(this%gwfdropia)
+      call mem_deallocate(this%gwfdropja)
     end if
     !
     ! -- special treatment, these could be from mem_checkin
@@ -188,6 +442,7 @@ contains
     call mem_deallocate(this%igwfstrgss)
     call mem_deallocate(this%igwfstrgsy)
     call mem_deallocate(this%igwfceltyp)
+    call mem_deallocate(this%igwfmapped)
     call mem_deallocate(this%iubud)
     call mem_deallocate(this%iuhds)
     call mem_deallocate(this%iumvr)
@@ -219,6 +474,7 @@ contains
     call mem_allocate(this%igwfstrgss, 'IGWFSTRGSS', this%memoryPath)
     call mem_allocate(this%igwfstrgsy, 'IGWFSTRGSY', this%memoryPath)
     call mem_allocate(this%igwfceltyp, 'IGWFCELTYP', this%memoryPath)
+    call mem_allocate(this%igwfmapped, 'IGWFMAPPED', this%memoryPath)
     call mem_allocate(this%iubud, 'IUBUD', this%memoryPath)
     call mem_allocate(this%iuhds, 'IUHDS', this%memoryPath)
     call mem_allocate(this%iumvr, 'IUMVR', this%memoryPath)
@@ -234,6 +490,7 @@ contains
     this%igwfstrgss = 0
     this%igwfstrgsy = 0
     this%igwfceltyp = 0
+    this%igwfmapped = 0
     this%iubud = 0
     this%iuhds = 0
     this%iumvr = 0
@@ -262,8 +519,8 @@ contains
     end do
     !
     ! -- Allocate differently depending on whether or not flows are
-    !    being read from a file.
-    if (this%flows_from_file) then
+    !    being read from a file or mapped from a larger flow model grid.
+    if (this%flows_from_file .or. this%igwfmapped /= 0) then
       call mem_allocate(this%gwfflowja, this%dis%con%nja, &
                         'GWFFLOWJA', this%memoryPath)
       call mem_allocate(this%gwfsat, nodes, 'GWFSAT', this%memoryPath)
@@ -295,6 +552,9 @@ contains
       do n = 1, size(this%gwfstrgsy)
         this%gwfstrgsy(n) = DZERO
       end do
+    end if
+    !
+    if (this%flows_from_file) then
       ! allocate and initialize cell type array. if the FMI is in a separate
       ! simulation from the GWF model, we expect cell type to have been read
       ! already if the binary grid file was provided to FMI. otherwise don't
