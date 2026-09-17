@@ -13,9 +13,9 @@ module BndModule
                              LENMEMPATH, MAXCHARLEN, LINELENGTH, &
                              DNODATA, LENLISTLABEL, LENPAKLOC, &
                              TABLEFT, TABCENTER
-  use SimVariablesModule, only: errmsg
+  use SimVariablesModule, only: errmsg, warnmsg
   use SimModule, only: count_errors, store_error, &
-                       store_error_unit
+                       store_error_unit, store_warning
   use NumericalPackageModule, only: NumericalPackageType
   use ObsModule, only: ObsType, obs_cr
   use TdisModule, only: delt, totimc
@@ -1578,7 +1578,9 @@ contains
   !!
   !! Method to read and prepare observations for a boundary package
   !! This method should not need to be overridden for most boundary
-  !! packages.
+  !! packages. A warning is issued for an observation that does not
+  !! correspond to a boundary in the package, since nothing is
+  !! observed at that location.
   !<
   subroutine bnd_rp_obs(this)
     ! -- dummy
@@ -1588,7 +1590,13 @@ contains
     integer(I4B) :: j
     class(ObserveType), pointer :: obsrv => null()
     character(len=LENBOUNDNAME) :: bname
+    character(len=LINELENGTH) :: subkey
     logical(LGP) :: jfound
+    ! -- formats
+10  format('No boundary matching boundname "', a, '" was found ', a, &
+           '. The DNODATA value will be returned for this observation.')
+20  format('No boundary matching cell "', a, '" was found ', a, &
+           '. The DNODATA value will be returned for this observation.')
     !
     if (.not. this%bnd_obs_supported()) return
     !
@@ -1627,6 +1635,20 @@ contains
             call obsrv%AddObsIndex(j)
           end if
         end do jloop
+      end if
+      !
+      ! -- warn if nothing is observed at the observation location. The
+      !    substring dedupes the warning, which would otherwise be
+      !    reissued for every stress period.
+      if (.not. jfound) then
+        write (subkey, '(5a)') 'for observation "', trim(obsrv%Name), &
+          '" in package "', trim(this%packName), '"'
+        if (bname /= '') then
+          write (warnmsg, 10) trim(bname), trim(subkey)
+        else
+          write (warnmsg, 20) trim(adjustl(obsrv%IDstring)), trim(subkey)
+        end if
+        call store_warning(warnmsg, substring=trim(subkey))
       end if
     end do
     !
