@@ -172,9 +172,10 @@ def test_meson_build(dist_dir_path, releasemode):
         assert exe_path.is_file(), f"{label} was not built at {exe_path}"
 
         if label == "mf6":
-            # mf6 -v prints "mf6: <VERSION>" and exits 0
+            # mf6 -v prints "<EXE NAME>: <VERSION>" (name includes the
+            # extension on Windows) and exits 0
             tokens = subprocess.check_output([str(exe_path), "-v"]).decode().split()
-            anchor = "mf6:"
+            anchor = f"mf6{EXE_EXT}:"
         else:
             # mf5to6 has no version flag; its banner's second line is
             # "Version <FULLVERSION> [MM/DD/YYYY]". It then wants input, so
