@@ -187,7 +187,7 @@ Visit the USGS "MODFLOW and Related Programs" site for information on MODFLOW 6 
 The citation string can be rendered with `pixi run update-version -c`. Pass the
 release DOI link via `--doi` (`-d`), e.g.
 `pixi run update-version -c -d https://doi.org/10.5066/P1PGE9XW`; without it the
-umbrella MODFLOW software DOI is used. The DOI on the last line is the original
+DOI in the release history row for the version in `ReleaseNotes.tex` is used, or if there is no row, the umbrella MODFLOW software DOI. The DOI on the last line is the original
 and stays the same.
 
 Publish the release.

@@ -151,7 +151,7 @@ def get_disclaimer(developmode: bool = False, formatted: bool = False) -> str:
 
 # Umbrella DOI for the "MODFLOW and Related Programs" software release page.
 # Used as the software citation DOI when a release-specific one isn't passed
-# via --doi.
+# via --doi or found in the release history.
 _default_doi = "https://doi.org/10.5066/F76Q1VQV"
 
 
@@ -371,6 +371,21 @@ def update_pixi(version: Version):
             if line.startswith(tag):
                 line = f'{tag} "{version}"\n'
             fp.write(line)
+
+
+def get_release_history_doi(
+    version: Version, path: Path = release_notes_path
+) -> str | None:
+    """
+    DOI in the release history table in the release notes for the given
+    version, or None if the table has no row for the version.
+    """
+
+    ver = f"{version.major}.{version.minor}.{version.micro}"
+    for row in _release_history_row.finditer(path.read_text()):
+        if row["version"] == ver:
+            return row["doi"]
+    return None
 
 
 def update_release_history(
@@ -599,6 +614,26 @@ def test_update_release_history_existing_row_is_kept(release_notes):
     assert release_notes.read_text() == added
 
 
+def test_get_release_history_doi(release_notes):
+    assert (
+        get_release_history_doi(Version("6.7.0"), path=release_notes)
+        == "https://doi.org/10.5066/P1IJAXDZ"
+    )
+    assert (
+        get_release_history_doi(Version("6.8.0"), path=release_notes)
+        == "https://doi.org/10.5066/P1PGE9XW"
+    )
+    assert get_release_history_doi(Version("6.8.1"), path=release_notes) is None
+    assert get_release_history_doi(Version("6.9.0.dev0"), path=release_notes) is None
+
+    # a row added for a patch release is found, with the reused DOI
+    update_release_history(Version("6.8.1"), date(2026, 9, 21), path=release_notes)
+    assert (
+        get_release_history_doi(Version("6.8.1"), path=release_notes)
+        == "https://doi.org/10.5066/P1PGE9XW"
+    )
+
+
 def test_update_release_history_no_table(tmp_path):
     path = tmp_path / "ReleaseNotes.tex"
     path.write_text("nothing to see here\n")
@@ -653,8 +688,9 @@ of 1, and to alter mf6's output and disclaimer text reflecting approval.
 
 Use `--citation` (`-c`) to render the current software citation. Pass the
 release DOI link via `--doi` (`-d`), e.g.
-`--doi https://doi.org/10.5066/P1PGE9XW`; if omitted, the umbrella MODFLOW
-software DOI is used.
+`--doi https://doi.org/10.5066/P1PGE9XW`; if omitted, the DOI in the release
+history row for the version in ReleaseNotes.tex is used, or if there is no
+row, the umbrella MODFLOW software DOI.
 
 When updating to a release version (not a pre-release or development version),
 a row for the version is added to the release history table in ReleaseNotes.tex
@@ -686,7 +722,8 @@ row was added to ReleaseNotes.tex beforehand.
         default=None,
         help="DOI link (e.g. https://doi.org/10.5066/P1PGE9XW) of the release. "
         "Substituted into the software citation rendered by --citation, "
-        f"defaulting to the umbrella MODFLOW software DOI ({_default_doi}). "
+        "defaulting to the DOI in the release history row for the version, or "
+        f"if there is none the umbrella MODFLOW software DOI ({_default_doi}). "
         "Also used in the release history row added when updating to a release "
         "version, defaulting to the DOI of the previous release with the same "
         "major and minor version. Required for a new minor or major release "
@@ -753,11 +790,17 @@ row was added to ReleaseNotes.tex beforehand.
         version = _current_version
 
     if citation:
+        doi = args.doi or get_release_history_doi(version)
+        if doi is None:
+            print(
+                f"No release history row for {version}, using the umbrella DOI",
+                file=sys.stderr,
+            )
         print(
             get_software_citation(
                 timestamp=datetime.now(),
                 version=version,
-                doi=args.doi or _default_doi,
+                doi=doi or _default_doi,
                 developmode=developmode,
             )
         )
