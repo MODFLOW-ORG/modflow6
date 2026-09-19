@@ -25,6 +25,11 @@ version_file = Path(__file__).parents[2] / "version.txt"
 version = version_file.read_text().strip()
 date = datetime.date.today().strftime("%b %d, %Y")
 
+# sections included in the release notes for a patch release. Bug fixes always
+# ship in a patch. New examples are included too, since examples are versioned
+# separately from the program and have shipped in patch releases before.
+patch_sections = ("fixes", "examples")
+
 
 def latest_release():
     """Version and date of the most recent release, read from the last row
@@ -71,13 +76,12 @@ def render(
     sections = content.get("sections", {})
     subsections = content.get("subsections", {})
     items = content.get("items", [])
-    # if patch, only include fixes
+    # if patch, only include fixes and examples
     if patch:
-        items = [item for item in items if item["section"] == "fixes"]
-        sections = {k: v for k, v in sections.items() if k == "fixes"}
-        subsections = {
-            k: subsections[k] for k in [item["subsection"] for item in items]
-        }
+        items = [item for item in items if item["section"] in patch_sections]
+        sections = {k: v for k, v in sections.items() if k in patch_sections}
+        used = {item.get("subsection") for item in items}
+        subsections = {k: v for k, v in subsections.items() if k in used}
     # make sure each item has a subsection entry even if empty
     for item in items:
         if not item.get("subsection"):

@@ -5,8 +5,8 @@ compact archive format, registers them in appendixA.tex, and clears the
 archived items from develop.toml so the next development cycle starts empty.
 
 The version is read from version.txt, so run this before bumping the version.
-For a patch release (--patch) only the fix items are archived and cleared; the
-rest carry forward to the next minor release.
+For a patch release (--patch) only the fix and example items are archived and
+cleared; the rest carry forward to the next minor release.
 """
 
 import argparse
@@ -14,7 +14,7 @@ import re
 import sys
 from warnings import warn
 
-from mk_releasenotes import latest_release, notes_dir, render, version
+from mk_releasenotes import latest_release, notes_dir, patch_sections, render, version
 
 develop_toml_path = notes_dir / "develop.toml"
 appendix_path = notes_dir / "appendixA.tex"
@@ -43,8 +43,8 @@ def clear_develop_toml(*, patch: bool = False):
     """Remove release note items from develop.toml for the next cycle.
 
     The [sections] and [subsections] tables are kept. For a patch release,
-    non-fix items are kept too (they carry forward to the next minor release);
-    otherwise every item is removed.
+    items outside the patch sections (fixes and examples) are kept (they carry
+    forward to the next minor release); otherwise every item is removed.
     """
     lines = develop_toml_path.read_text().splitlines()
     try:
@@ -74,7 +74,7 @@ def clear_develop_toml(*, patch: bool = False):
                 ),
                 "",
             )
-            if section != "fixes":
+            if section not in patch_sections:
                 while block and not block[-1].strip():
                     block.pop()
                 kept.append(block)
@@ -114,7 +114,7 @@ def reset_release_notes(*, patch: bool = False):
         )
         register_archive(version)
     else:
-        warn(f"No {'fix ' if patch else ''}items to archive for v{version}")
+        warn(f"No {'patch ' if patch else ''}items to archive for v{version}")
 
     clear_develop_toml(patch=patch)
 
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         "--patch",
         default=False,
         action="store_true",
-        help="Archive and clear only the fix items (patch release).",
+        help="Archive and clear only the fix and example items (patch release).",
     )
     args = parser.parse_args()
     reset_release_notes(patch=args.patch)

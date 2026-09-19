@@ -44,7 +44,7 @@ on:
         required: true
         type: string
       patch:
-        description: 'Create a patch release. If true, only bug fixes will be included in generated documentation.'
+        description: 'Create a patch release. If true, only bug fixes and new examples will be included in generated documentation.'
         required: false
         type: boolean
         default: false
@@ -320,7 +320,7 @@ jobs:
           ver=$(cat ../../version.txt)
 
           # a non-zero patch number means a patch release: archive and clear
-          # only the fix items, the rest carry to the next minor release
+          # only the fix and example items, the rest carry to the next minor release
           patch=""
           [ "$(echo "$ver" | cut -d. -f3)" != "0" ] && patch="--patch"
 
