@@ -19,3 +19,8 @@ netcdf = "NETCDF"
 section = "fixes"
 subsection = "model"
 description = "PRT could erroneously release multiple particles from the same release point at the same time, causing an unbalanced mass budget, when a PRP package's period-block release setting coincides with an explicitly configured release time landing on a time boundary between two steps. The resulting pair of otherwise-identical particles were not distinguished in internal accounting, and could silently corrupt internal accounting. PRT distinguishes particles on the basis of four properties (model index, package index, release point index, release time), and uses a 'gumball dispenser' metaphor for release points, stipulating that multiple particles may not be released from a single point at the same time. Coincident releases are now consolidated into a single release as intended, and reported under the earlier of the two time steps for times falling on a time step boundary."
+
+[[items]]
+section = "examples"
+subsection = "advanced"
+description = "A new example called ex-gwf-hwell was added. This example simulates a horizontal well in an anisotropic confined aquifer, comparing a specified-flux representation using the Well (WEL) Package and a single-head representation using the Multi-Aquifer Well (MAW) Package with the NON\\_VERTICAL\\_WELLS option to the analytical solution of \\cite{zhan2001} and to two MODFLOW-USG Connected Linear Network (CLN) representations of the well."
