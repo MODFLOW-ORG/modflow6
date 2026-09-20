@@ -163,6 +163,35 @@ jobs:
             exit 1
           fi
           echo "patch=$patch" >> $GITHUB_OUTPUT
+      - name: Check release history
+        env:
+          BRANCH: ${{ steps.set_branch.outputs.branch }}
+          VERSION: ${{ steps.set_version.outputs.version }}
+          DOI: ${{ inputs.doi }}
+        run: |
+          # update_version.py adds a row for the release to the release history in the release
+          # notes during the build. It reuses the DOI of the previous release with the same major
+          # and minor version, so patch releases need no DOI, but a new minor release needs one:
+          # either from the doi input, or from a row already on the release branch. Fail now
+          # instead of in the build if there isn't one. This mirrors update_release_history().
+          if [[ "$VERSION" == *rc* ]]; then
+            echo "release candidate $VERSION, no release history row is added"
+            exit 0
+          fi
+          if [[ -n "$DOI" ]]; then
+            echo "using DOI $DOI from workflow_dispatch"
+            exit 0
+          fi
+          git fetch --depth=1 origin "$BRANCH"
+          series="${VERSION%.*}"
+          if git show FETCH_HEAD:doc/ReleaseNotes/ReleaseNotes.tex | grep -qE "^[[:space:]]*${series//./\\.}\.[0-9]+[[:space:]]*&"; then
+            echo "release history has a row for a $series.x release to take the DOI from"
+          else
+            echo "error: no DOI for new release $VERSION, and no previous $series.x release to take one from."
+            echo "Start the release with workflow_dispatch and provide the doi input, or add a row"
+            echo "for $VERSION to the release history in doc/ReleaseNotes/ReleaseNotes.tex on $BRANCH."
+            exit 1
+          fi
   make_dist:
     name: Make distribution
     uses: MODFLOW-ORG/modflow6/.github/workflows/release.yml@develop
