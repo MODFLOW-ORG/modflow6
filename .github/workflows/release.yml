@@ -47,6 +47,11 @@ on:
         required: false
         type: string
         default: ''
+      date:
+        description: 'Date (YYYY-MM-DD) of the release, used for timestamps and the release history so all jobs agree. Defaults to the current date in each job.'
+        required: false
+        type: string
+        default: ''
     outputs:
       version:
         description: 'Version number used for release'
@@ -155,15 +160,15 @@ jobs:
         id: update_version
         working-directory: modflow6
         env:
-          DOI: ${{ inputs.doi }}
+          DATE: ${{ inputs.date }}
         run: |
           ver="${{ steps.set_version.outputs.version }}"
           cmd="pixi run update-version -v $ver"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
-          if [[ -n "$DOI" ]]; then
-            cmd="$cmd --doi \"\$DOI\""
+          if [[ -n "$DATE" ]]; then
+            cmd="$cmd --date \"\$DATE\""
           fi
           eval "$cmd"
 
@@ -498,15 +503,32 @@ jobs:
         id: update_version
         working-directory: modflow6/distribution
         env:
-          DOI: ${{ inputs.doi }}
+          DATE: ${{ inputs.date }}
         run: |
           ver="${{ needs.build.outputs.version }}"
           cmd="pixi run update-version -v $ver"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
+          if [[ -n "$DATE" ]]; then
+            cmd="$cmd --date \"\$DATE\""
+          fi
+          eval "$cmd"
+
+      # release notes are built in this job, so it needs the release history row
+      - name: Update release history
+        working-directory: modflow6
+        env:
+          DOI: ${{ inputs.doi }}
+          DATE: ${{ inputs.date }}
+        run: |
+          ver="${{ needs.build.outputs.version }}"
+          cmd="pixi run add-release-history -v $ver"
           if [[ -n "$DOI" ]]; then
             cmd="$cmd --doi \"\$DOI\""
+          fi
+          if [[ -n "$DATE" ]]; then
+            cmd="$cmd --date \"\$DATE\""
           fi
           eval "$cmd"
 
@@ -661,15 +683,32 @@ jobs:
         id: update_version
         working-directory: modflow6/distribution
         env:
-          DOI: ${{ inputs.doi }}
+          DATE: ${{ inputs.date }}
         run: |
           ver="${{ needs.build.outputs.version }}"
           cmd="pixi run update-version -v $ver"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
+          if [[ -n "$DATE" ]]; then
+            cmd="$cmd --date \"\$DATE\""
+          fi
+          eval "$cmd"
+
+      # release notes are built in this job, so it needs the release history row
+      - name: Update release history
+        working-directory: modflow6
+        env:
+          DOI: ${{ inputs.doi }}
+          DATE: ${{ inputs.date }}
+        run: |
+          ver="${{ needs.build.outputs.version }}"
+          cmd="pixi run add-release-history -v $ver"
           if [[ -n "$DOI" ]]; then
             cmd="$cmd --doi \"\$DOI\""
+          fi
+          if [[ -n "$DATE" ]]; then
+            cmd="$cmd --date \"\$DATE\""
           fi
           eval "$cmd"
  

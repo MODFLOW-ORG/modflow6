@@ -11,9 +11,10 @@ See reset_releasenotes.py for the post-release archive-and-clear step.
 
 import argparse
 import datetime
-import re
 from pathlib import Path
 from warnings import warn
+
+import release_history
 
 try:
     import tomllib
@@ -29,17 +30,10 @@ date = datetime.date.today().strftime("%b %d, %Y")
 def latest_release():
     """Version and date of the most recent release, read from the last row
     of the releases table in ReleaseNotes.tex."""
-    rows = re.findall(
-        r"^\s*(\d+\.\d+\.\d+)\s*&\s*([^&]+?)\s*&\s*\\url",
-        (notes_dir / "ReleaseNotes.tex").read_text(),
-        re.MULTILINE,
-    )
-    if not rows:
-        raise ValueError(
-            "No rows found in the releases table in ReleaseNotes.tex; "
-            "pass --version and --date explicitly"
-        )
-    return rows[-1]
+    try:
+        return release_history.latest_release()
+    except ValueError as e:
+        raise ValueError(f"{e}; pass --version and --date explicitly") from e
 
 
 def render(

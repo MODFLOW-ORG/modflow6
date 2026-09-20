@@ -69,6 +69,7 @@ jobs:
       compiler_version: ${{ steps.set_compiler.outputs.compiler_version }}
       version: ${{ steps.set_version.outputs.version }}
       patch: ${{ steps.set_patch.outputs.patch }}
+      date: ${{ steps.set_date.outputs.date }}
     steps:
       - name: Checkout modflow6
         uses: actions/checkout@v7
@@ -166,31 +167,29 @@ jobs:
             exit 1
           fi
           echo "patch=$patch" >> $GITHUB_OUTPUT
+      - name: Set date
+        id: set_date
+        run: |
+          # one date for all jobs, so timestamps and the release history agree
+          echo "date=$(date -u +%F)" >> $GITHUB_OUTPUT
       - name: Check release history
         env:
           BRANCH: ${{ steps.set_branch.outputs.branch }}
           VERSION: ${{ steps.set_version.outputs.version }}
           DOI: ${{ inputs.doi }}
         run: |
-          # update_version.py adds a row for the release to the release history in the release
-          # notes during the build. It reuses the DOI of the previous release with the same major
-          # and minor version, so patch releases need no DOI, but a new minor release needs one:
-          # either from the doi input, or from a row already on the release branch. Fail now
-          # instead of in the build if there isn't one. This mirrors update_release_history().
-          if [[ "$VERSION" == *rc* ]]; then
-            echo "release candidate $VERSION, no release history row is added"
-            exit 0
-          fi
-          if [[ -n "$DOI" ]]; then
-            echo "using DOI $DOI from workflow_dispatch"
-            exit 0
-          fi
+          # The release history in the release notes gets a row for the release during the build.
+          # It reuses the DOI of the previous release with the same major and minor version, so
+          # patch releases need no DOI, but a new minor release needs one: either from the doi
+          # input, or from a row already on the release branch. Fail now instead of in the build
+          # if there isn't one. Release candidates get no row.
           git fetch --depth=1 origin "$BRANCH"
-          series="${VERSION%.*}"
-          if git show FETCH_HEAD:doc/ReleaseNotes/ReleaseNotes.tex | grep -qE "^[[:space:]]*${series//./\\.}\.[0-9]+[[:space:]]*&"; then
-            echo "release history has a row for a $series.x release to take the DOI from"
-          else
-            echo "error: no DOI for new release $VERSION, and no previous $series.x release to take one from."
+          git show FETCH_HEAD:doc/ReleaseNotes/ReleaseNotes.tex > "$RUNNER_TEMP/ReleaseNotes.tex"
+          args=(-v "$VERSION" --check --notes "$RUNNER_TEMP/ReleaseNotes.tex")
+          if [[ -n "$DOI" ]]; then
+            args+=(--doi "$DOI")
+          fi
+          if ! python3 doc/ReleaseNotes/release_history.py "${args[@]}"; then
             echo "Start the release with workflow_dispatch and provide the doi input, or add a row"
             echo "for $VERSION to the release history in doc/ReleaseNotes/ReleaseNotes.tex on $BRANCH."
             exit 1
@@ -216,6 +215,8 @@ jobs:
       # If triggered by pushing a release branch there is no input. A patch release reuses the previous DOI,
       # and for a new minor release the release history row must already be on the branch.
       doi: ${{ inputs.doi }}
+      # the same date for all jobs, so timestamps and the release history agree
+      date: ${{ needs.set_options.outputs.date }}
   pr:
     name: Draft release PR
     if: ${{ github.ref_name != 'master' && ((github.event_name == 'workflow_dispatch' && inputs.releasemode == true) || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc'))) }}
@@ -248,20 +249,24 @@ jobs:
         env:
           # empty if workflow was triggered by pushing a release branch
           DOI: ${{ inputs.doi }}
+          DATE: ${{ needs.set_options.outputs.date }}
         run: |
           # update version files
           ver="${{ needs.set_options.outputs.version }}"
-          args=(-v "$ver")
+          args=(-v "$ver" --date "$DATE")
           # approve will be empty if workflow was triggered by pushing a release branch
           # todo: pull approve into set_options job/output?
           if [[ ("${{ inputs.releasemode }}" == "true") || ("${{ inputs.releasemode }}" == "") ]]; then
             args+=(--releasemode)
           fi
-          # release history DOI, if provided
+          python update_version.py "${args[@]}"
+
+          # add the release to the release history, using the DOI if provided
+          args=(-v "$ver" --date "$DATE")
           if [[ -n "$DOI" ]]; then
             args+=(--doi "$DOI")
           fi
-          python update_version.py "${args[@]}"
+          python ../doc/ReleaseNotes/release_history.py "${args[@]}"
 
           # lint version.f90
           fprettify -c ../.fprettify.yaml ../src/Utilities/version.f90

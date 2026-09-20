@@ -14,7 +14,6 @@ This script is used to update several files in the modflow6 repository, includin
   ../code.json
   ../src/Utilities/version.f90.in
   ../src/Utilities/version.f90
-  ../doc/ReleaseNotes/ReleaseNotes.tex
 
 Information in these files include version number (major.minor.patch[label]), build
 timestamp, whether or not the release is preliminary/provisional or official/approved,
@@ -33,19 +32,15 @@ if --releasemode is provided, the disclaimer in src/Utilities/version.f90.in and
 README/DISCLAIMER markdown files is modified to reflect review and approval.
 Otherwise the language reflects preliminary/provisional status.
 
-For a release version (i.e. not a pre-release or development version), a row is added
-to the release history table in ReleaseNotes.tex if there isn't one for the version
-already. The row's date is today's date unless --date is provided. The DOI is taken
-from --doi if provided, otherwise from the latest release with the same major and
-minor version (patch releases keep the DOI of the minor release they patch). The DOI
-of a new minor or major release must be provided, either via --doi or by adding the
-row manually before running this script.
+Timestamps use the current date, or --date if provided, so all steps of a release can
+agree on a date. Use ../doc/ReleaseNotes/release_history.py to add the release to the
+release history in the release notes. The date and DOI of a release in the release
+history are used in the software citation rendered with --citation.
 """
 
 import argparse
 import json
 import os
-import re
 import sys
 import textwrap
 from collections import OrderedDict
@@ -76,16 +71,10 @@ touched_file_paths = [
     project_root_path / "src" / "Utilities" / "version.f90.in",
     project_root_path / "src" / "Utilities" / "version.f90",
 ]
-release_notes_path = project_root_path / "doc" / "ReleaseNotes" / "ReleaseNotes.tex"
 
-# row in the release history table in release notes, e.g.
-# 6.8.0 & September 2, 2026 & \url{https://doi.org/10.5066/P1PGE9XW} \\
-_release_history_row = re.compile(
-    r"^[ \t]*(?P<version>\d+\.\d+\.\d+)[ \t]*&[ \t]*(?P<date>[^&\n]+?)[ \t]*&"
-    r"[ \t]*\\url\{(?P<doi>[^}\n]+)\}[ \t]*\\\\[ \t]*$",
-    re.MULTILINE,
-)
-
+# the release history is managed by a script alongside the release notes
+sys.path.insert(0, str(project_root_path / "doc" / "ReleaseNotes"))
+from release_history import find_release  # noqa: E402
 
 _approved_fmtdisclaimer = '''  character(len=*), parameter :: FMTDISCLAIMER = &
     "(/,&
@@ -151,7 +140,7 @@ def get_disclaimer(developmode: bool = False, formatted: bool = False) -> str:
 
 # Umbrella DOI for the "MODFLOW and Related Programs" software release page.
 # Used as the software citation DOI when a release-specific one isn't passed
-# via --doi or found in the release history.
+# via --doi.
 _default_doi = "https://doi.org/10.5066/F76Q1VQV"
 
 
@@ -373,75 +362,10 @@ def update_pixi(version: Version):
             fp.write(line)
 
 
-def get_release_history_doi(
-    version: Version, path: Path = release_notes_path
-) -> str | None:
-    """
-    DOI in the release history table in the release notes for the given
-    version, or None if the table has no row for the version.
-    """
-
-    ver = f"{version.major}.{version.minor}.{version.micro}"
-    for row in _release_history_row.finditer(path.read_text()):
-        if row["version"] == ver:
-            return row["doi"]
-    return None
-
-
-def update_release_history(
-    version: Version,
-    release_date: date,
-    doi: str | None = None,
-    path: Path = release_notes_path,
-) -> bool:
-    """
-    Add a row for the given version to the release history table in the release
-    notes, after the last existing row. Returns True if a row was added, False
-    if the table already has a row for the version, which is left as is.
-
-    If no DOI is provided, the DOI of the latest release with the same major and
-    minor version is reused, as DOIs change with minor releases but not patches.
-    A ValueError is raised if there is no such release, or no table.
-    """
-
-    text = path.read_text()
-    rows = list(_release_history_row.finditer(text))
-    if not rows:
-        raise ValueError(f"No release history table rows found in {path}")
-
-    ver = f"{version.major}.{version.minor}.{version.micro}"
-    if any(row["version"] == ver for row in rows):
-        print(f"{path} already has a release history row for {ver}", file=sys.stderr)
-        return False
-
-    if doi is None:
-        series = [
-            row
-            for row in rows
-            if row["version"].split(".")[:2] == [str(version.major), str(version.minor)]
-        ]
-        if not series:
-            raise ValueError(
-                f"No DOI for new release {ver}, and no previous {version.major}."
-                f"{version.minor}.x release to take one from. Pass a DOI with "
-                f"--doi, or add a row for {ver} to the release history in {path}."
-            )
-        doi = series[-1]["doi"]
-
-    date_str = f"{release_date:%B} {release_date.day}, {release_date.year}"
-    row = f"{ver} & {date_str} & \\url{{{doi}}} \\\\"
-    text = text[: rows[-1].end()] + "\n" + row + text[rows[-1].end() :]
-    path.write_text(text)
-    print(f"Added release history row to {path}: {row}", file=sys.stderr)
-    return True
-
-
 def update_version(
     version: Version = None,
     timestamp: datetime = datetime.now(),
     developmode: bool = False,
-    release_date: date | None = None,
-    doi: str | None = None,
 ):
     """
     Update version information stored in version.txt in the project root,
@@ -450,12 +374,6 @@ def update_version(
     and a lock is held on the version file to make sure that the state of
     the multiple files containing version information stays synchronized.
     If no version argument is provided, the version number isn't changed.
-
-    If the version is a release version (not a pre-release or development
-    version), a row is added to the release history in the release notes, if
-    there isn't one already, dated with release_date (default: the timestamp's
-    date) and linking to doi (default: the DOI of the minor release, see
-    update_release_history).
     """
 
     lock_path = Path(version_file_path.name + ".lock")
@@ -465,9 +383,6 @@ def update_version(
         version = version if version else previous
 
         with lock:
-            # first, since it can fail and nothing should be modified if it does
-            if not (version.is_prerelease or version.is_devrelease):
-                update_release_history(version, release_date or timestamp.date(), doi)
             update_version_txt_and_py(version, timestamp)
             update_meson_build(version)
             update_version_tex(version, timestamp, developmode)
@@ -515,12 +430,7 @@ def test_update_version(version, full):
     timestamp = datetime.now()
 
     try:
-        update_version(
-            timestamp=timestamp,
-            version=version,
-            developmode=full,
-            doi="https://doi.org/10.5066/TEST",
-        )
+        update_version(timestamp=timestamp, version=version, developmode=full)
         updated = Version(version_file_path.read_text().strip())
 
         # check files containing version info were modified
@@ -547,103 +457,8 @@ def test_update_version(version, full):
         assert any(("preliminary or provisional") in line for line in lines) != full
 
     finally:
-        for p in [*touched_file_paths, release_notes_path]:
+        for p in touched_file_paths:
             os.system(f"git restore {p}")
-
-
-_release_history_sample = r"""\begin{tabular*}{\columnwidth}{l l l}
-6.7.0 & February 6, 2026 & \url{https://doi.org/10.5066/P1IJAXDZ} \\
-6.8.0 & September 2, 2026 & \url{https://doi.org/10.5066/P1PGE9XW} \\
-\hline
-\label{tab:releases}
-\end{tabular*}
-"""
-
-
-@pytest.fixture
-def release_notes(tmp_path):
-    path = tmp_path / "ReleaseNotes.tex"
-    path.write_text(_release_history_sample)
-    return path
-
-
-def test_update_release_history_patch_reuses_doi(release_notes):
-    assert update_release_history(
-        Version("6.8.1"), date(2026, 9, 21), path=release_notes
-    )
-
-    expected = _release_history_sample.replace(
-        "\\hline",
-        "6.8.1 & September 21, 2026 & \\url{https://doi.org/10.5066/P1PGE9XW} \\\\\n"
-        "\\hline",
-    )
-    assert release_notes.read_text() == expected
-
-
-def test_update_release_history_minor_with_doi(release_notes):
-    doi = "https://doi.org/10.5066/NEWDOI"
-    assert update_release_history(
-        Version("6.9.0"), date(2026, 12, 1), doi=doi, path=release_notes
-    )
-
-    lines = release_notes.read_text().splitlines()
-    assert lines[3] == f"6.9.0 & December 1, 2026 & \\url{{{doi}}} \\\\"
-    assert lines[4] == "\\hline"
-
-
-def test_update_release_history_minor_without_doi(release_notes):
-    with pytest.raises(ValueError, match=r"No DOI for new release 6\.9\.0"):
-        update_release_history(Version("6.9.0"), date(2026, 12, 1), path=release_notes)
-    assert release_notes.read_text() == _release_history_sample
-
-
-def test_update_release_history_existing_row_is_kept(release_notes):
-    # e.g. a minor release whose row was added manually, or a repeated run
-    assert update_release_history(
-        Version("6.8.1"), date(2026, 9, 21), path=release_notes
-    )
-    added = release_notes.read_text()
-    assert not update_release_history(
-        Version("6.8.1"), date(2026, 9, 22), path=release_notes
-    )
-    assert release_notes.read_text() == added
-
-    assert not update_release_history(
-        Version("6.8.0"), date(2026, 9, 22), path=release_notes
-    )
-    assert release_notes.read_text() == added
-
-
-def test_get_release_history_doi(release_notes):
-    assert (
-        get_release_history_doi(Version("6.7.0"), path=release_notes)
-        == "https://doi.org/10.5066/P1IJAXDZ"
-    )
-    assert (
-        get_release_history_doi(Version("6.8.0"), path=release_notes)
-        == "https://doi.org/10.5066/P1PGE9XW"
-    )
-    assert get_release_history_doi(Version("6.8.1"), path=release_notes) is None
-    assert get_release_history_doi(Version("6.9.0.dev0"), path=release_notes) is None
-
-    # a row added for a patch release is found, with the reused DOI
-    update_release_history(Version("6.8.1"), date(2026, 9, 21), path=release_notes)
-    assert (
-        get_release_history_doi(Version("6.8.1"), path=release_notes)
-        == "https://doi.org/10.5066/P1PGE9XW"
-    )
-
-
-def test_update_release_history_no_table(tmp_path):
-    path = tmp_path / "ReleaseNotes.tex"
-    path.write_text("nothing to see here\n")
-    with pytest.raises(ValueError, match="No release history table rows"):
-        update_release_history(Version("6.8.1"), date(2026, 9, 21), path=path)
-
-
-def test_update_release_history_repo_notes():
-    # the table in the repository's release notes must be parseable
-    assert list(_release_history_row.finditer(release_notes_path.read_text()))
 
 
 if __name__ == "__main__":
@@ -686,18 +501,15 @@ version.
 Use `--releasemode` to control whether IDEVELOPMODE is set to 0 instead
 of 1, and to alter mf6's output and disclaimer text reflecting approval.
 
-Use `--citation` (`-c`) to render the current software citation. Pass the
-release DOI link via `--doi` (`-d`), e.g.
-`--doi https://doi.org/10.5066/P1PGE9XW`; if omitted, the DOI in the release
-history row for the version in ReleaseNotes.tex is used, or if there is no
-row, the umbrella MODFLOW software DOI.
+Use `--date` (`YYYY-MM-DD`) to give the date used in timestamps instead of
+the current date, so all steps of a release can use the same date.
 
-When updating to a release version (not a pre-release or development version),
-a row for the version is added to the release history table in ReleaseNotes.tex
-unless it already has one. The row is dated today, or `--date` (`YYYY-MM-DD`)
-if provided. A patch release uses the DOI of the previous release with the same
-major and minor version. A new minor or major release needs `--doi`, unless its
-row was added to ReleaseNotes.tex beforehand.
+Use `--citation` (`-c`) to render the current software citation. The
+citation's date and DOI are those in the release history row for the version
+in ReleaseNotes.tex, see doc/ReleaseNotes/release_history.py. Without a row,
+the current date and the umbrella MODFLOW software DOI are used. Pass `--date`
+or the release DOI link via `--doi` (`-d`), e.g.
+`--doi https://doi.org/10.5066/P1PGE9XW`, to override them.
             """
         ),
     )
@@ -720,22 +532,19 @@ row was added to ReleaseNotes.tex beforehand.
         "--doi",
         required=False,
         default=None,
-        help="DOI link (e.g. https://doi.org/10.5066/P1PGE9XW) of the release. "
-        "Substituted into the software citation rendered by --citation, "
-        "defaulting to the DOI in the release history row for the version, or "
-        f"if there is none the umbrella MODFLOW software DOI ({_default_doi}). "
-        "Also used in the release history row added when updating to a release "
-        "version, defaulting to the DOI of the previous release with the same "
-        "major and minor version. Required for a new minor or major release "
-        "whose release history row doesn't already exist.",
+        help="DOI link (e.g. https://doi.org/10.5066/P1PGE9XW) to substitute "
+        "into the software citation rendered by --citation. Defaults to the "
+        "DOI in the release history row for the version, or if there is none "
+        f"the umbrella MODFLOW software DOI ({_default_doi}).",
     )
     parser.add_argument(
         "--date",
         required=False,
         type=date.fromisoformat,
         default=None,
-        help="Release date (YYYY-MM-DD) for the release history row added when "
-        "updating to a release version. Defaults to today.",
+        help="Date (YYYY-MM-DD) to use in timestamps, and in the citation "
+        "rendered by --citation. Defaults to the date in the release history "
+        "row for the version if rendering the citation, otherwise today.",
     )
     parser.add_argument(
         "-a",
@@ -789,18 +598,26 @@ row was added to ReleaseNotes.tex beforehand.
     else:
         version = _current_version
 
+    now = datetime.now()
+    timestamp = datetime.combine(args.date, now.time()) if args.date else now
+
     if citation:
-        doi = args.doi or get_release_history_doi(version)
-        if doi is None:
+        # a release's date and DOI are those in its release history row
+        release = find_release(version.base_version)
+        if release is None:
             print(
-                f"No release history row for {version}, using the umbrella DOI",
+                f"No release history row for {version}, using the current date "
+                "and umbrella DOI unless --date and --doi are provided",
                 file=sys.stderr,
             )
+        elif not args.date:
+            timestamp = datetime.combine(release[0], now.time())
+        doi = args.doi or (release[1] if release else _default_doi)
         print(
             get_software_citation(
-                timestamp=datetime.now(),
+                timestamp=timestamp,
                 version=version,
-                doi=doi or _default_doi,
+                doi=doi,
                 developmode=developmode,
             )
         )
@@ -809,11 +626,5 @@ row was added to ReleaseNotes.tex beforehand.
     else:
         mode = "develop" if developmode else "release"
         print(f"Updating to version {version} in {mode} mode", file=sys.stderr)
-        update_version(
-            version=version,
-            timestamp=datetime.now(),
-            developmode=developmode,
-            release_date=args.date,
-            doi=args.doi,
-        )
+        update_version(version=version, timestamp=timestamp, developmode=developmode)
         print(version)

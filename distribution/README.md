@@ -145,9 +145,9 @@ Double-check release notes in `doc/ReleaseNotes/develop.toml` with the authors o
 
 For hotfix releases, `develop.toml` must be trimmed manually on the release branch. For patch releases made from `develop`, release notes are automatically filtered to include only fixes.
 
-**Note**: A line providing the version number, date and DOI of the release, e.g. `6.4.4 & February 13, 2024 & \url{https://doi.org/10.5066/P9FL1JCC}`, is added to the Release History section of `ReleaseNotes.tex` automatically when the release workflow updates the version (see `update_version.py`). The date is the date the workflow runs. DOIs are updated with minor releases and remain the same for patch releases, so patch releases reuse the DOI of the minor release they patch.
+**Note**: A line providing the version number, date and DOI of the release, e.g. `6.4.4 & February 13, 2024 & \url{https://doi.org/10.5066/P9FL1JCC}`, is added to the Release History section of `ReleaseNotes.tex` automatically by the release workflow, using `doc/ReleaseNotes/release_history.py` (`pixi run add-release-history`). The date is the date the workflow starts, which is also used for build timestamps and the software citation. DOIs are updated with minor releases and remain the same for patch releases, so patch releases reuse the DOI of the minor release they patch.
 
-A new minor (or major) release needs its DOI provided. Pushing a `vX.Y.0` branch does not trigger the release workflow, since a push can't take input. Start the release with `workflow_dispatch` and the `doi` input instead (see [Workflow triggers](#workflow-triggers)). As a safeguard, a release started without a DOI fails immediately, before anything is built, unless the release branch already has a line for the release with the DOI. Release candidate (`rc`) branches are exempt, as no line is added for them. The DOI is also used in the software citation in the drafted GitHub release.
+A new minor (or major) release needs its DOI provided. Pushing a `vX.Y.0` branch does not trigger the release workflow, since a push can't take input. Start the release with `workflow_dispatch` and the `doi` input instead (see [Workflow triggers](#workflow-triggers)). The DOI may be given bare (`10.5066/P1PGE9XW`) or as a link. As a safeguard, a release started without a DOI, or with an invalid one, fails immediately, before anything is built, unless the release branch already has a line for the release with the DOI. Release candidate (`rc`) branches are exempt, as no line is added for them. The date and DOI in the release history are also used in the software citation in the drafted GitHub release.
 
 ### Release examples repo
 
@@ -189,10 +189,11 @@ Visit the USGS "MODFLOW and Related Programs" site for information on MODFLOW 6 
 ```
 
 The citation string can be rendered with `pixi run update-version -c`. Pass the
-release DOI link via `--doi` (`-d`), e.g.
-`pixi run update-version -c -d https://doi.org/10.5066/P1PGE9XW`; without it the
-DOI in the release history row for the version in `ReleaseNotes.tex` is used, or if there is no row, the umbrella MODFLOW software DOI. The DOI on the last line is the original
-and stays the same.
+release DOI link via `--doi` (`-d`) and the release date via `--date`, e.g.
+`pixi run update-version -c -d https://doi.org/10.5066/P1PGE9XW --date 2026-09-21`;
+without them the date and DOI in the release history row for the version in
+`ReleaseNotes.tex` are used, or if there is no row, today's date and the umbrella
+MODFLOW software DOI. The DOI on the last line is the original and stays the same.
 
 Publish the release.
 
@@ -238,6 +239,8 @@ The `update_version.py` script synchronizes updates to `version.txt` and other f
 pixi run update-version -v 6.4.1
 python update_version.py -v 6.4.1 # or from the distribution/ folder
 ```
+
+The `--date` option (`YYYY-MM-DD`) sets the date used in timestamps, instead of today's. The release workflow passes the same date to each job so they agree.
 
 If a `--version` value is not provided, the version string will not be changed, just dates and timestamps. The `--version` value may contain trailing letters, e.g.
 
