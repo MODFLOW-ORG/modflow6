@@ -117,7 +117,7 @@ To make a release,
 9. reset the develop branch
 10. release downstream repos
 
-Complete steps 1-3 in consultation with the development team, then steps 4 and 5 once the release is greenlit. Step 5 triggers automation for steps 6-8. Step 6 happens automatically; steps 7 and 8 require review and manual sign-off. Steps 9 and 10 are performed manually.
+Complete steps 1-3 in consultation with the development team, then steps 4 and 5 once the release is greenlit. Step 5 triggers automation for steps 6-8, by pushing the branch or, for a new minor release, dispatching the workflow manually. Step 6 happens automatically; steps 7 and 8 require review and manual sign-off. Steps 9 and 10 are performed manually.
 
 It is typical to undergo several iterations of 5-6 as candidate distributions are reviewed and issues are identified and resolved. The MF6IO guide in particular should be carefully inspected. Some things to look for:
 
@@ -147,7 +147,7 @@ For hotfix releases, `develop.toml` must be trimmed manually on the release bran
 
 **Note**: A line providing the version number, date and DOI of the release, e.g. `6.4.4 & February 13, 2024 & \url{https://doi.org/10.5066/P9FL1JCC}`, is added to the Release History section of `ReleaseNotes.tex` automatically when the release workflow updates the version (see `update_version.py`). The date is the date the workflow runs. DOIs are updated with minor releases and remain the same for patch releases, so patch releases reuse the DOI of the minor release they patch.
 
-A new minor (or major) release needs its DOI provided. Start it with `workflow_dispatch` and the `doi` input (see [Workflow triggers](#workflow-triggers)). A release started by pushing a branch has no way to take input, so a push-triggered minor release fails immediately, before anything is built, unless the release branch already has a line for the release with the DOI. Release candidate (`rc`) branches are exempt, as no line is added for them. The DOI is also used in the software citation in the drafted GitHub release.
+A new minor (or major) release needs its DOI provided. Pushing a `vX.Y.0` branch does not trigger the release workflow, since a push can't take input. Start the release with `workflow_dispatch` and the `doi` input instead (see [Workflow triggers](#workflow-triggers)). As a safeguard, a release started without a DOI fails immediately, before anything is built, unless the release branch already has a line for the release with the DOI. Release candidate (`rc`) branches are exempt, as no line is added for them. The DOI is also used in the software citation in the drafted GitHub release.
 
 ### Release examples repo
 
@@ -164,7 +164,7 @@ git switch -c v6.4.0
 
 Push the branch to the repository. This triggers the release workflow. 
 
-Pushing is suitable for patch releases and release candidates. A new minor release needs its DOI, so [dispatch the workflow manually](#workflow-triggers) with the `doi` input instead. The workflow releases from an existing branch, so push it first, but with a name that doesn't match the push trigger (e.g. `release-6.9.0` instead of `v6.9.0`), since a push-triggered minor release fails immediately without a DOI. A dispatched release takes the branch and version from its inputs, so the branch needn't be named after the version.
+Pushing a `vX.Y.Z` branch triggers the release workflow for patch releases (`Z` is not 0) and for release candidates (`rc` suffix). A new minor release, `vX.Y.0`, does not trigger on push as it needs its DOI: push the branch, then [dispatch the workflow manually](#workflow-triggers) from it with the `doi` input.
 
 ### Build assets/distributions
 
@@ -359,8 +359,8 @@ The scripts in this directory are used by two GitHub Actions workflows:
 
 The `release.yml` workflow has no triggers of its own, and must be dispatched by `.github/workflows/release_dispatch.yml`, in one of two ways:
 
-- Pushing a branch with a suitable name (e.g. `vx.y.z[rc]`) to the `MODFLOW-ORG/modflow6` repository. This is how releases are typically triggered.
-- Triggering the workflow via GitHub CLI or web UI. Useful for testing release candidates or verifying the release automation before a final release is made. This is also how to release a new minor version, as it takes the release's DOI as input. Unlike a push, dispatching starts from defaults suited to development builds, so for an approved release set `releasemode` to true (otherwise no release pull request is drafted) and, for a patch release, `patch` to true.
+- Pushing a branch named `vx.y.z` for a patch release (`z` not 0) or `vx.y.zrc` for a release candidate to the `MODFLOW-ORG/modflow6` repository.
+- Triggering the workflow via GitHub CLI or web UI. This is how to release a new minor version (`vx.y.0`), as it takes the release's DOI as input. Also useful for testing release candidates or verifying the release automation before a final release is made. Dispatch from the release branch, giving its name as the `branch` input. Unlike a push, dispatching starts from defaults suited to development builds, so for an approved release set `releasemode` to true (otherwise no release pull request is drafted) and, for a patch release, `patch` to true.
 
 The `release.yml` workflow is a callable function for producing distributions. It uses the scripts in this directory to build a distribution for each supported platform. Custom actions in `.github/actions/` are also used for extended builds.
 

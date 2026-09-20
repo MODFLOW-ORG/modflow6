@@ -2,8 +2,11 @@ name: MODFLOW 6 release dispatch
 on:
   push:
     branches:
-      # initial phase of the release procedure is triggered by pushing a release branch
-      - v[0-9]+.[0-9]+.[0-9]+*
+      # initial phase of the release procedure is triggered by pushing a release branch, for
+      # a patch release (patch version 1-9, then anything) or a release candidate (ending in
+      # rc). A new minor release, vX.Y.0, needs its DOI as input so is started via dispatch.
+      - v[0-9]+.[0-9]+.[1-9]*
+      - v[0-9]+.[0-9]+.[0-9]+rc*
       # intermediate phase is triggered by merging the release branch to master
       - master
   # final phase is triggered by promoting/publishing a GitHub release draft to a full release
