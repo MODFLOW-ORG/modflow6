@@ -256,12 +256,8 @@ contains
     real(DP) :: flow_ss !< the specific storage rate for node n
     real(DP) :: flow_sy !< the (unsaturated) specific yield rate for node n
 
-    ! reset rates
-    this%gwf_sto%strgss(n) = DZERO
+    ! reset UZR storage rate
     this%strguz(n) = DZERO
-
-    if (this%gwf_sto%iss == 1) return ! done when steady state
-    if (this%gwf_sto%ibound(n) <= 0) return
 
     if (this%gwf_sto%inewton == 0) then
       call this%calculate_coeffs(n, h_old, h_new, coeffs)
