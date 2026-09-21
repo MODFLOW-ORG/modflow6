@@ -9,6 +9,7 @@ module PrtOcInputModule
   public prt_oc_block_definitions
   public PrtOcParamFoundType
   public prt_oc_multi_package
+  public prt_oc_is_advanced
   public prt_oc_subpackages
 
   type PrtOcParamFoundType
@@ -56,6 +57,7 @@ module PrtOcInputModule
   end type PrtOcParamFoundType
 
   logical :: prt_oc_multi_package = .false.
+  logical :: prt_oc_is_advanced = .false.
 
   character(len=16), parameter :: &
     prt_oc_subpackages(*) = &

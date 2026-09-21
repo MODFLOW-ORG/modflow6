@@ -1,5 +1,9 @@
 line-length = 88
-target-version = "py39"
+target-version = "py313"
+
+# in addition to ruff's default excludes: skip nested agent worktrees and the
+# vendored test-drive library, which contain copies of source not owned here
+extend-exclude = [".claude", ".test-drive"]
 
 [lint]
 select = [

@@ -9,6 +9,7 @@ module GwtCncInputModule
   public gwt_cnc_block_definitions
   public GwtCncParamFoundType
   public gwt_cnc_multi_package
+  public gwt_cnc_is_advanced
   public gwt_cnc_subpackages
 
   type GwtCncParamFoundType
@@ -33,6 +34,7 @@ module GwtCncInputModule
   end type GwtCncParamFoundType
 
   logical :: gwt_cnc_multi_package = .true.
+  logical :: gwt_cnc_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwt_cnc_subpackages(*) = &

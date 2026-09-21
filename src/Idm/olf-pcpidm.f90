@@ -9,6 +9,7 @@ module OlfPcpInputModule
   public olf_pcp_block_definitions
   public OlfPcpParamFoundType
   public olf_pcp_multi_package
+  public olf_pcp_is_advanced
   public olf_pcp_subpackages
 
   type OlfPcpParamFoundType
@@ -33,6 +34,7 @@ module OlfPcpInputModule
   end type OlfPcpParamFoundType
 
   logical :: olf_pcp_multi_package = .true.
+  logical :: olf_pcp_is_advanced = .false.
 
   character(len=16), parameter :: &
     olf_pcp_subpackages(*) = &

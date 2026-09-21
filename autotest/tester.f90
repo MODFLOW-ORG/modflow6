@@ -11,12 +11,15 @@ program tester
   use TestList, only: collect_list
   use TestListIterator, only: collect_listiterator
   use TestMathUtil, only: collect_mathutil
+  use TestMawNonVertical, only: collect_mawnonvertical
+  use TestMawNur, only: collect_mawnur
   use TestMemoryContainerIterator, only: collect_memorycontaineriterator
   use TestMemoryStore, only: collect_memorystore
   use TestMessage, only: collect_message
   use TestPseudoInverse, only: collect_pinv
   use TestPtrHashTable, only: collect_ptrhashtable
   use TestSim, only: collect_sim
+  use TestSmoothing, only: collect_smoothing
   use TestSVD, only: collect_svd
   use TestSwfUtils, only: collect_swfutils
   use TestTimeSelect, only: collect_timeselect
@@ -40,6 +43,8 @@ program tester
                new_testsuite("List", collect_list), &
                new_testsuite("ListIterator", collect_listiterator), &
                new_testsuite("MathUtil", collect_mathutil), &
+               new_testsuite("MawNonVertical", collect_mawnonvertical), &
+               new_testsuite("MawNur", collect_mawnur), &
                new_testsuite("MemoryContainerIterator", &
                              collect_memorycontaineriterator), &
                new_testsuite("MemoryStore", collect_memorystore), &
@@ -47,6 +52,7 @@ program tester
                new_testsuite("PseudoInverse", collect_pinv), &
                new_testsuite("PtrHashTable", collect_ptrhashtable), &
                new_testsuite("Sim", collect_sim), &
+               new_testsuite("Smoothing", collect_smoothing), &
                new_testsuite("SVD", collect_svd), &
                new_testsuite("SwfUtils", collect_swfutils), &
                new_testsuite("TimeSelect", collect_timeselect), &

@@ -9,6 +9,7 @@ module OlfChdInputModule
   public olf_chd_block_definitions
   public OlfChdParamFoundType
   public olf_chd_multi_package
+  public olf_chd_is_advanced
   public olf_chd_subpackages
 
   type OlfChdParamFoundType
@@ -33,6 +34,7 @@ module OlfChdInputModule
   end type OlfChdParamFoundType
 
   logical :: olf_chd_multi_package = .true.
+  logical :: olf_chd_is_advanced = .false.
 
   character(len=16), parameter :: &
     olf_chd_subpackages(*) = &

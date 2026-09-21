@@ -9,6 +9,7 @@ module PrtDisvInputModule
   public prt_disv_block_definitions
   public PrtDisvParamFoundType
   public prt_disv_multi_package
+  public prt_disv_is_advanced
   public prt_disv_subpackages
 
   type PrtDisvParamFoundType
@@ -45,6 +46,7 @@ module PrtDisvInputModule
   end type PrtDisvParamFoundType
 
   logical :: prt_disv_multi_package = .false.
+  logical :: prt_disv_is_advanced = .false.
 
   character(len=16), parameter :: &
     prt_disv_subpackages(*) = &

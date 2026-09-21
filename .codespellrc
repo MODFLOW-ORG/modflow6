@@ -1,3 +1,3 @@
 [codespell]
-skip = *.pdf,*.grb,*.bib,*.bst,*.log,./builddir,./src/Utilities/Libraries,./utils/mf5to6,./doc/ReleaseNotes/previous,pixi.*
+skip = *.pdf,*.grb,*.bib,*.bst,*.log,./.claude,./.test-drive,./builddir,./src/Utilities/Libraries,./utils/mf5to6,./doc/ReleaseNotes/previous,pixi.*
 ignore-words = .codespell.ignore

@@ -55,7 +55,6 @@ def build_mf6_makefile():
             inplace=True,
             dryrun=True,
             makefile=True,
-            networkx=True,
         )
 
 
@@ -74,7 +73,6 @@ def build_zbud6_makefile():
             include_subdirs=True,
             makefile=True,
             dryrun=True,
-            networkx=True,
         )
 
         assert returncode == 0, f"Failed to create makefile for '{target}'"
@@ -98,7 +96,6 @@ def build_mf5to6_makefile():
             inplace=True,
             dryrun=True,
             makefile=True,
-            networkx=True,
             fflags=["-fall-intrinsics"],
         )
 

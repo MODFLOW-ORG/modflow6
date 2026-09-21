@@ -9,12 +9,14 @@ module ExgGwfprtInputModule
   public exg_gwfprt_block_definitions
   public ExgGwfprtParamFoundType
   public exg_gwfprt_multi_package
+  public exg_gwfprt_is_advanced
   public exg_gwfprt_subpackages
 
   type ExgGwfprtParamFoundType
   end type ExgGwfprtParamFoundType
 
   logical :: exg_gwfprt_multi_package = .false.
+  logical :: exg_gwfprt_is_advanced = .false.
 
   character(len=16), parameter :: &
     exg_gwfprt_subpackages(*) = &

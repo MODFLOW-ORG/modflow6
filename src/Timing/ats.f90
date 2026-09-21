@@ -541,28 +541,31 @@ contains
     if (this%isAdaptivePeriod(kper)) then
       n = this%kperats(kper)
       tsfact = this%dtadj(n)
-      if (tsfact > DONE) then
-        !
-        ! -- if idir is present, then dt is a length that should be adjusted
-        !    (divided by or multiplied by) by dtadj.  If idir is not present
-        !    then dt is the submitted time step.
-        if (present(idir)) then
-          dt_temp = DZERO
+      dt_temp = DZERO
+      !
+      ! -- If idir is present, then dt is a length that should be adjusted
+      !    (divided by or multiplied by) by dtadj.  That adjustment is what
+      !    dtadj controls, and it does nothing when dtadj is zero or one.  If
+      !    idir is not present then dt is an absolute time step length that a
+      !    package has submitted for its own stability, and it is honored
+      !    whatever dtadj is set to.
+      if (present(idir)) then
+        if (tsfact > DONE) then
           if (idir == -1) then
             dt_temp = dt / tsfact
           else if (idir == 1) then
             dt_temp = dt * tsfact
           end if
-        else
-          dt_temp = dt
         end if
-        if (kstp > 1 .and. dt_temp > DZERO) then
-          write (iout, fmtdtsubmit) trim(adjustl(sloc)), dt_temp
-        end if
-        if (dt_temp > DZERO .and. dt_temp < this%dtstable) then
-          ! -- Reset dtstable to a smaller value
-          this%dtstable = dt_temp
-        end if
+      else
+        dt_temp = dt
+      end if
+      if (kstp > 1 .and. dt_temp > DZERO) then
+        write (iout, fmtdtsubmit) trim(adjustl(sloc)), dt_temp
+      end if
+      if (dt_temp > DZERO .and. dt_temp < this%dtstable) then
+        ! -- Reset dtstable to a smaller value
+        this%dtstable = dt_temp
       end if
     end if
   end subroutine ats_submit_delt

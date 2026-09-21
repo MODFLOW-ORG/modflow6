@@ -9,6 +9,7 @@ module ExgOlfgwfInputModule
   public exg_olfgwf_block_definitions
   public ExgOlfgwfParamFoundType
   public exg_olfgwf_multi_package
+  public exg_olfgwf_is_advanced
   public exg_olfgwf_subpackages
 
   type ExgOlfgwfParamFoundType
@@ -27,6 +28,7 @@ module ExgOlfgwfInputModule
   end type ExgOlfgwfParamFoundType
 
   logical :: exg_olfgwf_multi_package = .true.
+  logical :: exg_olfgwf_is_advanced = .false.
 
   character(len=16), parameter :: &
     exg_olfgwf_subpackages(*) = &

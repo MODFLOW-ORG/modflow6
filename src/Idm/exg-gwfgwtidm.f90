@@ -9,12 +9,14 @@ module ExgGwfgwtInputModule
   public exg_gwfgwt_block_definitions
   public ExgGwfgwtParamFoundType
   public exg_gwfgwt_multi_package
+  public exg_gwfgwt_is_advanced
   public exg_gwfgwt_subpackages
 
   type ExgGwfgwtParamFoundType
   end type ExgGwfgwtParamFoundType
 
   logical :: exg_gwfgwt_multi_package = .false.
+  logical :: exg_gwfgwt_is_advanced = .false.
 
   character(len=16), parameter :: &
     exg_gwfgwt_subpackages(*) = &

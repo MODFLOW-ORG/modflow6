@@ -7,15 +7,15 @@
 module MeshModelModule
 
   use KindModule, only: DP, I4B, LGP
-  use ConstantsModule, only: LINELENGTH, LENCOMPONENTNAME, LENMEMPATH, &
-                             DNODATA, DHNOFLO
+  use ConstantsModule, only: LINELENGTH, LENBIGLINE, LENCOMPONENTNAME, &
+                             LENMEMPATH, DNODATA, DHNOFLO
   use SimVariablesModule, only: errmsg, warnmsg
   use SimModule, only: store_error, store_warning, store_error_filename
   use MemoryManagerModule, only: mem_setptr
   use InputDefinitionModule, only: InputParamDefinitionType
   use CharacterStringModule, only: CharacterStringType
   use NCModelExportModule, only: export_longname, export_varname, &
-                                 NCBaseModelExportType
+                                 NCBaseModelExportType, wkt_to_cf_gridmapping
   use NetCDFCommonModule, only: nf_verify
   use netcdf
 
@@ -35,6 +35,7 @@ module MeshModelModule
     integer(I4B) :: nmesh_face !< number of faces in mesh
     integer(I4B) :: max_nmesh_face_nodes !< max number of nodes in a single face
     integer(I4B) :: time !< number of steps
+    integer(I4B) :: layer !< number of layers
   contains
   end type MeshNCDimIdType
 
@@ -50,6 +51,7 @@ module MeshModelModule
     integer(I4B) :: mesh_face_ybnds !< mesh faces 2D y bounds array
     integer(I4B) :: mesh_face_nodes !< mesh faces 2D nodes array
     integer(I4B) :: time !< time coordinate variable
+    integer(I4B) :: layer !< layer coordinate variable
     integer(I4B), dimension(:), allocatable :: export !< in scope layer export
     integer(I4B), dimension(:), allocatable :: dependent !< layered dependent variables array
   contains
@@ -240,7 +242,9 @@ contains
     longname = export_longname(idt%longname, &
                                export_pkg%mf6_input%subcomponent_name, &
                                idt%tagname, export_pkg%mf6_input%mempath, &
-                               layer=layer, iaux=iaux)
+                               layer=layer, iaux=iaux, &
+                               component_type=idt%component_type, &
+                               subcomponent_type=idt%subcomponent_type)
 
     ! create the netcdf dependent layer variable
     select case (idt%datatype)
@@ -283,12 +287,8 @@ contains
                                 'units', this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, varid, &
                                 'long_name', longname), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, varid, &
-                                'mesh', this%mesh_name), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, varid, &
-                                'location', 'face'), this%nc_fname)
 
-    ! add grid mapping and mf6 attr
+    ! add grid mapping and mf6 attr (mesh, location, coordinates, grid_mapping)
     call ncvar_gridmap(this%ncid, varid, &
                        this%gridmap_name, this%nc_fname)
     call ncvar_mf6attr(this%ncid, varid, layer, iaux, nc_tag, this%nc_fname)
@@ -469,19 +469,12 @@ contains
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &
                                   'units', this%lenunits), this%nc_fname)
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &
-                                  'standard_name', this%annotation%stdname), &
-                     this%nc_fname)
-      call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &
                                   'long_name', longname), this%nc_fname)
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &
                                   '_FillValue', (/DHNOFLO/)), &
                      this%nc_fname)
-      call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &
-                                  'mesh', this%mesh_name), this%nc_fname)
-      call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &
-                                  'location', 'face'), this%nc_fname)
 
-      ! add grid mapping
+      ! add grid mapping (mesh, location, coordinates, grid_mapping)
       call ncvar_gridmap(this%ncid, this%var_ids%dependent(k), &
                          this%gridmap_name, this%nc_fname)
     end do
@@ -492,19 +485,34 @@ contains
   subroutine define_gridmap(this)
     class(MeshModelType), intent(inout) :: this
     integer(I4B) :: var_id
+    character(len=LINELENGTH) :: gmname
+    character(len=LENBIGLINE) :: effective_crs_wkt
 
     ! was projection info provided
-    if (this%wkt /= '') then
+    if (this%wkt /= '' .or. this%crs_wkt /= '') then
       ! create projection variable
       call nf_verify(nf90_redef(this%ncid), this%nc_fname)
       call nf_verify(nf90_def_var(this%ncid, this%gridmap_name, NF90_INT, &
                                   var_id), this%nc_fname)
-      ! cf-conventions prefers 'crs_wkt'
-      !call nf_verify(nf90_put_att(this%ncid, var_id, 'crs_wkt', this%wkt), &
-      !               this%nc_fname)
-      ! QGIS recognizes 'wkt'
-      call nf_verify(nf90_put_att(this%ncid, var_id, 'wkt', this%wkt), &
-                     this%nc_fname)
+      ! wkt (WKT1, OGC 01-009) -- for legacy/QGIS compatibility
+      if (this%wkt /= '') then
+        call nf_verify(nf90_put_att(this%ncid, var_id, 'wkt', this%wkt), &
+                       this%nc_fname)
+      end if
+      ! crs_wkt (WKT2, ISO 19162:2019) -- required by CF-1.11
+      if (this%crs_wkt /= '') then
+        effective_crs_wkt = this%crs_wkt
+      else
+        effective_crs_wkt = this%wkt
+      end if
+      call nf_verify(nf90_put_att(this%ncid, var_id, 'crs_wkt', &
+                                  trim(effective_crs_wkt)), this%nc_fname)
+      ! grid_mapping_name derived from WKT projection keyword
+      gmname = wkt_to_cf_gridmapping(trim(effective_crs_wkt))
+      if (gmname /= '') then
+        call nf_verify(nf90_put_att(this%ncid, var_id, 'grid_mapping_name', &
+                                    trim(gmname)), this%nc_fname)
+      end if
       call nf_verify(nf90_enddef(this%ncid), this%nc_fname)
       call nf_verify(nf90_put_var(this%ncid, var_id, 1), &
                      this%nc_fname)
@@ -553,7 +561,7 @@ contains
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_node_x, &
                                 'long_name', 'Easting'), this%nc_fname)
 
-    if (this%wkt /= '') then
+    if (this%gridmap_name /= '') then
       ! associate with projection
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_node_x, &
                                   'grid_mapping', this%gridmap_name), &
@@ -574,7 +582,7 @@ contains
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_node_y, &
                                 'long_name', 'Northing'), this%nc_fname)
 
-    if (this%wkt /= '') then
+    if (this%gridmap_name /= '') then
       ! associate with projection
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_node_y, &
                                   'grid_mapping', this%gridmap_name), &
@@ -596,7 +604,7 @@ contains
                                 'long_name', 'Easting'), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_face_x, 'bounds', &
                                 'mesh_face_xbnds'), this%nc_fname)
-    if (this%wkt /= '') then
+    if (this%gridmap_name /= '') then
       ! associate with projection
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_face_x, &
                                   'grid_mapping', this%gridmap_name), &
@@ -626,7 +634,7 @@ contains
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_face_y, 'bounds', &
                                 'mesh_face_ybnds'), this%nc_fname)
 
-    if (this%wkt /= '') then
+    if (this%gridmap_name /= '') then
       ! associate with projection
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%mesh_face_y, &
                                   'grid_mapping', this%gridmap_name), &
@@ -697,9 +705,13 @@ contains
     integer(I4B), intent(in) :: varid
     character(len=*), intent(in) :: gridmap_name
     character(len=*), intent(in) :: nc_fname
+    ! UGRID topology attrs are CRS-independent -- always written on face vars
+    call nf_verify(nf90_put_att(ncid, varid, 'mesh', 'mesh'), nc_fname)
+    call nf_verify(nf90_put_att(ncid, varid, 'location', 'face'), nc_fname)
+    call nf_verify(nf90_put_att(ncid, varid, 'coordinates', &
+                                'mesh_face_x mesh_face_y'), nc_fname)
+    ! grid_mapping only written when a CRS is configured
     if (gridmap_name /= '') then
-      call nf_verify(nf90_put_att(ncid, varid, 'coordinates', &
-                                  'mesh_face_x mesh_face_y'), nc_fname)
       call nf_verify(nf90_put_att(ncid, varid, 'grid_mapping', &
                                   gridmap_name), nc_fname)
     end if

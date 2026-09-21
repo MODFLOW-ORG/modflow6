@@ -9,6 +9,7 @@ module GwfVscInputModule
   public gwf_vsc_block_definitions
   public GwfVscParamFoundType
   public gwf_vsc_multi_package
+  public gwf_vsc_is_advanced
   public gwf_vsc_subpackages
 
   type GwfVscParamFoundType
@@ -31,6 +32,7 @@ module GwfVscInputModule
   end type GwfVscParamFoundType
 
   logical :: gwf_vsc_multi_package = .false.
+  logical :: gwf_vsc_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_vsc_subpackages(*) = &

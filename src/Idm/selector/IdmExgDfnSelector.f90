@@ -20,6 +20,7 @@ module IdmExgDfnSelectorModule
   public :: exg_aggregate_definitions
   public :: exg_block_definitions
   public :: exg_idm_multi_package
+  public :: exg_idm_is_advanced
   public :: exg_idm_subpackages
   public :: exg_idm_integrated
 
@@ -148,6 +149,34 @@ contains
     end select
     return
   end function exg_idm_multi_package
+
+  function exg_idm_is_advanced(subcomponent) result(is_advanced)
+    character(len=*), intent(in) :: subcomponent
+    logical :: is_advanced
+    select case (subcomponent)
+    case ('CHFGWF')
+      is_advanced = exg_chfgwf_is_advanced
+    case ('GWFGWF')
+      is_advanced = exg_gwfgwf_is_advanced
+    case ('GWFGWT')
+      is_advanced = exg_gwfgwt_is_advanced
+    case ('GWTGWT')
+      is_advanced = exg_gwtgwt_is_advanced
+    case ('GWFGWE')
+      is_advanced = exg_gwfgwe_is_advanced
+    case ('GWEGWE')
+      is_advanced = exg_gwegwe_is_advanced
+    case ('GWFPRT')
+      is_advanced = exg_gwfprt_is_advanced
+    case ('OLFGWF')
+      is_advanced = exg_olfgwf_is_advanced
+    case default
+      call store_error('Idm selector subcomponent not found; '//&
+                       &'component="EXG"'//&
+                       &', subcomponent="'//trim(subcomponent)//'".', .true.)
+    end select
+    return
+  end function exg_idm_is_advanced
 
   function exg_idm_subpackages(subcomponent) result(subpackages)
     character(len=*), intent(in) :: subcomponent

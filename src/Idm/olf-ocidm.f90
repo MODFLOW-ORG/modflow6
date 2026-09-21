@@ -9,6 +9,7 @@ module OlfOcInputModule
   public olf_oc_block_definitions
   public OlfOcParamFoundType
   public olf_oc_multi_package
+  public olf_oc_is_advanced
   public olf_oc_subpackages
 
   type OlfOcParamFoundType
@@ -45,6 +46,7 @@ module OlfOcInputModule
   end type OlfOcParamFoundType
 
   logical :: olf_oc_multi_package = .false.
+  logical :: olf_oc_is_advanced = .false.
 
   character(len=16), parameter :: &
     olf_oc_subpackages(*) = &

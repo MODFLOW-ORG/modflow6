@@ -11,6 +11,14 @@ longname activate reach storage
 description keyword that activates storage contributions to the stream-flow routing package continuity equation.
 
 block options
+name ats_courant
+type double precision
+reader urword
+optional true
+longname target Courant number for adaptive time stepping
+description real number value that defines the target Courant number submitted by the SFR Package to the adaptive time stepping (ATS) package.  If ATS\_COURANT is specified and the ATS Package is active, the SFR Package will compute the time step that achieves the target Courant number for the most constraining reach (the reach with the highest wave celerity-to-length ratio) and submit that time step to the ATS Package.  The STORAGE option must be active when ATS\_COURANT is specified.  ATS\_COURANT must be greater than zero.  A recommended baseline value is 1.0, which targets unit Courant number; values between 0.5 and 2.0 are generally acceptable for kinematic wave routing.
+
+block options
 name auxiliary
 type string
 shape (naux)
@@ -341,8 +349,16 @@ type double precision
 reader urword
 optional true
 longname reach storage time weighting
-description real number value that defines the time weighting factor used to calculate the change in channel storage. STORAGE\_WEIGHT must have a value between 0.5 and 1. Default STORAGE\_WEIGHT value is 1.
+description real number value that defines the time weighting factor used to calculate the change in channel storage. DEV\_STORAGE\_WEIGHT must have a value between 0.5 and 1. The default DEV\_STORAGE\_WEIGHT value is 1, which is fully implicit and is recommended for all practical applications.
 
+
+block options
+name dev_no_check
+type keyword
+reader urword
+optional true
+longname do not check reach geometry and parameters
+description keyword that deactivates the checks of reach geometry relative to the model grid and of reach parameters for reasonable values.  This development option is not supported.
 
 # --------------------- gwf sfr dimensions ---------------------
 

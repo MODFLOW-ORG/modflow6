@@ -10,6 +10,7 @@ module {{ dfn.component.capitalize() }}{{ dfn.subcomponent.capitalize() }}InputM
   public {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }}_block_definitions
   public {{ dfn.component.capitalize() }}{{ dfn.subcomponent.capitalize() }}ParamFoundType
   public {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }}_multi_package
+  public {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }}_is_advanced
   public {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }}_subpackages
 
   type {{ dfn.component.capitalize() }}{{ dfn.subcomponent.capitalize() }}ParamFoundType
@@ -19,6 +20,7 @@ module {{ dfn.component.capitalize() }}{{ dfn.subcomponent.capitalize() }}InputM
   end type {{ dfn.component.capitalize() }}{{ dfn.subcomponent.capitalize() }}ParamFoundType
 
   logical :: {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }}_multi_package = {{ dfn.multi_package | value }}
+  logical :: {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }}_is_advanced = {{ dfn.is_advanced | value }}
 
   character(len=16), parameter :: &
     {{ dfn.component.lower() }}_{{ dfn.subcomponent.lower() }}_subpackages(*) = &

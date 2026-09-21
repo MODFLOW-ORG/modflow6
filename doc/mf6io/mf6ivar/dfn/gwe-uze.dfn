@@ -258,6 +258,14 @@ description REPLACE obs6_filename {'{#1}': 'UZE', '{#2}': '\\ref{table:gwe-obsty
 
 # --------------------- gwe uze packagedata ---------------------
 
+block options
+name dev_nonexpanding_matrix
+type keyword
+reader urword
+optional true
+longname do not add rows to the solution matrix
+description keyword that solves the feature temperature with a general mixing equation and adds the result to the right-hand side of the GWE equations, instead of adding a row to the solution matrix for each feature.  This development option is not supported.
+
 block packagedata
 name packagedata
 type recarray uzfno strt aux boundname

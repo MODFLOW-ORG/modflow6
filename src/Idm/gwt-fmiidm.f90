@@ -9,6 +9,7 @@ module GwtFmiInputModule
   public gwt_fmi_block_definitions
   public GwtFmiParamFoundType
   public gwt_fmi_multi_package
+  public gwt_fmi_is_advanced
   public gwt_fmi_subpackages
 
   type GwtFmiParamFoundType
@@ -20,6 +21,7 @@ module GwtFmiInputModule
   end type GwtFmiParamFoundType
 
   logical :: gwt_fmi_multi_package = .false.
+  logical :: gwt_fmi_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwt_fmi_subpackages(*) = &

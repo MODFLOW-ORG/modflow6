@@ -9,7 +9,6 @@ module IdmDfnSelectorModule
   use IdmGwfDfnSelectorModule
   use IdmGwtDfnSelectorModule
   use IdmGweDfnSelectorModule
-  use IdmSwfDfnSelectorModule
   use IdmChfDfnSelectorModule
   use IdmOlfDfnSelectorModule
   use IdmPrtDfnSelectorModule
@@ -22,6 +21,7 @@ module IdmDfnSelectorModule
   public :: aggregate_definitions
   public :: block_definitions
   public :: idm_multi_package
+  public :: idm_is_advanced
   public :: idm_subpackages
   public :: idm_integrated
   public :: idm_component
@@ -42,8 +42,6 @@ contains
       input_definition => gwt_param_definitions(subcomponent)
     case ('GWE')
       input_definition => gwe_param_definitions(subcomponent)
-    case ('SWF')
-      input_definition => swf_param_definitions(subcomponent)
     case ('CHF')
       input_definition => chf_param_definitions(subcomponent)
     case ('OLF')
@@ -73,8 +71,6 @@ contains
       input_definition => gwt_aggregate_definitions(subcomponent)
     case ('GWE')
       input_definition => gwe_aggregate_definitions(subcomponent)
-    case ('SWF')
-      input_definition => swf_aggregate_definitions(subcomponent)
     case ('CHF')
       input_definition => chf_aggregate_definitions(subcomponent)
     case ('OLF')
@@ -104,8 +100,6 @@ contains
       input_definition => gwt_block_definitions(subcomponent)
     case ('GWE')
       input_definition => gwe_block_definitions(subcomponent)
-    case ('SWF')
-      input_definition => swf_block_definitions(subcomponent)
     case ('CHF')
       input_definition => chf_block_definitions(subcomponent)
     case ('OLF')
@@ -134,8 +128,6 @@ contains
       multi_package = gwt_idm_multi_package(subcomponent)
     case ('GWE')
       multi_package = gwe_idm_multi_package(subcomponent)
-    case ('SWF')
-      multi_package = swf_idm_multi_package(subcomponent)
     case ('CHF')
       multi_package = chf_idm_multi_package(subcomponent)
     case ('OLF')
@@ -154,6 +146,37 @@ contains
     return
   end function idm_multi_package
 
+  function idm_is_advanced(component, subcomponent) result(is_advanced)
+    character(len=*), intent(in) :: component
+    character(len=*), intent(in) :: subcomponent
+    logical :: is_advanced
+    select case (component)
+    case ('SIM')
+      is_advanced = sim_idm_is_advanced(subcomponent)
+    case ('GWF')
+      is_advanced = gwf_idm_is_advanced(subcomponent)
+    case ('GWT')
+      is_advanced = gwt_idm_is_advanced(subcomponent)
+    case ('GWE')
+      is_advanced = gwe_idm_is_advanced(subcomponent)
+    case ('CHF')
+      is_advanced = chf_idm_is_advanced(subcomponent)
+    case ('OLF')
+      is_advanced = olf_idm_is_advanced(subcomponent)
+    case ('PRT')
+      is_advanced = prt_idm_is_advanced(subcomponent)
+    case ('EXG')
+      is_advanced = exg_idm_is_advanced(subcomponent)
+    case ('UTL')
+      is_advanced = utl_idm_is_advanced(subcomponent)
+    case default
+      call store_error('Idm selector component not found; '//&
+                       &'component="'//trim(component)//&
+                       &'", subcomponent="'//trim(subcomponent)//'".', .true.)
+    end select
+    return
+  end function idm_is_advanced
+
   function idm_subpackages(component, subcomponent) result(subpackages)
     character(len=*), intent(in) :: component
     character(len=*), intent(in) :: subcomponent
@@ -167,8 +190,6 @@ contains
       subpackages => gwt_idm_subpackages(subcomponent)
     case ('GWE')
       subpackages => gwe_idm_subpackages(subcomponent)
-    case ('SWF')
-      subpackages => swf_idm_subpackages(subcomponent)
     case ('CHF')
       subpackages => chf_idm_subpackages(subcomponent)
     case ('OLF')
@@ -201,8 +222,6 @@ contains
       integrated = gwt_idm_integrated(subcomponent)
     case ('GWE')
       integrated = gwe_idm_integrated(subcomponent)
-    case ('SWF')
-      integrated = swf_idm_integrated(subcomponent)
     case ('CHF')
       integrated = chf_idm_integrated(subcomponent)
     case ('OLF')
@@ -230,8 +249,6 @@ contains
     case ('GWT')
       integrated = .true.
     case ('GWE')
-      integrated = .true.
-    case ('SWF')
       integrated = .true.
     case ('CHF')
       integrated = .true.

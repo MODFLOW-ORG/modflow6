@@ -19,6 +19,7 @@ module IdmPrtDfnSelectorModule
   public :: prt_aggregate_definitions
   public :: prt_block_definitions
   public :: prt_idm_multi_package
+  public :: prt_idm_is_advanced
   public :: prt_idm_subpackages
   public :: prt_idm_integrated
 
@@ -139,6 +140,32 @@ contains
     end select
     return
   end function prt_idm_multi_package
+
+  function prt_idm_is_advanced(subcomponent) result(is_advanced)
+    character(len=*), intent(in) :: subcomponent
+    logical :: is_advanced
+    select case (subcomponent)
+    case ('NAM')
+      is_advanced = prt_nam_is_advanced
+    case ('DIS')
+      is_advanced = prt_dis_is_advanced
+    case ('DISV')
+      is_advanced = prt_disv_is_advanced
+    case ('FMI')
+      is_advanced = prt_fmi_is_advanced
+    case ('MIP')
+      is_advanced = prt_mip_is_advanced
+    case ('OC')
+      is_advanced = prt_oc_is_advanced
+    case ('PRP')
+      is_advanced = prt_prp_is_advanced
+    case default
+      call store_error('Idm selector subcomponent not found; '//&
+                       &'component="PRT"'//&
+                       &', subcomponent="'//trim(subcomponent)//'".', .true.)
+    end select
+    return
+  end function prt_idm_is_advanced
 
   function prt_idm_subpackages(subcomponent) result(subpackages)
     character(len=*), intent(in) :: subcomponent

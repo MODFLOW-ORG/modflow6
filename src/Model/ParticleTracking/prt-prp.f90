@@ -2,7 +2,7 @@ module PrtPrpModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, DEM1, DEM5, DONE, LENFTYPE, LINELENGTH, &
                              LENBOUNDNAME, LENPAKLOC, TABLEFT, TABCENTER, &
-                             MNORMAL, DSAME, DEP3, DEP9, DEM2
+                             MNORMAL, DSAME, DEP3, DEP9, DEM2, DEM7
   use BndModule, only: BndType
   use BndExtModule, only: BndExtType
   use ObsModule, only: DefaultObsIdProcessor
@@ -566,9 +566,19 @@ contains
     real(DP), intent(in) :: x, y, z !< release point
     ! local
     real(DP), allocatable :: polyverts(:, :)
+    real(DP) :: cellsize, tol
 
     call this%fmi%dis%get_polyverts(ic, polyverts)
-    if (.not. point_in_polygon(x, y, polyverts)) then
+    ! Check that the point is within the cell. The point-in-polygon
+    ! check is exact by default, which is unreliable when coords are
+    ! are rotated or very large relative to the cell's size: release
+    ! points on or very close to the cell edge could be rejected as
+    ! outside the cell. Give the check a tolerance scaled to the
+    ! cell extent to reduce sensitivity to coordinate inexactness.
+    cellsize = max(maxval(polyverts(1, :)) - minval(polyverts(1, :)), &
+                   maxval(polyverts(2, :)) - minval(polyverts(2, :)))
+    tol = cellsize * cellsize * DEM7
+    if (.not. point_in_polygon(x, y, polyverts, tol)) then
       write (errmsg, '(a,g0,a,g0,a,i0)') &
         'Error: release point (x=', x, ', y=', y, ') is not in cell ', &
         this%dis%get_nodeuser(ic)

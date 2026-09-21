@@ -1,7 +1,7 @@
 
 Input to the Constant-Head (CHD) Package is read from the file that has type ``CHD6'' in the Name File.  Any number of CHD Packages can be specified for a single groundwater flow model; however, an error will occur if a CHD Package attempts to make a GWF cell a constant-head cell when that cell has already been designated as a constant-head cell either within the present CHD Package or within another CHD Package.
 
-Constant-Head Boundary input can be specified using lists or grid arrays.  Grid array-based input for the CHD package is activated by providing READARRAYGRID within the OPTIONS block.  Instructions for specifying list-based constant-head boundaries is described in the previous section.
+Constant-Head Boundary input can be specified using lists or grid arrays.  Grid array-based input for the CHD package is activated by providing READARRAYGRID within the OPTIONS block.  Instructions for specifying list-based constant-head boundaries are provided in the previous section.
 
 When grid array-based input is used for constant-head boundaries, the DIMENSIONS block is optional.  The input array size is determined from the model grid.  Cells that define no data should contain the DNODATA (3.0E+30) value.  When defined, the MAXBOUND dimension represents the maximum number of defined constant-head boundary (non-DNODATA) cells found in any stress period.  Defining MAXBOUND can reduce the memory footprint of the grid array-based CHD package, especially when the input grid arrays are sparse and the model grid is large.
 
@@ -33,7 +33,7 @@ Previous MODFLOW versions allowed specification of SHEAD and EHEAD, which were t
 
 \vspace{5mm}
 \subsubsection{Available observation types}
-CHD Package observations are limited to the simulated constant head flow rate (\texttt{chd}). The data required for the CHD Package observation type is defined in table~\ref{table:gwf-chdobstype}. Negative and positive values for an observation represent a loss from and gain to the GWF model, respectively.
+CHD Package observations are limited to the simulated constant head flow rate (\texttt{chd}). The data required for the CHD Package observation type is defined in table~\ref{table:gwf-chdgobstype}. Negative and positive values for an observation represent a loss from and gain to the GWF model, respectively.
 
 \begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
 \caption{Available CHD Package observation types} \tabularnewline
@@ -48,7 +48,7 @@ CHD Package observations are limited to the simulated constant head flow rate (\
 \endfoot
 
 \input{../Common/gwf-chdobs.tex}
-\label{table:gwf-chdobstype}
+\label{table:gwf-chdgobstype}
 \end{longtable}
 
 \vspace{5mm}

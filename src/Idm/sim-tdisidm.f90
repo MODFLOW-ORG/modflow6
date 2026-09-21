@@ -9,6 +9,7 @@ module SimTdisInputModule
   public sim_tdis_block_definitions
   public SimTdisParamFoundType
   public sim_tdis_multi_package
+  public sim_tdis_is_advanced
   public sim_tdis_subpackages
 
   type SimTdisParamFoundType
@@ -25,6 +26,7 @@ module SimTdisInputModule
   end type SimTdisParamFoundType
 
   logical :: sim_tdis_multi_package = .false.
+  logical :: sim_tdis_is_advanced = .false.
 
   character(len=16), parameter :: &
     sim_tdis_subpackages(*) = &

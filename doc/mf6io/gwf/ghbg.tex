@@ -1,6 +1,6 @@
 Input to the General-Head Boundary (GHB) Package is read from the file that has type ``GHB6'' in the Name File.  Any number of GHB Packages can be specified for a single groundwater flow model.
 
-General-Head Boundary input can be specified using lists or grid arrays.  Grid array-based input for the GHB package is activated by providing READARRAYGRID within the OPTIONS block.  Instructions for specifying list-based general-head boundaries is described in the previous section.
+General-Head Boundary input can be specified using lists or grid arrays.  Grid array-based input for the GHB package is activated by providing READARRAYGRID within the OPTIONS block.  Instructions for specifying list-based general-head boundaries are provided in the previous section.
 
 When grid array-based input is used for general-head boundaries, the DIMENSIONS block is optional.  The input array size is determined from the model grid.  Cells that define no data should contain the DNODATA (3.0E+30) value.  When defined, the MAXBOUND dimension represents the maximum number of defined general-head boundary (non-DNODATA) cells found in any stress period.  Defining MAXBOUND can reduce the memory footprint of the grid array-based GHB package, especially when the input grid arrays are sparse and the model grid is large.
 
@@ -28,7 +28,7 @@ When grid array-based input is used for general-head boundaries, the DIMENSIONS 
 
 \vspace{5mm}
 \subsubsection{Available observation types}
-General-Head Boundary Package observations include the simulated general-head boundary flow rates (\texttt{ghb}) and the general-head boundary discharge that is available for the MVR package (\texttt{to-mvr}). The data required for each GHB Package observation type is defined in table~\ref{table:gwf-ghbobstype}. The sum of \texttt{ghb} and \texttt{to-mvr} is equal to the simulated general-head boundary flow rate. Negative and positive values for an observation represent a loss from and gain to the GWF model, respectively.
+General-Head Boundary Package observations include the simulated general-head boundary flow rates (\texttt{ghb}) and the general-head boundary discharge that is available for the MVR package (\texttt{to-mvr}). The data required for each GHB Package observation type is defined in table~\ref{table:gwf-ghbgobstype}. The sum of \texttt{ghb} and \texttt{to-mvr} is equal to the simulated general-head boundary flow rate. Negative and positive values for an observation represent a loss from and gain to the GWF model, respectively.
 
 \begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
 \caption{Available GHB Package observation types} \tabularnewline
@@ -43,7 +43,7 @@ General-Head Boundary Package observations include the simulated general-head bo
 \endfoot
 
 \input{../Common/gwf-ghbobs.tex}
-\label{table:gwf-ghbobstype}
+\label{table:gwf-ghbgobstype}
 \end{longtable}
 
 \vspace{5mm}

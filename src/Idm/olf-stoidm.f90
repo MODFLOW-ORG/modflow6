@@ -9,6 +9,7 @@ module OlfStoInputModule
   public olf_sto_block_definitions
   public OlfStoParamFoundType
   public olf_sto_multi_package
+  public olf_sto_is_advanced
   public olf_sto_subpackages
 
   type OlfStoParamFoundType
@@ -19,6 +20,7 @@ module OlfStoInputModule
   end type OlfStoParamFoundType
 
   logical :: olf_sto_multi_package = .false.
+  logical :: olf_sto_is_advanced = .false.
 
   character(len=16), parameter :: &
     olf_sto_subpackages(*) = &

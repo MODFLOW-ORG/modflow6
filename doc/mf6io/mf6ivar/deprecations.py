@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 from packaging.version import Version
 
@@ -9,7 +8,7 @@ MF6IVAR_PATH = PROJ_ROOT_PATH / "doc" / "mf6io" / "mf6ivar"
 
 def get_deprecations(
     dfndir,
-) -> list[tuple[Path, str, Version, Optional[Version]]]:
+) -> list[tuple[Path, str, Version, Version | None]]:
     dfns = Path(dfndir).rglob("*.dfn")
     deps = {}
     for dfn in dfns:
@@ -24,7 +23,7 @@ def get_deprecations(
                     if line.startswith("name"):
                         name = line.split()[1]
                     if line.startswith(key):
-                        val = deps.get((dfn, key), [None, None])
+                        val = deps.get((dfn, name), [None, None])
                         key, ver = line.split()
                         ik = ikeys[key]
                         val[ik] = val[ik] if val[ik] else Version(ver)

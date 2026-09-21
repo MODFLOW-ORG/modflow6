@@ -9,6 +9,7 @@ module UtlSpcaInputModule
   public utl_spca_block_definitions
   public UtlSpcaParamFoundType
   public utl_spca_multi_package
+  public utl_spca_is_advanced
   public utl_spca_subpackages
 
   type UtlSpcaParamFoundType
@@ -23,6 +24,7 @@ module UtlSpcaInputModule
   end type UtlSpcaParamFoundType
 
   logical :: utl_spca_multi_package = .true.
+  logical :: utl_spca_is_advanced = .false.
 
   character(len=16), parameter :: &
     utl_spca_subpackages(*) = &

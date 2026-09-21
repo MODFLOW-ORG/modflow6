@@ -111,12 +111,17 @@ contains
     end if
   end subroutine tvs_source_package_options
 
-  !> @brief Apply input SS/SY column changes for period-data row n to node.
+  !> @brief Apply this node's SS/SY input values to node.
+  !!
+  !! Called for every tracked node; the DNODATA check on each field
+  !! makes this a no-op except where a value is set. node may be invalid
+  !! even when a field has a value at nodeu, so each field validates
+  !! node itself before using it.
   !<
-  subroutine tvs_apply_row_changes(this, n, node)
+  subroutine tvs_apply_row_changes(this, nodeu, node)
     ! -- dummy
     class(TvsType) :: this
-    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: nodeu
     integer(I4B), intent(in) :: node
     ! -- local
     character(len=LINELENGTH) :: cellstr
@@ -125,23 +130,39 @@ contains
       "(a, ' package: Setting ', a, ' value for cell ', a, ' at start of &
       &stress period ', i0, ' = ', g12.5)"
     !
-    if (this%ss_src(n) /= DNODATA) then
-      this%ss(node) = this%ss_src(n)
-      call this%validate_change(node, 'SS')
-      if (this%iprpak /= 0) then
+    if (this%ss_src(nodeu) /= DNODATA) then
+      if (node < 1 .or. node > this%dis%nodes) then
         call this%dis%noder_to_string(node, cellstr)
-        write (this%iout, fmtvalchg) &
-          trim(adjustl(this%packName)), 'SS', trim(cellstr), kper, this%ss(node)
+        write (errmsg, '(a,2(1x,a))') &
+          'CELLID', trim(cellstr), 'is not in the active model domain.'
+        call store_error(errmsg)
+      else
+        this%ss(node) = this%ss_src(nodeu)
+        call this%validate_change(node, 'SS')
+        if (this%iprpak /= 0) then
+          call this%dis%noder_to_string(node, cellstr)
+          write (this%iout, fmtvalchg) &
+            trim(adjustl(this%packName)), 'SS', trim(cellstr), kper, &
+            this%ss(node)
+        end if
       end if
     end if
     !
-    if (this%sy_src(n) /= DNODATA) then
-      this%sy(node) = this%sy_src(n)
-      call this%validate_change(node, 'SY')
-      if (this%iprpak /= 0) then
+    if (this%sy_src(nodeu) /= DNODATA) then
+      if (node < 1 .or. node > this%dis%nodes) then
         call this%dis%noder_to_string(node, cellstr)
-        write (this%iout, fmtvalchg) &
-          trim(adjustl(this%packName)), 'SY', trim(cellstr), kper, this%sy(node)
+        write (errmsg, '(a,2(1x,a))') &
+          'CELLID', trim(cellstr), 'is not in the active model domain.'
+        call store_error(errmsg)
+      else
+        this%sy(node) = this%sy_src(nodeu)
+        call this%validate_change(node, 'SY')
+        if (this%iprpak /= 0) then
+          call this%dis%noder_to_string(node, cellstr)
+          write (this%iout, fmtvalchg) &
+            trim(adjustl(this%packName)), 'SY', trim(cellstr), kper, &
+            this%sy(node)
+        end if
       end if
     end if
   end subroutine tvs_apply_row_changes

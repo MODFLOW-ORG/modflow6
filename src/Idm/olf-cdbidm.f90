@@ -9,6 +9,7 @@ module OlfCdbInputModule
   public olf_cdb_block_definitions
   public OlfCdbParamFoundType
   public olf_cdb_multi_package
+  public olf_cdb_is_advanced
   public olf_cdb_subpackages
 
   type OlfCdbParamFoundType
@@ -30,6 +31,7 @@ module OlfCdbInputModule
   end type OlfCdbParamFoundType
 
   logical :: olf_cdb_multi_package = .true.
+  logical :: olf_cdb_is_advanced = .false.
 
   character(len=16), parameter :: &
     olf_cdb_subpackages(*) = &

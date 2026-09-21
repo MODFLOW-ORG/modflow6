@@ -9,6 +9,7 @@ module GwtNamInputModule
   public gwt_nam_block_definitions
   public GwtNamParamFoundType
   public gwt_nam_multi_package
+  public gwt_nam_is_advanced
   public gwt_nam_subpackages
 
   type GwtNamParamFoundType
@@ -34,6 +35,7 @@ module GwtNamInputModule
   end type GwtNamParamFoundType
 
   logical :: gwt_nam_multi_package = .false.
+  logical :: gwt_nam_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwt_nam_subpackages(*) = &

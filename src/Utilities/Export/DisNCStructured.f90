@@ -16,7 +16,7 @@ module DisNCStructuredModule
   use InputDefinitionModule, only: InputParamDefinitionType
   use CharacterStringModule, only: CharacterStringType
   use NCModelExportModule, only: NCBaseModelExportType, export_varname, &
-                                 export_longname
+                                 export_longname, wkt_to_cf_gridmapping
   use DisModule, only: DisType
   use NetCDFCommonModule, only: nf_verify
   use netcdf
@@ -156,21 +156,22 @@ contains
 
       if (latsz > 0 .and. lonsz > 0) then
         this%latlon = .true.
-        if (this%wkt /= '') then
-          write (warnmsg, '(a)') 'Ignoring user provided NetCDF wkt parameter &
-            &as longitude and latitude arrays have been provided. &
+        if (this%wkt /= '' .or. this%crs_wkt /= '') then
+          write (warnmsg, '(a)') 'Ignoring user provided NetCDF wkt/crs_wkt &
+            &parameter(s) as longitude and latitude arrays have been provided. &
             &Applies to file "'//trim(nc_fname)//'".'
           call store_warning(warnmsg)
           this%wkt = ''
+          this%crs_wkt = ''
           this%gridmap_name = ''
         end if
         call mem_setptr(this%latitude, 'LATITUDE', this%ncf_mempath)
         call mem_setptr(this%longitude, 'LONGITUDE', this%ncf_mempath)
       end if
 
-      if (this%wkt /= '') then
+      if (this%gridmap_name /= '') then
         if (this%dis%angrot /= DZERO) then
-          write (warnmsg, '(a)') 'WKT parameter set with structured rotated &
+          write (warnmsg, '(a)') 'CRS parameter set with structured rotated &
             &grid. Projected coordinates will have grid local values. &
             &Applies to file "'//trim(nc_fname)//'".'
           call store_warning(warnmsg)
@@ -431,7 +432,9 @@ contains
     longname = export_longname(idt%longname, &
                                export_pkg%mf6_input%subcomponent_name, &
                                idt%tagname, export_pkg%mf6_input%mempath, &
-                               iaux=iaux)
+                               iaux=iaux, &
+                               component_type=idt%component_type, &
+                               subcomponent_type=idt%subcomponent_type)
 
     ! create the netcdf timeseries variable
     select case (idt%datatype)
@@ -780,14 +783,18 @@ contains
     end if
 
     ! Z dimension
-    call nf_verify(nf90_def_dim(this%ncid, 'z', this%dis%nlay, this%dim_ids%z), &
-                   this%nc_fname)
-    call nf_verify(nf90_def_var(this%ncid, 'z', NF90_DOUBLE, this%dim_ids%z, &
+    call nf_verify(nf90_def_dim(this%ncid, 'layer', this%dis%nlay, &
+                                this%dim_ids%z), this%nc_fname)
+    call nf_verify(nf90_def_var(this%ncid, 'layer', NF90_INT, this%dim_ids%z, &
                                 this%var_ids%z), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%z, 'units', 'layer'), &
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%z, 'units', '1'), &
+                   this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%z, 'axis', 'Z'), &
+                   this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%z, 'positive', 'down'), &
                    this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%z, 'long_name', &
-                                'layer number'), this%nc_fname)
+                                'model layer'), this%nc_fname)
     !call nf_verify(nf90_put_att(this%ncid, this%var_ids%z, 'bounds', 'z_bnds'), &
     !               this%nc_fname)
     !call nf_verify(nf90_def_var(this%ncid, 'z_bnds', NF90_DOUBLE, &
@@ -809,7 +816,7 @@ contains
                                 'projection_y_coordinate'), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%y, 'long_name', &
                                 'Northing'), this%nc_fname)
-    if (this%wkt /= '') then
+    if (this%gridmap_name /= '') then
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%y, 'grid_mapping', &
                                   this%gridmap_name), this%nc_fname)
     end if
@@ -832,7 +839,7 @@ contains
                                 'projection_x_coordinate'), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%x, 'long_name', &
                                 'Easting'), this%nc_fname)
-    if (this%wkt /= '') then
+    if (this%gridmap_name /= '') then
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%x, 'grid_mapping', &
                                   this%gridmap_name), this%nc_fname)
     end if
@@ -872,9 +879,6 @@ contains
     ! put attr
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, &
                                 'units', this%lenunits), this%nc_fname)
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, &
-                                'standard_name', this%annotation%stdname), &
-                   this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, 'long_name', &
                                 this%annotation%longname), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, '_FillValue', &
@@ -890,13 +894,32 @@ contains
   subroutine define_gridmap(this)
     class(DisNCStructuredType), intent(inout) :: this
     integer(I4B) :: var_id
-    if (this%wkt /= '') then
+    character(len=LINELENGTH) :: gmname
+    character(len=LENBIGLINE) :: effective_crs_wkt
+
+    if (this%wkt /= '' .or. this%crs_wkt /= '') then
       call nf_verify(nf90_redef(this%ncid), this%nc_fname)
       call nf_verify(nf90_def_var(this%ncid, this%gridmap_name, NF90_INT, &
                                   var_id), this%nc_fname)
-      ! TODO: consider variants epsg_code, spatial_ref, esri_pe_string, wkt, etc
-      call nf_verify(nf90_put_att(this%ncid, var_id, 'crs_wkt', this%wkt), &
-                     this%nc_fname)
+      ! wkt (WKT1, OGC 01-009) -- for legacy/QGIS compatibility
+      if (this%wkt /= '') then
+        call nf_verify(nf90_put_att(this%ncid, var_id, 'wkt', this%wkt), &
+                       this%nc_fname)
+      end if
+      ! crs_wkt (WKT2, ISO 19162:2019) -- required by CF-1.11
+      if (this%crs_wkt /= '') then
+        effective_crs_wkt = this%crs_wkt
+      else
+        effective_crs_wkt = this%wkt
+      end if
+      call nf_verify(nf90_put_att(this%ncid, var_id, 'crs_wkt', &
+                                  trim(effective_crs_wkt)), this%nc_fname)
+      ! grid_mapping_name derived from WKT projection keyword
+      gmname = wkt_to_cf_gridmapping(trim(effective_crs_wkt))
+      if (gmname /= '') then
+        call nf_verify(nf90_put_att(this%ncid, var_id, 'grid_mapping_name', &
+                                    trim(gmname)), this%nc_fname)
+      end if
       call nf_verify(nf90_enddef(this%ncid), this%nc_fname)
       call nf_verify(nf90_put_var(this%ncid, var_id, 1), &
                      this%nc_fname)
@@ -1150,7 +1173,9 @@ contains
           axis_sz = dim_ids%x
         end select
 
-        longname = export_longname(idt%longname, pkgname, idt%tagname, mempath)
+        longname = export_longname(idt%longname, pkgname, idt%tagname, mempath, &
+                                   component_type=idt%component_type, &
+                                   subcomponent_type=idt%subcomponent_type)
 
         ! reenter define mode and create variable
         call nf_verify(nf90_redef(ncid), nc_fname)
@@ -1376,7 +1401,9 @@ contains
 
         varname = export_varname(pkgname, idt%tagname, mempath)
         longname = export_longname(idt%longname, pkgname, idt%tagname, mempath, &
-                                   iaux=iaux)
+                                   iaux=iaux, &
+                                   component_type=idt%component_type, &
+                                   subcomponent_type=idt%subcomponent_type)
 
         ! reenter define mode and create variable
         call nf_verify(nf90_redef(ncid), nc_fname)
@@ -1413,7 +1440,9 @@ contains
       if (iper == 0) then
         varname = export_varname(pkgname, idt%tagname, mempath, iaux=iaux)
         longname = export_longname(idt%longname, pkgname, idt%tagname, mempath, &
-                                   iaux=iaux)
+                                   iaux=iaux, &
+                                   component_type=idt%component_type, &
+                                   subcomponent_type=idt%subcomponent_type)
 
         ! reenter define mode and create variable
         call nf_verify(nf90_redef(ncid), nc_fname)
@@ -1533,7 +1562,9 @@ contains
     character(len=LINELENGTH) :: varname, longname
 
     varname = export_varname(pkgname, idt%tagname, mempath)
-    longname = export_longname(idt%longname, pkgname, idt%tagname, mempath)
+    longname = export_longname(idt%longname, pkgname, idt%tagname, mempath, &
+                               component_type=idt%component_type, &
+                               subcomponent_type=idt%subcomponent_type)
 
     ! reenter define mode and create variable
     call nf_verify(nf90_redef(ncid), nc_fname)

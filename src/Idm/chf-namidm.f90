@@ -9,6 +9,7 @@ module ChfNamInputModule
   public chf_nam_block_definitions
   public ChfNamParamFoundType
   public chf_nam_multi_package
+  public chf_nam_is_advanced
   public chf_nam_subpackages
 
   type ChfNamParamFoundType
@@ -25,6 +26,7 @@ module ChfNamInputModule
   end type ChfNamParamFoundType
 
   logical :: chf_nam_multi_package = .false.
+  logical :: chf_nam_is_advanced = .false.
 
   character(len=16), parameter :: &
     chf_nam_subpackages(*) = &

@@ -9,6 +9,7 @@ module GwtOcInputModule
   public gwt_oc_block_definitions
   public GwtOcParamFoundType
   public gwt_oc_multi_package
+  public gwt_oc_is_advanced
   public gwt_oc_subpackages
 
   type GwtOcParamFoundType
@@ -42,6 +43,7 @@ module GwtOcInputModule
   end type GwtOcParamFoundType
 
   logical :: gwt_oc_multi_package = .false.
+  logical :: gwt_oc_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwt_oc_subpackages(*) = &

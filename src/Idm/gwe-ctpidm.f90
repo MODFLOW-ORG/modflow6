@@ -9,6 +9,7 @@ module GweCtpInputModule
   public gwe_ctp_block_definitions
   public GweCtpParamFoundType
   public gwe_ctp_multi_package
+  public gwe_ctp_is_advanced
   public gwe_ctp_subpackages
 
   type GweCtpParamFoundType
@@ -33,6 +34,7 @@ module GweCtpInputModule
   end type GweCtpParamFoundType
 
   logical :: gwe_ctp_multi_package = .true.
+  logical :: gwe_ctp_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwe_ctp_subpackages(*) = &

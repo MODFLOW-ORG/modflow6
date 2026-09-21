@@ -111,7 +111,7 @@ def build_models(idx, test):
     height = [40.0, 10.0, 10.0, 0.0, 0.0, 10.0, 10.0, 40.0]
     npts = len(height)
     mannfraction = npts * [1.0]
-    cxsdata = list(zip(xfraction, height, mannfraction))
+    cxsdata = list(zip([0] * len(xfraction), xfraction, height, mannfraction))
     cxs = flopy.mf6.ModflowChfcxs(
         chf,
         nsections=1,

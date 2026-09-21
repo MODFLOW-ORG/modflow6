@@ -8,8 +8,6 @@ from os import PathLike, environ
 from pathlib import Path
 from pprint import pprint
 from tempfile import TemporaryDirectory
-from typing import Optional
-from urllib.error import HTTPError
 from warnings import warn
 
 import pytest
@@ -58,16 +56,16 @@ LIB_EXT = ".dll" if SYSTEM == "Windows" else ".so" if SYSTEM == "Linux" else ".d
 
 # publications
 PUB_URLS = [
-    "https://pubs.usgs.gov/tm/06/a55/tm6a55.pdf",
-    "https://pubs.usgs.gov/tm/06/a56/tm6a56.pdf",
-    "https://pubs.usgs.gov/tm/06/a57/tm6a57.pdf",
-    "https://pubs.usgs.gov/tm/06/a61/tm6a61.pdf",
-    "https://pubs.usgs.gov/tm/06/a62/tm6a62.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a55.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a56.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a57.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a61.pdf",
+    "https://raw.githubusercontent.com/MODFLOW-ORG/modflow6-reference-documents/main/docs/tm6a62.pdf",
 ]
 
 
 @pytest.fixture
-def github_user() -> Optional[str]:
+def github_user() -> str | None:
     return environ.get("GITHUB_USER", None)
 
 
@@ -399,11 +397,8 @@ def fetch_usgs_pubs(out_path: PathLike, force: bool = False):
         try:
             download_and_unzip(url, path=out_path, delete_zip=False)
             assert (out_path / url.rpartition("/")[2]).is_file()
-        except HTTPError as e:
-            if "404" in str(e):
-                warn(f"Publication not found: {url}")
-            else:
-                raise
+        except OSError as e:
+            warn(f"Failed to download publication {url}: {e}")
 
 
 def build_documentation(
@@ -512,7 +507,8 @@ only what it can't find. Use the --force (-f) flag to regenerate existing artifa
         default=False,
         action="store_true",
         help="Filter content from release notes for a patch release: "
-        "include only items in the 'fixes' section in release notes. "
+        "include only items in the 'fixes' and 'examples' sections in "
+        "release notes. "
         "Defaults to false.",
     )
     parser.add_argument(

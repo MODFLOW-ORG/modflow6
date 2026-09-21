@@ -14,6 +14,7 @@ module IdmSimDfnSelectorModule
   public :: sim_aggregate_definitions
   public :: sim_block_definitions
   public :: sim_idm_multi_package
+  public :: sim_idm_is_advanced
   public :: sim_idm_subpackages
   public :: sim_idm_integrated
 
@@ -94,6 +95,22 @@ contains
     end select
     return
   end function sim_idm_multi_package
+
+  function sim_idm_is_advanced(subcomponent) result(is_advanced)
+    character(len=*), intent(in) :: subcomponent
+    logical :: is_advanced
+    select case (subcomponent)
+    case ('NAM')
+      is_advanced = sim_nam_is_advanced
+    case ('TDIS')
+      is_advanced = sim_tdis_is_advanced
+    case default
+      call store_error('Idm selector subcomponent not found; '//&
+                       &'component="SIM"'//&
+                       &', subcomponent="'//trim(subcomponent)//'".', .true.)
+    end select
+    return
+  end function sim_idm_is_advanced
 
   function sim_idm_subpackages(subcomponent) result(subpackages)
     character(len=*), intent(in) :: subcomponent

@@ -1,15 +1,32 @@
+([ if archive ])
+\subsection{Version mf(( version ))---(( date ))}
+
+([ endif ])
 ([ for section_key, section_items in items|groupby("section") ])
+([ if archive ])
+\textbf{\underline{(( sections[section_key] ))}}
+([ else ])
 \subsection{(( sections[section_key].title() ))}
+([ endif ])
 ([ for subsection_key, subsection_items in section_items|groupby("subsection") ])
 ([ set subsection = subsections[subsection_key] ])
 ([ if subsection|length > 0 ])
+([ if archive ])
+\underline{(( subsection ))}
+([ else ])
 \subsubsection{(( subsection.title() ))}
 ([ endif ])
+([ endif ])
+([ if not archive ])
 
+([ endif ])
 \begin{itemize}
 ([ for item in subsection_items ])
 \item (( item.description ))
 ([ endfor ])
 \end{itemize}
+([ if archive ])
+
+([ endif ])
 ([ endfor ])
 ([ endfor ])

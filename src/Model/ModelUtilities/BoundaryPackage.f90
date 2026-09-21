@@ -131,6 +131,8 @@ module BndModule
     procedure :: bnd_ot_package_flows
     procedure :: bnd_ot_dv
     procedure :: bnd_ot_bdsummary
+    procedure :: bnd_dt
+    procedure :: bnd_fp
     procedure :: bnd_da
 
     procedure :: allocate_scalars
@@ -829,6 +831,20 @@ contains
                                   this%inamedbound, this%boundname)
     end if
   end subroutine bnd_ot_model_flows
+
+  !> @brief Submit an ATS time step request (no-op by default)
+  !<
+  subroutine bnd_dt(this)
+    ! -- dummy
+    class(BndType) :: this !< BndType object
+  end subroutine bnd_dt
+
+  !> @brief Final processing at end of simulation (no-op by default)
+  !<
+  subroutine bnd_fp(this)
+    ! -- dummy
+    class(BndType) :: this !< BndType object
+  end subroutine bnd_fp
 
   !> @ brief Deallocate package memory
   !!

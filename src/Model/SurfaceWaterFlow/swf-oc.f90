@@ -52,8 +52,8 @@ contains
   !<
   subroutine oc_ar(this, datavec, dis, dnodata)
     use ConstantsModule, only: LINELENGTH
+    use KindModule, only: LGP
     use MemoryManagerExtModule, only: mem_set_value
-    use SwfOcInputModule, only: SwfOcParamFoundType
     ! -- dummy
     class(SwfOcType) :: this !< SwfOcType object
     real(DP), dimension(:), pointer, contiguous, intent(in) :: datavec !< data vector
@@ -64,7 +64,8 @@ contains
     type(OutputControlDataType), pointer :: ocdobjptr
     real(DP), dimension(:), pointer, contiguous :: nullvec => null()
     character(len=LINELENGTH) :: stagefile, qoutflowfile
-    type(SwfOcParamFoundType) :: found
+    logical(LGP) :: found_qoutflowfile
+    logical(LGP) :: found_stagefile
     !
     ! -- Initialize variables
     inodata = 0
@@ -95,13 +96,13 @@ contains
       write (this%iout, '(/,1x,a,/)') 'PROCESSING OC OPTIONS'
       call this%source_options()
       call mem_set_value(qoutflowfile, 'QOUTFLOWFILE', this%input_mempath, &
-                         found%qoutflowfile)
+                         found_qoutflowfile)
       call mem_set_value(stagefile, 'STAGEFILE', this%input_mempath, &
-                         found%stagefile)
-      if (found%qoutflowfile) then
+                         found_stagefile)
+      if (found_qoutflowfile) then
         call this%set_ocfile('QOUTFLOW', qoutflowfile, this%iout)
       end if
-      if (found%stagefile) then
+      if (found_stagefile) then
         call this%set_ocfile('STAGE', stagefile, this%iout)
       end if
       write (this%iout, '(1x,a)') 'END OF OC OPTIONS'

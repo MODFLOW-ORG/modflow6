@@ -9,6 +9,7 @@ module OlfZdgInputModule
   public olf_zdg_block_definitions
   public OlfZdgParamFoundType
   public olf_zdg_multi_package
+  public olf_zdg_is_advanced
   public olf_zdg_subpackages
 
   type OlfZdgParamFoundType
@@ -35,6 +36,7 @@ module OlfZdgInputModule
   end type OlfZdgParamFoundType
 
   logical :: olf_zdg_multi_package = .true.
+  logical :: olf_zdg_is_advanced = .false.
 
   character(len=16), parameter :: &
     olf_zdg_subpackages(*) = &

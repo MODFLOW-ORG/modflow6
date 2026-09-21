@@ -3,8 +3,10 @@ module TestGeomUtil
   use testdrive, only: check, error_type, new_unittest, test_failed, &
                        to_string, unittest_type
   use GeomUtilModule, only: get_node, get_ijk, get_jk, point_in_polygon, &
-                            skew, area, shared_face
-  use ConstantsModule, only: LINELENGTH
+                            skew, area, polygon_extent, shared_face, &
+                            transform, compose
+  use ConstantsModule, only: LINELENGTH, DEM7, DPIO180
+  use MathUtilModule, only: is_close
   use DisvGeom, only: shared_edge
   implicit none
   private
@@ -23,11 +25,20 @@ contains
                              test_point_in_polygon_tri), &
                 new_unittest("point_in_polygon_irr", &
                              test_point_in_polygon_irr), &
+                new_unittest("point_in_polygon_tol", &
+                             test_point_in_polygon_tol), &
                 new_unittest("skew", test_skew), &
                 new_unittest("area", test_area), &
+                new_unittest("polygon_extent", test_polygon_extent), &
+                new_unittest("polygon_extent_degenerate", &
+                             test_polygon_extent_degenerate), &
                 new_unittest("shared_face", test_shared_face), &
                 new_unittest("shared_face_large", &
-                             test_shared_face_large) &
+                             test_shared_face_large), &
+                new_unittest("transform_roundtrip", &
+                             test_transform_roundtrip), &
+                new_unittest("compose_roundtrip", &
+                             test_compose_roundtrip) &
                 ]
   end subroutine collect_geomutil
 
@@ -297,6 +308,84 @@ contains
     deallocate (face_pts)
   end subroutine test_point_in_polygon_irr
 
+  !> @brief Test the optional edge tolerance.
+  subroutine test_point_in_polygon_tol(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP), allocatable :: poly(:, :)
+    real(DP) :: xll, yll, dx, dy
+    real(DP) :: xoff, yoff, cellsize, tol
+
+    xll = 512345.678901_DP
+    yll = 4567890.123456_DP
+    dx = 10.0_DP
+    dy = 10.0_DP
+
+    allocate (poly(2, 4))
+    poly(:, 1) = (/xll, yll/)
+    poly(:, 2) = (/xll, yll + dy/)
+    poly(:, 3) = (/xll + dx, yll + dy/)
+    poly(:, 4) = (/xll + dx, yll/)
+
+    ! points exactly on a vertex or edge are always in the polygon,
+    ! tolerance or not
+    call check(error, point_in_polygon(xll, yll, poly), &
+               "point on vertex failed")
+    if (allocated(error)) return
+    call check(error, point_in_polygon(xll + dx, yll + 5.0_DP, poly), &
+               "point on edge failed")
+    if (allocated(error)) return
+
+    ! a point slightly off the edge
+    xoff = xll + dx + 4.0_DP * spacing(xll + dx)
+    yoff = yll + 5.0_DP
+
+    ! without a tolerance, the near-edge point is (correctly) rejected
+    call check(error,.not. point_in_polygon(xoff, yoff, poly), &
+               "near-edge point wrongly accepted without tolerance")
+    if (allocated(error)) return
+
+    ! a tolerance scaled to the cell accepts the same near-edge point
+    cellsize = max(maxval(poly(1, :)) - minval(poly(1, :)), &
+                   maxval(poly(2, :)) - minval(poly(2, :)))
+    tol = cellsize * cellsize * DEM7
+    call check(error, point_in_polygon(xoff, yoff, poly, tol), &
+               "near-edge point wrongly rejected with tolerance")
+    if (allocated(error)) return
+
+    ! a point clearly outside the cell is still rejected, even with
+    ! the tolerance
+    call check(error, &
+               .not. point_in_polygon(xll + dx + 0.001_DP, yoff, &
+                                      poly, tol), &
+               "clearly-outside point wrongly accepted with tolerance")
+    if (allocated(error)) return
+
+    ! the same checks, repeated for a point near a horizontal edge
+    ! (top edge, ya == yb) rather than a vertical one, since the
+    ! on-edge check is derived separately for horizontal edges
+    xoff = xll + 5.0_DP
+    yoff = yll + dy + 4.0_DP * spacing(yll + dy)
+
+    call check(error,.not. point_in_polygon(xoff, yoff, poly), &
+               "near-horizontal-edge point wrongly accepted " &
+               //"without tolerance")
+    if (allocated(error)) return
+
+    call check(error, point_in_polygon(xoff, yoff, poly, tol), &
+               "near-horizontal-edge point wrongly rejected " &
+               //"with tolerance")
+    if (allocated(error)) return
+
+    call check(error, &
+               .not. point_in_polygon(xoff, yll + dy + 0.001_DP, &
+                                      poly, tol), &
+               "clearly-outside point wrongly accepted with tolerance " &
+               //"(horizontal edge)")
+    if (allocated(error)) return
+
+    deallocate (poly)
+  end subroutine test_point_in_polygon_tol
+
   subroutine test_skew(error)
     type(error_type), allocatable, intent(out) :: error
     real(DP) :: v(2)
@@ -359,6 +448,72 @@ contains
     if (allocated(error)) return
 
     deallocate (poly)
+
+  end subroutine
+
+  subroutine test_polygon_extent(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP), allocatable :: poly(:, :)
+    real(DP) :: e
+    integer(I4B) :: i
+
+    ! a rectangle, as a dis cell always is: the extent is the diagonal
+    allocate (poly(2, 4))
+    poly(:, 1) = (/0.0_DP, 0.0_DP/)
+    poly(:, 2) = (/0.0_DP, 10.0_DP/)
+    poly(:, 3) = (/20.0_DP, 10.0_DP/)
+    poly(:, 4) = (/20.0_DP, 0.0_DP/)
+
+    e = polygon_extent(poly(1, :), poly(2, :))
+    call check(error, is_close(e, 22.360679774997898_DP), to_string(e))
+    if (allocated(error)) return
+
+    ! the vertices may be given in any order
+    poly = cshift(poly, shift=2, dim=2)
+    e = polygon_extent(poly(1, :), poly(2, :))
+    call check(error, is_close(e, 22.360679774997898_DP), to_string(e))
+    if (allocated(error)) return
+    deallocate (poly)
+
+    ! a regular hexagon, one shape a disv cell takes: the extent is the
+    ! longest diagonal, which is twice the circumradius
+    allocate (poly(2, 6))
+    do i = 1, 6
+      poly(1, i) = 10.0_DP * cos(real(i - 1, DP) * DPIO180 * 60.0_DP)
+      poly(2, i) = 10.0_DP * sin(real(i - 1, DP) * DPIO180 * 60.0_DP)
+    end do
+
+    e = polygon_extent(poly(1, :), poly(2, :))
+    call check(error, is_close(e, 20.0_DP), to_string(e))
+    if (allocated(error)) return
+    deallocate (poly)
+
+    ! a triangle: the extent is the longest side
+    allocate (poly(2, 3))
+    poly(:, 1) = (/0.0_DP, 0.0_DP/)
+    poly(:, 2) = (/3.0_DP, 0.0_DP/)
+    poly(:, 3) = (/0.0_DP, 4.0_DP/)
+
+    e = polygon_extent(poly(1, :), poly(2, :))
+    call check(error, is_close(e, 5.0_DP), to_string(e))
+    if (allocated(error)) return
+    deallocate (poly)
+
+  end subroutine
+
+  subroutine test_polygon_extent_degenerate(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP) :: e
+
+    ! a single vertex has no extent
+    e = polygon_extent((/1.0_DP/), (/2.0_DP/))
+    call check(error, is_close(e, 0.0_DP), to_string(e))
+    if (allocated(error)) return
+
+    ! two vertices are a distance apart
+    e = polygon_extent((/0.0_DP, 3.0_DP/), (/0.0_DP, 4.0_DP/))
+    call check(error, is_close(e, 5.0_DP), to_string(e))
+    if (allocated(error)) return
 
   end subroutine
 
@@ -427,5 +582,116 @@ contains
     print *, 'shared_edge took: ', tstop - tstart
 
   end subroutine
+
+  subroutine test_transform_roundtrip(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP) :: xo, yo, zo, sr, cr, ang
+    real(DP) :: px, py, pz, qx, qy, qz, rx, ry, rz
+    integer(I4B) :: i
+    ! xo, yo, zo, angle(deg): identity / translate / rotate / both
+    real(DP), parameter :: frames(4, 4) = reshape([ &
+                                                  0.0_DP, 0.0_DP, &
+                                                  0.0_DP, 0.0_DP, &
+                                                  10.0_DP, -5.0_DP, &
+                                                  2.0_DP, 0.0_DP, &
+                                                  0.0_DP, 0.0_DP, &
+                                                  0.0_DP, 25.0_DP, &
+                                                  10.0_DP, -5.0_DP, &
+                                                  2.0_DP, 25.0_DP], &
+                                                  [4, 4])
+
+    px = 2.3_DP
+    py = -4.1_DP
+    pz = 0.7_DP
+    do i = 1, 4
+      xo = frames(1, i)
+      yo = frames(2, i)
+      zo = frames(3, i)
+      ang = frames(4, i) * DPIO180
+      sr = sin(ang)
+      cr = cos(ang)
+      call transform(px, py, pz, qx, qy, qz, xo, yo, zo, sr, cr)
+      call transform(qx, qy, qz, rx, ry, rz, xo, yo, zo, sr, cr, invert=.true.)
+      call check(error, is_close(rx, px, atol=DEM7) .and. &
+                 is_close(ry, py, atol=DEM7) .and. &
+                 is_close(rz, pz, atol=DEM7), &
+                 "transform round trip failed, frame "//to_string(i))
+      if (allocated(error)) return
+    end do
+  end subroutine test_transform_roundtrip
+
+  subroutine test_compose_roundtrip(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP) :: xo, yo, zo, sr, cr
+    real(DP) :: xo0, yo0, zo0, sr0, cr0
+    real(DP) :: ax, ay, az, sa, ca
+    real(DP) :: ex, ey, esr, ecr
+    integer(I4B) :: it, ia
+    ! xo, yo, zo, angle(deg): identity / translate / rotate / both
+    real(DP), parameter :: t4(4, 4) = reshape([ &
+                                              0.0_DP, 0.0_DP, &
+                                              0.0_DP, 0.0_DP, &
+                                              10.0_DP, -5.0_DP, &
+                                              2.0_DP, 0.0_DP, &
+                                              0.0_DP, 0.0_DP, &
+                                              0.0_DP, 25.0_DP, &
+                                              10.0_DP, -5.0_DP, &
+                                              2.0_DP, 25.0_DP], &
+                                              [4, 4])
+    real(DP), parameter :: a4(4, 4) = reshape([ &
+                                              0.0_DP, 0.0_DP, &
+                                              0.0_DP, 0.0_DP, &
+                                              1.5_DP, 0.5_DP, &
+                                              0.0_DP, 0.0_DP, &
+                                              0.0_DP, 0.0_DP, &
+                                              0.0_DP, 13.0_DP, &
+                                              1.5_DP, 0.5_DP, &
+                                              0.0_DP, 13.0_DP], &
+                                              [4, 4])
+
+    do it = 1, 4
+      do ia = 1, 4
+        xo0 = t4(1, it)
+        yo0 = t4(2, it)
+        zo0 = t4(3, it)
+        sr0 = sin(t4(4, it) * DPIO180)
+        cr0 = cos(t4(4, it) * DPIO180)
+        ax = a4(1, ia)
+        ay = a4(2, ia)
+        az = a4(3, ia)
+        sa = sin(a4(4, ia) * DPIO180)
+        ca = cos(a4(4, ia) * DPIO180)
+
+        xo = xo0
+        yo = yo0
+        zo = zo0
+        sr = sr0
+        cr = cr0
+        call compose(xo, yo, zo, sr, cr, ax, ay, az, sa, ca)
+        ex = xo0 + (cr0 * ax - sr0 * ay)
+        ey = yo0 + (sr0 * ax + cr0 * ay)
+        esr = ca * sr0 + sa * cr0
+        ecr = ca * cr0 - sa * sr0
+        call check(error, is_close(xo, ex, atol=DEM7) .and. &
+                   is_close(yo, ey, atol=DEM7) .and. &
+                   is_close(zo, zo0 + az, atol=DEM7) .and. &
+                   is_close(sr, esr, atol=DEM7) .and. &
+                   is_close(cr, ecr, atol=DEM7), &
+                   "compose forward mismatch, T "//to_string(it)// &
+                   " A "//to_string(ia))
+        if (allocated(error)) return
+
+        call compose(xo, yo, zo, sr, cr, ax, ay, az, sa, ca, invert=.true.)
+        call check(error, is_close(xo, xo0, atol=DEM7) .and. &
+                   is_close(yo, yo0, atol=DEM7) .and. &
+                   is_close(zo, zo0, atol=DEM7) .and. &
+                   is_close(sr, sr0, atol=DEM7) .and. &
+                   is_close(cr, cr0, atol=DEM7), &
+                   "compose round trip failed, T "//to_string(it)// &
+                   " A "//to_string(ia))
+        if (allocated(error)) return
+      end do
+    end do
+  end subroutine test_compose_roundtrip
 
 end module TestGeomUtil

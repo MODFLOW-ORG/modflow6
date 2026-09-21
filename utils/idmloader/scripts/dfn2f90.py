@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
 from pprint import pprint
-from typing import Optional
 
 from filters import Filters
 from jinja2 import Environment, FileSystemLoader
@@ -89,7 +88,7 @@ class Param:
     @property
     def varname(self) -> str:
         """Full Fortran variable name for this parameter definition."""
-        if self.block_qualified:
+        if self.block_qualified and self.block.upper() != "PERIOD":
             return (
                 f"{self.component.lower()}"
                 f"{self.subcomponent.lower()}"
@@ -105,7 +104,7 @@ class Param:
     @property
     def found_name(self) -> str:
         """Field name used in the ParamFoundType derived type."""
-        if self.block_qualified:
+        if self.block_qualified and self.block.upper() != "PERIOD":
             return f"{self.block.lower()}_{self.fortran_var.lower()}"
         return self.fortran_var.lower()
 
@@ -127,6 +126,7 @@ class DfnFile:
     component: str
     subcomponent: str
     multi_package: bool
+    is_advanced: bool
     subpackages: list
     params: list  # all params (aggregate + non-aggregate), excluding block_variable
     blocks: list
@@ -142,13 +142,14 @@ class DfnFile:
         return [p for p in self.params if p.aggregate]
 
 
-def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
+def parse_dfn(dfnfspec: Path, common: dict | None = None) -> DfnFile:
     """Parse a DFN file into a DfnFile object."""
     component, subcomponent = dfnfspec.stem.upper().split("-")
 
-    # Pre-scan for multi_package and mf6 subpackages.
+    # Pre-scan for multi_package, is_advanced, and mf6 subpackages.
     # _load_v1_flat only captures "# flopy ..." comments, not "# mf6 subpackage".
     multi_package = False
+    is_advanced = False
     subpackages = []
     for line in dfnfspec.read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
@@ -156,6 +157,8 @@ def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
             continue
         if "flopy multi-package" in stripped:
             multi_package = True
+        elif "package-type advanced-stress-package" in stripped:
+            is_advanced = True
         elif "mf6 subpackage" in stripped:
             sp = stripped.replace("# mf6 subpackage", "").strip().upper()
             subpackages.append(sp.ljust(16))
@@ -206,6 +209,16 @@ def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
 
         # Shape processing
         shape = vd.get("shape", "")
+        mf6dimension = vd.get("mf6dimension", "")
+        if shape and mf6dimension:
+            raise ValueError(
+                f"{component}-{subcomponent} {vn}: 'shape' and "
+                "'mf6dimension' are mutually exclusive"
+            )
+        # mf6dimension is a scalar dependency, not an array shape
+        shape_is_mf6dimension = bool(mf6dimension)
+        if mf6dimension:
+            shape = mf6dimension
         if component.upper() == "EXG" and vn in ("CELLIDM1", "CELLIDM2"):
             shape = "(ncelldim)"
         shape = shape.replace("(", "").replace(")", "").replace(",", "").upper()
@@ -220,7 +233,9 @@ def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
         ndim = len(shapelist)
         shape_str = " ".join(shapelist)
 
-        t = _normalize_type(t_raw, shape_str, ndim, aggregate_t)
+        t = _normalize_type(
+            t_raw, "" if shape_is_mf6dimension else shape_str, ndim, aggregate_t
+        )
         if len(t) > 60:
             t = _wrap_f90_content(t, max_width=60)
 
@@ -327,6 +342,7 @@ def parse_dfn(dfnfspec: Path, common: Optional[dict] = None) -> DfnFile:
         component=component,
         subcomponent=subcomponent,
         multi_package=multi_package,
+        is_advanced=is_advanced,
         subpackages=subpackages,
         params=params,
         blocks=blocks,

@@ -97,6 +97,7 @@ module SfrModule
     !
     ! -- sfr table objects
     type(TableType), pointer :: stagetab => null() !< reach stage table written to the listing file
+    type(TableType), pointer :: couranttab => null() !< Courant number table written to the listing file
     type(TableType), pointer :: pakcsvtab => null() !< SFR package convergence table
     !
     ! -- sfr reach data
@@ -118,6 +119,12 @@ module SfrModule
     real(DP), dimension(:), pointer, contiguous :: dsflowold => null() !< downstream reach flow for previous time step
     real(DP), dimension(:), pointer, contiguous :: usinflow => null() !< upstream reach flow for previous time step
     real(DP), dimension(:), pointer, contiguous :: usinflowold => null() !< upstream reach flow for previous time step
+    real(DP), pointer :: ats_courant => null() !< target Courant number for ATS time step submission
+    integer(I4B), dimension(:), pointer, contiguous :: itvd_upstream => null() !< upstream reach index for TVD limiter (0 = headwater or confluence)
+    real(DP), dimension(:), pointer, contiguous :: crmin => null() !< simulation-wide minimum Courant number per reach
+    real(DP), dimension(:), pointer, contiguous :: crmax => null() !< simulation-wide maximum Courant number per reach
+    real(DP), dimension(:), pointer, contiguous :: crsum => null() !< simulation-wide sum of Courant numbers per reach
+    integer(I4B), dimension(:), pointer, contiguous :: crcnt => null() !< simulation-wide count of non-zero Courant evaluations per reach
     real(DP), dimension(:), pointer, contiguous :: depth => null() !< reach depth
     real(DP), dimension(:), pointer, contiguous :: stage => null() !< reach stage
     real(DP), dimension(:), pointer, contiguous :: stageold => null() !< reach stage for last timestep
@@ -179,6 +186,8 @@ module SfrModule
     procedure :: bnd_ot_package_flows => sfr_ot_package_flows
     procedure :: bnd_ot_dv => sfr_ot_dv
     procedure :: bnd_ot_bdsummary => sfr_ot_bdsummary
+    procedure :: bnd_dt => sfr_dt
+    procedure :: bnd_fp => sfr_fp
     procedure :: bnd_da => sfr_da
     procedure :: define_listlabel
     ! -- methods for observations
@@ -191,7 +200,10 @@ module SfrModule
     procedure, private :: sfr_solve
     procedure, private :: sfr_calc_constant
     procedure, private :: sfr_calc_transient
+    procedure, private :: sfr_calc_tvd
+    procedure, private :: sfr_calc_celerity
     procedure, private :: sfr_calc_steady
+    procedure, private :: sfr_precompute_tvd
     procedure, private :: sfr_update_flows
     procedure, private :: sfr_adjust_ro_ev
     procedure, private :: sfr_calc_qgwf
@@ -259,6 +271,25 @@ module SfrModule
     module subroutine sfr_calc_transient(this, n, d1, hgwf, &
                                          qu, qi, qfrommvr, qr, qe, qro, &
                                          qgwf, qd)
+      class(SfrType) :: this !< SfrType object
+      integer(I4B), intent(in) :: n !< reach number
+      real(DP), intent(inout) :: d1 !< current reach depth estimate
+      real(DP), intent(in) :: hgwf !< head in gw cell
+      real(DP), intent(in) :: qu !< reach upstream flow
+      real(DP), intent(in) :: qi !< reach specified inflow
+      real(DP), intent(in) :: qfrommvr !< reach flow from mover
+      real(DP), intent(in) :: qr !< reach rainfall
+      real(DP), intent(in) :: qe !< reach evaporation
+      real(DP), intent(in) :: qro !< reach runoff flow
+      real(DP), intent(inout) :: qgwf !< reach-aquifer exchange
+      real(DP), intent(inout) :: qd !< reach outflow
+    end subroutine
+  end interface
+
+  interface
+    module subroutine sfr_calc_tvd(this, n, d1, hgwf, &
+                                   qu, qi, qfrommvr, qr, qe, qro, &
+                                   qgwf, qd)
       class(SfrType) :: this !< SfrType object
       integer(I4B), intent(in) :: n !< reach number
       real(DP), intent(inout) :: d1 !< current reach depth estimate
@@ -345,6 +376,7 @@ contains
     call this%BndType%allocate_scalars()
     !
     ! -- allocate the object and assign values to object variables
+    call mem_allocate(this%ats_courant, 'ATS_COURANT', this%memoryPath)
     call mem_allocate(this%istorage, 'ISTORAGE', this%memoryPath)
     call mem_allocate(this%iprhed, 'IPRHED', this%memoryPath)
     call mem_allocate(this%istageout, 'ISTAGEOUT', this%memoryPath)
@@ -391,6 +423,7 @@ contains
     this%deps = DP999 * this%dmaxchg
     this%storage_weight = DNODATA
     this%nconn = 0
+    this%ats_courant = DNODATA
     this%icheck = 1
     this%iconvchk = 1
     this%idense = 0
@@ -457,6 +490,16 @@ contains
                         this%memoryPath)
       call mem_allocate(this%storage, this%maxbound, 'STORAGE', &
                         this%memoryPath)
+      call mem_allocate(this%crmin, this%maxbound, 'CRMIN', this%memoryPath)
+      call mem_allocate(this%crmax, this%maxbound, 'CRMAX', this%memoryPath)
+      call mem_allocate(this%crsum, this%maxbound, 'CRSUM', this%memoryPath)
+      call mem_allocate(this%crcnt, this%maxbound, 'CRCNT', this%memoryPath)
+      if (this%ats_courant /= DNODATA) then
+        call mem_allocate(this%itvd_upstream, this%maxbound, &
+                          'ITVD_UPSTREAM', this%memoryPath)
+      else
+        call mem_allocate(this%itvd_upstream, 0, 'ITVD_UPSTREAM', this%memoryPath)
+      end if
     end if
     !
     ! -- reach order and connection data
@@ -531,6 +574,13 @@ contains
         this%usinflowold(i) = DZERO
         this%dsflowold(i) = DZERO
         this%storage(i) = DZERO
+        this%crmin(i) = DEP20
+        this%crmax(i) = -DEP20
+        this%crsum(i) = DZERO
+        this%crcnt(i) = 0
+        if (this%ats_courant /= DNODATA) then
+          this%itvd_upstream(i) = 0
+        end if
       end if
       !
       ! -- boundary data
@@ -826,6 +876,18 @@ contains
       !    development version and are not included in the documentation.
       !    These options are only available when IDEVELOPMODE in
       !    constants module is set to 1
+    case ('ATS_COURANT')
+      this%ats_courant = this%parser%GetDouble()
+      if (this%ats_courant <= DZERO) then
+        write (errmsg, '(a,g0,a)') &
+          "ATS_COURANT SPECIFIED TO BE '", this%ats_courant, &
+          "' BUT MUST BE GREATER THAN ZERO"
+        call store_error(errmsg)
+      else
+        write (this%iout, '(4x,a,1pg15.6)') &
+          'TARGET COURANT NUMBER FOR ADAPTIVE TIME STEPS: ', &
+          this%ats_courant
+      end if
     case ('DEV_NO_CHECK')
       call this%parser%DevOpt()
       this%icheck = 0
@@ -840,6 +902,7 @@ contains
         'A FINAL CONVERGENCE CHECK OF THE CHANGE IN STREAM FLOW ROUTING &
         &STAGES AND FLOWS WILL NOT BE MADE'
     case ('DEV_STORAGE_WEIGHT')
+      call this%parser%DevOpt()
       r = this%parser%GetDouble()
       if (r < DHALF .or. r > DONE) then
         write (errmsg, '(a,g0,a)') &
@@ -864,6 +927,8 @@ contains
   !!  Method to read and prepare period data for the SFR package.
   !<
   subroutine sfr_ar(this)
+    ! -- modules
+    use TdisModule, only: inats
     ! -- dummy
     class(SfrType), intent(inout) :: this !< SfrType object
     ! -- local
@@ -896,6 +961,30 @@ contains
     !
     ! -- check the storage_weight
     call this%sfr_check_storage_weight()
+    !
+    ! -- check that ATS_COURANT is only used with STORAGE
+    if (this%ats_courant /= DNODATA .and. this%istorage /= 1) then
+      write (errmsg, '(a)') &
+        'ATS_COURANT OPTION REQUIRES STORAGE OPTION TO BE ACTIVE'
+      call store_error(errmsg)
+    end if
+    !
+    ! -- warn when ATS_COURANT is specified but ATS is not active in TDIS
+    if (this%ats_courant /= DNODATA .and. inats == 0) then
+      write (warnmsg, '(a)') &
+        'ATS_COURANT IS SPECIFIED IN THE SFR OPTIONS BLOCK BUT THE '// &
+        'ATS PACKAGE IS NOT ACTIVE IN TDIS, SO THE TIME STEP IS NOT '// &
+        'ADAPTED TO THE COURANT NUMBER. IF THE COURANT NUMBER EXCEEDS 1 '// &
+        'THE EXPLICIT KINEMATIC-WAVE ROUTING MAY OSCILLATE WHILE STILL '// &
+        'CLOSING THE BUDGET. ACTIVATE THE ATS PACKAGE OR USE A SMALLER '// &
+        'TIME STEP.'
+      call store_warning(warnmsg)
+    end if
+    !
+    ! -- pre-compute TVD upstream connectivity when ATS_COURANT is active
+    if (this%ats_courant /= DNODATA .and. this%istorage == 1) then
+      call this%sfr_precompute_tvd()
+    end if
     !
     ! -- check the sfr reach data
     call this%sfr_check_reaches()
@@ -2515,6 +2604,7 @@ contains
         end if
       end if
     end if
+    !
   end subroutine sfr_cc
 
   !> @ brief Calculate package flows.
@@ -2776,6 +2866,104 @@ contains
     call this%budobj%write_budtable(kstp, kper, iout, ibudfl, totim, delt)
   end subroutine sfr_ot_bdsummary
 
+  !> @brief Write the Courant-number summary table to the listing file
+  !<
+  subroutine sfr_fp(this)
+    ! -- dummy
+    class(SfrType) :: this !< SfrType object
+    ! -- local
+    integer(I4B) :: n
+    real(DP) :: crmean
+    !
+    if (this%istorage == 1) then
+      do n = 1, this%maxbound
+        if (this%inamedbound == 1) then
+          call this%couranttab%add_term(this%boundname(n))
+        end if
+        call this%couranttab%add_term(n)
+        if (this%crmin(n) == DEP20) then
+          call this%couranttab%add_term('--')
+        else
+          call this%couranttab%add_term(this%crmin(n))
+        end if
+        if (this%crmax(n) < DZERO) then
+          call this%couranttab%add_term('--')
+        else
+          call this%couranttab%add_term(this%crmax(n))
+        end if
+        if (this%crcnt(n) > 0) then
+          crmean = this%crsum(n) / real(this%crcnt(n), DP)
+          call this%couranttab%add_term(crmean)
+        else
+          call this%couranttab%add_term('--')
+        end if
+      end do
+    end if
+  end subroutine sfr_fp
+
+  !> @brief Submit the ATS time step for the most Courant-constraining reach
+  !<
+  subroutine sfr_dt(this)
+    ! -- modules
+    use TdisModule, only: kstp, kper, ats
+    ! -- dummy
+    class(SfrType) :: this !< SfrType object
+    ! -- local
+    integer(I4B) :: n
+    integer(I4B) :: nrmin
+    real(DP) :: celerity
+    real(DP) :: dt_n
+    real(DP) :: dtmin
+    character(len=LINELENGTH) :: msg
+    !
+    if (this%ats_courant == DNODATA) return
+    if (this%istorage /= 1) return
+    !
+    dtmin = DNODATA
+    nrmin = 0
+    !
+    do n = 1, this%maxbound
+      call this%sfr_calc_celerity(n, this%dsflow(n), celerity)
+      if (celerity > DZERO) then
+        dt_n = this%ats_courant * this%length(n) / celerity
+        if (dt_n < dtmin) then
+          dtmin = dt_n
+          nrmin = n
+        end if
+      end if
+    end do
+    !
+    if (nrmin > 0) then
+      write (msg, '(a,i0)') trim(this%packName)//'-REACH-', nrmin
+      call ats%ats_submit_delt(kstp, kper, dtmin, trim(msg))
+    end if
+  end subroutine sfr_dt
+
+  !> @brief Kinematic-wave celerity from a flow perturbation (0 if dry)
+  !<
+  subroutine sfr_calc_celerity(this, n, q, celerity)
+    ! -- dummy
+    class(SfrType) :: this !< SfrType object
+    integer(I4B), intent(in) :: n !< reach number
+    real(DP), intent(in) :: q !< reach flow
+    real(DP), intent(out) :: celerity !< kinematic-wave celerity
+    ! -- local
+    real(DP) :: d
+    real(DP) :: a
+    real(DP) :: a2
+    !
+    celerity = DZERO
+    call this%sfr_calc_reach_depth(n, q, d)
+    if (d > DZERO) then
+      a = this%calc_area_wet(n, d)
+      call this%sfr_calc_reach_depth(n, q + this%deps, d)
+      a2 = this%calc_area_wet(n, d)
+      if (a2 > a) then
+        celerity = this%deps / (a2 - a)
+      end if
+    end if
+  end subroutine sfr_calc_celerity
+
   !> @ brief Deallocate package memory
   !!
   !!  Deallocate SFR package scalars and arrays.
@@ -2825,6 +3013,11 @@ contains
       call mem_deallocate(this%storage)
       call mem_deallocate(this%usinflow)
       call mem_deallocate(this%usinflowold)
+      call mem_deallocate(this%crmin)
+      call mem_deallocate(this%crmax)
+      call mem_deallocate(this%crsum)
+      call mem_deallocate(this%crcnt)
+      call mem_deallocate(this%itvd_upstream)
     end if
     !
     ! -- deallocate reach order and connection data
@@ -2875,6 +3068,13 @@ contains
       nullify (this%stagetab)
     end if
     !
+    ! -- deallocate Courant number table
+    if (associated(this%couranttab)) then
+      call this%couranttab%table_da()
+      deallocate (this%couranttab)
+      nullify (this%couranttab)
+    end if
+    !
     ! -- deallocate package csv table
     if (this%ipakcsv > 0) then
       if (associated(this%pakcsvtab)) then
@@ -2885,6 +3085,7 @@ contains
     end if
     !
     ! -- deallocate scalars
+    call mem_deallocate(this%ats_courant)
     call mem_deallocate(this%istorage)
     call mem_deallocate(this%storage_weight)
     call mem_deallocate(this%iprhed)
@@ -2913,6 +3114,36 @@ contains
     ! -- call base BndType deallocate
     call this%BndType%bnd_da()
   end subroutine sfr_da
+
+  !> @brief Pre-compute the single upstream reach index for the TVD limiter
+  !!
+  !! Index 0 for reaches with zero or multiple upstream connections.
+  !<
+  subroutine sfr_precompute_tvd(this)
+    ! -- dummy
+    class(SfrType), intent(inout) :: this !< SfrType object
+    ! -- local
+    integer(I4B) :: n
+    integer(I4B) :: j
+    integer(I4B) :: iup_count
+    integer(I4B) :: m
+    !
+    do n = 1, this%maxbound
+      iup_count = 0
+      m = 0
+      do j = this%ia(n) + 1, this%ia(n + 1) - 1
+        if (this%idir(j) > 0) then
+          iup_count = iup_count + 1
+          m = this%ja(j)
+        end if
+      end do
+      if (iup_count == 1) then
+        this%itvd_upstream(n) = m
+      else
+        this%itvd_upstream(n) = 0
+      end if
+    end do
+  end subroutine sfr_precompute_tvd
 
   !> @ brief Define the list label for the package
   !!
@@ -3600,9 +3831,15 @@ contains
         call this%sfr_calc_constant(n, d1, hgwf, qgwf, qd)
       else
         if (this%gwfiss == 0 .and. this%istorage == 1) then
-          call this%sfr_calc_transient(n, d1, hgwf, qu, qi, &
-                                       qfrommvr, qr, qe, qro, &
-                                       qgwf, qd)
+          if (this%ats_courant /= DNODATA) then
+            call this%sfr_calc_tvd(n, d1, hgwf, qu, qi, &
+                                   qfrommvr, qr, qe, qro, &
+                                   qgwf, qd)
+          else
+            call this%sfr_calc_transient(n, d1, hgwf, qu, qi, &
+                                         qfrommvr, qr, qe, qro, &
+                                         qgwf, qd)
+          end if
         else
           call this%sfr_calc_steady(n, d1, hgwf, qu, qi, &
                                     qfrommvr, qr, qe, qro, &
@@ -5541,6 +5778,44 @@ contains
       ! -- streambed gradient
       text = 'STREAMBED GRADIENT'
       call this%stagetab%initialize_column(text, 12, alignment=TABCENTER)
+    end if
+    !
+    ! -- setup Courant number table
+    if (this%istorage == 1) then
+      nterms = 4
+      if (this%inamedbound == 1) then
+        nterms = nterms + 1
+      end if
+      !
+      ! -- set up table title
+      title = trim(adjustl(this%text))//' PACKAGE ('// &
+              trim(adjustl(this%packName))//') COURANT NUMBER FOR EACH REACH'
+      !
+      ! -- set up Courant tableobj
+      call table_cr(this%couranttab, this%packName, title)
+      call this%couranttab%table_df(this%maxbound, nterms, this%iout)
+      !
+      if (this%inamedbound == 1) then
+        text = 'NAME'
+        call this%couranttab%initialize_column(text, LENBOUNDNAME, &
+                                               alignment=TABLEFT)
+      end if
+      !
+      ! -- reach number
+      text = 'NUMBER'
+      call this%couranttab%initialize_column(text, 10, alignment=TABCENTER)
+      !
+      ! -- minimum Courant number
+      text = 'MINIMUM'
+      call this%couranttab%initialize_column(text, 16, alignment=TABCENTER)
+      !
+      ! -- maximum Courant number
+      text = 'MAXIMUM'
+      call this%couranttab%initialize_column(text, 16, alignment=TABCENTER)
+      !
+      ! -- mean Courant number
+      text = 'MEAN'
+      call this%couranttab%initialize_column(text, 16, alignment=TABCENTER)
     end if
   end subroutine sfr_setup_tableobj
 

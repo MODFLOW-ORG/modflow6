@@ -9,6 +9,7 @@ module GwfDisvInputModule
   public gwf_disv_block_definitions
   public GwfDisvParamFoundType
   public gwf_disv_multi_package
+  public gwf_disv_is_advanced
   public gwf_disv_subpackages
 
   type GwfDisvParamFoundType
@@ -45,6 +46,7 @@ module GwfDisvInputModule
   end type GwfDisvParamFoundType
 
   logical :: gwf_disv_multi_package = .false.
+  logical :: gwf_disv_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_disv_subpackages(*) = &

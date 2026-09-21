@@ -9,6 +9,7 @@ module GwfEvtInputModule
   public gwf_evt_block_definitions
   public GwfEvtParamFoundType
   public gwf_evt_multi_package
+  public gwf_evt_is_advanced
   public gwf_evt_subpackages
 
   type GwfEvtParamFoundType
@@ -41,6 +42,7 @@ module GwfEvtInputModule
   end type GwfEvtParamFoundType
 
   logical :: gwf_evt_multi_package = .true.
+  logical :: gwf_evt_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_evt_subpackages(*) = &

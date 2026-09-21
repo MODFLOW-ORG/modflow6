@@ -9,6 +9,7 @@ module GwfRivgInputModule
   public gwf_rivg_block_definitions
   public GwfRivgParamFoundType
   public gwf_rivg_multi_package
+  public gwf_rivg_is_advanced
   public gwf_rivg_subpackages
 
   type GwfRivgParamFoundType
@@ -32,6 +33,7 @@ module GwfRivgInputModule
   end type GwfRivgParamFoundType
 
   logical :: gwf_rivg_multi_package = .true.
+  logical :: gwf_rivg_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_rivg_subpackages(*) = &

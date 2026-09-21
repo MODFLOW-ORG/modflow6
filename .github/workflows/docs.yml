@@ -26,9 +26,9 @@ jobs:
       - name: Checkout modflow6
         uses: actions/checkout@v7
 
-      - uses: prefix-dev/setup-pixi@v0.10.0
+      - uses: prefix-dev/setup-pixi@v0.10.2
         with:
-          pixi-version: v0.70.1
+          pixi-version: v0.80.0
 
       - name: Check spelling
         run: pixi run check-spelling
@@ -63,9 +63,9 @@ jobs:
           path: usgslatex
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.10.0
+        uses: prefix-dev/setup-pixi@v0.10.2
         with:
-          pixi-version: v0.70.1
+          pixi-version: v0.80.0
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -229,9 +229,9 @@ jobs:
           sudo apt-get install doxygen graphviz
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.10.0
+        uses: prefix-dev/setup-pixi@v0.10.2
         with:
-          pixi-version: v0.70.1
+          pixi-version: v0.80.0
 
       - name: Custom pixi install
         run: pixi run install

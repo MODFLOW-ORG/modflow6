@@ -9,6 +9,7 @@ module GwfIcInputModule
   public gwf_ic_block_definitions
   public GwfIcParamFoundType
   public gwf_ic_multi_package
+  public gwf_ic_is_advanced
   public gwf_ic_subpackages
 
   type GwfIcParamFoundType
@@ -18,6 +19,7 @@ module GwfIcInputModule
   end type GwfIcParamFoundType
 
   logical :: gwf_ic_multi_package = .false.
+  logical :: gwf_ic_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_ic_subpackages(*) = &

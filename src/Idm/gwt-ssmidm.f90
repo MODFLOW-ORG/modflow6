@@ -9,6 +9,7 @@ module GwtSsmInputModule
   public gwt_ssm_block_definitions
   public GwtSsmParamFoundType
   public gwt_ssm_multi_package
+  public gwt_ssm_is_advanced
   public gwt_ssm_subpackages
 
   type GwtSsmParamFoundType
@@ -25,6 +26,7 @@ module GwtSsmInputModule
   end type GwtSsmParamFoundType
 
   logical :: gwt_ssm_multi_package = .false.
+  logical :: gwt_ssm_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwt_ssm_subpackages(*) = &

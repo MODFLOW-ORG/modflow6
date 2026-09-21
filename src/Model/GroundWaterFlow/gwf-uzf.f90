@@ -581,9 +581,9 @@ contains
       call store_error(errmsg)
     end if
 
-    if (this%ntrail_pvar <= 0) then
+    if (this%ntrail_pvar <= 1) then
       write (errmsg, '(a)') &
-        'NTRAILWAVES was not specified or was specified incorrectly.'
+        'NTRAILWAVES must be greater than 1. A value of 7 is recommended.'
       call store_error(errmsg)
     end if
     !

@@ -9,6 +9,7 @@ module ExgGwegweInputModule
   public exg_gwegwe_block_definitions
   public ExgGwegweParamFoundType
   public exg_gwegwe_multi_package
+  public exg_gwegwe_is_advanced
   public exg_gwegwe_subpackages
 
   type ExgGwegweParamFoundType
@@ -42,6 +43,7 @@ module ExgGwegweInputModule
   end type ExgGwegweParamFoundType
 
   logical :: exg_gwegwe_multi_package = .true.
+  logical :: exg_gwegwe_is_advanced = .false.
 
   character(len=16), parameter :: &
     exg_gwegwe_subpackages(*) = &

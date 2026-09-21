@@ -9,6 +9,7 @@ module GweCndInputModule
   public gwe_cnd_block_definitions
   public GweCndParamFoundType
   public gwe_cnd_multi_package
+  public gwe_cnd_is_advanced
   public gwe_cnd_subpackages
 
   type GweCndParamFoundType
@@ -26,6 +27,7 @@ module GweCndInputModule
   end type GweCndParamFoundType
 
   logical :: gwe_cnd_multi_package = .false.
+  logical :: gwe_cnd_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwe_cnd_subpackages(*) = &
