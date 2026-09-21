@@ -9,6 +9,7 @@ module GwfGhbInputModule
   public gwf_ghb_block_definitions
   public GwfGhbParamFoundType
   public gwf_ghb_multi_package
+  public gwf_ghb_is_advanced
   public gwf_ghb_subpackages
 
   type GwfGhbParamFoundType
@@ -35,6 +36,7 @@ module GwfGhbInputModule
   end type GwfGhbParamFoundType
 
   logical :: gwf_ghb_multi_package = .true.
+  logical :: gwf_ghb_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_ghb_subpackages(*) = &

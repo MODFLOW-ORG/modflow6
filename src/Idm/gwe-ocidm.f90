@@ -9,6 +9,7 @@ module GweOcInputModule
   public gwe_oc_block_definitions
   public GweOcParamFoundType
   public gwe_oc_multi_package
+  public gwe_oc_is_advanced
   public gwe_oc_subpackages
 
   type GweOcParamFoundType
@@ -42,6 +43,7 @@ module GweOcInputModule
   end type GweOcParamFoundType
 
   logical :: gwe_oc_multi_package = .false.
+  logical :: gwe_oc_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwe_oc_subpackages(*) = &

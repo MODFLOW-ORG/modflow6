@@ -110,7 +110,6 @@ module GwfNpfModule
     integer(I4B), dimension(:), pointer, contiguous :: nodekchange => null() ! grid array of flags indicating for each node whether its K (or K22, or K33) value changed (1) at (kchangeper, kchangestp) or not (0)
     !
     integer(I4B), dimension(:), pointer, contiguous :: iformulation => null() !< active formulation for the connection (size: nja)
-    integer(I4B), pointer :: nr_formulations => null() !< nr. of registered formulations
     type(GwfNpfFormContainerType), dimension(MAX_EXT_FLOW_FORMS), private :: &
       flow_formulations !< alternative flow calculations by extension
   contains
@@ -1159,7 +1158,6 @@ contains
     call mem_deallocate(this%invsc)
     call mem_deallocate(this%kchangeper)
     call mem_deallocate(this%kchangestp)
-    call mem_deallocate(this%nr_formulations)
     !
     ! -- Deallocate arrays
     deallocate (this%aname)
@@ -1244,7 +1242,6 @@ contains
     call mem_allocate(this%invsc, 'INVSC', this%memoryPath)
     call mem_allocate(this%kchangeper, 'KCHANGEPER', this%memoryPath)
     call mem_allocate(this%kchangestp, 'KCHANGESTP', this%memoryPath)
-    call mem_allocate(this%nr_formulations, 'NRFORM', this%memoryPath)
     !
     ! -- set pointer to inewtonur
     call mem_setptr(this%igwfnewtonur, 'INEWTONUR', &
@@ -1285,7 +1282,6 @@ contains
     this%invsc = 0
     this%kchangeper = 0
     this%kchangestp = 0
-    this%nr_formulations = 0
     !
     ! -- If newton is on, then NPF creates asymmetric matrix
     this%iasym = this%inewton

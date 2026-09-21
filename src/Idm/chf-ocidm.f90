@@ -9,6 +9,7 @@ module ChfOcInputModule
   public chf_oc_block_definitions
   public ChfOcParamFoundType
   public chf_oc_multi_package
+  public chf_oc_is_advanced
   public chf_oc_subpackages
 
   type ChfOcParamFoundType
@@ -45,6 +46,7 @@ module ChfOcInputModule
   end type ChfOcParamFoundType
 
   logical :: chf_oc_multi_package = .false.
+  logical :: chf_oc_is_advanced = .false.
 
   character(len=16), parameter :: &
     chf_oc_subpackages(*) = &

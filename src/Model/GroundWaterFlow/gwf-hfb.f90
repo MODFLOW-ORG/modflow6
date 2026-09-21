@@ -711,8 +711,6 @@ contains
     ! -- formats
     character(len=*), parameter :: fmterr = "(1x, 'HFB no. ',i0, &
       &' is between two unconnected cells: ', a, ' and ', a)"
-    character(len=*), parameter :: fmtverr = "(1x, 'HFB no. ',i0, &
-      &' is between two cells not horizontally connected: ', a, ' and ', a)"
     !
     do ihfb = 1, this%nhfb
       n = this%noden(ihfb)

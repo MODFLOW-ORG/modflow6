@@ -9,6 +9,7 @@ module GwfChdgInputModule
   public gwf_chdg_block_definitions
   public GwfChdgParamFoundType
   public gwf_chdg_multi_package
+  public gwf_chdg_is_advanced
   public gwf_chdg_subpackages
 
   type GwfChdgParamFoundType
@@ -30,6 +31,7 @@ module GwfChdgInputModule
   end type GwfChdgParamFoundType
 
   logical :: gwf_chdg_multi_package = .true.
+  logical :: gwf_chdg_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_chdg_subpackages(*) = &

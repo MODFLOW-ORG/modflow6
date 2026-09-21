@@ -9,6 +9,7 @@ module UtlSpcInputModule
   public utl_spc_block_definitions
   public UtlSpcParamFoundType
   public utl_spc_multi_package
+  public utl_spc_is_advanced
   public utl_spc_subpackages
 
   type UtlSpcParamFoundType
@@ -19,11 +20,12 @@ module UtlSpcInputModule
     logical :: ts6_filename = .false.
     logical :: maxbound = .false.
     logical :: bndno = .false.
-    logical :: concentration = .false.
-    logical :: temperature = .false.
+    logical :: concentration_in = .false.
+    logical :: temperature_in = .false.
   end type UtlSpcParamFoundType
 
   logical :: utl_spc_multi_package = .true.
+  logical :: utl_spc_is_advanced = .false.
 
   character(len=16), parameter :: &
     utl_spc_subpackages(*) = &
@@ -165,14 +167,14 @@ module UtlSpcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    utlspc_concentration = InputParamDefinitionType &
+    utlspc_concentration_in = InputParamDefinitionType &
     ( &
     'UTL', & ! component
     'SPC', & ! subcomponent
     'PERIOD', & ! block
     'CONCENTRATION', & ! tag name
-    'CONCENTRATION', & ! fortran variable
-    'DOUBLE', & ! type
+    'CONCENTRATION_IN', & ! fortran variable
+    'STRING', & ! type
     '', & ! shape
     'boundary concentration', & ! longname
     .true., & ! required
@@ -184,14 +186,14 @@ module UtlSpcInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    utlspc_temperature = InputParamDefinitionType &
+    utlspc_temperature_in = InputParamDefinitionType &
     ( &
     'UTL', & ! component
     'SPC', & ! subcomponent
     'PERIOD', & ! block
     'TEMPERATURE', & ! tag name
-    'TEMPERATURE', & ! fortran variable
-    'DOUBLE', & ! type
+    'TEMPERATURE_IN', & ! fortran variable
+    'STRING', & ! type
     '', & ! shape
     'boundary temperature', & ! longname
     .true., & ! required
@@ -212,8 +214,8 @@ module UtlSpcInputModule
     utlspc_ts6_filename, &
     utlspc_maxbound, &
     utlspc_bndno, &
-    utlspc_concentration, &
-    utlspc_temperature &
+    utlspc_concentration_in, &
+    utlspc_temperature_in &
     ]
 
   type(InputParamDefinitionType), parameter :: &

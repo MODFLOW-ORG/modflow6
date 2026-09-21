@@ -16,36 +16,60 @@ xa = pytest.importorskip("xarray")
 xu = pytest.importorskip("xugrid")
 nc = pytest.importorskip("netCDF4")
 
-wkt = (
-    'PROJCS["NAD83 / UTM zone 18N", '
-    'GEOGCS["NAD83", '
-    'DATUM["North_American_Datum_1983", '
-    'SPHEROID["GRS 1980",6378137,298.257222101], '
-    "TOWGS84[0,0,0,0,0,0,0]], "
-    'PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]], '
-    'UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]], '
-    'AUTHORITY["EPSG","4269"]], '
-    'PROJECTION["Transverse_Mercator"], '
-    'PARAMETER["latitude_of_origin",0], '
-    'PARAMETER["central_meridian",-75], '
-    'PARAMETER["scale_factor",0.9996], '
-    'PARAMETER["false_easting",500000], '
-    'PARAMETER["false_northing",0], '
-    'UNIT["metre",1,AUTHORITY["EPSG","9001"]], '
-    'AXIS["Easting",EAST], '
-    'AXIS["Northing",NORTH], '
+# EPSG:26918 NAD83 / UTM zone 18N — WKT1 (OGC 01-009) for the wkt attribute
+wkt1 = (
+    'PROJCS["NAD83 / UTM zone 18N",'
+    'GEOGCS["NAD83",'
+    'DATUM["North_American_Datum_1983",'
+    'SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],'
+    'AUTHORITY["EPSG","6269"]],'
+    'PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],'
+    'UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],'
+    'AUTHORITY["EPSG","4269"]],'
+    'PROJECTION["Transverse_Mercator"],'
+    'PARAMETER["latitude_of_origin",0],'
+    'PARAMETER["central_meridian",-75],'
+    'PARAMETER["scale_factor",0.9996],'
+    'PARAMETER["false_easting",500000],'
+    'PARAMETER["false_northing",0],'
+    'UNIT["metre",1,AUTHORITY["EPSG","9001"]],'
+    'AXIS["Easting",EAST],'
+    'AXIS["Northing",NORTH],'
     'AUTHORITY["EPSG","26918"]]'
 )
 
+# EPSG:26918 NAD83 / UTM zone 18N — WKT2 (ISO 19162:2019) for the crs_wkt attribute
+wkt2 = (
+    'PROJCRS["NAD83 / UTM zone 18N",'
+    'BASEGEOGCRS["NAD83",'
+    'DATUM["North American Datum 1983",'
+    'ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],'
+    'PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],'
+    'ID["EPSG",4269]],'
+    'CONVERSION["UTM zone 18N",'
+    'METHOD["Transverse Mercator",ID["EPSG",9807]],'
+    'PARAMETER["Latitude of natural origin",0,'
+    'ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],'
+    'PARAMETER["Longitude of natural origin",-75,'
+    'ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],'
+    'PARAMETER["Scale factor at natural origin",0.9996,'
+    'SCALEUNIT["unity",1],ID["EPSG",8805]],'
+    'PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],'
+    'PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],'
+    "CS[Cartesian,2],"
+    'AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1]],'
+    'AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1]],'
+    'ID["EPSG",26918]]'
+)
 
-def build_models(idx, test, gridded_input):
+
+def build_models(idx, test, gridded_input, wkt_mode):
     from test_gwf_disv import build_models as build
 
     sim, dummy = build(idx, test)
     sim.tdis.start_date_time = "2041-01-01T00:00:00-05:00"
     gwf = sim.gwf[0]
     gwf.disv.export_array_netcdf = True
-    gwf.disv.crs = wkt
     gwf.ic.export_array_netcdf = True
     gwf.npf.export_array_netcdf = True
 
@@ -55,16 +79,30 @@ def build_models(idx, test, gridded_input):
         f"{name}.ugrid.nc" if gridded_input == "netcdf" else f"{name}.nc"
     )
 
-    # netcdf config
-    ncf = flopy.mf6.ModflowUtlncf(
-        gwf.disv,
-        deflate=9,
-        shuffle=True,
-        chunk_time=1,
-        chunk_face=3,
-        wkt=wkt,
-        filename=f"{name}.disv.ncf",
-    )
+    if wkt_mode == "both":
+        # distinct WKT1 and WKT2 — exercises the non-fallback crs_wkt path
+        gwf.disv.crs = wkt1
+        ncf = flopy.mf6.ModflowUtlncf(
+            gwf.disv,
+            deflate=9,
+            shuffle=True,
+            chunk_time=1,
+            chunk_face=3,
+            wkt=wkt1,
+            crs_wkt=wkt2,
+            filename=f"{name}.disv.ncf",
+        )
+    else:
+        # wkt2_only — exercises grid_mapping_name derivation from WKT2 METHOD[ syntax
+        ncf = flopy.mf6.ModflowUtlncf(
+            gwf.disv,
+            deflate=9,
+            shuffle=True,
+            chunk_time=1,
+            chunk_face=3,
+            crs_wkt=wkt2,
+            filename=f"{name}.disv.ncf",
+        )
 
     # output control
     oc = flopy.mf6.ModflowGwfoc(
@@ -78,16 +116,17 @@ def build_models(idx, test, gridded_input):
     return sim, dummy
 
 
-def check_output(idx, test, gridded_input):
+def check_output(idx, test, gridded_input, wkt_mode):
     from test_gwf_disv import check_output as check
 
     name = test.name
 
-    # verify crs data string in grb version 2 file
-    fname = os.path.join(test.workspace, "disv.grb")
-    grbobj = flopy.mf6.utils.MfGrdFile(fname)
-    assert grbobj.version == 2
-    assert grbobj.crs == wkt
+    # verify crs data string in grb version 2 file (only set in "both" mode)
+    if wkt_mode == "both":
+        fname = os.path.join(test.workspace, "disv.grb")
+        grbobj = flopy.mf6.utils.MfGrdFile(fname)
+        assert grbobj.version == 2
+        assert grbobj.crs == wkt1
 
     if gridded_input == "netcdf":
         # re-run the simulation with model netcdf input
@@ -184,7 +223,24 @@ def check_output(idx, test, gridded_input):
         assert cmpr["shuffle"]
         assert cmpr["complevel"] == 9
         assert chnk == [1, 3]
-        assert ds.variables["projection"].getncattr("wkt").lower() == wkt.lower()
+        proj = ds.variables["projection"]
+        if wkt_mode == "both":
+            assert proj.getncattr("wkt") == wkt1
+            assert proj.getncattr("crs_wkt") == wkt2
+            assert wkt1 != wkt2
+        else:
+            assert "wkt" not in proj.ncattrs()
+            assert proj.getncattr("crs_wkt") == wkt2
+        assert proj.getncattr("grid_mapping_name") == "transverse_mercator"
+        layer = ds.variables["layer"]
+        assert layer.getncattr("units") == "1"
+        assert layer.getncattr("axis") == "Z"
+        assert layer.getncattr("positive") == "down"
+        assert layer.getncattr("long_name") == "model layer"
+        assert "standard_name" not in ds.variables["head_l1"].ncattrs()
+        modflow_model = ds.getncattr("modflow_model")
+        assert modflow_model == modflow_model.lower()
+        assert "6:" not in modflow_model
 
     # Check NetCDF output
     nc_fpth = os.path.join(test.workspace, name + ".nc")
@@ -251,13 +307,14 @@ def check_output(idx, test, gridded_input):
 @pytest.mark.netcdf
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.parametrize("gridded_input", ["ascii", "netcdf"])
-def test_mf6model(idx, name, function_tmpdir, targets, gridded_input):
+@pytest.mark.parametrize("wkt_mode", ["both", "wkt2_only"])
+def test_mf6model(idx, name, function_tmpdir, targets, gridded_input, wkt_mode):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
-        build=lambda t: build_models(idx, t, gridded_input),
-        check=lambda t: check_output(idx, t, gridded_input),
+        build=lambda t: build_models(idx, t, gridded_input, wkt_mode),
+        check=lambda t: check_output(idx, t, gridded_input, wkt_mode),
         cargs=["--mode=validate"] if gridded_input == "netcdf" else None,
         compare=None,
     )

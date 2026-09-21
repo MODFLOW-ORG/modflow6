@@ -25,6 +25,7 @@ module IdmGweDfnSelectorModule
   public :: gwe_aggregate_definitions
   public :: gwe_block_definitions
   public :: gwe_idm_multi_package
+  public :: gwe_idm_is_advanced
   public :: gwe_idm_subpackages
   public :: gwe_idm_integrated
 
@@ -193,6 +194,44 @@ contains
     end select
     return
   end function gwe_idm_multi_package
+
+  function gwe_idm_is_advanced(subcomponent) result(is_advanced)
+    character(len=*), intent(in) :: subcomponent
+    logical :: is_advanced
+    select case (subcomponent)
+    case ('NAM')
+      is_advanced = gwe_nam_is_advanced
+    case ('ADV')
+      is_advanced = gwe_adv_is_advanced
+    case ('CTP')
+      is_advanced = gwe_ctp_is_advanced
+    case ('CND')
+      is_advanced = gwe_cnd_is_advanced
+    case ('DISV')
+      is_advanced = gwe_disv_is_advanced
+    case ('DISU')
+      is_advanced = gwe_disu_is_advanced
+    case ('DIS')
+      is_advanced = gwe_dis_is_advanced
+    case ('ESL')
+      is_advanced = gwe_esl_is_advanced
+    case ('EST')
+      is_advanced = gwe_est_is_advanced
+    case ('FMI')
+      is_advanced = gwe_fmi_is_advanced
+    case ('IC')
+      is_advanced = gwe_ic_is_advanced
+    case ('OC')
+      is_advanced = gwe_oc_is_advanced
+    case ('SSM')
+      is_advanced = gwe_ssm_is_advanced
+    case default
+      call store_error('Idm selector subcomponent not found; '//&
+                       &'component="GWE"'//&
+                       &', subcomponent="'//trim(subcomponent)//'".', .true.)
+    end select
+    return
+  end function gwe_idm_is_advanced
 
   function gwe_idm_subpackages(subcomponent) result(subpackages)
     character(len=*), intent(in) :: subcomponent

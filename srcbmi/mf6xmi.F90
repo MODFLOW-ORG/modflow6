@@ -350,7 +350,8 @@ contains
     character(kind=c_char), intent(inout) :: mf_version(BMI_LENVERSION)
     integer(kind=c_int) :: bmi_status !< BMI status code
 
-    mf_version = string_to_char_array(VERSIONNUMBER, len_trim(VERSIONNUMBER))
+    mf_version(1:len_trim(VERSIONNUMBER) + 1) = &
+      string_to_char_array(VERSIONNUMBER, len_trim(VERSIONNUMBER))
     bmi_status = BMI_SUCCESS
 
   end function xmi_get_version

@@ -165,11 +165,8 @@ contains
     ! -- modules
     use InputOutputModule, only: urword
     use MemoryManagerExtModule, only: mem_set_value
-    use SwfFlwInputModule, only: SwfFlwParamFoundType
     ! -- dummy variables
     class(SwfFlwType), intent(inout) :: this !< SwfFlwType object
-    ! -- local variables
-    type(SwfFlwParamFoundType) :: found
     ! -- formats
     !
     ! -- source base BndExtType options
@@ -179,27 +176,20 @@ contains
     ! none
     !
     ! -- log SWF specific options
-    call this%log_flw_options(found)
+    call this%log_flw_options()
   end subroutine flw_options
 
   !> @ brief Log SWF specific package options
   !<
-  subroutine log_flw_options(this, found)
-    ! -- modules
-    use SwfFlwInputModule, only: SwfFlwParamFoundType
+  subroutine log_flw_options(this)
     ! -- dummy variables
     class(SwfFlwType), intent(inout) :: this
-    type(SwfFlwParamFoundType), intent(in) :: found
     ! -- local variables
     ! -- format
     !
     ! -- log found options
     write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text)) &
       //' OPTIONS'
-    !
-    ! if (found%mover) then
-    !   write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
-    ! end if
     !
     ! -- close logging block
     write (this%iout, '(1x,a)') &

@@ -25,6 +25,7 @@ module IdmChfDfnSelectorModule
   public :: chf_aggregate_definitions
   public :: chf_block_definitions
   public :: chf_idm_multi_package
+  public :: chf_idm_is_advanced
   public :: chf_idm_subpackages
   public :: chf_idm_integrated
 
@@ -193,6 +194,44 @@ contains
     end select
     return
   end function chf_idm_multi_package
+
+  function chf_idm_is_advanced(subcomponent) result(is_advanced)
+    character(len=*), intent(in) :: subcomponent
+    logical :: is_advanced
+    select case (subcomponent)
+    case ('NAM')
+      is_advanced = chf_nam_is_advanced
+    case ('DISV1D')
+      is_advanced = chf_disv1d_is_advanced
+    case ('CXS')
+      is_advanced = chf_cxs_is_advanced
+    case ('DFW')
+      is_advanced = chf_dfw_is_advanced
+    case ('IC')
+      is_advanced = chf_ic_is_advanced
+    case ('OC')
+      is_advanced = chf_oc_is_advanced
+    case ('CDB')
+      is_advanced = chf_cdb_is_advanced
+    case ('CHD')
+      is_advanced = chf_chd_is_advanced
+    case ('FLW')
+      is_advanced = chf_flw_is_advanced
+    case ('PCP')
+      is_advanced = chf_pcp_is_advanced
+    case ('EVP')
+      is_advanced = chf_evp_is_advanced
+    case ('STO')
+      is_advanced = chf_sto_is_advanced
+    case ('ZDG')
+      is_advanced = chf_zdg_is_advanced
+    case default
+      call store_error('Idm selector subcomponent not found; '//&
+                       &'component="CHF"'//&
+                       &', subcomponent="'//trim(subcomponent)//'".', .true.)
+    end select
+    return
+  end function chf_idm_is_advanced
 
   function chf_idm_subpackages(subcomponent) result(subpackages)
     character(len=*), intent(in) :: subcomponent

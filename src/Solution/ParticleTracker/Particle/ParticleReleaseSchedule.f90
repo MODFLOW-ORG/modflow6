@@ -3,7 +3,7 @@ module ParticleReleaseScheduleModule
 
   use ArrayHandlersModule, only: ExpandArray
   use ConstantsModule, only: DZERO, DONE, LINELENGTH
-  use KindModule, only: I4B, LGP, DP
+  use KindModule, only: I4B, DP
   use MathUtilModule, only: is_close
   use TimeSelectModule, only: TimeSelectType
   use TimeStepSelectModule, only: TimeStepSelectType
@@ -102,8 +102,6 @@ contains
   !! are provided, reinitialize the time step selection for
   !! the given period. Finally, refresh the schedule array,
   !! deduplicating any times closer than the set tolerance.
-  !!
-  !! This routine is idempotent.
   !<
   subroutine advance(this, lines)
     use TdisModule, only: totimc, kstp, endofperiod
@@ -132,12 +130,15 @@ contains
     tprevious = -DONE
     trelease = -DONE
 
-    ! Add a release time configured by period-block
-    ! settings, if one is scheduled this time step.
+    ! Add a release time configured by period-block settings, if one
+    ! is scheduled this time step and doesn't coincide with any
+    ! explicitly configured release time (see above).
     if (this%step_select%is_selected(kstp, endofperiod=endofperiod)) then
       trelease = totimc
-      call this%schedule(trelease)
-      tprevious = trelease
+      if (.not. this%time_select%contains_close(trelease, this%tolerance)) then
+        call this%schedule(trelease)
+        tprevious = trelease
+      end if
     end if
 
     ! Schedule explicitly specified release times, up

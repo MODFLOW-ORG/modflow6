@@ -116,7 +116,7 @@ def add_chf_model(sim):
     xfraction = [0.0, 0.0, 1.0, 1.0]
     height = [100.0, 0.0, 0.0, 100.0]
     mannfraction = [1.0, 1.0, 1.0, 1.0]
-    cxsdata = list(zip(xfraction, height, mannfraction))
+    cxsdata = list(zip([0] * len(xfraction), xfraction, height, mannfraction))
     cxs = flopy.mf6.ModflowChfcxs(
         chf,
         nsections=1,

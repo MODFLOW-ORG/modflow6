@@ -1,7 +1,6 @@
 module TestFeatureFlags
   use testdrive, only: error_type, unittest_type, new_unittest, check
-  use FeatureFlagsModule, only: developmode
-  use ConstantsModule, only: LINELENGTH
+  use FeatureFlagsModule, only: is_release_mode
   use VersionModule, only: IDEVELOPMODE
 
   implicit none
@@ -13,16 +12,13 @@ contains
   subroutine collect_feature_flags(testsuite)
     type(unittest_type), allocatable, intent(out) :: testsuite(:)
     testsuite = [ &
-                ! expect failure if in release mode, otherwise pass
-                new_unittest("developmode", test_developmode, &
-                             should_fail=(IDEVELOPMODE == 0)) &
+                new_unittest("is_release_mode", test_is_release_mode) &
                 ]
   end subroutine collect_feature_flags
 
-  subroutine test_developmode(error)
+  subroutine test_is_release_mode(error)
     type(error_type), allocatable, intent(out) :: error
-    character(len=LINELENGTH) :: errmsg
-    call developmode(errmsg)
-  end subroutine test_developmode
+    call check(error, is_release_mode() .eqv. (IDEVELOPMODE == 0))
+  end subroutine test_is_release_mode
 
 end module TestFeatureFlags

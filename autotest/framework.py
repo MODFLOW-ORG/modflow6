@@ -1,11 +1,10 @@
 import os
 import shutil
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from itertools import repeat
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
 from traceback import format_exc
-from typing import Callable, Optional, Union
 from warnings import warn
 
 import flopy
@@ -245,7 +244,7 @@ class TestFramework:
         overwrite: bool = True,
         verbose: bool = False,
         xfail: bool | list[bool] = False,
-        cargs: Optional[list] = None,
+        cargs: list | None = None,
     ):
         # make sure workspace exists
         workspace = Path(workspace).expanduser().absolute()
@@ -466,10 +465,10 @@ class TestFramework:
 
     def _run(
         self,
-        workspace: Union[str, os.PathLike],
-        target: Union[str, os.PathLike],
+        workspace: str | os.PathLike,
+        target: str | os.PathLike,
         xfail: bool = False,
-        cargs: Optional[str] = None,
+        cargs: str | None = None,
         ncpus: int = 1,
     ) -> tuple[bool, list[str]]:
         """
@@ -489,8 +488,12 @@ class TestFramework:
         workspace = Path(workspace).expanduser().absolute()
         assert workspace.is_dir(), f"Workspace not found: {workspace}"
 
-        # make sure executable exists and framework knows about it
-        tgt = Path(shutil.which(target))
+        # make sure executable exists and framework knows about it.
+        # shutil.which() on Windows (Python 3.12+) won't resolve a full
+        # path whose extension isn't in PATHEXT (e.g. libmf6.dll), so
+        # fall back to the target path itself when it doesn't resolve.
+        resolved = shutil.which(str(target))
+        tgt = Path(resolved) if resolved else Path(target)
         assert tgt.is_file(), f"Target executable not found: {target}"
         assert tgt in self.targets.values(), (
             "Targets must be explicitly registered with the test framework"

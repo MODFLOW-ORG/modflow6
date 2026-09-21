@@ -9,6 +9,7 @@ module GweAdvInputModule
   public gwe_adv_block_definitions
   public GweAdvParamFoundType
   public gwe_adv_multi_package
+  public gwe_adv_is_advanced
   public gwe_adv_subpackages
 
   type GweAdvParamFoundType
@@ -17,6 +18,7 @@ module GweAdvInputModule
   end type GweAdvParamFoundType
 
   logical :: gwe_adv_multi_package = .false.
+  logical :: gwe_adv_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwe_adv_subpackages(*) = &

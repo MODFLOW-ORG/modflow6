@@ -9,6 +9,7 @@ module OlfEvpInputModule
   public olf_evp_block_definitions
   public OlfEvpParamFoundType
   public olf_evp_multi_package
+  public olf_evp_is_advanced
   public olf_evp_subpackages
 
   type OlfEvpParamFoundType
@@ -33,6 +34,7 @@ module OlfEvpInputModule
   end type OlfEvpParamFoundType
 
   logical :: olf_evp_multi_package = .true.
+  logical :: olf_evp_is_advanced = .false.
 
   character(len=16), parameter :: &
     olf_evp_subpackages(*) = &

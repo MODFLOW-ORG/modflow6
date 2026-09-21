@@ -2,7 +2,7 @@ As mentioned in the sections describing the SSM Package for GWT and GWE, concent
 
 \subsection{Stress Package Component (SPC) -- List-Based Input}
 
-An SPC6 file can be prepared to provide user-specified concentrations or temperatures for a GWF stress package, such a Well or General-Head Boundary Package, for example.  One SPT6 file applies to one GWF stress package.  Names for the SPC6 input files are provided in the FILEINPUT block of the SSM Package and therefore cannot be specified in either the GWT or GWE name files.  Use of the SPC6 input file is an alternative to specifying stress package temperatures as auxiliary variables in the flow model stress package.  
+An SPC6 file can be prepared to provide user-specified concentrations or temperatures for a GWF stress package, such a Well or General-Head Boundary Package, for example.  One SPC6 file applies to one GWF stress package.  Names for the SPC6 input files are provided in the FILEINPUT block of the SSM Package and therefore cannot be specified in either the GWT or GWE name files.  Use of the SPC6 input file is an alternative to specifying stress package temperatures as auxiliary variables in the flow model stress package.  
 
 The boundary number in the PERIOD block corresponds to the boundary number in the GWF stress period package.  Assignment of the boundary number is straightforward for the advanced packages (SFR, LAK, MAW, and UZF) because the features in these advanced packages are defined once at the beginning of the simulation and they do not change.  For the other stress packages, however, the order of boundaries may change between stress periods.  Consider the following Well Package input file, for example:
 
@@ -55,7 +55,7 @@ END period
 \subsubsection{Example Input File}
 \lstinputlisting[style=inputfile]{./mf6ivar/examples/utl-spc-example.dat}
 
-% SPT array based
+% SPC array based
 \newpage
 \subsection{Stress Package Component (SPC) -- Array-Based Input}
 

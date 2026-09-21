@@ -9,6 +9,7 @@ module UtlHpcInputModule
   public utl_hpc_block_definitions
   public UtlHpcParamFoundType
   public utl_hpc_multi_package
+  public utl_hpc_is_advanced
   public utl_hpc_subpackages
 
   type UtlHpcParamFoundType
@@ -19,6 +20,7 @@ module UtlHpcInputModule
   end type UtlHpcParamFoundType
 
   logical :: utl_hpc_multi_package = .false.
+  logical :: utl_hpc_is_advanced = .false.
 
   character(len=16), parameter :: &
     utl_hpc_subpackages(*) = &

@@ -9,6 +9,7 @@ module GwfStoInputModule
   public gwf_sto_block_definitions
   public GwfStoParamFoundType
   public gwf_sto_multi_package
+  public gwf_sto_is_advanced
   public gwf_sto_subpackages
 
   type GwfStoParamFoundType
@@ -31,6 +32,7 @@ module GwfStoInputModule
   end type GwfStoParamFoundType
 
   logical :: gwf_sto_multi_package = .false.
+  logical :: gwf_sto_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_sto_subpackages(*) = &

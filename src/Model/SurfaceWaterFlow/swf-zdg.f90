@@ -210,11 +210,8 @@ contains
     ! -- modules
     use InputOutputModule, only: urword
     use MemoryManagerExtModule, only: mem_set_value
-    use SwfZdgInputModule, only: SwfZdgParamFoundType
     ! -- dummy variables
     class(SwfZdgType), intent(inout) :: this !< SwfZdgType object
-    ! -- local variables
-    type(SwfZdgParamFoundType) :: found
     ! -- formats
     !
     ! -- source base BndExtType options
@@ -224,27 +221,20 @@ contains
     ! none
     !
     ! -- log SWF specific options
-    call this%log_zdg_options(found)
+    call this%log_zdg_options()
   end subroutine zdg_options
 
   !> @ brief Log SWF specific package options
   !<
-  subroutine log_zdg_options(this, found)
-    ! -- modules
-    use SwfZdgInputModule, only: SwfZdgParamFoundType
+  subroutine log_zdg_options(this)
     ! -- dummy variables
     class(SwfZdgType), intent(inout) :: this
-    type(SwfZdgParamFoundType), intent(in) :: found
     ! -- local variables
     ! -- format
     !
     ! -- log found options
     write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text)) &
       //' OPTIONS'
-    !
-    ! if (found%mover) then
-    !   write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
-    ! end if
     !
     ! -- close logging block
     write (this%iout, '(1x,a)') &

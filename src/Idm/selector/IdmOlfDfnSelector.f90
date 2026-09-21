@@ -25,6 +25,7 @@ module IdmOlfDfnSelectorModule
   public :: olf_aggregate_definitions
   public :: olf_block_definitions
   public :: olf_idm_multi_package
+  public :: olf_idm_is_advanced
   public :: olf_idm_subpackages
   public :: olf_idm_integrated
 
@@ -193,6 +194,44 @@ contains
     end select
     return
   end function olf_idm_multi_package
+
+  function olf_idm_is_advanced(subcomponent) result(is_advanced)
+    character(len=*), intent(in) :: subcomponent
+    logical :: is_advanced
+    select case (subcomponent)
+    case ('NAM')
+      is_advanced = olf_nam_is_advanced
+    case ('DIS2D')
+      is_advanced = olf_dis2d_is_advanced
+    case ('DISV2D')
+      is_advanced = olf_disv2d_is_advanced
+    case ('DFW')
+      is_advanced = olf_dfw_is_advanced
+    case ('IC')
+      is_advanced = olf_ic_is_advanced
+    case ('OC')
+      is_advanced = olf_oc_is_advanced
+    case ('CDB')
+      is_advanced = olf_cdb_is_advanced
+    case ('CHD')
+      is_advanced = olf_chd_is_advanced
+    case ('FLW')
+      is_advanced = olf_flw_is_advanced
+    case ('PCP')
+      is_advanced = olf_pcp_is_advanced
+    case ('EVP')
+      is_advanced = olf_evp_is_advanced
+    case ('STO')
+      is_advanced = olf_sto_is_advanced
+    case ('ZDG')
+      is_advanced = olf_zdg_is_advanced
+    case default
+      call store_error('Idm selector subcomponent not found; '//&
+                       &'component="OLF"'//&
+                       &', subcomponent="'//trim(subcomponent)//'".', .true.)
+    end select
+    return
+  end function olf_idm_is_advanced
 
   function olf_idm_subpackages(subcomponent) result(subpackages)
     character(len=*), intent(in) :: subcomponent

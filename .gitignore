@@ -161,8 +161,11 @@ autotest/notebooks/
 **.DS_Store
 # pixi environments
 .pixi
+.notes
 
 **/*.lock
 doc/ReleaseNotes/develop.tex
 
 agent
+# test-drive repo for pixi gcc-extended-build environment
+.test-drive/

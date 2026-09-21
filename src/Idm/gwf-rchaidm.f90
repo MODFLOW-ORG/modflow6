@@ -9,6 +9,7 @@ module GwfRchaInputModule
   public gwf_rcha_block_definitions
   public GwfRchaParamFoundType
   public gwf_rcha_multi_package
+  public gwf_rcha_is_advanced
   public gwf_rcha_subpackages
 
   type GwfRchaParamFoundType
@@ -33,6 +34,7 @@ module GwfRchaInputModule
   end type GwfRchaParamFoundType
 
   logical :: gwf_rcha_multi_package = .true.
+  logical :: gwf_rcha_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_rcha_subpackages(*) = &

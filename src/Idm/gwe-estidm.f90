@@ -9,6 +9,7 @@ module GweEstInputModule
   public gwe_est_block_definitions
   public GweEstParamFoundType
   public gwe_est_multi_package
+  public gwe_est_is_advanced
   public gwe_est_subpackages
 
   type GweEstParamFoundType
@@ -26,6 +27,7 @@ module GweEstInputModule
   end type GweEstParamFoundType
 
   logical :: gwe_est_multi_package = .false.
+  logical :: gwe_est_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwe_est_subpackages(*) = &

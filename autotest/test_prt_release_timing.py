@@ -12,7 +12,6 @@ Results are compared against a MODPATH 7 model.
 """
 
 from pathlib import Path
-from typing import Optional
 
 import flopy
 import matplotlib.pyplot as plt
@@ -41,7 +40,6 @@ cases = [
     f"{simname}open",  # RELEASETIMES block: 0.5 and 0.6, OPEN/CLOSE
     # period block options
     f"{simname}all",  # ALL
-    f"{simname}frac",  # ALL FRACTION 0.5, expect removal warning
     f"{simname}frst",  # FIRST
     f"{simname}stps",  # STEPS 1
     f"{simname}freq",  # FREQUENCY 1 and RELEASE_TIME_FREQUENCY 0.2
@@ -61,7 +59,7 @@ cases = [
 ]
 
 
-def get_perioddata(name, periods=1) -> Optional[dict]:
+def get_perioddata(name, periods=1) -> dict | None:
     opt = []
     if (
         "sgl" in name
@@ -93,9 +91,6 @@ def get_perioddata(name, periods=1) -> Optional[dict]:
         opt.append(("FIRST",))
     elif "all" in name:
         opt.append(("ALL",))
-    elif "frac" in name:
-        opt.append(("ALL",))
-        opt.append(("FRACTION", 0.5))
     elif "stps" in name:
         opt.append(("STEPS", 1))
     elif "freq" in name:
@@ -451,12 +446,8 @@ def check_output(test, snapshot):
     assert list_file.is_file()
     lines = open(list_file).readlines()
     lines = [l.strip() for l in lines]
-    if "frac" in name:
-        # FRACTION no longer supported
-        return
-    else:
-        li = lines.index("PARTICLE RELEASE FOR PRP 1")
-        assert "RELEASE SCHEDULE:" in lines[li + 1]
+    li = lines.index("PARTICLE RELEASE FOR PRP 1")
+    assert "RELEASE SCHEDULE:" in lines[li + 1]
 
     # make sure pathline df has "name" (boundname) column and empty values
     assert "name" in mf6_pls
@@ -531,18 +522,19 @@ def check_output(test, snapshot):
         assert np.allclose(release_times, expected_release_times)
 
     # check kper/kstp reporting for time boundary case.
-    # events at the same time can be on different sides
-    # of the boundary depending how they're configured.
     if "bndy" in name:
-        # Both releases at t=1.0 (boundary between kper=1,kstp=1 and kper=2,kstp=1):
+        # Two release specs coincide at t=1.0, the boundary between
+        # kper=1,kstp=1 and kper=2,kstp=1:
         # 1. Explicit release with RELEASETIMES block at t=1.0
         # 2. Period-block release with FIRST in period 2
         #
-        # Expected behavior:
-        # - Explicit release falls within the timeslice for period 1 step 1,
-        #   (0.0, 1.0], so reported as period 1
-        # - Period-block release when PRT solves period 2 step 1 should be
-        #   reported as period 2
+        # A release point never releases more than one particle at a
+        # given instant, so these are consolidated into a single
+        # particle rather than releasing two indistinguishable
+        # particles at the same place and time. The explicit release
+        # falls within the timeslice for period 1 step 1, (0.0, 1.0],
+        # so that's when the single particle is actually released;
+        # the coincident period-block release is suppressed.
         release_times = sorted(mf6_pls["trelease"].unique())
         expected_release_times = [1.0]
         assert len(release_times) == len(expected_release_times)
@@ -551,6 +543,9 @@ def check_output(test, snapshot):
         unique_kpers = sorted(releases_at_boundary["kper"].unique())
         expected_kpers = [1, 2]
         assert unique_kpers == expected_kpers
+        # exactly one RELEASE event (ireason == 0) per release point
+        release_events = releases_at_boundary[releases_at_boundary["ireason"] == 0]
+        assert len(release_events) == len(FlopyReadmeCase.releasepts_prt)
 
     # check default release case: no config at all, 3 stress periods.
     # particles should be released exactly once at t=0 (start of simulation).
@@ -728,7 +723,5 @@ def test_mf6model(name, function_tmpdir, targets, array_snapshot, plot):
         plot=lambda t: plot_output(t) if plot else None,
         targets=targets,
         compare=None,
-        # expect case using FRACTION to fail
-        xfail=[False, True, False] if "frac" in name else False,
     )
     test.run()

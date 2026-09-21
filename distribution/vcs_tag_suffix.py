@@ -1,11 +1,14 @@
 """
-If HEAD is an exact tag match, this is an official release, so
-return no suffix. Otherwise it's a development build so return
-suffix '+shortsha'.
+Computes the @VCS_TAG@ suffix meson substitutes into version.f90 at
+build time. This only ever applies to development builds - anything
+not built via `update_version.py --releasemode`, which sets
+@VCS_TAG@ to "" itself before meson ever runs.
+
+For a development build, the suffix is '+shortsha[.dirty]', or ''
+if HEAD is an exact tag match.
 """
 
 import subprocess
-import sys
 
 
 def get_suffix():
@@ -37,15 +40,4 @@ def get_suffix():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) not in (1, 3):
-        print(f"usage: {sys.argv[0]} [input output]", file=sys.stderr)
-        sys.exit(1)
-    suffix = get_suffix()
-    if len(sys.argv) == 3:
-        input_path, output_path = sys.argv[1], sys.argv[2]
-        with open(input_path) as f:
-            content = f.read().replace("@VCS_TAG@", suffix)
-        with open(output_path, "w") as f:
-            f.write(content)
-    else:
-        print(suffix, end="")
+    print(get_suffix(), end="")

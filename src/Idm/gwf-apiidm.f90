@@ -9,6 +9,7 @@ module GwfApiInputModule
   public gwf_api_block_definitions
   public GwfApiParamFoundType
   public gwf_api_multi_package
+  public gwf_api_is_advanced
   public gwf_api_subpackages
 
   type GwfApiParamFoundType
@@ -25,6 +26,7 @@ module GwfApiInputModule
   end type GwfApiParamFoundType
 
   logical :: gwf_api_multi_package = .true.
+  logical :: gwf_api_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_api_subpackages(*) = &

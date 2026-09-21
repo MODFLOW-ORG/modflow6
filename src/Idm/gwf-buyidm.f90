@@ -9,6 +9,7 @@ module GwfBuyInputModule
   public gwf_buy_block_definitions
   public GwfBuyParamFoundType
   public gwf_buy_multi_package
+  public gwf_buy_is_advanced
   public gwf_buy_subpackages
 
   type GwfBuyParamFoundType
@@ -28,6 +29,7 @@ module GwfBuyInputModule
   end type GwfBuyParamFoundType
 
   logical :: gwf_buy_multi_package = .false.
+  logical :: gwf_buy_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_buy_subpackages(*) = &

@@ -68,6 +68,40 @@ contains
     end if
   end subroutine sCubicLinear
 
+  !> @ brief sRamp
+  !!
+  !! Smoothed ramp function; a smooth approximation of max(x, 0) with a
+  !! continuous value and slope. The value is zero with zero slope for x <= 0 and
+  !! is the exact line x with unit slope for x >= range, joined by a cubic over
+  !! (0, range). Unlike sCubicLinear, which levels off at 1, the value continues
+  !! with unit slope, so it is exact outside the transition (max(x, 0) for
+  !! |x| >= range).
+  !<
+  subroutine sRamp(x, range, dydx, y)
+    real(DP), intent(in) :: x
+    real(DP), intent(in) :: range
+    real(DP), intent(inout) :: dydx
+    real(DP), intent(inout) :: y
+    !--local variables
+    real(DP) :: s
+    real(DP) :: xs
+    ! -- code
+    !
+    s = range
+    if (s < DPREC) s = DPREC
+    xs = x / s
+    if (xs <= DZERO) then
+      y = DZERO
+      dydx = DZERO
+    elseif (xs < DONE) then
+      y = x * xs * (DTWO - xs)
+      dydx = xs * (DFOUR - DTHREE * xs)
+    else
+      y = x
+      dydx = DONE
+    end if
+  end subroutine sRamp
+
   !> @ brief sCubic
   !!
   !! Nonlinear smoothing function returns value between 0-1; cubic function
@@ -517,9 +551,13 @@ contains
 
   !> @ brief sSlope
   !!
-  !! Nonlinear smoothing function returns a smoothed value of y that has the value
-  !! yi at xi and yi + (sm * dx) for x-values less than xi and yi + (sp * dx) for
-  !! x-values greater than xi, where dx = x - xi.
+  !! Nonlinear smoothing function returns a smoothed value of y whose limbs are
+  !! the lines yi + (sm * dx) for x-values less than xi and yi + (sp * dx) for
+  !! x-values greater than xi, where dx = x - xi. The slope change at xi is
+  !! smoothed with the hyperbolic smoothed min and max of Chen and Mangasarian
+  !! (1996), as applied to hydrologic-model thresholds by Kavetski and Kuczera
+  !! (2007, eq. 18; https://dx.doi.org/10.1029/2006WR005195); here the smoothing
+  !! constant is b**2 - a**2 with b = a / (sqrt(2) - 1). Currently unused.
   !<
   function sSlope(x, xi, yi, sm, sp, ta) result(y)
     ! -- return
@@ -550,12 +588,14 @@ contains
     ! -- calculate b from smoothing variable a
     b = a / (sqrt(DTWO) - DONE)
     !
-    ! -- calculate contributions to y
+    ! -- calculate contributions to y. xm and xp are smoothed values of
+    !    min(x, xi) and max(x, xi), so the limbs are yi + sm*dx (x < xi) and
+    !    yi + sp*dx (x > xi).
     dx = x - xi
-    xm = DHALF * (x + xi - sqrt(dx + b**DTWO - a**DTWO))
-    xp = DHALF * (x + xi + sqrt(dx + b**DTWO - a**DTWO))
+    xm = DHALF * (x + xi - sqrt(dx**DTWO + b**DTWO - a**DTWO))
+    xp = DHALF * (x + xi + sqrt(dx**DTWO + b**DTWO - a**DTWO))
     ym = sm * (xm - xi)
-    yp = sp * (xi - xp)
+    yp = sp * (xp - xi)
     !
     ! -- calculate y from ym and yp contributions
     y = yi + ym + yp
@@ -563,8 +603,8 @@ contains
 
   !> @ brief sSlopeDerivative
   !!
-  !! Derivative of nonlinear smoothing function that has the value yi at xi and
-  !! yi + (sm * dx) for x-values less than xi and yi + (sp * dx) for x-values
+  !! Derivative of sSlope (see that routine for the provenance): smoothly
+  !! transitions from slope sm for x-values less than xi to slope sp for x-values
   !! greater than xi, where dx = x - xi.
   !<
   function sSlopeDerivative(x, xi, sm, sp, ta) result(y)
@@ -688,9 +728,12 @@ contains
 
   !> @ brief sQuadraticSlope
   !!
-  !! Quadratic smoothing function returns a smoothed value of y that has the value
-  !! yi at xi and yi + (sm * dx) for x-values less than xi and yi + (sp * dx) for
-  !! x-values greater than xi, where dx = x - xi.
+  !! Quadratic smoothing function returns a smoothed value of y whose limbs are
+  !! the lines yi + (sm * dx) for x-values less than xi and yi + (sp * dx) for
+  !! x-values greater than xi, where dx = x - xi. The limbs are blended by a
+  !! quadratic over xi +/- epsilon, so the value equals yi at xi only in the
+  !! limit of zero smoothing; otherwise it differs from yi by a term
+  !! proportional to the smoothing interval.
   !<
   function sQuadraticSlope(x, xi, yi, sm, sp, tomega) result(y)
     ! -- return
@@ -737,9 +780,9 @@ contains
 
   !> @ brief sQuadraticSlopeDerivative
   !!
-  !! Derivative of quadratic smoothing function returns a smoothed value of y
-  !! that has the value yi at xi and yi + (sm * dx) for x-values less than xi and
-  !! yi + (sp * dx) for x-values greater than xi, where dx = x - xi.
+  !! Derivative of sQuadraticSlope: smoothly transitions from the slope sm for
+  !! x-values less than xi to the slope sp for x-values greater than xi, blended
+  !! by a line over xi +/- epsilon, where dx = x - xi.
   !<
   function sQuadraticSlopeDerivative(x, xi, sm, sp, tomega) result(y)
     ! -- return

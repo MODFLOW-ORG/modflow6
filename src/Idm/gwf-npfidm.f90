@@ -9,6 +9,7 @@ module GwfNpfInputModule
   public gwf_npf_block_definitions
   public GwfNpfParamFoundType
   public gwf_npf_multi_package
+  public gwf_npf_is_advanced
   public gwf_npf_subpackages
 
   type GwfNpfParamFoundType
@@ -52,6 +53,7 @@ module GwfNpfInputModule
   end type GwfNpfParamFoundType
 
   logical :: gwf_npf_multi_package = .false.
+  logical :: gwf_npf_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_npf_subpackages(*) = &

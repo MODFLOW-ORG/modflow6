@@ -50,6 +50,10 @@ contains
   real(DP) :: delq
   real(DP) :: delh
   real(DP) :: dd2
+  real(DP) :: en1
+  real(DP) :: en2
+  real(DP) :: dmid
+  logical :: lbisect
 
   weight = this%storage_weight
   dq = this%deps
@@ -57,6 +61,7 @@ contains
 
   celerity = DZERO
   qgwf = DZERO
+  lbisect = .false.
 
   qlat = qr + qro - qe
 
@@ -89,6 +94,20 @@ contains
   ! estimate qgwf
   igwfconn = this%sfr_gwf_conn(n)
   if (igwfconn == 1) then
+    ! -- a dry gaining reach with no inflow can get stuck at zero depth under
+    !    Picard iteration: with a small time step zero depth is a stable fixed
+    !    point because conductance and saturation vanish there. Only in that
+    !    case (aquifer head above the streambed top and effectively no routed
+    !    inflow) solve the depth by bisection instead, bracketed between the
+    !    wet-streambed depth (DEM5) and the aquifer depth above the streambed
+    !    top, so the reach rewets at any dt. A reach with meaningful inflow
+    !    (dc >= DEM5) is left on the untouched Picard path.
+    en2 = hgwf - this%strtop(n)
+    if (en2 > DTWO * DEM5 .and. dc < DEM5) then
+      lbisect = .true.
+      en1 = DEM5
+      d1 = DHALF * (en1 + en2)
+    end if
     q = qu + qi + qr - qe + qro + qfrommvr
     call this%sfr_calc_qgwf(n, d1, hgwf, qgwf)
     qgwf = -qgwf
@@ -110,6 +129,12 @@ contains
     celerity = DZERO
   end if
   courant = celerity * delt / this%length(n)
+  if (courant > DZERO) then
+    if (courant < this%crmin(n)) this%crmin(n) = courant
+    if (courant > this%crmax(n)) this%crmax(n) = courant
+    this%crsum(n) = this%crsum(n) + courant
+    this%crcnt(n) = this%crcnt(n) + 1
+  end if
 
   qlat = qlat / this%length(n)
 
@@ -173,8 +198,22 @@ contains
     end do newton
 
     qd = max(qd, DZERO)
-    d1 = (dc + dd) * DHALF
-    delh = (d1 - d1old)
+    if (lbisect) then
+      ! -- bisection step. dmid is the depth implied by the routed flow at the
+      !    current depth d1; the root is where the two are equal. Move the
+      !    bracket end that keeps the root inside it.
+      dmid = (dc + dd) * DHALF
+      if (dmid > d1) then
+        en1 = d1
+      else
+        en2 = d1
+      end if
+      d1 = DHALF * (en1 + en2)
+      delh = en2 - en1
+    else
+      d1 = (dc + dd) * DHALF
+      delh = (d1 - d1old)
+    end if
 
     if (i > 1 .and. abs(delh) < this%dmaxchg) then
       exit kinematicpicard

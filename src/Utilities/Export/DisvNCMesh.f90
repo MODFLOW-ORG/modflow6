@@ -400,6 +400,21 @@ contains
                                 maxval(ncvert), &
                                 this%dim_ids%max_nmesh_face_nodes), &
                    this%nc_fname)
+
+    ! layer
+    call nf_verify(nf90_def_dim(this%ncid, 'layer', this%nlay, &
+                                this%dim_ids%layer), this%nc_fname)
+    call nf_verify(nf90_def_var(this%ncid, 'layer', NF90_INT, &
+                                this%dim_ids%layer, this%var_ids%layer), &
+                   this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%layer, 'units', '1'), &
+                   this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%layer, 'axis', 'Z'), &
+                   this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%layer, 'positive', &
+                                'down'), this%nc_fname)
+    call nf_verify(nf90_put_att(this%ncid, this%var_ids%layer, 'long_name', &
+                                'model layer'), this%nc_fname)
   end subroutine define_dim
 
   !> @brief netcdf export add mesh information
@@ -414,8 +429,8 @@ contains
     real(DP), dimension(:), contiguous, pointer :: vert_xt => null()
     real(DP), dimension(:), contiguous, pointer :: vert_yt => null()
     real(DP) :: x_transform, y_transform
-    integer(I4B) :: n, m, idx, cnt, iv, maxvert
-    integer(I4B), dimension(:), allocatable :: verts
+    integer(I4B) :: n, m, idx, cnt, iv, maxvert, k
+    integer(I4B), dimension(:), allocatable :: verts, layers
     real(DP), dimension(:), allocatable :: bnds
     integer(I4B) :: istop
 
@@ -432,6 +447,15 @@ contains
     ! set mesh container variable value to 1
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%mesh, 1), &
                    this%nc_fname)
+
+    ! write layer coordinate data
+    allocate (layers(this%nlay))
+    do k = 1, this%nlay
+      layers(k) = k
+    end do
+    call nf_verify(nf90_put_var(this%ncid, this%var_ids%layer, layers), &
+                   this%nc_fname)
+    deallocate (layers)
 
     ! transform vert x and y
     do n = 1, this%disv%nvert
@@ -565,7 +589,9 @@ contains
       if (iper == 0) then
         ! set names
         varname = export_varname(pkgname, idt%tagname, mempath)
-        longname = export_longname(idt%longname, pkgname, idt%tagname, mempath)
+        longname = export_longname(idt%longname, pkgname, idt%tagname, mempath, &
+                                   component_type=idt%component_type, &
+                                   subcomponent_type=idt%subcomponent_type)
 
         allocate (var_id(1))
         axis_sz = dim_ids%nmesh_face
@@ -616,7 +642,9 @@ contains
           ! set names
           varname = export_varname(pkgname, idt%tagname, mempath, layer=k)
           longname = export_longname(idt%longname, pkgname, idt%tagname, &
-                                     mempath, layer=k)
+                                     mempath, layer=k, &
+                                     component_type=idt%component_type, &
+                                     subcomponent_type=idt%subcomponent_type)
 
           call nf_verify(nf90_def_var(ncid, varname, NF90_INT, &
                                       (/dim_ids%nmesh_face/), var_id(k)), &
@@ -690,7 +718,9 @@ contains
       ! set names
       varname = export_varname(pkgname, idt%tagname, mempath, layer=k)
       longname = export_longname(idt%longname, pkgname, idt%tagname, &
-                                 mempath, layer=k)
+                                 mempath, layer=k, &
+                                 component_type=idt%component_type, &
+                                 subcomponent_type=idt%subcomponent_type)
 
       call nf_verify(nf90_def_var(ncid, varname, NF90_INT, &
                                   (/dim_ids%nmesh_face/), var_id(k)), &
@@ -757,7 +787,9 @@ contains
         varname = export_varname(pkgname, idt%tagname, mempath, &
                                  iaux=iaux)
         longname = export_longname(idt%longname, pkgname, idt%tagname, &
-                                   mempath, iaux=iaux)
+                                   mempath, iaux=iaux, &
+                                   component_type=idt%component_type, &
+                                   subcomponent_type=idt%subcomponent_type)
 
         allocate (var_id(1))
         axis_sz = dim_ids%nmesh_face
@@ -809,7 +841,9 @@ contains
           varname = export_varname(pkgname, idt%tagname, mempath, layer=k, &
                                    iaux=iaux)
           longname = export_longname(idt%longname, pkgname, idt%tagname, &
-                                     mempath, layer=k, iaux=iaux)
+                                     mempath, layer=k, iaux=iaux, &
+                                     component_type=idt%component_type, &
+                                     subcomponent_type=idt%subcomponent_type)
 
           call nf_verify(nf90_def_var(ncid, varname, NF90_DOUBLE, &
                                       (/dim_ids%nmesh_face/), var_id(k)), &
@@ -883,7 +917,9 @@ contains
       ! set names
       varname = export_varname(pkgname, idt%tagname, mempath, layer=k)
       longname = export_longname(idt%longname, pkgname, idt%tagname, &
-                                 mempath, layer=k)
+                                 mempath, layer=k, &
+                                 component_type=idt%component_type, &
+                                 subcomponent_type=idt%subcomponent_type)
 
       call nf_verify(nf90_def_var(ncid, varname, NF90_DOUBLE, &
                                   (/dim_ids%nmesh_face/), var_id(k)), &

@@ -9,6 +9,7 @@ module ChfDfwInputModule
   public chf_dfw_block_definitions
   public ChfDfwParamFoundType
   public chf_dfw_multi_package
+  public chf_dfw_is_advanced
   public chf_dfw_subpackages
 
   type ChfDfwParamFoundType
@@ -29,6 +30,7 @@ module ChfDfwInputModule
   end type ChfDfwParamFoundType
 
   logical :: chf_dfw_multi_package = .false.
+  logical :: chf_dfw_is_advanced = .false.
 
   character(len=16), parameter :: &
     chf_dfw_subpackages(*) = &

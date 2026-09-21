@@ -184,42 +184,17 @@ This is the approved USGS MODFLOW <semver> release.
 Visit the USGS "MODFLOW and Related Programs" site for information on MODFLOW 6 and related software: https://doi.org/10.5066/F76Q1VQV
 ```
 
-Update the DOI link in the citation if necessary. The DOI on the last line is the original and stays the same.
+The citation string can be rendered with `pixi run update-version -c`. Pass the
+release DOI link via `--doi` (`-d`), e.g.
+`pixi run update-version -c -d https://doi.org/10.5066/P1PGE9XW`; without it the
+umbrella MODFLOW software DOI is used. The DOI on the last line is the original
+and stays the same.
 
 Publish the release.
 
 ### Reset the develop branch
 
-Make a new branch from `master`:
-
-```shell
-git checkout master
-git switch -c post-6.x.y-release-reset
-```
-
-#### Update version strings
-
-Update the version number for the next development cycle:
-
-```shell
-pixi run update-version -v 6.x.y.dev0
-```
-
-This will substitute the new version number into the necessary files and set `IDEVELOPMODE` back to 1.
-
-#### Update release notes
-
-Generate a `develop.tex` file from `develop.toml`:
-
-```shell
-pixi run make-release-notes
-```
-
-Move/rename it to `doc/ReleaseNotes/previous/vx.y.z.tex` (where `x.y.z` is the version just released), then insert a new line `\input{./previous/vx.y.z.tex}` at the top of `doc/ReleaseNotes/appendixA.tex`.
-
-If this was not a hotfix, trim `doc/ReleaseNotes/develop.toml` as necessary to remove items just released.
-
-Create and merge (don't squash) a pull request from this branch into `develop`.
+When a release is published, the `reset` job in `.github/workflows/release_dispatch.yml` creates a branch called `post-release-<version>-reset` from `master`, with several changes: updating version strings (bump minor number, add `.dev0` suffix), setting `IDEVELOPMODE = 1`, and archiving/clearing the release notes. The job then creates a PR from this branch into `develop`. Merge (do not squash) the PR.
 
 ### Release downstream repos
 

@@ -9,6 +9,7 @@ module GwtSrcInputModule
   public gwt_src_block_definitions
   public GwtSrcParamFoundType
   public gwt_src_multi_package
+  public gwt_src_is_advanced
   public gwt_src_subpackages
 
   type GwtSrcParamFoundType
@@ -34,6 +35,7 @@ module GwtSrcInputModule
   end type GwtSrcParamFoundType
 
   logical :: gwt_src_multi_package = .true.
+  logical :: gwt_src_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwt_src_subpackages(*) = &

@@ -9,6 +9,7 @@ module OlfNamInputModule
   public olf_nam_block_definitions
   public OlfNamParamFoundType
   public olf_nam_multi_package
+  public olf_nam_is_advanced
   public olf_nam_subpackages
 
   type OlfNamParamFoundType
@@ -25,6 +26,7 @@ module OlfNamInputModule
   end type OlfNamParamFoundType
 
   logical :: olf_nam_multi_package = .false.
+  logical :: olf_nam_is_advanced = .false.
 
   character(len=16), parameter :: &
     olf_nam_subpackages(*) = &

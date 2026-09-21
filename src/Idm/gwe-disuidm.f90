@@ -9,6 +9,7 @@ module GweDisuInputModule
   public gwe_disu_block_definitions
   public GweDisuParamFoundType
   public gwe_disu_multi_package
+  public gwe_disu_is_advanced
   public gwe_disu_subpackages
 
   type GweDisuParamFoundType
@@ -48,6 +49,7 @@ module GweDisuInputModule
   end type GweDisuParamFoundType
 
   logical :: gwe_disu_multi_package = .false.
+  logical :: gwe_disu_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwe_disu_subpackages(*) = &

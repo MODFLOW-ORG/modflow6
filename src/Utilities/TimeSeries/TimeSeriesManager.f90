@@ -463,6 +463,7 @@ contains
     ! Get index from hash table, get time series from TsContainers,
     !     and assign result to time series contained in link.
     res => null()
+    if (.not. associated(this%BndTsHashTable)) return
     indx = this%BndTsHashTable%get(name)
     if (indx > 0) then
       res => this%TsContainers(indx)%timeSeries

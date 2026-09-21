@@ -234,6 +234,11 @@ contains
     !
     ! -- log DRN specific options
     call this%log_drn_options(found)
+    !
+    ! -- terminate if errors were detected
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
   end subroutine drn_options
 
   !> @ brief Log DRN specific package options

@@ -14,7 +14,9 @@ from prt_test_utils import (
 )
 
 simname = "prtbud"
-cases = [simname]
+# case 0: a single PRP package
+# case 1: two PRP packages
+cases = [simname, f"{simname}2p"]
 
 # model names
 gwf_name = get_model_name(simname, "gwf")
@@ -192,7 +194,7 @@ def build_gwt_sim(gwf_ws, gwt_ws, mf6):
     return sim
 
 
-def build_prt_sim(gwf_ws, prt_ws, mf6):
+def build_prt_sim(gwf_ws, prt_ws, mf6, nprp=1):
     sim = flopy.mf6.MFSimulation(sim_name=prt_name, sim_ws=prt_ws, exe_name=mf6)
     tdis = flopy.mf6.modflow.mftdis.ModflowTdis(sim, nper=nper, perioddata=tdis_spd)
     prt = flopy.mf6.ModflowPrt(
@@ -210,15 +212,21 @@ def build_prt_sim(gwf_ws, prt_ws, mf6):
     )
     mip = flopy.mf6.ModflowPrtmip(prt, pname="mip", porosity=0.1, izone=izone)
     releasepts = list(particle_data.to_prp(prt.modelgrid))
-    prp = flopy.mf6.ModflowPrtprp(
-        prt,
-        nreleasepts=len(releasepts),
-        packagedata=releasepts,
-        perioddata={0: ["FIRST"]},
-        exit_solve_tolerance=1e-5,
-        extend_tracking=False,
-        print_input=True,
-    )
+    # distribute the release points across nprp packages,
+    # re-numbering each package's release points from 0
+    for iprp in range(nprp):
+        chunk = releasepts[iprp::nprp]
+        chunk = [(i, *rpt[1:]) for i, rpt in enumerate(chunk)]
+        prp = flopy.mf6.ModflowPrtprp(
+            prt,
+            pname=f"prp{iprp + 1}",
+            nreleasepts=len(chunk),
+            packagedata=chunk,
+            perioddata={0: ["FIRST"]},
+            exit_solve_tolerance=1e-5,
+            extend_tracking=False,
+            print_input=True,
+        )
     oc = flopy.mf6.ModflowPrtoc(
         prt,
         budget_filerecord=[prt_budgetfile],
@@ -251,12 +259,15 @@ def build_models(idx, test):
         test.workspace / "gwf", test.workspace / "gwt", test.targets["mf6"]
     )
     prt_sim = build_prt_sim(
-        test.workspace / "gwf", test.workspace / "prt", test.targets["mf6"]
+        test.workspace / "gwf",
+        test.workspace / "prt",
+        test.targets["mf6"],
+        nprp=idx + 1,
     )
     return gwf_sim, gwt_sim, prt_sim
 
 
-def check_cumulative_prt_budget(path, nparticles):
+def check_cumulative_prt_budget(path, nparticles, nprp=1):
     prt_lst = flopy.utils.Mf6ListBudget(path, budgetkey="MASS BUDGET FOR ENTIRE MODEL")
 
     expected_terms = [
@@ -278,21 +289,29 @@ def check_cumulative_prt_budget(path, nparticles):
         assert len(matches) == 1
         return matches[0]
 
-    prp_in = get_budget_term("PRP_IN")
-    prp_out = get_budget_term("PRP_OUT")
+    def get_prp_term(tag):
+        # the model budget has one PRP line per PRP package, all labeled
+        # "PRP". flopy's list budget reader keeps the first as PRP_<tag> and
+        # suffixes the rest positionally (PRP2_<tag>, PRP3_<tag>, ...), so
+        # sum them to get the total across all PRP packages.
+        keys = [f"PRP_{tag}"] + [f"PRP{i}_{tag}" for i in range(2, nprp + 1)]
+        return sum(get_budget_term(k) for k in keys)
+
+    prp_in = get_prp_term("IN")
+    prp_out = get_prp_term("OUT")
     sto_in = get_budget_term("STORAGE_IN")
     sto_out = get_budget_term("STORAGE_OUT")
     term_in = get_budget_term("TERMINATION_IN")
     term_out = get_budget_term("TERMINATION_OUT")
     pct_dscr = get_budget_term("PERCENT_DISCREPANCY")
 
-    assert np.isclose(prp_in, nparticles)  # all particles released
-    assert np.isclose(prp_out, 0.0)  # no mass out of prp term
     assert sto_in >= 0.0
     assert np.isclose(sto_in, -sto_out)  # storage budget balance
     assert np.isclose(term_in, 0.0)  # no mass into termination term
     assert np.isclose(term_out, -nparticles)  # all particles terminated
     assert np.isclose(pct_dscr, 0.0, atol=1e-6)  # overall budget balance
+    assert np.isclose(prp_in, nparticles)  # all particles released
+    assert np.isclose(prp_out, 0.0)  # no mass out of prp term
     assert np.isclose(
         prp_in + sto_in + term_in, -(prp_out + sto_out + term_out), rtol=1e-6
     )
@@ -333,12 +352,13 @@ def check_cell_by_cell_budget(path, nparticles):
 def check_output(idx, test):
     prt_ws = test.workspace / "prt"
     prt_pls = pd.read_csv(prt_ws / prt_trackcsvfile, na_filter=False)
-
-    nparticles = prt_pls.irpt.unique().size
+    nparticles = prt_pls.groupby(["iprp", "irpt"]).ngroups
     assert len(prt_nodes) == nparticles
 
-    check_cumulative_prt_budget(prt_ws / prt_listfile, nparticles)
-    check_cell_by_cell_budget(prt_ws / prt_budgetfile, nparticles)
+    nprp = idx + 1
+    check_cumulative_prt_budget(prt_ws / prt_listfile, nparticles, nprp=nprp)
+    if nprp == 1:
+        check_cell_by_cell_budget(prt_ws / prt_budgetfile, nparticles)
 
 
 def plot_output(idx, test):

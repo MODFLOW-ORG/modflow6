@@ -9,6 +9,7 @@ module ChfFlwInputModule
   public chf_flw_block_definitions
   public ChfFlwParamFoundType
   public chf_flw_multi_package
+  public chf_flw_is_advanced
   public chf_flw_subpackages
 
   type ChfFlwParamFoundType
@@ -33,6 +34,7 @@ module ChfFlwInputModule
   end type ChfFlwParamFoundType
 
   logical :: chf_flw_multi_package = .true.
+  logical :: chf_flw_is_advanced = .false.
 
   character(len=16), parameter :: &
     chf_flw_subpackages(*) = &

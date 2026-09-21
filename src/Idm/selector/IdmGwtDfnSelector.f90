@@ -27,6 +27,7 @@ module IdmGwtDfnSelectorModule
   public :: gwt_aggregate_definitions
   public :: gwt_block_definitions
   public :: gwt_idm_multi_package
+  public :: gwt_idm_is_advanced
   public :: gwt_idm_subpackages
   public :: gwt_idm_integrated
 
@@ -211,6 +212,48 @@ contains
     end select
     return
   end function gwt_idm_multi_package
+
+  function gwt_idm_is_advanced(subcomponent) result(is_advanced)
+    character(len=*), intent(in) :: subcomponent
+    logical :: is_advanced
+    select case (subcomponent)
+    case ('NAM')
+      is_advanced = gwt_nam_is_advanced
+    case ('ADV')
+      is_advanced = gwt_adv_is_advanced
+    case ('API')
+      is_advanced = gwt_api_is_advanced
+    case ('DIS')
+      is_advanced = gwt_dis_is_advanced
+    case ('DISU')
+      is_advanced = gwt_disu_is_advanced
+    case ('DISV')
+      is_advanced = gwt_disv_is_advanced
+    case ('DSP')
+      is_advanced = gwt_dsp_is_advanced
+    case ('CNC')
+      is_advanced = gwt_cnc_is_advanced
+    case ('FMI')
+      is_advanced = gwt_fmi_is_advanced
+    case ('IC')
+      is_advanced = gwt_ic_is_advanced
+    case ('IST')
+      is_advanced = gwt_ist_is_advanced
+    case ('MST')
+      is_advanced = gwt_mst_is_advanced
+    case ('OC')
+      is_advanced = gwt_oc_is_advanced
+    case ('SRC')
+      is_advanced = gwt_src_is_advanced
+    case ('SSM')
+      is_advanced = gwt_ssm_is_advanced
+    case default
+      call store_error('Idm selector subcomponent not found; '//&
+                       &'component="GWT"'//&
+                       &', subcomponent="'//trim(subcomponent)//'".', .true.)
+    end select
+    return
+  end function gwt_idm_is_advanced
 
   function gwt_idm_subpackages(subcomponent) result(subpackages)
     character(len=*), intent(in) :: subcomponent

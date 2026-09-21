@@ -2,7 +2,6 @@ import os
 import shutil
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
 
 
 class Comparison(Enum):
@@ -42,9 +41,7 @@ IGNORE_EXTENSIONS = (
 )
 
 
-def adjust_htol(
-    workspace: Union[str, os.PathLike], htol: float = 0.001
-) -> Optional[float]:
+def adjust_htol(workspace: str | os.PathLike, htol: float = 0.001) -> float | None:
     """Get outer_dvclose value from MODFLOW 6 ims file"""
 
     dvclose = get_dvclose(workspace)
@@ -56,7 +53,7 @@ def adjust_htol(
     return dvclose if (htol is None or htol < dvclose) else htol
 
 
-def get_dvclose(workspace: Union[str, os.PathLike]) -> Optional[float]:
+def get_dvclose(workspace: str | os.PathLike) -> float | None:
     """Get outer_dvclose value from MODFLOW 6 ims file"""
     dvclose = None
     files = os.listdir(workspace)
@@ -79,7 +76,7 @@ def get_dvclose(workspace: Union[str, os.PathLike]) -> Optional[float]:
     return dvclose
 
 
-def get_rclose(workspace: Union[str, os.PathLike]) -> Optional[float]:
+def get_rclose(workspace: str | os.PathLike) -> float | None:
     """Get inner_rclose value from MODFLOW 6 ims file"""
 
     rclose = None

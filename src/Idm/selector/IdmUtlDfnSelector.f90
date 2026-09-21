@@ -18,6 +18,7 @@ module IdmUtlDfnSelectorModule
   public :: utl_aggregate_definitions
   public :: utl_block_definitions
   public :: utl_idm_multi_package
+  public :: utl_idm_is_advanced
   public :: utl_idm_subpackages
   public :: utl_idm_integrated
 
@@ -130,6 +131,30 @@ contains
     end select
     return
   end function utl_idm_multi_package
+
+  function utl_idm_is_advanced(subcomponent) result(is_advanced)
+    character(len=*), intent(in) :: subcomponent
+    logical :: is_advanced
+    select case (subcomponent)
+    case ('HPC')
+      is_advanced = utl_hpc_is_advanced
+    case ('NCF')
+      is_advanced = utl_ncf_is_advanced
+    case ('TVK')
+      is_advanced = utl_tvk_is_advanced
+    case ('TVS')
+      is_advanced = utl_tvs_is_advanced
+    case ('SPC')
+      is_advanced = utl_spc_is_advanced
+    case ('SPCA')
+      is_advanced = utl_spca_is_advanced
+    case default
+      call store_error('Idm selector subcomponent not found; '//&
+                       &'component="UTL"'//&
+                       &', subcomponent="'//trim(subcomponent)//'".', .true.)
+    end select
+    return
+  end function utl_idm_is_advanced
 
   function utl_idm_subpackages(subcomponent) result(subpackages)
     character(len=*), intent(in) :: subcomponent

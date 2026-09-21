@@ -81,7 +81,8 @@ contains
     else
       return
     end if
-    grid_type = string_to_char_array(trim(grid_type_f), len_trim(grid_type_f))
+    grid_type(1:len_trim(grid_type_f) + 1) = &
+      string_to_char_array(trim(grid_type_f), len_trim(grid_type_f))
     bmi_status = BMI_SUCCESS
   end function get_grid_type
 

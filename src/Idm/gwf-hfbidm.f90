@@ -9,6 +9,7 @@ module GwfHfbInputModule
   public gwf_hfb_block_definitions
   public GwfHfbParamFoundType
   public gwf_hfb_multi_package
+  public gwf_hfb_is_advanced
   public gwf_hfb_subpackages
 
   type GwfHfbParamFoundType
@@ -20,6 +21,7 @@ module GwfHfbInputModule
   end type GwfHfbParamFoundType
 
   logical :: gwf_hfb_multi_package = .false.
+  logical :: gwf_hfb_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_hfb_subpackages(*) = &

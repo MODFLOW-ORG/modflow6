@@ -9,6 +9,7 @@ module GwtMstInputModule
   public gwt_mst_block_definitions
   public GwtMstParamFoundType
   public gwt_mst_multi_package
+  public gwt_mst_is_advanced
   public gwt_mst_subpackages
 
   type GwtMstParamFoundType
@@ -31,6 +32,7 @@ module GwtMstInputModule
   end type GwtMstParamFoundType
 
   logical :: gwt_mst_multi_package = .false.
+  logical :: gwt_mst_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwt_mst_subpackages(*) = &

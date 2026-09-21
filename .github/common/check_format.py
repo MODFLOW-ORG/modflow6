@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 import sys
 import timeit
 from itertools import repeat
@@ -12,7 +13,9 @@ PROJ_ROOT = Path(__file__).parents[2]
 
 # exclude these directories from checks
 excludedirs = [
+    PROJ_ROOT / ".claude",
     PROJ_ROOT / ".pixi",
+    PROJ_ROOT / ".test-drive",
     PROJ_ROOT / "src" / "Utilities" / "Libraries" / "blas",
     PROJ_ROOT / "src" / "Utilities" / "Libraries" / "daglib",
     PROJ_ROOT / "src" / "Utilities" / "Libraries" / "rcm",
@@ -28,6 +31,27 @@ excludefiles = []
 
 # commands
 fprettify = "fprettify -c .fprettify.yaml"
+
+# Python prints warnings to stderr as "<file>:<line>: SomeWarning: <msg>"
+# followed by an indented source-echo line. fprettify 0.3.7 trips
+# SyntaxWarnings on Python >=3.12 (unraw regex strings in its own source);
+# strip any such warning noise so it isn't mistaken for a format failure.
+_warning_line = re.compile(r"^.*:\d+: \w*Warning: ")
+
+
+def strip_warnings(text: str) -> str:
+    kept = []
+    skip_indented = False
+    for line in text.splitlines():
+        if _warning_line.match(line):
+            skip_indented = True
+            continue
+        if skip_indented and (not line.strip() or line[:1].isspace()):
+            skip_indented = False
+            continue
+        skip_indented = False
+        kept.append(line)
+    return "\n".join(kept).strip()
 
 
 def excluded(path) -> bool:
@@ -53,8 +77,14 @@ def check_format(path, lock, checks, failures, write_changes=False, verbose=Fals
 
     diff = "" if write_changes else "-d"
     cmd = f"{fprettify} {diff} {path}"
-    result = run(cmd, capture_output=True, shell=True)
-    if result.stdout or result.stderr:
+    result = run(
+        cmd,
+        capture_output=True,
+        shell=True,
+        text=True,
+        env={**os.environ, "PYTHONWARNINGS": "ignore"},
+    )
+    if result.stdout or strip_warnings(result.stderr):
         failures.put(path)
 
     with lock:

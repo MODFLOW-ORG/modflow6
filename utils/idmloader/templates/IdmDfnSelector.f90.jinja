@@ -15,6 +15,7 @@ module IdmDfnSelectorModule
   public :: aggregate_definitions
   public :: block_definitions
   public :: idm_multi_package
+  public :: idm_is_advanced
   public :: idm_subpackages
   public :: idm_integrated
   public :: idm_component
@@ -82,6 +83,23 @@ contains
     end select
     return
   end function idm_multi_package
+
+  function idm_is_advanced(component, subcomponent) result(is_advanced)
+    character(len=*), intent(in) :: component
+    character(len=*), intent(in) :: subcomponent
+    logical :: is_advanced
+    select case (component)
+    {% for comp in components %}
+    case ('{{ comp.upper() }}')
+      is_advanced = {{ comp.lower() }}_idm_is_advanced(subcomponent)
+    {% endfor %}
+    case default
+      call store_error('Idm selector component not found; '//&
+                       &'component="'//trim(component)//&
+                       &'", subcomponent="'//trim(subcomponent)//'".', .true.)
+    end select
+    return
+  end function idm_is_advanced
 
   function idm_subpackages(component, subcomponent) result(subpackages)
     character(len=*), intent(in) :: component

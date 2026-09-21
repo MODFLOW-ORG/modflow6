@@ -9,6 +9,7 @@ module ChfIcInputModule
   public chf_ic_block_definitions
   public ChfIcParamFoundType
   public chf_ic_multi_package
+  public chf_ic_is_advanced
   public chf_ic_subpackages
 
   type ChfIcParamFoundType
@@ -17,6 +18,7 @@ module ChfIcInputModule
   end type ChfIcParamFoundType
 
   logical :: chf_ic_multi_package = .false.
+  logical :: chf_ic_is_advanced = .false.
 
   character(len=16), parameter :: &
     chf_ic_subpackages(*) = &

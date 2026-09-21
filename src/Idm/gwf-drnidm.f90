@@ -9,6 +9,7 @@ module GwfDrnInputModule
   public gwf_drn_block_definitions
   public GwfDrnParamFoundType
   public gwf_drn_multi_package
+  public gwf_drn_is_advanced
   public gwf_drn_subpackages
 
   type GwfDrnParamFoundType
@@ -37,6 +38,7 @@ module GwfDrnInputModule
   end type GwfDrnParamFoundType
 
   logical :: gwf_drn_multi_package = .true.
+  logical :: gwf_drn_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_drn_subpackages(*) = &

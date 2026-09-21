@@ -9,6 +9,7 @@ module ChfChdInputModule
   public chf_chd_block_definitions
   public ChfChdParamFoundType
   public chf_chd_multi_package
+  public chf_chd_is_advanced
   public chf_chd_subpackages
 
   type ChfChdParamFoundType
@@ -33,6 +34,7 @@ module ChfChdInputModule
   end type ChfChdParamFoundType
 
   logical :: chf_chd_multi_package = .true.
+  logical :: chf_chd_is_advanced = .false.
 
   character(len=16), parameter :: &
     chf_chd_subpackages(*) = &

@@ -9,6 +9,7 @@ module ChfZdgInputModule
   public chf_zdg_block_definitions
   public ChfZdgParamFoundType
   public chf_zdg_multi_package
+  public chf_zdg_is_advanced
   public chf_zdg_subpackages
 
   type ChfZdgParamFoundType
@@ -35,6 +36,7 @@ module ChfZdgInputModule
   end type ChfZdgParamFoundType
 
   logical :: chf_zdg_multi_package = .true.
+  logical :: chf_zdg_is_advanced = .false.
 
   character(len=16), parameter :: &
     chf_zdg_subpackages(*) = &

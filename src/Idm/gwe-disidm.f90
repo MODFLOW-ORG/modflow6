@@ -9,6 +9,7 @@ module GweDisInputModule
   public gwe_dis_block_definitions
   public GweDisParamFoundType
   public gwe_dis_multi_package
+  public gwe_dis_is_advanced
   public gwe_dis_subpackages
 
   type GweDisParamFoundType
@@ -39,6 +40,7 @@ module GweDisInputModule
   end type GweDisParamFoundType
 
   logical :: gwe_dis_multi_package = .false.
+  logical :: gwe_dis_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwe_dis_subpackages(*) = &

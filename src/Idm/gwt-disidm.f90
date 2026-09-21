@@ -9,6 +9,7 @@ module GwtDisInputModule
   public gwt_dis_block_definitions
   public GwtDisParamFoundType
   public gwt_dis_multi_package
+  public gwt_dis_is_advanced
   public gwt_dis_subpackages
 
   type GwtDisParamFoundType
@@ -39,6 +40,7 @@ module GwtDisInputModule
   end type GwtDisParamFoundType
 
   logical :: gwt_dis_multi_package = .false.
+  logical :: gwt_dis_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwt_dis_subpackages(*) = &

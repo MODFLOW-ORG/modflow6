@@ -655,7 +655,11 @@ contains
     if (this%celtop(icell) - test > DEM15) then
       if (issflag == 0) then
         call this%routewaves(totfluxtot, delt, ietflag, icell, ierr)
-        if (ierr > 0) return
+        if (ierr > 0) then
+          if (reset_state) &
+            call this%wave_shift(thiswork, icell, 1, 0, 1, thiswork%nwavst(1), 1)
+          return
+        end if
         call this%uz_rise(icell, totfluxtot)
         this%totflux(icell) = totfluxtot
         if (this%ivertcon(icell) > 0) then
@@ -930,13 +934,13 @@ contains
     !
     ! -- no uz, clear waves
     if (thickold < DZERO) then
-      do iwav = 1, 6
+      do iwav = 1, this%nwavst(icell)
         this%uzthst(iwav, icell) = this%thtr(icell)
         this%uzdpst(iwav, icell) = DZERO
         this%uzspst(iwav, icell) = DZERO
         this%uzflst(iwav, icell) = DZERO
-        this%nwavst(icell) = 1
       end do
+      this%nwavst(icell) = 1
     end if
     idelt = 1
     do ik = 1, idelt
@@ -1159,11 +1163,11 @@ contains
         return
       end if
     else
-      this%uzdpst(this%nwavst, icell) = DZERO
-      this%uzflst(this%nwavst, icell) = &
-        this%vks(icell) * (((this%uzthst(this%nwavst, icell) - &
+      this%uzdpst(this%nwavst(icell), icell) = DZERO
+      this%uzflst(this%nwavst(icell), icell) = &
+        this%vks(icell) * (((this%uzthst(this%nwavst(icell), icell) - &
                              this%thtr(icell)) * thtsrinv)**this%eps(icell))
-      this%uzthst(this%nwavst, icell) = smoist
+      this%uzthst(this%nwavst(icell), icell) = smoist
       theta2 = this%uzthst(this%nwavst(icell) - 1, icell)
       flux2 = this%uzflst(this%nwavst(icell) - 1, icell)
       flux1 = this%uzflst(this%nwavst(icell), icell)
@@ -1401,6 +1405,7 @@ contains
     comp3 = theta1 - thtr
     if (comp2 < DEM15) flux2 = flux1 + DEM15
     if (abs(comp1) < DEM30) then
+      fhold = DEM30
       if (comp3 > DEM30) fhold = (comp3 * thsrinv)**eps
       if (fhold < DEM30) fhold = DEM30
       leadspeed = epsfksths * (fhold**eps_m1)
@@ -1642,6 +1647,12 @@ contains
           hcap = this%caph(icell, tho)
           thetaout = this%rate_et_z(icell, factor, fktho, hcap)
         end if
+        if (this%nwavst(icell) + 1 > this%nwav(icell)) then
+          !
+          ! -- too many waves error
+          ierr = 1
+          goto 500
+        end if
         if (this%uzthst(this%nwavst(icell), icell) - thetaout > &
             this%thtr(icell) + extwc1) then
           this%uzthst(this%nwavst(icell) + 1, icell) = &
@@ -1678,6 +1689,12 @@ contains
         !
         ! -- one wave below extinction depth
       else if (this%nwavst(icell) == 1) then
+        if (this%nwavst(icell) + 1 > this%nwav(icell)) then
+          !
+          ! -- too many waves error
+          ierr = 1
+          goto 500
+        end if
         if (ietflag == 2) then
           tho = this%uzthst(1, icell)
           fktho = this%uzflst(1, icell)
@@ -1750,6 +1767,12 @@ contains
             !
             ! -- create a wave at extinction depth
             if (abs(diff) > DEM5) then
+              if (this%nwavst(icell) + 1 > this%nwav(icell)) then
+                !
+                ! -- too many waves error
+                ierr = 1
+                goto 500
+              end if
               call this%wave_shift(this, icell, icell, -1, &
                                    this%nwavst(icell) + 1, j, -1)
               this%uzdpst(j, icell) = this%extdpuz(icell)

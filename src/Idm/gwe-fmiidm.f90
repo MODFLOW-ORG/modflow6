@@ -9,6 +9,7 @@ module GweFmiInputModule
   public gwe_fmi_block_definitions
   public GweFmiParamFoundType
   public gwe_fmi_multi_package
+  public gwe_fmi_is_advanced
   public gwe_fmi_subpackages
 
   type GweFmiParamFoundType
@@ -20,6 +21,7 @@ module GweFmiInputModule
   end type GweFmiParamFoundType
 
   logical :: gwe_fmi_multi_package = .false.
+  logical :: gwe_fmi_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwe_fmi_subpackages(*) = &

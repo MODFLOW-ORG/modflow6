@@ -5,7 +5,6 @@ from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from pprint import pformat
-from typing import Optional
 
 _project_root_path = Path(__file__).resolve().parent.parent
 
@@ -21,8 +20,8 @@ def get_modified_time(path: Path) -> float:
 def glob(
     path: Path,
     pattern: str,
-    included: Optional[list[str]],
-    excluded: Optional[list[str]],
+    included: list[str] | None,
+    excluded: list[str] | None,
 ) -> Iterator[Path]:
     def is_included(p):
         if included is None:

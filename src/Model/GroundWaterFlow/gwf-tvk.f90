@@ -97,12 +97,17 @@ contains
     call mem_setptr(this%k33_src, 'K33', this%input_mempath)
   end subroutine tvk_ar_set_pointers
 
-  !> @brief Apply input K/K22/K33 column changes for period-data row n to node.
+  !> @brief Apply this node's K/K22/K33 input values to node.
+  !!
+  !! Called for every tracked node; the DNODATA check on each field
+  !! makes this a no-op except where a value is set. node may be invalid
+  !! even when a field has a value at nodeu, so each field validates
+  !! node itself before using it.
   !<
-  subroutine tvk_apply_row_changes(this, n, node)
+  subroutine tvk_apply_row_changes(this, nodeu, node)
     ! -- dummy
     class(TvkType) :: this
-    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: nodeu
     integer(I4B), intent(in) :: node
     ! -- local
     character(len=LINELENGTH) :: cellstr
@@ -113,35 +118,57 @@ contains
     !
     ! -- K is processed before K22/K33 so that validate_change can use
     ! -- the already-updated k11 value when ik22overk/ik33overk are set.
-    if (this%k11_src(n) /= DNODATA) then
-      this%k11(node) = this%k11_src(n)
-      call this%validate_change(node, 'K')
-      if (this%iprpak /= 0) then
+    if (this%k11_src(nodeu) /= DNODATA) then
+      if (node < 1 .or. node > this%dis%nodes) then
         call this%dis%noder_to_string(node, cellstr)
-        write (this%iout, fmtvalchg) &
-          trim(adjustl(this%packName)), 'K', trim(cellstr), kper, this%k11(node)
+        write (errmsg, '(a,2(1x,a))') &
+          'CELLID', trim(cellstr), 'is not in the active model domain.'
+        call store_error(errmsg)
+      else
+        this%k11(node) = this%k11_src(nodeu)
+        call this%validate_change(node, 'K')
+        if (this%iprpak /= 0) then
+          call this%dis%noder_to_string(node, cellstr)
+          write (this%iout, fmtvalchg) &
+            trim(adjustl(this%packName)), 'K', trim(cellstr), kper, &
+            this%k11(node)
+        end if
       end if
     end if
     !
-    if (this%k22_src(n) /= DNODATA) then
-      this%k22(node) = this%k22_src(n)
-      call this%validate_change(node, 'K22')
-      if (this%iprpak /= 0) then
+    if (this%k22_src(nodeu) /= DNODATA) then
+      if (node < 1 .or. node > this%dis%nodes) then
         call this%dis%noder_to_string(node, cellstr)
-        write (this%iout, fmtvalchg) &
-          trim(adjustl(this%packName)), 'K22', trim(cellstr), kper, &
-          this%k22(node)
+        write (errmsg, '(a,2(1x,a))') &
+          'CELLID', trim(cellstr), 'is not in the active model domain.'
+        call store_error(errmsg)
+      else
+        this%k22(node) = this%k22_src(nodeu)
+        call this%validate_change(node, 'K22')
+        if (this%iprpak /= 0) then
+          call this%dis%noder_to_string(node, cellstr)
+          write (this%iout, fmtvalchg) &
+            trim(adjustl(this%packName)), 'K22', trim(cellstr), kper, &
+            this%k22(node)
+        end if
       end if
     end if
     !
-    if (this%k33_src(n) /= DNODATA) then
-      this%k33(node) = this%k33_src(n)
-      call this%validate_change(node, 'K33')
-      if (this%iprpak /= 0) then
+    if (this%k33_src(nodeu) /= DNODATA) then
+      if (node < 1 .or. node > this%dis%nodes) then
         call this%dis%noder_to_string(node, cellstr)
-        write (this%iout, fmtvalchg) &
-          trim(adjustl(this%packName)), 'K33', trim(cellstr), kper, &
-          this%k33(node)
+        write (errmsg, '(a,2(1x,a))') &
+          'CELLID', trim(cellstr), 'is not in the active model domain.'
+        call store_error(errmsg)
+      else
+        this%k33(node) = this%k33_src(nodeu)
+        call this%validate_change(node, 'K33')
+        if (this%iprpak /= 0) then
+          call this%dis%noder_to_string(node, cellstr)
+          write (this%iout, fmtvalchg) &
+            trim(adjustl(this%packName)), 'K33', trim(cellstr), kper, &
+            this%k33(node)
+        end if
       end if
     end if
   end subroutine tvk_apply_row_changes

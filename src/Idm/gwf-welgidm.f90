@@ -9,6 +9,7 @@ module GwfWelgInputModule
   public gwf_welg_block_definitions
   public GwfWelgParamFoundType
   public gwf_welg_multi_package
+  public gwf_welg_is_advanced
   public gwf_welg_subpackages
 
   type GwfWelgParamFoundType
@@ -36,6 +37,7 @@ module GwfWelgInputModule
   end type GwfWelgParamFoundType
 
   logical :: gwf_welg_multi_package = .true.
+  logical :: gwf_welg_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwf_welg_subpackages(*) = &

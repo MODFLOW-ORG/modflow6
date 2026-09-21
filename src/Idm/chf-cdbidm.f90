@@ -9,6 +9,7 @@ module ChfCdbInputModule
   public chf_cdb_block_definitions
   public ChfCdbParamFoundType
   public chf_cdb_multi_package
+  public chf_cdb_is_advanced
   public chf_cdb_subpackages
 
   type ChfCdbParamFoundType
@@ -30,6 +31,7 @@ module ChfCdbInputModule
   end type ChfCdbParamFoundType
 
   logical :: chf_cdb_multi_package = .true.
+  logical :: chf_cdb_is_advanced = .false.
 
   character(len=16), parameter :: &
     chf_cdb_subpackages(*) = &

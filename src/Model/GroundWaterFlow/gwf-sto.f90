@@ -499,8 +499,19 @@ contains
     integer(I4B) :: n
     integer(I4B) :: iform
     !
+    ! -- reset storage rates
+    do n = 1, this%dis%nodes
+      this%strgss(n) = DZERO
+      this%strgsy(n) = DZERO
+    end do
+    !
+    if (this%iss == 1) return !< no storage for steady state period
+    !
     ! -- Calculate storage change
     do n = 1, this%dis%nodes
+      !
+      if (this%ibound(n) <= 0) cycle
+      !
       iform = this%iformulation(n)
       if (iform == DEFAULT_STORAGE) then
         call this%cq_default_sto(n, flowja, hnew, hold)
@@ -529,12 +540,6 @@ contains
     real(DP) :: tp, bt
     real(DP) :: snold, snnew
     real(DP) :: aterm, rhsterm
-    !
-    ! -- reset rates
-    this%strgss(n) = DZERO
-    this%strgsy(n) = DZERO
-    if (this%iss == 1) return ! done when steady state
-    if (this%ibound(n) <= 0) return
     !
     tled = DONE / delt
     !
@@ -729,6 +734,7 @@ contains
       call mem_deallocate(this%sy)
       call mem_deallocate(this%strgss)
       call mem_deallocate(this%strgsy)
+      call mem_deallocate(this%iformulation)
       !
       ! -- deallocate TVS arrays
       if (associated(this%oldss)) then

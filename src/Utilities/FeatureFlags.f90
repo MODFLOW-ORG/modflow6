@@ -5,9 +5,14 @@ module FeatureFlagsModule
   use SimModule, only: store_error, store_error_unit
   implicit none
   private
-  public :: developmode
+  public :: developmode, is_release_mode
 
 contains
+
+  !> @brief True if development features should be disabled
+  pure logical function is_release_mode()
+    is_release_mode = (IDEVELOPMODE == 0)
+  end function is_release_mode
 
   !> @brief Terminate if in release mode (guard development features)
   !!
@@ -23,7 +28,7 @@ contains
     integer(I4B), intent(in), optional :: iunit
 
     ! -- store error and terminate if in release mode
-    if (IDEVELOPMODE == 0) then
+    if (is_release_mode()) then
       if (present(iunit)) then
         call store_error(errmsg, terminate=.false.)
         call store_error_unit(iunit, terminate=.true.)

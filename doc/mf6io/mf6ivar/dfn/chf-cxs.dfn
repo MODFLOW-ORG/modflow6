@@ -31,22 +31,23 @@ description integer value specifying the total number of cross-section points de
 
 block packagedata
 name packagedata
-type recarray idcxs nxspoints
+type recarray ifno nxspoints
 shape (nsections)
 reader urword
 longname
 description
 
 block packagedata
-name idcxs
+name ifno
 type integer
 shape
 tagged false
 in_record true
 reader urword
-longname reach number for this entry
-description integer value that defines the cross section number associated with the specified PACKAGEDATA data on the line. IDCXS must be greater than zero and less than or equal to NSECTIONS. Information must be specified for every section or the program will terminate with an error.  The program will also terminate with an error if information for a section is specified more than once.
+longname cross section number for this entry
+description integer value that defines the feature (cross section) number associated with the specified PACKAGEDATA data on the line. IFNO must be greater than zero and less than or equal to NSECTIONS. Information must be specified for every section or the program will terminate with an error.  The program will also terminate with an error if information for a section is specified more than once.
 numeric_index true
+mf6internal ifno_pkgdata
 
 block packagedata
 name nxspoints
@@ -62,11 +63,22 @@ description integer value that defines the number of points used to define the d
 
 block crosssectiondata
 name crosssectiondata
-type recarray xfraction height manfraction
+type recarray ifno xfraction height manfraction
 shape (npoints)
 reader urword
 longname
 description
+
+block crosssectiondata
+name ifno
+type integer
+shape
+tagged false
+in_record true
+reader urword
+longname cross section number for this entry
+description integer value that defines the feature (cross section) number associated with the specified CROSSSECTIONDATA data on the line. IFNO must be greater than zero and less than or equal to NSECTIONS. IFNO must be the same for consecutive entries corresponding to the same cross section, and there must be NXSPOINTS consecutive entries, as specified in PACKAGEDATA, for each cross section.
+numeric_index true
 
 block crosssectiondata
 name xfraction

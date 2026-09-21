@@ -9,6 +9,7 @@ module OlfFlwInputModule
   public olf_flw_block_definitions
   public OlfFlwParamFoundType
   public olf_flw_multi_package
+  public olf_flw_is_advanced
   public olf_flw_subpackages
 
   type OlfFlwParamFoundType
@@ -33,6 +34,7 @@ module OlfFlwInputModule
   end type OlfFlwParamFoundType
 
   logical :: olf_flw_multi_package = .true.
+  logical :: olf_flw_is_advanced = .false.
 
   character(len=16), parameter :: &
     olf_flw_subpackages(*) = &

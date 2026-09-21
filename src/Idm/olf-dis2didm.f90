@@ -9,6 +9,7 @@ module OlfDis2dInputModule
   public olf_dis2d_block_definitions
   public OlfDis2dParamFoundType
   public olf_dis2d_multi_package
+  public olf_dis2d_is_advanced
   public olf_dis2d_subpackages
 
   type OlfDis2dParamFoundType
@@ -32,6 +33,7 @@ module OlfDis2dInputModule
   end type OlfDis2dParamFoundType
 
   logical :: olf_dis2d_multi_package = .false.
+  logical :: olf_dis2d_is_advanced = .false.
 
   character(len=16), parameter :: &
     olf_dis2d_subpackages(*) = &

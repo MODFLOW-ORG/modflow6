@@ -9,6 +9,7 @@ module PrtPrpInputModule
   public prt_prp_block_definitions
   public PrtPrpParamFoundType
   public prt_prp_multi_package
+  public prt_prp_is_advanced
   public prt_prp_subpackages
 
   type PrtPrpParamFoundType
@@ -60,6 +61,7 @@ module PrtPrpInputModule
   end type PrtPrpParamFoundType
 
   logical :: prt_prp_multi_package = .true.
+  logical :: prt_prp_is_advanced = .false.
 
   character(len=16), parameter :: &
     prt_prp_subpackages(*) = &

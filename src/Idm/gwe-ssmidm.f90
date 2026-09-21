@@ -9,6 +9,7 @@ module GweSsmInputModule
   public gwe_ssm_block_definitions
   public GweSsmParamFoundType
   public gwe_ssm_multi_package
+  public gwe_ssm_is_advanced
   public gwe_ssm_subpackages
 
   type GweSsmParamFoundType
@@ -25,6 +26,7 @@ module GweSsmInputModule
   end type GweSsmParamFoundType
 
   logical :: gwe_ssm_multi_package = .false.
+  logical :: gwe_ssm_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwe_ssm_subpackages(*) = &

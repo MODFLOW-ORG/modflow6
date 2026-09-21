@@ -9,6 +9,7 @@ module ChfStoInputModule
   public chf_sto_block_definitions
   public ChfStoParamFoundType
   public chf_sto_multi_package
+  public chf_sto_is_advanced
   public chf_sto_subpackages
 
   type ChfStoParamFoundType
@@ -19,6 +20,7 @@ module ChfStoInputModule
   end type ChfStoParamFoundType
 
   logical :: chf_sto_multi_package = .false.
+  logical :: chf_sto_is_advanced = .false.
 
   character(len=16), parameter :: &
     chf_sto_subpackages(*) = &

@@ -9,6 +9,7 @@ module GweIcInputModule
   public gwe_ic_block_definitions
   public GweIcParamFoundType
   public gwe_ic_multi_package
+  public gwe_ic_is_advanced
   public gwe_ic_subpackages
 
   type GweIcParamFoundType
@@ -18,6 +19,7 @@ module GweIcInputModule
   end type GweIcParamFoundType
 
   logical :: gwe_ic_multi_package = .false.
+  logical :: gwe_ic_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwe_ic_subpackages(*) = &

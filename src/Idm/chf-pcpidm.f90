@@ -9,6 +9,7 @@ module ChfPcpInputModule
   public chf_pcp_block_definitions
   public ChfPcpParamFoundType
   public chf_pcp_multi_package
+  public chf_pcp_is_advanced
   public chf_pcp_subpackages
 
   type ChfPcpParamFoundType
@@ -33,6 +34,7 @@ module ChfPcpInputModule
   end type ChfPcpParamFoundType
 
   logical :: chf_pcp_multi_package = .true.
+  logical :: chf_pcp_is_advanced = .false.
 
   character(len=16), parameter :: &
     chf_pcp_subpackages(*) = &

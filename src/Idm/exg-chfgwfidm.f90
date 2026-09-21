@@ -9,6 +9,7 @@ module ExgChfgwfInputModule
   public exg_chfgwf_block_definitions
   public ExgChfgwfParamFoundType
   public exg_chfgwf_multi_package
+  public exg_chfgwf_is_advanced
   public exg_chfgwf_subpackages
 
   type ExgChfgwfParamFoundType
@@ -27,6 +28,7 @@ module ExgChfgwfInputModule
   end type ExgChfgwfParamFoundType
 
   logical :: exg_chfgwf_multi_package = .true.
+  logical :: exg_chfgwf_is_advanced = .false.
 
   character(len=16), parameter :: &
     exg_chfgwf_subpackages(*) = &

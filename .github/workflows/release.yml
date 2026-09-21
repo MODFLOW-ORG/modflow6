@@ -125,9 +125,9 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.10.0
+        uses: prefix-dev/setup-pixi@v0.10.2
         with:
-          pixi-version: v0.70.1
+          pixi-version: v0.80.0
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -469,9 +469,9 @@ jobs:
         run: sudo ./install.sh --all-users
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.10.0
+        uses: prefix-dev/setup-pixi@v0.10.2
         with:
-          pixi-version: v0.70.1
+          pixi-version: v0.80.0
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -633,9 +633,9 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.10.0
+        uses: prefix-dev/setup-pixi@v0.10.2
         with:
-          pixi-version: v0.70.1
+          pixi-version: v0.80.0
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -716,6 +716,7 @@ jobs:
               $distname/make \
               $distname/msvs \
               $distname/utils \
+              $distname/distribution \
               $distname/code.json \
               $distname/meson.build \
               $distname/meson.options \
@@ -753,6 +754,7 @@ jobs:
               $distname/make \
               $distname/msvs \
               $distname/utils \
+              $distname/distribution \
               $distname/code.json \
               $distname/meson.build \
               $distname/meson.options \
@@ -813,7 +815,7 @@ jobs:
             unzip $distfile -d $checkdir
           fi
 
-          cmd="pixi run --manifest-path modflow6/pixi.toml check-dist --path $checkdir/$distname"
+          cmd="pixi run --manifest-path modflow6/pixi.toml check-dist --path $(pwd)/$checkdir/$distname"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi

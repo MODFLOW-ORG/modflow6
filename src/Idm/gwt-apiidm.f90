@@ -9,6 +9,7 @@ module GwtApiInputModule
   public gwt_api_block_definitions
   public GwtApiParamFoundType
   public gwt_api_multi_package
+  public gwt_api_is_advanced
   public gwt_api_subpackages
 
   type GwtApiParamFoundType
@@ -25,6 +26,7 @@ module GwtApiInputModule
   end type GwtApiParamFoundType
 
   logical :: gwt_api_multi_package = .true.
+  logical :: gwt_api_is_advanced = .false.
 
   character(len=16), parameter :: &
     gwt_api_subpackages(*) = &

@@ -40,7 +40,7 @@ The PETSc library is a suite of data structures and routines for the scalable (p
 
 https://petsc.org/release/
 
-The PETSc library (version 3.16 or higher) is used by MODFLOW for its parallel linear solver capabilities and the distributed data formats (vectors and matrices) that go along with it. Parallel PETSc uses MPI internally as well, so setting up this library should typically be coordinated with the installation of the MPI library. A lot of obscure things can happen if the binaries are not compatible, so in general it is a good strategy to compile MPI, PETSc, and MODFLOW with the same compiler toolchain or install MPI and PETSc using a package manager and built with the same compiler being used to compile MODFLOW.
+The PETSc library (version 3.16 or higher and older than 3.23, which introduced breaking changes that are not yet supported) is used by MODFLOW for its parallel linear solver capabilities and the distributed data formats (vectors and matrices) that go along with it. Parallel PETSc uses MPI internally as well, so setting up this library should typically be coordinated with the installation of the MPI library. A lot of obscure things can happen if the binaries are not compatible, so in general it is a good strategy to compile MPI, PETSc, and MODFLOW with the same compiler toolchain or install MPI and PETSc using a package manager and built with the same compiler being used to compile MODFLOW.
 
 ## Compiling MPI and PETSC from source
 
@@ -61,9 +61,21 @@ See, for example, https://docs.unidata.ucar.edu/netcdf-c/4.9.2/building_netcdf_f
 
 Use of a package manager can simplify the process of building the extended version of MODFLOW 6.
 
+### Homebrew (macOS and Linux)
+
+The [MODFLOW-ORG Homebrew tap](https://github.com/MODFLOW-ORG/homebrew-recipe-modflow6) builds and installs the extended version of MODFLOW 6 on macOS (Apple Silicon) and Linux. The `modflow6-extended` formula uses gcc, Open MPI, and NetCDF Fortran from Homebrew and the `petsc@3.22` formula from the tap, because the PETSc formula in Homebrew core is newer than the PETSc versions MODFLOW 6 supports. PETSc is compiled from source the first time the formula is installed.
+
+```bash
+brew tap modflow-org/recipe-modflow6
+brew install modflow-org/recipe-modflow6/modflow6-extended
+mpiexec -n 2 mf6 -p
+```
+
+The tap also provides a `modflow6` formula for the serial program. Both formulae install `mf6`, so only one can be installed at a time.
+
 ### MacOS
 
-[OpenMPI](https://formulae.brew.sh/formula/open-mpi) and [PETSc](https://formulae.brew.sh/formula/petsc) are available on Homebrew for Intel and Apple Silicon. Both of these depend on [gcc 13.1.0](https://formulae.brew.sh/formula/gcc). [NetCDF Fortran](https://formulae.brew.sh/formula/netcdf-fortran) and related dependencies are also available on Homebrew for Intel and Apple Silicon. [pkg-config](https://formulae.brew.sh/formula/pkg-config) should also be installed from Homebrew, if not already installed, so that Meson will be able to resolve the installation location of MPI and PETSc.
+[OpenMPI](https://formulae.brew.sh/formula/open-mpi), [NetCDF Fortran](https://formulae.brew.sh/formula/netcdf-fortran), and related dependencies are available on Homebrew. The [PETSc](https://formulae.brew.sh/formula/petsc) formula in Homebrew core is newer than the PETSc versions MODFLOW 6 supports; use the `petsc@3.22` formula from the MODFLOW-ORG tap described above instead. [pkg-config](https://formulae.brew.sh/formula/pkg-config) should also be installed from Homebrew, if not already installed, so that Meson will be able to resolve the installation location of MPI and PETSc.
 
 OpenMPI, PETSc, NetCDF, and pkg-config are also available for MacOS (Intel and Apple Silicon) from the [conda-forge package directory](https://conda-forge.org/packages/).
 
@@ -240,6 +252,9 @@ Parallel MODFLOW (a pre-extended build without NetCDF) has been built successful
 | WSL2 (Ubuntu 20.04.5)               | gcc 9.4.0                 | OpenMPI 4.0.3     | 3.18.2              | NA              |
 | macOS 12.6.3                        | gcc 9.5.0                 | OpenMPI 4.1.4     | 3.18.5              | NA              |
 | macOS 12.6.6                        | gcc 13.1.0                | OpenMPI 4.1.5     | 3.19.1              | Homebrew        |
+| macOS 15.7.9 (Apple Silicon)        | gcc 16.2.0                | OpenMPI 5.0.10    | 3.22.2              | Homebrew        |
+| macOS 26.6.2 (Apple Silicon)        | gcc 16.2.0                | OpenMPI 5.0.10    | 3.22.2              | Homebrew        |
+| Linux x86_64 (Homebrew image)       | gcc 16.2.0                | OpenMPI 5.0.10    | 3.22.2              | Homebrew        |
 | Ubuntu 22.04                        | gcc 9.5.0                 | OpenMPI 4.1.4     | 3.18.5              | NA              |
 | Ubuntu 22.04 ARM64                  | gcc 11.4.0                | OpenMPI 4.1.5     | 3.19.3              | apt             |
 | Ubuntu 22.04 ARM64                  | gcc 9.5.0                 | MPICH 3.4.1       | 3.15.5              | NA              |

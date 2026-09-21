@@ -25,6 +25,7 @@ module NCModelExportModule
   public :: ExportPackageType
   public :: NETCDF_UNDEF, NETCDF_STRUCTURED, NETCDF_MESH2D
   public :: export_longname, export_varname
+  public :: wkt_to_cf_gridmapping
 
   !> @brief netcdf export types enumerator
   !<
@@ -78,7 +79,8 @@ module NCModelExportModule
     character(len=LINELENGTH) :: mesh_name = 'mesh' !< name of mesh container variable
     character(len=LENMEMPATH) :: dis_mempath !< discretization input mempath
     character(len=LENMEMPATH) :: ncf_mempath !< netcdf utility package input mempath
-    character(len=LENBIGLINE) :: wkt !< wkt user string
+    character(len=LENBIGLINE) :: wkt !< WKT1 (OGC 01-009) user string
+    character(len=LENBIGLINE) :: crs_wkt !< WKT2 (ISO 19162:2019) user string; falls back to wkt if empty
     character(len=LINELENGTH) :: datetime !< export file creation time
     character(len=LINELENGTH) :: xname !< dependent variable name
     character(len=LINELENGTH) :: lenunits !< unidata udunits length units
@@ -200,6 +202,7 @@ contains
   !<
   subroutine set(this, modelname, modeltype, modelfname, nctype, disenum)
     use VersionModule, only: FULLVERSION
+    use InputOutputModule, only: lowcase
     class(NCExportAnnotation), intent(inout) :: this
     character(len=*), intent(in) :: modelname
     character(len=*), intent(in) :: modeltype
@@ -246,18 +249,19 @@ contains
 
     ! set mesh type
     if (nctype == NETCDF_MESH2D) then
-      this%mesh = 'LAYERED'
+      this%mesh = 'layered'
     end if
 
     ! set grid type
     if (disenum == DIS) then
-      this%grid = 'STRUCTURED'
+      this%grid = 'structured'
     else if (disenum == DISV) then
-      this%grid = 'VERTEX'
+      this%grid = 'vertex'
     end if
 
-    ! model description string
-    this%model = trim(modeltype)//'6: '//trim(modelname)
+    ! model description string (lowercase, no version suffix, matching CF convention)
+    this%model = trim(modeltype)//': '//trim(modelname)
+    call lowcase(this%model)
 
     ! modflow6 version string
     this%source = 'MODFLOW 6 '//trim(adjustl(FULLVERSION))
@@ -305,6 +309,7 @@ contains
     this%gridmap_name = ''
     this%ncf_mempath = ''
     this%wkt = ''
+    this%crs_wkt = ''
     this%datetime = ''
     this%xname = ''
     this%lenunits = ''
@@ -353,6 +358,8 @@ contains
                      modelfname)) then
       call mem_set_value(this%wkt, 'WKT', this%ncf_mempath, &
                          ncf_found%wkt)
+      call mem_set_value(this%crs_wkt, 'CRS_WKT', this%ncf_mempath, &
+                         ncf_found%crs_wkt)
       call mem_set_value(this%deflate, 'DEFLATE', this%ncf_mempath, &
                          ncf_found%deflate)
       call mem_set_value(this%shuffle, 'SHUFFLE', this%ncf_mempath, &
@@ -363,7 +370,7 @@ contains
                          ncf_found%chunk_time)
     end if
 
-    if (ncf_found%wkt) then
+    if (ncf_found%wkt .or. ncf_found%crs_wkt) then
       this%gridmap_name = 'projection'
     end if
 
@@ -420,6 +427,7 @@ contains
     if (this%input_attr > 0) then
       attr = trim(this%modelname)//memPathSeparator//trim(pkgname)// &
              memPathSeparator//trim(idt%tagname)
+      call lowcase(attr)
     end if
   end function input_attribute
 
@@ -480,17 +488,20 @@ contains
 
   !> @brief build netcdf variable longname
   !<
-  function export_longname(longname, pkgname, tagname, mempath, layer, iaux) &
-    result(lname)
+  function export_longname(longname, pkgname, tagname, mempath, layer, iaux, &
+                           component_type, subcomponent_type) result(lname)
     use MemoryManagerModule, only: mem_setptr
     use CharacterStringModule, only: CharacterStringType
     use InputOutputModule, only: lowcase
+    use IdmDfnSelectorModule, only: idm_multi_package
     character(len=*), intent(in) :: longname
     character(len=*), intent(in) :: pkgname
     character(len=*), intent(in) :: tagname
     character(len=*), intent(in) :: mempath
     integer(I4B), optional, intent(in) :: layer
     integer(I4B), optional, intent(in) :: iaux
+    character(len=*), optional, intent(in) :: component_type
+    character(len=*), optional, intent(in) :: subcomponent_type
     character(len=LINELENGTH) :: lname
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: auxnames
@@ -503,6 +514,11 @@ contains
       lname = trim(pname)//' '//trim(vname)
     else
       lname = longname
+      if (present(component_type) .and. present(subcomponent_type)) then
+        if (idm_multi_package(component_type, subcomponent_type)) then
+          lname = trim(pname)//' '//trim(lname)
+        end if
+      end if
     end if
 
     if (present(iaux)) then
@@ -541,6 +557,91 @@ contains
       export_pkg%eper = kper
     end do
   end subroutine export_input
+
+  !> @brief map a WKT string to a CF-1.11 grid_mapping_name
+  !!
+  !! Accepts either WKT1 (OGC 01-009, PROJECTION["name"]) or WKT2
+  !! (ISO 19162:2019, METHOD["name"]) format.  WKT1 is tried first;
+  !! if PROJECTION[ is absent the WKT2 METHOD[ path is attempted.
+  !! Returns '' for geographic CRS or unrecognised projection names.
+  !! Only common groundwater projections included.  Matching is
+  !! case-insensitive.
+  !<
+  function wkt_to_cf_gridmapping(wkt) result(gmname)
+    use InputOutputModule, only: upcase
+    character(len=*), intent(in) :: wkt
+    character(len=LINELENGTH) :: gmname
+    character(len=LINELENGTH) :: proj_name
+    character(len=LENBIGLINE) :: wkt_upper
+    integer :: istart, iend
+
+    gmname = ''
+    proj_name = ''
+
+    ! uppercase copy for case-insensitive keyword search
+    wkt_upper = wkt
+    call upcase(wkt_upper)
+
+    ! --- WKT1 path: PROJECTION["name"] ---
+    istart = index(wkt_upper, 'PROJECTION[')
+    if (istart /= 0) then
+      istart = istart + len('PROJECTION[')
+      do while (istart <= len(wkt))
+        if (wkt(istart:istart) == '"') exit
+        istart = istart + 1
+      end do
+      if (istart > len(wkt)) return
+      istart = istart + 1
+      iend = index(wkt(istart:), '"')
+      if (iend == 0) return
+      iend = istart + iend - 2
+      if (iend < istart) return
+      proj_name = wkt(istart:iend)
+      call upcase(proj_name)
+      select case (trim(proj_name))
+      case ('TRANSVERSE_MERCATOR')
+        gmname = 'transverse_mercator'
+      case ('LAMBERT_CONFORMAL_CONIC_2SP', 'LAMBERT_CONFORMAL_CONIC_1SP')
+        gmname = 'lambert_conformal_conic'
+      case ('ALBERS_CONIC_EQUAL_AREA')
+        gmname = 'albers_conical_equal_area'
+      case ('MERCATOR_1SP', 'MERCATOR_2SP')
+        gmname = 'mercator'
+      case ('POLAR_STEREOGRAPHIC')
+        gmname = 'polar_stereographic'
+      end select
+      return
+    end if
+
+    ! --- WKT2 path: METHOD["name"] ---
+    istart = index(wkt_upper, 'METHOD[')
+    if (istart == 0) return
+    istart = istart + len('METHOD[')
+    do while (istart <= len(wkt))
+      if (wkt(istart:istart) == '"') exit
+      istart = istart + 1
+    end do
+    if (istart > len(wkt)) return
+    istart = istart + 1
+    iend = index(wkt(istart:), '"')
+    if (iend == 0) return
+    iend = istart + iend - 2
+    if (iend < istart) return
+    proj_name = wkt(istart:iend)
+    call upcase(proj_name)
+    select case (trim(proj_name))
+    case ('TRANSVERSE MERCATOR')
+      gmname = 'transverse_mercator'
+    case ('LAMBERT CONIC CONFORMAL (2SP)', 'LAMBERT CONIC CONFORMAL (1SP)')
+      gmname = 'lambert_conformal_conic'
+    case ('ALBERS EQUAL AREA')
+      gmname = 'albers_conical_equal_area'
+    case ('MERCATOR (VARIANT A)', 'MERCATOR (VARIANT B)')
+      gmname = 'mercator'
+    case ('POLAR STEREOGRAPHIC (VARIANT A)', 'POLAR STEREOGRAPHIC (VARIANT B)')
+      gmname = 'polar_stereographic'
+    end select
+  end function wkt_to_cf_gridmapping
 
   !> @brief destroy model netcdf export object
   !<
