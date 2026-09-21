@@ -510,7 +510,7 @@ contains
     ! -- Calculate storage change
     do n = 1, this%dis%nodes
       !
-      if (this%ibound(n) <= 0) return
+      if (this%ibound(n) <= 0) cycle
       !
       iform = this%iformulation(n)
       if (iform == DEFAULT_STORAGE) then
