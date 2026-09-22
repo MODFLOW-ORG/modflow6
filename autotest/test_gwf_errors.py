@@ -419,3 +419,41 @@ def test_fail_continue_success(function_tmpdir, targets):
     final_message = "Normal termination of simulation."
     failure_message = f'mf6 did not terminate with "{final_message}"'
     assert final_message in buff[0], failure_message
+
+
+def test_hfb_duplicate_connection_error(function_tmpdir, targets):
+    """Two HFBs on one cell connection must be rejected, in either cell order.
+
+    check_data() resolves each barrier's connection to a position in the model
+    ja array and stores it in idxloc. Nothing checked that two barriers had
+    resolved to the same connection, and the rest of the package assumes one
+    barrier per connection: condsat_modify() saves condsat before overwriting
+    it, so a second barrier on the same connection saved the value the first
+    had already modified, and condsat_reset() then restored that instead of the
+    original -- leaving condsat permanently barrier-corrected and drifting
+    further every stress period. The non-Newton branch of hfb_fc() likewise
+    read the matrix value it was about to overwrite, so the second barrier
+    subtracted its correction from the diagonal a second time.
+    """
+    mf6 = targets["mf6"]
+
+    sim = get_minimal_gwf_simulation(str(function_tmpdir), exe=mf6)
+    gwf = sim.get_model("test")
+    # barrier 2 repeats barrier 1; barrier 3 repeats it with the cells
+    # reversed, which is the same symmetric connection
+    hfb_data = [
+        ((0, 2, 1), (0, 2, 2), 1.0e-3),
+        ((0, 2, 1), (0, 2, 2), 1.0e-3),
+        ((0, 2, 2), (0, 2, 1), 1.0e-3),
+    ]
+    flopy.mf6.ModflowGwfhfb(gwf, maxhfb=len(hfb_data), stress_period_data={0: hfb_data})
+    sim.write_simulation()
+
+    returncode, buff = run_mf6([mf6], str(function_tmpdir))
+    assert returncode != 0, "mf6 should have failed on duplicate HFBs"
+
+    output = "\n".join(buff)
+    assert "HFB no. 1 and HFB no. 2 are both between cells" in output, output
+    assert "HFB no. 1 and HFB no. 3 are both between cells" in output, output
+    assert "Only one HFB can be assigned to a cell connection." in output, output
+    assert "ERROR OCCURRED WHILE READING FILE 'test.hfb'" in output, output
