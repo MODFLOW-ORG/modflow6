@@ -39,3 +39,8 @@ description = "The Unsaturated Zone Flow (UZF) Package allocated and deallocated
 section = "fixes"
 subsection = "advanced"
 description = "A Lake (LAK) Package using the IMPLICIT option reported roughly twice the outlet flow to the Water Mover (MVR) Package whenever any lake was solved by the substitution fallback. The mover provider term was accumulated once by the implicit formulation and again at the end of the fallback solve, so TO-MVR was about double the outlet discharge and the surplus appeared as a positive EXT-OUTFLOW, an apparent inflow that allowed the lake budget to close on the wrong flows. The mover term is now accumulated once, after the fallback stages are known. Models that do not use the IMPLICIT option, or that use it without a lake on the fallback, are unaffected."
+
+[[items]]
+section = "fixes"
+subsection = "internal"
+description = "MODFLOW 6 did not support more than one hydraulic flow barrier (HFB) on the same cell connection, but it did not report duplicates either. The saturated conductance of the connection was saved after the first barrier had already modified it, so it was never restored to its unmodified value and drifted further with each stress period, and for a confined connection the barrier correction was subtracted from the solution matrix diagonal once per duplicate. MODFLOW 6 now terminates with an error naming the two barriers and the two cells when more than one HFB is assigned to the same cell connection, in either cell order."
