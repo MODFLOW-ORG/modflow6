@@ -2,14 +2,15 @@ module DisuModule
 
   use ArrayReadersModule, only: ReadArray
   use KindModule, only: DP, I4B, LGP
-  use ConstantsModule, only: LINELENGTH, LENMEMPATH, LENVARNAME, &
-                             DZERO, DONE, DHALF
+  use ConstantsModule, only: LINELENGTH, LENBIGLINE, LENMEMPATH, LENVARNAME, &
+                             DZERO, DONE, DHALF, DPIO180
   use ConnectionsModule, only: iac_to_ia
   use InputOutputModule, only: URWORD, ulasav, ulaprufw, ubdsv1, ubdsv06, &
                                getunit, openfile
   use SimModule, only: count_errors, store_error, store_error_unit, &
-                       store_error_filename
+                       store_error_filename, store_warning
   use SimVariablesModule, only: errmsg, idm_context
+  use MessageModule, only: write_message_counter
   use BaseDisModule, only: DisBaseType
   use MemoryManagerModule, only: mem_allocate, mem_deallocate, &
                                  mem_reallocate, mem_setptr
@@ -55,6 +56,7 @@ module DisuModule
     procedure :: get_dis_type => get_dis_type
     procedure :: get_dis_enum => get_dis_enum
     procedure :: disu_ck
+    procedure :: disu_write_warning
     procedure :: grid_finalize
     procedure :: get_nodenumber_idx1
     procedure :: nodeu_to_string
@@ -317,12 +319,55 @@ contains
     class(DisuType) :: this
     ! -- local
     integer(I4B) :: n, m
-    integer(I4B) :: ipos
+    integer(I4B) :: ipos, jpos, kpos
     integer(I4B) :: ihc
+    integer(I4B) :: nsym, ndir, nwarn
     real(DP) :: dz
+    real(DP) :: angn, angm, dang
+    real(DP) :: dx, dy, dist, cosang, angc
+    real(DP) :: angn_sym, angm_sym
+    real(DP) :: angn_dir, angc_dir
+    real(DP) :: angn_warn, angc_warn
+    integer(I4B) :: n_sym, m_sym
+    integer(I4B) :: n_dir, m_dir
+    integer(I4B) :: n_warn, m_warn
+    character(len=LENBIGLINE) :: bigmsg
+    real(DP), parameter :: angtol = 0.1_DP
+    real(DP), parameter :: cos45 = 0.70710678118654752_DP
     ! -- formats
     character(len=*), parameter :: fmtidm = &
       &"('Invalid idomain value ', i0, ' specified for node ', i0)"
+    character(len=*), parameter :: fmtangsym = &
+      "('ANGLDEGX values for ', i0, ' horizontal connections in the DISU &
+      &Package are inconsistent with the values for the reverse &
+      &connections (for example, ANGLDEGX = ', f0.3, ' for the connection &
+      &from cell ', i0, ' to cell ', i0, ' and ANGLDEGX = ', f0.3, ' for &
+      &the connection from cell ', i0, ' to cell ', i0, '). The two values &
+      &must differ by 180 degrees because they are the outward normals of &
+      &the two sides of the same cell face. Only the value for the &
+      &connection from the lower to the higher cell number is used. If &
+      &XT3D, horizontal anisotropy, or SAVE_SPECIFIC_DISCHARGE is active, &
+      &incorrect ANGLDEGX values will produce incorrect results and may &
+      &prevent the solution from converging.')"
+    character(len=*), parameter :: fmtangdir = &
+      "('ANGLDEGX values for ', i0, ' horizontal connections in the DISU &
+      &Package point away from the connected cell (for example, ANGLDEGX = &
+      &', f0.3, ' for the connection from cell ', i0, ' to cell ', i0, &
+      &', but the direction from the center of cell ', i0, ' to the center &
+      &of cell ', i0, ' is ', f0.3, ' degrees). ANGLDEGX must be the &
+      &outward normal of the shared cell face expressed in the coordinate &
+      &system of the VERTICES. If XT3D, horizontal anisotropy, or &
+      &SAVE_SPECIFIC_DISCHARGE is active, incorrect ANGLDEGX values will &
+      &produce incorrect results and may prevent the solution from &
+      &converging.')"
+    character(len=*), parameter :: fmtangwarn = &
+      "('ANGLDEGX values for ', i0, ' horizontal connections in the DISU &
+      &Package deviate by more than 45 degrees from the direction between &
+      &the centers of the connected cells (for example, ANGLDEGX = ', &
+      &f0.3, ' for the connection from cell ', i0, ' to cell ', i0, &
+      &', but the direction between the cell centers is ', f0.3, &
+      &' degrees). Check that ANGLDEGX is the outward normal of the shared &
+      &cell face expressed in the coordinate system of the VERTICES.')"
     character(len=*), parameter :: fmtdz = &
       &"('Cell ', i0, ' with thickness <= 0. Top, bot: ', 2(1pg24.15))"
     character(len=*), parameter :: fmtarea = &
@@ -421,6 +466,118 @@ contains
       end do
     end do
     !
+    ! -- Check ANGLDEGX for horizontal connections between active cells.
+    !    ANGLDEGX is the outward normal of the shared face, so the values
+    !    for a connection and its reverse connection must differ by 180
+    !    degrees, and, if cell centers are available, the normal must point
+    !    toward the connected cell.  Inconsistent values are not detected
+    !    anywhere else and produce an invalid coefficient matrix when XT3D
+    !    or horizontal anisotropy is active.  Because ANGLDEGX is not used
+    !    unless one of those options is active, inconsistent values are
+    !    reported as warnings rather than errors.
+    if (this%iangledegx == 1) then
+      nsym = 0
+      ndir = 0
+      nwarn = 0
+      n_sym = 0
+      m_sym = 0
+      n_dir = 0
+      m_dir = 0
+      n_warn = 0
+      m_warn = 0
+      angn_sym = DZERO
+      angm_sym = DZERO
+      angn_dir = DZERO
+      angc_dir = DZERO
+      angn_warn = DZERO
+      angc_warn = DZERO
+      do n = 1, this%nodesuser
+        if (this%idomain(n) == 0) cycle
+        do ipos = this%iainp(n) + 1, this%iainp(n + 1) - 1
+          m = this%jainp(ipos)
+          if (m < 1 .or. m > this%nodesuser) cycle
+          if (this%ihcinp(ipos) == 0) cycle
+          if (this%idomain(m) == 0) cycle
+          angn = this%angldegxinp(ipos)
+          !
+          ! -- the reverse connection must have the opposite normal;
+          !    check each pair once
+          if (m > n) then
+            jpos = 0
+            do kpos = this%iainp(m) + 1, this%iainp(m + 1) - 1
+              if (this%jainp(kpos) == n) then
+                jpos = kpos
+                exit
+              end if
+            end do
+            if (jpos > 0) then
+              angm = this%angldegxinp(jpos)
+              dang = modulo(angm - angn, 360.0_DP)
+              if (abs(dang - 180.0_DP) > angtol) then
+                nsym = nsym + 1
+                if (nsym == 1) then
+                  n_sym = n
+                  m_sym = m
+                  angn_sym = angn
+                  angm_sym = angm
+                end if
+              end if
+            end if
+          end if
+          !
+          ! -- the normal must point from cell n toward cell m
+          if (this%nvert > 0) then
+            dx = this%cellxy(1, m) - this%cellxy(1, n)
+            dy = this%cellxy(2, m) - this%cellxy(2, n)
+            dist = sqrt(dx * dx + dy * dy)
+            if (dist > DZERO) then
+              cosang = (cos(angn * DPIO180) * dx + &
+                        sin(angn * DPIO180) * dy) / dist
+              angc = modulo(atan2(dy, dx) / DPIO180, 360.0_DP)
+              if (cosang <= DZERO) then
+                ndir = ndir + 1
+                if (ndir == 1) then
+                  n_dir = n
+                  m_dir = m
+                  angn_dir = angn
+                  angc_dir = angc
+                end if
+              else if (cosang < cos45) then
+                nwarn = nwarn + 1
+                if (nwarn == 1) then
+                  angn_warn = angn
+                  angc_warn = angc
+                  n_warn = n
+                  m_warn = m
+                end if
+              end if
+            end if
+          end if
+        end do
+      end do
+      !
+      ! -- store warnings for the final report and also write them to the
+      !    model listing file now, so that they are available if the run
+      !    later terminates abnormally because of an invalid matrix
+      if (nsym > 0) then
+        write (bigmsg, fmtangsym) nsym, angn_sym, n_sym, m_sym, &
+          angm_sym, m_sym, n_sym
+        call store_warning(bigmsg)
+        call this%disu_write_warning(bigmsg)
+      end if
+      if (ndir > 0) then
+        write (bigmsg, fmtangdir) ndir, angn_dir, n_dir, m_dir, &
+          n_dir, m_dir, angc_dir
+        call store_warning(bigmsg)
+        call this%disu_write_warning(bigmsg)
+      end if
+      if (nwarn > 0) then
+        write (bigmsg, fmtangwarn) nwarn, angn_warn, n_warn, m_warn, angc_warn
+        call store_warning(bigmsg)
+        call this%disu_write_warning(bigmsg)
+      end if
+    end if
+    !
     ! -- terminate if errors found
     if (count_errors() > 0) then
       if (this%inunit > 0) then
@@ -429,6 +586,19 @@ contains
     end if
     !
   end subroutine disu_ck
+
+  !> @brief Write a warning message to the model listing file
+  !<
+  subroutine disu_write_warning(this, msg)
+    ! -- dummy
+    class(DisuType) :: this
+    character(len=*), intent(in) :: msg
+    !
+    if (this%iout > 0) then
+      call write_message_counter('WARNING: '//trim(msg), iunit=this%iout, &
+                                 skipbefore=1, skipafter=1)
+    end if
+  end subroutine disu_write_warning
 
   !> @brief Deallocate variables
   !<

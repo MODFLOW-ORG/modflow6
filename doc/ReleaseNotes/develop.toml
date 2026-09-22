@@ -14,3 +14,8 @@ solution = "SOLUTION"
 exchanges = "EXCHANGES"
 parallel = "PARALLEL"
 netcdf = "NETCDF"
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "The DISU Package now checks the ANGLDEGX values specified for horizontal connections and issues a warning if the values for a connection and its reverse connection do not differ by 180 degrees, or, when VERTICES and CELL2D are specified, if the face normal points away from the connected cell. Inconsistent ANGLDEGX values previously went undetected and could produce an invalid coefficient matrix when the XT3D option or horizontal anisotropy was active, which in some cases caused the program to terminate with a floating-point overflow in the linear solver."
