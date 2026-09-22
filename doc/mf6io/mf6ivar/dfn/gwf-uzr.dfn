@@ -1,0 +1,227 @@
+# --------------------- gwf uzr options ---------------------
+
+block options
+name soil_model
+type string
+valid brooks-corey haverkamp vangenuchten devsoilmodel
+reader urword
+optional true
+longname model used for the soil characteristic functions
+description is a text keyword to indicate which model for the soil characteristic functions (moisture retention, moisture capacity, and relative permeability) should be used.
+
+block options
+name dev_soil_param
+type string
+valid hvk_yolo_1977 hvk_sand_1977
+reader urword
+optional true
+longname set a soil parameterization
+description is a text keyword to specify the soil parameterization from a parameter set and custom functions for the soil characteristics. This is a development option so the program can be validated using various reference results.
+
+block options
+name model_kr
+type string
+valid brooks-corey haverkamp vangenuchten
+reader urword
+optional true
+longname model used for the relative permeability
+description is the soil model type for the flux calculation which uses the relative permeability function. This overrides the global option for the soil model type. It is a development option, not available in official releases.
+
+block options
+name storage_scheme
+type string
+valid chord-slope modified-picard
+reader urword
+optional true
+longname discretization method for storage calculation
+description is a text keyword to indicate the discretization method that is used to calculate the unsaturated storage.
+
+block options
+name kr_averaging
+type string
+valid geometric arithmetic upstream
+reader urword
+optional true
+longname relative permeability averaging method
+description is a text keyword to indicate the averaging method used to calculate the intercell relative permeability.
+
+block options
+name sat_filerecord
+type record saturation fileout saturationfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name saturation
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname saturation keyword
+description keyword to specify that record corresponds to saturation.
+
+block options
+name fileout
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname fileout keyword
+description keyword to specify that an output filename is expected next.
+
+block options
+name saturationfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname saturation file keyword
+description name of the binary output file to write saturation data.  The saturation file has the same format as the head file.  Saturation values will be written to the saturation file whenever heads are written to the binary head file.  The settings for controlling head output are contained in the Output Control option.
+
+block options
+name phead_filerecord
+type record pressurehead fileout pheadfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name pressurehead
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname pressure head keyword
+description keyword to specify that record corresponds to pressure head.
+
+block options
+name pheadfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname pressure head file keyword
+description name of the binary output file to write pressure head data.  The pressure head file has the same format as the head file.  Pressure head values will be written to file whenever (hydraulic) heads are written to the binary head file.  The settings for controlling head output are contained in the Output Control option.
+
+# --------------------- gwf uzr griddata ---------------------
+
+block griddata
+name iunsat
+type integer
+shape (nodes)
+valid
+reader readarray
+layered true
+optional false
+longname unsaturated zone indicator
+description this is the long description of iunsat.
+default_value 0
+
+block griddata
+name porosity
+type double precision
+shape (nodes)
+valid
+reader readarray
+layered true
+optional false
+longname porosity
+description is the volumetric fraction of the porous medium occupied by the pores.
+default_value 0.5
+
+block griddata
+name satres
+type double precision
+shape (nodes)
+valid
+reader readarray
+layered true
+optional false
+longname residual saturation
+description is the residual (also irreducible) water saturation of the medium.
+default_value 0.1
+
+block griddata
+name alphahvk
+type double precision
+shape (nodes)
+valid
+reader readarray
+layered true
+optional true
+longname alpha
+description is the alpha parameter in the Haverkamp soil characteristic model.
+
+block griddata
+name nhvk
+type double precision
+shape (nodes)
+valid
+reader readarray
+layered true
+optional true
+longname n
+description is the n exponent in the Haverkamp soil characteristic model.
+
+block griddata
+name betahvk
+type double precision
+shape (nodes)
+valid
+reader readarray
+layered true
+optional true
+longname beta
+description is the beta parameter in the Haverkamp soil characteristic model.
+
+block griddata
+name khvk
+type double precision
+shape (nodes)
+valid
+reader readarray
+layered true
+optional true
+longname k
+description is the k exponent in the Haverkamp soil characteristic model.
+
+block griddata
+name alphavgn
+type double precision
+shape (nodes)
+valid
+reader readarray
+layered true
+optional true
+longname alpha
+description is the alpha parameter in the Van Genuchten soil characteristic model.
+
+block griddata
+name nvgn
+type double precision
+shape (nodes)
+valid
+reader readarray
+layered true
+optional true
+longname n
+description is the n exponent in the Van Genuchten soil characteristic model. There is another exponent derived from it: m = 1 - 1/n.
