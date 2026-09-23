@@ -83,6 +83,7 @@ type keyword
 shape
 reader urword
 optional false
+in_record true
 longname
 description  xxx
 
@@ -94,6 +95,7 @@ shape
 tagged false
 reader urword
 optional false
+in_record true
 longname
 description Interpolation method, which is either STEPWISE or LINEAR.
 
@@ -142,9 +144,9 @@ block attributes
 name sfac
 type keyword
 shape
-tagged false
 reader urword
 optional false
+in_record true
 longname
 description  xxx
 
