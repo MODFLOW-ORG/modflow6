@@ -14,3 +14,8 @@ solution = "SOLUTION"
 exchanges = "EXCHANGES"
 parallel = "PARALLEL"
 netcdf = "NETCDF"
+
+[[items]]
+section = "fixes"
+subsection = "internal"
+description = "With the Newton formulation, the XT3D method scaled the flow across a horizontal connection by the saturation of the cell with the higher head, as the standard formulation does. Because the XT3D flow across a connection also depends on the heads of neighboring cells and is generally not zero when the two cell heads are equal, the residual could jump when the ordering of two nearly equal heads changed between iterations, and in one large unconfined model a single cell prevented convergence. The upstream cell is now selected from the direction of the saturated XT3D flow, which keeps the product of flow and saturation continuous. Heads computed with the Newton formulation and the XT3D option may change slightly."
