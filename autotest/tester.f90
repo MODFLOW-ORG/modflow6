@@ -24,6 +24,7 @@ program tester
   use TestSwfUtils, only: collect_swfutils
   use TestTimeSelect, only: collect_timeselect
   use TestTimeStepSelect, only: collect_timestepselect
+  use TestUzfCellGroup, only: collect_uzfcellgroup
   use TestUzfEtUtil, only: collect_uzfetutil
 
   implicit none
@@ -57,6 +58,7 @@ program tester
                new_testsuite("SwfUtils", collect_swfutils), &
                new_testsuite("TimeSelect", collect_timeselect), &
                new_testsuite("TimeStepSelect", collect_timestepselect), &
+               new_testsuite("UzfCellGroup", collect_uzfcellgroup), &
                new_testsuite("UzfEtUtil", collect_uzfetutil) &
                ]
 
