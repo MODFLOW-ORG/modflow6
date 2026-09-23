@@ -294,8 +294,10 @@ contains
           ! concentration from APT
           cp = concpak(id1)
         else
+          ! a provider in a cell that is not in the transport model, which is
+          ! possible for a reduced transport domain, moves no mass
           igwtnode = fmi_pr%gwfpackages(ipr)%nodelist(id1)
-          cp = cnew_pr(igwtnode)
+          if (igwtnode > 0) cp = cnew_pr(igwtnode)
         end if
 
         this%mvrterm(i)%qty(n) = cp

@@ -307,7 +307,7 @@ contains
       !    nlist: number of gwe cells with a connection to at least one uze object
       do i = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
         n = this%flowbudptr%budterm(this%idxbudgwf)%id1(i) !< uze object position within uze object list
-        jj = this%flowbudptr%budterm(this%idxbudgwf)%id2(i) !< position of gwe cell to which uze feature is connected
+        jj = this%get_cell_node(i) !< position of gwe cell to which uze feature is connected
         nglo = moffset + this%dis%nodes + this%ioffset + n !< uze feature position
         jglo = moffset + jj !< gwe cell position
         call sparse%addconnection(nglo, jglo, 1)
@@ -329,7 +329,7 @@ contains
           !    considered uze feature and add connection to that cell's row
           do ii = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist !< uze object id among uze objects
             idxn = this%flowbudptr%budterm(this%idxbudgwf)%id1(ii) !< uze object position within uze object list
-            idxjj = this%flowbudptr%budterm(this%idxbudgwf)%id2(ii) !< position of gwe cell to which uze feature is connected
+            idxjj = this%get_cell_node(ii) !< position of gwe cell to which uze feature is connected
             idxnglo = moffset + this%dis%nodes + this%ioffset + idxn !< uze feature global position
             idxjglo = moffset + idxjj !< gwe cell global position
             if (nglo == idxnglo) exit
@@ -373,7 +373,7 @@ contains
       ! -- Cell to feature connection in global matrix
       do ipos = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
         n = this%flowbudptr%budterm(this%idxbudgwf)%id1(ipos) !< feature number
-        j = this%flowbudptr%budterm(this%idxbudgwf)%id2(ipos) !< cell number
+        j = this%get_cell_node(ipos) !< cell number
         iglo = moffset + this%dis%nodes + this%ioffset + n !< feature row index
         jglo = j + moffset !< cell row index
         ! -- Note that this is where idxlocnode is set for uze; it is set
@@ -390,7 +390,7 @@ contains
       ! -- Feature to cell connection in global matrix
       do ipos = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
         n = this%flowbudptr%budterm(this%idxbudgwf)%id1(ipos) !< feature number
-        j = this%flowbudptr%budterm(this%idxbudgwf)%id2(ipos) !< cell number
+        j = this%get_cell_node(ipos) !< cell number
         iglo = j + moffset !< cell row index
         jglo = moffset + this%dis%nodes + this%ioffset + n !< feature row index
         ! -- For connection ipos in list of feature-cell connections,
@@ -411,7 +411,7 @@ contains
           !    considered uze feature and map connection to that cell's row
           do idxpos = 1, this%flowbudptr%budterm(this%idxbudgwf)%nlist
             idxn = this%flowbudptr%budterm(this%idxbudgwf)%id1(idxpos) !< feature number
-            idxj = this%flowbudptr%budterm(this%idxbudgwf)%id2(idxpos) !< cell number)
+            idxj = this%get_cell_node(idxpos) !< cell number)
             idxjglo = moffset + this%dis%nodes + this%ioffset + idxn !< feature row index
             idxiglo = moffset + idxj !< cell row index
             if (idxjglo == iglo) exit
@@ -892,7 +892,7 @@ contains
     call this%budobj%budterm(idx)%reset(nlist)
     do j = 1, nlist
       n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(j)
-      igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(j)
+      igwfnode = this%get_cell_node(j)
       q = -budresid(n1)
       call this%uze_theq_term(j, n1, igwfnode, q)
       call this%budobj%budterm(idx)%update_term(n1, igwfnode, q)
@@ -1143,7 +1143,7 @@ contains
     !
     r = DZERO
     n1 = this%flowbudptr%budterm(this%idxbudgwf)%id1(ientry)
-    n2 = this%flowbudptr%budterm(this%idxbudgwf)%id2(ientry)
+    n2 = this%get_cell_node(ientry)
     if (this%iboundpak(n1) /= 0) then
       do i = 1, this%budobj%nbudterm
         flowtype = this%budobj%budterm(i)%flowtype
@@ -1323,7 +1323,7 @@ contains
     ! cycle through uze objects, stop at first occurrence of more than one
     ! uze object in a cell
     do n = 1, nuz
-      igwfnode = this%flowbudptr%budterm(this%idxbudgwf)%id2(n)
+      igwfnode = this%get_cell_node(n)
       carea = this%dis%area(igwfnode)
       uzarea = this%flowbudptr%budterm(this%idxbudgwf)%auxvar(1, n)
       ! compare areas
