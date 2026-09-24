@@ -230,6 +230,7 @@ contains
     real(DP) :: tled
     real(DP) :: hhcof, rrhs
     real(DP) :: vnew, vold
+    real(DP) :: Vcell
     !
     ! -- set variables
     tled = DONE / delt
@@ -241,11 +242,9 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- calculate new and old water volumes
-      vnew = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n)) * &
-             this%fmi%gwfsat(n) * this%thetam(n)
-      vold = vnew
-      if (this%fmi%igwfstrgss /= 0) vold = vold + this%fmi%gwfstrgss(n) * delt
-      if (this%fmi%igwfstrgsy /= 0) vold = vold + this%fmi%gwfstrgsy(n) * delt
+      Vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vnew = Vcell * this%fmi%gwfsat(n) * this%thetam(n)
+      vold = Vcell * this%fmi%gwfsat_old(n) * this%thetam(n)
       !
       ! -- add terms to diagonal and rhs accumulators
       hhcof = -vnew * tled
@@ -356,7 +355,7 @@ contains
       volfracm = this%get_volfracm(n)
       rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%fmi%gwfsatold(n, delt)
+      sat_old = this%fmi%gwfsat_old(n)
 
       ! -- Matrix contribution for sorption term
       hhcof = -volfracm * rhobm * sat_new * this%isotherm%derivative(cnew, n) &
@@ -530,6 +529,7 @@ contains
     real(DP) :: rate
     real(DP) :: tled
     real(DP) :: vnew, vold
+    real(DP) :: Vcell
     real(DP) :: hhcof, rrhs
     !
     ! -- initialize
@@ -543,11 +543,9 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- calculate new and old water volumes
-      vnew = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n)) * &
-             this%fmi%gwfsat(n) * this%thetam(n)
-      vold = vnew
-      if (this%fmi%igwfstrgss /= 0) vold = vold + this%fmi%gwfstrgss(n) * delt
-      if (this%fmi%igwfstrgsy /= 0) vold = vold + this%fmi%gwfstrgsy(n) * delt
+      Vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vnew = Vcell * this%fmi%gwfsat(n) * this%thetam(n)
+      vold = Vcell * this%fmi%gwfsat_old(n) * this%thetam(n)
       !
       ! -- calculate rate
       hhcof = -vnew * tled
@@ -658,7 +656,7 @@ contains
       rhobm = this%bulk_density(n)
       volfracm = this%get_volfracm(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%fmi%gwfsatold(n, delt)
+      sat_old = this%fmi%gwfsat_old(n)
 
       ! -- Matrix contribution for sorption term
       contribution = -volfracm * rhobm * sat_new &
