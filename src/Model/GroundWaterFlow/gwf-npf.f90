@@ -1,6 +1,7 @@
 module GwfNpfModule
   use KindModule, only: DP, I4B
   use SimVariablesModule, only: errmsg, warnmsg
+  use DisuModule, only: DisuType
   use ConstantsModule, only: DZERO, DEM9, DEM8, DEM7, DEM6, DEM2, &
                              DHALF, DP9, DONE, DTWO, &
                              DHNOFLO, DHDRY, DEM10, &
@@ -285,6 +286,7 @@ contains
   !<
   subroutine npf_ar(this, ic, vsc, ibound, hnew)
     ! -- modules
+    use SimModule, only: store_error, store_error_filename
     use MemoryManagerModule, only: mem_reallocate
     ! -- dummy
     class(GwfNpftype) :: this !< instance of the NPF package
@@ -345,6 +347,24 @@ contains
     call this%preprocess_input()
     !
     ! -- xt3d
+    ! -- Terminate if the DISU ANGLDEGX values are inconsistent and are
+    !    used by this package (they have no effect otherwise)
+    if (this%ixt3d /= 0 .or. this%ik22 /= 0 .or. this%icalcspdis /= 0) then
+      select type (dis => this%dis)
+      type is (DisuType)
+        if (dis%nangldegxerr > 0) then
+          write (errmsg, '(a,1x,i0,1x,a)') &
+            'ANGLDEGX values in the DISU Package are inconsistent for', &
+            dis%nangldegxerr, 'cell faces (see the warnings written after &
+            &the DISU Package input in the model listing file). ANGLDEGX &
+            &must be correct because the NPF Package uses it when XT3D, &
+            &K22, or SAVE_SPECIFIC_DISCHARGE is specified.'
+          call store_error(errmsg)
+          call store_error_filename(dis%input_fname)
+        end if
+      end select
+    end if
+    !
     if (this%ixt3d /= 0) then
       call this%xt3d%xt3d_ar(ibound, this%k11, this%ik33, this%k33, &
                              this%sat, this%ik22, this%k22, &

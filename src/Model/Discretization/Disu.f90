@@ -3,7 +3,7 @@ module DisuModule
   use ArrayReadersModule, only: ReadArray
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, LENBIGLINE, LENMEMPATH, LENVARNAME, &
-                             DZERO, DONE, DHALF, DPIO180
+                             DZERO, DONE, DHALF, DEM6, DPIO180
   use ConnectionsModule, only: iac_to_ia
   use InputOutputModule, only: URWORD, ulasav, ulaprufw, ubdsv1, ubdsv06, &
                                getunit, openfile
@@ -30,6 +30,7 @@ module DisuModule
   type, extends(DisBaseType) :: DisuType
     integer(I4B), pointer :: njausr => null() ! user-specified nja size
     integer(I4B), pointer :: nvert => null() ! number of x,y vertices
+    integer(I4B), pointer :: nangldegxerr => null() ! number of horizontal connections with an ANGLDEGX value that is inconsistent with the reverse connection or with the vertices
     real(DP), pointer :: voffsettol => null() ! vertical offset tolerance
     real(DP), dimension(:, :), pointer, contiguous :: vertices => null() ! cell vertices stored as 2d array of x and y
     real(DP), dimension(:, :), pointer, contiguous :: cellxy => null() ! cell center stored as 2d array of x and y
@@ -57,6 +58,7 @@ module DisuModule
     procedure :: get_dis_enum => get_dis_enum
     procedure :: disu_ck
     procedure :: disu_write_warning
+    procedure :: disu_face_normal
     procedure :: grid_finalize
     procedure :: get_nodenumber_idx1
     procedure :: nodeu_to_string
@@ -321,53 +323,67 @@ contains
     integer(I4B) :: n, m
     integer(I4B) :: ipos, jpos, kpos
     integer(I4B) :: ihc
-    integer(I4B) :: nsym, ndir, nwarn
+    integer(I4B) :: nsym, ndir, nvrt, nwarn
+    logical :: found
     real(DP) :: dz
     real(DP) :: angn, angm, dang
     real(DP) :: dx, dy, dist, cosang, angc
+    real(DP) :: xnorm, ynorm, angv
     real(DP) :: angn_sym, angm_sym
     real(DP) :: angn_dir, angc_dir
+    real(DP) :: angn_vrt, angv_vrt
     real(DP) :: angn_warn, angc_warn
     integer(I4B) :: n_sym, m_sym
     integer(I4B) :: n_dir, m_dir
+    integer(I4B) :: n_vrt, m_vrt
     integer(I4B) :: n_warn, m_warn
     character(len=LENBIGLINE) :: bigmsg
-    real(DP), parameter :: angtol = 0.1_DP
+    real(DP), parameter :: angtol = 0.01_DP !< tolerance (degrees) for the 180-degree reciprocity check
+    real(DP), parameter :: angvtol = 1.0_DP !< tolerance (degrees) for the comparison with the normal computed from the vertices
     real(DP), parameter :: cos45 = 0.70710678118654752_DP
     ! -- formats
     character(len=*), parameter :: fmtidm = &
       &"('Invalid idomain value ', i0, ' specified for node ', i0)"
     character(len=*), parameter :: fmtangsym = &
-      "('ANGLDEGX values for ', i0, ' horizontal connections in the DISU &
-      &Package are inconsistent with the values for the reverse &
-      &connections (for example, ANGLDEGX = ', f0.3, ' for the connection &
-      &from cell ', i0, ' to cell ', i0, ' and ANGLDEGX = ', f0.3, ' for &
-      &the connection from cell ', i0, ' to cell ', i0, '). The two values &
-      &must differ by 180 degrees because they are the outward normals of &
-      &the two sides of the same cell face. Only the value for the &
-      &connection from the lower to the higher cell number is used. If &
-      &XT3D, horizontal anisotropy, or SAVE_SPECIFIC_DISCHARGE is active, &
-      &incorrect ANGLDEGX values will produce incorrect results and may &
-      &prevent the solution from converging.')"
-    character(len=*), parameter :: fmtangdir = &
-      "('ANGLDEGX values for ', i0, ' horizontal connections in the DISU &
-      &Package point away from the connected cell (for example, ANGLDEGX = &
-      &', f0.3, ' for the connection from cell ', i0, ' to cell ', i0, &
-      &', but the direction from the center of cell ', i0, ' to the center &
-      &of cell ', i0, ' is ', f0.3, ' degrees). ANGLDEGX must be the &
-      &outward normal of the shared cell face expressed in the coordinate &
-      &system of the VERTICES. If XT3D, horizontal anisotropy, or &
-      &SAVE_SPECIFIC_DISCHARGE is active, incorrect ANGLDEGX values will &
-      &produce incorrect results and may prevent the solution from &
-      &converging.')"
-    character(len=*), parameter :: fmtangwarn = &
-      "('ANGLDEGX values for ', i0, ' horizontal connections in the DISU &
-      &Package deviate by more than 45 degrees from the direction between &
-      &the centers of the connected cells (for example, ANGLDEGX = ', &
+      "('ANGLDEGX values for ', i0, ' cell faces associated with &
+      &horizontal connections in the DISU Package are inconsistent with &
+      &the values for the reverse connections (for example, ANGLDEGX = ', &
       &f0.3, ' for the connection from cell ', i0, ' to cell ', i0, &
-      &', but the direction between the cell centers is ', f0.3, &
-      &' degrees). Check that ANGLDEGX is the outward normal of the shared &
-      &cell face expressed in the coordinate system of the VERTICES.')"
+      &' and ANGLDEGX = ', f0.3, ' for the connection from cell ', i0, &
+      &' to cell ', i0, '). The two values must differ by 180 degrees &
+      &(within 0.01 degrees) because they are the outward normals of the &
+      &two sides of the same cell face. Only the value for the connection &
+      &from the lower to the higher cell number is used.')"
+    character(len=*), parameter :: fmtangdir = &
+      "('ANGLDEGX values for ', i0, ' cell faces associated with &
+      &horizontal connections in the DISU Package point away from the &
+      &connected cell (for example, ANGLDEGX = ', f0.3, ' for the &
+      &connection from cell ', i0, ' to cell ', i0, ', but the direction &
+      &from the center of cell ', i0, ' to the center of cell ', i0, &
+      &' is ', f0.3, ' degrees). The centers of two connected cells must &
+      &lie on opposite sides of their shared face, so ANGLDEGX, the &
+      &outward normal of the face, must be within 90 degrees of the &
+      &direction from the cell center to the center of the connected &
+      &cell, in the coordinate system of the VERTICES.')"
+    character(len=*), parameter :: fmtangvrt = &
+      "('ANGLDEGX values for ', i0, ' cell faces associated with &
+      &horizontal connections in the DISU Package differ by more than 1 &
+      &degree from the outward normal of the face computed from the two &
+      &VERTICES shared by the connected cells (for example, ANGLDEGX = ', &
+      &f0.3, ' for the connection from cell ', i0, ' to cell ', i0, &
+      &', but the normal computed from the vertices is ', f0.3, &
+      &' degrees). ANGLDEGX must be expressed in the coordinate system of &
+      &the VERTICES.')"
+    character(len=*), parameter :: fmtangwarn = &
+      "('ANGLDEGX values for ', i0, ' cell faces associated with &
+      &horizontal connections in the DISU Package deviate by more than 45 &
+      &degrees from the direction between the centers of the connected &
+      &cells (for example, ANGLDEGX = ', f0.3, ' for the connection from &
+      &cell ', i0, ' to cell ', i0, ', but the direction between the cell &
+      &centers is ', f0.3, ' degrees). This is not necessarily an error, &
+      &but such connections depart substantially from the assumptions of &
+      &the control-volume finite-difference method and may warrant a &
+      &closer look at the grid.')"
     character(len=*), parameter :: fmtdz = &
       &"('Cell ', i0, ' with thickness <= 0. Top, bot: ', 2(1pg24.15))"
     character(len=*), parameter :: fmtarea = &
@@ -469,26 +485,37 @@ contains
     ! -- Check ANGLDEGX for horizontal connections between active cells.
     !    ANGLDEGX is the outward normal of the shared face, so the values
     !    for a connection and its reverse connection must differ by 180
-    !    degrees, and, if cell centers are available, the normal must point
-    !    toward the connected cell.  Inconsistent values are not detected
-    !    anywhere else and produce an invalid coefficient matrix when XT3D
-    !    or horizontal anisotropy is active.  Because ANGLDEGX is not used
-    !    unless one of those options is active, inconsistent values are
-    !    reported as warnings rather than errors.
+    !    degrees.  If VERTICES and CELL2D are available, the normal must
+    !    also point into the connected cell (the centers of the two cells
+    !    lie on opposite sides of the shared face) and must agree with the
+    !    normal computed from the two vertices shared by the cells.  These
+    !    three conditions are reported as warnings here and counted in
+    !    nangldegxerr; the NPF Package terminates with an error if the count
+    !    is nonzero and ANGLDEGX is used (XT3D, K22, or
+    !    SAVE_SPECIFIC_DISCHARGE), because ANGLDEGX has no effect otherwise.
+    !    A fourth check flags normals that deviate by more than 45 degrees
+    !    from the direction between the cell centers.  That is not an error,
+    !    but such connections depart from the assumptions of the CVFD
+    !    method and are reported as a warning only.
     if (this%iangledegx == 1) then
       nsym = 0
       ndir = 0
+      nvrt = 0
       nwarn = 0
       n_sym = 0
       m_sym = 0
       n_dir = 0
       m_dir = 0
+      n_vrt = 0
+      m_vrt = 0
       n_warn = 0
       m_warn = 0
       angn_sym = DZERO
       angm_sym = DZERO
       angn_dir = DZERO
       angc_dir = DZERO
+      angn_vrt = DZERO
+      angv_vrt = DZERO
       angn_warn = DZERO
       angc_warn = DZERO
       do n = 1, this%nodesuser
@@ -552,9 +579,30 @@ contains
                 end if
               end if
             end if
+            !
+            ! -- the normal must agree with the normal of the face computed
+            !    from the vertices; check each pair once, and skip pairs
+            !    that do not share exactly two vertices
+            if (m > n) then
+              call this%disu_face_normal(n, m, found, xnorm, ynorm)
+              if (found) then
+                angv = modulo(atan2(ynorm, xnorm) / DPIO180, 360.0_DP)
+                dang = abs(modulo(angn - angv + 180.0_DP, 360.0_DP) - 180.0_DP)
+                if (dang > angvtol) then
+                  nvrt = nvrt + 1
+                  if (nvrt == 1) then
+                    n_vrt = n
+                    m_vrt = m
+                    angn_vrt = angn
+                    angv_vrt = angv
+                  end if
+                end if
+              end if
+            end if
           end if
         end do
       end do
+      this%nangldegxerr = nsym + ndir + nvrt
       !
       ! -- store warnings for the final report and also write them to the
       !    model listing file now, so that they are available if the run
@@ -568,6 +616,11 @@ contains
       if (ndir > 0) then
         write (bigmsg, fmtangdir) ndir, angn_dir, n_dir, m_dir, &
           n_dir, m_dir, angc_dir
+        call store_warning(bigmsg)
+        call this%disu_write_warning(bigmsg)
+      end if
+      if (nvrt > 0) then
+        write (bigmsg, fmtangvrt) nvrt, angn_vrt, n_vrt, m_vrt, angv_vrt
         call store_warning(bigmsg)
         call this%disu_write_warning(bigmsg)
       end if
@@ -600,6 +653,72 @@ contains
     end if
   end subroutine disu_write_warning
 
+  !> @brief Outward normal of the face shared by two cells from the vertices
+  !!
+  !! Finds the vertices shared by cells n and m.  Vertices are matched by
+  !! coordinates rather than by vertex number, so that grids that list a
+  !! separate set of vertices for every cell are handled the same as grids
+  !! with shared vertex numbers.  If exactly two vertices are shared, they
+  !! define the shared face, and the unit normal to that face that points
+  !! from cell n toward cell m is returned with found set to true.
+  !! Otherwise found is set to false.  Requires VERTICES and CELL2D.
+  !<
+  subroutine disu_face_normal(this, n, m, found, xnorm, ynorm)
+    ! -- dummy
+    class(DisuType) :: this
+    integer(I4B), intent(in) :: n !< cell (user node number)
+    integer(I4B), intent(in) :: m !< connected cell (user node number)
+    logical, intent(out) :: found !< true if the cells share exactly two vertices
+    real(DP), intent(out) :: xnorm !< x component of the unit normal from n toward m
+    real(DP), intent(out) :: ynorm !< y component of the unit normal from n toward m
+    ! -- local
+    integer(I4B) :: i, j, iv, jv, nshared
+    integer(I4B), dimension(2) :: ivshared
+    real(DP) :: ex, ey, elen, dx, dy, tol
+    !
+    found = .false.
+    xnorm = DZERO
+    ynorm = DZERO
+    nshared = 0
+    !
+    ! -- Vertices are shared if their coordinates agree to within a small
+    !    fraction of the distance between the two cell centers
+    dx = this%cellxy(1, m) - this%cellxy(1, n)
+    dy = this%cellxy(2, m) - this%cellxy(2, n)
+    tol = DEM6 * sqrt(dx * dx + dy * dy)
+    !
+    ! -- Count the distinct vertices of cell n that also belong to cell m
+    !    (the vertex list of a cell repeats its first vertex at the end)
+    do i = this%iavert(n), this%iavert(n + 1) - 1
+      iv = this%javert(i)
+      if (any(this%javert(this%iavert(n):i - 1) == iv)) cycle
+      do j = this%iavert(m), this%iavert(m + 1) - 1
+        jv = this%javert(j)
+        if (abs(this%vertices(1, jv) - this%vertices(1, iv)) <= tol .and. &
+            abs(this%vertices(2, jv) - this%vertices(2, iv)) <= tol) then
+          nshared = nshared + 1
+          if (nshared > 2) return
+          ivshared(nshared) = iv
+          exit
+        end if
+      end do
+    end do
+    if (nshared /= 2) return
+    !
+    ! -- Unit normal to the shared face, oriented from cell n toward cell m
+    ex = this%vertices(1, ivshared(2)) - this%vertices(1, ivshared(1))
+    ey = this%vertices(2, ivshared(2)) - this%vertices(2, ivshared(1))
+    elen = sqrt(ex * ex + ey * ey)
+    if (elen <= DZERO) return
+    xnorm = ey / elen
+    ynorm = -ex / elen
+    if (xnorm * dx + ynorm * dy < DZERO) then
+      xnorm = -xnorm
+      ynorm = -ynorm
+    end if
+    found = .true.
+  end subroutine disu_face_normal
+
   !> @brief Deallocate variables
   !<
   subroutine disu_da(this)
@@ -614,6 +733,7 @@ contains
     ! -- scalars
     call mem_deallocate(this%njausr)
     call mem_deallocate(this%nvert)
+    call mem_deallocate(this%nangldegxerr)
     call mem_deallocate(this%voffsettol)
     call mem_deallocate(this%iangledegx)
     !
@@ -1404,6 +1524,7 @@ contains
     ! -- Allocate variables for DISU
     call mem_allocate(this%njausr, 'NJAUSR', this%memoryPath)
     call mem_allocate(this%nvert, 'NVERT', this%memoryPath)
+    call mem_allocate(this%nangldegxerr, 'NANGLDEGXERR', this%memoryPath)
     call mem_allocate(this%voffsettol, 'VOFFSETTOL', this%memoryPath)
     call mem_allocate(this%iangledegx, 'IANGLEDEGX', this%memoryPath)
     !
@@ -1411,6 +1532,7 @@ contains
     this%ndim = 1
     this%njausr = 0
     this%nvert = 0
+    this%nangldegxerr = 0
     this%voffsettol = DZERO
     this%iangledegx = 0
     this%readFromFile = .false.
