@@ -8,8 +8,8 @@
 module LoadMf6FileModule
 
   use KindModule, only: DP, I4B, LGP
-  use SimVariablesModule, only: errmsg
-  use SimModule, only: store_error
+  use SimVariablesModule, only: errmsg, warnmsg, isimstrict
+  use SimModule, only: store_error, store_warning
   use ConstantsModule, only: LINELENGTH, LENVARNAME
   use BlockParserModule, only: BlockParserType
   use LayeredArrayReaderModule, only: read_dbl1d_layered, &
@@ -279,6 +279,7 @@ contains
     logical(LGP) :: found, required
     type(MemoryType), pointer :: mt
     character(len=LINELENGTH) :: tag
+    character(len=:), allocatable :: line
     type(InputParamDefinitionType), pointer :: idt
 
     ! disu vertices/cell2d blocks are contingent on NVERT dimension
@@ -315,12 +316,29 @@ contains
           if (endOfBlock) exit
           ! process line as tag(s)
           call this%parser%GetStringCaps(tag)
-          idt => get_param_definition_type( &
-                 this%mf6_input%param_dfns, &
-                 this%mf6_input%component_type, &
-                 this%mf6_input%subcomponent_type, &
-                 this%mf6_input%block_dfns(iblk)%blockname, &
-                 tag, this%filename)
+          if (isimstrict == 0) then
+            idt => get_param_definition_type( &
+                   this%mf6_input%param_dfns, &
+                   this%mf6_input%component_type, &
+                   this%mf6_input%subcomponent_type, &
+                   this%mf6_input%block_dfns(iblk)%blockname, &
+                   tag, this%filename, found=found)
+            if (.not. found) then
+              write (warnmsg, '(5a)') 'Unrecognized top-level input tag "', &
+                trim(tag), '" in file "', trim(this%filename), &
+                '" ignored.'
+              call store_warning(warnmsg)
+              call this%parser%GetRemainingLine(line)
+              cycle
+            end if
+          else
+            idt => get_param_definition_type( &
+                   this%mf6_input%param_dfns, &
+                   this%mf6_input%component_type, &
+                   this%mf6_input%subcomponent_type, &
+                   this%mf6_input%block_dfns(iblk)%blockname, &
+                   tag, this%filename)
+          end if
           if (idt%in_record) then
             call this%parse_record_tag(iblk, idt, .false.)
           else
