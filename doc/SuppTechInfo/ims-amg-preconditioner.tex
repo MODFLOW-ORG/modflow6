@@ -1,0 +1,348 @@
+The Iterative Model Solution (IMS) package in \mf provides an algebraic multigrid (AMG) preconditioner \citep{rugestuben1987,stuben2001} as an alternative to the incomplete LU factorization preconditioners (ILU0, MILU0, ILUT, and MILUT). This chapter describes the AMG preconditioner algorithm, the smoother options available at the finest multigrid level, the fixed and adaptive damping strategies used to scale the multigrid correction, and how the adaptive formula implemented in \mf compares with the adaptive damping used in the geometric multigrid (GMG) solver introduced in MODFLOW-2000 \citep{wilsonnaff2004}.
+
+ILU preconditioners factor the matrix locally---they capture connections only within the sparsity pattern of $\mathbf{A}$ and are most effective when convergence is limited by high-frequency, grid-scale error components. For many practical \mf problems, however, convergence is also limited by smooth, low-frequency error components that persist across many cells. These components are associated with the smallest eigenvalues of $\mathbf{A}$ and arise when hydraulic properties vary substantially between adjacent cells. Typical examples include checkerboard-pattern hydraulic conductivity fields from heterogeneous geology and strong vertical anisotropy ($K_{33} \ll K_{11}$) that weakly couples vertical layers relative to lateral connections. Such contrasts produce a wide range of eigenvalues in $\mathbf{A}$ (a high condition number), and the smooth error modes associated with the smallest eigenvalues are poorly attenuated by ILU. The AMG preconditioner addresses these modes through its coarse-level hierarchy: each successive level represents the system at a larger spatial scale, allowing errors at all wavelengths to be reduced within a single V-cycle. AMG typically requires fewer outer iterations than ILU when the system matrix is highly heterogeneous, when the model domain is large (regional or multi-model simulations where low-frequency error modes span many grid cells), or when large conductance contrasts exist between layers. For advection-dominated transport problems with large cell P\'{e}clet numbers, ILU-based preconditioners often remain competitive or superior because the strongly nonsymmetric matrix produced by upwind advection limits the effectiveness of the smoothers used in the AMG hierarchy, particularly the Gauss-Seidel sweeps applied at coarser levels. The advantage of AMG over ILU is problem-dependent, however, and large property contrasts alone do not guarantee it; section~\ref{sec:recommended} describes conditions under which AMG may not outperform ILU.
+
+The convergence rate of Krylov solvers with ILU preconditioners depends strongly on the frequency content of the initial head error. ILU preconditioners are most effective at reducing high-frequency, oscillatory errors: when the initial error is dominated by an oscillatory component ($k = 15$; fig.~\ref{fig:amg_convergence}\textit{A}), each outer iteration substantially reduces the error amplitude (fig.~\ref{fig:amg_convergence}\textit{B}). When the initial error is smooth ($k = 1$; fig.~\ref{fig:amg_convergence}\textit{A}), however, ILU preconditioners reduce the error quickly at first but stagnate within a few outer iterations, leaving the smooth amplitude nearly unchanged thereafter (fig.~\ref{fig:amg_convergence}\textit{B}). When both oscillatory and smooth components are present ($k = 1 + k = 15$; fig.~\ref{fig:amg_convergence}\textit{A}), the oscillatory error is removed quickly, but the smooth component stagnates and dominates the combined error (fig.~\ref{fig:amg_convergence}\textit{B}). This persistent smooth error is the primary limitation of ILU-based preconditioners; a good initial head distribution---one that is largely free of smooth, low-frequency error---is needed for rapid convergence.
+
+
+\subsection{IMS AMG Preconditioner Algorithm}
+
+The IMS AMG preconditioner is an aggregation-based algebraic multigrid method \citep{notay2010} that approximates the action of $\mathbf{A}^{-1}$ using a hierarchy of successively coarser representations of the system matrix $\mathbf{A}$. AMG methods construct this hierarchy purely from the coefficients of $\mathbf{A}$, without reference to the underlying physical grid, making them applicable to the unstructured discretizations available in \mf.
+
+\subsubsection{Hierarchy Construction}
+
+The hierarchy is built once during preconditioner setup using greedy pairwise aggregation. Throughout this section, lowercase indices $i$, $j$, $k$ denote unknowns at level $\ell$: cell nodes at the finest level ($\ell = 0$) and coarse aggregates at all subsequent levels. Uppercase indices $I$, $J$ denote unknowns at the next coarser level ($\ell + 1$). At each level $\ell$, the algorithm sweeps through the unknowns and assigns each unvisited unknown $i$ and its strongest-connected unvisited neighbor $j$ to the same aggregate. The strength of connection between nodes $i$ and $j$ is measured by the symmetrized magnitude $\frac{1}{2}(|a_{ij}| + |a_{ji}|)$. Using the average of both directed entries ensures that the aggregation is symmetric with respect to the matrix graph even when $\mathbf{A}$ is nonsymmetric, yielding more balanced aggregates for matrices arising from the Newton-Raphson GWF formulation and from advection-dominated GWT and GWE transport models. If a strength threshold is specified, \texttt{PRECONDITIONER\_STRENGTH\_THRESHOLD} $> 0$, only connections satisfying $\frac{1}{2}(|a_{ij}| + |a_{ji}|) \ge \tau \max_{k \ne i}\frac{1}{2}(|a_{ik}| + |a_{ki}|)$ are considered, where $\tau$ is the threshold at level $\ell$. The threshold is halved at each successive level, $\tau_\ell = \tau_0 2^{-\ell}$, where $\tau_0$ is \texttt{PRECONDITIONER\_STRENGTH\_THRESHOLD}. The Galerkin product makes each coarse-level operator denser than the one above it, and because the threshold is measured against the largest entry in a row, holding it fixed rejects a growing share of connections as the levels coarsen until the aggregation nearly stops. Relaxing the threshold with depth keeps the coarsening productive. The coarse-level matrix $\mathbf{A}^{(\ell+1)}$ is the exact Galerkin triple product, computed by direct summation of fine-level coefficients within and between aggregates:
+
+\begin{equation}
+  \label{eqn:amgcoarse}
+  a^{(\ell+1)}_{IJ} = \sum_{i \in \mathcal{A}_I} \sum_{j \in \mathcal{A}_J} a^{(\ell)}_{ij} ,
+\end{equation}
+
+\noindent where $\mathcal{A}_I$ and $\mathcal{A}_J$ are the sets of fine-level unknowns belonging to coarse aggregates $I$ and $J$, respectively. This process is repeated until the coarsest level has two or fewer unknowns, the aggregation of a level produces one or fewer coarse aggregates, or the maximum number of levels \texttt{PRECONDITIONER\_LEVELS} is reached, which defaults to 10 when \texttt{PRECONDITIONER\_TYPE AMG} is specified. A deeper hierarchy is not necessarily better: pairwise aggregation coarsens by at most a factor of two per level, so the deepest levels of a tall hierarchy coarsen very little while still being smoothed on every cycle.
+
+\subsubsection{Smoother}
+
+The IMS AMG preconditioner supports two smoother options, selected by the \texttt{SMOOTHER\_TYPE} keyword in the IMS \texttt{LINEAR} block. The \texttt{ILU0} option (default) applies ILU(0) correction sweeps at the finest level ($\ell = 0$) and Gauss-Seidel sweeps at all coarser levels; the \texttt{ILU0\_ALL} option extends ILU(0) correction sweeps to every level in the AMG hierarchy. The coarsest level is solved with the same smoother selected for the coarser levels---Gauss-Seidel under \texttt{ILU0} and ILU(0) under \texttt{ILU0\_ALL}.
+
+\subsection*{Reported hierarchy}
+The hierarchy is written to the simulation listing file when it is first built.
+For each level the report gives the number of rows and nonzero entries, the
+nonzero entries per row, the strength threshold applied, the coarsening ratio,
+and the percentages of aggregates left holding a single unknown and of
+connections rejected as weak. The grid and operator complexities, the sums of
+the rows and of the nonzero entries over all levels divided by their fine-level
+values, follow the table. Together these indicate whether the aggregation is
+coarsening effectively and what one multigrid cycle costs relative to one
+fine-level matrix--vector product. A coarsening ratio that falls well below two,
+or a singleton percentage that grows with depth, indicates that the aggregation
+is stalling.
+
+\paragraph{Gauss-Seidel smoother}
+The Gauss-Seidel smoother \citep{briggs2000} is used at the coarser levels under the default \texttt{ILU0} option and as the coarsest-level solve. The forward sweep updates each unknown in order from $i = 1$ to $n_\ell$:
+
+\begin{equation}
+  \label{eqn:gsforward}
+  e_i^{(\ell)} \leftarrow e_i^{(\ell)} + d_i^{-1}
+    \Bigl( r_i^{(\ell)} - \sum_{k} a_{ik}^{(\ell)}\, e_k^{(\ell)} \Bigr) ,
+\end{equation}
+
+\noindent where $e_i^{(\ell)}$ is the error estimate (correction) at unknown $i$ of level $\ell$, $r_i^{(\ell)}$ is the corresponding residual, $d_i = a_{ii}^{(\ell)}$ is the diagonal coefficient, and the sum runs over all nonzeros in row $i$. The backward sweep performs the same update in reverse order from $i = n_\ell$ to $1$.
+
+\paragraph{ILU(0) smoother (\texttt{SMOOTHER\_TYPE ILU0}, default)}
+When \texttt{SMOOTHER\_TYPE ILU0} is selected (the default), an ILU(0) correction sweep replaces Gauss-Seidel at the finest level ($\ell = 0$). Each correction sweep computes
+
+\begin{equation}
+  \label{eqn:ilu0smooth}
+  \mathbf{e}^{(0)} \leftarrow \mathbf{e}^{(0)} + \bigl(\mathbf{L}\mathbf{U}\bigr)^{-1}
+    \bigl(\mathbf{r}^{(0)} - \mathbf{A}^{(0)}\mathbf{e}^{(0)}\bigr) ,
+\end{equation}
+
+\noindent where $\mathbf{L}\mathbf{U}$ is the zero-fill ILU(0) factorization of $\mathbf{A}^{(0)}$ (same sparsity pattern as $\mathbf{A}$) \citep{saad2003iterative,trottenberg2001}, and the action of $(\mathbf{L}\mathbf{U})^{-1}$ is applied via a forward then backward triangular solve. The ILU(0) factorization is computed once per outer iteration and reused across all inner BiCGSTAB iterations. For problems with extreme hydraulic conductivity contrasts, where the condition number $\kappa \sim 10^9$--$10^{10}$, ILU(0) smoothing reduces inner iterations far more effectively than Gauss-Seidel because each sweep captures local coupling within the full sparsity pattern of $\mathbf{A}$. For ILU(0) smoothing, \texttt{NUMBER\_SMOOTHING\_ITERATIONS 1} is usually sufficient since each sweep performs a complete forward and backward triangular solve; for Gauss-Seidel, 2--3 sweeps are typically needed.
+
+\paragraph{ILU(0) smoother at all levels (\texttt{SMOOTHER\_TYPE ILU0\_ALL})}
+When \texttt{SMOOTHER\_TYPE ILU0\_ALL} is selected, ILU(0) correction sweeps replace Gauss-Seidel at \emph{every} level of the AMG hierarchy, including all coarser levels. The factorization $\mathbf{L}\mathbf{U}$ is built once per outer iteration for each level and reused across all inner BiCGSTAB iterations. This option requires additional memory and setup time proportional to the total number of nonzeros summed across all levels of the hierarchy, which is typically 50--100~percent more than the fine-level cost alone for moderate hierarchy depths. For problems where high-frequency error components persist at coarse levels---as can occur when aggregates span large conductivity jumps---\texttt{ILU0\_ALL} may reduce inner iterations relative to \texttt{ILU0}. For most well-conditioned groundwater flow problems, the standard \texttt{ILU0} option provides nearly equivalent convergence at lower cost.
+
+The number of smoother sweeps is set by the \texttt{NUMBER\_SMOOTHING\_ITERATIONS} keyword in the IMS \texttt{LINEAR} block (default 2). Increasing $n_{\mli{smooth}}$ provides more damping of high-frequency error components per multigrid cycle and can improve convergence for nonsymmetric matrices, at the cost of additional work per iteration.
+
+\subsubsection{V-cycle}
+
+The V-cycle~(fig.~\ref{fig:amg_cycle}) descends from the finest level $\ell = 0$ to the coarsest level $\ell = L - 1$. At each level on the downward pass, $n_{\mli{smooth}}$ smoother sweeps are applied---ILU(0) correction sweeps (eq.~\ref{eqn:ilu0smooth}) at the finest level ($\ell = 0$) with Gauss-Seidel sweeps (eq.~\ref{eqn:gsforward}) at coarser levels when \texttt{SMOOTHER\_TYPE ILU0} is active, or ILU(0) correction sweeps at every level when \texttt{SMOOTHER\_TYPE ILU0\_ALL} is active---and the residual
+
+\begin{equation}
+  \label{eqn:amgrestrict}
+  r_I^{(\ell+1)} = \sum_{i \in \mathcal{A}_I}
+    \Bigl( r_i^{(\ell)} - \sum_{k} a_{ik}^{(\ell)}\, e_k^{(\ell)} \Bigr)
+\end{equation}
+
+\noindent is restricted to the coarse level by aggregating residuals within each coarse aggregate $I$. The error estimate at the coarse level is initialized to zero. At the coarsest level, 50 smoother sweeps are applied: forward Gauss-Seidel when \texttt{SMOOTHER\_TYPE ILU0} is active, or ILU(0) correction sweeps when \texttt{SMOOTHER\_TYPE ILU0\_ALL} is active. On the upward pass, the coarse correction is prolongated to the fine level by assigning
+
+\begin{equation}
+  \label{eqn:amgprolong}
+  e_i^{(\ell)} \leftarrow e_i^{(\ell)} + e_{\mathcal{A}(i)}^{(\ell+1)} ,
+\end{equation}
+
+\noindent where $\mathcal{A}(i)$ is the coarse aggregate containing fine-level unknown $i$. After prolongation, $n_{\mli{smooth}}$ smoother sweeps are applied at level $\ell$ (ILU(0) correction at the finest level with Gauss-Seidel at coarser levels when \texttt{SMOOTHER\_TYPE ILU0} is active; ILU(0) correction at every level when \texttt{SMOOTHER\_TYPE ILU0\_ALL} is active).
+
+\begin{figure}[!ht]
+  \centering
+  \includegraphics[width=\textwidth]{../Figures/amg-vcycle.pdf}
+  \caption[Grid schedule for 4-level V-cycle]{Grid schedule
+    for a 4-level multigrid V-cycle. The finest level ($\ell = 0$) is at the
+    top and the coarsest level ($\ell = L-1$) is at the bottom. Each circle
+    represents a grid visit; circles are connected in the order they are
+    visited. The V-cycle makes one recursive call at
+    each level, descending to the coarsest level and returning to the finest
+    level in a single pass}
+  \label{fig:amg_cycle}
+\end{figure}
+
+
+\subsection{Convergence Behavior}
+\label{sec:amg_convergence_behavior}
+
+Following the approach of \citep{mehl2001lmg} for a one-dimensional problem, a two-dimensional flow model (1 layer, 201 rows, 201 columns) with uniform hydraulic conductivity of 1.0 meters per day and constant-head boundaries of zero on all four sides was run four times---once for each combination of initial head (smooth $k = 1$ or oscillatory $k = 15$ Fourier mode; fig.~\ref{fig:amg_convergence}\textit{A}) and preconditioner (ILU(0) or AMG); the true solution is $h = 0$ throughout the domain. Each outer iteration performs exactly one inner CG step, so the amplitude reduction per step directly reflects the action of the preconditioner. The combined ($k = 1 + k = 15$) amplitude shown in figures~\ref{fig:amg_convergence}\textit{B} and~\ref{fig:amg_convergence}\textit{C} is derived from the two single-mode runs by quadrature. The ILU(0) preconditioner (fig.~\ref{fig:amg_convergence}\textit{B}) continuously reduces the oscillatory ($k = 15$) error, reaching $10^{-10}$ after approximately 97 outer iterations and $3.4 \times 10^{-12}$ after all 200 iterations, but stagnates on the smooth ($k = 1$) component within approximately five outer iterations, leaving the smooth amplitude nearly unchanged for the remaining iterations; because the stagnated smooth error dominates the combined amplitude, the $k = 1$ and $k = 1 + k = 15$ curves are nearly indistinguishable in figure~\ref{fig:amg_convergence}\textit{B}. In contrast, the AMG preconditioner (fig.~\ref{fig:amg_convergence}\textit{C}) reduces both error components continuously throughout all 200 iterations, driving the oscillatory ($k = 15$) error below $10^{-10}$ and reducing the smooth error by approximately four orders of magnitude.
+
+\begin{figure}[!ht]
+  \centering
+  \includegraphics[width=\textwidth]{../Figures/amg-convergence.pdf}
+  \caption[Error reduction comparison for ILU(0) and AMG preconditioners]{%
+    Errors in the solution to a two-dimensional flow problem with
+    constant-head boundaries of zero on all four sides; the true solution
+    is $h = 0$ throughout the domain.
+    \textit{A}, components of the initial head (error) along the center row
+    (row 101 of 201), including the smooth ($k = 1$), oscillatory ($k = 15$),
+    and combined ($k = 1 + k = 15$) Fourier modes and the true solution
+    ($h = 0$); reduction of error amplitude with outer iteration for the
+    \textit{B}, ILU(0) preconditioner; and \textit{C}, AMG preconditioner
+    with conjugate gradient (CG) acceleration and adaptive damping ($\omega$).
+    The oscillatory ($k = 15$) error falls below $10^{-10}$ after approximately
+    97 and 44 outer iterations for the ILU(0) and AMG preconditioners,
+    respectively}
+  \label{fig:amg_convergence}
+\end{figure}
+
+The relative advantage of AMG over ILU(0) becomes more pronounced for heterogeneous hydraulic conductivity fields, which is the more common situation in practice. To illustrate this, the same model was run four more times with a spatially uncorrelated lognormal $K$ field ($\sigma_{\ln K} = 1.5$; $K$ ranging from approximately $10^{-3}$ to $6.6 \times 10^{2}$ meters per day, a range of nearly six orders of magnitude) and the same Fourier initial head components (fig.~\ref{fig:amg_convergence}\textit{A}). After 200 outer iterations, the ILU(0) preconditioner (fig.~\ref{fig:amg_convergence_heteroK}\textit{A}) provided essentially no reduction of the smooth ($k = 1$) error (amplitude from 1.0 to only 0.87) and reduced the oscillatory ($k = 15$) amplitude to only $4.1 \times 10^{-5}$---far less than the ten-order-of-magnitude reduction achieved for the uniform-$K$ case. In contrast, the AMG preconditioner (fig.~\ref{fig:amg_convergence_heteroK}\textit{B}) reduced the smooth error by more than three orders of magnitude (from 1.0 to $1.1 \times 10^{-3}$) and the oscillatory error by approximately nine orders of magnitude (to $8.3 \times 10^{-9}$), with both amplitudes continuing to decrease at iteration 200. These results confirm that hydraulic conductivity heterogeneity amplifies the fundamental limitation of ILU(0)---its inability to reduce smooth, low-frequency error components---whereas AMG continues to reduce errors at all spatial scales through its coarse-level hierarchy.
+
+\begin{figure}[!ht]
+  \centering
+  \includegraphics[width=\textwidth]{../Figures/amg-convergence-heteroK.pdf}
+  \caption[Error reduction comparison for ILU(0) and AMG preconditioners with heterogeneous hydraulic conductivity]{%
+    Reduction of error amplitude with outer iteration for a two-dimensional
+    flow problem with a spatially uncorrelated lognormal hydraulic conductivity
+    field ($\sigma_{\ln K} = 1.5$; $K$ ranging from approximately $10^{-3}$ to
+    $6.6 \times 10^{2}$ meters per day) and constant-head boundaries of zero
+    on all four sides; the true solution is $h = 0$ throughout the domain.
+    Initial head components are the smooth ($k = 1$), oscillatory ($k = 15$),
+    and combined ($k = 1 + k = 15$) Fourier modes shown in
+    figure~\ref{fig:amg_convergence}\textit{A}.
+    \textit{A}, ILU(0) preconditioner; and \textit{B}, AMG preconditioner
+    with conjugate gradient (CG) acceleration and adaptive damping ($\omega$)}
+  \label{fig:amg_convergence_heteroK}
+\end{figure}
+\subsection{Damping of the Multigrid Cycle Correction}
+
+After the multigrid cycle produces the raw correction $\mathbf{e}^{(0)}$, a scalar damping factor $\alpha$ is applied before the result is returned as the preconditioner output:
+
+\begin{equation}
+  \label{eqn:amgdamp}
+  \mathbf{z} = \alpha \, \mathbf{e}^{(0)} .
+\end{equation}
+
+\noindent The IMS AMG preconditioner supports two modes for determining $\alpha$, selected by the \texttt{RELAXATION\_FACTOR} input parameter. When \texttt{RELAXATION\_FACTOR} $> 0$, the damping factor is fixed at the user-specified value, $\alpha = \omega$, and the preconditioner output is:
+
+\begin{equation}
+  \label{eqn:amgfixed}
+  \mathbf{z} = \omega \, \mathbf{e}^{(0)} .
+\end{equation}
+
+\noindent A value of $\omega = 1$ corresponds to undamped application of the multigrid cycle correction. Fixed damping is appropriate when the AMG preconditioner is used inside a Krylov accelerator \citep[CG or BiCGSTAB;][]{vandervorst1992}, which determines its own optimal step lengths independently of the preconditioner.
+
+\subsubsection{Adaptive Damping in the IMS AMG Preconditioner}
+
+Setting \texttt{RELAXATION\_FACTOR} $= 0$ activates adaptive damping for each application of the preconditioner. This mode should only be used with \texttt{LINEAR\_ACCELERATION CG} on symmetric positive definite systems. The IMS AMG uses the $A$-norm-optimal Richardson step length \citep{saad2003iterative}, which minimizes $\|\mathbf{e}_{k+1}\|_{\mathbf{A}}^2$ after the correction is applied:
+
+\begin{equation}
+  \label{eqn:amgadaptive}
+  \alpha = \frac{\left( \mathbf{r},\, \mathbf{e}^{(0)} \right)}
+                {\left( \mathbf{e}^{(0)},\, \mathbf{A} \mathbf{e}^{(0)} \right)} ,
+\end{equation}
+
+\noindent where $\left( \cdot,\, \cdot \right)$ denotes the Euclidean inner product and $\mathbf{A}$ is the system matrix. The factor $\alpha$ is capped at 1 to prevent over-correction. If the denominator is zero or negative, $\alpha$ is set to 1. If the multigrid cycle correction itself overflows (any entry exceeding $10^{20}$), the preconditioner returns a zero vector and convergence is left to the outer Krylov iteration. The denominator $\left(\mathbf{e}^{(0)},\, \mathbf{A}\mathbf{e}^{(0)}\right) = \mathbf{e}^{(0)\mathsf{T}} \mathbf{A}_s \mathbf{e}^{(0)}$, where $\mathbf{A}_s = \tfrac{1}{2}(\mathbf{A} + \mathbf{A}^{\mathsf{T}})$ is the symmetric part of $\mathbf{A}$, is guaranteed to be positive when $\mathbf{A}$ is SPD.
+
+
+\subsubsection{Adaptive Damping in the MODFLOW-2000 and MODFLOW-2005 GMG Solver}
+
+The geometric multigrid solver in MODFLOW-2000 and MODFLOW-2005 \citep{wilsonnaff2004} also supports adaptive damping of the multigrid correction. When the \texttt{DAMP} parameter is set to zero, the GMG solver computes the damping factor using the formula:
+
+\begin{equation}
+  \label{eqn:gmgadaptive}
+  \omega_k = \frac{\left( \mathbf{r}_k,\, \mathbf{r}_k \right)}
+                  {\left( \mathbf{r}_k,\, \mathbf{A} \mathbf{e}^{(0)} \right)} ,
+\end{equation}
+
+\noindent where $\mathbf{r}_k$ is the residual at outer iteration $k$ and $\mathbf{e}^{(0)}$ is the multigrid cycle correction. Equation~\ref{eqn:gmgadaptive} is a steepest-descent-like formula: it minimizes the squared 2-norm of the residual after a step of size $\omega_k$ in the direction $\mathbf{A}\mathbf{e}^{(0)}$.
+
+\subsubsection{Comparison of Adaptive Damping Formulas}
+
+Table~\ref{table:amg_damp_compare} summarizes the two adaptive formulas. Both scale the multigrid cycle correction by a scalar derived from the current residual and the action of the system matrix on the correction. The key differences are the inner products used and the quantity minimized by the optimal choice.
+
+\begin{table}[!ht]
+  \small
+  \begin{center}
+  \caption[Comparison of adaptive damping formulas for AMG and GMG solvers]{%
+    Comparison of adaptive damping formulas for the IMS AMG preconditioner
+    and the MODFLOW-2005 GMG solver. The IMS AMG formula is activated by
+    \texttt{RELAXATION\_FACTOR} $= 0$ with \texttt{LINEAR\_ACCELERATION CG}.}
+  \label{table:amg_damp_compare}
+  \begin{tabular}{llll}
+    \toprule
+    \textbf{Solver / Mode} & \textbf{Formula} & \textbf{Minimizes} & \textbf{Valid when} \\
+    \midrule
+    IMS AMG + CG (eq.~\ref{eqn:amgadaptive}) &
+      $\displaystyle\alpha = \frac{(\mathbf{r},\,\mathbf{e}^{(0)})}{(\mathbf{e}^{(0)},\,\mathbf{A}\mathbf{e}^{(0)})}$ &
+      $\|\mathbf{e}_{k+1}\|_{\mathbf{A}}^2$ &
+      $\mathbf{A}$ SPD \\[10pt]
+    MODFLOW-2005 GMG (eq.~\ref{eqn:gmgadaptive}) &
+      $\displaystyle\omega = \frac{(\mathbf{r},\,\mathbf{r})}{(\mathbf{r},\,\mathbf{A}\mathbf{e}^{(0)})}$ &
+      $\|\mathbf{r}_{k+1}\|_2^2$ &
+      $(\mathbf{r},\mathbf{A}\mathbf{e}^{(0)}) > 0$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+\end{table}
+
+For a symmetric positive definite system matrix $\mathbf{A}$, minimizing the $A$-norm of the error is the stronger criterion: it is the step chosen by a preconditioned conjugate gradient solver when the search direction is $\mathbf{e}^{(0)}$. The GMG formula (eq.~\ref{eqn:gmgadaptive}) minimizes $\|\mathbf{r}_{k+1}\|_2^2$ and places $(\mathbf{r}, \mathbf{A}\mathbf{e}^{(0)})$ in the denominator, which can be zero or negative. The IMS AMG formula (eq.~\ref{eqn:amgadaptive}) places $(\mathbf{e}^{(0)},\,\mathbf{A}\mathbf{e}^{(0)})$ in the denominator, which is always positive for SPD $\mathbf{A}$. When the multigrid cycle provides a good approximation to $\mathbf{A}^{-1}\mathbf{r}$, both formulas give similar results.
+
+Setting \texttt{RELAXATION\_FACTOR = 0} in the IMS \texttt{LINEAR} block activates the adaptive damping formula (eq.~\ref{eqn:amgadaptive}). This mode should only be used with \texttt{LINEAR\_ACCELERATION CG} on symmetric positive definite systems. For \texttt{LINEAR\_ACCELERATION BICGSTAB} (nonsymmetric systems), \texttt{RELAXATION\_FACTOR = 1} is required when \texttt{PRECONDITIONER\_TYPE AMG} is active; specifying any other value will cause \mf to terminate with an error. An adaptive $\alpha$ that varies with the residual at each inner BiCGSTAB iteration makes the preconditioner variable, which disrupts BiCGSTAB's Krylov subspace optimality and can cause oscillation in both the inner iterations and the outer nonlinear loop.
+
+
+\subsection{Application to Nonsymmetric Systems}
+
+The theoretical foundation of many AMG methods, including the A-norm optimality of the adaptive damping formula (eq.~\ref{eqn:amgadaptive}), assumes that the system matrix $\mathbf{A}$ is symmetric positive definite (SPD). Several \mf models produce system matrices that are not symmetric. This section describes the sources of nonsymmetry in the \mf GWF, GWT, and GWE models and discusses how the IMS AMG preconditioner behaves in these cases.
+
+\subsubsection{Sources of Nonsymmetry}
+
+\paragraph{Newton-Raphson formulation in the GWF Model}
+When the Newton-Raphson formulation is used to solve the nonlinear groundwater flow equation \citep{modflow6gwf}, the system matrix is the Jacobian of the discrete residual with respect to the hydraulic head vector. The standard conductance coefficients populate the off-diagonals symmetrically, but the Newton-Raphson linearization introduces additional derivative terms that represent the dependence of cell-to-cell conductance and storage on head. These head-derivative terms contribute to the diagonal and to specific off-diagonals. The resulting matrix is therefore mildly nonsymmetric. Because the symmetric conductance matrix dominates for most groundwater flow problems, the degree of nonsymmetry is generally small.
+
+\paragraph{Advective transport in the GWT and GWE Models}
+The GWT solute-transport \citep{modflow6gwt} and GWE energy-transport \citep{morway2025} models assemble a system matrix that contains contributions from transient storage (diagonal), hydrodynamic dispersion (symmetric), and advection (nonsymmetric). The advection contribution arises from the discretization of the flux divergence term $\nabla \cdot (\mathbf{q} C)$ or $\nabla \cdot (\mathbf{q} T)$, where $\mathbf{q}$ is the Darcy flux field computed by the GWF Model. An upwind differencing scheme, which is the recommended option for advection-dominated transport, yields a strongly nonsymmetric matrix when the flow field is not aligned with the grid. The degree of nonsymmetry increases with the cell Peclet number,
+
+\begin{equation}
+  \label{eqn:peclet}
+  \mli{Pe} = \frac{|\mathbf{q}| \, \Delta x}{D_m} ,
+\end{equation}
+
+\noindent where $|\mathbf{q}|$ is the magnitude of the Darcy flux, $\Delta x$ is the grid spacing, and $D_m$ is the molecular diffusion or thermal conduction coefficient. For large $\mli{Pe}$, the advection term dominates and the system matrix is far from symmetric.
+
+\subsubsection{AMG Preconditioner Behavior for Nonsymmetric Matrices}
+
+Each component of the AMG preconditioner reacts differently to nonsymmetry.
+
+\paragraph{Hierarchy construction}
+The greedy pairwise aggregation algorithm selects aggregates based on the symmetrized connection strength $\frac{1}{2}(|a_{ij}| + |a_{ji}|)$. Because both directed entries contribute equally, the aggregation criterion is symmetric with respect to the matrix graph even when $\mathbf{A}$ is not, producing balanced aggregates that do not inherit directional bias from advection-dominated off-diagonal entries. The coarse-level matrix is formed by the summation formula (eq.~\ref{eqn:amgcoarse}) and inherits the nonsymmetry of $\mathbf{A}$.
+
+\paragraph{Gauss-Seidel smoother}
+The forward and backward Gauss-Seidel sweeps (eq.~\ref{eqn:gsforward}) require only that the diagonal entries $d_i = a_{ii}$ be nonzero. For the GWF, GWT, and GWE models, the diagonal is always positive because it includes the sum of positive conductance (or dispersion) contributions plus any transient storage term. The Gauss-Seidel smoother therefore remains well-defined. For SPD matrices the smoother is guaranteed to converge; for nonsymmetric matrices convergence is not guaranteed in general. Diagonal dominance of $\mathbf{A}^{(0)}$ does not carry to the coarse levels: the Galerkin product sums fine-level entries within and between aggregates, and for a Newton-Raphson matrix, which is nonsymmetric and can have positive off-diagonal entries, the resulting coarse operator need not be diagonally dominant. A smoother applied to such a level can amplify the error rather than reduce it. This has been observed on three-dimensional models with strong vertical anisotropy, where the multigrid correction grew without bound and the simulation terminated. When \texttt{SMOOTHER\_TYPE ILU0} or \texttt{ILU0\_ALL} is used, ILU(0) correction sweeps (eq.~\ref{eqn:ilu0smooth}) replace Gauss-Seidel at the finest level (or at every level for \texttt{ILU0\_ALL}); the same diagonal positivity argument ensures the ILU(0) factorization is well-defined at any level, and ILU(0) is more robust than Gauss-Seidel for problems with extreme hydraulic conductivity contrasts.
+
+\paragraph{Adaptive damping}
+The denominator of the adaptive damping formula (eq.~\ref{eqn:amgadaptive}), $(\mathbf{e}^{(0)}, \mathbf{A} \mathbf{e}^{(0)}) = \mathbf{e}^{(0)\mathsf{T}} \mathbf{A} \mathbf{e}^{(0)}$, is guaranteed to be positive only when $\mathbf{A}$ is SPD. For any $\mathbf{A}$ this quantity equals $\mathbf{e}^{(0)\mathsf{T}} \mathbf{A}_s \mathbf{e}^{(0)}$, where $\mathbf{A}_s = \frac{1}{2}(\mathbf{A} + \mathbf{A}^{\mathsf{T}})$ is the symmetric part of $\mathbf{A}$. When $\mathbf{A}_s$ is positive definite---which holds for the GWF matrix under the Newton-Raphson formulation when conductance terms dominate---the denominator remains positive and the adaptive damping formula provides a valid, positive step length. If the denominator is zero or negative, the implementation defaults to $\alpha = 1$. For the GWT and GWE models (nonsymmetric when advection is present), \texttt{RELAXATION\_FACTOR = 1} is required; specifying any other value with \texttt{PRECONDITIONER\_TYPE AMG} and \texttt{LINEAR\_ACCELERATION BICGSTAB} will cause \mf to terminate with an error.
+
+\subsection{Recommended Parameter Settings}
+\label{sec:recommended}
+
+This section gives \mf IMS \texttt{LINEAR} block recommendations for using the AMG preconditioner with the three principal system-matrix types that arise in \mf simulations. The relevant parameters are \texttt{LINEAR\_ACCELERATION}, \texttt{RELAXATION\_FACTOR}, \texttt{SMOOTHER\_TYPE}, \texttt{NUMBER\_SMOOTHING\_ITERATIONS}, and \texttt{PRECONDITIONER\_STRENGTH\_THRESHOLD}. In all cases, \texttt{PRECONDITIONER\_TYPE AMG} must be specified and \texttt{PRECONDITIONER\_LEVELS} controls the maximum total number of levels in the AMG hierarchy (including the finest level); guidance on choosing this value is given in the dedicated paragraph below. Table~\ref{tab:amg_settings} provides a concise reference for all IMS AMG preconditioner settings organized by model type and problem size.
+
+\paragraph{When AMG may not improve performance}
+The AMG preconditioner helps most when convergence is limited by smooth, low-frequency error that the coarse-grid hierarchy can remove, and when the aggregation is able to build accurate coarse-level operators. Large hydraulic-property contrasts are a necessary condition for the smooth-error limitation but are not sufficient by themselves; the conditioning of the system matrix also matters. For strongly nonsymmetric or poorly conditioned matrices---for example, unconfined Newton-Raphson models with low transmissivity, where a thin saturated thickness makes the Jacobian ill-conditioned---the coarse-grid correction can be ineffective, so that AMG requires as many or more inner (linear) iterations than ILU and the local ILU factorizations prove both more robust and faster. Two practical cautions follow. First, a lower inner-iteration count does not by itself guarantee a shorter run time: each AMG cycle is more expensive to apply than a single ILU solve, so the iteration reduction must be large enough to offset that per-application cost. Second, on problems with extreme conductivity contrasts the default \texttt{SMOOTHER\_TYPE ILU0} (ILU(0) at the finest level only) may offer little improvement over ILU, and recovering AMG's iteration savings can require \texttt{SMOOTHER\_TYPE ILU0\_ALL}, which is substantially more expensive per multigrid cycle. Because these trade-offs are problem-dependent, benchmark the AMG preconditioner against an ILU preconditioner on the actual model---comparing both the inner-iteration count and the total run time---before adopting it.
+
+\paragraph{Standard GWF model (confined or variably saturated without Newton linearization).}
+The standard GWF formulation without Newton-Raphson linearization produces a symmetric positive definite system matrix. The conjugate gradient method \citep{saad2003iterative} (\texttt{LINEAR\_ACCELERATION CG}) is recommended because it is monotonically convergent for SPD systems and requires only one matrix--vector product per iteration, compared with two for BiCGSTAB \citep{vandervorst1992}. Setting \texttt{RELAXATION\_FACTOR = 0} activates the adaptive damping formula (eq.~\ref{eqn:amgadaptive}), which selects the optimal A-norm step length for each multigrid cycle correction and generally reduces the iteration count compared with a fixed scaling factor. The default \texttt{SMOOTHER\_TYPE ILU0} applies ILU(0) correction sweeps at the finest level and Gauss-Seidel at coarser levels. With the default ILU(0) smoother, \texttt{NUMBER\_SMOOTHING\_ITERATIONS 1} is usually sufficient. Increasing this value to 2 or 3 may improve convergence for highly heterogeneous hydraulic conductivity fields, though each additional sweep increases the cost of every outer iteration.
+
+\paragraph{Newton-Raphson GWF model}
+Activating the Newton-Raphson formulation (\texttt{NEWTON} or \texttt{NEWTON UNDER\_RELAXATION} in the GWF model options block) causes the system matrix to be the Jacobian of the discrete residual, which is mildly nonsymmetric. The conjugate gradient method is not valid for nonsymmetric matrices; \texttt{LINEAR\_ACCELERATION BICGSTAB} is required. \texttt{RELAXATION\_FACTOR = 1} (fixed undamped) is required; specifying any other value with \texttt{PRECONDITIONER\_TYPE AMG} and \texttt{LINEAR\_ACCELERATION BICGSTAB} will cause \mf to terminate with an error. BiCGSTAB assumes a fixed preconditioner and manages its own step-length optimization internally; an adaptive $\alpha$ that varies with the residual at each inner iteration makes the preconditioner variable, which disrupts BiCGSTAB's Krylov subspace optimality and can cause oscillation in both the inner BiCGSTAB iterations and the outer Newton loop. Because the conductance terms dominate the Newton-Raphson Jacobian for typical groundwater problems, the degree of nonsymmetry is generally small and AMG with the default \texttt{NUMBER\_SMOOTHING\_ITERATIONS = 2} provides robust convergence.
+
+\begin{itemize}
+  \item \texttt{LINEAR\_ACCELERATION BICGSTAB}
+  \item \texttt{RELAXATION\_FACTOR 1} (fixed undamped; required for reliable convergence)
+  \item \texttt{SMOOTHER\_TYPE ILU0} (default) or \texttt{ILU0\_ALL} for extreme K contrasts
+  \item \texttt{NUMBER\_SMOOTHING\_ITERATIONS 1} with ILU0 (default); 2--3 for heterogeneous K fields
+  \item \texttt{PRECONDITIONER\_LEVELS} 10 (default); reduce for small models
+\end{itemize}
+
+\paragraph{GWT and GWE transport models}
+The GWT solute-transport and GWE energy-transport models assemble a nonsymmetric system matrix when advection is present. \texttt{LINEAR\_ACCELERATION BICGSTAB} is required. \texttt{RELAXATION\_FACTOR = 1} (fixed undamped) is required; specifying any other value with \texttt{PRECONDITIONER\_TYPE AMG} and \texttt{LINEAR\_ACCELERATION BICGSTAB} will cause \mf to terminate with an error. An adaptive $\alpha$ that varies with the residual at each inner BiCGSTAB iteration makes the preconditioner variable, which disrupts Krylov subspace optimality. The degree of nonsymmetry---and the effectiveness of AMG---increases with the cell Peclet number (eq.~\ref{eqn:peclet}). At low to moderate Peclet numbers ($\mli{Pe} \lesssim 5$), where storage and dispersion contributions are comparable to advection, AMG is an effective preconditioner. Increasing \texttt{NUMBER\_SMOOTHING\_ITERATIONS} to 3 or 4 can help at moderate $\mli{Pe}$ when the default two sweeps leave significant directional error. At high Peclet numbers ($\mli{Pe} \gg 5$), the advection term strongly dominates; in this regime the ILU-based preconditioners (ILUT or MILUT, selected by \texttt{PRECONDITIONER\_LEVELS} $> 0$ without \texttt{PRECONDITIONER\_TYPE AMG}) often provide more robust convergence \citep{elman2014}.
+
+\begin{itemize}
+  \item \texttt{LINEAR\_ACCELERATION BICGSTAB}
+  \item \texttt{RELAXATION\_FACTOR 1} (fixed undamped; required for reliable convergence)
+  \item \texttt{SMOOTHER\_TYPE ILU0} (default; particularly beneficial for heterogeneous K fields)
+  \item \texttt{NUMBER\_SMOOTHING\_ITERATIONS 1} with ILU0; increase to 2--4 for moderate $\mli{Pe}$
+  \item \texttt{PRECONDITIONER\_LEVELS} 10 (default); reduce for small models
+  \item Consider switching to ILUT or MILUT (\texttt{PRECONDITIONER\_LEVELS} $> 0$, no \texttt{PRECONDITIONER\_TYPE AMG}) for $\mli{Pe} \gg 5$
+\end{itemize}
+
+\paragraph{Number of coarsening levels (\texttt{PRECONDITIONER\_LEVELS})}
+The greedy pairwise aggregation algorithm reduces the number of unknowns by roughly a factor of two at each level, so the number of levels needed to reach a coarsest grid with $O(10)$--$O(50)$ unknowns is approximately $\lceil \log_2(N/30) \rceil$, where $N$ is the number of active cells in the model. Because the coarsest solve is trivially cheap once the system is small, the main cost of additional levels is the one-time hierarchy setup; adding levels beyond those needed has no effect (the hierarchy stops coarsening when two or fewer unknowns remain at a level). If \texttt{PRECONDITIONER\_LEVELS} is reached before the coarsest grid is sufficiently small, the hierarchy is truncated prematurely and a higher value should be tried. A value of 1 (or the default of 0, which is treated as 1 internally) produces a degenerate single-level solver with no coarse-grid correction; \texttt{PRECONDITIONER\_LEVELS} must be at least 2 for the AMG hierarchy to perform any coarsening.
+
+For \textbf{standard GWF models} (SPD matrix, CG accelerator), AMG hierarchy quality is highest and coarsening is most effective. A value of 5--7 is adequate for operational models with up to roughly 10{,}000 active cells. For regional models with 10{,}000--100{,}000 cells, 8--10 levels are recommended. Models with more than 100{,}000 cells may benefit from 10--14 levels.
+
+For \textbf{Newton-Raphson GWF models} the Jacobian is only mildly nonsymmetric and the symmetric SOC criterion used during hierarchy construction produces aggregates of similar quality to the SPD case. The same level guidelines as for standard GWF apply.
+
+For \textbf{GWT and GWE transport models} at low to moderate Péclet numbers ($\mli{Pe} \lesssim 5$), the recommendations are the same as for GWF. At moderate Péclet numbers the Gauss-Seidel smoother is less effective at damping directionally biased error, so deeper coarsening (8--12 levels) can improve convergence by allowing the coarse levels to handle the smooth, advection-dominated modes that the smoother leaves behind. At high Péclet numbers ($\mli{Pe} \gg 5$) the ILU-based preconditioners are preferred and \texttt{PRECONDITIONER\_LEVELS} then controls the ILUT fill level rather than the AMG hierarchy depth.
+
+\paragraph{Smoother type (\texttt{SMOOTHER\_TYPE})}
+The \texttt{SMOOTHER\_TYPE} keyword selects the smoother strategy used in the AMG cycle. The default \texttt{ILU0} applies ILU(0) correction sweeps (eq.~\ref{eqn:ilu0smooth}) at the finest level ($\ell = 0$) and Gauss-Seidel at all coarser levels; this option captures local coupling within the full sparsity pattern of $\mathbf{A}$ and provides far better error reduction per sweep than Gauss-Seidel alone when the condition number is large ($\kappa \sim 10^9$--$10^{10}$). For problems with extreme hydraulic conductivity contrasts, ILU(0) smoothing typically reduces inner BiCGSTAB iterations from 200{+} to 50--100. The \texttt{ILU0\_ALL} option extends ILU(0) correction sweeps to every level of the hierarchy; this incurs additional setup memory and time but may improve convergence for problems where high-frequency error components persist at coarse levels.
+
+\paragraph{Number of smoother sweeps (\texttt{NUMBER\_SMOOTHING\_ITERATIONS})}
+The AMG cycle applies \texttt{NUMBER\_SMOOTHING\_ITERATIONS} smoother sweeps at each level before and after the coarse-level correction; the default is~2. With the default ILU(0) smoother, one sweep is usually sufficient because each sweep performs a complete forward and backward triangular solve across the entire fine-level system; additional ILU(0) sweeps rarely improve convergence materially. Gains beyond four sweeps are negligible for all problem types discussed here.
+
+For \textbf{standard GWF models} (CG, SPD matrix) with the default ILU(0) smoother, one sweep is adequate for most conductivity fields. Increasing to 2--3 may help when conductivity varies by several orders of magnitude.
+
+For \textbf{Newton-Raphson GWF models} (BiCGSTAB) with the default ILU(0) smoother, one sweep is recommended; 2--3 sweeps can help for models with strong heterogeneity or complex boundary conditions that increase off-diagonal asymmetry in the Jacobian.
+
+For \textbf{GWT and GWE transport models} with the default ILU(0) smoother, one sweep is adequate at low to moderate Péclet numbers. Smoother effectiveness decreases as the cell Péclet number increases, so two to three sweeps at $\mli{Pe} \lesssim 5$ and three to four sweeps at $5 < \mli{Pe} \lesssim 10$ can help. At high Péclet numbers increasing the sweep count does not substantially improve convergence; switching to an ILU-based preconditioner is preferred.
+
+\paragraph{Aggregation strength threshold (\texttt{PRECONDITIONER\_STRENGTH\_THRESHOLD})}
+The default value of \texttt{PRECONDITIONER\_STRENGTH\_THRESHOLD} is 0.25, meaning only connections at least 25~percent as strong as the strongest connection at a node are eligible pairing partners during aggregation. Setting the threshold to zero causes the algorithm to consider every off-diagonal neighbor regardless of connection magnitude, which is appropriate when hydraulic properties are relatively uniform and all inter-cell connections are of comparable strength. Setting a positive threshold $\tau$ restricts aggregation to strongly connected pairs: two unknowns $i$ and $j$ are eligible to be aggregated only when their symmetrized connection strength $\frac{1}{2}(|a_{ij}| + |a_{ji}|)$ is at least $\tau$ times the strongest connection at node $i$. The threshold is most beneficial in two situations.
+
+For \textbf{layered aquifer--confining unit systems} in which high-conductance aquifer cells are directly adjacent to low-conductance confining-unit cells, a non-zero threshold prevents the algorithm from pairing unknowns across the weak inter-layer interface. Instead, aquifer cells aggregate laterally with other aquifer cells, and confining-unit cells aggregate with their same-unit neighbors. The resulting aggregates reflect the dominant physical connections and tend to produce coarse-level matrices that represent the multi-layer flow system more accurately. A threshold of $\tau = 0.25$ (each connection must be at least 25~percent as strong as the strongest connection at that node) is a reasonable starting point for problems with moderate hydraulic conductivity contrasts between layers. For more extreme contrasts---several orders of magnitude difference between adjacent layers---a threshold of $\tau = 0.5$ or higher may be needed to keep the aggregates confined within the strongly connected layers.
+
+For \textbf{strongly anisotropic} problems in which $K_{33} \ll K_{11}$, the vertical connections between layers are weak relative to the lateral connections within each layer. A threshold in the range $\tau = 0.1$--$0.3$ typically removes these weak vertical connections from aggregation decisions and produces layer-aligned aggregates with better coarse-level approximation quality.
+
+For Newton-Raphson GWF models with bimodal or strongly heterogeneous hydraulic conductivity fields, the default threshold of 0.25 can prevent pairing across weak connections that are nonetheless important to the Newton linearization, leading to slow convergence or, in extreme cases, Newton divergence. Reducing the threshold to 0.10 or 0.0 often restores convergence in these cases.
+
+The tradeoff is that a high threshold can leave some unknowns with no eligible strong neighbor, causing them to form singleton aggregates---aggregates that contain only one unknown, so the coarse level retains the same number of unknowns as the fine level at that point in the hierarchy. Singleton aggregates reduce the coarsening ratio at that level, which may increase the number of AMG levels required to reach the coarsest grid and add overhead to each multigrid cycle. If convergence does not improve or degrades relative to the zero-threshold run, the threshold is likely too aggressive and should be reduced. For most \mf groundwater flow problems a threshold in the range $0$--$0.25$ covers the spectrum from uniform to moderately heterogeneous systems; values above $0.5$ should be used with care and only when large property contrasts are confirmed to be degrading convergence with the default setting.
+
+\begin{table}[!ht]
+  \small
+  \begin{center}
+  \caption[Recommended IMS AMG preconditioner settings by model type and problem size]{%
+    Recommended IMS AMG preconditioner settings by model type and number of active model cells~$N$.
+    ``S'' (Small) is $N < 10{,}000$; ``M'' (Medium) is $10{,}000 \le N < 100{,}000$; ``L'' (Large) is $N \ge 100{,}000$.
+    \texttt{ACCEL}~=~\texttt{LINEAR\_ACCELERATION};
+    \texttt{RELAX}~=~\texttt{RELAXATION\_FACTOR} (0~=~adaptive A-norm formula, CG/SPD only);
+    \texttt{LEVELS}~=~\texttt{PRECONDITIONER\_LEVELS};
+    \texttt{SMOOTHER}~=~\texttt{SMOOTHER\_TYPE} (ILU0 is the default);
+    \texttt{NSMOOTH}~=~\texttt{NUMBER\_SMOOTHING\_ITERATIONS};
+    \texttt{STHRESH}~=~\texttt{PRECONDITIONER\_STRENGTH\_THRESHOLD}.
+    All configurations require \texttt{PRECONDITIONER\_TYPE AMG}}
+  \label{tab:amg_settings}
+  \begin{tabular}{p{3.4cm}cccccccc}
+    \toprule
+    & & & \multicolumn{3}{c}{\texttt{LEVELS}} & & & \\
+    \cmidrule(lr){4-6}
+    Model Type & \texttt{ACCEL} & \texttt{RELAX} & S & M & L & \texttt{SMOOTHER} & \texttt{NSMOOTH} & \texttt{STHRESH} \\
+    \midrule
+    GWF (CG/SPD) &
+      \texttt{CG} & 0 & 5--7 & 8--10 & 10--14 & ILU0 & 1 & 0--0.25 \\[4pt]
+    GWF (Newton-Raphson) &
+      \texttt{BICGSTAB} & 1 & 5--7 & 8--10 & 10--14 & ILU0 & 1--2 & 0--0.10 \\[4pt]
+    GWT/GWE ($\mli{Pe} \lesssim 5$) &
+      \texttt{BICGSTAB} & 1 & 5--8 & 8--12 & 10--14 & ILU0 & 1 & 0 \\[4pt]
+    GWT/GWE ($5 < \mli{Pe} \lesssim 10$) &
+      \texttt{BICGSTAB} & 1 & 8--10 & 10--12 & 12--14 & ILU0 & 1--2 & 0 \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+\end{table}
