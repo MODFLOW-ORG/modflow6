@@ -14,3 +14,8 @@ solution = "SOLUTION"
 exchanges = "EXCHANGES"
 parallel = "PARALLEL"
 netcdf = "NETCDF"
+
+[[items]]
+section = "fixes"
+subsection = "model"
+description = "The GWT and GWE Flow Model Interface (FMI) Packages did not recognize the GWFGRID entry in the PACKAGEDATA block and instead attempted to read the binary grid file as an advanced package budget file, causing an invalid method code error. The GWT and GWE FMI Packages now read the binary grid file, as the PRT FMI Package already did, and check that the flow and transport grids match."

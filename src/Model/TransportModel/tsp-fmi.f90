@@ -62,7 +62,7 @@ module TspFmiModule
     procedure :: initialize_gwfterms_from_gwfbndlist
     procedure :: source_options => gwtfmi_source_options
     procedure :: set_aptbudobj_pointer
-    procedure :: source_packagedata => gwtfmi_source_packagedata
+    procedure :: source_packagedata_other => gwtfmi_source_packagedata_other
     procedure :: set_active_status
 
   end type TspFmiType
@@ -313,49 +313,20 @@ contains
     use MemoryManagerModule, only: mem_deallocate
     ! -- dummy
     class(TspFmiType) :: this
-    ! -- todo: finalize hfr and bfr either here or in a finalize routine
     !
-    ! -- deallocate any memory stored with gwfpackages
-    call this%deallocate_gwfpackages()
-    !
-    ! -- deallocate fmi arrays
+    ! -- deallocate transport-specific arrays
     if (associated(this%datp)) then
       deallocate (this%datp)
-      deallocate (this%gwfpackages)
-      deallocate (this%flowpacknamearray)
       call mem_deallocate(this%iatp)
-      call mem_deallocate(this%igwfmvrterm)
     end if
-
     deallocate (this%aptbudobj)
     call mem_deallocate(this%flowcorrect)
-    call mem_deallocate(this%ibdgwfsat0)
-    if (this%flows_from_file) then
-      call mem_deallocate(this%gwfstrgss)
-      call mem_deallocate(this%gwfstrgsy)
-    end if
     !
-    ! -- special treatment, these could be from mem_checkin
-    call mem_deallocate(this%gwfhead, 'GWFHEAD', this%memoryPath)
-    call mem_deallocate(this%gwfsat, 'GWFSAT', this%memoryPath)
-    call mem_deallocate(this%gwfspdis, 'GWFSPDIS', this%memoryPath)
-    call mem_deallocate(this%gwfflowja, 'GWFFLOWJA', this%memoryPath)
-    !
-    ! -- deallocate scalars
-    call mem_deallocate(this%flows_from_file)
-    call mem_deallocate(this%iflowsupdated)
+    ! -- deallocate transport-specific scalars
     call mem_deallocate(this%iflowerr)
-    call mem_deallocate(this%igwfstrgss)
-    call mem_deallocate(this%igwfstrgsy)
-    call mem_deallocate(this%iubud)
-    call mem_deallocate(this%iuhds)
-    call mem_deallocate(this%iumvr)
-    call mem_deallocate(this%iugrb)
-    call mem_deallocate(this%nflowpack)
-    call mem_deallocate(this%idryinactive)
     !
     ! -- deallocate parent
-    call this%NumericalPackageType%da()
+    call this%FlowModelInterfaceType%fmi_da()
   end subroutine gwtfmi_da
 
   !> @ brief Allocate scalars
@@ -553,109 +524,48 @@ contains
     write (this%iout, '(1x,a)') 'END OF FMI OPTIONS'
   end subroutine gwtfmi_source_options
 
-  !> @ brief Source input options for package
+  !> @brief Source a packagedata entry with a model-specific flow type
+  !!
+  !! Any flow type not handled by the base FMI is taken to be the name
+  !! of an advanced GWF package (e.g. LAK-1, SFR-1), and the file is
+  !! read as that package's budget file.
   !<
-  subroutine gwtfmi_source_packagedata(this)
+  subroutine gwtfmi_source_packagedata_other(this, flowtype, fname)
     ! -- modules
-    use MemoryManagerModule, only: mem_setptr
-    use MemoryManagerExtModule, only: mem_set_value, memorystore_release
-    use CharacterStringModule, only: CharacterStringType
     use OpenSpecModule, only: ACCESS, FORM
-    use ConstantsModule, only: LINELENGTH, DEM6, LENPACKAGENAME
-    use InputOutputModule, only: getunit, openfile, urdaux
+    use InputOutputModule, only: getunit, openfile
     ! -- dummy
     class(TspFmiType) :: this
+    character(len=*), intent(in) :: flowtype !< advanced package name
+    character(len=*), intent(in) :: fname !< advanced package budget file
     ! -- local
-    type(CharacterStringType), dimension(:), contiguous, &
-      pointer :: flowtypes
-    type(CharacterStringType), dimension(:), contiguous, &
-      pointer :: fileops
-    type(CharacterStringType), dimension(:), contiguous, &
-      pointer :: fnames
     type(BudgetObjectType), pointer :: budobjptr
     type(BudObjPtrArray), dimension(:), allocatable :: tmpbudobj
-    character(len=LINELENGTH) :: flowtype, fileop, fname
-    integer(I4B) :: iapt, inunit, n, i
-    logical(LGP) :: exist
+    integer(I4B) :: iapt, inunit, i
 
-    iapt = 0
-
-    call mem_setptr(flowtypes, 'FLOWTYPE', this%input_mempath)
-    call mem_setptr(fileops, 'FILEIN', this%input_mempath)
-    call mem_setptr(fnames, 'FNAME', this%input_mempath)
-
-    do n = 1, size(flowtypes)
-      flowtype = flowtypes(n)
-      fileop = fileops(n)
-      fname = fnames(n)
-
-      inquire (file=trim(fname), exist=exist)
-      if (.not. exist) then
-        call store_error('Could not find file '//trim(fname))
-        cycle
-      end if
-
-      if (fileop /= 'FILEIN') then
-        call store_error('Unexpected packagedata input keyword read: "' &
-                         //trim(fileop)//'".')
-        cycle
-      end if
-
-      select case (flowtype)
-      case ('GWFBUDGET')
-        inunit = getunit()
-        call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                      ACCESS, 'OLD')
-        this%iubud = inunit
-        call this%initialize_bfr()
-      case ('GWFHEAD')
-        inunit = getunit()
-        call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                      ACCESS, 'OLD')
-        this%iuhds = inunit
-        call this%initialize_hfr()
-      case ('GWFMOVER')
-        inunit = getunit()
-        call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                      ACCESS, 'OLD')
-        this%iumvr = inunit
-        call budgetobject_cr_bfr(this%mvrbudobj, 'MVT', this%iumvr, &
-                                 this%iout)
-        call this%mvrbudobj%fill_from_bfr(this%dis, this%iout)
-      case default
-        !
-        ! --expand the size of aptbudobj, which stores a pointer to the budobj
-        allocate (tmpbudobj(iapt))
-        do i = 1, size(this%aptbudobj)
-          tmpbudobj(i)%ptr => this%aptbudobj(i)%ptr
-        end do
-        deallocate (this%aptbudobj)
-        allocate (this%aptbudobj(iapt + 1))
-        do i = 1, size(tmpbudobj)
-          this%aptbudobj(i)%ptr => tmpbudobj(i)%ptr
-        end do
-        deallocate (tmpbudobj)
-        !
-        ! -- Open the budget file and start filling it
-        iapt = iapt + 1
-        inunit = getunit()
-        call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
-                      ACCESS, 'OLD')
-        call budgetobject_cr_bfr(budobjptr, flowtype, inunit, &
-                                 this%iout, colconv2=['GWF             '])
-        call budobjptr%fill_from_bfr(this%dis, this%iout)
-        this%aptbudobj(iapt)%ptr => budobjptr
-      end select
+    ! -- expand the size of aptbudobj, which stores a pointer to the budobj
+    iapt = size(this%aptbudobj)
+    allocate (tmpbudobj(iapt))
+    do i = 1, iapt
+      tmpbudobj(i)%ptr => this%aptbudobj(i)%ptr
     end do
+    deallocate (this%aptbudobj)
+    allocate (this%aptbudobj(iapt + 1))
+    do i = 1, iapt
+      this%aptbudobj(i)%ptr => tmpbudobj(i)%ptr
+    end do
+    deallocate (tmpbudobj)
 
-    if (count_errors() > 0) then
-      call store_error_filename(this%input_fname)
-    end if
-
-    call memorystore_release('FLOWTYPE', this%input_mempath)
-    call memorystore_release('FILEIN', this%input_mempath)
-    call memorystore_release('FNAME', this%input_mempath)
-  end subroutine gwtfmi_source_packagedata
+    ! -- open the budget file and start filling it
+    iapt = iapt + 1
+    inunit = getunit()
+    call openfile(inunit, this%iout, fname, 'DATA(BINARY)', FORM, &
+                  ACCESS, 'OLD')
+    call budgetobject_cr_bfr(budobjptr, flowtype, inunit, &
+                             this%iout, colconv2=['GWF             '])
+    call budobjptr%fill_from_bfr(this%dis, this%iout)
+    this%aptbudobj(iapt)%ptr => budobjptr
+  end subroutine gwtfmi_source_packagedata_other
 
   !> @brief Set the pointer to a budget object
   !!
