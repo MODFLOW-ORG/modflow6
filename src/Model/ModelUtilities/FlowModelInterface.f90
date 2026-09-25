@@ -74,6 +74,7 @@ module FlowModelInterfaceModule
     procedure :: initialize_hfr
     procedure :: source_options
     procedure :: source_packagedata
+    procedure :: source_packagedata_other
     procedure :: read_grid
 
   end type FlowModelInterfaceType
@@ -410,9 +411,7 @@ contains
         this%iugrb = inunit
         call this%read_grid()
       case default
-        write (errmsg, '(a,3(1x,a))') &
-          'UNKNOWN', trim(adjustl(this%text)), 'PACKAGEDATA:', trim(flowtype)
-        call store_error(errmsg)
+        call this%source_packagedata_other(flowtype, fname)
       end select
     end do
 
@@ -426,6 +425,21 @@ contains
     call memorystore_release('FILEIN', this%input_mempath)
     call memorystore_release('FNAME', this%input_mempath)
   end subroutine source_packagedata
+
+  !> @brief Source a packagedata entry with an unrecognized flow type
+  !!
+  !! Called by source_packagedata for any flow type it does not handle.
+  !! Subclasses may override this to support model-specific entries.
+  !<
+  subroutine source_packagedata_other(this, flowtype, fname)
+    class(FlowModelInterfaceType) :: this
+    character(len=*), intent(in) :: flowtype !< packagedata flow type
+    character(len=*), intent(in) :: fname !< packagedata file name
+
+    write (errmsg, '(a,3(1x,a))') &
+      'UNKNOWN', trim(adjustl(this%text)), 'PACKAGEDATA:', trim(flowtype)
+    call store_error(errmsg)
+  end subroutine source_packagedata_other
 
   !> @brief Read/validate flow model grid
   !<
