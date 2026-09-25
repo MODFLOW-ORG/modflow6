@@ -491,7 +491,7 @@ contains
     !    normal computed from the two vertices shared by the cells.  These
     !    three conditions are reported as warnings here and counted in
     !    nangldegxerr; the NPF Package terminates with an error if the count
-    !    is nonzero and ANGLDEGX is used (XT3D, K22, or
+    !    is nonzero and ANGLDEGX is required input (XT3D, K22, or
     !    SAVE_SPECIFIC_DISCHARGE), because ANGLDEGX has no effect otherwise.
     !    A fourth check flags normals that deviate by more than 45 degrees
     !    from the direction between the cell centers.  That is not an error,

@@ -347,8 +347,8 @@ contains
     call this%preprocess_input()
     !
     ! -- xt3d
-    ! -- Terminate if the DISU ANGLDEGX values are inconsistent and are
-    !    used by this package (they have no effect otherwise)
+    ! -- Terminate if the DISU ANGLDEGX values are inconsistent and this
+    !    package requires ANGLDEGX (it has no effect otherwise)
     if (this%ixt3d /= 0 .or. this%ik22 /= 0 .or. this%icalcspdis /= 0) then
       select type (dis => this%dis)
       type is (DisuType)
@@ -357,8 +357,8 @@ contains
             'ANGLDEGX values in the DISU Package are inconsistent for', &
             dis%nangldegxerr, 'cell faces (see the warnings written after &
             &the DISU Package input in the model listing file). ANGLDEGX &
-            &must be correct because the NPF Package uses it when XT3D, &
-            &K22, or SAVE_SPECIFIC_DISCHARGE is specified.'
+            &must be correct because it is required input for the NPF &
+            &Package when XT3D, K22, or SAVE_SPECIFIC_DISCHARGE is specified.'
           call store_error(errmsg)
           call store_error_filename(dis%input_fname)
         end if
