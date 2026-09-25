@@ -428,10 +428,11 @@ contains
     call memorystore_release('FNAME', this%input_mempath)
   end subroutine source_packagedata
 
-  !> @brief Source a packagedata entry with an unrecognized flow type
+  !> @brief Source a packagedata entry with a model-specific flow type
   !!
   !! Called by source_packagedata for any flow type it does not handle.
   !! Subclasses may override this to support model-specific entries.
+  !! By default, any such flow type is an error.
   !<
   subroutine source_packagedata_other(this, flowtype, fname)
     class(FlowModelInterfaceType) :: this

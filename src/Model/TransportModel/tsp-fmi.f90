@@ -524,7 +524,7 @@ contains
     write (this%iout, '(1x,a)') 'END OF FMI OPTIONS'
   end subroutine gwtfmi_source_options
 
-  !> @brief Source a packagedata entry with an unrecognized flow type
+  !> @brief Source a packagedata entry with a model-specific flow type
   !!
   !! Any flow type not handled by the base FMI is taken to be the name
   !! of an advanced GWF package (e.g. LAK-1, SFR-1), and the file is
