@@ -19,3 +19,8 @@ netcdf = "NETCDF"
 section = "fixes"
 subsection = "model"
 description = "The DISU Package now checks the ANGLDEGX values specified for horizontal connections between active cells. A warning is issued if the values for a connection and its reverse connection do not differ by 180 degrees, or, when VERTICES and CELL2D are specified, if the face normal points away from the connected cell or differs by more than 1 degree from the normal computed from the vertices shared by the two cells. The NPF Package terminates with an error if any of these conditions is not met and ANGLDEGX is required input, that is, if XT3D, K22, or SAVE\\_SPECIFIC\\_DISCHARGE is specified. A separate warning flags normals that deviate by more than 45 degrees from the direction between the cell centers, which is not an error but may warrant a closer look at the grid. Inconsistent ANGLDEGX values previously went undetected and could produce an invalid coefficient matrix when the XT3D option or horizontal anisotropy was active, which in some cases caused the program to terminate with a floating-point overflow in the linear solver."
+
+[[items]]
+section = "features"
+subsection = "advanced"
+description = "The Lake Energy Transport (LKE) Package now supports a \\texttt{lakebed-cond} observation type, which reports the amount of heat conductively exchanged between a lake and the lakebed material.  This is the LKE equivalent of the \\texttt{strmbd-cond} observation type of the Streamflow Energy Transport (SFE) Package.  The conductive exchange of a single lakebed connection is observed when the lake number is given as the observation ID; the total conductive exchange of a lake is observed when the lake boundname is given instead."

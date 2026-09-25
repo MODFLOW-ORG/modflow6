@@ -90,6 +90,7 @@ module GweLkeModule
     procedure :: lke_iflw_term
     procedure :: lke_wdrl_term
     procedure :: lke_outf_term
+    procedure, private :: lke_lbcd_term
     procedure :: pak_df_obs => lke_df_obs
     procedure :: pak_rp_obs => lke_rp_obs
     procedure :: pak_bd_obs => lke_bd_obs
@@ -957,6 +958,45 @@ contains
     if (present(hcofval)) hcofval = qbnd * this%eqnsclfac
   end subroutine lke_outf_term
 
+  !> @brief Lakebed conduction term
+  !!
+  !! Accounts for the energy entering or leaving a lake by thermal
+  !! conduction through the wetted lakebed.
+  !<
+  subroutine lke_lbcd_term(this, ientry, n1, igwfnode, rrate, &
+                           rhsval, hcofval)
+    ! -- dummy
+    class(GweLkeType) :: this
+    integer(I4B), intent(in) :: ientry
+    integer(I4B), intent(inout) :: n1
+    integer(I4B), intent(inout) :: igwfnode
+    real(DP), intent(inout), optional :: rrate
+    real(DP), intent(inout), optional :: rhsval
+    real(DP), intent(inout), optional :: hcofval
+    ! -- local
+    integer(I4B) :: auxpos
+    real(DP) :: wa !< wetted area
+    real(DP) :: ktf !< thermal conductivity of lakebed material
+    real(DP) :: s !< thickness of conductive lakebed material
+    real(DP) :: ctherm !< thermal conductance
+    !
+    n1 = this%flowbudptr%budterm(this%idxbudlbcd)%id1(ientry)
+    ! -- use igwfnode instead of n2 for consistency with usage in apt;
+    !    helps highlight that cell number is sought and used
+    igwfnode = this%flowbudptr%budterm(this%idxbudlbcd)%id2(ientry)
+    ! -- For now, there is only 1 aux variable under 'GWF'
+    auxpos = this%flowbudptr%budterm(this%idxbudgwf)%naux
+    wa = this%flowbudptr%budterm(this%idxbudgwf)%auxvar(auxpos, ientry)
+    ktf = this%ktf(n1)
+    s = this%rfeatthk(n1)
+    ctherm = ktf * wa / s
+    ! -- this%xnew available b/c set in parent class (TspAptType) using
+    !    routine set_pointers from the "grandparent" class BndType
+    if (present(rrate)) rrate = ctherm * (this%xnew(igwfnode) - this%xnewpak(n1))
+    if (present(rhsval)) rhsval = DZERO
+    if (present(hcofval)) hcofval = ctherm
+  end subroutine lke_lbcd_term
+
   !> @brief Defined observation types
   !!
   !! Store the observation type supported by the APT package and override
@@ -1032,6 +1072,11 @@ contains
     !    for ext-outflow observation type.
     call this%obs%StoreObsType('ext-outflow', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+    !
+    ! -- Store obs type and assign procedure pointer
+    !    for lakebed-cond observation type.
+    call this%obs%StoreObsType('lakebed-cond', .true., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
   end subroutine lke_df_obs
 
   !> @brief Process package specific obs
@@ -1061,6 +1106,9 @@ contains
     case ('TO-MVR')
       call this%rp_obs_budterm(obsrv, &
                                this%flowbudptr%budterm(this%idxbudtmvr))
+    case ('LAKEBED-COND')
+      call this%rp_obs_budterm(obsrv, &
+                               this%flowbudptr%budterm(this%idxbudlbcd))
     case default
       found = .false.
     end select
@@ -1103,6 +1151,11 @@ contains
     case ('EXT-OUTFLOW')
       if (this%iboundpak(jj) /= 0) then
         call this%lke_outf_term(jj, n1, n2, v)
+      end if
+    case ('LAKEBED-COND')
+      n1 = this%flowbudptr%budterm(this%idxbudlbcd)%id1(jj)
+      if (this%iboundpak(n1) /= 0) then
+        call this%lke_lbcd_term(jj, n1, n2, v)
       end if
     case default
       found = .false.
