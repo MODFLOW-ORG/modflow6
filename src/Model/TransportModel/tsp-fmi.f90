@@ -313,51 +313,20 @@ contains
     use MemoryManagerModule, only: mem_deallocate
     ! -- dummy
     class(TspFmiType) :: this
-    ! -- todo: finalize hfr and bfr either here or in a finalize routine
     !
-    ! -- deallocate any memory stored with gwfpackages
-    call this%deallocate_gwfpackages()
-    !
-    ! -- deallocate fmi arrays
+    ! -- deallocate transport-specific arrays
     if (associated(this%datp)) then
       deallocate (this%datp)
-      deallocate (this%gwfpackages)
-      deallocate (this%flowpacknamearray)
       call mem_deallocate(this%iatp)
-      call mem_deallocate(this%igwfmvrterm)
     end if
-
     deallocate (this%aptbudobj)
     call mem_deallocate(this%flowcorrect)
-    call mem_deallocate(this%ibdgwfsat0)
-    if (this%flows_from_file) then
-      call mem_deallocate(this%gwfstrgss)
-      call mem_deallocate(this%gwfstrgsy)
-      call mem_deallocate(this%gwfceltyp)
-    end if
     !
-    ! -- special treatment, these could be from mem_checkin
-    call mem_deallocate(this%gwfhead, 'GWFHEAD', this%memoryPath)
-    call mem_deallocate(this%gwfsat, 'GWFSAT', this%memoryPath)
-    call mem_deallocate(this%gwfspdis, 'GWFSPDIS', this%memoryPath)
-    call mem_deallocate(this%gwfflowja, 'GWFFLOWJA', this%memoryPath)
-    !
-    ! -- deallocate scalars
-    call mem_deallocate(this%flows_from_file)
-    call mem_deallocate(this%iflowsupdated)
+    ! -- deallocate transport-specific scalars
     call mem_deallocate(this%iflowerr)
-    call mem_deallocate(this%igwfstrgss)
-    call mem_deallocate(this%igwfstrgsy)
-    call mem_deallocate(this%igwfceltyp)
-    call mem_deallocate(this%iubud)
-    call mem_deallocate(this%iuhds)
-    call mem_deallocate(this%iumvr)
-    call mem_deallocate(this%iugrb)
-    call mem_deallocate(this%nflowpack)
-    call mem_deallocate(this%idryinactive)
     !
     ! -- deallocate parent
-    call this%NumericalPackageType%da()
+    call this%FlowModelInterfaceType%fmi_da()
   end subroutine gwtfmi_da
 
   !> @ brief Allocate scalars

@@ -165,9 +165,11 @@ contains
     call this%deallocate_gwfpackages()
     !
     ! -- deallocate fmi arrays
-    deallocate (this%gwfpackages)
-    deallocate (this%flowpacknamearray)
-    call mem_deallocate(this%igwfmvrterm)
+    if (allocated(this%gwfpackages)) then
+      deallocate (this%gwfpackages)
+      deallocate (this%flowpacknamearray)
+      call mem_deallocate(this%igwfmvrterm)
+    end if
     call mem_deallocate(this%ibdgwfsat0)
     !
     if (this%flows_from_file) then
