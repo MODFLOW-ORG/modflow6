@@ -19,3 +19,8 @@ netcdf = "NETCDF"
 section = "fixes"
 subsection = "model"
 description = "The DISU Package now checks the ANGLDEGX values specified for horizontal connections between active cells. A warning is issued if the values for a connection and its reverse connection do not differ by 180 degrees, or, when VERTICES and CELL2D are specified, if the face normal points away from the connected cell or differs by more than 1 degree from the normal computed from the vertices shared by the two cells. The NPF Package terminates with an error if any of these conditions is not met and ANGLDEGX is required input, that is, if XT3D, K22, or SAVE\\_SPECIFIC\\_DISCHARGE is specified. A separate warning flags normals that deviate by more than 45 degrees from the direction between the cell centers, which is not an error but may warrant a closer look at the grid. Inconsistent ANGLDEGX values previously went undetected and could produce an invalid coefficient matrix when the XT3D option or horizontal anisotropy was active, which in some cases caused the program to terminate with a floating-point overflow in the linear solver."
+
+[[items]]
+section = "fixes"
+subsection = "basic"
+description = "A warning is now issued when an observation defined for a stress package does not correspond to any boundary in that package, either because the specified boundname does not match any boundary or because the specified cell does not contain one; previously nothing was reported and the observation was silently written as the DNODATA value, which could be mistaken for a simulated value of zero."
