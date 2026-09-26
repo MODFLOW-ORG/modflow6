@@ -1545,7 +1545,7 @@ contains
     integer(I4B), intent(in) :: ietflag
     integer(I4B), intent(inout) :: ierr
     ! -- local
-    type(UzfCellGroupType) :: uzfktemp
+    real(DP), allocatable :: wave_save(:, :)
     real(DP) :: diff
     real(DP) :: thetaout
     real(DP) :: fm
@@ -1587,13 +1587,14 @@ contains
     st = this%unsat_stor(icell, depth)
     if (st < DEM4) return
     !
-    ! -- allocate temporary wave storage.
+    ! -- save original wave characteristics for retries.
     nwv = this%nwavst(icell)
     itest = 0
-    call uzfktemp%init(1, nwv)
-    !
-    ! store original wave characteristics
-    call uzfktemp%wave_shift(this, 1, icell, 0, 1, nwv, 1)
+    allocate (wave_save(nwv, 4))
+    wave_save(:, 1) = this%uzthst(1:nwv, icell)
+    wave_save(:, 2) = this%uzdpst(1:nwv, icell)
+    wave_save(:, 3) = this%uzflst(1:nwv, icell)
+    wave_save(:, 4) = this%uzspst(1:nwv, icell)
     factor = DONE
     this%etact(icell) = DZERO
     if (this%thts(icell) - this%thtr(icell) < DEM7) then
@@ -1859,13 +1860,19 @@ contains
       this%etact(icell) = st - fm
       fm = this%etact(icell) / delt
       if (this%etact(icell) < dzero) then
-        call this%wave_shift(uzfktemp, icell, 1, 0, 1, nwv, 1)
+        this%uzthst(1:nwv, icell) = wave_save(:, 1)
+        this%uzdpst(1:nwv, icell) = wave_save(:, 2)
+        this%uzflst(1:nwv, icell) = wave_save(:, 3)
+        this%uzspst(1:nwv, icell) = wave_save(:, 4)
         this%nwavst(icell) = nwv
         this%etact(icell) = DZERO
       elseif (petsub - fm < -DEM15 .AND. ietflag == 2) then
         !
         ! -- aet greater than pet, reset and try again
-        call this%wave_shift(uzfktemp, icell, 1, 0, 1, nwv, 1)
+        this%uzthst(1:nwv, icell) = wave_save(:, 1)
+        this%uzdpst(1:nwv, icell) = wave_save(:, 2)
+        this%uzflst(1:nwv, icell) = wave_save(:, 3)
+        this%uzspst(1:nwv, icell) = wave_save(:, 4)
         this%nwavst(icell) = nwv
         this%etact(icell) = DZERO
       else
@@ -1883,8 +1890,6 @@ contains
     end do
 500 continue
     !
-    ! -- deallocate temporary worker
-    call uzfktemp%dealloc()
   end subroutine uzet
 
   !> @brief Calculate capillary pressure head from B-C equation
