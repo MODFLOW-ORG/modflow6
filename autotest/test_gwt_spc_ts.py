@@ -1,8 +1,11 @@
 """SPC CONCENTRATION persistence, covering: a value linked to a time
 series for BNDNO 1 continuing to track that series in a later period
 whose own PERIOD block reappears (setting BNDNO 2) without repeating
-BNDNO 1 (spccontinue); and a plain (non-TS) value for BNDNO 1 persisting
-across a later, present-but-empty PERIOD block (spcempty).
+BNDNO 1 (spccontinue); a plain (non-TS) value for BNDNO 1 persisting
+across a later, present-but-empty PERIOD block (spcempty); and BNDNO 1
+switching from a time series to a literal, then persisting that literal
+across an unreissued period (spcswitch), which is the one case that
+exercises stale time-series-link removal.
 
 SPC's BNDNO is period-relative -- tied to whatever order the flow
 package's own list happens to be in for that period, not a stable
@@ -18,13 +21,14 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["spccontinue", "spcempty"]
+cases = ["spccontinue", "spcempty", "spcswitch"]
 
 TS_VAL_P1 = 10.0
 TS_VAL_P2 = 20.0
 TS_VAL_P3 = 30.0
 BNDNO2_LITERAL = 99.0
 EMPTY_CONC_VAL = 10.0
+SWITCH_LITERAL = 50.0
 
 
 def _build_base(name, ws):
@@ -134,7 +138,7 @@ def build_models(idx, test):
             time_series_namerecord="conc_ts",
             interpolation_methodrecord="stepwise",
         )
-    else:  # spcempty
+    elif name == "spcempty":
         flopy.mf6.ModflowUtlspc(
             gwt,
             print_input=True,
@@ -147,6 +151,32 @@ def build_models(idx, test):
                 2: [],
             },
             filename=f"{gwtname}.wel1.spc",
+        )
+    else:  # spcswitch
+        spc = flopy.mf6.ModflowUtlspc(
+            gwt,
+            print_input=True,
+            maxbound=2,
+            # period 1: BNDNO 1 switches from its period-0 TS to a literal;
+            # period 2 isn't reissued and must persist that literal.
+            perioddata={
+                0: [(0, "concentration", "conc_ts")],
+                1: [(0, "concentration", SWITCH_LITERAL)],
+                2: [],
+            },
+            filename=f"{gwtname}.wel1.spc",
+        )
+        ts_data = [
+            (0.0, TS_VAL_P1),
+            (1.0, TS_VAL_P2),
+            (2.0, TS_VAL_P3),
+            (3.0, TS_VAL_P3),
+        ]
+        spc.ts.initialize(
+            filename="conc.ts",
+            timeseries=ts_data,
+            time_series_namerecord="conc_ts",
+            interpolation_methodrecord="stepwise",
         )
 
     flopy.mf6.ModflowGwtssm(
@@ -218,7 +248,7 @@ def check_output(idx, test):
         assert np.allclose(period3, TS_VAL_P3), (
             f"Period 3 BNDNO 1 concentration expected {TS_VAL_P3}, got {period3}"
         )
-    else:  # spcempty
+    elif name == "spcempty":
         # plain value: apply_input_values() only echoes once per period,
         # not per timestep, since there's no series to re-evaluate
         assert len(bndno1_vals) == 3, (
@@ -230,6 +260,33 @@ def check_output(idx, test):
             f"period -- plain (non-TS) value did not persist across "
             f"periods 2/3's present-but-empty PERIOD blocks, "
             f"got {bndno1_vals}"
+        )
+    else:  # spcswitch
+        # a value once linked to a time series continues re-evaluating
+        # every timestep afterward, literal or not -- same as spccontinue
+        assert len(bndno1_vals) == 15, (
+            f"Expected 15 applied-value blocks (5/period, 3 periods), "
+            f"got {len(bndno1_vals)}: {bndno1_vals}"
+        )
+        period1, period2, period3 = (
+            bndno1_vals[:5],
+            bndno1_vals[5:10],
+            bndno1_vals[10:],
+        )
+        assert np.allclose(period1, TS_VAL_P1), (
+            f"Period 1 BNDNO 1 concentration expected {TS_VAL_P1}, got {period1}"
+        )
+        assert np.allclose(period2, SWITCH_LITERAL), (
+            f"Period 2 BNDNO 1 concentration expected {SWITCH_LITERAL} "
+            f"(the literal override), got {period2}; a value tracking "
+            f"the old time series (e.g. {TS_VAL_P2}) means the stale "
+            "link wasn't cleared when the literal overrode it"
+        )
+        assert np.allclose(period3, SWITCH_LITERAL), (
+            f"Period 3 BNDNO 1 concentration expected {SWITCH_LITERAL} "
+            f"(persisted, not reissued), got {period3}; a value tracking "
+            f"the old time series (e.g. {TS_VAL_P3}) means the stale "
+            "link was reactivated instead of staying cleared"
         )
 
 

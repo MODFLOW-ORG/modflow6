@@ -17,6 +17,7 @@ gwf-ghb.dfn
 gwf-ghbg.dfn
 gwf-hfb.dfn
 gwf-ic.dfn
+gwf-maw.dfn
 gwf-npf.dfn
 gwf-oc.dfn
 gwf-rch.dfn

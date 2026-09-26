@@ -1288,7 +1288,8 @@ contains
       call evt_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath)
     case ('MAW6')
-      call maw_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
+      call maw_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                      pakname, mempath)
     case ('SFR6')
       call sfr_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
     case ('LAK6')
