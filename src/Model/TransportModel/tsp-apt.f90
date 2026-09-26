@@ -147,7 +147,7 @@ module TspAptModule
     procedure, private :: apt_fc_nonexpanded
     procedure, public :: apt_cfupdate ! Made public for uze
     procedure :: apt_check_valid
-    procedure :: apt_source_period
+    procedure :: apt_setting_value
     procedure :: apt_ad_ts
     procedure :: apt_accumulate_ccterm
     procedure :: bnd_cq => apt_cq
@@ -378,15 +378,21 @@ contains
     ! -- dummy
     class(TspAptType), intent(inout) :: this
     ! -- local
-    integer(I4B) :: n, itemno, igwfnode
+    integer(I4B) :: n, itemno, igwfnode, isize
     integer(I4B), pointer :: nbound => null()
     integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
     type(CharacterStringType), dimension(:), pointer, contiguous :: &
       setting => null()
     type(CharacterStringType), dimension(:), pointer, contiguous :: &
       status => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      auxname => null()
+    real(DP), dimension(:), pointer, contiguous :: auxval => null()
     character(len=LINELENGTH) :: str
     character(len=LENVARNAME) :: key
+    character(len=LINELENGTH) :: title
+    character(len=LINELENGTH) :: text
+    character(len=LENVARNAME) :: auxnamestr
     character(len=*), parameter :: fmtlsp = &
       "(1X,/1X,'REUSING ',A,'S FROM LAST &
       &STRESS PERIOD')"
@@ -399,10 +405,35 @@ contains
       !
       ! -- get period data arrays
       call mem_setptr(nbound, 'NBOUND', this%input_mempath)
+      !
+      ! -- setup table to echo period data
+      if (this%iprpak /= 0) then
+        title = trim(adjustl(this%text))//' PACKAGE ('// &
+                trim(adjustl(this%packName))//') DATA FOR PERIOD'
+        write (title, '(a,1x,i6)') trim(adjustl(title)), kper
+        call table_cr(this%inputtab, this%packName, title)
+        call this%inputtab%table_df(1, 4, this%iout, finalize=.FALSE.)
+        text = 'NUMBER'
+        call this%inputtab%initialize_column(text, 10, alignment=TABCENTER)
+        text = 'KEYWORD'
+        call this%inputtab%initialize_column(text, 20, alignment=TABLEFT)
+        do n = 1, 2
+          write (text, '(a,1x,i6)') 'VALUE', n
+          call this%inputtab%initialize_column(text, 15, alignment=TABCENTER)
+        end do
+      end if
+      !
       if (nbound > 0) then
         call mem_setptr(ifno, 'IFNO', this%input_mempath)
         call mem_setptr(setting, 'SETTING', this%input_mempath)
         call mem_setptr(status, 'STATUS', this%input_mempath)
+        if (this%naux > 0) then
+          call get_isize('AUXVAL', this%input_mempath, isize)
+          if (isize > 0) then
+            call mem_setptr(auxname, 'AUXNAME', this%input_mempath)
+            call mem_setptr(auxval, 'AUXVAL', this%input_mempath)
+          end if
+        end if
         !
         do n = 1, nbound
           itemno = ifno(n)
@@ -426,15 +457,49 @@ contains
               call store_error(errmsg)
             end select
             this%status(itemno) = trim(str)
+            if (this%iprpak /= 0) then
+              call this%inputtab%add_term(itemno)
+              call this%inputtab%add_term(trim(key))
+              call this%inputtab%add_term(trim(str))
+              call this%inputtab%add_term(' ')
+            end if
             !
-            ! -- CONCENTRATION/TEMPERATURE is handled above and AUXILIARY
-            ! by the input context; apt_source_period only dispatches
-            ! settings specific to an individual package
-          else if (trim(key) /= 'AUXILIARY' .and. &
-                   trim(key) /= trim(this%depvartype)) then
-            call this%apt_source_period(n, itemno, key)
+            ! -- CONCENTRATION/TEMPERATURE: value already resolved by the
+            !    input context; echo it directly
+          else if (trim(key) == trim(this%depvartype)) then
+            if (this%iprpak /= 0) then
+              call this%inputtab%add_term(itemno)
+              call this%inputtab%add_term(trim(key))
+              call this%inputtab%add_term(this%concfeat(itemno))
+              call this%inputtab%add_term(' ')
+            end if
+            !
+            ! -- AUXILIARY: value already resolved by the input context;
+            !    echo the raw auxname and resolved auxval for this row
+          else if (trim(key) == 'PERIOD_AUXILIARY') then
+            if (this%iprpak /= 0) then
+              auxnamestr = auxname(n)
+              call this%inputtab%add_term(itemno)
+              call this%inputtab%add_term('AUXILIARY')
+              call this%inputtab%add_term(trim(auxnamestr))
+              call this%inputtab%add_term(auxval(n))
+            end if
+            !
+            ! -- package-specific setting; value already resolved by the
+            !    input context, package supplies it for the table
+          else
+            if (this%iprpak /= 0) then
+              call this%inputtab%add_term(itemno)
+              call this%inputtab%add_term(trim(key))
+              call this%inputtab%add_term(this%apt_setting_value(itemno, key))
+              call this%inputtab%add_term(' ')
+            end if
           end if
         end do
+      end if
+      !
+      if (this%iprpak /= 0) then
+        call this%inputtab%finalize_table()
       end if
       !
     else
@@ -571,17 +636,19 @@ contains
     class(TspAptType), intent(inout) :: this
   end subroutine apt_ad_ts
 
-  !> @brief Virtual hook: read package-specific period data.
-  !! Override in individual packages to dispatch PERIOD fields beyond
-  !! STATUS and CONCENTRATION/TEMPERATURE.
+  !> @brief Virtual hook: value for a package-specific PERIOD setting.
+  !! Override in individual packages to supply the already-resolved value
+  !! for a PERIOD field beyond STATUS, CONCENTRATION/TEMPERATURE, and
+  !! AUXILIARY, so the shared apt_rp table echo can print it.
   !<
-  subroutine apt_source_period(this, n, itemno, key)
+  function apt_setting_value(this, itemno, key) result(val)
     ! -- dummy
     class(TspAptType), intent(inout) :: this
-    integer(I4B), intent(in) :: n !< row index into period data arrays
     integer(I4B), intent(in) :: itemno !< feature number
     character(len=*), intent(in) :: key !< SETTING dispatch key
-  end subroutine apt_source_period
+    real(DP) :: val
+    val = DZERO
+  end function apt_setting_value
 
   !> @brief Override bnd reset for custom mover logic
   subroutine apt_reset(this)

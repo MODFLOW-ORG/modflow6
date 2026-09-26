@@ -61,6 +61,7 @@ module GwtUztModule
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => uzt_allocate_arrays
     procedure :: find_apt_package => find_uzt_package
+    procedure :: apt_setting_value => uzt_setting_value
     procedure :: pak_fc_expanded => uzt_fc_expanded
     procedure :: pak_solve => uzt_solve
     procedure :: pak_get_nbudterms => uzt_get_nbudterms
@@ -248,6 +249,27 @@ contains
     end do
     write (this%iout, '(a, //)') 'DONE PROCESSING '//ftype//' INFORMATION'
   end subroutine find_uzt_package
+
+  !> @brief Value for a package-specific PERIOD setting
+  !!
+  !! Already resolved by the input context; this only supplies it for
+  !! the shared apt_rp table echo.
+  !<
+  function uzt_setting_value(this, itemno, key) result(val)
+    ! -- dummy
+    class(GwtUztType), intent(inout) :: this
+    integer(I4B), intent(in) :: itemno
+    character(len=*), intent(in) :: key
+    real(DP) :: val
+    !
+    val = DZERO
+    select case (trim(key))
+    case ('INFILTRATION')
+      val = this%concinfl(itemno)
+    case ('UZET')
+      val = this%concuzet(itemno)
+    end select
+  end function uzt_setting_value
 
   !> @brief Add matrix terms related to UZT
   !!

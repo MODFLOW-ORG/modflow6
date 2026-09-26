@@ -69,6 +69,7 @@ module GwtMwtModule
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => mwt_allocate_arrays
     procedure :: find_apt_package => find_mwt_package
+    procedure :: apt_setting_value => mwt_setting_value
     procedure :: pak_fc_expanded => mwt_fc_expanded
     procedure :: pak_solve => mwt_solve
     procedure :: pak_get_nbudterms => mwt_get_nbudterms
@@ -255,6 +256,25 @@ contains
     end do
     write (this%iout, '(a, //)') 'DONE PROCESSING '//ftype//' INFORMATION'
   end subroutine find_mwt_package
+
+  !> @brief Value for a package-specific PERIOD setting
+  !!
+  !! Already resolved by the input context; this only supplies it for
+  !! the shared apt_rp table echo.
+  !<
+  function mwt_setting_value(this, itemno, key) result(val)
+    ! -- dummy
+    class(GwtMwtType), intent(inout) :: this
+    integer(I4B), intent(in) :: itemno
+    character(len=*), intent(in) :: key
+    real(DP) :: val
+    !
+    val = DZERO
+    select case (trim(key))
+    case ('RATE')
+      val = this%concrate(itemno)
+    end select
+  end function mwt_setting_value
 
   !> @brief Add matrix terms related to MWT
   !!

@@ -74,6 +74,7 @@ module GwtLktModule
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => lkt_allocate_arrays
     procedure :: find_apt_package => find_lkt_package
+    procedure :: apt_setting_value => lkt_setting_value
     procedure :: pak_fc_expanded => lkt_fc_expanded
     procedure :: pak_solve => lkt_solve
     procedure :: pak_get_nbudterms => lkt_get_nbudterms
@@ -268,6 +269,31 @@ contains
     end do
     write (this%iout, '(a, //)') 'DONE PROCESSING '//ftype//' INFORMATION'
   end subroutine find_lkt_package
+
+  !> @brief Value for a package-specific PERIOD setting
+  !!
+  !! Already resolved by the input context; this only supplies it for
+  !! the shared apt_rp table echo.
+  !<
+  function lkt_setting_value(this, itemno, key) result(val)
+    ! -- dummy
+    class(GwtLktType), intent(inout) :: this
+    integer(I4B), intent(in) :: itemno
+    character(len=*), intent(in) :: key
+    real(DP) :: val
+    !
+    val = DZERO
+    select case (trim(key))
+    case ('RAINFALL')
+      val = this%concrain(itemno)
+    case ('EVAPORATION')
+      val = this%concevap(itemno)
+    case ('RUNOFF')
+      val = this%concroff(itemno)
+    case ('EXT-INFLOW')
+      val = this%conciflw(itemno)
+    end select
+  end function lkt_setting_value
 
   !> @brief Add matrix terms related to LKT
   !!

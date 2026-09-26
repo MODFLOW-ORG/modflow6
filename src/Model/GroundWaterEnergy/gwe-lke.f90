@@ -84,6 +84,7 @@ module GweLkeModule
     procedure :: apt_allocate_arrays => lke_allocate_arrays
     procedure :: apt_source_cvs => lke_read_cvs
     procedure :: find_apt_package => find_lke_package
+    procedure :: apt_setting_value => lke_setting_value
     procedure :: pak_fc_expanded => lke_fc_expanded
     procedure :: pak_solve => lke_solve
     procedure :: pak_get_nbudterms => lke_get_nbudterms
@@ -285,6 +286,31 @@ contains
     end do
     write (this%iout, '(a, //)') 'DONE PROCESSING '//ftype//' INFORMATION'
   end subroutine find_lke_package
+
+  !> @brief Value for a package-specific PERIOD setting
+  !!
+  !! Already resolved by the input context; this only supplies it for
+  !! the shared apt_rp table echo.
+  !<
+  function lke_setting_value(this, itemno, key) result(val)
+    ! -- dummy
+    class(GweLkeType), intent(inout) :: this
+    integer(I4B), intent(in) :: itemno
+    character(len=*), intent(in) :: key
+    real(DP) :: val
+    !
+    val = DZERO
+    select case (trim(key))
+    case ('RAINFALL')
+      val = this%temprain(itemno)
+    case ('EVAPORATION')
+      val = this%tempevap(itemno)
+    case ('RUNOFF')
+      val = this%temproff(itemno)
+    case ('EXT-INFLOW')
+      val = this%tempiflw(itemno)
+    end select
+  end function lke_setting_value
 
   !> @brief Add matrix terms related to LKE
   !!

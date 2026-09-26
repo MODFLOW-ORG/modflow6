@@ -79,6 +79,7 @@ module GweMweModule
     procedure :: apt_allocate_arrays => mwe_allocate_arrays
     procedure :: apt_source_cvs => mwe_read_cvs
     procedure :: find_apt_package => find_mwe_package
+    procedure :: apt_setting_value => mwe_setting_value
     procedure :: pak_fc_expanded => mwe_fc_expanded
     procedure :: pak_solve => mwe_solve
     procedure :: pak_get_nbudterms => mwe_get_nbudterms
@@ -274,6 +275,25 @@ contains
     ! -- Streambed conduction term
     this%idxbudmwcd = this%idxbudgwf
   end subroutine find_mwe_package
+
+  !> @brief Value for a package-specific PERIOD setting
+  !!
+  !! Already resolved by the input context; this only supplies it for
+  !! the shared apt_rp table echo.
+  !<
+  function mwe_setting_value(this, itemno, key) result(val)
+    ! -- dummy
+    class(GweMweType), intent(inout) :: this
+    integer(I4B), intent(in) :: itemno
+    character(len=*), intent(in) :: key
+    real(DP) :: val
+    !
+    val = DZERO
+    select case (trim(key))
+    case ('RATE')
+      val = this%temprate(itemno)
+    end select
+  end function mwe_setting_value
 
   !> @brief Add matrix terms related to MWE
   !!
