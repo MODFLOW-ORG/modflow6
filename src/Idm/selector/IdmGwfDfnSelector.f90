@@ -22,6 +22,7 @@ module IdmGwfDfnSelectorModule
   use GwfGhbgInputModule
   use GwfHfbInputModule
   use GwfIcInputModule
+  use GwfLakInputModule
   use GwfNpfInputModule
   use GwfOcInputModule
   use GwfRchInputModule
@@ -102,6 +103,8 @@ contains
       call set_param_pointer(input_definition, gwf_hfb_param_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwf_ic_param_definitions)
+    case ('LAK')
+      call set_param_pointer(input_definition, gwf_lak_param_definitions)
     case ('NPF')
       call set_param_pointer(input_definition, gwf_npf_param_definitions)
     case ('OC')
@@ -166,6 +169,8 @@ contains
       call set_param_pointer(input_definition, gwf_hfb_aggregate_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwf_ic_aggregate_definitions)
+    case ('LAK')
+      call set_param_pointer(input_definition, gwf_lak_aggregate_definitions)
     case ('NPF')
       call set_param_pointer(input_definition, gwf_npf_aggregate_definitions)
     case ('OC')
@@ -230,6 +235,8 @@ contains
       call set_block_pointer(input_definition, gwf_hfb_block_definitions)
     case ('IC')
       call set_block_pointer(input_definition, gwf_ic_block_definitions)
+    case ('LAK')
+      call set_block_pointer(input_definition, gwf_lak_block_definitions)
     case ('NPF')
       call set_block_pointer(input_definition, gwf_npf_block_definitions)
     case ('OC')
@@ -293,6 +300,8 @@ contains
       multi_package = gwf_hfb_multi_package
     case ('IC')
       multi_package = gwf_ic_multi_package
+    case ('LAK')
+      multi_package = gwf_lak_multi_package
     case ('NPF')
       multi_package = gwf_npf_multi_package
     case ('OC')
@@ -359,6 +368,8 @@ contains
       is_advanced = gwf_hfb_is_advanced
     case ('IC')
       is_advanced = gwf_ic_is_advanced
+    case ('LAK')
+      is_advanced = gwf_lak_is_advanced
     case ('NPF')
       is_advanced = gwf_npf_is_advanced
     case ('OC')
@@ -425,6 +436,8 @@ contains
       call set_subpkg_pointer(subpackages, gwf_hfb_subpackages)
     case ('IC')
       call set_subpkg_pointer(subpackages, gwf_ic_subpackages)
+    case ('LAK')
+      call set_subpkg_pointer(subpackages, gwf_lak_subpackages)
     case ('NPF')
       call set_subpkg_pointer(subpackages, gwf_npf_subpackages)
     case ('OC')
@@ -488,6 +501,8 @@ contains
     case ('HFB')
       integrated = .true.
     case ('IC')
+      integrated = .true.
+    case ('LAK')
       integrated = .true.
     case ('NPF')
       integrated = .true.
