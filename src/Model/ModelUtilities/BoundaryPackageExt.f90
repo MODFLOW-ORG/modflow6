@@ -213,7 +213,7 @@ contains
     ! -- dummy
     class(BndExtType), intent(inout) :: this
     !
-    if (this%iprpak /= 0) then
+    if (this%iprpak /= 0 .and. this%isadvpak == 0) then
       call this%write_lstfile()
     end if
   end subroutine bndext_rp_log
