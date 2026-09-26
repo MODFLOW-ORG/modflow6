@@ -982,8 +982,8 @@ contains
       this%iaconn(n + 1) = idx + 1
     end do
     !
-    ! -- release input context packagedata memory; PACKAGEDATA_IFNO excluded
-    !    because allocate_featureauxvar retains a pointer to it
+    ! -- release input context packagedata memory; exlude STRT and PACKAGEDATA_IFNO
+    !    and PACKAGEDATA_IFNO because allocate_featureauxvar retains a pointer to it
     call memorystore_release('RADIUS', this%input_mempath)
     call memorystore_release('BOTTOM', this%input_mempath)
     call memorystore_release('CONDEQN', this%input_mempath)
@@ -2224,7 +2224,11 @@ contains
         ! -- echo row to period data table
         if (this%iprpak /= 0) then
           call this%inputtab%add_term(imaw)
-          call this%inputtab%add_term(trim(setting))
+          if (trim(setting) == 'PERIOD_AUXILIARY') then
+            call this%inputtab%add_term('AUXILIARY')
+          else
+            call this%inputtab%add_term(trim(setting))
+          end if
           select case (trim(setting))
           case ('STATUS')
             call this%inputtab%add_term(trim(str))
