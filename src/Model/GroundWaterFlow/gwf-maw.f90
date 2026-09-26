@@ -982,8 +982,8 @@ contains
       this%iaconn(n + 1) = idx + 1
     end do
     !
-    ! -- release input context packagedata memory; exlude STRT and PACKAGEDATA_IFNO
-    !    and PACKAGEDATA_IFNO because allocate_featureauxvar retains a pointer to it
+    ! -- release input context packagedata memory;
+    !    exclude STRT and PACKAGEDATA_IFNO
     call memorystore_release('RADIUS', this%input_mempath)
     call memorystore_release('BOTTOM', this%input_mempath)
     call memorystore_release('CONDEQN', this%input_mempath)
