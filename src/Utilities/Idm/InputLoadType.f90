@@ -8,7 +8,7 @@ module InputLoadTypeModule
 
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, LENCOMPONENTNAME, LENMODELNAME, &
-                             LENMEMPATH, LENVARNAME, LENFTYPE
+                             LENMEMPATH, LENVARNAME
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, store_error_filename
   use ModflowInputModule, only: ModflowInputType
@@ -438,7 +438,7 @@ contains
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: fnames
     character(len=LINELENGTH) :: tag, fname, pkgtype
-    character(len=LENFTYPE) :: c_type, sc_type
+    character(len=6) :: c_type, sc_type ! 6 is the max subcomponent length
     character(len=16) :: subpkg
     integer(I4B) :: idx, n, m, isize
 

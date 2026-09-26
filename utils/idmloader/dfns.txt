@@ -23,6 +23,7 @@ gwf-rch.dfn
 gwf-rcha.dfn
 gwf-riv.dfn
 gwf-rivg.dfn
+gwf-sfr.dfn
 gwf-sto.dfn
 gwf-vsc.dfn
 gwf-wel.dfn
@@ -98,6 +99,7 @@ exg-gwfprt.dfn
 exg-olfgwf.dfn
 utl-hpc.dfn
 utl-ncf.dfn
+utl-sfrtab.dfn
 utl-tvk.dfn
 utl-tvs.dfn
 utl-spc.dfn

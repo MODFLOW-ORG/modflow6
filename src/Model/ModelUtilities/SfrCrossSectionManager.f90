@@ -36,6 +36,7 @@ module sfrCrossSectionManager
     !
     ! -- public procedures
     procedure, public :: initialize
+    procedure, public :: source_table
     procedure, public :: read_table
     procedure, public :: get_ncrossptstot
     procedure, public :: output
@@ -138,15 +139,111 @@ contains
     end do
   end subroutine initialize
 
-  !> @brief Read a cross-section table
+  !> @brief Source a reach's cross-section table from its SFRTAB6 subpackage
+  !<
+  subroutine source_table(this, irch, width, mempath, filename)
+    use MemoryManagerModule, only: mem_setptr
+    use MemoryManagerExtModule, only: memorystore_release
+    use SimModule, only: store_error, store_error_filename, count_errors
+    ! -- dummy variables
+    class(SfrCrossSection) :: this !< SfrCrossSection object
+    integer(I4B), intent(in) :: irch !< current reach
+    real(DP), intent(in) :: width !< reach width
+    character(len=*), intent(in) :: mempath !< SFRTAB6 input mempath
+    character(len=*), intent(in) :: filename !< table file name, for reporting
+    ! -- local variables
+    integer(I4B), pointer :: nrow => null()
+    integer(I4B), pointer :: ncol => null()
+    real(DP), dimension(:), pointer, contiguous :: xfraction => null()
+    real(DP), dimension(:), pointer, contiguous :: height => null()
+    real(DP), dimension(:), pointer, contiguous :: manfraction => null()
+    integer(I4B) :: n, nerr0
+    !
+    ! -- table dimensions, auto-loaded from the SFRTAB6 subpackage input
+    call mem_setptr(nrow, 'NROW', mempath)
+    call mem_setptr(ncol, 'NCOL', mempath)
+    !
+    ! -- errors added below this point belong to this reach's own table
+    nerr0 = count_errors()
+    !
+    if (nrow < 1) then
+      write (errmsg, '(a,1x,i0,3a)') &
+        'TABLE NROW MUST BE > 0 FOR REACH', irch, " ('", &
+        trim(adjustl(filename)), "')"
+      call store_error(errmsg)
+    end if
+    if (ncol < 2) then
+      write (errmsg, '(a,1x,i0,3a)') &
+        'TABLE NCOL MUST BE >= 2 FOR REACH', irch, " ('", &
+        trim(adjustl(filename)), "')"
+      call store_error(errmsg)
+    end if
+    !
+    if (count_errors() > nerr0) then
+      call store_error_filename(filename, terminate=.false.)
+      call memorystore_release('NROW', mempath)
+      call memorystore_release('NCOL', mempath)
+      call memorystore_release('INPUT_FNAME', mempath)
+      return
+    end if
+    !
+    ! -- set the filename and number of points, and reallocate for nrow
+    this%filenames(irch) = filename
+    this%npoints(irch) = nrow
+    deallocate (this%cross_sections(irch)%npoints)
+    deallocate (this%cross_sections(irch)%station)
+    deallocate (this%cross_sections(irch)%height)
+    deallocate (this%cross_sections(irch)%roughfraction)
+    deallocate (this%cross_sections(irch)%valid)
+    allocate (this%cross_sections(irch)%npoints)
+    allocate (this%cross_sections(irch)%station(nrow))
+    allocate (this%cross_sections(irch)%height(nrow))
+    allocate (this%cross_sections(irch)%roughfraction(nrow))
+    allocate (this%cross_sections(irch)%valid(nrow))
+    this%cross_sections(irch)%npoints = nrow
+    !
+    ! -- copy the auto-loaded table data
+    call mem_setptr(xfraction, 'XFRACTION', mempath)
+    call mem_setptr(height, 'HEIGHT', mempath)
+    do n = 1, nrow
+      this%cross_sections(irch)%station(n) = xfraction(n) * width
+      this%cross_sections(irch)%height(n) = height(n)
+      this%cross_sections(irch)%valid(n) = .TRUE.
+    end do
+    if (ncol > 2) then
+      call mem_setptr(manfraction, 'MANFRACTION', mempath)
+      this%cross_sections(irch)%roughfraction = manfraction
+    else
+      this%cross_sections(irch)%roughfraction = DONE
+    end if
+    !
+    ! -- validate the table
+    call this%validate(irch)
+    !
+    if (count_errors() > nerr0) then
+      call store_error_filename(filename, terminate=.false.)
+    end if
+    !
+    ! -- release this reach's own input context memory
+    call memorystore_release('NROW', mempath)
+    call memorystore_release('NCOL', mempath)
+    call memorystore_release('XFRACTION', mempath)
+    call memorystore_release('HEIGHT', mempath)
+    if (ncol > 2) then
+      call memorystore_release('MANFRACTION', mempath)
+    end if
+    call memorystore_release('INPUT_FNAME', mempath)
+  end subroutine source_table
+
+  !> @brief Read a cross-section table file for a reach
   !!
-  !! Subroutine to read a cross-section table file for a reach.
-  !!
+  !! Used only for the PERIOD block's dynamic CROSS_SECTION reissue, whose
+  !! file path is not known until runtime.
   !<
   subroutine read_table(this, irch, width, filename)
     use ConstantsModule, only: IUOC
     use InputOutputModule, only: openfile
-    use SimModule, only: store_error
+    use SimModule, only: store_error, store_error_filename, count_errors
     use BlockParserModule, only: BlockParserType
     ! -- dummy variables
     class(SfrCrossSection) :: this !< SfrCrossSection object
@@ -164,12 +261,16 @@ contains
     integer(I4B) :: j
     integer(I4B) :: ipos
     integer(I4B) :: jmin
+    integer(I4B) :: nerr0
     type(BlockParserType) :: parser
     !
     ! -- initialize local variables
     j = 0
     n = 0
     jmin = 2
+    !
+    ! -- errors added below this point belong to this reach's own table
+    nerr0 = count_errors()
     !
     ! -- create a tag with the file name and reach number
     write (tag, "('Reach',1x,i0,1x,'(',a, ')')") &
@@ -199,14 +300,16 @@ contains
         case ('NROW')
           n = parser%GetInteger()
           if (n < 1) then
-            write (errmsg, '(a)') 'Table NROW must be > 0'
+            write (errmsg, '(a,1x,a)') &
+              'TABLE NROW MUST BE > 0 FOR', trim(adjustl(tag))
             call store_error(errmsg)
           end if
         case ('NCOL')
           j = parser%GetInteger()
           jmin = 2
           if (j < jmin) then
-            write (errmsg, '(a,1x,i0)') 'Table NCOL must be >= ', jmin
+            write (errmsg, '(a,1x,i0,1x,a,1x,a)') &
+              'TABLE NCOL MUST BE >=', jmin, 'FOR', trim(adjustl(tag))
             call store_error(errmsg)
           end if
         case default
@@ -313,6 +416,10 @@ contains
     !
     ! -- validate the table
     call this%validate(irch)
+    !
+    if (count_errors() > nerr0) then
+      call store_error_filename(filename, terminate=.false.)
+    end if
   end subroutine read_table
 
   !> @brief Validate cross-section tables

@@ -7,6 +7,7 @@ module IdmUtlDfnSelectorModule
                                    InputBlockDefinitionType
   use UtlHpcInputModule
   use UtlNcfInputModule
+  use UtlSfrtabInputModule
   use UtlTvkInputModule
   use UtlTvsInputModule
   use UtlSpcInputModule
@@ -51,6 +52,8 @@ contains
       call set_param_pointer(input_definition, utl_hpc_param_definitions)
     case ('NCF')
       call set_param_pointer(input_definition, utl_ncf_param_definitions)
+    case ('SFRTAB')
+      call set_param_pointer(input_definition, utl_sfrtab_param_definitions)
     case ('TVK')
       call set_param_pointer(input_definition, utl_tvk_param_definitions)
     case ('TVS')
@@ -73,6 +76,8 @@ contains
       call set_param_pointer(input_definition, utl_hpc_aggregate_definitions)
     case ('NCF')
       call set_param_pointer(input_definition, utl_ncf_aggregate_definitions)
+    case ('SFRTAB')
+      call set_param_pointer(input_definition, utl_sfrtab_aggregate_definitions)
     case ('TVK')
       call set_param_pointer(input_definition, utl_tvk_aggregate_definitions)
     case ('TVS')
@@ -95,6 +100,8 @@ contains
       call set_block_pointer(input_definition, utl_hpc_block_definitions)
     case ('NCF')
       call set_block_pointer(input_definition, utl_ncf_block_definitions)
+    case ('SFRTAB')
+      call set_block_pointer(input_definition, utl_sfrtab_block_definitions)
     case ('TVK')
       call set_block_pointer(input_definition, utl_tvk_block_definitions)
     case ('TVS')
@@ -116,6 +123,8 @@ contains
       multi_package = utl_hpc_multi_package
     case ('NCF')
       multi_package = utl_ncf_multi_package
+    case ('SFRTAB')
+      multi_package = utl_sfrtab_multi_package
     case ('TVK')
       multi_package = utl_tvk_multi_package
     case ('TVS')
@@ -140,6 +149,8 @@ contains
       is_advanced = utl_hpc_is_advanced
     case ('NCF')
       is_advanced = utl_ncf_is_advanced
+    case ('SFRTAB')
+      is_advanced = utl_sfrtab_is_advanced
     case ('TVK')
       is_advanced = utl_tvk_is_advanced
     case ('TVS')
@@ -164,6 +175,8 @@ contains
       call set_subpkg_pointer(subpackages, utl_hpc_subpackages)
     case ('NCF')
       call set_subpkg_pointer(subpackages, utl_ncf_subpackages)
+    case ('SFRTAB')
+      call set_subpkg_pointer(subpackages, utl_sfrtab_subpackages)
     case ('TVK')
       call set_subpkg_pointer(subpackages, utl_tvk_subpackages)
     case ('TVS')
@@ -185,6 +198,8 @@ contains
     case ('HPC')
       integrated = .true.
     case ('NCF')
+      integrated = .true.
+    case ('SFRTAB')
       integrated = .true.
     case ('TVK')
       integrated = .true.

@@ -24,7 +24,7 @@ module TimeSeriesManagerModule
   private
   public :: TimeSeriesManagerType, read_value_or_time_series, &
             read_value_or_time_series_adv, &
-            var_timeseries, tsmanager_cr
+            var_timeseries, tsmanager_cr, remove_existing_link
 
   type TimeSeriesManagerType
     integer(I4B), public :: iout = 0 ! output unit number
@@ -653,8 +653,6 @@ contains
       end if
     end if
   end subroutine read_value_or_time_series_adv
-
-! -- private subroutines
 
   !> @brief Remove an existing timeseries link if it is defined.
   !!
