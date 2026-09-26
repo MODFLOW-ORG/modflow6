@@ -118,15 +118,23 @@ contains
   !<
   subroutine set_pointers(this, flowvarname, mem_path_target, input_mempath)
     use ConstantsModule, only: LENVARNAME
+    use MemoryManagerModule, only: get_isize
     class(PackageBudgetType) :: this !< PackageBudgetType object
     character(len=*), intent(in) :: flowvarname !< name of variable storing flow (SIMVALS, SIMTOMVR)
     character(len=*), intent(in) :: mem_path_target !< path where target variable is stored
     character(len=*), intent(in) :: input_mempath
     character(len=LENVARNAME) :: auxvarname
+    integer(I4B) :: isize
     !
-    ! -- set memory manager aux varname
+    ! -- set memory manager aux varname; use the IDM alias 'AUXVAR_IDM' if
+    !    the flow package registered one at mem_path_target, else 'AUXVAR'
     if (input_mempath /= '') then
-      auxvarname = 'AUXVAR_IDM'
+      call get_isize('AUXVAR_IDM', mem_path_target, isize)
+      if (isize >= 0) then
+        auxvarname = 'AUXVAR_IDM'
+      else
+        auxvarname = 'AUXVAR'
+      end if
     else
       auxvarname = 'AUXVAR'
     end if

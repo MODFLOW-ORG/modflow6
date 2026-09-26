@@ -780,20 +780,20 @@ contains
                       this%depvartype, pakname, mempath, this%fmi)
     case ('LKT6')
       call lkt_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
-                      pakname, this%fmi, this%eqnsclfac, this%depvartype, &
-                      this%depvarunit, this%depvarunitabbrev)
+                      pakname, mempath, this%fmi, this%eqnsclfac, &
+                      this%depvartype, this%depvarunit, this%depvarunitabbrev)
     case ('SFT6')
       call sft_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
-                      pakname, this%fmi, this%eqnsclfac, this%depvartype, &
-                      this%depvarunit, this%depvarunitabbrev)
+                      pakname, mempath, this%fmi, this%eqnsclfac, &
+                      this%depvartype, this%depvarunit, this%depvarunitabbrev)
     case ('MWT6')
       call mwt_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
-                      pakname, this%fmi, this%eqnsclfac, this%depvartype, &
-                      this%depvarunit, this%depvarunitabbrev)
+                      pakname, mempath, this%fmi, this%eqnsclfac, &
+                      this%depvartype, this%depvarunit, this%depvarunitabbrev)
     case ('UZT6')
       call uzt_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
-                      pakname, this%fmi, this%eqnsclfac, this%depvartype, &
-                      this%depvarunit, this%depvarunitabbrev)
+                      pakname, mempath, this%fmi, this%eqnsclfac, &
+                      this%depvartype, this%depvarunit, this%depvarunitabbrev)
     case ('IST6')
       call ist_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath, this%fmi, this%mst)
