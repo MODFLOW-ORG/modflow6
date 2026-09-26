@@ -1294,7 +1294,8 @@ contains
     case ('LAK6')
       call lak_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
     case ('UZF6')
-      call uzf_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
+      call uzf_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                      pakname, mempath)
     case ('API6')
       call api_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath)

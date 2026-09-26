@@ -41,6 +41,7 @@ module BlockParserModule
     procedure, public :: GetDouble
     procedure, public :: TryGetDouble
     procedure, public :: GetInteger
+    procedure, public :: TryGetInteger
     procedure, public :: GetLinesRead
     procedure, public :: GetNextLine
     procedure, public :: GetRemainingLine
@@ -318,6 +319,26 @@ contains
     end if
 
   end subroutine TryGetDouble
+
+  subroutine TryGetInteger(this, i, success)
+    ! -- dummy variables
+    class(BlockParserType), intent(inout) :: this !< BlockParserType object
+    integer(I4B), intent(inout) :: i !< integer variable
+    logical(LGP), intent(inout) :: success !< whether parsing was successful
+    ! -- local variables
+    integer(I4B) :: istart
+    integer(I4B) :: istop
+    real(DP) :: rval
+
+    call urword(this%line, this%lloc, istart, istop, 2, i, rval, &
+                this%iout, this%iuext)
+
+    success = .true.
+    if (istart == istop .and. istop == len(this%line)) then
+      success = .false.
+    end if
+
+  end subroutine TryGetInteger
 
   !> @ brief Issue a read error
   !!
