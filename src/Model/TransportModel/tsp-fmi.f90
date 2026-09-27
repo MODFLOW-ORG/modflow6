@@ -49,7 +49,6 @@ module TspFmiModule
     procedure :: allocate_arrays => gwtfmi_allocate_arrays
     procedure :: allocate_gwfpackages => gwtfmi_allocate_gwfpackages
     procedure :: allocate_scalars => gwtfmi_allocate_scalars
-    procedure :: deallocate_gwfpackages => gwtfmi_deallocate_gwfpackages
     procedure :: fmi_rp
     procedure :: fmi_ad
     procedure :: fmi_fc
@@ -800,22 +799,5 @@ contains
       call this%gwfpackages(n)%initialize(memPath)
     end do
   end subroutine gwtfmi_allocate_gwfpackages
-
-  !> @brief Deallocate memory
-  !!
-  !! Deallocate memory that stores the gwfpackages array
-  !<
-  subroutine gwtfmi_deallocate_gwfpackages(this)
-    ! -- modules
-    ! -- dummy
-    class(TspFmiType) :: this
-    ! -- local
-    integer(I4B) :: n
-    !
-    ! -- initialize
-    do n = 1, this%nflowpack
-      call this%gwfpackages(n)%da()
-    end do
-  end subroutine gwtfmi_deallocate_gwfpackages
 
 end module TspFmiModule
