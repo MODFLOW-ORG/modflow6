@@ -5,10 +5,7 @@ water from a drain is moved into the first sfr reach.  The test confirms
 that the solute from the drain is moved into the sfr reach.
 There is no flow between the stream and the aquifer.
 
-The transport model reads all flows from files via FMI. A second case
-also passes the flow model's binary grid file with the GWFGRID entry,
-after the advanced package budget entry, to check that the two kinds of
-entries can be combined.
+A second case also passes GWFGRID after the SFR budget entry.
 """
 
 import os

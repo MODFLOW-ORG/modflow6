@@ -1,15 +1,7 @@
 """
 Tests that a GWT model can read the GWF model's binary grid
-file via the FMI package's GWFGRID entry.
-
-Previously GWT treated GWFGRID as the name of an advanced
-package and tried to read the grid file as a budget file,
-which failed with an invalid method code error.
-
-Reported in https://github.com/MODFLOW-ORG/modflow6/issues/3009.
-
-The second case gives the GWT model an IDOMAIN that differs
-from the GWF model's and expects the grid check to fail.
+file via the FMI package's GWFGRID entry, and that the grid
+check fails if the IDOMAIN arrays differ.
 """
 
 import flopy
