@@ -4,10 +4,7 @@ on:
   # be commented on and closed. The pull request code is never checked out.
   pull_request_target:
     types: [opened, reopened, edited]
-permissions:
-  contents: read
-  issues: write
-  pull-requests: write
+permissions: {}
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -16,6 +13,9 @@ jobs:
     name: Limit open pull requests
     if: github.event.action != 'edited' && github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/github-script@v9
         with:
@@ -34,7 +34,9 @@ jobs:
                 return;
               }
             } catch (error) {
-              core.info(`permission lookup failed for ${author}: ${error.message}`);
+              // fail open so a maintainer's pull request is never closed
+              core.warning(`permission lookup failed for ${author}: ${error.message}`);
+              return;
             }
 
             const pulls = await github.paginate(github.rest.pulls.list, {
@@ -66,13 +68,18 @@ jobs:
     name: Check pull request template
     if: github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
     steps:
       - uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_request;
             const { owner, repo } = context.repo;
-            const body = (pr.body || '').replace(/\r\n/g, '\n');
+            // HTML comments are hidden, so they do not count as content
+            const body = (pr.body || '')
+              .replace(/\r\n/g, '\n')
+              .replace(/<!--[\s\S]*?-->/g, '');
             const marker = '<!-- pr-policy-template -->';
             const heading = 'Checklist of items for pull request';
 
