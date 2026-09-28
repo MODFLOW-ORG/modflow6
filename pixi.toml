@@ -169,7 +169,6 @@ platforms = ["linux-64", "osx-arm64"]
 git = "*"
 meson = "*"
 ninja = "*"
-gcc = "*"
 gfortran = "*"
 pkg-config = "*"
 libnetcdf = "*"
@@ -179,13 +178,11 @@ petsc = "<3.23.0"
 flopy = "*"  # so the get-exes task can run in this environment
 
 [feature.gcc-extended-build.target.linux-64.dependencies]
-gcc = "13.*"
 gfortran = "13.*"
 
 [feature.gcc-extended-build.target.osx-arm64.dependencies]
 # conda-forge builds test-drive with gfortran 14, so its gfortran 15 finalization
-# guard is not compiled in and the unit tests crash with gfortran 15; gcc 13 is
-# not available for osx-arm64, so only gfortran is pinned
+# guard is not compiled in and the unit tests crash with gfortran 15
 gfortran = "13.*"
 
 [feature.gcc-extended-build.tasks]
