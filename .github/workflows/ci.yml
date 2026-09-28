@@ -140,7 +140,7 @@ jobs:
         with:
           pixi-version: v0.80.0
 
-      - name: Update netcdf-fortran.pc and test-drive
+      - name: Update netcdf-fortran.pc
         run: |
           pixi run -e gcc-extended-build gcc-extended-build-update
 

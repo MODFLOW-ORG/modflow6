@@ -182,22 +182,15 @@ flopy = "*"  # so the get-exes task can run in this environment
 gcc = "13.*"
 gfortran = "13.*"
 
+[feature.gcc-extended-build.target.osx-arm64.dependencies]
+# conda-forge builds test-drive with gfortran 14, so its gfortran 15 finalization
+# guard is not compiled in and the unit tests crash with gfortran 15; gcc 13 is
+# not available for osx-arm64, so only gfortran is pinned
+gfortran = "13.*"
+
 [feature.gcc-extended-build.tasks]
 gcc-extended-build-update-pc-files = { cmd = "echo updating netcdf pc files && python gcc-extended-build-update-pc-files.py", cwd = "distribution" }
-gcc-extended-build-test-drive-clone = { cmd = "rm -rf .test-drive/ && git clone https://github.com/fortran-lang/test-drive.git .test-drive" }
-gcc-extended-build-test-drive-setup = { cmd = "meson setup _build --libdir=lib --warnlevel=0 --default-library=shared --prefix=$CONDA_PREFIX", cwd = ".test-drive" }
-gcc-extended-build-test-drive-compile = { cmd = "meson compile -C _build", cwd = ".test-drive" }
-gcc-extended-build-test-drive-test = { cmd = "meson test -C _build --no-rebuild --print-errorlogs", cwd = ".test-drive" }
-gcc-extended-build-test-drive-install = { cmd = "meson install -C _build --no-rebuild", cwd = ".test-drive" }
-gcc-extended-build-test-drive-rebuild = { depends-on = [
-    "gcc-extended-build-test-drive-clone",
-    "gcc-extended-build-test-drive-setup",
-    "gcc-extended-build-test-drive-compile",
-    "gcc-extended-build-test-drive-test",
-    "gcc-extended-build-test-drive-install",
-] }
 gcc-extended-build-update = { depends-on = [
     "gcc-extended-build-update-pc-files",
-    "gcc-extended-build-test-drive-rebuild",
 ] }
 

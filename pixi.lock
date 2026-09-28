@@ -2153,7 +2153,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/jupyter_core-5.9.1-pyhc90fa1f_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jupytext-1.19.1-pyhbbac1ac_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/libgcc-devel_osx-arm64-15.2.0-hee53e68_118.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/libgfortran-devel_osx-arm64-15.1.0-hfdf1602_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/libgfortran-devel_osx-arm64-13.4.0-ha240a38_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/locket-1.0.0-pyhd8ed1ab_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/mapclassify-2.8.1-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/markdown-it-py-4.2.0-pyhd8ed1ab_0.conda
@@ -2262,9 +2262,9 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/geos-3.14.0-h4bcf65f_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/geotiff-1.7.4-h1d7e6e1_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/gflags-2.2.2-hf9b8971_1005.conda
-      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/gfortran-15.1.0-h3ef1dbf_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/gfortran_impl_osx-arm64-15.1.0-h8f8a10e_1.conda
-      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/gfortran_osx-arm64-15.1.0-h3c33bd0_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/gfortran-13.4.0-h3ef1dbf_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/gfortran_impl_osx-arm64-13.4.0-he7ca382_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/gfortran_osx-arm64-13.4.0-h3c33bd0_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/giflib-5.2.2-h93a5062_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/git-2.52.0-pl5321h729e19d_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/glog-0.7.1-heb240a5_0.conda
@@ -16526,14 +16526,15 @@ packages:
   purls: []
   size: 2108290
   timestamp: 1771378865622
-- conda: https://conda.anaconda.org/conda-forge/noarch/libgfortran-devel_osx-arm64-15.1.0-hfdf1602_1.conda
-  sha256: 5f59974a954cd8d9c1cf9ddc7d8915b6b7a06aa1ef84e4006c36ac9db8e2515a
-  md5: 4421084608f5b66866cb5c98adc1408d
+- conda: https://conda.anaconda.org/conda-forge/noarch/libgfortran-devel_osx-arm64-13.4.0-ha240a38_1.conda
+  sha256: 254af962d35d105845ac8b3ca4496d53fa03a221fb93a4bedf99a1b24676276d
+  md5: a4ed1add05d6830d5306e77748ee0c3f
   license: GPL-3.0-only WITH GCC-exception-3.1
   license_family: GPL
   purls: []
-  size: 1971703
-  timestamp: 1756238756306
+  run_exports: {}
+  size: 1942594
+  timestamp: 1756235610374
 - conda: https://conda.anaconda.org/conda-forge/noarch/libstdcxx-devel_linux-64-13.4.0-h6963c3b_118.conda
   sha256: 29477fff696ba73c22dbb958835d0c9d6d78bac8df8fabe29b9508c4ada3e6b3
   md5: 2aa85201a0eed4ea8eb47aed81e2cbbe
@@ -22523,21 +22524,22 @@ packages:
   purls: []
   size: 82090
   timestamp: 1726600145480
-- conda: https://conda.anaconda.org/conda-forge/osx-arm64/gfortran-15.1.0-h3ef1dbf_0.conda
-  sha256: 35dc41f1018d69d96eb63929ab9acab986f4249ebaaaf17c5980049e6e009801
-  md5: 45a6425b6b2810b1b0e919b46828d115
+- conda: https://conda.anaconda.org/conda-forge/osx-arm64/gfortran-13.4.0-h3ef1dbf_0.conda
+  sha256: 22c66101df89df410d3b55c5d8621e9be2c83943c170f24236ed9707e0da86c2
+  md5: a3e8b99616a0791f8e61cf4d9ca116a9
   depends:
   - cctools
-  - gfortran_osx-arm64 15.1.0
+  - gfortran_osx-arm64 13.4.0
   - ld64
   license: GPL-3.0-or-later WITH GCC-exception-3.1
   license_family: GPL
   purls: []
-  size: 32814
-  timestamp: 1751220457731
-- conda: https://conda.anaconda.org/conda-forge/osx-arm64/gfortran_impl_osx-arm64-15.1.0-h8f8a10e_1.conda
-  sha256: 2812dccc87923870bd46ba73376ff17484ab20ebefa2aec88deaf41e74ef9cbd
-  md5: b57b0d39971740dee15045df6107d4e2
+  run_exports: {}
+  size: 32801
+  timestamp: 1751220449705
+- conda: https://conda.anaconda.org/conda-forge/osx-arm64/gfortran_impl_osx-arm64-13.4.0-he7ca382_1.conda
+  sha256: b9173dd1c771d8c2d85f55f487a008155f79f05fc0a5676de9a3dc8174bfba68
+  md5: a3f3a8fe77f7554d93e2b6733c76eed3
   depends:
   - __osx >=11.0
   - cctools_osx-arm64
@@ -22545,8 +22547,8 @@ packages:
   - gmp >=6.3.0,<7.0a0
   - isl 0.26.*
   - libcxx >=17
-  - libgfortran-devel_osx-arm64 15.1.0.*
-  - libgfortran5 >=15.1.0
+  - libgfortran-devel_osx-arm64 13.4.0.*
+  - libgfortran5 >=13.4.0
   - libiconv >=1.18,<2.0a0
   - libzlib >=1.3.1,<2.0a0
   - mpc >=1.3.1,<2.0a0
@@ -22555,25 +22557,30 @@ packages:
   license: GPL-3.0-only WITH GCC-exception-3.1
   license_family: GPL
   purls: []
-  size: 22360410
-  timestamp: 1756239447171
-- conda: https://conda.anaconda.org/conda-forge/osx-arm64/gfortran_osx-arm64-15.1.0-h3c33bd0_0.conda
-  sha256: 3a8d3748a78e621405459e617db29f4db5b1d9914738ce96191a64f3cc90fcd6
-  md5: bc62f20f84b1d306307508f485e2b593
+  run_exports: {}
+  size: 19071481
+  timestamp: 1759711241897
+- conda: https://conda.anaconda.org/conda-forge/osx-arm64/gfortran_osx-arm64-13.4.0-h3c33bd0_0.conda
+  sha256: 25af017fdc676b109cefba446da68efb9ede8fe1d21a4ad9cca0c10a137ba337
+  md5: da7f34e66de5d337e7e6993cb4e57549
   depends:
   - cctools_osx-arm64
   - clang
   - clang_osx-arm64
-  - gfortran_impl_osx-arm64 15.1.0
+  - gfortran_impl_osx-arm64 13.4.0
   - ld64_osx-arm64
   - libgfortran
-  - libgfortran-devel_osx-arm64 15.1.0
-  - libgfortran5 >=15.1.0
+  - libgfortran-devel_osx-arm64 13.4.0
+  - libgfortran5 >=13.4.0
   license: GPL-3.0-or-later WITH GCC-exception-3.1
   license_family: GPL
   purls: []
-  size: 35811
-  timestamp: 1751220442008
+  run_exports:
+    strong:
+    - libgfortran
+    - libgfortran5 >=13.4.0
+  size: 35843
+  timestamp: 1751220434077
 - conda: https://conda.anaconda.org/conda-forge/osx-arm64/giflib-5.2.2-h93a5062_0.conda
   sha256: 843b3f364ff844137e37d5c0a181f11f6d51adcedd216f019d074e5aa5d7e09c
   md5: 95fa1486c77505330c20f7202492b913
