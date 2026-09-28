@@ -110,11 +110,13 @@ contains
     ! -- dummy
     class(BudgetTermType) :: this
     !
-    deallocate (this%id1)
-    deallocate (this%id2)
-    deallocate (this%flow)
-    deallocate (this%auxvar)
-    deallocate (this%auxtxt)
+    if (size(this%id1) > 0) then
+      deallocate (this%id1)
+      deallocate (this%id2)
+      deallocate (this%flow)
+      deallocate (this%auxvar)
+      deallocate (this%auxtxt)
+    end if
   end subroutine deallocate_arrays
 
   !> @brief reset the budget term and counter so terms can be updated
@@ -203,24 +205,26 @@ contains
     end do
     !
     ! -- Write the header
-    call ubdsv06(kstp, kper, this%flowtype, &
-                 this%text1id1, this%text2id1, &
-                 this%text1id2, this%text2id2, &
-                 ibinun, this%naux, this%auxtxt, &
-                 nlist, 1, 1, nlist, &
-                 iout, delt, pertim, totim)
-    !
-    ! -- Write each entry
-    do i = 1, this%nlist
-      q = this%flow(i)
-      n1 = this%id1(i)
-      n2 = this%id2(i)
-      if (n1 <= 0 .or. n2 <= 0) cycle
-      call dis%record_mf6_list_entry(ibinun, n1, n2, q, &
-                                     this%naux, this%auxvar(:, i), &
-                                     olconv=this%olconv1, &
-                                     olconv2=this%olconv2)
-    end do
+    if (nlist > 0) then
+      call ubdsv06(kstp, kper, this%flowtype, &
+                   this%text1id1, this%text2id1, &
+                   this%text1id2, this%text2id2, &
+                   ibinun, this%naux, this%auxtxt, &
+                   nlist, 1, 1, nlist, &
+                   iout, delt, pertim, totim)
+      !
+      ! -- Write each entry
+      do i = 1, this%nlist
+        q = this%flow(i)
+        n1 = this%id1(i)
+        n2 = this%id2(i)
+        if (n1 <= 0 .or. n2 <= 0) cycle
+        call dis%record_mf6_list_entry(ibinun, n1, n2, q, &
+                                       this%naux, this%auxvar(:, i), &
+                                       olconv=this%olconv1, &
+                                       olconv2=this%olconv2)
+      end do
+    end if
     !
   end subroutine save_flows
 
