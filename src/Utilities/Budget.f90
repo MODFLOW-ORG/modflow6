@@ -29,6 +29,7 @@ module BudgetModule
   public :: BudgetType
   public :: budget_cr
   public :: rate_accumulator
+  public :: value_to_string
 
   !> @brief Derived type for the Budget object
   !!
@@ -156,9 +157,10 @@ contains
     !
     absval = abs(val)
     if (val /= DZERO .and. (absval >= big .or. absval < small)) then
-      if (absval >= 1.D100 .or. absval <= 1.D-100) then
+      if (absval >= 9.99995D99 .or. absval < 1.D-99) then
         ! -- if exponent has 3 digits, then need to explicitly use the ES
-        !    format to force writing the E character
+        !    format to force writing the E character. the upper bound
+        !    accounts for values that round up to 1.0000E+100.
         write (string, '(es17.4E3)') val
       else
         write (string, '(1pe17.4)') val

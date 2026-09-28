@@ -3,6 +3,7 @@ program tester
   use testdrive, only: run_testsuite, new_testsuite, testsuite_type, &
     & select_suite, run_selected, get_argument
   use TestArrayHandlers, only: collect_arrayhandlers
+  use TestBudget, only: collect_budget
   use TestFeatureFlags, only: collect_feature_flags
   use TestGeomUtil, only: collect_geomutil
   use TestHashTable, only: collect_hashtable
@@ -35,6 +36,7 @@ program tester
   stat = 0
   testsuites = [ &
                new_testsuite("ArrayHandlers", collect_arrayhandlers), &
+               new_testsuite("Budget", collect_budget), &
                new_testsuite("FeatureFlags", collect_feature_flags), &
                new_testsuite("GeomUtil", collect_geomutil), &
                new_testsuite("HashTable", collect_hashtable), &

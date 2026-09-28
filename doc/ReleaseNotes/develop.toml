@@ -24,3 +24,8 @@ description = "The DISU Package now checks the ANGLDEGX values specified for hor
 section = "fixes"
 subsection = "model"
 description = "The GWT and GWE Flow Model Interface (FMI) Packages did not recognize the GWFGRID entry in the PACKAGEDATA block and instead attempted to read the binary grid file as an advanced package budget file, causing an invalid method code error. The GWT and GWE FMI Packages now read the binary grid file, as the PRT FMI Package already did, and check that the flow and transport grids match."
+
+[[items]]
+section = "fixes"
+subsection = "basic"
+description = "Budget values with three-digit exponents were not always written to the list file with the E character (for example, 8.5159-100 instead of 8.5159E-100), which is valid Fortran but cannot be read by some post-processing tools. This occurred for absolute values between 1.0E-100 and 1.0E-99 and for values that round up to 1.0E+100. These values are now written with the E character."
