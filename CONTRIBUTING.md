@@ -100,9 +100,10 @@ Pull requests are checked automatically when they are opened or edited.
 AI and large language model (LLM) tools may be used to prepare issues and pull requests if:
 
 - for contributors without write access to the repository, the issue or pull request description says that AI was used and names the tool;
-- you have reviewed all generated code, documentation, and tests before asking anyone to review them &mdash; you are responsible for the contribution however it was written;
-- no commit credits an AI tool as an author, co-author, or committer, including through a `Co-Authored-By`, `Assisted-by`, or similar trailer; and
-- you answer review comments yourself.
+- you have reviewed all generated code, documentation, and tests before asking anyone to review them &mdash; you are responsible for the contribution however it was written; and
+- issues, pull request descriptions, and comments are written by you, using the terminology already established in the code and documentation; AI-generated text is included only as a quotation clearly attributed to the tool.
+
+Commits on a pull request branch may credit an AI tool with a `Co-Authored-By` trailer, so reviewers can see which commits were generated. Pull requests are squash merged, and the trailer may be removed from the merged commit.
 
 ## Source code
 
